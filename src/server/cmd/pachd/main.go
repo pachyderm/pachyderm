@@ -37,10 +37,12 @@ import (
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
+var mode string
 var readinessCheck bool
 var migrate string
 
 func init() {
+	flag.StringVar(&mode, "mode", "full", "Pachd currently supports two modes: full and pfs.  The former includes everything you need in a full pachd node.  The later runs only PFS.")
 	flag.BoolVar(&readinessCheck, "readiness-check", false, "Set to true when checking if local pod is ready")
 	flag.StringVar(&migrate, "migrate", "", "Use the format FROM_VERSION-TO_VERSION; e.g. 1.2.4-1.3.0")
 	flag.Parse()
@@ -66,10 +68,104 @@ type appEnv struct {
 }
 
 func main() {
-	cmdutil.Main(do, &appEnv{})
+	switch mode {
+	case "full":
+		cmdutil.Main(doFullMode, &appEnv{})
+	case "pfs":
+		cmdutil.Main(doPFSMode, &appEnv{})
+	default:
+		fmt.Println("unrecognized mode: %s", mode)
+	}
 }
 
-func do(appEnvObj interface{}) error {
+func doPFSMode(appEnvObj interface{}) error {
+	go func() {
+		lion.Println(http.ListenAndServe(":651", nil))
+	}()
+	appEnv := appEnvObj.(*appEnv)
+	switch appEnv.LogLevel {
+	case "debug":
+		lion.SetLevel(lion.LevelDebug)
+	case "info":
+		lion.SetLevel(lion.LevelInfo)
+	case "error":
+		lion.SetLevel(lion.LevelError)
+	default:
+		lion.Errorf("Unrecognized log level %s, falling back to default of \"info\"", appEnv.LogLevel)
+		lion.SetLevel(lion.LevelInfo)
+	}
+
+	etcdAddress := fmt.Sprintf("http://%s:2379", appEnv.EtcdAddress)
+	etcdClient := getEtcdClient(etcdAddress)
+
+	clusterID, err := getClusterID(etcdClient)
+	if err != nil {
+		return err
+	}
+	kubeClient, err := getKubeClient(appEnv)
+	if err != nil {
+		return err
+	}
+	var reporter *metrics.Reporter
+	if appEnv.Metrics {
+		reporter = metrics.NewReporter(clusterID, kubeClient)
+	}
+	address, err := netutil.ExternalIP()
+	if err != nil {
+		return err
+	}
+	address = fmt.Sprintf("%s:%d", address, appEnv.Port)
+	sharder := shard.NewSharder(
+		etcdClient,
+		appEnv.NumShards,
+		appEnv.Namespace,
+	)
+	pfsCacheBytes, err := units.RAMInBytes(appEnv.PFSCacheBytes)
+	if err != nil {
+		return err
+	}
+	router := shard.NewRouter(
+		sharder,
+		grpcutil.NewDialer(
+			grpc.WithInsecure(),
+		),
+		address,
+	)
+	cacheServer := cache_server.NewCacheServer(router, appEnv.NumShards)
+	pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, pfsCacheBytes, reporter)
+	if err != nil {
+		return err
+	}
+	go func() {
+		if err := sharder.RegisterFrontends(nil, address, []shard.Frontend{cacheServer}); err != nil {
+			protolion.Printf("error from sharder.RegisterFrontend %s", sanitizeErr(err))
+		}
+	}()
+	blockCacheBytes, err := units.RAMInBytes(appEnv.BlockCacheBytes)
+	if err != nil {
+		return err
+	}
+	blockAPIServer, err := pfs_server.NewBlockAPIServer(appEnv.StorageRoot, blockCacheBytes, appEnv.StorageBackend)
+	if err != nil {
+		return err
+	}
+	return grpcutil.Serve(
+		func(s *grpc.Server) {
+			pfsclient.RegisterAPIServer(s, pfsAPIServer)
+			pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
+			cache_pb.RegisterGroupCacheServer(s, cacheServer)
+		},
+		grpcutil.ServeOptions{
+			Version:    version.Version,
+			MaxMsgSize: grpcutil.MaxMsgSize,
+		},
+		grpcutil.ServeEnv{
+			GRPCPort: appEnv.Port,
+		},
+	)
+}
+
+func doFullMode(appEnvObj interface{}) error {
 	go func() {
 		lion.Println(http.ListenAndServe(":651", nil))
 	}()
