@@ -64,6 +64,12 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 	}, {
 		Name:  "PFS_CACHE_BYTES",
 		Value: "10M",
+	}, {
+		Name:  "PACH_ROOT",
+		Value: a.storageRoot,
+	}, {
+		Name:  "STORAGE_BACKEND",
+		Value: a.storageBackend,
 	}}
 	// This only happens in local deployment.  We want the workers to be
 	// able to read from/write to the hostpath volume as well.

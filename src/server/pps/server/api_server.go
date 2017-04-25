@@ -157,6 +157,7 @@ type apiServer struct {
 	workerSidecarImage    string
 	workerImagePullPolicy string
 	storageRoot           string
+	storageBackend        string
 	storageHostPath       string
 	reporter              *metrics.Reporter
 	// collections
