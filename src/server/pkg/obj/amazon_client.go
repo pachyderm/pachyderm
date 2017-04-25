@@ -70,7 +70,7 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 	url := fmt.Sprintf("http://d2z5sy3mh7px6z.cloudfront.net/%v", name)
 	resp, err := http.Get(url)
 	//	defer resp.Body.Close()
-	fmt.Printf("got resp, err: %v,\n\n%v\n", resp, err)
+	fmt.Printf("got resp for url (%v), err: %v,\n\n%v\n", url, resp, err)
 	if err != nil {
 		fmt.Printf("Got http error: %v\n", err)
 		return nil, err
