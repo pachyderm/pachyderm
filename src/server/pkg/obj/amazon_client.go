@@ -6,7 +6,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -14,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/storagegateway"
+	"github.com/cenkalti/backoff"
 )
 
 type amazonClient struct {
@@ -73,7 +76,7 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 		byteRange = fmt.Sprintf("bytes=%s", byteRange)
 	}
 
-	var resp http.Response
+	var resp *http.Response
 	var connErr error
 	url := fmt.Sprintf("http://d2z5sy3mh7px6z.cloudfront.net/%v", name)
 
@@ -88,11 +91,7 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 		}
 		return nil
 	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) {
-		log.Infof("Error connecting to (%v); retrying in %s: %#v", url, d, RetryError{
-			Err:               err.Error(),
-			TimeTillNextRetry: d.String(),
-			BytesProcessed:    bytesRead,
-		})
+		log.Infof("Error connecting to (%v); retrying in %s: %#v", url, d, err)
 	})
 
 	if resp.StatusCode != 200 {
@@ -129,8 +128,12 @@ func (c *amazonClient) Exists(name string) bool {
 func (c *amazonClient) isRetryable(err error) (retVal bool) {
 	fmt.Printf("is err (%v) retryable?\n", err)
 	defer func() {
-		fmt.Printf("err (%v) retryable? %v\n", retVal)
+		fmt.Printf("err (%v) retryable? %v\n", retVal, err)
 	}()
+	if strings.Contains(err.Error(), "unexpected EOF") {
+		return false
+	}
+
 	awsErr, ok := err.(awserr.Error)
 	if !ok {
 		return false
