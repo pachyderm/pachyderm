@@ -65,6 +65,7 @@ func (c *amazonClient) Walk(name string, fn func(name string) error) error {
 
 func isRetryableGetError(err error) bool {
 	if strings.Contains(err.Error(), "dial tcp: i/o timeout") {
+		fmt.Printf("SAW A DIAL TCP TIMEOUT ERROR\n")
 		return true
 	}
 	return isNetRetryable(err)
