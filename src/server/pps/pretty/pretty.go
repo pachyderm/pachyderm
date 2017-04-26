@@ -47,12 +47,13 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo) {
 func PrintPipelineHeader(w io.Writer) {
 	// because STATE is a colorful field it has to be at the end of the line,
 	// otherwise the terminal escape characters will trip up the tabwriter
-	fmt.Fprint(w, "NAME\tOUTPUT\tCREATED\tSTATE\t\n")
+	fmt.Fprint(w, "NAME\tINPUT\tOUTPUT\tCREATED\tSTATE\t\n")
 }
 
 // PrintPipelineInfo pretty-prints pipeline info.
 func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo) {
 	fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
+	fmt.Fprintf(w, "%s\t", shorthandInput(pipelineInfo.Input))
 	fmt.Fprintf(w, "%s/%s\t", pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch)
 	fmt.Fprintf(w, "%s\t", pretty.Ago(pipelineInfo.CreatedAt))
 	fmt.Fprintf(w, "%s\t\n", pipelineState(pipelineInfo.State))
@@ -129,7 +130,7 @@ ParallelismSpec: {{.ParallelismSpec}}
 {{ if .Service }}Service:
 	{{ if .Service.InternalPort }}InternalPort: {{ .Service.InternalPort }} {{end}}
 	{{ if .Service.ExternalPort }}ExternalPort: {{ .Service.ExternalPort }} {{end}} {{end}}
-Inputs:
+Input:
 {{jobInput .}}Transform:
 {{prettyTransform .Transform}} {{if .OutputCommit}}
 Output Commit: {{.OutputCommit.ID}} {{end}} {{ if .Egress }}
@@ -155,7 +156,7 @@ Parallelism Spec: {{.ParallelismSpec}}
 {{ if .ResourceSpec }}ResourceSpec:
 	CPU: {{ .ResourceSpec.Cpu }}
 	Memory: {{ .ResourceSpec.Memory }} {{end}}
-Inputs:
+Input:
 {{pipelineInput .}}
 Output Branch: {{.OutputBranch}}
 Transform:
@@ -255,6 +256,26 @@ func prettyTransform(transform *ppsclient.Transform) (string, error) {
 		return "", err
 	}
 	return pretty.UnescapeHTML(string(result)), nil
+}
+
+func shorthandInput(input *ppsclient.Input) string {
+	switch {
+	case input.Atom != nil:
+		return fmt.Sprintf("%s:%s", input.Atom.Commit.Repo.Name, input.Atom.Glob)
+	case input.Cross != nil:
+		var subInput []string
+		for _, input := range input.Cross.Input {
+			subInput = append(subInput, shorthandInput(input))
+		}
+		return "(" + strings.Join(subInput, " X ") + ")"
+	case input.Union != nil:
+		var subInput []string
+		for _, input := range input.Union.Input {
+			subInput = append(subInput, shorthandInput(input))
+		}
+		return "(" + strings.Join(subInput, " U ") + ")"
+	}
+	return ""
 }
 
 var funcMap = template.FuncMap{
