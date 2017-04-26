@@ -160,6 +160,9 @@ func ServiceAccount() *api.ServiceAccount {
 	}
 }
 
+// GetSecretVolumeAndMount returns a properly configured Volume and
+// VolumeMount object given a backend.  The backend needs to be one of the
+// constants defined in pfs/server.
 func GetSecretVolumeAndMount(backend string) (api.Volume, api.VolumeMount, error) {
 	switch backend {
 	case server.MinioBackendEnvVar:
