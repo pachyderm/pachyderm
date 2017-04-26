@@ -13,7 +13,7 @@
       "repo": {
         "name": "map"
       },
-      "glob": "/*"
+      "glob": "/"
     }
   ]
 }
