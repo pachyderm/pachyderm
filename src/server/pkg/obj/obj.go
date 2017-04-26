@@ -213,13 +213,18 @@ type RetryError struct {
 
 // BackoffReadCloser retries with exponential backoff in the case of failures
 type BackoffReadCloser struct {
+	url           string
 	client        Client
 	reader        io.ReadCloser
 	backoffConfig *backoff.ExponentialBackOff
 }
 
 func newBackoffReadCloser(client Client, reader io.ReadCloser) io.ReadCloser {
+	return newBackoffReadCloserForRealsies("??", client, reader)
+}
+func newBackoffReadCloserForRealsies(url string, client Client, reader io.ReadCloser) io.ReadCloser {
 	return &BackoffReadCloser{
+		url:           url,
 		client:        client,
 		reader:        reader,
 		backoffConfig: NewExponentialBackOffConfig(),
@@ -238,7 +243,7 @@ func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 		}
 		return nil
 	}, b.backoffConfig, func(err error, d time.Duration) {
-		log.Infof("Error reading; retrying in %s: %#v", d, RetryError{
+		log.Infof("Error reading (%v); retrying in %s: %#v", b.url, d, RetryError{
 			Err:               err.Error(),
 			TimeTillNextRetry: d.String(),
 			BytesProcessed:    bytesRead,
