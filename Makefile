@@ -174,11 +174,15 @@ run-bench:
 	kubectl delete --ignore-not-found po/bench && kubectl run bench --image=pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "` --image-pull-policy=Always --restart=Never --attach=true -- ./test -test.v -test.bench=BenchmarkDaily -test.run=XXX
 
 clean-launch-bench:
-	kops delete cluster `cat tmp/current-benchmark-cluster.txt` --yes --state `cat tmp/current-benchmark-state-store.txt` || true
-	aws s3 del --recursive --force `cat tmp/current-benchmark-state-store.txt` || true
-	aws s3 rb `cat tmp/current-benchmark-state-store.txt` || true
+	if [ -e tmp/current-benchmark-cluster.txt ]; then \
+	  { \
+	    kops delete cluster `cat tmp/current-benchmark-cluster.txt` --yes --state `cat tmp/current-benchmark-state-store.txt`; \
+	    aws s3 del --recursive --force `cat tmp/current-benchmark-state-store.txt`; \
+	    aws s3 rb `cat tmp/current-benchmark-state-store.txt`; \
+	  } || true; \
+	fi
 
-bench: clean-launch-bench build-bench-images push-bench-images launch-bench run-bench
+bench: clean-launch-bench build-bench-images push-bench-images launch-bench run-bench clean-launch-bench
 
 launch-kube: check-kubectl
 	etc/kube/start-kube-docker.sh
