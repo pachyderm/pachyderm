@@ -148,14 +148,9 @@ launch-dev-bench: docker-build docker-build-test install
 
 build-bench-images: docker-build docker-build-test
 
-push-bench-images: install
+push-bench-images: install-bench
 	# We need the pachyderm_compile image to be up to date
-	docker images
-	docker images | grep pachd
-	echo 'version string:'
-	$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'
 	docker tag pachyderm_pachd pachyderm/pachd:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
-	docker images | grep pachd
 	docker push pachyderm/pachd:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
 	docker tag pachyderm_worker pachyderm/worker:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
 	docker push pachyderm/worker:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
