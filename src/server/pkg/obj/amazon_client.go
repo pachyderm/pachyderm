@@ -60,32 +60,54 @@ func (c *amazonClient) Walk(name string, fn func(name string) error) error {
 	return fnErr
 }
 
+func isRetryableGetError(err error) bool {
+	if strings.Contains(err.Error(), "dial tcp: i/o timeout") {
+		return true
+	}
+	return isNetRetryable(err)
+}
+
 func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadCloser, error) {
 	byteRange := byteRange(offset, size)
 	if byteRange != "" {
 		byteRange = fmt.Sprintf("bytes=%s", byteRange)
 	}
 
-	// being a little fast and loose here ... not putting the GET within a retry loop ... but will be an interesting test for now
+	var resp http.Response
+	var connErr error
 	url := fmt.Sprintf("http://d2z5sy3mh7px6z.cloudfront.net/%v", name)
-	resp, err := http.Get(url)
-	//	defer resp.Body.Close()
-	fmt.Printf("got resp for url (%v), err: %v,\n\n%v\n", url, resp, err)
-	if err != nil {
-		fmt.Printf("Got http error: %v\n", err)
-		return nil, err
-	}
+
+	backoff.RetryNotify(func() error {
+		resp, connErr = http.Get(url)
+		//	defer resp.Body.Close()
+		fmt.Printf("got resp for url (%v), err: %v,\n\n%v\n", url, resp, connErr)
+		fmt.Printf("Got http error: %v\n", connErr)
+		if connErr != nil && isRetryableGetError(connErr) {
+			fmt.Printf("this is a retryable error (%v)\n", connErr)
+			return connErr
+		}
+		return nil
+	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) {
+		log.Infof("Error connecting to (%v); retrying in %s: %#v", url, d, RetryError{
+			Err:               err.Error(),
+			TimeTillNextRetry: d.String(),
+			BytesProcessed:    bytesRead,
+		})
+	})
+
 	if resp.StatusCode != 200 {
 		fmt.Printf("HTTP error code %v", resp.StatusCode)
 		return nil, fmt.Errorf("HTTP error code %v", resp.StatusCode)
 	}
+	// TODO: send the offset header as part of the request
 	n, err := io.CopyN(ioutil.Discard, resp.Body, int64(offset))
 	fmt.Printf("slurped n bytes: %v off of get file %v to accomodate offset\n", n, url)
 	if err != nil {
 		return nil, err
 	}
 	//return newBackoffReadCloser(c, getObjectOutput.Body), nil
-	return resp.Body, nil
+	//	return resp.Body, nil
+	return newBackoffReadCloserForRealsies(url, c, resp.Body), nil
 }
 
 func (c *amazonClient) Delete(name string) error {
@@ -104,7 +126,11 @@ func (c *amazonClient) Exists(name string) bool {
 	return err == nil
 }
 
-func (c *amazonClient) isRetryable(err error) bool {
+func (c *amazonClient) isRetryable(err error) (retVal bool) {
+	fmt.Printf("is err (%v) retryable?\n", err)
+	defer func() {
+		fmt.Printf("err (%v) retryable? %v\n", retVal)
+	}()
 	awsErr, ok := err.(awserr.Error)
 	if !ok {
 		return false
