@@ -31,13 +31,15 @@ func newAmazonClient(bucket string, distribution string, id string, secret strin
 		Region:      aws.String(region),
 	})
 	return &amazonClient{
-		bucket:   bucket,
-		s3:       s3.New(session),
-		uploader: s3manager.NewUploader(session),
+		bucket:       bucket,
+		distribution: distribution,
+		s3:           s3.New(session),
+		uploader:     s3manager.NewUploader(session),
 	}, nil
 }
 
 func (c *amazonClient) usingCloudfront() bool {
+	fmt.Printf("using cloudfront!\n")
 	return c.distribution != ""
 }
 
@@ -214,6 +216,7 @@ func (w *amazonWriter) Close() error {
 func isRetryableGetError(err error) bool {
 	if strings.Contains(err.Error(), "dial tcp: i/o timeout") {
 		fmt.Printf("SAW A DIAL TCP TIMEOUT ERROR\n")
+		fmt.Printf("is it net retryable? %v\n", isNetRetryable(err))
 		return true
 	}
 	return isNetRetryable(err)
