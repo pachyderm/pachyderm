@@ -1603,7 +1603,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				userCodeFailures := 0
 				defer limiter.Release()
 				b := backoff.NewInfiniteBackOff()
-				backoff.RetryNotify(func() error {
+				if err := backoff.RetryNotify(func() error {
 					clientOrErr := clientPool.Get()
 					var workerClient workerpkg.WorkerClient
 					switch clientOrErr := clientOrErr.(type) {
@@ -1642,6 +1642,11 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					defer treeMu.Unlock()
 					return tree.Merge(subTree)
 				}, b, func(err error, d time.Duration) error {
+					select {
+					case <-ctx.Done():
+						return err
+					default:
+					}
 					if userCodeFailures > MaximumRetriesPerDatum {
 						protolion.Errorf("job %s failed to process datum %+v %d times failing", jobID, files, userCodeFailures)
 						failed = true
@@ -1649,8 +1654,9 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					}
 					protolion.Errorf("job %s failed to process datum %+v with: %+v, retrying in: %+v", jobID, files, err, d)
 					return nil
-				})
-				go updateProgress(1)
+				}); err == nil {
+					go updateProgress(1)
+				}
 			}()
 		}
 		limiter.Wait()
