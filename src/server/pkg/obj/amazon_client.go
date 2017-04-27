@@ -89,7 +89,7 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 
 		backoff.RetryNotify(func() error {
 			resp, connErr = http.DefaultClient.Do(req)
-			if connErr != nil && isRetryableGetError(connErr) {
+			if connErr != nil && isNetRetryable(connErr) {
 				fmt.Printf("this is a retryable error (%v)\n", connErr)
 				return connErr
 			}
@@ -212,13 +212,4 @@ func (w *amazonWriter) Close() error {
 		return err
 	}
 	return <-w.errChan
-}
-
-func isRetryableGetError(err error) bool {
-	if strings.Contains(err.Error(), "dial tcp: i/o timeout") {
-		fmt.Printf("SAW A DIAL TCP TIMEOUT ERROR\n")
-		fmt.Printf("is it net retryable? %v\n", isNetRetryable(err))
-		return true
-	}
-	return isNetRetryable(err)
 }
