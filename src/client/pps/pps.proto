@@ -134,6 +134,9 @@ message ResourceSpec {
   // The amount of memory, in bytes, each worker needs (in bytes, with allowed
   // SI suffixes (M, K, G, Mi, Ki, Gi, etc).
   string memory = 2;
+
+  // The number of GPUs each worker needs.
+  int64 gpu = 3;
 }
 
 message JobInfo {

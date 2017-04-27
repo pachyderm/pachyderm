@@ -2960,6 +2960,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 			ResourceSpec: &pps.ResourceSpec{
 				Memory: "100M",
 				Cpu:    0.5,
+				Gpu:    1,
 			},
 			Inputs: []*pps.PipelineInput{{
 				Repo:   &pfs.Repo{dataRepo},
@@ -3001,6 +3002,9 @@ func TestPipelineResourceRequest(t *testing.T) {
 	mem, ok := container.Resources.Requests[api.ResourceMemory]
 	require.True(t, ok)
 	require.Equal(t, "100M", mem.String())
+	gpu, ok := container.Resources.Requests[api.ResourceNvidiaGPU]
+	require.True(t, ok)
+	require.Equal(t, "1", gpu.String())
 }
 
 // TestJobResourceRequest creates a stand-alone job with a resource request, and

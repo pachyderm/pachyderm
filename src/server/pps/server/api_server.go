@@ -464,11 +464,11 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 	var err error
 	if request.Pipeline != nil {
 		iter, err = jobs.GetByIndex(jobsPipelineIndex, request.Pipeline)
-		if err != nil {
-			return nil, err
-		}
 	} else {
 		iter, err = jobs.List()
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	var jobInfos []*pps.JobInfo
@@ -1954,9 +1954,14 @@ func parseResourceList(resources *pps.ResourceSpec) (*api.ResourceList, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not parse memory quantity: %s", err)
 	}
+	gpuQuantity, err := resource.ParseQuantity(fmt.Sprintf("%d", resources.Gpu))
+	if err != nil {
+		return nil, fmt.Errorf("could not parse gpu quantity: %s", err)
+	}
 	var result api.ResourceList = map[api.ResourceName]resource.Quantity{
-		api.ResourceCPU:    cpuQuantity,
-		api.ResourceMemory: memQuantity,
+		api.ResourceCPU:       cpuQuantity,
+		api.ResourceMemory:    memQuantity,
+		api.ResourceNvidiaGPU: gpuQuantity,
 	}
 	return &result, nil
 }
