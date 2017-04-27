@@ -95,13 +95,13 @@ func do(appEnvObj interface{}) error {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	appEnv := appEnvObj.(*appEnv)
 	if err := validateEnv(appEnv); err != nil {
-		return err
+		return fmt.Errorf("error validating env: %v", err)
 	}
 
 	// get pachd client, so we can upload output data from the user binary
-	pachClient, err := client.NewFromAddress("localhost:650")
+	pachClient, err := client.NewFromAddress(fmt.Sprintf("%v:650", appEnv.PachdAddress))
 	if err != nil {
-		return err
+		return fmt.Errorf("error constructing pachClient: %v", err)
 	}
 	go pachClient.KeepConnected(make(chan bool)) // we never cancel the connection
 
@@ -111,7 +111,7 @@ func do(appEnvObj interface{}) error {
 		DialOptions: client.EtcdDialOptions(),
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("error constructing etcdClient: %v", err)
 	}
 
 	// Construct worker API server. Get relevant pipeline or job info, and then
@@ -121,14 +121,14 @@ func do(appEnvObj interface{}) error {
 	if appEnv.PPSPipelineName != "" {
 		pipelineInfo, err := getPipelineInfo(etcdClient, appEnv)
 		if err != nil {
-			return err
+			return fmt.Errorf("error getting pipelineInfo: %v", err)
 		}
 		workerRcName = ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 		apiServer = worker.NewPipelineAPIServer(pachClient, pipelineInfo, appEnv.PodName)
 	} else if appEnv.PPSJobID != "" {
 		jobInfo, err := getJobInfo(etcdClient, appEnv)
 		if err != nil {
-			return err
+			return fmt.Errorf("error getting jobInfo: %v", err)
 		}
 		workerRcName = ppsserver.JobRcName(jobInfo.Job.ID)
 		apiServer = worker.NewJobAPIServer(pachClient, jobInfo, appEnv.PodName)
@@ -137,10 +137,10 @@ func do(appEnvObj interface{}) error {
 	// Setup the hostPath mount to use a unique directory for this worker
 	workerDir := filepath.Join(client.PPSHostPath, appEnv.PodName)
 	if err := os.MkdirAll(workerDir, 0777); err != nil {
-		return err
+		return fmt.Errorf("error making workerDir: %v", err)
 	}
 	if err := os.Symlink(workerDir, client.PPSInputPrefix); err != nil {
-		return err
+		return fmt.Errorf("error symlinking workerDir: %v", err)
 	}
 
 	// Start worker api server
@@ -172,18 +172,18 @@ func do(appEnvObj interface{}) error {
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	resp, err := etcdClient.Grant(ctx, 10 /* seconds */)
 	if err != nil {
-		return err
+		return fmt.Errorf("error granting lease: %v", err)
 	}
 
 	// keepalive forever
 	if _, err := etcdClient.KeepAlive(context.Background(), resp.ID); err != nil {
-		return err
+		return fmt.Errorf("error with KeepAlive: %v", err)
 	}
 
 	// Actually write "key" into etcd
 	ctx, _ = context.WithTimeout(context.Background(), 10*time.Second) // new ctx
 	if _, err := etcdClient.Put(ctx, key, "", etcd.WithLease(resp.ID)); err != nil {
-		return err
+		return fmt.Errorf("error putting IP address: %v", err)
 	}
 
 	// If server ever exits, return error
