@@ -99,7 +99,7 @@ func do(appEnvObj interface{}) error {
 	}
 
 	// get pachd client, so we can upload output data from the user binary
-	pachClient, err := client.NewFromAddress(fmt.Sprintf("%v:650", appEnv.PachdAddress))
+	pachClient, err := client.NewFromAddress("localhost:650")
 	if err != nil {
 		return fmt.Errorf("error constructing pachClient: %v", err)
 	}
