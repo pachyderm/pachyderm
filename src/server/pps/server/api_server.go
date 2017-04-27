@@ -1604,14 +1604,14 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					case workerpkg.WorkerClient:
 						workerClient = clientOrErr
 					case error:
-						return clientOrErr
+						return fmt.Errorf("error from connection pool: %v", clientOrErr)
 					}
 					resp, err := workerClient.Process(ctx, &workerpkg.ProcessRequest{
 						JobID: jobInfo.Job.ID,
 						Data:  files,
 					})
 					if err != nil {
-						return err
+						return fmt.Errorf("Process() call failed: %v", err)
 					}
 					// We only return workerClient if we made a successful call
 					// to Process
@@ -1636,6 +1636,11 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					defer treeMu.Unlock()
 					return tree.Merge(subTree)
 				}, b, func(err error, d time.Duration) error {
+					select {
+					case <-ctx.Done():
+						return err
+					default:
+					}
 					if userCodeFailures > MaximumRetriesPerDatum {
 						protolion.Errorf("job %s failed to process datum %+v %d times failing", jobID, files, userCodeFailures)
 						failed = true
