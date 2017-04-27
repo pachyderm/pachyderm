@@ -157,7 +157,7 @@ func NewAmazonClientFromSecret(bucket string) (Client, error) {
 	distribution, err := ioutil.ReadFile("/amazon-secret/distribution")
 	if err != nil {
 		// Distribution is not required, but we can log a warning
-		log.Info("Warning: AWS deployed without cloudfront distribution\n")
+		log.Warn("AWS deployed without cloudfront distribution\n")
 	}
 	id, err := ioutil.ReadFile("/amazon-secret/id")
 	if err != nil {

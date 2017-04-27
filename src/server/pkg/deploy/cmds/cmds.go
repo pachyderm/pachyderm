@@ -152,9 +152,9 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[5])
 			}
-			if strings.Trim(args[1]) == "" {
-				fmt.Printf("WARNING: You did not specify a cloudfront distribution. Deploying on AWS without cloudfront is NOT " +
-					"recommended. S3 performance can get throttled on reads compared to other providers\n")
+			if strings.Trim(args[1]) != "" {
+				fmt.Printf("WARNING: You specified a cloudfront distribution. Deploying on AWS with cloudfront is currently " +
+					"an alpha feature. No security restrictions have been applied to cloudfront, making all data public (obscured but not secured)\n")
 			}
 			manifest := &bytes.Buffer{}
 			if err = assets.WriteAmazonAssets(manifest, opts, args[0], args[1], args[2], args[3], args[4], args[5], volumeSize); err != nil {

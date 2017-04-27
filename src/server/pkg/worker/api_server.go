@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -489,7 +488,6 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	logger.Logf("finished processing user input")
 	if err != nil {
 		logger.Logf("failed to process datum with error: %+v", err)
-		logger.Logf(string(debug.Stack()))
 		return &ProcessResponse{
 			Failed: true,
 		}, nil
@@ -521,7 +519,6 @@ func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStat
 
 // Cancel cancels the currently running datum
 func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*CancelResponse, error) {
-	debug.PrintStack()
 	a.statusMu.Lock()
 	defer a.statusMu.Unlock()
 	if request.JobID != a.jobID {
