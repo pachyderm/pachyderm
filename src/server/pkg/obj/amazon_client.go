@@ -32,7 +32,7 @@ func newAmazonClient(bucket string, distribution string, id string, secret strin
 	})
 	return &amazonClient{
 		bucket:       bucket,
-		distribution: distribution,
+		distribution: strings.TrimSpace(distribution),
 		s3:           s3.New(session),
 		uploader:     s3manager.NewUploader(session),
 	}, nil
