@@ -501,11 +501,8 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				logBytes := scanner.Bytes()
 				msg := new(pps.LogMessage)
 				if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
-					select {
-					case errCh <- err:
-					case <-done:
-					}
-					return
+					// skip unrecognized log lines
+					continue
 				}
 
 				// Filter out log lines that don't match on pipeline or job
