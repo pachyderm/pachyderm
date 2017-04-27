@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/version"
@@ -134,24 +135,29 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			"s3, gcs, or azure-blob.")
 
 	deployAmazon := &cobra.Command{
-		Use:   "amazon <S3 bucket> <id> <secret> <token> <region> <size of volumes (in GB)>",
+		Use:   "amazon <S3 bucket> <cloudfront distribution id> <id> <secret> <token> <region> <size of volumes (in GB)>",
 		Short: "Deploy a Pachyderm cluster running on AWS.",
 		Long: "Deploy a Pachyderm cluster running on AWS. Arguments are:\n" +
 			"  <S3 bucket>: An S3 bucket where Pachyderm will store PFS data.\n" +
+			"  <cloudfront distribution id>: The cloudfront distrubution ID fronting the S3 bucket that Pachyderm will use to store data\n" +
 			"  <id>, <secret>, <token>: Session token details, used for authorization. You can get these by running 'aws sts get-session-token'\n" +
 			"  <region>: The aws region where pachyderm is being deployed (e.g. us-west-1)\n" +
 			"  <size of volumes>: Size of EBS volumes, in GB (assumed to all be the same).\n",
-		Run: cmdutil.RunFixedArgs(6, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(7, func(args []string) (retErr error) {
 			if metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 			}
-			volumeSize, err := strconv.Atoi(args[5])
+			volumeSize, err := strconv.Atoi(args[6])
 			if err != nil {
 				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[5])
 			}
+			if strings.Trim(args[1]) == "" {
+				fmt.Printf("WARNING: You did not specify a cloudfront distribution. Deploying on AWS without cloudfront is NOT " +
+					"recommended. S3 performance can get throttled on reads compared to other providers\n")
+			}
 			manifest := &bytes.Buffer{}
-			if err = assets.WriteAmazonAssets(manifest, opts, args[0], args[1], args[2], args[3], args[4], volumeSize); err != nil {
+			if err = assets.WriteAmazonAssets(manifest, opts, args[0], args[1], args[2], args[3], args[4], args[5], volumeSize); err != nil {
 				return err
 			}
 			return maybeKcCreate(dryRun, manifest)
