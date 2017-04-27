@@ -140,7 +140,7 @@ func (c *amazonClient) isRetryable(err error) (retVal bool) {
 		fmt.Printf("err (%v) retryable? %v\n", retVal, err)
 	}()
 	if strings.Contains(err.Error(), "unexpected EOF") {
-		return false
+		return true
 	}
 
 	awsErr, ok := err.(awserr.Error)
