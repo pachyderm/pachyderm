@@ -1613,14 +1613,14 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					case workerpkg.WorkerClient:
 						workerClient = clientOrErr
 					case error:
-						return clientOrErr
+						return fmt.Errorf("error from connection pool: %v", clientOrErr)
 					}
 					resp, err := workerClient.Process(ctx, &workerpkg.ProcessRequest{
 						JobID: jobInfo.Job.ID,
 						Data:  files,
 					})
 					if err != nil {
-						return err
+						return fmt.Errorf("Process() call failed: %v", err)
 					}
 					// We only return workerClient if we made a successful call
 					// to Process
