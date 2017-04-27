@@ -39,7 +39,6 @@ func newAmazonClient(bucket string, distribution string, id string, secret strin
 }
 
 func (c *amazonClient) usingCloudfront() bool {
-	fmt.Printf("using cloudfront!\n")
 	return c.distribution != ""
 }
 
@@ -90,7 +89,6 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 		backoff.RetryNotify(func() error {
 			resp, connErr = http.DefaultClient.Do(req)
 			if connErr != nil && isNetRetryable(connErr) {
-				fmt.Printf("this is a retryable error (%v)\n", connErr)
 				return connErr
 			}
 			return nil
@@ -100,7 +98,6 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 
 		if resp.StatusCode >= 300 {
 			// Cloudfront returns 200s, and 206s as success codes
-			fmt.Printf("HTTP error code %v", resp.StatusCode)
 			return nil, fmt.Errorf("cloudfront returned HTTP error code %v", resp.StatusCode)
 		}
 		reader = resp.Body
@@ -135,10 +132,6 @@ func (c *amazonClient) Exists(name string) bool {
 }
 
 func (c *amazonClient) isRetryable(err error) (retVal bool) {
-	fmt.Printf("is err (%v) retryable?\n", err)
-	defer func() {
-		fmt.Printf("err (%v) retryable? %v\n", retVal, err)
-	}()
 	if strings.Contains(err.Error(), "unexpected EOF") {
 		return true
 	}
