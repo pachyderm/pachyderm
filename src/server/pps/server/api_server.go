@@ -501,11 +501,14 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				logBytes := scanner.Bytes()
 				msg := new(pps.LogMessage)
 				if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
+					protolion.Errorf("Error parsing log message: %+v", err)
+					msg.Message = string(logBytes)
 					select {
-					case errCh <- err:
+					case logChs[i] <- msg:
 					case <-done:
+						return
 					}
-					return
+					continue
 				}
 
 				// Filter out log lines that don't match on pipeline or job

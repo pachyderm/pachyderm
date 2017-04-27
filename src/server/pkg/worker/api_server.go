@@ -216,7 +216,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	if err != nil {
 		logger.Logf("user code finished, err: %+v", err)
 	} else {
-		logger.Logf("user code finished", err)
+		logger.Logf("user code finished")
 	}
 
 	// Return result
