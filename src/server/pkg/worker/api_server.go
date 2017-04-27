@@ -274,6 +274,10 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 				return nil
 			}
 
+			// Under some circumstances, the user might have copied
+			// some pipes from the input directory to the output directory.
+			// Reading from these files will result in job blocking.  Thus
+			// we preemptively detect if the file is a special file.
 			if (info.Mode() | os.ModeType) > 0 {
 				logger.Logf("cannot upload special file: %v", relPath)
 				return errSpecialFile
@@ -503,6 +507,10 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		}, nil
 	}
 	if err := a.uploadOutput(ctx, tag, logger); err != nil {
+		// If uploading failed because the user program outputed a special
+		// file, then there's no point in retrying.  Thus we signal that
+		// there's some problem with the user code so the job doesn't
+		// infinitely retry to process this datum.
 		if err == errSpecialFile {
 			return &ProcessResponse{
 				Failed: true,
