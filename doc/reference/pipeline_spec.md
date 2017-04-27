@@ -47,7 +47,7 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
         "repo": {
           "name": string
         },
-        "id": string
+        ID: string
       }
     }
   ],
