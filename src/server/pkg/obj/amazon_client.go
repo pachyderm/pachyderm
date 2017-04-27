@@ -162,15 +162,11 @@ func (c *amazonClient) IsIgnorable(err error) bool {
 }
 
 func (c *amazonClient) IsNotExist(err error) bool {
-	fmt.Printf("IsNotExist? error: %v\n", err)
-	// cloudfront returns forbidden error for nonexisting data
-	if strings.Contains(err.Error(), "error code 403") {
-		fmt.Printf("its a 403, dne")
-		return true
-	}
-	if strings.Contains(err.Error(), "error code 404") {
-		fmt.Printf("its a 404, dne")
-		return true
+	if c.usingCloudfront() {
+		// cloudfront returns forbidden error for nonexisting data
+		if strings.Contains(err.Error(), "error code 403") {
+			return true
+		}
 	}
 	awsErr, ok := err.(awserr.Error)
 	if !ok {
