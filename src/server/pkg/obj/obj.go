@@ -153,7 +153,7 @@ func NewAmazonClientFromSecret(bucket string) (Client, error) {
 		}
 		bucket = string(_bucket)
 	}
-	var distribution string
+	var distribution []byte
 	distribution, err := ioutil.ReadFile("/amazon-secret/distribution")
 	if err != nil {
 		// Distribution is not required, but we can log a warning
@@ -245,7 +245,7 @@ func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 		}
 		return nil
 	}, b.backoffConfig, func(err error, d time.Duration) {
-		log.Infof("Error reading (%v); retrying in %s: %#v", b.url, d, RetryError{
+		log.Infof("Error reading; retrying in %s: %#v", d, RetryError{
 			Err:               err.Error(),
 			TimeTillNextRetry: d.String(),
 			BytesProcessed:    bytesRead,
