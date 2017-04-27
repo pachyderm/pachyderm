@@ -152,7 +152,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[5])
 			}
-			if strings.Trim(args[1]) != "" {
+			if strings.TrimSpace(args[1]) != "" {
 				fmt.Printf("WARNING: You specified a cloudfront distribution. Deploying on AWS with cloudfront is currently " +
 					"an alpha feature. No security restrictions have been applied to cloudfront, making all data public (obscured but not secured)\n")
 			}
