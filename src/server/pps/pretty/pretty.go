@@ -267,13 +267,13 @@ func shorthandInput(input *ppsclient.Input) string {
 		for _, input := range input.Cross.Input {
 			subInput = append(subInput, shorthandInput(input))
 		}
-		return "(" + strings.Join(subInput, " X ") + ")"
+		return "(" + strings.Join(subInput, " ⨯ ") + ")"
 	case input.Union != nil:
 		var subInput []string
 		for _, input := range input.Union.Input {
 			subInput = append(subInput, shorthandInput(input))
 		}
-		return "(" + strings.Join(subInput, " U ") + ")"
+		return "(" + strings.Join(subInput, " ∪ ") + ")"
 	}
 	return ""
 }
