@@ -98,7 +98,8 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 			log.Infof("Error connecting to (%v); retrying in %s: %#v", url, d, err)
 		})
 
-		if resp.StatusCode != 200 {
+		if resp.StatusCode >= 300 {
+			// Cloudfront returns 200s, and 206s as success codes
 			fmt.Printf("HTTP error code %v", resp.StatusCode)
 			return nil, fmt.Errorf("cloudfront returned HTTP error code %v", resp.StatusCode)
 		}
