@@ -3,7 +3,6 @@ package obj
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
@@ -75,7 +74,7 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 	}
 
 	var reader io.ReadCloser
-	if c.usingCloudfront {
+	if c.usingCloudfront() {
 		var resp *http.Response
 		var connErr error
 		url := fmt.Sprintf("http://%v.cloudfront.net/%v", c.distribution, name)
