@@ -138,6 +138,7 @@ message JobInfo {
   int64 data_total = 23;
   repeated WorkerStatus worker_status = 24;
   ResourceSpec resource_spec = 25;
+  bool incremental = 26;
 }
 
 enum WorkerState {
@@ -204,6 +205,7 @@ message PipelineInfo {
   string outputBranch = 16;
   google.protobuf.Duration scaleDownThreshold = 18;
   ResourceSpec resource_spec = 19;
+  bool incremental = 20;
 }
 
 message PipelineInfos {
@@ -225,6 +227,7 @@ message CreateJobRequest {
   string outputBranch = 11;
   Job parent_job = 13;
   ResourceSpec resource_spec = 14;
+  bool incremental = 15;
 }
 
 message InspectJobRequest {
@@ -298,6 +301,7 @@ message CreatePipelineRequest {
   string outputBranch = 10;
   google.protobuf.Duration scaleDownThreshold = 11;
   ResourceSpec resource_spec = 12;
+  bool incremental = 13;
 }
 
 message InspectPipelineRequest {
