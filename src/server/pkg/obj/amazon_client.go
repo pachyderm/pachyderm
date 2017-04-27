@@ -20,12 +20,13 @@ import (
 )
 
 type amazonClient struct {
-	bucket   string
-	s3       *s3.S3
-	uploader *s3manager.Uploader
+	bucket       string
+	distribution string
+	s3           *s3.S3
+	uploader     *s3manager.Uploader
 }
 
-func newAmazonClient(bucket string, id string, secret string, token string, region string) (*amazonClient, error) {
+func newAmazonClient(bucket string, distribution string, id string, secret string, token string, region string) (*amazonClient, error) {
 	session := session.New(&aws.Config{
 		Credentials: credentials.NewStaticCredentials(id, secret, token),
 		Region:      aws.String(region),
@@ -35,6 +36,10 @@ func newAmazonClient(bucket string, id string, secret string, token string, regi
 		s3:       s3.New(session),
 		uploader: s3manager.NewUploader(session),
 	}, nil
+}
+
+func (c *amazonClient) usingCloudfront() bool {
+	return c.distribution != ""
 }
 
 func (c *amazonClient) Writer(name string) (io.WriteCloser, error) {
@@ -63,51 +68,52 @@ func (c *amazonClient) Walk(name string, fn func(name string) error) error {
 	return fnErr
 }
 
-func isRetryableGetError(err error) bool {
-	if strings.Contains(err.Error(), "dial tcp: i/o timeout") {
-		fmt.Printf("SAW A DIAL TCP TIMEOUT ERROR\n")
-		return true
-	}
-	return isNetRetryable(err)
-}
-
 func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadCloser, error) {
 	byteRange := byteRange(offset, size)
 	if byteRange != "" {
 		byteRange = fmt.Sprintf("bytes=%s", byteRange)
 	}
 
-	var resp *http.Response
-	var connErr error
-	url := fmt.Sprintf("http://d2z5sy3mh7px6z.cloudfront.net/%v", name)
+	var reader io.ReadCloser
+	if c.usingCloudfront {
+		var resp *http.Response
+		var connErr error
+		url := fmt.Sprintf("http://%v.cloudfront.net/%v", c.distribution, name)
 
-	backoff.RetryNotify(func() error {
-		resp, connErr = http.Get(url)
-		//	defer resp.Body.Close()
-		fmt.Printf("got resp for url (%v), err: %v,\n\n%v\n", url, resp, connErr)
-		fmt.Printf("Got http error: %v\n", connErr)
-		if connErr != nil && isRetryableGetError(connErr) {
-			fmt.Printf("this is a retryable error (%v)\n", connErr)
-			return connErr
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, err
 		}
-		return nil
-	}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) {
-		log.Infof("Error connecting to (%v); retrying in %s: %#v", url, d, err)
-	})
+		req.Header.Add("Range", byteRange)
 
-	if resp.StatusCode != 200 {
-		fmt.Printf("HTTP error code %v", resp.StatusCode)
-		return nil, fmt.Errorf("HTTP error code %v", resp.StatusCode)
+		backoff.RetryNotify(func() error {
+			resp, connErr = http.DefaultClient.Do(req)
+			if connErr != nil && isRetryableGetError(connErr) {
+				fmt.Printf("this is a retryable error (%v)\n", connErr)
+				return connErr
+			}
+			return nil
+		}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) {
+			log.Infof("Error connecting to (%v); retrying in %s: %#v", url, d, err)
+		})
+
+		if resp.StatusCode != 200 {
+			fmt.Printf("HTTP error code %v", resp.StatusCode)
+			return nil, fmt.Errorf("cloudfront returned HTTP error code %v", resp.StatusCode)
+		}
+		reader = resp.Body
+	} else {
+		getObjectOutput, err := c.s3.GetObject(&s3.GetObjectInput{
+			Bucket: aws.String(c.bucket),
+			Key:    aws.String(name),
+			Range:  aws.String(byteRange),
+		})
+		if err != nil {
+			return nil, err
+		}
+		reader = getObjectOutput.Body
 	}
-	// TODO: send the offset header as part of the request
-	n, err := io.CopyN(ioutil.Discard, resp.Body, int64(offset))
-	fmt.Printf("slurped n bytes: %v off of get file %v to accomodate offset\n", n, url)
-	if err != nil {
-		return nil, err
-	}
-	//return newBackoffReadCloser(c, getObjectOutput.Body), nil
-	//	return resp.Body, nil
-	return newBackoffReadCloserForRealsies(url, c, resp.Body), nil
+	return newBackoffReadCloser(c, reader), nil
 }
 
 func (c *amazonClient) Delete(name string) error {
@@ -208,4 +214,12 @@ func (w *amazonWriter) Close() error {
 		return err
 	}
 	return <-w.errChan
+}
+
+func isRetryableGetError(err error) bool {
+	if strings.Contains(err.Error(), "dial tcp: i/o timeout") {
+		fmt.Printf("SAW A DIAL TCP TIMEOUT ERROR\n")
+		return true
+	}
+	return isNetRetryable(err)
 }

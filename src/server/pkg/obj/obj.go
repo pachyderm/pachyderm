@@ -102,13 +102,14 @@ func NewMinioClient(endpoint, bucket, id, secret string, secure bool) (Client, e
 
 // NewAmazonClient creates an amazon client with the following credentials:
 //   bucket - S3 bucket name
+//   distribution - cloudfront distribution ID
 //   id     - AWS access key id
 //   secret - AWS secret access key
 //   token  - AWS access token
 //   region - AWS region
-func NewAmazonClient(bucket string, id string, secret string, token string,
+func NewAmazonClient(bucket string, distribution string, id string, secret string, token string,
 	region string) (Client, error) {
-	return newAmazonClient(bucket, id, secret, token, region)
+	return newAmazonClient(bucket, distribution, id, secret, token, region)
 }
 
 // NewMinioClientFromSecret constructs an s3 compatible client by reading
@@ -152,6 +153,12 @@ func NewAmazonClientFromSecret(bucket string) (Client, error) {
 		}
 		bucket = string(_bucket)
 	}
+	var distribution string
+	distribution, err := ioutil.ReadFile("/amazon-secret/distribution")
+	if err != nil {
+		// Distribution is not required, but we can log a warning
+		log.Info("Warning: AWS deployed without cloudfront distribution\n")
+	}
 	id, err := ioutil.ReadFile("/amazon-secret/id")
 	if err != nil {
 		return nil, err
@@ -168,7 +175,7 @@ func NewAmazonClientFromSecret(bucket string) (Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewAmazonClient(bucket, string(id), string(secret), string(token), string(region))
+	return NewAmazonClient(bucket, string(distribution), string(id), string(secret), string(token), string(region))
 }
 
 // NewClientFromURLAndSecret constructs a client by parsing `URL` and then
@@ -213,18 +220,13 @@ type RetryError struct {
 
 // BackoffReadCloser retries with exponential backoff in the case of failures
 type BackoffReadCloser struct {
-	url           string
 	client        Client
 	reader        io.ReadCloser
 	backoffConfig *backoff.ExponentialBackOff
 }
 
 func newBackoffReadCloser(client Client, reader io.ReadCloser) io.ReadCloser {
-	return newBackoffReadCloserForRealsies("??", client, reader)
-}
-func newBackoffReadCloserForRealsies(url string, client Client, reader io.ReadCloser) io.ReadCloser {
 	return &BackoffReadCloser{
-		url:           url,
 		client:        client,
 		reader:        reader,
 		backoffConfig: NewExponentialBackOffConfig(),
