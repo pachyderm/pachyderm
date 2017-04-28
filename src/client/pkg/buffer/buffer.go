@@ -1,3 +1,7 @@
+// Package buffer exports a global buffer pool.  Clients who reguarly
+// need access to buffers are expected to use this package as opposed to
+// allocating new buffers themselves, in order to reduce overall memory
+// allocation.
 package buffer
 
 import (
@@ -16,10 +20,12 @@ var bufPool = sync.Pool{
 	},
 }
 
+// Get returns a buffer.  The buffer may or may not be freshly allocated.
 func Get() []byte {
 	return bufPool.Get().([]byte)
 }
 
+// Put returns the buffer to the pool.
 func Put(buf []byte) {
 	bufPool.Put(buf)
 }
