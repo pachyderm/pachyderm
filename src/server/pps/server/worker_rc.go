@@ -60,9 +60,6 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 	// very high hit rate since workers tend to be processing a small
 	// set commits at a time.
 	sidecarEnv := []api.EnvVar{{
-		Name:  "BLOCK_CACHE_BYTES",
-		Value: "0M",
-	}, {
 		Name:  "PFS_CACHE_BYTES",
 		Value: "10M",
 	}, {

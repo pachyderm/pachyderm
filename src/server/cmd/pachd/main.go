@@ -117,37 +117,15 @@ func doPFSMode(appEnvObj interface{}) error {
 		return err
 	}
 	address = fmt.Sprintf("%s:%d", address, appEnv.Port)
-	sharder := shard.NewSharder(
-		etcdClient,
-		appEnv.NumShards,
-		appEnv.Namespace,
-	)
 	pfsCacheBytes, err := units.RAMInBytes(appEnv.PFSCacheBytes)
 	if err != nil {
 		return err
 	}
-	router := shard.NewRouter(
-		sharder,
-		grpcutil.NewDialer(
-			grpc.WithInsecure(),
-		),
-		address,
-	)
-	cacheServer := cache_server.NewCacheServer(router, appEnv.NumShards)
 	pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, pfsCacheBytes, reporter)
 	if err != nil {
 		return err
 	}
-	go func() {
-		if err := sharder.RegisterFrontends(nil, address, []shard.Frontend{cacheServer}); err != nil {
-			protolion.Printf("error from sharder.RegisterFrontend %s", sanitizeErr(err))
-		}
-	}()
-	blockCacheBytes, err := units.RAMInBytes(appEnv.BlockCacheBytes)
-	if err != nil {
-		return err
-	}
-	blockAPIServer, err := pfs_server.NewBlockAPIServer(appEnv.StorageRoot, blockCacheBytes, appEnv.StorageBackend)
+	blockAPIServer, err := pfs_server.NewBlockAPIServer(appEnv.StorageRoot, 0, appEnv.StorageBackend)
 	if err != nil {
 		return err
 	}
@@ -155,7 +133,6 @@ func doPFSMode(appEnvObj interface{}) error {
 		func(s *grpc.Server) {
 			pfsclient.RegisterAPIServer(s, pfsAPIServer)
 			pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
-			cache_pb.RegisterGroupCacheServer(s, cacheServer)
 		},
 		grpcutil.ServeOptions{
 			Version:    version.Version,
