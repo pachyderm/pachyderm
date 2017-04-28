@@ -278,7 +278,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 			// some pipes from the input directory to the output directory.
 			// Reading from these files will result in job blocking.  Thus
 			// we preemptively detect if the file is a special file.
-			if (info.Mode() | os.ModeType) > 0 {
+			if (info.Mode() & os.ModeType) > 0 {
 				logger.Logf("cannot upload special file: %v", relPath)
 				return errSpecialFile
 			}
