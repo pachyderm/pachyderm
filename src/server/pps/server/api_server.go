@@ -1606,6 +1606,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				userCodeFailures := 0
 				defer limiter.Release()
 				b := backoff.NewInfiniteBackOff()
+				b.Multiplier = 1
 				if err := backoff.RetryNotify(func() error {
 					clientOrErr := clientPool.Get()
 					var workerClient workerpkg.WorkerClient
