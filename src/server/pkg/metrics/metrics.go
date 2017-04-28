@@ -81,8 +81,6 @@ func (r *Reporter) reportUserAction(ctx context.Context, action string, value in
 			value,
 			r.clusterID,
 		)
-	} else {
-		log.Errorf("Error extracting userid metadata from context: %v\n", ctx)
 	}
 }
 
