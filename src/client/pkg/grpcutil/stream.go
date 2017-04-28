@@ -26,6 +26,8 @@ func Chunk(data []byte, chunkSize int) [][]byte {
 	return result
 }
 
+// ChunkReader splits a reader into chunks of size chunkSize.  For each
+// chunk, it calls the given function.
 func ChunkReader(r io.Reader, chunkSize int, f func([]byte) error) (int, error) {
 	var total int
 	for {
