@@ -34,7 +34,7 @@ import (
 
 const (
 	// The maximum number of concurrent download/upload operations
-	concurrency = 100
+	concurrency = 10
 	maxLogItems = 10
 )
 
