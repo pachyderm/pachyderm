@@ -51,7 +51,7 @@ const (
 	PPSWorkerUserContainerName = "user"
 	// PPSWorkerSidecarContainerName is the name of the sidecar container
 	// that runs alongside of each worker container.
-	PPSWorkerSidecarContainerName = "pfs-sidecar"
+	PPSWorkerSidecarContainerName = "storage"
 )
 
 // NewJobInput creates a pps.JobInput.
