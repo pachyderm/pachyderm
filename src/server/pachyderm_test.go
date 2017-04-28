@@ -738,6 +738,67 @@ func TestLazyPipeline(t *testing.T) {
 	require.Equal(t, "foo\n", buffer.String())
 }
 
+// There's an issue where if you use cp with certain flags, it might copy
+// special files without reading from them.  In our case, we use named pipes
+// to simulate lazy files, so the pipes themselves might get copied into
+// the output directory, blocking upload.
+//
+// We've updated the code such that we are able to detect if the files we
+// are uploading are pipes, and make the job fail in that case.
+func TestLazyPipelineCPPipes(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestLazyPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipeline := uniqueString("pipeline")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				// Using cp with the -r flag apparently just copes go
+				Cmd: []string{"cp", "-r", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			Inputs: []*pps.PipelineInput{{
+				Repo: &pfs.Repo{Name: dataRepo},
+				Glob: "/",
+				Lazy: true,
+			}},
+		})
+	require.NoError(t, err)
+	// Do a commit
+	_, err = c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, "master"))
+
+	// wait for job to spawn
+	time.Sleep(5 * time.Second)
+	jobInfos, err := c.ListJob(pipeline, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+	inspectJobRequest := &pps.InspectJobRequest{
+		Job:        jobInfos[0].Job,
+		BlockState: true,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel() //cleanup resources
+	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
+}
+
 // TestProvenance creates a pipeline DAG that's not a transitive reduction
 // It looks like this:
 // A
