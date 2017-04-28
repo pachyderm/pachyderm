@@ -26,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
@@ -281,14 +282,27 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string) error {
 			}()
 
 			fmt.Println("BP2")
-			object, size, err := a.pachClient.PutObject(f)
+			putObjClient, err := a.pachClient.ObjectAPIClient.PutObject(ctx)
+			if err != nil {
+				return err
+			}
+			size, err := grpcutil.ChunkReader(f, grpcutil.MaxMsgSize/2, func(chunk []byte) error {
+				return putObjClient.Send(&pfs.PutObjectRequest{
+					Value: chunk,
+				})
+			})
+			if err != nil {
+				return err
+			}
+			object, err := putObjClient.CloseAndRecv()
 			if err != nil {
 				return err
 			}
 			fmt.Println("BP3")
+
 			lock.Lock()
 			defer lock.Unlock()
-			return tree.PutFile(relPath, []*pfs.Object{object}, size)
+			return tree.PutFile(relPath, []*pfs.Object{object}, int64(size))
 		})
 		return nil
 	}); err != nil {
