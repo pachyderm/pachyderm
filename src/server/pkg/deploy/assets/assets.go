@@ -128,7 +128,7 @@ func fillDefaultResourceRequests(opts *AssetOpts, persistentDiskBackend backend)
 		// For non-local deployments, we set the resource requirements and cache
 		// sizes higher, so that the cluster is stable and performant
 		if opts.BlockCacheSize == "" {
-			opts.BlockCacheSize = "5G"
+			opts.BlockCacheSize = "1G"
 		}
 		if opts.PachdNonCacheMemRequest == "" {
 			opts.PachdNonCacheMemRequest = "2G"
