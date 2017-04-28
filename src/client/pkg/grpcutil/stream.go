@@ -31,13 +31,13 @@ func ChunkReader(r io.Reader, chunkSize int, f func([]byte) error) (int, error) 
 	for {
 		buf := make([]byte, chunkSize)
 		n, err := r.Read(buf)
-		if err != nil {
+		if n == 0 && err != nil {
 			if err == io.EOF {
 				return total, nil
 			}
 			return total, err
 		}
-		if err := f(buf); err != nil {
+		if err := f(buf[:n]); err != nil {
 			return total, err
 		}
 		total += n
