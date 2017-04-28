@@ -239,7 +239,6 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 }
 
 func (a *APIServer) uploadOutput(ctx context.Context, tag string) error {
-	fmt.Println("BP1")
 	// hashtree is not thread-safe--guard with 'lock'
 	var lock sync.Mutex
 	tree := hashtree.NewHashTree()
@@ -281,7 +280,6 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string) error {
 				}
 			}()
 
-			fmt.Println("BP2")
 			putObjClient, err := a.pachClient.ObjectAPIClient.PutObject(ctx)
 			if err != nil {
 				return err
@@ -298,7 +296,6 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string) error {
 			if err != nil {
 				return err
 			}
-			fmt.Println("BP3")
 
 			lock.Lock()
 			defer lock.Unlock()
@@ -309,12 +306,10 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string) error {
 		return err
 	}
 
-	fmt.Println("BP4")
 	if err := g.Wait(); err != nil {
 		return err
 	}
 
-	fmt.Println("BP5")
 	finTree, err := tree.Finish()
 	if err != nil {
 		return err
@@ -325,7 +320,6 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string) error {
 		return err
 	}
 
-	fmt.Println("BP6")
 	if _, _, err := a.pachClient.PutObject(bytes.NewReader(treeBytes), tag); err != nil {
 		return err
 	}
