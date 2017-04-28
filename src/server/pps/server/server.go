@@ -37,6 +37,11 @@ var (
 	// is how we know if we need to start a job
 	jobsInputIndex = col.Index{"Input", false}
 
+	// Index mapping 1.4.5 and earlier style job inputs (repos + pipeline
+	// version) to output commit. This is how we know if we need to start a job
+	// Needed for legacy compatibility.
+	jobsInputsIndex = col.Index{"Inputs", false}
+
 	// Index of pipelines and jobs that have been stopped (state is "success" or
 	// "failure" for jobs, or "stopped" or "failure" for pipelines). See
 	// (Job|Pipeline)StateToStopped in s/s/pps/server/api_server.go
