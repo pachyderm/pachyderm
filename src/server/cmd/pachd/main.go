@@ -61,8 +61,8 @@ type appEnv struct {
 	Namespace             string `env:"NAMESPACE,default=default"`
 	Metrics               bool   `env:"METRICS,default=true"`
 	Init                  bool   `env:"INIT,default=false"`
-	BlockCacheBytes       string `env:"BLOCK_CACHE_BYTES,default=5G"`
-	PFSCacheBytes         string `env:"PFS_CACHE_BYTES,default=1G"`
+	BlockCacheBytes       string `env:"BLOCK_CACHE_BYTES,default=1G"`
+	PFSCacheBytes         string `env:"PFS_CACHE_BYTES,default=500M"`
 	WorkerImage           string `env:"WORKER_IMAGE,default="`
 	WorkerSidecarImage    string `env:"WORKER_SIDECAR_IMAGE,default="`
 	WorkerImagePullPolicy string `env:"WORKER_IMAGE_PULL_POLICY,default="`
