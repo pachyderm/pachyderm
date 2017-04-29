@@ -1353,9 +1353,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 
 		// Create a k8s replication controller that runs the workers
 		if err := a.createWorkersForPipeline(pipelineInfo); err != nil {
-			if !isAlreadyExistsErr(err) {
-				return err
-			}
+			return err
 		}
 
 		branchSetFactory, err := newBranchSetFactory(ctx, pfsClient, pipelineInfo.Input)
@@ -1722,6 +1720,9 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		updateProgress(0)
 
 		serviceAddr, err := a.workerServiceIP(ctx, rcName)
+		if err != nil {
+			return err
+		}
 		conns := make(map[*grpc.ClientConn]bool)
 		var connsMu sync.Mutex
 		defer func() {
@@ -2018,13 +2019,20 @@ func (a *apiServer) createWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 
 func (a *apiServer) deleteWorkers(rcName string) error {
 	if err := a.kubeClient.Services(a.namespace).Delete(rcName); err != nil {
-		return err
+		if !isNotFoundErr(err) {
+			return err
+		}
 	}
 	falseVal := false
 	deleteOptions := &api.DeleteOptions{
 		OrphanDependents: &falseVal,
 	}
-	return a.kubeClient.ReplicationControllers(a.namespace).Delete(rcName, deleteOptions)
+	if err := a.kubeClient.ReplicationControllers(a.namespace).Delete(rcName, deleteOptions); err != nil {
+		if !isNotFoundErr(err) {
+			return err
+		}
+	}
+	return nil
 }
 
 func (a *apiServer) AddShard(shard uint64) error {
