@@ -125,7 +125,11 @@ func doPFSMode(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	blockAPIServer, err := pfs_server.NewBlockAPIServer(appEnv.StorageRoot, 0, appEnv.StorageBackend)
+	blockCacheBytes, err := units.RAMInBytes(appEnv.BlockCacheBytes)
+	if err != nil {
+		return err
+	}
+	blockAPIServer, err := pfs_server.NewBlockAPIServer(appEnv.StorageRoot, blockCacheBytes, appEnv.StorageBackend)
 	if err != nil {
 		return err
 	}
