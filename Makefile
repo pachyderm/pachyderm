@@ -146,32 +146,43 @@ launch-dev-bench: docker-build docker-build-test install
 	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 	make launch-bench
 
-push-bench-images: install
+build-bench-images: docker-build docker-build-test
+
+push-bench-images: install-bench
 	# We need the pachyderm_compile image to be up to date
-	docker tag pachyderm_pachd pachyderm/pachd:`pachctl version 2>/dev/null | head -n 2 | tail -n 1 | awk -v N=2 '{print $$N}'`
-	docker push pachyderm/pachd:`pachctl version 2>/dev/null | head -n 2 | tail -n 1 | awk -v N=2 '{print $$N}'`
-	docker tag pachyderm_worker pachyderm/worker:`pachctl version 2>/dev/null | head -n 2 | tail -n 1 | awk -v N=2 '{print $$N}'`
-	docker push pachyderm/worker:`pachctl version 2>/dev/null | head -n 2 | tail -n 1 | awk -v N=2 '{print $$N}'`
-	docker tag pachyderm_test pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "`
-	docker push pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "`
-	
-launch-bench: docker-build docker-build-test
-	rm /usr/local/bin/pachctl || true
-	ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
+	docker tag pachyderm_pachd pachyderm/pachd:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
+	docker push pachyderm/pachd:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
+	docker tag pachyderm_worker pachyderm/worker:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
+	docker push pachyderm/worker:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
+	docker tag pachyderm_test pachyderm/bench:`git rev-list HEAD --max-count=1`
+	docker push pachyderm/bench:`git rev-list HEAD --max-count=1`
+
+launch-bench:
 	etc/deploy/aws.sh
 	until timeout 10s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
+	cat ~/.kube/config
+
+install-bench: install
+	@# Since bench is run as sudo, pachctl needs to be under
+	@# the secure path
+	rm /usr/local/bin/pachctl || true
+	sudo ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 
 run-bench:
-	kubectl scale --replicas=4 rc/pachd
-	echo "waiting for pachd to scale up" && sleep 10
-	kubectl delete --ignore-not-found po/bench && kubectl run bench --image=pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "` --image-pull-policy=Always --restart=Never --attach=true -- -test.v -test.bench=BenchmarkDaily -test.run=XXX
+	kubectl scale --replicas=4 deploy/pachd
+	echo "waiting for pachd to scale up" && sleep 15
+	kubectl delete --ignore-not-found po/bench && kubectl run bench --image=pachyderm/bench:`git rev-list HEAD --max-count=1` --image-pull-policy=Always --restart=Never --attach=true -- ./test -test.v -test.bench=BenchmarkDaily -test.run=XXX
 
 clean-launch-bench:
-	kops delete cluster `cat tmp/current-benchmark-cluster.txt` --yes --state `cat tmp/current-benchmark-state-store.txt` || true
-	aws s3 del --recursive --force `cat tmp/current-benchmark-state-store.txt` || true
-	aws s3 rb `cat tmp/current-benchmark-state-store.txt` || true
+	if [ -e tmp/current-benchmark-cluster.txt ]; then \
+	  { \
+	    kops delete cluster `cat tmp/current-benchmark-cluster.txt` --yes --state `cat tmp/current-benchmark-state-store.txt`; \
+	    aws s3 del --recursive --force `cat tmp/current-benchmark-state-store.txt`; \
+	    aws s3 rb `cat tmp/current-benchmark-state-store.txt`; \
+	  } || true; \
+	fi
 
-bench: clean-launch-bench push-bench-images launch-bench run-bench
+bench: clean-launch-bench build-bench-images push-bench-images launch-bench run-bench clean-launch-bench
 
 launch-kube: check-kubectl
 	etc/kube/start-kube-docker.sh
