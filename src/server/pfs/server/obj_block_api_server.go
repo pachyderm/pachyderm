@@ -21,7 +21,6 @@ import (
 	"github.com/golang/groupcache"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/buffer"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -133,8 +132,8 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 				retErr = err
 			}
 		}()
-		buf := buffer.Get()
-		defer buffer.Put(buf)
+		buf := grpcutil.GetBuffer()
+		defer grpcutil.PutBuffer(buf)
 		size, err = io.CopyBuffer(w, r, buf)
 		if err != nil {
 			return err
