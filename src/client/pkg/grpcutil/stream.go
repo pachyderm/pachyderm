@@ -5,8 +5,6 @@ import (
 	"io"
 
 	"github.com/gogo/protobuf/types"
-
-	"github.com/pachyderm/pachyderm/src/client/pkg/buffer"
 )
 
 var (
@@ -85,8 +83,8 @@ func (s *streamingBytesWriter) Write(p []byte) (int, error) {
 
 // WriteToStreamingBytesServer writes the data from the io.Reader to the StreamingBytesServer.
 func WriteToStreamingBytesServer(reader io.Reader, streamingBytesServer StreamingBytesServer) error {
-	buf := buffer.Get()
-	defer buffer.Put(buf)
+	buf := GetBuffer()
+	defer PutBuffer(buf)
 	_, err := io.CopyBuffer(NewStreamingBytesWriter(streamingBytesServer), reader, buf)
 	return err
 }
