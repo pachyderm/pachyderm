@@ -320,11 +320,11 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 	var err error
 	if request.Pipeline != nil {
 		iter, err = jobs.GetByIndex(jobsPipelineIndex, request.Pipeline)
-		if err != nil {
-			return nil, err
-		}
 	} else {
 		iter, err = jobs.List()
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	var jobInfos []*pps.JobInfo
@@ -501,11 +501,14 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				logBytes := scanner.Bytes()
 				msg := new(pps.LogMessage)
 				if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
+					protolion.Errorf("Error parsing log message: %+v", err)
+					msg.Message = string(logBytes)
 					select {
-					case errCh <- err:
+					case logChs[i] <- msg:
 					case <-done:
+						return
 					}
-					return
+					continue
 				}
 
 				// Filter out log lines that don't match on pipeline or job
@@ -1604,14 +1607,14 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					case workerpkg.WorkerClient:
 						workerClient = clientOrErr
 					case error:
-						return clientOrErr
+						return fmt.Errorf("error from connection pool: %v", clientOrErr)
 					}
 					resp, err := workerClient.Process(ctx, &workerpkg.ProcessRequest{
 						JobID: jobInfo.Job.ID,
 						Data:  files,
 					})
 					if err != nil {
-						return err
+						return fmt.Errorf("Process() call failed: %v", err)
 					}
 					// We only return workerClient if we made a successful call
 					// to Process
@@ -1636,6 +1639,11 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					defer treeMu.Unlock()
 					return tree.Merge(subTree)
 				}, b, func(err error, d time.Duration) error {
+					select {
+					case <-ctx.Done():
+						return err
+					default:
+					}
 					if userCodeFailures > MaximumRetriesPerDatum {
 						protolion.Errorf("job %s failed to process datum %+v %d times failing", jobID, files, userCodeFailures)
 						failed = true
@@ -1798,9 +1806,14 @@ func parseResourceList(resources *pps.ResourceSpec) (*api.ResourceList, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not parse memory quantity: %s", err)
 	}
+	gpuQuantity, err := resource.ParseQuantity(fmt.Sprintf("%d", resources.Gpu))
+	if err != nil {
+		return nil, fmt.Errorf("could not parse gpu quantity: %s", err)
+	}
 	var result api.ResourceList = map[api.ResourceName]resource.Quantity{
-		api.ResourceCPU:    cpuQuantity,
-		api.ResourceMemory: memQuantity,
+		api.ResourceCPU:       cpuQuantity,
+		api.ResourceMemory:    memQuantity,
+		api.ResourceNvidiaGPU: gpuQuantity,
 	}
 	return &result, nil
 }
