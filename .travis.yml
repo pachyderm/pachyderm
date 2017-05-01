@@ -28,9 +28,9 @@ before_script:
 - docker version
 
 # Install any deps used by our "batch test" cron
-- ./etc/build/travis_install_deps.sh
+- ./etc/testing/travis_install_deps.sh
 script:
 - make lint
-- travis_wait 30 ./etc/build/travis.sh
+- travis_wait 30 ./etc/testing/travis.sh
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
