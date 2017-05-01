@@ -679,7 +679,7 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 	cpu := resource.MustParse(opts.EtcdCPURequest)
 	initialCluster := make([]string, 0, opts.EtcdNodes)
 	for i := 0; i < opts.EtcdNodes; i++ {
-		url := fmt.Sprintf("http://etcd-%d.etcd-headless.default.svc.cluster.local:2380", i)
+		url := fmt.Sprintf("http://etcd-%d.etcd-headless.${NAMESPACE}.svc.cluster.local:2380", i)
 		initialCluster = append(initialCluster, fmt.Sprintf("etcd-%d=%s", i, url))
 	}
 	// Because we need to refer to some environment variables set the by the
@@ -692,7 +692,7 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 		"--listen-peer-urls=http://0.0.0.0:2380",
 		"--data-dir=/var/data/etcd",
 		"--initial-cluster-token=pach-cluster", // unique ID
-		"--initial-advertise-peer-urls=http://${ETCD_NAME}.etcd-headless.default.svc.cluster.local:2380",
+		"--initial-advertise-peer-urls=http://${ETCD_NAME}.etcd-headless.${NAMESPACE}.svc.cluster.local:2380",
 		"--initial-cluster=" + strings.Join(initialCluster, ","),
 	}
 	for i, str := range etcdCmd {
@@ -778,6 +778,14 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 									"fieldRef": map[string]interface{}{
 										"apiVersion": "v1",
 										"fieldPath":  "metadata.name",
+									},
+								},
+							}, {
+								"name": "NAMESPACE",
+								"valueFrom": map[string]interface{}{
+									"fieldRef": map[string]interface{}{
+										"apiVersion": "v1",
+										"fieldPath":  "metadata.namespace",
 									},
 								},
 							}},
