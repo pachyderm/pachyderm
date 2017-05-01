@@ -8,7 +8,6 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/buffer"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 )
 
@@ -363,8 +362,8 @@ func (c APIClient) PutObject(r io.Reader, tags ...string) (object *pfs.Object, _
 			object = w.object
 		}
 	}()
-	buf := buffer.Get()
-	defer buffer.Put(buf)
+	buf := grpcutil.GetBuffer()
+	defer grpcutil.PutBuffer(buf)
 	written, err := io.CopyBuffer(w, r, buf)
 	if err != nil {
 		return nil, 0, sanitizeErr(err)

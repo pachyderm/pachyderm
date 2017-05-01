@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/buffer"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 
 	"github.com/Azure/azure-sdk-for-go/storage"
 )
@@ -137,8 +137,8 @@ func (w *microsoftWriter) Write(b []byte) (int, error) {
 	}
 
 	inputSourceReader := bytes.NewReader(b)
-	chunk := buffer.Get()
-	defer buffer.Put(chunk)
+	chunk := grpcutil.GetBuffer()
+	defer grpcutil.PutBuffer(chunk)
 	for {
 		n, err := inputSourceReader.Read(chunk)
 		if err == io.EOF {
