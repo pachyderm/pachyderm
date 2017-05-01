@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -35,6 +36,10 @@ const (
 	// The maximum number of concurrent download/upload operations
 	concurrency = 100
 	maxLogItems = 10
+)
+
+var (
+	errSpecialFile = errors.New("cannot upload special file")
 )
 
 // APIServer implements the worker API
@@ -196,7 +201,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	if err != nil {
 		logger.Logf("user code finished, err: %+v", err)
 	} else {
-		logger.Logf("user code finished", err)
+		logger.Logf("user code finished")
 	}
 
 	// Return result
@@ -217,7 +222,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 
 }
 
-func (a *APIServer) uploadOutput(ctx context.Context, tag string) error {
+func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *taggedLogger) error {
 	// hashtree is not thread-safe--guard with 'lock'
 	var lock sync.Mutex
 	tree := hashtree.NewHashTree()
@@ -247,6 +252,15 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string) error {
 				defer lock.Unlock()
 				tree.PutDir(relPath)
 				return nil
+			}
+
+			// Under some circumstances, the user might have copied
+			// some pipes from the input directory to the output directory.
+			// Reading from these files will result in job blocking.  Thus
+			// we preemptively detect if the file is a special file.
+			if (info.Mode() & os.ModeType) > 0 {
+				logger.Logf("cannot upload special file: %v", relPath)
+				return errSpecialFile
 			}
 
 			f, err := os.Open(path)
@@ -472,7 +486,16 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 			Failed: true,
 		}, nil
 	}
-	if err := a.uploadOutput(ctx, tag); err != nil {
+	if err := a.uploadOutput(ctx, tag, logger); err != nil {
+		// If uploading failed because the user program outputed a special
+		// file, then there's no point in retrying.  Thus we signal that
+		// there's some problem with the user code so the job doesn't
+		// infinitely retry to process this datum.
+		if err == errSpecialFile {
+			return &ProcessResponse{
+				Failed: true,
+			}, nil
+		}
 		return nil, err
 	}
 	return &ProcessResponse{
