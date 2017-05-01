@@ -15,12 +15,13 @@ var bufPool = sync.Pool{
 	},
 }
 
-// Get returns a buffer.  The buffer may or may not be freshly allocated.
+// GetBuffer returns a buffer.  The buffer may or may not be freshly
+// allocated.
 func GetBuffer() []byte {
 	return bufPool.Get().([]byte)
 }
 
-// Put returns the buffer to the pool.
+// PutBuffer returns the buffer to the pool.
 func PutBuffer(buf []byte) {
 	bufPool.Put(buf)
 }
