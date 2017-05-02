@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+
 	"github.com/Azure/azure-sdk-for-go/storage"
 )
 
@@ -134,9 +136,9 @@ func (w *microsoftWriter) Write(b []byte) (int, error) {
 		amendList = append(amendList, storage.Block{v.Name, storage.BlockStatusCommitted})
 	}
 
-	var chunkSize = storage.MaxBlobBlockSize
 	inputSourceReader := bytes.NewReader(b)
-	chunk := make([]byte, chunkSize)
+	chunk := grpcutil.GetBuffer()
+	defer grpcutil.PutBuffer(chunk)
 	for {
 		n, err := inputSourceReader.Read(chunk)
 		if err == io.EOF {
