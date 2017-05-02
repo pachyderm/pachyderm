@@ -2,12 +2,10 @@
 package sync
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"sync"
-	"sync/atomic"
 	"syscall"
 
 	pachclient "github.com/pachyderm/pachyderm/src/client"
@@ -79,12 +77,10 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 			go func() {
 				defer p.wg.Done()
 				if err := func() (retErr error) {
-					fmt.Printf("Waiting to write to pipe: %s\n", path)
 					f, err := os.OpenFile(path, os.O_WRONLY, os.ModeNamedPipe)
 					if err != nil {
 						return err
 					}
-					fmt.Printf("Reader has connected to pipe: %s\n", path)
 					defer func() {
 						if err := f.Close(); err != nil && retErr == nil {
 							retErr = err
@@ -99,11 +95,9 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 						delete(p.pipes, path)
 						return p.cleaned
 					}() {
-						fmt.Printf("Pipe %s has been cleaned up\n", path)
 						return nil
 					}
 
-					fmt.Printf("Getting file for pipe %s\n", path)
 					return client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, f)
 				}(); err != nil {
 					select {
@@ -183,7 +177,6 @@ func Push(client *pachclient.APIClient, root string, commit *pfs.Commit, overwri
 				return nil
 			}
 
-			fmt.Printf("About to upload file: %s\n", path)
 			f, err := os.Open(path)
 			if err != nil {
 				return err
@@ -205,11 +198,7 @@ func Push(client *pachclient.APIClient, root string, commit *pfs.Commit, overwri
 				}
 			}
 
-			fmt.Printf("Calling PutFile for %s\n", path)
-			cw := &countWriter{}
-			tee := io.TeeReader(f, cw)
-			_, err = client.PutFile(commit.Repo.Name, commit.ID, relPath, tee)
-			fmt.Printf("Wrote %d bytes for %s\n", cw.count, path)
+			_, err = client.PutFile(commit.Repo.Name, commit.ID, relPath, f)
 			return err
 		})
 		return nil
@@ -218,16 +207,6 @@ func Push(client *pachclient.APIClient, root string, commit *pfs.Commit, overwri
 	}
 
 	return g.Wait()
-}
-
-// countWriter increments a counter by the number of bytes given
-type countWriter struct {
-	count int64
-}
-
-func (w *countWriter) Write(p []byte) (int, error) {
-	atomic.AddInt64(&w.count, int64(len(p)))
-	return len(p), nil
 }
 
 // PushObj pushes data from commit to an object store.
