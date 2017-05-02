@@ -40,12 +40,9 @@ const (
 	PPSOutputPath = "/pfs/out"
 	// PPSWorkerPort is the port that workers use for their gRPC server
 	PPSWorkerPort = 80
-	// PPSHostPath is the hostpath that a PPS worker uses to store
-	// input/output data.
-	PPSHostPath = "/var/pachyderm_worker"
-	// PPSHostPathVolume is the name of the volume that uses the
-	// aforementioned hostpath.
-	PPSHostPathVolume = "pachyderm-worker"
+	// PPSWorkerVolume is the name of the volume in which workers store
+	// data.
+	PPSWorkerVolume = "pachyderm-worker"
 )
 
 // NewJobInput creates a pps.JobInput.
