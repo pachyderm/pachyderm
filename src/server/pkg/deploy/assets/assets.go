@@ -302,10 +302,6 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 									Value: fmt.Sprintf("pachyderm/worker:%s", opts.Version),
 								},
 								{
-									Name:  "WORKER_IMAGE_PULL_POLICY",
-									Value: "IfNotPresent",
-								},
-								{
 									Name:  "PACHD_VERSION",
 									Value: opts.Version,
 								},
