@@ -522,6 +522,16 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 			Failed: true,
 		}, nil
 	}
+	// CleanUp is idempotent so we can call it however many times we want.
+	// The reason we are calling it here is that the puller could've
+	// encountered an error as it was lazily loading files, in which case
+	// the output might be invalid since as far as the user's code is
+	// concerned, they might've just seen an empty or partially completed
+	// file.
+	if err := puller.CleanUp(); err != nil {
+		logger.Logf("puller encountered an error while cleaning up: %+v", err)
+		return nil, err
+	}
 	if err := a.uploadOutput(ctx, tag, logger); err != nil {
 		// If uploading failed because the user program outputed a special
 		// file, then there's no point in retrying.  Thus we signal that
