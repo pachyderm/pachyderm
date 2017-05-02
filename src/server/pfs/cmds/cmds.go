@@ -804,6 +804,7 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string, 
 	if source == "-" {
 		limiter.Acquire()
 		defer limiter.Release()
+		fmt.Println("Reading from STDIN:")
 		return putFile(os.Stdin)
 	}
 	// try parsing the filename as a url, if it is one do a PutFileURL
