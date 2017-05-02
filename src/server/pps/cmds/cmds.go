@@ -186,6 +186,9 @@ The increase the throughput of a job increase the Shard paremeter.
 			if err := jsonpb.UnmarshalNext(decoder, &request); err != nil {
 				return sanitizeErr(err)
 			}
+			if len(request.Inputs) != 0 {
+				fmt.Printf("WARNING: field `inputs` is deprecated, use `input` instead.\n")
+			}
 			if pushImages {
 				pushedImage, err := pushImage(registry, username, password, request.Transform.Image)
 				if err != nil {
@@ -455,6 +458,9 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					break
 				} else if err != nil {
 					return err
+				}
+				if len(request.Inputs) != 0 {
+					fmt.Printf("WARNING: field `inputs` is deprecated, use `input` instead.\n")
 				}
 				if pushImages {
 					pushedImage, err := pushImage(registry, username, password, request.Transform.Image)

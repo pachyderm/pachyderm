@@ -154,10 +154,10 @@ push-bench-images: install-bench
 	docker push pachyderm/pachd:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
 	docker tag pachyderm_worker pachyderm/worker:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
 	docker push pachyderm/worker:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
-	docker tag pachyderm_test pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "`
-	docker push pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "`
-	
-launch-bench: 
+	docker tag pachyderm_test pachyderm/bench:`git rev-list HEAD --max-count=1`
+	docker push pachyderm/bench:`git rev-list HEAD --max-count=1`
+
+launch-bench:
 	etc/deploy/aws.sh
 	until timeout 10s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	cat ~/.kube/config
@@ -171,7 +171,7 @@ install-bench: install
 run-bench:
 	kubectl scale --replicas=4 deploy/pachd
 	echo "waiting for pachd to scale up" && sleep 15
-	kubectl delete --ignore-not-found po/bench && kubectl run bench --image=pachyderm/bench:`git log | head -n 1 | cut -f 2 -d " "` --image-pull-policy=Always --restart=Never --attach=true -- ./test -test.v -test.bench=BenchmarkDaily -test.run=XXX
+	kubectl delete --ignore-not-found po/bench && kubectl run bench --image=pachyderm/bench:`git rev-list HEAD --max-count=1` --image-pull-policy=Always --restart=Never --attach=true -- ./test -test.v -test.bench=BenchmarkDaily -test.run=XXX
 
 clean-launch-bench:
 	if [ -e tmp/current-benchmark-cluster.txt ]; then \
