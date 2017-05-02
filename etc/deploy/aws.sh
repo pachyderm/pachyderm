@@ -7,7 +7,7 @@ parse_flags() {
   export AWS_REGION=us-east-1
   export AWS_AVAILABILITY_ZONE=us-east-1a
   export STATE_BUCKET=k8scom-state-store-pachyderm-${RANDOM}
-  local EXISTING_STATE_BUCKET='false'
+  local USE_EXISTING_STATE_BUCKET='false'
 
   # Parse flags
   set -- $( getopt -l "state:,region:,zone:" "--" "${0}" "${@}" )
@@ -15,7 +15,7 @@ parse_flags() {
       case "${1}" in
           --state)
             export STATE_BUCKET="${2}"
-            EXISTING_STATE_BUCKET='true'
+            USE_EXISTING_STATE_BUCKET='true'
             ;;
           --region)
             export AWS_REGION="${2}"
@@ -30,7 +30,7 @@ parse_flags() {
       shift 2
   done
 
-  if [ "${EXISTING_STATE_BUCKET}" == 'false' ]; then
+  if [ "${USE_EXISTING_STATE_BUCKET}" == 'false' ]; then
     aws s3api create-bucket --bucket ${STATE_BUCKET} --region ${AWS_REGION}
   fi
 }
