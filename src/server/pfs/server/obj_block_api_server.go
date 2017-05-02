@@ -132,7 +132,9 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 				retErr = err
 			}
 		}()
-		size, err = io.CopyBuffer(w, r, make([]byte, bufferSize))
+		buf := grpcutil.GetBuffer()
+		defer grpcutil.PutBuffer(buf)
+		size, err = io.CopyBuffer(w, r, buf)
 		if err != nil {
 			return err
 		}

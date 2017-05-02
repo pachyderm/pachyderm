@@ -5,7 +5,12 @@ import "client/pfs/pfs.proto";
 import "client/pps/pps.proto";
 import "gogoproto/gogo.proto";
 import "google/protobuf/empty.proto";
-import "google/protobuf/timestamp.proto";
+
+message Input {
+  pfs.FileInfo file_info = 1;
+  string name = 2;
+  bool lazy = 3;
+}
 
 message ProcessRequest {
   // ID of the job for which we're processing 'data'. This is attached to logs
@@ -13,7 +18,7 @@ message ProcessRequest {
   string job_id = 2 [(gogoproto.customname) = "JobID"];
 
   // The datum to process
-  repeated pfs.FileInfo data = 1;
+  repeated Input data = 1;
 }
 
 // ProcessResponse contains a tag, only if the processing was successful.
