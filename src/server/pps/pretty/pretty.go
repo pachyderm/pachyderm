@@ -47,22 +47,15 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo) {
 func PrintPipelineHeader(w io.Writer) {
 	// because STATE is a colorful field it has to be at the end of the line,
 	// otherwise the terminal escape characters will trip up the tabwriter
-	fmt.Fprint(w, "NAME\tINPUT\tOUTPUT\tSTATE\t\n")
+	fmt.Fprint(w, "NAME\tINPUT\tOUTPUT\tCREATED\tSTATE\t\n")
 }
 
 // PrintPipelineInfo pretty-prints pipeline info.
 func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo) {
 	fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
-	if len(pipelineInfo.Inputs) == 0 {
-		fmt.Fprintf(w, "\t")
-	} else {
-		var inputNames []string
-		for _, input := range pipelineInfo.Inputs {
-			inputNames = append(inputNames, input.Name)
-		}
-		fmt.Fprintf(w, "%s\t", strings.Join(inputNames, ", "))
-	}
+	fmt.Fprintf(w, "%s\t", shorthandInput(pipelineInfo.Input))
 	fmt.Fprintf(w, "%s/%s\t", pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch)
+	fmt.Fprintf(w, "%s\t", pretty.Ago(pipelineInfo.CreatedAt))
 	fmt.Fprintf(w, "%s\t\n", pipelineState(pipelineInfo.State))
 }
 
@@ -137,8 +130,8 @@ ParallelismSpec: {{.ParallelismSpec}}
 {{ if .Service }}Service:
 	{{ if .Service.InternalPort }}InternalPort: {{ .Service.InternalPort }} {{end}}
 	{{ if .Service.ExternalPort }}ExternalPort: {{ .Service.ExternalPort }} {{end}} {{end}}
-Inputs:
-{{jobInputs .}}Transform:
+Input:
+{{jobInput .}}Transform:
 {{prettyTransform .Transform}} {{if .OutputCommit}}
 Output Commit: {{.OutputCommit.ID}} {{end}} {{ if .Egress }}
 Egress: {{.Egress.URL}} {{end}}
@@ -163,8 +156,8 @@ Parallelism Spec: {{.ParallelismSpec}}
 {{ if .ResourceSpec }}ResourceSpec:
 	CPU: {{ .ResourceSpec.Cpu }}
 	Memory: {{ .ResourceSpec.Memory }} {{end}}
-Inputs:
-{{pipelineInputs .}}
+Input:
+{{pipelineInput .}}
 Output Branch: {{.OutputBranch}}
 Transform:
 {{prettyTransform .Transform}}
@@ -215,16 +208,15 @@ func pipelineState(pipelineState ppsclient.PipelineState) string {
 	return "-"
 }
 
-func jobInputs(jobInfo *ppsclient.JobInfo) string {
-	var buffer bytes.Buffer
-	writer := tabwriter.NewWriter(&buffer, 20, 1, 3, ' ', 0)
-	PrintJobInputHeader(writer)
-	for _, input := range jobInfo.Inputs {
-		PrintJobInput(writer, input)
+func jobInput(jobInfo *ppsclient.JobInfo) string {
+	if jobInfo.Input == nil {
+		return ""
 	}
-	// can't error because buffer can't error on Write
-	writer.Flush()
-	return buffer.String()
+	input, err := json.MarshalIndent(jobInfo.Input, "", "  ")
+	if err != nil {
+		fmt.Errorf("error marshalling input: %+v", err)
+	}
+	return string(input)
 }
 
 func workerStatus(jobInfo *ppsclient.JobInfo) string {
@@ -239,16 +231,15 @@ func workerStatus(jobInfo *ppsclient.JobInfo) string {
 	return buffer.String()
 }
 
-func pipelineInputs(pipelineInfo *ppsclient.PipelineInfo) string {
-	var buffer bytes.Buffer
-	writer := tabwriter.NewWriter(&buffer, 20, 1, 3, ' ', 0)
-	PrintPipelineInputHeader(writer)
-	for _, input := range pipelineInfo.Inputs {
-		PrintPipelineInput(writer, input)
+func pipelineInput(pipelineInfo *ppsclient.PipelineInfo) string {
+	if pipelineInfo.Input == nil {
+		return ""
 	}
-	// can't error because buffer can't error on Write
-	writer.Flush()
-	return buffer.String()
+	input, err := json.MarshalIndent(pipelineInfo.Input, "", "  ")
+	if err != nil {
+		fmt.Errorf("error marshalling input: %+v", err)
+	}
+	return string(input)
 }
 
 func jobCounts(counts map[int32]int32) string {
@@ -267,12 +258,32 @@ func prettyTransform(transform *ppsclient.Transform) (string, error) {
 	return pretty.UnescapeHTML(string(result)), nil
 }
 
+func shorthandInput(input *ppsclient.Input) string {
+	switch {
+	case input.Atom != nil:
+		return fmt.Sprintf("%s:%s", input.Atom.Commit.Repo.Name, input.Atom.Glob)
+	case input.Cross != nil:
+		var subInput []string
+		for _, input := range input.Cross.Input {
+			subInput = append(subInput, shorthandInput(input))
+		}
+		return "(" + strings.Join(subInput, " ⨯ ") + ")"
+	case input.Union != nil:
+		var subInput []string
+		for _, input := range input.Union.Input {
+			subInput = append(subInput, shorthandInput(input))
+		}
+		return "(" + strings.Join(subInput, " ∪ ") + ")"
+	}
+	return ""
+}
+
 var funcMap = template.FuncMap{
 	"pipelineState":   pipelineState,
 	"jobState":        jobState,
 	"workerStatus":    workerStatus,
-	"pipelineInputs":  pipelineInputs,
-	"jobInputs":       jobInputs,
+	"pipelineInput":   pipelineInput,
+	"jobInput":        jobInput,
 	"prettyAgo":       pretty.Ago,
 	"prettyDuration":  pretty.Duration,
 	"jobCounts":       jobCounts,

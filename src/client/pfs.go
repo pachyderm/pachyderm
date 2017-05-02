@@ -362,7 +362,9 @@ func (c APIClient) PutObject(r io.Reader, tags ...string) (object *pfs.Object, _
 			object = w.object
 		}
 	}()
-	written, err := io.CopyBuffer(w, r, make([]byte, grpcutil.MaxMsgSize/2))
+	buf := grpcutil.GetBuffer()
+	defer grpcutil.PutBuffer(buf)
+	written, err := io.CopyBuffer(w, r, buf)
 	if err != nil {
 		return nil, 0, sanitizeErr(err)
 	}
