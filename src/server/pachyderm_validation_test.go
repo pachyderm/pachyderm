@@ -4,7 +4,7 @@ import (
 	"path"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 )
@@ -36,12 +36,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{{
-			Name:   "out",
-			Repo:   &pfs.Repo{Name: dataRepo},
-			Branch: "master",
-			Glob:   "/*",
-		}},
+		client.NewAtomInputOpts("out", dataRepo, "", "/*", false, ""),
 		"master",
 		false,
 	)
@@ -58,11 +53,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{{
-			Name:   "input",
-			Repo:   &pfs.Repo{Name: dataRepo},
-			Branch: "master",
-		}},
+		client.NewAtomInputOpts("input", dataRepo, "", "", false, ""),
 		"master",
 		false,
 	)
@@ -87,14 +78,7 @@ func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{
-			{
-				Name:   "whatever",
-				Branch: "master",
-				Glob:   "/*",
-				Repo:   &pfs.Repo{Name: "nonexistent"},
-			},
-		},
+		client.NewAtomInputOpts("whatever", "nonexistent", "", "/*", false, ""),
 		"master",
 		false,
 	))
@@ -120,12 +104,7 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{
-			{
-				Glob: "/*",
-				Repo: &pfs.Repo{Name: dataRepo},
-			},
-		},
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -139,12 +118,7 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{
-			{
-				Glob: "/*",
-				Repo: &pfs.Repo{Name: dataRepo},
-			},
-		},
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
