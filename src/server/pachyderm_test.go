@@ -64,10 +64,7 @@ func TestPipelineWithParallelism(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 4,
 		},
-		[]*pps.PipelineInput{{
-			Repo: &pfs.Repo{Name: dataRepo},
-			Glob: "/*",
-		}},
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -109,10 +106,7 @@ func TestDatumDedup(t *testing.T) {
 			"sleep 10",
 		},
 		nil,
-		[]*pps.PipelineInput{{
-			Repo: &pfs.Repo{Name: dataRepo},
-			Glob: "/*",
-		}},
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -163,10 +157,7 @@ func TestPipelineInputDataModification(t *testing.T) {
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 		},
 		nil,
-		[]*pps.PipelineInput{{
-			Repo: &pfs.Repo{Name: dataRepo},
-			Glob: "/*",
-		}},
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -228,9 +219,6 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 	dataRepo := uniqueString("TestMultipleInputsFromTheSameBranch_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	dirA := "dirA"
-	dirB := "dirB"
-
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(dataRepo, commit1.ID, "dirA/file", strings.NewReader("foo\n"))
@@ -245,19 +233,14 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			fmt.Sprintf("cat /pfs/%s/%s/file >> /pfs/out/file", dirA, dirA),
-			fmt.Sprintf("cat /pfs/%s/%s/file >> /pfs/out/file", dirB, dirB),
+			fmt.Sprintf("cat /pfs/dirA/dirA/file >> /pfs/out/file"),
+			fmt.Sprintf("cat /pfs/dirB/dirB/file >> /pfs/out/file"),
 		},
 		nil,
-		[]*pps.PipelineInput{{
-			Name: dirA,
-			Repo: &pfs.Repo{Name: dataRepo},
-			Glob: "/dirA/*",
-		}, {
-			Name: dirB,
-			Repo: &pfs.Repo{Name: dataRepo},
-			Glob: "/dirB/*",
-		}},
+		client.NewCrossInput(
+			client.NewAtomInputOpts("dirA", dataRepo, "", "/dirA/*", false, ""),
+			client.NewAtomInputOpts("dirB", dataRepo, "", "/dirB/*", false, ""),
+		),
 		"",
 		false,
 	))
@@ -343,15 +326,10 @@ func TestMultipleInputsFromTheSameRepo(t *testing.T) {
 			fmt.Sprintf("cat /pfs/%s/file > /pfs/out/file", dataRepo),
 		},
 		nil,
-		[]*pps.PipelineInput{{
-			Repo:   &pfs.Repo{Name: dataRepo},
-			Branch: branchA,
-			Glob:   "/*",
-		}, {
-			Repo:   &pfs.Repo{Name: dataRepo},
-			Branch: branchB,
-			Glob:   "/*",
-		}},
+		client.NewCrossInput(
+			client.NewAtomInputOpts("", dataRepo, branchA, "/*", false, ""),
+			client.NewAtomInputOpts("", dataRepo, branchB, "/*", false, ""),
+		),
 		"",
 		false,
 	))
@@ -365,17 +343,10 @@ func TestMultipleInputsFromTheSameRepo(t *testing.T) {
 			fmt.Sprintf("cat /pfs/%s/file >> /pfs/out/file", branchB),
 		},
 		nil,
-		[]*pps.PipelineInput{{
-			Name:   branchA,
-			Repo:   &pfs.Repo{Name: dataRepo},
-			Branch: branchA,
-			Glob:   "/*",
-		}, {
-			Name:   branchB,
-			Repo:   &pfs.Repo{Name: dataRepo},
-			Branch: branchB,
-			Glob:   "/*",
-		}},
+		client.NewCrossInput(
+			client.NewAtomInputOpts(branchA, dataRepo, branchA, "/*", false, ""),
+			client.NewAtomInputOpts(branchB, dataRepo, branchB, "/*", false, ""),
+		),
 		"",
 		false,
 	))
@@ -452,17 +423,10 @@ func TestMultipleInputsFromTheSameRepo(t *testing.T) {
 			fmt.Sprintf("cat /pfs/%s/file >> /pfs/out/file", branchB),
 		},
 		nil,
-		[]*pps.PipelineInput{{
-			Name:   branchA,
-			Repo:   &pfs.Repo{Name: dataRepo},
-			Branch: branchA,
-			Glob:   "/*",
-		}, {
-			Name:   branchB,
-			Repo:   &pfs.Repo{Name: dataRepo},
-			Branch: branchB,
-			Glob:   "/*",
-		}},
+		client.NewCrossInput(
+			client.NewAtomInputOpts(branchA, dataRepo, branchA, "/*", false, ""),
+			client.NewAtomInputOpts(branchB, dataRepo, branchB, "/*", false, ""),
+		),
 		"",
 		false,
 	))
@@ -603,10 +567,7 @@ func TestPipelineFailure(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{{
-			Repo: &pfs.Repo{Name: dataRepo},
-			Glob: "/*",
-		}},
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -640,11 +601,7 @@ func TestLazyPipelinePropagation(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{{
-			Repo: &pfs.Repo{Name: dataRepo},
-			Lazy: true,
-			Glob: "/*",
-		}},
+		client.NewAtomInputOpts("", dataRepo, "", "/*", true, ""),
 		"",
 		false,
 	))
@@ -658,11 +615,7 @@ func TestLazyPipelinePropagation(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{{
-			Repo: &pfs.Repo{Name: pipelineA},
-			Glob: "/*",
-			Lazy: true,
-		}},
+		client.NewAtomInputOpts("", pipelineA, "", "/*", true, ""),
 		"",
 		false,
 	))
@@ -680,11 +633,13 @@ func TestLazyPipelinePropagation(t *testing.T) {
 	jobInfos, err := c.ListJob(pipelineA, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
-	require.Equal(t, true, jobInfos[0].Inputs[0].Lazy)
+	require.NotNil(t, jobInfos[0].Input.Atom)
+	require.Equal(t, true, jobInfos[0].Input.Atom.Lazy)
 	jobInfos, err = c.ListJob(pipelineB, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
-	require.Equal(t, true, jobInfos[0].Inputs[0].Lazy)
+	require.NotNil(t, jobInfos[0].Input.Atom)
+	require.Equal(t, true, jobInfos[0].Input.Atom.Lazy)
 }
 
 func TestLazyPipeline(t *testing.T) {
@@ -825,10 +780,7 @@ func TestProvenance(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{{
-			Repo: client.NewRepo(aRepo),
-			Glob: "/*",
-		}},
+		client.NewAtomInput(aRepo, "/*"),
 		"",
 		false,
 	))
@@ -843,13 +795,10 @@ func TestProvenance(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{{
-			Repo: client.NewRepo(aRepo),
-			Glob: "/*",
-		}, {
-			Repo: client.NewRepo(bPipeline),
-			Glob: "/*",
-		}},
+		client.NewCrossInput(
+			client.NewAtomInput(aRepo, "/*"),
+			client.NewAtomInput(bPipeline, "/*"),
+		),
 		"",
 		false,
 	))
@@ -974,10 +923,7 @@ func TestFlushCommit(t *testing.T) {
 				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
-			[]*pps.PipelineInput{{
-				Repo: client.NewRepo(repo),
-				Glob: "/*",
-			}},
+			client.NewAtomInput(repo, "/*"),
 			"",
 			false,
 		))
@@ -1027,10 +973,7 @@ func TestFlushCommitAfterCreatePipeline(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{{
-			Repo: client.NewRepo(repo),
-			Glob: "/*",
-		}},
+		client.NewAtomInput(repo, "/*"),
 		"",
 		false,
 	))
@@ -1065,10 +1008,7 @@ func TestRecreatePipeline(t *testing.T) {
 				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
-			[]*pps.PipelineInput{{
-				Repo: client.NewRepo(repo),
-				Glob: "/*",
-			}},
+			client.NewAtomInput(repo, "/*"),
 			"",
 			false,
 		))
@@ -1111,10 +1051,7 @@ func TestDeletePipeline(t *testing.T) {
 				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
-			[]*pps.PipelineInput{{
-				Repo: client.NewRepo(repo),
-				Glob: "/*",
-			}},
+			client.NewAtomInput(repo, "/*"),
 			"",
 			false,
 		))
@@ -1165,10 +1102,7 @@ func TestPipelineState(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{{
-			Repo: client.NewRepo(repo),
-			Glob: "/*",
-		}},
+		client.NewAtomInput(repo, "/*"),
 		"",
 		false,
 	))
@@ -1213,10 +1147,7 @@ func TestPipelineJobCounts(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{{
-			Repo: client.NewRepo(repo),
-			Glob: "/*",
-		}},
+		client.NewAtomInput(repo, "/*"),
 		"",
 		false,
 	))
@@ -1355,10 +1286,7 @@ func TestPachdRestartResumesRunningJobs(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{{
-			Repo: &pfs.Repo{Name: dataRepo},
-			Glob: "/",
-		}},
+		client.NewAtomInput(dataRepo, "/"),
 		"",
 		false,
 	))
@@ -1491,10 +1419,7 @@ func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 		[]string{"sh"},
 		[]string{"exit 1"},
 		nil,
-		[]*pps.PipelineInput{{
-			Repo: &pfs.Repo{Name: dataRepo},
-			Glob: "/",
-		}},
+		client.NewAtomInput(dataRepo, "/"),
 		"",
 		false,
 	))
@@ -1515,10 +1440,7 @@ func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 		[]string{"sh"},
 		[]string{"exit 1"},
 		nil,
-		[]*pps.PipelineInput{{
-			Repo: &pfs.Repo{Name: dataRepo},
-			Glob: "/",
-		}},
+		client.NewAtomInput(dataRepo, "/"),
 		"",
 		true,
 	))
@@ -1590,10 +1512,7 @@ func TestRestartAll(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{{
-			Repo: &pfs.Repo{Name: dataRepo},
-			Glob: "/*",
-		}},
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -1645,10 +1564,7 @@ func TestRestartOne(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{{
-			Repo: &pfs.Repo{Name: dataRepo},
-			Glob: "/",
-		}},
+		client.NewAtomInput(dataRepo, "/"),
 		"",
 		false,
 	))
@@ -1756,10 +1672,7 @@ func TestDeleteAll(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{{
-			Repo: &pfs.Repo{Name: dataRepo},
-			Glob: "/",
-		}},
+		client.NewAtomInput(dataRepo, "/"),
 		"",
 		false,
 	))
@@ -1808,10 +1721,7 @@ func TestRecursiveCp(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{{
-			Repo: client.NewRepo(dataRepo),
-			Glob: "/*",
-		}},
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -1852,12 +1762,7 @@ func TestPipelineUniqueness(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{
-			{
-				Repo: &pfs.Repo{Name: repo},
-				Glob: "/",
-			},
-		},
+		client.NewAtomInput(repo, "/"),
 		"",
 		false,
 	))
@@ -1870,12 +1775,7 @@ func TestPipelineUniqueness(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{
-			{
-				Repo: &pfs.Repo{Name: repo},
-				Glob: "/",
-			},
-		},
+		client.NewAtomInput(repo, "/"),
 		"",
 		false,
 	)
@@ -2110,10 +2010,7 @@ func TestStopPipeline(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{{
-			Repo: &pfs.Repo{Name: dataRepo},
-			Glob: "/*",
-		}},
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -2298,12 +2195,7 @@ func TestPipelineWithFullObjects(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{
-			{
-				Repo: client.NewRepo(dataRepo),
-				Glob: "/*",
-			},
-		},
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -2370,10 +2262,7 @@ func TestChainedPipelines(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{{
-			Repo: client.NewRepo(aRepo),
-			Glob: "/",
-		}},
+		client.NewAtomInput(aRepo, "/"),
 		"",
 		false,
 	))
@@ -2389,13 +2278,10 @@ func TestChainedPipelines(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{{
-			Repo: client.NewRepo(bPipeline),
-			Glob: "/",
-		}, {
-			Repo: client.NewRepo(dRepo),
-			Glob: "/",
-		}},
+		client.NewCrossInput(
+			client.NewAtomInput(bPipeline, "/"),
+			client.NewAtomInput(dRepo, "/"),
+		),
 		"",
 		false,
 	))
@@ -2439,10 +2325,7 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{{
-			Repo: client.NewRepo(aRepo),
-			Glob: "/",
-		}},
+		client.NewAtomInput(aRepo, "/"),
 		"",
 		false,
 	))
@@ -2458,13 +2341,10 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{{
-			Repo: client.NewRepo(bPipeline),
-			Glob: "/",
-		}, {
-			Repo: client.NewRepo(eRepo),
-			Glob: "/",
-		}},
+		client.NewCrossInput(
+			client.NewAtomInput(bPipeline, "/"),
+			client.NewAtomInput(eRepo, "/"),
+		),
 		"",
 		false,
 	))
@@ -2480,10 +2360,7 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{{
-			Repo: client.NewRepo(cPipeline),
-			Glob: "/",
-		}},
+		client.NewAtomInput(cPipeline, "/"),
 		"",
 		false,
 	))
@@ -2593,11 +2470,7 @@ func TestPipelineJobDeletion(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{{
-			Name: dataRepo,
-			Repo: &pfs.Repo{Name: dataRepo},
-			Glob: "/",
-		}},
+		client.NewAtomInput(dataRepo, "/"),
 		"",
 		false,
 	))
@@ -2643,11 +2516,7 @@ func TestStopJob(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{{
-			Name: dataRepo,
-			Repo: &pfs.Repo{Name: dataRepo},
-			Glob: "/",
-		}},
+		client.NewAtomInput(dataRepo, "/"),
 		"",
 		false,
 	))
@@ -2715,11 +2584,7 @@ func TestGetLogs(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		[]*pps.PipelineInput{{
-			Name: dataRepo,
-			Repo: &pfs.Repo{Name: dataRepo},
-			Glob: "/*",
-		}},
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -2902,15 +2767,10 @@ func TestAllDatumsAreProcessed(t *testing.T) {
 			fmt.Sprintf("cat /pfs/%s/* /pfs/%s/* > /pfs/out/file", dataRepo1, dataRepo2),
 		},
 		nil,
-		[]*pps.PipelineInput{{
-			Repo:   &pfs.Repo{Name: dataRepo1},
-			Branch: "master",
-			Glob:   "/*",
-		}, {
-			Repo:   &pfs.Repo{Name: dataRepo2},
-			Branch: "master",
-			Glob:   "/*",
-		}},
+		client.NewCrossInput(
+			client.NewAtomInput(dataRepo1, "/*"),
+			client.NewAtomInput(dataRepo2, "/*"),
+		),
 		"",
 		false,
 	))
@@ -2952,10 +2812,7 @@ func TestDatumStatusRestart(t *testing.T) {
 			"sleep 20",
 		},
 		nil,
-		[]*pps.PipelineInput{{
-			Repo: &pfs.Repo{Name: dataRepo},
-			Glob: "/*",
-		}},
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -3034,10 +2891,7 @@ func TestUseMultipleWorkers(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 2,
 		},
-		[]*pps.PipelineInput{{
-			Repo: &pfs.Repo{Name: dataRepo},
-			Glob: "/*",
-		}},
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -3309,10 +3163,7 @@ func TestPipelineLargeOutput(t *testing.T) {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 4,
 		},
-		[]*pps.PipelineInput{{
-			Repo: &pfs.Repo{Name: dataRepo},
-			Glob: "/*",
-		}},
+		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -3321,6 +3172,155 @@ func TestPipelineLargeOutput(t *testing.T) {
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 1, len(commitInfos))
+}
+
+func TestUnionInput(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	var repos []string
+	for i := 0; i < 4; i++ {
+		repos = append(repos, uniqueString("TestUnionInput"))
+		require.NoError(t, c.CreateRepo(repos[i]))
+	}
+
+	numFiles := 2
+	var commits []*pfs.Commit
+	for _, repo := range repos {
+		commit, err := c.StartCommit(repo, "master")
+		require.NoError(t, err)
+		commits = append(commits, commit)
+		for i := 0; i < numFiles; i++ {
+			_, err = c.PutFile(repo, "master", fmt.Sprintf("file-%d", i), strings.NewReader(fmt.Sprintf("%d", i)))
+		}
+		require.NoError(t, c.FinishCommit(repo, "master"))
+	}
+
+	t.Run("union all", func(t *testing.T) {
+		pipeline := uniqueString("pipeline")
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{
+				"cp /pfs/*/* /pfs/out",
+			},
+			&pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			client.NewUnionInput(
+				client.NewAtomInput(repos[0], "/*"),
+				client.NewAtomInput(repos[1], "/*"),
+				client.NewAtomInput(repos[2], "/*"),
+				client.NewAtomInput(repos[3], "/*"),
+			),
+			"",
+			false,
+		))
+
+		commitIter, err := c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
+		require.NoError(t, err)
+		commitInfos := collectCommitInfos(t, commitIter)
+		require.Equal(t, 1, len(commitInfos))
+		outCommit := commitInfos[0].Commit
+		fileInfos, err := c.ListFile(outCommit.Repo.Name, outCommit.ID, "")
+		require.NoError(t, err)
+		require.Equal(t, 2, len(fileInfos))
+		for _, fi := range fileInfos {
+			// 1 byte per repo
+			require.Equal(t, fi.SizeBytes, uint64(len(repos)))
+		}
+	})
+
+	t.Run("union crosses", func(t *testing.T) {
+		pipeline := uniqueString("pipeline")
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{
+				"cp -r /pfs/TestUnionInput* /pfs/out",
+			},
+			&pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			client.NewUnionInput(
+				client.NewCrossInput(
+					client.NewAtomInput(repos[0], "/*"),
+					client.NewAtomInput(repos[1], "/*"),
+				),
+				client.NewCrossInput(
+					client.NewAtomInput(repos[2], "/*"),
+					client.NewAtomInput(repos[3], "/*"),
+				),
+			),
+			"",
+			false,
+		))
+
+		commitIter, err := c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
+		require.NoError(t, err)
+		commitInfos := collectCommitInfos(t, commitIter)
+		require.Equal(t, 1, len(commitInfos))
+		outCommit := commitInfos[0].Commit
+		for _, repo := range repos {
+			fileInfos, err := c.ListFile(outCommit.Repo.Name, outCommit.ID, repo)
+			require.NoError(t, err)
+			require.Equal(t, 2, len(fileInfos))
+			for _, fi := range fileInfos {
+				// each file should be seen twice
+				require.Equal(t, fi.SizeBytes, uint64(2))
+			}
+		}
+	})
+
+	t.Run("cross unions", func(t *testing.T) {
+		pipeline := uniqueString("pipeline")
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{
+				"cp -r /pfs/TestUnionInput* /pfs/out",
+			},
+			&pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			client.NewCrossInput(
+				client.NewUnionInput(
+					client.NewAtomInput(repos[0], "/*"),
+					client.NewAtomInput(repos[1], "/*"),
+				),
+				client.NewUnionInput(
+					client.NewAtomInput(repos[2], "/*"),
+					client.NewAtomInput(repos[3], "/*"),
+				),
+			),
+			"",
+			false,
+		))
+
+		commitIter, err := c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
+		require.NoError(t, err)
+		commitInfos := collectCommitInfos(t, commitIter)
+		require.Equal(t, 1, len(commitInfos))
+		outCommit := commitInfos[0].Commit
+		for _, repo := range repos {
+			fileInfos, err := c.ListFile(outCommit.Repo.Name, outCommit.ID, repo)
+			require.NoError(t, err)
+			require.Equal(t, 2, len(fileInfos))
+			for _, fi := range fileInfos {
+				// each file should be seen twice
+				require.Equal(t, fi.SizeBytes, uint64(4))
+			}
+		}
+	})
 }
 
 func restartAll(t *testing.T) {

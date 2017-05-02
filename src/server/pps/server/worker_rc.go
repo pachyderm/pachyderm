@@ -268,7 +268,9 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 		},
 	}
 	if _, err := a.kubeClient.ReplicationControllers(a.namespace).Create(rc); err != nil {
-		return err
+		if !isAlreadyExistsErr(err) {
+			return err
+		}
 	}
 
 	service := &api.Service{
@@ -292,7 +294,9 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 	}
 
 	if _, err := a.kubeClient.Services(a.namespace).Create(service); err != nil {
-		return err
+		if !isAlreadyExistsErr(err) {
+			return err
+		}
 	}
 
 	return nil

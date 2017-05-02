@@ -29,6 +29,7 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/rpclog"
@@ -165,30 +166,180 @@ type apiServer struct {
 	jobs      col.Collection
 }
 
-func (a *apiServer) validateJob(ctx context.Context, jobInfo *pps.JobInfo) error {
-	for _, in := range jobInfo.Inputs {
-		switch {
-		case len(in.Name) == 0:
-			return fmt.Errorf("every job input must specify a name")
-		case in.Name == "out":
-			return fmt.Errorf("no job input may be named \"out\", as pachyderm " +
-				"already creates /pfs/out to collect job output")
-		case in.Commit == nil:
-			return fmt.Errorf("every job input must specify a commit")
+func (a *apiServer) validateInput(ctx context.Context, input *pps.Input, job bool) error {
+	names := make(map[string]bool)
+	var result error
+	visit(input, func(input *pps.Input) {
+		set := false
+		if input.Atom != nil {
+			set = true
+			switch {
+			case len(input.Atom.Name) == 0:
+				result = fmt.Errorf("input must specify a name")
+				return
+			case input.Atom.Name == "out":
+				result = fmt.Errorf("input cannot be named \"out\", as pachyderm " +
+					"already creates /pfs/out to collect job output")
+				return
+			case input.Atom.Commit == nil:
+				result = fmt.Errorf("input must specify a commit")
+				return
+			case len(input.Atom.Commit.ID) == 0:
+				if job {
+					result = fmt.Errorf("input must specify a commit ID")
+				} else {
+					result = fmt.Errorf("input must specify a branch")
+				}
+				return
+			case len(input.Atom.Glob) == 0:
+				result = fmt.Errorf("input must specify a glob")
+				return
+			}
+			if _, ok := names[input.Atom.Name]; ok {
+				result = fmt.Errorf("conflicting input names: %s", input.Atom.Name)
+				return
+			}
+			names[input.Atom.Name] = true
+			pfsClient, err := a.getPFSClient()
+			if err != nil {
+				result = err
+				return
+			}
+			if job {
+				// for jobs we check that the input commit exists
+				_, err = pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+					Commit: input.Atom.Commit,
+				})
+				if err != nil {
+					result = err
+					return
+				}
+			} else {
+				// for pipelines we only check that the repo exists
+				_, err = pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{
+					Repo: input.Atom.Commit.Repo,
+				})
+				if err != nil {
+					result = err
+					return
+				}
+			}
 		}
-		// check that the input commit exists
-		pfsClient, err := a.getPFSClient()
-		if err != nil {
-			return err
+		if input.Cross != nil {
+			if set {
+				result = fmt.Errorf("multiple input types set")
+				return
+			}
+			set = true
 		}
-		_, err = pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-			Commit: in.Commit,
-		})
-		if err != nil {
-			return fmt.Errorf("commit %s not found: %s", in.Commit.FullID(), err)
+		if input.Union != nil {
+			if set {
+				result = fmt.Errorf("multiple input types set")
+				return
+			}
+			set = true
+		}
+		if !set {
+			result = fmt.Errorf("no input set")
+			return
+		}
+	})
+	return result
+}
+
+// visit each input recursively in ascending order (root last)
+func visit(input *pps.Input, f func(*pps.Input)) {
+	switch {
+	case input.Cross != nil:
+		for _, input := range input.Cross.Input {
+			visit(input, f)
+		}
+	case input.Union != nil:
+		for _, input := range input.Union.Input {
+			visit(input, f)
 		}
 	}
-	return nil
+	f(input)
+}
+
+func name(input *pps.Input) string {
+	switch {
+	case input.Atom != nil:
+		return input.Atom.Name
+	case input.Cross != nil:
+		if len(input.Cross.Input) == 0 {
+			return ""
+		}
+		return name(input.Cross.Input[0])
+	case input.Union != nil:
+		if len(input.Union.Input) == 0 {
+			return ""
+		}
+		return name(input.Union.Input[0])
+	}
+	return ""
+}
+
+func sortInput(input *pps.Input) {
+	visit(input, func(input *pps.Input) {
+		sortInputs := func(inputs []*pps.Input) {
+			sort.SliceStable(inputs, func(i, j int) bool { return name(inputs[i]) < name(inputs[j]) })
+		}
+		switch {
+		case input.Cross != nil:
+			sortInputs(input.Cross.Input)
+		case input.Union != nil:
+			sortInputs(input.Union.Input)
+		}
+	})
+}
+
+func inputCommits(input *pps.Input) []*pfs.Commit {
+	var result []*pfs.Commit
+	visit(input, func(input *pps.Input) {
+		if input.Atom != nil {
+			result = append(result, input.Atom.Commit)
+		}
+	})
+	return result
+}
+
+func (a *apiServer) validateJob(ctx context.Context, jobInfo *pps.JobInfo) error {
+	return a.validateInput(ctx, jobInfo.Input, true)
+}
+
+func translateJobInputs(inputs []*pps.JobInput) *pps.Input {
+	result := &pps.Input{Cross: &pps.CrossInput{}}
+	for _, input := range inputs {
+		result.Cross.Input = append(result.Cross.Input,
+			&pps.Input{
+				Atom: &pps.AtomInput{
+					Name:   input.Name,
+					Commit: input.Commit,
+					Glob:   input.Glob,
+					Lazy:   input.Lazy,
+				},
+			})
+	}
+	return result
+}
+
+func untranslateJobInputs(input *pps.Input) []*pps.JobInput {
+	var result []*pps.JobInput
+	if input.Cross != nil {
+		for _, input := range input.Cross.Input {
+			if input.Atom == nil {
+				return nil
+			}
+			result = append(result, &pps.JobInput{
+				Name:   input.Atom.Name,
+				Commit: input.Atom.Commit,
+				Glob:   input.Atom.Glob,
+				Lazy:   input.Atom.Lazy,
+			})
+		}
+	}
+	return result
 }
 
 func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, retErr error) {
@@ -197,15 +348,23 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreateJob")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
+	// First translate Inputs field to Input field.
+	if len(request.Inputs) > 0 {
+		if request.Input != nil {
+			return nil, fmt.Errorf("cannot set both Inputs and Input field")
+		}
+		request.Input = translateJobInputs(request.Inputs)
+	}
+
 	job := &pps.Job{uuid.NewWithoutUnderscores()}
-	sort.SliceStable(request.Inputs, func(i, j int) bool { return request.Inputs[i].Name < request.Inputs[j].Name })
+	sortInput(request.Input)
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		jobInfo := &pps.JobInfo{
 			Job:             job,
 			Transform:       request.Transform,
 			Pipeline:        request.Pipeline,
 			ParallelismSpec: request.ParallelismSpec,
-			Inputs:          request.Inputs,
+			Input:           request.Input,
 			OutputRepo:      request.OutputRepo,
 			OutputBranch:    request.OutputBranch,
 			Started:         now(),
@@ -286,6 +445,9 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	if err := jobs.Get(request.Job.ID, jobInfo); err != nil {
 		return nil, err
 	}
+	if jobInfo.Input == nil {
+		jobInfo.Input = translateJobInputs(jobInfo.Inputs)
+	}
 	// If the job is running we fill in WorkerStatus field, otherwise we just
 	// return the jobInfo.
 	if jobInfo.State != pps.JobState_JOB_RUNNING {
@@ -341,6 +503,9 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 		}
 		if !ok {
 			break
+		}
+		if jobInfo.Input == nil {
+			jobInfo.Input = translateJobInputs(jobInfo.Inputs)
 		}
 		jobInfos = append(jobInfos, &jobInfo)
 	}
@@ -558,40 +723,32 @@ nextLogCh:
 }
 
 func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
-	names := make(map[string]bool)
-	for _, in := range pipelineInfo.Inputs {
-		switch {
-		case len(in.Name) == 0:
-			return fmt.Errorf("every pipeline input must specify a name")
-		case in.Name == "out":
-			return fmt.Errorf("no pipeline input may be named \"out\", as pachyderm " +
-				"already creates /pfs/out to collect pipeline output")
-		case len(in.Branch) == 0:
-			return fmt.Errorf("every pipeline input must specify a branch")
-		case len(in.Glob) == 0:
-			return fmt.Errorf("every pipeline input must specify a glob")
-		}
-		// detect input name conflicts
-		if names[in.Name] {
-			return fmt.Errorf("conflicting input names: %s", in.Name)
-		}
-		names[in.Name] = true
-		// check that the input repo exists
-		pfsClient, err := a.getPFSClient()
-		if err != nil {
-			return err
-		}
-		_, err = pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{
-			Repo: in.Repo,
-		})
-		if err != nil {
-			return fmt.Errorf("repo %s not found: %s", in.Repo.Name, err)
-		}
-	}
+	return a.validateInput(ctx, pipelineInfo.Input, false)
 	if pipelineInfo.OutputBranch == "" {
 		return fmt.Errorf("pipeline needs to specify an output branch")
 	}
 	return nil
+}
+
+func translatePipelineInputs(inputs []*pps.PipelineInput) *pps.Input {
+	result := &pps.Input{Cross: &pps.CrossInput{}}
+	for _, input := range inputs {
+		var fromCommitID string
+		if input.From != nil {
+			fromCommitID = input.From.ID
+		}
+		result.Cross.Input = append(result.Cross.Input,
+			&pps.Input{
+				Atom: &pps.AtomInput{
+					Name:         input.Name,
+					Commit:       client.NewCommit(input.Repo.Name, input.Branch),
+					Glob:         input.Glob,
+					Lazy:         input.Lazy,
+					FromCommitID: fromCommitID,
+				},
+			})
+	}
+	return result
 }
 
 func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *types.Empty, retErr error) {
@@ -599,6 +756,13 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+	// First translate Inputs field to Input field.
+	if len(request.Inputs) > 0 {
+		if request.Input != nil {
+			return nil, fmt.Errorf("cannot set both Inputs and Input field")
+		}
+		request.Input = translatePipelineInputs(request.Inputs)
+	}
 
 	pipelineInfo := &pps.PipelineInfo{
 		ID:                 uuid.NewWithoutDashes(),
@@ -606,7 +770,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Version:            1,
 		Transform:          request.Transform,
 		ParallelismSpec:    request.ParallelismSpec,
-		Inputs:             request.Inputs,
+		Input:              request.Input,
 		OutputBranch:       request.OutputBranch,
 		Egress:             request.Egress,
 		CreatedAt:          now(),
@@ -625,7 +789,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 	pipelineName := pipelineInfo.Pipeline.Name
 
-	sort.SliceStable(pipelineInfo.Inputs, func(i, j int) bool { return pipelineInfo.Inputs[i].Name < pipelineInfo.Inputs[j].Name })
+	sortInput(pipelineInfo.Input)
 	if request.Update {
 		if _, err := a.StopPipeline(ctx, &pps.StopPipelineRequest{request.Pipeline}); err != nil {
 			return nil, err
@@ -691,8 +855,8 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	// row, some of which depend on the existence of the output repos
 	// of upstream pipelines.
 	var provenance []*pfs.Repo
-	for _, input := range pipelineInfo.Inputs {
-		provenance = append(provenance, input.Repo)
+	for _, commit := range inputCommits(pipelineInfo.Input) {
+		provenance = append(provenance, commit.Repo)
 	}
 
 	if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
@@ -707,15 +871,16 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 // setPipelineDefaults sets the default values for a pipeline info
 func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
-	for _, input := range pipelineInfo.Inputs {
-		// Input branches default to master
-		if input.Branch == "" {
-			input.Branch = "master"
+	visit(pipelineInfo.Input, func(input *pps.Input) {
+		if input.Atom != nil {
+			if input.Atom.Commit.ID == "" {
+				input.Atom.Commit.ID = "master"
+			}
+			if input.Atom.Name == "" {
+				input.Atom.Name = input.Atom.Commit.Repo.Name
+			}
 		}
-		if input.Name == "" {
-			input.Name = input.Repo.Name
-		}
-	}
+	})
 	if pipelineInfo.OutputBranch == "" {
 		// Output branches default to master
 		pipelineInfo.OutputBranch = "master"
@@ -731,6 +896,9 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 	pipelineInfo := new(pps.PipelineInfo)
 	if err := a.pipelines.ReadOnly(ctx).Get(request.Pipeline.Name, pipelineInfo); err != nil {
 		return nil, err
+	}
+	if pipelineInfo.Input == nil {
+		pipelineInfo.Input = translatePipelineInputs(pipelineInfo.Inputs)
 	}
 	return pipelineInfo, nil
 }
@@ -756,6 +924,9 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 			return nil, err
 		}
 		if ok {
+			if pipelineInfo.Input == nil {
+				pipelineInfo.Input = translatePipelineInputs(pipelineInfo.Inputs)
+			}
 			pipelineInfos.PipelineInfo = append(pipelineInfos.PipelineInfo, pipelineInfo)
 		} else {
 			break
@@ -961,6 +1132,9 @@ func (a *apiServer) pipelineWatcher(ctx context.Context, shard uint64) {
 				var pipelineInfo pps.PipelineInfo
 				if err := event.Unmarshal(&pipelineName, &pipelineInfo); err != nil {
 					return err
+				}
+				if pipelineInfo.Input == nil {
+					pipelineInfo.Input = translatePipelineInputs(pipelineInfo.Inputs)
 				}
 				if cancel := a.deletePipelineCancel(pipelineName); cancel != nil {
 					protolion.Infof("Appear to be running a pipeline (%s) that's already being run; this may be a bug", pipelineName)
@@ -1186,8 +1360,8 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 		}
 
 		var provenance []*pfs.Repo
-		for _, input := range pipelineInfo.Inputs {
-			provenance = append(provenance, input.Repo)
+		for _, commit := range inputCommits(pipelineInfo.Input) {
+			provenance = append(provenance, commit.Repo)
 		}
 
 		pfsClient, err := a.getPFSClient()
@@ -1206,12 +1380,10 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 
 		// Create a k8s replication controller that runs the workers
 		if err := a.createWorkersForPipeline(pipelineInfo); err != nil {
-			if !isAlreadyExistsErr(err) {
-				return err
-			}
+			return err
 		}
 
-		branchSetFactory, err := newBranchSetFactory(ctx, pfsClient, pipelineInfo.Inputs)
+		branchSetFactory, err := newBranchSetFactory(ctx, pfsClient, pipelineInfo.Input)
 		if err != nil {
 			return err
 		}
@@ -1297,22 +1469,27 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			}
 
 			// (create JobInput for new processing job)
-			var jobInputs []*pps.JobInput
-			for _, pipelineInput := range pipelineInfo.Inputs {
-				for _, branch := range branchSet.Branches {
-					if pipelineInput.Repo.Name == branch.Head.Repo.Name && pipelineInput.Branch == branch.Name {
-						jobInputs = append(jobInputs, &pps.JobInput{
-							Name:   pipelineInput.Name,
-							Commit: branch.Head,
-							Glob:   pipelineInput.Glob,
-							Lazy:   pipelineInput.Lazy,
-						})
+			jobInput := proto.Clone(pipelineInfo.Input).(*pps.Input)
+			visit(jobInput, func(input *pps.Input) {
+				if input.Atom != nil {
+					for _, branch := range branchSet.Branches {
+						if input.Atom.Commit.Repo.Name == branch.Head.Repo.Name && input.Atom.Commit.ID == branch.Name {
+							input.Atom.Commit.ID = branch.Head.ID
+						}
 					}
+					input.Atom.FromCommitID = ""
 				}
+			})
+
+			jobsRO := a.jobs.ReadOnly(ctx)
+			// Check if this input set has already been processed
+			jobIter, err := jobsRO.GetByIndex(jobsInputIndex, jobInput)
+			if err != nil {
+				return err
 			}
 
-			// Check if this input set has already been processed
-			jobIter, err := a.jobs.ReadOnly(ctx).GetByIndex(jobsInputsIndex, jobInputs)
+			// This is doing the same thing as the line above but for 1.4.5 style jobs
+			oldJobIter, err := jobsRO.GetByIndex(jobsInputsIndex, untranslateJobInputs(jobInput))
 			if err != nil {
 				return err
 			}
@@ -1323,11 +1500,17 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				var jobID string
 				var jobInfo pps.JobInfo
 				ok, err := jobIter.Next(&jobID, &jobInfo)
-				if !ok {
-					break
-				}
 				if err != nil {
 					return err
+				}
+				if !ok {
+					ok, err := oldJobIter.Next(&jobID, &jobInfo)
+					if err != nil {
+						return err
+					}
+					if !ok {
+						break
+					}
 				}
 				if jobInfo.PipelineID == pipelineInfo.ID && jobInfo.PipelineVersion == pipelineInfo.Version {
 					// TODO(derek): we should check if the output commit exists.  If the
@@ -1338,7 +1521,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 
 			job, err = a.CreateJob(ctx, &pps.CreateJobRequest{
 				Pipeline: pipelineInfo.Pipeline,
-				Inputs:   jobInputs,
+				Input:    jobInput,
 				// TODO(derek): Note that once the pipeline restarts, the `job`
 				// variable is lost and we don't know who is our parent job.
 				ParentJob: job,
@@ -1351,7 +1534,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			}
 			runningJobSet[job.ID] = true
 			go a.watchJobCompletion(ctx, job, jobCompletionCh)
-			protolion.Infof("pipeline %s created job %v with the following input commits: %v", pipelineName, job.ID, jobInputs)
+			protolion.Infof("pipeline %s created job %v with the following input: %v", pipelineName, job.ID, jobInput)
 		}
 		panic("unreachable")
 		return nil
@@ -1467,9 +1650,11 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		if jobInfo.Pipeline == nil {
 			// Create output repo for this job
 			var provenance []*pfs.Repo
-			for _, input := range jobInfo.Inputs {
-				provenance = append(provenance, input.Commit.Repo)
-			}
+			visit(jobInfo.Input, func(input *pps.Input) {
+				if input.Atom != nil {
+					provenance = append(provenance, input.Atom.Commit.Repo)
+				}
+			})
 			if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
 				Repo:       jobInfo.OutputRepo,
 				Provenance: provenance,
@@ -1532,7 +1717,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		}
 		limiter := limit.New(numWorkers)
 		// process all datums
-		df, err := newDatumFactory(ctx, pfsClient, jobInfo.Inputs, nil)
+		df, err := newDatumFactory(ctx, pfsClient, jobInfo.Input)
 		if err != nil {
 			return err
 		}
@@ -1575,6 +1760,9 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		updateProgress(0)
 
 		serviceAddr, err := a.workerServiceIP(ctx, rcName)
+		if err != nil {
+			return err
+		}
 		conns := make(map[*grpc.ClientConn]bool)
 		var connsMu sync.Mutex
 		defer func() {
@@ -1599,9 +1787,9 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				return workerpkg.NewWorkerClient(conn)
 			},
 		}
-		for files := df.Next(); files != nil; files = df.Next() {
+		for i := 0; i < df.Len(); i++ {
 			limiter.Acquire()
-			files := files
+			files := df.Datum(i)
 			go func() {
 				userCodeFailures := 0
 				defer limiter.Release()
@@ -1706,8 +1894,8 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		}
 
 		var provenance []*pfs.Commit
-		for _, input := range jobInfo.Inputs {
-			provenance = append(provenance, input.Commit)
+		for _, commit := range inputCommits(jobInfo.Input) {
+			provenance = append(provenance, commit)
 		}
 
 		outputCommit, err := pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
@@ -1878,13 +2066,20 @@ func (a *apiServer) createWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 
 func (a *apiServer) deleteWorkers(rcName string) error {
 	if err := a.kubeClient.Services(a.namespace).Delete(rcName); err != nil {
-		return err
+		if !isNotFoundErr(err) {
+			return err
+		}
 	}
 	falseVal := false
 	deleteOptions := &api.DeleteOptions{
 		OrphanDependents: &falseVal,
 	}
-	return a.kubeClient.ReplicationControllers(a.namespace).Delete(rcName, deleteOptions)
+	if err := a.kubeClient.ReplicationControllers(a.namespace).Delete(rcName, deleteOptions); err != nil {
+		if !isNotFoundErr(err) {
+			return err
+		}
+	}
+	return nil
 }
 
 func (a *apiServer) AddShard(shard uint64) error {

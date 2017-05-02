@@ -54,6 +54,51 @@ const (
 	PPSWorkerSidecarContainerName = "storage"
 )
 
+// NewAtomInput returns a new atom input. It only includes required options.
+func NewAtomInput(repo string, glob string) *pps.Input {
+	return &pps.Input{
+		Atom: &pps.AtomInput{
+			Commit: NewCommit(repo, ""),
+			Glob:   glob,
+		},
+	}
+}
+
+// NewAtomInputOpts returns a new atom input. It includes all options.
+func NewAtomInputOpts(name string, repo string, commit string, glob string, lazy bool, fromCommit string) *pps.Input {
+	return &pps.Input{
+		Atom: &pps.AtomInput{
+			Name:         name,
+			Commit:       NewCommit(repo, commit),
+			Glob:         glob,
+			Lazy:         lazy,
+			FromCommitID: fromCommit,
+		},
+	}
+}
+
+// NewCrossInput returns an input which is the cross product of other inputs.
+// That means that all combination of datums will be seen by the job /
+// pipeline.
+func NewCrossInput(input ...*pps.Input) *pps.Input {
+	return &pps.Input{
+		Cross: &pps.CrossInput{
+			Input: input,
+		},
+	}
+}
+
+// NewUnionInput returns an input which is the union of other inputs. That
+// means that all datums from any of the inputs will be seen individually by
+// the job / pipeline.
+func NewUnionInput(input ...*pps.Input) *pps.Input {
+	return &pps.Input{
+		Union: &pps.UnionInput{
+			Input: input,
+		},
+	}
+}
+
 // NewJobInput creates a pps.JobInput.
 func NewJobInput(repoName string, commitID string, glob string) *pps.JobInput {
 	return &pps.JobInput{
@@ -87,7 +132,7 @@ func NewPipelineInput(repoName string, glob string) *pps.PipelineInput {
 // parallelism is how many copies of your container should run in parallel. You
 // may pass 0 for parallelism in which case PPS will set the parallelism based
 // on availabe resources.
-// inputs specifies a set of Commits that will be visible to the job during runtime.
+// input specifies a set of Commits that will be visible to the job during runtime.
 // parentJobID specifies the a job to use as a parent, it may be left empty in
 // which case there is no parent job. If not left empty your job will use the
 // parent Job's output commit as the parent of its output commit.
@@ -96,7 +141,7 @@ func (c APIClient) CreateJob(
 	cmd []string,
 	stdin []string,
 	parallelismSpec *pps.ParallelismSpec,
-	inputs []*pps.JobInput,
+	input *pps.Input,
 	internalPort int32,
 	externalPort int32,
 ) (*pps.Job, error) {
@@ -121,7 +166,7 @@ func (c APIClient) CreateJob(
 				Stdin: stdin,
 			},
 			ParallelismSpec: parallelismSpec,
-			Inputs:          inputs,
+			Input:           input,
 			Service:         service,
 		},
 	)
@@ -272,7 +317,7 @@ func (c APIClient) GetLogs(
 // parallelism is how many copies of your container should run in parallel. You
 // may pass 0 for parallelism in which case PPS will set the parallelism based
 // on availabe resources.
-// inputs specifies a set of Repos that will be visible to the jobs during runtime.
+// input specifies a set of Repos that will be visible to the jobs during runtime.
 // commits to these repos will cause the pipeline to create new jobs to process them.
 // update indicates that you want to update an existing pipeline
 func (c APIClient) CreatePipeline(
@@ -281,7 +326,7 @@ func (c APIClient) CreatePipeline(
 	cmd []string,
 	stdin []string,
 	parallelismSpec *pps.ParallelismSpec,
-	inputs []*pps.PipelineInput,
+	input *pps.Input,
 	outputBranch string,
 	update bool,
 ) error {
@@ -295,7 +340,7 @@ func (c APIClient) CreatePipeline(
 				Stdin: stdin,
 			},
 			ParallelismSpec: parallelismSpec,
-			Inputs:          inputs,
+			Input:           input,
 			OutputBranch:    outputBranch,
 			Update:          update,
 		},
