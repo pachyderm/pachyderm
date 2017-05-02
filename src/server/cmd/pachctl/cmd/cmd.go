@@ -152,10 +152,12 @@ kubectl %v port-forward "$pod" %d:650
 pod=$(kubectl %v get pod -l app=dash | awk '{if (NR!=1) { print $1; exit 0 }}')
 kubectl %v port-forward "$pod" %d:8080
 `, kubeCtlFlags, kubeCtlFlags, uiPort))
-				return cmdutil.RunIO(cmdutil.IO{
-					Stdin:  stdin,
-					Stderr: os.Stderr,
-				}, "sh")
+				if err := cmdutil.RunIO(cmdutil.IO{
+					Stdin: stdin,
+				}, "sh"); err != nil {
+					fmt.Errorf("UI not enabled, deploy with --dashboard")
+				}
+				return nil
 			})
 
 			eg.Go(func() error {
@@ -163,10 +165,10 @@ kubectl %v port-forward "$pod" %d:8080
 pod=$(kubectl %v get pod -l app=dash | awk '{if (NR!=1) { print $1; exit 0 }}')
 kubectl %v port-forward "$pod" %d:8081
 `, kubeCtlFlags, kubeCtlFlags, uiWebsocketPort))
-				return cmdutil.RunIO(cmdutil.IO{
-					Stdin:  stdin,
-					Stderr: os.Stderr,
+				cmdutil.RunIO(cmdutil.IO{
+					Stdin: stdin,
 				}, "sh")
+				return nil
 			})
 
 			fmt.Printf("Pachd port forwarded\nDash websocket port forwarded\nDash UI port forwarded, navigate to localhost:%v\nCTRL-C to exit", uiPort)
@@ -175,7 +177,7 @@ kubectl %v port-forward "$pod" %d:8081
 	}
 	portForward.Flags().IntVarP(&port, "port", "p", 30650, "The local port to bind to.")
 	portForward.Flags().IntVarP(&uiPort, "ui-port", "u", 38080, "The local port to bind to.")
-	portForward.Flags().IntVarP(&uiWebsocketPort, "proxy-port", "x", 32082, "The local port to bind to.")
+	portForward.Flags().IntVarP(&uiWebsocketPort, "proxy-port", "x", 38081, "The local port to bind to.")
 	portForward.Flags().StringVarP(&kubeCtlFlags, "kubectlflags", "k", "", "Any kubectl flags to proxy, e.g. --kubectlflags='--kubeconfig /some/path/kubeconfig'")
 
 	rootCmd.AddCommand(version)
