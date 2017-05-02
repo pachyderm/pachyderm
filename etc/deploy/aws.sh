@@ -165,18 +165,16 @@ get_k8s_master_domain() {
 ##################################
 
 deploy_pachyderm_on_aws() {
-    # got IP from etc hosts file / master external IP on aws console
-    KUBECTLFLAGS="-s 107.22.153.120"
-
-    # top 2 shared w k8s deploy script
+    # shared with k8s deploy script:
     export STORAGE_SIZE=100
     export BUCKET_NAME=${RANDOM}-pachyderm-store
 
     # Omit location constraint if us-east
-    # TODO - check the $AWS_REGION value and Do The Right Thing
-    # aws s3api create-bucket --bucket ${BUCKET_NAME} --region ${AWS_REGION} --create-bucket-configuration LocationConstraint=${AWS_REGION}
-
-    aws s3api create-bucket --bucket ${BUCKET_NAME} --region ${AWS_REGION}
+    if [[ "${AWS_REGION}" == "us-east-1" ]]; then
+      aws s3api create-bucket --bucket ${BUCKET_NAME} --region ${AWS_REGION}
+    else
+      aws s3api create-bucket --bucket ${BUCKET_NAME} --region ${AWS_REGION} --create-bucket-configuration LocationConstraint=${AWS_REGION}
+    fi
 
     # Since my user should have the right access:
     AWS_KEY=`cat ~/.aws/credentials | grep aws_secret_access_key | cut -d " " -f 3`
