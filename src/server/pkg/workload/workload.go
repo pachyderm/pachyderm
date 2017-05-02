@@ -199,7 +199,7 @@ func (w *worker) advanceJob(c *client.APIClient) error {
 		// inputs. Store the repo names in 'inputs' to generate the 'grep' command
 		// that the job will run.
 		inputs := [5]string{}
-		var jobInputs []*pps.JobInput
+		var input []*pps.Input
 		repoSet := make(map[string]bool)
 		for i := range inputs {
 			commit := w.finished[w.rand.Intn(len(w.finished))]
@@ -210,7 +210,7 @@ func (w *worker) advanceJob(c *client.APIClient) error {
 			}
 			repoSet[commit.Repo.Name] = true
 			inputs[i] = commit.Repo.Name
-			jobInputs = append(jobInputs, &pps.JobInput{Commit: commit})
+			input = append(input, client.NewAtomInputOpts("", commit.Repo.Name, commit.ID, "*", false, ""))
 		}
 		outFilename := w.randString(10)
 
@@ -224,7 +224,7 @@ func (w *worker) advanceJob(c *client.APIClient) error {
 				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
-			jobInputs,
+			client.NewCrossInput(input...),
 			0, // internal port
 			0, // external port
 		)
@@ -247,7 +247,7 @@ func (w *worker) createPipeline(c *client.APIClient) error {
 	// names in 'inputs' to generate the 'grep' command that the pipeline's jobs
 	// will run.
 	inputs := [5]string{}
-	var pipelineInputs []*pps.PipelineInput
+	var input []*pps.Input
 	repoSet := make(map[string]bool)
 	for i := range inputs {
 		repo := w.repos[w.rand.Intn(len(w.repos))]
@@ -258,7 +258,7 @@ func (w *worker) createPipeline(c *client.APIClient) error {
 		}
 		repoSet[repo.Name] = true
 		inputs[i] = repo.Name
-		pipelineInputs = append(pipelineInputs, &pps.PipelineInput{Repo: repo})
+		input = append(input, client.NewAtomInput(repo.Name, "*"))
 	}
 
 	// Create a pipeline to grep for a random string in the input files, and write
@@ -274,7 +274,7 @@ func (w *worker) createPipeline(c *client.APIClient) error {
 			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		pipelineInputs,
+		client.NewCrossInput(input...),
 		"master",
 		false,
 	); err != nil {
