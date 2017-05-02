@@ -1317,11 +1317,11 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				var jobID string
 				var jobInfo pps.JobInfo
 				ok, err := jobIter.Next(&jobID, &jobInfo)
-				if !ok {
-					break
-				}
 				if err != nil {
 					return err
+				}
+				if !ok {
+					break
 				}
 				if jobInfo.PipelineID == pipelineInfo.ID && jobInfo.PipelineVersion == pipelineInfo.Version {
 					// TODO(derek): we should check if the output commit exists.  If the
