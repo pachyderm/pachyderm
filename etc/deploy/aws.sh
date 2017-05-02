@@ -152,7 +152,7 @@ check_all_nodes_ready() {
 get_k8s_master_domain() {
     export K8S_MASTER_DOMAIN="$(
         aws ec2 describe-instances --filters "Name=instance-type,Values=${NODE_SIZE}" --region ${AWS_REGION} \
-          | jq --raw-output '.Reservations[].Instances[] | select([.Tags[].Value | contains("masters.'${NAME}'")] | any) | .PublicDnsName')"
+          | jq --raw-output '.Reservations[].Instances[] | select([.Tags[]?.Value | contains("masters.'${NAME}'")] | any) | .PublicDnsName')"
     if [ -n "${K8S_MASTER_DOMAIN}" ]; then
         return 0
     fi
