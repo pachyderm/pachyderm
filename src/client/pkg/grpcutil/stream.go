@@ -122,10 +122,13 @@ func (w *countWriter) Write(p []byte) (int, error) {
 }
 
 // WriteFromStreamingBytesClient writes from the StreamingBytesClient to the io.Writer.
-func WriteFromStreamingBytesClient(streamingBytesClient StreamingBytesClient, writer io.Writer) error {
+func WriteFromStreamingBytesClient(streamingBytesClient StreamingBytesClient, writer io.Writer) (retErr error) {
 	var total int
 	defer func() {
 		fmt.Printf("Wrote %d bytes in WriteFromStreamingBytesClient\n", total)
+		if retErr != nil {
+			fmt.Printf("error: %v\n", retErr)
+		}
 	}()
 	for bytesValue, err := streamingBytesClient.Recv(); err != io.EOF; bytesValue, err = streamingBytesClient.Recv() {
 		if err != nil {

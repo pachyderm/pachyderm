@@ -284,6 +284,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 				return errSpecialFile
 			}
 
+			fmt.Printf("uploading file %s\n", path)
 			f, err := os.Open(path)
 			if err != nil {
 				return err
@@ -306,6 +307,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 			if err != nil {
 				return err
 			}
+			fmt.Printf("uploaded %d bytes\n", size)
 			object, err := putObjClient.CloseAndRecv()
 			if err != nil {
 				return err
