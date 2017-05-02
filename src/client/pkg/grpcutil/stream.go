@@ -2,9 +2,7 @@ package grpcutil
 
 import (
 	"bytes"
-	"fmt"
 	"io"
-	"sync/atomic"
 
 	"github.com/gogo/protobuf/types"
 )
@@ -111,31 +109,15 @@ func WriteToStreamingBytesServer(reader io.Reader, streamingBytesServer Streamin
 	return err
 }
 
-// countWriter increments a counter by the number of bytes given
-type countWriter struct {
-	count int64
-}
-
-func (w *countWriter) Write(p []byte) (int, error) {
-	atomic.AddInt64(&w.count, int64(len(p)))
-	return len(p), nil
-}
-
 // WriteFromStreamingBytesClient writes from the StreamingBytesClient to the io.Writer.
 func WriteFromStreamingBytesClient(streamingBytesClient StreamingBytesClient, writer io.Writer) error {
-	var total int
-	defer func() {
-		fmt.Printf("Wrote %d bytes in WriteFromStreamingBytesClient\n", total)
-	}()
 	for bytesValue, err := streamingBytesClient.Recv(); err != io.EOF; bytesValue, err = streamingBytesClient.Recv() {
 		if err != nil {
 			return err
 		}
-		n, err := writer.Write(bytesValue.Value)
-		if err != nil {
+		if _, err = writer.Write(bytesValue.Value); err != nil {
 			return err
 		}
-		total += n
 	}
 	return nil
 }
