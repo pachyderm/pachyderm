@@ -320,6 +320,24 @@ func translateJobInputs(inputs []*pps.JobInput) *pps.Input {
 	return result
 }
 
+func untranslateJobInputs(input *pps.Input) []*pps.JobInput {
+	var result []*pps.JobInput
+	if input.Cross != nil {
+		for _, input := range input.Cross.Input {
+			if input.Atom == nil {
+				return nil
+			}
+			result = append(result, &pps.JobInput{
+				Name:   input.Atom.Name,
+				Commit: input.Atom.Commit,
+				Glob:   input.Atom.Glob,
+				Lazy:   input.Atom.Lazy,
+			})
+		}
+	}
+	return result
+}
+
 func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -1457,8 +1475,15 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				}
 			})
 
+			jobsRO := a.jobs.ReadOnly(ctx)
 			// Check if this input set has already been processed
-			jobIter, err := a.jobs.ReadOnly(ctx).GetByIndex(jobsInputIndex, jobInput)
+			jobIter, err := jobsRO.GetByIndex(jobsInputIndex, jobInput)
+			if err != nil {
+				return err
+			}
+
+			// This is doing the same thing as the line above but for 1.4.5 style jobs
+			oldJobIter, err := jobsRO.GetByIndex(jobsInputsIndex, untranslateJobInputs(jobInput))
 			if err != nil {
 				return err
 			}
@@ -1469,11 +1494,17 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				var jobID string
 				var jobInfo pps.JobInfo
 				ok, err := jobIter.Next(&jobID, &jobInfo)
-				if !ok {
-					break
-				}
 				if err != nil {
 					return err
+				}
+				if !ok {
+					ok, err := oldJobIter.Next(&jobID, &jobInfo)
+					if err != nil {
+						return err
+					}
+					if !ok {
+						break
+					}
 				}
 				if jobInfo.PipelineID == pipelineInfo.ID && jobInfo.PipelineVersion == pipelineInfo.Version {
 					// TODO(derek): we should check if the output commit exists.  If the
