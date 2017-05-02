@@ -140,10 +140,7 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 4,
 			},
-			[]*pps.PipelineInput{{
-				Repo: client.NewRepo(repo),
-				Glob: "/*",
-			}},
+			client.NewAtomInput(repo, "/*"),
 			"",
 			false,
 		))
@@ -312,10 +309,7 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 4,
 			},
-			[]*pps.PipelineInput{{
-				Repo: client.NewRepo(dataRepo),
-				Glob: "/*",
-			}},
+			client.NewAtomInput(dataRepo, "/*"),
 			"",
 			false,
 		))
@@ -352,10 +346,7 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 4,
 			},
-			[]*pps.PipelineInput{{
-				Repo: client.NewRepo(pipelineOne),
-				Glob: "/*",
-			}},
+			client.NewAtomInput(pipelineOne, "/*"),
 			"",
 			false,
 		))
@@ -389,10 +380,7 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 4,
 			},
-			[]*pps.PipelineInput{{
-				Repo: client.NewRepo(pipelineTwo),
-				Glob: "/*",
-			}},
+			client.NewAtomInput(pipelineTwo, "/*"),
 			"",
 			false,
 		))
