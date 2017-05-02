@@ -183,6 +183,7 @@ func Push(client *pachclient.APIClient, root string, commit *pfs.Commit, overwri
 				return nil
 			}
 
+			fmt.Printf("About to upload file: %s\n", path)
 			f, err := os.Open(path)
 			if err != nil {
 				return err
@@ -204,9 +205,11 @@ func Push(client *pachclient.APIClient, root string, commit *pfs.Commit, overwri
 				}
 			}
 
+			fmt.Printf("Calling PutFile for %s\n", path)
 			cw := &countWriter{}
 			tee := io.TeeReader(f, cw)
 			_, err = client.PutFile(commit.Repo.Name, commit.ID, relPath, tee)
+			fmt.Printf("Wrote %d bytes for %s\n", cw.count, path)
 			return err
 		})
 		return nil
