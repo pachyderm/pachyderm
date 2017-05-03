@@ -104,7 +104,7 @@ func reportAndFlushUserAction(action string, value interface{}) {
 	defer client.Close()
 	cfg, err := config.Read()
 	if err != nil {
-		log.Errorf("Error reading userid from ~/.pachyderm/config: %v\n", err)
+		log.Errorf("Error reading userid from ~/.pachyderm/config: %v", err)
 		// metrics errors are non fatal
 		return
 	}
