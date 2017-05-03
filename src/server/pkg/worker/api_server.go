@@ -324,13 +324,11 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 // cleanUpData removes everything under /pfs
 //
 // The reason we don't want to just os.RemoveAll(/pfs) is that we don't
-// want to remove /pfs itself, since it's a symlink to the hostpath volume.
-// We also don't want to remove /pfs and re-create the symlink, because for
-// some reason that results in extremely pool performance.
+// want to remove /pfs itself, since it's a emptyDir volume.
 //
 // Most of the code is copied from os.RemoveAll().
 func (a *APIServer) cleanUpData() error {
-	path := filepath.Join(client.PPSHostPath, a.workerName)
+	path := client.PPSInputPrefix
 	// Otherwise, is this a directory we need to recurse into?
 	dir, serr := os.Lstat(path)
 	if serr != nil {

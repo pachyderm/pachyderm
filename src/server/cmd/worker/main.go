@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"path"
-	"path/filepath"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -132,15 +130,6 @@ func do(appEnvObj interface{}) error {
 		}
 		workerRcName = ppsserver.JobRcName(jobInfo.Job.ID)
 		apiServer = worker.NewJobAPIServer(pachClient, jobInfo, appEnv.PodName)
-	}
-
-	// Setup the hostPath mount to use a unique directory for this worker
-	workerDir := filepath.Join(client.PPSHostPath, appEnv.PodName)
-	if err := os.MkdirAll(workerDir, 0777); err != nil {
-		return fmt.Errorf("error making workerDir: %v", err)
-	}
-	if err := os.Symlink(workerDir, client.PPSInputPrefix); err != nil {
-		return fmt.Errorf("error symlinking workerDir: %v", err)
 	}
 
 	// Start worker api server
