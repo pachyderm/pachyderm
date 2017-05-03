@@ -8,9 +8,9 @@ import (
 	"net/url"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/cenkalti/backoff"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	"go.pedge.io/lion"
 	"golang.org/x/net/context"
 )
 
@@ -102,13 +102,14 @@ func NewMinioClient(endpoint, bucket, id, secret string, secure bool) (Client, e
 
 // NewAmazonClient creates an amazon client with the following credentials:
 //   bucket - S3 bucket name
+//   distribution - cloudfront distribution ID
 //   id     - AWS access key id
 //   secret - AWS secret access key
 //   token  - AWS access token
 //   region - AWS region
-func NewAmazonClient(bucket string, id string, secret string, token string,
+func NewAmazonClient(bucket string, distribution string, id string, secret string, token string,
 	region string) (Client, error) {
-	return newAmazonClient(bucket, id, secret, token, region)
+	return newAmazonClient(bucket, distribution, id, secret, token, region)
 }
 
 // NewMinioClientFromSecret constructs an s3 compatible client by reading
@@ -152,6 +153,12 @@ func NewAmazonClientFromSecret(bucket string) (Client, error) {
 		}
 		bucket = string(_bucket)
 	}
+	var distribution []byte
+	distribution, err := ioutil.ReadFile("/amazon-secret/distribution")
+	if err != nil {
+		// Distribution is not required, but we can log a warning
+		lion.Warnln("AWS deployed without cloudfront distribution\n")
+	}
 	id, err := ioutil.ReadFile("/amazon-secret/id")
 	if err != nil {
 		return nil, err
@@ -168,7 +175,7 @@ func NewAmazonClientFromSecret(bucket string) (Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewAmazonClient(bucket, string(id), string(secret), string(token), string(region))
+	return NewAmazonClient(bucket, string(distribution), string(id), string(secret), string(token), string(region))
 }
 
 // NewClientFromURLAndSecret constructs a client by parsing `URL` and then
@@ -238,7 +245,7 @@ func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 		}
 		return nil
 	}, b.backoffConfig, func(err error, d time.Duration) {
-		log.Infof("Error reading; retrying in %s: %#v", d, RetryError{
+		lion.Infof("Error reading; retrying in %s: %#v", d, RetryError{
 			Err:               err.Error(),
 			TimeTillNextRetry: d.String(),
 			BytesProcessed:    bytesRead,
@@ -279,7 +286,7 @@ func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 		}
 		return nil
 	}, b.backoffConfig, func(err error, d time.Duration) {
-		log.Infof("Error writing; retrying in %s: %#v", d, RetryError{
+		lion.Infof("Error writing; retrying in %s: %#v", d, RetryError{
 			Err:               err.Error(),
 			TimeTillNextRetry: d.String(),
 			BytesProcessed:    bytesWritten,

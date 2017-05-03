@@ -940,7 +940,7 @@ func MinioSecret(bucket string, id string, secret string, endpoint string, secur
 //   secret - AWS secret access key
 //   token  - AWS access token
 //   region - AWS region
-func AmazonSecret(bucket string, id string, secret string, token string, region string) *api.Secret {
+func AmazonSecret(bucket string, distribution string, id string, secret string, token string, region string) *api.Secret {
 	return &api.Secret{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Secret",
@@ -951,11 +951,12 @@ func AmazonSecret(bucket string, id string, secret string, token string, region 
 			Labels: labels(amazonSecretName),
 		},
 		Data: map[string][]byte{
-			"bucket": []byte(bucket),
-			"id":     []byte(id),
-			"secret": []byte(secret),
-			"token":  []byte(token),
-			"region": []byte(region),
+			"bucket":       []byte(bucket),
+			"distribution": []byte(distribution),
+			"id":           []byte(id),
+			"secret":       []byte(secret),
+			"token":        []byte(token),
+			"region":       []byte(region),
 		},
 	}
 }
@@ -1125,12 +1126,12 @@ func WriteCustomAssets(w io.Writer, opts *AssetOpts, args []string, objectStoreB
 
 // WriteAmazonAssets writes assets to an amazon backend.
 func WriteAmazonAssets(w io.Writer, opts *AssetOpts, bucket string, id string, secret string,
-	token string, region string, volumeSize int) error {
+	token string, region string, volumeSize int, distribution string) error {
 	if err := WriteAssets(w, opts, amazonBackend, amazonBackend, volumeSize, ""); err != nil {
 		return err
 	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
-	AmazonSecret(bucket, id, secret, token, region).CodecEncodeSelf(encoder)
+	AmazonSecret(bucket, distribution, id, secret, token, region).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 	return nil
 }

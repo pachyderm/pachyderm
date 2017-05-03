@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/version"
@@ -132,7 +133,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deployCustom.Flags().StringVar(&objectStoreBackend, "object-store", "s3",
 		"(required) Backend providing an object-storage API to pachyderm. One of: "+
 			"s3, gcs, or azure-blob.")
-
+	var cloudfrontDistribution string
 	deployAmazon := &cobra.Command{
 		Use:   "amazon <S3 bucket> <id> <secret> <token> <region> <size of volumes (in GB)>",
 		Short: "Deploy a Pachyderm cluster running on AWS.",
@@ -150,13 +151,21 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[5])
 			}
+			if strings.TrimSpace(cloudfrontDistribution) != "" {
+				fmt.Printf("WARNING: You specified a cloudfront distribution. Deploying on AWS with cloudfront is currently " +
+					"an alpha feature. No security restrictions have been applied to cloudfront, making all data public (obscured but not secured)\n")
+			}
 			manifest := &bytes.Buffer{}
-			if err = assets.WriteAmazonAssets(manifest, opts, args[0], args[1], args[2], args[3], args[4], volumeSize); err != nil {
+			if err = assets.WriteAmazonAssets(manifest, opts, args[0], args[1], args[2], args[3], args[4], volumeSize, cloudfrontDistribution); err != nil {
 				return err
 			}
 			return maybeKcCreate(dryRun, manifest)
 		}),
 	}
+	deployAmazon.Flags().StringVar(&cloudfrontDistribution, "cloudfront-distribution", "",
+		"Deploying on AWS with cloudfront is currently "+
+			"an alpha feature. No security restrictions have been"+
+			"applied to cloudfront, making all data public (obscured but not secured)")
 
 	deployMicrosoft := &cobra.Command{
 		Use:   "microsoft <container> <storage account name> <storage account key> <size of volumes (in GB)>",
