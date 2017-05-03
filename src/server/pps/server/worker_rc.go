@@ -215,16 +215,14 @@ func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, resources
 	})
 
 	volumes = append(volumes, api.Volume{
-		Name: client.PPSHostPathVolume,
+		Name: client.PPSWorkerVolume,
 		VolumeSource: api.VolumeSource{
-			HostPath: &api.HostPathVolumeSource{
-				Path: client.PPSHostPath,
-			},
+			EmptyDir: &api.EmptyDirVolumeSource{},
 		},
 	})
 	volumeMounts = append(volumeMounts, api.VolumeMount{
-		Name:      client.PPSHostPathVolume,
-		MountPath: client.PPSHostPath,
+		Name:      client.PPSWorkerVolume,
+		MountPath: client.PPSInputPrefix,
 	})
 
 	var imagePullSecrets []api.LocalObjectReference
