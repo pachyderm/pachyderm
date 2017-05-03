@@ -309,7 +309,7 @@ By default, a pipeline’s worker pods are always running.  When `scaleDownThres
 
 ## The Input Glob Pattern
 
-Each input needs to specify a [glob pattern](../fundamentals/distributed_computing.html).
+Each atom input needs to specify a [glob pattern](../fundamentals/distributed_computing.html).
 
 Pachyderm uses the glob pattern to determine how many "datums" an input
 consists of.  Datums are the unit of parallelism in Pachyderm.  That is,
@@ -342,67 +342,6 @@ to the root: `/bar/bar-1` and `/bar/bar-2`
 The datums are defined as whichever files or directories match by the glob pattern. For instance, if we used
 `/*`, then the job will process three datums (potentially in parallel):
 `/foo-1`, `/foo-2`, and `/bar`. Both the `bar-1` and `bar-2` files within the directory `bar` would be grouped together and always processed by the same worker.
-
-## Multiple Inputs
-
-A pipeline is allowed to have multiple inputs.  The important thing to
-understand is what happens when a new commit comes into one of the input repos.
-
-In short, a pipeline processes the **cross product** of the datums in its
-inputs.  We will
-use an example to illustrate.
-
-Consider a pipeline that has two input repos: `foo` and `bar`.
-
-```
-1. PUT /file-1 in commit1 in foo -- no jobs triggered
-2. PUT /file-a in commit1 in bar -- triggers job1
-3. PUT /file-2 in commit2 in foo -- triggers job2
-4. PUT /file-b in commit2 in bar -- triggers job3
-```
-
-The first time the pipeline is triggered will be when the second event
-completes.  This is because we need data in both repos before we can run the
-pipeline.
-
-Here is a breakdown of the datums that each job sees:
-
-```
-job1:
-
-Datum1:
-
-    /pfs/foo/file-1
-    /pfs/bar/file-a
-
-job2:
-
-Datum1:
-    /pfs/foo/file-1
-    /pfs/bar/file-a
-
-Datum2:
-    /pfs/foo/file-2
-    /pfs/bar/file-a
-
-job3:
-
-Datum1:
-    /pfs/foo/file-1
-    /pfs/bar/file-a
-
-Datum2:
-    /pfs/foo/file-2
-    /pfs/bar/file-a
-
-Datum3:
-    /pfs/foo/file-1
-    /pfs/bar/file-b
-
-Datum4:
-    /pfs/foo/file-2
-    /pfs/bar/file-b
-```
 
 ## PPS Mounts and File Access
 
