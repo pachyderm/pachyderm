@@ -38,10 +38,6 @@ func newAmazonClient(bucket string, distribution string, id string, secret strin
 	}, nil
 }
 
-func (c *amazonClient) usingCloudfront() bool {
-	return c.distribution != ""
-}
-
 func (c *amazonClient) Writer(name string) (io.WriteCloser, error) {
 	return newBackoffWriteCloser(c, newWriter(c, name)), nil
 }
@@ -75,7 +71,7 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 	}
 
 	var reader io.ReadCloser
-	if c.usingCloudfront() {
+	if c.distribution != "" {
 		var resp *http.Response
 		var connErr error
 		url := fmt.Sprintf("http://%v.cloudfront.net/%v", c.distribution, name)
@@ -157,7 +153,7 @@ func (c *amazonClient) IsIgnorable(err error) bool {
 }
 
 func (c *amazonClient) IsNotExist(err error) bool {
-	if c.usingCloudfront() {
+	if c.distribution != "" {
 		// cloudfront returns forbidden error for nonexisting data
 		if strings.Contains(err.Error(), "error code 403") {
 			return true
