@@ -129,9 +129,9 @@ ParallelismSpec: {{.ParallelismSpec}}
 	Memory: {{ .ResourceSpec.Memory }} {{end}}
 {{ if .Service }}Service:
 	{{ if .Service.InternalPort }}InternalPort: {{ .Service.InternalPort }} {{end}}
-	{{ if .Service.ExternalPort }}ExternalPort: {{ .Service.ExternalPort }} {{end}} {{end}}
-Input:
-{{jobInput .}}Transform:
+	{{ if .Service.ExternalPort }}ExternalPort: {{ .Service.ExternalPort }} {{end}} {{end}}Input:
+{{jobInput .}}
+Transform:
 {{prettyTransform .Transform}} {{if .OutputCommit}}
 Output Commit: {{.OutputCommit.ID}} {{end}} {{ if .Egress }}
 Egress: {{.Egress.URL}} {{end}}
@@ -216,7 +216,7 @@ func jobInput(jobInfo *ppsclient.JobInfo) string {
 	if err != nil {
 		fmt.Errorf("error marshalling input: %+v", err)
 	}
-	return string(input)
+	return string(input) + "\n"
 }
 
 func workerStatus(jobInfo *ppsclient.JobInfo) string {
@@ -239,7 +239,7 @@ func pipelineInput(pipelineInfo *ppsclient.PipelineInfo) string {
 	if err != nil {
 		fmt.Errorf("error marshalling input: %+v", err)
 	}
-	return string(input)
+	return string(input) + "\n"
 }
 
 func jobCounts(counts map[int32]int32) string {
