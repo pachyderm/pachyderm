@@ -43,6 +43,12 @@ const (
 	// PPSWorkerVolume is the name of the volume in which workers store
 	// data.
 	PPSWorkerVolume = "pachyderm-worker"
+	// PPSWorkerUserContainerName is the name of the container that runs
+	// the user code to process data.
+	PPSWorkerUserContainerName = "user"
+	// PPSWorkerSidecarContainerName is the name of the sidecar container
+	// that runs alongside of each worker container.
+	PPSWorkerSidecarContainerName = "storage"
 )
 
 // NewAtomInput returns a new atom input. It only includes required options.

@@ -3100,7 +3100,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 		if err != nil {
 			return err // retry
 		}
-		if len(podList.Items) != 1 || len(podList.Items[0].Spec.Containers) != 1 {
+		if len(podList.Items) != 1 || len(podList.Items[0].Spec.Containers) == 0 {
 			return fmt.Errorf("could not find single container for pipeline %s", pipelineInfo.ID)
 		}
 		container = podList.Items[0].Spec.Containers[0]
@@ -3169,7 +3169,7 @@ func TestJobResourceRequest(t *testing.T) {
 		if err != nil {
 			return err // retry
 		}
-		if len(podList.Items) != 1 || len(podList.Items[0].Spec.Containers) != 1 {
+		if len(podList.Items) != 1 || len(podList.Items[0].Spec.Containers) == 0 {
 			return fmt.Errorf("could not find single container for job %s", createJobResp.ID)
 		}
 		container = podList.Items[0].Spec.Containers[0]

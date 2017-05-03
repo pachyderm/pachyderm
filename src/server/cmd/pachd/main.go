@@ -37,10 +37,12 @@ import (
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
+var mode string
 var readinessCheck bool
 var migrate string
 
 func init() {
+	flag.StringVar(&mode, "mode", "full", "Pachd currently supports two modes: full and pfs.  The former includes everything you need in a full pachd node.  The later runs only PFS.")
 	flag.BoolVar(&readinessCheck, "readiness-check", false, "Set to true when checking if local pod is ready")
 	flag.StringVar(&migrate, "migrate", "", "Use the format FROM_VERSION-TO_VERSION; e.g. 1.2.4-1.3.0")
 	flag.Parse()
@@ -51,6 +53,7 @@ type appEnv struct {
 	NumShards             uint64 `env:"NUM_SHARDS,default=32"`
 	StorageRoot           string `env:"PACH_ROOT,default=/pach"`
 	StorageBackend        string `env:"STORAGE_BACKEND,default="`
+	StorageHostPath       string `env:"STORAGE_HOST_PATH,default="`
 	PPSEtcdPrefix         string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
 	PFSEtcdPrefix         string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
 	KubeAddress           string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
@@ -58,18 +61,94 @@ type appEnv struct {
 	Namespace             string `env:"NAMESPACE,default=default"`
 	Metrics               bool   `env:"METRICS,default=true"`
 	Init                  bool   `env:"INIT,default=false"`
-	BlockCacheBytes       string `env:"BLOCK_CACHE_BYTES,default=5G"`
-	PFSCacheBytes         string `env:"PFS_CACHE_BYTES,default=1G"`
+	BlockCacheBytes       string `env:"BLOCK_CACHE_BYTES,default=1G"`
+	PFSCacheBytes         string `env:"PFS_CACHE_BYTES,default=500M"`
 	WorkerImage           string `env:"WORKER_IMAGE,default="`
+	WorkerSidecarImage    string `env:"WORKER_SIDECAR_IMAGE,default="`
 	WorkerImagePullPolicy string `env:"WORKER_IMAGE_PULL_POLICY,default="`
 	LogLevel              string `env:"LOG_LEVEL,default=info"`
 }
 
 func main() {
-	cmdutil.Main(do, &appEnv{})
+	switch mode {
+	case "full":
+		cmdutil.Main(doFullMode, &appEnv{})
+	case "pfs":
+		cmdutil.Main(doPFSMode, &appEnv{})
+	default:
+		fmt.Println("unrecognized mode: %s", mode)
+	}
 }
 
-func do(appEnvObj interface{}) error {
+func doPFSMode(appEnvObj interface{}) error {
+	go func() {
+		lion.Println(http.ListenAndServe(":651", nil))
+	}()
+	appEnv := appEnvObj.(*appEnv)
+	switch appEnv.LogLevel {
+	case "debug":
+		lion.SetLevel(lion.LevelDebug)
+	case "info":
+		lion.SetLevel(lion.LevelInfo)
+	case "error":
+		lion.SetLevel(lion.LevelError)
+	default:
+		lion.Errorf("Unrecognized log level %s, falling back to default of \"info\"", appEnv.LogLevel)
+		lion.SetLevel(lion.LevelInfo)
+	}
+
+	etcdAddress := fmt.Sprintf("http://%s:2379", appEnv.EtcdAddress)
+	etcdClient := getEtcdClient(etcdAddress)
+
+	clusterID, err := getClusterID(etcdClient)
+	if err != nil {
+		return err
+	}
+	kubeClient, err := getKubeClient(appEnv)
+	if err != nil {
+		return err
+	}
+	var reporter *metrics.Reporter
+	if appEnv.Metrics {
+		reporter = metrics.NewReporter(clusterID, kubeClient)
+	}
+	address, err := netutil.ExternalIP()
+	if err != nil {
+		return err
+	}
+	address = fmt.Sprintf("%s:%d", address, appEnv.Port)
+	pfsCacheBytes, err := units.RAMInBytes(appEnv.PFSCacheBytes)
+	if err != nil {
+		return err
+	}
+	pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, pfsCacheBytes, reporter)
+	if err != nil {
+		return err
+	}
+	blockCacheBytes, err := units.RAMInBytes(appEnv.BlockCacheBytes)
+	if err != nil {
+		return err
+	}
+	blockAPIServer, err := pfs_server.NewBlockAPIServer(appEnv.StorageRoot, blockCacheBytes, appEnv.StorageBackend)
+	if err != nil {
+		return err
+	}
+	return grpcutil.Serve(
+		func(s *grpc.Server) {
+			pfsclient.RegisterAPIServer(s, pfsAPIServer)
+			pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
+		},
+		grpcutil.ServeOptions{
+			Version:    version.Version,
+			MaxMsgSize: grpcutil.MaxMsgSize,
+		},
+		grpcutil.ServeEnv{
+			GRPCPort: appEnv.Port,
+		},
+	)
+}
+
+func doFullMode(appEnvObj interface{}) error {
 	go func() {
 		lion.Println(http.ListenAndServe(":651", nil))
 	}()
@@ -161,7 +240,11 @@ func do(appEnvObj interface{}) error {
 		kubeClient,
 		getNamespace(),
 		appEnv.WorkerImage,
+		appEnv.WorkerSidecarImage,
 		appEnv.WorkerImagePullPolicy,
+		appEnv.StorageRoot,
+		appEnv.StorageBackend,
+		appEnv.StorageHostPath,
 		reporter,
 	)
 	if err != nil {
