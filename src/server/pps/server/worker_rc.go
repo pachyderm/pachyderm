@@ -51,9 +51,6 @@ func JobRcName(id string) string {
 
 func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 	pullPolicy := a.workerImagePullPolicy
-	if pullPolicy == "" {
-		pullPolicy = "IfNotPresent"
-	}
 	podSpec := api.PodSpec{
 		InitContainers: []api.Container{
 			{
@@ -81,6 +78,10 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 		RestartPolicy:    "Always",
 		Volumes:          options.volumes,
 		ImagePullSecrets: options.imagePullSecrets,
+	}
+	if pullPolicy != "" {
+		podSpec.InitContainers[0].ImagePullPolicy = api.PullPolicy(pullPolicy)
+		podSpec.Containers[0].ImagePullPolicy = api.PullPolicy(pullPolicy)
 	}
 	if options.resources != nil {
 		podSpec.Containers[0].Resources = api.ResourceRequirements{

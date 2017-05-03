@@ -303,7 +303,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 								},
 								{
 									Name:  "WORKER_IMAGE_PULL_POLICY",
-									Value: "IfNotPresent",
+									Value: "",
 								},
 								{
 									Name:  "PACHD_VERSION",
