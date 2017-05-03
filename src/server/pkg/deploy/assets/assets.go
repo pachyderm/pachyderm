@@ -1094,8 +1094,8 @@ func WriteCustomAssets(w io.Writer, opts *AssetOpts, args []string, objectStoreB
 }
 
 // WriteAmazonAssets writes assets to an amazon backend.
-func WriteAmazonAssets(w io.Writer, opts *AssetOpts, bucket string, distribution string, id string, secret string,
-	token string, region string, volumeSize int) error {
+func WriteAmazonAssets(w io.Writer, opts *AssetOpts, bucket string, id string, secret string,
+	token string, region string, volumeSize int, distribution string) error {
 	if err := WriteAssets(w, opts, amazonBackend, amazonBackend, volumeSize, ""); err != nil {
 		return err
 	}
