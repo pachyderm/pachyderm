@@ -31,7 +31,22 @@ parse_flags() {
   done
 
   if [ "${USE_EXISTING_STATE_BUCKET}" == 'false' ]; then
-    aws s3api create-bucket --bucket ${STATE_BUCKET} --region ${AWS_REGION}
+    create_s3_bucket "${STATE_BUCKET}"
+  fi
+}
+
+create_s3_bucket() {
+  if [[ "$#" -lt 1 ]]; then
+    echo "Error: create_s3_bucket needs a bucket name"
+    return 1
+  fi
+  BUCKET="${1}"
+
+  # For some weird reason, s3 emits an error if you pass a location constraint when location is "us-east-1"
+  if [[ "${AWS_REGION}" == "us-east-1" ]]; then
+    aws s3api create-bucket --bucket ${BUCKET} --region ${AWS_REGION}
+  else
+    aws s3api create-bucket --bucket ${BUCKET} --region ${AWS_REGION} --create-bucket-configuration LocationConstraint=${AWS_REGION}
   fi
 }
 
@@ -169,12 +184,7 @@ deploy_pachyderm_on_aws() {
     export STORAGE_SIZE=100
     export BUCKET_NAME=${RANDOM}-pachyderm-store
 
-    # Omit location constraint if us-east
-    if [[ "${AWS_REGION}" == "us-east-1" ]]; then
-      aws s3api create-bucket --bucket ${BUCKET_NAME} --region ${AWS_REGION}
-    else
-      aws s3api create-bucket --bucket ${BUCKET_NAME} --region ${AWS_REGION} --create-bucket-configuration LocationConstraint=${AWS_REGION}
-    fi
+    create_s3_bucket "${BUCKET_NAME}"
 
     # Since my user should have the right access:
     AWS_KEY=`cat ~/.aws/credentials | grep aws_secret_access_key | cut -d " " -f 3`
