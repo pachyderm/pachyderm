@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -16,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/storagegateway"
 	"github.com/cenkalti/backoff"
+	"go.pedge.io/lion"
 )
 
 type amazonClient struct {
@@ -89,9 +89,11 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 			}
 			return nil
 		}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) {
-			log.Infof("Error connecting to (%v); retrying in %s: %#v", url, d, err)
+			lion.Infof("Error connecting to (%v); retrying in %s: %#v", url, d, err)
 		})
-
+		if connErr != nil {
+			return nil, connErr
+		}
 		if resp.StatusCode >= 300 {
 			// Cloudfront returns 200s, and 206s as success codes
 			return nil, fmt.Errorf("cloudfront returned HTTP error code %v", resp.StatusCode)
