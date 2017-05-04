@@ -983,6 +983,17 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	}
 
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		pipelineName := request.Pipeline.Name
+		pipelines := a.pipelines.ReadWrite(stm)
+		var pipelineInfo pps.PipelineInfo
+		if err := pipelines.Get(pipelineName, &pipelineInfo); err != nil {
+			return err
+		}
+		rcName := PipelineRcName(pipelineName, pipelineInfo.Version)
+		if err := a.deleteWorkers(rcName); err != nil {
+			protolion.Errorf("error deleting workers for pipeline: %v", pipelineName)
+		}
+		protolion.Infof("deleted workers for pipeline: %v", pipelineName)
 		return a.pipelines.ReadWrite(stm).Delete(request.Pipeline.Name)
 	}); err != nil {
 		return nil, err
@@ -1337,16 +1348,6 @@ func (a *apiServer) workerServiceIP(ctx context.Context, deploymentName string) 
 func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.PipelineInfo) {
 	// Clean up workers if the pipeline gets cancelled
 	pipelineName := pipelineInfo.Pipeline.Name
-	go func() {
-		// Clean up workers if the pipeline gets cancelled
-		<-ctx.Done()
-		rcName := PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-		if err := a.deleteWorkers(rcName); err != nil {
-			protolion.Errorf("error deleting workers for pipeline: %v", pipelineName)
-		}
-		protolion.Infof("deleted workers for pipeline: %v", pipelineName)
-	}()
-
 	b := backoff.NewInfiniteBackOff()
 	backoff.RetryNotify(func() error {
 		// We use a new context for this particular instance of the retry
@@ -1582,6 +1583,15 @@ func (a *apiServer) updatePipelineState(ctx context.Context, pipelineName string
 		}
 		pipelineInfo.State = state
 		pipelineInfo.Stopped = pipelineStateToStopped(state)
+
+		if pipelineInfo.Stopped {
+			rcName := PipelineRcName(pipelineName, pipelineInfo.Version)
+			if err := a.deleteWorkers(rcName); err != nil {
+				protolion.Errorf("error deleting workers for pipeline: %v", pipelineName)
+			}
+			protolion.Infof("deleted workers for pipeline: %v", pipelineName)
+		}
+
 		pipelines.Put(pipelineName, pipelineInfo)
 		return nil
 	})
