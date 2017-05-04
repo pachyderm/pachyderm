@@ -261,16 +261,16 @@ func prettyTransform(transform *ppsclient.Transform) (string, error) {
 func shorthandInput(input *ppsclient.Input) string {
 	switch {
 	case input.Atom != nil:
-		return fmt.Sprintf("%s:%s", input.Atom.Commit.Repo.Name, input.Atom.Glob)
+		return fmt.Sprintf("%s:%s", input.Atom.Repo, input.Atom.Glob)
 	case input.Cross != nil:
 		var subInput []string
-		for _, input := range input.Cross.Input {
+		for _, input := range input.Cross {
 			subInput = append(subInput, shorthandInput(input))
 		}
 		return "(" + strings.Join(subInput, " ⨯ ") + ")"
 	case input.Union != nil:
 		var subInput []string
-		for _, input := range input.Union.Input {
+		for _, input := range input.Union {
 			subInput = append(subInput, shorthandInput(input))
 		}
 		return "(" + strings.Join(subInput, " ∪ ") + ")"

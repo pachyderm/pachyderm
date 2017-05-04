@@ -49,21 +49,22 @@ const (
 func NewAtomInput(repo string, glob string) *pps.Input {
 	return &pps.Input{
 		Atom: &pps.AtomInput{
-			Commit: NewCommit(repo, ""),
-			Glob:   glob,
+			Repo: repo,
+			Glob: glob,
 		},
 	}
 }
 
 // NewAtomInputOpts returns a new atom input. It includes all options.
-func NewAtomInputOpts(name string, repo string, commit string, glob string, lazy bool, fromCommit string) *pps.Input {
+func NewAtomInputOpts(name string, repo string, branch string, glob string, lazy bool, fromCommit string) *pps.Input {
 	return &pps.Input{
 		Atom: &pps.AtomInput{
-			Name:         name,
-			Commit:       NewCommit(repo, commit),
-			Glob:         glob,
-			Lazy:         lazy,
-			FromCommitID: fromCommit,
+			Name:       name,
+			Repo:       repo,
+			Branch:     branch,
+			Glob:       glob,
+			Lazy:       lazy,
+			FromCommit: fromCommit,
 		},
 	}
 }
@@ -73,9 +74,7 @@ func NewAtomInputOpts(name string, repo string, commit string, glob string, lazy
 // pipeline.
 func NewCrossInput(input ...*pps.Input) *pps.Input {
 	return &pps.Input{
-		Cross: &pps.CrossInput{
-			Input: input,
-		},
+		Cross: input,
 	}
 }
 
@@ -84,9 +83,7 @@ func NewCrossInput(input ...*pps.Input) *pps.Input {
 // the job / pipeline.
 func NewUnionInput(input ...*pps.Input) *pps.Input {
 	return &pps.Input{
-		Union: &pps.UnionInput{
-			Input: input,
-		},
+		Union: input,
 	}
 }
 
