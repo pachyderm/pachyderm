@@ -343,6 +343,12 @@ The datums are defined as whichever files or directories match by the glob patte
 `/*`, then the job will process three datums (potentially in parallel):
 `/foo-1`, `/foo-2`, and `/bar`. Both the `bar-1` and `bar-2` files within the directory `bar` would be grouped together and always processed by the same worker.
 
+## Multiple Inputs
+
+It's important to note that if a pipeline takes multiple atom inputs (via cross
+or union) then the pipeline will not get triggered until all of the atom inputs
+have at least one commit on the branch.
+
 ## PPS Mounts and File Access
 
 ### Mount Paths
