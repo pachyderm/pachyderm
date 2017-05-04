@@ -1,6 +1,7 @@
 #!/bin/bash
 
-if [[ "$TRAVIS_EVENT_TYPE" != "cron" ]]; then
+#if [[ "$TRAVIS_EVENT_TYPE" != "cron" ]]; then
+if [[ "cron" != "cron" ]]; then
   exit 0
 fi
 
