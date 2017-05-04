@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -26,6 +27,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
@@ -33,16 +35,13 @@ import (
 
 const (
 	// The maximum number of concurrent download/upload operations
-	concurrency = 100
+	concurrency = 10
 	maxLogItems = 10
 )
 
-// Input is a generic input object that can either be a pipeline input or
-// a job input.  It only defines the attributes that the worker cares about.
-type Input struct {
-	Name string
-	Lazy bool
-}
+var (
+	errSpecialFile = errors.New("cannot upload special file")
+)
 
 // APIServer implements the worker API
 type APIServer struct {
@@ -51,7 +50,6 @@ type APIServer struct {
 	// Information needed to process input data and upload output
 	pipelineInfo *pps.PipelineInfo
 	jobInfo      *pps.JobInfo
-	inputs       []*Input
 
 	// Information attached to log lines
 	logMsgTemplate pps.LogMessage
@@ -60,7 +58,7 @@ type APIServer struct {
 	// The currently running job ID
 	jobID string
 	// The currently running data
-	data []*pfs.FileInfo
+	data []*Input
 	// The time we started the currently running
 	started time.Time
 	// Func to cancel the currently running datum
@@ -91,8 +89,8 @@ func (a *APIServer) getTaggedLogger(req *ProcessRequest) *taggedLogger {
 	// Add inputs' details to log metadata, so we can find these logs later
 	for _, d := range req.Data {
 		result.template.Data = append(result.template.Data, &pps.Datum{
-			Path: d.File.Path,
-			Hash: d.Hash,
+			Path: d.FileInfo.File.Path,
+			Hash: d.FileInfo.Hash,
 		})
 	}
 	return result
@@ -159,12 +157,6 @@ func NewPipelineAPIServer(pachClient *client.APIClient, pipelineInfo *pps.Pipeli
 		},
 		workerName: workerName,
 	}
-	for _, input := range pipelineInfo.Inputs {
-		server.inputs = append(server.inputs, &Input{
-			Name: input.Name,
-			Lazy: input.Lazy,
-		})
-	}
 	return server
 }
 
@@ -176,19 +168,13 @@ func NewJobAPIServer(pachClient *client.APIClient, jobInfo *pps.JobInfo, workerN
 		logMsgTemplate: pps.LogMessage{},
 		workerName:     workerName,
 	}
-	for _, input := range jobInfo.Inputs {
-		server.inputs = append(server.inputs, &Input{
-			Name: input.Name,
-			Lazy: input.Lazy,
-		})
-	}
 	return server
 }
 
-func (a *APIServer) downloadData(data []*pfs.FileInfo, puller *filesync.Puller) error {
-	for i, datum := range data {
-		input := a.inputs[i]
-		if err := puller.Pull(a.pachClient, filepath.Join(client.PPSInputPrefix, input.Name, datum.File.Path), datum.File.Commit.Repo.Name, datum.File.Commit.ID, datum.File.Path, input.Lazy, concurrency); err != nil {
+func (a *APIServer) downloadData(inputs []*Input, puller *filesync.Puller) error {
+	for _, input := range inputs {
+		file := input.FileInfo.File
+		if err := puller.Pull(a.pachClient, filepath.Join(client.PPSInputPrefix, input.Name, file.Path), file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, concurrency); err != nil {
 			return err
 		}
 	}
@@ -216,7 +202,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	if err != nil {
 		logger.Logf("user code finished, err: %+v", err)
 	} else {
-		logger.Logf("user code finished", err)
+		logger.Logf("user code finished")
 	}
 
 	// Return result
@@ -237,7 +223,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 
 }
 
-func (a *APIServer) uploadOutput(ctx context.Context, tag string) error {
+func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *taggedLogger) error {
 	// hashtree is not thread-safe--guard with 'lock'
 	var lock sync.Mutex
 	tree := hashtree.NewHashTree()
@@ -269,6 +255,15 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string) error {
 				return nil
 			}
 
+			// Under some circumstances, the user might have copied
+			// some pipes from the input directory to the output directory.
+			// Reading from these files will result in job blocking.  Thus
+			// we preemptively detect if the file is a special file.
+			if (info.Mode() & os.ModeType) > 0 {
+				logger.Logf("cannot upload special file: %v", relPath)
+				return errSpecialFile
+			}
+
 			f, err := os.Open(path)
 			if err != nil {
 				return err
@@ -279,13 +274,26 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string) error {
 				}
 			}()
 
-			object, size, err := a.pachClient.PutObject(f)
+			putObjClient, err := a.pachClient.ObjectAPIClient.PutObject(ctx)
 			if err != nil {
 				return err
 			}
+			size, err := grpcutil.ChunkReader(f, grpcutil.MaxMsgSize/2, func(chunk []byte) error {
+				return putObjClient.Send(&pfs.PutObjectRequest{
+					Value: chunk,
+				})
+			})
+			if err != nil {
+				return err
+			}
+			object, err := putObjClient.CloseAndRecv()
+			if err != nil {
+				return err
+			}
+
 			lock.Lock()
 			defer lock.Unlock()
-			return tree.PutFile(relPath, []*pfs.Object{object}, size)
+			return tree.PutFile(relPath, []*pfs.Object{object}, int64(size))
 		})
 		return nil
 	}); err != nil {
@@ -316,13 +324,11 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string) error {
 // cleanUpData removes everything under /pfs
 //
 // The reason we don't want to just os.RemoveAll(/pfs) is that we don't
-// want to remove /pfs itself, since it's a symlink to the hostpath volume.
-// We also don't want to remove /pfs and re-create the symlink, because for
-// some reason that results in extremely pool performance.
+// want to remove /pfs itself, since it's a emptyDir volume.
 //
 // Most of the code is copied from os.RemoveAll().
 func (a *APIServer) cleanUpData() error {
-	path := filepath.Join(client.PPSHostPath, a.workerName)
+	path := client.PPSInputPrefix
 	// Otherwise, is this a directory we need to recurse into?
 	dir, serr := os.Lstat(path)
 	if serr != nil {
@@ -375,12 +381,12 @@ func (a *APIServer) cleanUpData() error {
 }
 
 // HashDatum computes and returns the hash of a datum + pipeline.
-func (a *APIServer) HashDatum(data []*pfs.FileInfo) (string, error) {
+func (a *APIServer) HashDatum(data []*Input) (string, error) {
 	hash := sha256.New()
-	for i, fileInfo := range data {
-		hash.Write([]byte(a.inputs[i].Name))
-		hash.Write([]byte(fileInfo.File.Path))
-		hash.Write(fileInfo.Hash)
+	for _, datum := range data {
+		hash.Write([]byte(datum.Name))
+		hash.Write([]byte(datum.FileInfo.File.Path))
+		hash.Write(datum.FileInfo.Hash)
 	}
 	if a.pipelineInfo != nil {
 		bytes, err := proto.Marshal(a.pipelineInfo.Transform)
@@ -492,7 +498,26 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 			Failed: true,
 		}, nil
 	}
-	if err := a.uploadOutput(ctx, tag); err != nil {
+	// CleanUp is idempotent so we can call it however many times we want.
+	// The reason we are calling it here is that the puller could've
+	// encountered an error as it was lazily loading files, in which case
+	// the output might be invalid since as far as the user's code is
+	// concerned, they might've just seen an empty or partially completed
+	// file.
+	if err := puller.CleanUp(); err != nil {
+		logger.Logf("puller encountered an error while cleaning up: %+v", err)
+		return nil, err
+	}
+	if err := a.uploadOutput(ctx, tag, logger); err != nil {
+		// If uploading failed because the user program outputed a special
+		// file, then there's no point in retrying.  Thus we signal that
+		// there's some problem with the user code so the job doesn't
+		// infinitely retry to process this datum.
+		if err == errSpecialFile {
+			return &ProcessResponse{
+				Failed: true,
+			}, nil
+		}
 		return nil, err
 	}
 	return &ProcessResponse{
@@ -538,10 +563,10 @@ func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*Cancel
 
 func (a *APIServer) datum() []*pps.Datum {
 	var result []*pps.Datum
-	for _, fileInfo := range a.data {
+	for _, datum := range a.data {
 		result = append(result, &pps.Datum{
-			Path: fileInfo.File.Path,
-			Hash: fileInfo.Hash,
+			Path: datum.FileInfo.File.Path,
+			Hash: datum.FileInfo.Hash,
 		})
 	}
 	return result

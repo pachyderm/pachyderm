@@ -81,8 +81,6 @@ func (r *Reporter) reportUserAction(ctx context.Context, action string, value in
 			value,
 			r.clusterID,
 		)
-	} else {
-		log.Errorf("Error extracting userid metadata from context: %v\n", ctx)
 	}
 }
 
@@ -106,7 +104,7 @@ func reportAndFlushUserAction(action string, value interface{}) {
 	defer client.Close()
 	cfg, err := config.Read()
 	if err != nil {
-		log.Errorf("Error reading userid from ~/.pachyderm/config: %v\n", err)
+		log.Errorf("Error reading userid from ~/.pachyderm/config: %v", err)
 		// metrics errors are non fatal
 		return
 	}

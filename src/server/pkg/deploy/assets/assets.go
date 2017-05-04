@@ -128,7 +128,7 @@ func fillDefaultResourceRequests(opts *AssetOpts, persistentDiskBackend backend)
 		// For non-local deployments, we set the resource requirements and cache
 		// sizes higher, so that the cluster is stable and performant
 		if opts.BlockCacheSize == "" {
-			opts.BlockCacheSize = "5G"
+			opts.BlockCacheSize = "1G"
 		}
 		if opts.PachdNonCacheMemRequest == "" {
 			opts.PachdNonCacheMemRequest = "2G"
@@ -160,6 +160,63 @@ func ServiceAccount() *api.ServiceAccount {
 	}
 }
 
+// GetSecretVolumeAndMount returns a properly configured Volume and
+// VolumeMount object given a backend.  The backend needs to be one of the
+// constants defined in pfs/server.
+func GetSecretVolumeAndMount(backend string) (api.Volume, api.VolumeMount, error) {
+	switch backend {
+	case server.MinioBackendEnvVar:
+		return api.Volume{
+				Name: minioSecretName,
+				VolumeSource: api.VolumeSource{
+					Secret: &api.SecretVolumeSource{
+						SecretName: minioSecretName,
+					},
+				},
+			}, api.VolumeMount{
+				Name:      minioSecretName,
+				MountPath: "/" + minioSecretName,
+			}, nil
+	case server.AmazonBackendEnvVar:
+		return api.Volume{
+				Name: amazonSecretName,
+				VolumeSource: api.VolumeSource{
+					Secret: &api.SecretVolumeSource{
+						SecretName: amazonSecretName,
+					},
+				},
+			}, api.VolumeMount{
+				Name:      amazonSecretName,
+				MountPath: "/" + amazonSecretName,
+			}, nil
+	case server.GoogleBackendEnvVar:
+		return api.Volume{
+				Name: googleSecretName,
+				VolumeSource: api.VolumeSource{
+					Secret: &api.SecretVolumeSource{
+						SecretName: googleSecretName,
+					},
+				},
+			}, api.VolumeMount{
+				Name:      googleSecretName,
+				MountPath: "/" + googleSecretName,
+			}, nil
+	case server.MicrosoftBackendEnvVar:
+		return api.Volume{
+				Name: microsoftSecretName,
+				VolumeSource: api.VolumeSource{
+					Secret: &api.SecretVolumeSource{
+						SecretName: microsoftSecretName,
+					},
+				},
+			}, api.VolumeMount{
+				Name:      microsoftSecretName,
+				MountPath: "/" + microsoftSecretName,
+			}, nil
+	}
+	return api.Volume{}, api.VolumeMount{}, fmt.Errorf("not found")
+}
+
 // PachdDeployment returns a pachd k8s Deployment.
 func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath string) *extensions.Deployment {
 	mem := resource.MustParse(opts.BlockCacheSize)
@@ -186,70 +243,26 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 		},
 	}
 	var backendEnvVar string
+	var storageHostPath string
 	switch objectStoreBackend {
 	case localBackend:
+		storageHostPath = filepath.Join(hostPath, "pachd")
 		volumes[0].HostPath = &api.HostPathVolumeSource{
-			Path: filepath.Join(hostPath, "pachd"),
+			Path: storageHostPath,
 		}
 	case minioBackend:
 		backendEnvVar = server.MinioBackendEnvVar
-		volumes[0].HostPath = &api.HostPathVolumeSource{
-			Path: filepath.Join(hostPath, "pachd"),
-		}
-		volumes = append(volumes, api.Volume{
-			Name: minioSecretName,
-			VolumeSource: api.VolumeSource{
-				Secret: &api.SecretVolumeSource{
-					SecretName: minioSecretName,
-				},
-			},
-		})
-		volumeMounts = append(volumeMounts, api.VolumeMount{
-			Name:      minioSecretName,
-			MountPath: "/" + minioSecretName,
-		})
 	case amazonBackend:
 		backendEnvVar = server.AmazonBackendEnvVar
-		volumes = append(volumes, api.Volume{
-			Name: amazonSecretName,
-			VolumeSource: api.VolumeSource{
-				Secret: &api.SecretVolumeSource{
-					SecretName: amazonSecretName,
-				},
-			},
-		})
-		volumeMounts = append(volumeMounts, api.VolumeMount{
-			Name:      amazonSecretName,
-			MountPath: "/" + amazonSecretName,
-		})
 	case googleBackend:
 		backendEnvVar = server.GoogleBackendEnvVar
-		volumes = append(volumes, api.Volume{
-			Name: googleSecretName,
-			VolumeSource: api.VolumeSource{
-				Secret: &api.SecretVolumeSource{
-					SecretName: googleSecretName,
-				},
-			},
-		})
-		volumeMounts = append(volumeMounts, api.VolumeMount{
-			Name:      googleSecretName,
-			MountPath: "/" + googleSecretName,
-		})
 	case microsoftBackend:
 		backendEnvVar = server.MicrosoftBackendEnvVar
-		volumes = append(volumes, api.Volume{
-			Name: microsoftSecretName,
-			VolumeSource: api.VolumeSource{
-				Secret: &api.SecretVolumeSource{
-					SecretName: microsoftSecretName,
-				},
-			},
-		})
-		volumeMounts = append(volumeMounts, api.VolumeMount{
-			Name:      microsoftSecretName,
-			MountPath: "/" + microsoftSecretName,
-		})
+	}
+	volume, mount, err := GetSecretVolumeAndMount(backendEnvVar)
+	if err == nil {
+		volumes = append(volumes, volume)
+		volumeMounts = append(volumeMounts, mount)
 	}
 	return &extensions.Deployment{
 		TypeMeta: unversioned.TypeMeta{
@@ -289,6 +302,10 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 									Value: backendEnvVar,
 								},
 								{
+									Name:  "STORAGE_HOST_PATH",
+									Value: storageHostPath,
+								},
+								{
 									Name: "PACHD_POD_NAMESPACE",
 									ValueFrom: &api.EnvVarSource{
 										FieldRef: &api.ObjectFieldSelector{
@@ -300,6 +317,10 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 								{
 									Name:  "WORKER_IMAGE",
 									Value: fmt.Sprintf("pachyderm/worker:%s", opts.Version),
+								},
+								{
+									Name:  "WORKER_SIDECAR_IMAGE",
+									Value: fmt.Sprintf("pachyderm/pachd:%s", opts.Version),
 								},
 								{
 									Name:  "WORKER_IMAGE_PULL_POLICY",
@@ -444,6 +465,7 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *extensions.Deployment {
 								"--listen-client-urls=http://0.0.0.0:2379",
 								"--advertise-client-urls=http://0.0.0.0:2379",
 								"--data-dir=/var/data/etcd",
+								"--auto-compaction-retention=1",
 							},
 							Ports: []api.ContainerPort{
 								{
@@ -658,7 +680,7 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 	cpu := resource.MustParse(opts.EtcdCPURequest)
 	initialCluster := make([]string, 0, opts.EtcdNodes)
 	for i := 0; i < opts.EtcdNodes; i++ {
-		url := fmt.Sprintf("http://etcd-%d.etcd-headless.default.svc.cluster.local:2380", i)
+		url := fmt.Sprintf("http://etcd-%d.etcd-headless.${NAMESPACE}.svc.cluster.local:2380", i)
 		initialCluster = append(initialCluster, fmt.Sprintf("etcd-%d=%s", i, url))
 	}
 	// Because we need to refer to some environment variables set the by the
@@ -671,8 +693,9 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 		"--listen-peer-urls=http://0.0.0.0:2380",
 		"--data-dir=/var/data/etcd",
 		"--initial-cluster-token=pach-cluster", // unique ID
-		"--initial-advertise-peer-urls=http://${ETCD_NAME}.etcd-headless.default.svc.cluster.local:2380",
+		"--initial-advertise-peer-urls=http://${ETCD_NAME}.etcd-headless.${NAMESPACE}.svc.cluster.local:2380",
 		"--initial-cluster=" + strings.Join(initialCluster, ","),
+		"--auto-compaction-retention=1",
 	}
 	for i, str := range etcdCmd {
 		etcdCmd[i] = fmt.Sprintf("\"%s\"", str) // quote all arguments, for shell
@@ -757,6 +780,14 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 									"fieldRef": map[string]interface{}{
 										"apiVersion": "v1",
 										"fieldPath":  "metadata.name",
+									},
+								},
+							}, {
+								"name": "NAMESPACE",
+								"valueFrom": map[string]interface{}{
+									"fieldRef": map[string]interface{}{
+										"apiVersion": "v1",
+										"fieldPath":  "metadata.namespace",
 									},
 								},
 							}},
@@ -909,7 +940,7 @@ func MinioSecret(bucket string, id string, secret string, endpoint string, secur
 //   secret - AWS secret access key
 //   token  - AWS access token
 //   region - AWS region
-func AmazonSecret(bucket string, id string, secret string, token string, region string) *api.Secret {
+func AmazonSecret(bucket string, distribution string, id string, secret string, token string, region string) *api.Secret {
 	return &api.Secret{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Secret",
@@ -920,11 +951,12 @@ func AmazonSecret(bucket string, id string, secret string, token string, region 
 			Labels: labels(amazonSecretName),
 		},
 		Data: map[string][]byte{
-			"bucket": []byte(bucket),
-			"id":     []byte(id),
-			"secret": []byte(secret),
-			"token":  []byte(token),
-			"region": []byte(region),
+			"bucket":       []byte(bucket),
+			"distribution": []byte(distribution),
+			"id":           []byte(id),
+			"secret":       []byte(secret),
+			"token":        []byte(token),
+			"region":       []byte(region),
 		},
 	}
 }
@@ -1094,12 +1126,12 @@ func WriteCustomAssets(w io.Writer, opts *AssetOpts, args []string, objectStoreB
 
 // WriteAmazonAssets writes assets to an amazon backend.
 func WriteAmazonAssets(w io.Writer, opts *AssetOpts, bucket string, id string, secret string,
-	token string, region string, volumeSize int) error {
+	token string, region string, volumeSize int, distribution string) error {
 	if err := WriteAssets(w, opts, amazonBackend, amazonBackend, volumeSize, ""); err != nil {
 		return err
 	}
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
-	AmazonSecret(bucket, id, secret, token, region).CodecEncodeSelf(encoder)
+	AmazonSecret(bucket, distribution, id, secret, token, region).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 	return nil
 }
