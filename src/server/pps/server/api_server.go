@@ -187,8 +187,8 @@ func (a *apiServer) validateInput(ctx context.Context, input *pps.Input, job boo
 			case input.Atom.Branch == "" && !job:
 				result = fmt.Errorf("input must specify a branch")
 				return
-			case input.Atom.Commit == "" && !job:
-				result = fmt.Errorf("input must specify a branch")
+			case input.Atom.Commit == "" && job:
+				result = fmt.Errorf("input must specify a commit")
 				return
 			case len(input.Atom.Glob) == 0:
 				result = fmt.Errorf("input must specify a glob")
@@ -1469,6 +1469,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 
 			// (create JobInput for new processing job)
 			jobInput := proto.Clone(pipelineInfo.Input).(*pps.Input)
+			var visitErr error
 			visit(jobInput, func(input *pps.Input) {
 				if input.Atom != nil {
 					for _, branch := range branchSet.Branches {
@@ -1476,9 +1477,15 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 							input.Atom.Commit = branch.Head.ID
 						}
 					}
+					if input.Atom.Commit == "" {
+						visitErr = fmt.Errorf("didn't find input commit for %s/%s", input.Atom.Repo, input.Atom.Branch)
+					}
 					input.Atom.FromCommit = ""
 				}
 			})
+			if visitErr != nil {
+				return visitErr
+			}
 
 			jobsRO := a.jobs.ReadOnly(ctx)
 			// Check if this input set has already been processed
