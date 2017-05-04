@@ -153,8 +153,7 @@ check_all_nodes_ready() {
         return 1
     fi
 
-    num_slaves=3
-    total_nodes=$(($num_slaves+1))
+    total_nodes=$((${NUM_NODES}+1))
     ready_nodes=`cat nodes.txt | grep -v NotReady | grep Ready | wc -l`
     echo "total ${total_nodes}, ready ${ready_nodes}"
     if [ ${ready_nodes} == ${total_nodes} ]; then
