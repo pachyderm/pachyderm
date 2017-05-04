@@ -23,6 +23,8 @@ CLUSTER_NAME?=pachyderm
 CLUSTER_MACHINE_TYPE?=n1-standard-4
 CLUSTER_SIZE?=4
 
+BENCH_CLOUD_PROVIDER=gcp
+
 ifdef TRAVIS_BUILD_NUMBER
 	# Upper bound for travis test timeout
 	TIMEOUT = 3600s
@@ -158,9 +160,12 @@ push-bench-images: install-bench
 	docker push pachyderm/bench:`git rev-list HEAD --max-count=1`
 
 launch-bench:
-	etc/deploy/aws.sh
-	until timeout 10s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
-	cat ~/.kube/config
+	# Make launches each process in its own shell process, so we have to structure
+	# these to run these as one command
+	ID=$$( etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --create ); \
+	until timeout 10s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done; \
+	cat ~/.kube/config; \
+	etc/testing/deploy$(BENCH_CLOUD_PROVIDER).sh --delete=$${ID}
 
 install-bench: install
 	@# Since bench is run as sudo, pachctl needs to be under
