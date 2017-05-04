@@ -177,15 +177,14 @@ func (a *apiServer) validateInput(ctx context.Context, input *pps.Input, job boo
 				result = fmt.Errorf("input cannot be named \"out\", as pachyderm " +
 					"already creates /pfs/out to collect job output")
 				return
-			case input.Atom.Commit == nil:
-				result = fmt.Errorf("input must specify a commit")
+			case input.Atom.Repo == "":
+				result = fmt.Errorf("input must specify a repo")
 				return
-			case len(input.Atom.Commit.ID) == 0:
-				if job {
-					result = fmt.Errorf("input must specify a commit ID")
-				} else {
-					result = fmt.Errorf("input must specify a branch")
-				}
+			case input.Atom.Branch == "" && !job:
+				result = fmt.Errorf("input must specify a branch")
+				return
+			case input.Atom.Commit == "" && !job:
+				result = fmt.Errorf("input must specify a branch")
 				return
 			case len(input.Atom.Glob) == 0:
 				result = fmt.Errorf("input must specify a glob")
@@ -204,7 +203,7 @@ func (a *apiServer) validateInput(ctx context.Context, input *pps.Input, job boo
 			if job {
 				// for jobs we check that the input commit exists
 				_, err = pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-					Commit: input.Atom.Commit,
+					Commit: client.NewCommit(input.Atom.Repo, input.Atom.Commit),
 				})
 				if err != nil {
 					result = err
@@ -213,7 +212,7 @@ func (a *apiServer) validateInput(ctx context.Context, input *pps.Input, job boo
 			} else {
 				// for pipelines we only check that the repo exists
 				_, err = pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{
-					Repo: input.Atom.Commit.Repo,
+					Repo: client.NewRepo(input.Atom.Repo),
 				})
 				if err != nil {
 					result = err
@@ -247,11 +246,11 @@ func (a *apiServer) validateInput(ctx context.Context, input *pps.Input, job boo
 func visit(input *pps.Input, f func(*pps.Input)) {
 	switch {
 	case input.Cross != nil:
-		for _, input := range input.Cross.Input {
+		for _, input := range input.Cross {
 			visit(input, f)
 		}
 	case input.Union != nil:
-		for _, input := range input.Union.Input {
+		for _, input := range input.Union {
 			visit(input, f)
 		}
 	}
@@ -263,15 +262,13 @@ func name(input *pps.Input) string {
 	case input.Atom != nil:
 		return input.Atom.Name
 	case input.Cross != nil:
-		if len(input.Cross.Input) == 0 {
-			return ""
+		if len(input.Cross) > 0 {
+			return name(input.Cross[0])
 		}
-		return name(input.Cross.Input[0])
 	case input.Union != nil:
-		if len(input.Union.Input) == 0 {
-			return ""
+		if len(input.Union) > 0 {
+			return name(input.Union[0])
 		}
-		return name(input.Union.Input[0])
 	}
 	return ""
 }
@@ -283,9 +280,9 @@ func sortInput(input *pps.Input) {
 		}
 		switch {
 		case input.Cross != nil:
-			sortInputs(input.Cross.Input)
+			sortInputs(input.Cross)
 		case input.Union != nil:
-			sortInputs(input.Union.Input)
+			sortInputs(input.Union)
 		}
 	})
 }
@@ -294,7 +291,7 @@ func inputCommits(input *pps.Input) []*pfs.Commit {
 	var result []*pfs.Commit
 	visit(input, func(input *pps.Input) {
 		if input.Atom != nil {
-			result = append(result, input.Atom.Commit)
+			result = append(result, client.NewCommit(input.Atom.Repo, input.Atom.Commit))
 		}
 	})
 	return result
@@ -305,13 +302,14 @@ func (a *apiServer) validateJob(ctx context.Context, jobInfo *pps.JobInfo) error
 }
 
 func translateJobInputs(inputs []*pps.JobInput) *pps.Input {
-	result := &pps.Input{Cross: &pps.CrossInput{}}
+	result := &pps.Input{}
 	for _, input := range inputs {
-		result.Cross.Input = append(result.Cross.Input,
+		result.Cross = append(result.Cross,
 			&pps.Input{
 				Atom: &pps.AtomInput{
 					Name:   input.Name,
-					Commit: input.Commit,
+					Repo:   input.Commit.Repo.Name,
+					Commit: input.Commit.ID,
 					Glob:   input.Glob,
 					Lazy:   input.Lazy,
 				},
@@ -323,13 +321,13 @@ func translateJobInputs(inputs []*pps.JobInput) *pps.Input {
 func untranslateJobInputs(input *pps.Input) []*pps.JobInput {
 	var result []*pps.JobInput
 	if input.Cross != nil {
-		for _, input := range input.Cross.Input {
+		for _, input := range input.Cross {
 			if input.Atom == nil {
 				return nil
 			}
 			result = append(result, &pps.JobInput{
 				Name:   input.Atom.Name,
-				Commit: input.Atom.Commit,
+				Commit: client.NewCommit(input.Atom.Repo, input.Atom.Commit),
 				Glob:   input.Atom.Glob,
 				Lazy:   input.Atom.Lazy,
 			})
@@ -725,20 +723,21 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 }
 
 func translatePipelineInputs(inputs []*pps.PipelineInput) *pps.Input {
-	result := &pps.Input{Cross: &pps.CrossInput{}}
+	result := &pps.Input{}
 	for _, input := range inputs {
 		var fromCommitID string
 		if input.From != nil {
 			fromCommitID = input.From.ID
 		}
-		result.Cross.Input = append(result.Cross.Input,
+		result.Cross = append(result.Cross,
 			&pps.Input{
 				Atom: &pps.AtomInput{
-					Name:         input.Name,
-					Commit:       client.NewCommit(input.Repo.Name, input.Branch),
-					Glob:         input.Glob,
-					Lazy:         input.Lazy,
-					FromCommitID: fromCommitID,
+					Name:       input.Name,
+					Repo:       input.Repo.Name,
+					Branch:     input.Branch,
+					Glob:       input.Glob,
+					Lazy:       input.Lazy,
+					FromCommit: fromCommitID,
 				},
 			})
 	}
@@ -867,11 +866,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 	visit(pipelineInfo.Input, func(input *pps.Input) {
 		if input.Atom != nil {
-			if input.Atom.Commit.ID == "" {
-				input.Atom.Commit.ID = "master"
+			if input.Atom.Branch == "" {
+				input.Atom.Branch = "master"
 			}
 			if input.Atom.Name == "" {
-				input.Atom.Name = input.Atom.Commit.Repo.Name
+				input.Atom.Name = input.Atom.Repo
 			}
 		}
 	})
@@ -1467,11 +1466,11 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			visit(jobInput, func(input *pps.Input) {
 				if input.Atom != nil {
 					for _, branch := range branchSet.Branches {
-						if input.Atom.Commit.Repo.Name == branch.Head.Repo.Name && input.Atom.Commit.ID == branch.Name {
-							input.Atom.Commit.ID = branch.Head.ID
+						if input.Atom.Repo == branch.Head.Repo.Name && input.Atom.Branch == branch.Name {
+							input.Atom.Commit = branch.Head.ID
 						}
 					}
-					input.Atom.FromCommitID = ""
+					input.Atom.FromCommit = ""
 				}
 			})
 
@@ -1646,7 +1645,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			var provenance []*pfs.Repo
 			visit(jobInfo.Input, func(input *pps.Input) {
 				if input.Atom != nil {
-					provenance = append(provenance, input.Atom.Commit.Repo)
+					provenance = append(provenance, client.NewRepo(input.Atom.Repo))
 				}
 			})
 			if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{

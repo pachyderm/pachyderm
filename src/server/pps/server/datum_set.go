@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	workerpkg "github.com/pachyderm/pachyderm/src/server/pkg/worker"
@@ -23,7 +24,7 @@ type atomDatumFactory struct {
 func newAtomDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.AtomInput) (datumFactory, error) {
 	result := &atomDatumFactory{}
 	fileInfos, err := pfsClient.GlobFile(ctx, &pfs.GlobFileRequest{
-		Commit:  input.Commit,
+		Commit:  client.NewCommit(input.Repo, input.Commit),
 		Pattern: input.Glob,
 	})
 	if err != nil {
@@ -51,9 +52,9 @@ type unionDatumFactory struct {
 	inputs []datumFactory
 }
 
-func newUnionDatumFactory(ctx context.Context, pfsClient pfs.APIClient, unionInput *pps.UnionInput) (datumFactory, error) {
+func newUnionDatumFactory(ctx context.Context, pfsClient pfs.APIClient, union []*pps.Input) (datumFactory, error) {
 	result := &unionDatumFactory{}
-	for _, input := range unionInput.Input {
+	for _, input := range union {
 		datumFactory, err := newDatumFactory(ctx, pfsClient, input)
 		if err != nil {
 			return nil, err
@@ -108,9 +109,9 @@ func (d *crossDatumFactory) Datum(i int) []*workerpkg.Input {
 	return result
 }
 
-func newCrossDatumFactory(ctx context.Context, pfsClient pfs.APIClient, crossInput *pps.CrossInput) (datumFactory, error) {
+func newCrossDatumFactory(ctx context.Context, pfsClient pfs.APIClient, cross []*pps.Input) (datumFactory, error) {
 	result := &crossDatumFactory{}
-	for _, input := range crossInput.Input {
+	for _, input := range cross {
 		datumFactory, err := newDatumFactory(ctx, pfsClient, input)
 		if err != nil {
 			return nil, err
