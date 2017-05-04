@@ -253,7 +253,7 @@ Union inputs take the union of other inputs. For example:
 | inputA | inputB | inputA ∪ inputB |
 | ------ | ------ | --------------- |
 | foo    | fizz   | foo             |
-| bar    | buzz   | buzz            |
+| bar    | buzz   | fizz            |
 |        |        | bar             |
 |        |        | buzz            |
 
