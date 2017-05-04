@@ -1329,7 +1329,9 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	return grpcutil.NewStreamingBytesReader(getObjectsClient), nil
 }
 
-func nodeToFileInfo(commit *pfs.Commit, path string, node *hashtree.NodeProto) *pfs.FileInfo {
+// If full is false, exclude potentially large fields such as `Objects`
+// and `Children`
+func nodeToFileInfo(commit *pfs.Commit, path string, node *hashtree.NodeProto, full bool) *pfs.FileInfo {
 	fileInfo := &pfs.FileInfo{
 		File: &pfs.File{
 			Commit: commit,
@@ -1340,9 +1342,14 @@ func nodeToFileInfo(commit *pfs.Commit, path string, node *hashtree.NodeProto) *
 	}
 	if node.FileNode != nil {
 		fileInfo.FileType = pfs.FileType_FILE
+		if full {
+			fileInfo.Objects = node.FileNode.Objects
+		}
 	} else if node.DirNode != nil {
 		fileInfo.FileType = pfs.FileType_DIR
-		fileInfo.Children = node.DirNode.Children
+		if full {
+			fileInfo.Children = node.DirNode.Children
+		}
 	}
 	return fileInfo
 }
@@ -1358,7 +1365,7 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 		return nil, err
 	}
 
-	return nodeToFileInfo(file.Commit, file.Path, node), nil
+	return nodeToFileInfo(file.Commit, file.Path, node, true), nil
 }
 
 func (d *driver) listFile(ctx context.Context, file *pfs.File) ([]*pfs.FileInfo, error) {
@@ -1374,7 +1381,7 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File) ([]*pfs.FileInfo,
 
 	var fileInfos []*pfs.FileInfo
 	for _, node := range nodes {
-		fileInfos = append(fileInfos, nodeToFileInfo(file.Commit, path.Join(file.Path, node.Name), node))
+		fileInfos = append(fileInfos, nodeToFileInfo(file.Commit, path.Join(file.Path, node.Name), node, false))
 	}
 	return fileInfos, nil
 }
@@ -1392,7 +1399,7 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern strin
 
 	var fileInfos []*pfs.FileInfo
 	for _, node := range nodes {
-		fileInfos = append(fileInfos, nodeToFileInfo(commit, node.Name, node))
+		fileInfos = append(fileInfos, nodeToFileInfo(commit, node.Name, node, false))
 	}
 	return fileInfos, nil
 }
