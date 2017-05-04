@@ -51,24 +51,18 @@ message Service {
 
 message AtomInput {
   string name = 1;
-  pfs.Commit commit = 2;
-  string glob = 3;
-  bool lazy = 4;
-  string from_commit_id = 5 [(gogoproto.customname) = "FromCommitID"];
-}
-
-message CrossInput {
- repeated Input input = 1;
-}
-
-message UnionInput {
-  repeated Input input = 1;
+  string repo = 2;
+  string branch = 3;
+  string commit = 4;
+  string glob = 5;
+  bool lazy = 6;
+  string from_commit = 7;
 }
 
 message Input {
   AtomInput atom = 1;
-  CrossInput cross = 2;
-  UnionInput union = 3;
+  repeated Input cross = 2;
+  repeated Input union = 3;
 }
 
 message JobInput {
