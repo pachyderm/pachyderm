@@ -65,7 +65,7 @@ func NewMetricsClientFromAddressWithConcurrency(addr string, metrics bool, prefi
 	cfg, err := config.Read()
 	if err != nil {
 		// metrics errors are non fatal
-		log.Errorf("error loading user config from ~/.pachderm/config: %v\n", err)
+		log.Errorf("error loading user config from ~/.pachderm/config: %v", err)
 	} else {
 		c.config = cfg
 	}
@@ -203,7 +203,7 @@ func (c *APIClient) addMetadata(ctx context.Context) context.Context {
 		if err != nil {
 			// Don't report error if config fails to read
 			// metrics errors are non fatal
-			log.Errorf("Error loading config: %v\n", err)
+			log.Errorf("Error loading config: %v", err)
 			return ctx
 		}
 		c.config = cfg

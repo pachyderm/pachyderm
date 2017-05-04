@@ -27,6 +27,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
@@ -34,7 +35,7 @@ import (
 
 const (
 	// The maximum number of concurrent download/upload operations
-	concurrency = 100
+	concurrency = 10
 	maxLogItems = 10
 )
 
@@ -273,13 +274,26 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 				}
 			}()
 
-			object, size, err := a.pachClient.PutObject(f)
+			putObjClient, err := a.pachClient.ObjectAPIClient.PutObject(ctx)
 			if err != nil {
 				return err
 			}
+			size, err := grpcutil.ChunkReader(f, grpcutil.MaxMsgSize/2, func(chunk []byte) error {
+				return putObjClient.Send(&pfs.PutObjectRequest{
+					Value: chunk,
+				})
+			})
+			if err != nil {
+				return err
+			}
+			object, err := putObjClient.CloseAndRecv()
+			if err != nil {
+				return err
+			}
+
 			lock.Lock()
 			defer lock.Unlock()
-			return tree.PutFile(relPath, []*pfs.Object{object}, size)
+			return tree.PutFile(relPath, []*pfs.Object{object}, int64(size))
 		})
 		return nil
 	}); err != nil {
@@ -483,6 +497,16 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		return &ProcessResponse{
 			Failed: true,
 		}, nil
+	}
+	// CleanUp is idempotent so we can call it however many times we want.
+	// The reason we are calling it here is that the puller could've
+	// encountered an error as it was lazily loading files, in which case
+	// the output might be invalid since as far as the user's code is
+	// concerned, they might've just seen an empty or partially completed
+	// file.
+	if err := puller.CleanUp(); err != nil {
+		logger.Logf("puller encountered an error while cleaning up: %+v", err)
+		return nil, err
 	}
 	if err := a.uploadOutput(ctx, tag, logger); err != nil {
 		// If uploading failed because the user program outputed a special

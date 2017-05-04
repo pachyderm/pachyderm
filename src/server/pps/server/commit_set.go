@@ -40,8 +40,12 @@ func newBranchSetFactory(_ctx context.Context, pfsClient pfs.APIClient, input *p
 			if uniqueBranches[input.Atom.Repo] == nil {
 				uniqueBranches[input.Atom.Repo] = make(map[string]*pfs.Commit)
 			}
-			uniqueBranches[input.Atom.Repo][input.Atom.Commit] =
-				client.NewCommit(input.Atom.Commit, input.Atom.FromCommit)
+			if input.Atom.FromCommit != "" {
+				uniqueBranches[input.Atom.Repo][input.Atom.Commit] =
+					client.NewCommit(input.Atom.Repo, input.Atom.FromCommit)
+			} else {
+				uniqueBranches[input.Atom.Repo][input.Atom.Commit] = nil
+			}
 		}
 	})
 

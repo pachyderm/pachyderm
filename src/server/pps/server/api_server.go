@@ -155,7 +155,11 @@ type apiServer struct {
 	versionLock           sync.RWMutex
 	namespace             string
 	workerImage           string
+	workerSidecarImage    string
 	workerImagePullPolicy string
+	storageRoot           string
+	storageBackend        string
+	storageHostPath       string
 	reporter              *metrics.Reporter
 	// collections
 	pipelines col.Collection
@@ -644,7 +648,9 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			defer close(logChs[i]) // Main thread reads from here, so must close
 			// Get full set of logs from pod i
 			result := a.kubeClient.Pods(a.namespace).GetLogs(
-				pod.ObjectMeta.Name, &api.PodLogOptions{}).Do()
+				pod.ObjectMeta.Name, &api.PodLogOptions{
+					Container: client.PPSWorkerUserContainerName,
+				}).Do()
 			fullLogs, err := result.Raw()
 			if err != nil {
 				if apiStatus, ok := err.(errors.APIStatus); ok &&
@@ -1787,7 +1793,8 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				userCodeFailures := 0
 				defer limiter.Release()
 				b := backoff.NewInfiniteBackOff()
-				backoff.RetryNotify(func() error {
+				b.Multiplier = 1
+				if err := backoff.RetryNotify(func() error {
 					clientOrErr := clientPool.Get()
 					var workerClient workerpkg.WorkerClient
 					switch clientOrErr := clientOrErr.(type) {
@@ -1838,8 +1845,9 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					}
 					protolion.Errorf("job %s failed to process datum %+v with: %+v, retrying in: %+v", jobID, files, err, d)
 					return nil
-				})
-				go updateProgress(1)
+				}); err == nil {
+					go updateProgress(1)
+				}
 			}()
 		}
 		limiter.Wait()
