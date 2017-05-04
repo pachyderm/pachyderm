@@ -35,24 +35,16 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
     "cpu": double
   },
   "input": {
-      "cross": {
-          "input": [
-          {
-              "atom": {
-                  "name": string,
-                  "commit" {
-                      "repo": {
-                          "name": string
-                      },
-                      "id": string // should be a branch, such as "master"
-                  },
-                  "glob": string,
-                  "lazy" bool,
-                  "from_commit_id": string
-              }
+      "cross": [ {
+          "atom": {
+              "name": string,
+              "repo": string,
+              "branch": string,
+              "glob": string,
+              "lazy" bool,
+              "from_commit_id": string
           }
-          ]
-      }
+      } ]
   },
   "outputBranch": string,
   "egress": {
@@ -73,14 +65,9 @@ In practice, you rarely need to specify all the fields.  Most fields either come
     "image": "wordcount-image",
     "cmd": ["/binary", "/pfs/data", "/pfs/out"]
   },
-  "input":
-    {
+  "input": {
         "atom": {
-            "commit": {
-                "repo": {
-                    "name": "data"
-                }
-            },
+            "repo": "data"
             "glob": "/*"
         }
     }
