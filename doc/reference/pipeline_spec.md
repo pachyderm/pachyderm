@@ -34,23 +34,18 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
     "memory": string
     "cpu": double
   },
-  "inputs": [
-    {
-      "name": string,
-      "repo": {
-        "name": string
-      },
-      "branch": string,
-      "glob": string,
-      "lazy": bool,
-      "from": {
-        "repo": {
-          "name": string
-        },
-        "id": string
-      }
-    }
-  ],
+  "input": {
+      "cross": [ {
+          "atom": {
+              "name": string,
+              "repo": string,
+              "branch": string,
+              "glob": string,
+              "lazy" bool,
+              "from_commit": string
+          }
+      } ]
+  },
   "outputBranch": string,
   "egress": {
     "URL": "s3://bucket/dir"
@@ -70,14 +65,12 @@ In practice, you rarely need to specify all the fields.  Most fields either come
     "image": "wordcount-image",
     "cmd": ["/binary", "/pfs/data", "/pfs/out"]
   },
-  "inputs": [
-    {
-      "repo": {
-        "name": "data"
-      },
-      "glob": "/*"
+  "input": {
+        "atom": {
+            "repo": "data",
+            "glob": "/*"
+        }
     }
-  ]
 }
 ```
 
@@ -186,41 +179,109 @@ avoid scheduling problems that prevent users from being unable to run
 pipelines).  This means that if a node runs out of memory, any such worker
 might be killed.
 
-#### Inputs (optional)
+### Input (required)
 
-`inputs` specifies a set of Repos that will be visible to the jobs during
-runtime. Commits to these repos will automatically trigger the pipeline to
-create new jobs to process them.
+`input` specifies repos that will be visible to the jobs during runtime.
+Commits to these repos will automatically trigger the pipeline to create new
+jobs to process them. Input is a recursive type, there are multiple different
+kinds of inputs which can be combined together. The `input` object is a
+container for the different input types with a field for each, only one of
+these fields be set for any insantiation of the object.
 
-`inputs.name` is the name of the input.  An input with name `XXX` will be
-visible under the path `/pfs/XXX` when a job runs.  Input names must be
-unique. If an input's name is not specified, it's default to the name of
-the repo. Therefore, if you have two inputs from the same repo, you'll need to give at least one of them a unique name.
+```
+{
+    "atom": atom_input,
+    "union": [input],
+    "cross": [input],
+}
+```
 
-`inputs.repo` is a repo that contains input data for this pipeline.
+#### Atom Input
+Atom inputs are the simplest inputs, they take input from a single branch on a
+single repo.
 
-`inputs.branch` is the name of a branch in the input repo.  Only commits on
-this branch trigger the pipeline.  By default, it's set to `master`.
+```
+{
+    "name": string,
+    "repo": string,
+    "branch": string,
+    "glob": string,
+    "lazy" bool,
+    "from_commit": string
+}
+```
 
-`inputs.glob` is a glob pattern that's used to determine how the input data
+`input.atom.name` is the name of the input.  An input with name `XXX` will be visible
+under the path `/pfs/XXX` when a job runs.  Input names must be unique. If an
+input's name is not specified, it defaults to the name of the repo. Therefore,
+if you have two inputs from the same repo, you'll need to give at least one
+of them a unique name.
+
+`input.atom.repo` is the `repo` to be used for the input.
+
+`input.atom.branch` is the `branch` to watch for commits on, it may be left blank in
+which case `"master"` will be used.
+
+`input.atom.commit` is the `repo` and `branch` (specified as `id`) to be used for the
+input, `repo` is required but `id` may be left blank in which case `"master"`
+will be used.
+
+`input.atom.glob` is a glob pattern that's used to determine how the input data
 is partitioned.  It's explained in detail in the next section.
 
-`inputs.lazy` controls how the data is exposed to jobs. The default is
-`false` which means the job will eagerly download the data it needs to
-process and it will be exposed as normal files on disk. If lazy is set
-to `true`, data will be exposed as named pipes instead and no data will
-be downloaded until the job opens the pipe and reads it, if the pipe is
-never opened then no will be downloaded. Some applications won't work with
-pipes, for example if they make syscalls such as `Seek` which pipes don't
-support. Applications that can work with pipes should use them since they're
-more performant, the difference will be especially notable if the job only
-reads a subset of the files that are available to it.  Note that `lazy`
-currently doesn't support datums that contain more than 10000 files.
+`input.atom.lazy` controls how the data is exposed to jobs. The default is `false`
+which means the job will eagerly download the data it needs to process and it
+will be exposed as normal files on disk. If lazy is set to `true`, data will be
+exposed as named pipes instead and no data will be downloaded until the job
+opens the pipe and reads it, if the pipe is never opened then no data will be
+downloaded. Some applications won't work with pipes, for example if they make
+syscalls such as `Seek` which pipes don't support. Applications that can work
+with pipes should use them since they're more performant, the difference will
+be especially notable if the job only reads a subset of the files that are
+available to it.  Note that `lazy` currently doesn't support datums that
+contain more than 10000 files.
 
-`inputs.from` specifies the starting point of the input branch.  If `from`
-is not specified, then the entire input branch will be processed.  Otherwise,
-only commits since the `from` commit (not including the `from` commit itself)
- will be processed.
+`input.atom.from_commit` specifies the starting point of the input branch.  If
+`from_commit` is not specified, then the entire input branch will be
+processed.  Otherwise, only commits since the `from_commit` (not including
+the commit itself) will be processed.
+
+#### Union Input
+
+Union inputs take the union of other inputs. For example:
+
+| inputA | inputB | inputA ∪ inputB |
+| ------ | ------ | --------------- |
+| foo    | fizz   | foo             |
+| bar    | buzz   | fizz            |
+|        |        | bar             |
+|        |        | buzz            |
+
+Notice that union inputs, do not take a name and maintain the names of the sub-inputs.
+In the above example you would see files under `/pfs/inputA/...` and `/pfs/inputB/...`.
+
+`input.union` is an array of inputs to union, note that these need not be
+`atom` inputs, they can also be `union` and `cross` inputs. Although there's no
+reason to take a union of unions since union is associative.
+
+#### Cross Input
+
+Cross inputs take the cross product of other inputs, in other words it creates
+tuples of the datums in the inputs. For example:
+
+| inputA | inputB | inputA ⨯ inputB |
+| ------ | ------ | --------------- |
+| foo    | fizz   | (foo, fizz)     |
+| bar    | buzz   | (foo, buzz)     |
+|        |        | (bar, fizz)     |
+|        |        | (bar, buzz)     |
+
+Notice that cross inputs, do not take a name and maintain the names of the sub-inputs.
+In the above example you would see files under `/pfs/inputA/...` and `/pfs/inputB/...`.
+
+`input.cross` is an array of inputs to cross, note that these need not be
+`atom` inputs, they can also be `union` and `cross` inputs. Although there's no
+reason to take a cross of crosses since cross products are associative.
 
 ### OutputBranch (optional)
 
@@ -244,7 +305,7 @@ By default, a pipeline’s worker pods are always running.  When `scaleDownThres
 
 ## The Input Glob Pattern
 
-Each input needs to specify a [glob pattern](../fundamentals/distributed_computing.html).
+Each atom input needs to specify a [glob pattern](../fundamentals/distributed_computing.html).
 
 Pachyderm uses the glob pattern to determine how many "datums" an input
 consists of.  Datums are the unit of parallelism in Pachyderm.  That is,
@@ -280,64 +341,9 @@ The datums are defined as whichever files or directories match by the glob patte
 
 ## Multiple Inputs
 
-A pipeline is allowed to have multiple inputs.  The important thing to
-understand is what happens when a new commit comes into one of the input repos.
-
-In short, a pipeline processes the **cross product** of the datums in its
-inputs.  We will
-use an example to illustrate.
-
-Consider a pipeline that has two input repos: `foo` and `bar`.
-
-```
-1. PUT /file-1 in commit1 in foo -- no jobs triggered
-2. PUT /file-a in commit1 in bar -- triggers job1
-3. PUT /file-2 in commit2 in foo -- triggers job2
-4. PUT /file-b in commit2 in bar -- triggers job3
-```
-
-The first time the pipeline is triggered will be when the second event
-completes.  This is because we need data in both repos before we can run the
-pipeline.
-
-Here is a breakdown of the datums that each job sees:
-
-```
-job1:
-
-Datum1:
-
-    /pfs/foo/file-1
-    /pfs/bar/file-a
-
-job2:
-
-Datum1:
-    /pfs/foo/file-1
-    /pfs/bar/file-a
-
-Datum2:
-    /pfs/foo/file-2
-    /pfs/bar/file-a
-
-job3:
-
-Datum1:
-    /pfs/foo/file-1
-    /pfs/bar/file-a
-
-Datum2:
-    /pfs/foo/file-2
-    /pfs/bar/file-a
-
-Datum3:
-    /pfs/foo/file-1
-    /pfs/bar/file-b
-
-Datum4:
-    /pfs/foo/file-2
-    /pfs/bar/file-b
-```
+It's important to note that if a pipeline takes multiple atom inputs (via cross
+or union) then the pipeline will not get triggered until all of the atom inputs
+have at least one commit on the branch.
 
 ## PPS Mounts and File Access
 

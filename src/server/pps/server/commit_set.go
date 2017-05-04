@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 
@@ -30,16 +31,23 @@ func (f *branchSetFactoryImpl) Chan() chan *branchSet {
 	return f.ch
 }
 
-func newBranchSetFactory(_ctx context.Context, pfsClient pfs.APIClient, inputs []*pps.PipelineInput) (branchSetFactory, error) {
+func newBranchSetFactory(_ctx context.Context, pfsClient pfs.APIClient, input *pps.Input) (branchSetFactory, error) {
 	ctx, cancel := context.WithCancel(_ctx)
 
 	uniqueBranches := make(map[string]map[string]*pfs.Commit)
-	for _, input := range inputs {
-		if uniqueBranches[input.Repo.Name] == nil {
-			uniqueBranches[input.Repo.Name] = make(map[string]*pfs.Commit)
+	visit(input, func(input *pps.Input) {
+		if input.Atom != nil {
+			if uniqueBranches[input.Atom.Repo] == nil {
+				uniqueBranches[input.Atom.Repo] = make(map[string]*pfs.Commit)
+			}
+			if input.Atom.FromCommit != "" {
+				uniqueBranches[input.Atom.Repo][input.Atom.Branch] =
+					client.NewCommit(input.Atom.Repo, input.Atom.FromCommit)
+			} else {
+				uniqueBranches[input.Atom.Repo][input.Atom.Branch] = nil
+			}
 		}
-		uniqueBranches[input.Repo.Name][input.Branch] = input.From
-	}
+	})
 
 	var numBranches int
 	branchCh := make(chan *pfs.Branch)

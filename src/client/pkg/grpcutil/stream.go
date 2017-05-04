@@ -26,6 +26,26 @@ func Chunk(data []byte, chunkSize int) [][]byte {
 	return result
 }
 
+// ChunkReader splits a reader into chunks of size chunkSize.  For each
+// chunk, it calls the given function.
+func ChunkReader(r io.Reader, chunkSize int, f func([]byte) error) (int, error) {
+	var total int
+	for {
+		buf := make([]byte, chunkSize)
+		n, err := r.Read(buf)
+		if n == 0 && err != nil {
+			if err == io.EOF {
+				return total, nil
+			}
+			return total, err
+		}
+		if err := f(buf[:n]); err != nil {
+			return total, err
+		}
+		total += n
+	}
+}
+
 // StreamingBytesServer represents a server for an rpc method of the form:
 //   rpc Foo(Bar) returns (stream google.protobuf.BytesValue) {}
 type StreamingBytesServer interface {
@@ -83,7 +103,9 @@ func (s *streamingBytesWriter) Write(p []byte) (int, error) {
 
 // WriteToStreamingBytesServer writes the data from the io.Reader to the StreamingBytesServer.
 func WriteToStreamingBytesServer(reader io.Reader, streamingBytesServer StreamingBytesServer) error {
-	_, err := io.CopyBuffer(NewStreamingBytesWriter(streamingBytesServer), reader, make([]byte, MaxMsgSize/2))
+	buf := GetBuffer()
+	defer PutBuffer(buf)
+	_, err := io.CopyBuffer(NewStreamingBytesWriter(streamingBytesServer), reader, buf)
 	return err
 }
 

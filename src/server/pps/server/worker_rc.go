@@ -6,6 +6,7 @@ import (
 
 	client "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
@@ -54,6 +55,49 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 	if pullPolicy == "" {
 		pullPolicy = "IfNotPresent"
 	}
+	// Disable block caching for the sidecar.  We still want PFS cache
+	// because it caches things like commit IDs which typically has a
+	// very high hit rate since workers tend to be processing a small
+	// set commits at a time.
+	sidecarEnv := []api.EnvVar{{
+		Name:  "BLOCK_CACHE_BYTES",
+		Value: "256M",
+	}, {
+		Name:  "PFS_CACHE_BYTES",
+		Value: "10M",
+	}, {
+		Name:  "PACH_ROOT",
+		Value: a.storageRoot,
+	}, {
+		Name:  "STORAGE_BACKEND",
+		Value: a.storageBackend,
+	}}
+	// This only happens in local deployment.  We want the workers to be
+	// able to read from/write to the hostpath volume as well.
+	storageVolumeName := "pach-disk"
+	var sidecarVolumeMounts []api.VolumeMount
+	if a.storageHostPath != "" {
+		options.volumes = append(options.volumes, api.Volume{
+			Name: storageVolumeName,
+			VolumeSource: api.VolumeSource{
+				HostPath: &api.HostPathVolumeSource{
+					Path: a.storageHostPath,
+				},
+			},
+		})
+
+		sidecarVolumeMounts = []api.VolumeMount{
+			{
+				Name:      storageVolumeName,
+				MountPath: a.storageRoot,
+			},
+		}
+	}
+	secretVolume, secretMount, err := assets.GetSecretVolumeAndMount(a.storageBackend)
+	if err == nil {
+		options.volumes = append(options.volumes, secretVolume)
+		sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
+	}
 	podSpec := api.PodSpec{
 		InitContainers: []api.Container{
 			{
@@ -67,7 +111,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 		},
 		Containers: []api.Container{
 			{
-				Name:    "user",
+				Name:    client.PPSWorkerUserContainerName,
 				Image:   options.userImage,
 				Command: []string{"/pach-bin/guest.sh"},
 				SecurityContext: &api.SecurityContext{
@@ -76,6 +120,14 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 				ImagePullPolicy: api.PullPolicy(pullPolicy),
 				Env:             options.workerEnv,
 				VolumeMounts:    options.volumeMounts,
+			},
+			{
+				Name:            client.PPSWorkerSidecarContainerName,
+				Image:           a.workerSidecarImage,
+				Command:         []string{"/pachd", "--mode", "pfs"},
+				ImagePullPolicy: api.PullPolicy(pullPolicy),
+				Env:             sidecarEnv,
+				VolumeMounts:    sidecarVolumeMounts,
 			},
 		},
 		RestartPolicy:    "Always",
@@ -163,16 +215,14 @@ func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, resources
 	})
 
 	volumes = append(volumes, api.Volume{
-		Name: client.PPSHostPathVolume,
+		Name: client.PPSWorkerVolume,
 		VolumeSource: api.VolumeSource{
-			HostPath: &api.HostPathVolumeSource{
-				Path: client.PPSHostPath,
-			},
+			EmptyDir: &api.EmptyDirVolumeSource{},
 		},
 	})
 	volumeMounts = append(volumeMounts, api.VolumeMount{
-		Name:      client.PPSHostPathVolume,
-		MountPath: client.PPSHostPath,
+		Name:      client.PPSWorkerVolume,
+		MountPath: client.PPSInputPrefix,
 	})
 
 	var imagePullSecrets []api.LocalObjectReference
@@ -216,7 +266,9 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 		},
 	}
 	if _, err := a.kubeClient.ReplicationControllers(a.namespace).Create(rc); err != nil {
-		return err
+		if !isAlreadyExistsErr(err) {
+			return err
+		}
 	}
 
 	service := &api.Service{
@@ -240,7 +292,9 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 	}
 
 	if _, err := a.kubeClient.Services(a.namespace).Create(service); err != nil {
-		return err
+		if !isAlreadyExistsErr(err) {
+			return err
+		}
 	}
 
 	return nil
