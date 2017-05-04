@@ -3,6 +3,9 @@ package obj
 import (
 	"fmt"
 	"io"
+	"net/http"
+	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -11,23 +14,27 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/storagegateway"
+	"github.com/cenkalti/backoff"
+	"go.pedge.io/lion"
 )
 
 type amazonClient struct {
-	bucket   string
-	s3       *s3.S3
-	uploader *s3manager.Uploader
+	bucket       string
+	distribution string
+	s3           *s3.S3
+	uploader     *s3manager.Uploader
 }
 
-func newAmazonClient(bucket string, id string, secret string, token string, region string) (*amazonClient, error) {
+func newAmazonClient(bucket string, distribution string, id string, secret string, token string, region string) (*amazonClient, error) {
 	session := session.New(&aws.Config{
 		Credentials: credentials.NewStaticCredentials(id, secret, token),
 		Region:      aws.String(region),
 	})
 	return &amazonClient{
-		bucket:   bucket,
-		s3:       s3.New(session),
-		uploader: s3manager.NewUploader(session),
+		bucket:       bucket,
+		distribution: strings.TrimSpace(distribution),
+		s3:           s3.New(session),
+		uploader:     s3manager.NewUploader(session),
 	}, nil
 }
 
@@ -63,15 +70,47 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 		byteRange = fmt.Sprintf("bytes=%s", byteRange)
 	}
 
-	getObjectOutput, err := c.s3.GetObject(&s3.GetObjectInput{
-		Bucket: aws.String(c.bucket),
-		Key:    aws.String(name),
-		Range:  aws.String(byteRange),
-	})
-	if err != nil {
-		return nil, err
+	var reader io.ReadCloser
+	if c.distribution != "" {
+		var resp *http.Response
+		var connErr error
+		url := fmt.Sprintf("http://%v.cloudfront.net/%v", c.distribution, name)
+
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Add("Range", byteRange)
+
+		backoff.RetryNotify(func() error {
+			resp, connErr = http.DefaultClient.Do(req)
+			if connErr != nil && isNetRetryable(connErr) {
+				return connErr
+			}
+			return nil
+		}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) {
+			lion.Infof("Error connecting to (%v); retrying in %s: %#v", url, d, err)
+		})
+		if connErr != nil {
+			return nil, connErr
+		}
+		if resp.StatusCode >= 300 {
+			// Cloudfront returns 200s, and 206s as success codes
+			return nil, fmt.Errorf("cloudfront returned HTTP error code %v", resp.StatusCode)
+		}
+		reader = resp.Body
+	} else {
+		getObjectOutput, err := c.s3.GetObject(&s3.GetObjectInput{
+			Bucket: aws.String(c.bucket),
+			Key:    aws.String(name),
+			Range:  aws.String(byteRange),
+		})
+		if err != nil {
+			return nil, err
+		}
+		reader = getObjectOutput.Body
 	}
-	return newBackoffReadCloser(c, getObjectOutput.Body), nil
+	return newBackoffReadCloser(c, reader), nil
 }
 
 func (c *amazonClient) Delete(name string) error {
@@ -90,7 +129,11 @@ func (c *amazonClient) Exists(name string) bool {
 	return err == nil
 }
 
-func (c *amazonClient) isRetryable(err error) bool {
+func (c *amazonClient) isRetryable(err error) (retVal bool) {
+	if strings.Contains(err.Error(), "unexpected EOF") {
+		return true
+	}
+
 	awsErr, ok := err.(awserr.Error)
 	if !ok {
 		return false
@@ -112,6 +155,12 @@ func (c *amazonClient) IsIgnorable(err error) bool {
 }
 
 func (c *amazonClient) IsNotExist(err error) bool {
+	if c.distribution != "" {
+		// cloudfront returns forbidden error for nonexisting data
+		if strings.Contains(err.Error(), "error code 403") {
+			return true
+		}
+	}
 	awsErr, ok := err.(awserr.Error)
 	if !ok {
 		return false

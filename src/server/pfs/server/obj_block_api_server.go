@@ -185,7 +185,7 @@ func (s *objBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServer
 		return err
 	}
 	objectSize := objectInfo.BlockRef.Range.Upper - objectInfo.BlockRef.Range.Lower
-	if (objectSize) > uint64(s.objectCacheBytes/maxCachedObjectDenom) {
+	if (objectSize) >= uint64(s.objectCacheBytes/maxCachedObjectDenom) {
 		// The object is a substantial portion of the available cache space so
 		// we bypass the cache and stream it directly out of the underlying store.
 		blockPath := s.localServer.blockPath(objectInfo.BlockRef.Block)
@@ -214,6 +214,14 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 		if err != nil {
 			return err
 		}
+		if objectInfo == nil {
+			fmt.Println("objectInfo is nil; info: %+v; request: %v", objectInfo, request)
+		} else if objectInfo.BlockRef == nil {
+			fmt.Println("objectInfo.BlockRef is nil; info: %+v; request: %v", objectInfo, request)
+		} else if objectInfo.BlockRef.Range == nil {
+			fmt.Println("objectInfo.BlockRef.Range is nil; info: %+v; request: %v", objectInfo, request)
+		}
+
 		objectSize := objectInfo.BlockRef.Range.Upper - objectInfo.BlockRef.Range.Lower
 		if offset > objectSize {
 			offset -= objectSize
