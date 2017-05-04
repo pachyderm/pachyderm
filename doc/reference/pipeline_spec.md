@@ -42,7 +42,7 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
               "branch": string,
               "glob": string,
               "lazy" bool,
-              "from_commit_id": string
+              "from_commit": string
           }
       } ]
   },
@@ -67,7 +67,7 @@ In practice, you rarely need to specify all the fields.  Most fields either come
   },
   "input": {
         "atom": {
-            "repo": "data"
+            "repo": "data",
             "glob": "/*"
         }
     }
@@ -188,6 +188,14 @@ kinds of inputs which can be combined together. The `input` object is a
 container for the different input types with a field for each, only one of
 these fields be set for any insantiation of the object.
 
+```
+{
+    "atom": atom_input,
+    "union": [input],
+    "cross": [input],
+}
+```
+
 #### Atom Input
 Atom inputs are the simplest inputs, they take input from a single branch on a
 single repo.
@@ -195,32 +203,33 @@ single repo.
 ```
 {
     "name": string,
-    "commit" {
-        "repo": {
-            "name": string
-        },
-        "id": string // should be a branch, such as "master"
-    },
+    "repo": string,
+    "branch": string,
     "glob": string,
     "lazy" bool,
-    "from_commit_id": string
+    "from_commit": string
 }
 ```
 
-`atom.name` is the name of the input.  An input with name `XXX` will be visible
+`input.atom.name` is the name of the input.  An input with name `XXX` will be visible
 under the path `/pfs/XXX` when a job runs.  Input names must be unique. If an
 input's name is not specified, it defaults to the name of the repo. Therefore,
 if you have two inputs from the same repo, you'll need to give at least one
 of them a unique name.
 
-`atom.commit` is the `repo` and `branch` (specified as `id`) to be used for the
+`input.atom.repo` is the `repo` to be used for the input.
+
+`input.atom.branch` is the `branch` to watch for commits on, it may be left blank in
+which case `"master"` will be used.
+
+`input.atom.commit` is the `repo` and `branch` (specified as `id`) to be used for the
 input, `repo` is required but `id` may be left blank in which case `"master"`
 will be used.
 
-`atom.glob` is a glob pattern that's used to determine how the input data
+`input.atom.glob` is a glob pattern that's used to determine how the input data
 is partitioned.  It's explained in detail in the next section.
 
-`atom.lazy` controls how the data is exposed to jobs. The default is `false`
+`input.atom.lazy` controls how the data is exposed to jobs. The default is `false`
 which means the job will eagerly download the data it needs to process and it
 will be exposed as normal files on disk. If lazy is set to `true`, data will be
 exposed as named pipes instead and no data will be downloaded until the job
@@ -232,9 +241,9 @@ be especially notable if the job only reads a subset of the files that are
 available to it.  Note that `lazy` currently doesn't support datums that
 contain more than 10000 files.
 
-`atom.from_commit_id` specifies the starting point of the input branch.  If
-`from_commit_id` is not specified, then the entire input branch will be
-processed.  Otherwise, only commits since the `from_commit_id` (not including
+`input.atom.from_commit` specifies the starting point of the input branch.  If
+`from_commit` is not specified, then the entire input branch will be
+processed.  Otherwise, only commits since the `from_commit` (not including
 the commit itself) will be processed.
 
 #### Union Input
@@ -251,7 +260,7 @@ Union inputs take the union of other inputs. For example:
 Notice that union inputs, do not take a name and maintain the names of the sub-inputs.
 In the above example you would see files under `/pfs/inputA/...` and `/pfs/inputB/...`.
 
-`union.input` is an array of inputs to union, note that these need not be
+`input.union` is an array of inputs to union, note that these need not be
 `atom` inputs, they can also be `union` and `cross` inputs. Although there's no
 reason to take a union of unions since union is associative.
 
@@ -270,7 +279,7 @@ tuples of the datums in the inputs. For example:
 Notice that cross inputs, do not take a name and maintain the names of the sub-inputs.
 In the above example you would see files under `/pfs/inputA/...` and `/pfs/inputB/...`.
 
-`cross.input` is an array of inputs to cross, note that these need not be
+`input.cross` is an array of inputs to cross, note that these need not be
 `atom` inputs, they can also be `union` and `cross` inputs. Although there's no
 reason to take a cross of crosses since cross products are associative.
 
