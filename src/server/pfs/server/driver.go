@@ -21,6 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
@@ -1307,7 +1308,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 
 	node, err := tree.Get(file.Path)
 	if err != nil {
-		return nil, err
+		return nil, pfsserver.ErrFileNotFound{file}
 	}
 
 	if node.FileNode == nil {
@@ -1362,7 +1363,7 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 
 	node, err := tree.Get(file.Path)
 	if err != nil {
-		return nil, err
+		return nil, pfsserver.ErrFileNotFound{file}
 	}
 
 	return nodeToFileInfo(file.Commit, file.Path, node, true), nil
