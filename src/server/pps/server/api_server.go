@@ -1779,6 +1779,12 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		if err != nil {
 			return err
 		}
+		pool := grpcutil.NewPool(fmt.Sprintf("%s:%d", serviceAddr, client.PPSWorkerPort), numWorkers, client.PachDialOptions()...)
+		defer func() {
+			if err := pool.Close(); err != nil {
+				protolion.Errorf("error closing pool: %+v", pool)
+			}
+		}()
 		for i := 0; i < df.Len(); i++ {
 			limiter.Acquire()
 			files := df.Datum(i)
@@ -1788,20 +1794,26 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				b := backoff.NewInfiniteBackOff()
 				b.Multiplier = 1
 				if err := backoff.RetryNotify(func() error {
-					conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", serviceAddr, client.PPSWorkerPort),
-						client.PachDialOptions()...)
+					conn, err := pool.Get(ctx)
 					if err != nil {
 						return fmt.Errorf("error from connection pool: %v", err)
 					}
-					defer conn.Close()
 					workerClient := workerpkg.NewWorkerClient(conn)
 					resp, err := workerClient.Process(ctx, &workerpkg.ProcessRequest{
 						JobID: jobInfo.Job.ID,
 						Data:  files,
 					})
 					if err != nil {
+						if err := conn.Close(); err != nil {
+							protolion.Errorf("error closing conn: %+v", err)
+						}
 						return fmt.Errorf("Process() call failed: %v", err)
 					}
+					defer func() {
+						if err := pool.Put(conn); err != nil {
+							protolion.Errorf("error Putting conn: %+v", err)
+						}
+					}()
 					if resp.Failed {
 						userCodeFailures++
 						return fmt.Errorf("user code failed for datum %v", files)
