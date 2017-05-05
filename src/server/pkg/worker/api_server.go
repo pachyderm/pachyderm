@@ -223,7 +223,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 
 }
 
-func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *taggedLogger) error {
+func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *taggedLogger, inputs []*Input) error {
 	// hashtree is not thread-safe--guard with 'lock'
 	var lock sync.Mutex
 	tree := hashtree.NewHashTree()
@@ -258,10 +258,52 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 			// Under some circumstances, the user might have copied
 			// some pipes from the input directory to the output directory.
 			// Reading from these files will result in job blocking.  Thus
-			// we preemptively detect if the file is a special file.
-			if (info.Mode() & os.ModeType) > 0 {
-				logger.Logf("cannot upload special file: %v", relPath)
+			// we preemptively detect if the file is a named pipe.
+			if (info.Mode() & os.ModeNamedPipe) > 0 {
+				logger.Logf("cannot upload named pipe: %v", relPath)
 				return errSpecialFile
+			}
+
+			// If the output file is a symlink to an input file, we can skip
+			// the uploading.
+			if (info.Mode() & os.ModeSymlink) > 0 {
+				realPath, err := os.Readlink(path)
+				if err != nil {
+					return err
+				}
+
+				pathWithInput, err := filepath.Rel(client.PPSInputPrefix, realPath)
+				if err == nil {
+					// We can only skip the upload if the real path is
+					// under /pfs, meaning that it's a file that already
+					// exists in PFS.
+
+					// The name of the input
+					inputName := strings.Split(pathWithInput, string(os.PathSeparator))[0]
+					for _, input := range inputs {
+						if input.Name == inputName {
+							// The path of the input file
+							pfsPath, err := filepath.Rel(inputName, pathWithInput)
+							if err != nil {
+								return err
+							}
+
+							fileInfo, err := a.pachClient.PfsAPIClient.InspectFile(ctx, &pfs.InspectFileRequest{
+								File: &pfs.File{
+									Commit: input.FileInfo.File.Commit,
+									Path:   pfsPath,
+								},
+							})
+							if err != nil {
+								return err
+							}
+
+							lock.Lock()
+							defer lock.Unlock()
+							return tree.PutFile(relPath, fileInfo.Objects, int64(fileInfo.SizeBytes))
+						}
+					}
+				}
 			}
 
 			f, err := os.Open(path)
@@ -508,7 +550,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		logger.Logf("puller encountered an error while cleaning up: %+v", err)
 		return nil, err
 	}
-	if err := a.uploadOutput(ctx, tag, logger); err != nil {
+	if err := a.uploadOutput(ctx, tag, logger, req.Data); err != nil {
 		// If uploading failed because the user program outputed a special
 		// file, then there's no point in retrying.  Thus we signal that
 		// there's some problem with the user code so the job doesn't

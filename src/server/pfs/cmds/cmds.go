@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	codestart = "```sh"
-	codeend   = "```"
+	codestart = "```sh\n\n"
+	codeend   = "\n```"
 
 	// DefaultParallelism is the default parallelism used by get-file
 	// and put-file.
@@ -614,6 +614,41 @@ pachctl put-file repo branch -i http://host/path
 		}),
 	}
 
+	globFile := &cobra.Command{
+		Use:   "glob-file repo-name commit-id pattern",
+		Short: "Return files that match a glob pattern in a commit.",
+		Long: `Return files that match a glob pattern in a commit.
+
+The glob pattern is documented here: https://golang.org/pkg/path/filepath/#Match
+
+Examples:
+
+` + codestart + `# Return files in repo "foo" on branch "master" that start
+with the character "A".  Note how the double quotation marks around "A*" are
+necessary because otherwise your shell might interpret the "*".
+$ pachctl glob-file foo master "A*"
+
+# Return files in repo "foo" on branch "master" under directory "data".
+$ pachctl glob-file foo master "data/*"
+` + codeend,
+		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return err
+			}
+			fileInfos, err := client.GlobFile(args[0], args[1], args[2])
+			if err != nil {
+				return err
+			}
+			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			pretty.PrintFileInfoHeader(writer)
+			for _, fileInfo := range fileInfos {
+				pretty.PrintFileInfo(writer, fileInfo)
+			}
+			return writer.Flush()
+		}),
+	}
+
 	deleteFile := &cobra.Command{
 		Use:   "delete-file repo-name commit-id path/to/file",
 		Short: "Delete a file.",
@@ -755,6 +790,7 @@ pachctl put-file repo branch -i http://host/path
 	result = append(result, getFile)
 	result = append(result, inspectFile)
 	result = append(result, listFile)
+	result = append(result, globFile)
 	result = append(result, deleteFile)
 	result = append(result, getObject)
 	result = append(result, getTag)
