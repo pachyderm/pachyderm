@@ -2335,7 +2335,7 @@ func TestPipelineThatSymlinks(t *testing.T) {
 	require.Equal(t, "bar", buffer.String())
 	buffer.Reset()
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "buzz", 0, 0, &buffer))
-	require.Equal(t, "buzz", buffer.String())
+	require.Equal(t, "buzz\n", buffer.String())
 
 	// Make sure that we skipped the upload by checking that the input file
 	// and the output file have the same object refs.
