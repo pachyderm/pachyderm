@@ -258,9 +258,9 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 			// Under some circumstances, the user might have copied
 			// some pipes from the input directory to the output directory.
 			// Reading from these files will result in job blocking.  Thus
-			// we preemptively detect if the file is a special file.
-			if (info.Mode() & os.ModeType) > 0 {
-				logger.Logf("cannot upload special file: %v", relPath)
+			// we preemptively detect if the file is a named pipe.
+			if (info.Mode() & os.ModeNamedPipe) > 0 {
+				logger.Logf("cannot upload named pipe: %v", relPath)
 				return errSpecialFile
 			}
 
@@ -279,7 +279,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 					// exists in PFS.
 
 					// The name of the input
-					inputName := filepath.Dir(pathWithInput)
+					inputName := strings.Split(pathWithInput, string(os.PathSeparator))[0]
 					for _, input := range inputs {
 						if input.Name == inputName {
 							// The path of the input file
@@ -300,7 +300,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 
 							lock.Lock()
 							defer lock.Unlock()
-							return tree.PutFile(pfsPath, fileInfo.Objects, int64(fileInfo.SizeBytes))
+							return tree.PutFile(relPath, fileInfo.Objects, int64(fileInfo.SizeBytes))
 						}
 					}
 				}
