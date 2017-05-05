@@ -21,7 +21,7 @@ func NewPool(address string, size int, opts ...grpc.DialOption) *Pool {
 	return &Pool{
 		address: address,
 		opts:    opts,
-		conns:   make(chan *grpc.ClientConn),
+		conns:   make(chan *grpc.ClientConn, size),
 	}
 }
 
