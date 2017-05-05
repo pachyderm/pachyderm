@@ -632,6 +632,23 @@ func (c APIClient) ListFile(repoName string, commitID string, path string) ([]*p
 	return fileInfos.FileInfo, nil
 }
 
+// GlobFile returns files that match a given glob pattern in a given commit.
+// The pattern is documented here:
+// https://golang.org/pkg/path/filepath/#Match
+func (c APIClient) GlobFile(repoName string, commitID string, pattern string) ([]*pfs.FileInfo, error) {
+	fileInfos, err := c.PfsAPIClient.GlobFile(
+		c.ctx(),
+		&pfs.GlobFileRequest{
+			Commit:  NewCommit(repoName, commitID),
+			Pattern: pattern,
+		},
+	)
+	if err != nil {
+		return nil, sanitizeErr(err)
+	}
+	return fileInfos.FileInfo, nil
+}
+
 // WalkFn is the type of the function called for each file in Walk.
 // Returning a non-nil error from WalkFn will result in Walk aborting and
 // returning said error.

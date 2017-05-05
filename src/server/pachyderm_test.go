@@ -2278,6 +2278,79 @@ func TestPipelineWithExistingInputCommits(t *testing.T) {
 	require.Equal(t, 2, len(commitInfos))
 }
 
+func TestPipelineThatSymlinks(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	// create repos
+	dataRepo := uniqueString("TestPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{
+			// Symlinks to input files
+			fmt.Sprintf("ln -s /pfs/%s/foo /pfs/out/foo", dataRepo),
+			fmt.Sprintf("ln -s /pfs/%s/dir/bar /pfs/out/bar", dataRepo),
+			// Symlinks to external files
+			"echo buzz > /tmp/buzz",
+			"ln -s /tmp/buzz /pfs/out/buzz",
+		},
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/"),
+		"",
+		false,
+	))
+
+	// Do first commit to repo
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "foo", strings.NewReader("foo"))
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "dir/bar", strings.NewReader("bar"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
+	commitInfoIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitInfoIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	// Check that the output files are identical to the input files.
+	buffer := bytes.Buffer{}
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "foo", 0, 0, &buffer))
+	require.Equal(t, "foo", buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "bar", 0, 0, &buffer))
+	require.Equal(t, "bar", buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "buzz", 0, 0, &buffer))
+	require.Equal(t, "buzz\n", buffer.String())
+
+	// Make sure that we skipped the upload by checking that the input file
+	// and the output file have the same object refs.
+	inputFooFileInfo, err := c.InspectFile(dataRepo, commit.ID, "foo")
+	require.NoError(t, err)
+	outputFooFileInfo, err := c.InspectFile(pipelineName, commitInfos[0].Commit.ID, "foo")
+	require.NoError(t, err)
+	require.Equal(t, inputFooFileInfo.Objects, outputFooFileInfo.Objects)
+	inputFooFileInfo, err = c.InspectFile(dataRepo, commit.ID, "dir/bar")
+	require.NoError(t, err)
+	outputFooFileInfo, err = c.InspectFile(pipelineName, commitInfos[0].Commit.ID, "bar")
+	require.NoError(t, err)
+	require.Equal(t, inputFooFileInfo.Objects, outputFooFileInfo.Objects)
+}
+
 // TestChainedPipelines tracks https://github.com/pachyderm/pachyderm/issues/797
 func TestChainedPipelines(t *testing.T) {
 	if testing.Short() {
