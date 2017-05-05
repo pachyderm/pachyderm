@@ -1779,30 +1779,6 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		if err != nil {
 			return err
 		}
-		conns := make(map[*grpc.ClientConn]bool)
-		var connsMu sync.Mutex
-		defer func() {
-			for conn := range conns {
-				if err := conn.Close(); err != nil {
-					// We don't want to fail the job just because we failed to
-					// close a connection.
-					protolion.Errorf("failed to close connection with %+v", err)
-				}
-			}
-		}()
-		clientPool := sync.Pool{
-			New: func() interface{} {
-				conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", serviceAddr, client.PPSWorkerPort),
-					client.PachDialOptions()...)
-				if err != nil {
-					return err
-				}
-				connsMu.Lock()
-				defer connsMu.Unlock()
-				conns[conn] = true
-				return workerpkg.NewWorkerClient(conn)
-			},
-		}
 		for i := 0; i < df.Len(); i++ {
 			limiter.Acquire()
 			files := df.Datum(i)
@@ -1812,14 +1788,13 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				b := backoff.NewInfiniteBackOff()
 				b.Multiplier = 1
 				if err := backoff.RetryNotify(func() error {
-					clientOrErr := clientPool.Get()
-					var workerClient workerpkg.WorkerClient
-					switch clientOrErr := clientOrErr.(type) {
-					case workerpkg.WorkerClient:
-						workerClient = clientOrErr
-					case error:
-						return fmt.Errorf("error from connection pool: %v", clientOrErr)
+					conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", serviceAddr, client.PPSWorkerPort),
+						client.PachDialOptions()...)
+					if err != nil {
+						return fmt.Errorf("error from connection pool: %v", err)
 					}
+					defer conn.Close()
+					workerClient := workerpkg.NewWorkerClient(conn)
 					resp, err := workerClient.Process(ctx, &workerpkg.ProcessRequest{
 						JobID: jobInfo.Job.ID,
 						Data:  files,
@@ -1827,9 +1802,6 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					if err != nil {
 						return fmt.Errorf("Process() call failed: %v", err)
 					}
-					// We only return workerClient if we made a successful call
-					// to Process
-					defer clientPool.Put(workerClient)
 					if resp.Failed {
 						userCodeFailures++
 						return fmt.Errorf("user code failed for datum %v", files)
