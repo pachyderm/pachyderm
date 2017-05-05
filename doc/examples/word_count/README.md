@@ -22,18 +22,18 @@ Let's create the input repo and add one URL, Wikipedia:
 ```
 $ pachctl create-repo urls
 
-# We assume you're running this from the root of this repo:
-$ pachctl put-file urls master -c -f doc/examples/word_count/Wikipedia
+# We assume you're running this from the root of this example (pachyderm/doc/examples/word_count/):
+$ pachctl put-file urls master -c -f Wikipedia
 ```
 
 Let's create the first pipeline:
 
 ```
-# We assume you're running this from the root of this repo:
-$ pachctl create-pipeline -f doc/examples/word_count/wordcount_scraper.json
+# We assume you're running this from the root of this example:
+$ pachctl create-pipeline -f wordcount_scraper.json
 ```
 
-This first pipeline, `scraper`, uses `wget` to download web pages from Wikipedia which will be used as the input for the next pipeline.
+This first pipeline, `scraper`, uses `wget` to download web pages from Wikipedia which will be used as the input for the next pipeline. It'll take a minute or two because it needs to `apt-get` a few dependencies.
 
 
 Now you should be able to see a job running and a new repo called `scraper` that contains the output of our scrape. 
@@ -49,8 +49,6 @@ The output of our scraper pipeline has a file structure like:
 ```
 Wikipedia
  |--/page1
- |--/page2
- |--/page3
 ```
 
 ## Map
@@ -75,8 +73,8 @@ If you don't want to build this image yourself and add it to a registry, you can
 
 Now let's create the Map pipeline. 
 ```
-# Again, we assume you're running this from the root of this repo:
-$ pachctl create-pipeline -f doc/examples/word_count/mapPipeline.json
+# Again, we assume you're running this from the root of this example:
+$ pachctl create-pipeline -f mapPipeline.json
 ```
 
 As soon as you create this pipeline, it will start processing data from `scraper`. For each web page the map.go code processes, it writes a file a file for each encountered word whose filename is the word, and whose content is the number of occurrences.  If multiple workers write to the same file, the content is concatenated.  As an example, the file `morning` might look like this:
@@ -88,7 +86,9 @@ $ pachctl get-file map master morning
 17
 ```
 
-This shows that there were three [datums](http://pachyderm.readthedocs.io/en/latest/fundamentals/distributed_computing.html)(websites) that included to the word and wrote to the file `morning`.
+This shows that there were three [datums](http://pachyderm.readthedocs.io/en/latest/fundamentals/distributed_computing.html)(websites) that included the word and wrote to the file `morning`.
+
+For this tutorial, we're only running it with one worker, but you can change that in your [pipeline spec](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html) if you want.
 
 ## Reduce
 
@@ -102,7 +102,7 @@ Which we bake into [reducePipeline.json](reducePipeline.json).
 
 ```
 # We assume you're running this from the root of this repo:
-$ pachctl create-pipeline -f doc/examples/word_count/reducePipeline.json
+$ pachctl create-pipeline -f reducePipeline.json
 ```
 
 The final output might look like this:
