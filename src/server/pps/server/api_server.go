@@ -1792,7 +1792,6 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		}()
 		clientPool := sync.Pool{
 			New: func() interface{} {
-				protolion.Infof("Creating a new worker connection for job %s", jobID)
 				conn, err := grpc.DialContext(ctx, fmt.Sprintf("%s:%d", serviceAddr, client.PPSWorkerPort),
 					client.PachDialOptions()...)
 				if err != nil {
