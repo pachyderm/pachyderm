@@ -2296,8 +2296,12 @@ func TestPipelineThatSymlinks(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
+			// Symlinks to input files
 			fmt.Sprintf("ln -s /pfs/%s/foo /pfs/out/foo", dataRepo),
 			fmt.Sprintf("ln -s /pfs/%s/dir/bar /pfs/out/bar", dataRepo),
+			// Symlinks to external files
+			"echo buzz > /tmp/buzz",
+			"ln -s /tmp/buzz /pfs/out/buzz",
 		},
 		&pps.ParallelismSpec{
 			Strategy: pps.ParallelismSpec_CONSTANT,
@@ -2326,8 +2330,12 @@ func TestPipelineThatSymlinks(t *testing.T) {
 	buffer := bytes.Buffer{}
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "foo", 0, 0, &buffer))
 	require.Equal(t, "foo", buffer.String())
+	buffer.Reset()
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "bar", 0, 0, &buffer))
 	require.Equal(t, "bar", buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "buzz", 0, 0, &buffer))
+	require.Equal(t, "buzz", buffer.String())
 
 	// Make sure that we skipped the upload by checking that the input file
 	// and the output file have the same object refs.
