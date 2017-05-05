@@ -4,7 +4,7 @@ This document discusses best practices for common use cases.
 
 ## Shuffling files
 
-Certain pipelines simply shuffle files around.  If you find yourself writing a pipeline that does a lot of copying, it probably falls into this category.
+Certain pipelines simply shuffle files around.  If you find yourself writing a pipeline that does a lot of copying, such as [Time Windowing] (http://docs.pachyderm.io/en/latest/cookbook/time_windows.html), it probably falls into this category.
 
 The best way to shuffle files, especially large files, is to create **symlinks** in the output directory that point to files in the input directory.
 
