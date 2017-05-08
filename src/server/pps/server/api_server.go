@@ -1529,12 +1529,50 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				}
 			}
 
+			newBranch := branchSet.Branches[branchSet.NewBranch]
+			newCommitInfo, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+				Commit: newBranch.Head,
+			})
+			if err != nil {
+				return err
+			}
+			var parentJob *pps.Job
+			if newCommitInfo.ParentCommit != nil {
+				parentJobInput := proto.Clone(jobInput).(*pps.Input)
+				visit(parentJobInput, func(input *pps.Input) {
+					if input.Atom != nil && input.Atom.Repo == newBranch.Head.Repo.Name && input.Atom.Branch == newBranch.Name {
+						input.Atom.Commit = newCommitInfo.Commit.ID
+					}
+				})
+				if visitErr != nil {
+					return visitErr
+				}
+				jobIter, err := jobsRO.GetByIndex(jobsInputIndex, parentJobInput)
+				if err != nil {
+					return err
+				}
+				for {
+					var jobID string
+					var jobInfo pps.JobInfo
+					ok, err := jobIter.Next(&jobID, &jobInfo)
+					if err != nil {
+						return err
+					}
+					if !ok {
+						break
+					}
+					if jobInfo.PipelineID == pipelineInfo.ID && jobInfo.PipelineVersion == pipelineInfo.Version {
+						parentJob = jobInfo.Job
+					}
+				}
+			}
+
 			job, err = a.CreateJob(ctx, &pps.CreateJobRequest{
 				Pipeline: pipelineInfo.Pipeline,
 				Input:    jobInput,
 				// TODO(derek): Note that once the pipeline restarts, the `job`
 				// variable is lost and we don't know who is our parent job.
-				ParentJob: job,
+				ParentJob: parentJob,
 			})
 			if err != nil {
 				return err
