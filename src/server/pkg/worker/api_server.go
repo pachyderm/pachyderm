@@ -423,29 +423,29 @@ func (a *APIServer) cleanUpData() error {
 }
 
 // HashDatum computes and returns the hash of a datum + pipeline.
-func (a *APIServer) HashDatum(data []*Input) (string, error) {
+func HashDatum(pipelineInfo *pps.PipelineInfo, jobInfo *pps.JobInfo, data []*Input) (string, error) {
 	hash := sha256.New()
 	for _, datum := range data {
 		hash.Write([]byte(datum.Name))
 		hash.Write([]byte(datum.FileInfo.File.Path))
 		hash.Write(datum.FileInfo.Hash)
 	}
-	if a.pipelineInfo != nil {
-		bytes, err := proto.Marshal(a.pipelineInfo.Transform)
+	if pipelineInfo != nil {
+		bytes, err := proto.Marshal(pipelineInfo.Transform)
 		if err != nil {
 			return "", err
 		}
 		hash.Write(bytes)
-		hash.Write([]byte(a.pipelineInfo.Pipeline.Name))
-		hash.Write([]byte(a.pipelineInfo.ID))
-		hash.Write([]byte(strconv.Itoa(int(a.pipelineInfo.Version))))
-	} else if a.jobInfo != nil {
-		bytes, err := proto.Marshal(a.jobInfo.Transform)
+		hash.Write([]byte(pipelineInfo.Pipeline.Name))
+		hash.Write([]byte(pipelineInfo.ID))
+		hash.Write([]byte(strconv.Itoa(int(pipelineInfo.Version))))
+	} else if jobInfo != nil {
+		bytes, err := proto.Marshal(jobInfo.Transform)
 		if err != nil {
 			return "", err
 		}
 		hash.Write(bytes)
-		hash.Write([]byte(a.jobInfo.Job.ID))
+		hash.Write([]byte(jobInfo.Job.ID))
 	} else {
 		return "", fmt.Errorf("malformed APIServer: has neither pipelineInfo or jobInfo; this is likely a bug")
 	}
@@ -490,7 +490,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	// Hash inputs and check if output is in s3 already. Note: ppsserver sorts
 	// inputs by input name for both jobs and pipelines, so this hash is stable
 	// even if a.Inputs are reordered by the user
-	tag, err := a.HashDatum(req.Data)
+	tag, err := HashDatum(a.pipelineInfo, a.jobInfo, req.Data)
 	if err != nil {
 		return nil, err
 	}
