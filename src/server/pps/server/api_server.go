@@ -775,6 +775,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		CreatedAt:          now(),
 		ScaleDownThreshold: request.ScaleDownThreshold,
 		ResourceSpec:       request.ResourceSpec,
+		Description:        request.Description,
 	}
 	setPipelineDefaults(pipelineInfo)
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
