@@ -4,12 +4,12 @@
   },
   "transform": {
     "image": "wordcount-map",
-    "cmd": ["/map", "/pfs/input", "/pfs/out"]
+    "cmd": ["/map", "/pfs/scraper", "/pfs/out"]
   },
   "inputs": [
     {
       "repo": {
-        "name": "input"
+        "name": "scraper"
       },
       "glob": "/*"
     }
