@@ -3,7 +3,6 @@ package cmds
 import (
 	"bufio"
 	"bytes"
-	"client/pfs"
 	"context"
 	"fmt"
 	"io"
@@ -64,14 +63,14 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 				return err
 			}
 
-			_, err := c.PfsAPIClient.CreateRepo(
+			_, err = c.PfsAPIClient.CreateRepo(
 				context.Background(),
-				&pfs.CreateRepoRequest{
+				&pfsclient.CreateRepoRequest{
 					Repo:        client.NewRepo(args[0]),
 					Description: description,
 				},
 			)
-			return sanitizeErr(err)
+			return err
 		}),
 	}
 	createRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
