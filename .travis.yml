@@ -20,7 +20,7 @@ before_install:
 - sudo mount -o bind /var/lib/kubelet /var/lib/kubelet
 - sudo mount --make-shared /var/lib/kubelet
 # Decrypt gke credentials used by batch tests
-- openssl aes-256-cbc -K $encrypted_08b2466633b4_key -iv $encrypted_08b2466633b4_iv -in ./etc/testing/travis-batch-test-b2543bf99978.json.enc -out ./etc/testing/travis-batch-test-b2543bf99978.json -d
+- openssl aes-256-cbc -K $encrypted_1f5361f82e9b_key -iv $encrypted_1f5361f82e9b_iv -in ./etc/testing/pach-travis-86b9f180aa16.json.enc -out ./etc/testing/pach-travis-86b9f180aa16.json -d
 
 before_script:
 - wget https://storage.googleapis.com/kubernetes-release/release/v1.6.2/bin/linux/amd64/kubectl
