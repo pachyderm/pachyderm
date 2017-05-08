@@ -1225,8 +1225,6 @@ func TestDeleteFile(t *testing.T) {
 
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
-	// foo should still be here because we can't remove a file that we are adding
-	// in the same commit
 	_, err = client.InspectFile(repo, commit1.ID, "foo")
 	require.YesError(t, err)
 
@@ -1234,6 +1232,9 @@ func TestDeleteFile(t *testing.T) {
 	fileInfos, err := client.ListFile(repo, commit1.ID, "")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(fileInfos))
+
+	// Deleting a file in a finished commit should result in an error
+	require.YesError(t, client.DeleteFile(repo, commit1.ID, "bar"))
 
 	// Empty commit
 	commit2, err := client.StartCommit(repo, "master")
