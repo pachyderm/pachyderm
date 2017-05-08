@@ -190,7 +190,8 @@ launch-bench:
 	@echo To delete this cluster, run etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --delete=$${ID}; \
 	echo etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --delete=$${ID} >./clean_current_bench_cluster.sh; \
 	until timeout 10s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done; \
-	cat ~/.kube/config;
+	cat ~/.kube/config; \
+	kubectl cluster-info
 
 clean-launch-bench:
 	./clean_current_bench_cluster.sh || true
