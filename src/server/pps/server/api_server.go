@@ -1066,6 +1066,41 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	return &types.Empty{}, err
 }
 
+func (a *apiServer) GC(request *pps.GCRequest) (response *pps.GCResponse, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "GC")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	pfsclient, err := a.getPFSClient()
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the list of objects used in PFS
+	var activeObjects []*pfs.Object
+
+	// Get all repos
+	repoInfos, err := pfsclient.ListRepo(ctx, &pfs.ListRepoRequest{})
+	if err != nil {
+		return nil, err
+	}
+
+	// Get all commit trees
+	var commitTreeObjects []*pfs.Object
+	for _, repo := range repoInfos.RepoInfo {
+		commitInfos, err := pfsclient.ListCommit(ctx, &pfs.ListCommitRequest{
+			Repo: repo,
+		})
+		for _, commit := range commitInfos.CommitInfo {
+			activeObjects = append(activeObjects, commit.Tree)
+			activeObjects = append(activeObjects, getCommitObjects(commit.Tree)...)
+		}
+	}
+
+	// Get all pipeline tags
+}
+
 func (a *apiServer) Version(version int64) error {
 	a.versionLock.Lock()
 	defer a.versionLock.Unlock()
