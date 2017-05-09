@@ -30,7 +30,7 @@ If you use the `CONSTANT` strategy, Pachyderm will start the number of workers t
 
 If you use the `COEFFICIENT` strategy, Pachyderm will start a number of workers that is a multiple of your Kubernetes cluster’s size. To use this strategy, set the field `coefficient` to a double. For example, if your Kubernetes cluster has 10 nodes, and you set `"coefficient": 0.5`, Pachyderm will start five workers. If you set it to 2.0, Pachyderm will start 20 workers (two per Kubernetes node).
 
-**NOTE:** The parallelism_spec is optional and will default to `“coefficient": 1”`, which means that it'll spawn one worker per Kubernetes node for this pipeline if left unset. 
+**NOTE:** The parallelism_spec is optional and will default to `“coefficient": 1`, which means that it'll spawn one worker per Kubernetes node for this pipeline if left unset. 
 
 ## Spreading Data Across Workers (Glob Patterns)
 
@@ -38,33 +38,57 @@ Defining how your data is spread out among workers is arguably the most importan
 
 Instead of confining users to just data-distribution patterns such as Map (split everything as much as possible) and Reduce (_all_ the data must be grouped together), Pachyderm uses [Glob Patterns](https://en.wikipedia.org/wiki/Glob_(programming)) to offer incredible flexibility in defining your data distribution. 
 
- Glob patterns are defined by the user for each input of a pipeline and tell Pachyderm how to divide the input data into individual "datums" that can be processed independently. 
+ Glob patterns are defined by the user for each `atom` within the `input` of a pipeline, and they tell Pachyderm how to divide the input data into individual "datums" that can be processed independently. 
 
 ```
-"inputs": [
-    {
-      "repo": {
-        "name": "string"
-      },
-      "glob": "string"
+"input": {
+    "atom": {
+        "repo": "string",
+        "glob": "string",
     }
-  ]
+    "cross": [
+        {
+            "atom": {
+                "repo": "string",
+                "glob": "string",
+            }
+        },
+        {
+            "atom": {
+                "repo": "string",
+                "glob": "string",
+            }
+        }
+    ],
+    "union": [
+        {
+            "atom": {
+                "repo": "string",
+                "glob": "string",
+            }
+        },
+
+        etc...
+
+    ]
+}
 ```
-That means you could easily define two inputs, one with the data highly distributed and another where it's grouped together. 
+
+That means you could easily define multiple "atoms", one with the data highly distributed and another where it's grouped together.  You can then join the datums in these atoms via a cross product or union (as shown above) for combined, distributed processing. More information about "atoms," unions, and crosses can be found in our [Pipeline Specification](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html).
 
 ### Datums
 
-Pachyderm uses the glob pattern to determine how many “datums” an input consists of. Datums are the unit of parallelism in Pachyderm. That is, Pachyderm attempts to process datums in parallel whenever possible.
+Pachyderm uses the glob pattern to determine how many “datums” an input atom consists of. Datums are the unit of parallelism in Pachyderm. That is, Pachyderm attempts to process datums in parallel whenever possible.
 
 If you have two workers and define 2 datums, Pachyderm will send one datum to each worker. In a scenario where there are more datums than workers, Pachyderm will queue up extra datums and send them to workers as they finish processing previous datums. 
 
 ### Defining Datums via Glob Patterns
 
-Intuitively, you should think of the input repo as a file system where the glob pattern is being applied to the root of the file system. The files and directories that match the glob pattern are considered datums.
+Intuitively, you should think of the input atom repo as a file system where the glob pattern is being applied to the root of the file system. The files and directories that match the glob pattern are considered datums.
 
 For example, a glob pattern of just `/` would denote the entire input repo as a single datum. All of the input data would be given to a single worker similar to a typical reduce-style operation.
 
-Another commonly used glob pattern is `/*`. `/*` would define each top level object (file or directory) in the input repo as its own datum. If you have a repo with just 10 files in it and no directory structure, every file would be a datum and could be processed independently. This is similar to a  typical map-style operation.
+Another commonly used glob pattern is `/*`. `/*` would define each top level object (file or directory) in the input atom repo as its own datum. If you have a repo with just 10 files in it and no directory structure, every file would be a datum and could be processed independently. This is similar to a  typical map-style operation.
 
 But Pachyderm can do anything in between too. If you have a directory structure with each state as a directory and a file for each city such as:
 
@@ -79,11 +103,12 @@ But Pachyderm can do anything in between too. If you have a directory structure 
    ...
 ...
 ```
-And you need to process all the data for a given state together, `/*` would also be the desired glob pattern. You'd have one datum per state, meaning all the cities for a given state would be processed together by a single worker, but each state can be processed independently. 
+
+and you need to process all the data for a given state together, `/*` would also be the desired glob pattern. You'd have one datum per state, meaning all the cities for a given state would be processed together by a single worker, but each state can be processed independently. 
 
 If we instead used the glob pattern `/*/*` for the states example above, each `<city>.json` would be it's own datum. 
 
-Glob patterns also let you take only a particular directory (or subset of directories) as inputs instead of the whole input repo. If we create a pipeline that is specifically only for California, we can use a glob pattern of `/California/*` to only use the data in that directory as input to our pipeline. 
+Glob patterns also let you take only a particular directory (or subset of directories) as an input atom instead of the whole input repo. If we create a pipeline that is specifically only for California, we can use a glob pattern of `/California/*` to only use the data in that directory as input to our pipeline. 
 
 ### Only Processing New Data
 
@@ -105,7 +130,7 @@ Let's look at our states example with a few different glob patterns to demonstra
 ...
 ```
 
-If our glob pattern is `/`, then the entire input is a single datum, which means anytime any file or directory is changed in our input, all the the data will be processed from scratch. There are plenty of usecases where this is exactly what we need (e.g. some machine learning training algorithms).
+If our glob pattern is `/`, then the entire input atom is a single datum, which means anytime any file or directory is changed in our input, all the the data will be processed from scratch. There are plenty of usecases where this is exactly what we need (e.g. some machine learning training algorithms).
 
 If our glob pattern is `/*`, then each state directory is it's own datum and we'll only process the ones that have changed. So if we add a  new city file, `Sacramento.json` to the `/California` directory, _only_ the California datum, will be reprocessed.
 
