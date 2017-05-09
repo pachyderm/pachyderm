@@ -169,7 +169,6 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 		})
 	}
 	for _, tag := range putObjectReader.tags {
-		tag := hashTag(tag)
 		eg.Go(func() (retErr error) {
 			index := &pfsclient.ObjectIndex{Tags: map[string]*pfsclient.Object{tag.Name: object}}
 			return s.writeProto(s.localServer.tagPath(tag), index)
@@ -275,7 +274,6 @@ func (s *objBlockAPIServer) TagObject(ctx context.Context, request *pfsclient.Ta
 	}
 	var eg errgroup.Group
 	for _, tag := range request.Tags {
-		tag := hashTag(tag)
 		eg.Go(func() (retErr error) {
 			index := &pfsclient.ObjectIndex{Tags: map[string]*pfsclient.Object{tag.Name: request.Object}}
 			return s.writeProto(s.localServer.tagPath(tag), index)
@@ -336,7 +334,7 @@ func (s *objBlockAPIServer) GetTag(request *pfsclient.Tag, getTagServer pfsclien
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	object := &pfsclient.Object{}
 	sink := groupcache.ProtoSink(object)
-	if err := s.tagCache.Get(getTagServer.Context(), splitKey(hashTag(request).Name), sink); err != nil {
+	if err := s.tagCache.Get(getTagServer.Context(), splitKey(request.Name), sink); err != nil {
 		return err
 	}
 	return s.GetObject(object, getTagServer)
@@ -347,7 +345,7 @@ func (s *objBlockAPIServer) InspectTag(ctx context.Context, request *pfsclient.T
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	object := &pfsclient.Object{}
 	sink := groupcache.ProtoSink(object)
-	if err := s.tagCache.Get(ctx, splitKey(hashTag(request).Name), sink); err != nil {
+	if err := s.tagCache.Get(ctx, splitKey(request.Name), sink); err != nil {
 		return nil, err
 	}
 	return s.InspectObject(ctx, object)
@@ -741,11 +739,4 @@ func (w *blockWriter) Write(p []byte) (*pfsclient.BlockRef, error) {
 
 func (w *blockWriter) Close() error {
 	return w.w.Close()
-}
-
-func hashTag(tag *pfsclient.Tag) *pfsclient.Tag {
-	hash := newHash()
-	// writing to a hasher can't fail
-	hash.Write([]byte(tag.Name))
-	return &pfsclient.Tag{Name: hex.EncodeToString(hash.Sum(nil))}
 }
