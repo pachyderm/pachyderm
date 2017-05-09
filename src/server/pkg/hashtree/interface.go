@@ -65,6 +65,11 @@ type HashTree interface {
 	// Size gets the size of the file system that this tree represents.
 	// It's essentially a helper around h.Get("/").SubtreeBytes
 	Size() int64
+
+	// Walk calls a given function against every node in the hash tree.
+	// The order of traversal is not guaranteed.  If any invocation of the
+	// function returns an error, the walk stops and returns the error.
+	Walk(func(path string, node *NodeProto) error) error
 }
 
 // OpenNode is similar to NodeProto, except that it doesn't include the Hash
