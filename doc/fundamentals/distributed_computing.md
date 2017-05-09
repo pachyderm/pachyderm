@@ -46,38 +46,32 @@ Instead of confining users to just data-distribution patterns such as Map (split
         "repo": "string",
         "glob": "string",
     }
-    "cross": [
-        {
-            "atom": {
-                "repo": "string",
-                "glob": "string",
-            }
-        },
-        {
-            "atom": {
-                "repo": "string",
-                "glob": "string",
-            }
-        },
+}
+```
 
+That means you could easily define multiple "atoms", one with the data highly distributed and another where it's grouped together.  You can then join the datums in these atoms via a cross product or union (as shown above) for combined, distributed processing. 
+
+```
+"input": {
+    "cross" or "union": [
+        {
+            "atom": {
+                "repo": "string",
+                "glob": "string",
+            }
+        },
+        {
+            "atom": {
+                "repo": "string",
+                "glob": "string",
+            }
+        },
         etc...
-
-    ],
-    "union": [
-        {
-            "atom": {
-                "repo": "string",
-                "glob": "string",
-            }
-        },
-
-        etc...
-
     ]
 }
 ```
 
-That means you could easily define multiple "atoms", one with the data highly distributed and another where it's grouped together.  You can then join the datums in these atoms via a cross product or union (as shown above) for combined, distributed processing. More information about "atoms," unions, and crosses can be found in our [Pipeline Specification](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html).
+More information about "atoms," unions, and crosses can be found in our [Pipeline Specification](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html).
 
 ### Datums
 

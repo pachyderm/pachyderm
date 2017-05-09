@@ -35,24 +35,7 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
     "cpu": double
   },
   "input": {
-      "atom": {
-          "name": string,
-          "repo": string,
-          "branch": string,
-          "glob": string,
-          "lazy" bool,
-          "from_commit": string
-      },
-      "cross" or "union": [ {
-          "atom": {
-              "name": string,
-              "repo": string,
-              "branch": string,
-              "glob": string,
-              "lazy" bool,
-              "from_commit": string
-          }
-      } ]
+    <"atom" or "cross" or "union", see below> 
   },
   "outputBranch": string,
   "egress": {
@@ -60,6 +43,48 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   },
   "scaleDownThreshold": string
 }
+
+------------------------------------
+"atom" input
+------------------------------------
+
+"atom": {
+  "name": string,
+  "repo": string,
+  "branch": string,
+  "glob": string,
+  "lazy" bool,
+  "from_commit": string
+}
+
+------------------------------------
+"cross" or "union" input
+------------------------------------
+
+"cross" or "union": [ 
+  {
+    "atom": {
+      "name": string,
+      "repo": string,
+      "branch": string,
+      "glob": string,
+      "lazy" bool,
+      "from_commit": string
+    }
+  },
+  {
+    "atom": {
+      "name": string,
+      "repo": string,
+      "branch": string,
+      "glob": string,
+      "lazy" bool,
+      "from_commit": string
+    }
+  }
+  etc...
+]
+
 ```
 
 In practice, you rarely need to specify all the fields.  Most fields either come with sensible defaults or can be nil.  Following is an example of a minimal spec:
