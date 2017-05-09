@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -20,6 +21,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/groupcache"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/limit"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
@@ -294,6 +296,39 @@ func (s *objBlockAPIServer) InspectObject(ctx context.Context, request *pfsclien
 		return nil, err
 	}
 	return objectInfo, nil
+}
+
+func (s *objBlockAPIServer) ListObjects(request *pfsclient.ListObjectsRequest, listObjectsServer pfsclient.ObjectAPI_ListObjectsServer) (retErr error) {
+	func() { s.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+
+	return s.objClient.Walk(s.localServer.objectDir(), func(hash string) error {
+		return listObjectsServer.Send(&pfsclient.Object{hash})
+	})
+}
+
+func (s *objBlockAPIServer) ListObjectsTaggedWithPrefix(request *pfsclient.ListObjectsTaggedWithPrefixRequest, server pfsclient.ObjectAPI_ListObjectsTaggedWithPrefixServer) (retErr error) {
+	func() { s.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+
+	var eg errgroup.Group
+	limiter := limit.New(100)
+	s.objClient.Walk(path.Join(s.localServer.tagDir(), request.Prefix), func(hash string) error {
+		limiter.Acquire()
+		eg.Go(func() error {
+			defer limiter.Release()
+			tagObjectIndex := &pfsclient.ObjectIndex{}
+			if err := s.readProto(hash, tagObjectIndex); err != nil {
+				return err
+			}
+			for tag, object := range tagObjectIndex.Tags {
+				server.Send(object)
+			}
+			return nil
+		})
+		return nil
+	})
+	return eg.Wait()
 }
 
 func (s *objBlockAPIServer) GetTag(request *pfsclient.Tag, getTagServer pfsclient.ObjectAPI_GetTagServer) (retErr error) {
