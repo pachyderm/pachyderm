@@ -447,7 +447,7 @@ func HashDatum(pipelineInfo *pps.PipelineInfo, jobInfo *pps.JobInfo, data []*Inp
 		hash.Write(bytes)
 		hash.Write([]byte(jobInfo.Job.ID))
 	} else {
-		return "", fmt.Errorf("malformed APIServer: has neither pipelineInfo or jobInfo; this is likely a bug")
+		return "", fmt.Errorf("must pass either pipelineInfo or jobInfo; this is likely a bug")
 	}
 	return hex.EncodeToString(hash.Sum(nil)), nil
 }

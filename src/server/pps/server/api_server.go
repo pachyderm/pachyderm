@@ -371,6 +371,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			Service:         request.Service,
 			ParentJob:       request.ParentJob,
 			ResourceSpec:    request.ResourceSpec,
+			NewBranch:       request.NewBranch,
 			Incremental:     request.Incremental,
 		}
 		if request.Pipeline != nil {
@@ -1573,6 +1574,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				// TODO(derek): Note that once the pipeline restarts, the `job`
 				// variable is lost and we don't know who is our parent job.
 				ParentJob: parentJob,
+				NewBranch: newBranch,
 			})
 			if err != nil {
 				return err
@@ -1694,6 +1696,17 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			}
 		}
 
+		var pipelineInfo *pps.PipelineInfo
+		if jobInfo.Pipeline != nil {
+			var err error
+			pipelineInfo, err = a.InspectPipeline(ctx, &pps.InspectPipelineRequest{
+				Pipeline: jobInfo.Pipeline,
+			})
+			if err != nil {
+				return err
+			}
+		}
+
 		pfsClient, err := a.getPFSClient()
 		if err != nil {
 			return err
@@ -1778,6 +1791,13 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		if err != nil {
 			return err
 		}
+		newBranchCommitInfo, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+			Commit: jobInfo.NewBranch.Head,
+		})
+		if err != nil {
+			return err
+		}
+		newBranchParentCommit := newBranchCommitInfo.ParentCommit
 		tree := hashtree.NewHashTree()
 		var treeMu sync.Mutex
 
@@ -1829,6 +1849,28 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		for i := 0; i < df.Len(); i++ {
 			limiter.Acquire()
 			files := df.Datum(i)
+			var parentOutputTag *pfs.Tag
+			if newBranchParentCommit != nil {
+				var parentFiles []*workerpkg.Input
+				for _, file := range files {
+					parentFile := proto.Clone(file).(*workerpkg.Input)
+					if file.FileInfo.File.Commit.Repo.Name == jobInfo.NewBranch.Head.Repo.Name && file.Branch == jobInfo.NewBranch.Name {
+						parentFileInfo, err := pfsClient.InspectFile(ctx, &pfs.InspectFileRequest{
+							File: client.NewFile(parentFile.FileInfo.File.Commit.Repo.Name, newBranchParentCommit.ID, parentFile.FileInfo.File.Path),
+						})
+						if err != nil && !isNotFoundErr(err) {
+							return err
+						}
+						parentFile.FileInfo = parentFileInfo
+					}
+					parentFiles = append(parentFiles, parentFile)
+				}
+				_parentOutputTag, err := workerpkg.HashDatum(pipelineInfo, nil, parentFiles)
+				if err != nil {
+					return err
+				}
+				parentOutputTag = &pfs.Tag{Name: _parentOutputTag}
+			}
 			go func() {
 				userCodeFailures := 0
 				defer limiter.Release()
@@ -1841,8 +1883,9 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					}
 					workerClient := workerpkg.NewWorkerClient(conn)
 					resp, err := workerClient.Process(ctx, &workerpkg.ProcessRequest{
-						JobID: jobInfo.Job.ID,
-						Data:  files,
+						JobID:        jobInfo.Job.ID,
+						Data:         files,
+						ParentOutput: parentOutputTag,
 					})
 					if err != nil {
 						if err := conn.Close(); err != nil {

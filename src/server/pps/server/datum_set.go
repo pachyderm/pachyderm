@@ -35,6 +35,7 @@ func newAtomDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pp
 			FileInfo: fileInfo,
 			Name:     input.Name,
 			Lazy:     input.Lazy,
+			Branch:   input.Branch,
 		})
 	}
 	return result, nil
