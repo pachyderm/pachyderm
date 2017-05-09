@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"math"
 	"net/url"
 	"sort"
@@ -1139,7 +1140,47 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 		}
 	}
 
-	// Get all pipeline tags
+	// Get all objects referenced by pipeline tags
+	pipelineInfos, err := a.ListPipeline(ctx, &pps.ListPipelineRequest{})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, pipelineInfo := range pipelineInfos.PipelineInfo {
+		objects, err := objClient.ListObjectsTaggedWithPrefix(ctx, &pfs.ListObjectsTaggedWithPrefixRequest{
+			Prefix: client.HashPipelineID(pipelineInfo.ID),
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		for object, err := objects.Recv(); err != io.EOF; object, err = objects.Recv() {
+			if err != nil {
+				return err
+			}
+			addActiveObjects(object)
+		}
+	}
+
+	// Iterate through all objects.  If they are not active, delete them.
+	objects, err := objClient.ListObjects(ctx, &pfs.ListObjects{})
+	if err != nil {
+		return nil, err
+	}
+
+	limiter := limit.New(100)
+	var eg errgroup.Group
+	for object, err := objects.Recv(); err != io.EOF; object, err = objects.Recv() {
+		if err != nil {
+			return err
+		}
+		if !activeObjects[object.Hash] {
+			limiter.Acquire()
+			eg.Go(func() error {
+				defer limiter.Release()
+			})
+		}
+	}
 
 	return &pps.GCResponse{}, nil
 }
