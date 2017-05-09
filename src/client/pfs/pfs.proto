@@ -318,6 +318,12 @@ message ListObjectsTaggedWithPrefixRequest {
   string prefix = 1;
 }
 
+message DeleteObjectsRequest {
+  repeated Object objects = 1;
+}
+
+message DeleteObjectsResponse {}
+
 service ObjectAPI {
   rpc PutObject(stream PutObjectRequest) returns (Object) {}
   rpc GetObject(Object) returns (stream google.protobuf.BytesValue) {}
@@ -326,6 +332,7 @@ service ObjectAPI {
   rpc InspectObject(Object) returns (ObjectInfo) {}
   rpc ListObjects(ListObjectsRequest) returns (stream Object) {}
   rpc ListObjectsTaggedWithPrefix(ListObjectsTaggedWithPrefixRequest) returns (stream Object) {}
+  rpc DeleteObjects(DeleteObjectsRequest) returns (DeleteObjectsResponse) {}
   rpc GetTag(Tag) returns (stream google.protobuf.BytesValue) {}
   rpc InspectTag(Tag) returns (ObjectInfo) {}
   rpc Compact(google.protobuf.Empty) returns (google.protobuf.Empty) {}
