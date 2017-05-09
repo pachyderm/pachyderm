@@ -34,6 +34,7 @@ import (
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
 	"k8s.io/kubernetes/pkg/api"
@@ -1084,6 +1085,13 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 
 	// Get the list of objects used in PFS
 	var activeObjects []*pfs.Object
+	var activeObjectsMu sync.Mutex
+	// A helper function for adding active objects in a thread-safe way
+	addActiveObjects := func(objects ...*pfs.Object) {
+		activeObjectsMu.Lock()
+		defer activeObjectsMu.Unlock()
+		activeObjects = append(activeObjects, objects...)
+	}
 
 	// Get all repos
 	repoInfos, err := pfsClient.ListRepo(ctx, &pfs.ListRepoRequest{})
@@ -1092,27 +1100,38 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 	}
 
 	// Get all commit trees
-	var commitTreeObjects []*pfs.Object
+	limiter := limit.New(100)
+	var eg errgroup.Group
 	for _, repo := range repoInfos.RepoInfo {
 		commitInfos, err := pfsClient.ListCommit(ctx, &pfs.ListCommitRequest{
 			Repo: repo.Repo,
 		})
 		for _, commit := range commitInfos.CommitInfo {
-			activeObjects = append(activeObjects, commit.Tree)
-			getObjectClient, err := objClient.GetObject(ctx, commit.Tree)
-			if err != nil {
-				return nil, err
-			}
+			addActiveObjects(commit.Tree)
+			limiter.Acquire()
+			eg.Go(func() error {
+				defer limiter.Release()
+				getObjectClient, err := objClient.GetObject(ctx, commit.Tree)
+				if err != nil {
+					return err
+				}
 
-			var buf bytes.Buffer
-			if err := grpcutil.WriteFromStreamingBytesClient(getObjectClient, &buf); err != nil {
-				return nil, err
-			}
+				var buf bytes.Buffer
+				if err := grpcutil.WriteFromStreamingBytesClient(getObjectClient, &buf); err != nil {
+					return err
+				}
 
-			tree, err := hashtree.Deserialize(buf.Bytes())
-			if err != nil {
-				return nil, err
-			}
+				tree, err := hashtree.Deserialize(buf.Bytes())
+				if err != nil {
+					return err
+				}
+
+				return tree.Walk(func(path string, node *hashtree.NodeProto) {
+					if node.FileNode != nil {
+						addActiveObjects(node.File.Objects...)
+					}
+				})
+			})
 		}
 	}
 
