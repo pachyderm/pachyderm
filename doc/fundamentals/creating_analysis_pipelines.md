@@ -40,14 +40,10 @@ Here's an example pipeline spec:
     "cmd": ["/binary", "/pfs/data", "/pfs/out"]
   },
   "input": {
-      "cross": [ 
-          {
-              "atom": {
-                  "repo": "data",
-                  "glob": "/*",
-              }
-          }
-      ]
+      "atom": {
+        "repo": "data",
+        "glob": "/*",
+      }
   }
 }
 ```
