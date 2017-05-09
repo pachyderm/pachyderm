@@ -27,7 +27,7 @@ Note, it is best practice to uniquely tag your Docker images with something othe
 
 ## 3. Creating a Pipeline
 
-Now that you've got your code and image built, the final step is to tell Pachyderm to run the code in your image on certain input data.  To do this, you need to supply Pachyderm with a JSON pipeline specification. There are four main components to a pipeline specification: name, transform, parallelism and inputs. Detailed explanations of the specification parameters and how they work can be found in the [pipeline specification docs](../reference/pipeline_spec.html). 
+Now that you've got your code and image built, the final step is to tell Pachyderm to run the code in your image on certain input data.  To do this, you need to supply Pachyderm with a JSON pipeline specification. There are four main components to a pipeline specification: name, transform, parallelism and input. Detailed explanations of the specification parameters and how they work can be found in the [pipeline specification docs](../reference/pipeline_spec.html). 
 
 Here's an example pipeline spec:
 ```json
@@ -39,14 +39,16 @@ Here's an example pipeline spec:
     "image": "wordcount-image",
     "cmd": ["/binary", "/pfs/data", "/pfs/out"]
   },
-  "inputs": [
-    {
-      "repo": {
-        "name": "data"
-      },
-      "glob": "/*"
-    }
-  ]
+  "input": {
+      "cross": [ 
+          {
+              "atom": {
+                  "repo": "data",
+                  "glob": "/*",
+              }
+          }
+      ]
+  }
 }
 ```
 
