@@ -158,7 +158,8 @@ message JobInfo {
   repeated WorkerStatus worker_status = 24;
   ResourceSpec resource_spec = 25;
   Input input = 26;
-  bool incremental = 27;
+  pfs.Branch new_branch = 27;
+  bool incremental = 28;
 }
 
 enum WorkerState {
@@ -249,7 +250,8 @@ message CreateJobRequest {
   Job parent_job = 13;
   ResourceSpec resource_spec = 14;
   Input input = 15;
-  bool incremental = 16;
+  pfs.Branch new_branch = 16;
+  bool incremental = 17;
 }
 
 message InspectJobRequest {
