@@ -72,7 +72,7 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreateRepo")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	if err := a.driver.createRepo(ctx, request.Repo, request.Provenance); err != nil {
+	if err := a.driver.createRepo(ctx, request.Repo, request.Provenance, request.Description); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
