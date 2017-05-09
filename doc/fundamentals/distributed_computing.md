@@ -58,7 +58,10 @@ Instead of confining users to just data-distribution patterns such as Map (split
                 "repo": "string",
                 "glob": "string",
             }
-        }
+        },
+
+        etc...
+
     ],
     "union": [
         {

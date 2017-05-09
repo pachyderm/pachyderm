@@ -35,7 +35,15 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
     "cpu": double
   },
   "input": {
-      "cross": [ {
+      "atom": {
+          "name": string,
+          "repo": string,
+          "branch": string,
+          "glob": string,
+          "lazy" bool,
+          "from_commit": string
+      },
+      "cross" or "union": [ {
           "atom": {
               "name": string,
               "repo": string,
