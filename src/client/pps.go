@@ -1,6 +1,8 @@
 package client
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 
@@ -50,6 +52,15 @@ const (
 	// that runs alongside of each worker container.
 	PPSWorkerSidecarContainerName = "storage"
 )
+
+// HashPipelineID hashes a pipeline ID to a string of a fixed size
+func HashPipelineID(pipelineID string) string {
+	// We need to hash the pipeline ID because UUIDs are not necessarily
+	// random in every bit.
+	pipelineIDHash := sha256.New()
+	pipelineIDHash.Write([]byte(pipelineID))
+	return hex.EncodeToString(pipelineIDHash.Sum(nil))[:4]
+}
 
 // NewAtomInput returns a new atom input. It only includes required options.
 func NewAtomInput(repo string, glob string) *pps.Input {

@@ -442,11 +442,7 @@ func (a *APIServer) HashDatum(data []*Input) (string, error) {
 		hash.Write([]byte(a.pipelineInfo.ID))
 		hash.Write([]byte(strconv.Itoa(int(a.pipelineInfo.Version))))
 
-		// We need to hash the pipeline ID because UUIDs are not necessarily
-		// random in every bit.
-		pipelineIDHash := sha256.New()
-		pipelineIDHash.Write([]byte(a.pipelineInfo.ID))
-		prefix = hex.EncodeToString(pipelineIDHash.Sum(nil))[:pfs.TagPrefixLength]
+		prefix = client.HashPipelineID(a.pipelineInfo.ID)
 	} else if a.jobInfo != nil {
 		bytes, err := proto.Marshal(a.jobInfo.Transform)
 		if err != nil {
