@@ -181,9 +181,6 @@ func (h *HashTreeProto) Size() int64 {
 	return size(h.Fs)
 }
 
-// walk calls a given function against every node in the hash tree.
-// The order of traversal is not guaranteed.  If any invocation of the
-// function returns an error, the walk stops and returns the error.
 func walk(fs map[string]*NodeProto, f func(string, *NodeProto) error) error {
 	for path, node := range fs {
 		if path == "" {
@@ -196,6 +193,7 @@ func walk(fs map[string]*NodeProto, f func(string, *NodeProto) error) error {
 	return nil
 }
 
+// Walk implements HashTree.Walk
 func (h *HashTreeProto) Walk(f func(string, *NodeProto) error) error {
 	return walk(h.Fs, f)
 }
@@ -239,6 +237,7 @@ func (h *hashtree) Size() int64 {
 	return size(h.fs)
 }
 
+// Walk implements HashTree.Walk
 func (h *hashtree) Walk(f func(string, *NodeProto) error) error {
 	return walk(h.fs, f)
 }
