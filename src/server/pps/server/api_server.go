@@ -1066,13 +1066,18 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	return &types.Empty{}, err
 }
 
-func (a *apiServer) GC(request *pps.GCRequest) (response *pps.GCResponse, retErr error) {
+func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *pps.GCResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "GC")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	pfsclient, err := a.getPFSClient()
+	pfsClient, err := a.getPFSClient()
+	if err != nil {
+		return nil, err
+	}
+
+	objClient, err := a.getObjectClient()
 	if err != nil {
 		return nil, err
 	}
@@ -1081,7 +1086,7 @@ func (a *apiServer) GC(request *pps.GCRequest) (response *pps.GCResponse, retErr
 	var activeObjects []*pfs.Object
 
 	// Get all repos
-	repoInfos, err := pfsclient.ListRepo(ctx, &pfs.ListRepoRequest{})
+	repoInfos, err := pfsClient.ListRepo(ctx, &pfs.ListRepoRequest{})
 	if err != nil {
 		return nil, err
 	}
@@ -1089,16 +1094,30 @@ func (a *apiServer) GC(request *pps.GCRequest) (response *pps.GCResponse, retErr
 	// Get all commit trees
 	var commitTreeObjects []*pfs.Object
 	for _, repo := range repoInfos.RepoInfo {
-		commitInfos, err := pfsclient.ListCommit(ctx, &pfs.ListCommitRequest{
-			Repo: repo,
+		commitInfos, err := pfsClient.ListCommit(ctx, &pfs.ListCommitRequest{
+			Repo: repo.Repo,
 		})
 		for _, commit := range commitInfos.CommitInfo {
 			activeObjects = append(activeObjects, commit.Tree)
-			activeObjects = append(activeObjects, getCommitObjects(commit.Tree)...)
+			getObjectClient, err := objClient.GetObject(ctx, commit.Tree)
+			if err != nil {
+				return nil, err
+			}
+
+			var buf bytes.Buffer
+			if err := grpcutil.WriteFromStreamingBytesClient(getObjectClient, &buf); err != nil {
+				return nil, err
+			}
+
+			tree, err := hashtree.Deserialize(buf.Bytes())
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
 	// Get all pipeline tags
+	return &pps.GCResponse{}, nil
 }
 
 func (a *apiServer) Version(version int64) error {
