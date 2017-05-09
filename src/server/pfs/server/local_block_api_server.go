@@ -173,6 +173,14 @@ func (s *localBlockAPIServer) InspectObject(ctx context.Context, request *pfscli
 	}, nil
 }
 
+func (s *localBlockAPIServer) ListObjects(request *pfsclient.ListObjectsRequest, listObjectsServer pfsclient.ObjectAPI_ListObjectsServer) (retErr error) {
+	return nil
+}
+
+func (s *localBlockAPIServer) ListObjectsTaggedWithPrefix(request *pfsclient.ListObjectsTaggedWithPrefixRequest, server pfsclient.ObjectAPI_ListObjectsTaggedWithPrefixServer) (retErr error) {
+	return nil
+}
+
 func (s *localBlockAPIServer) GetTag(request *pfsclient.Tag, getTagServer pfsclient.ObjectAPI_GetTagServer) (retErr error) {
 	func() { s.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())

@@ -321,7 +321,7 @@ func (s *objBlockAPIServer) ListObjectsTaggedWithPrefix(request *pfsclient.ListO
 			if err := s.readProto(hash, tagObjectIndex); err != nil {
 				return err
 			}
-			for tag, object := range tagObjectIndex.Tags {
+			for _, object := range tagObjectIndex.Tags {
 				server.Send(object)
 			}
 			return nil
