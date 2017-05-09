@@ -60,14 +60,28 @@ func (c *microsoftClient) Delete(name string) error {
 }
 
 func (c *microsoftClient) Walk(name string, fn func(name string) error) error {
-	blobList, err := c.blobClient.ListBlobs(c.container, storage.ListBlobsParameters{Prefix: name})
-	if err != nil {
-		return err
-	}
-
-	for _, file := range blobList.Blobs {
-		if err := fn(file.Name); err != nil {
+	// See Azure docs for what `marker` does:
+	// https://docs.microsoft.com/en-us/rest/api/storageservices/List-Blobs?redirectedfrom=MSDN
+	var marker string
+	for {
+		blobList, err := c.blobClient.ListBlobs(c.container, storage.ListBlobsParameters{
+			Prefix: name,
+			Marker: marker,
+		})
+		if err != nil {
 			return err
+		}
+
+		for _, file := range blobList.Blobs {
+			if err := fn(file.Name); err != nil {
+				return err
+			}
+		}
+
+		marker = blobList.Marker
+		// Marker is empty when all results have been returned
+		if marker == "" {
+			break
 		}
 	}
 	return nil
