@@ -329,6 +329,31 @@ func (s *objBlockAPIServer) ListObjectsTaggedWithPrefix(request *pfsclient.ListO
 	return eg.Wait()
 }
 
+func (s *objBlockAPIServer) DeleteObjects(ctx context.Context, request *pfsclient.DeleteObjectsRequest) (response *pfsclient.DeleteObjectsResponse, retErr error) {
+	func() { s.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+
+	limiter := limit.New(100)
+	var eg errgroup.Group
+	for _, object := range request.Objects {
+		limiter.Acquire()
+		eg.Go(func() error {
+			defer limiter.Release()
+			objectInfo, err := s.InspectObject(ctx, object)
+			if err != nil {
+				return err
+			}
+			blockPath := s.localServer.blockPath(objectInfo.BlockRef.Block)
+			return s.objClient.Delete(blockPath)
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+
+	return &pfsclient.DeleteObjectsResponse{}, nil
+}
+
 func (s *objBlockAPIServer) GetTag(request *pfsclient.Tag, getTagServer pfsclient.ObjectAPI_GetTagServer) (retErr error) {
 	func() { s.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
