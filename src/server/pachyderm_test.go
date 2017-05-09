@@ -3447,6 +3447,58 @@ func TestUnionInput(t *testing.T) {
 	})
 }
 
+func TestIncrementalPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestPipelineInputDataModification_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	pipeline := uniqueString("pipeline")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					"touch /pfs/out/sum",
+					fmt.Sprintf("cat /pfs/%s/data /pfs/out/sum | awk '{sum+=$1} END {print sum}' >/pfs/out/sum", dataRepo),
+				},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			Inputs: []*pps.PipelineInput{{
+				Repo: &pfs.Repo{Name: dataRepo},
+				Glob: "/",
+				Lazy: true,
+			}},
+			Incremental: true,
+		})
+	require.NoError(t, err)
+	for i := 0; i <= 5; i++ {
+		_, err := c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		require.NoError(t, c.DeleteFile(dataRepo, "master", "data"))
+		_, err = c.PutFile(dataRepo, "master", "data", strings.NewReader(fmt.Sprintf("%d", i)))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(dataRepo, "master"))
+	}
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(pipeline, "master", "sum", 0, 0, &buf))
+	require.Equal(t, fmt.Sprintf("%d\n", 15), buf.String())
+}
+
 func restartAll(t *testing.T) {
 	k := getKubeClient(t)
 	podsInterface := k.Pods(api.NamespaceDefault)
