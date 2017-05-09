@@ -186,6 +186,9 @@ func (h *HashTreeProto) Size() int64 {
 // function returns an error, the walk stops and returns the error.
 func walk(fs map[string]*NodeProto, f func(string, *NodeProto) error) error {
 	for path, node := range fs {
+		if path == "" {
+			path = "/"
+		}
 		if err := f(path, node); err != nil {
 			return err
 		}
