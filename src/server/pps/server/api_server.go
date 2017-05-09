@@ -1106,6 +1106,9 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 		commitInfos, err := pfsClient.ListCommit(ctx, &pfs.ListCommitRequest{
 			Repo: repo.Repo,
 		})
+		if err != nil {
+			return nil, err
+		}
 		for _, commit := range commitInfos.CommitInfo {
 			addActiveObjects(commit.Tree)
 			limiter.Acquire()
@@ -1126,16 +1129,18 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 					return err
 				}
 
-				return tree.Walk(func(path string, node *hashtree.NodeProto) {
+				return tree.Walk(func(path string, node *hashtree.NodeProto) error {
 					if node.FileNode != nil {
-						addActiveObjects(node.File.Objects...)
+						addActiveObjects(node.FileNode.Objects...)
 					}
+					return nil
 				})
 			})
 		}
 	}
 
 	// Get all pipeline tags
+
 	return &pps.GCResponse{}, nil
 }
 
