@@ -13,7 +13,8 @@ else
 	cp $NVIDIA_RUNNER /rootfs
 	chroot /rootfs apt-get update
 	chroot /rootfs apt-get install --yes gcc
-	chroot /rootfs ./$NVIDIA_RUNNER --ui=none --no-questions --accept-license
+# disable the actual install while I debug the rc local bit
+#	chroot /rootfs ./$NVIDIA_RUNNER --ui=none --no-questions --accept-license
 	# We want to overwrite, not append since the default
 	# value of this file w our current AMI is just 'exit 0'
 	echo "PACHNVIDIADRIVERINSTALL updating rc.local"
@@ -24,6 +25,18 @@ nvidia-smi --auto-boost-default=0 || true
 nvidia-smi --auto-boost-permission=0 || true
 nvidia-modprobe -u -c=0 -m || true
 EOL
+	echo "state of /etc/rc.local:"
+	chroot /rootfs cat /etc/rc.local
+	echo 'trying without sudo'
+	chroot /rootfs cat >>/etc/rc.local  <<EOL
+nvidia-smi -pm 1 || true
+nvidia-smi -acp 0 || true
+nvidia-smi --auto-boost-default=0 || true
+nvidia-smi --auto-boost-permission=0 || true
+nvidia-modprobe -u -c=0 -m || true
+EOL
+	echo "state of /etc/rc.local:"
+	chroot /rootfs cat /etc/rc.local
 
 	echo "PACHNVIDIADRIVERINSTALL (not) going to restart"
 	# Don't think this will work ... but it might
