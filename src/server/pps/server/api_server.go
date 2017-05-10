@@ -1084,14 +1084,16 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 		return nil, err
 	}
 
-	// Get the list of objects used in PFS
-	var activeObjects []*pfs.Object
+	// The set of objects that are in use.
+	var activeObjects map[string]bool
 	var activeObjectsMu sync.Mutex
 	// A helper function for adding active objects in a thread-safe way
 	addActiveObjects := func(objects ...*pfs.Object) {
 		activeObjectsMu.Lock()
 		defer activeObjectsMu.Unlock()
-		activeObjects = append(activeObjects, objects...)
+		for _, object := range objects {
+			activeObjects[object.Hash] = true
+		}
 	}
 
 	// Get all repos
@@ -1156,29 +1158,34 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 
 		for object, err := objects.Recv(); err != io.EOF; object, err = objects.Recv() {
 			if err != nil {
-				return err
+				return nil, err
 			}
 			addActiveObjects(object)
 		}
 	}
 
 	// Iterate through all objects.  If they are not active, delete them.
-	objects, err := objClient.ListObjects(ctx, &pfs.ListObjects{})
+	objects, err := objClient.ListObjects(ctx, &pfs.ListObjectsRequest{})
 	if err != nil {
 		return nil, err
 	}
 
-	limiter := limit.New(100)
-	var eg errgroup.Group
+	var objectsToDelete []*pfs.Object
 	for object, err := objects.Recv(); err != io.EOF; object, err = objects.Recv() {
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if !activeObjects[object.Hash] {
-			limiter.Acquire()
-			eg.Go(func() error {
-				defer limiter.Release()
-			})
+			objectsToDelete = append(objectsToDelete, object)
+		}
+		// We delete 100 objects at a time
+		if len(objectsToDelete) > 100 {
+			if _, err := objClient.DeleteObjects(ctx, &pfs.DeleteObjectsRequest{
+				Objects: objectsToDelete,
+			}); err != nil {
+				return nil, err
+			}
+			objectsToDelete = []*pfs.Object{}
 		}
 	}
 
