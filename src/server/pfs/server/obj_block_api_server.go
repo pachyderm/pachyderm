@@ -330,7 +330,7 @@ func (s *objBlockAPIServer) ListTags(request *pfsclient.ListTagsRequest, server 
 }
 
 func (s *objBlockAPIServer) isNotFoundErr(err error) bool {
-	return strings.Contains(err.Error(), "not found") || s.objClient.IsNotExist(err) || s.objClient.IsIgnorable(err)
+	return strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "404") || s.objClient.IsNotExist(err) || s.objClient.IsIgnorable(err)
 }
 
 func (s *objBlockAPIServer) DeleteObjects(ctx context.Context, request *pfsclient.DeleteObjectsRequest) (response *pfsclient.DeleteObjectsResponse, retErr error) {
