@@ -177,7 +177,7 @@ func (s *localBlockAPIServer) ListObjects(request *pfsclient.ListObjectsRequest,
 	return nil
 }
 
-func (s *localBlockAPIServer) ListObjectsTaggedWithPrefix(request *pfsclient.ListObjectsTaggedWithPrefixRequest, server pfsclient.ObjectAPI_ListObjectsTaggedWithPrefixServer) (retErr error) {
+func (s *localBlockAPIServer) ListTags(request *pfsclient.ListTagsRequest, server pfsclient.ObjectAPI_ListTagsServer) (retErr error) {
 	return nil
 }
 
