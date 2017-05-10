@@ -1109,6 +1109,7 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 	limiter := limit.New(100)
 	var eg errgroup.Group
 	for _, repo := range repoInfos.RepoInfo {
+		repo := repo
 		commitInfos, err := pfsClient.ListCommit(ctx, &pfs.ListCommitRequest{
 			Repo: repo.Repo,
 		})
@@ -1116,6 +1117,7 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 			return nil, err
 		}
 		for _, commit := range commitInfos.CommitInfo {
+			commit := commit
 			addActiveObjects(commit.Tree)
 			limiter.Acquire()
 			eg.Go(func() error {
@@ -1155,7 +1157,7 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 	}
 
 	for _, pipelineInfo := range pipelineInfos.PipelineInfo {
-		objects, err := objClient.ListObjectsTaggedWithPrefix(ctx, &pfs.ListObjectsTaggedWithPrefixRequest{
+		objects, err := objClient.ListTags(ctx, &pfs.ListTagsRequest{
 			Prefix: client.HashPipelineID(pipelineInfo.ID),
 		})
 		if err != nil {
