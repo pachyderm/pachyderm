@@ -28,7 +28,7 @@ if [[ "${TRAVIS_EVENT_TYPE}" == "cron" ]]; then
     docker login -u pachydermbuildbot -p ${DOCKER_PWD}
 
     # Deploy cluster and run benchmark
-    sudo -E make bench
+    sudo -E PATH="${PATH}" GOPATH="${GOPATH}" make bench
 else
 	echo "Running tests"
 	make test
