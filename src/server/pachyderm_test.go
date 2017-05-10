@@ -3608,9 +3608,15 @@ func getKubeClient(t testing.TB) *kube.Client {
 }
 
 func getPachClient(t testing.TB) *client.APIClient {
-	client, err := client.NewFromAddress("0.0.0.0:30650")
+	var c *client.APIClient
+	var err error
+	if addr := os.Getenv("PACHD_PORT_650_TCP_ADDR"); addr != "" {
+		c, err = client.NewInCluster()
+	} else {
+		c, err = client.NewFromAddress("0.0.0.0:30650")
+	}
 	require.NoError(t, err)
-	return client
+	return c
 }
 
 func uniqueString(prefix string) string {
