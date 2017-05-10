@@ -51,6 +51,7 @@ message RepoInfo {
   google.protobuf.Timestamp created = 2;
   uint64 size_bytes = 3;
   repeated Repo provenance = 4;
+  string description = 5;
 }
 
 message RepoInfos {
@@ -112,6 +113,7 @@ message ObjectInfo {
 message CreateRepoRequest {
   Repo repo = 1;
   repeated Repo provenance = 2;
+  string description = 3;
 }
 
 message InspectRepoRequest {
