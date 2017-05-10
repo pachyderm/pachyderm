@@ -305,7 +305,7 @@ func (s *objBlockAPIServer) ListObjects(request *pfsclient.ListObjectsRequest, l
 	})
 }
 
-func (s *objBlockAPIServer) ListObjectsTaggedWithPrefix(request *pfsclient.ListObjectsTaggedWithPrefixRequest, server pfsclient.ObjectAPI_ListObjectsTaggedWithPrefixServer) (retErr error) {
+func (s *objBlockAPIServer) ListTags(request *pfsclient.ListTagsRequest, server pfsclient.ObjectAPI_ListTagsServer) (retErr error) {
 	func() { s.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 
