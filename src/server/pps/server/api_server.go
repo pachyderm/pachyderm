@@ -1122,12 +1122,12 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 				defer limiter.Release()
 				getObjectClient, err := objClient.GetObject(ctx, commit.Tree)
 				if err != nil {
-					return err
+					return fmt.Errorf("error getting commit tree: %v", err)
 				}
 
 				var buf bytes.Buffer
 				if err := grpcutil.WriteFromStreamingBytesClient(getObjectClient, &buf); err != nil {
-					return err
+					return fmt.Errorf("error reading commit tree: %v", err)
 				}
 
 				tree, err := hashtree.Deserialize(buf.Bytes())
@@ -1144,6 +1144,9 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 			})
 		}
 	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
 
 	// Get all objects referenced by pipeline tags
 	pipelineInfos, err := a.ListPipeline(ctx, &pps.ListPipelineRequest{})
@@ -1156,7 +1159,7 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 			Prefix: client.HashPipelineID(pipelineInfo.ID),
 		})
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error listing tagged objects: %v", err)
 		}
 
 		for object, err := objects.Recv(); err != io.EOF; object, err = objects.Recv() {
@@ -1176,7 +1179,7 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 	var objectsToDelete []*pfs.Object
 	for object, err := objects.Recv(); err != io.EOF; object, err = objects.Recv() {
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error receiving objects from ListObjects: %v", err)
 		}
 		if !activeObjects[object.Hash] {
 			objectsToDelete = append(objectsToDelete, object)
@@ -1186,7 +1189,7 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 			if _, err := objClient.DeleteObjects(ctx, &pfs.DeleteObjectsRequest{
 				Objects: objectsToDelete,
 			}); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("error deleting objects: %v", err)
 			}
 			objectsToDelete = []*pfs.Object{}
 		}
