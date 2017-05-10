@@ -675,6 +675,32 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	}
 	runPipeline.Flags().StringVarP(&specPath, "file", "f", "", "The file containing the run-pipeline spec, - reads from stdin.")
 
+	gc := &cobra.Command{
+		Use:   "gc",
+		Short: "Garbage collect unused data.",
+		Long: `Garbage collects unused data.
+
+Currently, when a file/commit/repo is removed, the associated data is not
+actually deleted from the underlying storage system (e.g. S3).  To remove
+the data, you need to invoke GC manually.
+
+Currently, GC is implemented such that it assumes no data is being added
+or removed from the cluster.  Among other things, this implies that you
+should only run GC when:
+
+* No active jobs are running.
+* No "put-file" or "delete-file" are ongoing.
+`,
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return err
+			}
+
+			return client.GC()
+		}),
+	}
+
 	var result []*cobra.Command
 	result = append(result, job)
 	result = append(result, createJob)
@@ -693,6 +719,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	result = append(result, startPipeline)
 	result = append(result, stopPipeline)
 	result = append(result, runPipeline)
+	result = append(result, gc)
 	return result, nil
 }
 
