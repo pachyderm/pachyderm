@@ -6,12 +6,10 @@
     "cmd": [ "python3", "/edges.py" ],
     "image": "pachyderm/opencv"
   },
-"inputs": [
-    {
-      "repo": {
-        "name": "images"
-      },
+  "input": {
+    "atom": {
+      "repo": "images",
       "glob": "/*"
     }
-  ]
+  }
 }
