@@ -10,6 +10,7 @@ if [[ "$#" -lt 1 ]]; then
   exit 1
 fi
 
+PROJECT="pach-travis"
 MACHINE_TYPE="n1-standard-4"
 GCP_ZONE="us-west1-a"
 NUM_NODES=3
@@ -22,6 +23,12 @@ gcloud config set compute/zone ${GCP_ZONE}
 new_opt="$( getopt --long="create,delete:,delete-all" -- ${0} "${@}" )"
 [[ "$?" -eq 0 ]] || exit 1
 eval "set -- ${new_opt}"
+
+KEY_FILE="$(dirname ${0})/../pach-travis-86b9f180aa16.json"
+set -x
+gcloud auth activate-service-account --key-file=${KEY_FILE}
+gcloud config set project "${PROJECT}"
+set +x
 
 case "${1}" in
   --delete-all)
@@ -36,6 +43,14 @@ case "${1}" in
             echo "Y" | gcloud container clusters delete ${CLUSTER_NAME}
             echo "Y" | gcloud compute disks delete ${STORAGE_NAME}
             gsutil rb gs://${BUCKET_NAME}
+        done
+    gcloud compute disks list | grep ${PREFIX} | awk '{print $1}' \
+      | while read d; do
+          echo "y" | gcloud compute disks delete ${d}
+        done
+    gsutil ls | grep ${PREFIX} \
+      | while read b; do
+          gsutil rb ${b};
         done
     set +x
     ;;
