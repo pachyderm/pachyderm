@@ -283,9 +283,14 @@ the commit itself) will be processed.
 
 Union inputs take the union of other inputs. For example:
 
-- inputA: foo, bar
-- inputB: fizz, buzz
-- inputA ∪ inputB: foo, fizz, bar, buzz    
+```
+| inputA | inputB | inputA ∪ inputB |
+| ------ | ------ | --------------- |
+| foo    | fizz   | foo             |
+| bar    | buzz   | fizz            |
+|        |        | bar             |
+|        |        | buzz            |
+```
 
 Notice that union inputs, do not take a name and maintain the names of the sub-inputs.
 In the above example you would see files under `/pfs/inputA/...` and `/pfs/inputB/...`.
@@ -299,9 +304,14 @@ reason to take a union of unions since union is associative.
 Cross inputs take the cross product of other inputs, in other words it creates
 tuples of the datums in the inputs. For example:
 
-- inputA: foo, bar
-- inputB: fizz, buzz
-- inputA ⨯ inputB: (foo, fizz), (foo, buzz), (bar, fizz), (bar, buzz)       
+```
+| inputA | inputB | inputA ⨯ inputB |
+| ------ | ------ | --------------- |
+| foo    | fizz   | (foo, fizz)     |
+| bar    | buzz   | (foo, buzz)     |
+|        |        | (bar, fizz)     |
+|        |        | (bar, buzz)     |
+```
 
 Notice that cross inputs, do not take a name and maintain the names of the sub-inputs.
 In the above example you would see files under `/pfs/inputA/...` and `/pfs/inputB/...`.
