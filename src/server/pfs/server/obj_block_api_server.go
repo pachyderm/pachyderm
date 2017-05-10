@@ -329,6 +329,10 @@ func (s *objBlockAPIServer) ListTags(request *pfsclient.ListTagsRequest, server 
 	return eg.Wait()
 }
 
+func (s *objBlockAPIServer) isNotFoundErr(err error) bool {
+	return strings.Contains(err.Error(), "not found") || s.objClient.IsNotExist(err) || s.objClient.IsIgnorable(err)
+}
+
 func (s *objBlockAPIServer) DeleteObjects(ctx context.Context, request *pfsclient.DeleteObjectsRequest) (response *pfsclient.DeleteObjectsResponse, retErr error) {
 	func() { s.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -341,17 +345,17 @@ func (s *objBlockAPIServer) DeleteObjects(ctx context.Context, request *pfsclien
 		eg.Go(func() error {
 			defer limiter.Release()
 			objectInfo, err := s.InspectObject(ctx, object)
-			if err != nil && !(s.objClient.IsNotExist(err) || s.objClient.IsIgnorable(err)) {
+			if err != nil && !isNotFoundErr(err) {
 				return err
 			}
 
 			blockPath := s.localServer.blockPath(objectInfo.BlockRef.Block)
-			if err := s.objClient.Delete(blockPath); err != nil && !(s.objClient.IsNotExist(err) || s.objClient.IsIgnorable(err)) {
+			if err := s.objClient.Delete(blockPath); err != nil && !isNotFoundErr(err) {
 				return err
 			}
 
 			objPath := s.localServer.objectPath(object)
-			if err := s.objClient.Delete(objPath); err != nil && !(s.objClient.IsNotExist(err) || s.objClient.IsIgnorable(err)) {
+			if err := s.objClient.Delete(objPath); err != nil && !isNotFoundErr(err) {
 				return err
 			}
 
