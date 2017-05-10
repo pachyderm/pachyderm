@@ -346,18 +346,21 @@ func (s *objBlockAPIServer) DeleteObjects(ctx context.Context, request *pfsclien
 			defer limiter.Release()
 			objectInfo, err := s.InspectObject(ctx, object)
 			if err != nil && !isNotFoundErr(err) {
+				fmt.Printf("BP1: returning error from DeleteObjects: %v\n", err.Error())
 				return err
 			}
 
 			if objectInfo != nil && objectInfo.BlockRef != nil {
 				blockPath := s.localServer.blockPath(objectInfo.BlockRef.Block)
 				if err := s.objClient.Delete(blockPath); err != nil && !isNotFoundErr(err) {
+					fmt.Printf("BP2: returning error from DeleteObjects: %v\n", err.Error())
 					return err
 				}
 			}
 
 			objPath := s.localServer.objectPath(object)
 			if err := s.objClient.Delete(objPath); err != nil && !isNotFoundErr(err) {
+				fmt.Printf("BP3: returning error from DeleteObjects: %v\n", err.Error())
 				return err
 			}
 
