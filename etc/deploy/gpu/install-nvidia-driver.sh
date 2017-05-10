@@ -20,5 +20,8 @@ nvidia-smi --auto-boost-permission=0 || true
 nvidia-modprobe -u -c=0 -m || true
 EOL
 
+	# Don't think this will work ... but it might
+	# if not ... our deploy script / instructions will need to include doing a restart
+	# only AFTER the driver install has completed
 	shutdown -r	
 fi
