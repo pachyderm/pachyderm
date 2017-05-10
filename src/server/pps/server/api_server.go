@@ -1093,7 +1093,9 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 		activeObjectsMu.Lock()
 		defer activeObjectsMu.Unlock()
 		for _, object := range objects {
-			activeObjects[object.Hash] = true
+			if object != nil {
+				activeObjects[object.Hash] = true
+			}
 		}
 	}
 
