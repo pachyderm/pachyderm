@@ -1407,8 +1407,13 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern strin
 }
 
 func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
-	if _, err := d.inspectCommit(ctx, file.Commit); err != nil {
+	commitInfo, err := d.inspectCommit(ctx, file.Commit)
+	if err != nil {
 		return err
+	}
+
+	if commitInfo.Finished != nil {
+		return pfsserver.ErrCommitFinished{file.Commit}
 	}
 
 	prefix, err := d.scratchFilePrefix(ctx, file)
