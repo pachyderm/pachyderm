@@ -11,6 +11,8 @@ else
 	echo $1
 	NVIDIA_RUNNER=$1
 	cp $NVIDIA_RUNNER /rootfs
+	chroot /rootfs apt-get update
+	chroot /rootfs apt-get install --yes gcc
 	chroot /rootfs ./$NVIDIA_RUNNER --ui=none --no-questions --accept-license
 	# We want to overwrite, not append since the default
 	# value of this file w our current AMI is just 'exit 0'
