@@ -336,15 +336,26 @@ func (s *objBlockAPIServer) DeleteObjects(ctx context.Context, request *pfsclien
 	limiter := limit.New(100)
 	var eg errgroup.Group
 	for _, object := range request.Objects {
+		object := object
 		limiter.Acquire()
 		eg.Go(func() error {
 			defer limiter.Release()
 			objectInfo, err := s.InspectObject(ctx, object)
-			if err != nil {
+			if err != nil && !(s.objClient.IsNotExist(err) || s.objClient.IsIgnorable(err)) {
 				return err
 			}
+
 			blockPath := s.localServer.blockPath(objectInfo.BlockRef.Block)
-			return s.objClient.Delete(blockPath)
+			if err := s.objClient.Delete(blockPath); err != nil && !(s.objClient.IsNotExist(err) || s.objClient.IsIgnorable(err)) {
+				return err
+			}
+
+			objPath := s.localServer.objectPath(object)
+			if err := s.objClient.Delete(objPath); err != nil && !(s.objClient.IsNotExist(err) || s.objClient.IsIgnorable(err)) {
+				return err
+			}
+
+			return nil
 		})
 	}
 	if err := eg.Wait(); err != nil {
