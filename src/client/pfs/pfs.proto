@@ -316,7 +316,7 @@ message TagObjectRequest {
 
 message ListObjectsRequest {}
 
-message ListObjectsTaggedWithPrefixRequest {
+message ListTagsRequest {
   string prefix = 1;
 }
 
@@ -333,10 +333,10 @@ service ObjectAPI {
   rpc TagObject(TagObjectRequest) returns (google.protobuf.Empty) {}
   rpc InspectObject(Object) returns (ObjectInfo) {}
   rpc ListObjects(ListObjectsRequest) returns (stream Object) {}
-  rpc ListObjectsTaggedWithPrefix(ListObjectsTaggedWithPrefixRequest) returns (stream Object) {}
   rpc DeleteObjects(DeleteObjectsRequest) returns (DeleteObjectsResponse) {}
   rpc GetTag(Tag) returns (stream google.protobuf.BytesValue) {}
   rpc InspectTag(Tag) returns (ObjectInfo) {}
+  rpc ListTags(ListTagsRequest) returns (stream Object) {}
   rpc Compact(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 
