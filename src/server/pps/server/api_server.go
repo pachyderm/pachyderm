@@ -1086,7 +1086,7 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 	}
 
 	// The set of objects that are in use.
-	var activeObjects map[string]bool
+	activeObjects := make(map[string]bool)
 	var activeObjectsMu sync.Mutex
 	// A helper function for adding active objects in a thread-safe way
 	addActiveObjects := func(objects ...*pfs.Object) {
