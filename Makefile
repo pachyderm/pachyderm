@@ -300,7 +300,7 @@ doc: install-doc release-version
 	./pachctl
 	rm ./pachctl
 	mv pachctl.rst doc/pachctl
-	etc/build/release_doc
+	VERSION="$(shell cat VERSION)" ./etc/build/release_doc
 
 clean-launch-monitoring:
 	kubectl delete --ignore-not-found -f ./etc/plugin/monitoring
