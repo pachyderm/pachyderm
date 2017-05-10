@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Check if this script has already been run
 chroot /rootfs which nvidia-smi
