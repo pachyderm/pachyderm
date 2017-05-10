@@ -224,8 +224,7 @@ func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, resources
 		Name:      client.PPSWorkerVolume,
 		MountPath: client.PPSInputPrefix,
 	})
-	val, ok := resources["alpha.kubernetes.io/nvidia-gpu"]
-	if ok && !val.IsZero() {
+	if !resources.NvidiaGPU().IsZero() {
 		volumes = append(volumes, api.Volume{
 			Name: "root-lib",
 			VolumeSource: api.VolumeSource{
