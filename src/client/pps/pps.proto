@@ -225,6 +225,7 @@ message PipelineInfo {
   google.protobuf.Duration scaleDownThreshold = 18;
   ResourceSpec resource_spec = 19;
   Input input = 20;
+  string description = 21;
 }
 
 message PipelineInfos {
@@ -321,6 +322,7 @@ message CreatePipelineRequest {
   google.protobuf.Duration scaleDownThreshold = 11;
   ResourceSpec resource_spec = 12;
   Input input = 13;
+  string description = 14;
 }
 
 message InspectPipelineRequest {
