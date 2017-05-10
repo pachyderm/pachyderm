@@ -145,6 +145,7 @@ docker-push-gpu:
 docker-push-gpu-dev:
 	docker tag pachyderm/nvidia_driver_install pachyderm/nvidia_driver_install:`git rev-list HEAD --max-count=1`
 	docker push pachyderm/nvidia_driver_install:`git rev-list HEAD --max-count=1`
+	echo pushed pachyderm/nvidia_driver_install:`git rev-list HEAD --max-count=1`
 
 docker-gpu: docker-build-gpu docker-push-gpu
 

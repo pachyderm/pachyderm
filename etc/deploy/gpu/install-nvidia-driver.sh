@@ -8,7 +8,8 @@ if [[ $? -eq 0 ]]; then
 else
 	set +euxo pipefail
 	# If not ... install the drivers and restart
-	echo $NVIDIA_RUNNER
+	echo $1
+	NVIDIA_RUNNER=$1
 	./$NVIDIA_RUNNER --ui=none --no-questions --accept-license
 	# We want to overwrite, not append since the default
 	# value of this file w our current AMI is just 'exit 0'
