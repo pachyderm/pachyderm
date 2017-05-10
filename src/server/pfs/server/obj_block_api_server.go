@@ -330,7 +330,14 @@ func (s *objBlockAPIServer) ListTags(request *pfsclient.ListTagsRequest, server 
 }
 
 func (s *objBlockAPIServer) isNotFoundErr(err error) bool {
-	return strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "404") || s.objClient.IsNotExist(err) || s.objClient.IsIgnorable(err)
+	// GG golang
+	patterns := []string{"not found", "not exist", "NotFound", "NotExist", "404"}
+	for _, pattern := range patterns {
+		if strings.Contains(err.Error(), pattern) {
+			return true
+		}
+	}
+	return s.objClient.IsNotExist(err) || s.objClient.IsIgnorable(err)
 }
 
 func (s *objBlockAPIServer) DeleteObjects(ctx context.Context, request *pfsclient.DeleteObjectsRequest) (response *pfsclient.DeleteObjectsResponse, retErr error) {
