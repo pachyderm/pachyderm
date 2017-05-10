@@ -135,6 +135,21 @@ docker-build-proto:
 docker-build-netcat:
 	docker build -t pachyderm_netcat etc/netcat
 
+docker-build-gpu:
+	docker build -t pachyderm_nvidia_driver_install etc/deploy/gpu
+	docker tag pachyderm_nvidia_driver_install pachyderm/nvidia_driver_install
+
+docker-push-gpu:
+	docker push pachyderm/nvidia_driver_install
+
+docker-push-gpu-dev:
+	docker tag pachyderm/nvidia_driver_install pachyderm/nvidia_driver_install:`git rev-list HEAD --max-count=1`
+	docker push pachyderm/nvidia_driver_install:`git rev-list HEAD --max-count=1`
+
+docker-gpu: docker-build-gpu docker-push-gpu
+
+docker-gpu-dev: docker-build-gpu docker-push-gpu-dev
+
 check-kubectl:
 	# check that kubectl is installed
 	which kubectl
