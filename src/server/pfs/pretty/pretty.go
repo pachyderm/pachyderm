@@ -30,7 +30,8 @@ func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo) {
 // PrintDetailedRepoInfo pretty-prints detailed repo info.
 func PrintDetailedRepoInfo(repoInfo *pfs.RepoInfo) error {
 	template, err := template.New("RepoInfo").Funcs(funcMap).Parse(
-		`Name: {{.Repo.Name}}
+		`Name: {{.Repo.Name}}{{if .Description}}
+Description: {{.Description}}{{end}}
 Created: {{prettyAgo .Created}}
 Size: {{prettySize .SizeBytes}}{{if .Provenance}}
 Provenance: {{range .Provenance}} {{.Name}} {{end}} {{end}}

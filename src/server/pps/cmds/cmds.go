@@ -439,6 +439,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	}
 
 	var pipelinePath string
+	var description string
 	createPipeline := &cobra.Command{
 		Use:   "create-pipeline -f pipeline.json",
 		Short: "Create a new pipeline.",
@@ -484,6 +485,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	createPipeline.Flags().StringVarP(&registry, "registry", "r", "docker.io", "The registry to push images to.")
 	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
 	createPipeline.Flags().StringVarP(&password, "password", "", "", "Your password for the registry being pushed to.")
+	createPipeline.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
 
 	updatePipeline := &cobra.Command{
 		Use:   "update-pipeline -f pipeline.json",
