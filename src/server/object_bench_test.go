@@ -8,7 +8,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 )
@@ -25,7 +24,7 @@ func BenchmarkManyObjects(b *testing.B) {
 			var eg errgroup.Group
 			for i := 0; i < clients; i++ {
 				i := i
-				c := getPachClientInCluster(b)
+				c := getPachClient(b)
 				rand := rand.New(rand.NewSource(int64(i)))
 				eg.Go(func() error {
 					for j := 0; j < objectsPerClient; j++ {
@@ -52,7 +51,7 @@ func BenchmarkManyObjects(b *testing.B) {
 			var eg errgroup.Group
 			for i := 0; i < clients; i++ {
 				i := i
-				c := getPachClientInCluster(b)
+				c := getPachClient(b)
 				eg.Go(func() error {
 					for j := 0; j < objectsPerClient; j++ {
 						err := c.GetTag(fmt.Sprintf("%d.%d", i, j), ioutil.Discard)
@@ -72,7 +71,7 @@ func BenchmarkManyObjects(b *testing.B) {
 			var eg errgroup.Group
 			for i := 0; i < clients; i++ {
 				i := i
-				c := getPachClientInCluster(b)
+				c := getPachClient(b)
 				eg.Go(func() error {
 					for j := 0; j < objectsPerClient; j++ {
 						err := c.GetTag(fmt.Sprintf("%d.%d", i, j), ioutil.Discard)
@@ -87,10 +86,4 @@ func BenchmarkManyObjects(b *testing.B) {
 			require.NoError(b, eg.Wait())
 		}
 	})
-}
-
-func getPachClientInCluster(t testing.TB) *client.APIClient {
-	client, err := client.NewInCluster()
-	require.NoError(t, err)
-	return client
 }
