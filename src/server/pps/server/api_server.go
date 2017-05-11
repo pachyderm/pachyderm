@@ -1173,6 +1173,7 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 			if err != nil {
 				return nil, err
 			}
+			limiter.Acquire()
 			eg.Go(func() error {
 				defer limiter.Release()
 				return addActiveTree(object)
