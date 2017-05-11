@@ -7,7 +7,7 @@ This machine learning pipeline integrates Nervana Neon training and inference in
 ## Getting Started
 
 - Clone this repo or download the files for the example.
-- Download the training data [here](https://www.kaggle.com/c/word2vec-nlp-tutorial/data).
+- Download the training data [here](https://s3-us-west-2.amazonaws.com/wokshop-example-data/labeldTrainData.tsv).
 
 ## Deploying Pachyderm
 
