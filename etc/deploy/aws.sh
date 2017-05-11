@@ -30,8 +30,16 @@ parse_flags() {
       shift 2
   done
 
+  zone_suffix=${AWS_AVAILABILITY_ZONE#$AWS_REGION}
+  if [[ ${#zone_suffix} -gt 3 ]]; then
+    echo "Availability zone \"${AWS_AVAILABILITY_ZONE}\" may not be in region \"${AWS_REGION}\""
+    echo "Try setting both --region and --zone"
+    echo "Exiting to be safe..."
+    exit 1
+  fi
+
   if [ "${USE_EXISTING_STATE_BUCKET}" == 'false' ]; then
-    create_s3_bucket "${STATE_BUCKET}"
+    create_s3_bucket "${STATE_BUCKET}" || exit 1
   fi
 }
 
@@ -91,7 +99,7 @@ deploy_k8s_on_aws() {
 update_sec_group() {
     export SECURITY_GROUP_ID="$(
         aws ec2 describe-instances --filters "Name=instance-type,Values=${NODE_SIZE}" --region ${AWS_REGION} \
-          | jq --raw-output '.Reservations[].Instances[] | select([.Tags[].Value | contains("masters.'${NAME}'")] | any) | .SecurityGroups[0].GroupId')"
+          | jq --raw-output '.Reservations[].Instances[] | select([.Tags[]?.Value | contains("masters.'${NAME}'")] | any) | .SecurityGroups[0].GroupId')"
     # For k8s access
     aws ec2 authorize-security-group-ingress --group-id ${SECURITY_GROUP_ID} --protocol tcp --port 8080 --cidr "0.0.0.0/0" --region ${AWS_REGION}
     # For pachyderm direct access:
@@ -210,3 +218,7 @@ set -euxo pipefail
 
 deploy_k8s_on_aws
 deploy_pachyderm_on_aws
+
+# Must echo ID at end, for etc/testing/deploy/aws.sh
+echo "Cluster created:"
+echo ${NAME}
