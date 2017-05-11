@@ -64,6 +64,7 @@ func BenchmarkLocalBigFiles(b *testing.B) {
 // distribution with the given min and max.
 func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, local bool) {
 	scalePachd(b)
+	r := getRand()
 
 	repo := uniqueString("BenchmarkPachydermFiles")
 	c := getPachClient(b)
@@ -75,7 +76,6 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 		b.N = 1
 		var totalBytes int64
 		var eg errgroup.Group
-		r := getRand()
 		zipf := rand.NewZipf(r, 1.05, 1, maxSize-minSize)
 		for k := 0; k < fileNum; k++ {
 			k := k
@@ -84,9 +84,9 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 			eg.Go(func() error {
 				var err error
 				if k%10 == 0 {
-					_, err = c.PutFile(repo, commit.ID, fmt.Sprintf("dir/file%d", k), workload.NewReader(getRand(), fileSize))
+					_, err = c.PutFile(repo, commit.ID, fmt.Sprintf("dir/file%d", k), workload.NewReader(r, fileSize))
 				} else {
-					_, err = c.PutFile(repo, commit.ID, fmt.Sprintf("file%d", k), workload.NewReader(getRand(), fileSize))
+					_, err = c.PutFile(repo, commit.ID, fmt.Sprintf("file%d", k), workload.NewReader(r, fileSize))
 				}
 				return err
 			})
@@ -188,6 +188,7 @@ func BenchmarkLocalDataShuffle(b *testing.B) {
 // `round` specifies how many extra rounds the entire pipeline runs.
 func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int, minFileSize uint64, maxFileSize uint64, round int) {
 	scalePachd(b)
+	r := getRand()
 
 	numTotalFiles := numTarballs * numFilesPerTarball
 	dataRepo := uniqueString("BenchmarkDataShuffle")
@@ -228,7 +229,6 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 						retErr = err
 					}
 				}()
-				r := getRand()
 				zipf := rand.NewZipf(r, 1.01, 1, maxFileSize-minFileSize)
 				for j := 0; j < numFilesPerTarball; j++ {
 					fileName := workload.RandString(r, 10)
