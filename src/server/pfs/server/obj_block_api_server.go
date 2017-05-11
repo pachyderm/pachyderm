@@ -352,11 +352,13 @@ func (s *objBlockAPIServer) DeleteObjects(ctx context.Context, request *pfsclien
 		limiter.Acquire()
 		eg.Go(func() error {
 			defer limiter.Release()
+			fmt.Println("BP0")
 			objectInfo, err := s.InspectObject(ctx, object)
 			if err != nil && !s.isNotFoundErr(err) {
 				return err
 			}
 
+			fmt.Println("BP1")
 			if objectInfo != nil && objectInfo.BlockRef != nil {
 				blockPath := s.localServer.blockPath(objectInfo.BlockRef.Block)
 				if err := s.objClient.Delete(blockPath); err != nil && !s.isNotFoundErr(err) {
@@ -365,9 +367,12 @@ func (s *objBlockAPIServer) DeleteObjects(ctx context.Context, request *pfsclien
 			}
 
 			objPath := s.localServer.objectPath(object)
-			if err := s.objClient.Delete(objPath); err != nil && !s.isNotFoundErr(err) {
+			fmt.Printf("deleting object %v\n", objPath)
+			err = s.objClient.Delete(objPath)
+			if err != nil && !s.isNotFoundErr(err) {
 				return err
 			}
+			fmt.Printf("err: %v\n", err)
 
 			return nil
 		})
