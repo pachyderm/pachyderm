@@ -3,6 +3,7 @@ package cmds
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -51,18 +52,28 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 		}),
 	}
 
+	var description string
 	createRepo := &cobra.Command{
 		Use:   "create-repo repo-name",
 		Short: "Create a new repo.",
 		Long:  "Create a new repo.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
-			return client.CreateRepo(args[0])
+
+			_, err = c.PfsAPIClient.CreateRepo(
+				context.Background(),
+				&pfsclient.CreateRepoRequest{
+					Repo:        client.NewRepo(args[0]),
+					Description: description,
+				},
+			)
+			return err
 		}),
 	}
+	createRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
 
 	inspectRepo := &cobra.Command{
 		Use:   "inspect-repo repo-name",

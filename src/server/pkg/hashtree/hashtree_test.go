@@ -540,6 +540,28 @@ func TestMergeEmpty(t *testing.T) {
 	requireSame(t, expected, finish(t, r))
 }
 
+// Test that Walk() works
+func TestWalk(t *testing.T) {
+	tmp := NewHashTree()
+	tmp.PutFile("/foo", obj(`hash:"20c27"`), 1)
+	tmp.PutFile("/dir/bar", obj(`hash:"ebc57"`), 1)
+	tree, err := tmp.Finish()
+	require.NoError(t, err)
+
+	expectedPaths := map[string]bool{
+		"/":        true,
+		"/foo":     true,
+		"/dir":     true,
+		"/dir/bar": true,
+	}
+	require.NoError(t, tree.Walk(func(path string, node *NodeProto) error {
+		require.True(t, expectedPaths[path])
+		delete(expectedPaths, path)
+		return nil
+	}))
+	require.Equal(t, 0, len(expectedPaths))
+}
+
 // Test that HashTree methods return the right error codes
 func TestErrorCode(t *testing.T) {
 	require.Equal(t, OK, Code(nil))

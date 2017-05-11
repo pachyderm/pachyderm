@@ -19,12 +19,14 @@
 	"/pfs/out/imdb.vocab" 
     ]
   },
-  "inputs": [
-    {
-      "repo": {
-        "name": "training"
-      },
+  "parallelism_spec": {
+    "strategy": "CONSTANT",
+    "constant": "1"
+  },
+  "input": {
+    "atom": {
+      "repo": "training",
       "glob": "/"
     }
-  ]
+  }
 }
