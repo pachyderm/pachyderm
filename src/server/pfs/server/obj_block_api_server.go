@@ -312,21 +312,55 @@ func (s *objBlockAPIServer) ListTags(request *pfsclient.ListTagsRequest, server 
 	var eg errgroup.Group
 	limiter := limit.New(100)
 	s.objClient.Walk(path.Join(s.localServer.tagDir(), request.Prefix), func(key string) error {
-		limiter.Acquire()
-		eg.Go(func() error {
-			defer limiter.Release()
-			tagObjectIndex := &pfsclient.ObjectIndex{}
-			if err := s.readProto(key, tagObjectIndex); err != nil {
-				return err
-			}
-			for _, object := range tagObjectIndex.Tags {
-				server.Send(object)
-			}
-			return nil
+		tag := filepath.Base(key)
+		if request.IncludeObject {
+			limiter.Acquire()
+			eg.Go(func() error {
+				defer limiter.Release()
+				tagObjectIndex := &pfsclient.ObjectIndex{}
+				if err := s.readProto(key, tagObjectIndex); err != nil {
+					return err
+				}
+				for _, object := range tagObjectIndex.Tags {
+					server.Send(&pfsclient.ListTagsResponse{
+						Tag:    tag,
+						Object: object,
+					})
+				}
+				return nil
+			})
+		}
+		server.Send(&pfsclient.ListTagsResponse{
+			Tag: tag,
 		})
 		return nil
 	})
 	return eg.Wait()
+}
+
+func (s *objBlockAPIServer) DeleteTags(ctx context.Context, request *pfsclient.DeleteTagsRequest) (response *pfsclient.DeleteTagsResponse, retErr error) {
+	func() { s.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+
+	limiter := limit.New(100)
+	var eg errgroup.Group
+	for _, tag := range request.Tags {
+		tag := tag
+		limiter.Acquire()
+		eg.Go(func() error {
+			defer limiter.Release()
+			tagPath := s.localServer.tagPath(&pfsclient.Tag{tag})
+			if err := s.objClient.Delete(tagPath); err != nil && !s.isNotFoundErr(err) {
+				return err
+			}
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+
+	return &pfsclient.DeleteTagsResponse{}, nil
 }
 
 func (s *objBlockAPIServer) isNotFoundErr(err error) bool {
@@ -365,8 +399,7 @@ func (s *objBlockAPIServer) DeleteObjects(ctx context.Context, request *pfsclien
 			}
 
 			objPath := s.localServer.objectPath(object)
-			err = s.objClient.Delete(objPath)
-			if err != nil && !s.isNotFoundErr(err) {
+			if err := s.objClient.Delete(objPath); err != nil && !s.isNotFoundErr(err) {
 				return err
 			}
 

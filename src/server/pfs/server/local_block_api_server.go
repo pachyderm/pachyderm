@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -174,17 +175,19 @@ func (s *localBlockAPIServer) InspectObject(ctx context.Context, request *pfscli
 }
 
 func (s *localBlockAPIServer) ListObjects(request *pfsclient.ListObjectsRequest, listObjectsServer pfsclient.ObjectAPI_ListObjectsServer) (retErr error) {
-	return nil
+	return errors.New("TODO")
 }
 
 func (s *localBlockAPIServer) ListTags(request *pfsclient.ListTagsRequest, server pfsclient.ObjectAPI_ListTagsServer) (retErr error) {
-	return nil
+	return errors.New("TODO")
+}
+
+func (s *localBlockAPIServer) DeleteTags(ctx context.Context, request *pfsclient.DeleteTagsRequest) (response *pfsclient.DeleteTagsResponse, retErr error) {
+	return nil, errors.New("TODO")
 }
 
 func (s *localBlockAPIServer) DeleteObjects(ctx context.Context, request *pfsclient.DeleteObjectsRequest) (response *pfsclient.DeleteObjectsResponse, retErr error) {
-	func() { s.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	return &pfsclient.DeleteObjectsResponse{}, nil
+	return nil, errors.New("TODO")
 }
 
 func (s *localBlockAPIServer) GetTag(request *pfsclient.Tag, getTagServer pfsclient.ObjectAPI_GetTagServer) (retErr error) {
