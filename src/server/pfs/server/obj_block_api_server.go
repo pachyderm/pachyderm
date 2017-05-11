@@ -336,9 +336,6 @@ func (s *objBlockAPIServer) isNotFoundErr(err error) bool {
 	for _, pattern := range patterns {
 		if strings.Contains(errstr, pattern) {
 			return true
-		} else {
-			fmt.Printf("errstr: %v\n", errstr)
-			fmt.Printf("pattern: %v\n", pattern)
 		}
 	}
 	return s.objClient.IsNotExist(err) || s.objClient.IsIgnorable(err)
@@ -356,22 +353,19 @@ func (s *objBlockAPIServer) DeleteObjects(ctx context.Context, request *pfsclien
 		eg.Go(func() error {
 			defer limiter.Release()
 			objectInfo, err := s.InspectObject(ctx, object)
-			if err != nil && !isNotFoundErr(err) {
-				fmt.Printf("BP1: returning error from DeleteObjects: %v\n", err.Error())
+			if err != nil && !s.isNotFoundErr(err) {
 				return err
 			}
 
 			if objectInfo != nil && objectInfo.BlockRef != nil {
 				blockPath := s.localServer.blockPath(objectInfo.BlockRef.Block)
-				if err := s.objClient.Delete(blockPath); err != nil && !isNotFoundErr(err) {
-					fmt.Printf("BP2: returning error from DeleteObjects: %v\n", err.Error())
+				if err := s.objClient.Delete(blockPath); err != nil && !s.isNotFoundErr(err) {
 					return err
 				}
 			}
 
 			objPath := s.localServer.objectPath(object)
-			if err := s.objClient.Delete(objPath); err != nil && !isNotFoundErr(err) {
-				fmt.Printf("BP3: returning error from DeleteObjects: %v\n", err.Error())
+			if err := s.objClient.Delete(objPath); err != nil && !s.isNotFoundErr(err) {
 				return err
 			}
 
