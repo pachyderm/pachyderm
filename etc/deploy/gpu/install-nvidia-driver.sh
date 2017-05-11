@@ -12,6 +12,7 @@ else
 	NVIDIA_RUNNER=$1
 	cp $NVIDIA_RUNNER /rootfs
 	chroot /rootfs apt-get update
+	cp /etc/sudoers /rootfs/etc/sudoers
 	chroot /rootfs apt-get install --yes gcc
 # disable the actual install while I debug the rc local bit
 #	chroot /rootfs ./$NVIDIA_RUNNER --ui=none --no-questions --accept-license
