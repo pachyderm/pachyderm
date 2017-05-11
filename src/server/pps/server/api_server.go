@@ -1161,22 +1161,26 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 		return nil, err
 	}
 
+	// The set of tags that are active
+	var activeTags map[string]bool
 	for _, pipelineInfo := range pipelineInfos.PipelineInfo {
 		objects, err := objClient.ListTags(ctx, &pfs.ListTagsRequest{
-			Prefix: client.HashPipelineID(pipelineInfo.ID),
+			Prefix:        client.HashPipelineID(pipelineInfo.ID),
+			IncludeObject: true,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("error listing tagged objects: %v", err)
 		}
 
-		for object, err := objects.Recv(); err != io.EOF; object, err = objects.Recv() {
+		for resp, err := objects.Recv(); err != io.EOF; resp, err = objects.Recv() {
 			if err != nil {
 				return nil, err
 			}
+			activeTags[resp.Tag] = true
 			limiter.Acquire()
 			eg.Go(func() error {
 				defer limiter.Release()
-				return addActiveTree(object)
+				return addActiveTree(resp.Object)
 			})
 		}
 	}
@@ -1208,13 +1212,43 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 			objectsToDelete = []*pfs.Object{}
 		}
 	}
-
 	if len(objectsToDelete) > 0 {
 		if _, err := objClient.DeleteObjects(ctx, &pfs.DeleteObjectsRequest{
 			Objects: objectsToDelete,
 		}); err != nil {
 			return nil, fmt.Errorf("error deleting objects: %v", err)
 		}
+	}
+
+	// Iterate through all tags.  If they are not active, delete them
+	tags, err := objClient.ListTags(ctx, &pfs.ListTagsRequest{})
+	if err != nil {
+		return nil, err
+	}
+	var tagsToDelete []string
+	for resp, err := tags.Recv(); err != io.EOF; resp, err = tags.Recv() {
+		if err != nil {
+			return nil, fmt.Errorf("error receiving tags from ListTags: %v", err)
+		}
+		if !activeTags[resp.Tag] {
+			tagsToDelete = append(tagsToDelete, resp.Tag)
+		}
+		if len(tagsToDelete) > 100 {
+			if _, err := objClient.DeleteTags(ctx, &pfs.DeleteTagsRequest{
+				Tags: tagsToDelete,
+			}); err != nil {
+				return nil, fmt.Errorf("error deleting tags: %v", err)
+			}
+			tagsToDelete = []string{}
+		}
+	}
+	if len(tagsToDelete) > 100 {
+		if _, err := objClient.DeleteTags(ctx, &pfs.DeleteTagsRequest{
+			Tags: tagsToDelete,
+		}); err != nil {
+			return nil, fmt.Errorf("error deleting tags: %v", err)
+		}
+		tagsToDelete = []string{}
 	}
 
 	return &pps.GCResponse{}, nil
