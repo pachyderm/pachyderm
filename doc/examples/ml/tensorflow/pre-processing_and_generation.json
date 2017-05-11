@@ -9,7 +9,7 @@
 	"python process.py --input_dir /pfs/input_images --operation resize --output_dir /pfs/out"	
     ]
   },
-  "inputs": {
+  "input": {
     "atom": {
       "repo": "input_images",
       "glob": "/*"
@@ -30,7 +30,7 @@
 	"done"
     ]
   },
-  "inputs": {
+  "input": {
     "cross": [
       {
         "atom": {
