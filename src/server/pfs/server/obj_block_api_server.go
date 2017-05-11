@@ -505,7 +505,7 @@ func (s *objBlockAPIServer) compact() (retErr error) {
 				Objects: make(map[string]*pfsclient.BlockRef),
 				Tags:    make(map[string]*pfsclient.Object),
 			}
-			if err := s.readProto(s.localServer.indexPath(prefix), prefixObjectIndex); err != nil && !s.objClient.IsNotExist(err) {
+			if err := s.readProto(s.localServer.indexPath(prefix), prefixObjectIndex); err != nil && !s.isNotFoundErr(err) {
 				return err
 			}
 			for hash, blockRef := range objectIndex.Objects {
@@ -610,7 +610,7 @@ func (s *objBlockAPIServer) tagGetter(ctx groupcache.Context, key string, dest g
 	// Note that we tolerate NotExist errors here because the object may have
 	// been incorporated into an index and thus deleted.
 	objectIndex = &pfsclient.ObjectIndex{}
-	if err := s.readProto(s.localServer.tagPath(tag), objectIndex); err != nil && !s.objClient.IsNotExist(err) {
+	if err := s.readProto(s.localServer.tagPath(tag), objectIndex); err != nil && !s.isNotFoundErr(err) {
 		return err
 	} else if err == nil {
 		if object, ok := objectIndex.Tags[tag.Name]; ok {
@@ -663,7 +663,7 @@ func (s *objBlockAPIServer) objectInfoGetter(ctx groupcache.Context, key string,
 	// Note that we tolerate NotExist errors here because the object may have
 	// been incorporated into an index and thus deleted.
 	blockRef := &pfsclient.BlockRef{}
-	if err := s.readProto(s.localServer.objectPath(object), blockRef); err != nil && !s.objClient.IsNotExist(err) {
+	if err := s.readProto(s.localServer.objectPath(object), blockRef); err != nil && !s.isNotFoundErr(err) {
 		return err
 	} else if err == nil {
 		result.BlockRef = blockRef
@@ -735,7 +735,7 @@ func (s *objBlockAPIServer) setObjectIndex(prefix string, index *pfsclient.Objec
 
 func (s *objBlockAPIServer) readObjectIndex(prefix string) error {
 	objectIndex := &pfsclient.ObjectIndex{}
-	if err := s.readProto(s.localServer.indexPath(prefix), objectIndex); err != nil && !s.objClient.IsNotExist(err) {
+	if err := s.readProto(s.localServer.indexPath(prefix), objectIndex); err != nil && !s.isNotFoundErr(err) {
 		return err
 	}
 	// Note that we only return the error above if it's something other than a
