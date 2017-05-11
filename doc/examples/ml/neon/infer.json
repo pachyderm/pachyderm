@@ -21,18 +21,20 @@
     "strategy": "CONSTANT",
     "constant": "2"
   },
-  "inputs": [
-    {
-      "repo": {
-        "name": "reviews"
+  "input": {
+    "cross": [
+      {
+        "atom": {
+	  "repo": "reviews",
+	  "glob": "/*"
+	}
       },
-      "glob": "/*"
-    },
-    {
-      "repo": {
-	"name": "model"
-      },
-      "glob": "/"
-    }
-  ]
+      {
+	"atom": {
+	  "repo": "model",
+	  "glob": "/"
+	}
+      }
+    ]
+  }
 }
