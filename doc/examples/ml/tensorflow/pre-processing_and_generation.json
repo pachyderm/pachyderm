@@ -9,14 +9,12 @@
 	"python process.py --input_dir /pfs/input_images --operation resize --output_dir /pfs/out"	
     ]
   },
-  "inputs": [
-    {
-      "repo": {
-        "name": "input_images"
-      },
+  "inputs": {
+    "atom": {
+      "repo": "input_images",
       "glob": "/*"
     }
-  ]
+  }
 }
 {
   "pipeline": {
@@ -32,18 +30,20 @@
 	"done"
     ]
   },
-  "inputs": [
-    {
-      "repo": {
-        "name": "preprocess_images"
+  "inputs": {
+    "cross": [
+      {
+        "atom": {
+	  "repo": "preprocess_images",
+	  "glob": "/*"
+	}
       },
-      "glob": "/*"
-    },
-    {
-      "repo": {
-	"name": "model"
-      },
-      "glob": "/"
-    }
-  ]
+      {
+	"atom": {
+	  "repo": "model",
+	  "glob": "/"
+	}
+      }
+    ]
+  }
 }

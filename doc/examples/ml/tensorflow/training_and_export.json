@@ -10,14 +10,16 @@
 	"sed -i 's/out/checkpoint/g' /pfs/out/checkpoint"
     ]
   },
-  "inputs": [
-    {
-      "repo": {
-        "name": "training"
-      },
+  "parallelism_spec": {
+    "strategy": "CONSTANT",
+    "constant": "1"
+  },
+  "inputs": {
+    "atom": {
+      "repo": "training",
       "glob": "/"
     }
-  ]
+  }
 }
 {
   "pipeline": {
@@ -31,12 +33,14 @@
 	"sed -i 's/out/model/g' /pfs/out/checkpoint" 
     ]
   },
-  "inputs": [
-    {
-      "repo": {
-        "name": "checkpoint"
-      },
+  "parallelism_spec": {
+    "strategy": "CONSTANT",
+    "constant": "1"
+  },
+  "inputs": {
+    "atom": {
+      "repo": "checkpoint",
       "glob": "/"
     }
-  ]
+  }
 }
