@@ -332,9 +332,13 @@ func (s *objBlockAPIServer) ListTags(request *pfsclient.ListTagsRequest, server 
 func (s *objBlockAPIServer) isNotFoundErr(err error) bool {
 	// GG golang
 	patterns := []string{"not found", "not exist", "NotFound", "NotExist", "404"}
+	errstr := err.Error()
 	for _, pattern := range patterns {
-		if strings.Contains(err.Error(), pattern) {
+		if strings.Contains(errstr, pattern) {
 			return true
+		} else {
+			fmt.Printf("errstr: %v\n", errstr)
+			fmt.Printf("pattern: %v\n", pattern)
 		}
 	}
 	return s.objClient.IsNotExist(err) || s.objClient.IsIgnorable(err)
