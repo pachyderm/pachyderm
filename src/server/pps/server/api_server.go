@@ -1098,6 +1098,32 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 			}
 		}
 	}
+	// A helper function for adding objects that are actually hash trees,
+	// which in turn contain active objects.
+	addActiveTree := func(object *pfs.Object) error {
+		addActiveObjects(object)
+		getObjectClient, err := objClient.GetObject(ctx, object)
+		if err != nil {
+			return fmt.Errorf("error getting commit tree: %v", err)
+		}
+
+		var buf bytes.Buffer
+		if err := grpcutil.WriteFromStreamingBytesClient(getObjectClient, &buf); err != nil {
+			return fmt.Errorf("error reading commit tree: %v", err)
+		}
+
+		tree, err := hashtree.Deserialize(buf.Bytes())
+		if err != nil {
+			return err
+		}
+
+		return tree.Walk(func(path string, node *hashtree.NodeProto) error {
+			if node.FileNode != nil {
+				addActiveObjects(node.FileNode.Objects...)
+			}
+			return nil
+		})
+	}
 
 	// Get all repos
 	repoInfos, err := pfsClient.ListRepo(ctx, &pfs.ListRepoRequest{})
@@ -1118,31 +1144,10 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 		}
 		for _, commit := range commitInfos.CommitInfo {
 			commit := commit
-			addActiveObjects(commit.Tree)
 			limiter.Acquire()
 			eg.Go(func() error {
 				defer limiter.Release()
-				getObjectClient, err := objClient.GetObject(ctx, commit.Tree)
-				if err != nil {
-					return fmt.Errorf("error getting commit tree: %v", err)
-				}
-
-				var buf bytes.Buffer
-				if err := grpcutil.WriteFromStreamingBytesClient(getObjectClient, &buf); err != nil {
-					return fmt.Errorf("error reading commit tree: %v", err)
-				}
-
-				tree, err := hashtree.Deserialize(buf.Bytes())
-				if err != nil {
-					return err
-				}
-
-				return tree.Walk(func(path string, node *hashtree.NodeProto) error {
-					if node.FileNode != nil {
-						addActiveObjects(node.FileNode.Objects...)
-					}
-					return nil
-				})
+				return addActiveTree(commit.Tree)
 			})
 		}
 	}
@@ -1168,8 +1173,14 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 			if err != nil {
 				return nil, err
 			}
-			addActiveObjects(object)
+			eg.Go(func() error {
+				defer limiter.Release()
+				return addActiveTree(object)
+			})
 		}
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
 	}
 
 	// Iterate through all objects.  If they are not active, delete them.
