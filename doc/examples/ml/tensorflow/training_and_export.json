@@ -14,7 +14,7 @@
     "strategy": "CONSTANT",
     "constant": "1"
   },
-  "inputs": {
+  "input": {
     "atom": {
       "repo": "training",
       "glob": "/"
@@ -37,7 +37,7 @@
     "strategy": "CONSTANT",
     "constant": "1"
   },
-  "inputs": {
+  "input": {
     "atom": {
       "repo": "checkpoint",
       "glob": "/"
