@@ -1195,6 +1195,17 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 	}
 
 	var objectsToDelete []*pfs.Object
+	deleteObjectsIfMoreThan := func(n int) error {
+		if len(objectsToDelete) > n {
+			if _, err := objClient.DeleteObjects(ctx, &pfs.DeleteObjectsRequest{
+				Objects: objectsToDelete,
+			}); err != nil {
+				return fmt.Errorf("error deleting objects: %v", err)
+			}
+			objectsToDelete = []*pfs.Object{}
+		}
+		return nil
+	}
 	for object, err := objects.Recv(); err != io.EOF; object, err = objects.Recv() {
 		if err != nil {
 			return nil, fmt.Errorf("error receiving objects from ListObjects: %v", err)
@@ -1203,21 +1214,12 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 			objectsToDelete = append(objectsToDelete, object)
 		}
 		// We delete 100 objects at a time
-		if len(objectsToDelete) > 100 {
-			if _, err := objClient.DeleteObjects(ctx, &pfs.DeleteObjectsRequest{
-				Objects: objectsToDelete,
-			}); err != nil {
-				return nil, fmt.Errorf("error deleting objects: %v", err)
-			}
-			objectsToDelete = []*pfs.Object{}
+		if err := deleteObjectsIfMoreThan(100); err != nil {
+			return nil, err
 		}
 	}
-	if len(objectsToDelete) > 0 {
-		if _, err := objClient.DeleteObjects(ctx, &pfs.DeleteObjectsRequest{
-			Objects: objectsToDelete,
-		}); err != nil {
-			return nil, fmt.Errorf("error deleting objects: %v", err)
-		}
+	if err := deleteObjectsIfMoreThan(0); err != nil {
+		return nil, err
 	}
 
 	// Iterate through all tags.  If they are not active, delete them
@@ -1226,6 +1228,17 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 		return nil, err
 	}
 	var tagsToDelete []string
+	deleteTagsIfMoreThan := func(n int) error {
+		if len(tagsToDelete) > n {
+			if _, err := objClient.DeleteTags(ctx, &pfs.DeleteTagsRequest{
+				Tags: tagsToDelete,
+			}); err != nil {
+				return fmt.Errorf("error deleting tags: %v", err)
+			}
+			tagsToDelete = []string{}
+		}
+		return nil
+	}
 	for resp, err := tags.Recv(); err != io.EOF; resp, err = tags.Recv() {
 		if err != nil {
 			return nil, fmt.Errorf("error receiving tags from ListTags: %v", err)
@@ -1233,22 +1246,12 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 		if !activeTags[resp.Tag] {
 			tagsToDelete = append(tagsToDelete, resp.Tag)
 		}
-		if len(tagsToDelete) > 100 {
-			if _, err := objClient.DeleteTags(ctx, &pfs.DeleteTagsRequest{
-				Tags: tagsToDelete,
-			}); err != nil {
-				return nil, fmt.Errorf("error deleting tags: %v", err)
-			}
-			tagsToDelete = []string{}
+		if err := deleteTagsIfMoreThan(100); err != nil {
+			return nil, err
 		}
 	}
-	if len(tagsToDelete) > 100 {
-		if _, err := objClient.DeleteTags(ctx, &pfs.DeleteTagsRequest{
-			Tags: tagsToDelete,
-		}); err != nil {
-			return nil, fmt.Errorf("error deleting tags: %v", err)
-		}
-		tagsToDelete = []string{}
+	if err := deleteTagsIfMoreThan(0); err != nil {
+		return nil, err
 	}
 
 	return &pps.GCResponse{}, nil
