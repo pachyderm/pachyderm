@@ -1118,7 +1118,6 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 		}
 		for _, commit := range commitInfos.CommitInfo {
 			commit := commit
-			fmt.Printf("adding commit tree to active objects: %v\n", commit.Tree)
 			addActiveObjects(commit.Tree)
 			limiter.Acquire()
 			eg.Go(func() error {
@@ -1140,7 +1139,6 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 
 				return tree.Walk(func(path string, node *hashtree.NodeProto) error {
 					if node.FileNode != nil {
-						fmt.Printf("adding file objects for file %v to active objects: %v\n", path, node.FileNode.Objects)
 						addActiveObjects(node.FileNode.Objects...)
 					}
 					return nil
@@ -1170,7 +1168,6 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 			if err != nil {
 				return nil, err
 			}
-			fmt.Printf("adding tagged object to active objects: %v\n", object)
 			addActiveObjects(object)
 		}
 	}
@@ -1191,7 +1188,6 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 		}
 		// We delete 100 objects at a time
 		if len(objectsToDelete) > 100 {
-			fmt.Printf("delting active objects\n")
 			if _, err := objClient.DeleteObjects(ctx, &pfs.DeleteObjectsRequest{
 				Objects: objectsToDelete,
 			}); err != nil {
