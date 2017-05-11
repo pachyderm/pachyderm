@@ -300,8 +300,8 @@ func (s *objBlockAPIServer) ListObjects(request *pfsclient.ListObjectsRequest, l
 	func() { s.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 
-	return s.objClient.Walk(s.localServer.objectDir(), func(hash string) error {
-		return listObjectsServer.Send(&pfsclient.Object{hash})
+	return s.objClient.Walk(s.localServer.objectDir(), func(key string) error {
+		return listObjectsServer.Send(&pfsclient.Object{filepath.Base(key)})
 	})
 }
 
@@ -311,12 +311,12 @@ func (s *objBlockAPIServer) ListTags(request *pfsclient.ListTagsRequest, server 
 
 	var eg errgroup.Group
 	limiter := limit.New(100)
-	s.objClient.Walk(path.Join(s.localServer.tagDir(), request.Prefix), func(hash string) error {
+	s.objClient.Walk(path.Join(s.localServer.tagDir(), request.Prefix), func(key string) error {
 		limiter.Acquire()
 		eg.Go(func() error {
 			defer limiter.Release()
 			tagObjectIndex := &pfsclient.ObjectIndex{}
-			if err := s.readProto(hash, tagObjectIndex); err != nil {
+			if err := s.readProto(key, tagObjectIndex); err != nil {
 				return err
 			}
 			for _, object := range tagObjectIndex.Tags {
@@ -352,13 +352,11 @@ func (s *objBlockAPIServer) DeleteObjects(ctx context.Context, request *pfsclien
 		limiter.Acquire()
 		eg.Go(func() error {
 			defer limiter.Release()
-			fmt.Println("BP0")
 			objectInfo, err := s.InspectObject(ctx, object)
 			if err != nil && !s.isNotFoundErr(err) {
 				return err
 			}
 
-			fmt.Println("BP1")
 			if objectInfo != nil && objectInfo.BlockRef != nil {
 				blockPath := s.localServer.blockPath(objectInfo.BlockRef.Block)
 				if err := s.objClient.Delete(blockPath); err != nil && !s.isNotFoundErr(err) {
@@ -367,12 +365,10 @@ func (s *objBlockAPIServer) DeleteObjects(ctx context.Context, request *pfsclien
 			}
 
 			objPath := s.localServer.objectPath(object)
-			fmt.Printf("deleting object %v\n", objPath)
 			err = s.objClient.Delete(objPath)
 			if err != nil && !s.isNotFoundErr(err) {
 				return err
 			}
-			fmt.Printf("err: %v\n", err)
 
 			return nil
 		})
