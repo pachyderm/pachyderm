@@ -25,9 +25,9 @@ You'll need the following credentials / tools:
 
 1) Make sure your commit has a passing build on travis
 
-2) Update `src/client/version/client.go` version values
+2) Update `src/client/version/client.go` version values, commit the change
 
-3) Run `make doc` with the new version values.
+3) Run `make doc` with the new version values. If you're doing an RC or need to specify an additional version string, run it like `make VERSION_ADDITIONAL=RC1 doc`
 
 Make sure you add any new doc files, e.g:
 
