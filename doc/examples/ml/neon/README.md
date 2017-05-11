@@ -7,7 +7,7 @@ This machine learning pipeline integrates Nervana Neon training and inference in
 ## Getting Started
 
 - Clone this repo or download the files for the example.
-- Download the training data [here](https://s3-us-west-2.amazonaws.com/wokshop-example-data/labeldTrainData.tsv).
+- Download the training data [here](https://s3-us-west-2.amazonaws.com/wokshop-example-data/labeledTrainData.tsv).
 
 ## Deploying Pachyderm
 
@@ -30,7 +30,7 @@ See the [Pachyderm docs](http://docs.pachyderm.io/en/latest/) for details. Note,
 
 ## Running model training
 
-Because we have already deployed the pipeline, the training portion of the pipeline will run as soon as data is committed to the training data repo.  The training data in TSV format can be obtained [here](https://s3-us-west-2.amazonaws.com/wokshop-example-data/labeldTrainData.tsv).
+Because we have already deployed the pipeline, the training portion of the pipeline will run as soon as data is committed to the training data repo.  The training data in TSV format can be obtained [here](https://s3-us-west-2.amazonaws.com/wokshop-example-data/labeledTrainData.tsv).
 
 ```sh
 $ pachctl put-file training master labeledTrainData.tsv -c -f labeledTrainData.tsv
