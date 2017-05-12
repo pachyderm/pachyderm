@@ -45,7 +45,7 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 	rawFlag := func(cmd *cobra.Command) {
 		cmd.Flags().BoolVar(&raw, "raw", false, "disable pretty printing, print raw json")
 	}
-	json := &jsonpb.Marshaler{Indent: "  "}
+	marshaller := &jsonpb.Marshaler{Indent: "  "}
 
 	repo := &cobra.Command{
 		Use:   "repo",
@@ -98,7 +98,7 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 				return fmt.Errorf("repo %s not found", args[0])
 			}
 			if raw {
-				return json.Marshal(os.Stdout, repoInfo)
+				return marshaller.Marshal(os.Stdout, repoInfo)
 			}
 			return pretty.PrintDetailedRepoInfo(repoInfo)
 		}),
@@ -121,7 +121,7 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 			}
 			if raw {
 				for _, repoInfo := range repoInfos {
-					if err := json.Marshal(os.Stdout, repoInfo); err != nil {
+					if err := marshaller.Marshal(os.Stdout, repoInfo); err != nil {
 						return err
 					}
 				}
@@ -243,7 +243,7 @@ $ pachctl start-commit test -p XXX
 				return fmt.Errorf("commit %s not found", args[1])
 			}
 			if raw {
-				return json.Marshal(os.Stdout, commitInfo)
+				return marshaller.Marshal(os.Stdout, commitInfo)
 			}
 			return pretty.PrintDetailedCommitInfo(commitInfo)
 		}),
@@ -292,7 +292,7 @@ $ pachctl list-commit foo master --from XXX
 
 			if raw {
 				for _, commitInfo := range commitInfos {
-					if err := json.Marshal(os.Stdout, commitInfo); err != nil {
+					if err := marshaller.Marshal(os.Stdout, commitInfo); err != nil {
 						return err
 					}
 				}
@@ -354,7 +354,7 @@ $ pachctl flush-commit foo/XXX -r bar -r baz
 					if err != nil {
 						return err
 					}
-					if err := json.Marshal(os.Stdout, commitInfo); err != nil {
+					if err := marshaller.Marshal(os.Stdout, commitInfo); err != nil {
 						return err
 					}
 				}
@@ -392,7 +392,7 @@ $ pachctl flush-commit foo/XXX -r bar -r baz
 			}
 			if raw {
 				for _, branch := range branches {
-					if err := json.Marshal(os.Stdout, branch); err != nil {
+					if err := marshaller.Marshal(os.Stdout, branch); err != nil {
 						return err
 					}
 				}
@@ -652,7 +652,7 @@ pachctl put-file repo branch -i http://host/path
 				return fmt.Errorf("file %s not found", args[2])
 			}
 			if raw {
-				return json.Marshal(os.Stdout, fileInfo)
+				return marshaller.Marshal(os.Stdout, fileInfo)
 			}
 			return pretty.PrintDetailedFileInfo(fileInfo)
 		}),
@@ -678,7 +678,7 @@ pachctl put-file repo branch -i http://host/path
 			}
 			if raw {
 				for _, fileInfo := range fileInfos {
-					if err := json.Marshal(os.Stdout, fileInfo); err != nil {
+					if err := marshaller.Marshal(os.Stdout, fileInfo); err != nil {
 						return err
 					}
 				}
@@ -721,7 +721,7 @@ $ pachctl glob-file foo master "data/*"
 			}
 			if raw {
 				for _, fileInfo := range fileInfos {
-					if err := json.Marshal(os.Stdout, fileInfo); err != nil {
+					if err := marshaller.Marshal(os.Stdout, fileInfo); err != nil {
 						return err
 					}
 				}
