@@ -5,17 +5,14 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -523,23 +520,6 @@ func TestMultipleInputsFromTheSameRepo(t *testing.T) {
 // This test fails if you updated some static assets (such as doc/reference/pipeline_spec.md)
 // that are used in code but forgot to run:
 // $ make assets
-func TestAssets(t *testing.T) {
-	assetPaths := []string{"doc/reference/pipeline_spec.md"}
-
-	for _, path := range assetPaths {
-		doc, err := ioutil.ReadFile(filepath.Join(os.Getenv("GOPATH"), "src/github.com/pachyderm/pachyderm/", path))
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		asset, err := pachyderm.Asset(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		require.Equal(t, doc, asset)
-	}
-}
 
 func TestPipelineFailure(t *testing.T) {
 	if testing.Short() {
@@ -2298,7 +2278,9 @@ func TestPipelineThatSymlinks(t *testing.T) {
 		[]string{
 			// Symlinks to input files
 			fmt.Sprintf("ln -s /pfs/%s/foo /pfs/out/foo", dataRepo),
-			fmt.Sprintf("ln -s /pfs/%s/dir/bar /pfs/out/bar", dataRepo),
+			fmt.Sprintf("ln -s /pfs/%s/dir1/bar /pfs/out/bar", dataRepo),
+			"mkdir /pfs/out/dir",
+			fmt.Sprintf("ln -s /pfs/%s/dir2 /pfs/out/dir/dir2", dataRepo),
 			// Symlinks to external files
 			"echo buzz > /tmp/buzz",
 			"ln -s /tmp/buzz /pfs/out/buzz",
@@ -2317,7 +2299,9 @@ func TestPipelineThatSymlinks(t *testing.T) {
 	require.NoError(t, err)
 	_, err = c.PutFile(dataRepo, commit.ID, "foo", strings.NewReader("foo"))
 	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, commit.ID, "dir/bar", strings.NewReader("bar"))
+	_, err = c.PutFile(dataRepo, commit.ID, "dir1/bar", strings.NewReader("bar"))
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "dir2/foo", strings.NewReader("foo"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 
@@ -2334,6 +2318,9 @@ func TestPipelineThatSymlinks(t *testing.T) {
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "bar", 0, 0, &buffer))
 	require.Equal(t, "bar", buffer.String())
 	buffer.Reset()
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "dir/dir2/foo", 0, 0, &buffer))
+	require.Equal(t, "foo", buffer.String())
+	buffer.Reset()
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "buzz", 0, 0, &buffer))
 	require.Equal(t, "buzz\n", buffer.String())
 
@@ -2344,9 +2331,14 @@ func TestPipelineThatSymlinks(t *testing.T) {
 	outputFooFileInfo, err := c.InspectFile(pipelineName, commitInfos[0].Commit.ID, "foo")
 	require.NoError(t, err)
 	require.Equal(t, inputFooFileInfo.Objects, outputFooFileInfo.Objects)
-	inputFooFileInfo, err = c.InspectFile(dataRepo, commit.ID, "dir/bar")
+	inputFooFileInfo, err = c.InspectFile(dataRepo, commit.ID, "dir1/bar")
 	require.NoError(t, err)
 	outputFooFileInfo, err = c.InspectFile(pipelineName, commitInfos[0].Commit.ID, "bar")
+	require.NoError(t, err)
+	require.Equal(t, inputFooFileInfo.Objects, outputFooFileInfo.Objects)
+	inputFooFileInfo, err = c.InspectFile(dataRepo, commit.ID, "dir2/foo")
+	require.NoError(t, err)
+	outputFooFileInfo, err = c.InspectFile(pipelineName, commitInfos[0].Commit.ID, "dir/dir2/foo")
 	require.NoError(t, err)
 	require.Equal(t, inputFooFileInfo.Objects, outputFooFileInfo.Objects)
 }
@@ -3656,9 +3648,15 @@ func getKubeClient(t testing.TB) *kube.Client {
 }
 
 func getPachClient(t testing.TB) *client.APIClient {
-	client, err := client.NewFromAddress("0.0.0.0:30650")
+	var c *client.APIClient
+	var err error
+	if addr := os.Getenv("PACHD_PORT_650_TCP_ADDR"); addr != "" {
+		c, err = client.NewInCluster()
+	} else {
+		c, err = client.NewFromAddress("0.0.0.0:30650")
+	}
 	require.NoError(t, err)
-	return client
+	return c
 }
 
 func uniqueString(prefix string) string {

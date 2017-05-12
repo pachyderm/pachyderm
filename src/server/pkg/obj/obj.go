@@ -146,18 +146,18 @@ func NewMinioClientFromSecret(bucket string) (Client, error) {
 // from a mounted AmazonSecret. You may pass "" for bucket in which case it
 // will read the bucket from the secret.
 func NewAmazonClientFromSecret(bucket string) (Client, error) {
+	var distribution []byte
 	if bucket == "" {
 		_bucket, err := ioutil.ReadFile("/amazon-secret/bucket")
 		if err != nil {
 			return nil, err
 		}
 		bucket = string(_bucket)
-	}
-	var distribution []byte
-	distribution, err := ioutil.ReadFile("/amazon-secret/distribution")
-	if err != nil {
-		// Distribution is not required, but we can log a warning
-		lion.Warnln("AWS deployed without cloudfront distribution\n")
+		distribution, err = ioutil.ReadFile("/amazon-secret/distribution")
+		if err != nil {
+			// Distribution is not required, but we can log a warning
+			lion.Warnln("AWS deployed without cloudfront distribution\n")
+		}
 	}
 	id, err := ioutil.ReadFile("/amazon-secret/id")
 	if err != nil {

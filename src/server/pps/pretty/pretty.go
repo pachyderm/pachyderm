@@ -149,7 +149,8 @@ Egress: {{.Egress.URL}} {{end}}
 // PrintDetailedPipelineInfo pretty-prints detailed pipeline info.
 func PrintDetailedPipelineInfo(pipelineInfo *ppsclient.PipelineInfo) error {
 	template, err := template.New("PipelineInfo").Funcs(funcMap).Parse(
-		`Name: {{.Pipeline.Name}}
+		`Name: {{.Pipeline.Name}}{{if .Description}}
+Description: {{.Description}}{{end}}
 Created: {{prettyAgo .CreatedAt}}
 State: {{pipelineState .State}}
 Parallelism Spec: {{.ParallelismSpec}}

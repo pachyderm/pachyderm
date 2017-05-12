@@ -51,6 +51,7 @@ message RepoInfo {
   google.protobuf.Timestamp created = 2;
   uint64 size_bytes = 3;
   repeated Repo provenance = 4;
+  string description = 5;
 }
 
 message RepoInfos {
@@ -112,6 +113,7 @@ message ObjectInfo {
 message CreateRepoRequest {
   Repo repo = 1;
   repeated Repo provenance = 2;
+  string description = 3;
 }
 
 message InspectRepoRequest {
@@ -312,14 +314,29 @@ message TagObjectRequest {
   repeated Tag tags = 2;
 }
 
+message ListObjectsRequest {}
+
+message ListTagsRequest {
+  string prefix = 1;
+}
+
+message DeleteObjectsRequest {
+  repeated Object objects = 1;
+}
+
+message DeleteObjectsResponse {}
+
 service ObjectAPI {
   rpc PutObject(stream PutObjectRequest) returns (Object) {}
   rpc GetObject(Object) returns (stream google.protobuf.BytesValue) {}
   rpc GetObjects(GetObjectsRequest) returns (stream google.protobuf.BytesValue) {}
   rpc TagObject(TagObjectRequest) returns (google.protobuf.Empty) {}
   rpc InspectObject(Object) returns (ObjectInfo) {}
+  rpc ListObjects(ListObjectsRequest) returns (stream Object) {}
+  rpc DeleteObjects(DeleteObjectsRequest) returns (DeleteObjectsResponse) {}
   rpc GetTag(Tag) returns (stream google.protobuf.BytesValue) {}
   rpc InspectTag(Tag) returns (ObjectInfo) {}
+  rpc ListTags(ListTagsRequest) returns (stream Object) {}
   rpc Compact(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 

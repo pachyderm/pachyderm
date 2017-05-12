@@ -280,12 +280,30 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 
 					// The name of the input
 					inputName := strings.Split(pathWithInput, string(os.PathSeparator))[0]
-					for _, input := range inputs {
-						if input.Name == inputName {
-							// The path of the input file
-							pfsPath, err := filepath.Rel(inputName, pathWithInput)
+					var input *Input
+					for _, i := range inputs {
+						if i.Name == inputName {
+							input = i
+						}
+					}
+					if input != nil {
+						return filepath.Walk(realPath, func(path string, info os.FileInfo, err error) error {
+							rel, err := filepath.Rel(realPath, path)
 							if err != nil {
 								return err
+							}
+							subRelPath := filepath.Join(relPath, rel)
+							// The path of the input file
+							pfsPath, err := filepath.Rel(filepath.Join(client.PPSInputPrefix, input.Name), path)
+							if err != nil {
+								return err
+							}
+
+							if info.IsDir() {
+								lock.Lock()
+								defer lock.Unlock()
+								tree.PutDir(subRelPath)
+								return nil
 							}
 
 							fileInfo, err := a.pachClient.PfsAPIClient.InspectFile(ctx, &pfs.InspectFileRequest{
@@ -300,8 +318,8 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 
 							lock.Lock()
 							defer lock.Unlock()
-							return tree.PutFile(relPath, fileInfo.Objects, int64(fileInfo.SizeBytes))
-						}
+							return tree.PutFile(subRelPath, fileInfo.Objects, int64(fileInfo.SizeBytes))
+						})
 					}
 				}
 			}
