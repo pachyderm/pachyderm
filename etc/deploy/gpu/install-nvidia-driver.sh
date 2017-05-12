@@ -6,7 +6,15 @@ which nvidia-smi
 if [[ $? -eq 0 ]]; then
 	# If it has, do nothing
 	echo "$prefix : Nvidia drivers already installed. Nothing to do"
+	exit 0
 else
+	apt-get install pciutils -y
+	lspci -vnn | grep NVIDIA
+	if [[ $? -ne 0 ]]; then
+		# No NVIDIA card present, exit
+		echo "$prefix: No NVIDIA GPU detected, exiting"
+		exit 0
+	fi
 	set +euxo pipefail
 	# If not ... install the drivers and restart
 	NVIDIA_RUNNER=$1
