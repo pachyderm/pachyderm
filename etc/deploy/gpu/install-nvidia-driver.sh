@@ -10,6 +10,8 @@ else
 	# If not ... install the drivers and restart
 	echo $1
 	NVIDIA_RUNNER=$1
+	echo "user id:"
+	id -u
 	cp $NVIDIA_RUNNER /rootfs
 	chroot /rootfs apt-get update
 	cp /etc/sudoers /rootfs/etc/sudoers
@@ -47,7 +49,7 @@ nvidia-smi --auto-boost-permission=0 || true
 nvidia-modprobe -u -c=0 -m || true
 EOL
 	echo "state of /etc/rc.local:"
-	chroot /rootfs cat /etc/rc.local
+	chroot /rootfs cat /tmp/rc.local
 
 	echo 'trying with sudo at the start'
 	sudo chroot /rootfs cat >>/etc/rc.local  <<EOL
