@@ -169,6 +169,7 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 		})
 	}
 	for _, tag := range putObjectReader.tags {
+		tag := tag
 		eg.Go(func() (retErr error) {
 			index := &pfsclient.ObjectIndex{Tags: map[string]*pfsclient.Object{tag.Name: object}}
 			return s.writeProto(s.localServer.tagPath(tag), index)
@@ -274,6 +275,7 @@ func (s *objBlockAPIServer) TagObject(ctx context.Context, request *pfsclient.Ta
 	}
 	var eg errgroup.Group
 	for _, tag := range request.Tags {
+		tag := tag
 		eg.Go(func() (retErr error) {
 			index := &pfsclient.ObjectIndex{Tags: map[string]*pfsclient.Object{tag.Name: request.Object}}
 			return s.writeProto(s.localServer.tagPath(tag), index)

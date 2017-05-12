@@ -644,8 +644,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		logChs[i] = make(chan *pps.LogMessage)
 	}
 	for i, pod := range pods {
-		i := i
-		pod := pod
+		i, pod := i, pod
 		go func() {
 			defer close(logChs[i]) // Main thread reads from here, so must close
 			// Get full set of logs from pod i
