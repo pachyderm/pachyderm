@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # Check if this script has already been run
-chroot /rootfs
 
 which nvidia-smi
 if [[ $? -eq 0 ]]; then
@@ -28,8 +27,8 @@ else
     echo "wrote:"
     cat /ohhai
 	cp $NVIDIA_RUNNER /rootfs
-	/rootfs apt-get update
-	/rootfs apt-get install --yes gcc
+	apt-get update
+	apt-get install --yes gcc
 # disable the actual install while I debug the rc local bit
 #	chroot /rootfs ./$NVIDIA_RUNNER --ui=none --no-questions --accept-license
 	# We want to overwrite, not append since the default
