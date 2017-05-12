@@ -17,13 +17,23 @@ else
 	echo "write a single thing"
 	chroot /rootfs echo "hallo" > /tmp/ohhai
 	echo "exit code: $?"
+    echo "wrote:"
+    cat /rootfs/tmp/ohhai
+    pwd
+    cat /tmp/ohhai
 	chroot /rootfs echo "hallo" > /ohhai
 	echo "exit code: $?"
+    echo "wrote:"
+    cat /rootfs/ohhai
+    pwd
+    cat /ohhai
 	echo "write without chroot"
 	echo "third times the charm" > /rootfs/tmp/ohhaiz
 	echo "exit code: $?"
-	echo "file contents:"
+	echo "file contents of /tmp/ohhai"
 	cat /tmp/ohhai
+    echo "file contents of /rootfs/tmp/ohhaiz"
+    cat /rootfs/tmp/ohhaiz
 	cp $NVIDIA_RUNNER /rootfs
 	chroot /rootfs apt-get update
 	cp /etc/sudoers /rootfs/etc/sudoers
