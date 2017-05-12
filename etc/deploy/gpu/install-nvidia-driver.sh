@@ -16,6 +16,8 @@ else
 	id -u
 	echo "whoami:"
 	whoami
+    echo "which fs?"
+    cat /tmp/whichfs
 	echo "write a single thing"
 	echo "hallo" > /tmp/ohhai
 	echo "exit code: $?"
@@ -33,7 +35,7 @@ else
 	# We want to overwrite, not append since the default
 	# value of this file w our current AMI is just 'exit 0'
 	echo "PACHNVIDIADRIVERINSTALL updating rc.local"
-	/rootfs sudo cat >>/etc/rc.local  <<EOL
+	cat >>/etc/rc.local  <<EOL
 nvidia-smi -pm 1 || true
 nvidia-smi -acp 0 || true
 nvidia-smi --auto-boost-default=0 || true
