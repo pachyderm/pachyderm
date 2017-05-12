@@ -1542,7 +1542,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				parentJobInput := proto.Clone(jobInput).(*pps.Input)
 				visit(parentJobInput, func(input *pps.Input) {
 					if input.Atom != nil && input.Atom.Repo == newBranch.Head.Repo.Name && input.Atom.Branch == newBranch.Name {
-						input.Atom.Commit = newCommitInfo.Commit.ID
+						input.Atom.Commit = newCommitInfo.ParentCommit.ID
 					}
 				})
 				if visitErr != nil {

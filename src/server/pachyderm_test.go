@@ -3454,7 +3454,7 @@ func TestIncrementalPipeline(t *testing.T) {
 	t.Parallel()
 	c := getPachClient(t)
 
-	dataRepo := uniqueString("TestPipelineInputDataModification_data")
+	dataRepo := uniqueString("TestIncrementalPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	pipeline := uniqueString("pipeline")
@@ -3473,11 +3473,7 @@ func TestIncrementalPipeline(t *testing.T) {
 				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
-			Inputs: []*pps.PipelineInput{{
-				Repo: &pfs.Repo{Name: dataRepo},
-				Glob: "/",
-				Lazy: true,
-			}},
+			Input:       client.NewAtomInput(dataRepo, "/"),
 			Incremental: true,
 		})
 	require.NoError(t, err)
