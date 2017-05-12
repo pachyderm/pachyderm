@@ -26,6 +26,7 @@ else
 	echo "$prefix : Nvidia driver bootstrapper - updating rc.local"
     cp /etc/rc.local /etc/rc.local.bck
 	cat >/etc/rc.local  <<EOL
+#!/bin/sh -e
 nvidia-smi -pm 1 || true
 nvidia-smi -acp 0 || true
 nvidia-smi --auto-boost-default=0 || true
