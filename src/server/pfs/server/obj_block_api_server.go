@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -20,6 +21,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/groupcache"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/limit"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
@@ -167,7 +169,6 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 		})
 	}
 	for _, tag := range putObjectReader.tags {
-		tag := hashTag(tag)
 		eg.Go(func() (retErr error) {
 			index := &pfsclient.ObjectIndex{Tags: map[string]*pfsclient.Object{tag.Name: object}}
 			return s.writeProto(s.localServer.tagPath(tag), index)
@@ -273,7 +274,6 @@ func (s *objBlockAPIServer) TagObject(ctx context.Context, request *pfsclient.Ta
 	}
 	var eg errgroup.Group
 	for _, tag := range request.Tags {
-		tag := hashTag(tag)
 		eg.Go(func() (retErr error) {
 			index := &pfsclient.ObjectIndex{Tags: map[string]*pfsclient.Object{tag.Name: request.Object}}
 			return s.writeProto(s.localServer.tagPath(tag), index)
@@ -296,12 +296,81 @@ func (s *objBlockAPIServer) InspectObject(ctx context.Context, request *pfsclien
 	return objectInfo, nil
 }
 
+func (s *objBlockAPIServer) ListObjects(request *pfsclient.ListObjectsRequest, listObjectsServer pfsclient.ObjectAPI_ListObjectsServer) (retErr error) {
+	func() { s.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+
+	return s.objClient.Walk(s.localServer.objectDir(), func(hash string) error {
+		return listObjectsServer.Send(&pfsclient.Object{hash})
+	})
+}
+
+func (s *objBlockAPIServer) ListTags(request *pfsclient.ListTagsRequest, server pfsclient.ObjectAPI_ListTagsServer) (retErr error) {
+	func() { s.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+
+	var eg errgroup.Group
+	limiter := limit.New(100)
+	s.objClient.Walk(path.Join(s.localServer.tagDir(), request.Prefix), func(hash string) error {
+		limiter.Acquire()
+		eg.Go(func() error {
+			defer limiter.Release()
+			tagObjectIndex := &pfsclient.ObjectIndex{}
+			if err := s.readProto(hash, tagObjectIndex); err != nil {
+				return err
+			}
+			for _, object := range tagObjectIndex.Tags {
+				server.Send(object)
+			}
+			return nil
+		})
+		return nil
+	})
+	return eg.Wait()
+}
+
+func (s *objBlockAPIServer) DeleteObjects(ctx context.Context, request *pfsclient.DeleteObjectsRequest) (response *pfsclient.DeleteObjectsResponse, retErr error) {
+	func() { s.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+
+	limiter := limit.New(100)
+	var eg errgroup.Group
+	for _, object := range request.Objects {
+		object := object
+		limiter.Acquire()
+		eg.Go(func() error {
+			defer limiter.Release()
+			objectInfo, err := s.InspectObject(ctx, object)
+			if err != nil && !(s.objClient.IsNotExist(err) || s.objClient.IsIgnorable(err)) {
+				return err
+			}
+
+			blockPath := s.localServer.blockPath(objectInfo.BlockRef.Block)
+			if err := s.objClient.Delete(blockPath); err != nil && !(s.objClient.IsNotExist(err) || s.objClient.IsIgnorable(err)) {
+				return err
+			}
+
+			objPath := s.localServer.objectPath(object)
+			if err := s.objClient.Delete(objPath); err != nil && !(s.objClient.IsNotExist(err) || s.objClient.IsIgnorable(err)) {
+				return err
+			}
+
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+
+	return &pfsclient.DeleteObjectsResponse{}, nil
+}
+
 func (s *objBlockAPIServer) GetTag(request *pfsclient.Tag, getTagServer pfsclient.ObjectAPI_GetTagServer) (retErr error) {
 	func() { s.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	object := &pfsclient.Object{}
 	sink := groupcache.ProtoSink(object)
-	if err := s.tagCache.Get(getTagServer.Context(), splitKey(hashTag(request).Name), sink); err != nil {
+	if err := s.tagCache.Get(getTagServer.Context(), splitKey(request.Name), sink); err != nil {
 		return err
 	}
 	return s.GetObject(object, getTagServer)
@@ -312,7 +381,7 @@ func (s *objBlockAPIServer) InspectTag(ctx context.Context, request *pfsclient.T
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	object := &pfsclient.Object{}
 	sink := groupcache.ProtoSink(object)
-	if err := s.tagCache.Get(ctx, splitKey(hashTag(request).Name), sink); err != nil {
+	if err := s.tagCache.Get(ctx, splitKey(request.Name), sink); err != nil {
 		return nil, err
 	}
 	return s.InspectObject(ctx, object)
@@ -706,11 +775,4 @@ func (w *blockWriter) Write(p []byte) (*pfsclient.BlockRef, error) {
 
 func (w *blockWriter) Close() error {
 	return w.w.Close()
-}
-
-func hashTag(tag *pfsclient.Tag) *pfsclient.Tag {
-	hash := newHash()
-	// writing to a hasher can't fail
-	hash.Write([]byte(tag.Name))
-	return &pfsclient.Tag{Name: hex.EncodeToString(hash.Sum(nil))}
 }

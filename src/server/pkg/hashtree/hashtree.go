@@ -181,6 +181,23 @@ func (h *HashTreeProto) Size() int64 {
 	return size(h.Fs)
 }
 
+func walk(fs map[string]*NodeProto, f func(string, *NodeProto) error) error {
+	for path, node := range fs {
+		if path == "" {
+			path = "/"
+		}
+		if err := f(path, node); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Walk implements HashTree.Walk
+func (h *HashTreeProto) Walk(f func(string, *NodeProto) error) error {
+	return walk(h.Fs, f)
+}
+
 // hashtree is an implementation of the HashTree and OpenHashTree interfaces.
 // It's intended to describe the state of a single commit C, in a repo R.
 type hashtree struct {
@@ -218,6 +235,11 @@ func (h *hashtree) Glob(pattern string) ([]*NodeProto, error) {
 // Size returns the size of the file system that the hashtree represents.
 func (h *hashtree) Size() int64 {
 	return size(h.fs)
+}
+
+// Walk implements HashTree.Walk
+func (h *hashtree) Walk(f func(string, *NodeProto) error) error {
+	return walk(h.fs, f)
 }
 
 // clone makes a deep copy of 'h' and returns it. This performs one fewer copy

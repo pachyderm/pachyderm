@@ -6,8 +6,9 @@
 // limiting, you are limiting the number of operations that can be fired
 // within a given time window.
 //
-// For instance, even if you limit concurrency to 1, you can still N requests
-// per second if each request takes 1/N second to complete.
+// For instance, even if you limit concurrency to 1, you can still have N
+// requests per second where N is an arbitrarily large number, given that
+// each request takes 1/N second to complete.
 package limit
 
 // ConcurrencyLimiter limits the number of concurrent operations
@@ -53,11 +54,8 @@ func (c *concurrencyLimiter) Wait() {
 
 type noOpLimiter struct{}
 
-func (n *noOpLimiter) Acquire() {
-}
+func (n *noOpLimiter) Acquire() {}
 
-func (n *noOpLimiter) Release() {
-}
+func (n *noOpLimiter) Release() {}
 
-func (n *noOpLimiter) Wait() {
-}
+func (n *noOpLimiter) Wait() {}

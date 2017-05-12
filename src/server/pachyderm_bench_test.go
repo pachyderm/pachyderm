@@ -7,7 +7,6 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
-	"os"
 	"path"
 	"sync/atomic"
 	"testing"
@@ -39,7 +38,9 @@ func (w *countWriter) Write(p []byte) (int, error) {
 }
 
 func getRand() *rand.Rand {
-	return rand.New(rand.NewSource(time.Now().Unix()))
+	seed := time.Now().Unix()
+	fmt.Println("Producing rand.Rand with seed: ", seed)
+	return rand.New(rand.NewSource(seed))
 }
 
 func BenchmarkDailySmallFiles(b *testing.B) {
@@ -58,26 +59,15 @@ func BenchmarkLocalBigFiles(b *testing.B) {
 	benchmarkFiles(b, 100, 1*MB, 10*MB, true)
 }
 
-// getClient returns a Pachyderm client that connects to either a
-// local cluster or a remote one, depending on the LOCAL env variable.
-func getClient() (*client.APIClient, error) {
-	if os.Getenv("LOCAL") != "" {
-		c, err := client.NewFromAddress("localhost:30650")
-		return c, err
-	}
-	c, err := client.NewInCluster()
-	return c, err
-}
-
 // benchmarkFiles runs a benchmarks that uploads, downloads, and processes
 // fileNum files, whose sizes (in bytes) are produced by a zipf
 // distribution with the given min and max.
 func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, local bool) {
 	scalePachd(b)
+	r := getRand()
 
 	repo := uniqueString("BenchmarkPachydermFiles")
-	c, err := getClient()
-	require.NoError(b, err)
+	c := getPachClient(b)
 	require.NoError(b, c.CreateRepo(repo))
 
 	commit, err := c.StartCommit(repo, "master")
@@ -86,7 +76,6 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 		b.N = 1
 		var totalBytes int64
 		var eg errgroup.Group
-		r := getRand()
 		zipf := rand.NewZipf(r, 1.05, 1, maxSize-minSize)
 		for k := 0; k < fileNum; k++ {
 			k := k
@@ -95,9 +84,9 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 			eg.Go(func() error {
 				var err error
 				if k%10 == 0 {
-					_, err = c.PutFile(repo, commit.ID, fmt.Sprintf("dir/file%d", k), workload.NewReader(getRand(), fileSize))
+					_, err = c.PutFile(repo, commit.ID, fmt.Sprintf("dir/file%d", k), workload.NewReader(r, fileSize))
 				} else {
-					_, err = c.PutFile(repo, commit.ID, fmt.Sprintf("file%d", k), workload.NewReader(getRand(), fileSize))
+					_, err = c.PutFile(repo, commit.ID, fmt.Sprintf("file%d", k), workload.NewReader(r, fileSize))
 				}
 				return err
 			})
@@ -160,20 +149,21 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 	}
 }
 
-func BenchmarkDailyPutLargeFileViaS3(b *testing.B) {
-	repo := uniqueString("BenchmarkDailyPutLargeFileViaS3")
-	c, err := client.NewInCluster()
-	require.NoError(b, err)
-	require.NoError(b, c.CreateRepo(repo))
-	for i := 0; i < b.N; i++ {
-		commit, err := c.StartCommit(repo, "master")
-		require.NoError(b, err)
-		err = c.PutFileURL(repo, "master", "/", "s3://pachyderm-internal-benchmark/bigfiles/1gb.bytes", false)
-		require.NoError(b, err)
-		require.NoError(b, c.FinishCommit(repo, commit.ID))
-		b.SetBytes(int64(1024 * MB))
-	}
-}
+// TODO(msteffen): Run this only in S3
+// func BenchmarkDailyPutLargeFileViaS3(b *testing.B) {
+// 	repo := uniqueString("BenchmarkDailyPutLargeFileViaS3")
+// 	c, err := client.NewInCluster()
+// 	require.NoError(b, err)
+// 	require.NoError(b, c.CreateRepo(repo))
+// 	for i := 0; i < b.N; i++ {
+// 		commit, err := c.StartCommit(repo, "master")
+// 		require.NoError(b, err)
+// 		err = c.PutFileURL(repo, "master", "/", "s3://pachyderm-internal-benchmark/bigfiles/1gb.bytes", false)
+// 		require.NoError(b, err)
+// 		require.NoError(b, c.FinishCommit(repo, commit.ID))
+// 		b.SetBytes(int64(1024 * MB))
+// 	}
+// }
 
 func BenchmarkDailyDataShuffle(b *testing.B) {
 	// The following workload consists of roughly 500GB of data
@@ -198,11 +188,11 @@ func BenchmarkLocalDataShuffle(b *testing.B) {
 // `round` specifies how many extra rounds the entire pipeline runs.
 func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int, minFileSize uint64, maxFileSize uint64, round int) {
 	scalePachd(b)
+	r := getRand()
 
 	numTotalFiles := numTarballs * numFilesPerTarball
 	dataRepo := uniqueString("BenchmarkDataShuffle")
-	c, err := getClient()
-	require.NoError(b, err)
+	c := getPachClient(b)
 	require.NoError(b, c.CreateRepo(dataRepo))
 
 	var lastIndex int
@@ -239,7 +229,6 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 						retErr = err
 					}
 				}()
-				r := getRand()
 				zipf := rand.NewZipf(r, 1.01, 1, maxFileSize-minFileSize)
 				for j := 0; j < numFilesPerTarball; j++ {
 					fileName := workload.RandString(r, 10)
@@ -264,10 +253,7 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 				return nil
 			})
 			writeEg.Go(func() error {
-				c, err := getClient()
-				if err != nil {
-					return err
-				}
+				c := getPachClient(b)
 				_, err = c.PutFile(dataRepo, commit.ID, tarName, pr)
 				fmt.Printf("Finished putting file %s\n", tarName)
 				return err

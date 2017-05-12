@@ -226,7 +226,7 @@ func absent(key string) etcd.Cmp {
 	return etcd.Compare(etcd.CreateRevision(key), "=", 0)
 }
 
-func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*pfs.Repo) error {
+func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*pfs.Repo, description string) error {
 	if err := ValidateRepoName(repo.Name); err != nil {
 		return err
 	}
@@ -262,9 +262,10 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 		}
 
 		repoInfo := &pfs.RepoInfo{
-			Repo:       repo,
-			Created:    now(),
-			Provenance: fullProvRepos,
+			Repo:        repo,
+			Created:     now(),
+			Provenance:  fullProvRepos,
+			Description: description,
 		}
 		return repos.Create(repo.Name, repoInfo)
 	})
@@ -601,6 +602,12 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 		repos.Put(commit.Repo.Name, repoInfo)
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	// Delete the scratch space for this commit
+	_, err = d.etcdClient.Delete(ctx, prefix, etcd.WithPrefix())
 	return err
 }
 
@@ -1406,8 +1413,13 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern strin
 }
 
 func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
-	if _, err := d.inspectCommit(ctx, file.Commit); err != nil {
+	commitInfo, err := d.inspectCommit(ctx, file.Commit)
+	if err != nil {
 		return err
+	}
+
+	if commitInfo.Finished != nil {
+		return pfsserver.ErrCommitFinished{file.Commit}
 	}
 
 	prefix, err := d.scratchFilePrefix(ctx, file)

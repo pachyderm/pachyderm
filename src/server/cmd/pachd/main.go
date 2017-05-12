@@ -133,10 +133,12 @@ func doPFSMode(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
+	healthServer := health.NewHealthServer()
 	return grpcutil.Serve(
 		func(s *grpc.Server) {
 			pfsclient.RegisterAPIServer(s, pfsAPIServer)
 			pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
+			healthclient.RegisterHealthServer(s, healthServer)
 		},
 		grpcutil.ServeOptions{
 			Version:    version.Version,
