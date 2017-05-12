@@ -12,6 +12,8 @@ else
 	NVIDIA_RUNNER=$1
 	echo "user id:"
 	id -u
+	echo "whoami:"
+	whoami
 	cp $NVIDIA_RUNNER /rootfs
 	chroot /rootfs apt-get update
 	cp /etc/sudoers /rootfs/etc/sudoers
