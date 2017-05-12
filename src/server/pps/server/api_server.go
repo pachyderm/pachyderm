@@ -1100,6 +1100,9 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 	// A helper function for adding objects that are actually hash trees,
 	// which in turn contain active objects.
 	addActiveTree := func(object *pfs.Object) error {
+		if object == nil {
+			return nil
+		}
 		addActiveObjects(object)
 		getObjectClient, err := objClient.GetObject(ctx, object)
 		if err != nil {
