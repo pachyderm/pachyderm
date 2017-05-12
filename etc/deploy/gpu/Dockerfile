@@ -7,4 +7,4 @@ RUN wget http://us.download.nvidia.com/XFree86/Linux-x86_64/375.51/${NVIDIA_RUNN
 ADD install-nvidia-driver.sh .
 
 
-CMD sudo chroot ./install-nvidia-driver.sh ${NVIDIA_RUNNER}
+CMD sudo chroot /rootfs ./install-nvidia-driver.sh ${NVIDIA_RUNNER}
