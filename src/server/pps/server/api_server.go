@@ -1162,9 +1162,9 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 	}
 
 	// The set of tags that are active
-	var activeTags map[string]bool
+	activeTags := make(map[string]bool)
 	for _, pipelineInfo := range pipelineInfos.PipelineInfo {
-		objects, err := objClient.ListTags(ctx, &pfs.ListTagsRequest{
+		tags, err := objClient.ListTags(ctx, &pfs.ListTagsRequest{
 			Prefix:        client.HashPipelineID(pipelineInfo.ID),
 			IncludeObject: true,
 		})
@@ -1172,7 +1172,7 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 			return nil, fmt.Errorf("error listing tagged objects: %v", err)
 		}
 
-		for resp, err := objects.Recv(); err != io.EOF; resp, err = objects.Recv() {
+		for resp, err := tags.Recv(); err != io.EOF; resp, err = tags.Recv() {
 			if err != nil {
 				return nil, err
 			}

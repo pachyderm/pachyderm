@@ -312,10 +312,6 @@ func (s *objBlockAPIServer) ListTags(request *pfsclient.ListTagsRequest, server 
 	var eg errgroup.Group
 	limiter := limit.New(100)
 	s.objClient.Walk(path.Join(s.localServer.tagDir(), request.Prefix), func(key string) error {
-		// Walk() might return the base directory
-		if key == s.localServer.tagDir() {
-			return nil
-		}
 		tag := filepath.Base(key)
 		if request.IncludeObject {
 			limiter.Acquire()
