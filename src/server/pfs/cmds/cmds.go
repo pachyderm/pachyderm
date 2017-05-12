@@ -17,6 +17,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
@@ -40,6 +41,11 @@ const (
 // Cmds returns a slice containing pfs commands.
 func Cmds(address string, noMetrics *bool) []*cobra.Command {
 	metrics := !*noMetrics
+	raw := false
+	rawFlag := func(cmd *cobra.Command) {
+		cmd.Flags().BoolVar(&raw, "raw", false, "disable pretty printing, print raw json")
+	}
+	json := &jsonpb.Marshaler{Indent: "  "}
 
 	repo := &cobra.Command{
 		Use:   "repo",
@@ -91,9 +97,13 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 			if repoInfo == nil {
 				return fmt.Errorf("repo %s not found", args[0])
 			}
+			if raw {
+				return json.Marshal(os.Stdout, repoInfo)
+			}
 			return pretty.PrintDetailedRepoInfo(repoInfo)
 		}),
 	}
+	rawFlag(inspectRepo)
 
 	var listRepoProvenance cmdutil.RepeatedStringArg
 	listRepo := &cobra.Command{
@@ -109,6 +119,14 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 			if err != nil {
 				return err
 			}
+			if raw {
+				for _, repoInfo := range repoInfos {
+					if err := json.Marshal(os.Stdout, repoInfo); err != nil {
+						return err
+					}
+				}
+				return nil
+			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			pretty.PrintRepoHeader(writer)
 			for _, repoInfo := range repoInfos {
@@ -118,6 +136,7 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 		}),
 	}
 	listRepo.Flags().VarP(&listRepoProvenance, "provenance", "p", "list only repos with the specified repos provenance")
+	rawFlag(listRepo)
 
 	var force bool
 	deleteRepo := &cobra.Command{
@@ -223,9 +242,13 @@ $ pachctl start-commit test -p XXX
 			if commitInfo == nil {
 				return fmt.Errorf("commit %s not found", args[1])
 			}
+			if raw {
+				return json.Marshal(os.Stdout, commitInfo)
+			}
 			return pretty.PrintDetailedCommitInfo(commitInfo)
 		}),
 	}
+	rawFlag(inspectCommit)
 
 	var from string
 	var number int
@@ -267,6 +290,14 @@ $ pachctl list-commit foo master --from XXX
 				return err
 			}
 
+			if raw {
+				for _, commitInfo := range commitInfos {
+					if err := json.Marshal(os.Stdout, commitInfo); err != nil {
+						return err
+					}
+				}
+				return nil
+			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			pretty.PrintCommitInfoHeader(writer)
 			for _, commitInfo := range commitInfos {
@@ -277,6 +308,7 @@ $ pachctl list-commit foo master --from XXX
 	}
 	listCommit.Flags().StringVarP(&from, "from", "f", "", "list all commits since this commit")
 	listCommit.Flags().IntVarP(&number, "number", "n", 0, "list only this many commits; if set to zero, list all commits")
+	rawFlag(listCommit)
 
 	var repos cmdutil.RepeatedStringArg
 	flushCommit := &cobra.Command{
@@ -313,6 +345,20 @@ $ pachctl flush-commit foo/XXX -r bar -r baz
 				return err
 			}
 
+			if raw {
+				for {
+					commitInfo, err := commitIter.Next()
+					if err == io.EOF {
+						return nil
+					}
+					if err != nil {
+						return err
+					}
+					if err := json.Marshal(os.Stdout, commitInfo); err != nil {
+						return err
+					}
+				}
+			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			pretty.PrintCommitInfoHeader(writer)
 			for {
@@ -329,6 +375,7 @@ $ pachctl flush-commit foo/XXX -r bar -r baz
 		}),
 	}
 	flushCommit.Flags().VarP(&repos, "repos", "r", "Wait only for commits leading to a specific set of repos")
+	rawFlag(flushCommit)
 
 	listBranch := &cobra.Command{
 		Use:   "list-branch <repo-name>",
@@ -343,6 +390,14 @@ $ pachctl flush-commit foo/XXX -r bar -r baz
 			if err != nil {
 				return err
 			}
+			if raw {
+				for _, branch := range branches {
+					if err := json.Marshal(os.Stdout, branch); err != nil {
+						return err
+					}
+				}
+				return nil
+			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			pretty.PrintBranchHeader(writer)
 			for _, branch := range branches {
@@ -351,6 +406,7 @@ $ pachctl flush-commit foo/XXX -r bar -r baz
 			return writer.Flush()
 		}),
 	}
+	rawFlag(listBranch)
 
 	setBranch := &cobra.Command{
 		Use:   "set-branch <repo-name> <commit-id/branch-name> <new-branch-name>",
@@ -595,9 +651,13 @@ pachctl put-file repo branch -i http://host/path
 			if fileInfo == nil {
 				return fmt.Errorf("file %s not found", args[2])
 			}
+			if raw {
+				return json.Marshal(os.Stdout, fileInfo)
+			}
 			return pretty.PrintDetailedFileInfo(fileInfo)
 		}),
 	}
+	rawFlag(inspectFile)
 
 	listFile := &cobra.Command{
 		Use:   "list-file repo-name commit-id path/to/dir",
@@ -616,6 +676,13 @@ pachctl put-file repo branch -i http://host/path
 			if err != nil {
 				return err
 			}
+			if raw {
+				for _, fileInfo := range fileInfos {
+					if err := json.Marshal(os.Stdout, fileInfo); err != nil {
+						return err
+					}
+				}
+			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			pretty.PrintFileInfoHeader(writer)
 			for _, fileInfo := range fileInfos {
@@ -624,6 +691,7 @@ pachctl put-file repo branch -i http://host/path
 			return writer.Flush()
 		}),
 	}
+	rawFlag(listFile)
 
 	globFile := &cobra.Command{
 		Use:   "glob-file repo-name commit-id pattern",
@@ -651,6 +719,13 @@ $ pachctl glob-file foo master "data/*"
 			if err != nil {
 				return err
 			}
+			if raw {
+				for _, fileInfo := range fileInfos {
+					if err := json.Marshal(os.Stdout, fileInfo); err != nil {
+						return err
+					}
+				}
+			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			pretty.PrintFileInfoHeader(writer)
 			for _, fileInfo := range fileInfos {
@@ -659,6 +734,7 @@ $ pachctl glob-file foo master "data/*"
 			return writer.Flush()
 		}),
 	}
+	rawFlag(globFile)
 
 	deleteFile := &cobra.Command{
 		Use:   "delete-file repo-name commit-id path/to/file",
