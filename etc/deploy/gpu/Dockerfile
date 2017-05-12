@@ -5,6 +5,8 @@ ENV NVIDIA_RUNNER NVIDIA-Linux-x86_64-375.51.run
 RUN wget http://us.download.nvidia.com/XFree86/Linux-x86_64/375.51/${NVIDIA_RUNNER} && \
 	chmod +x ${NVIDIA_RUNNER} && \
     cp ${NVIDIA_RUNNER} /rootfs
-ADD install-nvidia-driver.sh .
 
-CMD cp install-nvidia-driver.sh /rootfs && sudo chroot /rootfs ./install-nvidia-driver.sh ${NVIDIA_RUNNER}
+ADD install-nvidia-driver.sh .
+ADD install.sh .
+
+CMD sudo chroot /rootfs ./install.sh 
