@@ -14,6 +14,9 @@ else
 	id -u
 	echo "whoami:"
 	whoami
+	echo "write a single thing"
+	chroot /rootfs echo "hallo" > /tmp/ohhai
+	chroot /rootfs echo "hallo" > /ohhai
 	cp $NVIDIA_RUNNER /rootfs
 	chroot /rootfs apt-get update
 	cp /etc/sudoers /rootfs/etc/sudoers
