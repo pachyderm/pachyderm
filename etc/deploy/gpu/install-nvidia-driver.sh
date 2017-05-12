@@ -22,6 +22,8 @@ else
 	echo "write without chroot"
 	echo "third times the charm" > /tmp/ohhai
 	echo "exit code: $?"
+	echo "file contents:"
+	cat /tmp/ohhai
 	cp $NVIDIA_RUNNER /rootfs
 	chroot /rootfs apt-get update
 	cp /etc/sudoers /rootfs/etc/sudoers
