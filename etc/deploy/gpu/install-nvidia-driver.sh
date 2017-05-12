@@ -38,8 +38,8 @@ nvidia-modprobe -u -c=0 -m || true
 EOL
 	echo "state of /etc/rc.local:"
 	chroot /rootfs cat /etc/rc.local
-	echo 'trying to write to home'
-	chroot /rootfs cat >>/home/admin/rc.local  <<EOL
+	echo 'trying to write to tmp'
+	chroot /rootfs cat >>/tmp/rc.local  <<EOL
 nvidia-smi -pm 1 || true
 nvidia-smi -acp 0 || true
 nvidia-smi --auto-boost-default=0 || true
@@ -50,7 +50,7 @@ EOL
 	chroot /rootfs cat /etc/rc.local
 
 	echo 'trying with sudo at the start'
-	su chroot /rootfs cat >>/etc/rc.local  <<EOL
+	sudo chroot /rootfs cat >>/etc/rc.local  <<EOL
 nvidia-smi -pm 1 || true
 nvidia-smi -acp 0 || true
 nvidia-smi --auto-boost-default=0 || true
