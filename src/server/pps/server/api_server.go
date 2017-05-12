@@ -1173,6 +1173,7 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 		}
 
 		for resp, err := tags.Recv(); err != io.EOF; resp, err = tags.Recv() {
+			resp := resp
 			if err != nil {
 				return nil, err
 			}
