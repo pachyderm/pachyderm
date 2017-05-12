@@ -10,7 +10,6 @@ else
 	set +euxo pipefail
 	# If not ... install the drivers and restart
 	NVIDIA_RUNNER=$1
-	cp $NVIDIA_RUNNER /rootfs
 	apt-get update
 	apt-get install --yes gcc
     ./$NVIDIA_RUNNER --ui=none --no-questions --accept-license
@@ -32,5 +31,5 @@ EOL
 	# Don't think this will work ... but it might
 	# if not ... our deploy script / instructions will need to include doing a restart
 	# only AFTER the driver install has completed
-	/sbin/shutdown -r	
+	#/sbin/shutdown -r	
 fi
