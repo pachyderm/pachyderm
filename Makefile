@@ -23,7 +23,7 @@ CLUSTER_NAME?=pachyderm
 CLUSTER_MACHINE_TYPE?=n1-standard-4
 CLUSTER_SIZE?=4
 
-BENCH_CLOUD_PROVIDER=gke
+BENCH_CLOUD_PROVIDER=aws
 
 ifdef TRAVIS_BUILD_NUMBER
 	# Upper bound for travis test timeout
