@@ -20,7 +20,7 @@ else
 	chroot /rootfs echo "hallo" > /ohhai
 	echo "exit code: $?"
 	echo "write without chroot"
-	echo "third times the charm" > /tmp/ohhai
+	echo "third times the charm" > /rootfs/tmp/ohhaiz
 	echo "exit code: $?"
 	echo "file contents:"
 	cat /tmp/ohhai
