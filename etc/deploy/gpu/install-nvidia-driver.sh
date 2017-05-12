@@ -16,7 +16,12 @@ else
 	whoami
 	echo "write a single thing"
 	chroot /rootfs echo "hallo" > /tmp/ohhai
+	echo "exit code: $?"
 	chroot /rootfs echo "hallo" > /ohhai
+	echo "exit code: $?"
+	echo "write without chroot"
+	echo "third times the charm" > /tmp/ohhai
+	echo "exit code: $?"
 	cp $NVIDIA_RUNNER /rootfs
 	chroot /rootfs apt-get update
 	cp /etc/sudoers /rootfs/etc/sudoers
