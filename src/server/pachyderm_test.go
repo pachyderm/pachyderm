@@ -2519,6 +2519,10 @@ func TestParallelismSpec(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	kubeclient := getKubeClient(t)
+	nodes, err := kubeclient.Nodes().List(api.ListOptions{})
+	numNodes := len(nodes.Items)
+
 	// Test Constant strategy
 	parellelism, err := pps_server.GetExpectedNumWorkers(getKubeClient(t), &pps.ParallelismSpec{
 		Strategy: pps.ParallelismSpec_CONSTANT,
@@ -2531,36 +2535,36 @@ func TestParallelismSpec(t *testing.T) {
 	// TODO(msteffen): This test can fail when run against cloud providers, if the
 	// remote cluster has more than one node (in which case "Coefficient: 1" will
 	// cause more than 1 worker to start)
-	parellelism, err = pps_server.GetExpectedNumWorkers(getKubeClient(t), &pps.ParallelismSpec{
+	parellelism, err = pps_server.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
 		Strategy:    pps.ParallelismSpec_COEFFICIENT,
 		Coefficient: 1,
 	})
 	require.NoError(t, err)
-	require.Equal(t, uint64(1), parellelism)
+	require.Equal(t, uint64(numNodes), parellelism)
 
 	// Coefficient > 1
-	parellelism, err = pps_server.GetExpectedNumWorkers(getKubeClient(t), &pps.ParallelismSpec{
+	parellelism, err = pps_server.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
 		Strategy:    pps.ParallelismSpec_COEFFICIENT,
 		Coefficient: 2,
 	})
 	require.NoError(t, err)
-	require.Equal(t, uint64(2), parellelism)
+	require.Equal(t, uint64(2*numNodes), parellelism)
 
 	// Make sure we start at least one worker
-	parellelism, err = pps_server.GetExpectedNumWorkers(getKubeClient(t), &pps.ParallelismSpec{
+	parellelism, err = pps_server.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
 		Strategy:    pps.ParallelismSpec_COEFFICIENT,
-		Coefficient: 0.1,
+		Coefficient: 0.01,
 	})
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), parellelism)
 
 	// Test 0-initialized JobSpec
-	parellelism, err = pps_server.GetExpectedNumWorkers(getKubeClient(t), &pps.ParallelismSpec{})
+	parellelism, err = pps_server.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{})
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), parellelism)
 
 	// Test nil JobSpec
-	parellelism, err = pps_server.GetExpectedNumWorkers(getKubeClient(t), nil)
+	parellelism, err = pps_server.GetExpectedNumWorkers(kubeclient, nil)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), parellelism)
 }
@@ -3592,12 +3596,10 @@ func scalePachd(t testing.TB) {
 func getKubeClient(t testing.TB) *kube.Client {
 	var config *kube_client.Config
 	host := os.Getenv("KUBERNETES_SERVICE_HOST")
-	port := os.Getenv("KUBERNETES_SERVICE_PORT")
-	if host != "" && port != "" {
-		config = &kube_client.Config{
-			Host:     fmt.Sprintf("https://%s:%s", host, port),
-			Insecure: false,
-		}
+	if host != "" {
+		var err error
+		config, err = kube_client.InClusterConfig()
+		require.NoError(t, err)
 	} else {
 		config = &kube_client.Config{
 			Host:     "http://0.0.0.0:8080",
