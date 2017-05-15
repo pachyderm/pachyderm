@@ -6,7 +6,7 @@
 
 ## Parse command-line flags
 if [[ "$#" -lt 1 ]]; then
-  echo "Must pass --delete-all or --create to testing/deploy/aws.sh"
+  echo "Must pass --create, --delete, --delete-all or --list to testing/deploy/aws.sh"
   exit 1
 fi
 
@@ -15,7 +15,7 @@ ZONE=us-west-1b
 STATE_STORE=s3://pachyderm-travis-state-store-v1
 
 # Process args
-new_opt="$( getopt --long="create,delete:,delete-all" -- ${0} "${@}" )"
+new_opt="$( getopt --long="create,delete:,delete-all,list" -- ${0} "${@}" )"
 [[ "$?" -eq 0 ]] || exit 1
 eval "set -- ${new_opt}"
 
@@ -31,6 +31,9 @@ case "${1}" in
       done
     exit 0
     set +x
+    ;;
+  --list)
+    kops --state=${STATE_STORE} get clusters
     ;;
   --delete)
     set -x
