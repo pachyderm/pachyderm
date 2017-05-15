@@ -150,8 +150,11 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 	}
 	var eg errgroup.Group
 	// Now that we have a hash of the object we can check if it already exists.
-	_, err := s.InspectObject(server.Context(), object)
-	if err == nil {
+	resp, err := s.CheckObject(server.Context(), &pfsclient.CheckObjectRequest{object})
+	if err != nil {
+		return err
+	}
+	if resp.Exists {
 		// the object already exists so we delete the block we put
 		eg.Go(func() error {
 			return s.objClient.Delete(s.localServer.blockPath(block))
@@ -270,8 +273,12 @@ func (s *objBlockAPIServer) TagObject(ctx context.Context, request *pfsclient.Ta
 	func() { s.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	// First inspect the object to make sure it actually exists
-	if _, err := s.InspectObject(ctx, request.Object); err != nil {
+	resp, err := s.CheckObject(ctx, &pfsclient.CheckObjectRequest{request.Object})
+	if err != nil {
 		return nil, err
+	}
+	if !resp.Exists {
+		return nil, fmt.Errorf("object %v does not exist", request.Object)
 	}
 	var eg errgroup.Group
 	for _, tag := range request.Tags {
