@@ -1093,6 +1093,7 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 		defer activeObjectsMu.Unlock()
 		for _, object := range objects {
 			if object != nil {
+				fmt.Printf("DEBUG: adding object %v\n", object)
 				activeObjects[object.Hash] = true
 			}
 		}
@@ -1120,6 +1121,7 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 		}
 
 		return tree.Walk(func(path string, node *hashtree.NodeProto) error {
+			fmt.Printf("DEBUG: adding object for path %v with node %v\n", path, node)
 			if node.FileNode != nil {
 				addActiveObjects(node.FileNode.Objects...)
 			}
@@ -1149,6 +1151,7 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 			limiter.Acquire()
 			eg.Go(func() error {
 				defer limiter.Release()
+				fmt.Printf("DEBUG: adding tree for commit %v\n", commit)
 				return addActiveTree(commit.Tree)
 			})
 		}
@@ -1175,6 +1178,7 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 		}
 
 		for resp, err := tags.Recv(); err != io.EOF; resp, err = tags.Recv() {
+			fmt.Printf("DEBUG: adding tree for tag %v for pipeline %v\n", resp, pipelineInfo.Pipeline.Name)
 			resp := resp
 			if err != nil {
 				return nil, err
@@ -1199,6 +1203,7 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 
 	var objectsToDelete []*pfs.Object
 	deleteObjectsIfMoreThan := func(n int) error {
+		fmt.Printf("DEBUG: deleting objects: %v\n", objectsToDelete)
 		if len(objectsToDelete) > n {
 			if _, err := objClient.DeleteObjects(ctx, &pfs.DeleteObjectsRequest{
 				Objects: objectsToDelete,
@@ -1209,6 +1214,7 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 		}
 		return nil
 	}
+	fmt.Printf("DEBUG: active objects: %v\n", activeObjects)
 	for object, err := objects.Recv(); err != io.EOF; object, err = objects.Recv() {
 		if err != nil {
 			return nil, fmt.Errorf("error receiving objects from ListObjects: %v", err)
@@ -1216,7 +1222,7 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 		if !activeObjects[object.Hash] {
 			objectsToDelete = append(objectsToDelete, object)
 		}
-		// We delete 100 objects at a time
+		// Delete objects in batches
 		if err := deleteObjectsIfMoreThan(100); err != nil {
 			return nil, err
 		}
