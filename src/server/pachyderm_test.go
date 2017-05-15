@@ -3590,9 +3590,19 @@ func scalePachd(t testing.TB) {
 }
 
 func getKubeClient(t testing.TB) *kube.Client {
-	config := &kube_client.Config{
-		Host:     "http://0.0.0.0:8080",
-		Insecure: false,
+	var config *kube_client.Config
+	host := os.Getenv("KUBERNETES_SERVICE_HOST")
+	port := os.Getenv("KUBERNETES_SERVICE_PORT")
+	if host != "" && port != "" {
+		config = &kube_client.Config{
+			Host:     fmt.Sprintf("https://%s:%s", host, port),
+			Insecure: false,
+		}
+	} else {
+		config = &kube_client.Config{
+			Host:     "http://0.0.0.0:8080",
+			Insecure: false,
+		}
 	}
 	k, err := kube.New(config)
 	require.NoError(t, err)
