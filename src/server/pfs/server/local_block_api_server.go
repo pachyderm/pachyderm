@@ -174,6 +174,23 @@ func (s *localBlockAPIServer) InspectObject(ctx context.Context, request *pfscli
 	}, nil
 }
 
+func (s *localBlockAPIServer) CheckObject(ctx context.Context, request *pfsclient.CheckObjectRequest) (response *pfsclient.CheckObjectResponse, retErr error) {
+	func() { s.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	_, err := os.Stat(s.objectPath(request.Object))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return &pfsclient.CheckObjectResponse{
+				Exists: false,
+			}, nil
+		}
+		return nil, err
+	}
+	return &pfsclient.CheckObjectResponse{
+		Exists: true,
+	}, nil
+}
+
 func (s *localBlockAPIServer) ListObjects(request *pfsclient.ListObjectsRequest, listObjectsServer pfsclient.ObjectAPI_ListObjectsServer) (retErr error) {
 	return errors.New("TODO")
 }

@@ -298,6 +298,15 @@ func (s *objBlockAPIServer) InspectObject(ctx context.Context, request *pfsclien
 	return objectInfo, nil
 }
 
+func (s *objBlockAPIServer) CheckObject(ctx context.Context, request *pfsclient.CheckObjectRequest) (response *pfsclient.CheckObjectResponse, retErr error) {
+	func() { s.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+
+	return &pfsclient.CheckObjectResponse{
+		Exists: s.objClient.Exists(s.localServer.objectPath(request.Object)),
+	}, nil
+}
+
 func (s *objBlockAPIServer) ListObjects(request *pfsclient.ListObjectsRequest, listObjectsServer pfsclient.ObjectAPI_ListObjectsServer) (retErr error) {
 	func() { s.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())

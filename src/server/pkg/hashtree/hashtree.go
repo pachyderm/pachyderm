@@ -182,7 +182,6 @@ func (h *HashTreeProto) Size() int64 {
 }
 
 func walk(fs map[string]*NodeProto, f func(string, *NodeProto) error) error {
-	fmt.Printf("DEBUG: fs: %v\n", fs)
 	for path, node := range fs {
 		if path == "" {
 			path = "/"
