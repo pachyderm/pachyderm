@@ -488,7 +488,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				return sanitizeErr(err)
 			}
 			if pipelineInfo == nil {
-				return fmt.Errorf("pipeline %s not found.", args[0])
+				return fmt.Errorf("pipeline %s not found", args[0])
 			}
 			if raw {
 				return marshaller.Marshal(os.Stdout, pipelineInfo)
