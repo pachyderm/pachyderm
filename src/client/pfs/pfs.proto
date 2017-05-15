@@ -338,12 +338,23 @@ message DeleteTagsRequest {
 
 message DeleteTagsResponse {}
 
+message CheckObjectRequest {
+  Object object = 1;
+}
+
+message CheckObjectResponse {
+  bool exists = 1;
+}
+
 service ObjectAPI {
   rpc PutObject(stream PutObjectRequest) returns (Object) {}
   rpc GetObject(Object) returns (stream google.protobuf.BytesValue) {}
   rpc GetObjects(GetObjectsRequest) returns (stream google.protobuf.BytesValue) {}
   rpc TagObject(TagObjectRequest) returns (google.protobuf.Empty) {}
   rpc InspectObject(Object) returns (ObjectInfo) {}
+  // CheckObject checks if an object exists in the blob store without
+  // actually reading the object.
+  rpc CheckObject(CheckObjectRequest) returns (CheckObjectResponse) {}
   rpc ListObjects(ListObjectsRequest) returns (stream Object) {}
   rpc DeleteObjects(DeleteObjectsRequest) returns (DeleteObjectsResponse) {}
   rpc GetTag(Tag) returns (stream google.protobuf.BytesValue) {}
