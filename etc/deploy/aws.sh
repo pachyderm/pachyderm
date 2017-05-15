@@ -56,7 +56,7 @@ create_s3_bucket() {
     echo "Error: create_s3_bucket needs a bucket name"
     return 1
   fi
-  BUCKET="${1}"
+  BUCKET="${1#s3://}"
 
   # For some weird reason, s3 emits an error if you pass a location constraint when location is "us-east-1"
   if [[ "${AWS_REGION}" == "us-east-1" ]]; then
