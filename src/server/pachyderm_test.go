@@ -2520,7 +2520,8 @@ func TestParallelismSpec(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	kubeclient := getKubeClient(t)
-	numNodes := len(kubeclient.Nodes().List(api.ListOptions{}))
+	nodes, err := kubeclient.Nodes().List(api.ListOptions{})
+	numNodes := len(nodes.Items)
 
 	// Test Constant strategy
 	parellelism, err := pps_server.GetExpectedNumWorkers(getKubeClient(t), &pps.ParallelismSpec{
