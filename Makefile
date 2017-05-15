@@ -179,9 +179,13 @@ launch-bench:
 	@# Make launches each process in its own shell process, so we have to structure
 	@# these to run these as one command
 	ID=$$( etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --create | tail -n 1); \
-	@echo To delete this cluster, run etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --delete=$${ID}
+	@echo To delete this cluster, run etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --delete=$${ID}; \
+	echo etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --delete=$${ID} >./clean_current_bench_cluster.sh; \
 	until timeout 10s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done; \
 	cat ~/.kube/config;
+
+clean-launch-bench:
+	./clean_current_bench_cluster.sh || true
 
 install-bench: install
 	@# Since bench is run as sudo, pachctl needs to be under
