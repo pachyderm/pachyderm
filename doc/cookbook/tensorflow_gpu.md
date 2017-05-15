@@ -1,10 +1,8 @@
 # Tensor Flow using GPUs
 
-Pachyderm has alpha support of using TensorFlow with GPUs.
+Pachyderm has alpha support for training TensorFlow models with GPUs.
 
-This recipe will guide you through how to deploy a pipeline on pachyderm that uses TensorFlow with GPU.
-
-# Steps
+This recipe will guide you through how to deploy a pipeline on pachyderm that uses TensorFlow with GPU resources.
 
 1) [Writing your pipeline](tensorflow_gpu.html#writing-your-pipeline)
 2) [Test locally (optional)](tensorflow_gpu.html#test-locally)
@@ -12,9 +10,9 @@ This recipe will guide you through how to deploy a pipeline on pachyderm that us
 
 ---
 
-# Writing Your Pipeline
+## Writing Your Pipeline
 
-For your Docker image, you'll want to use a tensor flow image, e.g:
+For your Docker image, you'll want to use a TensorFlow image, e.g:
 
 ```
 FROM tensorflow/tensorflow:0.12.0-gpu
@@ -23,7 +21,7 @@ FROM tensorflow/tensorflow:0.12.0-gpu
 
 Tensorflow provides the cuda shared libraries already as part of the image. However, we'll need to make sure that TensorFlow can find these shared libraries, and the NVidia shared libraries that come from installing the NVidia drivers.
 
-To do that, we'll need to make sure that we set `LD_LIBRARY_PATH` appropriately.
+To do that, we need to make sure that we set `LD_LIBRARY_PATH` appropriately.
 
 In this case we want it to be:
 
@@ -68,59 +66,18 @@ So, an example pipeline definition for a GPU enabled Pachyderm Pipeline is:
 }
 ```
 
-# Test Locally
+**NOTE:** You can also [test running Pachyderm using GPUs locally](#test_locally)
 
-If you want to test that your pipeline is working on a local cluster (you're running docker/kubernetes/pachyderm in a local cluster), you can do so, but you'll need to attach the NVidia drivers correctly. This has only been tested on a local linux machine.
 
-There are two methods for this.
-
-1) Fresh install
-
-If you haven't installed the nvidia drivers locally, you can do this. If you're not sure, run `which nvidia-smi` and if it returns no result, you probably don't have them installed.
-
-To install them, you can run the same command that we have the VM's run to install the drivers. Warning! This command will restart your system (and will modify your `/etc/rc.local` file, which you may want to backup).
-
-```
-$sudo /usr/bin/docker run -v /:/rootfs/ -v /var/run/dbus:/var/run/dbus -v /run/systemd:/run/systemd --net=host --privileged pachyderm/nvidia_driver_install:dcde76f919475a6585c9959b8ec41334b05103bb
-```
-
-After the restart, you should see the nvidia devices mounted:
-
-```
-$ls /dev | grep nvidia
-nvidia0
-nvidiactl
-nvidia-modeset
-nvidia-uvm
-```
-
-At this point your local machine should be recognized by kubernetes. To check you'll do something like:
-
-```
-$kubectl get nodes
-NAME        STATUS    AGE       VERSION
-127.0.0.1   Ready     13d       v1.6.2
-$kubectl get nodes/127.0.0.1 -o yaml | grep nvidia
-    alpha.kubernetes.io/nvidia-gpu: "1"
-    alpha.kubernetes.io/nvidia-gpu-name: Quadro-M2000M
-    alpha.kubernetes.io/nvidia-gpu: "1"
-    alpha.kubernetes.io/nvidia-gpu: "1"
-```
-
-If you don't see any `alpha.kubernetes.io/nvidia-gpu` fields it's likely that you didn't deploy k8s locally with the correct flags. An example of [the right flags can be found here](https://github.com/pachyderm/pachyderm/blob/master/etc/kube/internal.sh). You can clone git@github.com:pachyderm/pachyderm and run `make launch-kube` locally if you're already running docker on your local machine.
-
-2) Hook in existing drivers
-
-Pachyderm expects to find the shared libraries it needs under `/usr/lib`. It mounts in `/usr/lib` into the container as `/rootfs/usr/lib` (only when you've specified a GPU resource). In this case, if your drivers are not found, you can update the `LD_LIBRARY_PATH` in your container as appropriate.
 
 ## Deploy a GPU Enabled Pachyderm Cluster
 
 To deploy a Pachyderm cluster with GPU support we assume:
 
-- you're using kops for your deployment (which means you're using AWS or GCE, not GKE)
+- you're using kops for your deployment (which means you're using AWS or GCE, not GKE). Other deploy methods are available, but these are the ones we've tested most thoroughly. 
 - you have a working pachyderm cluster already up and running that you can connect to with `kubectl`
 
-This has been tested with versions of k8s/kops:
+This has been tested with these versions of k8s/kops:
 
 ```
 $kubectl version
@@ -130,7 +87,7 @@ $kops version
 Version 1.6.0-beta.1 (git-77f222d)
 ```
 
-From there, you'll need to:
+First, you'll need to:
 
 1) Edit your kops cluster to add GPU machines
 
@@ -177,7 +134,7 @@ And add the fields:
       Accelerators: "true"
 ```
 
-Note its YAML and spaces are very important there.
+**Note:** It's YAML and spaces are very important.
 
 These lines provide an image that gets run on every node's startup. This image
 will install the nvidia drivers on the host machine, update the host machine to
@@ -231,3 +188,51 @@ kubectl --namespace=kube-system get pod | grep kube-apiserver | cut -f 1 -d " " 
 
 It can take a few minutes for the node to get recognized by the k8s cluster
 again.
+
+Now you're all done and set up to train models using TensorFlow and GPUs in your Pachyderm cluster. If you've got a further questions, you can come find us in our public [Slack Channel](slack.pachyderm.io) or on [Github](github.com/pachyderm/pachyderm).
+
+
+## Test Locally
+
+If you want to test that your pipeline is working on a local cluster (you're running docker/kubernetes/pachyderm in a local cluster), you can do so, but you'll need to attach the NVidia drivers correctly. This has only been tested on a local linux machine.
+
+There are two methods for this.
+
+1) Fresh install
+
+If you haven't installed the nvidia drivers locally, you can do this. If you're not sure, run `which nvidia-smi` and if it returns no result, you probably don't have them installed.
+
+To install them, you can run the same command that we have the VM's run to install the drivers. Warning! This command will restart your system (and will modify your `/etc/rc.local` file, which you may want to backup).
+
+```
+$sudo /usr/bin/docker run -v /:/rootfs/ -v /var/run/dbus:/var/run/dbus -v /run/systemd:/run/systemd --net=host --privileged pachyderm/nvidia_driver_install:dcde76f919475a6585c9959b8ec41334b05103bb
+```
+
+After the restart, you should see the nvidia devices mounted:
+
+```
+$ls /dev | grep nvidia
+nvidia0
+nvidiactl
+nvidia-modeset
+nvidia-uvm
+```
+
+At this point your local machine should be recognized by kubernetes. To check you'll do something like:
+
+```
+$kubectl get nodes
+NAME        STATUS    AGE       VERSION
+127.0.0.1   Ready     13d       v1.6.2
+$kubectl get nodes/127.0.0.1 -o yaml | grep nvidia
+    alpha.kubernetes.io/nvidia-gpu: "1"
+    alpha.kubernetes.io/nvidia-gpu-name: Quadro-M2000M
+    alpha.kubernetes.io/nvidia-gpu: "1"
+    alpha.kubernetes.io/nvidia-gpu: "1"
+```
+
+If you don't see any `alpha.kubernetes.io/nvidia-gpu` fields it's likely that you didn't deploy k8s locally with the correct flags. An example of [the right flags can be found here](https://github.com/pachyderm/pachyderm/blob/master/etc/kube/internal.sh). You can clone git@github.com:pachyderm/pachyderm and run `make launch-kube` locally if you're already running docker on your local machine.
+
+2) Hook in existing drivers
+
+Pachyderm expects to find the shared libraries it needs under `/usr/lib`. It mounts in `/usr/lib` into the container as `/rootfs/usr/lib` (only when you've specified a GPU resource). In this case, if your drivers are not found, you can update the `LD_LIBRARY_PATH` in your container as appropriate.
