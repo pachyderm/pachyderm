@@ -6,11 +6,11 @@ parse_flags() {
   # Common config
   export AWS_REGION=us-east-1
   export AWS_AVAILABILITY_ZONE=us-east-1a
-  export STATE_BUCKET=k8scom-state-store-pachyderm-${RANDOM}
+  export STATE_BUCKET=s3://k8scom-state-store-pachyderm-${RANDOM}
   local USE_EXISTING_STATE_BUCKET='false'
 
   # Parse flags
-  set -- $( getopt -l "state:,region:,zone:" "--" "${0}" "${@}" )
+  eval "set -- $( getopt -l "state:,region:,zone:" "--" "${0}" "${@}" )"
   while true; do
       case "${1}" in
           --state)
@@ -24,17 +24,25 @@ parse_flags() {
             export AWS_AVAILABILITY_ZONE="${2}"
             ;;
           --)
+            shift
             break
             ;;
       esac
       shift 2
   done
 
+  echo "Region: ${AWS_REGION}"
   zone_suffix=${AWS_AVAILABILITY_ZONE#$AWS_REGION}
   if [[ ${#zone_suffix} -gt 3 ]]; then
     echo "Availability zone \"${AWS_AVAILABILITY_ZONE}\" may not be in region \"${AWS_REGION}\""
     echo "Try setting both --region and --zone"
     echo "Exiting to be safe..."
+    exit 1
+  fi
+
+  if [[ ! ( "${STATE_BUCKET}" =~ s3://* ) ]]; then
+    echo "kops state bucket must start with \"s3://\" but is \"${STATE_BUCKET}\""
+    exit "Exiting to be safe..."
     exit 1
   fi
 
@@ -70,9 +78,9 @@ deploy_k8s_on_aws() {
     export MASTER_SIZE=r4.xlarge
     export NUM_NODES=3
     export NAME=$(uuid | cut -f 1 -d-)-pachydermcluster.kubernetes.com
-    echo "kops state store: s3://${STATE_BUCKET}"
+    echo "kops state store: ${STATE_BUCKET}"
     kops create cluster \
-        --state=s3://${STATE_BUCKET} \
+        --state=${STATE_BUCKET} \
         --node-count ${NUM_NODES} \
         --zones ${AWS_AVAILABILITY_ZONE} \
         --master-zones ${AWS_AVAILABILITY_ZONE} \
@@ -81,7 +89,7 @@ deploy_k8s_on_aws() {
         --node-size ${NODE_SIZE} \
         --master-size ${NODE_SIZE} \
         ${NAME}
-    kops update cluster ${NAME} --yes --state=s3://${STATE_BUCKET}
+    kops update cluster ${NAME} --yes --state=${STATE_BUCKET}
 
     # Record state store bucket in temp file.
     # This will allow us to cleanup the cluster afterwards
@@ -206,7 +214,7 @@ if [ "${EUID}" -ne 0 ]; then
   echo "Please run this command like 'sudo -E make launch-bench'"
   exit 1
 fi
-parse_flags
+parse_flags "${@}"
 
 set +euxo pipefail
 which pachctl
