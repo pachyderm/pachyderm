@@ -224,7 +224,7 @@ func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, resources
 		Name:      client.PPSWorkerVolume,
 		MountPath: client.PPSInputPrefix,
 	})
-	if !resources.NvidiaGPU().IsZero() {
+	if resources != nil && resources.NvidiaGPU() != nil && !resources.NvidiaGPU().IsZero() {
 		volumes = append(volumes, api.Volume{
 			Name: "root-lib",
 			VolumeSource: api.VolumeSource{
