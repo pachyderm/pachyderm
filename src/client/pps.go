@@ -51,6 +51,9 @@ const (
 	// PPSWorkerSidecarContainerName is the name of the sidecar container
 	// that runs alongside of each worker container.
 	PPSWorkerSidecarContainerName = "storage"
+	// GCKey is the etcd key that stores a counter that the GC utility
+	// increments when it runs, so as to invalidate all cache.
+	GCKey = "gc-generation"
 )
 
 // HashPipelineID hashes a pipeline ID to a string of a fixed size

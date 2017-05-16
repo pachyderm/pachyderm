@@ -7,25 +7,28 @@ import (
 	"io/ioutil"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
+	"github.com/golang/groupcache"
 	protolion "go.pedge.io/lion"
 	protorpclog "go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/cenkalti/backoff"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
-	"github.com/golang/groupcache"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 )
 
 const (
@@ -40,19 +43,26 @@ const (
 
 type objBlockAPIServer struct {
 	protorpclog.Logger
-	dir               string
-	localServer       *localBlockAPIServer
-	objClient         obj.Client
-	blockCache        *groupcache.Group
-	objectCache       *groupcache.Group
-	tagCache          *groupcache.Group
-	objectInfoCache   *groupcache.Group
+	dir         string
+	localServer *localBlockAPIServer
+	objClient   obj.Client
+
+	// cache
+	blockCache      *groupcache.Group
+	objectCache     *groupcache.Group
+	tagCache        *groupcache.Group
+	objectInfoCache *groupcache.Group
+	cacheLock       sync.RWMutex
+	// The total number of bytes cached
+	cacheBytes int64
+	// The total number of bytes cached for objects
+	objectCacheBytes int64
+
 	objectIndexes     map[string]*pfsclient.ObjectIndex
 	objectIndexesLock sync.RWMutex
-	objectCacheBytes  int64
 }
 
-func newObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (*objBlockAPIServer, error) {
+func newObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objClient obj.Client) (*objBlockAPIServer, error) {
 	// defensive mesaure incase IsNotExist checking breaks due to underlying changes
 	if err := obj.TestIsNotExist(objClient); err != nil {
 		return nil, err
@@ -69,48 +79,98 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (*
 		objClient:        objClient,
 		objectIndexes:    make(map[string]*pfsclient.ObjectIndex),
 		objectCacheBytes: oneCacheShare * objectCacheShares,
+		cacheBytes:       cacheBytes,
 	}
-	server.blockCache = groupcache.NewGroup("block", cacheBytes,
-		groupcache.GetterFunc(server.blockGetter))
-	server.objectCache = groupcache.NewGroup("object", oneCacheShare*objectCacheShares,
-		groupcache.GetterFunc(server.objectGetter))
-	server.tagCache = groupcache.NewGroup("tag", oneCacheShare*tagCacheShares,
-		groupcache.GetterFunc(server.tagGetter))
-	server.objectInfoCache = groupcache.NewGroup("objectInfo", oneCacheShare*objectInfoCacheShares,
-		groupcache.GetterFunc(server.objectInfoGetter))
+	server.initializeCacheGroups()
+	go server.watchGC(etcdAddress)
 	return server, nil
 }
 
-func newMinioBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServer, error) {
+// initializeCacheGroups creates a number of new cache groups.  Old cache
+// groups will be garbage-collected by Go's GC mechanism.
+func (s *objBlockAPIServer) initializeCacheGroups() {
+	s.cacheLock.Lock()
+	defer s.cacheLock.Unlock()
+	oneCacheShare := s.cacheBytes / (objectCacheShares + tagCacheShares + objectInfoCacheShares)
+	s.blockCache = groupcache.NewGroup("block", s.cacheBytes, groupcache.GetterFunc(s.blockGetter))
+	s.objectCache = groupcache.NewGroup("object", oneCacheShare*objectCacheShares, groupcache.GetterFunc(s.objectGetter))
+	s.tagCache = groupcache.NewGroup("tag", oneCacheShare*tagCacheShares, groupcache.GetterFunc(s.tagGetter))
+	s.objectInfoCache = groupcache.NewGroup("objectInfo", oneCacheShare*objectInfoCacheShares, groupcache.GetterFunc(s.objectInfoGetter))
+}
+
+// watchGC watches for GC runs and invalidate all cache when GC happens.
+func (s *objBlockAPIServer) watchGC(etcdAddress string) {
+	b := backoff.NewInfiniteBackOff()
+	backoff.RetryNotify(func() error {
+		etcdClient, err := etcd.New(etcd.Config{
+			Endpoints:   []string{etcdAddress},
+			DialOptions: client.EtcdDialOptions(),
+		})
+		if err != nil {
+			return fmt.Errorf("error instantiating etcd client: %v", err)
+		}
+
+		watcher, err := watch.NewWatcher(context.Background(), etcdClient, client.GCKey)
+		if err != nil {
+			return fmt.Errorf("error instantiating watch stream from generation number: %v", err)
+		}
+		defer watcher.Close()
+
+		var gen int
+		for {
+			select {
+			case ev, ok := <-watcher.Watch():
+				if ev.Err != nil {
+					return fmt.Errorf("error from generation number watch: %v", ev.Err)
+				}
+				if !ok {
+					return fmt.Errorf("generation number watch stream closed unexpectedly")
+				}
+				newGen, err := strconv.Atoi(string(ev.Value))
+				if err != nil {
+					return fmt.Errorf("error converting the generation number: %v", err)
+				}
+				if newGen > gen {
+					s.initializeCacheGroups()
+				}
+			}
+		}
+	}, b, func(err error, d time.Duration) error {
+		protolion.Errorf("error running GC watcher in block server: %v; retrying in %s", err, d)
+		return nil
+	})
+}
+
+func newMinioBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*objBlockAPIServer, error) {
 	objClient, err := obj.NewMinioClientFromSecret("")
 	if err != nil {
 		return nil, err
 	}
-	return newObjBlockAPIServer(dir, cacheBytes, objClient)
+	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient)
 }
 
-func newAmazonBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServer, error) {
+func newAmazonBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*objBlockAPIServer, error) {
 	objClient, err := obj.NewAmazonClientFromSecret("")
 	if err != nil {
 		return nil, err
 	}
-	return newObjBlockAPIServer(dir, cacheBytes, objClient)
+	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient)
 }
 
-func newGoogleBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServer, error) {
+func newGoogleBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*objBlockAPIServer, error) {
 	objClient, err := obj.NewGoogleClientFromSecret(context.Background(), "")
 	if err != nil {
 		return nil, err
 	}
-	return newObjBlockAPIServer(dir, cacheBytes, objClient)
+	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient)
 }
 
-func newMicrosoftBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServer, error) {
+func newMicrosoftBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*objBlockAPIServer, error) {
 	objClient, err := obj.NewMicrosoftClientFromSecret("")
 	if err != nil {
 		return nil, err
 	}
-	return newObjBlockAPIServer(dir, cacheBytes, objClient)
+	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient)
 }
 
 func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer) (retErr error) {
@@ -747,11 +807,12 @@ func (s *objBlockAPIServer) readObj(path string, offset uint64, size uint64, des
 			return err
 		}
 		return nil
-	}, obj.NewExponentialBackOffConfig(), func(err error, d time.Duration) {
+	}, obj.NewExponentialBackOffConfig(), func(err error, d time.Duration) error {
 		protolion.Infof("Error creating reader; retrying in %s: %#v", d, obj.RetryError{
 			Err:               err.Error(),
 			TimeTillNextRetry: d.String(),
 		})
+		return nil
 	})
 	if err != nil {
 		return err
