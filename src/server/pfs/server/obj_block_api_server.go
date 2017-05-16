@@ -48,7 +48,6 @@ type objBlockAPIServer struct {
 	objClient   obj.Client
 
 	// cache
-	blockCache      *groupcache.Group
 	objectCache     *groupcache.Group
 	tagCache        *groupcache.Group
 	objectInfoCache *groupcache.Group
@@ -92,10 +91,27 @@ func (s *objBlockAPIServer) initializeCacheGroups() {
 	s.cacheLock.Lock()
 	defer s.cacheLock.Unlock()
 	oneCacheShare := s.cacheBytes / (objectCacheShares + tagCacheShares + objectInfoCacheShares)
-	s.blockCache = groupcache.NewGroup("block", s.cacheBytes, groupcache.GetterFunc(s.blockGetter))
 	s.objectCache = groupcache.NewGroup("object", oneCacheShare*objectCacheShares, groupcache.GetterFunc(s.objectGetter))
 	s.tagCache = groupcache.NewGroup("tag", oneCacheShare*tagCacheShares, groupcache.GetterFunc(s.tagGetter))
 	s.objectInfoCache = groupcache.NewGroup("objectInfo", oneCacheShare*objectInfoCacheShares, groupcache.GetterFunc(s.objectInfoGetter))
+}
+
+func (s *objBlockAPIServer) getObjectCache() *groupcache.Group {
+	s.cacheLock.Lock()
+	defer s.cacheLock.Unlock()
+	return s.objectCache
+}
+
+func (s *objBlockAPIServer) getTagCache() *groupcache.Group {
+	s.cacheLock.Lock()
+	defer s.cacheLock.Unlock()
+	return s.tagCache
+}
+
+func (s *objBlockAPIServer) getObjectInfoCache() *groupcache.Group {
+	s.cacheLock.Lock()
+	defer s.cacheLock.Unlock()
+	return s.objectInfoCache
 }
 
 // watchGC watches for GC runs and invalidate all cache when GC happens.
@@ -262,7 +278,7 @@ func (s *objBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServer
 	}
 	var data []byte
 	sink := groupcache.AllocatingByteSliceSink(&data)
-	if err := s.objectCache.Get(getObjectServer.Context(), splitKey(request.Hash), sink); err != nil {
+	if err := s.getObjectCache().Get(getObjectServer.Context(), splitKey(request.Hash), sink); err != nil {
 		return err
 	}
 	return getObjectServer.Send(&types.BytesValue{Value: data})
@@ -308,7 +324,7 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 		}
 		var data []byte
 		sink := groupcache.AllocatingByteSliceSink(&data)
-		if err := s.objectCache.Get(getObjectsServer.Context(), splitKey(object.Hash), sink); err != nil {
+		if err := s.getObjectCache().Get(getObjectsServer.Context(), splitKey(object.Hash), sink); err != nil {
 			return err
 		}
 		if uint64(len(data)) < offset+readSize {
@@ -359,7 +375,7 @@ func (s *objBlockAPIServer) InspectObject(ctx context.Context, request *pfsclien
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	objectInfo := &pfsclient.ObjectInfo{}
 	sink := groupcache.ProtoSink(objectInfo)
-	if err := s.objectInfoCache.Get(ctx, splitKey(request.Hash), sink); err != nil {
+	if err := s.getObjectInfoCache().Get(ctx, splitKey(request.Hash), sink); err != nil {
 		return nil, err
 	}
 	return objectInfo, nil
@@ -496,7 +512,7 @@ func (s *objBlockAPIServer) GetTag(request *pfsclient.Tag, getTagServer pfsclien
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	object := &pfsclient.Object{}
 	sink := groupcache.ProtoSink(object)
-	if err := s.tagCache.Get(getTagServer.Context(), splitKey(request.Name), sink); err != nil {
+	if err := s.getTagCache().Get(getTagServer.Context(), splitKey(request.Name), sink); err != nil {
 		return err
 	}
 	return s.GetObject(object, getTagServer)
@@ -507,7 +523,7 @@ func (s *objBlockAPIServer) InspectTag(ctx context.Context, request *pfsclient.T
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	object := &pfsclient.Object{}
 	sink := groupcache.ProtoSink(object)
-	if err := s.tagCache.Get(ctx, splitKey(request.Name), sink); err != nil {
+	if err := s.getTagCache().Get(ctx, splitKey(request.Name), sink); err != nil {
 		return nil, err
 	}
 	return s.InspectObject(ctx, object)
@@ -688,7 +704,7 @@ func (s *objBlockAPIServer) blockGetter(ctx groupcache.Context, key string, dest
 func (s *objBlockAPIServer) objectGetter(ctx groupcache.Context, key string, dest groupcache.Sink) error {
 	objectInfo := &pfsclient.ObjectInfo{}
 	sink := groupcache.ProtoSink(objectInfo)
-	if err := s.objectInfoCache.Get(ctx, key, sink); err != nil {
+	if err := s.getObjectInfoCache().Get(ctx, key, sink); err != nil {
 		return err
 	}
 	return s.readBlockRef(objectInfo.BlockRef, dest)
