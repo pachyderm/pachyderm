@@ -481,7 +481,11 @@ func (s *objBlockAPIServer) compact() (retErr error) {
 		prefixes[hash[:2]] = true
 	}
 	for tag := range objectIndex.Tags {
-		prefixes[tag[:2]] = true
+		p := tag
+		if len(p) > 2 {
+			p = p[:2]
+		}
+		prefixes[p] = true
 	}
 	eg = errgroup.Group{}
 	for prefix := range prefixes {

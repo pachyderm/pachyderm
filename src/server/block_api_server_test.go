@@ -50,6 +50,23 @@ func TestTags(t *testing.T) {
 	require.Equal(t, []byte("foo"), value)
 }
 
+func TestShortTag(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	object, _, err := c.PutObject(strings.NewReader("content"), "t")
+	require.NoError(t, err)
+
+	require.NoError(t, c.Compact())
+	value, err := c.ReadObject(object.Hash)
+	require.NoError(t, err)
+	require.Equal(t, []byte("content"), value)
+	value, err = c.ReadTag("t")
+	require.NoError(t, err)
+	require.Equal(t, []byte("content"), value)
+}
+
 func TestManyObjects(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
