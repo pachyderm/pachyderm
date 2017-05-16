@@ -110,7 +110,7 @@ func (s *objBlockAPIServer) watchGC(etcdAddress string) {
 			return fmt.Errorf("error instantiating etcd client: %v", err)
 		}
 
-		watcher, err := watch.NewWatcher(context.Background(), etcdClient, client.GCKey)
+		watcher, err := watch.NewWatcher(context.Background(), etcdClient, client.GCGenerationKey)
 		if err != nil {
 			return fmt.Errorf("error instantiating watch stream from generation number: %v", err)
 		}

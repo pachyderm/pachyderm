@@ -8,6 +8,7 @@ import (
 	"math"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -1257,7 +1258,38 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 		return nil, err
 	}
 
+	if err := a.incrementGCGeneration(ctx); err != nil {
+		return nil, err
+	}
+
 	return &pps.GCResponse{}, nil
+}
+
+// incrementGCGeneration increments the GC generation number in etcd
+func (a *apiServer) incrementGCGeneration(ctx context.Context) error {
+	resp, err := a.etcdClient.Get(ctx, client.GCGenerationKey)
+	if err != nil {
+		return err
+	}
+
+	if resp.Count == 0 {
+		// If the generation number does not exist, create it.
+		// It's important that the new generation is 1, as the first
+		// generation is assumed to be 0.
+		if _, err := a.etcdClient.Put(ctx, client.GCGenerationKey, "1"); err != nil {
+			return err
+		}
+	} else {
+		oldGen, err := strconv.Atoi(string(resp.Kvs[0].Key))
+		if err != nil {
+			return err
+		}
+		newGen := oldGen + 1
+		if _, err := a.etcdClient.Put(ctx, client.GCGenerationKey, strconv.Itoa(newGen)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (a *apiServer) Version(version int64) error {
