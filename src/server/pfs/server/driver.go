@@ -602,6 +602,12 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 		repos.Put(commit.Repo.Name, repoInfo)
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	// Delete the scratch space for this commit
+	_, err = d.etcdClient.Delete(ctx, prefix, etcd.WithPrefix())
 	return err
 }
 
