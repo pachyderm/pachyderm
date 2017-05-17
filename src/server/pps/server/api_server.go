@@ -1280,7 +1280,7 @@ func (a *apiServer) incrementGCGeneration(ctx context.Context) error {
 			return err
 		}
 	} else {
-		oldGen, err := strconv.Atoi(string(resp.Kvs[0].Key))
+		oldGen, err := strconv.Atoi(string(resp.Kvs[0].Value))
 		if err != nil {
 			return err
 		}
