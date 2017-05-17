@@ -129,7 +129,7 @@ func (d *directory) Attr(ctx context.Context, a *fuse.Attr) (retErr error) {
 
 func (d *directory) Lookup(ctx context.Context, name string) (result fs.Node, retErr error) {
 	defer func() {
-		if retErr == nil || retErr == fuse.ENOENT {
+		if retErr == nil || isNotFound(retErr) || retErr == fuse.ENOENT {
 			log.Debug(&DirectoryLookup{&d.Node, name, getNode(result), errorToString(retErr)})
 		} else {
 			log.Error(&DirectoryLookup{&d.Node, name, getNode(result), errorToString(retErr)})
@@ -725,4 +725,8 @@ func getNode(node fs.Node) *Node {
 
 func key(file *pfsclient.File) string {
 	return fmt.Sprintf("%s/%s/%s", file.Commit.Repo.Name, file.Commit.ID, file.Path)
+}
+
+func isNotFound(err error) bool {
+	return strings.Contains(err.Error(), "not found")
 }
