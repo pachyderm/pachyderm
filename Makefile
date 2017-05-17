@@ -23,7 +23,7 @@ CLUSTER_NAME?=pachyderm
 CLUSTER_MACHINE_TYPE?=n1-standard-4
 CLUSTER_SIZE?=4
 
-BENCH_CLOUD_PROVIDER=gke
+BENCH_CLOUD_PROVIDER=aws
 
 ifdef TRAVIS_BUILD_NUMBER
 	# Upper bound for travis test timeout
@@ -135,6 +135,22 @@ docker-build-proto:
 docker-build-netcat:
 	docker build -t pachyderm_netcat etc/netcat
 
+docker-build-gpu:
+	docker build -t pachyderm_nvidia_driver_install etc/deploy/gpu
+	docker tag pachyderm_nvidia_driver_install pachyderm/nvidia_driver_install
+
+docker-push-gpu:
+	docker push pachyderm/nvidia_driver_install
+
+docker-push-gpu-dev:
+	docker tag pachyderm/nvidia_driver_install pachyderm/nvidia_driver_install:`git rev-list HEAD --max-count=1`
+	docker push pachyderm/nvidia_driver_install:`git rev-list HEAD --max-count=1`
+	echo pushed pachyderm/nvidia_driver_install:`git rev-list HEAD --max-count=1`
+
+docker-gpu: docker-build-gpu docker-push-gpu
+
+docker-gpu-dev: docker-build-gpu docker-push-gpu-dev
+
 check-kubectl:
 	# check that kubectl is installed
 	which kubectl
@@ -163,9 +179,13 @@ launch-bench:
 	@# Make launches each process in its own shell process, so we have to structure
 	@# these to run these as one command
 	ID=$$( etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --create | tail -n 1); \
-	@echo To delete this cluster, run etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --delete=$${ID}
+	@echo To delete this cluster, run etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --delete=$${ID}; \
+	echo etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --delete=$${ID} >./clean_current_bench_cluster.sh; \
 	until timeout 10s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done; \
 	cat ~/.kube/config;
+
+clean-launch-bench:
+	./clean_current_bench_cluster.sh || true
 
 install-bench: install
 	@# Since bench is run as sudo, pachctl needs to be under
