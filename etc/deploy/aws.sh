@@ -6,11 +6,11 @@ parse_flags() {
   # Common config
   export AWS_REGION=us-east-1
   export AWS_AVAILABILITY_ZONE=us-east-1a
-  export STATE_BUCKET=k8scom-state-store-pachyderm-${RANDOM}
+  export STATE_BUCKET=s3://k8scom-state-store-pachyderm-${RANDOM}
   local USE_EXISTING_STATE_BUCKET='false'
 
   # Parse flags
-  set -- $( getopt -l "state:,region:,zone:" "--" "${0}" "${@}" )
+  eval "set -- $( getopt -l "state:,region:,zone:" "--" "${0}" "${@}" )"
   while true; do
       case "${1}" in
           --state)
@@ -24,14 +24,30 @@ parse_flags() {
             export AWS_AVAILABILITY_ZONE="${2}"
             ;;
           --)
+            shift
             break
             ;;
       esac
       shift 2
   done
 
+  echo "Region: ${AWS_REGION}"
+  zone_suffix=${AWS_AVAILABILITY_ZONE#$AWS_REGION}
+  if [[ ${#zone_suffix} -gt 3 ]]; then
+    echo "Availability zone \"${AWS_AVAILABILITY_ZONE}\" may not be in region \"${AWS_REGION}\""
+    echo "Try setting both --region and --zone"
+    echo "Exiting to be safe..."
+    exit 1
+  fi
+
+  if [[ ! ( "${STATE_BUCKET}" =~ s3://* ) ]]; then
+    echo "kops state bucket must start with \"s3://\" but is \"${STATE_BUCKET}\""
+    exit "Exiting to be safe..."
+    exit 1
+  fi
+
   if [ "${USE_EXISTING_STATE_BUCKET}" == 'false' ]; then
-    create_s3_bucket "${STATE_BUCKET}"
+    create_s3_bucket "${STATE_BUCKET}" || exit 1
   fi
 }
 
@@ -40,7 +56,7 @@ create_s3_bucket() {
     echo "Error: create_s3_bucket needs a bucket name"
     return 1
   fi
-  BUCKET="${1}"
+  BUCKET="${1#s3://}"
 
   # For some weird reason, s3 emits an error if you pass a location constraint when location is "us-east-1"
   if [[ "${AWS_REGION}" == "us-east-1" ]]; then
@@ -62,9 +78,9 @@ deploy_k8s_on_aws() {
     export MASTER_SIZE=r4.xlarge
     export NUM_NODES=3
     export NAME=$(uuid | cut -f 1 -d-)-pachydermcluster.kubernetes.com
-    echo "kops state store: s3://${STATE_BUCKET}"
+    echo "kops state store: ${STATE_BUCKET}"
     kops create cluster \
-        --state=s3://${STATE_BUCKET} \
+        --state=${STATE_BUCKET} \
         --node-count ${NUM_NODES} \
         --zones ${AWS_AVAILABILITY_ZONE} \
         --master-zones ${AWS_AVAILABILITY_ZONE} \
@@ -73,7 +89,7 @@ deploy_k8s_on_aws() {
         --node-size ${NODE_SIZE} \
         --master-size ${NODE_SIZE} \
         ${NAME}
-    kops update cluster ${NAME} --yes --state=s3://${STATE_BUCKET}
+    kops update cluster ${NAME} --yes --state=${STATE_BUCKET}
 
     # Record state store bucket in temp file.
     # This will allow us to cleanup the cluster afterwards
@@ -91,7 +107,7 @@ deploy_k8s_on_aws() {
 update_sec_group() {
     export SECURITY_GROUP_ID="$(
         aws ec2 describe-instances --filters "Name=instance-type,Values=${NODE_SIZE}" --region ${AWS_REGION} \
-          | jq --raw-output '.Reservations[].Instances[] | select([.Tags[].Value | contains("masters.'${NAME}'")] | any) | .SecurityGroups[0].GroupId')"
+          | jq --raw-output '.Reservations[].Instances[] | select([.Tags[]?.Value | contains("masters.'${NAME}'")] | any) | .SecurityGroups[0].GroupId')"
     # For k8s access
     aws ec2 authorize-security-group-ingress --group-id ${SECURITY_GROUP_ID} --protocol tcp --port 8080 --cidr "0.0.0.0/0" --region ${AWS_REGION}
     # For pachyderm direct access:
@@ -198,7 +214,7 @@ if [ "${EUID}" -ne 0 ]; then
   echo "Please run this command like 'sudo -E make launch-bench'"
   exit 1
 fi
-parse_flags
+parse_flags "${@}"
 
 set +euxo pipefail
 which pachctl
@@ -210,3 +226,7 @@ set -euxo pipefail
 
 deploy_k8s_on_aws
 deploy_pachyderm_on_aws
+
+# Must echo ID at end, for etc/testing/deploy/aws.sh
+echo "Cluster created:"
+echo ${NAME}

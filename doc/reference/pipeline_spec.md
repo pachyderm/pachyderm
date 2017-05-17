@@ -35,16 +35,7 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
     "cpu": double
   },
   "input": {
-      "cross": [ {
-          "atom": {
-              "name": string,
-              "repo": string,
-              "branch": string,
-              "glob": string,
-              "lazy" bool,
-              "from_commit": string
-          }
-      } ]
+    <"atom" or "cross" or "union", see below> 
   },
   "outputBranch": string,
   "egress": {
@@ -52,6 +43,48 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   },
   "scaleDownThreshold": string
 }
+
+------------------------------------
+"atom" input
+------------------------------------
+
+"atom": {
+  "name": string,
+  "repo": string,
+  "branch": string,
+  "glob": string,
+  "lazy" bool,
+  "from_commit": string
+}
+
+------------------------------------
+"cross" or "union" input
+------------------------------------
+
+"cross" or "union": [ 
+  {
+    "atom": {
+      "name": string,
+      "repo": string,
+      "branch": string,
+      "glob": string,
+      "lazy" bool,
+      "from_commit": string
+    }
+  },
+  {
+    "atom": {
+      "name": string,
+      "repo": string,
+      "branch": string,
+      "glob": string,
+      "lazy" bool,
+      "from_commit": string
+    }
+  }
+  etc...
+]
+
 ```
 
 In practice, you rarely need to specify all the fields.  Most fields either come with sensible defaults or can be nil.  Following is an example of a minimal spec:
@@ -250,12 +283,14 @@ the commit itself) will be processed.
 
 Union inputs take the union of other inputs. For example:
 
+```
 | inputA | inputB | inputA ∪ inputB |
 | ------ | ------ | --------------- |
 | foo    | fizz   | foo             |
 | bar    | buzz   | fizz            |
 |        |        | bar             |
 |        |        | buzz            |
+```
 
 Notice that union inputs, do not take a name and maintain the names of the sub-inputs.
 In the above example you would see files under `/pfs/inputA/...` and `/pfs/inputB/...`.
@@ -269,12 +304,14 @@ reason to take a union of unions since union is associative.
 Cross inputs take the cross product of other inputs, in other words it creates
 tuples of the datums in the inputs. For example:
 
+```
 | inputA | inputB | inputA ⨯ inputB |
 | ------ | ------ | --------------- |
 | foo    | fizz   | (foo, fizz)     |
 | bar    | buzz   | (foo, buzz)     |
 |        |        | (bar, fizz)     |
 |        |        | (bar, buzz)     |
+```
 
 Notice that cross inputs, do not take a name and maintain the names of the sub-inputs.
 In the above example you would see files under `/pfs/inputA/...` and `/pfs/inputB/...`.
