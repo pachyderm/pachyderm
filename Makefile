@@ -429,6 +429,9 @@ lint:
 		fi; \
 	done;
 
+vet:
+	@etc/testing/vet.sh
+
 goxc-generate-local:
 	@if [ -z $$GITHUB_OAUTH_TOKEN ]; then \
 		echo "Missing token. Please run via: 'make GITHUB_OAUTH_TOKEN=12345 goxc-generate-local'"; \
