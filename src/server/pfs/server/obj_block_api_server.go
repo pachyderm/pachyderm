@@ -51,11 +51,12 @@ type objBlockAPIServer struct {
 	objectCache     *groupcache.Group
 	tagCache        *groupcache.Group
 	objectInfoCache *groupcache.Group
-	cacheLock       sync.RWMutex
-	// The total number of bytes cached
-	cacheBytes int64
 	// The total number of bytes cached for objects
 	objectCacheBytes int64
+	// The GC generation number.  Incrementing this number effectively
+	// invalidates all current cache.
+	generation int
+	genLock    sync.RWMutex
 
 	objectIndexes     map[string]*pfsclient.ObjectIndex
 	objectIndexesLock sync.RWMutex
@@ -71,47 +72,19 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objC
 		return nil, err
 	}
 	oneCacheShare := cacheBytes / (objectCacheShares + tagCacheShares + objectInfoCacheShares)
-	server := &objBlockAPIServer{
+	s := &objBlockAPIServer{
 		Logger:           protorpclog.NewLogger("pfs.BlockAPI.Obj"),
 		dir:              dir,
 		localServer:      localServer,
 		objClient:        objClient,
 		objectIndexes:    make(map[string]*pfsclient.ObjectIndex),
 		objectCacheBytes: oneCacheShare * objectCacheShares,
-		cacheBytes:       cacheBytes,
 	}
-	server.initializeCacheGroups()
-	go server.watchGC(etcdAddress)
-	return server, nil
-}
-
-// initializeCacheGroups creates a number of new cache groups.  Old cache
-// groups will be garbage-collected by Go's GC mechanism.
-func (s *objBlockAPIServer) initializeCacheGroups() {
-	s.cacheLock.Lock()
-	defer s.cacheLock.Unlock()
-	oneCacheShare := s.cacheBytes / (objectCacheShares + tagCacheShares + objectInfoCacheShares)
 	s.objectCache = groupcache.NewGroup("object", oneCacheShare*objectCacheShares, groupcache.GetterFunc(s.objectGetter))
 	s.tagCache = groupcache.NewGroup("tag", oneCacheShare*tagCacheShares, groupcache.GetterFunc(s.tagGetter))
 	s.objectInfoCache = groupcache.NewGroup("objectInfo", oneCacheShare*objectInfoCacheShares, groupcache.GetterFunc(s.objectInfoGetter))
-}
-
-func (s *objBlockAPIServer) getObjectCache() *groupcache.Group {
-	s.cacheLock.Lock()
-	defer s.cacheLock.Unlock()
-	return s.objectCache
-}
-
-func (s *objBlockAPIServer) getTagCache() *groupcache.Group {
-	s.cacheLock.Lock()
-	defer s.cacheLock.Unlock()
-	return s.tagCache
-}
-
-func (s *objBlockAPIServer) getObjectInfoCache() *groupcache.Group {
-	s.cacheLock.Lock()
-	defer s.cacheLock.Unlock()
-	return s.objectInfoCache
+	go s.watchGC(etcdAddress)
+	return s, nil
 }
 
 // watchGC watches for GC runs and invalidate all cache when GC happens.
@@ -132,29 +105,38 @@ func (s *objBlockAPIServer) watchGC(etcdAddress string) {
 		}
 		defer watcher.Close()
 
-		var gen int
 		for {
-			select {
-			case ev, ok := <-watcher.Watch():
-				if ev.Err != nil {
-					return fmt.Errorf("error from generation number watch: %v", ev.Err)
-				}
-				if !ok {
-					return fmt.Errorf("generation number watch stream closed unexpectedly")
-				}
-				newGen, err := strconv.Atoi(string(ev.Value))
-				if err != nil {
-					return fmt.Errorf("error converting the generation number: %v", err)
-				}
-				if newGen > gen {
-					s.initializeCacheGroups()
-				}
+			ev, ok := <-watcher.Watch()
+			if ev.Err != nil {
+				return fmt.Errorf("error from generation number watch: %v", ev.Err)
 			}
+			if !ok {
+				return fmt.Errorf("generation number watch stream closed unexpectedly")
+			}
+			newGen, err := strconv.Atoi(string(ev.Value))
+			if err != nil {
+				return fmt.Errorf("error converting the generation number: %v", err)
+			}
+			s.setGeneration(newGen)
 		}
 	}, b, func(err error, d time.Duration) error {
 		protolion.Errorf("error running GC watcher in block server: %v; retrying in %s", err, d)
 		return nil
 	})
+}
+
+func (s *objBlockAPIServer) setGeneration(newGen int) {
+	s.genLock.Lock()
+	defer s.genLock.Unlock()
+	if newGen > s.generation {
+		s.generation = newGen
+	}
+}
+
+func (s *objBlockAPIServer) getGeneration() int {
+	s.genLock.RLock()
+	defer s.genLock.RUnlock()
+	return s.generation
 }
 
 func newMinioBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*objBlockAPIServer, error) {
@@ -278,7 +260,7 @@ func (s *objBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServer
 	}
 	var data []byte
 	sink := groupcache.AllocatingByteSliceSink(&data)
-	if err := s.getObjectCache().Get(getObjectServer.Context(), splitKey(request.Hash), sink); err != nil {
+	if err := s.objectCache.Get(getObjectServer.Context(), s.splitKey(request.Hash), sink); err != nil {
 		return err
 	}
 	return getObjectServer.Send(&types.BytesValue{Value: data})
@@ -324,7 +306,7 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 		}
 		var data []byte
 		sink := groupcache.AllocatingByteSliceSink(&data)
-		if err := s.getObjectCache().Get(getObjectsServer.Context(), splitKey(object.Hash), sink); err != nil {
+		if err := s.objectCache.Get(getObjectsServer.Context(), s.splitKey(object.Hash), sink); err != nil {
 			return err
 		}
 		if uint64(len(data)) < offset+readSize {
@@ -375,7 +357,7 @@ func (s *objBlockAPIServer) InspectObject(ctx context.Context, request *pfsclien
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	objectInfo := &pfsclient.ObjectInfo{}
 	sink := groupcache.ProtoSink(objectInfo)
-	if err := s.getObjectInfoCache().Get(ctx, splitKey(request.Hash), sink); err != nil {
+	if err := s.objectInfoCache.Get(ctx, s.splitKey(request.Hash), sink); err != nil {
 		return nil, err
 	}
 	return objectInfo, nil
@@ -512,7 +494,7 @@ func (s *objBlockAPIServer) GetTag(request *pfsclient.Tag, getTagServer pfsclien
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	object := &pfsclient.Object{}
 	sink := groupcache.ProtoSink(object)
-	if err := s.getTagCache().Get(getTagServer.Context(), splitKey(request.Name), sink); err != nil {
+	if err := s.tagCache.Get(getTagServer.Context(), s.splitKey(request.Name), sink); err != nil {
 		return err
 	}
 	return s.GetObject(object, getTagServer)
@@ -523,7 +505,7 @@ func (s *objBlockAPIServer) InspectTag(ctx context.Context, request *pfsclient.T
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	object := &pfsclient.Object{}
 	sink := groupcache.ProtoSink(object)
-	if err := s.getTagCache().Get(ctx, splitKey(request.Name), sink); err != nil {
+	if err := s.tagCache.Get(ctx, s.splitKey(request.Name), sink); err != nil {
 		return nil, err
 	}
 	return s.InspectObject(ctx, object)
@@ -704,7 +686,7 @@ func (s *objBlockAPIServer) blockGetter(ctx groupcache.Context, key string, dest
 func (s *objBlockAPIServer) objectGetter(ctx groupcache.Context, key string, dest groupcache.Sink) error {
 	objectInfo := &pfsclient.ObjectInfo{}
 	sink := groupcache.ProtoSink(objectInfo)
-	if err := s.getObjectInfoCache().Get(ctx, key, sink); err != nil {
+	if err := s.objectInfoCache.Get(ctx, key, sink); err != nil {
 		return err
 	}
 	return s.readBlockRef(objectInfo.BlockRef, dest)
@@ -712,11 +694,11 @@ func (s *objBlockAPIServer) objectGetter(ctx groupcache.Context, key string, des
 
 func (s *objBlockAPIServer) tagGetter(ctx groupcache.Context, key string, dest groupcache.Sink) error {
 	splitKey := strings.Split(key, ".")
-	if len(splitKey) != 2 {
+	if len(splitKey) != 3 {
 		return fmt.Errorf("invalid key %s (this is likely a bug)", key)
 	}
 	prefix := splitKey[0]
-	tag := &pfsclient.Tag{Name: strings.Join(splitKey, "")}
+	tag := &pfsclient.Tag{Name: strings.Join(splitKey[:len(splitKey)-1], "")}
 	updated := false
 	// First check if we already have the index for this Tag in memory, if
 	// not read it for the first time.
@@ -763,11 +745,11 @@ func (s *objBlockAPIServer) tagGetter(ctx groupcache.Context, key string, dest g
 
 func (s *objBlockAPIServer) objectInfoGetter(ctx groupcache.Context, key string, dest groupcache.Sink) error {
 	splitKey := strings.Split(key, ".")
-	if len(splitKey) != 2 {
+	if len(splitKey) != 3 {
 		return fmt.Errorf("invalid key %s (this is likely a bug)", key)
 	}
 	prefix := splitKey[0]
-	object := &pfsclient.Object{Hash: strings.Join(splitKey, "")}
+	object := &pfsclient.Object{Hash: strings.Join(splitKey[:len(splitKey)-1], "")}
 	result := &pfsclient.ObjectInfo{Object: object}
 	updated := false
 	// First check if we already have the index for this Object in memory, if
@@ -875,11 +857,14 @@ func (s *objBlockAPIServer) readObjectIndex(prefix string) error {
 	return nil
 }
 
-func splitKey(key string) string {
+// splitKey splits a key into the format we want, and also postpends
+// the generation number
+func (s *objBlockAPIServer) splitKey(key string) string {
+	gen := s.getGeneration()
 	if len(key) < prefixLength {
-		return fmt.Sprintf("%s.", key)
+		return fmt.Sprintf("%s.%s", key, gen)
 	}
-	return fmt.Sprintf("%s.%s", key[:prefixLength], key[prefixLength:])
+	return fmt.Sprintf("%s.%s.%s", key[:prefixLength], key[prefixLength:], gen)
 }
 
 type blockWriter struct {
