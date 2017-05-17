@@ -215,7 +215,7 @@ func jobInput(jobInfo *ppsclient.JobInfo) string {
 	}
 	input, err := json.MarshalIndent(jobInfo.Input, "", "  ")
 	if err != nil {
-		fmt.Errorf("error marshalling input: %+v", err)
+		return fmt.Errorf("error marshalling input: %+v", err)
 	}
 	return string(input) + "\n"
 }
@@ -238,7 +238,7 @@ func pipelineInput(pipelineInfo *ppsclient.PipelineInfo) string {
 	}
 	input, err := json.MarshalIndent(pipelineInfo.Input, "", "  ")
 	if err != nil {
-		fmt.Errorf("error marshalling input: %+v", err)
+		return fmt.Errorf("error marshalling input: %+v", err)
 	}
 	return string(input) + "\n"
 }
