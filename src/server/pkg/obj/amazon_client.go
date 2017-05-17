@@ -96,7 +96,7 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 		}
 		if resp.StatusCode >= 300 {
 			// Cloudfront returns 200s, and 206s as success codes
-			return nil, fmt.Errorf("cloudfront returned HTTP error code %v", resp.StatusCode)
+			return nil, fmt.Errorf("cloudfront returned HTTP error code %v for url %v", resp.Status, url)
 		}
 		reader = resp.Body
 	} else {
