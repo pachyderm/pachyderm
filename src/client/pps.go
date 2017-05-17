@@ -51,8 +51,8 @@ const (
 	// PPSWorkerSidecarContainerName is the name of the sidecar container
 	// that runs alongside of each worker container.
 	PPSWorkerSidecarContainerName = "storage"
-	// GCKey is the etcd key that stores a counter that the GC utility
-	// increments when it runs, so as to invalidate all cache.
+	// GCGenerationKey is the etcd key that stores a counter that the
+	// GC utility increments when it runs, so as to invalidate all cache.
 	GCGenerationKey = "gc-generation"
 )
 
