@@ -59,6 +59,23 @@ func TestInvalidCreatePipeline(t *testing.T) {
 	)
 	require.YesError(t, err)
 	require.Matches(t, "glob", err.Error())
+
+	// Create a pipeline with no cmd
+	err = c.CreatePipeline(
+		pipelineName,
+		"",
+		nil,
+		nil,
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		client.NewAtomInputOpts("input", dataRepo, "", "/*", false, ""),
+		"master",
+		false,
+	)
+	require.YesError(t, err)
+	require.Matches(t, "cmd", err.Error())
 }
 
 // Make sure that pipeline validation checks that all inputs exist
