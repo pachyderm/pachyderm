@@ -2,13 +2,13 @@ package fuse
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"sync"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
+	log "github.com/Sirupsen/logrus"
 	"github.com/pachyderm/pachyderm/src/client"
 )
 
@@ -89,6 +89,8 @@ func (m *mounter) Mount(
 	config := &fs.Config{}
 	if debug {
 		config.Debug = func(msg interface{}) { log.Printf("%+v", msg) }
+	} else {
+		log.SetLevel(log.ErrorLevel)
 	}
 	var filesystem fs.FS
 	if oneMount {

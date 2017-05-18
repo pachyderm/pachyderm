@@ -224,7 +224,20 @@ func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, resources
 		Name:      client.PPSWorkerVolume,
 		MountPath: client.PPSInputPrefix,
 	})
-
+	if resources != nil && resources.NvidiaGPU() != nil && !resources.NvidiaGPU().IsZero() {
+		volumes = append(volumes, api.Volume{
+			Name: "root-lib",
+			VolumeSource: api.VolumeSource{
+				HostPath: &api.HostPathVolumeSource{
+					Path: "/usr/lib",
+				},
+			},
+		})
+		volumeMounts = append(volumeMounts, api.VolumeMount{
+			Name:      "root-lib",
+			MountPath: "/rootfs/usr/lib",
+		})
+	}
 	var imagePullSecrets []api.LocalObjectReference
 	for _, secret := range transform.ImagePullSecrets {
 		imagePullSecrets = append(imagePullSecrets, api.LocalObjectReference{Name: secret})

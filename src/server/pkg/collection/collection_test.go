@@ -124,7 +124,7 @@ func TestIndexWatch(t *testing.T) {
 
 	select {
 	case event := <-eventCh:
-		t.Fatalf("should not have received an event %s", event)
+		t.Fatalf("should not have received an event %v", event)
 	case <-time.After(2 * time.Second):
 	}
 
