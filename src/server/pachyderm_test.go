@@ -5,17 +5,14 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -122,7 +119,8 @@ func TestDatumDedup(t *testing.T) {
 
 	// Since we did not change the datum, the datum should not be processed
 	// again, which means that the job should complete instantly.
-	ctx, _ := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
 	stream, err := c.PfsAPIClient.FlushCommit(
 		ctx,
 		&pfs.FlushCommitRequest{
@@ -523,23 +521,6 @@ func TestMultipleInputsFromTheSameRepo(t *testing.T) {
 // This test fails if you updated some static assets (such as doc/reference/pipeline_spec.md)
 // that are used in code but forgot to run:
 // $ make assets
-func TestAssets(t *testing.T) {
-	assetPaths := []string{"doc/reference/pipeline_spec.md"}
-
-	for _, path := range assetPaths {
-		doc, err := ioutil.ReadFile(filepath.Join(os.Getenv("GOPATH"), "src/github.com/pachyderm/pachyderm/", path))
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		asset, err := pachyderm.Asset(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		require.Equal(t, doc, asset)
-	}
-}
 
 func TestPipelineFailure(t *testing.T) {
 	if testing.Short() {
@@ -2539,6 +2520,10 @@ func TestParallelismSpec(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	kubeclient := getKubeClient(t)
+	nodes, err := kubeclient.Nodes().List(api.ListOptions{})
+	numNodes := len(nodes.Items)
+
 	// Test Constant strategy
 	parellelism, err := pps_server.GetExpectedNumWorkers(getKubeClient(t), &pps.ParallelismSpec{
 		Strategy: pps.ParallelismSpec_CONSTANT,
@@ -2551,38 +2536,38 @@ func TestParallelismSpec(t *testing.T) {
 	// TODO(msteffen): This test can fail when run against cloud providers, if the
 	// remote cluster has more than one node (in which case "Coefficient: 1" will
 	// cause more than 1 worker to start)
-	parellelism, err = pps_server.GetExpectedNumWorkers(getKubeClient(t), &pps.ParallelismSpec{
+	parellelism, err = pps_server.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
 		Strategy:    pps.ParallelismSpec_COEFFICIENT,
 		Coefficient: 1,
 	})
 	require.NoError(t, err)
-	require.Equal(t, uint64(1), parellelism)
+	require.Equal(t, uint64(numNodes), parellelism)
 
 	// Coefficient > 1
-	parellelism, err = pps_server.GetExpectedNumWorkers(getKubeClient(t), &pps.ParallelismSpec{
+	parellelism, err = pps_server.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
 		Strategy:    pps.ParallelismSpec_COEFFICIENT,
 		Coefficient: 2,
 	})
 	require.NoError(t, err)
-	require.Equal(t, uint64(2), parellelism)
+	require.Equal(t, uint64(2*numNodes), parellelism)
 
 	// Make sure we start at least one worker
-	parellelism, err = pps_server.GetExpectedNumWorkers(getKubeClient(t), &pps.ParallelismSpec{
+	parellelism, err = pps_server.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
 		Strategy:    pps.ParallelismSpec_COEFFICIENT,
-		Coefficient: 0.1,
+		Coefficient: 0.01,
 	})
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), parellelism)
 
 	// Test 0-initialized JobSpec
-	parellelism, err = pps_server.GetExpectedNumWorkers(getKubeClient(t), &pps.ParallelismSpec{})
+	parellelism, err = pps_server.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{})
 	require.NoError(t, err)
-	require.Equal(t, uint64(1), parellelism)
+	require.Equal(t, uint64(numNodes), parellelism)
 
 	// Test nil JobSpec
-	parellelism, err = pps_server.GetExpectedNumWorkers(getKubeClient(t), nil)
+	parellelism, err = pps_server.GetExpectedNumWorkers(kubeclient, nil)
 	require.NoError(t, err)
-	require.Equal(t, uint64(1), parellelism)
+	require.Equal(t, uint64(numNodes), parellelism)
 }
 
 func TestPipelineJobDeletion(t *testing.T) {
@@ -3610,9 +3595,17 @@ func scalePachd(t testing.TB) {
 }
 
 func getKubeClient(t testing.TB) *kube.Client {
-	config := &kube_client.Config{
-		Host:     "http://0.0.0.0:8080",
-		Insecure: false,
+	var config *kube_client.Config
+	host := os.Getenv("KUBERNETES_SERVICE_HOST")
+	if host != "" {
+		var err error
+		config, err = kube_client.InClusterConfig()
+		require.NoError(t, err)
+	} else {
+		config = &kube_client.Config{
+			Host:     "http://0.0.0.0:8080",
+			Insecure: false,
+		}
 	}
 	k, err := kube.New(config)
 	require.NoError(t, err)

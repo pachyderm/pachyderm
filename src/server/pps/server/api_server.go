@@ -721,7 +721,9 @@ nextLogCh:
 }
 
 func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
-	return a.validateInput(ctx, pipelineInfo.Input, false)
+	if err := a.validateInput(ctx, pipelineInfo.Input, false); err != nil {
+		return err
+	}
 	if pipelineInfo.OutputBranch == "" {
 		return fmt.Errorf("pipeline needs to specify an output branch")
 	}
@@ -1544,8 +1546,6 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			go a.watchJobCompletion(ctx, job, jobCompletionCh)
 			protolion.Infof("pipeline %s created job %v with the following input: %v", pipelineName, job.ID, jobInput)
 		}
-		panic("unreachable")
-		return nil
 	}, b, func(err error, d time.Duration) error {
 		select {
 		case <-ctx.Done():
