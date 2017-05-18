@@ -1412,6 +1412,42 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern strin
 	return fileInfos, nil
 }
 
+func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.File) ([]*pfs.FileInfo, []*pfs.FileInfo, error) {
+	newTree, err := d.getTreeForCommit(ctx, newFile.Commit)
+	if err != nil {
+		return nil, nil, err
+	}
+	// if oldFile is new we use the parent of newFile
+	if oldFile == nil {
+		oldFile = &pfs.File{}
+		newCommitInfo, err := d.inspectCommit(ctx, newFile.Commit)
+		if err != nil {
+			return nil, nil, err
+		}
+		// ParentCommit may be nil, that's fine because getTreeForCommit
+		// handles nil
+		oldFile.Commit = newCommitInfo.ParentCommit
+		oldFile.Path = newFile.Path
+	}
+	oldTree, err := d.getTreeForCommit(ctx, oldFile.Commit)
+	if err != nil {
+		return nil, nil, err
+	}
+	newNodes, oldNodes, err := newTree.Diff(oldTree, newFile.Path, oldFile.Path)
+	if err != nil {
+		return nil, nil, err
+	}
+	var newFileInfos []*pfs.FileInfo
+	for _, node := range newNodes {
+		newFileInfos = append(newFileInfos, nodeToFileInfo(newFile.Commit, node.Name, node, false))
+	}
+	var oldFileInfos []*pfs.FileInfo
+	for _, node := range oldNodes {
+		oldFileInfos = append(oldFileInfos, nodeToFileInfo(oldFile.Commit, node.Name, node, false))
+	}
+	return newFileInfos, oldFileInfos, nil
+}
+
 func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
 	commitInfo, err := d.inspectCommit(ctx, file.Commit)
 	if err != nil {
