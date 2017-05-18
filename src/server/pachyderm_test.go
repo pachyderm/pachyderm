@@ -34,7 +34,7 @@ import (
 const (
 	// If this environment variable is set, then the tests are being run
 	// in a real cluster in the cloud.
-	InCloudEnv = "PACH_TEST_CLUSTER"
+	InCloudEnv = "PACH_TEST_CLOUD"
 )
 
 func TestPipelineWithParallelism(t *testing.T) {
@@ -3460,6 +3460,13 @@ func TestGarbageCollection(t *testing.T) {
 
 	c := getPachClient(t)
 
+	// The objects/tags that are there originally.  We run GC
+	// first so that later GC runs doesn't collect objects created
+	// by other tests.
+	require.NoError(t, c.GarbageCollect())
+	originalObjects := getAllObjects(t, c)
+	originalTags := getAllTags(t, c)
+
 	dataRepo := uniqueString("TestGarbageCollection")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
@@ -3484,7 +3491,7 @@ func TestGarbageCollection(t *testing.T) {
 			"echo bar >> /pfs/out/bar",
 		},
 		nil,
-		client.NewAtomInput(dataRepo, "/*"),
+		client.NewAtomInput(dataRepo, "/"),
 		"",
 		false,
 	))
@@ -3510,14 +3517,40 @@ func TestGarbageCollection(t *testing.T) {
 	require.Equal(t, "bar", buf.String())
 
 	// Check that the objects that should be removed have been removed.
-	// We should've deleted precisely two objects: the object for the
-	// modified "bar" file, and the object for the commit tree in the
-	// output repo.
+	// We should've deleted precisely one object: the tree for the output
+	// commit.
 	objectsAfter := getAllObjects(t, c)
 	tagsAfter := getAllTags(t, c)
 
 	require.Equal(t, len(tagsBefore), len(tagsAfter))
+	require.Equal(t, len(objectsBefore), len(objectsAfter)+1)
+	objectsBefore = objectsAfter
+	tagsBefore = tagsAfter
+
+	// Now delete the pipeline and GC
+	require.NoError(t, c.DeletePipeline(pipeline, false))
+	require.NoError(t, c.GarbageCollect())
+
+	// We should've deleted one tag since the pipeline has only processed
+	// one datum.
+	// We should've deleted two objects: one is the object referenced by
+	// the tag, and another is the modified "bar" file.
+	objectsAfter = getAllObjects(t, c)
+	tagsAfter = getAllTags(t, c)
+
+	require.Equal(t, len(tagsBefore), len(tagsAfter)+1)
 	require.Equal(t, len(objectsBefore), len(objectsAfter)+2)
+
+	// Now we delete the input repo.
+	require.NoError(t, c.DeleteRepo(dataRepo, false))
+	require.NoError(t, c.GarbageCollect())
+
+	// Since we've now deleted everything that we created in this test,
+	// the tag count and object count should be back to the originals.
+	objectsAfter = getAllObjects(t, c)
+	tagsAfter = getAllTags(t, c)
+	require.Equal(t, len(originalTags), len(tagsAfter))
+	require.Equal(t, len(originalObjects), len(objectsAfter))
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
