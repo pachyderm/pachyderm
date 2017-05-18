@@ -3468,38 +3468,42 @@ func TestGarbageCollection(t *testing.T) {
 	originalTags := getAllTags(t, c)
 
 	dataRepo := uniqueString("TestGarbageCollection")
-	require.NoError(t, c.CreateRepo(dataRepo))
-
-	commit, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, commit.ID, "foo", strings.NewReader("foo"))
-	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, commit.ID, "bar", strings.NewReader("bar"))
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(dataRepo, "master"))
-
 	pipeline := uniqueString("TestGarbageCollectionPipeline")
 
-	// This pipeline copies foo and modifies bar
-	require.NoError(t, c.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{
-			fmt.Sprintf("cp /pfs/%s/foo /pfs/out/foo", dataRepo),
-			fmt.Sprintf("cp /pfs/%s/bar /pfs/out/bar", dataRepo),
-			"echo bar >> /pfs/out/bar",
-		},
-		nil,
-		client.NewAtomInput(dataRepo, "/"),
-		"",
-		false,
-	))
+	var commit *pfs.Commit
+	var err error
+	createInputAndPipeline := func() {
+		require.NoError(t, c.CreateRepo(dataRepo))
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
-	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
+		commit, err = c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		_, err = c.PutFile(dataRepo, commit.ID, "foo", strings.NewReader("foo"))
+		require.NoError(t, err)
+		_, err = c.PutFile(dataRepo, commit.ID, "bar", strings.NewReader("bar"))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(dataRepo, "master"))
+
+		// This pipeline copies foo and modifies bar
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{
+				fmt.Sprintf("cp /pfs/%s/foo /pfs/out/foo", dataRepo),
+				fmt.Sprintf("cp /pfs/%s/bar /pfs/out/bar", dataRepo),
+				"echo bar >> /pfs/out/bar",
+			},
+			nil,
+			client.NewAtomInput(dataRepo, "/"),
+			"",
+			false,
+		))
+		commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+		require.NoError(t, err)
+		commitInfos := collectCommitInfos(t, commitIter)
+		require.Equal(t, 1, len(commitInfos))
+	}
+	createInputAndPipeline()
 
 	objectsBefore := getAllObjects(t, c)
 	tagsBefore := getAllTags(t, c)
@@ -3551,6 +3555,24 @@ func TestGarbageCollection(t *testing.T) {
 	tagsAfter = getAllTags(t, c)
 	require.Equal(t, len(originalTags), len(tagsAfter))
 	require.Equal(t, len(originalObjects), len(objectsAfter))
+
+	// Now we create the pipeline again and check that all data is
+	// accessible.  This is important because there used to be a bug
+	// where we failed to invalidate the cache such that the objects in
+	// the cache were referencing blocks that had been GC-ed.
+	createInputAndPipeline()
+	buf.Reset()
+	require.NoError(t, c.GetFile(dataRepo, commit.ID, "foo", 0, 0, &buf))
+	require.Equal(t, "foo", buf.String())
+	buf.Reset()
+	require.NoError(t, c.GetFile(dataRepo, commit.ID, "bar", 0, 0, &buf))
+	require.Equal(t, "bar", buf.String())
+	buf.Reset()
+	require.NoError(t, c.GetFile(pipeline, "master", "foo", 0, 0, &buf))
+	require.Equal(t, "foo", buf.String())
+	buf.Reset()
+	require.NoError(t, c.GetFile(pipeline, "master", "bar", 0, 0, &buf))
+	require.Equal(t, "barbar\n", buf.String())
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
