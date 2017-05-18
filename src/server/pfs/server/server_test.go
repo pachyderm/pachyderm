@@ -2297,6 +2297,70 @@ func TestPutFileSplitBig(t *testing.T) {
 	}
 }
 
+func TestDiff(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getClient(t)
+	repo := uniqueString("TestDiff")
+	require.NoError(t, c.CreateRepo(repo))
+
+	// Write foo
+	_, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, "master", "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, "master"))
+
+	newFiles, oldFiles, err := c.DiffFile(repo, "master", "", "", "", "")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(newFiles))
+	require.Equal(t, "foo", newFiles[0].File.Path)
+	require.Equal(t, 0, len(oldFiles))
+
+	// Change the value of foo
+	_, err = c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.DeleteFile(repo, "master", "foo"))
+	_, err = c.PutFile(repo, "master", "foo", strings.NewReader("not foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, "master"))
+
+	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(newFiles))
+	require.Equal(t, "foo", newFiles[0].File.Path)
+	require.Equal(t, 1, len(oldFiles))
+	require.Equal(t, "foo", oldFiles[0].File.Path)
+
+	// Write bar
+	_, err = c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, "master", "bar", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, "master"))
+
+	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(newFiles))
+	require.Equal(t, "bar", newFiles[0].File.Path)
+	require.Equal(t, 0, len(oldFiles))
+
+	// Delete bar
+	_, err = c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.DeleteFile(repo, "master", "bar"))
+	require.NoError(t, c.FinishCommit(repo, "master"))
+
+	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "")
+	require.NoError(t, err)
+	require.Equal(t, 0, len(newFiles))
+	require.Equal(t, 1, len(oldFiles))
+	require.Equal(t, "bar", oldFiles[0].File.Path)
+}
+
 func uniqueString(prefix string) string {
 	return prefix + "-" + uuid.NewWithoutDashes()[0:12]
 }
