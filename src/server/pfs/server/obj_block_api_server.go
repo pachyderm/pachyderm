@@ -467,16 +467,16 @@ func (s *objBlockAPIServer) DeleteObjects(ctx context.Context, request *pfsclien
 				return err
 			}
 
+			objPath := s.localServer.objectPath(object)
+			if err := s.objClient.Delete(objPath); err != nil && !s.isNotFoundErr(err) {
+				return err
+			}
+
 			if objectInfo != nil && objectInfo.BlockRef != nil && objectInfo.BlockRef.Block != nil {
 				blockPath := s.localServer.blockPath(objectInfo.BlockRef.Block)
 				if err := s.objClient.Delete(blockPath); err != nil && !s.isNotFoundErr(err) {
 					return err
 				}
-			}
-
-			objPath := s.localServer.objectPath(object)
-			if err := s.objClient.Delete(objPath); err != nil && !s.isNotFoundErr(err) {
-				return err
 			}
 
 			return nil
