@@ -199,12 +199,12 @@ func (h *HashTreeProto) Walk(f func(string, *NodeProto) error) error {
 	return walk(h.Fs, f)
 }
 
-func diff(new HashTree, old HashTree, path string) ([]*NodeProto, []*NodeProto, error) {
-	newNode, err := new.Get(path)
+func diff(new HashTree, old HashTree, newPath string, oldPath string) ([]*NodeProto, []*NodeProto, error) {
+	newNode, err := new.Get(newPath)
 	if err != nil && Code(err) != PathNotFound {
 		return nil, nil, err
 	}
-	oldNode, err := old.Get(path)
+	oldNode, err := old.Get(oldPath)
 	if err != nil && Code(err) != PathNotFound {
 		return nil, nil, err
 	}
@@ -236,7 +236,7 @@ func diff(new HashTree, old HashTree, path string) ([]*NodeProto, []*NodeProto, 
 		}
 	}
 	for child := range children {
-		newSubResult, oldSubResult, err := diff(new, old, pathlib.Join(path, child))
+		newSubResult, oldSubResult, err := diff(new, old, pathlib.Join(newPath, child), pathlib.Join(oldPath, child))
 		if err != nil {
 			return nil, nil, err
 		}
@@ -247,8 +247,8 @@ func diff(new HashTree, old HashTree, path string) ([]*NodeProto, []*NodeProto, 
 }
 
 // Diff implements HashTree.Diff
-func (h *HashTreeProto) Diff(old HashTree, path string) ([]*NodeProto, []*NodeProto, error) {
-	return diff(h, old, path)
+func (h *HashTreeProto) Diff(old HashTree, newPath string, oldPath string) ([]*NodeProto, []*NodeProto, error) {
+	return diff(h, old, newPath, oldPath)
 }
 
 // hashtree is an implementation of the HashTree and OpenHashTree interfaces.
@@ -296,8 +296,8 @@ func (h *hashtree) Walk(f func(string, *NodeProto) error) error {
 }
 
 // Diff implements HashTree.Diff
-func (h *hashtree) Diff(old HashTree, path string) ([]*NodeProto, []*NodeProto, error) {
-	return diff(h, old, path)
+func (h *hashtree) Diff(old HashTree, newPath string, oldPath string) ([]*NodeProto, []*NodeProto, error) {
+	return diff(h, old, newPath, oldPath)
 }
 
 // clone makes a deep copy of 'h' and returns it. This performs one fewer copy
