@@ -430,13 +430,13 @@ func (c APIClient) RerunPipeline(name string, include []*pfs.Commit, exclude []*
 	return sanitizeErr(err)
 }
 
-// GC garbage collects unused data.  Currently GC needs to be run while no
-// data is being added or removed (which, among other things, implies that
-// there shouldn't be jobs actively running).
-func (c APIClient) GC() error {
-	_, err := c.PpsAPIClient.GC(
+// GarbageCollect garbage collects unused data.  Currently GC needs to be
+// run while no data is being added or removed (which, among other things,
+// implies that there shouldn't be jobs actively running).
+func (c APIClient) GarbageCollect() error {
+	_, err := c.PpsAPIClient.GarbageCollect(
 		c.ctx(),
-		&pps.GCRequest{},
+		&pps.GarbageCollectRequest{},
 	)
 	return sanitizeErr(err)
 }

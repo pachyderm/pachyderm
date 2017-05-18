@@ -677,21 +677,16 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	}
 	runPipeline.Flags().StringVarP(&specPath, "file", "f", "", "The file containing the run-pipeline spec, - reads from stdin.")
 
-	gc := &cobra.Command{
-		Use:   "gc",
+	garbageCollect := &cobra.Command{
+		Use:   "garbage-collect",
 		Short: "Garbage collect unused data.",
-		Long: `Garbage collects unused data.
+		Long: `Garbage collect unused data.
 
-Currently, when a file/commit/repo is removed, the associated data is not
-actually deleted from the underlying storage system (e.g. S3).  To remove
-the data, you need to invoke GC manually.
+When a file/commit/repo is deleted, the data is not immediately removed from the underlying storage system (e.g. S3) for performance and architectural reasons.  This is similar to how when you delete a file on your computer, the file is not necessarily wiped from disk immediately.
 
-Currently, GC is implemented such that it assumes no data is being added
-or removed from the cluster.  Among other things, this implies that you
-should only run GC when:
+To actually remove the data, you will need to manually invoke garbage collection.  The easiest way to do it is through "pachctl garbage-collecth".
 
-* No active jobs are running.
-* No "put-file" or "delete-file" are ongoing.
+Currently "pachctl garbage-collect" can only be started when there are no active jobs running.  You also need to ensure that there's no ongoing "put-file".  Garbage collection puts the cluster into a readonly mode where no new jobs can be created and no data can be added.
 `,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
@@ -699,7 +694,7 @@ should only run GC when:
 				return err
 			}
 
-			return client.GC()
+			return client.GarbageCollect()
 		}),
 	}
 
@@ -721,7 +716,7 @@ should only run GC when:
 	result = append(result, startPipeline)
 	result = append(result, stopPipeline)
 	result = append(result, runPipeline)
-	result = append(result, gc)
+	result = append(result, garbageCollect)
 	return result, nil
 }
 

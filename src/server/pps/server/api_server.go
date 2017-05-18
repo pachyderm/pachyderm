@@ -1069,7 +1069,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	return &types.Empty{}, err
 }
 
-func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *pps.GCResponse, retErr error) {
+func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageCollectRequest) (response *pps.GarbageCollectResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "GC")
@@ -1262,7 +1262,7 @@ func (a *apiServer) GC(ctx context.Context, request *pps.GCRequest) (response *p
 		return nil, err
 	}
 
-	return &pps.GCResponse{}, nil
+	return &pps.GarbageCollectResponse{}, nil
 }
 
 // incrementGCGeneration increments the GC generation number in etcd
