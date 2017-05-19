@@ -25,7 +25,7 @@ eval "set -- ${new_opt}"
 case "${1}" in
   --delete-all)
     set -x
-    kops --state=${STATE_STORE} get clusters \
+    kops --state=${STATE_STORE} get clusters | tail -n+2 | awk '{print $1}' \
       | while read name; do
           kops --state=${STATE_STORE} delete cluster --name=${name} --yes
       done
@@ -43,7 +43,7 @@ case "${1}" in
     ;;
   --create)
     set -x
-    sudo $(dirname "${0}")/../../deploy/aws.sh --region=${REGION} --zone=${ZONE} --state=${STATE_STORE}
+    sudo $(dirname "${0}")/../../deploy/aws.sh --region=${REGION} --zone=${ZONE} --state=${STATE_STORE} --no-metrics
     set +x
     ;;
 esac
