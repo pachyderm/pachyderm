@@ -246,6 +246,13 @@ func (a *apiServer) validateInput(ctx context.Context, input *pps.Input, job boo
 	return result
 }
 
+func validateTransform(transform *pps.Transform) error {
+	if len(transform.Cmd) == 0 {
+		return fmt.Errorf("no cmd set")
+	}
+	return nil
+}
+
 // visit each input recursively in ascending order (root last)
 func visit(input *pps.Input, f func(*pps.Input)) {
 	switch {
@@ -302,6 +309,9 @@ func inputCommits(input *pps.Input) []*pfs.Commit {
 }
 
 func (a *apiServer) validateJob(ctx context.Context, jobInfo *pps.JobInfo) error {
+	if err := validateTransform(jobInfo.Transform); err != nil {
+		return err
+	}
 	return a.validateInput(ctx, jobInfo.Input, true)
 }
 
@@ -722,6 +732,9 @@ nextLogCh:
 
 func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
 	if err := a.validateInput(ctx, pipelineInfo.Input, false); err != nil {
+		return err
+	}
+	if err := validateTransform(pipelineInfo.Transform); err != nil {
 		return err
 	}
 	if pipelineInfo.OutputBranch == "" {
