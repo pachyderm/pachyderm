@@ -2259,7 +2259,7 @@ func TestWLPipelineWithExistingInputCommits(t *testing.T) {
 	require.Equal(t, 2, len(commitInfos))
 }
 
-func TestWLPipelineThatSymlinks(t *testing.T) {
+func TestBLPipelineThatSymlinks(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
