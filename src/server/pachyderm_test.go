@@ -1245,7 +1245,7 @@ func TestBLDeleteAfterMembershipChange(t *testing.T) {
 
 // TODO(msteffen): This test breaks the suite when run against cloud providers,
 // because killing the pachd pod breaks the connection with pachctl port-forward
-func TestWLPachdRestartResumesRunningJobs(t *testing.T) {
+func TestBLPachdRestartResumesRunningJobs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1473,7 +1473,7 @@ func TestWLAcceptReturnCode(t *testing.T) {
 
 // TODO(msteffen): This test breaks the suite when run against cloud providers,
 // because killing the pachd pod breaks the connection with pachctl port-forward
-func TestWLRestartAll(t *testing.T) {
+func TestBLRestartAll(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1525,7 +1525,7 @@ func TestWLRestartAll(t *testing.T) {
 
 // TODO(msteffen): This test breaks the suite when run against cloud providers,
 // because killing the pachd pod breaks the connection with pachctl port-forward
-func TestWLRestartOne(t *testing.T) {
+func TestBLRestartOne(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2516,7 +2516,7 @@ func collectCommitInfos(t testing.TB, commitInfoIter client.CommitInfoIterator) 
 	}
 }
 
-func TestWLParallelismSpec(t *testing.T) {
+func TestBLParallelismSpec(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -3039,7 +3039,7 @@ func TestWLUseMultipleWorkers(t *testing.T) {
 // just makes sure that when pachyderm is deployed, we give rethinkdb, pachd,
 // and etcd default resource requests. This prevents them from overloading
 // nodes and getting evicted, which can slow down or break a cluster.
-func TestWLSystemResourceRequests(t *testing.T) {
+func TestBLSystemResourceRequests(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
