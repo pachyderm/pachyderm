@@ -1859,18 +1859,26 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 						parentFileInfo, err := pfsClient.InspectFile(ctx, &pfs.InspectFileRequest{
 							File: client.NewFile(parentFile.FileInfo.File.Commit.Repo.Name, newBranchParentCommit.ID, parentFile.FileInfo.File.Path),
 						})
-						if err != nil && !isNotFoundErr(err) {
-							return err
+						if err != nil {
+							if !isNotFoundErr(err) {
+								return err
+							}
+							// we didn't find a match for this file, so we know
+							// there's no matching datum
+							break
 						}
+						file.ParentCommit = parentFileInfo.File.Commit
 						parentFile.FileInfo = parentFileInfo
 					}
 					parentFiles = append(parentFiles, parentFile)
 				}
-				_parentOutputTag, err := workerpkg.HashDatum(pipelineInfo, nil, parentFiles)
-				if err != nil {
-					return err
+				if len(parentFiles) == len(files) {
+					_parentOutputTag, err := workerpkg.HashDatum(pipelineInfo, nil, parentFiles)
+					if err != nil {
+						return err
+					}
+					parentOutputTag = &pfs.Tag{Name: _parentOutputTag}
 				}
-				parentOutputTag = &pfs.Tag{Name: _parentOutputTag}
 			}
 			go func() {
 				userCodeFailures := 0
