@@ -25,7 +25,6 @@ import (
 	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	workerpkg "github.com/pachyderm/pachyderm/src/server/pkg/worker"
-	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
@@ -133,22 +132,13 @@ func GetExpectedNumWorkers(kubeClient *kube.Client, spec *pps.ParallelismSpec) (
 
 type apiServer struct {
 	protorpclog.Logger
-	etcdPrefix          string
-	hasher              *ppsserver.Hasher
-	address             string
-	etcdClient          *etcd.Client
-	pachConn            *grpc.ClientConn
-	pachConnOnce        sync.Once
-	kubeClient          *kube.Client
-	shardLock           sync.RWMutex
-	shardCtxs           map[uint64]*ctxAndCancel
-	pipelineCancelsLock sync.Mutex
-	pipelineCancels     map[string]context.CancelFunc
-
-	// lock for 'jobCancels'
-	jobCancelsLock sync.Mutex
-	jobCancels     map[string]context.CancelFunc
-	version        int64
+	etcdPrefix   string
+	address      string
+	etcdClient   *etcd.Client
+	pachConn     *grpc.ClientConn
+	pachConnOnce sync.Once
+	kubeClient   *kube.Client
+	version      int64
 	// versionLock protects the version field.
 	// versionLock must be held BEFORE reading from version and UNTIL all
 	// requests using version have returned
@@ -1129,67 +1119,6 @@ func (a *apiServer) setJobCancel(jobID string, cancel context.CancelFunc) {
 	a.jobCancels[jobID] = cancel
 }
 
-// pipelineWatcher watches for pipelines and launch pipelineManager
-// when it gets a pipeline that falls into a shard assigned to the
-// API server.
-func (a *apiServer) pipelineWatcher(ctx context.Context, shard uint64) {
-	b := backoff.NewInfiniteBackOff()
-	backoff.RetryNotify(func() error {
-		pipelineWatcher, err := a.pipelines.ReadOnly(ctx).WatchByIndex(stoppedIndex, false)
-		if err != nil {
-			return err
-		}
-		defer pipelineWatcher.Close()
-		for {
-			event, ok := <-pipelineWatcher.Watch()
-			if !ok {
-				return fmt.Errorf("pipelineWatcher closed unexpectedly")
-			}
-			if event.Err != nil {
-				return event.Err
-			}
-			pipelineName := string(event.Key)
-			if a.hasher.HashPipeline(pipelineName) != shard {
-				// Skip pipelines that don't fall into my shard
-				continue
-			}
-			switch event.Type {
-			case watch.EventPut:
-				var pipelineInfo pps.PipelineInfo
-				if err := event.Unmarshal(&pipelineName, &pipelineInfo); err != nil {
-					return err
-				}
-				if pipelineInfo.Input == nil {
-					pipelineInfo.Input = translatePipelineInputs(pipelineInfo.Inputs)
-				}
-				if cancel := a.deletePipelineCancel(pipelineName); cancel != nil {
-					protolion.Infof("Appear to be running a pipeline (%s) that's already being run; this may be a bug", pipelineName)
-					protolion.Infof("cancelling pipeline: %s", pipelineName)
-					cancel()
-				}
-				pipelineCtx, cancel := context.WithCancel(ctx)
-				a.setPipelineCancel(pipelineName, cancel)
-				protolion.Infof("launching pipeline manager for pipeline %s", pipelineInfo.Pipeline.Name)
-				go a.pipelineManager(pipelineCtx, &pipelineInfo)
-			case watch.EventDelete:
-				if cancel := a.deletePipelineCancel(pipelineName); cancel != nil {
-					protolion.Infof("cancelling pipeline: %s", pipelineName)
-					cancel()
-				}
-			}
-		}
-	}, b, func(err error, d time.Duration) error {
-		select {
-		case <-ctx.Done():
-			// Exit the retry loop if context got cancelled
-			return err
-		default:
-		}
-		protolion.Errorf("error receiving pipeline updates: %v; retrying in %v", err, d)
-		return nil
-	})
-}
-
 // jobWatcher watches for unfinished jobs and launches jobManagers for
 // the jobs that fall into this server's shards
 func (a *apiServer) jobWatcher(ctx context.Context, shard uint64) {
@@ -2093,36 +2022,6 @@ func (a *apiServer) deleteWorkers(rcName string) error {
 			return err
 		}
 	}
-	return nil
-}
-
-func (a *apiServer) AddShard(shard uint64) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	a.shardLock.Lock()
-	defer a.shardLock.Unlock()
-	if _, ok := a.shardCtxs[shard]; ok {
-		return fmt.Errorf("shard %d is being added twice; this is likely a bug", shard)
-	}
-	a.shardCtxs[shard] = &ctxAndCancel{
-		ctx:    ctx,
-		cancel: cancel,
-	}
-	protolion.Infof("adding shard %d", shard)
-	go a.jobWatcher(ctx, shard)
-	go a.pipelineWatcher(ctx, shard)
-	return nil
-}
-
-func (a *apiServer) DeleteShard(shard uint64) error {
-	a.shardLock.Lock()
-	defer a.shardLock.Unlock()
-	ctxAndCancel, ok := a.shardCtxs[shard]
-	if !ok {
-		return fmt.Errorf("shard %d is being deleted, but it was never added; this is likely a bug", shard)
-	}
-	ctxAndCancel.cancel()
-	delete(a.shardCtxs, shard)
-	protolion.Infof("removing shard %d", shard)
 	return nil
 }
 
