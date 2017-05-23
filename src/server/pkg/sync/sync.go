@@ -38,6 +38,69 @@ func NewPuller() *Puller {
 	}
 }
 
+func (p *Puller) makePipe(client *pachclient.APIClient, path string, repo, commit, file string) error {
+	if err := syscall.Mkfifo(path, 0666); err != nil {
+		return err
+	}
+	func() {
+		p.Lock()
+		defer p.Unlock()
+		p.pipes[path] = true
+	}()
+	// This goro will block until the user's code opens the
+	// fifo.  That means we need to "abandon" this goro so that
+	// the function can return and the caller can execute the
+	// user's code. Waiting for this goro to return would
+	// produce a deadlock. This goro will exit (if it hasn't already)
+	// when CleanUp is called.
+	p.wg.Add(1)
+	go func() {
+		defer p.wg.Done()
+		if err := func() (retErr error) {
+			f, err := os.OpenFile(path, os.O_WRONLY, os.ModeNamedPipe)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := f.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			// If the CleanUp routine has already run, then there's
+			// no point in downloading and sending the file, so we
+			// exit early.
+			if func() bool {
+				p.Lock()
+				defer p.Unlock()
+				delete(p.pipes, path)
+				return p.cleaned
+			}() {
+				return nil
+			}
+			return client.GetFile(repo, commit, file, 0, 0, f)
+		}(); err != nil {
+			select {
+			case p.errCh <- err:
+			default:
+			}
+		}
+	}()
+	return nil
+}
+
+func (p *Puller) makeFile(client *pachclient.APIClient, path, repo, commit, file string) (retErr error) {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := f.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	return client.GetFile(repo, commit, file, 0, 0, f)
+}
+
 // Pull clones an entire repo at a certain commit.
 // root is the local path you want to clone to.
 // fileInfo is the file/dir we are puuling.
@@ -59,74 +122,67 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 			return err
 		}
 		if pipes {
-			if err := syscall.Mkfifo(path, 0666); err != nil {
-				return err
-			}
-			func() {
-				p.Lock()
-				defer p.Unlock()
-				p.pipes[path] = true
-			}()
-			// This goro will block until the user's code opens the
-			// fifo.  That means we need to "abandon" this goro so that
-			// the function can return and the caller can execute the
-			// user's code. Waiting for this goro to return would
-			// produce a deadlock. This goro will exit (if it hasn't already)
-			// when CleanUp is called.
-			p.wg.Add(1)
-			go func() {
-				defer p.wg.Done()
-				if err := func() (retErr error) {
-					f, err := os.OpenFile(path, os.O_WRONLY, os.ModeNamedPipe)
-					if err != nil {
-						return err
-					}
-					defer func() {
-						if err := f.Close(); err != nil && retErr == nil {
-							retErr = err
-						}
-					}()
-					// If the CleanUp routine has already run, then there's
-					// no point in downloading and sending the file, so we
-					// exit early.
-					if func() bool {
-						p.Lock()
-						defer p.Unlock()
-						delete(p.pipes, path)
-						return p.cleaned
-					}() {
-						return nil
-					}
-
-					return client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, f)
-				}(); err != nil {
-					select {
-					case p.errCh <- err:
-					default:
-					}
-				}
-			}()
-		} else {
-			eg.Go(func() (retErr error) {
-				limiter.Acquire()
-				defer limiter.Release()
-				f, err := os.Create(path)
-				if err != nil {
-					return err
-				}
-				defer func() {
-					if err := f.Close(); err != nil && retErr == nil {
-						retErr = err
-					}
-				}()
-				return client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, f)
-			})
+			return p.makePipe(client, path, repo, commit, fileInfo.File.Path)
 		}
+		eg.Go(func() (retErr error) {
+			limiter.Acquire()
+			defer limiter.Release()
+			return p.makeFile(client, path, repo, commit, fileInfo.File.Path)
+		})
 		return nil
 	}); err != nil {
 		return err
 	}
 	return eg.Wait()
+}
+
+// PullDiff is like Pull except that it materializes a Diff of the content
+// rather than a the actual content. If newOnly is true then only new files
+// will be downloaded and they will be downloaded under root. Otherwise new and
+// old files will be downloaded under root/new and root/old respectively.
+func (p *Puller) PullDiff(client *pachclient.APIClient, root string, newRepo, newCommit, newFile, oldRepo, oldCommit, oldFile string, newOnly bool, pipes bool, concurrency int) error {
+	newFiles, oldFiles, err := client.DiffFile(newRepo, newCommit, newFile, oldRepo, oldCommit, oldFile)
+	if err != nil {
+		return err
+	}
+	limiter := limit.New(concurrency)
+	var eg errgroup.Group
+	for _, newFile := range newFiles {
+		path := filepath.Join(root, newFile.File.Path)
+		if newOnly {
+			path = filepath.Join(root, "new", newFile.File.Path)
+		}
+		if pipes {
+			if err := p.makePipe(client, path, newFile.File.Commit.Repo.Name, newFile.File.Commit.ID, newFile.File.Path); err != nil {
+				return err
+			}
+		} else {
+			newFile := newFile
+			eg.Go(func() error {
+				limiter.Acquire()
+				defer limiter.Release()
+				return p.makeFile(client, path, newFile.File.Commit.Repo.Name, newFile.File.Commit.ID, newFile.File.Path)
+			})
+		}
+	}
+	if !newOnly {
+		for _, oldFile := range oldFiles {
+			path := filepath.Join(root, "old", oldFile.File.Path)
+			if pipes {
+				if err := p.makePipe(client, path, oldFile.File.Commit.Repo.Name, oldFile.File.Commit.ID, oldFile.File.Path); err != nil {
+					return err
+				}
+			} else {
+				oldFile := oldFile
+				eg.Go(func() error {
+					limiter.Acquire()
+					defer limiter.Release()
+					return p.makeFile(client, path, oldFile.File.Commit.Repo.Name, oldFile.File.Commit.ID, oldFile.File.Path)
+				})
+			}
+		}
+	}
+	return nil
 }
 
 // CleanUp cleans up blocked syscalls for pipes that were never opened. It also
