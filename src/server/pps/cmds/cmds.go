@@ -33,79 +33,13 @@ const (
 	codeend   = "```"
 )
 
-// ByCreationTime is an implementation of sort.Interface which
-// sorts pps job info by creation time, ascending.
-type ByCreationTime []*ppsclient.JobInfo
-
-func (arr ByCreationTime) Len() int { return len(arr) }
-
-func (arr ByCreationTime) Swap(i, j int) { arr[i], arr[j] = arr[j], arr[i] }
-
-func (arr ByCreationTime) Less(i, j int) bool {
-	if arr[i].Started == nil || arr[j].Started == nil {
-		return false
-	}
-
-	if arr[i].Started.Seconds < arr[j].Started.Seconds {
-		return true
-	} else if arr[i].Started.Seconds == arr[j].Started.Seconds {
-		return arr[i].Started.Nanos < arr[j].Started.Nanos
-	}
-
-	return false
-}
-
-// pipelineManifestReader helps with unmarshalling pipeline configs from JSON. It's used by
-// create-pipeline and update-pipeline
-type pipelineManifestReader struct {
-	buf     bytes.Buffer
-	decoder *json.Decoder
-}
-
-func newPipelineManifestReader(path string) (result *pipelineManifestReader, retErr error) {
-	result = new(pipelineManifestReader)
-	var pipelineReader io.Reader
-	if path == "-" {
-		pipelineReader = io.TeeReader(os.Stdin, &result.buf)
-		fmt.Print("Reading from stdin.\n")
-	} else if url, err := url.Parse(path); err == nil && url.Scheme != "" {
-		resp, err := http.Get(url.String())
-		if err != nil {
-			return nil, sanitizeErr(err)
-		}
-		defer func() {
-			if err := resp.Body.Close(); err != nil && retErr == nil {
-				retErr = sanitizeErr(err)
-			}
-		}()
-		rawBytes, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-		pipelineReader = io.TeeReader(strings.NewReader(string(rawBytes)), &result.buf)
-	} else {
-		rawBytes, err := ioutil.ReadFile(path)
-		if err != nil {
-			return nil, err
-		}
-
-		pipelineReader = io.TeeReader(strings.NewReader(string(rawBytes)), &result.buf)
-	}
-	result.decoder = json.NewDecoder(pipelineReader)
-	return result, nil
-}
-
-func (r *pipelineManifestReader) nextCreatePipelineRequest() (*ppsclient.CreatePipelineRequest, error) {
-	var result ppsclient.CreatePipelineRequest
-	if err := jsonpb.UnmarshalNext(r.decoder, &result); err != nil {
-		return nil, err
-	}
-	return &result, nil
-}
-
 // Cmds returns a slice containing pps commands.
 func Cmds(address string, noMetrics *bool) ([]*cobra.Command, error) {
 	metrics := !*noMetrics
+	raw := false
+	rawFlag := func(cmd *cobra.Command) {
+		cmd.Flags().BoolVar(&raw, "raw", false, "disable pretty printing, print raw json")
+	}
 	marshaller := &jsonpb.Marshaler{Indent: "  "}
 
 	job := &cobra.Command{
@@ -230,10 +164,14 @@ The increase the throughput of a job increase the Shard paremeter.
 			if jobInfo == nil {
 				cmdutil.ErrorAndExit("job %s not found.", args[0])
 			}
+			if raw {
+				return marshaller.Marshal(os.Stdout, jobInfo)
+			}
 			return pretty.PrintDetailedJobInfo(jobInfo)
 		}),
 	}
 	inspectJob.Flags().BoolVarP(&block, "block", "b", false, "block until the job has either succeeded or failed")
+	rawFlag(inspectJob)
 
 	var pipelineName string
 	listJob := &cobra.Command{
@@ -255,38 +193,44 @@ Examples:
 	# return all jobs in pipeline foo and whose input commits include bar/YYY
 	$ pachctl list-job -p foo bar/YYY
 ` + codeend,
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
-				cmdutil.ErrorAndExit("error from InspectJob: %v", sanitizeErr(err))
+				return err
 			}
 
 			commits, err := cmdutil.ParseCommits(args)
 			if err != nil {
-				cmd.Usage()
-				cmdutil.ErrorAndExit("error from InspectJob: %v", sanitizeErr(err))
+				return err
 			}
 
 			jobInfos, err := client.ListJob(pipelineName, commits)
 			if err != nil {
-				cmdutil.ErrorAndExit("error from InspectJob: %v", sanitizeErr(err))
+				return sanitizeErr(err)
 			}
 
 			// Display newest jobs first
 			sort.Sort(sort.Reverse(ByCreationTime(jobInfos)))
 
+			if raw {
+				for _, jobInfo := range jobInfos {
+					if err := marshaller.Marshal(os.Stdout, jobInfo); err != nil {
+						return err
+					}
+				}
+				return nil
+			}
 			writer := tabwriter.NewWriter(os.Stdout, 0, 1, 1, ' ', 0)
 			pretty.PrintJobHeader(writer)
 			for _, jobInfo := range jobInfos {
 				pretty.PrintJobInfo(writer, jobInfo)
 			}
 
-			if err := writer.Flush(); err != nil {
-				cmdutil.ErrorAndExit("error from InspectJob: %v", sanitizeErr(err))
-			}
-		},
+			return writer.Flush()
+		}),
 	}
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
+	rawFlag(listJob)
 
 	deleteJob := &cobra.Command{
 		Use:   "delete-job job-id",
@@ -350,7 +294,6 @@ Examples:
 	var (
 		jobID       string
 		commaInputs string // comma-separated list of input files of interest
-		raw         bool
 	)
 	getLogs := &cobra.Command{
 		Use:   "get-logs [--pipeline=<pipeline>|--job=<job id>]",
@@ -542,14 +485,18 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 			pipelineInfo, err := client.InspectPipeline(args[0])
 			if err != nil {
-				cmdutil.ErrorAndExit("error from InspectPipeline: %s", err.Error())
+				return sanitizeErr(err)
 			}
 			if pipelineInfo == nil {
-				cmdutil.ErrorAndExit("pipeline %s not found.", args[0])
+				return fmt.Errorf("pipeline %s not found", args[0])
+			}
+			if raw {
+				return marshaller.Marshal(os.Stdout, pipelineInfo)
 			}
 			return pretty.PrintDetailedPipelineInfo(pipelineInfo)
 		}),
 	}
+	rawFlag(inspectPipeline)
 
 	listPipeline := &cobra.Command{
 		Use:   "list-pipeline",
@@ -562,7 +509,15 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 			pipelineInfos, err := client.ListPipeline()
 			if err != nil {
-				cmdutil.ErrorAndExit("error from ListPipeline: %s", err.Error())
+				return sanitizeErr(err)
+			}
+			if raw {
+				for _, pipelineInfo := range pipelineInfos {
+					if err := marshaller.Marshal(os.Stdout, pipelineInfo); err != nil {
+						return err
+					}
+				}
+				return nil
 			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			pretty.PrintPipelineHeader(writer)
@@ -572,6 +527,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			return writer.Flush()
 		}),
 	}
+	rawFlag(listPipeline)
 
 	var deleteJobs bool
 	deletePipeline := &cobra.Command{
@@ -718,6 +674,76 @@ Currently "pachctl garbage-collect" can only be started when there are no active
 	result = append(result, runPipeline)
 	result = append(result, garbageCollect)
 	return result, nil
+}
+
+// ByCreationTime is an implementation of sort.Interface which
+// sorts pps job info by creation time, ascending.
+type ByCreationTime []*ppsclient.JobInfo
+
+func (arr ByCreationTime) Len() int { return len(arr) }
+
+func (arr ByCreationTime) Swap(i, j int) { arr[i], arr[j] = arr[j], arr[i] }
+
+func (arr ByCreationTime) Less(i, j int) bool {
+	if arr[i].Started == nil || arr[j].Started == nil {
+		return false
+	}
+
+	if arr[i].Started.Seconds < arr[j].Started.Seconds {
+		return true
+	} else if arr[i].Started.Seconds == arr[j].Started.Seconds {
+		return arr[i].Started.Nanos < arr[j].Started.Nanos
+	}
+
+	return false
+}
+
+// pipelineManifestReader helps with unmarshalling pipeline configs from JSON. It's used by
+// create-pipeline and update-pipeline
+type pipelineManifestReader struct {
+	buf     bytes.Buffer
+	decoder *json.Decoder
+}
+
+func newPipelineManifestReader(path string) (result *pipelineManifestReader, retErr error) {
+	result = new(pipelineManifestReader)
+	var pipelineReader io.Reader
+	if path == "-" {
+		pipelineReader = io.TeeReader(os.Stdin, &result.buf)
+		fmt.Print("Reading from stdin.\n")
+	} else if url, err := url.Parse(path); err == nil && url.Scheme != "" {
+		resp, err := http.Get(url.String())
+		if err != nil {
+			return nil, sanitizeErr(err)
+		}
+		defer func() {
+			if err := resp.Body.Close(); err != nil && retErr == nil {
+				retErr = sanitizeErr(err)
+			}
+		}()
+		rawBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		pipelineReader = io.TeeReader(strings.NewReader(string(rawBytes)), &result.buf)
+	} else {
+		rawBytes, err := ioutil.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
+
+		pipelineReader = io.TeeReader(strings.NewReader(string(rawBytes)), &result.buf)
+	}
+	result.decoder = json.NewDecoder(pipelineReader)
+	return result, nil
+}
+
+func (r *pipelineManifestReader) nextCreatePipelineRequest() (*ppsclient.CreatePipelineRequest, error) {
+	var result ppsclient.CreatePipelineRequest
+	if err := jsonpb.UnmarshalNext(r.decoder, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
 }
 
 func describeSyntaxError(originalErr error, parsedBuffer bytes.Buffer) error {
