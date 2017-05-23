@@ -171,7 +171,7 @@ func NewJobAPIServer(pachClient *client.APIClient, jobInfo *pps.JobInfo, workerN
 	return server
 }
 
-func (a *APIServer) downloadData(inputs []*Input, puller *filesync.Puller) error {
+func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag) error {
 	for _, input := range inputs {
 		file := input.FileInfo.File
 		root := filepath.Join(client.PPSInputPrefix, input.Name, file.Path)
@@ -186,6 +186,19 @@ func (a *APIServer) downloadData(inputs []*Input, puller *filesync.Puller) error
 			if err := puller.Pull(a.pachClient, root, file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, concurrency); err != nil {
 				return err
 			}
+		}
+	}
+	if parentTag != nil {
+		var buffer bytes.Buffer
+		if err := a.pachClient.GetTag(parentTag.Name, &buffer); err != nil {
+			logger.Logf("error getting parent for datum %v: %v", inputs, err)
+		}
+		tree, err := hashtree.Deserialize(buffer.Bytes())
+		if err != nil {
+			return fmt.Errorf("failed to deserialize parent hashtree: %v", err)
+		}
+		if err := puller.PullTree(a.pachClient, client.PPSOutputPath, tree, false, concurrency); err != nil {
+			return fmt.Errorf("error pulling output tree: %+v", err)
 		}
 	}
 	return nil
@@ -533,7 +546,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	// Download input data
 	logger.Logf("input has not been processed, downloading data")
 	puller := filesync.NewPuller()
-	err = a.downloadData(req.Data, puller)
+	err = a.downloadData(logger, req.Data, puller, req.ParentOutput)
 	// We run these cleanup functions no matter what, so that if
 	// downloadData partially succeeded, we still clean up the resources.
 	defer func() {

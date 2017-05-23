@@ -11,6 +11,7 @@ import (
 	pachclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
 	"golang.org/x/sync/errgroup"
@@ -141,12 +142,12 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 // will be downloaded and they will be downloaded under root. Otherwise new and
 // old files will be downloaded under root/new and root/old respectively.
 func (p *Puller) PullDiff(client *pachclient.APIClient, root string, newRepo, newCommit, newFile, oldRepo, oldCommit, oldFile string, newOnly bool, pipes bool, concurrency int) error {
+	limiter := limit.New(concurrency)
+	var eg errgroup.Group
 	newFiles, oldFiles, err := client.DiffFile(newRepo, newCommit, newFile, oldRepo, oldCommit, oldFile)
 	if err != nil {
 		return err
 	}
-	limiter := limit.New(concurrency)
-	var eg errgroup.Group
 	for _, newFile := range newFiles {
 		path := filepath.Join(root, newFile.File.Path)
 		if newOnly {
@@ -183,6 +184,87 @@ func (p *Puller) PullDiff(client *pachclient.APIClient, root string, newRepo, ne
 		}
 	}
 	return nil
+}
+
+func (p *Puller) PullTree(client *pachclient.APIClient, root string, tree hashtree.HashTree, pipes bool, concurrency int) error {
+	limiter := limit.New(concurrency)
+	var eg errgroup.Group
+	if err := tree.Walk(func(path string, node *hashtree.NodeProto) error {
+		if node.FileNode != nil {
+			path := filepath.Join(root, path)
+			var hashes []string
+			for _, object := range node.FileNode.Objects {
+				hashes = append(hashes, object.Hash)
+			}
+			if pipes {
+				if err := syscall.Mkfifo(path, 0666); err != nil {
+					return err
+				}
+				func() {
+					p.Lock()
+					defer p.Unlock()
+					p.pipes[path] = true
+				}()
+				// This goro will block until the user's code opens the
+				// fifo.  That means we need to "abandon" this goro so that
+				// the function can return and the caller can execute the
+				// user's code. Waiting for this goro to return would
+				// produce a deadlock. This goro will exit (if it hasn't already)
+				// when CleanUp is called.
+				p.wg.Add(1)
+				go func() {
+					defer p.wg.Done()
+					if err := func() (retErr error) {
+						f, err := os.OpenFile(path, os.O_WRONLY, os.ModeNamedPipe)
+						if err != nil {
+							return err
+						}
+						defer func() {
+							if err := f.Close(); err != nil && retErr == nil {
+								retErr = err
+							}
+						}()
+						// If the CleanUp routine has already run, then there's
+						// no point in downloading and sending the file, so we
+						// exit early.
+						if func() bool {
+							p.Lock()
+							defer p.Unlock()
+							delete(p.pipes, path)
+							return p.cleaned
+						}() {
+							return nil
+						}
+						return client.GetObjects(hashes, 0, 0, f)
+					}(); err != nil {
+						select {
+						case p.errCh <- err:
+						default:
+						}
+					}
+				}()
+			} else {
+				limiter.Acquire()
+				defer limiter.Release()
+				eg.Go(func() (retErr error) {
+					f, err := os.Create(path)
+					if err != nil {
+						return err
+					}
+					defer func() {
+						if err := f.Close(); err != nil && retErr == nil {
+							retErr = err
+						}
+					}()
+					return client.GetObjects(hashes, 0, 0, f)
+				})
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	return eg.Wait()
 }
 
 // CleanUp cleans up blocked syscalls for pipes that were never opened. It also
