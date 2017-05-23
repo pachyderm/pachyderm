@@ -23,3 +23,11 @@ ln -s /pfs/input/log.txt /pfs/out/logs/log.txt
 Under the hood, Pachyderm is smart enough to recognize that the output file simply symlinks to a file that already exists in Pachyderm, and therefore skips the upload altogether.
 
 Note that if your shuffling pipeline only needs the names of the input files but not their content, you can use [`lazy input`](http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html#atom-input).  That way, your shuffling pipeline can skip both the download and the upload.
+
+## Garbage collection
+
+When a file/commit/repo is deleted, the data is not immediately removed from the underlying storage system (e.g. S3) for performance and architectural reasons.  This is similar to how when you delete a file on your computer, the file is not necessarily wiped from disk immediately.
+
+To actually remove the data, you will need to manually invoke garbage collection.  The easiest way to do it is through `pachctl garbage-collect`.
+
+Currently `pachctl garbage-collect` can only be started when there are no active jobs running.  You also need to ensure that there's no ongoing `put-file`.  Garbage collection puts the cluster into a readonly mode where no new jobs can be created and no data can be added.

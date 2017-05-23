@@ -440,7 +440,8 @@ func (a *APIServer) cleanUpData() error {
 	return err
 }
 
-// HashDatum computes and returns the hash of a datum + pipeline.
+// HashDatum computes and returns the hash of datum + pipeline, with a
+// pipeline-specific prefix.
 func (a *APIServer) HashDatum(data []*Input) (string, error) {
 	hash := sha256.New()
 	for _, datum := range data {
@@ -448,6 +449,7 @@ func (a *APIServer) HashDatum(data []*Input) (string, error) {
 		hash.Write([]byte(datum.FileInfo.File.Path))
 		hash.Write(datum.FileInfo.Hash)
 	}
+	var prefix string
 	if a.pipelineInfo != nil {
 		bytes, err := proto.Marshal(a.pipelineInfo.Transform)
 		if err != nil {
@@ -457,6 +459,8 @@ func (a *APIServer) HashDatum(data []*Input) (string, error) {
 		hash.Write([]byte(a.pipelineInfo.Pipeline.Name))
 		hash.Write([]byte(a.pipelineInfo.ID))
 		hash.Write([]byte(strconv.Itoa(int(a.pipelineInfo.Version))))
+
+		prefix = client.HashPipelineID(a.pipelineInfo.ID)
 	} else if a.jobInfo != nil {
 		bytes, err := proto.Marshal(a.jobInfo.Transform)
 		if err != nil {
@@ -467,7 +471,8 @@ func (a *APIServer) HashDatum(data []*Input) (string, error) {
 	} else {
 		return "", fmt.Errorf("malformed APIServer: has neither pipelineInfo or jobInfo; this is likely a bug")
 	}
-	return hex.EncodeToString(hash.Sum(nil)), nil
+
+	return prefix + hex.EncodeToString(hash.Sum(nil)), nil
 }
 
 // Process processes a datum.

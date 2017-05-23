@@ -31,6 +31,12 @@ import (
 	"k8s.io/kubernetes/pkg/labels"
 )
 
+const (
+	// If this environment variable is set, then the tests are being run
+	// in a real cluster in the cloud.
+	InCloudEnv = "PACH_TEST_CLOUD"
+)
+
 func TestPipelineWithParallelism(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -3442,6 +3448,154 @@ func TestUnionInput(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestGarbageCollection(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	if os.Getenv(InCloudEnv) == "" {
+		t.Skip("Skipping this test as it can only be run in the cloud.")
+	}
+
+	c := getPachClient(t)
+
+	// The objects/tags that are there originally.  We run GC
+	// first so that later GC runs doesn't collect objects created
+	// by other tests.
+	require.NoError(t, c.GarbageCollect())
+	originalObjects := getAllObjects(t, c)
+	originalTags := getAllTags(t, c)
+
+	dataRepo := uniqueString("TestGarbageCollection")
+	pipeline := uniqueString("TestGarbageCollectionPipeline")
+
+	var commit *pfs.Commit
+	var err error
+	createInputAndPipeline := func() {
+		require.NoError(t, c.CreateRepo(dataRepo))
+
+		commit, err = c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		_, err = c.PutFile(dataRepo, commit.ID, "foo", strings.NewReader("foo"))
+		require.NoError(t, err)
+		_, err = c.PutFile(dataRepo, commit.ID, "bar", strings.NewReader("bar"))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(dataRepo, "master"))
+
+		// This pipeline copies foo and modifies bar
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{
+				fmt.Sprintf("cp /pfs/%s/foo /pfs/out/foo", dataRepo),
+				fmt.Sprintf("cp /pfs/%s/bar /pfs/out/bar", dataRepo),
+				"echo bar >> /pfs/out/bar",
+			},
+			nil,
+			client.NewAtomInput(dataRepo, "/"),
+			"",
+			false,
+		))
+		commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+		require.NoError(t, err)
+		commitInfos := collectCommitInfos(t, commitIter)
+		require.Equal(t, 1, len(commitInfos))
+	}
+	createInputAndPipeline()
+
+	objectsBefore := getAllObjects(t, c)
+	tagsBefore := getAllTags(t, c)
+
+	// Now delete the output repo and GC
+	require.NoError(t, c.DeleteRepo(pipeline, false))
+	require.NoError(t, c.GarbageCollect())
+
+	// Check that data still exists in the input repo
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(dataRepo, commit.ID, "foo", 0, 0, &buf))
+	require.Equal(t, "foo", buf.String())
+	buf.Reset()
+	require.NoError(t, c.GetFile(dataRepo, commit.ID, "bar", 0, 0, &buf))
+	require.Equal(t, "bar", buf.String())
+
+	// Check that the objects that should be removed have been removed.
+	// We should've deleted precisely one object: the tree for the output
+	// commit.
+	objectsAfter := getAllObjects(t, c)
+	tagsAfter := getAllTags(t, c)
+
+	require.Equal(t, len(tagsBefore), len(tagsAfter))
+	require.Equal(t, len(objectsBefore), len(objectsAfter)+1)
+	objectsBefore = objectsAfter
+	tagsBefore = tagsAfter
+
+	// Now delete the pipeline and GC
+	require.NoError(t, c.DeletePipeline(pipeline, false))
+	require.NoError(t, c.GarbageCollect())
+
+	// We should've deleted one tag since the pipeline has only processed
+	// one datum.
+	// We should've deleted two objects: one is the object referenced by
+	// the tag, and another is the modified "bar" file.
+	objectsAfter = getAllObjects(t, c)
+	tagsAfter = getAllTags(t, c)
+
+	require.Equal(t, len(tagsBefore), len(tagsAfter)+1)
+	require.Equal(t, len(objectsBefore), len(objectsAfter)+2)
+
+	// Now we delete the input repo.
+	require.NoError(t, c.DeleteRepo(dataRepo, false))
+	require.NoError(t, c.GarbageCollect())
+
+	// Since we've now deleted everything that we created in this test,
+	// the tag count and object count should be back to the originals.
+	objectsAfter = getAllObjects(t, c)
+	tagsAfter = getAllTags(t, c)
+	require.Equal(t, len(originalTags), len(tagsAfter))
+	require.Equal(t, len(originalObjects), len(objectsAfter))
+
+	// Now we create the pipeline again and check that all data is
+	// accessible.  This is important because there used to be a bug
+	// where we failed to invalidate the cache such that the objects in
+	// the cache were referencing blocks that had been GC-ed.
+	createInputAndPipeline()
+	buf.Reset()
+	require.NoError(t, c.GetFile(dataRepo, commit.ID, "foo", 0, 0, &buf))
+	require.Equal(t, "foo", buf.String())
+	buf.Reset()
+	require.NoError(t, c.GetFile(dataRepo, commit.ID, "bar", 0, 0, &buf))
+	require.Equal(t, "bar", buf.String())
+	buf.Reset()
+	require.NoError(t, c.GetFile(pipeline, "master", "foo", 0, 0, &buf))
+	require.Equal(t, "foo", buf.String())
+	buf.Reset()
+	require.NoError(t, c.GetFile(pipeline, "master", "bar", 0, 0, &buf))
+	require.Equal(t, "barbar\n", buf.String())
+}
+
+func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
+	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
+	require.NoError(t, err)
+	var objects []*pfs.Object
+	for object, err := objectsClient.Recv(); err != io.EOF; object, err = objectsClient.Recv() {
+		require.NoError(t, err)
+		objects = append(objects, object)
+	}
+	return objects
+}
+
+func getAllTags(t testing.TB, c *client.APIClient) []string {
+	tagsClient, err := c.ListTags(context.Background(), &pfs.ListTagsRequest{})
+	require.NoError(t, err)
+	var tags []string
+	for resp, err := tagsClient.Recv(); err != io.EOF; resp, err = tagsClient.Recv() {
+		require.NoError(t, err)
+		tags = append(tags, resp.Tag)
+	}
+	return tags
 }
 
 func restartAll(t *testing.T) {

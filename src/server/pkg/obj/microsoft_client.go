@@ -78,11 +78,11 @@ func (c *microsoftClient) Walk(name string, fn func(name string) error) error {
 			}
 		}
 
-		marker = blobList.Marker
-		// Marker is empty when all results have been returned
-		if marker == "" {
+		// NextMarker is empty when all results have been returned
+		if blobList.NextMarker == "" {
 			break
 		}
+		marker = blobList.NextMarker
 	}
 	return nil
 }

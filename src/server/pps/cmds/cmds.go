@@ -633,6 +633,27 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	}
 	runPipeline.Flags().StringVarP(&specPath, "file", "f", "", "The file containing the run-pipeline spec, - reads from stdin.")
 
+	garbageCollect := &cobra.Command{
+		Use:   "garbage-collect",
+		Short: "Garbage collect unused data.",
+		Long: `Garbage collect unused data.
+
+When a file/commit/repo is deleted, the data is not immediately removed from the underlying storage system (e.g. S3) for performance and architectural reasons.  This is similar to how when you delete a file on your computer, the file is not necessarily wiped from disk immediately.
+
+To actually remove the data, you will need to manually invoke garbage collection.  The easiest way to do it is through "pachctl garbage-collecth".
+
+Currently "pachctl garbage-collect" can only be started when there are no active jobs running.  You also need to ensure that there's no ongoing "put-file".  Garbage collection puts the cluster into a readonly mode where no new jobs can be created and no data can be added.
+`,
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return err
+			}
+
+			return client.GarbageCollect()
+		}),
+	}
+
 	var result []*cobra.Command
 	result = append(result, job)
 	result = append(result, createJob)
@@ -651,6 +672,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	result = append(result, startPipeline)
 	result = append(result, stopPipeline)
 	result = append(result, runPipeline)
+	result = append(result, garbageCollect)
 	return result, nil
 }
 

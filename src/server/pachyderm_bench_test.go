@@ -391,7 +391,3 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 		}
 	}
 }
-
-func BenchmarkLocalMultipleInputs(b *testing.B) {
-
-}
