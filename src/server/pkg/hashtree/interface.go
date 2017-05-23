@@ -71,12 +71,10 @@ type HashTree interface {
 	// function returns an error, the walk stops and returns the error.
 	Walk(func(path string, node *NodeProto) error) error
 
-	// Diff returns a HashTree which represents the diff of 2 HashTrees at
-	// particular Paths. It returns 2 slices of NodeProtos, old and new. Which
-	// are the results of Listing the path on the new (receiver) and old
-	// HashTree respectively. Paths that are present in both and have identical
-	// content aren't returned.
-	Diff(oldHashTree HashTree, newPath string, oldPath string) (new []*NodeProto, old []*NodeProto, _ error)
+	// Diff returns a the diff of 2 HashTrees at particular Paths. It takes a
+	// callback function f, which will be called with paths that are not
+	// identical to the same path in the other HashTree.
+	Diff(oldHashTree HashTree, newPath string, oldPath string, f func(path string, node *NodeProto, new bool) error) error
 }
 
 // OpenNode is similar to NodeProto, except that it doesn't include the Hash

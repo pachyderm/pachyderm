@@ -1433,17 +1433,17 @@ func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.F
 	if err != nil {
 		return nil, nil, err
 	}
-	newNodes, oldNodes, err := newTree.Diff(oldTree, newFile.Path, oldFile.Path)
-	if err != nil {
-		return nil, nil, err
-	}
 	var newFileInfos []*pfs.FileInfo
-	for _, node := range newNodes {
-		newFileInfos = append(newFileInfos, nodeToFileInfo(newFile.Commit, node.Name, node, false))
-	}
 	var oldFileInfos []*pfs.FileInfo
-	for _, node := range oldNodes {
-		oldFileInfos = append(oldFileInfos, nodeToFileInfo(oldFile.Commit, node.Name, node, false))
+	if err := newTree.Diff(oldTree, newFile.Path, oldFile.Path, func(path string, node *hashtree.NodeProto, new bool) error {
+		if new {
+			newFileInfos = append(newFileInfos, nodeToFileInfo(newFile.Commit, path, node, false))
+		} else {
+			oldFileInfos = append(oldFileInfos, nodeToFileInfo(oldFile.Commit, path, node, false))
+		}
+		return nil
+	}); err != nil {
+		return nil, nil, err
 	}
 	return newFileInfos, oldFileInfos, nil
 }
