@@ -125,7 +125,8 @@ func TestDatumDedup(t *testing.T) {
 
 	// Since we did not change the datum, the datum should not be processed
 	// again, which means that the job should complete instantly.
-	ctx, _ := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
 	stream, err := c.PfsAPIClient.FlushCommit(
 		ctx,
 		&pfs.FlushCommitRequest{

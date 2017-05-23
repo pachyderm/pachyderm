@@ -76,7 +76,7 @@ func main() {
 	case "pfs":
 		cmdutil.Main(doPFSMode, &appEnv{})
 	default:
-		fmt.Println("unrecognized mode: %s", mode)
+		fmt.Printf("unrecognized mode: %s\n", mode)
 	}
 }
 

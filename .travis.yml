@@ -33,7 +33,7 @@ before_script:
 # Install any deps used by our "batch test" cron
 - ./etc/testing/travis_install_batch_deps.sh
 script:
-- make lint
+- make lint vet
 - travis_wait 30 ./etc/testing/travis.sh
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd

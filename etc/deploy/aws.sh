@@ -1,5 +1,7 @@
 #!/bin/bash
 
+METRICS_FLAG="true"  # By default, aws.sh enables metric reporting
+
 set -euxo pipefail
 
 parse_flags() {
@@ -10,25 +12,31 @@ parse_flags() {
   local USE_EXISTING_STATE_BUCKET='false'
 
   # Parse flags
-  eval "set -- $( getopt -l "state:,region:,zone:" "--" "${0}" "${@}" )"
+  eval "set -- $( getopt -l "state:,region:,zone:,no-metrics" "--" "${0}" "${@}" )"
   while true; do
       case "${1}" in
           --state)
             export STATE_BUCKET="${2}"
             USE_EXISTING_STATE_BUCKET='true'
+            shift 2
             ;;
           --region)
             export AWS_REGION="${2}"
+            shift 2
             ;;
           --zone)
             export AWS_AVAILABILITY_ZONE="${2}"
+            shift 2
+            ;;
+          --no-metrics)
+            METRICS_FLAG="false" # default is false, see top of file
+            shift
             ;;
           --)
             shift
             break
             ;;
       esac
-      shift 2
   done
 
   echo "Region: ${AWS_REGION}"
@@ -81,14 +89,16 @@ deploy_k8s_on_aws() {
     echo "kops state store: ${STATE_BUCKET}"
     kops create cluster \
         --state=${STATE_BUCKET} \
-        --node-count ${NUM_NODES} \
-        --zones ${AWS_AVAILABILITY_ZONE} \
-        --master-zones ${AWS_AVAILABILITY_ZONE} \
-        --dns private \
-        --dns-zone kubernetes.com \
-        --node-size ${NODE_SIZE} \
-        --master-size ${NODE_SIZE} \
-        ${NAME}
+        --cloud="aws" \
+        --zones=${AWS_AVAILABILITY_ZONE} \
+        --node-count=${NUM_NODES} \
+        --master-zones=${AWS_AVAILABILITY_ZONE} \
+        --dns=private \
+        --dns-zone=kubernetes.com \
+        --node-size=${NODE_SIZE} \
+        --master-size=${NODE_SIZE} \
+        --name=${NAME} \
+        --yes
     kops update cluster ${NAME} --yes --state=${STATE_BUCKET}
 
     # Record state store bucket in temp file.
@@ -102,6 +112,7 @@ deploy_k8s_on_aws() {
     wait_for_k8s_master_ip
     update_sec_group
     wait_for_nodes_to_come_online
+    remove_default_limit
 }
 
 update_sec_group() {
@@ -112,6 +123,16 @@ update_sec_group() {
     aws ec2 authorize-security-group-ingress --group-id ${SECURITY_GROUP_ID} --protocol tcp --port 8080 --cidr "0.0.0.0/0" --region ${AWS_REGION}
     # For pachyderm direct access:
     aws ec2 authorize-security-group-ingress --group-id ${SECURITY_GROUP_ID} --protocol tcp --port 30650 --cidr "0.0.0.0/0" --region ${AWS_REGION}
+}
+
+remove_default_limit() {
+  # Kops, by default, creates a LimitRange that applies a 100m CPU Request to
+  # all pods in the "default" namespace. Because we don't turn down most of the
+  # pipelines spawned by our tests, this default request prevents our test
+  # suite from finishing, as nodes fill up and later tests can't schedule
+  # pipelines. Therefore we remove the LimitRange so all pipelines have no
+  # resource request by default.
+  kubectl delete --namespace=default limits/limits
 }
 
 # Prints a spinning wheel. Every time you call it, the wheel advances 1/4 turn
@@ -206,7 +227,11 @@ deploy_pachyderm_on_aws() {
     AWS_ID=`cat ~/.aws/credentials | grep aws_access_key_id  | cut -d " " -f 3`
 
     # Omit token since im using my personal creds
-    pachctl deploy amazon ${BUCKET_NAME} "${AWS_ID}" "${AWS_KEY}" " " ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3
+    cmd=( pachctl deploy amazon ${BUCKET_NAME} "${AWS_ID}" "${AWS_KEY}" " " ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3 )
+    if [[ "${METRICS_FLAG}" == "false" ]]; then
+      cmd+=( "--no-metrics" )
+    fi
+    "${cmd[@]}"  # Run pachctl deploy
 }
 
 if [ "${EUID}" -ne 0 ]; then
