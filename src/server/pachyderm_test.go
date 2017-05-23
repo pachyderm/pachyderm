@@ -131,7 +131,7 @@ func TestWLDatumDedup(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestWLPipelineInputDataModification(t *testing.T) {
+func TestBLPipelineInputDataModification(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
