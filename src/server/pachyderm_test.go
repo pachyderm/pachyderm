@@ -31,7 +31,7 @@ import (
 	"k8s.io/kubernetes/pkg/labels"
 )
 
-func TestWLPipelineWithParallelism(t *testing.T) {
+func TestPipelineWithParallelism(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -78,7 +78,7 @@ func TestWLPipelineWithParallelism(t *testing.T) {
 	}
 }
 
-func TestWLDatumDedup(t *testing.T) {
+func TestDatumDedup(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -131,7 +131,7 @@ func TestWLDatumDedup(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestBLPipelineInputDataModification(t *testing.T) {
+func TestPipelineInputDataModification(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -207,7 +207,7 @@ func TestBLPipelineInputDataModification(t *testing.T) {
 	require.Equal(t, 3, len(commitInfos))
 }
 
-func TestWLMultipleInputsFromTheSameBranch(t *testing.T) {
+func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -287,7 +287,7 @@ func TestWLMultipleInputsFromTheSameBranch(t *testing.T) {
 	require.Equal(t, 3, len(commitInfos))
 }
 
-func TestWLMultipleInputsFromTheSameRepo(t *testing.T) {
+func TestMultipleInputsFromTheSameRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -439,17 +439,17 @@ func TestWLMultipleInputsFromTheSameRepo(t *testing.T) {
 	require.Equal(t, "foo\nbar\npoo\nfoo\nbuzz\n", buf.String())
 }
 
-//func TestWLJob(t *testing.T) {
+//func TestJob(t *testing.T) {
 //t.Parallel()
 //testJob(t, 4)
 //}
 
-//func TestWLJobNoShard(t *testing.T) {
+//func TestJobNoShard(t *testing.T) {
 //t.Parallel()
 //testJob(t, 0)
 //}
 
-//func TestWLJob(t *testing.T, shards int) {
+//func testJob(t *testing.T, shards int) {
 //if testing.Short() {
 //t.Skip("Skipping integration tests in short mode")
 //}
@@ -522,7 +522,7 @@ func TestWLMultipleInputsFromTheSameRepo(t *testing.T) {
 // that are used in code but forgot to run:
 // $ make assets
 
-func TestWLPipelineFailure(t *testing.T) {
+func TestPipelineFailure(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -564,7 +564,7 @@ func TestWLPipelineFailure(t *testing.T) {
 	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 }
 
-func TestWLLazyPipelinePropagation(t *testing.T) {
+func TestLazyPipelinePropagation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -623,7 +623,7 @@ func TestWLLazyPipelinePropagation(t *testing.T) {
 	require.Equal(t, true, jobInfos[0].Input.Atom.Lazy)
 }
 
-func TestWLLazyPipeline(t *testing.T) {
+func TestLazyPipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -681,7 +681,7 @@ func TestWLLazyPipeline(t *testing.T) {
 //
 // We've updated the code such that we are able to detect if the files we
 // are uploading are pipes, and make the job fail in that case.
-func TestWLLazyPipelineCPPipes(t *testing.T) {
+func TestLazyPipelineCPPipes(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -742,7 +742,7 @@ func TestWLLazyPipelineCPPipes(t *testing.T) {
 // v  v
 // B-->C
 // When we commit to A we expect to see 1 commit on C rather than 2.
-func TestWLProvenance(t *testing.T) {
+func TestProvenance(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -810,7 +810,7 @@ func TestWLProvenance(t *testing.T) {
 	require.Equal(t, uint64(0), cCommitInfo.SizeBytes)
 }
 
-//func TestWLDirectory(t *testing.T) {
+//func TestDirectory(t *testing.T) {
 //if testing.Short() {
 //t.Skip("Skipping integration tests in short mode")
 //}
@@ -876,7 +876,7 @@ func TestWLProvenance(t *testing.T) {
 //}
 
 // TestFlushCommit
-func TestWLFlushCommit(t *testing.T) {
+func TestFlushCommit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -923,7 +923,7 @@ func TestWLFlushCommit(t *testing.T) {
 	}
 }
 
-func TestWLFlushCommitAfterCreatePipeline(t *testing.T) {
+func TestFlushCommitAfterCreatePipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -964,7 +964,7 @@ func TestWLFlushCommitAfterCreatePipeline(t *testing.T) {
 }
 
 // TestRecreatePipeline tracks #432
-func TestWLRecreatePipeline(t *testing.T) {
+func TestRecreatePipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1007,7 +1007,7 @@ func TestWLRecreatePipeline(t *testing.T) {
 	createPipeline()
 }
 
-func TestWLDeletePipeline(t *testing.T) {
+func TestDeletePipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1064,7 +1064,7 @@ func TestWLDeletePipeline(t *testing.T) {
 	require.Equal(t, pps.JobState_JOB_STOPPED, jobs[0].State)
 }
 
-func TestWLPipelineState(t *testing.T) {
+func TestPipelineState(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1109,7 +1109,7 @@ func TestWLPipelineState(t *testing.T) {
 	require.Equal(t, pps.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
 }
 
-func TestWLPipelineJobCounts(t *testing.T) {
+func TestPipelineJobCounts(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1160,7 +1160,7 @@ func TestWLPipelineJobCounts(t *testing.T) {
 	require.Equal(t, int32(1), pipelineInfo.JobCounts[int32(pps.JobState_JOB_SUCCESS)])
 }
 
-//func TestWLJobState(t *testing.T) {
+//func TestJobState(t *testing.T) {
 //if testing.Short() {
 //t.Skip("Skipping integration tests in short mode")
 //}
@@ -1209,7 +1209,7 @@ func TestWLPipelineJobCounts(t *testing.T) {
 //require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 //}
 
-//func TestWLClusterFunctioningAfterMembershipChange(t *testing.T) {
+//func TestClusterFunctioningAfterMembershipChange(t *testing.T) {
 //t.Skip("this test is flaky")
 //if testing.Short() {
 //t.Skip("Skipping integration tests in short mode")
@@ -1223,7 +1223,7 @@ func TestWLPipelineJobCounts(t *testing.T) {
 
 // TODO(msteffen): This test breaks the suite when run against cloud providers,
 // because killing the pachd pod breaks the connection with pachctl port-forward
-func TestBLDeleteAfterMembershipChange(t *testing.T) {
+func TestDeleteAfterMembershipChange(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1245,7 +1245,7 @@ func TestBLDeleteAfterMembershipChange(t *testing.T) {
 
 // TODO(msteffen): This test breaks the suite when run against cloud providers,
 // because killing the pachd pod breaks the connection with pachctl port-forward
-func TestBLPachdRestartResumesRunningJobs(t *testing.T) {
+func TestPachdRestartResumesRunningJobs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1293,7 +1293,7 @@ func TestBLPachdRestartResumesRunningJobs(t *testing.T) {
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
 
-//func TestWLScrubbedErrors(t *testing.T) {
+//func TestScrubbedErrors(t *testing.T) {
 //if testing.Short() {
 //t.Skip("Skipping integration tests in short mode")
 //}
@@ -1343,7 +1343,7 @@ func TestBLPachdRestartResumesRunningJobs(t *testing.T) {
 //require.Equal(t, "job bogusJobId not found", err.Error())
 //}
 
-//func TestWLLeakingRepo(t *testing.T) {
+//func TestLeakingRepo(t *testing.T) {
 //// If CreateJob fails, it should also destroy the output repo it creates
 //// If it doesn't, it can cause flush commit to fail, as a bogus repo will
 //// be listed in the output repo's provenance
@@ -1377,7 +1377,7 @@ func TestBLPachdRestartResumesRunningJobs(t *testing.T) {
 //}
 
 // TestUpdatePipelineThatHasNoOutput tracks #1637
-func TestWLUpdatePipelineThatHasNoOutput(t *testing.T) {
+func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1427,7 +1427,7 @@ func TestWLUpdatePipelineThatHasNoOutput(t *testing.T) {
 	))
 }
 
-func TestWLAcceptReturnCode(t *testing.T) {
+func TestAcceptReturnCode(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1473,7 +1473,7 @@ func TestWLAcceptReturnCode(t *testing.T) {
 
 // TODO(msteffen): This test breaks the suite when run against cloud providers,
 // because killing the pachd pod breaks the connection with pachctl port-forward
-func TestBLRestartAll(t *testing.T) {
+func TestRestartAll(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1525,7 +1525,7 @@ func TestBLRestartAll(t *testing.T) {
 
 // TODO(msteffen): This test breaks the suite when run against cloud providers,
 // because killing the pachd pod breaks the connection with pachctl port-forward
-func TestBLRestartOne(t *testing.T) {
+func TestRestartOne(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1572,7 +1572,7 @@ func TestBLRestartOne(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestWLPrettyPrinting(t *testing.T) {
+func TestPrettyPrinting(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1633,7 +1633,7 @@ func TestWLPrettyPrinting(t *testing.T) {
 	require.NoError(t, ppspretty.PrintDetailedJobInfo(jobInfos[0]))
 }
 
-func TestWLDeleteAll(t *testing.T) {
+func TestDeleteAll(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1678,7 +1678,7 @@ func TestWLDeleteAll(t *testing.T) {
 	require.Equal(t, 0, len(jobInfos))
 }
 
-func TestWLRecursiveCp(t *testing.T) {
+func TestRecursiveCp(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1724,7 +1724,7 @@ func TestWLRecursiveCp(t *testing.T) {
 	require.Equal(t, 1, len(collectCommitInfos(t, commitIter)))
 }
 
-func TestWLPipelineUniqueness(t *testing.T) {
+func TestPipelineUniqueness(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1764,7 +1764,7 @@ func TestWLPipelineUniqueness(t *testing.T) {
 	require.Matches(t, "pipeline .*? already exists", err.Error())
 }
 
-//func TestWLUpdatePipeline(t *testing.T) {
+//func TestUpdatePipeline(t *testing.T) {
 //if testing.Short() {
 //t.Skip("Skipping integration tests in short mode")
 //}
@@ -1971,7 +1971,7 @@ func TestWLPipelineUniqueness(t *testing.T) {
 //require.Equal(t, 2, len(outputRepoCommitInfos))
 //}
 
-func TestWLStopPipeline(t *testing.T) {
+func TestStopPipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2017,7 +2017,7 @@ func TestWLStopPipeline(t *testing.T) {
 	require.Equal(t, "foo\n", buffer.String())
 }
 
-func TestWLPipelineAutoScaledown(t *testing.T) {
+func TestPipelineAutoScaledown(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2083,7 +2083,7 @@ func TestWLPipelineAutoScaledown(t *testing.T) {
 	require.Equal(t, 0, int(rc.Spec.Replicas))
 }
 
-func TestWLPipelineEnv(t *testing.T) {
+func TestPipelineEnv(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2156,7 +2156,7 @@ func TestWLPipelineEnv(t *testing.T) {
 	require.Equal(t, "bar\n", buffer.String())
 }
 
-func TestWLPipelineWithFullObjects(t *testing.T) {
+func TestPipelineWithFullObjects(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2208,7 +2208,7 @@ func TestWLPipelineWithFullObjects(t *testing.T) {
 	require.Equal(t, "foo\nbar\n", buffer.String())
 }
 
-func TestWLPipelineWithExistingInputCommits(t *testing.T) {
+func TestPipelineWithExistingInputCommits(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2259,7 +2259,7 @@ func TestWLPipelineWithExistingInputCommits(t *testing.T) {
 	require.Equal(t, 2, len(commitInfos))
 }
 
-func TestBLPipelineThatSymlinks(t *testing.T) {
+func TestPipelineThatSymlinks(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2345,7 +2345,7 @@ func TestBLPipelineThatSymlinks(t *testing.T) {
 }
 
 // TestChainedPipelines tracks https://github.com/pachyderm/pachyderm/issues/797
-func TestWLChainedPipelines(t *testing.T) {
+func TestChainedPipelines(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2408,7 +2408,7 @@ func TestWLChainedPipelines(t *testing.T) {
 	require.Equal(t, 1, len(results))
 }
 
-func TestWLChainedPipelinesNoDelay(t *testing.T) {
+func TestChainedPipelinesNoDelay(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2516,7 +2516,7 @@ func collectCommitInfos(t testing.TB, commitInfoIter client.CommitInfoIterator) 
 	}
 }
 
-func TestBLParallelismSpec(t *testing.T) {
+func TestParallelismSpec(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2570,7 +2570,7 @@ func TestBLParallelismSpec(t *testing.T) {
 	require.Equal(t, uint64(numNodes), parellelism)
 }
 
-func TestWLPipelineJobDeletion(t *testing.T) {
+func TestPipelineJobDeletion(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2616,7 +2616,7 @@ func TestWLPipelineJobDeletion(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestWLStopJob(t *testing.T) {
+func TestStopJob(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2680,7 +2680,7 @@ func TestWLStopJob(t *testing.T) {
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
 
-func TestWLGetLogs(t *testing.T) {
+func TestGetLogs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2795,7 +2795,7 @@ func TestWLGetLogs(t *testing.T) {
 	require.NoError(t, iter.Err())
 }
 
-func TestWLPfsPutFile(t *testing.T) {
+func TestPfsPutFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2852,7 +2852,7 @@ func TestWLPfsPutFile(t *testing.T) {
 	}
 }
 
-func TestWLAllDatumsAreProcessed(t *testing.T) {
+func TestAllDatumsAreProcessed(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2907,7 +2907,7 @@ func TestWLAllDatumsAreProcessed(t *testing.T) {
 	require.Equal(t, strings.Repeat("foo\n", 8), buf.String())
 }
 
-func TestWLDatumStatusRestart(t *testing.T) {
+func TestDatumStatusRestart(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2981,7 +2981,7 @@ func TestWLDatumStatusRestart(t *testing.T) {
 	require.Equal(t, 1, len(commitInfos))
 }
 
-func TestWLUseMultipleWorkers(t *testing.T) {
+func TestUseMultipleWorkers(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -3039,7 +3039,7 @@ func TestWLUseMultipleWorkers(t *testing.T) {
 // just makes sure that when pachyderm is deployed, we give rethinkdb, pachd,
 // and etcd default resource requests. This prevents them from overloading
 // nodes and getting evicted, which can slow down or break a cluster.
-func TestBLSystemResourceRequests(t *testing.T) {
+func TestSystemResourceRequests(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -3116,7 +3116,7 @@ func PutFileAndFlush(t *testing.T, repo, branch, filepath, contents string) *pfs
 
 // TestPipelineResourceRequest creates a pipeline with a resource request, and
 // makes sure that's passed to k8s (by inspecting the pipeline's pods)
-func TestWLPipelineResourceRequest(t *testing.T) {
+func TestPipelineResourceRequest(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -3191,7 +3191,7 @@ func TestWLPipelineResourceRequest(t *testing.T) {
 
 // TestJobResourceRequest creates a stand-alone job with a resource request, and
 // makes sure it's passed to k8s (by inspecting the job's pods)
-func TestWLJobResourceRequest(t *testing.T) {
+func TestJobResourceRequest(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -3254,7 +3254,7 @@ func TestWLJobResourceRequest(t *testing.T) {
 	require.Equal(t, "100M", mem.String())
 }
 
-func TestWLPipelineLargeOutput(t *testing.T) {
+func TestPipelineLargeOutput(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -3295,7 +3295,7 @@ func TestWLPipelineLargeOutput(t *testing.T) {
 	require.Equal(t, 1, len(commitInfos))
 }
 
-func TestWLUnionInput(t *testing.T) {
+func TestUnionInput(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
