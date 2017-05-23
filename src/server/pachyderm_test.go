@@ -3462,7 +3462,7 @@ func TestIncrementalPipeline(t *testing.T) {
 				Cmd: []string{"bash"},
 				Stdin: []string{
 					"touch /pfs/out/sum",
-					fmt.Sprintf("cat /pfs/%s/data /pfs/out/sum | awk '{sum+=$1} END {print sum}' >/pfs/out/sum", dataRepo),
+					fmt.Sprintf("cat /pfs/%s/new/data /pfs/out/sum | awk '{sum+=$1} END {print sum}' >/pfs/out/sum", dataRepo),
 				},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{
