@@ -2359,6 +2359,34 @@ func TestDiff(t *testing.T) {
 	require.Equal(t, 0, len(newFiles))
 	require.Equal(t, 1, len(oldFiles))
 	require.Equal(t, "bar", oldFiles[0].File.Path)
+
+	// Write dir/fizz and dir/buzz
+	_, err = c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, "master", "dir/fizz", strings.NewReader("fizz\n"))
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, "master", "dir/buzz", strings.NewReader("buzz\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, "master"))
+
+	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(newFiles))
+	require.Equal(t, 0, len(oldFiles))
+
+	// Modify dir/fizz
+	_, err = c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, "master", "dir/fizz", strings.NewReader("fizz\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, "master"))
+
+	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(newFiles))
+	require.Equal(t, "dir/fizz", newFiles[0].File.Path)
+	require.Equal(t, 1, len(oldFiles))
+	require.Equal(t, "dir/fizz", oldFiles[0].File.Path)
 }
 
 func uniqueString(prefix string) string {

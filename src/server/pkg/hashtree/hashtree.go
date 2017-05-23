@@ -199,56 +199,55 @@ func (h *HashTreeProto) Walk(f func(string, *NodeProto) error) error {
 	return walk(h.Fs, f)
 }
 
-func diff(new HashTree, old HashTree, newPath string, oldPath string) ([]*NodeProto, []*NodeProto, error) {
+func diff(new HashTree, old HashTree, newPath string, oldPath string, f func(string, *NodeProto, bool) error) error {
+	fmt.Printf("diff newPath:%s\n", newPath)
 	newNode, err := new.Get(newPath)
 	if err != nil && Code(err) != PathNotFound {
-		return nil, nil, err
+		return err
 	}
 	oldNode, err := old.Get(oldPath)
 	if err != nil && Code(err) != PathNotFound {
-		return nil, nil, err
+		return err
 	}
-	switch {
-	case newNode == nil && oldNode == nil:
-		return nil, nil, nil
-	case newNode != nil && oldNode == nil:
-		return []*NodeProto{newNode}, nil, nil
-	case newNode == nil && oldNode != nil:
-		return nil, []*NodeProto{oldNode}, nil
-	case bytes.Equal(newNode.Hash, oldNode.Hash):
-		return nil, nil, nil
+	if (newNode == nil && oldNode == nil) ||
+		(newNode != nil && oldNode != nil && bytes.Equal(newNode.Hash, oldNode.Hash)) {
+		return nil
 	}
-	var newResult []*NodeProto
-	var oldResult []*NodeProto
 	children := make(map[string]bool)
-	if newNode.FileNode != nil {
-		newResult = append(newResult, newNode)
-	} else if newNode.DirNode != nil {
-		for _, child := range newNode.DirNode.Children {
-			children[child] = true
+	if newNode != nil {
+		if newNode.FileNode != nil {
+			if err := f(newPath, newNode, true); err != nil {
+				return err
+			}
+		} else if newNode.DirNode != nil {
+			for _, child := range newNode.DirNode.Children {
+				fmt.Printf("child: %s/%s\n", newPath, child)
+				children[child] = true
+			}
 		}
 	}
-	if oldNode.FileNode != nil {
-		oldResult = append(oldResult, oldNode)
-	} else if oldNode.DirNode != nil {
-		for _, child := range oldNode.DirNode.Children {
-			children[child] = true
+	if oldNode != nil {
+		if oldNode.FileNode != nil {
+			if err := f(oldPath, oldNode, false); err != nil {
+				return err
+			}
+		} else if oldNode.DirNode != nil {
+			for _, child := range oldNode.DirNode.Children {
+				children[child] = true
+			}
 		}
 	}
 	for child := range children {
-		newSubResult, oldSubResult, err := diff(new, old, pathlib.Join(newPath, child), pathlib.Join(oldPath, child))
-		if err != nil {
-			return nil, nil, err
+		if err := diff(new, old, pathlib.Join(newPath, child), pathlib.Join(oldPath, child), f); err != nil {
+			return err
 		}
-		newResult = append(newResult, newSubResult...)
-		oldResult = append(oldResult, oldSubResult...)
 	}
-	return newResult, oldResult, nil
+	return nil
 }
 
 // Diff implements HashTree.Diff
-func (h *HashTreeProto) Diff(old HashTree, newPath string, oldPath string) ([]*NodeProto, []*NodeProto, error) {
-	return diff(h, old, newPath, oldPath)
+func (h *HashTreeProto) Diff(old HashTree, newPath string, oldPath string, f func(string, *NodeProto, bool) error) error {
+	return diff(h, old, newPath, oldPath, f)
 }
 
 // hashtree is an implementation of the HashTree and OpenHashTree interfaces.
@@ -296,8 +295,8 @@ func (h *hashtree) Walk(f func(string, *NodeProto) error) error {
 }
 
 // Diff implements HashTree.Diff
-func (h *hashtree) Diff(old HashTree, newPath string, oldPath string) ([]*NodeProto, []*NodeProto, error) {
-	return diff(h, old, newPath, oldPath)
+func (h *hashtree) Diff(old HashTree, newPath string, oldPath string, f func(string, *NodeProto, bool) error) error {
+	return diff(h, old, newPath, oldPath, f)
 }
 
 // clone makes a deep copy of 'h' and returns it. This performs one fewer copy
