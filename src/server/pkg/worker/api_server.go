@@ -174,8 +174,18 @@ func NewJobAPIServer(pachClient *client.APIClient, jobInfo *pps.JobInfo, workerN
 func (a *APIServer) downloadData(inputs []*Input, puller *filesync.Puller) error {
 	for _, input := range inputs {
 		file := input.FileInfo.File
-		if err := puller.Pull(a.pachClient, filepath.Join(client.PPSInputPrefix, input.Name, file.Path), file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, concurrency); err != nil {
-			return err
+		root := filepath.Join(client.PPSInputPrefix, input.Name, file.Path)
+		if ((a.pipelineInfo != nil && a.pipelineInfo.Incremental) || (a.jobInfo != nil && a.jobInfo.Incremental)) && input.ParentCommit != nil {
+			if err := puller.PullDiff(a.pachClient, root,
+				file.Commit.Repo.Name, file.Commit.ID, file.Path,
+				input.ParentCommit.Repo.Name, input.ParentCommit.ID, file.Path,
+				false, input.Lazy, concurrency); err != nil {
+				return err
+			}
+		} else {
+			if err := puller.Pull(a.pachClient, root, file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, concurrency); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

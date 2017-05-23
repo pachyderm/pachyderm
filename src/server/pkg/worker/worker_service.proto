@@ -8,6 +8,7 @@ import "google/protobuf/empty.proto";
 
 message Input {
   pfs.FileInfo file_info = 1;
+  pfs.Commit parent_commit = 5;
   string name = 2;
   bool lazy = 3;
   string branch = 4;
