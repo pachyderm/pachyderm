@@ -132,7 +132,7 @@ var sentinelErrResp = minio.ErrorResponse{}
 
 func (c *minioClient) IsNotExist(err error) bool {
 	errResp := minio.ToErrorResponse(err)
-	if errResp == sentinelErrResp {
+	if errResp.Code == sentinelErrResp.Code {
 		return false
 	}
 	// Treat both object not found and bucket not found as IsNotExist().
