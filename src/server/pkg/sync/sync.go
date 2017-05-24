@@ -201,6 +201,7 @@ func (p *Puller) PullDiff(client *pachclient.APIClient, root string, newRepo, ne
 	return nil
 }
 
+// PullTree pulls from a raw HashTree rather than a repo.
 func (p *Puller) PullTree(client *pachclient.APIClient, root string, tree hashtree.HashTree, pipes bool, concurrency int) error {
 	limiter := limit.New(concurrency)
 	var eg errgroup.Group
@@ -215,15 +216,14 @@ func (p *Puller) PullTree(client *pachclient.APIClient, root string, tree hashtr
 				return p.makePipe(path, func(w io.Writer) error {
 					return client.GetObjects(hashes, 0, 0, w)
 				})
-			} else {
-				limiter.Acquire()
-				eg.Go(func() (retErr error) {
-					defer limiter.Release()
-					return p.makeFile(path, func(w io.Writer) error {
-						return client.GetObjects(hashes, 0, 0, w)
-					})
-				})
 			}
+			limiter.Acquire()
+			eg.Go(func() (retErr error) {
+				defer limiter.Release()
+				return p.makeFile(path, func(w io.Writer) error {
+					return client.GetObjects(hashes, 0, 0, w)
+				})
+			})
 		}
 		return nil
 	}); err != nil {
