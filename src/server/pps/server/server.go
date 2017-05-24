@@ -18,8 +18,6 @@ import (
 // APIServer represents an api server.
 type APIServer interface {
 	ppsclient.APIServer
-	shard.Frontend
-	shard.Server
 }
 
 const (

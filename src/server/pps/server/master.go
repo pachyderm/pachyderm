@@ -1,12 +1,21 @@
 package server
 
 import (
+	"context"
 	"fmt"
+	"path"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+
+	"go.pedge.io/lion/proto"
+)
+
+const (
+	masterLockPath = "_master_lock"
 )
 
 // This function acquires a lock in etcd and carries out the responsibilities
@@ -18,12 +27,22 @@ import (
 func (a *apiServer) master() {
 	b := backoff.NewInfiniteBackOff()
 	backoff.RetryNotify(func() error {
-		Lock()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		masterLock, err := dlock.NewDLock(ctx, a.etcdClient, path.Join(a.etcdPrefix, masterLockPath))
+		if err != nil {
+			return err
+		}
+		defer masterLock.Unlock()
+		ctx = masterLock.Context()
+
 		pipelineWatcher, err := a.pipelines.ReadOnly(ctx).WatchByIndex(stoppedIndex, false)
 		if err != nil {
 			return err
 		}
 		defer pipelineWatcher.Close()
+
 		for {
 			event, ok := <-pipelineWatcher.Watch()
 			if !ok {
@@ -44,15 +63,16 @@ func (a *apiServer) master() {
 				}
 				protolion.Infof("creating/updating workers for pipeline %s", pipelineInfo.Pipeline.Name)
 				if err != nil {
-					return a.upsertWorkersForPipeline(pipelineInfo)
+					return a.upsertWorkersForPipeline(ctx, pipelineInfo)
 				}
 			case watch.EventDelete:
 				if err != nil {
-					return a.deleteWorkersForPipeline(pipelineName)
+					return a.deleteWorkersForPipeline(ctx, pipelineName)
 				}
 			}
 		}
 	}, b, func(err error, d time.Duration) error {
-		Unlock()
+		protolion.Infof("master process failed; retrying in %s", d)
+		return nil
 	})
 }
