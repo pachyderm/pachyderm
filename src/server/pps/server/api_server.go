@@ -1312,31 +1312,6 @@ func (a *apiServer) createWorkersForOrphanJob(jobInfo *pps.JobInfo) error {
 	return a.createWorkerRc(options)
 }
 
-func (a *apiServer) createWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
-	parallelism, err := GetExpectedNumWorkers(a.kubeClient, pipelineInfo.ParallelismSpec)
-	if err != nil {
-		return err
-	}
-	var resources *api.ResourceList
-	if pipelineInfo.ResourceSpec != nil {
-		resources, err = parseResourceList(pipelineInfo.ResourceSpec)
-		if err != nil {
-			return err
-		}
-	}
-	options := a.getWorkerOptions(
-		PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
-		int32(parallelism),
-		resources,
-		pipelineInfo.Transform)
-	// Set the pipeline name env
-	options.workerEnv = append(options.workerEnv, api.EnvVar{
-		Name:  client.PPSPipelineNameEnv,
-		Value: pipelineInfo.Pipeline.Name,
-	})
-	return a.createWorkerRc(options)
-}
-
 func (a *apiServer) deleteWorkers(rcName string) error {
 	if err := a.kubeClient.Services(a.namespace).Delete(rcName); err != nil {
 		if !isNotFoundErr(err) {
