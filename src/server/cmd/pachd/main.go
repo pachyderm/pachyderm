@@ -76,7 +76,7 @@ func main() {
 	case "pfs":
 		cmdutil.Main(doPFSMode, &appEnv{})
 	default:
-		fmt.Println("unrecognized mode: %s", mode)
+		fmt.Printf("unrecognized mode: %s\n", mode)
 	}
 }
 
@@ -129,7 +129,7 @@ func doPFSMode(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	blockAPIServer, err := pfs_server.NewBlockAPIServer(appEnv.StorageRoot, blockCacheBytes, appEnv.StorageBackend)
+	blockAPIServer, err := pfs_server.NewBlockAPIServer(appEnv.StorageRoot, blockCacheBytes, appEnv.StorageBackend, etcdAddress)
 	if err != nil {
 		return err
 	}
@@ -266,7 +266,7 @@ func doFullMode(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	blockAPIServer, err := pfs_server.NewBlockAPIServer(appEnv.StorageRoot, blockCacheBytes, appEnv.StorageBackend)
+	blockAPIServer, err := pfs_server.NewBlockAPIServer(appEnv.StorageRoot, blockCacheBytes, appEnv.StorageBackend, etcdAddress)
 	if err != nil {
 		return err
 	}

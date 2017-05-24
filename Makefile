@@ -191,12 +191,13 @@ install-bench: install
 	@# Since bench is run as sudo, pachctl needs to be under
 	@# the secure path
 	rm /usr/local/bin/pachctl || true
-	sudo ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
+	[ -f /usr/local/bin/pachctl ] || sudo ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 
 run-bench:
 	kubectl scale --replicas=4 deploy/pachd
 	echo "waiting for pachd to scale up" && sleep 15
-	kubectl delete --ignore-not-found po/bench && kubectl run bench --image=pachyderm/bench:`git rev-list HEAD --max-count=1` --image-pull-policy=Always --restart=Never --attach=true -- ./test -test.v -test.bench=BenchmarkDaily -test.run=XXX
+	kubectl delete --ignore-not-found po/bench && \
+	echo kubectl run bench --image=pachyderm/bench:`git rev-list HEAD --max-count=1` --image-pull-policy=Always --restart=Never --attach=true -- PACH_TEST_CLOUD=true ./test -test.v -test.bench=BenchmarkDaily -test.run=`etc/testing/passing_test_regex.sh`
 
 delete-all-launch-bench:
 	etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --delete-all
@@ -428,6 +429,9 @@ lint:
 			echo "golint errors!" && echo && exit 1; \
 		fi; \
 	done;
+
+vet:
+	@etc/testing/vet.sh
 
 goxc-generate-local:
 	@if [ -z $$GITHUB_OAUTH_TOKEN ]; then \

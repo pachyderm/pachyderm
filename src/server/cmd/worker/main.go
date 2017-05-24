@@ -58,7 +58,8 @@ func validateEnv(appEnv *appEnv) error {
 // getPipelineInfo gets the PipelineInfo proto describing the pipeline that this
 // worker is part of
 func getPipelineInfo(etcdClient *etcd.Client, appEnv *appEnv) (*pps.PipelineInfo, error) {
-	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	resp, err := etcdClient.Get(ctx, path.Join(appEnv.PPSPrefix, "pipelines", appEnv.PPSPipelineName))
 	if err != nil {
 		return nil, err
@@ -74,7 +75,8 @@ func getPipelineInfo(etcdClient *etcd.Client, appEnv *appEnv) (*pps.PipelineInfo
 }
 
 func getJobInfo(etcdClient *etcd.Client, appEnv *appEnv) (*pps.JobInfo, error) {
-	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	resp, err := etcdClient.Get(ctx, path.Join(appEnv.PPSPrefix, "jobs", appEnv.PPSJobID))
 	if err != nil {
 		return nil, err
@@ -158,7 +160,8 @@ func do(appEnvObj interface{}) error {
 
 	// Prepare to write "key" into etcd by creating lease -- if worker dies, our
 	// IP will be removed from etcd
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	resp, err := etcdClient.Grant(ctx, 10 /* seconds */)
 	if err != nil {
 		return fmt.Errorf("error granting lease: %v", err)
@@ -170,7 +173,8 @@ func do(appEnvObj interface{}) error {
 	}
 
 	// Actually write "key" into etcd
-	ctx, _ = context.WithTimeout(context.Background(), 10*time.Second) // new ctx
+	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second) // new ctx
+	defer cancel()
 	if _, err := etcdClient.Put(ctx, key, "", etcd.WithLease(resp.ID)); err != nil {
 		return fmt.Errorf("error putting IP address: %v", err)
 	}

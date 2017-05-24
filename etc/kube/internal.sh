@@ -10,4 +10,5 @@ mv /etc/kubernetes/manifests/master2.json /etc/kubernetes/manifests/master.json
     --cluster_dns=10.0.0.10 \
     --cluster_domain=cluster.local \
     --pod-manifest-path=/etc/kubernetes/manifests \
-    --allow-privileged=true
+    --allow-privileged=true \
+    --feature-gates="Accelerators=true"

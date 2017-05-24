@@ -298,6 +298,7 @@ func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo) (Comm
 		},
 	)
 	if err != nil {
+		cancel()
 		return nil, sanitizeErr(err)
 	}
 	return &commitInfoIterator{stream, cancel}, nil
@@ -343,6 +344,7 @@ func (c APIClient) SubscribeCommit(repo string, branch string, from string) (Com
 	}
 	stream, err := c.PfsAPIClient.SubscribeCommit(ctx, req)
 	if err != nil {
+		cancel()
 		return nil, sanitizeErr(err)
 	}
 	return &commitInfoIterator{stream, cancel}, nil

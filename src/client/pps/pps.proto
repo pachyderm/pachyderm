@@ -357,6 +357,9 @@ message RerunPipelineRequest {
   repeated pfs.Commit include = 3;
 }
 
+message GarbageCollectRequest {}
+message GarbageCollectResponse {}
+
 service API {
   rpc CreateJob(CreateJobRequest) returns (Job) {}
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
@@ -376,4 +379,7 @@ service API {
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
   rpc GetLogs(GetLogsRequest) returns (stream LogMessage) {}
+
+  // Garbage collection
+  rpc GarbageCollect(GarbageCollectRequest) returns (GarbageCollectResponse) {}
 }

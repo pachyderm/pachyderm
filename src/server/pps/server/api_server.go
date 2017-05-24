@@ -4,9 +4,11 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"math"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -34,6 +36,7 @@ import (
 	"go.pedge.io/lion/proto"
 	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
 	"k8s.io/kubernetes/pkg/api"
@@ -246,6 +249,13 @@ func (a *apiServer) validateInput(ctx context.Context, input *pps.Input, job boo
 	return result
 }
 
+func validateTransform(transform *pps.Transform) error {
+	if len(transform.Cmd) == 0 {
+		return fmt.Errorf("no cmd set")
+	}
+	return nil
+}
+
 // visit each input recursively in ascending order (root last)
 func visit(input *pps.Input, f func(*pps.Input)) {
 	switch {
@@ -302,6 +312,9 @@ func inputCommits(input *pps.Input) []*pfs.Commit {
 }
 
 func (a *apiServer) validateJob(ctx context.Context, jobInfo *pps.JobInfo) error {
+	if err := validateTransform(jobInfo.Transform); err != nil {
+		return err
+	}
 	return a.validateInput(ctx, jobInfo.Input, true)
 }
 
@@ -645,8 +658,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		logChs[i] = make(chan *pps.LogMessage)
 	}
 	for i, pod := range pods {
-		i := i
-		pod := pod
+		i, pod := i, pod
 		go func() {
 			defer close(logChs[i]) // Main thread reads from here, so must close
 			// Get full set of logs from pod i
@@ -724,7 +736,12 @@ nextLogCh:
 }
 
 func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
-	return a.validateInput(ctx, pipelineInfo.Input, false)
+	if err := a.validateInput(ctx, pipelineInfo.Input, false); err != nil {
+		return err
+	}
+	if err := validateTransform(pipelineInfo.Transform); err != nil {
+		return err
+	}
 	if pipelineInfo.OutputBranch == "" {
 		return fmt.Errorf("pipeline needs to specify an output branch")
 	}
@@ -1069,6 +1086,229 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	}
 
 	return &types.Empty{}, err
+}
+
+func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageCollectRequest) (response *pps.GarbageCollectResponse, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "GC")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	pfsClient, err := a.getPFSClient()
+	if err != nil {
+		return nil, err
+	}
+
+	objClient, err := a.getObjectClient()
+	if err != nil {
+		return nil, err
+	}
+
+	// The set of objects that are in use.
+	activeObjects := make(map[string]bool)
+	var activeObjectsMu sync.Mutex
+	// A helper function for adding active objects in a thread-safe way
+	addActiveObjects := func(objects ...*pfs.Object) {
+		activeObjectsMu.Lock()
+		defer activeObjectsMu.Unlock()
+		for _, object := range objects {
+			if object != nil {
+				activeObjects[object.Hash] = true
+			}
+		}
+	}
+	// A helper function for adding objects that are actually hash trees,
+	// which in turn contain active objects.
+	addActiveTree := func(object *pfs.Object) error {
+		if object == nil {
+			return nil
+		}
+		addActiveObjects(object)
+		getObjectClient, err := objClient.GetObject(ctx, object)
+		if err != nil {
+			return fmt.Errorf("error getting commit tree: %v", err)
+		}
+
+		var buf bytes.Buffer
+		if err := grpcutil.WriteFromStreamingBytesClient(getObjectClient, &buf); err != nil {
+			return fmt.Errorf("error reading commit tree: %v", err)
+		}
+
+		tree, err := hashtree.Deserialize(buf.Bytes())
+		if err != nil {
+			return err
+		}
+
+		return tree.Walk(func(path string, node *hashtree.NodeProto) error {
+			if node.FileNode != nil {
+				addActiveObjects(node.FileNode.Objects...)
+			}
+			return nil
+		})
+	}
+
+	// Get all repos
+	repoInfos, err := pfsClient.ListRepo(ctx, &pfs.ListRepoRequest{})
+	if err != nil {
+		return nil, err
+	}
+
+	// Get all commit trees
+	limiter := limit.New(100)
+	var eg errgroup.Group
+	for _, repo := range repoInfos.RepoInfo {
+		repo := repo
+		commitInfos, err := pfsClient.ListCommit(ctx, &pfs.ListCommitRequest{
+			Repo: repo.Repo,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, commit := range commitInfos.CommitInfo {
+			commit := commit
+			limiter.Acquire()
+			eg.Go(func() error {
+				defer limiter.Release()
+				return addActiveTree(commit.Tree)
+			})
+		}
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+
+	// Get all objects referenced by pipeline tags
+	pipelineInfos, err := a.ListPipeline(ctx, &pps.ListPipelineRequest{})
+	if err != nil {
+		return nil, err
+	}
+
+	// The set of tags that are active
+	activeTags := make(map[string]bool)
+	for _, pipelineInfo := range pipelineInfos.PipelineInfo {
+		tags, err := objClient.ListTags(ctx, &pfs.ListTagsRequest{
+			Prefix:        client.HashPipelineID(pipelineInfo.ID),
+			IncludeObject: true,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("error listing tagged objects: %v", err)
+		}
+
+		for resp, err := tags.Recv(); err != io.EOF; resp, err = tags.Recv() {
+			resp := resp
+			if err != nil {
+				return nil, err
+			}
+			activeTags[resp.Tag] = true
+			limiter.Acquire()
+			eg.Go(func() error {
+				defer limiter.Release()
+				return addActiveTree(resp.Object)
+			})
+		}
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+
+	// Iterate through all objects.  If they are not active, delete them.
+	objects, err := objClient.ListObjects(ctx, &pfs.ListObjectsRequest{})
+	if err != nil {
+		return nil, err
+	}
+
+	var objectsToDelete []*pfs.Object
+	deleteObjectsIfMoreThan := func(n int) error {
+		if len(objectsToDelete) > n {
+			if _, err := objClient.DeleteObjects(ctx, &pfs.DeleteObjectsRequest{
+				Objects: objectsToDelete,
+			}); err != nil {
+				return fmt.Errorf("error deleting objects: %v", err)
+			}
+			objectsToDelete = []*pfs.Object{}
+		}
+		return nil
+	}
+	for object, err := objects.Recv(); err != io.EOF; object, err = objects.Recv() {
+		if err != nil {
+			return nil, fmt.Errorf("error receiving objects from ListObjects: %v", err)
+		}
+		if !activeObjects[object.Hash] {
+			objectsToDelete = append(objectsToDelete, object)
+		}
+		// Delete objects in batches
+		if err := deleteObjectsIfMoreThan(100); err != nil {
+			return nil, err
+		}
+	}
+	if err := deleteObjectsIfMoreThan(0); err != nil {
+		return nil, err
+	}
+
+	// Iterate through all tags.  If they are not active, delete them
+	tags, err := objClient.ListTags(ctx, &pfs.ListTagsRequest{})
+	if err != nil {
+		return nil, err
+	}
+	var tagsToDelete []string
+	deleteTagsIfMoreThan := func(n int) error {
+		if len(tagsToDelete) > n {
+			if _, err := objClient.DeleteTags(ctx, &pfs.DeleteTagsRequest{
+				Tags: tagsToDelete,
+			}); err != nil {
+				return fmt.Errorf("error deleting tags: %v", err)
+			}
+			tagsToDelete = []string{}
+		}
+		return nil
+	}
+	for resp, err := tags.Recv(); err != io.EOF; resp, err = tags.Recv() {
+		if err != nil {
+			return nil, fmt.Errorf("error receiving tags from ListTags: %v", err)
+		}
+		if !activeTags[resp.Tag] {
+			tagsToDelete = append(tagsToDelete, resp.Tag)
+		}
+		if err := deleteTagsIfMoreThan(100); err != nil {
+			return nil, err
+		}
+	}
+	if err := deleteTagsIfMoreThan(0); err != nil {
+		return nil, err
+	}
+
+	if err := a.incrementGCGeneration(ctx); err != nil {
+		return nil, err
+	}
+
+	return &pps.GarbageCollectResponse{}, nil
+}
+
+// incrementGCGeneration increments the GC generation number in etcd
+func (a *apiServer) incrementGCGeneration(ctx context.Context) error {
+	resp, err := a.etcdClient.Get(ctx, client.GCGenerationKey)
+	if err != nil {
+		return err
+	}
+
+	if resp.Count == 0 {
+		// If the generation number does not exist, create it.
+		// It's important that the new generation is 1, as the first
+		// generation is assumed to be 0.
+		if _, err := a.etcdClient.Put(ctx, client.GCGenerationKey, "1"); err != nil {
+			return err
+		}
+	} else {
+		oldGen, err := strconv.Atoi(string(resp.Kvs[0].Value))
+		if err != nil {
+			return err
+		}
+		newGen := oldGen + 1
+		if _, err := a.etcdClient.Put(ctx, client.GCGenerationKey, strconv.Itoa(newGen)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (a *apiServer) Version(version int64) error {
@@ -1587,8 +1827,6 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			go a.watchJobCompletion(ctx, job, jobCompletionCh)
 			protolion.Infof("pipeline %s created job %v with the following input: %v", pipelineName, job.ID, jobInput)
 		}
-		panic("unreachable")
-		return nil
 	}, b, func(err error, d time.Duration) error {
 		select {
 		case <-ctx.Done():

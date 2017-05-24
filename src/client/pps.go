@@ -1,6 +1,8 @@
 package client
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 
@@ -49,7 +51,19 @@ const (
 	// PPSWorkerSidecarContainerName is the name of the sidecar container
 	// that runs alongside of each worker container.
 	PPSWorkerSidecarContainerName = "storage"
+	// GCGenerationKey is the etcd key that stores a counter that the
+	// GC utility increments when it runs, so as to invalidate all cache.
+	GCGenerationKey = "gc-generation"
 )
+
+// HashPipelineID hashes a pipeline ID to a string of a fixed size
+func HashPipelineID(pipelineID string) string {
+	// We need to hash the pipeline ID because UUIDs are not necessarily
+	// random in every bit.
+	pipelineIDHash := sha256.New()
+	pipelineIDHash.Write([]byte(pipelineID))
+	return hex.EncodeToString(pipelineIDHash.Sum(nil))[:4]
+}
 
 // NewAtomInput returns a new atom input. It only includes required options.
 func NewAtomInput(repo string, glob string) *pps.Input {
@@ -412,6 +426,17 @@ func (c APIClient) RerunPipeline(name string, include []*pfs.Commit, exclude []*
 			Include:  include,
 			Exclude:  exclude,
 		},
+	)
+	return sanitizeErr(err)
+}
+
+// GarbageCollect garbage collects unused data.  Currently GC needs to be
+// run while no data is being added or removed (which, among other things,
+// implies that there shouldn't be jobs actively running).
+func (c APIClient) GarbageCollect() error {
+	_, err := c.PpsAPIClient.GarbageCollect(
+		c.ctx(),
+		&pps.GarbageCollectRequest{},
 	)
 	return sanitizeErr(err)
 }
