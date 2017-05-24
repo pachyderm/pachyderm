@@ -297,6 +297,12 @@
 			"revisionTime": "2017-02-05T05:28:56Z"
 		},
 		{
+			"checksumSHA1": "tHT9JXi1O4YtDEJJTPMDwtyf8lQ=",
+			"path": "github.com/coreos/etcd/clientv3/concurrency",
+			"revision": "2533c2a50c4b6114ad6fd4c0000175fac3b6ee06",
+			"revisionTime": "2017-02-17T23:51:47Z"
+		},
+		{
 			"checksumSHA1": "muiqfaDEp60w1SvL64c2t7hJouo=",
 			"path": "github.com/coreos/etcd/clientv3/mirror",
 			"revision": "25403970f575e22eb23ca04d32f45e4d428a8489",
