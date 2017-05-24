@@ -3462,7 +3462,8 @@ func TestIncrementalPipeline(t *testing.T) {
 				Cmd: []string{"bash"},
 				Stdin: []string{
 					"touch /pfs/out/sum",
-					fmt.Sprintf("cat /pfs/%s/new/data /pfs/out/sum | awk '{sum+=$1} END {print sum}' >/pfs/out/sum", dataRepo),
+					fmt.Sprintf("SUM=`cat /pfs/%s/data /pfs/out/sum | awk '{sum+=$1} END {print sum}'`", dataRepo),
+					"echo $SUM > /pfs/out/sum",
 				},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{
@@ -3477,7 +3478,7 @@ func TestIncrementalPipeline(t *testing.T) {
 		_, err := c.StartCommit(dataRepo, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.DeleteFile(dataRepo, "master", "data"))
-		_, err = c.PutFile(dataRepo, "master", "data", strings.NewReader(fmt.Sprintf("%d", i)))
+		_, err = c.PutFile(dataRepo, "master", "data", strings.NewReader(fmt.Sprintf("%d\n", i)))
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit(dataRepo, "master"))
 	}

@@ -179,7 +179,7 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 			if err := puller.PullDiff(a.pachClient, root,
 				file.Commit.Repo.Name, file.Commit.ID, file.Path,
 				input.ParentCommit.Repo.Name, input.ParentCommit.ID, file.Path,
-				false, input.Lazy, concurrency); err != nil {
+				true, input.Lazy, concurrency); err != nil {
 				return err
 			}
 		} else {
