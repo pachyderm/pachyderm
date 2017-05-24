@@ -42,7 +42,7 @@ Here's an example pipeline spec:
   "input": {
       "atom": {
         "repo": "data",
-        "glob": "/*",
+        "glob": "/*"
       }
   }
 }

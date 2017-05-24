@@ -7,25 +7,28 @@ import (
 	"io/ioutil"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
+	"github.com/golang/groupcache"
 	protolion "go.pedge.io/lion"
 	protorpclog "go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/cenkalti/backoff"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
-	"github.com/golang/groupcache"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 )
 
 const (
@@ -40,19 +43,26 @@ const (
 
 type objBlockAPIServer struct {
 	protorpclog.Logger
-	dir               string
-	localServer       *localBlockAPIServer
-	objClient         obj.Client
-	blockCache        *groupcache.Group
-	objectCache       *groupcache.Group
-	tagCache          *groupcache.Group
-	objectInfoCache   *groupcache.Group
+	dir         string
+	localServer *localBlockAPIServer
+	objClient   obj.Client
+
+	// cache
+	objectCache     *groupcache.Group
+	tagCache        *groupcache.Group
+	objectInfoCache *groupcache.Group
+	// The total number of bytes cached for objects
+	objectCacheBytes int64
+	// The GC generation number.  Incrementing this number effectively
+	// invalidates all current cache.
+	generation int
+	genLock    sync.RWMutex
+
 	objectIndexes     map[string]*pfsclient.ObjectIndex
 	objectIndexesLock sync.RWMutex
-	objectCacheBytes  int64
 }
 
-func newObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (*objBlockAPIServer, error) {
+func newObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objClient obj.Client) (*objBlockAPIServer, error) {
 	// defensive mesaure incase IsNotExist checking breaks due to underlying changes
 	if err := obj.TestIsNotExist(objClient); err != nil {
 		return nil, err
@@ -62,7 +72,7 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (*
 		return nil, err
 	}
 	oneCacheShare := cacheBytes / (objectCacheShares + tagCacheShares + objectInfoCacheShares)
-	server := &objBlockAPIServer{
+	s := &objBlockAPIServer{
 		Logger:           protorpclog.NewLogger("pfs.BlockAPI.Obj"),
 		dir:              dir,
 		localServer:      localServer,
@@ -70,47 +80,95 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (*
 		objectIndexes:    make(map[string]*pfsclient.ObjectIndex),
 		objectCacheBytes: oneCacheShare * objectCacheShares,
 	}
-	server.blockCache = groupcache.NewGroup("block", cacheBytes,
-		groupcache.GetterFunc(server.blockGetter))
-	server.objectCache = groupcache.NewGroup("object", oneCacheShare*objectCacheShares,
-		groupcache.GetterFunc(server.objectGetter))
-	server.tagCache = groupcache.NewGroup("tag", oneCacheShare*tagCacheShares,
-		groupcache.GetterFunc(server.tagGetter))
-	server.objectInfoCache = groupcache.NewGroup("objectInfo", oneCacheShare*objectInfoCacheShares,
-		groupcache.GetterFunc(server.objectInfoGetter))
-	return server, nil
+	s.objectCache = groupcache.NewGroup("object", oneCacheShare*objectCacheShares, groupcache.GetterFunc(s.objectGetter))
+	s.tagCache = groupcache.NewGroup("tag", oneCacheShare*tagCacheShares, groupcache.GetterFunc(s.tagGetter))
+	s.objectInfoCache = groupcache.NewGroup("objectInfo", oneCacheShare*objectInfoCacheShares, groupcache.GetterFunc(s.objectInfoGetter))
+	go s.watchGC(etcdAddress)
+	return s, nil
 }
 
-func newMinioBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServer, error) {
+// watchGC watches for GC runs and invalidate all cache when GC happens.
+func (s *objBlockAPIServer) watchGC(etcdAddress string) {
+	b := backoff.NewInfiniteBackOff()
+	backoff.RetryNotify(func() error {
+		etcdClient, err := etcd.New(etcd.Config{
+			Endpoints:   []string{etcdAddress},
+			DialOptions: client.EtcdDialOptions(),
+		})
+		if err != nil {
+			return fmt.Errorf("error instantiating etcd client: %v", err)
+		}
+
+		watcher, err := watch.NewWatcher(context.Background(), etcdClient, client.GCGenerationKey)
+		if err != nil {
+			return fmt.Errorf("error instantiating watch stream from generation number: %v", err)
+		}
+		defer watcher.Close()
+
+		for {
+			ev, ok := <-watcher.Watch()
+			if ev.Err != nil {
+				return fmt.Errorf("error from generation number watch: %v", ev.Err)
+			}
+			if !ok {
+				return fmt.Errorf("generation number watch stream closed unexpectedly")
+			}
+			newGen, err := strconv.Atoi(string(ev.Value))
+			if err != nil {
+				return fmt.Errorf("error converting the generation number: %v", err)
+			}
+			s.setGeneration(newGen)
+		}
+	}, b, func(err error, d time.Duration) error {
+		protolion.Errorf("error running GC watcher in block server: %v; retrying in %s", err, d)
+		return nil
+	})
+}
+
+func (s *objBlockAPIServer) setGeneration(newGen int) {
+	s.genLock.Lock()
+	defer s.genLock.Unlock()
+	if newGen > s.generation {
+		s.generation = newGen
+	}
+}
+
+func (s *objBlockAPIServer) getGeneration() int {
+	s.genLock.RLock()
+	defer s.genLock.RUnlock()
+	return s.generation
+}
+
+func newMinioBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*objBlockAPIServer, error) {
 	objClient, err := obj.NewMinioClientFromSecret("")
 	if err != nil {
 		return nil, err
 	}
-	return newObjBlockAPIServer(dir, cacheBytes, objClient)
+	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient)
 }
 
-func newAmazonBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServer, error) {
+func newAmazonBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*objBlockAPIServer, error) {
 	objClient, err := obj.NewAmazonClientFromSecret("")
 	if err != nil {
 		return nil, err
 	}
-	return newObjBlockAPIServer(dir, cacheBytes, objClient)
+	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient)
 }
 
-func newGoogleBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServer, error) {
+func newGoogleBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*objBlockAPIServer, error) {
 	objClient, err := obj.NewGoogleClientFromSecret(context.Background(), "")
 	if err != nil {
 		return nil, err
 	}
-	return newObjBlockAPIServer(dir, cacheBytes, objClient)
+	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient)
 }
 
-func newMicrosoftBlockAPIServer(dir string, cacheBytes int64) (*objBlockAPIServer, error) {
+func newMicrosoftBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*objBlockAPIServer, error) {
 	objClient, err := obj.NewMicrosoftClientFromSecret("")
 	if err != nil {
 		return nil, err
 	}
-	return newObjBlockAPIServer(dir, cacheBytes, objClient)
+	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient)
 }
 
 func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer) (retErr error) {
@@ -150,8 +208,11 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 	}
 	var eg errgroup.Group
 	// Now that we have a hash of the object we can check if it already exists.
-	_, err := s.InspectObject(server.Context(), object)
-	if err == nil {
+	resp, err := s.CheckObject(server.Context(), &pfsclient.CheckObjectRequest{object})
+	if err != nil {
+		return err
+	}
+	if resp.Exists {
 		// the object already exists so we delete the block we put
 		eg.Go(func() error {
 			return s.objClient.Delete(s.localServer.blockPath(block))
@@ -169,6 +230,7 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 		})
 	}
 	for _, tag := range putObjectReader.tags {
+		tag := tag
 		eg.Go(func() (retErr error) {
 			index := &pfsclient.ObjectIndex{Tags: map[string]*pfsclient.Object{tag.Name: object}}
 			return s.writeProto(s.localServer.tagPath(tag), index)
@@ -198,7 +260,7 @@ func (s *objBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServer
 	}
 	var data []byte
 	sink := groupcache.AllocatingByteSliceSink(&data)
-	if err := s.objectCache.Get(getObjectServer.Context(), splitKey(request.Hash), sink); err != nil {
+	if err := s.objectCache.Get(getObjectServer.Context(), s.splitKey(request.Hash), sink); err != nil {
 		return err
 	}
 	return getObjectServer.Send(&types.BytesValue{Value: data})
@@ -216,11 +278,11 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 			return err
 		}
 		if objectInfo == nil {
-			fmt.Println("objectInfo is nil; info: %+v; request: %v", objectInfo, request)
+			protolion.Debugf("objectInfo is nil; info: %+v; request: %v", objectInfo, request)
 		} else if objectInfo.BlockRef == nil {
-			fmt.Println("objectInfo.BlockRef is nil; info: %+v; request: %v", objectInfo, request)
+			protolion.Debugf("objectInfo.BlockRef is nil; info: %+v; request: %v", objectInfo, request)
 		} else if objectInfo.BlockRef.Range == nil {
-			fmt.Println("objectInfo.BlockRef.Range is nil; info: %+v; request: %v", objectInfo, request)
+			protolion.Debugf("objectInfo.BlockRef.Range is nil; info: %+v; request: %v", objectInfo, request)
 		}
 
 		objectSize := objectInfo.BlockRef.Range.Upper - objectInfo.BlockRef.Range.Lower
@@ -244,7 +306,7 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 		}
 		var data []byte
 		sink := groupcache.AllocatingByteSliceSink(&data)
-		if err := s.objectCache.Get(getObjectsServer.Context(), splitKey(object.Hash), sink); err != nil {
+		if err := s.objectCache.Get(getObjectsServer.Context(), s.splitKey(object.Hash), sink); err != nil {
 			return err
 		}
 		if uint64(len(data)) < offset+readSize {
@@ -269,11 +331,16 @@ func (s *objBlockAPIServer) TagObject(ctx context.Context, request *pfsclient.Ta
 	func() { s.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	// First inspect the object to make sure it actually exists
-	if _, err := s.InspectObject(ctx, request.Object); err != nil {
+	resp, err := s.CheckObject(ctx, &pfsclient.CheckObjectRequest{request.Object})
+	if err != nil {
 		return nil, err
+	}
+	if !resp.Exists {
+		return nil, fmt.Errorf("object %v does not exist", request.Object)
 	}
 	var eg errgroup.Group
 	for _, tag := range request.Tags {
+		tag := tag
 		eg.Go(func() (retErr error) {
 			index := &pfsclient.ObjectIndex{Tags: map[string]*pfsclient.Object{tag.Name: request.Object}}
 			return s.writeProto(s.localServer.tagPath(tag), index)
@@ -290,18 +357,27 @@ func (s *objBlockAPIServer) InspectObject(ctx context.Context, request *pfsclien
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	objectInfo := &pfsclient.ObjectInfo{}
 	sink := groupcache.ProtoSink(objectInfo)
-	if err := s.objectInfoCache.Get(ctx, splitKey(request.Hash), sink); err != nil {
+	if err := s.objectInfoCache.Get(ctx, s.splitKey(request.Hash), sink); err != nil {
 		return nil, err
 	}
 	return objectInfo, nil
+}
+
+func (s *objBlockAPIServer) CheckObject(ctx context.Context, request *pfsclient.CheckObjectRequest) (response *pfsclient.CheckObjectResponse, retErr error) {
+	func() { s.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+
+	return &pfsclient.CheckObjectResponse{
+		Exists: s.objClient.Exists(s.localServer.objectPath(request.Object)),
+	}, nil
 }
 
 func (s *objBlockAPIServer) ListObjects(request *pfsclient.ListObjectsRequest, listObjectsServer pfsclient.ObjectAPI_ListObjectsServer) (retErr error) {
 	func() { s.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 
-	return s.objClient.Walk(s.localServer.objectDir(), func(hash string) error {
-		return listObjectsServer.Send(&pfsclient.Object{hash})
+	return s.objClient.Walk(s.localServer.objectDir(), func(key string) error {
+		return listObjectsServer.Send(&pfsclient.Object{filepath.Base(key)})
 	})
 }
 
@@ -311,22 +387,68 @@ func (s *objBlockAPIServer) ListTags(request *pfsclient.ListTagsRequest, server 
 
 	var eg errgroup.Group
 	limiter := limit.New(100)
-	s.objClient.Walk(path.Join(s.localServer.tagDir(), request.Prefix), func(hash string) error {
-		limiter.Acquire()
-		eg.Go(func() error {
-			defer limiter.Release()
-			tagObjectIndex := &pfsclient.ObjectIndex{}
-			if err := s.readProto(hash, tagObjectIndex); err != nil {
-				return err
-			}
-			for _, object := range tagObjectIndex.Tags {
-				server.Send(object)
-			}
-			return nil
+	s.objClient.Walk(path.Join(s.localServer.tagDir(), request.Prefix), func(key string) error {
+		tag := filepath.Base(key)
+		if request.IncludeObject {
+			limiter.Acquire()
+			eg.Go(func() error {
+				defer limiter.Release()
+				tagObjectIndex := &pfsclient.ObjectIndex{}
+				if err := s.readProto(key, tagObjectIndex); err != nil {
+					return err
+				}
+				for _, object := range tagObjectIndex.Tags {
+					server.Send(&pfsclient.ListTagsResponse{
+						Tag:    tag,
+						Object: object,
+					})
+				}
+				return nil
+			})
+		}
+		server.Send(&pfsclient.ListTagsResponse{
+			Tag: tag,
 		})
 		return nil
 	})
 	return eg.Wait()
+}
+
+func (s *objBlockAPIServer) DeleteTags(ctx context.Context, request *pfsclient.DeleteTagsRequest) (response *pfsclient.DeleteTagsResponse, retErr error) {
+	func() { s.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
+
+	limiter := limit.New(100)
+	var eg errgroup.Group
+	for _, tag := range request.Tags {
+		tag := tag
+		limiter.Acquire()
+		eg.Go(func() error {
+			defer limiter.Release()
+			tagPath := s.localServer.tagPath(&pfsclient.Tag{tag})
+			if err := s.objClient.Delete(tagPath); err != nil && !s.isNotFoundErr(err) {
+				return err
+			}
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+
+	return &pfsclient.DeleteTagsResponse{}, nil
+}
+
+func (s *objBlockAPIServer) isNotFoundErr(err error) bool {
+	// GG golang
+	patterns := []string{"not found", "not exist", "NotFound", "NotExist", "404"}
+	errstr := err.Error()
+	for _, pattern := range patterns {
+		if strings.Contains(errstr, pattern) {
+			return true
+		}
+	}
+	return s.objClient.IsNotExist(err) || s.objClient.IsIgnorable(err)
 }
 
 func (s *objBlockAPIServer) DeleteObjects(ctx context.Context, request *pfsclient.DeleteObjectsRequest) (response *pfsclient.DeleteObjectsResponse, retErr error) {
@@ -341,18 +463,20 @@ func (s *objBlockAPIServer) DeleteObjects(ctx context.Context, request *pfsclien
 		eg.Go(func() error {
 			defer limiter.Release()
 			objectInfo, err := s.InspectObject(ctx, object)
-			if err != nil && !(s.objClient.IsNotExist(err) || s.objClient.IsIgnorable(err)) {
-				return err
-			}
-
-			blockPath := s.localServer.blockPath(objectInfo.BlockRef.Block)
-			if err := s.objClient.Delete(blockPath); err != nil && !(s.objClient.IsNotExist(err) || s.objClient.IsIgnorable(err)) {
+			if err != nil && !s.isNotFoundErr(err) {
 				return err
 			}
 
 			objPath := s.localServer.objectPath(object)
-			if err := s.objClient.Delete(objPath); err != nil && !(s.objClient.IsNotExist(err) || s.objClient.IsIgnorable(err)) {
+			if err := s.objClient.Delete(objPath); err != nil && !s.isNotFoundErr(err) {
 				return err
+			}
+
+			if objectInfo != nil && objectInfo.BlockRef != nil && objectInfo.BlockRef.Block != nil {
+				blockPath := s.localServer.blockPath(objectInfo.BlockRef.Block)
+				if err := s.objClient.Delete(blockPath); err != nil && !s.isNotFoundErr(err) {
+					return err
+				}
 			}
 
 			return nil
@@ -370,7 +494,7 @@ func (s *objBlockAPIServer) GetTag(request *pfsclient.Tag, getTagServer pfsclien
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	object := &pfsclient.Object{}
 	sink := groupcache.ProtoSink(object)
-	if err := s.tagCache.Get(getTagServer.Context(), splitKey(request.Name), sink); err != nil {
+	if err := s.tagCache.Get(getTagServer.Context(), s.splitKey(request.Name), sink); err != nil {
 		return err
 	}
 	return s.GetObject(object, getTagServer)
@@ -381,7 +505,7 @@ func (s *objBlockAPIServer) InspectTag(ctx context.Context, request *pfsclient.T
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	object := &pfsclient.Object{}
 	sink := groupcache.ProtoSink(object)
-	if err := s.tagCache.Get(ctx, splitKey(request.Name), sink); err != nil {
+	if err := s.tagCache.Get(ctx, s.splitKey(request.Name), sink); err != nil {
 		return nil, err
 	}
 	return s.InspectObject(ctx, object)
@@ -495,7 +619,7 @@ func (s *objBlockAPIServer) compact() (retErr error) {
 				Objects: make(map[string]*pfsclient.BlockRef),
 				Tags:    make(map[string]*pfsclient.Object),
 			}
-			if err := s.readProto(s.localServer.indexPath(prefix), prefixObjectIndex); err != nil && !s.objClient.IsNotExist(err) {
+			if err := s.readProto(s.localServer.indexPath(prefix), prefixObjectIndex); err != nil && !s.isNotFoundErr(err) {
 				return err
 			}
 			for hash, blockRef := range objectIndex.Objects {
@@ -574,11 +698,11 @@ func (s *objBlockAPIServer) objectGetter(ctx groupcache.Context, key string, des
 
 func (s *objBlockAPIServer) tagGetter(ctx groupcache.Context, key string, dest groupcache.Sink) error {
 	splitKey := strings.Split(key, ".")
-	if len(splitKey) != 2 {
+	if len(splitKey) != 3 {
 		return fmt.Errorf("invalid key %s (this is likely a bug)", key)
 	}
 	prefix := splitKey[0]
-	tag := &pfsclient.Tag{Name: strings.Join(splitKey, "")}
+	tag := &pfsclient.Tag{Name: strings.Join(splitKey[:len(splitKey)-1], "")}
 	updated := false
 	// First check if we already have the index for this Tag in memory, if
 	// not read it for the first time.
@@ -600,7 +724,7 @@ func (s *objBlockAPIServer) tagGetter(ctx groupcache.Context, key string, dest g
 	// Note that we tolerate NotExist errors here because the object may have
 	// been incorporated into an index and thus deleted.
 	objectIndex = &pfsclient.ObjectIndex{}
-	if err := s.readProto(s.localServer.tagPath(tag), objectIndex); err != nil && !s.objClient.IsNotExist(err) {
+	if err := s.readProto(s.localServer.tagPath(tag), objectIndex); err != nil && !s.isNotFoundErr(err) {
 		return err
 	} else if err == nil {
 		if object, ok := objectIndex.Tags[tag.Name]; ok {
@@ -625,11 +749,11 @@ func (s *objBlockAPIServer) tagGetter(ctx groupcache.Context, key string, dest g
 
 func (s *objBlockAPIServer) objectInfoGetter(ctx groupcache.Context, key string, dest groupcache.Sink) error {
 	splitKey := strings.Split(key, ".")
-	if len(splitKey) != 2 {
+	if len(splitKey) != 3 {
 		return fmt.Errorf("invalid key %s (this is likely a bug)", key)
 	}
 	prefix := splitKey[0]
-	object := &pfsclient.Object{Hash: strings.Join(splitKey, "")}
+	object := &pfsclient.Object{Hash: strings.Join(splitKey[:len(splitKey)-1], "")}
 	result := &pfsclient.ObjectInfo{Object: object}
 	updated := false
 	// First check if we already have the index for this Object in memory, if
@@ -653,7 +777,7 @@ func (s *objBlockAPIServer) objectInfoGetter(ctx groupcache.Context, key string,
 	// Note that we tolerate NotExist errors here because the object may have
 	// been incorporated into an index and thus deleted.
 	blockRef := &pfsclient.BlockRef{}
-	if err := s.readProto(s.localServer.objectPath(object), blockRef); err != nil && !s.objClient.IsNotExist(err) {
+	if err := s.readProto(s.localServer.objectPath(object), blockRef); err != nil && !s.isNotFoundErr(err) {
 		return err
 	} else if err == nil {
 		result.BlockRef = blockRef
@@ -685,11 +809,12 @@ func (s *objBlockAPIServer) readObj(path string, offset uint64, size uint64, des
 			return err
 		}
 		return nil
-	}, obj.NewExponentialBackOffConfig(), func(err error, d time.Duration) {
+	}, obj.NewExponentialBackOffConfig(), func(err error, d time.Duration) error {
 		protolion.Infof("Error creating reader; retrying in %s: %#v", d, obj.RetryError{
 			Err:               err.Error(),
 			TimeTillNextRetry: d.String(),
 		})
+		return nil
 	})
 	if err != nil {
 		return err
@@ -725,7 +850,7 @@ func (s *objBlockAPIServer) setObjectIndex(prefix string, index *pfsclient.Objec
 
 func (s *objBlockAPIServer) readObjectIndex(prefix string) error {
 	objectIndex := &pfsclient.ObjectIndex{}
-	if err := s.readProto(s.localServer.indexPath(prefix), objectIndex); err != nil && !s.objClient.IsNotExist(err) {
+	if err := s.readProto(s.localServer.indexPath(prefix), objectIndex); err != nil && !s.isNotFoundErr(err) {
 		return err
 	}
 	// Note that we only return the error above if it's something other than a
@@ -736,11 +861,14 @@ func (s *objBlockAPIServer) readObjectIndex(prefix string) error {
 	return nil
 }
 
-func splitKey(key string) string {
+// splitKey splits a key into the format we want, and also postpends
+// the generation number
+func (s *objBlockAPIServer) splitKey(key string) string {
+	gen := s.getGeneration()
 	if len(key) < prefixLength {
-		return fmt.Sprintf("%s.", key)
+		return fmt.Sprintf("%s.%s", key, gen)
 	}
-	return fmt.Sprintf("%s.%s", key[:prefixLength], key[prefixLength:])
+	return fmt.Sprintf("%s.%s.%s", key[:prefixLength], key[prefixLength:], gen)
 }
 
 type blockWriter struct {

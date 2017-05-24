@@ -132,7 +132,6 @@ func newBranchSetFactory(_ctx context.Context, pfsClient pfs.APIClient, input *p
 				}
 			}
 		}
-		panic("unreachable")
 	}()
 
 	f := &branchSetFactoryImpl{

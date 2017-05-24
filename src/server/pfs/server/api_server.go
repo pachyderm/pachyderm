@@ -266,18 +266,21 @@ func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream 
 	}()
 
 	for {
-		ev, ok := <-commitStream.Stream()
-		if !ok {
+		select {
+		case <-stream.Context().Done():
 			return nil
-		}
-		if ev.Err != nil {
-			return ev.Err
-		}
-		if err := stream.Send(ev.Value); err != nil {
-			return err
+		case ev, ok := <-commitStream.Stream():
+			if !ok {
+				return nil
+			}
+			if ev.Err != nil {
+				return ev.Err
+			}
+			if err := stream.Send(ev.Value); err != nil {
+				return err
+			}
 		}
 	}
-	return nil
 }
 
 func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {

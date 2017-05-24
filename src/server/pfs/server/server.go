@@ -41,20 +41,20 @@ func NewLocalBlockAPIServer(dir string) (BlockAPIServer, error) {
 }
 
 // NewObjBlockAPIServer create a BlockAPIServer from an obj.Client.
-func NewObjBlockAPIServer(dir string, cacheBytes int64, objClient obj.Client) (BlockAPIServer, error) {
-	return newObjBlockAPIServer(dir, cacheBytes, objClient)
+func NewObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objClient obj.Client) (BlockAPIServer, error) {
+	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient)
 }
 
 // NewBlockAPIServer creates a BlockAPIServer using the credentials it finds in
 // the environment
-func NewBlockAPIServer(dir string, cacheBytes int64, backend string) (BlockAPIServer, error) {
+func NewBlockAPIServer(dir string, cacheBytes int64, backend string, etcdAddress string) (BlockAPIServer, error) {
 	switch backend {
 	case MinioBackendEnvVar:
 		// S3 compatible doesn't like leading slashes
 		if len(dir) > 0 && dir[0] == '/' {
 			dir = dir[1:]
 		}
-		blockAPIServer, err := newMinioBlockAPIServer(dir, cacheBytes)
+		blockAPIServer, err := newMinioBlockAPIServer(dir, cacheBytes, etcdAddress)
 		if err != nil {
 			return nil, err
 		}
@@ -64,20 +64,20 @@ func NewBlockAPIServer(dir string, cacheBytes int64, backend string) (BlockAPISe
 		if len(dir) > 0 && dir[0] == '/' {
 			dir = dir[1:]
 		}
-		blockAPIServer, err := newAmazonBlockAPIServer(dir, cacheBytes)
+		blockAPIServer, err := newAmazonBlockAPIServer(dir, cacheBytes, etcdAddress)
 		if err != nil {
 			return nil, err
 		}
 		return blockAPIServer, nil
 	case GoogleBackendEnvVar:
 		// TODO figure out if google likes leading slashses
-		blockAPIServer, err := newGoogleBlockAPIServer(dir, cacheBytes)
+		blockAPIServer, err := newGoogleBlockAPIServer(dir, cacheBytes, etcdAddress)
 		if err != nil {
 			return nil, err
 		}
 		return blockAPIServer, nil
 	case MicrosoftBackendEnvVar:
-		blockAPIServer, err := newMicrosoftBlockAPIServer(dir, cacheBytes)
+		blockAPIServer, err := newMicrosoftBlockAPIServer(dir, cacheBytes, etcdAddress)
 		if err != nil {
 			return nil, err
 		}

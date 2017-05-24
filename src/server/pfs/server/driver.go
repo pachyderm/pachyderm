@@ -1033,7 +1033,6 @@ func (d *driver) flushRepo(ctx context.Context, repo *pfs.Repo) ([]*pfs.RepoInfo
 		}
 		repoInfos = append(repoInfos, repoInfo)
 	}
-	panic("unreachable")
 }
 
 func (d *driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
