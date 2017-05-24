@@ -40,6 +40,9 @@ func NewPuller() *Puller {
 }
 
 func (p *Puller) makePipe(path string, f func(io.Writer) error) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return err
+	}
 	if err := syscall.Mkfifo(path, 0666); err != nil {
 		return err
 	}
@@ -90,6 +93,9 @@ func (p *Puller) makePipe(path string, f func(io.Writer) error) error {
 }
 
 func (p *Puller) makeFile(path string, f func(io.Writer) error) (retErr error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return err
+	}
 	file, err := os.Create(path)
 	if err != nil {
 		return err
@@ -119,9 +125,6 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 			return err
 		}
 		path := filepath.Join(root, basepath)
-		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
-			return err
-		}
 		if pipes {
 			return p.makePipe(path, func(w io.Writer) error {
 				return client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, w)
@@ -153,9 +156,9 @@ func (p *Puller) PullDiff(client *pachclient.APIClient, root string, newRepo, ne
 		return err
 	}
 	for _, newFile := range newFiles {
-		path := filepath.Join(root, newFile.File.Path)
+		path := filepath.Join(root, "new", newFile.File.Path)
 		if newOnly {
-			path = filepath.Join(root, "new", newFile.File.Path)
+			path = filepath.Join(root, newFile.File.Path)
 		}
 		if pipes {
 			if err := p.makePipe(path, func(w io.Writer) error {
