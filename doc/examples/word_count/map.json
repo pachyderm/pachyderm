@@ -1,0 +1,19 @@
+{
+  "pipeline": {
+    "name": "map"
+  },
+  "transform": {
+    "image": "pachyderm/wordcount-map",
+    "cmd": [
+      "/map", 
+      "/pfs/scraper", 
+      "/pfs/out"
+    ]
+  },
+  "input": {
+    "atom": {
+      "repo": "scraper",
+      "glob": "/*"
+    }
+  }
+}
