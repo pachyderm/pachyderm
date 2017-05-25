@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -428,6 +429,42 @@ func (c APIClient) RerunPipeline(name string, include []*pfs.Commit, exclude []*
 		},
 	)
 	return sanitizeErr(err)
+}
+
+// FlushCommit iterates over a set of jobs that have the specified commits as
+// inputs (or inputs of inputs).  It blocks until the jobs have completed.
+//
+// If toRepos is not nil then only the commits up to and including those
+// repos will be considered, otherwise all repos are considered.
+//
+// Note that it's never necessary to call FlushCommit to run jobs, they'll
+// run no matter what, FlushCommit just allows you to wait for them to
+// complete and see their output once they do.
+func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo, f func(jobInfo *pps.JobInfo) error) error {
+	ctx, cancel := context.WithCancel(c.ctx())
+	defer cancel()
+	stream, err := c.PpsAPIClient.FlushCommit(
+		ctx,
+		&pps.FlushCommitRequest{
+			Commits: commits,
+			ToRepos: toRepos,
+		},
+	)
+	if err != nil {
+		return sanitizeErr(err)
+	}
+	for {
+		jobInfo, err := stream.Recv()
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return sanitizeErr(err)
+		}
+		if err := f(jobInfo); err != nil {
+			return err
+		}
+	}
 }
 
 // GarbageCollect garbage collects unused data.  Currently GC needs to be
