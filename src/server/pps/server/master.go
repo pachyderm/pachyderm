@@ -53,33 +53,62 @@ func (a *apiServer) master() {
 			if event.Err != nil {
 				return event.Err
 			}
-			var pipelineName string
-			var pipelineInfo pps.PipelineInfo
 			switch event.Type {
 			case watch.EventPut:
+				var pipelineName string
+				var pipelineInfo pps.PipelineInfo
 				if err := event.Unmarshal(&pipelineName, &pipelineInfo); err != nil {
 					return err
 				}
-				if pipelineInfo.Input == nil {
-					pipelineInfo.Input = translatePipelineInputs(pipelineInfo.Inputs)
+
+				var prevPipelineInfo pps.PipelineInfo
+				if event.PrevKey != nil {
+					if err := event.Unmarshal(&pipelineName, &prevPipelineInfo); err != nil {
+						return err
+					}
 				}
-				protolion.Infof("creating/updating workers for pipeline %s", pipelineInfo.Pipeline.Name)
-				if err != nil {
+
+				if pipelineStateToStopped(pipelineInfo.State) {
+					return a.deleteWorkersForPipeline(&pipelineInfo)
+				}
+
+				if pipelineInfo.Version > prevPipelineInfo.Version {
+					protolion.Infof("creating/updating workers for pipeline %s", pipelineInfo.Pipeline.Name)
 					return a.upsertWorkersForPipeline(&pipelineInfo)
 				}
 			case watch.EventDelete:
+				var pipelineName string
+				var pipelineInfo pps.PipelineInfo
 				if err := event.UnmarshalPrev(&pipelineName, &pipelineInfo); err != nil {
 					return err
 				}
-				if err != nil {
-					return a.deleteWorkersForPipeline(&pipelineInfo)
-				}
+				return a.deleteWorkersForPipeline(&pipelineInfo)
 			}
 		}
 	}, b, func(err error, d time.Duration) error {
 		protolion.Infof("master process failed; retrying in %s", d)
 		return nil
 	})
+}
+
+// pipelineStateToStopped defines what pipeline states are "stopped"
+// states, meaning that pipelines in this state should not be managed
+// by pipelineManager
+func pipelineStateToStopped(state pps.PipelineState) bool {
+	switch state {
+	case pps.PipelineState_PIPELINE_STARTING:
+		return false
+	case pps.PipelineState_PIPELINE_RUNNING:
+		return false
+	case pps.PipelineState_PIPELINE_RESTARTING:
+		return false
+	case pps.PipelineState_PIPELINE_STOPPED:
+		return true
+	case pps.PipelineState_PIPELINE_FAILURE:
+		return true
+	default:
+		panic(fmt.Sprintf("unrecognized pipeline state: %s", state))
+	}
 }
 
 func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {

@@ -987,11 +987,6 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 		if err := pipelines.Get(pipelineName, &pipelineInfo); err != nil {
 			return err
 		}
-		rcName := PipelineRcName(pipelineName, pipelineInfo.Version)
-		if err := a.deleteWorkers(rcName); err != nil {
-			protolion.Errorf("error deleting workers for pipeline: %v", pipelineName)
-		}
-		protolion.Infof("deleted workers for pipeline: %v", pipelineName)
 		return a.pipelines.ReadWrite(stm).Delete(request.Pipeline.Name)
 	}); err != nil {
 		return nil, err
@@ -1071,29 +1066,6 @@ func isAlreadyExistsErr(err error) bool {
 
 func isNotFoundErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "not found")
-}
-
-func (a *apiServer) getRunningJobsForPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) ([]*pps.JobInfo, error) {
-	iter, err := a.jobs.ReadOnly(ctx).GetByIndex(stoppedIndex, false)
-	if err != nil {
-		return nil, err
-	}
-	var jobInfos []*pps.JobInfo
-	for {
-		var jobID string
-		var jobInfo pps.JobInfo
-		ok, err := iter.Next(&jobID, &jobInfo)
-		if err != nil {
-			return nil, err
-		}
-		if !ok {
-			break
-		}
-		if jobInfo.PipelineID == pipelineInfo.ID {
-			jobInfos = append(jobInfos, &jobInfo)
-		}
-	}
-	return jobInfos, nil
 }
 
 // watchJobCompletion waits for a job to complete and then sends the job back on jobCompletionCh.
@@ -1176,26 +1148,6 @@ func (a *apiServer) workerServiceIP(ctx context.Context, deploymentName string) 
 	return service.Spec.ClusterIP, nil
 }
 
-// pipelineStateToStopped defines what pipeline states are "stopped"
-// states, meaning that pipelines in this state should not be managed
-// by pipelineManager
-func pipelineStateToStopped(state pps.PipelineState) bool {
-	switch state {
-	case pps.PipelineState_PIPELINE_STARTING:
-		return false
-	case pps.PipelineState_PIPELINE_RUNNING:
-		return false
-	case pps.PipelineState_PIPELINE_RESTARTING:
-		return false
-	case pps.PipelineState_PIPELINE_STOPPED:
-		return true
-	case pps.PipelineState_PIPELINE_FAILURE:
-		return true
-	default:
-		panic(fmt.Sprintf("unrecognized pipeline state: %s", state))
-	}
-}
-
 func (a *apiServer) updatePipelineState(ctx context.Context, pipelineName string, state pps.PipelineState) error {
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		pipelines := a.pipelines.ReadWrite(stm)
@@ -1204,16 +1156,6 @@ func (a *apiServer) updatePipelineState(ctx context.Context, pipelineName string
 			return err
 		}
 		pipelineInfo.State = state
-		pipelineInfo.Stopped = pipelineStateToStopped(state)
-
-		if pipelineInfo.Stopped {
-			rcName := PipelineRcName(pipelineName, pipelineInfo.Version)
-			if err := a.deleteWorkers(rcName); err != nil {
-				protolion.Errorf("error deleting workers for pipeline: %v", pipelineName)
-			}
-			protolion.Infof("deleted workers for pipeline: %v", pipelineName)
-		}
-
 		pipelines.Put(pipelineName, pipelineInfo)
 		return nil
 	})
@@ -1241,7 +1183,6 @@ func (a *apiServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.
 		pipelines.Put(pipelineInfo.Pipeline.Name, pipelineInfo)
 	}
 	jobInfo.State = state
-	jobInfo.Stopped = jobStateToStopped(state)
 	jobs := a.jobs.ReadWrite(stm)
 	jobs.Put(jobInfo.Job.ID, jobInfo)
 	return nil
@@ -1310,24 +1251,6 @@ func (a *apiServer) createWorkersForOrphanJob(jobInfo *pps.JobInfo) error {
 		Value: jobInfo.Job.ID,
 	})
 	return a.createWorkerRc(options)
-}
-
-func (a *apiServer) deleteWorkers(rcName string) error {
-	if err := a.kubeClient.Services(a.namespace).Delete(rcName); err != nil {
-		if !isNotFoundErr(err) {
-			return err
-		}
-	}
-	falseVal := false
-	deleteOptions := &api.DeleteOptions{
-		OrphanDependents: &falseVal,
-	}
-	if err := a.kubeClient.ReplicationControllers(a.namespace).Delete(rcName, deleteOptions); err != nil {
-		if !isNotFoundErr(err) {
-			return err
-		}
-	}
-	return nil
 }
 
 func (a *apiServer) getPFSClient() (pfs.APIClient, error) {
