@@ -221,35 +221,6 @@ func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitR
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) FlushCommit(request *pfs.FlushCommitRequest, stream pfs.API_FlushCommitServer) (retErr error) {
-	ctx := stream.Context()
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "FlushCommit")
-	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
-
-	commitStream, err := a.driver.flushCommit(ctx, request.Commits, request.ToRepos)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		commitStream.Close()
-	}()
-
-	for {
-		ev, ok := <-commitStream.Stream()
-		if !ok {
-			return nil
-		}
-		if ev.Err != nil {
-			return ev.Err
-		}
-		if err := stream.Send(ev.Value); err != nil {
-			return err
-		}
-	}
-}
-
 func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream pfs.API_SubscribeCommitServer) (retErr error) {
 	ctx := stream.Context()
 	func() { a.Log(request, nil, nil, 0) }()
@@ -257,30 +228,9 @@ func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream 
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "SubscribeCommit")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	commitStream, err := a.driver.subscribeCommit(ctx, request.Repo, request.Branch, request.From)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		commitStream.Close()
-	}()
-
-	for {
-		select {
-		case <-stream.Context().Done():
-			return nil
-		case ev, ok := <-commitStream.Stream():
-			if !ok {
-				return nil
-			}
-			if ev.Err != nil {
-				return ev.Err
-			}
-			if err := stream.Send(ev.Value); err != nil {
-				return err
-			}
-		}
-	}
+	return a.driver.subscribeCommit(ctx, request.Repo, request.Branch, request.From, func(commitInfo *pfs.CommitInfo) error {
+		return stream.Send(commitInfo)
+	})
 }
 
 func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
