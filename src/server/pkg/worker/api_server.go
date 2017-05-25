@@ -18,12 +18,12 @@ import (
 	"syscall"
 	"time"
 
-	"golang.org/x/net/context"
-	"golang.org/x/sync/errgroup"
-
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"

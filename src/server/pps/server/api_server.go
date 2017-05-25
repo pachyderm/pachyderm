@@ -14,7 +14,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
@@ -1066,41 +1065,6 @@ func isAlreadyExistsErr(err error) bool {
 
 func isNotFoundErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "not found")
-}
-
-// watchJobCompletion waits for a job to complete and then sends the job back on jobCompletionCh.
-func (a *apiServer) watchJobCompletion(ctx context.Context, job *pps.Job, jobCompletionCh chan *pps.Job) {
-	b := backoff.NewInfiniteBackOff()
-	backoff.RetryNotify(func() error {
-		if _, err := a.InspectJob(ctx, &pps.InspectJobRequest{
-			Job:        job,
-			BlockState: true,
-		}); err != nil {
-			// If a job has been deleted, it's also "completed" for
-			// our purposes.
-			if strings.Contains(err.Error(), "deleted") {
-				select {
-				case <-ctx.Done():
-				case jobCompletionCh <- job:
-				}
-				return nil
-			}
-			return err
-		}
-		select {
-		case <-ctx.Done():
-		case jobCompletionCh <- job:
-		}
-		return nil
-	}, b, func(err error, d time.Duration) error {
-		select {
-		case <-ctx.Done():
-			// Exit the retry loop if context got cancelled
-			return err
-		default:
-		}
-		return nil
-	})
 }
 
 func (a *apiServer) numWorkers(ctx context.Context, rcName string) (int, error) {

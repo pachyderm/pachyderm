@@ -124,7 +124,7 @@ func do(appEnvObj interface{}) error {
 			return fmt.Errorf("error getting pipelineInfo: %v", err)
 		}
 		workerRcName = ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-		apiServer = worker.NewPipelineAPIServer(pachClient, pipelineInfo, appEnv.PodName)
+		apiServer = worker.NewPipelineAPIServer(pachClient, etcdClient, appEnv.PPSPrefix, pipelineInfo, appEnv.PodName)
 	} else if appEnv.PPSJobID != "" {
 		jobInfo, err := getJobInfo(etcdClient, appEnv)
 		if err != nil {
