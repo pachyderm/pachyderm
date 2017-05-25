@@ -12,7 +12,7 @@ Pachyderm is:
 
 * [Git for Data Science](http://pachyderm.io/pfs.html): Pachyderm offers complete version control for even the largest data sets.
 * [Containerized](http://pachyderm.io/pps.html): Pachyderm is built on Docker and Kubernetes. Since everything in Pachyderm is a container, data scientists can use any languages or libraries they want (e.g. R, Python, OpenCV, etc).
-* [Ideal for building machine learning pipelines and ETL workflows](http://pachyderm.io/pps.html): Pachyderm versions and tracks every output directly to the raw input datasets that created it (aka: [Provenance](http://pachyderm.readthedocs.io/en/latest/advanced/provenance.html)). 
+* [Ideal for building machine learning pipelines and ETL workflows](http://pachyderm.io/pps.html): Pachyderm versions and tracks every output directly to the raw input datasets that created it (aka: [Provenance](https://medium.com/pachyderm-data/provenance-the-missing-feature-for-good-data-science-now-in-pachyderm-1-1-2bd9d376a7eb)). 
 
 For more details, see [what's new about Pachyderm](https://github.com/pachyderm/pachyderm/#whats-new-about-pachyderm-how-is-it-different-from-hadoop).
 
