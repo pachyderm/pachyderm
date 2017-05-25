@@ -2,29 +2,30 @@ package worker
 
 import (
 	"bytes"
-	"client"
-	"client/limit"
-	"client/pkg/grpcutil"
 	"context"
 	"fmt"
 	"net/url"
 	"path"
-	"server/pkg/hashtree"
-	"server/pkg/obj"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/input"
+	"github.com/pachyderm/pachyderm/src/client/pkg/limit"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
+	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
 
 const (
-	masterLockPath = "_master_lock"
+	masterLocksDir = "_master_locks"
 )
 
 func (a *APIServer) master() {
@@ -34,7 +35,7 @@ func (a *APIServer) master() {
 		defer cancel()
 
 		// Acquire the master lock
-		masterLock, err := dlock.NewDLock(ctx, a.etcdClient, path.Join(a.ppsPrefix, masterLockPath))
+		masterLock, err := dlock.NewDLock(ctx, a.etcdClient, path.Join(a.ppsEtcdPrefix, masterLocksDir, a.pipelineInfo.Pipeline.Name))
 		if err != nil {
 			return err
 		}
@@ -42,13 +43,16 @@ func (a *APIServer) master() {
 		ctx = masterLock.Context()
 
 		var provenance []*pfs.Repo
-		for _, commit := range inputCommits(pipelineInfo.Input) {
+		for _, commit := range input.InputCommits(a.pipelineInfo.Input) {
 			provenance = append(provenance, commit.Repo)
 		}
 
+		pfsClient := a.pachClient.PfsAPIClient
+		ppsClient := a.pachClient.PpsAPIClient
+
 		// Create the output repo; if it already exists, do nothing
-		if _, err := a.pachClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
-			Repo:       &pfs.Repo{pipelineName},
+		if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
+			Repo:       &pfs.Repo{a.pipelineInfo.Pipeline.Name},
 			Provenance: provenance,
 		}); err != nil {
 			if !isAlreadyExistsErr(err) {
@@ -56,7 +60,7 @@ func (a *APIServer) master() {
 			}
 		}
 
-		branchSetFactory, err := newBranchSetFactory(ctx, pfsClient, pipelineInfo.Input)
+		branchSetFactory, err := newBranchSetFactory(ctx, pfsClient, a.pipelineInfo.Input)
 		if err != nil {
 			return err
 		}
@@ -71,9 +75,9 @@ func (a *APIServer) master() {
 			}
 
 			// (create JobInput for new processing job)
-			jobInput := proto.Clone(pipelineInfo.Input).(*pps.Input)
+			jobInput := proto.Clone(a.pipelineInfo.Input).(*pps.Input)
 			var visitErr error
-			visit(jobInput, func(input *pps.Input) {
+			input.Visit(jobInput, func(input *pps.Input) {
 				if input.Atom != nil {
 					for _, branch := range branchSet.Branches {
 						if input.Atom.Repo == branch.Head.Repo.Name && input.Atom.Branch == branch.Name {
@@ -130,7 +134,7 @@ func (a *APIServer) master() {
 					return err
 				}
 
-				jobInfo, err = a.pachClient.InspectJob(job.ID)
+				jobInfo, err = ppsClient.InspectJob(ctx, job)
 				if err != nil {
 					return err
 				}
@@ -178,7 +182,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo) error {
 		if jobInfo.Pipeline == nil {
 			// Create output repo for this job
 			var provenance []*pfs.Repo
-			visit(jobInfo.Input, func(input *pps.Input) {
+			input.Visit(jobInfo.Input, func(input *pps.Input) {
 				if input.Atom != nil {
 					provenance = append(provenance, client.NewRepo(input.Atom.Repo))
 				}
@@ -406,7 +410,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo) error {
 		}
 
 		var provenance []*pfs.Commit
-		for _, commit := range inputCommits(jobInfo.Input) {
+		for _, commit := range input.InputCommits(jobInfo.Input) {
 			provenance = append(provenance, commit)
 		}
 
@@ -484,4 +488,8 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo) error {
 
 		return nil
 	})
+}
+
+func isAlreadyExistsErr(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "already exists")
 }

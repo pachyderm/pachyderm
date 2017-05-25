@@ -12,6 +12,7 @@ import (
 
 	client "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/input"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
@@ -151,7 +152,7 @@ type apiServer struct {
 func (a *apiServer) validateInput(ctx context.Context, input *pps.Input, job bool) error {
 	names := make(map[string]bool)
 	var result error
-	visit(input, func(input *pps.Input) {
+	input.Visit(input, func(input *pps.Input) {
 		set := false
 		if input.Atom != nil {
 			set = true
@@ -235,61 +236,6 @@ func validateTransform(transform *pps.Transform) error {
 	return nil
 }
 
-// visit each input recursively in ascending order (root last)
-func visit(input *pps.Input, f func(*pps.Input)) {
-	switch {
-	case input.Cross != nil:
-		for _, input := range input.Cross {
-			visit(input, f)
-		}
-	case input.Union != nil:
-		for _, input := range input.Union {
-			visit(input, f)
-		}
-	}
-	f(input)
-}
-
-func name(input *pps.Input) string {
-	switch {
-	case input.Atom != nil:
-		return input.Atom.Name
-	case input.Cross != nil:
-		if len(input.Cross) > 0 {
-			return name(input.Cross[0])
-		}
-	case input.Union != nil:
-		if len(input.Union) > 0 {
-			return name(input.Union[0])
-		}
-	}
-	return ""
-}
-
-func sortInput(input *pps.Input) {
-	visit(input, func(input *pps.Input) {
-		sortInputs := func(inputs []*pps.Input) {
-			sort.SliceStable(inputs, func(i, j int) bool { return name(inputs[i]) < name(inputs[j]) })
-		}
-		switch {
-		case input.Cross != nil:
-			sortInputs(input.Cross)
-		case input.Union != nil:
-			sortInputs(input.Union)
-		}
-	})
-}
-
-func inputCommits(input *pps.Input) []*pfs.Commit {
-	var result []*pfs.Commit
-	visit(input, func(input *pps.Input) {
-		if input.Atom != nil {
-			result = append(result, client.NewCommit(input.Atom.Repo, input.Atom.Commit))
-		}
-	})
-	return result
-}
-
 func (a *apiServer) validateJob(ctx context.Context, jobInfo *pps.JobInfo) error {
 	if err := validateTransform(jobInfo.Transform); err != nil {
 		return err
@@ -347,7 +293,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	}
 
 	job := &pps.Job{uuid.NewWithoutUnderscores()}
-	sortInput(request.Input)
+	input.SortInput(request.Input)
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		jobInfo := &pps.JobInfo{
 			Job:             job,
@@ -786,7 +732,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 	pipelineName := pipelineInfo.Pipeline.Name
 
-	sortInput(pipelineInfo.Input)
+	input.SortInput(pipelineInfo.Input)
 	if request.Update {
 		if _, err := a.StopPipeline(ctx, &pps.StopPipelineRequest{request.Pipeline}); err != nil {
 			return nil, err
@@ -852,7 +798,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	// row, some of which depend on the existence of the output repos
 	// of upstream pipelines.
 	var provenance []*pfs.Repo
-	for _, commit := range inputCommits(pipelineInfo.Input) {
+	for _, commit := range input.InputCommits(pipelineInfo.Input) {
 		provenance = append(provenance, commit.Repo)
 	}
 
@@ -868,7 +814,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 // setPipelineDefaults sets the default values for a pipeline info
 func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
-	visit(pipelineInfo.Input, func(input *pps.Input) {
+	input.Visit(pipelineInfo.Input, func(input *pps.Input) {
 		if input.Atom != nil {
 			if input.Atom.Branch == "" {
 				input.Atom.Branch = "master"

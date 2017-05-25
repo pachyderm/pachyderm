@@ -9,8 +9,8 @@ import (
 	"syscall"
 
 	pachclient "github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/limit"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
 	"golang.org/x/sync/errgroup"

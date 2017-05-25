@@ -1,8 +1,9 @@
-package server
+package worker
 
 import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	inputpkg "github.com/pachyderm/pachyderm/src/client/pkg/input"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 
 	"golang.org/x/net/context"
@@ -35,7 +36,7 @@ func newBranchSetFactory(_ctx context.Context, pfsClient pfs.APIClient, input *p
 	ctx, cancel := context.WithCancel(_ctx)
 
 	uniqueBranches := make(map[string]map[string]*pfs.Commit)
-	visit(input, func(input *pps.Input) {
+	inputpkg.Visit(input, func(input *pps.Input) {
 		if input.Atom != nil {
 			if uniqueBranches[input.Atom.Repo] == nil {
 				uniqueBranches[input.Atom.Repo] = make(map[string]*pfs.Commit)
