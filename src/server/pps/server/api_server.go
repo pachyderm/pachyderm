@@ -1051,6 +1051,94 @@ func (a *apiServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelin
 	return nil, fmt.Errorf("TODO")
 }
 
+func (a *apiServer) FlushCommit(request *pps.FlushCommitRequest, server pps.API_FlushCommitServer) error {
+	ctx := server.Context()
+	repoToCommit := make(map[string]*pfs.Commit)
+	for _, commit := range request.Commits {
+		if repoToCommit[commit.Repo.Name] != nil {
+			return fmt.Errorf("can't flush two commits from the same repo: %s", commit.Repo.Name)
+		}
+		repoToCommit[commit.Repo.Name] = commit
+	}
+	pfsClient, err := a.getPFSClient()
+	if err != nil {
+		return err
+	}
+	repoToInfo := make(map[string]*pfs.RepoInfo)
+	if request.ToRepos != nil {
+		for _, toRepo := range request.ToRepos {
+			repoInfo, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{toRepo})
+			if err != nil {
+				return err
+			}
+			repoToInfo[repoInfo.Repo.Name] = repoInfo
+			for _, provRepo := range repoInfo.Provenance {
+				provRepoInfo, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{toRepo})
+				if err != nil {
+					return err
+				}
+				repoToInfo[repoInfo.Repo.Name] = provRepoInfo
+				// provRepo has no provenance (is a raw input) and we don't
+				// have a commit for it. We error because this means the
+				// request is ambiguous since we don't know which commit to use
+				// for some of the repos.
+				if len(provRepoInfo.Provenance) == 0 && repoToCommit[provRepoInfo.Repo.Name] == nil {
+					return fmt.Errorf("cannot flush to repo %s because %s is provenance but no commit from that repo was given", toRepo.Name, provRepo.Name)
+				}
+			}
+		}
+	}
+	var repoInfos []*pfs.RepoInfo
+	for _, repoInfo := range repoToInfo {
+		repoInfos = append(repoInfos, repoInfo)
+	}
+	sort.Slice(repoInfos, func(i, j int) bool {
+		return len(repoInfos[i].Provenance) < len(repoInfos[j].Provenance)
+	})
+	jobs := a.jobs.ReadOnly(ctx)
+	for _, repoInfo := range repoInfos {
+		if repoToCommit[repoInfo.Repo.Name] != nil {
+			continue
+		}
+		pipelineInfo, err := a.InspectPipeline(ctx, &pps.InspectPipelineRequest{client.NewPipeline(repoInfo.Repo.Name)})
+		if err != nil {
+			return err
+		}
+		var visitErr error
+		visit(pipelineInfo.Input, func(input *pps.Input) {
+			if input.Atom != nil {
+				commit, ok := repoToCommit[input.Atom.Repo]
+				if !ok && visitErr == nil {
+					visitErr = fmt.Errorf("should have commit for %s but don't (this is likely a bug)", input.Atom.Repo)
+				}
+				input.Atom.Commit = commit.ID
+			}
+		})
+		if visitErr != nil {
+			return visitErr
+		}
+		watcher, err := jobs.WatchByIndex(jobsInputIndex, pipelineInfo.Input)
+		if err != nil {
+			return err
+		}
+		defer watcher.Close()
+		for event := range watcher.Watch() {
+			var jobID string
+			jobInfo := &pps.JobInfo{}
+			if err := event.Unmarshal(&jobID, jobInfo); err != nil {
+				return err
+			}
+			if jobInfo.Finished != nil {
+				if err := server.Send(jobInfo); err != nil {
+					return err
+				}
+				repoToCommit[repoInfo.Repo.Name] = jobInfo.OutputCommit
+			}
+		}
+	}
+	return nil
+}
+
 func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
