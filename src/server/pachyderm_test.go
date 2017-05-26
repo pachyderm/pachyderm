@@ -2660,19 +2660,25 @@ func TestStopJob(t *testing.T) {
 	// Wait for the first job to start running
 	time.Sleep(5 * time.Second)
 
-	// Check that the first job is running and the second is starting
+	// Check that jobs are spawned one at a time
+	jobInfos, err := c.ListJob(pipelineName, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+	require.Equal(t, pps.JobState_JOB_RUNNING, jobInfos[0].State)
+
+	// Now stop the first job
+	err = c.StopJob(jobInfos[0].Job.ID)
+	require.NoError(t, err)
+	jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, true)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_STOPPED, jobInfo.State)
+
+	// Check that a second job spawns
 	jobInfos, err := c.ListJob(pipelineName, nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobInfos))
-	require.Equal(t, pps.JobState_JOB_STARTING, jobInfos[0].State)
-	require.Equal(t, pps.JobState_JOB_RUNNING, jobInfos[1].State)
-
-	// Now stop the first job
-	err = c.StopJob(jobInfos[1].Job.ID)
-	require.NoError(t, err)
-	jobInfo, err := c.InspectJob(jobInfos[1].Job.ID, true)
-	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_STOPPED, jobInfo.State)
+	require.Equal(t, pps.JobState_JOB_RUNNING, jobInfos[0].State)
+	require.Equal(t, pps.JobState_JOB_STOPPED, jobInfos[1].State)
 
 	// Check that the second job completes
 	jobInfo, err = c.InspectJob(jobInfos[0].Job.ID, true)

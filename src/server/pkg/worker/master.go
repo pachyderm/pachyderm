@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"go.pedge.io/lion/proto"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -19,9 +20,11 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/limit"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pps/server/model"
 )
 
 const (
@@ -29,6 +32,7 @@ const (
 )
 
 func (a *APIServer) master() {
+	jobs := model.Jobs(a.etcdClient, a.ppsEtcdPrefix)
 	b := backoff.NewInfiniteBackOff()
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
@@ -94,9 +98,9 @@ func (a *APIServer) master() {
 				return visitErr
 			}
 
-			jobsRO := a.jobs.ReadOnly(ctx)
+			jobsRO := jobs.ReadOnly(ctx)
 			// Check if this input set has already been processed
-			jobIter, err := jobsRO.GetByIndex(jobsInputIndex, jobInput)
+			jobIter, err := jobsRO.GetByIndex(model.JobsInputIndex, jobInput)
 			if err != nil {
 				return err
 			}
@@ -113,7 +117,7 @@ func (a *APIServer) master() {
 				if !ok {
 					break
 				}
-				if oldJobInfo.PipelineID == pipelineInfo.ID && oldJobInfo.PipelineVersion == pipelineInfo.Version {
+				if oldJobInfo.PipelineID == a.pipelineInfo.ID && oldJobInfo.PipelineVersion == a.pipelineInfo.Version {
 					job = oldJobInfo.Job
 					switch oldJobInfo.State {
 					case pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE, pps.JobState_JOB_STOPPED:
@@ -125,8 +129,8 @@ func (a *APIServer) master() {
 			}
 
 			if jobInfo == nil {
-				job, err = a.CreateJob(ctx, &pps.CreateJobRequest{
-					Pipeline:  pipelineInfo.Pipeline,
+				job, err = ppsClient.CreateJob(ctx, &pps.CreateJobRequest{
+					Pipeline:  a.pipelineInfo.Pipeline,
 					Input:     jobInput,
 					ParentJob: job,
 				})
@@ -134,7 +138,9 @@ func (a *APIServer) master() {
 					return err
 				}
 
-				jobInfo, err = ppsClient.InspectJob(ctx, job)
+				jobInfo, err = ppsClient.InspectJob(ctx, &pps.InspectJobRequest{
+					Job: job,
+				})
 				if err != nil {
 					return err
 				}
@@ -154,6 +160,8 @@ func (a *APIServer) master() {
 
 // runJob feeds datums to workers for a job
 func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo) error {
+	ppsClient := a.pachClient.PpsAPIClient
+	jobs := model.Jobs(a.etcdClient, a.ppsEtcdPrefix)
 	jobID := jobInfo.Job.ID
 	b := backoff.NewInfiniteBackOff()
 	backoff.RetryNotify(func() error {
@@ -167,7 +175,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo) error {
 			// Wait for the parent job to finish, to ensure that output
 			// commits are ordered correctly, and that this job doesn't
 			// contend for workers with its parent.
-			if _, err := a.InspectJob(ctx, &pps.InspectJobRequest{
+			if _, err := ppsClient.InspectJob(ctx, &pps.InspectJobRequest{
 				Job:        jobInfo.ParentJob,
 				BlockState: true,
 			}); err != nil {
@@ -196,35 +204,6 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo) error {
 					return err
 				}
 			}
-
-			// Create workers in kubernetes (i.e. create replication controller)
-			if err := a.createWorkersForOrphanJob(jobInfo); err != nil {
-				if !isAlreadyExistsErr(err) {
-					return err
-				}
-			}
-			go func() {
-				// Clean up workers if the job gets cancelled
-				<-ctx.Done()
-				rcName := JobRcName(jobInfo.Job.ID)
-				if err := a.deleteWorkers(rcName); err != nil {
-					protolion.Errorf("error deleting workers for job: %v", jobID)
-				}
-				protolion.Infof("deleted workers for job: %v", jobID)
-			}()
-		}
-
-		// Set the state of this job to 'RUNNING'
-		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-			jobs := a.jobs.ReadWrite(stm)
-			jobInfo := new(pps.JobInfo)
-			if err := jobs.Get(jobID, jobInfo); err != nil {
-				return err
-			}
-			return a.updateJobState(stm, jobInfo, pps.JobState_JOB_RUNNING)
-		})
-		if err != nil {
-			return err
 		}
 
 		// Start worker pool
@@ -274,7 +253,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo) error {
 				// etcd.
 				setProcessedData = processedData
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-					jobs := a.jobs.ReadWrite(stm)
+					jobs := jobs.ReadWrite(stm)
 					jobInfo := new(pps.JobInfo)
 					if err := jobs.Get(jobID, jobInfo); err != nil {
 						return err
@@ -372,7 +351,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo) error {
 		// check if the job failed
 		if failed {
 			_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-				jobs := a.jobs.ReadWrite(stm)
+				jobs := jobs.ReadWrite(stm)
 				jobInfo := new(pps.JobInfo)
 				if err := jobs.Get(jobID, jobInfo); err != nil {
 					return err
@@ -447,7 +426,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo) error {
 		// Record the job's output commit and 'Finished' timestamp, and mark the job
 		// as a SUCCESS
 		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-			jobs := a.jobs.ReadWrite(stm)
+			jobs := jobs.ReadWrite(stm)
 			jobInfo := new(pps.JobInfo)
 			if err := jobs.Get(jobID, jobInfo); err != nil {
 				return err
@@ -473,7 +452,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo) error {
 
 		// Increment the job's restart count
 		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-			jobs := a.jobs.ReadWrite(stm)
+			jobs := jobs.ReadWrite(stm)
 			jobInfo := new(pps.JobInfo)
 			if err := jobs.Get(jobID, jobInfo); err != nil {
 				return err

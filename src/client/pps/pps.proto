@@ -37,7 +37,9 @@ message Job {
 }
 
 enum JobState {
-  JOB_STARTING = 0;
+  // Keeping this here so we don't have to change the enum value 
+  // of the rest of job states.
+  JOB_STARTING_DEPRECATED = 0;
   JOB_RUNNING = 1;
   JOB_FAILURE = 2;
   JOB_SUCCESS = 3;

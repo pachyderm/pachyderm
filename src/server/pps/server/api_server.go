@@ -331,7 +331,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 		if err := a.validateJob(ctx, jobInfo); err != nil {
 			return err
 		}
-		return a.updateJobState(stm, jobInfo, pps.JobState_JOB_STARTING)
+		return a.updateJobState(stm, jobInfo, pps.JobState_JOB_RUNNING)
 	})
 	if err != nil {
 		return nil, err
@@ -1102,8 +1102,6 @@ func (a *apiServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.
 // meaning that jobs in this state should not be managed by jobManager
 func jobStateToStopped(state pps.JobState) bool {
 	switch state {
-	case pps.JobState_JOB_STARTING:
-		return false
 	case pps.JobState_JOB_RUNNING:
 		return false
 	case pps.JobState_JOB_SUCCESS:

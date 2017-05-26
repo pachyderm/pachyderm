@@ -105,10 +105,10 @@ func PrintPipelineInput(w io.Writer, pipelineInput *ppsclient.PipelineInput) {
 
 // PrintJobCountsHeader prints a job counts header.
 func PrintJobCountsHeader(w io.Writer) {
-	fmt.Fprintf(w, strings.ToUpper(jobState(ppsclient.JobState_JOB_STARTING))+"\t")
 	fmt.Fprintf(w, strings.ToUpper(jobState(ppsclient.JobState_JOB_RUNNING))+"\t")
 	fmt.Fprintf(w, strings.ToUpper(jobState(ppsclient.JobState_JOB_FAILURE))+"\t")
-	fmt.Fprintf(w, strings.ToUpper(jobState(ppsclient.JobState_JOB_SUCCESS))+"\t\n")
+	fmt.Fprintf(w, strings.ToUpper(jobState(ppsclient.JobState_JOB_SUCCESS))+"\t")
+	fmt.Fprintf(w, strings.ToUpper(jobState(ppsclient.JobState_JOB_STOPPED))+"\t\n")
 }
 
 // PrintDetailedJobInfo pretty-prints detailed job info.
@@ -179,8 +179,6 @@ Job Counts:
 
 func jobState(jobState ppsclient.JobState) string {
 	switch jobState {
-	case ppsclient.JobState_JOB_STARTING:
-		return color.New(color.FgYellow).SprintFunc()("starting")
 	case ppsclient.JobState_JOB_RUNNING:
 		return color.New(color.FgYellow).SprintFunc()("running")
 	case ppsclient.JobState_JOB_FAILURE:
@@ -245,7 +243,7 @@ func pipelineInput(pipelineInfo *ppsclient.PipelineInfo) string {
 
 func jobCounts(counts map[int32]int32) string {
 	var buffer bytes.Buffer
-	for i := int32(ppsclient.JobState_JOB_STARTING); i <= int32(ppsclient.JobState_JOB_SUCCESS); i++ {
+	for i := int32(ppsclient.JobState_JOB_RUNNING); i <= int32(ppsclient.JobState_JOB_SUCCESS); i++ {
 		fmt.Fprintf(&buffer, "%s: %d\t", jobState(ppsclient.JobState(i)), counts[i])
 	}
 	return buffer.String()
