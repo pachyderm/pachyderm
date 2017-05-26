@@ -25,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/model"
+	"github.com/pachyderm/pachyderm/src/server/pps/server/rc"
 )
 
 const (
@@ -207,19 +208,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo) error {
 		}
 
 		// Start worker pool
-		var rcName string
-		if jobInfo.Pipeline != nil {
-			// We scale up the workers before we run a job, to ensure
-			// that the job will have workers to use.  Note that scaling
-			// a RC is idempotent: nothing happens if the workers have
-			// already been scaled.
-			rcName = PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
-			if err := a.scaleUpWorkers(ctx, rcName, jobInfo.ParallelismSpec); err != nil {
-				return err
-			}
-		} else {
-			rcName = JobRcName(jobInfo.Job.ID)
-		}
+		rcName := rc.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
 
 		failed := false
 		numWorkers, err := a.numWorkers(ctx, rcName)
@@ -467,6 +456,16 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo) error {
 
 		return nil
 	})
+}
+
+HOW DO YOU DEAL WITH ORPHANED JOB
+
+func (a *apiServer) numWorkers(ctx context.Context, rcName string) (int, error) {
+	workerRC, err := a.kubeClient.ReplicationControllers(a.namespace).Get(rcName)
+	if err != nil {
+		return 0, err
+	}
+	return int(workerRC.Spec.Replicas), nil
 }
 
 func isAlreadyExistsErr(err error) bool {

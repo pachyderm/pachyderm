@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	workerpkg "github.com/pachyderm/pachyderm/src/server/pkg/worker"
+	"github.com/pachyderm/pachyderm/src/server/pps/server/rc"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
@@ -391,9 +392,9 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	}
 	var workerPoolID string
 	if jobInfo.Pipeline != nil {
-		workerPoolID = PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
+		workerPoolID = rc.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
 	} else {
-		workerPoolID = JobRcName(jobInfo.Job.ID)
+		workerPoolID = rc.JobRcName(jobInfo.Job.ID)
 	}
 	workerStatus, err := status(ctx, workerPoolID, a.etcdClient, a.etcdPrefix)
 	if err != nil {
@@ -498,9 +499,9 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	}
 	var workerPoolID string
 	if jobInfo.Pipeline != nil {
-		workerPoolID = PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
+		workerPoolID = rc.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
 	} else {
-		workerPoolID = JobRcName(jobInfo.Job.ID)
+		workerPoolID = rc.JobRcName(jobInfo.Job.ID)
 	}
 	if err := cancel(ctx, workerPoolID, a.etcdClient, a.etcdPrefix, request.Job.ID, request.DataFilters); err != nil {
 		return nil, err
@@ -514,7 +515,7 @@ func (a *apiServer) lookupRcNameForPipeline(ctx context.Context, pipeline *pps.P
 	if err != nil {
 		return "", fmt.Errorf("could not get pipeline information for %s: %s", pipeline.Name, err.Error())
 	}
-	return PipelineRcName(pipeline.Name, pipelineInfo.Version), nil
+	return rc.PipelineRcName(pipeline.Name, pipelineInfo.Version), nil
 }
 
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
@@ -555,7 +556,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				return err
 			}
 		} else {
-			rcName = JobRcName(request.Job.ID)
+			rcName = rc.JobRcName(request.Job.ID)
 		}
 	} else {
 		return fmt.Errorf("must specify either pipeline or job")
@@ -1149,7 +1150,7 @@ func (a *apiServer) createWorkersForOrphanJob(jobInfo *pps.JobInfo) error {
 		}
 	}
 	options := a.getWorkerOptions(
-		JobRcName(jobInfo.Job.ID),
+		rc.JobRcName(jobInfo.Job.ID),
 		int32(parallelism),
 		resources,
 		jobInfo.Transform)
