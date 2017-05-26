@@ -147,7 +147,7 @@ Now let's create the pipeline in Pachyderm:
 
 .. code-block:: shell
 
-  $ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.4.0/doc/examples/opencv/edges.json
+  $ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/doc/examples/opencv/edges.json
 
 
 
