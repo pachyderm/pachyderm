@@ -47,9 +47,9 @@ var (
 			Strategy: ppsclient.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		Inputs: []*ppsclient.PipelineInput{
-			{
-				Repo: &pfs.Repo{Name: "in_repo"},
+		Input: &ppsclient.Input{
+			Atom: &ppsclient.AtomInput{
+				Repo: "in_repo",
 				Glob: "*",
 			},
 		},
