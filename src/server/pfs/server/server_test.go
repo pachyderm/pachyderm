@@ -390,10 +390,7 @@ func TestInspectCommit(t *testing.T) {
 	require.True(t, finished.After(tFinished))
 }
 
-func TestDeleteCommitFuture(t *testing.T) {
-	// For when DeleteCommit gets implemented
-	t.Skip()
-
+func TestDeleteCommit(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -415,7 +412,7 @@ func TestDeleteCommitFuture(t *testing.T) {
 	require.NoError(t, client.DeleteCommit(repo, commit.ID))
 
 	commitInfo, err = client.InspectCommit(repo, commit.ID)
-	require.Nil(t, commitInfo)
+	require.YesError(t, err)
 
 	repoInfo, err := client.InspectRepo(repo)
 	require.Equal(t, 0, repoInfo.SizeBytes)
