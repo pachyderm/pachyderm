@@ -397,22 +397,55 @@ func TestDeleteCommit(t *testing.T) {
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
-	commit, err := client.StartCommit(repo, "")
+	commit1, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 
 	fileContent := "foo\n"
-	_, err = client.PutFile(repo, commit.ID, "foo", strings.NewReader(fileContent))
+	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader(fileContent))
 	require.NoError(t, err)
 
-	commitInfo, err := client.InspectCommit(repo, commit.ID)
-	require.NotNil(t, commitInfo)
+	require.NoError(t, client.FinishCommit(repo, "master"))
 
-	require.NoError(t, client.DeleteCommit(repo, commit.ID))
+	commit2, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
 
-	commitInfo, err = client.InspectCommit(repo, commit.ID)
-	fmt.Printf("commitInfo: %v\n", commitInfo)
+	require.NoError(t, client.DeleteCommit(repo, commit2.ID))
+
+	commitInfo, err := client.InspectCommit(repo, commit2.ID)
 	require.YesError(t, err)
 
+	// Check that the head has been set to the parent
+	commitInfo, err = client.InspectCommit(repo, "master")
+	require.NoError(t, err)
+	require.Equal(t, commit1.ID, commitInfo.Commit.ID)
+
+	// Should error because the first commit has been finished
+	require.YesError(t, client.DeleteCommit(repo, "master"))
+
+	// Check that the branch still exists
+	branches, err := client.ListBranch(repo)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(branches))
+
+	// Now start a new repo
+	repo = "test2"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit1, err = client.StartCommit(repo, "master")
+	require.NoError(t, err)
+
+	fileContent = "foo\n"
+	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader(fileContent))
+	require.NoError(t, err)
+
+	require.NoError(t, client.DeleteCommit(repo, "master"))
+
+	// Check that the branch has been deleted
+	branches, err = client.ListBranch(repo)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(branches))
+
+	// Check that repo size is back to 0
 	repoInfo, err := client.InspectRepo(repo)
 	require.Equal(t, 0, int(repoInfo.SizeBytes))
 }
