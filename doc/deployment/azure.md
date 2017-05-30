@@ -92,7 +92,7 @@ $ az storage blob list \
 $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.4
 
 # For Linux (64 bit):
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.4.7-6eb5fe968c6f23a8b6748298d8f566ba599ce9e3/pachctl_1.4.7-6eb5fe968c6f23a8b6748298d8f566ba599ce9e3_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.4.7-1a5386b0d074acde802ce3af92fe48decda38e25/pachctl_1.4.7-1a5386b0d074acde802ce3af92fe48decda38e25_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 You can try running `pachctl version` to check that this worked correctly, but Pachyderm itself isn't deployed yet so you won't get a `pachd` version.
