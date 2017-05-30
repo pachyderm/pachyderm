@@ -1051,7 +1051,9 @@ func (d *driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
 		return err
 	}
 	_, err = d.etcdClient.Delete(ctx, prefix, etcd.WithPrefix())
-	return err
+	if err != nil {
+		return err
+	}
 
 	// If this commit is the head of a branch, make the commit's parent
 	// the head instead.
