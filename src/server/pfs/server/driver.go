@@ -1036,7 +1036,51 @@ func (d *driver) flushRepo(ctx context.Context, repo *pfs.Repo) ([]*pfs.RepoInfo
 }
 
 func (d *driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
-	return nil
+	commitInfo, err := d.inspectCommit(ctx, commit)
+	if err != nil {
+		return err
+	}
+
+	if commitInfo.Finished != nil {
+		return fmt.Errorf("cannot delete finished commit")
+	}
+
+	// Delete the scratch space for this commit
+	prefix, err := d.scratchCommitPrefix(ctx, commit)
+	if err != nil {
+		return err
+	}
+	_, err = d.etcdClient.Delete(ctx, prefix, etcd.WithPrefix())
+	return err
+
+	// If this commit is the head of a branch, make the commit's parent
+	// the head instead.
+	branches, err := d.listBranch(ctx, commit.Repo)
+	if err != nil {
+		return err
+	}
+
+	for _, branch := range branches {
+		if branch.Head.ID == commitInfo.Commit.ID {
+			if commitInfo.ParentCommit != nil {
+				if err := d.setBranch(ctx, commitInfo.ParentCommit, branch.Name); err != nil {
+					return err
+				}
+			} else {
+				// If this commit doesn't have a parent, delete the branch
+				if err := d.deleteBranch(ctx, commit.Repo, branch.Name); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	// Delete the commit itself
+	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
+		return commits.Delete(commit.ID)
+	})
+	return err
 }
 
 func (d *driver) listBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.Branch, error) {
