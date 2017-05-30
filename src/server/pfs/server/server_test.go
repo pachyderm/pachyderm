@@ -404,18 +404,17 @@ func TestDeleteCommit(t *testing.T) {
 	_, err = client.PutFile(repo, commit.ID, "foo", strings.NewReader(fileContent))
 	require.NoError(t, err)
 
-	require.NoError(t, client.FinishCommit(repo, commit.ID))
-
 	commitInfo, err := client.InspectCommit(repo, commit.ID)
 	require.NotNil(t, commitInfo)
 
 	require.NoError(t, client.DeleteCommit(repo, commit.ID))
 
 	commitInfo, err = client.InspectCommit(repo, commit.ID)
+	fmt.Printf("commitInfo: %v\n", commitInfo)
 	require.YesError(t, err)
 
 	repoInfo, err := client.InspectRepo(repo)
-	require.Equal(t, 0, repoInfo.SizeBytes)
+	require.Equal(t, 0, int(repoInfo.SizeBytes))
 }
 
 func TestCleanPath(t *testing.T) {
