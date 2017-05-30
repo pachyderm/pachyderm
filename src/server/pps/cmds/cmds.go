@@ -76,7 +76,7 @@ The increase the throughput of a job increase the Shard paremeter.
 	createJob := &cobra.Command{
 		Use:   "create-job -f job.json",
 		Short: "Create a new job. Returns the id of the created job.",
-		Long:  fmt.Sprintf("Create a new job from a spec, the spec looks like this\n```\n%s\n```", exampleCreateJobRequest),
+		Long:  fmt.Sprintf("Create a new job from a spec, the spec looks like this:\n```\n%s\n```", exampleCreateJobRequest),
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {

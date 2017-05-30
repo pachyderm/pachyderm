@@ -5,23 +5,7 @@ Run a pipeline once.
 ### Synopsis
 
 
-Run a pipeline once, optionally overriding some pipeline options by providing a spec.  The spec looks like this:
-{
-  "parallelismSpec": {
-    "constant": "3"
-  },
-  "inputs": [
-    {
-      "commit": {
-        "repo": {
-          "name": "in_repo"
-        },
-        "id": "10cf676b626044f9a405235bf7660959"
-      },
-      "glob": "*"
-    }
-  ]
-}
+Run a pipeline once, optionally overriding some pipeline options by providing a [pipeline spec](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html).  For example run a web scraper pipelien without any explicit input.
 
 ```
 ./pachctl run-pipeline pipeline-name [-f job.json]
