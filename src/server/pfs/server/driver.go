@@ -1075,11 +1075,21 @@ func (d *driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
 		}
 	}
 
-	// Delete the commit itself
+	// Delete the commit itself and subtract the size of the commit
+	// from repo size.
 	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		repos := d.repos.ReadWrite(stm)
+		repoInfo := new(pfs.RepoInfo)
+		if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
+			return err
+		}
+		repoInfo.SizeBytes -= commitInfo.SizeBytes
+		repos.Put(commit.Repo.Name, repoInfo)
+
 		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
 		return commits.Delete(commit.ID)
 	})
+
 	return err
 }
 
