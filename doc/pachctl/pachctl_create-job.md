@@ -5,7 +5,7 @@ Create a new job. Returns the id of the created job.
 ### Synopsis
 
 
-Create a new job from a spec, the spec looks like this
+Create a new job from a spec, the spec looks like this:
 ```
 {
   "transform": {
