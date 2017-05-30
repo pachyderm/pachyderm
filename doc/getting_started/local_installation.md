@@ -23,7 +23,7 @@ Note: Any time you want to stop and restart Pachyderm, you should start fresh wi
 $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.4
 
 # For Linux (64 bit):
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.4.7-bb529437e9c3c3ce85fa4c6b154bb25cc2d20afc/pachctl_1.4.7-bb529437e9c3c3ce85fa4c6b154bb25cc2d20afc_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.4.7-da2ca706b2ffd6ed0e2a473af499e14b5cdd5c10/pachctl_1.4.7-da2ca706b2ffd6ed0e2a473af499e14b5cdd5c10_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 
