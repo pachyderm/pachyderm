@@ -103,7 +103,7 @@ $ gcloud compute disks list
 $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.4
 
 # For Linux (64 bit):
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.4.7-fd79c1a1a1108f223e75378acad4116e588d7f34/pachctl_1.4.7-fd79c1a1a1108f223e75378acad4116e588d7f34_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.4.7-ebb3edbba964a0c6396db9b7bac39c8d998850c5/pachctl_1.4.7-ebb3edbba964a0c6396db9b7bac39c8d998850c5_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 You can try running `pachctl version` to check that this worked correctly, but Pachyderm itself isn't deployed yet so you won't get a `pachd` version.
