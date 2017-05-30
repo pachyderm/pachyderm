@@ -66,11 +66,6 @@ The increase the throughput of a job increase the Shard paremeter.
 		return nil, err
 	}
 
-	exampleRunPipelineSpec, err := marshaller.MarshalToString(example.RunPipelineSpec)
-	if err != nil {
-		return nil, err
-	}
-
 	pipelineSpec := "[Pipeline Specification](../reference/pipeline_spec.html)"
 
 	var jobPath string
