@@ -45,7 +45,7 @@ To deploy and interact with Pachyderm, you will need `pachctl`, a command-line u
 $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.4
 
 # For Linux (64 bit):
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.4.7-713e07d9ca41958edb0e180c6e4ef320da893144/pachctl_1.4.7-713e07d9ca41958edb0e180c6e4ef320da893144_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.4.7-baa7dd218b1496ec2660cc6149afc795f8853111/pachctl_1.4.7-baa7dd218b1496ec2660cc6149afc795f8853111_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 You can try running `pachctl version` to check that this worked correctly, but Pachyderm itself isn't deployed yet so you won't get a `pachd` version.
