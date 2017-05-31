@@ -55,11 +55,9 @@ So, an example pipeline definition for a GPU enabled Pachyderm Pipeline is:
       "cpu": 1,
       "gpu": 1
   },
-  "inputs": [
-    {
-      "repo": {
-        "name": "data"
-      },
+  "inputs": {
+    "atom": {
+      "repo": "data",
       "glob": "/*"
     }
   ]
