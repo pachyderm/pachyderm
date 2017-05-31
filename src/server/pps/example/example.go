@@ -47,27 +47,11 @@ var (
 			Strategy: ppsclient.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
-		Inputs: []*ppsclient.PipelineInput{
-			{
-				Repo: &pfs.Repo{Name: "in_repo"},
+		Input: &ppsclient.Input{
+			Atom: &ppsclient.AtomInput{
+				Repo: "in_repo",
 				Glob: "*",
 			},
-		},
-	}
-	// RunPipelineSpec example
-	RunPipelineSpec = &ppsclient.CreateJobRequest{
-		Inputs: []*ppsclient.JobInput{
-			{
-				Commit: &pfs.Commit{
-					Repo: &pfs.Repo{Name: "in_repo"},
-					ID:   "10cf676b626044f9a405235bf7660959",
-				},
-				Glob: "*",
-			},
-		},
-		ParallelismSpec: &ppsclient.ParallelismSpec{
-			Strategy: ppsclient.ParallelismSpec_CONSTANT,
-			Constant: 3,
 		},
 	}
 )
