@@ -200,7 +200,6 @@ func (h *HashTreeProto) Walk(f func(string, *NodeProto) error) error {
 }
 
 func diff(new HashTree, old HashTree, newPath string, oldPath string, f func(string, *NodeProto, bool) error) error {
-	fmt.Printf("diff newPath:%s\n", newPath)
 	newNode, err := new.Get(newPath)
 	if err != nil && Code(err) != PathNotFound {
 		return err
@@ -221,7 +220,6 @@ func diff(new HashTree, old HashTree, newPath string, oldPath string, f func(str
 			}
 		} else if newNode.DirNode != nil {
 			for _, child := range newNode.DirNode.Children {
-				fmt.Printf("child: %s/%s\n", newPath, child)
 				children[child] = true
 			}
 		}
