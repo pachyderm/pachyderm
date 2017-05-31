@@ -377,6 +377,19 @@ $ pachctl flush-commit foo/XXX -r bar -r baz
 	flushCommit.Flags().VarP(&repos, "repos", "r", "Wait only for commits leading to a specific set of repos")
 	rawFlag(flushCommit)
 
+	deleteCommit := &cobra.Command{
+		Use:   "delete-commit repo-name commit-id",
+		Short: "Delete an unfinished commit.",
+		Long:  "Delete an unfinished commit.",
+		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return err
+			}
+			return client.DeleteCommit(args[0], args[1])
+		}),
+	}
+
 	listBranch := &cobra.Command{
 		Use:   "list-branch <repo-name>",
 		Short: "Return all branches on a repo.",
@@ -869,6 +882,7 @@ $ pachctl glob-file foo master "data/*"
 	result = append(result, inspectCommit)
 	result = append(result, listCommit)
 	result = append(result, flushCommit)
+	result = append(result, deleteCommit)
 	result = append(result, listBranch)
 	result = append(result, setBranch)
 	result = append(result, deleteBranch)
