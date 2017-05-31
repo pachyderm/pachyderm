@@ -1771,6 +1771,10 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				}
 			}
 
+			// now we need to find the parentJob for this job. The parent job
+			// is defined as the job with the same input commits except for the
+			// newest input commit which triggered this job. In place of it we
+			// use that commit's parent.
 			newBranch := branchSet.Branches[branchSet.NewBranch]
 			newCommitInfo, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
 				Commit: newBranch.Head,
@@ -1780,6 +1784,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			}
 			var parentJob *pps.Job
 			if newCommitInfo.ParentCommit != nil {
+				// recreate our parent's inputs so we can look it up in etcd
 				parentJobInput := proto.Clone(jobInput).(*pps.Input)
 				visit(parentJobInput, func(input *pps.Input) {
 					if input.Atom != nil && input.Atom.Repo == newBranch.Head.Repo.Name && input.Atom.Branch == newBranch.Name {
