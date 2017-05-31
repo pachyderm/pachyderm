@@ -174,6 +174,11 @@ func NewJobAPIServer(pachClient *client.APIClient, jobInfo *pps.JobInfo, workerN
 func (a *APIServer) downloadData(inputs []*Input, puller *filesync.Puller) error {
 	for _, input := range inputs {
 		file := input.FileInfo.File
+		// Make sure that we create the input directory even if the path
+		// that we are cloning is empty.
+		if err := os.MkdirAll(filepath.Join(client.PPSInputPrefix, input.Name), 0700); err != nil {
+			return err
+		}
 		if err := puller.Pull(a.pachClient, filepath.Join(client.PPSInputPrefix, input.Name, file.Path), file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, concurrency); err != nil {
 			return err
 		}
