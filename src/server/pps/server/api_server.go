@@ -2035,13 +2035,18 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		if err != nil {
 			return err
 		}
-		newBranchCommitInfo, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-			Commit: jobInfo.NewBranch.Head,
-		})
-		if err != nil {
-			return err
+		var newBranchParentCommit *pfs.Commit
+		// jobInfo.NewBranch is nil when we're dealing with an orphan job
+		// rather than a pipeline job
+		if jobInfo.NewBranch != nil {
+			newBranchCommitInfo, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+				Commit: jobInfo.NewBranch.Head,
+			})
+			if err != nil {
+				return err
+			}
+			newBranchParentCommit = newBranchCommitInfo.ParentCommit
 		}
-		newBranchParentCommit := newBranchCommitInfo.ParentCommit
 		tree := hashtree.NewHashTree()
 		var treeMu sync.Mutex
 
