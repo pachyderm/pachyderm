@@ -15,7 +15,7 @@ type Pool struct {
 	opts    []grpc.DialOption
 	conns   chan *grpc.ClientConn
 	// The number of connections established in total
-	connsCount int64
+	connsCount uint64
 }
 
 // NewPool creates a new connection pool, size is the maximum number of
@@ -37,7 +37,7 @@ func (p *Pool) Get(ctx context.Context) (*grpc.ClientConn, error) {
 	case conn := <-p.conns:
 		return conn, nil
 	default:
-		atomic.AddInt64(&p.connsCount, 1)
+		atomic.AddUint64(&p.connsCount, 1)
 		return grpc.DialContext(ctx, p.address, p.opts...)
 	}
 }
@@ -57,7 +57,8 @@ func (p *Pool) Put(conn *grpc.ClientConn) error {
 // Close closes all connections stored in the pool, it returns an error if any
 // of the calls to Close error.
 func (p *Pool) Close() error {
-	fmt.Printf("Established %d connections in total.\n", p.connsCount)
+	connsCount := atomic.LoadUint64(&p.connsCount)
+	fmt.Printf("Established %d connections in total.\n", connsCount)
 	var retErr error
 	for conn := range p.conns {
 		if err := conn.Close(); err != nil {
