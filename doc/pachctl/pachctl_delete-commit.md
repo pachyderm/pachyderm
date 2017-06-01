@@ -1,14 +1,14 @@
-## ./pachctl version
+## ./pachctl delete-commit
 
-Return version information.
+Delete an unfinished commit.
 
 ### Synopsis
 
 
-Return version information.
+Delete an unfinished commit.
 
 ```
-./pachctl version
+./pachctl delete-commit repo-name commit-id
 ```
 
 ### Options inherited from parent commands
