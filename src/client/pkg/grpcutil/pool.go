@@ -2,6 +2,8 @@ package grpcutil
 
 import (
 	"context"
+	"fmt"
+	"sync/atomic"
 
 	"google.golang.org/grpc"
 )
@@ -12,6 +14,8 @@ type Pool struct {
 	address string
 	opts    []grpc.DialOption
 	conns   chan *grpc.ClientConn
+	// The number of connections established in total
+	connsCount int64
 }
 
 // NewPool creates a new connection pool, size is the maximum number of
@@ -33,6 +37,7 @@ func (p *Pool) Get(ctx context.Context) (*grpc.ClientConn, error) {
 	case conn := <-p.conns:
 		return conn, nil
 	default:
+		atomic.AddInt64(&p.connsCount, 1)
 		return grpc.DialContext(ctx, p.address, p.opts...)
 	}
 }
@@ -52,6 +57,7 @@ func (p *Pool) Put(conn *grpc.ClientConn) error {
 // Close closes all connections stored in the pool, it returns an error if any
 // of the calls to Close error.
 func (p *Pool) Close() error {
+	fmt.Printf("Established %d connections in total.\n", p.connsCount)
 	var retErr error
 	for conn := range p.conns {
 		if err := conn.Close(); err != nil {
