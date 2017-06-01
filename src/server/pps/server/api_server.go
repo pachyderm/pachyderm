@@ -2036,9 +2036,10 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			return err
 		}
 		var newBranchParentCommit *pfs.Commit
-		// jobInfo.NewBranch is nil when we're dealing with an orphan job
-		// rather than a pipeline job
-		if jobInfo.NewBranch != nil {
+		// If this is an incremental job we need to find the parent commit of
+		// the new branch.  jobInfo.NewBranch is nil when we're dealing with an
+		// orphan job rather than a pipeline job.
+		if jobInfo.Incremental && jobInfo.NewBranch != nil {
 			newBranchCommitInfo, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
 				Commit: jobInfo.NewBranch.Head,
 			})

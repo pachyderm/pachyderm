@@ -237,6 +237,7 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
+			"cat /pfs/out/file",
 			fmt.Sprintf("cat /pfs/dirA/dirA/file >> /pfs/out/file"),
 			fmt.Sprintf("cat /pfs/dirB/dirB/file >> /pfs/out/file"),
 		},
