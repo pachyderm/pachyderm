@@ -1054,44 +1054,60 @@ func (a *apiServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelin
 func (a *apiServer) FlushCommit(request *pps.FlushCommitRequest, server pps.API_FlushCommitServer) error {
 	ctx := server.Context()
 	repoToCommit := make(map[string]*pfs.Commit)
+	var fromRepos []*pfs.Repo
 	for _, commit := range request.Commits {
 		if repoToCommit[commit.Repo.Name] != nil {
 			return fmt.Errorf("can't flush two commits from the same repo: %s", commit.Repo.Name)
 		}
 		repoToCommit[commit.Repo.Name] = commit
+		fromRepos = append(fromRepos, commit.Repo)
 	}
 	pfsClient, err := a.getPFSClient()
 	if err != nil {
 		return err
 	}
-	repoToInfo := make(map[string]*pfs.RepoInfo)
-	if request.ToRepos != nil {
+	var repoInfos []*pfs.RepoInfo
+	if request.ToRepos == nil {
+		response, err := pfsClient.ListRepo(ctx, &pfs.ListRepoRequest{Provenance: fromRepos})
+		if err != nil {
+			return err
+		}
+		repoInfos = response.RepoInfo
+	} else {
 		for _, toRepo := range request.ToRepos {
 			repoInfo, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{toRepo})
 			if err != nil {
 				return err
 			}
+			repoInfos = append(repoInfos, repoInfo)
+		}
+	}
+	repoToInfo := make(map[string]*pfs.RepoInfo)
+	if request.ToRepos != nil {
+		for _, repoInfo := range repoInfos {
 			repoToInfo[repoInfo.Repo.Name] = repoInfo
 			for _, provRepo := range repoInfo.Provenance {
-				provRepoInfo, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{toRepo})
+				provRepoInfo, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{provRepo})
 				if err != nil {
 					return err
 				}
-				repoToInfo[repoInfo.Repo.Name] = provRepoInfo
+				if _, ok := repoToInfo[provRepoInfo.Repo.Name]; !ok {
+					repoInfos = append(repoInfos, provRepoInfo)
+				}
+				repoToInfo[provRepoInfo.Repo.Name] = provRepoInfo
 				// provRepo has no provenance (is a raw input) and we don't
 				// have a commit for it. We error because this means the
 				// request is ambiguous since we don't know which commit to use
 				// for some of the repos.
 				if len(provRepoInfo.Provenance) == 0 && repoToCommit[provRepoInfo.Repo.Name] == nil {
-					return fmt.Errorf("cannot flush to repo %s because %s is provenance but no commit from that repo was given", toRepo.Name, provRepo.Name)
+					return fmt.Errorf("cannot flush to repo %s because %s is provenance but no commit from that repo was given", repoInfo.Repo.Name, provRepo.Name)
 				}
 			}
 		}
 	}
-	var repoInfos []*pfs.RepoInfo
-	for _, repoInfo := range repoToInfo {
-		repoInfos = append(repoInfos, repoInfo)
-	}
+	// Sort the repos len(Provenance) this is equivalent to topologically
+	// sorting the repos by provenance because a repo's provenance includes
+	// their provenance's provenance (it's a transitive closure).
 	sort.Slice(repoInfos, func(i, j int) bool {
 		return len(repoInfos[i].Provenance) < len(repoInfos[j].Provenance)
 	})
