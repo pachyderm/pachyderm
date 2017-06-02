@@ -467,6 +467,9 @@ func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo, f fun
 	}
 }
 
+// FlushCommitAll is like FlushCommit except instead of iterating over a set of
+// jobs as they're returned it blocks until they're all available and then
+// returns them as a slice.
 func (c APIClient) FlushCommitAll(commits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pps.JobInfo, error) {
 	var result []*pps.JobInfo
 	if err := c.FlushCommit(commits, toRepos, func(jobInfo *pps.JobInfo) error {
