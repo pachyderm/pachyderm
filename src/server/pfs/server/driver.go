@@ -502,11 +502,11 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 		return fmt.Errorf("commit %s has already been finished", commit.FullID())
 	}
 
-	_tree, err := d.getTreeForCommit(ctx, commitInfo.ParentCommit)
+	parentTree, err := d.getTreeForCommit(ctx, commitInfo.ParentCommit)
 	if err != nil {
 		return err
 	}
-	tree := _tree.Open()
+	tree := parentTree.Open()
 
 	for _, kv := range resp.Kvs {
 		// fileStr is going to look like "some/path/UUID"
@@ -598,7 +598,15 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 		if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
 			return err
 		}
-		repoInfo.SizeBytes += commitInfo.SizeBytes
+
+		// Increment the repo sizes by the sizes of the files that have
+		// been added in this commit.
+		finishedTree.Diff(parentTree, "", "", func(path string, node *hashtree.NodeProto, new bool) error {
+			if node.FileNode != nil && new {
+				repoInfo.SizeBytes += uint64(node.SubtreeSize)
+			}
+			return nil
+		})
 		repos.Put(commit.Repo.Name, repoInfo)
 		return nil
 	})
