@@ -338,7 +338,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 			if err != nil {
 				return err
 			}
-			size, err := grpcutil.ChunkReader(f, grpcutil.MaxMsgSize/2, func(chunk []byte) error {
+			size, err := grpcutil.ChunkReader(f, func(chunk []byte) error {
 				return putObjClient.Send(&pfs.PutObjectRequest{
 					Value: chunk,
 				})
