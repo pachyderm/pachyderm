@@ -467,6 +467,17 @@ func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo, f fun
 	}
 }
 
+func (c APIClient) FlushCommitAll(commits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pps.JobInfo, error) {
+	var result []*pps.JobInfo
+	if err := c.FlushCommit(commits, toRepos, func(jobInfo *pps.JobInfo) error {
+		result = append(result, jobInfo)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 // GarbageCollect garbage collects unused data.  Currently GC needs to be
 // run while no data is being added or removed (which, among other things,
 // implies that there shouldn't be jobs actively running).
