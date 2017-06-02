@@ -41,7 +41,8 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   "egress": {
     "URL": "s3://bucket/dir"
   },
-  "scaleDownThreshold": string
+  "scaleDownThreshold": string,
+  "incremental": bool
 }
 
 ------------------------------------
@@ -339,6 +340,22 @@ successful.
 By default, a pipeline’s worker pods are always running.  When `scaleDownThreshold` is set, the worker pods are terminated after they have been idle for the given duration.  When a new input commit comes in, the worker pods are then re-created.
 
 `scaleDownThreshold` is a string that needs to be sequence of decimal numbers with a unit suffix, such as “300ms”, “1.5h” or “2h45m”. Valid time units are “s”, “m”, “h”.
+
+## Incremental (optional)
+
+Incremental, if set will cause the pipeline to be run "incrementally". This
+means that when a datum changes it won't be reprocessed from scratch, instead
+`/pfs/out` will be populated with the previous results of processing that datum
+and instead of seeing the full datum under `/pfs/repo` you will see only
+new/modified values.
+
+Incremental processing is useful for [online
+algorithms](https://en.wikipedia.org/wiki/Online_algorithm), a canonical
+example is summing a set of numbers since the new numbers can be added to the
+old total without having to reconsider the numbers which went into that old
+total. Incremental is design to work nicely with the `--split` flag to
+`put-file` because it will cause only the new chunks of the file to be
+displayed to each step of the pipeline.
 
 ## The Input Glob Pattern
 
