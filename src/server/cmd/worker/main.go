@@ -4,8 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"path"
 	"time"
+
+	"go.pedge.io/lion"
 
 	"golang.org/x/sync/errgroup"
 
@@ -92,6 +96,10 @@ func getJobInfo(etcdClient *etcd.Client, appEnv *appEnv) (*pps.JobInfo, error) {
 }
 
 func do(appEnvObj interface{}) error {
+	go func() {
+		lion.Println(http.ListenAndServe(":652", nil))
+	}()
+
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	appEnv := appEnvObj.(*appEnv)
 	if err := validateEnv(appEnv); err != nil {
