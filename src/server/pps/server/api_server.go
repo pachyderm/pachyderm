@@ -2020,7 +2020,6 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		}
 		pool := grpcutil.NewPool(fmt.Sprintf("%s:%d", serviceAddr, client.PPSWorkerPort), numWorkers, client.PachDialOptions()...)
 		defer func() {
-			protolion.Debugf("Closing connection pool for job %v", jobID)
 			if err := pool.Close(); err != nil {
 				protolion.Errorf("error closing pool: %+v", pool)
 			}
