@@ -26,12 +26,14 @@ func Chunk(data []byte, chunkSize int) [][]byte {
 	return result
 }
 
-// ChunkReader splits a reader into chunks of size chunkSize.  For each
-// chunk, it calls the given function.
-func ChunkReader(r io.Reader, chunkSize int, f func([]byte) error) (int, error) {
+// ChunkReader splits a reader into reasonably sized chunks for the purpose
+// of transmitting the chunks over gRPC. For each chunk, it calls the given
+// function.
+func ChunkReader(r io.Reader, f func([]byte) error) (int, error) {
 	var total int
+	buf := GetBuffer()
+	defer PutBuffer(buf)
 	for {
-		buf := make([]byte, chunkSize)
 		n, err := r.Read(buf)
 		if n == 0 && err != nil {
 			if err == io.EOF {

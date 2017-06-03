@@ -234,6 +234,18 @@ message GlobFileRequest {
   string pattern = 2;
 }
 
+message DiffFileRequest {
+  File new_file = 1;
+  // OldFile may be left nil in which case the same path in the parent of
+  // NewFile's commit will be used.
+  File old_file = 2;
+}
+
+message DiffFileResponse {
+  repeated FileInfo new_files = 1;
+  repeated FileInfo old_files = 2;
+}
+
 message DeleteFileRequest {
   File file = 1;
 }
@@ -284,6 +296,8 @@ service API {
   rpc ListFile(ListFileRequest) returns (FileInfos) {}
   // GlobFile returns info about all files.
   rpc GlobFile(GlobFileRequest) returns (FileInfos) {}
+  // DiffFile returns the differences between 2 paths at 2 commits.
+  rpc DiffFile(DiffFileRequest) returns (DiffFileResponse) {}
   // DeleteFile deletes a file.
   rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {}
 

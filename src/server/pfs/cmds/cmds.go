@@ -310,6 +310,19 @@ $ pachctl list-commit foo master --from XXX
 	listCommit.Flags().IntVarP(&number, "number", "n", 0, "list only this many commits; if set to zero, list all commits")
 	rawFlag(listCommit)
 
+	deleteCommit := &cobra.Command{
+		Use:   "delete-commit repo-name commit-id",
+		Short: "Delete an unfinished commit.",
+		Long:  "Delete an unfinished commit.",
+		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return err
+			}
+			return client.DeleteCommit(args[0], args[1])
+		}),
+	}
+
 	listBranch := &cobra.Command{
 		Use:   "list-branch <repo-name>",
 		Short: "Return all branches on a repo.",
@@ -669,6 +682,63 @@ $ pachctl glob-file foo master "data/*"
 	}
 	rawFlag(globFile)
 
+	diffFile := &cobra.Command{
+		Use:   "diff-file new-repo-name new-commit-id new-path [old-repo-name old-commit-id old-path]",
+		Short: "Return a diff of two file trees.",
+		Long: `Return a diff of two file trees.
+
+Examples:
+
+` + codestart + `# Return the diff between foo master path and its parent.
+$ pachctl diff-file foo master path
+
+# Return the diff between foo master path1 and bar master path2.
+$ pachctl diff-file foo master path1 bar master path2
+` + codeend,
+		Run: cmdutil.RunBoundedArgs(3, 6, func(args []string) error {
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return err
+			}
+			var newFiles []*pfsclient.FileInfo
+			var oldFiles []*pfsclient.FileInfo
+			switch {
+			case len(args) == 3:
+				newFiles, oldFiles, err = client.DiffFile(args[0], args[1], args[2], "", "", "")
+			case len(args) == 6:
+				newFiles, oldFiles, err = client.DiffFile(args[0], args[1], args[2], args[3], args[4], args[5])
+			default:
+				return fmt.Errorf("diff-file expects either 3 or 6 args, got %d", len(args))
+			}
+			if err != nil {
+				return err
+			}
+			if len(newFiles) > 0 {
+				fmt.Println("New Files:")
+				writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+				pretty.PrintFileInfoHeader(writer)
+				for _, fileInfo := range newFiles {
+					pretty.PrintFileInfo(writer, fileInfo)
+				}
+				if err := writer.Flush(); err != nil {
+					return err
+				}
+			}
+			if len(oldFiles) > 0 {
+				fmt.Println("Old Files:")
+				writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+				pretty.PrintFileInfoHeader(writer)
+				for _, fileInfo := range oldFiles {
+					pretty.PrintFileInfo(writer, fileInfo)
+				}
+				if err := writer.Flush(); err != nil {
+					return err
+				}
+			}
+			return nil
+		}),
+	}
+
 	deleteFile := &cobra.Command{
 		Use:   "delete-file repo-name commit-id path/to/file",
 		Short: "Delete a file.",
@@ -801,6 +871,7 @@ $ pachctl glob-file foo master "data/*"
 	result = append(result, finishCommit)
 	result = append(result, inspectCommit)
 	result = append(result, listCommit)
+	result = append(result, deleteCommit)
 	result = append(result, listBranch)
 	result = append(result, setBranch)
 	result = append(result, deleteBranch)
@@ -810,6 +881,7 @@ $ pachctl glob-file foo master "data/*"
 	result = append(result, inspectFile)
 	result = append(result, listFile)
 	result = append(result, globFile)
+	result = append(result, diffFile)
 	result = append(result, deleteFile)
 	result = append(result, getObject)
 	result = append(result, getTag)

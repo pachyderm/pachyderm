@@ -67,11 +67,6 @@ The increase the throughput of a job increase the Shard paremeter.
 		return nil, err
 	}
 
-	exampleRunPipelineSpec, err := marshaller.MarshalToString(example.RunPipelineSpec)
-	if err != nil {
-		return nil, err
-	}
-
 	pipelineSpec := "[Pipeline Specification](../reference/pipeline_spec.html)"
 
 	var jobPath string
@@ -82,7 +77,7 @@ The increase the throughput of a job increase the Shard paremeter.
 	createJob := &cobra.Command{
 		Use:   "create-job -f job.json",
 		Short: "Create a new job. Returns the id of the created job.",
-		Long:  fmt.Sprintf("Create a new job from a spec, the spec looks like this\n%s", exampleCreateJobRequest),
+		Long:  fmt.Sprintf("Create a new job from a spec, the spec looks like this:\n```\n%s\n```", exampleCreateJobRequest),
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
@@ -122,7 +117,7 @@ The increase the throughput of a job increase the Shard paremeter.
 				return sanitizeErr(err)
 			}
 			if len(request.Inputs) != 0 {
-				fmt.Printf("WARNING: field `inputs` is deprecated, use `input` instead.\n")
+				fmt.Printf("WARNING: field `inputs` is deprecated and will be removed in v1.6. Both formats are valid for v1.4.6 to 1.5.x. See docs for the new input format: http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html \n")
 			}
 			if pushImages {
 				pushedImage, err := pushImage(registry, username, password, request.Transform.Image)
@@ -405,7 +400,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					return err
 				}
 				if len(request.Inputs) != 0 {
-					fmt.Printf("WARNING: field `inputs` is deprecated, use `input` instead.\n")
+					fmt.Printf("WARNING: field `inputs` is deprecated and will be removed in v1.6. Both formats are valid for v1.4.6 to 1.5.x. See docs for the new input format: http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html \n")
 				}
 				if pushImages {
 					pushedImage, err := pushImage(registry, username, password, request.Transform.Image)
@@ -584,7 +579,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	runPipeline := &cobra.Command{
 		Use:   "run-pipeline pipeline-name [-f job.json]",
 		Short: "Run a pipeline once.",
-		Long:  fmt.Sprintf("Run a pipeline once, optionally overriding some pipeline options by providing a spec.  The spec looks like this:\n%s", exampleRunPipelineSpec),
+		Long:  "Run a pipeline once, optionally overriding some pipeline options by providing a [pipeline spec](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html).  For example run a web scraper pipelien without any explicit input.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {

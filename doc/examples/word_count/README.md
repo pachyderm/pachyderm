@@ -8,15 +8,17 @@ This guide assumes that you already have a Pachyderm cluster running and have co
 
 ## Pipelines
 
-In this example, we will have three processing stages defined by three pipeline stages.  We say that these pipeline stages are "connected" because one pipeline's output is the input of the other.
+In this example, we will have three processing stages defined by three pipeline stages:
 
-Our first pipeline is a web scraper that just pulls content from the internet. Our second pipeline does a "map" step to tokenize the words from the scraped pages. Our final step is a "reduce" to aggreate the the totals. 
+![alt text](pachyderm_word_count.png)
 
-All three pipelines, including the "reduce", can be run in a distributed fashion to maximize performance. 
+Our first pipeline, `scraper`, is a web scraper that just pulls content from the internet. Our second pipeline, `map`, tokenizes the words from the scraped pages in parallel over all pages and appends counts of words to files corresponding to those words. Our final pipeline, `reduce`, aggreates the the total counts for each word. 
+
+All three pipelines, including `reduce`, can be run in a distributed fashion to maximize performance. 
 
 ## Input
 
-Our input data is a set of files. Each file is named for the site we want to scrape with the content being the URL. 
+Our input data is a set of files. Each file is named for the site we want to scrape with the content being the URL or URLs for that site. 
 
 Let's create the input repo and add one URL, Wikipedia:
 ```
@@ -26,96 +28,108 @@ $ pachctl create-repo urls
 $ pachctl put-file urls master -c -f Wikipedia
 ```
 
-Let's create the first pipeline:
+Then to actually scrape this site and save the data, we create the first pipeline based on the [scraper.json](scraper.json) pipeline specification:
 
 ```
 # We assume you're running this from the root of this example:
-$ pachctl create-pipeline -f wordcount_scraper.json
+$ pachctl create-pipeline -f scraper.json
 ```
 
-This first pipeline, `scraper`, uses `wget` to download web pages from Wikipedia which will be used as the input for the next pipeline. It'll take a minute or two because it needs to `apt-get` a few dependencies.
+This first pipeline, `scraper`, uses `wget` to download web pages from Wikipedia which will be used as the input for the next pipeline. It'll take a minute or two because it needs to `apt-get` a few dependencies (this can be avoided by creating a custom Docker container with the dependencies already downloaded).
 
 
-Now you should be able to see a job running and a new repo called `scraper` that contains the output of our scrape. 
+When you create the `scraper` pipeline, you should be able to see a job running and a new repo called `scraper` that contains the output of our scrape:
 
 ```
 $ pachctl list-job
-
+ID                                   OUTPUT COMMIT STARTED       DURATION RESTART PROGRESS STATE            
+44190a81-a87b-4a6b-8f25-8e5d3504566a scraper/-     3 seconds ago -        0       0 / 1    running 
+$ pachctl list-job
+ID                                   OUTPUT COMMIT                            STARTED            DURATION   RESTART PROGRESS STATE            
+44190a81-a87b-4a6b-8f25-8e5d3504566a scraper/da0786abd4254ff6b2297aeaf10204e4 About a minute ago 42 seconds 0       1 / 1    success 
 $ pachctl list-repo
-```
-
-The output of our scraper pipeline has a file structure like:
-
-```
-Wikipedia
- |--/page1
+NAME                CREATED              SIZE                
+scraper             About a minute ago   71.34 KiB           
+urls                3 minutes ago        39 B                
+$ pachctl list-file scraper master
+NAME                TYPE                SIZE                
+Wikipedia           dir                 71.34 KiB           
+$ pachctl list-file scraper master Wikipedia
+NAME                       TYPE                SIZE                
+Wikipedia/Main_Page.html   file                71.34 KiB
 ```
 
 ## Map
 
-This pipeline counts the number of occurrences of each word it encounters.  While this task can very well be accomplished in bash, we will demonstrate how to use custom code in Pachyderm by using a [Go program](map.go).
+The `map` pipeline counts the number of occurrences of each word it encounters for each of the scraped webpages.  While this task can very well be accomplished in bash, we will demonstrate how to use custom code in Pachyderm by using a [Go program](map.go).
 
-We need to build a Docker image that contains our Go program. We can do it ourselves using the provided [Dockerfile](Dockerfile). 
+In this case, you don't have to build a custom Docker image yourself with this compiled program. We have pushed a public image to Docker Hub, `pachyderm/wordcount-map`, which is referenced in the [map.json](map.json) pipeline specification.
 
-```
-$ docker build -t wordcount-map.
-```
+Let's create the `map` pipeline: 
 
-This builds the image locally. You'll need to push the image to a registry that Pachyderm can access. Either DockerHub, your own internal registry, or you can build it inside Minikube if you're working locally. 
-
-The `image` field in our pipeline spec, mapPipeline.json, simply needs to point to the right location for the image. `mapPipeline.json` (shown below) references a locally built image as if you built it within Minikube. 
-
-If you don't want to build this image yourself and add it to a registry, you can just reference our public image on dockerhub by changing the image field to:
-
-```
- "image": "pachyderm/wordcount-map"
-```
-
-Now let's create the Map pipeline. 
 ```
 # Again, we assume you're running this from the root of this example:
-$ pachctl create-pipeline -f mapPipeline.json
+$ pachctl create-pipeline -f map.json
 ```
 
-As soon as you create this pipeline, it will start processing data from `scraper`. For each web page the map.go code processes, it writes a file a file for each encountered word whose filename is the word, and whose content is the number of occurrences.  If multiple workers write to the same file, the content is concatenated.  As an example, the file `morning` might look like this:
+As soon as you create this pipeline, it will start processing data from the `scraper` data repository. For each web page the `map.go` code processes, it writes a file for each encountered word.  These files have the word itself as a filename, and the content of each file is the number of occurrences of the respective word.  If multiple workers write to the same file, the content is appended.  As an example, a file `wikipedia` might look like this (assuming we have already processed multiple web sites referencing wikipedia):
 
 ```
-$ pachctl get-file map master morning 
+$ pachctl get-file map master wikipedia
 36
 11
 17
 ```
 
-This shows that there were three [datums](http://pachyderm.readthedocs.io/en/latest/fundamentals/distributed_computing.html)(websites) that included the word and wrote to the file `morning`.
-
-For this tutorial, we're only running it with one worker, but you can change that in your [pipeline spec](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html) if you want.
+By default, Pachyderm will spin up the same number of workers as the number of nodes in your cluster.  This can of course be customized or changed (see [here](http://docs.pachyderm.io/en/latest/fundamentals/distributed_computing.html#controlling-the-number-of-workers-parallelism) for more info on controlling the number of workers).
 
 ## Reduce
 
-The final pipeline goes through every file and adds up the numbers in each file.  For this pipeline we can use a simple bash script:
+The final pipeline, `reduce` goes through every file and adds up the numbers in each file, thus obtaining a total count per word.  For this pipeline we can use a simple bash script:
 
 ```
 find /pfs/map -name '*' | while read count; do cat $count | awk '{ sum+=$1} END {print sum}' >/tmp/count; mv /tmp/count /pfs/out/`basename $count`; done
 ```
 
-Which we bake into [reducePipeline.json](reducePipeline.json).
+Which we bake into [reduce.json](reduce.json).  Again, creating the pipeline is as simple as:
 
 ```
 # We assume you're running this from the root of this repo:
-$ pachctl create-pipeline -f reducePipeline.json
+$ pachctl create-pipeline -f reduce.json
 ```
 
-The final output might look like this:
+The output should look like:
 
 ```
-$ pachctl get-file reduce master morning
-64
+$ pachctl list-repo
+NAME                CREATED             SIZE                
+reduce              43 minutes ago      4.216 KiB           
+map                 46 minutes ago      2.867 KiB           
+scraper             50 minutes ago      71.34 KiB           
+urls                53 minutes ago      39 B                
+$ pachctl get-file reduce master wikipedia
+241
 ```
 
 To get a complete list of the words counted:
 
 ```
 $ pachctl list-file reduce master
+NAME                                   TYPE                SIZE                
+a                                      file                4 B                 
+abdul                                  file                2 B                 
+about                                  file                3 B                 
+aboutsite                              file                2 B                 
+absolute                               file                2 B                 
+accesskey                              file                3 B                 
+accidentally                           file                2 B                 
+account                                file                2 B                 
+across                                 file                2 B                 
+action                                 file                2 B                 
+activities                             file                2 B                 
+additional                             file                2 B 
+
+etc...
 ```
 
 ## Expand on the example
@@ -133,8 +147,8 @@ $ pachctl put-file urls master -f GitHub
 
 $ pachctl finish-commit urls master
 ```
-Your scraper should automatically get started pulling these new sites (it won't rescrape Wikipedia). That'll automatically trigger the Map and Reduce pipelines to process the new data too and update the word counts for all the sites combined.
+Your scraper should automatically get started pulling these new sites (it won't rescrape Wikipedia). That will then automatically trigger the `map` and `reduce` pipelines to process the new data and update the word counts for all the sites combined.
 
-If you add a bunch more data and your pipeline starts to run slowly, you can crank up the parallism. By default, pipelines spin up one worker for each node in your cluster, but you can set that manually with the [parallelism spec](http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html#parallelism-spec-optional). The pipeline are already configured to spread computation across the various workers with `"glob": "/*". Check out our [distributed computing docs](http://pachyderm.readthedocs.io/en/latest/fundamentals/distributed_computing.html) to learn more about that. 
+If you add a bunch more data and your pipeline starts to run slowly, you can crank up the parallism. By default, pipelines spin up one worker for each node in your cluster, but you can set that manually with the [parallelism spec](http://docs.pachyderm.io/en/latest/fundamentals/distributed_computing.html#controlling-the-number-of-workers-parallelism) field in the pipeline specification. Further, the pipelines are already configured to spread computation across the various workers with `"glob": "/*". Check out our [spreading data across workers docs](http://docs.pachyderm.io/en/latest/fundamentals/distributed_computing.html#spreading-data-across-workers-glob-patterns) to learn more about that. 
 
 

@@ -471,6 +471,29 @@ func (a *apiServer) GlobFile(ctx context.Context, request *pfs.GlobFileRequest) 
 	}, nil
 }
 
+func (a *apiServer) DiffFile(ctx context.Context, request *pfs.DiffFileRequest) (response *pfs.DiffFileResponse, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) {
+		if response != nil && (len(response.NewFiles) > maxListItemsLog || len(response.OldFiles) > maxListItemsLog) {
+			protolion.Infof("Response contains too many objects; truncating.")
+			a.Log(request, &pfs.DiffFileResponse{
+				NewFiles: truncateFiles(response.NewFiles),
+				OldFiles: truncateFiles(response.OldFiles),
+			}, retErr, time.Since(start))
+		} else {
+			a.Log(request, response, retErr, time.Since(start))
+		}
+	}(time.Now())
+	newFileInfos, oldFileInfos, err := a.driver.diffFile(ctx, request.NewFile, request.OldFile)
+	if err != nil {
+		return nil, err
+	}
+	return &pfs.DiffFileResponse{
+		NewFiles: newFileInfos,
+		OldFiles: oldFileInfos,
+	}, nil
+}
+
 func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -536,4 +559,11 @@ func drainFileServer(putFileServer interface {
 			break
 		}
 	}
+}
+
+func truncateFiles(fileInfos []*pfs.FileInfo) []*pfs.FileInfo {
+	if len(fileInfos) > maxListItemsLog {
+		return fileInfos[:maxListItemsLog]
+	}
+	return fileInfos
 }

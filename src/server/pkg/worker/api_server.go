@@ -171,11 +171,34 @@ func NewJobAPIServer(pachClient *client.APIClient, jobInfo *pps.JobInfo, workerN
 	return server
 }
 
-func (a *APIServer) downloadData(inputs []*Input, puller *filesync.Puller) error {
+func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag) error {
 	for _, input := range inputs {
 		file := input.FileInfo.File
-		if err := puller.Pull(a.pachClient, filepath.Join(client.PPSInputPrefix, input.Name, file.Path), file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, concurrency); err != nil {
-			return err
+		root := filepath.Join(client.PPSInputPrefix, input.Name, file.Path)
+		if ((a.pipelineInfo != nil && a.pipelineInfo.Incremental) || (a.jobInfo != nil && a.jobInfo.Incremental)) && input.ParentCommit != nil {
+			if err := puller.PullDiff(a.pachClient, root,
+				file.Commit.Repo.Name, file.Commit.ID, file.Path,
+				input.ParentCommit.Repo.Name, input.ParentCommit.ID, file.Path,
+				true, input.Lazy, concurrency); err != nil {
+				return err
+			}
+		} else {
+			if err := puller.Pull(a.pachClient, root, file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, concurrency); err != nil {
+				return err
+			}
+		}
+	}
+	if parentTag != nil {
+		var buffer bytes.Buffer
+		if err := a.pachClient.GetTag(parentTag.Name, &buffer); err != nil {
+			logger.Logf("error getting parent for datum %v: %v", inputs, err)
+		}
+		tree, err := hashtree.Deserialize(buffer.Bytes())
+		if err != nil {
+			return fmt.Errorf("failed to deserialize parent hashtree: %v", err)
+		}
+		if err := puller.PullTree(a.pachClient, client.PPSOutputPath, tree, false, concurrency); err != nil {
+			return fmt.Errorf("error pulling output tree: %+v", err)
 		}
 	}
 	return nil
@@ -338,7 +361,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 			if err != nil {
 				return err
 			}
-			size, err := grpcutil.ChunkReader(f, grpcutil.MaxMsgSize/2, func(chunk []byte) error {
+			size, err := grpcutil.ChunkReader(f, func(chunk []byte) error {
 				return putObjClient.Send(&pfs.PutObjectRequest{
 					Value: chunk,
 				})
@@ -442,7 +465,7 @@ func (a *APIServer) cleanUpData() error {
 
 // HashDatum computes and returns the hash of datum + pipeline, with a
 // pipeline-specific prefix.
-func (a *APIServer) HashDatum(data []*Input) (string, error) {
+func HashDatum(pipelineInfo *pps.PipelineInfo, jobInfo *pps.JobInfo, data []*Input) (string, error) {
 	hash := sha256.New()
 	for _, datum := range data {
 		hash.Write([]byte(datum.Name))
@@ -450,26 +473,26 @@ func (a *APIServer) HashDatum(data []*Input) (string, error) {
 		hash.Write(datum.FileInfo.Hash)
 	}
 	var prefix string
-	if a.pipelineInfo != nil {
-		bytes, err := proto.Marshal(a.pipelineInfo.Transform)
+	if pipelineInfo != nil {
+		bytes, err := proto.Marshal(pipelineInfo.Transform)
 		if err != nil {
 			return "", err
 		}
 		hash.Write(bytes)
-		hash.Write([]byte(a.pipelineInfo.Pipeline.Name))
-		hash.Write([]byte(a.pipelineInfo.ID))
-		hash.Write([]byte(strconv.Itoa(int(a.pipelineInfo.Version))))
+		hash.Write([]byte(pipelineInfo.Pipeline.Name))
+		hash.Write([]byte(pipelineInfo.ID))
+		hash.Write([]byte(strconv.Itoa(int(pipelineInfo.Version))))
 
-		prefix = client.HashPipelineID(a.pipelineInfo.ID)
-	} else if a.jobInfo != nil {
-		bytes, err := proto.Marshal(a.jobInfo.Transform)
+		prefix = client.HashPipelineID(pipelineInfo.ID)
+	} else if jobInfo != nil {
+		bytes, err := proto.Marshal(jobInfo.Transform)
 		if err != nil {
 			return "", err
 		}
 		hash.Write(bytes)
-		hash.Write([]byte(a.jobInfo.Job.ID))
+		hash.Write([]byte(jobInfo.Job.ID))
 	} else {
-		return "", fmt.Errorf("malformed APIServer: has neither pipelineInfo or jobInfo; this is likely a bug")
+		return "", fmt.Errorf("must pass either pipelineInfo or jobInfo; this is likely a bug")
 	}
 
 	return prefix + hex.EncodeToString(hash.Sum(nil)), nil
@@ -513,7 +536,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	// Hash inputs and check if output is in s3 already. Note: ppsserver sorts
 	// inputs by input name for both jobs and pipelines, so this hash is stable
 	// even if a.Inputs are reordered by the user
-	tag, err := a.HashDatum(req.Data)
+	tag, err := HashDatum(a.pipelineInfo, a.jobInfo, req.Data)
 	if err != nil {
 		return nil, err
 	}
@@ -528,7 +551,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	// Download input data
 	logger.Logf("input has not been processed, downloading data")
 	puller := filesync.NewPuller()
-	err = a.downloadData(req.Data, puller)
+	err = a.downloadData(logger, req.Data, puller, req.ParentOutput)
 	// We run these cleanup functions no matter what, so that if
 	// downloadData partially succeeded, we still clean up the resources.
 	defer func() {

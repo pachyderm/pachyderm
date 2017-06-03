@@ -501,11 +501,11 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 		return fmt.Errorf("commit %s has already been finished", commit.FullID())
 	}
 
-	_tree, err := d.getTreeForCommit(ctx, commitInfo.ParentCommit)
+	parentTree, err := d.getTreeForCommit(ctx, commitInfo.ParentCommit)
 	if err != nil {
 		return err
 	}
-	tree := _tree.Open()
+	tree := parentTree.Open()
 
 	for _, kv := range resp.Kvs {
 		// fileStr is going to look like "some/path/UUID"
@@ -597,7 +597,15 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 		if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
 			return err
 		}
-		repoInfo.SizeBytes += commitInfo.SizeBytes
+
+		// Increment the repo sizes by the sizes of the files that have
+		// been added in this commit.
+		finishedTree.Diff(parentTree, "", "", func(path string, node *hashtree.NodeProto, new bool) error {
+			if node.FileNode != nil && new {
+				repoInfo.SizeBytes += uint64(node.SubtreeSize)
+			}
+			return nil
+		})
 		repos.Put(commit.Repo.Name, repoInfo)
 		return nil
 	})
@@ -820,7 +828,63 @@ func (d *driver) flushRepo(ctx context.Context, repo *pfs.Repo) ([]*pfs.RepoInfo
 }
 
 func (d *driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
-	return nil
+	commitInfo, err := d.inspectCommit(ctx, commit)
+	if err != nil {
+		return err
+	}
+
+	if commitInfo.Finished != nil {
+		return fmt.Errorf("cannot delete finished commit")
+	}
+
+	// Delete the scratch space for this commit
+	prefix, err := d.scratchCommitPrefix(ctx, commit)
+	if err != nil {
+		return err
+	}
+	_, err = d.etcdClient.Delete(ctx, prefix, etcd.WithPrefix())
+	if err != nil {
+		return err
+	}
+
+	// If this commit is the head of a branch, make the commit's parent
+	// the head instead.
+	branches, err := d.listBranch(ctx, commit.Repo)
+	if err != nil {
+		return err
+	}
+
+	for _, branch := range branches {
+		if branch.Head.ID == commitInfo.Commit.ID {
+			if commitInfo.ParentCommit != nil {
+				if err := d.setBranch(ctx, commitInfo.ParentCommit, branch.Name); err != nil {
+					return err
+				}
+			} else {
+				// If this commit doesn't have a parent, delete the branch
+				if err := d.deleteBranch(ctx, commit.Repo, branch.Name); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	// Delete the commit itself and subtract the size of the commit
+	// from repo size.
+	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		repos := d.repos.ReadWrite(stm)
+		repoInfo := new(pfs.RepoInfo)
+		if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
+			return err
+		}
+		repoInfo.SizeBytes -= commitInfo.SizeBytes
+		repos.Put(commit.Repo.Name, repoInfo)
+
+		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
+		return commits.Delete(commit.ID)
+	})
+
+	return err
 }
 
 func (d *driver) listBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.Branch, error) {
@@ -1193,6 +1257,42 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern strin
 		fileInfos = append(fileInfos, nodeToFileInfo(commit, node.Name, node, false))
 	}
 	return fileInfos, nil
+}
+
+func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.File) ([]*pfs.FileInfo, []*pfs.FileInfo, error) {
+	newTree, err := d.getTreeForCommit(ctx, newFile.Commit)
+	if err != nil {
+		return nil, nil, err
+	}
+	// if oldFile is new we use the parent of newFile
+	if oldFile == nil {
+		oldFile = &pfs.File{}
+		newCommitInfo, err := d.inspectCommit(ctx, newFile.Commit)
+		if err != nil {
+			return nil, nil, err
+		}
+		// ParentCommit may be nil, that's fine because getTreeForCommit
+		// handles nil
+		oldFile.Commit = newCommitInfo.ParentCommit
+		oldFile.Path = newFile.Path
+	}
+	oldTree, err := d.getTreeForCommit(ctx, oldFile.Commit)
+	if err != nil {
+		return nil, nil, err
+	}
+	var newFileInfos []*pfs.FileInfo
+	var oldFileInfos []*pfs.FileInfo
+	if err := newTree.Diff(oldTree, newFile.Path, oldFile.Path, func(path string, node *hashtree.NodeProto, new bool) error {
+		if new {
+			newFileInfos = append(newFileInfos, nodeToFileInfo(newFile.Commit, path, node, false))
+		} else {
+			oldFileInfos = append(oldFileInfos, nodeToFileInfo(oldFile.Commit, path, node, false))
+		}
+		return nil
+	}); err != nil {
+		return nil, nil, err
+	}
+	return newFileInfos, oldFileInfos, nil
 }
 
 func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {

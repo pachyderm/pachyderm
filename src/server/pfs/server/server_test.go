@@ -183,6 +183,46 @@ func TestCreateAndInspectRepo(t *testing.T) {
 	require.YesError(t, err)
 }
 
+func TestRepoSize(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "repo"
+	require.NoError(t, client.CreateRepo(repo))
+
+	repoInfo, err := client.InspectRepo(repo)
+	require.NoError(t, err)
+	require.Equal(t, 0, int(repoInfo.SizeBytes))
+
+	fileContent1 := "foo"
+	fileContent2 := "bar"
+	fileContent3 := "buzz"
+	commit, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit.ID, "foo", strings.NewReader(fileContent1))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit.ID, "bar", strings.NewReader(fileContent2))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+
+	repoInfo, err = client.InspectRepo(repo)
+	require.NoError(t, err)
+	require.Equal(t, len(fileContent1)+len(fileContent2), int(repoInfo.SizeBytes))
+
+	commit, err = client.StartCommit(repo, "")
+	require.NoError(t, err)
+	// Deleting a file shouldn't affect the repo size, since the actual
+	// data has not been removed from the storage system.
+	require.NoError(t, client.DeleteFile(repo, commit.ID, "foo"))
+	_, err = client.PutFile(repo, commit.ID, "buzz", strings.NewReader(fileContent3))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+
+	repoInfo, err = client.InspectRepo(repo)
+	require.NoError(t, err)
+	require.Equal(t, len(fileContent1)+len(fileContent2)+len(fileContent3), int(repoInfo.SizeBytes))
+}
+
 func TestListRepo(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
@@ -390,35 +430,64 @@ func TestInspectCommit(t *testing.T) {
 	require.True(t, finished.After(tFinished))
 }
 
-func TestDeleteCommitFuture(t *testing.T) {
-	// For when DeleteCommit gets implemented
-	t.Skip()
-
+func TestDeleteCommit(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
-	commit, err := client.StartCommit(repo, "")
+	commit1, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 
 	fileContent := "foo\n"
-	_, err = client.PutFile(repo, commit.ID, "foo", strings.NewReader(fileContent))
+	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader(fileContent))
 	require.NoError(t, err)
 
-	require.NoError(t, client.FinishCommit(repo, commit.ID))
+	require.NoError(t, client.FinishCommit(repo, "master"))
 
-	commitInfo, err := client.InspectCommit(repo, commit.ID)
-	require.NotNil(t, commitInfo)
+	commit2, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
 
-	require.NoError(t, client.DeleteCommit(repo, commit.ID))
+	require.NoError(t, client.DeleteCommit(repo, commit2.ID))
 
-	commitInfo, err = client.InspectCommit(repo, commit.ID)
-	require.Nil(t, commitInfo)
+	commitInfo, err := client.InspectCommit(repo, commit2.ID)
+	require.YesError(t, err)
 
+	// Check that the head has been set to the parent
+	commitInfo, err = client.InspectCommit(repo, "master")
+	require.NoError(t, err)
+	require.Equal(t, commit1.ID, commitInfo.Commit.ID)
+
+	// Should error because the first commit has been finished
+	require.YesError(t, client.DeleteCommit(repo, "master"))
+
+	// Check that the branch still exists
+	branches, err := client.ListBranch(repo)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(branches))
+
+	// Now start a new repo
+	repo = "test2"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit1, err = client.StartCommit(repo, "master")
+	require.NoError(t, err)
+
+	fileContent = "foo\n"
+	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader(fileContent))
+	require.NoError(t, err)
+
+	require.NoError(t, client.DeleteCommit(repo, "master"))
+
+	// Check that the branch has been deleted
+	branches, err = client.ListBranch(repo)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(branches))
+
+	// Check that repo size is back to 0
 	repoInfo, err := client.InspectRepo(repo)
-	require.Equal(t, 0, repoInfo.SizeBytes)
+	require.Equal(t, 0, int(repoInfo.SizeBytes))
 }
 
 func TestCleanPath(t *testing.T) {
@@ -2295,6 +2364,98 @@ func TestPutFileSplitBig(t *testing.T) {
 	for _, fileInfo := range files {
 		require.Equal(t, uint64(4), fileInfo.SizeBytes)
 	}
+}
+
+func TestDiff(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getClient(t)
+	repo := uniqueString("TestDiff")
+	require.NoError(t, c.CreateRepo(repo))
+
+	// Write foo
+	_, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, "master", "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, "master"))
+
+	newFiles, oldFiles, err := c.DiffFile(repo, "master", "", "", "", "")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(newFiles))
+	require.Equal(t, "foo", newFiles[0].File.Path)
+	require.Equal(t, 0, len(oldFiles))
+
+	// Change the value of foo
+	_, err = c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.DeleteFile(repo, "master", "foo"))
+	_, err = c.PutFile(repo, "master", "foo", strings.NewReader("not foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, "master"))
+
+	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(newFiles))
+	require.Equal(t, "foo", newFiles[0].File.Path)
+	require.Equal(t, 1, len(oldFiles))
+	require.Equal(t, "foo", oldFiles[0].File.Path)
+
+	// Write bar
+	_, err = c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, "master", "bar", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, "master"))
+
+	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(newFiles))
+	require.Equal(t, "bar", newFiles[0].File.Path)
+	require.Equal(t, 0, len(oldFiles))
+
+	// Delete bar
+	_, err = c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.DeleteFile(repo, "master", "bar"))
+	require.NoError(t, c.FinishCommit(repo, "master"))
+
+	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "")
+	require.NoError(t, err)
+	require.Equal(t, 0, len(newFiles))
+	require.Equal(t, 1, len(oldFiles))
+	require.Equal(t, "bar", oldFiles[0].File.Path)
+
+	// Write dir/fizz and dir/buzz
+	_, err = c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, "master", "dir/fizz", strings.NewReader("fizz\n"))
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, "master", "dir/buzz", strings.NewReader("buzz\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, "master"))
+
+	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(newFiles))
+	require.Equal(t, 0, len(oldFiles))
+
+	// Modify dir/fizz
+	_, err = c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, "master", "dir/fizz", strings.NewReader("fizz\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, "master"))
+
+	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(newFiles))
+	require.Equal(t, "dir/fizz", newFiles[0].File.Path)
+	require.Equal(t, 1, len(oldFiles))
+	require.Equal(t, "dir/fizz", oldFiles[0].File.Path)
 }
 
 func uniqueString(prefix string) string {
