@@ -1051,8 +1051,12 @@ func (a *apiServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelin
 	return nil, fmt.Errorf("TODO")
 }
 
-func (a *apiServer) FlushCommit(request *pps.FlushCommitRequest, server pps.API_FlushCommitServer) error {
+func (a *apiServer) FlushCommit(request *pps.FlushCommitRequest, server pps.API_FlushCommitServer) (retErr error) {
 	ctx := server.Context()
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "FlushCommit")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 	repoToCommit := make(map[string]*pfs.Commit)
 	var fromRepos []*pfs.Repo
 	for _, commit := range request.Commits {
@@ -1133,23 +1137,50 @@ func (a *apiServer) FlushCommit(request *pps.FlushCommitRequest, server pps.API_
 		if visitErr != nil {
 			return visitErr
 		}
-		watcher, err := jobs.WatchByIndex(jobsInputIndex, pipelineInfo.Input)
-		if err != nil {
-			return err
-		}
-		defer watcher.Close()
-		for event := range watcher.Watch() {
-			var jobID string
-			jobInfo := &pps.JobInfo{}
-			if err := event.Unmarshal(&jobID, jobInfo); err != nil {
+		var jobID string
+		// Closure for defers
+		if err := func() error {
+			// Find the ID of the job we're looking for.
+			watcher, err := jobs.WatchByIndex(jobsInputIndex, pipelineInfo.Input)
+			if err != nil {
 				return err
 			}
-			if jobInfo.Finished != nil {
-				if err := server.Send(jobInfo); err != nil {
+			defer watcher.Close()
+			for event := range watcher.Watch() {
+				jobInfo := &pps.JobInfo{}
+				if err := event.Unmarshal(&jobID, jobInfo); err != nil {
 					return err
 				}
-				repoToCommit[repoInfo.Repo.Name] = jobInfo.OutputCommit
+				// we found our job
+				if jobInfo.Pipeline.Name == pipelineInfo.Pipeline.Name {
+					return nil
+				}
 			}
+			return nil
+		}(); err != nil {
+			return err
+		}
+		// Closure for defers
+		if err := func() error {
+			// Wait for the job to finish
+			watcher, err := jobs.WatchOne(jobID)
+			if err != nil {
+				return err
+			}
+			defer watcher.Close()
+			for event := range watcher.Watch() {
+				jobInfo := &pps.JobInfo{}
+				if err := event.Unmarshal(&jobID, jobInfo); err != nil {
+					return err
+				}
+				if jobInfo.Finished != nil {
+					repoToCommit[repoInfo.Repo.Name] = jobInfo.OutputCommit
+					return server.Send(jobInfo)
+				}
+			}
+			return nil
+		}(); err != nil {
+			return err
 		}
 	}
 	return nil
