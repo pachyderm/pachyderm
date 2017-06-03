@@ -8,8 +8,10 @@ import "google/protobuf/empty.proto";
 
 message Input {
   pfs.FileInfo file_info = 1;
+  pfs.Commit parent_commit = 5;
   string name = 2;
   bool lazy = 3;
+  string branch = 4;
 }
 
 message ProcessRequest {
@@ -19,6 +21,10 @@ message ProcessRequest {
 
   // The datum to process
   repeated Input data = 1;
+
+  // The tag corresponding to the previous parent's run of this datum, used for
+  // incremental jobs, may be nil.
+  pfs.Tag parent_output = 3;
 }
 
 // ProcessResponse contains a tag, only if the processing was successful.
