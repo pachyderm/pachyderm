@@ -42,7 +42,6 @@ type appEnv struct {
 
 	// Either pipeline name or job name must be set
 	PPSPipelineName string `env:"PPS_PIPELINE_NAME"`
-	PPSJobID        string `env:"PPS_JOB_ID"`
 	PodName         string `env:"PPS_POD_NAME,required"`
 }
 
@@ -51,10 +50,8 @@ func main() {
 }
 
 func validateEnv(appEnv *appEnv) error {
-	if appEnv.PPSPipelineName == "" && appEnv.PPSJobID == "" {
-		return fmt.Errorf("worker must recieve either pipeline name or job ID, but got neither")
-	} else if appEnv.PPSPipelineName != "" && appEnv.PPSJobID != "" {
-		return fmt.Errorf("worker must recieve either pipeline name or job ID, but got both")
+	if appEnv.PPSPipelineName == "" {
+		return fmt.Errorf("worker must recieve pipeline name")
 	}
 	return nil
 }
@@ -76,23 +73,6 @@ func getPipelineInfo(etcdClient *etcd.Client, appEnv *appEnv) (*pps.PipelineInfo
 		return nil, err
 	}
 	return pipelineInfo, nil
-}
-
-func getJobInfo(etcdClient *etcd.Client, appEnv *appEnv) (*pps.JobInfo, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	resp, err := etcdClient.Get(ctx, path.Join(appEnv.PPSPrefix, "jobs", appEnv.PPSJobID))
-	if err != nil {
-		return nil, err
-	}
-	if len(resp.Kvs) != 1 {
-		return nil, fmt.Errorf("expected to find 1 job, got %d: %v", len(resp.Kvs), resp)
-	}
-	jobInfo := new(pps.JobInfo)
-	if err := proto.UnmarshalText(string(resp.Kvs[0].Value), jobInfo); err != nil {
-		return nil, err
-	}
-	return jobInfo, nil
 }
 
 func do(appEnvObj interface{}) error {
@@ -122,25 +102,13 @@ func do(appEnvObj interface{}) error {
 		return fmt.Errorf("error constructing etcdClient: %v", err)
 	}
 
-	// Construct worker API server. Get relevant pipeline or job info, and then
-	// use that to create a worker.APIServer.
-	var workerRcName string
-	var apiServer *worker.APIServer
-	if appEnv.PPSPipelineName != "" {
-		pipelineInfo, err := getPipelineInfo(etcdClient, appEnv)
-		if err != nil {
-			return fmt.Errorf("error getting pipelineInfo: %v", err)
-		}
-		workerRcName = ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-		apiServer = worker.NewPipelineAPIServer(pachClient, pipelineInfo, appEnv.PodName)
-	} else if appEnv.PPSJobID != "" {
-		jobInfo, err := getJobInfo(etcdClient, appEnv)
-		if err != nil {
-			return fmt.Errorf("error getting jobInfo: %v", err)
-		}
-		workerRcName = ppsserver.JobRcName(jobInfo.Job.ID)
-		apiServer = worker.NewJobAPIServer(pachClient, jobInfo, appEnv.PodName)
+	// Construct worker API server.
+	pipelineInfo, err := getPipelineInfo(etcdClient, appEnv)
+	if err != nil {
+		return fmt.Errorf("error getting pipelineInfo: %v", err)
 	}
+	workerRcName := ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	apiServer := worker.NewPipelineAPIServer(pachClient, pipelineInfo, appEnv.PodName)
 
 	// Start worker api server
 	eg := errgroup.Group{}
