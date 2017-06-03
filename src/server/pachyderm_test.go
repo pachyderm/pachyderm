@@ -3473,10 +3473,9 @@ func TestIncrementalOverwritePipeline(t *testing.T) {
 		require.NoError(t, c.FinishCommit(dataRepo, "master"))
 	}
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	jobInfos, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, 1, len(jobInfos))
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(pipeline, "master", "sum", 0, 0, &buf))
 	require.Equal(t, fmt.Sprintf("%d\n", 15), buf.String())
@@ -3525,10 +3524,9 @@ func TestIncrementalAppendPipeline(t *testing.T) {
 		require.NoError(t, c.FinishCommit(dataRepo, "master"))
 	}
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	jobInfos, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, 1, len(jobInfos))
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(pipeline, "master", "sum", 0, 0, &buf))
 	require.Equal(t, fmt.Sprintf("%d\n", 15), buf.String())

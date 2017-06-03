@@ -1799,6 +1799,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			var branchSet *branchSet
 			select {
 			case branchSet = <-branchSetFactory.Chan():
+				protolion.Printf("Got branchSet: %+v\n", branchSet)
 			case completedJob := <-jobCompletionCh:
 				delete(runningJobSet, completedJob.ID)
 				if len(runningJobSet) == 0 {
