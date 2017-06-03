@@ -1461,7 +1461,7 @@ func TestAcceptReturnCode(t *testing.T) {
 				AcceptReturnCode: []int64{1},
 			},
 			Inputs: []*pps.PipelineInput{{
-				Name: dataRepo,
+				Repo: &pfs.Repo{Name: dataRepo},
 				Glob: "/*",
 			}},
 		},
@@ -1476,7 +1476,10 @@ func TestAcceptReturnCode(t *testing.T) {
 	jobInfos, err := c.ListJob(pipelineName, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
-	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfos[0].State)
+
+	jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, true)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
 
 // TODO(msteffen): This test breaks the suite when run against cloud providers,

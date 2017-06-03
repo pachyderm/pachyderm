@@ -738,17 +738,19 @@ func translatePipelineInputs(inputs []*pps.PipelineInput) *pps.Input {
 		if input.From != nil {
 			fromCommitID = input.From.ID
 		}
-		result.Cross = append(result.Cross,
-			&pps.Input{
-				Atom: &pps.AtomInput{
-					Name:       input.Name,
-					Repo:       input.Repo.Name,
-					Branch:     input.Branch,
-					Glob:       input.Glob,
-					Lazy:       input.Lazy,
-					FromCommit: fromCommitID,
-				},
-			})
+		atomInput := &pps.AtomInput{
+			Name:       input.Name,
+			Branch:     input.Branch,
+			Glob:       input.Glob,
+			Lazy:       input.Lazy,
+			FromCommit: fromCommitID,
+		}
+		if input.Repo != nil {
+			atomInput.Repo = input.Repo.Name
+		}
+		result.Cross = append(result.Cross, &pps.Input{
+			Atom: atomInput,
+		})
 	}
 	return result
 }
