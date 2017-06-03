@@ -21,7 +21,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
-	"github.com/pachyderm/pachyderm/src/server/pps/example"
 	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
@@ -61,86 +60,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		}),
 	}
 
-	exampleCreateJobRequest, err := marshaller.MarshalToString(example.CreateJobRequest)
-	if err != nil {
-		return nil, err
-	}
-
 	pipelineSpec := "[Pipeline Specification](../reference/pipeline_spec.html)"
-
-	var jobPath string
-	var pushImages bool
-	var registry string
-	var username string
-	var password string
-	createJob := &cobra.Command{
-		Use:   "create-job -f job.json",
-		Short: "Create a new job. Returns the id of the created job.",
-		Long:  fmt.Sprintf("Create a new job from a spec, the spec looks like this:\n```\n%s\n```", exampleCreateJobRequest),
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
-			if err != nil {
-				return err
-			}
-			var buf bytes.Buffer
-			var jobReader io.Reader
-			if jobPath == "-" {
-				jobReader = io.TeeReader(os.Stdin, &buf)
-				fmt.Print("Reading from stdin.\n")
-			} else if url, err := url.Parse(jobPath); err == nil && url.Scheme != "" {
-				resp, err := http.Get(url.String())
-				if err != nil {
-					return sanitizeErr(err)
-				}
-				defer func() {
-					if err := resp.Body.Close(); err != nil && retErr == nil {
-						retErr = sanitizeErr(err)
-					}
-				}()
-				jobReader = resp.Body
-			} else {
-				jobFile, err := os.Open(jobPath)
-				if err != nil {
-					return sanitizeErr(err)
-				}
-				defer func() {
-					if err := jobFile.Close(); err != nil && retErr == nil {
-						retErr = sanitizeErr(err)
-					}
-				}()
-				jobReader = io.TeeReader(jobFile, &buf)
-			}
-			var request ppsclient.CreateJobRequest
-			decoder := json.NewDecoder(jobReader)
-			if err := jsonpb.UnmarshalNext(decoder, &request); err != nil {
-				return sanitizeErr(err)
-			}
-			if len(request.Inputs) != 0 {
-				fmt.Printf("WARNING: field `inputs` is deprecated and will be removed in v1.6. Both formats are valid for v1.4.6 to 1.5.x. See docs for the new input format: http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html \n")
-			}
-			if pushImages {
-				pushedImage, err := pushImage(registry, username, password, request.Transform.Image)
-				if err != nil {
-					return err
-				}
-				request.Transform.Image = pushedImage
-			}
-			job, err := client.PpsAPIClient.CreateJob(
-				context.Background(),
-				&request,
-			)
-			if err != nil {
-				return sanitizeErr(err)
-			}
-			fmt.Println(job.ID)
-			return nil
-		}),
-	}
-	createJob.Flags().StringVarP(&jobPath, "file", "f", "-", "The file containing the job, it can be a url or local file. - reads from stdin.")
-	createJob.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the cluster registry.")
-	createJob.Flags().StringVarP(&registry, "registry", "r", "docker.io", "The registry to push images to.")
-	createJob.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
-	createJob.Flags().StringVarP(&password, "password", "", "", "Your password for the registry being pushed to.")
 
 	var block bool
 	inspectJob := &cobra.Command{
@@ -376,6 +296,10 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		}),
 	}
 
+	var pushImages bool
+	var registry string
+	var username string
+	var password string
 	var pipelinePath string
 	var description string
 	createPipeline := &cobra.Command{
@@ -574,60 +498,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		}),
 	}
 
-	var specPath string
-	runPipeline := &cobra.Command{
-		Use:   "run-pipeline pipeline-name [-f job.json]",
-		Short: "Run a pipeline once.",
-		Long:  "Run a pipeline once, optionally overriding some pipeline options by providing a [pipeline spec](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html).  For example run a web scraper pipelien without any explicit input.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
-			if err != nil {
-				return err
-			}
-
-			request := &ppsclient.CreateJobRequest{
-				Pipeline: &ppsclient.Pipeline{
-					Name: args[0],
-				},
-			}
-
-			var buf bytes.Buffer
-			var specReader io.Reader
-			if specPath == "-" {
-				specReader = io.TeeReader(os.Stdin, &buf)
-				fmt.Print("Reading from stdin.\n")
-			} else if specPath != "" {
-				specFile, err := os.Open(specPath)
-				if err != nil {
-					return err
-				}
-
-				defer func() {
-					if err := specFile.Close(); err != nil && retErr == nil {
-						retErr = err
-					}
-				}()
-
-				specReader = io.TeeReader(specFile, &buf)
-				decoder := json.NewDecoder(specReader)
-				if err := jsonpb.UnmarshalNext(decoder, request); err != nil {
-					return err
-				}
-			}
-
-			job, err := client.PpsAPIClient.CreateJob(
-				context.Background(),
-				request,
-			)
-			if err != nil {
-				return sanitizeErr(err)
-			}
-			fmt.Println(job.ID)
-			return nil
-		}),
-	}
-	runPipeline.Flags().StringVarP(&specPath, "file", "f", "", "The file containing the run-pipeline spec, - reads from stdin.")
-
 	garbageCollect := &cobra.Command{
 		Use:   "garbage-collect",
 		Short: "Garbage collect unused data.",
@@ -651,7 +521,6 @@ Currently "pachctl garbage-collect" can only be started when there are no active
 
 	var result []*cobra.Command
 	result = append(result, job)
-	result = append(result, createJob)
 	result = append(result, inspectJob)
 	result = append(result, listJob)
 	result = append(result, deleteJob)
@@ -666,7 +535,6 @@ Currently "pachctl garbage-collect" can only be started when there are no active
 	result = append(result, deletePipeline)
 	result = append(result, startPipeline)
 	result = append(result, stopPipeline)
-	result = append(result, runPipeline)
 	result = append(result, garbageCollect)
 	return result, nil
 }
