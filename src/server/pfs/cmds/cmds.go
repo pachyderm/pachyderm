@@ -336,8 +336,11 @@ $ pachctl list-commit foo master --from XXX
 				return err
 			}
 			pretty.PrintCommitInfo(writer, commitInfo)
+			if err := writer.Flush(); err != nil {
+				return err
+			}
 		}
-		return writer.Flush()
+		return nil
 	}
 
 	var repos cmdutil.RepeatedStringArg
