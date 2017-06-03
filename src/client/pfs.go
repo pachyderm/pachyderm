@@ -651,6 +651,30 @@ func (c APIClient) GlobFile(repoName string, commitID string, pattern string) ([
 	return fileInfos.FileInfo, nil
 }
 
+// DiffFile returns the difference between 2 paths, old path may be omitted in
+// which case the parent of the new path will be used. DiffFile return 2 values
+// (unless it returns an error) the first value is files present under new
+// path, the second is files present under old path, files which are under both
+// paths and have identical content are omitted.
+func (c APIClient) DiffFile(newRepoName, newCommitID, newPath, oldRepoName,
+	oldCommitID, oldPath string) ([]*pfs.FileInfo, []*pfs.FileInfo, error) {
+	var oldFile *pfs.File
+	if oldRepoName != "" {
+		oldFile = NewFile(oldRepoName, oldCommitID, oldPath)
+	}
+	resp, err := c.PfsAPIClient.DiffFile(
+		c.ctx(),
+		&pfs.DiffFileRequest{
+			NewFile: NewFile(newRepoName, newCommitID, newPath),
+			OldFile: oldFile,
+		},
+	)
+	if err != nil {
+		return nil, nil, sanitizeErr(err)
+	}
+	return resp.NewFiles, resp.OldFiles, nil
+}
+
 // WalkFn is the type of the function called for each file in Walk.
 // Returning a non-nil error from WalkFn will result in Walk aborting and
 // returning said error.

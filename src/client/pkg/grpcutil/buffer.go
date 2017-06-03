@@ -16,7 +16,7 @@ var bufPool = sync.Pool{
 }
 
 // GetBuffer returns a buffer.  The buffer may or may not be freshly
-// allocated.
+// allocated, and it may or may not be zero-ed.
 func GetBuffer() []byte {
 	return bufPool.Get().([]byte)
 }
