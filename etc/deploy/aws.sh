@@ -13,7 +13,7 @@ parse_flags() {
   export AWS_REGION=us-east-1
   export AWS_AVAILABILITY_ZONE=us-east-1a
   export STATE_BUCKET=s3://k8scom-state-store-pachyderm-${RANDOM}
-  export USE_CLOUDFRONT=0
+  export USE_CLOUDFRONT='true'
   local USE_EXISTING_STATE_BUCKET='false'
 
   # Parse flags
@@ -62,11 +62,6 @@ parse_flags() {
   if [ "${USE_EXISTING_STATE_BUCKET}" == 'false' ]; then
     create_s3_bucket "${STATE_BUCKET}" || exit 1
   fi
-
-  if [ $USE_CLOUDFRONT -ne 0 ]; then
-    create_cloudfront_distribution "${STATE_BUCKET}" || exit 1
-  fi
-  exit 0
 }
 
 create_s3_bucket() {
@@ -83,10 +78,11 @@ create_s3_bucket() {
     aws s3api create-bucket --bucket ${BUCKET} --region ${AWS_REGION} --create-bucket-configuration LocationConstraint=${AWS_REGION}
   fi
 
-  if [ $USE_CLOUDFRONT -ne 0]; then
-    # Setup bucket access policy
-    sed 's/BUCKET_NAME/'$BUCKET'/' cloudfront/bucket-policy.json.template > bucket-policy.json
-    aws s3api put-bucket-policy --bucket $BUCKET --policy file://bucket-policy.json
+  if [ "$2" != "false" ]; then
+    mkdir -p tmp
+    sed 's/BUCKET_NAME/'$BUCKET'/' etc/deploy/cloudfront/bucket-policy.json.template > tmp/bucket-policy.json
+    aws s3api put-bucket-policy --bucket $BUCKET --policy file://tmp/bucket-policy.json --region=${AWS_REGION}
+    create_cloudfront_distribution "${BUCKET}" || exit 1
   fi
 }
 
@@ -98,10 +94,11 @@ create_cloudfront_distribution() {
   BUCKET="${1#s3://}"
 
   someuuid=$(uuid | cut -f 1 -d-)
-  sed 's/XXCallerReferenceXX/'$someuuid'/' cloudfront/distribution.json.template > cloudfront-distribution.json
-  sed -i 's/XXBucketNameXX/'$BUCKET'/' cloudfront-distribution.json
+  mkdir -p tmp
+  sed 's/XXCallerReferenceXX/'$someuuid'/' etc/deploy/cloudfront/distribution.json.template > tmp/cloudfront-distribution.json
+  sed -i 's/XXBucketNameXX/'$BUCKET'/' tmp/cloudfront-distribution.json
 
-  aws cloudfront create-distribution --distribution-config file://cloudfront-distribution.json
+  aws cloudfront create-distribution --distribution-config file://tmp/cloudfront-distribution.json
 }
 
 deploy_k8s_on_aws() {
@@ -112,7 +109,7 @@ deploy_k8s_on_aws() {
     export NODE_SIZE=r4.xlarge
     export MASTER_SIZE=r4.xlarge
     export NUM_NODES=3
-    export NAME=-pachydermcluster.kubernetes.com
+    export NAME=$(uuid | cut -f 1 -d-)-pachydermcluster.kubernetes.com
     echo "kops state store: ${STATE_BUCKET}"
     kops create cluster \
         --state=${STATE_BUCKET} \
@@ -247,7 +244,8 @@ deploy_pachyderm_on_aws() {
     export STORAGE_SIZE=100
     export BUCKET_NAME=${RANDOM}-pachyderm-store
 
-    create_s3_bucket "${BUCKET_NAME}"
+    create_s3_bucket "${BUCKET_NAME}" $USE_CLOUDFRONT
+    exit 0
 
     # Since my user should have the right access:
     AWS_KEY=`cat ~/.aws/credentials | grep aws_secret_access_key | cut -d " " -f 3`
