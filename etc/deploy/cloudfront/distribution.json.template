@@ -1,10 +1,7 @@
 {
     "CallerReference": "XXCallerReferenceXX",
     "Aliases": {
-        "Quantity": 0,
-        "Items": [
-            ""
-        ]
+        "Quantity": 0
     },
     "DefaultRootObject": "",
     "Origins": {
