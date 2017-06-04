@@ -4,6 +4,9 @@
 METRICS_FLAG="true"  # By default, aws.sh enables metric reporting
 USE_CLOUDFRONT="false"
 
+# Other defaults
+CLOUDFRONT_DOMAIN=
+
 set -euxo pipefail
 
 parse_flags() {
@@ -103,7 +106,8 @@ create_cloudfront_distribution() {
   sed 's/XXCallerReferenceXX/'$someuuid'/' etc/deploy/cloudfront/distribution.json.template > tmp/cloudfront-distribution.json
   sed -i 's/XXBucketNameXX/'$BUCKET'/' tmp/cloudfront-distribution.json
 
-  aws cloudfront create-distribution --distribution-config file://tmp/cloudfront-distribution.json
+  aws cloudfront create-distribution --distribution-config file://tmp/cloudfront-distribution.json > tmp/cloudfront-distribution-info.json
+  CLOUDFRONT_DOMAIN=$(cat tmp/cloudfront-distribution-info.json | jq -r ".Distribution.DomainName")
 }
 
 deploy_k8s_on_aws() {
@@ -256,7 +260,11 @@ deploy_pachyderm_on_aws() {
     AWS_ID=`cat ~/.aws/credentials | grep aws_access_key_id  | cut -d " " -f 3`
 
     # Omit token since im using my personal creds
+    if [ "$USE_CLOUDFRONT" == "true"]; then
+    cmd=( pachctl deploy amazon ${BUCKET_NAME} "${AWS_ID}" "${AWS_KEY}" " " ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3 --cloudfront-distribution ${CLOUDFRONT_DOMAIN})
+    elif
     cmd=( pachctl deploy amazon ${BUCKET_NAME} "${AWS_ID}" "${AWS_KEY}" " " ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3 )
+    fi
     if [[ "${METRICS_FLAG}" == "false" ]]; then
       cmd+=( "--no-metrics" )
     fi
