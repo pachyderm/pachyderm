@@ -9,6 +9,7 @@ parse_flags() {
   export AWS_REGION=us-east-1
   export AWS_AVAILABILITY_ZONE=us-east-1a
   export STATE_BUCKET=s3://k8scom-state-store-pachyderm-${RANDOM}
+  export USE_CLOUDFRONT=0
   local USE_EXISTING_STATE_BUCKET='false'
 
   # Parse flags
@@ -57,6 +58,11 @@ parse_flags() {
   if [ "${USE_EXISTING_STATE_BUCKET}" == 'false' ]; then
     create_s3_bucket "${STATE_BUCKET}" || exit 1
   fi
+
+  if [ $USE_CLOUDFRONT -ne 0 ]; then
+    create_cloudfront_distribution "${STATE_BUCKET}" || exit 1
+  fi
+  exit 0
 }
 
 create_s3_bucket() {
@@ -72,6 +78,15 @@ create_s3_bucket() {
   else
     aws s3api create-bucket --bucket ${BUCKET} --region ${AWS_REGION} --create-bucket-configuration LocationConstraint=${AWS_REGION}
   fi
+}
+
+create_cloudfront_distribution() {
+  if [[ "$#" -lt 1 ]]; then
+    echo "Error: create_cloudfront_distribution needs a bucket name"
+    return 1
+  fi
+  BUCKET="${1#s3://}"
+
 }
 
 deploy_k8s_on_aws() {
