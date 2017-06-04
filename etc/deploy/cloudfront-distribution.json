@@ -1,6 +1,6 @@
 {
     "DistributionConfig": {
-        "CallerReference": "",
+        "CallerReference": "1496592859888", YYYY
         "Aliases": {
             "Quantity": 0,
             "Items": [
@@ -9,138 +9,62 @@
         },
         "DefaultRootObject": "",
         "Origins": {
-            "Quantity": 0,
+            "Quantity": 1,
             "Items": [
-                {
-                    "Id": "",
-                    "DomainName": "",
-                    "OriginPath": "",
-                    "CustomHeaders": {
-                        "Quantity": 0,
-                        "Items": [
-                            {
-                                "HeaderName": "",
-                                "HeaderValue": ""
-                            }
-                        ]
-                    },
-                    "S3OriginConfig": {
-                        "OriginAccessIdentity": ""
-                    },
-                    "CustomOriginConfig": {
-                        "HTTPPort": 0,
-                        "HTTPSPort": 0,
-                        "OriginProtocolPolicy": "",
-                        "OriginSslProtocols": {
-                            "Quantity": 0,
-                            "Items": [
-                                ""
-                            ]
-                        }
+                    {
+                        "DomainName": "k8scom-state-store-pachyderm-9157.s3.amazonaws.comXXXX",
+                        "OriginPath": "",
+                        "S3OriginConfig": {
+                            "OriginAccessIdentity": ""
+                        },
+                        "CustomHeaders": {
+                            "Quantity": 0
+                        },
+                        "Id": "S3-k8scom-state-store-pachyderm-9157XXXX"
                     }
-                }
             ]
         },
         "DefaultCacheBehavior": {
-            "TargetOriginId": "",
-            "ForwardedValues": {
-                "QueryString": true,
-                "Cookies": {
-                    "Forward": "",
-                    "WhitelistedNames": {
-                        "Quantity": 0,
-                        "Items": [
-                            ""
-                        ]
-                    }
-                },
-                "Headers": {
-                    "Quantity": 0,
-                    "Items": [
-                        ""
-                    ]
-                }
-            },
             "TrustedSigners": {
-                "Enabled": true,
                 "Quantity": 0,
+                "Enabled": false
+            },
+            "AllowedMethods": {
+                "Quantity": 2,
+                "CachedMethods": {
+                    "Quantity": 2,
+                    "Items": [
+                        "HEAD",
+                        "GET"
+                    ]
+                },
                 "Items": [
-                    ""
+                    "HEAD",
+                    "GET"
                 ]
             },
-            "ViewerProtocolPolicy": "",
-            "MinTTL": 0,
-            "AllowedMethods": {
-                "Quantity": 0,
-                "Items": [
-                    ""
-                ],
-                "CachedMethods": {
-                    "Quantity": 0,
-                    "Items": [
-                        ""
-                    ]
-                }
+            "DefaultTTL": 86400,
+            "TargetOriginId": "S3-k8scom-state-store-pachyderm-9157",
+            "SmoothStreaming": false,
+            "MaxTTL": 31536000,
+            "ForwardedValues": {
+                "Cookies": {
+                    "Forward": "none"
+                },
+                "Headers": {
+                    "Quantity": 0
+                },
+                "QueryString": false
             },
-            "SmoothStreaming": true,
-            "DefaultTTL": 0,
-            "MaxTTL": 0,
-            "Compress": true
+            "Compress": false,
+            "ViewerProtocolPolicy": "allow-all",
+            "MinTTL": 0
         },
         "CacheBehaviors": {
-            "Quantity": 0,
-            "Items": [
-                {
-                    "PathPattern": "",
-                    "TargetOriginId": "",
-                    "ForwardedValues": {
-                        "QueryString": true,
-                        "Cookies": {
-                            "Forward": "",
-                            "WhitelistedNames": {
-                                "Quantity": 0,
-                                "Items": [
-                                    ""
-                                ]
-                            }
-                        },
-                        "Headers": {
-                            "Quantity": 0,
-                            "Items": [
-                                ""
-                            ]
-                        }
-                    },
-                    "TrustedSigners": {
-                        "Enabled": true,
-                        "Quantity": 0,
-                        "Items": [
-                            ""
-                        ]
-                    },
-                    "ViewerProtocolPolicy": "",
-                    "MinTTL": 0,
-                    "AllowedMethods": {
-                        "Quantity": 0,
-                        "Items": [
-                            ""
-                        ],
-                        "CachedMethods": {
-                            "Quantity": 0,
-                            "Items": [
-                                ""
-                            ]
-                        }
-                    },
-                    "SmoothStreaming": true,
-                    "DefaultTTL": 0,
-                    "MaxTTL": 0,
-                    "Compress": true
-                }
-            ]
+            "Quantity": 0
         },
         "CustomErrorResponses": {
-            "Quantity": 0,
+            "Quantity": 2,
             "Items": [
                 {
                     "ErrorCode": 403,
@@ -158,28 +82,22 @@
         },
         "Comment": "",
         "Logging": {
-            "Enabled": true,
-            "IncludeCookies": true,
+            "Enabled": false,
+            "IncludeCookies": false,
             "Bucket": "",
             "Prefix": ""
         },
-        "PriceClass": "",
+        "PriceClass": "PriceClass_100",
         "Enabled": true,
         "ViewerCertificate": {
-            "Certificate": "",
-            "CertificateSource": "",
-            "SSLSupportMethod": "",
-            "MinimumProtocolVersion": "",
-            "IAMCertificateId": "",
-            "CloudFrontDefaultCertificate": true
+            "CloudFrontDefaultCertificate": true,
+            "CertificateSource": "cloudfront",
+            "MinimumProtocolVersion": "SSLv3"
         },
         "Restrictions": {
             "GeoRestriction": {
-                "RestrictionType": "",
-                "Quantity": 0,
-                "Items": [
-                    ""
-                ]
+                "RestrictionType": "none",
+                "Quantity": 0
             }
         },
         "WebACLId": ""
