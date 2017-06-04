@@ -261,9 +261,9 @@ deploy_pachyderm_on_aws() {
 
     # Omit token since im using my personal creds
     if [ "$USE_CLOUDFRONT" == "true"]; then
-    cmd=( pachctl deploy amazon ${BUCKET_NAME} "${AWS_ID}" "${AWS_KEY}" " " ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3 --cloudfront-distribution ${CLOUDFRONT_DOMAIN})
-    elif
-    cmd=( pachctl deploy amazon ${BUCKET_NAME} "${AWS_ID}" "${AWS_KEY}" " " ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3 )
+        cmd=( pachctl deploy amazon ${BUCKET_NAME} "${AWS_ID}" "${AWS_KEY}" " " ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3 --cloudfront-distribution ${CLOUDFRONT_DOMAIN})
+    else
+        cmd=( pachctl deploy amazon ${BUCKET_NAME} "${AWS_ID}" "${AWS_KEY}" " " ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3 )
     fi
     if [[ "${METRICS_FLAG}" == "false" ]]; then
       cmd+=( "--no-metrics" )
