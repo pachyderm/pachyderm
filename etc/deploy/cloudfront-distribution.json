@@ -1,6 +1,6 @@
 {
     "DistributionConfig": {
-        "CallerReference": "1496592859888", YYYY
+        "CallerReference": "XXCallerReferenceXX",
         "Aliases": {
             "Quantity": 0,
             "Items": [
@@ -12,7 +12,7 @@
             "Quantity": 1,
             "Items": [
                     {
-                        "DomainName": "k8scom-state-store-pachyderm-9157.s3.amazonaws.comXXXX",
+                        "DomainName": "XXBucketNameXX.s3.amazonaws.com",
                         "OriginPath": "",
                         "S3OriginConfig": {
                             "OriginAccessIdentity": ""
@@ -20,7 +20,7 @@
                         "CustomHeaders": {
                             "Quantity": 0
                         },
-                        "Id": "S3-k8scom-state-store-pachyderm-9157XXXX"
+                        "Id": "S3-XXBucketNameXX"
                     }
             ]
         },
@@ -44,7 +44,7 @@
                 ]
             },
             "DefaultTTL": 86400,
-            "TargetOriginId": "S3-k8scom-state-store-pachyderm-9157",
+            "TargetOriginId": "S3-XXBucketNameXX",
             "SmoothStreaming": false,
             "MaxTTL": 31536000,
             "ForwardedValues": {
