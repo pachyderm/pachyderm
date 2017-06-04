@@ -245,7 +245,6 @@ deploy_pachyderm_on_aws() {
     export BUCKET_NAME=${RANDOM}-pachyderm-store
 
     create_s3_bucket "${BUCKET_NAME}" $USE_CLOUDFRONT
-    exit 0
 
     # Since my user should have the right access:
     AWS_KEY=`cat ~/.aws/credentials | grep aws_secret_access_key | cut -d " " -f 3`
