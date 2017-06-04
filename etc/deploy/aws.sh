@@ -5,6 +5,10 @@ METRICS_FLAG="true"  # By default, aws.sh enables metric reporting
 set -euxo pipefail
 
 parse_flags() {
+  # Check prereqs
+  which aws
+  which jq
+  which uuid
   # Common config
   export AWS_REGION=us-east-1
   export AWS_AVAILABILITY_ZONE=us-east-1a
@@ -78,6 +82,12 @@ create_s3_bucket() {
   else
     aws s3api create-bucket --bucket ${BUCKET} --region ${AWS_REGION} --create-bucket-configuration LocationConstraint=${AWS_REGION}
   fi
+
+  if [ $USE_CLOUDFRONT -ne 0]; then
+    # Setup bucket access policy
+    sed 's/BUCKET_NAME/'$BUCKET'/' cloudfront/bucket-policy.json.template > bucket-policy.json
+    aws s3api put-bucket-policy --bucket $BUCKET --policy file://bucket-policy.json
+  fi
 }
 
 create_cloudfront_distribution() {
@@ -87,20 +97,22 @@ create_cloudfront_distribution() {
   fi
   BUCKET="${1#s3://}"
 
+  someuuid=$(uuid | cut -f 1 -d-)
+  sed 's/XXCallerReferenceXX/'$someuuid'/' cloudfront/distribution.json.template > cloudfront-distribution.json
+  sed -i 's/XXBucketNameXX/'$BUCKET'/' cloudfront-distribution.json
+
+  aws cloudfront create-distribution --distribution-config file://cloudfront-distribution.json
 }
 
 deploy_k8s_on_aws() {
-    # Check prereqs
-    which aws
-    which jq
-    which uuid
+    # Verify authorization
     aws configure list
     aws iam list-users
 
     export NODE_SIZE=r4.xlarge
     export MASTER_SIZE=r4.xlarge
     export NUM_NODES=3
-    export NAME=$(uuid | cut -f 1 -d-)-pachydermcluster.kubernetes.com
+    export NAME=-pachydermcluster.kubernetes.com
     echo "kops state store: ${STATE_BUCKET}"
     kops create cluster \
         --state=${STATE_BUCKET} \
