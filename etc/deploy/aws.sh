@@ -1,6 +1,8 @@
 #!/bin/bash
 
+# Argument Defaults
 METRICS_FLAG="true"  # By default, aws.sh enables metric reporting
+USE_CLOUDFRONT="false"
 
 set -euxo pipefail
 
@@ -13,11 +15,10 @@ parse_flags() {
   export AWS_REGION=us-east-1
   export AWS_AVAILABILITY_ZONE=us-east-1a
   export STATE_BUCKET=s3://k8scom-state-store-pachyderm-${RANDOM}
-  export USE_CLOUDFRONT='true'
   local USE_EXISTING_STATE_BUCKET='false'
 
   # Parse flags
-  eval "set -- $( getopt -l "state:,region:,zone:,no-metrics" "--" "${0}" "${@}" )"
+  eval "set -- $( getopt -l "state:,region:,zone:,no-metrics:,use-cloudfront" "--" "${0}" "${@}" )"
   while true; do
       case "${1}" in
           --state)
@@ -34,7 +35,11 @@ parse_flags() {
             shift 2
             ;;
           --no-metrics)
-            METRICS_FLAG="false" # default is false, see top of file
+            METRICS_FLAG="false" # default is true, see top of file
+            shift
+            ;;
+          --use-cloudfront)
+            USE_CLOUDFRONT="true" # default is false, see top of file
             shift
             ;;
           --)
