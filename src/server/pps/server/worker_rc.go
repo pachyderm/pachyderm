@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 
 	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 )
 
@@ -133,6 +134,25 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 		RestartPolicy:    "Always",
 		Volumes:          options.volumes,
 		ImagePullSecrets: options.imagePullSecrets,
+	}
+	// Explicitly set resource requests of the containers to zero.
+	// Some cloud providers have their own default resource requests
+	// which is usually not what we want.
+	for _, container := range podSpec.Containers {
+		cpuQuantity, err := resource.ParseQuantity("0")
+		if err != nil {
+			panic(err)
+		}
+		memQuantity, err := resource.ParseQuantity("0MB")
+		if err != nil {
+			panic(err)
+		}
+		container.Resources = api.ResourceRequirements{
+			Requests: map[api.ResourceName]resource.Quantity{
+				api.ResourceCPU:    cpuQuantity,
+				api.ResourceMemory: memQuantity,
+			},
+		}
 	}
 	if options.resources != nil {
 		podSpec.Containers[0].Resources = api.ResourceRequirements{
