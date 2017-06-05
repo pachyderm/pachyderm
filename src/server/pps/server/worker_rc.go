@@ -60,9 +60,10 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 	// because it caches things like commit IDs which typically has a
 	// very high hit rate since workers tend to be processing a small
 	// set commits at a time.
+	sidecarCacheSize := "256M"
 	sidecarEnv := []api.EnvVar{{
 		Name:  "BLOCK_CACHE_BYTES",
-		Value: "256M",
+		Value: sidecarCacheSize,
 	}, {
 		Name:  "PFS_CACHE_BYTES",
 		Value: "10M",
@@ -99,6 +100,11 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 		options.volumes = append(options.volumes, secretVolume)
 		sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
 	}
+	// Explicitly set CPU and MEM requests to zero because some cloud
+	// providers set their own defaults which are usually not what we want.
+	cpuZeroQuantity := resource.MustParse("0")
+	memZeroQuantity := resource.MustParse("0M")
+	memSidecarQuantity := resource.MustParse(sidecarCacheSize)
 	podSpec := api.PodSpec{
 		InitContainers: []api.Container{
 			{
@@ -121,6 +127,12 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 				ImagePullPolicy: api.PullPolicy(pullPolicy),
 				Env:             options.workerEnv,
 				VolumeMounts:    options.volumeMounts,
+				Resources: api.ResourceRequirements{
+					Requests: map[api.ResourceName]resource.Quantity{
+						api.ResourceCPU:    cpuZeroQuantity,
+						api.ResourceMemory: memZeroQuantity,
+					},
+				},
 			},
 			{
 				Name:            client.PPSWorkerSidecarContainerName,
@@ -129,30 +141,17 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 				ImagePullPolicy: api.PullPolicy(pullPolicy),
 				Env:             sidecarEnv,
 				VolumeMounts:    sidecarVolumeMounts,
+				Resources: api.ResourceRequirements{
+					Requests: map[api.ResourceName]resource.Quantity{
+						api.ResourceCPU:    cpuZeroQuantity,
+						api.ResourceMemory: memSidecarQuantity,
+					},
+				},
 			},
 		},
 		RestartPolicy:    "Always",
 		Volumes:          options.volumes,
 		ImagePullSecrets: options.imagePullSecrets,
-	}
-	// Explicitly set resource requests of the containers to zero.
-	// Some cloud providers have their own default resource requests
-	// which is usually not what we want.
-	for _, container := range podSpec.Containers {
-		cpuQuantity, err := resource.ParseQuantity("0")
-		if err != nil {
-			panic(err)
-		}
-		memQuantity, err := resource.ParseQuantity("0MB")
-		if err != nil {
-			panic(err)
-		}
-		container.Resources = api.ResourceRequirements{
-			Requests: map[api.ResourceName]resource.Quantity{
-				api.ResourceCPU:    cpuQuantity,
-				api.ResourceMemory: memQuantity,
-			},
-		}
 	}
 	if options.resources != nil {
 		podSpec.Containers[0].Resources = api.ResourceRequirements{
