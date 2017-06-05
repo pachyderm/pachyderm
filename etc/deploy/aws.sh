@@ -260,7 +260,7 @@ deploy_pachyderm_on_aws() {
     AWS_ID=`cat ~/.aws/credentials | grep aws_access_key_id  | cut -d " " -f 3`
 
     # Omit token since im using my personal creds
-    if [ "$USE_CLOUDFRONT" == "true"]; then
+    if [[ "$USE_CLOUDFRONT" == "true" ]]; then
         cmd=( pachctl deploy amazon ${BUCKET_NAME} "${AWS_ID}" "${AWS_KEY}" " " ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3 --cloudfront-distribution ${CLOUDFRONT_DOMAIN})
     else
         cmd=( pachctl deploy amazon ${BUCKET_NAME} "${AWS_ID}" "${AWS_KEY}" " " ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3 )
