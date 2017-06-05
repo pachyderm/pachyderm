@@ -107,7 +107,7 @@ create_cloudfront_distribution() {
   sed -i 's/XXBucketNameXX/'$BUCKET'/' tmp/cloudfront-distribution.json
 
   aws cloudfront create-distribution --distribution-config file://tmp/cloudfront-distribution.json > tmp/cloudfront-distribution-info.json
-  CLOUDFRONT_DOMAIN=$(cat tmp/cloudfront-distribution-info.json | jq -r ".Distribution.DomainName")
+  CLOUDFRONT_DOMAIN=$(cat tmp/cloudfront-distribution-info.json | jq -r ".Distribution.DomainName" | cut -f 1 -d .)
 }
 
 deploy_k8s_on_aws() {
