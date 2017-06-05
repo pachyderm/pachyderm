@@ -104,7 +104,7 @@ create_cloudfront_distribution() {
   sed 's/XXCallerReferenceXX/'$someuuid'/' etc/deploy/cloudfront/origin-access-identity.json.template > tmp/cloudfront-origin-access-identity.json
   sed -i 's/XXBucketNameXX/'$BUCKET'/' tmp/cloudfront-origin-access-identity.json
   aws cloudfront create-cloud-front-origin-access-identity --cloud-front-origin-access-identity-config file://tmp/cloudfront-origin-access-identity.json > tmp/cloudfront-origin-access-identity-info.json
-  CLOUDFRONT_OAI=$(cat tmp/cloudfront-origin-access-identity-info.json | jq -r ".CloudFrontOriginAccessIdentity.Id")
+  CLOUDFRONT_OAI=$(cat tmp/cloudfront-origin-access-identity-info.json | jq -r ".CloudFrontOriginAccessIdentity.S3CanonicalUserId")
 
   sed 's/XXCallerReferenceXX/'$someuuid'/' etc/deploy/cloudfront/distribution.json.template > tmp/cloudfront-distribution.json
   sed -i 's/XXBucketNameXX/'$BUCKET'/' tmp/cloudfront-distribution.json
