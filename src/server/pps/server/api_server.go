@@ -737,10 +737,13 @@ nextLogCh:
 
 func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
 	if err := a.validateInput(ctx, pipelineInfo.Input, false); err != nil {
-		return err
+		return fmt.Errorf("invalid input: %v", err)
 	}
 	if err := validateTransform(pipelineInfo.Transform); err != nil {
-		return err
+		return fmt.Errorf("invalid transform: %v", err)
+	}
+	if _, err := parseResourceList(pipelineInfo.ResourceSpec); err != nil {
+		return fmt.Errorf("incorrect resource spec: %v", err)
 	}
 	if pipelineInfo.OutputBranch == "" {
 		return fmt.Errorf("pipeline needs to specify an output branch")
