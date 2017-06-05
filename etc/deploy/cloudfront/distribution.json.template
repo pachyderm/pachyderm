@@ -11,7 +11,7 @@
                     "DomainName": "XXBucketNameXX.s3.amazonaws.com",
                     "OriginPath": "",
                     "S3OriginConfig": {
-                        "OriginAccessIdentity": ""
+                        "OriginAccessIdentity": "origin-access-identity/cloudfront/XXCLOUDFRONT_OAIXX"
                     },
                     "CustomHeaders": {
                         "Quantity": 0

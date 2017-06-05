@@ -104,14 +104,16 @@ create_cloudfront_distribution() {
   sed 's/XXCallerReferenceXX/'$someuuid'/' etc/deploy/cloudfront/origin-access-identity.json.template > tmp/cloudfront-origin-access-identity.json
   sed -i 's/XXBucketNameXX/'$BUCKET'/' tmp/cloudfront-origin-access-identity.json
   aws cloudfront create-cloud-front-origin-access-identity --cloud-front-origin-access-identity-config file://tmp/cloudfront-origin-access-identity.json > tmp/cloudfront-origin-access-identity-info.json
-  CLOUDFRONT_OAI=$(cat tmp/cloudfront-origin-access-identity-info.json | jq -r ".CloudFrontOriginAccessIdentity.S3CanonicalUserId")
+  CLOUDFRONT_OAI=$(cat tmp/cloudfront-origin-access-identity-info.json | jq -r ".CloudFrontOriginAccessIdentity.Id")
 
   sed 's/XXCallerReferenceXX/'$someuuid'/' etc/deploy/cloudfront/distribution.json.template > tmp/cloudfront-distribution.json
   sed -i 's/XXBucketNameXX/'$BUCKET'/' tmp/cloudfront-distribution.json
+  sed -i 's/XXCLOUDFRONT_OAIXX/'$CLOUDFRONT_OAI'/' tmp/cloudfront-distribution.json
   aws cloudfront create-distribution --distribution-config file://tmp/cloudfront-distribution.json > tmp/cloudfront-distribution-info.json
   CLOUDFRONT_DOMAIN=$(cat tmp/cloudfront-distribution-info.json | jq -r ".Distribution.DomainName" | cut -f 1 -d .)
 
-  sed 's/BUCKET_NAME/'$BUCKET'/' etc/deploy/cloudfront/bucket-policy.json.template > tmp/bucket-policy.json
+  sed 's/XXBUCKET_NAMEXX/'$BUCKET'/' etc/deploy/cloudfront/bucket-policy.json.template > tmp/bucket-policy.json
+  sed -i 's/XXCLOUDFRONT_OAIXX/'$CLOUDFRONT_OAI'/' tmp/bucket-policy.json
   aws s3api put-bucket-policy --bucket $BUCKET --policy file://tmp/bucket-policy.json --region=${AWS_REGION}
 }
 
