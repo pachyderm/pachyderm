@@ -3657,6 +3657,37 @@ func TestGarbageCollection(t *testing.T) {
 	require.Equal(t, "barbar\n", buf.String())
 }
 
+func TestFlushCommitWithNoDownstreamRepos(t *testing.T) {
+	t.Parallel()
+	c := getPachClient(t)
+	repo := "test"
+	require.NoError(t, c.CreateRepo(repo))
+	commit, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, commit.ID))
+	jobInfos, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(repo, commit.ID)}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(jobInfos))
+}
+
+func TestEmptyFlush(t *testing.T) {
+	t.Parallel()
+	client := getPachClient(t)
+	_, err := client.FlushCommitAll(nil, nil)
+	require.YesError(t, err)
+}
+
+func TestFlushNonExistentCommit(t *testing.T) {
+	t.Parallel()
+	c := getPachClient(t)
+	_, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit("fake-repo", "fake-commit")}, nil)
+	require.YesError(t, err)
+	repo := "FlushNonExistentCommit"
+	require.NoError(t, c.CreateRepo(repo))
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(repo, "fake-commit")}, nil)
+	require.YesError(t, err)
+}
+
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
 	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
 	require.NoError(t, err)
