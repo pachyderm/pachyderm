@@ -5,7 +5,7 @@
             "Sid": "PokeHoleForCloudfrontOAI",
             "Effect": "Allow",
             "Principal": {
-                "CanonicalUser": "XXCLOUDFRONT_OAIXX"
+                "CanonicalUser": "XXCLOUDFRONT_OAI_CANONICALXX"
             },
             "Action": "s3:GetObject",
             "Resource": "arn:aws:s3:::XXBUCKET_NAMEXX/*"
