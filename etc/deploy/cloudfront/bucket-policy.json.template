@@ -1,5 +1,5 @@
 {
-    "Version": "2017-06-05",
+    "Version": "2012-10-17",
     "Statement": [
         {
             "Sid": "PokeHoleForCloudfrontOAI",
