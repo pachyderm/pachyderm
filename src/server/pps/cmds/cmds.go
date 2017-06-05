@@ -736,7 +736,7 @@ func newPipelineManifestReader(path string) (result *pipelineManifestReader, ret
 func (r *pipelineManifestReader) nextCreatePipelineRequest() (*ppsclient.CreatePipelineRequest, error) {
 	var result ppsclient.CreatePipelineRequest
 	if err := jsonpb.UnmarshalNext(r.decoder, &result); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("malformed pipeline spec: %s", err)
 	}
 	return &result, nil
 }
