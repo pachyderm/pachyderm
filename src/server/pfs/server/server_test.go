@@ -1581,6 +1581,7 @@ func TestSubscribeCommit(t *testing.T) {
 		commit, err := client.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, client.FinishCommit(repo, commit.ID))
+		fmt.Printf("Finished: %s\n", commit.ID)
 		commits = append(commits, commit)
 	}
 
@@ -1598,6 +1599,7 @@ func TestSubscribeCommit(t *testing.T) {
 		commit, err := client.StartCommit(repo, "master")
 		require.NoError(t, err)
 		require.NoError(t, client.FinishCommit(repo, "master"))
+		fmt.Printf("Finished: %s\n", commit.ID)
 		commits = append(commits, commit)
 	}
 

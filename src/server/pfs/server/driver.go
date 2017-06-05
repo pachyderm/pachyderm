@@ -15,8 +15,6 @@ import (
 	"sync"
 	"time"
 
-	"go.pedge.io/lion"
-
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -767,7 +765,8 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 			return err
 		}
 	}
-	for _, commitInfo := range commitInfos {
+	for i := range commitInfos {
+		commitInfo := commitInfos[len(commitInfos)-i-1]
 		if commitInfo.Finished != nil {
 			if err := f(commitInfo); err != nil {
 				return err
@@ -785,7 +784,9 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 		var branchName string
 		commit := &pfs.Commit{}
 		event.Unmarshal(&branchName, commit)
-		lion.Printf("Got commit: %s", commit.ID)
+		if seen[commit.ID] {
+			continue
+		}
 		// Now we watch the commit to see when it's finished
 		commitInfoWatcher, err := commits.WatchOne(commit.ID)
 		if err != nil {
@@ -796,11 +797,10 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 			if event.Err != nil {
 				return event.Err
 			}
-			lion.Printf("Got event: %+v", event)
 			var commitID string
 			commitInfo := &pfs.CommitInfo{}
 			event.Unmarshal(&commitID, commitInfo)
-			if commitInfo.Finished != nil && !seen[commitInfo.Commit.ID] {
+			if commitInfo.Finished != nil {
 				seen[commitInfo.Commit.ID] = true
 				if err := f(commitInfo); err != nil {
 					return err
