@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 	"net/url"
+	"path"
 	"sort"
 	"strconv"
 	"strings"
@@ -30,6 +31,7 @@ import (
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/coreos/etcd/clientv3/concurrency"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -57,6 +59,8 @@ const (
 	// MaximumRetriesPerDatum is the maximum number of times each datum
 	// can failed to be processed before we declare that the job has failed.
 	MaximumRetriesPerDatum = 3
+	// An etcd directory under which distributed locks are stored
+	locksDir = "_locks"
 )
 
 var (
@@ -2020,6 +2024,19 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			if err := a.scaleUpWorkers(ctx, rcName, jobInfo.ParallelismSpec); err != nil {
 				return err
 			}
+
+			// Acquire a lock in etcd so that only one job from this pipeline
+			// can be running at a time.
+			session, err := concurrency.NewSession(a.etcdClient, concurrency.WithContext(ctx))
+			if err != nil {
+				return fmt.Errorf("unable to create a keepalive session for job %v", jobID)
+			}
+			defer session.Close()
+			mutex := concurrency.NewMutex(session, path.Join(a.etcdPrefix, locksDir, jobInfo.PipelineID))
+			if err := mutex.Lock(ctx); err != nil {
+				return fmt.Errorf("unable to acquire mutex for pipeline %v", jobInfo.Pipeline)
+			}
+			defer mutex.Unlock(ctx)
 		} else {
 			rcName = JobRcName(jobInfo.Job.ID)
 		}
