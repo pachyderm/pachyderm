@@ -68,13 +68,13 @@ parse_flags() {
   fi
 
   if [ "${USE_EXISTING_STATE_BUCKET}" == 'false' ]; then
-    create_s3_bucket "${STATE_BUCKET}" || exit 1
+    create_s3_bucket "${STATE_BUCKET}" false || exit 1
   fi
 }
 
 # Takes 2 args
 # $1 : bucket name (required)
-# $2 : boolean to use cloudfront or not (optional)
+# $2 : boolean to use cloudfront or not (required)
 create_s3_bucket() {
   if [[ "$#" -lt 1 ]]; then
     echo "Error: create_s3_bucket needs a bucket name"
@@ -265,7 +265,7 @@ deploy_pachyderm_on_aws() {
     # Omit token since im using my personal creds
     cmd=( pachctl deploy amazon ${BUCKET_NAME} "${AWS_ID}" "${AWS_KEY}" " " ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3 )
     if [[ "$USE_CLOUDFRONT" == "true" ]]; then
-      cmd+=("--cloudfront-distribution ${CLOUDFRONT_DOMAIN}")
+      cmd+=( "--cloudfront-distribution" "${CLOUDFRONT_DOMAIN}" )
     fi
 
     if [[ "${METRICS_FLAG}" == "false" ]]; then
