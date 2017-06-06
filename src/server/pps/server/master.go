@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"path"
 	"time"
 
@@ -34,7 +33,7 @@ func (a *apiServer) master() {
 		defer masterLock.Unlock()
 		ctx = masterLock.Context()
 
-		pipelineWatcher, err := a.pipelines.ReadOnly(ctx).Watch()
+		pipelineWatcher, err := a.pipelines.ReadOnly(ctx).WatchWithPrev()
 		if err != nil {
 			return err
 		}
@@ -45,7 +44,6 @@ func (a *apiServer) master() {
 			if event.Err != nil {
 				return event.Err
 			}
-			fmt.Printf("event: %v\n", event)
 			switch event.Type {
 			case watch.EventPut:
 				var pipelineName string
@@ -62,12 +60,22 @@ func (a *apiServer) master() {
 				}
 
 				if pipelineStateToStopped(pipelineInfo.State) {
-					return a.deleteWorkersForPipeline(&pipelineInfo)
+					protolion.Infof("master: deleting workers for pipeline %s", pipelineInfo.Pipeline.Name)
+					if err := a.deleteWorkersForPipeline(&pipelineInfo); err != nil {
+						return err
+					}
 				}
 
 				if pipelineInfo.Version > prevPipelineInfo.Version {
-					protolion.Infof("creating/updating workers for pipeline %s", pipelineInfo.Pipeline.Name)
-					return a.upsertWorkersForPipeline(&pipelineInfo)
+					protolion.Infof("master: creating/updating workers for pipeline %s", pipelineInfo.Pipeline.Name)
+					if prevPipelineInfo.Version > 0 {
+						if err := a.deleteWorkersForPipeline(&prevPipelineInfo); err != nil {
+							return err
+						}
+					}
+					if err := a.upsertWorkersForPipeline(&pipelineInfo); err != nil {
+						return err
+					}
 				}
 			case watch.EventDelete:
 				var pipelineName string
@@ -75,11 +83,13 @@ func (a *apiServer) master() {
 				if err := event.UnmarshalPrev(&pipelineName, &pipelineInfo); err != nil {
 					return err
 				}
-				return a.deleteWorkersForPipeline(&pipelineInfo)
+				if err := a.deleteWorkersForPipeline(&pipelineInfo); err != nil {
+					return err
+				}
 			}
 		}
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		protolion.Errorf("error running the master process: %v; retrying in %v", err, d)
+		protolion.Errorf("master: error running the master process: %v; retrying in %v", err, d)
 		return nil
 	})
 }
