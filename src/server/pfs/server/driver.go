@@ -750,6 +750,7 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 	if err != nil {
 		return nil, err
 	}
+	defer newCommitWatcher.Close()
 
 	stream := make(chan CommitEvent)
 	done := make(chan struct{})
@@ -799,7 +800,6 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 			}
 		}
 
-	receiveNewCommit:
 		for {
 			var branchName string
 			commit := new(pfs.Commit)
@@ -828,36 +828,42 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 			}
 			// Now we watch the CommitInfo until the commit has been finished
 			commits := d.commits(commit.Repo.Name).ReadOnly(ctx)
-			commitInfoWatcher, err := commits.WatchOne(commit.ID)
-			if err != nil {
-				return err
-			}
-			for {
-				var commitID string
-				commitInfo := new(pfs.CommitInfo)
-				event := <-commitInfoWatcher.Watch()
-				switch event.Type {
-				case watch.EventError:
-					return event.Err
-				case watch.EventPut:
-					event.Unmarshal(&commitID, commitInfo)
-				case watch.EventDelete:
-					// if this commit that we are waiting for is
-					// deleted, then we go back to watch the branch
-					// to get a new commit
-					continue receiveNewCommit
+			// closure for defer
+			if err := func() error {
+				commitInfoWatcher, err := commits.WatchOne(commit.ID)
+				if err != nil {
+					return err
 				}
-				if commitInfo.Finished != nil {
-					select {
-					case stream <- CommitEvent{
-						Value: commitInfo,
-					}:
-						seen[commitInfo.Commit.ID] = true
-					case <-done:
+				defer commitInfoWatcher.Close()
+				for {
+					var commitID string
+					commitInfo := new(pfs.CommitInfo)
+					event := <-commitInfoWatcher.Watch()
+					switch event.Type {
+					case watch.EventError:
+						return event.Err
+					case watch.EventPut:
+						event.Unmarshal(&commitID, commitInfo)
+					case watch.EventDelete:
+						// if this commit that we are waiting for is
+						// deleted, then we go back to watch the branch
+						// to get a new commit
 						return nil
 					}
-					break
+					if commitInfo.Finished != nil {
+						select {
+						case stream <- CommitEvent{
+							Value: commitInfo,
+						}:
+							seen[commitInfo.Commit.ID] = true
+						case <-done:
+							return nil
+						}
+						return nil
+					}
 				}
+			}(); err != nil {
+				return err
 			}
 		}
 	}()
@@ -938,6 +944,7 @@ func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 			if err != nil {
 				return nil, err
 			}
+			defer commitWatcher.Close()
 			go func(commit *pfs.Commit) (retErr error) {
 				defer func() {
 					if retErr != nil {
