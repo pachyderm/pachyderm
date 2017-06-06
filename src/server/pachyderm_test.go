@@ -3721,7 +3721,7 @@ func TestNonTransitiveReductionPipeline(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			fmt.Sprintf("cp /pfs/%s/file /pfs/out/file", dataRepo),
+			fmt.Sprintf("cp /pfs/%s/file /pfs/out/file", pipeline1),
 		},
 		nil,
 		client.NewCrossInput(
@@ -3734,14 +3734,28 @@ func TestNonTransitiveReductionPipeline(t *testing.T) {
 
 	jobInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
-	commit := jobInfos[0].OutputCommit
+	require.Equal(t, 2, len(jobInfos))
 
-	for i := 0; i < numFiles; i++ {
-		var buf bytes.Buffer
-		require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fmt.Sprintf("file-%d", i), 0, 0, &buf))
-		require.Equal(t, fmt.Sprintf("%d", i), buf.String())
-	}
+	commitInfos, err := c.ListCommit(pipeline2, "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(pipeline2, "master", "file", 0, 0, &buf))
+	require.Equal(t, "foo", buf.String())
+
+	commit2, err := c.StartCommit(dataRepo, "master")
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("bar"))
+	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
+	jobInfos, err = c.FlushCommitAll([]*pfs.Commit{commit2}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(jobInfos))
+
+	commitInfos, err = c.ListCommit(pipeline2, "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commitInfos))
+	buf.Reset()
+	require.NoError(t, c.GetFile(pipeline2, "master", "file", 0, 0, &buf))
+	require.Equal(t, "bar", buf.String())
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
