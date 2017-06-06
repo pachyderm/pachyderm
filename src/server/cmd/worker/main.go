@@ -108,7 +108,7 @@ func do(appEnvObj interface{}) error {
 		return fmt.Errorf("error getting pipelineInfo: %v", err)
 	}
 	workerRcName := ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	apiServer := worker.NewPipelineAPIServer(pachClient, pipelineInfo, appEnv.PodName)
+	apiServer := worker.NewAPIServer(pachClient, etcdClient, appEnv.PPSPrefix, pipelineInfo, appEnv.PodName)
 
 	// Start worker api server
 	eg := errgroup.Group{}

@@ -18,12 +18,13 @@ import (
 	"syscall"
 	"time"
 
-	"golang.org/x/net/context"
-	"golang.org/x/sync/errgroup"
-
+	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -46,6 +47,8 @@ var (
 // APIServer implements the worker API
 type APIServer struct {
 	pachClient *client.APIClient
+	etcdClient *etcd.Client
+	etcdPrefix string
 
 	// Information needed to process input data and upload output
 	pipelineInfo *pps.PipelineInfo
@@ -144,10 +147,12 @@ func (logger *taggedLogger) userLogger() *taggedLogger {
 	return result
 }
 
-// NewPipelineAPIServer creates an APIServer for a given pipeline
-func NewPipelineAPIServer(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, workerName string) *APIServer {
+// NewAPIServer creates an APIServer for a given pipeline
+func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string, pipelineInfo *pps.PipelineInfo, workerName string) *APIServer {
 	server := &APIServer{
 		pachClient:   pachClient,
+		etcdClient:   etcdClient,
+		etcdPrefix:   etcdPrefix,
 		pipelineInfo: pipelineInfo,
 		logMsgTemplate: pps.LogMessage{
 			PipelineName: pipelineInfo.Pipeline.Name,
