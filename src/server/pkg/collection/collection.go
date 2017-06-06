@@ -374,6 +374,10 @@ func (c *readonlyCollection) Watch() (watch.Watcher, error) {
 	return watch.NewWatcher(c.ctx, c.etcdClient, c.prefix)
 }
 
+func (c *readonlyCollection) WatchWithPrev() (watch.Watcher, error) {
+	return watch.NewWatcherWithPrev(c.ctx, c.etcdClient, c.prefix)
+}
+
 // WatchByIndex watches items in a collection that match a particular index
 func (c *readonlyCollection) WatchByIndex(index Index, val interface{}) (watch.Watcher, error) {
 	eventCh := make(chan *watch.Event)

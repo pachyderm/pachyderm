@@ -82,8 +82,16 @@ func (s byModRev) Less(i, j int) bool {
 	return s.GetResponse.Kvs[i].ModRevision < s.GetResponse.Kvs[j].ModRevision
 }
 
-// NewWatcher watches a given etcd prefix for events.
 func NewWatcher(ctx context.Context, client *etcd.Client, prefix string) (Watcher, error) {
+	return newWatcher(ctx, client, prefix, false)
+}
+
+func NewWatcherWithPrev(ctx context.Context, client *etcd.Client, prefix string) (Watcher, error) {
+	return newWatcher(ctx, client, prefix, true)
+}
+
+// NewWatcher watches a given etcd prefix for events.
+func newWatcher(ctx context.Context, client *etcd.Client, prefix string, withPrev bool) (Watcher, error) {
 	eventCh := make(chan *Event)
 	done := make(chan struct{})
 	// Firstly we list the collection to get the current items
@@ -100,7 +108,11 @@ func NewWatcher(ctx context.Context, client *etcd.Client, prefix string) (Watche
 	// Get request earlier.  That way even if some items are added between
 	// when we list the collection and when we start watching the collection,
 	// we won't miss any items.
-	rch := etcdWatcher.Watch(ctx, prefix, etcd.WithPrefix(), etcd.WithRev(nextRevision))
+	options := []etcd.OpOption{etcd.WithPrefix(), etcd.WithRev(nextRevision)}
+	if withPrev {
+		options = append(options, etcd.WithPrevKV())
+	}
+	rch := etcdWatcher.Watch(ctx, prefix, options...)
 
 	go func() (retErr error) {
 		defer func() {
