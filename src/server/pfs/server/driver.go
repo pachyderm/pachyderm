@@ -749,6 +749,7 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 	if err != nil {
 		return err
 	}
+	defer newCommitWatcher.Close()
 
 	// keep track of the commits that have been sent
 	seen := make(map[string]bool)
@@ -788,25 +789,30 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 			continue
 		}
 		// Now we watch the commit to see when it's finished
-		commitInfoWatcher, err := commits.WatchOne(commit.ID)
-		if err != nil {
-			return err
-		}
-		for {
-			event := <-commitInfoWatcher.Watch()
-			if event.Err != nil {
-				return event.Err
+		if err := func() error {
+			commitInfoWatcher, err := commits.WatchOne(commit.ID)
+			if err != nil {
+				return err
 			}
-			var commitID string
-			commitInfo := &pfs.CommitInfo{}
-			event.Unmarshal(&commitID, commitInfo)
-			if commitInfo.Finished != nil {
-				seen[commitInfo.Commit.ID] = true
-				if err := f(commitInfo); err != nil {
-					return err
+			defer commitInfoWatcher.Close()
+			for {
+				event := <-commitInfoWatcher.Watch()
+				if event.Err != nil {
+					return event.Err
 				}
-				break
+				var commitID string
+				commitInfo := &pfs.CommitInfo{}
+				event.Unmarshal(&commitID, commitInfo)
+				if commitInfo.Finished != nil {
+					seen[commitInfo.Commit.ID] = true
+					if err := f(commitInfo); err != nil {
+						return err
+					}
+					return nil
+				}
 			}
+		}(); err != nil {
+			return err
 		}
 	}
 }
