@@ -21,7 +21,7 @@ parse_flags() {
   local USE_EXISTING_STATE_BUCKET='false'
 
   # Parse flags
-  eval "set -- $( getopt -l "state:,region:,zone:,no-metrics:,use-cloudfront" "--" "${0}" "${@}" )"
+  eval "set -- $( getopt -l "state:,region:,zone:,no-metrics,use-cloudfront" "--" "${0}" "${@}" )"
   while true; do
       case "${1}" in
           --state)
@@ -72,6 +72,9 @@ parse_flags() {
   fi
 }
 
+# Takes 2 args
+# $1 : bucket name (required)
+# $2 : boolean to use cloudfront or not (optional)
 create_s3_bucket() {
   if [[ "$#" -lt 1 ]]; then
     echo "Error: create_s3_bucket needs a bucket name"
@@ -271,11 +274,11 @@ deploy_pachyderm_on_aws() {
     AWS_ID=`cat ~/.aws/credentials | grep aws_access_key_id  | cut -d " " -f 3`
 
     # Omit token since im using my personal creds
+    cmd=( pachctl deploy amazon ${BUCKET_NAME} "${AWS_ID}" "${AWS_KEY}" " " ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3 )
     if [[ "$USE_CLOUDFRONT" == "true" ]]; then
-        cmd=( pachctl deploy amazon ${BUCKET_NAME} "${AWS_ID}" "${AWS_KEY}" " " ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3 --cloudfront-distribution ${CLOUDFRONT_DOMAIN})
-    else
-        cmd=( pachctl deploy amazon ${BUCKET_NAME} "${AWS_ID}" "${AWS_KEY}" " " ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3 )
+      cmd+=("--cloudfront-distribution ${CLOUDFRONT_DOMAIN}")
     fi
+
     if [[ "${METRICS_FLAG}" == "false" ]]; then
       cmd+=( "--no-metrics" )
     fi
