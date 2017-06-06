@@ -258,7 +258,7 @@ func doFullMode(appEnvObj interface{}) error {
 		}
 	}()
 	go func() {
-		if err := sharder.Register(nil, address, []shard.Server{ppsAPIServer, cacheServer}); err != nil {
+		if err := sharder.Register(nil, address, []shard.Server{cacheServer}); err != nil {
 			protolion.Printf("error from sharder.Register %s", sanitizeErr(err))
 		}
 	}()
