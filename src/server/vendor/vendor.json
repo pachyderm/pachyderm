@@ -297,6 +297,12 @@
 			"revisionTime": "2017-02-05T05:28:56Z"
 		},
 		{
+			"checksumSHA1": "HWGjJoAdeVaq4dqkSKF6iYQj1aY=",
+			"path": "github.com/coreos/etcd/clientv3/concurrency",
+			"revision": "f5fc6649fee88d31513eb3afed0ddd3729a2ccf3",
+			"revisionTime": "2017-06-05T23:47:59Z"
+		},
+		{
 			"checksumSHA1": "muiqfaDEp60w1SvL64c2t7hJouo=",
 			"path": "github.com/coreos/etcd/clientv3/mirror",
 			"revision": "25403970f575e22eb23ca04d32f45e4d428a8489",
@@ -663,10 +669,10 @@
 			"revisionTime": "2016-06-03T22:12:12Z"
 		},
 		{
-			"checksumSHA1": "OZ7IRhes8Qb44nlnMoNw7iylIOU=",
+			"checksumSHA1": "fgPBEKvm7D7y4IMxGaxHsPmtYtU=",
 			"path": "github.com/google/gofuzz",
-			"revision": "fd52762d25a41827db7ef64c43756fd4b9f7e382",
-			"revisionTime": "2016-02-01T17:48:07Z"
+			"revision": "44d81051d367757e1c7c6a5a86423ece9afcf63c",
+			"revisionTime": "2016-11-22T19:10:42Z"
 		},
 		{
 			"checksumSHA1": "0uWDQrsSzyQHYg5et19xtS+EWmY=",
