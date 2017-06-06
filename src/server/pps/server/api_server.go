@@ -971,17 +971,6 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	}
 
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		pipelineName := request.Pipeline.Name
-		pipelines := a.pipelines.ReadWrite(stm)
-		var pipelineInfo pps.PipelineInfo
-		if err := pipelines.Get(pipelineName, &pipelineInfo); err != nil {
-			return err
-		}
-		rcName := PipelineRcName(pipelineName, pipelineInfo.Version)
-		if err := a.deleteWorkers(rcName); err != nil {
-			protolion.Errorf("error deleting workers for pipeline: %v", pipelineName)
-		}
-		protolion.Infof("deleted workers for pipeline: %v", pipelineName)
 		return a.pipelines.ReadWrite(stm).Delete(request.Pipeline.Name)
 	}); err != nil {
 		return nil, err
@@ -1359,16 +1348,6 @@ func (a *apiServer) updatePipelineState(ctx context.Context, pipelineName string
 			return err
 		}
 		pipelineInfo.State = state
-		pipelineInfo.Stopped = pipelineStateToStopped(state)
-
-		if pipelineInfo.Stopped {
-			rcName := PipelineRcName(pipelineName, pipelineInfo.Version)
-			if err := a.deleteWorkers(rcName); err != nil {
-				protolion.Errorf("error deleting workers for pipeline: %v", pipelineName)
-			}
-			protolion.Infof("deleted workers for pipeline: %v", pipelineName)
-		}
-
 		pipelines.Put(pipelineName, pipelineInfo)
 		return nil
 	})
@@ -1396,14 +1375,11 @@ func (a *apiServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.
 		pipelines.Put(pipelineInfo.Pipeline.Name, pipelineInfo)
 	}
 	jobInfo.State = state
-	jobInfo.Stopped = jobStateToStopped(state)
 	jobs := a.jobs.ReadWrite(stm)
 	jobs.Put(jobInfo.Job.ID, jobInfo)
 	return nil
 }
 
-// jobStateToStopped defines what job states are "stopped" states,
-// meaning that jobs in this state should not be managed by jobManager
 func jobStateToStopped(state pps.JobState) bool {
 	switch state {
 	case pps.JobState_JOB_STARTING:
@@ -1465,24 +1441,6 @@ func (a *apiServer) createWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		Value: pipelineInfo.Pipeline.Name,
 	})
 	return a.createWorkerRc(options)
-}
-
-func (a *apiServer) deleteWorkers(rcName string) error {
-	if err := a.kubeClient.Services(a.namespace).Delete(rcName); err != nil {
-		if !isNotFoundErr(err) {
-			return err
-		}
-	}
-	falseVal := false
-	deleteOptions := &api.DeleteOptions{
-		OrphanDependents: &falseVal,
-	}
-	if err := a.kubeClient.ReplicationControllers(a.namespace).Delete(rcName, deleteOptions); err != nil {
-		if !isNotFoundErr(err) {
-			return err
-		}
-	}
-	return nil
 }
 
 func (a *apiServer) getPFSClient() (pfs.APIClient, error) {
