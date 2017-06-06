@@ -65,9 +65,9 @@ case "${OP}" in
     aws_sh="$(realpath "$(dirname "${0}")/../../deploy/aws.sh")"
     cmd=("${aws_sh}" --region=${REGION} --zone=${ZONE} --state=${STATE_STORE} --no-metrics)
     if [[ -n "${CLOUDFRONT}" ]]; then
-      cmd+=(" ${CLOUDFRONT}")
+      cmd+=("${CLOUDFRONT}")
     fi
-    sudo $cmd
+    sudo "${cmd[@]}"
     ;;
   delete)
     kops --state=${STATE_STORE} delete cluster --name=${NAME} --yes
