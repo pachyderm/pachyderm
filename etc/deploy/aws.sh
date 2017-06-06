@@ -21,7 +21,7 @@ parse_flags() {
   local USE_EXISTING_STATE_BUCKET='false'
 
   # Parse flags
-  eval "set -- $( getopt -l "state:,region:,zone:,no-metrics:,use-cloudfront" "--" "${0}" "${@}" )"
+  eval "set -- $( getopt -l "state:,region:,zone:,no-metrics,use-cloudfront" "--" "${0}" "${@}" )"
   while true; do
       case "${1}" in
           --state)
