@@ -3688,6 +3688,62 @@ func TestFlushNonExistentCommit(t *testing.T) {
 	require.YesError(t, err)
 }
 
+func TestNonTransitiveReductionPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestNonTransitiveReductionPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("foo"))
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	pipeline1 := uniqueString("pipeline1")
+	pipeline2 := uniqueString("pipeline2")
+	require.NoError(t, c.CreatePipeline(
+		pipeline1,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/file /pfs/out/file", dataRepo),
+		},
+		nil,
+		client.NewAtomInput(dataRepo, "/"),
+		"",
+		false,
+	))
+	require.NoError(t, c.CreatePipeline(
+		pipeline2,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/file /pfs/out/file", dataRepo),
+		},
+		nil,
+		client.NewCrossInput(
+			client.NewAtomInput(dataRepo, "/"),
+			client.NewAtomInput(pipeline1, "/"),
+		),
+		"",
+		false,
+	))
+
+	jobInfos, err := c.FlushCommitAll([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+	commit := jobInfos[0].OutputCommit
+
+	for i := 0; i < numFiles; i++ {
+		var buf bytes.Buffer
+		require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fmt.Sprintf("file-%d", i), 0, 0, &buf))
+		require.Equal(t, fmt.Sprintf("%d", i), buf.String())
+	}
+}
+
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
 	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
 	require.NoError(t, err)
