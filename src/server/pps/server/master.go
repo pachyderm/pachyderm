@@ -41,13 +41,11 @@ func (a *apiServer) master() {
 		defer pipelineWatcher.Close()
 
 		for {
-			event, ok := <-pipelineWatcher.Watch()
-			if !ok {
-				return fmt.Errorf("pipelineWatcher closed unexpectedly")
-			}
+			event := <-pipelineWatcher.Watch()
 			if event.Err != nil {
 				return event.Err
 			}
+			fmt.Printf("event: %v\n", event)
 			switch event.Type {
 			case watch.EventPut:
 				var pipelineName string
