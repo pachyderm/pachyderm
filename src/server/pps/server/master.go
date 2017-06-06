@@ -59,6 +59,7 @@ func (a *apiServer) master() {
 					}
 				}
 
+				// If the pipeline has been stopped, delete workers
 				if pipelineStateToStopped(pipelineInfo.State) {
 					protolion.Infof("master: deleting workers for pipeline %s", pipelineInfo.Pipeline.Name)
 					if err := a.deleteWorkersForPipeline(&pipelineInfo); err != nil {
@@ -66,9 +67,17 @@ func (a *apiServer) master() {
 					}
 				}
 
+				// If the pipeline has been restarted, create workers
+				if !pipelineStateToStopped(pipelineInfo.State) && event.PrevKey != nil && pipelineStateToStopped(prevPipelineInfo.State) {
+					if err := a.upsertWorkersForPipeline(&pipelineInfo); err != nil {
+						return err
+					}
+				}
+
+				// If the pipeline has been updated, create new workers
 				if pipelineInfo.Version > prevPipelineInfo.Version {
 					protolion.Infof("master: creating/updating workers for pipeline %s", pipelineInfo.Pipeline.Name)
-					if prevPipelineInfo.Version > 0 {
+					if event.PrevKey != nil {
 						if err := a.deleteWorkersForPipeline(&prevPipelineInfo); err != nil {
 							return err
 						}
