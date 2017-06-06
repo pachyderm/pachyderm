@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
@@ -13,16 +12,8 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"go.pedge.io/proto/rpclog"
-	"golang.org/x/net/context"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
-
-// APIServer represents an api server.
-type APIServer interface {
-	ppsclient.APIServer
-	shard.Frontend
-	shard.Server
-}
 
 const (
 	pipelinesPrefix = "/pipelines"
@@ -63,7 +54,7 @@ func NewAPIServer(
 	storageBackend string,
 	storageHostPath string,
 	reporter *metrics.Reporter,
-) (APIServer, error) {
+) (ppsclient.APIServer, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   []string{etcdAddress},
 		DialOptions: client.EtcdDialOptions(),
@@ -80,10 +71,6 @@ func NewAPIServer(
 		etcdClient:            etcdClient,
 		pachConnOnce:          sync.Once{},
 		kubeClient:            kubeClient,
-		version:               shard.InvalidVersion,
-		shardCtxs:             make(map[uint64]*ctxAndCancel),
-		pipelineCancels:       make(map[string]context.CancelFunc),
-		jobCancels:            make(map[string]context.CancelFunc),
 		namespace:             namespace,
 		workerImage:           workerImage,
 		workerSidecarImage:    workerSidecarImage,
