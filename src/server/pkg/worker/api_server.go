@@ -30,7 +30,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 )
 
@@ -67,6 +69,8 @@ type APIServer struct {
 	cancel func()
 	// The k8s pod name of this worker
 	workerName string
+	// The jobs collection
+	jobs col.Collection
 }
 
 type taggedLogger struct {
@@ -160,6 +164,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 			WorkerID:     os.Getenv(client.PPSPodNameEnv),
 		},
 		workerName: workerName,
+		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
 	}
 	return server
 }
