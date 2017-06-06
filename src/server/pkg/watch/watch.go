@@ -126,6 +126,10 @@ func NewWatcher(ctx context.Context, client *etcd.Client, prefix string) (Watche
 				return nil
 			}
 			if !ok {
+				if err := etcdWatcher.Close(); err != nil {
+					return err
+				}
+				etcdWatcher = etcd.NewWatcher(client)
 				rch = etcdWatcher.Watch(ctx, prefix, etcd.WithPrefix(), etcd.WithRev(nextRevision))
 				continue
 			}
