@@ -92,5 +92,6 @@ func NewAPIServer(
 			&ppsclient.JobInfo{},
 		),
 	}
+	go apiServer.master()
 	return apiServer, nil
 }
