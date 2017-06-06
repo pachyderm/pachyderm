@@ -41,19 +41,12 @@ type appEnv struct {
 	PPSWorkerIP string `env:"PPS_WORKER_IP,required"`
 
 	// Either pipeline name or job name must be set
-	PPSPipelineName string `env:"PPS_PIPELINE_NAME"`
+	PPSPipelineName string `env:"PPS_PIPELINE_NAME,required"`
 	PodName         string `env:"PPS_POD_NAME,required"`
 }
 
 func main() {
 	cmdutil.Main(do, &appEnv{})
-}
-
-func validateEnv(appEnv *appEnv) error {
-	if appEnv.PPSPipelineName == "" {
-		return fmt.Errorf("worker must recieve pipeline name")
-	}
-	return nil
 }
 
 // getPipelineInfo gets the PipelineInfo proto describing the pipeline that this
@@ -82,9 +75,6 @@ func do(appEnvObj interface{}) error {
 
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	appEnv := appEnvObj.(*appEnv)
-	if err := validateEnv(appEnv); err != nil {
-		return fmt.Errorf("error validating env: %v", err)
-	}
 
 	// get pachd client, so we can upload output data from the user binary
 	pachClient, err := client.NewFromAddress("localhost:650")
