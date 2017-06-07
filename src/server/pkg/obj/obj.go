@@ -157,6 +157,8 @@ func NewAmazonClientFromSecret(bucket string) (Client, error) {
 		if err != nil {
 			// Distribution is not required, but we can log a warning
 			lion.Warnln("AWS deployed without cloudfront distribution\n")
+		} else {
+			lion.Infof("AWS deployed with cloudfront distribution at %v\n", string(distribution))
 		}
 	}
 	id, err := ioutil.ReadFile("/amazon-secret/id")
