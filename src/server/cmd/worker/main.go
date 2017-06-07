@@ -46,7 +46,7 @@ type appEnv struct {
 	PodName string `env:"PPS_POD_NAME,required"`
 
 	// The namespace in which Pachyderm is deployed
-	Namespace string `env:"PPS_NAMESPACE"`
+	Namespace string `env:"PPS_NAMESPACE,required"`
 }
 
 func main() {
@@ -90,12 +90,22 @@ func do(appEnvObj interface{}) error {
 		return fmt.Errorf("error validating env: %v", err)
 	}
 
-	// get pachd client, so we can upload output data from the user binary
+	// Construct a client that connects to the sidecar.
 	pachClient, err := client.NewFromAddress("localhost:650")
 	if err != nil {
 		return fmt.Errorf("error constructing pachClient: %v", err)
 	}
 	go pachClient.KeepConnected(make(chan bool)) // we never cancel the connection
+
+	// Construct a client that connects to real pachd nodes
+	_ppsClient, err := client.NewFromAddress(fmt.Sprintf("%v:650", appEnv.PachdAddress))
+	if err != nil {
+		return err
+	}
+	go _ppsClient.KeepConnected(make(chan bool)) // we never cancel the connection
+	// This is hacky but it makes the code simpler.  Basically any PFS calls
+	// will go to the sidecar, whereas PPS calls go to real pachd nodes.
+	pachClient.PpsAPIClient = _ppsClient.PpsAPIClient
 
 	// Get etcd client, so we can register our IP (so pachd can discover us)
 	etcdClient, err := etcd.New(etcd.Config{
