@@ -13,7 +13,7 @@ parse_flags() {
   export AWS_AVAILABILITY_ZONE=us-east-1a
 
   # Parse flags
-  eval "set -- $( getopt -l "state:,region:,zone:,bucket:,distribution:" "--" "${0}" "${@}" )"
+  eval "set -- $( getopt -l "state:,region:,zone:,bucket:,distribution:,cloudfront-keypair-id:,cloudfront-private-key-file:" "--" "${0}" "${@}" )"
   while true; do
       case "${1}" in
           --region)
@@ -32,12 +32,40 @@ parse_flags() {
             export DISTRIBUTION="${2}"
             shift 2
             ;;
+          --cloudfront-keypair-id)
+            export CLOUDFRONT_KEYPAIR_ID="${2}"
+            shift 2
+            ;;
+          --cloudfront-private-key-file)
+            export CLOUDFRONT_PRIVATE_KEY_FILE="${2}"
+            shift 2
+            ;;
           --)
             shift
             break
             ;;
       esac
   done
+
+  if [ $CLOUDFRONT_KEYPAIR_ID -n ]; then
+	echo "--cloudfront-keypair-id must be set"
+	exit 1	
+  fi
+
+  if [ $CLOUDFRONT_PRIVATE_KEY_FILE -n ]; then
+	echo "--cloudfront-private-key-file must be set"
+	exit 1	
+  fi
+
+  if [ $BUCKET -n ]; then
+	echo "--bucket must be set"
+	exit 1	
+  fi
+
+  if [ $DISTRIBUTION -n ]; then
+	echo "--distribution must be set"
+	exit 1	
+  fi
 
   echo "Region: ${AWS_REGION}"
   zone_suffix=${AWS_AVAILABILITY_ZONE#$AWS_REGION}
@@ -94,11 +122,30 @@ update_cloudfront_distribution() {
 
 deploy_secrets() {
     # Update the amazon secret to include: cloudfront-keypair-id and cloudfront-private-key
-    kubectl create -f newsecret.yaml
+    echo "Updating secrets for cluster:"
+    kubectl cluster-info
+    mkdir -p tmp
+    kubectl get secrets/amazon-secret -o json > tmp/existing-amazon-secrets.json
+    ENCODED_KEYPAIR=$(echo $CLOUDFRONT_KEYPAIR_ID | base64 -w0)
+    cat tmp/existing-amazon-secrets.json | jq '.data.cloudfrontKeypairId = "'$ENCODED_KEYPAIR'"' > tmp-result.json
+    mv tmp-result.json tmp/updated-amazon-secrets.json
+    CLOUDFRONT_PRIVATE_KEY=$(cat $CLOUDFRONT_PRIVATE_KEY_FILE | base64 -w0)
+    cat tmp/updated-amazon-secrets.json | jq '.data.cloudfrontPrivateKey = "'$CLOUDFRONT_PRIVATE_KEY'"' > tmp-result.json
+    mv tmp-result.json tmp/updated-amazon-secrets.json
+    kubectl replace -f tmp/updated-amazon-secrets.json
 }
-
 
 parse_flags "${@}"
 update_bucket_policy
 update_cloudfront_distribution
-#deploy_secrets
+deploy_secrets
+
+
+echo "Waiting on distribution to enter 'deployed' state"
+echo "This is the last step of the script ... if it times out, thats ok. Just make sure that your CF distribution's status is 'Deployed' on the UI before you run anything on pachyderm"
+date
+# We need to wait for this, otherwise if you try and access objects while it's 'pending' CF redirects you to S3 and it'll cache the 307 redirect responses
+aws cloudfront wait distribution-deployed --id $DISTRIBUTION
+echo "Distribution deployed"
+date
+
