@@ -1,0 +1,100 @@
+{
+    "CallerReference": "XXCallerReferenceXX",
+    "Aliases": {
+        "Quantity": 0
+    },
+    "DefaultRootObject": "",
+    "Origins": {
+        "Quantity": 1,
+        "Items": [
+                {
+                    "DomainName": "XXBucketNameXX.s3.amazonaws.com",
+                    "OriginPath": "",
+                    "S3OriginConfig": {
+                        "OriginAccessIdentity": ""
+                    },
+                    "CustomHeaders": {
+                        "Quantity": 0
+                    },
+                    "Id": "S3-XXBucketNameXX"
+                }
+        ]
+    },
+    "DefaultCacheBehavior": {
+        "TrustedSigners": {
+            "Quantity": 0,
+            "Enabled": false
+        },
+        "AllowedMethods": {
+            "Quantity": 2,
+            "CachedMethods": {
+                "Quantity": 2,
+                "Items": [
+                    "HEAD",
+                    "GET"
+                ]
+            },
+            "Items": [
+                "HEAD",
+                "GET"
+            ]
+        },
+        "DefaultTTL": 86400,
+        "TargetOriginId": "S3-XXBucketNameXX",
+        "SmoothStreaming": false,
+        "MaxTTL": 31536000,
+        "ForwardedValues": {
+            "Cookies": {
+                "Forward": "none"
+            },
+            "Headers": {
+                "Quantity": 0
+            },
+            "QueryString": false
+        },
+        "Compress": false,
+        "ViewerProtocolPolicy": "allow-all",
+        "MinTTL": 0
+    },
+    "CacheBehaviors": {
+        "Quantity": 0
+    },
+    "CustomErrorResponses": {
+        "Quantity": 2,
+        "Items": [
+            {
+                "ErrorCode": 403,
+                "ResponsePagePath": "",
+                "ResponseCode": "",
+                "ErrorCachingMinTTL": 0
+            },
+            {
+                "ErrorCode": 404,
+                "ResponsePagePath": "",
+                "ResponseCode": "",
+                "ErrorCachingMinTTL": 0
+            }
+        ]
+    },
+    "Comment": "",
+    "Logging": {
+        "Enabled": false,
+        "IncludeCookies": false,
+        "Bucket": "",
+        "Prefix": ""
+    },
+    "PriceClass": "PriceClass_100",
+    "Enabled": true,
+    "ViewerCertificate": {
+        "CloudFrontDefaultCertificate": true,
+        "CertificateSource": "cloudfront",
+        "MinimumProtocolVersion": "SSLv3"
+    },
+    "Restrictions": {
+        "GeoRestriction": {
+            "RestrictionType": "none",
+            "Quantity": 0
+        }
+    },
+    "WebACLId": ""
+}

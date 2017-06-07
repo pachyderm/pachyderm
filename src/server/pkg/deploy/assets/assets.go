@@ -1067,7 +1067,7 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 		EtcdDeployment(opts, "").CodecEncodeSelf(encoder)
 		fmt.Fprintf(w, "\n")
 	} else {
-		return fmt.Errorf("unless deploying locally, either --etcd-nodes or --etcd-volume needs to be provided")
+		return fmt.Errorf("unless deploying locally, either --dynamic-etcd-nodes or --static-etcd-volume needs to be provided")
 	}
 	EtcdNodePortService(objectStoreBackend == localBackend).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
