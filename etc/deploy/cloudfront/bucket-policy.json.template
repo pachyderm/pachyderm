@@ -2,13 +2,11 @@
     "Version": "2012-10-17",
     "Statement": [
         {
-            "Sid": "PokeHoleForCloudfrontOAI",
+            "Sid": "AddPerm",
             "Effect": "Allow",
-            "Principal": {
-                "CanonicalUser": "XXCLOUDFRONT_OAI_CANONICALXX"
-            },
+            "Principal": "*",
             "Action": "s3:GetObject",
-            "Resource": "arn:aws:s3:::XXBUCKET_NAMEXX/*"
+            "Resource": "arn:aws:s3:::BUCKET_NAME/*"
         }
     ]
 }
