@@ -1,6 +1,7 @@
 package obj
 
 import (
+	"bytes"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
@@ -99,13 +100,13 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 			if err != nil {
 				return nil, err
 			}
-			decodedCloudfrontKeyPairId = strings.TrimSpace(decodedCloudfrontKeyPairId)
+			decodedCloudfrontKeyPairId = bytes.TrimSpace(decodedCloudfrontKeyPairId)
 
 			decodedCloudfrontPrivateKey, err := base64.StdEncoding.DecodeString(string(rawCloudfrontPrivateKey))
 			if err != nil {
 				return nil, err
 			}
-			decodedCloudfrontPrivateKey = strings.TrimSpace(decodedcloudfrontPrivateKey)
+			decodedCloudfrontPrivateKey = bytes.TrimSpace(decodedCloudfrontPrivateKey)
 			block, _ := pem.Decode(decodedCloudfrontPrivateKey)
 			if block == nil || block.Type != "RSA PRIVATE KEY" {
 				return nil, fmt.Errorf("block undefined or wrong type: type is (%v) should be (RSA PRIVATE KEY)", block.Type)
