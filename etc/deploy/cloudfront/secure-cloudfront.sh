@@ -79,8 +79,12 @@ update_cloudfront_distribution() {
     aws cloudfront get-distribution --id $DISTRIBUTION  > tmp/existing-cloudfront-distribution.json
     ETAG=$(cat tmp/existing-cloudfront-distribution.json | jq -r .ETag)
     # Update the fields we need
-    cat tmp/existing-cloudfront-distribution.json | jq '.Distribution.DistributionConfig.Origins.Items[0].S3OriginConfig.OriginAccessIdentity = "origin-access-identity/cloudfront/'"${CLOUDFRONT_OAI_ID}"'"' > tmp/updated-cloudfront-distribution.json
-    #aws cloudfront update-distribution --id $DISTRIBUTION --if-match $ETAG --distribution-config file://tmp/cloudfront-distribution-secure.json > tmp/cloudfront-distribution-secure-info.json
+    cat tmp/existing-cloudfront-distribution.json | jq '.Distribution.DistributionConfig.Origins.Items[0].S3OriginConfig.OriginAccessIdentity = "origin-access-identity/cloudfront/'"${CLOUDFRONT_OAI_ID}"'"' > tmp-result.json
+    # There doesn't seem to be a way to use jq to replace 'in place':
+    mv tmp-result.json tmp/updated-cloudfront-distribution.json
+    cat tmp/updated-cloudfront-distribution.json | jq '.Distribution.DistributionConfig.DefaultCacheBehavior.TrustedSigners = {"Enabled": true,"Items": ["self"],"Quantity":1}' > tmp-result.json
+    mv tmp-result.json tmp/updated-cloudfront-distribution.json
+
     cat tmp/updated-cloudfront-distribution.json | jq .Distribution.DistributionConfig > tmp/updated-cloudfront-distribution-config.json
     aws cloudfront update-distribution --id $DISTRIBUTION --if-match $ETAG --distribution-config file://tmp/updated-cloudfront-distribution-config.json > tmp/updated-cloudfront-distribution-info.json
     # This isn't used anywhere in this script, but still is good to report to the user
