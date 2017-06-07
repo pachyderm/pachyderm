@@ -98,7 +98,7 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 			if err != nil {
 				return nil, fmt.Errorf("cloudfront private key provided, but missing cloudfront key pair id")
 			}
-			fmt.Printf("got cf keypaird id (%v)\n", rawcloudfrontKeyPairId)
+			fmt.Printf("got cf keypaird id (%v)\n", rawCloudfrontKeyPairId)
 			decodedCloudfrontKeyPairId, err := base64.StdEncoding.DecodeString(string(rawCloudfrontKeyPairId))
 			if err != nil {
 				return nil, err
