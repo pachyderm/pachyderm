@@ -1,7 +1,7 @@
 { 
    "Statement": [
       { 
-         "Resource":"http*://d3q2p4tuagkx3p.cloudfront.net/*",
+         "Resource":"http*://d2dh50rmvikcjm.cloudfront.net/*",
          "Condition":{ 
             "DateLessThan":{"AWS:EpochTime":1504224000}
          } 
