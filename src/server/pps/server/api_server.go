@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -50,9 +49,6 @@ const (
 	// DefaultUserImage is the image used for jobs when the user does not specify
 	// an image.
 	DefaultUserImage = "ubuntu:16.04"
-	// MaximumRetriesPerDatum is the maximum number of times each datum
-	// can failed to be processed before we declare that the job has failed.
-	MaximumRetriesPerDatum = 3
 )
 
 var (
@@ -89,45 +85,6 @@ func newErrParentInputsMismatch(parent string) error {
 type ctxAndCancel struct {
 	ctx    context.Context
 	cancel context.CancelFunc
-}
-
-// GetExpectedNumWorkers computes the expected number of workers that pachyderm will start given
-// the ParallelismSpec 'spec'.
-//
-// This is only exported for testing
-func GetExpectedNumWorkers(kubeClient *kube.Client, spec *pps.ParallelismSpec) (uint64, error) {
-	coefficient := 0.0 // Used if [spec.Strategy == PROPORTIONAL] or [spec.Constant == 0]
-	if spec == nil {
-		// Unset ParallelismSpec is handled here. Currently we start one worker per
-		// node
-		coefficient = 1.0
-	} else if spec.Strategy == pps.ParallelismSpec_CONSTANT {
-		if spec.Constant > 0 {
-			fmt.Println("Returning constant: ", spec.Constant)
-			return spec.Constant, nil
-		}
-		// Zero-initialized ParallelismSpec is handled here. Currently we start one
-		// worker per node
-		coefficient = 1
-	} else if spec.Strategy == pps.ParallelismSpec_COEFFICIENT {
-		coefficient = spec.Coefficient
-	} else {
-		return 0, fmt.Errorf("Unable to interpret ParallelismSpec strategy %s", spec.Strategy)
-	}
-	if coefficient == 0.0 {
-		return 0, fmt.Errorf("Ended up with coefficient == 0 (no workers) after interpreting ParallelismSpec %s", spec.Strategy)
-	}
-
-	// Start ('coefficient' * 'nodes') workers. Determine number of workers
-	nodeList, err := kubeClient.Nodes().List(api.ListOptions{})
-	if err != nil {
-		return 0, fmt.Errorf("unable to retrieve node list from k8s to determine parallelism: %v", err)
-	}
-	if len(nodeList.Items) == 0 {
-		return 0, fmt.Errorf("pachyderm.pps.jobserver: no k8s nodes found")
-	}
-	result := math.Floor(coefficient * float64(len(nodeList.Items)))
-	return uint64(math.Max(result, 1)), nil
 }
 
 type apiServer struct {
@@ -395,7 +352,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	if jobInfo.State != pps.JobState_JOB_RUNNING {
 		return jobInfo, nil
 	}
-	workerPoolID := PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
+	workerPoolID := pps.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
 	workerStatus, err := status(ctx, workerPoolID, a.etcdClient, a.etcdPrefix)
 	if err != nil {
 		protolion.Errorf("failed to get worker status with err: %s", err.Error())
@@ -497,7 +454,7 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	if err != nil {
 		return nil, err
 	}
-	workerPoolID := PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
+	workerPoolID := pps.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
 	if err := cancel(ctx, workerPoolID, a.etcdClient, a.etcdPrefix, request.Job.ID, request.DataFilters); err != nil {
 		return nil, err
 	}
@@ -510,7 +467,7 @@ func (a *apiServer) lookupRcNameForPipeline(ctx context.Context, pipeline *pps.P
 	if err != nil {
 		return "", fmt.Errorf("could not get pipeline information for %s: %s", pipeline.Name, err.Error())
 	}
-	return PipelineRcName(pipeline.Name, pipelineInfo.Version), nil
+	return pps.PipelineRcName(pipeline.Name, pipelineInfo.Version), nil
 }
 
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
@@ -1221,51 +1178,6 @@ func isNotFoundErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "not found")
 }
 
-func (a *apiServer) numWorkers(ctx context.Context, rcName string) (int, error) {
-	workerRC, err := a.kubeClient.ReplicationControllers(a.namespace).Get(rcName)
-	if err != nil {
-		return 0, err
-	}
-	return int(workerRC.Spec.Replicas), nil
-}
-
-func (a *apiServer) scaleDownWorkers(ctx context.Context, rcName string) error {
-	rc := a.kubeClient.ReplicationControllers(a.namespace)
-	workerRc, err := rc.Get(rcName)
-	if err != nil {
-		return err
-	}
-	workerRc.Spec.Replicas = 0
-	_, err = rc.Update(workerRc)
-	return err
-}
-
-func (a *apiServer) scaleUpWorkers(ctx context.Context, rcName string, parallelismSpec *pps.ParallelismSpec) error {
-	rc := a.kubeClient.ReplicationControllers(a.namespace)
-	workerRc, err := rc.Get(rcName)
-	if err != nil {
-		return err
-	}
-	parallelism, err := GetExpectedNumWorkers(a.kubeClient, parallelismSpec)
-	if err != nil {
-		return err
-	}
-	workerRc.Spec.Replicas = int32(parallelism)
-	_, err = rc.Update(workerRc)
-	return err
-}
-
-func (a *apiServer) workerServiceIP(ctx context.Context, deploymentName string) (string, error) {
-	service, err := a.kubeClient.Services(a.namespace).Get(deploymentName)
-	if err != nil {
-		return "", err
-	}
-	if service.Spec.ClusterIP == "" {
-		return "", fmt.Errorf("IP not assigned")
-	}
-	return service.Spec.ClusterIP, nil
-}
-
 // pipelineStateToStopped defines what pipeline states are "stopped"
 // states, meaning that pipelines in this state should not be managed
 // by pipelineManager
@@ -1362,31 +1274,6 @@ func parseResourceList(resources *pps.ResourceSpec) (*api.ResourceList, error) {
 		api.ResourceNvidiaGPU: gpuQuantity,
 	}
 	return &result, nil
-}
-
-func (a *apiServer) createWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
-	parallelism, err := GetExpectedNumWorkers(a.kubeClient, pipelineInfo.ParallelismSpec)
-	if err != nil {
-		return err
-	}
-	var resources *api.ResourceList
-	if pipelineInfo.ResourceSpec != nil {
-		resources, err = parseResourceList(pipelineInfo.ResourceSpec)
-		if err != nil {
-			return err
-		}
-	}
-	options := a.getWorkerOptions(
-		PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
-		int32(parallelism),
-		resources,
-		pipelineInfo.Transform)
-	// Set the pipeline name env
-	options.workerEnv = append(options.workerEnv, api.EnvVar{
-		Name:  client.PPSPipelineNameEnv,
-		Value: pipelineInfo.Pipeline.Name,
-	})
-	return a.createWorkerRc(options)
 }
 
 func (a *apiServer) getPFSClient() (pfs.APIClient, error) {

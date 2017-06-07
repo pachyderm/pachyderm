@@ -1,9 +1,6 @@
 package server
 
 import (
-	"fmt"
-	"strings"
-
 	client "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
@@ -28,16 +25,6 @@ type workerOptions struct {
 	// Secrets that we mount in the worker container (e.g. for reading/writing to
 	// s3)
 	imagePullSecrets []api.LocalObjectReference
-}
-
-// PipelineRcName generates the name of the k8s replication controller that
-// manages a pipeline's workers
-func PipelineRcName(name string, version uint64) string {
-	// k8s won't allow RC names that contain upper-case letters
-	// or underscores
-	// TODO: deal with name collision
-	name = strings.Replace(name, "_", "-", -1)
-	return fmt.Sprintf("pipeline-%s-v%d", strings.ToLower(name), version)
 }
 
 func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
@@ -174,6 +161,11 @@ func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, resources
 	workerEnv = append(workerEnv, api.EnvVar{
 		Name:  client.PPSEtcdPrefixEnv,
 		Value: a.etcdPrefix,
+	})
+	// Pass along the namespace
+	workerEnv = append(workerEnv, api.EnvVar{
+		Name:  client.PPSNamespaceEnv,
+		Value: a.namespace,
 	})
 
 	var volumes []api.Volume
