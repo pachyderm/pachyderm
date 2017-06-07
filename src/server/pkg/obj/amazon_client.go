@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
@@ -107,8 +108,8 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 			if err != nil {
 				return nil, err
 			}
-			signer := sign.NewURLSigner(decodedCloudfrontKeyPairId, cloudfrontPrivateKey)
-			signedURL, err := signer.Sign(rawURL, time.Now().Add(1*time.Hour))
+			signer := sign.NewURLSigner(string(decodedCloudfrontKeyPairId), cloudfrontPrivateKey)
+			signedURL, err := signer.Sign(url, time.Now().Add(1*time.Hour))
 			if err != nil {
 				return nil, err
 			}

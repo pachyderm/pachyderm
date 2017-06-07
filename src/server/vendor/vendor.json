@@ -225,6 +225,18 @@
 			"revisionTime": "2017-02-11T21:41:47Z"
 		},
 		{
+			"checksumSHA1": "Jta0N8UpREoBZJ1n2n8Y0hh6AxY=",
+			"path": "github.com/aws/aws-sdk-go/service/cloudfront",
+			"revision": "2f38831dce85fee4ae85a7db268a0ee15b5522df",
+			"revisionTime": "2017-06-06T22:58:13Z"
+		},
+		{
+			"checksumSHA1": "yLW2gMdEScNPLFqrQLdgF4+V2zQ=",
+			"path": "github.com/aws/aws-sdk-go/service/cloudfront/sign",
+			"revision": "2f38831dce85fee4ae85a7db268a0ee15b5522df",
+			"revisionTime": "2017-06-06T22:58:13Z"
+		},
+		{
 			"checksumSHA1": "eEWM4wKzVbRqAwIy3MdMCDUGs2s=",
 			"path": "github.com/aws/aws-sdk-go/service/s3",
 			"revision": "0bba0f7f68dc6317b2715daf5b4e4815889b1d73",
