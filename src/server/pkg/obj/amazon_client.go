@@ -75,7 +75,7 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 	if byteRange != "" {
 		byteRange = fmt.Sprintf("bytes=%s", byteRange)
 	}
-
+	fmt.Printf("in amazon.Reader()\n")
 	var reader io.ReadCloser
 	if c.distribution != "" {
 		var resp *http.Response
@@ -98,21 +98,25 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 			if err != nil {
 				return nil, fmt.Errorf("cloudfront private key provided, but missing cloudfront key pair id")
 			}
-			fmt.Printf("got cf keypaird id (%v)\n", rawCloudfrontKeyPairId)
-			decodedCloudfrontKeyPairId, err := base64.StdEncoding.DecodeString(string(rawCloudfrontKeyPairId))
-			if err != nil {
-				return nil, err
-			}
-			decodedCloudfrontKeyPairId = bytes.TrimSpace(decodedCloudfrontKeyPairId)
-			fmt.Printf("decoded keypair id (%v)\n", string(decodedCloudfrontKeyPairId))
+			fmt.Printf("keypair id: %v\n", string(rawcloudfrontKeyPairId))
+			/*
+					fmt.Printf("got cf keypaird id (%v)\n", string(rawCloudfrontKeyPairId))
+					decodedCloudfrontKeyPairId, err := base64.StdEncoding.DecodeString(string(rawCloudfrontKeyPairId))
+					if err != nil {
+						return nil, err
+					}
+					decodedCloudfrontKeyPairId = bytes.TrimSpace(decodedCloudfrontKeyPairId)
+					fmt.Printf("decoded keypair id (%v)\n", string(decodedCloudfrontKeyPairId))
 
-			decodedCloudfrontPrivateKey, err := base64.StdEncoding.DecodeString(string(rawCloudfrontPrivateKey))
-			if err != nil {
-				return nil, err
-			}
-			decodedCloudfrontPrivateKey = bytes.TrimSpace(decodedCloudfrontPrivateKey)
-			fmt.Printf("decoded private key (%v)\n", string(decodedCloudfrontPrivateKey))
-			block, _ := pem.Decode(decodedCloudfrontPrivateKey)
+				decodedCloudfrontPrivateKey, err := base64.StdEncoding.DecodeString(string(rawCloudfrontPrivateKey))
+				if err != nil {
+					return nil, err
+				}
+				decodedCloudfrontPrivateKey = bytes.TrimSpace(decodedCloudfrontPrivateKey)
+				fmt.Printf("decoded private key (%v)\n", string(decodedCloudfrontPrivateKey))
+			*/
+			//			block, _ := pem.Decode(bytes.TrimSpace(decodedCloudfrontPrivateKey))
+			block, _ := pem.Decode(bytes.TrimSpace(rawCloudfrontPrivateKey))
 			if block == nil || block.Type != "RSA PRIVATE KEY" {
 				return nil, fmt.Errorf("block undefined or wrong type: type is (%v) should be (RSA PRIVATE KEY)", block.Type)
 			}
