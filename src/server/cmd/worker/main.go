@@ -40,9 +40,14 @@ type appEnv struct {
 	// IP back to etcd so that pachd can discover it
 	PPSWorkerIP string `env:"PPS_WORKER_IP,required"`
 
-	// Either pipeline name or job name must be set
+	// The name of the pipeline that this worker belongs to
 	PPSPipelineName string `env:"PPS_PIPELINE_NAME"`
-	PodName         string `env:"PPS_POD_NAME,required"`
+
+	// The name of this pod
+	PodName string `env:"PPS_POD_NAME,required"`
+
+	// The namespace in which Pachyderm is deployed
+	Namespace string `env:"PPS_NAMESPACE"`
 }
 
 func main() {
@@ -108,7 +113,10 @@ func do(appEnvObj interface{}) error {
 		return fmt.Errorf("error getting pipelineInfo: %v", err)
 	}
 	workerRcName := ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	apiServer := worker.NewAPIServer(pachClient, etcdClient, appEnv.PPSPrefix, pipelineInfo, appEnv.PodName)
+	apiServer, err := worker.NewAPIServer(pachClient, etcdClient, appEnv.PPSPrefix, pipelineInfo, appEnv.PodName, appEnv.Namespace)
+	if err != nil {
+		return err
+	}
 
 	// Start worker api server
 	eg := errgroup.Group{}

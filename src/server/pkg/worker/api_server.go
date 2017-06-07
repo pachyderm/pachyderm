@@ -24,6 +24,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
+	kube "k8s.io/kubernetes/pkg/client/unversioned"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
@@ -49,6 +50,7 @@ var (
 // APIServer implements the worker API
 type APIServer struct {
 	pachClient *client.APIClient
+	kubeClient *kube.Client
 	etcdClient *etcd.Client
 	etcdPrefix string
 
@@ -69,8 +71,14 @@ type APIServer struct {
 	cancel func()
 	// The k8s pod name of this worker
 	workerName string
+	// The total number of workers for this pipeline
+	numWorkers int
+	// The network address of the service that covers this pool of workers
+	serviceAddr string
 	// The jobs collection
 	jobs col.Collection
+	// The pipelines collection
+	pipelines col.Collection
 }
 
 type taggedLogger struct {
@@ -152,9 +160,22 @@ func (logger *taggedLogger) userLogger() *taggedLogger {
 }
 
 // NewAPIServer creates an APIServer for a given pipeline
-func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string, pipelineInfo *pps.PipelineInfo, workerName string) *APIServer {
-	server := &APIServer{
+func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string, pipelineInfo *pps.PipelineInfo, workerName string, namespace string) (*APIServer, error) {
+	kubeClient, err := kube.NewInCluster()
+	if err != nil {
+		return nil, err
+	}
+	numWorkers, err := pps.GetExpectedNumWorkers(kubeClient, pipelineInfo.ParallelismSpec)
+	if err != nil {
+		return nil, err
+	}
+	serviceAddr, err := getWorkerServiceIP(kubeClient, namespace, pipelineInfo)
+	if err != nil {
+		return nil, err
+	}
+	return &APIServer{
 		pachClient:   pachClient,
+		kubeClient:   kubeClient,
 		etcdClient:   etcdClient,
 		etcdPrefix:   etcdPrefix,
 		pipelineInfo: pipelineInfo,
@@ -163,10 +184,12 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 			PipelineID:   pipelineInfo.ID,
 			WorkerID:     os.Getenv(client.PPSPodNameEnv),
 		},
-		workerName: workerName,
-		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
-	}
-	return server
+		workerName:  workerName,
+		numWorkers:  numWorkers,
+		serviceAddr: serviceAddr,
+		jobs:        ppsdb.Jobs(etcdClient, etcdPrefix),
+		pipelines:   ppsdb.Pipelines(etcdClient, etcdPrefix),
+	}, nil
 }
 
 func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag) error {
@@ -639,4 +662,39 @@ func (a *APIServer) datum() []*pps.Datum {
 
 func (a *APIServer) userCodeEnviron(req *ProcessRequest) []string {
 	return append(os.Environ(), fmt.Sprintf("PACH_JOB_ID=%s", req.JobID))
+}
+
+func (a *APIServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.JobState) error {
+	// Update job counts
+	if jobInfo.Pipeline != nil {
+		pipelines := a.pipelines.ReadWrite(stm)
+		pipelineInfo := new(pps.PipelineInfo)
+		if err := pipelines.Get(jobInfo.Pipeline.Name, pipelineInfo); err != nil {
+			return err
+		}
+		if pipelineInfo.JobCounts == nil {
+			pipelineInfo.JobCounts = make(map[int32]int32)
+		}
+		if pipelineInfo.JobCounts[int32(jobInfo.State)] != 0 {
+			pipelineInfo.JobCounts[int32(jobInfo.State)]--
+		}
+		pipelineInfo.JobCounts[int32(state)]++
+		pipelines.Put(pipelineInfo.Pipeline.Name, pipelineInfo)
+	}
+	jobInfo.State = state
+	jobs := a.jobs.ReadWrite(stm)
+	jobs.Put(jobInfo.Job.ID, jobInfo)
+	return nil
+}
+
+func getWorkerServiceIP(kubeClient *kube.Client, namespace string, pipelineInfo *pps.PipelineInfo) (string, error) {
+	rcName := pps.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	service, err := kubeClient.Services(namespace).Get(rcName)
+	if err != nil {
+		return "", err
+	}
+	if service.Spec.ClusterIP == "" {
+		return "", fmt.Errorf("IP not assigned")
+	}
+	return service.Spec.ClusterIP, nil
 }

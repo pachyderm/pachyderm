@@ -1,23 +1,38 @@
 package worker
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"net/url"
 	"path"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"go.pedge.io/lion/proto"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
+	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
+	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 )
 
 const (
+	// maximumRetriesPerDatum is the maximum number of times each datum
+	// can failed to be processed before we declare that the job has failed.
+	maximumRetriesPerDatum = 3
+
 	masterLockPath = "_master_worker_lock"
 )
 
@@ -41,7 +56,8 @@ func (a *APIServer) master() {
 		}
 
 		jobCh := make(chan *pps.JobInfo)
-		go a.datumFeeder(jobCh)
+		defer close(jobCh)
+		go a.datumFeeder(ctx, jobCh)
 
 		for _, jobInfo := range jobInfos.JobInfo {
 			switch jobInfo.State {
@@ -192,8 +208,349 @@ func (a *APIServer) master() {
 	})
 }
 
-func (a *APIServer) datumFeeder(jobCh chan *pps.JobInfo) {
+func (a *APIServer) datumFeeder(ctx context.Context, jobCh chan *pps.JobInfo) {
+	ppsClient := a.pachClient.PpsAPIClient
+	pfsClient := a.pachClient.PfsAPIClient
+	objectClient := a.pachClient.ObjectAPIClient
+	for {
+		var jobInfo *pps.JobInfo
+		var ok bool
+		select {
+		case <-ctx.Done():
+			return
+		case jobInfo, ok = <-jobCh:
+			if !ok {
+				return
+			}
+		}
 
+		jobID := jobInfo.Job.ID
+		b := backoff.NewInfiniteBackOff()
+		backoff.RetryNotify(func() error {
+			// We use a new context for this particular instance of the retry
+			// loop, to ensure that all resources are released properly when
+			// this job retries.
+			ctx, cancel := context.WithCancel(ctx)
+			defer cancel()
+
+			if jobInfo.ParentJob != nil {
+				// Wait for the parent job to finish, to ensure that output
+				// commits are ordered correctly, and that this job doesn't
+				// contend for workers with its parent.
+				if _, err := ppsClient.InspectJob(ctx, &pps.InspectJobRequest{
+					Job:        jobInfo.ParentJob,
+					BlockState: true,
+				}); err != nil {
+					return err
+				}
+			}
+
+			var pipelineInfo *pps.PipelineInfo
+			if jobInfo.Pipeline != nil {
+				var err error
+				pipelineInfo, err = ppsClient.InspectPipeline(ctx, &pps.InspectPipelineRequest{
+					Pipeline: jobInfo.Pipeline,
+				})
+				if err != nil {
+					return err
+				}
+			}
+
+			// Set the state of this job to 'RUNNING'
+			_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				jobs := a.jobs.ReadWrite(stm)
+				jobInfo := new(pps.JobInfo)
+				if err := jobs.Get(jobID, jobInfo); err != nil {
+					return err
+				}
+				return a.updateJobState(stm, jobInfo, pps.JobState_JOB_RUNNING)
+			})
+			if err != nil {
+				return err
+			}
+
+			failed := false
+			limiter := limit.New(a.numWorkers)
+			// process all datums
+			df, err := newDatumFactory(ctx, pfsClient, jobInfo.Input)
+			if err != nil {
+				return err
+			}
+			var newBranchParentCommit *pfs.Commit
+			// If this is an incremental job we need to find the parent
+			// commit of the new branch.
+			if jobInfo.Incremental && jobInfo.NewBranch != nil {
+				newBranchCommitInfo, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+					Commit: jobInfo.NewBranch.Head,
+				})
+				if err != nil {
+					return err
+				}
+				newBranchParentCommit = newBranchCommitInfo.ParentCommit
+			}
+			tree := hashtree.NewHashTree()
+			var treeMu sync.Mutex
+
+			processedData := int64(0)
+			setProcessedData := int64(0)
+			totalData := int64(df.Len())
+			var progressMu sync.Mutex
+			updateProgress := func(processed int64) {
+				progressMu.Lock()
+				defer progressMu.Unlock()
+				processedData += processed
+				// so as not to overwhelm etcd we update at most 100 times per job
+				if (float64(processedData-setProcessedData)/float64(totalData)) > .01 ||
+					processedData == 0 || processedData == totalData {
+					// we setProcessedData even though the update below may fail,
+					// if we didn't we'd retry updating the progress on the next
+					// datum, this would lead to more accurate progress but
+					// progress isn't that important and we don't want to overwelm
+					// etcd.
+					setProcessedData = processedData
+					if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+						jobs := a.jobs.ReadWrite(stm)
+						jobInfo := new(pps.JobInfo)
+						if err := jobs.Get(jobID, jobInfo); err != nil {
+							return err
+						}
+						jobInfo.DataProcessed = processedData
+						jobInfo.DataTotal = totalData
+						jobs.Put(jobInfo.Job.ID, jobInfo)
+						return nil
+					}); err != nil {
+						protolion.Errorf("error updating job progress: %+v", err)
+					}
+				}
+			}
+			// set the initial values
+			updateProgress(0)
+
+			pool := grpcutil.NewPool(fmt.Sprintf("%s:%d", a.serviceAddr, client.PPSWorkerPort), a.numWorkers, client.PachDialOptions()...)
+			defer func() {
+				if err := pool.Close(); err != nil {
+					protolion.Errorf("error closing pool: %+v", pool)
+				}
+			}()
+			for i := 0; i < df.Len(); i++ {
+				limiter.Acquire()
+				files := df.Datum(i)
+				var parentOutputTag *pfs.Tag
+				if newBranchParentCommit != nil {
+					var parentFiles []*Input
+					for _, file := range files {
+						parentFile := proto.Clone(file).(*Input)
+						if file.FileInfo.File.Commit.Repo.Name == jobInfo.NewBranch.Head.Repo.Name && file.Branch == jobInfo.NewBranch.Name {
+							parentFileInfo, err := pfsClient.InspectFile(ctx, &pfs.InspectFileRequest{
+								File: client.NewFile(parentFile.FileInfo.File.Commit.Repo.Name, newBranchParentCommit.ID, parentFile.FileInfo.File.Path),
+							})
+							if err != nil {
+								if !isNotFoundErr(err) {
+									return err
+								}
+								// we didn't find a match for this file,
+								// so we know there's no matching datum
+								break
+							}
+							file.ParentCommit = parentFileInfo.File.Commit
+							parentFile.FileInfo = parentFileInfo
+						}
+						parentFiles = append(parentFiles, parentFile)
+					}
+					if len(parentFiles) == len(files) {
+						_parentOutputTag, err := HashDatum(pipelineInfo, parentFiles)
+						if err != nil {
+							return err
+						}
+						parentOutputTag = &pfs.Tag{Name: _parentOutputTag}
+					}
+				}
+				go func() {
+					userCodeFailures := 0
+					defer limiter.Release()
+					b := backoff.NewInfiniteBackOff()
+					b.Multiplier = 1
+					if err := backoff.RetryNotify(func() error {
+						conn, err := pool.Get(ctx)
+						if err != nil {
+							return fmt.Errorf("error from connection pool: %v", err)
+						}
+						workerClient := NewWorkerClient(conn)
+						resp, err := workerClient.Process(ctx, &ProcessRequest{
+							JobID:        jobInfo.Job.ID,
+							Data:         files,
+							ParentOutput: parentOutputTag,
+						})
+						if err != nil {
+							if err := conn.Close(); err != nil {
+								protolion.Errorf("error closing conn: %+v", err)
+							}
+							return fmt.Errorf("Process() call failed: %v", err)
+						}
+						defer func() {
+							if err := pool.Put(conn); err != nil {
+								protolion.Errorf("error Putting conn: %+v", err)
+							}
+						}()
+						if resp.Failed {
+							userCodeFailures++
+							return fmt.Errorf("user code failed for datum %v", files)
+						}
+						getTagClient, err := objectClient.GetTag(ctx, resp.Tag)
+						if err != nil {
+							return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
+						}
+						var buffer bytes.Buffer
+						if err := grpcutil.WriteFromStreamingBytesClient(getTagClient, &buffer); err != nil {
+							return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
+						}
+						subTree, err := hashtree.Deserialize(buffer.Bytes())
+						if err != nil {
+							return fmt.Errorf("failed deserialize hashtree after processing for datum %v: %v", files, err)
+						}
+						treeMu.Lock()
+						defer treeMu.Unlock()
+						return tree.Merge(subTree)
+					}, b, func(err error, d time.Duration) error {
+						select {
+						case <-ctx.Done():
+							return err
+						default:
+						}
+						if userCodeFailures > maximumRetriesPerDatum {
+							protolion.Errorf("job %s failed to process datum %+v %d times failing", jobID, files, userCodeFailures)
+							failed = true
+							return err
+						}
+						protolion.Errorf("job %s failed to process datum %+v with: %+v, retrying in: %+v", jobID, files, err, d)
+						return nil
+					}); err == nil {
+						go updateProgress(1)
+					}
+				}()
+			}
+			limiter.Wait()
+
+			// check if the job failed
+			if failed {
+				_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+					jobs := a.jobs.ReadWrite(stm)
+					jobInfo := new(pps.JobInfo)
+					if err := jobs.Get(jobID, jobInfo); err != nil {
+						return err
+					}
+					jobInfo.Finished = now()
+					return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE)
+				})
+				return err
+			}
+
+			finishedTree, err := tree.Finish()
+			if err != nil {
+				return err
+			}
+
+			data, err := hashtree.Serialize(finishedTree)
+			if err != nil {
+				return err
+			}
+
+			putObjClient, err := objectClient.PutObject(ctx)
+			if err != nil {
+				return err
+			}
+			for _, chunk := range grpcutil.Chunk(data, grpcutil.MaxMsgSize/2) {
+				if err := putObjClient.Send(&pfs.PutObjectRequest{
+					Value: chunk,
+				}); err != nil {
+					return err
+				}
+			}
+			object, err := putObjClient.CloseAndRecv()
+			if err != nil {
+				return err
+			}
+
+			var provenance []*pfs.Commit
+			for _, commit := range pps.InputCommits(jobInfo.Input) {
+				provenance = append(provenance, commit)
+			}
+
+			outputCommit, err := pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
+				Parent: &pfs.Commit{
+					Repo: jobInfo.OutputRepo,
+				},
+				Branch:     jobInfo.OutputBranch,
+				Provenance: provenance,
+				Tree:       object,
+			})
+			if err != nil {
+				return err
+			}
+
+			if jobInfo.Egress != nil {
+				objClient, err := obj.NewClientFromURLAndSecret(ctx, jobInfo.Egress.URL)
+				if err != nil {
+					return err
+				}
+				url, err := url.Parse(jobInfo.Egress.URL)
+				if err != nil {
+					return err
+				}
+				client := client.APIClient{
+					PfsAPIClient: pfsClient,
+				}
+				client.SetMaxConcurrentStreams(100)
+				if err := pfs_sync.PushObj(client, outputCommit, objClient, strings.TrimPrefix(url.Path, "/")); err != nil {
+					return err
+				}
+			}
+
+			// Record the job's output commit and 'Finished' timestamp, and mark the job
+			// as a SUCCESS
+			_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				jobs := a.jobs.ReadWrite(stm)
+				jobInfo := new(pps.JobInfo)
+				if err := jobs.Get(jobID, jobInfo); err != nil {
+					return err
+				}
+				jobInfo.OutputCommit = outputCommit
+				jobInfo.Finished = now()
+				// By definition, we will have processed all datums at this point
+				jobInfo.DataProcessed = totalData
+				// likely already set but just in case it failed
+				jobInfo.DataTotal = totalData
+				return a.updateJobState(stm, jobInfo, pps.JobState_JOB_SUCCESS)
+			})
+			return err
+		}, b, func(err error, d time.Duration) error {
+			select {
+			case <-ctx.Done():
+				// Exit the retry loop if context got cancelled
+				return err
+			default:
+			}
+
+			protolion.Errorf("error running jobManager for job %s: %v; retrying in %v", jobInfo.Job.ID, err, d)
+
+			// Increment the job's restart count
+			_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				jobs := a.jobs.ReadWrite(stm)
+				jobInfo := new(pps.JobInfo)
+				if err := jobs.Get(jobID, jobInfo); err != nil {
+					return err
+				}
+				jobInfo.Restart++
+				jobs.Put(jobInfo.Job.ID, jobInfo)
+				return nil
+			})
+			if err != nil {
+				protolion.Errorf("error incrementing job %s's restart count", jobInfo.Job.ID)
+			}
+
+			return nil
+		})
+	}
 }
 
 func untranslateJobInputs(input *pps.Input) []*pps.JobInput {
@@ -212,4 +569,16 @@ func untranslateJobInputs(input *pps.Input) []*pps.JobInput {
 		}
 	}
 	return result
+}
+
+func isNotFoundErr(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "not found")
+}
+
+func now() *types.Timestamp {
+	t, err := types.TimestampProto(time.Now())
+	if err != nil {
+		panic(err)
+	}
+	return t
 }

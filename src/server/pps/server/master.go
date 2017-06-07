@@ -104,7 +104,7 @@ func (a *apiServer) master() {
 }
 
 func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
-	parallelism, err := GetExpectedNumWorkers(a.kubeClient, pipelineInfo.ParallelismSpec)
+	parallelism, err := pps.GetExpectedNumWorkers(a.kubeClient, pipelineInfo.ParallelismSpec)
 	if err != nil {
 		return err
 	}
@@ -116,7 +116,7 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		}
 	}
 	options := a.getWorkerOptions(
-		PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
+		pps.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 		int32(parallelism),
 		resources,
 		pipelineInfo.Transform)
@@ -129,7 +129,7 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 }
 
 func (a *apiServer) deleteWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
-	rcName := PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	rcName := pps.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	if err := a.kubeClient.Services(a.namespace).Delete(rcName); err != nil {
 		if !isNotFoundErr(err) {
 			return err
