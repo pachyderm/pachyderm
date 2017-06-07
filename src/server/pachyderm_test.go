@@ -1450,32 +1450,36 @@ func TestAcceptReturnCode(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 
-	job, err := c.PpsAPIClient.CreateJob(
+	pipelineName := uniqueString("TestAcceptReturnCode")
+	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
-		&pps.CreateJobRequest{
+		&pps.CreatePipelineRequest{
+			Pipeline: &pps.Pipeline{pipelineName},
 			Transform: &pps.Transform{
 				Cmd:              []string{"sh"},
 				Stdin:            []string{"exit 1"},
 				AcceptReturnCode: []int64{1},
 			},
-			Inputs: []*pps.JobInput{{
-				Name:   dataRepo,
-				Commit: commit,
-				Glob:   "/*",
+			Inputs: []*pps.PipelineInput{{
+				Repo: &pfs.Repo{Name: dataRepo},
+				Glob: "/*",
 			}},
-			OutputBranch: "master",
 		},
 	)
 	require.NoError(t, err)
-	inspectJobRequest := &pps.InspectJobRequest{
-		Job:        job,
-		BlockState: true,
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
-	defer cancel() //cleanup resources
-	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	jobInfos, err := c.ListJob(pipelineName, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+
+	jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, true)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
 
 // TODO(msteffen): This test breaks the suite when run against cloud providers,
@@ -3194,71 +3198,6 @@ func TestPipelineResourceRequest(t *testing.T) {
 	gpu, ok := container.Resources.Requests[api.ResourceNvidiaGPU]
 	require.True(t, ok)
 	require.Equal(t, "1", gpu.String())
-}
-
-// TestJobResourceRequest creates a stand-alone job with a resource request, and
-// makes sure it's passed to k8s (by inspecting the job's pods)
-func TestJobResourceRequest(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-
-	c := getPachClient(t)
-	// create repos
-	dataRepo := uniqueString("TestJobResourceRequest")
-	require.NoError(t, c.CreateRepo(dataRepo))
-	commit := PutFileAndFlush(t, dataRepo, "master", "file", "foo\n")
-	// Resources are not yet in client.CreatePipeline() (we may add them later)
-	createJobResp, err := c.PpsAPIClient.CreateJob(
-		context.Background(),
-		&pps.CreateJobRequest{
-			Transform: &pps.Transform{
-				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
-			},
-			ParallelismSpec: &pps.ParallelismSpec{
-				Strategy: pps.ParallelismSpec_CONSTANT,
-				Constant: 1,
-			},
-			ResourceSpec: &pps.ResourceSpec{
-				Memory: "100M",
-				Cpu:    0.5,
-			},
-			Inputs: []*pps.JobInput{{
-				Name:   "foo-input",
-				Commit: commit,
-				Glob:   "/*",
-			}},
-		})
-	require.NoError(t, err)
-
-	// Get info about the job pods from k8s & check for resources
-	var container api.Container
-	rcName := pps_server.JobRcName(createJobResp.ID)
-	kubeClient := getKubeClient(t)
-	b := backoff.NewExponentialBackOff()
-	b.MaxElapsedTime = 10 * time.Second
-	err = backoff.Retry(func() error {
-		podList, err := kubeClient.Pods(api.NamespaceDefault).List(api.ListOptions{
-			LabelSelector: labels.SelectorFromSet(
-				map[string]string{"app": rcName}),
-		})
-		if err != nil {
-			return err // retry
-		}
-		if len(podList.Items) != 1 || len(podList.Items[0].Spec.Containers) == 0 {
-			return fmt.Errorf("could not find single container for job %s", createJobResp.ID)
-		}
-		container = podList.Items[0].Spec.Containers[0]
-		return nil // no more retries
-	}, b)
-	require.NoError(t, err)
-	cpu, ok := container.Resources.Requests[api.ResourceCPU]
-	require.True(t, ok)
-	require.Equal(t, "500m", cpu.String())
-	mem, ok := container.Resources.Requests[api.ResourceMemory]
-	require.True(t, ok)
-	require.Equal(t, "100M", mem.String())
 }
 
 func TestPipelineLargeOutput(t *testing.T) {
