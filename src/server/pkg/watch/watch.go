@@ -87,12 +87,13 @@ func NewWatcher(ctx context.Context, client *etcd.Client, prefix string) (Watche
 		return nil, err
 	}
 
+	nextRevision := resp.Header.Revision + 1
 	etcdWatcher := etcd.NewWatcher(client)
 	// Now we issue a watch that uses the revision timestamp returned by the
 	// Get request earlier.  That way even if some items are added between
 	// when we list the collection and when we start watching the collection,
 	// we won't miss any items.
-	rch := etcdWatcher.Watch(ctx, prefix, etcd.WithPrefix(), etcd.WithRev(resp.Header.Revision+1))
+	rch := etcdWatcher.Watch(ctx, prefix, etcd.WithPrefix(), etcd.WithRev(nextRevision))
 
 	go func() (retErr error) {
 		defer func() {
@@ -125,7 +126,12 @@ func NewWatcher(ctx context.Context, client *etcd.Client, prefix string) (Watche
 				return nil
 			}
 			if !ok {
-				return nil
+				if err := etcdWatcher.Close(); err != nil {
+					return err
+				}
+				etcdWatcher = etcd.NewWatcher(client)
+				rch = etcdWatcher.Watch(ctx, prefix, etcd.WithPrefix(), etcd.WithRev(nextRevision))
+				continue
 			}
 			if err := resp.Err(); err != nil {
 				return err
@@ -151,6 +157,7 @@ func NewWatcher(ctx context.Context, client *etcd.Client, prefix string) (Watche
 					return nil
 				}
 			}
+			nextRevision = resp.Header.Revision + 1
 		}
 	}()
 

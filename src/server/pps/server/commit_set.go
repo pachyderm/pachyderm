@@ -104,6 +104,7 @@ func newBranchSetFactory(_ctx context.Context, pfsClient pfs.APIClient, input *p
 					Err: err,
 				}:
 				}
+				return
 			}
 
 			var found bool
