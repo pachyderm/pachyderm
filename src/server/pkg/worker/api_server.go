@@ -173,7 +173,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	if err != nil {
 		return nil, err
 	}
-	return &APIServer{
+	server := &APIServer{
 		pachClient:   pachClient,
 		kubeClient:   kubeClient,
 		etcdClient:   etcdClient,
@@ -189,7 +189,9 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		serviceAddr: serviceAddr,
 		jobs:        ppsdb.Jobs(etcdClient, etcdPrefix),
 		pipelines:   ppsdb.Pipelines(etcdClient, etcdPrefix),
-	}, nil
+	}
+	go server.master()
+	return server, nil
 }
 
 func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag) error {
