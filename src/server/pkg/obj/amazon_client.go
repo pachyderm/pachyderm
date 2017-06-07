@@ -3,7 +3,6 @@ package obj
 import (
 	"bytes"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/pem"
 	"fmt"
 	"io"
@@ -98,7 +97,7 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 			if err != nil {
 				return nil, fmt.Errorf("cloudfront private key provided, but missing cloudfront key pair id")
 			}
-			fmt.Printf("keypair id: %v\n", string(rawcloudfrontKeyPairId))
+			fmt.Printf("keypair id: %v\n", string(rawCloudfrontKeyPairId))
 			/*
 					fmt.Printf("got cf keypaird id (%v)\n", string(rawCloudfrontKeyPairId))
 					decodedCloudfrontKeyPairId, err := base64.StdEncoding.DecodeString(string(rawCloudfrontKeyPairId))
@@ -125,7 +124,7 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 			if err != nil {
 				return nil, err
 			}
-			signer := sign.NewURLSigner(string(decodedCloudfrontKeyPairId), cloudfrontPrivateKey)
+			signer := sign.NewURLSigner(string(rawCloudfrontKeyPairId), cloudfrontPrivateKey)
 			signedURL, err := signer.Sign(url, time.Now().Add(1*time.Hour))
 			fmt.Printf("orig url (%v), signed url (%v)\n", url, signedURL)
 			if err != nil {
