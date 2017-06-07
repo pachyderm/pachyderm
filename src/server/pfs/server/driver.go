@@ -750,12 +750,12 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 	if err != nil {
 		return nil, err
 	}
-	defer newCommitWatcher.Close()
 
 	stream := make(chan CommitEvent)
 	done := make(chan struct{})
 
 	go func() (retErr error) {
+		defer newCommitWatcher.Close()
 		defer func() {
 			if retErr != nil {
 				select {
@@ -944,8 +944,8 @@ func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 			if err != nil {
 				return nil, err
 			}
-			defer commitWatcher.Close()
 			go func(commit *pfs.Commit) (retErr error) {
+				defer commitWatcher.Close()
 				defer func() {
 					if retErr != nil {
 						select {
