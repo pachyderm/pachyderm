@@ -88,25 +88,30 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 		}
 		req.Header.Add("Range", byteRange)
 
+		fmt.Println("Checking for cloudfront private key")
 		rawCloudfrontPrivateKey, err := ioutil.ReadFile("/amazon-secret/cloudfrontPrivateKey")
 		if err == nil {
 			// If cloudfront security credentials are present, use them
+			fmt.Printf("got cf private key secret: (%v)\n", string(rawCloudfrontPrivateKey))
 
 			rawCloudfrontKeyPairId, err := ioutil.ReadFile("/amazon-secret/cloudfrontKeyPairId")
 			if err != nil {
 				return nil, fmt.Errorf("cloudfront private key provided, but missing cloudfront key pair id")
 			}
+			fmt.Printf("got cf keypaird id (%v)\n", rawcloudfrontKeyPairId)
 			decodedCloudfrontKeyPairId, err := base64.StdEncoding.DecodeString(string(rawCloudfrontKeyPairId))
 			if err != nil {
 				return nil, err
 			}
 			decodedCloudfrontKeyPairId = bytes.TrimSpace(decodedCloudfrontKeyPairId)
+			fmt.Printf("decoded keypair id (%v)\n", string(decodedCloudfrontKeyPairId))
 
 			decodedCloudfrontPrivateKey, err := base64.StdEncoding.DecodeString(string(rawCloudfrontPrivateKey))
 			if err != nil {
 				return nil, err
 			}
 			decodedCloudfrontPrivateKey = bytes.TrimSpace(decodedCloudfrontPrivateKey)
+			fmt.Printf("decoded private key (%v)\n", string(decodedCloudfrontPrivateKey))
 			block, _ := pem.Decode(decodedCloudfrontPrivateKey)
 			if block == nil || block.Type != "RSA PRIVATE KEY" {
 				return nil, fmt.Errorf("block undefined or wrong type: type is (%v) should be (RSA PRIVATE KEY)", block.Type)
@@ -118,6 +123,7 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 			}
 			signer := sign.NewURLSigner(string(decodedCloudfrontKeyPairId), cloudfrontPrivateKey)
 			signedURL, err := signer.Sign(url, time.Now().Add(1*time.Hour))
+			fmt.Printf("orig url (%v), signed url (%v)\n", url, signedURL)
 			if err != nil {
 				return nil, err
 			}
