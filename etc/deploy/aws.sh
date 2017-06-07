@@ -1,10 +1,19 @@
 #!/bin/bash
 
+# Argument Defaults
 METRICS_FLAG="true"  # By default, aws.sh enables metric reporting
+USE_CLOUDFRONT="false"
+
+# Other defaults
+CLOUDFRONT_DOMAIN=
 
 set -euxo pipefail
 
 parse_flags() {
+  # Check prereqs
+  which aws
+  which jq
+  which uuid
   # Common config
   export AWS_REGION=us-east-1
   export AWS_AVAILABILITY_ZONE=us-east-1a
@@ -12,7 +21,7 @@ parse_flags() {
   local USE_EXISTING_STATE_BUCKET='false'
 
   # Parse flags
-  eval "set -- $( getopt -l "state:,region:,zone:,no-metrics" "--" "${0}" "${@}" )"
+  eval "set -- $( getopt -l "state:,region:,zone:,no-metrics,use-cloudfront" "--" "${0}" "${@}" )"
   while true; do
       case "${1}" in
           --state)
@@ -29,7 +38,11 @@ parse_flags() {
             shift 2
             ;;
           --no-metrics)
-            METRICS_FLAG="false" # default is false, see top of file
+            METRICS_FLAG="false" # default is true, see top of file
+            shift
+            ;;
+          --use-cloudfront)
+            USE_CLOUDFRONT="true" # default is false, see top of file
             shift
             ;;
           --)
@@ -55,10 +68,13 @@ parse_flags() {
   fi
 
   if [ "${USE_EXISTING_STATE_BUCKET}" == 'false' ]; then
-    create_s3_bucket "${STATE_BUCKET}" || exit 1
+    create_s3_bucket "${STATE_BUCKET}" false || exit 1
   fi
 }
 
+# Takes 2 args
+# $1 : bucket name (required)
+# $2 : boolean to use cloudfront or not (required)
 create_s3_bucket() {
   if [[ "$#" -lt 1 ]]; then
     echo "Error: create_s3_bucket needs a bucket name"
@@ -72,13 +88,33 @@ create_s3_bucket() {
   else
     aws s3api create-bucket --bucket ${BUCKET} --region ${AWS_REGION} --create-bucket-configuration LocationConstraint=${AWS_REGION}
   fi
+
+  if [ "$2" != "false" ]; then
+    mkdir -p tmp
+    sed 's/BUCKET_NAME/'$BUCKET'/' etc/deploy/cloudfront/bucket-policy.json.template > tmp/bucket-policy.json
+    aws s3api put-bucket-policy --bucket $BUCKET --policy file://tmp/bucket-policy.json --region=${AWS_REGION}
+    create_cloudfront_distribution "${BUCKET}" || exit 1
+  fi
+}
+
+create_cloudfront_distribution() {
+  if [[ "$#" -lt 1 ]]; then
+    echo "Error: create_cloudfront_distribution needs a bucket name"
+    return 1
+  fi
+  BUCKET="${1#s3://}"
+
+  someuuid=$(uuid | cut -f 1 -d-)
+  mkdir -p tmp
+  sed 's/XXCallerReferenceXX/'$someuuid'/' etc/deploy/cloudfront/distribution.json.template > tmp/cloudfront-distribution.json
+  sed -i 's/XXBucketNameXX/'$BUCKET'/' tmp/cloudfront-distribution.json
+
+  aws cloudfront create-distribution --distribution-config file://tmp/cloudfront-distribution.json > tmp/cloudfront-distribution-info.json
+  CLOUDFRONT_DOMAIN=$(cat tmp/cloudfront-distribution-info.json | jq -r ".Distribution.DomainName" | cut -f 1 -d .)
 }
 
 deploy_k8s_on_aws() {
-    # Check prereqs
-    which aws
-    which jq
-    which uuid
+    # Verify authorization
     aws configure list
     aws iam list-users
 
@@ -220,7 +256,7 @@ deploy_pachyderm_on_aws() {
     export STORAGE_SIZE=100
     export BUCKET_NAME=${RANDOM}-pachyderm-store
 
-    create_s3_bucket "${BUCKET_NAME}"
+    create_s3_bucket "${BUCKET_NAME}" $USE_CLOUDFRONT
 
     # Since my user should have the right access:
     AWS_KEY=`cat ~/.aws/credentials | grep aws_secret_access_key | cut -d " " -f 3`
@@ -228,6 +264,10 @@ deploy_pachyderm_on_aws() {
 
     # Omit token since im using my personal creds
     cmd=( pachctl deploy amazon ${BUCKET_NAME} "${AWS_ID}" "${AWS_KEY}" " " ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3 )
+    if [[ "$USE_CLOUDFRONT" == "true" ]]; then
+      cmd+=( "--cloudfront-distribution" "${CLOUDFRONT_DOMAIN}" )
+    fi
+
     if [[ "${METRICS_FLAG}" == "false" ]]; then
       cmd+=( "--no-metrics" )
     fi

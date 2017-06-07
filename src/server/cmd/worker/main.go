@@ -40,7 +40,7 @@ type appEnv struct {
 	PPSWorkerIP string `env:"PPS_WORKER_IP,required"`
 
 	// The name of the pipeline that this worker belongs to
-	PPSPipelineName string `env:"PPS_PIPELINE_NAME"`
+	PPSPipelineName string `env:"PPS_PIPELINE_NAME,required"`
 
 	// The name of this pod
 	PodName string `env:"PPS_POD_NAME,required"`
@@ -51,13 +51,6 @@ type appEnv struct {
 
 func main() {
 	cmdutil.Main(do, &appEnv{})
-}
-
-func validateEnv(appEnv *appEnv) error {
-	if appEnv.PPSPipelineName == "" {
-		return fmt.Errorf("worker must recieve pipeline name")
-	}
-	return nil
 }
 
 // getPipelineInfo gets the PipelineInfo proto describing the pipeline that this
@@ -86,9 +79,6 @@ func do(appEnvObj interface{}) error {
 
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	appEnv := appEnvObj.(*appEnv)
-	if err := validateEnv(appEnv); err != nil {
-		return fmt.Errorf("error validating env: %v", err)
-	}
 
 	// Construct a client that connects to the sidecar.
 	pachClient, err := client.NewFromAddress("localhost:650")
