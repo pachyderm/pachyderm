@@ -1,6 +1,8 @@
 package obj
 
 import (
+	"crypto/x509"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/cloudfront/sign"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/storagegateway"
@@ -81,6 +84,36 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 			return nil, err
 		}
 		req.Header.Add("Range", byteRange)
+
+		rawCloudfrontPrivateKey, err := ioutil.ReadFile("/amazon-secret/cloudfrontPrivateKey")
+		if err == nil {
+			// If cloudfront security credentials are present, use them
+
+			rawCloudfrontKeyPairId, err := ioutil.ReadFile("/amazon-secret/cloudfrontKeyPairId")
+			if err != nil {
+				return nil, fmt.Errorf("cloudfront private key provided, but missing cloudfront key pair id")
+			}
+			decodedCloudfrontKeyPairId, err := base64.StdEncoding.DecodeString(string(rawCloudfrontKeyPairId))
+			if err != nil {
+				return nil, err
+			}
+
+			decodedCloudfrontPrivateKey, err := base64.StdEncoding.DecodeString(string(rawCloudfrontPrivateKey))
+			if err != nil {
+				return nil, err
+			}
+
+			cloudfrontPrivateKey, err := x509.ParsePKCS1PrivateKey(decodedCloudfrontPrivateKey)
+			if err != nil {
+				return nil, err
+			}
+			signer := sign.NewURLSigner(decodedCloudfrontKeyPairId, cloudfrontPrivateKey)
+			signedURL, err := signer.Sign(rawURL, time.Now().Add(1*time.Hour))
+			if err != nil {
+				return nil, err
+			}
+			url = signedURL
+		}
 
 		backoff.RetryNotify(func() error {
 			resp, connErr = http.DefaultClient.Do(req)

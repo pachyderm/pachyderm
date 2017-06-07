@@ -127,7 +127,7 @@ deploy_secrets() {
     mkdir -p tmp
     kubectl get secrets/amazon-secret -o json > tmp/existing-amazon-secrets.json
     ENCODED_KEYPAIR=$(echo $CLOUDFRONT_KEYPAIR_ID | base64 -w0)
-    cat tmp/existing-amazon-secrets.json | jq '.data.cloudfrontKeypairId = "'$ENCODED_KEYPAIR'"' > tmp-result.json
+    cat tmp/existing-amazon-secrets.json | jq '.data.cloudfrontKeyPairId = "'$ENCODED_KEYPAIR'"' > tmp-result.json
     mv tmp-result.json tmp/updated-amazon-secrets.json
     CLOUDFRONT_PRIVATE_KEY=$(cat $CLOUDFRONT_PRIVATE_KEY_FILE | base64 -w0)
     cat tmp/updated-amazon-secrets.json | jq '.data.cloudfrontPrivateKey = "'$CLOUDFRONT_PRIVATE_KEY'"' > tmp-result.json
