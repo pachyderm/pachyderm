@@ -73,8 +73,8 @@ type APIServer struct {
 	workerName string
 	// The total number of workers for this pipeline
 	numWorkers int
-	// The network address of the service that covers this pool of workers
-	serviceAddr string
+	// The namespace in which pachyderm is deployed
+	namespace string
 	// The jobs collection
 	jobs col.Collection
 	// The pipelines collection
@@ -169,10 +169,6 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	if err != nil {
 		return nil, err
 	}
-	serviceAddr, err := getWorkerServiceIP(kubeClient, namespace, pipelineInfo)
-	if err != nil {
-		return nil, err
-	}
 	server := &APIServer{
 		pachClient:   pachClient,
 		kubeClient:   kubeClient,
@@ -184,11 +180,11 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 			PipelineID:   pipelineInfo.ID,
 			WorkerID:     os.Getenv(client.PPSPodNameEnv),
 		},
-		workerName:  workerName,
-		numWorkers:  numWorkers,
-		serviceAddr: serviceAddr,
-		jobs:        ppsdb.Jobs(etcdClient, etcdPrefix),
-		pipelines:   ppsdb.Pipelines(etcdClient, etcdPrefix),
+		workerName: workerName,
+		numWorkers: numWorkers,
+		namespace:  namespace,
+		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
+		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
 	}
 	go server.master()
 	return server, nil
@@ -687,16 +683,4 @@ func (a *APIServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.
 	jobs := a.jobs.ReadWrite(stm)
 	jobs.Put(jobInfo.Job.ID, jobInfo)
 	return nil
-}
-
-func getWorkerServiceIP(kubeClient *kube.Client, namespace string, pipelineInfo *pps.PipelineInfo) (string, error) {
-	rcName := pps.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	service, err := kubeClient.Services(namespace).Get(rcName)
-	if err != nil {
-		return "", err
-	}
-	if service.Spec.ClusterIP == "" {
-		return "", fmt.Errorf("IP not assigned")
-	}
-	return service.Spec.ClusterIP, nil
 }
