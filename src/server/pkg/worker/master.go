@@ -326,7 +326,10 @@ func (a *APIServer) datumFeeder(ctx context.Context, jobCh chan *pps.JobInfo) {
 			// set the initial values
 			updateProgress(0)
 
-			pool := grpcutil.NewPool(fmt.Sprintf("%s:%d", a.serviceAddr, client.PPSWorkerPort), a.numWorkers, client.PachDialOptions()...)
+			pool, err := grpcutil.NewPool(a.kubeClient, a.namespace, pps.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version), client.PachDialOptions()...)
+			if err != nil {
+				return fmt.Errorf("error constructing worker pool: %v", err)
+			}
 			defer func() {
 				if err := pool.Close(); err != nil {
 					protolion.Errorf("error closing pool: %+v", pool)
