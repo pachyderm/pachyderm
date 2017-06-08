@@ -208,14 +208,18 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 	if err := server.SendAndClose(object); err != nil {
 		return err
 	}
+	fmt.Printf("wrote object %v\n", object)
 	var eg errgroup.Group
 	// Now that we have a hash of the object we can check if it already exists.
+	fmt.Printf("checking obj (%v) exists\n", object)
 	resp, err := s.CheckObject(server.Context(), &pfsclient.CheckObjectRequest{object})
 	if err != nil {
 		return err
 	}
+	fmt.Printf("check obj resp %v\n", resp)
 	if resp.Exists {
 		// the object already exists so we delete the block we put
+		fmt.Printf("deleting block since it already exists\n")
 		eg.Go(func() error {
 			return s.objClient.Delete(s.localServer.blockPath(block))
 		})
@@ -228,11 +232,14 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 			},
 		}
 		eg.Go(func() error {
+			fmt.Printf("writing object %v\n", object)
 			return s.writeProto(s.localServer.objectPath(object), blockRef)
 		})
 	}
+	fmt.Printf("now writing tags for block (%v) object (%v)\n", block, object)
 	for _, tag := range putObjectReader.tags {
 		tag := tag
+		fmt.Printf("writing tag: %v\n", tag)
 		eg.Go(func() (retErr error) {
 			index := &pfsclient.ObjectIndex{Tags: map[string]*pfsclient.Object{tag.Name: object}}
 			return s.writeProto(s.localServer.tagPath(tag), index)
