@@ -185,6 +185,7 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 	block := &pfsclient.Block{Hash: uuid.NewWithoutDashes()}
 	var size int64
 	if err := func() error {
+		fmt.Printf("putting block (%v) to blockpath (%v)\n", block, s.localServer.blockPath(block))
 		w, err := s.objClient.Writer(s.localServer.blockPath(block))
 		if err != nil {
 			return err

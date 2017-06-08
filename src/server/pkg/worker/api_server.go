@@ -374,6 +374,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 		return err
 	}
 
+	fmt.Printf("going to put object w tag %v\n", tag)
 	if _, _, err := a.pachClient.PutObject(bytes.NewReader(treeBytes), tag); err != nil {
 		return err
 	}
