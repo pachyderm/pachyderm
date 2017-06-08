@@ -20,6 +20,8 @@ type Pool struct {
 	// The index to the next pod that we will dial
 	addressesIndex int
 	addressesLock  sync.Mutex
+	// addressesCond is used to notify goros that addresses have been obtained
+	addressesCond  *sync.Cond
 	endpointsWatch watch.Interface
 	opts           []grpc.DialOption
 	conns          chan *grpc.ClientConn
@@ -27,7 +29,7 @@ type Pool struct {
 
 // NewPool creates a new connection pool with connections to pods in the
 // given service.
-func NewPool(kubeClient *kube.Client, namespace string, serviceName string, opts ...grpc.DialOption) (*Pool, error) {
+func NewPool(kubeClient *kube.Client, namespace string, serviceName string, numWorkers int, opts ...grpc.DialOption) (*Pool, error) {
 	endpointsInterface := kubeClient.Endpoints(namespace)
 
 	watch, err := endpointsInterface.Watch(api.ListOptions{
@@ -36,19 +38,16 @@ func NewPool(kubeClient *kube.Client, namespace string, serviceName string, opts
 		),
 		Watch: true,
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	pool := &Pool{
 		endpointsWatch: watch,
 		opts:           opts,
+		conns:          make(chan *grpc.ClientConn, numWorkers),
 	}
-
-	endpoints, err := endpointsInterface.Get(serviceName)
-	if err != nil {
-		return nil, err
-	}
-	pool.updateAddresses(endpoints)
-	pool.conns = make(chan *grpc.ClientConn, len(pool.addresses))
-
+	pool.addressesCond = sync.NewCond(&pool.addressesLock)
 	go pool.watchEndpoints()
 	return pool, nil
 }
@@ -79,6 +78,7 @@ func (p *Pool) updateAddresses(endpoints *api.Endpoints) {
 	p.addressesLock.Lock()
 	defer p.addressesLock.Unlock()
 	p.addresses = addresses
+	p.addressesCond.Broadcast()
 }
 
 // Get returns a new connection, unlike sync.Pool if it has a cached connection
@@ -91,6 +91,9 @@ func (p *Pool) Get(ctx context.Context) (*grpc.ClientConn, error) {
 	default:
 		p.addressesLock.Lock()
 		defer p.addressesLock.Unlock()
+		for len(p.addresses) == 0 {
+			p.addressesCond.Wait()
+		}
 		oldIndex := p.addressesIndex
 		p.addressesIndex++
 		if p.addressesIndex >= len(p.addresses) {

@@ -63,7 +63,7 @@ func (a *APIServer) master() {
 
 		jobCh := make(chan *pps.JobInfo)
 		defer close(jobCh)
-		go a.datumFeeder(ctx, jobCh)
+		go a.jobManager(ctx, jobCh)
 
 		return a.jobSpawner(ctx, jobCh)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
@@ -226,17 +226,20 @@ nextInput:
 	return nil
 }
 
-// datumFeeder feeds datums to jobs
-func (a *APIServer) datumFeeder(ctx context.Context, jobCh chan *pps.JobInfo) {
+// jobManager feeds datums to jobs
+func (a *APIServer) jobManager(ctx context.Context, jobCh chan *pps.JobInfo) {
 	ppsClient := a.pachClient.PpsAPIClient
 	pfsClient := a.pachClient.PfsAPIClient
 	objectClient := a.pachClient.ObjectAPIClient
 
 	// Establish connection pool
 	var pool *grpcutil.Pool
-	var err error
 	backoff.RetryNotify(func() error {
-		pool, err = grpcutil.NewPool(a.kubeClient, a.namespace, pps.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version), client.PachDialOptions()...)
+		numWorkers, err := pps.GetExpectedNumWorkers(a.kubeClient, a.pipelineInfo.ParallelismSpec)
+		if err != nil {
+			return err
+		}
+		pool, err = grpcutil.NewPool(a.kubeClient, a.namespace, pps.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version), numWorkers, client.PachDialOptions()...)
 		return err
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		protolion.Errorf("master: error constructing worker pool: %v; retrying in %v", err, d)
@@ -261,6 +264,8 @@ func (a *APIServer) datumFeeder(ctx context.Context, jobCh chan *pps.JobInfo) {
 		}
 
 		jobID := jobInfo.Job.ID
+		var jobStopped bool
+		var jobStoppedMutex sync.Mutex
 		backoff.RetryNotify(func() error {
 			// We use a new context for this particular instance of the retry
 			// loop, to ensure that all resources are released properly when
@@ -279,6 +284,25 @@ func (a *APIServer) datumFeeder(ctx context.Context, jobCh chan *pps.JobInfo) {
 					return err
 				}
 			}
+
+			// Cancel the context and move on to the next job if this job
+			// has been manually stopped.
+			go func() {
+				currentJobInfo, err := ppsClient.InspectJob(ctx, &pps.InspectJobRequest{
+					Job:        jobInfo.Job,
+					BlockState: true,
+				})
+				if err != nil {
+					protolion.Errorf("error monitoring job state: %v", err)
+				}
+				switch currentJobInfo.State {
+				case pps.JobState_JOB_STOPPED, pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE:
+					jobStoppedMutex.Lock()
+					defer jobStoppedMutex.Unlock()
+					jobStopped = true
+					cancel()
+				}
+			}()
 
 			var pipelineInfo *pps.PipelineInfo
 			if jobInfo.Pipeline != nil {
@@ -558,6 +582,13 @@ func (a *APIServer) datumFeeder(ctx context.Context, jobCh chan *pps.JobInfo) {
 				// Exit the retry loop if context got cancelled
 				return err
 			default:
+			}
+
+			jobStoppedMutex.Lock()
+			defer jobStoppedMutex.Unlock()
+			if jobStopped {
+				// If the job has been stopped, exit the retry loop
+				return err
 			}
 
 			protolion.Errorf("error running jobManager for job %s: %v; retrying in %v", jobInfo.Job.ID, err, d)
