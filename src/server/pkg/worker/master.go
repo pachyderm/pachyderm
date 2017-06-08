@@ -231,6 +231,23 @@ func (a *APIServer) datumFeeder(ctx context.Context, jobCh chan *pps.JobInfo) {
 	ppsClient := a.pachClient.PpsAPIClient
 	pfsClient := a.pachClient.PfsAPIClient
 	objectClient := a.pachClient.ObjectAPIClient
+
+	// Establish connection pool
+	var pool *grpcutil.Pool
+	var err error
+	backoff.RetryNotify(func() error {
+		pool, err = grpcutil.NewPool(a.kubeClient, a.namespace, pps.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version), client.PachDialOptions()...)
+		return err
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		protolion.Errorf("master: error constructing worker pool: %v; retrying in %v", err, d)
+		return nil
+	})
+	defer func() {
+		if err := pool.Close(); err != nil {
+			protolion.Errorf("error closing pool: %+v", pool)
+		}
+	}()
+
 	for {
 		var jobInfo *pps.JobInfo
 		var ok bool
@@ -244,7 +261,6 @@ func (a *APIServer) datumFeeder(ctx context.Context, jobCh chan *pps.JobInfo) {
 		}
 
 		jobID := jobInfo.Job.ID
-		b := backoff.NewInfiniteBackOff()
 		backoff.RetryNotify(func() error {
 			// We use a new context for this particular instance of the retry
 			// loop, to ensure that all resources are released properly when
@@ -345,15 +361,6 @@ func (a *APIServer) datumFeeder(ctx context.Context, jobCh chan *pps.JobInfo) {
 			// set the initial values
 			updateProgress(0)
 
-			pool, err := grpcutil.NewPool(a.kubeClient, a.namespace, pps.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version), client.PachDialOptions()...)
-			if err != nil {
-				return fmt.Errorf("error constructing worker pool: %v", err)
-			}
-			defer func() {
-				if err := pool.Close(); err != nil {
-					protolion.Errorf("error closing pool: %+v", pool)
-				}
-			}()
 			for i := 0; i < df.Len(); i++ {
 				limiter.Acquire()
 				files := df.Datum(i)
@@ -545,7 +552,7 @@ func (a *APIServer) datumFeeder(ctx context.Context, jobCh chan *pps.JobInfo) {
 				return a.updateJobState(stm, jobInfo, pps.JobState_JOB_SUCCESS)
 			})
 			return err
-		}, b, func(err error, d time.Duration) error {
+		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 			select {
 			case <-ctx.Done():
 				// Exit the retry loop if context got cancelled
