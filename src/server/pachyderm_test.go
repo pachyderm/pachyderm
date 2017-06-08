@@ -2540,7 +2540,7 @@ func TestParallelismSpec(t *testing.T) {
 		Constant: 7,
 	})
 	require.NoError(t, err)
-	require.Equal(t, uint64(7), parellelism)
+	require.Equal(t, 7, parellelism)
 
 	// Coefficient == 1 (basic test)
 	// TODO(msteffen): This test can fail when run against cloud providers, if the
@@ -2551,7 +2551,7 @@ func TestParallelismSpec(t *testing.T) {
 		Coefficient: 1,
 	})
 	require.NoError(t, err)
-	require.Equal(t, uint64(numNodes), parellelism)
+	require.Equal(t, numNodes, parellelism)
 
 	// Coefficient > 1
 	parellelism, err = pps.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
@@ -2559,7 +2559,7 @@ func TestParallelismSpec(t *testing.T) {
 		Coefficient: 2,
 	})
 	require.NoError(t, err)
-	require.Equal(t, uint64(2*numNodes), parellelism)
+	require.Equal(t, 2*numNodes, parellelism)
 
 	// Make sure we start at least one worker
 	parellelism, err = pps.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
@@ -2567,17 +2567,17 @@ func TestParallelismSpec(t *testing.T) {
 		Coefficient: 0.01,
 	})
 	require.NoError(t, err)
-	require.Equal(t, uint64(1), parellelism)
+	require.Equal(t, 1, parellelism)
 
 	// Test 0-initialized JobSpec
 	parellelism, err = pps.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{})
 	require.NoError(t, err)
-	require.Equal(t, uint64(numNodes), parellelism)
+	require.Equal(t, numNodes, parellelism)
 
 	// Test nil JobSpec
 	parellelism, err = pps.GetExpectedNumWorkers(kubeclient, nil)
 	require.NoError(t, err)
-	require.Equal(t, uint64(numNodes), parellelism)
+	require.Equal(t, numNodes, parellelism)
 }
 
 func TestPipelineJobDeletion(t *testing.T) {
