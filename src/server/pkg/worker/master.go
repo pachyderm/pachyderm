@@ -74,20 +74,6 @@ func (a *APIServer) master() {
 
 // jobSpawner spawns jobs
 func (a *APIServer) jobSpawner(ctx context.Context, jobCh chan *pps.JobInfo) error {
-	jobInfos, err := a.pachClient.PpsAPIClient.ListJob(ctx, &pps.ListJobRequest{
-		Pipeline: a.pipelineInfo.Pipeline,
-	})
-	if err != nil {
-		return err
-	}
-
-	for _, jobInfo := range jobInfos.JobInfo {
-		switch jobInfo.State {
-		case pps.JobState_JOB_STARTING, pps.JobState_JOB_RUNNING:
-			jobCh <- jobInfo
-		}
-	}
-
 	bsf, err := newBranchSetFactory(ctx, a.pachClient.PfsAPIClient, a.pipelineInfo.Input)
 	if err != nil {
 		return err
@@ -152,8 +138,10 @@ nextInput:
 				}
 			}
 			if jobInfo.PipelineID == a.pipelineInfo.ID && jobInfo.PipelineVersion == a.pipelineInfo.Version {
-				// TODO(derek): we should check if the output commit exists.  If the
-				// output commit has been deleted, we should re-run the job.
+				switch jobInfo.State {
+				case pps.JobState_JOB_STARTING, pps.JobState_JOB_RUNNING:
+					jobCh <- &jobInfo
+				}
 				continue nextInput
 			}
 		}
