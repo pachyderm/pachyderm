@@ -21,7 +21,6 @@ import (
 	pfspretty "github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
-	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 
 	"github.com/gogo/protobuf/types"
 	"k8s.io/kubernetes/pkg/api"
@@ -2536,7 +2535,7 @@ func TestParallelismSpec(t *testing.T) {
 	numNodes := len(nodes.Items)
 
 	// Test Constant strategy
-	parellelism, err := pps_server.GetExpectedNumWorkers(getKubeClient(t), &pps.ParallelismSpec{
+	parellelism, err := pps.GetExpectedNumWorkers(getKubeClient(t), &pps.ParallelismSpec{
 		Strategy: pps.ParallelismSpec_CONSTANT,
 		Constant: 7,
 	})
@@ -2547,7 +2546,7 @@ func TestParallelismSpec(t *testing.T) {
 	// TODO(msteffen): This test can fail when run against cloud providers, if the
 	// remote cluster has more than one node (in which case "Coefficient: 1" will
 	// cause more than 1 worker to start)
-	parellelism, err = pps_server.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
+	parellelism, err = pps.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
 		Strategy:    pps.ParallelismSpec_COEFFICIENT,
 		Coefficient: 1,
 	})
@@ -2555,7 +2554,7 @@ func TestParallelismSpec(t *testing.T) {
 	require.Equal(t, uint64(numNodes), parellelism)
 
 	// Coefficient > 1
-	parellelism, err = pps_server.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
+	parellelism, err = pps.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
 		Strategy:    pps.ParallelismSpec_COEFFICIENT,
 		Coefficient: 2,
 	})
@@ -2563,7 +2562,7 @@ func TestParallelismSpec(t *testing.T) {
 	require.Equal(t, uint64(2*numNodes), parellelism)
 
 	// Make sure we start at least one worker
-	parellelism, err = pps_server.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
+	parellelism, err = pps.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
 		Strategy:    pps.ParallelismSpec_COEFFICIENT,
 		Coefficient: 0.01,
 	})
@@ -2571,12 +2570,12 @@ func TestParallelismSpec(t *testing.T) {
 	require.Equal(t, uint64(1), parellelism)
 
 	// Test 0-initialized JobSpec
-	parellelism, err = pps_server.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{})
+	parellelism, err = pps.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{})
 	require.NoError(t, err)
 	require.Equal(t, uint64(numNodes), parellelism)
 
 	// Test nil JobSpec
-	parellelism, err = pps_server.GetExpectedNumWorkers(kubeclient, nil)
+	parellelism, err = pps.GetExpectedNumWorkers(kubeclient, nil)
 	require.NoError(t, err)
 	require.Equal(t, uint64(numNodes), parellelism)
 }
@@ -3169,7 +3168,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	var container api.Container
-	rcName := pps_server.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	rcName := pps.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := getKubeClient(t)
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = 10 * time.Second
@@ -3731,7 +3730,7 @@ func waitForReadiness(t testing.TB) {
 func pipelineRc(t testing.TB, pipelineInfo *pps.PipelineInfo) *api.ReplicationController {
 	k := getKubeClient(t)
 	rc := k.ReplicationControllers(api.NamespaceDefault)
-	result, err := rc.Get(pps_server.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
+	result, err := rc.Get(pps.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
 	require.NoError(t, err)
 	return result
 }
