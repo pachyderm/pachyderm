@@ -235,11 +235,25 @@ func (a *APIServer) jobManager(ctx context.Context, jobCh chan *pps.JobInfo) {
 	})
 	defer func() {
 		if err := pool.Close(); err != nil {
-			protolion.Errorf("error closing pool: %+v", pool)
+			protolion.Errorf("error closing pool: %v", err)
 		}
 	}()
 
+nextJob:
 	for {
+		// scaleDownCh is closed after we have not received a job for
+		// a certain amount of time specified by ScaleDownThreshold.
+		scaleDownCh := make(chan struct{})
+		if a.pipelineInfo.ScaleDownThreshold != nil {
+			scaleDownThreshold, err := types.DurationFromProto(a.pipelineInfo.ScaleDownThreshold)
+			if err != nil {
+				protolion.Errorf("error converting scaleDownThreshold: %v", err)
+			} else {
+				time.AfterFunc(scaleDownThreshold, func() {
+					close(scaleDownCh)
+				})
+			}
+		}
 		var jobInfo *pps.JobInfo
 		var ok bool
 		select {
@@ -248,6 +262,18 @@ func (a *APIServer) jobManager(ctx context.Context, jobCh chan *pps.JobInfo) {
 		case jobInfo, ok = <-jobCh:
 			if !ok {
 				return
+			}
+		case <-scaleDownCh:
+			if err := a.scaleDownWorkers(); err != nil {
+				protolion.Errorf("error scaling down workers: %v", err)
+			}
+			continue nextJob
+		}
+
+		// Once we received a job, scale up the workers
+		if a.pipelineInfo.ScaleDownThreshold != nil {
+			if err := a.scaleUpWorkers(); err != nil {
+				protolion.Errorf("error scaling up workers: %v", err)
 			}
 		}
 
@@ -600,6 +626,38 @@ func (a *APIServer) jobManager(ctx context.Context, jobCh chan *pps.JobInfo) {
 			return nil
 		})
 	}
+}
+
+func (a *APIServer) scaleDownWorkers() error {
+	rc := a.kubeClient.ReplicationControllers(a.namespace)
+	workerRc, err := rc.Get(pps.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version))
+	if err != nil {
+		return err
+	}
+	if workerRc.Spec.Replicas != 1 {
+		workerRc.Spec.Replicas = 1
+		_, err = rc.Update(workerRc)
+		return err
+	}
+	return nil
+}
+
+func (a *APIServer) scaleUpWorkers() error {
+	rc := a.kubeClient.ReplicationControllers(a.namespace)
+	workerRc, err := rc.Get(pps.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version))
+	if err != nil {
+		return err
+	}
+	parallelism, err := pps.GetExpectedNumWorkers(a.kubeClient, a.pipelineInfo.ParallelismSpec)
+	if err != nil {
+		return err
+	}
+	if workerRc.Spec.Replicas != int32(parallelism) {
+		workerRc.Spec.Replicas = int32(parallelism)
+		_, err = rc.Update(workerRc)
+		return err
+	}
+	return nil
 }
 
 func untranslateJobInputs(input *pps.Input) []*pps.JobInput {
