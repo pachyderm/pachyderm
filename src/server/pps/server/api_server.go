@@ -2651,6 +2651,50 @@ func labels(app string) map[string]string {
 	}
 }
 
+func (a *apiServer) rawInputs(ctx context.Context, atomInputs []*pps.AtomInput) ([]*pps.AtomInput, error) {
+	pfsClient, err := a.getPFSClient()
+	if err != nil {
+		return nil, err
+	}
+	// map from repo.Name + branch to *pps.AtomInput so that we don't repeat ourselves
+	resultMap := make(map[string]*pps.AtomInput)
+	for _, atomInput := range atomInputs {
+		repoInfo, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{client.NewRepo(atomInput.Repo)})
+		if err != nil {
+			return nil, err
+		}
+		if len(repoInfo.Provenance) == 0 {
+			resultMap[atomInput.Repo+atomInput.Branch] = atomInput
+			continue
+		}
+		// if the repo has nonzero provenance we know that it's a pipeline
+		pipelineInfo, err := a.InspectPipeline(ctx, &pps.InspectPipelineRequest{client.NewPipeline(atomInput.Repo)})
+		if err != nil {
+			return nil, err
+		}
+		var visitErr error
+		visit(pipelineInfo.Input, func(input *pps.Input) {
+			if input.Atom != nil {
+				subResults, err := a.rawInputs(ctx, []*pps.AtomInput{input.Atom})
+				if err != nil && visitErr == nil {
+					visitErr = err
+				}
+				for _, atomInput := range subResults {
+					resultMap[atomInput.Repo+atomInput.Branch] = atomInput
+				}
+			}
+		})
+		if visitErr != nil {
+			return nil, visitErr
+		}
+	}
+	var result []*pps.AtomInput
+	for _, atomInput := range resultMap {
+		result = append(result, atomInput)
+	}
+	return result, nil
+}
+
 type podSlice []api.Pod
 
 func (s podSlice) Len() int {
