@@ -1,4 +1,4 @@
-// Pacakge dlock implements a distributed lock on top of etcd.
+// Package dlock implements a distributed lock on top of etcd.
 package dlock
 
 import (
@@ -8,6 +8,7 @@ import (
 	"github.com/coreos/etcd/clientv3/concurrency"
 )
 
+// DLock is a handle to a distributed lock.
 type DLock interface {
 	// Unlock releases the distributed lock.
 	Unlock() error
@@ -20,7 +21,7 @@ type DLock interface {
 	Context() context.Context
 }
 
-type DLockEtcdImpl struct {
+type etcdImpl struct {
 	client *etcd.Client
 	prefix string
 
@@ -52,7 +53,7 @@ func NewDLock(ctx context.Context, client *etcd.Client, prefix string) (DLock, e
 		return nil, err
 	}
 
-	return &DLockEtcdImpl{
+	return &etcdImpl{
 		client:  client,
 		prefix:  prefix,
 		session: session,
@@ -61,13 +62,13 @@ func NewDLock(ctx context.Context, client *etcd.Client, prefix string) (DLock, e
 	}, nil
 }
 
-func (d *DLockEtcdImpl) Unlock() error {
+func (d *etcdImpl) Unlock() error {
 	if err := d.mutex.Unlock(d.ctx); err != nil {
 		return err
 	}
 	return d.session.Close()
 }
 
-func (d *DLockEtcdImpl) Context() context.Context {
+func (d *etcdImpl) Context() context.Context {
 	return d.ctx
 }
