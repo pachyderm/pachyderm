@@ -172,6 +172,7 @@ func newMicrosoftBlockAPIServer(dir string, cacheBytes int64, etcdAddress string
 }
 
 func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer) (retErr error) {
+	fmt.Printf("obs.PutObject()\n")
 	func() { s.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
 	defer drainObjectServer(server)
@@ -180,6 +181,7 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 		server: server,
 	}
 	r := io.TeeReader(putObjectReader, hash)
+	fmt.Printf("putting obj w hash: %v\n", hash)
 	block := &pfsclient.Block{Hash: uuid.NewWithoutDashes()}
 	var size int64
 	if err := func() error {
@@ -666,6 +668,7 @@ func (s *objBlockAPIServer) readProto(path string, pb proto.Message) (retErr err
 }
 
 func (s *objBlockAPIServer) writeProto(path string, pb proto.Message) (retErr error) {
+	fmt.Printf("going to writing proto path (%v) message (%v)\n", path, pb)
 	w, err := s.objClient.Writer(path)
 	if err != nil {
 		return err
@@ -674,11 +677,13 @@ func (s *objBlockAPIServer) writeProto(path string, pb proto.Message) (retErr er
 		if err := w.Close(); err != nil && retErr == nil {
 			retErr = err
 		}
+		fmt.Printf("err writing proto path (%v)? %v\n", path, retErr)
 	}()
 	data, err := proto.Marshal(pb)
 	if err != nil {
 		return err
 	}
+	fmt.Printf("writing proto path (%v) data (%v)\n", path, data)
 	_, err = w.Write(data)
 	return err
 }
