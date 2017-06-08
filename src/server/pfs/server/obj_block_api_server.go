@@ -804,6 +804,7 @@ func (s *objBlockAPIServer) readObj(path string, offset uint64, size uint64, des
 	var reader io.ReadCloser
 	var err error
 	backoff.RetryNotify(func() error {
+		fmt.Printf("trying to read object at path: %v\n", path)
 		reader, err = s.objClient.Reader(path, offset, size)
 		if err != nil && obj.IsRetryable(s.objClient, err) {
 			return err
