@@ -294,6 +294,7 @@ func (a *APIServer) jobManager(ctx context.Context, jobCh chan *pps.JobInfo) {
 				})
 				if err != nil {
 					protolion.Errorf("error monitoring job state: %v", err)
+					return
 				}
 				switch currentJobInfo.State {
 				case pps.JobState_JOB_STOPPED, pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE:
