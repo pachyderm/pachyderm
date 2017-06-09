@@ -384,6 +384,8 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			Service:         request.Service,
 			ParentJob:       request.ParentJob,
 			ResourceSpec:    request.ResourceSpec,
+			NewBranch:       request.NewBranch,
+			Incremental:     request.Incremental,
 		}
 		if request.Pipeline != nil {
 			pipelineInfo := new(pps.PipelineInfo)
@@ -398,6 +400,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			jobInfo.OutputBranch = pipelineInfo.OutputBranch
 			jobInfo.Egress = pipelineInfo.Egress
 			jobInfo.ResourceSpec = pipelineInfo.ResourceSpec
+			jobInfo.Incremental = pipelineInfo.Incremental
 		} else {
 			if jobInfo.OutputRepo == nil {
 				jobInfo.OutputRepo = &pfs.Repo{job.ID}
@@ -464,12 +467,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	if jobInfo.State != pps.JobState_JOB_RUNNING {
 		return jobInfo, nil
 	}
-	var workerPoolID string
-	if jobInfo.Pipeline != nil {
-		workerPoolID = PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
-	} else {
-		workerPoolID = JobRcName(jobInfo.Job.ID)
-	}
+	workerPoolID := PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
 	workerStatus, err := status(ctx, workerPoolID, a.etcdClient, a.etcdPrefix)
 	if err != nil {
 		protolion.Errorf("failed to get worker status with err: %s", err.Error())
@@ -571,12 +569,7 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	if err != nil {
 		return nil, err
 	}
-	var workerPoolID string
-	if jobInfo.Pipeline != nil {
-		workerPoolID = PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
-	} else {
-		workerPoolID = JobRcName(jobInfo.Job.ID)
-	}
+	workerPoolID := PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
 	if err := cancel(ctx, workerPoolID, a.etcdClient, a.etcdPrefix, request.Job.ID, request.DataFilters); err != nil {
 		return nil, err
 	}
@@ -615,22 +608,15 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			return err
 		}
 	} else if request.Job != nil {
-		// If they only provided a job, get job info to see if it's an orphan job
 		var jobInfo pps.JobInfo
 		err := a.jobs.ReadOnly(ctx).Get(request.Job.ID, &jobInfo)
 		if err != nil {
 			return fmt.Errorf("could not get job information for %s: %s", request.Job.ID, err.Error())
 		}
 
-		// Get logs from either pipeline RC, or job RC if it's an orphan job
-		if jobInfo.Pipeline != nil {
-			var err error
-			rcName, err = a.lookupRcNameForPipeline(ctx, jobInfo.Pipeline)
-			if err != nil {
-				return err
-			}
-		} else {
-			rcName = JobRcName(request.Job.ID)
+		rcName, err = a.lookupRcNameForPipeline(ctx, jobInfo.Pipeline)
+		if err != nil {
+			return err
 		}
 	} else {
 		return fmt.Errorf("must specify either pipeline or job")
@@ -752,17 +738,17 @@ func translatePipelineInputs(inputs []*pps.PipelineInput) *pps.Input {
 		if input.From != nil {
 			fromCommitID = input.From.ID
 		}
-		result.Cross = append(result.Cross,
-			&pps.Input{
-				Atom: &pps.AtomInput{
-					Name:       input.Name,
-					Repo:       input.Repo.Name,
-					Branch:     input.Branch,
-					Glob:       input.Glob,
-					Lazy:       input.Lazy,
-					FromCommit: fromCommitID,
-				},
-			})
+		atomInput := &pps.AtomInput{
+			Name:       input.Name,
+			Repo:       input.Repo.Name,
+			Branch:     input.Branch,
+			Glob:       input.Glob,
+			Lazy:       input.Lazy,
+			FromCommit: fromCommitID,
+		}
+		result.Cross = append(result.Cross, &pps.Input{
+			Atom: atomInput,
+		})
 	}
 	return result
 }
@@ -793,6 +779,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		ScaleDownThreshold: request.ScaleDownThreshold,
 		ResourceSpec:       request.ResourceSpec,
 		Description:        request.Description,
+		Incremental:        request.Incremental,
 	}
 	setPipelineDefaults(pipelineInfo)
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
@@ -1767,12 +1754,56 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 				}
 			}
 
+			// now we need to find the parentJob for this job. The parent job
+			// is defined as the job with the same input commits except for the
+			// newest input commit which triggered this job. In place of it we
+			// use that commit's parent.
+			newBranch := branchSet.Branches[branchSet.NewBranch]
+			newCommitInfo, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+				Commit: newBranch.Head,
+			})
+			if err != nil {
+				return err
+			}
+			var parentJob *pps.Job
+			if newCommitInfo.ParentCommit != nil {
+				// recreate our parent's inputs so we can look it up in etcd
+				parentJobInput := proto.Clone(jobInput).(*pps.Input)
+				visit(parentJobInput, func(input *pps.Input) {
+					if input.Atom != nil && input.Atom.Repo == newBranch.Head.Repo.Name && input.Atom.Branch == newBranch.Name {
+						input.Atom.Commit = newCommitInfo.ParentCommit.ID
+					}
+				})
+				if visitErr != nil {
+					return visitErr
+				}
+				jobIter, err := jobsRO.GetByIndex(jobsInputIndex, parentJobInput)
+				if err != nil {
+					return err
+				}
+				for {
+					var jobID string
+					var jobInfo pps.JobInfo
+					ok, err := jobIter.Next(&jobID, &jobInfo)
+					if err != nil {
+						return err
+					}
+					if !ok {
+						break
+					}
+					if jobInfo.PipelineID == pipelineInfo.ID && jobInfo.PipelineVersion == pipelineInfo.Version {
+						parentJob = jobInfo.Job
+					}
+				}
+			}
+
 			job, err = a.CreateJob(ctx, &pps.CreateJobRequest{
 				Pipeline: pipelineInfo.Pipeline,
 				Input:    jobInput,
 				// TODO(derek): Note that once the pipeline restarts, the `job`
 				// variable is lost and we don't know who is our parent job.
-				ParentJob: job,
+				ParentJob: parentJob,
+				NewBranch: newBranch,
 			})
 			if err != nil {
 				return err
@@ -1892,6 +1923,17 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			}
 		}
 
+		var pipelineInfo *pps.PipelineInfo
+		if jobInfo.Pipeline != nil {
+			var err error
+			pipelineInfo, err = a.InspectPipeline(ctx, &pps.InspectPipelineRequest{
+				Pipeline: jobInfo.Pipeline,
+			})
+			if err != nil {
+				return err
+			}
+		}
+
 		pfsClient, err := a.getPFSClient()
 		if err != nil {
 			return err
@@ -1899,42 +1941,6 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		objectClient, err := a.getObjectClient()
 		if err != nil {
 			return err
-		}
-
-		// Create workers and output repo if 'jobInfo' belongs to an orphan job
-		if jobInfo.Pipeline == nil {
-			// Create output repo for this job
-			var provenance []*pfs.Repo
-			visit(jobInfo.Input, func(input *pps.Input) {
-				if input.Atom != nil {
-					provenance = append(provenance, client.NewRepo(input.Atom.Repo))
-				}
-			})
-			if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
-				Repo:       jobInfo.OutputRepo,
-				Provenance: provenance,
-			}); err != nil {
-				// (if output repo already exists, do nothing)
-				if !isAlreadyExistsErr(err) {
-					return err
-				}
-			}
-
-			// Create workers in kubernetes (i.e. create replication controller)
-			if err := a.createWorkersForOrphanJob(jobInfo); err != nil {
-				if !isAlreadyExistsErr(err) {
-					return err
-				}
-			}
-			go func() {
-				// Clean up workers if the job gets cancelled
-				<-ctx.Done()
-				rcName := JobRcName(jobInfo.Job.ID)
-				if err := a.deleteWorkers(rcName); err != nil {
-					protolion.Errorf("error deleting workers for job: %v", jobID)
-				}
-				protolion.Infof("deleted workers for job: %v", jobID)
-			}()
 		}
 
 		// Set the state of this job to 'RUNNING'
@@ -1950,19 +1956,14 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 			return err
 		}
 
-		// Start worker pool
-		var rcName string
-		if jobInfo.Pipeline != nil {
-			// We scale up the workers before we run a job, to ensure
-			// that the job will have workers to use.  Note that scaling
-			// a RC is idempotent: nothing happens if the workers have
-			// already been scaled.
-			rcName = PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
-			if err := a.scaleUpWorkers(ctx, rcName, jobInfo.ParallelismSpec); err != nil {
-				return err
-			}
-		} else {
-			rcName = JobRcName(jobInfo.Job.ID)
+		// Start worker pool.
+		// We scale up the workers before we run a job, to ensure
+		// that the job will have workers to use.  Note that scaling
+		// a RC is idempotent: nothing happens if the workers have
+		// already been scaled.
+		rcName := PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
+		if err := a.scaleUpWorkers(ctx, rcName, jobInfo.ParallelismSpec); err != nil {
+			return err
 		}
 
 		failed := false
@@ -1975,6 +1976,18 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		df, err := newDatumFactory(ctx, pfsClient, jobInfo.Input)
 		if err != nil {
 			return err
+		}
+		var newBranchParentCommit *pfs.Commit
+		// If this is an incremental job we need to find the parent
+		// commit of the new branch.
+		if jobInfo.Incremental && jobInfo.NewBranch != nil {
+			newBranchCommitInfo, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+				Commit: jobInfo.NewBranch.Head,
+			})
+			if err != nil {
+				return err
+			}
+			newBranchParentCommit = newBranchCommitInfo.ParentCommit
 		}
 		tree := hashtree.NewHashTree()
 		var treeMu sync.Mutex
@@ -2027,6 +2040,36 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		for i := 0; i < df.Len(); i++ {
 			limiter.Acquire()
 			files := df.Datum(i)
+			var parentOutputTag *pfs.Tag
+			if newBranchParentCommit != nil {
+				var parentFiles []*workerpkg.Input
+				for _, file := range files {
+					parentFile := proto.Clone(file).(*workerpkg.Input)
+					if file.FileInfo.File.Commit.Repo.Name == jobInfo.NewBranch.Head.Repo.Name && file.Branch == jobInfo.NewBranch.Name {
+						parentFileInfo, err := pfsClient.InspectFile(ctx, &pfs.InspectFileRequest{
+							File: client.NewFile(parentFile.FileInfo.File.Commit.Repo.Name, newBranchParentCommit.ID, parentFile.FileInfo.File.Path),
+						})
+						if err != nil {
+							if !isNotFoundErr(err) {
+								return err
+							}
+							// we didn't find a match for this file, so we know
+							// there's no matching datum
+							break
+						}
+						file.ParentCommit = parentFileInfo.File.Commit
+						parentFile.FileInfo = parentFileInfo
+					}
+					parentFiles = append(parentFiles, parentFile)
+				}
+				if len(parentFiles) == len(files) {
+					_parentOutputTag, err := workerpkg.HashDatum(pipelineInfo, parentFiles)
+					if err != nil {
+						return err
+					}
+					parentOutputTag = &pfs.Tag{Name: _parentOutputTag}
+				}
+			}
 			go func() {
 				userCodeFailures := 0
 				defer limiter.Release()
@@ -2039,8 +2082,9 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 					}
 					workerClient := workerpkg.NewWorkerClient(conn)
 					resp, err := workerClient.Process(ctx, &workerpkg.ProcessRequest{
-						JobID: jobInfo.Job.ID,
-						Data:  files,
+						JobID:        jobInfo.Job.ID,
+						Data:         files,
+						ParentOutput: parentOutputTag,
 					})
 					if err != nil {
 						if err := conn.Close(); err != nil {
@@ -2251,31 +2295,6 @@ func parseResourceList(resources *pps.ResourceSpec) (*api.ResourceList, error) {
 		api.ResourceNvidiaGPU: gpuQuantity,
 	}
 	return &result, nil
-}
-
-func (a *apiServer) createWorkersForOrphanJob(jobInfo *pps.JobInfo) error {
-	parallelism, err := GetExpectedNumWorkers(a.kubeClient, jobInfo.ParallelismSpec)
-	if err != nil {
-		return err
-	}
-	var resources *api.ResourceList
-	if jobInfo.ResourceSpec != nil {
-		resources, err = parseResourceList(jobInfo.ResourceSpec)
-		if err != nil {
-			return err
-		}
-	}
-	options := a.getWorkerOptions(
-		JobRcName(jobInfo.Job.ID),
-		int32(parallelism),
-		resources,
-		jobInfo.Transform)
-	// Set the job name env
-	options.workerEnv = append(options.workerEnv, api.EnvVar{
-		Name:  client.PPSJobIDEnv,
-		Value: jobInfo.Job.ID,
-	})
-	return a.createWorkerRc(options)
 }
 
 func (a *apiServer) createWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {

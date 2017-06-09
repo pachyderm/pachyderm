@@ -1,6 +1,7 @@
 package hashtree
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"fmt"
 	pathlib "path"
@@ -198,6 +199,55 @@ func (h *HashTreeProto) Walk(f func(string, *NodeProto) error) error {
 	return walk(h.Fs, f)
 }
 
+func diff(new HashTree, old HashTree, newPath string, oldPath string, f func(string, *NodeProto, bool) error) error {
+	newNode, err := new.Get(newPath)
+	if err != nil && Code(err) != PathNotFound {
+		return err
+	}
+	oldNode, err := old.Get(oldPath)
+	if err != nil && Code(err) != PathNotFound {
+		return err
+	}
+	if (newNode == nil && oldNode == nil) ||
+		(newNode != nil && oldNode != nil && bytes.Equal(newNode.Hash, oldNode.Hash)) {
+		return nil
+	}
+	children := make(map[string]bool)
+	if newNode != nil {
+		if newNode.FileNode != nil {
+			if err := f(newPath, newNode, true); err != nil {
+				return err
+			}
+		} else if newNode.DirNode != nil {
+			for _, child := range newNode.DirNode.Children {
+				children[child] = true
+			}
+		}
+	}
+	if oldNode != nil {
+		if oldNode.FileNode != nil {
+			if err := f(oldPath, oldNode, false); err != nil {
+				return err
+			}
+		} else if oldNode.DirNode != nil {
+			for _, child := range oldNode.DirNode.Children {
+				children[child] = true
+			}
+		}
+	}
+	for child := range children {
+		if err := diff(new, old, pathlib.Join(newPath, child), pathlib.Join(oldPath, child), f); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Diff implements HashTree.Diff
+func (h *HashTreeProto) Diff(old HashTree, newPath string, oldPath string, f func(string, *NodeProto, bool) error) error {
+	return diff(h, old, newPath, oldPath, f)
+}
+
 // hashtree is an implementation of the HashTree and OpenHashTree interfaces.
 // It's intended to describe the state of a single commit C, in a repo R.
 type hashtree struct {
@@ -240,6 +290,11 @@ func (h *hashtree) Size() int64 {
 // Walk implements HashTree.Walk
 func (h *hashtree) Walk(f func(string, *NodeProto) error) error {
 	return walk(h.fs, f)
+}
+
+// Diff implements HashTree.Diff
+func (h *hashtree) Diff(old HashTree, newPath string, oldPath string, f func(string, *NodeProto, bool) error) error {
+	return diff(h, old, newPath, oldPath, f)
 }
 
 // clone makes a deep copy of 'h' and returns it. This performs one fewer copy
