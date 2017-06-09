@@ -216,9 +216,9 @@ nextInput:
 
 // jobManager feeds datums to jobs
 func (a *APIServer) jobManager(ctx context.Context, jobCh chan *pps.JobInfo) {
-	ppsClient := a.pachClient.PpsAPIClient
 	pfsClient := a.pachClient.PfsAPIClient
 	objectClient := a.pachClient.ObjectAPIClient
+	ppsClient := a.pachRemoteClient.PpsAPIClient
 
 	// Establish connection pool
 	var pool *grpcutil.Pool
