@@ -33,6 +33,8 @@ func (a *apiServer) master() {
 		defer masterLock.Unlock()
 		ctx = masterLock.Context()
 
+		protolion.Infof("Launching PPS master process")
+
 		pipelineWatcher, err := a.pipelines.ReadOnly(ctx).WatchWithPrev()
 		if err != nil {
 			return err
