@@ -11,7 +11,7 @@ You'll need to use the 'one shot' script. To do that you'll need to clone this r
 ```
 $ git clone git@github.com:pachyderm/pachyderm
 $ cd pachyderm
-$ sudo -E ./etc/deploy/aws.sh --region=us-east-1 --zone=us-east-1b --use-cloudfront > deploy.log
+$ sudo -E ./etc/deploy/aws.sh --region=us-east-1 --zone=us-east-1b --use-cloudfront &> deploy.log
 ```
 
 Here we've redirected the output to a file. Make sure you keep this file around for reference.
