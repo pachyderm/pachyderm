@@ -1310,6 +1310,7 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 		return t, nil
 	}
 
+	fmt.Printf("getting tree for commit %v\n", commit.ID)
 	tree, ok := d.treeCache.Get(commit.ID)
 	if ok {
 		h, ok := tree.(hashtree.HashTree)
@@ -1348,6 +1349,7 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 	}
 
 	var buf bytes.Buffer
+	fmt.Printf("getting tree obj at hash %v\n", treeRef.Hash)
 	if err := objClient.GetObject(treeRef.Hash, &buf); err != nil {
 		return nil, err
 	}
@@ -1432,16 +1434,17 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 }
 
 func (d *driver) listFile(ctx context.Context, file *pfs.File) ([]*pfs.FileInfo, error) {
+	fmt.Printf("in driver listfile\n")
 	tree, err := d.getTreeForCommit(ctx, file.Commit)
 	if err != nil {
 		return nil, err
 	}
-
+	fmt.Printf("listing trees\n")
 	nodes, err := tree.List(file.Path)
 	if err != nil {
 		return nil, err
 	}
-
+	fmt.Printf("appending fileinfos\n")
 	var fileInfos []*pfs.FileInfo
 	for _, node := range nodes {
 		fileInfos = append(fileInfos, nodeToFileInfo(file.Commit, path.Join(file.Path, node.Name), node, false))
