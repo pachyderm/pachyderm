@@ -450,7 +450,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 
 	var all bool
 	var deleteJobs bool
-	var deleteRepos bool
+	var deleteRepo bool
 	deletePipeline := &cobra.Command{
 		Use:   "delete-pipeline pipeline-name",
 		Short: "Delete a pipeline.",
@@ -468,15 +468,15 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 			if all {
 				_, err = client.PpsAPIClient.DeletePipeline(context.Background(), &ppsclient.DeletePipelineRequest{
-					All:         all,
-					DeleteJobs:  deleteJobs,
-					DeleteRepos: deleteRepos,
+					All:        all,
+					DeleteJobs: deleteJobs,
+					DeleteRepo: deleteRepo,
 				})
 			} else {
 				_, err = client.PpsAPIClient.DeletePipeline(context.Background(), &ppsclient.DeletePipelineRequest{
-					Pipeline:    &ppsclient.Pipeline{args[0]},
-					DeleteJobs:  deleteJobs,
-					DeleteRepos: deleteRepos,
+					Pipeline:   &ppsclient.Pipeline{args[0]},
+					DeleteJobs: deleteJobs,
+					DeleteRepo: deleteRepo,
 				})
 			}
 			if err != nil {
@@ -487,7 +487,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	}
 	deletePipeline.Flags().BoolVar(&all, "all", false, "delete all pipelines")
 	deletePipeline.Flags().BoolVar(&deleteJobs, "delete-jobs", false, "delete the jobs in this pipeline as well")
-	deletePipeline.Flags().BoolVar(&deleteRepos, "delete-repos", false, "delete the output repos of the pipelines as well")
+	deletePipeline.Flags().BoolVar(&deleteRepo, "delete-repo", false, "delete the output repo of the pipeline as well")
 
 	startPipeline := &cobra.Command{
 		Use:   "start-pipeline pipeline-name",
@@ -682,6 +682,9 @@ func newPipelineManifestReader(path string) (result *pipelineManifestReader, ret
 func (r *pipelineManifestReader) nextCreatePipelineRequest() (*ppsclient.CreatePipelineRequest, error) {
 	var result ppsclient.CreatePipelineRequest
 	if err := jsonpb.UnmarshalNext(r.decoder, &result); err != nil {
+		if err == io.EOF {
+			return nil, err
+		}
 		return nil, fmt.Errorf("malformed pipeline spec: %s", err)
 	}
 	return &result, nil
