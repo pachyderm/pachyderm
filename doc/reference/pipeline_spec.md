@@ -337,7 +337,7 @@ successful.
 
 `scaleDownThreshold` specifies when the worker pods of a pipeline should be terminated.
 
-By default, a pipeline’s worker pods are always running.  When `scaleDownThreshold` is set, the worker pods are terminated after they have been idle for the given duration.  When a new input commit comes in, the worker pods are then re-created.
+By default, a pipeline’s worker pods are always running.  When `scaleDownThreshold` is set, all but one worker pods are terminated after the pipeline has not seen a new job for the given duration (we still need at least one worker pod to be running for technical reasons).  When a new input commit comes in, the worker pods are then re-created.
 
 `scaleDownThreshold` is a string that needs to be sequence of decimal numbers with a unit suffix, such as “300ms”, “1.5h” or “2h45m”. Valid time units are “s”, “m”, “h”.
 
