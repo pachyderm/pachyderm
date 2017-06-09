@@ -52,6 +52,11 @@ $./etc/deploy/cloudfront/secure-cloudfront.sh --zone us-east-1b --bucket 2642-pa
 
 You'll need to look in the file you saved from above `deploy.log` for the values for the `--bucket` and `--cloudfront-distribution-id` flags
 
+Then restart the pachd pod like so:
+
+```
+kubectl scale --replicas=0 deployment/pachd && kubectl scale --replicas=1 deployment/pachd && kubectl get pod
+```
 
 After that, you're cloudfront setup is all ready!
 
@@ -67,7 +72,7 @@ etcd-1                   1/1       Running            0          19h
 etcd-2                   1/1       Running            0          19h
 pachd-2796595787-9x0qf   1/1       Running            0          16h
 $ kubectl logs pachd-2796595787-9x0qf | grep cloudfront
-AWS deployed with cloudfront distribution at d2ycq26vm97t6k 
-Using cloudfront security credentials - keypair ID (APKAXXXXXXXXXX) - to sign cloudfront URLs
+2017-06-09T22:56:27Z INFO  AWS deployed with cloudfront distribution at d3j9kenawdv8p0
+2017-06-09T22:56:27Z INFO  Using cloudfront security credentials - keypair ID (APKAXXXXXXXXX) - to sign cloudfront URLs
 ```
 
