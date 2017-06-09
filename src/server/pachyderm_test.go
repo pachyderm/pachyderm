@@ -2070,7 +2070,7 @@ func TestPipelineAutoScaledown(t *testing.T) {
 	require.NoError(t, err)
 
 	rc := pipelineRc(t, pipelineInfo)
-	require.Equal(t, 0, int(rc.Spec.Replicas))
+	require.Equal(t, 1, int(rc.Spec.Replicas))
 
 	// Trigger a job
 	commit, err := c.StartCommit(dataRepo, "master")
@@ -2090,7 +2090,7 @@ func TestPipelineAutoScaledown(t *testing.T) {
 	time.Sleep(scaleDownThreshold + 5*time.Second)
 
 	rc = pipelineRc(t, pipelineInfo)
-	require.Equal(t, 0, int(rc.Spec.Replicas))
+	require.Equal(t, 1, int(rc.Spec.Replicas))
 }
 
 func TestPipelineEnv(t *testing.T) {
