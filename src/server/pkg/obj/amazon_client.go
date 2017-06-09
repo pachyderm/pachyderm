@@ -74,53 +74,30 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 	if byteRange != "" {
 		byteRange = fmt.Sprintf("bytes=%s", byteRange)
 	}
-	fmt.Printf("in amazon.Reader()\n")
 	var reader io.ReadCloser
 	if c.distribution != "" {
 		var resp *http.Response
 		var connErr error
 		url := fmt.Sprintf("http://%v.cloudfront.net/%v", c.distribution, name)
 
-		fmt.Println("Checking for cloudfront private key")
 		rawCloudfrontPrivateKey, err := ioutil.ReadFile("/amazon-secret/cloudfrontPrivateKey")
 		if err == nil {
 			// If cloudfront security credentials are present, use them
-			fmt.Printf("got cf private key secret: (%v)\n", string(rawCloudfrontPrivateKey))
 
 			rawCloudfrontKeyPairId, err := ioutil.ReadFile("/amazon-secret/cloudfrontKeyPairId")
 			if err != nil {
 				return nil, fmt.Errorf("cloudfront private key provided, but missing cloudfront key pair id")
 			}
-			fmt.Printf("keypair id: %v\n", string(rawCloudfrontKeyPairId))
-			/*
-					fmt.Printf("got cf keypaird id (%v)\n", string(rawCloudfrontKeyPairId))
-					decodedCloudfrontKeyPairId, err := base64.StdEncoding.DecodeString(string(rawCloudfrontKeyPairId))
-					if err != nil {
-						return nil, err
-					}
-					decodedCloudfrontKeyPairId = bytes.TrimSpace(decodedCloudfrontKeyPairId)
-					fmt.Printf("decoded keypair id (%v)\n", string(decodedCloudfrontKeyPairId))
-
-				decodedCloudfrontPrivateKey, err := base64.StdEncoding.DecodeString(string(rawCloudfrontPrivateKey))
-				if err != nil {
-					return nil, err
-				}
-				decodedCloudfrontPrivateKey = bytes.TrimSpace(decodedCloudfrontPrivateKey)
-				fmt.Printf("decoded private key (%v)\n", string(decodedCloudfrontPrivateKey))
-			*/
-			//			block, _ := pem.Decode(bytes.TrimSpace(decodedCloudfrontPrivateKey))
 			block, _ := pem.Decode(bytes.TrimSpace(rawCloudfrontPrivateKey))
 			if block == nil || block.Type != "RSA PRIVATE KEY" {
 				return nil, fmt.Errorf("block undefined or wrong type: type is (%v) should be (RSA PRIVATE KEY)", block.Type)
 			}
-
 			cloudfrontPrivateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 			if err != nil {
 				return nil, err
 			}
 			signer := sign.NewURLSigner(string(rawCloudfrontKeyPairId), cloudfrontPrivateKey)
 			signedURL, err := signer.Sign(url, time.Now().Add(1*time.Hour))
-			fmt.Printf("orig url (%v), signed url (%v)\n", url, signedURL)
 			if err != nil {
 				return nil, err
 			}
@@ -141,11 +118,9 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 		}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) {
 			lion.Infof("Error connecting to (%v); retrying in %s: %#v", url, d, err)
 		})
-		fmt.Printf("connErr (%v), resp (%v)\n", connErr, resp)
 		if connErr != nil {
 			return nil, connErr
 		}
-		fmt.Printf("resp status code %v %v\n", resp.StatusCode, resp.Status)
 		if resp.StatusCode >= 300 {
 			// Cloudfront returns 200s, and 206s as success codes
 			return nil, fmt.Errorf("cloudfront returned HTTP error code %v for url %v", resp.Status, url)
