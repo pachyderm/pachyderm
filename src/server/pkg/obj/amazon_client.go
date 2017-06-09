@@ -57,7 +57,7 @@ func newAmazonClient(bucket string, cloudfrontDistribution string, id string, se
 			return nil, err
 		}
 		signer = sign.NewURLSigner(string(cloudfrontKeyPairId), cloudfrontPrivateKey)
-		lion.Infof("Using cloudfront security credentials - keypair ID (%v) - to sign cloudfront URLs", cloudfrontKeyPairId)
+		lion.Infof("Using cloudfront security credentials - keypair ID (%v) - to sign cloudfront URLs", string(cloudfrontKeyPairId))
 	}
 	return &amazonClient{
 		bucket:                 bucket,
