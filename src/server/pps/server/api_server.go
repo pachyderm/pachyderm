@@ -1028,7 +1028,8 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 			return nil, err
 		}
 		if _, err := pfsClient.DeleteRepo(ctx, &pfs.DeleteRepoRequest{
-			Repo: &pfs.Repo{request.Pipeline.Name},
+			Repo:  &pfs.Repo{request.Pipeline.Name},
+			Force: true,
 		}); err != nil {
 			return nil, err
 		}
