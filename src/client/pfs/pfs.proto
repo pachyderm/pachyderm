@@ -127,6 +127,7 @@ message ListRepoRequest {
 message DeleteRepoRequest {
   Repo repo = 1;
   bool force = 2;
+  bool all = 3;
 }
 
 message StartCommitRequest {
