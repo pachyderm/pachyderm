@@ -233,7 +233,7 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 			},
 		}
 		eg.Go(func() error {
-			fmt.Printf("writing object %v\n", object)
+			fmt.Printf("writing proto object (%v) to path (%v) w blockRef (%v)\n", object, s.localServer.objectPath(object), blockRef)
 			return s.writeProto(s.localServer.objectPath(object), blockRef)
 		})
 	}
@@ -367,6 +367,7 @@ func (s *objBlockAPIServer) InspectObject(ctx context.Context, request *pfsclien
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	objectInfo := &pfsclient.ObjectInfo{}
 	sink := groupcache.ProtoSink(objectInfo)
+	fmt.Printf("in objs.InspectObj() ... getting object at hash %v, splitkey: %v\n", request.Hash, s.splitKey(request.Hash))
 	if err := s.objectInfoCache.Get(ctx, s.splitKey(request.Hash), sink); err != nil {
 		return nil, err
 	}
@@ -659,6 +660,7 @@ func (s *objBlockAPIServer) compact() (retErr error) {
 }
 
 func (s *objBlockAPIServer) readProto(path string, pb proto.Message) (retErr error) {
+	fmt.Printf("readProto() reading from obj client at path %v\n", path)
 	r, err := s.objClient.Reader(path, 0, 0)
 	if err != nil {
 		return err
@@ -672,6 +674,7 @@ func (s *objBlockAPIServer) readProto(path string, pb proto.Message) (retErr err
 	if err != nil {
 		return err
 	}
+	fmt.Printf("readProto read data ... unmarshalling\n")
 	return proto.Unmarshal(data, pb)
 }
 
@@ -687,6 +690,7 @@ func (s *objBlockAPIServer) writeProto(path string, pb proto.Message) (retErr er
 		}
 		fmt.Printf("err writing proto path (%v)? %v\n", path, retErr)
 	}()
+	fmt.Printf("marshalling msg (%v)\n", pb)
 	data, err := proto.Marshal(pb)
 	if err != nil {
 		return err
@@ -761,7 +765,9 @@ func (s *objBlockAPIServer) tagGetter(ctx groupcache.Context, key string, dest g
 }
 
 func (s *objBlockAPIServer) objectInfoGetter(ctx groupcache.Context, key string, dest groupcache.Sink) error {
+	fmt.Printf("in objextInfoGetter()\n")
 	splitKey := strings.Split(key, ".")
+	fmt.Printf("splitkey: %v\n", splitKey)
 	if len(splitKey) != 3 {
 		return fmt.Errorf("invalid key %s (this is likely a bug)", key)
 	}
@@ -769,14 +775,19 @@ func (s *objBlockAPIServer) objectInfoGetter(ctx groupcache.Context, key string,
 	object := &pfsclient.Object{Hash: strings.Join(splitKey[:len(splitKey)-1], "")}
 	result := &pfsclient.ObjectInfo{Object: object}
 	updated := false
+	fmt.Printf("prefix (%v), object (%v), result (%v)\n", prefix, object, result)
 	// First check if we already have the index for this Object in memory, if
 	// not read it for the first time.
+	fmt.Printf("check if objectinfo in mem\n")
 	if _, ok := s.getObjectIndex(prefix); !ok {
+		fmt.Printf("nope ... reading for the first time\n")
 		updated = true
 		if err := s.readObjectIndex(prefix); err != nil {
 			return err
 		}
+		fmt.Printf("read object index at prefix %v\n", prefix)
 	}
+	fmt.Printf("try read object info from index\n")
 	objectIndex, _ := s.getObjectIndex(prefix)
 	// Check if the index contains a the object we're looking for, if so read
 	// it into the cache and return
@@ -785,12 +796,15 @@ func (s *objBlockAPIServer) objectInfoGetter(ctx groupcache.Context, key string,
 		dest.SetProto(result)
 		return nil
 	}
+	fmt.Printf("not in index, reading from obj path\n")
 	// Try reading the object from its object path, this happens for recently
 	// written objects that haven't been incorporated into an index yet.
 	// Note that we tolerate NotExist errors here because the object may have
 	// been incorporated into an index and thus deleted.
 	blockRef := &pfsclient.BlockRef{}
+	fmt.Printf("reading proto at path (%v) w blockRef (%v)\n", s.localServer.objectPath(object), blockRef)
 	if err := s.readProto(s.localServer.objectPath(object), blockRef); err != nil && !s.isNotFoundErr(err) {
+		fmt.Printf("read proto errored: %v\n", err)
 		return err
 	} else if err == nil {
 		result.BlockRef = blockRef
