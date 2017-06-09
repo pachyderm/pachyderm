@@ -448,23 +448,46 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	}
 	rawFlag(listPipeline)
 
+	var all bool
 	var deleteJobs bool
+	var deleteRepos bool
 	deletePipeline := &cobra.Command{
 		Use:   "delete-pipeline pipeline-name",
 		Short: "Delete a pipeline.",
 		Long:  "Delete a pipeline.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
-			if err := client.DeletePipeline(args[0], deleteJobs); err != nil {
-				cmdutil.ErrorAndExit("error from DeletePipeline: %s", err.Error())
+			if len(args) > 0 && all {
+				return fmt.Errorf("cannot use the --all flag with an argument")
+			}
+			if len(args) == 0 && !all {
+				return fmt.Errorf("either a pipeline name or the --all flag needs to be provided")
+			}
+			if all {
+				_, err = client.PpsAPIClient.DeletePipeline(context.Background(), &ppsclient.DeletePipelineRequest{
+					All:         all,
+					DeleteJobs:  deleteJobs,
+					DeleteRepos: deleteRepos,
+				})
+			} else {
+				_, err = client.PpsAPIClient.DeletePipeline(context.Background(), &ppsclient.DeletePipelineRequest{
+					Pipeline:    &ppsclient.Pipeline{args[0]},
+					DeleteJobs:  deleteJobs,
+					DeleteRepos: deleteRepos,
+				})
+			}
+			if err != nil {
+				return fmt.Errorf("error from delete-pipeline: %s", err)
 			}
 			return nil
 		}),
 	}
+	deletePipeline.Flags().BoolVar(&all, "all", false, "delete all pipelines")
 	deletePipeline.Flags().BoolVar(&deleteJobs, "delete-jobs", false, "delete the jobs in this pipeline as well")
+	deletePipeline.Flags().BoolVar(&deleteRepos, "delete-repos", false, "delete the output repos of the pipelines as well")
 
 	startPipeline := &cobra.Command{
 		Use:   "start-pipeline pipeline-name",
