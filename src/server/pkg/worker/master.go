@@ -210,8 +210,6 @@ nextInput:
 
 		jobCh <- jobInfo
 	}
-
-	return nil
 }
 
 // jobManager feeds datums to jobs
