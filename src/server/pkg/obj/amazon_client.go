@@ -141,9 +141,11 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 		}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) {
 			lion.Infof("Error connecting to (%v); retrying in %s: %#v", url, d, err)
 		})
+		fmt.Printf("connErr (%v), resp (%v)\n", connErr, resp)
 		if connErr != nil {
 			return nil, connErr
 		}
+		fmt.Printf("resp status code %v %v\n", resp.StatusCode, resp.Status)
 		if resp.StatusCode >= 300 {
 			// Cloudfront returns 200s, and 206s as success codes
 			return nil, fmt.Errorf("cloudfront returned HTTP error code %v for url %v", resp.Status, url)
