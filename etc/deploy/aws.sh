@@ -112,6 +112,7 @@ create_cloudfront_distribution() {
   aws cloudfront create-distribution --distribution-config file://tmp/cloudfront-distribution.json > tmp/cloudfront-distribution-info.json
   export CLOUDFRONT_ID=$(cat tmp/cloudfront-distribution-info.json | jq -r ".Distribution.Id")
   CLOUDFRONT_DOMAIN=$(cat tmp/cloudfront-distribution-info.json | jq -r ".Distribution.DomainName" | cut -f 1 -d .)
+  aws cloudfront wait distribution-deployed --id $CLOUDFRONT_ID
 }
 
 deploy_k8s_on_aws() {
