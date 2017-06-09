@@ -216,3 +216,8 @@ pachctl             1.4.6
 pachd               1.4.6
 ```
 
+## Production Deployment
+
+For production deployments we recommend setting up AWS CloudFront. This is helpful because of S3 rate limits that AWS puts in place that can limit throughput for your cluster reading data.
+
+[Follow the Cloudfront Deployment instructions here](./aws_cloudfront.md)
