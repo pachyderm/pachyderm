@@ -13,7 +13,7 @@ parse_flags() {
   export AWS_AVAILABILITY_ZONE=us-east-1a
 
   # Parse flags
-  eval "set -- $( getopt -l "state:,region:,zone:,bucket:,distribution:,cloudfront-keypair-id:,cloudfront-private-key-file:" "--" "${0}" "${@}" )"
+  eval "set -- $( getopt -l "state:,region:,zone:,bucket:,cloudfront-distribution-id:,cloudfront-keypair-id:,cloudfront-private-key-file:" "--" "${0}" "${@}" )"
   while true; do
       case "${1}" in
           --region)
@@ -28,8 +28,8 @@ parse_flags() {
             export BUCKET="${2}"
             shift 2
             ;;
-          --distribution)
-            export DISTRIBUTION="${2}"
+          --cloudfront-distribution-id)
+            export CLOUDFRONT_DISTRIBUTION_ID="${2}"
             shift 2
             ;;
           --cloudfront-keypair-id)
@@ -47,6 +47,9 @@ parse_flags() {
       esac
   done
 
+
+  set +euxo pipefail
+
   if [ $CLOUDFRONT_KEYPAIR_ID -n ]; then
 	echo "--cloudfront-keypair-id must be set"
 	exit 1	
@@ -62,10 +65,12 @@ parse_flags() {
 	exit 1	
   fi
 
-  if [ $DISTRIBUTION -n ]; then
-	echo "--distribution must be set"
+  if [ $CLOUDFRONT_DISTRIBUTION_ID -n ]; then
+	echo "--cloudfront-distribution-id must be set"
 	exit 1	
   fi
+
+  set -euxo pipefail
 
   echo "Region: ${AWS_REGION}"
   zone_suffix=${AWS_AVAILABILITY_ZONE#$AWS_REGION}
@@ -104,7 +109,7 @@ update_cloudfront_distribution() {
 
     # Get the ETAG (required to update)
     mkdir -p tmp
-    aws cloudfront get-distribution --id $DISTRIBUTION  > tmp/existing-cloudfront-distribution.json
+    aws cloudfront get-distribution --id $CLOUDFRONT_DISTRIBUTION_ID  > tmp/existing-cloudfront-distribution.json
     ETAG=$(cat tmp/existing-cloudfront-distribution.json | jq -r .ETag)
     # Update the fields we need
     cat tmp/existing-cloudfront-distribution.json | jq '.Distribution.DistributionConfig.Origins.Items[0].S3OriginConfig.OriginAccessIdentity = "origin-access-identity/cloudfront/'"${CLOUDFRONT_OAI_ID}"'"' > tmp-result.json
@@ -114,7 +119,7 @@ update_cloudfront_distribution() {
     mv tmp-result.json tmp/updated-cloudfront-distribution.json
 
     cat tmp/updated-cloudfront-distribution.json | jq .Distribution.DistributionConfig > tmp/updated-cloudfront-distribution-config.json
-    aws cloudfront update-distribution --id $DISTRIBUTION --if-match $ETAG --distribution-config file://tmp/updated-cloudfront-distribution-config.json > tmp/updated-cloudfront-distribution-info.json
+    aws cloudfront update-distribution --id $CLOUDFRONT_DISTRIBUTION_ID --if-match $ETAG --distribution-config file://tmp/updated-cloudfront-distribution-config.json > tmp/updated-cloudfront-distribution-info.json
     # This isn't used anywhere in this script, but still is good to report to the user
     CLOUDFRONT_DOMAIN=$(cat tmp/updated-cloudfront-distribution-info.json | jq -r ".Distribution.DomainName" | cut -f 1 -d .)
     echo "Setup cloudfront distribution with domain ${CLOUDFRONT_DOMAIN}"
@@ -145,7 +150,7 @@ echo "Waiting on distribution to enter 'deployed' state"
 echo "This is the last step of the script ... if it times out, thats ok. Just make sure that your CF distribution's status is 'Deployed' on the UI before you run anything on pachyderm"
 date
 # We need to wait for this, otherwise if you try and access objects while it's 'pending' CF redirects you to S3 and it'll cache the 307 redirect responses
-aws cloudfront wait distribution-deployed --id $DISTRIBUTION
-echo "Distribution deployed"
+aws cloudfront wait distribution-deployed --id $CLOUDFRONT_DISTRIBUTION_ID
+echo "Cloudfront distribution ($CLOUDFRONT_DISTRIBUTION_ID) deployed"
 date
 
