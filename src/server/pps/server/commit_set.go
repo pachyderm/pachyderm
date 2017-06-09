@@ -9,8 +9,9 @@ import (
 )
 
 type branchSet struct {
-	Branches []*pfs.Branch
-	Err      error
+	Branches  []*pfs.Branch
+	NewBranch int //newBranch indicates which branch is new
+	Err       error
 }
 
 type branchSetFactory interface {
@@ -103,17 +104,21 @@ func newBranchSetFactory(_ctx context.Context, pfsClient pfs.APIClient, input *p
 					Err: err,
 				}:
 				}
+				return
 			}
 
 			var found bool
+			var newBranchIndex int
 			for i, branch := range currentBranchSet {
 				if branch.Head.Repo.Name == newBranch.Head.Repo.Name && branch.Name == newBranch.Name {
 					currentBranchSet[i] = newBranch
 					found = true
+					newBranchIndex = i
 				}
 			}
 			if !found {
 				currentBranchSet = append(currentBranchSet, newBranch)
+				newBranchIndex = len(currentBranchSet) - 1
 			}
 			if len(currentBranchSet) == numBranches {
 				newBranchSet := make([]*pfs.Branch, numBranches)
@@ -122,7 +127,8 @@ func newBranchSetFactory(_ctx context.Context, pfsClient pfs.APIClient, input *p
 				case <-ctx.Done():
 					return
 				case ch <- &branchSet{
-					Branches: newBranchSet,
+					Branches:  newBranchSet,
+					NewBranch: newBranchIndex,
 				}:
 				}
 			}

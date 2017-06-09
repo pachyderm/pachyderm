@@ -151,16 +151,6 @@ func nodeToMap(node *etcd.Node, out map[string]string) bool {
 	return changed
 }
 
-func maxModifiedIndex(node *etcd.Node) uint64 {
-	result := node.ModifiedIndex
-	for _, node := range node.Nodes {
-		if modifiedIndex := maxModifiedIndex(node); modifiedIndex > result {
-			result = modifiedIndex
-		}
-	}
-	return result
-}
-
 func (c *etcdClient) watchWithoutRetry(key string, cancel chan bool, callBack func(string) error) error {
 	var waitIndex uint64 = 1
 	// First get the starting value of the key
@@ -212,7 +202,7 @@ func (c *etcdClient) watchAllWithoutRetry(key string, cancel chan bool, callBack
 			return err
 		}
 	} else {
-		waitIndex = maxModifiedIndex(response.Node) + 1
+		waitIndex = response.EtcdIndex + 1
 		if nodeToMap(response.Node, value) {
 			err = callBack(value)
 			if err != nil {
@@ -228,8 +218,7 @@ func (c *etcdClient) watchAllWithoutRetry(key string, cancel chan bool, callBack
 			}
 			return err
 		}
-		responseModifiedIndex := maxModifiedIndex(response.Node)
-		waitIndex = responseModifiedIndex + 1
+		waitIndex = response.EtcdIndex + 1
 		if nodeToMap(response.Node, value) {
 			err = callBack(value)
 			if err != nil {

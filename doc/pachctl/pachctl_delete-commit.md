@@ -1,16 +1,14 @@
-## ./pachctl repo
+## ./pachctl delete-commit
 
-Docs for repos.
+Delete an unfinished commit.
 
 ### Synopsis
 
 
-Repos, short for repository, are the top level data object in Pachyderm.
-
-	Repos are created with create-repo.
+Delete an unfinished commit.
 
 ```
-./pachctl repo
+./pachctl delete-commit repo-name commit-id
 ```
 
 ### Options inherited from parent commands
