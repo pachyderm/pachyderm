@@ -48,6 +48,8 @@ func (a *APIServer) master() {
 		defer masterLock.Unlock()
 		ctx = masterLock.Context()
 
+		protolion.Infof("Launching worker master process")
+
 		// Set pipeline state to running
 		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			pipelineName := a.pipelineInfo.Pipeline.Name
