@@ -12,7 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
-// Visit each input recursively in ascending order (root last)
+// VisitInput visits each input recursively in ascending order (root last)
 func VisitInput(input *Input, f func(*Input)) {
 	switch {
 	case input.Cross != nil:
@@ -27,6 +27,7 @@ func VisitInput(input *Input, f func(*Input)) {
 	f(input)
 }
 
+// InputName computes the name of an Input.
 func InputName(input *Input) string {
 	switch {
 	case input.Atom != nil:
@@ -43,6 +44,7 @@ func InputName(input *Input) string {
 	return ""
 }
 
+// SortInput sorts an Input.
 func SortInput(input *Input) {
 	VisitInput(input, func(input *Input) {
 		SortInputs := func(inputs []*Input) {
@@ -57,6 +59,7 @@ func SortInput(input *Input) {
 	})
 }
 
+// InputCommits returns the commits in an Input.
 func InputCommits(input *Input) []*pfs.Commit {
 	var result []*pfs.Commit
 	VisitInput(input, func(input *Input) {

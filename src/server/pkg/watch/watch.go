@@ -82,15 +82,17 @@ func (s byModRev) Less(i, j int) bool {
 	return s.GetResponse.Kvs[i].ModRevision < s.GetResponse.Kvs[j].ModRevision
 }
 
+// NewWatcher watches a given etcd prefix for events.
 func NewWatcher(ctx context.Context, client *etcd.Client, prefix string) (Watcher, error) {
 	return newWatcher(ctx, client, prefix, false)
 }
 
+// NewWatcherWithPrev is like NewWatcher, except that the returned events
+// include the previous version of the values.
 func NewWatcherWithPrev(ctx context.Context, client *etcd.Client, prefix string) (Watcher, error) {
 	return newWatcher(ctx, client, prefix, true)
 }
 
-// NewWatcher watches a given etcd prefix for events.
 func newWatcher(ctx context.Context, client *etcd.Client, prefix string, withPrev bool) (Watcher, error) {
 	eventCh := make(chan *Event)
 	done := make(chan struct{})
