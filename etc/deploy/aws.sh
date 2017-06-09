@@ -300,7 +300,7 @@ echo ""
 echo "Please save this deploy output to a file for your future reference,"
 echo "You'll need some of the values reported here"
 # They'll need this ID to run the secure script
-echo "Created cloudfront distribution with ID: $(CLOUDFRONT_ID)"
+echo "Created cloudfront distribution with ID: ${CLOUDFRONT_ID}"
 # Must echo ID at end, for etc/testing/deploy/aws.sh
 echo "Cluster created:"
 echo ${NAME}
