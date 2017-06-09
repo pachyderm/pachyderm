@@ -502,11 +502,11 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 		return fmt.Errorf("commit %s has already been finished", commit.FullID())
 	}
 
-	_tree, err := d.getTreeForCommit(ctx, commitInfo.ParentCommit)
+	parentTree, err := d.getTreeForCommit(ctx, commitInfo.ParentCommit)
 	if err != nil {
 		return err
 	}
-	tree := _tree.Open()
+	tree := parentTree.Open()
 
 	for _, kv := range resp.Kvs {
 		// fileStr is going to look like "some/path/UUID"
@@ -598,7 +598,15 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 		if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
 			return err
 		}
-		repoInfo.SizeBytes += commitInfo.SizeBytes
+
+		// Increment the repo sizes by the sizes of the files that have
+		// been added in this commit.
+		finishedTree.Diff(parentTree, "", "", func(path string, node *hashtree.NodeProto, new bool) error {
+			if node.FileNode != nil && new {
+				repoInfo.SizeBytes += uint64(node.SubtreeSize)
+			}
+			return nil
+		})
 		repos.Put(commit.Repo.Name, repoInfo)
 		return nil
 	})
@@ -747,6 +755,7 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 	done := make(chan struct{})
 
 	go func() (retErr error) {
+		defer newCommitWatcher.Close()
 		defer func() {
 			if retErr != nil {
 				select {
@@ -791,7 +800,6 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 			}
 		}
 
-	receiveNewCommit:
 		for {
 			var branchName string
 			commit := new(pfs.Commit)
@@ -820,36 +828,42 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 			}
 			// Now we watch the CommitInfo until the commit has been finished
 			commits := d.commits(commit.Repo.Name).ReadOnly(ctx)
-			commitInfoWatcher, err := commits.WatchOne(commit.ID)
-			if err != nil {
-				return err
-			}
-			for {
-				var commitID string
-				commitInfo := new(pfs.CommitInfo)
-				event := <-commitInfoWatcher.Watch()
-				switch event.Type {
-				case watch.EventError:
-					return event.Err
-				case watch.EventPut:
-					event.Unmarshal(&commitID, commitInfo)
-				case watch.EventDelete:
-					// if this commit that we are waiting for is
-					// deleted, then we go back to watch the branch
-					// to get a new commit
-					continue receiveNewCommit
+			// closure for defer
+			if err := func() error {
+				commitInfoWatcher, err := commits.WatchOne(commit.ID)
+				if err != nil {
+					return err
 				}
-				if commitInfo.Finished != nil {
-					select {
-					case stream <- CommitEvent{
-						Value: commitInfo,
-					}:
-						seen[commitInfo.Commit.ID] = true
-					case <-done:
+				defer commitInfoWatcher.Close()
+				for {
+					var commitID string
+					commitInfo := new(pfs.CommitInfo)
+					event := <-commitInfoWatcher.Watch()
+					switch event.Type {
+					case watch.EventError:
+						return event.Err
+					case watch.EventPut:
+						event.Unmarshal(&commitID, commitInfo)
+					case watch.EventDelete:
+						// if this commit that we are waiting for is
+						// deleted, then we go back to watch the branch
+						// to get a new commit
 						return nil
 					}
-					break
+					if commitInfo.Finished != nil {
+						select {
+						case stream <- CommitEvent{
+							Value: commitInfo,
+						}:
+							seen[commitInfo.Commit.ID] = true
+						case <-done:
+							return nil
+						}
+						return nil
+					}
 				}
+			}(); err != nil {
+				return err
 			}
 		}
 	}()
@@ -931,6 +945,7 @@ func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 				return nil, err
 			}
 			go func(commit *pfs.Commit) (retErr error) {
+				defer commitWatcher.Close()
 				defer func() {
 					if retErr != nil {
 						select {
@@ -1310,7 +1325,6 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 		return t, nil
 	}
 
-	fmt.Printf("getting tree for commit %v\n", commit.ID)
 	tree, ok := d.treeCache.Get(commit.ID)
 	if ok {
 		h, ok := tree.(hashtree.HashTree)
@@ -1349,7 +1363,6 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 	}
 
 	var buf bytes.Buffer
-	fmt.Printf("getting tree obj at hash %v\n", treeRef.Hash)
 	if err := objClient.GetObject(treeRef.Hash, &buf); err != nil {
 		return nil, err
 	}
@@ -1434,17 +1447,16 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 }
 
 func (d *driver) listFile(ctx context.Context, file *pfs.File) ([]*pfs.FileInfo, error) {
-	fmt.Printf("in driver listfile\n")
 	tree, err := d.getTreeForCommit(ctx, file.Commit)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("listing trees\n")
+
 	nodes, err := tree.List(file.Path)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("appending fileinfos\n")
+
 	var fileInfos []*pfs.FileInfo
 	for _, node := range nodes {
 		fileInfos = append(fileInfos, nodeToFileInfo(file.Commit, path.Join(file.Path, node.Name), node, false))
@@ -1468,6 +1480,42 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern strin
 		fileInfos = append(fileInfos, nodeToFileInfo(commit, node.Name, node, false))
 	}
 	return fileInfos, nil
+}
+
+func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.File) ([]*pfs.FileInfo, []*pfs.FileInfo, error) {
+	newTree, err := d.getTreeForCommit(ctx, newFile.Commit)
+	if err != nil {
+		return nil, nil, err
+	}
+	// if oldFile is new we use the parent of newFile
+	if oldFile == nil {
+		oldFile = &pfs.File{}
+		newCommitInfo, err := d.inspectCommit(ctx, newFile.Commit)
+		if err != nil {
+			return nil, nil, err
+		}
+		// ParentCommit may be nil, that's fine because getTreeForCommit
+		// handles nil
+		oldFile.Commit = newCommitInfo.ParentCommit
+		oldFile.Path = newFile.Path
+	}
+	oldTree, err := d.getTreeForCommit(ctx, oldFile.Commit)
+	if err != nil {
+		return nil, nil, err
+	}
+	var newFileInfos []*pfs.FileInfo
+	var oldFileInfos []*pfs.FileInfo
+	if err := newTree.Diff(oldTree, newFile.Path, oldFile.Path, func(path string, node *hashtree.NodeProto, new bool) error {
+		if new {
+			newFileInfos = append(newFileInfos, nodeToFileInfo(newFile.Commit, path, node, false))
+		} else {
+			oldFileInfos = append(oldFileInfos, nodeToFileInfo(oldFile.Commit, path, node, false))
+		}
+		return nil
+	}); err != nil {
+		return nil, nil, err
+	}
+	return newFileInfos, oldFileInfos, nil
 }
 
 func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
