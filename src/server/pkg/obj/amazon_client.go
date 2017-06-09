@@ -81,12 +81,6 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 		var connErr error
 		url := fmt.Sprintf("http://%v.cloudfront.net/%v", c.distribution, name)
 
-		req, err := http.NewRequest("GET", url, nil)
-		if err != nil {
-			return nil, err
-		}
-		req.Header.Add("Range", byteRange)
-
 		fmt.Println("Checking for cloudfront private key")
 		rawCloudfrontPrivateKey, err := ioutil.ReadFile("/amazon-secret/cloudfrontPrivateKey")
 		if err == nil {
@@ -132,6 +126,11 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 			}
 			url = signedURL
 		}
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Add("Range", byteRange)
 
 		backoff.RetryNotify(func() error {
 			resp, connErr = http.DefaultClient.Do(req)

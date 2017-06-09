@@ -809,8 +809,10 @@ func (s *objBlockAPIServer) objectInfoGetter(ctx groupcache.Context, key string,
 	} else if err == nil {
 		result.BlockRef = blockRef
 		dest.SetProto(result)
+		fmt.Printf("readproto succeeded: %v\n", result)
 		return nil
 	}
+	fmt.Printf("err from readproto? %v\n", err)
 	// The last chance to find this object is to update the index since the
 	// object may have been recently incorporated into it.
 	if !updated {
