@@ -88,17 +88,17 @@ parse_flags() {
 update_bucket_policy() {
     aws s3api delete-bucket-policy --bucket $BUCKET --region $AWS_REGION
    
+    # Create Origin Access Identity
     someuuid=$(uuid | cut -f 1 -d-)
-    sed 's/XXCallerReferenceXX/'$someuuid'/' etc/deploy/cloudfront/origin-access-identity.json.template > tmp/cloudfront-origin-access-identity.json
-    sed -i 's/XXBucketNameXX/'$BUCKET'/' tmp/cloudfront-origin-access-identity.json
+    cat etc/deploy/cloudfront/origin-access-identity.json.template | jq '.CallerReference = "'"$someuuid"'" | .Comment = "'$BUCKET' auto generated OAI"' > tmp/cloudfront-origin-access-identity.json
     aws cloudfront create-cloud-front-origin-access-identity --cloud-front-origin-access-identity-config file://tmp/cloudfront-origin-access-identity.json > tmp/cloudfront-origin-access-identity-info.json
     CLOUDFRONT_OAI_CANONICAL=$(cat tmp/cloudfront-origin-access-identity-info.json | jq -r ".CloudFrontOriginAccessIdentity.S3CanonicalUserId")
     echo "Got Cloudfront Origin Access Identity Canonical user id : ${CLOUDFRONT_OAI_CANONICAL}"
     CLOUDFRONT_OAI_ID=$(cat tmp/cloudfront-origin-access-identity-info.json | jq -r ".CloudFrontOriginAccessIdentity.Id")
     echo "Got Cloudfront Origin Access Identity ID : ${CLOUDFRONT_OAI_ID}"
   
-    sed 's/XXBUCKET_NAMEXX/'$BUCKET'/' etc/deploy/cloudfront/bucket-policy-secure.json.template > tmp/bucket-policy-secure.json
-    sed -i 's/XXCLOUDFRONT_OAI_CANONICALXX/'$CLOUDFRONT_OAI_CANONICAL'/' tmp/bucket-policy-secure.json
+    # Create secure bucket policy w the new OAI
+    cat etc/deploy/cloudfront/bucket-policy-secure.json.template | jq '.Statement[0].Resource = "arn:aws:s3:::'$BUCKET'/*" | .Statement[0].Principal.CanonicalUser = "'$CLOUDFRONT_OAI_CANONICAL'"' > tmp/bucket-policy-secure.json
     aws s3api put-bucket-policy --bucket $BUCKET --policy file://tmp/bucket-policy-secure.json --region=${AWS_REGION}
 
 }
