@@ -103,10 +103,16 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteRepo")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	err := a.driver.deleteRepo(ctx, request.Repo, request.Force)
-	if err != nil {
-		return nil, err
+	if request.All {
+		if err := a.driver.deleteAll(ctx); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := a.driver.deleteRepo(ctx, request.Repo, request.Force); err != nil {
+			return nil, err
+		}
 	}
+
 	return &types.Empty{}, nil
 }
 
