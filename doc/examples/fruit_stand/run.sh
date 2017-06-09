@@ -11,8 +11,6 @@ cat ${THIS_DIR}/set1.txt | pachctl put-file data master sales
 pachctl finish-commit data master
 echo "wrote first commit to data"
 pachctl list-file data master
-
-exit 0
 # create the pipelines
 pachctl create-pipeline -f doc/examples/fruit_stand/pipeline.json
 echo "created pipeline"
