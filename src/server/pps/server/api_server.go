@@ -823,6 +823,24 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeletePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
+	if request.All {
+		pipelineInfos, err := a.ListPipeline(ctx, &pps.ListPipelineRequest{})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, pipelineInfo := range pipelineInfos.PipelineInfo {
+			request.Pipeline = pipelineInfo.Pipeline
+			if _, err := a.deletePipeline(ctx, request); err != nil {
+				return nil, err
+			}
+		}
+		return &types.Empty{}, nil
+	}
+	return a.deletePipeline(ctx, request)
+}
+
+func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) (response *types.Empty, retErr error) {
 	iter, err := a.jobs.ReadOnly(ctx).GetByIndex(ppsdb.JobsPipelineIndex, request.Pipeline)
 	if err != nil {
 		return nil, err
@@ -869,6 +887,20 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	}); err != nil {
 		return nil, err
 	}
+
+	// Delete output repo
+	if request.DeleteRepo {
+		pfsClient, err := a.getPFSClient()
+		if err != nil {
+			return nil, err
+		}
+		if _, err := pfsClient.DeleteRepo(ctx, &pfs.DeleteRepoRequest{
+			Repo: &pfs.Repo{request.Pipeline.Name},
+		}); err != nil {
+			return nil, err
+		}
+	}
+
 	return &types.Empty{}, nil
 }
 
