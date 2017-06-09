@@ -124,7 +124,7 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 			if err != nil {
 				return nil, err
 			}
-			url = signedURL
+			url = strings.TrimSpace(signedURL)
 		}
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
