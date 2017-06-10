@@ -44,7 +44,7 @@ func newAmazonClient(bucket string, cloudfrontDistribution string, id string, se
 			return nil, err
 		}
 
-		cloudfrontKeyPairId, err := ioutil.ReadFile("/amazon-secret/cloudfrontKeyPairId")
+		cloudfrontKeyPairID, err := ioutil.ReadFile("/amazon-secret/cloudfrontKeyPairId")
 		if err != nil {
 			return nil, err
 		}
@@ -56,8 +56,8 @@ func newAmazonClient(bucket string, cloudfrontDistribution string, id string, se
 		if err != nil {
 			return nil, err
 		}
-		signer = sign.NewURLSigner(string(cloudfrontKeyPairId), cloudfrontPrivateKey)
-		lion.Infof("Using cloudfront security credentials - keypair ID (%v) - to sign cloudfront URLs", cloudfrontKeyPairId)
+		signer = sign.NewURLSigner(string(cloudfrontKeyPairID), cloudfrontPrivateKey)
+		lion.Infof("Using cloudfront security credentials - keypair ID (%v) - to sign cloudfront URLs", string(cloudfrontKeyPairID))
 	}
 	return &amazonClient{
 		bucket:                 bucket,
