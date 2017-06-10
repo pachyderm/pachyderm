@@ -110,7 +110,9 @@ create_cloudfront_distribution() {
   sed -i 's/XXBucketNameXX/'$BUCKET'/' tmp/cloudfront-distribution.json
 
   aws cloudfront create-distribution --distribution-config file://tmp/cloudfront-distribution.json > tmp/cloudfront-distribution-info.json
+  export CLOUDFRONT_ID=$(cat tmp/cloudfront-distribution-info.json | jq -r ".Distribution.Id")
   CLOUDFRONT_DOMAIN=$(cat tmp/cloudfront-distribution-info.json | jq -r ".Distribution.DomainName" | cut -f 1 -d .)
+  aws cloudfront wait distribution-deployed --id $CLOUDFRONT_ID
 }
 
 deploy_k8s_on_aws() {
@@ -292,6 +294,14 @@ set -euxo pipefail
 deploy_k8s_on_aws
 deploy_pachyderm_on_aws
 
+echo "To upgrade cloudfront to use security credentials, e.g.:"
+echo ""
+echo "    $./etc/deploy/cloudfront/secure-cloudfront.sh --zone us-east-1b --bucket 2642-pachyderm-store --distribution E3DPJE36K8O9U7 --keypair-id APKAXXXXXXXXXX --private-key-file pk-APKXXXXXXXXXXXX.pem" 
+echo ""
+echo "Please save this deploy output to a file for your future reference,"
+echo "You'll need some of the values reported here"
+# They'll need this ID to run the secure script
+echo "Created cloudfront distribution with ID: ${CLOUDFRONT_ID}"
 # Must echo ID at end, for etc/testing/deploy/aws.sh
 echo "Cluster created:"
 echo ${NAME}
