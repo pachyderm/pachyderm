@@ -2821,7 +2821,13 @@ func TestGetLogs(t *testing.T) {
 	iter2 := c.GetLogs("", jobInfos[0].Job.ID, []string{string(fileInfo.Hash)})
 	numLogs = 0
 	for {
-		l, r := iter1.Next(), iter2.Next()
+		// l, r := iter1.Next(), iter2.Next()
+		if l {
+			l = iter1.Next()
+		}
+		if r {
+			r = iter2.Next()
+		}
 		fmt.Printf("%t | %t\n", l, r)
 		// require.True(t, l == r)
 		if !l && !r {
