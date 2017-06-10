@@ -2771,9 +2771,12 @@ func TestGetLogs(t *testing.T) {
 
 	// Get logs from pipeline, using pipeline
 	iter := c.GetLogs(pipelineName, "", nil)
+	var numLogs int
 	for iter.Next() {
+		numLogs++
 		require.True(t, iter.Message().Message != "")
 	}
+	require.True(t, numLogs > 0)
 	require.NoError(t, iter.Err())
 
 	// Get logs from pipeline, using a pipeline that doesn't exist. There should
@@ -2792,7 +2795,7 @@ func TestGetLogs(t *testing.T) {
 	// wait for logs to be collected
 	time.Sleep(10 * time.Second)
 	iter = c.GetLogs("", jobInfos[0].Job.ID, nil)
-	var numLogs int
+	numLogs = 0
 	for iter.Next() {
 		numLogs++
 		require.True(t, iter.Message().Message != "")
@@ -2819,12 +2822,14 @@ func TestGetLogs(t *testing.T) {
 	numLogs = 0
 	for {
 		l, r := iter1.Next(), iter2.Next()
-		require.True(t, l == r)
-		if !l {
+		fmt.Printf("%t | %t\n", l, r)
+		// require.True(t, l == r)
+		if !l && !r {
 			break
 		}
 		numLogs++
 		require.True(t, iter1.Message().Message == iter2.Message().Message)
+		fmt.Printf("%80s | %80s\n", iter1.Message().Message, iter2.Message().Message)
 	}
 	require.True(t, numLogs > 0)
 	require.NoError(t, iter1.Err())
@@ -2835,6 +2840,7 @@ func TestGetLogs(t *testing.T) {
 	iter = c.GetLogs("", jobInfos[0].Job.ID, []string{"__DOES_NOT_EXIST__"})
 	require.False(t, iter.Next())
 	require.NoError(t, iter.Err())
+	t.Fail()
 }
 
 func TestPfsPutFile(t *testing.T) {
