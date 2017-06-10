@@ -177,11 +177,6 @@ message DeleteCommitRequest {
   Commit commit = 1;
 }
 
-message FlushCommitRequest {
-  repeated Commit commits = 1;
-  repeated Repo to_repos = 2;
-}
-
 message SubscribeCommitRequest {
   Repo repo = 1;
   string branch = 2;
@@ -278,8 +273,6 @@ service API {
   rpc ListCommit(ListCommitRequest) returns (CommitInfos) {}
   // DeleteCommit deletes a commit.
   rpc DeleteCommit(DeleteCommitRequest) returns (google.protobuf.Empty) {}
-  // FlushCommit waits for downstream commits to finish
-  rpc FlushCommit(FlushCommitRequest) returns (stream CommitInfo) {}
   // SubscribeCommit subscribes for new commits on a given branch
   rpc SubscribeCommit(SubscribeCommitRequest) returns (stream CommitInfo) {}
   // BuildCommit builds a commit that's backed by the given tree

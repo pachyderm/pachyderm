@@ -310,73 +310,6 @@ $ pachctl list-commit foo master --from XXX
 	listCommit.Flags().IntVarP(&number, "number", "n", 0, "list only this many commits; if set to zero, list all commits")
 	rawFlag(listCommit)
 
-	var repos cmdutil.RepeatedStringArg
-	flushCommit := &cobra.Command{
-		Use:   "flush-commit commit [commit ...]",
-		Short: "Wait for all commits caused by the specified commits to finish and return them.",
-		Long: `Wait for all commits caused by the specified commits to finish and return them.
-
-Examples:
-
-` + codestart + `# return commits caused by foo/XXX and bar/YYY
-$ pachctl flush-commit foo/XXX bar/YYY
-
-# return commits caused by foo/XXX leading to repos bar and baz
-$ pachctl flush-commit foo/XXX -r bar -r baz
-` + codeend,
-		Run: cmdutil.Run(func(args []string) error {
-			commits, err := cmdutil.ParseCommits(args)
-			if err != nil {
-				return err
-			}
-
-			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
-			if err != nil {
-				return err
-			}
-
-			var toRepos []*pfsclient.Repo
-			for _, repoName := range repos {
-				toRepos = append(toRepos, client.NewRepo(repoName))
-			}
-
-			commitIter, err := c.FlushCommit(commits, toRepos)
-			if err != nil {
-				return err
-			}
-
-			if raw {
-				for {
-					commitInfo, err := commitIter.Next()
-					if err == io.EOF {
-						return nil
-					}
-					if err != nil {
-						return err
-					}
-					if err := marshaller.Marshal(os.Stdout, commitInfo); err != nil {
-						return err
-					}
-				}
-			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintCommitInfoHeader(writer)
-			for {
-				commitInfo, err := commitIter.Next()
-				if err == io.EOF {
-					break
-				}
-				if err != nil {
-					return err
-				}
-				pretty.PrintCommitInfo(writer, commitInfo)
-			}
-			return writer.Flush()
-		}),
-	}
-	flushCommit.Flags().VarP(&repos, "repos", "r", "Wait only for commits leading to a specific set of repos")
-	rawFlag(flushCommit)
-
 	deleteCommit := &cobra.Command{
 		Use:   "delete-commit repo-name commit-id",
 		Short: "Delete an unfinished commit.",
@@ -938,7 +871,6 @@ $ pachctl diff-file foo master path1 bar master path2
 	result = append(result, finishCommit)
 	result = append(result, inspectCommit)
 	result = append(result, listCommit)
-	result = append(result, flushCommit)
 	result = append(result, deleteCommit)
 	result = append(result, listBranch)
 	result = append(result, setBranch)

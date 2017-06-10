@@ -18,6 +18,7 @@ import (
 	"github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/jsonpb"
 	pach "github.com/pachyderm/pachyderm/src/client"
+	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
@@ -552,6 +553,56 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	}
 	runPipeline.Flags().StringVarP(&specPath, "file", "f", "", "The file containing the run-pipeline spec, - reads from stdin.")
 
+	var repos cmdutil.RepeatedStringArg
+	flushCommit := &cobra.Command{
+		Use:   "flush-commit commit [commit ...]",
+		Short: "Wait for all commits caused by the specified commits to finish and return them.",
+		Long: `Wait for all commits caused by the specified commits to finish and return them.
+
+Examples:
+
+` + codestart + `# return commits caused by foo/XXX and bar/YYY
+$ pachctl flush-commit foo/XXX bar/YYY
+
+# return commits caused by foo/XXX leading to repos bar and baz
+$ pachctl flush-commit foo/XXX -r bar -r baz
+` + codeend,
+		Run: cmdutil.Run(func(args []string) error {
+			commits, err := cmdutil.ParseCommits(args)
+			if err != nil {
+				return err
+			}
+
+			c, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return err
+			}
+
+			var toRepos []*pfsclient.Repo
+			for _, repoName := range repos {
+				toRepos = append(toRepos, pach.NewRepo(repoName))
+			}
+
+			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			if !raw {
+				pretty.PrintJobHeader(writer)
+			}
+			if err := c.FlushCommit(commits, toRepos, func(jobInfo *ppsclient.JobInfo) error {
+				if raw {
+					return marshaller.Marshal(os.Stdout, jobInfo)
+				}
+				pretty.PrintJobInfo(writer, jobInfo)
+				return nil
+			}); err != nil {
+				return err
+			}
+
+			return writer.Flush()
+		}),
+	}
+	flushCommit.Flags().VarP(&repos, "repos", "r", "Wait only for commits leading to a specific set of repos")
+	rawFlag(flushCommit)
+
 	garbageCollect := &cobra.Command{
 		Use:   "garbage-collect",
 		Short: "Garbage collect unused data.",
@@ -590,6 +641,7 @@ Currently "pachctl garbage-collect" can only be started when there are no active
 	result = append(result, startPipeline)
 	result = append(result, stopPipeline)
 	result = append(result, runPipeline)
+	result = append(result, flushCommit)
 	result = append(result, garbageCollect)
 	return result, nil
 }

@@ -357,6 +357,11 @@ message RerunPipelineRequest {
   repeated pfs.Commit include = 3;
 }
 
+message FlushCommitRequest {
+  repeated pfs.Commit commits = 1;
+  repeated pfs.Repo to_repos = 2;
+}
+
 message GarbageCollectRequest {}
 message GarbageCollectResponse {}
 
@@ -375,6 +380,8 @@ service API {
   rpc StartPipeline(StartPipelineRequest) returns (google.protobuf.Empty) {}
   rpc StopPipeline(StopPipelineRequest) returns (google.protobuf.Empty) {}
   rpc RerunPipeline(RerunPipelineRequest) returns (google.protobuf.Empty) {}
+
+  rpc FlushCommit(FlushCommitRequest) returns (stream JobInfo) {}
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}

@@ -277,33 +277,6 @@ func (c APIClient) DeleteCommit(repoName string, commitID string) error {
 	return sanitizeErr(err)
 }
 
-// FlushCommit returns an iterator that returns commits that have the
-// specified `commits` as provenance.  Note that the iterator can block if
-// jobs have not successfully completed. This in effect waits for all of the
-// jobs that are triggered by a set of commits to complete.
-//
-// If toRepos is not nil then only the commits up to and including those
-// repos will be considered, otherwise all repos are considered.
-//
-// Note that it's never necessary to call FlushCommit to run jobs, they'll
-// run no matter what, FlushCommit just allows you to wait for them to
-// complete and see their output once they do.
-func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo) (CommitInfoIterator, error) {
-	ctx, cancel := context.WithCancel(c.ctx())
-	stream, err := c.PfsAPIClient.FlushCommit(
-		ctx,
-		&pfs.FlushCommitRequest{
-			Commits: commits,
-			ToRepos: toRepos,
-		},
-	)
-	if err != nil {
-		cancel()
-		return nil, sanitizeErr(err)
-	}
-	return &commitInfoIterator{stream, cancel}, nil
-}
-
 // CommitInfoIterator wraps a stream of commits and makes them easy to iterate.
 type CommitInfoIterator interface {
 	Next() (*pfs.CommitInfo, error)

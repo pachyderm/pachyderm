@@ -1038,6 +1038,141 @@ func (a *apiServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelin
 	return nil, fmt.Errorf("TODO")
 }
 
+func (a *apiServer) FlushCommit(request *pps.FlushCommitRequest, server pps.API_FlushCommitServer) (retErr error) {
+	ctx := server.Context()
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "FlushCommit")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+	repoToCommit := make(map[string]*pfs.Commit)
+	var fromRepos []*pfs.Repo
+	for _, commit := range request.Commits {
+		if repoToCommit[commit.Repo.Name] != nil {
+			return fmt.Errorf("can't flush two commits from the same repo: %s", commit.Repo.Name)
+		}
+		repoToCommit[commit.Repo.Name] = commit
+		fromRepos = append(fromRepos, commit.Repo)
+	}
+	pfsClient, err := a.getPFSClient()
+	if err != nil {
+		return err
+	}
+	var repoInfos []*pfs.RepoInfo
+	if request.ToRepos == nil {
+		response, err := pfsClient.ListRepo(ctx, &pfs.ListRepoRequest{Provenance: fromRepos})
+		if err != nil {
+			return err
+		}
+		repoInfos = response.RepoInfo
+	} else {
+		for _, toRepo := range request.ToRepos {
+			repoInfo, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{toRepo})
+			if err != nil {
+				return err
+			}
+			repoInfos = append(repoInfos, repoInfo)
+		}
+	}
+	repoToInfo := make(map[string]*pfs.RepoInfo)
+	if request.ToRepos != nil {
+		for _, repoInfo := range repoInfos {
+			repoToInfo[repoInfo.Repo.Name] = repoInfo
+			for _, provRepo := range repoInfo.Provenance {
+				provRepoInfo, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{provRepo})
+				if err != nil {
+					return err
+				}
+				if _, ok := repoToInfo[provRepoInfo.Repo.Name]; !ok {
+					repoInfos = append(repoInfos, provRepoInfo)
+				}
+				repoToInfo[provRepoInfo.Repo.Name] = provRepoInfo
+				// provRepo has no provenance (is a raw input) and we don't
+				// have a commit for it. We error because this means the
+				// request is ambiguous since we don't know which commit to use
+				// for some of the repos.
+				if len(provRepoInfo.Provenance) == 0 && repoToCommit[provRepoInfo.Repo.Name] == nil {
+					return fmt.Errorf("cannot flush to repo %s because %s is provenance but no commit from that repo was given", repoInfo.Repo.Name, provRepo.Name)
+				}
+			}
+		}
+	}
+	// Sort the repos len(Provenance) this is equivalent to topologically
+	// sorting the repos by provenance because a repo's provenance includes
+	// their provenance's provenance (it's a transitive closure).
+	sort.Slice(repoInfos, func(i, j int) bool {
+		return len(repoInfos[i].Provenance) < len(repoInfos[j].Provenance)
+	})
+	jobs := a.jobs.ReadOnly(ctx)
+	for _, repoInfo := range repoInfos {
+		if repoToCommit[repoInfo.Repo.Name] != nil {
+			continue
+		}
+		pipelineInfo, err := a.InspectPipeline(ctx, &pps.InspectPipelineRequest{client.NewPipeline(repoInfo.Repo.Name)})
+		if err != nil {
+			return err
+		}
+		var visitErr error
+		visit(pipelineInfo.Input, func(input *pps.Input) {
+			if input.Atom != nil {
+				commit, ok := repoToCommit[input.Atom.Repo]
+				if !ok && visitErr == nil {
+					visitErr = fmt.Errorf("should have commit for %s but don't (this is likely a bug)", input.Atom.Repo)
+				}
+				input.Atom.Commit = commit.ID
+			}
+		})
+		if visitErr != nil {
+			return visitErr
+		}
+		var jobID string
+		// Closure for defers
+		if err := func() error {
+			// Find the ID of the job we're looking for.
+			watcher, err := jobs.WatchByIndex(jobsInputIndex, pipelineInfo.Input)
+			if err != nil {
+				return err
+			}
+			defer watcher.Close()
+			for event := range watcher.Watch() {
+				jobInfo := &pps.JobInfo{}
+				if err := event.Unmarshal(&jobID, jobInfo); err != nil {
+					return err
+				}
+				// we found our job
+				if jobInfo.Pipeline.Name == pipelineInfo.Pipeline.Name {
+					return nil
+				}
+			}
+			return nil
+		}(); err != nil {
+			return err
+		}
+		// Closure for defers
+		if err := func() error {
+			// Wait for the job to finish
+			watcher, err := jobs.WatchOne(jobID)
+			if err != nil {
+				return err
+			}
+			defer watcher.Close()
+			for event := range watcher.Watch() {
+				jobInfo := &pps.JobInfo{}
+				if err := event.Unmarshal(&jobID, jobInfo); err != nil {
+					return err
+				}
+				if jobInfo.Finished != nil {
+					repoToCommit[repoInfo.Repo.Name] = jobInfo.OutputCommit
+					return server.Send(jobInfo)
+				}
+			}
+			return nil
+		}(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -1611,7 +1746,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			return err
 		}
 
-		branchSetFactory, err := newBranchSetFactory(ctx, pfsClient, pipelineInfo.Input)
+		branchSetFactory, err := a.newBranchSetFactory(ctx, pipelineInfo.Input)
 		if err != nil {
 			return err
 		}
@@ -1647,6 +1782,7 @@ func (a *apiServer) pipelineManager(ctx context.Context, pipelineInfo *pps.Pipel
 			var branchSet *branchSet
 			select {
 			case branchSet = <-branchSetFactory.Chan():
+				protolion.Printf("Got branchSet: %+v\n", branchSet)
 			case completedJob := <-jobCompletionCh:
 				delete(runningJobSet, completedJob.ID)
 				if len(runningJobSet) == 0 {
@@ -2370,7 +2506,7 @@ func (a *apiServer) DeleteShard(shard uint64) error {
 	return nil
 }
 
-func (a *apiServer) getPFSClient() (pfs.APIClient, error) {
+func (a *apiServer) getPachConn() (*grpc.ClientConn, error) {
 	if a.pachConn == nil {
 		var onceErr error
 		a.pachConnOnce.Do(func() {
@@ -2384,24 +2520,31 @@ func (a *apiServer) getPFSClient() (pfs.APIClient, error) {
 			return nil, onceErr
 		}
 	}
-	return pfs.NewAPIClient(a.pachConn), nil
+	return a.pachConn, nil
+}
+
+func (a *apiServer) getPFSClient() (pfs.APIClient, error) {
+	pachConn, err := a.getPachConn()
+	if err != nil {
+		return nil, err
+	}
+	return pfs.NewAPIClient(pachConn), nil
+}
+
+func (a *apiServer) getPPSClient() (pps.APIClient, error) {
+	pachConn, err := a.getPachConn()
+	if err != nil {
+		return nil, err
+	}
+	return pps.NewAPIClient(pachConn), nil
 }
 
 func (a *apiServer) getObjectClient() (pfs.ObjectAPIClient, error) {
-	if a.pachConn == nil {
-		var onceErr error
-		a.pachConnOnce.Do(func() {
-			pachConn, err := grpc.Dial(a.address, client.PachDialOptions()...)
-			if err != nil {
-				onceErr = err
-			}
-			a.pachConn = pachConn
-		})
-		if onceErr != nil {
-			return nil, onceErr
-		}
+	pachConn, err := a.getPachConn()
+	if err != nil {
+		return nil, err
 	}
-	return pfs.NewObjectAPIClient(a.pachConn), nil
+	return pfs.NewObjectAPIClient(pachConn), nil
 }
 
 // RepoNameToEnvString is a helper which uppercases a repo name for

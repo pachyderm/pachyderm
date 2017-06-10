@@ -133,9 +133,7 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 			"",
 			false,
 		))
-		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(repo, commit.ID)}, nil)
-		require.NoError(b, err)
-		_, err = commitIter.Next()
+		_, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(repo, commit.ID)}, nil)
 		require.NoError(b, err)
 		b.StopTimer()
 		inputRepoInfo, err := c.InspectRepo(repo)
@@ -299,9 +297,8 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 			"",
 			false,
 		))
-		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
+		_, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
 		require.NoError(b, err)
-		collectCommitInfos(b, commitIter)
 		b.StopTimer()
 		outputRepoInfo, err := c.InspectRepo(pipelineOne)
 		b.SetBytes(int64(outputRepoInfo.SizeBytes))
@@ -336,9 +333,8 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 			"",
 			false,
 		))
-		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
+		_, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
 		require.NoError(b, err)
-		collectCommitInfos(b, commitIter)
 		b.StopTimer()
 		outputRepoInfo, err := c.InspectRepo(pipelineTwo)
 		b.SetBytes(int64(outputRepoInfo.SizeBytes))
@@ -370,9 +366,8 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 			"",
 			false,
 		))
-		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
+		_, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
 		require.NoError(b, err)
-		collectCommitInfos(b, commitIter)
 		b.StopTimer()
 		outputRepoInfo, err := c.InspectRepo(pipelineTwo)
 		b.SetBytes(int64(outputRepoInfo.SizeBytes))
@@ -383,9 +378,8 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 	for i := 0; i < round; i++ {
 		if !b.Run(fmt.Sprintf("RunPipelinesEndToEnd-Round%d", i), func(b *testing.B) {
 			commit := addInputCommit(b)
-			commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
+			_, err := c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
 			require.NoError(b, err)
-			collectCommitInfos(b, commitIter)
 		}) {
 			return
 		}
