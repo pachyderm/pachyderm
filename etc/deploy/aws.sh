@@ -112,6 +112,7 @@ create_cloudfront_distribution() {
   aws cloudfront create-distribution --distribution-config file://tmp/cloudfront-distribution.json > tmp/cloudfront-distribution-info.json
   export CLOUDFRONT_ID=$(cat tmp/cloudfront-distribution-info.json | jq -r ".Distribution.Id")
   CLOUDFRONT_DOMAIN=$(cat tmp/cloudfront-distribution-info.json | jq -r ".Distribution.DomainName" | cut -f 1 -d .)
+  aws cloudfront wait distribution-deployed --id $CLOUDFRONT_ID
 }
 
 deploy_k8s_on_aws() {
@@ -300,7 +301,7 @@ echo ""
 echo "Please save this deploy output to a file for your future reference,"
 echo "You'll need some of the values reported here"
 # They'll need this ID to run the secure script
-echo "Created cloudfront distribution with ID: $(CLOUDFRONT_ID)"
+echo "Created cloudfront distribution with ID: ${CLOUDFRONT_ID}"
 # Must echo ID at end, for etc/testing/deploy/aws.sh
 echo "Cluster created:"
 echo ${NAME}
