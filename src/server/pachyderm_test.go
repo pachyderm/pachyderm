@@ -1412,9 +1412,10 @@ func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 	))
 
 	// Wait for job to spawn
-	time.Sleep(5 * time.Second)
+	time.Sleep(10 * time.Second)
 	jobInfos, err := c.ListJob(pipeline, nil)
 	require.NoError(t, err)
+	require.Equal(t, len(jobInfos), 1)
 
 	jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, true)
 	require.NoError(t, err)
