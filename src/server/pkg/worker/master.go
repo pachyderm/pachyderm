@@ -41,7 +41,7 @@ func (a *APIServer) master() {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		masterLock, err := dlock.NewDLock(ctx, a.etcdClient, path.Join(a.etcdPrefix, masterLockPath, a.pipelineInfo.Pipeline.Name))
+		masterLock, err := dlock.NewDLock(ctx, a.etcdClient, path.Join(a.etcdPrefix, masterLockPath, a.pipelineInfo.ID))
 		if err != nil {
 			return err
 		}
@@ -268,7 +268,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *grpc
 	jobID := jobInfo.Job.ID
 	var jobStopped bool
 	var jobStoppedMutex sync.Mutex
-	return backoff.RetryNotify(func() error {
+	backoff.RetryNotify(func() error {
 		// We use a new context for this particular instance of the retry
 		// loop, to ensure that all resources are released properly when
 		// this job retries.
@@ -613,6 +613,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *grpc
 
 		return nil
 	})
+	return nil
 }
 
 func (a *APIServer) scaleDownWorkers() error {
