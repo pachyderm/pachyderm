@@ -139,19 +139,38 @@ func Cmds(address string, noMetrics *bool) []*cobra.Command {
 	rawFlag(listRepo)
 
 	var force bool
+	var all bool
 	deleteRepo := &cobra.Command{
 		Use:   "delete-repo repo-name",
 		Short: "Delete a repo.",
 		Long:  "Delete a repo.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
 				return err
 			}
-			return client.DeleteRepo(args[0], force)
+			if len(args) > 0 && all {
+				return fmt.Errorf("cannot use the --all flag with an argument")
+			}
+			if len(args) == 0 && !all {
+				return fmt.Errorf("either a repo name or the --all flag needs to be provided")
+			}
+			if all {
+				_, err = client.PfsAPIClient.DeleteRepo(context.Background(), &pfsclient.DeleteRepoRequest{
+					Force: force,
+					All:   all,
+				})
+			} else {
+				err = client.DeleteRepo(args[0], force)
+			}
+			if err != nil {
+				return fmt.Errorf("error from delete-repo: %s", err)
+			}
+			return nil
 		}),
 	}
 	deleteRepo.Flags().BoolVarP(&force, "force", "f", false, "remove the repo regardless of errors; use with care")
+	deleteRepo.Flags().BoolVar(&all, "all", false, "remove all repos")
 
 	commit := &cobra.Command{
 		Use:   "commit",
@@ -874,7 +893,6 @@ $ pachctl diff-file foo master path1 bar master path2
 	mount.Flags().BoolVarP(&debug, "debug", "d", false, "Turn on debug messages.")
 	mount.Flags().BoolVarP(&allCommits, "all-commits", "a", false, "Show archived and cancelled commits.")
 
-	var all bool
 	unmount := &cobra.Command{
 		Use:   "unmount path/to/mount/point",
 		Short: "Unmount pfs.",
