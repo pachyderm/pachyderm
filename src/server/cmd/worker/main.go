@@ -87,13 +87,6 @@ func do(appEnvObj interface{}) error {
 	}
 	go pachClient.KeepConnected(make(chan bool)) // we never cancel the connection
 
-	// Construct a client that connects to real pachd nodes
-	pachRemoteClient, err := client.NewFromAddress(fmt.Sprintf("%v:650", appEnv.PachdAddress))
-	if err != nil {
-		return err
-	}
-	go pachRemoteClient.KeepConnected(make(chan bool)) // we never cancel the connection
-
 	// Get etcd client, so we can register our IP (so pachd can discover us)
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   []string{fmt.Sprintf("%s:2379", appEnv.EtcdAddress)},
@@ -109,7 +102,7 @@ func do(appEnvObj interface{}) error {
 		return fmt.Errorf("error getting pipelineInfo: %v", err)
 	}
 	workerRcName := pps.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	apiServer, err := worker.NewAPIServer(pachClient, pachRemoteClient, etcdClient, appEnv.PPSPrefix, pipelineInfo, appEnv.PodName, appEnv.Namespace)
+	apiServer, err := worker.NewAPIServer(pachClient, etcdClient, appEnv.PPSPrefix, pipelineInfo, appEnv.PodName, appEnv.Namespace)
 	if err != nil {
 		return err
 	}

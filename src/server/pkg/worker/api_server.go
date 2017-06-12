@@ -161,7 +161,7 @@ func (logger *taggedLogger) userLogger() *taggedLogger {
 }
 
 // NewAPIServer creates an APIServer for a given pipeline
-func NewAPIServer(pachClient *client.APIClient, pachRemoteClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string, pipelineInfo *pps.PipelineInfo, workerName string, namespace string) (*APIServer, error) {
+func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string, pipelineInfo *pps.PipelineInfo, workerName string, namespace string) (*APIServer, error) {
 	kubeClient, err := kube.NewInCluster()
 	if err != nil {
 		return nil, err
@@ -171,12 +171,11 @@ func NewAPIServer(pachClient *client.APIClient, pachRemoteClient *client.APIClie
 		return nil, err
 	}
 	server := &APIServer{
-		pachClient:       pachClient,
-		pachRemoteClient: pachRemoteClient,
-		kubeClient:       kubeClient,
-		etcdClient:       etcdClient,
-		etcdPrefix:       etcdPrefix,
-		pipelineInfo:     pipelineInfo,
+		pachClient:   pachClient,
+		kubeClient:   kubeClient,
+		etcdClient:   etcdClient,
+		etcdPrefix:   etcdPrefix,
+		pipelineInfo: pipelineInfo,
 		logMsgTemplate: pps.LogMessage{
 			PipelineName: pipelineInfo.Pipeline.Name,
 			PipelineID:   pipelineInfo.ID,

@@ -1,13 +1,10 @@
 package server
 
 import (
-	"sync"
-
 	"github.com/pachyderm/pachyderm/src/client"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
-	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"go.pedge.io/proto/rpclog"
@@ -18,7 +15,6 @@ import (
 func NewAPIServer(
 	etcdAddress string,
 	etcdPrefix string,
-	hasher *ppsserver.Hasher,
 	address string,
 	kubeClient *kube.Client,
 	namespace string,
@@ -41,10 +37,8 @@ func NewAPIServer(
 	apiServer := &apiServer{
 		Logger:                protorpclog.NewLogger("pps.API"),
 		etcdPrefix:            etcdPrefix,
-		hasher:                hasher,
 		address:               address,
 		etcdClient:            etcdClient,
-		pachConnOnce:          sync.Once{},
 		kubeClient:            kubeClient,
 		namespace:             namespace,
 		workerImage:           workerImage,
@@ -58,5 +52,34 @@ func NewAPIServer(
 		jobs:                  ppsdb.Jobs(etcdClient, etcdPrefix),
 	}
 	go apiServer.master()
+	return apiServer, nil
+}
+
+// NewSidecarAPIServer creates an APIServer that has limited functionalities
+// and is meant to be run as a worker sidecar.  It cannot, for instance,
+// create pipelines.
+func NewSidecarAPIServer(
+	etcdAddress string,
+	etcdPrefix string,
+	address string,
+	reporter *metrics.Reporter,
+) (ppsclient.APIServer, error) {
+	etcdClient, err := etcd.New(etcd.Config{
+		Endpoints:   []string{etcdAddress},
+		DialOptions: client.EtcdDialOptions(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	apiServer := &apiServer{
+		Logger:     protorpclog.NewLogger("pps.API"),
+		address:    address,
+		etcdPrefix: etcdPrefix,
+		etcdClient: etcdClient,
+		reporter:   reporter,
+		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
+		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
+	}
 	return apiServer, nil
 }
