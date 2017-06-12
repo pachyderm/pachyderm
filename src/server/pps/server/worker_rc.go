@@ -101,7 +101,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 			{
 				Name:            client.PPSWorkerSidecarContainerName,
 				Image:           a.workerSidecarImage,
-				Command:         []string{"/pachd", "--mode", "pfs"},
+				Command:         []string{"/pachd", "--mode", "sidecar"},
 				ImagePullPolicy: api.PullPolicy(pullPolicy),
 				Env:             sidecarEnv,
 				VolumeMounts:    sidecarVolumeMounts,

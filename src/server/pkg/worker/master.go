@@ -218,7 +218,7 @@ nextInput:
 func (a *APIServer) jobManager(ctx context.Context, jobCh chan *pps.JobInfo) {
 	pfsClient := a.pachClient.PfsAPIClient
 	objectClient := a.pachClient.ObjectAPIClient
-	ppsClient := a.pachRemoteClient.PpsAPIClient
+	ppsClient := a.pachClient.PpsAPIClient
 
 	// Establish connection pool
 	var pool *grpcutil.Pool

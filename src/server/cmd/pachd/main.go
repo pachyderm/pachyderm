@@ -25,7 +25,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
-	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 
 	flag "github.com/spf13/pflag"
@@ -42,7 +41,7 @@ var readinessCheck bool
 var migrate string
 
 func init() {
-	flag.StringVar(&mode, "mode", "full", "Pachd currently supports two modes: full and pfs.  The former includes everything you need in a full pachd node.  The later runs only PFS.")
+	flag.StringVar(&mode, "mode", "full", "Pachd currently supports two modes: full and sidecar.  The former includes everything you need in a full pachd node.  The later runs only PFS and a stripped-down version of PPS.")
 	flag.BoolVar(&readinessCheck, "readiness-check", false, "Set to true when checking if local pod is ready")
 	flag.StringVar(&migrate, "migrate", "", "Use the format FROM_VERSION-TO_VERSION; e.g. 1.2.4-1.3.0")
 	flag.Parse()
@@ -73,14 +72,14 @@ func main() {
 	switch mode {
 	case "full":
 		cmdutil.Main(doFullMode, &appEnv{})
-	case "pfs":
-		cmdutil.Main(doPFSMode, &appEnv{})
+	case "sidecar":
+		cmdutil.Main(doSidecarMode, &appEnv{})
 	default:
 		fmt.Printf("unrecognized mode: %s\n", mode)
 	}
 }
 
-func doPFSMode(appEnvObj interface{}) error {
+func doSidecarMode(appEnvObj interface{}) error {
 	go func() {
 		lion.Println(http.ListenAndServe(":651", nil))
 	}()
@@ -125,6 +124,15 @@ func doPFSMode(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
+	ppsAPIServer, err := pps_server.NewSidecarAPIServer(
+		etcdAddress,
+		appEnv.PPSEtcdPrefix,
+		address,
+		reporter,
+	)
+	if err != nil {
+		return err
+	}
 	blockCacheBytes, err := units.RAMInBytes(appEnv.BlockCacheBytes)
 	if err != nil {
 		return err
@@ -138,6 +146,7 @@ func doPFSMode(appEnvObj interface{}) error {
 		func(s *grpc.Server) {
 			pfsclient.RegisterAPIServer(s, pfsAPIServer)
 			pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
+			ppsclient.RegisterAPIServer(s, ppsAPIServer)
 			healthclient.RegisterHealthServer(s, healthServer)
 		},
 		grpcutil.ServeOptions{
@@ -237,7 +246,6 @@ func doFullMode(appEnvObj interface{}) error {
 	ppsAPIServer, err := pps_server.NewAPIServer(
 		etcdAddress,
 		appEnv.PPSEtcdPrefix,
-		ppsserver.NewHasher(appEnv.NumShards, appEnv.NumShards),
 		address,
 		kubeClient,
 		getNamespace(),
