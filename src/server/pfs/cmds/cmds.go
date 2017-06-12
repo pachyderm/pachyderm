@@ -326,7 +326,6 @@ $ pachctl list-commit foo master --from XXX
 			}
 		}
 		writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-		pretty.PrintCommitInfoHeader(writer)
 		for {
 			commitInfo, err := commitIter.Next()
 			if err == io.EOF {
@@ -335,6 +334,7 @@ $ pachctl list-commit foo master --from XXX
 			if err != nil {
 				return err
 			}
+			pretty.PrintCommitInfoHeader(writer)
 			pretty.PrintCommitInfo(writer, commitInfo)
 			if err := writer.Flush(); err != nil {
 				return err
