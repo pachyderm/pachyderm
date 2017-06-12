@@ -79,7 +79,7 @@ func (a *APIServer) jobSpawner(ctx context.Context) error {
 	}
 	pool, err := grpcutil.NewPool(a.kubeClient, a.namespace, pps.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version), numWorkers, client.PachDialOptions()...)
 	if err != nil {
-		fmt.Errorf("master: error constructing worker pool: %v; retrying in %v", err)
+		return fmt.Errorf("master: error constructing worker pool: %v; retrying in %v", err)
 	}
 	defer func() {
 		if err := pool.Close(); err != nil {
