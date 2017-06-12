@@ -7,6 +7,13 @@ Below, we show how to deploy Pachyderm on AWS in a couple of different ways:
 
 If you already have a Kubernetes deployment or would like to customize the types of instances, size of volumes, etc. in your Kubernetes cluster, you should follow option (1).  If you just want a quick deploy to experiment with Pachyderm in AWS or would just like to use our default configuration, you might want to try option (2)
 
+
+## Production Deployment
+
+Note - for production deployments we recommend setting up AWS CloudFront. AWS puts S3 rate limits in place that can limit the data throughput for your cluster, and CloudFront helps mitigate this issue.
+
+[Follow the instructions here to deploy a Pachyderm cluster with CloudFront](./aws_cloudfront.html)
+
 ## Prerequisites
 
 - [AWS CLI](https://aws.amazon.com/cli/) - have it installed and have your [AWS credentials](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html) configured.
@@ -215,9 +222,3 @@ COMPONENT           VERSION
 pachctl             1.4.6
 pachd               1.4.6
 ```
-
-## Production Deployment
-
-For production deployments we recommend setting up AWS CloudFront. This is helpful because of S3 rate limits that AWS puts in place that can limit throughput for your cluster reading data.
-
-[Follow the Cloudfront Deployment instructions here](./aws_cloudfront.md)
