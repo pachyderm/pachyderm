@@ -1,8 +1,6 @@
 # AWS Cloudfront
 
-For a production installation we recommend using cloudfront.
-
-To deploy a production ready AWS cluster:
+To deploy a production ready AWS cluster with CloudFront
 
 1) Follow the instructions for a normal AWS deployment
 
