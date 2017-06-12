@@ -222,16 +222,8 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 	dataRepo := uniqueString("TestMultipleInputsFromTheSameBranch_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	commit1, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, commit1.ID, "dirA/file", strings.NewReader("foo\n"))
-	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, commit1.ID, "dirB/file", strings.NewReader("foo\n"))
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
-
 	pipeline := uniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
+	require.YesError(t, c.CreatePipeline(
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -248,49 +240,6 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 		"",
 		false,
 	))
-
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
-	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
-
-	var buf bytes.Buffer
-	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
-	require.Equal(t, "foo\nfoo\n", buf.String())
-
-	commit2, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, commit2.ID, "dirA/file", strings.NewReader("bar\n"))
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
-
-	commitIter, err = c.FlushCommit([]*pfs.Commit{commit2}, nil)
-	require.NoError(t, err)
-	commitInfos = collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
-
-	buf.Reset()
-	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
-	require.Equal(t, "foo\nbar\nfoo\n", buf.String())
-
-	commit3, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, commit3.ID, "dirB/file", strings.NewReader("buzz\n"))
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(dataRepo, commit3.ID))
-
-	commitIter, err = c.FlushCommit([]*pfs.Commit{commit3}, nil)
-	require.NoError(t, err)
-	commitInfos = collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
-
-	buf.Reset()
-	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
-	require.Equal(t, "foo\nbar\nfoo\nbuzz\n", buf.String())
-
-	commitInfos, err = c.ListCommit(pipeline, "", "", 0)
-	require.NoError(t, err)
-	require.Equal(t, 3, len(commitInfos))
 }
 
 func TestMultipleInputsFromTheSameRepo(t *testing.T) {
@@ -305,18 +254,6 @@ func TestMultipleInputsFromTheSameRepo(t *testing.T) {
 
 	branchA := "branchA"
 	branchB := "branchB"
-
-	commitA1, err := c.StartCommit(dataRepo, branchA)
-	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, commitA1.ID, "file", strings.NewReader("foo\n"))
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(dataRepo, commitA1.ID))
-
-	commitB1, err := c.StartCommit(dataRepo, branchB)
-	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, commitB1.ID, "file", strings.NewReader("foo\n"))
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(dataRepo, commitB1.ID))
 
 	pipeline := uniqueString("pipeline")
 	// Creating this pipeline should error, because the two inputs are
@@ -338,7 +275,7 @@ func TestMultipleInputsFromTheSameRepo(t *testing.T) {
 		false,
 	))
 
-	require.NoError(t, c.CreatePipeline(
+	require.YesError(t, c.CreatePipeline(
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -354,95 +291,6 @@ func TestMultipleInputsFromTheSameRepo(t *testing.T) {
 		"",
 		false,
 	))
-
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commitA1, commitB1}, nil)
-	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
-
-	var buf bytes.Buffer
-	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
-	require.Equal(t, "foo\nfoo\n", buf.String())
-
-	commitA2, err := c.StartCommit(dataRepo, branchA)
-	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, commitA2.ID, "file", strings.NewReader("bar\n"))
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(dataRepo, commitA2.ID))
-
-	commitIter, err = c.FlushCommit([]*pfs.Commit{commitA2, commitB1}, nil)
-	require.NoError(t, err)
-	commitInfos = collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
-
-	buf.Reset()
-	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
-	require.Equal(t, "foo\nbar\nfoo\n", buf.String())
-
-	commitB2, err := c.StartCommit(dataRepo, branchB)
-	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, commitB2.ID, "file", strings.NewReader("buzz\n"))
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(dataRepo, commitB2.ID))
-
-	commitIter, err = c.FlushCommit([]*pfs.Commit{commitA2, commitB2}, nil)
-	require.NoError(t, err)
-	commitInfos = collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
-
-	buf.Reset()
-	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
-	require.Equal(t, "foo\nbar\nfoo\nbuzz\n", buf.String())
-
-	commitA3, err := c.StartCommit(dataRepo, branchA)
-	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, commitA3.ID, "file", strings.NewReader("poo\n"))
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(dataRepo, commitA3.ID))
-
-	commitIter, err = c.FlushCommit([]*pfs.Commit{commitA3, commitB2}, nil)
-	require.NoError(t, err)
-	commitInfos = collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
-
-	buf.Reset()
-	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
-	require.Equal(t, "foo\nbar\npoo\nfoo\nbuzz\n", buf.String())
-
-	commitInfos, err = c.ListCommit(pipeline, "", "", 0)
-	require.NoError(t, err)
-	require.Equal(t, 4, len(commitInfos))
-
-	// Now we delete the pipeline and re-create it.  The pipeline should
-	// only process the heads of the branches.
-	require.NoError(t, c.DeletePipeline(pipeline, true))
-	require.NoError(t, c.DeleteRepo(pipeline, false))
-
-	require.NoError(t, c.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{
-			fmt.Sprintf("cat /pfs/%s/file >> /pfs/out/file", branchA),
-			fmt.Sprintf("cat /pfs/%s/file >> /pfs/out/file", branchB),
-		},
-		nil,
-		client.NewCrossInput(
-			client.NewAtomInputOpts(branchA, dataRepo, branchA, "/*", false, ""),
-			client.NewAtomInputOpts(branchB, dataRepo, branchB, "/*", false, ""),
-		),
-		"",
-		false,
-	))
-
-	commitIter, err = c.FlushCommit([]*pfs.Commit{commitA3, commitB2}, nil)
-	require.NoError(t, err)
-	commitInfos = collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
-
-	buf.Reset()
-	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
-	require.Equal(t, "foo\nbar\npoo\nfoo\nbuzz\n", buf.String())
 }
 
 //func TestJob(t *testing.T) {
