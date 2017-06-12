@@ -1046,7 +1046,7 @@ func TestDeletePipeline(t *testing.T) {
 
 	createPipeline()
 	// Wait for the job to start running
-	time.Sleep(5 * time.Second)
+	time.Sleep(15 * time.Second)
 	require.NoError(t, c.DeleteRepo(pipeline, false))
 	require.NoError(t, c.DeletePipeline(pipeline, true))
 	time.Sleep(5 * time.Second)
@@ -1058,7 +1058,7 @@ func TestDeletePipeline(t *testing.T) {
 
 	createPipeline()
 	// Wait for the job to start running
-	time.Sleep(5 * time.Second)
+	time.Sleep(15 * time.Second)
 	require.NoError(t, c.DeleteRepo(pipeline, false))
 	require.NoError(t, c.DeletePipeline(pipeline, false))
 	time.Sleep(5 * time.Second)
@@ -1066,7 +1066,7 @@ func TestDeletePipeline(t *testing.T) {
 	// The job should still be there, and its state should be "KILLED"
 	jobs, err = c.ListJob(pipeline, nil)
 	require.NoError(t, err)
-	require.Equal(t, len(jobs), 1)
+	require.Equal(t, 1, len(jobs))
 	require.Equal(t, pps.JobState_JOB_STOPPED, jobs[0].State)
 }
 
@@ -2641,7 +2641,7 @@ func TestStopJob(t *testing.T) {
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
 		"",
-		[]string{"sleep", "10"},
+		[]string{"sleep", "20"},
 		nil,
 		&pps.ParallelismSpec{
 			Strategy: pps.ParallelismSpec_CONSTANT,
@@ -2668,23 +2668,28 @@ func TestStopJob(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
 
 	// Wait for the first job to start running
-	time.Sleep(5 * time.Second)
+	time.Sleep(10 * time.Second)
 
-	// Check that the first job is running and the second is starting
+	// Check that the first job is running
 	jobInfos, err := c.ListJob(pipelineName, nil)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(jobInfos))
-	require.Equal(t, pps.JobState_JOB_STARTING, jobInfos[0].State)
-	require.Equal(t, pps.JobState_JOB_RUNNING, jobInfos[1].State)
+	require.Equal(t, 1, len(jobInfos))
+	require.Equal(t, pps.JobState_JOB_RUNNING, jobInfos[0].State)
 
 	// Now stop the first job
-	err = c.StopJob(jobInfos[1].Job.ID)
+	err = c.StopJob(jobInfos[0].Job.ID)
 	require.NoError(t, err)
-	jobInfo, err := c.InspectJob(jobInfos[1].Job.ID, true)
+	jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, true)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_STOPPED, jobInfo.State)
 
+	// Wait a little for the second job to spawn
+	time.Sleep(5 * time.Second)
+
 	// Check that the second job completes
+	jobInfos, err = c.ListJob(pipelineName, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(jobInfos))
 	jobInfo, err = c.InspectJob(jobInfos[0].Job.ID, true)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
