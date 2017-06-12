@@ -563,6 +563,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		logger.Logf("puller encountered an error while cleaning up: %+v", err)
 		return nil, err
 	}
+	logger.Logf("beginning to upload output")
 	if err := a.uploadOutput(ctx, tag, logger, req.Data); err != nil {
 		// If uploading failed because the user program outputed a special
 		// file, then there's no point in retrying.  Thus we signal that
@@ -575,6 +576,8 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		}
 		return nil, err
 	}
+	logger.Logf("finished uploading output")
+	logger.Logf("finished processing datum %v", tag)
 	return &ProcessResponse{
 		Tag: &pfs.Tag{tag},
 	}, nil
