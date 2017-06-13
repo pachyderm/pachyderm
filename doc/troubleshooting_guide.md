@@ -5,6 +5,7 @@ Here we list some common gotchas by symptom and steps you can do to resolve the 
 - [Starting up a Pachyderm cluster](#starting-up-a-pachyderm-cluster)
 - [Connecting to the cluster](#connecting-to-the-cluster)
 - [AWS Deployment](#aws-deployment)
+- [Problems Running Pipelines](#problems-running-pipelines)
 
 ---
 
@@ -264,3 +265,92 @@ Launching a new EC2 instance
 Description:DescriptionLaunching a new EC2 instance. Status Reason: You have requested more instances (1) than your current instance limit of 0 allows for the specified instance type. Please visit http://aws.amazon.com/contact-us/ec2-request to request an adjustment to this limit. Launching EC2 instance failed.
 Cause:CauseAt 2017-06-12T20:21:47Z an instance was started in response to a difference between desired and actual capacity, increasing the capacity from 0 to 1.
 ```
+
+---
+
+## Problems Running Pipelines
+
+### All your pods / jobs get evicted
+
+#### Symptom
+
+```
+$ kubectl get all
+```
+
+Shows a bunch of pods that are marked `Evicted`. If you `kubectl describe ...` a single pod that's been evicted, you see an error saying that it was evicted due to disk pressure.
+
+
+#### Recourse
+
+Your nodes are not configured with a big enough root volume size.
+
+You need to make sure that each node's root volume is big enough to store the biggest datum you expect to process anywhere on your DAG PLUS the size of the output files that will be written for that datum.
+
+Let's say you have a repo with 100 folders. You have a single pipeline with this repo as an input, and the glob pattern is `/*`. That means each folder will be processed as a single datum.
+
+And let's say the biggest folder is 50GBs. And your pipeline step processes this folder and creates an output about 3 times as big. Then your root volume size needs to be bigger than:
+
+```
+50 GB (to accommodate the input) + 50 GB x 3 (to accommodate the output) = 200GB
+```
+
+In this case I'd recommend 250GB just for a buffer.
+
+If your root volume size is less than 50GB (the default is 20GB) this pipeline will fail when downloading the input. The pod may get evicted and rescheduled to a different node, where the same thing will happen. You can see how this will compound. If your root volume is less than this amount, the worker will fail.
+
+### Pipeline Exists But Never Runs
+
+#### Symptom
+
+You can see the pipeline via:
+
+```
+$ pachctl list-pipeline
+```
+
+But if you look at the job via:
+
+```
+$ pachctl list-job
+```
+
+It's marked as running, but `0/0` datums have been processed.
+
+If you inspect the job via:
+
+```
+$ pachctl inspect-job
+```
+
+You don't see any worker set. E.g:
+
+```
+Worker Status:
+WORKER              JOB                 DATUM               STARTED             
+...
+```
+
+If you do `kubectl get pod` you see the worker pod for your pipeline, e.g:
+
+```
+po/pipeline-foo-5-v1-273zc
+```
+
+But it's state is `Pending` or `CrashLoopBackoff`
+
+#### Recourse
+
+Describe the pod via:
+
+```
+$kubectl describe po/pipeline-foo-5-v1-273zc
+```
+
+If the state is `CrashLoopBackoff`, you're looking for a descriptive error message. Once such cause for this behavior might be if you specified an image for your pipeline that does not exist.
+
+If the state is `Pending` it's likely the cluster doesn't have enough resources. In this case, you'll see a `could not schedule` type of error message which should describe which resource you're low on. This is more likely to happen as well if you've set resource requests (cpu/mem/gpu) for your pipelines.
+
+In this case, you'll just need to scale up your resources. If you deployed using `kops`, you'll want to do edit the instance group, e.g. `kops edit ig nodes ...` and up the number of nodes. If you didn't use kops to deploy, you can use your cloud provider's auto scaling groups to increase the size of your instance group. Either way, it can take up to 10 minutes for the changes to go into effect. 
+
+You should see the new nodes via `kubectl get nodes` and once they're up and marked `Ready` you should see your pipeline's pod get scheduled.
