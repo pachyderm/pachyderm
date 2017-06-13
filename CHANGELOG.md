@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.5.0
+
+New Features:
+
+- Pachyderm Dashboard
+- GPU support and deployment helpers for driver installation (including example using TensorFlow + GPU deployment)
+- Ability to cross / union inputs
+- Ability to auto scale down pipelines when idle
+- Ability to specify resource requirements (cpu / memory / gpu) per pipeline
+- Ability to display 'raw' json version of any object via pachctl
+
+Improvements:
+
+- moved toward distributed PFS I/O to distribute load from pipelines
+- performance upgrade for AWS deployments (which uses cloudfront to surpass s3 rate limiting)
+- better cleanup of disk resources (utilizing k8s to reclaim disk space via `emptyDir`)
+- ability to delete finished commits
+- ability to write on modified (job symlink thing)
+- garbage collection of unused data in Pachyderm PFS
+- proper repo sizes reported
+
+Removed Features:
+
+- running one-off jobs
+
 ## 1.4.0
 
 Features/improvements:
