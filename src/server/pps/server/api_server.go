@@ -111,7 +111,7 @@ type apiServer struct {
 
 func (a *apiServer) validateInput(ctx context.Context, input *pps.Input, job bool) error {
 	names := make(map[string]bool)
-	repos := make(map[string]bool)
+	repoBranch := make(map[string]string)
 	var result error
 	pps.VisitInput(input, func(input *pps.Input) {
 		set := false
@@ -143,11 +143,11 @@ func (a *apiServer) validateInput(ctx context.Context, input *pps.Input, job boo
 				return
 			}
 			names[input.Atom.Name] = true
-			if repos[input.Atom.Repo] {
-				result = fmt.Errorf("cannot use the same repo in multiple inputs")
+			if repoBranch[input.Atom.Repo] != "" && repoBranch[input.Atom.Repo] != input.Atom.Branch {
+				result = fmt.Errorf("cannot use the same repo in multiple inputs with different branches")
 				return
 			}
-			repos[input.Atom.Repo] = true
+			repoBranch[input.Atom.Repo] = input.Atom.Branch
 			pfsClient, err := a.getPFSClient()
 			if err != nil {
 				result = err

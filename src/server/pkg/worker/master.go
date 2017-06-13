@@ -87,7 +87,7 @@ func (a *APIServer) jobSpawner(ctx context.Context) error {
 		}
 	}()
 
-	bsf, err := newBranchSetFactory(ctx, a.pachClient.PfsAPIClient, a.pipelineInfo.Input)
+	bsf, err := a.newBranchSetFactory(ctx)
 	if err != nil {
 		return err
 	}

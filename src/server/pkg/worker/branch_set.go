@@ -1,6 +1,8 @@
 package worker
 
 import (
+	"sync"
+
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -32,108 +34,100 @@ func (f *branchSetFactoryImpl) Chan() chan *branchSet {
 	return f.ch
 }
 
-func newBranchSetFactory(_ctx context.Context, pfsClient pfs.APIClient, input *pps.Input) (branchSetFactory, error) {
+func (a *APIServer) newBranchSetFactory(_ctx context.Context) (branchSetFactory, error) {
 	ctx, cancel := context.WithCancel(_ctx)
+	pfsClient := a.pachClient.PfsAPIClient
 
-	uniqueBranches := make(map[string]map[string]*pfs.Commit)
-	pps.VisitInput(input, func(input *pps.Input) {
-		if input.Atom != nil {
-			if uniqueBranches[input.Atom.Repo] == nil {
-				uniqueBranches[input.Atom.Repo] = make(map[string]*pfs.Commit)
-			}
-			if input.Atom.FromCommit != "" {
-				uniqueBranches[input.Atom.Repo][input.Atom.Branch] =
-					client.NewCommit(input.Atom.Repo, input.Atom.FromCommit)
-			} else {
-				uniqueBranches[input.Atom.Repo][input.Atom.Branch] = nil
-			}
+	rootInputs, err := a.rootInputs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	directInputs := a.directInputs(ctx)
+
+	commitSets := make([][]*pfs.CommitInfo, len(directInputs))
+	var commitSetsMutex sync.Mutex
+
+	ch := make(chan *branchSet)
+	for i, input := range directInputs {
+		i, input := i, input
+
+		stream, err := pfsClient.SubscribeCommit(ctx, &pfs.SubscribeCommitRequest{
+			Repo:   client.NewRepo(input.Repo),
+			Branch: input.Branch,
+			From:   client.NewCommit(input.Repo, input.FromCommit),
+		})
+		if err != nil {
+			return nil, err
 		}
-	})
 
-	var numBranches int
-	branchCh := make(chan *pfs.Branch)
-	errCh := make(chan error)
-	for repoName, branches := range uniqueBranches {
-		for branchName, fromCommit := range branches {
-			numBranches++
-			stream, err := pfsClient.SubscribeCommit(ctx, &pfs.SubscribeCommitRequest{
-				Repo:   &pfs.Repo{repoName},
-				Branch: branchName,
-				From:   fromCommit,
-			})
-			if err != nil {
-				return nil, err
-			}
-			go func(branchName string) {
-				for {
-					commitInfo, err := stream.Recv()
-					if err != nil {
-						select {
-						case <-ctx.Done():
-						case errCh <- err:
+		go func() {
+			for {
+				commitInfo, err := stream.Recv()
+				if err != nil {
+					select {
+					case <-ctx.Done():
+					case ch <- &branchSet{
+						Err: err,
+					}:
+					}
+					return
+				}
+
+				commitSetsMutex.Lock()
+				defer commitSetsMutex.Unlock()
+				commitSets[i] = append(commitSets[i], commitInfo)
+
+				// Now we look for a set of commits that have provenance
+				// commits from the root input repos.  The set is only valid
+				// if there's precisely one provenance commit from each root
+				// input repo.
+				if set := considerEachSet(commitSets, i, func(set []*pfs.CommitInfo) bool {
+					rootCommitCounts := make(map[string]int)
+					for _, commitInfo := range set {
+						for _, provCommit := range commitInfo.Provenance {
+							rootCommitCounts[provCommit.Repo.Name] += 1
 						}
-						return
+					}
+
+					// Use a set to test if a repo is a root input
+					rootInputSet := make(map[string]bool)
+					for _, rootInput := range rootInputs {
+						rootInputSet[rootInput.Repo] = true
+					}
+					// ok tells us if it's ok to spawn a job with this
+					// commit set.
+					for repo, numCommits := range rootCommitCounts {
+						if rootInputSet[repo] {
+							// Make sure that we get precisely one commit per
+							// root input repo.
+							if numCommits != 1 {
+								return false
+							}
+							delete(rootInputSet, repo)
+						}
+					}
+					// Make sure that we've seen a commit for every root input
+					// repo.
+					return len(rootInputSet) == 0
+				}); set != nil {
+					bs := &branchSet{
+						NewBranch: i,
+					}
+					for _, commitInfo := range set {
+						bs.Branches = append(bs.Branches, &pfs.Branch{
+							Name: input.Name,
+							Head: commitInfo.Commit,
+						})
 					}
 					select {
 					case <-ctx.Done():
 						return
-					case branchCh <- &pfs.Branch{
-						Name: branchName,
-						Head: commitInfo.Commit,
-					}:
+					case ch <- bs:
 					}
 				}
-			}(branchName)
-		}
+			}
+		}()
 	}
-
-	ch := make(chan *branchSet)
-	go func() {
-		var currentBranchSet []*pfs.Branch
-		for {
-			var newBranch *pfs.Branch
-			select {
-			case <-ctx.Done():
-				return
-			case newBranch = <-branchCh:
-			case err := <-errCh:
-				select {
-				case <-ctx.Done():
-					return
-				case ch <- &branchSet{
-					Err: err,
-				}:
-				}
-				return
-			}
-
-			var found bool
-			var newBranchIndex int
-			for i, branch := range currentBranchSet {
-				if branch.Head.Repo.Name == newBranch.Head.Repo.Name && branch.Name == newBranch.Name {
-					currentBranchSet[i] = newBranch
-					found = true
-					newBranchIndex = i
-				}
-			}
-			if !found {
-				currentBranchSet = append(currentBranchSet, newBranch)
-				newBranchIndex = len(currentBranchSet) - 1
-			}
-			if len(currentBranchSet) == numBranches {
-				newBranchSet := make([]*pfs.Branch, numBranches)
-				copy(newBranchSet, currentBranchSet)
-				select {
-				case <-ctx.Done():
-					return
-				case ch <- &branchSet{
-					Branches:  newBranchSet,
-					NewBranch: newBranchIndex,
-				}:
-				}
-			}
-		}
-	}()
 
 	f := &branchSetFactoryImpl{
 		cancel: cancel,
@@ -141,4 +135,104 @@ func newBranchSetFactory(_ctx context.Context, pfsClient pfs.APIClient, input *p
 	}
 
 	return f, nil
+}
+
+// considerEachSet runs a function on every commit set, starting with the
+// most recent one.  If the function returns true, then considerEachSet
+// removes the commit sets that are older than the current one and returns
+// the current one.
+// i is the index of the input from which we just got a new commit.  Since
+// it's the "triggering" input, we know that we only have to consider commit
+// sets that include the triggering commit since other commit sets must have
+// already been considered in previous runs.
+func considerEachSet(commitSets [][]*pfs.CommitInfo, i int, f func(commitSet []*pfs.CommitInfo) bool) []*pfs.CommitInfo {
+	numCommitSets := 1
+	for j, commits := range commitSets {
+		if i != j {
+			numCommitSets *= len(commits)
+		}
+	}
+	for j := numCommitSets - 1; j > 0; j-- {
+		var commitSet []*pfs.CommitInfo
+		var indexes []int
+		for _, commits := range commitSets {
+			index := numCommitSets % len(commits)
+			indexes = append(indexes, index)
+			commitSet = append(commitSet, commits[index])
+			numCommitSets /= len(commits)
+		}
+		if f(commitSet) {
+			// Remove older commit sets
+			commitSets[j] = commitSets[j][indexes[j]+1:]
+			return commitSet
+		}
+	}
+	return nil
+}
+
+// directInputs returns the inputs that should trigger the pipeline.  Inputs
+// from the same repo/branch are de-duplicated.
+func (a *APIServer) directInputs(ctx context.Context) []*pps.AtomInput {
+	repoSet := make(map[string]bool)
+	var atomInputs []*pps.AtomInput
+	pps.VisitInput(a.pipelineInfo.Input, func(input *pps.Input) {
+		if input.Atom != nil {
+			if repoSet[input.Atom.Repo] {
+				return
+			}
+			repoSet[input.Atom.Repo] = true
+			atomInputs = append(atomInputs, input.Atom)
+		}
+	})
+	return atomInputs
+}
+
+// rootInputs returns the root provenance of direct inputs.
+func (a *APIServer) rootInputs(ctx context.Context) ([]*pps.AtomInput, error) {
+	atomInputs := a.directInputs(ctx)
+	return a._rootInputs(ctx, atomInputs)
+}
+
+func (a *APIServer) _rootInputs(ctx context.Context, atomInputs []*pps.AtomInput) ([]*pps.AtomInput, error) {
+	pfsClient := a.pachClient.PfsAPIClient
+	ppsClient := a.pachClient.PpsAPIClient
+	// map from repo.Name + branch to *pps.AtomInput so that we don't
+	// repeat ourselves.
+	resultMap := make(map[string]*pps.AtomInput)
+	for _, atomInput := range atomInputs {
+		repoInfo, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{client.NewRepo(atomInput.Repo)})
+		if err != nil {
+			return nil, err
+		}
+		if len(repoInfo.Provenance) == 0 {
+			resultMap[atomInput.Repo+atomInput.Branch] = atomInput
+			continue
+		}
+		// if the repo has nonzero provenance we know that it's a pipeline
+		pipelineInfo, err := ppsClient.InspectPipeline(ctx, &pps.InspectPipelineRequest{client.NewPipeline(atomInput.Repo)})
+		if err != nil {
+			return nil, err
+		}
+		// TODO we should be propagating `from_commit` here
+		var visitErr error
+		pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+			if input.Atom != nil {
+				subResults, err := a._rootInputs(ctx, []*pps.AtomInput{input.Atom})
+				if err != nil && visitErr == nil {
+					visitErr = err
+				}
+				for _, atomInput := range subResults {
+					resultMap[atomInput.Repo+atomInput.Branch] = atomInput
+				}
+			}
+		})
+		if visitErr != nil {
+			return nil, visitErr
+		}
+	}
+	var result []*pps.AtomInput
+	for _, atomInput := range resultMap {
+		result = append(result, atomInput)
+	}
+	return result, nil
 }
