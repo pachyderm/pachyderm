@@ -1341,40 +1341,57 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 	return h, nil
 }
 
-func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size int64) (io.Reader, error) {
+// getTreeForFile is like getTreeForCommit except that it can handle open commits.
+// It takes a file instead of a commit so that it can apply the changes for
+// that path to the tree before it returns it.
+func (d *driver) getTreeForFile(ctx context.Context, file *pfs.File) (hashtree.HashTree, error) {
+	if file.Commit == nil {
+		t, err := hashtree.NewHashTree().Finish()
+		if err != nil {
+			return nil, err
+		}
+		return t, nil
+	}
 	commitInfo, err := d.inspectCommit(ctx, file.Commit)
 	if err != nil {
 		return nil, err
 	}
-	var tree hashtree.HashTree
 	if commitInfo.Finished != nil {
-		tree, err = d.getTreeForCommit(ctx, file.Commit)
+		tree, err := d.getTreeForCommit(ctx, file.Commit)
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		prefix, err := d.scratchFilePrefix(ctx, file)
-		if err != nil {
-			return nil, err
-		}
-		// Read everything under the scratch space for this commit
-		resp, err := d.etcdClient.Get(ctx, prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend))
-		if err != nil {
-			return nil, err
-		}
+		return tree, nil
+	}
+	prefix, err := d.scratchFilePrefix(ctx, file)
+	if err != nil {
+		return nil, err
+	}
+	// Read everything under the scratch space for this commit
+	resp, err := d.etcdClient.Get(ctx, prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend))
+	if err != nil {
+		return nil, err
+	}
 
-		parentTree, err := d.getTreeForCommit(ctx, commitInfo.ParentCommit)
-		if err != nil {
-			return nil, err
-		}
-		openTree := parentTree.Open()
-		if err := d.applyWrites(resp, openTree); err != nil {
-			return nil, err
-		}
-		tree, err = openTree.Finish()
-		if err != nil {
-			return nil, err
-		}
+	parentTree, err := d.getTreeForCommit(ctx, commitInfo.ParentCommit)
+	if err != nil {
+		return nil, err
+	}
+	openTree := parentTree.Open()
+	if err := d.applyWrites(resp, openTree); err != nil {
+		return nil, err
+	}
+	tree, err := openTree.Finish()
+	if err != nil {
+		return nil, err
+	}
+	return tree, nil
+}
+
+func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size int64) (io.Reader, error) {
+	tree, err := d.getTreeForFile(ctx, file)
+	if err != nil {
+		return nil, err
 	}
 
 	node, err := tree.Get(file.Path)
@@ -1427,7 +1444,7 @@ func nodeToFileInfo(commit *pfs.Commit, path string, node *hashtree.NodeProto, f
 }
 
 func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo, error) {
-	tree, err := d.getTreeForCommit(ctx, file.Commit)
+	tree, err := d.getTreeForFile(ctx, file)
 	if err != nil {
 		return nil, err
 	}
@@ -1441,7 +1458,7 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 }
 
 func (d *driver) listFile(ctx context.Context, file *pfs.File) ([]*pfs.FileInfo, error) {
-	tree, err := d.getTreeForCommit(ctx, file.Commit)
+	tree, err := d.getTreeForFile(ctx, file)
 	if err != nil {
 		return nil, err
 	}
@@ -1459,7 +1476,7 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File) ([]*pfs.FileInfo,
 }
 
 func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern string) ([]*pfs.FileInfo, error) {
-	tree, err := d.getTreeForCommit(ctx, commit)
+	tree, err := d.getTreeForFile(ctx, client.NewFile(commit.Repo.Name, commit.ID, ""))
 	if err != nil {
 		return nil, err
 	}
@@ -1477,7 +1494,7 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern strin
 }
 
 func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.File) ([]*pfs.FileInfo, []*pfs.FileInfo, error) {
-	newTree, err := d.getTreeForCommit(ctx, newFile.Commit)
+	newTree, err := d.getTreeForFile(ctx, newFile)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1493,7 +1510,7 @@ func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.F
 		oldFile.Commit = newCommitInfo.ParentCommit
 		oldFile.Path = newFile.Path
 	}
-	oldTree, err := d.getTreeForCommit(ctx, oldFile.Commit)
+	oldTree, err := d.getTreeForFile(ctx, oldFile)
 	if err != nil {
 		return nil, nil, err
 	}
