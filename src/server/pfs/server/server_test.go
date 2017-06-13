@@ -2629,6 +2629,64 @@ func TestDiff(t *testing.T) {
 	require.Equal(t, "dir/fizz", oldFiles[0].File.Path)
 }
 
+func TestGlob(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getClient(t)
+	repo := uniqueString("TestGlob")
+	require.NoError(t, c.CreateRepo(repo))
+
+	// Write foo
+	numFiles := 100
+	_, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	for i := 0; i < numFiles; i++ {
+		_, err = c.PutFile(repo, "master", fmt.Sprintf("file%d", i), strings.NewReader(""))
+		require.NoError(t, err)
+		_, err = c.PutFile(repo, "master", fmt.Sprintf("dir1/file%d", i), strings.NewReader(""))
+		require.NoError(t, err)
+		_, err = c.PutFile(repo, "master", fmt.Sprintf("dir2/dir3/file%d", i), strings.NewReader(""))
+		require.NoError(t, err)
+	}
+
+	fileInfos, err := c.GlobFile(repo, "master", "*")
+	require.NoError(t, err)
+	require.Equal(t, numFiles+2, len(fileInfos))
+	fileInfos, err = c.GlobFile(repo, "master", "file*")
+	require.NoError(t, err)
+	require.Equal(t, numFiles, len(fileInfos))
+	fileInfos, err = c.GlobFile(repo, "master", "dir1/*")
+	require.NoError(t, err)
+	require.Equal(t, numFiles, len(fileInfos))
+	fileInfos, err = c.GlobFile(repo, "master", "dir2/dir3/*")
+	require.NoError(t, err)
+	require.Equal(t, numFiles, len(fileInfos))
+	fileInfos, err = c.GlobFile(repo, "master", "*/*")
+	require.NoError(t, err)
+	require.Equal(t, numFiles+1, len(fileInfos))
+
+	require.NoError(t, c.FinishCommit(repo, "master"))
+
+	fileInfos, err = c.GlobFile(repo, "master", "*")
+	require.NoError(t, err)
+	require.Equal(t, numFiles+2, len(fileInfos))
+	fileInfos, err = c.GlobFile(repo, "master", "file*")
+	require.NoError(t, err)
+	require.Equal(t, numFiles, len(fileInfos))
+	fileInfos, err = c.GlobFile(repo, "master", "dir1/*")
+	require.NoError(t, err)
+	require.Equal(t, numFiles, len(fileInfos))
+	fileInfos, err = c.GlobFile(repo, "master", "dir2/dir3/*")
+	require.NoError(t, err)
+	require.Equal(t, numFiles, len(fileInfos))
+	fileInfos, err = c.GlobFile(repo, "master", "*/*")
+	require.NoError(t, err)
+	require.Equal(t, numFiles+1, len(fileInfos))
+}
+
 func uniqueString(prefix string) string {
 	return prefix + "-" + uuid.NewWithoutDashes()[0:12]
 }
