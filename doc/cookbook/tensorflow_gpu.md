@@ -64,7 +64,7 @@ So, an example pipeline definition for a GPU enabled Pachyderm Pipeline is:
 }
 ```
 
-**NOTE:** You can also [test running Pachyderm using GPUs locally](#test_locally)
+**NOTE:** You can also [test running Pachyderm using GPUs locally](#test-locally)
 
 
 
