@@ -2,13 +2,44 @@
 
 Here we list some common gotchas by symptom and steps you can do to resolve the issue.
 
+- Connecting pachctl to the cluster
+- Starting up Pachyderm cluster
+- AWS Deployment
+- Miscellaneous
+
+---
+
+
+
+
+
 ## Misc
 
 ### Pod failed to attach volume
 
 #### Symptoms
 
+A pod (could be the pachd pod or a worker pod) fails to startup, and is stuck in `CrashLoopBackoff`. If you do `kubectl describe po/pachd-xxxx` you'll see an error message like the following at the bottom of the output:
+
+```
+  30s        30s        1    {attachdetach }                Warning        FailedMount    Failed to attach volume "etcd-volume" on node "ip-172-20-44-17.us-west-2.compute.internal" with: Error attaching EBS volume "vol-0c1d403ac05096dfe" to instance "i-0a12e00c0f3fb047d": VolumeInUse: vol-0c1d403ac05096dfe is already attached to an instance
+```
+
 #### Recourse
+
+Your best bet is to manually detach the volume and restart the pod.
+
+To find the volume, you first need the node. In the output of the `kubectl describe po/pachd-xxx` command above, the output should include the name of the node it's running on.
+
+On the AWS UI, find that node the name provided in the step above is the internal DNS value of the node in the AWS UI. Once you have the right node, look in the bottom pane for the attached volume. Follow that link, and detach the volume. You may need to 'Force Detach' it.
+
+Once it's detached (and marked as available). Restart the pod by killing it, e.g:
+
+```
+$kubectl delete po/pachd-xxx
+```
+
+It'll take a moment for a new one to get rescheduled.
 
 ### Certificate Error When Using Kubectl
 
@@ -144,14 +175,31 @@ Cause:CauseAt 2017-06-12T20:21:47Z an instance was started in response to a diff
 W0426 17:28:10.435315   26463 executor.go:109] error running task "VPC/5120cf0c-pachydermcluster.kubernetes.com" (3s remaining to succeed): error creating VPC: VpcLimitExceeded: The  maximum number of VPCs has been reached.
 ```
 
-
 #### Recourse
+
+You'll need to increase your VPC limit or delete some existing VPCs that are not in use. On the AWS UI navigate to the VPC service. Make sure you're in the same region where you're attempting to deploy.
+
+It's not uncommon (depending on how you tear down clusters) for the VPCs not to be deleted. You'll see a list of VPCs here with cluster names, e.g. `aee6b566-pachydermcluster.kubernetes.com`. For clusters that you know are no longer in use, you can delete the VPC here.
 
 ### GPU Node Never Appears
 
 #### Symptom
 
+After running the `kops edit ig gpunodes` and `kops update` the node never appears in the AWS UI.
+
 #### Recourse
 
+It's likely you have hit an instance limit for the gpu instance type you're using, or it's possible that AWS doesn't support that instance type in the current region.
 
+[Follow the instructions to check for Instance Limit Error messages here]()
 
+If this region doesn't support your instance type you'll see an error message like:
+
+```
+Failed
+Launching a new EC2 instance
+2017 June 12 13:21:49 UTC-7
+2017 June 12 13:21:49 UTC-7
+Description:DescriptionLaunching a new EC2 instance. Status Reason: You have requested more instances (1) than your current instance limit of 0 allows for the specified instance type. Please visit http://aws.amazon.com/contact-us/ec2-request to request an adjustment to this limit. Launching EC2 instance failed.
+Cause:CauseAt 2017-06-12T20:21:47Z an instance was started in response to a difference between desired and actual capacity, increasing the capacity from 0 to 1.
+```
