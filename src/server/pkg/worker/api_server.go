@@ -49,11 +49,10 @@ var (
 
 // APIServer implements the worker API
 type APIServer struct {
-	pachClient       *client.APIClient
-	pachRemoteClient *client.APIClient
-	kubeClient       *kube.Client
-	etcdClient       *etcd.Client
-	etcdPrefix       string
+	pachClient *client.APIClient
+	kubeClient *kube.Client
+	etcdClient *etcd.Client
+	etcdPrefix string
 
 	// Information needed to process input data and upload output
 	pipelineInfo *pps.PipelineInfo
