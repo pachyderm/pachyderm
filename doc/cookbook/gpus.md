@@ -59,8 +59,6 @@ An example pipeline definition for a GPU enabled Pachyderm Pipeline is as follow
     }
   },
   "resource_spec": {
-      "memory": "250M",
-      "cpu": 1,
       "gpu": 1
   },
   "inputs": {
