@@ -486,6 +486,9 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 	if err != nil {
 		return err
 	}
+	if commitInfo.Finished != nil {
+		return fmt.Errorf("commit %s has already been finished", commit.FullID())
+	}
 
 	prefix, err := d.scratchCommitPrefix(ctx, commit)
 	if err != nil {
@@ -498,66 +501,14 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 		return err
 	}
 
-	if commitInfo.Finished != nil {
-		return fmt.Errorf("commit %s has already been finished", commit.FullID())
-	}
-
 	parentTree, err := d.getTreeForCommit(ctx, commitInfo.ParentCommit)
 	if err != nil {
 		return err
 	}
 	tree := parentTree.Open()
 
-	for _, kv := range resp.Kvs {
-		// fileStr is going to look like "some/path/UUID"
-		fileStr := strings.TrimPrefix(string(kv.Key), prefix)
-		// the last element of `parts` is going to be UUID
-		parts := strings.Split(fileStr, "/")
-		// filePath should look like "some/path"
-		filePath := strings.Join(parts[:len(parts)-1], "/")
-
-		if string(kv.Value) == tombstone {
-			if err := tree.DeleteFile(filePath); err != nil {
-				// Deleting a non-existent file in an open commit should
-				// be a no-op
-				if hashtree.Code(err) != hashtree.PathNotFound {
-					return err
-				}
-			}
-		} else {
-			records := &PutFileRecords{}
-			if err := proto.Unmarshal(kv.Value, records); err != nil {
-				return err
-			}
-			if !records.Split {
-				if len(records.Records) != 1 {
-					return fmt.Errorf("unexpect %d length PutFileRecord (this is likely a bug)", len(records.Records))
-				}
-				if err := tree.PutFile(filePath, []*pfs.Object{{Hash: records.Records[0].ObjectHash}}, records.Records[0].SizeBytes); err != nil {
-					return err
-				}
-			} else {
-				nodes, err := tree.List(filePath)
-				if err != nil && hashtree.Code(err) != hashtree.PathNotFound {
-					return err
-				}
-				var indexOffset int64
-				if len(nodes) > 0 {
-					indexOffset, err = strconv.ParseInt(path.Base(nodes[len(nodes)-1].Name), splitSuffixBase, splitSuffixWidth)
-					if err != nil {
-						return fmt.Errorf("error parsing filename %s as int, this likely means you're "+
-							"using split on a directory which contains other data that wasn't put with split",
-							path.Base(nodes[len(nodes)-1].Name))
-					}
-					indexOffset++ // start writing to the file after the last file
-				}
-				for i, record := range records.Records {
-					if err := tree.PutFile(path.Join(filePath, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
-						return err
-					}
-				}
-			}
-		}
+	if err := applyWrites(prefix, resp, tree); err != nil {
+		return err
 	}
 
 	finishedTree, err := tree.Finish()
@@ -1378,9 +1329,39 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 }
 
 func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size int64) (io.Reader, error) {
-	tree, err := d.getTreeForCommit(ctx, file.Commit)
+	commitInfo, err := d.inspectCommit(ctx, file.Commit)
 	if err != nil {
 		return nil, err
+	}
+	var tree hashtree.HashTree
+	if commitInfo.Finished != nil {
+		tree, err = d.getTreeForCommit(ctx, file.Commit)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		prefix, err := d.scratchFilePrefix(ctx, file)
+		if err != nil {
+			return nil, err
+		}
+		// Read everything under the scratch space for this commit
+		resp, err := d.etcdClient.Get(ctx, prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend))
+		if err != nil {
+			return nil, err
+		}
+
+		parentTree, err := d.getTreeForCommit(ctx, commitInfo.ParentCommit)
+		if err != nil {
+			return nil, err
+		}
+		openTree := parentTree.Open()
+		if err := applyWrites(path.Dir(prefix), resp, openTree); err != nil {
+			return nil, err
+		}
+		tree, err = openTree.Finish()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	node, err := tree.Get(file.Path)
@@ -1545,6 +1526,61 @@ func (d *driver) deleteAll(ctx context.Context) error {
 	for _, repoInfo := range repoInfos {
 		if err := d.deleteRepo(ctx, repoInfo.Repo, true); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func applyWrites(prefix string, resp *etcd.GetResponse, tree hashtree.OpenHashTree) error {
+	for _, kv := range resp.Kvs {
+		// fileStr is going to look like "some/path/UUID"
+		fileStr := strings.TrimPrefix(string(kv.Key), prefix)
+		// the last element of `parts` is going to be UUID
+		parts := strings.Split(fileStr, "/")
+		// filePath should look like "some/path"
+		filePath := strings.Join(parts[:len(parts)-1], "/")
+
+		if string(kv.Value) == tombstone {
+			if err := tree.DeleteFile(filePath); err != nil {
+				// Deleting a non-existent file in an open commit should
+				// be a no-op
+				if hashtree.Code(err) != hashtree.PathNotFound {
+					return err
+				}
+			}
+		} else {
+			records := &PutFileRecords{}
+			if err := proto.Unmarshal(kv.Value, records); err != nil {
+				return err
+			}
+			if !records.Split {
+				if len(records.Records) != 1 {
+					return fmt.Errorf("unexpect %d length PutFileRecord (this is likely a bug)", len(records.Records))
+				}
+				if err := tree.PutFile(filePath, []*pfs.Object{{Hash: records.Records[0].ObjectHash}}, records.Records[0].SizeBytes); err != nil {
+					return err
+				}
+			} else {
+				nodes, err := tree.List(filePath)
+				if err != nil && hashtree.Code(err) != hashtree.PathNotFound {
+					return err
+				}
+				var indexOffset int64
+				if len(nodes) > 0 {
+					indexOffset, err = strconv.ParseInt(path.Base(nodes[len(nodes)-1].Name), splitSuffixBase, splitSuffixWidth)
+					if err != nil {
+						return fmt.Errorf("error parsing filename %s as int, this likely means you're "+
+							"using split on a directory which contains other data that wasn't put with split",
+							path.Base(nodes[len(nodes)-1].Name))
+					}
+					indexOffset++ // start writing to the file after the last file
+				}
+				for i, record := range records.Records {
+					if err := tree.PutFile(path.Join(filePath, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+						return err
+					}
+				}
+			}
 		}
 	}
 	return nil
