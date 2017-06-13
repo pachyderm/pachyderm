@@ -2,18 +2,13 @@
 
 Here we list some common gotchas by symptom and steps you can do to resolve the issue.
 
-- Connecting pachctl to the cluster
-- Starting up Pachyderm cluster
-- AWS Deployment
-- Miscellaneous
+- [Starting up a Pachyderm cluster](#starting-up-a-pachyderm-cluster)
+- [Connecting to the cluster](#connecting-to-the-cluster)
+- [AWS Deployment](#aws-deployment)
 
 ---
 
-
-
-
-
-## Misc
+## Starting Up A Pachyderm Cluster
 
 ### Pod failed to attach volume
 
@@ -40,6 +35,90 @@ $kubectl delete po/pachd-xxx
 ```
 
 It'll take a moment for a new one to get rescheduled.
+
+### Pachd stuck in CrashLoopBackoff
+
+This could happen for a few reasons. Most often is a misconfiguration.
+
+#### Symptoms
+
+The pachd pod keeps crashing/restarting:
+
+```
+$kubectl get all
+NAME                        READY     STATUS             RESTARTS   AGE
+po/etcd-281005231-qlkzw     1/1       Running            0          7m
+po/pachd-1333950811-0sm1p   0/1       CrashLoopBackOff   6          7m
+
+NAME             CLUSTER-IP       EXTERNAL-IP   PORT(S)                       AGE
+svc/etcd         100.70.40.162    <nodes>       2379:30938/TCP                7m
+svc/kubernetes   100.64.0.1       <none>        443/TCP                       9m
+svc/pachd        100.70.227.151   <nodes>       650:30650/TCP,651:30651/TCP   7m
+
+NAME           DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+deploy/etcd    1         1         1            1           7m
+deploy/pachd   1         1         1            0           7m
+
+NAME                  DESIRED   CURRENT   READY     AGE
+rs/etcd-281005231     1         1         1         7m
+rs/pachd-1333950811   1         1         0         7m
+```
+
+
+#### Recourse
+
+First describe the pod:
+
+```
+$ kubectl describe po/pachd-1333950811-0sm1p
+```
+
+You may see an error off the back. E.g. `failed to mount volume`, `failed to schedule pod`, etc. If you see an error, please lookup the recourse for that error here in the troubleshooting doc.
+
+If you don't see one of those errors, but do see something like:
+
+```
+  1m    3s    9    {kubelet ip-172-20-48-123.us-west-2.compute.internal}                Warning    FailedSync    Error syncing pod, skipping: failed to "StartContainer" for "pachd" with CrashLoopBackOff: "Back-off 2m40s restarting failed container=pachd pod=pachd-1333950811-0sm1p_default(a92b6665-506a-11e7-8e07-02e3d74c49ac)"
+```
+
+That means it tried running pachd, but pachd generated an internal error.
+
+To see what happened, check the logs for the pachd pod:
+
+```
+$kubectl logs po/pachd-xxx
+```
+
+You might see, e.g. `BucketRegionError: incorrect region, the bucket is not in 'us-west-2' region`
+
+(In that case you've deployed your bucket in a different region than your cluster).
+
+If the error / recourse isn't obvious from the error message, you're now well equipped to ask for help in our Slack channel (to join see the footer) or by opening a [GitHub Issue](github.com/pachyderm/pachyderm/issues/new). Please provide these logs as details either way.
+
+
+---
+
+## Connecting To The Cluster
+
+### Cannot connect to cluster using ADDRESS variable
+
+#### Symptom
+
+```
+$echo $ADDRESS
+1.2.3.4:30650
+$pachctl version
+COMPONENT           VERSION                                          
+pachctl             1.4.8   
+context deadline exceeded
+```
+
+#### Recourse
+
+It's possible that you are connecting, it's just taking a while. Occasionally this can happen if your cluster is far away (deployed in a region across the country). Check your internet connection.
+
+It's also possible that you haven't poked a hole in the firewall to access this node on this port. Usually to do that you adjust a security rule (in AWS parlance a security group). First find your node on the UI. Then click it. You should see a link to the associated security group. Inspect that group. There should be a way to 'add a rule' to the group. You'll want to enable TCP access (ingress) on port 30650. You'll usually be asked which incoming IPs should be whitelisted. You can choose to use your own. Or enable it for everyone (0.0.0.0/0).
+
 
 ### Certificate Error When Using Kubectl
 
@@ -71,25 +150,7 @@ Check if you're using port-forwarding. Port forwarding throttles traffic to ~1MB
 
 You'll want to make sure you've allowed ingress access through any firewalls to your k8s cluster. (See below)
 
-### Cannot connect to cluster using ADDRESS variable
-
-#### Symptom
-
-```
-$echo $ADDRESS
-1.2.3.4:30650
-$pachctl version
-COMPONENT           VERSION                                          
-pachctl             1.4.8   
-context deadline exceeded
-```
-
-#### Recourse
-
-It's possible that you are connecting, it's just taking a while. Occasionally this can happen if your cluster is far away (deployed in a region across the country). Check your internet connection.
-
-It's also possible that you haven't poked a hole in the firewall to access this node on this port. Usually to do that you adjust a security rule (in AWS parlance a security group). First find your node on the UI. Then click it. You should see a link to the associated security group. Inspect that group. There should be a way to 'add a rule' to the group. You'll want to enable TCP access (ingress) on port 30650. You'll usually be asked which incoming IPs should be whitelisted. You can choose to use your own. Or enable it for everyone (0.0.0.0/0).
-
+---
 
 ## AWS Deployment
 
