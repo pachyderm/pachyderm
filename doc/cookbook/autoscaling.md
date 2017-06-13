@@ -8,7 +8,7 @@ Cloud providers can scale workers down/up based on resource utilization (most of
 
 ## Setting up Pachyderm Autoscaling of Jobs
 
-[Refer to the scaleDownThreshold]() field in the pipeline spec. This allows you to specify the time window after which any workers corresponding to a pipeline get removed. If new inputs come in on that pipeline, they get scaled back up.
+[Refer to the scaleDownThreshold](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html#scale-down-threshold-optional) field in the pipeline spec. This allows you to specify the time window after which any workers corresponding to a pipeline get removed. If new inputs come in on that pipeline, they get scaled back up.
 
 
 ## Setting up Pachyderm Autoscaling to complement Cloud Provider Autoscaling
@@ -18,7 +18,7 @@ Out of the box, autoscaling at the cloud provider layer won't work well with Pac
 
 ### Default Behavior With Cloud Autoscaling 
 
-Normally when you create a pipeline, Pachyderm asks the k8s cluster how many nodes are available, and uses that number as the default value for the pipeline's parallelism. (To read more about parallelism, [refer to the pipeline spec]() ).
+Normally when you create a pipeline, Pachyderm asks the k8s cluster how many nodes are available, and uses that number as the default value for the pipeline's parallelism. (To read more about parallelism, [refer to the pipeline spec](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html) ).
 
 If you have autoscaling turned on when you first starting building your pipeline, it's likely it will be fully scaled down ... to a few or maybe even a single node.
 
@@ -51,5 +51,3 @@ You've set `cpu` to `1.0` and your instance type has 4 cores.
 When new input comes in kicking off your pipeline, your cluster is in a scaled down state. Let's say there are 2 nodes running. After accounting for the pachyderm services, that leaves ~6 cores available. K8s schedules 6 of your workers. That accounts for all 8 of the CPUs across all your nodes in your instance group. Your autoscale group notices that all instances are being heavily utilized, and scales up to 5 nodes total. Now the rest of your workers get spun up (k8s can now schedule them), and your job proceeeds.
 
 This type of setup is best suited for long running jobs, or jobs that take a lot of CPU time. That gives the cloud autoscaling mechanisms time to scale up and still have work to process.
-
-
