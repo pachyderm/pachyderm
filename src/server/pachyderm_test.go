@@ -222,8 +222,16 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 	dataRepo := uniqueString("TestMultipleInputsFromTheSameBranch_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "dirA/file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "dirB/file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
 	pipeline := uniqueString("pipeline")
-	require.YesError(t, c.CreatePipeline(
+	require.NoError(t, c.CreatePipeline(
 		pipeline,
 		"",
 		[]string{"bash"},
@@ -240,9 +248,52 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 		"",
 		false,
 	))
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
+	require.Equal(t, "foo\nfoo\n", buf.String())
+
+	commit2, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit2.ID, "dirA/file", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
+
+	commitIter, err = c.FlushCommit([]*pfs.Commit{commit2}, nil)
+	require.NoError(t, err)
+	commitInfos = collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	buf.Reset()
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
+	require.Equal(t, "foo\nbar\nfoo\n", buf.String())
+
+	commit3, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit3.ID, "dirB/file", strings.NewReader("buzz\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit3.ID))
+
+	commitIter, err = c.FlushCommit([]*pfs.Commit{commit3}, nil)
+	require.NoError(t, err)
+	commitInfos = collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	buf.Reset()
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
+	require.Equal(t, "foo\nbar\nfoo\nbuzz\n", buf.String())
+
+	commitInfos, err = c.ListCommit(pipeline, "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(commitInfos))
 }
 
-func TestMultipleInputsFromTheSameRepo(t *testing.T) {
+func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
