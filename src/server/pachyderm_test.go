@@ -1111,7 +1111,7 @@ func TestPipelineState(t *testing.T) {
 		false,
 	))
 	// Wait for pipeline to get picked up
-	time.Sleep(5 * time.Second)
+	time.Sleep(15 * time.Second)
 
 	pipelineInfo, err := c.InspectPipeline(pipeline)
 	require.NoError(t, err)
@@ -1125,7 +1125,7 @@ func TestPipelineState(t *testing.T) {
 	require.Equal(t, pps.PipelineState_PIPELINE_STOPPED, pipelineInfo.State)
 
 	require.NoError(t, c.StartPipeline(pipeline))
-	time.Sleep(5 * time.Second)
+	time.Sleep(15 * time.Second)
 
 	pipelineInfo, err = c.InspectPipeline(pipeline)
 	require.NoError(t, err)
