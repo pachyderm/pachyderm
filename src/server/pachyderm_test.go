@@ -2436,6 +2436,15 @@ func TestChainedPipelines(t *testing.T) {
 	require.Equal(t, 1, len(results))
 }
 
+// DAG:
+//
+// A
+// |
+// B  E
+// | /
+// C
+// |
+// D
 func TestChainedPipelinesNoDelay(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")

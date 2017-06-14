@@ -152,17 +152,25 @@ func considerEachSet(commitSets [][]*pfs.CommitInfo, i int, f func(commitSet []*
 		}
 	}
 	for j := numCommitSets - 1; j >= 0; j-- {
+		numCommitSets := j
 		var commitSet []*pfs.CommitInfo
 		var indexes []int
-		for _, commits := range commitSets {
-			index := numCommitSets % len(commits)
+		for k, commits := range commitSets {
+			var index int
+			if k == i {
+				index = len(commits) - 1
+			} else {
+				index = numCommitSets % len(commits)
+				numCommitSets /= len(commits)
+			}
 			indexes = append(indexes, index)
 			commitSet = append(commitSet, commits[index])
-			numCommitSets /= len(commits)
 		}
 		if f(commitSet) {
 			// Remove older commit sets
-			commitSets[j] = commitSets[j][indexes[j]+1:]
+			for k, index := range indexes {
+				commitSets[k] = commitSets[k][index:]
+			}
 			return commitSet
 		}
 	}
