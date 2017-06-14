@@ -89,7 +89,7 @@ func (a *APIServer) jobSpawner(ctx context.Context) error {
 
 	bsf, err := a.newBranchSetFactory(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("error constructing branch set factory: %v", err)
 	}
 	defer bsf.Close()
 nextInput:
@@ -113,7 +113,7 @@ nextInput:
 			return context.Canceled
 		case bs = <-bsf.Chan():
 			if bs.Err != nil {
-				return err
+				return fmt.Errorf("error from branch set factory: %v", bs.Err)
 			}
 		case <-scaleDownCh:
 			if err := a.scaleDownWorkers(); err != nil {

@@ -57,6 +57,7 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (branchSetFactory,
 			From:   client.NewCommit(input.Repo, input.FromCommit),
 		})
 		if err != nil {
+			cancel()
 			return nil, err
 		}
 
@@ -74,7 +75,6 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (branchSetFactory,
 				}
 
 				commitSetsMutex.Lock()
-				defer commitSetsMutex.Unlock()
 				commitSets[i] = append(commitSets[i], commitInfo)
 
 				// Now we look for a set of commits that have provenance
@@ -82,10 +82,17 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (branchSetFactory,
 				// if there's precisely one provenance commit from each root
 				// input repo.
 				if set := considerEachSet(commitSets, i, func(set []*pfs.CommitInfo) bool {
-					rootCommitCounts := make(map[string]int)
+					rootCommits := make(map[string]map[string]bool)
+					setRootCommit := func(commit *pfs.Commit) {
+						if rootCommits[commit.Repo.Name] == nil {
+							rootCommits[commit.Repo.Name] = make(map[string]bool)
+						}
+						rootCommits[commit.Repo.Name][commit.ID] = true
+					}
 					for _, commitInfo := range set {
+						setRootCommit(commitInfo.Commit)
 						for _, provCommit := range commitInfo.Provenance {
-							rootCommitCounts[provCommit.Repo.Name] += 1
+							setRootCommit(provCommit)
 						}
 					}
 
@@ -96,35 +103,30 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (branchSetFactory,
 					}
 					// ok tells us if it's ok to spawn a job with this
 					// commit set.
-					for repo, numCommits := range rootCommitCounts {
-						if rootInputSet[repo] {
-							// Make sure that we get precisely one commit per
-							// root input repo.
-							if numCommits != 1 {
-								return false
-							}
-							delete(rootInputSet, repo)
+					for rootRepo := range rootInputSet {
+						if len(rootCommits[rootRepo]) != 1 {
+							return false
 						}
 					}
-					// Make sure that we've seen a commit for every root input
-					// repo.
-					return len(rootInputSet) == 0
+					return true
 				}); set != nil {
 					bs := &branchSet{
 						NewBranch: i,
 					}
 					for _, commitInfo := range set {
 						bs.Branches = append(bs.Branches, &pfs.Branch{
-							Name: input.Name,
+							Name: input.Branch,
 							Head: commitInfo.Commit,
 						})
 					}
 					select {
 					case <-ctx.Done():
+						commitSetsMutex.Unlock()
 						return
 					case ch <- bs:
 					}
 				}
+				commitSetsMutex.Unlock()
 			}
 		}()
 	}
@@ -152,7 +154,7 @@ func considerEachSet(commitSets [][]*pfs.CommitInfo, i int, f func(commitSet []*
 			numCommitSets *= len(commits)
 		}
 	}
-	for j := numCommitSets - 1; j > 0; j-- {
+	for j := numCommitSets - 1; j >= 0; j-- {
 		var commitSet []*pfs.CommitInfo
 		var indexes []int
 		for _, commits := range commitSets {
