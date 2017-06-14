@@ -662,6 +662,124 @@ func TestProvenance(t *testing.T) {
 	require.Equal(t, 1, len(commitInfos))
 	cCommitInfo := commitInfos[0]
 	require.Equal(t, uint64(0), cCommitInfo.SizeBytes)
+
+	// We should only see two commits in each repo.
+	commitInfos, err = c.ListCommit(aRepo, "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commitInfos))
+
+	commitInfos, err = c.ListCommit(bPipeline, "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commitInfos))
+
+	commitInfos, err = c.ListCommit(cPipeline, "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commitInfos))
+}
+
+// TestProvenance2 tests the following DAG:
+//   A
+//  / \
+// B   C
+//  \ /
+//   D
+func TestProvenance2(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c := getPachClient(t)
+	aRepo := uniqueString("A")
+	require.NoError(t, c.CreateRepo(aRepo))
+	bPipeline := uniqueString("B")
+	require.NoError(t, c.CreatePipeline(
+		bPipeline,
+		"",
+		[]string{"cp", path.Join("/pfs", aRepo, "bfile"), "/pfs/out/bfile"},
+		nil,
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		client.NewAtomInput(aRepo, "/b*"),
+		"",
+		false,
+	))
+	cPipeline := uniqueString("C")
+	require.NoError(t, c.CreatePipeline(
+		cPipeline,
+		"",
+		[]string{"cp", path.Join("/pfs", aRepo, "cfile"), "/pfs/out/cfile"},
+		nil,
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		client.NewAtomInput(aRepo, "/c*"),
+		"",
+		false,
+	))
+	dPipeline := uniqueString("D")
+	require.NoError(t, c.CreatePipeline(
+		cPipeline,
+		"",
+		[]string{"sh"},
+		[]string{
+			fmt.Sprintf("diff /pfs/%s/bfile /pfs/%s/cfile >/pfs/out/file", bPipeline, cPipeline),
+		},
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		client.NewCrossInput(
+			client.NewAtomInput(bPipeline, "/*"),
+			client.NewAtomInput(cPipeline, "/*"),
+		),
+		"",
+		false,
+	))
+	// commit to aRepo
+	commit1, err := c.StartCommit(aRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(aRepo, commit1.ID, "bfile", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	_, err = c.PutFile(aRepo, commit1.ID, "cfile", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(aRepo, commit1.ID))
+
+	commit2, err := c.StartCommit(aRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(aRepo, commit2.ID, "bfile", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	_, err = c.PutFile(aRepo, commit2.ID, "cfile", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(aRepo, commit2.ID))
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit2}, []*pfs.Repo{{dPipeline}})
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	// We should only see two commits in each repo.
+	commitInfos, err = c.ListCommit(bPipeline, "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commitInfos))
+
+	commitInfos, err = c.ListCommit(cPipeline, "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commitInfos))
+
+	commitInfos, err = c.ListCommit(dPipeline, "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commitInfos))
+
+	for _, commitInfo := range commitInfos {
+		commit := commitInfo.Commit
+		buffer := bytes.Buffer{}
+		require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, "file", 0, 0, &buffer))
+		require.Equal(t, "", buffer.String())
+	}
 }
 
 //func TestDirectory(t *testing.T) {
