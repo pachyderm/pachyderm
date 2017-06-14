@@ -51,11 +51,14 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (branchSetFactory,
 	for i, input := range directInputs {
 		i, input := i, input
 
-		stream, err := pfsClient.SubscribeCommit(ctx, &pfs.SubscribeCommitRequest{
+		request := &pfs.SubscribeCommitRequest{
 			Repo:   client.NewRepo(input.Repo),
 			Branch: input.Branch,
-			From:   client.NewCommit(input.Repo, input.FromCommit),
-		})
+		}
+		if input.FromCommit != "" {
+			request.From = client.NewCommit(input.Repo, input.FromCommit)
+		}
+		stream, err := pfsClient.SubscribeCommit(ctx, request)
 		if err != nil {
 			cancel()
 			return nil, err
@@ -95,16 +98,10 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (branchSetFactory,
 							setRootCommit(provCommit)
 						}
 					}
-
-					// Use a set to test if a repo is a root input
-					rootInputSet := make(map[string]bool)
-					for _, rootInput := range rootInputs {
-						rootInputSet[rootInput.Repo] = true
-					}
 					// ok tells us if it's ok to spawn a job with this
 					// commit set.
-					for rootRepo := range rootInputSet {
-						if len(rootCommits[rootRepo]) != 1 {
+					for _, rootInput := range rootInputs {
+						if len(rootCommits[rootInput.Repo]) != 1 {
 							return false
 						}
 					}
