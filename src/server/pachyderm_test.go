@@ -722,7 +722,7 @@ func TestProvenance2(t *testing.T) {
 	))
 	dPipeline := uniqueString("D")
 	require.NoError(t, c.CreatePipeline(
-		cPipeline,
+		dPipeline,
 		"",
 		[]string{"sh"},
 		[]string{
