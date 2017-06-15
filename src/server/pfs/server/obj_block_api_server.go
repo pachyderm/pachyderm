@@ -367,8 +367,25 @@ func (s *objBlockAPIServer) CheckObject(ctx context.Context, request *pfsclient.
 	func() { s.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
+	exists, err := func() (bool, error) {
+		objectInfo, err := s.InspectObject(ctx, request.Object)
+		if err != nil {
+			if s.objClient.IsNotExist(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		if !s.objClient.Exists(s.localServer.blockPath(objectInfo.BlockRef.Block)) {
+			return false, nil
+		}
+		return true, nil
+	}()
+	if err != nil {
+		return nil, err
+	}
+
 	return &pfsclient.CheckObjectResponse{
-		Exists: s.objClient.Exists(s.localServer.objectPath(request.Object)),
+		Exists: exists,
 	}, nil
 }
 
