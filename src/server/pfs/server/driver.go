@@ -18,6 +18,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
@@ -1570,6 +1571,7 @@ func (d *driver) fsck(ctx context.Context, dryRun bool) (*pfs.FsckResponse, erro
 	if err != nil {
 		return nil, err
 	}
+	limiter := limit.New(100)
 	var eg errgroup.Group
 	deleteObjectsRequest := &pfs.DeleteObjectsRequest{}
 	result := &pfs.FsckResponse{}
@@ -1582,7 +1584,9 @@ func (d *driver) fsck(ctx context.Context, dryRun bool) (*pfs.FsckResponse, erro
 			}
 			return nil, err
 		}
+		limiter.Acquire()
 		eg.Go(func() error {
+			defer limiter.Release()
 			resp, err := objClient.CheckObject(ctx, &pfs.CheckObjectRequest{object})
 			if err != nil {
 				return err

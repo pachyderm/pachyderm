@@ -713,6 +713,15 @@ func (c APIClient) DeleteFile(repoName string, commitID string, path string) err
 	return err
 }
 
+func (c APIClient) Fsck(dryRun bool) (*pfs.FsckResponse, error) {
+	return c.PfsAPIClient.Fsck(
+		c.ctx(),
+		&pfs.FsckRequest{
+			DryRun: dryRun,
+		},
+	)
+}
+
 type putFileWriteCloser struct {
 	request       *pfs.PutFileRequest
 	putFileClient pfs.API_PutFileClient
