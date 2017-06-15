@@ -226,7 +226,7 @@ func absent(key string) etcd.Cmp {
 	return etcd.Compare(etcd.CreateRevision(key), "=", 0)
 }
 
-func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*pfs.Repo, description string) error {
+func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*pfs.Repo, description string, update bool) error {
 	if err := ValidateRepoName(repo.Name); err != nil {
 		return err
 	}
@@ -267,7 +267,12 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 			Provenance:  fullProvRepos,
 			Description: description,
 		}
-		return repos.Create(repo.Name, repoInfo)
+		if update {
+			repos.Put(repo.Name, repoInfo)
+			return nil
+		} else {
+			return repos.Create(repo.Name, repoInfo)
+		}
 	})
 	return err
 }
