@@ -1561,6 +1561,56 @@ func (d *driver) deleteAll(ctx context.Context) error {
 	return nil
 }
 
+func (d *driver) fsck(ctx context.Context) error {
+	objClient, err := d.getObjectClient()
+	if err != nil {
+		return err
+	}
+	l, err := objClient.ListObjects(ctx, &pfs.ListObjectsRequest{})
+	if err != nil {
+		return err
+	}
+	var eg errgroup.Group
+	deleteObjectsRequest := &pfs.DeleteObjectsRequest{}
+	var lock sync.Mutex
+	for {
+		object, err := l.Recv()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		eg.Go(func() error {
+			resp, err := objClient.CheckObject(ctx, &pfs.CheckObjectRequest{object})
+			if err != nil {
+				return err
+			}
+			if !resp.Exists {
+				lock.Lock()
+				defer lock.Unlock()
+				deleteObjectsRequest.Objects = append(deleteObjectsRequest.Objects, object)
+				if len(deleteObjectsRequest.Objects) > 100 {
+					request := deleteObjectsRequest
+					deleteObjectsRequest = &pfs.DeleteObjectsRequest{}
+					eg.Go(func() error {
+						_, err := objClient.DeleteObjects(ctx, request)
+						return err
+					})
+				}
+			}
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+	if _, err := objClient.DeleteObjects(ctx, deleteObjectsRequest); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (d *driver) applyWrites(resp *etcd.GetResponse, tree hashtree.OpenHashTree) error {
 	for _, kv := range resp.Kvs {
 		// fileStr is going to look like "some/path/UUID"
