@@ -750,6 +750,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
 		Repo:       &pfs.Repo{pipelineInfo.Pipeline.Name},
 		Provenance: provenance,
+		Update:     request.Update,
 	}); err != nil && !isAlreadyExistsErr(err) {
 		return nil, err
 	}
