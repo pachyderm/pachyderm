@@ -1937,13 +1937,17 @@ func (a *apiServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.
 func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 	jobID := jobInfo.Job.ID
 	b := backoff.NewInfiniteBackOff()
+	fmt.Printf("starting long running job manager for job %v\n", jobInfo)
+	count := 0
 	backoff.RetryNotify(func() error {
 		// We use a new context for this particular instance of the retry
 		// loop, to ensure that all resources are released properly when
 		// this job retries.
+		fmt.Printf("in jM retry function, retry # %v\n", count)
+		defer func() { count += 1 }()
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
-
+		fmt.Printf("checking parent job\n")
 		if jobInfo.ParentJob != nil {
 			// Wait for the parent job to finish, to ensure that output
 			// commits are ordered correctly, and that this job doesn't
@@ -1955,7 +1959,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				return err
 			}
 		}
-
+		fmt.Printf("parent job ok \n")
 		var pipelineInfo *pps.PipelineInfo
 		if jobInfo.Pipeline != nil {
 			var err error
@@ -1966,7 +1970,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 				return err
 			}
 		}
-
+		fmt.Printf("inspected pipeline %v\n", pipelineInfo)
 		pfsClient, err := a.getPFSClient()
 		if err != nil {
 			return err
@@ -1975,7 +1979,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		if err != nil {
 			return err
 		}
-
+		fmt.Printf("setup pfs/obj clients\n")
 		// Set the state of this job to 'RUNNING'
 		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			jobs := a.jobs.ReadWrite(stm)
@@ -1988,6 +1992,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		if err != nil {
 			return err
 		}
+		fmt.Printf("set the state of the job to RUNNING\n")
 
 		// Start worker pool.
 		// We scale up the workers before we run a job, to ensure
@@ -1998,18 +2003,21 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		if err := a.scaleUpWorkers(ctx, rcName, jobInfo.ParallelismSpec); err != nil {
 			return err
 		}
+		fmt.Printf("started worker pool\n")
 
 		failed := false
 		numWorkers, err := a.numWorkers(ctx, rcName)
 		if err != nil {
 			return err
 		}
+		fmt.Printf("# of workers looks good %v\n", numWorkers)
 		limiter := limit.New(numWorkers)
 		// process all datums
 		df, err := newDatumFactory(ctx, pfsClient, jobInfo.Input)
 		if err != nil {
 			return err
 		}
+		fmt.Printf("created new datum factory %v\n", df)
 		var newBranchParentCommit *pfs.Commit
 		// If this is an incremental job we need to find the parent
 		// commit of the new branch.
@@ -2030,6 +2038,7 @@ func (a *apiServer) jobManager(ctx context.Context, jobInfo *pps.JobInfo) {
 		totalData := int64(df.Len())
 		var progressMu sync.Mutex
 		updateProgress := func(processed int64) {
+			fmt.Printf("updating progress for job %v\n", jobInfo)
 			progressMu.Lock()
 			defer progressMu.Unlock()
 			processedData += processed
