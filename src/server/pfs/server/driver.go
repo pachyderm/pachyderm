@@ -270,9 +270,8 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 		if update {
 			repos.Put(repo.Name, repoInfo)
 			return nil
-		} else {
-			return repos.Create(repo.Name, repoInfo)
 		}
+		return repos.Create(repo.Name, repoInfo)
 	})
 	return err
 }
