@@ -256,9 +256,13 @@ message DeleteFileRequest {
   File file = 1;
 }
 
-message FsckRequest { }
+message FsckRequest {
+  bool dry_run = 1;
+}
 
-message FsckResponse { }
+message FsckResponse {
+  repeated Object corrupted_objects = 1;
+}
 
 service API {
   // Repo rpcs
