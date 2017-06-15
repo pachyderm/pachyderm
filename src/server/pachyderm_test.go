@@ -3504,7 +3504,6 @@ func TestIncrementalAppendPipeline(t *testing.T) {
 	for i := 0; i <= 5; i++ {
 		_, err := c.StartCommit(dataRepo, "master")
 		require.NoError(t, err)
-		require.NoError(t, c.DeleteFile(dataRepo, "master", "data"))
 		w, err := c.PutFileSplitWriter(dataRepo, "master", "data", pfs.Delimiter_LINE, 0, 0)
 		require.NoError(t, err)
 		_, err = w.Write([]byte(fmt.Sprintf("%d\n", i)))
