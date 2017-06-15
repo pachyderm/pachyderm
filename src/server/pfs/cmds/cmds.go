@@ -329,6 +329,39 @@ $ pachctl list-commit foo master --from XXX
 	listCommit.Flags().IntVarP(&number, "number", "n", 0, "list only this many commits; if set to zero, list all commits")
 	rawFlag(listCommit)
 
+	printCommitIter := func(commitIter client.CommitInfoIterator) error {
+		if raw {
+			for {
+				commitInfo, err := commitIter.Next()
+				if err == io.EOF {
+					return nil
+				}
+				if err != nil {
+					return err
+				}
+				if err := marshaller.Marshal(os.Stdout, commitInfo); err != nil {
+					return err
+				}
+			}
+		}
+		writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+		for {
+			commitInfo, err := commitIter.Next()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return err
+			}
+			pretty.PrintCommitInfoHeader(writer)
+			pretty.PrintCommitInfo(writer, commitInfo)
+			if err := writer.Flush(); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
 	var repos cmdutil.RepeatedStringArg
 	flushCommit := &cobra.Command{
 		Use:   "flush-commit commit [commit ...]",
@@ -364,37 +397,59 @@ $ pachctl flush-commit foo/XXX -r bar -r baz
 				return err
 			}
 
-			if raw {
-				for {
-					commitInfo, err := commitIter.Next()
-					if err == io.EOF {
-						return nil
-					}
-					if err != nil {
-						return err
-					}
-					if err := marshaller.Marshal(os.Stdout, commitInfo); err != nil {
-						return err
-					}
-				}
-			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintCommitInfoHeader(writer)
-			for {
-				commitInfo, err := commitIter.Next()
-				if err == io.EOF {
-					break
-				}
-				if err != nil {
-					return err
-				}
-				pretty.PrintCommitInfo(writer, commitInfo)
-			}
-			return writer.Flush()
+			return printCommitIter(commitIter)
 		}),
 	}
 	flushCommit.Flags().VarP(&repos, "repos", "r", "Wait only for commits leading to a specific set of repos")
 	rawFlag(flushCommit)
+
+	var new bool
+	subscribeCommit := &cobra.Command{
+		Use:   "subscribe-commit repo branch",
+		Short: "Print commits as they are created (finished).",
+		Long: `Print commits as they are created in the specified repo and
+branch.  By default, all existing commits on the specified branch are
+returned first.  A commit is only considered "created" when it's been
+finished.
+
+Examples:
+
+` + codestart + `# subscribe to commits in repo "test" on branch "master"
+$ pachctl susbcribe-commit test master
+
+# subscribe to commits in repo "test" on branch "master", but only since commit XXX.
+$ pachctl subscribe-commit test master --from XXX
+
+# subscribe to commits in repo "test" on branch "master", but only for new
+# commits created from now on.
+$ pachctl subscribe-commit test master --new
+` + codeend,
+		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
+			repo, branch := args[0], args[1]
+			c, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return err
+			}
+
+			if new && from != "" {
+				return fmt.Errorf("--new and --from cannot both be provided")
+			}
+
+			if new {
+				from = branch
+			}
+
+			commitIter, err := c.SubscribeCommit(repo, branch, from)
+			if err != nil {
+				return err
+			}
+
+			return printCommitIter(commitIter)
+		}),
+	}
+	subscribeCommit.Flags().StringVar(&from, "from", "", "subscribe to all commits since this commit")
+	subscribeCommit.Flags().BoolVar(&new, "new", false, "subscribe to only new commits created from now on")
+	rawFlag(subscribeCommit)
 
 	deleteCommit := &cobra.Command{
 		Use:   "delete-commit repo-name commit-id",
@@ -957,6 +1012,7 @@ $ pachctl diff-file foo master path1 bar master path2
 	result = append(result, inspectCommit)
 	result = append(result, listCommit)
 	result = append(result, flushCommit)
+	result = append(result, subscribeCommit)
 	result = append(result, deleteCommit)
 	result = append(result, listBranch)
 	result = append(result, setBranch)

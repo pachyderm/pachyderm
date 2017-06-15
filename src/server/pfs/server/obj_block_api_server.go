@@ -182,7 +182,7 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 	r := io.TeeReader(putObjectReader, hash)
 	block := &pfsclient.Block{Hash: uuid.NewWithoutDashes()}
 	var size int64
-	if err := func() error {
+	if err := func() (retErr error) {
 		w, err := s.objClient.Writer(s.localServer.blockPath(block))
 		if err != nil {
 			return err
