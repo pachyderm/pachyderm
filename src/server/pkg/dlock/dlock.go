@@ -10,15 +10,13 @@ import (
 
 // DLock is a handle to a distributed lock.
 type DLock interface {
+	// Lock acquries the distributed lock, blocking if necessary.  If
+	// the lock is acquired, it returns a context that should be used
+	// in any subsequent blocking requests, so that if you lose the lock,
+	// the requests get cancelled correctly.
+	Lock(context.Context) (context.Context, error)
 	// Unlock releases the distributed lock.
 	Unlock() error
-	// Context returns a context that's cancelled if the lock has been
-	// released for any reason, e.g. if the node holding the lock has
-	// disconnected from etcd.
-	// After you've acquire the lock, you should use this context in any
-	// subsequent blocking requests, so that if you lose the lock, the
-	// requests get cancelled correctly.
-	Context() context.Context
 }
 
 type etcdImpl struct {
@@ -27,14 +25,20 @@ type etcdImpl struct {
 
 	session *concurrency.Session
 	mutex   *concurrency.Mutex
-
-	ctx context.Context
+	ctx     context.Context
 }
 
 // NewDLock attempts to acquire a distributed lock that locks a given prefix
 // in the data store.
-func NewDLock(ctx context.Context, client *etcd.Client, prefix string) (DLock, error) {
-	session, err := concurrency.NewSession(client, concurrency.WithContext(ctx))
+func NewDLock(client *etcd.Client, prefix string) DLock {
+	return &etcdImpl{
+		client: client,
+		prefix: prefix,
+	}
+}
+
+func (d *etcdImpl) Lock(ctx context.Context) (context.Context, error) {
+	session, err := concurrency.NewSession(d.client, concurrency.WithContext(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -48,18 +52,15 @@ func NewDLock(ctx context.Context, client *etcd.Client, prefix string) (DLock, e
 		}
 	}()
 
-	mutex := concurrency.NewMutex(session, prefix)
+	mutex := concurrency.NewMutex(session, d.prefix)
 	if err := mutex.Lock(ctx); err != nil {
 		return nil, err
 	}
 
-	return &etcdImpl{
-		client:  client,
-		prefix:  prefix,
-		session: session,
-		mutex:   mutex,
-		ctx:     ctx,
-	}, nil
+	d.session = session
+	d.mutex = mutex
+	d.ctx = ctx
+	return ctx, nil
 }
 
 func (d *etcdImpl) Unlock() error {

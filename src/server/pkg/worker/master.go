@@ -37,16 +37,16 @@ const (
 )
 
 func (a *APIServer) master() {
+	masterLock := dlock.NewDLock(a.etcdClient, path.Join(a.etcdPrefix, masterLockPath, a.pipelineInfo.ID))
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		masterLock, err := dlock.NewDLock(ctx, a.etcdClient, path.Join(a.etcdPrefix, masterLockPath, a.pipelineInfo.ID))
+		ctx, err := masterLock.Lock(ctx)
 		if err != nil {
 			return err
 		}
 		defer masterLock.Unlock()
-		ctx = masterLock.Context()
 
 		protolion.Infof("Launching worker master process")
 

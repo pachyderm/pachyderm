@@ -22,16 +22,16 @@ const (
 // The master process is responsible for creating/deleting workers as
 // pipelines are created/removed.
 func (a *apiServer) master() {
+	masterLock := dlock.NewDLock(a.etcdClient, path.Join(a.etcdPrefix, masterLockPath))
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		masterLock, err := dlock.NewDLock(ctx, a.etcdClient, path.Join(a.etcdPrefix, masterLockPath))
+		ctx, err := masterLock.Lock(ctx)
 		if err != nil {
 			return err
 		}
 		defer masterLock.Unlock()
-		ctx = masterLock.Context()
 
 		protolion.Infof("Launching PPS master process")
 
