@@ -84,7 +84,7 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (branchSetFactory,
 				// commits from the root input repos.  The set is only valid
 				// if there's precisely one provenance commit from each root
 				// input repo.
-				if set := considerEachSet(commitSets, i, func(set []*pfs.CommitInfo) bool {
+				if set := findCommitSet(commitSets, i, func(set []*pfs.CommitInfo) bool {
 					rootCommits := make(map[string]map[string]bool)
 					setRootCommit := func(commit *pfs.Commit) {
 						if rootCommits[commit.Repo.Name] == nil {
@@ -136,15 +136,15 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (branchSetFactory,
 	return f, nil
 }
 
-// considerEachSet runs a function on every commit set, starting with the
-// most recent one.  If the function returns true, then considerEachSet
+// findCommitSet runs a function on every commit set, starting with the
+// most recent one.  If the function returns true, then findCommitSet
 // removes the commit sets that are older than the current one and returns
 // the current one.
 // i is the index of the input from which we just got a new commit.  Since
 // it's the "triggering" input, we know that we only have to consider commit
 // sets that include the triggering commit since other commit sets must have
 // already been considered in previous runs.
-func considerEachSet(commitSets [][]*pfs.CommitInfo, i int, f func(commitSet []*pfs.CommitInfo) bool) []*pfs.CommitInfo {
+func findCommitSet(commitSets [][]*pfs.CommitInfo, i int, f func(commitSet []*pfs.CommitInfo) bool) []*pfs.CommitInfo {
 	numCommitSets := 1
 	for j, commits := range commitSets {
 		if i != j {
