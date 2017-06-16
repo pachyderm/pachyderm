@@ -585,40 +585,40 @@
 			"revisionTime": "2016-09-25T05:07:47Z"
 		},
 		{
-			"checksumSHA1": "3yco0089CSJ4qbyUccpbDC2+dPg=",
+			"checksumSHA1": "2XtrajUc7LktpQETiH+H2hbd200=",
 			"path": "github.com/gogo/protobuf/gogoproto",
-			"revision": "f6b4bb7b2dde1736b809b3da996ed72f278e9be9",
-			"revisionTime": "2017-01-02T19:29:32Z"
+			"revision": "efccd33a0c20aa078705571d5ddbfa14c8395a63",
+			"revisionTime": "2017-06-06T14:43:17Z"
 		},
 		{
-			"checksumSHA1": "TdG/KbJCS5XUIols9BnnhMe5ifg=",
+			"checksumSHA1": "gXiisLiXWRTmmYoxf49E4IZuOCs=",
 			"path": "github.com/gogo/protobuf/jsonpb",
-			"revision": "f6b4bb7b2dde1736b809b3da996ed72f278e9be9",
-			"revisionTime": "2017-01-02T19:29:32Z"
+			"revision": "efccd33a0c20aa078705571d5ddbfa14c8395a63",
+			"revisionTime": "2017-06-06T14:43:17Z"
 		},
 		{
 			"checksumSHA1": "6ZxSmrIx3Jd15aou16oG0HPylP4=",
 			"path": "github.com/gogo/protobuf/proto",
-			"revision": "f6b4bb7b2dde1736b809b3da996ed72f278e9be9",
-			"revisionTime": "2017-01-02T19:29:32Z"
+			"revision": "efccd33a0c20aa078705571d5ddbfa14c8395a63",
+			"revisionTime": "2017-06-06T14:43:17Z"
 		},
 		{
-			"checksumSHA1": "iGFgLlMcKNAAYdZEx12i/q3P4mQ=",
+			"checksumSHA1": "U6RUw5eBwarsz1tgGdTK4WphhbI=",
 			"path": "github.com/gogo/protobuf/protoc-gen-gogo/descriptor",
-			"revision": "f6b4bb7b2dde1736b809b3da996ed72f278e9be9",
-			"revisionTime": "2017-01-02T19:29:32Z"
+			"revision": "efccd33a0c20aa078705571d5ddbfa14c8395a63",
+			"revisionTime": "2017-06-06T14:43:17Z"
 		},
 		{
 			"checksumSHA1": "HPVQZu059/Rfw2bAWM538bVTcUc=",
 			"path": "github.com/gogo/protobuf/sortkeys",
-			"revision": "f6b4bb7b2dde1736b809b3da996ed72f278e9be9",
-			"revisionTime": "2017-01-02T19:29:32Z"
+			"revision": "efccd33a0c20aa078705571d5ddbfa14c8395a63",
+			"revisionTime": "2017-06-06T14:43:17Z"
 		},
 		{
-			"checksumSHA1": "JnyEd5OYV5zLtFg60dXfBvavGPA=",
+			"checksumSHA1": "h0V8wpkh3JbP0e+elopAsw146/4=",
 			"path": "github.com/gogo/protobuf/types",
-			"revision": "f6b4bb7b2dde1736b809b3da996ed72f278e9be9",
-			"revisionTime": "2017-01-02T19:29:32Z"
+			"revision": "efccd33a0c20aa078705571d5ddbfa14c8395a63",
+			"revisionTime": "2017-06-06T14:43:17Z"
 		},
 		{
 			"checksumSHA1": "HmbftipkadrLlCfzzVQ+iFHbl6g=",
