@@ -3421,13 +3421,15 @@ func TestIncrementalOverwritePipeline(t *testing.T) {
 			Incremental: true,
 		})
 	require.NoError(t, err)
-	for i := 0; i <= 5; i++ {
+	expectedValue := 0
+	for i := 0; i <= 100; i++ {
 		_, err := c.StartCommit(dataRepo, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.DeleteFile(dataRepo, "master", "data"))
 		_, err = c.PutFile(dataRepo, "master", "data", strings.NewReader(fmt.Sprintf("%d\n", i)))
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit(dataRepo, "master"))
+		expectedValue += i
 	}
 
 	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
@@ -3436,7 +3438,7 @@ func TestIncrementalOverwritePipeline(t *testing.T) {
 	require.Equal(t, 1, len(commitInfos))
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(pipeline, "master", "sum", 0, 0, &buf))
-	require.Equal(t, fmt.Sprintf("%d\n", 15), buf.String())
+	require.Equal(t, fmt.Sprintf("%d\n", expectedValue), buf.String())
 }
 
 func TestIncrementalAppendPipeline(t *testing.T) {
@@ -3470,7 +3472,8 @@ func TestIncrementalAppendPipeline(t *testing.T) {
 			Incremental: true,
 		})
 	require.NoError(t, err)
-	for i := 0; i <= 5; i++ {
+	expectedValue := 0
+	for i := 0; i <= 300; i++ {
 		_, err := c.StartCommit(dataRepo, "master")
 		require.NoError(t, err)
 		w, err := c.PutFileSplitWriter(dataRepo, "master", "data", pfs.Delimiter_LINE, 0, 0)
@@ -3479,6 +3482,7 @@ func TestIncrementalAppendPipeline(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, w.Close())
 		require.NoError(t, c.FinishCommit(dataRepo, "master"))
+		expectedValue += i
 	}
 
 	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
@@ -3487,7 +3491,7 @@ func TestIncrementalAppendPipeline(t *testing.T) {
 	require.Equal(t, 1, len(commitInfos))
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(pipeline, "master", "sum", 0, 0, &buf))
-	require.Equal(t, fmt.Sprintf("%d\n", 15), buf.String())
+	require.Equal(t, fmt.Sprintf("%d\n", expectedValue), buf.String())
 }
 
 func TestGarbageCollection(t *testing.T) {
