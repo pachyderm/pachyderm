@@ -32,13 +32,10 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 	if pullPolicy == "" {
 		pullPolicy = "IfNotPresent"
 	}
-	// Disable block caching for the sidecar.  We still want PFS cache
-	// because it caches things like commit IDs which typically has a
-	// very high hit rate since workers tend to be processing a small
-	// set commits at a time.
+	// TODO: make the cache sizes configurable
 	sidecarEnv := []api.EnvVar{{
 		Name:  "BLOCK_CACHE_BYTES",
-		Value: "256M",
+		Value: "64M",
 	}, {
 		Name:  "PFS_CACHE_BYTES",
 		Value: "10M",
