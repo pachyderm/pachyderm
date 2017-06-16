@@ -576,6 +576,15 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	return &types.Empty{}, nil
 }
 
+func (a *apiServer) Fsck(ctx context.Context, request *pfs.FsckRequest) (response *pfs.FsckResponse, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "PFSFsck")
+	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	return a.driver.fsck(ctx, request.DryRun)
+}
+
 type putFileReader struct {
 	server pfs.API_PutFileServer
 	buffer bytes.Buffer

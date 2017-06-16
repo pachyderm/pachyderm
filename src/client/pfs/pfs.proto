@@ -256,6 +256,14 @@ message DeleteFileRequest {
   File file = 1;
 }
 
+message FsckRequest {
+  bool dry_run = 1;
+}
+
+message FsckResponse {
+  repeated Object corrupted_objects = 1;
+}
+
 service API {
   // Repo rpcs
   // CreateRepo creates a new repo.
@@ -311,6 +319,9 @@ service API {
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+
+  // Fsck performs a filesystem check and attempts to make repairs
+  rpc Fsck(FsckRequest) returns (FsckResponse) {}
 }
 
 message PutObjectRequest {
@@ -372,10 +383,12 @@ service ObjectAPI {
   rpc CheckObject(CheckObjectRequest) returns (CheckObjectResponse) {}
   rpc ListObjects(ListObjectsRequest) returns (stream Object) {}
   rpc DeleteObjects(DeleteObjectsRequest) returns (DeleteObjectsResponse) {}
+
   rpc GetTag(Tag) returns (stream google.protobuf.BytesValue) {}
   rpc InspectTag(Tag) returns (ObjectInfo) {}
   rpc ListTags(ListTagsRequest) returns (stream ListTagsResponse) {}
   rpc DeleteTags(DeleteTagsRequest) returns (DeleteTagsResponse) {}
+
   rpc Compact(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 

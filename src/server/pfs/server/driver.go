@@ -18,6 +18,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
@@ -1559,6 +1560,65 @@ func (d *driver) deleteAll(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (d *driver) fsck(ctx context.Context, dryRun bool) (*pfs.FsckResponse, error) {
+	objClient, err := d.getObjectClient()
+	if err != nil {
+		return nil, err
+	}
+	l, err := objClient.ListObjects(ctx, &pfs.ListObjectsRequest{})
+	if err != nil {
+		return nil, err
+	}
+	limiter := limit.New(100)
+	var eg errgroup.Group
+	deleteObjectsRequest := &pfs.DeleteObjectsRequest{}
+	result := &pfs.FsckResponse{}
+	var lock sync.Mutex
+	for {
+		object, err := l.Recv()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+		limiter.Acquire()
+		eg.Go(func() error {
+			defer limiter.Release()
+			resp, err := objClient.CheckObject(ctx, &pfs.CheckObjectRequest{object})
+			if err != nil {
+				return err
+			}
+			if !resp.Exists {
+				lock.Lock()
+				defer lock.Unlock()
+				result.CorruptedObjects = append(result.CorruptedObjects, object)
+				if !dryRun {
+					deleteObjectsRequest.Objects = append(deleteObjectsRequest.Objects, object)
+					if len(deleteObjectsRequest.Objects) > 100 {
+						request := deleteObjectsRequest
+						deleteObjectsRequest = &pfs.DeleteObjectsRequest{}
+						eg.Go(func() error {
+							_, err := objClient.DeleteObjects(ctx, request)
+							return err
+						})
+					}
+				}
+			}
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+	if !dryRun {
+		if _, err := objClient.DeleteObjects(ctx, deleteObjectsRequest); err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
 }
 
 func (d *driver) applyWrites(resp *etcd.GetResponse, tree hashtree.OpenHashTree) error {

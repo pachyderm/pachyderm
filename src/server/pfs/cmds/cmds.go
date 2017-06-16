@@ -1000,6 +1000,30 @@ $ pachctl diff-file foo master path1 bar master path2
 	}
 	unmount.Flags().BoolVarP(&all, "all", "a", false, "unmount all pfs mounts")
 
+	var dryRun bool
+	fsck := &cobra.Command{
+		Use:   "fsck [flags]",
+		Short: "Check for and repair pfs corruption.",
+		Long:  "Check for and repair pfs corruption.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			client, err := client.NewMetricsClientFromAddress(address, metrics, "user")
+			if err != nil {
+				return err
+			}
+			resp, err := client.Fsck(dryRun)
+			if err != nil {
+				return err
+			}
+			if err := marshaller.Marshal(os.Stdout, resp); err != nil {
+				return err
+			}
+			fmt.Println()
+			return nil
+		}),
+	}
+	fsck.Flags().BoolVarP(&dryRun, "dry-run", "d", false, "check for errors but don't repair them")
+	rawFlag(fsck)
+
 	var result []*cobra.Command
 	result = append(result, repo)
 	result = append(result, createRepo)
@@ -1029,6 +1053,7 @@ $ pachctl diff-file foo master path1 bar master path2
 	result = append(result, getTag)
 	result = append(result, mount)
 	result = append(result, unmount)
+	result = append(result, fsck)
 	return result
 }
 
