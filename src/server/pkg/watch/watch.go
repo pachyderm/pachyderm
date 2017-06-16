@@ -34,16 +34,16 @@ type Event struct {
 }
 
 // Unmarshal unmarshals the item in an event into a protobuf message.
-func (e *Event) Unmarshal(key *string, val proto.Message) error {
+func (e *Event) Unmarshal(key *string, val proto.Unmarshaler) error {
 	*key = string(e.Key)
-	return proto.UnmarshalText(string(e.Value), val)
+	return val.Unmarshal(e.Value)
 }
 
 // UnmarshalPrev unmarshals the prev item in an event into a protobuf
 // message.
-func (e *Event) UnmarshalPrev(key *string, val proto.Message) error {
+func (e *Event) UnmarshalPrev(key *string, val proto.Unmarshaler) error {
 	*key = string(e.PrevKey)
-	return proto.UnmarshalText(string(e.PrevValue), val)
+	return val.Unmarshal(e.PrevValue)
 }
 
 // Watcher ...

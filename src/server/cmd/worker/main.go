@@ -14,7 +14,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -66,7 +65,8 @@ func getPipelineInfo(etcdClient *etcd.Client, appEnv *appEnv) (*pps.PipelineInfo
 		return nil, fmt.Errorf("expected to find 1 pipeline, got %d: %v", len(resp.Kvs), resp)
 	}
 	pipelineInfo := new(pps.PipelineInfo)
-	if err := proto.UnmarshalText(string(resp.Kvs[0].Value), pipelineInfo); err != nil {
+
+	if err := pipelineInfo.Unmarshal(resp.Kvs[0].Value); err != nil {
 		return nil, err
 	}
 	return pipelineInfo, nil
