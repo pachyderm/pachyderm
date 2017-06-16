@@ -27,7 +27,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
 	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/golang-lru"
 	"google.golang.org/grpc"
@@ -1201,7 +1200,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			SizeBytes:  size,
 			ObjectHash: object.Hash,
 		})
-		marshalledRecords, err := proto.Marshal(records)
+		marshalledRecords, err := records.Marshal()
 		if err != nil {
 			return err
 		}
@@ -1276,7 +1275,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	for i := 0; i < len(indexToRecord); i++ {
 		records.Records = append(records.Records, indexToRecord[i])
 	}
-	marshalledRecords, err := proto.Marshal(records)
+	marshalledRecords, err := records.Marshal()
 	if err != nil {
 		return err
 	}
@@ -1584,7 +1583,7 @@ func (d *driver) applyWrites(resp *etcd.GetResponse, tree hashtree.OpenHashTree)
 			}
 		} else {
 			records := &PutFileRecords{}
-			if err := proto.Unmarshal(kv.Value, records); err != nil {
+			if err := records.Unmarshal(kv.Value); err != nil {
 				return err
 			}
 			if !records.Split {

@@ -20,7 +20,6 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
@@ -484,7 +483,7 @@ func HashDatum(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) {
 		hash.Write(datum.FileInfo.Hash)
 	}
 
-	bytes, err := proto.Marshal(pipelineInfo.Transform)
+	bytes, err := pipelineInfo.Transform.Marshal()
 	if err != nil {
 		return "", err
 	}

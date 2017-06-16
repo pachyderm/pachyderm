@@ -13,7 +13,6 @@ import (
 	"time"
 
 	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/groupcache"
 	protolion "go.pedge.io/lion"
@@ -394,7 +393,9 @@ func (s *objBlockAPIServer) ListTags(request *pfsclient.ListTagsRequest, server 
 			eg.Go(func() error {
 				defer limiter.Release()
 				tagObjectIndex := &pfsclient.ObjectIndex{}
-				if err := s.readProto(key, tagObjectIndex); err != nil {
+				if err := s.readProto(key, func(data []byte) error {
+					return tagObjectIndex.Unmarshal(data)
+				}); err != nil {
 					return err
 				}
 				for _, object := range tagObjectIndex.Tags {
@@ -549,7 +550,9 @@ func (s *objBlockAPIServer) compact() (retErr error) {
 		return s.objClient.Walk(s.localServer.objectDir(), func(name string) error {
 			eg.Go(func() (retErr error) {
 				blockRef := &pfsclient.BlockRef{}
-				if err := s.readProto(name, blockRef); err != nil {
+				if err := s.readProto(name, func(data []byte) error {
+					return blockRef.Unmarshal(data)
+				}); err != nil {
 					return err
 				}
 				blockPath := s.localServer.blockPath(blockRef.Block)
@@ -583,7 +586,9 @@ func (s *objBlockAPIServer) compact() (retErr error) {
 		return s.objClient.Walk(s.localServer.tagDir(), func(name string) error {
 			eg.Go(func() error {
 				tagObjectIndex := &pfsclient.ObjectIndex{}
-				if err := s.readProto(name, tagObjectIndex); err != nil {
+				if err := s.readProto(name, func(data []byte) error {
+					return tagObjectIndex.Unmarshal(data)
+				}); err != nil {
 					return err
 				}
 				mu.Lock()
@@ -619,7 +624,9 @@ func (s *objBlockAPIServer) compact() (retErr error) {
 				Objects: make(map[string]*pfsclient.BlockRef),
 				Tags:    make(map[string]*pfsclient.Object),
 			}
-			if err := s.readProto(s.localServer.indexPath(prefix), prefixObjectIndex); err != nil && !s.isNotFoundErr(err) {
+			if err := s.readProto(s.localServer.indexPath(prefix), func(data []byte) error {
+				return prefixObjectIndex.Unmarshal(data)
+			}); err != nil && !s.isNotFoundErr(err) {
 				return err
 			}
 			for hash, blockRef := range objectIndex.Objects {
@@ -648,7 +655,7 @@ func (s *objBlockAPIServer) compact() (retErr error) {
 	return eg.Wait()
 }
 
-func (s *objBlockAPIServer) readProto(path string, pb proto.Message) (retErr error) {
+func (s *objBlockAPIServer) readProto(path string, f func(data []byte) error) (retErr error) {
 	r, err := s.objClient.Reader(path, 0, 0)
 	if err != nil {
 		return err
@@ -662,10 +669,14 @@ func (s *objBlockAPIServer) readProto(path string, pb proto.Message) (retErr err
 	if err != nil {
 		return err
 	}
-	return proto.Unmarshal(data, pb)
+	return f(data)
 }
 
-func (s *objBlockAPIServer) writeProto(path string, pb proto.Message) (retErr error) {
+type marshallable interface {
+	Marshal() ([]byte, error)
+}
+
+func (s *objBlockAPIServer) writeProto(path string, pb marshallable) (retErr error) {
 	w, err := s.objClient.Writer(path)
 	if err != nil {
 		return err
@@ -675,7 +686,7 @@ func (s *objBlockAPIServer) writeProto(path string, pb proto.Message) (retErr er
 			retErr = err
 		}
 	}()
-	data, err := proto.Marshal(pb)
+	data, err := pb.Marshal()
 	if err != nil {
 		return err
 	}
@@ -724,7 +735,9 @@ func (s *objBlockAPIServer) tagGetter(ctx groupcache.Context, key string, dest g
 	// Note that we tolerate NotExist errors here because the object may have
 	// been incorporated into an index and thus deleted.
 	objectIndex = &pfsclient.ObjectIndex{}
-	if err := s.readProto(s.localServer.tagPath(tag), objectIndex); err != nil && !s.isNotFoundErr(err) {
+	if err := s.readProto(s.localServer.tagPath(tag), func(data []byte) error {
+		return objectIndex.Unmarshal(data)
+	}); err != nil && !s.isNotFoundErr(err) {
 		return err
 	} else if err == nil {
 		if object, ok := objectIndex.Tags[tag.Name]; ok {
@@ -777,7 +790,9 @@ func (s *objBlockAPIServer) objectInfoGetter(ctx groupcache.Context, key string,
 	// Note that we tolerate NotExist errors here because the object may have
 	// been incorporated into an index and thus deleted.
 	blockRef := &pfsclient.BlockRef{}
-	if err := s.readProto(s.localServer.objectPath(object), blockRef); err != nil && !s.isNotFoundErr(err) {
+	if err := s.readProto(s.localServer.objectPath(object), func(data []byte) error {
+		return blockRef.Unmarshal(data)
+	}); err != nil && !s.isNotFoundErr(err) {
 		return err
 	} else if err == nil {
 		result.BlockRef = blockRef
@@ -850,7 +865,9 @@ func (s *objBlockAPIServer) setObjectIndex(prefix string, index *pfsclient.Objec
 
 func (s *objBlockAPIServer) readObjectIndex(prefix string) error {
 	objectIndex := &pfsclient.ObjectIndex{}
-	if err := s.readProto(s.localServer.indexPath(prefix), objectIndex); err != nil && !s.isNotFoundErr(err) {
+	if err := s.readProto(s.localServer.indexPath(prefix), func(data []byte) error {
+		return objectIndex.Unmarshal(data)
+	}); err != nil && !s.isNotFoundErr(err) {
 		return err
 	}
 	// Note that we only return the error above if it's something other than a
