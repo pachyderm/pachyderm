@@ -402,7 +402,7 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 		if err != nil {
 			return nil, err
 		}
-		commitSize = uint64(tree.Size())
+		commitSize = uint64(tree.FSSize())
 	}
 	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		repos := d.repos.ReadWrite(stm)
@@ -540,7 +540,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 		commitInfo.Tree = obj
 	}
 
-	commitInfo.SizeBytes = uint64(finishedTree.Size())
+	commitInfo.SizeBytes = uint64(finishedTree.FSSize())
 	commitInfo.Finished = now()
 
 	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
