@@ -179,7 +179,7 @@ func size(fs map[string]*NodeProto) int64 {
 	return rootNode.SubtreeSize
 }
 
-// Size returns the size of the file system that the hashtree represents.
+// FSSize returns the size of the file system that the hashtree represents.
 func (h *HashTreeProto) FSSize() int64 {
 	return size(h.Fs)
 }
@@ -284,7 +284,7 @@ func (h *hashtree) Glob(pattern string) ([]*NodeProto, error) {
 	return glob(h.fs, pattern)
 }
 
-// Size returns the size of the file system that the hashtree represents.
+// FSSize returns the size of the file system that the hashtree represents.
 func (h *hashtree) FSSize() int64 {
 	return size(h.fs)
 }
