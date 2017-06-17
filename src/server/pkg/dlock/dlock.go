@@ -67,7 +67,3 @@ func (d *etcdImpl) Unlock(ctx context.Context) error {
 	}
 	return d.session.Close()
 }
-
-func (d *etcdImpl) Context() context.Context {
-	return d.ctx
-}
