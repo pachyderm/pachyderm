@@ -46,7 +46,7 @@ func (a *APIServer) master() {
 		if err != nil {
 			return err
 		}
-		defer masterLock.Unlock()
+		defer masterLock.Unlock(ctx)
 
 		protolion.Infof("Launching worker master process")
 

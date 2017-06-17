@@ -31,7 +31,7 @@ func (a *apiServer) master() {
 		if err != nil {
 			return err
 		}
-		defer masterLock.Unlock()
+		defer masterLock.Unlock(ctx)
 
 		protolion.Infof("Launching PPS master process")
 
