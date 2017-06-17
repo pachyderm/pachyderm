@@ -16,7 +16,7 @@ type DLock interface {
 	// the requests get cancelled correctly.
 	Lock(context.Context) (context.Context, error)
 	// Unlock releases the distributed lock.
-	Unlock() error
+	Unlock(context.Context) error
 }
 
 type etcdImpl struct {
@@ -25,7 +25,6 @@ type etcdImpl struct {
 
 	session *concurrency.Session
 	mutex   *concurrency.Mutex
-	ctx     context.Context
 }
 
 // NewDLock attempts to acquire a distributed lock that locks a given prefix
@@ -43,6 +42,11 @@ func (d *etcdImpl) Lock(ctx context.Context) (context.Context, error) {
 		return nil, err
 	}
 
+	mutex := concurrency.NewMutex(session, d.prefix)
+	if err := mutex.Lock(ctx); err != nil {
+		return nil, err
+	}
+
 	ctx, cancel := context.WithCancel(ctx)
 	go func() {
 		select {
@@ -52,19 +56,13 @@ func (d *etcdImpl) Lock(ctx context.Context) (context.Context, error) {
 		}
 	}()
 
-	mutex := concurrency.NewMutex(session, d.prefix)
-	if err := mutex.Lock(ctx); err != nil {
-		return nil, err
-	}
-
 	d.session = session
 	d.mutex = mutex
-	d.ctx = ctx
 	return ctx, nil
 }
 
-func (d *etcdImpl) Unlock() error {
-	if err := d.mutex.Unlock(d.ctx); err != nil {
+func (d *etcdImpl) Unlock(ctx context.Context) error {
+	if err := d.mutex.Unlock(ctx); err != nil {
 		return err
 	}
 	return d.session.Close()
