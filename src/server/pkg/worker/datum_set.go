@@ -1,4 +1,4 @@
-package server
+package worker
 
 import (
 	"fmt"
@@ -6,18 +6,17 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
-	workerpkg "github.com/pachyderm/pachyderm/src/server/pkg/worker"
 
 	"golang.org/x/net/context"
 )
 
 type datumFactory interface {
 	Len() int
-	Datum(i int) []*workerpkg.Input
+	Datum(i int) []*Input
 }
 
 type atomDatumFactory struct {
-	inputs []*workerpkg.Input
+	inputs []*Input
 	index  int
 }
 
@@ -31,7 +30,7 @@ func newAtomDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pp
 		return nil, err
 	}
 	for _, fileInfo := range fileInfos.FileInfo {
-		result.inputs = append(result.inputs, &workerpkg.Input{
+		result.inputs = append(result.inputs, &Input{
 			FileInfo: fileInfo,
 			Name:     input.Name,
 			Lazy:     input.Lazy,
@@ -45,8 +44,8 @@ func (d *atomDatumFactory) Len() int {
 	return len(d.inputs)
 }
 
-func (d *atomDatumFactory) Datum(i int) []*workerpkg.Input {
-	return []*workerpkg.Input{d.inputs[i]}
+func (d *atomDatumFactory) Datum(i int) []*Input {
+	return []*Input{d.inputs[i]}
 }
 
 type unionDatumFactory struct {
@@ -73,7 +72,7 @@ func (d *unionDatumFactory) Len() int {
 	return result
 }
 
-func (d *unionDatumFactory) Datum(i int) []*workerpkg.Input {
+func (d *unionDatumFactory) Datum(i int) []*Input {
 	for _, datumFactory := range d.inputs {
 		if i < datumFactory.Len() {
 			return datumFactory.Datum(i)
@@ -98,11 +97,11 @@ func (d *crossDatumFactory) Len() int {
 	return result
 }
 
-func (d *crossDatumFactory) Datum(i int) []*workerpkg.Input {
+func (d *crossDatumFactory) Datum(i int) []*Input {
 	if i >= d.Len() {
 		panic("index out of bounds")
 	}
-	var result []*workerpkg.Input
+	var result []*Input
 	for _, datumFactory := range d.inputs {
 		result = append(result, datumFactory.Datum(i%datumFactory.Len())...)
 		i /= datumFactory.Len()
