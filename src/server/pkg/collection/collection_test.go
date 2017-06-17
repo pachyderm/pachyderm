@@ -2,7 +2,6 @@ package collection
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -100,8 +99,6 @@ func TestIndexWatch(t *testing.T) {
 
 	jobInfosReadonly := jobInfos.ReadOnly(context.Background())
 
-	fmt.Println("BP1")
-
 	watcher, err := jobInfosReadonly.WatchByIndex(pipelineIndex, j1.Pipeline.String())
 	eventCh := watcher.Watch()
 	require.NoError(t, err)
@@ -176,8 +173,6 @@ func TestIndexWatch(t *testing.T) {
 	require.Equal(t, event.Type, watch.EventDelete)
 	require.NoError(t, event.Unmarshal(&ID, job))
 	require.Equal(t, j2.Job.ID, ID)
-
-	fmt.Println("BP7")
 }
 
 func TestMultiIndex(t *testing.T) {

@@ -18,18 +18,21 @@ import (
 	"syscall"
 	"time"
 
+	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
+	kube "k8s.io/kubernetes/pkg/client/unversioned"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 )
 
@@ -46,6 +49,9 @@ var (
 // APIServer implements the worker API
 type APIServer struct {
 	pachClient *client.APIClient
+	kubeClient *kube.Client
+	etcdClient *etcd.Client
+	etcdPrefix string
 
 	// Information needed to process input data and upload output
 	pipelineInfo *pps.PipelineInfo
@@ -64,6 +70,14 @@ type APIServer struct {
 	cancel func()
 	// The k8s pod name of this worker
 	workerName string
+	// The total number of workers for this pipeline
+	numWorkers int
+	// The namespace in which pachyderm is deployed
+	namespace string
+	// The jobs collection
+	jobs col.Collection
+	// The pipelines collection
+	pipelines col.Collection
 }
 
 type taggedLogger struct {
@@ -144,10 +158,21 @@ func (logger *taggedLogger) userLogger() *taggedLogger {
 	return result
 }
 
-// NewPipelineAPIServer creates an APIServer for a given pipeline
-func NewPipelineAPIServer(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, workerName string) *APIServer {
+// NewAPIServer creates an APIServer for a given pipeline
+func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string, pipelineInfo *pps.PipelineInfo, workerName string, namespace string) (*APIServer, error) {
+	kubeClient, err := kube.NewInCluster()
+	if err != nil {
+		return nil, err
+	}
+	numWorkers, err := pps.GetExpectedNumWorkers(kubeClient, pipelineInfo.ParallelismSpec)
+	if err != nil {
+		return nil, err
+	}
 	server := &APIServer{
 		pachClient:   pachClient,
+		kubeClient:   kubeClient,
+		etcdClient:   etcdClient,
+		etcdPrefix:   etcdPrefix,
 		pipelineInfo: pipelineInfo,
 		logMsgTemplate: pps.LogMessage{
 			PipelineName: pipelineInfo.Pipeline.Name,
@@ -155,8 +180,13 @@ func NewPipelineAPIServer(pachClient *client.APIClient, pipelineInfo *pps.Pipeli
 			WorkerID:     os.Getenv(client.PPSPodNameEnv),
 		},
 		workerName: workerName,
+		numWorkers: numWorkers,
+		namespace:  namespace,
+		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
+		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
 	}
-	return server
+	go server.master()
+	return server, nil
 }
 
 func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag) error {
@@ -453,7 +483,7 @@ func HashDatum(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) {
 		hash.Write(datum.FileInfo.Hash)
 	}
 
-	bytes, err := proto.Marshal(pipelineInfo.Transform)
+	bytes, err := pipelineInfo.Transform.Marshal()
 	if err != nil {
 		return "", err
 	}
@@ -629,4 +659,27 @@ func (a *APIServer) datum() []*pps.Datum {
 
 func (a *APIServer) userCodeEnviron(req *ProcessRequest) []string {
 	return append(os.Environ(), fmt.Sprintf("PACH_JOB_ID=%s", req.JobID))
+}
+
+func (a *APIServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.JobState) error {
+	// Update job counts
+	if jobInfo.Pipeline != nil {
+		pipelines := a.pipelines.ReadWrite(stm)
+		pipelineInfo := new(pps.PipelineInfo)
+		if err := pipelines.Get(jobInfo.Pipeline.Name, pipelineInfo); err != nil {
+			return err
+		}
+		if pipelineInfo.JobCounts == nil {
+			pipelineInfo.JobCounts = make(map[int32]int32)
+		}
+		if pipelineInfo.JobCounts[int32(jobInfo.State)] != 0 {
+			pipelineInfo.JobCounts[int32(jobInfo.State)]--
+		}
+		pipelineInfo.JobCounts[int32(state)]++
+		pipelines.Put(pipelineInfo.Pipeline.Name, pipelineInfo)
+	}
+	jobInfo.State = state
+	jobs := a.jobs.ReadWrite(stm)
+	jobs.Put(jobInfo.Job.ID, jobInfo)
+	return nil
 }
