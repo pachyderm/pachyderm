@@ -247,6 +247,10 @@ func (c *readWriteIntCollection) Get(key string) (int, error) {
 }
 
 func (c *readWriteIntCollection) Increment(key string) error {
+	return c.IncrementBy(1)
+}
+
+func (c *readWriteIntCollection) IncrementBy(key string, n int) error {
 	fullKey := c.path(key)
 	valStr := c.stm.Get(fullKey)
 	if valStr == "" {
@@ -256,11 +260,15 @@ func (c *readWriteIntCollection) Increment(key string) error {
 	if err != nil {
 		return ErrMalformedValue{c.prefix, key, valStr}
 	}
-	c.stm.Put(fullKey, strconv.Itoa(val+1))
+	c.stm.Put(fullKey, strconv.Itoa(val+n))
 	return nil
 }
 
 func (c *readWriteIntCollection) Decrement(key string) error {
+	return c.DecrementBy(1)
+}
+
+func (c *readWriteIntCollection) DecrementBy(key string, n int) error {
 	fullKey := c.path(key)
 	valStr := c.stm.Get(fullKey)
 	if valStr == "" {
@@ -270,7 +278,7 @@ func (c *readWriteIntCollection) Decrement(key string) error {
 	if err != nil {
 		return ErrMalformedValue{c.prefix, key, valStr}
 	}
-	c.stm.Put(fullKey, strconv.Itoa(val-1))
+	c.stm.Put(fullKey, strconv.Itoa(val-n))
 	return nil
 }
 
