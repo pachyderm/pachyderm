@@ -3460,8 +3460,6 @@ func TestIncrementalAppendPipeline(t *testing.T) {
 				Cmd: []string{"bash"},
 				Stdin: []string{
 					"touch /pfs/out/sum",
-					"echo sum && cat /pfs/out/sum",
-					fmt.Sprintf("echo data && cat /pfs/%s/data/*", dataRepo),
 					fmt.Sprintf("SUM=`cat /pfs/%s/data/* /pfs/out/sum | awk '{sum+=$1} END {print sum}'`", dataRepo),
 					"echo $SUM > /pfs/out/sum",
 				},
