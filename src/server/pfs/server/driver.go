@@ -263,9 +263,6 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 			// +1 because we need to include ourselves.
 			myRefCount++
 
-			fmt.Printf("provToAdd: %v\n", provToAdd)
-			fmt.Printf("provToRemove: %v\n", provToRemove)
-
 			for newProv := range provToAdd {
 				fmt.Printf("incrementing %v by %v\n", newProv, myRefCount)
 				if err := repoRefCounts.IncrementBy(newProv, myRefCount); err != nil {
