@@ -727,31 +727,54 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			return nil, err
 		}
 
+		// We only need to restart downstream pipelines if the provenance
+		// of our output repo changed.
+		outputRepo := &pfs.Repo{pipelineInfo.Pipeline.Name}
+		repoInfo, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{
+			Repo: outputRepo,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		// Check if the new and old provenance are equal
+		provSet := make(map[string]bool)
+		for _, oldProv := range repoInfo.Provenance {
+			provSet[oldProv.Name] = true
+		}
+		for _, newProv := range provenance {
+			delete(provSet, newProv.Name)
+		}
+		provenanceChanged := len(provSet) > 0 || len(repoInfo.Provenance) != len(provenance)
+
 		if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
-			Repo:       &pfs.Repo{pipelineInfo.Pipeline.Name},
+			Repo:       outputRepo,
 			Provenance: provenance,
 			Update:     true,
 		}); err != nil && !isAlreadyExistsErr(err) {
 			return nil, err
 		}
 
-		// Restart all downstream pipelines so they relaunch with the
-		// correct provenance.
-		repoInfos, err := pfsClient.ListRepo(ctx, &pfs.ListRepoRequest{
-			Provenance: []*pfs.Repo{{request.Pipeline.Name}},
-		})
-		if err != nil {
-			return nil, err
-		}
-		for _, repoInfo := range repoInfos.RepoInfo {
-			if _, err := a.StopPipeline(ctx, &pps.StopPipelineRequest{&pps.Pipeline{repoInfo.Repo.Name}}); err != nil {
-				if isNotFoundErr(err) {
-					continue
-				}
+		if provenanceChanged {
+
+			// Restart all downstream pipelines so they relaunch with the
+			// correct provenance.
+			repoInfos, err := pfsClient.ListRepo(ctx, &pfs.ListRepoRequest{
+				Provenance: []*pfs.Repo{{request.Pipeline.Name}},
+			})
+			if err != nil {
 				return nil, err
 			}
-			if _, err := a.StartPipeline(ctx, &pps.StartPipelineRequest{&pps.Pipeline{repoInfo.Repo.Name}}); err != nil {
-				return nil, err
+			for _, repoInfo := range repoInfos.RepoInfo {
+				if _, err := a.StopPipeline(ctx, &pps.StopPipelineRequest{&pps.Pipeline{repoInfo.Repo.Name}}); err != nil {
+					if isNotFoundErr(err) {
+						continue
+					}
+					return nil, err
+				}
+				if _, err := a.StartPipeline(ctx, &pps.StartPipelineRequest{&pps.Pipeline{repoInfo.Repo.Name}}); err != nil {
+					return nil, err
+				}
 			}
 		}
 	} else {
