@@ -198,7 +198,7 @@ func (p *Puller) PullDiff(client *pachclient.APIClient, root string, newRepo, ne
 			}
 		}
 	}
-	return nil
+	return eg.Wait()
 }
 
 // PullTree pulls from a raw HashTree rather than a repo.
