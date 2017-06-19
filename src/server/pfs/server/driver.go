@@ -27,7 +27,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
 	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/golang-lru"
 	"google.golang.org/grpc"
@@ -226,7 +225,7 @@ func absent(key string) etcd.Cmp {
 	return etcd.Compare(etcd.CreateRevision(key), "=", 0)
 }
 
-func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*pfs.Repo, description string) error {
+func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*pfs.Repo, description string, update bool) error {
 	if err := ValidateRepoName(repo.Name); err != nil {
 		return err
 	}
@@ -266,6 +265,10 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 			Created:     now(),
 			Provenance:  fullProvRepos,
 			Description: description,
+		}
+		if update {
+			repos.Put(repo.Name, repoInfo)
+			return nil
 		}
 		return repos.Create(repo.Name, repoInfo)
 	})
@@ -398,7 +401,7 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 		if err != nil {
 			return nil, err
 		}
-		commitSize = uint64(tree.Size())
+		commitSize = uint64(tree.FSSize())
 	}
 	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		repos := d.repos.ReadWrite(stm)
@@ -536,7 +539,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 		commitInfo.Tree = obj
 	}
 
-	commitInfo.SizeBytes = uint64(finishedTree.Size())
+	commitInfo.SizeBytes = uint64(finishedTree.FSSize())
 	commitInfo.Finished = now()
 
 	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
@@ -1197,7 +1200,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			SizeBytes:  size,
 			ObjectHash: object.Hash,
 		})
-		marshalledRecords, err := proto.Marshal(records)
+		marshalledRecords, err := records.Marshal()
 		if err != nil {
 			return err
 		}
@@ -1272,7 +1275,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	for i := 0; i < len(indexToRecord); i++ {
 		records.Records = append(records.Records, indexToRecord[i])
 	}
-	marshalledRecords, err := proto.Marshal(records)
+	marshalledRecords, err := records.Marshal()
 	if err != nil {
 		return err
 	}
@@ -1580,7 +1583,7 @@ func (d *driver) applyWrites(resp *etcd.GetResponse, tree hashtree.OpenHashTree)
 			}
 		} else {
 			records := &PutFileRecords{}
-			if err := proto.Unmarshal(kv.Value, records); err != nil {
+			if err := records.Unmarshal(kv.Value); err != nil {
 				return err
 			}
 			if !records.Split {

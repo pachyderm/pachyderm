@@ -149,7 +149,6 @@ message JobInfo {
   pfs.Commit output_commit = 9;
   JobState state = 10;
   Service service = 14;
-  bool stopped = 16;
   pfs.Repo output_repo = 18;
   string output_branch = 17;
   uint64 restart = 20;
@@ -222,7 +221,6 @@ message PipelineInfo {
   PipelineState state = 7;
   string recent_error = 8;
   map<int32, int32> job_counts = 9;
-  bool stopped = 13;
   string output_branch = 16;
   google.protobuf.Duration scale_down_threshold = 18;
   ResourceSpec resource_spec = 19;
