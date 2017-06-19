@@ -247,7 +247,7 @@ func (c *readWriteIntCollection) Get(key string) (int, error) {
 }
 
 func (c *readWriteIntCollection) Increment(key string) error {
-	return c.IncrementBy(1)
+	return c.IncrementBy(key, 1)
 }
 
 func (c *readWriteIntCollection) IncrementBy(key string, n int) error {
@@ -265,7 +265,7 @@ func (c *readWriteIntCollection) IncrementBy(key string, n int) error {
 }
 
 func (c *readWriteIntCollection) Decrement(key string) error {
-	return c.DecrementBy(1)
+	return c.DecrementBy(key, 1)
 }
 
 func (c *readWriteIntCollection) DecrementBy(key string, n int) error {
