@@ -3422,7 +3422,7 @@ func TestIncrementalOverwritePipeline(t *testing.T) {
 		})
 	require.NoError(t, err)
 	expectedValue := 0
-	for i := 0; i <= 100; i++ {
+	for i := 0; i <= 150; i++ {
 		_, err := c.StartCommit(dataRepo, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.DeleteFile(dataRepo, "master", "data"))
@@ -3460,6 +3460,8 @@ func TestIncrementalAppendPipeline(t *testing.T) {
 				Cmd: []string{"bash"},
 				Stdin: []string{
 					"touch /pfs/out/sum",
+					"echo sum && cat /pfs/out/sum",
+					fmt.Sprintf("echo data && cat /pfs/%s/data/*", dataRepo),
 					fmt.Sprintf("SUM=`cat /pfs/%s/data/* /pfs/out/sum | awk '{sum+=$1} END {print sum}'`", dataRepo),
 					"echo $SUM > /pfs/out/sum",
 				},
@@ -3473,7 +3475,7 @@ func TestIncrementalAppendPipeline(t *testing.T) {
 		})
 	require.NoError(t, err)
 	expectedValue := 0
-	for i := 0; i <= 300; i++ {
+	for i := 0; i <= 150; i++ {
 		_, err := c.StartCommit(dataRepo, "master")
 		require.NoError(t, err)
 		w, err := c.PutFileSplitWriter(dataRepo, "master", "data", pfs.Delimiter_LINE, 0, 0)
