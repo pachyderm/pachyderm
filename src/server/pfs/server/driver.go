@@ -261,7 +261,7 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 				return err
 			}
 			// +1 because we need to include ourselves.
-			myRefCount += 1
+			myRefCount++
 
 			fmt.Printf("provToAdd: %v\n", provToAdd)
 			fmt.Printf("provToRemove: %v\n", provToRemove)
