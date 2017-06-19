@@ -677,6 +677,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 	pipelineName := pipelineInfo.Pipeline.Name
 
+	var provenance []*pfs.Repo
+	for _, commit := range pps.InputCommits(pipelineInfo.Input) {
+		provenance = append(provenance, commit.Repo)
+	}
+
 	pps.SortInput(pipelineInfo.Input)
 	if request.Update {
 		if _, err := a.StopPipeline(ctx, &pps.StopPipelineRequest{request.Pipeline}); err != nil {
@@ -721,6 +726,34 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		if _, err := a.StartPipeline(ctx, &pps.StartPipelineRequest{request.Pipeline}); err != nil {
 			return nil, err
 		}
+
+		if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
+			Repo:       &pfs.Repo{pipelineInfo.Pipeline.Name},
+			Provenance: provenance,
+			Update:     true,
+		}); err != nil && !isAlreadyExistsErr(err) {
+			return nil, err
+		}
+
+		// Restart all downstream pipelines so they relaunch with the
+		// correct provenance.
+		repoInfos, err := pfsClient.ListRepo(ctx, &pfs.ListRepoRequest{
+			Provenance: []*pfs.Repo{{request.Pipeline.Name}},
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, repoInfo := range repoInfos.RepoInfo {
+			if _, err := a.StopPipeline(ctx, &pps.StopPipelineRequest{&pps.Pipeline{repoInfo.Repo.Name}}); err != nil {
+				if isNotFoundErr(err) {
+					continue
+				}
+				return nil, err
+			}
+			if _, err := a.StartPipeline(ctx, &pps.StartPipelineRequest{&pps.Pipeline{repoInfo.Repo.Name}}); err != nil {
+				return nil, err
+			}
+		}
 	} else {
 		_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			pipelines := a.pipelines.ReadWrite(stm)
@@ -733,29 +766,22 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		if err != nil {
 			return nil, err
 		}
+		// Create output repo
+		// The pipeline manager also creates the output repo, but we want to
+		// also create the repo here to make sure that the output repo is
+		// guaranteed to be there after CreatePipeline returns.  This is
+		// because it's a very common pattern to create many pipelines in a
+		// row, some of which depend on the existence of the output repos
+		// of upstream pipelines.
+		if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
+			Repo:       &pfs.Repo{pipelineInfo.Pipeline.Name},
+			Provenance: provenance,
+		}); err != nil && !isAlreadyExistsErr(err) {
+			return nil, err
+		}
 	}
 
-	// Create output repo
-	// The pipeline manager also creates the output repo, but we want to
-	// also create the repo here to make sure that the output repo is
-	// guaranteed to be there after CreatePipeline returns.  This is
-	// because it's a very common pattern to create many pipelines in a
-	// row, some of which depend on the existence of the output repos
-	// of upstream pipelines.
-	var provenance []*pfs.Repo
-	for _, commit := range pps.InputCommits(pipelineInfo.Input) {
-		provenance = append(provenance, commit.Repo)
-	}
-
-	if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
-		Repo:       &pfs.Repo{pipelineInfo.Pipeline.Name},
-		Provenance: provenance,
-		Update:     request.Update,
-	}); err != nil && !isAlreadyExistsErr(err) {
-		return nil, err
-	}
-
-	return &types.Empty{}, err
+	return &types.Empty{}, nil
 }
 
 // setPipelineDefaults sets the default values for a pipeline info
