@@ -17,7 +17,7 @@ FROM tensorflow/tensorflow:0.12.0-gpu
 ...
 ```
 
-Or you might follow [this general guide](https://github.com/NVIDIA/nvidia-docker) for working with Docker and NVIDIA.
+Or you might follow [this guide](https://github.com/NVIDIA/nvidia-docker) for working with Docker and NVIDIA (although we haven't full tested this guide).
 
 ## Writing Your Pipeline Specification
 
@@ -91,7 +91,7 @@ To deploy a Pachyderm cluster with GPU support we assume:
 
 ### Add GPU nodes to your k8s cluster
 
-For example, you can use `kops create ...`:
+You can create GPU nodes by first using `kops` to create a new instance group:
 
 ```
 $kops create ig gpunodes --name XXXXXX-pachydermcluster.kubernetes.com --state s3://k8scom-state-store-pachyderm-YYYYY --subnet us-west-2c
@@ -117,6 +117,8 @@ where your specification will look something like:
 
 In this example we used Amazon's p2.xlarge instance which contains a single GPU node.
 
+**Node** -  If you upped your `rootVolumeSize` (and set the `rootVolumeType` in your other instance group), you should do the same here. In the absence of GPU jobs, normal jobs could get scheduled on this node, in which case you'll have the same disk requirements as the rest of your cluster. There is currently no way of setting "disk" resource requests, so we have to use a convention instead.
+
 ### Enable GPUs at the k8s level
 
 Again, you can use `kops` to edit your cluster:
@@ -136,11 +138,11 @@ and add the fields:
       Accelerators: "true"
 ```
 
-**Note:** It's YAML and spaces are very important.
+**Note:** It's YAML and spaces are very important. Also, if you see "fields were not recognized," you likely need to update the version of `kops`.
 
 These lines provide an image that gets run on every node's startup. This image will install the NVIDIA drivers on the host machine, update the host machine to mount the device at startup, and restart the host machine.
 
-The feature gate enables k8s GPU detection. That's what gives us the `alpha.kubernetes.io/nvidia-gpu: "1"` resources.
+The feature gate enables k8s GPU detection. That's what gives us the `alpha.kubernetes.io/nvidia-gypu: "1"` resources.
 
 ### Update your cluster
 
@@ -167,20 +169,17 @@ $kubectl get nodes/ip-172-20-38-179.us-west-2.compute.internal -o yaml | grep nv
     alpha.kubernetes.io/nvidia-gpu: "1"
 ```
 
-### Poke k8s if necessary
+### Deal with known issues (if necessary)
 
-If you're not seeing the node, its possible you're hitting [a known k8s bug](https://github.com/kubernetes/kubernetes/issues/45753).
+If you're not seeing the node, its possible that your resource limits (from your cloud provider) are preventing you from creating the GPU node(s).  You should check your resource limits and ensure that GPU nodes are available in your region/zone.  
 
-In this case, it helps to restart the k8s api server. To do that, run:
+If you have checked your resource limits and everything seems ok, its very possible that you're hitting [a known k8s bug](https://github.com/kubernetes/kubernetes/issues/45753).  In this case, you can try to overcome the issue by restarting the k8s api server. To do that, run:
 
 ```
 kubectl --namespace=kube-system get pod | grep kube-apiserver | cut -f 1 -d " " | while read pod; do kubectl --namespace=kube-system delete po/$pod; done
 ```
 
 It can take a few minutes for the node to get recognized by the k8s cluster again.
-
-Now you're all done and set up to train models or do image processing with GPUs in your Pachyderm cluster. If you've got a further questions, you can come find us in our public [Slack Channel](slack.pachyderm.io) or on [Github](github.com/pachyderm/pachyderm).
-
 
 ## Test Locally
 
