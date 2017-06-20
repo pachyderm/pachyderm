@@ -271,6 +271,109 @@ func TestCreateDeletedRepo(t *testing.T) {
 	require.Equal(t, 0, len(commitInfos))
 }
 
+// The DAG looks like this before the update:
+// prov1 prov2
+//   \    /
+//    repo
+//   /    \
+// d1      d2
+//
+// Looks like this after the update:
+//
+// prov2 prov3
+//   \    /
+//    repo
+//   /    \
+// d1      d2
+func TestUpdateProvenance(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	prov1 := "prov1"
+	require.NoError(t, client.CreateRepo(prov1))
+	prov2 := "prov2"
+	require.NoError(t, client.CreateRepo(prov2))
+	prov3 := "prov3"
+	require.NoError(t, client.CreateRepo(prov3))
+	repo := "repo"
+	_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
+		Repo: pclient.NewRepo("repo"),
+		Provenance: []*pfs.Repo{
+			pclient.NewRepo(prov1),
+			pclient.NewRepo(prov2),
+		},
+	})
+	require.NoError(t, err)
+	downstream1 := "downstream1"
+	_, err = client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
+		Repo: pclient.NewRepo(downstream1),
+		Provenance: []*pfs.Repo{
+			pclient.NewRepo(repo),
+		},
+	})
+	require.NoError(t, err)
+	downstream2 := "downstream2"
+	_, err = client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
+		Repo: pclient.NewRepo(downstream2),
+		Provenance: []*pfs.Repo{
+			pclient.NewRepo(repo),
+		},
+	})
+	require.NoError(t, err)
+
+	// Without the Update flag it should fail
+	_, err = client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
+		Repo: pclient.NewRepo(repo),
+		Provenance: []*pfs.Repo{
+			pclient.NewRepo(prov2),
+			pclient.NewRepo(prov3),
+		},
+	})
+	require.YesError(t, err)
+
+	_, err = client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
+		Repo: pclient.NewRepo(repo),
+		Provenance: []*pfs.Repo{
+			pclient.NewRepo(prov2),
+			pclient.NewRepo(prov3),
+		},
+		Update: true,
+	})
+	require.NoError(t, err)
+
+	// Check that the downstream repos have the correct provenance
+	repoInfo, err := client.InspectRepo(repo)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(repoInfo.Provenance))
+	expectedProvs := []interface{}{&pfs.Repo{prov2}, &pfs.Repo{prov3}}
+	require.EqualOneOf(t, expectedProvs, repoInfo.Provenance[0])
+	require.EqualOneOf(t, expectedProvs, repoInfo.Provenance[1])
+
+	repoInfo, err = client.InspectRepo(downstream1)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(repoInfo.Provenance))
+	expectedProvs = []interface{}{&pfs.Repo{prov2}, &pfs.Repo{prov3}, &pfs.Repo{repo}}
+	require.EqualOneOf(t, expectedProvs, repoInfo.Provenance[0])
+	require.EqualOneOf(t, expectedProvs, repoInfo.Provenance[1])
+	require.EqualOneOf(t, expectedProvs, repoInfo.Provenance[2])
+
+	repoInfo, err = client.InspectRepo(downstream2)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(repoInfo.Provenance))
+	expectedProvs = []interface{}{&pfs.Repo{prov2}, &pfs.Repo{prov3}, &pfs.Repo{repo}}
+	require.EqualOneOf(t, expectedProvs, repoInfo.Provenance[0])
+	require.EqualOneOf(t, expectedProvs, repoInfo.Provenance[1])
+	require.EqualOneOf(t, expectedProvs, repoInfo.Provenance[2])
+
+	// We should be able to delete prov1 since it's no longer the provenance
+	// of other repos.
+	require.NoError(t, client.DeleteRepo(prov1, false))
+
+	// We shouldn't be able to delete prov3 since it's now a provenance
+	// of other repos.
+	require.YesError(t, client.DeleteRepo(prov3, false))
+}
+
 func TestListRepoWithProvenance(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
