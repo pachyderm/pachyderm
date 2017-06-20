@@ -16,7 +16,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
 	protolion "go.pedge.io/lion/proto"
@@ -38,11 +37,10 @@ const (
 
 type apiServer struct {
 	protorpclog.Logger
-	driver   *driver
-	reporter *metrics.Reporter
+	driver *driver
 }
 
-func newLocalAPIServer(address string, etcdPrefix string, reporter *metrics.Reporter) (*apiServer, error) {
+func newLocalAPIServer(address string, etcdPrefix string) (*apiServer, error) {
 	d, err := newLocalDriver(address, etcdPrefix)
 	if err != nil {
 		return nil, err
@@ -54,7 +52,7 @@ func newLocalAPIServer(address string, etcdPrefix string, reporter *metrics.Repo
 	}, nil
 }
 
-func newAPIServer(address string, etcdAddresses []string, etcdPrefix string, cacheBytes int64, reporter *metrics.Reporter) (*apiServer, error) {
+func newAPIServer(address string, etcdAddresses []string, etcdPrefix string, cacheBytes int64) (*apiServer, error) {
 	d, err := newDriver(address, etcdAddresses, etcdPrefix, cacheBytes)
 	if err != nil {
 		return nil, err
