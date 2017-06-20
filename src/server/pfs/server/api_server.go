@@ -46,9 +46,8 @@ func newLocalAPIServer(address string, etcdPrefix string) (*apiServer, error) {
 		return nil, err
 	}
 	return &apiServer{
-		Logger:   protorpclog.NewLogger("pfs.API"),
-		driver:   d,
-		reporter: reporter,
+		Logger: protorpclog.NewLogger("pfs.API"),
+		driver: d,
 	}, nil
 }
 
@@ -58,9 +57,8 @@ func newAPIServer(address string, etcdAddresses []string, etcdPrefix string, cac
 		return nil, err
 	}
 	return &apiServer{
-		Logger:   protorpclog.NewLogger("pfs.API"),
-		driver:   d,
-		reporter: reporter,
+		Logger: protorpclog.NewLogger("pfs.API"),
+		driver: d,
 	}, nil
 }
 
