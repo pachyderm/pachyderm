@@ -83,6 +83,17 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objC
 	s.objectCache = groupcache.NewGroup("object", oneCacheShare*objectCacheShares, groupcache.GetterFunc(s.objectGetter))
 	s.tagCache = groupcache.NewGroup("tag", oneCacheShare*tagCacheShares, groupcache.GetterFunc(s.tagGetter))
 	s.objectInfoCache = groupcache.NewGroup("objectInfo", oneCacheShare*objectInfoCacheShares, groupcache.GetterFunc(s.objectInfoGetter))
+	// Periodically print cache stats for debugging purposes
+	// TODO: make the stats accessible via HTTP or gRPC.
+	go func() {
+		ticker := time.NewTicker(time.Minute)
+		for {
+			<-ticker.C
+			protolion.Infof("objectCache stats: %+v", s.objectCache.Stats)
+			protolion.Infof("tagCache stats: %+v", s.tagCache.Stats)
+			protolion.Infof("objectInfoCache stats: %+v", s.objectInfoCache.Stats)
+		}
+	}()
 	go s.watchGC(etcdAddress)
 	return s, nil
 }
@@ -182,7 +193,7 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 	r := io.TeeReader(putObjectReader, hash)
 	block := &pfsclient.Block{Hash: uuid.NewWithoutDashes()}
 	var size int64
-	if err := func() error {
+	if err := func() (retErr error) {
 		w, err := s.objClient.Writer(s.localServer.blockPath(block))
 		if err != nil {
 			return err
@@ -648,7 +659,7 @@ func (s *objBlockAPIServer) compact() (retErr error) {
 	return eg.Wait()
 }
 
-func (s *objBlockAPIServer) readProto(path string, pb proto.Message) (retErr error) {
+func (s *objBlockAPIServer) readProto(path string, pb proto.Unmarshaler) (retErr error) {
 	r, err := s.objClient.Reader(path, 0, 0)
 	if err != nil {
 		return err
@@ -662,10 +673,10 @@ func (s *objBlockAPIServer) readProto(path string, pb proto.Message) (retErr err
 	if err != nil {
 		return err
 	}
-	return proto.Unmarshal(data, pb)
+	return pb.Unmarshal(data)
 }
 
-func (s *objBlockAPIServer) writeProto(path string, pb proto.Message) (retErr error) {
+func (s *objBlockAPIServer) writeProto(path string, pb proto.Marshaler) (retErr error) {
 	w, err := s.objClient.Writer(path)
 	if err != nil {
 		return err
@@ -675,7 +686,7 @@ func (s *objBlockAPIServer) writeProto(path string, pb proto.Message) (retErr er
 			retErr = err
 		}
 	}()
-	data, err := proto.Marshal(pb)
+	data, err := pb.Marshal()
 	if err != nil {
 		return err
 	}
