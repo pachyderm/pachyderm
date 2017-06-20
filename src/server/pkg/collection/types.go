@@ -68,7 +68,9 @@ type ReadWriteIntCollection interface {
 	Create(key string, val int) error
 	Get(key string) (int, error)
 	Increment(key string) error
+	IncrementBy(key string, n int) error
 	Decrement(key string) error
+	DecrementBy(key string, n int) error
 	Delete(key string) error
 }
 
