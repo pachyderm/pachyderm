@@ -190,6 +190,9 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 }
 
 func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag) error {
+	defer func(start time.Time) {
+		logger.Logf("download for inputs (%v) took %v\n", inputs, time.Since(start))
+	}(time.Now())
 	for _, input := range inputs {
 		file := input.FileInfo.File
 		root := filepath.Join(client.PPSInputPrefix, input.Name, file.Path)
@@ -224,6 +227,9 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 
 // Run user code and return the combined output of stdout and stderr.
 func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string) error {
+	defer func(start time.Time) {
+		logger.Logf("running user code for environment (%v) took %v\n", environment, time.Since(start))
+	}(time.Now())
 	// Run user code
 	cmd := exec.CommandContext(ctx, a.pipelineInfo.Transform.Cmd[0], a.pipelineInfo.Transform.Cmd[1:]...)
 	cmd.Stdin = strings.NewReader(strings.Join(a.pipelineInfo.Transform.Stdin, "\n") + "\n")
@@ -257,6 +263,9 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 }
 
 func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *taggedLogger, inputs []*Input) error {
+	defer func(start time.Time) {
+		logger.Logf("uploading output for inputs (%v) took %v\n", inputs, time.Since(start))
+	}(time.Now())
 	// hashtree is not thread-safe--guard with 'lock'
 	var lock sync.Mutex
 	tree := hashtree.NewHashTree()
@@ -495,8 +504,15 @@ func HashDatum(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) {
 	return client.HashPipelineID(pipelineInfo.ID) + hex.EncodeToString(hash.Sum(nil)), nil
 }
 
+func (a *APIServer) logAPICall(methodName string, request proto.Message, response proto.Message, err error, duration time.Duration) {
+	logger := a.getTaggedLogger()
+	logger.Logf("service: %v, method: %v, request: %v, response: %v, err %v, duration: %v", "worker", methodName, request, response, err, duration)
+}
+
 // Process processes a datum.
 func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *ProcessResponse, retErr error) {
+	a.logAPICall("Process", request, nil, nil, 0)
+	defer func(start time.Time) { a.logAPICall("Process", request, response, retErr, time.Since(start)) }(time.Now())
 	// We cannot run more than one user process at once; otherwise they'd be
 	// writing to the same output directory. Acquire lock to make sure only one
 	// user process runs at a time.
@@ -593,6 +609,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		logger.Logf("puller encountered an error while cleaning up: %+v", err)
 		return nil, err
 	}
+	logger.Logf("beginning to upload output")
 	if err := a.uploadOutput(ctx, tag, logger, req.Data); err != nil {
 		// If uploading failed because the user program outputed a special
 		// file, then there's no point in retrying.  Thus we signal that
@@ -605,6 +622,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		}
 		return nil, err
 	}
+	logger.Logf("finished uploading output")
 	return &ProcessResponse{
 		Tag: &pfs.Tag{tag},
 	}, nil
@@ -612,6 +630,8 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 
 // Status returns the status of the current worker.
 func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStatus, error) {
+	a.logAPICall("Status", request, nil, nil, 0)
+	defer func(start time.Time) { a.logAPICall("Status", request, response, retErr, time.Since(start)) }(time.Now())
 	a.statusMu.Lock()
 	defer a.statusMu.Unlock()
 	started, err := types.TimestampProto(a.started)
@@ -629,6 +649,8 @@ func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStat
 
 // Cancel cancels the currently running datum
 func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*CancelResponse, error) {
+	a.logAPICall("Cancel", request, nil, nil, 0)
+	defer func(start time.Time) { a.logAPICall("Cancel", request, response, retErr, time.Since(start)) }(time.Now())
 	a.statusMu.Lock()
 	defer a.statusMu.Unlock()
 	if request.JobID != a.jobID {
