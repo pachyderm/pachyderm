@@ -37,7 +37,9 @@ func NewDLock(client *etcd.Client, prefix string) DLock {
 }
 
 func (d *etcdImpl) Lock(ctx context.Context) (context.Context, error) {
-	session, err := concurrency.NewSession(d.client, concurrency.WithContext(ctx))
+	// The default TTL is 60 secs which means that if a node dies, it
+	// still holds the lock for 60 secs, which is too high.
+	session, err := concurrency.NewSession(d.client, concurrency.WithContext(ctx), concurrency.WithTTL(15))
 	if err != nil {
 		return nil, err
 	}

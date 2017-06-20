@@ -234,6 +234,85 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 		repos := d.repos.ReadWrite(stm)
 		repoRefCounts := d.repoRefCounts.ReadWriteInt(stm)
 
+		if update {
+			repoInfo := new(pfs.RepoInfo)
+			if err := repos.Get(repo.Name, repoInfo); err != nil {
+				return err
+			}
+
+			provToAdd := make(map[string]bool)
+			provToRemove := make(map[string]bool)
+			for _, newProv := range provenance {
+				provToAdd[newProv.Name] = true
+			}
+			for _, oldProv := range repoInfo.Provenance {
+				delete(provToAdd, oldProv.Name)
+				provToRemove[oldProv.Name] = true
+			}
+			for _, newProv := range provenance {
+				delete(provToRemove, newProv.Name)
+			}
+
+			// For each new provenance repo, we increase its ref count
+			// by N where N is this repo's ref count.
+			// For each old provenance repo we do the opposite.
+			myRefCount, err := repoRefCounts.Get(repo.Name)
+			if err != nil {
+				return err
+			}
+			// +1 because we need to include ourselves.
+			myRefCount++
+
+			for newProv := range provToAdd {
+				fmt.Printf("incrementing %v by %v\n", newProv, myRefCount)
+				if err := repoRefCounts.IncrementBy(newProv, myRefCount); err != nil {
+					return err
+				}
+			}
+
+			for oldProv := range provToRemove {
+				fmt.Printf("decrementing %v by %v\n", oldProv, myRefCount)
+				if err := repoRefCounts.DecrementBy(oldProv, myRefCount); err != nil {
+					return err
+				}
+			}
+
+			// We also add the new provenance repos to the provenance
+			// of all downstream repos, and remove the old provenance
+			// repos from their provenance.
+			downstreamRepos, err := d.listRepo(ctx, []*pfs.Repo{repo})
+			if err != nil {
+				return err
+			}
+
+			for _, repoInfo := range downstreamRepos {
+			nextNewProv:
+				for newProv := range provToAdd {
+					for _, prov := range repoInfo.Provenance {
+						if newProv == prov.Name {
+							continue nextNewProv
+						}
+					}
+					repoInfo.Provenance = append(repoInfo.Provenance, &pfs.Repo{newProv})
+				}
+			nextOldProv:
+				for oldProv := range provToRemove {
+					for i, prov := range repoInfo.Provenance {
+						if oldProv == prov.Name {
+							repoInfo.Provenance = append(repoInfo.Provenance[:i], repoInfo.Provenance[i+1:]...)
+							continue nextOldProv
+						}
+					}
+				}
+				repos.Put(repoInfo.Repo.Name, repoInfo)
+			}
+
+			repoInfo.Description = description
+			repoInfo.Provenance = provenance
+			repos.Put(repo.Name, repoInfo)
+			return nil
+		}
+
 		// compute the full provenance of this repo
 		fullProv := make(map[string]bool)
 		for _, prov := range provenance {
@@ -265,10 +344,6 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 			Created:     now(),
 			Provenance:  fullProvRepos,
 			Description: description,
-		}
-		if update {
-			repos.Put(repo.Name, repoInfo)
-			return nil
 		}
 		return repos.Create(repo.Name, repoInfo)
 	})
