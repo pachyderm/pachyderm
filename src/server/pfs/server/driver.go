@@ -24,6 +24,7 @@ import (
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/pfsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -115,21 +116,6 @@ const (
 	defaultCacheSize = 1024 * 1024
 )
 
-// collection prefixes
-const (
-	reposPrefix         = "/repos"
-	repoRefCountsPrefix = "/repoRefCounts"
-	commitsPrefix       = "/commits"
-	branchesPrefix      = "/branches"
-)
-
-var (
-	provenanceIndex = col.Index{
-		Field: "Provenance",
-		Multi: true,
-	}
-)
-
 // newDriver is used to create a new Driver instance
 func newDriver(address string, etcdAddresses []string, etcdPrefix string, cacheBytes int64) (*driver, error) {
 	etcdClient, err := etcd.New(etcd.Config{
@@ -150,36 +136,16 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, cacheB
 	}
 
 	return &driver{
-		address:    address,
-		etcdClient: etcdClient,
-		prefix:     etcdPrefix,
-		repos: col.NewCollection(
-			etcdClient,
-			path.Join(etcdPrefix, reposPrefix),
-			[]col.Index{provenanceIndex},
-			&pfs.RepoInfo{},
-		),
-		repoRefCounts: col.NewCollection(
-			etcdClient,
-			path.Join(etcdPrefix, repoRefCountsPrefix),
-			nil,
-			nil,
-		),
+		address:       address,
+		etcdClient:    etcdClient,
+		prefix:        etcdPrefix,
+		repos:         pfsdb.Repos(etcdClient, etcdPrefix),
+		repoRefCounts: pfsdb.RepoRefCounts(etcdClient, etcdPrefix),
 		commits: func(repo string) col.Collection {
-			return col.NewCollection(
-				etcdClient,
-				path.Join(etcdPrefix, commitsPrefix, repo),
-				[]col.Index{provenanceIndex},
-				&pfs.CommitInfo{},
-			)
+			return pfsdb.Commits(etcdClient, etcdPrefix, repo)
 		},
 		branches: func(repo string) col.Collection {
-			return col.NewCollection(
-				etcdClient,
-				path.Join(etcdPrefix, branchesPrefix, repo),
-				nil,
-				&pfs.Commit{},
-			)
+			return pfsdb.Branches(etcdClient, etcdPrefix, repo)
 		},
 		commitCache: commitCache,
 		treeCache:   treeCache,
@@ -894,7 +860,7 @@ func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 
 	for _, commit := range fromCommits {
 		for _, repo := range repos {
-			commitWatcher, err := d.commits(repo.Name).ReadOnly(ctx).WatchByIndex(provenanceIndex, commit)
+			commitWatcher, err := d.commits(repo.Name).ReadOnly(ctx).WatchByIndex(pfsdb.ProvenanceIndex, commit)
 			if err != nil {
 				return nil, err
 			}
@@ -985,7 +951,7 @@ func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 }
 
 func (d *driver) flushRepo(ctx context.Context, repo *pfs.Repo) ([]*pfs.RepoInfo, error) {
-	iter, err := d.repos.ReadOnly(ctx).GetByIndex(provenanceIndex, repo)
+	iter, err := d.repos.ReadOnly(ctx).GetByIndex(pfsdb.ProvenanceIndex, repo)
 	if err != nil {
 		return nil, err
 	}
