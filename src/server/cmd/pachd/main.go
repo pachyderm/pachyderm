@@ -18,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
+	"github.com/pachyderm/pachyderm/src/migration"
 	"github.com/pachyderm/pachyderm/src/server/health"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	cache_pb "github.com/pachyderm/pachyderm/src/server/pkg/cache/groupcachepb"
@@ -43,7 +44,7 @@ var migrate string
 func init() {
 	flag.StringVar(&mode, "mode", "full", "Pachd currently supports two modes: full and sidecar.  The former includes everything you need in a full pachd node.  The later runs only PFS and a stripped-down version of PPS.")
 	flag.BoolVar(&readinessCheck, "readiness-check", false, "Set to true when checking if local pod is ready")
-	flag.StringVar(&migrate, "migrate", "", "Use the format FROM_VERSION-TO_VERSION; e.g. 1.2.4-1.3.0")
+	flag.StringVar(&migrate, "migrate", "", "Use the format FROM_VERSION-TO_VERSION; e.g. 1.4.8-1.5.0")
 	flag.Parse()
 }
 
@@ -69,6 +70,19 @@ type appEnv struct {
 }
 
 func main() {
+	if migrate != "" {
+		parts := strings.Split("-")
+		if len(parts) != 2 {
+			fmt.Printf("the migration flag needs to be of the format FROM_VERSION-TO_VERSION; e.g. 1.4.8-1.5.0")
+			return
+		}
+		stdout, err := migration.Run(parts[0], parts[1])
+		if err != nil {
+			fmt.Printf("error from migration: %v", err)
+		}
+		fmt.Println(stdout)
+		return
+	}
 	switch mode {
 	case "full":
 		cmdutil.Main(doFullMode, &appEnv{})
