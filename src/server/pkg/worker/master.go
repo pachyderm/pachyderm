@@ -63,6 +63,10 @@ func (a *APIServer) master() {
 			return nil
 		})
 
+		if err != nil {
+			return err
+		}
+
 		return a.jobSpawner(ctx)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		protolion.Errorf("master: error running the master process: %v; retrying in %v", err, d)
