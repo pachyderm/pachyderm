@@ -2207,7 +2207,7 @@ func getClient(t *testing.T) pclient.APIClient {
 		address := addresses[i]
 		blockAPIServer, err := NewLocalBlockAPIServer(root)
 		require.NoError(t, err)
-		apiServer, err := newLocalAPIServer(address, prefix, nil)
+		apiServer, err := newLocalAPIServer(address, prefix)
 		require.NoError(t, err)
 		runServers(t, port, apiServer, blockAPIServer)
 	}
