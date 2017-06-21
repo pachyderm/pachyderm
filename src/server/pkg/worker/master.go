@@ -63,10 +63,6 @@ func (a *APIServer) master() {
 			return nil
 		})
 
-		if err != nil {
-			return err
-		}
-
 		return a.jobSpawner(ctx)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		protolion.Errorf("master: error running the master process: %v; retrying in %v", err, d)
@@ -265,9 +261,6 @@ nextInput:
 
 // jobManager feeds datums to jobs
 func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *grpcutil.Pool) error {
-	jobStart := time.Now()
-	defer func() { protolion.Infof("running job (%v) took (%v)\n", jobInfo, time.Since(jobStart)) }()
-	protolion.Infof("running job (%v)\n", jobInfo)
 	pfsClient := a.pachClient.PfsAPIClient
 	objectClient := a.pachClient.ObjectAPIClient
 	ppsClient := a.pachClient.PpsAPIClient
@@ -275,10 +268,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *grpc
 	jobID := jobInfo.Job.ID
 	var jobStopped bool
 	var jobStoppedMutex sync.Mutex
-	retryCount := 0
 	backoff.RetryNotify(func() error {
-		defer func() { retryCount += 1 }()
-		protolion.Infof("running job (%v), retry (%v)\n", jobInfo, retryCount)
 		// We use a new context for this particular instance of the retry
 		// loop, to ensure that all resources are released properly when
 		// this job retries.
@@ -289,14 +279,12 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *grpc
 			// Wait for the parent job to finish, to ensure that output
 			// commits are ordered correctly, and that this job doesn't
 			// contend for workers with its parent.
-			protolion.Infof("job (%v) waiting on parent job to complete\n", jobInfo)
 			if _, err := ppsClient.InspectJob(ctx, &pps.InspectJobRequest{
 				Job:        jobInfo.ParentJob,
 				BlockState: true,
 			}); err != nil {
 				return err
 			}
-			protolion.Infof("parent job (%v) completed\n", jobInfo)
 		}
 
 		// Cancel the context and move on to the next job if this job
@@ -399,7 +387,6 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *grpc
 		}
 		// set the initial values
 		updateProgress(0)
-		protolion.Infof("Updated initial job state (%v)\n", jobInfo)
 
 		for i := 0; i < df.Len(); i++ {
 			limiter.Acquire()
@@ -445,16 +432,13 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *grpc
 						return fmt.Errorf("error from connection pool: %v", err)
 					}
 					workerClient := NewWorkerClient(conn)
-					processReq := &ProcessRequest{
+					protolion.Infof("issuing Process() request for job (%v)\n", jobInfo)
+					resp, err := workerClient.Process(ctx, &ProcessRequest{
 						JobID:        jobInfo.Job.ID,
 						Data:         files,
 						ParentOutput: parentOutputTag,
-					}
-					protolion.Infof("Issuing Process() call for datum (%v)\n", processReq)
-					processStart := time.Now()
-					resp, err := workerClient.Process(ctx, processReq)
-					protolion.Infof("Received Process() response (%v) err (%v) for datum (%v)\n", resp, err, processReq)
-					protolion.Infof("Process() took (%v) for datum (%v)\n", time.Since(processStart))
+					})
+					protolion.Infof("received Process() response for job (%v)\n", jobInfo)
 					if err != nil {
 						if err := conn.Close(); err != nil {
 							protolion.Errorf("error closing conn: %+v", err)
