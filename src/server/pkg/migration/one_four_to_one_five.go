@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"path"
 
-	col "migration/onefoureight/collection"
 	"migration/onefoureight/db/pfs"
 	"migration/onefoureight/db/pps"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -16,70 +16,12 @@ import (
 )
 
 const (
-	reposPrefix         = "/repos"
-	repoRefCountsPrefix = "/repoRefCounts"
-	commitsPrefix       = "/commits"
-	branchesPrefix      = "/branches"
-)
-
-func repos(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
-	return col.NewCollection(
-		etcdClient,
-		path.Join(etcdPrefix, reposPrefix),
-		nil,
-		&pfs.RepoInfo{},
-	)
-}
-
-func repoRefCounts(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
-	return col.NewCollection(
-		etcdClient,
-		path.Join(etcdPrefix, repoRefCountsPrefix),
-		nil,
-		nil,
-	)
-}
-
-func commits(etcdClient *etcd.Client, etcdPrefix string, repo string) col.Collection {
-	return col.NewCollection(
-		etcdClient,
-		path.Join(etcdPrefix, commitsPrefix, repo),
-		nil,
-		&pfs.CommitInfo{},
-	)
-}
-
-func branches(etcdClient *etcd.Client, etcdPrefix string, repo string) col.Collection {
-	return col.NewCollection(
-		etcdClient,
-		path.Join(etcdPrefix, branchesPrefix, repo),
-		nil,
-		&pfs.Commit{},
-	)
-}
-
-const (
+	reposPrefix     = "/repos"
+	commitsPrefix   = "/commits"
+	branchesPrefix  = "/branches"
 	pipelinesPrefix = "/pipelines"
 	jobsPrefix      = "/jobs"
 )
-
-func pipelines(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
-	return col.NewCollection(
-		etcdClient,
-		path.Join(etcdPrefix, pipelinesPrefix),
-		nil,
-		&pps.PipelineInfo{},
-	)
-}
-
-func jobs(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
-	return col.NewCollection(
-		etcdClient,
-		path.Join(etcdPrefix, jobsPrefix),
-		nil,
-		&pps.JobInfo{},
-	)
-}
 
 func oneFourToOneFive(etcdAddress, pfsPrefix, ppsPrefix string) error {
 	etcdClient, err := etcd.New(etcd.Config{
@@ -90,31 +32,45 @@ func oneFourToOneFive(etcdAddress, pfsPrefix, ppsPrefix string) error {
 		return fmt.Errorf("error constructing etcdClient: %v", err)
 	}
 
-	repos := repos(etcdClient, pfsPrefix)
-	iter, err := repos.ReadOnly(context.Background()).List()
-	if err != nil {
-		protolion.Errorf("error obtaining an iterator of repos: %v", err)
-	} else {
-		var key string
-		var repoInfo pfs.RepoInfo
-		for {
-			ok, err := iter.Next(&key, &repoInfo)
+	// This function migrates objects under a specific prefix
+	migrate := func(prefix string, template proto.Message) {
+		resp, err := etcdClient.Get(context.Background(), prefix, etcd.WithPrefix())
+		if err != nil {
+			protolion.Errorf("error getting %v: %v", prefix, err)
+			return
+		}
+		for _, kv := range resp.Kvs {
+			key := string(kv.Key)
+			if err := proto.UnmarshalText(string(kv.Value), template); err != nil {
+				protolion.Errorf("error unmarshalling object %v: %v", key, err)
+				continue
+			}
+			bytes, err := proto.Marshal(template)
 			if err != nil {
-				protolion.Errorf("error deserializing repo: %v", err)
+				protolion.Errorf("error marshalling object %v: %v", key, err)
+				continue
 			}
-			if !ok {
-				break
-			}
-			if _, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-				reposWriter := repos.ReadWrite(stm)
-				// The vendored collection library has been modified such that
-				// Put serializes the object to bytes
-				reposWriter.Put(key, &repoInfo)
-				return nil
-			}); err != nil {
-				protolion.Errorf("error updating object %v: %v", key, err)
+			if _, err := etcdClient.Put(context.Background(), key, string(bytes)); err != nil {
+				protolion.Errorf("error putting object %v: %v", key, err)
+				continue
 			}
 		}
 	}
+
+	var repoInfo pfs.RepoInfo
+	migrate(path.Join(pfsPrefix, reposPrefix), &repoInfo)
+
+	var commitInfo pfs.CommitInfo
+	migrate(path.Join(pfsPrefix, commitsPrefix), &commitInfo)
+
+	var head pfs.Commit
+	migrate(path.Join(pfsPrefix, branchesPrefix), &head)
+
+	var pipelineInfo pps.PipelineInfo
+	migrate(path.Join(pfsPrefix, pipelinesPrefix), &pipelineInfo)
+
+	var jobInfo pps.JobInfo
+	migrate(path.Join(pfsPrefix, jobsPrefix), &jobInfo)
+
 	return nil
 }
