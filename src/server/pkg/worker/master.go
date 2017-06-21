@@ -452,7 +452,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *grpc
 					}
 					protolion.Infof("Issuing Process() call for datum (%v)\n", processReq)
 					processStart := time.Now()
-					resp, err := workerClient.Process(ctx, &processReq)
+					resp, err := workerClient.Process(ctx, processReq)
 					protolion.Infof("Received Process() response (%v) err (%v) for datum (%v)\n", resp, err, processReq)
 					protolion.Infof("Process() took (%v) for datum (%v)\n", time.Since(processStart))
 					if err != nil {

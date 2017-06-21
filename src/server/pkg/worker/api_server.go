@@ -228,7 +228,7 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 // Run user code and return the combined output of stdout and stderr.
 func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string) error {
 	defer func(start time.Time) {
-		logger.Logf("running user code for environment (%v) took %v\n", environment, time.Since(start))
+		logger.Logf("running user code for environment (%v) took %v\n", environ, time.Since(start))
 	}(time.Now())
 	// Run user code
 	cmd := exec.CommandContext(ctx, a.pipelineInfo.Transform.Cmd[0], a.pipelineInfo.Transform.Cmd[1:]...)
@@ -504,15 +504,13 @@ func HashDatum(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) {
 	return client.HashPipelineID(pipelineInfo.ID) + hex.EncodeToString(hash.Sum(nil)), nil
 }
 
-func (a *APIServer) logAPICall(methodName string, request proto.Message, response proto.Message, err error, duration time.Duration) {
-	logger := a.getTaggedLogger()
-	logger.Logf("service: %v, method: %v, request: %v, response: %v, err %v, duration: %v", "worker", methodName, request, response, err, duration)
-}
-
 // Process processes a datum.
 func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *ProcessResponse, retErr error) {
-	a.logAPICall("Process", request, nil, nil, 0)
-	defer func(start time.Time) { a.logAPICall("Process", request, response, retErr, time.Since(start)) }(time.Now())
+	logger := a.getTaggedLogger(req)
+	logger.Logf("service: worker, method: Process, request: %v, response: %v, err %v, duration: %v", req, nil, nil, 0)
+	defer func(start time.Time) {
+		logger.Logf("service: worker, method: Process, request: %v, response: %v, err %v, duration: %v", req, resp, retErr, time.Since(start))
+	}(time.Now())
 	// We cannot run more than one user process at once; otherwise they'd be
 	// writing to the same output directory. Acquire lock to make sure only one
 	// user process runs at a time.
@@ -543,7 +541,6 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		a.started = time.Time{}
 		a.cancel = nil
 	}()
-	logger := a.getTaggedLogger(req)
 	logger.Logf("Received request")
 
 	// Hash inputs and check if output is in s3 already. Note: ppsserver sorts
@@ -629,9 +626,12 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 }
 
 // Status returns the status of the current worker.
-func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStatus, error) {
-	a.logAPICall("Status", request, nil, nil, 0)
-	defer func(start time.Time) { a.logAPICall("Status", request, response, retErr, time.Since(start)) }(time.Now())
+func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (status *pps.WorkerStatus, retErr error) {
+	logger := log.Logger{}
+	logger.Printf("service: worker, method: Status, response: %v, err %v, duration: %v", status, nil, nil)
+	defer func(start time.Time) {
+		logger.Printf("service: worker, method: Status, response: %v, err %v, duration: %v", status, retErr, time.Since(start))
+	}(time.Now())
 	a.statusMu.Lock()
 	defer a.statusMu.Unlock()
 	started, err := types.TimestampProto(a.started)
@@ -648,9 +648,12 @@ func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStat
 }
 
 // Cancel cancels the currently running datum
-func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*CancelResponse, error) {
-	a.logAPICall("Cancel", request, nil, nil, 0)
-	defer func(start time.Time) { a.logAPICall("Cancel", request, response, retErr, time.Since(start)) }(time.Now())
+func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (resp *CancelResponse, retErr error) {
+	logger := log.Logger{}
+	logger.Printf("service: worker, method: Cancel, request: %v, response: %v, err %v, duration: %v", request, resp, nil, nil)
+	defer func(start time.Time) {
+		logger.Printf("service: worker, method: Cancel, request: %v, response: %v, err %v, duration: %v", request, resp, retErr, time.Since(start))
+	}(time.Now())
 	a.statusMu.Lock()
 	defer a.statusMu.Unlock()
 	if request.JobID != a.jobID {
