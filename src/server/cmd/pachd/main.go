@@ -70,18 +70,6 @@ type appEnv struct {
 }
 
 func main() {
-	if migrate != "" {
-		parts := strings.Split("-")
-		if len(parts) != 2 {
-			fmt.Printf("the migration flag needs to be of the format FROM_VERSION-TO_VERSION; e.g. 1.4.8-1.5.0")
-			return
-		}
-
-		if err := migration.Run(parts[0], parts[1], appEnv.EtcdAddress, appEnv.PFSEtcdPrefix, appEnv.PPSEtcdPrefix); err != nil {
-			fmt.Printf("error from migration: %v", err)
-		}
-		return
-	}
 	switch mode {
 	case "full":
 		cmdutil.Main(doFullMode, &appEnv{})
@@ -173,10 +161,22 @@ func doSidecarMode(appEnvObj interface{}) error {
 }
 
 func doFullMode(appEnvObj interface{}) error {
+	appEnv := appEnvObj.(*appEnv)
+	if migrate != "" {
+		parts := strings.Split(migrate, "-")
+		if len(parts) != 2 {
+			return fmt.Errorf("the migration flag needs to be of the format FROM_VERSION-TO_VERSION; e.g. 1.4.8-1.5.0")
+		}
+
+		if err := migration.Run(parts[0], parts[1], appEnv.EtcdAddress, appEnv.PFSEtcdPrefix, appEnv.PPSEtcdPrefix); err != nil {
+			return fmt.Errorf("error from migration: %v", err)
+		}
+		return nil
+	}
+
 	go func() {
 		lion.Println(http.ListenAndServe(":651", nil))
 	}()
-	appEnv := appEnvObj.(*appEnv)
 	switch appEnv.LogLevel {
 	case "debug":
 		lion.SetLevel(lion.LevelDebug)
