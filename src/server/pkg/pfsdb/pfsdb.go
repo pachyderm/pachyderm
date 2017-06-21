@@ -1,4 +1,4 @@
-// Package ppsdb contains the database schema that PFS uses.
+// Package pfsdb contains the database schema that PFS uses.
 package pfsdb
 
 import (
@@ -17,9 +17,11 @@ const (
 )
 
 var (
+	// ProvenanceIndex is a secondary index on provenance
 	ProvenanceIndex = col.Index{"Provenance", true}
 )
 
+// Repos returns a collection of repos
 func Repos(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 	return col.NewCollection(
 		etcdClient,
@@ -29,6 +31,7 @@ func Repos(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 	)
 }
 
+// RepoRefCounts returns a collection of repo ref counts
 func RepoRefCounts(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 	return col.NewCollection(
 		etcdClient,
@@ -38,6 +41,7 @@ func RepoRefCounts(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 	)
 }
 
+// Commits returns a collection of commits
 func Commits(etcdClient *etcd.Client, etcdPrefix string, repo string) col.Collection {
 	return col.NewCollection(
 		etcdClient,
@@ -47,6 +51,7 @@ func Commits(etcdClient *etcd.Client, etcdPrefix string, repo string) col.Collec
 	)
 }
 
+// Branches returns a collection of branches
 func Branches(etcdClient *etcd.Client, etcdPrefix string, repo string) col.Collection {
 	return col.NewCollection(
 		etcdClient,
