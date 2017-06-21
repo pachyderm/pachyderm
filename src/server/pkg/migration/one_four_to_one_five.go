@@ -67,10 +67,10 @@ func oneFourToOneFive(etcdAddress, pfsPrefix, ppsPrefix string) error {
 	migrate(path.Join(pfsPrefix, branchesPrefix), &head)
 
 	var pipelineInfo pps.PipelineInfo
-	migrate(path.Join(pfsPrefix, pipelinesPrefix), &pipelineInfo)
+	migrate(path.Join(ppsPrefix, pipelinesPrefix), &pipelineInfo)
 
 	var jobInfo pps.JobInfo
-	migrate(path.Join(pfsPrefix, jobsPrefix), &jobInfo)
+	migrate(path.Join(ppsPrefix, jobsPrefix), &jobInfo)
 
 	return nil
 }
