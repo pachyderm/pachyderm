@@ -616,7 +616,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 }
 
 // Status returns the status of the current worker.
-func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (status *pps.WorkerStatus, retErr error) {
+func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStatus, error) {
 	a.statusMu.Lock()
 	defer a.statusMu.Unlock()
 	started, err := types.TimestampProto(a.started)
@@ -633,7 +633,7 @@ func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (status *pps.Wor
 }
 
 // Cancel cancels the currently running datum
-func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (resp *CancelResponse, retErr error) {
+func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*CancelResponse, error) {
 	a.statusMu.Lock()
 	defer a.statusMu.Unlock()
 	if request.JobID != a.jobID {
