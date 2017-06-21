@@ -5,18 +5,18 @@ import (
 	"strings"
 )
 
-// MigrationFunc is a function that migrates Pachyderm's internal state from
+// migrationFunc is a function that migrates Pachyderm's internal state from
 // one version to another.
-type MigrationFunc func(etcdAddress, pfsPrefix, ppsPrefix string) error
+type migrationFunc func(etcdAddress, pfsPrefix, ppsPrefix string) error
 
-var migrationRoutines map[string]map[string]MigrationFunc
+var migrationRoutines map[string]map[string]migrationFunc
 
 func init() {
-	migrationRoutines = make(map[string]map[string]MigrationFunc)
+	migrationRoutines = make(map[string]map[string]migrationFunc)
 
 	// Register 1.4.* -> 1.5.0
 	for _, version := range allPatchVersions("1.4") {
-		migrationRoutines[version] = make(map[string]MigrationFunc)
+		migrationRoutines[version] = make(map[string]migrationFunc)
 		migrationRoutines[version]["1.5.0"] = oneFourToOneFive
 	}
 }
