@@ -242,7 +242,7 @@ $ pachctl migrate --from 1.4.8 --to 1.5.0
 				ObjectMeta: api.ObjectMeta{
 					Name: "pach-migration",
 					Labels: map[string]string{
-						"app": "pachyderm",
+						"suite": "pachyderm",
 					},
 				},
 				Spec: batch.JobSpec{
