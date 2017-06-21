@@ -66,7 +66,7 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     reference/pipeline_spec
     reference/best_practices
     pachctl/pachctl
-    reference/golang_client
+    reference/clients
     
 
 
