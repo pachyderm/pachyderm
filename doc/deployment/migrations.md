@@ -2,11 +2,25 @@
 
 Occationally, Pachyderm introduces changes that are backward-incompatible: repos/commits/files created on an old version of Pachyderm may be unusable on a new version of Pachyderm. When that happens, we try our best to write a migration script that "upgrades" your data so it’s usable by the new version of Pachyderm.
 
-To upgrade to 1.4.x, look under the directory named `migration/X-Y`. For instance, to upgrade from 1.3.12 to 1.4.0, look under `migration/1.3.12-1.4.0`.
+## Migrate to 1.4.x
+
+To migrate to 1.4.x, look under the directory named `migration/X-Y`. For instance, to upgrade from 1.3.12 to 1.4.0, look under `migration/1.3.12-1.4.0`.
 
 **Note** - If you are migrating from Pachyderm <= 1.3 to 1.4+, you should read [this guide](https://github.com/pachyderm/pachyderm/tree/master/migration/1.3.x-1.4.x). In this particular case, a migration script is NOT provided due to significant changes in our processing and metadata structures. 
 
-To upgrade from 1.4.x to 1.5.x, use the `pachctl migrate` command.  See `pachctl migrate --help` for detailed instructions.
+## Migrate to 1.5.x
+
+To migrate from 1.4.x to 1.5.x, use the `pachctl migrate` command.  See `pachctl migrate --help` for detailed instructions.
+
+As an example, to migrate from 1.4.8 to 1.5.0, use the following command:
+
+```
+$ pachctl migrate --from 1.4.8 --to 1.5.0
+```
+
+Note that the `pachctl migrate` command can be run either before or after you've redeployed your cluster with the new version (e.g. via `pachctl deploy`).
+
+Most importantly, you need to ensure that your cluster is "at rest" when you run `pachctl migrate`.  That is, there shouldn't be any ongoing activities that are changing the state of the cluster.  Examples would be running jobs or ongoing `put-file` requests.
 
 ## Backup
 
