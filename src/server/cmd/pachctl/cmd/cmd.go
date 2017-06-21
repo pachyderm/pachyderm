@@ -94,7 +94,8 @@ Environment variables:
 			if err != nil {
 				return sanitizeErr(err)
 			}
-			ctx, _ := context.WithTimeout(context.Background(), time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
 			version, err := versionClient.GetVersion(ctx, &types.Empty{})
 
 			if err != nil {
@@ -234,6 +235,26 @@ Example:
 $ pachctl migrate --from 1.4.8 --to 1.5.0
 `,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+			// If `from` is not provided, we use the cluster version.
+			if from == "" {
+				versionClient, err := getVersionAPIClient(address)
+				if err != nil {
+					return sanitizeErr(err)
+				}
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+				defer cancel()
+				clusterVersion, err := versionClient.GetVersion(ctx, &types.Empty{})
+				if err != nil {
+					return fmt.Errorf("Unable to discover cluster version; please provide the --from flag.  Error: %v\n", err)
+				}
+				from = version.PrettyPrintVersionNoAdditional(clusterVersion)
+			}
+
+			// if `to` is not provided, we use the version of pachctl itself.
+			if to == "" {
+				to = version.PrettyPrintVersionNoAdditional(version.Version)
+			}
+
 			jobSpec := batch.Job{
 				TypeMeta: unversioned.TypeMeta{
 					Kind:       "Job",
