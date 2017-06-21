@@ -6,10 +6,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
+	"os/exec"
 	"strings"
 	"text/tabwriter"
 	"time"
+
+	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/unversioned"
+	"k8s.io/kubernetes/pkg/apis/batch"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
@@ -23,6 +29,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/ugorji/go/codec"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -69,7 +76,7 @@ Environment variables:
 		rootCmd.AddCommand(cmd)
 	}
 
-	version := &cobra.Command{
+	versionCmd := &cobra.Command{
 		Use:   "version",
 		Short: "Return version information.",
 		Long:  "Return version information.",
@@ -180,9 +187,115 @@ kubectl %v port-forward "$pod" %d:8081
 	portForward.Flags().IntVarP(&uiWebsocketPort, "proxy-port", "x", 38081, "The local port to bind to.")
 	portForward.Flags().StringVarP(&kubeCtlFlags, "kubectlflags", "k", "", "Any kubectl flags to proxy, e.g. --kubectlflags='--kubeconfig /some/path/kubeconfig'")
 
-	rootCmd.AddCommand(version)
+	garbageCollect := &cobra.Command{
+		Use:   "garbage-collect",
+		Short: "Garbage collect unused data.",
+		Long: `Garbage collect unused data.
+
+When a file/commit/repo is deleted, the data is not immediately removed from the underlying storage system (e.g. S3) for performance and architectural reasons.  This is similar to how when you delete a file on your computer, the file is not necessarily wiped from disk immediately.
+
+To actually remove the data, you will need to manually invoke garbage collection.  The easiest way to do it is through "pachctl garbage-collecth".
+
+Currently "pachctl garbage-collect" can only be started when there are no active jobs running.  You also need to ensure that there's no ongoing "put-file".  Garbage collection puts the cluster into a readonly mode where no new jobs can be created and no data can be added.
+`,
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+			client, err := client.NewMetricsClientFromAddress(address, !noMetrics, "user")
+			if err != nil {
+				return err
+			}
+
+			return client.GarbageCollect()
+		}),
+	}
+
+	var from, to, namespace string
+	migrate := &cobra.Command{
+		Use:   "migrate",
+		Short: "Migrate the internal state of Pachyderm from one version to another.",
+		Long: `Migrate the internal state of Pachyderm from one version to
+another.  Note that most of the time updating Pachyderm doesn't
+require a migration.  Refer to the docs for your specific version
+to find out if it requires a migration.
+
+It's highly recommended that you only run migrations when there are no
+activities in your cluster, e.g. no jobs should be running.
+
+The migration command takes the general form:
+
+$ pachctl migrate --from <FROM_VERSION> --to <TO_VERSION>
+
+If "--from" is not provided, pachctl will attempt to discover the current
+version of the cluster.  If "--to" is not provided, pachctl will use the
+version of pachctl itself.
+
+Example:
+
+# Migrate Pachyderm from 1.4.8 to 1.5.0
+$ pachctl migrate --from 1.4.8 --to 1.5.0
+`,
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+			jobSpec := batch.Job{
+				TypeMeta: unversioned.TypeMeta{
+					Kind:       "Job",
+					APIVersion: "batch/v1",
+				},
+				ObjectMeta: api.ObjectMeta{
+					Name: "pach-migration",
+					Labels: map[string]string{
+						"app": "pachyderm",
+					},
+				},
+				Spec: batch.JobSpec{
+					Template: api.PodTemplateSpec{
+						Spec: api.PodSpec{
+							Containers: []api.Container{
+								{
+									Name:    "migration",
+									Image:   fmt.Sprintf("pachyderm/pachd:%v", version.PrettyPrintVersion(version.Version)),
+									Command: []string{"/pachd", fmt.Sprintf("--migrate=%v-%v", from, to)},
+								},
+							},
+							RestartPolicy: "OnFailure",
+						},
+					},
+				},
+			}
+
+			tmpFile, err := ioutil.TempFile("", "")
+			if err != nil {
+				return err
+			}
+			defer os.Remove(tmpFile.Name())
+
+			jsonEncoderHandle := &codec.JsonHandle{
+				BasicHandle: codec.BasicHandle{
+					EncodeOptions: codec.EncodeOptions{Canonical: true},
+				},
+				Indent: 2,
+			}
+			encoder := codec.NewEncoder(tmpFile, jsonEncoderHandle)
+			jobSpec.CodecEncodeSelf(encoder)
+			tmpFile.Close()
+
+			cmd := exec.Command("kubectl", "create", "--validate=false", "-f", tmpFile.Name())
+			out, err := cmd.CombinedOutput()
+			fmt.Println(string(out))
+			if err != nil {
+				return err
+			}
+			fmt.Println("Successfully launched migration.  To see the progress, use `kubectl logs <job ID>`")
+			return nil
+		}),
+	}
+	migrate.Flags().StringVar(&from, "from", "", "The current version of the cluster.  If not specified, pachctl will attempt to discover the version of the cluster.")
+	migrate.Flags().StringVar(&to, "to", "", "The version of Pachyderm to migrate to.  If not specified, pachctl will use its own version.")
+	migrate.Flags().StringVar(&namespace, "namespace", "default", "The kubernetes namespace under which Pachyderm is deployed.")
+
+	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(deleteAll)
 	rootCmd.AddCommand(portForward)
+	rootCmd.AddCommand(garbageCollect)
+	rootCmd.AddCommand(migrate)
 	return rootCmd, nil
 }
 
