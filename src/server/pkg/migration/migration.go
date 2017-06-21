@@ -6,9 +6,8 @@ import (
 )
 
 // MigrationFunc is a function that migrates Pachyderm's internal state from
-// one version to another.  It optionally returns a helper message that should
-// be displayed to the user in a command line setting.
-type MigrationFunc func() (string, error)
+// one version to another.
+type MigrationFunc func(etcdAddress, pfsPrefix, ppsPrefix string) error
 
 var migrationRoutines map[string]map[string]MigrationFunc
 
@@ -33,18 +32,16 @@ func allPatchVersions(version string) []string {
 }
 
 // Run executes a migration routine that migrates from one version to another.
-// It optionally returns a helper message that should be displayed to the user
-// if used in a CLI setting.
-func Run(from string, to string) (string, error) {
+func Run(etcdAddress, pfsPrefix, ppsPrefix, from, to string) error {
 	routines := migrationRoutines[from]
 	if routines == nil {
-		return "", fmt.Errorf("unable to find a migration routine that migrates from version %v", from)
+		return fmt.Errorf("unable to find a migration routine that migrates from version %v", from)
 	}
 
 	routine := routines[to]
 	if routine == nil {
-		return "", fmt.Errorf("unable to find a migration routine that migrates from version %v to version %v", from, to)
+		return fmt.Errorf("unable to find a migration routine that migrates from version %v to version %v", from, to)
 	}
 
-	return routine()
+	return routine(etcdAddress, pfsPrefix, ppsPrefix)
 }

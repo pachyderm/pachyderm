@@ -18,13 +18,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
-	"github.com/pachyderm/pachyderm/src/migration"
 	"github.com/pachyderm/pachyderm/src/server/health"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	cache_pb "github.com/pachyderm/pachyderm/src/server/pkg/cache/groupcachepb"
 	cache_server "github.com/pachyderm/pachyderm/src/server/pkg/cache/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
+	"github.com/pachyderm/pachyderm/src/server/pkg/migration"
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 
@@ -76,11 +76,10 @@ func main() {
 			fmt.Printf("the migration flag needs to be of the format FROM_VERSION-TO_VERSION; e.g. 1.4.8-1.5.0")
 			return
 		}
-		stdout, err := migration.Run(parts[0], parts[1])
-		if err != nil {
+
+		if err := migration.Run(parts[0], parts[1], appEnv.EtcdAddress, appEnv.PFSEtcdPrefix, appEnv.PPSEtcdPrefix); err != nil {
 			fmt.Printf("error from migration: %v", err)
 		}
-		fmt.Println(stdout)
 		return
 	}
 	switch mode {
