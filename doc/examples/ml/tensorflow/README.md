@@ -40,7 +40,9 @@ We can deploy this part of the pipeline in two quick steps:
 1. Create the initial “training” data repository with `pachctl create-repo training`.
 2. Supply Pachyderm with a JSON specification, `training_and_export.json`, telling Pachyderm to: (i) run Chris’s `pix2pix.py` script in “train” mode on the data in the “training” repository outputting a checkpoint to the “checkpoint” repository, and (ii) run the `pix2pix.py` script in “export” mode on the data in the “checkpoint” repository outputting a persisted model to the “model” repository. This can be done by running `pachctl create-pipeline -f training_and_export.json`.
 
-(training could take 15+ minutes depending on how many images are supplied in the training set and the exact setting of the `pix2pix.py` script)
+**Note** - Training could take 15+ minutes depending on how many images are supplied in the training set and the exact setting of the `pix2pix.py` script.
+
+**Note** - If you have a [GPU enable Pachyderm cluster](http://docs.pachyderm.io/en/latest/cookbook/gpus.html), you can use [this pipeline specification](training_and_export_gpu.json) to run the training stage of the pipeline on a GPU node.
 
 ## Preparing the pre-processing and image generation stages
 
