@@ -175,6 +175,14 @@ push-bench-images: install-bench
 	docker tag pachyderm_test pachyderm/bench:`git rev-list HEAD --max-count=1`
 	docker push pachyderm/bench:`git rev-list HEAD --max-count=1`
 
+tag-images:
+	docker tag pachyderm_pachd pachyderm/pachd:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
+	docker tag pachyderm_worker pachyderm/worker:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
+
+push-images:
+	docker push pachyderm/pachd:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
+	docker push pachyderm/worker:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
+
 launch-bench:
 	@# Make launches each process in its own shell process, so we have to structure
 	@# these to run these as one command
