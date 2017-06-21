@@ -190,8 +190,9 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 }
 
 func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag) error {
+	logger.Logf("input has not been processed, downloading data")
 	defer func(start time.Time) {
-		logger.Logf("download took %v\n", time.Since(start))
+		logger.Logf("input data download took (%v)\n", time.Since(start))
 	}(time.Now())
 	for _, input := range inputs {
 		file := input.FileInfo.File
@@ -553,7 +554,6 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	}
 
 	// Download input data
-	logger.Logf("input has not been processed, downloading data")
 	puller := filesync.NewPuller()
 	err = a.downloadData(logger, req.Data, puller, req.ParentOutput)
 	// We run these cleanup functions no matter what, so that if
