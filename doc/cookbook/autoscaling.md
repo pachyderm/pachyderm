@@ -1,53 +1,46 @@
-# Autoscaling
+# Autoscaling a Pachyderm Cluster
 
-There are 2 levels of autoscaling you need to consider with Pachyderm.
+There are 2 levels of autoscaling in Pachyderm:
 
-Pachyderm can scale down workers when they're not in use.
+- Pachyderm can scale down workers when they're not in use.
+- Cloud providers can scale workers down/up based on resource utilization (most often CPU).
 
-Cloud providers can scale workers down/up based on resource utilization (most often CPU).
+## Pachyderm Autoscaling of Workers
 
-## Setting up Pachyderm Autoscaling of Jobs
+[Refer to the scaleDownThreshold](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html#scale-down-threshold-optional) field in the pipeline specification. This allows you to specify a time window after which idle workers are removed. If new inputs come in on the pipeline corresponding to those deleted workers, they get scaled back up.
 
-[Refer to the scaleDownThreshold](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html#scale-down-threshold-optional) field in the pipeline spec. This allows you to specify the time window after which any workers corresponding to a pipeline get removed. If new inputs come in on that pipeline, they get scaled back up.
+## Cloud Provider Autoscaling
 
+Out of the box, autoscaling at the cloud provider layer doesn't work well with Pachyderm. However, if configure it properly, cloud provider autoscaling can complement Pachyderm autoscaling of workers.
 
-## Setting up Pachyderm Autoscaling to complement Cloud Provider Autoscaling
+### Default Behavior with Cloud Autoscaling 
 
-Out of the box, autoscaling at the cloud provider layer won't work well with Pachyderm. It can if you configure it properly.
+Normally when you create a pipeline, Pachyderm asks the k8s cluster how many nodes are available. Pachyderm then uses that number as the default value for the pipeline's parallelism. (To read more about parallelism, [refer to the distributed processing docs](http://docs.pachyderm.io/en/latest/fundamentals/distributed_computing.html)).
 
+If you have cloud provider autoscaling activated, it is possible that your number of nodes will be scaled down to a few or maybe even a single node.  A pipeline created on this cluster would have a default parallelism will be set to this low value (e.g., 1 or 2). Then, once the autoscale group notices that more nodes are needed, the parallelism of the pipeline won't increase, and you won't actually make effective use of those new nodes.
 
-### Default Behavior With Cloud Autoscaling 
+### Configuration of Pipelines to Complement Cloud Autoscaling
 
-Normally when you create a pipeline, Pachyderm asks the k8s cluster how many nodes are available, and uses that number as the default value for the pipeline's parallelism. (To read more about parallelism, [refer to the pipeline spec](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html) ).
+The goal of Cloud autoscaling is to:
 
-If you have autoscaling turned on when you first starting building your pipeline, it's likely it will be fully scaled down ... to a few or maybe even a single node.
+- To schedule nodes only as the processing demand necessitates it.
 
-Then when you create the pipeline, it's parallelism will be set to this low value (1 or 2). And more to the point, once the autoscale group notices that more nodes are needed, the parallelism of the pipeline won't increase, and you won't actually make effective use of those new nodes.
+The goals of Pachyderm worker autoscaling are:
 
-### Configure Your Pipeline to complement autoscaling
+- To make sure your job uses a maximum amount of parallelism.
+- To ensure that you process the job efficiently.
 
-You goal using Cloud layer autoscaling is to:
+Thus, to accomplish both of these goals, we recommend:
 
-- schedule nodes only as the processing demand necessitates it
+- Setting a `constant`, high level of parallelism.  Specifically, setting the constant parallelism to the number of workers you will need when your pipeline is active.
+- Setting the `cpu` and/or `mem` resource requirements [in the `resource_spec` field on your pipeline](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html#resource-spec-optional). 
 
-Your goal using auto scaling at the Pachyderm layer is to:
+To determine the right values for `cpu` / `mem`, first set these values rather high.  Then use the monitoring tools that come with your cloud provider (or [try out our monitoring deployment](https://github.com/pachyderm/pachyderm/blob/master/Makefile#L330)) so you can see the actual CPU/mem utilization per pod.
 
-- Make sure your job uses the maximum amount of parallelism it can
-- So that you process the job efficiently
+### Example Scenario 
 
-To accomplish both of these goals, we recommend:
+Let's say you have a certain pipeline with a constant parallelism set to 16.  Let's also assume that you've set `cpu` to `1.0` and your instance type has 4 cores.
 
-- Setting a 'constant' parallelism, and setting it to a high number ... the number you'd expect it to be at when your nodes are fully scaled up
-- Setting the `cpu` and/or `mem` resource requirements [in the `resource_spec` field on your pipeline](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html#resource-spec-optional)
+When a commit of data is made to the input of the pipeline, your cluster might be in a scaled down state (e.g., 2 nodes running). After accounting for the pachyderm services (`pachd` and `etcd`), ~6 cores are available with 2 nodes. K8s then schedules 6 of your workers. That accounts for all 8 of the CPUs across the nodes in your instance group. Your autoscale group then notices that all instances are being heavily utilized, and subsequently scales up to 5 nodes total. Now the rest of your workers get spun up (k8s can now schedule them), and your job proceeeds.
 
-To determine the right values for `cpu` / `mem` utilization, we recommend setting them high at first, and using the monitoring tools that come with your cloud provider (or [trying out our monitoring deployment](https://github.com/pachyderm/pachyderm/blob/master/Makefile#L330)) so you can see the CPU/mem utilization per pod.
-
-### Watching it in action
-
-Let's say you have a pipeline with parallelism set to 16.
-
-You've set `cpu` to `1.0` and your instance type has 4 cores.
-
-When new input comes in kicking off your pipeline, your cluster is in a scaled down state. Let's say there are 2 nodes running. After accounting for the pachyderm services, that leaves ~6 cores available. K8s schedules 6 of your workers. That accounts for all 8 of the CPUs across all your nodes in your instance group. Your autoscale group notices that all instances are being heavily utilized, and scales up to 5 nodes total. Now the rest of your workers get spun up (k8s can now schedule them), and your job proceeeds.
-
-This type of setup is best suited for long running jobs, or jobs that take a lot of CPU time. That gives the cloud autoscaling mechanisms time to scale up and still have work to process.
+This type of setup is best suited for long running jobs, or jobs that take a lot of CPU time. Such jobs give the cloud autoscaling mechanisms time to scale up, while still having data that needs to be processed when the new nodes are up and running.
