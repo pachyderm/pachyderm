@@ -168,7 +168,7 @@ func doFullMode(appEnvObj interface{}) error {
 			return fmt.Errorf("the migration flag needs to be of the format FROM_VERSION-TO_VERSION; e.g. 1.4.8-1.5.0")
 		}
 
-		if err := migration.Run(parts[0], parts[1], appEnv.EtcdAddress, appEnv.PFSEtcdPrefix, appEnv.PPSEtcdPrefix); err != nil {
+		if err := migration.Run(appEnv.EtcdAddress, appEnv.PFSEtcdPrefix, appEnv.PPSEtcdPrefix, parts[0], parts[1]); err != nil {
 			return fmt.Errorf("error from migration: %v", err)
 		}
 		return nil
