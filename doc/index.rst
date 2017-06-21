@@ -65,7 +65,7 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     cookbook/autoscaling
     cookbook/ml
     cookbook/time_windows
-    cookbook/tensorflow_gpu
+    cookbook/gpus
  
 .. toctree::
     :maxdepth: 2
