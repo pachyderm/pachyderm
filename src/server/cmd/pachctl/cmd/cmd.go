@@ -245,7 +245,7 @@ $ pachctl migrate --from 1.4.8 --to 1.5.0
 				defer cancel()
 				clusterVersion, err := versionClient.GetVersion(ctx, &types.Empty{})
 				if err != nil {
-					return fmt.Errorf("Unable to discover cluster version; please provide the --from flag.  Error: %v\n", err)
+					return fmt.Errorf("unable to discover cluster version; please provide the --from flag.  Error: %v", err)
 				}
 				from = version.PrettyPrintVersionNoAdditional(clusterVersion)
 			}
