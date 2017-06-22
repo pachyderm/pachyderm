@@ -86,20 +86,7 @@ func (r *Reporter) reportUserAction(ctx context.Context, action string, value in
 
 // ReportAndFlushUserAction immediately reports the metric
 // It is used in the few places we need to report metrics from the client.
-// It handles reporting the start, finish, and error conditions of the action
-func ReportAndFlushUserAction(action string) func(time.Time, error) {
-	// If we report nil, segment sees it, but mixpanel omits the field
-	reportAndFlushUserAction(fmt.Sprintf("%vStarted", action), 1)
-	return func(start time.Time, err error) {
-		if err == nil {
-			reportAndFlushUserAction(fmt.Sprintf("%vFinished", action), time.Since(start).Seconds())
-		} else {
-			reportAndFlushUserAction(fmt.Sprintf("%vErrored", action), err.Error())
-		}
-	}
-}
-
-func reportAndFlushUserAction(action string, value interface{}) {
+func ReportAndFlushUserAction(action string, value interface{}) {
 	client := newSegmentClient()
 	defer client.Close()
 	cfg, err := config.Read()
