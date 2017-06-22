@@ -59,18 +59,23 @@ func oneFourToOneFive(etcdAddress, pfsPrefix, ppsPrefix string) error {
 
 	var repoInfo pfs.RepoInfo
 	migrate(path.Join(pfsPrefix, reposPrefix), &repoInfo)
+	protolion.Infof("finished migrating repos")
 
 	var commitInfo pfs.CommitInfo
 	migrate(path.Join(pfsPrefix, commitsPrefix), &commitInfo)
+	protolion.Infof("finished migrating commits")
 
 	var head pfs.Commit
 	migrate(path.Join(pfsPrefix, branchesPrefix), &head)
+	protolion.Infof("finished migrating branches")
 
 	var pipelineInfo pps.PipelineInfo
 	migrate(path.Join(ppsPrefix, pipelinesPrefix), &pipelineInfo)
+	protolion.Infof("finished migrating pipelines")
 
 	var jobInfo pps.JobInfo
 	migrate(path.Join(ppsPrefix, jobsPrefix), &jobInfo)
+	protolion.Infof("finished migrating jobs")
 
 	return nil
 }
