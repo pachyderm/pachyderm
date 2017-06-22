@@ -186,7 +186,7 @@ Examples:
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
-				return fmt.Errorf("error from GetLogs: %v", sanitizeErr(err))
+				return fmt.Errorf("error connecting to pachd: %v", sanitizeErr(err))
 			}
 			datumFilter := strings.Split(args[1], ",")
 			for i := 0; i < len(datumFilter); {
@@ -229,7 +229,7 @@ Examples:
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
 			if err != nil {
-				return fmt.Errorf("error from GetLogs: %v", sanitizeErr(err))
+				return fmt.Errorf("error connecting to pachd: %v", sanitizeErr(err))
 			}
 			// Validate flags
 			if len(jobID) == 0 && len(pipelineName) == 0 {

@@ -136,6 +136,7 @@ func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
 	for {
 		message, err := r.ReadString('\n')
 		if err != nil {
+			message = strings.TrimSuffix(message, "\n") // remove delimiter
 			if err == io.EOF {
 				logger.buffer.Write([]byte(message))
 				return len(p), nil
