@@ -85,18 +85,9 @@ func (r *Reporter) reportUserAction(ctx context.Context, action string, value in
 	}
 }
 
-// ReportAndFlushUserAction immediately reports the metric
-// It is used in the few places we need to report metrics from the client.
-func ReportAndFlushUserAction(action string, value interface{}) func() {
+func reportAndFlushUserAction(action string, value interface{}) func() {
 	metricsDone := make(chan struct{})
 	go func() {
-		fmt.Printf("gonna get report metrics for %v\n", action)
-		if strings.Contains(action, "Finished") {
-			fmt.Printf("gonna waiy for %v\n", action)
-			fmt.Printf("tick: %v\n", time.Now())
-			time.Sleep(3 * time.Second)
-			fmt.Printf("tock: %v\n", time.Now())
-		}
 		client := newSegmentClient()
 		defer client.Close()
 		cfg, err := config.Read()
@@ -109,28 +100,33 @@ func ReportAndFlushUserAction(action string, value interface{}) func() {
 		close(metricsDone)
 	}()
 	return func() {
-		fmt.Printf("executing wait for action: %v, value: %v\n", action, value)
 		select {
 		case <-metricsDone:
-			fmt.Printf("metrics call completed for %v\n", action)
 			return
 		case <-time.After(time.Second * 5):
-			fmt.Printf("metrics call timed out for %v\n", action)
 			return
 		}
 	}
 }
 
+// StartReportAndFlushUserAction immediately reports the metric but does
+// not block execution. It returns a wait function which waits or times
+// out after 5s.
+// It is used in the few places we need to report metrics from the client.
 func StartReportAndFlushUserAction(action string, value interface{}) func() {
-	return ReportAndFlushUserAction(fmt.Sprintf("%vStarted", action), value)
+	return reportAndFlushUserAction(fmt.Sprintf("%vStarted", action), value)
 }
 
+// FinishReportAndFlushUserAction immediately reports the metric but does
+// not block execution. It returns a wait function which waits or times
+// out after 5s.
+// It is used in the few places we need to report metrics from the client.
 func FinishReportAndFlushUserAction(action string, err error, start time.Time) func() {
 	var wait func()
 	if err != nil {
-		wait = ReportAndFlushUserAction(fmt.Sprintf("%vErrored", action), err)
+		wait = reportAndFlushUserAction(fmt.Sprintf("%vErrored", action), err)
 	} else {
-		wait = ReportAndFlushUserAction(fmt.Sprintf("%vFinished", action), time.Since(start).Seconds())
+		wait = reportAndFlushUserAction(fmt.Sprintf("%vFinished", action), time.Since(start).Seconds())
 	}
 	return wait
 }

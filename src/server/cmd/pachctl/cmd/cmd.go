@@ -79,7 +79,7 @@ Environment variables:
 				startMetricsWait := metrics.StartReportAndFlushUserAction("Version", start)
 				defer startMetricsWait()
 				defer func() {
-					finishMetricsWait := _metrics.StartReportAndFlushUserAction("Version", retErr, start)
+					finishMetricsWait := _metrics.FinishReportAndFlushUserAction("Version", retErr, start)
 					finishMetricsWait()
 				}()
 			}
