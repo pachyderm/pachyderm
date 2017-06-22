@@ -84,8 +84,9 @@ Environment variables:
 				defer func() {
 					select {
 					case <-metricsDone:
+						return
 					case time.After(time.Second * 5):
-
+						return
 					}
 				}()
 

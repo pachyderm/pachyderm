@@ -75,6 +75,29 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			if metrics && !dev {
 				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
 				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+				metricsDone := make(chan struct{})
+				go func() {
+					metrics.ReportAndFlushUserAction("DeployStarted", time.Now())
+					close(metricsDone)
+				}()
+
+				defer func() {
+					select {
+					case <-metricsDone:
+						return
+					case time.After(time.Second * 5):
+						return
+					}
+				}()
+
+				defer func(start time.Time) {
+					if retErr != nil {
+						metrics.ReportAndFlushUserAction("DeployErrored", retErr)
+					} else {
+						metrics.ReportAndFlushUserAction("DeployFinished", time.Since(start).Seconds())
+					}
+				}(time.Now())
 			}
 			manifest := &bytes.Buffer{}
 			if dev {
