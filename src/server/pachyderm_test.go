@@ -3560,6 +3560,11 @@ func TestIncrementalOneFile(t *testing.T) {
 	_, err = c.PutFile(dataRepo, "master", "/dir/file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, "master"))
+	_, err = c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, "master", "/dir/file", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, "master"))
 
 	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
@@ -3567,7 +3572,7 @@ func TestIncrementalOneFile(t *testing.T) {
 	require.Equal(t, 1, len(commitInfos))
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(pipeline, "master", "file", 0, 0, &buf))
-	require.Equal(t, "foo\n", buf.String())
+	require.Equal(t, "foo\nbar\n", buf.String())
 }
 
 func TestGarbageCollection(t *testing.T) {
