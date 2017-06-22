@@ -432,13 +432,11 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *grpc
 						return fmt.Errorf("error from connection pool: %v", err)
 					}
 					workerClient := NewWorkerClient(conn)
-					protolion.Infof("issuing Process() request for job (%v)\n", jobInfo)
 					resp, err := workerClient.Process(ctx, &ProcessRequest{
 						JobID:        jobInfo.Job.ID,
 						Data:         files,
 						ParentOutput: parentOutputTag,
 					})
-					protolion.Infof("received Process() response for job (%v)\n", jobInfo)
 					if err != nil {
 						if err := conn.Close(); err != nil {
 							protolion.Errorf("error closing conn: %+v", err)
