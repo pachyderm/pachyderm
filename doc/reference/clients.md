@@ -6,6 +6,25 @@ The Go client is officially supported by the Pachyderm team.  It implements almo
 
 For more info, check out the [godocs](https://godoc.org/github.com/pachyderm/pachyderm/src/client).
 
+**Note** - A compatible version of `grpc` is needed when using the Go client.  You can deduce the compatible version from our [vendor.json](https://github.com/pachyderm/pachyderm/blob/master/src/server/vendor/vendor.json) file, where you will see something like:
+
+```
+		{
+			"checksumSHA1": "mEyChIkG797MtkrJQXW8X/qZ0l0=",
+			"path": "google.golang.org/grpc",
+			"revision": "21f8ed309495401e6fd79b3a9fd549582aed1b4c",
+			"revisionTime": "2017-01-27T15:26:01Z"
+		},
+```
+
+You can then get this version via:
+
+```
+go get google.golang.org/grpc
+cd $GOPATH/src/google.golang.org/grpc
+git checkout 21f8ed309495401e6fd79b3a9fd549582aed1b4c
+```
+
 ## Python Client - `pypachy`
 
 The Python client is a user contributed client that isn't officially maintained by the Pachyderm team.  However, it implements very similar functionality to that available in the Go client or CLI.  
