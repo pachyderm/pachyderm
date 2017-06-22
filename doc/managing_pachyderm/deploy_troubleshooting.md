@@ -10,8 +10,8 @@ Here are some common issues by symptom related to certain deploys.  They are org
 
 ## AWS Deployment
 
-- [Can't connecto to the Pachyderm cluster after a rolling update](#cant-connect-to-the-Pachyderm-cluster-after-a-rolling-update)
-- [The one shot deploy script, `aws.sh`, never completse](#one-shot-script-never-completes)
+- [Can't connec to to the Pachyderm cluster after a rolling update](#cant-connect-to-the-Pachyderm-cluster-after-a-rolling-update)
+- [The one shot deploy script, `aws.sh`, never completes](#one-shot-script-never-completes)
 - [VPC limit exceeded](#vpc-limit-exceeded)
 - [GPU node never appears](#gpu-node-never-appears)
 
@@ -87,7 +87,7 @@ Cause:CauseAt 2017-06-12T20:21:47Z an instance was started in response to a diff
 
 #### Symptom
 
-When running `aws.sh` one shot script or otherwise deploying Pachyderm, you will see:
+When running `aws.sh` or otherwise deploying with `kops`, you will see:
 
 ```
 W0426 17:28:10.435315   26463 executor.go:109] error running task "VPC/5120cf0c-pachydermcluster.kubernetes.com" (3s remaining to succeed): error creating VPC: VpcLimitExceeded: The  maximum number of VPCs has been reached.
