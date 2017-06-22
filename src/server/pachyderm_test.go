@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -2812,27 +2813,36 @@ func TestGetLogs(t *testing.T) {
 	require.YesError(t, iter.Err())
 	require.Matches(t, "could not get", iter.Err().Error())
 
-	// Filter logs based on input (using file that exists)
-	// (1) Inspect repo/file to get hash, so we can compare hash to path
+	// Filter logs based on input (using file that exists). Get logs using file
+	// path, hex hash, and base64 hash, and make sure you get the same log lines
 	fileInfo, err := c.InspectFile(dataRepo, commit.ID, "/file")
 	require.NoError(t, err)
-	// (2) Get logs using both file path and hash, and make sure you get the same
-	//     log lines
+
 	pathLog := c.GetLogs("", jobInfos[0].Job.ID, []string{"/file"})
-	hashLog := c.GetLogs("", jobInfos[0].Job.ID, []string{hex.EncodeToString(fileInfo.Hash)})
+
+	hexHash := "19fdf57bdf9eb5a9602bfa9c0e6dd7ed3835f8fd431d915003ea82747707be66"
+	require.Equal(t, hexHash, hex.EncodeToString(fileInfo.Hash)) // sanity-check test
+	hexLog := c.GetLogs("", jobInfos[0].Job.ID, []string{hexHash})
+
+	base64Hash := "Gf31e9+etalgK/qcDm3X7Tg1+P1DHZFQA+qCdHcHvmY="
+	require.Equal(t, base64Hash, base64.StdEncoding.EncodeToString(fileInfo.Hash))
+	base64Log := c.GetLogs("", jobInfos[0].Job.ID, []string{base64Hash})
+
 	numLogs = 0
 	for {
-		havePathLog, haveHashLog := pathLog.Next(), hashLog.Next()
-		require.True(t, havePathLog == haveHashLog)
-		if !havePathLog || !haveHashLog {
+		havePathLog, haveHexLog, haveBase64Log := pathLog.Next(), hexLog.Next(), base64Log.Next()
+		require.True(t, havePathLog == haveHexLog && haveHexLog == haveBase64Log)
+		if !havePathLog {
 			break
 		}
 		numLogs++
-		require.True(t, pathLog.Message().Message == hashLog.Message().Message)
+		require.True(t, pathLog.Message().Message == hexLog.Message().Message &&
+			base64Log.Message().Message == hexLog.Message().Message)
 	}
 	require.True(t, numLogs > 0)
 	require.NoError(t, pathLog.Err())
-	require.NoError(t, hashLog.Err())
+	require.NoError(t, hexLog.Err())
+	require.NoError(t, base64Log.Err())
 
 	// Filter logs based on input (using file that doesn't exist). There should
 	// be no logs
