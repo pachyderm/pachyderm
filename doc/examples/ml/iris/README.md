@@ -26,7 +26,7 @@ Finally, we provide some [Resources](README.md#resources) for you for further ex
 - Clone this repo.
 - Install/deploy Pachyderm (See the [Pachyderm docs](http://docs.pachyderm.io/en/latest/) for details. In particular, the [local installation](http://docs.pachyderm.io/en/latest/getting_started/local_installation.html) is a super easy way to experiment with Pachyderm).
 
-## 1. Check that Pachyderm is running on Kubernetes 
+## 1. Make sure Pachyderm is running 
 
 You should be able to connect to your Pachyderm cluster via the `pachctl` CLI.  To verify that everything is running correctly on your machine, you should be able to run the following with similar output:
 
