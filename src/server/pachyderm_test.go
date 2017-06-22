@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"math/rand"
@@ -2817,36 +2818,27 @@ func TestGetLogs(t *testing.T) {
 	require.NoError(t, err)
 	// (2) Get logs using both file path and hash, and make sure you get the same
 	//     log lines
-	iter1 := c.GetLogs("", jobInfos[0].Job.ID, []string{"/file"})
-	iter2 := c.GetLogs("", jobInfos[0].Job.ID, []string{string(fileInfo.Hash)})
+	pathLog := c.GetLogs("", jobInfos[0].Job.ID, []string{"/file"})
+	hashLog := c.GetLogs("", jobInfos[0].Job.ID, []string{hex.EncodeToString(fileInfo.Hash)})
 	numLogs = 0
 	for {
-		// l, r := iter1.Next(), iter2.Next()
-		if l {
-			l = iter1.Next()
-		}
-		if r {
-			r = iter2.Next()
-		}
-		fmt.Printf("%t | %t\n", l, r)
-		// require.True(t, l == r)
-		if !l && !r {
+		havePathLog, haveHashLog := pathLog.Next(), hashLog.Next()
+		require.True(t, havePathLog == haveHashLog)
+		if !havePathLog || !haveHashLog {
 			break
 		}
 		numLogs++
-		require.True(t, iter1.Message().Message == iter2.Message().Message)
-		fmt.Printf("%80s | %80s\n", iter1.Message().Message, iter2.Message().Message)
+		require.True(t, pathLog.Message().Message == hashLog.Message().Message)
 	}
 	require.True(t, numLogs > 0)
-	require.NoError(t, iter1.Err())
-	require.NoError(t, iter2.Err())
+	require.NoError(t, pathLog.Err())
+	require.NoError(t, hashLog.Err())
 
 	// Filter logs based on input (using file that doesn't exist). There should
 	// be no logs
 	iter = c.GetLogs("", jobInfos[0].Job.ID, []string{"__DOES_NOT_EXIST__"})
 	require.False(t, iter.Next())
 	require.NoError(t, iter.Err())
-	t.Fail()
 }
 
 func TestPfsPutFile(t *testing.T) {
