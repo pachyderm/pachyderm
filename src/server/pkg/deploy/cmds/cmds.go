@@ -77,7 +77,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
 				defer startMetricsWait()
 				defer func() {
-					finishMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", retErr, start)
+					finishMetricsWait := _metrics.FinishReportAndFlushUserAction("Deploy", retErr, start)
 					finishMetricsWait()
 				}()
 			}
@@ -108,7 +108,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
 				defer startMetricsWait()
 				defer func() {
-					finishMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", retErr, start)
+					finishMetricsWait := _metrics.FinishReportAndFlushUserAction("Deploy", retErr, start)
 					finishMetricsWait()
 				}()
 			}
@@ -137,7 +137,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
 				defer startMetricsWait()
 				defer func() {
-					finishMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", retErr, start)
+					finishMetricsWait := _metrics.FinishReportAndFlushUserAction("Deploy", retErr, start)
 					finishMetricsWait()
 				}()
 			}
@@ -171,7 +171,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
 				defer startMetricsWait()
 				defer func() {
-					finishMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", retErr, start)
+					finishMetricsWait := _metrics.FinishReportAndFlushUserAction("Deploy", retErr, start)
 					finishMetricsWait()
 				}()
 			}
@@ -207,7 +207,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
 				defer startMetricsWait()
 				defer func() {
-					finishMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", retErr, start)
+					finishMetricsWait := _metrics.FinishReportAndFlushUserAction("Deploy", retErr, start)
 					finishMetricsWait()
 				}()
 			}
