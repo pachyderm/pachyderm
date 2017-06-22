@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
@@ -86,16 +87,52 @@ func (r *Reporter) reportUserAction(ctx context.Context, action string, value in
 
 // ReportAndFlushUserAction immediately reports the metric
 // It is used in the few places we need to report metrics from the client.
-func ReportAndFlushUserAction(action string, value interface{}) {
-	client := newSegmentClient()
-	defer client.Close()
-	cfg, err := config.Read()
-	if err != nil {
-		log.Errorf("Error reading userid from ~/.pachyderm/config: %v", err)
-		// metrics errors are non fatal
-		return
+func ReportAndFlushUserAction(action string, value interface{}) func() {
+	metricsDone := make(chan struct{})
+	go func() {
+		fmt.Printf("gonna get report metrics for %v\n", action)
+		if strings.Contains(action, "Finished") {
+			fmt.Printf("gonna waiy for %v\n", action)
+			fmt.Printf("tick: %v\n", time.Now())
+			time.Sleep(3 * time.Second)
+			fmt.Printf("tock: %v\n", time.Now())
+		}
+		client := newSegmentClient()
+		defer client.Close()
+		cfg, err := config.Read()
+		if err != nil {
+			log.Errorf("Error reading userid from ~/.pachyderm/config: %v", err)
+			// metrics errors are non fatal
+			return
+		}
+		reportUserMetricsToSegment(client, cfg.UserID, "user", action, value, "")
+		close(metricsDone)
+	}()
+	return func() {
+		fmt.Printf("executing wait for action: %v, value: %v\n", action, value)
+		select {
+		case <-metricsDone:
+			fmt.Printf("metrics call completed for %v\n", action)
+			return
+		case <-time.After(time.Second * 5):
+			fmt.Printf("metrics call timed out for %v\n", action)
+			return
+		}
 	}
-	reportUserMetricsToSegment(client, cfg.UserID, "user", action, value, "")
+}
+
+func StartReportAndFlushUserAction(action string, value interface{}) func() {
+	return ReportAndFlushUserAction(fmt.Sprintf("%vStarted", action), value)
+}
+
+func FinishReportAndFlushUserAction(action string, err error, start time.Time) func() {
+	var wait func()
+	if err != nil {
+		wait = ReportAndFlushUserAction(fmt.Sprintf("%vErrored", action), err)
+	} else {
+		wait = ReportAndFlushUserAction(fmt.Sprintf("%vFinished", action), time.Since(start).Seconds())
+	}
+	return wait
 }
 
 func (r *Reporter) reportClusterMetrics() {
