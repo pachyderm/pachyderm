@@ -75,15 +75,24 @@ Environment variables:
 		Long:  "Return version information.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			if !noMetrics {
-				metricsDone := make(chan struct{})
+				startMetricsDone := make(chan struct{})
 				go func() {
 					metrics.ReportAndFlushUserAction("VersionStarted", time.Now())
-					close(metricsDone)
+					close(startMetricsDone)
 				}()
 
 				defer func() {
 					select {
-					case <-metricsDone:
+					case <-startMetricsDone:
+						return
+					case time.After(time.Second * 5):
+						return
+					}
+				}()
+				endMetricsDone := make(chan struct{})
+				defer func() {
+					select {
+					case <-endMetricsDone:
 						return
 					case time.After(time.Second * 5):
 						return
@@ -91,11 +100,14 @@ Environment variables:
 				}()
 
 				defer func(start time.Time) {
-					if retErr != nil {
-						metrics.ReportAndFlushUserAction("VersionErrored", retErr)
-					} else {
-						metrics.ReportAndFlushUserAction("VersionFinished", time.Since(start).Seconds())
-					}
+					go func() {
+						if retErr != nil {
+							metrics.ReportAndFlushUserAction("VersionErrored", retErr)
+						} else {
+							metrics.ReportAndFlushUserAction("VersionFinished", time.Since(start).Seconds())
+						}
+						close(endMetricsDone)
+					}()
 				}(time.Now())
 			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
