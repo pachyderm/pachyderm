@@ -59,6 +59,8 @@ That means Kubernetes tried running `pachd`, but `pachd` generated an internal e
 $kubectl logs po/pachd-1333950811-0sm1p
 ```
 
+**Note**: If you're using a log aggregator service (e.g. the default in GKE), you won't see any logs when using `kubectl logs ...` in this way.  You will need to look at your logs UI (e.g. in GKE's case the stackdriver console).
+
 These logs will likely reveal a misconfiguration in your deploy.  For example, you might see, `BucketRegionError: incorrect region, the bucket is not in 'us-west-2' region`.  In that case, you've deployed your bucket in a different region than your cluster.
 
 If the error / recourse isn't obvious from the error message, you can now provide the content of the `pachd` logs when getting help in our Slack channel or by opening a [GitHub Issue](github.com/pachyderm/pachyderm/issues/new). Please provide these logs either way as it is extremely helpful in resolving the issue..
@@ -131,7 +133,17 @@ Unable to connect to the server: x509: certificate signed by unknown authority
 
 #### Recourse
 
-Check if you're on any sort of VPN or other egress proxy that would break SSL.
+Check if you're on any sort of VPN or other egress proxy that would break SSL.  Also, there is a possibility that your credentials have expired. In the case where you're using GKE and gcloud, renew your credentials via:
+
+```
+$ kubectl get all
+Unable to connect to the server: x509: certificate signed by unknown authority
+$ gcloud container clusters get-credentials my-cluster-name-dev
+Fetching cluster endpoint and auth data.
+kubeconfig entry generated for my-cluster-name-dev.
+$ kubectl config current-context
+gke_my-org_us-east1-b_my-cluster-name-dev
+```
 
 ### Uploads/Downloads are Slow
 
@@ -153,7 +165,7 @@ You'll also want to make sure you've allowed ingress access through any firewall
 
 #### Symptom
 
-Running,
+Running:
 
 ```
 $ kubectl get all
