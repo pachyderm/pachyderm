@@ -545,6 +545,8 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *grpc
 		}
 
 		if jobInfo.Egress != nil {
+			protolion.Infof("Starting egress upload for job (%v)\n", jobInfo)
+			start := time.Now()
 			objClient, err := obj.NewClientFromURLAndSecret(ctx, jobInfo.Egress.URL)
 			if err != nil {
 				return err
@@ -560,6 +562,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *grpc
 			if err := pfs_sync.PushObj(client, outputCommit, objClient, strings.TrimPrefix(url.Path, "/")); err != nil {
 				return err
 			}
+			protolion.Infof("Completed egress upload for job (%v), duration (%v)\n", jobInfo, time.Since(start))
 		}
 
 		// Record the job's output commit and 'Finished' timestamp, and mark the job
