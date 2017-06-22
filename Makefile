@@ -193,8 +193,8 @@ install-bench: install
 	rm /usr/local/bin/pachctl || true
 	[ -f /usr/local/bin/pachctl ] || sudo ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 
-launch-dev-tests: docker-build-test
-	echo kubectl run bench --image=pachyderm/test:local \
+launch-dev-test: docker-build-test
+	kubectl run bench --image=pachyderm/test:local \
 	    --restart=Never \
 	    --attach=true \
 	    -- \
@@ -204,7 +204,13 @@ run-bench:
 	kubectl scale --replicas=4 deploy/pachd
 	echo "waiting for pachd to scale up" && sleep 15
 	kubectl delete --ignore-not-found po/bench && \
-	echo kubectl run bench --image=pachyderm/bench:`git rev-list HEAD --max-count=1` --image-pull-policy=Always --restart=Never --attach=true -- PACH_TEST_CLOUD=true ./test -test.v -test.bench=BenchmarkDaily -test.run=`etc/testing/passing_test_regex.sh`
+	    kubectl run bench \
+			    --image=pachyderm/bench:`git rev-list HEAD --max-count=1` \
+					--image-pull-policy=Always \
+					--restart=Never \
+					--attach=true \
+					-- \
+					PACH_TEST_CLOUD=true ./test -test.v -test.bench=BenchmarkDaily -test.run=`etc/testing/passing_test_regex.sh`
 
 delete-all-launch-bench:
 	etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --delete-all
