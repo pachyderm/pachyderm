@@ -2,7 +2,6 @@ package metrics
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
