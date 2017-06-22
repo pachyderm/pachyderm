@@ -193,6 +193,13 @@ install-bench: install
 	rm /usr/local/bin/pachctl || true
 	[ -f /usr/local/bin/pachctl ] || sudo ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 
+launch-dev-tests: docker-build-test
+	echo kubectl run bench --image=pachyderm/test:local \
+	    --restart=Never \
+	    --attach=true \
+	    -- \
+	    ./test -test.v
+
 run-bench:
 	kubectl scale --replicas=4 deploy/pachd
 	echo "waiting for pachd to scale up" && sleep 15
