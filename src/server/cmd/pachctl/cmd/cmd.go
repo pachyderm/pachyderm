@@ -304,7 +304,7 @@ $ pachctl migrate --from 1.4.8 --to 1.5.0
 			if err != nil {
 				return err
 			}
-			fmt.Println("Successfully launched migration.  To see the progress, use `kubectl logs <job ID>`")
+			fmt.Println("Successfully launched migration.  To see the progress, use `kubectl logs job/pach-migration`")
 			return nil
 		}),
 	}
