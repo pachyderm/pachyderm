@@ -15,7 +15,7 @@ func MatchDatum(filter []string, data []*pps.Datum) bool {
 dataFilters:
 	for _, dataFilter := range filter {
 		for _, datum := range data {
-			if dataFilter == datum.Path || dataFilter == hex.Dump(datum.Hash) {
+			if dataFilter == datum.Path || dataFilter == hex.EncodeToString(datum.Hash) {
 				continue dataFilters // Found, move to next filter
 			}
 		}
