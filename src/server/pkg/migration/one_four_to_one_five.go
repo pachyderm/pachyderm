@@ -34,7 +34,9 @@ func oneFourToOneFive(etcdAddress, pfsPrefix, ppsPrefix string) error {
 
 	// This function migrates objects under a specific prefix
 	migrate := func(prefix string, template proto.Message) {
-		resp, err := etcdClient.Get(context.Background(), prefix, etcd.WithPrefix())
+		// We want to sort the objects by oldest-to-newest order,
+		// so we preserve their timestamp ordering as we update them.
+		resp, err := etcdClient.Get(context.Background(), prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend))
 		if err != nil {
 			protolion.Errorf("error getting %v: %v", prefix, err)
 			return
