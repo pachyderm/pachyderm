@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"encoding/base64"
 	"encoding/hex"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 )
@@ -15,7 +16,9 @@ func MatchDatum(filter []string, data []*pps.Datum) bool {
 dataFilters:
 	for _, dataFilter := range filter {
 		for _, datum := range data {
-			if dataFilter == datum.Path || dataFilter == hex.EncodeToString(datum.Hash) {
+			if dataFilter == datum.Path ||
+				dataFilter == base64.StdEncoding.EncodeToString(datum.Hash) ||
+				dataFilter == hex.EncodeToString(datum.Hash) {
 				continue dataFilters // Found, move to next filter
 			}
 		}
