@@ -73,31 +73,13 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		Long:  "Deploy a single-node Pachyderm cluster with local metadata storage.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			if metrics && !dev {
-				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
-				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
-
-				metricsDone := make(chan struct{})
-				go func() {
-					metrics.ReportAndFlushUserAction("DeployStarted", time.Now())
-					close(metricsDone)
-				}()
-
+				start := time.Now()
+				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
+				defer startMetricsWait()
 				defer func() {
-					select {
-					case <-metricsDone:
-						return
-					case time.After(time.Second * 5):
-						return
-					}
+					finishMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", retErr, start)
+					finishMetricsWait()
 				}()
-
-				defer func(start time.Time) {
-					if retErr != nil {
-						metrics.ReportAndFlushUserAction("DeployErrored", retErr)
-					} else {
-						metrics.ReportAndFlushUserAction("DeployFinished", time.Since(start).Seconds())
-					}
-				}(time.Now())
 			}
 			manifest := &bytes.Buffer{}
 			if dev {
@@ -122,8 +104,13 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			"  <size of disks>: Size of GCE persistent disks in GB (assumed to all be the same).\n",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) (retErr error) {
 			if metrics && !dev {
-				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
-				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+				start := time.Now()
+				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
+				defer startMetricsWait()
+				defer func() {
+					finishMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", retErr, start)
+					finishMetricsWait()
+				}()
 			}
 			volumeSize, err := strconv.Atoi(args[1])
 			if err != nil {
@@ -146,8 +133,13 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			"    <volumes> <size of volumes (in GB)> <bucket> <id> <secret> <endpoint>\n",
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 4, Max: 7}, func(args []string) (retErr error) {
 			if metrics && !dev {
-				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
-				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+				start := time.Now()
+				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
+				defer startMetricsWait()
+				defer func() {
+					finishMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", retErr, start)
+					finishMetricsWait()
+				}()
 			}
 			manifest := &bytes.Buffer{}
 			err := assets.WriteCustomAssets(manifest, opts, args, objectStoreBackend, persistentDiskBackend, secure)
@@ -175,8 +167,13 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			"  <size of volumes>: Size of EBS volumes, in GB (assumed to all be the same).\n",
 		Run: cmdutil.RunFixedArgs(6, func(args []string) (retErr error) {
 			if metrics && !dev {
-				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
-				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+				start := time.Now()
+				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
+				defer startMetricsWait()
+				defer func() {
+					finishMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", retErr, start)
+					finishMetricsWait()
+				}()
 			}
 			volumeSize, err := strconv.Atoi(args[5])
 			if err != nil {
@@ -206,8 +203,13 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			"  <size of volumes>: Size of persistent volumes, in GB (assumed to all be the same).\n",
 		Run: cmdutil.RunFixedArgs(4, func(args []string) (retErr error) {
 			if metrics && !dev {
-				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
-				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+				start := time.Now()
+				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
+				defer startMetricsWait()
+				defer func() {
+					finishMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", retErr, start)
+					finishMetricsWait()
+				}()
 			}
 			if _, err := base64.StdEncoding.DecodeString(args[2]); err != nil {
 				return fmt.Errorf("storage-account-key needs to be base64 encoded; instead got '%v'", args[2])
