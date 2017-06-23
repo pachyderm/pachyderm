@@ -1,8 +1,12 @@
 package obj
 
 import (
+	"bytes"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
@@ -11,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/cloudfront/sign"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/storagegateway"
@@ -19,22 +24,47 @@ import (
 )
 
 type amazonClient struct {
-	bucket       string
-	distribution string
-	s3           *s3.S3
-	uploader     *s3manager.Uploader
+	bucket                 string
+	cloudfrontDistribution string
+	cloudfrontURLSigner    *sign.URLSigner
+	s3                     *s3.S3
+	uploader               *s3manager.Uploader
 }
 
-func newAmazonClient(bucket string, distribution string, id string, secret string, token string, region string) (*amazonClient, error) {
+func newAmazonClient(bucket string, cloudfrontDistribution string, id string, secret string, token string, region string) (*amazonClient, error) {
 	session := session.New(&aws.Config{
 		Credentials: credentials.NewStaticCredentials(id, secret, token),
 		Region:      aws.String(region),
 	})
+	var signer *sign.URLSigner
+	cloudfrontDistribution = strings.TrimSpace(cloudfrontDistribution)
+	if cloudfrontDistribution != "" {
+		rawCloudfrontPrivateKey, err := ioutil.ReadFile("/amazon-secret/cloudfrontPrivateKey")
+		if err != nil {
+			return nil, err
+		}
+
+		cloudfrontKeyPairID, err := ioutil.ReadFile("/amazon-secret/cloudfrontKeyPairId")
+		if err != nil {
+			return nil, err
+		}
+		block, _ := pem.Decode(bytes.TrimSpace(rawCloudfrontPrivateKey))
+		if block == nil || block.Type != "RSA PRIVATE KEY" {
+			return nil, fmt.Errorf("block undefined or wrong type: type is (%v) should be (RSA PRIVATE KEY)", block.Type)
+		}
+		cloudfrontPrivateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+		if err != nil {
+			return nil, err
+		}
+		signer = sign.NewURLSigner(string(cloudfrontKeyPairID), cloudfrontPrivateKey)
+		lion.Infof("Using cloudfront security credentials - keypair ID (%v) - to sign cloudfront URLs", string(cloudfrontKeyPairID))
+	}
 	return &amazonClient{
-		bucket:       bucket,
-		distribution: strings.TrimSpace(distribution),
-		s3:           s3.New(session),
-		uploader:     s3manager.NewUploader(session),
+		bucket:                 bucket,
+		cloudfrontDistribution: cloudfrontDistribution,
+		cloudfrontURLSigner:    signer,
+		s3:                     s3.New(session),
+		uploader:               s3manager.NewUploader(session),
 	}, nil
 }
 
@@ -69,13 +99,19 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 	if byteRange != "" {
 		byteRange = fmt.Sprintf("bytes=%s", byteRange)
 	}
-
 	var reader io.ReadCloser
-	if c.distribution != "" {
+	if c.cloudfrontDistribution != "" {
 		var resp *http.Response
 		var connErr error
-		url := fmt.Sprintf("http://%v.cloudfront.net/%v", c.distribution, name)
+		url := fmt.Sprintf("http://%v.cloudfront.net/%v", c.cloudfrontDistribution, name)
 
+		if c.cloudfrontURLSigner != nil {
+			signedURL, err := c.cloudfrontURLSigner.Sign(url, time.Now().Add(1*time.Hour))
+			if err != nil {
+				return nil, err
+			}
+			url = strings.TrimSpace(signedURL)
+		}
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			return nil, err
@@ -155,7 +191,7 @@ func (c *amazonClient) IsIgnorable(err error) bool {
 }
 
 func (c *amazonClient) IsNotExist(err error) bool {
-	if c.distribution != "" {
+	if c.cloudfrontDistribution != "" {
 		// cloudfront returns forbidden error for nonexisting data
 		if strings.Contains(err.Error(), "error code 403") {
 			return true

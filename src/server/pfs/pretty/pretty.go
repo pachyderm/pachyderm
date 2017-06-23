@@ -128,7 +128,7 @@ func PrintDetailedFileInfo(fileInfo *pfs.FileInfo) error {
 		`Path: {{.File.Path}}
 Type: {{fileType .FileType}}
 Size: {{prettySize .SizeBytes}}
-Children: {{range .Children}} {{.Path}} {{end}}
+Children: {{range .Children}} {{.}} {{end}}
 `)
 	if err != nil {
 		return err

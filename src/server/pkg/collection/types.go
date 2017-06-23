@@ -56,9 +56,9 @@ type Index struct {
 // ReadWriteCollection is a collection interface that supports read,write and delete
 // operations.
 type ReadWriteCollection interface {
-	Get(key string, val proto.Message) error
-	Put(key string, val proto.Message)
-	Create(key string, val proto.Message) error
+	Get(key string, val proto.Unmarshaler) error
+	Put(key string, val proto.Marshaler)
+	Create(key string, val proto.Marshaler) error
 	Delete(key string) error
 	DeleteAll()
 }
@@ -68,16 +68,21 @@ type ReadWriteIntCollection interface {
 	Create(key string, val int) error
 	Get(key string) (int, error)
 	Increment(key string) error
+	IncrementBy(key string, n int) error
 	Decrement(key string) error
+	DecrementBy(key string, n int) error
 	Delete(key string) error
 }
 
 // ReadonlyCollection is a collection interface that only supports read ops.
 type ReadonlyCollection interface {
-	Get(key string, val proto.Message) error
+	Get(key string, val proto.Unmarshaler) error
 	GetByIndex(index Index, val interface{}) (Iterator, error)
 	List() (Iterator, error)
 	Watch() (watch.Watcher, error)
+	// WatchWithPrev is like Watch, but the events will include the previous
+	// versions of the key/value.
+	WatchWithPrev() (watch.Watcher, error)
 	WatchOne(key string) (watch.Watcher, error)
 	WatchByIndex(index Index, val interface{}) (watch.Watcher, error)
 }
@@ -88,5 +93,5 @@ type Iterator interface {
 	// of the next object in a collection.
 	// ok is true if the serialization was successful.  It's false if the
 	// collection has been exhausted.
-	Next(key *string, val proto.Message) (ok bool, retErr error)
+	Next(key *string, val proto.Unmarshaler) (ok bool, retErr error)
 }

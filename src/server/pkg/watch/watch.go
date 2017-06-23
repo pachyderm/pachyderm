@@ -34,9 +34,16 @@ type Event struct {
 }
 
 // Unmarshal unmarshals the item in an event into a protobuf message.
-func (e *Event) Unmarshal(key *string, val proto.Message) error {
+func (e *Event) Unmarshal(key *string, val proto.Unmarshaler) error {
 	*key = string(e.Key)
-	return proto.UnmarshalText(string(e.Value), val)
+	return val.Unmarshal(e.Value)
+}
+
+// UnmarshalPrev unmarshals the prev item in an event into a protobuf
+// message.
+func (e *Event) UnmarshalPrev(key *string, val proto.Unmarshaler) error {
+	*key = string(e.PrevKey)
+	return val.Unmarshal(e.PrevValue)
 }
 
 // Watcher ...
@@ -77,6 +84,16 @@ func (s byModRev) Less(i, j int) bool {
 
 // NewWatcher watches a given etcd prefix for events.
 func NewWatcher(ctx context.Context, client *etcd.Client, prefix string) (Watcher, error) {
+	return newWatcher(ctx, client, prefix, false)
+}
+
+// NewWatcherWithPrev is like NewWatcher, except that the returned events
+// include the previous version of the values.
+func NewWatcherWithPrev(ctx context.Context, client *etcd.Client, prefix string) (Watcher, error) {
+	return newWatcher(ctx, client, prefix, true)
+}
+
+func newWatcher(ctx context.Context, client *etcd.Client, prefix string, withPrev bool) (Watcher, error) {
 	eventCh := make(chan *Event)
 	done := make(chan struct{})
 	// Firstly we list the collection to get the current items
@@ -87,12 +104,17 @@ func NewWatcher(ctx context.Context, client *etcd.Client, prefix string) (Watche
 		return nil, err
 	}
 
+	nextRevision := resp.Header.Revision + 1
 	etcdWatcher := etcd.NewWatcher(client)
 	// Now we issue a watch that uses the revision timestamp returned by the
 	// Get request earlier.  That way even if some items are added between
 	// when we list the collection and when we start watching the collection,
 	// we won't miss any items.
-	rch := etcdWatcher.Watch(ctx, prefix, etcd.WithPrefix(), etcd.WithRev(resp.Header.Revision+1))
+	options := []etcd.OpOption{etcd.WithPrefix(), etcd.WithRev(nextRevision)}
+	if withPrev {
+		options = append(options, etcd.WithPrevKV())
+	}
+	rch := etcdWatcher.Watch(ctx, prefix, options...)
 
 	go func() (retErr error) {
 		defer func() {
@@ -125,7 +147,12 @@ func NewWatcher(ctx context.Context, client *etcd.Client, prefix string) (Watche
 				return nil
 			}
 			if !ok {
-				return nil
+				if err := etcdWatcher.Close(); err != nil {
+					return err
+				}
+				etcdWatcher = etcd.NewWatcher(client)
+				rch = etcdWatcher.Watch(ctx, prefix, etcd.WithPrefix(), etcd.WithRev(nextRevision))
+				continue
 			}
 			if err := resp.Err(); err != nil {
 				return err
@@ -151,6 +178,7 @@ func NewWatcher(ctx context.Context, client *etcd.Client, prefix string) (Watche
 					return nil
 				}
 			}
+			nextRevision = resp.Header.Revision + 1
 		}
 	}()
 

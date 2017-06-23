@@ -14,6 +14,12 @@ Word count is basically the "hello world" of distributed computation. This examp
 
 ## Machine Learning
 
+### Iris flower classification with R, Python, or Julia
+
+The "hello world" of machine learning implemented in Pachyderm.  You can deploy this pipeline using R, Python, or Julia commponents, where the pipeline includes the trianing of a SVM, LDA, Decision Tree, or Random Forest model and the subsequent utilization of that model to perform inferences.
+
+[R, Python, or Julia - Iris flower classification](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/ml/iris)
+
 ### Sentiment analysis with Neon
 
 This example implements the machine learning template pipeline discussed in [this blog post](https://medium.com/pachyderm-data/sustainable-machine-learning-workflows-8c617dd5506d#.hhkbsj1dn).  It trains and utilizes a neural network (implemented in Python using Nervana Neon) to infer the sentiment of movie reviews based on data from IMDB. 
