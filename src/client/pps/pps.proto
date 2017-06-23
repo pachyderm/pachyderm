@@ -159,6 +159,7 @@ message JobInfo {
   Input input = 26;
   pfs.Branch new_branch = 27;
   bool incremental = 28;
+  pfs.Commit stats_commit = 29;
 }
 
 enum WorkerState {
