@@ -148,17 +148,21 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 // rather than a the actual content. If newOnly is true then only new files
 // will be downloaded and they will be downloaded under root. Otherwise new and
 // old files will be downloaded under root/new and root/old respectively.
-func (p *Puller) PullDiff(client *pachclient.APIClient, root string, newRepo, newCommit, newFile, oldRepo, oldCommit, oldFile string, newOnly bool, pipes bool, concurrency int) error {
+func (p *Puller) PullDiff(client *pachclient.APIClient, root string, newRepo, newCommit, newPath, oldRepo, oldCommit, oldPath string, newOnly bool, pipes bool, concurrency int) error {
 	limiter := limit.New(concurrency)
 	var eg errgroup.Group
-	newFiles, oldFiles, err := client.DiffFile(newRepo, newCommit, newFile, oldRepo, oldCommit, oldFile)
+	newFiles, oldFiles, err := client.DiffFile(newRepo, newCommit, newPath, oldRepo, oldCommit, oldPath)
 	if err != nil {
 		return err
 	}
 	for _, newFile := range newFiles {
-		path := filepath.Join(root, "new", newFile.File.Path)
+		basepath, err := filepath.Rel(newPath, newFile.File.Path)
+		if err != nil {
+			return err
+		}
+		path := filepath.Join(root, "new", basepath)
 		if newOnly {
-			path = filepath.Join(root, newFile.File.Path)
+			path = filepath.Join(root, basepath)
 		}
 		if pipes {
 			if err := p.makePipe(path, func(w io.Writer) error {
@@ -179,7 +183,11 @@ func (p *Puller) PullDiff(client *pachclient.APIClient, root string, newRepo, ne
 	}
 	if !newOnly {
 		for _, oldFile := range oldFiles {
-			path := filepath.Join(root, "old", oldFile.File.Path)
+			basepath, err := filepath.Rel(oldPath, oldFile.File.Path)
+			if err != nil {
+				return err
+			}
+			path := filepath.Join(root, "old", basepath)
 			if pipes {
 				if err := p.makePipe(path, func(w io.Writer) error {
 					return client.GetFile(oldFile.File.Commit.Repo.Name, oldFile.File.Commit.ID, oldFile.File.Path, 0, 0, w)
