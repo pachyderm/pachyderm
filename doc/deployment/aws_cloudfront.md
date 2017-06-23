@@ -45,7 +45,7 @@ $ cat pk-APKAXXXXXXXXXXXX.pem
 3) Run the script to apply these security credentials to your cloudfront distribution:
 
 ```
-$./etc/deploy/cloudfront/secure-cloudfront.sh --zone us-east-1b --bucket 2642-pachyderm-store --cloudfront-distribution-id E3DPJE36K8O9U7 --cloudfront-keypair-id APKAXXXXXXXXXX --cloudfront-private-key-file pk-APKAXXXXXXXXXX.pem 
+$./etc/deploy/cloudfront/secure-cloudfront.sh --region us-west-2 --zone us-west-2c --bucket YYYY-pachyderm-store --cloudfront-distribution-id E1BEBVLIDYTLEV  --cloudfront-keypair-id APKAXXXXXXXXXXXX --cloudfront-private-key-file ~/Downloads/pk-APKAXXXXXXXXXXXX.pem 
 ```
 
 You'll need to look in the file you saved from above `deploy.log` for the values for the `--bucket` and `--cloudfront-distribution-id` flags
