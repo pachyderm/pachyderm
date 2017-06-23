@@ -225,6 +225,18 @@
 			"revisionTime": "2017-02-11T21:41:47Z"
 		},
 		{
+			"checksumSHA1": "Jta0N8UpREoBZJ1n2n8Y0hh6AxY=",
+			"path": "github.com/aws/aws-sdk-go/service/cloudfront",
+			"revision": "2f38831dce85fee4ae85a7db268a0ee15b5522df",
+			"revisionTime": "2017-06-06T22:58:13Z"
+		},
+		{
+			"checksumSHA1": "yLW2gMdEScNPLFqrQLdgF4+V2zQ=",
+			"path": "github.com/aws/aws-sdk-go/service/cloudfront/sign",
+			"revision": "2f38831dce85fee4ae85a7db268a0ee15b5522df",
+			"revisionTime": "2017-06-06T22:58:13Z"
+		},
+		{
 			"checksumSHA1": "eEWM4wKzVbRqAwIy3MdMCDUGs2s=",
 			"path": "github.com/aws/aws-sdk-go/service/s3",
 			"revision": "0bba0f7f68dc6317b2715daf5b4e4815889b1d73",
@@ -295,6 +307,12 @@
 			"path": "github.com/coreos/etcd/clientv3",
 			"revision": "6fb99a858598cf001f545e1253fea004f1e0510b",
 			"revisionTime": "2017-02-05T05:28:56Z"
+		},
+		{
+			"checksumSHA1": "HWGjJoAdeVaq4dqkSKF6iYQj1aY=",
+			"path": "github.com/coreos/etcd/clientv3/concurrency",
+			"revision": "f5fc6649fee88d31513eb3afed0ddd3729a2ccf3",
+			"revisionTime": "2017-06-05T23:47:59Z"
 		},
 		{
 			"checksumSHA1": "muiqfaDEp60w1SvL64c2t7hJouo=",
@@ -567,40 +585,40 @@
 			"revisionTime": "2016-09-25T05:07:47Z"
 		},
 		{
-			"checksumSHA1": "3yco0089CSJ4qbyUccpbDC2+dPg=",
+			"checksumSHA1": "2XtrajUc7LktpQETiH+H2hbd200=",
 			"path": "github.com/gogo/protobuf/gogoproto",
-			"revision": "f6b4bb7b2dde1736b809b3da996ed72f278e9be9",
-			"revisionTime": "2017-01-02T19:29:32Z"
+			"revision": "efccd33a0c20aa078705571d5ddbfa14c8395a63",
+			"revisionTime": "2017-06-06T14:43:17Z"
 		},
 		{
-			"checksumSHA1": "TdG/KbJCS5XUIols9BnnhMe5ifg=",
+			"checksumSHA1": "gXiisLiXWRTmmYoxf49E4IZuOCs=",
 			"path": "github.com/gogo/protobuf/jsonpb",
-			"revision": "f6b4bb7b2dde1736b809b3da996ed72f278e9be9",
-			"revisionTime": "2017-01-02T19:29:32Z"
+			"revision": "efccd33a0c20aa078705571d5ddbfa14c8395a63",
+			"revisionTime": "2017-06-06T14:43:17Z"
 		},
 		{
 			"checksumSHA1": "6ZxSmrIx3Jd15aou16oG0HPylP4=",
 			"path": "github.com/gogo/protobuf/proto",
-			"revision": "f6b4bb7b2dde1736b809b3da996ed72f278e9be9",
-			"revisionTime": "2017-01-02T19:29:32Z"
+			"revision": "efccd33a0c20aa078705571d5ddbfa14c8395a63",
+			"revisionTime": "2017-06-06T14:43:17Z"
 		},
 		{
-			"checksumSHA1": "iGFgLlMcKNAAYdZEx12i/q3P4mQ=",
+			"checksumSHA1": "U6RUw5eBwarsz1tgGdTK4WphhbI=",
 			"path": "github.com/gogo/protobuf/protoc-gen-gogo/descriptor",
-			"revision": "f6b4bb7b2dde1736b809b3da996ed72f278e9be9",
-			"revisionTime": "2017-01-02T19:29:32Z"
+			"revision": "efccd33a0c20aa078705571d5ddbfa14c8395a63",
+			"revisionTime": "2017-06-06T14:43:17Z"
 		},
 		{
 			"checksumSHA1": "HPVQZu059/Rfw2bAWM538bVTcUc=",
 			"path": "github.com/gogo/protobuf/sortkeys",
-			"revision": "f6b4bb7b2dde1736b809b3da996ed72f278e9be9",
-			"revisionTime": "2017-01-02T19:29:32Z"
+			"revision": "efccd33a0c20aa078705571d5ddbfa14c8395a63",
+			"revisionTime": "2017-06-06T14:43:17Z"
 		},
 		{
-			"checksumSHA1": "JnyEd5OYV5zLtFg60dXfBvavGPA=",
+			"checksumSHA1": "h0V8wpkh3JbP0e+elopAsw146/4=",
 			"path": "github.com/gogo/protobuf/types",
-			"revision": "f6b4bb7b2dde1736b809b3da996ed72f278e9be9",
-			"revisionTime": "2017-01-02T19:29:32Z"
+			"revision": "efccd33a0c20aa078705571d5ddbfa14c8395a63",
+			"revisionTime": "2017-06-06T14:43:17Z"
 		},
 		{
 			"checksumSHA1": "HmbftipkadrLlCfzzVQ+iFHbl6g=",
@@ -663,10 +681,10 @@
 			"revisionTime": "2016-06-03T22:12:12Z"
 		},
 		{
-			"checksumSHA1": "OZ7IRhes8Qb44nlnMoNw7iylIOU=",
+			"checksumSHA1": "fgPBEKvm7D7y4IMxGaxHsPmtYtU=",
 			"path": "github.com/google/gofuzz",
-			"revision": "fd52762d25a41827db7ef64c43756fd4b9f7e382",
-			"revisionTime": "2016-02-01T17:48:07Z"
+			"revision": "44d81051d367757e1c7c6a5a86423ece9afcf63c",
+			"revisionTime": "2016-11-22T19:10:42Z"
 		},
 		{
 			"checksumSHA1": "0uWDQrsSzyQHYg5et19xtS+EWmY=",

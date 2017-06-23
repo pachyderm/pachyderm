@@ -65,13 +65,15 @@ func Serialize(h HashTree) ([]byte, error) {
 	if !ok {
 		return nil, fmt.Errorf("HashTree is of the wrong concrete type")
 	}
-	return proto.Marshal(tree)
+	return tree.Marshal()
 }
 
 // Deserialize deserializes a hash tree so that it can be read or modified.
 func Deserialize(serialized []byte) (HashTree, error) {
 	h := &HashTreeProto{}
-	proto.Unmarshal(serialized, h)
+	if err := h.Unmarshal(serialized); err != nil {
+		return nil, err
+	}
 	if h.Version != 1 {
 		return nil, errorf(Unsupported, "unsupported HashTreeProto "+
 			"version %d", h.Version)
@@ -177,8 +179,8 @@ func size(fs map[string]*NodeProto) int64 {
 	return rootNode.SubtreeSize
 }
 
-// Size returns the size of the file system that the hashtree represents.
-func (h *HashTreeProto) Size() int64 {
+// FSSize returns the size of the file system that the hashtree represents.
+func (h *HashTreeProto) FSSize() int64 {
 	return size(h.Fs)
 }
 
@@ -282,8 +284,8 @@ func (h *hashtree) Glob(pattern string) ([]*NodeProto, error) {
 	return glob(h.fs, pattern)
 }
 
-// Size returns the size of the file system that the hashtree represents.
-func (h *hashtree) Size() int64 {
+// FSSize returns the size of the file system that the hashtree represents.
+func (h *hashtree) FSSize() int64 {
 	return size(h.fs)
 }
 

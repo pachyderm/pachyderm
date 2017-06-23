@@ -114,6 +114,7 @@ message CreateRepoRequest {
   Repo repo = 1;
   repeated Repo provenance = 2;
   string description = 3;
+  bool update = 4;
 }
 
 message InspectRepoRequest {
@@ -127,6 +128,7 @@ message ListRepoRequest {
 message DeleteRepoRequest {
   Repo repo = 1;
   bool force = 2;
+  bool all = 3;
 }
 
 message StartCommitRequest {

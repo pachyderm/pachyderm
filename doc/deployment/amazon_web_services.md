@@ -7,6 +7,13 @@ Below, we show how to deploy Pachyderm on AWS in a couple of different ways:
 
 If you already have a Kubernetes deployment or would like to customize the types of instances, size of volumes, etc. in your Kubernetes cluster, you should follow option (1).  If you just want a quick deploy to experiment with Pachyderm in AWS or would just like to use our default configuration, you might want to try option (2)
 
+
+## Production Deployment
+
+Note - for production deployments we recommend setting up AWS CloudFront. AWS puts S3 rate limits in place that can limit the data throughput for your cluster, and CloudFront helps mitigate this issue.
+
+[Follow the instructions here to deploy a Pachyderm cluster with CloudFront](./aws_cloudfront.html)
+
 ## Prerequisites
 
 - [AWS CLI](https://aws.amazon.com/cli/) - have it installed and have your [AWS credentials](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html) configured.
@@ -45,7 +52,7 @@ To deploy and interact with Pachyderm, you will need `pachctl`, a command-line u
 $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.4
 
 # For Linux (64 bit):
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.4.7/pachctl_1.4.7_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.4.8-db75ba7bbd4582b71eb5bcaf7e667965e554aa53/pachctl_1.4.8-db75ba7bbd4582b71eb5bcaf7e667965e554aa53_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 You can try running `pachctl version` to check that this worked correctly, but Pachyderm itself isn't deployed yet so you won't get a `pachd` version.
@@ -215,4 +222,3 @@ COMPONENT           VERSION
 pachctl             1.4.6
 pachd               1.4.6
 ```
-

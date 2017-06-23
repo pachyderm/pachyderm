@@ -612,7 +612,8 @@ func TestSerialize(t *testing.T) {
 
 func TestSerializeError(t *testing.T) {
 	// Test version
-	bts, err := proto.Marshal(&HashTreeProto{Version: -1})
+	h := &HashTreeProto{Version: -1}
+	bts, err := h.Marshal()
 	require.NoError(t, err)
 	_, err = Deserialize(bts)
 	require.YesError(t, err)
