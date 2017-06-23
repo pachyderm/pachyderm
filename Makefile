@@ -166,16 +166,12 @@ launch-dev-bench: docker-build docker-build-test install
 
 build-bench-images: docker-build docker-build-test
 
-push-bench-images: install-bench
+push-bench-images: install-bench tag-images push-images
 	# We need the pachyderm_compile image to be up to date
-	docker tag pachyderm_pachd pachyderm/pachd:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
-	docker push pachyderm/pachd:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
-	docker tag pachyderm_worker pachyderm/worker:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
-	docker push pachyderm/worker:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
 	docker tag pachyderm_test pachyderm/bench:`git rev-list HEAD --max-count=1`
 	docker push pachyderm/bench:`git rev-list HEAD --max-count=1`
 
-tag-images:
+tag-images: install
 	docker tag pachyderm_pachd pachyderm/pachd:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
 	docker tag pachyderm_worker pachyderm/worker:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
 
