@@ -166,14 +166,18 @@ launch-dev-bench: docker-build docker-build-test install
 
 build-bench-images: docker-build docker-build-test
 
-push-bench-images: install-bench
+push-bench-images: install-bench tag-images push-images
 	# We need the pachyderm_compile image to be up to date
-	docker tag pachyderm_pachd pachyderm/pachd:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
-	docker push pachyderm/pachd:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
-	docker tag pachyderm_worker pachyderm/worker:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
-	docker push pachyderm/worker:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
 	docker tag pachyderm_test pachyderm/bench:`git rev-list HEAD --max-count=1`
 	docker push pachyderm/bench:`git rev-list HEAD --max-count=1`
+
+tag-images: install
+	docker tag pachyderm_pachd pachyderm/pachd:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
+	docker tag pachyderm_worker pachyderm/worker:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
+
+push-images: tag-images
+	docker push pachyderm/pachd:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
+	docker push pachyderm/worker:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
 
 launch-bench:
 	@# Make launches each process in its own shell process, so we have to structure
@@ -193,11 +197,24 @@ install-bench: install
 	rm /usr/local/bin/pachctl || true
 	[ -f /usr/local/bin/pachctl ] || sudo ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 
+launch-dev-test: docker-build-test
+	kubectl run bench --image=pachyderm/test:local \
+	    --restart=Never \
+	    --attach=true \
+	    -- \
+	    ./test -test.v
+
 run-bench:
 	kubectl scale --replicas=4 deploy/pachd
 	echo "waiting for pachd to scale up" && sleep 15
 	kubectl delete --ignore-not-found po/bench && \
-	echo kubectl run bench --image=pachyderm/bench:`git rev-list HEAD --max-count=1` --image-pull-policy=Always --restart=Never --attach=true -- PACH_TEST_CLOUD=true ./test -test.v -test.bench=BenchmarkDaily -test.run=`etc/testing/passing_test_regex.sh`
+	    kubectl run bench \
+			    --image=pachyderm/bench:`git rev-list HEAD --max-count=1` \
+					--image-pull-policy=Always \
+					--restart=Never \
+					--attach=true \
+					-- \
+					PACH_TEST_CLOUD=true ./test -test.v -test.bench=BenchmarkDaily -test.run=`etc/testing/passing_test_regex.sh`
 
 delete-all-launch-bench:
 	etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --delete-all

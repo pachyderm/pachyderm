@@ -1,2 +1,0 @@
-Performance Benchmarks and Optimizations
-========================================
