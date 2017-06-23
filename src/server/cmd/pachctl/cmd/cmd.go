@@ -75,8 +75,13 @@ Environment variables:
 		Long:  "Return version information.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			if !noMetrics {
-				metricsFn := metrics.ReportAndFlushUserAction("Version")
-				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+				start := time.Now()
+				startMetricsWait := metrics.StartReportAndFlushUserAction("Version", start)
+				defer startMetricsWait()
+				defer func() {
+					finishMetricsWait := metrics.FinishReportAndFlushUserAction("Version", retErr, start)
+					finishMetricsWait()
+				}()
 			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			printVersionHeader(writer)
