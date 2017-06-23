@@ -10,9 +10,10 @@ STATE_STORE=s3://pachyderm-travis-state-store-v1
 REGION=-
 ZONE=us-west-1b
 OP=-
+CLOUDFRONT=
 
 # Process args
-new_opt="$( getopt --long="create,delete:,delete-all,list,zone:" -- ${0} "${@}" )"
+new_opt="$( getopt --long="create,delete:,delete-all,list,zone:,use-cloudfront" -- ${0} "${@}" )"
 [[ "$?" -eq 0 ]] || exit 1
 eval "set -- ${new_opt}"
 
@@ -39,6 +40,11 @@ while true; do
       ZONE="${2}"
       shift 2
       ;;
+    --use-cloudfront)
+      # Default is not to provide the flag
+      CLOUDFRONT="--use-cloudfront"
+      shift
+      ;;
     --)
       shift
       break
@@ -57,7 +63,11 @@ set -x
 case "${OP}" in
   create)
     aws_sh="$(realpath "$(dirname "${0}")/../../deploy/aws.sh")"
-    sudo "${aws_sh}" --region=${REGION} --zone=${ZONE} --state=${STATE_STORE} --no-metrics
+    cmd=("${aws_sh}" --region=${REGION} --zone=${ZONE} --state=${STATE_STORE} --no-metrics)
+    if [[ -n "${CLOUDFRONT}" ]]; then
+      cmd+=("${CLOUDFRONT}")
+    fi
+    sudo "${cmd[@]}"
     ;;
   delete)
     kops --state=${STATE_STORE} delete cluster --name=${NAME} --yes

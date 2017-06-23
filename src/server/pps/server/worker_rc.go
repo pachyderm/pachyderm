@@ -1,9 +1,6 @@
 package server
 
 import (
-	"fmt"
-	"strings"
-
 	client "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
@@ -31,36 +28,13 @@ type workerOptions struct {
 	imagePullSecrets []api.LocalObjectReference
 }
 
-// PipelineRcName generates the name of the k8s replication controller that
-// manages a pipeline's workers
-func PipelineRcName(name string, version uint64) string {
-	// k8s won't allow RC names that contain upper-case letters
-	// or underscores
-	// TODO: deal with name collision
-	name = strings.Replace(name, "_", "-", -1)
-	return fmt.Sprintf("pipeline-%s-v%d", strings.ToLower(name), version)
-}
-
-// JobRcName generates the name of the k8s replication controller that manages
-// an orphan job's workers
-func JobRcName(id string) string {
-	// k8s won't allow RC names that contain upper-case letters
-	// or underscores
-	// TODO: deal with name collision
-	id = strings.Replace(id, "_", "-", -1)
-	return fmt.Sprintf("job-%s", strings.ToLower(id))
-}
-
 func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 	pullPolicy := a.workerImagePullPolicy
 	if pullPolicy == "" {
 		pullPolicy = "IfNotPresent"
 	}
-	// Disable block caching for the sidecar.  We still want PFS cache
-	// because it caches things like commit IDs which typically has a
-	// very high hit rate since workers tend to be processing a small
-	// set commits at a time.
-	sidecarCacheSize := "256M"
+	// TODO: make these cache sizes configurable
+	sidecarCacheSize := "64M"
 	sidecarEnv := []api.EnvVar{{
 		Name:  "BLOCK_CACHE_BYTES",
 		Value: sidecarCacheSize,
@@ -137,7 +111,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 			{
 				Name:            client.PPSWorkerSidecarContainerName,
 				Image:           a.workerSidecarImage,
-				Command:         []string{"/pachd", "--mode", "pfs"},
+				Command:         []string{"/pachd", "--mode", "sidecar"},
 				ImagePullPolicy: api.PullPolicy(pullPolicy),
 				Env:             sidecarEnv,
 				VolumeMounts:    sidecarVolumeMounts,
@@ -203,6 +177,11 @@ func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, resources
 	workerEnv = append(workerEnv, api.EnvVar{
 		Name:  client.PPSEtcdPrefixEnv,
 		Value: a.etcdPrefix,
+	})
+	// Pass along the namespace
+	workerEnv = append(workerEnv, api.EnvVar{
+		Name:  client.PPSNamespaceEnv,
+		Value: a.namespace,
 	})
 
 	var volumes []api.Volume
