@@ -50,22 +50,22 @@ parse_flags() {
 
   set +euxo pipefail
 
-  if [ $CLOUDFRONT_KEYPAIR_ID -n ]; then
+  if [ -z "$CLOUDFRONT_KEYPAIR_ID" ]; then
 	echo "--cloudfront-keypair-id must be set"
 	exit 1	
   fi
 
-  if [ $CLOUDFRONT_PRIVATE_KEY_FILE -n ]; then
+  if [ -z $CLOUDFRONT_PRIVATE_KEY_FILE ]; then
 	echo "--cloudfront-private-key-file must be set"
 	exit 1	
   fi
 
-  if [ $BUCKET -n ]; then
+  if [ -z $BUCKET ]; then
 	echo "--bucket must be set"
 	exit 1	
   fi
 
-  if [ $CLOUDFRONT_DISTRIBUTION_ID -n ]; then
+  if [ -z $CLOUDFRONT_DISTRIBUTION_ID ]; then
 	echo "--cloudfront-distribution-id must be set"
 	exit 1	
   fi
@@ -90,6 +90,7 @@ update_bucket_policy() {
    
     # Create Origin Access Identity
     someuuid=$(uuid | cut -f 1 -d-)
+    mkdir -p tmp
     cat etc/deploy/cloudfront/origin-access-identity.json.template | jq '.CallerReference = "'"$someuuid"'" | .Comment = "'$BUCKET' auto generated OAI"' > tmp/cloudfront-origin-access-identity.json
     aws cloudfront create-cloud-front-origin-access-identity --cloud-front-origin-access-identity-config file://tmp/cloudfront-origin-access-identity.json > tmp/cloudfront-origin-access-identity-info.json
     CLOUDFRONT_OAI_CANONICAL=$(cat tmp/cloudfront-origin-access-identity-info.json | jq -r ".CloudFrontOriginAccessIdentity.S3CanonicalUserId")
