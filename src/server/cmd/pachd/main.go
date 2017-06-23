@@ -24,6 +24,7 @@ import (
 	cache_server "github.com/pachyderm/pachyderm/src/server/pkg/cache/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
+	"github.com/pachyderm/pachyderm/src/server/pkg/migration"
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 
@@ -43,7 +44,7 @@ var migrate string
 func init() {
 	flag.StringVar(&mode, "mode", "full", "Pachd currently supports two modes: full and sidecar.  The former includes everything you need in a full pachd node.  The later runs only PFS and a stripped-down version of PPS.")
 	flag.BoolVar(&readinessCheck, "readiness-check", false, "Set to true when checking if local pod is ready")
-	flag.StringVar(&migrate, "migrate", "", "Use the format FROM_VERSION-TO_VERSION; e.g. 1.2.4-1.3.0")
+	flag.StringVar(&migrate, "migrate", "", "Use the format FROM_VERSION-TO_VERSION; e.g. 1.4.8-1.5.0")
 	flag.Parse()
 }
 
@@ -160,10 +161,22 @@ func doSidecarMode(appEnvObj interface{}) error {
 }
 
 func doFullMode(appEnvObj interface{}) error {
+	appEnv := appEnvObj.(*appEnv)
+	if migrate != "" {
+		parts := strings.Split(migrate, "-")
+		if len(parts) != 2 {
+			return fmt.Errorf("the migration flag needs to be of the format FROM_VERSION-TO_VERSION; e.g. 1.4.8-1.5.0")
+		}
+
+		if err := migration.Run(appEnv.EtcdAddress, appEnv.PFSEtcdPrefix, appEnv.PPSEtcdPrefix, parts[0], parts[1]); err != nil {
+			return fmt.Errorf("error from migration: %v", err)
+		}
+		return nil
+	}
+
 	go func() {
 		lion.Println(http.ListenAndServe(":651", nil))
 	}()
-	appEnv := appEnvObj.(*appEnv)
 	switch appEnv.LogLevel {
 	case "debug":
 		lion.SetLevel(lion.LevelDebug)
