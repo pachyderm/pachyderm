@@ -262,13 +262,12 @@ nextInput:
 // jobManager feeds datums to jobs
 func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *grpcutil.Pool) error {
 	pfsClient := a.pachClient.PfsAPIClient
-	objectClient := a.pachClient.ObjectAPIClient
 	ppsClient := a.pachClient.PpsAPIClient
 
 	jobID := jobInfo.Job.ID
 	var jobStopped bool
 	var jobStoppedMutex sync.Mutex
-	backoff.RetryNotify(func() error {
+	backoff.RetryNotify(func() (retErr error) {
 		// We use a new context for this particular instance of the retry
 		// loop, to ensure that all resources are released properly when
 		// this job retries.
@@ -351,6 +350,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *grpc
 			newBranchParentCommit = newBranchCommitInfo.ParentCommit
 		}
 		tree := hashtree.NewHashTree()
+		statsTree := hashtree.NewHashTree()
 		var treeMu sync.Mutex
 
 		processedData := int64(0)
@@ -452,20 +452,21 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *grpc
 						userCodeFailures++
 						return fmt.Errorf("user code failed for datum %v", files)
 					}
-					getTagClient, err := objectClient.GetTag(ctx, resp.Tag)
+					subTree, err := a.getTreeFromTag(ctx, resp.Tag)
 					if err != nil {
 						return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
 					}
-					var buffer bytes.Buffer
-					if err := grpcutil.WriteFromStreamingBytesClient(getTagClient, &buffer); err != nil {
-						return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
-					}
-					subTree, err := hashtree.Deserialize(buffer.Bytes())
+					statsSubtree, err := a.getTreeFromTag(ctx, resp.StatsTag)
 					if err != nil {
-						return fmt.Errorf("failed deserialize hashtree after processing for datum %v: %v", files, err)
+						protolion.Errorf("failed to retrieve stats hashtree after processing for datum %v: %v", files, err)
 					}
 					treeMu.Lock()
 					defer treeMu.Unlock()
+					if statsSubtree != nil {
+						if err := statsTree.Merge(statsSubtree); err != nil {
+							protolion.Errorf("failed to merge into stats tree: %v", err)
+						}
+					}
 					return tree.Merge(subTree)
 				}, b, func(err error, d time.Duration) error {
 					select {
@@ -501,28 +502,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *grpc
 			return err
 		}
 
-		finishedTree, err := tree.Finish()
-		if err != nil {
-			return err
-		}
-
-		data, err := hashtree.Serialize(finishedTree)
-		if err != nil {
-			return err
-		}
-
-		putObjClient, err := objectClient.PutObject(ctx)
-		if err != nil {
-			return err
-		}
-		for _, chunk := range grpcutil.Chunk(data, grpcutil.MaxMsgSize/2) {
-			if err := putObjClient.Send(&pfs.PutObjectRequest{
-				Value: chunk,
-			}); err != nil {
-				return err
-			}
-		}
-		object, err := putObjClient.CloseAndRecv()
+		object, err := a.putTree(ctx, tree)
 		if err != nil {
 			return err
 		}
@@ -539,6 +519,22 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *grpc
 			Branch:     jobInfo.OutputBranch,
 			Provenance: provenance,
 			Tree:       object,
+		})
+		if err != nil {
+			return err
+		}
+
+		statsObject, err := a.putTree(ctx, statsTree)
+		if err != nil {
+			return err
+		}
+
+		statsCommit, err := pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
+			Parent: &pfs.Commit{
+				Repo: jobInfo.OutputRepo,
+			},
+			Branch: "stats",
+			Tree:   statsObject,
 		})
 		if err != nil {
 			return err
@@ -576,6 +572,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *grpc
 			jobInfo.DataProcessed = totalData
 			// likely already set but just in case it failed
 			jobInfo.DataTotal = totalData
+			jobInfo.StatsCommit = statsCommit
 			return a.updateJobState(stm, jobInfo, pps.JobState_JOB_SUCCESS)
 		})
 		return err
@@ -614,6 +611,45 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *grpc
 		return nil
 	})
 	return nil
+}
+
+func (a *APIServer) getTreeFromTag(ctx context.Context, tag *pfs.Tag) (hashtree.HashTree, error) {
+	objectClient := a.pachClient.ObjectAPIClient
+	getTagClient, err := objectClient.GetTag(ctx, tag)
+	if err != nil {
+		return nil, err
+	}
+	var buffer bytes.Buffer
+	if err := grpcutil.WriteFromStreamingBytesClient(getTagClient, &buffer); err != nil {
+		return nil, err
+	}
+	return hashtree.Deserialize(buffer.Bytes())
+}
+
+func (a *APIServer) putTree(ctx context.Context, tree hashtree.OpenHashTree) (*pfs.Object, error) {
+	objectClient := a.pachClient.ObjectAPIClient
+	finishedTree, err := tree.Finish()
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := hashtree.Serialize(finishedTree)
+	if err != nil {
+		return nil, err
+	}
+
+	putObjClient, err := objectClient.PutObject(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, chunk := range grpcutil.Chunk(data, grpcutil.MaxMsgSize/2) {
+		if err := putObjClient.Send(&pfs.PutObjectRequest{
+			Value: chunk,
+		}); err != nil {
+			return nil, err
+		}
+	}
+	return putObjClient.CloseAndRecv()
 }
 
 func (a *APIServer) scaleDownWorkers() error {
