@@ -538,13 +538,17 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	if err != nil {
 		return nil, err
 	}
+	statsTag := tag + "_stats"
 	if _, err := a.pachClient.InspectTag(ctx, &pfs.Tag{tag}); err == nil {
 		// We've already computed the output for these inputs. Return immediately
 		logger.Logf("skipping input, as it's already been processed")
 		return &ProcessResponse{
-			Tag: &pfs.Tag{tag},
+			Tag:      &pfs.Tag{tag},
+			StatsTag: &pfs.Tag{statsTag},
 		}, nil
 	}
+
+	statsTree := hashtree.NewHashTree()
 
 	// Download input data
 	logger.Logf("input has not been processed, downloading data")
@@ -606,8 +610,21 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		}
 		return nil, err
 	}
+	finStatsTree, err := statsTree.Finish()
+	if err != nil {
+		return nil, err
+	}
+	statsTreeBytes, err := hashtree.Serialize(finStatsTree)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, _, err := a.pachClient.PutObject(bytes.NewReader(statsTreeBytes), statsTag); err != nil {
+		return nil, err
+	}
 	return &ProcessResponse{
-		Tag: &pfs.Tag{tag},
+		Tag:      &pfs.Tag{tag},
+		StatsTag: &pfs.Tag{statsTag},
 	}, nil
 }
 
