@@ -114,13 +114,13 @@ func (p *Puller) makeFile(path string, f func(io.Writer) error) (retErr error) {
 // pipes causes the function to create named pipes in place of files, thus
 // lazily downloading the data as it's needed.
 func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, file string, pipes bool, concurrency int) error {
-	limiter := limit.New(concurrency)
-	var eg errgroup.Group
 	// Make sure that we create the input directory even if the path
 	// that we are pulling from is empty.
 	if err := os.MkdirAll(root, 0700); err != nil {
 		return err
 	}
+	limiter := limit.New(concurrency)
+	var eg errgroup.Group
 	if err := client.Walk(repo, commit, file, func(fileInfo *pfs.FileInfo) error {
 		if fileInfo.FileType != pfs.FileType_FILE {
 			return nil
