@@ -1105,14 +1105,14 @@ func (d *driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
 	return err
 }
 
-func (d *driver) listBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.Branch, error) {
+func (d *driver) listBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.BranchInfo, error) {
 	branches := d.branches(repo.Name).ReadOnly(ctx)
 	iterator, err := branches.List()
 	if err != nil {
 		return nil, err
 	}
 
-	var res []*pfs.Branch
+	var res []*pfs.BranchInfo
 	for {
 		var branchName string
 		head := new(pfs.Commit)
@@ -1123,7 +1123,7 @@ func (d *driver) listBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.Branch,
 		if !ok {
 			break
 		}
-		res = append(res, &pfs.Branch{
+		res = append(res, &pfs.BranchInfo{
 			Name: path.Base(branchName),
 			Head: head,
 		})

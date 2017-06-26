@@ -20,13 +20,13 @@ message Commits {
   repeated Commit commit = 1;
 }
 
-message Branch {
+message BranchInfo {
   string name = 1;
   Commit head = 2;
 }
 
-message Branches {
-  repeated Branch branches = 1;
+message BranchInfos {
+  repeated BranchInfo branch_info = 1;
 }
 
 message File {
@@ -288,7 +288,7 @@ service API {
   rpc BuildCommit(BuildCommitRequest) returns (Commit) {}
 
   // ListBranch returns info about the heads of branches.
-  rpc ListBranch(ListBranchRequest) returns (Branches) {}
+  rpc ListBranch(ListBranchRequest) returns (BranchInfos) {}
   // SetBranch assigns a commit and its ancestors to a branch.
   rpc SetBranch(SetBranchRequest) returns (google.protobuf.Empty) {}
   // DeleteBranch deletes a branch; note that the commits still exist.
