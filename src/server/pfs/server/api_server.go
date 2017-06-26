@@ -373,7 +373,7 @@ func (a *apiServer) putFilePfs(ctx context.Context, request *pfs.PutFileRequest,
 }
 
 func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, request *pfs.PutFileRequest, url *url.URL) (retErr error) {
-	put := func(filePath string, objPath string) error {
+	put := func(ctx context.Context, filePath string, objPath string) error {
 		logRequest := &pfs.PutFileRequest{
 			Delimiter: request.Delimiter,
 			Url:       objPath,
@@ -399,7 +399,7 @@ func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, reques
 			request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, r)
 	}
 	if request.Recursive {
-		var eg errgroup.Group
+		eg, egContext := errgroup.WithContext(ctx)
 		path := strings.TrimPrefix(url.Path, "/")
 		sem := make(chan struct{}, client.DefaultMaxConcurrentStreams)
 		objClient.Walk(path, func(name string) error {
@@ -417,7 +417,7 @@ func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, reques
 					protolion.Warnf("ambiguous key %v, not creating a directory or putting this entry as a file", name)
 					return nil
 				}
-				return put(filepath.Join(request.File.Path, strings.TrimPrefix(name, path)), name)
+				return put(egContext, filepath.Join(request.File.Path, strings.TrimPrefix(name, path)), name)
 			})
 			return nil
 		})
