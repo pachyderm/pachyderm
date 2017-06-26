@@ -430,7 +430,7 @@ func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (r
 		if err := jobs.Get(request.Job.ID, jobInfo); err != nil {
 			return err
 		}
-		return a.updateJobState(stm, jobInfo, pps.JobState_JOB_STOPPED)
+		return a.updateJobState(stm, jobInfo, pps.JobState_JOB_KILLED)
 	})
 	if err != nil {
 		return nil, err
@@ -909,7 +909,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 					// We need to check again here because the job's state
 					// might've changed since we first retrieved it
 					if !jobStateToStopped(jobInfo.State) {
-						jobInfo.State = pps.JobState_JOB_STOPPED
+						jobInfo.State = pps.JobState_JOB_KILLED
 					}
 					jobs.Put(jobID, &jobInfo)
 					return nil
@@ -957,7 +957,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.updatePipelineState(ctx, request.Pipeline.Name, pps.PipelineState_PIPELINE_STOPPED); err != nil {
+	if err := a.updatePipelineState(ctx, request.Pipeline.Name, pps.PipelineState_PIPELINE_PAUSED); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -1241,7 +1241,7 @@ func pipelineStateToStopped(state pps.PipelineState) bool {
 		return false
 	case pps.PipelineState_PIPELINE_RESTARTING:
 		return false
-	case pps.PipelineState_PIPELINE_STOPPED:
+	case pps.PipelineState_PIPELINE_PAUSED:
 		return true
 	case pps.PipelineState_PIPELINE_FAILURE:
 		return true
@@ -1300,7 +1300,7 @@ func jobStateToStopped(state pps.JobState) bool {
 		return true
 	case pps.JobState_JOB_FAILURE:
 		return true
-	case pps.JobState_JOB_STOPPED:
+	case pps.JobState_JOB_KILLED:
 		return true
 	default:
 		panic(fmt.Sprintf("unrecognized job state: %s", state))

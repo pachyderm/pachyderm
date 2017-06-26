@@ -226,8 +226,8 @@ func (c APIClient) ListCommitByRepo(repoName string) ([]*pfs.CommitInfo, error) 
 }
 
 // ListBranch lists the active branches on a Repo.
-func (c APIClient) ListBranch(repoName string) ([]*pfs.Branch, error) {
-	branches, err := c.PfsAPIClient.ListBranch(
+func (c APIClient) ListBranch(repoName string) ([]*pfs.BranchInfo, error) {
+	branchInfos, err := c.PfsAPIClient.ListBranch(
 		c.ctx(),
 		&pfs.ListBranchRequest{
 			Repo: NewRepo(repoName),
@@ -236,7 +236,7 @@ func (c APIClient) ListBranch(repoName string) ([]*pfs.Branch, error) {
 	if err != nil {
 		return nil, sanitizeErr(err)
 	}
-	return branches.Branches, nil
+	return branchInfos.BranchInfo, nil
 }
 
 // SetBranch sets a commit and its ancestors as a branch

@@ -41,7 +41,7 @@ enum JobState {
   JOB_RUNNING = 1;
   JOB_FAILURE = 2;
   JOB_SUCCESS = 3;
-  JOB_STOPPED = 4;
+  JOB_KILLED = 4;
 }
 
 message Service {
@@ -157,7 +157,7 @@ message JobInfo {
   repeated WorkerStatus worker_status = 24;
   ResourceSpec resource_spec = 25;
   Input input = 26;
-  pfs.Branch new_branch = 27;
+  pfs.BranchInfo new_branch = 27;
   bool incremental = 28;
 }
 
@@ -204,8 +204,8 @@ enum PipelineState {
   PIPELINE_RESTARTING = 2;
   // We have retried too many times and we have given up on this pipeline.
   PIPELINE_FAILURE = 3;
-  // The pipeline has been explicitly stopped by the user.
-  PIPELINE_STOPPED = 4;
+  // The pipeline has been explicitly paused by the user.
+  PIPELINE_PAUSED = 4;
 }
 
 message PipelineInfo {
@@ -249,7 +249,7 @@ message CreateJobRequest {
   Job parent_job = 13;
   ResourceSpec resource_spec = 14;
   Input input = 15;
-  pfs.Branch new_branch = 16;
+  pfs.BranchInfo new_branch = 16;
   bool incremental = 17;
 }
 
