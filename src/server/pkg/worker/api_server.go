@@ -11,6 +11,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -80,11 +81,19 @@ type APIServer struct {
 	pipelines col.Collection
 }
 
+type putObjectResponse struct {
+	object *pfs.Object
+	size   int64
+	err    error
+}
+
 type taggedLogger struct {
-	template  pps.LogMessage
-	stderrLog log.Logger
-	marshaler *jsonpb.Marshaler
-	buffer    bytes.Buffer
+	template    pps.LogMessage
+	stderrLog   log.Logger
+	marshaler   *jsonpb.Marshaler
+	buffer      bytes.Buffer
+	writer      io.WriteCloser
+	putObjectCh chan *putObjectResponse
 }
 
 func (a *APIServer) getTaggedLogger(req *ProcessRequest) *taggedLogger {
@@ -106,6 +115,17 @@ func (a *APIServer) getTaggedLogger(req *ProcessRequest) *taggedLogger {
 			Hash: d.FileInfo.Hash,
 		})
 	}
+	reader, writer := io.Pipe()
+	result.writer = writer
+	result.putObjectCh = make(chan *putObjectResponse, 1)
+	go func() {
+		object, size, err := a.pachClient.PutObject(reader)
+		result.putObjectCh <- &putObjectResponse{
+			object: object,
+			size:   size,
+			err:    err,
+		}
+	}()
 	return result
 }
 
@@ -127,6 +147,10 @@ func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
 		return
 	}
 	fmt.Printf("%s\n", bytes)
+	if _, err := fmt.Fprintf(logger.writer, "%s\n", bytes); err != nil {
+		logger.stderrLog.Printf("could not write to object: %v", err)
+		return
+	}
 }
 
 func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
@@ -149,11 +173,19 @@ func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
 	}
 }
 
+func (logger *taggedLogger) Close() *putObjectResponse {
+	if err := logger.writer.Close(); err != nil {
+		return &putObjectResponse{err: err}
+	}
+	return <-logger.putObjectCh
+}
+
 func (logger *taggedLogger) userLogger() *taggedLogger {
 	result := &taggedLogger{
 		template:  logger.template, // Copy struct
 		stderrLog: log.Logger{},
 		marshaler: &jsonpb.Marshaler{},
+		writer:    logger.writer,
 	}
 	result.template.User = true
 	return result
@@ -528,17 +560,53 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		a.started = time.Time{}
 		a.cancel = nil
 	}()
-	logger := a.getTaggedLogger(req)
-	logger.Logf("Received request")
-
-	// Hash inputs and check if output is in s3 already. Note: ppsserver sorts
-	// inputs by input name for both jobs and pipelines, so this hash is stable
-	// even if a.Inputs are reordered by the user
+	// Hash inputs
 	tag, err := HashDatum(a.pipelineInfo, req.Data)
 	if err != nil {
 		return nil, err
 	}
 	statsTag := tag + "_stats"
+	statsTree := hashtree.NewHashTree()
+	defer func() {
+		if retErr != nil {
+			return
+		}
+		finStatsTree, err := statsTree.Finish()
+		if err != nil {
+			retErr = err
+			return
+		}
+		statsTreeBytes, err := hashtree.Serialize(finStatsTree)
+		if err != nil {
+			retErr = err
+			return
+		}
+		if _, _, err := a.pachClient.PutObject(bytes.NewReader(statsTreeBytes), statsTag); err != nil {
+			retErr = err
+			return
+		}
+	}()
+	var santizedPaths []string
+	for _, d := range req.Data {
+		santizedPaths = append(santizedPaths, strings.Replace(strings.TrimPrefix(d.FileInfo.File.Path, "/"), "/", "_", -1))
+	}
+	statPath := path.Join("/", req.JobID, strings.Join(santizedPaths, "+"))
+	logger := a.getTaggedLogger(req)
+	defer func() {
+		putObjectResponse := logger.Close()
+		if putObjectResponse.err != nil && retErr == nil {
+			retErr = err
+			return
+		}
+		if err := statsTree.PutFile(path.Join(statPath, "logs"), []*pfs.Object{putObjectResponse.object}, putObjectResponse.size); err != nil && retErr == nil {
+			retErr = err
+			return
+		}
+	}()
+	logger.Logf("Received request")
+	// Check if output is in s3 already. Note: ppsserver sorts
+	// inputs by input name for both jobs and pipelines, so this hash is stable
+	// even if a.Inputs are reordered by the user
 	if _, err := a.pachClient.InspectTag(ctx, &pfs.Tag{tag}); err == nil {
 		// We've already computed the output for these inputs. Return immediately
 		logger.Logf("skipping input, as it's already been processed")
@@ -547,8 +615,6 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 			StatsTag: &pfs.Tag{statsTag},
 		}, nil
 	}
-
-	statsTree := hashtree.NewHashTree()
 
 	// Download input data
 	logger.Logf("input has not been processed, downloading data")
@@ -585,7 +651,8 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	if err != nil {
 		logger.Logf("failed to process datum with error: %+v", err)
 		return &ProcessResponse{
-			Failed: true,
+			Failed:   true,
+			StatsTag: &pfs.Tag{statsTag},
 		}, nil
 	}
 	// CleanUp is idempotent so we can call it however many times we want.
@@ -605,21 +672,10 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		// infinitely retry to process this datum.
 		if err == errSpecialFile {
 			return &ProcessResponse{
-				Failed: true,
+				Failed:   true,
+				StatsTag: &pfs.Tag{statsTag},
 			}, nil
 		}
-		return nil, err
-	}
-	finStatsTree, err := statsTree.Finish()
-	if err != nil {
-		return nil, err
-	}
-	statsTreeBytes, err := hashtree.Serialize(finStatsTree)
-	if err != nil {
-		return nil, err
-	}
-
-	if _, _, err := a.pachClient.PutObject(bytes.NewReader(statsTreeBytes), statsTag); err != nil {
 		return nil, err
 	}
 	return &ProcessResponse{
