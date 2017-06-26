@@ -1,2 +1,0 @@
-Best Practices
-==============

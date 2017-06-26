@@ -88,11 +88,5 @@ $ pachctl put-file <repo> <branch> -c -r <dir>
 
 ### Pachyderm language clients
 
-- Go: We have a complete Golang client that will let you easily integrate pushing data to Pachyderm into your Go programs.  Check out the [godocs for put-file](https://godoc.org/github.com/pachyderm/pachyderm/src/client#APIClient.PutFile).
-
-- Python: Our great community of users have created a [Python client for Pachyderm](https://github.com/kalugny/pypachy).  See the [included instructions](https://github.com/kalugny/pypachy#instructions) to see how you can put data into Pachyderm from Python.   
-
-- Scala: Our users are currently working on a Scala client for Pachyderm.  Please contact us if you are interested in helping with this or testing it out.
-
-- Other languages: Pachyderm uses a simple [protocol buffer API](https://github.com/pachyderm/pachyderm/blob/master/src/client/pfs/pfs.proto). Protobufs support a bunch of [other languages](https://developers.google.com/protocol-buffers/), any of which can be used to programatically use Pachyderm. We haven't built clients for them yet, but it's not too hard. It's an easy way to contribute to Pachyderm if you're looking to get involved. 
+There are a number of Pachyderm language clients.  These can be used to programmatically put data into Pachyderm, and much more.  You can find out more about these clients [here](../reference/clients.html).
 
