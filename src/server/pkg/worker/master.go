@@ -24,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/pool"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
@@ -78,7 +79,7 @@ func (a *APIServer) jobSpawner(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	pool, err := grpcutil.NewPool(a.kubeClient, a.namespace, ppsserver.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version), numWorkers, client.PachDialOptions()...)
+	pool, err := pool.NewPool(a.kubeClient, a.namespace, ppsserver.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version), numWorkers, client.PachDialOptions()...)
 	if err != nil {
 		return fmt.Errorf("master: error constructing worker pool: %v; retrying in %v", err)
 	}
@@ -261,7 +262,7 @@ nextInput:
 }
 
 // jobManager feeds datums to jobs
-func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *grpcutil.Pool) error {
+func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool.Pool) error {
 	pfsClient := a.pachClient.PfsAPIClient
 	objectClient := a.pachClient.ObjectAPIClient
 	ppsClient := a.pachClient.PpsAPIClient
