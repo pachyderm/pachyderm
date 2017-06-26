@@ -88,15 +88,15 @@ type putObjectResponse struct {
 }
 
 type taggedLogger struct {
-	template    pps.LogMessage
-	stderrLog   log.Logger
-	marshaler   *jsonpb.Marshaler
-	buffer      bytes.Buffer
-	writer      io.WriteCloser
-	putObjectCh chan *putObjectResponse
+	template     pps.LogMessage
+	stderrLog    log.Logger
+	marshaler    *jsonpb.Marshaler
+	buffer       bytes.Buffer
+	putObjClient pfs.ObjectAPI_PutObjectClient
+	objSize      int64
 }
 
-func (a *APIServer) getTaggedLogger(req *ProcessRequest) *taggedLogger {
+func (a *APIServer) getTaggedLogger(ctx context.Context, req *ProcessRequest) (*taggedLogger, error) {
 	result := &taggedLogger{
 		template:  a.logMsgTemplate, // Copy struct
 		stderrLog: log.Logger{},
@@ -115,18 +115,12 @@ func (a *APIServer) getTaggedLogger(req *ProcessRequest) *taggedLogger {
 			Hash: d.FileInfo.Hash,
 		})
 	}
-	reader, writer := io.Pipe()
-	result.writer = writer
-	result.putObjectCh = make(chan *putObjectResponse, 1)
-	go func() {
-		object, size, err := a.pachClient.PutObject(reader)
-		result.putObjectCh <- &putObjectResponse{
-			object: object,
-			size:   size,
-			err:    err,
-		}
-	}()
-	return result
+	putObjClient, err := a.pachClient.ObjectAPIClient.PutObject(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result.putObjClient = putObjClient
+	return result, nil
 }
 
 // Logf logs the line Sprintf(formatString, args...), but formatted as a json
@@ -146,10 +140,15 @@ func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
 		logger.stderrLog.Printf("could not marshal %v for logging: %s\n", &logger.template, err)
 		return
 	}
-	fmt.Printf("%s\n", bytes)
-	if _, err := fmt.Fprintf(logger.writer, "%s\n", bytes); err != nil {
-		logger.stderrLog.Printf("could not write to object: %v", err)
-		return
+	bytes += "\n"
+	fmt.Printf(bytes)
+	for _, chunk := range grpcutil.Chunk([]byte(bytes), grpcutil.MaxMsgSize/2) {
+		if err := logger.putObjClient.Send(&pfs.PutObjectRequest{
+			Value: chunk,
+		}); err != nil {
+			logger.stderrLog.Printf("could not write to object: %v", err)
+			return
+		}
 	}
 }
 
@@ -173,19 +172,17 @@ func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
 	}
 }
 
-func (logger *taggedLogger) Close() *putObjectResponse {
-	if err := logger.writer.Close(); err != nil {
-		return &putObjectResponse{err: err}
-	}
-	return <-logger.putObjectCh
+func (logger *taggedLogger) Close() (*pfs.Object, int64, error) {
+	object, err := logger.putObjClient.CloseAndRecv()
+	return object, logger.objSize, err
 }
 
 func (logger *taggedLogger) userLogger() *taggedLogger {
 	result := &taggedLogger{
-		template:  logger.template, // Copy struct
-		stderrLog: log.Logger{},
-		marshaler: &jsonpb.Marshaler{},
-		writer:    logger.writer,
+		template:     logger.template, // Copy struct
+		stderrLog:    log.Logger{},
+		marshaler:    &jsonpb.Marshaler{},
+		putObjClient: logger.putObjClient,
 	}
 	result.template.User = true
 	return result
@@ -591,14 +588,17 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		santizedPaths = append(santizedPaths, strings.Replace(strings.TrimPrefix(d.FileInfo.File.Path, "/"), "/", "_", -1))
 	}
 	statPath := path.Join("/", req.JobID, strings.Join(santizedPaths, "+"))
-	logger := a.getTaggedLogger(req)
+	logger, err := a.getTaggedLogger(ctx, req)
+	if err != nil {
+		return nil, err
+	}
 	defer func() {
-		putObjectResponse := logger.Close()
-		if putObjectResponse.err != nil && retErr == nil {
+		object, size, err := logger.Close()
+		if err != nil && retErr == nil {
 			retErr = err
 			return
 		}
-		if err := statsTree.PutFile(path.Join(statPath, "logs"), []*pfs.Object{putObjectResponse.object}, putObjectResponse.size); err != nil && retErr == nil {
+		if err := statsTree.PutFile(path.Join(statPath, "logs"), []*pfs.Object{object}, size); err != nil && retErr == nil {
 			retErr = err
 			return
 		}
