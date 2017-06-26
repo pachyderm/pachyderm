@@ -197,11 +197,6 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 	}(time.Now())
 	for _, input := range inputs {
 		file := input.FileInfo.File
-		// Make sure that we create the input directory even if the path
-		// that we are cloning is empty.
-		if err := os.MkdirAll(filepath.Join(client.PPSInputPrefix, input.Name), 0700); err != nil {
-			return err
-		}
 		root := filepath.Join(client.PPSInputPrefix, input.Name, file.Path)
 		if a.pipelineInfo.Incremental && input.ParentCommit != nil {
 			if err := puller.PullDiff(a.pachClient, root,
