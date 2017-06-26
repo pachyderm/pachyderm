@@ -55,7 +55,7 @@ import google_protobuf "github.com/gogo/protobuf/types"
 import google_protobuf1 "github.com/gogo/protobuf/types"
 import google_protobuf2 "github.com/gogo/protobuf/types"
 import _ "github.com/gogo/protobuf/gogoproto"
-import pfs "github.com/pachyderm/pachyderm/src/client/pfs"
+import pfs "migration/onefoureight/db/pfs"
 
 import (
 	context "golang.org/x/net/context"
