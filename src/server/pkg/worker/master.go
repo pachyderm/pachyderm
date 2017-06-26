@@ -26,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
+	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 )
 
 const (
@@ -73,11 +74,11 @@ func (a *APIServer) master() {
 // jobSpawner spawns jobs
 func (a *APIServer) jobSpawner(ctx context.Context) error {
 	// Establish connection pool
-	numWorkers, err := pps.GetExpectedNumWorkers(a.kubeClient, a.pipelineInfo.ParallelismSpec)
+	numWorkers, err := ppsserver.GetExpectedNumWorkers(a.kubeClient, a.pipelineInfo.ParallelismSpec)
 	if err != nil {
 		return err
 	}
-	pool, err := grpcutil.NewPool(a.kubeClient, a.namespace, pps.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version), numWorkers, client.PachDialOptions()...)
+	pool, err := grpcutil.NewPool(a.kubeClient, a.namespace, ppsserver.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version), numWorkers, client.PachDialOptions()...)
 	if err != nil {
 		return fmt.Errorf("master: error constructing worker pool: %v; retrying in %v", err)
 	}
@@ -621,7 +622,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *grpc
 
 func (a *APIServer) scaleDownWorkers() error {
 	rc := a.kubeClient.ReplicationControllers(a.namespace)
-	workerRc, err := rc.Get(pps.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version))
+	workerRc, err := rc.Get(ppsserver.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version))
 	if err != nil {
 		return err
 	}
@@ -635,11 +636,11 @@ func (a *APIServer) scaleDownWorkers() error {
 
 func (a *APIServer) scaleUpWorkers() error {
 	rc := a.kubeClient.ReplicationControllers(a.namespace)
-	workerRc, err := rc.Get(pps.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version))
+	workerRc, err := rc.Get(ppsserver.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version))
 	if err != nil {
 		return err
 	}
-	parallelism, err := pps.GetExpectedNumWorkers(a.kubeClient, a.pipelineInfo.ParallelismSpec)
+	parallelism, err := ppsserver.GetExpectedNumWorkers(a.kubeClient, a.pipelineInfo.ParallelismSpec)
 	if err != nil {
 		return err
 	}
