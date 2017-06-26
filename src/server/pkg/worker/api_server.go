@@ -34,6 +34,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
+	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 )
 
 const (
@@ -165,7 +166,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	if err != nil {
 		return nil, err
 	}
-	numWorkers, err := pps.GetExpectedNumWorkers(kubeClient, pipelineInfo.ParallelismSpec)
+	numWorkers, err := ppsserver.GetExpectedNumWorkers(kubeClient, pipelineInfo.ParallelismSpec)
 	if err != nil {
 		return nil, err
 	}
