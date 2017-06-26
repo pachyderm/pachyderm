@@ -6,7 +6,9 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -2155,6 +2157,31 @@ func TestSyncPullPush(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "bar\n", string(data))
 
+	require.NoError(t, puller.CleanUp())
+}
+
+func TestSyncEmptyDir(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "repo"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+
+	tmpDir, err := ioutil.TempDir("/tmp", "pfs")
+	require.NoError(t, err)
+
+	// We want to make sure that Pull creates an empty directory
+	// when the path that we are cloning is empty.
+	dir := filepath.Join(tmpDir, "tmp")
+
+	puller := pfssync.NewPuller()
+	require.NoError(t, puller.Pull(&client, dir, repo, commit.ID, "", false, 0))
+	_, err = os.Stat(dir)
+	require.NoError(t, err)
 	require.NoError(t, puller.CleanUp())
 }
 

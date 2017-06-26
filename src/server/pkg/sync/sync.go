@@ -117,14 +117,14 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 	limiter := limit.New(concurrency)
 	var eg errgroup.Group
 	if err := client.Walk(repo, commit, file, func(fileInfo *pfs.FileInfo) error {
-		if fileInfo.FileType != pfs.FileType_FILE {
-			return nil
-		}
 		basepath, err := filepath.Rel(file, fileInfo.File.Path)
 		if err != nil {
 			return err
 		}
 		path := filepath.Join(root, basepath)
+		if fileInfo.FileType == pfs.FileType_DIR {
+			return os.MkdirAll(path, 0700)
+		}
 		if pipes {
 			return p.makePipe(path, func(w io.Writer) error {
 				return client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, w)
