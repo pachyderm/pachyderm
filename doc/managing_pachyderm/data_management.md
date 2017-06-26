@@ -36,12 +36,10 @@ To actually remove the data, you may need to manually invoke garbage collection.
 
 ## Setting a root volume size
 
-When planning and configuring your Pachyderm deploy, you need to make sure that each node's root volume is big enough to store the biggest "datum" you expect to process anywhere on your DAG plus the size of the output files that will be written for that datum.
-
-Let's say you have a repo with 100 folders, and you have a single pipeline with this repo as an input and a glob pattern of `/*`. That means each folder will be processed as a single datum. If the biggest folder is 50GB and your pipeline's output is about 3 times as big, then your root volume size needs to be bigger than:
+When planning and configuring your Pachyderm deploy, you need to make sure that each node's root volume is big enough to accomodate your total processing bandwidth. Specifically, you should calculate the bandwidth for your expected running jobs as follows:
 
 ```
-50 GB (to accommodate the input) + 50 GB x 3 (to accommodate the output) = 200GB
+(storage needed per datum) x (number of datums being processed simultaneously) / (number of nodes)
 ```
 
-In this case we would recommend 250GB to be safe. If your root volume size is less than 50GB (many defaults are 20GB), this pipeline will fail when downloading the input. The pod may get evicted and rescheduled to a different node, where the same thing will happen.
+Here, the storage needed per datum should be the storage needed for the largest "datum" you expect to process anywhere on your DAG plus the size of the output files that will be written for that datum.  If your root volume size is not large enough, pipelines might fail when downloading the input. The pod would get evicted and rescheduled to a different node, where the same thing will happen (assuming that node had a similar volume). This scenario is further discussed [here](general_troubleshooting.html#all-your-pods--jobs-get-evicted).
