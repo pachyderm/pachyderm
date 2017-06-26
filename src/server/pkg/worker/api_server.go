@@ -150,6 +150,7 @@ func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
 			return
 		}
 	}
+	logger.objSize += int64(len(bytes))
 }
 
 func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
