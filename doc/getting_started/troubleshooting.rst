@@ -8,7 +8,7 @@ One of the first things you should do is check the logs:
 .. code-block:: shell
 
  $ pachctl list-job
- $ get-logs <jobID>
+ $ pachctl get-logs --job <jobID>
 
 If the problem is with deployment of Pachyderm, Kubernetes has their own logs too:
 
@@ -35,7 +35,7 @@ If you got the error when running a pipeline, it's likely you're using the wrong
 **Error**: Job status is stuck in "pulling" state
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-**Solution**: This means that Pachyderm can't find the image specified in your pipeline. It's possible you have a typo in your pipeline spec. More likely, the image isn't available on DockerHub, your DOcker registry, or locally to the Pachyderm pods. If you're running Pachyderm in Minikube, you need ot make sure any images you've built locally are accessible to Pachyderm within the VM. 
+**Solution**: This means that Pachyderm can't find the image specified in your pipeline. It's possible you have a typo in your pipeline spec. More likely, the image isn't available on DockerHub, your Docker registry, or locally to the Pachyderm pods. If you're running Pachyderm in Minikube, you need to make sure any images you've built locally are accessible to Pachyderm within the VM. 
 
 
 **Error**: ``pipeline <NAME> already exists``
