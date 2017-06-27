@@ -600,6 +600,9 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 	if pipelineInfo.OutputBranch == "" {
 		return fmt.Errorf("pipeline needs to specify an output branch")
 	}
+	if _, err := resource.ParseQuantity(pipelineInfo.CacheSize); err != nil {
+		return fmt.Errorf("could not parse cacheSize '%s': %v", pipelineInfo.CacheSize, err)
+	}
 	return nil
 }
 
@@ -652,6 +655,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		ResourceSpec:       request.ResourceSpec,
 		Description:        request.Description,
 		Incremental:        request.Incremental,
+		CacheSize:          request.CacheSize,
 	}
 	setPipelineDefaults(pipelineInfo)
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
@@ -810,6 +814,9 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 	if pipelineInfo.OutputBranch == "" {
 		// Output branches default to master
 		pipelineInfo.OutputBranch = "master"
+	}
+	if pipelineInfo.CacheSize == "" {
+		pipelineInfo.CacheSize = "64M"
 	}
 }
 
