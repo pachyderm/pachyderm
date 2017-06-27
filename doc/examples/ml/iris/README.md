@@ -80,7 +80,7 @@ iris.csv            file                4.444 KiB
 
 ## 4. Create the training pipeline
 
-Next, we can create the `model` pipeline stage to process the data in the training repository. To do this, we just need to provide Pachyderm with [a JSON pipeline specification](train.json) that tells Pachyderm how to process the data. This `model` pipeline can be generated to train a model with R, Python, or Julia and with a variety of types of models.  The following Docker images are available for the training:
+Next, we can create the `model` pipeline stage to process the data in the training repository. To do this, we just need to provide Pachyderm with a JSON pipeline specification that tells Pachyderm how to process the data. This `model` pipeline can be generated to train a model with R, Python, or Julia and with a variety of types of models.  The following Docker images are available for the training:
 
 - `pachyderm/iris-train:python-svm` - Python-based SVM implemented in [python/iris-train-python-svm/train.py](python/iris-train-python-svm/train.py)
 - `pachyderm/iris-train:python-lda` - Python-based LDA implemented in [python/iris-train-python-lda/train.py](python/iris-train-python-lda/train.py)
@@ -89,7 +89,7 @@ Next, we can create the `model` pipeline stage to process the data in the traini
 - `pachyderm/iris-train:julia-tree` - Julia-based decision tree implemented in [julia/iris-train-julia-tree/train.jl](julia/iris-train-julia-tree/train.jl)
 - `pachyderm/iris-train:julia-forest` - Julia-based random forest implemented in [julia/iris-train-julia-forest/train.jl](julia/iris-train-julia-forest/train.jl) 
 
-You can utilize any one of these images in your model training by specifying it in [train.json](train.json) here:
+You can utilize any one of these images in your model training by using specification corresponding to the language of interest, `<julia, python, rstats>_train.json`, and making sure that the particular image is specified in the `image` field.  For example, if we wanted to train a random forest model with Julia, we would use [julia_train.json](julia_train.json) and make sure that the `image` field read as follows:
 
 ```
   "transform": {
@@ -101,7 +101,7 @@ Once you have specified your choice of modeling in the pipeline spec (the below 
 
 ```
 $ cd ..
-$ pachctl create-pipeline -f train.json
+$ pachctl create-pipeline -f <julia, python, rstats>_train.json
 ```
 
 Immediately you will notice that Pachyderm has kicked off a job to perform the model training:
@@ -148,28 +148,20 @@ NAME                TYPE                SIZE
 
 ## 6. Create the inference pipeline
 
-We have another JSON blob, [infer.json](infer.json), that will tell Pachyderm how to perform the processing for the inference stage.  This is similar to our last JSON specification except, in this case, we have two input repositories (the `attributes` and the `model`) and we are using a different Docker image.  Similar to the training pipeline stage, this can be created in R, Python, or Julia.  However, you should create it in the language that was used for training (because the model output formats aren't standardized across the languages). The available docker images are as follows:
+We have another JSON blob, `<julia, python, rstats>_infer.json`, that will tell Pachyderm how to perform the processing for the inference stage.  This is similar to our last JSON specification except, in this case, we have two input repositories (the `attributes` and the `model`) and we are using a different Docker image.  Similar to the training pipeline stage, this can be created in R, Python, or Julia.  However, you should create it in the language that was used for training (because the model output formats aren't standardized across the languages). The available docker images are as follows:
 
 - `pachyderm/iris-infer:python` - Python-based inference implemented in [python/iris-infer-python/infer.py](python/iris-infer-python/infer.py)
 - `pachyderm/iris-infer:rstats` - R-based inferenced implemented in [rstats/iris-infer-rstats/infer.R](rstats/iris-infer-rstats/infer.R)
 - `pachyderm/iris-infer:julia` - Julia-based inference implemented in [julia/iris-infer-julia/infer.jl](julia/iris-infer-julia/infer.jl)
 
-Replace the image in [infer.json](infer.json) with the image that you would like to use:
-
-```
-  "transform": {
-    "image": "pachyderm/iris-infer:julia",
-    ...
-```
-
 Then, to create the inference stage, we simply run:
 
 ```
 $ cd ../../
-$ pachctl create-pipeline -f infer.json
+$ pachctl create-pipeline -f <julia, python, rstats>_infer.json
 ```
 
-This will immediately kick off an inference job, because we have committed unprocessed reviews into the `reviews` repo.  The results will then be versioned in a corresponding `inference` data repository:
+where `<julia, python, rstats>` is replaced by the language you are using.  This will immediately kick off an inference job, because we have committed unprocessed reviews into the `reviews` repo.  The results will then be versioned in a corresponding `inference` data repository:
 
 ```
 $ pachctl list-job
@@ -216,7 +208,7 @@ Here we can see that each result file contains a predicted iris flower species c
 
 You may have noticed that our pipeline specs included a `parallelism_spec` field.  This tells Pachyderm how to parallelize a particular pipeline stage.  Let's say that in production we start receiving a huge number of attribute files, and we need to keep up with our inference.  In particular, let's say we want to spin up 10 inference workers to perform inference in parallel.
 
-This actually doesn't require any change to our code.  We can simply change our `parallelism_spec` in `infer.json` to:
+This actually doesn't require any change to our code.  We can simply change our `parallelism_spec` in `<julia, python, rstats>_infer.json` to:
 
 ```
   "parallelism_spec": {
@@ -225,11 +217,11 @@ This actually doesn't require any change to our code.  We can simply change our 
   },
 ```
 
-Pachyderm will then spin up 10 inference workers, each running our same `infer.jl` script, to perform inference in parallel.  This can be confirmed by updating our pipeline and then examining the cluster:
+Pachyderm will then spin up 10 inference workers, each running our same script, to perform inference in parallel.  This can be confirmed by updating our pipeline and then examining the cluster:
 
 ```
 $ vim infer.json 
-$ pachctl update-pipeline -f infer.json 
+$ pachctl update-pipeline -f julia_infer.json 
 $ kubectl get all
 NAME                             READY     STATUS        RESTARTS   AGE
 po/etcd-4197107720-906b7         1/1       Running       0          52m
@@ -303,7 +295,7 @@ rs/pachd-3548222380   1         1         1         53m
 
 ### 9. Update the model training
 
-Let's now imagine that we want to update our model from random forest to decision tree, SVM to LDA, etc. To do this, modify the image tag in `train.json`:
+Let's now imagine that we want to update our model from random forest to decision tree, SVM to LDA, etc. To do this, modify the image tag in `train.json`.  For example, to run a Julia-based decision tree instead of a random forest:
  
 ```
 "image": "pachyderm/iris-train:julia-tree",
@@ -312,10 +304,10 @@ Let's now imagine that we want to update our model from random forest to decisio
 Once you modify the spec, you can update the pipeline by running:
 
 ```
-$ pachctl update-pipeline -f train.json
+$ pachctl update-pipeline -f <julia, python, rstats>_train.json
 ```
 
-Pachyderm will then automatically kick off a new job to retrain our model with the random forest algo:
+Pachyderm will then automatically kick off a new job to retrain our model with the new model:
 
 ```
 $ pachctl list-job
