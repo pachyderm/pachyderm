@@ -4,6 +4,7 @@ package sync
 import (
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"sync"
 	"syscall"
@@ -113,7 +114,8 @@ func (p *Puller) makeFile(path string, f func(io.Writer) error) (retErr error) {
 // fileInfo is the file/dir we are puuling.
 // pipes causes the function to create named pipes in place of files, thus
 // lazily downloading the data as it's needed.
-func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, file string, pipes bool, concurrency int) error {
+func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, file string,
+	pipes bool, concurrency int, tree hashtree.OpenHashTree, treeRoot string) error {
 	limiter := limit.New(concurrency)
 	var eg errgroup.Group
 	if err := client.Walk(repo, commit, file, func(fileInfo *pfs.FileInfo) error {
@@ -123,6 +125,12 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 		basepath, err := filepath.Rel(file, fileInfo.File.Path)
 		if err != nil {
 			return err
+		}
+		if tree != nil {
+			treePath := path.Join(treeRoot, basepath)
+			if err := tree.PutFile(treePath, fileInfo.Objects, int64(fileInfo.SizeBytes)); err != nil {
+				return err
+			}
 		}
 		path := filepath.Join(root, basepath)
 		if pipes {
@@ -148,7 +156,8 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 // rather than a the actual content. If newOnly is true then only new files
 // will be downloaded and they will be downloaded under root. Otherwise new and
 // old files will be downloaded under root/new and root/old respectively.
-func (p *Puller) PullDiff(client *pachclient.APIClient, root string, newRepo, newCommit, newFile, oldRepo, oldCommit, oldFile string, newOnly bool, pipes bool, concurrency int) error {
+func (p *Puller) PullDiff(client *pachclient.APIClient, root string, newRepo, newCommit, newFile, oldRepo, oldCommit, oldFile string,
+	newOnly bool, pipes bool, concurrency int, tree hashtree.OpenHashTree, treeRoot string) error {
 	limiter := limit.New(concurrency)
 	var eg errgroup.Group
 	newFiles, oldFiles, err := client.DiffFile(newRepo, newCommit, newFile, oldRepo, oldCommit, oldFile)
@@ -156,6 +165,15 @@ func (p *Puller) PullDiff(client *pachclient.APIClient, root string, newRepo, ne
 		return err
 	}
 	for _, newFile := range newFiles {
+		if tree != nil {
+			treePath := path.Join(treeRoot, "new", newFile.File.Path)
+			if newOnly {
+				treePath = path.Join(treeRoot, newFile.File.Path)
+			}
+			if err := tree.PutFile(treePath, newFile.Objects, int64(newFile.SizeBytes)); err != nil {
+				return err
+			}
+		}
 		path := filepath.Join(root, "new", newFile.File.Path)
 		if newOnly {
 			path = filepath.Join(root, newFile.File.Path)
@@ -179,6 +197,12 @@ func (p *Puller) PullDiff(client *pachclient.APIClient, root string, newRepo, ne
 	}
 	if !newOnly {
 		for _, oldFile := range oldFiles {
+			if tree != nil {
+				treePath := path.Join(treeRoot, "old", oldFile.File.Path)
+				if err := tree.PutFile(treePath, oldFile.Objects, int64(oldFile.SizeBytes)); err != nil {
+					return err
+				}
+			}
 			path := filepath.Join(root, "old", oldFile.File.Path)
 			if pipes {
 				if err := p.makePipe(path, func(w io.Writer) error {
