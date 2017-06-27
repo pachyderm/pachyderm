@@ -113,7 +113,7 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 	}
 	var resources *api.ResourceList
 	if pipelineInfo.ResourceSpec != nil {
-		resources, err = parseResourceList(pipelineInfo.ResourceSpec)
+		resources, err = parseResourceList(pipelineInfo.ResourceSpec, pipelineInfo.CacheSize)
 		if err != nil {
 			return err
 		}
