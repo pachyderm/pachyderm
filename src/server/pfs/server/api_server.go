@@ -424,7 +424,7 @@ func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, reques
 		return eg.Wait()
 	}
 	// Joining Host and Path to retrieve the full path after "scheme://"
-	return put(request.File.Path, path.Join(url.Host, url.Path))
+	return put(ctx, request.File.Path, path.Join(url.Host, url.Path))
 }
 
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) (retErr error) {
