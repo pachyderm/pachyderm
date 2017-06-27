@@ -35,6 +35,8 @@ $ MACHINE_TYPE=[machine for the k8s nodes. We recommend "n1-standard-4" or large
 # By default this spins up a 3-node cluster. You can change the default with `--num-nodes VAL`
 $ gcloud container clusters create ${CLUSTER_NAME} --scopes storage-rw --machine-type ${MACHINE_TYPE}
 ```
+Note that you must create the Kubernetes cluster via the gcloud command-line tool rather than the Google Cloud Console, as it's currently only possible to grant the `storage-rw` scope via the command-line tool.
+
 This may take a few minutes to start up. You can check the status on the [GCP Console](https://console.cloud.google.com/compute/instances).  Then, after the cluster is up, you can point `kubectl` to this cluster via:
 
 ```sh
@@ -122,7 +124,7 @@ please make sure pachd is up (`kubectl get all`) and portforwarding is enabled
 Now we're ready to deploy Pachyderm itself.  This can be done in one command:
 
 ```sh
-pachctl deploy google ${BUCKET_NAME} ${STORAGE_SIZE} --static-etcd-volume=${STORAGE_NAME}
+pachctl deploy google ${BUCKET_NAME} ${STORAGE_SIZE} --static-etcd-volume=${STORAGE_NAME} --dashboard
 ```
 
 It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub. You can see the cluster status by using:
