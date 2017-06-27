@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -86,11 +87,13 @@ func main() {
 }
 
 // initTracer initializes a tracer and sets it as the global tracer.
-func initTracer(appEnv *appEnv) error {
+// It returns a closer that should be close before the program exits to
+// ensure that all traces have been sent.
+func initTracer(appEnv *appEnv) (io.Closer, error) {
 	// Create our HTTP collector.
 	collector, err := zipkin.NewHTTPCollector(fmt.Sprintf("http://%s:%d", appEnv.ZipkinAddress, appEnv.ZipkinPort))
 	if err != nil {
-		return fmt.Errorf("unable to create Zipkin HTTP collector: %v", err)
+		return nil, fmt.Errorf("unable to create Zipkin HTTP collector: %v", err)
 	}
 
 	// Create our recorder.
@@ -101,7 +104,7 @@ func initTracer(appEnv *appEnv) error {
 	case "sidecar":
 		serviceName = "sidecar"
 	default:
-		return fmt.Errorf("unrecognized mode: %s\n", mode)
+		return nil, fmt.Errorf("unrecognized mode: %s\n", mode)
 	}
 
 	recorder := zipkin.NewRecorder(collector, false, fmt.Sprintf("%s:%d", appEnv.IP, appEnv.Port), serviceName)
@@ -109,12 +112,12 @@ func initTracer(appEnv *appEnv) error {
 	// Create our tracer.
 	tracer, err := zipkin.NewTracer(recorder)
 	if err != nil {
-		return fmt.Errorf("unable to create Zipkin tracer: %v", err)
+		return nil, fmt.Errorf("unable to create Zipkin tracer: %v", err)
 	}
 
 	// Explicitly set our tracer to be the default tracer.
 	opentracing.SetGlobalTracer(tracer)
-	return nil
+	return collector, nil
 }
 
 func doSidecarMode(appEnvObj interface{}) error {
@@ -134,9 +137,11 @@ func doSidecarMode(appEnvObj interface{}) error {
 		lion.SetLevel(lion.LevelInfo)
 	}
 
-	if err := initTracer(appEnv); err != nil {
+	traceCloser, err := initTracer(appEnv)
+	if err != nil {
 		protolion.Errorf("unable to initialize tracer; tracing will be disabled: %v", err)
 	}
+	defer traceCloser.Close()
 
 	etcdAddress := fmt.Sprintf("http://%s:2379", appEnv.EtcdAddress)
 	etcdClient := getEtcdClient(etcdAddress)
@@ -230,9 +235,11 @@ func doFullMode(appEnvObj interface{}) error {
 		lion.SetLevel(lion.LevelInfo)
 	}
 
-	if err := initTracer(appEnv); err != nil {
+	traceCloser, err := initTracer(appEnv)
+	if err != nil {
 		protolion.Errorf("unable to initialize tracer; tracing will be disabled: %v", err)
 	}
+	defer traceCloser.Close()
 
 	etcdAddress := fmt.Sprintf("http://%s:2379", appEnv.EtcdAddress)
 	etcdClient := getEtcdClient(etcdAddress)

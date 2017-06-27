@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
@@ -256,7 +257,9 @@ func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream 
 }
 
 func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
-	ctx := putFileServer.Context()
+	span := opentracing.StartSpan("PutFile")
+	ctx := opentracing.ContextWithSpan(putFileServer.Context(), span)
+	defer span.Finish()
 	defer drainFileServer(putFileServer)
 	defer func() {
 		if err := putFileServer.SendAndClose(&types.Empty{}); err != nil && retErr == nil {
