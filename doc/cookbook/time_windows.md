@@ -121,7 +121,7 @@ Your second pipeline can then process these bins in parallel, via a glob pattern
 
 **Note** - When looking at the above directory structure, it may seem like there is an uneccessary duplication of the data.  However, under the hood Pachyderm deduplicates all of these files and maintains a space efficient representation of your data.  The binning of the data is merely a structural re-arrangement to allow you to process these types of rolling time windows.  
 
-**Note** - It might also seem as if there is unecessary data transfers over the network to perform the above binning.  However, the Pachyderm team is currently working on enhancements to ensure that performing these types of "shuffles" doesn't actually require transferring data over the network. This work is being tracked [here](https://github.com/pachyderm/pachyderm/issues/1558).
+**Note** - It might also seem as if there is unecessary data transfers over the network to perform the above binning.  Pachyderm can ensure that performing these types of "shuffles" doesn't actually require transferring data over the network. Read more about that [here](../managing_pachyderm/data_management.html#shuffling-files). 
 
 ### Maintaining a single time-windowed data set
 
