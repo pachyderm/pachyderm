@@ -818,6 +818,11 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 	if pipelineInfo.CacheSize == "" {
 		pipelineInfo.CacheSize = "64M"
 	}
+	if pipelineInfo.ResourceSpec == nil && pipelineInfo.CacheSize != "" {
+		pipelineInfo.ResourceSpec = &pps.ResourceSpec{
+			Memory: pipelineInfo.CacheSize,
+		}
+	}
 }
 
 func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPipelineRequest) (response *pps.PipelineInfo, retErr error) {
