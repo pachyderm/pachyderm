@@ -220,19 +220,20 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	return server, nil
 }
 
-func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag) error {
+func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag, statsTree hashtree.OpenHashTree, statsPath string) error {
 	for _, input := range inputs {
 		file := input.FileInfo.File
 		root := filepath.Join(client.PPSInputPrefix, input.Name, file.Path)
+		treeRoot := path.Join(statsPath, input.Name, file.Path)
 		if a.pipelineInfo.Incremental && input.ParentCommit != nil {
 			if err := puller.PullDiff(a.pachClient, root,
 				file.Commit.Repo.Name, file.Commit.ID, file.Path,
 				input.ParentCommit.Repo.Name, input.ParentCommit.ID, file.Path,
-				true, input.Lazy, concurrency); err != nil {
+				true, input.Lazy, concurrency, statsTree, treeRoot); err != nil {
 				return err
 			}
 		} else {
-			if err := puller.Pull(a.pachClient, root, file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, concurrency); err != nil {
+			if err := puller.Pull(a.pachClient, root, file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, concurrency, statsTree, treeRoot); err != nil {
 				return err
 			}
 		}
@@ -588,7 +589,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	for _, d := range req.Data {
 		santizedPaths = append(santizedPaths, strings.Replace(strings.TrimPrefix(d.FileInfo.File.Path, "/"), "/", "_", -1))
 	}
-	statPath := path.Join("/", req.JobID, strings.Join(santizedPaths, "+"))
+	statsPath := path.Join("/", req.JobID, strings.Join(santizedPaths, "+"))
 	logger, err := a.getTaggedLogger(ctx, req)
 	if err != nil {
 		return nil, err
@@ -599,7 +600,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 			retErr = err
 			return
 		}
-		if err := statsTree.PutFile(path.Join(statPath, "logs"), []*pfs.Object{object}, size); err != nil && retErr == nil {
+		if err := statsTree.PutFile(path.Join(statsPath, "logs"), []*pfs.Object{object}, size); err != nil && retErr == nil {
 			retErr = err
 			return
 		}
@@ -620,7 +621,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	// Download input data
 	logger.Logf("input has not been processed, downloading data")
 	puller := filesync.NewPuller()
-	err = a.downloadData(logger, req.Data, puller, req.ParentOutput)
+	err = a.downloadData(logger, req.Data, puller, req.ParentOutput, statsTree, path.Join(statsPath, "pfs"))
 	// We run these cleanup functions no matter what, so that if
 	// downloadData partially succeeded, we still clean up the resources.
 	defer func() {
