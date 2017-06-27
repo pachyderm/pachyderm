@@ -61,7 +61,8 @@ type appEnv struct {
 	PFSEtcdPrefix         string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
 	KubeAddress           string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
 	EtcdAddress           string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
-	ZipkinAddress         string `env:"ZIPKIN_PORT_9411_TCP_ADDR,required"`
+	ZipkinAddress         string `env:"ZIPKIN_SERVICE_HOST,default="`
+	ZipkinPort            uint16 `env:"ZIPKIN_SERVICE_PORT,default="`
 	Namespace             string `env:"NAMESPACE,default=default"`
 	Metrics               bool   `env:"METRICS,default=true"`
 	Init                  bool   `env:"INIT,default=false"`
@@ -87,7 +88,7 @@ func main() {
 // initTracer initializes a tracer and sets it as the global tracer.
 func initTracer(appEnv *appEnv) error {
 	// Create our HTTP collector.
-	collector, err := zipkin.NewHTTPCollector(fmt.Sprintf("http://%s:9411", appEnv.ZipkinAddress))
+	collector, err := zipkin.NewHTTPCollector(fmt.Sprintf("http://%s:%d", appEnv.ZipkinAddress, appEnv.ZipkinPort))
 	if err != nil {
 		return fmt.Errorf("unable to create Zipkin HTTP collector: %v", err)
 	}

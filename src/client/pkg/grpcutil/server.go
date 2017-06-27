@@ -9,6 +9,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 
+	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
+	opentracing "github.com/opentracing/opentracing-go"
 	"google.golang.org/grpc"
 )
 
@@ -44,6 +46,7 @@ func Serve(
 	grpcServer := grpc.NewServer(
 		grpc.MaxConcurrentStreams(math.MaxUint32),
 		grpc.MaxMsgSize(options.MaxMsgSize),
+		grpc.UnaryInterceptor(otgrpc.OpenTracingServerInterceptor(opentracing.GlobalTracer())),
 	)
 	registerFunc(grpcServer)
 	if options.Version != nil {
