@@ -288,7 +288,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 
 }
 
-func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *taggedLogger, inputs []*Input) error {
+func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *taggedLogger, inputs []*Input, statsTree hashtree.OpenHashTree, statsRoot string) error {
 	// hashtree is not thread-safe--guard with 'lock'
 	var lock sync.Mutex
 	tree := hashtree.NewHashTree()
@@ -296,15 +296,15 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 	// Upload all files in output directory
 	var g errgroup.Group
 	limiter := limit.New(concurrency)
-	if err := filepath.Walk(client.PPSOutputPath, func(path string, info os.FileInfo, err error) error {
+	if err := filepath.Walk(client.PPSOutputPath, func(filePath string, info os.FileInfo, err error) error {
 		g.Go(func() (retErr error) {
 			limiter.Acquire()
 			defer limiter.Release()
-			if path == client.PPSOutputPath {
+			if filePath == client.PPSOutputPath {
 				return nil
 			}
 
-			relPath, err := filepath.Rel(client.PPSOutputPath, path)
+			relPath, err := filepath.Rel(client.PPSOutputPath, filePath)
 			if err != nil {
 				return err
 			}
@@ -332,7 +332,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 			// If the output file is a symlink to an input file, we can skip
 			// the uploading.
 			if (info.Mode() & os.ModeSymlink) > 0 {
-				realPath, err := os.Readlink(path)
+				realPath, err := os.Readlink(filePath)
 				if err != nil {
 					return err
 				}
@@ -352,14 +352,14 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 						}
 					}
 					if input != nil {
-						return filepath.Walk(realPath, func(path string, info os.FileInfo, err error) error {
-							rel, err := filepath.Rel(realPath, path)
+						return filepath.Walk(realPath, func(filePath string, info os.FileInfo, err error) error {
+							rel, err := filepath.Rel(realPath, filePath)
 							if err != nil {
 								return err
 							}
 							subRelPath := filepath.Join(relPath, rel)
 							// The path of the input file
-							pfsPath, err := filepath.Rel(filepath.Join(client.PPSInputPrefix, input.Name), path)
+							pfsPath, err := filepath.Rel(filepath.Join(client.PPSInputPrefix, input.Name), filePath)
 							if err != nil {
 								return err
 							}
@@ -383,13 +383,16 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 
 							lock.Lock()
 							defer lock.Unlock()
+							if err := statsTree.PutFile(path.Join(statsRoot, subRelPath), fileInfo.Objects, int64(fileInfo.SizeBytes)); err != nil {
+								return err
+							}
 							return tree.PutFile(subRelPath, fileInfo.Objects, int64(fileInfo.SizeBytes))
 						})
 					}
 				}
 			}
 
-			f, err := os.Open(path)
+			f, err := os.Open(filePath)
 			if err != nil {
 				return err
 			}
@@ -418,6 +421,9 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 
 			lock.Lock()
 			defer lock.Unlock()
+			if err := statsTree.PutFile(path.Join(statsRoot, relPath), []*pfs.Object{object}, int64(size)); err != nil {
+				return err
+			}
 			return tree.PutFile(relPath, []*pfs.Object{object}, int64(size))
 		})
 		return nil
@@ -667,7 +673,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		logger.Logf("puller encountered an error while cleaning up: %+v", err)
 		return nil, err
 	}
-	if err := a.uploadOutput(ctx, tag, logger, req.Data); err != nil {
+	if err := a.uploadOutput(ctx, tag, logger, req.Data, statsTree, path.Join(statsPath, "pfs", "out")); err != nil {
 		// If uploading failed because the user program outputed a special
 		// file, then there's no point in retrying.  Thus we signal that
 		// there's some problem with the user code so the job doesn't
