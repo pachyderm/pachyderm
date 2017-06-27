@@ -42,7 +42,8 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
     "URL": "s3://bucket/dir"
   },
   "scaleDownThreshold": string,
-  "incremental": bool
+  "incremental": bool,
+  "cacheSize": string
 }
 
 ------------------------------------
@@ -356,6 +357,12 @@ old total without having to reconsider the numbers which went into that old
 total. Incremental is design to work nicely with the `--split` flag to
 `put-file` because it will cause only the new chunks of the file to be
 displayed to each step of the pipeline.
+
+## Cache Size (optional)
+
+`cacheSize` controls how much cache a pipeline worker uses.  In general,
+your pipeline's performance will increase with the cache size, but only
+up to a certain point depending on your workload.
 
 ## The Input Glob Pattern
 
