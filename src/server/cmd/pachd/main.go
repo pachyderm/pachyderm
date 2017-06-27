@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 
-	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client"
 	healthclient "github.com/pachyderm/pachyderm/src/client/health"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
@@ -28,6 +27,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 
+	units "github.com/docker/go-units"
+	opentracing "github.com/opentracing/opentracing-go"
+	zipkin "github.com/openzipkin/zipkin-go-opentracing"
 	flag "github.com/spf13/pflag"
 	"go.pedge.io/lion"
 	"go.pedge.io/lion/proto"
@@ -50,6 +52,7 @@ func init() {
 
 type appEnv struct {
 	Port                  uint16 `env:"PORT,default=650"`
+	IP                    string `env:"POD_IP,default="`
 	NumShards             uint64 `env:"NUM_SHARDS,default=32"`
 	StorageRoot           string `env:"PACH_ROOT,default=/pach"`
 	StorageBackend        string `env:"STORAGE_BACKEND,default="`
@@ -58,6 +61,7 @@ type appEnv struct {
 	PFSEtcdPrefix         string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
 	KubeAddress           string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
 	EtcdAddress           string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
+	ZipkinAddress         string `env:"ZIPKIN_PORT_9411_TCP_ADDR,required"`
 	Namespace             string `env:"NAMESPACE,default=default"`
 	Metrics               bool   `env:"METRICS,default=true"`
 	Init                  bool   `env:"INIT,default=false"`
@@ -80,6 +84,38 @@ func main() {
 	}
 }
 
+// initTracer initializes a tracer and sets it as the global tracer.
+func initTracer(appEnv *appEnv) error {
+	// Create our HTTP collector.
+	collector, err := zipkin.NewHTTPCollector(fmt.Sprintf("http://%s:9411", appEnv.ZipkinAddress))
+	if err != nil {
+		return fmt.Errorf("unable to create Zipkin HTTP collector: %v", err)
+	}
+
+	// Create our recorder.
+	var serviceName string
+	switch mode {
+	case "full":
+		serviceName = "pachd"
+	case "sidecar":
+		serviceName = "sidecar"
+	default:
+		return fmt.Errorf("unrecognized mode: %s\n", mode)
+	}
+
+	recorder := zipkin.NewRecorder(collector, false, fmt.Sprintf("%s:%d", appEnv.IP, appEnv.Port), serviceName)
+
+	// Create our tracer.
+	tracer, err := zipkin.NewTracer(recorder)
+	if err != nil {
+		return fmt.Errorf("unable to create Zipkin tracer: %v", err)
+	}
+
+	// Explicitly set our tracer to be the default tracer.
+	opentracing.SetGlobalTracer(tracer)
+	return nil
+}
+
 func doSidecarMode(appEnvObj interface{}) error {
 	go func() {
 		lion.Println(http.ListenAndServe(":651", nil))
@@ -95,6 +131,10 @@ func doSidecarMode(appEnvObj interface{}) error {
 	default:
 		lion.Errorf("Unrecognized log level %s, falling back to default of \"info\"", appEnv.LogLevel)
 		lion.SetLevel(lion.LevelInfo)
+	}
+
+	if err := initTracer(appEnv); err != nil {
+		protolion.Errorf("unable to initialize tracer; tracing will be disabled: %v", err)
 	}
 
 	etcdAddress := fmt.Sprintf("http://%s:2379", appEnv.EtcdAddress)
@@ -188,6 +228,11 @@ func doFullMode(appEnvObj interface{}) error {
 		lion.Errorf("Unrecognized log level %s, falling back to default of \"info\"", appEnv.LogLevel)
 		lion.SetLevel(lion.LevelInfo)
 	}
+
+	if err := initTracer(appEnv); err != nil {
+		protolion.Errorf("unable to initialize tracer; tracing will be disabled: %v", err)
+	}
+
 	etcdAddress := fmt.Sprintf("http://%s:2379", appEnv.EtcdAddress)
 	etcdClient := getEtcdClient(etcdAddress)
 	if readinessCheck {

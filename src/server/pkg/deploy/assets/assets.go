@@ -342,6 +342,15 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 									Name:  "BLOCK_CACHE_BYTES",
 									Value: opts.BlockCacheSize,
 								},
+								{
+									Name: "POD_IP",
+									ValueFrom: &api.EnvVarSource{
+										FieldRef: &api.ObjectFieldSelector{
+											APIVersion: "v1",
+											FieldPath:  "status.podIP",
+										},
+									},
+								},
 							},
 							Ports: []api.ContainerPort{
 								{

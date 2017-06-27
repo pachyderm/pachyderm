@@ -13,6 +13,8 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	types "github.com/gogo/protobuf/types"
+	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
+	opentracing "github.com/opentracing/opentracing-go"
 
 	"github.com/pachyderm/pachyderm/src/client/health"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -163,6 +165,9 @@ func EtcdDialOptions() []grpc.DialOption {
 
 		// If no connection is established in 10s, fail the call
 		grpc.WithTimeout(10 * time.Second),
+
+		// Enable tracing
+		grpc.WithUnaryInterceptor(otgrpc.OpenTracingClientInterceptor(opentracing.GlobalTracer())),
 	}
 }
 
