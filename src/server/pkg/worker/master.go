@@ -24,8 +24,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/pool"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
+	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 )
 
 const (
@@ -73,11 +75,11 @@ func (a *APIServer) master() {
 // jobSpawner spawns jobs
 func (a *APIServer) jobSpawner(ctx context.Context) error {
 	// Establish connection pool
-	numWorkers, err := pps.GetExpectedNumWorkers(a.kubeClient, a.pipelineInfo.ParallelismSpec)
+	numWorkers, err := ppsserver.GetExpectedNumWorkers(a.kubeClient, a.pipelineInfo.ParallelismSpec)
 	if err != nil {
 		return err
 	}
-	pool, err := grpcutil.NewPool(a.kubeClient, a.namespace, pps.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version), numWorkers, client.PachDialOptions()...)
+	pool, err := pool.NewPool(a.kubeClient, a.namespace, ppsserver.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version), numWorkers, client.PachDialOptions()...)
 	if err != nil {
 		return fmt.Errorf("master: error constructing worker pool: %v; retrying in %v", err)
 	}
@@ -260,7 +262,7 @@ nextInput:
 }
 
 // jobManager feeds datums to jobs
-func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *grpcutil.Pool) error {
+func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool.Pool) error {
 	pfsClient := a.pachClient.PfsAPIClient
 	objectClient := a.pachClient.ObjectAPIClient
 	ppsClient := a.pachClient.PpsAPIClient
@@ -299,7 +301,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *grpc
 				return
 			}
 			switch currentJobInfo.State {
-			case pps.JobState_JOB_STOPPED, pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE:
+			case pps.JobState_JOB_KILLED, pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE:
 				jobStoppedMutex.Lock()
 				defer jobStoppedMutex.Unlock()
 				jobStopped = true
@@ -545,6 +547,8 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *grpc
 		}
 
 		if jobInfo.Egress != nil {
+			protolion.Infof("Starting egress upload for job (%v)\n", jobInfo)
+			start := time.Now()
 			objClient, err := obj.NewClientFromURLAndSecret(ctx, jobInfo.Egress.URL)
 			if err != nil {
 				return err
@@ -560,6 +564,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *grpc
 			if err := pfs_sync.PushObj(client, outputCommit, objClient, strings.TrimPrefix(url.Path, "/")); err != nil {
 				return err
 			}
+			protolion.Infof("Completed egress upload for job (%v), duration (%v)\n", jobInfo, time.Since(start))
 		}
 
 		// Record the job's output commit and 'Finished' timestamp, and mark the job
@@ -618,7 +623,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *grpc
 
 func (a *APIServer) scaleDownWorkers() error {
 	rc := a.kubeClient.ReplicationControllers(a.namespace)
-	workerRc, err := rc.Get(pps.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version))
+	workerRc, err := rc.Get(ppsserver.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version))
 	if err != nil {
 		return err
 	}
@@ -632,11 +637,11 @@ func (a *APIServer) scaleDownWorkers() error {
 
 func (a *APIServer) scaleUpWorkers() error {
 	rc := a.kubeClient.ReplicationControllers(a.namespace)
-	workerRc, err := rc.Get(pps.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version))
+	workerRc, err := rc.Get(ppsserver.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version))
 	if err != nil {
 		return err
 	}
-	parallelism, err := pps.GetExpectedNumWorkers(a.kubeClient, a.pipelineInfo.ParallelismSpec)
+	parallelism, err := ppsserver.GetExpectedNumWorkers(a.kubeClient, a.pipelineInfo.ParallelismSpec)
 	if err != nil {
 		return err
 	}

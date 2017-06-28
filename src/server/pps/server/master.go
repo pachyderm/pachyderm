@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 )
 
 const (
@@ -106,7 +107,7 @@ func (a *apiServer) master() {
 }
 
 func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
-	parallelism, err := pps.GetExpectedNumWorkers(a.kubeClient, pipelineInfo.ParallelismSpec)
+	parallelism, err := ppsserver.GetExpectedNumWorkers(a.kubeClient, pipelineInfo.ParallelismSpec)
 	if err != nil {
 		return err
 	}
@@ -118,7 +119,7 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		}
 	}
 	options := a.getWorkerOptions(
-		pps.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
+		ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 		int32(parallelism),
 		resources,
 		pipelineInfo.Transform)
@@ -131,7 +132,7 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 }
 
 func (a *apiServer) deleteWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
-	rcName := pps.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	rcName := ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	if err := a.kubeClient.Services(a.namespace).Delete(rcName); err != nil {
 		if !isNotFoundErr(err) {
 			return err

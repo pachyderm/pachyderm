@@ -20,10 +20,10 @@ Note: Any time you want to stop and restart Pachyderm, you should start fresh wi
 
 ```shell
 # For OSX:
-$ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.4
+$ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.5
 
 # For Linux (64 bit):
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.4.8/pachctl_1.4.8_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.5.0-RC1/pachctl_1.5.0-RC1_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 

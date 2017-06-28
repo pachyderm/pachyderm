@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/worker"
+	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"google.golang.org/grpc"
 )
 
@@ -101,7 +102,7 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return fmt.Errorf("error getting pipelineInfo: %v", err)
 	}
-	workerRcName := pps.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	workerRcName := ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	apiServer, err := worker.NewAPIServer(pachClient, etcdClient, appEnv.PPSPrefix, pipelineInfo, appEnv.PodName, appEnv.Namespace)
 	if err != nil {
 		return err

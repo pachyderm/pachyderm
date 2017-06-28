@@ -11,6 +11,7 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   "pipeline": {
     "name": string
   },
+  "description": string,
   "transform": {
     "image": string,
     "cmd": [ string ],
@@ -114,6 +115,10 @@ Following is a walk-through of all the fields.
 
 `pipeline.name` is the name of the pipeline that you are creating.  Each
 pipeline needs to have a unique name.
+
+### Description (optional)
+
+`description` is an optional text field where you can put documentation about the pipeline.
 
 ### Transform (required)
 
