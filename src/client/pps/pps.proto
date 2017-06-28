@@ -110,12 +110,29 @@ message Datum {
   bytes hash = 5;
 }
 
+message Aggregation {
+  int64 count = 1;
+  float mean = 2;
+  float stddev = 3;
+  float fifth_percentile = 4;
+  float ninety_fifth_percentile = 5;
+}
+
+message ProcessStats {
+  google.protobuf.Duration download_time = 1;
+  google.protobuf.Duration process_time = 2;
+  google.protobuf.Duration upload_time = 3;
+  int64 download_bytes = 4;
+  int64 upload_bytes = 5;
+}
+
 message WorkerStatus {
   string worker_id = 1 [(gogoproto.customname) = "WorkerID"];
   string job_id = 2 [(gogoproto.customname) = "JobID"];
   repeated pps.Datum data = 3;
   // Started is the time processing on the current datum began.
   google.protobuf.Timestamp started = 4;
+  ProcessStats stats = 5;
 }
 
 // ResourceSpec describes the amount of resources that pipeline pods should
