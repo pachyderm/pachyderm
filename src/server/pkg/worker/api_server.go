@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -79,6 +80,8 @@ type APIServer struct {
 	jobs col.Collection
 	// The pipelines collection
 	pipelines col.Collection
+	// Stats about the execution of the job
+	stats *pps.ProcessStats
 }
 
 type putObjectResponse struct {
@@ -224,6 +227,11 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 }
 
 func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag, statsTree hashtree.OpenHashTree, statsPath string) error {
+	defer func(start time.Time) {
+		a.statusMu.Lock()
+		defer a.statusMu.Unlock()
+		a.stats.DownloadTime = types.DurationProto(time.Since(start))
+	}(time.Now())
 	for _, input := range inputs {
 		file := input.FileInfo.File
 		root := filepath.Join(client.PPSInputPrefix, input.Name, file.Path)
@@ -259,6 +267,11 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 
 // Run user code and return the combined output of stdout and stderr.
 func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string) error {
+	defer func(start time.Time) {
+		a.statusMu.Lock()
+		defer a.statusMu.Unlock()
+		a.stats.ProcessTime = types.DurationProto(time.Since(start))
+	}(time.Now())
 	// Run user code
 	cmd := exec.CommandContext(ctx, a.pipelineInfo.Transform.Cmd[0], a.pipelineInfo.Transform.Cmd[1:]...)
 	cmd.Stdin = strings.NewReader(strings.Join(a.pipelineInfo.Transform.Stdin, "\n") + "\n")
@@ -292,6 +305,11 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 }
 
 func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *taggedLogger, inputs []*Input, statsTree hashtree.OpenHashTree, statsRoot string) error {
+	defer func(start time.Time) {
+		a.statusMu.Lock()
+		defer a.statusMu.Unlock()
+		a.stats.UploadTime = types.DurationProto(time.Since(start))
+	}(time.Now())
 	// hashtree is not thread-safe--guard with 'lock'
 	var lock sync.Mutex
 	tree := hashtree.NewHashTree()
@@ -386,6 +404,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 
 							lock.Lock()
 							defer lock.Unlock()
+							atomic.AddInt64(&a.stats.UploadBytes, int64(fileInfo.SizeBytes))
 							if err := statsTree.PutFile(path.Join(statsRoot, subRelPath), fileInfo.Objects, int64(fileInfo.SizeBytes)); err != nil {
 								return err
 							}
@@ -424,6 +443,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 
 			lock.Lock()
 			defer lock.Unlock()
+			atomic.AddInt64(&a.stats.UploadBytes, int64(size))
 			if err := statsTree.PutFile(path.Join(statsRoot, relPath), []*pfs.Object{object}, int64(size)); err != nil {
 				return err
 			}
@@ -555,6 +575,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		a.data = req.Data
 		a.started = time.Now()
 		a.cancel = cancel
+		a.stats = &pps.ProcessStats{}
 		return nil
 	}(); err != nil {
 		return nil, err
@@ -567,6 +588,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		a.data = nil
 		a.started = time.Time{}
 		a.cancel = nil
+		a.stats = nil
 	}()
 	// Hash inputs
 	tag, err := HashDatum(a.pipelineInfo, req.Data)
@@ -610,6 +632,25 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 			return
 		}
 	}()
+	defer func() {
+		a.statusMu.Lock()
+		defer a.statusMu.Unlock()
+		marshaler := &jsonpb.Marshaler{}
+		statsString, err := marshaler.MarshalToString(a.stats)
+		if err != nil {
+			logger.stderrLog.Printf("could not serialize stats: %s\n", err)
+			return
+		}
+		object, size, err := a.pachClient.PutObject(strings.NewReader(statsString))
+		if err != nil {
+			logger.stderrLog.Printf("could not put stats object: %s\n", err)
+			return
+		}
+		if err := statsTree.PutFile(path.Join(statsPath, "stats"), []*pfs.Object{object}, size); err != nil {
+			logger.stderrLog.Printf("could not put-file stats object: %s\n", err)
+			return
+		}
+	}()
 	logger.Logf("Received request")
 	// Check if output is in s3 already. Note: ppsserver sorts
 	// inputs by input name for both jobs and pipelines, so this hash is stable
@@ -620,6 +661,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		return &ProcessResponse{
 			Tag:      &pfs.Tag{tag},
 			StatsTag: &pfs.Tag{statsTag},
+			Skipped:  true,
 		}, nil
 	}
 
@@ -638,7 +680,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	// because otherwise puller.Cleanup might try tp open pipes that have
 	// been deleted.
 	defer func() {
-		if err := puller.CleanUp(); err != nil && retErr == nil {
+		if _, err := puller.CleanUp(); err != nil && retErr == nil {
 			retErr = err
 		}
 	}()
@@ -660,6 +702,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		return &ProcessResponse{
 			Failed:   true,
 			StatsTag: &pfs.Tag{statsTag},
+			Stats:    a.stats,
 		}, nil
 	}
 	// CleanUp is idempotent so we can call it however many times we want.
@@ -668,10 +711,12 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	// the output might be invalid since as far as the user's code is
 	// concerned, they might've just seen an empty or partially completed
 	// file.
-	if err := puller.CleanUp(); err != nil {
+	downSize, err := puller.CleanUp()
+	if err != nil {
 		logger.Logf("puller encountered an error while cleaning up: %+v", err)
 		return nil, err
 	}
+	atomic.AddInt64(&a.stats.DownloadBytes, downSize)
 	if err := a.uploadOutput(ctx, tag, logger, req.Data, statsTree, path.Join(statsPath, "pfs", "out")); err != nil {
 		// If uploading failed because the user program outputed a special
 		// file, then there's no point in retrying.  Thus we signal that
@@ -681,6 +726,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 			return &ProcessResponse{
 				Failed:   true,
 				StatsTag: &pfs.Tag{statsTag},
+				Stats:    a.stats,
 			}, nil
 		}
 		return nil, err
@@ -688,6 +734,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	return &ProcessResponse{
 		Tag:      &pfs.Tag{tag},
 		StatsTag: &pfs.Tag{statsTag},
+		Stats:    a.stats,
 	}, nil
 }
 

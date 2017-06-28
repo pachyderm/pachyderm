@@ -7,6 +7,7 @@ import (
 	"path"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"syscall"
 
 	pachclient "github.com/pachyderm/pachyderm/src/client"
@@ -30,6 +31,8 @@ type Puller struct {
 	// wg is used to wait for all goroutines associated with this Puller
 	// to complete.
 	wg sync.WaitGroup
+	// size is the total amount this puller has pulled
+	size int64
 }
 
 // NewPuller creates a new Puller struct.
@@ -38,6 +41,17 @@ func NewPuller() *Puller {
 		errCh: make(chan error, 1),
 		pipes: make(map[string]bool),
 	}
+}
+
+type sizeWriter struct {
+	w    io.Writer
+	size int64
+}
+
+func (s *sizeWriter) Write(p []byte) (int, error) {
+	n, err := s.w.Write(p)
+	s.size += int64(n)
+	return n, err
 }
 
 func (p *Puller) makePipe(path string, f func(io.Writer) error) error {
@@ -82,7 +96,12 @@ func (p *Puller) makePipe(path string, f func(io.Writer) error) error {
 			}() {
 				return nil
 			}
-			return f(file)
+			w := &sizeWriter{w: file}
+			if err := f(w); err != nil {
+				return err
+			}
+			atomic.AddInt64(&p.size, w.size)
+			return nil
 		}(); err != nil {
 			select {
 			case p.errCh <- err:
@@ -106,7 +125,12 @@ func (p *Puller) makeFile(path string, f func(io.Writer) error) (retErr error) {
 			retErr = err
 		}
 	}()
-	return f(file)
+	w := &sizeWriter{w: file}
+	if err := f(w); err != nil {
+		return err
+	}
+	atomic.AddInt64(&p.size, w.size)
+	return nil
 }
 
 // Pull clones an entire repo at a certain commit.
@@ -256,11 +280,12 @@ func (p *Puller) PullTree(client *pachclient.APIClient, root string, tree hashtr
 	return eg.Wait()
 }
 
-// CleanUp cleans up blocked syscalls for pipes that were never opened. It also
+// CleanUp cleans up blocked syscalls for pipes that were never opened. And
+// returns the total number of bytes that have been pulled/pushed. It also
 // returns any errors that might have been encountered while trying to read
 // data for the pipes. CleanUp should be called after all code that might
 // access pipes has completed running, it should not be called concurrently.
-func (p *Puller) CleanUp() error {
+func (p *Puller) CleanUp() (int64, error) {
 	var result error
 	select {
 	case result = <-p.errCh:
@@ -292,7 +317,9 @@ func (p *Puller) CleanUp() error {
 			result = err
 		}
 	}
-	return result
+	size := p.size
+	p.size = 0
+	return size, result
 }
 
 // Push puts files under root into an open commit.
