@@ -109,12 +109,15 @@ func (a *APIServer) getTaggedLogger(ctx context.Context, req *ProcessRequest) (*
 	result.template.JobID = req.JobID
 
 	// Add inputs' details to log metadata, so we can find these logs later
+	hash := sha256.New()
 	for _, d := range req.Data {
 		result.template.Data = append(result.template.Data, &pps.Datum{
 			Path: d.FileInfo.File.Path,
 			Hash: d.FileInfo.Hash,
 		})
+		hash.Write(d.FileInfo.Hash)
 	}
+	result.template.DatumID = hex.EncodeToString(hash.Sum(nil))
 	putObjClient, err := a.pachClient.ObjectAPIClient.PutObject(ctx)
 	if err != nil {
 		return nil, err
@@ -591,15 +594,11 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 			return
 		}
 	}()
-	var santizedPaths []string
-	for _, d := range req.Data {
-		santizedPaths = append(santizedPaths, strings.Replace(strings.TrimPrefix(d.FileInfo.File.Path, "/"), "/", "_", -1))
-	}
-	statsPath := path.Join("/", req.JobID, strings.Join(santizedPaths, "+"))
 	logger, err := a.getTaggedLogger(ctx, req)
 	if err != nil {
 		return nil, err
 	}
+	statsPath := path.Join("/", req.JobID, logger.template.DatumID)
 	defer func() {
 		object, size, err := logger.Close()
 		if err != nil && retErr == nil {

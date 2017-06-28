@@ -286,6 +286,8 @@ message GetLogsRequest {
   // filter may be an absolute path of a file within a pps repo, or it may be
   // a hash for that file (to search for files at specific versions)
   repeated string data_filters = 3;
+
+  string datum_id = 8 [(gogoproto.customname) = "DatumID"];
 }
 
 // LogMessage is a log line from a PPS worker, annotated with metadata
@@ -297,6 +299,7 @@ message LogMessage {
   string pipeline_id = 2 [(gogoproto.customname) = "PipelineID"];
   string job_id = 3 [(gogoproto.customname) = "JobID"];
   string worker_id = 7 [(gogoproto.customname) = "WorkerID"];
+  string datum_id = 9 [(gogoproto.customname) = "DatumID"];
 
   // The PFS files being processed (one per pipeline/job input)
   repeated Datum data = 4;

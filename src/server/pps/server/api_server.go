@@ -569,6 +569,9 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				if request.Job != nil && request.Job.ID != msg.JobID {
 					continue
 				}
+				if request.DatumID != "" && request.DatumID != msg.DatumID {
+					continue
+				}
 
 				if !workerpkg.MatchDatum(request.DataFilters, msg.Data) {
 					continue
