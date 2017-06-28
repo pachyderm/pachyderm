@@ -34,7 +34,7 @@ var (
 	dashName                = "dash"
 	dashImage               = "pachyderm/dash"
 	grpcProxyName           = "grpc-proxy"
-	grpcProxyImage          = "pachyderm/grpc-proxy"
+	grpcProxyImage          = "pachyderm/grpc-proxy:0.3.0"
 	pachdName               = "pachd"
 	minioSecretName         = "minio-secret"
 	amazonSecretName        = "amazon-secret"
