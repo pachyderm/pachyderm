@@ -226,6 +226,10 @@ But it's state is `Pending` or `CrashLoopBackoff`.
 
 #### Recourse
 
+First make sure that there is no parent job still running. Do `pachctl list-job | grep yourPipelineName` to see if there are pending jobs on this pipeline that were kicked off prior to your job. A parent job is the job that corresponds to the parent output commit of this pipeline. A job will block until all parent jobs complete.
+
+If there are no parent jobs that are still running, then continue debugging:
+
 Describe the pod via:
 
 ```
