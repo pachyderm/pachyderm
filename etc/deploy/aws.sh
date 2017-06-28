@@ -258,7 +258,7 @@ deploy_pachyderm_on_aws() {
     export STORAGE_SIZE=100
     export BUCKET_NAME=${RANDOM}-pachyderm-store
 
-    create_s3_bucket "${BUCKET_NAME}" $USE_CLOUDFRONT
+    create_s3_bucket "${BUCKET_NAME}" ${USE_CLOUDFRONT}
 
     # Since my user should have the right access:
     AWS_KEY=`cat ~/.aws/credentials | grep aws_secret_access_key | cut -d " " -f 3`
@@ -266,7 +266,7 @@ deploy_pachyderm_on_aws() {
 
     # Omit token since im using my personal creds
     cmd=( pachctl deploy amazon ${BUCKET_NAME} "${AWS_ID}" "${AWS_KEY}" " " ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3 )
-    if [[ "$USE_CLOUDFRONT" == "true" ]]; then
+    if [[ "${USE_CLOUDFRONT}" == "true" ]]; then
       cmd+=( "--cloudfront-distribution" "${CLOUDFRONT_DOMAIN}" )
     fi
 
@@ -294,14 +294,17 @@ set -euxo pipefail
 deploy_k8s_on_aws
 deploy_pachyderm_on_aws
 
-echo "To upgrade cloudfront to use security credentials, e.g.:"
-echo ""
-echo "    $./etc/deploy/cloudfront/secure-cloudfront.sh --zone us-east-1b --bucket 2642-pachyderm-store --distribution E3DPJE36K8O9U7 --keypair-id APKAXXXXXXXXXX --private-key-file pk-APKXXXXXXXXXXXX.pem" 
-echo ""
-echo "Please save this deploy output to a file for your future reference,"
-echo "You'll need some of the values reported here"
-# They'll need this ID to run the secure script
-echo "Created cloudfront distribution with ID: ${CLOUDFRONT_ID}"
+if [[ "${USE_CLOUDFRONT}" == "true" ]]; then
+  echo "To upgrade cloudfront to use security credentials, e.g.:"
+  echo ""
+  echo "    $./etc/deploy/cloudfront/secure-cloudfront.sh --zone us-east-1b --bucket 2642-pachyderm-store --distribution E3DPJE36K8O9U7 --keypair-id APKAXXXXXXXXXX --private-key-file pk-APKXXXXXXXXXXXX.pem"
+  echo ""
+  echo "Please save this deploy output to a file for your future reference,"
+  echo "You'll need some of the values reported here"
+  # They'll need this ID to run the secure script
+  echo "Created cloudfront distribution with ID: ${CLOUDFRONT_ID}"
+fi
+
 # Must echo ID at end, for etc/testing/deploy/aws.sh
 echo "Cluster created:"
 echo ${NAME}

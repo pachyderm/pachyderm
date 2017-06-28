@@ -171,7 +171,7 @@ $kubectl get nodes/ip-172-20-38-179.us-west-2.compute.internal -o yaml | grep nv
 
 ### Deal with known issues (if necessary)
 
-If you're not seeing the node, its possible that your resource limits (from your cloud provider) are preventing you from creating the GPU node(s).  You should check your resource limits and ensure that GPU nodes are available in your region/zone.  
+If you're not seeing the node, its possible that your resource limits (from your cloud provider) are preventing you from creating the GPU node(s).  You should check your resource limits and ensure that GPU nodes are available in your region/zone (as further discussed [here](../managing_pachyderm/deploy_troubleshooting.html#gpu-node-never-appears)).  
 
 If you have checked your resource limits and everything seems ok, its very possible that you're hitting [a known k8s bug](https://github.com/kubernetes/kubernetes/issues/45753).  In this case, you can try to overcome the issue by restarting the k8s api server. To do that, run:
 

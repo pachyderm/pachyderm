@@ -10,9 +10,9 @@ const (
 	// MajorVersion is the current major version for pachyderm.
 	MajorVersion = 1
 	// MinorVersion is the current minor version for pachyderm.
-	MinorVersion = 4
+	MinorVersion = 5
 	// MicroVersion is the patch number for pachyderm.
-	MicroVersion = 8
+	MicroVersion = 0
 )
 
 var (
@@ -32,9 +32,15 @@ var (
 // PrettyPrintVersion returns a version string optionally tagged with metadata.
 // For example: "1.2.3", or "1.2.3-rc1" if version.Additional is "rc1".
 func PrettyPrintVersion(version *pb.Version) string {
-	result := fmt.Sprintf("%d.%d.%d", version.Major, version.Minor, version.Micro)
+	result := PrettyPrintVersionNoAdditional(version)
 	if version.Additional != "" {
 		result += fmt.Sprintf("-%s", version.Additional)
 	}
 	return result
+}
+
+// PrettyPrintVersionNoAdditional returns a version string without
+// version.Additional.
+func PrettyPrintVersionNoAdditional(version *pb.Version) string {
+	return fmt.Sprintf("%d.%d.%d", version.Major, version.Minor, version.Micro)
 }
