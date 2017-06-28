@@ -301,7 +301,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 				return
 			}
 			switch currentJobInfo.State {
-			case pps.JobState_JOB_STOPPED, pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE:
+			case pps.JobState_JOB_KILLED, pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE:
 				jobStoppedMutex.Lock()
 				defer jobStoppedMutex.Unlock()
 				jobStopped = true
