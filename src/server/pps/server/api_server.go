@@ -275,6 +275,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			ResourceSpec:    request.ResourceSpec,
 			NewBranch:       request.NewBranch,
 			Incremental:     request.Incremental,
+			Stats:           &pps.ProcessStats{},
 		}
 		if request.Pipeline != nil {
 			pipelineInfo := new(pps.PipelineInfo)
