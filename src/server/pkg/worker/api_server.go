@@ -410,7 +410,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 
 							lock.Lock()
 							defer lock.Unlock()
-							atomic.AddInt64(&a.stats.UploadBytes, int64(fileInfo.SizeBytes))
+							atomic.AddUint64(&a.stats.UploadBytes, fileInfo.SizeBytes)
 							if err := statsTree.PutFile(path.Join(statsRoot, subRelPath), fileInfo.Objects, int64(fileInfo.SizeBytes)); err != nil {
 								return err
 							}
@@ -449,7 +449,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 
 			lock.Lock()
 			defer lock.Unlock()
-			atomic.AddInt64(&a.stats.UploadBytes, int64(size))
+			atomic.AddUint64(&a.stats.UploadBytes, uint64(size))
 			if err := statsTree.PutFile(path.Join(statsRoot, relPath), []*pfs.Object{object}, int64(size)); err != nil {
 				return err
 			}
@@ -723,7 +723,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		logger.Logf("puller encountered an error while cleaning up: %+v", err)
 		return nil, err
 	}
-	atomic.AddInt64(&a.stats.DownloadBytes, downSize)
+	atomic.AddUint64(&a.stats.DownloadBytes, uint64(downSize))
 	if err := a.uploadOutput(ctx, tag, logger, req.Data, statsTree, path.Join(statsPath, "pfs", "out")); err != nil {
 		// If uploading failed because the user program outputed a special
 		// file, then there's no point in retrying.  Thus we signal that

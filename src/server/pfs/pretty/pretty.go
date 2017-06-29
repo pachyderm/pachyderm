@@ -78,7 +78,7 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 	)
 	duration := "-\t"
 	if commitInfo.Finished != nil {
-		duration = fmt.Sprintf("%s\t", pretty.Duration(commitInfo.Started, commitInfo.Finished))
+		duration = fmt.Sprintf("%s\t", pretty.TimeDifference(commitInfo.Started, commitInfo.Finished))
 	}
 	fmt.Fprintf(w, duration)
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(commitInfo.SizeBytes)))
