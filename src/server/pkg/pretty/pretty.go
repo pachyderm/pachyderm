@@ -34,6 +34,7 @@ func TimeDifference(from *types.Timestamp, to *types.Timestamp) string {
 	return units.HumanDuration(tTo.Sub(tFrom))
 }
 
+// Duration pretty prints a duration in a human readable way.
 func Duration(d *types.Duration) string {
 	duration, _ := types.DurationFromProto(d)
 	return units.HumanDuration(duration)
