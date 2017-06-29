@@ -209,7 +209,7 @@ func NewExponentialBackOffConfig() *backoff.ExponentialBackOff {
 	// We want to backoff more aggressively (i.e. wait longer) than the default
 	config.InitialInterval = 1 * time.Second
 	config.Multiplier = 2
-	config.MaxElapsedTime = 15 * time.Minute
+	config.MaxInterval = 15 * time.Minute
 	return config
 }
 
