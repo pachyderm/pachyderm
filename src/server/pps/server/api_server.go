@@ -247,8 +247,6 @@ func untranslateJobInputs(input *pps.Input) []*pps.JobInput {
 func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreateJob")
-	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	// First translate Inputs field to Input field.
 	if len(request.Inputs) > 0 {
@@ -311,8 +309,6 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobRequest) (response *pps.JobInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectJob")
-	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	jobs := a.jobs.ReadOnly(ctx)
 
@@ -358,7 +354,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	if jobInfo.State != pps.JobState_JOB_RUNNING {
 		return jobInfo, nil
 	}
-	workerPoolID := pps.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
+	workerPoolID := ppsserver.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
 	workerStatus, err := status(ctx, workerPoolID, a.etcdClient, a.etcdPrefix)
 	if err != nil {
 		protolion.Errorf("failed to get worker status with err: %s", err.Error())
@@ -378,8 +374,6 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (response *pps.JobInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListJob")
-	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	jobs := a.jobs.ReadOnly(ctx)
 	var iter col.Iterator
@@ -416,8 +410,6 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeleteJob")
-	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		return a.jobs.ReadWrite(stm).Delete(request.Job.ID)
@@ -431,8 +423,6 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "StopJob")
-	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		jobs := a.jobs.ReadWrite(stm)
@@ -440,7 +430,7 @@ func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (r
 		if err := jobs.Get(request.Job.ID, jobInfo); err != nil {
 			return err
 		}
-		return a.updateJobState(stm, jobInfo, pps.JobState_JOB_STOPPED)
+		return a.updateJobState(stm, jobInfo, pps.JobState_JOB_KILLED)
 	})
 	if err != nil {
 		return nil, err
@@ -451,8 +441,6 @@ func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (r
 func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "RestartDatum")
-	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
 		Job: request.Job,
@@ -460,7 +448,7 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	if err != nil {
 		return nil, err
 	}
-	workerPoolID := pps.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
+	workerPoolID := ppsserver.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
 	if err := cancel(ctx, workerPoolID, a.etcdClient, a.etcdPrefix, request.Job.ID, request.DataFilters); err != nil {
 		return nil, err
 	}
@@ -473,7 +461,7 @@ func (a *apiServer) lookupRcNameForPipeline(ctx context.Context, pipeline *pps.P
 	if err != nil {
 		return "", fmt.Errorf("could not get pipeline information for %s: %s", pipeline.Name, err.Error())
 	}
-	return pps.PipelineRcName(pipeline.Name, pipelineInfo.Version), nil
+	return ppsserver.PipelineRcName(pipeline.Name, pipelineInfo.Version), nil
 }
 
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
@@ -831,8 +819,6 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPipelineRequest) (response *pps.PipelineInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "InspectPipeline")
-	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	pipelineInfo := new(pps.PipelineInfo)
 	if err := a.pipelines.ReadOnly(ctx).Get(request.Pipeline.Name, pipelineInfo); err != nil {
@@ -847,8 +833,6 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineRequest) (response *pps.PipelineInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "ListPipeline")
-	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	pipelineIter, err := a.pipelines.ReadOnly(ctx).List()
 	if err != nil {
@@ -879,8 +863,6 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "DeletePipeline")
-	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	if request.All {
 		pipelineInfos, err := a.ListPipeline(ctx, &pps.ListPipelineRequest{})
@@ -930,7 +912,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 					// We need to check again here because the job's state
 					// might've changed since we first retrieved it
 					if !jobStateToStopped(jobInfo.State) {
-						jobInfo.State = pps.JobState_JOB_STOPPED
+						jobInfo.State = pps.JobState_JOB_KILLED
 					}
 					jobs.Put(jobID, &jobInfo)
 					return nil
@@ -967,8 +949,6 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "StartPipeline")
-	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	if err := a.updatePipelineState(ctx, request.Pipeline.Name, pps.PipelineState_PIPELINE_RUNNING); err != nil {
 		return nil, err
@@ -979,10 +959,8 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "StopPipeline")
-	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	if err := a.updatePipelineState(ctx, request.Pipeline.Name, pps.PipelineState_PIPELINE_STOPPED); err != nil {
+	if err := a.updatePipelineState(ctx, request.Pipeline.Name, pps.PipelineState_PIPELINE_PAUSED); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -991,8 +969,6 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 func (a *apiServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "RerunPipeline")
-	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	return nil, fmt.Errorf("TODO")
 }
@@ -1000,8 +976,6 @@ func (a *apiServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelin
 func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "PPSDeleteAll")
-	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	pipelineInfos, err := a.ListPipeline(ctx, &pps.ListPipelineRequest{})
 	if err != nil {
@@ -1033,8 +1007,6 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageCollectRequest) (response *pps.GarbageCollectResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "GC")
-	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
 	pfsClient, err := a.getPFSClient()
 	if err != nil {
@@ -1272,7 +1244,7 @@ func pipelineStateToStopped(state pps.PipelineState) bool {
 		return false
 	case pps.PipelineState_PIPELINE_RESTARTING:
 		return false
-	case pps.PipelineState_PIPELINE_STOPPED:
+	case pps.PipelineState_PIPELINE_PAUSED:
 		return true
 	case pps.PipelineState_PIPELINE_FAILURE:
 		return true
@@ -1331,7 +1303,7 @@ func jobStateToStopped(state pps.JobState) bool {
 		return true
 	case pps.JobState_JOB_FAILURE:
 		return true
-	case pps.JobState_JOB_STOPPED:
+	case pps.JobState_JOB_KILLED:
 		return true
 	default:
 		panic(fmt.Sprintf("unrecognized job state: %s", state))

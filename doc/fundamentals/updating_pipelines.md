@@ -26,7 +26,7 @@ You need to call `update-pipeline` with the `--push-images` flag because, if you
 2. Push that tagged image to your registry (e.g., DockerHub).
 3. Update the pipeline specification that you previously gave to Pachyderm with the new unique tag.
 
-For example, you could update the Python code used in the [OpenCV pipeline](../examples/beginner_tutorial.html) via:
+For example, you could update the Python code used in the [OpenCV pipeline](../getting_started/beginner_tutorial.html) via:
 
 ```sh
 pachctl update-pipeline -f edges.json --push-images --password <registry password> -u <registry user>

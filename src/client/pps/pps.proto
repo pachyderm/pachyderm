@@ -41,7 +41,7 @@ enum JobState {
   JOB_RUNNING = 1;
   JOB_FAILURE = 2;
   JOB_SUCCESS = 3;
-  JOB_STOPPED = 4;
+  JOB_KILLED = 4;
 }
 
 message Service {
@@ -166,15 +166,15 @@ message JobInfo {
   pfs.Commit output_commit = 9;
   JobState state = 10;
   Service service = 14;
-  pfs.Repo outputRepo = 18;
-  string outputBranch = 17;
+  pfs.Repo output_repo = 18;
+  string output_branch = 17;
   uint64 restart = 20;
   int64 data_processed = 22;
   int64 data_total = 23;
   repeated WorkerStatus worker_status = 24;
   ResourceSpec resource_spec = 25;
   Input input = 26;
-  pfs.Branch new_branch = 27;
+  pfs.BranchInfo new_branch = 27;
   bool incremental = 28;
   pfs.Commit stats_commit = 29;
 }
@@ -222,8 +222,8 @@ enum PipelineState {
   PIPELINE_RESTARTING = 2;
   // We have retried too many times and we have given up on this pipeline.
   PIPELINE_FAILURE = 3;
-  // The pipeline has been explicitly stopped by the user.
-  PIPELINE_STOPPED = 4;
+  // The pipeline has been explicitly paused by the user.
+  PIPELINE_PAUSED = 4;
 }
 
 message PipelineInfo {
@@ -239,8 +239,8 @@ message PipelineInfo {
   PipelineState state = 7;
   string recent_error = 8;
   map<int32, int32> job_counts = 9;
-  string outputBranch = 16;
-  google.protobuf.Duration scaleDownThreshold = 18;
+  string output_branch = 16;
+  google.protobuf.Duration scale_down_threshold = 18;
   ResourceSpec resource_spec = 19;
   Input input = 20;
   string description = 21;
@@ -262,12 +262,12 @@ message CreateJobRequest {
   // When service is defined, we create a long running job
   // by using a k8s RC and Service instead of a k8s Job
   Service service = 8;
-  pfs.Repo outputRepo = 12;
-  string outputBranch = 11;
+  pfs.Repo output_repo = 12;
+  string output_branch = 11;
   Job parent_job = 13;
   ResourceSpec resource_spec = 14;
   Input input = 15;
-  pfs.Branch new_branch = 16;
+  pfs.BranchInfo new_branch = 16;
   bool incremental = 17;
 }
 
@@ -342,8 +342,8 @@ message CreatePipelineRequest {
   repeated PipelineInput inputs = 4;
   Egress egress = 9;
   bool update = 5;
-  string outputBranch = 10;
-  google.protobuf.Duration scaleDownThreshold = 11;
+  string output_branch = 10;
+  google.protobuf.Duration scale_down_threshold = 11;
   ResourceSpec resource_spec = 12;
   Input input = 13;
   string description = 14;

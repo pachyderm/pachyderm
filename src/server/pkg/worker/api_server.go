@@ -36,6 +36,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
+	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 )
 
 const (
@@ -201,7 +202,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	if err != nil {
 		return nil, err
 	}
-	numWorkers, err := pps.GetExpectedNumWorkers(kubeClient, pipelineInfo.ParallelismSpec)
+	numWorkers, err := ppsserver.GetExpectedNumWorkers(kubeClient, pipelineInfo.ParallelismSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -231,6 +232,10 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 		a.statusMu.Lock()
 		defer a.statusMu.Unlock()
 		a.stats.DownloadTime = types.DurationProto(time.Since(start))
+	}(time.Now())
+	logger.Logf("input has not been processed, downloading data")
+	defer func(start time.Time) {
+		logger.Logf("input data download took (%v)\n", time.Since(start))
 	}(time.Now())
 	for _, input := range inputs {
 		file := input.FileInfo.File
@@ -266,25 +271,23 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 }
 
 // Run user code and return the combined output of stdout and stderr.
-func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string) error {
+func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string) (retErr error) {
 	defer func(start time.Time) {
 		a.statusMu.Lock()
 		defer a.statusMu.Unlock()
 		a.stats.ProcessTime = types.DurationProto(time.Since(start))
+	}(time.Now())
+	logger.Logf("beginning to run user code")
+	defer func(start time.Time) {
+		logger.Logf("finished running user code - took (%v) - with error (%v)\n", time.Since(start), retErr)
 	}(time.Now())
 	// Run user code
 	cmd := exec.CommandContext(ctx, a.pipelineInfo.Transform.Cmd[0], a.pipelineInfo.Transform.Cmd[1:]...)
 	cmd.Stdin = strings.NewReader(strings.Join(a.pipelineInfo.Transform.Stdin, "\n") + "\n")
 	cmd.Stdout = logger.userLogger()
 	cmd.Stderr = logger.userLogger()
-	logger.Logf("running user code")
 	cmd.Env = environ
 	err := cmd.Run()
-	if err != nil {
-		logger.Logf("user code finished, err: %+v", err)
-	} else {
-		logger.Logf("user code finished")
-	}
 
 	// Return result
 	if err == nil {
@@ -301,7 +304,6 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 		}
 	}
 	return err
-
 }
 
 func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *taggedLogger, inputs []*Input, statsTree hashtree.OpenHashTree, statsRoot string) error {
@@ -309,6 +311,10 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 		a.statusMu.Lock()
 		defer a.statusMu.Unlock()
 		a.stats.UploadTime = types.DurationProto(time.Since(start))
+	}(time.Now())
+	logger.Logf("starting to upload output")
+	defer func(start time.Time) {
+		logger.Logf("finished uploading output - took %v\n", time.Since(start))
 	}(time.Now())
 	// hashtree is not thread-safe--guard with 'lock'
 	var lock sync.Mutex
@@ -558,6 +564,14 @@ func HashDatum(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) {
 
 // Process processes a datum.
 func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *ProcessResponse, retErr error) {
+	logger, err := a.getTaggedLogger(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	logger.Logf("process call started - request: %v", req)
+	defer func(start time.Time) {
+		logger.Logf("process call finished - request: %v, response: %v, err %v, duration: %v", req, resp, retErr, time.Since(start))
+	}(time.Now())
 	// We cannot run more than one user process at once; otherwise they'd be
 	// writing to the same output directory. Acquire lock to make sure only one
 	// user process runs at a time.
@@ -616,10 +630,6 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 			return
 		}
 	}()
-	logger, err := a.getTaggedLogger(ctx, req)
-	if err != nil {
-		return nil, err
-	}
 	statsPath := path.Join("/", req.JobID, logger.template.DatumID)
 	defer func() {
 		object, size, err := logger.Close()
@@ -666,7 +676,6 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	}
 
 	// Download input data
-	logger.Logf("input has not been processed, downloading data")
 	puller := filesync.NewPuller()
 	err = a.downloadData(logger, req.Data, puller, req.ParentOutput, statsTree, path.Join(statsPath, "pfs"))
 	// We run these cleanup functions no matter what, so that if
@@ -694,9 +703,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	if err := os.MkdirAll(client.PPSOutputPath, 0666); err != nil {
 		return nil, err
 	}
-	logger.Logf("beginning to process user input")
 	err = a.runUserCode(ctx, logger, environ)
-	logger.Logf("finished processing user input")
 	if err != nil {
 		logger.Logf("failed to process datum with error: %+v", err)
 		return &ProcessResponse{

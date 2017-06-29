@@ -84,31 +84,50 @@ func (r *Reporter) reportUserAction(ctx context.Context, action string, value in
 	}
 }
 
-// ReportAndFlushUserAction immediately reports the metric
-// It is used in the few places we need to report metrics from the client.
-// It handles reporting the start, finish, and error conditions of the action
-func ReportAndFlushUserAction(action string) func(time.Time, error) {
-	// If we report nil, segment sees it, but mixpanel omits the field
-	reportAndFlushUserAction(fmt.Sprintf("%vStarted", action), 1)
-	return func(start time.Time, err error) {
-		if err == nil {
-			reportAndFlushUserAction(fmt.Sprintf("%vFinished", action), time.Since(start).Seconds())
-		} else {
-			reportAndFlushUserAction(fmt.Sprintf("%vErrored", action), err.Error())
+func reportAndFlushUserAction(action string, value interface{}) func() {
+	metricsDone := make(chan struct{})
+	go func() {
+		client := newSegmentClient()
+		defer client.Close()
+		cfg, err := config.Read()
+		if err != nil {
+			log.Errorf("Error reading userid from ~/.pachyderm/config: %v", err)
+			// metrics errors are non fatal
+			return
+		}
+		reportUserMetricsToSegment(client, cfg.UserID, "user", action, value, "")
+		close(metricsDone)
+	}()
+	return func() {
+		select {
+		case <-metricsDone:
+			return
+		case <-time.After(time.Second * 5):
+			return
 		}
 	}
 }
 
-func reportAndFlushUserAction(action string, value interface{}) {
-	client := newSegmentClient()
-	defer client.Close()
-	cfg, err := config.Read()
+// StartReportAndFlushUserAction immediately reports the metric but does
+// not block execution. It returns a wait function which waits or times
+// out after 5s.
+// It is used in the few places we need to report metrics from the client.
+func StartReportAndFlushUserAction(action string, value interface{}) func() {
+	return reportAndFlushUserAction(fmt.Sprintf("%vStarted", action), value)
+}
+
+// FinishReportAndFlushUserAction immediately reports the metric but does
+// not block execution. It returns a wait function which waits or times
+// out after 5s.
+// It is used in the few places we need to report metrics from the client.
+func FinishReportAndFlushUserAction(action string, err error, start time.Time) func() {
+	var wait func()
 	if err != nil {
-		log.Errorf("Error reading userid from ~/.pachyderm/config: %v", err)
-		// metrics errors are non fatal
-		return
+		wait = reportAndFlushUserAction(fmt.Sprintf("%vErrored", action), err)
+	} else {
+		wait = reportAndFlushUserAction(fmt.Sprintf("%vFinished", action), time.Since(start).Seconds())
 	}
-	reportUserMetricsToSegment(client, cfg.UserID, "user", action, value, "")
+	return wait
 }
 
 func (r *Reporter) reportClusterMetrics() {

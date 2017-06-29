@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfspretty "github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
 
 	"github.com/gogo/protobuf/types"
@@ -1086,7 +1087,7 @@ func TestDeletePipeline(t *testing.T) {
 	jobs, err = c.ListJob(pipeline, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
-	require.Equal(t, pps.JobState_JOB_STOPPED, jobs[0].State)
+	require.Equal(t, pps.JobState_JOB_KILLED, jobs[0].State)
 }
 
 func TestPipelineState(t *testing.T) {
@@ -1124,7 +1125,7 @@ func TestPipelineState(t *testing.T) {
 
 	pipelineInfo, err = c.InspectPipeline(pipeline)
 	require.NoError(t, err)
-	require.Equal(t, pps.PipelineState_PIPELINE_STOPPED, pipelineInfo.State)
+	require.Equal(t, pps.PipelineState_PIPELINE_PAUSED, pipelineInfo.State)
 
 	require.NoError(t, c.StartPipeline(pipeline))
 	time.Sleep(15 * time.Second)
@@ -2564,7 +2565,7 @@ func TestParallelismSpec(t *testing.T) {
 	numNodes := len(nodes.Items)
 
 	// Test Constant strategy
-	parellelism, err := pps.GetExpectedNumWorkers(getKubeClient(t), &pps.ParallelismSpec{
+	parellelism, err := ppsserver.GetExpectedNumWorkers(getKubeClient(t), &pps.ParallelismSpec{
 		Strategy: pps.ParallelismSpec_CONSTANT,
 		Constant: 7,
 	})
@@ -2575,7 +2576,7 @@ func TestParallelismSpec(t *testing.T) {
 	// TODO(msteffen): This test can fail when run against cloud providers, if the
 	// remote cluster has more than one node (in which case "Coefficient: 1" will
 	// cause more than 1 worker to start)
-	parellelism, err = pps.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
+	parellelism, err = ppsserver.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
 		Strategy:    pps.ParallelismSpec_COEFFICIENT,
 		Coefficient: 1,
 	})
@@ -2583,7 +2584,7 @@ func TestParallelismSpec(t *testing.T) {
 	require.Equal(t, numNodes, parellelism)
 
 	// Coefficient > 1
-	parellelism, err = pps.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
+	parellelism, err = ppsserver.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
 		Strategy:    pps.ParallelismSpec_COEFFICIENT,
 		Coefficient: 2,
 	})
@@ -2591,7 +2592,7 @@ func TestParallelismSpec(t *testing.T) {
 	require.Equal(t, 2*numNodes, parellelism)
 
 	// Make sure we start at least one worker
-	parellelism, err = pps.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
+	parellelism, err = ppsserver.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
 		Strategy:    pps.ParallelismSpec_COEFFICIENT,
 		Coefficient: 0.01,
 	})
@@ -2599,12 +2600,12 @@ func TestParallelismSpec(t *testing.T) {
 	require.Equal(t, 1, parellelism)
 
 	// Test 0-initialized JobSpec
-	parellelism, err = pps.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{})
+	parellelism, err = ppsserver.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{})
 	require.NoError(t, err)
 	require.Equal(t, numNodes, parellelism)
 
 	// Test nil JobSpec
-	parellelism, err = pps.GetExpectedNumWorkers(kubeclient, nil)
+	parellelism, err = ppsserver.GetExpectedNumWorkers(kubeclient, nil)
 	require.NoError(t, err)
 	require.Equal(t, numNodes, parellelism)
 }
@@ -2710,7 +2711,7 @@ func TestStopJob(t *testing.T) {
 	require.NoError(t, err)
 	jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, true)
 	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_STOPPED, jobInfo.State)
+	require.Equal(t, pps.JobState_JOB_KILLED, jobInfo.State)
 
 	// Wait a little for the second job to spawn
 	time.Sleep(5 * time.Second)
@@ -3214,7 +3215,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	var container api.Container
-	rcName := pps.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	rcName := ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := getKubeClient(t)
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = 10 * time.Second
@@ -3539,6 +3540,56 @@ func TestIncrementalAppendPipeline(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("%d\n", expectedValue), buf.String())
 }
 
+func TestIncrementalOneFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestIncrementalOneFile")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	pipeline := uniqueString("pipeline")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					"find /pfs",
+					fmt.Sprintf("cp /pfs/%s/dir/file /pfs/out/file", dataRepo),
+				},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			Input:       client.NewAtomInput(dataRepo, "/dir/file"),
+			Incremental: true,
+		})
+	require.NoError(t, err)
+	_, err = c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, "master", "/dir/file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, "master"))
+	_, err = c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, "master", "/dir/file", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, "master"))
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(pipeline, "master", "file", 0, 0, &buf))
+	require.Equal(t, "foo\nbar\n", buf.String())
+}
+
 func TestGarbageCollection(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -3779,7 +3830,7 @@ func waitForReadiness(t testing.TB) {
 func pipelineRc(t testing.TB, pipelineInfo *pps.PipelineInfo) *api.ReplicationController {
 	k := getKubeClient(t)
 	rc := k.ReplicationControllers(api.NamespaceDefault)
-	result, err := rc.Get(pps.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
+	result, err := rc.Get(ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
 	require.NoError(t, err)
 	return result
 }
