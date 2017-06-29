@@ -19,7 +19,7 @@ import (
 func PrintJobHeader(w io.Writer) {
 	// because STATE is a colorful field it has to be at the end of the line,
 	// otherwise the terminal escape characters will trip up the tabwriter
-	fmt.Fprint(w, "ID\tOUTPUT COMMIT\tSTARTED\tDURATION\tRESTART\tPROGRESS\tSTATE\t\n")
+	fmt.Fprint(w, "ID\tOUTPUT COMMIT\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n")
 }
 
 // PrintJobInfo pretty-prints job info.
@@ -39,7 +39,9 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo) {
 		fmt.Fprintf(w, "-\t")
 	}
 	fmt.Fprintf(w, "%d\t", jobInfo.Restart)
-	fmt.Fprintf(w, "%d / %d\t", jobInfo.DataProcessed, jobInfo.DataTotal)
+	fmt.Fprintf(w, "%d + %d / %d\t", jobInfo.DataProcessed, jobInfo.DataSkipped, jobInfo.DataTotal)
+	fmt.Fprintf(w, "%s\t", pretty.Size(uint64(jobInfo.Stats.DownloadBytes)))
+	fmt.Fprintf(w, "%s\t", pretty.Size(uint64(jobInfo.Stats.UploadBytes)))
 	fmt.Fprintf(w, "%s\t\n", jobState(jobInfo.State))
 }
 
