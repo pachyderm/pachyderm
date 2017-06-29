@@ -3712,6 +3712,80 @@ func TestGarbageCollection(t *testing.T) {
 	require.Equal(t, "barbar\n", buf.String())
 }
 
+func TestIncrementalSharedProvenance(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestIncrementalSharedProvenance_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	pipeline1 := uniqueString("pipeline1")
+	require.NoError(t, c.CreatePipeline(
+		pipeline1,
+		"",
+		[]string{"true"},
+		nil,
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/"),
+		"",
+		false,
+	))
+	pipeline2 := uniqueString("pipeline2")
+	require.YesError(t, c.CreatePipeline(
+		pipeline2,
+		"",
+		[]string{"true"},
+		nil,
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		client.NewCrossInput(
+			client.NewAtomInput(dataRepo, "/"),
+			client.NewAtomInput(pipeline1, "/"),
+		),
+		"",
+		true,
+	))
+	pipeline3 := uniqueString("pipeline3")
+	require.NoError(t, c.CreatePipeline(
+		pipeline3,
+		"",
+		[]string{"true"},
+		nil,
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/"),
+		"",
+		false,
+	))
+	pipeline4 := uniqueString("pipeline4")
+	require.YesError(t, c.CreatePipeline(
+		pipeline4,
+		"",
+		[]string{"true"},
+		nil,
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		client.NewCrossInput(
+			client.NewAtomInput(pipeline1, "/"),
+			client.NewAtomInput(pipeline3, "/"),
+		),
+		"",
+		true,
+	))
+}
+
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
 	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
 	require.NoError(t, err)
