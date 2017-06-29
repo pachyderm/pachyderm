@@ -610,6 +610,19 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		return nil, err
 	}
 	statsTag := tag + "_stats"
+	logger.Logf("Received request")
+	// Check if output is in s3 already. Note: ppsserver sorts
+	// inputs by input name for both jobs and pipelines, so this hash is stable
+	// even if a.Inputs are reordered by the user
+	if _, err := a.pachClient.InspectTag(ctx, &pfs.Tag{tag}); err == nil {
+		// We've already computed the output for these inputs. Return immediately
+		logger.Logf("skipping input, as it's already been processed")
+		return &ProcessResponse{
+			Tag:      &pfs.Tag{tag},
+			StatsTag: &pfs.Tag{statsTag},
+			Skipped:  true,
+		}, nil
+	}
 	statsTree := hashtree.NewHashTree()
 	defer func() {
 		if retErr != nil {
@@ -661,19 +674,6 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 			return
 		}
 	}()
-	logger.Logf("Received request")
-	// Check if output is in s3 already. Note: ppsserver sorts
-	// inputs by input name for both jobs and pipelines, so this hash is stable
-	// even if a.Inputs are reordered by the user
-	if _, err := a.pachClient.InspectTag(ctx, &pfs.Tag{tag}); err == nil {
-		// We've already computed the output for these inputs. Return immediately
-		logger.Logf("skipping input, as it's already been processed")
-		return &ProcessResponse{
-			Tag:      &pfs.Tag{tag},
-			StatsTag: &pfs.Tag{statsTag},
-			Skipped:  true,
-		}, nil
-	}
 
 	// Download input data
 	puller := filesync.NewPuller()
