@@ -261,6 +261,25 @@ nextInput:
 	}
 }
 
+func plusDuration(x *types.Duration, y *types.Duration) (*types.Duration, error) {
+	var xd time.Duration
+	var yd time.Duration
+	var err error
+	if x != nil {
+		xd, err = types.DurationFromProto(x)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if y != nil {
+		yd, err = types.DurationFromProto(y)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return types.DurationProto(xd + yd), nil
+}
+
 // jobManager feeds datums to jobs
 func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool.Pool) error {
 	pfsClient := a.pachClient.PfsAPIClient
@@ -356,22 +375,40 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 		var treeMu sync.Mutex
 
 		processedData := int64(0)
-		setProcessedData := int64(0)
+		skippedData := int64(0)
+		setData := int64(0) // sum of skipped and processed data we've told etcd about
+		stats := &pps.ProcessStats{}
 		totalData := int64(df.Len())
 		var progressMu sync.Mutex
-		updateProgress := func(processed int64) {
+		updateProgress := func(processed, skipped int64, newStats *pps.ProcessStats) {
 			progressMu.Lock()
 			defer progressMu.Unlock()
 			processedData += processed
+			skippedData += skipped
+			totalProcessedData := processedData + skippedData
+			if newStats != nil {
+				var err error
+				if stats.DownloadTime, err = plusDuration(stats.DownloadTime, newStats.DownloadTime); err != nil {
+					protolion.Errorf("error adding durations: %+v", err)
+				}
+				if stats.ProcessTime, err = plusDuration(stats.ProcessTime, newStats.ProcessTime); err != nil {
+					protolion.Errorf("error adding durations: %+v", err)
+				}
+				if stats.UploadTime, err = plusDuration(stats.UploadTime, newStats.UploadTime); err != nil {
+					protolion.Errorf("error adding durations: %+v", err)
+				}
+				stats.DownloadBytes += newStats.DownloadBytes
+				stats.UploadBytes += newStats.UploadBytes
+			}
 			// so as not to overwhelm etcd we update at most 100 times per job
-			if (float64(processedData-setProcessedData)/float64(totalData)) > .01 ||
-				processedData == 0 || processedData == totalData {
+			if (float64(totalProcessedData-setData)/float64(totalData)) > .01 ||
+				totalProcessedData == 0 || totalProcessedData == totalData {
 				// we setProcessedData even though the update below may fail,
 				// if we didn't we'd retry updating the progress on the next
 				// datum, this would lead to more accurate progress but
 				// progress isn't that important and we don't want to overwelm
 				// etcd.
-				setProcessedData = processedData
+				setData = totalProcessedData
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 					jobs := a.jobs.ReadWrite(stm)
 					jobInfo := new(pps.JobInfo)
@@ -379,7 +416,9 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 						return err
 					}
 					jobInfo.DataProcessed = processedData
+					jobInfo.DataSkipped = skippedData
 					jobInfo.DataTotal = totalData
+					jobInfo.Stats = stats
 					jobs.Put(jobInfo.Job.ID, jobInfo)
 					return nil
 				}); err != nil {
@@ -388,7 +427,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 			}
 		}
 		// set the initial values
-		updateProgress(0)
+		updateProgress(0, 0, nil)
 
 		for i := 0; i < df.Len(); i++ {
 			limiter.Acquire()
@@ -428,13 +467,14 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 				defer limiter.Release()
 				b := backoff.NewInfiniteBackOff()
 				b.Multiplier = 1
+				var resp *ProcessResponse
 				if err := backoff.RetryNotify(func() error {
 					conn, err := pool.Get(ctx)
 					if err != nil {
 						return fmt.Errorf("error from connection pool: %v", err)
 					}
 					workerClient := NewWorkerClient(conn)
-					resp, err := workerClient.Process(ctx, &ProcessRequest{
+					resp, err = workerClient.Process(ctx, &ProcessRequest{
 						JobID:        jobInfo.Job.ID,
 						Data:         files,
 						ParentOutput: parentOutputTag,
@@ -484,7 +524,11 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 					protolion.Errorf("job %s failed to process datum %+v with: %+v, retrying in: %+v", jobID, files, err, d)
 					return nil
 				}); err == nil {
-					go updateProgress(1)
+					if resp.Skipped {
+						go updateProgress(0, 1, resp.Stats)
+					} else {
+						go updateProgress(1, 0, resp.Stats)
+					}
 				}
 			}()
 		}
@@ -574,7 +618,9 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 			jobInfo.OutputCommit = outputCommit
 			jobInfo.Finished = now()
 			// By definition, we will have processed all datums at this point
-			jobInfo.DataProcessed = totalData
+			jobInfo.DataProcessed = processedData
+			jobInfo.DataSkipped = skippedData
+			jobInfo.Stats = stats
 			// likely already set but just in case it failed
 			jobInfo.DataTotal = totalData
 			jobInfo.StatsCommit = statsCommit
