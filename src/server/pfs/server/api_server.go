@@ -156,7 +156,7 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 	}, nil
 }
 
-func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.Branches, retErr error) {
+func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.BranchInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -164,7 +164,7 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 	if err != nil {
 		return nil, err
 	}
-	return &pfs.Branches{Branches: branches}, nil
+	return &pfs.BranchInfos{BranchInfo: branches}, nil
 }
 
 func (a *apiServer) SetBranch(ctx context.Context, request *pfs.SetBranchRequest) (response *types.Empty, retErr error) {
@@ -373,7 +373,7 @@ func (a *apiServer) putFilePfs(ctx context.Context, request *pfs.PutFileRequest,
 }
 
 func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, request *pfs.PutFileRequest, url *url.URL) (retErr error) {
-	put := func(filePath string, objPath string) error {
+	put := func(ctx context.Context, filePath string, objPath string) error {
 		logRequest := &pfs.PutFileRequest{
 			Delimiter: request.Delimiter,
 			Url:       objPath,
@@ -399,7 +399,7 @@ func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, reques
 			request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, r)
 	}
 	if request.Recursive {
-		var eg errgroup.Group
+		eg, egContext := errgroup.WithContext(ctx)
 		path := strings.TrimPrefix(url.Path, "/")
 		sem := make(chan struct{}, client.DefaultMaxConcurrentStreams)
 		objClient.Walk(path, func(name string) error {
@@ -417,14 +417,14 @@ func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, reques
 					protolion.Warnf("ambiguous key %v, not creating a directory or putting this entry as a file", name)
 					return nil
 				}
-				return put(filepath.Join(request.File.Path, strings.TrimPrefix(name, path)), name)
+				return put(egContext, filepath.Join(request.File.Path, strings.TrimPrefix(name, path)), name)
 			})
 			return nil
 		})
 		return eg.Wait()
 	}
 	// Joining Host and Path to retrieve the full path after "scheme://"
-	return put(request.File.Path, path.Join(url.Host, url.Path))
+	return put(ctx, request.File.Path, path.Join(url.Host, url.Path))
 }
 
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) (retErr error) {
