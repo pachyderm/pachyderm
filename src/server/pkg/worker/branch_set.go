@@ -11,7 +11,7 @@ import (
 )
 
 type branchSet struct {
-	Branches  []*pfs.Branch
+	Branches  []*pfs.BranchInfo
 	NewBranch int //newBranch indicates which branch is new
 	Err       error
 }
@@ -111,7 +111,7 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (branchSetFactory,
 						NewBranch: i,
 					}
 					for _, commitInfo := range set {
-						bs.Branches = append(bs.Branches, &pfs.Branch{
+						bs.Branches = append(bs.Branches, &pfs.BranchInfo{
 							Name: input.Branch,
 							Head: commitInfo.Commit,
 						})

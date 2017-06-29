@@ -52,7 +52,7 @@ func PrintBranchHeader(w io.Writer) {
 }
 
 // PrintBranch pretty-prints a Branch.
-func PrintBranch(w io.Writer, branch *pfs.Branch) {
+func PrintBranch(w io.Writer, branch *pfs.BranchInfo) {
 	fmt.Fprintf(w, "%s\t", branch.Name)
 	fmt.Fprintf(w, "%s\t\n", branch.Head.ID)
 }
