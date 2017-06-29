@@ -170,7 +170,9 @@ message JobInfo {
   string output_branch = 17;
   uint64 restart = 20;
   int64 data_processed = 22;
+  int64 data_skipped = 30;
   int64 data_total = 23;
+  ProcessStats stats = 31;
   repeated WorkerStatus worker_status = 24;
   ResourceSpec resource_spec = 25;
   Input input = 26;
