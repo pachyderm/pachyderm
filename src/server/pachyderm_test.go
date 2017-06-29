@@ -3737,22 +3737,24 @@ func TestIncrementalSharedProvenance(t *testing.T) {
 		false,
 	))
 	pipeline2 := uniqueString("pipeline2")
-	require.YesError(t, c.CreatePipeline(
-		pipeline2,
-		"",
-		[]string{"true"},
-		nil,
-		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
-			Constant: 1,
-		},
-		client.NewCrossInput(
-			client.NewAtomInput(dataRepo, "/"),
-			client.NewAtomInput(pipeline1, "/"),
-		),
-		"",
-		true,
-	))
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline2),
+			Transform: &pps.Transform{
+				Cmd: []string{"true"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			Input: client.NewCrossInput(
+				client.NewAtomInput(dataRepo, "/"),
+				client.NewAtomInput(pipeline1, "/"),
+			),
+			Incremental: true,
+		})
+	require.YesError(t, err)
 	pipeline3 := uniqueString("pipeline3")
 	require.NoError(t, c.CreatePipeline(
 		pipeline3,
@@ -3768,22 +3770,24 @@ func TestIncrementalSharedProvenance(t *testing.T) {
 		false,
 	))
 	pipeline4 := uniqueString("pipeline4")
-	require.YesError(t, c.CreatePipeline(
-		pipeline4,
-		"",
-		[]string{"true"},
-		nil,
-		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
-			Constant: 1,
-		},
-		client.NewCrossInput(
-			client.NewAtomInput(pipeline1, "/"),
-			client.NewAtomInput(pipeline3, "/"),
-		),
-		"",
-		true,
-	))
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline4),
+			Transform: &pps.Transform{
+				Cmd: []string{"true"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			Input: client.NewCrossInput(
+				client.NewAtomInput(pipeline1, "/"),
+				client.NewAtomInput(pipeline3, "/"),
+			),
+			Incremental: true,
+		})
+	require.YesError(t, err)
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
