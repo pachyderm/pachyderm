@@ -701,7 +701,7 @@ pachctl put-file repo branch -i http://host/path
 					return fmt.Errorf("an output path needs to be specified when using the --recursive flag")
 				}
 				puller := sync.NewPuller()
-				return puller.Pull(client, outputPath, args[0], args[1], args[2], false, int(parallelism))
+				return puller.Pull(client, outputPath, args[0], args[1], args[2], false, int(parallelism), nil, "")
 			}
 			var w io.Writer
 			// If an output path is given, print the output to stdout
