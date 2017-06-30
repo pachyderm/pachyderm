@@ -411,8 +411,10 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 							lock.Lock()
 							defer lock.Unlock()
 							atomic.AddUint64(&a.stats.UploadBytes, fileInfo.SizeBytes)
-							if err := statsTree.PutFile(path.Join(statsRoot, subRelPath), fileInfo.Objects, int64(fileInfo.SizeBytes)); err != nil {
-								return err
+							if statsTree != nil {
+								if err := statsTree.PutFile(path.Join(statsRoot, subRelPath), fileInfo.Objects, int64(fileInfo.SizeBytes)); err != nil {
+									return err
+								}
 							}
 							return tree.PutFile(subRelPath, fileInfo.Objects, int64(fileInfo.SizeBytes))
 						})
@@ -450,8 +452,10 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 			lock.Lock()
 			defer lock.Unlock()
 			atomic.AddUint64(&a.stats.UploadBytes, uint64(size))
-			if err := statsTree.PutFile(path.Join(statsRoot, relPath), []*pfs.Object{object}, int64(size)); err != nil {
-				return err
+			if statsTree != nil {
+				if err := statsTree.PutFile(path.Join(statsRoot, relPath), []*pfs.Object{object}, int64(size)); err != nil {
+					return err
+				}
 			}
 			return tree.PutFile(relPath, []*pfs.Object{object}, int64(size))
 		})
@@ -609,7 +613,10 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	if err != nil {
 		return nil, err
 	}
-	statsTag := tag + "_stats"
+	var statsTag *pfs.Tag
+	if req.EnableStats {
+		statsTag = &pfs.Tag{tag + "_stats"}
+	}
 	logger.Logf("Received request")
 	// Check if output is in s3 already. Note: ppsserver sorts
 	// inputs by input name for both jobs and pipelines, so this hash is stable
@@ -619,61 +626,64 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		logger.Logf("skipping input, as it's already been processed")
 		return &ProcessResponse{
 			Tag:      &pfs.Tag{tag},
-			StatsTag: &pfs.Tag{statsTag},
+			StatsTag: statsTag,
 			Skipped:  true,
 		}, nil
 	}
-	statsTree := hashtree.NewHashTree()
-	defer func() {
-		if retErr != nil {
-			return
-		}
-		finStatsTree, err := statsTree.Finish()
-		if err != nil {
-			retErr = err
-			return
-		}
-		statsTreeBytes, err := hashtree.Serialize(finStatsTree)
-		if err != nil {
-			retErr = err
-			return
-		}
-		if _, _, err := a.pachClient.PutObject(bytes.NewReader(statsTreeBytes), statsTag); err != nil {
-			retErr = err
-			return
-		}
-	}()
 	statsPath := path.Join("/", req.JobID, logger.template.DatumID)
-	defer func() {
-		object, size, err := logger.Close()
-		if err != nil && retErr == nil {
-			retErr = err
-			return
-		}
-		if err := statsTree.PutFile(path.Join(statsPath, "logs"), []*pfs.Object{object}, size); err != nil && retErr == nil {
-			retErr = err
-			return
-		}
-	}()
-	defer func() {
-		a.statusMu.Lock()
-		defer a.statusMu.Unlock()
-		marshaler := &jsonpb.Marshaler{}
-		statsString, err := marshaler.MarshalToString(a.stats)
-		if err != nil {
-			logger.stderrLog.Printf("could not serialize stats: %s\n", err)
-			return
-		}
-		object, size, err := a.pachClient.PutObject(strings.NewReader(statsString))
-		if err != nil {
-			logger.stderrLog.Printf("could not put stats object: %s\n", err)
-			return
-		}
-		if err := statsTree.PutFile(path.Join(statsPath, "stats"), []*pfs.Object{object}, size); err != nil {
-			logger.stderrLog.Printf("could not put-file stats object: %s\n", err)
-			return
-		}
-	}()
+	var statsTree hashtree.OpenHashTree
+	if req.EnableStats {
+		statsTree = hashtree.NewHashTree()
+		defer func() {
+			if retErr != nil {
+				return
+			}
+			finStatsTree, err := statsTree.Finish()
+			if err != nil {
+				retErr = err
+				return
+			}
+			statsTreeBytes, err := hashtree.Serialize(finStatsTree)
+			if err != nil {
+				retErr = err
+				return
+			}
+			if _, _, err := a.pachClient.PutObject(bytes.NewReader(statsTreeBytes), statsTag.Name); err != nil {
+				retErr = err
+				return
+			}
+		}()
+		defer func() {
+			object, size, err := logger.Close()
+			if err != nil && retErr == nil {
+				retErr = err
+				return
+			}
+			if err := statsTree.PutFile(path.Join(statsPath, "logs"), []*pfs.Object{object}, size); err != nil && retErr == nil {
+				retErr = err
+				return
+			}
+		}()
+		defer func() {
+			a.statusMu.Lock()
+			defer a.statusMu.Unlock()
+			marshaler := &jsonpb.Marshaler{}
+			statsString, err := marshaler.MarshalToString(a.stats)
+			if err != nil {
+				logger.stderrLog.Printf("could not serialize stats: %s\n", err)
+				return
+			}
+			object, size, err := a.pachClient.PutObject(strings.NewReader(statsString))
+			if err != nil {
+				logger.stderrLog.Printf("could not put stats object: %s\n", err)
+				return
+			}
+			if err := statsTree.PutFile(path.Join(statsPath, "stats"), []*pfs.Object{object}, size); err != nil {
+				logger.stderrLog.Printf("could not put-file stats object: %s\n", err)
+				return
+			}
+		}()
+	}
 
 	// Download input data
 	puller := filesync.NewPuller()
@@ -708,7 +718,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		logger.Logf("failed to process datum with error: %+v", err)
 		return &ProcessResponse{
 			Failed:   true,
-			StatsTag: &pfs.Tag{statsTag},
+			StatsTag: statsTag,
 			Stats:    a.stats,
 		}, nil
 	}
@@ -732,7 +742,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		if err == errSpecialFile {
 			return &ProcessResponse{
 				Failed:   true,
-				StatsTag: &pfs.Tag{statsTag},
+				StatsTag: statsTag,
 				Stats:    a.stats,
 			}, nil
 		}
@@ -740,7 +750,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	}
 	return &ProcessResponse{
 		Tag:      &pfs.Tag{tag},
-		StatsTag: &pfs.Tag{statsTag},
+		StatsTag: statsTag,
 		Stats:    a.stats,
 	}, nil
 }

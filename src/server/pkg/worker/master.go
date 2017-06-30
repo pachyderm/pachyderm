@@ -371,7 +371,10 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 			newBranchParentCommit = newBranchCommitInfo.ParentCommit
 		}
 		tree := hashtree.NewHashTree()
-		statsTree := hashtree.NewHashTree()
+		var statsTree hashtree.OpenHashTree
+		if jobInfo.EnableStats {
+			statsTree = hashtree.NewHashTree()
+		}
 		var treeMu sync.Mutex
 
 		processedData := int64(0)
@@ -478,6 +481,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 						JobID:        jobInfo.Job.ID,
 						Data:         files,
 						ParentOutput: parentOutputTag,
+						EnableStats:  jobInfo.EnableStats,
 					})
 					if err != nil {
 						if err := conn.Close(); err != nil {
@@ -498,9 +502,12 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 					if err != nil {
 						return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
 					}
-					statsSubtree, err := a.getTreeFromTag(ctx, resp.StatsTag)
-					if err != nil {
-						protolion.Errorf("failed to retrieve stats hashtree after processing for datum %v: %v", files, err)
+					var statsSubtree hashtree.HashTree
+					if jobInfo.EnableStats {
+						statsSubtree, err = a.getTreeFromTag(ctx, resp.StatsTag)
+						if err != nil {
+							protolion.Errorf("failed to retrieve stats hashtree after processing for datum %v: %v", files, err)
+						}
 					}
 					treeMu.Lock()
 					defer treeMu.Unlock()
@@ -570,20 +577,23 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 			return err
 		}
 
-		statsObject, err := a.putTree(ctx, statsTree)
-		if err != nil {
-			return err
-		}
+		var statsCommit *pfs.Commit
+		if jobInfo.EnableStats {
+			statsObject, err := a.putTree(ctx, statsTree)
+			if err != nil {
+				return err
+			}
 
-		statsCommit, err := pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
-			Parent: &pfs.Commit{
-				Repo: jobInfo.OutputRepo,
-			},
-			Branch: "stats",
-			Tree:   statsObject,
-		})
-		if err != nil {
-			return err
+			statsCommit, err = pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
+				Parent: &pfs.Commit{
+					Repo: jobInfo.OutputRepo,
+				},
+				Branch: "stats",
+				Tree:   statsObject,
+			})
+			if err != nil {
+				return err
+			}
 		}
 
 		if jobInfo.Egress != nil {
