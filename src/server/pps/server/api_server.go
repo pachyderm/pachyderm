@@ -600,6 +600,36 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 	if pipelineInfo.OutputBranch == "" {
 		return fmt.Errorf("pipeline needs to specify an output branch")
 	}
+	if pipelineInfo.Incremental {
+		pfsClient, err := a.getPFSClient()
+		if err != nil {
+			return err
+		}
+		// for incremental jobs we can't have shared provenance
+		var provenance []*pfs.Repo
+		for _, commit := range pps.InputCommits(pipelineInfo.Input) {
+			provenance = append(provenance, commit.Repo)
+		}
+		provMap := make(map[string]bool)
+		for _, provRepo := range provenance {
+			if provMap[provRepo.Name] {
+				return fmt.Errorf("can't create an incremental pipeline with inputs that share provenance")
+			} else {
+				provMap[provRepo.Name] = true
+			}
+			repoInfo, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{Repo: provRepo})
+			if err != nil {
+				return err
+			}
+			for _, provRepo := range repoInfo.Provenance {
+				if provMap[provRepo.Name] {
+					return fmt.Errorf("can't create an incremental pipeline with inputs that share provenance")
+				} else {
+					provMap[provRepo.Name] = true
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -668,28 +698,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	var provenance []*pfs.Repo
 	for _, commit := range pps.InputCommits(pipelineInfo.Input) {
 		provenance = append(provenance, commit.Repo)
-	}
-	if request.Incremental {
-		// for incremental jobs we can't have shared provenance
-		provMap := make(map[string]bool)
-		for _, provRepo := range provenance {
-			if provMap[provRepo.Name] {
-				return nil, fmt.Errorf("can't create an incremental pipeline with inputs that share provenance")
-			} else {
-				provMap[provRepo.Name] = true
-			}
-			repoInfo, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{Repo: provRepo})
-			if err != nil {
-				return nil, err
-			}
-			for _, provRepo := range repoInfo.Provenance {
-				if provMap[provRepo.Name] {
-					return nil, fmt.Errorf("can't create an incremental pipeline with inputs that share provenance")
-				} else {
-					provMap[provRepo.Name] = true
-				}
-			}
-		}
 	}
 
 	pps.SortInput(pipelineInfo.Input)
