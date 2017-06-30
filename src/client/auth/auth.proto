@@ -1,0 +1,14 @@
+syntax = "proto3";
+package auth;
+
+import "google/protobuf/empty.proto";
+
+message ActivationCode {
+  string token = 1;
+  string signature = 2;
+}
+
+service API {
+  rpc PutActivationCode(ActivationCode) returns (google.protobuf.Empty) {}
+  rpc GetActivationCode(ActivationCode) returns (google.protobuf.Empty) {}
+}
