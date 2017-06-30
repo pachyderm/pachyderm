@@ -34,45 +34,46 @@ type APIClient struct {
 	PfsAPIClient
 	PpsAPIClient
 	ObjectAPIClient
-	addr              string
-	clientConn        *grpc.ClientConn
-	healthClient      health.HealthClient
-	_ctx              context.Context
-	config            *config.Config
-	cancel            func()
-	reportUserMetrics bool
-	metricsPrefix     string
-	streamSemaphore   chan struct{}
+
+	// addr is a "host:port" string pointing at a pachd endpoint
+	addr string
+
+	// context.Context includes context options for all RPCs, including deadline
+	_ctx context.Context
+
+	// clientConn is a cached grpc connection to 'addr'
+	clientConn *grpc.ClientConn
+
+	// healthClient is a cached healthcheck client connected to 'addr'
+	healthClient health.HealthClient
+
+	// cancel is the cancel function for 'clientConn' and is called if
+	// 'healthClient' fails health checking
+	cancel func()
+
+	// streamSemaphore limits the number of concurrent message streams between
+	// this client and pachd
+	streamSemaphore chan struct{}
+
+	// metricsUserID is an identifier that is included in usage metrics sent to
+	// Pachyderm Inc. and is used to count the number of unique Pachyderm users.
+	// If unset, no usage metrics are sent back to Pachyderm Inc.
+	metricsUserID string
+
+	// metricsPrefix is used to send information from this client to Pachyderm Inc
+	// for usage metrics
+	metricsPrefix string
+}
+
+// GetAddress returns the pachd host:post with which 'c' is communicating. If
+// 'c' was created using NewInCluster or NewOnUserMachine then this is how the
+// address may be retrieved from the environment.
+func (c *APIClient) GetAddress() string {
+	return c.addr
 }
 
 // DefaultMaxConcurrentStreams defines the max number of Putfiles or Getfiles happening simultaneously
 const DefaultMaxConcurrentStreams uint = 100
-
-// NewMetricsClientFromAddress Creates a client that will report a user's Metrics
-func NewMetricsClientFromAddress(addr string, metrics bool, prefix string) (*APIClient, error) {
-	return NewMetricsClientFromAddressWithConcurrency(addr, metrics, prefix,
-		DefaultMaxConcurrentStreams)
-}
-
-// NewMetricsClientFromAddressWithConcurrency Creates a client that will report
-// a user's Metrics, and sets the max concurrency of streaming requests (GetFile
-// / PutFile)
-func NewMetricsClientFromAddressWithConcurrency(addr string, metrics bool, prefix string, maxConcurrentStreams uint) (*APIClient, error) {
-	c, err := NewFromAddress(addr)
-	if err != nil {
-		return nil, err
-	}
-	cfg, err := config.Read()
-	if err != nil {
-		// metrics errors are non fatal
-		log.Errorf("error loading user config from ~/.pachderm/config: %v", err)
-	} else {
-		c.config = cfg
-	}
-	c.reportUserMetrics = metrics
-	c.metricsPrefix = prefix
-	return c, err
-}
 
 // NewFromAddressWithConcurrency constructs a new APIClient and sets the max
 // concurrency of streaming requests (GetFile / PutFile)
@@ -92,17 +93,64 @@ func NewFromAddress(addr string) (*APIClient, error) {
 	return NewFromAddressWithConcurrency(addr, DefaultMaxConcurrentStreams)
 }
 
+// GetAddressFromUserMachine interprets the Pachyderm config in 'cfg' in the
+// context of local environment variables and returns a "host:port" string
+// pointing at a Pachd target.
+func GetAddressFromUserMachine(cfg *config.Config) string {
+	address := "0.0.0.0:30650"
+	if cfg != nil && cfg.V1 != nil && cfg.V1.PachdAddress != "" {
+		address = cfg.V1.PachdAddress
+	}
+	// ADDRESS environment variable (shell-local) overrides global config
+	if envAddr := os.Getenv("ADDRESS"); envAddr != "" {
+		address = envAddr
+	}
+	return address
+}
+
+// NewOnUserMachine constructs a new APIClient using env vars that may be set
+// on a user's machine (i.e. ADDRESS), as well as $HOME/.pachyderm/config if it
+// exists. This is primarily intended to be used with the pachctl binary, but
+// may also be useful in tests.
+//
+// TODO(msteffen) this logic is fairly linux/unix specific, and makes pachctl
+// incompatible with Windows. We may want to move this (and similar) logic into
+// src/server and have it call a NewFromOptions() constructor.
+func NewOnUserMachine(reportMetrics bool, prefix string) (*APIClient, error) {
+	return NewOnUserMachineWithConcurrency(reportMetrics, prefix, DefaultMaxConcurrentStreams)
+}
+
+// NewOnUserMachineWithConcurrency is identical to NewOnUserMachine, but
+// explicitly sets a limit on the number of RPC streams that may be open
+// simultaneously
+func NewOnUserMachineWithConcurrency(reportMetrics bool, prefix string, maxConcurrentStreams uint) (*APIClient, error) {
+	cfg, err := config.Read()
+	if err != nil {
+		// metrics errors are non fatal
+		log.Warningf("error loading user config from ~/.pachderm/config: %v", err)
+	}
+
+	// create new pachctl client
+	client, err := NewFromAddress(GetAddressFromUserMachine(cfg))
+	if err != nil {
+		return nil, err
+	}
+
+	// Add metrics info
+	if cfg != nil && cfg.UserID != "" && reportMetrics {
+		client.metricsUserID = cfg.UserID
+	}
+	return client, nil
+}
+
 // NewInCluster constructs a new APIClient using env vars that Kubernetes creates.
 // This should be used to access Pachyderm from within a Kubernetes cluster
 // with Pachyderm running on it.
 func NewInCluster() (*APIClient, error) {
-	addr := os.Getenv("PACHD_PORT_650_TCP_ADDR")
-
-	if addr == "" {
-		return nil, fmt.Errorf("PACHD_PORT_650_TCP_ADDR not set")
+	if addr := os.Getenv("PACHD_PORT_650_TCP_ADDR"); addr != "" {
+		return NewFromAddress(fmt.Sprintf("%v:650", addr))
 	}
-
-	return NewFromAddress(fmt.Sprintf("%v:650", addr))
+	return nil, fmt.Errorf("PACHD_PORT_650_TCP_ADDR not set")
 }
 
 // Close the connection to gRPC
@@ -195,24 +243,14 @@ func (c *APIClient) connect() error {
 }
 
 func (c *APIClient) addMetadata(ctx context.Context) context.Context {
-	if !c.reportUserMetrics {
+	if c.metricsUserID == "" {
 		return ctx
-	}
-	if c.config == nil {
-		cfg, err := config.Read()
-		if err != nil {
-			// Don't report error if config fails to read
-			// metrics errors are non fatal
-			log.Errorf("Error loading config: %v", err)
-			return ctx
-		}
-		c.config = cfg
 	}
 	// metadata API downcases all the key names
 	return metadata.NewContext(
 		ctx,
 		metadata.Pairs(
-			"userid", c.config.UserID,
+			"userid", c.metricsUserID,
 			"prefix", c.metricsPrefix,
 		),
 	)

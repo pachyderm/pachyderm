@@ -19,6 +19,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
@@ -38,7 +39,7 @@ import (
 
 // PachctlCmd takes a pachd host-address and creates a cobra.Command
 // which may interact with the host.
-func PachctlCmd(address string) (*cobra.Command, error) {
+func PachctlCmd() (*cobra.Command, error) {
 	var verbose bool
 	var noMetrics bool
 	rootCmd := &cobra.Command{
@@ -60,11 +61,11 @@ Environment variables:
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Output verbose logs")
 	rootCmd.PersistentFlags().BoolVarP(&noMetrics, "no-metrics", "", false, "Don't report user metrics for this command")
 
-	pfsCmds := pfscmds.Cmds(address, &noMetrics)
+	pfsCmds := pfscmds.Cmds(&noMetrics)
 	for _, cmd := range pfsCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	ppsCmds, err := ppscmds.Cmds(address, &noMetrics)
+	ppsCmds, err := ppscmds.Cmds(&noMetrics)
 	if err != nil {
 		return nil, sanitizeErr(err)
 	}
@@ -95,7 +96,12 @@ Environment variables:
 			printVersion(writer, "pachctl", version.Version)
 			writer.Flush()
 
-			versionClient, err := getVersionAPIClient(address)
+			cfg, err := config.Read()
+			if err != nil {
+				log.Warningf("error loading user config from ~/.pachderm/config: %v", err)
+			}
+			pachdAddress := client.GetAddressFromUserMachine(cfg)
+			versionClient, err := getVersionAPIClient(pachdAddress)
 			if err != nil {
 				return sanitizeErr(err)
 			}
@@ -106,7 +112,7 @@ Environment variables:
 			if err != nil {
 				buf := bytes.NewBufferString("")
 				errWriter := tabwriter.NewWriter(buf, 20, 1, 3, ' ', 0)
-				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", address, sanitizeErr(err))
+				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", pachdAddress, sanitizeErr(err))
 				errWriter.Flush()
 				return errors.New(buf.String())
 			}
@@ -121,7 +127,7 @@ Environment variables:
 		Long: `Delete all repos, commits, files, pipelines and jobs.
 This resets the cluster to its initial state.`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, !noMetrics, "user")
+			client, err := client.NewOnUserMachine(!noMetrics, "user")
 			if err != nil {
 				return sanitizeErr(err)
 			}
@@ -205,7 +211,7 @@ To actually remove the data, you will need to manually invoke garbage collection
 Currently "pachctl garbage-collect" can only be started when there are no active jobs running.  You also need to ensure that there's no ongoing "put-file".  Garbage collection puts the cluster into a readonly mode where no new jobs can be created and no data can be added.
 `,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			client, err := client.NewMetricsClientFromAddress(address, !noMetrics, "user")
+			client, err := client.NewOnUserMachine(!noMetrics, "user")
 			if err != nil {
 				return err
 			}
@@ -242,7 +248,12 @@ $ pachctl migrate --from 1.4.8 --to 1.5.0
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			// If `from` is not provided, we use the cluster version.
 			if from == "" {
-				versionClient, err := getVersionAPIClient(address)
+				cfg, err := config.Read()
+				if err != nil {
+					log.Warningf("error loading user config from ~/.pachderm/config: %v", err)
+				}
+				pachdAddress := client.GetAddressFromUserMachine(cfg)
+				versionClient, err := getVersionAPIClient(pachdAddress)
 				if err != nil {
 					return sanitizeErr(err)
 				}
