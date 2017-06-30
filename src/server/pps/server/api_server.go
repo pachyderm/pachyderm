@@ -600,6 +600,9 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 	if pipelineInfo.OutputBranch == "" {
 		return fmt.Errorf("pipeline needs to specify an output branch")
 	}
+	if pipelineInfo.ParallelismSpec != nil && pipelineInfo.ParallelismSpec.Constant == 0 && pipelineInfo.ParallelismSpec.Coefficient == 0 {
+		return fmt.Errorf("cannot specify 0 for both constant and coefficient in parallelism spec")
+	}
 	return nil
 }
 
