@@ -10,5 +10,5 @@ message ActivationCode {
 
 service API {
   rpc PutActivationCode(ActivationCode) returns (google.protobuf.Empty) {}
-  rpc GetActivationCode(ActivationCode) returns (google.protobuf.Empty) {}
+  rpc GetActivationCode(google.protobuf.Empty) returns (ActivationCode) {}
 }
