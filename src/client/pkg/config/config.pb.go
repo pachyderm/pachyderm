@@ -8,6 +8,7 @@
 		client/pkg/config/config.proto
 
 	It has these top-level messages:
+		ConfigV1
 		Config
 */
 package config
@@ -30,14 +31,36 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
+// A proto message with v1 of the pachyderm config (June 30 2017 - present)
+// DO NOT change or remove field numbers from this proto, as if you do, user
+// configs will become unparseable.
+type ConfigV1 struct {
+	PachdAddress string `protobuf:"bytes,2,opt,name=pachd_address,json=pachdAddress,proto3" json:"pachd_address,omitempty"`
+}
+
+func (m *ConfigV1) Reset()                    { *m = ConfigV1{} }
+func (m *ConfigV1) String() string            { return proto.CompactTextString(m) }
+func (*ConfigV1) ProtoMessage()               {}
+func (*ConfigV1) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{0} }
+
+func (m *ConfigV1) GetPachdAddress() string {
+	if m != nil {
+		return m.PachdAddress
+	}
+	return ""
+}
+
+// The proto that will be parsed
 type Config struct {
 	UserID string `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	// Configuration options. Exactly one of these fields should be set.
+	V1 *ConfigV1 `protobuf:"bytes,2,opt,name=v1" json:"v1,omitempty"`
 }
 
 func (m *Config) Reset()                    { *m = Config{} }
 func (m *Config) String() string            { return proto.CompactTextString(m) }
 func (*Config) ProtoMessage()               {}
-func (*Config) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{0} }
+func (*Config) Descriptor() ([]byte, []int) { return fileDescriptorConfig, []int{1} }
 
 func (m *Config) GetUserID() string {
 	if m != nil {
@@ -46,9 +69,41 @@ func (m *Config) GetUserID() string {
 	return ""
 }
 
+func (m *Config) GetV1() *ConfigV1 {
+	if m != nil {
+		return m.V1
+	}
+	return nil
+}
+
 func init() {
+	proto.RegisterType((*ConfigV1)(nil), "ConfigV1")
 	proto.RegisterType((*Config)(nil), "Config")
 }
+func (m *ConfigV1) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ConfigV1) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.PachdAddress) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.PachdAddress)))
+		i += copy(dAtA[i:], m.PachdAddress)
+	}
+	return i, nil
+}
+
 func (m *Config) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -69,6 +124,16 @@ func (m *Config) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintConfig(dAtA, i, uint64(len(m.UserID)))
 		i += copy(dAtA[i:], m.UserID)
+	}
+	if m.V1 != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.V1.Size()))
+		n1, err := m.V1.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n1
 	}
 	return i, nil
 }
@@ -100,11 +165,25 @@ func encodeVarintConfig(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return offset + 1
 }
+func (m *ConfigV1) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.PachdAddress)
+	if l > 0 {
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	return n
+}
+
 func (m *Config) Size() (n int) {
 	var l int
 	_ = l
 	l = len(m.UserID)
 	if l > 0 {
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	if m.V1 != nil {
+		l = m.V1.Size()
 		n += 1 + l + sovConfig(uint64(l))
 	}
 	return n
@@ -122,6 +201,85 @@ func sovConfig(x uint64) (n int) {
 }
 func sozConfig(x uint64) (n int) {
 	return sovConfig(uint64((x << 1) ^ uint64((int64(x) >> 63))))
+}
+func (m *ConfigV1) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowConfig
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ConfigV1: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ConfigV1: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PachdAddress", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.PachdAddress = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipConfig(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
 }
 func (m *Config) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
@@ -180,6 +338,39 @@ func (m *Config) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.UserID = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field V1", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.V1 == nil {
+				m.V1 = &ConfigV1{}
+			}
+			if err := m.V1.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -310,13 +501,17 @@ var (
 func init() { proto.RegisterFile("client/pkg/config/config.proto", fileDescriptorConfig) }
 
 var fileDescriptorConfig = []byte{
-	// 128 bytes of a gzipped FileDescriptorProto
+	// 182 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x4b, 0xce, 0xc9, 0x4c,
 	0xcd, 0x2b, 0xd1, 0x2f, 0xc8, 0x4e, 0xd7, 0x4f, 0xce, 0xcf, 0x4b, 0xcb, 0x84, 0x51, 0x7a, 0x05,
 	0x45, 0xf9, 0x25, 0xf9, 0x52, 0x22, 0xe9, 0xf9, 0xe9, 0xf9, 0x60, 0xa6, 0x3e, 0x88, 0x05, 0x11,
-	0x55, 0xd2, 0xe5, 0x62, 0x73, 0x06, 0xab, 0x12, 0x52, 0xe6, 0x62, 0x2f, 0x2d, 0x4e, 0x2d, 0x8a,
-	0xcf, 0x4c, 0x91, 0x60, 0x54, 0x60, 0xd4, 0xe0, 0x74, 0xe2, 0x7a, 0x74, 0x4f, 0x9e, 0x2d, 0xb4,
-	0x38, 0xb5, 0xc8, 0xd3, 0x25, 0x88, 0x0d, 0x24, 0xe5, 0x99, 0xe2, 0x24, 0x70, 0xe2, 0x91, 0x1c,
-	0xe3, 0x85, 0x47, 0x72, 0x8c, 0x0f, 0x1e, 0xc9, 0x31, 0xce, 0x78, 0x2c, 0xc7, 0x90, 0xc4, 0x06,
-	0x36, 0xc7, 0x18, 0x10, 0x00, 0x00, 0xff, 0xff, 0x96, 0x5f, 0x1d, 0xc1, 0x7f, 0x00, 0x00, 0x00,
+	0x55, 0xd2, 0xe7, 0xe2, 0x70, 0x06, 0xab, 0x0a, 0x33, 0x14, 0x52, 0xe6, 0xe2, 0x2d, 0x48, 0x4c,
+	0xce, 0x48, 0x89, 0x4f, 0x4c, 0x49, 0x29, 0x4a, 0x2d, 0x2e, 0x96, 0x60, 0x52, 0x60, 0xd4, 0xe0,
+	0x0c, 0xe2, 0x01, 0x0b, 0x3a, 0x42, 0xc4, 0x94, 0x3c, 0xb8, 0xd8, 0x20, 0x1a, 0x84, 0x94, 0xb9,
+	0xd8, 0x4b, 0x8b, 0x53, 0x8b, 0xe2, 0x33, 0x53, 0x24, 0x18, 0x41, 0x0a, 0x9d, 0xb8, 0x1e, 0xdd,
+	0x93, 0x67, 0x0b, 0x2d, 0x4e, 0x2d, 0xf2, 0x74, 0x09, 0x62, 0x03, 0x49, 0x79, 0xa6, 0x08, 0x49,
+	0x72, 0x31, 0x95, 0x19, 0x82, 0x0d, 0xe2, 0x36, 0xe2, 0xd4, 0x83, 0x59, 0x15, 0xc4, 0x54, 0x66,
+	0xe8, 0x24, 0x70, 0xe2, 0x91, 0x1c, 0xe3, 0x85, 0x47, 0x72, 0x8c, 0x0f, 0x1e, 0xc9, 0x31, 0xce,
+	0x78, 0x2c, 0xc7, 0x90, 0xc4, 0x06, 0x76, 0x93, 0x31, 0x20, 0x00, 0x00, 0xff, 0xff, 0x34, 0x76,
+	0x08, 0x87, 0xcb, 0x00, 0x00, 0x00,
 }
