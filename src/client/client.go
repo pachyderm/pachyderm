@@ -113,9 +113,10 @@ func GetAddressFromUserMachine(cfg *config.Config) string {
 // exists. This is primarily intended to be used with the pachctl binary, but
 // may also be useful in tests.
 //
-// TODO(msteffen) this logic is fairly linux/unix specific, and makes pachctl
-// incompatible with Windows. We may want to move this (and similar) logic into
-// src/server and have it call a NewFromOptions() constructor.
+// TODO(msteffen) this logic is fairly linux/unix specific, and makes the
+// pachyderm client library incompatible with Windows. We may want to move this
+// (and similar) logic into src/server and have it call a NewFromOptions()
+// constructor.
 func NewOnUserMachine(reportMetrics bool, prefix string) (*APIClient, error) {
 	return NewOnUserMachineWithConcurrency(reportMetrics, prefix, DefaultMaxConcurrentStreams)
 }
