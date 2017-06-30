@@ -37,8 +37,8 @@ import (
 	"google.golang.org/grpc/grpclog"
 )
 
-// PachctlCmd takes a pachd host-address and creates a cobra.Command
-// which may interact with the host.
+// PachctlCmd creates a cobra.Command which can deploy pachyderm clusters and
+// interact with them (it implements the pachctl binary).
 func PachctlCmd() (*cobra.Command, error) {
 	var verbose bool
 	var noMetrics bool
