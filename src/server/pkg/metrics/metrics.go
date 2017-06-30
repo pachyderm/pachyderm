@@ -84,13 +84,16 @@ func (r *Reporter) reportUserAction(ctx context.Context, action string, value in
 	}
 }
 
+// Helper method called by (Start|Finish)ReportAndFlushUserAction. Like those
+// functions, it is used by the pachctl binary and runs on users' machines
+// TODO(msteffen): Wrap config parsing in a library
 func reportAndFlushUserAction(action string, value interface{}) func() {
 	metricsDone := make(chan struct{})
 	go func() {
 		client := newSegmentClient()
 		defer client.Close()
 		cfg, err := config.Read()
-		if err != nil {
+		if err != nil || cfg == nil || cfg.UserID == "" {
 			log.Errorf("Error reading userid from ~/.pachyderm/config: %v", err)
 			// metrics errors are non fatal
 			return
@@ -111,7 +114,7 @@ func reportAndFlushUserAction(action string, value interface{}) func() {
 // StartReportAndFlushUserAction immediately reports the metric but does
 // not block execution. It returns a wait function which waits or times
 // out after 5s.
-// It is used in the few places we need to report metrics from the client.
+// It is used by the pachctl binary and runs on users' machines
 func StartReportAndFlushUserAction(action string, value interface{}) func() {
 	return reportAndFlushUserAction(fmt.Sprintf("%vStarted", action), value)
 }
@@ -119,7 +122,7 @@ func StartReportAndFlushUserAction(action string, value interface{}) func() {
 // FinishReportAndFlushUserAction immediately reports the metric but does
 // not block execution. It returns a wait function which waits or times
 // out after 5s.
-// It is used in the few places we need to report metrics from the client.
+// It is used by the pachctl binary and runs on users' machines
 func FinishReportAndFlushUserAction(action string, err error, start time.Time) func() {
 	var wait func()
 	if err != nil {
