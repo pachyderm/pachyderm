@@ -179,6 +179,7 @@ message JobInfo {
   pfs.BranchInfo new_branch = 27;
   bool incremental = 28;
   pfs.Commit stats_commit = 29;
+  bool enable_stats = 32;
 }
 
 enum WorkerState {
@@ -247,6 +248,7 @@ message PipelineInfo {
   Input input = 20;
   string description = 21;
   bool incremental = 22;
+  bool enable_stats = 23;
 }
 
 message PipelineInfos {
@@ -271,6 +273,7 @@ message CreateJobRequest {
   Input input = 15;
   pfs.BranchInfo new_branch = 16;
   bool incremental = 17;
+  bool enable_stats = 18;
 }
 
 message InspectJobRequest {
@@ -350,6 +353,7 @@ message CreatePipelineRequest {
   Input input = 13;
   string description = 14;
   bool incremental = 15;
+  bool enable_stats = 16;
 }
 
 message InspectPipelineRequest {

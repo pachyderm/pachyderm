@@ -276,6 +276,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			NewBranch:       request.NewBranch,
 			Incremental:     request.Incremental,
 			Stats:           &pps.ProcessStats{},
+			EnableStats:     request.EnableStats,
 		}
 		if request.Pipeline != nil {
 			pipelineInfo := new(pps.PipelineInfo)
@@ -291,6 +292,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			jobInfo.Egress = pipelineInfo.Egress
 			jobInfo.ResourceSpec = pipelineInfo.ResourceSpec
 			jobInfo.Incremental = pipelineInfo.Incremental
+			jobInfo.EnableStats = pipelineInfo.EnableStats
 		} else {
 			if jobInfo.OutputRepo == nil {
 				jobInfo.OutputRepo = &pfs.Repo{job.ID}
@@ -656,6 +658,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		ResourceSpec:       request.ResourceSpec,
 		Description:        request.Description,
 		Incremental:        request.Incremental,
+		EnableStats:        request.EnableStats,
 	}
 	setPipelineDefaults(pipelineInfo)
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
