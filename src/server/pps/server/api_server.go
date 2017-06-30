@@ -614,9 +614,8 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 		for _, provRepo := range provenance {
 			if provMap[provRepo.Name] {
 				return fmt.Errorf("can't create an incremental pipeline with inputs that share provenance")
-			} else {
-				provMap[provRepo.Name] = true
 			}
+			provMap[provRepo.Name] = true
 			repoInfo, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{Repo: provRepo})
 			if err != nil {
 				return err
@@ -624,9 +623,8 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 			for _, provRepo := range repoInfo.Provenance {
 				if provMap[provRepo.Name] {
 					return fmt.Errorf("can't create an incremental pipeline with inputs that share provenance")
-				} else {
-					provMap[provRepo.Name] = true
 				}
+				provMap[provRepo.Name] = true
 			}
 		}
 	}
