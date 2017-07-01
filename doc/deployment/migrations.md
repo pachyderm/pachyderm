@@ -22,6 +22,8 @@ Note that the `pachctl migrate` command can be run either before or after you've
 
 Most importantly, you need to ensure that your cluster is "at rest" when you run `pachctl migrate`.  That is, there shouldn't be any ongoing activities that are changing the state of the cluster.  Examples would be running jobs or ongoing `put-file` requests.
 
+*Due to technical reasons, if you have a pipeline that specifies more than one environment variables in its pipeline spec, the first job that the pipeline spawns after the migration will re-process all input.* 
+
 ## Backup
 
 It’s paramount that you backup your data before running a migration.  While we’ve tested the migration code extensively, it’s still possible that they contain bugs, or that you accidentally use them in a wrong way.
