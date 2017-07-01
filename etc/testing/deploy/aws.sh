@@ -7,7 +7,6 @@
 ## Parse command-line flags
 
 STATE_STORE=s3://pachyderm-travis-state-store-v1
-REGION=-
 ZONE=us-west-1b
 OP=-
 CLOUDFRONT=
@@ -52,18 +51,16 @@ while true; do
   esac
 done
 
-len_zone_minus_one="$(( ${#ZONE} - 1 ))"
-REGION=${ZONE:0:${len_zone_minus_one}}
-
-echo -e "Region: ${REGION}\nZone: ${ZONE}"
+echo -e "Zone: ${ZONE}"
 
 # No need to authenticate with kops, as auth creds are already in environment variables
 # in travis
 set -x
 case "${OP}" in
   create)
-    aws_sh="$(realpath "$(dirname "${0}")/../../deploy/aws.sh")"
-    cmd=("${aws_sh}" --region=${REGION} --zone=${ZONE} --state=${STATE_STORE} --no-metrics)
+    aws_sh="$(dirname "${0}")/../../deploy/aws.sh"
+    aws_sh="$(realpath "${aws_sh}")"
+    cmd=("${aws_sh}" --zone=${ZONE} --state=${STATE_STORE} --no-metrics)
     if [[ -n "${CLOUDFRONT}" ]]; then
       cmd+=("${CLOUDFRONT}")
     fi
