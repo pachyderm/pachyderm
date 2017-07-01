@@ -147,7 +147,7 @@ update_sec_group() {
     export SECURITY_GROUP_ID="$(
         aws ec2 describe-instances --filters "Name=instance-type,Values=${NODE_SIZE}" --region ${AWS_REGION} \
           | jq --raw-output ".Reservations[].Instances[] | select([.Tags[]?.Value | contains(\"masters.${NAME}\")] | any) | .SecurityGroups[0].GroupId"
-        )"
+    )"
     # For k8s access
     aws ec2 authorize-security-group-ingress --group-id ${SECURITY_GROUP_ID} --protocol tcp --port 8080 --cidr "0.0.0.0/0" --region ${AWS_REGION}
     # For pachyderm direct access:
@@ -296,6 +296,8 @@ if [[ "${USE_CLOUDFRONT}" == "true" ]]; then
   # They'll need this ID to run the secure script
   echo "Created cloudfront distribution with ID: ${CLOUDFRONT_ID}"
 fi
+echo "Cluster created:"
+echo ${NAME}
 
 # Put the cluster address in the pachyderm config
 config_path="${HOME}/.pachyderm/config.json"
@@ -313,5 +315,4 @@ jq --monochrome-output \
 rm "${tmpfile}"
 
 # Must echo ID at end, for etc/testing/deploy/aws.sh
-echo "Cluster created. Cluster address has been written to \$HOME/.pachyderm/config:"
-echo ${NAME}
+echo "Cluster address has been written to \$HOME/.pachyderm/config"
