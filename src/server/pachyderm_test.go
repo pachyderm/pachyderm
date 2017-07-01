@@ -3712,6 +3712,84 @@ func TestGarbageCollection(t *testing.T) {
 	require.Equal(t, "barbar\n", buf.String())
 }
 
+func TestIncrementalSharedProvenance(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestIncrementalSharedProvenance_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	pipeline1 := uniqueString("pipeline1")
+	require.NoError(t, c.CreatePipeline(
+		pipeline1,
+		"",
+		[]string{"true"},
+		nil,
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/"),
+		"",
+		false,
+	))
+	pipeline2 := uniqueString("pipeline2")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline2),
+			Transform: &pps.Transform{
+				Cmd: []string{"true"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			Input: client.NewCrossInput(
+				client.NewAtomInput(dataRepo, "/"),
+				client.NewAtomInput(pipeline1, "/"),
+			),
+			Incremental: true,
+		})
+	require.YesError(t, err)
+	pipeline3 := uniqueString("pipeline3")
+	require.NoError(t, c.CreatePipeline(
+		pipeline3,
+		"",
+		[]string{"true"},
+		nil,
+		&pps.ParallelismSpec{
+			Strategy: pps.ParallelismSpec_CONSTANT,
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/"),
+		"",
+		false,
+	))
+	pipeline4 := uniqueString("pipeline4")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline4),
+			Transform: &pps.Transform{
+				Cmd: []string{"true"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Strategy: pps.ParallelismSpec_CONSTANT,
+				Constant: 1,
+			},
+			Input: client.NewCrossInput(
+				client.NewAtomInput(pipeline1, "/"),
+				client.NewAtomInput(pipeline3, "/"),
+			),
+			Incremental: true,
+		})
+	require.YesError(t, err)
+}
+
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
 	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
 	require.NoError(t, err)
