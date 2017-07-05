@@ -1213,6 +1213,39 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	if err != nil {
 		return err
 	}
+
+	// Only write the records to etcd if the commit does exist and is open.
+	// To check that a key exists in etcd, we assert that its CreateRevision
+	// is greater than zero.
+	putRecords := func() error {
+		marshalledRecords, err := records.Marshal()
+		if err != nil {
+			return err
+		}
+		kvc := etcd.NewKV(d.etcdClient)
+
+		commit := file.Commit
+		// Check if the commit ID is a branch name.  If so, we have to
+		// get the real commit ID.
+		if len(commit.ID) != uuid.UUIDWithoutDashesLength {
+			commitInfo, err := d.inspectCommit(ctx, commit)
+			if err != nil {
+				return err
+			}
+			commit = commitInfo.Commit
+		}
+
+		txnResp, err := kvc.Txn(ctx).
+			If(etcd.Compare(etcd.CreateRevision(d.openCommits.Path(commit.ID)), ">", 0)).Then(etcd.OpPut(path.Join(prefix, uuid.NewWithoutDashes()), string(marshalledRecords))).Commit()
+		if err != nil {
+			return err
+		}
+		if !txnResp.Succeeded {
+			return fmt.Errorf("commit %v is not open", commit.ID)
+		}
+		return nil
+	}
+
 	if delimiter == pfs.Delimiter_NONE {
 		object, size, err := objClient.PutObject(reader)
 		if err != nil {
@@ -1222,12 +1255,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			SizeBytes:  size,
 			ObjectHash: object.Hash,
 		})
-		marshalledRecords, err := records.Marshal()
-		if err != nil {
-			return err
-		}
-		_, err = d.etcdClient.Put(ctx, path.Join(prefix, uuid.NewWithoutDashes()), string(marshalledRecords))
-		return err
+		return putRecords()
 	}
 	buffer := &bytes.Buffer{}
 	var datumsWritten int64
@@ -1297,21 +1325,8 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	for i := 0; i < len(indexToRecord); i++ {
 		records.Records = append(records.Records, indexToRecord[i])
 	}
-	marshalledRecords, err := records.Marshal()
-	if err != nil {
-		return err
-	}
 
-	kvc := etcd.NewKV(d.etcdClient)
-	txnResp, err := kvc.Txn(ctx).
-		If(etcd.Compare(etcd.CreateRevision(d.openCommits.Path(file.Commit.ID)), ">", 0)).Then(etcd.OpPut(path.Join(prefix, uuid.NewWithoutDashes()), string(marshalledRecords))).Commit()
-	if err != nil {
-		return err
-	}
-	if !txnResp.Succeeded {
-		return fmt.Errorf("commit %v is not open", file.Commit.ID)
-	}
-	return nil
+	return putRecords()
 }
 
 func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hashtree.HashTree, error) {
