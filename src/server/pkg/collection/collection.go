@@ -67,7 +67,7 @@ func (c *collection) ReadOnly(ctx context.Context) ReadonlyCollection {
 }
 
 // path returns the full path of a key in the etcd namespace
-func (c *collection) Path(key string) string {
+func (c *collection) path(key string) string {
 	return path.Join(c.prefix, key)
 }
 
@@ -90,7 +90,7 @@ type readWriteCollection struct {
 }
 
 func (c *readWriteCollection) Get(key string, val proto.Unmarshaler) error {
-	valStr := c.stm.Get(c.Path(key))
+	valStr := c.stm.Get(c.path(key))
 	if valStr == "" {
 		return ErrNotFound{c.prefix, key}
 	}
@@ -175,11 +175,11 @@ func (c *readWriteCollection) Put(key string, val proto.Marshaler) {
 		}
 	}
 	bytes, _ := val.Marshal()
-	c.stm.Put(c.Path(key), string(bytes))
+	c.stm.Put(c.path(key), string(bytes))
 }
 
 func (c *readWriteCollection) Create(key string, val proto.Marshaler) error {
-	fullKey := c.Path(key)
+	fullKey := c.path(key)
 	valStr := c.stm.Get(fullKey)
 	if valStr != "" {
 		return ErrExists{c.prefix, key}
@@ -189,7 +189,7 @@ func (c *readWriteCollection) Create(key string, val proto.Marshaler) error {
 }
 
 func (c *readWriteCollection) Delete(key string) error {
-	fullKey := c.Path(key)
+	fullKey := c.path(key)
 	if c.stm.Get(fullKey) == "" {
 		return ErrNotFound{c.prefix, key}
 	}
@@ -229,7 +229,7 @@ type readWriteIntCollection struct {
 }
 
 func (c *readWriteIntCollection) Create(key string, val int) error {
-	fullKey := c.Path(key)
+	fullKey := c.path(key)
 	valStr := c.stm.Get(fullKey)
 	if valStr != "" {
 		return ErrExists{c.prefix, key}
@@ -239,7 +239,7 @@ func (c *readWriteIntCollection) Create(key string, val int) error {
 }
 
 func (c *readWriteIntCollection) Get(key string) (int, error) {
-	valStr := c.stm.Get(c.Path(key))
+	valStr := c.stm.Get(c.path(key))
 	if valStr == "" {
 		return 0, ErrNotFound{c.prefix, key}
 	}
@@ -251,7 +251,7 @@ func (c *readWriteIntCollection) Increment(key string) error {
 }
 
 func (c *readWriteIntCollection) IncrementBy(key string, n int) error {
-	fullKey := c.Path(key)
+	fullKey := c.path(key)
 	valStr := c.stm.Get(fullKey)
 	if valStr == "" {
 		return ErrNotFound{c.prefix, key}
@@ -269,7 +269,7 @@ func (c *readWriteIntCollection) Decrement(key string) error {
 }
 
 func (c *readWriteIntCollection) DecrementBy(key string, n int) error {
-	fullKey := c.Path(key)
+	fullKey := c.path(key)
 	valStr := c.stm.Get(fullKey)
 	if valStr == "" {
 		return ErrNotFound{c.prefix, key}
@@ -283,7 +283,7 @@ func (c *readWriteIntCollection) DecrementBy(key string, n int) error {
 }
 
 func (c *readWriteIntCollection) Delete(key string) error {
-	fullKey := c.Path(key)
+	fullKey := c.path(key)
 	if c.stm.Get(fullKey) == "" {
 		return ErrNotFound{c.prefix, key}
 	}
@@ -297,7 +297,7 @@ type readonlyCollection struct {
 }
 
 func (c *readonlyCollection) Get(key string, val proto.Unmarshaler) error {
-	resp, err := c.etcdClient.Get(c.ctx, c.Path(key))
+	resp, err := c.etcdClient.Get(c.ctx, c.path(key))
 	if err != nil {
 		return err
 	}
@@ -426,7 +426,7 @@ func (c *readonlyCollection) WatchByIndex(index Index, val interface{}) (watch.W
 				// pass along the error
 				return ev.Err
 			case watch.EventPut:
-				resp, err := c.etcdClient.Get(c.ctx, c.Path(path.Base(string(ev.Key))))
+				resp, err := c.etcdClient.Get(c.ctx, c.path(path.Base(string(ev.Key))))
 				if err != nil {
 					return err
 				}
@@ -455,5 +455,5 @@ func (c *readonlyCollection) WatchByIndex(index Index, val interface{}) (watch.W
 // WatchOne watches a given item.  The first value returned from the watch
 // will be the current value of the item.
 func (c *readonlyCollection) WatchOne(key string) (watch.Watcher, error) {
-	return watch.NewWatcher(c.ctx, c.etcdClient, c.Path(key))
+	return watch.NewWatcher(c.ctx, c.etcdClient, c.path(key))
 }
