@@ -6,6 +6,14 @@ import (
 	"github.com/satori/go.uuid"
 )
 
+var (
+	UUIDWithoutDashesLength int
+)
+
+func init() {
+	UUIDWithoutDashesLength = len(NewWithoutDashes())
+}
+
 // New returns a new uuid.
 func New() string {
 	return uuid.NewV4().String()
