@@ -59,7 +59,7 @@ type Index struct {
 // operations.
 type ReadWriteCollection interface {
 	Get(key string, val proto.Unmarshaler) error
-	Put(key string, val proto.Marshaler)
+	Put(key string, val proto.Marshaler) error
 	Create(key string, val proto.Marshaler) error
 	Delete(key string) error
 	DeleteAll()

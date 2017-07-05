@@ -25,10 +25,13 @@ type collection struct {
 	// To be clear, this is only necessary because of `Delete`, where we
 	// need to know the type in order to properly remove secondary indexes.
 	template proto.Message
+	// keyCheck is a function that checks if a key is valid.  Invalid keys
+	// cannot be created.
+	keyCheck func(string) error
 }
 
 // NewCollection creates a new collection.
-func NewCollection(etcdClient *etcd.Client, prefix string, indexes []Index, template proto.Message) Collection {
+func NewCollection(etcdClient *etcd.Client, prefix string, indexes []Index, template proto.Message, keyCheck func(string) error) Collection {
 	// We want to ensure that the prefix always ends with a trailing
 	// slash.  Otherwise, when you list the items under a collection
 	// such as `foo`, you might end up listing items under `foobar`
@@ -42,6 +45,7 @@ func NewCollection(etcdClient *etcd.Client, prefix string, indexes []Index, temp
 		etcdClient: etcdClient,
 		indexes:    indexes,
 		template:   template,
+		keyCheck:   keyCheck,
 	}
 }
 
@@ -126,7 +130,12 @@ func (c *readWriteCollection) getMultiIndexPaths(val interface{}, index Index, k
 	return indexPaths
 }
 
-func (c *readWriteCollection) Put(key string, val proto.Marshaler) {
+func (c *readWriteCollection) Put(key string, val proto.Marshaler) error {
+	if c.collection.keyCheck != nil {
+		if err := c.collection.keyCheck(key); err != nil {
+			return err
+		}
+	}
 	if c.indexes != nil {
 		clone := cloneProtoMsg(val)
 
@@ -176,6 +185,7 @@ func (c *readWriteCollection) Put(key string, val proto.Marshaler) {
 	}
 	bytes, _ := val.Marshal()
 	c.stm.Put(c.Path(key), string(bytes))
+	return nil
 }
 
 func (c *readWriteCollection) Create(key string, val proto.Marshaler) error {
