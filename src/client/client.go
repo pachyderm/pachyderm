@@ -14,6 +14,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	types "github.com/gogo/protobuf/types"
 
+	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/health"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
@@ -29,11 +30,15 @@ type PpsAPIClient pps.APIClient
 // ObjectAPIClient is an alias for pfs.ObjectAPIClient
 type ObjectAPIClient pfs.ObjectAPIClient
 
+// AuthAPIClient is an alias for auth.APIClient
+type AuthAPIClient auth.APIClient
+
 // An APIClient is a wrapper around pfs, pps and block APIClients.
 type APIClient struct {
 	PfsAPIClient
 	PpsAPIClient
 	ObjectAPIClient
+	AuthAPIClient
 	addr              string
 	clientConn        *grpc.ClientConn
 	healthClient      health.HealthClient
@@ -187,6 +192,7 @@ func (c *APIClient) connect() error {
 	c.PfsAPIClient = pfs.NewAPIClient(clientConn)
 	c.PpsAPIClient = pps.NewAPIClient(clientConn)
 	c.ObjectAPIClient = pfs.NewObjectAPIClient(clientConn)
+	c.AuthAPIClient = auth.NewAPIClient(clientConn)
 	c.clientConn = clientConn
 	c.healthClient = health.NewHealthClient(clientConn)
 	c._ctx = ctx
