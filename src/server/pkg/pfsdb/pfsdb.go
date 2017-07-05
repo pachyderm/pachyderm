@@ -14,6 +14,7 @@ const (
 	repoRefCountsPrefix = "/repoRefCounts"
 	commitsPrefix       = "/commits"
 	branchesPrefix      = "/branches"
+	openCommitsPrefix   = "/openCommits"
 )
 
 var (
@@ -56,6 +57,16 @@ func Branches(etcdClient *etcd.Client, etcdPrefix string, repo string) col.Colle
 	return col.NewCollection(
 		etcdClient,
 		path.Join(etcdPrefix, branchesPrefix, repo),
+		nil,
+		&pfs.Commit{},
+	)
+}
+
+// OpenCommits returns a collection of open commits
+func OpenCommits(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
+	return col.NewCollection(
+		etcdClient,
+		path.Join(etcdPrefix, openCommitsPrefix),
 		nil,
 		&pfs.Commit{},
 	)
