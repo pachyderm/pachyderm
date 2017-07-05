@@ -11,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
@@ -73,7 +74,10 @@ func (a *apiServer) master() {
 				// If the pipeline has been restarted, create workers
 				if !pipelineStateToStopped(pipelineInfo.State) && event.PrevKey != nil && pipelineStateToStopped(prevPipelineInfo.State) {
 					if err := a.upsertWorkersForPipeline(&pipelineInfo); err != nil {
-						return err
+						if err := a.setPipelineFailure(ctx, &pipelineInfo); err != nil {
+							return err
+						}
+						continue
 					}
 				}
 
@@ -86,7 +90,10 @@ func (a *apiServer) master() {
 						}
 					}
 					if err := a.upsertWorkersForPipeline(&pipelineInfo); err != nil {
-						return err
+						if err := a.setPipelineFailure(ctx, &pipelineInfo); err != nil {
+							return err
+						}
+						continue
 					}
 				}
 			case watch.EventDelete:
@@ -106,29 +113,55 @@ func (a *apiServer) master() {
 	})
 }
 
+func (a *apiServer) setPipelineFailure(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
+	// Set pipeline state to running
+	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		pipelineName := pipelineInfo.Pipeline.Name
+		pipelines := a.pipelines.ReadWrite(stm)
+		pipelineInfo := new(pps.PipelineInfo)
+		if err := pipelines.Get(pipelineName, pipelineInfo); err != nil {
+			return err
+		}
+		pipelineInfo.State = pps.PipelineState_PIPELINE_FAILURE
+		pipelines.Put(pipelineName, pipelineInfo)
+		return nil
+	})
+	return err
+}
+
 func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
-	parallelism, err := ppsserver.GetExpectedNumWorkers(a.kubeClient, pipelineInfo.ParallelismSpec)
-	if err != nil {
-		return err
-	}
-	var resources *api.ResourceList
-	if pipelineInfo.ResourceSpec != nil {
-		resources, err = parseResourceList(pipelineInfo.ResourceSpec)
+	var errCount int
+	return backoff.RetryNotify(func() error {
+		parallelism, err := ppsserver.GetExpectedNumWorkers(a.kubeClient, pipelineInfo.ParallelismSpec)
 		if err != nil {
 			return err
 		}
-	}
-	options := a.getWorkerOptions(
-		ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
-		int32(parallelism),
-		resources,
-		pipelineInfo.Transform)
-	// Set the pipeline name env
-	options.workerEnv = append(options.workerEnv, api.EnvVar{
-		Name:  client.PPSPipelineNameEnv,
-		Value: pipelineInfo.Pipeline.Name,
+		var resources *api.ResourceList
+		if pipelineInfo.ResourceSpec != nil {
+			resources, err = parseResourceList(pipelineInfo.ResourceSpec)
+			if err != nil {
+				return err
+			}
+		}
+		options := a.getWorkerOptions(
+			ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
+			int32(parallelism),
+			resources,
+			pipelineInfo.Transform)
+		// Set the pipeline name env
+		options.workerEnv = append(options.workerEnv, api.EnvVar{
+			Name:  client.PPSPipelineNameEnv,
+			Value: pipelineInfo.Pipeline.Name,
+		})
+		return a.createWorkerRc(options)
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		errCount++
+		if errCount >= 3 {
+			return err
+		}
+		protolion.Errorf("error creating workers for pipeline %v: %v; retrying in %v", pipelineInfo.Pipeline.Name, err, d)
+		return nil
 	})
-	return a.createWorkerRc(options)
 }
 
 func (a *apiServer) deleteWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
