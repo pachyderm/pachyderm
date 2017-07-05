@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"crypto"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -12,6 +11,7 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
+	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/src/client/auth"
 )
