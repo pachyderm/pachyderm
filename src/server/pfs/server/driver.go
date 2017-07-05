@@ -93,6 +93,7 @@ type driver struct {
 	repoRefCounts col.Collection
 	commits       collectionFactory
 	branches      collectionFactory
+	openCommits   col.Collection
 
 	// a cache for commit IDs that we know exist
 	commitCache *lru.Cache
@@ -147,6 +148,7 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, cacheB
 		branches: func(repo string) col.Collection {
 			return pfsdb.Branches(etcdClient, etcdPrefix, repo)
 		},
+		openCommits: pfsdb.OpenCommits(etcdClient, etcdPrefix),
 		commitCache: commitCache,
 		treeCache:   treeCache,
 	}, nil
@@ -516,6 +518,8 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 			commitInfo.Finished = now()
 			repoInfo.SizeBytes += commitSize
 			repos.Put(parent.Repo.Name, repoInfo)
+		} else {
+			d.openCommits.ReadWrite(stm).Put(commit.ID, commit)
 		}
 		return commits.Create(commit.ID, commitInfo)
 	}); err != nil {
@@ -588,6 +592,10 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 		repos := d.repos.ReadWrite(stm)
 
 		commits.Put(commit.ID, commitInfo)
+		if err := d.openCommits.ReadWrite(stm).Delete(commit.ID); err != nil {
+			return fmt.Errorf("could not confirm that commit %s is open; this is likely a bug. err: %v", commit.ID, err)
+		}
+
 		// update repo size
 		repoInfo := new(pfs.RepoInfo)
 		if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
@@ -1320,8 +1328,17 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	if err != nil {
 		return err
 	}
-	_, err = d.etcdClient.Put(ctx, path.Join(prefix, uuid.NewWithoutDashes()), string(marshalledRecords))
-	return err
+
+	kvc := etcd.NewKV(d.etcdClient)
+	txnResp, err := kvc.Txn(ctx).
+		If(etcd.Compare(etcd.CreateRevision(d.openCommits.Path(file.Commit.ID)), ">", 0)).Then(etcd.OpPut(path.Join(prefix, uuid.NewWithoutDashes()), string(marshalledRecords))).Commit()
+	if err != nil {
+		return err
+	}
+	if !txnResp.Succeeded {
+		return fmt.Errorf("commit %v is not open", file.Commit.ID)
+	}
+	return nil
 }
 
 func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hashtree.HashTree, error) {
