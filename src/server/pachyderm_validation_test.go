@@ -33,7 +33,6 @@ func TestInvalidCreatePipeline(t *testing.T) {
 		cmd,
 		nil,
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInputOpts("out", dataRepo, "", "/*", false, ""),
@@ -50,7 +49,6 @@ func TestInvalidCreatePipeline(t *testing.T) {
 		cmd,
 		nil,
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInputOpts("input", dataRepo, "", "", false, ""),
@@ -67,7 +65,6 @@ func TestInvalidCreatePipeline(t *testing.T) {
 		nil,
 		nil,
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInputOpts("input", dataRepo, "", "/*", false, ""),
@@ -92,7 +89,6 @@ func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 		[]string{"bash"},
 		[]string{""},
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInputOpts("whatever", "nonexistent", "", "/*", false, ""),
@@ -118,7 +114,6 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 		[]string{"bash"},
 		[]string{""},
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(dataRepo, "/*"),
@@ -132,7 +127,6 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 		[]string{"bash"},
 		[]string{""},
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(dataRepo, "/*"),
