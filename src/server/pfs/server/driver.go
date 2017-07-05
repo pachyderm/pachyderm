@@ -95,8 +95,6 @@ type driver struct {
 	branches      collectionFactory
 	openCommits   col.Collection
 
-	// a cache for commit IDs that we know exist
-	commitCache *lru.Cache
 	// a cache for hashtrees
 	treeCache *lru.Cache
 }
@@ -110,9 +108,6 @@ const (
 //
 // Each value specifies a percentage of the total cache space to be used.
 const (
-	commitCachePercentage = 0.05
-	treeCachePercentage   = 0.95
-
 	// by default we use 1GB of RAM for cache
 	defaultCacheSize = 1024 * 1024
 )
@@ -127,11 +122,7 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, cacheB
 		return nil, err
 	}
 
-	commitCache, err := lru.New(int(float64(cacheBytes) * commitCachePercentage))
-	if err != nil {
-		return nil, err
-	}
-	treeCache, err := lru.New(int(float64(cacheBytes) * treeCachePercentage))
+	treeCache, err := lru.New(int(cacheBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +140,6 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, cacheB
 			return pfsdb.Branches(etcdClient, etcdPrefix, repo)
 		},
 		openCommits: pfsdb.OpenCommits(etcdClient, etcdPrefix),
-		commitCache: commitCache,
 		treeCache:   treeCache,
 	}, nil
 }
@@ -1205,28 +1195,11 @@ func checkPath(path string) error {
 	return nil
 }
 
-func (d *driver) commitExists(commitID string) bool {
-	_, found := d.commitCache.Get(commitID)
-	return found
-}
-
-func (d *driver) setCommitExist(commitID string) {
-	d.commitCache.Add(commitID, struct{}{})
-}
-
 func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter,
 	targetFileDatums int64, targetFileBytes int64, reader io.Reader) error {
 	// Cache existing commit IDs so we don't hit the database on every
 	// PutFile call.
 	records := &PutFileRecords{}
-	if !d.commitExists(file.Commit.ID) {
-		_, err := d.inspectCommit(ctx, file.Commit)
-		if err != nil {
-			return err
-		}
-		d.setCommitExist(file.Commit.ID)
-	}
-
 	if err := checkPath(file.Path); err != nil {
 		return err
 	}
