@@ -376,6 +376,14 @@ func TestUpdateProvenance(t *testing.T) {
 	require.YesError(t, client.DeleteRepo(prov3, false))
 }
 
+func TestPutFileIntoOpenCommit(t *testing.T) {
+
+}
+
+func TestCreateInvalidBranchName(t *testing.T) {
+
+}
+
 func TestListRepoWithProvenance(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)

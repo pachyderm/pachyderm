@@ -2,10 +2,12 @@
 package pfsdb
 
 import (
+	"fmt"
 	"path"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 )
 
@@ -29,6 +31,7 @@ func Repos(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 		path.Join(etcdPrefix, reposPrefix),
 		[]col.Index{ProvenanceIndex},
 		&pfs.RepoInfo{},
+		nil,
 	)
 }
 
@@ -37,6 +40,7 @@ func RepoRefCounts(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 	return col.NewCollection(
 		etcdClient,
 		path.Join(etcdPrefix, repoRefCountsPrefix),
+		nil,
 		nil,
 		nil,
 	)
@@ -49,6 +53,7 @@ func Commits(etcdClient *etcd.Client, etcdPrefix string, repo string) col.Collec
 		path.Join(etcdPrefix, commitsPrefix, repo),
 		[]col.Index{ProvenanceIndex},
 		&pfs.CommitInfo{},
+		nil,
 	)
 }
 
@@ -59,6 +64,12 @@ func Branches(etcdClient *etcd.Client, etcdPrefix string, repo string) col.Colle
 		path.Join(etcdPrefix, branchesPrefix, repo),
 		nil,
 		&pfs.Commit{},
+		func(key string) error {
+			if len(key) == uuid.UUIDWithoutDashesLength {
+				return fmt.Errorf("branch name cannot be of the same length as commit IDs")
+			}
+			return nil
+		},
 	)
 }
 
@@ -69,5 +80,6 @@ func OpenCommits(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 		path.Join(etcdPrefix, openCommitsPrefix),
 		nil,
 		&pfs.Commit{},
+		nil,
 	)
 }

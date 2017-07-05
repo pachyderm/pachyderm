@@ -489,7 +489,9 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 				}
 			}
 			// Make commit the new head of the branch
-			branches.Put(branch, commit)
+			if err := branches.Put(branch, commit); err != nil {
+				return err
+			}
 		}
 		if parent.ID != "" {
 			parentCommitInfo, err := d.inspectCommit(ctx, parent)
@@ -1143,7 +1145,9 @@ func (d *driver) setBranch(ctx context.Context, commit *pfs.Commit, name string)
 			return err
 		}
 
-		branches.Put(name, commit)
+		if err := branches.Put(name, commit); err != nil {
+			return err
+		}
 		return nil
 	})
 	return err
@@ -1197,8 +1201,17 @@ func checkPath(path string) error {
 
 func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter,
 	targetFileDatums int64, targetFileBytes int64, reader io.Reader) error {
-	// Cache existing commit IDs so we don't hit the database on every
-	// PutFile call.
+	// Check if the commit ID is a branch name.  If so, we have to
+	// get the real commit ID in order to check if the commit does exist
+	// and is open.
+	if len(file.Commit.ID) != uuid.UUIDWithoutDashesLength {
+		commitInfo, err := d.inspectCommit(ctx, file.Commit)
+		if err != nil {
+			return err
+		}
+		file.Commit = commitInfo.Commit
+	}
+
 	records := &PutFileRecords{}
 	if err := checkPath(file.Path); err != nil {
 		return err
@@ -1224,24 +1237,13 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		}
 		kvc := etcd.NewKV(d.etcdClient)
 
-		commit := file.Commit
-		// Check if the commit ID is a branch name.  If so, we have to
-		// get the real commit ID.
-		if len(commit.ID) != uuid.UUIDWithoutDashesLength {
-			commitInfo, err := d.inspectCommit(ctx, commit)
-			if err != nil {
-				return err
-			}
-			commit = commitInfo.Commit
-		}
-
 		txnResp, err := kvc.Txn(ctx).
-			If(etcd.Compare(etcd.CreateRevision(d.openCommits.Path(commit.ID)), ">", 0)).Then(etcd.OpPut(path.Join(prefix, uuid.NewWithoutDashes()), string(marshalledRecords))).Commit()
+			If(etcd.Compare(etcd.CreateRevision(d.openCommits.Path(file.Commit.ID)), ">", 0)).Then(etcd.OpPut(path.Join(prefix, uuid.NewWithoutDashes()), string(marshalledRecords))).Commit()
 		if err != nil {
 			return err
 		}
 		if !txnResp.Succeeded {
-			return fmt.Errorf("commit %v is not open", commit.ID)
+			return fmt.Errorf("commit %v is not open", file.Commit.ID)
 		}
 		return nil
 	}
