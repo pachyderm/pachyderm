@@ -2384,29 +2384,31 @@ func TestFlush2(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	ACommit, err := client.StartCommit("A", "")
+	ACommit, err := client.StartCommit("A", "master")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit("A", ACommit.ID))
-	BCommit, err := client.StartCommit("B", "")
+	BCommit, err := client.StartCommit("B", "master")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit("B", BCommit.ID))
 	CCommit, err := client.PfsAPIClient.StartCommit(
 		context.Background(),
 		&pfs.StartCommitRequest{
 			Parent:     pclient.NewCommit("C", ""),
+			Branch:     "master",
 			Provenance: []*pfs.Commit{ACommit, BCommit},
 		},
 	)
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit("C", CCommit.ID))
 
-	BCommit, err = client.StartCommit("B", BCommit.ID)
+	BCommit, err = client.StartCommit("B", "master")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit("B", BCommit.ID))
 	CCommit, err = client.PfsAPIClient.StartCommit(
 		context.Background(),
 		&pfs.StartCommitRequest{
-			Parent:     pclient.NewCommit("C", CCommit.ID),
+			Parent:     pclient.NewCommit("C", ""),
+			Branch:     "master",
 			Provenance: []*pfs.Commit{ACommit, BCommit},
 		},
 	)
