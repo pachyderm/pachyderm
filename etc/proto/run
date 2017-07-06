@@ -10,7 +10,7 @@ for i in $(find src -name "*.proto"); do \
 		-I${GOPATH}/src/github.com/gogo/protobuf \
 		-I${GOPATH}/src \
 		-Isrc \
-		--gogo_out=plugins=grpc,\
+		--gofast_out=plugins=grpc,\
 Mgoogle/protobuf/duration.proto=github.com/gogo/protobuf/types,\
 Mgoogle/protobuf/empty.proto=github.com/gogo/protobuf/types,\
 Mgoogle/protobuf/timestamp.proto=github.com/gogo/protobuf/types,\

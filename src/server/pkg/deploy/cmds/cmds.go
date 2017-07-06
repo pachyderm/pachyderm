@@ -21,19 +21,27 @@ import (
 	"go.pedge.io/pkg/cobra"
 )
 
-var defaultDashImage = "pachyderm/dash:0.3.22"
+var defaultDashImage = "pachyderm/dash:0.3.26"
 
-func maybeKcCreate(dryRun bool, manifest *bytes.Buffer) error {
+func maybeKcCreate(dryRun bool, manifest *bytes.Buffer, opts *assets.AssetOpts) error {
 	if dryRun {
 		_, err := os.Stdout.Write(manifest.Bytes())
 		return err
 	}
-	return cmdutil.RunIO(
+	ret := cmdutil.RunIO(
 		cmdutil.IO{
 			Stdin:  manifest,
 			Stdout: os.Stdout,
 			Stderr: os.Stderr,
 		}, "kubectl", "create", "-f", "-")
+	if !dryRun {
+		fmt.Println("\nPachyderm is launching. Check it's status with \"kubectl get all\"")
+		if opts.DashOnly || opts.EnableDash {
+			fmt.Println("Once launched, access the dashboard by running \"pachctl port-forward\"")
+		}
+		fmt.Println("")
+	}
+	return ret
 }
 
 // DeployCmd returns a cobra.Command to deploy pachyderm.
@@ -65,8 +73,13 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		Long:  "Deploy a single-node Pachyderm cluster with local metadata storage.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			if metrics && !dev {
-				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
-				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+				start := time.Now()
+				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
+				defer startMetricsWait()
+				defer func() {
+					finishMetricsWait := _metrics.FinishReportAndFlushUserAction("Deploy", retErr, start)
+					finishMetricsWait()
+				}()
 			}
 			manifest := &bytes.Buffer{}
 			if dev {
@@ -75,7 +88,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			if err := assets.WriteLocalAssets(manifest, opts, hostPath); err != nil {
 				return err
 			}
-			return maybeKcCreate(dryRun, manifest)
+			return maybeKcCreate(dryRun, manifest, opts)
 		}),
 	}
 	deployLocal.Flags().StringVar(&hostPath, "host-path", "/var/pachyderm", "Location on the host machine where PFS metadata will be stored.")
@@ -91,8 +104,13 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			"  <size of disks>: Size of GCE persistent disks in GB (assumed to all be the same).\n",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) (retErr error) {
 			if metrics && !dev {
-				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
-				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+				start := time.Now()
+				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
+				defer startMetricsWait()
+				defer func() {
+					finishMetricsWait := _metrics.FinishReportAndFlushUserAction("Deploy", retErr, start)
+					finishMetricsWait()
+				}()
 			}
 			volumeSize, err := strconv.Atoi(args[1])
 			if err != nil {
@@ -103,7 +121,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			if err = assets.WriteGoogleAssets(manifest, opts, args[0], volumeSize); err != nil {
 				return err
 			}
-			return maybeKcCreate(dryRun, manifest)
+			return maybeKcCreate(dryRun, manifest, opts)
 		}),
 	}
 
@@ -115,15 +133,20 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			"    <volumes> <size of volumes (in GB)> <bucket> <id> <secret> <endpoint>\n",
 		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 4, Max: 7}, func(args []string) (retErr error) {
 			if metrics && !dev {
-				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
-				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+				start := time.Now()
+				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
+				defer startMetricsWait()
+				defer func() {
+					finishMetricsWait := _metrics.FinishReportAndFlushUserAction("Deploy", retErr, start)
+					finishMetricsWait()
+				}()
 			}
 			manifest := &bytes.Buffer{}
 			err := assets.WriteCustomAssets(manifest, opts, args, objectStoreBackend, persistentDiskBackend, secure)
 			if err != nil {
 				return err
 			}
-			return maybeKcCreate(dryRun, manifest)
+			return maybeKcCreate(dryRun, manifest, opts)
 		}),
 	}
 	deployCustom.Flags().BoolVarP(&secure, "secure", "s", false, "Enable secure access to a Minio server.")
@@ -144,8 +167,13 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			"  <size of volumes>: Size of EBS volumes, in GB (assumed to all be the same).\n",
 		Run: cmdutil.RunFixedArgs(6, func(args []string) (retErr error) {
 			if metrics && !dev {
-				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
-				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+				start := time.Now()
+				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
+				defer startMetricsWait()
+				defer func() {
+					finishMetricsWait := _metrics.FinishReportAndFlushUserAction("Deploy", retErr, start)
+					finishMetricsWait()
+				}()
 			}
 			volumeSize, err := strconv.Atoi(args[5])
 			if err != nil {
@@ -159,7 +187,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			if err = assets.WriteAmazonAssets(manifest, opts, args[0], args[1], args[2], args[3], args[4], volumeSize, cloudfrontDistribution); err != nil {
 				return err
 			}
-			return maybeKcCreate(dryRun, manifest)
+			return maybeKcCreate(dryRun, manifest, opts)
 		}),
 	}
 	deployAmazon.Flags().StringVar(&cloudfrontDistribution, "cloudfront-distribution", "",
@@ -175,8 +203,13 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			"  <size of volumes>: Size of persistent volumes, in GB (assumed to all be the same).\n",
 		Run: cmdutil.RunFixedArgs(4, func(args []string) (retErr error) {
 			if metrics && !dev {
-				metricsFn := _metrics.ReportAndFlushUserAction("Deploy")
-				defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+				start := time.Now()
+				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
+				defer startMetricsWait()
+				defer func() {
+					finishMetricsWait := _metrics.FinishReportAndFlushUserAction("Deploy", retErr, start)
+					finishMetricsWait()
+				}()
 			}
 			if _, err := base64.StdEncoding.DecodeString(args[2]); err != nil {
 				return fmt.Errorf("storage-account-key needs to be base64 encoded; instead got '%v'", args[2])
@@ -196,7 +229,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			if err = assets.WriteMicrosoftAssets(manifest, opts, args[0], args[1], args[2], volumeSize); err != nil {
 				return err
 			}
-			return maybeKcCreate(dryRun, manifest)
+			return maybeKcCreate(dryRun, manifest, opts)
 		}),
 	}
 
@@ -229,8 +262,8 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deploy.PersistentFlags().StringVar(&etcdVolume, "static-etcd-volume", "", "Deploy etcd as a ReplicationController with one pod.  The pod uses the given persistent volume.")
 	deploy.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
 	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
-	deploy.PersistentFlags().BoolVar(&enableDash, "dashboard", false, "Deploy the Pachyderm UI along with Pachyderm (experimental)")
-	deploy.PersistentFlags().BoolVar(&dashOnly, "dashboard-only", false, "Only deploy the Pachyderm UI (experimental), without the rest of pachyderm. This is for launching the UI adjacent to an existing Pachyderm cluster")
+	deploy.PersistentFlags().BoolVar(&enableDash, "dashboard", false, "Deploy the Pachyderm UI along with Pachyderm (experimental). After deployment, run \"pachctl port-forward\" to connect")
+	deploy.PersistentFlags().BoolVar(&dashOnly, "dashboard-only", false, "Only deploy the Pachyderm UI (experimental), without the rest of pachyderm. This is for launching the UI adjacent to an existing Pachyderm cluster. After deployment, run \"pachctl port-forward\" to connect")
 	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", defaultDashImage, "Image URL for pachyderm dashboard")
 	deploy.AddCommand(deployLocal)
 	deploy.AddCommand(deployAmazon)

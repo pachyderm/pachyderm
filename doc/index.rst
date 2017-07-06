@@ -53,20 +53,28 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
 
 .. toctree::
     :maxdepth: 1
+    :caption: Manage Pachyderm
+
+    managing_pachyderm/autoscaling
+    managing_pachyderm/data_management
+    managing_pachyderm/general_troubleshooting
+    managing_pachyderm/deploy_troubleshooting
+
+.. toctree::
+    :maxdepth: 1
     :caption: Pachyderm Cookbook
 
     cookbook/ml
     cookbook/time_windows
-    cookbook/tensorflow_gpu
+    cookbook/gpus
  
 .. toctree::
     :maxdepth: 2
     :caption: Reference
 
     reference/pipeline_spec
-    reference/best_practices
     pachctl/pachctl
-    reference/golang_client
+    reference/clients
     
 
 

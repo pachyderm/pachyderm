@@ -1,0 +1,47 @@
+{
+  "pipeline": {
+    "name": "checkpoint"
+  },
+  "transform": {
+    "image": "dwhitena/pix2pix",
+    "cmd": [ "/bin/bash" ],
+    "stdin": [
+	"python pix2pix.py --mode train --output_dir /pfs/out --max_epochs 5 --input_dir /pfs/training --which_direction BtoA",
+	"sed -i 's/out/checkpoint/g' /pfs/out/checkpoint"
+    ]
+  },
+  "resource_spec": {
+    "gpu": 1
+  },
+  "parallelism_spec": {
+    "constant": "1"
+  },
+  "input": {
+    "atom": {
+      "repo": "training",
+      "glob": "/"
+    }
+  }
+}
+{
+  "pipeline": {
+    "name": "model"
+  },
+  "transform": {
+    "image": "dwhitena/pix2pix",
+    "cmd": [ "/bin/bash" ],
+    "stdin": [
+	"python pix2pix.py --mode export --output_dir /pfs/out --checkpoint /pfs/checkpoint",
+	"sed -i 's/out/model/g' /pfs/out/checkpoint"
+    ]
+  },
+  "parallelism_spec": {
+    "constant": "1"
+  },
+  "input": {
+    "atom": {
+      "repo": "checkpoint",
+      "glob": "/"
+    }
+  }
+}

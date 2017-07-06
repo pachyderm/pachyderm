@@ -1,4 +1,0 @@
-Data Parallelization
-====================
-
- 
