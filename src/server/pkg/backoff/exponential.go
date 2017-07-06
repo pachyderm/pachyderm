@@ -79,7 +79,7 @@ const (
 	DefaultMaxElapsedTime      = 15 * time.Minute
 )
 
-// canonicalizeRandomizationFactor is a utility function used by all
+// withCanonicalRandomizationFactor is a utility function used by all
 // NewXYZBackoff functions to clamp b.RandomizationFactor to either 0 or 1
 func (b *ExponentialBackOff) withCanonicalRandomizationFactor() *ExponentialBackOff {
 	if b.RandomizationFactor < 0 {
