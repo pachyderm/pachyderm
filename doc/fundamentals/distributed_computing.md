@@ -20,10 +20,11 @@ The number of workers that are used for a given pipeline is controlled by the `p
 
 ```
   "parallelism_spec": {
+    // Exactly one of these two fields should be set
     "constant": int
     "coefficient": double
 ```
-Pachyderm has two parallelism strategies: `constant` and `coefficient`.
+Pachyderm has two parallelism strategies: `constant` and `coefficient`. You should set one of the two corresponding fields in the `parallelism_spec`, and which field is set will determine which parallelism strategy pachyderm uses.
 
 If you set the `constant` field, Pachyderm will start the number of workers that you specify. For example, set `"constant":10` to use 10 workers.
 
