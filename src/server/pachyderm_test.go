@@ -2773,7 +2773,7 @@ func TestGetLogs(t *testing.T) {
 	require.True(t, len(commits) == 1)
 
 	// Get logs from pipeline, using pipeline
-	iter := c.GetLogs(pipelineName, "", nil)
+	iter := c.GetLogs(pipelineName, "", nil, false)
 	var numLogs int
 	for iter.Next() {
 		numLogs++
@@ -2784,7 +2784,7 @@ func TestGetLogs(t *testing.T) {
 
 	// Get logs from pipeline, using a pipeline that doesn't exist. There should
 	// be an error
-	iter = c.GetLogs("__DOES_NOT_EXIST__", "", nil)
+	iter = c.GetLogs("__DOES_NOT_EXIST__", "", nil, false)
 	require.False(t, iter.Next())
 	require.YesError(t, iter.Err())
 	require.Matches(t, "could not get", iter.Err().Error())
@@ -2797,7 +2797,7 @@ func TestGetLogs(t *testing.T) {
 	// (2) Get logs using extracted job ID
 	// wait for logs to be collected
 	time.Sleep(10 * time.Second)
-	iter = c.GetLogs("", jobInfos[0].Job.ID, nil)
+	iter = c.GetLogs("", jobInfos[0].Job.ID, nil, false)
 	numLogs = 0
 	for iter.Next() {
 		numLogs++
@@ -2809,7 +2809,7 @@ func TestGetLogs(t *testing.T) {
 
 	// Get logs from pipeline, using a job that doesn't exist. There should
 	// be an error
-	iter = c.GetLogs("", "__DOES_NOT_EXIST__", nil)
+	iter = c.GetLogs("", "__DOES_NOT_EXIST__", nil, false)
 	require.False(t, iter.Next())
 	require.YesError(t, iter.Err())
 	require.Matches(t, "could not get", iter.Err().Error())
@@ -2819,15 +2819,15 @@ func TestGetLogs(t *testing.T) {
 	fileInfo, err := c.InspectFile(dataRepo, commit.ID, "/file")
 	require.NoError(t, err)
 
-	pathLog := c.GetLogs("", jobInfos[0].Job.ID, []string{"/file"})
+	pathLog := c.GetLogs("", jobInfos[0].Job.ID, []string{"/file"}, false)
 
 	hexHash := "19fdf57bdf9eb5a9602bfa9c0e6dd7ed3835f8fd431d915003ea82747707be66"
 	require.Equal(t, hexHash, hex.EncodeToString(fileInfo.Hash)) // sanity-check test
-	hexLog := c.GetLogs("", jobInfos[0].Job.ID, []string{hexHash})
+	hexLog := c.GetLogs("", jobInfos[0].Job.ID, []string{hexHash}, false)
 
 	base64Hash := "Gf31e9+etalgK/qcDm3X7Tg1+P1DHZFQA+qCdHcHvmY="
 	require.Equal(t, base64Hash, base64.StdEncoding.EncodeToString(fileInfo.Hash))
-	base64Log := c.GetLogs("", jobInfos[0].Job.ID, []string{base64Hash})
+	base64Log := c.GetLogs("", jobInfos[0].Job.ID, []string{base64Hash}, false)
 
 	numLogs = 0
 	for {
@@ -2847,7 +2847,7 @@ func TestGetLogs(t *testing.T) {
 
 	// Filter logs based on input (using file that doesn't exist). There should
 	// be no logs
-	iter = c.GetLogs("", jobInfos[0].Job.ID, []string{"__DOES_NOT_EXIST__"})
+	iter = c.GetLogs("", jobInfos[0].Job.ID, []string{"__DOES_NOT_EXIST__"}, false)
 	require.False(t, iter.Next())
 	require.NoError(t, iter.Err())
 }
