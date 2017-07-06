@@ -543,7 +543,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				// bug in k8s (https://github.com/kubernetes/kubernetes/issues/47800)
 				// so we're adding a special handler for this corner case.
 				// TODO(msteffen) remove this handling once the issue is fixed
-				if bytes.HasSuffix(fullLogs, []byte("unexpected stream type \"\"")) {
+				if bytes.Contains(fullLogs, []byte("unexpected stream type \"\"")) {
 					return fmt.Errorf("interrupted log stream due to kubernetes/kubernetes/issues/47800")
 				}
 
