@@ -7,6 +7,9 @@ import (
 )
 
 var (
+	// UUIDWithoutDashesLength is the length of the UUIDs returned
+	// by NewWithoutDashes.  It's also the length of commit IDs in
+	// Pachyderm.
 	UUIDWithoutDashesLength int
 )
 
