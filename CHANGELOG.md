@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.5.0
+
+### Bug Fixes
+
+* Downstream repos' provenance is not updated properly when `update-pipeline` changes the inputs for a pipeline. (#1958)
+* `pachctl version` blocks when pachctl doesn't have Internet connectivity. (#1971)
+* `incremental` misbehaves when files are deeply nested. (#1974)
+* An `incremental` pipeline blocks if there's provenance among its inputs. (#2002)
+* PPS fails to create subsequent pipelines if any pipeline failed to be created. (#2004)
+* Pipelines sometimes reprocess datums that have already been processed. (#2008)
+* Putting files into open commits fails silently. (#2014)
+* Pipelines with inputs that use different branch names fail to create jobs. (#2015)
+* `get-logs` returns incomplete logs.  (#2019)
+
+### Features
+
+* You can now use `get-file` and `list-file` on open commits. (#1943)
+
 ## 1.4.8
 
 ### Bug Fixes
