@@ -16,7 +16,6 @@ const (
 	repoRefCountsPrefix = "/repoRefCounts"
 	commitsPrefix       = "/commits"
 	branchesPrefix      = "/branches"
-	openCommitsPrefix   = "/openCommits"
 )
 
 var (
