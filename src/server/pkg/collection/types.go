@@ -13,6 +13,8 @@ import (
 // because most of our data is modelled as collections, such as repos,
 // commits, branches, etc.
 type Collection interface {
+	// Path returns the full etcd path of the given key in the collection
+	Path(string) string
 	// ReadWrite enables reads and writes on a collection in a
 	// transactional manner.  Specifically, all writes are applied
 	// atomically, and writes are only applied if reads have not been
@@ -57,7 +59,7 @@ type Index struct {
 // operations.
 type ReadWriteCollection interface {
 	Get(key string, val proto.Unmarshaler) error
-	Put(key string, val proto.Marshaler)
+	Put(key string, val proto.Marshaler) error
 	Create(key string, val proto.Marshaler) error
 	Delete(key string) error
 	DeleteAll()
