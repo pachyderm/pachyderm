@@ -73,24 +73,14 @@ message JobInput {
 }
 
 message ParallelismSpec {
-  // Which Parallelism strategy to use. Depending on the value of
-  // 'strategy', other messages in the spec will or will not be set.
-  enum Strategy {
-    CONSTANT = 0;
-    COEFFICIENT = 1;
-  }
-  Strategy strategy = 1;
+  reserved 1;
 
-  // If 'strategy' is set to CONSTANT, then the field 'constant' is used.
-  //
   // Starts the pipeline/job with a 'constant' workers, unless 'constant' is
   // zero. If 'constant' is zero (which is the zero value of ParallelismSpec),
   // then Pachyderm will choose the number of workers that is started,
   // (currently it chooses the number of workers in the cluster)
   uint64 constant = 2;
 
-  // If 'strategy' is set to COEFFICIENT, then the field 'coefficient' is used.
-  //
   // Starts the pipeline/job with number of workers equal to 'coefficient' * N,
   // where N is the number of nodes in the kubernetes cluster.
   //

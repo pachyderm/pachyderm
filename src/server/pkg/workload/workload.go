@@ -221,7 +221,6 @@ func (w *worker) advanceJob(c *client.APIClient) error {
 			[]string{"bash"},
 			w.grepCmd(inputs, outFilename),
 			&pps.ParallelismSpec{
-				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
 			client.NewCrossInput(input...),
@@ -271,7 +270,6 @@ func (w *worker) createPipeline(c *client.APIClient) error {
 		[]string{"bash"},
 		w.grepCmd(inputs, outFilename),
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewCrossInput(input...),

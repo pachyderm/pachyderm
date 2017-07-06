@@ -4,13 +4,12 @@
   },
   "transform": {
     "image": "dwhitena/pachrinfer",
-    "cmd": [ 
+    "cmd": [
 	"Rscript",
 	"infer.R"
     ]
   },
   "parallelism_spec": {
-    "strategy": "CONSTANT",
     "constant": "1"
   },
   "input": {
