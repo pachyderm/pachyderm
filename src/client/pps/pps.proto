@@ -309,7 +309,10 @@ message GetLogsRequest {
   // a hash for that file (to search for files at specific versions)
   repeated string data_filters = 3;
 
-  string datum_id = 8 [(gogoproto.customname) = "DatumID"];
+  string datum_id = 4 [(gogoproto.customname) = "DatumID"];
+
+  // If true get logs from the master process
+  bool master = 5;
 }
 
 // LogMessage is a log line from a PPS worker, annotated with metadata
@@ -322,6 +325,7 @@ message LogMessage {
   string job_id = 3 [(gogoproto.customname) = "JobID"];
   string worker_id = 7 [(gogoproto.customname) = "WorkerID"];
   string datum_id = 9 [(gogoproto.customname) = "DatumID"];
+  bool master = 10;
 
   // The PFS files being processed (one per pipeline/job input)
   repeated Datum data = 4;
