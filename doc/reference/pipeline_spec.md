@@ -27,16 +27,16 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
     "acceptReturnCode": [ int ]
   },
   "parallelism_spec": {
-    "strategy": "CONSTANT"|"COEFFICIENT"
-    "constant": int        // if strategy == CONSTANT
-    "coefficient": double  // if strategy == COEFFICIENT
+    // Set at most one of the following:
+    "constant": int
+    "coefficient": double
   },
   "resource_spec": {
     "memory": string
     "cpu": double
   },
   "input": {
-    <"atom" or "cross" or "union", see below> 
+    <"atom" or "cross" or "union", see below>
   },
   "outputBranch": string,
   "egress": {
@@ -63,7 +63,7 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
 "cross" or "union" input
 ------------------------------------
 
-"cross" or "union": [ 
+"cross" or "union": [
   {
     "atom": {
       "name": string,
@@ -164,19 +164,17 @@ is always considered a successful exit code.
 ### Parallelism Spec (optional)
 
 `parallelism_spec` describes how Pachyderm should parallelize your pipeline.
-Currently, Pachyderm has two parallelism strategies: `CONSTANT` and
-`COEFFICIENT`.
+Currently, Pachyderm has two parallelism strategies: `constant` and
+`coefficient`.
 
-If you use the `CONSTANT` strategy, Pachyderm will start a number of workers
-that you give it. To use this strategy, set the field `strategy` to `CONSTANT`,
-and set the field `constant` to an integer value (e.g. `10` to start 10 workers).
+If you set the `constant` field, Pachyderm will start the number of workers
+that you specify. For example, set `"constant":10` to use 10 workers.
 
-If you use the `COEFFICIENT` strategy, Pachyderm will start a number of workers
-that is a multiple of your Kubernetes cluster's size. To use this strategy, set
-the field `coefficient` to a double. For example, if your Kubernetes cluster
-has 10 nodes, and you set `coefficient` to 0.5, Pachyderm will start five
-workers. If you set it to 2.0, Pachyderm will start 20 workers (two per
-Kubernetes node).
+If you set the `coefficient` field, Pachyderm will start a number of workers
+that is a multiple of your Kubernetes cluster’s size. For example, if your
+Kubernetes cluster has 10 nodes, and you set `"coefficient": 0.5`, Pachyderm
+will start five workers. If you set it to 2.0, Pachyderm will start 20 workers
+(two per Kubernetes node).
 
 By default, we use the parallelism spec "coefficient=1", which means that
 we spawn one worker per node for this pipeline.

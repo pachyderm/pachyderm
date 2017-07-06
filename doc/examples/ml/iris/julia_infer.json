@@ -4,16 +4,15 @@
   },
   "transform": {
     "image": "pachyderm/iris-infer:julia",
-    "cmd": [ 
+    "cmd": [
 	"julia",
-	"/infer.jl", 
-	"/pfs/model/model.jld", 
-	"/pfs/attributes/", 
+	"/infer.jl",
+	"/pfs/model/model.jld",
+	"/pfs/attributes/",
 	"/pfs/out/"
     ]
   },
   "parallelism_spec": {
-    "strategy": "CONSTANT",
     "constant": "5"
   },
   "input": {
