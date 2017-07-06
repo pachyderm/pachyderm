@@ -53,7 +53,7 @@ func (a *apiServer) PutActivationCode(ctx context.Context, request *auth.Activat
 		return nil, fmt.Errorf("public key isn't an RSA key")
 	}
 	hashed := sha256.Sum256([]byte(request.Token))
-	if err := rsa.VerifyPSS(rsaPub, crypto.SHA256, hashed[:], []byte(request.Signature), nil); err != nil {
+	if err := rsa.VerifyPKCS1v15(rsaPub, crypto.SHA256, hashed[:], []byte(request.Signature)); err != nil {
 		return nil, err
 	}
 	marshaler := &jsonpb.Marshaler{}
