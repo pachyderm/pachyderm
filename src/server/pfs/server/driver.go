@@ -1197,7 +1197,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	// Check if the commit ID is a branch name.  If so, we have to
 	// get the real commit ID in order to check if the commit does exist
 	// and is open.
-	if len(file.Commit.ID) != uuid.UUIDWithoutDashesLength {
+	if len(file.Commit.ID) != uuid.UUIDWithoutDashesLength || file.Commit.ID[12] != '4' {
 		commitInfo, err := d.inspectCommit(ctx, file.Commit)
 		if err != nil {
 			return err
