@@ -25,6 +25,7 @@ type Pool struct {
 	endpointsWatch watch.Interface
 	opts           []grpc.DialOption
 	conns          chan *grpc.ClientConn
+	done           chan struct{}
 }
 
 // NewPool creates a new connection pool with connections to pods in the
@@ -46,6 +47,7 @@ func NewPool(kubeClient *kube.Client, namespace string, serviceName string, numW
 		endpointsWatch: watch,
 		opts:           opts,
 		conns:          make(chan *grpc.ClientConn, numWorkers),
+		done:           make(chan struct{}),
 	}
 	pool.addressesCond = sync.NewCond(&pool.addressesLock)
 	go pool.watchEndpoints()
@@ -54,13 +56,16 @@ func NewPool(kubeClient *kube.Client, namespace string, serviceName string, numW
 
 func (p *Pool) watchEndpoints() {
 	for {
-		event, ok := <-p.endpointsWatch.ResultChan()
-		if !ok {
+		select {
+		case event, ok := <-p.endpointsWatch.ResultChan():
+			if !ok {
+				return
+			}
+			endpoints := event.Object.(*api.Endpoints)
+			p.updateAddresses(endpoints)
+		case <-p.done:
 			return
 		}
-
-		endpoints := event.Object.(*api.Endpoints)
-		p.updateAddresses(endpoints)
 	}
 }
 
@@ -118,7 +123,7 @@ func (p *Pool) Put(conn *grpc.ClientConn) error {
 // Close closes all connections stored in the pool, it returns an error if any
 // of the calls to Close error.
 func (p *Pool) Close() error {
-	p.endpointsWatch.Stop()
+	close(p.done)
 	var retErr error
 	for conn := range p.conns {
 		if err := conn.Close(); err != nil {

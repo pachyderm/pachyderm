@@ -110,9 +110,9 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (branchSetFactory,
 					bs := &branchSet{
 						NewBranch: i,
 					}
-					for _, commitInfo := range set {
+					for i, commitInfo := range set {
 						bs.Branches = append(bs.Branches, &pfs.BranchInfo{
-							Name: input.Branch,
+							Name: directInputs[i].Branch,
 							Head: commitInfo.Commit,
 						})
 					}
