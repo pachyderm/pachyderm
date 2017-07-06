@@ -76,12 +76,14 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 		"%s\t",
 		pretty.Ago(commitInfo.Started),
 	)
-	duration := "-\t"
 	if commitInfo.Finished != nil {
-		duration = fmt.Sprintf("%s\t", pretty.Duration(commitInfo.Started, commitInfo.Finished))
+		fmt.Fprintf(w, fmt.Sprintf("%s\t", pretty.Duration(commitInfo.Started, commitInfo.Finished)))
+		fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(commitInfo.SizeBytes)))
+	} else {
+		fmt.Fprintf(w, "-\t")
+		// Open commits don't have meaningful size information
+		fmt.Fprintf(w, "-\t\n")
 	}
-	fmt.Fprintf(w, duration)
-	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(commitInfo.SizeBytes)))
 }
 
 // PrintDetailedCommitInfo pretty-prints detailed commit info.
