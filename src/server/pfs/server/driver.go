@@ -93,6 +93,7 @@ type driver struct {
 	repoRefCounts col.Collection
 	commits       collectionFactory
 	branches      collectionFactory
+	openCommits   col.Collection
 
 	// a cache for hashtrees
 	treeCache *lru.Cache
@@ -509,6 +510,8 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 			commitInfo.Finished = now()
 			repoInfo.SizeBytes += commitSize
 			repos.Put(parent.Repo.Name, repoInfo)
+		} else {
+			d.openCommits.ReadWrite(stm).Put(commit.ID, commit)
 		}
 		return commits.Create(commit.ID, commitInfo)
 	}); err != nil {
@@ -581,6 +584,9 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 		repos := d.repos.ReadWrite(stm)
 
 		commits.Put(commit.ID, commitInfo)
+		if err := d.openCommits.ReadWrite(stm).Delete(commit.ID); err != nil {
+			return fmt.Errorf("could not confirm that commit %s is open; this is likely a bug. err: %v", commit.ID, err)
+		}
 		// update repo size
 		repoInfo := new(pfs.RepoInfo)
 		if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
