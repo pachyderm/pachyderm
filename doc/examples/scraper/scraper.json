@@ -11,7 +11,6 @@
     "acceptReturnCode": [4,5,6,7,8]
   },
   "parallelism_spec": {
-    "strategy": "CONSTANT",
     "constant": 1
   },
   "inputs": [

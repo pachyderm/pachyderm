@@ -18,19 +18,23 @@ import (
 	"syscall"
 	"time"
 
+	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
+	kube "k8s.io/kubernetes/pkg/client/unversioned"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
+	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 )
 
 const (
@@ -46,6 +50,9 @@ var (
 // APIServer implements the worker API
 type APIServer struct {
 	pachClient *client.APIClient
+	kubeClient *kube.Client
+	etcdClient *etcd.Client
+	etcdPrefix string
 
 	// Information needed to process input data and upload output
 	pipelineInfo *pps.PipelineInfo
@@ -64,6 +71,14 @@ type APIServer struct {
 	cancel func()
 	// The k8s pod name of this worker
 	workerName string
+	// The total number of workers for this pipeline
+	numWorkers int
+	// The namespace in which pachyderm is deployed
+	namespace string
+	// The jobs collection
+	jobs col.Collection
+	// The pipelines collection
+	pipelines col.Collection
 }
 
 type taggedLogger struct {
@@ -122,6 +137,7 @@ func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
 	for {
 		message, err := r.ReadString('\n')
 		if err != nil {
+			message = strings.TrimSuffix(message, "\n") // remove delimiter
 			if err == io.EOF {
 				logger.buffer.Write([]byte(message))
 				return len(p), nil
@@ -144,10 +160,21 @@ func (logger *taggedLogger) userLogger() *taggedLogger {
 	return result
 }
 
-// NewPipelineAPIServer creates an APIServer for a given pipeline
-func NewPipelineAPIServer(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, workerName string) *APIServer {
+// NewAPIServer creates an APIServer for a given pipeline
+func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string, pipelineInfo *pps.PipelineInfo, workerName string, namespace string) (*APIServer, error) {
+	kubeClient, err := kube.NewInCluster()
+	if err != nil {
+		return nil, err
+	}
+	numWorkers, err := ppsserver.GetExpectedNumWorkers(kubeClient, pipelineInfo.ParallelismSpec)
+	if err != nil {
+		return nil, err
+	}
 	server := &APIServer{
 		pachClient:   pachClient,
+		kubeClient:   kubeClient,
+		etcdClient:   etcdClient,
+		etcdPrefix:   etcdPrefix,
 		pipelineInfo: pipelineInfo,
 		logMsgTemplate: pps.LogMessage{
 			PipelineName: pipelineInfo.Pipeline.Name,
@@ -155,11 +182,20 @@ func NewPipelineAPIServer(pachClient *client.APIClient, pipelineInfo *pps.Pipeli
 			WorkerID:     os.Getenv(client.PPSPodNameEnv),
 		},
 		workerName: workerName,
+		numWorkers: numWorkers,
+		namespace:  namespace,
+		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
+		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
 	}
-	return server
+	go server.master()
+	return server, nil
 }
 
 func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag) error {
+	logger.Logf("input has not been processed, downloading data")
+	defer func(start time.Time) {
+		logger.Logf("input data download took (%v)\n", time.Since(start))
+	}(time.Now())
 	for _, input := range inputs {
 		file := input.FileInfo.File
 		root := filepath.Join(client.PPSInputPrefix, input.Name, file.Path)
@@ -193,20 +229,18 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 }
 
 // Run user code and return the combined output of stdout and stderr.
-func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string) error {
+func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string) (retErr error) {
+	logger.Logf("beginning to run user code")
+	defer func(start time.Time) {
+		logger.Logf("finished running user code - took (%v) - with error (%v)\n", time.Since(start), retErr)
+	}(time.Now())
 	// Run user code
 	cmd := exec.CommandContext(ctx, a.pipelineInfo.Transform.Cmd[0], a.pipelineInfo.Transform.Cmd[1:]...)
 	cmd.Stdin = strings.NewReader(strings.Join(a.pipelineInfo.Transform.Stdin, "\n") + "\n")
 	cmd.Stdout = logger.userLogger()
 	cmd.Stderr = logger.userLogger()
-	logger.Logf("running user code")
 	cmd.Env = environ
 	err := cmd.Run()
-	if err != nil {
-		logger.Logf("user code finished, err: %+v", err)
-	} else {
-		logger.Logf("user code finished")
-	}
 
 	// Return result
 	if err == nil {
@@ -223,10 +257,13 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 		}
 	}
 	return err
-
 }
 
 func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *taggedLogger, inputs []*Input) error {
+	logger.Logf("starting to upload output")
+	defer func(start time.Time) {
+		logger.Logf("finished uploading output - took %v\n", time.Since(start))
+	}(time.Now())
 	// hashtree is not thread-safe--guard with 'lock'
 	var lock sync.Mutex
 	tree := hashtree.NewHashTree()
@@ -453,7 +490,14 @@ func HashDatum(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) {
 		hash.Write(datum.FileInfo.Hash)
 	}
 
-	bytes, err := proto.Marshal(pipelineInfo.Transform)
+	// We set env to nil because if env contains more than one elements,
+	// since it's a map, the output of Marshal() can be non-deterministic.
+	env := pipelineInfo.Transform.Env
+	pipelineInfo.Transform.Env = nil
+	defer func() {
+		pipelineInfo.Transform.Env = env
+	}()
+	bytes, err := pipelineInfo.Transform.Marshal()
 	if err != nil {
 		return "", err
 	}
@@ -467,6 +511,11 @@ func HashDatum(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) {
 
 // Process processes a datum.
 func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *ProcessResponse, retErr error) {
+	logger := a.getTaggedLogger(req)
+	logger.Logf("process call started - request: %v", req)
+	defer func(start time.Time) {
+		logger.Logf("process call finished - request: %v, response: %v, err %v, duration: %v", req, resp, retErr, time.Since(start))
+	}(time.Now())
 	// We cannot run more than one user process at once; otherwise they'd be
 	// writing to the same output directory. Acquire lock to make sure only one
 	// user process runs at a time.
@@ -497,8 +546,6 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		a.started = time.Time{}
 		a.cancel = nil
 	}()
-	logger := a.getTaggedLogger(req)
-	logger.Logf("Received request")
 
 	// Hash inputs and check if output is in s3 already. Note: ppsserver sorts
 	// inputs by input name for both jobs and pipelines, so this hash is stable
@@ -516,7 +563,6 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	}
 
 	// Download input data
-	logger.Logf("input has not been processed, downloading data")
 	puller := filesync.NewPuller()
 	err = a.downloadData(logger, req.Data, puller, req.ParentOutput)
 	// We run these cleanup functions no matter what, so that if
@@ -544,9 +590,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	if err := os.MkdirAll(client.PPSOutputPath, 0666); err != nil {
 		return nil, err
 	}
-	logger.Logf("beginning to process user input")
 	err = a.runUserCode(ctx, logger, environ)
-	logger.Logf("finished processing user input")
 	if err != nil {
 		logger.Logf("failed to process datum with error: %+v", err)
 		return &ProcessResponse{
@@ -629,4 +673,27 @@ func (a *APIServer) datum() []*pps.Datum {
 
 func (a *APIServer) userCodeEnviron(req *ProcessRequest) []string {
 	return append(os.Environ(), fmt.Sprintf("PACH_JOB_ID=%s", req.JobID))
+}
+
+func (a *APIServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.JobState) error {
+	// Update job counts
+	if jobInfo.Pipeline != nil {
+		pipelines := a.pipelines.ReadWrite(stm)
+		pipelineInfo := new(pps.PipelineInfo)
+		if err := pipelines.Get(jobInfo.Pipeline.Name, pipelineInfo); err != nil {
+			return err
+		}
+		if pipelineInfo.JobCounts == nil {
+			pipelineInfo.JobCounts = make(map[int32]int32)
+		}
+		if pipelineInfo.JobCounts[int32(jobInfo.State)] != 0 {
+			pipelineInfo.JobCounts[int32(jobInfo.State)]--
+		}
+		pipelineInfo.JobCounts[int32(state)]++
+		pipelines.Put(pipelineInfo.Pipeline.Name, pipelineInfo)
+	}
+	jobInfo.State = state
+	jobs := a.jobs.ReadWrite(stm)
+	jobs.Put(jobInfo.Job.ID, jobInfo)
+	return nil
 }

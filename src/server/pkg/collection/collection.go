@@ -89,25 +89,25 @@ type readWriteCollection struct {
 	stm STM
 }
 
-func (c *readWriteCollection) Get(key string, val proto.Message) error {
+func (c *readWriteCollection) Get(key string, val proto.Unmarshaler) error {
 	valStr := c.stm.Get(c.path(key))
 	if valStr == "" {
 		return ErrNotFound{c.prefix, key}
 	}
-	return proto.UnmarshalText(valStr, val)
+	return val.Unmarshal([]byte(valStr))
 }
 
-func cloneProtoMsg(original proto.Message) proto.Message {
+func cloneProtoMsg(original proto.Marshaler) proto.Unmarshaler {
 	val := reflect.ValueOf(original)
 	if val.Kind() == reflect.Ptr {
 		val = reflect.Indirect(val)
 	}
-	return reflect.New(val.Type()).Interface().(proto.Message)
+	return reflect.New(val.Type()).Interface().(proto.Unmarshaler)
 }
 
 // Giving a value, an index, and the key of the item, return the path
 // under which the new index item should be stored.
-func (c *readWriteCollection) getIndexPath(val proto.Message, index Index, key string) string {
+func (c *readWriteCollection) getIndexPath(val interface{}, index Index, key string) string {
 	r := reflect.ValueOf(val)
 	f := reflect.Indirect(r).FieldByName(index.Field).Interface()
 	indexKey := fmt.Sprintf("%s", f)
@@ -116,7 +116,7 @@ func (c *readWriteCollection) getIndexPath(val proto.Message, index Index, key s
 
 // Giving a value, a multi-index, and the key of the item, return the
 // paths under which the multi-index items should be stored.
-func (c *readWriteCollection) getMultiIndexPaths(val proto.Message, index Index, key string) []string {
+func (c *readWriteCollection) getMultiIndexPaths(val interface{}, index Index, key string) []string {
 	var indexPaths []string
 	f := reflect.Indirect(reflect.ValueOf(val)).FieldByName(index.Field)
 	for i := 0; i < f.Len(); i++ {
@@ -126,7 +126,7 @@ func (c *readWriteCollection) getMultiIndexPaths(val proto.Message, index Index,
 	return indexPaths
 }
 
-func (c *readWriteCollection) Put(key string, val proto.Message) {
+func (c *readWriteCollection) Put(key string, val proto.Marshaler) {
 	if c.indexes != nil {
 		clone := cloneProtoMsg(val)
 
@@ -174,10 +174,11 @@ func (c *readWriteCollection) Put(key string, val proto.Message) {
 			}
 		}
 	}
-	c.stm.Put(c.path(key), val.String())
+	bytes, _ := val.Marshal()
+	c.stm.Put(c.path(key), string(bytes))
 }
 
-func (c *readWriteCollection) Create(key string, val proto.Message) error {
+func (c *readWriteCollection) Create(key string, val proto.Marshaler) error {
 	fullKey := c.path(key)
 	valStr := c.stm.Get(fullKey)
 	if valStr != "" {
@@ -195,7 +196,7 @@ func (c *readWriteCollection) Delete(key string) error {
 	if c.indexes != nil && c.template != nil {
 		val := proto.Clone(c.template)
 		for _, index := range c.indexes {
-			if err := c.Get(key, val); err == nil {
+			if err := c.Get(key, val.(proto.Unmarshaler)); err == nil {
 				if index.Multi {
 					indexPaths := c.getMultiIndexPaths(val, index, key)
 					for _, indexPath := range indexPaths {
@@ -246,6 +247,10 @@ func (c *readWriteIntCollection) Get(key string) (int, error) {
 }
 
 func (c *readWriteIntCollection) Increment(key string) error {
+	return c.IncrementBy(key, 1)
+}
+
+func (c *readWriteIntCollection) IncrementBy(key string, n int) error {
 	fullKey := c.path(key)
 	valStr := c.stm.Get(fullKey)
 	if valStr == "" {
@@ -255,11 +260,15 @@ func (c *readWriteIntCollection) Increment(key string) error {
 	if err != nil {
 		return ErrMalformedValue{c.prefix, key, valStr}
 	}
-	c.stm.Put(fullKey, strconv.Itoa(val+1))
+	c.stm.Put(fullKey, strconv.Itoa(val+n))
 	return nil
 }
 
 func (c *readWriteIntCollection) Decrement(key string) error {
+	return c.DecrementBy(key, 1)
+}
+
+func (c *readWriteIntCollection) DecrementBy(key string, n int) error {
 	fullKey := c.path(key)
 	valStr := c.stm.Get(fullKey)
 	if valStr == "" {
@@ -269,7 +278,7 @@ func (c *readWriteIntCollection) Decrement(key string) error {
 	if err != nil {
 		return ErrMalformedValue{c.prefix, key, valStr}
 	}
-	c.stm.Put(fullKey, strconv.Itoa(val-1))
+	c.stm.Put(fullKey, strconv.Itoa(val-n))
 	return nil
 }
 
@@ -287,7 +296,7 @@ type readonlyCollection struct {
 	ctx context.Context
 }
 
-func (c *readonlyCollection) Get(key string, val proto.Message) error {
+func (c *readonlyCollection) Get(key string, val proto.Unmarshaler) error {
 	resp, err := c.etcdClient.Get(c.ctx, c.path(key))
 	if err != nil {
 		return err
@@ -297,7 +306,7 @@ func (c *readonlyCollection) Get(key string, val proto.Message) error {
 		return ErrNotFound{c.prefix, key}
 	}
 
-	return proto.UnmarshalText(string(resp.Kvs[0].Value), val)
+	return val.Unmarshal(resp.Kvs[0].Value)
 }
 
 // an indirect iterator goes through a list of keys and retrieve those
@@ -308,7 +317,7 @@ type indirectIterator struct {
 	col   *readonlyCollection
 }
 
-func (i *indirectIterator) Next(key *string, val proto.Message) (ok bool, retErr error) {
+func (i *indirectIterator) Next(key *string, val proto.Unmarshaler) (ok bool, retErr error) {
 	if i.index < len(i.resp.Kvs) {
 		kv := i.resp.Kvs[i.index]
 		i.index++
@@ -353,13 +362,13 @@ type iterator struct {
 	resp  *etcd.GetResponse
 }
 
-func (i *iterator) Next(key *string, val proto.Message) (ok bool, retErr error) {
+func (i *iterator) Next(key *string, val proto.Unmarshaler) (ok bool, retErr error) {
 	if i.index < len(i.resp.Kvs) {
 		kv := i.resp.Kvs[i.index]
 		i.index++
 
 		*key = path.Base(string(kv.Key))
-		if err := proto.UnmarshalText(string(kv.Value), val); err != nil {
+		if err := val.Unmarshal(kv.Value); err != nil {
 			return false, err
 		}
 
@@ -372,6 +381,10 @@ func (i *iterator) Next(key *string, val proto.Message) (ok bool, retErr error) 
 // well as any future additions.
 func (c *readonlyCollection) Watch() (watch.Watcher, error) {
 	return watch.NewWatcher(c.ctx, c.etcdClient, c.prefix)
+}
+
+func (c *readonlyCollection) WatchWithPrev() (watch.Watcher, error) {
+	return watch.NewWatcherWithPrev(c.ctx, c.etcdClient, c.prefix)
 }
 
 // WatchByIndex watches items in a collection that match a particular index

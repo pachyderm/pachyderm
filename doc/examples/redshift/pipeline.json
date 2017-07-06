@@ -31,7 +31,6 @@
         ]
     },
     "parallelism_spec": {
-      "strategy": "CONSTANT",
       "constant": 1
     }
 }

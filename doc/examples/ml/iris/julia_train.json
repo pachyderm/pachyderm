@@ -1,0 +1,23 @@
+{
+  "pipeline": {
+    "name": "model"
+  },
+  "transform": {
+    "image": "pachyderm/iris-train:julia-forest",
+    "cmd": [
+	"julia",
+	"/train.jl",
+	"/pfs/training/iris.csv",
+	"/pfs/out/model.jld"
+    ]
+  },
+  "parallelism_spec": {
+    "constant": "1"
+  },
+  "input": {
+    "atom": {
+      "repo": "training",
+      "glob": "/"
+    }
+  }
+}

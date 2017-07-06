@@ -17,7 +17,7 @@ import (
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/jsonpb"
-	pach "github.com/pachyderm/pachyderm/src/client"
+	pachdclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
@@ -33,7 +33,7 @@ const (
 )
 
 // Cmds returns a slice containing pps commands.
-func Cmds(address string, noMetrics *bool) ([]*cobra.Command, error) {
+func Cmds(noMetrics *bool) ([]*cobra.Command, error) {
 	metrics := !*noMetrics
 	raw := false
 	rawFlag := func(cmd *cobra.Command) {
@@ -68,7 +68,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		Short: "Return info about a job.",
 		Long:  "Return info about a job.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -109,7 +109,7 @@ Examples:
 	$ pachctl list-job -p foo bar/YYY
 ` + codeend,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -152,7 +152,7 @@ Examples:
 		Short: "Delete a job.",
 		Long:  "Delete a job.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -168,7 +168,7 @@ Examples:
 		Short: "Stop a job.",
 		Long:  "Stop a job.  The job will be stopped immediately.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -184,9 +184,9 @@ Examples:
 		Short: "Restart a datum.",
 		Long:  "Restart a datum.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, "user")
 			if err != nil {
-				return fmt.Errorf("error from GetLogs: %v", sanitizeErr(err))
+				return fmt.Errorf("error connecting to pachd: %v", sanitizeErr(err))
 			}
 			datumFilter := strings.Split(args[1], ",")
 			for i := 0; i < len(datumFilter); {
@@ -227,9 +227,9 @@ Examples:
 	$ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
 ` + codeend,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, "user")
 			if err != nil {
-				return fmt.Errorf("error from GetLogs: %v", sanitizeErr(err))
+				return fmt.Errorf("error connecting to pachd: %v", sanitizeErr(err))
 			}
 			// Validate flags
 			if len(jobID) == 0 && len(pipelineName) == 0 {
@@ -301,7 +301,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	var username string
 	var password string
 	var pipelinePath string
-	var description string
 	createPipeline := &cobra.Command{
 		Use:   "create-pipeline -f pipeline.json",
 		Short: "Create a new pipeline.",
@@ -311,7 +310,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return err
 			}
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, "user")
 			if err != nil {
 				return sanitizeErr(err)
 			}
@@ -347,7 +346,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	createPipeline.Flags().StringVarP(&registry, "registry", "r", "docker.io", "The registry to push images to.")
 	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
 	createPipeline.Flags().StringVarP(&password, "password", "", "", "Your password for the registry being pushed to.")
-	createPipeline.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
 
 	updatePipeline := &cobra.Command{
 		Use:   "update-pipeline -f pipeline.json",
@@ -358,7 +356,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return err
 			}
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, "user")
 			if err != nil {
 				return sanitizeErr(err)
 			}
@@ -398,7 +396,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Return info about a pipeline.",
 		Long:  "Return info about a pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -422,7 +420,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Return info about all pipelines.",
 		Long:  "Return info about all pipelines.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -456,7 +454,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Delete a pipeline.",
 		Long:  "Delete a pipeline.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -494,7 +492,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Restart a stopped pipeline.",
 		Long:  "Restart a stopped pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -510,7 +508,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Stop a running pipeline.",
 		Long:  "Stop a running pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -527,7 +525,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Run a pipeline once.",
 		Long:  "Run a pipeline once, optionally overriding some pipeline options by providing a [pipeline spec](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html).  For example run a web scraper pipelien without any explicit input.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -575,27 +573,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	}
 	runPipeline.Flags().StringVarP(&specPath, "file", "f", "", "The file containing the run-pipeline spec, - reads from stdin.")
 
-	garbageCollect := &cobra.Command{
-		Use:   "garbage-collect",
-		Short: "Garbage collect unused data.",
-		Long: `Garbage collect unused data.
-
-When a file/commit/repo is deleted, the data is not immediately removed from the underlying storage system (e.g. S3) for performance and architectural reasons.  This is similar to how when you delete a file on your computer, the file is not necessarily wiped from disk immediately.
-
-To actually remove the data, you will need to manually invoke garbage collection.  The easiest way to do it is through "pachctl garbage-collecth".
-
-Currently "pachctl garbage-collect" can only be started when there are no active jobs running.  You also need to ensure that there's no ongoing "put-file".  Garbage collection puts the cluster into a readonly mode where no new jobs can be created and no data can be added.
-`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			client, err := pach.NewMetricsClientFromAddress(address, metrics, "user")
-			if err != nil {
-				return err
-			}
-
-			return client.GarbageCollect()
-		}),
-	}
-
 	var result []*cobra.Command
 	result = append(result, job)
 	result = append(result, inspectJob)
@@ -613,7 +590,6 @@ Currently "pachctl garbage-collect" can only be started when there are no active
 	result = append(result, startPipeline)
 	result = append(result, stopPipeline)
 	result = append(result, runPipeline)
-	result = append(result, garbageCollect)
 	return result, nil
 }
 

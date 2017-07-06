@@ -1,0 +1,31 @@
+{
+  "pipeline": {
+    "name": "inference"
+  },
+  "transform": {
+    "image": "dwhitena/pachrinfer",
+    "cmd": [
+	"Rscript",
+	"infer.R"
+    ]
+  },
+  "parallelism_spec": {
+    "constant": "1"
+  },
+  "input": {
+    "cross": [
+      {
+        "atom": {
+	  "repo": "attributes",
+	  "glob": "/*"
+	}
+      },
+      {
+	"atom": {
+	  "repo": "model",
+	  "glob": "/"
+	}
+      }
+    ]
+  }
+}
