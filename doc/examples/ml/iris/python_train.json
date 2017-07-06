@@ -4,15 +4,14 @@
   },
   "transform": {
     "image": "dwhitena/pytrain:lda",
-    "cmd": [ 
-	"python3", 
+    "cmd": [
+	"python3",
 	"/code/pytrain.py",
-	"/pfs/training/", 
-	"/pfs/out/"	
+	"/pfs/training/",
+	"/pfs/out/"
     ]
   },
   "parallelism_spec": {
-    "strategy": "CONSTANT",
     "constant": "1"
   },
   "input": {

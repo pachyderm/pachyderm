@@ -597,6 +597,19 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 	if err := validateTransform(pipelineInfo.Transform); err != nil {
 		return err
 	}
+	if pipelineInfo.ParallelismSpec != nil {
+		if pipelineInfo.ParallelismSpec.Constant < 0 {
+			return fmt.Errorf("ParallelismSpec.Constant must be > 0")
+		}
+		if pipelineInfo.ParallelismSpec.Coefficient < 0 {
+			return fmt.Errorf("ParallelismSpec.Coefficient must be > 0")
+		}
+		if pipelineInfo.ParallelismSpec.Constant != 0 &&
+			pipelineInfo.ParallelismSpec.Coefficient != 0 {
+			return fmt.Errorf("contradictory parallelism strategies: must set at " +
+				"most one of ParallelismSpec.Constant and ParallelismSpec.Coefficient")
+		}
+	}
 	if pipelineInfo.OutputBranch == "" {
 		return fmt.Errorf("pipeline needs to specify an output branch")
 	}

@@ -32,33 +32,9 @@ func PipelineRcName(name string, version uint64) string {
 	return fmt.Sprintf("pipeline-%s-v%d", strings.ToLower(name), version)
 }
 
-// GetExpectedNumWorkers computes the expected number of workers that
-// pachyderm will start given the ParallelismSpec 'spec'.
-//
-// This is only exported for testing
-func GetExpectedNumWorkers(kubeClient *kube.Client, spec *ppsclient.ParallelismSpec) (int, error) {
-	coefficient := 0.0 // Used if [spec.Strategy == PROPORTIONAL] or [spec.Constant == 0]
-	if spec == nil {
-		// Unset ParallelismSpec is handled here. Currently we start one worker per
-		// node
-		coefficient = 1.0
-	} else if spec.Strategy == ppsclient.ParallelismSpec_CONSTANT {
-		if spec.Constant > 0 {
-			return int(spec.Constant), nil
-		}
-		// Zero-initialized ParallelismSpec is handled here. Currently we start one
-		// worker per node
-		coefficient = 1
-	} else if spec.Strategy == ppsclient.ParallelismSpec_COEFFICIENT {
-		coefficient = spec.Coefficient
-	} else {
-		return 0, fmt.Errorf("Unable to interpret ParallelismSpec strategy %s", spec.Strategy)
-	}
-	if coefficient == 0.0 {
-		return 0, fmt.Errorf("Ended up with coefficient == 0 (no workers) after interpreting ParallelismSpec %s", spec.Strategy)
-	}
-
-	// Start ('coefficient' * 'nodes') workers. Determine number of workers
+// getNumNodes attempts to retrieve the number of nodes in the current k8s
+// cluster
+func getNumNodes(kubeClient *kube.Client) (int, error) {
 	nodeList, err := kubeClient.Nodes().List(api.ListOptions{})
 	if err != nil {
 		return 0, fmt.Errorf("unable to retrieve node list from k8s to determine parallelism: %v", err)
@@ -66,6 +42,32 @@ func GetExpectedNumWorkers(kubeClient *kube.Client, spec *ppsclient.ParallelismS
 	if len(nodeList.Items) == 0 {
 		return 0, fmt.Errorf("pachyderm.pps.jobserver: no k8s nodes found")
 	}
-	result := math.Floor(coefficient * float64(len(nodeList.Items)))
-	return int(math.Max(result, 1)), nil
+	return len(nodeList.Items), nil
+}
+
+// GetExpectedNumWorkers computes the expected number of workers that
+// pachyderm will start given the ParallelismSpec 'spec'.
+//
+// This is only exported for testing
+func GetExpectedNumWorkers(kubeClient *kube.Client, spec *ppsclient.ParallelismSpec) (int, error) {
+	if spec == nil || (spec.Constant == 0 && spec.Coefficient == 0) {
+		// Unset or zero-initialized ParallelismSpec is handled here. Start one
+		// worker per node
+		numNodes, err := getNumNodes(kubeClient)
+		if err != nil {
+			return 0, err
+		}
+		return numNodes, nil
+	} else if spec.Constant > 0 && spec.Coefficient == 0 {
+		return int(spec.Constant), nil
+	} else if spec.Constant == 0 && spec.Coefficient > 0 {
+		// Start ('coefficient' * 'nodes') workers. Determine number of workers
+		numNodes, err := getNumNodes(kubeClient)
+		if err != nil {
+			return 0, err
+		}
+		result := math.Floor(spec.Coefficient * float64(numNodes))
+		return int(math.Max(result, 1)), nil
+	}
+	return 0, fmt.Errorf("Unable to interpret ParallelismSpec %+v", spec)
 }
