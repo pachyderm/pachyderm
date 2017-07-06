@@ -149,15 +149,17 @@ func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
 	}
 	bytes += "\n"
 	fmt.Printf(bytes)
-	for _, chunk := range grpcutil.Chunk([]byte(bytes), grpcutil.MaxMsgSize/2) {
-		if err := logger.putObjClient.Send(&pfs.PutObjectRequest{
-			Value: chunk,
-		}); err != nil {
-			logger.stderrLog.Printf("could not write to object: %v", err)
-			return
+	if logger.putObjClient != nil {
+		for _, chunk := range grpcutil.Chunk([]byte(bytes), grpcutil.MaxMsgSize/2) {
+			if err := logger.putObjClient.Send(&pfs.PutObjectRequest{
+				Value: chunk,
+			}); err != nil {
+				logger.stderrLog.Printf("could not write to object: %v", err)
+				return
+			}
 		}
+		logger.objSize += int64(len(bytes))
 	}
-	logger.objSize += int64(len(bytes))
 }
 
 func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
@@ -181,8 +183,11 @@ func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
 }
 
 func (logger *taggedLogger) Close() (*pfs.Object, int64, error) {
-	object, err := logger.putObjClient.CloseAndRecv()
-	return object, logger.objSize, err
+	if logger.putObjClient != nil {
+		object, err := logger.putObjClient.CloseAndRecv()
+		return object, logger.objSize, err
+	}
+	return nil, 0, nil
 }
 
 func (logger *taggedLogger) userLogger() *taggedLogger {

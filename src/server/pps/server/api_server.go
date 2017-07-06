@@ -563,7 +563,9 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				if request.DatumID != "" && request.DatumID != msg.DatumID {
 					continue
 				}
-
+				if request.Master != msg.Master {
+					continue
+				}
 				if !workerpkg.MatchDatum(request.DataFilters, msg.Data) {
 					continue
 				}
