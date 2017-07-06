@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
@@ -487,22 +488,22 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			return err
 		}
 	} else if request.Job != nil {
+		// If user provides a job, lookup the pipeline from the job info, and then
+		// get the pipeline RC
 		var jobInfo pps.JobInfo
 		err := a.jobs.ReadOnly(ctx).Get(request.Job.ID, &jobInfo)
 		if err != nil {
 			return fmt.Errorf("could not get job information for %s: %s", request.Job.ID, err.Error())
 		}
-
 		rcName, err = a.lookupRcNameForPipeline(ctx, jobInfo.Pipeline)
 		if err != nil {
 			return err
 		}
-	} else {
-		return fmt.Errorf("must specify either pipeline or job")
 	}
+
 	pods, err := a.rcPods(rcName)
 	if err != nil {
-		return fmt.Errorf("could not get pods in rc %s containing logs", rcName)
+		return fmt.Errorf("could not get pods in rc \"%s\" containing logs: %s", rcName, err.Error())
 	}
 	if len(pods) == 0 {
 		return fmt.Errorf("no pods belonging to the rc \"%s\" were found", rcName)
@@ -524,49 +525,64 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		go func() {
 			defer close(logChs[i]) // Main thread reads from here, so must close
 			// Get full set of logs from pod i
-			result := a.kubeClient.Pods(a.namespace).GetLogs(
-				pod.ObjectMeta.Name, &api.PodLogOptions{
-					Container: client.PPSWorkerUserContainerName,
-				}).Do()
-			fullLogs, err := result.Raw()
-			if err != nil {
-				if apiStatus, ok := err.(errors.APIStatus); ok &&
-					strings.Contains(apiStatus.Status().Message, "PodInitializing") {
-					return // No logs to collect from this node, just skip it
+			err := backoff.Retry(func() error {
+				result := a.kubeClient.Pods(a.namespace).GetLogs(
+					pod.ObjectMeta.Name, &api.PodLogOptions{
+						Container: client.PPSWorkerUserContainerName,
+					}).Timeout(10 * time.Second).Do()
+				fullLogs, err := result.Raw()
+				if err != nil {
+					if apiStatus, ok := err.(errors.APIStatus); ok &&
+						strings.Contains(apiStatus.Status().Message, "PodInitializing") {
+						return nil // No logs to collect from this node yet, just skip it
+					}
+					return err
 				}
+				// Occasionally, fullLogs is truncated and contains the string
+				// 'unexpected stream type ""' at the end. I believe this is a recent
+				// bug in k8s (https://github.com/kubernetes/kubernetes/issues/47800)
+				// so we're adding a special handler for this corner case.
+				// TODO(msteffen) remove this handling once the issue is fixed
+				if bytes.HasSuffix(fullLogs, []byte("unexpected stream type \"\"")) {
+					return fmt.Errorf("interrupted log stream due to kubernetes/kubernetes/issues/47800")
+				}
+
+				// Parse pods' log lines, and filter out irrelevant ones
+				scanner := bufio.NewScanner(bytes.NewReader(fullLogs))
+				for scanner.Scan() {
+					logBytes := scanner.Bytes()
+					msg := new(pps.LogMessage)
+					if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
+						continue
+					}
+
+					// Filter out log lines that don't match on pipeline or job
+					if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
+						continue
+					}
+					if request.Job != nil && request.Job.ID != msg.JobID {
+						continue
+					}
+
+					if !workerpkg.MatchDatum(request.DataFilters, msg.Data) {
+						continue
+					}
+
+					// Log message passes all filters -- return it
+					select {
+					case logChs[i] <- msg:
+					case <-done:
+						return nil
+					}
+				}
+				return nil
+			}, backoff.New10sBackoff())
+
+			// Used up all retries -- no logs from worker
+			if err != nil {
 				select {
 				case errCh <- err:
 				case <-done:
-				}
-				return
-			}
-
-			// Parse pods' log lines, and filter out irrelevant ones
-			scanner := bufio.NewScanner(bytes.NewReader(fullLogs))
-			for scanner.Scan() {
-				logBytes := scanner.Bytes()
-				msg := new(pps.LogMessage)
-				if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
-					continue
-				}
-
-				// Filter out log lines that don't match on pipeline or job
-				if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
-					continue
-				}
-				if request.Job != nil && request.Job.ID != msg.JobID {
-					continue
-				}
-
-				if !workerpkg.MatchDatum(request.DataFilters, msg.Data) {
-					continue
-				}
-
-				// Log message passes all filters -- return it
-				select {
-				case logChs[i] <- msg:
-				case <-done:
-					return
 				}
 			}
 		}()
