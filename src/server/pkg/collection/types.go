@@ -13,6 +13,8 @@ import (
 // because most of our data is modelled as collections, such as repos,
 // commits, branches, etc.
 type Collection interface {
+	// Path returns the full etcd path of the given key in the collection
+	Path(string) string
 	// ReadWrite enables reads and writes on a collection in a
 	// transactional manner.  Specifically, all writes are applied
 	// atomically, and writes are only applied if reads have not been
