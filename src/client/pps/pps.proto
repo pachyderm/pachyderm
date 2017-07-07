@@ -110,12 +110,12 @@ message Datum {
   bytes hash = 5;
 }
 
-message Aggregation {
+message Aggregate {
   int64 count = 1;
-  float mean = 2;
-  float stddev = 3;
-  float fifth_percentile = 4;
-  float ninety_fifth_percentile = 5;
+  double mean = 2;
+  double stddev = 3;
+  double fifth_percentile = 4;
+  double ninety_fifth_percentile = 5;
 }
 
 message ProcessStats {
@@ -124,6 +124,14 @@ message ProcessStats {
   google.protobuf.Duration upload_time = 3;
   uint64 download_bytes = 4;
   uint64 upload_bytes = 5;
+}
+
+message AggregateProcessStats {
+  Aggregate download_time = 1;
+  Aggregate process_time = 2;
+  Aggregate upload_time = 3;
+  Aggregate download_bytes = 4;
+  Aggregate upload_bytes = 5;
 }
 
 message WorkerStatus {
