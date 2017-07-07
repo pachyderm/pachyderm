@@ -15,6 +15,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/montanaflynn/stats"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
@@ -255,8 +256,9 @@ nextInput:
 			Input:    jobInput,
 			// TODO(derek): Note that once the pipeline restarts, the `job`
 			// variable is lost and we don't know who is our parent job.
-			ParentJob: parentJob,
-			NewBranch: newBranch,
+			ParentJob:   parentJob,
+			NewBranch:   newBranch,
+			EnableStats: a.pipelineInfo.EnableStats,
 		})
 		if err != nil {
 			return err
@@ -389,6 +391,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 		if jobInfo.EnableStats {
 			statsTree = hashtree.NewHashTree()
 		}
+		var processStats []*pps.ProcessStats
 		var treeMu sync.Mutex
 
 		processedData := int64(0)
@@ -529,6 +532,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 						if err := statsTree.Merge(statsSubtree); err != nil {
 							logger.Logf("failed to merge into stats tree: %v", err)
 						}
+						processStats = append(processStats, resp.Stats)
 					}
 					return tree.Merge(subTree)
 				}, b, func(err error, d time.Duration) error {
@@ -593,6 +597,21 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 
 		var statsCommit *pfs.Commit
 		if jobInfo.EnableStats {
+			aggregateProcessStats, err := aggregateProcessStats(processStats)
+			if err != nil {
+				return err
+			}
+			marshalled, err := (&jsonpb.Marshaler{}).MarshalToString(aggregateProcessStats)
+			if err != nil {
+				return err
+			}
+			aggregateObject, err := a.putObject(ctx, []byte(marshalled))
+			if err != nil {
+				return err
+			}
+			if err := statsTree.PutFile(path.Join("/", jobID, "stats"), []*pfs.Object{aggregateObject}, int64(len(marshalled))); err != nil {
+				return err
+			}
 			statsObject, err := a.putTree(ctx, statsTree)
 			if err != nil {
 				return err
@@ -688,6 +707,87 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 	return nil
 }
 
+func aggregateProcessStats(stats []*pps.ProcessStats) (*pps.AggregateProcessStats, error) {
+	var downloadTime []float64
+	var processTime []float64
+	var uploadTime []float64
+	var downloadBytes []float64
+	var uploadBytes []float64
+	for _, s := range stats {
+		dt, err := types.DurationFromProto(s.DownloadTime)
+		if err != nil {
+			return nil, err
+		}
+		downloadTime = append(downloadTime, float64(dt))
+		pt, err := types.DurationFromProto(s.ProcessTime)
+		if err != nil {
+			return nil, err
+		}
+		processTime = append(processTime, float64(pt))
+		ut, err := types.DurationFromProto(s.UploadTime)
+		if err != nil {
+			return nil, err
+		}
+		uploadTime = append(uploadTime, float64(ut))
+		downloadBytes = append(downloadBytes, float64(s.DownloadBytes))
+		uploadBytes = append(uploadBytes, float64(s.UploadBytes))
+
+	}
+	dtAgg, err := aggregate(downloadTime)
+	if err != nil {
+		return nil, err
+	}
+	ptAgg, err := aggregate(processTime)
+	if err != nil {
+		return nil, err
+	}
+	utAgg, err := aggregate(uploadTime)
+	if err != nil {
+		return nil, err
+	}
+	dbAgg, err := aggregate(downloadBytes)
+	if err != nil {
+		return nil, err
+	}
+	ubAgg, err := aggregate(uploadBytes)
+	if err != nil {
+		return nil, err
+	}
+	return &pps.AggregateProcessStats{
+		DownloadTime:  dtAgg,
+		ProcessTime:   ptAgg,
+		UploadTime:    utAgg,
+		DownloadBytes: dbAgg,
+		UploadBytes:   ubAgg,
+	}, nil
+}
+
+func aggregate(datums []float64) (*pps.Aggregate, error) {
+	mean, err := stats.Mean(datums)
+	if err != nil {
+		return nil, err
+	}
+	stddev, err := stats.StandardDeviation(datums)
+	if err != nil {
+		return nil, err
+	}
+	fifth, err := stats.Percentile(datums, 5)
+	if err != nil {
+		return nil, err
+	}
+	ninetyFifth, err := stats.Percentile(datums, 95)
+	if err != nil {
+		return nil, err
+	}
+	return &pps.Aggregate{
+		Count:                 int64(len(datums)),
+		Mean:                  mean,
+		Stddev:                stddev,
+		FifthPercentile:       fifth,
+		NinetyFifthPercentile: ninetyFifth,
+	}, nil
+}
+
 func (a *APIServer) getTreeFromTag(ctx context.Context, tag *pfs.Tag) (hashtree.HashTree, error) {
 	objectClient := a.pachClient.ObjectAPIClient
 	getTagClient, err := objectClient.GetTag(ctx, tag)
@@ -701,18 +801,8 @@ func (a *APIServer) getTreeFromTag(ctx context.Context, tag *pfs.Tag) (hashtree.
 	return hashtree.Deserialize(buffer.Bytes())
 }
 
-func (a *APIServer) putTree(ctx context.Context, tree hashtree.OpenHashTree) (*pfs.Object, error) {
+func (a *APIServer) putObject(ctx context.Context, data []byte) (*pfs.Object, error) {
 	objectClient := a.pachClient.ObjectAPIClient
-	finishedTree, err := tree.Finish()
-	if err != nil {
-		return nil, err
-	}
-
-	data, err := hashtree.Serialize(finishedTree)
-	if err != nil {
-		return nil, err
-	}
-
 	putObjClient, err := objectClient.PutObject(ctx)
 	if err != nil {
 		return nil, err
@@ -725,6 +815,19 @@ func (a *APIServer) putTree(ctx context.Context, tree hashtree.OpenHashTree) (*p
 		}
 	}
 	return putObjClient.CloseAndRecv()
+}
+
+func (a *APIServer) putTree(ctx context.Context, tree hashtree.OpenHashTree) (*pfs.Object, error) {
+	finishedTree, err := tree.Finish()
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := hashtree.Serialize(finishedTree)
+	if err != nil {
+		return nil, err
+	}
+	return a.putObject(ctx, data)
 }
 
 func (a *APIServer) scaleDownWorkers() error {
