@@ -11,8 +11,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
-	log "github.com/Sirupsen/logrus"
 	types "github.com/gogo/protobuf/types"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/src/client/health"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
