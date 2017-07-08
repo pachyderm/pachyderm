@@ -28,7 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/ugorji/go/codec"
 	"golang.org/x/net/context"
