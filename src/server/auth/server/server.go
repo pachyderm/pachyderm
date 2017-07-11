@@ -7,6 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/auth"
 )
 
+// NewAPIServer returns a new APIServer.
 func NewAPIServer(etcdAddress string) (auth.APIServer, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   []string{etcdAddress},
