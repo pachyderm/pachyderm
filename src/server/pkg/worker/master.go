@@ -517,33 +517,38 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 						userCodeFailures++
 						return fmt.Errorf("user code failed for datum %v", files)
 					}
-					subTree, err := a.getTreeFromTag(ctx, resp.Tag)
-					if err != nil {
-						return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
-					}
-					var statsSubtree hashtree.HashTree
-					if jobInfo.EnableStats {
-						statsSubtree, err = a.getTreeFromTag(ctx, resp.StatsTag)
-						if err != nil {
-							logger.Logf("failed to retrieve stats hashtree after processing for datum %v: %v", files, err)
-						}
-					}
-					treeMu.Lock()
-					defer treeMu.Unlock()
 					var eg errgroup.Group
-					if statsSubtree != nil {
+					var subTree hashtree.HashTree
+					var statsSubtree hashtree.HashTree
+					eg.Go(func() error {
+						subTree, err = a.getTreeFromTag(ctx, resp.Tag)
+						if err != nil {
+							return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
+						}
+						return nil
+					})
+					if jobInfo.EnableStats {
 						eg.Go(func() error {
-							if err := statsTree.Merge(statsSubtree); err != nil {
-								logger.Logf("failed to merge into stats tree: %v", err)
+							statsSubtree, err = a.getTreeFromTag(ctx, resp.StatsTag)
+							if err != nil {
+								logger.Logf("failed to retrieve stats hashtree after processing for datum %v: %v", files, err)
 							}
-							processStats = append(processStats, resp.Stats)
 							return nil
 						})
 					}
-					eg.Go(func() error {
-						return tree.Merge(subTree)
-					})
-					return eg.Wait()
+					if err := eg.Wait(); err != nil {
+						return err
+					}
+					treeMu.Lock()
+					defer treeMu.Unlock()
+					if statsSubtree != nil {
+						if err := statsTree.Merge(statsSubtree); err != nil {
+							logger.Logf("failed to merge into stats tree: %v", err)
+						}
+						processStats = append(processStats, resp.Stats)
+						return nil
+					}
+					return tree.Merge(subTree)
 				}, b, func(err error, d time.Duration) error {
 					select {
 					case <-ctx.Done():
