@@ -120,6 +120,10 @@ docker-clean-test:
 docker-build-test: docker-clean-test docker-build-compile
 	docker run --name test_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile_test.sh
 	etc/compile/wait.sh test_compile
+	docker tag pachyderm_test:latest pachyderm/test:`git rev-list HEAD --max-count=1`
+
+docker-push-test:
+	docker push pachyderm/test:`git rev-list HEAD --max-count=1`
 
 docker-build-microsoft-vhd:
 	docker build -t microsoft_vhd etc/microsoft/create-blank-vhd
@@ -197,12 +201,17 @@ install-bench: install
 	rm /usr/local/bin/pachctl || true
 	[ -f /usr/local/bin/pachctl ] || sudo ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 
-launch-dev-test: docker-build-test
-	kubectl run bench --image=pachyderm/test:local \
+launch-dev-test: docker-build-test docker-push-test
+	kubectl run bench --image=pachyderm/test:`git rev-list HEAD --max-count=1` \
 	    --restart=Never \
 	    --attach=true \
 	    -- \
 	    ./test -test.v
+
+aws-test:
+	REGION=sa-east-1 etc/deploy/clear_kops_resources_in_aws.sh --zone=sa-east-1a 
+	ZONE=sa-east-1a etc/testing/deploy/aws.sh --create
+	$(MAKE) launch-dev-test
 
 run-bench:
 	kubectl scale --replicas=4 deploy/pachd

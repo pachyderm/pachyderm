@@ -5,7 +5,7 @@
 # though, so that if we're ever trying to clean up after a kops cluster again, and we need to
 # figure out what to delete, we'll have a place to start.
 
-region=us-east-1
+region="${REGION:-us-west-1}"
 
 # Parse flags
 eval "set -- $( getopt -l "region:,zone:" "--" "${0}" "${@}" )"
