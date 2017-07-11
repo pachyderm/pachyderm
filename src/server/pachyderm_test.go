@@ -66,7 +66,6 @@ func TestPipelineWithParallelism(t *testing.T) {
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 		},
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 4,
 		},
 		client.NewAtomInput(dataRepo, "/*"),
@@ -384,7 +383,6 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 //[]string{"bash"},
 //[]string{fmt.Sprintf("cp %s %s", "/pfs/input/*", "/pfs/out")},
 //&pps.ParallelismSpec{
-//Strategy: pps.ParallelismSpec_CONSTANT,
 //Constant: uint64(shards),
 //},
 //[]*pps.JobInput{{
@@ -453,7 +451,6 @@ func TestPipelineFailure(t *testing.T) {
 		[]string{"exit 1"},
 		nil,
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(dataRepo, "/*"),
@@ -487,7 +484,6 @@ func TestLazyPipelinePropagation(t *testing.T) {
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 		nil,
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInputOpts("", dataRepo, "", "/*", true, ""),
@@ -501,7 +497,6 @@ func TestLazyPipelinePropagation(t *testing.T) {
 		[]string{"cp", path.Join("/pfs", pipelineA, "file"), "/pfs/out/file"},
 		nil,
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInputOpts("", pipelineA, "", "/*", true, ""),
@@ -551,7 +546,6 @@ func TestLazyPipeline(t *testing.T) {
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{
-				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
 			Inputs: []*pps.PipelineInput{{
@@ -610,7 +604,6 @@ func TestLazyPipelineCPPipes(t *testing.T) {
 				Cmd: []string{"cp", "-r", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{
-				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
 			Inputs: []*pps.PipelineInput{{
@@ -666,7 +659,6 @@ func TestProvenance(t *testing.T) {
 		[]string{"cp", path.Join("/pfs", aRepo, "file"), "/pfs/out/file"},
 		nil,
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(aRepo, "/*"),
@@ -681,7 +673,6 @@ func TestProvenance(t *testing.T) {
 		[]string{fmt.Sprintf("diff %s %s >/pfs/out/file",
 			path.Join("/pfs", aRepo, "file"), path.Join("/pfs", bPipeline, "file"))},
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewCrossInput(
@@ -753,7 +744,6 @@ func TestProvenance2(t *testing.T) {
 		[]string{"cp", path.Join("/pfs", aRepo, "bfile"), "/pfs/out/bfile"},
 		nil,
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(aRepo, "/b*"),
@@ -767,7 +757,6 @@ func TestProvenance2(t *testing.T) {
 		[]string{"cp", path.Join("/pfs", aRepo, "cfile"), "/pfs/out/cfile"},
 		nil,
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(aRepo, "/c*"),
@@ -783,7 +772,6 @@ func TestProvenance2(t *testing.T) {
 			fmt.Sprintf("diff /pfs/%s/bfile /pfs/%s/cfile >/pfs/out/file", bPipeline, cPipeline),
 		},
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewCrossInput(
@@ -856,7 +844,6 @@ func TestProvenance2(t *testing.T) {
 //},
 //},
 //ParallelismSpec: &pps.ParallelismSpec{
-//Strategy: pps.ParallelismSpec_CONSTANT,
 //Constant: 3,
 //},
 //})
@@ -882,7 +869,6 @@ func TestProvenance2(t *testing.T) {
 //},
 //},
 //ParallelismSpec: &pps.ParallelismSpec{
-//Strategy: pps.ParallelismSpec_CONSTANT,
 //Constant: 3,
 //},
 //ParentJob: job1,
@@ -927,7 +913,6 @@ func TestFlushCommit(t *testing.T) {
 			[]string{"cp", path.Join("/pfs", repo, "file"), "/pfs/out/file"},
 			nil,
 			&pps.ParallelismSpec{
-				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
 			client.NewAtomInput(repo, "/*"),
@@ -977,7 +962,6 @@ func TestFlushCommitAfterCreatePipeline(t *testing.T) {
 		[]string{"cp", path.Join("/pfs", repo, "file"), "/pfs/out/file"},
 		nil,
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(repo, "/*"),
@@ -1012,7 +996,6 @@ func TestRecreatePipeline(t *testing.T) {
 			[]string{"cp", path.Join("/pfs", repo, "file"), "/pfs/out/file"},
 			nil,
 			&pps.ParallelismSpec{
-				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
 			client.NewAtomInput(repo, "/*"),
@@ -1055,7 +1038,6 @@ func TestDeletePipeline(t *testing.T) {
 			[]string{"sleep", "20"},
 			nil,
 			&pps.ParallelismSpec{
-				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
 			client.NewAtomInput(repo, "/*"),
@@ -1106,7 +1088,6 @@ func TestPipelineState(t *testing.T) {
 		[]string{"cp", path.Join("/pfs", repo, "file"), "/pfs/out/file"},
 		nil,
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(repo, "/*"),
@@ -1151,7 +1132,6 @@ func TestPipelineJobCounts(t *testing.T) {
 		[]string{"cp", path.Join("/pfs", repo, "file"), "/pfs/out/file"},
 		nil,
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(repo, "/*"),
@@ -1250,9 +1230,7 @@ func TestPipelineJobCounts(t *testing.T) {
 // TODO(msteffen): This test breaks the suite when run against cloud providers,
 // because killing the pachd pod breaks the connection with pachctl port-forward
 func TestDeleteAfterMembershipChange(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	t.Skip("This is causing intermittent CI failures")
 
 	test := func(up bool) {
 		repo := uniqueString("TestDeleteAfterMembershipChange")
@@ -1272,9 +1250,7 @@ func TestDeleteAfterMembershipChange(t *testing.T) {
 // TODO(msteffen): This test breaks the suite when run against cloud providers,
 // because killing the pachd pod breaks the connection with pachctl port-forward
 func TestPachdRestartResumesRunningJobs(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	t.Skip("This is causing intermittent CI failures")
 	// this test cannot be run in parallel because it restarts everything which breaks other tests.
 	c := getPachClient(t)
 	// create repos
@@ -1290,7 +1266,6 @@ func TestPachdRestartResumesRunningJobs(t *testing.T) {
 			"sleep 10",
 		},
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(dataRepo, "/"),
@@ -1336,7 +1311,6 @@ func TestPachdRestartResumesRunningJobs(t *testing.T) {
 //[]string{},
 //nil,
 //&pps.ParallelismSpec{
-//Strategy: pps.ParallelismSpec_CONSTANT,
 //Constant: 1,
 //},
 //[]*pps.PipelineInput{{Repo: &pfs.Repo{Name: "test"}}},
@@ -1519,7 +1493,6 @@ func TestRestartAll(t *testing.T) {
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 		nil,
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(dataRepo, "/*"),
@@ -1569,7 +1542,6 @@ func TestRestartOne(t *testing.T) {
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 		nil,
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(dataRepo, "/"),
@@ -1619,7 +1591,6 @@ func TestPrettyPrinting(t *testing.T) {
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{
-				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
 			ResourceSpec: &pps.ResourceSpec{
@@ -1677,7 +1648,6 @@ func TestDeleteAll(t *testing.T) {
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 		nil,
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(dataRepo, "/"),
@@ -1726,7 +1696,6 @@ func TestRecursiveCp(t *testing.T) {
 			fmt.Sprintf("cp -r /pfs/%s /pfs/out", dataRepo),
 		},
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(dataRepo, "/*"),
@@ -1767,7 +1736,6 @@ func TestPipelineUniqueness(t *testing.T) {
 		[]string{"bash"},
 		[]string{""},
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(repo, "/"),
@@ -1780,7 +1748,6 @@ func TestPipelineUniqueness(t *testing.T) {
 		[]string{"bash"},
 		[]string{""},
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(repo, "/"),
@@ -1811,7 +1778,6 @@ func TestPipelineUniqueness(t *testing.T) {
 //cat /pfs/%s/file1 >>/pfs/out/file
 //`, dataRepo)},
 //&pps.ParallelismSpec{
-//Strategy: pps.ParallelismSpec_CONSTANT,
 //Constant: 1,
 //},
 //[]*pps.PipelineInput{{
@@ -1831,7 +1797,6 @@ func TestPipelineUniqueness(t *testing.T) {
 //cat /pfs/%s/file >>/pfs/out/file
 //`, pipelineName)},
 //&pps.ParallelismSpec{
-//Strategy: pps.ParallelismSpec_CONSTANT,
 //Constant: 1,
 //},
 //[]*pps.PipelineInput{{
@@ -1886,7 +1851,6 @@ func TestPipelineUniqueness(t *testing.T) {
 //cat /pfs/%s/file2 >>/pfs/out/file
 //`, dataRepo)},
 //&pps.ParallelismSpec{
-//Strategy: pps.ParallelismSpec_CONSTANT,
 //Constant: 1,
 //},
 //[]*pps.PipelineInput{{
@@ -1925,7 +1889,6 @@ func TestPipelineUniqueness(t *testing.T) {
 //cat /pfs/%s/file3 >>/pfs/out/file
 //`, dataRepo)},
 //&pps.ParallelismSpec{
-//Strategy: pps.ParallelismSpec_CONSTANT,
 //Constant: 1,
 //},
 //[]*pps.PipelineInput{{
@@ -1967,7 +1930,6 @@ func TestPipelineUniqueness(t *testing.T) {
 //`, dataRepo)},
 //},
 //ParallelismSpec: &pps.ParallelismSpec{
-//Strategy: pps.ParallelismSpec_CONSTANT,
 //Constant: 2,
 //},
 //Inputs: []*pps.PipelineInput{{
@@ -2015,7 +1977,6 @@ func TestStopPipeline(t *testing.T) {
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 		nil,
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(dataRepo, "/*"),
@@ -2069,7 +2030,6 @@ func TestPipelineAutoScaledown(t *testing.T) {
 				},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{
-				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: uint64(parallelism),
 			},
 			Inputs: []*pps.PipelineInput{{
@@ -2156,7 +2116,6 @@ func TestPipelineEnv(t *testing.T) {
 				},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{
-				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
 			Inputs: []*pps.PipelineInput{{
@@ -2200,7 +2159,6 @@ func TestPipelineWithFullObjects(t *testing.T) {
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 		nil,
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(dataRepo, "/*"),
@@ -2264,7 +2222,6 @@ func TestPipelineWithExistingInputCommits(t *testing.T) {
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 		nil,
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(dataRepo, "/*"),
@@ -2314,7 +2271,6 @@ func TestPipelineThatSymlinks(t *testing.T) {
 			"ln -s /tmp/buzz /pfs/out/buzz",
 		},
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(dataRepo, "/"),
@@ -2403,7 +2359,6 @@ func TestChainedPipelines(t *testing.T) {
 		[]string{"cp", path.Join("/pfs", aRepo, "file"), "/pfs/out/file"},
 		nil,
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(aRepo, "/"),
@@ -2419,7 +2374,6 @@ func TestChainedPipelines(t *testing.T) {
 		[]string{fmt.Sprintf("cp /pfs/%s/file /pfs/out/bFile", bPipeline),
 			fmt.Sprintf("cp /pfs/%s/file /pfs/out/dFile", dRepo)},
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewCrossInput(
@@ -2475,7 +2429,6 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 		[]string{"cp", path.Join("/pfs", aRepo, "file"), "/pfs/out/file"},
 		nil,
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(aRepo, "/"),
@@ -2491,7 +2444,6 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 		[]string{fmt.Sprintf("cp /pfs/%s/file /pfs/out/bFile", bPipeline),
 			fmt.Sprintf("cp /pfs/%s/file /pfs/out/eFile", eRepo)},
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewCrossInput(
@@ -2510,7 +2462,6 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 		[]string{fmt.Sprintf("cp /pfs/%s/bFile /pfs/out/bFile", cPipeline),
 			fmt.Sprintf("cp /pfs/%s/eFile /pfs/out/eFile", cPipeline)},
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(cPipeline, "/"),
@@ -2562,7 +2513,6 @@ func TestParallelismSpec(t *testing.T) {
 
 	// Test Constant strategy
 	parellelism, err := ppsserver.GetExpectedNumWorkers(getKubeClient(t), &pps.ParallelismSpec{
-		Strategy: pps.ParallelismSpec_CONSTANT,
 		Constant: 7,
 	})
 	require.NoError(t, err)
@@ -2573,7 +2523,6 @@ func TestParallelismSpec(t *testing.T) {
 	// remote cluster has more than one node (in which case "Coefficient: 1" will
 	// cause more than 1 worker to start)
 	parellelism, err = ppsserver.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
-		Strategy:    pps.ParallelismSpec_COEFFICIENT,
 		Coefficient: 1,
 	})
 	require.NoError(t, err)
@@ -2581,7 +2530,6 @@ func TestParallelismSpec(t *testing.T) {
 
 	// Coefficient > 1
 	parellelism, err = ppsserver.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
-		Strategy:    pps.ParallelismSpec_COEFFICIENT,
 		Coefficient: 2,
 	})
 	require.NoError(t, err)
@@ -2589,7 +2537,6 @@ func TestParallelismSpec(t *testing.T) {
 
 	// Make sure we start at least one worker
 	parellelism, err = ppsserver.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
-		Strategy:    pps.ParallelismSpec_COEFFICIENT,
 		Coefficient: 0.01,
 	})
 	require.NoError(t, err)
@@ -2624,7 +2571,6 @@ func TestPipelineJobDeletion(t *testing.T) {
 		[]string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 		nil,
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(dataRepo, "/"),
@@ -2670,7 +2616,6 @@ func TestStopJob(t *testing.T) {
 		[]string{"sleep", "20"},
 		nil,
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(dataRepo, "/"),
@@ -2743,7 +2688,6 @@ func TestGetLogs(t *testing.T) {
 			"echo foo",
 		},
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(dataRepo, "/*"),
@@ -3062,7 +3006,6 @@ func TestUseMultipleWorkers(t *testing.T) {
 			"sleep 20",
 		},
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 2,
 		},
 		client.NewAtomInput(dataRepo, "/*"),
@@ -3189,7 +3132,6 @@ func TestPipelineResourceRequest(t *testing.T) {
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{
-				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
 			ResourceSpec: &pps.ResourceSpec{
@@ -3269,7 +3211,6 @@ func TestPipelineLargeOutput(t *testing.T) {
 			"for i in `seq 1 100`; do touch /pfs/out/$RANDOM; done",
 		},
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 4,
 		},
 		client.NewAtomInput(dataRepo, "/*"),
@@ -3318,7 +3259,6 @@ func TestUnionInput(t *testing.T) {
 				"cp /pfs/*/* /pfs/out",
 			},
 			&pps.ParallelismSpec{
-				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
 			client.NewUnionInput(
@@ -3355,7 +3295,6 @@ func TestUnionInput(t *testing.T) {
 				"cp -r /pfs/TestUnionInput* /pfs/out",
 			},
 			&pps.ParallelismSpec{
-				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
 			client.NewUnionInput(
@@ -3398,7 +3337,6 @@ func TestUnionInput(t *testing.T) {
 				"cp -r /pfs/TestUnionInput* /pfs/out",
 			},
 			&pps.ParallelismSpec{
-				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
 			client.NewCrossInput(
@@ -3456,7 +3394,6 @@ func TestIncrementalOverwritePipeline(t *testing.T) {
 				},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{
-				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
 			Input:       client.NewAtomInput(dataRepo, "/"),
@@ -3507,7 +3444,6 @@ func TestIncrementalAppendPipeline(t *testing.T) {
 				},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{
-				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
 			Input:       client.NewAtomInput(dataRepo, "/"),
@@ -3559,7 +3495,6 @@ func TestIncrementalOneFile(t *testing.T) {
 				},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{
-				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 1,
 			},
 			Input:       client.NewAtomInput(dataRepo, "/dir/file"),
@@ -3710,6 +3645,80 @@ func TestGarbageCollection(t *testing.T) {
 	buf.Reset()
 	require.NoError(t, c.GetFile(pipeline, "master", "bar", 0, 0, &buf))
 	require.Equal(t, "barbar\n", buf.String())
+}
+
+func TestIncrementalSharedProvenance(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestIncrementalSharedProvenance_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	pipeline1 := uniqueString("pipeline1")
+	require.NoError(t, c.CreatePipeline(
+		pipeline1,
+		"",
+		[]string{"true"},
+		nil,
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/"),
+		"",
+		false,
+	))
+	pipeline2 := uniqueString("pipeline2")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline2),
+			Transform: &pps.Transform{
+				Cmd: []string{"true"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input: client.NewCrossInput(
+				client.NewAtomInput(dataRepo, "/"),
+				client.NewAtomInput(pipeline1, "/"),
+			),
+			Incremental: true,
+		})
+	require.YesError(t, err)
+	pipeline3 := uniqueString("pipeline3")
+	require.NoError(t, c.CreatePipeline(
+		pipeline3,
+		"",
+		[]string{"true"},
+		nil,
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/"),
+		"",
+		false,
+	))
+	pipeline4 := uniqueString("pipeline4")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline4),
+			Transform: &pps.Transform{
+				Cmd: []string{"true"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input: client.NewCrossInput(
+				client.NewAtomInput(pipeline1, "/"),
+				client.NewAtomInput(pipeline3, "/"),
+			),
+			Incremental: true,
+		})
+	require.YesError(t, err)
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {

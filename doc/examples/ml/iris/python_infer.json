@@ -4,16 +4,15 @@
   },
   "transform": {
     "image": "dwhitena/pyinfer",
-    "cmd": [ 
+    "cmd": [
 	"python3",
-	"/code/pyinfer.py", 
-	"/pfs/model/", 
-	"/pfs/attributes/", 
+	"/code/pyinfer.py",
+	"/pfs/model/",
+	"/pfs/attributes/",
 	"/pfs/out/"
     ]
   },
   "parallelism_spec": {
-    "strategy": "CONSTANT",
     "constant": "1"
   },
   "input": {

@@ -1,5 +1,169 @@
 # Changelog
 
+## 1.5.0
+
+### Bug Fixes
+
+* Downstream repos' provenance is not updated properly when `update-pipeline` changes the inputs for a pipeline. (#1958)
+* `pachctl version` blocks when pachctl doesn't have Internet connectivity. (#1971)
+* `incremental` misbehaves when files are deeply nested. (#1974)
+* An `incremental` pipeline blocks if there's provenance among its inputs. (#2002)
+* PPS fails to create subsequent pipelines if any pipeline failed to be created. (#2004)
+* Pipelines sometimes reprocess datums that have already been processed. (#2008)
+* Putting files into open commits fails silently. (#2014)
+* Pipelines with inputs that use different branch names fail to create jobs. (#2015)
+* `get-logs` returns incomplete logs.  (#2019)
+
+### Features
+
+* You can now use `get-file` and `list-file` on open commits. (#1943)
+
+## 1.4.8
+
+### Bug Fixes
+
+- Fixes bugs that caused us to swamp etcd with traffic.
+- Fixes a bug that could cause corruption to in pipeline output.
+
+### Features
+
+- Readds incremental processing mode
+- Adds `DiffFile` which is similar in function to `git diff`
+- Adds the ability to use cloudfront as a caching layer for additional scalability on aws.
+- `DeletePipeline` now allows you to delete the output repos as well.
+- `DeletePipeline` and `DeleteRepo` now support a `--all` flag
+
+### Removed Features
+
+- Removes one-off jobs, they were a rarely used feature and the same behavior can be replicated with pipelines
+
+## 1.4.7
+
+### Bug fixes
+
+* [Copy elision](http://pachyderm.readthedocs.io/en/latest/reference/best_practices.html#shuffling-files) does not work for directories. (#1803)
+* Deleting a file in a closed commit fails silently. (#1804)
+* Pachyderm has trouble processing large files. (#1819)
+* etcd uses an unexpectedly large amount of space. (#1824)
+* `pachctl mount` prints lots of benevolent FUSE errors. (#1840)
+
+### New features
+
+* `create-repo` and `create-pipeline` now accept the `--description` flag, which creates the repo/pipeline with a "description" field.  You can then see the description via `inspect-repo/inspect-pipeline`. (#1805)
+* Pachyderm now supports garbage collection, i.e. removing data that's no longer referenced anywhere.  See the [docs](http://pachyderm.readthedocs.io/en/latest/reference/best_practices.html#garbage-collection) for details. (#1826)
+* Pachyderm now has GPU support!  See the [docs](http://pachyderm.readthedocs.io/en/latest/cookbook/tensorflow_gpu.html) for details. (#1835)
+* Most commands in `pachctl` now support the `--raw` flag, which prints the raw JSON data as opposed to pretty-printing.  For instance, `pachctl inspect-pipeline --raw` would print something akin to a pipeline spec. (#1839)
+* `pachctl` now supports `delete-commit`, which allows for deleting a commit that's not been finished.  This is useful when you have added the wrong data in a commit and you want to start over.
+* The web UI has added a file viewer, which allows for viewing PFS file content in the browser.
+
+## 1.4.6
+
+### Bug fixes
+
+* `get-logs` returns errors along the lines of `Invalid character…`. (#1741)
+* etcd is not properly namespaced. (#1751)
+* A job might get stuck if it uses `cp -r` with lazy files. (#1757)
+* Pachyderm can use a huge amount of memory, especially when it processes a large number of files. (#1762)
+* etcd returns `database space exceeded` errors after the cluster has been running for a while. (#1771)
+* Jobs crashing might eventually lead to disk space being exhausted. (#1772)
+* `port-forward` uses wrong port for UI websocket requests to remote clusters (#1754)
+* Pipelines can end up with no running workers when the cluster is under heavy load. (#1788)
+* API calls can start returning `context deadline exceeded` when the cluster is under heavy load. (#1796)
+
+### New features / improvements
+
+* Union input: a pipeline can now take the union of inputs, in addition to the cross-product of them.  Note that the old `inputs` field in the pipeline spec has been deprecated in favor of the new `input` field.  See the [pipeline spec](http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html#input-required) for details. (#1665)
+* Copy elision: a pipeline that shuffles files can now be made more efficient by simply outputting symlinks to input files.  See the [docs on shuffling files](http://pachyderm.readthedocs.io/en/latest/reference/best_practices.html#shuffling-files) for details. (#1791)
+* `pachctl glob-file`: ever wonder if your glob pattern actually works?  Wonder no more.  You can now use `pachctl glob-file` to see the files that match a given glob pattern. (#1795)
+* Workers no longer send/receive data through pachd.  As a result, pachd is a lot more responsive and stable even when there are many ongoing jobs.  (#1742)
+
+## 1.4.5
+
+### Bug fixes
+
+* Fix a bug where pachd may crash after creating/updating a pipeline that has many input commits. (#1678)
+* Rules for determining when input data is re-processed are made more intuitive.  Before, if you update a pipeline without updating the `transform`, the input data is not re-processed.  Now, different pipelines or different versions of pipelines always re-process data, even if they have the same `transform`. (#1685)
+* Fix several issues with jobs getting stuck. (#1717)
+* Fix several issues with lazy pipelines getting stuck. (#1721)
+* Fix an issue with Minio deployment that results in job crash loop. (#1723)
+* Fix an issue where a job can crash if it outputs a large number of files. (#1724)
+* Fix an issue that causes intermittent gRPC errors. (#1727)
+
+### New features
+
+* Pachyderm now ships with a web UI!  To deploy a new Pachyderm cluster with the UI, use `pachctl deploy <arguments> --dashboard`.  To deploy the UI onto an existing cluster, use `pachctl deploy <arguments> --dashboard-only`.  To access the UI, simply `pachctl port-forward`, then go to `localhost:38080`.  Note that the web UI is currently in alpha; expect bugs and significant changes.   
+* You can now specify the amount of resources (i.e. CPU & memory) used by Pachyderm and etcd.  See `pachctl deploy --help` for details. (#1676)
+* You can now specify the amount of resources (i.e. CPU & memory) used by your pipelines.  See the [pipeline spec](http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html#resource-spec-optional) for details. (#1683)
+
+## 1.4.4
+
+### Bug fixes
+
+* A job can fail to restart when encountering an internal error.
+* A deployment with multiple pachd nodes can get stalled jobs.
+* `delete-pipeline` is supposed to have the `--delete-jobs` flag but doesn't.
+* `delete-pipeline` can fail if there are many jobs in the pipeline.
+* `update-pipeline` can fail if the original pipeline has not outputted any commits.
+* pachd can crash if etcd is flaky.
+* pachd memory can be easily exhausted on GCE deployments.
+* If a pipeline is created with multiple input commits already present, all jobs spawn and run in parallel.  After the fix, jobs always run serially.
+
+### Features
+
+* Pachyderm now supports auto-scaling: a pipeline's worker pods can be terminated automatically when the pipeline has been idle for a configurable amount of time.  See the `scaleDownThreshold` field of the [pipeline spec](http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html#scale-down-threshold-optional) for details.
+* The processing of a datum can be restarted manually via `restart-datum`.
+* Workers' statuses are now exposed through `inspect-job`.
+* A job can be stopped manually via `stop-job`.
+
+## 1.4.3
+
+### Bug fixes
+
+* Pipelines with multiple inputs process only a subset of data.
+* Workers may fall into a crash loop under certain circumstances. (#1606)
+
+### New features
+
+* `list-job` and `inspect-job` now display a job's progress, i.e. they display the number of datums processed thus far, and the total number of datums.
+* `delete-pipeline` now accepts an option (`--delete-jobs`) that deletes all jobs in the pipeline. (#1540)
+* Azure deployments now support dynamic provisioning of volumes.
+
+## 1.4.2
+
+### Bug fixes
+
+* Certain network failures may cause a job to be stuck in the `running` state forever.
+* A job might get triggered even if one of its inputs is empty.
+* Listing or getting files from an empty output commit results in `node "" not found` error.
+* Jobs are not labeled as `failure` even when the user code has failed.
+* Running jobs do not resume when pachd restarts.
+* `put-file --recursive` can fail when there are a large number of files.
+* minio-based deployments are broken.
+
+### Features
+
+* `pachctl list-job` and `pachctl inspect-job` now display the number of times each job has restarted.
+* `pachctl list-job` now displays the pipeline of a job even if the job hasn't completed.
+
+## 1.4.1
+
+### Bug fixes
+
+* Getting files from GCE results in errors.
+* A pipeline that has multiple inputs might place data into the wrong `/pfs` directories.
+* `pachctl put-file --split` errors when splitting to a large number of files.
+* Pipeline names do not allow underscores.
+* `egress` does not work with a pipeline that outputs a large number of files. 
+* Deleting nonexistent files returns errors.
+* A job might try to process datums even if the job has been terminated.
+* A job doesn't exit after it has encountered a failure.
+* Azure backend returns an error if it writes to an object that already exists.
+
+### New features
+
+* `pachctl get-file` now supports the `--recursive` flag, which can be used to download directories.
+* `pachctl get-logs` now outputs unstructured logs by default.  To see structured/annotated logs, use the `--raw` flag.
+
 ## 1.4.0
 
 Features/improvements:

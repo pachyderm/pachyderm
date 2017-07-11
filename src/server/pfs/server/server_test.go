@@ -376,6 +376,51 @@ func TestUpdateProvenance(t *testing.T) {
 	require.YesError(t, client.DeleteRepo(prov3, false))
 }
 
+func TestPutFileIntoOpenCommit(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	_, err := client.PutFile(repo, "master", "foo", strings.NewReader("foo\n"))
+	require.YesError(t, err)
+
+	commit1, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	_, err = client.PutFile(repo, "master", "foo", strings.NewReader("foo\n"))
+	require.YesError(t, err)
+	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n"))
+	require.YesError(t, err)
+
+	commit2, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, "master", "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, "master"))
+
+	_, err = client.PutFile(repo, "master", "foo", strings.NewReader("foo\n"))
+	require.YesError(t, err)
+	_, err = client.PutFile(repo, commit2.ID, "foo", strings.NewReader("foo\n"))
+	require.YesError(t, err)
+}
+
+func TestCreateInvalidBranchName(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	// Create a branch that's the same length as a commit ID
+	_, err := client.StartCommit(repo, uuid.NewWithoutDashes())
+	require.YesError(t, err)
+}
+
 func TestListRepoWithProvenance(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
@@ -2339,29 +2384,31 @@ func TestFlush2(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	ACommit, err := client.StartCommit("A", "")
+	ACommit, err := client.StartCommit("A", "master")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit("A", ACommit.ID))
-	BCommit, err := client.StartCommit("B", "")
+	BCommit, err := client.StartCommit("B", "master")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit("B", BCommit.ID))
 	CCommit, err := client.PfsAPIClient.StartCommit(
 		context.Background(),
 		&pfs.StartCommitRequest{
 			Parent:     pclient.NewCommit("C", ""),
+			Branch:     "master",
 			Provenance: []*pfs.Commit{ACommit, BCommit},
 		},
 	)
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit("C", CCommit.ID))
 
-	BCommit, err = client.StartCommit("B", BCommit.ID)
+	BCommit, err = client.StartCommit("B", "master")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit("B", BCommit.ID))
 	CCommit, err = client.PfsAPIClient.StartCommit(
 		context.Background(),
 		&pfs.StartCommitRequest{
-			Parent:     pclient.NewCommit("C", CCommit.ID),
+			Parent:     pclient.NewCommit("C", ""),
+			Branch:     "master",
 			Provenance: []*pfs.Commit{ACommit, BCommit},
 		},
 	)

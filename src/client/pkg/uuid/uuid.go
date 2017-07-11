@@ -6,6 +6,17 @@ import (
 	"github.com/satori/go.uuid"
 )
 
+var (
+	// UUIDWithoutDashesLength is the length of the UUIDs returned
+	// by NewWithoutDashes.  It's also the length of commit IDs in
+	// Pachyderm.
+	UUIDWithoutDashesLength int
+)
+
+func init() {
+	UUIDWithoutDashesLength = len(NewWithoutDashes())
+}
+
 // New returns a new uuid.
 func New() string {
 	return uuid.NewV4().String()
