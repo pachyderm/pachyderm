@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -528,13 +530,20 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 					}
 					treeMu.Lock()
 					defer treeMu.Unlock()
+					var eg errgroup.Group
 					if statsSubtree != nil {
-						if err := statsTree.Merge(statsSubtree); err != nil {
-							logger.Logf("failed to merge into stats tree: %v", err)
-						}
-						processStats = append(processStats, resp.Stats)
+						eg.Go(func() error {
+							if err := statsTree.Merge(statsSubtree); err != nil {
+								logger.Logf("failed to merge into stats tree: %v", err)
+							}
+							processStats = append(processStats, resp.Stats)
+							return nil
+						})
 					}
-					return tree.Merge(subTree)
+					eg.Go(func() error {
+						return tree.Merge(subTree)
+					})
+					return eg.Wait()
 				}, b, func(err error, d time.Duration) error {
 					select {
 					case <-ctx.Done():
