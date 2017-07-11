@@ -27,8 +27,8 @@ if [[ "${TRAVIS_EVENT_TYPE}" == "cron" ]]; then
     # Need to login so that travis can push the bench image
     docker login -u pachydermbuildbot -p ${DOCKER_PWD}
 
-    # Deploy cluster and run benchmark
-    sudo -E PATH="${PATH}" GOPATH="${GOPATH}" make bench
+    # Run tests in the cloud  
+    sudo -E PATH="${PATH}" GOPATH="${GOPATH}" make aws-test
 else
 	echo "Running tests"
 	make test
