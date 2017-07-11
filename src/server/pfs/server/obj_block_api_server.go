@@ -709,32 +709,33 @@ func (s *objBlockAPIServer) objectGetter(ctx groupcache.Context, key string, des
 
 func (s *objBlockAPIServer) tagGetter(ctx groupcache.Context, key string, dest groupcache.Sink) error {
 	splitKey := strings.Split(key, ".")
-	if len(splitKey) != 3 {
-		return fmt.Errorf("invalid key %s (this is likely a bug)", key)
-	}
-	prefix := splitKey[0]
 	tag := &pfsclient.Tag{Name: strings.Join(splitKey[:len(splitKey)-1], "")}
-	updated := false
-	// First check if we already have the index for this Tag in memory, if
-	// not read it for the first time.
-	if _, ok := s.getObjectIndex(prefix); !ok {
-		updated = true
-		if err := s.readObjectIndex(prefix); err != nil {
-			return err
+	prefix := splitKey[0]
+	var updated bool
+	if len(splitKey) == 3 {
+		// First check if we already have the index for this Tag in memory, if
+		// not read it for the first time.
+		if _, ok := s.getObjectIndex(prefix); !ok {
+			updated = true
+			if err := s.readObjectIndex(prefix); err != nil {
+				return err
+			}
 		}
-	}
-	objectIndex, _ := s.getObjectIndex(prefix)
-	// Check if the index contains the tag we're looking for, if so read
-	// it into the cache and return
-	if object, ok := objectIndex.Tags[tag.Name]; ok {
-		dest.SetProto(object)
-		return nil
+		objectIndex, _ := s.getObjectIndex(prefix)
+		// Check if the index contains the tag we're looking for, if so read
+		// it into the cache and return
+		if object, ok := objectIndex.Tags[tag.Name]; ok {
+			dest.SetProto(object)
+			return nil
+		}
+	} else if len(splitKey) != 2 {
+		return fmt.Errorf("malformed tag key: %v; this is likely a bug", key)
 	}
 	// Try reading the tag from its tag path, this happens for recently
 	// written tags that haven't been incorporated into an index yet.
 	// Note that we tolerate NotExist errors here because the object may have
 	// been incorporated into an index and thus deleted.
-	objectIndex = &pfsclient.ObjectIndex{}
+	objectIndex := &pfsclient.ObjectIndex{}
 	if err := s.readProto(s.localServer.tagPath(tag), objectIndex); err != nil && !s.isNotFoundErr(err) {
 		return err
 	} else if err == nil {
@@ -745,7 +746,7 @@ func (s *objBlockAPIServer) tagGetter(ctx groupcache.Context, key string, dest g
 	}
 	// The last chance to find this object is to update the index since the
 	// object may have been recently incorporated into it.
-	if !updated {
+	if len(splitKey) == 3 && !updated {
 		if err := s.readObjectIndex(prefix); err != nil {
 			return err
 		}
@@ -877,9 +878,9 @@ func (s *objBlockAPIServer) readObjectIndex(prefix string) error {
 func (s *objBlockAPIServer) splitKey(key string) string {
 	gen := s.getGeneration()
 	if len(key) < prefixLength {
-		return fmt.Sprintf("%s.%s", key, gen)
+		return fmt.Sprintf("%s.%d", key, gen)
 	}
-	return fmt.Sprintf("%s.%s.%s", key[:prefixLength], key[prefixLength:], gen)
+	return fmt.Sprintf("%s.%s.%d", key[:prefixLength], key[prefixLength:], gen)
 }
 
 type blockWriter struct {
