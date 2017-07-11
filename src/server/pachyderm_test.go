@@ -3052,7 +3052,7 @@ func TestSystemResourceRequests(t *testing.T) {
 		"etcd":  "250m",
 	}
 	defaultCloudMem := map[string]string{
-		"pachd": "7G",
+		"pachd": "3G",
 		"etcd":  "2G",
 	}
 	defaultCloudCPU := map[string]string{
@@ -3087,7 +3087,6 @@ func TestSystemResourceRequests(t *testing.T) {
 			cpu.String() == defaultCloudCPU[app])
 		mem, ok := c.Resources.Requests[api.ResourceMemory]
 		require.True(t, ok, "could not get memory request for "+app)
-		t.Logf("mem: %v", mem.String())
 		require.True(t, mem.String() == defaultLocalMem[app] ||
 			mem.String() == defaultCloudMem[app])
 	}
