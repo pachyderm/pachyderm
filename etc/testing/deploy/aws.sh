@@ -10,9 +10,11 @@ ZONE="${ZONE:-us-west-1b}"
 STATE_STORE=s3://pachyderm-travis-state-store-v1
 OP=-
 CLOUDFRONT=
+len_zone_minus_one="$(( ${#AWS_AVAILABILITY_ZONE} - 1 ))"
+REGION=${ZONE:0:${len_zone_minus_one}}
 
 # Process args
-new_opt="$( getopt --long="create,delete:,delete-all,list,zone:,use-cloudfront" -- ${0} "${@}" )"
+new_opt="$( getopt --long="create,delete,delete-all,list,zone:,use-cloudfront" -- ${0} "${@}" )"
 [[ "$?" -eq 0 ]] || exit 1
 eval "set -- ${new_opt}"
 
@@ -28,8 +30,7 @@ while true; do
       ;;
     --delete)
       OP=delete
-      NAME="${2}"
-      shift 2
+      shift
       ;;
     --create)
       OP=create
@@ -67,7 +68,8 @@ case "${OP}" in
     sudo "${cmd[@]}"
     ;;
   delete)
-    kops --state=${STATE_STORE} delete cluster --name=${NAME} --yes
+    kops --state=${STATE_STORE} delete cluster --name=$(cat .cluster_name) --yes
+    aws s3 rb --region ${REGION} --force s3://$(cat .bucket)
     ;;
   delete-all)
     kops --state=${STATE_STORE} get clusters | tail -n+2 | awk '{print $1}' \
