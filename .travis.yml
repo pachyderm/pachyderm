@@ -39,6 +39,6 @@ notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
   email:
     recipients:
-      - dev@pachyderm.io
+      - derek@pachyderm.io
     on_success: never
     on_failure: always
