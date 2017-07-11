@@ -3726,11 +3726,11 @@ func TestPipelineWithStats(t *testing.T) {
 	dataRepo := uniqueString("TestPipelineWithStats_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	numFiles := 1000
+	numFiles := 5000
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
-		_, err = c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file-%d", i), strings.NewReader(strings.Repeat("foo\n", i*10)))
+		_, err = c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file-%d", i), strings.NewReader(strings.Repeat("foo\n", 100)))
 	}
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
@@ -3760,9 +3760,6 @@ func TestPipelineWithStats(t *testing.T) {
 	jobs, err := c.ListJob(pipeline, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
-
-	var buf bytes.Buffer
-	require.NoError(t, c.GetFile(pipeline, "stats", path.Join(jobs[0].Job.ID, "stats"), 0, 0, &buf))
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
