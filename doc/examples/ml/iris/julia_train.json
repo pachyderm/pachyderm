@@ -4,15 +4,14 @@
   },
   "transform": {
     "image": "pachyderm/iris-train:julia-forest",
-    "cmd": [ 
-	"julia", 
+    "cmd": [
+	"julia",
 	"/train.jl",
-	"/pfs/training/iris.csv", 
-	"/pfs/out/model.jld"	
+	"/pfs/training/iris.csv",
+	"/pfs/out/model.jld"
     ]
   },
   "parallelism_spec": {
-    "strategy": "CONSTANT",
     "constant": "1"
   },
   "input": {

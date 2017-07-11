@@ -1,28 +1,32 @@
 package main
 
 import (
+	"fmt"
 	"os"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/src/server/cmd/pachctl/cmd"
-	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
-
 	"github.com/spf13/pflag"
 )
 
-type appEnv struct {
-	Address string `env:"ADDRESS,default=0.0.0.0:30650"`
-}
-
 func main() {
-	cmdutil.Main(do, &appEnv{})
-}
-
-func do(appEnvObj interface{}) error {
+	// Remove kubernetes client flags from the spf13 flag set
+	// (we link the kubernetes client, so otherwise they're in 'pachctl --help')
 	pflag.CommandLine = pflag.NewFlagSet(os.Args[0], pflag.ExitOnError)
-	appEnv := appEnvObj.(*appEnv)
-	rootCmd, err := cmd.PachctlCmd(appEnv.Address)
+	err := func() error {
+		rootCmd, err := cmd.PachctlCmd()
+		if err != nil {
+			return err
+		}
+		if err := rootCmd.Execute(); err != nil {
+			return err
+		}
+		return nil
+	}()
 	if err != nil {
-		return err
+		if errString := strings.TrimSpace(err.Error()); errString != "" {
+			fmt.Fprintf(os.Stderr, "%s\n", errString)
+		}
+		os.Exit(1)
 	}
-	return rootCmd.Execute()
 }
