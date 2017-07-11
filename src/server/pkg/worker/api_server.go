@@ -559,6 +559,13 @@ func HashDatum(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) {
 		hash.Write(datum.FileInfo.Hash)
 	}
 
+	// We set env to nil because if env contains more than one elements,
+	// since it's a map, the output of Marshal() can be non-deterministic.
+	env := pipelineInfo.Transform.Env
+	pipelineInfo.Transform.Env = nil
+	defer func() {
+		pipelineInfo.Transform.Env = env
+	}()
 	bytes, err := pipelineInfo.Transform.Marshal()
 	if err != nil {
 		return "", err

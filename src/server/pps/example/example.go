@@ -23,7 +23,6 @@ var (
 	CreateJobRequest = &ppsclient.CreateJobRequest{
 		Transform: Transform,
 		ParallelismSpec: &ppsclient.ParallelismSpec{
-			Strategy: ppsclient.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		Inputs: []*ppsclient.JobInput{
@@ -44,7 +43,6 @@ var (
 		},
 		Transform: Transform,
 		ParallelismSpec: &ppsclient.ParallelismSpec{
-			Strategy: ppsclient.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		Input: &ppsclient.Input{

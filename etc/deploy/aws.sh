@@ -29,12 +29,10 @@ parse_flags() {
             USE_EXISTING_STATE_BUCKET='true'
             shift 2
             ;;
-          --region)
-            export AWS_REGION="${2}"
-            shift 2
-            ;;
           --zone)
             export AWS_AVAILABILITY_ZONE="${2}"
+            local len_zone_minus_one="$(( ${#AWS_AVAILABILITY_ZONE} - 1 ))"
+            export AWS_REGION=${AWS_AVAILABILITY_ZONE:0:${len_zone_minus_one}}
             shift 2
             ;;
           --no-metrics)
@@ -52,15 +50,7 @@ parse_flags() {
       esac
   done
 
-  echo "Region: ${AWS_REGION}"
-  zone_suffix=${AWS_AVAILABILITY_ZONE#$AWS_REGION}
-  if [[ ${#zone_suffix} -gt 3 ]]; then
-    echo "Availability zone \"${AWS_AVAILABILITY_ZONE}\" may not be in region \"${AWS_REGION}\""
-    echo "Try setting both --region and --zone"
-    echo "Exiting to be safe..."
-    exit 1
-  fi
-
+  echo "Availability zone: ${AWS_AVAILABILITY_ZONE}"
   if [[ ! ( "${STATE_BUCKET}" =~ s3://* ) ]]; then
     echo "kops state bucket must start with \"s3://\" but is \"${STATE_BUCKET}\""
     exit "Exiting to be safe..."
@@ -156,7 +146,8 @@ deploy_k8s_on_aws() {
 update_sec_group() {
     export SECURITY_GROUP_ID="$(
         aws ec2 describe-instances --filters "Name=instance-type,Values=${NODE_SIZE}" --region ${AWS_REGION} \
-          | jq --raw-output '.Reservations[].Instances[] | select([.Tags[]?.Value | contains("masters.'${NAME}'")] | any) | .SecurityGroups[0].GroupId')"
+          | jq --raw-output ".Reservations[].Instances[] | select([.Tags[]?.Value | contains(\"masters.${NAME}\")] | any) | .SecurityGroups[0].GroupId"
+    )"
     # For k8s access
     aws ec2 authorize-security-group-ingress --group-id ${SECURITY_GROUP_ID} --protocol tcp --port 8080 --cidr "0.0.0.0/0" --region ${AWS_REGION}
     # For pachyderm direct access:
@@ -241,7 +232,8 @@ check_all_nodes_ready() {
 get_k8s_master_domain() {
     export K8S_MASTER_DOMAIN="$(
         aws ec2 describe-instances --filters "Name=instance-type,Values=${NODE_SIZE}" --region ${AWS_REGION} \
-          | jq --raw-output '.Reservations[].Instances[] | select([.Tags[]?.Value | contains("masters.'${NAME}'")] | any) | .PublicDnsName')"
+          | jq --raw-output ".Reservations[].Instances[] | select([.Tags[]?.Value | contains(\"masters.${NAME}\")] | any) | .PublicDnsName"
+    )"
     if [ -n "${K8S_MASTER_DOMAIN}" ]; then
         return 0
     fi
@@ -304,7 +296,23 @@ if [[ "${USE_CLOUDFRONT}" == "true" ]]; then
   # They'll need this ID to run the secure script
   echo "Created cloudfront distribution with ID: ${CLOUDFRONT_ID}"
 fi
-
-# Must echo ID at end, for etc/testing/deploy/aws.sh
 echo "Cluster created:"
 echo ${NAME}
+
+# Put the cluster address in the pachyderm config
+config_path="${HOME}/.pachyderm/config.json"
+[[ -d "${HOME}/.pachyderm" ]] || mkdir "${HOME}/.pachyderm"
+[[ -e "${config_path}" ]] || {
+  echo '{}' >"${config_path}"
+  chmod 777 "${config_path}"
+}
+tmpfile="$(mktemp -p .)"
+cp "${config_path}" "${tmpfile}"
+jq --monochrome-output \
+  ".v1.pachd_address=\"${K8S_MASTER_DOMAIN}:30650\"" \
+  "${tmpfile}" \
+  >"${config_path}"
+rm "${tmpfile}"
+
+# Must echo ID at end, for etc/testing/deploy/aws.sh
+echo "Cluster address has been written to \$HOME/.pachyderm/config"

@@ -93,9 +93,8 @@ type driver struct {
 	repoRefCounts col.Collection
 	commits       collectionFactory
 	branches      collectionFactory
+	openCommits   col.Collection
 
-	// a cache for commit IDs that we know exist
-	commitCache *lru.Cache
 	// a cache for hashtrees
 	treeCache *lru.Cache
 }
@@ -109,9 +108,6 @@ const (
 //
 // Each value specifies a percentage of the total cache space to be used.
 const (
-	commitCachePercentage = 0.05
-	treeCachePercentage   = 0.95
-
 	// by default we use 1GB of RAM for cache
 	defaultCacheSize = 1024 * 1024
 )
@@ -126,11 +122,7 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, cacheB
 		return nil, err
 	}
 
-	commitCache, err := lru.New(int(float64(cacheBytes) * commitCachePercentage))
-	if err != nil {
-		return nil, err
-	}
-	treeCache, err := lru.New(int(float64(cacheBytes) * treeCachePercentage))
+	treeCache, err := lru.New(int(cacheBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +139,7 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, cacheB
 		branches: func(repo string) col.Collection {
 			return pfsdb.Branches(etcdClient, etcdPrefix, repo)
 		},
-		commitCache: commitCache,
+		openCommits: pfsdb.OpenCommits(etcdClient, etcdPrefix),
 		treeCache:   treeCache,
 	}, nil
 }
@@ -497,7 +489,9 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 				}
 			}
 			// Make commit the new head of the branch
-			branches.Put(branch, commit)
+			if err := branches.Put(branch, commit); err != nil {
+				return err
+			}
 		}
 		if parent.ID != "" {
 			parentCommitInfo, err := d.inspectCommit(ctx, parent)
@@ -516,6 +510,8 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 			commitInfo.Finished = now()
 			repoInfo.SizeBytes += commitSize
 			repos.Put(parent.Repo.Name, repoInfo)
+		} else {
+			d.openCommits.ReadWrite(stm).Put(commit.ID, commit)
 		}
 		return commits.Create(commit.ID, commitInfo)
 	}); err != nil {
@@ -588,6 +584,9 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 		repos := d.repos.ReadWrite(stm)
 
 		commits.Put(commit.ID, commitInfo)
+		if err := d.openCommits.ReadWrite(stm).Delete(commit.ID); err != nil {
+			return fmt.Errorf("could not confirm that commit %s is open; this is likely a bug. err: %v", commit.ID, err)
+		}
 		// update repo size
 		repoInfo := new(pfs.RepoInfo)
 		if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
@@ -1145,7 +1144,9 @@ func (d *driver) setBranch(ctx context.Context, commit *pfs.Commit, name string)
 			return err
 		}
 
-		branches.Put(name, commit)
+		if err := branches.Put(name, commit); err != nil {
+			return err
+		}
 		return nil
 	})
 	return err
@@ -1197,28 +1198,22 @@ func checkPath(path string) error {
 	return nil
 }
 
-func (d *driver) commitExists(commitID string) bool {
-	_, found := d.commitCache.Get(commitID)
-	return found
-}
-
-func (d *driver) setCommitExist(commitID string) {
-	d.commitCache.Add(commitID, struct{}{})
-}
-
 func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter,
 	targetFileDatums int64, targetFileBytes int64, reader io.Reader) error {
-	// Cache existing commit IDs so we don't hit the database on every
-	// PutFile call.
-	records := &PutFileRecords{}
-	if !d.commitExists(file.Commit.ID) {
-		_, err := d.inspectCommit(ctx, file.Commit)
+	// Check if the commit ID is a branch name.  If so, we have to
+	// get the real commit ID in order to check if the commit does exist
+	// and is open.
+	// Since we use UUIDv4 for commit IDs, the 13th character would be 4 if
+	// this is a commit ID.
+	if len(file.Commit.ID) != uuid.UUIDWithoutDashesLength || file.Commit.ID[12] != '4' {
+		commitInfo, err := d.inspectCommit(ctx, file.Commit)
 		if err != nil {
 			return err
 		}
-		d.setCommitExist(file.Commit.ID)
+		file.Commit = commitInfo.Commit
 	}
 
+	records := &PutFileRecords{}
 	if err := checkPath(file.Path); err != nil {
 		return err
 	}
@@ -1232,6 +1227,28 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	if err != nil {
 		return err
 	}
+
+	// Only write the records to etcd if the commit does exist and is open.
+	// To check that a key exists in etcd, we assert that its CreateRevision
+	// is greater than zero.
+	putRecords := func() error {
+		marshalledRecords, err := records.Marshal()
+		if err != nil {
+			return err
+		}
+		kvc := etcd.NewKV(d.etcdClient)
+
+		txnResp, err := kvc.Txn(ctx).
+			If(etcd.Compare(etcd.CreateRevision(d.openCommits.Path(file.Commit.ID)), ">", 0)).Then(etcd.OpPut(path.Join(prefix, uuid.NewWithoutDashes()), string(marshalledRecords))).Commit()
+		if err != nil {
+			return err
+		}
+		if !txnResp.Succeeded {
+			return fmt.Errorf("commit %v is not open", file.Commit.ID)
+		}
+		return nil
+	}
+
 	if delimiter == pfs.Delimiter_NONE {
 		object, size, err := objClient.PutObject(reader)
 		if err != nil {
@@ -1241,12 +1258,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			SizeBytes:  size,
 			ObjectHash: object.Hash,
 		})
-		marshalledRecords, err := records.Marshal()
-		if err != nil {
-			return err
-		}
-		_, err = d.etcdClient.Put(ctx, path.Join(prefix, uuid.NewWithoutDashes()), string(marshalledRecords))
-		return err
+		return putRecords()
 	}
 	buffer := &bytes.Buffer{}
 	var datumsWritten int64
@@ -1316,12 +1328,8 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	for i := 0; i < len(indexToRecord); i++ {
 		records.Records = append(records.Records, indexToRecord[i])
 	}
-	marshalledRecords, err := records.Marshal()
-	if err != nil {
-		return err
-	}
-	_, err = d.etcdClient.Put(ctx, path.Join(prefix, uuid.NewWithoutDashes()), string(marshalledRecords))
-	return err
+
+	return putRecords()
 }
 
 func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hashtree.HashTree, error) {

@@ -33,7 +33,6 @@ func TestInvalidCreatePipeline(t *testing.T) {
 		cmd,
 		nil,
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInputOpts("out", dataRepo, "", "/*", false, ""),
@@ -50,7 +49,6 @@ func TestInvalidCreatePipeline(t *testing.T) {
 		cmd,
 		nil,
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInputOpts("input", dataRepo, "", "", false, ""),
@@ -67,7 +65,6 @@ func TestInvalidCreatePipeline(t *testing.T) {
 		nil,
 		nil,
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInputOpts("input", dataRepo, "", "/*", false, ""),
@@ -92,7 +89,6 @@ func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 		[]string{"bash"},
 		[]string{""},
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInputOpts("whatever", "nonexistent", "", "/*", false, ""),
@@ -118,7 +114,6 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 		[]string{"bash"},
 		[]string{""},
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(dataRepo, "/*"),
@@ -132,11 +127,39 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 		[]string{"bash"},
 		[]string{""},
 		&pps.ParallelismSpec{
-			Strategy: pps.ParallelismSpec_CONSTANT,
 			Constant: 1,
 		},
 		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
+}
+
+func TestPipelineInvalidParallelism(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	// Set up repo
+	dataRepo := uniqueString("TestPipelineInvalidParallelism")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	// Create pipeline named "out"
+	err := c.CreatePipeline(
+		"invalid-parallelism-pipeline",
+		"",
+		[]string{"bash", "-c"},
+		[]string{"echo hello"},
+		&pps.ParallelismSpec{
+			Constant:    1,
+			Coefficient: 1.0,
+		},
+		client.NewAtomInput(dataRepo, "/*"),
+		"master",
+		false,
+	)
+	require.YesError(t, err)
+	require.Matches(t, "parallelism", err.Error())
 }
