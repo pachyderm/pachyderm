@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Cmds returns auth commands.
 func Cmds(address string, noMetrics *bool) ([]*cobra.Command, error) {
 	metrics := !*noMetrics
 	putToken := &cobra.Command{
