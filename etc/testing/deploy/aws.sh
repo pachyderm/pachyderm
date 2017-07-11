@@ -6,8 +6,8 @@
 
 ## Parse command-line flags
 
+ZONE="${ZONE:-us-west-1b}"
 STATE_STORE=s3://pachyderm-travis-state-store-v1
-ZONE=us-west-1b
 OP=-
 CLOUDFRONT=
 
