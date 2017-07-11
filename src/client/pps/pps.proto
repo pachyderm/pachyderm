@@ -217,6 +217,7 @@ message PipelineInfo {
   Input input = 20;
   string description = 21;
   bool incremental = 22;
+  string salt = 23;
 }
 
 message PipelineInfos {
@@ -317,6 +318,9 @@ message CreatePipelineRequest {
   Input input = 13;
   string description = 14;
   bool incremental = 15;
+  // Reprocess forces the pipeline to reprocess all datums.
+  // It only has meaning if Update is true
+  bool reprocess = 16;
 }
 
 message InspectPipelineRequest {

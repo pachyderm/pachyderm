@@ -709,6 +709,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		ResourceSpec:       request.ResourceSpec,
 		Description:        request.Description,
 		Incremental:        request.Incremental,
+		Salt:               uuid.NewWithoutDashes(),
 	}
 	setPipelineDefaults(pipelineInfo)
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
@@ -739,6 +740,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				return err
 			}
 			pipelineInfo.Version = oldPipelineInfo.Version + 1
+			if !request.Reprocess {
+				pipelineInfo.Salt = oldPipelineInfo.Salt
+			}
 			pipelines.Put(pipelineName, pipelineInfo)
 			return nil
 		})
