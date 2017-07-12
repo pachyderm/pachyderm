@@ -59,12 +59,12 @@ const (
 )
 
 // HashPipelineID hashes a pipeline ID to a string of a fixed size
-func HashPipelineID(pipelineID string) string {
+func HashPipelineName(pipelineName string) string {
 	// We need to hash the pipeline ID because UUIDs are not necessarily
 	// random in every bit.
-	pipelineIDHash := sha256.New()
-	pipelineIDHash.Write([]byte(pipelineID))
-	return hex.EncodeToString(pipelineIDHash.Sum(nil))[:4]
+	pipelineNameHash := sha256.New()
+	pipelineNameHash.Write([]byte(pipelineName))
+	return hex.EncodeToString(pipelineNameHash.Sum(nil))[:4]
 }
 
 // NewAtomInput returns a new atom input. It only includes required options.

@@ -283,7 +283,6 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 				return err
 			}
 			jobInfo.PipelineVersion = pipelineInfo.Version
-			jobInfo.PipelineID = pipelineInfo.ID
 			jobInfo.Transform = pipelineInfo.Transform
 			jobInfo.ParallelismSpec = pipelineInfo.ParallelismSpec
 			jobInfo.OutputRepo = &pfs.Repo{pipelineInfo.Pipeline.Name}
@@ -696,7 +695,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	}
 
 	pipelineInfo := &pps.PipelineInfo{
-		ID:                 uuid.NewWithoutDashes(),
 		Pipeline:           request.Pipeline,
 		Version:            1,
 		Transform:          request.Transform,
@@ -1159,7 +1157,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 	activeTags := make(map[string]bool)
 	for _, pipelineInfo := range pipelineInfos.PipelineInfo {
 		tags, err := objClient.ListTags(ctx, &pfs.ListTagsRequest{
-			Prefix:        client.HashPipelineID(pipelineInfo.ID),
+			Prefix:        client.HashPipelineName(pipelineInfo.Pipeline.Name),
 			IncludeObject: true,
 		})
 		if err != nil {
