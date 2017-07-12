@@ -177,7 +177,6 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		pipelineInfo: pipelineInfo,
 		logMsgTemplate: pps.LogMessage{
 			PipelineName: pipelineInfo.Pipeline.Name,
-			PipelineID:   pipelineInfo.ID,
 			WorkerID:     os.Getenv(client.PPSPodNameEnv),
 		},
 		workerName: workerName,
@@ -492,7 +491,7 @@ func HashDatum(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) {
 	hash.Write([]byte(pipelineInfo.Pipeline.Name))
 	hash.Write([]byte(pipelineInfo.Salt))
 
-	return client.HashPipelineID(pipelineInfo.ID) + hex.EncodeToString(hash.Sum(nil)), nil
+	return client.HashPipelineName(pipelineInfo.Pipeline.Name) + hex.EncodeToString(hash.Sum(nil)), nil
 }
 
 // Process processes a datum.
