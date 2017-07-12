@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"path"
 	"time"
 
@@ -40,14 +41,14 @@ func (a *apiServer) master() {
 
 		pipelineWatcher, err := a.pipelines.ReadOnly(ctx).WatchWithPrev()
 		if err != nil {
-			return err
+			return fmt.Errorf("error creating watch: %+v", err)
 		}
 		defer pipelineWatcher.Close()
 
 		for {
 			event := <-pipelineWatcher.Watch()
 			if event.Err != nil {
-				return event.Err
+				return fmt.Errorf("event err: %+v", event.Err)
 			}
 			switch event.Type {
 			case watch.EventPut:
@@ -60,20 +61,18 @@ func (a *apiServer) master() {
 				if pipelineInfo.Salt == "" {
 					if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 						pipelines := a.pipelines.ReadWrite(stm)
-						pipelineInfo := new(pps.PipelineInfo)
-						if err := pipelines.Get(pipelineName, pipelineInfo); err != nil {
-							return err
+						newPipelineInfo := new(pps.PipelineInfo)
+						if err := pipelines.Get(pipelineInfo.Pipeline.Name, newPipelineInfo); err != nil {
+							return fmt.Errorf("error getting pipeline %s: %+v", pipelineName, err)
 						}
-						if pipelineInfo.Salt == "" {
-							pipelineInfo.Salt = uuid.NewWithoutDashes()
+						if newPipelineInfo.Salt == "" {
+							newPipelineInfo.Salt = uuid.NewWithoutDashes()
 						}
-						pipelines.Put(pipelineName, pipelineInfo)
+						pipelines.Put(pipelineInfo.Pipeline.Name, newPipelineInfo)
 						return nil
 					}); err != nil {
 						return err
 					}
-					// we'll receive this pipeline again from the watcher since we just update it
-					continue
 				}
 
 				var prevPipelineInfo pps.PipelineInfo
