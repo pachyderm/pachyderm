@@ -5,6 +5,8 @@ make test
 
 echo "Running aws tests"
 
+pip install awscli
+
 # Use the secrets in the travis environment to setup the aws creds for the aws command:
 echo -e "${AWS_ACCESS_KEY_ID}\n${AWS_SECRET_ACCESS_KEY}\n" \
     | aws configure
