@@ -246,7 +246,8 @@ message PipelineInfo {
   Input input = 20;
   string description = 21;
   bool incremental = 22;
-  bool enable_stats = 23;
+  string cache_size = 23;
+  bool enable_stats = 24;
 }
 
 message PipelineInfos {
@@ -355,7 +356,8 @@ message CreatePipelineRequest {
   Input input = 13;
   string description = 14;
   bool incremental = 15;
-  bool enable_stats = 16;
+  string cache_size = 16;
+  bool enable_stats = 17;
 }
 
 message InspectPipelineRequest {
