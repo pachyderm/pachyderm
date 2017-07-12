@@ -138,7 +138,7 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		}
 		var resources *api.ResourceList
 		if pipelineInfo.ResourceSpec != nil {
-			resources, err = parseResourceList(pipelineInfo.ResourceSpec)
+			resources, err = parseResourceList(pipelineInfo.ResourceSpec, pipelineInfo.CacheSize)
 			if err != nil {
 				return err
 			}
@@ -147,7 +147,8 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 			ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 			int32(parallelism),
 			resources,
-			pipelineInfo.Transform)
+			pipelineInfo.Transform,
+			pipelineInfo.CacheSize)
 		// Set the pipeline name env
 		options.workerEnv = append(options.workerEnv, api.EnvVar{
 			Name:  client.PPSPipelineNameEnv,

@@ -629,6 +629,9 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 	if pipelineInfo.OutputBranch == "" {
 		return fmt.Errorf("pipeline needs to specify an output branch")
 	}
+	if _, err := resource.ParseQuantity(pipelineInfo.CacheSize); err != nil {
+		return fmt.Errorf("could not parse cacheSize '%s': %v", pipelineInfo.CacheSize, err)
+	}
 	if pipelineInfo.Incremental {
 		pfsClient, err := a.getPFSClient()
 		if err != nil {
@@ -709,6 +712,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		ResourceSpec:       request.ResourceSpec,
 		Description:        request.Description,
 		Incremental:        request.Incremental,
+		CacheSize:          request.CacheSize,
 	}
 	setPipelineDefaults(pipelineInfo)
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
@@ -867,6 +871,14 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 	if pipelineInfo.OutputBranch == "" {
 		// Output branches default to master
 		pipelineInfo.OutputBranch = "master"
+	}
+	if pipelineInfo.CacheSize == "" {
+		pipelineInfo.CacheSize = "64M"
+	}
+	if pipelineInfo.ResourceSpec == nil && pipelineInfo.CacheSize != "" {
+		pipelineInfo.ResourceSpec = &pps.ResourceSpec{
+			Memory: pipelineInfo.CacheSize,
+		}
 	}
 }
 
@@ -1364,15 +1376,26 @@ func jobStateToStopped(state pps.JobState) bool {
 	}
 }
 
-func parseResourceList(resources *pps.ResourceSpec) (*api.ResourceList, error) {
+func parseResourceList(resources *pps.ResourceSpec, cacheSize string) (*api.ResourceList, error) {
 	cpuQuantity, err := resource.ParseQuantity(fmt.Sprintf("%f", resources.Cpu))
 	if err != nil {
 		return nil, fmt.Errorf("could not parse cpu quantity: %s", err)
 	}
+
 	memQuantity, err := resource.ParseQuantity(resources.Memory)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse memory quantity: %s", err)
 	}
+	cacheQuantity, err := resource.ParseQuantity(cacheSize)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse cache quantity: %s", err)
+	}
+	// Here we are sanity checking.  A pipeline should request at least
+	// as much memory as it needs for caching.
+	if cacheQuantity.Cmp(memQuantity) > 0 {
+		memQuantity = cacheQuantity
+	}
+
 	gpuQuantity, err := resource.ParseQuantity(fmt.Sprintf("%d", resources.Gpu))
 	if err != nil {
 		return nil, fmt.Errorf("could not parse gpu quantity: %s", err)
