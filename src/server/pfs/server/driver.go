@@ -341,6 +341,9 @@ nextRepo:
 		ok, err := iterator.Next(&repoName, repoInfo)
 		fmt.Printf("next repo? %v, %v\n", ok, err)
 		if err != nil {
+			if strings.Contains(err.Error(), "unexpected EOF") {
+				break
+			}
 			return nil, err
 		}
 		if !ok {
