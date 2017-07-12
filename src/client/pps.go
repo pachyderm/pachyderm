@@ -58,7 +58,7 @@ const (
 	GCGenerationKey = "gc-generation"
 )
 
-// HashPipelineID hashes a pipeline ID to a string of a fixed size
+// HashPipelineName hashes a pipeline name to a string of a fixed size
 func HashPipelineName(pipelineName string) string {
 	// We need to hash the pipeline ID because UUIDs are not necessarily
 	// random in every bit.
