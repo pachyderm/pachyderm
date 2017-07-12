@@ -28,7 +28,7 @@ func NewLogger(service string) Logger {
 }
 
 func (l *logger) Log(request interface{}, response interface{}, err error, duration time.Duration) {
-	depth := 2
+	depth := 1
 	pc := make([]uintptr, 2+depth)
 	runtime.Callers(2+depth, pc)
 	split := strings.Split(runtime.FuncForPC(pc[0]).Name(), ".")
@@ -63,7 +63,7 @@ func (f *PrettyFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 		),
 	)
 	if entry.Data["service"] != nil {
-		serialized = append(serialized, []byte(fmt.Sprintf(" %v.%v ", entry.Data["service"], entry.Data["method"]))...)
+		serialized = append(serialized, []byte(fmt.Sprintf("%v.%v ", entry.Data["service"], entry.Data["method"]))...)
 	}
 	if len(entry.Data) > 2 {
 		delete(entry.Data, "service")
