@@ -30,7 +30,7 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
-	"go.pedge.io/lion/proto"
+	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -358,7 +358,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	workerPoolID := ppsserver.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
 	workerStatus, err := status(ctx, workerPoolID, a.etcdClient, a.etcdPrefix)
 	if err != nil {
-		protolion.Errorf("failed to get worker status with err: %s", err.Error())
+		logrus.Errorf("failed to get worker status with err: %s", err.Error())
 	} else {
 		// It's possible that the workers might be working on datums for other
 		// jobs, we omit those since they're not part of the status for this

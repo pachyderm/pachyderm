@@ -16,7 +16,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/groupcache"
-	protolion "go.pedge.io/lion"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 
@@ -89,9 +89,9 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objC
 		ticker := time.NewTicker(time.Minute)
 		for {
 			<-ticker.C
-			protolion.Infof("objectCache stats: %+v", s.objectCache.Stats)
-			protolion.Infof("tagCache stats: %+v", s.tagCache.Stats)
-			protolion.Infof("objectInfoCache stats: %+v", s.objectInfoCache.Stats)
+			logrus.Infof("objectCache stats: %+v", s.objectCache.Stats)
+			logrus.Infof("tagCache stats: %+v", s.tagCache.Stats)
+			logrus.Infof("objectInfoCache stats: %+v", s.objectInfoCache.Stats)
 		}
 	}()
 	go s.watchGC(etcdAddress)
@@ -131,7 +131,7 @@ func (s *objBlockAPIServer) watchGC(etcdAddress string) {
 			s.setGeneration(newGen)
 		}
 	}, b, func(err error, d time.Duration) error {
-		protolion.Errorf("error running GC watcher in block server: %v; retrying in %s", err, d)
+		logrus.Errorf("error running GC watcher in block server: %v; retrying in %s", err, d)
 		return nil
 	})
 }
@@ -289,11 +289,11 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 			return err
 		}
 		if objectInfo == nil {
-			protolion.Debugf("objectInfo is nil; info: %+v; request: %v", objectInfo, request)
+			logrus.Debugf("objectInfo is nil; info: %+v; request: %v", objectInfo, request)
 		} else if objectInfo.BlockRef == nil {
-			protolion.Debugf("objectInfo.BlockRef is nil; info: %+v; request: %v", objectInfo, request)
+			logrus.Debugf("objectInfo.BlockRef is nil; info: %+v; request: %v", objectInfo, request)
 		} else if objectInfo.BlockRef.Range == nil {
-			protolion.Debugf("objectInfo.BlockRef.Range is nil; info: %+v; request: %v", objectInfo, request)
+			logrus.Debugf("objectInfo.BlockRef.Range is nil; info: %+v; request: %v", objectInfo, request)
 		}
 
 		objectSize := objectInfo.BlockRef.Range.Upper - objectInfo.BlockRef.Range.Lower
@@ -821,7 +821,7 @@ func (s *objBlockAPIServer) readObj(path string, offset uint64, size uint64, des
 		}
 		return nil
 	}, obj.NewExponentialBackOffConfig(), func(err error, d time.Duration) error {
-		protolion.Infof("Error creating reader; retrying in %s: %#v", d, obj.RetryError{
+		logrus.Infof("Error creating reader; retrying in %s: %#v", d, obj.RetryError{
 			Err:               err.Error(),
 			TimeTillNextRetry: d.String(),
 		})

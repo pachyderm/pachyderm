@@ -20,7 +20,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/storagegateway"
 	"github.com/cenkalti/backoff"
-	"go.pedge.io/lion"
+	log "github.com/sirupsen/logrus"
 )
 
 type amazonClient struct {
@@ -57,7 +57,7 @@ func newAmazonClient(bucket string, cloudfrontDistribution string, id string, se
 			return nil, err
 		}
 		signer = sign.NewURLSigner(string(cloudfrontKeyPairID), cloudfrontPrivateKey)
-		lion.Infof("Using cloudfront security credentials - keypair ID (%v) - to sign cloudfront URLs", string(cloudfrontKeyPairID))
+		log.Infof("Using cloudfront security credentials - keypair ID (%v) - to sign cloudfront URLs", string(cloudfrontKeyPairID))
 	}
 	return &amazonClient{
 		bucket:                 bucket,
@@ -125,7 +125,7 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 			}
 			return nil
 		}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) {
-			lion.Infof("Error connecting to (%v); retrying in %s: %#v", url, d, err)
+			log.Infof("Error connecting to (%v); retrying in %s: %#v", url, d, err)
 		})
 		if connErr != nil {
 			return nil, connErr
