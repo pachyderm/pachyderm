@@ -6,10 +6,10 @@ make test
 echo "Running aws tests"
 
 pip install awscli
-apt-get install realpath
+sudo apt-get install realpath
 wget https://github.com/kubernetes/kops/releases/download/1.6.2/kops-linux-amd64
 chmod +x kops-linux-amd64
-mv kops-linux-amd64 /usr/local/bin/kops
+sudo mv kops-linux-amd64 /usr/local/bin/kops
 
 # Use the secrets in the travis environment to setup the aws creds for the aws command:
 echo -e "${AWS_ACCESS_KEY_ID}\n${AWS_SECRET_ACCESS_KEY}\n" \
