@@ -16,10 +16,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
 	protolion "go.pedge.io/lion/proto"
-	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -36,7 +36,7 @@ const (
 )
 
 type apiServer struct {
-	protorpclog.Logger
+	log.Logger
 	driver *driver
 }
 
@@ -46,7 +46,7 @@ func newLocalAPIServer(address string, etcdPrefix string) (*apiServer, error) {
 		return nil, err
 	}
 	return &apiServer{
-		Logger: protorpclog.NewLogger("pfs.API"),
+		Logger: log.NewLogger("pfs.API"),
 		driver: d,
 	}, nil
 }
@@ -57,7 +57,7 @@ func newAPIServer(address string, etcdAddresses []string, etcdPrefix string, cac
 		return nil, err
 	}
 	return &apiServer{
-		Logger: protorpclog.NewLogger("pfs.API"),
+		Logger: log.NewLogger("pfs.API"),
 		driver: d,
 	}, nil
 }
@@ -382,9 +382,9 @@ func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, reques
 			},
 			Recursive: request.Recursive,
 		}
-		protorpclog.Log("pfs.API", "putFileObj", logRequest, nil, nil, 0)
+		a.Log(logRequest, nil, nil, 0)
 		defer func(start time.Time) {
-			protorpclog.Log("pfs.API", "putFileObj", logRequest, nil, retErr, time.Since(start))
+			a.Log(logRequest, nil, retErr, time.Since(start))
 		}(time.Now())
 		r, err := objClient.Reader(objPath, 0, 0)
 		if err != nil {

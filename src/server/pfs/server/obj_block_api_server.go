@@ -17,7 +17,6 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/groupcache"
 	protolion "go.pedge.io/lion"
-	protorpclog "go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 )
@@ -42,7 +42,7 @@ const (
 )
 
 type objBlockAPIServer struct {
-	protorpclog.Logger
+	log.Logger
 	dir         string
 	localServer *localBlockAPIServer
 	objClient   obj.Client
@@ -73,7 +73,7 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objC
 	}
 	oneCacheShare := cacheBytes / (objectCacheShares + tagCacheShares + objectInfoCacheShares)
 	s := &objBlockAPIServer{
-		Logger:           protorpclog.NewLogger("pfs.BlockAPI.Obj"),
+		Logger:           log.NewLogger("pfs.BlockAPI.Obj"),
 		dir:              dir,
 		localServer:      localServer,
 		objClient:        objClient,
