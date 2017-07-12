@@ -5,7 +5,7 @@ import (
 	"path"
 	"time"
 
-	"go.pedge.io/lion/proto"
+	log "github.com/sirupsen/logrus"
 	"k8s.io/kubernetes/pkg/api"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -35,7 +35,7 @@ func (a *apiServer) master() {
 		}
 		defer masterLock.Unlock(ctx)
 
-		protolion.Infof("Launching PPS master process")
+		log.Infof("Launching PPS master process")
 
 		pipelineWatcher, err := a.pipelines.ReadOnly(ctx).WatchWithPrev()
 		if err != nil {
@@ -65,7 +65,7 @@ func (a *apiServer) master() {
 
 				// If the pipeline has been stopped, delete workers
 				if pipelineStateToStopped(pipelineInfo.State) {
-					protolion.Infof("master: deleting workers for pipeline %s", pipelineInfo.Pipeline.Name)
+					log.Infof("master: deleting workers for pipeline %s", pipelineInfo.Pipeline.Name)
 					if err := a.deleteWorkersForPipeline(&pipelineInfo); err != nil {
 						return err
 					}
@@ -83,7 +83,7 @@ func (a *apiServer) master() {
 
 				// If the pipeline has been updated, create new workers
 				if pipelineInfo.Version > prevPipelineInfo.Version {
-					protolion.Infof("master: creating/updating workers for pipeline %s", pipelineInfo.Pipeline.Name)
+					log.Infof("master: creating/updating workers for pipeline %s", pipelineInfo.Pipeline.Name)
 					if event.PrevKey != nil {
 						if err := a.deleteWorkersForPipeline(&prevPipelineInfo); err != nil {
 							return err
@@ -108,7 +108,7 @@ func (a *apiServer) master() {
 			}
 		}
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		protolion.Errorf("master: error running the master process: %v; retrying in %v", err, d)
+		log.Errorf("master: error running the master process: %v; retrying in %v", err, d)
 		return nil
 	})
 }
@@ -159,7 +159,7 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		if errCount >= 3 {
 			return err
 		}
-		protolion.Errorf("error creating workers for pipeline %v: %v; retrying in %v", pipelineInfo.Pipeline.Name, err, d)
+		log.Errorf("error creating workers for pipeline %v: %v; retrying in %v", pipelineInfo.Pipeline.Name, err, d)
 		return nil
 	})
 }
