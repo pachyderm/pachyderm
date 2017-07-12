@@ -17,6 +17,7 @@ type workerOptions struct {
 	userImage    string            // The user's pipeline/job image
 	labels       map[string]string // k8s labels attached to the Deployment and workers
 	parallelism  int32             // Number of replicas the RC maintains
+	cacheSize    string            // Size of cache that sidecar uses
 	resources    *api.ResourceList // Resources requested by pipeline/job pods
 	workerEnv    []api.EnvVar      // Environment vars set in the user container
 	volumes      []api.Volume      // Volumes that we expose to the user container
@@ -35,7 +36,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 	// TODO: make the cache sizes configurable
 	sidecarEnv := []api.EnvVar{{
 		Name:  "BLOCK_CACHE_BYTES",
-		Value: "64M",
+		Value: options.cacheSize,
 	}, {
 		Name:  "PFS_CACHE_BYTES",
 		Value: "10M",
@@ -116,7 +117,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 	return podSpec
 }
 
-func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, resources *api.ResourceList, transform *pps.Transform) *workerOptions {
+func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, resources *api.ResourceList, transform *pps.Transform, cacheSize string) *workerOptions {
 	labels := labels(rcName)
 	userImage := transform.Image
 	if userImage == "" {
@@ -232,6 +233,7 @@ func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, resources
 		volumes:          volumes,
 		volumeMounts:     volumeMounts,
 		imagePullSecrets: imagePullSecrets,
+		cacheSize:        cacheSize,
 	}
 }
 

@@ -209,9 +209,10 @@ launch-dev-test: docker-build-test docker-push-test
 	    ./test -test.v
 
 aws-test:
-	etc/deploy/clear_kops_resources_in_aws.sh --zone=sa-east-1a 
+	ZONE=sa-east-1a etc/testing/deploy/aws.sh --delete
 	ZONE=sa-east-1a etc/testing/deploy/aws.sh --create
 	$(MAKE) launch-dev-test
+	rm $(HOME)/.pachyderm/config.json
 
 run-bench:
 	kubectl scale --replicas=4 deploy/pachd
