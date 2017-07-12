@@ -9,6 +9,7 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
@@ -54,6 +55,25 @@ func (a *apiServer) master() {
 				var pipelineInfo pps.PipelineInfo
 				if err := event.Unmarshal(&pipelineName, &pipelineInfo); err != nil {
 					return err
+				}
+
+				if pipelineInfo.Salt == "" {
+					if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+						pipelines := a.pipelines.ReadWrite(stm)
+						pipelineInfo := new(pps.PipelineInfo)
+						if err := pipelines.Get(pipelineName, pipelineInfo); err != nil {
+							return err
+						}
+						if pipelineInfo.Salt == "" {
+							pipelineInfo.Salt = uuid.NewWithoutDashes()
+						}
+						pipelines.Put(pipelineName, pipelineInfo)
+						return nil
+					}); err != nil {
+						return err
+					}
+					// we'll receive this pipeline again from the watcher since we just update it
+					continue
 				}
 
 				var prevPipelineInfo pps.PipelineInfo
