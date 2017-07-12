@@ -22,7 +22,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
-	authcmds "github.com/pachyderm/pachyderm/src/server/auth/cmds"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
@@ -75,13 +74,6 @@ Environment variables:
 	}
 	deployCmds := deploycmds.Cmds(&noMetrics)
 	for _, cmd := range deployCmds {
-		rootCmd.AddCommand(cmd)
-	}
-	authCmds, err := authcmds.Cmds(address, &noMetrics)
-	if err != nil {
-		return nil, sanitizeErr(err)
-	}
-	for _, cmd := range authCmds {
 		rootCmd.AddCommand(cmd)
 	}
 
