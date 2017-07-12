@@ -4,6 +4,8 @@
 # etc/deploy/aws.sh, but it uses the same state store bucket for all tests, so that
 # kops clusters created for testing can always be enumerated and deleted.
 
+set -euxo pipefail
+
 ## Parse command-line flags
 
 ZONE="${ZONE:-us-west-1b}"
