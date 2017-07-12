@@ -363,7 +363,7 @@ displayed to each step of the pipeline.
 
 ## Cache Size (optional)
 
-`cacheSize` controls how much cache a pipeline worker uses.  In general,
+`cache_size` controls how much cache a pipeline worker uses.  In general,
 your pipeline's performance will increase with the cache size, but only
 up to a certain point depending on your workload.
 
