@@ -63,11 +63,14 @@ func (f *PrettyFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 		),
 	)
 	if entry.Data["service"] != nil {
-		serialized = append(serialized, []byte(fmt.Sprintf(" %v.%v", entry.Data["service"], entry.Data["method"]))...)
+		serialized = append(serialized, []byte(fmt.Sprintf(" %v.%v ", entry.Data["service"], entry.Data["method"]))...)
 	}
 	if len(entry.Data) > 2 {
 		delete(entry.Data, "service")
 		delete(entry.Data, "method")
+		if entry.Data["duration"] != nil {
+			entry.Data["duration"] = entry.Data["duration"].(time.Duration).Seconds()
+		}
 		data, err := json.Marshal(entry.Data)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to marshal fields to JSON, %v", err)
