@@ -2931,7 +2931,7 @@ func TestSystemResourceRequests(t *testing.T) {
 		"etcd":  "250m",
 	}
 	defaultCloudMem := map[string]string{
-		"pachd": "7G",
+		"pachd": "3G",
 		"etcd":  "2G",
 	}
 	defaultCloudCPU := map[string]string{

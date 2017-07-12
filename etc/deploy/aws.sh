@@ -114,6 +114,7 @@ deploy_k8s_on_aws() {
     export MASTER_SIZE=r4.xlarge
     export NUM_NODES=3
     export NAME=$(uuid | cut -f 1 -d-)-pachydermcluster.kubernetes.com
+    echo ${NAME} > .cluster_name
     echo "kops state store: ${STATE_BUCKET}"
     kops create cluster \
         --state=${STATE_BUCKET} \
@@ -249,6 +250,8 @@ deploy_pachyderm_on_aws() {
     # shared with k8s deploy script:
     export STORAGE_SIZE=100
     export BUCKET_NAME=${RANDOM}-pachyderm-store
+
+    echo ${BUCKET_NAME} > .bucket
 
     create_s3_bucket "${BUCKET_NAME}" ${USE_CLOUDFRONT}
 
