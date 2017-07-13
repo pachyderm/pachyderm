@@ -575,7 +575,6 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	if err != nil {
 		return nil, err
 	}
-	logger.Logf("tag15: %s", tag15)
 	foundTag := false
 	foundTag15 := false
 	var object *pfs.Object
@@ -597,7 +596,6 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		return nil, err
 	}
 
-	logger.Logf("foundTag: %t, foundTag15: %t", foundTag, foundTag15)
 	if foundTag15 && !foundTag {
 		if _, err := a.pachClient.ObjectAPIClient.TagObject(ctx, &pfs.TagObjectRequest{
 			Object: object,
