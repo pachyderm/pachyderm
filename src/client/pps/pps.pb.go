@@ -905,8 +905,8 @@ func (m *PipelineInput) GetFrom() *pfs.Commit {
 }
 
 type PipelineInfo struct {
-	Pipeline           *Pipeline                   `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
 	ID                 string                      `protobuf:"bytes,17,opt,name=id,proto3" json:"id,omitempty"`
+	Pipeline           *Pipeline                   `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
 	Version            uint64                      `protobuf:"varint,11,opt,name=version,proto3" json:"version,omitempty"`
 	Transform          *Transform                  `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
 	ParallelismSpec    *ParallelismSpec            `protobuf:"bytes,10,opt,name=parallelism_spec,json=parallelismSpec" json:"parallelism_spec,omitempty"`
@@ -931,18 +931,18 @@ func (m *PipelineInfo) String() string            { return proto.CompactTextStri
 func (*PipelineInfo) ProtoMessage()               {}
 func (*PipelineInfo) Descriptor() ([]byte, []int) { return fileDescriptorPps, []int{17} }
 
-func (m *PipelineInfo) GetPipeline() *Pipeline {
-	if m != nil {
-		return m.Pipeline
-	}
-	return nil
-}
-
 func (m *PipelineInfo) GetID() string {
 	if m != nil {
 		return m.ID
 	}
 	return ""
+}
+
+func (m *PipelineInfo) GetPipeline() *Pipeline {
+	if m != nil {
+		return m.Pipeline
+	}
+	return nil
 }
 
 func (m *PipelineInfo) GetVersion() uint64 {
