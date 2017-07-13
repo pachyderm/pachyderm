@@ -603,6 +603,11 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		}); err != nil {
 			return nil, err
 		}
+		if _, err := a.pachClient.ObjectAPIClient.DeleteTags(ctx, &pfs.DeleteTagsRequest{
+			Tags: []string{tag15},
+		}); err != nil {
+			return nil, err
+		}
 	}
 	if foundTag15 || foundTag {
 		// We've already computed the output for these inputs. Return immediately
