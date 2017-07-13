@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Logger is a helper for emitting our grpc API logs
 type Logger interface {
 	Log(request interface{}, response interface{}, err error, duration time.Duration)
 }
@@ -18,10 +19,10 @@ type logger struct {
 	*logrus.Entry
 }
 
+// NewLogger creates a new logger
 func NewLogger(service string) Logger {
-	//	logrus.SetFormatter(new(PrettyFormatter))
 	l := logrus.New()
-	l.Formatter = new(PrettyFormatter)
+	l.Formatter = new(prettyFormatter)
 	return &logger{
 		l.WithFields(logrus.Fields{"service": service}),
 	}
@@ -51,10 +52,10 @@ func (l *logger) Log(request interface{}, response interface{}, err error, durat
 	}
 }
 
-type PrettyFormatter struct {
+type prettyFormatter struct {
 }
 
-func (f *PrettyFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+func (f *prettyFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	serialized := []byte(
 		fmt.Sprintf(
 			"%v %v ",
