@@ -121,6 +121,8 @@ func (a *APIServer) getTaggedLogger(ctx context.Context, req *ProcessRequest) (*
 		})
 		hash.Write(d.FileInfo.Hash)
 	}
+	// DatumID is a single string id for the datum, it's used in logs and in
+	// the statsTree
 	result.template.DatumID = hex.EncodeToString(hash.Sum(nil))
 	putObjClient, err := a.pachClient.ObjectAPIClient.PutObject(ctx)
 	if err != nil {
