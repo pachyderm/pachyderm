@@ -138,6 +138,8 @@ func (p *Puller) makeFile(path string, f func(io.Writer) error) (retErr error) {
 // fileInfo is the file/dir we are puuling.
 // pipes causes the function to create named pipes in place of files, thus
 // lazily downloading the data as it's needed.
+// tree is a hashtree to mirror the pulled content into (it may be left nil)
+// treeRoot is the root the data is mirrored to within tree
 func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, file string,
 	pipes bool, concurrency int, tree hashtree.OpenHashTree, treeRoot string) error {
 	limiter := limit.New(concurrency)
