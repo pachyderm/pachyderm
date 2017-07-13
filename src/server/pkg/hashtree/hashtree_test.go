@@ -225,19 +225,6 @@ func TestPutError(t *testing.T) {
 		require.Nil(t, node)
 	})
 
-	// Merge fails if src and dest disagree about whether a node is a file or
-	// directory, and h is unchanged
-	srcOpen := NewHashTree()
-	srcOpen.PutFile("/buzz", obj(`hash:"9d432"`), 1)
-	srcOpen.PutFile("/foo/bar", obj(`hash:"ebc57"`), 1)
-	src, err := srcOpen.Finish()
-	require.NoError(t, err)
-	requireOperationInvariant(t, h, func() {
-		err := h.Merge(src)
-		require.YesError(t, err, tostring(h))
-		require.Equal(t, PathConflict, Code(err))
-	})
-
 	// PutFile fails if a directory already exists (put /foo when /foo/bar exists)
 	err = h.DeleteFile("/foo")
 	require.NoError(t, err)
