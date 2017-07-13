@@ -728,15 +728,8 @@ func (h *hashtree) Merge(trees ...HashTree) error {
 	if len(nonEmptyTrees) == 0 {
 		return nil
 	}
-
-	hmod, err := h.clone()
-	if err != nil {
-		return errorf(Internal, "could not snapshot hashtree before merge: %s", err)
-	}
-	if _, err = hmod.mergeNode("/", nonEmptyTrees); err != nil {
+	if _, err := h.mergeNode("/", nonEmptyTrees); err != nil {
 		return err
 	}
-	*h = *hmod
-
 	return nil
 }

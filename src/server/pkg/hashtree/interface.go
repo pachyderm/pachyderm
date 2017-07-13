@@ -106,7 +106,9 @@ type OpenHashTree interface {
 	DeleteFile(path string) error
 
 	// Merge adds all of the files and directories in each tree in 'trees' into
-	// this tree.
+	// this tree. If it errors this tree will be left in a undefined state and
+	// should be discarded. If you'd like to be able to revert to the previous
+	// state of the tree you should Finish and then Open the tree.
 	Merge(trees ...HashTree) error
 
 	// Finish makes a deep copy of the OpenHashTree, updates all of the hashes and
