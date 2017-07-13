@@ -3678,7 +3678,6 @@ func TestPipelineWithStats(t *testing.T) {
 			Input:       client.NewAtomInput(dataRepo, "/*"),
 			EnableStats: true,
 			ParallelismSpec: &pps.ParallelismSpec{
-				Strategy: pps.ParallelismSpec_CONSTANT,
 				Constant: 4,
 			},
 		})
