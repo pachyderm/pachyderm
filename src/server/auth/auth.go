@@ -17,7 +17,8 @@ import (
 )
 
 const (
-	authEtcdPrefix = "auth_tokens"
+	authEtcdPrefix      = "auth_tokens"
+	defaultTokenTTLSecs = 24 * 60 * 60
 )
 
 type apiServer struct {
@@ -64,7 +65,12 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 	username := user.GetName()
 	pachToken := uuid.NewWithoutDashes()
 
-	_, err = a.etcdClient.Put(ctx, path.Join(a.etcdPrefix, pachToken), username)
+	lease, err := a.etcdClient.Grant(ctx, defaultTokenTTLSecs)
+	if err != nil {
+		return nil, fmt.Errorf("error granting token TTL: %v", err)
+	}
+
+	_, err = a.etcdClient.Put(ctx, path.Join(a.etcdPrefix, pachToken), username, etcd.WithLease(lease.ID))
 	if err != nil {
 		return nil, fmt.Errorf("error storing the auth token: %v", err)
 	}
