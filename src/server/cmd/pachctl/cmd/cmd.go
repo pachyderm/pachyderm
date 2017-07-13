@@ -195,8 +195,8 @@ kubectl %v port-forward "$pod" %d:8081
 		}),
 	}
 	portForward.Flags().IntVarP(&port, "port", "p", 30650, "The local port to bind to.")
-	portForward.Flags().IntVarP(&uiPort, "ui-port", "u", 38080, "The local port to bind to.")
-	portForward.Flags().IntVarP(&uiWebsocketPort, "proxy-port", "x", 38081, "The local port to bind to.")
+	portForward.Flags().IntVarP(&uiPort, "ui-port", "u", 30080, "The local port to bind to.")
+	portForward.Flags().IntVarP(&uiWebsocketPort, "proxy-port", "x", 30081, "The local port to bind to.")
 	portForward.Flags().StringVarP(&kubeCtlFlags, "kubectlflags", "k", "", "Any kubectl flags to proxy, e.g. --kubectlflags='--kubeconfig /some/path/kubeconfig'")
 
 	garbageCollect := &cobra.Command{
