@@ -12,7 +12,7 @@ ZONE="${ZONE:-us-west-1b}"
 STATE_STORE=s3://pachyderm-travis-state-store-v1
 OP=-
 CLOUDFRONT=
-len_zone_minus_one="$(( ${#AWS_AVAILABILITY_ZONE} - 1 ))"
+len_zone_minus_one="$(( ${#ZONE} - 1 ))"
 REGION=${ZONE:0:${len_zone_minus_one}}
 
 # Process args
