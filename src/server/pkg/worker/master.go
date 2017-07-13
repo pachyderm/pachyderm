@@ -4,15 +4,20 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 	"sync"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"go.pedge.io/lion/proto"
+	"github.com/montanaflynn/stats"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
@@ -38,8 +43,21 @@ const (
 	masterLockPath = "_master_worker_lock"
 )
 
+func (a *APIServer) getMasterLogger() *taggedLogger {
+	result := &taggedLogger{
+		template:  a.logMsgTemplate, // Copy struct
+		stderrLog: log.Logger{},
+		marshaler: &jsonpb.Marshaler{},
+	}
+	result.stderrLog.SetOutput(os.Stderr)
+	result.stderrLog.SetFlags(log.LstdFlags | log.Llongfile) // Log file/line
+	result.template.Master = true
+	return result
+}
+
 func (a *APIServer) master() {
 	masterLock := dlock.NewDLock(a.etcdClient, path.Join(a.etcdPrefix, masterLockPath, a.pipelineInfo.ID))
+	logger := a.getMasterLogger()
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -50,7 +68,7 @@ func (a *APIServer) master() {
 		}
 		defer masterLock.Unlock(ctx)
 
-		protolion.Infof("Launching worker master process")
+		logger.Logf("Launching worker master process")
 
 		// Set pipeline state to running
 		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
@@ -64,16 +82,15 @@ func (a *APIServer) master() {
 			pipelines.Put(pipelineName, pipelineInfo)
 			return nil
 		})
-
-		return a.jobSpawner(ctx)
+		return a.jobSpawner(ctx, logger)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		protolion.Errorf("master: error running the master process: %v; retrying in %v", err, d)
+		logger.Logf("master: error running the master process: %v; retrying in %v", err, d)
 		return nil
 	})
 }
 
 // jobSpawner spawns jobs
-func (a *APIServer) jobSpawner(ctx context.Context) error {
+func (a *APIServer) jobSpawner(ctx context.Context, logger *taggedLogger) error {
 	// Establish connection pool
 	numWorkers, err := ppsserver.GetExpectedNumWorkers(a.kubeClient, a.pipelineInfo.ParallelismSpec)
 	if err != nil {
@@ -85,7 +102,7 @@ func (a *APIServer) jobSpawner(ctx context.Context) error {
 	}
 	defer func() {
 		if err := pool.Close(); err != nil {
-			protolion.Errorf("error closing pool: %v", err)
+			logger.Logf("error closing pool: %v", err)
 		}
 	}()
 
@@ -102,7 +119,7 @@ nextInput:
 		if a.pipelineInfo.ScaleDownThreshold != nil {
 			scaleDownThreshold, err := types.DurationFromProto(a.pipelineInfo.ScaleDownThreshold)
 			if err != nil {
-				protolion.Errorf("error converting scaleDownThreshold: %v", err)
+				logger.Logf("error converting scaleDownThreshold: %v", err)
 			} else {
 				time.AfterFunc(scaleDownThreshold, func() {
 					close(scaleDownCh)
@@ -119,7 +136,7 @@ nextInput:
 			}
 		case <-scaleDownCh:
 			if err := a.scaleDownWorkers(); err != nil {
-				protolion.Errorf("error scaling down workers: %v", err)
+				logger.Logf("error scaling down workers: %v", err)
 			}
 			continue nextInput
 		}
@@ -127,7 +144,7 @@ nextInput:
 		// Once we received a job, scale up the workers
 		if a.pipelineInfo.ScaleDownThreshold != nil {
 			if err := a.scaleUpWorkers(); err != nil {
-				protolion.Errorf("error scaling up workers: %v", err)
+				logger.Logf("error scaling up workers: %v", err)
 			}
 		}
 
@@ -185,7 +202,7 @@ nextInput:
 			if jobInfo.PipelineID == a.pipelineInfo.ID && jobInfo.PipelineVersion == a.pipelineInfo.Version {
 				switch jobInfo.State {
 				case pps.JobState_JOB_STARTING, pps.JobState_JOB_RUNNING:
-					if err := a.runJob(ctx, &jobInfo, pool); err != nil {
+					if err := a.runJob(ctx, &jobInfo, pool, logger); err != nil {
 						return err
 					}
 				}
@@ -241,8 +258,9 @@ nextInput:
 			Input:    jobInput,
 			// TODO(derek): Note that once the pipeline restarts, the `job`
 			// variable is lost and we don't know who is our parent job.
-			ParentJob: parentJob,
-			NewBranch: newBranch,
+			ParentJob:   parentJob,
+			NewBranch:   newBranch,
+			EnableStats: a.pipelineInfo.EnableStats,
 		})
 		if err != nil {
 			return err
@@ -255,22 +273,40 @@ nextInput:
 			return err
 		}
 
-		if err := a.runJob(ctx, jobInfo, pool); err != nil {
+		if err := a.runJob(ctx, jobInfo, pool, logger); err != nil {
 			return err
 		}
 	}
 }
 
+func plusDuration(x *types.Duration, y *types.Duration) (*types.Duration, error) {
+	var xd time.Duration
+	var yd time.Duration
+	var err error
+	if x != nil {
+		xd, err = types.DurationFromProto(x)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if y != nil {
+		yd, err = types.DurationFromProto(y)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return types.DurationProto(xd + yd), nil
+}
+
 // jobManager feeds datums to jobs
-func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool.Pool) error {
+func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool.Pool, logger *taggedLogger) error {
 	pfsClient := a.pachClient.PfsAPIClient
-	objectClient := a.pachClient.ObjectAPIClient
 	ppsClient := a.pachClient.PpsAPIClient
 
 	jobID := jobInfo.Job.ID
 	var jobStopped bool
 	var jobStoppedMutex sync.Mutex
-	backoff.RetryNotify(func() error {
+	backoff.RetryNotify(func() (retErr error) {
 		// We use a new context for this particular instance of the retry
 		// loop, to ensure that all resources are released properly when
 		// this job retries.
@@ -297,7 +333,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 				BlockState: true,
 			})
 			if err != nil {
-				protolion.Errorf("error monitoring job state: %v", err)
+				logger.Logf("error monitoring job state: %v", err)
 				return
 			}
 			switch currentJobInfo.State {
@@ -353,25 +389,48 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 			newBranchParentCommit = newBranchCommitInfo.ParentCommit
 		}
 		tree := hashtree.NewHashTree()
+		var statsTree hashtree.OpenHashTree
+		if jobInfo.EnableStats {
+			statsTree = hashtree.NewHashTree()
+		}
+		var processStats []*pps.ProcessStats
 		var treeMu sync.Mutex
 
 		processedData := int64(0)
-		setProcessedData := int64(0)
+		skippedData := int64(0)
+		setData := int64(0) // sum of skipped and processed data we've told etcd about
+		stats := &pps.ProcessStats{}
 		totalData := int64(df.Len())
 		var progressMu sync.Mutex
-		updateProgress := func(processed int64) {
+		updateProgress := func(processed, skipped int64, newStats *pps.ProcessStats) {
 			progressMu.Lock()
 			defer progressMu.Unlock()
 			processedData += processed
+			skippedData += skipped
+			totalProcessedData := processedData + skippedData
+			if newStats != nil {
+				var err error
+				if stats.DownloadTime, err = plusDuration(stats.DownloadTime, newStats.DownloadTime); err != nil {
+					logger.Logf("error adding durations: %+v", err)
+				}
+				if stats.ProcessTime, err = plusDuration(stats.ProcessTime, newStats.ProcessTime); err != nil {
+					logger.Logf("error adding durations: %+v", err)
+				}
+				if stats.UploadTime, err = plusDuration(stats.UploadTime, newStats.UploadTime); err != nil {
+					logger.Logf("error adding durations: %+v", err)
+				}
+				stats.DownloadBytes += newStats.DownloadBytes
+				stats.UploadBytes += newStats.UploadBytes
+			}
 			// so as not to overwhelm etcd we update at most 100 times per job
-			if (float64(processedData-setProcessedData)/float64(totalData)) > .01 ||
-				processedData == 0 || processedData == totalData {
+			if (float64(totalProcessedData-setData)/float64(totalData)) > .01 ||
+				totalProcessedData == 0 || totalProcessedData == totalData {
 				// we setProcessedData even though the update below may fail,
 				// if we didn't we'd retry updating the progress on the next
 				// datum, this would lead to more accurate progress but
 				// progress isn't that important and we don't want to overwelm
 				// etcd.
-				setProcessedData = processedData
+				setData = totalProcessedData
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 					jobs := a.jobs.ReadWrite(stm)
 					jobInfo := new(pps.JobInfo)
@@ -379,16 +438,18 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 						return err
 					}
 					jobInfo.DataProcessed = processedData
+					jobInfo.DataSkipped = skippedData
 					jobInfo.DataTotal = totalData
+					jobInfo.Stats = stats
 					jobs.Put(jobInfo.Job.ID, jobInfo)
 					return nil
 				}); err != nil {
-					protolion.Errorf("error updating job progress: %+v", err)
+					logger.Logf("error updating job progress: %+v", err)
 				}
 			}
 		}
 		// set the initial values
-		updateProgress(0)
+		updateProgress(0, 0, nil)
 
 		for i := 0; i < df.Len(); i++ {
 			limiter.Acquire()
@@ -428,46 +489,65 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 				defer limiter.Release()
 				b := backoff.NewInfiniteBackOff()
 				b.Multiplier = 1
+				var resp *ProcessResponse
 				if err := backoff.RetryNotify(func() error {
 					conn, err := pool.Get(ctx)
 					if err != nil {
 						return fmt.Errorf("error from connection pool: %v", err)
 					}
 					workerClient := NewWorkerClient(conn)
-					resp, err := workerClient.Process(ctx, &ProcessRequest{
+					resp, err = workerClient.Process(ctx, &ProcessRequest{
 						JobID:        jobInfo.Job.ID,
 						Data:         files,
 						ParentOutput: parentOutputTag,
+						EnableStats:  jobInfo.EnableStats,
 					})
 					if err != nil {
 						if err := conn.Close(); err != nil {
-							protolion.Errorf("error closing conn: %+v", err)
+							logger.Logf("error closing conn: %+v", err)
 						}
 						return fmt.Errorf("Process() call failed: %v", err)
 					}
 					defer func() {
 						if err := pool.Put(conn); err != nil {
-							protolion.Errorf("error Putting conn: %+v", err)
+							logger.Logf("error Putting conn: %+v", err)
 						}
 					}()
 					if resp.Failed {
 						userCodeFailures++
 						return fmt.Errorf("user code failed for datum %v", files)
 					}
-					getTagClient, err := objectClient.GetTag(ctx, resp.Tag)
-					if err != nil {
-						return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
+					var eg errgroup.Group
+					var subTree hashtree.HashTree
+					var statsSubtree hashtree.HashTree
+					eg.Go(func() error {
+						subTree, err = a.getTreeFromTag(ctx, resp.Tag)
+						if err != nil {
+							return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
+						}
+						return nil
+					})
+					if jobInfo.EnableStats {
+						eg.Go(func() error {
+							statsSubtree, err = a.getTreeFromTag(ctx, resp.StatsTag)
+							if err != nil {
+								logger.Logf("failed to retrieve stats hashtree after processing for datum %v: %v", files, err)
+							}
+							return nil
+						})
 					}
-					var buffer bytes.Buffer
-					if err := grpcutil.WriteFromStreamingBytesClient(getTagClient, &buffer); err != nil {
-						return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
-					}
-					subTree, err := hashtree.Deserialize(buffer.Bytes())
-					if err != nil {
-						return fmt.Errorf("failed deserialize hashtree after processing for datum %v: %v", files, err)
+					if err := eg.Wait(); err != nil {
+						return err
 					}
 					treeMu.Lock()
 					defer treeMu.Unlock()
+					if statsSubtree != nil {
+						if err := statsTree.Merge(statsSubtree); err != nil {
+							logger.Logf("failed to merge into stats tree: %v", err)
+						}
+						processStats = append(processStats, resp.Stats)
+						return nil
+					}
 					return tree.Merge(subTree)
 				}, b, func(err error, d time.Duration) error {
 					select {
@@ -476,14 +556,18 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 					default:
 					}
 					if userCodeFailures > maximumRetriesPerDatum {
-						protolion.Errorf("job %s failed to process datum %+v %d times failing", jobID, files, userCodeFailures)
+						logger.Logf("job %s failed to process datum %+v %d times failing", jobID, files, userCodeFailures)
 						failed = true
 						return err
 					}
-					protolion.Errorf("job %s failed to process datum %+v with: %+v, retrying in: %+v", jobID, files, err, d)
+					logger.Logf("job %s failed to process datum %+v with: %+v, retrying in: %+v", jobID, files, err, d)
 					return nil
 				}); err == nil {
-					go updateProgress(1)
+					if resp.Skipped {
+						go updateProgress(0, 1, resp.Stats)
+					} else {
+						go updateProgress(1, 0, resp.Stats)
+					}
 				}
 			}()
 		}
@@ -503,28 +587,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 			return err
 		}
 
-		finishedTree, err := tree.Finish()
-		if err != nil {
-			return err
-		}
-
-		data, err := hashtree.Serialize(finishedTree)
-		if err != nil {
-			return err
-		}
-
-		putObjClient, err := objectClient.PutObject(ctx)
-		if err != nil {
-			return err
-		}
-		for _, chunk := range grpcutil.Chunk(data, grpcutil.MaxMsgSize/2) {
-			if err := putObjClient.Send(&pfs.PutObjectRequest{
-				Value: chunk,
-			}); err != nil {
-				return err
-			}
-		}
-		object, err := putObjClient.CloseAndRecv()
+		object, err := a.putTree(ctx, tree)
 		if err != nil {
 			return err
 		}
@@ -546,8 +609,42 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 			return err
 		}
 
+		var statsCommit *pfs.Commit
+		if jobInfo.EnableStats {
+			aggregateProcessStats, err := aggregateProcessStats(processStats)
+			if err != nil {
+				return err
+			}
+			marshalled, err := (&jsonpb.Marshaler{}).MarshalToString(aggregateProcessStats)
+			if err != nil {
+				return err
+			}
+			aggregateObject, err := a.putObject(ctx, []byte(marshalled))
+			if err != nil {
+				return err
+			}
+			if err := statsTree.PutFile(path.Join("/", jobID, "stats"), []*pfs.Object{aggregateObject}, int64(len(marshalled))); err != nil {
+				return err
+			}
+			statsObject, err := a.putTree(ctx, statsTree)
+			if err != nil {
+				return err
+			}
+
+			statsCommit, err = pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
+				Parent: &pfs.Commit{
+					Repo: jobInfo.OutputRepo,
+				},
+				Branch: "stats",
+				Tree:   statsObject,
+			})
+			if err != nil {
+				return err
+			}
+		}
+
 		if jobInfo.Egress != nil {
-			protolion.Infof("Starting egress upload for job (%v)\n", jobInfo)
+			logger.Logf("Starting egress upload for job (%v)\n", jobInfo)
 			start := time.Now()
 			objClient, err := obj.NewClientFromURLAndSecret(ctx, jobInfo.Egress.URL)
 			if err != nil {
@@ -564,7 +661,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 			if err := pfs_sync.PushObj(client, outputCommit, objClient, strings.TrimPrefix(url.Path, "/")); err != nil {
 				return err
 			}
-			protolion.Infof("Completed egress upload for job (%v), duration (%v)\n", jobInfo, time.Since(start))
+			logger.Logf("Completed egress upload for job (%v), duration (%v)\n", jobInfo, time.Since(start))
 		}
 
 		// Record the job's output commit and 'Finished' timestamp, and mark the job
@@ -578,9 +675,12 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 			jobInfo.OutputCommit = outputCommit
 			jobInfo.Finished = now()
 			// By definition, we will have processed all datums at this point
-			jobInfo.DataProcessed = totalData
+			jobInfo.DataProcessed = processedData
+			jobInfo.DataSkipped = skippedData
+			jobInfo.Stats = stats
 			// likely already set but just in case it failed
 			jobInfo.DataTotal = totalData
+			jobInfo.StatsCommit = statsCommit
 			return a.updateJobState(stm, jobInfo, pps.JobState_JOB_SUCCESS)
 		})
 		return err
@@ -599,7 +699,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 			return err
 		}
 
-		protolion.Errorf("error running jobManager for job %s: %v; retrying in %v", jobInfo.Job.ID, err, d)
+		logger.Logf("error running jobManager for job %s: %v; retrying in %v", jobInfo.Job.ID, err, d)
 
 		// Increment the job's restart count
 		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
@@ -613,12 +713,135 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 			return nil
 		})
 		if err != nil {
-			protolion.Errorf("error incrementing job %s's restart count", jobInfo.Job.ID)
+			logger.Logf("error incrementing job %s's restart count", jobInfo.Job.ID)
 		}
 
 		return nil
 	})
 	return nil
+}
+
+func aggregateProcessStats(stats []*pps.ProcessStats) (*pps.AggregateProcessStats, error) {
+	var downloadTime []float64
+	var processTime []float64
+	var uploadTime []float64
+	var downloadBytes []float64
+	var uploadBytes []float64
+	for _, s := range stats {
+		dt, err := types.DurationFromProto(s.DownloadTime)
+		if err != nil {
+			return nil, err
+		}
+		downloadTime = append(downloadTime, float64(dt))
+		pt, err := types.DurationFromProto(s.ProcessTime)
+		if err != nil {
+			return nil, err
+		}
+		processTime = append(processTime, float64(pt))
+		ut, err := types.DurationFromProto(s.UploadTime)
+		if err != nil {
+			return nil, err
+		}
+		uploadTime = append(uploadTime, float64(ut))
+		downloadBytes = append(downloadBytes, float64(s.DownloadBytes))
+		uploadBytes = append(uploadBytes, float64(s.UploadBytes))
+
+	}
+	dtAgg, err := aggregate(downloadTime)
+	if err != nil {
+		return nil, err
+	}
+	ptAgg, err := aggregate(processTime)
+	if err != nil {
+		return nil, err
+	}
+	utAgg, err := aggregate(uploadTime)
+	if err != nil {
+		return nil, err
+	}
+	dbAgg, err := aggregate(downloadBytes)
+	if err != nil {
+		return nil, err
+	}
+	ubAgg, err := aggregate(uploadBytes)
+	if err != nil {
+		return nil, err
+	}
+	return &pps.AggregateProcessStats{
+		DownloadTime:  dtAgg,
+		ProcessTime:   ptAgg,
+		UploadTime:    utAgg,
+		DownloadBytes: dbAgg,
+		UploadBytes:   ubAgg,
+	}, nil
+}
+
+func aggregate(datums []float64) (*pps.Aggregate, error) {
+	mean, err := stats.Mean(datums)
+	if err != nil {
+		return nil, err
+	}
+	stddev, err := stats.StandardDeviation(datums)
+	if err != nil {
+		return nil, err
+	}
+	fifth, err := stats.Percentile(datums, 5)
+	if err != nil {
+		return nil, err
+	}
+	ninetyFifth, err := stats.Percentile(datums, 95)
+	if err != nil {
+		return nil, err
+	}
+	return &pps.Aggregate{
+		Count:                 int64(len(datums)),
+		Mean:                  mean,
+		Stddev:                stddev,
+		FifthPercentile:       fifth,
+		NinetyFifthPercentile: ninetyFifth,
+	}, nil
+}
+
+func (a *APIServer) getTreeFromTag(ctx context.Context, tag *pfs.Tag) (hashtree.HashTree, error) {
+	objectClient := a.pachClient.ObjectAPIClient
+	getTagClient, err := objectClient.GetTag(ctx, tag)
+	if err != nil {
+		return nil, err
+	}
+	var buffer bytes.Buffer
+	if err := grpcutil.WriteFromStreamingBytesClient(getTagClient, &buffer); err != nil {
+		return nil, err
+	}
+	return hashtree.Deserialize(buffer.Bytes())
+}
+
+func (a *APIServer) putObject(ctx context.Context, data []byte) (*pfs.Object, error) {
+	objectClient := a.pachClient.ObjectAPIClient
+	putObjClient, err := objectClient.PutObject(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, chunk := range grpcutil.Chunk(data, grpcutil.MaxMsgSize/2) {
+		if err := putObjClient.Send(&pfs.PutObjectRequest{
+			Value: chunk,
+		}); err != nil {
+			return nil, err
+		}
+	}
+	return putObjClient.CloseAndRecv()
+}
+
+func (a *APIServer) putTree(ctx context.Context, tree hashtree.OpenHashTree) (*pfs.Object, error) {
+	finishedTree, err := tree.Finish()
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := hashtree.Serialize(finishedTree)
+	if err != nil {
+		return nil, err
+	}
+	return a.putObject(ctx, data)
 }
 
 func (a *APIServer) scaleDownWorkers() error {
