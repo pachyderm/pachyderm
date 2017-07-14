@@ -1783,7 +1783,7 @@ func TestUpdatePipeline(t *testing.T) {
 
 	_, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("foo\n"))
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("1"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, "master"))
 
@@ -1796,6 +1796,8 @@ func TestUpdatePipeline(t *testing.T) {
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 
+	// Update the pipeline, this will not create a new pipeline as reprocess
+	// isn't set to true.
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
 		"",
@@ -1809,11 +1811,17 @@ func TestUpdatePipeline(t *testing.T) {
 		true,
 	))
 
+	_, err = c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("2"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, "master"))
+
 	_, err = iter.Next()
 	require.NoError(t, err)
 	buffer.Reset()
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
-	require.Equal(t, "foo\n", buffer.String())
+	require.Equal(t, "bar\n", buffer.String())
 
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
@@ -1821,7 +1829,7 @@ func TestUpdatePipeline(t *testing.T) {
 			Pipeline: client.NewPipeline(pipelineName),
 			Transform: &pps.Transform{
 				Cmd:   []string{"bash"},
-				Stdin: []string{"echo bar >/pfs/out/file"},
+				Stdin: []string{"echo buzz >/pfs/out/file"},
 			},
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
@@ -1836,7 +1844,7 @@ func TestUpdatePipeline(t *testing.T) {
 	require.NoError(t, err)
 	buffer.Reset()
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
-	require.Equal(t, "bar\n", buffer.String())
+	require.Equal(t, "buzz\n", buffer.String())
 }
 
 func TestStopPipeline(t *testing.T) {
