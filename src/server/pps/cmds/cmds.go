@@ -209,6 +209,7 @@ Examples:
 	var (
 		jobID       string
 		commaInputs string // comma-separated list of input files of interest
+		master      bool
 	)
 	getLogs := &cobra.Command{
 		Use:   "get-logs [--pipeline=<pipeline>|--job=<job id>]",
@@ -251,7 +252,7 @@ Examples:
 
 			// Issue RPC
 			marshaler := &jsonpb.Marshaler{}
-			iter := client.GetLogs(pipelineName, jobID, data)
+			iter := client.GetLogs(pipelineName, jobID, data, master)
 			for iter.Next() {
 				var messageStr string
 				if raw {
@@ -260,13 +261,11 @@ Examples:
 					if err != nil {
 						fmt.Fprintf(os.Stderr, "error marshalling \"%v\": %s\n", iter.Message(), err)
 					}
-				} else {
-					if iter.Message().User {
-						messageStr = iter.Message().Message
-					}
-				}
-				if messageStr != "" {
 					fmt.Println(messageStr)
+				} else if iter.Message().User {
+					fmt.Print(iter.Message().Message)
+				} else if iter.Message().Master && master {
+					fmt.Println(iter.Message().Message)
 				}
 			}
 			return iter.Err()
@@ -278,6 +277,7 @@ Examples:
 		"this job (accepts job ID)")
 	getLogs.Flags().StringVar(&commaInputs, "inputs", "", "Filter for log lines "+
 		"generated while processing these files (accepts PFS paths or file hashes)")
+	getLogs.Flags().BoolVar(&master, "master", false, "Return log messages from the master process (pipeline must be set).")
 	getLogs.Flags().BoolVar(&raw, "raw", false, "Return log messages verbatim from server.")
 
 	pipeline := &cobra.Command{

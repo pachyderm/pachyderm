@@ -848,6 +848,12 @@
 			"revision": ""
 		},
 		{
+			"checksumSHA1": "M6x7H+L8wUi42x0hHQwoIzh6k34=",
+			"path": "github.com/montanaflynn/stats",
+			"revision": "41c34e4914ec3c05d485e564d9028d8861d5d9ad",
+			"revisionTime": "2017-04-04T20:43:49Z"
+		},
+		{
 			"checksumSHA1": "XktPYWgkJB3lGwGHImfqI/JWP4M=",
 			"path": "github.com/opencontainers/runc/libcontainer/cgroups",
 			"revision": "e34cb45a49beb83ababfa32df43b8e7e27f0ac51",
