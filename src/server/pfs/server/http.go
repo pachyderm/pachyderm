@@ -13,6 +13,7 @@ import (
 )
 
 const httpPort = 652
+const apiVersion = "v1"
 
 type flushWriter struct {
 	f http.Flusher
@@ -43,6 +44,93 @@ func (s *HTTPServer) Start() error {
 	fmt.Printf("STARTING HTTP SERVER\n")
 	http.HandleFunc("/get-file", s.getFileHandler)
 	return http.ListenAndServe(fmt.Sprintf(":%v", httpPort), nil)
+}
+
+func nextToken(tokens []string) (string, []string, error) {
+	if len(tokens) == 0 {
+		return "", nil, io.EOF
+	}
+	return tokens[0], tokens[1:len(tokens)], nil
+}
+
+func urlToFile(u URL) (*pfs.File, error) {
+	reqPath := u.EscapedPath()
+	fmt.Printf("path: %v\n", reqPath)
+	tokens := strings.split(reqPath, "/")
+	fmt.Printf("tokens: %v\n", tokens)
+	// Example URL for v1
+	// http://server.com/v1/pfs/repos/repoName/commits/commitID/files/path/to/the/real/file.txt
+
+	// Parse API version / service
+	next, tokens, err := nextToken(tokens)
+	if err != nil {
+		return nil, fmt.Errorf("invalid PFS api path %v", path)
+	}
+	if next != apiVersion {
+		return nil, fmt.Errorf("unrecognized api version %v, expected %v", next, apiVersion)
+	}
+	next, tokens, err := nextToken(tokens)
+	if err != nil {
+		return nil, fmt.Errorf("invalid PFS api path %v", path)
+	}
+	if next != "pfs" {
+		return nil, fmt.Errorf("invalid PFS api path %v expecting 'pfs' service", path)
+	}
+
+	// parse repo name
+	next, tokens, err := nextToken(tokens)
+	if err != nil {
+		return nil, fmt.Errorf("invalid PFS api path %v", path)
+	}
+	if next != "repos" {
+		return nil, fmt.Errorf("invalid PFS api path %v expecting 'repos' to be provided", path)
+	}
+	next, tokens, err := nextToken(tokens)
+	if err != nil {
+		return nil, fmt.Errorf("invalid PFS api path %v", path)
+	}
+	repoName := next
+
+	// parse commit ID
+	next, tokens, err := nextToken(tokens)
+	if err != nil {
+		return nil, fmt.Errorf("invalid PFS api path %v", path)
+	}
+	if next != "commits" {
+		return nil, fmt.Errorf("invalid PFS api path %v expecting 'commits' to be provided", path)
+	}
+	next, tokens, err := nextToken(tokens)
+	if err != nil {
+		return nil, fmt.Errorf("invalid PFS api path %v", path)
+	}
+	commitID := next
+
+	// parse file path
+	next, tokens, err := nextToken(tokens)
+	if err != nil {
+		return nil, fmt.Errorf("invalid PFS api path %v", path)
+	}
+	if next != "files" {
+		return nil, fmt.Errorf("invalid PFS api path %v expecting 'files' to be provided", path)
+	}
+	var filePaths []string
+
+	for next, tokens, err := nextToken(tokens); err != io.EOF; next, tokens, err := nextToken(tokens) {
+		if err != nil {
+			return nil, fmt.Errorf("invalid PFS api path %v", path)
+		}
+		filePaths = append(filePaths, next)
+	}
+
+	return &pfs.File{
+		Commit: &pfs.Commit{
+			ID: commitID,
+			Repo: &pfs.Repo{
+				Name: repoName,
+			},
+		},
+		Path: strings.Join(filePaths, "/"),
+	}, nil
 }
 
 func (s *HTTPServer) getFileHandler(w http.ResponseWriter, r *http.Request) {
