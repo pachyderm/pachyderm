@@ -55,6 +55,12 @@ func (a *APIServer) getMasterLogger() *taggedLogger {
 	return result
 }
 
+func (logger *taggedLogger) jobLogger(jobID string) *taggedLogger {
+	result := logger.clone()
+	result.template.JobID = jobID
+	return result
+}
+
 func (a *APIServer) master() {
 	masterLock := dlock.NewDLock(a.etcdClient, path.Join(a.etcdPrefix, masterLockPath, a.pipelineInfo.ID))
 	logger := a.getMasterLogger()
@@ -273,7 +279,7 @@ nextInput:
 			return err
 		}
 
-		if err := a.runJob(ctx, jobInfo, pool, logger); err != nil {
+		if err := a.runJob(ctx, jobInfo, pool, logger.jobLogger(job.ID)); err != nil {
 			return err
 		}
 	}
