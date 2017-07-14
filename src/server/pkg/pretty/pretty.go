@@ -26,12 +26,18 @@ func Ago(timestamp *types.Timestamp) string {
 	return fmt.Sprintf("%s ago", units.HumanDuration(time.Since(t)))
 }
 
-// Duration pretty-prints the duration of time between from
+// TimeDifference pretty-prints the duration of time between from
 // and to as a human-reabable string.
-func Duration(from *types.Timestamp, to *types.Timestamp) string {
+func TimeDifference(from *types.Timestamp, to *types.Timestamp) string {
 	tFrom, _ := types.TimestampFromProto(from)
 	tTo, _ := types.TimestampFromProto(to)
 	return units.HumanDuration(tTo.Sub(tFrom))
+}
+
+// Duration pretty prints a duration in a human readable way.
+func Duration(d *types.Duration) string {
+	duration, _ := types.DurationFromProto(d)
+	return units.HumanDuration(duration)
 }
 
 // Size pretty-prints size amount of bytes as a human readable string.

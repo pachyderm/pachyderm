@@ -2148,8 +2148,9 @@ func TestSyncPullPush(t *testing.T) {
 	require.NoError(t, err)
 
 	puller := pfssync.NewPuller()
-	require.NoError(t, puller.Pull(&client, tmpDir, repo1, commit1.ID, "", false, 2))
-	require.NoError(t, puller.CleanUp())
+	require.NoError(t, puller.Pull(&client, tmpDir, repo1, commit1.ID, "", false, 2, nil, ""))
+	_, err = puller.CleanUp()
+	require.NoError(t, err)
 
 	repo2 := "repo2"
 	require.NoError(t, client.CreateRepo(repo2))
@@ -2196,13 +2197,14 @@ func TestSyncPullPush(t *testing.T) {
 	require.NoError(t, err)
 
 	puller = pfssync.NewPuller()
-	require.NoError(t, puller.Pull(&client, tmpDir2, repo1, "master", "", true, 2))
+	require.NoError(t, puller.Pull(&client, tmpDir2, repo1, "master", "", true, 2, nil, ""))
 
 	data, err := ioutil.ReadFile(path.Join(tmpDir2, "dir/bar"))
 	require.NoError(t, err)
 	require.Equal(t, "bar\n", string(data))
 
-	require.NoError(t, puller.CleanUp())
+	_, err = puller.CleanUp()
+	require.NoError(t, err)
 }
 
 func TestSyncEmptyDir(t *testing.T) {
@@ -2224,10 +2226,11 @@ func TestSyncEmptyDir(t *testing.T) {
 	dir := filepath.Join(tmpDir, "tmp")
 
 	puller := pfssync.NewPuller()
-	require.NoError(t, puller.Pull(&client, dir, repo, commit.ID, "", false, 0))
+	require.NoError(t, puller.Pull(&client, dir, repo, commit.ID, "", false, 0, nil, ""))
 	_, err = os.Stat(dir)
 	require.NoError(t, err)
-	require.NoError(t, puller.CleanUp())
+	_, err = puller.CleanUp()
+	require.NoError(t, err)
 }
 
 func generateRandomString(n int) string {
