@@ -53,69 +53,56 @@ func nextToken(tokens []string) (string, []string, error) {
 	return tokens[0], tokens[1:len(tokens)], nil
 }
 
-func urlToFile(u URL) (*pfs.File, error) {
+func parseFieldFromURL(fieldName string, tokens []string, rawPath string) (value string, tokens []string, err error) {
+	value, tokens, err = nextToken(tokens)
+	if err != nil {
+		return "", nil, fmt.Errorf("invalid PFS api path %v", rawPath)
+	}
+	if value != fieldName {
+		return "", nil, fmt.Errorf("invalid PFS api path %v expecting '%v' to be provided", rawPath, fieldName)
+	}
+	value, tokens, err = nextToken(tokens)
+	if err != nil {
+		return "", nil, fmt.Errorf("invalid PFS api path %v", rawPath)
+	}
+	return value, tokens, nil
+}
+
+func urlToFile(u URL) (file *pfs.File, fileName string, err error) {
 	reqPath := u.EscapedPath()
 	fmt.Printf("path: %v\n", reqPath)
 	tokens := strings.split(reqPath, "/")
 	fmt.Printf("tokens: %v\n", tokens)
+
 	// Example URL for v1
 	// http://server.com/v1/pfs/repos/repoName/commits/commitID/files/path/to/the/real/file.txt
 
-	// Parse API version / service
+	version, tokens, err := parseFieldFromURL("v1", tokens, reqPath)
 	next, tokens, err := nextToken(tokens)
 	if err != nil {
-		return nil, fmt.Errorf("invalid PFS api path %v", path)
+		return nil, err
 	}
-	if next != apiVersion {
-		return nil, fmt.Errorf("unrecognized api version %v, expected %v", next, apiVersion)
-	}
-	next, tokens, err := nextToken(tokens)
+	service, tokens, err := parseFieldFromURL("pfs", tokens, reqPath)
 	if err != nil {
-		return nil, fmt.Errorf("invalid PFS api path %v", path)
+		return nil, err
 	}
-	if next != "pfs" {
-		return nil, fmt.Errorf("invalid PFS api path %v expecting 'pfs' service", path)
-	}
-
-	// parse repo name
-	next, tokens, err := nextToken(tokens)
+	repoName, tokens, err := parseFieldFromURL("repos", tokens, reqPath)
 	if err != nil {
-		return nil, fmt.Errorf("invalid PFS api path %v", path)
+		return nil, err
 	}
-	if next != "repos" {
-		return nil, fmt.Errorf("invalid PFS api path %v expecting 'repos' to be provided", path)
-	}
-	next, tokens, err := nextToken(tokens)
+	commitID, tokens, err := parseFieldFromURL("commits", tokens, reqPath)
 	if err != nil {
-		return nil, fmt.Errorf("invalid PFS api path %v", path)
+		return nil, err
 	}
-	repoName := next
-
-	// parse commit ID
-	next, tokens, err := nextToken(tokens)
-	if err != nil {
-		return nil, fmt.Errorf("invalid PFS api path %v", path)
-	}
-	if next != "commits" {
-		return nil, fmt.Errorf("invalid PFS api path %v expecting 'commits' to be provided", path)
-	}
-	next, tokens, err := nextToken(tokens)
-	if err != nil {
-		return nil, fmt.Errorf("invalid PFS api path %v", path)
-	}
-	commitID := next
 
 	// parse file path
-	next, tokens, err := nextToken(tokens)
-	if err != nil {
-		return nil, fmt.Errorf("invalid PFS api path %v", path)
-	}
-	if next != "files" {
-		return nil, fmt.Errorf("invalid PFS api path %v expecting 'files' to be provided", path)
-	}
 	var filePaths []string
-
-	for next, tokens, err := nextToken(tokens); err != io.EOF; next, tokens, err := nextToken(tokens) {
+	next, tokens, err := parseFieldFromURL("files", tokens, reqPath)
+	if err != nil {
+		return nil, err
+	}
+	filePaths = append(filePaths, next)
+	for ; err != io.EOF; next, tokens, err := nextToken(tokens) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid PFS api path %v", path)
 		}
@@ -130,43 +117,20 @@ func urlToFile(u URL) (*pfs.File, error) {
 			},
 		},
 		Path: strings.Join(filePaths, "/"),
-	}, nil
+	}, filePaths[len(filePaths)-1], nil
 }
 
 func (s *HTTPServer) getFileHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("rawquery: %v\n", r.URL.RawQuery)
-	params, err := url.ParseQuery(r.URL.RawQuery)
+	pfsFile, fileName, err := urlToFile(r.URL)
 	if err != nil {
 		fmt.Printf("err: %v\n", err)
 		return
 	}
-	fmt.Printf("params: %v\n", params)
-	pfsFile := &pfs.File{
-		Commit: &pfs.Commit{
-			ID: params.Get("file:commit:id"),
-			Repo: &pfs.Repo{
-				Name: params.Get("file:commit:repo:name"),
-			},
-		},
-		Path: params.Get("file:path"),
-	}
-	offsetBytes, err := strconv.ParseInt(params.Get("offsetBytes"), 10, 64)
-	if err != nil {
-		fmt.Printf("err: %v\n", err)
-		return
-	}
-	sizeBytes, err := strconv.ParseInt(params.Get("sizeBytes"), 10, 64)
-	if err != nil {
-		fmt.Printf("err: %v\n", err)
-		return
-	}
+	offsetBytes := 0
+	sizeBytes := 0
 	file, err := s.driver.getFile(context.Background(), pfsFile, offsetBytes, sizeBytes)
-	if err != nil {
-		fmt.Printf("err: %v\n", err)
-		return
-	}
 	w.Header().Add("Content-Type", "application/octet-stream")
-	w.Header().Add("Content-Disposition", "attachment; filename=\"foo.txt\"")
+	w.Header().Add(fmt.Sprintf("Content-Disposition", "attachment; filename=\"%v\"", fileName))
 	fw := flushWriter{w: w}
 	if f, ok := w.(http.Flusher); ok {
 		fw.f = f
