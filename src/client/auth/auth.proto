@@ -1,5 +1,5 @@
 syntax = "proto3";
-package pps;
+package auth;
 
 message AuthenticateRequest {
     string github_token = 1;
