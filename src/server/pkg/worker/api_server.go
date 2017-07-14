@@ -563,7 +563,7 @@ func HashDatum(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) {
 	hash.Write([]byte(pipelineInfo.Pipeline.Name))
 	hash.Write([]byte(pipelineInfo.Salt))
 
-	return client.HashPipelineName(pipelineInfo.Pipeline.Name) + hex.EncodeToString(hash.Sum(nil)), nil
+	return client.DatumTagPrefix(pipelineInfo.Salt) + hex.EncodeToString(hash.Sum(nil)), nil
 }
 
 // HashDatum15 computes and returns the hash of datum + pipeline for version <= 1.5.0, with a
@@ -594,7 +594,7 @@ func HashDatum15(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) 
 
 	// Note in 1.5.0 this function was called HashPipelineID, it's now called
 	// HashPipelineName but it has the same implementation.
-	return client.HashPipelineName(pipelineInfo.ID) + hex.EncodeToString(hash.Sum(nil)), nil
+	return client.DatumTagPrefix(pipelineInfo.ID) + hex.EncodeToString(hash.Sum(nil)), nil
 }
 
 // Process processes a datum.

@@ -1182,7 +1182,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 	activeTags := make(map[string]bool)
 	for _, pipelineInfo := range pipelineInfos.PipelineInfo {
 		tags, err := objClient.ListTags(ctx, &pfs.ListTagsRequest{
-			Prefix:        client.HashPipelineName(pipelineInfo.Pipeline.Name),
+			Prefix:        client.DatumTagPrefix(pipelineInfo.Salt),
 			IncludeObject: true,
 		})
 		if err != nil {
