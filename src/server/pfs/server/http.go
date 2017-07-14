@@ -5,7 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 
@@ -42,7 +42,7 @@ func newHTTPServer(address string, etcdAddresses []string, etcdPrefix string, ca
 
 func (s *HTTPServer) Start() error {
 	fmt.Printf("STARTING HTTP SERVER\n")
-	http.HandleFunc("/get-file", s.getFileHandler)
+	http.HandleFunc(fmt.Sprintf("/%v", apiVersion), s.getFileHandler)
 	return http.ListenAndServe(fmt.Sprintf(":%v", httpPort), nil)
 }
 
@@ -53,7 +53,7 @@ func nextToken(tokens []string) (string, []string, error) {
 	return tokens[0], tokens[1:len(tokens)], nil
 }
 
-func parseFieldFromURL(fieldName string, tokens []string, rawPath string) (value string, tokens []string, err error) {
+func parseFieldFromURL(fieldName string, tokens []string, rawPath string) (value string, remainingTokens []string, err error) {
 	value, tokens, err = nextToken(tokens)
 	if err != nil {
 		return "", nil, fmt.Errorf("invalid PFS api path %v", rawPath)
@@ -68,45 +68,45 @@ func parseFieldFromURL(fieldName string, tokens []string, rawPath string) (value
 	return value, tokens, nil
 }
 
-func urlToFile(u URL) (file *pfs.File, fileName string, err error) {
+func urlToFile(u *url.URL) (file *pfs.File, fileName string, err error) {
 	reqPath := u.EscapedPath()
 	fmt.Printf("path: %v\n", reqPath)
-	tokens := strings.split(reqPath, "/")
+	tokens := strings.Split(reqPath, "/")
 	fmt.Printf("tokens: %v\n", tokens)
 
 	// Example URL for v1
 	// http://server.com/v1/pfs/repos/repoName/commits/commitID/files/path/to/the/real/file.txt
 
-	version, tokens, err := parseFieldFromURL("v1", tokens, reqPath)
-	next, tokens, err := nextToken(tokens)
+	_, tokens, err = parseFieldFromURL("v1", tokens, reqPath)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	service, tokens, err := parseFieldFromURL("pfs", tokens, reqPath)
+	_, tokens, err = parseFieldFromURL("pfs", tokens, reqPath)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	repoName, tokens, err := parseFieldFromURL("repos", tokens, reqPath)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	commitID, tokens, err := parseFieldFromURL("commits", tokens, reqPath)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	// parse file path
 	var filePaths []string
 	next, tokens, err := parseFieldFromURL("files", tokens, reqPath)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	filePaths = append(filePaths, next)
-	for ; err != io.EOF; next, tokens, err := nextToken(tokens) {
+	for err != io.EOF {
 		if err != nil {
-			return nil, fmt.Errorf("invalid PFS api path %v", path)
+			return nil, "", fmt.Errorf("invalid PFS api path %v", reqPath)
 		}
 		filePaths = append(filePaths, next)
+		next, tokens, err = nextToken(tokens)
 	}
 
 	return &pfs.File{
@@ -126,11 +126,11 @@ func (s *HTTPServer) getFileHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("err: %v\n", err)
 		return
 	}
-	offsetBytes := 0
-	sizeBytes := 0
+	offsetBytes := int64(0)
+	sizeBytes := int64(0)
 	file, err := s.driver.getFile(context.Background(), pfsFile, offsetBytes, sizeBytes)
 	w.Header().Add("Content-Type", "application/octet-stream")
-	w.Header().Add(fmt.Sprintf("Content-Disposition", "attachment; filename=\"%v\"", fileName))
+	w.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=\"%v\"", fileName))
 	fw := flushWriter{w: w}
 	if f, ok := w.(http.Flusher); ok {
 		fw.f = f
