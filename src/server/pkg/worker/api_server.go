@@ -192,13 +192,17 @@ func (logger *taggedLogger) Close() (*pfs.Object, int64, error) {
 	return nil, 0, nil
 }
 
-func (logger *taggedLogger) userLogger() *taggedLogger {
-	result := &taggedLogger{
+func (logger *taggedLogger) clone() *taggedLogger {
+	return &taggedLogger{
 		template:     logger.template, // Copy struct
 		stderrLog:    log.Logger{},
 		marshaler:    &jsonpb.Marshaler{},
 		putObjClient: logger.putObjClient,
 	}
+}
+
+func (logger *taggedLogger) userLogger() *taggedLogger {
+	result := logger.clone()
 	result.template.User = true
 	return result
 }
