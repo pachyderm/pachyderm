@@ -276,13 +276,17 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			ResourceSpec:    request.ResourceSpec,
 			NewBranch:       request.NewBranch,
 			Incremental:     request.Incremental,
+			Salt:            request.Salt,
+			PipelineVersion: request.PipelineVersion,
 		}
 		if request.Pipeline != nil {
 			pipelineInfo := new(pps.PipelineInfo)
 			if err := a.pipelines.ReadWrite(stm).Get(request.Pipeline.Name, pipelineInfo); err != nil {
 				return err
 			}
-			jobInfo.PipelineVersion = pipelineInfo.Version
+			if jobInfo.Salt != pipelineInfo.Salt || jobInfo.PipelineVersion != pipelineInfo.Version {
+				return fmt.Errorf("job is made from an outdated version of the pipeline")
+			}
 			jobInfo.Transform = pipelineInfo.Transform
 			jobInfo.ParallelismSpec = pipelineInfo.ParallelismSpec
 			jobInfo.OutputRepo = &pfs.Repo{pipelineInfo.Pipeline.Name}
