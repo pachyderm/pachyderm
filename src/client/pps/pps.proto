@@ -148,6 +148,7 @@ message JobInfo {
   Input input = 26;
   pfs.BranchInfo new_branch = 27;
   bool incremental = 28;
+  string salt = 29;
 }
 
 enum WorkerState {
@@ -242,6 +243,7 @@ message CreateJobRequest {
   Input input = 15;
   pfs.BranchInfo new_branch = 16;
   bool incremental = 17;
+  string salt = 18;
 }
 
 message InspectJobRequest {

@@ -182,7 +182,7 @@ nextInput:
 					break
 				}
 			}
-			if jobInfo.Pipeline.Name == a.pipelineInfo.Pipeline.Name && jobInfo.PipelineVersion == a.pipelineInfo.Version {
+			if jobInfo.Pipeline.Name == a.pipelineInfo.Pipeline.Name && jobInfo.Salt == a.pipelineInfo.Salt {
 				switch jobInfo.State {
 				case pps.JobState_JOB_STARTING, pps.JobState_JOB_RUNNING:
 					if err := a.runJob(ctx, &jobInfo, pool); err != nil {
@@ -230,17 +230,19 @@ nextInput:
 				if !ok {
 					break
 				}
-				if jobInfo.Pipeline.Name == a.pipelineInfo.Pipeline.Name && jobInfo.PipelineVersion == a.pipelineInfo.Version {
+				if jobInfo.Pipeline.Name == a.pipelineInfo.Pipeline.Name && jobInfo.Salt == a.pipelineInfo.Salt {
 					parentJob = jobInfo.Job
 				}
 			}
 		}
 
 		job, err := a.pachClient.PpsAPIClient.CreateJob(ctx, &pps.CreateJobRequest{
-			Pipeline:  a.pipelineInfo.Pipeline,
-			Input:     jobInput,
-			ParentJob: parentJob,
-			NewBranch: newBranch,
+			Pipeline:        a.pipelineInfo.Pipeline,
+			Input:           jobInput,
+			ParentJob:       parentJob,
+			NewBranch:       newBranch,
+			Salt:            a.pipelineInfo.Salt,
+			PipelineVersion: a.pipelineInfo.Version,
 		})
 		if err != nil {
 			return err
