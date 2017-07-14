@@ -276,6 +276,8 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			ResourceSpec:    request.ResourceSpec,
 			NewBranch:       request.NewBranch,
 			Incremental:     request.Incremental,
+			Stats:           &pps.ProcessStats{},
+			EnableStats:     request.EnableStats,
 			Salt:            request.Salt,
 			PipelineVersion: request.PipelineVersion,
 		}
@@ -294,6 +296,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			jobInfo.Egress = pipelineInfo.Egress
 			jobInfo.ResourceSpec = pipelineInfo.ResourceSpec
 			jobInfo.Incremental = pipelineInfo.Incremental
+			jobInfo.EnableStats = pipelineInfo.EnableStats
 		} else {
 			if jobInfo.OutputRepo == nil {
 				jobInfo.OutputRepo = &pfs.Repo{job.ID}
@@ -566,7 +569,12 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 					if request.Job != nil && request.Job.ID != msg.JobID {
 						continue
 					}
-
+					if request.DatumID != "" && request.DatumID != msg.DatumID {
+						continue
+					}
+					if request.Master != msg.Master {
+						continue
+					}
 					if !workerpkg.MatchDatum(request.DataFilters, msg.Data) {
 						continue
 					}
@@ -715,6 +723,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Description:        request.Description,
 		Incremental:        request.Incremental,
 		CacheSize:          request.CacheSize,
+		EnableStats:        request.EnableStats,
 		Salt:               uuid.NewWithoutDashes(),
 	}
 	setPipelineDefaults(pipelineInfo)
