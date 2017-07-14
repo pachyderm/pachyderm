@@ -144,14 +144,12 @@ func doSidecarMode(appEnvObj interface{}) error {
 		return err
 	}
 	healthServer := health.NewHealthServer()
-	fmt.Printf("creating http server\n")
 	httpServer, err := pfs_server.NewHTTPServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, blockCacheBytes)
 	if err != nil {
 		return err
 	}
 	var eg errgroup.Group
 	eg.Go(func() error {
-		fmt.Printf("going to start http server\n")
 		return httpServer.Start()
 	})
 	eg.Go(func() error {
@@ -175,7 +173,6 @@ func doSidecarMode(appEnvObj interface{}) error {
 }
 
 func doFullMode(appEnvObj interface{}) error {
-	fmt.Printf("doing full mode\n")
 	appEnv := appEnvObj.(*appEnv)
 	if migrate != "" {
 		parts := strings.Split(migrate, "-")
@@ -308,19 +305,15 @@ func doFullMode(appEnvObj interface{}) error {
 	}
 	healthServer := health.NewHealthServer()
 
-	fmt.Printf("creating http server\n")
 	httpServer, err := pfs_server.NewHTTPServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, blockCacheBytes)
-	fmt.Printf("created http server: %v\n", err)
 	if err != nil {
 		return err
 	}
 	var eg errgroup.Group
 	eg.Go(func() error {
-		fmt.Printf("going to start http server\n")
 		return httpServer.Start()
 	})
 	eg.Go(func() error {
-		fmt.Printf("starting grpc servers\n")
 		return grpcutil.Serve(
 			func(s *grpc.Server) {
 				pfsclient.RegisterAPIServer(s, pfsAPIServer)
