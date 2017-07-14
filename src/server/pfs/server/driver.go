@@ -319,7 +319,6 @@ func (d *driver) inspectRepo(ctx context.Context, repo *pfs.Repo) (*pfs.RepoInfo
 func (d *driver) listRepo(ctx context.Context, provenance []*pfs.Repo) ([]*pfs.RepoInfo, error) {
 	var result []*pfs.RepoInfo
 	repos := d.repos.ReadOnly(ctx)
-	fmt.Printf("a\n")
 	// Ensure that all provenance repos exist
 	for _, prov := range provenance {
 		repoInfo := new(pfs.RepoInfo)
@@ -328,22 +327,15 @@ func (d *driver) listRepo(ctx context.Context, provenance []*pfs.Repo) ([]*pfs.R
 		}
 	}
 
-	fmt.Printf("got prov repos\n")
 	iterator, err := repos.List()
-	fmt.Printf("got repo iterator %v\n", err)
 	if err != nil {
 		return nil, err
 	}
 nextRepo:
 	for {
 		repoName, repoInfo := "", new(pfs.RepoInfo)
-		fmt.Printf("getting a repo %v\n", repoName)
 		ok, err := iterator.Next(&repoName, repoInfo)
-		fmt.Printf("next repo? %v, %v\n", ok, err)
 		if err != nil {
-			if strings.Contains(err.Error(), "unexpected EOF") {
-				break
-			}
 			return nil, err
 		}
 		if !ok {
