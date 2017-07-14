@@ -199,7 +199,8 @@ nextInput:
 					break
 				}
 			}
-			if jobInfo.Pipeline.Name == a.pipelineInfo.Pipeline.Name && jobInfo.Salt == a.pipelineInfo.Salt {
+			if jobInfo.Pipeline.Name == a.pipelineInfo.Pipeline.Name &&
+				(jobInfo.Salt == a.pipelineInfo.Salt || (jobInfo.Salt == "" && jobInfo.PipelineVersion == a.pipelineInfo.Version)) {
 				switch jobInfo.State {
 				case pps.JobState_JOB_STARTING, pps.JobState_JOB_RUNNING:
 					if err := a.runJob(ctx, &jobInfo, pool, logger); err != nil {
@@ -247,7 +248,8 @@ nextInput:
 				if !ok {
 					break
 				}
-				if jobInfo.Pipeline.Name == a.pipelineInfo.Pipeline.Name && jobInfo.Salt == a.pipelineInfo.Salt {
+				if jobInfo.Pipeline.Name == a.pipelineInfo.Pipeline.Name &&
+					(jobInfo.Salt == a.pipelineInfo.Salt || (jobInfo.Salt == "" && jobInfo.PipelineVersion == a.pipelineInfo.Version)) {
 					parentJob = jobInfo.Job
 				}
 			}
