@@ -10,6 +10,7 @@ import (
 
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client"
+	authclient "github.com/pachyderm/pachyderm/src/client/auth"
 	healthclient "github.com/pachyderm/pachyderm/src/client/health"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
@@ -18,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
+	authserver "github.com/pachyderm/pachyderm/src/server/auth"
 	"github.com/pachyderm/pachyderm/src/server/health"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	cache_pb "github.com/pachyderm/pachyderm/src/server/pkg/cache/groupcachepb"
@@ -292,6 +294,12 @@ func doFullMode(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
+
+	authAPIServer, err := authserver.NewAuthServer(etcdAddress, appEnv.PFSEtcdPrefix)
+	if err != nil {
+		return err
+	}
+
 	healthServer := health.NewHealthServer()
 
 	httpServer, err := pfs_server.NewHTTPServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, blockCacheBytes)
@@ -309,6 +317,7 @@ func doFullMode(appEnvObj interface{}) error {
 				pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
 				ppsclient.RegisterAPIServer(s, ppsAPIServer)
 				cache_pb.RegisterGroupCacheServer(s, cacheServer)
+				authclient.RegisterAPIServer(s, authAPIServer)
 				healthclient.RegisterHealthServer(s, healthServer)
 			},
 			grpcutil.ServeOptions{

@@ -1,0 +1,14 @@
+syntax = "proto3";
+package auth;
+
+message AuthenticateRequest {
+    string github_token = 1;
+}
+
+message AuthenticateResponse {
+    string pach_token = 1;
+}
+
+service API {
+    rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {}
+}
