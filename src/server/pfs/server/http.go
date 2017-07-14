@@ -41,7 +41,6 @@ func newHTTPServer(address string, etcdAddresses []string, etcdPrefix string, ca
 }
 
 func (s *HTTPServer) Start() error {
-	fmt.Printf("STARTING HTTP SERVER\n")
 	router := httprouter.New()
 	router.GET(fmt.Sprintf("/%v/pfs/repos/:repoName/commits/:commitID/files/*filePath", apiVersion), s.getFileHandler)
 	// Serves a request like:
@@ -50,7 +49,6 @@ func (s *HTTPServer) Start() error {
 }
 
 func (s *HTTPServer) getFileHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	fmt.Printf("params: %v\n", ps)
 	pfsFile := &pfs.File{
 		Commit: &pfs.Commit{
 			ID: ps.ByName("commitID"),
