@@ -144,32 +144,21 @@ func doSidecarMode(appEnvObj interface{}) error {
 		return err
 	}
 	healthServer := health.NewHealthServer()
-	httpServer, err := pfs_server.NewHTTPServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, blockCacheBytes)
-	if err != nil {
-		return err
-	}
-	var eg errgroup.Group
-	eg.Go(func() error {
-		return httpServer.Start()
-	})
-	eg.Go(func() error {
-		return grpcutil.Serve(
-			func(s *grpc.Server) {
-				pfsclient.RegisterAPIServer(s, pfsAPIServer)
-				pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
-				ppsclient.RegisterAPIServer(s, ppsAPIServer)
-				healthclient.RegisterHealthServer(s, healthServer)
-			},
-			grpcutil.ServeOptions{
-				Version:    version.Version,
-				MaxMsgSize: grpcutil.MaxMsgSize,
-			},
-			grpcutil.ServeEnv{
-				GRPCPort: appEnv.Port,
-			},
-		)
-	})
-	return eg.Wait()
+	return grpcutil.Serve(
+		func(s *grpc.Server) {
+			pfsclient.RegisterAPIServer(s, pfsAPIServer)
+			pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
+			ppsclient.RegisterAPIServer(s, ppsAPIServer)
+			healthclient.RegisterHealthServer(s, healthServer)
+		},
+		grpcutil.ServeOptions{
+			Version:    version.Version,
+			MaxMsgSize: grpcutil.MaxMsgSize,
+		},
+		grpcutil.ServeEnv{
+			GRPCPort: appEnv.Port,
+		},
+	)
 }
 
 func doFullMode(appEnvObj interface{}) error {
