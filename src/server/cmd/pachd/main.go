@@ -31,6 +31,7 @@ import (
 	flag "github.com/spf13/pflag"
 	"go.pedge.io/lion"
 	"go.pedge.io/lion/proto"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"k8s.io/kubernetes/pkg/api"
 	kube_client "k8s.io/kubernetes/pkg/client/restclient"
@@ -143,24 +144,38 @@ func doSidecarMode(appEnvObj interface{}) error {
 		return err
 	}
 	healthServer := health.NewHealthServer()
-	return grpcutil.Serve(
-		func(s *grpc.Server) {
-			pfsclient.RegisterAPIServer(s, pfsAPIServer)
-			pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
-			ppsclient.RegisterAPIServer(s, ppsAPIServer)
-			healthclient.RegisterHealthServer(s, healthServer)
-		},
-		grpcutil.ServeOptions{
-			Version:    version.Version,
-			MaxMsgSize: grpcutil.MaxMsgSize,
-		},
-		grpcutil.ServeEnv{
-			GRPCPort: appEnv.Port,
-		},
-	)
+	fmt.Printf("creating http server\n")
+	httpServer, err := pfs_server.NewHTTPServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, blockCacheBytes)
+	if err != nil {
+		return err
+	}
+	var eg errgroup.Group
+	eg.Go(func() error {
+		fmt.Printf("going to start http server\n")
+		return httpServer.Start()
+	})
+	eg.Go(func() error {
+		return grpcutil.Serve(
+			func(s *grpc.Server) {
+				pfsclient.RegisterAPIServer(s, pfsAPIServer)
+				pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
+				ppsclient.RegisterAPIServer(s, ppsAPIServer)
+				healthclient.RegisterHealthServer(s, healthServer)
+			},
+			grpcutil.ServeOptions{
+				Version:    version.Version,
+				MaxMsgSize: grpcutil.MaxMsgSize,
+			},
+			grpcutil.ServeEnv{
+				GRPCPort: appEnv.Port,
+			},
+		)
+	})
+	return eg.Wait()
 }
 
 func doFullMode(appEnvObj interface{}) error {
+	fmt.Printf("doing full mode\n")
 	appEnv := appEnvObj.(*appEnv)
 	if migrate != "" {
 		parts := strings.Split(migrate, "-")
@@ -292,22 +307,38 @@ func doFullMode(appEnvObj interface{}) error {
 		return err
 	}
 	healthServer := health.NewHealthServer()
-	return grpcutil.Serve(
-		func(s *grpc.Server) {
-			pfsclient.RegisterAPIServer(s, pfsAPIServer)
-			pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
-			ppsclient.RegisterAPIServer(s, ppsAPIServer)
-			cache_pb.RegisterGroupCacheServer(s, cacheServer)
-			healthclient.RegisterHealthServer(s, healthServer)
-		},
-		grpcutil.ServeOptions{
-			Version:    version.Version,
-			MaxMsgSize: grpcutil.MaxMsgSize,
-		},
-		grpcutil.ServeEnv{
-			GRPCPort: appEnv.Port,
-		},
-	)
+
+	fmt.Printf("creating http server\n")
+	httpServer, err := pfs_server.NewHTTPServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, blockCacheBytes)
+	fmt.Printf("created http server: %v\n", err)
+	if err != nil {
+		return err
+	}
+	var eg errgroup.Group
+	eg.Go(func() error {
+		fmt.Printf("going to start http server\n")
+		return httpServer.Start()
+	})
+	eg.Go(func() error {
+		fmt.Printf("starting grpc servers\n")
+		return grpcutil.Serve(
+			func(s *grpc.Server) {
+				pfsclient.RegisterAPIServer(s, pfsAPIServer)
+				pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
+				ppsclient.RegisterAPIServer(s, ppsAPIServer)
+				cache_pb.RegisterGroupCacheServer(s, cacheServer)
+				healthclient.RegisterHealthServer(s, healthServer)
+			},
+			grpcutil.ServeOptions{
+				Version:    version.Version,
+				MaxMsgSize: grpcutil.MaxMsgSize,
+			},
+			grpcutil.ServeEnv{
+				GRPCPort: appEnv.Port,
+			},
+		)
+	})
+	return eg.Wait()
 }
 
 func getEtcdClient(etcdAddress string) discovery.Client {
