@@ -515,6 +515,20 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 					}()
 					if resp.Failed {
 						userCodeFailures++
+						// If this is our last failure we merge in the stats
+						// tree for the failed run.
+						if userCodeFailures > maximumRetriesPerDatum && jobInfo.EnableStats {
+							statsSubtree, err := a.getTreeFromTag(ctx, resp.StatsTag)
+							if err != nil {
+								logger.Logf("failed to retrieve stats hashtree after processing for datum %v: %v", files, err)
+							} else {
+								treeMu.Lock()
+								defer treeMu.Unlock()
+								if err := statsTree.Merge(statsSubtree); err != nil {
+									logger.Logf("failed to merge into stats tree: %v", err)
+								}
+							}
+						}
 						return fmt.Errorf("user code failed for datum %v", files)
 					}
 					var eg errgroup.Group
@@ -573,6 +587,42 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 		}
 		limiter.Wait()
 
+		var statsCommit *pfs.Commit
+		if jobInfo.EnableStats {
+			if err := func() error {
+				aggregateProcessStats, err := aggregateProcessStats(processStats)
+				if err != nil {
+					return err
+				}
+				marshalled, err := (&jsonpb.Marshaler{}).MarshalToString(aggregateProcessStats)
+				if err != nil {
+					return err
+				}
+				aggregateObject, err := a.putObject(ctx, []byte(marshalled))
+				if err != nil {
+					return err
+				}
+				return statsTree.PutFile(path.Join("/", jobID, "stats"), []*pfs.Object{aggregateObject}, int64(len(marshalled)))
+			}(); err != nil {
+				logger.Logf("error aggregating stats")
+			}
+			statsObject, err := a.putTree(ctx, statsTree)
+			if err != nil {
+				return err
+			}
+
+			statsCommit, err = pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
+				Parent: &pfs.Commit{
+					Repo: jobInfo.OutputRepo,
+				},
+				Branch: "stats",
+				Tree:   statsObject,
+			})
+			if err != nil {
+				return err
+			}
+		}
+
 		// check if the job failed
 		if failed {
 			_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
@@ -582,6 +632,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 					return err
 				}
 				jobInfo.Finished = now()
+				jobInfo.StatsCommit = statsCommit
 				return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE)
 			})
 			return err
@@ -607,40 +658,6 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 		})
 		if err != nil {
 			return err
-		}
-
-		var statsCommit *pfs.Commit
-		if jobInfo.EnableStats {
-			aggregateProcessStats, err := aggregateProcessStats(processStats)
-			if err != nil {
-				return err
-			}
-			marshalled, err := (&jsonpb.Marshaler{}).MarshalToString(aggregateProcessStats)
-			if err != nil {
-				return err
-			}
-			aggregateObject, err := a.putObject(ctx, []byte(marshalled))
-			if err != nil {
-				return err
-			}
-			if err := statsTree.PutFile(path.Join("/", jobID, "stats"), []*pfs.Object{aggregateObject}, int64(len(marshalled))); err != nil {
-				return err
-			}
-			statsObject, err := a.putTree(ctx, statsTree)
-			if err != nil {
-				return err
-			}
-
-			statsCommit, err = pfsClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
-				Parent: &pfs.Commit{
-					Repo: jobInfo.OutputRepo,
-				},
-				Branch: "stats",
-				Tree:   statsObject,
-			})
-			if err != nil {
-				return err
-			}
 		}
 
 		if jobInfo.Egress != nil {
