@@ -58,13 +58,15 @@ const (
 	GCGenerationKey = "gc-generation"
 )
 
-// HashPipelineName hashes a pipeline name to a string of a fixed size
-func HashPipelineName(pipelineName string) string {
-	// We need to hash the pipeline ID because UUIDs are not necessarily
+// DatumTagPrefix hashes a pipeline salt to a string of a fixed size for use as
+// the prefix for datum output trees. This prefix allows us to do garbage
+// collection correctly.
+func DatumTagPrefix(salt string) string {
+	// We need to hash the salt because UUIDs are not necessarily
 	// random in every bit.
-	pipelineNameHash := sha256.New()
-	pipelineNameHash.Write([]byte(pipelineName))
-	return hex.EncodeToString(pipelineNameHash.Sum(nil))[:4]
+	h := sha256.New()
+	h.Write([]byte(salt))
+	return hex.EncodeToString(h.Sum(nil))[:4]
 }
 
 // NewAtomInput returns a new atom input. It only includes required options.
