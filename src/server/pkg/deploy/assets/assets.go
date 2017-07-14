@@ -354,7 +354,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 									Name:          "trace-port",
 								},
 								{
-									ContainerPort: 652,
+									ContainerPort: server.HTTPPort,
 									Protocol:      "TCP",
 									Name:          "api-http-port",
 								},
@@ -408,9 +408,9 @@ func PachdService() *v1.Service {
 					NodePort: 30651,
 				},
 				{
-					Port:     652,
+					Port:     server.HTTPPort,
 					Name:     "api-http-port",
-					NodePort: 30652,
+					NodePort: 30000 + server.HTTPPort,
 				},
 			},
 		},

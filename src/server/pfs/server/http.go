@@ -12,7 +12,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-const httpPort = 652
+const HTTPPort = 652
 const apiVersion = "v1"
 
 type flushWriter struct {
@@ -46,7 +46,7 @@ func (s *HTTPServer) Start() error {
 	router.GET(fmt.Sprintf("/%v/pfs/repos/:repoName/commits/:commitID/files/*filePath", apiVersion), s.getFileHandler)
 	// Serves a request like:
 	// http://localhost:30652/v1/pfs/repos/foo/commits/b7a1923be56744f6a3f1525ec222dc3b/files/ttt.log
-	return http.ListenAndServe(fmt.Sprintf(":%v", httpPort), router)
+	return http.ListenAndServe(fmt.Sprintf(":%v", HTTPPort), router)
 }
 
 func (s *HTTPServer) getFileHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
