@@ -27,6 +27,7 @@ type apiServer struct {
 	etcdPrefix string
 }
 
+// NewAuthServer returns an implementation of auth.APIServer.
 func NewAuthServer(etcdAddress string, etcdPrefix string) (authclient.APIServer, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   []string{etcdAddress},
