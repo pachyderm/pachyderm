@@ -19,7 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
-	authserver "github.com/pachyderm/pachyderm/src/server/auth"
+	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
 	"github.com/pachyderm/pachyderm/src/server/health"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	cache_pb "github.com/pachyderm/pachyderm/src/server/pkg/cache/groupcachepb"
