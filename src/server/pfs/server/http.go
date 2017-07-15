@@ -12,6 +12,7 @@ import (
 	"golang.org/x/net/context"
 )
 
+// HTTPPort specifies the port the server will listen on
 const HTTPPort = 652
 const apiVersion = "v1"
 
@@ -28,6 +29,8 @@ func (fw *flushWriter) Write(p []byte) (n int, err error) {
 	return
 }
 
+// HTTPServer serves GetFile requests over HTTP
+// e.g. http://localhost:30652/v1/pfs/repos/foo/commits/b7a1923be56744f6a3f1525ec222dc3b/files/ttt.log
 type HTTPServer struct {
 	driver *driver
 }
@@ -40,6 +43,7 @@ func newHTTPServer(address string, etcdAddresses []string, etcdPrefix string, ca
 	return &HTTPServer{d}, nil
 }
 
+// Start initiates the server's ListenAndServe method
 func (s *HTTPServer) Start() error {
 	router := httprouter.New()
 	router.GET(fmt.Sprintf("/%v/pfs/repos/:repoName/commits/:commitID/files/*filePath", apiVersion), s.getFileHandler)
