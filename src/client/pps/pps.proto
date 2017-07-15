@@ -178,6 +178,7 @@ message JobInfo {
   bool incremental = 28;
   pfs.Commit stats_commit = 29;
   bool enable_stats = 32;
+  int64 batch_size = 33;
 }
 
 enum WorkerState {
@@ -248,6 +249,7 @@ message PipelineInfo {
   bool incremental = 22;
   string cache_size = 23;
   bool enable_stats = 24;
+  int64 batch_size = 25;
 }
 
 message PipelineInfos {
@@ -273,6 +275,7 @@ message CreateJobRequest {
   pfs.BranchInfo new_branch = 16;
   bool incremental = 17;
   bool enable_stats = 18;
+  int64 batch_size = 19;
 }
 
 message InspectJobRequest {
@@ -358,6 +361,7 @@ message CreatePipelineRequest {
   bool incremental = 15;
   string cache_size = 16;
   bool enable_stats = 17;
+  int64 batch_size = 18;
 }
 
 message InspectPipelineRequest {

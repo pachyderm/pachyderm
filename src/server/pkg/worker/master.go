@@ -261,6 +261,7 @@ nextInput:
 			ParentJob:   parentJob,
 			NewBranch:   newBranch,
 			EnableStats: a.pipelineInfo.EnableStats,
+			BatchSize:   a.pipelineInfo.BatchSize,
 		})
 		if err != nil {
 			return err
