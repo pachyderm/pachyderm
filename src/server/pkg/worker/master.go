@@ -33,8 +33,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
-
-	log "github.com/sirupsen/logrus"
 )
 
 const (
