@@ -155,8 +155,10 @@ func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
 		for _, chunk := range grpcutil.Chunk([]byte(bytes), grpcutil.MaxMsgSize/2) {
 			if err := logger.putObjClient.Send(&pfs.PutObjectRequest{
 				Value: chunk,
-			}); err != nil {
-				logger.stderrLog.Printf("could not write to object: %v", err)
+			}); err != nil && err != io.EOF {
+				// We swallow io.EOF errors here, that's because the final log
+				// statement gets called after Close() has already been called.
+				logger.stderrLog.Printf("could not write %s to object: %v", bytes, err)
 				return
 			}
 		}
