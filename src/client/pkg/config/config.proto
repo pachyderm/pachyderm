@@ -24,6 +24,13 @@ message Config {
 // DO NOT change or remove field numbers from this proto, as if you do, v1 user
 // configs will become unparseable.
 message ConfigV1 {
+    // A host:port pointing pachd at a pachyderm cluster. Similar to the
+    // ADDRESS environment variable, though ADDRESS overrides this.
     string pachd_address = 2;
+
+    // A secret token identifying the current pachctl user within their
+    // pachyderm cluster. This is included in all RPCs sent by pachctl, and used
+    // to determine if pachctl actions are authorized.
+    string session_token = 1;
 }
 
