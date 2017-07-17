@@ -45,8 +45,9 @@ func NewAuthServer(etcdAddress string, etcdPrefix string) (authclient.APIServer,
 }
 
 func (a *apiServer) Authenticate(ctx context.Context, req *authclient.AuthenticateRequest) (resp *authclient.AuthenticateResponse, retErr error) {
-	func() { a.Log(req, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	// We don't want to actually log the request/response since they contain
+	// credentials.
+	defer func(start time.Time) { a.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
 
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{
