@@ -17,8 +17,7 @@ echo -e "${AWS_ACCESS_KEY_ID}\n${AWS_SECRET_ACCESS_KEY}\n" \
 
 make install
 echo "pachctl is installed here:"
-PACHCTL=$(which pachctl)
-sudo ln -s $PATHCTL /usr/local/bin/pachctl
+which pachctl
 
 # Travis doesn't come w an ssh key
 # kops needs one in place (because it enables ssh access to nodes w it)
@@ -35,4 +34,4 @@ fi
 docker login -u pachydermbuildbot -p ${DOCKER_PWD}
 
 # Run tests in the cloud  
-sudo env "PATH=${PATH}" "GOPATH=${GOPATH}" make aws-test
+make aws-test
