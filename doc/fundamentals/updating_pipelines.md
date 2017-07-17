@@ -49,15 +49,16 @@ pachctl update-pipeline -f edges.json --push-images --password <registry passwor
 
 ## Re-processing data
 
-As of 1.5.1 by default updating a pipeline will NOT reprocess previously
-processed data. New data that's committed to the inputs will be processed with
+As of 1.5.1, updating a pipeline will NOT reprocess previously
+processed data by default. New data that's committed to the inputs will be processed with
 the new code and "mixed" with the results of processing data with the previous
-code. Furthermore data that Pachyderm tried and failed to process with the
+code. Furthermore, data that Pachyderm tried and failed to process with the
 previous code due to code erroring will be processed with the new code.
-`update-pipeline` is designed for the situation where your code needs to be
+
+`update-pipeline` (without flags) is designed for the situation where your code needs to be
 fixed because it encountered an unexpected new form of data.
 
-If you'd like to update your pipeline and reprocess everything from scratch you
+If you'd like to update your pipeline and reprocess everything from scratch, you
 should use the `--reprocess` flag. This will reprocess all previously processed
 data and all new data with the new code. Previous results will still be
 available in pfs.
