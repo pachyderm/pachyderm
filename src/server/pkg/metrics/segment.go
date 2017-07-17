@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/segmentio/analytics-go"
+	log "github.com/sirupsen/logrus"
 )
 
 const reportingInterval time.Duration = 5 * time.Minute
