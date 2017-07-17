@@ -6,7 +6,7 @@ make test
 echo "Running aws tests"
 
 sudo pip install awscli
-sudo apt-get install realpath
+sudo apt-get install realpath uuid jq
 wget https://github.com/kubernetes/kops/releases/download/1.6.2/kops-linux-amd64
 chmod +x kops-linux-amd64
 sudo mv kops-linux-amd64 /usr/local/bin/kops
