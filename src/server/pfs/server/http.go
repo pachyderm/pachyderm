@@ -33,6 +33,7 @@ func (fw *flushWriter) Write(p []byte) (n int, err error) {
 // e.g. http://localhost:30652/v1/pfs/repos/foo/commits/b7a1923be56744f6a3f1525ec222dc3b/files/ttt.log
 type HTTPServer struct {
 	driver *driver
+	router *httprouter.Router
 }
 
 func newHTTPServer(address string, etcdAddresses []string, etcdPrefix string, cacheBytes int64) (*HTTPServer, error) {
@@ -40,16 +41,9 @@ func newHTTPServer(address string, etcdAddresses []string, etcdPrefix string, ca
 	if err != nil {
 		return nil, err
 	}
-	return &HTTPServer{d}, nil
-}
-
-// Start initiates the server's ListenAndServe method
-func (s *HTTPServer) Start() error {
 	router := httprouter.New()
 	router.GET(fmt.Sprintf("/%v/pfs/repos/:repoName/commits/:commitID/files/*filePath", apiVersion), s.getFileHandler)
-	// Serves a request like:
-	// http://localhost:30652/v1/pfs/repos/foo/commits/b7a1923be56744f6a3f1525ec222dc3b/files/ttt.log
-	return http.ListenAndServe(fmt.Sprintf(":%v", HTTPPort), router)
+	return &HTTPServer{d}, nil
 }
 
 func (s *HTTPServer) getFileHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
