@@ -67,7 +67,7 @@ case "${OP}" in
     if [[ -n "${CLOUDFRONT}" ]]; then
       cmd+=("${CLOUDFRONT}")
     fi
-    sudo "${cmd[@]}"
+    sudo env "PATH=${PATH}" "GOPATH=${GOPATH}" "${cmd[@]}"
     ;;
   delete)
     kops --state=${STATE_STORE} delete cluster --name=$(cat .cluster_name) --yes
