@@ -19,7 +19,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var githubAuthLink = `http://github.com/login/oauth/authorize?client_id=d3481e92b4f09ea74ff8&redirect_uri=https%3A%2F%2Fpachyderm.io%2Flogin-hook%2Fdisplay-token.html`
+var githubAuthLink = `https://github.com/login/oauth/authorize?client_id=d3481e92b4f09ea74ff8&redirect_uri=https%3A%2F%2Fpachyderm.io%2Flogin-hook%2Fdisplay-token.html`
 
 // LoginCmd returns a cobra.Command to login to a Pachyderm cluster with your
 // GitHub account. Any resources that have been restricted to the email address
@@ -34,8 +34,8 @@ func LoginCmd() *cobra.Command {
 		Run: cmdutil.Run(func([]string) error {
 			// TODO(msteffen): Check if auth service is deployed. If not, print an
 			// error and exit
-			fmt.Println("(1) Please paste this link into a browser:\n" +
-				githubAuthLink + "\n" +
+			fmt.Println("(1) Please paste this link into a browser:\n\n" +
+				githubAuthLink + "\n\n" +
 				"(You will be directed to GitHub and asked to authorize Pachyderm's " +
 				"login app on Github. If you accept, you will be given a token to " +
 				"paste here, which will give you an externally verified account in " +
@@ -60,13 +60,17 @@ func LoginCmd() *cobra.Command {
 			authClient := auth.NewAPIClient(clientConn)
 
 			// Create PachAuth authentication request
-			ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel() // release RPC resources
 			resp, err := authClient.Authenticate(ctx,
 				&auth.AuthenticateRequest{GithubToken: token},
 			)
 			if err != nil {
 				return fmt.Errorf("error authenticating with Pachyderm cluster: %s",
 					err.Error())
+			}
+			if cfg.V1 == nil {
+				cfg.V1 = &config.ConfigV1{}
 			}
 			cfg.V1.SessionToken = resp.PachToken
 			return cfg.Write()
