@@ -278,6 +278,10 @@ if [ "${EUID}" -ne 0 ]; then
 fi
 parse_flags "${@}"
 
+echo "whoami:"
+echo $(whoami)
+echo "PATH:"
+echo $(PATH)
 echo "pachctl is installed here:"
 which pachctl
 
