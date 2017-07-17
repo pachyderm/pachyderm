@@ -9,9 +9,9 @@ import (
 	pb "github.com/golang/groupcache/groupcachepb"
 	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cache/groupcachepb"
+	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 
 	"github.com/golang/groupcache"
-	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 )
 
@@ -25,7 +25,7 @@ type CacheServer interface {
 // NewCacheServer creates a new CacheServer.
 func NewCacheServer(router shard.Router, shards uint64) CacheServer {
 	server := &groupCacheServer{
-		Logger:      protorpclog.NewLogger("CacheServer"),
+		Logger:      log.NewLogger("CacheServer"),
 		router:      router,
 		localShards: make(map[uint64]bool),
 		shards:      shards,
@@ -35,7 +35,7 @@ func NewCacheServer(router shard.Router, shards uint64) CacheServer {
 }
 
 type groupCacheServer struct {
-	protorpclog.Logger
+	log.Logger
 	router      shard.Router
 	localShards map[uint64]bool
 	mu          sync.Mutex

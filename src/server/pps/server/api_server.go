@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
@@ -29,8 +30,7 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
-	"go.pedge.io/lion/proto"
-	"go.pedge.io/proto/rpclog"
+	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -89,7 +89,7 @@ type ctxAndCancel struct {
 }
 
 type apiServer struct {
-	protorpclog.Logger
+	log.Logger
 	etcdPrefix            string
 	hasher                *ppsserver.Hasher
 	address               string
@@ -364,7 +364,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	workerPoolID := ppsserver.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
 	workerStatus, err := status(ctx, workerPoolID, a.etcdClient, a.etcdPrefix)
 	if err != nil {
-		protolion.Errorf("failed to get worker status with err: %s", err.Error())
+		logrus.Errorf("failed to get worker status with err: %s", err.Error())
 	} else {
 		// It's possible that the workers might be working on datums for other
 		// jobs, we omit those since they're not part of the status for this

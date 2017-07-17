@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
+	log "github.com/sirupsen/logrus"
 
 	"golang.org/x/sync/errgroup"
 )

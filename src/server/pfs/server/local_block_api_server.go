@@ -14,19 +14,19 @@ import (
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 
-	"go.pedge.io/proto/rpclog"
 	"golang.org/x/net/context"
 )
 
 type localBlockAPIServer struct {
-	protorpclog.Logger
+	log.Logger
 	dir string
 }
 
 func newLocalBlockAPIServer(dir string) (*localBlockAPIServer, error) {
 	server := &localBlockAPIServer{
-		Logger: protorpclog.NewLogger("pfs.BlockAPIServer.Local"),
+		Logger: log.NewLogger("pfs.BlockAPIServer.Local"),
 		dir:    dir,
 	}
 	if err := os.MkdirAll(server.blockDir(), 0777); err != nil {

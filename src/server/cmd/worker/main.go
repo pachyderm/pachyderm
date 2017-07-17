@@ -3,13 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"path"
 	"time"
-
-	"go.pedge.io/lion"
 
 	"golang.org/x/sync/errgroup"
 
@@ -22,6 +19,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/worker"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"google.golang.org/grpc"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // appEnv stores the environment variables that this worker needs
@@ -75,10 +74,9 @@ func getPipelineInfo(etcdClient *etcd.Client, appEnv *appEnv) (*pps.PipelineInfo
 
 func do(appEnvObj interface{}) error {
 	go func() {
-		lion.Println(http.ListenAndServe(":652", nil))
+		log.Println(http.ListenAndServe(":652", nil))
 	}()
 
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	appEnv := appEnvObj.(*appEnv)
 
 	// Construct a client that connects to the sidecar.
