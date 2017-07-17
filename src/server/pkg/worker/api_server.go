@@ -221,7 +221,6 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		pipelineInfo: pipelineInfo,
 		logMsgTemplate: pps.LogMessage{
 			PipelineName: pipelineInfo.Pipeline.Name,
-			PipelineID:   pipelineInfo.ID,
 			WorkerID:     os.Getenv(client.PPSPodNameEnv),
 		},
 		workerName: workerName,
@@ -561,6 +560,22 @@ func HashDatum(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) {
 		hash.Write(datum.FileInfo.Hash)
 	}
 
+	hash.Write([]byte(pipelineInfo.Pipeline.Name))
+	hash.Write([]byte(pipelineInfo.Salt))
+
+	return client.DatumTagPrefix(pipelineInfo.Salt) + hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+// HashDatum15 computes and returns the hash of datum + pipeline for version <= 1.5.0, with a
+// pipeline-specific prefix.
+func HashDatum15(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) {
+	hash := sha256.New()
+	for _, datum := range data {
+		hash.Write([]byte(datum.Name))
+		hash.Write([]byte(datum.FileInfo.File.Path))
+		hash.Write(datum.FileInfo.Hash)
+	}
+
 	// We set env to nil because if env contains more than one elements,
 	// since it's a map, the output of Marshal() can be non-deterministic.
 	env := pipelineInfo.Transform.Env
@@ -577,7 +592,9 @@ func HashDatum(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) {
 	hash.Write([]byte(pipelineInfo.ID))
 	hash.Write([]byte(strconv.Itoa(int(pipelineInfo.Version))))
 
-	return client.HashPipelineID(pipelineInfo.ID) + hex.EncodeToString(hash.Sum(nil)), nil
+	// Note in 1.5.0 this function was called HashPipelineID, it's now called
+	// HashPipelineName but it has the same implementation.
+	return client.DatumTagPrefix(pipelineInfo.ID) + hex.EncodeToString(hash.Sum(nil)), nil
 }
 
 // Process processes a datum.
@@ -622,20 +639,54 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		a.cancel = nil
 		a.stats = nil
 	}()
+	logger.Logf("Received request")
 	// Hash inputs
 	tag, err := HashDatum(a.pipelineInfo, req.Data)
 	if err != nil {
+		return nil, err
+	}
+	tag15, err := HashDatum15(a.pipelineInfo, req.Data)
+	if err != nil {
+		return nil, err
+	}
+	foundTag := false
+	foundTag15 := false
+	var object *pfs.Object
+	var eg errgroup.Group
+	eg.Go(func() error {
+		if _, err := a.pachClient.InspectTag(ctx, &pfs.Tag{tag}); err == nil {
+			foundTag = true
+		}
+		return nil
+	})
+	eg.Go(func() error {
+		if objectInfo, err := a.pachClient.InspectTag(ctx, &pfs.Tag{tag15}); err == nil {
+			foundTag15 = true
+			object = objectInfo.Object
+		}
+		return nil
+	})
+	if err := eg.Wait(); err != nil {
 		return nil, err
 	}
 	var statsTag *pfs.Tag
 	if req.EnableStats {
 		statsTag = &pfs.Tag{tag + "_stats"}
 	}
-	logger.Logf("Received request")
-	// Check if output is in s3 already. Note: ppsserver sorts
-	// inputs by input name for both jobs and pipelines, so this hash is stable
-	// even if a.Inputs are reordered by the user
-	if _, err := a.pachClient.InspectTag(ctx, &pfs.Tag{tag}); err == nil {
+	if foundTag15 && !foundTag {
+		if _, err := a.pachClient.ObjectAPIClient.TagObject(ctx, &pfs.TagObjectRequest{
+			Object: object,
+			Tags:   []*pfs.Tag{&pfs.Tag{tag}},
+		}); err != nil {
+			return nil, err
+		}
+		if _, err := a.pachClient.ObjectAPIClient.DeleteTags(ctx, &pfs.DeleteTagsRequest{
+			Tags: []string{tag15},
+		}); err != nil {
+			return nil, err
+		}
+	}
+	if foundTag15 || foundTag {
 		// We've already computed the output for these inputs. Return immediately
 		logger.Logf("skipping input, as it's already been processed")
 		return &ProcessResponse{

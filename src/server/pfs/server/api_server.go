@@ -16,10 +16,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
-	protolion "go.pedge.io/lion/proto"
-	"go.pedge.io/proto/rpclog"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -36,7 +36,7 @@ const (
 )
 
 type apiServer struct {
-	protorpclog.Logger
+	log.Logger
 	driver *driver
 }
 
@@ -46,7 +46,7 @@ func newLocalAPIServer(address string, etcdPrefix string) (*apiServer, error) {
 		return nil, err
 	}
 	return &apiServer{
-		Logger: protorpclog.NewLogger("pfs.API"),
+		Logger: log.NewLogger("pfs.API"),
 		driver: d,
 	}, nil
 }
@@ -57,7 +57,7 @@ func newAPIServer(address string, etcdAddresses []string, etcdPrefix string, cac
 		return nil, err
 	}
 	return &apiServer{
-		Logger: protorpclog.NewLogger("pfs.API"),
+		Logger: log.NewLogger("pfs.API"),
 		driver: d,
 	}, nil
 }
@@ -382,9 +382,9 @@ func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, reques
 			},
 			Recursive: request.Recursive,
 		}
-		protorpclog.Log("pfs.API", "putFileObj", logRequest, nil, nil, 0)
+		a.Log(logRequest, nil, nil, 0)
 		defer func(start time.Time) {
-			protorpclog.Log("pfs.API", "putFileObj", logRequest, nil, retErr, time.Since(start))
+			a.Log(logRequest, nil, retErr, time.Since(start))
 		}(time.Now())
 		r, err := objClient.Reader(objPath, 0, 0)
 		if err != nil {
@@ -414,7 +414,7 @@ func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, reques
 					// PFS needs to treat such a key as a directory.
 					// In this case, we rely on the driver PutFile to
 					// construct the 'directory' diffs from the file prefix
-					protolion.Warnf("ambiguous key %v, not creating a directory or putting this entry as a file", name)
+					logrus.Warnf("ambiguous key %v, not creating a directory or putting this entry as a file", name)
 					return nil
 				}
 				return put(egContext, filepath.Join(request.File.Path, strings.TrimPrefix(name, path)), name)
@@ -450,7 +450,7 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
 		if response != nil && len(response.FileInfo) > maxListItemsLog {
-			protolion.Infof("Response contains %d objects; logging the first %d", len(response.FileInfo), maxListItemsLog)
+			logrus.Infof("Response contains %d objects; logging the first %d", len(response.FileInfo), maxListItemsLog)
 			a.Log(request, &pfs.FileInfos{response.FileInfo[:maxListItemsLog]}, retErr, time.Since(start))
 		} else {
 			a.Log(request, response, retErr, time.Since(start))
@@ -470,7 +470,7 @@ func (a *apiServer) GlobFile(ctx context.Context, request *pfs.GlobFileRequest) 
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
 		if response != nil && len(response.FileInfo) > maxListItemsLog {
-			protolion.Infof("Response contains %d objects; logging the first %d", len(response.FileInfo), maxListItemsLog)
+			logrus.Infof("Response contains %d objects; logging the first %d", len(response.FileInfo), maxListItemsLog)
 			a.Log(request, &pfs.FileInfos{response.FileInfo[:maxListItemsLog]}, retErr, time.Since(start))
 		} else {
 			a.Log(request, response, retErr, time.Since(start))
@@ -490,7 +490,7 @@ func (a *apiServer) DiffFile(ctx context.Context, request *pfs.DiffFileRequest) 
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
 		if response != nil && (len(response.NewFiles) > maxListItemsLog || len(response.OldFiles) > maxListItemsLog) {
-			protolion.Infof("Response contains too many objects; truncating.")
+			logrus.Infof("Response contains too many objects; truncating.")
 			a.Log(request, &pfs.DiffFileResponse{
 				NewFiles: truncateFiles(response.NewFiles),
 				OldFiles: truncateFiles(response.OldFiles),
