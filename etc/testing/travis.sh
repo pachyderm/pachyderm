@@ -17,7 +17,8 @@ echo -e "${AWS_ACCESS_KEY_ID}\n${AWS_SECRET_ACCESS_KEY}\n" \
 
 make install
 echo "pachctl is installed here:"
-which pachctl
+PACHCTL=$(which pachctl)
+sudo ln -s $PATHCTL /usr/local/bin/pachctl
 
 # Travis doesn't come w an ssh key
 # kops needs one in place (because it enables ssh access to nodes w it)
