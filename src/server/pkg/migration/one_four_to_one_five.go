@@ -12,7 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 
 	etcd "github.com/coreos/etcd/clientv3"
-	"go.pedge.io/lion/proto"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -38,22 +38,22 @@ func oneFourToOneFive(etcdAddress, pfsPrefix, ppsPrefix string) error {
 		// so we preserve their timestamp ordering as we update them.
 		resp, err := etcdClient.Get(context.Background(), prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend))
 		if err != nil {
-			protolion.Errorf("error getting %v: %v", prefix, err)
+			log.Errorf("error getting %v: %v", prefix, err)
 			return
 		}
 		for _, kv := range resp.Kvs {
 			key := string(kv.Key)
 			if err := proto.UnmarshalText(string(kv.Value), template); err != nil {
-				protolion.Errorf("error unmarshalling object %v: %v", key, err)
+				log.Errorf("error unmarshalling object %v: %v", key, err)
 				continue
 			}
 			bytes, err := proto.Marshal(template)
 			if err != nil {
-				protolion.Errorf("error marshalling object %v: %v", key, err)
+				log.Errorf("error marshalling object %v: %v", key, err)
 				continue
 			}
 			if _, err := etcdClient.Put(context.Background(), key, string(bytes)); err != nil {
-				protolion.Errorf("error putting object %v: %v", key, err)
+				log.Errorf("error putting object %v: %v", key, err)
 				continue
 			}
 		}
@@ -61,23 +61,23 @@ func oneFourToOneFive(etcdAddress, pfsPrefix, ppsPrefix string) error {
 
 	var repoInfo pfs.RepoInfo
 	migrate(path.Join(pfsPrefix, reposPrefix), &repoInfo)
-	protolion.Infof("finished migrating repos")
+	log.Infof("finished migrating repos")
 
 	var commitInfo pfs.CommitInfo
 	migrate(path.Join(pfsPrefix, commitsPrefix), &commitInfo)
-	protolion.Infof("finished migrating commits")
+	log.Infof("finished migrating commits")
 
 	var head pfs.Commit
 	migrate(path.Join(pfsPrefix, branchesPrefix), &head)
-	protolion.Infof("finished migrating branches")
+	log.Infof("finished migrating branches")
 
 	var pipelineInfo pps.PipelineInfo
 	migrate(path.Join(ppsPrefix, pipelinesPrefix), &pipelineInfo)
-	protolion.Infof("finished migrating pipelines")
+	log.Infof("finished migrating pipelines")
 
 	var jobInfo pps.JobInfo
 	migrate(path.Join(ppsPrefix, jobsPrefix), &jobInfo)
-	protolion.Infof("finished migrating jobs")
+	log.Infof("finished migrating jobs")
 
 	return nil
 }

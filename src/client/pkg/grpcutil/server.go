@@ -43,7 +43,8 @@ func Serve(
 	}
 	grpcServer := grpc.NewServer(
 		grpc.MaxConcurrentStreams(math.MaxUint32),
-		grpc.MaxMsgSize(options.MaxMsgSize),
+		grpc.MaxRecvMsgSize(options.MaxMsgSize),
+		grpc.MaxSendMsgSize(options.MaxMsgSize),
 	)
 	registerFunc(grpcServer)
 	if options.Version != nil {

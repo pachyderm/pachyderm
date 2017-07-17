@@ -8,8 +8,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/version"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/segmentio/analytics-go"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"

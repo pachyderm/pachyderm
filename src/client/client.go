@@ -11,12 +11,13 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
-	log "github.com/Sirupsen/logrus"
 	types "github.com/gogo/protobuf/types"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/src/client/health"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 )
 
@@ -212,6 +213,11 @@ func EtcdDialOptions() []grpc.DialOption {
 
 		// If no connection is established in 10s, fail the call
 		grpc.WithTimeout(10 * time.Second),
+
+		grpc.WithDefaultCallOptions(
+			grpc.MaxCallRecvMsgSize(grpcutil.MaxMsgSize),
+			grpc.MaxCallSendMsgSize(grpcutil.MaxMsgSize),
+		),
 	}
 }
 

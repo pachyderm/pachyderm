@@ -347,6 +347,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
 	createPipeline.Flags().StringVarP(&password, "password", "", "", "Your password for the registry being pushed to.")
 
+	var reprocess bool
 	updatePipeline := &cobra.Command{
 		Use:   "update-pipeline -f pipeline.json",
 		Short: "Update an existing Pachyderm pipeline.",
@@ -368,6 +369,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					return err
 				}
 				request.Update = true
+				request.Reprocess = reprocess
 				if pushImages {
 					pushedImage, err := pushImage(registry, username, password, request.Transform.Image)
 					if err != nil {
@@ -390,6 +392,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "docker.io", "The registry to push images to.")
 	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
 	updatePipeline.Flags().StringVarP(&password, "password", "", "", "Your password for the registry being pushed to.")
+	updatePipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
 
 	inspectPipeline := &cobra.Command{
 		Use:   "inspect-pipeline pipeline-name",
