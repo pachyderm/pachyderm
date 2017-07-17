@@ -278,13 +278,8 @@ if [ "${EUID}" -ne 0 ]; then
 fi
 parse_flags "${@}"
 
-set +euxo pipefail
+echo "pachctl is installed here:"
 which pachctl
-if [ $? -ne 0 ]; then
-    echo "pachctl not found on path"
-    exit 1
-fi
-set -euxo pipefail
 
 deploy_k8s_on_aws
 deploy_pachyderm_on_aws
