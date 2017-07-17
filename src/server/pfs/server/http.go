@@ -33,7 +33,7 @@ func (fw *flushWriter) Write(p []byte) (n int, err error) {
 // e.g. http://localhost:30652/v1/pfs/repos/foo/commits/b7a1923be56744f6a3f1525ec222dc3b/files/ttt.log
 type HTTPServer struct {
 	driver *driver
-	router *httprouter.Router
+	*httprouter.Router
 }
 
 func newHTTPServer(address string, etcdAddresses []string, etcdPrefix string, cacheBytes int64) (*HTTPServer, error) {
@@ -42,8 +42,10 @@ func newHTTPServer(address string, etcdAddresses []string, etcdPrefix string, ca
 		return nil, err
 	}
 	router := httprouter.New()
+	s := &HTTPServer{d, router}
+
 	router.GET(fmt.Sprintf("/%v/pfs/repos/:repoName/commits/:commitID/files/*filePath", apiVersion), s.getFileHandler)
-	return &HTTPServer{d}, nil
+	return s, nil
 }
 
 func (s *HTTPServer) getFileHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
@@ -59,9 +61,7 @@ func (s *HTTPServer) getFileHandler(w http.ResponseWriter, r *http.Request, ps h
 	filePaths := strings.Split(ps.ByName("filePath"), "/")
 	fileName := filePaths[len(filePaths)-1]
 
-	offsetBytes := int64(0)
-	sizeBytes := int64(0)
-	file, err := s.driver.getFile(context.Background(), pfsFile, offsetBytes, sizeBytes)
+	file, err := s.driver.getFile(context.Background(), pfsFile, 0, 0)
 	if err != nil {
 		panic(err)
 	}
