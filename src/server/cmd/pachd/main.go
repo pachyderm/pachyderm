@@ -308,7 +308,7 @@ func doFullMode(appEnvObj interface{}) error {
 	}
 	var eg errgroup.Group
 	eg.Go(func() error {
-		return httpServer.Start()
+		return http.ListenAndServe(fmt.Sprintf(":%v", pfs_server.HTTPPort), httpServer)
 	})
 	eg.Go(func() error {
 		return grpcutil.Serve(
