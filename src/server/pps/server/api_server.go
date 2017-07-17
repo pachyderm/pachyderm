@@ -278,14 +278,17 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			Incremental:     request.Incremental,
 			Stats:           &pps.ProcessStats{},
 			EnableStats:     request.EnableStats,
+			Salt:            request.Salt,
+			PipelineVersion: request.PipelineVersion,
 		}
 		if request.Pipeline != nil {
 			pipelineInfo := new(pps.PipelineInfo)
 			if err := a.pipelines.ReadWrite(stm).Get(request.Pipeline.Name, pipelineInfo); err != nil {
 				return err
 			}
-			jobInfo.PipelineVersion = pipelineInfo.Version
-			jobInfo.PipelineID = pipelineInfo.ID
+			if jobInfo.Salt != pipelineInfo.Salt || jobInfo.PipelineVersion != pipelineInfo.Version {
+				return fmt.Errorf("job is made from an outdated version of the pipeline")
+			}
 			jobInfo.Transform = pipelineInfo.Transform
 			jobInfo.ParallelismSpec = pipelineInfo.ParallelismSpec
 			jobInfo.OutputRepo = &pfs.Repo{pipelineInfo.Pipeline.Name}
@@ -707,7 +710,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	}
 
 	pipelineInfo := &pps.PipelineInfo{
-		ID:                 uuid.NewWithoutDashes(),
 		Pipeline:           request.Pipeline,
 		Version:            1,
 		Transform:          request.Transform,
@@ -722,6 +724,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Incremental:        request.Incremental,
 		CacheSize:          request.CacheSize,
 		EnableStats:        request.EnableStats,
+		Salt:               uuid.NewWithoutDashes(),
 	}
 	setPipelineDefaults(pipelineInfo)
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
@@ -752,6 +755,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				return err
 			}
 			pipelineInfo.Version = oldPipelineInfo.Version + 1
+			if !request.Reprocess {
+				pipelineInfo.Salt = oldPipelineInfo.Salt
+			}
 			pipelines.Put(pipelineName, pipelineInfo)
 			return nil
 		})
@@ -1176,7 +1182,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 	activeTags := make(map[string]bool)
 	for _, pipelineInfo := range pipelineInfos.PipelineInfo {
 		tags, err := objClient.ListTags(ctx, &pfs.ListTagsRequest{
-			Prefix:        client.HashPipelineID(pipelineInfo.ID),
+			Prefix:        client.DatumTagPrefix(pipelineInfo.Salt),
 			IncludeObject: true,
 		})
 		if err != nil {

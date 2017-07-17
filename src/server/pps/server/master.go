@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"path"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
@@ -39,14 +41,14 @@ func (a *apiServer) master() {
 
 		pipelineWatcher, err := a.pipelines.ReadOnly(ctx).WatchWithPrev()
 		if err != nil {
-			return err
+			return fmt.Errorf("error creating watch: %+v", err)
 		}
 		defer pipelineWatcher.Close()
 
 		for {
 			event := <-pipelineWatcher.Watch()
 			if event.Err != nil {
-				return event.Err
+				return fmt.Errorf("event err: %+v", event.Err)
 			}
 			switch event.Type {
 			case watch.EventPut:
@@ -54,6 +56,23 @@ func (a *apiServer) master() {
 				var pipelineInfo pps.PipelineInfo
 				if err := event.Unmarshal(&pipelineName, &pipelineInfo); err != nil {
 					return err
+				}
+
+				if pipelineInfo.Salt == "" {
+					if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+						pipelines := a.pipelines.ReadWrite(stm)
+						newPipelineInfo := new(pps.PipelineInfo)
+						if err := pipelines.Get(pipelineInfo.Pipeline.Name, newPipelineInfo); err != nil {
+							return fmt.Errorf("error getting pipeline %s: %+v", pipelineName, err)
+						}
+						if newPipelineInfo.Salt == "" {
+							newPipelineInfo.Salt = uuid.NewWithoutDashes()
+						}
+						pipelines.Put(pipelineInfo.Pipeline.Name, newPipelineInfo)
+						return nil
+					}); err != nil {
+						return err
+					}
 				}
 
 				var prevPipelineInfo pps.PipelineInfo
