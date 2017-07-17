@@ -2,20 +2,30 @@
 // source: client/auth/auth.proto
 
 /*
-Package auth is a generated protocol buffer package.
+	Package auth is a generated protocol buffer package.
 
-It is generated from these files:
-	client/auth/auth.proto
+	It is generated from these files:
+		client/auth/auth.proto
 
-It has these top-level messages:
-	AuthenticateRequest
-	AuthenticateResponse
+	It has these top-level messages:
+		AuthenticateRequest
+		AuthenticateResponse
+		AuthorizeRequest
+		AuthorizeResponse
+		SetScopeRequest
+		SetScopeResponse
+		GetScopeRequest
+		GetScopeResponse
+		ACLEntry
+		GetACLRequest
+		GetACLResponse
 */
 package auth
 
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
+import pfs "github.com/pachyderm/pachyderm/src/client/pfs"
 
 import (
 	context "golang.org/x/net/context"
@@ -34,6 +44,34 @@ var _ = math.Inf
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+
+type Scope int32
+
+const (
+	// To remove a user's scope from a repo, set their scope to NONE
+	Scope_NONE   Scope = 0
+	Scope_READER Scope = 1
+	Scope_WRITER Scope = 2
+	Scope_OWNER  Scope = 3
+)
+
+var Scope_name = map[int32]string{
+	0: "NONE",
+	1: "READER",
+	2: "WRITER",
+	3: "OWNER",
+}
+var Scope_value = map[string]int32{
+	"NONE":   0,
+	"READER": 1,
+	"WRITER": 2,
+	"OWNER":  3,
+}
+
+func (x Scope) String() string {
+	return proto.EnumName(Scope_name, int32(x))
+}
+func (Scope) EnumDescriptor() ([]byte, []int) { return fileDescriptorAuth, []int{0} }
 
 type AuthenticateRequest struct {
 	GithubToken string `protobuf:"bytes,1,opt,name=github_token,json=githubToken,proto3" json:"github_token,omitempty"`
@@ -67,9 +105,187 @@ func (m *AuthenticateResponse) GetPachToken() string {
 	return ""
 }
 
+type AuthorizeRequest struct {
+	Repo *pfs.Repo `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
+}
+
+func (m *AuthorizeRequest) Reset()                    { *m = AuthorizeRequest{} }
+func (m *AuthorizeRequest) String() string            { return proto.CompactTextString(m) }
+func (*AuthorizeRequest) ProtoMessage()               {}
+func (*AuthorizeRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{2} }
+
+func (m *AuthorizeRequest) GetRepo() *pfs.Repo {
+	if m != nil {
+		return m.Repo
+	}
+	return nil
+}
+
+type AuthorizeResponse struct {
+	Scope Scope `protobuf:"varint,1,opt,name=scope,proto3,enum=auth.Scope" json:"scope,omitempty"`
+}
+
+func (m *AuthorizeResponse) Reset()                    { *m = AuthorizeResponse{} }
+func (m *AuthorizeResponse) String() string            { return proto.CompactTextString(m) }
+func (*AuthorizeResponse) ProtoMessage()               {}
+func (*AuthorizeResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{3} }
+
+func (m *AuthorizeResponse) GetScope() Scope {
+	if m != nil {
+		return m.Scope
+	}
+	return Scope_NONE
+}
+
+type SetScopeRequest struct {
+	Username string    `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
+	Repo     *pfs.Repo `protobuf:"bytes,2,opt,name=repo" json:"repo,omitempty"`
+	Scope    Scope     `protobuf:"varint,3,opt,name=scope,proto3,enum=auth.Scope" json:"scope,omitempty"`
+}
+
+func (m *SetScopeRequest) Reset()                    { *m = SetScopeRequest{} }
+func (m *SetScopeRequest) String() string            { return proto.CompactTextString(m) }
+func (*SetScopeRequest) ProtoMessage()               {}
+func (*SetScopeRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{4} }
+
+func (m *SetScopeRequest) GetUsername() string {
+	if m != nil {
+		return m.Username
+	}
+	return ""
+}
+
+func (m *SetScopeRequest) GetRepo() *pfs.Repo {
+	if m != nil {
+		return m.Repo
+	}
+	return nil
+}
+
+func (m *SetScopeRequest) GetScope() Scope {
+	if m != nil {
+		return m.Scope
+	}
+	return Scope_NONE
+}
+
+type SetScopeResponse struct {
+}
+
+func (m *SetScopeResponse) Reset()                    { *m = SetScopeResponse{} }
+func (m *SetScopeResponse) String() string            { return proto.CompactTextString(m) }
+func (*SetScopeResponse) ProtoMessage()               {}
+func (*SetScopeResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{5} }
+
+type GetScopeRequest struct {
+	Username string    `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
+	Repo     *pfs.Repo `protobuf:"bytes,2,opt,name=repo" json:"repo,omitempty"`
+}
+
+func (m *GetScopeRequest) Reset()                    { *m = GetScopeRequest{} }
+func (m *GetScopeRequest) String() string            { return proto.CompactTextString(m) }
+func (*GetScopeRequest) ProtoMessage()               {}
+func (*GetScopeRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{6} }
+
+func (m *GetScopeRequest) GetUsername() string {
+	if m != nil {
+		return m.Username
+	}
+	return ""
+}
+
+func (m *GetScopeRequest) GetRepo() *pfs.Repo {
+	if m != nil {
+		return m.Repo
+	}
+	return nil
+}
+
+type GetScopeResponse struct {
+	Scope Scope `protobuf:"varint,1,opt,name=scope,proto3,enum=auth.Scope" json:"scope,omitempty"`
+}
+
+func (m *GetScopeResponse) Reset()                    { *m = GetScopeResponse{} }
+func (m *GetScopeResponse) String() string            { return proto.CompactTextString(m) }
+func (*GetScopeResponse) ProtoMessage()               {}
+func (*GetScopeResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{7} }
+
+func (m *GetScopeResponse) GetScope() Scope {
+	if m != nil {
+		return m.Scope
+	}
+	return Scope_NONE
+}
+
+type ACLEntry struct {
+	Username string `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
+	Scope    Scope  `protobuf:"varint,2,opt,name=scope,proto3,enum=auth.Scope" json:"scope,omitempty"`
+}
+
+func (m *ACLEntry) Reset()                    { *m = ACLEntry{} }
+func (m *ACLEntry) String() string            { return proto.CompactTextString(m) }
+func (*ACLEntry) ProtoMessage()               {}
+func (*ACLEntry) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{8} }
+
+func (m *ACLEntry) GetUsername() string {
+	if m != nil {
+		return m.Username
+	}
+	return ""
+}
+
+func (m *ACLEntry) GetScope() Scope {
+	if m != nil {
+		return m.Scope
+	}
+	return Scope_NONE
+}
+
+type GetACLRequest struct {
+	Repo *pfs.Repo `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
+}
+
+func (m *GetACLRequest) Reset()                    { *m = GetACLRequest{} }
+func (m *GetACLRequest) String() string            { return proto.CompactTextString(m) }
+func (*GetACLRequest) ProtoMessage()               {}
+func (*GetACLRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{9} }
+
+func (m *GetACLRequest) GetRepo() *pfs.Repo {
+	if m != nil {
+		return m.Repo
+	}
+	return nil
+}
+
+type GetACLResponse struct {
+	AclEntries []*ACLEntry `protobuf:"bytes,1,rep,name=acl_entries,json=aclEntries" json:"acl_entries,omitempty"`
+}
+
+func (m *GetACLResponse) Reset()                    { *m = GetACLResponse{} }
+func (m *GetACLResponse) String() string            { return proto.CompactTextString(m) }
+func (*GetACLResponse) ProtoMessage()               {}
+func (*GetACLResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{10} }
+
+func (m *GetACLResponse) GetAclEntries() []*ACLEntry {
+	if m != nil {
+		return m.AclEntries
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*AuthenticateRequest)(nil), "auth.AuthenticateRequest")
 	proto.RegisterType((*AuthenticateResponse)(nil), "auth.AuthenticateResponse")
+	proto.RegisterType((*AuthorizeRequest)(nil), "auth.AuthorizeRequest")
+	proto.RegisterType((*AuthorizeResponse)(nil), "auth.AuthorizeResponse")
+	proto.RegisterType((*SetScopeRequest)(nil), "auth.SetScopeRequest")
+	proto.RegisterType((*SetScopeResponse)(nil), "auth.SetScopeResponse")
+	proto.RegisterType((*GetScopeRequest)(nil), "auth.GetScopeRequest")
+	proto.RegisterType((*GetScopeResponse)(nil), "auth.GetScopeResponse")
+	proto.RegisterType((*ACLEntry)(nil), "auth.ACLEntry")
+	proto.RegisterType((*GetACLRequest)(nil), "auth.GetACLRequest")
+	proto.RegisterType((*GetACLResponse)(nil), "auth.GetACLResponse")
+	proto.RegisterEnum("auth.Scope", Scope_name, Scope_value)
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -84,6 +300,10 @@ const _ = grpc.SupportPackageIsVersion4
 
 type APIClient interface {
 	Authenticate(ctx context.Context, in *AuthenticateRequest, opts ...grpc.CallOption) (*AuthenticateResponse, error)
+	Authorize(ctx context.Context, in *AuthorizeRequest, opts ...grpc.CallOption) (*AuthorizeResponse, error)
+	SetScope(ctx context.Context, in *SetScopeRequest, opts ...grpc.CallOption) (*SetScopeResponse, error)
+	GetScope(ctx context.Context, in *GetScopeRequest, opts ...grpc.CallOption) (*GetScopeResponse, error)
+	GetACL(ctx context.Context, in *GetACLRequest, opts ...grpc.CallOption) (*GetACLResponse, error)
 }
 
 type aPIClient struct {
@@ -103,10 +323,50 @@ func (c *aPIClient) Authenticate(ctx context.Context, in *AuthenticateRequest, o
 	return out, nil
 }
 
+func (c *aPIClient) Authorize(ctx context.Context, in *AuthorizeRequest, opts ...grpc.CallOption) (*AuthorizeResponse, error) {
+	out := new(AuthorizeResponse)
+	err := grpc.Invoke(ctx, "/auth.API/Authorize", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) SetScope(ctx context.Context, in *SetScopeRequest, opts ...grpc.CallOption) (*SetScopeResponse, error) {
+	out := new(SetScopeResponse)
+	err := grpc.Invoke(ctx, "/auth.API/SetScope", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) GetScope(ctx context.Context, in *GetScopeRequest, opts ...grpc.CallOption) (*GetScopeResponse, error) {
+	out := new(GetScopeResponse)
+	err := grpc.Invoke(ctx, "/auth.API/GetScope", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) GetACL(ctx context.Context, in *GetACLRequest, opts ...grpc.CallOption) (*GetACLResponse, error) {
+	out := new(GetACLResponse)
+	err := grpc.Invoke(ctx, "/auth.API/GetACL", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // Server API for API service
 
 type APIServer interface {
 	Authenticate(context.Context, *AuthenticateRequest) (*AuthenticateResponse, error)
+	Authorize(context.Context, *AuthorizeRequest) (*AuthorizeResponse, error)
+	SetScope(context.Context, *SetScopeRequest) (*SetScopeResponse, error)
+	GetScope(context.Context, *GetScopeRequest) (*GetScopeResponse, error)
+	GetACL(context.Context, *GetACLRequest) (*GetACLResponse, error)
 }
 
 func RegisterAPIServer(s *grpc.Server, srv APIServer) {
@@ -131,6 +391,78 @@ func _API_Authenticate_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _API_Authorize_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AuthorizeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).Authorize(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/auth.API/Authorize",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).Authorize(ctx, req.(*AuthorizeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _API_SetScope_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetScopeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).SetScope(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/auth.API/SetScope",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).SetScope(ctx, req.(*SetScopeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _API_GetScope_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetScopeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).GetScope(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/auth.API/GetScope",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).GetScope(ctx, req.(*GetScopeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _API_GetACL_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetACLRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).GetACL(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/auth.API/GetACL",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).GetACL(ctx, req.(*GetACLRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _API_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "auth.API",
 	HandlerType: (*APIServer)(nil),
@@ -138,6 +470,22 @@ var _API_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Authenticate",
 			Handler:    _API_Authenticate_Handler,
+		},
+		{
+			MethodName: "Authorize",
+			Handler:    _API_Authorize_Handler,
+		},
+		{
+			MethodName: "SetScope",
+			Handler:    _API_SetScope_Handler,
+		},
+		{
+			MethodName: "GetScope",
+			Handler:    _API_GetScope_Handler,
+		},
+		{
+			MethodName: "GetACL",
+			Handler:    _API_GetACL_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -192,6 +540,258 @@ func (m *AuthenticateResponse) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *AuthorizeRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *AuthorizeRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Repo != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintAuth(dAtA, i, uint64(m.Repo.Size()))
+		n1, err := m.Repo.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n1
+	}
+	return i, nil
+}
+
+func (m *AuthorizeResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *AuthorizeResponse) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Scope != 0 {
+		dAtA[i] = 0x8
+		i++
+		i = encodeVarintAuth(dAtA, i, uint64(m.Scope))
+	}
+	return i, nil
+}
+
+func (m *SetScopeRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *SetScopeRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Username) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Username)))
+		i += copy(dAtA[i:], m.Username)
+	}
+	if m.Repo != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintAuth(dAtA, i, uint64(m.Repo.Size()))
+		n2, err := m.Repo.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n2
+	}
+	if m.Scope != 0 {
+		dAtA[i] = 0x18
+		i++
+		i = encodeVarintAuth(dAtA, i, uint64(m.Scope))
+	}
+	return i, nil
+}
+
+func (m *SetScopeResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *SetScopeResponse) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	return i, nil
+}
+
+func (m *GetScopeRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GetScopeRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Username) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Username)))
+		i += copy(dAtA[i:], m.Username)
+	}
+	if m.Repo != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintAuth(dAtA, i, uint64(m.Repo.Size()))
+		n3, err := m.Repo.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n3
+	}
+	return i, nil
+}
+
+func (m *GetScopeResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GetScopeResponse) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Scope != 0 {
+		dAtA[i] = 0x8
+		i++
+		i = encodeVarintAuth(dAtA, i, uint64(m.Scope))
+	}
+	return i, nil
+}
+
+func (m *ACLEntry) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ACLEntry) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Username) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Username)))
+		i += copy(dAtA[i:], m.Username)
+	}
+	if m.Scope != 0 {
+		dAtA[i] = 0x10
+		i++
+		i = encodeVarintAuth(dAtA, i, uint64(m.Scope))
+	}
+	return i, nil
+}
+
+func (m *GetACLRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GetACLRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Repo != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintAuth(dAtA, i, uint64(m.Repo.Size()))
+		n4, err := m.Repo.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n4
+	}
+	return i, nil
+}
+
+func (m *GetACLResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GetACLResponse) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.AclEntries) > 0 {
+		for _, msg := range m.AclEntries {
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintAuth(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	return i, nil
+}
+
 func encodeFixed64Auth(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	dAtA[offset+1] = uint8(v >> 8)
@@ -235,6 +835,106 @@ func (m *AuthenticateResponse) Size() (n int) {
 	l = len(m.PachToken)
 	if l > 0 {
 		n += 1 + l + sovAuth(uint64(l))
+	}
+	return n
+}
+
+func (m *AuthorizeRequest) Size() (n int) {
+	var l int
+	_ = l
+	if m.Repo != nil {
+		l = m.Repo.Size()
+		n += 1 + l + sovAuth(uint64(l))
+	}
+	return n
+}
+
+func (m *AuthorizeResponse) Size() (n int) {
+	var l int
+	_ = l
+	if m.Scope != 0 {
+		n += 1 + sovAuth(uint64(m.Scope))
+	}
+	return n
+}
+
+func (m *SetScopeRequest) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Username)
+	if l > 0 {
+		n += 1 + l + sovAuth(uint64(l))
+	}
+	if m.Repo != nil {
+		l = m.Repo.Size()
+		n += 1 + l + sovAuth(uint64(l))
+	}
+	if m.Scope != 0 {
+		n += 1 + sovAuth(uint64(m.Scope))
+	}
+	return n
+}
+
+func (m *SetScopeResponse) Size() (n int) {
+	var l int
+	_ = l
+	return n
+}
+
+func (m *GetScopeRequest) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Username)
+	if l > 0 {
+		n += 1 + l + sovAuth(uint64(l))
+	}
+	if m.Repo != nil {
+		l = m.Repo.Size()
+		n += 1 + l + sovAuth(uint64(l))
+	}
+	return n
+}
+
+func (m *GetScopeResponse) Size() (n int) {
+	var l int
+	_ = l
+	if m.Scope != 0 {
+		n += 1 + sovAuth(uint64(m.Scope))
+	}
+	return n
+}
+
+func (m *ACLEntry) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Username)
+	if l > 0 {
+		n += 1 + l + sovAuth(uint64(l))
+	}
+	if m.Scope != 0 {
+		n += 1 + sovAuth(uint64(m.Scope))
+	}
+	return n
+}
+
+func (m *GetACLRequest) Size() (n int) {
+	var l int
+	_ = l
+	if m.Repo != nil {
+		l = m.Repo.Size()
+		n += 1 + l + sovAuth(uint64(l))
+	}
+	return n
+}
+
+func (m *GetACLResponse) Size() (n int) {
+	var l int
+	_ = l
+	if len(m.AclEntries) > 0 {
+		for _, e := range m.AclEntries {
+			l = e.Size()
+			n += 1 + l + sovAuth(uint64(l))
+		}
 	}
 	return n
 }
@@ -410,6 +1110,782 @@ func (m *AuthenticateResponse) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *AuthorizeRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAuth
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: AuthorizeRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: AuthorizeRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Repo", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAuth
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Repo == nil {
+				m.Repo = &pfs.Repo{}
+			}
+			if err := m.Repo.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAuth(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAuth
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *AuthorizeResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAuth
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: AuthorizeResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: AuthorizeResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Scope", wireType)
+			}
+			m.Scope = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Scope |= (Scope(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAuth(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAuth
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *SetScopeRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAuth
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: SetScopeRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: SetScopeRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Username", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthAuth
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Username = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Repo", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAuth
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Repo == nil {
+				m.Repo = &pfs.Repo{}
+			}
+			if err := m.Repo.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Scope", wireType)
+			}
+			m.Scope = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Scope |= (Scope(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAuth(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAuth
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *SetScopeResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAuth
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: SetScopeResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: SetScopeResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAuth(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAuth
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GetScopeRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAuth
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GetScopeRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GetScopeRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Username", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthAuth
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Username = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Repo", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAuth
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Repo == nil {
+				m.Repo = &pfs.Repo{}
+			}
+			if err := m.Repo.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAuth(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAuth
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GetScopeResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAuth
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GetScopeResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GetScopeResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Scope", wireType)
+			}
+			m.Scope = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Scope |= (Scope(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAuth(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAuth
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ACLEntry) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAuth
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ACLEntry: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ACLEntry: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Username", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthAuth
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Username = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Scope", wireType)
+			}
+			m.Scope = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Scope |= (Scope(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAuth(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAuth
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GetACLRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAuth
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GetACLRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GetACLRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Repo", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAuth
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Repo == nil {
+				m.Repo = &pfs.Repo{}
+			}
+			if err := m.Repo.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAuth(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAuth
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GetACLResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAuth
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GetACLResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GetACLResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AclEntries", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAuth
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.AclEntries = append(m.AclEntries, &ACLEntry{})
+			if err := m.AclEntries[len(m.AclEntries)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAuth(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAuth
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func skipAuth(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
@@ -518,17 +1994,36 @@ var (
 func init() { proto.RegisterFile("client/auth/auth.proto", fileDescriptorAuth) }
 
 var fileDescriptorAuth = []byte{
-	// 181 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x12, 0x4b, 0xce, 0xc9, 0x4c,
-	0xcd, 0x2b, 0xd1, 0x4f, 0x2c, 0x2d, 0xc9, 0x00, 0x13, 0x7a, 0x05, 0x45, 0xf9, 0x25, 0xf9, 0x42,
-	0x2c, 0x20, 0xb6, 0x92, 0x05, 0x97, 0xb0, 0x63, 0x69, 0x49, 0x46, 0x6a, 0x5e, 0x49, 0x66, 0x72,
-	0x62, 0x49, 0x6a, 0x50, 0x6a, 0x61, 0x69, 0x6a, 0x71, 0x89, 0x90, 0x22, 0x17, 0x4f, 0x7a, 0x66,
-	0x49, 0x46, 0x69, 0x52, 0x7c, 0x49, 0x7e, 0x76, 0x6a, 0x9e, 0x04, 0xa3, 0x02, 0xa3, 0x06, 0x67,
-	0x10, 0x37, 0x44, 0x2c, 0x04, 0x24, 0xa4, 0x64, 0xca, 0x25, 0x82, 0xaa, 0xb3, 0xb8, 0x20, 0x3f,
-	0xaf, 0x38, 0x55, 0x48, 0x96, 0x8b, 0xab, 0x20, 0x31, 0x39, 0x03, 0x45, 0x23, 0x27, 0x48, 0x04,
-	0xac, 0xcd, 0xc8, 0x8f, 0x8b, 0xd9, 0x31, 0xc0, 0x53, 0xc8, 0x9d, 0x8b, 0x07, 0x59, 0xb7, 0x90,
-	0xa4, 0x1e, 0xd8, 0x69, 0x58, 0xdc, 0x22, 0x25, 0x85, 0x4d, 0x0a, 0x62, 0x99, 0x12, 0x83, 0x93,
-	0xc0, 0x89, 0x47, 0x72, 0x8c, 0x17, 0x1e, 0xc9, 0x31, 0x3e, 0x78, 0x24, 0xc7, 0x38, 0xe3, 0xb1,
-	0x1c, 0x43, 0x12, 0x1b, 0xd8, 0x7f, 0xc6, 0x80, 0x00, 0x00, 0x00, 0xff, 0xff, 0x03, 0x18, 0xba,
-	0x91, 0xf9, 0x00, 0x00, 0x00,
+	// 485 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x54, 0xcb, 0x6e, 0xd3, 0x40,
+	0x14, 0x8d, 0xf3, 0x52, 0x7c, 0x5d, 0xd2, 0x61, 0x1a, 0x42, 0xb1, 0xd4, 0xa8, 0xf5, 0xaa, 0x62,
+	0x91, 0x8a, 0x40, 0x10, 0x12, 0x12, 0x92, 0x29, 0x96, 0x15, 0x29, 0x4a, 0xd1, 0xb4, 0x52, 0x97,
+	0x95, 0x6b, 0x5d, 0x88, 0x45, 0xf0, 0x18, 0x7b, 0xbc, 0x80, 0x2f, 0xe1, 0x6f, 0xd8, 0xb2, 0xe4,
+	0x13, 0x50, 0xf8, 0x11, 0x34, 0x9e, 0x89, 0xf3, 0x2c, 0xea, 0x82, 0x85, 0xad, 0xf1, 0xb9, 0xf7,
+	0xcc, 0x39, 0x9e, 0x7b, 0x34, 0xd0, 0x0d, 0x67, 0x11, 0xc6, 0xe2, 0x2c, 0xc8, 0xc5, 0xb4, 0x78,
+	0xf5, 0x93, 0x94, 0x0b, 0x4e, 0xeb, 0x72, 0x6d, 0x77, 0x74, 0x35, 0xf9, 0x90, 0xc9, 0x47, 0xd5,
+	0x9c, 0x57, 0x70, 0xe0, 0xe6, 0x62, 0x8a, 0xb1, 0x88, 0xc2, 0x40, 0x20, 0xc3, 0x2f, 0x39, 0x66,
+	0x82, 0x9e, 0xc0, 0xde, 0xc7, 0x48, 0x4c, 0xf3, 0xdb, 0x1b, 0xc1, 0x3f, 0x61, 0x7c, 0x68, 0x1c,
+	0x1b, 0xa7, 0x26, 0xb3, 0x14, 0x76, 0x25, 0x21, 0x67, 0x08, 0x9d, 0x75, 0x66, 0x96, 0xf0, 0x38,
+	0x43, 0x7a, 0x04, 0x90, 0x04, 0xe1, 0x74, 0x8d, 0x68, 0x4a, 0x44, 0xd1, 0x9e, 0x01, 0x91, 0x34,
+	0x9e, 0x46, 0xdf, 0x4a, 0xb5, 0x23, 0xa8, 0xa7, 0x98, 0xf0, 0xa2, 0xd9, 0x1a, 0x98, 0x7d, 0x69,
+	0x8f, 0x61, 0xc2, 0x59, 0x01, 0x3b, 0x2f, 0xe1, 0xe1, 0x0a, 0x45, 0xcb, 0x9c, 0x40, 0x23, 0x0b,
+	0x79, 0x82, 0x05, 0xa9, 0x3d, 0xb0, 0xfa, 0xc5, 0x0f, 0x5f, 0x4a, 0x88, 0xa9, 0x8a, 0xc3, 0x61,
+	0xff, 0x12, 0x85, 0x82, 0xb4, 0x92, 0x0d, 0xad, 0x3c, 0xc3, 0x34, 0x0e, 0x3e, 0xa3, 0xb6, 0x56,
+	0x7e, 0x97, 0x2e, 0xaa, 0x3b, 0x5d, 0x2c, 0x05, 0x6b, 0x77, 0x0a, 0x52, 0x20, 0x4b, 0x41, 0xe5,
+	0xd3, 0x19, 0xc3, 0xbe, 0xff, 0xdf, 0x4c, 0x38, 0x43, 0x20, 0xfe, 0x86, 0xc2, 0x7d, 0x4e, 0x62,
+	0x04, 0x2d, 0xf7, 0x7c, 0xec, 0xc5, 0x22, 0xfd, 0xfa, 0x4f, 0xf5, 0x72, 0xab, 0xea, 0x9d, 0x5b,
+	0xf5, 0xe1, 0x81, 0x8f, 0xc2, 0x3d, 0x1f, 0xdf, 0x73, 0x78, 0x2e, 0xb4, 0x17, 0xfd, 0xda, 0xef,
+	0x19, 0x58, 0x41, 0x38, 0xbb, 0xc1, 0x58, 0xa4, 0x11, 0x66, 0x87, 0xc6, 0x71, 0xed, 0xd4, 0x1a,
+	0xb4, 0x95, 0xd4, 0xc2, 0x25, 0x83, 0x20, 0x9c, 0x79, 0xaa, 0xe3, 0xe9, 0x0b, 0x68, 0x14, 0x16,
+	0x68, 0x0b, 0xea, 0x93, 0x8b, 0x89, 0x47, 0x2a, 0x14, 0xa0, 0xc9, 0x3c, 0xf7, 0x9d, 0xc7, 0x88,
+	0x21, 0xd7, 0xd7, 0x6c, 0x74, 0xe5, 0x31, 0x52, 0xa5, 0x26, 0x34, 0x2e, 0xae, 0x27, 0x1e, 0x23,
+	0xb5, 0xc1, 0x8f, 0x2a, 0xd4, 0xdc, 0xf7, 0x23, 0xea, 0xc3, 0xde, 0x6a, 0x4e, 0xe9, 0x13, 0xad,
+	0xb4, 0x9d, 0x7a, 0xdb, 0xde, 0x55, 0xd2, 0x73, 0xac, 0xd0, 0x37, 0x60, 0x96, 0x31, 0xa4, 0xdd,
+	0x65, 0xeb, 0x6a, 0x94, 0xed, 0xc7, 0x5b, 0x78, 0xc9, 0x7f, 0x0d, 0xad, 0x45, 0x3a, 0xe8, 0x23,
+	0x7d, 0xb2, 0xeb, 0xc9, 0xb0, 0xbb, 0x9b, 0xf0, 0x2a, 0xd9, 0xdf, 0x20, 0xfb, 0xbb, 0xc9, 0xfe,
+	0x36, 0x79, 0x08, 0x4d, 0x35, 0x03, 0x7a, 0x50, 0xf6, 0x2c, 0x27, 0x68, 0x77, 0xd6, 0xc1, 0x05,
+	0xed, 0x2d, 0xf9, 0x39, 0xef, 0x19, 0xbf, 0xe6, 0x3d, 0xe3, 0xf7, 0xbc, 0x67, 0x7c, 0xff, 0xd3,
+	0xab, 0xdc, 0x36, 0x8b, 0x4b, 0xe3, 0xf9, 0xdf, 0x00, 0x00, 0x00, 0xff, 0xff, 0xbf, 0x4c, 0x25,
+	0x4b, 0x6a, 0x04, 0x00, 0x00,
 }
