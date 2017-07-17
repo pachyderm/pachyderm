@@ -11,10 +11,12 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -79,16 +81,26 @@ type APIServer struct {
 	jobs col.Collection
 	// The pipelines collection
 	pipelines col.Collection
+	// Stats about the execution of the job
+	stats *pps.ProcessStats
+}
+
+type putObjectResponse struct {
+	object *pfs.Object
+	size   int64
+	err    error
 }
 
 type taggedLogger struct {
-	template  pps.LogMessage
-	stderrLog log.Logger
-	marshaler *jsonpb.Marshaler
-	buffer    bytes.Buffer
+	template     pps.LogMessage
+	stderrLog    log.Logger
+	marshaler    *jsonpb.Marshaler
+	buffer       bytes.Buffer
+	putObjClient pfs.ObjectAPI_PutObjectClient
+	objSize      int64
 }
 
-func (a *APIServer) getTaggedLogger(req *ProcessRequest) *taggedLogger {
+func (a *APIServer) getTaggedLogger(ctx context.Context, req *ProcessRequest) (*taggedLogger, error) {
 	result := &taggedLogger{
 		template:  a.logMsgTemplate, // Copy struct
 		stderrLog: log.Logger{},
@@ -101,13 +113,23 @@ func (a *APIServer) getTaggedLogger(req *ProcessRequest) *taggedLogger {
 	result.template.JobID = req.JobID
 
 	// Add inputs' details to log metadata, so we can find these logs later
+	hash := sha256.New()
 	for _, d := range req.Data {
 		result.template.Data = append(result.template.Data, &pps.Datum{
 			Path: d.FileInfo.File.Path,
 			Hash: d.FileInfo.Hash,
 		})
+		hash.Write(d.FileInfo.Hash)
 	}
-	return result
+	// DatumID is a single string id for the datum, it's used in logs and in
+	// the statsTree
+	result.template.DatumID = hex.EncodeToString(hash.Sum(nil))
+	putObjClient, err := a.pachClient.ObjectAPIClient.PutObject(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result.putObjClient = putObjClient
+	return result, nil
 }
 
 // Logf logs the line Sprintf(formatString, args...), but formatted as a json
@@ -127,7 +149,19 @@ func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
 		logger.stderrLog.Printf("could not marshal %v for logging: %s\n", &logger.template, err)
 		return
 	}
-	fmt.Printf("%s\n", bytes)
+	bytes += "\n"
+	fmt.Printf(bytes)
+	if logger.putObjClient != nil {
+		for _, chunk := range grpcutil.Chunk([]byte(bytes), grpcutil.MaxMsgSize/2) {
+			if err := logger.putObjClient.Send(&pfs.PutObjectRequest{
+				Value: chunk,
+			}); err != nil {
+				logger.stderrLog.Printf("could not write to object: %v", err)
+				return
+			}
+		}
+		logger.objSize += int64(len(bytes))
+	}
 }
 
 func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
@@ -150,11 +184,20 @@ func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
 	}
 }
 
+func (logger *taggedLogger) Close() (*pfs.Object, int64, error) {
+	if logger.putObjClient != nil {
+		object, err := logger.putObjClient.CloseAndRecv()
+		return object, logger.objSize, err
+	}
+	return nil, 0, nil
+}
+
 func (logger *taggedLogger) userLogger() *taggedLogger {
 	result := &taggedLogger{
-		template:  logger.template, // Copy struct
-		stderrLog: log.Logger{},
-		marshaler: &jsonpb.Marshaler{},
+		template:     logger.template, // Copy struct
+		stderrLog:    log.Logger{},
+		marshaler:    &jsonpb.Marshaler{},
+		putObjClient: logger.putObjClient,
 	}
 	result.template.User = true
 	return result
@@ -191,7 +234,12 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	return server, nil
 }
 
-func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag) error {
+func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag, statsTree hashtree.OpenHashTree, statsPath string) error {
+	defer func(start time.Time) {
+		a.statusMu.Lock()
+		defer a.statusMu.Unlock()
+		a.stats.DownloadTime = types.DurationProto(time.Since(start))
+	}(time.Now())
 	logger.Logf("input has not been processed, downloading data")
 	defer func(start time.Time) {
 		logger.Logf("input data download took (%v)\n", time.Since(start))
@@ -199,15 +247,16 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 	for _, input := range inputs {
 		file := input.FileInfo.File
 		root := filepath.Join(client.PPSInputPrefix, input.Name, file.Path)
+		treeRoot := path.Join(statsPath, input.Name, file.Path)
 		if a.pipelineInfo.Incremental && input.ParentCommit != nil {
 			if err := puller.PullDiff(a.pachClient, root,
 				file.Commit.Repo.Name, file.Commit.ID, file.Path,
 				input.ParentCommit.Repo.Name, input.ParentCommit.ID, file.Path,
-				true, input.Lazy, concurrency); err != nil {
+				true, input.Lazy, concurrency, statsTree, treeRoot); err != nil {
 				return err
 			}
 		} else {
-			if err := puller.Pull(a.pachClient, root, file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, concurrency); err != nil {
+			if err := puller.Pull(a.pachClient, root, file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, concurrency, statsTree, treeRoot); err != nil {
 				return err
 			}
 		}
@@ -230,6 +279,11 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 
 // Run user code and return the combined output of stdout and stderr.
 func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string) (retErr error) {
+	defer func(start time.Time) {
+		a.statusMu.Lock()
+		defer a.statusMu.Unlock()
+		a.stats.ProcessTime = types.DurationProto(time.Since(start))
+	}(time.Now())
 	logger.Logf("beginning to run user code")
 	defer func(start time.Time) {
 		logger.Logf("finished running user code - took (%v) - with error (%v)\n", time.Since(start), retErr)
@@ -259,7 +313,12 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	return err
 }
 
-func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *taggedLogger, inputs []*Input) error {
+func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *taggedLogger, inputs []*Input, statsTree hashtree.OpenHashTree, statsRoot string) error {
+	defer func(start time.Time) {
+		a.statusMu.Lock()
+		defer a.statusMu.Unlock()
+		a.stats.UploadTime = types.DurationProto(time.Since(start))
+	}(time.Now())
 	logger.Logf("starting to upload output")
 	defer func(start time.Time) {
 		logger.Logf("finished uploading output - took %v\n", time.Since(start))
@@ -271,15 +330,15 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 	// Upload all files in output directory
 	var g errgroup.Group
 	limiter := limit.New(concurrency)
-	if err := filepath.Walk(client.PPSOutputPath, func(path string, info os.FileInfo, err error) error {
+	if err := filepath.Walk(client.PPSOutputPath, func(filePath string, info os.FileInfo, err error) error {
 		g.Go(func() (retErr error) {
 			limiter.Acquire()
 			defer limiter.Release()
-			if path == client.PPSOutputPath {
+			if filePath == client.PPSOutputPath {
 				return nil
 			}
 
-			relPath, err := filepath.Rel(client.PPSOutputPath, path)
+			relPath, err := filepath.Rel(client.PPSOutputPath, filePath)
 			if err != nil {
 				return err
 			}
@@ -307,7 +366,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 			// If the output file is a symlink to an input file, we can skip
 			// the uploading.
 			if (info.Mode() & os.ModeSymlink) > 0 {
-				realPath, err := os.Readlink(path)
+				realPath, err := os.Readlink(filePath)
 				if err != nil {
 					return err
 				}
@@ -327,14 +386,14 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 						}
 					}
 					if input != nil {
-						return filepath.Walk(realPath, func(path string, info os.FileInfo, err error) error {
-							rel, err := filepath.Rel(realPath, path)
+						return filepath.Walk(realPath, func(filePath string, info os.FileInfo, err error) error {
+							rel, err := filepath.Rel(realPath, filePath)
 							if err != nil {
 								return err
 							}
 							subRelPath := filepath.Join(relPath, rel)
 							// The path of the input file
-							pfsPath, err := filepath.Rel(filepath.Join(client.PPSInputPrefix, input.Name), path)
+							pfsPath, err := filepath.Rel(filepath.Join(client.PPSInputPrefix, input.Name), filePath)
 							if err != nil {
 								return err
 							}
@@ -358,13 +417,19 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 
 							lock.Lock()
 							defer lock.Unlock()
+							atomic.AddUint64(&a.stats.UploadBytes, fileInfo.SizeBytes)
+							if statsTree != nil {
+								if err := statsTree.PutFile(path.Join(statsRoot, subRelPath), fileInfo.Objects, int64(fileInfo.SizeBytes)); err != nil {
+									return err
+								}
+							}
 							return tree.PutFile(subRelPath, fileInfo.Objects, int64(fileInfo.SizeBytes))
 						})
 					}
 				}
 			}
 
-			f, err := os.Open(path)
+			f, err := os.Open(filePath)
 			if err != nil {
 				return err
 			}
@@ -393,6 +458,12 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 
 			lock.Lock()
 			defer lock.Unlock()
+			atomic.AddUint64(&a.stats.UploadBytes, uint64(size))
+			if statsTree != nil {
+				if err := statsTree.PutFile(path.Join(statsRoot, relPath), []*pfs.Object{object}, int64(size)); err != nil {
+					return err
+				}
+			}
 			return tree.PutFile(relPath, []*pfs.Object{object}, int64(size))
 		})
 		return nil
@@ -511,7 +582,10 @@ func HashDatum(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) {
 
 // Process processes a datum.
 func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *ProcessResponse, retErr error) {
-	logger := a.getTaggedLogger(req)
+	logger, err := a.getTaggedLogger(ctx, req)
+	if err != nil {
+		return nil, err
+	}
 	logger.Logf("process call started - request: %v", req)
 	defer func(start time.Time) {
 		logger.Logf("process call finished - request: %v, response: %v, err %v, duration: %v", req, resp, retErr, time.Since(start))
@@ -533,6 +607,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		a.data = req.Data
 		a.started = time.Now()
 		a.cancel = cancel
+		a.stats = &pps.ProcessStats{}
 		return nil
 	}(); err != nil {
 		return nil, err
@@ -545,26 +620,88 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		a.data = nil
 		a.started = time.Time{}
 		a.cancel = nil
+		a.stats = nil
 	}()
-
-	// Hash inputs and check if output is in s3 already. Note: ppsserver sorts
-	// inputs by input name for both jobs and pipelines, so this hash is stable
-	// even if a.Inputs are reordered by the user
+	// Hash inputs
 	tag, err := HashDatum(a.pipelineInfo, req.Data)
 	if err != nil {
 		return nil, err
 	}
+	var statsTag *pfs.Tag
+	if req.EnableStats {
+		statsTag = &pfs.Tag{tag + "_stats"}
+	}
+	logger.Logf("Received request")
+	// Check if output is in s3 already. Note: ppsserver sorts
+	// inputs by input name for both jobs and pipelines, so this hash is stable
+	// even if a.Inputs are reordered by the user
 	if _, err := a.pachClient.InspectTag(ctx, &pfs.Tag{tag}); err == nil {
 		// We've already computed the output for these inputs. Return immediately
 		logger.Logf("skipping input, as it's already been processed")
 		return &ProcessResponse{
-			Tag: &pfs.Tag{tag},
+			Tag:      &pfs.Tag{tag},
+			StatsTag: statsTag,
+			Skipped:  true,
 		}, nil
+	}
+	statsPath := path.Join("/", req.JobID, logger.template.DatumID)
+	var statsTree hashtree.OpenHashTree
+	if req.EnableStats {
+		statsTree = hashtree.NewHashTree()
+		defer func() {
+			if retErr != nil {
+				return
+			}
+			finStatsTree, err := statsTree.Finish()
+			if err != nil {
+				retErr = err
+				return
+			}
+			statsTreeBytes, err := hashtree.Serialize(finStatsTree)
+			if err != nil {
+				retErr = err
+				return
+			}
+			if _, _, err := a.pachClient.PutObject(bytes.NewReader(statsTreeBytes), statsTag.Name); err != nil {
+				retErr = err
+				return
+			}
+		}()
+		defer func() {
+			object, size, err := logger.Close()
+			if err != nil && retErr == nil {
+				retErr = err
+				return
+			}
+			if err := statsTree.PutFile(path.Join(statsPath, "logs"), []*pfs.Object{object}, size); err != nil && retErr == nil {
+				retErr = err
+				return
+			}
+		}()
+		defer func() {
+			a.statusMu.Lock()
+			defer a.statusMu.Unlock()
+			marshaler := &jsonpb.Marshaler{}
+			statsString, err := marshaler.MarshalToString(a.stats)
+			if err != nil {
+				logger.stderrLog.Printf("could not serialize stats: %s\n", err)
+				return
+			}
+			object, size, err := a.pachClient.PutObject(strings.NewReader(statsString))
+			if err != nil {
+				logger.stderrLog.Printf("could not put stats object: %s\n", err)
+				return
+			}
+			if err := statsTree.PutFile(path.Join(statsPath, "stats"), []*pfs.Object{object}, size); err != nil {
+				logger.stderrLog.Printf("could not put-file stats object: %s\n", err)
+				return
+			}
+		}()
 	}
 
 	// Download input data
 	puller := filesync.NewPuller()
-	err = a.downloadData(logger, req.Data, puller, req.ParentOutput)
+	err = a.downloadData(logger, req.Data, puller, req.ParentOutput, statsTree, path.Join(statsPath, "pfs"))
 	// We run these cleanup functions no matter what, so that if
 	// downloadData partially succeeded, we still clean up the resources.
 	defer func() {
@@ -576,7 +713,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	// because otherwise puller.Cleanup might try tp open pipes that have
 	// been deleted.
 	defer func() {
-		if err := puller.CleanUp(); err != nil && retErr == nil {
+		if _, err := puller.CleanUp(); err != nil && retErr == nil {
 			retErr = err
 		}
 	}()
@@ -594,7 +731,9 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	if err != nil {
 		logger.Logf("failed to process datum with error: %+v", err)
 		return &ProcessResponse{
-			Failed: true,
+			Failed:   true,
+			StatsTag: statsTag,
+			Stats:    a.stats,
 		}, nil
 	}
 	// CleanUp is idempotent so we can call it however many times we want.
@@ -603,24 +742,30 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	// the output might be invalid since as far as the user's code is
 	// concerned, they might've just seen an empty or partially completed
 	// file.
-	if err := puller.CleanUp(); err != nil {
+	downSize, err := puller.CleanUp()
+	if err != nil {
 		logger.Logf("puller encountered an error while cleaning up: %+v", err)
 		return nil, err
 	}
-	if err := a.uploadOutput(ctx, tag, logger, req.Data); err != nil {
+	atomic.AddUint64(&a.stats.DownloadBytes, uint64(downSize))
+	if err := a.uploadOutput(ctx, tag, logger, req.Data, statsTree, path.Join(statsPath, "pfs", "out")); err != nil {
 		// If uploading failed because the user program outputed a special
 		// file, then there's no point in retrying.  Thus we signal that
 		// there's some problem with the user code so the job doesn't
 		// infinitely retry to process this datum.
 		if err == errSpecialFile {
 			return &ProcessResponse{
-				Failed: true,
+				Failed:   true,
+				StatsTag: statsTag,
+				Stats:    a.stats,
 			}, nil
 		}
 		return nil, err
 	}
 	return &ProcessResponse{
-		Tag: &pfs.Tag{tag},
+		Tag:      &pfs.Tag{tag},
+		StatsTag: statsTag,
+		Stats:    a.stats,
 	}, nil
 }
 
