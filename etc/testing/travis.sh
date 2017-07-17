@@ -1,7 +1,7 @@
 #!/bin/bash
 
-echo "Running local tests"
-make test
+#echo "Running local tests"
+#make test
 
 echo "Running aws tests"
 
@@ -34,4 +34,4 @@ fi
 docker login -u pachydermbuildbot -p ${DOCKER_PWD}
 
 # Run tests in the cloud  
-sudo -E PATH="${PATH}" GOPATH="${GOPATH}" make aws-test
+sudo env "PATH=${PATH}" "GOPATH=${GOPATH}" make aws-test
