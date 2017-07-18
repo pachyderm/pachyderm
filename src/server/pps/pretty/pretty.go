@@ -186,6 +186,31 @@ Job Counts:
 	return nil
 }
 
+// PrintDatumInfoHeader prints a file info header.
+func PrintDatumInfoHeader(w io.Writer) {
+	fmt.Fprint(w, "HASH\tSTATUS\tTIME\t\n")
+}
+
+// PrintDatumInfo pretty-prints file info.
+// If recurse is false and directory size is 0, display "-" instead
+// If fast is true and file size is 0, display "-" instead
+func PrintDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
+	var status string
+	switch datumInfo.State {
+	case ppsclient.DatumState_DATUM_FAILED:
+		status = "FAILED"
+		break
+	case ppsclient.DatumState_DATUM_SKIPPED:
+		status = "SKIPPED"
+		break
+	case ppsclient.DatumState_DATUM_SUCCESS:
+		status = "SUCCESS"
+		break
+	}
+	// TODO: last field is total time
+	fmt.Fprintf(w, "%s\t%s\t%s\n", string(datumInfo.Hash), status, 0)
+}
+
 func jobState(jobState ppsclient.JobState) string {
 	switch jobState {
 	case ppsclient.JobState_JOB_STARTING:

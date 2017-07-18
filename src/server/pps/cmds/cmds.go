@@ -205,6 +205,34 @@ Examples:
 			return nil
 		}),
 	}
+	listDatum := &cobra.Command{
+		Use:   "list-datum pipeline-name job-id",
+		Short: "Return the datums in a job.",
+		Long:  "Return the datums in a job.",
+		Run: cmdutil.RunBoundedArgs(2, 2, func(args []string) error {
+			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			if err != nil {
+				return err
+			}
+			datumInfos, err := client.ListDatum(args[0], args[1])
+			if err != nil {
+				return err
+			}
+			if raw {
+				for _, datumInfo := range datumInfos {
+					if err := marshaller.Marshal(os.Stdout, datumInfo); err != nil {
+						return err
+					}
+				}
+			}
+			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			pretty.PrintDatumInfoHeader(writer)
+			for _, datumInfo := range datumInfos {
+				pretty.PrintDatumInfo(writer, datumInfo)
+			}
+			return writer.Flush()
+		}),
+	}
 
 	var (
 		jobID       string
@@ -580,6 +608,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	result = append(result, deleteJob)
 	result = append(result, stopJob)
 	result = append(result, restartDatum)
+	result = append(result, listDatum)
 	result = append(result, getLogs)
 	result = append(result, pipeline)
 	result = append(result, createPipeline)

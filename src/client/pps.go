@@ -253,6 +253,21 @@ func (c APIClient) RestartDatum(jobID string, datumFilter []string) error {
 	return sanitizeErr(err)
 }
 
+// ListDatum returns info about all datums in a Job
+func (c APIClient) ListDatum(pipelineName string, jobID string) ([]*pps.DatumInfo, error) {
+	datumInfos, err := c.PpsAPIClient.ListDatum(
+		c.ctx(),
+		&pps.ListDatumRequest{
+			PipelineName: pipelineName,
+			JobId:        jobID,
+		},
+	)
+	if err != nil {
+		return nil, sanitizeErr(err)
+	}
+	return datumInfos.DatumInfo, nil
+}
+
 // LogsIter iterates through log messages returned from pps.GetLogs. Logs can
 // be fetched with 'Next()'. The log message received can be examined with
 // 'Message()', and any errors can be examined with 'Err()'.

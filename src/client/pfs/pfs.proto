@@ -110,30 +110,6 @@ message ObjectInfo {
   BlockRef block_ref = 2;
 }
 
-enum DatumState {
-    DATUM_FAILED = 0;
-    DATUM_SUCCESS = 1;
-    DATUM_SKIPPED = 2;
-}
-
-message DatumStats {
-    uint64 download_time = 1;
-    uint64 process_time = 2;
-    uint64 upload_time = 3;
-    uint64 download_bytes = 4;
-    uint64 upload_bytes = 5;
-}
-
-message DatumInfo {
-   bytes hash = 1; 
-   DatumState state = 2;
-   DatumStats stats = 3;
-}
-
-message DatumInfos {
-  repeated DatumInfo datum_info = 1;
-}
-
 message CreateRepoRequest {
   Repo repo = 1;
   repeated Repo provenance = 2;
@@ -336,8 +312,6 @@ service API {
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
-  rpc InspectDatum(InspectDatumRequest) returns (DatumInfo) {}
-  rpc ListDatum(ListDatumRequest) returns (DatumInfos) {}
 }
 
 message PutObjectRequest {
@@ -387,17 +361,6 @@ message CheckObjectRequest {
 message CheckObjectResponse {
   bool exists = 1;
 }
-
-message InspectDatumRequest {
-  bytes hash = 1;
-  string pipeline_name = 2;
-}
-
-message ListDatumRequest {
-  string job_id = 1;
-  string pipeline_name = 2;
-}
-
 
 service ObjectAPI {
   rpc PutObject(stream PutObjectRequest) returns (Object) {}
