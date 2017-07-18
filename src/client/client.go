@@ -146,7 +146,7 @@ func NewOnUserMachineWithConcurrency(reportMetrics bool, prefix string, maxConcu
 	if cfg.UserID != "" && reportMetrics {
 		client.metricsUserID = cfg.UserID
 	}
-	if cfg.V1.SessionToken != "" {
+	if cfg.V1 != nil && cfg.V1.SessionToken != "" {
 		client.authenticationToken = cfg.V1.SessionToken
 	}
 	return client, nil
