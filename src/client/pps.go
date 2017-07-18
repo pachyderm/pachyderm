@@ -42,6 +42,9 @@ const (
 	// PPSOutputPath is the path where the user code is
 	// expected to write its output to.
 	PPSOutputPath = "/pfs/out"
+	// PPSScratchSpace is where pps workers store data while it's waiting to be
+	// processed.
+	PPSScratchSpace = "/scratch"
 	// PPSWorkerPort is the port that workers use for their gRPC server
 	PPSWorkerPort = 80
 	// PPSWorkerVolume is the name of the volume in which workers store

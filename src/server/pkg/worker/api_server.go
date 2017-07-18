@@ -31,6 +31,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
@@ -83,6 +84,10 @@ type APIServer struct {
 	pipelines col.Collection
 	// Stats about the execution of the job
 	stats *pps.ProcessStats
+
+	// Only one datum can be running at a time because they need to be
+	// accessing /pfs, runMu enforces this
+	runMu sync.Mutex
 }
 
 type putObjectResponse struct {
@@ -233,7 +238,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	return server, nil
 }
 
-func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag, statsTree hashtree.OpenHashTree, statsPath string) error {
+func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag, statsTree hashtree.OpenHashTree, statsPath string) (string, error) {
 	defer func(start time.Time) {
 		a.statusMu.Lock()
 		defer a.statusMu.Unlock()
@@ -243,20 +248,21 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 	defer func(start time.Time) {
 		logger.Logf("input data download took (%v)\n", time.Since(start))
 	}(time.Now())
+	dir := filepath.Join(client.PPSScratchSpace, uuid.NewWithoutDashes())
 	for _, input := range inputs {
 		file := input.FileInfo.File
-		root := filepath.Join(client.PPSInputPrefix, input.Name, file.Path)
+		root := filepath.Join(dir, input.Name, file.Path)
 		treeRoot := path.Join(statsPath, input.Name, file.Path)
 		if a.pipelineInfo.Incremental && input.ParentCommit != nil {
 			if err := puller.PullDiff(a.pachClient, root,
 				file.Commit.Repo.Name, file.Commit.ID, file.Path,
 				input.ParentCommit.Repo.Name, input.ParentCommit.ID, file.Path,
 				true, input.Lazy, concurrency, statsTree, treeRoot); err != nil {
-				return err
+				return "", err
 			}
 		} else {
 			if err := puller.Pull(a.pachClient, root, file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, concurrency, statsTree, treeRoot); err != nil {
-				return err
+				return "", err
 			}
 		}
 	}
@@ -267,13 +273,13 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 		}
 		tree, err := hashtree.Deserialize(buffer.Bytes())
 		if err != nil {
-			return fmt.Errorf("failed to deserialize parent hashtree: %v", err)
+			return "", fmt.Errorf("failed to deserialize parent hashtree: %v", err)
 		}
 		if err := puller.PullTree(a.pachClient, client.PPSOutputPath, tree, false, concurrency); err != nil {
-			return fmt.Errorf("error pulling output tree: %+v", err)
+			return "", fmt.Errorf("error pulling output tree: %+v", err)
 		}
 	}
-	return nil
+	return dir, nil
 }
 
 // Run user code and return the combined output of stdout and stderr.
@@ -312,7 +318,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	return err
 }
 
-func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *taggedLogger, inputs []*Input, statsTree hashtree.OpenHashTree, statsRoot string) error {
+func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, logger *taggedLogger, inputs []*Input, statsTree hashtree.OpenHashTree, statsRoot string) error {
 	defer func(start time.Time) {
 		a.statusMu.Lock()
 		defer a.statusMu.Unlock()
@@ -325,19 +331,20 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 	// hashtree is not thread-safe--guard with 'lock'
 	var lock sync.Mutex
 	tree := hashtree.NewHashTree()
+	outputPath := filepath.Join(dir, "out")
 
 	// Upload all files in output directory
 	var g errgroup.Group
 	limiter := limit.New(concurrency)
-	if err := filepath.Walk(client.PPSOutputPath, func(filePath string, info os.FileInfo, err error) error {
+	if err := filepath.Walk(outputPath, func(filePath string, info os.FileInfo, err error) error {
 		g.Go(func() (retErr error) {
 			limiter.Acquire()
 			defer limiter.Release()
-			if filePath == client.PPSOutputPath {
+			if filePath == outputPath {
 				return nil
 			}
 
-			relPath, err := filepath.Rel(client.PPSOutputPath, filePath)
+			relPath, err := filepath.Rel(outputPath, filePath)
 			if err != nil {
 				return err
 			}
@@ -752,11 +759,11 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 
 	// Download input data
 	puller := filesync.NewPuller()
-	err = a.downloadData(logger, req.Data, puller, req.ParentOutput, statsTree, path.Join(statsPath, "pfs"))
+	dir, err := a.downloadData(logger, req.Data, puller, req.ParentOutput, statsTree, path.Join(statsPath, "pfs"))
 	// We run these cleanup functions no matter what, so that if
 	// downloadData partially succeeded, we still clean up the resources.
 	defer func() {
-		if err := a.cleanUpData(); retErr == nil && err != nil {
+		if err := os.RemoveAll(dir); err != nil && retErr == nil {
 			retErr = err
 		}
 	}()
@@ -775,17 +782,34 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	environ := a.userCodeEnviron(req)
 
 	// Create output directory (currently /pfs/out) and run user code
-	if err := os.MkdirAll(client.PPSOutputPath, 0666); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, "out"), 0666); err != nil {
 		return nil, err
 	}
-	err = a.runUserCode(ctx, logger, environ)
-	if err != nil {
-		logger.Logf("failed to process datum with error: %+v", err)
-		return &ProcessResponse{
-			Failed:   true,
-			StatsTag: statsTag,
-			Stats:    a.stats,
-		}, nil
+	if response, err := func() (_ *ProcessResponse, retErr error) {
+		a.runMu.Lock()
+		defer a.runMu.Unlock()
+		if err := os.Symlink(dir, client.PPSInputPrefix); err != nil {
+			return nil, err
+		}
+		defer func() {
+			if err := os.Remove(client.PPSInputPrefix); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		err = a.runUserCode(ctx, logger, environ)
+		if err != nil {
+			logger.Logf("failed to process datum with error: %+v", err)
+			return &ProcessResponse{
+				Failed:   true,
+				StatsTag: statsTag,
+				Stats:    a.stats,
+			}, nil
+		}
+		return nil, nil
+	}(); err != nil {
+		return nil, err
+	} else if response != nil {
+		return response, nil
 	}
 	// CleanUp is idempotent so we can call it however many times we want.
 	// The reason we are calling it here is that the puller could've
@@ -799,7 +823,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		return nil, err
 	}
 	atomic.AddUint64(&a.stats.DownloadBytes, uint64(downSize))
-	if err := a.uploadOutput(ctx, tag, logger, req.Data, statsTree, path.Join(statsPath, "pfs", "out")); err != nil {
+	if err := a.uploadOutput(ctx, dir, tag, logger, req.Data, statsTree, path.Join(statsPath, "pfs", "out")); err != nil {
 		// If uploading failed because the user program outputed a special
 		// file, then there's no point in retrying.  Thus we signal that
 		// there's some problem with the user code so the job doesn't
