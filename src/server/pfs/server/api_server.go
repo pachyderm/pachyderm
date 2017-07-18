@@ -561,27 +561,67 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pfs.ListDatumRequest
 		return nil, err
 	}
 	var datumInfos []*pfs.DatumInfo
+	datums := make(map[string]*pfs.DatumInfo)
 	for _, fileInfo := range allFileInfos {
 		_, datumHash := filepath.Split(fileInfo.File.Path)
-		datumInfos = append(
-			datumInfos,
-			&pfs.DatumInfo{
-				Hash:  []byte(datumHash),
-				State: pfs.DatumState_DATUM_SKIPPED,
-			},
-		)
+		datums[datumHash] = &pfs.DatumInfo{
+			Hash:  []byte(datumHash),
+			State: pfs.DatumState_DATUM_SKIPPED,
+		}
 	}
 
 	// Diff the files under /parentJobID and /jobID to get non-skipped datums
-	// TODO
+	newFile := &pfs.File{
+		Commit: statsBranch.Head,
+		Path:   fmt.Sprintf("/%v", request.JobId),
+	}
+	oldFile := &pfs.File{
+		Commit: statsBranch.Head.ParentCommit,
+		Path:   fmt.Sprintf("/%v", request.JobId),
+	}
+	newFileInfos, oldFileInfos, err := a.driver.diffFile(ctx, newFile, oldFile)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("# new %v, # old %v\n", len(newFileInfos), len(oldfileInfos))
 
-	// Flag datums that have failed
-	// TODO
+	// The newFileInfos contain datums that were new in this job
+	// For these datums, populate the status and stats
+	for _, fileInfo := range newFileInfos {
+		_, datumHash := filepath.Split(fileInfo.File.Path)
+		status, err = a.getDatumStatus(statsBranch.Head, request.JobId, datumHash)
+		if err != nil {
+			return nil, err
+		}
+		datums[datumHash].Status = status
+		status, err = a.getDatumStats(statsBranch.Head, request.JobId, datumHash)
+		if err != nil {
+			return nil, err
+		}
+		datums[datumHash].Stats = stats
+	}
 
 	// Sort results (failed first, slow first)
 	// TODO
 
 	return &pfs.DatumInfos{datumInfos}, nil
+}
+
+func (a *apiServer) getDatumStatus(commit *pfs.Commit, jobID string, datumHash string) (*pfs.DatumStatus, err) {
+	//return grpcutil.WriteToStreamingBytesServer(file, apiGetFileServer)
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (a *apiServer) getDatumStats(commit *pfs.Commit, jobID string, datumHash string) (*pfs.DatumStatus, err) {
+	file := &pfs.File{
+		Commit: commit,
+		Path:   fmt.Sprintf("/%v/%v/stats", jobID, datumHash),
+	}
+	file, err := a.driver.getFile(ctx, file, request.OffsetBytes, request.SizeBytes)
+	if err != nil {
+		return err
+	}
+	return nil, fmt.Errorf("not implemented")
 }
 
 func (a *apiServer) InspectDatum(ctx context.Context, request *pfs.InspectDatumRequest) (response *pfs.DatumInfo, retErr error) {
