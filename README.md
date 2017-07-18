@@ -10,24 +10,23 @@
 
 Pachyderm is a tool for production data pipelines. If you need to chain
 together data scraping, ingestion, cleaning, munging, wrangling, processing,
-modelling, and analysis in a sane way then Pachyderm is for you. If you have an
+modelling, and analysis in a sane way, then Pachyderm is for you. If you have an
 existing set of scripts which do this in an ad-hoc fashion and you're looking
-for a way to "productionize" them Pachyderm can make this easy for you.
+for a way to "productionize" them, Pachyderm can make this easy for you.
 
 ## Features
 
 - Containerized: Pachyderm is built on Docker and Kubernetes. Whatever
   languages or libraries your pipeline needs, they can run on Pachyderm which
   can easily be deployed on any cloud provider or on prem.
-- Version Control: Pachyderm version controls your data as it's processed, you
+- Version Control: Pachyderm version controls your data as it's processed. You
   can always ask the system how data has change, see a diff, and, if something
-  doesn't look right revert.
-- Provenance (aka lineage): Pachyderm tracks where data comes from. You can
-  always ask it for the code and raw data that created a result.
+  doesn't look right, revert.
+- Provenance (aka data lineage): Pachyderm tracks where data comes from. Pachyderm keeps track of all the code and  data that created a result.
 - Parallelization: Pachyderm can efficiently schedule massively parallel
   workloads.
 - Incremental Processing: Pachyderm understands how your data has changed and
-  is smart enough to only process what's new.
+  is smart enough to only process the new data.
 
 ## Getting Started
 [Install Pachyderm locally](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html) or [deploy on AWS/GCE/Azure](http://pachyderm.readthedocs.io/en/latest/deployment/deploy_intro.html) in about 5 minutes. 
