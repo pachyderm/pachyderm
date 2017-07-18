@@ -98,7 +98,20 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequest) (resp *authclient.AuthorizeResponse, retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
-	return nil, fmt.Errorf("TODO")
+
+	user, err := a.getAuthorizedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var acl authclient.ACL
+	if err := a.acls.ReadOnly(ctx).Get(req.Repo.Name, &acl); err != nil {
+		return nil, fmt.Errorf("ACL not found for repo %v", req.Repo.Name)
+	}
+
+	return &authclient.AuthorizeResponse{
+		Authorized: req.Scope == acl.Entries[user],
+	}, nil
 }
 
 func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeRequest) (resp *authclient.SetScopeResponse, retErr error) {
@@ -115,7 +128,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 
 		var acl authclient.ACL
 		if err := acls.Get(req.Repo.Name, &acl); err != nil {
-			return err
+			return fmt.Errorf("ACL not found for repo %v", req.Repo.Name)
 		}
 
 		if acl.Entries[user] != authclient.Scope_OWNER {
