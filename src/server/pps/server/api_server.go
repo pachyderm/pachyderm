@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -457,6 +458,130 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 		return nil, err
 	}
 	return &types.Empty{}, nil
+}
+
+func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest) (response *pps.DatumInfos, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+
+	pfsClient, err := a.getPFSClient()
+	if err != nil {
+		return
+	}
+	// Check 'stats' branch exists
+	repo := &pfs.Repo{
+		Name: request.PipelineName,
+	}
+	branches, err := pfsClient.ListBranch(ctx, &pfs.ListBranchRequest{repo})
+	if err != nil {
+		return nil, err
+	}
+	var statsBranch *pfs.BranchInfo
+	for _, branch := range branches.BranchInfo {
+		if branch.Name == "stats" {
+			statsBranch = branch
+		}
+	}
+	if statsBranch == nil {
+		return nil, fmt.Errorf("stats branch not found on %v", repo.Name)
+	}
+	// List the files under /jobID to get all the datums
+	file := &pfs.File{
+		Commit: statsBranch.Head,
+		Path:   fmt.Sprintf("/%v", request.JobId),
+	}
+	allFileInfos, err := pfsClient.ListFile(ctx, &pfs.ListFileRequest{file})
+	if err != nil {
+		return nil, err
+	}
+	var datumInfos []*pps.DatumInfo
+	datums := make(map[string]*pps.DatumInfo)
+	for _, fileInfo := range allFileInfos.FileInfo {
+		_, datumHash := filepath.Split(fileInfo.File.Path)
+		datums[datumHash] = &pps.DatumInfo{
+			Hash:  []byte(datumHash),
+			State: pps.DatumState_DATUM_SKIPPED,
+		}
+	}
+
+	// Diff the files under /parentJobID and /jobID to get non-skipped datums
+	newFile := &pfs.File{
+		Commit: statsBranch.Head,
+		Path:   fmt.Sprintf("/%v", request.JobId),
+	}
+	commitInfo, err := pfsClient.InspectCommit(
+		ctx,
+		&pfs.InspectCommitRequest{
+			Commit: &pfs.Commit{
+				Repo: &pfs.Repo{
+					Name: request.PipelineName,
+				},
+				ID: statsBranch.Head.ID,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	oldFile := &pfs.File{
+		Commit: commitInfo.ParentCommit,
+		Path:   fmt.Sprintf("/%v", request.JobId),
+	}
+	resp, err := pfsClient.DiffFile(ctx, &pfs.DiffFileRequest{newFile, oldFile})
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("# new %v, # old %v\n", len(resp.NewFiles), len(resp.OldFiles))
+
+	// The newFileInfos contain datums that were new in this job
+	// For these datums, populate the status and stats
+	for _, fileInfo := range resp.NewFiles {
+		_, datumHash := filepath.Split(fileInfo.File.Path)
+		// Populate status
+		state := pps.DatumState_DATUM_FAILED
+		stateFile := &pfs.File{
+			Commit: statsBranch.Head,
+			Path:   fmt.Sprintf("/%v/%v/failure", request.JobId, datumHash),
+		}
+		_, err = pfsClient.GetFile(ctx, &pfs.GetFileRequest{stateFile, 0, 0})
+		if err != nil {
+			if strings.Contains(err.Error(), "not found") {
+				state = pps.DatumState_DATUM_SUCCESS
+			} else {
+				return nil, err
+			}
+		}
+		datums[datumHash].State = state
+		// Populate stats
+		statsFile := &pfs.File{
+			Commit: statsBranch.Head,
+			Path:   fmt.Sprintf("/%v/%v/stats", request.JobId, datumHash),
+		}
+		getFileClient, err := pfsClient.GetFile(ctx, &pfs.GetFileRequest{statsFile, 0, 0})
+		//apiGetFileClient, err := c.getFile(repoName, commitID, path, offset, size)
+		if err != nil {
+			return nil, err
+		}
+		r, w := io.Pipe()
+		defer w.Close()
+		if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, w); err != nil {
+			return nil, err
+		}
+		var stats *pps.ProcessStats
+		//		decoder := json.NewDecoder(r)
+		//		jsonpb.Unmarshal(decoder, stats)
+		jsonpb.Unmarshal(r, stats)
+		datums[datumHash].Stats = stats
+	}
+
+	// Sort results (failed first, slow first)
+	// TODO
+
+	return &pps.DatumInfos{datumInfos}, nil
+}
+
+func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumRequest) (response *pps.DatumInfo, retErr error) {
+	return nil, fmt.Errorf("not implemented")
 }
 
 func (a *apiServer) lookupRcNameForPipeline(ctx context.Context, pipeline *pps.Pipeline) (string, error) {

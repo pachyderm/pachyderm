@@ -106,31 +106,6 @@ Provenance: {{range .Provenance}} {{.Repo.Name}}/{{.ID}} {{end}} {{end}}
 	return nil
 }
 
-// PrintDatumInfoHeader prints a file info header.
-func PrintDatumInfoHeader(w io.Writer) {
-	fmt.Fprint(w, "HASH\tSTATUS\tTIME\t\n")
-}
-
-// PrintDatumInfo pretty-prints file info.
-// If recurse is false and directory size is 0, display "-" instead
-// If fast is true and file size is 0, display "-" instead
-func PrintDatumInfo(w io.Writer, datumInfo *pfs.DatumInfo) {
-	var status string
-	switch datumInfo.State {
-	case pfs.DatumState_DATUM_FAILED:
-		status = "FAILED"
-		break
-	case pfs.DatumState_DATUM_SKIPPED:
-		status = "SKIPPED"
-		break
-	case pfs.DatumState_DATUM_SUCCESS:
-		status = "SUCCESS"
-		break
-	}
-	// TODO: last field is total time
-	fmt.Fprintf(w, "%s\t%s\t%s\n", string(datumInfo.Hash), status, 0)
-}
-
 // PrintFileInfoHeader prints a file info header.
 func PrintFileInfoHeader(w io.Writer) {
 	fmt.Fprint(w, "NAME\tTYPE\tSIZE\t\n")

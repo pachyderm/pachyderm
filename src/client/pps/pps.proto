@@ -100,6 +100,23 @@ message Datum {
   bytes hash = 5;
 }
 
+enum DatumState {
+    DATUM_FAILED = 0;
+    DATUM_SUCCESS = 1;
+    DATUM_SKIPPED = 2;
+}
+
+message DatumInfo {
+   bytes hash = 1; 
+   DatumState state = 2;
+   ProcessStats stats = 3;
+}
+
+message DatumInfos {
+  repeated DatumInfo datum_info = 1;
+}
+
+
 message Aggregate {
   int64 count = 1;
   double mean = 2;
@@ -342,6 +359,16 @@ message RestartDatumRequest {
   repeated string data_filters = 2;
 }
 
+message InspectDatumRequest {
+  bytes hash = 1;
+  string pipeline_name = 2;
+}
+
+message ListDatumRequest {
+  string job_id = 1;
+  string pipeline_name = 2;
+}
+
 message CreatePipelineRequest {
   reserved 3;
   Pipeline pipeline = 1;
@@ -397,6 +424,8 @@ service API {
   rpc ListJob(ListJobRequest) returns (JobInfos) {}
   rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
   rpc StopJob(StopJobRequest) returns (google.protobuf.Empty) {}
+  rpc InspectDatum(InspectDatumRequest) returns (DatumInfo) {}
+  rpc ListDatum(ListDatumRequest) returns (DatumInfos) {}
   rpc RestartDatum(RestartDatumRequest) returns (google.protobuf.Empty) {}
 
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}
