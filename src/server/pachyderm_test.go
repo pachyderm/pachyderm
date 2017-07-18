@@ -2664,7 +2664,6 @@ func TestGetLogs(t *testing.T) {
 			break
 		}
 		numLogs++
-		fmt.Printf("path msg %v\nhex  msg %v\nbas64log %v\nhexlog   msg %v\n", pathLog.Message().Message, hexLog.Message().Message, base64Log.Message().Message, hexLog.Message().Message)
 		require.True(t, pathLog.Message().Message == hexLog.Message().Message &&
 			base64Log.Message().Message == hexLog.Message().Message)
 	}
