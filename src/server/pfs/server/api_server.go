@@ -530,7 +530,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest) (response *pps.DatumInfos, retErr error) {
+func (a *apiServer) ListDatum(ctx context.Context, request *pfs.ListDatumRequest) (response *pfs.DatumInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -554,7 +554,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	// List the files under /jobID to get all the datums
 	file := &pfs.File{
 		Commit: statsBranch.Head,
-		Path:   fmt.Sprintf("/%v", request.JobID),
+		Path:   fmt.Sprintf("/%v", request.JobId),
 	}
 	allFileInfos, err := a.driver.listFile(ctx, file)
 	if err != nil {
@@ -562,10 +562,11 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	}
 	var datumInfos []*pfs.DatumInfo
 	for _, fileInfo := range allFileInfos {
+		_, datumHash := filepath.Split(fileInfo.File.Path)
 		datumInfos = append(
 			datumInfos,
 			&pfs.DatumInfo{
-				Hash:  filename,
+				Hash:  []byte(datumHash),
 				State: pfs.DatumState_DATUM_SKIPPED,
 			},
 		)
@@ -580,7 +581,11 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	// Sort results (failed first, slow first)
 	// TODO
 
-	return &pps.DatumInfos{datumInfos}, nil
+	return &pfs.DatumInfos{datumInfos}, nil
+}
+
+func (a *apiServer) InspectDatum(ctx context.Context, request *pfs.InspectDatumRequest) (response *pfs.DatumInfo, retErr error) {
+	return nil, fmt.Errorf("not implemented")
 }
 
 type putFileReader struct {
