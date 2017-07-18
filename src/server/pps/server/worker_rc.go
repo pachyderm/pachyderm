@@ -202,7 +202,7 @@ func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, resources
 	})
 	volumeMounts = append(volumeMounts, api.VolumeMount{
 		Name:      client.PPSWorkerVolume,
-		MountPath: client.PPSInputPrefix,
+		MountPath: client.PPSScratchSpace,
 	})
 	if resources != nil && resources.NvidiaGPU() != nil && !resources.NvidiaGPU().IsZero() {
 		volumes = append(volumes, api.Volume{
