@@ -95,6 +95,12 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 	}, nil
 }
 
+func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequest) (resp *authclient.AuthorizeResponse, retErr error) {
+	func() { a.Log(req, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	return nil, fmt.Errorf("TODO")
+}
+
 func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeRequest) (resp *authclient.SetScopeResponse, retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -112,6 +118,10 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 			return err
 		}
 
+		if acl.Entries[user] != authclient.Scope_OWNER {
+			return fmt.Errorf("user %v is not authorized to update ACL for repo %v", user, req.Repo.Name)
+		}
+
 		acl.Entries[req.Username] = req.Scope
 		acls.Put(req.Repo.Name, &acl)
 		return nil
@@ -123,18 +133,30 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 	return &authclient.SetScopeResponse{}, nil
 }
 
+func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeRequest) (resp *authclient.GetScopeResponse, retErr error) {
+	func() { a.Log(req, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	return nil, fmt.Errorf("TODO")
+}
+
+func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (resp *authclient.GetACLResponse, retErr error) {
+	func() { a.Log(req, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	return nil, fmt.Errorf("TODO")
+}
+
 func (a *apiServer) getAuthorizedUser(ctx context.Context) (string, error) {
 	token := ctx.Value(authnToken)
 	if token == nil {
 		return "", fmt.Errorf("auth token not found in context")
 	}
 
-	token, ok := token.(string)
+	tokenStr, ok := token.(string)
 	if !ok {
 		return "", fmt.Errorf("auth token found in context is malformed")
 	}
 
-	resp, err := a.etcdClient.Get(ctx, path.Join(a.tokenPrefix, token))
+	resp, err := a.etcdClient.Get(ctx, path.Join(a.tokenPrefix, tokenStr))
 	if err != nil {
 		return "", fmt.Errorf("auth token not found: %v", err)
 	}
