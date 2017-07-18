@@ -64,6 +64,10 @@ type APIClient struct {
 	// metricsPrefix is used to send information from this client to Pachyderm Inc
 	// for usage metrics
 	metricsPrefix string
+
+	// authenticationToken is an identifier that authenticates the caller in case
+	// they want to access privileged data
+	authenticationToken string
 }
 
 // GetAddress returns the pachd host:post with which 'c' is communicating. If
@@ -138,9 +142,12 @@ func NewOnUserMachineWithConcurrency(reportMetrics bool, prefix string, maxConcu
 		return nil, err
 	}
 
-	// Add metrics info
-	if cfg != nil && cfg.UserID != "" && reportMetrics {
+	// Add metrics info & authentication token
+	if cfg.UserID != "" && reportMetrics {
 		client.metricsUserID = cfg.UserID
+	}
+	if cfg.V1.SessionToken != "" {
+		client.authenticationToken = cfg.V1.SessionToken
 	}
 	return client, nil
 }
@@ -259,6 +266,7 @@ func (c *APIClient) addMetadata(ctx context.Context) context.Context {
 		metadata.Pairs(
 			"userid", c.metricsUserID,
 			"prefix", c.metricsPrefix,
+			"authn-token", c.authenticationToken,
 		),
 	)
 }

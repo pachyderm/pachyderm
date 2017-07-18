@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -23,7 +22,6 @@ import (
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 )
 
 var (
@@ -545,21 +543,6 @@ func (r *putFileReader) Read(p []byte) (int, error) {
 		r.buffer.Write(request.Value)
 	}
 	return r.buffer.Read(p)
-}
-
-func (a *apiServer) getVersion(ctx context.Context) (int64, error) {
-	md, ok := metadata.FromContext(ctx)
-	if !ok {
-		return 0, fmt.Errorf("version not found in context")
-	}
-	encodedVersion, ok := md["version"]
-	if !ok {
-		return 0, fmt.Errorf("version not found in context")
-	}
-	if len(encodedVersion) != 1 {
-		return 0, fmt.Errorf("version not found in context")
-	}
-	return strconv.ParseInt(encodedVersion[0], 10, 64)
 }
 
 func drainFileServer(putFileServer interface {
