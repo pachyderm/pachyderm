@@ -32,6 +32,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"k8s.io/kubernetes/pkg/api"
 	kube_client "k8s.io/kubernetes/pkg/client/restclient"
@@ -299,23 +300,35 @@ func doFullMode(appEnvObj interface{}) error {
 	}
 
 	healthServer := health.NewHealthServer()
-	return grpcutil.Serve(
-		func(s *grpc.Server) {
-			pfsclient.RegisterAPIServer(s, pfsAPIServer)
-			pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
-			ppsclient.RegisterAPIServer(s, ppsAPIServer)
-			cache_pb.RegisterGroupCacheServer(s, cacheServer)
-			authclient.RegisterAPIServer(s, authAPIServer)
-			healthclient.RegisterHealthServer(s, healthServer)
-		},
-		grpcutil.ServeOptions{
-			Version:    version.Version,
-			MaxMsgSize: grpcutil.MaxMsgSize,
-		},
-		grpcutil.ServeEnv{
-			GRPCPort: appEnv.Port,
-		},
-	)
+
+	httpServer, err := pfs_server.NewHTTPServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, blockCacheBytes)
+	if err != nil {
+		return err
+	}
+	var eg errgroup.Group
+	eg.Go(func() error {
+		return http.ListenAndServe(fmt.Sprintf(":%v", pfs_server.HTTPPort), httpServer)
+	})
+	eg.Go(func() error {
+		return grpcutil.Serve(
+			func(s *grpc.Server) {
+				pfsclient.RegisterAPIServer(s, pfsAPIServer)
+				pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
+				ppsclient.RegisterAPIServer(s, ppsAPIServer)
+				cache_pb.RegisterGroupCacheServer(s, cacheServer)
+				authclient.RegisterAPIServer(s, authAPIServer)
+				healthclient.RegisterHealthServer(s, healthServer)
+			},
+			grpcutil.ServeOptions{
+				Version:    version.Version,
+				MaxMsgSize: grpcutil.MaxMsgSize,
+			},
+			grpcutil.ServeEnv{
+				GRPCPort: appEnv.Port,
+			},
+		)
+	})
+	return eg.Wait()
 }
 
 func getEtcdClient(etcdAddress string) discovery.Client {

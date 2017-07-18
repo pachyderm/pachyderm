@@ -36,7 +36,7 @@ const (
 )
 
 var (
-	port int32 = 30651
+	port int32 = 30653
 )
 
 var testDBs []string
