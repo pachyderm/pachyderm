@@ -55,7 +55,12 @@ message GetACLRequest {
 }
 
 message GetACLResponse {
-    repeated ACLEntry acl_entries = 1;
+    ACL acl = 1;
+}
+
+message ACL {
+    // username -> scope
+    map<string, Scope> entries = 1;
 }
 
 service API {

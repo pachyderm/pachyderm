@@ -14,17 +14,23 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	authclient "github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 )
 
 const (
-	authEtcdPrefix      = "auth_tokens"
+	tokensPrefix = "/pach-tokens"
+	aclsPrefix   = "/acls"
+
 	defaultTokenTTLSecs = 24 * 60 * 60
+	authnToken          = "authn-token"
 )
 
 type apiServer struct {
 	protorpclog.Logger
-	etcdClient *etcd.Client
-	etcdPrefix string
+	etcdClient  *etcd.Client
+	tokenPrefix string
+	// acls is a collection of repoName -> ACL mappings.
+	acls col.Collection
 }
 
 // NewAuthServer returns an implementation of auth.APIServer.
@@ -38,9 +44,16 @@ func NewAuthServer(etcdAddress string, etcdPrefix string) (authclient.APIServer,
 	}
 
 	return &apiServer{
-		Logger:     protorpclog.NewLogger("auth.API"),
-		etcdClient: etcdClient,
-		etcdPrefix: path.Join(etcdPrefix, authEtcdPrefix),
+		Logger:      protorpclog.NewLogger("auth.API"),
+		etcdClient:  etcdClient,
+		tokenPrefix: path.Join(etcdPrefix, tokensPrefix),
+		acls: col.NewCollection(
+			etcdClient,
+			path.Join(etcdPrefix, aclsPrefix),
+			nil,
+			&authclient.ACL{},
+			nil,
+		),
 	}, nil
 }
 
@@ -72,7 +85,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 		return nil, fmt.Errorf("error granting token TTL: %v", err)
 	}
 
-	_, err = a.etcdClient.Put(ctx, path.Join(a.etcdPrefix, pachToken), username, etcd.WithLease(lease.ID))
+	_, err = a.etcdClient.Put(ctx, path.Join(a.tokenPrefix, pachToken), username, etcd.WithLease(lease.ID))
 	if err != nil {
 		return nil, fmt.Errorf("error storing the auth token: %v", err)
 	}
@@ -80,4 +93,51 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 	return &authclient.AuthenticateResponse{
 		PachToken: pachToken,
 	}, nil
+}
+
+func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeRequest) (resp *authclient.SetScopeResponse, retErr error) {
+	func() { a.Log(req, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	user, err := a.getAuthorizedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		acls := a.acls.ReadWrite(stm)
+
+		var acl authclient.ACL
+		if err := acls.Get(req.Repo.Name, &acl); err != nil {
+			return err
+		}
+
+		acl.Entries[req.Username] = req.Scope
+		acls.Put(req.Repo.Name, &acl)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &authclient.SetScopeResponse{}, nil
+}
+
+func (a *apiServer) getAuthorizedUser(ctx context.Context) (string, error) {
+	token := ctx.Value(authnToken)
+	if token == nil {
+		return "", fmt.Errorf("auth token not found in context")
+	}
+
+	token, ok := token.(string)
+	if !ok {
+		return "", fmt.Errorf("auth token found in context is malformed")
+	}
+
+	resp, err := a.etcdClient.Get(ctx, path.Join(a.tokenPrefix, token))
+	if err != nil {
+		return "", fmt.Errorf("auth token not found: %v", err)
+	}
+
+	return string(resp.Kvs[0].Value), nil
 }
