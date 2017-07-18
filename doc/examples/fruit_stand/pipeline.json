@@ -10,6 +10,7 @@
         "done"
     ]
   },
+  "enable_stats": true,
   "parallelism_spec": {
     "constant": 1
   },
