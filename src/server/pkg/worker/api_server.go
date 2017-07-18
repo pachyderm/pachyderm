@@ -63,17 +63,13 @@ type APIServer struct {
 	// Information attached to log lines
 	logMsgTemplate pps.LogMessage
 
-	statusMu sync.Mutex
-	// The currently running job ID
-	jobID string
-	// The currently running data
-	data []*Input
-	// The time we started the currently running
-	started time.Time
-	// Func to cancel the currently running datum
-	cancel func()
 	// The k8s pod name of this worker
 	workerName string
+
+	statusMu sync.Mutex
+	// Stats about the execution of the job
+	stats []*pps.ProcessStats
+
 	// The total number of workers for this pipeline
 	numWorkers int
 	// The namespace in which pachyderm is deployed
@@ -82,8 +78,6 @@ type APIServer struct {
 	jobs col.Collection
 	// The pipelines collection
 	pipelines col.Collection
-	// Stats about the execution of the job
-	stats *pps.ProcessStats
 
 	// Only one datum can be running at a time because they need to be
 	// accessing /pfs, runMu enforces this
@@ -238,11 +232,9 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	return server, nil
 }
 
-func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag, statsTree hashtree.OpenHashTree, statsPath string) (string, error) {
+func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag, stats *pps.ProcessStats, statsTree hashtree.OpenHashTree, statsPath string) (string, error) {
 	defer func(start time.Time) {
-		a.statusMu.Lock()
-		defer a.statusMu.Unlock()
-		a.stats.DownloadTime = types.DurationProto(time.Since(start))
+		stats.DownloadTime = types.DurationProto(time.Since(start))
 	}(time.Now())
 	logger.Logf("input has not been processed, downloading data")
 	defer func(start time.Time) {
@@ -283,11 +275,9 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 }
 
 // Run user code and return the combined output of stdout and stderr.
-func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string) (retErr error) {
+func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string, stats *pps.ProcessStats) (retErr error) {
 	defer func(start time.Time) {
-		a.statusMu.Lock()
-		defer a.statusMu.Unlock()
-		a.stats.ProcessTime = types.DurationProto(time.Since(start))
+		stats.ProcessTime = types.DurationProto(time.Since(start))
 	}(time.Now())
 	logger.Logf("beginning to run user code")
 	defer func(start time.Time) {
@@ -318,11 +308,9 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	return err
 }
 
-func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, logger *taggedLogger, inputs []*Input, statsTree hashtree.OpenHashTree, statsRoot string) error {
+func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, logger *taggedLogger, inputs []*Input, stats *pps.ProcessStats, statsTree hashtree.OpenHashTree, statsRoot string) error {
 	defer func(start time.Time) {
-		a.statusMu.Lock()
-		defer a.statusMu.Unlock()
-		a.stats.UploadTime = types.DurationProto(time.Since(start))
+		stats.UploadTime = types.DurationProto(time.Since(start))
 	}(time.Now())
 	logger.Logf("starting to upload output")
 	defer func(start time.Time) {
@@ -423,7 +411,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, lo
 
 							lock.Lock()
 							defer lock.Unlock()
-							atomic.AddUint64(&a.stats.UploadBytes, fileInfo.SizeBytes)
+							atomic.AddUint64(&stats.UploadBytes, fileInfo.SizeBytes)
 							if statsTree != nil {
 								if err := statsTree.PutFile(path.Join(statsRoot, subRelPath), fileInfo.Objects, int64(fileInfo.SizeBytes)); err != nil {
 									return err
@@ -464,7 +452,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, lo
 
 			lock.Lock()
 			defer lock.Unlock()
-			atomic.AddUint64(&a.stats.UploadBytes, uint64(size))
+			atomic.AddUint64(&stats.UploadBytes, uint64(size))
 			if statsTree != nil {
 				if err := statsTree.PutFile(path.Join(statsRoot, relPath), []*pfs.Object{object}, int64(size)); err != nil {
 					return err
@@ -614,38 +602,6 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	defer func(start time.Time) {
 		logger.Logf("process call finished - request: %v, response: %v, err %v, duration: %v", req, resp, retErr, time.Since(start))
 	}(time.Now())
-	// We cannot run more than one user process at once; otherwise they'd be
-	// writing to the same output directory. Acquire lock to make sure only one
-	// user process runs at a time.
-	// set the status for the datum
-	ctx, cancel := context.WithCancel(ctx)
-	if err := func() error {
-		a.statusMu.Lock()
-		defer a.statusMu.Unlock()
-		if a.jobID != "" {
-			// we error in this case so that callers have a chance to find a
-			// non-busy worker
-			return fmt.Errorf("worker busy")
-		}
-		a.jobID = req.JobID
-		a.data = req.Data
-		a.started = time.Now()
-		a.cancel = cancel
-		a.stats = &pps.ProcessStats{}
-		return nil
-	}(); err != nil {
-		return nil, err
-	}
-	// unset the status when this function exits
-	defer func() {
-		a.statusMu.Lock()
-		defer a.statusMu.Unlock()
-		a.jobID = ""
-		a.data = nil
-		a.started = time.Time{}
-		a.cancel = nil
-		a.stats = nil
-	}()
 	logger.Logf("Received request")
 	// Hash inputs
 	tag, err := HashDatum(a.pipelineInfo, req.Data)
@@ -702,6 +658,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 			Skipped:  true,
 		}, nil
 	}
+	stats := &pps.ProcessStats{}
 	statsPath := path.Join("/", req.JobID, logger.template.DatumID)
 	var statsTree hashtree.OpenHashTree
 	if req.EnableStats {
@@ -740,7 +697,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 			a.statusMu.Lock()
 			defer a.statusMu.Unlock()
 			marshaler := &jsonpb.Marshaler{}
-			statsString, err := marshaler.MarshalToString(a.stats)
+			statsString, err := marshaler.MarshalToString(stats)
 			if err != nil {
 				logger.stderrLog.Printf("could not serialize stats: %s\n", err)
 				return
@@ -759,7 +716,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 
 	// Download input data
 	puller := filesync.NewPuller()
-	dir, err := a.downloadData(logger, req.Data, puller, req.ParentOutput, statsTree, path.Join(statsPath, "pfs"))
+	dir, err := a.downloadData(logger, req.Data, puller, req.ParentOutput, stats, statsTree, path.Join(statsPath, "pfs"))
 	// We run these cleanup functions no matter what, so that if
 	// downloadData partially succeeded, we still clean up the resources.
 	defer func() {
@@ -796,13 +753,13 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 				retErr = err
 			}
 		}()
-		err = a.runUserCode(ctx, logger, environ)
+		err = a.runUserCode(ctx, logger, environ, stats)
 		if err != nil {
 			logger.Logf("failed to process datum with error: %+v", err)
 			return &ProcessResponse{
 				Failed:   true,
 				StatsTag: statsTag,
-				Stats:    a.stats,
+				Stats:    stats,
 			}, nil
 		}
 		return nil, nil
@@ -822,8 +779,8 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		logger.Logf("puller encountered an error while cleaning up: %+v", err)
 		return nil, err
 	}
-	atomic.AddUint64(&a.stats.DownloadBytes, uint64(downSize))
-	if err := a.uploadOutput(ctx, dir, tag, logger, req.Data, statsTree, path.Join(statsPath, "pfs", "out")); err != nil {
+	atomic.AddUint64(&stats.DownloadBytes, uint64(downSize))
+	if err := a.uploadOutput(ctx, dir, tag, logger, req.Data, stats, statsTree, path.Join(statsPath, "pfs", "out")); err != nil {
 		// If uploading failed because the user program outputed a special
 		// file, then there's no point in retrying.  Thus we signal that
 		// there's some problem with the user code so the job doesn't
@@ -832,7 +789,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 			return &ProcessResponse{
 				Failed:   true,
 				StatsTag: statsTag,
-				Stats:    a.stats,
+				Stats:    stats,
 			}, nil
 		}
 		return nil, err
@@ -840,49 +797,51 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	return &ProcessResponse{
 		Tag:      &pfs.Tag{tag},
 		StatsTag: statsTag,
-		Stats:    a.stats,
+		Stats:    stats,
 	}, nil
 }
 
 // Status returns the status of the current worker.
 func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStatus, error) {
-	a.statusMu.Lock()
-	defer a.statusMu.Unlock()
-	started, err := types.TimestampProto(a.started)
-	if err != nil {
-		return nil, err
-	}
-	result := &pps.WorkerStatus{
-		JobID:    a.jobID,
-		WorkerID: a.workerName,
-		Started:  started,
-		Data:     a.datum(),
-	}
-	return result, nil
+	return &pps.WorkerStatus{}, nil
+	// a.statusMu.Lock()
+	// defer a.statusMu.Unlock()
+	// started, err := types.TimestampProto(a.started)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// result := &pps.WorkerStatus{
+	// 	JobID:    a.jobID,
+	// 	WorkerID: a.workerName,
+	// 	Started:  started,
+	// 	Data:     a.datum(),
+	// }
+	// return result, nil
 }
 
 // Cancel cancels the currently running datum
 func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*CancelResponse, error) {
-	a.statusMu.Lock()
-	defer a.statusMu.Unlock()
-	if request.JobID != a.jobID {
-		return &CancelResponse{Success: false}, nil
-	}
-	if !MatchDatum(request.DataFilters, a.datum()) {
-		return &CancelResponse{Success: false}, nil
-	}
-	a.cancel()
-	// clear the status since we're no longer processing this datum
-	a.jobID = ""
-	a.data = nil
-	a.started = time.Time{}
-	a.cancel = nil
-	return &CancelResponse{Success: true}, nil
+	return &CancelResponse{}, nil
+	// a.statusMu.Lock()
+	// defer a.statusMu.Unlock()
+	// if request.JobID != a.jobID {
+	// 	return &CancelResponse{Success: false}, nil
+	// }
+	// if !MatchDatum(request.DataFilters, a.datum()) {
+	// 	return &CancelResponse{Success: false}, nil
+	// }
+	// a.cancel()
+	// // clear the status since we're no longer processing this datum
+	// a.jobID = ""
+	// a.data = nil
+	// a.started = time.Time{}
+	// a.cancel = nil
+	// return &CancelResponse{Success: true}, nil
 }
 
-func (a *APIServer) datum() []*pps.Datum {
+func (a *APIServer) datum(data []*Input) []*pps.Datum {
 	var result []*pps.Datum
-	for _, datum := range a.data {
+	for _, datum := range data {
 		result = append(result, &pps.Datum{
 			Path: datum.FileInfo.File.Path,
 			Hash: datum.FileInfo.Hash,
