@@ -713,6 +713,21 @@ func (c APIClient) DeleteFile(repoName string, commitID string, path string) err
 	return err
 }
 
+// ListDatum returns info about all datums in a Job
+func (c APIClient) ListDatum(pipelineName string, jobID string) ([]*pfs.DatumInfo, error) {
+	datumInfos, err := c.PfsAPIClient.ListDatum(
+		c.ctx(),
+		&pfs.ListDatumRequest{
+			PipelineName: pipelineName,
+			JobId:        jobID,
+		},
+	)
+	if err != nil {
+		return nil, sanitizeErr(err)
+	}
+	return datumInfos.DatumInfo, nil
+}
+
 type putFileWriteCloser struct {
 	request       *pfs.PutFileRequest
 	putFileClient pfs.API_PutFileClient
