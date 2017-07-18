@@ -21,10 +21,11 @@ enum Scope {
 
 message AuthorizeRequest {
     pfs.Repo repo = 1;
+    Scope scope = 2;
 }
 
 message AuthorizeResponse {
-    Scope scope = 1;
+    bool authorized = 1;
 }
 
 message SetScopeRequest {
