@@ -100,29 +100,6 @@ message Datum {
   bytes hash = 5;
 }
 
-enum DatumState {
-    DATUM_FAILED = 0;
-    DATUM_SUCCESS = 1;
-    DATUM_SKIPPED = 2;
-}
-
-message DatumStats {
-    uint64 download_time = 0;
-    uint64 process_time = 0;
-    uint64 upload_time = 0;
-    uint64 download_bytes = 0;
-    uint64 upload_bytes = 0;
-}
-
-messge DatumInfo {
-   bytes hash = 1; 
-   DatumState state = 2;
-}
-
-message DatumInfos {
-  repeated DatumInfo datum_info = 1;
-}
-
 message Aggregate {
   int64 count = 1;
   double mean = 2;

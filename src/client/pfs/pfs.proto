@@ -110,6 +110,31 @@ message ObjectInfo {
   BlockRef block_ref = 2;
 }
 
+enum DatumState {
+    DATUM_FAILED = 0;
+    DATUM_SUCCESS = 1;
+    DATUM_SKIPPED = 2;
+}
+
+message DatumStats {
+    uint64 download_time = 0;
+    uint64 process_time = 1;
+    uint64 upload_time = 2;
+    uint64 download_bytes = 3;
+    uint64 upload_bytes = 4;
+}
+
+messge DatumInfo {
+   bytes hash = 0; 
+   DatumState state = 1;
+   DatumStats stats = 2;
+}
+
+message DatumInfos {
+  repeated DatumInfo datum_info = 1;
+}
+
+
 message CreateRepoRequest {
   Repo repo = 1;
   repeated Repo provenance = 2;
@@ -362,6 +387,17 @@ message CheckObjectResponse {
   bool exists = 1;
 }
 
+message InspectDatumRequest {
+  bytes hash = 0;
+  string pipeline_name = 1;
+}
+
+message ListDatumRequest {
+  string job_id = 0;
+  string pipeline_name = 1;
+}
+
+
 service ObjectAPI {
   rpc PutObject(stream PutObjectRequest) returns (Object) {}
   rpc GetObject(Object) returns (stream google.protobuf.BytesValue) {}
@@ -378,6 +414,8 @@ service ObjectAPI {
   rpc ListTags(ListTagsRequest) returns (stream ListTagsResponse) {}
   rpc DeleteTags(DeleteTagsRequest) returns (DeleteTagsResponse) {}
   rpc Compact(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc InspectDatum(InspectDatumRequest) returns (DatumInfo) {}
+  rpc ListDatum(ListDatumRequest) returns (DatumInfos) {}
 }
 
 message ObjectIndex {
