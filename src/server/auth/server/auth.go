@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"path"
 	"time"
@@ -85,7 +86,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 		return nil, fmt.Errorf("error granting token TTL: %v", err)
 	}
 
-	_, err = a.etcdClient.Put(ctx, path.Join(a.tokenPrefix, pachToken), username, etcd.WithLease(lease.ID))
+	_, err = a.etcdClient.Put(ctx, path.Join(a.tokenPrefix, hashToken(pachToken)), username, etcd.WithLease(lease.ID))
 	if err != nil {
 		return nil, fmt.Errorf("error storing the auth token: %v", err)
 	}
@@ -158,6 +159,14 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	return nil, fmt.Errorf("TODO")
 }
 
+// hashToken converts a token to a cryptographic hash.
+// We don't want to store tokens verbatim in the database, as then whoever
+// that has access to the database has access to all tokens.
+func hashToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return fmt.Sprintf("%x", sum)
+}
+
 func (a *apiServer) getAuthorizedUser(ctx context.Context) (string, error) {
 	token := ctx.Value(authnToken)
 	if token == nil {
@@ -169,7 +178,7 @@ func (a *apiServer) getAuthorizedUser(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("auth token found in context is malformed")
 	}
 
-	resp, err := a.etcdClient.Get(ctx, path.Join(a.tokenPrefix, tokenStr))
+	resp, err := a.etcdClient.Get(ctx, path.Join(a.tokenPrefix, hashToken(tokenStr)))
 	if err != nil {
 		return "", fmt.Errorf("auth token not found: %v", err)
 	}
