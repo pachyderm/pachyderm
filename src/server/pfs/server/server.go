@@ -34,6 +34,11 @@ func NewAPIServer(address string, etcdAddresses []string, etcdPrefix string, cac
 	return newAPIServer(address, etcdAddresses, etcdPrefix, cacheBytes)
 }
 
+// NewHTTPServer creates an APIServer.
+func NewHTTPServer(address string, etcdAddresses []string, etcdPrefix string, cacheBytes int64) (*HTTPServer, error) {
+	return newHTTPServer(address, etcdAddresses, etcdPrefix, cacheBytes)
+}
+
 // NewLocalBlockAPIServer creates a BlockAPIServer.
 func NewLocalBlockAPIServer(dir string) (BlockAPIServer, error) {
 	return newLocalBlockAPIServer(dir)
