@@ -530,6 +530,59 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	return &types.Empty{}, nil
 }
 
+func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest) (response *pps.DatumInfos, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+
+	// Check 'stats' branch exists
+	repo := &pfs.Repo{
+		Name: request.PipelineName,
+	}
+	branches, err := a.driver.listBranch(ctx, repo)
+	if err != nil {
+		return nil, err
+	}
+	var statsBranch *pfs.BranchInfo
+	for _, branch := range branches {
+		if branch.Name == "stats" {
+			statsBranch = branch
+		}
+	}
+	if statsBranch == nil {
+		return nil, fmt.Errorf("stats branch not found on %v", repo.Name)
+	}
+	// List the files under /jobID to get all the datums
+	file := &pfs.File{
+		Commit: statsBranch.Head,
+		Path:   fmt.Sprintf("/%v", request.JobID),
+	}
+	allFileInfos, err := a.driver.listFile(ctx, file)
+	if err != nil {
+		return nil, err
+	}
+	var datumInfos []*pfs.DatumInfo
+	for _, fileInfo := range allFileInfos {
+		datumInfos = append(
+			datumInfos,
+			&pfs.DatumInfo{
+				Hash:  filename,
+				State: pfs.DatumState_DATUM_SKIPPED,
+			},
+		)
+	}
+
+	// Diff the files under /parentJobID and /jobID to get non-skipped datums
+	// TODO
+
+	// Flag datums that have failed
+	// TODO
+
+	// Sort results (failed first, slow first)
+	// TODO
+
+	return &pps.DatumInfos{datumInfos}, nil
+}
+
 type putFileReader struct {
 	server pfs.API_PutFileServer
 	buffer bytes.Buffer
