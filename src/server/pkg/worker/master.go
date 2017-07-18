@@ -596,7 +596,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 		var statsCommit *pfs.Commit
 		if jobInfo.EnableStats {
 			if err := func() error {
-				aggregateProcessStats, err := aggregateProcessStats(processStats)
+				aggregateProcessStats, err := a.aggregateProcessStats(processStats)
 				if err != nil {
 					return err
 				}
@@ -744,7 +744,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 	return nil
 }
 
-func aggregateProcessStats(stats []*pps.ProcessStats) (*pps.AggregateProcessStats, error) {
+func (a *APIServer) aggregateProcessStats(stats []*pps.ProcessStats) (*pps.AggregateProcessStats, error) {
 	var downloadTime []float64
 	var processTime []float64
 	var uploadTime []float64
@@ -770,23 +770,23 @@ func aggregateProcessStats(stats []*pps.ProcessStats) (*pps.AggregateProcessStat
 		uploadBytes = append(uploadBytes, float64(s.UploadBytes))
 
 	}
-	dtAgg, err := aggregate(downloadTime)
+	dtAgg, err := a.aggregate(downloadTime)
 	if err != nil {
 		return nil, err
 	}
-	ptAgg, err := aggregate(processTime)
+	ptAgg, err := a.aggregate(processTime)
 	if err != nil {
 		return nil, err
 	}
-	utAgg, err := aggregate(uploadTime)
+	utAgg, err := a.aggregate(uploadTime)
 	if err != nil {
 		return nil, err
 	}
-	dbAgg, err := aggregate(downloadBytes)
+	dbAgg, err := a.aggregate(downloadBytes)
 	if err != nil {
 		return nil, err
 	}
-	ubAgg, err := aggregate(uploadBytes)
+	ubAgg, err := a.aggregate(uploadBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -799,22 +799,23 @@ func aggregateProcessStats(stats []*pps.ProcessStats) (*pps.AggregateProcessStat
 	}, nil
 }
 
-func aggregate(datums []float64) (*pps.Aggregate, error) {
+func (a *APIServer) aggregate(datums []float64) (*pps.Aggregate, error) {
+	logger := a.getMasterLogger()
 	mean, err := stats.Mean(datums)
 	if err != nil {
-		return nil, err
+		logger.Logf("error aggregating mean: %v\n", err)
 	}
 	stddev, err := stats.StandardDeviation(datums)
 	if err != nil {
-		return nil, err
+		logger.Logf("error aggregating std dev: %v\n", err)
 	}
 	fifth, err := stats.Percentile(datums, 5)
 	if err != nil {
-		return nil, err
+		logger.Logf("error aggregating 5th percentile: %v\n", err)
 	}
 	ninetyFifth, err := stats.Percentile(datums, 95)
 	if err != nil {
-		return nil, err
+		logger.Logf("error aggregating 95th percentile: %v\n", err)
 	}
 	return &pps.Aggregate{
 		Count:                 int64(len(datums)),
