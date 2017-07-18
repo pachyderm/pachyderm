@@ -898,6 +898,36 @@ $ pachctl diff-file foo master path1 bar master path2
 		}),
 	}
 
+	listDatum := &cobra.Command{
+		Use:   "list-datum pipeline-name job-id",
+		Short: "Return the datums in a job.",
+		Long:  "Return the datums in a job.",
+		Run: cmdutil.RunBoundedArgs(2, 2, func(args []string) error {
+			client, err := client.NewOnUserMachine(metrics, "user")
+			if err != nil {
+				return err
+			}
+			datumInfos, err := client.ListDatum(args[0], args[1])
+			if err != nil {
+				return err
+			}
+			if raw {
+				for _, datumInfo := range datumInfos {
+					if err := marshaller.Marshal(os.Stdout, datumInfo); err != nil {
+						return err
+					}
+				}
+			}
+			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			pretty.PrintDatumInfoHeader(writer)
+			for _, datumInfo := range datumInfos {
+				pretty.PrintDatumInfo(writer, datumInfo)
+			}
+			return writer.Flush()
+		}),
+	}
+	rawFlag(listDatum)
+
 	getObject := &cobra.Command{
 		Use:   "get-object hash",
 		Short: "Return the contents of an object",
@@ -1030,6 +1060,7 @@ $ pachctl diff-file foo master path1 bar master path2
 	result = append(result, globFile)
 	result = append(result, diffFile)
 	result = append(result, deleteFile)
+	result = append(result, listDatum)
 	result = append(result, getObject)
 	result = append(result, getTag)
 	result = append(result, mount)
