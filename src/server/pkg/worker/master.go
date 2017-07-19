@@ -373,7 +373,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 		}
 
 		failed := false
-		limiter := limit.New(a.numWorkers * 5)
+		limiter := limit.New(a.numWorkers * 10)
 		// process all datums
 		df, err := newDatumFactory(ctx, pfsClient, jobInfo.Input)
 		if err != nil {
