@@ -78,6 +78,8 @@ type APIServer struct {
 	cancel func()
 	// Stats about the execution of the job
 	stats *pps.ProcessStats
+	// queueSize is the number of items enqueued
+	queueSize int64
 
 	// The total number of workers for this pipeline
 	numWorkers int
@@ -611,6 +613,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	defer func(start time.Time) {
 		logger.Logf("process call finished - request: %v, response: %v, err %v, duration: %v", req, resp, retErr, time.Since(start))
 	}(time.Now())
+	atomic.AddInt64(&a.queueSize, 1)
 	logger.Logf("Received request")
 	ctx, cancel := context.WithCancel(ctx)
 	// Hash inputs
@@ -704,8 +707,6 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 			}
 		}()
 		defer func() {
-			a.statusMu.Lock()
-			defer a.statusMu.Unlock()
 			marshaler := &jsonpb.Marshaler{}
 			statsString, err := marshaler.MarshalToString(stats)
 			if err != nil {
@@ -756,6 +757,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	if response, err := func() (_ *ProcessResponse, retErr error) {
 		a.runMu.Lock()
 		defer a.runMu.Unlock()
+		atomic.AddInt64(&a.queueSize, -1)
 		func() {
 			a.statusMu.Lock()
 			defer a.statusMu.Unlock()
@@ -830,10 +832,11 @@ func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStat
 		return nil, err
 	}
 	result := &pps.WorkerStatus{
-		JobID:    a.jobID,
-		WorkerID: a.workerName,
-		Started:  started,
-		Data:     a.datum(),
+		JobID:     a.jobID,
+		WorkerID:  a.workerName,
+		Started:   started,
+		Data:      a.datum(),
+		QueueSize: a.queueSize,
 	}
 	return result, nil
 }
