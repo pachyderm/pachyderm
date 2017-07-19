@@ -65,6 +65,7 @@ message ACL {
 
 message User {
     string username = 1;
+    bool admin = 2;
 }
 
 service API {
