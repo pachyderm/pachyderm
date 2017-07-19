@@ -254,12 +254,11 @@ func (c APIClient) RestartDatum(jobID string, datumFilter []string) error {
 }
 
 // ListDatum returns info about all datums in a Job
-func (c APIClient) ListDatum(pipelineName string, jobID string) ([]*pps.DatumInfo, error) {
+func (c APIClient) ListDatum(jobID string) ([]*pps.DatumInfo, error) {
 	datumInfos, err := c.PpsAPIClient.ListDatum(
 		c.ctx(),
 		&pps.ListDatumRequest{
-			PipelineName: pipelineName,
-			JobId:        jobID,
+			JobId: jobID,
 		},
 	)
 	if err != nil {

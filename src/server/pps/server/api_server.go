@@ -464,16 +464,21 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest) (response *pps.DatumInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
+		Job: &pps.Job{
+			ID: request.JobId,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	pfsClient, err := a.getPFSClient()
 	if err != nil {
 		return
 	}
 	// Check 'stats' branch exists
-	repo := &pfs.Repo{
-		Name: request.PipelineName,
-	}
-	branches, err := pfsClient.ListBranch(ctx, &pfs.ListBranchRequest{repo})
+	branches, err := pfsClient.ListBranch(ctx, &pfs.ListBranchRequest{jobInfo.OutputCommit.Repo})
 	if err != nil {
 		return nil, err
 	}
@@ -484,7 +489,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		}
 	}
 	if statsBranch == nil {
-		return nil, fmt.Errorf("stats branch not found on %v", repo.Name)
+		return nil, fmt.Errorf("stats branch not found on %v", jobInfo.OutputCommit.Repo.Name)
 	}
 	// List the files under /jobID to get all the datums
 	file := &pfs.File{
@@ -517,10 +522,8 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		ctx,
 		&pfs.InspectCommitRequest{
 			Commit: &pfs.Commit{
-				Repo: &pfs.Repo{
-					Name: request.PipelineName,
-				},
-				ID: statsBranch.Head.ID,
+				Repo: jobInfo.OutputCommit.Repo,
+				ID:   statsBranch.Head.ID,
 			},
 		},
 	)

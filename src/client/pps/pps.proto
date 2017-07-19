@@ -366,7 +366,6 @@ message InspectDatumRequest {
 
 message ListDatumRequest {
   string job_id = 1;
-  string pipeline_name = 2;
 }
 
 message CreatePipelineRequest {
