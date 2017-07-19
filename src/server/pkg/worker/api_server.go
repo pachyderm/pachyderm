@@ -67,8 +67,17 @@ type APIServer struct {
 	workerName string
 
 	statusMu sync.Mutex
+
+	// The currently running job ID
+	jobID string
+	// The currently running data
+	data []*Input
+	// The time we started the currently running
+	started time.Time
+	// Func to cancel the currently running datum
+	cancel func()
 	// Stats about the execution of the job
-	stats []*pps.ProcessStats
+	stats *pps.ProcessStats
 
 	// The total number of workers for this pipeline
 	numWorkers int
@@ -603,6 +612,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		logger.Logf("process call finished - request: %v, response: %v, err %v, duration: %v", req, resp, retErr, time.Since(start))
 	}(time.Now())
 	logger.Logf("Received request")
+	ctx, cancel := context.WithCancel(ctx)
 	// Hash inputs
 	tag, err := HashDatum(a.pipelineInfo, req.Data)
 	if err != nil {
@@ -742,9 +752,19 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	if err := os.MkdirAll(filepath.Join(dir, "out"), 0666); err != nil {
 		return nil, err
 	}
+	// unset the status when this function exits
 	if response, err := func() (_ *ProcessResponse, retErr error) {
 		a.runMu.Lock()
 		defer a.runMu.Unlock()
+		func() {
+			a.statusMu.Lock()
+			defer a.statusMu.Unlock()
+			a.jobID = req.JobID
+			a.data = req.Data
+			a.started = time.Now()
+			a.cancel = cancel
+			a.stats = stats
+		}()
 		if err := os.Symlink(dir, client.PPSInputPrefix); err != nil {
 			return nil, err
 		}
@@ -803,45 +823,43 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 
 // Status returns the status of the current worker.
 func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStatus, error) {
-	return &pps.WorkerStatus{}, nil
-	// a.statusMu.Lock()
-	// defer a.statusMu.Unlock()
-	// started, err := types.TimestampProto(a.started)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// result := &pps.WorkerStatus{
-	// 	JobID:    a.jobID,
-	// 	WorkerID: a.workerName,
-	// 	Started:  started,
-	// 	Data:     a.datum(),
-	// }
-	// return result, nil
+	a.statusMu.Lock()
+	defer a.statusMu.Unlock()
+	started, err := types.TimestampProto(a.started)
+	if err != nil {
+		return nil, err
+	}
+	result := &pps.WorkerStatus{
+		JobID:    a.jobID,
+		WorkerID: a.workerName,
+		Started:  started,
+		Data:     a.datum(),
+	}
+	return result, nil
 }
 
 // Cancel cancels the currently running datum
 func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*CancelResponse, error) {
-	return &CancelResponse{}, nil
-	// a.statusMu.Lock()
-	// defer a.statusMu.Unlock()
-	// if request.JobID != a.jobID {
-	// 	return &CancelResponse{Success: false}, nil
-	// }
-	// if !MatchDatum(request.DataFilters, a.datum()) {
-	// 	return &CancelResponse{Success: false}, nil
-	// }
-	// a.cancel()
-	// // clear the status since we're no longer processing this datum
-	// a.jobID = ""
-	// a.data = nil
-	// a.started = time.Time{}
-	// a.cancel = nil
-	// return &CancelResponse{Success: true}, nil
+	a.statusMu.Lock()
+	defer a.statusMu.Unlock()
+	if request.JobID != a.jobID {
+		return &CancelResponse{Success: false}, nil
+	}
+	if !MatchDatum(request.DataFilters, a.datum()) {
+		return &CancelResponse{Success: false}, nil
+	}
+	a.cancel()
+	// clear the status since we're no longer processing this datum
+	a.jobID = ""
+	a.data = nil
+	a.started = time.Time{}
+	a.cancel = nil
+	return &CancelResponse{Success: true}, nil
 }
 
-func (a *APIServer) datum(data []*Input) []*pps.Datum {
+func (a *APIServer) datum() []*pps.Datum {
 	var result []*pps.Datum
-	for _, datum := range data {
+	for _, datum := range a.data {
 		result = append(result, &pps.Datum{
 			Path: datum.FileInfo.File.Path,
 			Hash: datum.FileInfo.Hash,
