@@ -197,19 +197,6 @@ func PrintDatumInfoHeader(w io.Writer) {
 // If recurse is false and directory size is 0, display "-" instead
 // If fast is true and file size is 0, display "-" instead
 func PrintDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
-	var status string
-	switch datumInfo.State {
-	case ppsclient.DatumState_FAILED:
-		status = "FAILED"
-		break
-	case ppsclient.DatumState_SKIPPED:
-		status = "SKIPPED"
-		break
-	case ppsclient.DatumState_SUCCESS:
-		status = "SUCCESS"
-		break
-	}
-	// TODO: last field is total time
 	var totalTime string
 	if datumInfo.Stats != nil {
 		totalDuration := time.Duration(0)
@@ -221,7 +208,38 @@ func PrintDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 		totalDuration += duration
 		totalTime = totalDuration.String()
 	}
-	fmt.Fprintf(w, "%s\t%s\t%s\n", datumInfo.ID, status, totalTime)
+	fmt.Fprintf(w, "%s\t%s\t%s\n", datumInfo.ID, datumState(datumInfo.State), totalTime)
+}
+
+func PrintDetailedDatumInfo(datumInfo *ppsclient.DatumInfo) error {
+	template, err := template.New("DatumInfo").Funcs(funcMap).Parse(
+		`             ID: {{.ID}}
+          State: {{datumState .State}}
+Data Downloaded: {{prettySize .Stats.DownloadBytes}}
+  Data Uploaded: {{prettySize .Stats.UploadBytes}}
+  Download Time: {{prettyDuration .Stats.DownloadTime}}
+   Process Time: {{prettyDuration .Stats.ProcessTime}}
+    Upload Time: {{prettyDuration .Stats.UploadTime}}
+`)
+	if err != nil {
+		return err
+	}
+	err = template.Execute(os.Stdout, datumInfo)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func datumState(datumState ppsclient.DatumState) string {
+	switch datumState {
+	case ppsclient.DatumState_SKIPPED:
+		return color.New(color.FgYellow).SprintFunc()("skipped")
+	case ppsclient.DatumState_FAILED:
+		return color.New(color.FgRed).SprintFunc()("failed")
+	case ppsclient.DatumState_SUCCESS:
+		return color.New(color.FgGreen).SprintFunc()("success")
+	}
+	return "-"
 }
 
 func jobState(jobState ppsclient.JobState) string {
@@ -329,6 +347,7 @@ func shorthandInput(input *ppsclient.Input) string {
 var funcMap = template.FuncMap{
 	"pipelineState":        pipelineState,
 	"jobState":             jobState,
+	"datumState":           datumState,
 	"workerStatus":         workerStatus,
 	"pipelineInput":        pipelineInput,
 	"jobInput":             jobInput,
