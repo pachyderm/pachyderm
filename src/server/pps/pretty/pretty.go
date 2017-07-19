@@ -211,33 +211,23 @@ func PrintDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 	fmt.Fprintf(w, "%s\t%s\t%s\n", datumInfo.ID, datumState(datumInfo.State), totalTime)
 }
 
-func PrintDetailedDatumInfo(datumInfo *ppsclient.DatumInfo) error {
-	template, err := template.New("DatumInfo").Funcs(funcMap).Parse(
-		`             ID: {{.ID}}
-          State: {{datumState .State}}
-Data Downloaded: {{prettySize .Stats.DownloadBytes}}
-  Data Uploaded: {{prettySize .Stats.UploadBytes}}
-  Download Time: {{prettyDuration .Stats.DownloadTime}}
-   Process Time: {{prettyDuration .Stats.ProcessTime}}
-    Upload Time: {{prettyDuration .Stats.UploadTime}}
-      PFS State: 
-`)
-	if err != nil {
-		return err
-	}
-	err = template.Execute(os.Stdout, datumInfo)
-	if err != nil {
-		return err
-	}
-	return nil
+func PrintDetailedDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
+	fmt.Fprintf(w, "ID\t%s\n", datumInfo.ID)
+	fmt.Fprintf(w, "State\t%s\n", datumInfo.State)
+	fmt.Fprintf(w, "Data Downloaded\t%s\n", pretty.Size(datumInfo.Stats.DownloadBytes))
+	fmt.Fprintf(w, "Data Uploaded\t%s\n", pretty.Size(datumInfo.Stats.UploadBytes))
+	fmt.Fprintf(w, "Download Time\t%s\n", pretty.Duration(datumInfo.Stats.DownloadTime))
+	fmt.Fprintf(w, "Process Time\t%s\n", pretty.Duration(datumInfo.Stats.ProcessTime))
+	fmt.Fprintf(w, "Upload Time\t%s\n", pretty.Duration(datumInfo.Stats.UploadTime))
+	fmt.Fprintf(w, "PFS State:\n")
 }
 
 func PrintDatumPfsStateHeader(w io.Writer) {
-	fmt.Fprintf(w, "REPO\tCOMMIT\tPATH\t\n")
+	fmt.Fprintf(w, "  REPO\tCOMMIT\tPATH\t\n")
 }
 
 func PrintDatumPfsState(w io.Writer, datumInfo *ppsclient.DatumInfo) {
-	fmt.Fprintf(w, "%s\t%s\t%s\t\n", datumInfo.PfsState.Commit.Repo.Name, datumInfo.PfsState.Commit.ID, datumInfo.PfsState.Path)
+	fmt.Fprintf(w, "  %s\t%s\t%s\t\n", datumInfo.PfsState.Commit.Repo.Name, datumInfo.PfsState.Commit.ID, datumInfo.PfsState.Path)
 }
 
 func datumState(datumState ppsclient.DatumState) string {
