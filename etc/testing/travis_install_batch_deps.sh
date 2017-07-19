@@ -19,8 +19,11 @@ aws --version
 wget https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-sdk-153.0.0-linux-x86_64.tar.gz \
     -O google-cloud-sdk-153.0.0-linux-x86_64.tar.gz
 tar -xzf google-cloud-sdk-153.0.0-linux-x86_64.tar.gz
-mv google-cloud-sdk/bin/gcloud /usr/local/bin/gcloud
-mv google-cloud-sdk/bin/gsutil /usr/local/bin/gsutil
+ls google-cloud-sdk
+sudo mv google-cloud-sdk/bin/gcloud /usr/local/bin/gcloud ||
+  sudo ln -s google-cloud-sdk/bin/gcloud /usr/local/bin/gcloud
+sudo mv google-cloud-sdk/bin/gsutil /usr/local/bin/gsutil ||
+  sudo ln -s google-cloud-sdk/bin/gsutil /usr/local/bin/gsutil
 
 # because we need to run the batch test suite with sudo, we need to make sure
 # a few binaries are in the secure path

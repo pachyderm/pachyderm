@@ -2,7 +2,8 @@
 
 # Check the cron value to see if this is a daily job
 
-if [[ "${TRAVIS_EVENT_TYPE}" == "cron" ]]; then
+# if [[ "${TRAVIS_EVENT_TYPE}" == "cron" ]]; then
+if true ; then
 	echo "Running daily benchmarks"
 
     # Use the secrets in the travis environment to setup the aws creds for the aws command:
@@ -27,7 +28,7 @@ if [[ "${TRAVIS_EVENT_TYPE}" == "cron" ]]; then
     # Need to login so that travis can push the bench image
     docker login -u pachydermbuildbot -p ${DOCKER_PWD}
 
-    # Run tests in the cloud  
+    # Run tests in the cloud
     sudo -E PATH="${PATH}" GOPATH="${GOPATH}" make aws-test
 else
 	echo "Running tests"
