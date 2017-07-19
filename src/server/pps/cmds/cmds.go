@@ -206,15 +206,15 @@ Examples:
 		}),
 	}
 	listDatum := &cobra.Command{
-		Use:   "list-datum pipeline-name job-id",
+		Use:   "list-datum job-id",
 		Short: "Return the datums in a job.",
 		Long:  "Return the datums in a job.",
-		Run: cmdutil.RunBoundedArgs(2, 2, func(args []string) error {
+		Run: cmdutil.RunBoundedArgs(1, 1, func(args []string) error {
 			client, err := pachdclient.NewOnUserMachine(metrics, "user")
 			if err != nil {
 				return err
 			}
-			datumInfos, err := client.ListDatum(args[0], args[1])
+			datumInfos, err := client.ListDatum(args[0])
 			if err != nil {
 				return err
 			}
