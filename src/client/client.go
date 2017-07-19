@@ -11,12 +11,13 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
-	log "github.com/Sirupsen/logrus"
 	types "github.com/gogo/protobuf/types"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/src/client/health"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 )
 
@@ -63,6 +64,10 @@ type APIClient struct {
 	// metricsPrefix is used to send information from this client to Pachyderm Inc
 	// for usage metrics
 	metricsPrefix string
+
+	// authenticationToken is an identifier that authenticates the caller in case
+	// they want to access privileged data
+	authenticationToken string
 }
 
 // GetAddress returns the pachd host:post with which 'c' is communicating. If
@@ -137,9 +142,12 @@ func NewOnUserMachineWithConcurrency(reportMetrics bool, prefix string, maxConcu
 		return nil, err
 	}
 
-	// Add metrics info
-	if cfg != nil && cfg.UserID != "" && reportMetrics {
+	// Add metrics info & authentication token
+	if cfg.UserID != "" && reportMetrics {
 		client.metricsUserID = cfg.UserID
+	}
+	if cfg.V1 != nil && cfg.V1.SessionToken != "" {
+		client.authenticationToken = cfg.V1.SessionToken
 	}
 	return client, nil
 }
@@ -212,6 +220,11 @@ func EtcdDialOptions() []grpc.DialOption {
 
 		// If no connection is established in 10s, fail the call
 		grpc.WithTimeout(10 * time.Second),
+
+		grpc.WithDefaultCallOptions(
+			grpc.MaxCallRecvMsgSize(grpcutil.MaxMsgSize),
+			grpc.MaxCallSendMsgSize(grpcutil.MaxMsgSize),
+		),
 	}
 }
 
@@ -253,6 +266,7 @@ func (c *APIClient) addMetadata(ctx context.Context) context.Context {
 		metadata.Pairs(
 			"userid", c.metricsUserID,
 			"prefix", c.metricsPrefix,
+			"authn-token", c.authenticationToken,
 		),
 	)
 }

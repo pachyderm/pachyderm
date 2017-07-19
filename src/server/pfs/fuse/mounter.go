@@ -8,8 +8,8 @@ import (
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
-	log "github.com/Sirupsen/logrus"
 	"github.com/pachyderm/pachyderm/src/client"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
