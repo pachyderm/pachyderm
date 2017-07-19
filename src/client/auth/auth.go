@@ -12,6 +12,7 @@ func (e NotActivatedError) Error() string {
 	return notActivatedErrorMsg
 }
 
+// IsNotActivatedError checks if an error is a NotActivatedError
 func IsNotActivatedError(e error) bool {
 	return strings.Contains(e.Error(), notActivatedErrorMsg)
 }

@@ -54,12 +54,9 @@ func NewAuthServer(etcdAddress string, etcdPrefix string) (authclient.APIServer,
 		return nil, fmt.Errorf("error constructing etcdClient: %v", err)
 	}
 
-	activated := atomic.Value{}
-	activated.Store(false)
-	return &apiServer{
+	s := &apiServer{
 		Logger:     protorpclog.NewLogger("auth.API"),
 		etcdClient: etcdClient,
-		activated:  activated,
 		tokens: col.NewCollection(
 			etcdClient,
 			path.Join(etcdPrefix, tokensPrefix),
@@ -81,7 +78,9 @@ func NewAuthServer(etcdAddress string, etcdPrefix string) (authclient.APIServer,
 			&authclient.User{},
 			nil,
 		),
-	}, nil
+	}
+	s.activated.Store(false)
+	return s, nil
 }
 
 func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateRequest) (resp *authclient.ActivateResponse, retErr error) {
