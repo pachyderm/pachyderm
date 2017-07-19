@@ -38,10 +38,12 @@ Options
     pachctl_file
     pachctl_finish-commit
     pachctl_flush-commit
+    pachctl_garbage-collect
     pachctl_get-file
     pachctl_get-logs
     pachctl_get-object
     pachctl_get-tag
+    pachctl_glob-file
     pachctl_inspect-commit
     pachctl_inspect-file
     pachctl_inspect-job
@@ -54,6 +56,7 @@ Options
     pachctl_list-job
     pachctl_list-pipeline
     pachctl_list-repo
+    pachctl_login
     pachctl_mount
     pachctl_pipeline
     pachctl_port-forward
