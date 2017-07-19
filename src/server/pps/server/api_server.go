@@ -568,8 +568,8 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 			Commit: statsBranch.Head,
 			Path:   fmt.Sprintf("/%v/%v/failure", request.JobId, datumHash),
 		}
-		_, err = pfsClient.GetFile(ctx, &pfs.GetFileRequest{stateFile, 0, 0})
-		if err != nil {
+		getFileClient, err := pfsClient.GetFile(ctx, &pfs.GetFileRequest{stateFile, 0, 0})
+		if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, ioutil.Discard); err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				state = pps.DatumState_DATUM_SUCCESS
 			} else {
@@ -582,7 +582,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 			Commit: statsBranch.Head,
 			Path:   fmt.Sprintf("/%v/%v/stats", request.JobId, datumHash),
 		}
-		getFileClient, err := pfsClient.GetFile(ctx, &pfs.GetFileRequest{statsFile, 0, 0})
+		getFileClient, err = pfsClient.GetFile(ctx, &pfs.GetFileRequest{statsFile, 0, 0})
 		//apiGetFileClient, err := c.getFile(repoName, commitID, path, offset, size)
 		if err != nil {
 			return nil, err

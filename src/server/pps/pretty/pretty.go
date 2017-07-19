@@ -9,8 +9,10 @@ import (
 	"strings"
 	"text/tabwriter"
 	"text/template"
+	"time"
 
 	"github.com/fatih/color"
+	"github.com/gogo/protobuf/types"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 )
@@ -208,7 +210,18 @@ func PrintDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 		break
 	}
 	// TODO: last field is total time
-	fmt.Fprintf(w, "%s\t%s\t%s\n", string(datumInfo.Hash), status, 0)
+	var totalTime string
+	if datumInfo.Stats != nil {
+		totalDuration := time.Duration(0)
+		duration, _ := types.DurationFromProto(datumInfo.Stats.DownloadTime)
+		totalDuration += duration
+		duration, _ = types.DurationFromProto(datumInfo.Stats.ProcessTime)
+		totalDuration += duration
+		duration, _ = types.DurationFromProto(datumInfo.Stats.UploadTime)
+		totalDuration += duration
+		totalTime = totalDuration.String()
+	}
+	fmt.Fprintf(w, "%s\t%s\t%s\n", string(datumInfo.Hash), status, totalTime)
 }
 
 func jobState(jobState ppsclient.JobState) string {
