@@ -110,7 +110,7 @@ message DatumInfo {
    string id = 1 [(gogoproto.customname) = "ID"];
    DatumState state = 2;
    ProcessStats stats = 3;
-   pfs.File debug_file_state = 4;
+   pfs.File pfs_state = 4;
 }
 
 message DatumInfos {
