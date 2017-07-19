@@ -475,7 +475,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 
 	pfsClient, err := a.getPFSClient()
 	if err != nil {
-		return
+		return nil, err
 	}
 	// Check 'stats' branch exists
 	branches, err := pfsClient.ListBranch(ctx, &pfs.ListBranchRequest{jobInfo.OutputCommit.Repo})
@@ -564,47 +564,10 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 			continue
 		}
 		fmt.Printf("walking over this new file %v with hash: %v\n", fileInfo, datumHash)
-
-		// Populate status
-		state := pps.DatumState_FAILED
-		stateFile := &pfs.File{
-			Commit: statsBranch.Head,
-			Path:   fmt.Sprintf("/%v/%v/failure", request.JobID, datumHash),
-		}
-		getFileClient, err := pfsClient.GetFile(ctx, &pfs.GetFileRequest{stateFile, 0, 0})
-		if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, ioutil.Discard); err != nil {
-			if strings.Contains(err.Error(), "not found") {
-				state = pps.DatumState_SUCCESS
-			} else {
-				return nil, err
-			}
-		}
-		datums[datumHash].State = state
-
-		// Populate stats
-		statsFile := &pfs.File{
-			Commit: statsBranch.Head,
-			Path:   fmt.Sprintf("/%v/%v/stats", request.JobID, datumHash),
-		}
-		getFileClient, err = pfsClient.GetFile(ctx, &pfs.GetFileRequest{statsFile, 0, 0})
+		datums[datumHash], err = a.getDatum(ctx, repo, statsBranch.Head.ID, request.jobID, datumHash)
 		if err != nil {
 			return nil, err
 		}
-		r, w := io.Pipe()
-		var eg errgroup.Group
-		eg.Go(func() error {
-			if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, w); err != nil {
-				return err
-			}
-			w.Close()
-			return nil
-		})
-		if err = eg.Wait(); err != nil {
-			return nil, err
-		}
-		stats := &pps.ProcessStats{}
-		jsonpb.Unmarshal(r, stats)
-		datums[datumHash].Stats = stats
 		newDatums[datumHash] = true
 	}
 
@@ -619,8 +582,98 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	return &pps.DatumInfos{datumInfos}, nil
 }
 
+func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commit, jobID string, hash string) (*pps.DatumInfo, error) {
+	pfsClient, err := a.getPFSClient()
+	if err != nil {
+		return nil, err
+	}
+	// Populate status
+	state := pps.DatumState_FAILED
+	stateFile := &pfs.File{
+		Commit: commit,
+		Path:   fmt.Sprintf("/%v/%v/failure", JobID, hash),
+	}
+	getFileClient, err := pfsClient.GetFile(ctx, &pfs.GetFileRequest{stateFile, 0, 0})
+	if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, ioutil.Discard); err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			state = pps.DatumState_SUCCESS
+		} else {
+			return nil, err
+		}
+	}
+
+	// Populate stats
+	statsFile := &pfs.File{
+		Commit: commit,
+		Path:   fmt.Sprintf("/%v/%v/stats", jobID, hash),
+	}
+	getFileClient, err = pfsClient.GetFile(ctx, &pfs.GetFileRequest{statsFile, 0, 0})
+	if err != nil {
+		return nil, err
+	}
+	r, w := io.Pipe()
+	var eg errgroup.Group
+	eg.Go(func() error {
+		if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, w); err != nil {
+			return err
+		}
+		w.Close()
+		return nil
+	})
+	if err = eg.Wait(); err != nil {
+		return nil, err
+	}
+	stats := &pps.ProcessStats{}
+	err := jsonpb.Unmarshal(r, stats)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pps.DatumInfo{
+		Hash:  hash,
+		State: state,
+		Stats: stats,
+	}
+}
+
 func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumRequest) (response *pps.DatumInfo, retErr error) {
-	return nil, fmt.Errorf("not implemented")
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
+		Job: &pps.Job{
+			ID: request.JobID,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	pfsClient, err := a.getPFSClient()
+	if err != nil {
+		return
+	}
+	// Check 'stats' branch exists
+	branches, err := pfsClient.ListBranch(ctx, &pfs.ListBranchRequest{jobInfo.OutputCommit.Repo})
+	if err != nil {
+		return nil, err
+	}
+	var statsBranch *pfs.BranchInfo
+	for _, branch := range branches.BranchInfo {
+		if branch.Name == "stats" {
+			statsBranch = branch
+		}
+	}
+	if statsBranch == nil {
+		return nil, fmt.Errorf("stats branch not found on %v", jobInfo.OutputCommit.Repo.Name)
+	}
+
+	// Populate datumInfo given a path
+	datumInfo, err := a.getDatum(ctx, jobInfo.Outputcommit.Repo.Name, statsBranch.Head, request.JobID, request.Hash)
+	if err != nil {
+		return nil, err
+	}
+
+	return datumInfo, nil
 }
 
 func (a *apiServer) lookupRcNameForPipeline(ctx context.Context, pipeline *pps.Pipeline) (string, error) {
