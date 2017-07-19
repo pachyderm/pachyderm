@@ -556,43 +556,43 @@ $ pachctl set-branch foo test master` + codeend,
 		Short: "Put a file into the filesystem.",
 		Long: `Put-file supports a number of ways to insert data into pfs:
 ` + codestart + `# Put data from stdin as repo/branch/path:
-echo "data" | pachctl put-file repo branch path
+$ echo "data" | pachctl put-file repo branch path
 
 # Put data from stding as repo/branch/path and start / finish a new commit on the branch.
-echo "data" | pachctl put-file -c repo branch path
+$ echo "data" | pachctl put-file -c repo branch path
 
 # Put a file from the local filesystem as repo/branch/path:
-pachctl put-file repo branch path -f file
+$ pachctl put-file repo branch path -f file
 
 # Put a file from the local filesystem as repo/branch/file:
-pachctl put-file repo branch -f file
+$ pachctl put-file repo branch -f file
 
 # Put the contents of a directory as repo/branch/path/dir/file:
-pachctl put-file -r repo branch path -f dir
+$ pachctl put-file -r repo branch path -f dir
 
 # Put the contents of a directory as repo/branch/dir/file:
-pachctl put-file -r repo branch -f dir
+$ pachctl put-file -r repo branch -f dir
 
 # Put the data from a URL as repo/branch/path:
-pachctl put-file repo branch path -f http://host/path
+$ pachctl put-file repo branch path -f http://host/path
 
 # Put the data from a URL as repo/branch/path:
-pachctl put-file repo branch -f http://host/path
+$ pachctl put-file repo branch -f http://host/path
 
 # Put several files or URLs that are listed in file.
 # Files and URLs should be newline delimited.
-pachctl put-file repo branch -i file
+$ pachctl put-file repo branch -i file
 
 # Put several files or URLs that are listed at URL.
 # NOTE this URL can reference local files, so it could cause you to put sensitive
 # files into your Pachyderm cluster.
-pachctl put-file repo branch -i http://host/path
-
+$ pachctl put-file repo branch -i http://host/path
+` + codeend + `
 NOTE there's a small performance overhead for using a branch name as opposed
 to a commit ID in put-file.  In most cases the performance overhead is
 negligible, but if you are putting a large number of small files, you might
 want to consider using commit IDs directly.
-` + codeend,
+`,
 		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
 			client, err := client.NewOnUserMachineWithConcurrency(metrics, "user", parallelism)
 			if err != nil {
