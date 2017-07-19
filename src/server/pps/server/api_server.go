@@ -591,13 +591,17 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 			return nil, err
 		}
 		r, w := io.Pipe()
-		go func() error {
+		var eg errgroup.Group
+		eg.Go(func() error {
 			if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, w); err != nil {
 				return err
 			}
 			w.Close()
 			return nil
-		}()
+		})
+		if err = eg.Wait(); err != nil {
+			return nil, err
+		}
 		stats := &pps.ProcessStats{}
 		jsonpb.Unmarshal(r, stats)
 		datums[datumHash].Stats = stats
