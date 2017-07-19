@@ -107,7 +107,7 @@ enum DatumState {
 }
 
 message DatumInfo {
-   bytes hash = 1; 
+   string id = 1 [(gogoproto.customname) = "ID"];
    DatumState state = 2;
    ProcessStats stats = 3;
    pfs.File debug_file_state = 4;
@@ -361,7 +361,7 @@ message RestartDatumRequest {
 }
 
 message InspectDatumRequest {
-  bytes hash = 1;
+  string datum_id = 1 [(gogoproto.customname) = "DatumID"];
   string job_id = 2 [(gogoproto.customname) = "JobID"];
 }
 
