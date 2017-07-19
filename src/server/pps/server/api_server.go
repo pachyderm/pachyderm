@@ -466,7 +466,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
 		Job: &pps.Job{
-			ID: request.JobId,
+			ID: request.JobID,
 		},
 	})
 	if err != nil {
@@ -494,7 +494,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	// List the files under /jobID to get all the datums
 	file := &pfs.File{
 		Commit: statsBranch.Head,
-		Path:   fmt.Sprintf("/%v", request.JobId),
+		Path:   fmt.Sprintf("/%v", request.JobID),
 	}
 	allFileInfos, err := pfsClient.ListFile(ctx, &pfs.ListFileRequest{file})
 	if err != nil {
@@ -569,7 +569,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		state := pps.DatumState_DATUM_FAILED
 		stateFile := &pfs.File{
 			Commit: statsBranch.Head,
-			Path:   fmt.Sprintf("/%v/%v/failure", request.JobId, datumHash),
+			Path:   fmt.Sprintf("/%v/%v/failure", request.JobID, datumHash),
 		}
 		getFileClient, err := pfsClient.GetFile(ctx, &pfs.GetFileRequest{stateFile, 0, 0})
 		if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, ioutil.Discard); err != nil {
@@ -584,7 +584,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		// Populate stats
 		statsFile := &pfs.File{
 			Commit: statsBranch.Head,
-			Path:   fmt.Sprintf("/%v/%v/stats", request.JobId, datumHash),
+			Path:   fmt.Sprintf("/%v/%v/stats", request.JobID, datumHash),
 		}
 		getFileClient, err = pfsClient.GetFile(ctx, &pfs.GetFileRequest{statsFile, 0, 0})
 		if err != nil {
