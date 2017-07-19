@@ -497,65 +497,6 @@ func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, lo
 	return nil
 }
 
-// cleanUpData removes everything under /pfs
-//
-// The reason we don't want to just os.RemoveAll(/pfs) is that we don't
-// want to remove /pfs itself, since it's a emptyDir volume.
-//
-// Most of the code is copied from os.RemoveAll().
-func (a *APIServer) cleanUpData() error {
-	path := client.PPSInputPrefix
-	// Otherwise, is this a directory we need to recurse into?
-	dir, serr := os.Lstat(path)
-	if serr != nil {
-		if serr, ok := serr.(*os.PathError); ok && (os.IsNotExist(serr.Err) || serr.Err == syscall.ENOTDIR) {
-			return nil
-		}
-		return serr
-	}
-	if !dir.IsDir() {
-		// Not a directory; return the error from Remove.
-		return fmt.Errorf("%s is not a directory", path)
-	}
-
-	// Directory.
-	fd, err := os.Open(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			// Race. It was deleted between the Lstat and Open.
-			// Return nil per RemoveAll's docs.
-			return nil
-		}
-		return err
-	}
-
-	// Remove contents & return first error.
-	err = nil
-	for {
-		names, err1 := fd.Readdirnames(100)
-		for _, name := range names {
-			err1 := os.RemoveAll(path + string(os.PathSeparator) + name)
-			if err == nil {
-				err = err1
-			}
-		}
-		if err1 == io.EOF {
-			break
-		}
-		// If Readdirnames returned an error, use it.
-		if err == nil {
-			err = err1
-		}
-		if len(names) == 0 {
-			break
-		}
-	}
-
-	// Close directory, because windows won't remove opened directory.
-	fd.Close()
-	return err
-}
-
 // HashDatum computes and returns the hash of datum + pipeline, with a
 // pipeline-specific prefix.
 func HashDatum(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) {
@@ -735,7 +676,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 			retErr = err
 		}
 	}()
-	// It's important that we run puller.CleanUp before a.cleanUpData,
+	// It's important that we run puller.CleanUp before os.RemoveAll,
 	// because otherwise puller.Cleanup might try tp open pipes that have
 	// been deleted.
 	defer func() {
