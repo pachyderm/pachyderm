@@ -788,15 +788,15 @@ want to consider using commit IDs directly.
 	globFile := &cobra.Command{
 		Use:   "glob-file repo-name commit-id pattern",
 		Short: "Return files that match a glob pattern in a commit.",
-		Long: `Return files that match a glob pattern in a commit.
-
-The glob pattern is documented here: https://golang.org/pkg/path/filepath/#Match
+		Long: `Return files that match a glob pattern in a commit (that is, match a glob pattern
+in a repo at the state represented by a commit). Glob patterns are 
+documented [here](https://golang.org/pkg/path/filepath/#Match).
 
 Examples:
 
 ` + codestart + `# Return files in repo "foo" on branch "master" that start
-with the character "A".  Note how the double quotation marks around "A*" are
-necessary because otherwise your shell might interpret the "*".
+# with the character "A".  Note how the double quotation marks around "A*" are
+# necessary because otherwise your shell might interpret the "*".
 $ pachctl glob-file foo master "A*"
 
 # Return files in repo "foo" on branch "master" under directory "data".
