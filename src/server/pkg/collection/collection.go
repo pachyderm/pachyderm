@@ -131,6 +131,19 @@ func (c *readWriteCollection) getMultiIndexPaths(val interface{}, index Index, k
 }
 
 func (c *readWriteCollection) Put(key string, val proto.Marshaler) error {
+	return c.PutTTL(key, val, 0)
+}
+
+func (c *readWriteCollection) PutTTL(key string, val proto.Marshaler, ttl int64) error {
+	var options []etcd.OpOption
+	if ttl > 0 {
+		lease, err := c.collection.etcdClient.Grant(context.Background(), ttl)
+		if err != nil {
+			return fmt.Errorf("error granting lease: %v", err)
+		}
+		options = append(options, etcd.WithLease(lease.ID))
+	}
+
 	if c.collection.keyCheck != nil {
 		if err := c.collection.keyCheck(key); err != nil {
 			return err
@@ -148,7 +161,7 @@ func (c *readWriteCollection) Put(key string, val proto.Marshaler) error {
 					// we might trigger an unnecessary event if someone is
 					// watching the index
 					if c.stm.Get(indexPath) == "" {
-						c.stm.Put(indexPath, key)
+						c.stm.Put(indexPath, key, options...)
 					}
 				}
 				// If we can get the original value, we remove the original indexes
@@ -178,13 +191,13 @@ func (c *readWriteCollection) Put(key string, val proto.Marshaler) error {
 				// we might trigger an unnecessary event if someone is
 				// watching the index
 				if c.stm.Get(indexPath) == "" {
-					c.stm.Put(indexPath, key)
+					c.stm.Put(indexPath, key, options...)
 				}
 			}
 		}
 	}
 	bytes, _ := val.Marshal()
-	c.stm.Put(c.Path(key), string(bytes))
+	c.stm.Put(c.Path(key), string(bytes), options...)
 	return nil
 }
 

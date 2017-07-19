@@ -19,8 +19,9 @@ import (
 )
 
 const (
-	tokensPrefix = "/pach-tokens"
-	aclsPrefix   = "/acls"
+	tokensPrefix = "/auth/tokens"
+	aclsPrefix   = "/auth/acls"
+	adminsPrefix = "/auth/admins"
 
 	defaultTokenTTLSecs = 24 * 60 * 60
 	authnToken          = "authn-token"
@@ -28,10 +29,14 @@ const (
 
 type apiServer struct {
 	protorpclog.Logger
-	etcdClient  *etcd.Client
-	tokenPrefix string
+	etcdClient *etcd.Client
+
+	// tokens is a collection of hashedToken -> User mappings.
+	tokens col.Collection
 	// acls is a collection of repoName -> ACL mappings.
 	acls col.Collection
+	// admins is a collection of username -> User mappings.
+	admins col.Collection
 }
 
 // NewAuthServer returns an implementation of auth.APIServer.
@@ -45,14 +50,27 @@ func NewAuthServer(etcdAddress string, etcdPrefix string) (authclient.APIServer,
 	}
 
 	return &apiServer{
-		Logger:      protorpclog.NewLogger("auth.API"),
-		etcdClient:  etcdClient,
-		tokenPrefix: path.Join(etcdPrefix, tokensPrefix),
+		Logger:     protorpclog.NewLogger("auth.API"),
+		etcdClient: etcdClient,
+		tokens: col.NewCollection(
+			etcdClient,
+			path.Join(etcdPrefix, tokensPrefix),
+			nil,
+			&authclient.User{},
+			nil,
+		),
 		acls: col.NewCollection(
 			etcdClient,
 			path.Join(etcdPrefix, aclsPrefix),
 			nil,
 			&authclient.ACL{},
+			nil,
+		),
+		admins: col.NewCollection(
+			etcdClient,
+			path.Join(etcdPrefix, adminsPrefix),
+			nil,
+			&authclient.User{},
 			nil,
 		),
 	}, nil
@@ -79,16 +97,30 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 	}
 
 	username := user.GetName()
-	pachToken := uuid.NewWithoutDashes()
 
-	lease, err := a.etcdClient.Grant(ctx, defaultTokenTTLSecs)
-	if err != nil {
-		return nil, fmt.Errorf("error granting token TTL: %v", err)
+	// Check if the user is an admin.  If they are, authenticate them as
+	// an admin.
+	var u authclient.User
+	var admin bool
+	if err := a.admins.ReadOnly(ctx).Get(username, &u); err != nil {
+		if _, ok := err.(col.ErrNotFound); !ok {
+			return nil, fmt.Errorf("error checking if user %v is an admin: %v", username, err)
+		}
+	} else {
+		admin = true
 	}
 
-	_, err = a.etcdClient.Put(ctx, path.Join(a.tokenPrefix, hashToken(pachToken)), username, etcd.WithLease(lease.ID))
+	pachToken := uuid.NewWithoutDashes()
+
+	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		tokens := a.tokens.ReadWrite(stm)
+		return tokens.PutTTL(hashToken(pachToken), &authclient.User{
+			Username: username,
+			Admin:    admin,
+		}, defaultTokenTTLSecs)
+	})
 	if err != nil {
-		return nil, fmt.Errorf("error storing the auth token: %v", err)
+		return nil, fmt.Errorf("error storing auth token for user %v: %v", username, err)
 	}
 
 	return &authclient.AuthenticateResponse{
@@ -105,6 +137,13 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 		return nil, err
 	}
 
+	if user.Admin {
+		// admins are always authorized
+		return &authclient.AuthorizeResponse{
+			Authorized: true,
+		}, nil
+	}
+
 	var acl authclient.ACL
 	if err := a.acls.ReadOnly(ctx).Get(req.Repo.Name, &acl); err != nil {
 		if _, ok := err.(col.ErrNotFound); ok {
@@ -113,26 +152,8 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 		return nil, fmt.Errorf("error getting ACL for repo %v: %v", req.Repo.Name, err)
 	}
 
-	if req.Scope == acl.Entries[user] {
-		return &authclient.AuthorizeResponse{
-			Authorized: true,
-		}, nil
-	}
-
-	// If the user cannot authorize via ACL, we check if they are an admin.
-	var _u authclient.User
-	if err := a.acls.ReadOnly(ctx).Get(user, &_u); err != nil {
-		if _, ok := err.(col.ErrNotFound); ok {
-			return &authclient.AuthorizeResponse{
-				Authorized: false,
-			}, nil
-		}
-		return nil, fmt.Errorf("error checking if user %v is an admin: %v", user, err)
-	}
-
-	// Admins always authorize
 	return &authclient.AuthorizeResponse{
-		Authorized: true,
+		Authorized: req.Scope == acl.Entries[user.Username],
 	}, nil
 }
 
@@ -153,7 +174,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 			return fmt.Errorf("ACL not found for repo %v", req.Repo.Name)
 		}
 
-		if acl.Entries[user] != authclient.Scope_OWNER {
+		if acl.Entries[user.Username] != authclient.Scope_OWNER {
 			return fmt.Errorf("user %v is not authorized to update ACL for repo %v", user, req.Repo.Name)
 		}
 
@@ -188,21 +209,24 @@ func hashToken(token string) string {
 	return fmt.Sprintf("%x", sum)
 }
 
-func (a *apiServer) getAuthorizedUser(ctx context.Context) (string, error) {
+func (a *apiServer) getAuthorizedUser(ctx context.Context) (*authclient.User, error) {
 	token := ctx.Value(authnToken)
 	if token == nil {
-		return "", fmt.Errorf("auth token not found in context")
+		return nil, fmt.Errorf("auth token not found in context")
 	}
 
 	tokenStr, ok := token.(string)
 	if !ok {
-		return "", fmt.Errorf("auth token found in context is malformed")
+		return nil, fmt.Errorf("auth token found in context is malformed")
 	}
 
-	resp, err := a.etcdClient.Get(ctx, path.Join(a.tokenPrefix, hashToken(tokenStr)))
-	if err != nil {
-		return "", fmt.Errorf("auth token not found: %v", err)
+	var user authclient.User
+	if err := a.tokens.ReadOnly(ctx).Get(hashToken(tokenStr), &user); err != nil {
+		if _, ok := err.(col.ErrNotFound); ok {
+			return nil, fmt.Errorf("token not found")
+		}
+		return nil, fmt.Errorf("error getting token: %v", err)
 	}
 
-	return string(resp.Kvs[0].Value), nil
+	return &user, nil
 }
