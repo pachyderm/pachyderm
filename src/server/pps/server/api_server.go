@@ -508,7 +508,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		fmt.Printf("populating datums w key: %v\n", datumHash)
 		datums[datumHash] = &pps.DatumInfo{
 			Hash:  []byte(datumHash),
-			State: pps.DatumState_DATUM_SKIPPED,
+			State: pps.DatumState_SKIPPED,
 		}
 	}
 
@@ -566,7 +566,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		fmt.Printf("walking over this new file %v with hash: %v\n", fileInfo, datumHash)
 
 		// Populate status
-		state := pps.DatumState_DATUM_FAILED
+		state := pps.DatumState_FAILED
 		stateFile := &pfs.File{
 			Commit: statsBranch.Head,
 			Path:   fmt.Sprintf("/%v/%v/failure", request.JobID, datumHash),
@@ -574,7 +574,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		getFileClient, err := pfsClient.GetFile(ctx, &pfs.GetFileRequest{stateFile, 0, 0})
 		if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, ioutil.Discard); err != nil {
 			if strings.Contains(err.Error(), "not found") {
-				state = pps.DatumState_DATUM_SUCCESS
+				state = pps.DatumState_SUCCESS
 			} else {
 				return nil, err
 			}
