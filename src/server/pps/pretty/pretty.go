@@ -220,6 +220,7 @@ Data Downloaded: {{prettySize .Stats.DownloadBytes}}
   Download Time: {{prettyDuration .Stats.DownloadTime}}
    Process Time: {{prettyDuration .Stats.ProcessTime}}
     Upload Time: {{prettyDuration .Stats.UploadTime}}
+      PFS State: 
 `)
 	if err != nil {
 		return err
@@ -230,6 +231,15 @@ Data Downloaded: {{prettySize .Stats.DownloadBytes}}
 	}
 	return nil
 }
+
+func PrintDatumPfsStateHeader(w io.Writer) {
+	fmt.Fprintf(w, "REPO\tCOMMIT\tPATH\t\n")
+}
+
+func PrintDatumPfsState(w io.Writer, datumInfo *ppsclient.DatumInfo) {
+	fmt.Fprintf(w, "%s\t%s\t%s\t\n", datumInfo.PfsState.Commit.Repo.Name, datumInfo.PfsState.Commit.ID, datumInfo.PfsState.Path)
+}
+
 func datumState(datumState ppsclient.DatumState) string {
 	switch datumState {
 	case ppsclient.DatumState_SKIPPED:

@@ -633,6 +633,10 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 		ID:    datumID,
 		State: state,
 		Stats: stats,
+		PfsState: &pfs.File{
+			Commit: commit,
+			Path:   fmt.Sprintf("/%v/%v/pfs", jobID, datumID),
+		},
 	}, nil
 }
 
