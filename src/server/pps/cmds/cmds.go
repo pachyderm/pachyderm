@@ -96,7 +96,7 @@ The increase the throughput of a job increase the Shard paremeter.
 
 Examples:
 
-	` + codestart + `# return all jobs
+` + codestart + `# return all jobs
 $ pachctl list-job
 
 # return all jobs in pipeline foo
@@ -218,7 +218,7 @@ $ pachctl list-job -p foo bar/YYY
 
 Examples:
 
-	` + codestart + `# return logs emitted by recent jobs in the "filter" pipeline
+` + codestart + `# return logs emitted by recent jobs in the "filter" pipeline
 $ pachctl get-logs --pipeline=filter
 
 # return logs emitted by the job aedfa12aedf
