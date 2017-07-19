@@ -1,14 +1,14 @@
-## ./pachctl get-object
+## ./pachctl login
 
-Return the contents of an object
+Login to Pachyderm with your GitHub account
 
 ### Synopsis
 
 
-Return the contents of an object
+Login to Pachyderm with your GitHub account. Any resources that have been restricted to the email address registered with your GitHub account will subsequently be accessible.
 
 ```
-./pachctl get-object hash
+./pachctl login
 ```
 
 ### Options inherited from parent commands
