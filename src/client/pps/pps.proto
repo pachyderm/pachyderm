@@ -131,6 +131,7 @@ message WorkerStatus {
   // Started is the time processing on the current datum began.
   google.protobuf.Timestamp started = 4;
   ProcessStats stats = 5;
+  int64 queue_size = 6;
 }
 
 // ResourceSpec describes the amount of resources that pipeline pods should
