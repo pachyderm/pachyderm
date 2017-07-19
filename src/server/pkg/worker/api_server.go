@@ -336,6 +336,9 @@ func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, lo
 	var g errgroup.Group
 	limiter := limit.New(concurrency)
 	if err := filepath.Walk(outputPath, func(filePath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 		g.Go(func() (retErr error) {
 			limiter.Acquire()
 			defer limiter.Release()

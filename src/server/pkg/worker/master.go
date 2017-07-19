@@ -33,6 +33,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
+	"google.golang.org/grpc"
 )
 
 const (
@@ -493,28 +494,18 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 				b.Multiplier = 1
 				var resp *ProcessResponse
 				if err := backoff.RetryNotify(func() error {
-					conn, err := pool.Get(ctx)
-					if err != nil {
-						return fmt.Errorf("error from connection pool: %v", err)
-					}
-					workerClient := NewWorkerClient(conn)
-					resp, err = workerClient.Process(ctx, &ProcessRequest{
-						JobID:        jobInfo.Job.ID,
-						Data:         files,
-						ParentOutput: parentOutputTag,
-						EnableStats:  jobInfo.EnableStats,
-					})
-					if err != nil {
-						if err := conn.Close(); err != nil {
-							logger.Logf("error closing conn: %+v", err)
-						}
+					if err := pool.Do(ctx, func(conn *grpc.ClientConn) error {
+						workerClient := NewWorkerClient(conn)
+						resp, err = workerClient.Process(ctx, &ProcessRequest{
+							JobID:        jobInfo.Job.ID,
+							Data:         files,
+							ParentOutput: parentOutputTag,
+							EnableStats:  jobInfo.EnableStats,
+						})
+						return err
+					}); err != nil {
 						return fmt.Errorf("Process() call failed: %v", err)
 					}
-					defer func() {
-						if err := pool.Put(conn); err != nil {
-							logger.Logf("error Putting conn: %+v", err)
-						}
-					}()
 					if resp.Failed {
 						userCodeFailures++
 						return fmt.Errorf("user code failed for datum %v", files)
