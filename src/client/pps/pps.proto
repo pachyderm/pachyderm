@@ -110,6 +110,7 @@ message DatumInfo {
    bytes hash = 1; 
    DatumState state = 2;
    ProcessStats stats = 3;
+   pfs.File debug_file_state = 4;
 }
 
 message DatumInfos {
@@ -361,7 +362,7 @@ message RestartDatumRequest {
 
 message InspectDatumRequest {
   bytes hash = 1;
-  string pipeline_name = 2;
+  string job_id = 2 [(gogoproto.customname) = "JobID"];
 }
 
 message ListDatumRequest {

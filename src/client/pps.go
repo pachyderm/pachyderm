@@ -267,6 +267,21 @@ func (c APIClient) ListDatum(jobID string) ([]*pps.DatumInfo, error) {
 	return datumInfos.DatumInfo, nil
 }
 
+// InspectDatum returns info about a single datum
+func (c APIClient) InspectDatum(jobID string, datumID string) ([]*pps.DatumInfo, error) {
+	datumInfo, err := c.PpsAPIClient.ListDatum(
+		c.ctx(),
+		&pps.InspectDatumRequest{
+			JobId: jobID,
+			Hash:  datumID,
+		},
+	)
+	if err != nil {
+		return nil, sanitizeErr(err)
+	}
+	return datumInfo, nil
+}
+
 // LogsIter iterates through log messages returned from pps.GetLogs. Logs can
 // be fetched with 'Next()'. The log message received can be examined with
 // 'Message()', and any errors can be examined with 'Err()'.
