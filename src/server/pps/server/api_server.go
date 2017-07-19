@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -494,10 +495,12 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	if err != nil {
 		return nil, err
 	}
-	var datumInfos []*pps.DatumInfo
 	datums := make(map[string]*pps.DatumInfo)
+	fmt.Printf("all datums: %v, %v\n", len(allFileInfos.FileInfo), allFileInfos.FileInfo)
 	for _, fileInfo := range allFileInfos.FileInfo {
+		fileInfo := fileInfo
 		_, datumHash := filepath.Split(fileInfo.File.Path)
+		fmt.Printf("populating datums w key: %v\n", datumHash)
 		datums[datumHash] = &pps.DatumInfo{
 			Hash:  []byte(datumHash),
 			State: pps.DatumState_DATUM_SKIPPED,
@@ -507,7 +510,8 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	// Diff the files under /parentJobID and /jobID to get non-skipped datums
 	newFile := &pfs.File{
 		Commit: statsBranch.Head,
-		Path:   fmt.Sprintf("/%v", request.JobId),
+		//Path:   fmt.Sprintf("/%v", request.JobId),
+		Path: "/",
 	}
 	commitInfo, err := pfsClient.InspectCommit(
 		ctx,
@@ -525,18 +529,39 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	}
 	oldFile := &pfs.File{
 		Commit: commitInfo.ParentCommit,
-		Path:   fmt.Sprintf("/%v", request.JobId),
+		//	Path:   fmt.Sprintf("/%v", request.JobId),
+		Path: "/",
 	}
 	resp, err := pfsClient.DiffFile(ctx, &pfs.DiffFileRequest{newFile, oldFile})
 	if err != nil {
 		return nil, err
 	}
 	fmt.Printf("# new %v, # old %v\n", len(resp.NewFiles), len(resp.OldFiles))
-
+	fmt.Printf("new files: %v\n", resp.NewFiles)
 	// The newFileInfos contain datums that were new in this job
 	// For these datums, populate the status and stats
+	fmt.Printf("datums map: %v\n", datums)
+	pathToDatumHash := func(path string) (string, error) {
+		tokens := strings.Split(path, "/")
+		fmt.Printf("tokens: %v\n", tokens)
+		if len(tokens) < 3 {
+			return "", fmt.Errorf("invalid datum path %v", path)
+		}
+		// Stats path is /jobID/datumHash/...
+		return tokens[2], nil
+	}
+	newDatums := make(map[string]bool)
 	for _, fileInfo := range resp.NewFiles {
-		_, datumHash := filepath.Split(fileInfo.File.Path)
+		fileInfo := fileInfo
+		datumHash, err := pathToDatumHash(fileInfo.File.Path)
+		if err != nil {
+			return nil, err
+		}
+		_, ok := newDatums[datumHash]
+		if ok {
+			continue
+		}
+		fmt.Printf("walking over this new file %v with hash: %v\n", fileInfo, datumHash)
 		// Populate status
 		state := pps.DatumState_DATUM_FAILED
 		stateFile := &pfs.File{
@@ -563,15 +588,39 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 			return nil, err
 		}
 		r, w := io.Pipe()
-		defer w.Close()
-		if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, w); err != nil {
-			return nil, err
-		}
-		var stats *pps.ProcessStats
+		fmt.Printf("going to write from getfile server to writer\n")
+		go func() error {
+			if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, w); err != nil {
+				fmt.Printf("done writing %v\n", err)
+				return err
+			}
+			fmt.Printf("done writing\n")
+			w.Close()
+			fmt.Printf("closed writer\n")
+			return nil
+		}()
+		//		var stats *pps.ProcessStats
+		stats := &pps.ProcessStats{}
 		//		decoder := json.NewDecoder(r)
 		//		jsonpb.Unmarshal(decoder, stats)
-		jsonpb.Unmarshal(r, stats)
+
+		// debug what's getting read
+		raw, err := ioutil.ReadAll(r)
+		if err != nil {
+			return nil, err
+		}
+		fmt.Printf("raw json: %v\n", string(raw))
+		newR := bytes.NewReader(raw)
+		fmt.Printf("unmarhsalling ...\n")
+		jsonpb.Unmarshal(newR, stats)
+		fmt.Printf("done unmarhsalling ...\n")
 		datums[datumHash].Stats = stats
+		newDatums[datumHash] = true
+	}
+
+	var datumInfos []*pps.DatumInfo
+	for _, datum := range datums {
+		datumInfos = append(datumInfos, datum)
 	}
 
 	// Sort results (failed first, slow first)
