@@ -68,7 +68,16 @@ message User {
     bool admin = 2;
 }
 
+message ActivateRequest {
+    string token = 1;
+    repeated string admins = 2;
+}
+
+message ActivateResponse {}
+
 service API {
+    rpc Activate(ActivateRequest) returns (ActivateResponse) {}
+
     rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {}
     rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse) {}
 
