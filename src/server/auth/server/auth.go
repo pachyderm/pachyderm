@@ -107,11 +107,32 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 
 	var acl authclient.ACL
 	if err := a.acls.ReadOnly(ctx).Get(req.Repo.Name, &acl); err != nil {
-		return nil, fmt.Errorf("ACL not found for repo %v", req.Repo.Name)
+		if _, ok := err.(col.ErrNotFound); ok {
+			return nil, fmt.Errorf("ACL not found for repo %v", req.Repo.Name)
+		}
+		return nil, fmt.Errorf("error getting ACL for repo %v: %v", req.Repo.Name, err)
 	}
 
+	if req.Scope == acl.Entries[user] {
+		return &authclient.AuthorizeResponse{
+			Authorized: true,
+		}, nil
+	}
+
+	// If the user cannot authorize via ACL, we check if they are an admin.
+	var _u authclient.User
+	if err := a.acls.ReadOnly(ctx).Get(user, &_u); err != nil {
+		if _, ok := err.(col.ErrNotFound); ok {
+			return &authclient.AuthorizeResponse{
+				Authorized: false,
+			}, nil
+		}
+		return nil, fmt.Errorf("error checking if user %v is an admin: %v", user, err)
+	}
+
+	// Admins always authorize
 	return &authclient.AuthorizeResponse{
-		Authorized: req.Scope == acl.Entries[user],
+		Authorized: true,
 	}, nil
 }
 

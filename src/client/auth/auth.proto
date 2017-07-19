@@ -63,6 +63,10 @@ message ACL {
     map<string, Scope> entries = 1;
 }
 
+message User {
+    string username = 1;
+}
+
 service API {
     rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {}
     rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse) {}
