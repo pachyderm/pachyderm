@@ -190,7 +190,7 @@ Job Counts:
 
 // PrintDatumInfoHeader prints a file info header.
 func PrintDatumInfoHeader(w io.Writer) {
-	fmt.Fprint(w, "HASH\tSTATUS\tTIME\t\n")
+	fmt.Fprint(w, "ID\tSTATUS\tTIME\t\n")
 }
 
 // PrintDatumInfo pretty-prints file info.
@@ -199,13 +199,13 @@ func PrintDatumInfoHeader(w io.Writer) {
 func PrintDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 	var status string
 	switch datumInfo.State {
-	case ppsclient.DatumState_DATUM_FAILED:
+	case ppsclient.DatumState_FAILED:
 		status = "FAILED"
 		break
-	case ppsclient.DatumState_DATUM_SKIPPED:
+	case ppsclient.DatumState_SKIPPED:
 		status = "SKIPPED"
 		break
-	case ppsclient.DatumState_DATUM_SUCCESS:
+	case ppsclient.DatumState_SUCCESS:
 		status = "SUCCESS"
 		break
 	}
@@ -221,7 +221,7 @@ func PrintDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 		totalDuration += duration
 		totalTime = totalDuration.String()
 	}
-	fmt.Fprintf(w, "%s\t%s\t%s\n", string(datumInfo.Hash), status, totalTime)
+	fmt.Fprintf(w, "%s\t%s\t%s\n", datumInfo.ID, status, totalTime)
 }
 
 func jobState(jobState ppsclient.JobState) string {

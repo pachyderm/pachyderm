@@ -507,7 +507,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		_, datumHash := filepath.Split(fileInfo.File.Path)
 		fmt.Printf("populating datums w key: %v\n", datumHash)
 		datums[datumHash] = &pps.DatumInfo{
-			Hash:  []byte(datumHash),
+			ID:    datumHash,
 			State: pps.DatumState_SKIPPED,
 		}
 	}
@@ -564,7 +564,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 			continue
 		}
 		fmt.Printf("walking over this new file %v with hash: %v\n", fileInfo, datumHash)
-		datums[datumHash], err = a.getDatum(ctx, repo, statsBranch.Head.ID, request.jobID, datumHash)
+		datums[datumHash], err = a.getDatum(ctx, jobInfo.OutputCommit.Repo.Name, statsBranch.Head, request.JobID, datumHash)
 		if err != nil {
 			return nil, err
 		}
@@ -582,7 +582,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	return &pps.DatumInfos{datumInfos}, nil
 }
 
-func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commit, jobID string, hash string) (*pps.DatumInfo, error) {
+func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commit, jobID string, datumID string) (*pps.DatumInfo, error) {
 	pfsClient, err := a.getPFSClient()
 	if err != nil {
 		return nil, err
@@ -591,7 +591,7 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 	state := pps.DatumState_FAILED
 	stateFile := &pfs.File{
 		Commit: commit,
-		Path:   fmt.Sprintf("/%v/%v/failure", JobID, hash),
+		Path:   fmt.Sprintf("/%v/%v/failure", jobID, datumID),
 	}
 	getFileClient, err := pfsClient.GetFile(ctx, &pfs.GetFileRequest{stateFile, 0, 0})
 	if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, ioutil.Discard); err != nil {
@@ -605,7 +605,7 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 	// Populate stats
 	statsFile := &pfs.File{
 		Commit: commit,
-		Path:   fmt.Sprintf("/%v/%v/stats", jobID, hash),
+		Path:   fmt.Sprintf("/%v/%v/stats", jobID, datumID),
 	}
 	getFileClient, err = pfsClient.GetFile(ctx, &pfs.GetFileRequest{statsFile, 0, 0})
 	if err != nil {
@@ -620,20 +620,20 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 		w.Close()
 		return nil
 	})
-	if err = eg.Wait(); err != nil {
+	stats := &pps.ProcessStats{}
+	err = jsonpb.Unmarshal(r, stats)
+	if err != nil {
 		return nil, err
 	}
-	stats := &pps.ProcessStats{}
-	err := jsonpb.Unmarshal(r, stats)
-	if err != nil {
+	if err = eg.Wait(); err != nil {
 		return nil, err
 	}
 
 	return &pps.DatumInfo{
-		Hash:  hash,
+		ID:    datumID,
 		State: state,
 		Stats: stats,
-	}
+	}, nil
 }
 
 func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumRequest) (response *pps.DatumInfo, retErr error) {
@@ -668,7 +668,7 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 	}
 
 	// Populate datumInfo given a path
-	datumInfo, err := a.getDatum(ctx, jobInfo.Outputcommit.Repo.Name, statsBranch.Head, request.JobID, request.Hash)
+	datumInfo, err := a.getDatum(ctx, jobInfo.OutputCommit.Repo.Name, statsBranch.Head, request.JobID, request.DatumID)
 	if err != nil {
 		return nil, err
 	}
