@@ -24,7 +24,6 @@ Options
     :maxdepth: 1
     :caption: pachctl CLI
 
-    pachctl_commit
     pachctl_create-job
     pachctl_create-pipeline
     pachctl_create-repo
@@ -35,7 +34,6 @@ Options
     pachctl_delete-pipeline
     pachctl_delete-repo
     pachctl_deploy
-    pachctl_file
     pachctl_finish-commit
     pachctl_flush-commit
     pachctl_garbage-collect
@@ -49,7 +47,6 @@ Options
     pachctl_inspect-job
     pachctl_inspect-pipeline
     pachctl_inspect-repo
-    pachctl_job
     pachctl_list-branch
     pachctl_list-commit
     pachctl_list-file
@@ -58,7 +55,6 @@ Options
     pachctl_list-repo
     pachctl_login
     pachctl_mount
-    pachctl_pipeline
     pachctl_port-forward
     pachctl_put-file
     pachctl_repo
