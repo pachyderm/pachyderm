@@ -251,10 +251,8 @@ Examples:
 					return err
 				}
 			}
-			if err := pretty.PrintDetailedDatumInfo(datumInfo); err != nil {
-				return err
-			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			writer := tabwriter.NewWriter(os.Stdout, 10, 1, 3, ' ', 0)
+			pretty.PrintDetailedDatumInfo(writer, datumInfo)
 			pretty.PrintDatumPfsStateHeader(writer)
 			pretty.PrintDatumPfsState(writer, datumInfo)
 			return writer.Flush()
