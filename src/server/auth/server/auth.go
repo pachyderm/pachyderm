@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"path"
+	"sync/atomic"
 	"time"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -30,6 +31,10 @@ const (
 type apiServer struct {
 	protorpclog.Logger
 	etcdClient *etcd.Client
+
+	// This atomic variable stores a boolean flag that indicates
+	// whether the auth service has been activated.
+	activated atomic.Value
 
 	// tokens is a collection of hashedToken -> User mappings.
 	tokens col.Collection
@@ -76,10 +81,42 @@ func NewAuthServer(etcdAddress string, etcdPrefix string) (authclient.APIServer,
 	}, nil
 }
 
+func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateRequest) (resp *authclient.ActivateResponse, retErr error) {
+	func() { a.Log(req, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	// Activating an already activated auth service should fail, because
+	// otherwise anyone can just activate the service again and set
+	// themselves as an admin.
+	if a.activated.Load().(bool) {
+		return nil, fmt.Errorf("already activated")
+	}
+
+	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		admins := a.admins.ReadWrite(stm)
+		for _, admin := range req.Admins {
+			admins.Put(admin, &authclient.User{
+				Username: admin,
+				Admin:    true,
+			})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	a.activated.Store(true)
+	return &authclient.ActivateResponse{}, nil
+}
+
 func (a *apiServer) Authenticate(ctx context.Context, req *authclient.AuthenticateRequest) (resp *authclient.AuthenticateResponse, retErr error) {
 	// We don't want to actually log the request/response since they contain
 	// credentials.
 	defer func(start time.Time) { a.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
+	if !a.activated.Load().(bool) {
+		return nil, authclient.NotActivatedError{}
+	}
 
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{
@@ -131,6 +168,9 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequest) (resp *authclient.AuthorizeResponse, retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	if !a.activated.Load().(bool) {
+		return nil, authclient.NotActivatedError{}
+	}
 
 	user, err := a.getAuthorizedUser(ctx)
 	if err != nil {
@@ -160,6 +200,9 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeRequest) (resp *authclient.SetScopeResponse, retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	if !a.activated.Load().(bool) {
+		return nil, authclient.NotActivatedError{}
+	}
 
 	user, err := a.getAuthorizedUser(ctx)
 	if err != nil {
@@ -192,12 +235,20 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeRequest) (resp *authclient.GetScopeResponse, retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	if !a.activated.Load().(bool) {
+		return nil, authclient.NotActivatedError{}
+	}
+
 	return nil, fmt.Errorf("TODO")
 }
 
 func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (resp *authclient.GetACLResponse, retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	if !a.activated.Load().(bool) {
+		return nil, authclient.NotActivatedError{}
+	}
+
 	return nil, fmt.Errorf("TODO")
 }
 
