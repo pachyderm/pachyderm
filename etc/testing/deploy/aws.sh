@@ -5,47 +5,82 @@
 # kops clusters created for testing can always be enumerated and deleted.
 
 ## Parse command-line flags
-if [[ "$#" -lt 1 ]]; then
-  echo "Must pass --create, --delete, --delete-all or --list to testing/deploy/aws.sh"
-  exit 1
-fi
 
-REGION=us-west-1
-ZONE=us-west-1b
+ZONE="${ZONE:-us-west-1b}"
 STATE_STORE=s3://pachyderm-travis-state-store-v1
+OP=-
+CLOUDFRONT=
+len_zone_minus_one="$(( ${#AWS_AVAILABILITY_ZONE} - 1 ))"
+REGION=${ZONE:0:${len_zone_minus_one}}
 
 # Process args
-new_opt="$( getopt --long="create,delete:,delete-all,list" -- ${0} "${@}" )"
+new_opt="$( getopt --long="create,delete,delete-all,list,zone:,use-cloudfront" -- ${0} "${@}" )"
 [[ "$?" -eq 0 ]] || exit 1
 eval "set -- ${new_opt}"
 
-# No need to authenticate, as auth creds are already in environment variables
-# in travis
+while true; do
+  case "${1}" in
+    --delete-all)
+      OP=delete-all
+      shift
+      ;;
+    --list)
+      kops --state=${STATE_STORE} get clusters
+      exit 0  # Shortcut
+      ;;
+    --delete)
+      OP=delete
+      shift
+      ;;
+    --create)
+      OP=create
+      shift
+      ;;
+    --zone)
+      ZONE="${2}"
+      shift 2
+      ;;
+    --use-cloudfront)
+      # Default is not to provide the flag
+      CLOUDFRONT="--use-cloudfront"
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+  esac
+done
 
-case "${1}" in
-  --delete-all)
-    set -x
+echo -e "Zone: ${ZONE}"
+
+# No need to authenticate with kops, as auth creds are already in environment variables
+# in travis
+set -x
+case "${OP}" in
+  create)
+    aws_sh="$(dirname "${0}")/../../deploy/aws.sh"
+    aws_sh="$(realpath "${aws_sh}")"
+    cmd=("${aws_sh}" --zone=${ZONE} --state=${STATE_STORE} --no-metrics)
+    if [[ -n "${CLOUDFRONT}" ]]; then
+      cmd+=("${CLOUDFRONT}")
+    fi
+    sudo "${cmd[@]}"
+    ;;
+  delete)
+    kops --state=${STATE_STORE} delete cluster --name=$(cat .cluster_name) --yes
+    aws s3 rb --region ${REGION} --force s3://$(cat .bucket)
+    ;;
+  delete-all)
     kops --state=${STATE_STORE} get clusters | tail -n+2 | awk '{print $1}' \
       | while read name; do
           kops --state=${STATE_STORE} delete cluster --name=${name} --yes
       done
-    exit 0
+    ;;
+  *)
     set +x
-    ;;
-  --list)
-    kops --state=${STATE_STORE} get clusters
-    ;;
-  --delete)
-    set -x
-    NAME="${2}"
-    kops --state=${STATE_STORE} delete cluster --name=${NAME} --yes
-    set +x
-    ;;
-  --create)
-    set -x
-    deploy_script="$(realpath "$(dirname "${0}")/../../deploy/aws.sh")"
-    sudo "${deploy_script}" --region=${REGION} --zone=${ZONE} --state=${STATE_STORE} --no-metrics
-    set +x
-    ;;
+    echo "Must pass --create, --delete, --delete-all or --list to testing/deploy/aws.sh"
+    exit 1
 esac
 
+set +x
