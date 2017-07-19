@@ -10,7 +10,7 @@ import (
 
 	"github.com/cenkalti/backoff"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
-	"go.pedge.io/lion"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
 
@@ -156,9 +156,9 @@ func NewAmazonClientFromSecret(bucket string) (Client, error) {
 		distribution, err = ioutil.ReadFile("/amazon-secret/distribution")
 		if err != nil {
 			// Distribution is not required, but we can log a warning
-			lion.Warnln("AWS deployed without cloudfront distribution\n")
+			log.Warnln("AWS deployed without cloudfront distribution\n")
 		} else {
-			lion.Infof("AWS deployed with cloudfront distribution at %v\n", string(distribution))
+			log.Infof("AWS deployed with cloudfront distribution at %v\n", string(distribution))
 		}
 	}
 	id, err := ioutil.ReadFile("/amazon-secret/id")
@@ -247,7 +247,7 @@ func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 		}
 		return nil
 	}, b.backoffConfig, func(err error, d time.Duration) {
-		lion.Infof("Error reading; retrying in %s: %#v", d, RetryError{
+		log.Infof("Error reading; retrying in %s: %#v", d, RetryError{
 			Err:               err.Error(),
 			TimeTillNextRetry: d.String(),
 			BytesProcessed:    bytesRead,
@@ -288,7 +288,7 @@ func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 		}
 		return nil
 	}, b.backoffConfig, func(err error, d time.Duration) {
-		lion.Infof("Error writing; retrying in %s: %#v", d, RetryError{
+		log.Infof("Error writing; retrying in %s: %#v", d, RetryError{
 			Err:               err.Error(),
 			TimeTillNextRetry: d.String(),
 			BytesProcessed:    bytesWritten,

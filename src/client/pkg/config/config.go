@@ -13,8 +13,9 @@ import (
 var configDirPath = filepath.Join(os.Getenv("HOME"), ".pachyderm")
 var configPath = filepath.Join(configDirPath, "config.json")
 
-//Read loads pachyderm user config
-//If an existing configuration cannot be found, it sets up the defaults
+// Read loads the Pachyderm config on this machine.
+// If an existing configuration cannot be found, it sets up the defaults. Read
+// returns a nil Config if and only if it returns a non-nil error.
 func Read() (*Config, error) {
 	var c *Config
 
@@ -40,6 +41,8 @@ func Read() (*Config, error) {
 	return c, nil
 }
 
+// Write writes the configuration in 'c' to this machine's Pachyderm config
+// file.
 func (c *Config) Write() error {
 	rawConfig, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
