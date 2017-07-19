@@ -115,11 +115,11 @@ func (p *Pool) Do(ctx context.Context, f func(cc *grpc.ClientConn) error) error 
 				}
 			}
 		}
+		atomic.AddInt64(&conn.count, 1)
 		return nil
 	}(); err != nil {
 		return err
 	}
-	atomic.AddInt64(&conn.count, 1)
 	defer atomic.AddInt64(&conn.count, -1)
 	return f(conn.cc)
 }
