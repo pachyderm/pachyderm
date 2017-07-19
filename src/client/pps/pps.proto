@@ -365,7 +365,7 @@ message InspectDatumRequest {
 }
 
 message ListDatumRequest {
-  string job_id = 1;
+  string job_id = 1 [(gogoproto.customname) = "JobID"];
 }
 
 message CreatePipelineRequest {
