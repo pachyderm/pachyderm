@@ -508,10 +508,10 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	}
 
 	// Diff the files under /parentJobID and /jobID to get non-skipped datums
+	// TODO: replace this code once we update DiffFile to be shallow
 	newFile := &pfs.File{
 		Commit: statsBranch.Head,
-		//Path:   fmt.Sprintf("/%v", request.JobId),
-		Path: "/",
+		Path:   "/",
 	}
 	commitInfo, err := pfsClient.InspectCommit(
 		ctx,
@@ -529,8 +529,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	}
 	oldFile := &pfs.File{
 		Commit: commitInfo.ParentCommit,
-		//	Path:   fmt.Sprintf("/%v", request.JobId),
-		Path: "/",
+		Path:   "/",
 	}
 	resp, err := pfsClient.DiffFile(ctx, &pfs.DiffFileRequest{newFile, oldFile})
 	if err != nil {
@@ -543,7 +542,6 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	fmt.Printf("datums map: %v\n", datums)
 	pathToDatumHash := func(path string) (string, error) {
 		tokens := strings.Split(path, "/")
-		fmt.Printf("tokens: %v\n", tokens)
 		if len(tokens) < 3 {
 			return "", fmt.Errorf("invalid datum path %v", path)
 		}
@@ -559,9 +557,11 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		}
 		_, ok := newDatums[datumHash]
 		if ok {
+			// Hack for now ... bcz DiffFile is recursive and we'll see multiple files under each datum path
 			continue
 		}
 		fmt.Printf("walking over this new file %v with hash: %v\n", fileInfo, datumHash)
+
 		// Populate status
 		state := pps.DatumState_DATUM_FAILED
 		stateFile := &pfs.File{
@@ -577,43 +577,26 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 			}
 		}
 		datums[datumHash].State = state
+
 		// Populate stats
 		statsFile := &pfs.File{
 			Commit: statsBranch.Head,
 			Path:   fmt.Sprintf("/%v/%v/stats", request.JobId, datumHash),
 		}
 		getFileClient, err = pfsClient.GetFile(ctx, &pfs.GetFileRequest{statsFile, 0, 0})
-		//apiGetFileClient, err := c.getFile(repoName, commitID, path, offset, size)
 		if err != nil {
 			return nil, err
 		}
 		r, w := io.Pipe()
-		fmt.Printf("going to write from getfile server to writer\n")
 		go func() error {
 			if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, w); err != nil {
-				fmt.Printf("done writing %v\n", err)
 				return err
 			}
-			fmt.Printf("done writing\n")
 			w.Close()
-			fmt.Printf("closed writer\n")
 			return nil
 		}()
-		//		var stats *pps.ProcessStats
 		stats := &pps.ProcessStats{}
-		//		decoder := json.NewDecoder(r)
-		//		jsonpb.Unmarshal(decoder, stats)
-
-		// debug what's getting read
-		raw, err := ioutil.ReadAll(r)
-		if err != nil {
-			return nil, err
-		}
-		fmt.Printf("raw json: %v\n", string(raw))
-		newR := bytes.NewReader(raw)
-		fmt.Printf("unmarhsalling ...\n")
-		jsonpb.Unmarshal(newR, stats)
-		fmt.Printf("done unmarhsalling ...\n")
+		jsonpb.Unmarshal(r, stats)
 		datums[datumHash].Stats = stats
 		newDatums[datumHash] = true
 	}
