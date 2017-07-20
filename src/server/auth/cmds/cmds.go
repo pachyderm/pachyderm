@@ -43,6 +43,7 @@ func ActivateCmd() *cobra.Command {
 				c.Ctx(),
 				&auth.ActivateRequest{
 					ActivationCode: activationCode,
+					Admins:         admins,
 				})
 			return err
 		}),
