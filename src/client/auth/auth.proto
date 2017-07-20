@@ -63,7 +63,21 @@ message ACL {
     map<string, Scope> entries = 1;
 }
 
+message User {
+    string username = 1;
+    bool admin = 2;
+}
+
+message ActivateRequest {
+    string activation_code = 1;
+    repeated string admins = 2;
+}
+
+message ActivateResponse {}
+
 service API {
+    rpc Activate(ActivateRequest) returns (ActivateResponse) {}
+
     rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {}
     rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse) {}
 
