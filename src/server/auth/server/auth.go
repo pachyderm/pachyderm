@@ -87,15 +87,20 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
 
+	activated, err := a.isActivated(ctx)
+	if err != nil {
+		return nil, err
+	}
 	// Activating an already activated auth service should fail, because
 	// otherwise anyone can just activate the service again and set
 	// themselves as an admin.
-	if a.activated.Load().(bool) {
+	if activated {
 		return nil, fmt.Errorf("already activated")
 	}
 
-	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		admins := a.admins.ReadWrite(stm)
+
 		for _, admin := range req.Admins {
 			admins.Put(admin, &authclient.User{
 				Username: admin,
@@ -112,11 +117,34 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	return &authclient.ActivateResponse{}, nil
 }
 
+func (a *apiServer) isActivated(ctx context.Context) (bool, error) {
+	if a.activated.Load().(bool) {
+		return true, nil
+	}
+
+	adminCount, err := a.admins.ReadOnly(ctx).Count()
+	if err != nil {
+		return false, fmt.Errorf("error checking if auth service is activated")
+	}
+
+	// If there are admins, then the auth service has been activated
+	if adminCount > 0 {
+		a.activated.Store(true)
+		return true, nil
+	}
+
+	return false, nil
+}
+
 func (a *apiServer) Authenticate(ctx context.Context, req *authclient.AuthenticateRequest) (resp *authclient.AuthenticateResponse, retErr error) {
 	// We don't want to actually log the request/response since they contain
 	// credentials.
 	defer func(start time.Time) { a.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
-	if !a.activated.Load().(bool) {
+	activated, err := a.isActivated(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !activated {
 		return nil, authclient.NotActivatedError{}
 	}
 
@@ -170,7 +198,11 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequest) (resp *authclient.AuthorizeResponse, retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.activated.Load().(bool) {
+	activated, err := a.isActivated(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !activated {
 		return nil, authclient.NotActivatedError{}
 	}
 
@@ -202,7 +234,11 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeRequest) (resp *authclient.SetScopeResponse, retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.activated.Load().(bool) {
+	activated, err := a.isActivated(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !activated {
 		return nil, authclient.NotActivatedError{}
 	}
 
@@ -237,7 +273,11 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeRequest) (resp *authclient.GetScopeResponse, retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.activated.Load().(bool) {
+	activated, err := a.isActivated(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !activated {
 		return nil, authclient.NotActivatedError{}
 	}
 
@@ -247,7 +287,11 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (resp *authclient.GetACLResponse, retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.activated.Load().(bool) {
+	activated, err := a.isActivated(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !activated {
 		return nil, authclient.NotActivatedError{}
 	}
 

@@ -385,6 +385,14 @@ type iterator struct {
 	resp  *etcd.GetResponse
 }
 
+func (c *readonlyCollection) Count() (int64, error) {
+	resp, err := c.etcdClient.Get(c.ctx, c.prefix, etcd.WithPrefix(), etcd.WithCountOnly())
+	if err != nil {
+		return 0, err
+	}
+	return resp.Count, err
+}
+
 func (i *iterator) Next(key *string, val proto.Unmarshaler) (ok bool, retErr error) {
 	if i.index < len(i.resp.Kvs) {
 		kv := i.resp.Kvs[i.index]

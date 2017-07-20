@@ -69,7 +69,7 @@ message User {
 }
 
 message ActivateRequest {
-    string token = 1;
+    string activation_code = 1;
     repeated string admins = 2;
 }
 
