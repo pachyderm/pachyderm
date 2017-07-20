@@ -170,7 +170,7 @@ func (c APIClient) CreateJob(
 		service.ExternalPort = externalPort
 	}
 	job, err := c.PpsAPIClient.CreateJob(
-		c.RequestCtx(),
+		c.Ctx(),
 		&pps.CreateJobRequest{
 			Transform: &pps.Transform{
 				Image: image,
@@ -190,7 +190,7 @@ func (c APIClient) CreateJob(
 // blockState will cause the call to block until the job reaches a terminal state (failure or success).
 func (c APIClient) InspectJob(jobID string, blockState bool) (*pps.JobInfo, error) {
 	jobInfo, err := c.PpsAPIClient.InspectJob(
-		c.RequestCtx(),
+		c.Ctx(),
 		&pps.InspectJobRequest{
 			Job:        NewJob(jobID),
 			BlockState: blockState,
@@ -208,7 +208,7 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit) ([]*p
 		pipeline = NewPipeline(pipelineName)
 	}
 	jobInfos, err := c.PpsAPIClient.ListJob(
-		c.RequestCtx(),
+		c.Ctx(),
 		&pps.ListJobRequest{
 			Pipeline:    pipeline,
 			InputCommit: inputCommit,
@@ -222,7 +222,7 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit) ([]*p
 // DeleteJob deletes a job.
 func (c APIClient) DeleteJob(jobID string) error {
 	_, err := c.PpsAPIClient.DeleteJob(
-		c.RequestCtx(),
+		c.Ctx(),
 		&pps.DeleteJobRequest{
 			Job: NewJob(jobID),
 		},
@@ -233,7 +233,7 @@ func (c APIClient) DeleteJob(jobID string) error {
 // StopJob stops a job.
 func (c APIClient) StopJob(jobID string) error {
 	_, err := c.PpsAPIClient.StopJob(
-		c.RequestCtx(),
+		c.Ctx(),
 		&pps.StopJobRequest{
 			Job: NewJob(jobID),
 		},
@@ -246,7 +246,7 @@ func (c APIClient) StopJob(jobID string) error {
 // or Hash of the datum, the order of the strings in datumFilter is irrelevant.
 func (c APIClient) RestartDatum(jobID string, datumFilter []string) error {
 	_, err := c.PpsAPIClient.RestartDatum(
-		c.RequestCtx(),
+		c.Ctx(),
 		&pps.RestartDatumRequest{
 			Job:         NewJob(jobID),
 			DataFilters: datumFilter,
@@ -310,7 +310,7 @@ func (c APIClient) GetLogs(
 		request.Job = &pps.Job{jobID}
 	}
 	request.DataFilters = data
-	resp.logsClient, resp.err = c.PpsAPIClient.GetLogs(c.RequestCtx(), &request)
+	resp.logsClient, resp.err = c.PpsAPIClient.GetLogs(c.Ctx(), &request)
 	return resp
 }
 
@@ -344,7 +344,7 @@ func (c APIClient) CreatePipeline(
 	update bool,
 ) error {
 	_, err := c.PpsAPIClient.CreatePipeline(
-		c.RequestCtx(),
+		c.Ctx(),
 		&pps.CreatePipelineRequest{
 			Pipeline: NewPipeline(name),
 			Transform: &pps.Transform{
@@ -364,7 +364,7 @@ func (c APIClient) CreatePipeline(
 // InspectPipeline returns info about a specific pipeline.
 func (c APIClient) InspectPipeline(pipelineName string) (*pps.PipelineInfo, error) {
 	pipelineInfo, err := c.PpsAPIClient.InspectPipeline(
-		c.RequestCtx(),
+		c.Ctx(),
 		&pps.InspectPipelineRequest{
 			Pipeline: NewPipeline(pipelineName),
 		},
@@ -375,7 +375,7 @@ func (c APIClient) InspectPipeline(pipelineName string) (*pps.PipelineInfo, erro
 // ListPipeline returns info about all pipelines.
 func (c APIClient) ListPipeline() ([]*pps.PipelineInfo, error) {
 	pipelineInfos, err := c.PpsAPIClient.ListPipeline(
-		c.RequestCtx(),
+		c.Ctx(),
 		&pps.ListPipelineRequest{},
 	)
 	if err != nil {
@@ -387,7 +387,7 @@ func (c APIClient) ListPipeline() ([]*pps.PipelineInfo, error) {
 // DeletePipeline deletes a pipeline along with its output Repo.
 func (c APIClient) DeletePipeline(name string, deleteJobs bool) error {
 	_, err := c.PpsAPIClient.DeletePipeline(
-		c.RequestCtx(),
+		c.Ctx(),
 		&pps.DeletePipelineRequest{
 			Pipeline:   NewPipeline(name),
 			DeleteJobs: deleteJobs,
@@ -399,7 +399,7 @@ func (c APIClient) DeletePipeline(name string, deleteJobs bool) error {
 // StartPipeline restarts a stopped pipeline.
 func (c APIClient) StartPipeline(name string) error {
 	_, err := c.PpsAPIClient.StartPipeline(
-		c.RequestCtx(),
+		c.Ctx(),
 		&pps.StartPipelineRequest{
 			Pipeline: NewPipeline(name),
 		},
@@ -411,7 +411,7 @@ func (c APIClient) StartPipeline(name string) error {
 // with StartPipeline.
 func (c APIClient) StopPipeline(name string) error {
 	_, err := c.PpsAPIClient.StopPipeline(
-		c.RequestCtx(),
+		c.Ctx(),
 		&pps.StopPipelineRequest{
 			Pipeline: NewPipeline(name),
 		},
@@ -425,7 +425,7 @@ func (c APIClient) StopPipeline(name string) error {
 // is the same as that of ListCommit.
 func (c APIClient) RerunPipeline(name string, include []*pfs.Commit, exclude []*pfs.Commit) error {
 	_, err := c.PpsAPIClient.RerunPipeline(
-		c.RequestCtx(),
+		c.Ctx(),
 		&pps.RerunPipelineRequest{
 			Pipeline: NewPipeline(name),
 			Include:  include,
@@ -440,7 +440,7 @@ func (c APIClient) RerunPipeline(name string, include []*pfs.Commit, exclude []*
 // implies that there shouldn't be jobs actively running).
 func (c APIClient) GarbageCollect() error {
 	_, err := c.PpsAPIClient.GarbageCollect(
-		c.RequestCtx(),
+		c.Ctx(),
 		&pps.GarbageCollectRequest{},
 	)
 	return sanitizeErr(err)

@@ -15,6 +15,7 @@ import (
 	types "github.com/gogo/protobuf/types"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/health"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
@@ -170,13 +171,13 @@ func (c *APIClient) Close() error {
 // Use with caution, there is no undo.
 func (c APIClient) DeleteAll() error {
 	if _, err := c.PpsAPIClient.DeleteAll(
-		c.RequestCtx(),
+		c.Ctx(),
 		&types.Empty{},
 	); err != nil {
 		return sanitizeErr(err)
 	}
 	if _, err := c.PfsAPIClient.DeleteAll(
-		c.RequestCtx(),
+		c.Ctx(),
 		&types.Empty{},
 	); err != nil {
 		return sanitizeErr(err)
@@ -244,7 +245,7 @@ func (c *APIClient) connect() error {
 func (c *APIClient) AddMetadata(ctx context.Context) context.Context {
 	// TODO(msteffen): this doesn't make sense outside the pachctl CLI
 	// (e.g. pachd making requests to the auth API) because the user's
-	// authentication token is fixed in the client. See RequestCtx()
+	// authentication token is fixed in the client. See Ctx()
 	if c.metricsUserID == "" {
 		return ctx
 	}
