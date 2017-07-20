@@ -232,6 +232,7 @@ func (c *APIClient) connect() error {
 	if err != nil {
 		return err
 	}
+	c.AuthAPIClient = auth.NewAPIClient(clientConn)
 	c.PfsAPIClient = pfs.NewAPIClient(clientConn)
 	c.PpsAPIClient = pps.NewAPIClient(clientConn)
 	c.ObjectAPIClient = pfs.NewObjectAPIClient(clientConn)

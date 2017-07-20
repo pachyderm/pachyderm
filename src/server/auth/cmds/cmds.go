@@ -24,11 +24,11 @@ var githubAuthLink = `https://github.com/login/oauth/authorize?client_id=d3481e9
 func ActivateCmd() *cobra.Command {
 	var admins []string
 	activate := &cobra.Command{
-		Use: "activate activation-token",
+		Use: "activate activation-code",
 		Short: "Activate the security features of pachyderm with an activation " +
-			"token",
+			"code",
 		Long: "Activate the security features of pachyderm with an activation " +
-			"token",
+			"code",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			activationCode := args[0]
 			if len(admins) == 0 {
