@@ -87,6 +87,7 @@ type ReadonlyCollection interface {
 	Get(key string, val proto.Unmarshaler) error
 	GetByIndex(index Index, val interface{}) (Iterator, error)
 	List() (Iterator, error)
+	Count() (int64, error)
 	Watch() (watch.Watcher, error)
 	// WatchWithPrev is like Watch, but the events will include the previous
 	// versions of the key/value.
