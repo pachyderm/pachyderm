@@ -356,12 +356,12 @@ func (a *apiServer) getAuthorizedUser(ctx context.Context) (*authclient.User, er
 	return &user, nil
 }
 
-type ActivationCode struct {
+type activationCode struct {
 	Token     string
 	Signature string
 }
 
-type Token struct {
+type token struct {
 	Expiry string
 }
 
