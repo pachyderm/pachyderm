@@ -25,9 +25,9 @@ func ActivateCmd() *cobra.Command {
 	var admins []string
 	activate := &cobra.Command{
 		Use: "activate activation-token",
-		Short: "Activate the enterprise features of pachyderm with an activation " +
+		Short: "Activate the security features of pachyderm with an activation " +
 			"token",
-		Long: "Activate the enterprise features of pachyderm with an activation " +
+		Long: "Activate the security features of pachyderm with an activation " +
 			"token",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			activationCode := args[0]
@@ -237,8 +237,9 @@ func Cmds() []*cobra.Command {
 		Short: "Auth commands manage access to data in a Pachyderm cluster",
 		Long:  "Auth commands manage access to data in a Pachyderm cluster",
 	}
+	auth.AddCommand(ActivateCmd())
 	auth.AddCommand(CheckCmd())
 	auth.AddCommand(SetScopeCmd())
 	auth.AddCommand(GetCmd())
-	return []*cobra.Command{ActivateCmd(), LoginCmd(), auth}
+	return []*cobra.Command{LoginCmd(), auth}
 }
