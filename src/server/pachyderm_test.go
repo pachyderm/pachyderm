@@ -2951,7 +2951,7 @@ func TestDatumStatusRestart(t *testing.T) {
 		started := time.Now()
 		for {
 			time.Sleep(time.Second)
-			if time.Since(started) > time.Second*30 {
+			if time.Since(started) > time.Second*60 {
 				t.Fatalf("failed to find status in time")
 			}
 			jobs, err := c.ListJob(pipeline, nil)
