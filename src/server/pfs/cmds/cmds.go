@@ -789,7 +789,7 @@ want to consider using commit IDs directly.
 		Use:   "glob-file repo-name commit-id pattern",
 		Short: "Return files that match a glob pattern in a commit.",
 		Long: `Return files that match a glob pattern in a commit (that is, match a glob pattern
-in a repo at the state represented by a commit). Glob patterns are 
+in a repo at the state represented by a commit). Glob patterns are
 documented [here](https://golang.org/pkg/path/filepath/#Match).
 
 Examples:
@@ -935,7 +935,6 @@ $ pachctl diff-file foo master path1 bar master path2
 			if err != nil {
 				return err
 			}
-			go func() { client.KeepConnected(nil) }()
 			mounter := fuse.NewMounter(client.GetAddress(), client)
 			mountPoint := args[0]
 			ready := make(chan bool)

@@ -9,6 +9,7 @@ import (
 	"golang.org/x/net/context"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 
 	types "github.com/gogo/protobuf/types"
@@ -39,18 +40,11 @@ type APIClient struct {
 	// addr is a "host:port" string pointing at a pachd endpoint
 	addr string
 
-	// context.Context includes context options for all RPCs, including deadline
-	_ctx context.Context
-
 	// clientConn is a cached grpc connection to 'addr'
 	clientConn *grpc.ClientConn
 
 	// healthClient is a cached healthcheck client connected to 'addr'
 	healthClient health.HealthClient
-
-	// cancel is the cancel function for 'clientConn' and is called if
-	// 'healthClient' fails health checking
-	cancel func()
 
 	// streamSemaphore limits the number of concurrent message streams between
 	// this client and pachd
@@ -167,24 +161,6 @@ func (c *APIClient) Close() error {
 	return c.clientConn.Close()
 }
 
-// KeepConnected periodically health checks the connection and attempts to
-// reconnect if it becomes unhealthy.
-func (c *APIClient) KeepConnected(cancel chan bool) {
-	for {
-		select {
-		case <-cancel:
-			return
-		case <-time.After(time.Second * 5):
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-			if _, err := c.healthClient.Health(ctx, &types.Empty{}); err != nil {
-				c.cancel()
-				c.connect()
-			}
-			cancel()
-		}
-	}
-}
-
 // DeleteAll deletes everything in the cluster.
 // Use with caution, there is no undo.
 func (c APIClient) DeleteAll() error {
@@ -240,19 +216,21 @@ func PachDialOptions() []grpc.DialOption {
 }
 
 func (c *APIClient) connect() error {
-	clientConn, err := grpc.Dial(c.addr, PachDialOptions()...)
+	keepaliveOpt := grpc.WithKeepaliveParams(keepalive.ClientParameters{
+		Time:                20 * time.Second, // if 20s since last msg (any kind), ping
+		Timeout:             20 * time.Second, // if no response to ping for 20s, reset
+		PermitWithoutStream: true,             // send ping even if no active RPCs
+	})
+	dialOptions := append(PachDialOptions(), keepaliveOpt)
+	clientConn, err := grpc.Dial(c.addr, dialOptions...)
 	if err != nil {
 		return err
 	}
-
-	ctx, cancel := context.WithCancel(context.Background())
 	c.PfsAPIClient = pfs.NewAPIClient(clientConn)
 	c.PpsAPIClient = pps.NewAPIClient(clientConn)
 	c.ObjectAPIClient = pfs.NewObjectAPIClient(clientConn)
 	c.clientConn = clientConn
 	c.healthClient = health.NewHealthClient(clientConn)
-	c._ctx = ctx
-	c.cancel = cancel
 	return nil
 }
 
@@ -274,10 +252,7 @@ func (c *APIClient) addMetadata(ctx context.Context) context.Context {
 // TODO this method only exists because we initialize some APIClient in such a
 // way that ctx will be nil
 func (c *APIClient) ctx() context.Context {
-	if c._ctx == nil {
-		return c.addMetadata(context.Background())
-	}
-	return c.addMetadata(c._ctx)
+	return c.addMetadata(context.Background())
 }
 
 func sanitizeErr(err error) error {
