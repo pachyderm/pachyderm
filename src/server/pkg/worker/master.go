@@ -58,6 +58,16 @@ func (a *APIServer) getMasterLogger() *taggedLogger {
 func (a *APIServer) master() {
 	masterLock := dlock.NewDLock(a.etcdClient, path.Join(a.etcdPrefix, masterLockPath, a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt))
 	logger := a.getMasterLogger()
+	b := backoff.NewInfiniteBackOff()
+	// Setting a high backoff so that when this master fails, the other
+	// workers are more likely to become the master.
+	// Also, we've observed race conditions where StopPipeline would cause
+	// a master to restart before it's deleted.  PPS would then get confused
+	// by the restart and create the workers again, because the restart would
+	// bring the pipeline state from PAUSED to RUNNING.  By setting a high
+	// retry interval, the master would be deleted before it gets a chance
+	// to restart.
+	b.InitialInterval = 5 * time.Second
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -83,7 +93,7 @@ func (a *APIServer) master() {
 			return nil
 		})
 		return a.jobSpawner(ctx, logger)
-	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+	}, b, func(err error, d time.Duration) error {
 		logger.Logf("master: error running the master process: %v; retrying in %v", err, d)
 		return nil
 	})

@@ -124,6 +124,7 @@ func (p *Pool) Put(conn *grpc.ClientConn) error {
 // of the calls to Close error.
 func (p *Pool) Close() error {
 	close(p.done)
+	close(p.conns)
 	var retErr error
 	for conn := range p.conns {
 		if err := conn.Close(); err != nil {
