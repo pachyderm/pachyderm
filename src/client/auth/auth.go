@@ -1,6 +1,20 @@
 package auth
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
+
+// ParseScope parses the string 's' to a scope (for example, parsing a command-
+// line argument.
+func ParseScope(s string) (Scope, error) {
+	for name, value := range Scope_value {
+		if strings.EqualFold(s, name) {
+			return Scope(value), nil
+		}
+	}
+	return Scope_NONE, fmt.Errorf("unrecognized scope: %s", s)
+}
 
 // NotActivatedError is returned by an Auth API if the Auth service
 // has not been activated.

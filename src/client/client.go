@@ -31,11 +31,15 @@ type PpsAPIClient pps.APIClient
 // ObjectAPIClient is an alias for pfs.ObjectAPIClient
 type ObjectAPIClient pfs.ObjectAPIClient
 
+// AuthAPIClient is an alias of auth.APIClient
+type AuthAPIClient auth.APIClient
+
 // An APIClient is a wrapper around pfs, pps and block APIClients.
 type APIClient struct {
 	PfsAPIClient
 	PpsAPIClient
 	ObjectAPIClient
+	AuthAPIClient
 
 	// addr is a "host:port" string pointing at a pachd endpoint
 	addr string
@@ -137,6 +141,7 @@ func NewOnUserMachineWithConcurrency(reportMetrics bool, prefix string, maxConcu
 	}
 
 	// Add metrics info & authentication token
+	client.metricsPrefix = prefix
 	if cfg.UserID != "" && reportMetrics {
 		client.metricsUserID = cfg.UserID
 	}
@@ -165,13 +170,13 @@ func (c *APIClient) Close() error {
 // Use with caution, there is no undo.
 func (c APIClient) DeleteAll() error {
 	if _, err := c.PpsAPIClient.DeleteAll(
-		c.ctx(),
+		c.RequestCtx(),
 		&types.Empty{},
 	); err != nil {
 		return sanitizeErr(err)
 	}
 	if _, err := c.PfsAPIClient.DeleteAll(
-		c.ctx(),
+		c.RequestCtx(),
 		&types.Empty{},
 	); err != nil {
 		return sanitizeErr(err)
@@ -234,12 +239,17 @@ func (c *APIClient) connect() error {
 	return nil
 }
 
-func (c *APIClient) addMetadata(ctx context.Context) context.Context {
+// AddMetadata adds necessary metadata (including authentication credentials)
+// to the context 'ctx'
+func (c *APIClient) AddMetadata(ctx context.Context) context.Context {
+	// TODO(msteffen): this doesn't make sense outside the pachctl CLI
+	// (e.g. pachd making requests to the auth API) because the user's
+	// authentication token is fixed in the client. See RequestCtx()
 	if c.metricsUserID == "" {
 		return ctx
 	}
 	// metadata API downcases all the key names
-	return metadata.NewContext(
+	return metadata.NewOutgoingContext(
 		ctx,
 		metadata.Pairs(
 			"userid", c.metricsUserID,
@@ -249,10 +259,10 @@ func (c *APIClient) addMetadata(ctx context.Context) context.Context {
 	)
 }
 
-// TODO this method only exists because we initialize some APIClient in such a
-// way that ctx will be nil
-func (c *APIClient) ctx() context.Context {
-	return c.addMetadata(context.Background())
+// Ctx is a convenience function that returns adds Pachyderm authn metadata
+// to context.Background().
+func (c *APIClient) Ctx() context.Context {
+	return c.AddMetadata(context.Background())
 }
 
 func sanitizeErr(err error) error {
