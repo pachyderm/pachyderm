@@ -398,8 +398,11 @@ func validateActivationCode(code string) error {
 		return fmt.Errorf("signature is not base64 encoded")
 	}
 
+	// Compute the sha256 checksum of the token
+	hashedToken := sha256.Sum256([]byte(activationCode.Token))
+
 	// Verify that the signature is valid
-	if err := rsa.VerifyPKCS1v15(rsaPub, crypto.SHA256, []byte(activationCode.Token), decodedSignature); err != nil {
+	if err := rsa.VerifyPKCS1v15(rsaPub, crypto.SHA256, hashedToken[:], decodedSignature); err != nil {
 		return fmt.Errorf("invalid signature in activation code")
 	}
 
