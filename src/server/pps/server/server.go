@@ -3,11 +3,11 @@ package server
 import (
 	"github.com/pachyderm/pachyderm/src/client"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 
 	etcd "github.com/coreos/etcd/clientv3"
-	"go.pedge.io/proto/rpclog"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
@@ -35,7 +35,7 @@ func NewAPIServer(
 	}
 
 	apiServer := &apiServer{
-		Logger:                protorpclog.NewLogger("pps.API"),
+		Logger:                log.NewLogger("pps.API"),
 		etcdPrefix:            etcdPrefix,
 		address:               address,
 		etcdClient:            etcdClient,
@@ -73,7 +73,7 @@ func NewSidecarAPIServer(
 	}
 
 	apiServer := &apiServer{
-		Logger:     protorpclog.NewLogger("pps.API"),
+		Logger:     log.NewLogger("pps.API"),
 		address:    address,
 		etcdPrefix: etcdPrefix,
 		etcdClient: etcdClient,

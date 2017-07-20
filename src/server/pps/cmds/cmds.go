@@ -96,17 +96,17 @@ The increase the throughput of a job increase the Shard paremeter.
 
 Examples:
 
-	` + codestart + `# return all jobs
-	$ pachctl list-job
+` + codestart + `# return all jobs
+$ pachctl list-job
 
-	# return all jobs in pipeline foo
-	$ pachctl list-job -p foo
+# return all jobs in pipeline foo
+$ pachctl list-job -p foo
 
-	# return all jobs whose input commits include foo/XXX and bar/YYY
-	$ pachctl list-job foo/XXX bar/YYY
+# return all jobs whose input commits include foo/XXX and bar/YYY
+$ pachctl list-job foo/XXX bar/YYY
 
-	# return all jobs in pipeline foo and whose input commits include bar/YYY
-	$ pachctl list-job -p foo bar/YYY
+# return all jobs in pipeline foo and whose input commits include bar/YYY
+$ pachctl list-job -p foo bar/YYY
 ` + codeend,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			client, err := pachdclient.NewOnUserMachine(metrics, "user")
@@ -218,14 +218,14 @@ Examples:
 
 Examples:
 
-	` + codestart + `# return logs emitted by recent jobs in the "filter" pipeline
-	$ pachctl get-logs --pipeline=filter
+` + codestart + `# return logs emitted by recent jobs in the "filter" pipeline
+$ pachctl get-logs --pipeline=filter
 
-	# return logs emitted by the job aedfa12aedf
-	$ pachctl get-logs --job=aedfa12aedf
+# return logs emitted by the job aedfa12aedf
+$ pachctl get-logs --job=aedfa12aedf
 
-	# return logs emitted by the pipeline \"filter\" while processing /apple.txt and a file with the hash 123aef
-	$ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
+# return logs emitted by the pipeline \"filter\" while processing /apple.txt and a file with the hash 123aef
+$ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
 ` + codeend,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			client, err := pachdclient.NewOnUserMachine(metrics, "user")
@@ -347,6 +347,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
 	createPipeline.Flags().StringVarP(&password, "password", "", "", "Your password for the registry being pushed to.")
 
+	var reprocess bool
 	updatePipeline := &cobra.Command{
 		Use:   "update-pipeline -f pipeline.json",
 		Short: "Update an existing Pachyderm pipeline.",
@@ -368,6 +369,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					return err
 				}
 				request.Update = true
+				request.Reprocess = reprocess
 				if pushImages {
 					pushedImage, err := pushImage(registry, username, password, request.Transform.Image)
 					if err != nil {
@@ -390,6 +392,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "docker.io", "The registry to push images to.")
 	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
 	updatePipeline.Flags().StringVarP(&password, "password", "", "", "Your password for the registry being pushed to.")
+	updatePipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
 
 	inspectPipeline := &cobra.Command{
 		Use:   "inspect-pipeline pipeline-name",

@@ -291,7 +291,7 @@ r.Table("books").Get("1").Merge(func(p r.Term) interface{} {
 
 By default the driver logs errors when it fails to connect to the database. If you would like more verbose error logging you can call `r.SetVerbose(true)`.
 
-Alternatively if you wish to modify the logging behaviour you can modify the logger provided by `github.com/Sirupsen/logrus`. For example the following code completely disable the logger:
+Alternatively if you wish to modify the logging behaviour you can modify the logger provided by `github.com/sirupsen/logrus`. For example the following code completely disable the logger:
 
 ```go
 r.Log.Out = ioutil.Discard

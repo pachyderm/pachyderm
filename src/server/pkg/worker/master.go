@@ -62,7 +62,7 @@ func (logger *taggedLogger) jobLogger(jobID string) *taggedLogger {
 }
 
 func (a *APIServer) master() {
-	masterLock := dlock.NewDLock(a.etcdClient, path.Join(a.etcdPrefix, masterLockPath, a.pipelineInfo.ID))
+	masterLock := dlock.NewDLock(a.etcdClient, path.Join(a.etcdPrefix, masterLockPath, a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt))
 	logger := a.getMasterLogger()
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
@@ -205,7 +205,8 @@ nextInput:
 					break
 				}
 			}
-			if jobInfo.PipelineID == a.pipelineInfo.ID && jobInfo.PipelineVersion == a.pipelineInfo.Version {
+			if jobInfo.Pipeline.Name == a.pipelineInfo.Pipeline.Name &&
+				(jobInfo.Salt == a.pipelineInfo.Salt || (jobInfo.Salt == "" && jobInfo.PipelineVersion == a.pipelineInfo.Version)) {
 				switch jobInfo.State {
 				case pps.JobState_JOB_STARTING, pps.JobState_JOB_RUNNING:
 					if err := a.runJob(ctx, &jobInfo, pool, logger); err != nil {
@@ -253,20 +254,21 @@ nextInput:
 				if !ok {
 					break
 				}
-				if jobInfo.PipelineID == a.pipelineInfo.ID && jobInfo.PipelineVersion == a.pipelineInfo.Version {
+				if jobInfo.Pipeline.Name == a.pipelineInfo.Pipeline.Name &&
+					(jobInfo.Salt == a.pipelineInfo.Salt || (jobInfo.Salt == "" && jobInfo.PipelineVersion == a.pipelineInfo.Version)) {
 					parentJob = jobInfo.Job
 				}
 			}
 		}
 
 		job, err := a.pachClient.PpsAPIClient.CreateJob(ctx, &pps.CreateJobRequest{
-			Pipeline: a.pipelineInfo.Pipeline,
-			Input:    jobInput,
-			// TODO(derek): Note that once the pipeline restarts, the `job`
-			// variable is lost and we don't know who is our parent job.
-			ParentJob:   parentJob,
-			NewBranch:   newBranch,
-			EnableStats: a.pipelineInfo.EnableStats,
+			Pipeline:        a.pipelineInfo.Pipeline,
+			Input:           jobInput,
+			ParentJob:       parentJob,
+			NewBranch:       newBranch,
+			Salt:            a.pipelineInfo.Salt,
+			PipelineVersion: a.pipelineInfo.Version,
+			EnableStats:     a.pipelineInfo.EnableStats,
 		})
 		if err != nil {
 			return err

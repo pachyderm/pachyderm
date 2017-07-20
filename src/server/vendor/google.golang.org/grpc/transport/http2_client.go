@@ -1,33 +1,18 @@
 /*
  *
- * Copyright 2014, Google Inc.
- * All rights reserved.
+ * Copyright 2014 gRPC authors.
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *     * Redistributions of source code must retain the above copyright
- * notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above
- * copyright notice, this list of conditions and the following disclaimer
- * in the documentation and/or other materials provided with the
- * distribution.
- *     * Neither the name of Google Inc. nor the names of its
- * contributors may be used to endorse or promote products derived from
- * this software without specific prior written permission.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  */
 
@@ -35,12 +20,12 @@ package transport
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"math"
 	"net"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/net/context"
@@ -49,9 +34,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/grpclog"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/stats"
+	"google.golang.org/grpc/status"
 )
 
 // http2Client implements the ClientTransport interface with HTTP2.
@@ -80,6 +67,8 @@ type http2Client struct {
 	// goAway is closed to notify the upper layer (i.e., addrConn.transportMonitor)
 	// that the server sent GoAway on this transport.
 	goAway chan struct{}
+	// awakenKeepalive is used to wake up keepalive when after it has gone dormant.
+	awakenKeepalive chan struct{}
 
 	framer *framer
 	hBuf   *bytes.Buffer  // the buffer for HPACK encoding
@@ -87,7 +76,7 @@ type http2Client struct {
 
 	// controlBuf delivers all the control related tasks (e.g., window
 	// updates, reset streams, and various settings) to the controller.
-	controlBuf *recvBuffer
+	controlBuf *controlBuffer
 	fc         *inFlow
 	// sendQuotaPool provides flow control to outbound message.
 	sendQuotaPool *quotaPool
@@ -97,9 +86,18 @@ type http2Client struct {
 	// The scheme used: https if TLS is on, http otherwise.
 	scheme string
 
+	isSecure bool
+
 	creds []credentials.PerRPCCredentials
 
+	// Boolean to keep track of reading activity on transport.
+	// 1 is true and 0 is false.
+	activity uint32 // Accessed atomically.
+	kp       keepalive.ClientParameters
+
 	statsHandler stats.Handler
+
+	initialWindowSize int32
 
 	mu            sync.Mutex     // guard the following variables
 	state         transportState // the state of underlying connection
@@ -112,6 +110,9 @@ type http2Client struct {
 	goAwayID uint32
 	// prevGoAway ID records the Last-Stream-ID in the previous GOAway frame.
 	prevGoAwayID uint32
+	// goAwayReason records the http2.ErrCode and debug data received with the
+	// GoAway frame.
+	goAwayReason GoAwayReason
 }
 
 func dial(ctx context.Context, fn func(context.Context, string) (net.Conn, error), addr string) (net.Conn, error) {
@@ -157,9 +158,9 @@ func newHTTP2Client(ctx context.Context, addr TargetInfo, opts ConnectOptions) (
 	conn, err := dial(ctx, opts.Dialer, addr.Addr)
 	if err != nil {
 		if opts.FailOnNonTempDialError {
-			return nil, connectionErrorf(isTemporary(err), err, "transport: %v", err)
+			return nil, connectionErrorf(isTemporary(err), err, "transport: error while dialing: %v", err)
 		}
-		return nil, connectionErrorf(true, err, "transport: %v", err)
+		return nil, connectionErrorf(true, err, "transport: Error while dialing %v", err)
 	}
 	// Any further errors will close the underlying connection
 	defer func(conn net.Conn) {
@@ -167,7 +168,10 @@ func newHTTP2Client(ctx context.Context, addr TargetInfo, opts ConnectOptions) (
 			conn.Close()
 		}
 	}(conn)
-	var authInfo credentials.AuthInfo
+	var (
+		isSecure bool
+		authInfo credentials.AuthInfo
+	)
 	if creds := opts.TransportCredentials; creds != nil {
 		scheme = "https"
 		conn, authInfo, err = creds.ClientHandshake(ctx, addr.Addr, conn)
@@ -175,43 +179,63 @@ func newHTTP2Client(ctx context.Context, addr TargetInfo, opts ConnectOptions) (
 			// Credentials handshake errors are typically considered permanent
 			// to avoid retrying on e.g. bad certificates.
 			temp := isTemporary(err)
-			return nil, connectionErrorf(temp, err, "transport: %v", err)
+			return nil, connectionErrorf(temp, err, "transport: authentication handshake failed: %v", err)
 		}
+		isSecure = true
 	}
-	ua := primaryUA
-	if opts.UserAgent != "" {
-		ua = opts.UserAgent + " " + ua
+	kp := opts.KeepaliveParams
+	// Validate keepalive parameters.
+	if kp.Time == 0 {
+		kp.Time = defaultClientKeepaliveTime
+	}
+	if kp.Timeout == 0 {
+		kp.Timeout = defaultClientKeepaliveTimeout
+	}
+	icwz := int32(initialConnWindowSize)
+	if opts.InitialConnWindowSize >= defaultWindowSize {
+		icwz = opts.InitialConnWindowSize
 	}
 	var buf bytes.Buffer
 	t := &http2Client{
 		ctx:        ctx,
 		target:     addr.Addr,
-		userAgent:  ua,
+		userAgent:  opts.UserAgent,
 		md:         addr.Metadata,
 		conn:       conn,
 		remoteAddr: conn.RemoteAddr(),
 		localAddr:  conn.LocalAddr(),
 		authInfo:   authInfo,
 		// The client initiated stream id is odd starting from 1.
-		nextID:          1,
-		writableChan:    make(chan int, 1),
-		shutdownChan:    make(chan struct{}),
-		errorChan:       make(chan struct{}),
-		goAway:          make(chan struct{}),
-		framer:          newFramer(conn),
-		hBuf:            &buf,
-		hEnc:            hpack.NewEncoder(&buf),
-		controlBuf:      newRecvBuffer(),
-		fc:              &inFlow{limit: initialConnWindowSize},
-		sendQuotaPool:   newQuotaPool(defaultWindowSize),
-		scheme:          scheme,
-		state:           reachable,
-		activeStreams:   make(map[uint32]*Stream),
-		creds:           opts.PerRPCCredentials,
-		maxStreams:      math.MaxInt32,
-		streamSendQuota: defaultWindowSize,
-		statsHandler:    opts.StatsHandler,
+		nextID:            1,
+		writableChan:      make(chan int, 1),
+		shutdownChan:      make(chan struct{}),
+		errorChan:         make(chan struct{}),
+		goAway:            make(chan struct{}),
+		awakenKeepalive:   make(chan struct{}, 1),
+		framer:            newFramer(conn),
+		hBuf:              &buf,
+		hEnc:              hpack.NewEncoder(&buf),
+		controlBuf:        newControlBuffer(),
+		fc:                &inFlow{limit: uint32(icwz)},
+		sendQuotaPool:     newQuotaPool(defaultWindowSize),
+		scheme:            scheme,
+		state:             reachable,
+		activeStreams:     make(map[uint32]*Stream),
+		isSecure:          isSecure,
+		creds:             opts.PerRPCCredentials,
+		maxStreams:        defaultMaxStreamsClient,
+		streamsQuota:      newQuotaPool(defaultMaxStreamsClient),
+		streamSendQuota:   defaultWindowSize,
+		kp:                kp,
+		statsHandler:      opts.StatsHandler,
+		initialWindowSize: initialWindowSize,
 	}
+	if opts.InitialWindowSize >= defaultWindowSize {
+		t.initialWindowSize = opts.InitialWindowSize
+	}
+	// Make sure awakenKeepalive can't be written upon.
+	// keepalive routine will make it writable, if need be.
+	t.awakenKeepalive <- struct{}{}
 	if t.statsHandler != nil {
 		t.ctx = t.statsHandler.TagConn(t.ctx, &stats.ConnTagInfo{
 			RemoteAddr: t.remoteAddr,
@@ -230,32 +254,35 @@ func newHTTP2Client(ctx context.Context, addr TargetInfo, opts ConnectOptions) (
 	n, err := t.conn.Write(clientPreface)
 	if err != nil {
 		t.Close()
-		return nil, connectionErrorf(true, err, "transport: %v", err)
+		return nil, connectionErrorf(true, err, "transport: failed to write client preface: %v", err)
 	}
 	if n != len(clientPreface) {
 		t.Close()
 		return nil, connectionErrorf(true, err, "transport: preface mismatch, wrote %d bytes; want %d", n, len(clientPreface))
 	}
-	if initialWindowSize != defaultWindowSize {
+	if t.initialWindowSize != defaultWindowSize {
 		err = t.framer.writeSettings(true, http2.Setting{
 			ID:  http2.SettingInitialWindowSize,
-			Val: uint32(initialWindowSize),
+			Val: uint32(t.initialWindowSize),
 		})
 	} else {
 		err = t.framer.writeSettings(true)
 	}
 	if err != nil {
 		t.Close()
-		return nil, connectionErrorf(true, err, "transport: %v", err)
+		return nil, connectionErrorf(true, err, "transport: failed to write initial settings frame: %v", err)
 	}
 	// Adjust the connection flow control window if needed.
-	if delta := uint32(initialConnWindowSize - defaultWindowSize); delta > 0 {
+	if delta := uint32(icwz - defaultWindowSize); delta > 0 {
 		if err := t.framer.writeWindowUpdate(true, 0, delta); err != nil {
 			t.Close()
-			return nil, connectionErrorf(true, err, "transport: %v", err)
+			return nil, connectionErrorf(true, err, "transport: failed to write window update: %v", err)
 		}
 	}
 	go t.controller()
+	if t.kp.Time != infinity {
+		go t.keepalive()
+	}
 	t.writableChan <- 0
 	return t, nil
 }
@@ -269,27 +296,33 @@ func (t *http2Client) newStream(ctx context.Context, callHdr *CallHdr) *Stream {
 		method:        callHdr.Method,
 		sendCompress:  callHdr.SendCompress,
 		buf:           newRecvBuffer(),
-		fc:            &inFlow{limit: initialWindowSize},
+		fc:            &inFlow{limit: uint32(t.initialWindowSize)},
 		sendQuotaPool: newQuotaPool(int(t.streamSendQuota)),
 		headerChan:    make(chan struct{}),
 	}
 	t.nextID += 2
-	s.windowHandler = func(n int) {
-		t.updateWindow(s, uint32(n))
+	s.requestRead = func(n int) {
+		t.adjustWindow(s, uint32(n))
 	}
 	// The client side stream context should have exactly the same life cycle with the user provided context.
 	// That means, s.ctx should be read-only. And s.ctx is done iff ctx is done.
 	// So we use the original context here instead of creating a copy.
 	s.ctx = ctx
-	s.dec = &recvBufferReader{
-		ctx:    s.ctx,
-		goAway: s.goAway,
-		recv:   s.buf,
+	s.trReader = &transportReader{
+		reader: &recvBufferReader{
+			ctx:    s.ctx,
+			goAway: s.goAway,
+			recv:   s.buf,
+		},
+		windowHandler: func(n int) {
+			t.updateWindow(s, uint32(n))
+		},
 	}
+
 	return s
 }
 
-// NewStream creates a stream and register it into the transport as "active"
+// NewStream creates a stream and registers it into the transport as "active"
 // streams.
 func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (_ *Stream, err error) {
 	pr := &peer.Peer{
@@ -299,10 +332,13 @@ func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (_ *Strea
 	if t.authInfo != nil {
 		pr.AuthInfo = t.authInfo
 	}
-	userCtx := ctx
 	ctx = peer.NewContext(ctx, pr)
-	authData := make(map[string]string)
-	for _, c := range t.creds {
+	var (
+		authData = make(map[string]string)
+		audience string
+	)
+	// Create an audience string only if needed.
+	if len(t.creds) > 0 || callHdr.Creds != nil {
 		// Construct URI required to get auth request metadata.
 		var port string
 		if pos := strings.LastIndex(t.target, ":"); pos != -1 {
@@ -313,15 +349,37 @@ func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (_ *Strea
 		}
 		pos := strings.LastIndex(callHdr.Method, "/")
 		if pos == -1 {
-			return nil, streamErrorf(codes.InvalidArgument, "transport: malformed method name: %q", callHdr.Method)
+			pos = len(callHdr.Method)
 		}
-		audience := "https://" + callHdr.Host + port + callHdr.Method[:pos]
+		audience = "https://" + callHdr.Host + port + callHdr.Method[:pos]
+	}
+	for _, c := range t.creds {
 		data, err := c.GetRequestMetadata(ctx, audience)
 		if err != nil {
-			return nil, streamErrorf(codes.InvalidArgument, "transport: %v", err)
+			return nil, streamErrorf(codes.Internal, "transport: %v", err)
 		}
 		for k, v := range data {
+			// Capital header names are illegal in HTTP/2.
+			k = strings.ToLower(k)
 			authData[k] = v
+		}
+	}
+	callAuthData := make(map[string]string)
+	// Check if credentials.PerRPCCredentials were provided via call options.
+	// Note: if these credentials are provided both via dial options and call
+	// options, then both sets of credentials will be applied.
+	if callCreds := callHdr.Creds; callCreds != nil {
+		if !t.isSecure && callCreds.RequireTransportSecurity() {
+			return nil, streamErrorf(codes.Unauthenticated, "transport: cannot send secure credentials on an insecure conneciton")
+		}
+		data, err := callCreds.GetRequestMetadata(ctx, audience)
+		if err != nil {
+			return nil, streamErrorf(codes.Internal, "transport: %v", err)
+		}
+		for k, v := range data {
+			// Capital header names are illegal in HTTP/2
+			k = strings.ToLower(k)
+			callAuthData[k] = v
 		}
 	}
 	t.mu.Lock()
@@ -337,21 +395,18 @@ func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (_ *Strea
 		t.mu.Unlock()
 		return nil, ErrConnClosing
 	}
-	checkStreamsQuota := t.streamsQuota != nil
 	t.mu.Unlock()
-	if checkStreamsQuota {
-		sq, err := wait(ctx, nil, nil, t.shutdownChan, t.streamsQuota.acquire())
-		if err != nil {
-			return nil, err
-		}
-		// Returns the quota balance back.
-		if sq > 1 {
-			t.streamsQuota.add(sq - 1)
-		}
+	sq, err := wait(ctx, nil, nil, t.shutdownChan, t.streamsQuota.acquire())
+	if err != nil {
+		return nil, err
+	}
+	// Returns the quota balance back.
+	if sq > 1 {
+		t.streamsQuota.add(sq - 1)
 	}
 	if _, err := wait(ctx, nil, nil, t.shutdownChan, t.writableChan); err != nil {
 		// Return the quota back now because there is no stream returned to the caller.
-		if _, ok := err.(StreamError); ok && checkStreamsQuota {
+		if _, ok := err.(StreamError); ok {
 			t.streamsQuota.add(1)
 		}
 		return nil, err
@@ -359,9 +414,7 @@ func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (_ *Strea
 	t.mu.Lock()
 	if t.state == draining {
 		t.mu.Unlock()
-		if checkStreamsQuota {
-			t.streamsQuota.add(1)
-		}
+		t.streamsQuota.add(1)
 		// Need to make t writable again so that the rpc in flight can still proceed.
 		t.writableChan <- 0
 		return nil, ErrStreamDrain
@@ -371,19 +424,18 @@ func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (_ *Strea
 		return nil, ErrConnClosing
 	}
 	s := t.newStream(ctx, callHdr)
-	s.clientStatsCtx = userCtx
 	t.activeStreams[s.id] = s
+	// If the number of active streams change from 0 to 1, then check if keepalive
+	// has gone dormant. If so, wake it up.
+	if len(t.activeStreams) == 1 {
+		select {
+		case t.awakenKeepalive <- struct{}{}:
+			t.framer.writePing(false, false, [8]byte{})
+		default:
+		}
+	}
 
-	// This stream is not counted when applySetings(...) initialize t.streamsQuota.
-	// Reset t.streamsQuota to the right value.
-	var reset bool
-	if !checkStreamsQuota && t.streamsQuota != nil {
-		reset = true
-	}
 	t.mu.Unlock()
-	if reset {
-		t.streamsQuota.add(-1)
-	}
 
 	// HPACK encodes various headers. Note that once WriteField(...) is
 	// called, the corresponding headers/continuation frame has to be sent
@@ -407,33 +459,32 @@ func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (_ *Strea
 	}
 
 	for k, v := range authData {
-		// Capital header names are illegal in HTTP/2.
-		k = strings.ToLower(k)
-		t.hEnc.WriteField(hpack.HeaderField{Name: k, Value: v})
+		t.hEnc.WriteField(hpack.HeaderField{Name: k, Value: encodeMetadataHeader(k, v)})
+	}
+	for k, v := range callAuthData {
+		t.hEnc.WriteField(hpack.HeaderField{Name: k, Value: encodeMetadataHeader(k, v)})
 	}
 	var (
-		hasMD      bool
 		endHeaders bool
 	)
-	if md, ok := metadata.FromContext(ctx); ok {
-		hasMD = true
-		for k, v := range md {
+	if md, ok := metadata.FromOutgoingContext(ctx); ok {
+		for k, vv := range md {
 			// HTTP doesn't allow you to set pseudoheaders after non pseudoheaders were set.
 			if isReservedHeader(k) {
 				continue
 			}
-			for _, entry := range v {
-				t.hEnc.WriteField(hpack.HeaderField{Name: k, Value: entry})
+			for _, v := range vv {
+				t.hEnc.WriteField(hpack.HeaderField{Name: k, Value: encodeMetadataHeader(k, v)})
 			}
 		}
 	}
 	if md, ok := t.md.(*metadata.MD); ok {
-		for k, v := range *md {
+		for k, vv := range *md {
 			if isReservedHeader(k) {
 				continue
 			}
-			for _, entry := range v {
-				t.hEnc.WriteField(hpack.HeaderField{Name: k, Value: entry})
+			for _, v := range vv {
+				t.hEnc.WriteField(hpack.HeaderField{Name: k, Value: encodeMetadataHeader(k, v)})
 			}
 		}
 	}
@@ -448,7 +499,7 @@ func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (_ *Strea
 			endHeaders = true
 		}
 		var flush bool
-		if endHeaders && (hasMD || callHdr.Flush) {
+		if callHdr.Flush && endHeaders {
 			flush = true
 		}
 		if first {
@@ -473,6 +524,10 @@ func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (_ *Strea
 			return nil, connectionErrorf(true, err, "transport: %v", err)
 		}
 	}
+	s.mu.Lock()
+	s.bytesSent = true
+	s.mu.Unlock()
+
 	if t.statsHandler != nil {
 		outHeader := &stats.OutHeader{
 			Client:      true,
@@ -482,7 +537,7 @@ func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (_ *Strea
 			LocalAddr:   t.localAddr,
 			Compression: callHdr.SendCompress,
 		}
-		t.statsHandler.HandleRPC(s.clientStatsCtx, outHeader)
+		t.statsHandler.HandleRPC(s.ctx, outHeader)
 	}
 	t.writableChan <- 0
 	return s, nil
@@ -491,14 +546,14 @@ func (t *http2Client) NewStream(ctx context.Context, callHdr *CallHdr) (_ *Strea
 // CloseStream clears the footprint of a stream when the stream is not needed any more.
 // This must not be executed in reader's goroutine.
 func (t *http2Client) CloseStream(s *Stream, err error) {
-	var updateStreams bool
 	t.mu.Lock()
 	if t.activeStreams == nil {
 		t.mu.Unlock()
 		return
 	}
-	if t.streamsQuota != nil {
-		updateStreams = true
+	if err != nil {
+		// notify in-flight streams, before the deletion
+		s.write(recvMsg{err: err})
 	}
 	delete(t.activeStreams, s.id)
 	if t.state == draining && len(t.activeStreams) == 0 {
@@ -508,15 +563,27 @@ func (t *http2Client) CloseStream(s *Stream, err error) {
 		return
 	}
 	t.mu.Unlock()
-	if updateStreams {
-		t.streamsQuota.add(1)
-	}
-	s.mu.Lock()
-	if q := s.fc.resetPendingData(); q > 0 {
-		if n := t.fc.onRead(q); n > 0 {
-			t.controlBuf.put(&windowUpdate{0, n})
+	// rstStream is true in case the stream is being closed at the client-side
+	// and the server needs to be intimated about it by sending a RST_STREAM
+	// frame.
+	// To make sure this frame is written to the wire before the headers of the
+	// next stream waiting for streamsQuota, we add to streamsQuota pool only
+	// after having acquired the writableChan to send RST_STREAM out (look at
+	// the controller() routine).
+	var rstStream bool
+	var rstError http2.ErrCode
+	defer func() {
+		// In case, the client doesn't have to send RST_STREAM to server
+		// we can safely add back to streamsQuota pool now.
+		if !rstStream {
+			t.streamsQuota.add(1)
+			return
 		}
-	}
+		t.controlBuf.put(&resetStream{s.id, rstError})
+	}()
+	s.mu.Lock()
+	rstStream = s.rstStream
+	rstError = s.rstError
 	if s.state == streamDone {
 		s.mu.Unlock()
 		return
@@ -527,8 +594,9 @@ func (t *http2Client) CloseStream(s *Stream, err error) {
 	}
 	s.state = streamDone
 	s.mu.Unlock()
-	if se, ok := err.(StreamError); ok && se.Code != codes.DeadlineExceeded {
-		t.controlBuf.put(&resetStream{s.id, http2.ErrCodeCancel})
+	if _, ok := err.(StreamError); ok {
+		rstStream = true
+		rstError = http2.ErrCodeCancel
 	}
 }
 
@@ -724,6 +792,24 @@ func (t *http2Client) getStream(f http2.Frame) (*Stream, bool) {
 	return s, ok
 }
 
+// adjustWindow sends out extra window update over the initial window size
+// of stream if the application is requesting data larger in size than
+// the window.
+func (t *http2Client) adjustWindow(s *Stream, n uint32) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.state == streamDone {
+		return
+	}
+	if w := s.fc.maybeAdjust(n); w > 0 {
+		// Piggyback conneciton's window update along.
+		if cw := t.fc.resetPendingUpdate(); cw > 0 {
+			t.controlBuf.put(&windowUpdate{0, cw, false})
+		}
+		t.controlBuf.put(&windowUpdate{s.id, w, true})
+	}
+}
+
 // updateWindow adjusts the inbound quota for the stream and the transport.
 // Window updates will deliver to the controller for sending when
 // the cumulative quota exceeds the corresponding threshold.
@@ -733,55 +819,64 @@ func (t *http2Client) updateWindow(s *Stream, n uint32) {
 	if s.state == streamDone {
 		return
 	}
-	if w := t.fc.onRead(n); w > 0 {
-		t.controlBuf.put(&windowUpdate{0, w})
-	}
 	if w := s.fc.onRead(n); w > 0 {
-		t.controlBuf.put(&windowUpdate{s.id, w})
+		if cw := t.fc.resetPendingUpdate(); cw > 0 {
+			t.controlBuf.put(&windowUpdate{0, cw, false})
+		}
+		t.controlBuf.put(&windowUpdate{s.id, w, true})
 	}
 }
 
 func (t *http2Client) handleData(f *http2.DataFrame) {
-	size := len(f.Data())
+	size := f.Header().Length
 	if err := t.fc.onData(uint32(size)); err != nil {
 		t.notifyError(connectionErrorf(true, err, "%v", err))
 		return
 	}
+	// Decouple connection's flow control from application's read.
+	// An update on connection's flow control should not depend on
+	// whether user application has read the data or not. Such a
+	// restriction is already imposed on the stream's flow control,
+	// and therefore the sender will be blocked anyways.
+	// Decoupling the connection flow control will prevent other
+	// active(fast) streams from starving in presence of slow or
+	// inactive streams.
+	if w := t.fc.onRead(uint32(size)); w > 0 {
+		t.controlBuf.put(&windowUpdate{0, w, true})
+	}
 	// Select the right stream to dispatch.
 	s, ok := t.getStream(f)
 	if !ok {
-		if w := t.fc.onRead(uint32(size)); w > 0 {
-			t.controlBuf.put(&windowUpdate{0, w})
-		}
 		return
 	}
 	if size > 0 {
 		s.mu.Lock()
 		if s.state == streamDone {
 			s.mu.Unlock()
-			// The stream has been closed. Release the corresponding quota.
-			if w := t.fc.onRead(uint32(size)); w > 0 {
-				t.controlBuf.put(&windowUpdate{0, w})
-			}
 			return
 		}
 		if err := s.fc.onData(uint32(size)); err != nil {
-			s.state = streamDone
-			s.statusCode = codes.Internal
-			s.statusDesc = err.Error()
-			close(s.done)
+			s.rstStream = true
+			s.rstError = http2.ErrCodeFlowControl
+			s.finish(status.New(codes.Internal, err.Error()))
 			s.mu.Unlock()
 			s.write(recvMsg{err: io.EOF})
-			t.controlBuf.put(&resetStream{s.id, http2.ErrCodeFlowControl})
 			return
+		}
+		if f.Header().Flags.Has(http2.FlagDataPadded) {
+			if w := s.fc.onRead(uint32(size) - uint32(len(f.Data()))); w > 0 {
+				t.controlBuf.put(&windowUpdate{s.id, w, true})
+			}
 		}
 		s.mu.Unlock()
 		// TODO(bradfitz, zhaoq): A copy is required here because there is no
 		// guarantee f.Data() is consumed before the arrival of next frame.
 		// Can this copy be eliminated?
-		data := make([]byte, size)
-		copy(data, f.Data())
-		s.write(recvMsg{data: data})
+		if len(f.Data()) > 0 {
+			data := make([]byte, len(f.Data()))
+			copy(data, f.Data())
+			s.write(recvMsg{data: data})
+		}
 	}
 	// The server has closed the stream without sending trailers.  Record that
 	// the read direction is closed, and set the status appropriately.
@@ -791,10 +886,7 @@ func (t *http2Client) handleData(f *http2.DataFrame) {
 			s.mu.Unlock()
 			return
 		}
-		s.state = streamDone
-		s.statusCode = codes.Internal
-		s.statusDesc = "server closed the stream without sending trailers"
-		close(s.done)
+		s.finish(status.New(codes.Internal, "server closed the stream without sending trailers"))
 		s.mu.Unlock()
 		s.write(recvMsg{err: io.EOF})
 	}
@@ -810,18 +902,16 @@ func (t *http2Client) handleRSTStream(f *http2.RSTStreamFrame) {
 		s.mu.Unlock()
 		return
 	}
-	s.state = streamDone
 	if !s.headerDone {
 		close(s.headerChan)
 		s.headerDone = true
 	}
-	s.statusCode, ok = http2ErrConvTab[http2.ErrCode(f.ErrCode)]
+	statusCode, ok := http2ErrConvTab[http2.ErrCode(f.ErrCode)]
 	if !ok {
 		grpclog.Println("transport: http2Client.handleRSTStream found no mapped gRPC status for the received http2 error ", f.ErrCode)
-		s.statusCode = codes.Unknown
+		statusCode = codes.Unknown
 	}
-	s.statusDesc = fmt.Sprintf("stream terminated by RST_STREAM with error code: %d", f.ErrCode)
-	close(s.done)
+	s.finish(status.Newf(statusCode, "stream terminated by RST_STREAM with error code: %d", f.ErrCode))
 	s.mu.Unlock()
 	s.write(recvMsg{err: io.EOF})
 }
@@ -849,6 +939,9 @@ func (t *http2Client) handlePing(f *http2.PingFrame) {
 }
 
 func (t *http2Client) handleGoAway(f *http2.GoAwayFrame) {
+	if f.ErrCode == http2.ErrCodeEnhanceYourCalm {
+		grpclog.Printf("Client received GoAway with http2.ErrCodeEnhanceYourCalm.")
+	}
 	t.mu.Lock()
 	if t.state == reachable || t.state == draining {
 		if f.LastStreamID > 0 && f.LastStreamID%2 != 1 {
@@ -870,11 +963,32 @@ func (t *http2Client) handleGoAway(f *http2.GoAwayFrame) {
 			t.mu.Unlock()
 			return
 		default:
+			t.setGoAwayReason(f)
 		}
 		t.goAwayID = f.LastStreamID
 		close(t.goAway)
 	}
 	t.mu.Unlock()
+}
+
+// setGoAwayReason sets the value of t.goAwayReason based
+// on the GoAway frame received.
+// It expects a lock on transport's mutext to be held by
+// the caller.
+func (t *http2Client) setGoAwayReason(f *http2.GoAwayFrame) {
+	t.goAwayReason = NoReason
+	switch f.ErrCode {
+	case http2.ErrCodeEnhanceYourCalm:
+		if string(f.DebugData()) == "too_many_pings" {
+			t.goAwayReason = TooManyPings
+		}
+	}
+}
+
+func (t *http2Client) GetGoAwayReason() GoAwayReason {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.goAwayReason
 }
 
 func (t *http2Client) handleWindowUpdate(f *http2.WindowUpdateFrame) {
@@ -895,18 +1009,18 @@ func (t *http2Client) operateHeaders(frame *http2.MetaHeadersFrame) {
 	if !ok {
 		return
 	}
+	s.mu.Lock()
+	s.bytesReceived = true
+	s.mu.Unlock()
 	var state decodeState
-	for _, hf := range frame.Fields {
-		state.processHeaderField(hf)
-	}
-	if state.err != nil {
+	if err := state.decodeResponseHeader(frame); err != nil {
 		s.mu.Lock()
 		if !s.headerDone {
 			close(s.headerChan)
 			s.headerDone = true
 		}
 		s.mu.Unlock()
-		s.write(recvMsg{err: state.err})
+		s.write(recvMsg{err: err})
 		// Something wrong. Stops reading even when there is remaining.
 		return
 	}
@@ -920,13 +1034,13 @@ func (t *http2Client) operateHeaders(frame *http2.MetaHeadersFrame) {
 					Client:     true,
 					WireLength: int(frame.Header().Length),
 				}
-				t.statsHandler.HandleRPC(s.clientStatsCtx, inHeader)
+				t.statsHandler.HandleRPC(s.ctx, inHeader)
 			} else {
 				inTrailer := &stats.InTrailer{
 					Client:     true,
 					WireLength: int(frame.Header().Length),
 				}
-				t.statsHandler.HandleRPC(s.clientStatsCtx, inTrailer)
+				t.statsHandler.HandleRPC(s.ctx, inTrailer)
 			}
 		}
 	}()
@@ -951,10 +1065,7 @@ func (t *http2Client) operateHeaders(frame *http2.MetaHeadersFrame) {
 	if len(state.mdata) > 0 {
 		s.trailer = state.mdata
 	}
-	s.statusCode = state.statusCode
-	s.statusDesc = state.statusDesc
-	close(s.done)
-	s.state = streamDone
+	s.finish(state.status())
 	s.mu.Unlock()
 	s.write(recvMsg{err: io.EOF})
 }
@@ -982,6 +1093,7 @@ func (t *http2Client) reader() {
 		t.notifyError(err)
 		return
 	}
+	atomic.CompareAndSwapUint32(&t.activity, 0, 1)
 	sf, ok := frame.(*http2.SettingsFrame)
 	if !ok {
 		t.notifyError(err)
@@ -992,6 +1104,7 @@ func (t *http2Client) reader() {
 	// loop to keep reading incoming messages on this transport.
 	for {
 		frame, err := t.framer.readFrame()
+		atomic.CompareAndSwapUint32(&t.activity, 0, 1)
 		if err != nil {
 			// Abort an active stream if the http2.Framer returns a
 			// http2.StreamError. This can happen only if the server's response
@@ -1043,21 +1156,15 @@ func (t *http2Client) applySettings(ss []http2.Setting) {
 				s.Val = math.MaxInt32
 			}
 			t.mu.Lock()
-			reset := t.streamsQuota != nil
-			if !reset {
-				t.streamsQuota = newQuotaPool(int(s.Val) - len(t.activeStreams))
-			}
 			ms := t.maxStreams
 			t.maxStreams = int(s.Val)
 			t.mu.Unlock()
-			if reset {
-				t.streamsQuota.add(int(s.Val) - ms)
-			}
+			t.streamsQuota.add(int(s.Val) - ms)
 		case http2.SettingInitialWindowSize:
 			t.mu.Lock()
 			for _, stream := range t.activeStreams {
 				// Adjust the sending quota for each stream.
-				stream.sendQuotaPool.add(int(s.Val - t.streamSendQuota))
+				stream.sendQuotaPool.add(int(s.Val) - int(t.streamSendQuota))
 			}
 			t.streamSendQuota = s.Val
 			t.mu.Unlock()
@@ -1076,7 +1183,7 @@ func (t *http2Client) controller() {
 			case <-t.writableChan:
 				switch i := i.(type) {
 				case *windowUpdate:
-					t.framer.writeWindowUpdate(true, i.streamID, i.increment)
+					t.framer.writeWindowUpdate(i.flush, i.streamID, i.increment)
 				case *settings:
 					if i.ack {
 						t.framer.writeSettingsAck(true)
@@ -1085,6 +1192,12 @@ func (t *http2Client) controller() {
 						t.framer.writeSettings(true, i.ss...)
 					}
 				case *resetStream:
+					// If the server needs to be to intimated about stream closing,
+					// then we need to make sure the RST_STREAM frame is written to
+					// the wire before the headers of the next stream waiting on
+					// streamQuota. We ensure this by adding to the streamsQuota pool
+					// only after having acquired the writableChan to send RST_STREAM.
+					t.streamsQuota.add(1)
 					t.framer.writeRSTStream(true, i.streamID, i.code)
 				case *flushIO:
 					t.framer.flushWrite()
@@ -1099,6 +1212,61 @@ func (t *http2Client) controller() {
 				return
 			}
 		case <-t.shutdownChan:
+			return
+		}
+	}
+}
+
+// keepalive running in a separate goroutune makes sure the connection is alive by sending pings.
+func (t *http2Client) keepalive() {
+	p := &ping{data: [8]byte{}}
+	timer := time.NewTimer(t.kp.Time)
+	for {
+		select {
+		case <-timer.C:
+			if atomic.CompareAndSwapUint32(&t.activity, 1, 0) {
+				timer.Reset(t.kp.Time)
+				continue
+			}
+			// Check if keepalive should go dormant.
+			t.mu.Lock()
+			if len(t.activeStreams) < 1 && !t.kp.PermitWithoutStream {
+				// Make awakenKeepalive writable.
+				<-t.awakenKeepalive
+				t.mu.Unlock()
+				select {
+				case <-t.awakenKeepalive:
+					// If the control gets here a ping has been sent
+					// need to reset the timer with keepalive.Timeout.
+				case <-t.shutdownChan:
+					return
+				}
+			} else {
+				t.mu.Unlock()
+				// Send ping.
+				t.controlBuf.put(p)
+			}
+
+			// By the time control gets here a ping has been sent one way or the other.
+			timer.Reset(t.kp.Timeout)
+			select {
+			case <-timer.C:
+				if atomic.CompareAndSwapUint32(&t.activity, 1, 0) {
+					timer.Reset(t.kp.Time)
+					continue
+				}
+				t.Close()
+				return
+			case <-t.shutdownChan:
+				if !timer.Stop() {
+					<-timer.C
+				}
+				return
+			}
+		case <-t.shutdownChan:
+			if !timer.Stop() {
+				<-timer.C
+			}
 			return
 		}
 	}

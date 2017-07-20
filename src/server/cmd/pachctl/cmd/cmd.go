@@ -22,13 +22,14 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
+	authcmds "github.com/pachyderm/pachyderm/src/server/auth/cmds"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/ugorji/go/codec"
 	"golang.org/x/net/context"
@@ -74,6 +75,10 @@ Environment variables:
 	}
 	deployCmds := deploycmds.Cmds(&noMetrics)
 	for _, cmd := range deployCmds {
+		rootCmd.AddCommand(cmd)
+	}
+	authCmds := authcmds.Cmds()
+	for _, cmd := range authCmds {
 		rootCmd.AddCommand(cmd)
 	}
 
