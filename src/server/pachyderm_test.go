@@ -2638,30 +2638,41 @@ func TestStopJob(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
 
-	// Wait for the first job to start running
-	time.Sleep(10 * time.Second)
-
-	// Check that the first job is running
-	jobInfos, err := c.ListJob(pipelineName, nil)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
-	require.Equal(t, pps.JobState_JOB_RUNNING, jobInfos[0].State)
+	b := backoff.NewInfiniteBackOff()
+	b.MaxElapsedTime = 20 * time.Second
+	var jobID string
+	require.NoError(t, backoff.Retry(func() error {
+		jobInfos, err := c.ListJob(pipelineName, nil)
+		require.NoError(t, err)
+		if len(jobInfos) != 1 {
+			return fmt.Errorf("len(jobInfos) should be 1")
+		}
+		jobID = jobInfos[0].Job.ID
+		if pps.JobState_JOB_RUNNING != jobInfos[0].State {
+			return fmt.Errorf("jobInfos[0] has the wrong state")
+		}
+		return nil
+	}, b))
 
 	// Now stop the first job
-	err = c.StopJob(jobInfos[0].Job.ID)
+	err = c.StopJob(jobID)
 	require.NoError(t, err)
-	jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, true)
+	jobInfo, err := c.InspectJob(jobID, true)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_KILLED, jobInfo.State)
 
-	// Wait a little for the second job to spawn
-	time.Sleep(5 * time.Second)
-
+	b.Reset()
 	// Check that the second job completes
-	jobInfos, err = c.ListJob(pipelineName, nil)
-	require.NoError(t, err)
-	require.Equal(t, 2, len(jobInfos))
-	jobInfo, err = c.InspectJob(jobInfos[0].Job.ID, true)
+	require.NoError(t, backoff.Retry(func() error {
+		jobInfos, err := c.ListJob(pipelineName, nil)
+		require.NoError(t, err)
+		if len(jobInfos) != 2 {
+			return fmt.Errorf("len(jobInfos) should be 2")
+		}
+		jobID = jobInfos[0].Job.ID
+		return nil
+	}, b))
+	jobInfo, err = c.InspectJob(jobID, true)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
