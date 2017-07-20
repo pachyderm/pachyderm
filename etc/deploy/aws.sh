@@ -112,7 +112,7 @@ deploy_k8s_on_aws() {
 
     export NODE_SIZE=r4.xlarge
     export MASTER_SIZE=r4.xlarge
-    export NUM_NODES=3
+    export NUM_NODES=2
     export NAME=$(uuid | cut -f 1 -d-)-pachydermcluster.kubernetes.com
     echo ${NAME} > .cluster_name
     echo "kops state store: ${STATE_BUCKET}"
