@@ -332,7 +332,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					request.Transform.Image = pushedImage
 				}
 				if _, err := client.PpsAPIClient.CreatePipeline(
-					context.Background(),
+					client.RequestCtx(),
 					request,
 				); err != nil {
 					return sanitizeErr(err)
@@ -378,7 +378,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					request.Transform.Image = pushedImage
 				}
 				if _, err := client.PpsAPIClient.CreatePipeline(
-					context.Background(),
+					client.RequestCtx(),
 					request,
 				); err != nil {
 					return sanitizeErr(err)
@@ -468,17 +468,21 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				return fmt.Errorf("either a pipeline name or the --all flag needs to be provided")
 			}
 			if all {
-				_, err = client.PpsAPIClient.DeletePipeline(context.Background(), &ppsclient.DeletePipelineRequest{
-					All:        all,
-					DeleteJobs: deleteJobs,
-					DeleteRepo: deleteRepo,
-				})
+				_, err = client.PpsAPIClient.DeletePipeline(
+					client.RequestCtx(),
+					&ppsclient.DeletePipelineRequest{
+						All:        all,
+						DeleteJobs: deleteJobs,
+						DeleteRepo: deleteRepo,
+					})
 			} else {
-				_, err = client.PpsAPIClient.DeletePipeline(context.Background(), &ppsclient.DeletePipelineRequest{
-					Pipeline:   &ppsclient.Pipeline{args[0]},
-					DeleteJobs: deleteJobs,
-					DeleteRepo: deleteRepo,
-				})
+				_, err = client.PpsAPIClient.DeletePipeline(
+					client.RequestCtx(),
+					&ppsclient.DeletePipelineRequest{
+						Pipeline:   &ppsclient.Pipeline{args[0]},
+						DeleteJobs: deleteJobs,
+						DeleteRepo: deleteRepo,
+					})
 			}
 			if err != nil {
 				return fmt.Errorf("error from delete-pipeline: %s", err)
@@ -564,7 +568,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 
 			job, err := client.PpsAPIClient.CreateJob(
-				context.Background(),
+				client.RequestCtx(),
 				request,
 			)
 			if err != nil {
