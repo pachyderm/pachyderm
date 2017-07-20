@@ -5,9 +5,12 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+
+	"github.com/gogo/protobuf/types"
 )
 
 // NewJob creates a pps.Job.
@@ -471,4 +474,16 @@ func (c APIClient) GarbageCollect() error {
 		&pps.GarbageCollectRequest{},
 	)
 	return sanitizeErr(err)
+}
+
+// GetDatumTotalTime sums the timing stats from a DatumInfo
+func GetDatumTotalTime(s *pps.ProcessStats) time.Duration {
+	totalDuration := time.Duration(0)
+	duration, _ := types.DurationFromProto(s.DownloadTime)
+	totalDuration += duration
+	duration, _ = types.DurationFromProto(s.ProcessTime)
+	totalDuration += duration
+	duration, _ = types.DurationFromProto(s.UploadTime)
+	totalDuration += duration
+	return totalDuration
 }

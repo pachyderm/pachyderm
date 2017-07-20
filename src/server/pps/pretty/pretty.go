@@ -9,10 +9,9 @@ import (
 	"strings"
 	"text/tabwriter"
 	"text/template"
-	"time"
 
 	"github.com/fatih/color"
-	"github.com/gogo/protobuf/types"
+	"github.com/pachyderm/pachyderm/src/client"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 )
@@ -197,16 +196,9 @@ func PrintDatumInfoHeader(w io.Writer) {
 // If recurse is false and directory size is 0, display "-" instead
 // If fast is true and file size is 0, display "-" instead
 func PrintDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
-	var totalTime string
+	totalTime := "-"
 	if datumInfo.Stats != nil {
-		totalDuration := time.Duration(0)
-		duration, _ := types.DurationFromProto(datumInfo.Stats.DownloadTime)
-		totalDuration += duration
-		duration, _ = types.DurationFromProto(datumInfo.Stats.ProcessTime)
-		totalDuration += duration
-		duration, _ = types.DurationFromProto(datumInfo.Stats.UploadTime)
-		totalDuration += duration
-		totalTime = totalDuration.String()
+		totalTime = client.GetDatumTotalTime(datumInfo.Stats).String()
 	}
 	fmt.Fprintf(w, "%s\t%s\t%s\n", datumInfo.ID, datumState(datumInfo.State), totalTime)
 }

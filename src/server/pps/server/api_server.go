@@ -584,27 +584,17 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 
 type ByDatumStateThenTime []*pps.DatumInfo
 
-func getDatumTotalTime(s *pps.ProcessStats) time.Duration {
-	if s == nil {
-		return time.Duration(0)
-	}
-	totalDuration := time.Duration(0)
-	duration, _ := types.DurationFromProto(s.DownloadTime)
-	totalDuration += duration
-	duration, _ = types.DurationFromProto(s.ProcessTime)
-	totalDuration += duration
-	duration, _ = types.DurationFromProto(s.UploadTime)
-	totalDuration += duration
-	return totalDuration
-}
-
 func (a ByDatumStateThenTime) Len() int      { return len(a) }
 func (a ByDatumStateThenTime) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a ByDatumStateThenTime) Less(i, j int) bool {
+	byState := a[i].State < a[j].State
 	if a[i].State != a[j].State {
-		return a[i].State < a[j].State
+		return byState
 	} else {
-		return getDatumTotalTime(a[i].Stats) > getDatumTotalTime(a[j].Stats)
+		if a[i].Stats == nil || a[j].Stats == nil {
+			return byState
+		}
+		return client.GetDatumTotalTime(a[i].Stats) > client.GetDatumTotalTime(a[j].Stats)
 	}
 }
 
