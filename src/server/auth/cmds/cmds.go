@@ -118,7 +118,7 @@ func CheckCmd() *cobra.Command {
 			"to the repo \"private-data\" (you could be a reader, writer, " +
 			"or owner). Unlike. `pachctl get-acl`, you do not need to have access " +
 			"to 'repo' to discover your own acess level.",
-		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			scope, err := auth.ParseScope(args[0])
 			if err != nil {
 				return err
