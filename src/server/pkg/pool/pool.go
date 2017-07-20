@@ -88,6 +88,8 @@ func (p *Pool) updateAddresses(endpoints *api.Endpoints) {
 	p.conns = addresses
 }
 
+// Do allows you to do something with a grpc.ClientConn.
+// Errors returned from f will be returned by Do.
 func (p *Pool) Do(ctx context.Context, f func(cc *grpc.ClientConn) error) error {
 	var conn *connCount
 	if err := func() error {
