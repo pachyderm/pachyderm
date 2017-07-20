@@ -332,7 +332,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					request.Transform.Image = pushedImage
 				}
 				if _, err := client.PpsAPIClient.CreatePipeline(
-					client.RequestCtx(),
+					client.Ctx(),
 					request,
 				); err != nil {
 					return sanitizeErr(err)
@@ -378,7 +378,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					request.Transform.Image = pushedImage
 				}
 				if _, err := client.PpsAPIClient.CreatePipeline(
-					client.RequestCtx(),
+					client.Ctx(),
 					request,
 				); err != nil {
 					return sanitizeErr(err)
@@ -469,7 +469,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 			if all {
 				_, err = client.PpsAPIClient.DeletePipeline(
-					client.RequestCtx(),
+					client.Ctx(),
 					&ppsclient.DeletePipelineRequest{
 						All:        all,
 						DeleteJobs: deleteJobs,
@@ -477,7 +477,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					})
 			} else {
 				_, err = client.PpsAPIClient.DeletePipeline(
-					client.RequestCtx(),
+					client.Ctx(),
 					&ppsclient.DeletePipelineRequest{
 						Pipeline:   &ppsclient.Pipeline{args[0]},
 						DeleteJobs: deleteJobs,
@@ -568,7 +568,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 
 			job, err := client.PpsAPIClient.CreateJob(
-				client.RequestCtx(),
+				client.Ctx(),
 				request,
 			)
 			if err != nil {

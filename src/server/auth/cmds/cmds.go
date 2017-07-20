@@ -22,7 +22,8 @@ var githubAuthLink = `https://github.com/login/oauth/authorize?client_id=d3481e9
 // publicly-accessible to accessible only by the owner, who can subsequently add
 // users
 func ActivateCmd() *cobra.Command {
-	login := &cobra.Command{
+	var admins []string
+	activate := &cobra.Command{
 		Use: "activate activation-token",
 		Short: "Activate the enterprise features of pachyderm with an activation " +
 			"token",
@@ -30,19 +31,28 @@ func ActivateCmd() *cobra.Command {
 			"token",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			activationCode := args[0]
+			if len(admins) == 0 {
+				return fmt.Errorf("must specify at least one cluster admin to enable " +
+					"auth")
+			}
 			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %s", err.Error())
 			}
 			_, err = c.AuthAPIClient.Activate(
-				c.RequestCtx(),
+				c.Ctx(),
 				&auth.ActivateRequest{
 					ActivationCode: activationCode,
 				})
 			return err
 		}),
 	}
-	return login
+	activate.PersistentFlags().StringSliceVar(&admins, "admins", []string{},
+		"Comma-separated list of users who will be cluster admins once security "+
+			"is enabled. This list cannot be empty, as only admins can appoint new "+
+			"admins, so if a cluster has no admins to begin with, none can be "+
+			"appointed.")
+	return activate
 }
 
 // LoginCmd returns a cobra.Command to login to a Pachyderm cluster with your
@@ -78,7 +88,7 @@ func LoginCmd() *cobra.Command {
 				return fmt.Errorf("could not connect: %s", err.Error())
 			}
 			resp, err := c.AuthAPIClient.Authenticate(
-				c.RequestCtx(),
+				c.Ctx(),
 				&auth.AuthenticateRequest{GithubToken: token})
 			if err != nil {
 				return fmt.Errorf("error authenticating with Pachyderm cluster: %s",
@@ -118,7 +128,7 @@ func CheckCmd() *cobra.Command {
 				return fmt.Errorf("could not connect: %s", err.Error())
 			}
 			resp, err := c.AuthAPIClient.Authorize(
-				c.RequestCtx(),
+				c.Ctx(),
 				&auth.AuthorizeRequest{
 					Repo:  &pfs.Repo{Name: repo},
 					Scope: scope,
@@ -154,7 +164,7 @@ func GetCmd() *cobra.Command {
 				// Get ACL for a repo
 				repo := args[0]
 				resp, err := c.AuthAPIClient.GetACL(
-					c.RequestCtx(),
+					c.Ctx(),
 					&auth.GetACLRequest{
 						Repo: &pfs.Repo{Name: repo},
 					})
@@ -167,7 +177,7 @@ func GetCmd() *cobra.Command {
 			// Get User's scope on an acl
 			username, repo := args[0], args[1]
 			resp, err := c.AuthAPIClient.GetScope(
-				c.RequestCtx(),
+				c.Ctx(),
 				&auth.GetScopeRequest{
 					Repo:     &pfs.Repo{Name: repo},
 					Username: username,
@@ -207,7 +217,7 @@ func SetScopeCmd() *cobra.Command {
 				return fmt.Errorf("could not connect: %s", err.Error())
 			}
 			_, err = c.AuthAPIClient.SetScope(
-				c.RequestCtx(),
+				c.Ctx(),
 				&auth.SetScopeRequest{
 					Repo:     &pfs.Repo{Name: repo},
 					Scope:    scope,

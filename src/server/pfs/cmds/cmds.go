@@ -68,7 +68,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 				return err
 			}
 			_, err = c.PfsAPIClient.CreateRepo(
-				c.RequestCtx(),
+				c.Ctx(),
 				&pfsclient.CreateRepoRequest{
 					Repo:        client.NewRepo(args[0]),
 					Description: description,
@@ -154,7 +154,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 				return fmt.Errorf("either a repo name or the --all flag needs to be provided")
 			}
 			if all {
-				_, err = client.PfsAPIClient.DeleteRepo(client.RequestCtx(),
+				_, err = client.PfsAPIClient.DeleteRepo(client.Ctx(),
 					&pfsclient.DeleteRepoRequest{
 						Force: force,
 						All:   all,
