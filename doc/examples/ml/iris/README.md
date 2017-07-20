@@ -82,10 +82,10 @@ iris.csv            file                4.444 KiB
 
 Next, we can create the `model` pipeline stage to process the data in the training repository. To do this, we just need to provide Pachyderm with a JSON pipeline specification that tells Pachyderm how to process the data. This `model` pipeline can be generated to train a model with R, Python, or Julia and with a variety of types of models.  The following Docker images are available for the training:
 
-- `pachyderm/iris-train:python-svm` - Python-based SVM implemented in [python/iris-train-python-svm/train.py](python/iris-train-python-svm/train.py)
-- `pachyderm/iris-train:python-lda` - Python-based LDA implemented in [python/iris-train-python-lda/train.py](python/iris-train-python-lda/train.py)
-- `pachyderm/iris-train:rstats-svm` - R-based SVM implemented in [rstats/iris-train-rstats-svm/train.R](rstats/iris-train-rstats-svm/train.R)
-- `pachyderm/iris-train:rstats-lda` - R-based LDA implemented in [rstats/iris-train-rstats-lda/train.R](rstats/iris-train-rstats-lda/train.R)
+- `pachyderm/iris-train:python-svm` - Python-based SVM implemented in [python/iris-train-python-svm/pytrain.py](python/iris-train-python-svm/pytrain.py)
+- `pachyderm/iris-train:python-lda` - Python-based LDA implemented in [python/iris-train-python-lda/pytrain.py](python/iris-train-python-lda/pytrain.py)
+- `pachyderm/iris-train:rstats-svm` - R-based SVM implemented in [rstats/iris-train-r-svm/train.R](rstats/iris-train-r-svm/train.R)
+- `pachyderm/iris-train:rstats-lda` - R-based LDA implemented in [rstats/iris-train-r-lda/train.R](rstats/iris-train-r-lda/train.R)
 - `pachyderm/iris-train:julia-tree` - Julia-based decision tree implemented in [julia/iris-train-julia-tree/train.jl](julia/iris-train-julia-tree/train.jl)
 - `pachyderm/iris-train:julia-forest` - Julia-based random forest implemented in [julia/iris-train-julia-forest/train.jl](julia/iris-train-julia-forest/train.jl)
 
@@ -150,8 +150,8 @@ NAME                TYPE                SIZE
 
 We have another JSON blob, `<julia, python, rstats>_infer.json`, that will tell Pachyderm how to perform the processing for the inference stage.  This is similar to our last JSON specification except, in this case, we have two input repositories (the `attributes` and the `model`) and we are using a different Docker image.  Similar to the training pipeline stage, this can be created in R, Python, or Julia.  However, you should create it in the language that was used for training (because the model output formats aren't standardized across the languages). The available docker images are as follows:
 
-- `pachyderm/iris-infer:python` - Python-based inference implemented in [python/iris-infer-python/infer.py](python/iris-infer-python/infer.py)
-- `pachyderm/iris-infer:rstats` - R-based inferenced implemented in [rstats/iris-infer-rstats/infer.R](rstats/iris-infer-rstats/infer.R)
+- `pachyderm/iris-infer:python` - Python-based inference implemented in [python/iris-infer-python/infer.py](python/iris-infer-python/pyinfer.py)
+- `pachyderm/iris-infer:rstats` - R-based inferenced implemented in [rstats/iris-infer-rstats/infer.R](rstats/iris-infer-r/infer.R)
 - `pachyderm/iris-infer:julia` - Julia-based inference implemented in [julia/iris-infer-julia/infer.jl](julia/iris-infer-julia/infer.jl)
 
 Then, to create the inference stage, we simply run:

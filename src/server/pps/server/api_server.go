@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
@@ -29,8 +30,7 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
-	"go.pedge.io/lion/proto"
-	"go.pedge.io/proto/rpclog"
+	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -89,7 +89,7 @@ type ctxAndCancel struct {
 }
 
 type apiServer struct {
-	protorpclog.Logger
+	log.Logger
 	etcdPrefix            string
 	hasher                *ppsserver.Hasher
 	address               string
@@ -278,14 +278,17 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			Incremental:     request.Incremental,
 			Stats:           &pps.ProcessStats{},
 			EnableStats:     request.EnableStats,
+			Salt:            request.Salt,
+			PipelineVersion: request.PipelineVersion,
 		}
 		if request.Pipeline != nil {
 			pipelineInfo := new(pps.PipelineInfo)
 			if err := a.pipelines.ReadWrite(stm).Get(request.Pipeline.Name, pipelineInfo); err != nil {
 				return err
 			}
-			jobInfo.PipelineVersion = pipelineInfo.Version
-			jobInfo.PipelineID = pipelineInfo.ID
+			if jobInfo.Salt != pipelineInfo.Salt || jobInfo.PipelineVersion != pipelineInfo.Version {
+				return fmt.Errorf("job is made from an outdated version of the pipeline")
+			}
 			jobInfo.Transform = pipelineInfo.Transform
 			jobInfo.ParallelismSpec = pipelineInfo.ParallelismSpec
 			jobInfo.OutputRepo = &pfs.Repo{pipelineInfo.Pipeline.Name}
@@ -361,7 +364,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	workerPoolID := ppsserver.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
 	workerStatus, err := status(ctx, workerPoolID, a.etcdClient, a.etcdPrefix)
 	if err != nil {
-		protolion.Errorf("failed to get worker status with err: %s", err.Error())
+		logrus.Errorf("failed to get worker status with err: %s", err.Error())
 	} else {
 		// It's possible that the workers might be working on datums for other
 		// jobs, we omit those since they're not part of the status for this
@@ -707,7 +710,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	}
 
 	pipelineInfo := &pps.PipelineInfo{
-		ID:                 uuid.NewWithoutDashes(),
 		Pipeline:           request.Pipeline,
 		Version:            1,
 		Transform:          request.Transform,
@@ -722,6 +724,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Incremental:        request.Incremental,
 		CacheSize:          request.CacheSize,
 		EnableStats:        request.EnableStats,
+		Salt:               uuid.NewWithoutDashes(),
 	}
 	setPipelineDefaults(pipelineInfo)
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
@@ -752,6 +755,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				return err
 			}
 			pipelineInfo.Version = oldPipelineInfo.Version + 1
+			if !request.Reprocess {
+				pipelineInfo.Salt = oldPipelineInfo.Salt
+			}
 			pipelines.Put(pipelineName, pipelineInfo)
 			return nil
 		})
@@ -1176,7 +1182,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 	activeTags := make(map[string]bool)
 	for _, pipelineInfo := range pipelineInfos.PipelineInfo {
 		tags, err := objClient.ListTags(ctx, &pfs.ListTagsRequest{
-			Prefix:        client.HashPipelineID(pipelineInfo.ID),
+			Prefix:        client.DatumTagPrefix(pipelineInfo.Salt),
 			IncludeObject: true,
 		})
 		if err != nil {
