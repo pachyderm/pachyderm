@@ -50,15 +50,6 @@ xYp8vpeQ3by9WxPBE/WrxN8CAwEAAQ==
 `
 )
 
-type ActivationCode struct {
-	Token     string
-	Signature string
-}
-
-type Token struct {
-	Expiry string
-}
-
 type apiServer struct {
 	protorpclog.Logger
 	etcdClient *etcd.Client
@@ -129,57 +120,9 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 		return nil, fmt.Errorf("already activated")
 	}
 
-	// Parse the public key.  If these steps fail, something is seriously
-	// wrong and we should crash the service by panicking.
-	block, _ := pem.Decode([]byte(publicKey))
-	if block == nil {
-		panic("failed to pem decode public key")
-	}
-	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
-	if err != nil {
-		panic(fmt.Sprintf("failed to parse DER encoded public key: %+v", err))
-	}
-	rsaPub, ok := pub.(*rsa.PublicKey)
-	if !ok {
-		panic("public key isn't an RSA key")
-	}
-
-	// Decode the base64-encoded activation code
-	decodedActivationCode, err := base64.StdEncoding.DecodeString(req.ActivationCode)
-	if err != nil {
-		return nil, fmt.Errorf("activation code is not base64 encoded")
-	}
-	activationCode := &ActivationCode{}
-	if err := json.Unmarshal(decodedActivationCode, &activationCode); err != nil {
-		return nil, fmt.Errorf("activation code is not valid JSON")
-	}
-
-	// Decode the signature
-	decodedSignature, err := base64.StdEncoding.DecodeString(activationCode.Signature)
-	if err != nil {
-		return nil, fmt.Errorf("signature is not base64 encoded")
-	}
-
-	// Verify that the signature is valid
-	if err := rsa.VerifyPKCS1v15(rsaPub, crypto.SHA256, []byte(activationCode.Token), decodedSignature); err != nil {
-		return nil, fmt.Errorf("invalid signature in activation code")
-	}
-
-	// Unmarshal the token
-	token := Token{}
-	if err := json.Unmarshal([]byte(activationCode.Token), &token); err != nil {
-		return nil, fmt.Errorf("token is not valid JSON")
-	}
-
-	// Parse the expiry
-	expiry, err := time.Parse(time.RFC3339, token.Expiry)
-	if err != nil {
-		return nil, fmt.Errorf("expiry is not valid ISO 8601 string")
-	}
-
-	// Check that the activation code has not expired
-	if time.Now().After(expiry) {
-		return nil, fmt.Errorf("the activation code has expired")
+	// Validate the activation code
+	if err := validateActivationCode(req.ActivationCode); err != nil {
+		return nil, fmt.Errorf("error validating activation code: %v", err)
 	}
 
 	// Initialize admins
@@ -411,4 +354,71 @@ func (a *apiServer) getAuthorizedUser(ctx context.Context) (*authclient.User, er
 	}
 
 	return &user, nil
+}
+
+type ActivationCode struct {
+	Token     string
+	Signature string
+}
+
+type Token struct {
+	Expiry string
+}
+
+// validateActivationCode checks the validity of an activation code
+func validateActivationCode(code string) error {
+	// Parse the public key.  If these steps fail, something is seriously
+	// wrong and we should crash the service by panicking.
+	block, _ := pem.Decode([]byte(publicKey))
+	if block == nil {
+		panic("failed to pem decode public key")
+	}
+	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		panic(fmt.Sprintf("failed to parse DER encoded public key: %+v", err))
+	}
+	rsaPub, ok := pub.(*rsa.PublicKey)
+	if !ok {
+		panic("public key isn't an RSA key")
+	}
+
+	// Decode the base64-encoded activation code
+	decodedActivationCode, err := base64.StdEncoding.DecodeString(code)
+	if err != nil {
+		return fmt.Errorf("activation code is not base64 encoded")
+	}
+	activationCode := &ActivationCode{}
+	if err := json.Unmarshal(decodedActivationCode, &activationCode); err != nil {
+		return fmt.Errorf("activation code is not valid JSON")
+	}
+
+	// Decode the signature
+	decodedSignature, err := base64.StdEncoding.DecodeString(activationCode.Signature)
+	if err != nil {
+		return fmt.Errorf("signature is not base64 encoded")
+	}
+
+	// Verify that the signature is valid
+	if err := rsa.VerifyPKCS1v15(rsaPub, crypto.SHA256, []byte(activationCode.Token), decodedSignature); err != nil {
+		return fmt.Errorf("invalid signature in activation code")
+	}
+
+	// Unmarshal the token
+	token := Token{}
+	if err := json.Unmarshal([]byte(activationCode.Token), &token); err != nil {
+		return fmt.Errorf("token is not valid JSON")
+	}
+
+	// Parse the expiry
+	expiry, err := time.Parse(time.RFC3339, token.Expiry)
+	if err != nil {
+		return fmt.Errorf("expiry is not valid ISO 8601 string")
+	}
+
+	// Check that the activation code has not expired
+	if time.Now().After(expiry) {
+		return fmt.Errorf("the activation code has expired")
+	}
+
+	return nil
 }
