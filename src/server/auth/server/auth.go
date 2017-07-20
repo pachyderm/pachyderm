@@ -227,7 +227,7 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 	}
 
 	return &authclient.AuthorizeResponse{
-		Authorized: req.Scope == acl.Entries[user.Username],
+		Authorized: req.Scope <= acl.Entries[user.Username],
 	}, nil
 }
 
