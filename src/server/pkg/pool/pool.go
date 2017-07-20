@@ -18,14 +18,11 @@ type connCount struct {
 	count int64
 }
 
-// Pool stores a pool of grpc connections to, it's useful in places where you
-// would otherwise need to create several connections.
+// Pool stores a pool of grpc connections to a k8s service, it's useful in
+// places where you would otherwise need to keep recreating connections.
 type Pool struct {
-	// The addresses of the pods that we currently know about
-	addresses     map[string]*connCount
-	addressesLock sync.Mutex
-	// addressesCond is used to notify goros that addresses have been obtained
-	addressesCond  *sync.Cond
+	conns          map[string]*connCount
+	connsLock      sync.Mutex
 	endpointsWatch watch.Interface
 	opts           []grpc.DialOption
 	done           chan struct{}
@@ -51,7 +48,6 @@ func NewPool(kubeClient *kube.Client, namespace string, serviceName string, numW
 		opts:           opts,
 		done:           make(chan struct{}),
 	}
-	pool.addressesCond = sync.NewCond(&pool.addressesLock)
 	go pool.watchEndpoints()
 	return pool, nil
 }
@@ -73,15 +69,15 @@ func (p *Pool) watchEndpoints() {
 
 func (p *Pool) updateAddresses(endpoints *api.Endpoints) {
 	addresses := make(map[string]*connCount)
-	p.addressesLock.Lock()
-	defer p.addressesLock.Unlock()
+	p.connsLock.Lock()
+	defer p.connsLock.Unlock()
 	for _, subset := range endpoints.Subsets {
 		// According the k8s docs, the full set of endpoints is the cross
 		// product of (addresses x ports).
 		for _, address := range subset.Addresses {
 			for _, port := range subset.Ports {
 				addr := fmt.Sprintf("%s:%d", address.IP, port.Port)
-				if cc := p.addresses[addr]; cc != nil {
+				if cc := p.conns[addr]; cc != nil {
 					addresses[addr] = cc
 				} else {
 					addresses[addr] = nil
@@ -89,23 +85,22 @@ func (p *Pool) updateAddresses(endpoints *api.Endpoints) {
 			}
 		}
 	}
-	p.addresses = addresses
-	p.addressesCond.Broadcast()
+	p.conns = addresses
 }
 
 func (p *Pool) Do(ctx context.Context, f func(cc *grpc.ClientConn) error) error {
 	var conn *connCount
 	if err := func() error {
-		p.addressesLock.Lock()
-		defer p.addressesLock.Unlock()
-		for addr, mapConn := range p.addresses {
+		p.connsLock.Lock()
+		defer p.connsLock.Unlock()
+		for addr, mapConn := range p.conns {
 			if mapConn == nil {
 				cc, err := grpc.DialContext(ctx, addr, p.opts...)
 				if err != nil {
 					return err
 				}
 				conn = &connCount{cc: cc}
-				p.addresses[addr] = conn
+				p.conns[addr] = conn
 				// We break because this conn has a count of 0 which we know
 				// we're not beating
 				break
@@ -129,7 +124,7 @@ func (p *Pool) Do(ctx context.Context, f func(cc *grpc.ClientConn) error) error 
 func (p *Pool) Close() error {
 	close(p.done)
 	var retErr error
-	for _, conn := range p.addresses {
+	for _, conn := range p.conns {
 		if err := conn.cc.Close(); err != nil {
 			retErr = err
 		}
