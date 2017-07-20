@@ -280,6 +280,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			EnableStats:     request.EnableStats,
 			Salt:            request.Salt,
 			PipelineVersion: request.PipelineVersion,
+			Batch:           request.Batch,
 		}
 		if request.Pipeline != nil {
 			pipelineInfo := new(pps.PipelineInfo)
@@ -725,6 +726,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		CacheSize:          request.CacheSize,
 		EnableStats:        request.EnableStats,
 		Salt:               uuid.NewWithoutDashes(),
+		Batch:              request.Batch,
 	}
 	setPipelineDefaults(pipelineInfo)
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {

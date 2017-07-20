@@ -264,6 +264,7 @@ nextInput:
 			Salt:            a.pipelineInfo.Salt,
 			PipelineVersion: a.pipelineInfo.Version,
 			EnableStats:     a.pipelineInfo.EnableStats,
+			Batch:           a.pipelineInfo.Batch,
 		})
 		if err != nil {
 			return err
