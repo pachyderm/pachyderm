@@ -387,7 +387,7 @@ func validateActivationCode(code string) error {
 	if err != nil {
 		return fmt.Errorf("activation code is not base64 encoded")
 	}
-	activationCode := &ActivationCode{}
+	activationCode := &activationCode{}
 	if err := json.Unmarshal(decodedActivationCode, &activationCode); err != nil {
 		return fmt.Errorf("activation code is not valid JSON")
 	}
@@ -407,7 +407,7 @@ func validateActivationCode(code string) error {
 	}
 
 	// Unmarshal the token
-	token := Token{}
+	token := token{}
 	if err := json.Unmarshal([]byte(activationCode.Token), &token); err != nil {
 		return fmt.Errorf("token is not valid JSON")
 	}
