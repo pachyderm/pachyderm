@@ -3690,6 +3690,15 @@ func TestPipelineWithStats(t *testing.T) {
 	jobs, err := c.ListJob(pipeline, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
+
+	datums, err := c.ListDatum(jobs[0].Job.ID)
+	require.NoError(t, err)
+	require.Equal(t, 4, len(datums))
+	fmt.Printf("datum infos: %v\n", datums)
+
+	datum, err := c.InspectDatum(jobs[0].Job.ID, datums[0].ID)
+	require.NoError(t, err)
+	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 }
 
 func TestIncrementalSharedProvenance(t *testing.T) {
