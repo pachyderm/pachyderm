@@ -1,10 +1,19 @@
 package auth
 
 import (
+	"crypto"
+	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"path"
+	"sync/atomic"
 	"time"
+
+	"google.golang.org/grpc/metadata"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/google/go-github/github"
@@ -19,19 +28,44 @@ import (
 )
 
 const (
-	tokensPrefix = "/pach-tokens"
-	aclsPrefix   = "/acls"
+	tokensPrefix = "/auth/tokens"
+	aclsPrefix   = "/auth/acls"
+	adminsPrefix = "/auth/admins"
 
 	defaultTokenTTLSecs = 24 * 60 * 60
 	authnToken          = "authn-token"
+
+	publicKey = `-----BEGIN PUBLIC KEY-----
+MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAoaPoEfv5RcVUbCuWNnOB
+WtLHzcyQSe4SbtGGQom/X27iq/7s8dcebSsCd2cwYoyKihEQ5OlaghrhcxTTV5AN
+39O6S0YnWjt/+4PWQQP3NpcEhqWj8RLPJtYq+JNrqlyjxBlca7vDcFSTa6iCqXay
+iVD2OyTbWrD6KZ/YTSmSY8mY2qdYvHyp3Ue5ueH3rSkKRUjo4Jyjf59PntZD884P
+yb9kC+weh/1KlbDQ4aV0U9p6DSBkW7dinOQj7a1/ikDoA9Nebnrkb1FF9Hr2+utO
+We4e4yOViDzAP9hhQiBhOVR0F6wJF5i+NfuLit4tk5ViboogEZqIyuakTD6abSFg
+UPqBTDDG0UsVqjnU5ysJ1DKQqALnOrxEKZoVXtH80/m7kgmeY3VDHCFt+WCSdaSq
+1w8SoIpJAZPJpKlDjMxe+NqsX2qUODQ2KNkqfEqFtyUNZzfS9o9pEg/KJzDuDclM
+oMQr1BG8vc3msX4UiGQPkohznwlCSGWf62IkSS6P8hQRCBKGRS5yGjmT3J+/chZw
+Je46y8zNLV7t2pOL6UemdmDjTaMCt0YBc1FmG2eUipAWcHJWEHgQm2Yz6QjtBgvt
+jFqnYeiDwdxU7CQD3oF9H+uVHqz8Jmmf9BxY9PhlMSUGPUsTpZ717ysL0UrBhQhW
+xYp8vpeQ3by9WxPBE/WrxN8CAwEAAQ==
+-----END PUBLIC KEY-----
+`
 )
 
 type apiServer struct {
 	protorpclog.Logger
-	etcdClient  *etcd.Client
-	tokenPrefix string
+	etcdClient *etcd.Client
+
+	// This atomic variable stores a boolean flag that indicates
+	// whether the auth service has been activated.
+	activated atomic.Value
+
+	// tokens is a collection of hashedToken -> User mappings.
+	tokens col.Collection
 	// acls is a collection of repoName -> ACL mappings.
 	acls col.Collection
+	// admins is a collection of username -> User mappings.
+	admins col.Collection
 }
 
 // NewAuthServer returns an implementation of auth.APIServer.
@@ -44,10 +78,16 @@ func NewAuthServer(etcdAddress string, etcdPrefix string) (authclient.APIServer,
 		return nil, fmt.Errorf("error constructing etcdClient: %v", err)
 	}
 
-	return &apiServer{
-		Logger:      protorpclog.NewLogger("auth.API"),
-		etcdClient:  etcdClient,
-		tokenPrefix: path.Join(etcdPrefix, tokensPrefix),
+	s := &apiServer{
+		Logger:     protorpclog.NewLogger("auth.API"),
+		etcdClient: etcdClient,
+		tokens: col.NewCollection(
+			etcdClient,
+			path.Join(etcdPrefix, tokensPrefix),
+			nil,
+			&authclient.User{},
+			nil,
+		),
 		acls: col.NewCollection(
 			etcdClient,
 			path.Join(etcdPrefix, aclsPrefix),
@@ -55,13 +95,88 @@ func NewAuthServer(etcdAddress string, etcdPrefix string) (authclient.APIServer,
 			&authclient.ACL{},
 			nil,
 		),
-	}, nil
+		admins: col.NewCollection(
+			etcdClient,
+			path.Join(etcdPrefix, adminsPrefix),
+			nil,
+			&authclient.User{},
+			nil,
+		),
+	}
+	s.activated.Store(false)
+	return s, nil
+}
+
+func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateRequest) (resp *authclient.ActivateResponse, retErr error) {
+	func() { a.Log(req, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	activated, err := a.isActivated(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// Activating an already activated auth service should fail, because
+	// otherwise anyone can just activate the service again and set
+	// themselves as an admin.
+	if activated {
+		return nil, fmt.Errorf("already activated")
+	}
+
+	// Validate the activation code
+	if err := validateActivationCode(req.ActivationCode); err != nil {
+		return nil, fmt.Errorf("error validating activation code: %v", err)
+	}
+
+	// Initialize admins
+	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		admins := a.admins.ReadWrite(stm)
+
+		for _, admin := range req.Admins {
+			admins.Put(admin, &authclient.User{
+				Username: admin,
+				Admin:    true,
+			})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	a.activated.Store(true)
+	return &authclient.ActivateResponse{}, nil
+}
+
+func (a *apiServer) isActivated(ctx context.Context) (bool, error) {
+	if a.activated.Load().(bool) {
+		return true, nil
+	}
+
+	adminCount, err := a.admins.ReadOnly(ctx).Count()
+	if err != nil {
+		return false, fmt.Errorf("error checking if auth service is activated")
+	}
+
+	// If there are admins, then the auth service has been activated
+	if adminCount > 0 {
+		a.activated.Store(true)
+		return true, nil
+	}
+
+	return false, nil
 }
 
 func (a *apiServer) Authenticate(ctx context.Context, req *authclient.AuthenticateRequest) (resp *authclient.AuthenticateResponse, retErr error) {
 	// We don't want to actually log the request/response since they contain
 	// credentials.
 	defer func(start time.Time) { a.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
+	activated, err := a.isActivated(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !activated {
+		return nil, authclient.NotActivatedError{}
+	}
 
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{
@@ -79,16 +194,30 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 	}
 
 	username := user.GetName()
-	pachToken := uuid.NewWithoutDashes()
 
-	lease, err := a.etcdClient.Grant(ctx, defaultTokenTTLSecs)
-	if err != nil {
-		return nil, fmt.Errorf("error granting token TTL: %v", err)
+	// Check if the user is an admin.  If they are, authenticate them as
+	// an admin.
+	var u authclient.User
+	var admin bool
+	if err := a.admins.ReadOnly(ctx).Get(username, &u); err != nil {
+		if _, ok := err.(col.ErrNotFound); !ok {
+			return nil, fmt.Errorf("error checking if user %v is an admin: %v", username, err)
+		}
+	} else {
+		admin = true
 	}
 
-	_, err = a.etcdClient.Put(ctx, path.Join(a.tokenPrefix, hashToken(pachToken)), username, etcd.WithLease(lease.ID))
+	pachToken := uuid.NewWithoutDashes()
+
+	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		tokens := a.tokens.ReadWrite(stm)
+		return tokens.PutTTL(hashToken(pachToken), &authclient.User{
+			Username: username,
+			Admin:    admin,
+		}, defaultTokenTTLSecs)
+	})
 	if err != nil {
-		return nil, fmt.Errorf("error storing the auth token: %v", err)
+		return nil, fmt.Errorf("error storing auth token for user %v: %v", username, err)
 	}
 
 	return &authclient.AuthenticateResponse{
@@ -99,25 +228,49 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequest) (resp *authclient.AuthorizeResponse, retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	activated, err := a.isActivated(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !activated {
+		return nil, authclient.NotActivatedError{}
+	}
 
 	user, err := a.getAuthorizedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
 
+	if user.Admin {
+		// admins are always authorized
+		return &authclient.AuthorizeResponse{
+			Authorized: true,
+		}, nil
+	}
+
 	var acl authclient.ACL
 	if err := a.acls.ReadOnly(ctx).Get(req.Repo.Name, &acl); err != nil {
-		return nil, fmt.Errorf("ACL not found for repo %v", req.Repo.Name)
+		if _, ok := err.(col.ErrNotFound); ok {
+			return nil, fmt.Errorf("ACL not found for repo %v", req.Repo.Name)
+		}
+		return nil, fmt.Errorf("error getting ACL for repo %v: %v", req.Repo.Name, err)
 	}
 
 	return &authclient.AuthorizeResponse{
-		Authorized: req.Scope == acl.Entries[user],
+		Authorized: req.Scope <= acl.Entries[user.Username],
 	}, nil
 }
 
 func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeRequest) (resp *authclient.SetScopeResponse, retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	activated, err := a.isActivated(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !activated {
+		return nil, authclient.NotActivatedError{}
+	}
 
 	user, err := a.getAuthorizedUser(ctx)
 	if err != nil {
@@ -132,7 +285,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 			return fmt.Errorf("ACL not found for repo %v", req.Repo.Name)
 		}
 
-		if acl.Entries[user] != authclient.Scope_OWNER {
+		if acl.Entries[user.Username] != authclient.Scope_OWNER {
 			return fmt.Errorf("user %v is not authorized to update ACL for repo %v", user, req.Repo.Name)
 		}
 
@@ -150,12 +303,28 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeRequest) (resp *authclient.GetScopeResponse, retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	activated, err := a.isActivated(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !activated {
+		return nil, authclient.NotActivatedError{}
+	}
+
 	return nil, fmt.Errorf("TODO")
 }
 
 func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (resp *authclient.GetACLResponse, retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	activated, err := a.isActivated(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !activated {
+		return nil, authclient.NotActivatedError{}
+	}
+
 	return nil, fmt.Errorf("TODO")
 }
 
@@ -167,21 +336,93 @@ func hashToken(token string) string {
 	return fmt.Sprintf("%x", sum)
 }
 
-func (a *apiServer) getAuthorizedUser(ctx context.Context) (string, error) {
-	token := ctx.Value(authnToken)
-	if token == nil {
-		return "", fmt.Errorf("auth token not found in context")
-	}
-
-	tokenStr, ok := token.(string)
+func (a *apiServer) getAuthorizedUser(ctx context.Context) (*authclient.User, error) {
+	md, ok := metadata.FromContext(ctx)
 	if !ok {
-		return "", fmt.Errorf("auth token found in context is malformed")
+		return nil, fmt.Errorf("no authorization metadata found in context")
+	}
+	if len(md[authnToken]) != 1 {
+		return nil, fmt.Errorf("auth token not found in context")
+	}
+	token := md[authnToken][0]
+
+	var user authclient.User
+	if err := a.tokens.ReadOnly(ctx).Get(hashToken(token), &user); err != nil {
+		if _, ok := err.(col.ErrNotFound); ok {
+			return nil, fmt.Errorf("token not found")
+		}
+		return nil, fmt.Errorf("error getting token: %v", err)
 	}
 
-	resp, err := a.etcdClient.Get(ctx, path.Join(a.tokenPrefix, hashToken(tokenStr)))
+	return &user, nil
+}
+
+type activationCode struct {
+	Token     string
+	Signature string
+}
+
+type token struct {
+	Expiry string
+}
+
+// validateActivationCode checks the validity of an activation code
+func validateActivationCode(code string) error {
+	// Parse the public key.  If these steps fail, something is seriously
+	// wrong and we should crash the service by panicking.
+	block, _ := pem.Decode([]byte(publicKey))
+	if block == nil {
+		panic("failed to pem decode public key")
+	}
+	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
-		return "", fmt.Errorf("auth token not found: %v", err)
+		panic(fmt.Sprintf("failed to parse DER encoded public key: %+v", err))
+	}
+	rsaPub, ok := pub.(*rsa.PublicKey)
+	if !ok {
+		panic("public key isn't an RSA key")
 	}
 
-	return string(resp.Kvs[0].Value), nil
+	// Decode the base64-encoded activation code
+	decodedActivationCode, err := base64.StdEncoding.DecodeString(code)
+	if err != nil {
+		return fmt.Errorf("activation code is not base64 encoded")
+	}
+	activationCode := &activationCode{}
+	if err := json.Unmarshal(decodedActivationCode, &activationCode); err != nil {
+		return fmt.Errorf("activation code is not valid JSON")
+	}
+
+	// Decode the signature
+	decodedSignature, err := base64.StdEncoding.DecodeString(activationCode.Signature)
+	if err != nil {
+		return fmt.Errorf("signature is not base64 encoded")
+	}
+
+	// Compute the sha256 checksum of the token
+	hashedToken := sha256.Sum256([]byte(activationCode.Token))
+
+	// Verify that the signature is valid
+	if err := rsa.VerifyPKCS1v15(rsaPub, crypto.SHA256, hashedToken[:], decodedSignature); err != nil {
+		return fmt.Errorf("invalid signature in activation code")
+	}
+
+	// Unmarshal the token
+	token := token{}
+	if err := json.Unmarshal([]byte(activationCode.Token), &token); err != nil {
+		return fmt.Errorf("token is not valid JSON")
+	}
+
+	// Parse the expiry
+	expiry, err := time.Parse(time.RFC3339, token.Expiry)
+	if err != nil {
+		return fmt.Errorf("expiry is not valid ISO 8601 string")
+	}
+
+	// Check that the activation code has not expired
+	if time.Now().After(expiry) {
+		return fmt.Errorf("the activation code has expired")
+	}
+
+	return nil
 }
