@@ -558,6 +558,9 @@ func HashDatum15(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) 
 
 // Process processes a datum.
 func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *ProcessResponse, retErr error) {
+	// Set the auth parameters for the context
+	ctx = a.pachClient.AddMetadata(ctx)
+
 	logger, err := a.getTaggedLogger(ctx, req)
 	if err != nil {
 		return nil, err
