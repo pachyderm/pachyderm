@@ -1,153 +1,73 @@
-# Combining, Joining, or Merging Data
+# Combining or Merging Data
 
-Pachyderm provides a few basic patterns that can be employed to perform distributed merges, combinations, or joins of data:
+There are a variety of use cases in which you would want to match datums from multiple data repositories to do some combined processing, joining, or aggregation.  For example, you may need to process multiple records corresponding to a certain user, a certain experiment, or a certain device together.  In these scenarios, we recommend a 2-stage method of merging your data:
 
-- [Creating a data set that is the union of other data sets](#creating-a-data-set-that-is-the-union-of-other-data-sets) (e.g., to create a larger set of "datums" that are to be processed as if they were part of a single data set)
+1. [A first pipeline](#grouping-records-that-need-to-be-processed-together) that groups all of the records for a specific key/index.
 
-- [Combining or aggregating files/records based on a known key/index](#combining-records-based-on-a-key-or-index) (e.g., to perform a distributed join or aggregation of corresponding files)
+2. [A second pipeline](#processing-the-grouped-records) that takes that grouped output and performs the merging, joining, or other processing for the group.
 
-## Creating a data set that is the union of other data sets
+## 1. Grouping records that need to be processed together
 
-Let's say that we have two or more sources of data that need to be processed in parallel as one larger data set.  For example, we might be gathering data from multiple IoT sensors (e.g., multiple thermometers or multiple accelerometers), or we might be gathering similar web traffic events from services in multiple regions:
+![alt tag](join1.png)
 
-```
-$ pachctl list-repo
-NAME                CREATED              SIZE                
-source2             About a minute ago   2.832 KiB           
-source1             About a minute ago   2.823 KiB           
-$ pachctl list-file source1 master
-NAME                TYPE                SIZE                
-1.json              file                59 B                
-10.json             file                59 B                
-11.json             file                59 B                
-12.json             file                59 B                
-13.json             file                59 B                
-14.json             file                59 B
-etc...
-$ pachctl list-file source2 master
-NAME                TYPE                SIZE                
-1.json              file                58 B                
-10.json             file                58 B                
-11.json             file                58 B                
-12.json             file                58 B                
-13.json             file                58 B                
-14.json             file                58 B
-etc... 
-```
-
-If we want to process the JSON files under `source1` and the JSON files under `source2` as one large data set, we can "union" these two repositories using an `input` in our pipeline specification similar to the following:
+Let's say that we have two repositories containing JSON records, `A` and `B`.  These repositories may correspond to two experiments, two geographic regions, two different devices generating data, etc.  In any event, the repositories look similar to:
 
 ```
-    "input": {
-      "union": [
-        {
-          "atom": {
-            "glob": "/*",
-            "repo": "source1"
-          }
-        },
-        {
-          "atom": {
-            "glob": "/*",
-            "repo": "source2"
-          }
-        }
-      ]
-    }
-```
-
-The workers that are processing this pipeline will then be passed datums to process from the union of the datums in `source1` (`source1/1.json`, `source1/2.json`, etc.) and the datums in `source2` (`source2/1.json`, `source2/2.json`, etc.).  That is, a first worker might see the following under `/pfs`:
-
-```
-/pfs
-
-|-- out
-
-`-- source2
-
-    `-- 5.json
-```
-
-because that worker was given a datum from `source2` to process.  Whereas, another worker might see:
-
-```
-/pfs
-
-|-- out
-
-`-- source1
-
-    `-- 12.json
-```
-
-because that worker was given a datum from `source1` to process. Overall, the workers for this pipeline will process all of the datums in the union of `source1` and `source2` in parallel.  In the simple case of 5 JSON files, this would look like the following: 
-
-![alt tag](union.png)
-
-## Combining records based on a key or index
-
-In many cases, you don't simply want to process a combination of datums from multiple sources, you want to match up corresponding datums from multiple sources to do a distributed join or aggregation.  For example, let's say that we have one respository with user records that include user emails (fake user emails in this example, of course):
-
-```
-$ pachctl list-file emails master
+$ pachctl list-file A master
 NAME                TYPE                SIZE                
 1.json              file                39 B                
-10.json             file                39 B                
-100.json            file                39 B                
-11.json             file                39 B                
-12.json             file                39 B
-etc...
-$ pachctl get-file emails master 1.json
-{"id":1,"email":"vgarthside0@php.net"}
-$ pachctl get-file emails master 2.json
-{"id":2,"email":"gvenart0@facebook.com"} 
-```
-
-and we have another repository with user records that include user IP addresses:
-
-```
-$ pachctl list-file ips master         
+2.json              file                39 B                
+3.json              file                39 B                
+$ pachctl list-file B master
 NAME                TYPE                SIZE                
-1.json              file                38 B                
-10.json             file                38 B                
-100.json            file                38 B                
-11.json             file                38 B  
-etc...
-$ pachctl get-file ips master 1.json
-{"id":1,"ip_address":"124.82.102.60"}
-$ pachctl get-file ips master 2.json
-{"id":2,"ip_address":"117.155.40.163"}
+1.json              file                39 B                
+2.json              file                39 B                
+3.json              file                39 B                
 ```
 
-It's very likely that we would want to combine the user IP record with the corresponding user email record.  That is, we would want to process `emails/1.json` with `ips/1.json`, a "join" with the key/index being the user ID).  
+We need to process `A/1.json` with `B/1.json` to merge their contents or otherwise process them together.  Thus, we need to group each set of JSON records into respective "datums" that can each be processed together by our [second pipeline](#processing-the-grouped-records) (read more about datums and distributed processing [here](http://pachyderm.readthedocs.io/en/latest/fundamentals/distributed_computing.html)).
 
-To accomplish this sort of distributed join, we recommend following two step pattern:
+The first pipeline takes a union of `A` and `B` as inputs, each with glob pattern `/*`.  As each JSON file is processed, it is copied to a folder in the output corresponding to the key/index for that record (in this case, just the number in the file name).  It is also re-named to a unique name corresponding to it's source:
 
-1. A first pipeline (called, e.g., `group`) that takes as it's input the union of the data sources and groups all of the records for a specific key into a folder for that key.
+```
+/1
+  A.json
+  B.json
+/2
+  A.json
+  B.json
+/3
+  A.json
+  B.json
+```
 
-    - In the example of email records and IP records, this pipeline would copy each email and IP record into a folder named according to the corresponding user ID:
+Note, that when performing this grouping:
 
-        ```
-        /1
-          email.json
-          ip.json
-        /2
-          email.json
-          ip.json
+- You should use `"lazy": true` to avoid unecessary downloads of data.
 
-        etc...
-        ```
-    - This pipeline should use `"lazy": true` to avoid unecessary downloads of data across the network.
-
-    - This pipeline should also use sym-links to make the copies (as further discussed [here](http://pachyderm.readthedocs.io/en/latest/managing_pachyderm/data_management.html#shuffling-files)), which avoids any unecesssary uploads.
-
-
-2. A second pipeline (called, e.g., `join`) that takes that grouped output and performs the joining or aggregation.
-
-    - In the example, this pipeline would operate on each set of `email.json` and `ip.json` records combining the emails and IPs into a single user record.
-
-![alt tag](join.png)
-
-**Note** - by using this 2-stage method, both the grouping and joining operations can be parallelized, which can provide a huge speedup when joining large amounts of data.  You could accomplish a similar task using a single stage with a `cross` input.  However, the `cross` input type would scale poorly as your number of records and number of data sources increases, because you would be doing a brute force analysis of all combinations (even the ones that don't match).
+- You should use sym-links to avoid unecessary uploads of data (see more information on "copy elision" [here](http://pachyderm.readthedocs.io/en/latest/managing_pachyderm/data_management.html)).
 
 
+## 2. Processing the grouped records
+
+![alt tag](join2.png)
+
+Once the records that need to be processed together are grouped by the first pipeline, our second pipeline can take the `group` repository as input with a glob pattern of `/*`.  This will let the second pipeline process each grouping of records in parallel.
+
+The second pipeline will perform any merging, aggregation, or other processing on the respective grouping of records and could, for example, output each respective result to the root of the output directory:
+
+```
+$ pachctl list-file merge master
+NAME                TYPE                SIZE                
+result_1.json              file                39 B                
+result_2.json              file                39 B                
+result_3.json              file                39 B                
+```  
+
+## Implications and Notes
+
+- This 2-stage pattern of combining data could be used for merging or grouped processing of data from various experiments, devices, etc. However, the same pattern can be applied to perform distributed joins of tabular data or data from database tables.  For example, you could join user email records together with user IP records on the key/index of a user ID.
+
+- Each of the 2 stages can be parallelized across workers to scaled with the size of your data and the number of data sources that you are merging.
+
+- In some cases, your data may not be split into separate files for each record.  In these cases, you can utilize [Pachyderm splitting functionality](splitting.html) to prepare your data for this sort of distributed merging/joining. 
