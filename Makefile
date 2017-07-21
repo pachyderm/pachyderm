@@ -202,7 +202,7 @@ install-bench: install
 	[ -f /usr/local/bin/pachctl ] || sudo ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 
 launch-dev-test: docker-build-test docker-push-test
-	kubectl run bench --image=pachyderm/test:`git rev-list HEAD --max-count=1` \
+	sudo kubectl run bench --image=pachyderm/test:`git rev-list HEAD --max-count=1` \
 	    --restart=Never \
 	    --attach=true \
 	    -- \
