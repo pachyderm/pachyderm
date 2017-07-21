@@ -10,7 +10,9 @@ import (
 	"text/tabwriter"
 	"text/template"
 
+	"github.com/docker/go-units"
 	"github.com/fatih/color"
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
@@ -198,7 +200,7 @@ func PrintDatumInfoHeader(w io.Writer) {
 func PrintDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 	totalTime := "-"
 	if datumInfo.Stats != nil {
-		totalTime = client.GetDatumTotalTime(datumInfo.Stats).String()
+		totalTime = units.HumanDuration(client.GetDatumTotalTime(datumInfo.Stats))
 	}
 	fmt.Fprintf(w, "%s\t%s\t%s\n", datumInfo.ID, datumState(datumInfo.State), totalTime)
 }
@@ -208,9 +210,34 @@ func PrintDetailedDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 	fmt.Fprintf(w, "State\t%s\n", datumInfo.State)
 	fmt.Fprintf(w, "Data Downloaded\t%s\n", pretty.Size(datumInfo.Stats.DownloadBytes))
 	fmt.Fprintf(w, "Data Uploaded\t%s\n", pretty.Size(datumInfo.Stats.UploadBytes))
-	fmt.Fprintf(w, "Download Time\t%s\n", pretty.Duration(datumInfo.Stats.DownloadTime))
-	fmt.Fprintf(w, "Process Time\t%s\n", pretty.Duration(datumInfo.Stats.ProcessTime))
-	fmt.Fprintf(w, "Upload Time\t%s\n", pretty.Duration(datumInfo.Stats.UploadTime))
+
+	totalTime := client.GetDatumTotalTime(datumInfo.Stats).String()
+	fmt.Fprintf(w, "Total Time\t%s\n", totalTime)
+
+	var downloadTime string
+	dl, err := types.DurationFromProto(datumInfo.Stats.DownloadTime)
+	if err != nil {
+		downloadTime = err.Error()
+	}
+	downloadTime = dl.String()
+	fmt.Fprintf(w, "Download Time\t%s\n", downloadTime)
+
+	var procTime string
+	proc, err := types.DurationFromProto(datumInfo.Stats.ProcessTime)
+	if err != nil {
+		procTime = err.Error()
+	}
+	procTime = proc.String()
+	fmt.Fprintf(w, "Process Time\t%s\n", procTime)
+
+	var uploadTime string
+	ul, err := types.DurationFromProto(datumInfo.Stats.UploadTime)
+	if err != nil {
+		uploadTime = err.Error()
+	}
+	uploadTime = ul.String()
+	fmt.Fprintf(w, "Upload Time\t%s\n", uploadTime)
+
 	fmt.Fprintf(w, "PFS State:\n")
 }
 
