@@ -273,8 +273,8 @@ func (c *APIClient) Ctx() context.Context {
 	return c.AddMetadata(context.Background())
 }
 
-// Set the authentication token that will be used for all API calls for
-// this client.
+// SetAuthToken sets the authentication token that will be used for all
+// API calls for this client.
 func (c *APIClient) SetAuthToken(token string) {
 	c.authenticationToken = token
 }
