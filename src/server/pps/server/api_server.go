@@ -782,6 +782,15 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			return nil, err
 		}
 
+		// Revoke the old capability
+		if oldPipelineInfo.Capability != "" {
+			if _, err := authClient.RevokeAuthToken(ctx, &auth.RevokeAuthTokenRequest{
+				Token: oldPipelineInfo.Capability,
+			}); err != nil && !auth.IsNotActivatedError(err) {
+				return nil, fmt.Errorf("error revoking old capability: %v", err)
+			}
+		}
+
 		// Rename the original output branch to `outputBranch-vN`, where N
 		// is the previous version number of the pipeline.
 		// We ignore NotFound errors because this pipeline might not have
@@ -980,6 +989,23 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 }
 
 func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) (response *types.Empty, retErr error) {
+	pipelineInfo, err := a.InspectPipeline(ctx, &pps.InspectPipelineRequest{request.Pipeline})
+	if err != nil {
+		return nil, fmt.Errorf("pipeline %v was not found: %v", request.Pipeline.Name, err)
+	}
+	// Revoke the pipeline's capability
+	if pipelineInfo.Capability != "" {
+		authClient, err := a.getAuthClient()
+		if err != nil {
+			return nil, fmt.Errorf("error dialing auth client: %v", authClient)
+		}
+		if _, err := authClient.RevokeAuthToken(ctx, &auth.RevokeAuthTokenRequest{
+			Token: pipelineInfo.Capability,
+		}); err != nil && !auth.IsNotActivatedError(err) {
+			return nil, fmt.Errorf("error revoking old capability: %v", err)
+		}
+	}
+
 	iter, err := a.jobs.ReadOnly(ctx).GetByIndex(ppsdb.JobsPipelineIndex, request.Pipeline)
 	if err != nil {
 		return nil, err
