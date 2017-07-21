@@ -336,6 +336,9 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 	var g errgroup.Group
 	limiter := limit.New(concurrency)
 	if err := filepath.Walk(client.PPSOutputPath, func(filePath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 		g.Go(func() (retErr error) {
 			limiter.Acquire()
 			defer limiter.Release()
@@ -392,6 +395,9 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 					}
 					if input != nil {
 						return filepath.Walk(realPath, func(filePath string, info os.FileInfo, err error) error {
+							if err != nil {
+								return err
+							}
 							rel, err := filepath.Rel(realPath, filePath)
 							if err != nil {
 								return err
@@ -787,12 +793,14 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	err = a.runUserCode(ctx, logger, environ)
 	if err != nil {
 		logger.Logf("failed to process datum with error: %+v", err)
-		object, size, err := a.pachClient.PutObject(strings.NewReader(err.Error()))
-		if err != nil {
-			logger.stderrLog.Printf("could not put error object: %s\n", err)
-		} else {
-			if err := statsTree.PutFile(path.Join(statsPath, "failure"), []*pfs.Object{object}, size); err != nil {
-				logger.stderrLog.Printf("could not put-file error object: %s\n", err)
+		if statsTree != nil {
+			object, size, err := a.pachClient.PutObject(strings.NewReader(err.Error()))
+			if err != nil {
+				logger.stderrLog.Printf("could not put error object: %s\n", err)
+			} else {
+				if err := statsTree.PutFile(path.Join(statsPath, "failure"), []*pfs.Object{object}, size); err != nil {
+					logger.stderrLog.Printf("could not put-file error object: %s\n", err)
+				}
 			}
 		}
 		return &ProcessResponse{
