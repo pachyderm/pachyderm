@@ -235,7 +235,7 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 		return nil, authclient.NotActivatedError{}
 	}
 
-	user, err := a.getAuthorizedUser(ctx)
+	user, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +271,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 		return nil, authclient.NotActivatedError{}
 	}
 
-	user, err := a.getAuthorizedUser(ctx)
+	user, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -338,7 +338,7 @@ func (a *apiServer) GetCapability(ctx context.Context, req *authclient.GetCapabi
 		return nil, authclient.NotActivatedError{}
 	}
 
-	user, err := a.getAuthorizedUser(ctx)
+	user, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -361,6 +361,42 @@ func (a *apiServer) GetCapability(ctx context.Context, req *authclient.GetCapabi
 	}, nil
 }
 
+func (a *apiServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeAuthTokenRequest) (resp *authclient.RevokeAuthTokenResponse, retErr error) {
+	func() { a.Log(req, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	activated, err := a.isActivated(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !activated {
+		return nil, authclient.NotActivatedError{}
+	}
+
+	// Even though anyone can revoke anyone's auth token, we still want
+	// the user to be authenticated.
+	if _, err = a.getAuthenticatedUser(ctx); err != nil {
+		return nil, err
+	}
+
+	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		tokens := a.tokens.ReadWrite(stm)
+		// Capabilities are forver; they don't expire.
+		if err := tokens.Delete(hashToken(req.Token)); err != nil {
+			// We ignore NotFound errors, since it's ok to revoke a
+			// nonexistent token.
+			if _, ok := err.(col.ErrNotFound); !ok {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error revoking token: %v", err)
+	}
+
+	return &authclient.RevokeAuthTokenResponse{}, nil
+}
+
 // hashToken converts a token to a cryptographic hash.
 // We don't want to store tokens verbatim in the database, as then whoever
 // that has access to the database has access to all tokens.
@@ -369,10 +405,10 @@ func hashToken(token string) string {
 	return fmt.Sprintf("%x", sum)
 }
 
-func (a *apiServer) getAuthorizedUser(ctx context.Context) (*authclient.User, error) {
+func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.User, error) {
 	md, ok := metadata.FromContext(ctx)
 	if !ok {
-		return nil, fmt.Errorf("no authorization metadata found in context")
+		return nil, fmt.Errorf("no authentication metadata found in context")
 	}
 	if len(md[authclient.ContextTokenKey]) != 1 {
 		return nil, fmt.Errorf("auth token not found in context")
