@@ -8,6 +8,8 @@ set -euxo pipefail
 
 ## Parse command-line flags
 
+set -e
+
 ZONE="${ZONE:-us-west-1b}"
 STATE_STORE=s3://pachyderm-travis-state-store-v1
 OP=-
