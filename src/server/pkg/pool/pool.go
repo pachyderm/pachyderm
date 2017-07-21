@@ -112,6 +112,9 @@ func (p *Pool) Do(ctx context.Context, f func(cc *grpc.ClientConn) error) error 
 				}
 			}
 		}
+		if conn == nil {
+			return fmt.Errorf("no endpoints found")
+		}
 		atomic.AddInt64(&conn.count, 1)
 		return nil
 	}(); err != nil {
@@ -125,11 +128,12 @@ func (p *Pool) Do(ctx context.Context, f func(cc *grpc.ClientConn) error) error 
 // of the calls to Close error.
 func (p *Pool) Close() error {
 	close(p.done)
-	close(p.conns)
 	var retErr error
 	for _, conn := range p.conns {
-		if err := conn.cc.Close(); err != nil {
-			retErr = err
+		if conn != nil {
+			if err := conn.cc.Close(); err != nil {
+				retErr = err
+			}
 		}
 	}
 	return retErr

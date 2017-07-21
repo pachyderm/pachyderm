@@ -284,7 +284,7 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 		if err != nil {
 			return "", fmt.Errorf("failed to deserialize parent hashtree: %v", err)
 		}
-		if err := puller.PullTree(a.pachClient, client.PPSOutputPath, tree, false, concurrency); err != nil {
+		if err := puller.PullTree(a.pachClient, path.Join(dir, "out"), tree, false, concurrency); err != nil {
 			return "", fmt.Errorf("error pulling output tree: %+v", err)
 		}
 	}
