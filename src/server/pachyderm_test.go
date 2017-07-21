@@ -621,12 +621,20 @@ func TestLazyPipelineCPPipes(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, "master"))
 
 	// wait for job to spawn
-	time.Sleep(5 * time.Second)
-	jobInfos, err := c.ListJob(pipeline, nil)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
+	b := backoff.NewInfiniteBackOff()
+	b.MaxElapsedTime = 20 * time.Second
+	var jobID string
+	require.NoError(t, backoff.Retry(func() error {
+		jobInfos, err := c.ListJob(pipeline, nil)
+		require.NoError(t, err)
+		if len(jobInfos) != 1 {
+			return fmt.Errorf("len(jobInfos) should be 1")
+		}
+		jobID = jobInfos[0].Job.ID
+		return nil
+	}, b))
 	inspectJobRequest := &pps.InspectJobRequest{
-		Job:        jobInfos[0].Job,
+		Job:        client.NewJob(jobID),
 		BlockState: true,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
@@ -1927,14 +1935,22 @@ func TestPipelineAutoScaledown(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	// Wait for the pipeline to scale down
-	time.Sleep(scaleDownThreshold + 5*time.Second)
-
 	pipelineInfo, err := c.InspectPipeline(pipelineName)
 	require.NoError(t, err)
 
-	rc := pipelineRc(t, pipelineInfo)
-	require.Equal(t, 1, int(rc.Spec.Replicas))
+	// Wait for the pipeline to scale down
+	b := backoff.NewInfiniteBackOff()
+	b.MaxElapsedTime = scaleDownThreshold + 20*time.Second
+	require.NoError(t, backoff.Retry(func() error {
+		rc, err := pipelineRc(t, pipelineInfo)
+		if err != nil {
+			return err
+		}
+		if rc.Spec.Replicas != 1 {
+			return fmt.Errorf("rc.Spec.Replicas should be 1")
+		}
+		return nil
+	}, b))
 
 	// Trigger a job
 	commit, err := c.StartCommit(dataRepo, "master")
@@ -1946,15 +1962,21 @@ func TestPipelineAutoScaledown(t *testing.T) {
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 1, len(commitInfos))
-
-	rc = pipelineRc(t, pipelineInfo)
+	rc, err := pipelineRc(t, pipelineInfo)
+	require.NoError(t, err)
 	require.Equal(t, parallelism, int(rc.Spec.Replicas))
 
-	// Wait for the pipeline to scale down
-	time.Sleep(scaleDownThreshold + 5*time.Second)
-
-	rc = pipelineRc(t, pipelineInfo)
-	require.Equal(t, 1, int(rc.Spec.Replicas))
+	b.Reset()
+	require.NoError(t, backoff.Retry(func() error {
+		rc, err := pipelineRc(t, pipelineInfo)
+		if err != nil {
+			return err
+		}
+		if rc.Spec.Replicas != 1 {
+			return fmt.Errorf("rc.Spec.Replicas should be 1")
+		}
+		return nil
+	}, b))
 }
 
 func TestPipelineEnv(t *testing.T) {
@@ -2525,30 +2547,41 @@ func TestStopJob(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
 
-	// Wait for the first job to start running
-	time.Sleep(10 * time.Second)
-
-	// Check that the first job is running
-	jobInfos, err := c.ListJob(pipelineName, nil)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
-	require.Equal(t, pps.JobState_JOB_RUNNING, jobInfos[0].State)
+	b := backoff.NewInfiniteBackOff()
+	b.MaxElapsedTime = 20 * time.Second
+	var jobID string
+	require.NoError(t, backoff.Retry(func() error {
+		jobInfos, err := c.ListJob(pipelineName, nil)
+		require.NoError(t, err)
+		if len(jobInfos) != 1 {
+			return fmt.Errorf("len(jobInfos) should be 1")
+		}
+		jobID = jobInfos[0].Job.ID
+		if pps.JobState_JOB_RUNNING != jobInfos[0].State {
+			return fmt.Errorf("jobInfos[0] has the wrong state")
+		}
+		return nil
+	}, b))
 
 	// Now stop the first job
-	err = c.StopJob(jobInfos[0].Job.ID)
+	err = c.StopJob(jobID)
 	require.NoError(t, err)
-	jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, true)
+	jobInfo, err := c.InspectJob(jobID, true)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_KILLED, jobInfo.State)
 
-	// Wait a little for the second job to spawn
-	time.Sleep(5 * time.Second)
-
+	b.Reset()
 	// Check that the second job completes
-	jobInfos, err = c.ListJob(pipelineName, nil)
-	require.NoError(t, err)
-	require.Equal(t, 2, len(jobInfos))
-	jobInfo, err = c.InspectJob(jobInfos[0].Job.ID, true)
+	require.NoError(t, backoff.Retry(func() error {
+		jobInfos, err := c.ListJob(pipelineName, nil)
+		require.NoError(t, err)
+		if len(jobInfos) != 2 {
+			return fmt.Errorf("len(jobInfos) should be 2")
+		}
+		jobID = jobInfos[0].Job.ID
+		return nil
+	}, b))
+	jobInfo, err = c.InspectJob(jobID, true)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
@@ -2827,7 +2860,7 @@ func TestDatumStatusRestart(t *testing.T) {
 		started := time.Now()
 		for {
 			time.Sleep(time.Second)
-			if time.Since(started) > time.Second*30 {
+			if time.Since(started) > time.Second*60 {
 				t.Fatalf("failed to find status in time")
 			}
 			jobs, err := c.ListJob(pipeline, nil)
@@ -3043,7 +3076,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 	rcName := ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := getKubeClient(t)
 	b := backoff.NewExponentialBackOff()
-	b.MaxElapsedTime = 10 * time.Second
+	b.MaxElapsedTime = 30 * time.Second
 	err = backoff.Retry(func() error {
 		podList, err := kubeClient.Pods(api.NamespaceDefault).List(api.ListOptions{
 			LabelSelector: labels.SelectorFromSet(
@@ -3764,12 +3797,10 @@ func waitForReadiness(t testing.TB) {
 	}
 }
 
-func pipelineRc(t testing.TB, pipelineInfo *pps.PipelineInfo) *api.ReplicationController {
+func pipelineRc(t testing.TB, pipelineInfo *pps.PipelineInfo) (*api.ReplicationController, error) {
 	k := getKubeClient(t)
 	rc := k.ReplicationControllers(api.NamespaceDefault)
-	result, err := rc.Get(ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
-	require.NoError(t, err)
-	return result
+	return rc.Get(ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
 }
 
 func pachdDeployment(t testing.TB) *extensions.Deployment {
