@@ -328,6 +328,40 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	return nil, fmt.Errorf("TODO")
 }
 
+func (a *apiServer) GetCapability(ctx context.Context, req *authclient.GetCapabilityRequest) (resp *authclient.GetCapabilityResponse, retErr error) {
+	func() { a.Log(req, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	activated, err := a.isActivated(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !activated {
+		return nil, authclient.NotActivatedError{}
+	}
+
+	user, err := a.getAuthorizedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	capability := uuid.NewWithoutDashes()
+	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		tokens := a.tokens.ReadWrite(stm)
+		// Capabilities are forver; they don't expire.
+		return tokens.Put(hashToken(capability), &authclient.User{
+			Username: user.Username,
+			Admin:    user.Admin,
+		})
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error storing capability for user %v: %v", user.Username, err)
+	}
+
+	return &authclient.GetCapabilityResponse{
+		Capability: capability,
+	}, nil
+}
+
 // hashToken converts a token to a cryptographic hash.
 // We don't want to store tokens verbatim in the database, as then whoever
 // that has access to the database has access to all tokens.
