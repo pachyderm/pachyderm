@@ -190,7 +190,7 @@ conflict and either slow down or die.
 The `memory` field is a string that describes the amount of memory, in bytes,
 each worker needs (with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc). For
 example, a worker that needs to read a 1GB file into memory might set
-`"memory": "1.2GB"` (with a little extra for the code to use in addition to the
+`"memory": "1.2G"` (with a little extra for the code to use in addition to the
 file. Workers for this pipeline will only be placed on machines with at least
 1.2GB of free memory, and other large workers will be prevented from using it
 (if they also set their `resource_spec`).
