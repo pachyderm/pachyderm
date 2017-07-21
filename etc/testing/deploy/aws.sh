@@ -70,6 +70,9 @@ case "${OP}" in
       cmd+=("${CLOUDFRONT}")
     fi
     sudo env "PATH=${PATH}" "GOPATH=${GOPATH}" "${cmd[@]}"
+    check_ready="$(dirname "${0}")/../../kube/check_ready.sh"
+    check_ready="$(realpath "${check_ready}")"
+    sudo env "PATH=${PATH}" "GOPATH=${GOPATH}" "${check_ready}"
     ;;
   delete)
     kops --state=${STATE_STORE} delete cluster --name=$(cat .cluster_name) --yes
