@@ -621,12 +621,20 @@ func TestLazyPipelineCPPipes(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, "master"))
 
 	// wait for job to spawn
-	time.Sleep(5 * time.Second)
-	jobInfos, err := c.ListJob(pipeline, nil)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
+	b := backoff.NewInfiniteBackOff()
+	b.MaxElapsedTime = 20 * time.Second
+	var jobID string
+	require.NoError(t, backoff.Retry(func() error {
+		jobInfos, err := c.ListJob(pipeline, nil)
+		require.NoError(t, err)
+		if len(jobInfos) != 1 {
+			return fmt.Errorf("len(jobInfos) should be 1")
+		}
+		jobID = jobInfos[0].Job.ID
+		return nil
+	}, b))
 	inspectJobRequest := &pps.InspectJobRequest{
-		Job:        jobInfos[0].Job,
+		Job:        client.NewJob(jobID),
 		BlockState: true,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
@@ -1927,14 +1935,22 @@ func TestPipelineAutoScaledown(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	// Wait for the pipeline to scale down
-	time.Sleep(scaleDownThreshold + 5*time.Second)
-
 	pipelineInfo, err := c.InspectPipeline(pipelineName)
 	require.NoError(t, err)
 
-	rc := pipelineRc(t, pipelineInfo)
-	require.Equal(t, 1, int(rc.Spec.Replicas))
+	// Wait for the pipeline to scale down
+	b := backoff.NewInfiniteBackOff()
+	b.MaxElapsedTime = scaleDownThreshold + 20*time.Second
+	require.NoError(t, backoff.Retry(func() error {
+		rc, err := pipelineRc(t, pipelineInfo)
+		if err != nil {
+			return err
+		}
+		if rc.Spec.Replicas != 1 {
+			return fmt.Errorf("rc.Spec.Replicas should be 1")
+		}
+		return nil
+	}, b))
 
 	// Trigger a job
 	commit, err := c.StartCommit(dataRepo, "master")
@@ -1946,15 +1962,21 @@ func TestPipelineAutoScaledown(t *testing.T) {
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 1, len(commitInfos))
-
-	rc = pipelineRc(t, pipelineInfo)
+	rc, err := pipelineRc(t, pipelineInfo)
+	require.NoError(t, err)
 	require.Equal(t, parallelism, int(rc.Spec.Replicas))
 
-	// Wait for the pipeline to scale down
-	time.Sleep(scaleDownThreshold + 5*time.Second)
-
-	rc = pipelineRc(t, pipelineInfo)
-	require.Equal(t, 1, int(rc.Spec.Replicas))
+	b.Reset()
+	require.NoError(t, backoff.Retry(func() error {
+		rc, err := pipelineRc(t, pipelineInfo)
+		if err != nil {
+			return err
+		}
+		if rc.Spec.Replicas != 1 {
+			return fmt.Errorf("rc.Spec.Replicas should be 1")
+		}
+		return nil
+	}, b))
 }
 
 func TestPipelineEnv(t *testing.T) {
@@ -3054,7 +3076,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 	rcName := ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := getKubeClient(t)
 	b := backoff.NewExponentialBackOff()
-	b.MaxElapsedTime = 10 * time.Second
+	b.MaxElapsedTime = 30 * time.Second
 	err = backoff.Retry(func() error {
 		podList, err := kubeClient.Pods(api.NamespaceDefault).List(api.ListOptions{
 			LabelSelector: labels.SelectorFromSet(
@@ -3775,12 +3797,10 @@ func waitForReadiness(t testing.TB) {
 	}
 }
 
-func pipelineRc(t testing.TB, pipelineInfo *pps.PipelineInfo) *api.ReplicationController {
+func pipelineRc(t testing.TB, pipelineInfo *pps.PipelineInfo) (*api.ReplicationController, error) {
 	k := getKubeClient(t)
 	rc := k.ReplicationControllers(api.NamespaceDefault)
-	result, err := rc.Get(ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
-	require.NoError(t, err)
-	return result
+	return rc.Get(ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
 }
 
 func pachdDeployment(t testing.TB) *extensions.Deployment {
