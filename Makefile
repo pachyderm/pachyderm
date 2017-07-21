@@ -210,6 +210,7 @@ launch-dev-test: docker-build-test docker-push-test
 
 aws-test:
 	ZONE=sa-east-1a etc/testing/deploy/aws.sh --create
+	until timeout 1s sudo etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	$(MAKE) launch-dev-test
 	rm $(HOME)/.pachyderm/config.json
 	ZONE=sa-east-1a etc/testing/deploy/aws.sh --delete
