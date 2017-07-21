@@ -1,11 +1,19 @@
 package auth
 
 import (
+	"crypto"
+	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"path"
 	"sync/atomic"
 	"time"
+
+	"google.golang.org/grpc/metadata"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/google/go-github/github"
@@ -26,6 +34,22 @@ const (
 
 	defaultTokenTTLSecs = 24 * 60 * 60
 	authnToken          = "authn-token"
+
+	publicKey = `-----BEGIN PUBLIC KEY-----
+MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAoaPoEfv5RcVUbCuWNnOB
+WtLHzcyQSe4SbtGGQom/X27iq/7s8dcebSsCd2cwYoyKihEQ5OlaghrhcxTTV5AN
+39O6S0YnWjt/+4PWQQP3NpcEhqWj8RLPJtYq+JNrqlyjxBlca7vDcFSTa6iCqXay
+iVD2OyTbWrD6KZ/YTSmSY8mY2qdYvHyp3Ue5ueH3rSkKRUjo4Jyjf59PntZD884P
+yb9kC+weh/1KlbDQ4aV0U9p6DSBkW7dinOQj7a1/ikDoA9Nebnrkb1FF9Hr2+utO
+We4e4yOViDzAP9hhQiBhOVR0F6wJF5i+NfuLit4tk5ViboogEZqIyuakTD6abSFg
+UPqBTDDG0UsVqjnU5ysJ1DKQqALnOrxEKZoVXtH80/m7kgmeY3VDHCFt+WCSdaSq
+1w8SoIpJAZPJpKlDjMxe+NqsX2qUODQ2KNkqfEqFtyUNZzfS9o9pEg/KJzDuDclM
+oMQr1BG8vc3msX4UiGQPkohznwlCSGWf62IkSS6P8hQRCBKGRS5yGjmT3J+/chZw
+Je46y8zNLV7t2pOL6UemdmDjTaMCt0YBc1FmG2eUipAWcHJWEHgQm2Yz6QjtBgvt
+jFqnYeiDwdxU7CQD3oF9H+uVHqz8Jmmf9BxY9PhlMSUGPUsTpZ717ysL0UrBhQhW
+xYp8vpeQ3by9WxPBE/WrxN8CAwEAAQ==
+-----END PUBLIC KEY-----
+`
 )
 
 type apiServer struct {
@@ -98,6 +122,12 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 		return nil, fmt.Errorf("already activated")
 	}
 
+	// Validate the activation code
+	if err := validateActivationCode(req.ActivationCode); err != nil {
+		return nil, fmt.Errorf("error validating activation code: %v", err)
+	}
+
+	// Initialize admins
 	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		admins := a.admins.ReadWrite(stm)
 
@@ -307,18 +337,17 @@ func hashToken(token string) string {
 }
 
 func (a *apiServer) getAuthorizedUser(ctx context.Context) (*authclient.User, error) {
-	token := ctx.Value(authnToken)
-	if token == nil {
+	md, ok := metadata.FromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("no authorization metadata found in context")
+	}
+	if len(md[authnToken]) != 1 {
 		return nil, fmt.Errorf("auth token not found in context")
 	}
-
-	tokenStr, ok := token.(string)
-	if !ok {
-		return nil, fmt.Errorf("auth token found in context is malformed")
-	}
+	token := md[authnToken][0]
 
 	var user authclient.User
-	if err := a.tokens.ReadOnly(ctx).Get(hashToken(tokenStr), &user); err != nil {
+	if err := a.tokens.ReadOnly(ctx).Get(hashToken(token), &user); err != nil {
 		if _, ok := err.(col.ErrNotFound); ok {
 			return nil, fmt.Errorf("token not found")
 		}
@@ -326,4 +355,74 @@ func (a *apiServer) getAuthorizedUser(ctx context.Context) (*authclient.User, er
 	}
 
 	return &user, nil
+}
+
+type activationCode struct {
+	Token     string
+	Signature string
+}
+
+type token struct {
+	Expiry string
+}
+
+// validateActivationCode checks the validity of an activation code
+func validateActivationCode(code string) error {
+	// Parse the public key.  If these steps fail, something is seriously
+	// wrong and we should crash the service by panicking.
+	block, _ := pem.Decode([]byte(publicKey))
+	if block == nil {
+		panic("failed to pem decode public key")
+	}
+	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		panic(fmt.Sprintf("failed to parse DER encoded public key: %+v", err))
+	}
+	rsaPub, ok := pub.(*rsa.PublicKey)
+	if !ok {
+		panic("public key isn't an RSA key")
+	}
+
+	// Decode the base64-encoded activation code
+	decodedActivationCode, err := base64.StdEncoding.DecodeString(code)
+	if err != nil {
+		return fmt.Errorf("activation code is not base64 encoded")
+	}
+	activationCode := &activationCode{}
+	if err := json.Unmarshal(decodedActivationCode, &activationCode); err != nil {
+		return fmt.Errorf("activation code is not valid JSON")
+	}
+
+	// Decode the signature
+	decodedSignature, err := base64.StdEncoding.DecodeString(activationCode.Signature)
+	if err != nil {
+		return fmt.Errorf("signature is not base64 encoded")
+	}
+
+	// Compute the sha256 checksum of the token
+	hashedToken := sha256.Sum256([]byte(activationCode.Token))
+
+	// Verify that the signature is valid
+	if err := rsa.VerifyPKCS1v15(rsaPub, crypto.SHA256, hashedToken[:], decodedSignature); err != nil {
+		return fmt.Errorf("invalid signature in activation code")
+	}
+
+	// Unmarshal the token
+	token := token{}
+	if err := json.Unmarshal([]byte(activationCode.Token), &token); err != nil {
+		return fmt.Errorf("token is not valid JSON")
+	}
+
+	// Parse the expiry
+	expiry, err := time.Parse(time.RFC3339, token.Expiry)
+	if err != nil {
+		return fmt.Errorf("expiry is not valid ISO 8601 string")
+	}
+
+	// Check that the activation code has not expired
+	if time.Now().After(expiry) {
+		return fmt.Errorf("the activation code has expired")
+	}
+
+	return nil
 }

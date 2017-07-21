@@ -165,8 +165,10 @@ func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
 		for _, chunk := range grpcutil.Chunk([]byte(bytes), grpcutil.MaxMsgSize/2) {
 			if err := logger.putObjClient.Send(&pfs.PutObjectRequest{
 				Value: chunk,
-			}); err != nil {
-				logger.stderrLog.Printf("could not write to object: %v", err)
+			}); err != nil && err != io.EOF {
+				// We swallow io.EOF errors here, that's because the final log
+				// statement gets called after Close() has already been called.
+				logger.stderrLog.Printf("could not write %s to object: %v", bytes, err)
 				return
 			}
 		}
@@ -202,13 +204,17 @@ func (logger *taggedLogger) Close() (*pfs.Object, int64, error) {
 	return nil, 0, nil
 }
 
-func (logger *taggedLogger) userLogger() *taggedLogger {
-	result := &taggedLogger{
+func (logger *taggedLogger) clone() *taggedLogger {
+	return &taggedLogger{
 		template:     logger.template, // Copy struct
 		stderrLog:    log.Logger{},
 		marshaler:    &jsonpb.Marshaler{},
 		putObjClient: logger.putObjClient,
 	}
+}
+
+func (logger *taggedLogger) userLogger() *taggedLogger {
+	result := logger.clone()
 	result.template.User = true
 	return result
 }
@@ -395,6 +401,9 @@ func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, lo
 					}
 					if input != nil {
 						return filepath.Walk(realPath, func(filePath string, info os.FileInfo, err error) error {
+							if err != nil {
+								return err
+							}
 							rel, err := filepath.Rel(realPath, filePath)
 							if err != nil {
 								return err
@@ -722,6 +731,16 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		err = a.runUserCode(ctx, logger, environ, stats)
 		if err != nil {
 			logger.Logf("failed to process datum with error: %+v", err)
+			if statsTree != nil {
+				object, size, err := a.pachClient.PutObject(strings.NewReader(err.Error()))
+				if err != nil {
+					logger.stderrLog.Printf("could not put error object: %s\n", err)
+				} else {
+					if err := statsTree.PutFile(path.Join(statsPath, "failure"), []*pfs.Object{object}, size); err != nil {
+						logger.stderrLog.Printf("could not put-file error object: %s\n", err)
+					}
+				}
+			}
 			return &ProcessResponse{
 				Failed:   true,
 				StatsTag: statsTag,

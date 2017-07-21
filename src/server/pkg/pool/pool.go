@@ -125,6 +125,7 @@ func (p *Pool) Do(ctx context.Context, f func(cc *grpc.ClientConn) error) error 
 // of the calls to Close error.
 func (p *Pool) Close() error {
 	close(p.done)
+	close(p.conns)
 	var retErr error
 	for _, conn := range p.conns {
 		if err := conn.cc.Close(); err != nil {
