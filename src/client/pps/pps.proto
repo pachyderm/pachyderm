@@ -249,6 +249,7 @@ message PipelineInfo {
   string cache_size = 23;
   bool enable_stats = 24;
   string salt = 25;
+  string capability = 26;
 }
 
 message PipelineInfos {
