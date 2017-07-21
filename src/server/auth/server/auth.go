@@ -13,6 +13,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"google.golang.org/grpc/metadata"
+
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/google/go-github/github"
 	"go.pedge.io/proto/rpclog"
@@ -335,18 +337,17 @@ func hashToken(token string) string {
 }
 
 func (a *apiServer) getAuthorizedUser(ctx context.Context) (*authclient.User, error) {
-	token := ctx.Value(authnToken)
-	if token == nil {
+	md, ok := metadata.FromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("no authorization metadata found in context")
+	}
+	if len(md[authnToken]) != 1 {
 		return nil, fmt.Errorf("auth token not found in context")
 	}
-
-	tokenStr, ok := token.(string)
-	if !ok {
-		return nil, fmt.Errorf("auth token found in context is malformed")
-	}
+	token := md[authnToken][0]
 
 	var user authclient.User
-	if err := a.tokens.ReadOnly(ctx).Get(hashToken(tokenStr), &user); err != nil {
+	if err := a.tokens.ReadOnly(ctx).Get(hashToken(token), &user); err != nil {
 		if _, ok := err.(col.ErrNotFound); ok {
 			return nil, fmt.Errorf("token not found")
 		}
