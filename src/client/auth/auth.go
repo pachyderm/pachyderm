@@ -5,6 +5,10 @@ import (
 	"strings"
 )
 
+const (
+	ContextTokenKey = "authn-token"
+)
+
 // ParseScope parses the string 's' to a scope (for example, parsing a command-
 // line argument.
 func ParseScope(s string) (Scope, error) {

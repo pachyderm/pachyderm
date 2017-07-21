@@ -33,7 +33,6 @@ const (
 	adminsPrefix = "/auth/admins"
 
 	defaultTokenTTLSecs = 24 * 60 * 60
-	authnToken          = "authn-token"
 
 	publicKey = `-----BEGIN PUBLIC KEY-----
 MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAoaPoEfv5RcVUbCuWNnOB
@@ -375,10 +374,10 @@ func (a *apiServer) getAuthorizedUser(ctx context.Context) (*authclient.User, er
 	if !ok {
 		return nil, fmt.Errorf("no authorization metadata found in context")
 	}
-	if len(md[authnToken]) != 1 {
+	if len(md[authclient.ContextTokenKey]) != 1 {
 		return nil, fmt.Errorf("auth token not found in context")
 	}
-	token := md[authnToken][0]
+	token := md[authclient.ContextTokenKey][0]
 
 	var user authclient.User
 	if err := a.tokens.ReadOnly(ctx).Get(hashToken(token), &user); err != nil {
