@@ -84,7 +84,6 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return fmt.Errorf("error constructing pachClient: %v", err)
 	}
-	go pachClient.KeepConnected(make(chan bool)) // we never cancel the connection
 
 	// Get etcd client, so we can register our IP (so pachd can discover us)
 	etcdClient, err := etcd.New(etcd.Config{

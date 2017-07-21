@@ -3,7 +3,6 @@ package cmds
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -68,9 +67,8 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 			if err != nil {
 				return err
 			}
-
 			_, err = c.PfsAPIClient.CreateRepo(
-				context.Background(),
+				c.Ctx(),
 				&pfsclient.CreateRepoRequest{
 					Repo:        client.NewRepo(args[0]),
 					Description: description,
@@ -156,10 +154,11 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 				return fmt.Errorf("either a repo name or the --all flag needs to be provided")
 			}
 			if all {
-				_, err = client.PfsAPIClient.DeleteRepo(context.Background(), &pfsclient.DeleteRepoRequest{
-					Force: force,
-					All:   all,
-				})
+				_, err = client.PfsAPIClient.DeleteRepo(client.Ctx(),
+					&pfsclient.DeleteRepoRequest{
+						Force: force,
+						All:   all,
+					})
 			} else {
 				err = client.DeleteRepo(args[0], force)
 			}
@@ -789,7 +788,7 @@ want to consider using commit IDs directly.
 		Use:   "glob-file repo-name commit-id pattern",
 		Short: "Return files that match a glob pattern in a commit.",
 		Long: `Return files that match a glob pattern in a commit (that is, match a glob pattern
-in a repo at the state represented by a commit). Glob patterns are 
+in a repo at the state represented by a commit). Glob patterns are
 documented [here](https://golang.org/pkg/path/filepath/#Match).
 
 Examples:
@@ -935,7 +934,6 @@ $ pachctl diff-file foo master path1 bar master path2
 			if err != nil {
 				return err
 			}
-			go func() { client.KeepConnected(nil) }()
 			mounter := fuse.NewMounter(client.GetAddress(), client)
 			mountPoint := args[0]
 			ready := make(chan bool)

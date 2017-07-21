@@ -147,6 +147,9 @@ func (s *localBlockAPIServer) TagObject(ctx context.Context, request *pfsclient.
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	objectPath := s.objectPath(request.Object)
 	for _, tag := range request.Tags {
+		if err := os.RemoveAll(s.tagPath(tag)); err != nil {
+			return nil, err
+		}
 		if err := os.Symlink(objectPath, s.tagPath(tag)); err != nil {
 			return nil, err
 		}
