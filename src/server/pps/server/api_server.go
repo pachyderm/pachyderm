@@ -12,6 +12,7 @@ import (
 	"time"
 
 	client "github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
@@ -701,6 +702,18 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	// Get the capability of the user
+	authClient, err := a.getAuthClient()
+	if err != nil {
+		return nil, fmt.Errorf("error dialing auth client: %v", authClient)
+	}
+
+	capabilityResp, err := authClient.GetCapability(ctx, &auth.GetCapabilityRequest{})
+	if err != nil && !auth.IsNotActivatedError(err) {
+		return nil, fmt.Errorf("error getting capability for the user: %v", err)
+	}
+
 	// First translate Inputs field to Input field.
 	if len(request.Inputs) > 0 {
 		if request.Input != nil {
@@ -729,6 +742,10 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	setPipelineDefaults(pipelineInfo)
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
 		return nil, err
+	}
+
+	if capabilityResp != nil {
+		pipelineInfo.Capability = capabilityResp.Capability
 	}
 
 	pfsClient, err := a.getPFSClient()
@@ -1424,23 +1441,27 @@ func parseResourceList(resources *pps.ResourceSpec, cacheSize string) (*api.Reso
 }
 
 func (a *apiServer) getPFSClient() (pfs.APIClient, error) {
-	if a.pachConn == nil {
-		var onceErr error
-		a.pachConnOnce.Do(func() {
-			pachConn, err := grpc.Dial(a.address, client.PachDialOptions()...)
-			if err != nil {
-				onceErr = err
-			}
-			a.pachConn = pachConn
-		})
-		if onceErr != nil {
-			return nil, onceErr
-		}
+	if err := a.dialPachConn(); err != nil {
+		return nil, err
 	}
 	return pfs.NewAPIClient(a.pachConn), nil
 }
 
 func (a *apiServer) getObjectClient() (pfs.ObjectAPIClient, error) {
+	if err := a.dialPachConn(); err != nil {
+		return nil, err
+	}
+	return pfs.NewObjectAPIClient(a.pachConn), nil
+}
+
+func (a *apiServer) getAuthClient() (auth.APIClient, error) {
+	if err := a.dialPachConn(); err != nil {
+		return nil, err
+	}
+	return auth.NewAPIClient(a.pachConn), nil
+}
+
+func (a *apiServer) dialPachConn() error {
 	if a.pachConn == nil {
 		var onceErr error
 		a.pachConnOnce.Do(func() {
@@ -1451,10 +1472,10 @@ func (a *apiServer) getObjectClient() (pfs.ObjectAPIClient, error) {
 			a.pachConn = pachConn
 		})
 		if onceErr != nil {
-			return nil, onceErr
+			return onceErr
 		}
 	}
-	return pfs.NewObjectAPIClient(a.pachConn), nil
+	return nil
 }
 
 // RepoNameToEnvString is a helper which uppercases a repo name for
