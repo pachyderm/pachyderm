@@ -94,11 +94,15 @@ func do(appEnvObj interface{}) error {
 		return fmt.Errorf("error constructing etcdClient: %v", err)
 	}
 
-	// Construct worker API server.
 	pipelineInfo, err := getPipelineInfo(etcdClient, appEnv)
 	if err != nil {
 		return fmt.Errorf("error getting pipelineInfo: %v", err)
 	}
+
+	// Set the auth token that will be used for this client
+	pachClient.SetAuthToken(pipelineInfo.Capability)
+
+	// Construct worker API server.
 	workerRcName := ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	apiServer, err := worker.NewAPIServer(pachClient, etcdClient, appEnv.PPSPrefix, pipelineInfo, appEnv.PodName, appEnv.Namespace)
 	if err != nil {
