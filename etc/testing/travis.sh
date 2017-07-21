@@ -3,6 +3,8 @@
 #echo "Running local tests"
 #make test
 
+set -e
+
 echo "Running aws tests"
 
 sudo pip install awscli
@@ -12,7 +14,7 @@ chmod +x kops-linux-amd64
 sudo mv kops-linux-amd64 /usr/local/bin/kops
 
 # Use the secrets in the travis environment to setup the aws creds for the aws command:
-echo -e "${AWS_ACCESS_KEY_ID}\n${AWS_SECRET_ACCESS_KEY}\n" \
+echo -e "${AWS_ACCESS_KEY_ID}\n${AWS_SECRET_ACCESS_KEY}\n\n\n" \
     | aws configure
 
 make install
