@@ -119,6 +119,7 @@ func (a *APIServer) getTaggedLogger(ctx context.Context, req *ProcessRequest) (*
 			Path: d.FileInfo.File.Path,
 			Hash: d.FileInfo.Hash,
 		})
+		hash.Write([]byte(d.FileInfo.File.Path))
 		hash.Write(d.FileInfo.Hash)
 	}
 	// DatumID is a single string id for the datum, it's used in logs and in
