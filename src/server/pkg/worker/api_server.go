@@ -384,7 +384,6 @@ func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, lo
 				if err != nil {
 					return err
 				}
-
 				pathWithInput, err := filepath.Rel(client.PPSInputPrefix, realPath)
 				if err == nil {
 					// We can only skip the upload if the real path is
@@ -399,6 +398,8 @@ func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, lo
 							input = i
 						}
 					}
+					// this changes realPath from `/pfs/input/...` to `/scratch/<id>/input/...`
+					realPath = filepath.Join(dir, pathWithInput)
 					if input != nil {
 						return filepath.Walk(realPath, func(filePath string, info os.FileInfo, err error) error {
 							if err != nil {
@@ -410,7 +411,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, lo
 							}
 							subRelPath := filepath.Join(relPath, rel)
 							// The path of the input file
-							pfsPath, err := filepath.Rel(filepath.Join(client.PPSInputPrefix, input.Name), filePath)
+							pfsPath, err := filepath.Rel(filepath.Join(dir, input.Name), filePath)
 							if err != nil {
 								return err
 							}
