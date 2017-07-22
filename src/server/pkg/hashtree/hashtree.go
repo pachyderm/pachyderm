@@ -201,7 +201,7 @@ func (h *HashTreeProto) Walk(f func(string, *NodeProto) error) error {
 	return walk(h.Fs, f)
 }
 
-func diff(new HashTree, old HashTree, newPath string, oldPath string, f func(string, *NodeProto, bool) error) error {
+func diff(new HashTree, old HashTree, newPath string, oldPath string, recursiveDepth int64, f func(string, *NodeProto, bool) error) error {
 	newNode, err := new.Get(newPath)
 	if err != nil && Code(err) != PathNotFound {
 		return err
@@ -216,7 +216,7 @@ func diff(new HashTree, old HashTree, newPath string, oldPath string, f func(str
 	}
 	children := make(map[string]bool)
 	if newNode != nil {
-		if newNode.FileNode != nil {
+		if newNode.FileNode != nil || recursiveDepth == 0 {
 			if err := f(newPath, newNode, true); err != nil {
 				return err
 			}
@@ -227,7 +227,7 @@ func diff(new HashTree, old HashTree, newPath string, oldPath string, f func(str
 		}
 	}
 	if oldNode != nil {
-		if oldNode.FileNode != nil {
+		if oldNode.FileNode != nil || recursiveDepth == 0 {
 			if err := f(oldPath, oldNode, false); err != nil {
 				return err
 			}
@@ -237,17 +237,24 @@ func diff(new HashTree, old HashTree, newPath string, oldPath string, f func(str
 			}
 		}
 	}
-	for child := range children {
-		if err := diff(new, old, pathlib.Join(newPath, child), pathlib.Join(oldPath, child), f); err != nil {
-			return err
+	if recursiveDepth > 0 || recursiveDepth == -1 {
+		newDepth := recursiveDepth
+		if recursiveDepth > 0 {
+			newDepth -= 1
+		}
+		for child := range children {
+			fmt.Printf("calculating file diff for child %v\n", child)
+			if err := diff(new, old, pathlib.Join(newPath, child), pathlib.Join(oldPath, child), newDepth, f); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
 }
 
 // Diff implements HashTree.Diff
-func (h *HashTreeProto) Diff(old HashTree, newPath string, oldPath string, f func(string, *NodeProto, bool) error) error {
-	return diff(h, old, newPath, oldPath, f)
+func (h *HashTreeProto) Diff(old HashTree, newPath string, oldPath string, recursiveDepth int64, f func(string, *NodeProto, bool) error) error {
+	return diff(h, old, newPath, oldPath, recursiveDepth, f)
 }
 
 // hashtree is an implementation of the HashTree and OpenHashTree interfaces.
@@ -295,8 +302,8 @@ func (h *hashtree) Walk(f func(string, *NodeProto) error) error {
 }
 
 // Diff implements HashTree.Diff
-func (h *hashtree) Diff(old HashTree, newPath string, oldPath string, f func(string, *NodeProto, bool) error) error {
-	return diff(h, old, newPath, oldPath, f)
+func (h *hashtree) Diff(old HashTree, newPath string, oldPath string, recursiveDepth int64, f func(string, *NodeProto, bool) error) error {
+	return diff(h, old, newPath, oldPath, recursiveDepth, f)
 }
 
 // clone makes a deep copy of 'h' and returns it. This performs one fewer copy

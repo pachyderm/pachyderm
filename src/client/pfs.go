@@ -657,7 +657,7 @@ func (c APIClient) GlobFile(repoName string, commitID string, pattern string) ([
 // path, the second is files present under old path, files which are under both
 // paths and have identical content are omitted.
 func (c APIClient) DiffFile(newRepoName, newCommitID, newPath, oldRepoName,
-	oldCommitID, oldPath string) ([]*pfs.FileInfo, []*pfs.FileInfo, error) {
+	oldCommitID, oldPath string, recursiveDepth int64) ([]*pfs.FileInfo, []*pfs.FileInfo, error) {
 	var oldFile *pfs.File
 	if oldRepoName != "" {
 		oldFile = NewFile(oldRepoName, oldCommitID, oldPath)
@@ -665,8 +665,9 @@ func (c APIClient) DiffFile(newRepoName, newCommitID, newPath, oldRepoName,
 	resp, err := c.PfsAPIClient.DiffFile(
 		c.ctx(),
 		&pfs.DiffFileRequest{
-			NewFile: NewFile(newRepoName, newCommitID, newPath),
-			OldFile: oldFile,
+			NewFile:        NewFile(newRepoName, newCommitID, newPath),
+			OldFile:        oldFile,
+			RecursiveDepth: recursiveDepth,
 		},
 	)
 	if err != nil {

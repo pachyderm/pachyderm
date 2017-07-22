@@ -595,7 +595,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 
 		// Increment the repo sizes by the sizes of the files that have
 		// been added in this commit.
-		finishedTree.Diff(parentTree, "", "", func(path string, node *hashtree.NodeProto, new bool) error {
+		finishedTree.Diff(parentTree, "", "", -1, func(path string, node *hashtree.NodeProto, new bool) error {
 			if node.FileNode != nil && new {
 				repoInfo.SizeBytes += uint64(node.SubtreeSize)
 			}
@@ -1545,7 +1545,7 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern strin
 	return fileInfos, nil
 }
 
-func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.File) ([]*pfs.FileInfo, []*pfs.FileInfo, error) {
+func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.File, recursiveDepth int64) ([]*pfs.FileInfo, []*pfs.FileInfo, error) {
 	newTree, err := d.getTreeForFile(ctx, newFile)
 	if err != nil {
 		return nil, nil, err
@@ -1568,7 +1568,7 @@ func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.F
 	}
 	var newFileInfos []*pfs.FileInfo
 	var oldFileInfos []*pfs.FileInfo
-	if err := newTree.Diff(oldTree, newFile.Path, oldFile.Path, func(path string, node *hashtree.NodeProto, new bool) error {
+	if err := newTree.Diff(oldTree, newFile.Path, oldFile.Path, recursiveDepth, func(path string, node *hashtree.NodeProto, new bool) error {
 		if new {
 			newFileInfos = append(newFileInfos, nodeToFileInfo(newFile.Commit, path, node, false))
 		} else {
