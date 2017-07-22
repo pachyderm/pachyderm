@@ -516,7 +516,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	// TODO: replace this code once we update DiffFile to be shallow
 	newFile := &pfs.File{
 		Commit: statsBranch.Head,
-		Path:   "/",
+		Path:   fmt.Sprintf("/%v", request.JobID),
 	}
 	commitInfo, err := pfsClient.InspectCommit(
 		ctx,
@@ -532,9 +532,9 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	}
 	oldFile := &pfs.File{
 		Commit: commitInfo.ParentCommit,
-		Path:   "/",
+		Path:   fmt.Sprintf("/%v", request.JobID),
 	}
-	resp, err := pfsClient.DiffFile(ctx, &pfs.DiffFileRequest{newFile, oldFile})
+	resp, err := pfsClient.DiffFile(ctx, &pfs.DiffFileRequest{newFile, oldFile, 1})
 	if err != nil {
 		return nil, err
 	}
@@ -543,32 +543,14 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	// The newFileInfos contain datums that were new in this job
 	// For these datums, populate the status and stats
 	fmt.Printf("datums map: %v\n", datums)
-	pathToDatumHash := func(path string) (string, error) {
-		tokens := strings.Split(path, "/")
-		if len(tokens) < 3 {
-			return "", fmt.Errorf("invalid datum path %v", path)
-		}
-		// Stats path is /jobID/datumHash/...
-		return tokens[2], nil
-	}
-	newDatums := make(map[string]bool)
 	for _, fileInfo := range resp.NewFiles {
 		fileInfo := fileInfo
-		datumHash, err := pathToDatumHash(fileInfo.File.Path)
-		if err != nil {
-			return nil, err
-		}
-		_, ok := newDatums[datumHash]
-		if ok {
-			// Hack for now ... bcz DiffFile is recursive and we'll see multiple files under each datum path
-			continue
-		}
+		_, datumHash := filepath.Split(fileInfo.File.Path)
 		fmt.Printf("walking over this new file %v with hash: %v\n", fileInfo, datumHash)
 		datums[datumHash], err = a.getDatum(ctx, jobInfo.OutputCommit.Repo.Name, statsBranch.Head, request.JobID, datumHash)
 		if err != nil {
 			return nil, err
 		}
-		newDatums[datumHash] = true
 	}
 
 	var datumInfos []*pps.DatumInfo

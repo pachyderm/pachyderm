@@ -499,7 +499,7 @@ func (a *apiServer) DiffFile(ctx context.Context, request *pfs.DiffFileRequest) 
 			a.Log(request, response, retErr, time.Since(start))
 		}
 	}(time.Now())
-	newFileInfos, oldFileInfos, err := a.driver.diffFile(ctx, request.NewFile, request.OldFile)
+	newFileInfos, oldFileInfos, err := a.driver.diffFile(ctx, request.NewFile, request.OldFile, request.RecursiveDepth)
 	if err != nil {
 		return nil, err
 	}
