@@ -72,7 +72,7 @@ case "${OP}" in
     sudo env "PATH=${PATH}" "GOPATH=${GOPATH}" "${cmd[@]}"
     check_ready="$(dirname "${0}")/../../kube/check_ready.sh"
     check_ready="$(realpath "${check_ready}")"
-    sudo env "PATH=${PATH}" "GOPATH=${GOPATH}" "${check_ready}"
+    sudo env "PATH=${PATH}" "GOPATH=${GOPATH}" "bash -c 'until timeout 1s sudo ${check_ready} app=pachd; do sleep 1; done'"
     ;;
   delete)
     kops --state=${STATE_STORE} delete cluster --name=$(cat .cluster_name) --yes
