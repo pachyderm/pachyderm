@@ -285,8 +285,8 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 			if req.Scope != authclient.Scope_OWNER {
 				return fmt.Errorf("ACL not found for repo %v", req.Repo.Name)
 			}
+			acl.Entries = make(map[string]authclient.Scope)
 		}
-
 		if acl.Entries[user.Username] != authclient.Scope_OWNER {
 			return fmt.Errorf("user %v is not authorized to update ACL for repo %v", user, req.Repo.Name)
 		}
