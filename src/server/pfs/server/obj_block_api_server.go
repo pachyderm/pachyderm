@@ -712,24 +712,20 @@ func (s *objBlockAPIServer) tagGetter(ctx groupcache.Context, key string, dest g
 	tag := &pfsclient.Tag{Name: strings.Join(splitKey[:len(splitKey)-1], "")}
 	prefix := splitKey[0]
 	var updated bool
-	if len(splitKey) == 3 {
-		// First check if we already have the index for this Tag in memory, if
-		// not read it for the first time.
-		if _, ok := s.getObjectIndex(prefix); !ok {
-			updated = true
-			if err := s.readObjectIndex(prefix); err != nil {
-				return err
-			}
+	// First check if we already have the index for this Tag in memory, if
+	// not read it for the first time.
+	if _, ok := s.getObjectIndex(prefix); !ok {
+		updated = true
+		if err := s.readObjectIndex(prefix); err != nil {
+			return err
 		}
-		objectIndex, _ := s.getObjectIndex(prefix)
-		// Check if the index contains the tag we're looking for, if so read
-		// it into the cache and return
-		if object, ok := objectIndex.Tags[tag.Name]; ok {
-			dest.SetProto(object)
-			return nil
-		}
-	} else if len(splitKey) != 2 {
-		return fmt.Errorf("malformed tag key: %v; this is likely a bug", key)
+	}
+	objectIndex, _ := s.getObjectIndex(prefix)
+	// Check if the index contains the tag we're looking for, if so read
+	// it into the cache and return
+	if object, ok := objectIndex.Tags[tag.Name]; ok {
+		dest.SetProto(object)
+		return nil
 	}
 	// Try reading the tag from its tag path, this happens for recently
 	// written tags that haven't been incorporated into an index yet.
