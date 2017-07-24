@@ -82,5 +82,5 @@ jobs the output directory `/pfs/out` won't be empty, instead it will
 contain the results of last time `F1` was processed. That is, it will
 contain the sum of all the numbers in `F1/1. All your code needs to do is
 sum the numbers in `F1/2` and add them to the results of summing `F1/1`
-which are already contained in `/pfs/out`. Ultimately this process should
+which are already contained in `/pfs/out`. Ultimately, your code should
 overwrite the value in `/pfs/out` with a new value.
