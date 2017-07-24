@@ -281,14 +281,37 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 
 		var acl authclient.ACL
 		if err := acls.Get(req.Repo.Name, &acl); err != nil {
-			return fmt.Errorf("ACL not found for repo %v", req.Repo.Name)
+			// Might be creating a new ACL. Check that 'req' sets an owner
+			if req.Scope != authclient.Scope_OWNER {
+				return fmt.Errorf("ACL not found for repo %v", req.Repo.Name)
+			}
 		}
 
 		if acl.Entries[user.Username] != authclient.Scope_OWNER {
 			return fmt.Errorf("user %v is not authorized to update ACL for repo %v", user, req.Repo.Name)
 		}
 
-		acl.Entries[req.Username] = req.Scope
+		if req.Scope != authclient.Scope_NONE {
+			acl.Entries[req.Username] = req.Scope
+		} else {
+			delete(acl.Entries, req.Username)
+			// Make sure we don't have an ownerless ACL
+			var hasOwner, hasNonOwner bool
+			for _, scope := range acl.Entries {
+				if scope == authclient.Scope_OWNER {
+					hasOwner = true
+				} else {
+					hasNonOwner = true
+				}
+				if hasOwner && hasNonOwner {
+					break
+				}
+			}
+			if hasNonOwner && !hasOwner {
+				return fmt.Errorf("cannot remove last owner from non-empty ACL")
+			}
+		}
+
 		acls.Put(req.Repo.Name, &acl)
 		return nil
 	})
