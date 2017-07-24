@@ -324,7 +324,7 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 		if uint64(len(data)) < offset+readSize {
 			return fmt.Errorf("undersized object (this is likely a bug)")
 		}
-		if err := getObjectsServer.Send(&types.BytesValue{Value: data[offset : offset+readSize]}); err != nil {
+		if err := grpcutil.WriteToStreamingBytesServer(bytes.NewReader(data[offset:offset+readSize]), getObjectsServer); err != nil {
 			return err
 		}
 		// We've hit the offset so we set it to 0
