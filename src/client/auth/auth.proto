@@ -75,6 +75,17 @@ message ActivateRequest {
 
 message ActivateResponse {}
 
+message GetCapabilityRequest {}
+
+message GetCapabilityResponse {
+    string capability = 1;
+}
+
+message RevokeAuthTokenRequest {
+    string token = 1;
+}
+message RevokeAuthTokenResponse {}
+
 service API {
     rpc Activate(ActivateRequest) returns (ActivateResponse) {}
 
@@ -85,4 +96,7 @@ service API {
     rpc GetScope(GetScopeRequest) returns (GetScopeResponse) {}
 
     rpc GetACL(GetACLRequest) returns (GetACLResponse) {}
+
+    rpc GetCapability(GetCapabilityRequest) returns (GetCapabilityResponse) {}
+    rpc RevokeAuthToken(RevokeAuthTokenRequest) returns (RevokeAuthTokenResponse) {}
 }

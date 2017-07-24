@@ -247,16 +247,22 @@ func (c *APIClient) AddMetadata(ctx context.Context) context.Context {
 	// TODO(msteffen): this doesn't make sense outside the pachctl CLI
 	// (e.g. pachd making requests to the auth API) because the user's
 	// authentication token is fixed in the client. See Ctx()
-	if c.metricsUserID == "" {
-		return ctx
-	}
+
 	// metadata API downcases all the key names
+	if c.metricsUserID != "" {
+		ctx = metadata.NewOutgoingContext(
+			ctx,
+			metadata.Pairs(
+				"userid", c.metricsUserID,
+				"prefix", c.metricsPrefix,
+			),
+		)
+	}
+
 	return metadata.NewOutgoingContext(
 		ctx,
 		metadata.Pairs(
-			"userid", c.metricsUserID,
-			"prefix", c.metricsPrefix,
-			"authn-token", c.authenticationToken,
+			auth.ContextTokenKey, c.authenticationToken,
 		),
 	)
 }
@@ -265,6 +271,12 @@ func (c *APIClient) AddMetadata(ctx context.Context) context.Context {
 // to context.Background().
 func (c *APIClient) Ctx() context.Context {
 	return c.AddMetadata(context.Background())
+}
+
+// SetAuthToken sets the authentication token that will be used for all
+// API calls for this client.
+func (c *APIClient) SetAuthToken(token string) {
+	c.authenticationToken = token
 }
 
 func sanitizeErr(err error) error {
