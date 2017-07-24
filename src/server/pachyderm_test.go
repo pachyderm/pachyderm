@@ -2932,23 +2932,22 @@ func TestUseMultipleWorkers(t *testing.T) {
 		"",
 		false,
 	))
-	started := time.Now()
-	for {
-		time.Sleep(time.Second)
-		if time.Since(started) > time.Second*30 {
-			t.Fatalf("failed to find status in time")
-		}
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = 60 * time.Second
+	err = backoff.Retry(func() error {
 		jobs, err := c.ListJob(pipeline, nil)
 		require.NoError(t, err)
 		if len(jobs) == 0 {
-			continue
+			return fmt.Errorf("failed to find jobs")
 		}
 		jobInfo, err := c.InspectJob(jobs[0].Job.ID, false)
 		require.NoError(t, err)
-		if len(jobInfo.WorkerStatus) == 2 {
-			break
+		if len(jobInfo.WorkerStatus) != 2 {
+			return fmt.Errorf("incorrect number of statuses: %v", len(jobInfo.WorkerStatus))
 		}
-	}
+		return nil
+	}, b)
+	require.NoError(t, err)
 }
 
 // TestSystemResourceRequest doesn't create any jobs or pipelines, it
