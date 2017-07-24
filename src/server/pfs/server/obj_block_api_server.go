@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -274,7 +275,7 @@ func (s *objBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServer
 	if err := s.objectCache.Get(getObjectServer.Context(), s.splitKey(request.Hash), sink); err != nil {
 		return err
 	}
-	return getObjectServer.Send(&types.BytesValue{Value: data})
+	return grpcutil.WriteToStreamingBytesServer(bytes.NewReader(data), getObjectServer)
 }
 
 func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, getObjectsServer pfsclient.ObjectAPI_GetObjectsServer) (retErr error) {
@@ -731,7 +732,7 @@ func (s *objBlockAPIServer) tagGetter(ctx groupcache.Context, key string, dest g
 	// written tags that haven't been incorporated into an index yet.
 	// Note that we tolerate NotExist errors here because the object may have
 	// been incorporated into an index and thus deleted.
-	objectIndex := &pfsclient.ObjectIndex{}
+	objectIndex = &pfsclient.ObjectIndex{}
 	if err := s.readProto(s.localServer.tagPath(tag), objectIndex); err != nil && !s.isNotFoundErr(err) {
 		return err
 	} else if err == nil {
