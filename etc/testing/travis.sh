@@ -2,7 +2,8 @@
 
 # Check the cron value to see if this is a daily job
 
-if [[ "${TRAVIS_EVENT_TYPE}" == "cron" ]]; then
+# if [[ "${TRAVIS_EVENT_TYPE}" == "cron" ]]; then
+if [[ "cron" == "cron" ]]; then
 	echo "Running daily benchmarks"
 
     # Use the secrets in the travis environment to setup the aws creds for the aws command:

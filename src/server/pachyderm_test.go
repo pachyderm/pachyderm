@@ -3878,8 +3878,10 @@ func getPachClient(t testing.TB) *client.APIClient {
 	var c *client.APIClient
 	var err error
 	if addr := os.Getenv("PACHD_PORT_650_TCP_ADDR"); addr != "" {
+		fmt.Println("Using NewInCluster(). addr: ", addr)
 		c, err = client.NewInCluster()
 	} else {
+		fmt.Println("Using NewFromAddress(), meaning PACHD_PORT_650_TCP_ADDR is not in env. env is:\n", strings.Join(os.Environ(), "\n  "))
 		c, err = client.NewFromAddress("0.0.0.0:30650")
 	}
 	require.NoError(t, err)
