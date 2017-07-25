@@ -5,6 +5,9 @@
 
 set -e
 
+echo "Running local tests"
+make local-test
+
 echo "Running aws tests"
 
 sudo pip install awscli
