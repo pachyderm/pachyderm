@@ -103,11 +103,24 @@ func (s *streamingBytesWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
+// Go's io.CopyBuffer has an annoying optimization wherein if the reader
+// has the WriteTo function defined, it doesn't actually use the given
+// buffer.  As a result, we might write a large chunk to the gRPC streaming
+// server even though we intend to use a small buffer.
+// Therefore we wrap readers in this wrapper so that only Read is defined.
+type readerWrapper struct {
+	reader io.Reader
+}
+
+func (r readerWrapper) Read(p []byte) (int, error) {
+	return r.reader.Read(p)
+}
+
 // WriteToStreamingBytesServer writes the data from the io.Reader to the StreamingBytesServer.
 func WriteToStreamingBytesServer(reader io.Reader, streamingBytesServer StreamingBytesServer) error {
 	buf := GetBuffer()
 	defer PutBuffer(buf)
-	_, err := copyBuffer(NewStreamingBytesWriter(streamingBytesServer), reader, buf)
+	_, err := io.CopyBuffer(NewStreamingBytesWriter(streamingBytesServer), readerWrapper{reader}, buf)
 	return err
 }
 
@@ -122,45 +135,4 @@ func WriteFromStreamingBytesClient(streamingBytesClient StreamingBytesClient, wr
 		}
 	}
 	return nil
-}
-
-// copyBuffer is the same as io.CopyBuffer except that it always uses the
-// given buffer.  In contract, io.CopyBuffer does not use the given buffer
-// if the reader has WriteTo defined.
-func copyBuffer(dst io.Writer, src io.Reader, buf []byte) (written int64, err error) {
-	if buf != nil && len(buf) == 0 {
-		panic("empty buffer in io.CopyBuffer")
-	}
-
-	if buf == nil {
-		buf = make([]byte, 32*1024)
-	}
-
-	for {
-		nr, er := src.Read(buf)
-		if nr > 0 {
-			nw, ew := dst.Write(buf[0:nr])
-			if nw > 0 {
-				written += int64(nw)
-			}
-
-			if ew != nil {
-				err = ew
-				break
-			}
-
-			if nr != nw {
-				err = io.ErrShortWrite
-				break
-			}
-		}
-
-		if er != nil {
-			if er != io.EOF {
-				err = er
-			}
-			break
-		}
-	}
-	return written, err
 }
