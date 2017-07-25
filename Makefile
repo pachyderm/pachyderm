@@ -208,10 +208,7 @@ launch-dev-test: docker-build-test docker-push-test
 	    -- \
 	    ./test -test.v
 
-aws-test:
-	$(MAKE) docker-build
-	$(MAKE) tag-images
-	$(MAKE) push-images
+aws-test: tag-images push-images
 	ZONE=sa-east-1a etc/testing/deploy/aws.sh --create
 	$(MAKE) launch-dev-test
 	rm $(HOME)/.pachyderm/config.json
@@ -315,6 +312,8 @@ pretest:
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
 #test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build docker-build-netcat clean-launch-dev launch-dev integration-tests example-tests
+
+local-test: docker-build launch-dev test-pfs test-hashtree clean-launch-dev 
 
 test: docker-build clean-launch-dev launch-dev test-pfs test-pps test-hashtree
 
