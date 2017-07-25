@@ -9,7 +9,7 @@ import (
 	"golang.org/x/net/context"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/keepalive"
+	// "google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 
 	types "github.com/gogo/protobuf/types"
@@ -222,12 +222,12 @@ func PachDialOptions() []grpc.DialOption {
 }
 
 func (c *APIClient) connect() error {
-	keepaliveOpt := grpc.WithKeepaliveParams(keepalive.ClientParameters{
-		Time:                20 * time.Second, // if 20s since last msg (any kind), ping
-		Timeout:             20 * time.Second, // if no response to ping for 20s, reset
-		PermitWithoutStream: true,             // send ping even if no active RPCs
-	})
-	dialOptions := append(PachDialOptions(), keepaliveOpt)
+	// keepaliveOpt := grpc.WithKeepaliveParams(keepalive.ClientParameters{
+	// 	Time:                20 * time.Second, // if 20s since last msg (any kind), ping
+	// 	Timeout:             20 * time.Second, // if no response to ping for 20s, reset
+	// 	PermitWithoutStream: true,             // send ping even if no active RPCs
+	// })
+	dialOptions := append(PachDialOptions() /*, keepaliveOpt */)
 	clientConn, err := grpc.Dial(c.addr, dialOptions...)
 	if err != nil {
 		return err
