@@ -45,7 +45,7 @@ Note, that when performing this grouping:
 
 - You should use `"lazy": true` to avoid unecessary downloads of data.
 
-- You should use sym-links to avoid unecessary uploads of data (see more information on "copy elision" [here](http://pachyderm.readthedocs.io/en/latest/managing_pachyderm/data_management.html)).
+- You should use sym-links to avoid unecessary uploads of data and unecessary duplication of data (see more information on "copy elision" [here](http://pachyderm.readthedocs.io/en/latest/managing_pachyderm/data_management.html)).
 
 
 ## 2. Processing the grouped records
