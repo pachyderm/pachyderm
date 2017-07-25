@@ -151,6 +151,8 @@ func (a *apiServer) isActivated(ctx context.Context) (bool, error) {
 		return true, nil
 	}
 
+	// TODO(msteffen): cache this value every N seconds, to minimize load on etcd
+	// caused by auth servers that aren't even active
 	adminCount, err := a.admins.ReadOnly(ctx).Count()
 	if err != nil {
 		return false, fmt.Errorf("error checking if auth service is activated")
