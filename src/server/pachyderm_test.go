@@ -3686,6 +3686,55 @@ func TestIncrementalSharedProvenance(t *testing.T) {
 	require.YesError(t, err)
 }
 
+func TestBatchedPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestBatchedPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	numFiles := 25
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	for i := 0; i < numFiles; i++ {
+		_, err = c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file-%d", i), strings.NewReader(strings.Repeat("foo\n", 100)))
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	pipeline := uniqueString("pipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					fmt.Sprintf("for dir in /pfs/*/"),
+					"do",
+					fmt.Sprintf("cp ${dir}/%s/* ${dir}/out/", dataRepo),
+					"done",
+				},
+			},
+			Input:       client.NewAtomInput(dataRepo, "/*"),
+			EnableStats: true,
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 4,
+			},
+			Batch: true,
+		})
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	jobs, err := c.ListJob(pipeline, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+}
+
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
 	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
 	require.NoError(t, err)

@@ -93,16 +93,13 @@ type APIServer struct {
 	// Only one datum can be running at a time because they need to be
 	// accessing /pfs, runMu enforces this
 	runMu sync.Mutex
-	// runCond is a Cond that's used to synchronize when batches have been
-	// processed
-	runCond *sync.Cond
-
 	// the index to use for datums being loaded into pfs
 	index int64
 	// loggers contains all the writers for outstanding datums
 	loggers []io.Writer
-	// runErr contains the error returned by running the user code
-	runErr error
+	// errChans are channels which are being waited on by Process calls to see
+	// if the current batch fails to process
+	errChans []chan error
 }
 
 type putObjectResponse struct {
@@ -255,7 +252,6 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
 		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
 	}
-	server.runCond = sync.NewCond(&server.runMu)
 	go server.master()
 	return server, nil
 }
@@ -364,11 +360,22 @@ func (a *APIServer) runBatchedDatum(ctx context.Context, req *ProcessRequest, ca
 	defer func(start time.Time) {
 		logger.Logf("finished running user code - took (%v) - with error (%v)\n", time.Since(start), retErr)
 	}(time.Now())
-	a.runMu.Lock()
-	defer a.runMu.Unlock()
-	index := atomic.AddInt64(&a.index, 1)
-	a.loggers = append(a.loggers, logger.userLogger())
-	if err := os.Symlink(dir, filepath.Join(client.PPSInputPrefix, fmt.Sprintf("%d", index))); err != nil {
+	var index int64
+	ch := make(chan error, 1)
+	if err := func() error {
+		a.runMu.Lock()
+		defer a.runMu.Unlock()
+		index = atomic.AddInt64(&a.index, 1)
+		a.loggers = append(a.loggers, logger.userLogger())
+		if err := os.MkdirAll(client.PPSInputPrefix, 0666); err != nil {
+			return err
+		}
+		if err := os.Symlink(dir, filepath.Join(client.PPSInputPrefix, fmt.Sprintf("%d", index))); err != nil {
+			return err
+		}
+		a.errChans = append(a.errChans, ch)
+		return nil
+	}(); err != nil {
 		return err
 	}
 	go func() {
@@ -381,24 +388,23 @@ func (a *APIServer) runBatchedDatum(ctx context.Context, req *ProcessRequest, ca
 		// Run user code
 		cmd := exec.CommandContext(ctx, a.pipelineInfo.Transform.Cmd[0], a.pipelineInfo.Transform.Cmd[1:]...)
 		cmd.Stdin = strings.NewReader(strings.Join(a.pipelineInfo.Transform.Stdin, "\n") + "\n")
-		cmd.Stdout = io.MultiWriter(a.loggers...)
-		cmd.Stderr = io.MultiWriter(a.loggers...)
+		w := io.MultiWriter(a.loggers...)
+		cmd.Stdout = w
+		cmd.Stderr = w
 		cmd.Env = a.userCodeEnviron(req)
-		a.runErr = cmd.Run()
+		err := cmd.Run()
 		a.index = 0
-		a.runCond.Broadcast()
+		for _, ch := range a.errChans {
+			ch <- err
+		}
+		if err := os.RemoveAll(client.PPSInputPrefix); err != nil {
+			fmt.Fprintf(w, "failed to remove %s: %s", client.PPSInputPrefix, err)
+		}
 	}()
 
-	for index != 0 {
-		a.runCond.Wait()
-	}
-
-	// Return result
-	if a.runErr == nil {
-		return nil
-	}
+	err := <-ch
 	// (if err is an acceptable return code, don't return err)
-	if exiterr, ok := a.runErr.(*exec.ExitError); ok {
+	if exiterr, ok := err.(*exec.ExitError); ok {
 		if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
 			for _, returnCode := range a.pipelineInfo.Transform.AcceptReturnCode {
 				if int(returnCode) == status.ExitStatus() {
@@ -407,7 +413,7 @@ func (a *APIServer) runBatchedDatum(ctx context.Context, req *ProcessRequest, ca
 			}
 		}
 	}
-	return a.runErr
+	return err
 }
 
 func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, logger *taggedLogger, inputs []*Input, stats *pps.ProcessStats, statsTree hashtree.OpenHashTree, statsRoot string) error {
