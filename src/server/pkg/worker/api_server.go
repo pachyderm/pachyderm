@@ -809,7 +809,6 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		return &ProcessResponse{
 			Failed:   true,
 			StatsTag: statsTag,
-			Stats:    a.stats,
 		}, nil
 	}
 	// CleanUp is idempotent so we can call it however many times we want.
@@ -833,7 +832,6 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 			return &ProcessResponse{
 				Failed:   true,
 				StatsTag: statsTag,
-				Stats:    a.stats,
 			}, nil
 		}
 		return nil, err
@@ -841,7 +839,6 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	return &ProcessResponse{
 		Tag:      &pfs.Tag{tag},
 		StatsTag: statsTag,
-		Stats:    a.stats,
 	}, nil
 }
 
