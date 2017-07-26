@@ -578,7 +578,6 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 							logger.Logf("failed to merge into stats tree: %v", err)
 						}
 						processStats = append(processStats, resp.Stats)
-						return nil
 					}
 					return tree.Merge(subTree)
 				}, b, func(err error, d time.Duration) error {
