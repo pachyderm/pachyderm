@@ -3693,8 +3693,7 @@ func TestPipelineWithStats(t *testing.T) {
 
 	datums, err := c.ListDatum(jobs[0].Job.ID)
 	require.NoError(t, err)
-	require.Equal(t, 4, len(datums))
-	fmt.Printf("datum infos: %v\n", datums)
+	require.Equal(t, 5000, len(datums))
 
 	datum, err := c.InspectDatum(jobs[0].Job.ID, datums[0].ID)
 	require.NoError(t, err)
