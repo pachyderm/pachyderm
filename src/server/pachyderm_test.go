@@ -1414,10 +1414,19 @@ func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 	))
 
 	// Wait for job to spawn
+	var jobInfos []*pps.JobInfo
 	time.Sleep(10 * time.Second)
-	jobInfos, err := c.ListJob(pipeline, nil)
-	require.NoError(t, err)
-	require.Equal(t, len(jobInfos), 1)
+	require.NoError(t, backoff.Retry(func() error {
+		var err error
+		jobInfos, err = c.ListJob(pipeline, nil)
+		if err != nil {
+			return err
+		}
+		if len(jobInfos) < 1 {
+			return fmt.Errorf("job not spawned")
+		}
+		return nil
+	}, backoff.NewExponentialBackOff()))
 
 	jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, true)
 	require.NoError(t, err)
@@ -1940,7 +1949,8 @@ func TestPipelineAutoScaledown(t *testing.T) {
 
 	// Wait for the pipeline to scale down
 	b := backoff.NewInfiniteBackOff()
-	b.MaxElapsedTime = scaleDownThreshold + 20*time.Second
+	b.MaxInterval = 1 * time.Second
+	b.MaxElapsedTime = scaleDownThreshold + 60*time.Second
 	require.NoError(t, backoff.Retry(func() error {
 		rc, err := pipelineRc(t, pipelineInfo)
 		if err != nil {
@@ -1962,10 +1972,21 @@ func TestPipelineAutoScaledown(t *testing.T) {
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 1, len(commitInfos))
-	rc, err := pipelineRc(t, pipelineInfo)
-	require.NoError(t, err)
-	require.Equal(t, parallelism, int(rc.Spec.Replicas))
 
+	// Wait for the pipeline to scale back up
+	b.Reset()
+	require.NoError(t, backoff.Retry(func() error {
+		rc, err := pipelineRc(t, pipelineInfo)
+		if err != nil {
+			return err
+		}
+		if int(rc.Spec.Replicas) != parallelism {
+			return fmt.Errorf("rc.Spec.Replicas should be %d", parallelism)
+		}
+		return nil
+	}, b))
+
+	// Once the job finishes, the pipeline will scale down again
 	b.Reset()
 	require.NoError(t, backoff.Retry(func() error {
 		rc, err := pipelineRc(t, pipelineInfo)

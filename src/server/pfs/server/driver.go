@@ -192,9 +192,9 @@ func (d *driver) checkIsAuthorized(ctx context.Context, r *pfs.Repo, s auth.Scop
 		Scope: s,
 	})
 	if err == nil && !resp.Authorized {
-		return fmt.Errorf("you are not authorized to write to the repo %s", r.Name)
-	} else if !auth.IsNotActivatedError(err) {
-		return fmt.Errorf("error during authorization check for write to %s: %s", r.Name, err.Error())
+		return fmt.Errorf("you are not authorized to perform this operation on the repo %s", r.Name)
+	} else if err != nil && !auth.IsNotActivatedError(err) {
+		return fmt.Errorf("error during authorization check for operation on %s: %s", r.Name, err.Error())
 	}
 	return nil
 }
@@ -1011,7 +1011,6 @@ func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 						if err := ev.Unmarshal(&commitID, &commitInfo); err != nil {
 							return err
 						}
-
 					}
 					// Using a func just so we can unlock the commits in
 					// a refer function
