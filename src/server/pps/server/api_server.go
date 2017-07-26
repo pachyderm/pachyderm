@@ -493,7 +493,6 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		return nil, fmt.Errorf("stats branch not found on %v", jobInfo.OutputCommit.Repo.Name)
 	}
 	// List the files under /jobID to get all the datums
-	start := time.Now()
 	file := &pfs.File{
 		Commit: statsBranch.Head,
 		Path:   fmt.Sprintf("/%v", request.JobID),
@@ -502,24 +501,17 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("listfile: %v\n", time.Since(start))
-	start = time.Now()
 	datums := make(map[string]*pps.DatumInfo)
-	fmt.Printf("all datums: %v, %v\n", len(allFileInfos.FileInfo), allFileInfos.FileInfo)
 	for _, fileInfo := range allFileInfos.FileInfo {
 		fileInfo := fileInfo
 		_, datumHash := filepath.Split(fileInfo.File.Path)
-		fmt.Printf("populating datums w key: %v\n", datumHash)
 		datums[datumHash] = &pps.DatumInfo{
 			ID:    datumHash,
 			State: pps.DatumState_SKIPPED,
 		}
 	}
-	fmt.Printf("populated datum map %v\n", time.Since(start))
-	start = time.Now()
 
 	// Diff the files under /parentJobID and /jobID to get non-skipped datums
-	// TODO: replace this code once we update DiffFile to be shallow
 	newFile := &pfs.File{
 		Commit: statsBranch.Head,
 		Path:   fmt.Sprintf("/%v", request.JobID),
@@ -540,16 +532,11 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		Commit: commitInfo.ParentCommit,
 		Path:   fmt.Sprintf("/%v", request.JobID),
 	}
-	fmt.Printf("prepped for difffile %v\n", time.Since(start))
-	start = time.Now()
 	resp, err := pfsClient.DiffFile(ctx, &pfs.DiffFileRequest{newFile, oldFile, true})
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("difffile %v\n", time.Since(start))
-	start = time.Now()
-	fmt.Printf("# new %v, # old %v\n", len(resp.NewFiles), len(resp.OldFiles))
-	fmt.Printf("new files: %v\n", resp.NewFiles)
+
 	// The newFileInfos contain datums that were new in this job
 	// For these datums, populate the status and stats
 	blacklist := map[string]bool{
@@ -557,8 +544,6 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		"logs":  true,
 		"pfs":   true,
 	}
-	fmt.Printf("datums map: %v\n", datums)
-	allStart := time.Now()
 	pathToDatumHash := func(path string) (string, error) {
 		_, datumHash := filepath.Split(path)
 		if _, ok := blacklist[datumHash]; ok {
@@ -579,7 +564,6 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 				// not a datum, nothing to do here
 				return nil
 			}
-			start = time.Now()
 			datum, err := a.getDatum(ctx, jobInfo.OutputCommit.Repo.Name, statsBranch.Head, request.JobID, datumHash)
 			datumsMutex.Lock()
 			defer datumsMutex.Unlock()
@@ -588,7 +572,6 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		})
 	}
 	err = egGetDatums.Wait()
-	fmt.Printf("took %v to get all datums\n", time.Since(allStart))
 	if err != nil {
 		return nil, err
 	}
@@ -603,9 +586,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	}
 
 	// Sort results (failed first, slow first)
-	start = time.Now()
 	sort.Sort(ByDatumStateThenTime(datumInfos))
-	fmt.Printf("sort: %v\n", time.Since(start))
 
 	return &pps.DatumInfos{datumInfos}, nil
 }
