@@ -246,7 +246,7 @@ message DiffFileRequest {
   // OldFile may be left nil in which case the same path in the parent of
   // NewFile's commit will be used.
   File old_file = 2;
-  int64 recursive_depth = 3;
+  bool shallow = 3;
 }
 
 message DiffFileResponse {
