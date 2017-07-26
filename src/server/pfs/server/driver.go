@@ -162,6 +162,10 @@ func newLocalDriver(blockAddress string, etcdPrefix string) (*driver, error) {
 	return newDriver(blockAddress, []string{"localhost:32379"}, etcdPrefix, defaultCacheSize)
 }
 
+// initializePachConn initializes the connects that the pfs driver has with the
+// Pachyderm object API and auth API, and blocks until the connection is
+// established
+//
 // TODO(msteffen): client initialization (both etcd and pachd) might be better
 // placed happen in server.go, near main(), so that we only pay the dial cost
 // once, and so that pps doesn't need to have its own initialization code

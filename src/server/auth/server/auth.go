@@ -301,21 +301,6 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 			acl.Entries[req.Username] = req.Scope
 		} else {
 			delete(acl.Entries, req.Username)
-			// Make sure we don't have an ownerless ACL
-			var hasOwner, hasNonOwner bool
-			for _, scope := range acl.Entries {
-				if scope == authclient.Scope_OWNER {
-					hasOwner = true
-				} else {
-					hasNonOwner = true
-				}
-				if hasOwner && hasNonOwner {
-					break
-				}
-			}
-			if hasNonOwner && !hasOwner {
-				return fmt.Errorf("cannot remove last owner from non-empty ACL")
-			}
 		}
 
 		acls.Put(req.Repo.Name, &acl)
