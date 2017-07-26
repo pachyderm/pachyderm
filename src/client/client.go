@@ -67,6 +67,9 @@ type APIClient struct {
 	// authenticationToken is an identifier that authenticates the caller in case
 	// they want to access privileged data
 	authenticationToken string
+
+	// The context used in requests, can be set with WithCtx
+	ctx context.Context
 }
 
 // GetAddress returns the pachd host:post with which 'c' is communicating. If
@@ -270,7 +273,16 @@ func (c *APIClient) AddMetadata(ctx context.Context) context.Context {
 // Ctx is a convenience function that returns adds Pachyderm authn metadata
 // to context.Background().
 func (c *APIClient) Ctx() context.Context {
-	return c.AddMetadata(context.Background())
+	if c.ctx == nil {
+		return c.AddMetadata(context.Background())
+	}
+	return c.AddMetadata(c.ctx)
+}
+
+func (c *APIClient) WithCtx(ctx context.Context) *APIClient {
+	result := *c // copy c
+	result.ctx = ctx
+	return &result
 }
 
 // SetAuthToken sets the authentication token that will be used for all
