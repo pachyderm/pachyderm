@@ -566,23 +566,32 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		}
 		return datumHash, nil
 	}
-
+	var egGetDatums errgroup.Group
+	getDatumsSemaphore := make(chan struct{}, 200)
+	var datumsMutex sync.Mutex
 	for _, fileInfo := range resp.NewFiles {
-		fileInfo := fileInfo
-		datumHash, err := pathToDatumHash(fileInfo.File.Path)
-		if err != nil {
-			continue
-		}
-		fmt.Printf("walking over this new file %v with hash: %v\n", fileInfo, datumHash)
-		start = time.Now()
-		datums[datumHash], err = a.getDatum(ctx, jobInfo.OutputCommit.Repo.Name, statsBranch.Head, request.JobID, datumHash)
-		fmt.Printf("get-datum %v\n", time.Since(start))
-		fmt.Printf("uhhhhhh\n")
-		if err != nil {
-			return nil, err
-		}
+		egGetDatums.Go(func() error {
+			getDatumsSemaphore <- struct{}{}
+			defer func() { <-getDatumsSemaphore }()
+			fileInfo := fileInfo
+			datumHash, err := pathToDatumHash(fileInfo.File.Path)
+			if err != nil {
+				// not a datum, nothing to do here
+				return nil
+			}
+			start = time.Now()
+			datum, err := a.getDatum(ctx, jobInfo.OutputCommit.Repo.Name, statsBranch.Head, request.JobID, datumHash)
+			datumsMutex.Lock()
+			defer datumsMutex.Unlock()
+			datums[datumHash] = datum
+			return err
+		})
 	}
+	err = egGetDatums.Wait()
 	fmt.Printf("took %v to get all datums\n", time.Since(allStart))
+	if err != nil {
+		return nil, err
+	}
 
 	var datumInfos []*pps.DatumInfo
 	for datumHash, datum := range datums {
