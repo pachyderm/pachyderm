@@ -828,7 +828,7 @@ $ pachctl glob-file foo master "data/*"
 	}
 	rawFlag(globFile)
 
-	var recursiveDepth int64
+	var shallow bool
 	diffFile := &cobra.Command{
 		Use:   "diff-file new-repo-name new-commit-id new-path [old-repo-name old-commit-id old-path]",
 		Short: "Return a diff of two file trees.",
@@ -885,7 +885,7 @@ $ pachctl diff-file foo master path1 bar master path2
 			return nil
 		}),
 	}
-	diffFile.Flags().Int64VarP(&recursiveDepth, "recursive", "r", -1, "Specify how many levels to traverse. A value of '-1' will traverse all subdirectories")
+	diffFile.Flags().BoolVarP(&shallow, "shallow", "s", false, "Specifies whether or not to diff subdirectories")
 
 	deleteFile := &cobra.Command{
 		Use:   "delete-file repo-name commit-id path/to/file",

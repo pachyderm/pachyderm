@@ -1545,7 +1545,7 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern strin
 	return fileInfos, nil
 }
 
-func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.File, recursiveDepth int64) ([]*pfs.FileInfo, []*pfs.FileInfo, error) {
+func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.File, shallow bool) ([]*pfs.FileInfo, []*pfs.FileInfo, error) {
 	newTree, err := d.getTreeForFile(ctx, newFile)
 	if err != nil {
 		return nil, nil, err
@@ -1568,7 +1568,11 @@ func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.F
 	}
 	var newFileInfos []*pfs.FileInfo
 	var oldFileInfos []*pfs.FileInfo
-	if err := newTree.Diff(oldTree, newFile.Path, oldFile.Path, recursiveDepth, func(path string, node *hashtree.NodeProto, new bool) error {
+	recursiveDepth := -1
+	if shallow {
+		recursiveDepth = 1
+	}
+	if err := newTree.Diff(oldTree, newFile.Path, oldFile.Path, int64(recursiveDepth), func(path string, node *hashtree.NodeProto, new bool) error {
 		if new {
 			newFileInfos = append(newFileInfos, nodeToFileInfo(newFile.Commit, path, node, false))
 		} else {

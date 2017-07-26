@@ -542,7 +542,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	}
 	fmt.Printf("prepped for difffile %v\n", time.Since(start))
 	start = time.Now()
-	resp, err := pfsClient.DiffFile(ctx, &pfs.DiffFileRequest{newFile, oldFile, 1})
+	resp, err := pfsClient.DiffFile(ctx, &pfs.DiffFileRequest{newFile, oldFile, true})
 	if err != nil {
 		return nil, err
 	}
