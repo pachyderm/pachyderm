@@ -202,17 +202,17 @@ install-bench: install
 	[ -f /usr/local/bin/pachctl ] || sudo ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 
 launch-dev-test: docker-build-test docker-push-test
-	kubectl run bench --image=pachyderm/test:`git rev-list HEAD --max-count=1` \
+	sudo kubectl run bench --image=pachyderm/test:`git rev-list HEAD --max-count=1` \
 	    --restart=Never \
 	    --attach=true \
 	    -- \
 	    ./test -test.v
 
-aws-test:
-	ZONE=sa-east-1a etc/testing/deploy/aws.sh --delete || true
+aws-test: tag-images push-images
 	ZONE=sa-east-1a etc/testing/deploy/aws.sh --create
 	$(MAKE) launch-dev-test
 	rm $(HOME)/.pachyderm/config.json
+	ZONE=sa-east-1a etc/testing/deploy/aws.sh --delete
 
 run-bench:
 	kubectl scale --replicas=4 deploy/pachd
@@ -312,6 +312,8 @@ pretest:
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
 #test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build docker-build-netcat clean-launch-dev launch-dev integration-tests example-tests
+
+local-test: docker-build launch-dev test-pfs test-hashtree clean-launch-dev 
 
 test: docker-build clean-launch-dev launch-dev test-pfs test-pps test-hashtree
 
