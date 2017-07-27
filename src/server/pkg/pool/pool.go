@@ -13,6 +13,8 @@ import (
 	"k8s.io/kubernetes/pkg/watch"
 )
 
+// connCount stores a connection and a count of the number of datums currently outstanding
+// cc is left nil when connCount is first created so that the connection can be made in
 type connCount struct {
 	cc    *grpc.ClientConn
 	count int64
@@ -80,7 +82,9 @@ func (p *Pool) updateAddresses(endpoints *api.Endpoints) {
 				if cc := p.conns[addr]; cc != nil {
 					addresses[addr] = cc
 				} else {
-					addresses[addr] = nil
+					// we don't actually connect here because there's no way to
+					// return the error
+					addresses[addr] = &connCount{}
 				}
 			}
 		}
@@ -96,13 +100,13 @@ func (p *Pool) Do(ctx context.Context, f func(cc *grpc.ClientConn) error) error 
 		p.connsLock.Lock()
 		defer p.connsLock.Unlock()
 		for addr, mapConn := range p.conns {
-			if mapConn == nil {
+			if mapConn.cc == nil {
 				cc, err := grpc.DialContext(ctx, addr, p.opts...)
 				if err != nil {
 					return err
 				}
-				conn = &connCount{cc: cc}
-				p.conns[addr] = conn
+				mapConn.cc = cc
+				conn = mapConn
 				// We break because this conn has a count of 0 which we know
 				// we're not beating
 				break
