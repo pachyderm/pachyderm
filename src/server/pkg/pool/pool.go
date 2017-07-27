@@ -30,7 +30,7 @@ type Pool struct {
 
 // NewPool creates a new connection pool with connections to pods in the
 // given service.
-func NewPool(kubeClient *kube.Client, namespace string, serviceName string, numWorkers int, opts ...grpc.DialOption) (*Pool, error) {
+func NewPool(kubeClient *kube.Client, namespace string, serviceName string, opts ...grpc.DialOption) (*Pool, error) {
 	endpointsInterface := kubeClient.Endpoints(namespace)
 
 	watch, err := endpointsInterface.Watch(api.ListOptions{
