@@ -1927,6 +1927,9 @@ func TestPipelineAutoScaledown(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: uint64(parallelism),
 			},
+			ResourceSpec: &pps.ResourceSpec{
+				Memory: "100M",
+			},
 			Inputs: []*pps.PipelineInput{{
 				Repo: &pfs.Repo{Name: dataRepo},
 				Glob: "/",
@@ -1941,7 +1944,7 @@ func TestPipelineAutoScaledown(t *testing.T) {
 	// Wait for the pipeline to scale down
 	b := backoff.NewInfiniteBackOff()
 	b.MaxElapsedTime = scaleDownThreshold + 20*time.Second
-	require.NoError(t, backoff.Retry(func() error {
+	checkScaleDown := func() error {
 		rc, err := pipelineRc(t, pipelineInfo)
 		if err != nil {
 			return err
@@ -1949,8 +1952,12 @@ func TestPipelineAutoScaledown(t *testing.T) {
 		if rc.Spec.Replicas != 1 {
 			return fmt.Errorf("rc.Spec.Replicas should be 1")
 		}
+		if !rc.Spec.Template.Spec.Containers[0].Resources.Requests.Memory().IsZero() {
+			return fmt.Errorf("resource requests should be zero when the pipeline is in scale-down mode")
+		}
 		return nil
-	}, b))
+	}
+	require.NoError(t, backoff.Retry(checkScaleDown, b))
 
 	// Trigger a job
 	commit, err := c.StartCommit(dataRepo, "master")
@@ -1965,18 +1972,11 @@ func TestPipelineAutoScaledown(t *testing.T) {
 	rc, err := pipelineRc(t, pipelineInfo)
 	require.NoError(t, err)
 	require.Equal(t, parallelism, int(rc.Spec.Replicas))
+	// Check that the resource requests have been reset
+	require.Equal(t, "100M", rc.Spec.Template.Spec.Containers[0].Resources.Requests.Memory().String())
 
 	b.Reset()
-	require.NoError(t, backoff.Retry(func() error {
-		rc, err := pipelineRc(t, pipelineInfo)
-		if err != nil {
-			return err
-		}
-		if rc.Spec.Replicas != 1 {
-			return fmt.Errorf("rc.Spec.Replicas should be 1")
-		}
-		return nil
-	}, b))
+	require.NoError(t, backoff.Retry(checkScaleDown, b))
 }
 
 func TestPipelineEnv(t *testing.T) {
