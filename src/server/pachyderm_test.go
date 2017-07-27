@@ -1414,10 +1414,19 @@ func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 	))
 
 	// Wait for job to spawn
+	var jobInfos []*pps.JobInfo
 	time.Sleep(10 * time.Second)
-	jobInfos, err := c.ListJob(pipeline, nil)
-	require.NoError(t, err)
-	require.Equal(t, len(jobInfos), 1)
+	require.NoError(t, backoff.Retry(func() error {
+		var err error
+		jobInfos, err = c.ListJob(pipeline, nil)
+		if err != nil {
+			return err
+		}
+		if len(jobInfos) < 1 {
+			return fmt.Errorf("job not spawned")
+		}
+		return nil
+	}, backoff.NewExponentialBackOff()))
 
 	jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, true)
 	require.NoError(t, err)
@@ -1940,7 +1949,8 @@ func TestPipelineAutoScaledown(t *testing.T) {
 
 	// Wait for the pipeline to scale down
 	b := backoff.NewInfiniteBackOff()
-	b.MaxElapsedTime = scaleDownThreshold + 20*time.Second
+	b.MaxInterval = 1 * time.Second
+	b.MaxElapsedTime = scaleDownThreshold + 60*time.Second
 	require.NoError(t, backoff.Retry(func() error {
 		rc, err := pipelineRc(t, pipelineInfo)
 		if err != nil {
@@ -1962,10 +1972,21 @@ func TestPipelineAutoScaledown(t *testing.T) {
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 1, len(commitInfos))
-	rc, err := pipelineRc(t, pipelineInfo)
-	require.NoError(t, err)
-	require.Equal(t, parallelism, int(rc.Spec.Replicas))
 
+	// Wait for the pipeline to scale back up
+	b.Reset()
+	require.NoError(t, backoff.Retry(func() error {
+		rc, err := pipelineRc(t, pipelineInfo)
+		if err != nil {
+			return err
+		}
+		if int(rc.Spec.Replicas) != parallelism {
+			return fmt.Errorf("rc.Spec.Replicas should be %d", parallelism)
+		}
+		return nil
+	}, b))
+
+	// Once the job finishes, the pipeline will scale down again
 	b.Reset()
 	require.NoError(t, backoff.Retry(func() error {
 		rc, err := pipelineRc(t, pipelineInfo)
@@ -2679,31 +2700,48 @@ func TestGetLogs(t *testing.T) {
 	fileInfo, err := c.InspectFile(dataRepo, commit.ID, "/file")
 	require.NoError(t, err)
 
-	pathLog := c.GetLogs("", jobInfos[0].Job.ID, []string{"/file"}, false)
+	// TODO(msteffen) This code shouldn't be wrapped in a backoff, but for some
+	// reason GetLogs is not yet 100% consistent. This reduces flakes in testing.
+	require.NoError(t, backoff.Retry(func() error {
+		pathLog := c.GetLogs("", jobInfos[0].Job.ID, []string{"/file"}, false)
 
-	hexHash := "19fdf57bdf9eb5a9602bfa9c0e6dd7ed3835f8fd431d915003ea82747707be66"
-	require.Equal(t, hexHash, hex.EncodeToString(fileInfo.Hash)) // sanity-check test
-	hexLog := c.GetLogs("", jobInfos[0].Job.ID, []string{hexHash}, false)
+		hexHash := "19fdf57bdf9eb5a9602bfa9c0e6dd7ed3835f8fd431d915003ea82747707be66"
+		require.Equal(t, hexHash, hex.EncodeToString(fileInfo.Hash)) // sanity-check test
+		hexLog := c.GetLogs("", jobInfos[0].Job.ID, []string{hexHash}, false)
 
-	base64Hash := "Gf31e9+etalgK/qcDm3X7Tg1+P1DHZFQA+qCdHcHvmY="
-	require.Equal(t, base64Hash, base64.StdEncoding.EncodeToString(fileInfo.Hash))
-	base64Log := c.GetLogs("", jobInfos[0].Job.ID, []string{base64Hash}, false)
+		base64Hash := "Gf31e9+etalgK/qcDm3X7Tg1+P1DHZFQA+qCdHcHvmY="
+		require.Equal(t, base64Hash, base64.StdEncoding.EncodeToString(fileInfo.Hash))
+		base64Log := c.GetLogs("", jobInfos[0].Job.ID, []string{base64Hash}, false)
 
-	numLogs = 0
-	for {
-		havePathLog, haveHexLog, haveBase64Log := pathLog.Next(), hexLog.Next(), base64Log.Next()
-		require.True(t, havePathLog == haveHexLog && haveHexLog == haveBase64Log)
-		if !havePathLog {
-			break
+		numLogs = 0
+		for {
+			havePathLog, haveHexLog, haveBase64Log := pathLog.Next(), hexLog.Next(), base64Log.Next()
+			if havePathLog != haveHexLog || haveHexLog != haveBase64Log {
+				return fmt.Errorf("Unequal log lengths")
+			}
+			if !havePathLog {
+				break
+			}
+			numLogs++
+			if pathLog.Message().Message != hexLog.Message().Message ||
+				hexLog.Message().Message != base64Log.Message().Message {
+				return fmt.Errorf(
+					"unequal logs, pathLogs: \"%s\" hexLog: \"%s\" base64Log: \"%s\"",
+					pathLog.Message().Message,
+					hexLog.Message().Message,
+					base64Log.Message().Message)
+			}
 		}
-		numLogs++
-		require.True(t, pathLog.Message().Message == hexLog.Message().Message &&
-			base64Log.Message().Message == hexLog.Message().Message)
-	}
-	require.True(t, numLogs > 0)
-	require.NoError(t, pathLog.Err())
-	require.NoError(t, hexLog.Err())
-	require.NoError(t, base64Log.Err())
+		for _, logsiter := range []*client.LogsIter{pathLog, hexLog, base64Log} {
+			if logsiter.Err() != nil {
+				return logsiter.Err()
+			}
+		}
+		if numLogs == 0 {
+			return fmt.Errorf("no logs found")
+		}
+		return nil
+	}, backoff.NewExponentialBackOff()))
 
 	// Filter logs based on input (using file that doesn't exist). There should
 	// be no logs
@@ -2932,23 +2970,22 @@ func TestUseMultipleWorkers(t *testing.T) {
 		"",
 		false,
 	))
-	started := time.Now()
-	for {
-		time.Sleep(time.Second)
-		if time.Since(started) > time.Second*60 {
-			t.Fatalf("failed to find status in time")
-		}
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = 60 * time.Second
+	err = backoff.Retry(func() error {
 		jobs, err := c.ListJob(pipeline, nil)
 		require.NoError(t, err)
 		if len(jobs) == 0 {
-			continue
+			return fmt.Errorf("failed to find jobs")
 		}
 		jobInfo, err := c.InspectJob(jobs[0].Job.ID, false)
 		require.NoError(t, err)
-		if len(jobInfo.WorkerStatus) == 2 {
-			break
+		if len(jobInfo.WorkerStatus) != 2 {
+			return fmt.Errorf("incorrect number of statuses: %v", len(jobInfo.WorkerStatus))
 		}
-	}
+		return nil
+	}, b)
+	require.NoError(t, err)
 }
 
 // TestSystemResourceRequest doesn't create any jobs or pipelines, it
@@ -3577,7 +3614,7 @@ func TestPipelineWithStats(t *testing.T) {
 	dataRepo := uniqueString("TestPipelineWithStats_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	numFiles := 5000
+	numFiles := 100
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
