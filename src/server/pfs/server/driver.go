@@ -170,21 +170,14 @@ func newLocalDriver(blockAddress string, etcdPrefix string) (*driver, error) {
 // placed happen in server.go, near main(), so that we only pay the dial cost
 // once, and so that pps doesn't need to have its own initialization code
 func (d *driver) initializePachConn() error {
-	if d.pachConn == nil {
-		d.pachConnOnce.Do(func() {
-			pachConn, err := grpc.Dial(d.address, client.PachDialOptions()...)
-			if err != nil {
-				d.onceErr = err
-			}
-			d.pachConn = pachConn
-			d.pachClient = &client.APIClient{
-				AuthAPIClient:   auth.NewAPIClient(d.pachConn),
-				ObjectAPIClient: pfs.NewObjectAPIClient(d.pachConn),
-			}
-		})
-		return d.onceErr
-	}
-	return nil
+	d.pachConnOnce.Do(func() {
+		d.pachConn, d.onceErr = grpc.Dial(d.address, client.PachDialOptions()...)
+		d.pachClient = &client.APIClient{
+			AuthAPIClient:   auth.NewAPIClient(d.pachConn),
+			ObjectAPIClient: pfs.NewObjectAPIClient(d.pachConn),
+		}
+	})
+	return d.onceErr
 }
 
 // checkIsAuthorized returns an error if the current user (in 'ctx') has
