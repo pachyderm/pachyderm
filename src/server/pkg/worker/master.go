@@ -897,7 +897,6 @@ func (a *APIServer) scaleDownWorkers() error {
 	}
 	_, err = rc.Update(workerRc)
 	return err
-	return nil
 }
 
 func (a *APIServer) scaleUpWorkers() error {
@@ -927,7 +926,6 @@ func (a *APIServer) scaleUpWorkers() error {
 	}
 	_, err = rc.Update(workerRc)
 	return err
-	return nil
 }
 
 func untranslateJobInputs(input *pps.Input) []*pps.JobInput {
