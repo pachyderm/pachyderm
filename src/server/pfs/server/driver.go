@@ -129,12 +129,12 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, cacheB
 		DialOptions: client.EtcdDialOptions(),
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not connect to etcd: %s", err.Error())
 	}
 
 	treeCache, err := lru.New(int(cacheBytes))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not initialize treeCache: %s", err.Error())
 	}
 
 	d := &driver{
