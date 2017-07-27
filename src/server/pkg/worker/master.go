@@ -42,6 +42,9 @@ const (
 	maximumRetriesPerDatum = 3
 
 	masterLockPath = "_master_worker_lock"
+
+	// The number of datums that will be enqueued on each worker.
+	queueSize = 10
 )
 
 func (a *APIServer) getMasterLogger() *taggedLogger {
@@ -386,7 +389,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 		}
 
 		failed := false
-		limiter := limit.New(a.numWorkers * 10)
+		limiter := limit.New(a.numWorkers * queueSize)
 		// process all datums
 		df, err := newDatumFactory(ctx, pfsClient, jobInfo.Input)
 		if err != nil {
