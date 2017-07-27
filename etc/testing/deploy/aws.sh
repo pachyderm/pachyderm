@@ -4,6 +4,8 @@
 # etc/deploy/aws.sh, but it uses the same state store bucket for all tests, so that
 # kops clusters created for testing can always be enumerated and deleted.
 
+set -euxo pipefail
+
 ## Parse command-line flags
 
 set -e
@@ -12,7 +14,7 @@ ZONE="${ZONE:-us-west-1b}"
 STATE_STORE=s3://pachyderm-travis-state-store-v1
 OP=-
 CLOUDFRONT=
-len_zone_minus_one="$(( ${#AWS_AVAILABILITY_ZONE} - 1 ))"
+len_zone_minus_one="$(( ${#ZONE} - 1 ))"
 REGION=${ZONE:0:${len_zone_minus_one}}
 
 # Process args
@@ -67,7 +69,10 @@ case "${OP}" in
     if [[ -n "${CLOUDFRONT}" ]]; then
       cmd+=("${CLOUDFRONT}")
     fi
-    sudo "${cmd[@]}"
+    sudo env "PATH=${PATH}" "GOPATH=${GOPATH}" "${cmd[@]}"
+    check_ready="$(dirname "${0}")/../../kube/check_ready.sh"
+    check_ready="$(realpath "${check_ready}")"
+    sudo env "PATH=${PATH}" "GOPATH=${GOPATH}" "bash -c 'until timeout 1s sudo ${check_ready} app=pachd; do sleep 1; done'"
     ;;
   delete)
     kops --state=${STATE_STORE} delete cluster --name=$(cat .cluster_name) --yes

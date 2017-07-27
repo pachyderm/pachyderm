@@ -64,6 +64,8 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     :maxdepth: 1
     :caption: Pachyderm Cookbook
 
+    cookbook/splitting
+    cookbook/combining
     cookbook/ml
     cookbook/time_windows
     cookbook/gpus

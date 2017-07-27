@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -274,7 +275,7 @@ func (s *objBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServer
 	if err := s.objectCache.Get(getObjectServer.Context(), s.splitKey(request.Hash), sink); err != nil {
 		return err
 	}
-	return getObjectServer.Send(&types.BytesValue{Value: data})
+	return grpcutil.WriteToStreamingBytesServer(bytes.NewReader(data), getObjectServer)
 }
 
 func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, getObjectsServer pfsclient.ObjectAPI_GetObjectsServer) (retErr error) {
@@ -323,7 +324,7 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 		if uint64(len(data)) < offset+readSize {
 			return fmt.Errorf("undersized object (this is likely a bug)")
 		}
-		if err := getObjectsServer.Send(&types.BytesValue{Value: data[offset : offset+readSize]}); err != nil {
+		if err := grpcutil.WriteToStreamingBytesServer(bytes.NewReader(data[offset:offset+readSize]), getObjectsServer); err != nil {
 			return err
 		}
 		// We've hit the offset so we set it to 0
@@ -712,30 +713,26 @@ func (s *objBlockAPIServer) tagGetter(ctx groupcache.Context, key string, dest g
 	tag := &pfsclient.Tag{Name: strings.Join(splitKey[:len(splitKey)-1], "")}
 	prefix := splitKey[0]
 	var updated bool
-	if len(splitKey) == 3 {
-		// First check if we already have the index for this Tag in memory, if
-		// not read it for the first time.
-		if _, ok := s.getObjectIndex(prefix); !ok {
-			updated = true
-			if err := s.readObjectIndex(prefix); err != nil {
-				return err
-			}
+	// First check if we already have the index for this Tag in memory, if
+	// not read it for the first time.
+	if _, ok := s.getObjectIndex(prefix); !ok {
+		updated = true
+		if err := s.readObjectIndex(prefix); err != nil {
+			return err
 		}
-		objectIndex, _ := s.getObjectIndex(prefix)
-		// Check if the index contains the tag we're looking for, if so read
-		// it into the cache and return
-		if object, ok := objectIndex.Tags[tag.Name]; ok {
-			dest.SetProto(object)
-			return nil
-		}
-	} else if len(splitKey) != 2 {
-		return fmt.Errorf("malformed tag key: %v; this is likely a bug", key)
+	}
+	objectIndex, _ := s.getObjectIndex(prefix)
+	// Check if the index contains the tag we're looking for, if so read
+	// it into the cache and return
+	if object, ok := objectIndex.Tags[tag.Name]; ok {
+		dest.SetProto(object)
+		return nil
 	}
 	// Try reading the tag from its tag path, this happens for recently
 	// written tags that haven't been incorporated into an index yet.
 	// Note that we tolerate NotExist errors here because the object may have
 	// been incorporated into an index and thus deleted.
-	objectIndex := &pfsclient.ObjectIndex{}
+	objectIndex = &pfsclient.ObjectIndex{}
 	if err := s.readProto(s.localServer.tagPath(tag), objectIndex); err != nil && !s.isNotFoundErr(err) {
 		return err
 	} else if err == nil {
