@@ -318,10 +318,11 @@ local-test: docker-build launch-dev test-pfs test-hashtree clean-launch-dev
 test: docker-build clean-launch-dev launch-dev test-pfs test-pps test-hashtree
 
 test-pfs:
+	@# don't run this in verbose mode, as it produces a huge amount of logs
 	go test ./src/server/pfs/server -timeout $(TIMEOUT)
 
 test-pps:
-	go test -v ./src/server/ -timeout $(TIMEOUT)
+	go test -v ./src/server -timeout $(TIMEOUT)
 
 test-hashtree:
 	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
