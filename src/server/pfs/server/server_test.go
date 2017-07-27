@@ -17,11 +17,13 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	pclient "github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/version"
+	authtesting "github.com/pachyderm/pachyderm/src/server/auth/testing"
 	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 
 	"golang.org/x/net/context"
@@ -2250,6 +2252,7 @@ func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
 			func(s *grpc.Server) {
 				pfs.RegisterAPIServer(s, apiServer)
 				pfs.RegisterObjectAPIServer(s, blockAPIServer)
+				auth.RegisterAPIServer(s, &authtesting.InactiveAPIServer{}) // PFS server uses auth API
 				close(ready)
 			},
 			grpcutil.ServeOptions{
