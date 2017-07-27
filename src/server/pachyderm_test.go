@@ -457,10 +457,17 @@ func TestPipelineFailure(t *testing.T) {
 		"",
 		false,
 	))
-	time.Sleep(20 * time.Second)
-	jobInfos, err := c.ListJob(pipeline, nil)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
+	b := backoff.NewInfiniteBackOff()
+	b.MaxElapsedTime = 30 * time.Second
+	var jobInfos []*pps.JobInfo
+	require.NoError(t, backoff.Retry(func() error {
+		jobInfos, err = c.ListJob(pipeline, nil)
+		require.NoError(t, err)
+		if len(jobInfos) != 1 {
+			return fmt.Errorf("expected 1 jobs, got %d", len(jobInfos))
+		}
+		return nil
+	}, b))
 	jobInfo, err := c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
 		Job:        jobInfos[0].Job,
 		BlockState: true,
