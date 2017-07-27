@@ -55,8 +55,10 @@ type apiServer struct {
 	protorpclog.Logger
 	etcdClient *etcd.Client
 
-	// This atomic variable stores a boolean flag that indicates
-	// whether the auth service has been activated.
+	// 'activated' stores a timestamp that is effectively a cache of whether the
+	// auth service has been activated. If 'activated' is 1/1/1, then the auth
+	// service has been activated. Otherwise, return "NotActivatedError" until the
+	// timestamp in 'activated' passes and then re-check etc to see if it has been
 	activated atomic.Value
 
 	// tokens is a collection of hashedToken -> User mappings.
@@ -102,7 +104,7 @@ func NewAuthServer(etcdAddress string, etcdPrefix string) (authclient.APIServer,
 			nil,
 		),
 	}
-	s.activated.Store(false)
+	s.activated.Store(time.Now().Add(1 * time.Minute))
 	return s, nil
 }
 
@@ -142,13 +144,17 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 		return nil, err
 	}
 
-	a.activated.Store(true)
+	a.activated.Store(time.Time{})
 	return &authclient.ActivateResponse{}, nil
 }
 
 func (a *apiServer) isActivated(ctx context.Context) (bool, error) {
-	if a.activated.Load().(bool) {
+	t := a.activated.Load().(time.Time)
+	if t.IsZero() {
 		return true, nil
+	}
+	if t.After(time.Now()) {
+		return false, nil
 	}
 
 	adminCount, err := a.admins.ReadOnly(ctx).Count()
@@ -158,10 +164,10 @@ func (a *apiServer) isActivated(ctx context.Context) (bool, error) {
 
 	// If there are admins, then the auth service has been activated
 	if adminCount > 0 {
-		a.activated.Store(true)
+		a.activated.Store(time.Time{})
 		return true, nil
 	}
-
+	a.activated.Store(time.Now().Add(1 * time.Minute))
 	return false, nil
 }
 
@@ -281,14 +287,22 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 
 		var acl authclient.ACL
 		if err := acls.Get(req.Repo.Name, &acl); err != nil {
-			return fmt.Errorf("ACL not found for repo %v", req.Repo.Name)
+			// Might be creating a new ACL. Check that 'req' sets an owner
+			if req.Scope != authclient.Scope_OWNER {
+				return fmt.Errorf("ACL not found for repo %v", req.Repo.Name)
+			}
+			acl.Entries = make(map[string]authclient.Scope)
 		}
-
 		if acl.Entries[user.Username] != authclient.Scope_OWNER {
 			return fmt.Errorf("user %v is not authorized to update ACL for repo %v", user, req.Repo.Name)
 		}
 
-		acl.Entries[req.Username] = req.Scope
+		if req.Scope != authclient.Scope_NONE {
+			acl.Entries[req.Username] = req.Scope
+		} else {
+			delete(acl.Entries, req.Username)
+		}
+
 		acls.Put(req.Repo.Name, &acl)
 		return nil
 	})

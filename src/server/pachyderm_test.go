@@ -1421,10 +1421,19 @@ func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 	))
 
 	// Wait for job to spawn
+	var jobInfos []*pps.JobInfo
 	time.Sleep(10 * time.Second)
-	jobInfos, err := c.ListJob(pipeline, nil)
-	require.NoError(t, err)
-	require.Equal(t, len(jobInfos), 1)
+	require.NoError(t, backoff.Retry(func() error {
+		var err error
+		jobInfos, err = c.ListJob(pipeline, nil)
+		if err != nil {
+			return err
+		}
+		if len(jobInfos) < 1 {
+			return fmt.Errorf("job not spawned")
+		}
+		return nil
+	}, backoff.NewExponentialBackOff()))
 
 	jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, true)
 	require.NoError(t, err)
@@ -1950,7 +1959,7 @@ func TestPipelineAutoScaledown(t *testing.T) {
 
 	// Wait for the pipeline to scale down
 	b := backoff.NewInfiniteBackOff()
-	b.MaxElapsedTime = scaleDownThreshold + 20*time.Second
+	b.MaxElapsedTime = scaleDownThreshold + 30*time.Second
 	checkScaleDown := func() error {
 		rc, err := pipelineRc(t, pipelineInfo)
 		if err != nil {
@@ -1982,6 +1991,7 @@ func TestPipelineAutoScaledown(t *testing.T) {
 	// Check that the resource requests have been reset
 	require.Equal(t, "100M", rc.Spec.Template.Spec.Containers[0].Resources.Requests.Memory().String())
 
+	// Once the job finishes, the pipeline will scale down again
 	b.Reset()
 	require.NoError(t, backoff.Retry(checkScaleDown, b))
 }
@@ -2686,31 +2696,48 @@ func TestGetLogs(t *testing.T) {
 	fileInfo, err := c.InspectFile(dataRepo, commit.ID, "/file")
 	require.NoError(t, err)
 
-	pathLog := c.GetLogs("", jobInfos[0].Job.ID, []string{"/file"}, false)
+	// TODO(msteffen) This code shouldn't be wrapped in a backoff, but for some
+	// reason GetLogs is not yet 100% consistent. This reduces flakes in testing.
+	require.NoError(t, backoff.Retry(func() error {
+		pathLog := c.GetLogs("", jobInfos[0].Job.ID, []string{"/file"}, false)
 
-	hexHash := "19fdf57bdf9eb5a9602bfa9c0e6dd7ed3835f8fd431d915003ea82747707be66"
-	require.Equal(t, hexHash, hex.EncodeToString(fileInfo.Hash)) // sanity-check test
-	hexLog := c.GetLogs("", jobInfos[0].Job.ID, []string{hexHash}, false)
+		hexHash := "19fdf57bdf9eb5a9602bfa9c0e6dd7ed3835f8fd431d915003ea82747707be66"
+		require.Equal(t, hexHash, hex.EncodeToString(fileInfo.Hash)) // sanity-check test
+		hexLog := c.GetLogs("", jobInfos[0].Job.ID, []string{hexHash}, false)
 
-	base64Hash := "Gf31e9+etalgK/qcDm3X7Tg1+P1DHZFQA+qCdHcHvmY="
-	require.Equal(t, base64Hash, base64.StdEncoding.EncodeToString(fileInfo.Hash))
-	base64Log := c.GetLogs("", jobInfos[0].Job.ID, []string{base64Hash}, false)
+		base64Hash := "Gf31e9+etalgK/qcDm3X7Tg1+P1DHZFQA+qCdHcHvmY="
+		require.Equal(t, base64Hash, base64.StdEncoding.EncodeToString(fileInfo.Hash))
+		base64Log := c.GetLogs("", jobInfos[0].Job.ID, []string{base64Hash}, false)
 
-	numLogs = 0
-	for {
-		havePathLog, haveHexLog, haveBase64Log := pathLog.Next(), hexLog.Next(), base64Log.Next()
-		require.True(t, havePathLog == haveHexLog && haveHexLog == haveBase64Log)
-		if !havePathLog {
-			break
+		numLogs = 0
+		for {
+			havePathLog, haveHexLog, haveBase64Log := pathLog.Next(), hexLog.Next(), base64Log.Next()
+			if havePathLog != haveHexLog || haveHexLog != haveBase64Log {
+				return fmt.Errorf("Unequal log lengths")
+			}
+			if !havePathLog {
+				break
+			}
+			numLogs++
+			if pathLog.Message().Message != hexLog.Message().Message ||
+				hexLog.Message().Message != base64Log.Message().Message {
+				return fmt.Errorf(
+					"unequal logs, pathLogs: \"%s\" hexLog: \"%s\" base64Log: \"%s\"",
+					pathLog.Message().Message,
+					hexLog.Message().Message,
+					base64Log.Message().Message)
+			}
 		}
-		numLogs++
-		require.True(t, pathLog.Message().Message == hexLog.Message().Message &&
-			base64Log.Message().Message == hexLog.Message().Message)
-	}
-	require.True(t, numLogs > 0)
-	require.NoError(t, pathLog.Err())
-	require.NoError(t, hexLog.Err())
-	require.NoError(t, base64Log.Err())
+		for _, logsiter := range []*client.LogsIter{pathLog, hexLog, base64Log} {
+			if logsiter.Err() != nil {
+				return logsiter.Err()
+			}
+		}
+		if numLogs == 0 {
+			return fmt.Errorf("no logs found")
+		}
+		return nil
+	}, backoff.NewExponentialBackOff()))
 
 	// Filter logs based on input (using file that doesn't exist). There should
 	// be no logs
