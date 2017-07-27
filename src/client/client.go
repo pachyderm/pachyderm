@@ -201,7 +201,7 @@ func EtcdDialOptions() []grpc.DialOption {
 		grpc.WithBlock(),
 
 		// If no connection is established in 10s, fail the call
-		grpc.WithTimeout(10 * time.Second),
+		grpc.WithTimeout(30 * time.Second),
 
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(grpcutil.MaxMsgSize),
@@ -224,7 +224,7 @@ func PachDialOptions() []grpc.DialOption {
 func (c *APIClient) connect() error {
 	keepaliveOpt := grpc.WithKeepaliveParams(keepalive.ClientParameters{
 		Time:                20 * time.Second, // if 20s since last msg (any kind), ping
-		Timeout:             20 * time.Second, // if no response to ping for 20s, reset
+		Timeout:             30 * time.Second, // if no response to ping for 20s, reset
 		PermitWithoutStream: true,             // send ping even if no active RPCs
 	})
 	dialOptions := append(PachDialOptions(), keepaliveOpt)
