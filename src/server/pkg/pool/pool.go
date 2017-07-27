@@ -107,7 +107,7 @@ func (p *Pool) Do(ctx context.Context, f func(cc *grpc.ClientConn) error) error 
 				// we're not beating
 				break
 			} else {
-				if conn == nil || mapConn.count < conn.count {
+				if conn == nil || atomic.LoadInt64(&mapConn.count) < atomic.LoadInt64(&conn.count) {
 					conn = mapConn
 				}
 			}
