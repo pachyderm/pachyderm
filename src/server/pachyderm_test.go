@@ -3733,11 +3733,11 @@ func TestBatchedPipeline(t *testing.T) {
 	dataRepo := uniqueString("TestBatchedPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	numFiles := 25
+	numFiles := 1000
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
-		_, err = c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file-%d", i), strings.NewReader(strings.Repeat("foo\n", 100)))
+		_, err = c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file-%d", i), strings.NewReader(fmt.Sprintf("%d", i)))
 	}
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
@@ -3754,8 +3754,7 @@ func TestBatchedPipeline(t *testing.T) {
 					"done",
 				},
 			},
-			Input:       client.NewAtomInput(dataRepo, "/*"),
-			EnableStats: true,
+			Input: client.NewAtomInput(dataRepo, "/*"),
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 4,
 			},
@@ -3770,6 +3769,12 @@ func TestBatchedPipeline(t *testing.T) {
 	jobs, err := c.ListJob(pipeline, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
+
+	for i := 0; i < numFiles; i++ {
+		var buf bytes.Buffer
+		require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, fmt.Sprintf("file-%d", i), 0, 0, &buf))
+		require.Equal(t, fmt.Sprintf("%d", i), buf.String())
+	}
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
