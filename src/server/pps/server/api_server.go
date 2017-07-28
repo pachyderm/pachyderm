@@ -588,7 +588,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 					}
 				}
 				return nil
-			}, backoff.New10sBackoff())
+			}, backoff.New10sBackOff())
 
 			// Used up all retries -- no logs from worker
 			if err != nil {
