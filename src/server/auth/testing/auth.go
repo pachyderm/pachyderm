@@ -27,6 +27,11 @@ func (a *InactiveAPIServer) Authorize(ctx context.Context, req *auth.AuthorizeRe
 	return nil, auth.NotActivatedError{}
 }
 
+// WhoAmI implements the Pachdyerm Auth WhoAmI RPC, but just returns NotAuthorizedError
+func (a *InactiveAPIServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *auth.WhoAmIResponse, retErr error) {
+	return nil, auth.NotActivatedError{}
+}
+
 // SetScope implements the Pachdyerm Auth SetScope RPC, but just returns NotSetScopedError
 func (a *InactiveAPIServer) SetScope(ctx context.Context, req *auth.SetScopeRequest) (resp *auth.SetScopeResponse, retErr error) {
 	return nil, auth.NotActivatedError{}
