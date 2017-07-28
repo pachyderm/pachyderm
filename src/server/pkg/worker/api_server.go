@@ -397,6 +397,7 @@ func (a *APIServer) runBatchedDatum(ctx context.Context, req *ProcessRequest, ca
 		for _, ch := range a.errChans {
 			ch <- err
 		}
+		a.errChans = nil
 		if err := os.RemoveAll(client.PPSInputPrefix); err != nil {
 			fmt.Fprintf(w, "failed to remove %s: %s", client.PPSInputPrefix, err)
 		}
