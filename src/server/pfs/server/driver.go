@@ -216,7 +216,15 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 	if err := ValidateRepoName(repo.Name); err != nil {
 		return err
 	}
+
+	// If the auth system is activated and the user is not signed in, reject the
+	// request. However, don't create the ACL until the repo has been created
+	// successfully, because a repo w/ no ACL can be fixed by a cluster admin.
 	d.initializePachConn()
+	whoAmI, authErr := d.pachClient.AuthAPIClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
+	if authErr != nil && !auth.IsNotActivatedError(authErr) {
+		return fmt.Errorf("authorization error while creating repo \"%s\": %s", repo.Name, authErr.Error())
+	}
 
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		repos := d.repos.ReadWrite(stm)
@@ -335,7 +343,21 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 		}
 		return repos.Create(repo.Name, repoInfo)
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	if !auth.IsNotActivatedError(authErr) {
+		_, err := d.pachClient.AuthAPIClient.SetScope(ctx, &auth.SetScopeRequest{
+			Repo:     repo,
+			Username: whoAmI.Username,
+			Scope:    auth.Scope_OWNER,
+		})
+		if err != nil {
+			return fmt.Errorf("repo creted successfully, but could not create ACL " +
+				"for new repo (a cluster admin can create ACL for you): " + err.Error())
+		}
+	}
+	return nil
 }
 
 func (d *driver) inspectRepo(ctx context.Context, repo *pfs.Repo) (*pfs.RepoInfo, error) {
