@@ -279,6 +279,7 @@ func (c *APIClient) Ctx() context.Context {
 	return c.AddMetadata(c.ctx)
 }
 
+// WithCtx returns a new APIClient that uses ctx for requests it sends.
 func (c *APIClient) WithCtx(ctx context.Context) *APIClient {
 	result := *c // copy c
 	result.ctx = ctx
