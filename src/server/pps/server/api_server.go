@@ -25,8 +25,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
-	workerpkg "github.com/pachyderm/pachyderm/src/server/pkg/worker"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
+	workerpkg "github.com/pachyderm/pachyderm/src/server/worker"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
@@ -588,7 +588,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 					}
 				}
 				return nil
-			}, backoff.New10sBackoff())
+			}, backoff.New10sBackOff())
 
 			// Used up all retries -- no logs from worker
 			if err != nil {

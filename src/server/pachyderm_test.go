@@ -12,6 +12,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -457,8 +458,6 @@ func TestPipelineFailure(t *testing.T) {
 		"",
 		false,
 	))
-	b := backoff.NewInfiniteBackOff()
-	b.MaxElapsedTime = 30 * time.Second
 	var jobInfos []*pps.JobInfo
 	require.NoError(t, backoff.Retry(func() error {
 		jobInfos, err = c.ListJob(pipeline, nil)
@@ -467,7 +466,7 @@ func TestPipelineFailure(t *testing.T) {
 			return fmt.Errorf("expected 1 jobs, got %d", len(jobInfos))
 		}
 		return nil
-	}, b))
+	}, backoff.NewTestingBackOff()))
 	jobInfo, err := c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
 		Job:        jobInfos[0].Job,
 		BlockState: true,
@@ -628,27 +627,30 @@ func TestLazyPipelineCPPipes(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, "master"))
 
 	// wait for job to spawn
-	b := backoff.NewInfiniteBackOff()
-	b.MaxElapsedTime = 20 * time.Second
+	time.Sleep(15 * time.Second)
 	var jobID string
 	require.NoError(t, backoff.Retry(func() error {
 		jobInfos, err := c.ListJob(pipeline, nil)
-		require.NoError(t, err)
+		if err != nil {
+			return err
+		}
 		if len(jobInfos) != 1 {
 			return fmt.Errorf("len(jobInfos) should be 1")
 		}
 		jobID = jobInfos[0].Job.ID
+		jobInfo, err := c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
+			Job:        client.NewJob(jobID),
+			BlockState: true,
+		})
+		if err != nil {
+			return err
+		}
+		if jobInfo.State != pps.JobState_JOB_FAILURE {
+			return fmt.Errorf("job did not fail, even though it tried to copy " +
+				"pipes, which should be disallowed by Pachyderm")
+		}
 		return nil
-	}, b))
-	inspectJobRequest := &pps.InspectJobRequest{
-		Job:        client.NewJob(jobID),
-		BlockState: true,
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
-	defer cancel() //cleanup resources
-	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
-	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
+	}, backoff.NewTestingBackOff()))
 }
 
 // TestProvenance creates a pipeline DAG that's not a transitive reduction
@@ -1109,26 +1111,47 @@ func TestPipelineState(t *testing.T) {
 		"",
 		false,
 	))
+
 	// Wait for pipeline to get picked up
 	time.Sleep(15 * time.Second)
+	require.NoError(t, backoff.Retry(func() error {
+		pipelineInfo, err := c.InspectPipeline(pipeline)
+		if err != nil {
+			return err
+		}
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
+			return fmt.Errorf("no running pipeline")
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 
-	pipelineInfo, err := c.InspectPipeline(pipeline)
-	require.NoError(t, err)
-	require.Equal(t, pps.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
-
+	// Stop pipeline and wait for the pipeline to pause
 	require.NoError(t, c.StopPipeline(pipeline))
 	time.Sleep(5 * time.Second)
+	require.NoError(t, backoff.Retry(func() error {
+		pipelineInfo, err := c.InspectPipeline(pipeline)
+		if err != nil {
+			return err
+		}
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_PAUSED {
+			return fmt.Errorf("pipeline never paused, even though StopPipeline() was called")
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 
-	pipelineInfo, err = c.InspectPipeline(pipeline)
-	require.NoError(t, err)
-	require.Equal(t, pps.PipelineState_PIPELINE_PAUSED, pipelineInfo.State)
-
+	// Restart pipeline and wait for the pipeline to resume
 	require.NoError(t, c.StartPipeline(pipeline))
 	time.Sleep(15 * time.Second)
-
-	pipelineInfo, err = c.InspectPipeline(pipeline)
-	require.NoError(t, err)
-	require.Equal(t, pps.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
+	require.NoError(t, backoff.Retry(func() error {
+		pipelineInfo, err := c.InspectPipeline(pipeline)
+		if err != nil {
+			return err
+		}
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
+			return fmt.Errorf("pipeline never started, even though StartPipeline() was called")
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 }
 
 func TestPipelineJobCounts(t *testing.T) {
@@ -1433,7 +1456,7 @@ func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 			return fmt.Errorf("job not spawned")
 		}
 		return nil
-	}, backoff.NewExponentialBackOff()))
+	}, backoff.NewTestingBackOff()))
 
 	jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, true)
 	require.NoError(t, err)
@@ -1958,7 +1981,7 @@ func TestPipelineAutoScaledown(t *testing.T) {
 	require.NoError(t, err)
 
 	// Wait for the pipeline to scale down
-	b := backoff.NewInfiniteBackOff()
+	b := backoff.NewTestingBackOff()
 	b.MaxElapsedTime = scaleDownThreshold + 30*time.Second
 	checkScaleDown := func() error {
 		rc, err := pipelineRc(t, pipelineInfo)
@@ -2564,9 +2587,8 @@ func TestStopJob(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
 
-	b := backoff.NewInfiniteBackOff()
-	b.MaxElapsedTime = 20 * time.Second
 	var jobID string
+	b := backoff.NewTestingBackOff()
 	require.NoError(t, backoff.Retry(func() error {
 		jobInfos, err := c.ListJob(pipelineName, nil)
 		require.NoError(t, err)
@@ -2737,7 +2759,7 @@ func TestGetLogs(t *testing.T) {
 			return fmt.Errorf("no logs found")
 		}
 		return nil
-	}, backoff.NewExponentialBackOff()))
+	}, backoff.NewTestingBackOff()))
 
 	// Filter logs based on input (using file that doesn't exist). There should
 	// be no logs
@@ -2966,8 +2988,6 @@ func TestUseMultipleWorkers(t *testing.T) {
 		"",
 		false,
 	))
-	b := backoff.NewExponentialBackOff()
-	b.MaxElapsedTime = 60 * time.Second
 	err = backoff.Retry(func() error {
 		jobs, err := c.ListJob(pipeline, nil)
 		require.NoError(t, err)
@@ -2980,7 +3000,7 @@ func TestUseMultipleWorkers(t *testing.T) {
 			return fmt.Errorf("incorrect number of statuses: %v", len(jobInfo.WorkerStatus))
 		}
 		return nil
-	}, b)
+	}, backoff.NewTestingBackOff())
 	require.NoError(t, err)
 }
 
@@ -3015,8 +3035,6 @@ func TestSystemResourceRequests(t *testing.T) {
 	// Get Pod info for 'app' from k8s
 	var c api.Container
 	for _, app := range []string{"pachd", "etcd"} {
-		b := backoff.NewExponentialBackOff()
-		b.MaxElapsedTime = 10 * time.Second
 		err := backoff.Retry(func() error {
 			podList, err := kubeClient.Pods(api.NamespaceDefault).List(api.ListOptions{
 				LabelSelector: labels.SelectorFromSet(
@@ -3030,7 +3048,7 @@ func TestSystemResourceRequests(t *testing.T) {
 			}
 			c = podList.Items[0].Spec.Containers[0]
 			return nil
-		}, b)
+		}, backoff.NewTestingBackOff())
 		require.NoError(t, err)
 
 		// Make sure the pod's container has resource requests
@@ -3108,8 +3126,6 @@ func TestPipelineResourceRequest(t *testing.T) {
 	var container api.Container
 	rcName := ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := getKubeClient(t)
-	b := backoff.NewExponentialBackOff()
-	b.MaxElapsedTime = 30 * time.Second
 	err = backoff.Retry(func() error {
 		podList, err := kubeClient.Pods(api.NamespaceDefault).List(api.ListOptions{
 			LabelSelector: labels.SelectorFromSet(
@@ -3123,7 +3139,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 		}
 		container = podList.Items[0].Spec.Containers[0]
 		return nil // no more retries
-	}, b)
+	}, backoff.NewTestingBackOff())
 	require.NoError(t, err)
 	// Make sure a CPU and Memory request are both set
 	cpu, ok := container.Resources.Requests[api.ResourceCPU]
@@ -3907,16 +3923,20 @@ func getKubeClient(t testing.TB) *kube.Client {
 	return k
 }
 
+var pachClient *client.APIClient
+var getPachClientOnce sync.Once
+
 func getPachClient(t testing.TB) *client.APIClient {
-	var c *client.APIClient
-	var err error
-	if addr := os.Getenv("PACHD_PORT_650_TCP_ADDR"); addr != "" {
-		c, err = client.NewInCluster()
-	} else {
-		c, err = client.NewFromAddress("0.0.0.0:30650")
-	}
-	require.NoError(t, err)
-	return c
+	getPachClientOnce.Do(func() {
+		var err error
+		if addr := os.Getenv("PACHD_PORT_650_TCP_ADDR"); addr != "" {
+			pachClient, err = client.NewInCluster()
+		} else {
+			pachClient, err = client.NewFromAddress("0.0.0.0:30650")
+		}
+		require.NoError(t, err)
+	})
+	return pachClient
 }
 
 func uniqueString(prefix string) string {
