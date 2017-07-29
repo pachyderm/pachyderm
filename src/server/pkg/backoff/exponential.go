@@ -122,25 +122,34 @@ func NewInfiniteBackOff() *ExponentialBackOff {
 		MaxElapsedTime:      0,
 		Clock:               SystemClock,
 	}
-	if b.RandomizationFactor < 0 {
-		b.RandomizationFactor = 0
-	} else if b.RandomizationFactor > 1 {
-		b.RandomizationFactor = 1
+	return b.withCanonicalRandomizationFactor().withReset()
+}
+
+// NewTestingBackOff returns a backoff tuned towards waiting for a Pachyderm
+// state change in a test
+func NewTestingBackOff() *ExponentialBackOff {
+	b := &ExponentialBackOff{
+		InitialInterval:     DefaultInitialInterval,
+		RandomizationFactor: DefaultRandomizationFactor,
+		Multiplier:          DefaultMultiplier,
+		MaxInterval:         5 * time.Second,
+		MaxElapsedTime:      60 * time.Second,
+		Clock:               SystemClock,
 	}
 	return b.withCanonicalRandomizationFactor().withReset()
 }
 
-// New10sBackoff returns a backoff that's slightly more aggressive than
+// New10sBackOff returns a backoff that's slightly more aggressive than
 // NewExponentialBackOff. The Max Elapsed time for this backoff is 10s, and the
 // initial backoff is 100ms (instead of 500). Therefore this will retry at most
-// 11 times and then fail (depending on RPC timeout), and may be more useful
+// 10 times and then fail (depending on RPC timeout), and may be more useful
 // for interactive RPCs than the default timeout of 60s.
-func New10sBackoff() *ExponentialBackOff {
+func New10sBackOff() *ExponentialBackOff {
 	b := &ExponentialBackOff{
 		InitialInterval:     100 * time.Millisecond,
 		RandomizationFactor: DefaultRandomizationFactor,
 		Multiplier:          DefaultMultiplier,
-		MaxInterval:         DefaultMaxInterval,
+		MaxInterval:         2 * time.Second,
 		MaxElapsedTime:      10 * time.Second,
 		Clock:               SystemClock,
 	}
