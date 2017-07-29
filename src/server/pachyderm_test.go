@@ -12,6 +12,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -457,16 +458,31 @@ func TestPipelineFailure(t *testing.T) {
 		"",
 		false,
 	))
+
+	// Wait for pipeline to get picked up
 	time.Sleep(20 * time.Second)
-	jobInfos, err := c.ListJob(pipeline, nil)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
-	jobInfo, err := c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
-		Job:        jobInfos[0].Job,
-		BlockState: true,
-	})
-	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
+	var jobID string
+	require.NoError(t, backoff.Retry(func() error {
+		jobInfos, err := c.ListJob(pipeline, nil)
+		if err != nil {
+			return err
+		}
+		if len(jobInfos) != 1 {
+			return fmt.Errorf("len(jobInfos) should be 1")
+		}
+		jobID = jobInfos[0].Job.ID
+		jobInfo, err := c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
+			Job:        jobInfos[0].Job,
+			BlockState: true,
+		})
+		if err != nil {
+			return err
+		}
+		if jobInfo.State != pps.JobState_JOB_FAILURE {
+			return fmt.Errorf("job didn't fail even though pipeline emitted nonzero exit code")
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 }
 
 func TestLazyPipelinePropagation(t *testing.T) {
@@ -621,27 +637,30 @@ func TestLazyPipelineCPPipes(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, "master"))
 
 	// wait for job to spawn
-	b := backoff.NewInfiniteBackOff()
-	b.MaxElapsedTime = 20 * time.Second
+	time.Sleep(15 * time.Second)
 	var jobID string
 	require.NoError(t, backoff.Retry(func() error {
 		jobInfos, err := c.ListJob(pipeline, nil)
-		require.NoError(t, err)
+		if err != nil {
+			return err
+		}
 		if len(jobInfos) != 1 {
 			return fmt.Errorf("len(jobInfos) should be 1")
 		}
 		jobID = jobInfos[0].Job.ID
+		jobInfo, err := c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
+			Job:        client.NewJob(jobID),
+			BlockState: true,
+		})
+		if err != nil {
+			return err
+		}
+		if jobInfo.State != pps.JobState_JOB_FAILURE {
+			return fmt.Errorf("job did not fail, even though it tried to copy " +
+				"pipes, which should be disallowed by Pachyderm")
+		}
 		return nil
-	}, b))
-	inspectJobRequest := &pps.InspectJobRequest{
-		Job:        client.NewJob(jobID),
-		BlockState: true,
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
-	defer cancel() //cleanup resources
-	jobInfo, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest)
-	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
+	}, backoff.NewTestingBackOff()))
 }
 
 // TestProvenance creates a pipeline DAG that's not a transitive reduction
@@ -1102,26 +1121,47 @@ func TestPipelineState(t *testing.T) {
 		"",
 		false,
 	))
+
 	// Wait for pipeline to get picked up
 	time.Sleep(15 * time.Second)
+	require.NoError(t, backoff.Retry(func() error {
+		pipelineInfo, err := c.InspectPipeline(pipeline)
+		if err != nil {
+			return err
+		}
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
+			return fmt.Errorf("no running pipeline")
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 
-	pipelineInfo, err := c.InspectPipeline(pipeline)
-	require.NoError(t, err)
-	require.Equal(t, pps.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
-
+	// Stop pipeline and wait for the pipeline to pause
 	require.NoError(t, c.StopPipeline(pipeline))
 	time.Sleep(5 * time.Second)
+	require.NoError(t, backoff.Retry(func() error {
+		pipelineInfo, err := c.InspectPipeline(pipeline)
+		if err != nil {
+			return err
+		}
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_PAUSED {
+			return fmt.Errorf("pipeline never paused, even though StopPipeline() was called")
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 
-	pipelineInfo, err = c.InspectPipeline(pipeline)
-	require.NoError(t, err)
-	require.Equal(t, pps.PipelineState_PIPELINE_PAUSED, pipelineInfo.State)
-
+	// Restart pipeline and wait for the pipeline to resume
 	require.NoError(t, c.StartPipeline(pipeline))
 	time.Sleep(15 * time.Second)
-
-	pipelineInfo, err = c.InspectPipeline(pipeline)
-	require.NoError(t, err)
-	require.Equal(t, pps.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
+	require.NoError(t, backoff.Retry(func() error {
+		pipelineInfo, err := c.InspectPipeline(pipeline)
+		if err != nil {
+			return err
+		}
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
+			return fmt.Errorf("pipeline never started, even though StartPipeline() was called")
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 }
 
 func TestPipelineJobCounts(t *testing.T) {
@@ -1414,10 +1454,19 @@ func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 	))
 
 	// Wait for job to spawn
+	var jobInfos []*pps.JobInfo
 	time.Sleep(10 * time.Second)
-	jobInfos, err := c.ListJob(pipeline, nil)
-	require.NoError(t, err)
-	require.Equal(t, len(jobInfos), 1)
+	require.NoError(t, backoff.Retry(func() error {
+		var err error
+		jobInfos, err = c.ListJob(pipeline, nil)
+		if err != nil {
+			return err
+		}
+		if len(jobInfos) < 1 {
+			return fmt.Errorf("job not spawned")
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 
 	jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, true)
 	require.NoError(t, err)
@@ -1939,8 +1988,7 @@ func TestPipelineAutoScaledown(t *testing.T) {
 	require.NoError(t, err)
 
 	// Wait for the pipeline to scale down
-	b := backoff.NewInfiniteBackOff()
-	b.MaxElapsedTime = scaleDownThreshold + 20*time.Second
+	b := backoff.NewTestingBackOff()
 	require.NoError(t, backoff.Retry(func() error {
 		rc, err := pipelineRc(t, pipelineInfo)
 		if err != nil {
@@ -1962,10 +2010,21 @@ func TestPipelineAutoScaledown(t *testing.T) {
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 1, len(commitInfos))
-	rc, err := pipelineRc(t, pipelineInfo)
-	require.NoError(t, err)
-	require.Equal(t, parallelism, int(rc.Spec.Replicas))
 
+	// Wait for the pipeline to scale back up
+	b.Reset()
+	require.NoError(t, backoff.Retry(func() error {
+		rc, err := pipelineRc(t, pipelineInfo)
+		if err != nil {
+			return err
+		}
+		if int(rc.Spec.Replicas) != parallelism {
+			return fmt.Errorf("rc.Spec.Replicas should be %d", parallelism)
+		}
+		return nil
+	}, b))
+
+	// Once the job finishes, the pipeline will scale down again
 	b.Reset()
 	require.NoError(t, backoff.Retry(func() error {
 		rc, err := pipelineRc(t, pipelineInfo)
@@ -2547,9 +2606,8 @@ func TestStopJob(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
 
-	b := backoff.NewInfiniteBackOff()
-	b.MaxElapsedTime = 20 * time.Second
 	var jobID string
+	b := backoff.NewTestingBackOff()
 	require.NoError(t, backoff.Retry(func() error {
 		jobInfos, err := c.ListJob(pipelineName, nil)
 		require.NoError(t, err)
@@ -2679,31 +2737,48 @@ func TestGetLogs(t *testing.T) {
 	fileInfo, err := c.InspectFile(dataRepo, commit.ID, "/file")
 	require.NoError(t, err)
 
-	pathLog := c.GetLogs("", jobInfos[0].Job.ID, []string{"/file"}, false)
+	// TODO(msteffen) This code shouldn't be wrapped in a backoff, but for some
+	// reason GetLogs is not yet 100% consistent. This reduces flakes in testing.
+	require.NoError(t, backoff.Retry(func() error {
+		pathLog := c.GetLogs("", jobInfos[0].Job.ID, []string{"/file"}, false)
 
-	hexHash := "19fdf57bdf9eb5a9602bfa9c0e6dd7ed3835f8fd431d915003ea82747707be66"
-	require.Equal(t, hexHash, hex.EncodeToString(fileInfo.Hash)) // sanity-check test
-	hexLog := c.GetLogs("", jobInfos[0].Job.ID, []string{hexHash}, false)
+		hexHash := "19fdf57bdf9eb5a9602bfa9c0e6dd7ed3835f8fd431d915003ea82747707be66"
+		require.Equal(t, hexHash, hex.EncodeToString(fileInfo.Hash)) // sanity-check test
+		hexLog := c.GetLogs("", jobInfos[0].Job.ID, []string{hexHash}, false)
 
-	base64Hash := "Gf31e9+etalgK/qcDm3X7Tg1+P1DHZFQA+qCdHcHvmY="
-	require.Equal(t, base64Hash, base64.StdEncoding.EncodeToString(fileInfo.Hash))
-	base64Log := c.GetLogs("", jobInfos[0].Job.ID, []string{base64Hash}, false)
+		base64Hash := "Gf31e9+etalgK/qcDm3X7Tg1+P1DHZFQA+qCdHcHvmY="
+		require.Equal(t, base64Hash, base64.StdEncoding.EncodeToString(fileInfo.Hash))
+		base64Log := c.GetLogs("", jobInfos[0].Job.ID, []string{base64Hash}, false)
 
-	numLogs = 0
-	for {
-		havePathLog, haveHexLog, haveBase64Log := pathLog.Next(), hexLog.Next(), base64Log.Next()
-		require.True(t, havePathLog == haveHexLog && haveHexLog == haveBase64Log)
-		if !havePathLog {
-			break
+		numLogs = 0
+		for {
+			havePathLog, haveHexLog, haveBase64Log := pathLog.Next(), hexLog.Next(), base64Log.Next()
+			if havePathLog != haveHexLog || haveHexLog != haveBase64Log {
+				return fmt.Errorf("Unequal log lengths")
+			}
+			if !havePathLog {
+				break
+			}
+			numLogs++
+			if pathLog.Message().Message != hexLog.Message().Message ||
+				hexLog.Message().Message != base64Log.Message().Message {
+				return fmt.Errorf(
+					"unequal logs, pathLogs: \"%s\" hexLog: \"%s\" base64Log: \"%s\"",
+					pathLog.Message().Message,
+					hexLog.Message().Message,
+					base64Log.Message().Message)
+			}
 		}
-		numLogs++
-		require.True(t, pathLog.Message().Message == hexLog.Message().Message &&
-			base64Log.Message().Message == hexLog.Message().Message)
-	}
-	require.True(t, numLogs > 0)
-	require.NoError(t, pathLog.Err())
-	require.NoError(t, hexLog.Err())
-	require.NoError(t, base64Log.Err())
+		for _, logsiter := range []*client.LogsIter{pathLog, hexLog, base64Log} {
+			if logsiter.Err() != nil {
+				return logsiter.Err()
+			}
+		}
+		if numLogs == 0 {
+			return fmt.Errorf("no logs found")
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 
 	// Filter logs based on input (using file that doesn't exist). There should
 	// be no logs
@@ -2932,8 +3007,6 @@ func TestUseMultipleWorkers(t *testing.T) {
 		"",
 		false,
 	))
-	b := backoff.NewExponentialBackOff()
-	b.MaxElapsedTime = 60 * time.Second
 	err = backoff.Retry(func() error {
 		jobs, err := c.ListJob(pipeline, nil)
 		require.NoError(t, err)
@@ -2946,7 +3019,7 @@ func TestUseMultipleWorkers(t *testing.T) {
 			return fmt.Errorf("incorrect number of statuses: %v", len(jobInfo.WorkerStatus))
 		}
 		return nil
-	}, b)
+	}, backoff.NewTestingBackOff())
 	require.NoError(t, err)
 }
 
@@ -2981,8 +3054,6 @@ func TestSystemResourceRequests(t *testing.T) {
 	// Get Pod info for 'app' from k8s
 	var c api.Container
 	for _, app := range []string{"pachd", "etcd"} {
-		b := backoff.NewExponentialBackOff()
-		b.MaxElapsedTime = 10 * time.Second
 		err := backoff.Retry(func() error {
 			podList, err := kubeClient.Pods(api.NamespaceDefault).List(api.ListOptions{
 				LabelSelector: labels.SelectorFromSet(
@@ -2996,7 +3067,7 @@ func TestSystemResourceRequests(t *testing.T) {
 			}
 			c = podList.Items[0].Spec.Containers[0]
 			return nil
-		}, b)
+		}, backoff.NewTestingBackOff())
 		require.NoError(t, err)
 
 		// Make sure the pod's container has resource requests
@@ -3074,8 +3145,6 @@ func TestPipelineResourceRequest(t *testing.T) {
 	var container api.Container
 	rcName := ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := getKubeClient(t)
-	b := backoff.NewExponentialBackOff()
-	b.MaxElapsedTime = 30 * time.Second
 	err = backoff.Retry(func() error {
 		podList, err := kubeClient.Pods(api.NamespaceDefault).List(api.ListOptions{
 			LabelSelector: labels.SelectorFromSet(
@@ -3089,7 +3158,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 		}
 		container = podList.Items[0].Spec.Containers[0]
 		return nil // no more retries
-	}, b)
+	}, backoff.NewTestingBackOff())
 	require.NoError(t, err)
 	// Make sure a CPU and Memory request are both set
 	cpu, ok := container.Resources.Requests[api.ResourceCPU]
@@ -3940,16 +4009,20 @@ func getKubeClient(t testing.TB) *kube.Client {
 	return k
 }
 
+var pachClient *client.APIClient
+var getPachClientOnce sync.Once
+
 func getPachClient(t testing.TB) *client.APIClient {
-	var c *client.APIClient
-	var err error
-	if addr := os.Getenv("PACHD_PORT_650_TCP_ADDR"); addr != "" {
-		c, err = client.NewInCluster()
-	} else {
-		c, err = client.NewFromAddress("0.0.0.0:30650")
-	}
-	require.NoError(t, err)
-	return c
+	getPachClientOnce.Do(func() {
+		var err error
+		if addr := os.Getenv("PACHD_PORT_650_TCP_ADDR"); addr != "" {
+			pachClient, err = client.NewInCluster()
+		} else {
+			pachClient, err = client.NewFromAddress("0.0.0.0:30650")
+		}
+		require.NoError(t, err)
+	})
+	return pachClient
 }
 
 func uniqueString(prefix string) string {

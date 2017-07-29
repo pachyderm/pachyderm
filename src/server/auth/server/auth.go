@@ -55,8 +55,10 @@ type apiServer struct {
 	protorpclog.Logger
 	etcdClient *etcd.Client
 
-	// This atomic variable stores a boolean flag that indicates
-	// whether the auth service has been activated.
+	// 'activated' stores a timestamp that is effectively a cache of whether the
+	// auth service has been activated. If 'activated' is 1/1/1, then the auth
+	// service has been activated. Otherwise, return "NotActivatedError" until the
+	// timestamp in 'activated' passes and then re-check etc to see if it has been
 	activated atomic.Value
 
 	// tokens is a collection of hashedToken -> User mappings.
@@ -102,7 +104,7 @@ func NewAuthServer(etcdAddress string, etcdPrefix string) (authclient.APIServer,
 			nil,
 		),
 	}
-	s.activated.Store(false)
+	s.activated.Store(time.Now().Add(1 * time.Minute))
 	return s, nil
 }
 
@@ -142,13 +144,17 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 		return nil, err
 	}
 
-	a.activated.Store(true)
+	a.activated.Store(time.Time{})
 	return &authclient.ActivateResponse{}, nil
 }
 
 func (a *apiServer) isActivated(ctx context.Context) (bool, error) {
-	if a.activated.Load().(bool) {
+	t := a.activated.Load().(time.Time)
+	if t.IsZero() {
 		return true, nil
+	}
+	if t.After(time.Now()) {
+		return false, nil
 	}
 
 	adminCount, err := a.admins.ReadOnly(ctx).Count()
@@ -158,10 +164,10 @@ func (a *apiServer) isActivated(ctx context.Context) (bool, error) {
 
 	// If there are admins, then the auth service has been activated
 	if adminCount > 0 {
-		a.activated.Store(true)
+		a.activated.Store(time.Time{})
 		return true, nil
 	}
-
+	a.activated.Store(time.Now().Add(1 * time.Minute))
 	return false, nil
 }
 
@@ -260,7 +266,7 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 	}, nil
 }
 
-func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeRequest) (resp *authclient.SetScopeResponse, retErr error) {
+func (a *apiServer) WhoAmI(ctx context.Context, req *authclient.WhoAmIRequest) (resp *authclient.WhoAmIResponse, retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
 	activated, err := a.isActivated(ctx)
@@ -275,20 +281,63 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 	if err != nil {
 		return nil, err
 	}
+	return &authclient.WhoAmIResponse{
+		Username: user.Username,
+	}, nil
+}
+
+func validateSetScopeRequest(req *authclient.SetScopeRequest) error {
+	if req.Username == "" {
+		return fmt.Errorf("invalid request: must set username")
+	}
+	if req.Repo == nil || req.Repo.Name == "" {
+		return fmt.Errorf("invalid request: must set repo")
+	}
+	return nil
+}
+
+func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeRequest) (resp *authclient.SetScopeResponse, retErr error) {
+	func() { a.Log(req, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	activated, err := a.isActivated(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !activated {
+		return nil, authclient.NotActivatedError{}
+	}
+
+	if err := validateSetScopeRequest(req); err != nil {
+		return nil, err
+	}
+	user, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		acls := a.acls.ReadWrite(stm)
 
 		var acl authclient.ACL
 		if err := acls.Get(req.Repo.Name, &acl); err != nil {
-			return fmt.Errorf("ACL not found for repo %v", req.Repo.Name)
+			// Might be creating a new ACL. Check that 'req' sets the caller to be an owner
+			// TODO(msteffen): check that the repo exists?
+			if req.Username != user.Username || req.Scope != authclient.Scope_OWNER {
+				return fmt.Errorf("ACL not found for repo %v", req.Repo.Name)
+			}
+			acl.Entries = make(map[string]authclient.Scope)
 		}
-
-		if acl.Entries[user.Username] != authclient.Scope_OWNER {
+		if len(acl.Entries) > 0 && !user.Admin &&
+			acl.Entries[user.Username] != authclient.Scope_OWNER {
 			return fmt.Errorf("user %v is not authorized to update ACL for repo %v", user, req.Repo.Name)
 		}
 
-		acl.Entries[req.Username] = req.Scope
+		if req.Scope != authclient.Scope_NONE {
+			acl.Entries[req.Username] = req.Scope
+		} else {
+			delete(acl.Entries, req.Username)
+		}
+
 		acls.Put(req.Repo.Name, &acl)
 		return nil
 	})
@@ -406,6 +455,9 @@ func hashToken(token string) string {
 }
 
 func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.User, error) {
+	// TODO(msteffen) cache these lookups, especially since users always authorize
+	// themselves at the beginning of a request. Don't want to look up the same
+	// token -> username entry twice.
 	md, ok := metadata.FromContext(ctx)
 	if !ok {
 		return nil, fmt.Errorf("no authentication metadata found in context")

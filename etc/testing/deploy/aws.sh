@@ -76,7 +76,7 @@ case "${OP}" in
     ;;
   delete)
     kops --state=${STATE_STORE} delete cluster --name=$(cat .cluster_name) --yes
-    aws s3 rb --region ${REGION} --force s3://$(cat .bucket)
+    aws s3 rb --region ${REGION} --force s3://$(cat .bucket) >/dev/null
     ;;
   delete-all)
     kops --state=${STATE_STORE} get clusters | tail -n+2 | awk '{print $1}' \
