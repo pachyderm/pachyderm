@@ -28,6 +28,12 @@ message AuthorizeResponse {
     bool authorized = 1;
 }
 
+message WhoAmIRequest {}
+
+message WhoAmIResponse {
+  string username = 1;
+}
+
 message SetScopeRequest {
     string username = 1;
     pfs.Repo repo = 2;
@@ -91,6 +97,7 @@ service API {
 
     rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {}
     rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse) {}
+    rpc WhoAmI(WhoAmIRequest) returns (WhoAmIResponse) {}
 
     rpc SetScope(SetScopeRequest) returns (SetScopeResponse) {}
     rpc GetScope(GetScopeRequest) returns (GetScopeResponse) {}
