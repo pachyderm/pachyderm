@@ -203,8 +203,8 @@ func EtcdDialOptions() []grpc.DialOption {
 		// Don't return from Dial() until the connection has been established
 		grpc.WithBlock(),
 
-		// If no connection is established in 10s, fail the call
-		grpc.WithTimeout(10 * time.Second),
+		// If no connection is established in 30s, fail the call
+		grpc.WithTimeout(30 * time.Second),
 
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(grpcutil.MaxMsgSize),
