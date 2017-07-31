@@ -31,6 +31,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
@@ -62,7 +63,11 @@ type APIServer struct {
 	// Information attached to log lines
 	logMsgTemplate pps.LogMessage
 
+	// The k8s pod name of this worker
+	workerName string
+
 	statusMu sync.Mutex
+
 	// The currently running job ID
 	jobID string
 	// The currently running data
@@ -71,8 +76,11 @@ type APIServer struct {
 	started time.Time
 	// Func to cancel the currently running datum
 	cancel func()
-	// The k8s pod name of this worker
-	workerName string
+	// Stats about the execution of the job
+	stats *pps.ProcessStats
+	// queueSize is the number of items enqueued
+	queueSize int64
+
 	// The total number of workers for this pipeline
 	numWorkers int
 	// The namespace in which pachyderm is deployed
@@ -81,8 +89,10 @@ type APIServer struct {
 	jobs col.Collection
 	// The pipelines collection
 	pipelines col.Collection
-	// Stats about the execution of the job
-	stats *pps.ProcessStats
+
+	// Only one datum can be running at a time because they need to be
+	// accessing /pfs, runMu enforces this
+	runMu sync.Mutex
 }
 
 type putObjectResponse struct {
@@ -239,30 +249,29 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	return server, nil
 }
 
-func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag, statsTree hashtree.OpenHashTree, statsPath string) error {
+func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag, stats *pps.ProcessStats, statsTree hashtree.OpenHashTree, statsPath string) (string, error) {
 	defer func(start time.Time) {
-		a.statusMu.Lock()
-		defer a.statusMu.Unlock()
-		a.stats.DownloadTime = types.DurationProto(time.Since(start))
+		stats.DownloadTime = types.DurationProto(time.Since(start))
 	}(time.Now())
 	logger.Logf("input has not been processed, downloading data")
 	defer func(start time.Time) {
 		logger.Logf("input data download took (%v)\n", time.Since(start))
 	}(time.Now())
+	dir := filepath.Join(client.PPSScratchSpace, uuid.NewWithoutDashes())
 	for _, input := range inputs {
 		file := input.FileInfo.File
-		root := filepath.Join(client.PPSInputPrefix, input.Name, file.Path)
+		root := filepath.Join(dir, input.Name, file.Path)
 		treeRoot := path.Join(statsPath, input.Name, file.Path)
 		if a.pipelineInfo.Incremental && input.ParentCommit != nil {
 			if err := puller.PullDiff(a.pachClient, root,
 				file.Commit.Repo.Name, file.Commit.ID, file.Path,
 				input.ParentCommit.Repo.Name, input.ParentCommit.ID, file.Path,
 				true, input.Lazy, concurrency, statsTree, treeRoot); err != nil {
-				return err
+				return "", err
 			}
 		} else {
 			if err := puller.Pull(a.pachClient, root, file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, concurrency, statsTree, treeRoot); err != nil {
-				return err
+				return "", err
 			}
 		}
 	}
@@ -273,21 +282,19 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 		}
 		tree, err := hashtree.Deserialize(buffer.Bytes())
 		if err != nil {
-			return fmt.Errorf("failed to deserialize parent hashtree: %v", err)
+			return "", fmt.Errorf("failed to deserialize parent hashtree: %v", err)
 		}
-		if err := puller.PullTree(a.pachClient, client.PPSOutputPath, tree, false, concurrency); err != nil {
-			return fmt.Errorf("error pulling output tree: %+v", err)
+		if err := puller.PullTree(a.pachClient, path.Join(dir, "out"), tree, false, concurrency); err != nil {
+			return "", fmt.Errorf("error pulling output tree: %+v", err)
 		}
 	}
-	return nil
+	return dir, nil
 }
 
 // Run user code and return the combined output of stdout and stderr.
-func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string) (retErr error) {
+func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string, stats *pps.ProcessStats) (retErr error) {
 	defer func(start time.Time) {
-		a.statusMu.Lock()
-		defer a.statusMu.Unlock()
-		a.stats.ProcessTime = types.DurationProto(time.Since(start))
+		stats.ProcessTime = types.DurationProto(time.Since(start))
 	}(time.Now())
 	logger.Logf("beginning to run user code")
 	defer func(start time.Time) {
@@ -318,11 +325,9 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	return err
 }
 
-func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *taggedLogger, inputs []*Input, statsTree hashtree.OpenHashTree, statsRoot string) error {
+func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, logger *taggedLogger, inputs []*Input, stats *pps.ProcessStats, statsTree hashtree.OpenHashTree, statsRoot string) error {
 	defer func(start time.Time) {
-		a.statusMu.Lock()
-		defer a.statusMu.Unlock()
-		a.stats.UploadTime = types.DurationProto(time.Since(start))
+		stats.UploadTime = types.DurationProto(time.Since(start))
 	}(time.Now())
 	logger.Logf("starting to upload output")
 	defer func(start time.Time) {
@@ -331,22 +336,23 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 	// hashtree is not thread-safe--guard with 'lock'
 	var lock sync.Mutex
 	tree := hashtree.NewHashTree()
+	outputPath := filepath.Join(dir, "out")
 
 	// Upload all files in output directory
 	var g errgroup.Group
 	limiter := limit.New(concurrency)
-	if err := filepath.Walk(client.PPSOutputPath, func(filePath string, info os.FileInfo, err error) error {
+	if err := filepath.Walk(outputPath, func(filePath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 		g.Go(func() (retErr error) {
 			limiter.Acquire()
 			defer limiter.Release()
-			if filePath == client.PPSOutputPath {
+			if filePath == outputPath {
 				return nil
 			}
 
-			relPath, err := filepath.Rel(client.PPSOutputPath, filePath)
+			relPath, err := filepath.Rel(outputPath, filePath)
 			if err != nil {
 				return err
 			}
@@ -378,7 +384,6 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 				if err != nil {
 					return err
 				}
-
 				pathWithInput, err := filepath.Rel(client.PPSInputPrefix, realPath)
 				if err == nil {
 					// We can only skip the upload if the real path is
@@ -393,6 +398,8 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 							input = i
 						}
 					}
+					// this changes realPath from `/pfs/input/...` to `/scratch/<id>/input/...`
+					realPath = filepath.Join(dir, pathWithInput)
 					if input != nil {
 						return filepath.Walk(realPath, func(filePath string, info os.FileInfo, err error) error {
 							if err != nil {
@@ -404,7 +411,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 							}
 							subRelPath := filepath.Join(relPath, rel)
 							// The path of the input file
-							pfsPath, err := filepath.Rel(filepath.Join(client.PPSInputPrefix, input.Name), filePath)
+							pfsPath, err := filepath.Rel(filepath.Join(dir, input.Name), filePath)
 							if err != nil {
 								return err
 							}
@@ -428,7 +435,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 
 							lock.Lock()
 							defer lock.Unlock()
-							atomic.AddUint64(&a.stats.UploadBytes, fileInfo.SizeBytes)
+							atomic.AddUint64(&stats.UploadBytes, fileInfo.SizeBytes)
 							if statsTree != nil {
 								if err := statsTree.PutFile(path.Join(statsRoot, subRelPath), fileInfo.Objects, int64(fileInfo.SizeBytes)); err != nil {
 									return err
@@ -469,7 +476,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 
 			lock.Lock()
 			defer lock.Unlock()
-			atomic.AddUint64(&a.stats.UploadBytes, uint64(size))
+			atomic.AddUint64(&stats.UploadBytes, uint64(size))
 			if statsTree != nil {
 				if err := statsTree.PutFile(path.Join(statsRoot, relPath), []*pfs.Object{object}, int64(size)); err != nil {
 					return err
@@ -501,65 +508,6 @@ func (a *APIServer) uploadOutput(ctx context.Context, tag string, logger *tagged
 	}
 
 	return nil
-}
-
-// cleanUpData removes everything under /pfs
-//
-// The reason we don't want to just os.RemoveAll(/pfs) is that we don't
-// want to remove /pfs itself, since it's a emptyDir volume.
-//
-// Most of the code is copied from os.RemoveAll().
-func (a *APIServer) cleanUpData() error {
-	path := client.PPSInputPrefix
-	// Otherwise, is this a directory we need to recurse into?
-	dir, serr := os.Lstat(path)
-	if serr != nil {
-		if serr, ok := serr.(*os.PathError); ok && (os.IsNotExist(serr.Err) || serr.Err == syscall.ENOTDIR) {
-			return nil
-		}
-		return serr
-	}
-	if !dir.IsDir() {
-		// Not a directory; return the error from Remove.
-		return fmt.Errorf("%s is not a directory", path)
-	}
-
-	// Directory.
-	fd, err := os.Open(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			// Race. It was deleted between the Lstat and Open.
-			// Return nil per RemoveAll's docs.
-			return nil
-		}
-		return err
-	}
-
-	// Remove contents & return first error.
-	err = nil
-	for {
-		names, err1 := fd.Readdirnames(100)
-		for _, name := range names {
-			err1 := os.RemoveAll(path + string(os.PathSeparator) + name)
-			if err == nil {
-				err = err1
-			}
-		}
-		if err1 == io.EOF {
-			break
-		}
-		// If Readdirnames returned an error, use it.
-		if err == nil {
-			err = err1
-		}
-		if len(names) == 0 {
-			break
-		}
-	}
-
-	// Close directory, because windows won't remove opened directory.
-	fd.Close()
-	return err
 }
 
 // HashDatum computes and returns the hash of datum + pipeline, with a
@@ -622,39 +570,9 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	defer func(start time.Time) {
 		logger.Logf("process call finished - request: %v, response: %v, err %v, duration: %v", req, resp, retErr, time.Since(start))
 	}(time.Now())
-	// We cannot run more than one user process at once; otherwise they'd be
-	// writing to the same output directory. Acquire lock to make sure only one
-	// user process runs at a time.
-	// set the status for the datum
-	ctx, cancel := context.WithCancel(ctx)
-	if err := func() error {
-		a.statusMu.Lock()
-		defer a.statusMu.Unlock()
-		if a.jobID != "" {
-			// we error in this case so that callers have a chance to find a
-			// non-busy worker
-			return fmt.Errorf("worker busy")
-		}
-		a.jobID = req.JobID
-		a.data = req.Data
-		a.started = time.Now()
-		a.cancel = cancel
-		a.stats = &pps.ProcessStats{}
-		return nil
-	}(); err != nil {
-		return nil, err
-	}
-	// unset the status when this function exits
-	defer func() {
-		a.statusMu.Lock()
-		defer a.statusMu.Unlock()
-		a.jobID = ""
-		a.data = nil
-		a.started = time.Time{}
-		a.cancel = nil
-		a.stats = nil
-	}()
+	atomic.AddInt64(&a.queueSize, 1)
 	logger.Logf("Received request")
+	ctx, cancel := context.WithCancel(ctx)
 	// Hash inputs
 	tag, err := HashDatum(a.pipelineInfo, req.Data)
 	if err != nil {
@@ -710,6 +628,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 			Skipped:  true,
 		}, nil
 	}
+	stats := &pps.ProcessStats{}
 	statsPath := path.Join("/", req.JobID, logger.template.DatumID)
 	var statsTree hashtree.OpenHashTree
 	if req.EnableStats {
@@ -745,10 +664,8 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 			}
 		}()
 		defer func() {
-			a.statusMu.Lock()
-			defer a.statusMu.Unlock()
 			marshaler := &jsonpb.Marshaler{}
-			statsString, err := marshaler.MarshalToString(a.stats)
+			statsString, err := marshaler.MarshalToString(stats)
 			if err != nil {
 				logger.stderrLog.Printf("could not serialize stats: %s\n", err)
 				return
@@ -767,15 +684,15 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 
 	// Download input data
 	puller := filesync.NewPuller()
-	err = a.downloadData(logger, req.Data, puller, req.ParentOutput, statsTree, path.Join(statsPath, "pfs"))
+	dir, err := a.downloadData(logger, req.Data, puller, req.ParentOutput, stats, statsTree, path.Join(statsPath, "pfs"))
 	// We run these cleanup functions no matter what, so that if
 	// downloadData partially succeeded, we still clean up the resources.
 	defer func() {
-		if err := a.cleanUpData(); retErr == nil && err != nil {
+		if err := os.RemoveAll(dir); err != nil && retErr == nil {
 			retErr = err
 		}
 	}()
-	// It's important that we run puller.CleanUp before a.cleanUpData,
+	// It's important that we run puller.CleanUp before os.RemoveAll,
 	// because otherwise puller.Cleanup might try tp open pipes that have
 	// been deleted.
 	defer func() {
@@ -790,26 +707,54 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	environ := a.userCodeEnviron(req)
 
 	// Create output directory (currently /pfs/out) and run user code
-	if err := os.MkdirAll(client.PPSOutputPath, 0666); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, "out"), 0666); err != nil {
 		return nil, err
 	}
-	err = a.runUserCode(ctx, logger, environ)
-	if err != nil {
-		logger.Logf("failed to process datum with error: %+v", err)
-		if statsTree != nil {
-			object, size, err := a.pachClient.PutObject(strings.NewReader(err.Error()))
-			if err != nil {
-				logger.stderrLog.Printf("could not put error object: %s\n", err)
-			} else {
-				if err := statsTree.PutFile(path.Join(statsPath, "failure"), []*pfs.Object{object}, size); err != nil {
-					logger.stderrLog.Printf("could not put-file error object: %s\n", err)
+	// unset the status when this function exits
+	if response, err := func() (_ *ProcessResponse, retErr error) {
+		a.runMu.Lock()
+		defer a.runMu.Unlock()
+		atomic.AddInt64(&a.queueSize, -1)
+		func() {
+			a.statusMu.Lock()
+			defer a.statusMu.Unlock()
+			a.jobID = req.JobID
+			a.data = req.Data
+			a.started = time.Now()
+			a.cancel = cancel
+			a.stats = stats
+		}()
+		if err := os.Symlink(dir, client.PPSInputPrefix); err != nil {
+			return nil, err
+		}
+		defer func() {
+			if err := os.Remove(client.PPSInputPrefix); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		err = a.runUserCode(ctx, logger, environ, stats)
+		if err != nil {
+			logger.Logf("failed to process datum with error: %+v", err)
+			if statsTree != nil {
+				object, size, err := a.pachClient.PutObject(strings.NewReader(err.Error()))
+				if err != nil {
+					logger.stderrLog.Printf("could not put error object: %s\n", err)
+				} else {
+					if err := statsTree.PutFile(path.Join(statsPath, "failure"), []*pfs.Object{object}, size); err != nil {
+						logger.stderrLog.Printf("could not put-file error object: %s\n", err)
+					}
 				}
 			}
+			return &ProcessResponse{
+				Failed:   true,
+				StatsTag: statsTag,
+			}, nil
 		}
-		return &ProcessResponse{
-			Failed:   true,
-			StatsTag: statsTag,
-		}, nil
+		return nil, nil
+	}(); err != nil {
+		return nil, err
+	} else if response != nil {
+		return response, nil
 	}
 	// CleanUp is idempotent so we can call it however many times we want.
 	// The reason we are calling it here is that the puller could've
@@ -822,8 +767,8 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		logger.Logf("puller encountered an error while cleaning up: %+v", err)
 		return nil, err
 	}
-	atomic.AddUint64(&a.stats.DownloadBytes, uint64(downSize))
-	if err := a.uploadOutput(ctx, tag, logger, req.Data, statsTree, path.Join(statsPath, "pfs", "out")); err != nil {
+	atomic.AddUint64(&stats.DownloadBytes, uint64(downSize))
+	if err := a.uploadOutput(ctx, dir, tag, logger, req.Data, stats, statsTree, path.Join(statsPath, "pfs", "out")); err != nil {
 		// If uploading failed because the user program outputed a special
 		// file, then there's no point in retrying.  Thus we signal that
 		// there's some problem with the user code so the job doesn't
@@ -851,10 +796,11 @@ func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStat
 		return nil, err
 	}
 	result := &pps.WorkerStatus{
-		JobID:    a.jobID,
-		WorkerID: a.workerName,
-		Started:  started,
-		Data:     a.datum(),
+		JobID:     a.jobID,
+		WorkerID:  a.workerName,
+		Started:   started,
+		Data:      a.datum(),
+		QueueSize: a.queueSize,
 	}
 	return result, nil
 }

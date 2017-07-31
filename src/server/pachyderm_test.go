@@ -2985,7 +2985,7 @@ func TestUseMultipleWorkers(t *testing.T) {
 
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	for i := 0; i < 6; i++ {
+	for i := 0; i < 20; i++ {
 		_, err = c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file%d", i), strings.NewReader("foo"))
 		require.NoError(t, err)
 	}
@@ -2998,7 +2998,7 @@ func TestUseMultipleWorkers(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			"sleep 20",
+			"sleep 5",
 		},
 		&pps.ParallelismSpec{
 			Constant: 2,
