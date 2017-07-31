@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"google.golang.org/grpc"
 	"k8s.io/kubernetes/pkg/api"
@@ -12,25 +13,26 @@ import (
 	"k8s.io/kubernetes/pkg/watch"
 )
 
-// Pool stores a pool of grpc connections to, it's useful in places where you
-// would otherwise need to create several connections.
+// connCount stores a connection and a count of the number of datums currently outstanding
+// cc is left nil when connCount is first created so that the connection can be made in
+type connCount struct {
+	cc    *grpc.ClientConn
+	count int64
+}
+
+// Pool stores a pool of grpc connections to a k8s service, it's useful in
+// places where you would otherwise need to keep recreating connections.
 type Pool struct {
-	// The addresses of the pods that we currently know about
-	addresses []string
-	// The index to the next pod that we will dial
-	addressesIndex int
-	addressesLock  sync.Mutex
-	// addressesCond is used to notify goros that addresses have been obtained
-	addressesCond  *sync.Cond
+	conns          map[string]*connCount
+	connsLock      sync.Mutex
 	endpointsWatch watch.Interface
 	opts           []grpc.DialOption
-	conns          chan *grpc.ClientConn
 	done           chan struct{}
 }
 
 // NewPool creates a new connection pool with connections to pods in the
 // given service.
-func NewPool(kubeClient *kube.Client, namespace string, serviceName string, numWorkers int, opts ...grpc.DialOption) (*Pool, error) {
+func NewPool(kubeClient *kube.Client, namespace string, serviceName string, opts ...grpc.DialOption) (*Pool, error) {
 	endpointsInterface := kubeClient.Endpoints(namespace)
 
 	watch, err := endpointsInterface.Watch(api.ListOptions{
@@ -46,10 +48,8 @@ func NewPool(kubeClient *kube.Client, namespace string, serviceName string, numW
 	pool := &Pool{
 		endpointsWatch: watch,
 		opts:           opts,
-		conns:          make(chan *grpc.ClientConn, numWorkers),
 		done:           make(chan struct{}),
 	}
-	pool.addressesCond = sync.NewCond(&pool.addressesLock)
 	go pool.watchEndpoints()
 	return pool, nil
 }
@@ -70,65 +70,74 @@ func (p *Pool) watchEndpoints() {
 }
 
 func (p *Pool) updateAddresses(endpoints *api.Endpoints) {
-	var addresses []string
+	addresses := make(map[string]*connCount)
+	p.connsLock.Lock()
+	defer p.connsLock.Unlock()
 	for _, subset := range endpoints.Subsets {
 		// According the k8s docs, the full set of endpoints is the cross
 		// product of (addresses x ports).
 		for _, address := range subset.Addresses {
 			for _, port := range subset.Ports {
-				addresses = append(addresses, fmt.Sprintf("%s:%d", address.IP, port.Port))
+				addr := fmt.Sprintf("%s:%d", address.IP, port.Port)
+				if cc := p.conns[addr]; cc != nil {
+					addresses[addr] = cc
+				} else {
+					// we don't actually connect here because there's no way to
+					// return the error
+					addresses[addr] = &connCount{}
+				}
 			}
 		}
 	}
-	p.addressesLock.Lock()
-	defer p.addressesLock.Unlock()
-	p.addresses = addresses
-	p.addressesCond.Broadcast()
+	p.conns = addresses
 }
 
-// Get returns a new connection, unlike sync.Pool if it has a cached connection
-// it will always return it. Otherwise it will create a new one. Get errors
-// only when it needs to Dial a new connection and that process fails.
-func (p *Pool) Get(ctx context.Context) (*grpc.ClientConn, error) {
-	select {
-	case conn := <-p.conns:
-		return conn, nil
-	default:
-		p.addressesLock.Lock()
-		defer p.addressesLock.Unlock()
-		for len(p.addresses) == 0 {
-			p.addressesCond.Wait()
+// Do allows you to do something with a grpc.ClientConn.
+// Errors returned from f will be returned by Do.
+func (p *Pool) Do(ctx context.Context, f func(cc *grpc.ClientConn) error) error {
+	var conn *connCount
+	if err := func() error {
+		p.connsLock.Lock()
+		defer p.connsLock.Unlock()
+		for addr, mapConn := range p.conns {
+			if mapConn.cc == nil {
+				cc, err := grpc.DialContext(ctx, addr, p.opts...)
+				if err != nil {
+					return err
+				}
+				mapConn.cc = cc
+				conn = mapConn
+				// We break because this conn has a count of 0 which we know
+				// we're not beating
+				break
+			} else {
+				if conn == nil || atomic.LoadInt64(&mapConn.count) < atomic.LoadInt64(&conn.count) {
+					conn = mapConn
+				}
+			}
 		}
-		oldIndex := p.addressesIndex
-		p.addressesIndex++
-		if p.addressesIndex >= len(p.addresses) {
-			p.addressesIndex = 0
+		if conn == nil {
+			return fmt.Errorf("no endpoints found")
 		}
-		return grpc.DialContext(ctx, p.addresses[oldIndex], p.opts...)
-	}
-}
-
-// Put returns the connection to the pool. If there are more than `size`
-// connections already cached in the pool the connection will be closed. Put
-// errors only when it Closes a connection and that call errors.
-func (p *Pool) Put(conn *grpc.ClientConn) error {
-	select {
-	case p.conns <- conn:
+		atomic.AddInt64(&conn.count, 1)
 		return nil
-	default:
-		return conn.Close()
+	}(); err != nil {
+		return err
 	}
+	defer atomic.AddInt64(&conn.count, -1)
+	return f(conn.cc)
 }
 
 // Close closes all connections stored in the pool, it returns an error if any
 // of the calls to Close error.
 func (p *Pool) Close() error {
 	close(p.done)
-	close(p.conns)
 	var retErr error
-	for conn := range p.conns {
-		if err := conn.Close(); err != nil {
-			retErr = err
+	for _, conn := range p.conns {
+		if conn != nil {
+			if err := conn.cc.Close(); err != nil {
+				retErr = err
+			}
 		}
 	}
 	return retErr

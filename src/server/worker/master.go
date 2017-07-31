@@ -33,6 +33,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
+	"google.golang.org/grpc"
 )
 
 const (
@@ -41,6 +42,9 @@ const (
 	maximumRetriesPerDatum = 3
 
 	masterLockPath = "_master_worker_lock"
+
+	// The number of datums that will be enqueued on each worker.
+	queueSize = 10
 )
 
 func (a *APIServer) getMasterLogger() *taggedLogger {
@@ -108,11 +112,7 @@ func (a *APIServer) master() {
 // jobSpawner spawns jobs
 func (a *APIServer) jobSpawner(ctx context.Context, logger *taggedLogger) error {
 	// Establish connection pool
-	numWorkers, err := ppsserver.GetExpectedNumWorkers(a.kubeClient, a.pipelineInfo.ParallelismSpec)
-	if err != nil {
-		return err
-	}
-	pool, err := pool.NewPool(a.kubeClient, a.namespace, ppsserver.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version), numWorkers, client.PachDialOptions()...)
+	pool, err := pool.NewPool(a.kubeClient, a.namespace, ppsserver.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version), client.PachDialOptions()...)
 	if err != nil {
 		return fmt.Errorf("master: error constructing worker pool: %v; retrying in %v", err)
 	}
@@ -279,6 +279,7 @@ nextInput:
 			Salt:            a.pipelineInfo.Salt,
 			PipelineVersion: a.pipelineInfo.Version,
 			EnableStats:     a.pipelineInfo.EnableStats,
+			Batch:           a.pipelineInfo.Batch,
 		})
 		if err != nil {
 			return err
@@ -388,7 +389,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 		}
 
 		failed := false
-		limiter := limit.New(a.numWorkers)
+		limiter := limit.New(a.numWorkers * queueSize)
 		// process all datums
 		df, err := newDatumFactory(ctx, pfsClient, jobInfo.Input)
 		if err != nil {
@@ -509,28 +510,18 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 				b.Multiplier = 1
 				var resp *ProcessResponse
 				if err := backoff.RetryNotify(func() error {
-					conn, err := pool.Get(ctx)
-					if err != nil {
-						return fmt.Errorf("error from connection pool: %v", err)
-					}
-					workerClient := NewWorkerClient(conn)
-					resp, err = workerClient.Process(ctx, &ProcessRequest{
-						JobID:        jobInfo.Job.ID,
-						Data:         files,
-						ParentOutput: parentOutputTag,
-						EnableStats:  jobInfo.EnableStats,
-					})
-					if err != nil {
-						if err := conn.Close(); err != nil {
-							logger.Logf("error closing conn: %+v", err)
-						}
+					if err := pool.Do(ctx, func(conn *grpc.ClientConn) error {
+						workerClient := NewWorkerClient(conn)
+						resp, err = workerClient.Process(ctx, &ProcessRequest{
+							JobID:        jobInfo.Job.ID,
+							Data:         files,
+							ParentOutput: parentOutputTag,
+							EnableStats:  jobInfo.EnableStats,
+						})
+						return err
+					}); err != nil {
 						return fmt.Errorf("Process() call failed: %v", err)
 					}
-					defer func() {
-						if err := pool.Put(conn); err != nil {
-							logger.Logf("error Putting conn: %+v", err)
-						}
-					}()
 					if resp.Failed {
 						userCodeFailures++
 						// If this is our last failure we merge in the stats
