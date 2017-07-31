@@ -3695,7 +3695,7 @@ func TestPipelineWithStats(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 5000, len(datums))
 
-	datum, err := c.InspectDatum(jobs[0].Job.ID, datums[0].ID)
+	datum, err := c.InspectDatum(jobs[0].Job.ID, datums[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 }

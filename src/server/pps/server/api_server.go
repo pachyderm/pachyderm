@@ -586,25 +586,24 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	}
 
 	// Sort results (failed first, slow first)
-	sort.Sort(ByDatumStateThenTime(datumInfos))
+	sort.Sort(byDatumStateThenTime(datumInfos))
 
 	return &pps.DatumInfos{datumInfos}, nil
 }
 
-type ByDatumStateThenTime []*pps.DatumInfo
+type byDatumStateThenTime []*pps.DatumInfo
 
-func (a ByDatumStateThenTime) Len() int      { return len(a) }
-func (a ByDatumStateThenTime) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a ByDatumStateThenTime) Less(i, j int) bool {
+func (a byDatumStateThenTime) Len() int      { return len(a) }
+func (a byDatumStateThenTime) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a byDatumStateThenTime) Less(i, j int) bool {
 	byState := a[i].State < a[j].State
 	if a[i].State != a[j].State {
 		return byState
-	} else {
-		if a[i].Stats == nil || a[j].Stats == nil {
-			return byState
-		}
-		return client.GetDatumTotalTime(a[i].Stats) > client.GetDatumTotalTime(a[j].Stats)
 	}
+	if a[i].Stats == nil || a[j].Stats == nil {
+		return byState
+	}
+	return client.GetDatumTotalTime(a[i].Stats) > client.GetDatumTotalTime(a[j].Stats)
 }
 
 func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commit, jobID string, datumID string) (*pps.DatumInfo, error) {

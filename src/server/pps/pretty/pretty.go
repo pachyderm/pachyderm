@@ -205,6 +205,7 @@ func PrintDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 	fmt.Fprintf(w, "%s\t%s\t%s\n", datumInfo.Datum.ID, datumState(datumInfo.State), totalTime)
 }
 
+// PrintDetailedDatumInfo pretty-prints detailed info about a datum
 func PrintDetailedDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 	fmt.Fprintf(w, "ID\t%s\n", datumInfo.Datum.ID)
 	fmt.Fprintf(w, "State\t%s\n", datumInfo.State)
@@ -241,10 +242,12 @@ func PrintDetailedDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 	fmt.Fprintf(w, "PFS State:\n")
 }
 
+// PrintDatumPfsStateHeader prints the header for the PfsState field
 func PrintDatumPfsStateHeader(w io.Writer) {
 	fmt.Fprintf(w, "  REPO\tCOMMIT\tPATH\t\n")
 }
 
+// PrintDatumPfsState prints the values of the PfsState field
 func PrintDatumPfsState(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 	fmt.Fprintf(w, "  %s\t%s\t%s\t\n", datumInfo.PfsState.Commit.Repo.Name, datumInfo.PfsState.Commit.ID, datumInfo.PfsState.Path)
 }
