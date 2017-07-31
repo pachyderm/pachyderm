@@ -240,7 +240,7 @@ func diff(new HashTree, old HashTree, newPath string, oldPath string, recursiveD
 	if recursiveDepth > 0 || recursiveDepth == -1 {
 		newDepth := recursiveDepth
 		if recursiveDepth > 0 {
-			newDepth -= 1
+			newDepth--
 		}
 		for child := range children {
 			fmt.Printf("calculating file diff for child %v\n", child)
