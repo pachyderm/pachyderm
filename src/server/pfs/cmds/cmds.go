@@ -851,9 +851,9 @@ $ pachctl diff-file foo master path1 bar master path2
 			var oldFiles []*pfsclient.FileInfo
 			switch {
 			case len(args) == 3:
-				newFiles, oldFiles, err = client.DiffFile(args[0], args[1], args[2], "", "", "", recursiveDepth)
+				newFiles, oldFiles, err = client.DiffFile(args[0], args[1], args[2], "", "", "", shallow)
 			case len(args) == 6:
-				newFiles, oldFiles, err = client.DiffFile(args[0], args[1], args[2], args[3], args[4], args[5], recursiveDepth)
+				newFiles, oldFiles, err = client.DiffFile(args[0], args[1], args[2], args[3], args[4], args[5], shallow)
 			default:
 				return fmt.Errorf("diff-file expects either 3 or 6 args, got %d", len(args))
 			}
