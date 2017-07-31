@@ -38,5 +38,5 @@ fi
 # Need to login so that travis can push the bench image
 docker login -u pachydermbuildbot -p ${DOCKER_PWD}
 
-# Run tests in the cloud  
+# Run tests in the cloud
 make aws-test

@@ -8,7 +8,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pps"
-	workerpkg "github.com/pachyderm/pachyderm/src/server/pkg/worker"
+	workerpkg "github.com/pachyderm/pachyderm/src/server/worker"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"google.golang.org/grpc"
