@@ -100,6 +100,11 @@ message InputFile {
   bytes hash = 5;
 }
 
+message Datum {
+  // ID is the hash computed from all the files
+  string id = 1 [(gogoproto.customname) = "ID"];
+}
+
 enum DatumState {
     FAILED = 0;
     SUCCESS = 1;
@@ -107,7 +112,7 @@ enum DatumState {
 }
 
 message DatumInfo {
-   string id = 1 [(gogoproto.customname) = "ID"];
+   Datum datum = 1;
    DatumState state = 2;
    ProcessStats stats = 3;
    pfs.File pfs_state = 4;
@@ -361,12 +366,12 @@ message RestartDatumRequest {
 }
 
 message InspectDatumRequest {
-  string datum_id = 1 [(gogoproto.customname) = "DatumID"];
-  string job_id = 2 [(gogoproto.customname) = "JobID"];
+  Datum datum = 1;
+  Job job = 2;
 }
 
 message ListDatumRequest {
-  string job_id = 1 [(gogoproto.customname) = "JobID"];
+  Job job = 1;
 }
 
 message CreatePipelineRequest {

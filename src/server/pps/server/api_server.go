@@ -467,7 +467,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
 		Job: &pps.Job{
-			ID: request.JobID,
+			ID: request.Job.ID,
 		},
 	})
 	if err != nil {
@@ -495,7 +495,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	// List the files under /jobID to get all the datums
 	file := &pfs.File{
 		Commit: statsBranch.Head,
-		Path:   fmt.Sprintf("/%v", request.JobID),
+		Path:   fmt.Sprintf("/%v", request.Job.ID),
 	}
 	allFileInfos, err := pfsClient.ListFile(ctx, &pfs.ListFileRequest{file})
 	if err != nil {
@@ -506,7 +506,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		fileInfo := fileInfo
 		_, datumHash := filepath.Split(fileInfo.File.Path)
 		datums[datumHash] = &pps.DatumInfo{
-			ID:    datumHash,
+			Datum: &pps.Datum{datumHash},
 			State: pps.DatumState_SKIPPED,
 		}
 	}
@@ -514,7 +514,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	// Diff the files under /parentJobID and /jobID to get non-skipped datums
 	newFile := &pfs.File{
 		Commit: statsBranch.Head,
-		Path:   fmt.Sprintf("/%v", request.JobID),
+		Path:   fmt.Sprintf("/%v", request.Job.ID),
 	}
 	commitInfo, err := pfsClient.InspectCommit(
 		ctx,
@@ -530,7 +530,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	}
 	oldFile := &pfs.File{
 		Commit: commitInfo.ParentCommit,
-		Path:   fmt.Sprintf("/%v", request.JobID),
+		Path:   fmt.Sprintf("/%v", request.Job.ID),
 	}
 	resp, err := pfsClient.DiffFile(ctx, &pfs.DiffFileRequest{newFile, oldFile, true})
 	if err != nil {
@@ -564,7 +564,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 				// not a datum, nothing to do here
 				return nil
 			}
-			datum, err := a.getDatum(ctx, jobInfo.OutputCommit.Repo.Name, statsBranch.Head, request.JobID, datumHash)
+			datum, err := a.getDatum(ctx, jobInfo.OutputCommit.Repo.Name, statsBranch.Head, request.Job.ID, datumHash)
 			datumsMutex.Lock()
 			defer datumsMutex.Unlock()
 			datums[datumHash] = datum
@@ -655,7 +655,7 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 	}
 
 	return &pps.DatumInfo{
-		ID:    datumID,
+		Datum: &pps.Datum{datumID},
 		State: state,
 		Stats: stats,
 		PfsState: &pfs.File{
@@ -670,7 +670,7 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
 		Job: &pps.Job{
-			ID: request.JobID,
+			ID: request.Job.ID,
 		},
 	})
 	if err != nil {
@@ -697,7 +697,7 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 	}
 
 	// Populate datumInfo given a path
-	datumInfo, err := a.getDatum(ctx, jobInfo.OutputCommit.Repo.Name, statsBranch.Head, request.JobID, request.DatumID)
+	datumInfo, err := a.getDatum(ctx, jobInfo.OutputCommit.Repo.Name, statsBranch.Head, request.Job.ID, request.Datum.ID)
 	if err != nil {
 		return nil, err
 	}
