@@ -812,7 +812,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 					if request.Job != nil && request.Job.ID != msg.JobID {
 						continue
 					}
-					if request.DatumID != "" && request.DatumID != msg.DatumID {
+					if request.InputFileID != "" && request.InputFileID != msg.InputFileID {
 						continue
 					}
 					if request.Master != msg.Master {

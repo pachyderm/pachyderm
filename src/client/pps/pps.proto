@@ -92,7 +92,7 @@ message ParallelismSpec {
   double coefficient = 3;
 }
 
-message Datum {
+message InputFile {
   // This file's absolute path within its pfs repo.
   string path = 4;
 
@@ -145,7 +145,7 @@ message AggregateProcessStats {
 message WorkerStatus {
   string worker_id = 1 [(gogoproto.customname) = "WorkerID"];
   string job_id = 2 [(gogoproto.customname) = "JobID"];
-  repeated pps.Datum data = 3;
+  repeated pps.InputFile data = 3;
   // Started is the time processing on the current datum began.
   google.protobuf.Timestamp started = 4;
   ProcessStats stats = 5;
@@ -326,7 +326,7 @@ message GetLogsRequest {
   // a hash for that file (to search for files at specific versions)
   repeated string data_filters = 3;
 
-  string datum_id = 4 [(gogoproto.customname) = "DatumID"];
+  string input_file_id = 4 [(gogoproto.customname) = "InputFileID"];
 
   // If true get logs from the master process
   bool master = 5;
@@ -341,11 +341,11 @@ message LogMessage {
   string pipeline_id = 2 [(gogoproto.customname) = "PipelineID"];
   string job_id = 3 [(gogoproto.customname) = "JobID"];
   string worker_id = 7 [(gogoproto.customname) = "WorkerID"];
-  string datum_id = 9 [(gogoproto.customname) = "DatumID"];
+  string input_file_id = 9 [(gogoproto.customname) = "InputFileID"];
   bool master = 10;
 
   // The PFS files being processed (one per pipeline/job input)
-  repeated Datum data = 4;
+  repeated InputFile data = 4;
 
   // User is true if log message comes from the users code.
   bool user = 8;
