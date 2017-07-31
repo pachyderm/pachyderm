@@ -6,15 +6,27 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/pachyderm/pachyderm)](https://goreportcard.com/report/github.com/pachyderm/pachyderm)
 [![Slack Status](http://slack.pachyderm.io/badge.svg)](http://slack.pachyderm.io)
 
-# Pachyderm: A Containerized, Version-Controlled Data Lake
+# Pachyderm: Data Pipelines
 
-Pachyderm is:
+Pachyderm is a tool for production data pipelines. If you need to chain
+together data scraping, ingestion, cleaning, munging, wrangling, processing,
+modelling, and analysis in a sane way, then Pachyderm is for you. If you have an
+existing set of scripts which do this in an ad-hoc fashion and you're looking
+for a way to "productionize" them, Pachyderm can make this easy for you.
 
-* [Git for Data Science](http://pachyderm.io/pfs.html): Pachyderm offers complete version control for even the largest data sets.
-* [Containerized](http://pachyderm.io/pps.html): Pachyderm is built on Docker and Kubernetes. Since everything in Pachyderm is a container, data scientists can use any languages or libraries they want (e.g. R, Python, OpenCV, etc).
-* [Ideal for building machine learning pipelines and ETL workflows](http://pachyderm.io/pps.html): Pachyderm versions and tracks every output directly to the raw input datasets that created it (aka: [Provenance](https://medium.com/pachyderm-data/provenance-the-missing-feature-for-good-data-science-now-in-pachyderm-1-1-2bd9d376a7eb)). 
+## Features
 
-For more details, see [what's new about Pachyderm](https://github.com/pachyderm/pachyderm/#whats-new-about-pachyderm-how-is-it-different-from-hadoop).
+- Containerized: Pachyderm is built on Docker and Kubernetes. Whatever
+  languages or libraries your pipeline needs, they can run on Pachyderm which
+  can easily be deployed on any cloud provider or on prem.
+- Version Control: Pachyderm version controls your data as it's processed. You
+  can always ask the system how data has change, see a diff, and, if something
+  doesn't look right, revert.
+- Provenance (aka data lineage): Pachyderm tracks where data comes from. Pachyderm keeps track of all the code and  data that created a result.
+- Parallelization: Pachyderm can efficiently schedule massively parallel
+  workloads.
+- Incremental Processing: Pachyderm understands how your data has changed and
+  is smart enough to only process the new data.
 
 ## Getting Started
 [Install Pachyderm locally](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html) or [deploy on AWS/GCE/Azure](http://pachyderm.readthedocs.io/en/latest/deployment/deploy_intro.html) in about 5 minutes. 
@@ -29,29 +41,6 @@ If you'd like to see some examples and learn about core use cases for Pachyderm:
 ## Documentation
 
 [Official Documentation](http://pachyderm.readthedocs.io/en/latest/)
-
-## What's new about Pachyderm? (How is it different from Hadoop?)
-
-There are two bold new ideas in Pachyderm:
-
-- Containers as the core processing primitive
-- Version Control for data
-
-These ideas lead directly to a system that's much more powerful, flexible and easy to use. 
-
-To process data, you simply create a containerized program which reads and writes to the **local filesystem**. You can use _any_ tools you want because it's all just going in a container! Pachyderm will take your container and inject data into it. We'll then automatically replicate your container, showing each copy a different chunk of data. With this technique, Pachyderm can scale any code you write to process up to petabytes of data (Example: [distributed image processing](http://pachyderm.readthedocs.io/en/latest/getting_started/beginner_tutorial.html)).
-
-Pachyderm also version controls all data using a commit-based distributed
-filesystem (PFS), similar to what git does with code. Version control for data
-has far reaching consequences in a distributed filesystem. You get the full
-history of your data, can track changes, collaborate with teammates, and if
-anything goes wrong you can revert _the entire cluster_ with one click!
-
-Version control is also very synergistic with our containerized processing
-engine. Pachyderm understands how your data changes and thus, as new data
-is ingested, can run your workload on the _diff_ of the data rather than the
-whole thing. This means that there's no difference between a batched job and
-a streaming job, the same code will work for both!
 
 ## Community
 Keep up to date and get Pachyderm support via:

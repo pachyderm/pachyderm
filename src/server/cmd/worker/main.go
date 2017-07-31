@@ -3,13 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"path"
 	"time"
-
-	"go.pedge.io/lion"
 
 	"golang.org/x/sync/errgroup"
 
@@ -19,9 +16,11 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/worker"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
+	"github.com/pachyderm/pachyderm/src/server/worker"
 	"google.golang.org/grpc"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // appEnv stores the environment variables that this worker needs
@@ -75,10 +74,9 @@ func getPipelineInfo(etcdClient *etcd.Client, appEnv *appEnv) (*pps.PipelineInfo
 
 func do(appEnvObj interface{}) error {
 	go func() {
-		lion.Println(http.ListenAndServe(":652", nil))
+		log.Println(http.ListenAndServe(":652", nil))
 	}()
 
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	appEnv := appEnvObj.(*appEnv)
 
 	// Construct a client that connects to the sidecar.
@@ -86,7 +84,6 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return fmt.Errorf("error constructing pachClient: %v", err)
 	}
-	go pachClient.KeepConnected(make(chan bool)) // we never cancel the connection
 
 	// Get etcd client, so we can register our IP (so pachd can discover us)
 	etcdClient, err := etcd.New(etcd.Config{
@@ -97,11 +94,15 @@ func do(appEnvObj interface{}) error {
 		return fmt.Errorf("error constructing etcdClient: %v", err)
 	}
 
-	// Construct worker API server.
 	pipelineInfo, err := getPipelineInfo(etcdClient, appEnv)
 	if err != nil {
 		return fmt.Errorf("error getting pipelineInfo: %v", err)
 	}
+
+	// Set the auth token that will be used for this client
+	pachClient.SetAuthToken(pipelineInfo.Capability)
+
+	// Construct worker API server.
 	workerRcName := ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	apiServer, err := worker.NewAPIServer(pachClient, etcdClient, appEnv.PPSPrefix, pipelineInfo, appEnv.PodName, appEnv.Namespace)
 	if err != nil {

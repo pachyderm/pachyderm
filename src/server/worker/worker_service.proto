@@ -1,0 +1,54 @@
+syntax = "proto3";
+package worker;
+
+import "client/pfs/pfs.proto";
+import "client/pps/pps.proto";
+import "gogoproto/gogo.proto";
+import "google/protobuf/empty.proto";
+
+message Input {
+  pfs.FileInfo file_info = 1;
+  pfs.Commit parent_commit = 5;
+  string name = 2;
+  bool lazy = 3;
+  string branch = 4;
+}
+
+message ProcessRequest {
+  // ID of the job for which we're processing 'data'. This is attached to logs
+  // generated while processing 'data', so that they can be searched.
+  string job_id = 2 [(gogoproto.customname) = "JobID"];
+
+  // The datum to process
+  repeated Input data = 1;
+
+  // The tag corresponding to the previous parent's run of this datum, used for
+  // incremental jobs, may be nil.
+  pfs.Tag parent_output = 3;
+
+  bool enable_stats = 4;
+}
+
+// ProcessResponse contains a tag, only if the processing was successful.
+message ProcessResponse {
+  pfs.Tag tag = 1;
+  pfs.Tag stats_tag = 3;
+  // If true, the user program has errored
+  bool failed = 2;
+  bool skipped = 5;
+}
+
+message CancelRequest {
+  string job_id = 2 [(gogoproto.customname) = "JobID"];
+  repeated string data_filters = 1;
+}
+
+message CancelResponse {
+  bool success = 1;
+}
+
+service Worker {
+  rpc Process(ProcessRequest) returns (ProcessResponse) {}
+  rpc Status(google.protobuf.Empty) returns (pps.WorkerStatus) {}
+  rpc Cancel(CancelRequest) returns (CancelResponse) {}
+}
