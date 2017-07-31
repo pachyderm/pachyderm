@@ -131,6 +131,7 @@ message WorkerStatus {
   // Started is the time processing on the current datum began.
   google.protobuf.Timestamp started = 4;
   ProcessStats stats = 5;
+  int64 queue_size = 6;
 }
 
 // ResourceSpec describes the amount of resources that pipeline pods should
@@ -178,6 +179,7 @@ message JobInfo {
   pfs.Commit stats_commit = 29;
   bool enable_stats = 32;
   string salt = 33;
+  bool batch = 34;
 }
 
 enum WorkerState {
@@ -250,6 +252,7 @@ message PipelineInfo {
   bool enable_stats = 24;
   string salt = 25;
   string capability = 26;
+  bool batch = 27;
 }
 
 message PipelineInfos {
@@ -276,6 +279,7 @@ message CreateJobRequest {
   bool incremental = 17;
   bool enable_stats = 18;
   string salt = 19;
+  bool batch = 20;
 }
 
 message InspectJobRequest {
@@ -363,6 +367,7 @@ message CreatePipelineRequest {
   // Reprocess forces the pipeline to reprocess all datums.
   // It only has meaning if Update is true
   bool reprocess = 18;
+  bool batch = 19;
 }
 
 message InspectPipelineRequest {
