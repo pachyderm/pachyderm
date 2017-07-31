@@ -12,12 +12,12 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/montanaflynn/stats"
+	"golang.org/x/sync/errgroup"
+	"k8s.io/kubernetes/pkg/api"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
@@ -31,6 +31,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/pool"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
+	"github.com/pachyderm/pachyderm/src/server/pkg/util"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"google.golang.org/grpc"
 )
@@ -875,12 +876,16 @@ func (a *APIServer) scaleDownWorkers() error {
 	if err != nil {
 		return err
 	}
-	if workerRc.Spec.Replicas != 1 {
-		workerRc.Spec.Replicas = 1
-		_, err = rc.Update(workerRc)
-		return err
+	workerRc.Spec.Replicas = 1
+	// When we scale down the workers, we also remove the resource
+	// requirements so that the remaining master pod does not take up
+	// the resource it doesn't need, since by definition when a pipeline
+	// is in scale-down mode, it doesn't process any work.
+	if a.pipelineInfo.ResourceSpec != nil {
+		workerRc.Spec.Template.Spec.Containers[0].Resources = api.ResourceRequirements{}
 	}
-	return nil
+	_, err = rc.Update(workerRc)
+	return err
 }
 
 func (a *APIServer) scaleUpWorkers() error {
@@ -895,10 +900,21 @@ func (a *APIServer) scaleUpWorkers() error {
 	}
 	if workerRc.Spec.Replicas != int32(parallelism) {
 		workerRc.Spec.Replicas = int32(parallelism)
-		_, err = rc.Update(workerRc)
-		return err
 	}
-	return nil
+	// Reset the resource requirements for the RC since the pipeline
+	// is in scale-down mode and probably has removed its resource
+	// requirements.
+	if a.pipelineInfo.ResourceSpec != nil {
+		resourceList, err := util.GetResourceListFromPipeline(a.pipelineInfo)
+		if err != nil {
+			return fmt.Errorf("error parsing resource spec; this is likely a bug: %v", err)
+		}
+		workerRc.Spec.Template.Spec.Containers[0].Resources = api.ResourceRequirements{
+			Requests: *resourceList,
+		}
+	}
+	_, err = rc.Update(workerRc)
+	return err
 }
 
 func untranslateJobInputs(input *pps.Input) []*pps.JobInput {
