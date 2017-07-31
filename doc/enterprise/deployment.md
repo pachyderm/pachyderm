@@ -1,13 +1,13 @@
 # Deploying Enterprise Edition
 
-Most of the Pachyderm Enterprise features are wrapped up in our "dashboard" currently (other than a few that are currently under active development).  Thus, Pachyderm Enterprise deployment is as simple as deploying the dashboard on top of or along with a Pachyderm cluster:
+The primary interface for Enterprise Edition is the Pachyderm Dashboard.  Pachyderm Enterprise deployment is as simple as deploying the dashboard on top of or along with a Pachyderm cluster:
 
 - [Deploying on top of an existing Pachyderm deployment](#deploying-on-top-of-an-existing-pachyderm-deployment)
 - [Deploying with a new Pachyderm deployment](#deploying-with-a-new-pachyderm-deployment)
 
 ## Deploying on top of an existing Pachyderm deployment
 
-Assuming followed one of our [deploy guides](http://pachyderm.readthedocs.io/en/latest/deployment/deploy_intro.html) and you have a Pachyderm cluster running, you should see that the state of your Pachyderm cluster is similar to the following:
+Assuming you followed one of our [deploy guides](http://pachyderm.readthedocs.io/en/latest/deployment/deploy_intro.html) and you have a Pachyderm cluster running, you should see that the state of your Pachyderm cluster is similar to the following:
 
 ```
 $ kubectl get all
@@ -38,13 +38,15 @@ pachctl             1.5.0
 pachd               1.5.0
 ```
 
-Once you have Pachyderm in this state, deploy Pachyderm Enterprise Edition is as simple as:
+Once you have Pachyderm in this state, deploying Pachyderm Enterprise Edition is as simple as:
 
 ```
 $ pachctl deploy local --dashboard-only
-``` 
+```
 
-After a few minutes, you should see the new "dash" container running in Kubernetes:
+**Note** - Even though you might not have deployed Pachyderm locally, you can run `pachctl deploy local --dashboard-only` to deploy the Pachyderm Dashboard on any Pachyderm cluster (as long as `pachctl` is connect to that cluster).  This includes clusters deployed on AWS, Google Cloud, Azure, or on premise. 
+
+After a few minutes, you should see the new `dash-xxxxxxxx` pod running in Kubernetes:
 
 ```
 $ kubectl get all
@@ -111,7 +113,9 @@ pachctl deploy azure ... --dashboard
 pachctl deploy local --dashboard
 
 # Custom
-pachctl dpeloy custom ... --dashboard
+pachctl deploy custom ... --dashboard
 ```
 
-Each of these deploys are further details [here](http://pachyderm.readthedocs.io/en/latest/deployment/deploy_intro.html).  Once deploying with those commands, you should see the "dash" image running in Kubernetes, and you should be able to access the dashboard at `localhost:38080`, as discussed further in [above](#deploying-on-top-of-an-existing-pachyderm-deployment).
+Each of these deploys are further detailed [here](http://pachyderm.readthedocs.io/en/latest/deployment/deploy_intro.html).  
+
+After deploying with those commands, you should see the `dash-xxxxxxxxx` pod running in Kubernetes, and you should be able to access the dashboard at `localhost:38080`, as discussed further [above](#deploying-on-top-of-an-existing-pachyderm-deployment).
