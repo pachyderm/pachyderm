@@ -39,7 +39,7 @@ users:
         ],
 ```
 
-Please note that `emptyDir` does not persit your data. You need to configure persistent volume or hostPath to persist your data.
+Please note that `emptyDir` does not persist your data. You need to configure persistent volume or hostPath to persist your data.
 
 3) Deploy Pachyderm manifest you modified.
 
