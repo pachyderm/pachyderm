@@ -202,11 +202,11 @@ func PrintDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 	if datumInfo.Stats != nil {
 		totalTime = units.HumanDuration(client.GetDatumTotalTime(datumInfo.Stats))
 	}
-	fmt.Fprintf(w, "%s\t%s\t%s\n", datumInfo.ID, datumState(datumInfo.State), totalTime)
+	fmt.Fprintf(w, "%s\t%s\t%s\n", datumInfo.Datum.ID, datumState(datumInfo.State), totalTime)
 }
 
 func PrintDetailedDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
-	fmt.Fprintf(w, "ID\t%s\n", datumInfo.ID)
+	fmt.Fprintf(w, "ID\t%s\n", datumInfo.Datum.ID)
 	fmt.Fprintf(w, "State\t%s\n", datumInfo.State)
 	fmt.Fprintf(w, "Data Downloaded\t%s\n", pretty.Size(datumInfo.Stats.DownloadBytes))
 	fmt.Fprintf(w, "Data Uploaded\t%s\n", pretty.Size(datumInfo.Stats.UploadBytes))
