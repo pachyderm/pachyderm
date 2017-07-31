@@ -154,6 +154,7 @@ message WorkerStatus {
   // Started is the time processing on the current datum began.
   google.protobuf.Timestamp started = 4;
   ProcessStats stats = 5;
+  int64 queue_size = 6;
 }
 
 // ResourceSpec describes the amount of resources that pipeline pods should
@@ -175,7 +176,6 @@ message JobInfo {
   reserved 4;
   Job job = 1;
   Transform transform = 2;
-  string pipeline_id = 19 [(gogoproto.customname) = "PipelineID"];
   Pipeline pipeline = 3;
   uint64 pipeline_version = 13;
   ParallelismSpec parallelism_spec = 12;
@@ -201,6 +201,8 @@ message JobInfo {
   bool incremental = 28;
   pfs.Commit stats_commit = 29;
   bool enable_stats = 32;
+  string salt = 33;
+  bool batch = 34;
 }
 
 enum WorkerState {
@@ -271,6 +273,9 @@ message PipelineInfo {
   bool incremental = 22;
   string cache_size = 23;
   bool enable_stats = 24;
+  string salt = 25;
+  string capability = 26;
+  bool batch = 27;
 }
 
 message PipelineInfos {
@@ -296,6 +301,8 @@ message CreateJobRequest {
   pfs.BranchInfo new_branch = 16;
   bool incremental = 17;
   bool enable_stats = 18;
+  string salt = 19;
+  bool batch = 20;
 }
 
 message InspectJobRequest {
@@ -343,7 +350,6 @@ message LogMessage {
   // The job and pipeline for which a PFS file is being processed (if the job
   // is an orphan job, pipeline name and ID will be unset)
   string pipeline_name = 1;
-  string pipeline_id = 2 [(gogoproto.customname) = "PipelineID"];
   string job_id = 3 [(gogoproto.customname) = "JobID"];
   string worker_id = 7 [(gogoproto.customname) = "WorkerID"];
   string input_file_id = 9 [(gogoproto.customname) = "InputFileID"];
@@ -390,6 +396,10 @@ message CreatePipelineRequest {
   bool incremental = 15;
   string cache_size = 16;
   bool enable_stats = 17;
+  // Reprocess forces the pipeline to reprocess all datums.
+  // It only has meaning if Update is true
+  bool reprocess = 18;
+  bool batch = 19;
 }
 
 message InspectPipelineRequest {

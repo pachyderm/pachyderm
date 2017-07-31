@@ -21,7 +21,7 @@ import (
 	"go.pedge.io/pkg/cobra"
 )
 
-var defaultDashImage = "pachyderm/dash:0.3.29"
+var defaultDashImage = "pachyderm/dash:0.4.0"
 
 func maybeKcCreate(dryRun bool, manifest *bytes.Buffer, opts *assets.AssetOpts) error {
 	if dryRun {
@@ -300,7 +300,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	return deploy
 }
 
-// Cmds returns a cobra commands for deploying Pachyderm clusters.
+// Cmds returns a list of cobra commands for deploying Pachyderm clusters.
 func Cmds(noMetrics *bool) []*cobra.Command {
 	deploy := DeployCmd(noMetrics)
 	var all bool

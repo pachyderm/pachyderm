@@ -80,7 +80,7 @@ func PrintJobInput(w io.Writer, jobInput *ppsclient.JobInput) {
 
 // PrintWorkerStatusHeader pretty prints a worker status header.
 func PrintWorkerStatusHeader(w io.Writer) {
-	fmt.Fprint(w, "WORKER\tJOB\tDATUM\tSTARTED\t\n")
+	fmt.Fprint(w, "WORKER\tJOB\tDATUM\tSTARTED\tQUEUE\t\n")
 }
 
 // PrintWorkerStatus pretty prints a worker status.
@@ -91,7 +91,8 @@ func PrintWorkerStatus(w io.Writer, workerStatus *ppsclient.WorkerStatus) {
 		fmt.Fprintf(w, datum.Path)
 	}
 	fmt.Fprintf(w, "\t")
-	fmt.Fprintf(w, "%s\t\n", pretty.Ago(workerStatus.Started))
+	fmt.Fprintf(w, "%s\t", pretty.Ago(workerStatus.Started))
+	fmt.Fprintf(w, "%d\t\n", workerStatus.QueueSize)
 }
 
 // PrintPipelineInputHeader prints a pipeline input header.

@@ -1,6 +1,8 @@
 syntax = "proto3";
 package auth;
 
+import "client/pfs/pfs.proto";
+
 message AuthenticateRequest {
     string github_token = 1;
 }
@@ -9,6 +11,99 @@ message AuthenticateResponse {
     string pach_token = 1;
 }
 
+enum Scope {
+    // To remove a user's scope from a repo, set their scope to NONE
+    NONE = 0;
+    READER = 1;
+    WRITER = 2;
+    OWNER = 3;
+}
+
+message AuthorizeRequest {
+    pfs.Repo repo = 1;
+    Scope scope = 2;
+}
+
+message AuthorizeResponse {
+    bool authorized = 1;
+}
+
+message WhoAmIRequest {}
+
+message WhoAmIResponse {
+  string username = 1;
+}
+
+message SetScopeRequest {
+    string username = 1;
+    pfs.Repo repo = 2;
+    Scope scope = 3;
+}
+
+message SetScopeResponse {}
+
+message GetScopeRequest {
+    string username = 1;
+    pfs.Repo repo = 2;
+}
+
+message GetScopeResponse {
+    Scope scope = 1;
+}
+
+message ACLEntry {
+    string username = 1;
+    Scope scope = 2;
+}
+
+message GetACLRequest {
+    pfs.Repo repo = 1;
+}
+
+message GetACLResponse {
+    ACL acl = 1;
+}
+
+message ACL {
+    // username -> scope
+    map<string, Scope> entries = 1;
+}
+
+message User {
+    string username = 1;
+    bool admin = 2;
+}
+
+message ActivateRequest {
+    string activation_code = 1;
+    repeated string admins = 2;
+}
+
+message ActivateResponse {}
+
+message GetCapabilityRequest {}
+
+message GetCapabilityResponse {
+    string capability = 1;
+}
+
+message RevokeAuthTokenRequest {
+    string token = 1;
+}
+message RevokeAuthTokenResponse {}
+
 service API {
+    rpc Activate(ActivateRequest) returns (ActivateResponse) {}
+
     rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {}
+    rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse) {}
+    rpc WhoAmI(WhoAmIRequest) returns (WhoAmIResponse) {}
+
+    rpc SetScope(SetScopeRequest) returns (SetScopeResponse) {}
+    rpc GetScope(GetScopeRequest) returns (GetScopeResponse) {}
+
+    rpc GetACL(GetACLRequest) returns (GetACLResponse) {}
+
+    rpc GetCapability(GetCapabilityRequest) returns (GetCapabilityResponse) {}
+    rpc RevokeAuthToken(RevokeAuthTokenRequest) returns (RevokeAuthTokenResponse) {}
 }

@@ -173,7 +173,7 @@ r.Connect(
  - Added `Union` as a root term
  - Added `Branch` as a root term
  - Added `ReadTimeout` and `WriteTimeout` to `RunOpts` and `ExecOpts`
- - Exported `github.com/Sirupsen/logrus.Logger` as `Log`
+ - Exported `github.com/sirupsen/logrus.Logger` as `Log`
  - Added support for encoding maps with non-string keys
  - Added 'Round', 'Ceil' and 'Floor' terms
  - Added race detector to CI

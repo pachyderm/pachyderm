@@ -14,6 +14,7 @@ import (
 	"time"
 
 	client "github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
@@ -22,17 +23,17 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
-	workerpkg "github.com/pachyderm/pachyderm/src/server/pkg/worker"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
+	workerpkg "github.com/pachyderm/pachyderm/src/server/worker"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
-	"go.pedge.io/lion/proto"
-	"go.pedge.io/proto/rpclog"
+	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 
 	"golang.org/x/sync/errgroup"
@@ -92,7 +93,7 @@ type ctxAndCancel struct {
 }
 
 type apiServer struct {
-	protorpclog.Logger
+	log.Logger
 	etcdPrefix            string
 	hasher                *ppsserver.Hasher
 	address               string
@@ -281,14 +282,18 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			Incremental:     request.Incremental,
 			Stats:           &pps.ProcessStats{},
 			EnableStats:     request.EnableStats,
+			Salt:            request.Salt,
+			PipelineVersion: request.PipelineVersion,
+			Batch:           request.Batch,
 		}
 		if request.Pipeline != nil {
 			pipelineInfo := new(pps.PipelineInfo)
 			if err := a.pipelines.ReadWrite(stm).Get(request.Pipeline.Name, pipelineInfo); err != nil {
 				return err
 			}
-			jobInfo.PipelineVersion = pipelineInfo.Version
-			jobInfo.PipelineID = pipelineInfo.ID
+			if jobInfo.Salt != pipelineInfo.Salt || jobInfo.PipelineVersion != pipelineInfo.Version {
+				return fmt.Errorf("job is made from an outdated version of the pipeline")
+			}
 			jobInfo.Transform = pipelineInfo.Transform
 			jobInfo.ParallelismSpec = pipelineInfo.ParallelismSpec
 			jobInfo.OutputRepo = &pfs.Repo{pipelineInfo.Pipeline.Name}
@@ -364,7 +369,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	workerPoolID := ppsserver.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
 	workerStatus, err := status(ctx, workerPoolID, a.etcdClient, a.etcdPrefix)
 	if err != nil {
-		protolion.Errorf("failed to get worker status with err: %s", err.Error())
+		logrus.Errorf("failed to get worker status with err: %s", err.Error())
 	} else {
 		// It's possible that the workers might be working on datums for other
 		// jobs, we omit those since they're not part of the status for this
@@ -829,7 +834,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 					}
 				}
 				return nil
-			}, backoff.New10sBackoff())
+			}, backoff.New10sBackOff())
 
 			// Used up all retries -- no logs from worker
 			if err != nil {
@@ -943,6 +948,18 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+
+	// Get the capability of the user
+	authClient, err := a.getAuthClient()
+	if err != nil {
+		return nil, fmt.Errorf("error dialing auth client: %v", authClient)
+	}
+
+	capabilityResp, err := authClient.GetCapability(ctx, &auth.GetCapabilityRequest{})
+	if err != nil && !auth.IsNotActivatedError(err) {
+		return nil, fmt.Errorf("error getting capability for the user: %v", err)
+	}
+
 	// First translate Inputs field to Input field.
 	if len(request.Inputs) > 0 {
 		if request.Input != nil {
@@ -952,7 +969,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	}
 
 	pipelineInfo := &pps.PipelineInfo{
-		ID:                 uuid.NewWithoutDashes(),
 		Pipeline:           request.Pipeline,
 		Version:            1,
 		Transform:          request.Transform,
@@ -967,10 +983,16 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Incremental:        request.Incremental,
 		CacheSize:          request.CacheSize,
 		EnableStats:        request.EnableStats,
+		Salt:               uuid.NewWithoutDashes(),
+		Batch:              request.Batch,
 	}
 	setPipelineDefaults(pipelineInfo)
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
 		return nil, err
+	}
+
+	if capabilityResp != nil {
+		pipelineInfo.Capability = capabilityResp.Capability
 	}
 
 	pfsClient, err := a.getPFSClient()
@@ -997,11 +1019,23 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				return err
 			}
 			pipelineInfo.Version = oldPipelineInfo.Version + 1
+			if !request.Reprocess {
+				pipelineInfo.Salt = oldPipelineInfo.Salt
+			}
 			pipelines.Put(pipelineName, pipelineInfo)
 			return nil
 		})
 		if err != nil {
 			return nil, err
+		}
+
+		// Revoke the old capability
+		if oldPipelineInfo.Capability != "" {
+			if _, err := authClient.RevokeAuthToken(ctx, &auth.RevokeAuthTokenRequest{
+				Token: oldPipelineInfo.Capability,
+			}); err != nil && !auth.IsNotActivatedError(err) {
+				return nil, fmt.Errorf("error revoking old capability: %v", err)
+			}
 		}
 
 		// Rename the original output branch to `outputBranch-vN`, where N
@@ -1202,6 +1236,23 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 }
 
 func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) (response *types.Empty, retErr error) {
+	pipelineInfo, err := a.InspectPipeline(ctx, &pps.InspectPipelineRequest{request.Pipeline})
+	if err != nil {
+		return nil, fmt.Errorf("pipeline %v was not found: %v", request.Pipeline.Name, err)
+	}
+	// Revoke the pipeline's capability
+	if pipelineInfo.Capability != "" {
+		authClient, err := a.getAuthClient()
+		if err != nil {
+			return nil, fmt.Errorf("error dialing auth client: %v", authClient)
+		}
+		if _, err := authClient.RevokeAuthToken(ctx, &auth.RevokeAuthTokenRequest{
+			Token: pipelineInfo.Capability,
+		}); err != nil && !auth.IsNotActivatedError(err) {
+			return nil, fmt.Errorf("error revoking old capability: %v", err)
+		}
+	}
+
 	iter, err := a.jobs.ReadOnly(ctx).GetByIndex(ppsdb.JobsPipelineIndex, request.Pipeline)
 	if err != nil {
 		return nil, err
@@ -1421,7 +1472,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 	activeTags := make(map[string]bool)
 	for _, pipelineInfo := range pipelineInfos.PipelineInfo {
 		tags, err := objClient.ListTags(ctx, &pfs.ListTagsRequest{
-			Prefix:        client.HashPipelineID(pipelineInfo.ID),
+			Prefix:        client.DatumTagPrefix(pipelineInfo.Salt),
 			IncludeObject: true,
 		})
 		if err != nil {
@@ -1630,56 +1681,28 @@ func jobStateToStopped(state pps.JobState) bool {
 	}
 }
 
-func parseResourceList(resources *pps.ResourceSpec, cacheSize string) (*api.ResourceList, error) {
-	cpuQuantity, err := resource.ParseQuantity(fmt.Sprintf("%f", resources.Cpu))
-	if err != nil {
-		return nil, fmt.Errorf("could not parse cpu quantity: %s", err)
-	}
-
-	memQuantity, err := resource.ParseQuantity(resources.Memory)
-	if err != nil {
-		return nil, fmt.Errorf("could not parse memory quantity: %s", err)
-	}
-	cacheQuantity, err := resource.ParseQuantity(cacheSize)
-	if err != nil {
-		return nil, fmt.Errorf("could not parse cache quantity: %s", err)
-	}
-	// Here we are sanity checking.  A pipeline should request at least
-	// as much memory as it needs for caching.
-	if cacheQuantity.Cmp(memQuantity) > 0 {
-		memQuantity = cacheQuantity
-	}
-
-	gpuQuantity, err := resource.ParseQuantity(fmt.Sprintf("%d", resources.Gpu))
-	if err != nil {
-		return nil, fmt.Errorf("could not parse gpu quantity: %s", err)
-	}
-	var result api.ResourceList = map[api.ResourceName]resource.Quantity{
-		api.ResourceCPU:       cpuQuantity,
-		api.ResourceMemory:    memQuantity,
-		api.ResourceNvidiaGPU: gpuQuantity,
-	}
-	return &result, nil
-}
-
 func (a *apiServer) getPFSClient() (pfs.APIClient, error) {
-	if a.pachConn == nil {
-		var onceErr error
-		a.pachConnOnce.Do(func() {
-			pachConn, err := grpc.Dial(a.address, client.PachDialOptions()...)
-			if err != nil {
-				onceErr = err
-			}
-			a.pachConn = pachConn
-		})
-		if onceErr != nil {
-			return nil, onceErr
-		}
+	if err := a.dialPachConn(); err != nil {
+		return nil, err
 	}
 	return pfs.NewAPIClient(a.pachConn), nil
 }
 
 func (a *apiServer) getObjectClient() (pfs.ObjectAPIClient, error) {
+	if err := a.dialPachConn(); err != nil {
+		return nil, err
+	}
+	return pfs.NewObjectAPIClient(a.pachConn), nil
+}
+
+func (a *apiServer) getAuthClient() (auth.APIClient, error) {
+	if err := a.dialPachConn(); err != nil {
+		return nil, err
+	}
+	return auth.NewAPIClient(a.pachConn), nil
+}
+
+func (a *apiServer) dialPachConn() error {
 	if a.pachConn == nil {
 		var onceErr error
 		a.pachConnOnce.Do(func() {
@@ -1690,10 +1713,10 @@ func (a *apiServer) getObjectClient() (pfs.ObjectAPIClient, error) {
 			a.pachConn = pachConn
 		})
 		if onceErr != nil {
-			return nil, onceErr
+			return onceErr
 		}
 	}
-	return pfs.NewObjectAPIClient(a.pachConn), nil
+	return nil
 }
 
 // RepoNameToEnvString is a helper which uppercases a repo name for
