@@ -748,7 +748,6 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 			return &ProcessResponse{
 				Failed:   true,
 				StatsTag: statsTag,
-				Stats:    stats,
 			}, nil
 		}
 		return nil, nil
@@ -778,7 +777,6 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 			return &ProcessResponse{
 				Failed:   true,
 				StatsTag: statsTag,
-				Stats:    stats,
 			}, nil
 		}
 		return nil, err
@@ -786,7 +784,6 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	return &ProcessResponse{
 		Tag:      &pfs.Tag{tag},
 		StatsTag: statsTag,
-		Stats:    stats,
 	}, nil
 }
 
