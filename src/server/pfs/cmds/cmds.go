@@ -704,7 +704,7 @@ want to consider using commit IDs directly.
 				if outputPath == "" {
 					return fmt.Errorf("an output path needs to be specified when using the --recursive flag")
 				}
-				puller := sync.NewPuller(nil)
+				puller := sync.NewPuller()
 				return puller.Pull(client, outputPath, args[0], args[1], args[2], false, int(parallelism), nil, "")
 			}
 			var w io.Writer
