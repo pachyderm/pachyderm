@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 	"text/tabwriter"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/apis/batch"
 
+	"github.com/facebookgo/pidfile"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
@@ -157,6 +159,21 @@ This resets the cluster to its initial state.`,
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
 		Long:  "Forward a port on the local machine to pachd. This command blocks.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			pidfile.SetPidfilePath("~/.pachyderm/port-forward.pid")
+			pid, err := pidfile.Read()
+			if err != nil && !os.IsNotExist(err) {
+				return err
+			}
+			if pid != 0 {
+				if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil {
+					if !strings.Contains(err.Error(), "no such process") {
+						return err
+					}
+				}
+			}
+			if err := pidfile.Write(); err != nil {
+				return err
+			}
 
 			var eg errgroup.Group
 
