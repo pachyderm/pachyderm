@@ -659,7 +659,10 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 	}
 
 	return &pps.DatumInfo{
-		Datum: &pps.Datum{datumID},
+		Datum: &pps.Datum{
+			ID:  datumID,
+			Job: &pps.Job{jobID},
+		},
 		State: state,
 		Stats: stats,
 		PfsState: &pfs.File{
@@ -674,7 +677,7 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
 		Job: &pps.Job{
-			ID: request.Job.ID,
+			ID: request.Datum.Job.ID,
 		},
 	})
 	if err != nil {
@@ -701,7 +704,7 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 	}
 
 	// Populate datumInfo given a path
-	datumInfo, err := a.getDatum(ctx, jobInfo.OutputCommit.Repo.Name, statsBranch.Head, request.Job.ID, request.Datum.ID)
+	datumInfo, err := a.getDatum(ctx, jobInfo.OutputCommit.Repo.Name, statsBranch.Head, request.Datum.Job.ID, request.Datum.ID)
 	if err != nil {
 		return nil, err
 	}
