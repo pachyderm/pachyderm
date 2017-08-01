@@ -3626,7 +3626,7 @@ func TestPipelineWithStats(t *testing.T) {
 	dataRepo := uniqueString("TestPipelineWithStats_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	numFiles := 100
+	numFiles := 5000
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
@@ -3662,7 +3662,7 @@ func TestPipelineWithStats(t *testing.T) {
 
 	datums, err := c.ListDatum(jobs[0].Job.ID)
 	require.NoError(t, err)
-	require.Equal(t, 5000, len(datums))
+	require.Equal(t, numFiles, len(datums))
 
 	datum, err := c.InspectDatum(jobs[0].Job.ID, datums[0].Datum.ID)
 	require.NoError(t, err)
