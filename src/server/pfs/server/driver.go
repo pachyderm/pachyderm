@@ -1619,12 +1619,14 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern strin
 
 func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.File, shallow bool) ([]*pfs.FileInfo, []*pfs.FileInfo, error) {
 	// Do READER authorization check for both newFile and oldFile
-	if oldFile != nil {
+	if oldFile != nil && oldFile.Commit != nil {
+		//	if oldFile != nil {
 		if err := d.checkIsAuthorized(ctx, oldFile.Commit.Repo, auth.Scope_READER); err != nil {
 			return nil, nil, err
 		}
 	}
-	if newFile != nil {
+	if newFile != nil && newFile.Commit != nil {
+		//	if newFile != nil {
 		if err := d.checkIsAuthorized(ctx, newFile.Commit.Repo, auth.Scope_READER); err != nil {
 			return nil, nil, err
 		}
