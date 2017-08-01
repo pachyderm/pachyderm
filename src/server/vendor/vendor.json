@@ -531,6 +531,18 @@
 			"revisionTime": "2016-06-03T06:26:20Z"
 		},
 		{
+			"checksumSHA1": "tGmEgGsqTY3Qel4yz+zoOrtkARw=",
+			"path": "github.com/facebookgo/atomicfile",
+			"revision": "2de1f203e7d5e386a6833233882782932729f27e",
+			"revisionTime": "2015-10-19T16:08:06Z"
+		},
+		{
+			"checksumSHA1": "HxLgEioMr6ivp8hcu72EqkWe1pE=",
+			"path": "github.com/facebookgo/pidfile",
+			"revision": "f242e2999868dcd267a2b86e49ce1f9cf9e15b16",
+			"revisionTime": "2015-06-12T19:16:47Z"
+		},
+		{
 			"checksumSHA1": "gkRIq2AsG0e/ngNfqW+IF/zr9o8=",
 			"path": "github.com/fatih/color",
 			"revision": "533cd7fd8a85905f67a1753afb4deddc85ea174f",
