@@ -511,7 +511,10 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		fileInfo := fileInfo
 		_, datumHash := filepath.Split(fileInfo.File.Path)
 		datums[datumHash] = &pps.DatumInfo{
-			Datum: &pps.Datum{datumHash},
+			Datum: &pps.Datum{
+				ID:  datumHash,
+				Job: &pps.Job{request.Job.ID},
+			},
 			State: pps.DatumState_SKIPPED,
 		}
 	}
