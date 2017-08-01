@@ -3174,8 +3174,8 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 				Cmd: []string{"true"},
 			},
 			ResourceSpec: &pps.ResourceSpec{
-				Cpu: 0.5,
-				Gpu: 1,
+				Cpu:    0.5,
+				Memory: "100M",
 			},
 			Inputs: []*pps.PipelineInput{{
 				Repo:   &pfs.Repo{dataRepo},
@@ -3192,7 +3192,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 				Cmd: []string{"true"},
 			},
 			ResourceSpec: &pps.ResourceSpec{
-				Gpu: 1,
+				Memory: "100M",
 			},
 			Inputs: []*pps.PipelineInput{{
 				Repo:   &pfs.Repo{dataRepo},
