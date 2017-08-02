@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -614,7 +613,7 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 		Commit: commit,
 		Path:   fmt.Sprintf("/%v/failure", datumID),
 	}
-	_, err := pfsClient.InspectFile(ctx, &pfs.InspectFileRequest{stateFile})
+	_, err = pfsClient.InspectFile(ctx, &pfs.InspectFileRequest{stateFile})
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			state = pps.DatumState_SUCCESS
@@ -628,25 +627,17 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 		Commit: commit,
 		Path:   fmt.Sprintf("/%v/stats", datumID),
 	}
-	getFileClient, err = pfsClient.GetFile(ctx, &pfs.GetFileRequest{statsFile, 0, 0})
+	getFileClient, err := pfsClient.GetFile(ctx, &pfs.GetFileRequest{statsFile, 0, 0})
 	if err != nil {
 		return nil, err
 	}
-	r, w := io.Pipe()
-	var eg errgroup.Group
-	eg.Go(func() error {
-		if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, w); err != nil {
-			return err
-		}
-		w.Close()
-		return nil
-	})
+	var buffer bytes.Buffer
+	if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, &buffer); err != nil {
+		return nil, err
+	}
 	stats := &pps.ProcessStats{}
-	err = jsonpb.Unmarshal(r, stats)
+	err = jsonpb.Unmarshal(&buffer, stats)
 	if err != nil {
-		return nil, err
-	}
-	if err = eg.Wait(); err != nil {
 		return nil, err
 	}
 
