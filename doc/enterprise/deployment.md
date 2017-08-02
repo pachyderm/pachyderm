@@ -75,23 +75,10 @@ rs/pachd-4280389576   1         1         1         13m
 If you previously had port forwarding enabled for your Pachyderm cluster, you will also have to restart this forwarding:
 
 ```
-$ ps aux | grep "forward"
-dwhitena 12625  0.0  0.3 475896 26204 pts/13   SNl  14:51   0:00 pachctl port-forward
-dwhitena 12674  0.0  0.4  58232 35208 pts/13   SNl  14:51   0:00 kubectl port-forward pachd-4280389576-qfcg8 30650:650
-dwhitena 15467  0.0  0.0  14224  1040 pts/13   S+   15:06   0:00 grep --color=auto --exclude-dir=.bzr --exclude-dir=CVS --exclude-dir=.git --exclude-dir=.hg --exclude-dir=.svn forward
-$ kill 12674
-Terminated                                                                                                                                                                                                              
-UI not enabled, deploy with --dashboard
-[1]  + 12625 exit 1     pachctl port-forward
-$ pachctl port-forward &
-[1] 15481
-Pachd port forwarded
-Dash websocket port forwarded
-Dash UI port forwarded, navigate to localhost:38080
-CTRL-C to exit
+$ pachctl port-forward
 ```
 
-Now you can visit the Pachyderm dashboard at `localhost:38080`!  The dashboard will prompt you for your enterprise token that you received when registering for Pachyderm Enterprise Edition:
+Now you can visit the Pachyderm dashboard at `localhost:30080`!  The dashboard will prompt you for your enterprise token that you received when registering for Pachyderm Enterprise Edition:
 
 ![alt tag](token.png)
 
@@ -118,4 +105,4 @@ pachctl deploy custom ... --dashboard
 
 Each of these deploys are further detailed [here](http://pachyderm.readthedocs.io/en/latest/deployment/deploy_intro.html).  
 
-After deploying with those commands, you should see the `dash-xxxxxxxxx` pod running in Kubernetes, and you should be able to access the dashboard at `localhost:38080`, as discussed further [above](#deploying-on-top-of-an-existing-pachyderm-deployment).
+After deploying with those commands, you should see the `dash-xxxxxxxxx` pod running in Kubernetes, and you should be able to access the dashboard at `localhost:30080`, as discussed further [above](#deploying-on-top-of-an-existing-pachyderm-deployment).
