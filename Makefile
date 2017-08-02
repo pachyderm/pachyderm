@@ -70,11 +70,20 @@ install:
 install-doc:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl-doc
 
+check-docker-version:
+	@# The latest docker client requires server api version >=24.
+	@# However, minikube uses 23, so if you're connected to minikube, releases
+	@# may break
+	@ \
+		dv="$$(docker version -f "{{.Server.APIVersion}}" | cut -d. -f2)"; \
+		echo "docker version = $${dv}, need at least 24"; \
+		test "$${dv}" -ge 24
+
 point-release:
 	@make VERSION_ADDITIONAL= release
 
 # Run via 'make VERSION_ADDITIONAL=RC release' to specify a version string
-release: release-version release-pachd release-worker release-pachctl doc
+release: check-docker-version release-version release-pachd release-worker release-pachctl doc
 	@rm VERSION
 	@echo "Release completed"
 
