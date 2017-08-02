@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
+	"github.com/pachyderm/pachyderm/src/server/pkg/util"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 )
@@ -157,7 +158,7 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		}
 		var resources *api.ResourceList
 		if pipelineInfo.ResourceSpec != nil {
-			resources, err = parseResourceList(pipelineInfo.ResourceSpec, pipelineInfo.CacheSize)
+			resources, err = util.GetResourceListFromPipeline(pipelineInfo)
 			if err != nil {
 				return err
 			}

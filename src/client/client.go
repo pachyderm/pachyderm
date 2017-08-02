@@ -67,6 +67,9 @@ type APIClient struct {
 	// authenticationToken is an identifier that authenticates the caller in case
 	// they want to access privileged data
 	authenticationToken string
+
+	// The context used in requests, can be set with WithCtx
+	ctx context.Context
 }
 
 // GetAddress returns the pachd host:post with which 'c' is communicating. If
@@ -200,8 +203,8 @@ func EtcdDialOptions() []grpc.DialOption {
 		// Don't return from Dial() until the connection has been established
 		grpc.WithBlock(),
 
-		// If no connection is established in 10s, fail the call
-		grpc.WithTimeout(10 * time.Second),
+		// If no connection is established in 30s, fail the call
+		grpc.WithTimeout(30 * time.Second),
 
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(grpcutil.MaxMsgSize),
@@ -270,7 +273,17 @@ func (c *APIClient) AddMetadata(ctx context.Context) context.Context {
 // Ctx is a convenience function that returns adds Pachyderm authn metadata
 // to context.Background().
 func (c *APIClient) Ctx() context.Context {
-	return c.AddMetadata(context.Background())
+	if c.ctx == nil {
+		return c.AddMetadata(context.Background())
+	}
+	return c.AddMetadata(c.ctx)
+}
+
+// WithCtx returns a new APIClient that uses ctx for requests it sends.
+func (c *APIClient) WithCtx(ctx context.Context) *APIClient {
+	result := *c // copy c
+	result.ctx = ctx
+	return &result
 }
 
 // SetAuthToken sets the authentication token that will be used for all

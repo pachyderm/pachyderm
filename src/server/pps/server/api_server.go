@@ -25,8 +25,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
-	workerpkg "github.com/pachyderm/pachyderm/src/server/pkg/worker"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
+	workerpkg "github.com/pachyderm/pachyderm/src/server/worker"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
@@ -589,7 +589,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 					}
 				}
 				return nil
-			}, backoff.New10sBackoff())
+			}, backoff.New10sBackOff())
 
 			// Used up all retries -- no logs from worker
 			if err != nil {
@@ -1434,38 +1434,6 @@ func jobStateToStopped(state pps.JobState) bool {
 	default:
 		panic(fmt.Sprintf("unrecognized job state: %s", state))
 	}
-}
-
-func parseResourceList(resources *pps.ResourceSpec, cacheSize string) (*api.ResourceList, error) {
-	cpuQuantity, err := resource.ParseQuantity(fmt.Sprintf("%f", resources.Cpu))
-	if err != nil {
-		return nil, fmt.Errorf("could not parse cpu quantity: %s", err)
-	}
-
-	memQuantity, err := resource.ParseQuantity(resources.Memory)
-	if err != nil {
-		return nil, fmt.Errorf("could not parse memory quantity: %s", err)
-	}
-	cacheQuantity, err := resource.ParseQuantity(cacheSize)
-	if err != nil {
-		return nil, fmt.Errorf("could not parse cache quantity: %s", err)
-	}
-	// Here we are sanity checking.  A pipeline should request at least
-	// as much memory as it needs for caching.
-	if cacheQuantity.Cmp(memQuantity) > 0 {
-		memQuantity = cacheQuantity
-	}
-
-	gpuQuantity, err := resource.ParseQuantity(fmt.Sprintf("%d", resources.Gpu))
-	if err != nil {
-		return nil, fmt.Errorf("could not parse gpu quantity: %s", err)
-	}
-	var result api.ResourceList = map[api.ResourceName]resource.Quantity{
-		api.ResourceCPU:       cpuQuantity,
-		api.ResourceMemory:    memQuantity,
-		api.ResourceNvidiaGPU: gpuQuantity,
-	}
-	return &result, nil
 }
 
 func (a *apiServer) getPFSClient() (pfs.APIClient, error) {
