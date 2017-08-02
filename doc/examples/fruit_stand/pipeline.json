@@ -13,6 +13,7 @@
   "parallelism_spec": {
     "constant": 1
   },
+  "enable_stats": true,
   "inputs": [
     {
       "name": "data",
