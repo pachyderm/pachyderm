@@ -489,7 +489,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	// List the files under /jobID to get all the datums
 	file := &pfs.File{
 		Commit: jobInfo.StatsCommit,
-		Path:   fmt.Sprintf("/%v", request.Job.ID),
+		Path:   "/",
 	}
 	allFileInfos, err := pfsClient.ListFile(ctx, &pfs.ListFileRequest{file})
 	if err != nil {
@@ -508,7 +508,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	// Diff the files under /parentJobID and /jobID to get non-skipped datums
 	newFile := &pfs.File{
 		Commit: jobInfo.StatsCommit,
-		Path:   fmt.Sprintf("/%v", request.Job.ID),
+		Path:   "/",
 	}
 	commitInfo, err := pfsClient.InspectCommit(
 		ctx,
@@ -524,7 +524,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	}
 	oldFile := &pfs.File{
 		Commit: commitInfo.ParentCommit,
-		Path:   fmt.Sprintf("/%v", request.Job.ID),
+		Path:   "/",
 	}
 	resp, err := pfsClient.DiffFile(ctx, &pfs.DiffFileRequest{newFile, oldFile, true})
 	if err != nil {
@@ -609,7 +609,7 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 	state := pps.DatumState_FAILED
 	stateFile := &pfs.File{
 		Commit: commit,
-		Path:   fmt.Sprintf("/%v/%v/failure", jobID, datumID),
+		Path:   fmt.Sprintf("/%v/failure", datumID),
 	}
 	getFileClient, err := pfsClient.GetFile(ctx, &pfs.GetFileRequest{stateFile, 0, 0})
 	if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, ioutil.Discard); err != nil {
@@ -623,7 +623,7 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 	// Populate stats
 	statsFile := &pfs.File{
 		Commit: commit,
-		Path:   fmt.Sprintf("/%v/%v/stats", jobID, datumID),
+		Path:   fmt.Sprintf("/%v/stats", datumID),
 	}
 	getFileClient, err = pfsClient.GetFile(ctx, &pfs.GetFileRequest{statsFile, 0, 0})
 	if err != nil {
@@ -653,7 +653,7 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 		Stats: stats,
 		PfsState: &pfs.File{
 			Commit: commit,
-			Path:   fmt.Sprintf("/%v/%v/pfs", jobID, datumID),
+			Path:   fmt.Sprintf("/%v/pfs", datumID),
 		},
 	}, nil
 }
