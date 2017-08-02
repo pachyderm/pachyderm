@@ -6,7 +6,7 @@ This is because of a dependency on CGO via [this bug](https://github.com/opencon
 
 (We don't want to enable CGO in part because it doesn't play nice w OSX for us)
 
-If you're doing a custom release (off a branch that isn't master), [skip to the section at the bottom](#custom-release) 
+If you're doing a custom release (off a branch that isn't master), [skip to the section at the bottom](#custom-release)
 
 ## Requirements:
 
@@ -25,9 +25,11 @@ You'll need the following credentials / tools:
 
 1) Make sure your commit has a passing build on travis
 
-2) Update `src/client/version/client.go` version values, commit the change
+2) Update `src/client/version/client.go` version values, and **commit the change**
 
-3) Run `make doc` with the new version values. If you're doing an RC or need to specify an additional version string, run it like `make VERSION_ADDITIONAL=RC1 doc`
+Note that `make doc` (next step) will fail if there are any uncommited changes in the current branch
+
+3) Run `make VERSION_ADDITIONAL="" doc` with the new version values. If you're doing an RC or need to specify an additional version string, run it like `make VERSION_ADDITIONAL=RC1 doc`
 
 Make sure you add any new doc files, e.g:
 
@@ -66,11 +68,24 @@ make point-release
 
 Afterwards, you'll be prompted to push your changes to master. Please do so.
 
+### If the release failed
+You'll need to delete the *release* and the *release tag* in github. Navigate to
+`https://www.github.com/pachyderm/pachyderm` and click on the *Releases* tab.
+Click on the big, blue version number corresponding to the release you want to
+delete, and you should be redirected to a page with just that release, and red
+"Delete" button on the top right. Click the delete button
+
+From here, go back to the list of Pachyderm releases, and click "tags". Click
+on the tag for the release you want to delete, and then click "delete" again to
+delete the tag.
+
+At this point, you can re-run the release process when you're ready.
+
 ## Custom Release
 
 Occasionally we have a need for a custom release off a non master branch. This is usually because some features we need to supply to users that are incompatible w features on master, but the features on master we need to keep longer term.
 
-Follow the instructions above, just run the make script off of your branch. 
+Follow the instructions above, just run the make script off of your branch.
 
 Then _after a successful release_:
 
