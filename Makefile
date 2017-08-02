@@ -71,13 +71,14 @@ install-doc:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl-doc
 
 check-docker-version:
-	@# The latest docker client requires server api version >=24.
-	@# However, minikube uses 23, so if you're connected to minikube, releases
-	@# may break
+	# The latest docker client requires server api version >= 1.24.
+	# However, minikube uses 1.23, so if you're connected to minikube, releases
+	# may break
 	@ \
-		dv="$$(docker version -f "{{.Server.APIVersion}}" | cut -d. -f2)"; \
-		echo "docker version = $${dv}, need at least 24"; \
-		test "$${dv}" -ge 24
+		docker_major="$$(docker version -f "{{.Server.APIVersion}}" | cut -d. -f1)"; \
+		docker_minor="$$(docker version -f "{{.Server.APIVersion}}" | cut -d. -f2)"; \
+		echo "docker version = $${docker_major}.$${docker_minor}, need at least 1.24"; \
+		test \( "$${docker_major}" -gt 1 \) -o \( "$${docker_minor}" -ge 24 \)
 
 point-release:
 	@make VERSION_ADDITIONAL= release
