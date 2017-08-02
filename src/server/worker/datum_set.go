@@ -2,6 +2,7 @@ package worker
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -15,13 +16,8 @@ type datumFactory interface {
 	Datum(i int) []*Input
 }
 
-type atomDatumFactory struct {
-	inputs []*Input
-	index  int
-}
-
 func newAtomDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.AtomInput) (datumFactory, error) {
-	result := &atomDatumFactory{}
+	var result atomDatumFactory
 	fileInfos, err := pfsClient.GlobFile(ctx, &pfs.GlobFileRequest{
 		Commit:  client.NewCommit(input.Repo, input.Commit),
 		Pattern: input.Glob,
@@ -30,22 +26,30 @@ func newAtomDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pp
 		return nil, err
 	}
 	for _, fileInfo := range fileInfos.FileInfo {
-		result.inputs = append(result.inputs, &Input{
+		result = append(result, &Input{
 			FileInfo: fileInfo,
 			Name:     input.Name,
 			Lazy:     input.Lazy,
 			Branch:   input.Branch,
 		})
 	}
+	sort.Sort(result)
 	return result, nil
 }
 
-func (d *atomDatumFactory) Len() int {
-	return len(d.inputs)
+type atomDatumFactory []*Input
+
+func (a atomDatumFactory) Len() int      { return len(a) }
+func (a atomDatumFactory) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a atomDatumFactory) Less(i, j int) bool {
+	if a[i].FileInfo.SizeBytes == a[j].FileInfo.SizeBytes {
+		return a[i].FileInfo.File.Path < a[j].FileInfo.File.Path
+	}
+	return a[i].FileInfo.SizeBytes < a[j].FileInfo.SizeBytes
 }
 
-func (d *atomDatumFactory) Datum(i int) []*Input {
-	return []*Input{d.inputs[i]}
+func (a atomDatumFactory) Datum(i int) []*Input {
+	return []*Input{a[i]}
 }
 
 type unionDatumFactory struct {
