@@ -43,7 +43,7 @@ On the Pachyderm cluster running in your remote machine, we will need to create 
 
 ```
 $ pachctl create-repo training
-$ pachctl create-repo reviews
+$ pachctl create-repo attributes
 ```
 
 As a sanity check, we can list out the current repos, and you should see the two repos you just created:
@@ -130,7 +130,7 @@ model.jld           file                43.67 KiB
 
 ## 5. Commit input attributes
 
-Great! We now have a trained model that will infer the species of iris flowers.  Let's commit some iris attributes into Pachyderm that we would like to run through the inference.  We have a couple examples under [test](test).  Feel free to use these, find your own, or even create your own.  To commit our samples (assuming you have cloned this repo on the remote machine), you can run:
+Great! We now have a trained model that will infer the species of iris flowers.  Let's commit some iris attributes into Pachyderm that we would like to run through the inference.  We have a couple examples under [test](data/test).  Feel free to use these, find your own, or even create your own.  To commit our samples (assuming you have cloned this repo on the remote machine), you can run:
 
 ```
 $ cd /home/pachrat/julia-workshop/data/test/
