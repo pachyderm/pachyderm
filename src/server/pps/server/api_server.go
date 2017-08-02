@@ -546,12 +546,12 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		return datumHash, nil
 	}
 	var egGetDatums errgroup.Group
-	getDatumsSemaphore := make(chan struct{}, 200)
+	limiter := limit.New(200)
 	var datumsMutex sync.Mutex
 	for _, fileInfo := range resp.NewFiles {
 		egGetDatums.Go(func() error {
-			getDatumsSemaphore <- struct{}{}
-			defer func() { <-getDatumsSemaphore }()
+			limiter.Acquire()
+			defer limiter.Release()
 			fileInfo := fileInfo
 			datumHash, err := pathToDatumHash(fileInfo.File.Path)
 			if err != nil {
@@ -559,10 +559,13 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 				return nil
 			}
 			datum, err := a.getDatum(ctx, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Job.ID, datumHash)
+			if err != nil {
+				return err
+			}
 			datumsMutex.Lock()
 			defer datumsMutex.Unlock()
 			datums[datumHash] = datum
-			return err
+			return nil
 		})
 	}
 	err = egGetDatums.Wait()
