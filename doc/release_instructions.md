@@ -76,7 +76,7 @@ delete, and you should be redirected to a page with just that release, and red
 "Delete" button on the top right. Click the delete button
 
 From here, go back to the list of Pachyderm releases, and click "tags". Click
-on the tag for the release you want to delete, and then click "Delete again to
+on the tag for the release you want to delete, and then click "delete" again to
 delete the tag.
 
 At this point, you can re-run the release process when you're ready.
