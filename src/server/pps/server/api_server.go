@@ -483,23 +483,12 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	if err != nil {
 		return nil, err
 	}
-	// Check 'stats' branch exists
-	branches, err := pfsClient.ListBranch(ctx, &pfs.ListBranchRequest{jobInfo.OutputCommit.Repo})
-	if err != nil {
-		return nil, err
-	}
-	var statsBranch *pfs.BranchInfo
-	for _, branch := range branches.BranchInfo {
-		if branch.Name == "stats" {
-			statsBranch = branch
-		}
-	}
-	if statsBranch == nil {
-		return nil, fmt.Errorf("stats branch not found on %v", jobInfo.OutputCommit.Repo.Name)
+	if jobInfo.StatsCommit == nil {
+		return nil, fmt.Errorf("stats not enabled on %v", jobInfo.Pipeline.Name)
 	}
 	// List the files under /jobID to get all the datums
 	file := &pfs.File{
-		Commit: statsBranch.Head,
+		Commit: jobInfo.StatsCommit,
 		Path:   fmt.Sprintf("/%v", request.Job.ID),
 	}
 	allFileInfos, err := pfsClient.ListFile(ctx, &pfs.ListFileRequest{file})
@@ -518,7 +507,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 
 	// Diff the files under /parentJobID and /jobID to get non-skipped datums
 	newFile := &pfs.File{
-		Commit: statsBranch.Head,
+		Commit: jobInfo.StatsCommit,
 		Path:   fmt.Sprintf("/%v", request.Job.ID),
 	}
 	commitInfo, err := pfsClient.InspectCommit(
@@ -526,7 +515,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		&pfs.InspectCommitRequest{
 			Commit: &pfs.Commit{
 				Repo: jobInfo.OutputCommit.Repo,
-				ID:   statsBranch.Head.ID,
+				ID:   jobInfo.StatsCommit.ID,
 			},
 		},
 	)
@@ -569,7 +558,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 				// not a datum, nothing to do here
 				return nil
 			}
-			datum, err := a.getDatum(ctx, jobInfo.OutputCommit.Repo.Name, statsBranch.Head, request.Job.ID, datumHash)
+			datum, err := a.getDatum(ctx, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Job.ID, datumHash)
 			datumsMutex.Lock()
 			defer datumsMutex.Unlock()
 			datums[datumHash] = datum
@@ -681,27 +670,12 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 		return nil, err
 	}
 
-	pfsClient, err := a.getPFSClient()
-	if err != nil {
-		return
-	}
-	// Check 'stats' branch exists
-	branches, err := pfsClient.ListBranch(ctx, &pfs.ListBranchRequest{jobInfo.OutputCommit.Repo})
-	if err != nil {
-		return nil, err
-	}
-	var statsBranch *pfs.BranchInfo
-	for _, branch := range branches.BranchInfo {
-		if branch.Name == "stats" {
-			statsBranch = branch
-		}
-	}
-	if statsBranch == nil {
-		return nil, fmt.Errorf("stats branch not found on %v", jobInfo.OutputCommit.Repo.Name)
+	if jobInfo.StatsCommit == nil {
+		return nil, fmt.Errorf("stats not enabled on %v", jobInfo.Pipeline.Name)
 	}
 
 	// Populate datumInfo given a path
-	datumInfo, err := a.getDatum(ctx, jobInfo.OutputCommit.Repo.Name, statsBranch.Head, request.Job.ID, request.Datum.ID)
+	datumInfo, err := a.getDatum(ctx, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Job.ID, request.Datum.ID)
 	if err != nil {
 		return nil, err
 	}
