@@ -233,6 +233,8 @@ $ pachctl list-job -p foo bar/YYY
 			return writer.Flush()
 		}),
 	}
+	rawFlag(listDatum)
+
 	inspectDatum := &cobra.Command{
 		Use:   "inspect-datum job-id datum-id",
 		Short: "Display detailed info about a single datum.",
@@ -258,6 +260,7 @@ $ pachctl list-job -p foo bar/YYY
 			return writer.Flush()
 		}),
 	}
+	rawFlag(inspectDatum)
 
 	var (
 		jobID       string
