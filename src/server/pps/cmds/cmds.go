@@ -224,6 +224,7 @@ $ pachctl list-job -p foo bar/YYY
 						return err
 					}
 				}
+				return nil
 			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			pretty.PrintDatumInfoHeader(writer)
@@ -249,9 +250,7 @@ $ pachctl list-job -p foo bar/YYY
 				return err
 			}
 			if raw {
-				if err := marshaller.Marshal(os.Stdout, datumInfo); err != nil {
-					return err
-				}
+				return marshaller.Marshal(os.Stdout, datumInfo)
 			}
 			writer := tabwriter.NewWriter(os.Stdout, 10, 1, 3, ' ', 0)
 			pretty.PrintDetailedDatumInfo(writer, datumInfo)
