@@ -34,6 +34,13 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
 
 .. toctree::
     :maxdepth: 1
+    :caption: Pachyderm Enterprise Edition
+
+    enterprise/overview
+    enterprise/deployment
+
+.. toctree::
+    :maxdepth: 1
     :caption: Full Examples
 
     examples/readme
