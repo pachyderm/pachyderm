@@ -75,7 +75,7 @@ rs/pachd-4280389576   1         1         1         13m
 If you previously had port forwarding enabled for your Pachyderm cluster, you will also have to restart this forwarding:
 
 ```
-$ pachctl port-forward
+$ pachctl port-forward &
 ```
 
 Now you can visit the Pachyderm dashboard at `localhost:30080`!  The dashboard will prompt you for your enterprise token that you received when registering for Pachyderm Enterprise Edition:
