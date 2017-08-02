@@ -6,7 +6,7 @@ This is because of a dependency on CGO via [this bug](https://github.com/opencon
 
 (We don't want to enable CGO in part because it doesn't play nice w OSX for us)
 
-If you're doing a custom release (off a branch that isn't master), [skip to the section at the bottom](#custom-release) 
+If you're doing a custom release (off a branch that isn't master), [skip to the section at the bottom](#custom-release)
 
 ## Requirements:
 
@@ -25,7 +25,9 @@ You'll need the following credentials / tools:
 
 1) Make sure your commit has a passing build on travis
 
-2) Update `src/client/version/client.go` version values, commit the change
+2) Update `src/client/version/client.go` version values, and **commit the change**
+
+Note that `make doc` (next step) will fail if there are any uncommited changes in the current branch
 
 3) Run `make doc` with the new version values. If you're doing an RC or need to specify an additional version string, run it like `make VERSION_ADDITIONAL=RC1 doc`
 
@@ -70,7 +72,7 @@ Afterwards, you'll be prompted to push your changes to master. Please do so.
 
 Occasionally we have a need for a custom release off a non master branch. This is usually because some features we need to supply to users that are incompatible w features on master, but the features on master we need to keep longer term.
 
-Follow the instructions above, just run the make script off of your branch. 
+Follow the instructions above, just run the make script off of your branch.
 
 Then _after a successful release_:
 
