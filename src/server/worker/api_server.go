@@ -630,7 +630,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		}, nil
 	}
 	stats := &pps.ProcessStats{}
-	statsPath := path.Join("/", req.JobID, logger.template.InputFileID)
+	statsPath := path.Join("/", logger.template.InputFileID)
 	var statsTree hashtree.OpenHashTree
 	if req.EnableStats {
 		statsTree = hashtree.NewHashTree()
