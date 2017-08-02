@@ -614,8 +614,8 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 		Commit: commit,
 		Path:   fmt.Sprintf("/%v/failure", datumID),
 	}
-	getFileClient, err := pfsClient.GetFile(ctx, &pfs.GetFileRequest{stateFile, 0, 0})
-	if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, ioutil.Discard); err != nil {
+	_, err := pfsClient.InspectFile(ctx, &pfs.InspectFileRequest{stateFile})
+	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			state = pps.DatumState_SUCCESS
 		} else {
