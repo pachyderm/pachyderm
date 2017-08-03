@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -483,24 +482,13 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	if err != nil {
 		return nil, err
 	}
-	// Check 'stats' branch exists
-	branches, err := pfsClient.ListBranch(ctx, &pfs.ListBranchRequest{jobInfo.OutputCommit.Repo})
-	if err != nil {
-		return nil, err
-	}
-	var statsBranch *pfs.BranchInfo
-	for _, branch := range branches.BranchInfo {
-		if branch.Name == "stats" {
-			statsBranch = branch
-		}
-	}
-	if statsBranch == nil {
-		return nil, fmt.Errorf("stats branch not found on %v", jobInfo.OutputCommit.Repo.Name)
+	if jobInfo.StatsCommit == nil {
+		return nil, fmt.Errorf("stats not enabled on %v", jobInfo.Pipeline.Name)
 	}
 	// List the files under /jobID to get all the datums
 	file := &pfs.File{
-		Commit: statsBranch.Head,
-		Path:   fmt.Sprintf("/%v", request.Job.ID),
+		Commit: jobInfo.StatsCommit,
+		Path:   "/",
 	}
 	allFileInfos, err := pfsClient.ListFile(ctx, &pfs.ListFileRequest{file})
 	if err != nil {
@@ -521,15 +509,15 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 
 	// Diff the files under /parentJobID and /jobID to get non-skipped datums
 	newFile := &pfs.File{
-		Commit: statsBranch.Head,
-		Path:   fmt.Sprintf("/%v", request.Job.ID),
+		Commit: jobInfo.StatsCommit,
+		Path:   "/",
 	}
 	commitInfo, err := pfsClient.InspectCommit(
 		ctx,
 		&pfs.InspectCommitRequest{
 			Commit: &pfs.Commit{
 				Repo: jobInfo.OutputCommit.Repo,
-				ID:   statsBranch.Head.ID,
+				ID:   jobInfo.StatsCommit.ID,
 			},
 		},
 	)
@@ -538,15 +526,14 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	}
 	oldFile := &pfs.File{
 		Commit: commitInfo.ParentCommit,
-		Path:   fmt.Sprintf("/%v", request.Job.ID),
+		Path:   "/",
 	}
 	resp, err := pfsClient.DiffFile(ctx, &pfs.DiffFileRequest{newFile, oldFile, true})
 	if err != nil {
 		return nil, err
 	}
 
-	// The newFileInfos contain datums that were new in this job
-	// For these datums, populate the status and stats
+	// Omit files at the top level that correspond to aggregate job stats
 	blacklist := map[string]bool{
 		"stats": true,
 		"logs":  true,
@@ -560,23 +547,28 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		return datumHash, nil
 	}
 	var egGetDatums errgroup.Group
-	getDatumsSemaphore := make(chan struct{}, 200)
+	limiter := limit.New(200)
 	var datumsMutex sync.Mutex
+	// The newFileInfos contain datums that were new in this job
+	// For these datums, populate the status and stats
 	for _, fileInfo := range resp.NewFiles {
+		fileInfo := fileInfo
 		egGetDatums.Go(func() error {
-			getDatumsSemaphore <- struct{}{}
-			defer func() { <-getDatumsSemaphore }()
-			fileInfo := fileInfo
+			limiter.Acquire()
+			defer limiter.Release()
 			datumHash, err := pathToDatumHash(fileInfo.File.Path)
 			if err != nil {
 				// not a datum, nothing to do here
 				return nil
 			}
-			datum, err := a.getDatum(ctx, jobInfo.OutputCommit.Repo.Name, statsBranch.Head, request.Job.ID, datumHash)
+			datum, err := a.getDatum(ctx, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Job.ID, datumHash)
+			if err != nil {
+				return err
+			}
 			datumsMutex.Lock()
 			defer datumsMutex.Unlock()
 			datums[datumHash] = datum
-			return err
+			return nil
 		})
 	}
 	err = egGetDatums.Wait()
@@ -623,10 +615,10 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 	state := pps.DatumState_FAILED
 	stateFile := &pfs.File{
 		Commit: commit,
-		Path:   fmt.Sprintf("/%v/%v/failure", jobID, datumID),
+		Path:   fmt.Sprintf("/%v/failure", datumID),
 	}
-	getFileClient, err := pfsClient.GetFile(ctx, &pfs.GetFileRequest{stateFile, 0, 0})
-	if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, ioutil.Discard); err != nil {
+	_, err = pfsClient.InspectFile(ctx, &pfs.InspectFileRequest{stateFile})
+	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			state = pps.DatumState_SUCCESS
 		} else {
@@ -637,27 +629,19 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 	// Populate stats
 	statsFile := &pfs.File{
 		Commit: commit,
-		Path:   fmt.Sprintf("/%v/%v/stats", jobID, datumID),
+		Path:   fmt.Sprintf("/%v/stats", datumID),
 	}
-	getFileClient, err = pfsClient.GetFile(ctx, &pfs.GetFileRequest{statsFile, 0, 0})
+	getFileClient, err := pfsClient.GetFile(ctx, &pfs.GetFileRequest{statsFile, 0, 0})
 	if err != nil {
 		return nil, err
 	}
-	r, w := io.Pipe()
-	var eg errgroup.Group
-	eg.Go(func() error {
-		if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, w); err != nil {
-			return err
-		}
-		w.Close()
-		return nil
-	})
+	var buffer bytes.Buffer
+	if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, &buffer); err != nil {
+		return nil, err
+	}
 	stats := &pps.ProcessStats{}
-	err = jsonpb.Unmarshal(r, stats)
+	err = jsonpb.Unmarshal(&buffer, stats)
 	if err != nil {
-		return nil, err
-	}
-	if err = eg.Wait(); err != nil {
 		return nil, err
 	}
 
@@ -670,7 +654,7 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 		Stats: stats,
 		PfsState: &pfs.File{
 			Commit: commit,
-			Path:   fmt.Sprintf("/%v/%v/pfs", jobID, datumID),
+			Path:   fmt.Sprintf("/%v/pfs", datumID),
 		},
 	}, nil
 }
@@ -687,27 +671,12 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 		return nil, err
 	}
 
-	pfsClient, err := a.getPFSClient()
-	if err != nil {
-		return
-	}
-	// Check 'stats' branch exists
-	branches, err := pfsClient.ListBranch(ctx, &pfs.ListBranchRequest{jobInfo.OutputCommit.Repo})
-	if err != nil {
-		return nil, err
-	}
-	var statsBranch *pfs.BranchInfo
-	for _, branch := range branches.BranchInfo {
-		if branch.Name == "stats" {
-			statsBranch = branch
-		}
-	}
-	if statsBranch == nil {
-		return nil, fmt.Errorf("stats branch not found on %v", jobInfo.OutputCommit.Repo.Name)
+	if jobInfo.StatsCommit == nil {
+		return nil, fmt.Errorf("stats not enabled on %v", jobInfo.Pipeline.Name)
 	}
 
 	// Populate datumInfo given a path
-	datumInfo, err := a.getDatum(ctx, jobInfo.OutputCommit.Repo.Name, statsBranch.Head, request.Datum.Job.ID, request.Datum.ID)
+	datumInfo, err := a.getDatum(ctx, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Datum.Job.ID, request.Datum.ID)
 	if err != nil {
 		return nil, err
 	}

@@ -243,7 +243,6 @@ func diff(new HashTree, old HashTree, newPath string, oldPath string, recursiveD
 			newDepth--
 		}
 		for child := range children {
-			fmt.Printf("calculating file diff for child %v\n", child)
 			if err := diff(new, old, pathlib.Join(newPath, child), pathlib.Join(oldPath, child), newDepth, f); err != nil {
 				return err
 			}
