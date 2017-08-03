@@ -205,6 +205,61 @@ $ pachctl list-job -p foo bar/YYY
 			return nil
 		}),
 	}
+	listDatum := &cobra.Command{
+		Use:   "list-datum job-id",
+		Short: "Return the datums in a job.",
+		Long:  "Return the datums in a job.",
+		Run: cmdutil.RunBoundedArgs(1, 1, func(args []string) error {
+			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			if err != nil {
+				return err
+			}
+			datumInfos, err := client.ListDatum(args[0])
+			if err != nil {
+				return err
+			}
+			if raw {
+				for _, datumInfo := range datumInfos {
+					if err := marshaller.Marshal(os.Stdout, datumInfo); err != nil {
+						return err
+					}
+				}
+				return nil
+			}
+			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			pretty.PrintDatumInfoHeader(writer)
+			for _, datumInfo := range datumInfos {
+				pretty.PrintDatumInfo(writer, datumInfo)
+			}
+			return writer.Flush()
+		}),
+	}
+	rawFlag(listDatum)
+
+	inspectDatum := &cobra.Command{
+		Use:   "inspect-datum job-id datum-id",
+		Short: "Display detailed info about a single datum.",
+		Long:  "Display detailed info about a single datum.",
+		Run: cmdutil.RunBoundedArgs(2, 2, func(args []string) error {
+			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			if err != nil {
+				return err
+			}
+			datumInfo, err := client.InspectDatum(args[0], args[1])
+			if err != nil {
+				return err
+			}
+			if raw {
+				return marshaller.Marshal(os.Stdout, datumInfo)
+			}
+			writer := tabwriter.NewWriter(os.Stdout, 10, 1, 3, ' ', 0)
+			pretty.PrintDetailedDatumInfo(writer, datumInfo)
+			pretty.PrintDatumPfsStateHeader(writer)
+			pretty.PrintDatumPfsState(writer, datumInfo)
+			return writer.Flush()
+		}),
+	}
+	rawFlag(inspectDatum)
 
 	var (
 		jobID       string
@@ -587,6 +642,8 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	result = append(result, deleteJob)
 	result = append(result, stopJob)
 	result = append(result, restartDatum)
+	result = append(result, listDatum)
+	result = append(result, inspectDatum)
 	result = append(result, getLogs)
 	result = append(result, pipeline)
 	result = append(result, createPipeline)

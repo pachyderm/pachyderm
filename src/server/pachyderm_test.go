@@ -3639,7 +3639,7 @@ func TestPipelineWithStats(t *testing.T) {
 	dataRepo := uniqueString("TestPipelineWithStats_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	numFiles := 100
+	numFiles := 5000
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
@@ -3672,6 +3672,99 @@ func TestPipelineWithStats(t *testing.T) {
 	jobs, err := c.ListJob(pipeline, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
+
+	datums, err := c.ListDatum(jobs[0].Job.ID)
+	require.NoError(t, err)
+	require.Equal(t, numFiles, len(datums))
+
+	for _, datum := range datums {
+		require.NoError(t, err)
+		require.Equal(t, pps.DatumState_SUCCESS, datum.State)
+	}
+
+	// Make sure inspect-datum works
+	datum, err := c.InspectDatum(jobs[0].Job.ID, datums[0].Datum.ID)
+	require.NoError(t, err)
+	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
+}
+
+func TestPipelineWithStatsAcrossJobs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestPipelineWithStats_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	numFiles := 5000
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	for i := 0; i < numFiles; i++ {
+		_, err = c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("foo-%d", i), strings.NewReader(strings.Repeat("foo\n", 100)))
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	commit2, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	for i := 0; i < numFiles; i++ {
+		_, err = c.PutFile(dataRepo, commit2.ID, fmt.Sprintf("bar-%d", i), strings.NewReader(strings.Repeat("bar\n", 100)))
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
+
+	pipeline := uniqueString("pipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+				},
+			},
+			Input:       client.NewAtomInput(dataRepo, "/*"),
+			EnableStats: true,
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 4,
+			},
+		})
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	jobs, err := c.ListJob(pipeline, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+
+	datums, err := c.ListDatum(jobs[0].Job.ID)
+	require.NoError(t, err)
+	require.Equal(t, numFiles, len(datums))
+
+	datum, err := c.InspectDatum(jobs[0].Job.ID, datums[0].Datum.ID)
+	require.NoError(t, err)
+	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
+
+	commitIter, err = c.FlushCommit([]*pfs.Commit{commit2}, nil)
+	require.NoError(t, err)
+	commitInfos = collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	jobs, err = c.ListJob(pipeline, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(jobs))
+
+	datums, err = c.ListDatum(jobs[0].Job.ID)
+	require.NoError(t, err)
+	// we should see all the datums from the first job (which should be skipped)
+	// in addition to all the new datums processed in this job
+	require.Equal(t, numFiles*2, len(datums))
+
+	datum, err = c.InspectDatum(jobs[0].Job.ID, datums[0].Datum.ID)
+	require.NoError(t, err)
+	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 }
 
 func TestIncrementalSharedProvenance(t *testing.T) {

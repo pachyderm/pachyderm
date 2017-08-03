@@ -125,15 +125,16 @@ func (a *APIServer) getTaggedLogger(ctx context.Context, req *ProcessRequest) (*
 	// Add inputs' details to log metadata, so we can find these logs later
 	hash := sha256.New()
 	for _, d := range req.Data {
-		result.template.Data = append(result.template.Data, &pps.Datum{
+		result.template.Data = append(result.template.Data, &pps.InputFile{
 			Path: d.FileInfo.File.Path,
 			Hash: d.FileInfo.Hash,
 		})
+		hash.Write([]byte(d.FileInfo.File.Path))
 		hash.Write(d.FileInfo.Hash)
 	}
-	// DatumID is a single string id for the datum, it's used in logs and in
+	// InputFileID is a single string id for the data from this input, it's used in logs and in
 	// the statsTree
-	result.template.DatumID = hex.EncodeToString(hash.Sum(nil))
+	result.template.InputFileID = hex.EncodeToString(hash.Sum(nil))
 	putObjClient, err := a.pachClient.ObjectAPIClient.PutObject(ctx)
 	if err != nil {
 		return nil, err
@@ -629,7 +630,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		}, nil
 	}
 	stats := &pps.ProcessStats{}
-	statsPath := path.Join("/", req.JobID, logger.template.DatumID)
+	statsPath := path.Join("/", logger.template.InputFileID)
 	var statsTree hashtree.OpenHashTree
 	if req.EnableStats {
 		statsTree = hashtree.NewHashTree()
@@ -824,10 +825,10 @@ func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*Cancel
 	return &CancelResponse{Success: true}, nil
 }
 
-func (a *APIServer) datum() []*pps.Datum {
-	var result []*pps.Datum
+func (a *APIServer) datum() []*pps.InputFile {
+	var result []*pps.InputFile
 	for _, datum := range a.data {
-		result = append(result, &pps.Datum{
+		result = append(result, &pps.InputFile{
 			Path: datum.FileInfo.File.Path,
 			Hash: datum.FileInfo.Hash,
 		})

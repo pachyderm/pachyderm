@@ -74,7 +74,8 @@ type HashTree interface {
 	// Diff returns a the diff of 2 HashTrees at particular Paths. It takes a
 	// callback function f, which will be called with paths that are not
 	// identical to the same path in the other HashTree.
-	Diff(oldHashTree HashTree, newPath string, oldPath string, f func(path string, node *NodeProto, new bool) error) error
+	// Specify '-1' for fully recursive, or '1' for shallow diff
+	Diff(oldHashTree HashTree, newPath string, oldPath string, recursiveDepth int64, f func(path string, node *NodeProto, new bool) error) error
 }
 
 // OpenNode is similar to NodeProto, except that it doesn't include the Hash
