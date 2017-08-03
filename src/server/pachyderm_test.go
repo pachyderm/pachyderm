@@ -2973,13 +2973,13 @@ func TestUseMultipleWorkers(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
 	pipeline := uniqueString("pipeline")
-	// This pipeline sleeps for 20 secs per datum
+	// This pipeline sleeps for 10 secs per datum
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
 		"",
 		[]string{"bash"},
 		[]string{
-			"sleep 5",
+			"sleep 10",
 		},
 		&pps.ParallelismSpec{
 			Constant: 2,
@@ -2988,20 +2988,33 @@ func TestUseMultipleWorkers(t *testing.T) {
 		"",
 		false,
 	))
-	err = backoff.Retry(func() error {
+	// Get job info 2x/sec for 20s until we confirm two workers for the current job
+	jobInfoErr := fmt.Errorf("never queried job workers")
+	for i := 0; i < 40; i++ {
+		time.Sleep(500 * time.Millisecond)
 		jobs, err := c.ListJob(pipeline, nil)
-		require.NoError(t, err)
+		if err != nil {
+			jobInfoErr = fmt.Errorf("could not list job: %s", err.Error())
+			continue
+		}
 		if len(jobs) == 0 {
-			return fmt.Errorf("failed to find jobs")
+			jobInfoErr = fmt.Errorf("failed to find job")
+			continue
 		}
 		jobInfo, err := c.InspectJob(jobs[0].Job.ID, false)
-		require.NoError(t, err)
-		if len(jobInfo.WorkerStatus) != 2 {
-			return fmt.Errorf("incorrect number of statuses: %v", len(jobInfo.WorkerStatus))
+		if err != nil {
+			jobInfoErr = fmt.Errorf("could not inspect job: %s", err.Error())
+			continue
 		}
-		return nil
-	}, backoff.NewTestingBackOff())
-	require.NoError(t, err)
+		if len(jobInfo.WorkerStatus) != 2 {
+			jobInfoErr = fmt.Errorf("incorrect number of statuses: %v", len(jobInfo.WorkerStatus))
+			continue
+		} else {
+			jobInfoErr = nil
+			break
+		}
+	}
+	require.NoError(t, jobInfoerr)
 }
 
 // TestSystemResourceRequest doesn't create any jobs or pipelines, it
