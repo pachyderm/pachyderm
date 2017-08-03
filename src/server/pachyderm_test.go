@@ -5,8 +5,10 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"path"
@@ -3800,6 +3802,35 @@ func TestSkippedDatums(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 	*/
+}
+
+func TestOpencvDemo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+	require.NoError(t, c.CreateRepo("images"))
+	commit, err := c.StartCommit("images", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFileURL("images", "master", "46Q8nDz.jpg", "http://imgur.com/46Q8nDz.jpg", false))
+	require.NoError(t, c.FinishCommit("images", "master"))
+	bytes, err := ioutil.ReadFile("../../doc/examples/opencv/edges.json")
+	require.NoError(t, err)
+	createPipelineRequest := &pps.CreatePipelineRequest{}
+	require.NoError(t, json.Unmarshal(bytes, createPipelineRequest))
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(), createPipelineRequest)
+	require.NoError(t, err)
+	bytes, err = ioutil.ReadFile("../../doc/examples/opencv/montage.json")
+	require.NoError(t, err)
+	createPipelineRequest = &pps.CreatePipelineRequest{}
+	require.NoError(t, json.Unmarshal(bytes, createPipelineRequest))
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(), createPipelineRequest)
+	require.NoError(t, err)
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 2, len(commitInfos))
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
