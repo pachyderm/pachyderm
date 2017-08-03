@@ -548,10 +548,10 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	limiter := limit.New(200)
 	var datumsMutex sync.Mutex
 	for _, fileInfo := range resp.NewFiles {
+		fileInfo := fileInfo
 		egGetDatums.Go(func() error {
 			limiter.Acquire()
 			defer limiter.Release()
-			fileInfo := fileInfo
 			datumHash, err := pathToDatumHash(fileInfo.File.Path)
 			if err != nil {
 				// not a datum, nothing to do here
