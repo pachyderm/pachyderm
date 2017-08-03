@@ -485,7 +485,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	if jobInfo.StatsCommit == nil {
 		return nil, fmt.Errorf("stats not enabled on %v", jobInfo.Pipeline.Name)
 	}
-	// List the files under /jobID to get all the datums
+	// List the files under /jobID to get all the datums (including skipped ones)
 	file := &pfs.File{
 		Commit: jobInfo.StatsCommit,
 		Path:   "/",
@@ -495,43 +495,6 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		return nil, err
 	}
 	datums := make(map[string]*pps.DatumInfo)
-	for _, fileInfo := range allFileInfos.FileInfo {
-		fileInfo := fileInfo
-		_, datumHash := filepath.Split(fileInfo.File.Path)
-		datums[datumHash] = &pps.DatumInfo{
-			Datum: &pps.Datum{
-				ID:  datumHash,
-				Job: &pps.Job{request.Job.ID},
-			},
-			State: pps.DatumState_SKIPPED,
-		}
-	}
-
-	// Diff the files under /parentJobID and /jobID to get non-skipped datums
-	newFile := &pfs.File{
-		Commit: jobInfo.StatsCommit,
-		Path:   "/",
-	}
-	commitInfo, err := pfsClient.InspectCommit(
-		ctx,
-		&pfs.InspectCommitRequest{
-			Commit: &pfs.Commit{
-				Repo: jobInfo.OutputCommit.Repo,
-				ID:   jobInfo.StatsCommit.ID,
-			},
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-	oldFile := &pfs.File{
-		Commit: commitInfo.ParentCommit,
-		Path:   "/",
-	}
-	resp, err := pfsClient.DiffFile(ctx, &pfs.DiffFileRequest{newFile, oldFile, true})
-	if err != nil {
-		return nil, err
-	}
 
 	// Omit files at the top level that correspond to aggregate job stats
 	blacklist := map[string]bool{
@@ -549,9 +512,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	var egGetDatums errgroup.Group
 	limiter := limit.New(200)
 	var datumsMutex sync.Mutex
-	// The newFileInfos contain datums that were new in this job
-	// For these datums, populate the status and stats
-	for _, fileInfo := range resp.NewFiles {
+	for _, fileInfo := range allFileInfos.FileInfo {
 		fileInfo := fileInfo
 		egGetDatums.Go(func() error {
 			limiter.Acquire()
@@ -606,13 +567,53 @@ func (a byDatumStateThenTime) Less(i, j int) bool {
 	return client.GetDatumTotalTime(a[i].Stats) > client.GetDatumTotalTime(a[j].Stats)
 }
 
-func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commit, jobID string, datumID string) (*pps.DatumInfo, error) {
+func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commit, jobID string, datumID string) (datumInfo *pps.DatumInfo, retErr error) {
+	datumInfo = &pps.DatumInfo{
+		Datum: &pps.Datum{
+			ID:  datumID,
+			Job: &pps.Job{jobID},
+		},
+		State: pps.DatumState_SKIPPED,
+	}
+
 	pfsClient, err := a.getPFSClient()
 	if err != nil {
 		return nil, err
 	}
+
+	// Check if skipped
+	path := fmt.Sprintf("/%v", datumID)
+	newFile := &pfs.File{
+		Commit: commit,
+		Path:   path,
+	}
+	commitInfo, err := pfsClient.InspectCommit(
+		ctx,
+		&pfs.InspectCommitRequest{
+			Commit: &pfs.Commit{
+				Repo: commit.Repo,
+				ID:   commit.ID,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	oldFile := &pfs.File{
+		Commit: commitInfo.ParentCommit,
+		Path:   path,
+	}
+	resp, err := pfsClient.DiffFile(ctx, &pfs.DiffFileRequest{newFile, oldFile, true})
+	if err != nil {
+		return nil, err
+	}
+	// Datum wasn't added in this commit, so it was skipped
+	if len(resp.NewFiles) == 0 {
+		return datumInfo, nil
+	}
+
 	// Populate status
-	state := pps.DatumState_FAILED
+	datumInfo.State = pps.DatumState_FAILED
 	stateFile := &pfs.File{
 		Commit: commit,
 		Path:   fmt.Sprintf("/%v/failure", datumID),
@@ -620,7 +621,7 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 	_, err = pfsClient.InspectFile(ctx, &pfs.InspectFileRequest{stateFile})
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			state = pps.DatumState_SUCCESS
+			datumInfo.State = pps.DatumState_SUCCESS
 		} else {
 			return nil, err
 		}
@@ -644,19 +645,13 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 	if err != nil {
 		return nil, err
 	}
+	datumInfo.Stats = stats
+	datumInfo.PfsState = &pfs.File{
+		Commit: commit,
+		Path:   fmt.Sprintf("/%v/pfs", datumID),
+	}
 
-	return &pps.DatumInfo{
-		Datum: &pps.Datum{
-			ID:  datumID,
-			Job: &pps.Job{jobID},
-		},
-		State: state,
-		Stats: stats,
-		PfsState: &pfs.File{
-			Commit: commit,
-			Path:   fmt.Sprintf("/%v/pfs", datumID),
-		},
-	}, nil
+	return datumInfo, nil
 }
 
 func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumRequest) (response *pps.DatumInfo, retErr error) {
