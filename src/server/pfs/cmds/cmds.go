@@ -827,6 +827,7 @@ $ pachctl glob-file foo master "data/*"
 	}
 	rawFlag(globFile)
 
+	var shallow bool
 	diffFile := &cobra.Command{
 		Use:   "diff-file new-repo-name new-commit-id new-path [old-repo-name old-commit-id old-path]",
 		Short: "Return a diff of two file trees.",
@@ -849,9 +850,9 @@ $ pachctl diff-file foo master path1 bar master path2
 			var oldFiles []*pfsclient.FileInfo
 			switch {
 			case len(args) == 3:
-				newFiles, oldFiles, err = client.DiffFile(args[0], args[1], args[2], "", "", "")
+				newFiles, oldFiles, err = client.DiffFile(args[0], args[1], args[2], "", "", "", shallow)
 			case len(args) == 6:
-				newFiles, oldFiles, err = client.DiffFile(args[0], args[1], args[2], args[3], args[4], args[5])
+				newFiles, oldFiles, err = client.DiffFile(args[0], args[1], args[2], args[3], args[4], args[5], shallow)
 			default:
 				return fmt.Errorf("diff-file expects either 3 or 6 args, got %d", len(args))
 			}
@@ -883,6 +884,7 @@ $ pachctl diff-file foo master path1 bar master path2
 			return nil
 		}),
 	}
+	diffFile.Flags().BoolVarP(&shallow, "shallow", "s", false, "Specifies whether or not to diff subdirectories")
 
 	deleteFile := &cobra.Command{
 		Use:   "delete-file repo-name commit-id path/to/file",

@@ -9,7 +9,7 @@ import (
 // MatchDatum checks if a datum matches a filter.  To match each string in
 // filter must correspond match at least 1 datum's Path or Hash. Order of
 // filter and data is irrelevant.
-func MatchDatum(filter []string, data []*pps.Datum) bool {
+func MatchDatum(filter []string, data []*pps.InputFile) bool {
 	// All paths in request.DataFilters must appear somewhere in the log
 	// line's inputs, or it's filtered
 	matchesData := true

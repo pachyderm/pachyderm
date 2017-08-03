@@ -647,7 +647,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 
 		// Increment the repo sizes by the sizes of the files that have
 		// been added in this commit.
-		finishedTree.Diff(parentTree, "", "", func(path string, node *hashtree.NodeProto, new bool) error {
+		finishedTree.Diff(parentTree, "", "", -1, func(path string, node *hashtree.NodeProto, new bool) error {
 			if node.FileNode != nil && new {
 				repoInfo.SizeBytes += uint64(node.SubtreeSize)
 			}
@@ -1619,14 +1619,16 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern strin
 	return fileInfos, nil
 }
 
-func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.File) ([]*pfs.FileInfo, []*pfs.FileInfo, error) {
+func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.File, shallow bool) ([]*pfs.FileInfo, []*pfs.FileInfo, error) {
 	// Do READER authorization check for both newFile and oldFile
-	if oldFile != nil {
+	if oldFile != nil && oldFile.Commit != nil {
+		//	if oldFile != nil {
 		if err := d.checkIsAuthorized(ctx, oldFile.Commit.Repo, auth.Scope_READER); err != nil {
 			return nil, nil, err
 		}
 	}
-	if newFile != nil {
+	if newFile != nil && newFile.Commit != nil {
+		//	if newFile != nil {
 		if err := d.checkIsAuthorized(ctx, newFile.Commit.Repo, auth.Scope_READER); err != nil {
 			return nil, nil, err
 		}
@@ -1653,7 +1655,11 @@ func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.F
 	}
 	var newFileInfos []*pfs.FileInfo
 	var oldFileInfos []*pfs.FileInfo
-	if err := newTree.Diff(oldTree, newFile.Path, oldFile.Path, func(path string, node *hashtree.NodeProto, new bool) error {
+	recursiveDepth := -1
+	if shallow {
+		recursiveDepth = 1
+	}
+	if err := newTree.Diff(oldTree, newFile.Path, oldFile.Path, int64(recursiveDepth), func(path string, node *hashtree.NodeProto, new bool) error {
 		if new {
 			newFileInfos = append(newFileInfos, nodeToFileInfo(newFile.Commit, path, node, false))
 		} else {
