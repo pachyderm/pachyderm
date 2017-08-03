@@ -134,7 +134,7 @@ func (p *Pool) Close() error {
 	close(p.done)
 	var retErr error
 	for _, conn := range p.conns {
-		if conn != nil {
+		if conn.cc != nil {
 			if err := conn.cc.Close(); err != nil {
 				retErr = err
 			}
