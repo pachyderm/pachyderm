@@ -422,23 +422,28 @@ func (a *apiServer) GetCapability(ctx context.Context, req *authclient.GetCapabi
 	if err != nil {
 		return nil, err
 	}
-	if !activated {
-		return nil, authclient.NotActivatedError{}
-	}
 
-	user, err := a.getAuthenticatedUser(ctx)
-	if err != nil {
-		return nil, err
+	var user *authclient.User
+	if !activated {
+		// If auth service is not activated, we want to return a capability
+		// that's able to access any repo.  That way, when we create a
+		// pipeline, we can assign it with a capability that would allow
+		// it to access any repo after the auth service has been activated.
+		user = &authclient.User{
+			Admin: true,
+		}
+	} else {
+		user, err = a.getAuthenticatedUser(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	capability := uuid.NewWithoutDashes()
 	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		tokens := a.tokens.ReadWrite(stm)
 		// Capabilities are forver; they don't expire.
-		return tokens.Put(hashToken(capability), &authclient.User{
-			Username: user.Username,
-			Admin:    user.Admin,
-		})
+		return tokens.Put(hashToken(capability), user)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error storing capability for user %v: %v", user.Username, err)
