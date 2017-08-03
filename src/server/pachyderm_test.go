@@ -3664,6 +3664,12 @@ func TestPipelineWithStats(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(datums))
 
+	for _, datum := range datums {
+		require.NoError(t, err)
+		require.Equal(t, pps.DatumState_SUCCESS, datum.State)
+	}
+
+	// Make sure inspect-datum works
 	datum, err := c.InspectDatum(jobs[0].Job.ID, datums[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
