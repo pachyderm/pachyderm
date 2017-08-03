@@ -104,7 +104,10 @@ func NewAuthServer(etcdAddress string, etcdPrefix string) (authclient.APIServer,
 			nil,
 		),
 	}
-	s.activated.Store(time.Now().Add(1 * time.Minute))
+
+	// t == 0 implies auth is activated, so we force an etcd read in first call to
+	// isActivated() by setting t == 0 + epsilon
+	s.activated.Store(time.Time{}.Add(1 * time.Minute))
 	return s, nil
 }
 
@@ -359,7 +362,25 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 		return nil, authclient.NotActivatedError{}
 	}
 
-	return nil, fmt.Errorf("TODO")
+	user, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// For now, we don't return OWNER if the user is an admin, even though that's
+	// their effective access scope for all repos--the caller may want to know
+	// what will happen if the user's admin privileges are revoked
+
+	// Read repo ACL from etcd
+	var acl authclient.ACL
+	err = a.acls.ReadOnly(ctx).Get(req.Repo.Name, &acl)
+	resp = new(authclient.GetScopeResponse)
+	if err == nil || acl.Entries == nil {
+		// ACL not found. User has no scope
+		resp.Scope = authclient.Scope_NONE
+	} else {
+		resp.Scope = acl.Entries[user.Username]
+	}
+	return resp, nil
 }
 
 func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (resp *authclient.GetACLResponse, retErr error) {
@@ -372,8 +393,26 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	if !activated {
 		return nil, authclient.NotActivatedError{}
 	}
+	user, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
 
-	return nil, fmt.Errorf("TODO")
+	// Read repo ACL from etcd
+	resp = &authclient.GetACLResponse{
+		Acl: &authclient.ACL{},
+	}
+	err = a.acls.ReadOnly(ctx).Get(req.Repo.Name, resp.Acl)
+	if err != nil {
+		return nil, err
+	}
+	// For now, require READER access to read repo metadata (commits, and ACLs)
+	if resp.Acl.Entries == nil && !user.Admin {
+		return nil, fmt.Errorf("you must have at least reader access to %s to read its ACL", req.Repo.Name)
+	} else if resp.Acl.Entries != nil && resp.Acl.Entries[user.Username] < authclient.Scope_READER {
+		return nil, fmt.Errorf("you must have at least reader access to %s to read its ACL", req.Repo.Name)
+	}
+	return resp, nil
 }
 
 func (a *apiServer) GetCapability(ctx context.Context, req *authclient.GetCapabilityRequest) (resp *authclient.GetCapabilityResponse, retErr error) {
@@ -383,23 +422,28 @@ func (a *apiServer) GetCapability(ctx context.Context, req *authclient.GetCapabi
 	if err != nil {
 		return nil, err
 	}
-	if !activated {
-		return nil, authclient.NotActivatedError{}
-	}
 
-	user, err := a.getAuthenticatedUser(ctx)
-	if err != nil {
-		return nil, err
+	var user *authclient.User
+	if !activated {
+		// If auth service is not activated, we want to return a capability
+		// that's able to access any repo.  That way, when we create a
+		// pipeline, we can assign it with a capability that would allow
+		// it to access any repo after the auth service has been activated.
+		user = &authclient.User{
+			Admin: true,
+		}
+	} else {
+		user, err = a.getAuthenticatedUser(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	capability := uuid.NewWithoutDashes()
 	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		tokens := a.tokens.ReadWrite(stm)
 		// Capabilities are forver; they don't expire.
-		return tokens.Put(hashToken(capability), &authclient.User{
-			Username: user.Username,
-			Admin:    user.Admin,
-		})
+		return tokens.Put(hashToken(capability), user)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error storing capability for user %v: %v", user.Username, err)

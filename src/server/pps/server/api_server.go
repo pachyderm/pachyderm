@@ -926,7 +926,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	}
 
 	capabilityResp, err := authClient.GetCapability(ctx, &auth.GetCapabilityRequest{})
-	if err != nil && !auth.IsNotActivatedError(err) {
+	if err != nil {
 		return nil, fmt.Errorf("error getting capability for the user: %v", err)
 	}
 
@@ -955,14 +955,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		EnableStats:        request.EnableStats,
 		Salt:               uuid.NewWithoutDashes(),
 		Batch:              request.Batch,
+		Capability:         capabilityResp.Capability,
 	}
 	setPipelineDefaults(pipelineInfo)
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
 		return nil, err
-	}
-
-	if capabilityResp != nil {
-		pipelineInfo.Capability = capabilityResp.Capability
 	}
 
 	pfsClient, err := a.getPFSClient()

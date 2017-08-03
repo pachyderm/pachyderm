@@ -184,7 +184,7 @@ func (d *driver) initializePachConn() error {
 // authorization scope 's' for repo 'r'
 func (d *driver) checkIsAuthorized(ctx context.Context, r *pfs.Repo, s auth.Scope) error {
 	d.initializePachConn()
-	resp, err := d.pachClient.AuthAPIClient.Authorize(ctx, &auth.AuthorizeRequest{
+	resp, err := d.pachClient.AuthAPIClient.Authorize(auth.In2Out(ctx), &auth.AuthorizeRequest{
 		Repo:  r,
 		Scope: s,
 	})
@@ -221,7 +221,8 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 	// request. However, don't create the ACL until the repo has been created
 	// successfully, because a repo w/ no ACL can be fixed by a cluster admin.
 	d.initializePachConn()
-	whoAmI, authErr := d.pachClient.AuthAPIClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
+	whoAmI, authErr := d.pachClient.AuthAPIClient.WhoAmI(auth.In2Out(ctx),
+		&auth.WhoAmIRequest{})
 	if authErr != nil && !auth.IsNotActivatedError(authErr) {
 		return fmt.Errorf("authorization error while creating repo \"%s\": %s", repo.Name, authErr.Error())
 	}
@@ -346,8 +347,9 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 	if err != nil {
 		return err
 	}
-	if !auth.IsNotActivatedError(authErr) {
-		_, err := d.pachClient.AuthAPIClient.SetScope(ctx, &auth.SetScopeRequest{
+	if authErr == nil {
+		// auth is active, and user is logged in. User is an owner of the new repo
+		_, err := d.pachClient.AuthAPIClient.SetScope(auth.In2Out(ctx), &auth.SetScopeRequest{
 			Repo:     repo,
 			Username: whoAmI.Username,
 			Scope:    auth.Scope_OWNER,
