@@ -530,8 +530,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		return nil, err
 	}
 
-	// The newFileInfos contain datums that were new in this job
-	// For these datums, populate the status and stats
+	// Omit files at the top level that correspond to aggregate job stats
 	blacklist := map[string]bool{
 		"stats": true,
 		"logs":  true,
@@ -547,6 +546,8 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	var egGetDatums errgroup.Group
 	limiter := limit.New(200)
 	var datumsMutex sync.Mutex
+	// The newFileInfos contain datums that were new in this job
+	// For these datums, populate the status and stats
 	for _, fileInfo := range resp.NewFiles {
 		fileInfo := fileInfo
 		egGetDatums.Go(func() error {
