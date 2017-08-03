@@ -1,13 +1,13 @@
 #!/bin/bash
 
+set -e
+
 echo "Running local tests"
 make test
 
 # Disable aws CI for now, see:
 # https://github.com/pachyderm/pachyderm/issues/2109
 exit 0
-
-set -e
 
 echo "Running local tests"
 make local-test
