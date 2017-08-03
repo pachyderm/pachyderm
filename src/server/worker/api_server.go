@@ -135,11 +135,13 @@ func (a *APIServer) getTaggedLogger(ctx context.Context, req *ProcessRequest) (*
 	// InputFileID is a single string id for the data from this input, it's used in logs and in
 	// the statsTree
 	result.template.InputFileID = hex.EncodeToString(hash.Sum(nil))
-	putObjClient, err := a.pachClient.ObjectAPIClient.PutObject(ctx)
-	if err != nil {
-		return nil, err
+	if req.EnableStats {
+		putObjClient, err := a.pachClient.ObjectAPIClient.PutObject(ctx)
+		if err != nil {
+			return nil, err
+		}
+		result.putObjClient = putObjClient
 	}
-	result.putObjClient = putObjClient
 	return result, nil
 }
 
@@ -659,9 +661,11 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 				retErr = err
 				return
 			}
-			if err := statsTree.PutFile(path.Join(statsPath, "logs"), []*pfs.Object{object}, size); err != nil && retErr == nil {
-				retErr = err
-				return
+			if object != nil && req.EnableStats {
+				if err := statsTree.PutFile(path.Join(statsPath, "logs"), []*pfs.Object{object}, size); err != nil && retErr == nil {
+					retErr = err
+					return
+				}
 			}
 		}()
 		defer func() {
