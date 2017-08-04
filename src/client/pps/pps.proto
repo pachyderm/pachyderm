@@ -103,6 +103,7 @@ message InputFile {
 message Datum {
   // ID is the hash computed from all the files
   string id = 1 [(gogoproto.customname) = "ID"];
+  Job job = 2;
 }
 
 enum DatumState {
@@ -373,7 +374,6 @@ message RestartDatumRequest {
 
 message InspectDatumRequest {
   Datum datum = 1;
-  Job job = 2;
 }
 
 message ListDatumRequest {
