@@ -725,11 +725,14 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 			a.cancel = cancel
 			a.stats = stats
 		}()
-		if err := os.Symlink(dir, client.PPSInputPrefix); err != nil {
+		if err := os.MkdirAll(client.PPSInputPrefix, 0666); err != nil {
+			return nil, err
+		}
+		if err := syscall.Mount(dir, client.PPSInputPrefix, "", syscall.MS_BIND, ""); err != nil {
 			return nil, err
 		}
 		defer func() {
-			if err := os.Remove(client.PPSInputPrefix); err != nil && retErr == nil {
+			if err := syscall.Unmount(client.PPSInputPrefix, 0); err != nil && retErr == nil {
 				retErr = err
 			}
 		}()
