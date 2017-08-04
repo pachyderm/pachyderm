@@ -2992,32 +2992,23 @@ func TestUseMultipleWorkers(t *testing.T) {
 		false,
 	))
 	// Get job info 2x/sec for 20s until we confirm two workers for the current job
-	jobInfoErr := fmt.Errorf("never queried job workers")
-	for i := 0; i < 40; i++ {
-		time.Sleep(500 * time.Millisecond)
+	require.NoError(t, backoff.Retry(func() error {
 		jobs, err := c.ListJob(pipeline, nil)
 		if err != nil {
-			jobInfoErr = fmt.Errorf("could not list job: %s", err.Error())
-			continue
+			return fmt.Errorf("could not list job: %s", err.Error())
 		}
 		if len(jobs) == 0 {
-			jobInfoErr = fmt.Errorf("failed to find job")
-			continue
+			return fmt.Errorf("failed to find job")
 		}
 		jobInfo, err := c.InspectJob(jobs[0].Job.ID, false)
 		if err != nil {
-			jobInfoErr = fmt.Errorf("could not inspect job: %s", err.Error())
-			continue
+			return fmt.Errorf("could not inspect job: %s", err.Error())
 		}
 		if len(jobInfo.WorkerStatus) != 2 {
-			jobInfoErr = fmt.Errorf("incorrect number of statuses: %v", len(jobInfo.WorkerStatus))
-			continue
-		} else {
-			jobInfoErr = nil
-			break
+			return fmt.Errorf("incorrect number of statuses: %v", len(jobInfo.WorkerStatus))
 		}
-	}
-	require.NoError(t, jobInfoErr)
+		return nil
+	}, backoff.RetryEvery(500*time.Millisecond).For(20*time.Second)))
 }
 
 // TestSystemResourceRequest doesn't create any jobs or pipelines, it
@@ -4151,7 +4142,7 @@ func getPachClient(t testing.TB) *client.APIClient {
 		if addr := os.Getenv("PACHD_PORT_650_TCP_ADDR"); addr != "" {
 			pachClient, err = client.NewInCluster()
 		} else {
-			pachClient, err = client.NewFromAddress("0.0.0.0:30650")
+			pachClient, err = client.NewOnUserMachine(false, "user")
 		}
 		require.NoError(t, err)
 	})

@@ -58,17 +58,53 @@ func (b *StopBackOff) NextBackOff() time.Duration { return Stop }
 // ConstantBackOff is a backoff policy that always returns the same backoff delay.
 // This is in contrast to an exponential backoff policy,
 // which returns a delay that grows longer as you call NextBackOff() over and over again.
+//
+// Note: Implementation is not thread-safe
 type ConstantBackOff struct {
 	Interval time.Duration
+
+	// After MaxElapsedTime the ConstantBackOff stops.
+	// It never stops if MaxElapsedTime == 0.
+	MaxElapsedTime time.Duration
+	startTime      time.Time
 }
 
 // Reset ...
-func (b *ConstantBackOff) Reset() {}
+func (b *ConstantBackOff) Reset() {
+	b.startTime = time.Now()
+}
+
+// GetElapsedTime returns the elapsed time since an ExponentialBackOff instance
+// is created and is reset when Reset() is called.
+//
+// The elapsed time is computed using time.Now().UnixNano().
+func (b *ConstantBackOff) GetElapsedTime() time.Duration {
+	return time.Now().Sub(b.startTime)
+}
 
 // NextBackOff ...
-func (b *ConstantBackOff) NextBackOff() time.Duration { return b.Interval }
+func (b *ConstantBackOff) NextBackOff() time.Duration {
+	if b.MaxElapsedTime != 0 && b.GetElapsedTime() > b.MaxElapsedTime {
+		return Stop
+	}
+	return b.Interval
+}
 
 // NewConstantBackOff ...
 func NewConstantBackOff(d time.Duration) *ConstantBackOff {
-	return &ConstantBackOff{Interval: d}
+	return &ConstantBackOff{
+		Interval: d,
+	}
+}
+
+// RetryEvery is an alias for NewConstantBackoff, with a nicer name for inline
+// calls
+func RetryEvery(d time.Duration) *ConstantBackOff {
+	return NewConstantBackOff(d)
+}
+
+// For sets b.MaxElapsedTime to 'maxElapsed' and returns b
+func (b *ConstantBackOff) For(maxElapsed time.Duration) *ConstantBackOff {
+	b.MaxElapsedTime = maxElapsed
+	return b
 }
