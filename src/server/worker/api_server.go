@@ -93,8 +93,10 @@ type APIServer struct {
 	// Only one datum can be running at a time because they need to be
 	// accessing /pfs, runMu enforces this
 	runMu sync.Mutex
-	// the index to use for datums being loaded into pfs
+	// the index to use for datums being loaded into /pfs while batching
 	index int64
+	// the total size of batched datums
+	size int64
 	// loggers contains all the writers for outstanding datums
 	loggers []io.Writer
 	// errChans are channels which are being waited on by Process calls to see
@@ -352,7 +354,7 @@ func (a *APIServer) runUnbatchedDatum(ctx context.Context, req *ProcessRequest, 
 	return err
 }
 
-func (a *APIServer) runBatchedDatum(ctx context.Context, req *ProcessRequest, cancel func(), dir string, logger *taggedLogger, stats *pps.ProcessStats) (retErr error) {
+func (a *APIServer) runBatchedDatum(ctx context.Context, req *ProcessRequest, batch *pps.BatchSpec, cancel func(), dir string, logger *taggedLogger, stats *pps.ProcessStats) (retErr error) {
 	defer func(start time.Time) {
 		stats.ProcessTime = types.DurationProto(time.Since(start))
 	}(time.Now())
@@ -360,31 +362,7 @@ func (a *APIServer) runBatchedDatum(ctx context.Context, req *ProcessRequest, ca
 	defer func(start time.Time) {
 		logger.Logf("finished running user code - took (%v) - with error (%v)\n", time.Since(start), retErr)
 	}(time.Now())
-	var index int64
-	ch := make(chan error, 1)
-	if err := func() error {
-		a.runMu.Lock()
-		defer a.runMu.Unlock()
-		index = atomic.AddInt64(&a.index, 1)
-		a.loggers = append(a.loggers, logger.userLogger())
-		if err := os.MkdirAll(client.PPSInputPrefix, 0666); err != nil {
-			return err
-		}
-		if err := os.Symlink(dir, filepath.Join(client.PPSInputPrefix, fmt.Sprintf("%d", index))); err != nil {
-			return err
-		}
-		a.errChans = append(a.errChans, ch)
-		return nil
-	}(); err != nil {
-		return err
-	}
-	go func() {
-		time.Sleep(time.Second)
-		a.runMu.Lock()
-		defer a.runMu.Unlock()
-		if a.index != index {
-			return
-		}
+	run := func() {
 		// Run user code
 		cmd := exec.CommandContext(ctx, a.pipelineInfo.Transform.Cmd[0], a.pipelineInfo.Transform.Cmd[1:]...)
 		cmd.Stdin = strings.NewReader(strings.Join(a.pipelineInfo.Transform.Stdin, "\n") + "\n")
@@ -401,8 +379,47 @@ func (a *APIServer) runBatchedDatum(ctx context.Context, req *ProcessRequest, ca
 		if err := os.RemoveAll(client.PPSInputPrefix); err != nil {
 			fmt.Fprintf(w, "failed to remove %s: %s", client.PPSInputPrefix, err)
 		}
-	}()
+	}
+	var index int64
+	ch := make(chan error, 1)
+	if err := func() error {
+		a.runMu.Lock()
+		defer a.runMu.Unlock()
+		a.index++
+		index = a.index
+		for _, d := range req.Data {
+			a.size += int64(d.FileInfo.SizeBytes)
+		}
+		a.loggers = append(a.loggers, logger.userLogger())
+		if err := os.MkdirAll(client.PPSInputPrefix, 0666); err != nil {
+			return err
+		}
+		if err := os.Symlink(dir, filepath.Join(client.PPSInputPrefix, fmt.Sprintf("%d", index))); err != nil {
+			return err
+		}
+		a.errChans = append(a.errChans, ch)
+		if (a.index > batch.CountMax && batch.CountMax != 0) ||
+			(a.size > batch.SizeMax && batch.SizeMax > 0) {
+			run()
+		} else {
+			go func() {
+				// If we don't receive any more datums in the next 5 seconds we
+				// process the batch anyways, this guarantees that we won't
+				// block forever on the last batch.
+				time.Sleep(5 * time.Second)
+				a.runMu.Lock()
+				defer a.runMu.Unlock()
+				if a.index != index {
+					return
+				}
+				run()
+			}()
 
+		}
+		return nil
+	}(); err != nil {
+		return err
+	}
 	err := <-ch
 	// (if err is an acceptable return code, don't return err)
 	if exiterr, ok := err.(*exec.ExitError); ok {
@@ -803,8 +820,8 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	// unset the status when this function exits
 	if response, err := func() (_ *ProcessResponse, retErr error) {
 		var err error
-		if a.pipelineInfo.Batch {
-			err = a.runBatchedDatum(ctx, req, cancel, dir, logger, stats)
+		if a.pipelineInfo.Batch != nil {
+			err = a.runBatchedDatum(ctx, req, a.pipelineInfo.Batch, cancel, dir, logger, stats)
 		} else {
 			err = a.runUnbatchedDatum(ctx, req, cancel, dir, logger, stats)
 		}

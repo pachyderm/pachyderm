@@ -3770,7 +3770,7 @@ func TestBatchedPipeline(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 4,
 			},
-			Batch: true,
+			Batch: &pps.BatchSpec{CountMax: 10},
 		})
 
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
