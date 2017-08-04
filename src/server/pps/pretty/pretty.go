@@ -210,6 +210,7 @@ func PrintDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 // PrintDetailedDatumInfo pretty-prints detailed info about a datum
 func PrintDetailedDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 	fmt.Fprintf(w, "ID\t%s\n", datumInfo.Datum.ID)
+	fmt.Fprintf(w, "Job ID\t%s\n", datumInfo.Datum.Job.ID)
 	fmt.Fprintf(w, "State\t%s\n", datumInfo.State)
 	fmt.Fprintf(w, "Data Downloaded\t%s\n", pretty.Size(datumInfo.Stats.DownloadBytes))
 	fmt.Fprintf(w, "Data Uploaded\t%s\n", pretty.Size(datumInfo.Stats.UploadBytes))
