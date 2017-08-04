@@ -10,7 +10,10 @@ import (
 	"text/tabwriter"
 	"text/template"
 
+	"github.com/docker/go-units"
 	"github.com/fatih/color"
+	"github.com/gogo/protobuf/types"
+	"github.com/pachyderm/pachyderm/src/client"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 )
@@ -143,7 +146,8 @@ ParallelismSpec: {{.ParallelismSpec}}
 {{jobInput .}}
 Transform:
 {{prettyTransform .Transform}} {{if .OutputCommit}}
-Output Commit: {{.OutputCommit.ID}} {{end}} {{ if .Egress }}
+Output Commit: {{.OutputCommit.ID}} {{end}} {{ if .StatsCommit }}
+Stats Commit: {{.StatsCommit.ID}} {{end}} {{ if .Egress }}
 Egress: {{.Egress.URL}} {{end}}
 `)
 	if err != nil {
@@ -185,6 +189,81 @@ Job Counts:
 		return err
 	}
 	return nil
+}
+
+// PrintDatumInfoHeader prints a file info header.
+func PrintDatumInfoHeader(w io.Writer) {
+	fmt.Fprint(w, "ID\tSTATUS\tTIME\t\n")
+}
+
+// PrintDatumInfo pretty-prints file info.
+// If recurse is false and directory size is 0, display "-" instead
+// If fast is true and file size is 0, display "-" instead
+func PrintDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
+	totalTime := "-"
+	if datumInfo.Stats != nil {
+		totalTime = units.HumanDuration(client.GetDatumTotalTime(datumInfo.Stats))
+	}
+	fmt.Fprintf(w, "%s\t%s\t%s\n", datumInfo.Datum.ID, datumState(datumInfo.State), totalTime)
+}
+
+// PrintDetailedDatumInfo pretty-prints detailed info about a datum
+func PrintDetailedDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
+	fmt.Fprintf(w, "ID\t%s\n", datumInfo.Datum.ID)
+	fmt.Fprintf(w, "State\t%s\n", datumInfo.State)
+	fmt.Fprintf(w, "Data Downloaded\t%s\n", pretty.Size(datumInfo.Stats.DownloadBytes))
+	fmt.Fprintf(w, "Data Uploaded\t%s\n", pretty.Size(datumInfo.Stats.UploadBytes))
+
+	totalTime := client.GetDatumTotalTime(datumInfo.Stats).String()
+	fmt.Fprintf(w, "Total Time\t%s\n", totalTime)
+
+	var downloadTime string
+	dl, err := types.DurationFromProto(datumInfo.Stats.DownloadTime)
+	if err != nil {
+		downloadTime = err.Error()
+	}
+	downloadTime = dl.String()
+	fmt.Fprintf(w, "Download Time\t%s\n", downloadTime)
+
+	var procTime string
+	proc, err := types.DurationFromProto(datumInfo.Stats.ProcessTime)
+	if err != nil {
+		procTime = err.Error()
+	}
+	procTime = proc.String()
+	fmt.Fprintf(w, "Process Time\t%s\n", procTime)
+
+	var uploadTime string
+	ul, err := types.DurationFromProto(datumInfo.Stats.UploadTime)
+	if err != nil {
+		uploadTime = err.Error()
+	}
+	uploadTime = ul.String()
+	fmt.Fprintf(w, "Upload Time\t%s\n", uploadTime)
+
+	fmt.Fprintf(w, "PFS State:\n")
+}
+
+// PrintDatumPfsStateHeader prints the header for the PfsState field
+func PrintDatumPfsStateHeader(w io.Writer) {
+	fmt.Fprintf(w, "  REPO\tCOMMIT\tPATH\t\n")
+}
+
+// PrintDatumPfsState prints the values of the PfsState field
+func PrintDatumPfsState(w io.Writer, datumInfo *ppsclient.DatumInfo) {
+	fmt.Fprintf(w, "  %s\t%s\t%s\t\n", datumInfo.PfsState.Commit.Repo.Name, datumInfo.PfsState.Commit.ID, datumInfo.PfsState.Path)
+}
+
+func datumState(datumState ppsclient.DatumState) string {
+	switch datumState {
+	case ppsclient.DatumState_SKIPPED:
+		return color.New(color.FgYellow).SprintFunc()("skipped")
+	case ppsclient.DatumState_FAILED:
+		return color.New(color.FgRed).SprintFunc()("failed")
+	case ppsclient.DatumState_SUCCESS:
+		return color.New(color.FgGreen).SprintFunc()("success")
+	}
+	return "-"
 }
 
 func jobState(jobState ppsclient.JobState) string {
@@ -292,6 +371,7 @@ func shorthandInput(input *ppsclient.Input) string {
 var funcMap = template.FuncMap{
 	"pipelineState":        pipelineState,
 	"jobState":             jobState,
+	"datumState":           datumState,
 	"workerStatus":         workerStatus,
 	"pipelineInput":        pipelineInput,
 	"jobInput":             jobInput,
