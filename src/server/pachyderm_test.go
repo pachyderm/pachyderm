@@ -3777,16 +3777,11 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	datum, err = c.InspectDatum(jobs[0].Job.ID, datums[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
-
-	// Make sure list-datum and inspect-datum both return the correct 'skipped' status
-	for _, datum := range datums {
-		if datum.State == pps.DatumState_SKIPPED {
-			inspectedDatum, err := c.InspectDatum(jobs[0].Job.ID, datum.Datum.ID)
-			require.NoError(t, err)
-			require.Equal(t, pps.DatumState_SKIPPED, inspectedDatum.State)
-			break
-		}
-	}
+	// Test datums marked as skipped correctly
+	// (also tests list datums are sorted by state)
+	datum, err = c.InspectDatum(jobs[0].Job.ID, datums[numFiles].Datum.ID)
+	require.NoError(t, err)
+	require.Equal(t, pps.DatumState_SKIPPED, datum.State)
 }
 
 func TestIncrementalSharedProvenance(t *testing.T) {
