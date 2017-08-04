@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.5.1 / 1.5.2
+
+### Bug Fixes
+
+* A pipeline can get stuck after repeated worker failures.  (#2064)
+* `pachctl port-forward` can leave a orphaned process after it exits.  (#2098)
+* `alpine`-based pipelines fail to load input data.  (#2118)
+* Logs are written to the object store even when stats is not enabled, slowing down the pipeline unnecessarily.  (#2119)
+
+### Features / Improvements
+
+* Pipelines now support the “stats” feature.  Stats can be turned on with the `enable_stats` option in the pipeline spec.  Stats include timing information, logs, and snapshot of `/pfs`.  The web UI has also been updated to display stats.  (#1998)
+* Pipeline cache size is now configurable.  See the [docs](http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html#cache-size-optional) for details.  (#2033)
+* `pachctl update-pipeline` now **only** process new input data with the new code; the old input data is not re-processed.  If it’s desired that all data are re-processed, use the `--reprocess` flag.  See the [docs](http://pachyderm.readthedocs.io/en/latest/fundamentals/updating_pipelines.html) for details.  (#2034)
+* Pipeline workers now support “pipelining”, meaning that they start downloading the next datums while processing the current datum, thereby improving overall throughput.  (#2057)
+* The `scaleDownThreshold` feature has been improved such that when a pipeline is scaled down, the remaining worker only takes up minimal system resources.  (#2091)
+
 ## 1.5.0
 
 ### Bug Fixes
