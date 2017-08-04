@@ -8,7 +8,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
+	"log"
 	"path"
 	"sync/atomic"
 	"time"
@@ -24,7 +26,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	authclient "github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 )
 
 const (
@@ -105,24 +109,51 @@ func NewAuthServer(etcdAddress string, etcdPrefix string) (authclient.APIServer,
 		),
 	}
 
-	// t == 0 implies auth is activated, so we force an etcd read in first call to
-	// isActivated() by setting t == 0 + epsilon
-	s.activated.Store(time.Time{}.Add(1 * time.Minute))
+	s.activated.Store(false)
+	go s.activationCheck()
+
 	return s, nil
+}
+
+func (a *apiServer) activationCheck() {
+	backoff.RetryNotify(func() error {
+		watcher, err := a.admins.ReadOnly(context.Background()).Watch()
+		if err != nil {
+			return err
+		}
+		defer watcher.Close()
+		// The auth service is activated if we have admins, and not
+		// activated otherwise.
+		var numAdmins int
+		for {
+			ev, ok := <-watcher.Watch()
+			if !ok {
+				return errors.New("admin watch closed unexpectedly")
+			}
+			switch ev.Type {
+			case watch.EventPut:
+				numAdmins++
+			case watch.EventDelete:
+				numAdmins--
+			case watch.EventError:
+				return ev.Err
+			}
+			a.activated.Store(numAdmins > 0)
+		}
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		log.Printf("error from activation check: %v; retrying in %v", err, d)
+		return nil
+	})
 }
 
 func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateRequest) (resp *authclient.ActivateResponse, retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	activated, err := a.isActivated(ctx)
-	if err != nil {
-		return nil, err
-	}
 	// Activating an already activated auth service should fail, because
 	// otherwise anyone can just activate the service again and set
 	// themselves as an admin.
-	if activated {
+	if a.isActivated() {
 		return nil, fmt.Errorf("already activated")
 	}
 
@@ -132,7 +163,7 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	}
 
 	// Initialize admins
-	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		admins := a.admins.ReadWrite(stm)
 
 		for _, admin := range req.Admins {
@@ -147,42 +178,19 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 		return nil, err
 	}
 
-	a.activated.Store(time.Time{})
+	a.activated.Store(true)
 	return &authclient.ActivateResponse{}, nil
 }
 
-func (a *apiServer) isActivated(ctx context.Context) (bool, error) {
-	t := a.activated.Load().(time.Time)
-	if t.IsZero() {
-		return true, nil
-	}
-	if t.After(time.Now()) {
-		return false, nil
-	}
-
-	adminCount, err := a.admins.ReadOnly(ctx).Count()
-	if err != nil {
-		return false, fmt.Errorf("error checking if auth service is activated")
-	}
-
-	// If there are admins, then the auth service has been activated
-	if adminCount > 0 {
-		a.activated.Store(time.Time{})
-		return true, nil
-	}
-	a.activated.Store(time.Now().Add(1 * time.Minute))
-	return false, nil
+func (a *apiServer) isActivated() bool {
+	return a.activated.Load().(bool)
 }
 
 func (a *apiServer) Authenticate(ctx context.Context, req *authclient.AuthenticateRequest) (resp *authclient.AuthenticateResponse, retErr error) {
 	// We don't want to actually log the request/response since they contain
 	// credentials.
 	defer func(start time.Time) { a.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
-	activated, err := a.isActivated(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if !activated {
+	if !a.isActivated() {
 		return nil, authclient.NotActivatedError{}
 	}
 
@@ -236,11 +244,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequest) (resp *authclient.AuthorizeResponse, retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
-	activated, err := a.isActivated(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if !activated {
+	if !a.isActivated() {
 		return nil, authclient.NotActivatedError{}
 	}
 
@@ -272,11 +276,7 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 func (a *apiServer) WhoAmI(ctx context.Context, req *authclient.WhoAmIRequest) (resp *authclient.WhoAmIResponse, retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
-	activated, err := a.isActivated(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if !activated {
+	if !a.isActivated() {
 		return nil, authclient.NotActivatedError{}
 	}
 
@@ -302,11 +302,7 @@ func validateSetScopeRequest(req *authclient.SetScopeRequest) error {
 func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeRequest) (resp *authclient.SetScopeResponse, retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
-	activated, err := a.isActivated(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if !activated {
+	if !a.isActivated() {
 		return nil, authclient.NotActivatedError{}
 	}
 
@@ -354,11 +350,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeRequest) (resp *authclient.GetScopeResponse, retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
-	activated, err := a.isActivated(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if !activated {
+	if !a.isActivated() {
 		return nil, authclient.NotActivatedError{}
 	}
 
@@ -386,11 +378,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (resp *authclient.GetACLResponse, retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
-	activated, err := a.isActivated(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if !activated {
+	if !a.isActivated() {
 		return nil, authclient.NotActivatedError{}
 	}
 	user, err := a.getAuthenticatedUser(ctx)
@@ -418,13 +406,10 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 func (a *apiServer) GetCapability(ctx context.Context, req *authclient.GetCapabilityRequest) (resp *authclient.GetCapabilityResponse, retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
-	activated, err := a.isActivated(ctx)
-	if err != nil {
-		return nil, err
-	}
 
 	var user *authclient.User
-	if !activated {
+	var err error
+	if !a.isActivated() {
 		// If auth service is not activated, we want to return a capability
 		// that's able to access any repo.  That way, when we create a
 		// pipeline, we can assign it with a capability that would allow
@@ -457,21 +442,17 @@ func (a *apiServer) GetCapability(ctx context.Context, req *authclient.GetCapabi
 func (a *apiServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeAuthTokenRequest) (resp *authclient.RevokeAuthTokenResponse, retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
-	activated, err := a.isActivated(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if !activated {
+	if !a.isActivated() {
 		return nil, authclient.NotActivatedError{}
 	}
 
 	// Even though anyone can revoke anyone's auth token, we still want
 	// the user to be authenticated.
-	if _, err = a.getAuthenticatedUser(ctx); err != nil {
+	if _, err := a.getAuthenticatedUser(ctx); err != nil {
 		return nil, err
 	}
 
-	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		tokens := a.tokens.ReadWrite(stm)
 		// Capabilities are forver; they don't expire.
 		if err := tokens.Delete(hashToken(req.Token)); err != nil {
