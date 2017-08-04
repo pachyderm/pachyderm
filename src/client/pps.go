@@ -277,8 +277,10 @@ func (c APIClient) InspectDatum(jobID string, datumID string) (*pps.DatumInfo, e
 	datumInfo, err := c.PpsAPIClient.InspectDatum(
 		c.Ctx(),
 		&pps.InspectDatumRequest{
-			Job:   &pps.Job{jobID},
-			Datum: &pps.Datum{datumID},
+			Datum: &pps.Datum{
+				ID:  datumID,
+				Job: &pps.Job{jobID},
+			},
 		},
 	)
 	if err != nil {
