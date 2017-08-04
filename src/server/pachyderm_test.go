@@ -2955,6 +2955,7 @@ func TestDatumStatusRestart(t *testing.T) {
 }
 
 func TestUseMultipleWorkers(t *testing.T) {
+	t.Skip("flaky")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
