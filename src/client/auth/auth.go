@@ -1,8 +1,11 @@
 package auth
 
 import (
+	"context"
 	"fmt"
 	"strings"
+
+	"google.golang.org/grpc/metadata"
 )
 
 const (
@@ -35,4 +38,20 @@ func (e NotActivatedError) Error() string {
 // IsNotActivatedError checks if an error is a NotActivatedError
 func IsNotActivatedError(e error) bool {
 	return strings.Contains(e.Error(), notActivatedErrorMsg)
+}
+
+// In2Out converts an incoming context containing auth information into an
+// outgoing context containing auth information, stripping other keys (e.g.
+// for metrics) in the process. If the incoming context doesn't have any auth
+// information, then the returned context won't either.
+func In2Out(ctx context.Context) context.Context {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return ctx
+	}
+	mdOut := make(metadata.MD)
+	if value, ok := md[ContextTokenKey]; ok {
+		mdOut[ContextTokenKey] = value
+	}
+	return metadata.NewOutgoingContext(ctx, mdOut)
 }

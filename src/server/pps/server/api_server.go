@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -33,6 +34,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
+
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
@@ -464,6 +466,219 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	return &types.Empty{}, nil
 }
 
+func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest) (response *pps.DatumInfos, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
+		Job: &pps.Job{
+			ID: request.Job.ID,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	pfsClient, err := a.getPFSClient()
+	if err != nil {
+		return nil, err
+	}
+	if jobInfo.StatsCommit == nil {
+		return nil, fmt.Errorf("stats not enabled on %v", jobInfo.Pipeline.Name)
+	}
+	// List the files under /jobID to get all the datums (including skipped ones)
+	file := &pfs.File{
+		Commit: jobInfo.StatsCommit,
+		Path:   "/",
+	}
+	allFileInfos, err := pfsClient.ListFile(ctx, &pfs.ListFileRequest{file})
+	if err != nil {
+		return nil, err
+	}
+	datums := make(map[string]*pps.DatumInfo)
+
+	// Omit files at the top level that correspond to aggregate job stats
+	blacklist := map[string]bool{
+		"stats": true,
+		"logs":  true,
+		"pfs":   true,
+	}
+	pathToDatumHash := func(path string) (string, error) {
+		_, datumHash := filepath.Split(path)
+		if _, ok := blacklist[datumHash]; ok {
+			return "", fmt.Errorf("value %v is not a datum hash", datumHash)
+		}
+		return datumHash, nil
+	}
+	var egGetDatums errgroup.Group
+	limiter := limit.New(200)
+	var datumsMutex sync.Mutex
+	for _, fileInfo := range allFileInfos.FileInfo {
+		fileInfo := fileInfo
+		egGetDatums.Go(func() error {
+			limiter.Acquire()
+			defer limiter.Release()
+			datumHash, err := pathToDatumHash(fileInfo.File.Path)
+			if err != nil {
+				// not a datum, nothing to do here
+				return nil
+			}
+			datum, err := a.getDatum(ctx, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Job.ID, datumHash)
+			if err != nil {
+				return err
+			}
+			datumsMutex.Lock()
+			defer datumsMutex.Unlock()
+			datums[datumHash] = datum
+			return nil
+		})
+	}
+	err = egGetDatums.Wait()
+	if err != nil {
+		return nil, err
+	}
+
+	var datumInfos []*pps.DatumInfo
+	for datumHash, datum := range datums {
+		if _, ok := blacklist[datumHash]; ok {
+			// not a datum
+			continue
+		}
+		datumInfos = append(datumInfos, datum)
+	}
+
+	// Sort results (failed first, slow first)
+	sort.Sort(byDatumStateThenTime(datumInfos))
+
+	return &pps.DatumInfos{datumInfos}, nil
+}
+
+type byDatumStateThenTime []*pps.DatumInfo
+
+func (a byDatumStateThenTime) Len() int      { return len(a) }
+func (a byDatumStateThenTime) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a byDatumStateThenTime) Less(i, j int) bool {
+	byState := a[i].State < a[j].State
+	if a[i].State != a[j].State {
+		return byState
+	}
+	if a[i].Stats == nil || a[j].Stats == nil {
+		return byState
+	}
+	return client.GetDatumTotalTime(a[i].Stats) > client.GetDatumTotalTime(a[j].Stats)
+}
+
+func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commit, jobID string, datumID string) (datumInfo *pps.DatumInfo, retErr error) {
+	datumInfo = &pps.DatumInfo{
+		Datum: &pps.Datum{
+			ID:  datumID,
+			Job: &pps.Job{jobID},
+		},
+		State: pps.DatumState_SKIPPED,
+	}
+
+	pfsClient, err := a.getPFSClient()
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if skipped
+	path := fmt.Sprintf("/%v", datumID)
+	newFile := &pfs.File{
+		Commit: commit,
+		Path:   path,
+	}
+	commitInfo, err := pfsClient.InspectCommit(
+		ctx,
+		&pfs.InspectCommitRequest{
+			Commit: &pfs.Commit{
+				Repo: commit.Repo,
+				ID:   commit.ID,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	oldFile := &pfs.File{
+		Commit: commitInfo.ParentCommit,
+		Path:   path,
+	}
+	resp, err := pfsClient.DiffFile(ctx, &pfs.DiffFileRequest{newFile, oldFile, true})
+	if err != nil {
+		return nil, err
+	}
+	// Datum wasn't added in this commit, so it was skipped
+	if len(resp.NewFiles) == 0 {
+		return datumInfo, nil
+	}
+
+	// Populate status
+	datumInfo.State = pps.DatumState_FAILED
+	stateFile := &pfs.File{
+		Commit: commit,
+		Path:   fmt.Sprintf("/%v/failure", datumID),
+	}
+	_, err = pfsClient.InspectFile(ctx, &pfs.InspectFileRequest{stateFile})
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			datumInfo.State = pps.DatumState_SUCCESS
+		} else {
+			return nil, err
+		}
+	}
+
+	// Populate stats
+	statsFile := &pfs.File{
+		Commit: commit,
+		Path:   fmt.Sprintf("/%v/stats", datumID),
+	}
+	getFileClient, err := pfsClient.GetFile(ctx, &pfs.GetFileRequest{statsFile, 0, 0})
+	if err != nil {
+		return nil, err
+	}
+	var buffer bytes.Buffer
+	if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, &buffer); err != nil {
+		return nil, err
+	}
+	stats := &pps.ProcessStats{}
+	err = jsonpb.Unmarshal(&buffer, stats)
+	if err != nil {
+		return nil, err
+	}
+	datumInfo.Stats = stats
+	datumInfo.PfsState = &pfs.File{
+		Commit: commit,
+		Path:   fmt.Sprintf("/%v/pfs", datumID),
+	}
+
+	return datumInfo, nil
+}
+
+func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumRequest) (response *pps.DatumInfo, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
+		Job: &pps.Job{
+			ID: request.Datum.Job.ID,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if jobInfo.StatsCommit == nil {
+		return nil, fmt.Errorf("stats not enabled on %v", jobInfo.Pipeline.Name)
+	}
+
+	// Populate datumInfo given a path
+	datumInfo, err := a.getDatum(ctx, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Datum.Job.ID, request.Datum.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return datumInfo, nil
+}
+
 func (a *apiServer) lookupRcNameForPipeline(ctx context.Context, pipeline *pps.Pipeline) (string, error) {
 	var pipelineInfo pps.PipelineInfo
 	err := a.pipelines.ReadOnly(ctx).Get(pipeline.Name, &pipelineInfo)
@@ -571,7 +786,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 					if request.Job != nil && request.Job.ID != msg.JobID {
 						continue
 					}
-					if request.DatumID != "" && request.DatumID != msg.DatumID {
+					if request.InputFileID != "" && request.InputFileID != msg.InputFileID {
 						continue
 					}
 					if request.Master != msg.Master {
@@ -711,7 +926,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	}
 
 	capabilityResp, err := authClient.GetCapability(ctx, &auth.GetCapabilityRequest{})
-	if err != nil && !auth.IsNotActivatedError(err) {
+	if err != nil {
 		return nil, fmt.Errorf("error getting capability for the user: %v", err)
 	}
 
@@ -740,14 +955,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		EnableStats:        request.EnableStats,
 		Salt:               uuid.NewWithoutDashes(),
 		Batch:              request.Batch,
+		Capability:         capabilityResp.Capability,
 	}
 	setPipelineDefaults(pipelineInfo)
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
 		return nil, err
-	}
-
-	if capabilityResp != nil {
-		pipelineInfo.Capability = capabilityResp.Capability
 	}
 
 	pfsClient, err := a.getPFSClient()

@@ -2693,7 +2693,7 @@ func TestDiff(t *testing.T) {
 	_, err = c.PutFile(repo, "master", "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 
-	newFiles, oldFiles, err := c.DiffFile(repo, "master", "", "", "", "")
+	newFiles, oldFiles, err := c.DiffFile(repo, "master", "", "", "", "", false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(newFiles))
 	require.Equal(t, "foo", newFiles[0].File.Path)
@@ -2701,7 +2701,7 @@ func TestDiff(t *testing.T) {
 
 	require.NoError(t, c.FinishCommit(repo, "master"))
 
-	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "")
+	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "", false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(newFiles))
 	require.Equal(t, "foo", newFiles[0].File.Path)
@@ -2714,7 +2714,7 @@ func TestDiff(t *testing.T) {
 	_, err = c.PutFile(repo, "master", "foo", strings.NewReader("not foo\n"))
 	require.NoError(t, err)
 
-	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "")
+	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "", false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(newFiles))
 	require.Equal(t, "foo", newFiles[0].File.Path)
@@ -2723,7 +2723,7 @@ func TestDiff(t *testing.T) {
 
 	require.NoError(t, c.FinishCommit(repo, "master"))
 
-	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "")
+	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "", false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(newFiles))
 	require.Equal(t, "foo", newFiles[0].File.Path)
@@ -2736,7 +2736,7 @@ func TestDiff(t *testing.T) {
 	_, err = c.PutFile(repo, "master", "bar", strings.NewReader("bar\n"))
 	require.NoError(t, err)
 
-	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "")
+	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "", false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(newFiles))
 	require.Equal(t, "bar", newFiles[0].File.Path)
@@ -2744,7 +2744,7 @@ func TestDiff(t *testing.T) {
 
 	require.NoError(t, c.FinishCommit(repo, "master"))
 
-	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "")
+	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "", false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(newFiles))
 	require.Equal(t, "bar", newFiles[0].File.Path)
@@ -2755,7 +2755,7 @@ func TestDiff(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.DeleteFile(repo, "master", "bar"))
 
-	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "")
+	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "", false)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(newFiles))
 	require.Equal(t, 1, len(oldFiles))
@@ -2763,7 +2763,7 @@ func TestDiff(t *testing.T) {
 
 	require.NoError(t, c.FinishCommit(repo, "master"))
 
-	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "")
+	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "", false)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(newFiles))
 	require.Equal(t, 1, len(oldFiles))
@@ -2777,14 +2777,14 @@ func TestDiff(t *testing.T) {
 	_, err = c.PutFile(repo, "master", "dir/buzz", strings.NewReader("buzz\n"))
 	require.NoError(t, err)
 
-	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "")
+	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "", false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(newFiles))
 	require.Equal(t, 0, len(oldFiles))
 
 	require.NoError(t, c.FinishCommit(repo, "master"))
 
-	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "")
+	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "", false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(newFiles))
 	require.Equal(t, 0, len(oldFiles))
@@ -2795,7 +2795,7 @@ func TestDiff(t *testing.T) {
 	_, err = c.PutFile(repo, "master", "dir/fizz", strings.NewReader("fizz\n"))
 	require.NoError(t, err)
 
-	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "")
+	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "", false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(newFiles))
 	require.Equal(t, "dir/fizz", newFiles[0].File.Path)
@@ -2804,7 +2804,7 @@ func TestDiff(t *testing.T) {
 
 	require.NoError(t, c.FinishCommit(repo, "master"))
 
-	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "")
+	newFiles, oldFiles, err = c.DiffFile(repo, "master", "", "", "", "", false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(newFiles))
 	require.Equal(t, "dir/fizz", newFiles[0].File.Path)

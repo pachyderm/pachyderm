@@ -151,8 +151,14 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 		}
 		if tree != nil {
 			treePath := path.Join(treeRoot, basepath)
-			if err := tree.PutFile(treePath, fileInfo.Objects, int64(fileInfo.SizeBytes)); err != nil {
-				return err
+			if fileInfo.FileType == pfs.FileType_DIR {
+				if err := tree.PutDir(treePath); err != nil {
+					return err
+				}
+			} else {
+				if err := tree.PutFile(treePath, fileInfo.Objects, int64(fileInfo.SizeBytes)); err != nil {
+					return err
+				}
 			}
 		}
 		path := filepath.Join(root, basepath)
@@ -186,7 +192,7 @@ func (p *Puller) PullDiff(client *pachclient.APIClient, root string, newRepo, ne
 	newOnly bool, pipes bool, concurrency int, tree hashtree.OpenHashTree, treeRoot string) error {
 	limiter := limit.New(concurrency)
 	var eg errgroup.Group
-	newFiles, oldFiles, err := client.DiffFile(newRepo, newCommit, newPath, oldRepo, oldCommit, oldPath)
+	newFiles, oldFiles, err := client.DiffFile(newRepo, newCommit, newPath, oldRepo, oldCommit, oldPath, false)
 	if err != nil {
 		return err
 	}

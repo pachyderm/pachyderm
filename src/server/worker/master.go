@@ -561,7 +561,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 								logger.Logf("failed to retrieve stats hashtree after processing for datum %v: %v", files, err)
 								return nil
 							}
-							nodes, err := statsSubtree.Glob("*/*/stats")
+							nodes, err := statsSubtree.Glob("*/stats")
 							if err != nil {
 								logger.Logf("failed to retrieve process stats from hashtree for datum %v: %v", files, err)
 							}
@@ -633,7 +633,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 				if err != nil {
 					return err
 				}
-				return statsTree.PutFile(path.Join("/", jobID, "stats"), []*pfs.Object{aggregateObject}, int64(len(marshalled)))
+				return statsTree.PutFile("/stats", []*pfs.Object{aggregateObject}, int64(len(marshalled)))
 			}(); err != nil {
 				logger.Logf("error aggregating stats")
 			}

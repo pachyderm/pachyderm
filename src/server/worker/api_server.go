@@ -134,20 +134,23 @@ func (a *APIServer) getTaggedLogger(ctx context.Context, req *ProcessRequest) (*
 	// Add inputs' details to log metadata, so we can find these logs later
 	hash := sha256.New()
 	for _, d := range req.Data {
-		result.template.Data = append(result.template.Data, &pps.Datum{
+		result.template.Data = append(result.template.Data, &pps.InputFile{
 			Path: d.FileInfo.File.Path,
 			Hash: d.FileInfo.Hash,
 		})
+		hash.Write([]byte(d.FileInfo.File.Path))
 		hash.Write(d.FileInfo.Hash)
 	}
-	// DatumID is a single string id for the datum, it's used in logs and in
+	// InputFileID is a single string id for the data from this input, it's used in logs and in
 	// the statsTree
-	result.template.DatumID = hex.EncodeToString(hash.Sum(nil))
-	putObjClient, err := a.pachClient.ObjectAPIClient.PutObject(ctx)
-	if err != nil {
-		return nil, err
+	result.template.InputFileID = hex.EncodeToString(hash.Sum(nil))
+	if req.EnableStats {
+		putObjClient, err := a.pachClient.ObjectAPIClient.PutObject(ctx)
+		if err != nil {
+			return nil, err
+		}
+		result.putObjClient = putObjClient
 	}
-	result.putObjClient = putObjClient
 	return result, nil
 }
 
@@ -321,11 +324,11 @@ func (a *APIServer) runUnbatchedDatum(ctx context.Context, req *ProcessRequest, 
 		a.cancel = cancel
 		a.stats = stats
 	}()
-	if err := os.Symlink(dir, client.PPSInputPrefix); err != nil {
+	if err := syscall.Mount(dir, client.PPSInputPrefix, "", syscall.MS_BIND, ""); err != nil {
 		return err
 	}
 	defer func() {
-		if err := os.Remove(client.PPSInputPrefix); err != nil && retErr == nil {
+		if err := syscall.Unmount(client.PPSInputPrefix, 0); err != nil && retErr == nil {
 			retErr = err
 		}
 	}()
@@ -391,12 +394,18 @@ func (a *APIServer) runBatchedDatum(ctx context.Context, req *ProcessRequest, ba
 			a.size += int64(d.FileInfo.SizeBytes)
 		}
 		a.loggers = append(a.loggers, logger.userLogger())
-		if err := os.MkdirAll(client.PPSInputPrefix, 0666); err != nil {
+		mountPath := filepath.Join(client.PPSInputPrefix, fmt.Sprintf("%d", index))
+		if err := os.MkdirAll(mountPath, 0666); err != nil {
 			return err
 		}
-		if err := os.Symlink(dir, filepath.Join(client.PPSInputPrefix, fmt.Sprintf("%d", index))); err != nil {
+		if err := syscall.Mount(dir, mountPath, "", syscall.MS_BIND, ""); err != nil {
 			return err
 		}
+		defer func() {
+			if err := syscall.Unmount(mountPath, 0); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
 		a.errChans = append(a.errChans, ch)
 		if (a.index > batch.CountMax && batch.CountMax != 0) ||
 			(a.size > batch.SizeMax && batch.SizeMax > 0) {
@@ -738,7 +747,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		}, nil
 	}
 	stats := &pps.ProcessStats{}
-	statsPath := path.Join("/", req.JobID, logger.template.DatumID)
+	statsPath := path.Join("/", logger.template.InputFileID)
 	var statsTree hashtree.OpenHashTree
 	if req.EnableStats {
 		statsTree = hashtree.NewHashTree()
@@ -767,9 +776,11 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 				retErr = err
 				return
 			}
-			if err := statsTree.PutFile(path.Join(statsPath, "logs"), []*pfs.Object{object}, size); err != nil && retErr == nil {
-				retErr = err
-				return
+			if object != nil && req.EnableStats {
+				if err := statsTree.PutFile(path.Join(statsPath, "logs"), []*pfs.Object{object}, size); err != nil && retErr == nil {
+					retErr = err
+					return
+				}
 			}
 		}()
 		defer func() {
@@ -916,10 +927,10 @@ func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*Cancel
 	return &CancelResponse{Success: true}, nil
 }
 
-func (a *APIServer) datum() []*pps.Datum {
-	var result []*pps.Datum
+func (a *APIServer) datum() []*pps.InputFile {
+	var result []*pps.InputFile
 	for _, datum := range a.data {
-		result = append(result, &pps.Datum{
+		result = append(result, &pps.InputFile{
 			Path: datum.FileInfo.File.Path,
 			Hash: datum.FileInfo.Hash,
 		})
