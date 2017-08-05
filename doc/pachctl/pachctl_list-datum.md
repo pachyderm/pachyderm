@@ -1,20 +1,20 @@
-## ./pachctl unmount
+## ./pachctl list-datum
 
-Unmount pfs.
+Return the datums in a job.
 
 ### Synopsis
 
 
-Unmount pfs.
+Return the datums in a job.
 
 ```
-./pachctl unmount path/to/mount/point
+./pachctl list-datum job-id
 ```
 
 ### Options
 
 ```
-  -a, --all   unmount all pfs mounts
+      --raw   disable pretty printing, print raw json
 ```
 
 ### Options inherited from parent commands
