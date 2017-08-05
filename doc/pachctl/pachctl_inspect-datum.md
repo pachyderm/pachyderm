@@ -1,20 +1,20 @@
-## ./pachctl unmount
+## ./pachctl inspect-datum
 
-Unmount pfs.
+Display detailed info about a single datum.
 
 ### Synopsis
 
 
-Unmount pfs.
+Display detailed info about a single datum.
 
 ```
-./pachctl unmount path/to/mount/point
+./pachctl inspect-datum job-id datum-id
 ```
 
 ### Options
 
 ```
-  -a, --all   unmount all pfs mounts
+      --raw   disable pretty printing, print raw json
 ```
 
 ### Options inherited from parent commands
