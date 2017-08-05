@@ -44,7 +44,8 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   },
   "scale_down_threshold": string,
   "incremental": bool,
-  "cache_size": string
+  "cache_size": string,
+  "enable_stats": bool
 }
 
 ------------------------------------
@@ -366,6 +367,21 @@ displayed to each step of the pipeline.
 `cache_size` controls how much cache a pipeline worker uses.  In general,
 your pipeline's performance will increase with the cache size, but only
 up to a certain point depending on your workload.
+
+## Enable Stats (optional)
+
+`enable_stats` turns on stat tracking for the pipeline. This will cause the
+pipeline to commit to a second branch in its output repo called `"stats"`. This
+branch will have information about each datum that is processed including:
+timing information, size information, logs and a `/pfs` snapshot. This
+information can be accessed through the `inspect-datum` and `list-datum`
+pachctl commands and through the webUI.
+
+Note: enabling stats will use extra storage for logs and timing information.
+However it will not use as much extra storage as it appears to due to the fact
+that snapshots of the `/pfs` directory, which are generally the largest thing
+stored, don't actually require extra storage because the data is already stored
+in the input repos.
 
 ## The Input Glob Pattern
 
