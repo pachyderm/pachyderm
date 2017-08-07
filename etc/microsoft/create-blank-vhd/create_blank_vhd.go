@@ -91,8 +91,11 @@ Options:
 		log.Fatal(err)
 	}
 
-	url := client.GetBlobService().GetBlobURL(containerName, vhdName)
-
+	blobClient := client.GetBlobService()
+	container := blobClient.GetContainerReference(containerName)
+	blob := container.GetBlobReference(vhdName)
+	url := blob.GetURL()
+	
 	fmt.Print(url)
 
 	return
