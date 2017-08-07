@@ -172,7 +172,7 @@ func GetCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				fmt.Println(resp.Acl.String())
+				fmt.Println(resp.ACL.String())
 				return nil
 			}
 			// Get User's scope on an acl
