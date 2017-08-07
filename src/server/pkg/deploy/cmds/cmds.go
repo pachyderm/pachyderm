@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
@@ -83,7 +82,11 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			}
 			manifest := &bytes.Buffer{}
 			if dev {
+				// Use dev build instead of release build
 				opts.Version = deploy.DevVersionTag
+
+				// Disable authentication, for tests
+				opts.DisableAuthentication = true
 			}
 			if err := assets.WriteLocalAssets(manifest, opts, hostPath); err != nil {
 				return err
@@ -92,7 +95,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		}),
 	}
 	deployLocal.Flags().StringVar(&hostPath, "host-path", "/var/pachyderm", "Location on the host machine where PFS metadata will be stored.")
-	deployLocal.Flags().BoolVarP(&dev, "dev", "d", false, "Don't use a specific version of pachyderm/pachd.")
+	deployLocal.Flags().BoolVarP(&dev, "dev", "d", false, "Deploy pachd built locally, disable metrics, and use insecure authentication")
 
 	deployGoogle := &cobra.Command{
 		Use:   "google <GCS bucket> <size of disk(s) (in GB)>",
@@ -240,7 +243,6 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		PersistentPreRun: cmdutil.Run(func([]string) error {
 			opts = &assets.AssetOpts{
 				PachdShards:             uint64(pachdShards),
-				Version:                 version.PrettyPrintVersion(version.Version),
 				LogLevel:                logLevel,
 				Metrics:                 metrics,
 				PachdCPURequest:         pachdCPURequest,
@@ -271,9 +273,8 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deploy.AddCommand(deployMicrosoft)
 	deploy.AddCommand(deployCustom)
 
-	// Flags for setting pachd and rethink resource requests. These should rarely
-	// be set -- only if we get the defaults wrong, or users have an unusual
-	// access pattern.
+	// Flags for setting pachd resource requests. These should rarely be set --
+	// only if we get the defaults wrong, or users have an unusual access pattern
 	//
 	// All of these are empty by default, because the actual default values depend
 	// on the backend to which we're. The defaults are set in
