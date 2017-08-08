@@ -9,7 +9,6 @@ import (
 
 	auth "github.com/pachyderm/pachyderm/src/server/auth/server"
 	pfs "github.com/pachyderm/pachyderm/src/server/pfs/server"
-	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
 	"github.com/ugorji/go/codec"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/resource"
@@ -231,13 +230,6 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 	image := pachdImage
 	if opts.Version != "" {
 		image += ":" + opts.Version
-	}
-	// we turn metrics off if we dont have a static version
-	// this prevents dev clusters from reporting metrics
-	// TODO(msteffen) move this into deploy/cmds, since that's where deployment
-	// options are created
-	if opts.Version == deploy.DevVersionTag {
-		opts.Metrics = false
 	}
 	volumes := []api.Volume{
 		{
