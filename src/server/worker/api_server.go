@@ -108,6 +108,8 @@ type taggedLogger struct {
 	buffer       bytes.Buffer
 	putObjClient pfs.ObjectAPI_PutObjectClient
 	objSize      int64
+	msgCh        chan string
+	eg           errgroup.Group
 }
 
 func (a *APIServer) getTaggedLogger(ctx context.Context, req *ProcessRequest) (*taggedLogger, error) {
@@ -115,6 +117,7 @@ func (a *APIServer) getTaggedLogger(ctx context.Context, req *ProcessRequest) (*
 		template:  a.logMsgTemplate, // Copy struct
 		stderrLog: log.Logger{},
 		marshaler: &jsonpb.Marshaler{},
+		msgCh:     make(chan string, 10),
 	}
 	result.stderrLog.SetOutput(os.Stderr)
 	result.stderrLog.SetFlags(log.LstdFlags | log.Llongfile) // Log file/line
@@ -141,6 +144,19 @@ func (a *APIServer) getTaggedLogger(ctx context.Context, req *ProcessRequest) (*
 			return nil, err
 		}
 		result.putObjClient = putObjClient
+		result.eg.Go(func() error {
+			for msg := range result.msgCh {
+				for _, chunk := range grpcutil.Chunk([]byte(msg), grpcutil.MaxMsgSize/2) {
+					if err := result.putObjClient.Send(&pfs.PutObjectRequest{
+						Value: chunk,
+					}); err != nil && err != io.EOF {
+						return err
+					}
+				}
+				result.objSize += int64(len(msg))
+			}
+			return nil
+		})
 	}
 	return result, nil
 }
@@ -165,17 +181,7 @@ func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
 	bytes += "\n"
 	fmt.Printf(bytes)
 	if logger.putObjClient != nil {
-		for _, chunk := range grpcutil.Chunk([]byte(bytes), grpcutil.MaxMsgSize/2) {
-			if err := logger.putObjClient.Send(&pfs.PutObjectRequest{
-				Value: chunk,
-			}); err != nil && err != io.EOF {
-				// We swallow io.EOF errors here, that's because the final log
-				// statement gets called after Close() has already been called.
-				logger.stderrLog.Printf("could not write %s to object: %v", bytes, err)
-				return
-			}
-		}
-		logger.objSize += int64(len(bytes))
+		logger.msgCh <- bytes
 	}
 }
 
@@ -200,8 +206,15 @@ func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
 }
 
 func (logger *taggedLogger) Close() (*pfs.Object, int64, error) {
+	close(logger.msgCh)
 	if logger.putObjClient != nil {
+		if err := logger.eg.Wait(); err != nil {
+			return nil, 0, err
+		}
 		object, err := logger.putObjClient.CloseAndRecv()
+		// we set putObjClient to nil so that future calls to Logf won't send
+		// msg down logger.msgCh as we've just closed that channel.
+		logger.putObjClient = nil
 		return object, logger.objSize, err
 	}
 	return nil, 0, nil
@@ -213,6 +226,7 @@ func (logger *taggedLogger) clone() *taggedLogger {
 		stderrLog:    log.Logger{},
 		marshaler:    &jsonpb.Marshaler{},
 		putObjClient: logger.putObjClient,
+		msgCh:        logger.msgCh,
 	}
 }
 
@@ -574,7 +588,6 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		logger.Logf("process call finished - request: %v, response: %v, err %v, duration: %v", req, resp, retErr, time.Since(start))
 	}(time.Now())
 	atomic.AddInt64(&a.queueSize, 1)
-	logger.Logf("Received request")
 	ctx, cancel := context.WithCancel(ctx)
 	// Hash inputs
 	tag, err := HashDatum(a.pipelineInfo, req.Data)
