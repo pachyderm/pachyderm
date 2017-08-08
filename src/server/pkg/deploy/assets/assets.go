@@ -7,7 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pachyderm/pachyderm/src/server/pfs/server"
+	auth "github.com/pachyderm/pachyderm/src/server/auth/server"
+	pfs "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
 	"github.com/ugorji/go/codec"
 	"k8s.io/kubernetes/pkg/api"
@@ -72,6 +73,11 @@ type AssetOpts struct {
 	EnableDash  bool
 	DashOnly    bool
 	DashImage   string
+
+	// DisableAuthentication stops Pachyderm's authentication service
+	// from talking to GitHub, for testing. Instead users can authenticate
+	// simply by providing a username.
+	DisableAuthentication bool
 
 	// BlockCacheSize is the amount of memory each PachD node allocates towards
 	// its cache of PFS blocks. If empty, assets.go will choose a default size.
@@ -165,7 +171,7 @@ func ServiceAccount() *api.ServiceAccount {
 // constants defined in pfs/server.
 func GetSecretVolumeAndMount(backend string) (api.Volume, api.VolumeMount, error) {
 	switch backend {
-	case server.MinioBackendEnvVar:
+	case pfs.MinioBackendEnvVar:
 		return api.Volume{
 				Name: minioSecretName,
 				VolumeSource: api.VolumeSource{
@@ -177,7 +183,7 @@ func GetSecretVolumeAndMount(backend string) (api.Volume, api.VolumeMount, error
 				Name:      minioSecretName,
 				MountPath: "/" + minioSecretName,
 			}, nil
-	case server.AmazonBackendEnvVar:
+	case pfs.AmazonBackendEnvVar:
 		return api.Volume{
 				Name: amazonSecretName,
 				VolumeSource: api.VolumeSource{
@@ -189,7 +195,7 @@ func GetSecretVolumeAndMount(backend string) (api.Volume, api.VolumeMount, error
 				Name:      amazonSecretName,
 				MountPath: "/" + amazonSecretName,
 			}, nil
-	case server.GoogleBackendEnvVar:
+	case pfs.GoogleBackendEnvVar:
 		return api.Volume{
 				Name: googleSecretName,
 				VolumeSource: api.VolumeSource{
@@ -201,7 +207,7 @@ func GetSecretVolumeAndMount(backend string) (api.Volume, api.VolumeMount, error
 				Name:      googleSecretName,
 				MountPath: "/" + googleSecretName,
 			}, nil
-	case server.MicrosoftBackendEnvVar:
+	case pfs.MicrosoftBackendEnvVar:
 		return api.Volume{
 				Name: microsoftSecretName,
 				VolumeSource: api.VolumeSource{
@@ -228,6 +234,8 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 	}
 	// we turn metrics off if we dont have a static version
 	// this prevents dev clusters from reporting metrics
+	// TODO(msteffen) move this into deploy/cmds, since that's where deployment
+	// options are created
 	if opts.Version == deploy.DevVersionTag {
 		opts.Metrics = false
 	}
@@ -242,6 +250,8 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 			MountPath: "/pach",
 		},
 	}
+
+	// Set up storage options
 	var backendEnvVar string
 	var storageHostPath string
 	switch objectStoreBackend {
@@ -251,13 +261,13 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 			Path: storageHostPath,
 		}
 	case minioBackend:
-		backendEnvVar = server.MinioBackendEnvVar
+		backendEnvVar = pfs.MinioBackendEnvVar
 	case amazonBackend:
-		backendEnvVar = server.AmazonBackendEnvVar
+		backendEnvVar = pfs.AmazonBackendEnvVar
 	case googleBackend:
-		backendEnvVar = server.GoogleBackendEnvVar
+		backendEnvVar = pfs.GoogleBackendEnvVar
 	case microsoftBackend:
-		backendEnvVar = server.MicrosoftBackendEnvVar
+		backendEnvVar = pfs.MicrosoftBackendEnvVar
 	}
 	volume, mount, err := GetSecretVolumeAndMount(backendEnvVar)
 	if err == nil {
@@ -342,6 +352,10 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 									Name:  "BLOCK_CACHE_BYTES",
 									Value: opts.BlockCacheSize,
 								},
+								{
+									Name:  auth.DisableAuthenticationEnvVar,
+									Value: strconv.FormatBool(opts.DisableAuthentication),
+								},
 							},
 							Ports: []api.ContainerPort{
 								{
@@ -354,7 +368,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 									Name:          "trace-port",
 								},
 								{
-									ContainerPort: server.HTTPPort,
+									ContainerPort: pfs.HTTPPort,
 									Protocol:      "TCP",
 									Name:          "api-http-port",
 								},
@@ -408,9 +422,9 @@ func PachdService() *v1.Service {
 					NodePort: 30651,
 				},
 				{
-					Port:     server.HTTPPort,
+					Port:     pfs.HTTPPort,
 					Name:     "api-http-port",
-					NodePort: 30000 + server.HTTPPort,
+					NodePort: 30000 + pfs.HTTPPort,
 				},
 			},
 		},
