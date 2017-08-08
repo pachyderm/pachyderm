@@ -123,23 +123,17 @@ func NewAuthServer(etcdAddress string, etcdPrefix string) (authclient.APIServer,
 
 func (a *apiServer) activationCheck() {
 	backoff.RetryNotify(func() error {
-		// Check if there are any admins present at startup
-		ro := a.admins.ReadOnly(context.Background())
-		numAdmins, err := ro.Count()
-		if err != nil {
-			return err
-		}
-		a.activated.Store(numAdmins > 0)
-
-		// Watch for the addition/removal of new admins
-		watcher, err := ro.Watch()
+		// Watch for the addition/removal of new admins. Note that this will return
+		// any existing admins, so if the auth service is already activated, it will
+		// stay activated.
+		watcher, err := a.admins.ReadOnly(context.Background()).Watch()
 		if err != nil {
 			return err
 		}
 		defer watcher.Close()
-
-		// The auth service is activated if we have admins, and not activated
-		// otherwise.
+		// The auth service is activated if we have admins, and not
+		// activated otherwise.
+		var numAdmins int
 		for {
 			ev, ok := <-watcher.Watch()
 			if !ok {
@@ -419,7 +413,7 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 
 	// Validate request
 	if req.Repo == nil || req.Repo.Name == "" {
-		return nil, fmt.Errorf("invalid request: must provide name of repo you want to modify")
+		return nil, fmt.Errorf("invalid request: must provide name of repo to get that repo's ACL")
 	}
 
 	// Get calling user
@@ -467,25 +461,19 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 	var authzErr error
 	_, rwErr := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		acls := a.acls.ReadWrite(stm)
-		if err != nil {
-			return err
-		}
 		var acl authclient.ACL
 		if err := acls.Get(req.Repo.Name, &acl); err != nil {
 			return err
 		}
 
 		// Require OWNER access to modify repo ACL
-		if acl.Entries == nil && !user.Admin {
-			authzErr = fmt.Errorf("you must have OWNER access to %s to modify its ACL", req.Repo.Name)
-			return nil
-		} else if acl.Entries != nil && acl.Entries[user.Username] < authclient.Scope_OWNER {
+		if !user.Admin && acl.Entries[user.Username] < authclient.Scope_OWNER {
 			authzErr = fmt.Errorf("you must have OWNER access to %s to modify its ACL", req.Repo.Name)
 			return nil
 		}
 
 		// Set new ACL
-		if req.NewACL == nil || len((*req.NewACL).Entries) == 0 {
+		if req.NewACL == nil || len(req.NewACL.Entries) == 0 {
 			return acls.Delete(req.Repo.Name)
 		}
 		return acls.Put(req.Repo.Name, req.NewACL)

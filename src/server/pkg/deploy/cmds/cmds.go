@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
@@ -243,6 +244,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		PersistentPreRun: cmdutil.Run(func([]string) error {
 			opts = &assets.AssetOpts{
 				PachdShards:             uint64(pachdShards),
+				Version:                 version.PrettyPrintVersion(version.Version),
 				LogLevel:                logLevel,
 				Metrics:                 metrics,
 				PachdCPURequest:         pachdCPURequest,
