@@ -426,14 +426,13 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	resp = &authclient.GetACLResponse{
 		ACL: &authclient.ACL{},
 	}
-	err = a.acls.ReadOnly(ctx).Get(req.Repo.Name, resp.ACL)
-	if err != nil {
-		return nil, err
+	if err = a.acls.ReadOnly(ctx).Get(req.Repo.Name, resp.ACL); err != nil {
+		if _, ok := err.(col.ErrNotFound); !ok {
+			return nil, err
+		}
 	}
 	// For now, require READER access to read repo metadata (commits, and ACLs)
-	if resp.ACL.Entries == nil && !user.Admin {
-		return nil, fmt.Errorf("you must have at least READER access to %s to read its ACL", req.Repo.Name)
-	} else if resp.ACL.Entries != nil && resp.ACL.Entries[user.Username] < authclient.Scope_READER {
+	if !user.Admin && resp.ACL.Entries[user.Username] < authclient.Scope_READER {
 		return nil, fmt.Errorf("you must have at least READER access to %s to read its ACL", req.Repo.Name)
 	}
 	return resp, nil
@@ -458,19 +457,14 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 	}
 
 	// Read repo ACL from etcd
-	var authzErr error
-	_, rwErr := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		acls := a.acls.ReadWrite(stm)
-		var acl authclient.ACL
-		if err := acls.Get(req.Repo.Name, &acl); err != nil && !user.Admin {
-			// No ACL found
-			return err
-		}
 
 		// Require OWNER access to modify repo ACL
+		var acl authclient.ACL
+		acls.Get(req.Repo.Name, &acl)
 		if !user.Admin && acl.Entries[user.Username] < authclient.Scope_OWNER {
-			authzErr = fmt.Errorf("you must have OWNER access to %s to modify its ACL", req.Repo.Name)
-			return nil
+			return fmt.Errorf("you must have OWNER access to %s to modify its ACL", req.Repo.Name)
 		}
 
 		// Set new ACL
@@ -479,13 +473,10 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 		}
 		return acls.Put(req.Repo.Name, req.NewACL)
 	})
-	if authzErr != nil {
-		return nil, authzErr
+	if err != nil {
+		return nil, fmt.Errorf("could not put new ACL: %v", err)
 	}
-	if rwErr != nil {
-		return nil, fmt.Errorf("could not put new ACL: %s", rwErr.Error())
-	}
-	return resp, nil
+	return &authclient.SetACLResponse{}, nil
 }
 
 func (a *apiServer) GetCapability(ctx context.Context, req *authclient.GetCapabilityRequest) (resp *authclient.GetCapabilityResponse, retErr error) {

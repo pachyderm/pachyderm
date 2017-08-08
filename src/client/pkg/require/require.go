@@ -76,6 +76,46 @@ func OneOfEquals(tb testing.TB, expected interface{}, actuals []interface{}, msg
 	}
 }
 
+// OneOfEqualsString checks one string element of a slice equals a value.
+func OneOfEqualsString(tb testing.TB, expected string, actuals []string, msgAndArgs ...interface{}) {
+	equal := false
+	for _, actual := range actuals {
+		if expected == actual {
+			equal = true
+			break
+		}
+	}
+	if !equal {
+		fatal(
+			tb,
+			msgAndArgs,
+			"Not equal : %#v (expected)\n"+
+				" one of  != %#v (actuals)", expected, actuals)
+	}
+}
+
+// NoneEquals checks one element of a slice equals a value.
+func NoneEquals(tb testing.TB, expected interface{}, actuals []interface{}, msgAndArgs ...interface{}) {
+	for _, actual := range actuals {
+		if reflect.DeepEqual(expected, actual) {
+			fatal(tb, msgAndArgs,
+				"Not equal : %#v (expected)\n"+
+					" one of  != %#v (actuals)", expected, actuals)
+		}
+	}
+}
+
+// NoneEqualsString checks one string element of a slice equals a value.
+func NoneEqualsString(tb testing.TB, expected string, actuals []string, msgAndArgs ...interface{}) {
+	for _, actual := range actuals {
+		if expected == actual {
+			fatal(tb, msgAndArgs,
+				"Not equal : %#v (expected)\n"+
+					" one of  != %#v (actuals)", expected, actuals)
+		}
+	}
+}
+
 // NoError checks for no error.
 func NoError(tb testing.TB, err error, msgAndArgs ...interface{}) {
 	if err != nil {

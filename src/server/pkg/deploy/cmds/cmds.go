@@ -86,6 +86,10 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				// Use dev build instead of release build
 				opts.Version = deploy.DevVersionTag
 
+				// we turn metrics off this is a dev cluster. The default is set by
+				// deploy.PersistentPreRun, below.
+				opts.Metrics = false
+
 				// Disable authentication, for tests
 				opts.DisableAuthentication = true
 			}
