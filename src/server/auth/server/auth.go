@@ -462,7 +462,8 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 	_, rwErr := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		acls := a.acls.ReadWrite(stm)
 		var acl authclient.ACL
-		if err := acls.Get(req.Repo.Name, &acl); err != nil {
+		if err := acls.Get(req.Repo.Name, &acl); err != nil && !user.Admin {
+			// No ACL found
 			return err
 		}
 
