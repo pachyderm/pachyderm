@@ -131,7 +131,9 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, cacheB
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to etcd: %s", err.Error())
 	}
-
+	if cacheBytes <= 0 {
+		cacheBytes = defaultCacheSize
+	}
 	treeCache, err := lru.New(int(cacheBytes))
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize treeCache: %s", err.Error())
