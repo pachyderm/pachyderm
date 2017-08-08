@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 	"path"
 	"sync/atomic"
 	"time"
@@ -32,6 +33,11 @@ import (
 )
 
 const (
+	// DisableAuthenticationEnvVar specifies an environment variable that, if set, causes
+	// Pachyderm authentication to ignore github and authmatically generate a
+	// pachyderm token for any username in the AuthenticateRequest.GithubToken field
+	DisableAuthenticationEnvVar = "PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING"
+
 	tokensPrefix = "/auth/tokens"
 	aclsPrefix   = "/auth/acls"
 	adminsPrefix = "/auth/admins"
@@ -117,6 +123,9 @@ func NewAuthServer(etcdAddress string, etcdPrefix string) (authclient.APIServer,
 
 func (a *apiServer) activationCheck() {
 	backoff.RetryNotify(func() error {
+		// Watch for the addition/removal of new admins. Note that this will return
+		// any existing admins, so if the auth service is already activated, it will
+		// stay activated.
 		watcher, err := a.admins.ReadOnly(context.Background()).Watch()
 		if err != nil {
 			return err
@@ -186,6 +195,26 @@ func (a *apiServer) isActivated() bool {
 	return a.activated.Load().(bool)
 }
 
+// AccessTokenToUsername takes a OAuth access token issued by GitHub and uses
+// it discover the username of the user who obtained the code. This is how
+// Pachyderm currently implements authorization in a production cluster
+func AccessTokenToUsername(ctx context.Context, token string) (string, error) {
+	ts := oauth2.StaticTokenSource(
+		&oauth2.Token{
+			AccessToken: token,
+		},
+	)
+	tc := oauth2.NewClient(ctx, ts)
+	gclient := github.NewClient(tc)
+
+	// Passing the empty string gets us the authenticated user
+	user, _, err := gclient.Users.Get(ctx, "")
+	if err != nil {
+		return "", fmt.Errorf("error getting the authenticated user: %v", err)
+	}
+	return user.GetName(), nil
+}
+
 func (a *apiServer) Authenticate(ctx context.Context, req *authclient.AuthenticateRequest) (resp *authclient.AuthenticateResponse, retErr error) {
 	// We don't want to actually log the request/response since they contain
 	// credentials.
@@ -194,22 +223,22 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 		return nil, authclient.NotActivatedError{}
 	}
 
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{
-			AccessToken: req.GithubToken,
-		},
-	)
-	tc := oauth2.NewClient(ctx, ts)
-
-	gclient := github.NewClient(tc)
-
-	// Passing the empty string gets us the authenticated user
-	user, _, err := gclient.Users.Get(ctx, "")
-	if err != nil {
-		return nil, fmt.Errorf("error getting the authenticated user: %v", err)
+	var username string
+	if os.Getenv(DisableAuthenticationEnvVar) == "true" {
+		// Test mode--the caller automatically authenticates as whoever is requested
+		username = req.GithubUsername
+	} else {
+		// Prod mode--send access code to GitHub to discover authenticating user
+		var err error
+		username, err = AccessTokenToUsername(ctx, req.GithubToken)
+		if err != nil {
+			return nil, err
+		}
+		if req.GithubUsername != "" && req.GithubUsername != username {
+			return nil, fmt.Errorf("attempted to authenticate as %s, but Github " +
+				"token did not originate from that account")
+		}
 	}
-
-	username := user.GetName()
 
 	// Check if the user is an admin.  If they are, authenticate them as
 	// an admin.
@@ -225,7 +254,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 
 	pachToken := uuid.NewWithoutDashes()
 
-	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		tokens := a.tokens.ReadWrite(stm)
 		return tokens.PutTTL(hashToken(pachToken), &authclient.User{
 			Username: username,
@@ -381,6 +410,13 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	if !a.isActivated() {
 		return nil, authclient.NotActivatedError{}
 	}
+
+	// Validate request
+	if req.Repo == nil || req.Repo.Name == "" {
+		return nil, fmt.Errorf("invalid request: must provide name of repo to get that repo's ACL")
+	}
+
+	// Get calling user
 	user, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
@@ -388,17 +424,66 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 
 	// Read repo ACL from etcd
 	resp = &authclient.GetACLResponse{
-		Acl: &authclient.ACL{},
+		ACL: &authclient.ACL{},
 	}
-	err = a.acls.ReadOnly(ctx).Get(req.Repo.Name, resp.Acl)
+	err = a.acls.ReadOnly(ctx).Get(req.Repo.Name, resp.ACL)
 	if err != nil {
 		return nil, err
 	}
 	// For now, require READER access to read repo metadata (commits, and ACLs)
-	if resp.Acl.Entries == nil && !user.Admin {
-		return nil, fmt.Errorf("you must have at least reader access to %s to read its ACL", req.Repo.Name)
-	} else if resp.Acl.Entries != nil && resp.Acl.Entries[user.Username] < authclient.Scope_READER {
-		return nil, fmt.Errorf("you must have at least reader access to %s to read its ACL", req.Repo.Name)
+	if resp.ACL.Entries == nil && !user.Admin {
+		return nil, fmt.Errorf("you must have at least READER access to %s to read its ACL", req.Repo.Name)
+	} else if resp.ACL.Entries != nil && resp.ACL.Entries[user.Username] < authclient.Scope_READER {
+		return nil, fmt.Errorf("you must have at least READER access to %s to read its ACL", req.Repo.Name)
+	}
+	return resp, nil
+}
+
+func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (resp *authclient.SetACLResponse, retErr error) {
+	func() { a.Log(req, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	if !a.isActivated() {
+		return nil, authclient.NotActivatedError{}
+	}
+
+	// Validate request
+	if req.Repo == nil || req.Repo.Name == "" {
+		return nil, fmt.Errorf("invalid request: must provide name of repo you want to modify")
+	}
+
+	// Get calling user
+	user, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Read repo ACL from etcd
+	var authzErr error
+	_, rwErr := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		acls := a.acls.ReadWrite(stm)
+		var acl authclient.ACL
+		if err := acls.Get(req.Repo.Name, &acl); err != nil && !user.Admin {
+			// No ACL found
+			return err
+		}
+
+		// Require OWNER access to modify repo ACL
+		if !user.Admin && acl.Entries[user.Username] < authclient.Scope_OWNER {
+			authzErr = fmt.Errorf("you must have OWNER access to %s to modify its ACL", req.Repo.Name)
+			return nil
+		}
+
+		// Set new ACL
+		if req.NewACL == nil || len(req.NewACL.Entries) == 0 {
+			return acls.Delete(req.Repo.Name)
+		}
+		return acls.Put(req.Repo.Name, req.NewACL)
+	})
+	if authzErr != nil {
+		return nil, authzErr
+	}
+	if rwErr != nil {
+		return nil, fmt.Errorf("could not put new ACL: %s", rwErr.Error())
 	}
 	return resp, nil
 }
@@ -408,7 +493,6 @@ func (a *apiServer) GetCapability(ctx context.Context, req *authclient.GetCapabi
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var user *authclient.User
-	var err error
 	if !a.isActivated() {
 		// If auth service is not activated, we want to return a capability
 		// that's able to access any repo.  That way, when we create a
@@ -418,6 +502,7 @@ func (a *apiServer) GetCapability(ctx context.Context, req *authclient.GetCapabi
 			Admin: true,
 		}
 	} else {
+		var err error
 		user, err = a.getAuthenticatedUser(ctx)
 		if err != nil {
 			return nil, err
@@ -425,7 +510,7 @@ func (a *apiServer) GetCapability(ctx context.Context, req *authclient.GetCapabi
 	}
 
 	capability := uuid.NewWithoutDashes()
-	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		tokens := a.tokens.ReadWrite(stm)
 		// Capabilities are forver; they don't expire.
 		return tokens.Put(hashToken(capability), user)
