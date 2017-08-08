@@ -214,12 +214,6 @@ check_all_nodes_ready() {
         return 1
     fi
 
-    master=`cat nodes.txt | grep master | wc -l`
-    if [ ${master} != "1" ]; then
-        echo "no master nodes found"
-        return 1
-    fi
-
     total_nodes=$((${NUM_NODES}+1))
     ready_nodes=`cat nodes.txt | grep -v NotReady | grep Ready | wc -l`
     echo "total ${total_nodes}, ready ${ready_nodes}"
