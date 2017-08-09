@@ -2870,6 +2870,36 @@ func TestGlob(t *testing.T) {
 	require.Equal(t, numFiles+1, len(fileInfos))
 }
 
+func TestOverwrite(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getClient(t)
+	repo := uniqueString("TestGlob")
+	require.NoError(t, c.CreateRepo(repo))
+
+	// Write foo
+	_, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, "master", "file1", strings.NewReader("foo"))
+	require.NoError(t, c.FinishCommit(repo, "master"))
+	_, err = c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFileOverwrite(repo, "master", "file1", strings.NewReader("bar"))
+	require.NoError(t, err)
+	_, err = c.PutFileOverwrite(repo, "master", "file2", strings.NewReader("buzz"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, "master"))
+	var buffer bytes.Buffer
+	require.NoError(t, c.GetFile(repo, "master", "file1", 0, 0, &buffer))
+	require.Equal(t, "bar", buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(repo, "master", "file2", 0, 0, &buffer))
+	require.Equal(t, "buzz", buffer.String())
+}
+
 func uniqueString(prefix string) string {
 	return prefix + "-" + uuid.NewWithoutDashes()[0:12]
 }

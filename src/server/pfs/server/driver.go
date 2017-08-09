@@ -1283,7 +1283,7 @@ func checkPath(path string) error {
 }
 
 func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter,
-	targetFileDatums int64, targetFileBytes int64, reader io.Reader) error {
+	targetFileDatums int64, targetFileBytes int64, overwrite bool, reader io.Reader) error {
 	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
@@ -1298,6 +1298,12 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			return err
 		}
 		file.Commit = commitInfo.Commit
+	}
+
+	if overwrite {
+		if err := d.deleteFile(ctx, file); err != nil {
+			return err
+		}
 	}
 
 	records := &PutFileRecords{}
