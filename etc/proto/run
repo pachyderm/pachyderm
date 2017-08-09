@@ -18,6 +18,7 @@ Mgoogle/protobuf/wrappers.proto=github.com/gogo/protobuf/types,\
 Mgogoproto/gogo.proto=github.com/gogo/protobuf/gogoproto,\
 Mclient/pfs/pfs.proto=github.com/pachyderm/pachyderm/src/client/pfs,\
 Mclient/pps/pps.proto=github.com/pachyderm/pachyderm/src/client/pps,\
+Mclient/auth/auth.proto=github.com/pachyderm/pachyderm/src/client/auth,\
 Mserver/pfs/fuse/fuse.proto=github.com/pachyderm/pachyderm/src/server/pfs/fuse,\
 :src \
 	${i} ; \

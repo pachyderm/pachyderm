@@ -370,8 +370,7 @@ func (d *driver) inspectRepo(ctx context.Context, repo *pfs.Repo) (*pfs.RepoInfo
 	return repoInfo, nil
 }
 
-func (d *driver) listRepo(ctx context.Context, provenance []*pfs.Repo) ([]*pfs.RepoInfo, error) {
-	var result []*pfs.RepoInfo
+func (d *driver) listRepo(ctx context.Context, provenance []*pfs.Repo) (pfs.RepoInfos, error) {
 	repos := d.repos.ReadOnly(ctx)
 	// Ensure that all provenance repos exist
 	for _, prov := range provenance {
@@ -385,6 +384,8 @@ func (d *driver) listRepo(ctx context.Context, provenance []*pfs.Repo) ([]*pfs.R
 	if err != nil {
 		return nil, err
 	}
+	var result pfs.RepoInfos
+	var repoNames []string
 nextRepo:
 	for {
 		repoName, repoInfo := "", new(pfs.RepoInfo)
@@ -408,8 +409,16 @@ nextRepo:
 				continue nextRepo
 			}
 		}
-		result = append(result, repoInfo)
+		result.RepoInfo = append(result, repoInfo)
+		repoNames = append(repoNames, repoInfo.Repo.Name)
 	}
+	resp, err := d.pachClient.AuthAPIClient.GetScope(ctx, &auth.GetScopeRequest{
+		Repos: repoNames,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error getting scopes: %v", err)
+	}
+	result.Scopes = resp.Scopes
 	return result, nil
 }
 

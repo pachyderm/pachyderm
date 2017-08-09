@@ -71,12 +71,11 @@ message AuthorizeResponse {
 }
 
 message GetScopeRequest {
-    string username = 1;
-    string repo = 2;
+    repeated string repos = 2;
 }
 
 message GetScopeResponse {
-    Scope scope = 1;
+    repeated Scope scopes = 1;
 }
 
 message SetScopeRequest {
