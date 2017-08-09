@@ -71,6 +71,7 @@ message AuthorizeResponse {
 }
 
 message GetScopeRequest {
+    string username = 1;
     repeated string repos = 2;
 }
 

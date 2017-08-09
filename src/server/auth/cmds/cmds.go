@@ -8,7 +8,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 
@@ -135,7 +134,7 @@ func CheckCmd() *cobra.Command {
 			resp, err := c.AuthAPIClient.Authorize(
 				c.Ctx(),
 				&auth.AuthorizeRequest{
-					Repo:  &pfs.Repo{Name: repo},
+					Repo:  repo,
 					Scope: scope,
 				})
 			if err != nil {
@@ -171,7 +170,7 @@ func GetCmd() *cobra.Command {
 				resp, err := c.AuthAPIClient.GetACL(
 					c.Ctx(),
 					&auth.GetACLRequest{
-						Repo: &pfs.Repo{Name: repo},
+						Repo: repo,
 					})
 				if err != nil {
 					return err
@@ -184,13 +183,13 @@ func GetCmd() *cobra.Command {
 			resp, err := c.AuthAPIClient.GetScope(
 				c.Ctx(),
 				&auth.GetScopeRequest{
-					Repo:     &pfs.Repo{Name: repo},
+					Repos:    []string{repo},
 					Username: username,
 				})
 			if err != nil {
 				return err
 			}
-			fmt.Println(resp.Scope.String())
+			fmt.Println(resp.Scopes[0].String())
 			return nil
 		}),
 	}
@@ -224,7 +223,7 @@ func SetScopeCmd() *cobra.Command {
 			_, err = c.AuthAPIClient.SetScope(
 				c.Ctx(),
 				&auth.SetScopeRequest{
-					Repo:     &pfs.Repo{Name: repo},
+					Repo:     repo,
 					Scope:    scope,
 					Username: username,
 				})

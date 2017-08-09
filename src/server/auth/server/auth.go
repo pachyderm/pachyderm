@@ -383,10 +383,17 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 		return nil, authclient.NotActivatedError{}
 	}
 
-	user, err := a.getAuthenticatedUser(ctx)
-	if err != nil {
-		return nil, err
+	var username string
+	if req.Username != "" {
+		username = req.Username
+	} else {
+		user, err := a.getAuthenticatedUser(ctx)
+		if err != nil {
+			return nil, err
+		}
+		username = user.Username
 	}
+
 	// For now, we don't return OWNER if the user is an admin, even though that's
 	// their effective access scope for all repos--the caller may want to know
 	// what will happen if the user's admin privileges are revoked
@@ -395,12 +402,12 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 	resp = new(authclient.GetScopeResponse)
 	for _, repo := range req.Repos {
 		var acl authclient.ACL
-		err = a.acls.ReadOnly(ctx).Get(repo, &acl)
+		err := a.acls.ReadOnly(ctx).Get(repo, &acl)
 		if err != nil || acl.Entries == nil {
 			// ACL not found. User has no scope
 			resp.Scopes = append(resp.Scopes, authclient.Scope_NONE)
 		} else {
-			resp.Scopes = append(resp.Scopes, acl.Entries[user.Username])
+			resp.Scopes = append(resp.Scopes, acl.Entries[username])
 		}
 	}
 	return resp, nil
