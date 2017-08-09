@@ -30,11 +30,13 @@ type BlockAPIServer interface {
 }
 
 // NewAPIServer creates an APIServer.
+// cacheSize is the number of commit trees which will be cached in the server.
 func NewAPIServer(address string, etcdAddresses []string, etcdPrefix string, cacheSize int64) (APIServer, error) {
 	return newAPIServer(address, etcdAddresses, etcdPrefix, cacheSize)
 }
 
 // NewHTTPServer creates an APIServer.
+// cacheSize is the number of commit trees which will be cached in the server.
 func NewHTTPServer(address string, etcdAddresses []string, etcdPrefix string, cacheSize int64) (*HTTPServer, error) {
 	return newHTTPServer(address, etcdAddresses, etcdPrefix, cacheSize)
 }
