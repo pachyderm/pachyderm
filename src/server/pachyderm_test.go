@@ -2799,7 +2799,7 @@ func TestPfsPutFile(t *testing.T) {
 
 	commit2, err := c.StartCommit(repo2, "")
 	require.NoError(t, err)
-	err = c.PutFileURL(repo2, commit2.ID, "file", fmt.Sprintf("pfs://0.0.0.0:650/%s/%s/file1", repo1, commit1.ID), false)
+	err = c.PutFileURL(repo2, commit2.ID, "file", fmt.Sprintf("pfs://0.0.0.0:650/%s/%s/file1", repo1, commit1.ID), false, false)
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo2, commit2.ID))
 	var buf bytes.Buffer
@@ -2808,7 +2808,7 @@ func TestPfsPutFile(t *testing.T) {
 
 	commit3, err := c.StartCommit(repo2, "")
 	require.NoError(t, err)
-	err = c.PutFileURL(repo2, commit3.ID, "", fmt.Sprintf("pfs://0.0.0.0:650/%s/%s", repo1, commit1.ID), true)
+	err = c.PutFileURL(repo2, commit3.ID, "", fmt.Sprintf("pfs://0.0.0.0:650/%s/%s", repo1, commit1.ID), true, false)
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo2, commit3.ID))
 	buf = bytes.Buffer{}
@@ -3430,7 +3430,7 @@ func TestIncrementalAppendPipeline(t *testing.T) {
 	for i := 0; i <= 150; i++ {
 		_, err := c.StartCommit(dataRepo, "master")
 		require.NoError(t, err)
-		w, err := c.PutFileSplitWriter(dataRepo, "master", "data", pfs.Delimiter_LINE, 0, 0)
+		w, err := c.PutFileSplitWriter(dataRepo, "master", "data", pfs.Delimiter_LINE, 0, 0, false)
 		require.NoError(t, err)
 		_, err = w.Write([]byte(fmt.Sprintf("%d\n", i)))
 		require.NoError(t, err)
@@ -3925,7 +3925,7 @@ func TestOpencvDemo(t *testing.T) {
 	require.NoError(t, c.CreateRepo("images"))
 	commit, err := c.StartCommit("images", "master")
 	require.NoError(t, err)
-	require.NoError(t, c.PutFileURL("images", "master", "46Q8nDz.jpg", "http://imgur.com/46Q8nDz.jpg", false))
+	require.NoError(t, c.PutFileURL("images", "master", "46Q8nDz.jpg", "http://imgur.com/46Q8nDz.jpg", false, false))
 	require.NoError(t, c.FinishCommit("images", "master"))
 	bytes, err := ioutil.ReadFile("../../doc/examples/opencv/edges.json")
 	require.NoError(t, err)
