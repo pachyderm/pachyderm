@@ -3,10 +3,12 @@
 Pachyderm performs computations in an incremental fashion, that is, rather
 than computing a result all at once, it computes it in small pieces and
 then stitches those pieces together. This allows Pachyderm to compute
-things much more efficiently by reusing things that it's already computed
-rather than computing them again. There are two forms of incrementality
-that Pachyderm supports, this doc will cover them both and explain how to
-leverage them to speed up your workload.
+things much more efficiently than systems that compute everything from
+scratch by reusing the output of past computations rather than recomputing
+them. There are two forms of incrementality that Pachyderm supports,
+[Inter-Datum](LINK) and [Intra-Datum](LINK) incrementality this doc will
+cover them both and explain how to leverage them to speed up your
+workload.
 
 # Inter-datum Incrementality
 
@@ -16,8 +18,8 @@ computations is combined to create the final result. Pachyderm will never
 process the same datum twice (unless you update the pipeline with the
 `--reprocess` flag). If you commit new data that leaves some of the datums
 intact, then the results of processing that datum in a previous job will
-be used. This is best illustrated with an example. Suppose a pipeline with
-a single input that looks like this:
+be used, instead of reprocessing the datum. This is best illustrated with
+an example. Suppose a pipeline with a single input that looks like this:
 
 ```json
 {
@@ -53,17 +55,23 @@ your perspective. Notice, in the above example the result of processing
 a commit never depends on the history of that commit, you always get the
 same result you'd have gotten if you'd committed the same data in a single
 commit. As of 1.5.1, `list-job` and `inspect-job` will tell you how many
-datums the job processed and how many it skipped.
+datums the job processed and how many it skipped. Below is an example of
+a job that has processed 3 datums and skipped 2.
+
+```
+ID                                   OUTPUT COMMIT                             STARTED            DURATION           RESTART PROGRESS      DL       UL       STATE
+54fbc366-3f11-41f6-9000-60fc8860fa55 pipeline/9c348deb64304d118101e5771e18c2af 13 seconds ago     10 seconds         0       3 + 2 / 5     0B       0B       success
+```
 
 # Intra-datum Incrementality
 
 Pachyderm supports another form of incrementality, which is useful when
 the processing you're doing can be done
 ["online"](https://en.wikipedia.org/wiki/Online_algorithm). Because not
-all computations can be done online you have to enable this form of
+all computations can be done online, you have to enable this form of
 incrementality with the [`incremental`](LINK) field in pipelines.
 A canonical example of such an operation is summing a set of numbers.
-Again an example is instructive, suppose you have a pipeline like the
+Again an example is instructive. Suppose you have a pipeline like the
 above. However, instead of each datum being a single file, it's
 a directory which contains multiple files, each of which contains multiple
 numbers, and the pipeline enables incrementality via the `incremental`
