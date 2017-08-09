@@ -7,6 +7,8 @@ import "google/protobuf/wrappers.proto";
 
 import "gogoproto/gogo.proto";
 
+import "client/auth/auth.proto";
+
 message Repo {
   string name = 1;
 }
@@ -56,6 +58,7 @@ message RepoInfo {
 
 message RepoInfos {
   repeated RepoInfo repo_info = 1;
+  repeated auth.Scope scopes = 2;
 }
 
 message CommitInfo {
