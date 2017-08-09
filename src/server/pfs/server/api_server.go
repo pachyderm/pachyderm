@@ -324,7 +324,7 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 		}
 		r = &reader
 	}
-	if err := a.driver.putFile(ctx, request.File, request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, r); err != nil {
+	if err := a.driver.putFile(ctx, request.File, request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, request.Overwrite, r); err != nil {
 		return err
 	}
 	return nil
@@ -340,7 +340,7 @@ func (a *apiServer) putFilePfs(ctx context.Context, request *pfs.PutFileRequest,
 		if err != nil {
 			return err
 		}
-		return a.driver.putFile(ctx, client.NewFile(request.File.Commit.Repo.Name, request.File.Commit.ID, outPath), request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, r)
+		return a.driver.putFile(ctx, client.NewFile(request.File.Commit.Repo.Name, request.File.Commit.ID, outPath), request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, request.Overwrite, r)
 	}
 	splitPath := strings.Split(strings.TrimPrefix(url.Path, "/"), "/")
 	if len(splitPath) < 2 {
@@ -394,7 +394,7 @@ func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, reques
 			}
 		}()
 		return a.driver.putFile(ctx, client.NewFile(request.File.Commit.Repo.Name, request.File.Commit.ID, filePath),
-			request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, r)
+			request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, request.Overwrite, r)
 	}
 	if request.Recursive {
 		eg, egContext := errgroup.WithContext(ctx)
