@@ -9,8 +9,6 @@ import "gogoproto/gogo.proto";
 
 import "client/pfs/pfs.proto";
 
-option go_package = "pps";
-
 message Secret {
   // Name must be the name of the secret in kubernetes.
   string name = 1;

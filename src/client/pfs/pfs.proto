@@ -9,6 +9,8 @@ import "gogoproto/gogo.proto";
 
 import "client/auth/auth.proto";
 
+option go_package = "pfs";
+
 message Repo {
   string name = 1;
 }

@@ -290,11 +290,11 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 	}
 
 	var acl authclient.ACL
-	if err := a.acls.ReadOnly(ctx).Get(req.Repo.Name, &acl); err != nil {
+	if err := a.acls.ReadOnly(ctx).Get(req.Repo, &acl); err != nil {
 		if _, ok := err.(col.ErrNotFound); ok {
-			return nil, fmt.Errorf("ACL not found for repo %v", req.Repo.Name)
+			return nil, fmt.Errorf("ACL not found for repo %v", req.Repo)
 		}
-		return nil, fmt.Errorf("error getting ACL for repo %v: %v", req.Repo.Name, err)
+		return nil, fmt.Errorf("error getting ACL for repo %v: %v", req.Repo, err)
 	}
 
 	return &authclient.AuthorizeResponse{
@@ -322,7 +322,7 @@ func validateSetScopeRequest(req *authclient.SetScopeRequest) error {
 	if req.Username == "" {
 		return fmt.Errorf("invalid request: must set username")
 	}
-	if req.Repo == nil || req.Repo.Name == "" {
+	if req.Repo == "" {
 		return fmt.Errorf("invalid request: must set repo")
 	}
 	return nil
@@ -347,17 +347,17 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 		acls := a.acls.ReadWrite(stm)
 
 		var acl authclient.ACL
-		if err := acls.Get(req.Repo.Name, &acl); err != nil {
+		if err := acls.Get(req.Repo, &acl); err != nil {
 			// Might be creating a new ACL. Check that 'req' sets the caller to be an owner
 			// TODO(msteffen): check that the repo exists?
 			if req.Username != user.Username || req.Scope != authclient.Scope_OWNER {
-				return fmt.Errorf("ACL not found for repo %v", req.Repo.Name)
+				return fmt.Errorf("ACL not found for repo %v", req.Repo)
 			}
 			acl.Entries = make(map[string]authclient.Scope)
 		}
 		if len(acl.Entries) > 0 && !user.Admin &&
 			acl.Entries[user.Username] != authclient.Scope_OWNER {
-			return fmt.Errorf("user %v is not authorized to update ACL for repo %v", user, req.Repo.Name)
+			return fmt.Errorf("user %v is not authorized to update ACL for repo %v", user, req.Repo)
 		}
 
 		if req.Scope != authclient.Scope_NONE {
@@ -366,7 +366,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 			delete(acl.Entries, req.Username)
 		}
 
-		acls.Put(req.Repo.Name, &acl)
+		acls.Put(req.Repo, &acl)
 		return nil
 	})
 	if err != nil {
@@ -392,14 +392,16 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 	// what will happen if the user's admin privileges are revoked
 
 	// Read repo ACL from etcd
-	var acl authclient.ACL
-	err = a.acls.ReadOnly(ctx).Get(req.Repo.Name, &acl)
 	resp = new(authclient.GetScopeResponse)
-	if err == nil || acl.Entries == nil {
-		// ACL not found. User has no scope
-		resp.Scope = authclient.Scope_NONE
-	} else {
-		resp.Scope = acl.Entries[user.Username]
+	for _, repo := range req.Repos {
+		var acl authclient.ACL
+		err = a.acls.ReadOnly(ctx).Get(repo, &acl)
+		if err != nil || acl.Entries == nil {
+			// ACL not found. User has no scope
+			resp.Scopes = append(resp.Scopes, authclient.Scope_NONE)
+		} else {
+			resp.Scopes = append(resp.Scopes, acl.Entries[user.Username])
+		}
 	}
 	return resp, nil
 }
@@ -412,7 +414,7 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	}
 
 	// Validate request
-	if req.Repo == nil || req.Repo.Name == "" {
+	if req.Repo == "" {
 		return nil, fmt.Errorf("invalid request: must provide name of repo to get that repo's ACL")
 	}
 
@@ -426,15 +428,15 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	resp = &authclient.GetACLResponse{
 		ACL: &authclient.ACL{},
 	}
-	err = a.acls.ReadOnly(ctx).Get(req.Repo.Name, resp.ACL)
+	err = a.acls.ReadOnly(ctx).Get(req.Repo, resp.ACL)
 	if err != nil {
 		return nil, err
 	}
 	// For now, require READER access to read repo metadata (commits, and ACLs)
 	if resp.ACL.Entries == nil && !user.Admin {
-		return nil, fmt.Errorf("you must have at least READER access to %s to read its ACL", req.Repo.Name)
+		return nil, fmt.Errorf("you must have at least READER access to %s to read its ACL", req.Repo)
 	} else if resp.ACL.Entries != nil && resp.ACL.Entries[user.Username] < authclient.Scope_READER {
-		return nil, fmt.Errorf("you must have at least READER access to %s to read its ACL", req.Repo.Name)
+		return nil, fmt.Errorf("you must have at least READER access to %s to read its ACL", req.Repo)
 	}
 	return resp, nil
 }
@@ -447,7 +449,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 	}
 
 	// Validate request
-	if req.Repo == nil || req.Repo.Name == "" {
+	if req.Repo == "" {
 		return nil, fmt.Errorf("invalid request: must provide name of repo you want to modify")
 	}
 
@@ -462,22 +464,22 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 	_, rwErr := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		acls := a.acls.ReadWrite(stm)
 		var acl authclient.ACL
-		if err := acls.Get(req.Repo.Name, &acl); err != nil && !user.Admin {
+		if err := acls.Get(req.Repo, &acl); err != nil && !user.Admin {
 			// No ACL found
 			return err
 		}
 
 		// Require OWNER access to modify repo ACL
 		if !user.Admin && acl.Entries[user.Username] < authclient.Scope_OWNER {
-			authzErr = fmt.Errorf("you must have OWNER access to %s to modify its ACL", req.Repo.Name)
+			authzErr = fmt.Errorf("you must have OWNER access to %s to modify its ACL", req.Repo)
 			return nil
 		}
 
 		// Set new ACL
 		if req.NewACL == nil || len(req.NewACL.Entries) == 0 {
-			return acls.Delete(req.Repo.Name)
+			return acls.Delete(req.Repo)
 		}
-		return acls.Put(req.Repo.Name, req.NewACL)
+		return acls.Put(req.Repo, req.NewACL)
 	})
 	if authzErr != nil {
 		return nil, authzErr
