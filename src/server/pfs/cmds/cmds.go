@@ -663,19 +663,19 @@ want to consider using commit IDs directly.
 						return fmt.Errorf("no filename specified")
 					}
 					eg.Go(func() error {
-						return putFileHelper(client, repoName, branch, joinPaths("", source), source, recursive, limiter, split, targetFileDatums, targetFileBytes)
+						return putFileHelper(client, repoName, branch, joinPaths("", source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes)
 					})
 				} else if len(sources) == 1 && len(args) == 3 {
 					// We have a single source and the user has specified a path,
 					// we use the path and ignore source (in terms of naming the file).
 					eg.Go(func() error {
-						return putFileHelper(client, repoName, branch, path, source, recursive, limiter, split, targetFileDatums, targetFileBytes)
+						return putFileHelper(client, repoName, branch, path, source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes)
 					})
 				} else if len(sources) > 1 && len(args) == 3 {
 					// We have multiple sources and the user has specified a path,
 					// we use that path as a prefix for the filepaths.
 					eg.Go(func() error {
-						return putFileHelper(client, repoName, branch, joinPaths(path, source), source, recursive, limiter, split, targetFileDatums, targetFileBytes)
+						return putFileHelper(client, repoName, branch, joinPaths(path, source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes)
 					})
 				}
 			}
