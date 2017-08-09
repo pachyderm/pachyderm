@@ -458,7 +458,7 @@ func TestCreatePipeline(t *testing.T) {
 	// alice can create a pipeline (she owns the input repo)
 	pipeline := uniqueString("alice-pipeline")
 	require.NoError(t, CreatePipeline(alice, pipeline, dataRepo))
-	require.OneOfEqualsString(t, pipeline, PipelineNames(t, alice))
+	require.OneOfEquals(t, pipeline, PipelineNames(t, alice))
 	require.Equal(t, acl("alice", "owner"), GetACL(t, alice, pipeline)) // check that alice owns the output repo too
 	// TODO(msteffen): check that the pipeline runs successfully
 
@@ -467,7 +467,7 @@ func TestCreatePipeline(t *testing.T) {
 	err := CreatePipeline(bob, badPipeline, dataRepo)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.NoneEqualsString(t, badPipeline, PipelineNames(t, alice))
+	require.NoneEquals(t, badPipeline, PipelineNames(t, alice))
 
 	// alice adds bob as a reader of the input repo
 	_, err = alice.SetScope(alice.Ctx(), &auth.SetScopeRequest{
@@ -480,6 +480,6 @@ func TestCreatePipeline(t *testing.T) {
 	// now bob can create a pipeline
 	goodPipeline := uniqueString("bob-good")
 	require.NoError(t, CreatePipeline(bob, goodPipeline, dataRepo))
-	require.OneOfEqualsString(t, goodPipeline, PipelineNames(t, alice))
+	require.OneOfEquals(t, goodPipeline, PipelineNames(t, alice))
 	require.Equal(t, acl("bob", "owner"), GetACL(t, bob, goodPipeline)) // check that bob owns the output repo too
 }

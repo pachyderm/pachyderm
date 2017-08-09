@@ -59,31 +59,29 @@ func EqualOneOf(tb testing.TB, expecteds []interface{}, actual interface{}, msgA
 }
 
 // OneOfEquals checks one element of a slice equals a value.
-func OneOfEquals(tb testing.TB, expected interface{}, actuals []interface{}, msgAndArgs ...interface{}) {
+func OneOfEquals(tb testing.TB, expected interface{}, actuals interface{}, msgAndArgs ...interface{}) {
 	equal := false
-	for _, actual := range actuals {
-		if reflect.DeepEqual(expected, actual) {
-			equal = true
-			break
+	switch v := actuals.(type) {
+	case []string:
+		expectedStr, ok := expected.(string)
+		if !ok {
+			fatal(tb, msgAndArgs, "\"expected\" should be string, but instead was %T (%#v)", expected, expected)
 		}
-	}
-	if !equal {
-		fatal(
-			tb,
-			msgAndArgs,
-			"Not equal : %#v (expected)\n"+
-				" one of  != %#v (actuals)", expected, actuals)
-	}
-}
-
-// OneOfEqualsString checks one string element of a slice equals a value.
-func OneOfEqualsString(tb testing.TB, expected string, actuals []string, msgAndArgs ...interface{}) {
-	equal := false
-	for _, actual := range actuals {
-		if expected == actual {
-			equal = true
-			break
+		for _, actual := range v {
+			if reflect.DeepEqual(expectedStr, actual) {
+				equal = true
+				break
+			}
 		}
+	case []interface{}:
+		for _, actual := range v {
+			if reflect.DeepEqual(expected, actual) {
+				equal = true
+				break
+			}
+		}
+	default:
+		fatal(tb, msgAndArgs, "invalid slice type %T", v)
 	}
 	if !equal {
 		fatal(
@@ -95,24 +93,28 @@ func OneOfEqualsString(tb testing.TB, expected string, actuals []string, msgAndA
 }
 
 // NoneEquals checks one element of a slice equals a value.
-func NoneEquals(tb testing.TB, expected interface{}, actuals []interface{}, msgAndArgs ...interface{}) {
-	for _, actual := range actuals {
-		if reflect.DeepEqual(expected, actual) {
-			fatal(tb, msgAndArgs,
-				"Not equal : %#v (expected)\n"+
-					" one of  != %#v (actuals)", expected, actuals)
+func NoneEquals(tb testing.TB, expected interface{}, actuals interface{}, msgAndArgs ...interface{}) {
+	switch v := actuals.(type) {
+	case []string:
+		expectedStr, ok := expected.(string)
+		if !ok {
+			fatal(tb, msgAndArgs, "\"expected\" should be string, but instead was %T (%#v)", expected, expected)
 		}
-	}
-}
-
-// NoneEqualsString checks one string element of a slice equals a value.
-func NoneEqualsString(tb testing.TB, expected string, actuals []string, msgAndArgs ...interface{}) {
-	for _, actual := range actuals {
-		if expected == actual {
-			fatal(tb, msgAndArgs,
-				"Not equal : %#v (expected)\n"+
-					" one of  != %#v (actuals)", expected, actuals)
+		for _, actual := range v {
+			if reflect.DeepEqual(expectedStr, actual) {
+				fatal(tb, msgAndArgs,
+					"Equal : %#v (expected)\n one of == %#v (actuals)", expected, v)
+			}
 		}
+	case []interface{}:
+		for _, actual := range v {
+			if reflect.DeepEqual(expected, actual) {
+				fatal(tb, msgAndArgs,
+					"Equal : %#v (expected)\n one of == %#v (actuals)", expected, v)
+			}
+		}
+	default:
+		fatal(tb, msgAndArgs, "invalid slice type %T", v)
 	}
 }
 
