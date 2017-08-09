@@ -43,7 +43,7 @@ import (
 const (
 	// The maximum number of concurrent download/upload operations
 	concurrency = 10
-	maxLogItems = 10
+	logBuffer   = 25
 )
 
 var (
@@ -117,7 +117,7 @@ func (a *APIServer) getTaggedLogger(ctx context.Context, req *ProcessRequest) (*
 		template:  a.logMsgTemplate, // Copy struct
 		stderrLog: log.Logger{},
 		marshaler: &jsonpb.Marshaler{},
-		msgCh:     make(chan string, 10),
+		msgCh:     make(chan string, logBuffer),
 	}
 	result.stderrLog.SetOutput(os.Stderr)
 	result.stderrLog.SetFlags(log.LstdFlags | log.Llongfile) // Log file/line
