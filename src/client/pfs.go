@@ -550,7 +550,7 @@ func (c APIClient) PutFileSplit(repoName string, commitID string, path string, d
 	return int(written), err
 }
 
-// PutFileOverwriteURL puts a file using the content found at a URL.
+// PutFileURL puts a file using the content found at a URL.
 // The URL is sent to the server which performs the request.
 // recursive allow for recursive scraping of some types URLs for example on s3:// urls.
 func (c APIClient) PutFileURL(repoName string, commitID string, path string, url string, recursive bool, overwrite bool) (retErr error) {
