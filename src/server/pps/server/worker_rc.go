@@ -38,8 +38,8 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 		Name:  "BLOCK_CACHE_BYTES",
 		Value: options.cacheSize,
 	}, {
-		Name:  "PFS_CACHE_BYTES",
-		Value: "10M",
+		Name:  "PFS_CACHE_SIZE",
+		Value: "16",
 	}, {
 		Name:  "PACH_ROOT",
 		Value: a.storageRoot,
