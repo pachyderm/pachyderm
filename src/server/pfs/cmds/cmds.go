@@ -550,6 +550,7 @@ $ pachctl set-branch foo test master` + codeend,
 	var targetFileDatums uint
 	var targetFileBytes uint
 	var putFileCommit bool
+	var overwrite bool
 	putFile := &cobra.Command{
 		Use:   "put-file repo-name branch path/to/file/in/pfs",
 		Short: "Put a file into the filesystem.",
@@ -689,6 +690,7 @@ want to consider using commit IDs directly.
 	putFile.Flags().UintVar(&targetFileDatums, "target-file-datums", 0, "The upper bound of the number of datums that each file contains, the last file will contain fewer if the datums don't divide evenly; needs to be used with --split.")
 	putFile.Flags().UintVar(&targetFileBytes, "target-file-bytes", 0, "The target upper bound of the number of bytes that each file contains; needs to be used with --split.")
 	putFile.Flags().BoolVarP(&putFileCommit, "commit", "c", false, "Put file(s) in a new commit.")
+	putFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to put-file within this commit.")
 
 	var outputPath string
 	getFile := &cobra.Command{
@@ -1055,10 +1057,17 @@ func parseCommitMounts(args []string) []*fuse.CommitMount {
 	return result
 }
 
-func putFileHelper(client *client.APIClient, repo, commit, path, source string, recursive bool, limiter limit.ConcurrencyLimiter, split string, targetFileDatums uint, targetFileBytes uint) (retErr error) {
+func putFileHelper(client *client.APIClient, repo, commit, path, source string,
+	recursive bool, overwrite bool, limiter limit.ConcurrencyLimiter, split string,
+	targetFileDatums uint, targetFileBytes uint) (retErr error) {
 	putFile := func(reader io.Reader) error {
 		if split == "" {
-			_, err := client.PutFile(repo, commit, path, reader)
+			var err error
+			if overwrite {
+				_, err = client.PutFileOverwrite(repo, commit, path, reader)
+			} else {
+				_, err = client.PutFile(repo, commit, path, reader)
+			}
 			return err
 		}
 
@@ -1071,7 +1080,7 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string, 
 		default:
 			return fmt.Errorf("unrecognized delimiter '%s'; only accepts 'json' or 'line'", split)
 		}
-		_, err := client.PutFileSplit(repo, commit, path, delimiter, int64(targetFileDatums), int64(targetFileBytes), reader)
+		_, err := client.PutFileSplit(repo, commit, path, delimiter, int64(targetFileDatums), int64(targetFileBytes), overwrite, reader)
 		return err
 	}
 
@@ -1085,7 +1094,7 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string, 
 	if url, err := url.Parse(source); err == nil && url.Scheme != "" {
 		limiter.Acquire()
 		defer limiter.Release()
-		return client.PutFileURL(repo, commit, path, url.String(), recursive)
+		return client.PutFileURL(repo, commit, path, url.String(), recursive, overwrite)
 	}
 	if recursive {
 		var eg errgroup.Group
@@ -1098,7 +1107,7 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string, 
 				return nil
 			}
 			eg.Go(func() error {
-				return putFileHelper(client, repo, commit, filepath.Join(path, strings.TrimPrefix(filePath, source)), filePath, false, limiter, split, targetFileDatums, targetFileBytes)
+				return putFileHelper(client, repo, commit, filepath.Join(path, strings.TrimPrefix(filePath, source)), filePath, false, overwrite, limiter, split, targetFileDatums, targetFileBytes)
 			})
 			return nil
 		}); err != nil {
