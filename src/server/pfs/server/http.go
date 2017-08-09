@@ -37,7 +37,7 @@ type HTTPServer struct {
 }
 
 func newHTTPServer(address string, etcdAddresses []string, etcdPrefix string, cacheBytes int64) (*HTTPServer, error) {
-	d, err := newDriver(address, etcdAddresses, etcdPrefix, cacheBytes)
+	d, err := newDriver(address, etcdAddresses, etcdPrefix)
 	if err != nil {
 		return nil, err
 	}
