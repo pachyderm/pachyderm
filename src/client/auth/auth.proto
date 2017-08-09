@@ -1,7 +1,6 @@
 syntax = "proto3";
 package auth;
 
-import "client/pfs/pfs.proto";
 import "gogoproto/gogo.proto";
 
 // Auth Activation API
@@ -63,7 +62,7 @@ message ACL {
 // Authorization API
 
 message AuthorizeRequest {
-    pfs.Repo repo = 1;
+    string repo = 1;
     Scope scope = 2;
 }
 
@@ -73,7 +72,7 @@ message AuthorizeResponse {
 
 message GetScopeRequest {
     string username = 1;
-    pfs.Repo repo = 2;
+    string repo = 2;
 }
 
 message GetScopeResponse {
@@ -82,14 +81,14 @@ message GetScopeResponse {
 
 message SetScopeRequest {
     string username = 1;
-    pfs.Repo repo = 2;
+    string repo = 2;
     Scope scope = 3;
 }
 
 message SetScopeResponse {}
 
 message GetACLRequest {
-    pfs.Repo repo = 1;
+    string repo = 1;
 }
 
 message GetACLResponse {
@@ -97,7 +96,7 @@ message GetACLResponse {
 }
 
 message SetACLRequest {
-    pfs.Repo repo = 1;
+    string repo = 1;
     ACL new_acl = 2 [(gogoproto.customname) = "NewACL"];
 }
 
