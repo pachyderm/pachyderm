@@ -185,7 +185,7 @@ func (d *driver) initializePachConn() error {
 func (d *driver) checkIsAuthorized(ctx context.Context, r *pfs.Repo, s auth.Scope) error {
 	d.initializePachConn()
 	resp, err := d.pachClient.AuthAPIClient.Authorize(auth.In2Out(ctx), &auth.AuthorizeRequest{
-		Repo:  r,
+		Repo:  r.Name,
 		Scope: s,
 	})
 	if err == nil && !resp.Authorized {
@@ -277,12 +277,12 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 			// We also add the new provenance repos to the provenance
 			// of all downstream repos, and remove the old provenance
 			// repos from their provenance.
-			downstreamRepos, err := d.listRepo(ctx, []*pfs.Repo{repo})
+			downstreamRepos, err := d.listRepo(ctx, []*pfs.Repo{repo}, false)
 			if err != nil {
 				return err
 			}
 
-			for _, repoInfo := range downstreamRepos {
+			for _, repoInfo := range downstreamRepos.RepoInfo {
 			nextNewProv:
 				for newProv := range provToAdd {
 					for _, prov := range repoInfo.Provenance {
@@ -350,7 +350,7 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 	if authErr == nil {
 		// auth is active, and user is logged in. User is an owner of the new repo
 		_, err := d.pachClient.AuthAPIClient.SetScope(auth.In2Out(ctx), &auth.SetScopeRequest{
-			Repo:     repo,
+			Repo:     repo.Name,
 			Username: whoAmI.Username,
 			Scope:    auth.Scope_OWNER,
 		})
@@ -370,7 +370,7 @@ func (d *driver) inspectRepo(ctx context.Context, repo *pfs.Repo) (*pfs.RepoInfo
 	return repoInfo, nil
 }
 
-func (d *driver) listRepo(ctx context.Context, provenance []*pfs.Repo) (pfs.RepoInfos, error) {
+func (d *driver) listRepo(ctx context.Context, provenance []*pfs.Repo, includeAuth bool) (*pfs.RepoInfos, error) {
 	repos := d.repos.ReadOnly(ctx)
 	// Ensure that all provenance repos exist
 	for _, prov := range provenance {
@@ -409,17 +409,22 @@ nextRepo:
 				continue nextRepo
 			}
 		}
-		result.RepoInfo = append(result, repoInfo)
+		result.RepoInfo = append(result.RepoInfo, repoInfo)
 		repoNames = append(repoNames, repoInfo.Repo.Name)
 	}
-	resp, err := d.pachClient.AuthAPIClient.GetScope(ctx, &auth.GetScopeRequest{
-		Repos: repoNames,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("error getting scopes: %v", err)
+	if includeAuth {
+		// Include auth information in the response
+		resp, err := d.pachClient.AuthAPIClient.GetScope(ctx, &auth.GetScopeRequest{
+			Repos: repoNames,
+		})
+		if err != nil && !auth.IsNotActivatedError(err) {
+			return nil, fmt.Errorf("error getting scopes: %v", err)
+		}
+		if resp != nil {
+			result.Scopes = resp.Scopes
+		}
 	}
-	result.Scopes = resp.Scopes
-	return result, nil
+	return &result, nil
 }
 
 func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) error {
@@ -472,7 +477,7 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 	}
 
 	_, err = d.pachClient.AuthAPIClient.SetACL(auth.In2Out(ctx), &auth.SetACLRequest{
-		Repo:   repo,
+		Repo:   repo.Name,
 		NewACL: nil,
 	})
 	if err != nil && !auth.IsNotActivatedError(err) {
@@ -1717,13 +1722,15 @@ func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
 }
 
 func (d *driver) deleteAll(ctx context.Context) error {
-	repoInfos, err := d.listRepo(ctx, nil)
+	repoInfos, err := d.listRepo(ctx, nil, true)
 	if err != nil {
 		return err
 	}
-	for _, repoInfo := range repoInfos {
-		if err := d.deleteRepo(ctx, repoInfo.Repo, true); err != nil {
-			return err
+	for i, repoInfo := range repoInfos.RepoInfo {
+		if repoInfos.Scopes[i] >= auth.Scope_WRITER {
+			if err := d.deleteRepo(ctx, repoInfo.Repo, true); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

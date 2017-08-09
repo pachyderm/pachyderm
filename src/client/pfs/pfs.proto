@@ -9,8 +9,6 @@ import "gogoproto/gogo.proto";
 
 import "client/auth/auth.proto";
 
-option go_package = "pfs";
-
 message Repo {
   string name = 1;
 }
@@ -128,6 +126,9 @@ message InspectRepoRequest {
 
 message ListRepoRequest {
     repeated Repo provenance = 1;
+    // Include auth information in the response, i.e. what kind of
+    // scope the user has over each repo.
+    bool include_auth = 2;
 }
 
 message DeleteRepoRequest {
