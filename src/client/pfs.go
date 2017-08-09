@@ -505,8 +505,8 @@ func (c APIClient) PutFileWriter(repoName string, commitID string, path string) 
 // NOTE: PutFileSplitWriter returns an io.WriteCloser you must call Close on it when
 // you are done writing.
 func (c APIClient) PutFileSplitWriter(repoName string, commitID string, path string,
-	delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64) (io.WriteCloser, error) {
-	return c.newPutFileWriteCloser(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, false)
+	delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwrite bool) (io.WriteCloser, error) {
+	return c.newPutFileWriteCloser(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, overwrite)
 }
 
 // PutFile writes a file to PFS from a reader.
@@ -515,7 +515,7 @@ func (c APIClient) PutFile(repoName string, commitID string, path string, reader
 		c.streamSemaphore <- struct{}{}
 		defer func() { <-c.streamSemaphore }()
 	}
-	return c.PutFileSplit(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, reader)
+	return c.PutFileSplit(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, false, reader)
 }
 
 // PutFileOverwrite is like PutFile but it overwrites the file rather than
@@ -536,8 +536,8 @@ func (c APIClient) PutFileOverwrite(repoName string, commitID string, path strin
 
 //PutFileSplit writes a file to PFS from a reader
 // delimiter is used to tell PFS how to break the input into blocks
-func (c APIClient) PutFileSplit(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, reader io.Reader) (_ int, retErr error) {
-	writer, err := c.PutFileSplitWriter(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes)
+func (c APIClient) PutFileSplit(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwrite bool, reader io.Reader) (_ int, retErr error) {
+	writer, err := c.PutFileSplitWriter(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, overwrite)
 	if err != nil {
 		return 0, sanitizeErr(err)
 	}
@@ -550,10 +550,10 @@ func (c APIClient) PutFileSplit(repoName string, commitID string, path string, d
 	return int(written), err
 }
 
-// PutFileURL puts a file using the content found at a URL.
+// PutFileOverwriteURL puts a file using the content found at a URL.
 // The URL is sent to the server which performs the request.
 // recursive allow for recursive scraping of some types URLs for example on s3:// urls.
-func (c APIClient) PutFileURL(repoName string, commitID string, path string, url string, recursive bool) (retErr error) {
+func (c APIClient) PutFileURL(repoName string, commitID string, path string, url string, recursive bool, overwrite bool) (retErr error) {
 	putFileClient, err := c.PfsAPIClient.PutFile(c.Ctx())
 	if err != nil {
 		return sanitizeErr(err)
@@ -567,6 +567,7 @@ func (c APIClient) PutFileURL(repoName string, commitID string, path string, url
 		File:      NewFile(repoName, commitID, path),
 		Url:       url,
 		Recursive: recursive,
+		Overwrite: overwrite,
 	}); err != nil {
 		return sanitizeErr(err)
 	}
