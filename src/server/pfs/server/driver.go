@@ -114,17 +114,20 @@ const (
 )
 
 const (
-	treeCacheSize = 128
+	defaultTreeCacheSize = 128
 )
 
 // newDriver is used to create a new Driver instance
-func newDriver(address string, etcdAddresses []string, etcdPrefix string) (*driver, error) {
+func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCacheSize int64) (*driver, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   etcdAddresses,
 		DialOptions: client.EtcdDialOptions(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to etcd: %s", err.Error())
+	}
+	if treeCacheSize <= 0 {
+		treeCacheSize = defaultTreeCacheSize
 	}
 	treeCache, err := lru.New(int(treeCacheSize))
 	if err != nil {
@@ -153,7 +156,7 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string) (*driv
 // newLocalDriver creates a driver using an local etcd instance.  This
 // function is intended for testing purposes
 func newLocalDriver(blockAddress string, etcdPrefix string) (*driver, error) {
-	return newDriver(blockAddress, []string{"localhost:32379"}, etcdPrefix)
+	return newDriver(blockAddress, []string{"localhost:32379"}, etcdPrefix, defaultTreeCacheSize)
 }
 
 // initializePachConn initializes the connects that the pfs driver has with the
