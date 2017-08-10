@@ -40,6 +40,23 @@ func IsNotActivatedError(e error) bool {
 	return strings.Contains(e.Error(), notActivatedErrorMsg)
 }
 
+// NotAuthorizedError is returned if the user is not authorized to perform
+// a certain operation on a given repo.
+type NotAuthorizedError struct {
+	Repo string
+}
+
+const notAuthorizedErrorMsg = "not authorized to perform this operation on the repo "
+
+func (e NotAuthorizedError) Error() string {
+	return notAuthorizedErrorMsg + e.Repo
+}
+
+// IsNotAuthorizedError checks if an error is a NotAuthorizedError
+func IsNotAuthorizedError(e error) bool {
+	return strings.Contains(e.Error(), notAuthorizedErrorMsg)
+}
+
 // In2Out converts an incoming context containing auth information into an
 // outgoing context containing auth information, stripping other keys (e.g.
 // for metrics) in the process. If the incoming context doesn't have any auth
