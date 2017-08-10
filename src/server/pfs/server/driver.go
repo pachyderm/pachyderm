@@ -189,7 +189,7 @@ func (d *driver) checkIsAuthorized(ctx context.Context, r *pfs.Repo, s auth.Scop
 		Scope: s,
 	})
 	if err == nil && !resp.Authorized {
-		return fmt.Errorf("you are not authorized to perform this operation on the repo %s", r.Name)
+		return auth.NotAuthorizedError{r.Name}
 	} else if err != nil && !auth.IsNotActivatedError(err) {
 		return fmt.Errorf("error during authorization check for operation on %s: %s", r.Name, err.Error())
 	}
@@ -1722,15 +1722,13 @@ func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
 }
 
 func (d *driver) deleteAll(ctx context.Context) error {
-	repoInfos, err := d.listRepo(ctx, nil, true)
+	repoInfos, err := d.listRepo(ctx, nil, false)
 	if err != nil {
 		return err
 	}
-	for i, repoInfo := range repoInfos.RepoInfo {
-		if repoInfos.Scopes[i] >= auth.Scope_WRITER {
-			if err := d.deleteRepo(ctx, repoInfo.Repo, true); err != nil {
-				return err
-			}
+	for _, repoInfo := range repoInfos.RepoInfo {
+		if err := d.deleteRepo(ctx, repoInfo.Repo, true); err != nil && !auth.IsNotAuthorizedError(err) {
+			return err
 		}
 	}
 	return nil
