@@ -185,25 +185,27 @@ func (a *apiServer) validateInput(ctx context.Context, pipelineName string, inpu
 				if _, err := cron.Parse(input.Cron.Spec); err != nil {
 					return err
 				}
-				repo := fmt.Sprintf("%s_%s", pipelineName, input.Cron.Name)
-				if err := pachClient.CreateRepo(repo); err != nil && !strings.Contains(err.Error(), "already exists") {
+				if input.Cron.Repo == "" {
+					input.Cron.Repo = fmt.Sprintf("%s_%s", pipelineName, input.Cron.Name)
+				}
+				if err := pachClient.CreateRepo(input.Cron.Repo); err != nil && !strings.Contains(err.Error(), "already exists") {
 					return err
 				} else if err == nil {
 					// We've created the repo for the first time so we write an initial time file to it.
-					if _, err := pachClient.StartCommit(repo, "master"); err != nil {
+					if _, err := pachClient.StartCommit(input.Cron.Repo, "master"); err != nil {
 						return err
 					}
 					timeString, err := (&jsonpb.Marshaler{}).MarshalToString(input.Cron.Start)
 					if err != nil {
 						return err
 					}
-					if err := pachClient.DeleteFile(repo, "master", "time"); err != nil {
+					if err := pachClient.DeleteFile(input.Cron.Repo, "master", "time"); err != nil {
 						return err
 					}
-					if _, err := pachClient.PutFile(repo, "master", "time", strings.NewReader(timeString)); err != nil {
+					if _, err := pachClient.PutFile(input.Cron.Repo, "master", "time", strings.NewReader(timeString)); err != nil {
 						return err
 					}
-					if err := pachClient.FinishCommit(repo, "master"); err != nil {
+					if err := pachClient.FinishCommit(input.Cron.Repo, "master"); err != nil {
 						return err
 					}
 				}

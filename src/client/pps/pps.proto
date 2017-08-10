@@ -61,8 +61,10 @@ message AtomInput {
 
 message CronInput {
   string name = 1;
-  string spec = 2;
-  google.protobuf.Timestamp start = 3;
+  string repo = 2;
+  string commit = 3;
+  string spec = 4;
+  google.protobuf.Timestamp start = 5;
 }
 
 message Input {
