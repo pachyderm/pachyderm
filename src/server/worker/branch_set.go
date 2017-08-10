@@ -165,6 +165,7 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (branchSetFactory,
 				for {
 					if err := func() error {
 						nextT := schedule.Next(t)
+						t = nextT
 						time.Sleep(time.Until(nextT))
 						commit, err := pachClient.StartCommit(input.Cron.Repo, "master")
 						if err != nil {
@@ -176,6 +177,9 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (branchSetFactory,
 						}
 						timeString, err := (&jsonpb.Marshaler{}).MarshalToString(timestamp)
 						if err != nil {
+							return err
+						}
+						if err := pachClient.DeleteFile(input.Cron.Repo, "master", "time"); err != nil {
 							return err
 						}
 						if _, err := pachClient.PutFile(input.Cron.Repo, "master", "time", strings.NewReader(timeString)); err != nil {
