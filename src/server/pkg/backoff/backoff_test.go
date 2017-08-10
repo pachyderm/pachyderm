@@ -38,11 +38,14 @@ func TestConstantBackOffCompare(t *testing.T) {
 	var callTimes [10]time.Time
 	idx := 0
 	start := time.Now()
-	Retry(func() error {
+	err := Retry(func() error {
 		callTimes[idx] = time.Now()
 		idx++
 		return fmt.Errorf("expected error")
 	}, RetryEvery(time.Second).For(9*time.Second))
+	if err.Error() != "expected error" {
+		t.Fatalf("Retry loop didn't return internal error to caller")
+	}
 
 	epsilon := 500 * time.Millisecond
 	if idx < 8 {
