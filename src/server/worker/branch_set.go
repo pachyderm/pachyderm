@@ -120,8 +120,12 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (branchSetFactory,
 							NewBranch: i,
 						}
 						for i, commitInfo := range set {
+							branch := "master"
+							if directInputs[i].Atom != nil {
+								branch = directInputs[i].Atom.Branch
+							}
 							bs.Branches = append(bs.Branches, &pfs.BranchInfo{
-								Name: directInputs[i].Atom.Branch,
+								Name: branch,
 								Head: commitInfo.Commit,
 							})
 						}
@@ -182,7 +186,7 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (branchSetFactory,
 						if err := pachClient.FinishCommit(repo, "master"); err != nil {
 							return err
 						}
-						commitInfo, err := pachClient.InspectCommit(commit.Repo.Name, commit.ID)
+						commitInfo, err := pachClient.InspectCommit(commit.Repo.Name, "master")
 						if err != nil {
 							return err
 						}
@@ -219,8 +223,12 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (branchSetFactory,
 								NewBranch: i,
 							}
 							for i, commitInfo := range set {
+								branch := "master"
+								if directInputs[i].Atom != nil {
+									branch = directInputs[i].Atom.Branch
+								}
 								bs.Branches = append(bs.Branches, &pfs.BranchInfo{
-									Name: directInputs[i].Atom.Branch,
+									Name: branch,
 									Head: commitInfo.Commit,
 								})
 							}
