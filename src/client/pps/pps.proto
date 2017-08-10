@@ -173,6 +173,14 @@ message ResourceSpec {
   int64 gpu = 3;
 }
 
+message BatchSpec {
+  // the max number of datums that will be run in a batch
+  int64 count_max = 1;
+
+  // the maximum number of 
+  int64 size_max = 2;
+}
+
 message JobInfo {
   reserved 4;
   Job job = 1;
@@ -203,7 +211,7 @@ message JobInfo {
   pfs.Commit stats_commit = 29;
   bool enable_stats = 32;
   string salt = 33;
-  bool batch = 34;
+  BatchSpec batch = 34;
 }
 
 enum WorkerState {
@@ -276,7 +284,7 @@ message PipelineInfo {
   bool enable_stats = 24;
   string salt = 25;
   string capability = 26;
-  bool batch = 27;
+  BatchSpec batch = 27;
 }
 
 message PipelineInfos {
@@ -303,7 +311,7 @@ message CreateJobRequest {
   bool incremental = 17;
   bool enable_stats = 18;
   string salt = 19;
-  bool batch = 20;
+  BatchSpec batch = 20;
 }
 
 message InspectJobRequest {
@@ -399,7 +407,7 @@ message CreatePipelineRequest {
   // Reprocess forces the pipeline to reprocess all datums.
   // It only has meaning if Update is true
   bool reprocess = 18;
-  bool batch = 19;
+  BatchSpec batch = 19;
 }
 
 message InspectPipelineRequest {

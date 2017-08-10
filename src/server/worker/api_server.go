@@ -93,6 +93,15 @@ type APIServer struct {
 	// Only one datum can be running at a time because they need to be
 	// accessing /pfs, runMu enforces this
 	runMu sync.Mutex
+	// the index to use for datums being loaded into /pfs while batching
+	index int64
+	// the total size of batched datums
+	size int64
+	// loggers contains all the writers for outstanding datums
+	loggers []io.Writer
+	// errChans are channels which are being waited on by Process calls to see
+	// if the current batch fails to process
+	errChans []chan error
 }
 
 type putObjectResponse struct {
@@ -295,7 +304,7 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 }
 
 // Run user code and return the combined output of stdout and stderr.
-func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string, stats *pps.ProcessStats) (retErr error) {
+func (a *APIServer) runUnbatchedDatum(ctx context.Context, req *ProcessRequest, cancel func(), dir string, logger *taggedLogger, stats *pps.ProcessStats) (retErr error) {
 	defer func(start time.Time) {
 		stats.ProcessTime = types.DurationProto(time.Since(start))
 	}(time.Now())
@@ -303,18 +312,124 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	defer func(start time.Time) {
 		logger.Logf("finished running user code - took (%v) - with error (%v)\n", time.Since(start), retErr)
 	}(time.Now())
+	a.runMu.Lock()
+	defer a.runMu.Unlock()
+	atomic.AddInt64(&a.queueSize, -1)
+	func() {
+		a.statusMu.Lock()
+		defer a.statusMu.Unlock()
+		a.jobID = req.JobID
+		a.data = req.Data
+		a.started = time.Now()
+		a.cancel = cancel
+		a.stats = stats
+	}()
+	if err := syscall.Mount(dir, client.PPSInputPrefix, "", syscall.MS_BIND, ""); err != nil {
+		return err
+	}
+	defer func() {
+		if err := syscall.Unmount(client.PPSInputPrefix, 0); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
 	// Run user code
 	cmd := exec.CommandContext(ctx, a.pipelineInfo.Transform.Cmd[0], a.pipelineInfo.Transform.Cmd[1:]...)
 	cmd.Stdin = strings.NewReader(strings.Join(a.pipelineInfo.Transform.Stdin, "\n") + "\n")
 	cmd.Stdout = logger.userLogger()
 	cmd.Stderr = logger.userLogger()
-	cmd.Env = environ
+	cmd.Env = a.userCodeEnviron(req)
 	err := cmd.Run()
 
 	// Return result
 	if err == nil {
 		return nil
 	}
+	// (if err is an acceptable return code, don't return err)
+	if exiterr, ok := err.(*exec.ExitError); ok {
+		if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+			for _, returnCode := range a.pipelineInfo.Transform.AcceptReturnCode {
+				if int(returnCode) == status.ExitStatus() {
+					return nil
+				}
+			}
+		}
+	}
+	return err
+}
+
+func (a *APIServer) runBatchedDatum(ctx context.Context, req *ProcessRequest, batch *pps.BatchSpec, cancel func(), dir string, logger *taggedLogger, stats *pps.ProcessStats) (retErr error) {
+	defer func(start time.Time) {
+		stats.ProcessTime = types.DurationProto(time.Since(start))
+	}(time.Now())
+	logger.Logf("beginning to run user code")
+	defer func(start time.Time) {
+		logger.Logf("finished running user code - took (%v) - with error (%v)\n", time.Since(start), retErr)
+	}(time.Now())
+	run := func() {
+		// Run user code
+		cmd := exec.CommandContext(ctx, a.pipelineInfo.Transform.Cmd[0], a.pipelineInfo.Transform.Cmd[1:]...)
+		cmd.Stdin = strings.NewReader(strings.Join(a.pipelineInfo.Transform.Stdin, "\n") + "\n")
+		w := io.MultiWriter(a.loggers...)
+		cmd.Stdout = w
+		cmd.Stderr = w
+		cmd.Env = a.userCodeEnviron(req)
+		err := cmd.Run()
+		a.index = 0
+		for _, ch := range a.errChans {
+			ch <- err
+		}
+		a.errChans = nil
+		if err := os.RemoveAll(client.PPSInputPrefix); err != nil {
+			fmt.Fprintf(w, "failed to remove %s: %s", client.PPSInputPrefix, err)
+		}
+	}
+	var index int64
+	ch := make(chan error, 1)
+	if err := func() error {
+		a.runMu.Lock()
+		defer a.runMu.Unlock()
+		a.index++
+		index = a.index
+		for _, d := range req.Data {
+			a.size += int64(d.FileInfo.SizeBytes)
+		}
+		a.loggers = append(a.loggers, logger.userLogger())
+		mountPath := filepath.Join(client.PPSInputPrefix, fmt.Sprintf("%d", index))
+		if err := os.MkdirAll(mountPath, 0666); err != nil {
+			return err
+		}
+		if err := syscall.Mount(dir, mountPath, "", syscall.MS_BIND, ""); err != nil {
+			return err
+		}
+		defer func() {
+			if err := syscall.Unmount(mountPath, 0); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		a.errChans = append(a.errChans, ch)
+		if (a.index > batch.CountMax && batch.CountMax != 0) ||
+			(a.size > batch.SizeMax && batch.SizeMax > 0) {
+			run()
+		} else {
+			go func() {
+				// If we don't receive any more datums in the next 5 seconds we
+				// process the batch anyways, this guarantees that we won't
+				// block forever on the last batch.
+				time.Sleep(5 * time.Second)
+				a.runMu.Lock()
+				defer a.runMu.Unlock()
+				if a.index != index {
+					return
+				}
+				run()
+			}()
+
+		}
+		return nil
+	}(); err != nil {
+		return err
+	}
+	err := <-ch
 	// (if err is an acceptable return code, don't return err)
 	if exiterr, ok := err.(*exec.ExitError); ok {
 		if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
@@ -709,38 +824,18 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		return nil, err
 	}
 
-	environ := a.userCodeEnviron(req)
-
 	// Create output directory (currently /pfs/out) and run user code
 	if err := os.MkdirAll(filepath.Join(dir, "out"), 0666); err != nil {
 		return nil, err
 	}
 	// unset the status when this function exits
 	if response, err := func() (_ *ProcessResponse, retErr error) {
-		a.runMu.Lock()
-		defer a.runMu.Unlock()
-		atomic.AddInt64(&a.queueSize, -1)
-		func() {
-			a.statusMu.Lock()
-			defer a.statusMu.Unlock()
-			a.jobID = req.JobID
-			a.data = req.Data
-			a.started = time.Now()
-			a.cancel = cancel
-			a.stats = stats
-		}()
-		if err := os.MkdirAll(client.PPSInputPrefix, 0666); err != nil {
-			return nil, err
+		var err error
+		if a.pipelineInfo.Batch != nil {
+			err = a.runBatchedDatum(ctx, req, a.pipelineInfo.Batch, cancel, dir, logger, stats)
+		} else {
+			err = a.runUnbatchedDatum(ctx, req, cancel, dir, logger, stats)
 		}
-		if err := syscall.Mount(dir, client.PPSInputPrefix, "", syscall.MS_BIND, ""); err != nil {
-			return nil, err
-		}
-		defer func() {
-			if err := syscall.Unmount(client.PPSInputPrefix, 0); err != nil && retErr == nil {
-				retErr = err
-			}
-		}()
-		err = a.runUserCode(ctx, logger, environ, stats)
 		if err != nil {
 			logger.Logf("failed to process datum with error: %+v", err)
 			if statsTree != nil {
