@@ -2,7 +2,6 @@ package worker
 
 import (
 	"bytes"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -147,9 +146,8 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (branchSetFactory,
 				cancel()
 				return nil, err
 			}
-			repo := fmt.Sprintf("%s_%s", a.pipelineInfo.Pipeline.Name, input.Cron.Name)
 			var buffer bytes.Buffer
-			if err := pachClient.GetFile(repo, "master", "time", 0, 0, &buffer); err != nil {
+			if err := pachClient.GetFile(input.Cron.Repo, "master", "time", 0, 0, &buffer); err != nil {
 				cancel()
 				return nil, err
 			}
@@ -168,7 +166,7 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (branchSetFactory,
 					if err := func() error {
 						nextT := schedule.Next(t)
 						time.Sleep(time.Until(nextT))
-						commit, err := pachClient.StartCommit(repo, "master")
+						commit, err := pachClient.StartCommit(input.Cron.Repo, "master")
 						if err != nil {
 							return err
 						}
@@ -180,10 +178,10 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (branchSetFactory,
 						if err != nil {
 							return err
 						}
-						if _, err := pachClient.PutFile(repo, "master", "time", strings.NewReader(timeString)); err != nil {
+						if _, err := pachClient.PutFile(input.Cron.Repo, "master", "time", strings.NewReader(timeString)); err != nil {
 							return err
 						}
-						if err := pachClient.FinishCommit(repo, "master"); err != nil {
+						if err := pachClient.FinishCommit(input.Cron.Repo, "master"); err != nil {
 							return err
 						}
 						commitInfo, err := pachClient.InspectCommit(commit.Repo.Name, "master")
