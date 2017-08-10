@@ -956,7 +956,7 @@ func (a *apiServer) AuthorizeCreatePipeline(ctx context.Context, authClient auth
 		inputRepo := inputRepo
 		eg.Go(func() error {
 			resp, err := authClient.Authorize(auth.In2Out(ctx), &auth.AuthorizeRequest{
-				Repo:  &pfs.Repo{Name: inputRepo},
+				Repo:  inputRepo,
 				Scope: auth.Scope_READER,
 			})
 			if err != nil {
@@ -974,7 +974,7 @@ func (a *apiServer) AuthorizeCreatePipeline(ctx context.Context, authClient auth
 
 	// Check that the user is authorized to write to the output repo
 	resp, err := authClient.Authorize(auth.In2Out(ctx), &auth.AuthorizeRequest{
-		Repo:  &pfs.Repo{Name: info.Pipeline.Name},
+		Repo:  info.Pipeline.Name,
 		Scope: auth.Scope_WRITER,
 	})
 	if err != nil {
