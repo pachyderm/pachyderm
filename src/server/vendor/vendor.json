@@ -1022,6 +1022,12 @@
 			"revisionTime": "2016-04-11T19:08:41Z"
 		},
 		{
+			"checksumSHA1": "bOUCnFlRuGN/E633R/lFuiWVrkk=",
+			"path": "github.com/robfig/cron",
+			"revision": "736158dc09e10f1911ca3a1e1b01f11b566ce5db",
+			"revisionTime": "2017-05-26T15:01:27Z"
+		},
+		{
 			"checksumSHA1": "b65j8iurSMG0nedIgJiv71D4Ehc=",
 			"path": "github.com/russross/blackfriday",
 			"revision": "1d6b8e9301e720b08a8938b8c25c018285885438",
