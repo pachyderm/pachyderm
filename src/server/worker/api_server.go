@@ -23,6 +23,7 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
+	lru "github.com/hashicorp/golang-lru"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
@@ -93,6 +94,10 @@ type APIServer struct {
 	// Only one datum can be running at a time because they need to be
 	// accessing /pfs, runMu enforces this
 	runMu sync.Mutex
+
+	// datumCache is used by the master to keep track of the datums that
+	// have already been processed.
+	datumCache *lru.Cache
 }
 
 type putObjectResponse struct {
@@ -232,6 +237,10 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	if err != nil {
 		return nil, err
 	}
+	datumCache, err := lru.New(numCachedDatums)
+	if err != nil {
+		return nil, fmt.Errorf("error creating datum cache: %v", err)
+	}
 	server := &APIServer{
 		pachClient:   pachClient,
 		kubeClient:   kubeClient,
@@ -247,6 +256,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		namespace:  namespace,
 		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
 		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
+		datumCache: datumCache,
 	}
 	go server.master()
 	return server, nil
@@ -515,7 +525,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, lo
 
 // HashDatum computes and returns the hash of datum + pipeline, with a
 // pipeline-specific prefix.
-func HashDatum(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) {
+func HashDatum(pipelineInfo *pps.PipelineInfo, data []*Input) string {
 	hash := sha256.New()
 	for _, datum := range data {
 		hash.Write([]byte(datum.Name))
@@ -526,7 +536,7 @@ func HashDatum(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) {
 	hash.Write([]byte(pipelineInfo.Pipeline.Name))
 	hash.Write([]byte(pipelineInfo.Salt))
 
-	return client.DatumTagPrefix(pipelineInfo.Salt) + hex.EncodeToString(hash.Sum(nil)), nil
+	return client.DatumTagPrefix(pipelineInfo.Salt) + hex.EncodeToString(hash.Sum(nil))
 }
 
 // HashDatum15 computes and returns the hash of datum + pipeline for version <= 1.5.0, with a
@@ -577,10 +587,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	logger.Logf("Received request")
 	ctx, cancel := context.WithCancel(ctx)
 	// Hash inputs
-	tag, err := HashDatum(a.pipelineInfo, req.Data)
-	if err != nil {
-		return nil, err
-	}
+	tag := HashDatum(a.pipelineInfo, req.Data)
 	tag15, err := HashDatum15(a.pipelineInfo, req.Data)
 	if err != nil {
 		return nil, err

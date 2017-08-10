@@ -45,6 +45,9 @@ const (
 
 	// The number of datums that will be enqueued on each worker.
 	queueSize = 10
+
+	// The number of datums the master caches
+	numCachedDatums = 1000000
 )
 
 func (a *APIServer) getMasterLogger() *taggedLogger {
@@ -473,6 +476,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 		for i := 0; i < df.Len(); i++ {
 			limiter.Acquire()
 			files := df.Datum(i)
+			datumHash := HashDatum(pipelineInfo, files)
 			var parentOutputTag *pfs.Tag
 			if newBranchParentCommit != nil {
 				var parentFiles []*Input
@@ -496,10 +500,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 					parentFiles = append(parentFiles, parentFile)
 				}
 				if len(parentFiles) == len(files) {
-					_parentOutputTag, err := HashDatum(pipelineInfo, parentFiles)
-					if err != nil {
-						return err
-					}
+					_parentOutputTag := HashDatum(pipelineInfo, parentFiles)
 					parentOutputTag = &pfs.Tag{Name: _parentOutputTag}
 				}
 			}
@@ -510,18 +511,34 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 				b.Multiplier = 1
 				var resp *ProcessResponse
 				datumProcessStats := &pps.ProcessStats{}
+				// If usedCache is set to true, we know that we got
+				// the tags from the cache, and therefore if a retry
+				// happens (e.g. because the tags point to nonexistent
+				// objects), we know to skip the cache and recompute
+				// the datums.
+				var usedCache bool
 				if err := backoff.RetryNotify(func() error {
-					if err := pool.Do(ctx, func(conn *grpc.ClientConn) error {
-						workerClient := NewWorkerClient(conn)
-						resp, err = workerClient.Process(ctx, &ProcessRequest{
-							JobID:        jobInfo.Job.ID,
-							Data:         files,
-							ParentOutput: parentOutputTag,
-							EnableStats:  jobInfo.EnableStats,
-						})
-						return err
-					}); err != nil {
-						return fmt.Errorf("Process() call failed: %v", err)
+					tag, statsTag, ok := a.getCachedTags(datumHash)
+					if ok && !usedCache {
+						resp = new(ProcessResponse)
+						resp.Tag = tag
+						resp.StatsTag = statsTag
+						resp.Skipped = true
+						usedCache = true
+						return nil
+					} else {
+						if err := pool.Do(ctx, func(conn *grpc.ClientConn) error {
+							workerClient := NewWorkerClient(conn)
+							resp, err = workerClient.Process(ctx, &ProcessRequest{
+								JobID:        jobInfo.Job.ID,
+								Data:         files,
+								ParentOutput: parentOutputTag,
+								EnableStats:  jobInfo.EnableStats,
+							})
+							return err
+						}); err != nil {
+							return fmt.Errorf("Process() call failed: %v", err)
+						}
 					}
 					if resp.Failed {
 						userCodeFailures++
@@ -540,6 +557,8 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 							}
 						}
 						return fmt.Errorf("user code failed for datum %v", files)
+					} else {
+						a.setCachedTags(datumHash, resp.Tag, resp.StatsTag)
 					}
 					var eg errgroup.Group
 					var subTree hashtree.HashTree
@@ -915,6 +934,27 @@ func (a *APIServer) scaleUpWorkers() error {
 	}
 	_, err = rc.Update(workerRc)
 	return err
+}
+
+type cachedTags struct {
+	tag      *pfs.Tag
+	statsTag *pfs.Tag
+}
+
+func (a *APIServer) getCachedTags(hash string) (*pfs.Tag, *pfs.Tag, bool) {
+	tags, ok := a.datumCache.Get(hash)
+	if ok {
+		tags := tags.(cachedTags)
+		return tags.tag, tags.statsTag, true
+	}
+	return nil, nil, false
+}
+
+func (a *APIServer) setCachedTags(hash string, tag *pfs.Tag, statsTag *pfs.Tag) {
+	a.datumCache.Add(hash, cachedTags{
+		tag:      tag,
+		statsTag: statsTag,
+	})
 }
 
 func untranslateJobInputs(input *pps.Input) []*pps.JobInput {
