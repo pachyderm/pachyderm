@@ -199,9 +199,6 @@ func (a *apiServer) validateInput(ctx context.Context, pipelineName string, inpu
 					if err != nil {
 						return err
 					}
-					if err := pachClient.DeleteFile(input.Cron.Repo, "master", "time"); err != nil {
-						return err
-					}
 					if _, err := pachClient.PutFile(input.Cron.Repo, "master", "time", strings.NewReader(timeString)); err != nil {
 						return err
 					}
