@@ -35,6 +35,13 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
 
 .. toctree::
     :maxdepth: 1
+    :caption: Pachyderm Enterprise Edition
+
+    enterprise/overview
+    enterprise/deployment
+
+.. toctree::
+    :maxdepth: 1
     :caption: Full Examples
 
     examples/readme
@@ -65,6 +72,8 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     :maxdepth: 1
     :caption: Pachyderm Cookbook
 
+    cookbook/splitting
+    cookbook/combining
     cookbook/ml
     cookbook/time_windows
     cookbook/gpus

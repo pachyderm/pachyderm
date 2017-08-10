@@ -60,6 +60,7 @@ func ActivateCmd() *cobra.Command {
 // GitHub account. Any resources that have been restricted to the email address
 // registered with your GitHub account will subsequently be accessible.
 func LoginCmd() *cobra.Command {
+	var username string
 	login := &cobra.Command{
 		Use:   "login",
 		Short: "Login to Pachyderm with your GitHub account",
@@ -90,7 +91,7 @@ func LoginCmd() *cobra.Command {
 			}
 			resp, err := c.AuthAPIClient.Authenticate(
 				c.Ctx(),
-				&auth.AuthenticateRequest{GithubToken: token})
+				&auth.AuthenticateRequest{GithubUsername: username, GithubToken: token})
 			if err != nil {
 				return fmt.Errorf("error authenticating with Pachyderm cluster: %s",
 					err.Error())
@@ -102,6 +103,9 @@ func LoginCmd() *cobra.Command {
 			return cfg.Write()
 		}),
 	}
+	login.PersistentFlags().StringVar(&username, "user", "", "GitHub username of "+
+		"the user logging in. If unset, the username will be inferred from the "+
+		"github authorization code")
 	return login
 }
 
@@ -172,7 +176,7 @@ func GetCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				fmt.Println(resp.Acl.String())
+				fmt.Println(resp.ACL.String())
 				return nil
 			}
 			// Get User's scope on an acl

@@ -12,17 +12,16 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/montanaflynn/stats"
+	"golang.org/x/sync/errgroup"
+	"k8s.io/kubernetes/pkg/api"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
@@ -32,7 +31,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/pool"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
+	"github.com/pachyderm/pachyderm/src/server/pkg/util"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
+	"google.golang.org/grpc"
 )
 
 const (
@@ -41,6 +42,9 @@ const (
 	maximumRetriesPerDatum = 3
 
 	masterLockPath = "_master_worker_lock"
+
+	// The number of datums that will be enqueued on each worker.
+	queueSize = 10
 )
 
 func (a *APIServer) getMasterLogger() *taggedLogger {
@@ -108,11 +112,7 @@ func (a *APIServer) master() {
 // jobSpawner spawns jobs
 func (a *APIServer) jobSpawner(ctx context.Context, logger *taggedLogger) error {
 	// Establish connection pool
-	numWorkers, err := ppsserver.GetExpectedNumWorkers(a.kubeClient, a.pipelineInfo.ParallelismSpec)
-	if err != nil {
-		return err
-	}
-	pool, err := pool.NewPool(a.kubeClient, a.namespace, ppsserver.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version), numWorkers, client.PachDialOptions()...)
+	pool, err := pool.NewPool(a.kubeClient, a.namespace, ppsserver.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version), client.PachDialOptions()...)
 	if err != nil {
 		return fmt.Errorf("master: error constructing worker pool: %v; retrying in %v", err)
 	}
@@ -279,6 +279,7 @@ nextInput:
 			Salt:            a.pipelineInfo.Salt,
 			PipelineVersion: a.pipelineInfo.Version,
 			EnableStats:     a.pipelineInfo.EnableStats,
+			Batch:           a.pipelineInfo.Batch,
 		})
 		if err != nil {
 			return err
@@ -388,7 +389,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 		}
 
 		failed := false
-		limiter := limit.New(a.numWorkers)
+		limiter := limit.New(a.numWorkers * queueSize)
 		// process all datums
 		df, err := newDatumFactory(ctx, pfsClient, jobInfo.Input)
 		if err != nil {
@@ -508,29 +509,20 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 				b := backoff.NewInfiniteBackOff()
 				b.Multiplier = 1
 				var resp *ProcessResponse
+				datumProcessStats := &pps.ProcessStats{}
 				if err := backoff.RetryNotify(func() error {
-					conn, err := pool.Get(ctx)
-					if err != nil {
-						return fmt.Errorf("error from connection pool: %v", err)
-					}
-					workerClient := NewWorkerClient(conn)
-					resp, err = workerClient.Process(ctx, &ProcessRequest{
-						JobID:        jobInfo.Job.ID,
-						Data:         files,
-						ParentOutput: parentOutputTag,
-						EnableStats:  jobInfo.EnableStats,
-					})
-					if err != nil {
-						if err := conn.Close(); err != nil {
-							logger.Logf("error closing conn: %+v", err)
-						}
+					if err := pool.Do(ctx, func(conn *grpc.ClientConn) error {
+						workerClient := NewWorkerClient(conn)
+						resp, err = workerClient.Process(ctx, &ProcessRequest{
+							JobID:        jobInfo.Job.ID,
+							Data:         files,
+							ParentOutput: parentOutputTag,
+							EnableStats:  jobInfo.EnableStats,
+						})
+						return err
+					}); err != nil {
 						return fmt.Errorf("Process() call failed: %v", err)
 					}
-					defer func() {
-						if err := pool.Put(conn); err != nil {
-							logger.Logf("error Putting conn: %+v", err)
-						}
-					}()
 					if resp.Failed {
 						userCodeFailures++
 						// If this is our last failure we merge in the stats
@@ -564,6 +556,25 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 							statsSubtree, err = a.getTreeFromTag(ctx, resp.StatsTag)
 							if err != nil {
 								logger.Logf("failed to retrieve stats hashtree after processing for datum %v: %v", files, err)
+								return nil
+							}
+							nodes, err := statsSubtree.Glob("*/stats")
+							if err != nil {
+								logger.Logf("failed to retrieve process stats from hashtree for datum %v: %v", files, err)
+							}
+							if len(nodes) != 1 {
+								logger.Logf("should have a single stats object for datum %v", files)
+								return nil
+							}
+							var objects []string
+							for _, object := range nodes[0].FileNode.Objects {
+								objects = append(objects, object.Hash)
+							}
+							var buffer bytes.Buffer
+							a.pachClient.WithCtx(ctx).GetObjects(objects, 0, 0, &buffer)
+							if err := jsonpb.UnmarshalString(buffer.String(), datumProcessStats); err != nil {
+								logger.Logf("error unmarshalling datum process stats for datum %v: %+v", files, err)
+								return nil
 							}
 							return nil
 						})
@@ -577,8 +588,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 						if err := statsTree.Merge(statsSubtree); err != nil {
 							logger.Logf("failed to merge into stats tree: %v", err)
 						}
-						processStats = append(processStats, resp.Stats)
-						return nil
+						processStats = append(processStats, datumProcessStats)
 					}
 					return tree.Merge(subTree)
 				}, b, func(err error, d time.Duration) error {
@@ -596,9 +606,9 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 					return nil
 				}); err == nil {
 					if resp.Skipped {
-						go updateProgress(0, 1, resp.Stats)
+						go updateProgress(0, 1, datumProcessStats)
 					} else {
-						go updateProgress(1, 0, resp.Stats)
+						go updateProgress(1, 0, datumProcessStats)
 					}
 				}
 			}()
@@ -616,11 +626,11 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 				if err != nil {
 					return err
 				}
-				aggregateObject, err := a.putObject(ctx, []byte(marshalled))
+				aggregateObject, _, err := a.pachClient.WithCtx(ctx).PutObject(strings.NewReader(marshalled))
 				if err != nil {
 					return err
 				}
-				return statsTree.PutFile(path.Join("/", jobID, "stats"), []*pfs.Object{aggregateObject}, int64(len(marshalled)))
+				return statsTree.PutFile("/stats", []*pfs.Object{aggregateObject}, int64(len(marshalled)))
 			}(); err != nil {
 				logger.Logf("error aggregating stats")
 			}
@@ -839,32 +849,11 @@ func (a *APIServer) aggregate(datums []float64) (*pps.Aggregate, error) {
 }
 
 func (a *APIServer) getTreeFromTag(ctx context.Context, tag *pfs.Tag) (hashtree.HashTree, error) {
-	objectClient := a.pachClient.ObjectAPIClient
-	getTagClient, err := objectClient.GetTag(ctx, tag)
-	if err != nil {
-		return nil, err
-	}
 	var buffer bytes.Buffer
-	if err := grpcutil.WriteFromStreamingBytesClient(getTagClient, &buffer); err != nil {
+	if err := a.pachClient.WithCtx(ctx).GetTag(tag.Name, &buffer); err != nil {
 		return nil, err
 	}
 	return hashtree.Deserialize(buffer.Bytes())
-}
-
-func (a *APIServer) putObject(ctx context.Context, data []byte) (*pfs.Object, error) {
-	objectClient := a.pachClient.ObjectAPIClient
-	putObjClient, err := objectClient.PutObject(ctx)
-	if err != nil {
-		return nil, err
-	}
-	for _, chunk := range grpcutil.Chunk(data, grpcutil.MaxMsgSize/2) {
-		if err := putObjClient.Send(&pfs.PutObjectRequest{
-			Value: chunk,
-		}); err != nil {
-			return nil, err
-		}
-	}
-	return putObjClient.CloseAndRecv()
 }
 
 func (a *APIServer) putTree(ctx context.Context, tree hashtree.OpenHashTree) (*pfs.Object, error) {
@@ -877,7 +866,8 @@ func (a *APIServer) putTree(ctx context.Context, tree hashtree.OpenHashTree) (*p
 	if err != nil {
 		return nil, err
 	}
-	return a.putObject(ctx, data)
+	object, _, err := a.pachClient.WithCtx(ctx).PutObject(bytes.NewReader(data))
+	return object, err
 }
 
 func (a *APIServer) scaleDownWorkers() error {
@@ -886,12 +876,16 @@ func (a *APIServer) scaleDownWorkers() error {
 	if err != nil {
 		return err
 	}
-	if workerRc.Spec.Replicas != 1 {
-		workerRc.Spec.Replicas = 1
-		_, err = rc.Update(workerRc)
-		return err
+	workerRc.Spec.Replicas = 1
+	// When we scale down the workers, we also remove the resource
+	// requirements so that the remaining master pod does not take up
+	// the resource it doesn't need, since by definition when a pipeline
+	// is in scale-down mode, it doesn't process any work.
+	if a.pipelineInfo.ResourceSpec != nil {
+		workerRc.Spec.Template.Spec.Containers[0].Resources = api.ResourceRequirements{}
 	}
-	return nil
+	_, err = rc.Update(workerRc)
+	return err
 }
 
 func (a *APIServer) scaleUpWorkers() error {
@@ -906,10 +900,21 @@ func (a *APIServer) scaleUpWorkers() error {
 	}
 	if workerRc.Spec.Replicas != int32(parallelism) {
 		workerRc.Spec.Replicas = int32(parallelism)
-		_, err = rc.Update(workerRc)
-		return err
 	}
-	return nil
+	// Reset the resource requirements for the RC since the pipeline
+	// is in scale-down mode and probably has removed its resource
+	// requirements.
+	if a.pipelineInfo.ResourceSpec != nil {
+		resourceList, err := util.GetResourceListFromPipeline(a.pipelineInfo)
+		if err != nil {
+			return fmt.Errorf("error parsing resource spec; this is likely a bug: %v", err)
+		}
+		workerRc.Spec.Template.Spec.Containers[0].Resources = api.ResourceRequirements{
+			Requests: *resourceList,
+		}
+	}
+	_, err = rc.Update(workerRc)
+	return err
 }
 
 func untranslateJobInputs(input *pps.Input) []*pps.JobInput {

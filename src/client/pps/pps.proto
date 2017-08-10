@@ -92,13 +92,37 @@ message ParallelismSpec {
   double coefficient = 3;
 }
 
-message Datum {
+message InputFile {
   // This file's absolute path within its pfs repo.
   string path = 4;
 
   // This file's hash
   bytes hash = 5;
 }
+
+message Datum {
+  // ID is the hash computed from all the files
+  string id = 1 [(gogoproto.customname) = "ID"];
+  Job job = 2;
+}
+
+enum DatumState {
+    FAILED = 0;
+    SUCCESS = 1;
+    SKIPPED = 2;
+}
+
+message DatumInfo {
+   Datum datum = 1;
+   DatumState state = 2;
+   ProcessStats stats = 3;
+   pfs.File pfs_state = 4;
+}
+
+message DatumInfos {
+  repeated DatumInfo datum_info = 1;
+}
+
 
 message Aggregate {
   int64 count = 1;
@@ -127,10 +151,11 @@ message AggregateProcessStats {
 message WorkerStatus {
   string worker_id = 1 [(gogoproto.customname) = "WorkerID"];
   string job_id = 2 [(gogoproto.customname) = "JobID"];
-  repeated pps.Datum data = 3;
+  repeated pps.InputFile data = 3;
   // Started is the time processing on the current datum began.
   google.protobuf.Timestamp started = 4;
   ProcessStats stats = 5;
+  int64 queue_size = 6;
 }
 
 // ResourceSpec describes the amount of resources that pipeline pods should
@@ -178,6 +203,7 @@ message JobInfo {
   pfs.Commit stats_commit = 29;
   bool enable_stats = 32;
   string salt = 33;
+  bool batch = 34;
 }
 
 enum WorkerState {
@@ -250,6 +276,7 @@ message PipelineInfo {
   bool enable_stats = 24;
   string salt = 25;
   string capability = 26;
+  bool batch = 27;
 }
 
 message PipelineInfos {
@@ -276,6 +303,7 @@ message CreateJobRequest {
   bool incremental = 17;
   bool enable_stats = 18;
   string salt = 19;
+  bool batch = 20;
 }
 
 message InspectJobRequest {
@@ -311,7 +339,7 @@ message GetLogsRequest {
   // a hash for that file (to search for files at specific versions)
   repeated string data_filters = 3;
 
-  string datum_id = 4 [(gogoproto.customname) = "DatumID"];
+  string input_file_id = 4 [(gogoproto.customname) = "InputFileID"];
 
   // If true get logs from the master process
   bool master = 5;
@@ -325,11 +353,11 @@ message LogMessage {
   string pipeline_name = 1;
   string job_id = 3 [(gogoproto.customname) = "JobID"];
   string worker_id = 7 [(gogoproto.customname) = "WorkerID"];
-  string datum_id = 9 [(gogoproto.customname) = "DatumID"];
+  string input_file_id = 9 [(gogoproto.customname) = "InputFileID"];
   bool master = 10;
 
   // The PFS files being processed (one per pipeline/job input)
-  repeated Datum data = 4;
+  repeated InputFile data = 4;
 
   // User is true if log message comes from the users code.
   bool user = 8;
@@ -342,6 +370,14 @@ message LogMessage {
 message RestartDatumRequest {
   Job job = 1;
   repeated string data_filters = 2;
+}
+
+message InspectDatumRequest {
+  Datum datum = 1;
+}
+
+message ListDatumRequest {
+  Job job = 1;
 }
 
 message CreatePipelineRequest {
@@ -363,6 +399,7 @@ message CreatePipelineRequest {
   // Reprocess forces the pipeline to reprocess all datums.
   // It only has meaning if Update is true
   bool reprocess = 18;
+  bool batch = 19;
 }
 
 message InspectPipelineRequest {
@@ -402,6 +439,8 @@ service API {
   rpc ListJob(ListJobRequest) returns (JobInfos) {}
   rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
   rpc StopJob(StopJobRequest) returns (google.protobuf.Empty) {}
+  rpc InspectDatum(InspectDatumRequest) returns (DatumInfo) {}
+  rpc ListDatum(ListDatumRequest) returns (DatumInfos) {}
   rpc RestartDatum(RestartDatumRequest) returns (google.protobuf.Empty) {}
 
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}

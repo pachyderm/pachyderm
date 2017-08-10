@@ -70,11 +70,21 @@ install:
 install-doc:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl-doc
 
+check-docker-version:
+	# The latest docker client requires server api version >= 1.24.
+	# However, minikube uses 1.23, so if you're connected to minikube, releases
+	# may break
+	@ \
+		docker_major="$$(docker version -f "{{.Server.APIVersion}}" | cut -d. -f1)"; \
+		docker_minor="$$(docker version -f "{{.Server.APIVersion}}" | cut -d. -f2)"; \
+		echo "docker version = $${docker_major}.$${docker_minor}, need at least 1.24"; \
+		test \( "$${docker_major}" -gt 1 \) -o \( "$${docker_minor}" -ge 24 \)
+
 point-release:
 	@make VERSION_ADDITIONAL= release
 
 # Run via 'make VERSION_ADDITIONAL=RC release' to specify a version string
-release: release-version release-pachd release-worker release-pachctl doc
+release: check-docker-version release-version release-pachd release-worker release-pachctl doc
 	@rm VERSION
 	@echo "Release completed"
 
@@ -202,17 +212,17 @@ install-bench: install
 	[ -f /usr/local/bin/pachctl ] || sudo ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 
 launch-dev-test: docker-build-test docker-push-test
-	kubectl run bench --image=pachyderm/test:`git rev-list HEAD --max-count=1` \
+	sudo kubectl run bench --image=pachyderm/test:`git rev-list HEAD --max-count=1` \
 	    --restart=Never \
 	    --attach=true \
 	    -- \
 	    ./test -test.v
 
-aws-test:
-	ZONE=sa-east-1a etc/testing/deploy/aws.sh --delete || true
+aws-test: tag-images push-images
 	ZONE=sa-east-1a etc/testing/deploy/aws.sh --create
 	$(MAKE) launch-dev-test
 	rm $(HOME)/.pachyderm/config.json
+	ZONE=sa-east-1a etc/testing/deploy/aws.sh --delete
 
 run-bench:
 	kubectl scale --replicas=4 deploy/pachd
@@ -313,13 +323,16 @@ pretest:
 
 #test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build docker-build-netcat clean-launch-dev launch-dev integration-tests example-tests
 
+local-test: docker-build launch-dev test-pfs test-hashtree clean-launch-dev 
+
 test: docker-build clean-launch-dev launch-dev test-pfs test-pps test-hashtree
 
 test-pfs:
+	@# don't run this in verbose mode, as it produces a huge amount of logs
 	go test ./src/server/pfs/server -timeout $(TIMEOUT)
 
 test-pps:
-	go test -v ./src/server/ -timeout $(TIMEOUT)
+	go test -v ./src/server -timeout $(TIMEOUT)
 
 test-hashtree:
 	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
