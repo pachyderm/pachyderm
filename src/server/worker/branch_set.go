@@ -146,15 +146,19 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (branchSetFactory,
 				cancel()
 				return nil, err
 			}
-			var buffer bytes.Buffer
-			if err := pachClient.GetFile(input.Cron.Repo, "master", "time", 0, 0, &buffer); err != nil {
-				cancel()
-				return nil, err
-			}
 			tstamp := &types.Timestamp{}
-			if err := jsonpb.UnmarshalString(buffer.String(), tstamp); err != nil {
+			var buffer bytes.Buffer
+			if err := pachClient.GetFile(input.Cron.Repo, "master", "time", 0, 0, &buffer); err != nil && !isNotFoundErr(err) {
 				cancel()
 				return nil, err
+			} else if err != nil {
+				// File not found, this happens the first time the pipeline is run
+				tstamp = input.Cron.Start
+			} else {
+				if err := jsonpb.UnmarshalString(buffer.String(), tstamp); err != nil {
+					cancel()
+					return nil, err
+				}
 			}
 			t, err := types.TimestampFromProto(tstamp)
 			if err != nil {
