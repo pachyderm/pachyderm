@@ -10,7 +10,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"sync/atomic"
@@ -20,7 +19,7 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/google/go-github/github"
-	"go.pedge.io/proto/rpclog"
+	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 
@@ -29,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 )
 
@@ -62,7 +62,7 @@ xYp8vpeQ3by9WxPBE/WrxN8CAwEAAQ==
 )
 
 type apiServer struct {
-	protorpclog.Logger
+	log.Logger
 	etcdClient *etcd.Client
 
 	// 'activated' stores a timestamp that is effectively a cache of whether the
@@ -90,7 +90,7 @@ func NewAuthServer(etcdAddress string, etcdPrefix string) (authclient.APIServer,
 	}
 
 	s := &apiServer{
-		Logger:     protorpclog.NewLogger("auth.API"),
+		Logger:     log.NewLogger("auth.API"),
 		etcdClient: etcdClient,
 		tokens: col.NewCollection(
 			etcdClient,
@@ -150,7 +150,7 @@ func (a *apiServer) activationCheck() {
 			a.activated.Store(numAdmins > 0)
 		}
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		log.Printf("error from activation check: %v; retrying in %v", err, d)
+		logrus.Printf("error from activation check: %v; retrying in %v", err, d)
 		return nil
 	})
 }
