@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	client "github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -28,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	workerpkg "github.com/pachyderm/pachyderm/src/server/worker"
+	"github.com/robfig/cron"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
@@ -100,6 +101,8 @@ type apiServer struct {
 	pachConn              *grpc.ClientConn
 	pachConnOnce          sync.Once
 	kubeClient            *kube.Client
+	pachClient            *client.APIClient
+	pachClientOnce        sync.Once
 	namespace             string
 	workerImage           string
 	workerSidecarImage    string
@@ -113,88 +116,100 @@ type apiServer struct {
 	jobs      col.Collection
 }
 
-func (a *apiServer) validateInput(ctx context.Context, input *pps.Input, job bool) error {
+func (a *apiServer) validateInput(ctx context.Context, pipelineName string, input *pps.Input, job bool) error {
+	pachClient, err := a.getPachClient()
+	if err != nil {
+		return err
+	}
+	pachClient = pachClient.WithCtx(ctx)
 	names := make(map[string]bool)
 	repoBranch := make(map[string]string)
 	var result error
 	pps.VisitInput(input, func(input *pps.Input) {
-		set := false
-		if input.Atom != nil {
-			set = true
-			switch {
-			case len(input.Atom.Name) == 0:
-				result = fmt.Errorf("input must specify a name")
-				return
-			case input.Atom.Name == "out":
-				result = fmt.Errorf("input cannot be named \"out\", as pachyderm " +
-					"already creates /pfs/out to collect job output")
-				return
-			case input.Atom.Repo == "":
-				result = fmt.Errorf("input must specify a repo")
-				return
-			case input.Atom.Branch == "" && !job:
-				result = fmt.Errorf("input must specify a branch")
-				return
-			case input.Atom.Commit == "" && job:
-				result = fmt.Errorf("input must specify a commit")
-				return
-			case len(input.Atom.Glob) == 0:
-				result = fmt.Errorf("input must specify a glob")
-				return
-			}
-			if _, ok := names[input.Atom.Name]; ok {
-				result = fmt.Errorf("conflicting input names: %s", input.Atom.Name)
-				return
-			}
-			names[input.Atom.Name] = true
-			if repoBranch[input.Atom.Repo] != "" && repoBranch[input.Atom.Repo] != input.Atom.Branch {
-				result = fmt.Errorf("cannot use the same repo in multiple inputs with different branches")
-				return
-			}
-			repoBranch[input.Atom.Repo] = input.Atom.Branch
-			pfsClient, err := a.getPFSClient()
-			if err != nil {
-				result = err
-				return
-			}
-			if job {
-				// for jobs we check that the input commit exists
-				_, err = pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-					Commit: client.NewCommit(input.Atom.Repo, input.Atom.Commit),
-				})
-				if err != nil {
-					result = err
-					return
+		result = func() error {
+			set := false
+			if input.Atom != nil {
+				set = true
+				switch {
+				case len(input.Atom.Name) == 0:
+					return fmt.Errorf("input must specify a name")
+				case input.Atom.Name == "out":
+					return fmt.Errorf("input cannot be named \"out\", as pachyderm " +
+						"already creates /pfs/out to collect job output")
+				case input.Atom.Repo == "":
+					return fmt.Errorf("input must specify a repo")
+				case input.Atom.Branch == "" && !job:
+					return fmt.Errorf("input must specify a branch")
+				case input.Atom.Commit == "" && job:
+					return fmt.Errorf("input must specify a commit")
+				case len(input.Atom.Glob) == 0:
+					return fmt.Errorf("input must specify a glob")
 				}
-			} else {
-				// for pipelines we only check that the repo exists
-				_, err = pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{
-					Repo: client.NewRepo(input.Atom.Repo),
-				})
-				if err != nil {
-					result = err
-					return
+				if _, ok := names[input.Atom.Name]; ok {
+					return fmt.Errorf("conflicting input names: %s", input.Atom.Name)
+				}
+				names[input.Atom.Name] = true
+				if repoBranch[input.Atom.Repo] != "" && repoBranch[input.Atom.Repo] != input.Atom.Branch {
+					return fmt.Errorf("cannot use the same repo in multiple inputs with different branches")
+				}
+				repoBranch[input.Atom.Repo] = input.Atom.Branch
+				if job {
+					// for jobs we check that the input commit exists
+					if _, err := pachClient.InspectCommit(input.Atom.Repo, input.Atom.Commit); err != nil {
+						return err
+					}
+				} else {
+					// for pipelines we only check that the repo exists
+					if _, err = pachClient.InspectRepo(input.Atom.Repo); err != nil {
+						return err
+					}
 				}
 			}
-		}
-		if input.Cross != nil {
-			if set {
-				result = fmt.Errorf("multiple input types set")
-				return
+			if input.Cross != nil {
+				if set {
+					return fmt.Errorf("multiple input types set")
+				}
+				set = true
 			}
-			set = true
-		}
-		if input.Union != nil {
-			if set {
-				result = fmt.Errorf("multiple input types set")
-				return
+			if input.Union != nil {
+				if set {
+					return fmt.Errorf("multiple input types set")
+				}
+				set = true
 			}
-			set = true
-		}
-		if !set {
-			result = fmt.Errorf("no input set")
-			return
-		}
+			if input.Cron != nil {
+				if set {
+					return fmt.Errorf("multiple input types set")
+				}
+				set = true
+				if _, err := cron.Parse(input.Cron.Spec); err != nil {
+					return err
+				}
+				repo := fmt.Sprintf("%s.%s", pipelineName, input.Cron.Name)
+				if err := pachClient.CreateRepo(repo); err != nil && !strings.Contains(err.Error(), "already exists") {
+					return err
+				} else if err == nil {
+					// We've created the repo for the first time so we write an initial time file to it.
+					if _, err := pachClient.StartCommit(repo, "master"); err != nil {
+						return err
+					}
+					timeString, err := (&jsonpb.Marshaler{}).MarshalToString(input.Cron.Start)
+					if err != nil {
+						return err
+					}
+					if _, err := pachClient.PutFile(repo, "master", "time", strings.NewReader(timeString)); err != nil {
+						return err
+					}
+					if err := pachClient.FinishCommit(repo, "master"); err != nil {
+						return err
+					}
+				}
+			}
+			if !set {
+				return fmt.Errorf("no input set")
+			}
+			return nil
+		}()
 	})
 	return result
 }
@@ -210,7 +225,7 @@ func (a *apiServer) validateJob(ctx context.Context, jobInfo *pps.JobInfo) error
 	if err := validateTransform(jobInfo.Transform); err != nil {
 		return err
 	}
-	return a.validateInput(ctx, jobInfo.Input, true)
+	return a.validateInput(ctx, jobInfo.Pipeline.Name, jobInfo.Input, true)
 }
 
 func translateJobInputs(inputs []*pps.JobInput) *pps.Input {
@@ -835,7 +850,7 @@ nextLogCh:
 }
 
 func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
-	if err := a.validateInput(ctx, pipelineInfo.Input, false); err != nil {
+	if err := a.validateInput(ctx, pipelineInfo.Pipeline.Name, pipelineInfo.Input, false); err != nil {
 		return err
 	}
 	if err := validateTransform(pipelineInfo.Transform); err != nil {
@@ -1113,6 +1128,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 // setPipelineDefaults sets the default values for a pipeline info
 func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
+	now := time.Now()
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
 		if input.Atom != nil {
 			if input.Atom.Branch == "" {
@@ -1120,6 +1136,12 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 			}
 			if input.Atom.Name == "" {
 				input.Atom.Name = input.Atom.Repo
+			}
+		}
+		if input.Cron != nil {
+			if input.Cron.Start == nil {
+				start, _ := types.TimestampProto(now)
+				input.Cron.Start = start
 			}
 		}
 	})
@@ -1646,6 +1668,19 @@ func jobStateToStopped(state pps.JobState) bool {
 	default:
 		panic(fmt.Sprintf("unrecognized job state: %s", state))
 	}
+}
+
+func (a *apiServer) getPachClient() (*client.APIClient, error) {
+	if a.pachClient == nil {
+		var onceErr error
+		a.pachClientOnce.Do(func() {
+			a.pachClient, onceErr = client.NewFromAddress(a.address)
+		})
+		if onceErr != nil {
+			return nil, onceErr
+		}
+	}
+	return a.pachClient, nil
 }
 
 func (a *apiServer) getPFSClient() (pfs.APIClient, error) {
