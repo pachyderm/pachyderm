@@ -3969,10 +3969,6 @@ func TestCronPipeline(t *testing.T) {
 	fmt.Printf("SubscribeCommit\n")
 	iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", "")
 	require.NoError(t, err)
-	// We need to skip the first commit because it's used to record the start
-	// time and doesn't get processed.
-	_, err = iter.Next()
-	require.NoError(t, err)
 	commitInfo, err := iter.Next()
 	require.NoError(t, err)
 
