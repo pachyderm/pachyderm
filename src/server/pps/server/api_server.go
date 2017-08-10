@@ -185,7 +185,7 @@ func (a *apiServer) validateInput(ctx context.Context, pipelineName string, inpu
 				if _, err := cron.Parse(input.Cron.Spec); err != nil {
 					return err
 				}
-				repo := fmt.Sprintf("%s.%s", pipelineName, input.Cron.Name)
+				repo := fmt.Sprintf("%s_%s", pipelineName, input.Cron.Name)
 				if err := pachClient.CreateRepo(repo); err != nil && !strings.Contains(err.Error(), "already exists") {
 					return err
 				} else if err == nil {

@@ -143,7 +143,7 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (branchSetFactory,
 				cancel()
 				return nil, err
 			}
-			repo := fmt.Sprintf("%s.%s", a.pipelineInfo.Pipeline.Name, input.Cron.Name)
+			repo := fmt.Sprintf("%s_%s", a.pipelineInfo.Pipeline.Name, input.Cron.Name)
 			var buffer bytes.Buffer
 			if err := pachClient.GetFile(repo, "master", "time", 0, 0, &buffer); err != nil {
 				cancel()
