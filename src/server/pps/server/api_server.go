@@ -930,22 +930,93 @@ func translatePipelineInputs(inputs []*pps.PipelineInput) *pps.Input {
 	return result
 }
 
+// AuthorizeCreatePipelineRequest checks if the user indicated by 'ctx' is authorized to create or update
+// the pipeline in 'request'
+func (a *apiServer) AuthorizeCreatePipeline(ctx context.Context, authClient auth.APIClient, update bool, info *pps.PipelineInfo) error {
+	_, err := authClient.WhoAmI(auth.In2Out(ctx), &auth.WhoAmIRequest{})
+	if err != nil {
+		if auth.IsNotActivatedError(err) {
+			// TODO(msteffen): Think about how auth will degrade if auth is activated
+			// then deactivated. This is potentially insecure.
+			return nil // Auth isn't activated, user may proceed
+		}
+		return err
+	}
+
+	// Check that the user is authorized to read all input repos, and write to the
+	// output repo (which the pipeline needs to be able to do on the user's
+	// behalf)
+	// collect inputs by bfs info.Input (info.Inputs is no longer set)
+	if len(info.Inputs) > 0 {
+		return fmt.Errorf("cannot authorize PipelineInfo with 'Inputs' set")
+	}
+	inputRepos := make(map[string]struct{})
+	queue := []*pps.Input{info.Input}
+	for len(queue) > 0 {
+		in := queue[0]
+		queue = queue[1:]
+		if in == nil {
+			break
+		} else if in.Atom != nil {
+			inputRepos[in.Atom.Repo] = struct{}{}
+		} else if len(in.Cross) > 0 {
+			queue = append(queue, in.Cross...)
+		} else if len(in.Union) > 0 {
+			queue = append(queue, in.Union...)
+		} else {
+			return fmt.Errorf("cannot authorize pipeline input that is not an atom, a cross, or a union")
+		}
+	}
+
+	var eg errgroup.Group
+	for inputRepo := range inputRepos {
+		inputRepo := inputRepo
+		eg.Go(func() error {
+			resp, err := authClient.Authorize(auth.In2Out(ctx), &auth.AuthorizeRequest{
+				Repo:  inputRepo,
+				Scope: auth.Scope_READER,
+			})
+			if err != nil {
+				return err
+			}
+			if !resp.Authorized {
+				return fmt.Errorf("user is not authorized to read from input %s", inputRepo)
+			}
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
+	// Check that the user is authorized to write to the output repo
+	resp, err := authClient.Authorize(auth.In2Out(ctx), &auth.AuthorizeRequest{
+		Repo:  info.Pipeline.Name,
+		Scope: auth.Scope_WRITER,
+	})
+	if err != nil {
+		if !update && strings.HasSuffix(
+			err.Error(),
+			fmt.Sprintf("ACL not found for repo %s", info.Pipeline.Name)) {
+			// Output repo doesn't exist yet. It will be created
+			// TODO(msteffen): This is not a great way of handling this error, but
+			// right now the way we create ACLs for new repos doesn't really make
+			// sense.
+			return nil
+		}
+		return err
+	}
+	if !resp.Authorized {
+		return fmt.Errorf("user is not authorized to write to output repo %s", info.Pipeline.Name)
+	}
+	return nil
+}
+
 func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
-
-	// Get the capability of the user
-	authClient, err := a.getAuthClient()
-	if err != nil {
-		return nil, fmt.Errorf("error dialing auth client: %v", authClient)
-	}
-
-	capabilityResp, err := authClient.GetCapability(ctx, &auth.GetCapabilityRequest{})
-	if err != nil {
-		return nil, fmt.Errorf("error getting capability for the user: %v", err)
-	}
 
 	// First translate Inputs field to Input field.
 	if len(request.Inputs) > 0 {
@@ -972,12 +1043,23 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		EnableStats:        request.EnableStats,
 		Salt:               uuid.NewWithoutDashes(),
 		Batch:              request.Batch,
-		Capability:         capabilityResp.Capability,
 	}
 	setPipelineDefaults(pipelineInfo)
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
 		return nil, err
 	}
+	authClient, err := a.getAuthClient()
+	if err != nil {
+		return nil, fmt.Errorf("error dialing auth client: %v", authClient)
+	}
+	if err := a.AuthorizeCreatePipeline(ctx, authClient, request.Update, pipelineInfo); err != nil {
+		return nil, err
+	}
+	capabilityResp, err := authClient.GetCapability(auth.In2Out(ctx), &auth.GetCapabilityRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("error getting capability for the user: %v", err)
+	}
+	pipelineInfo.Capability = capabilityResp.Capability // User is authorized -- grant capability token to pipeline
 
 	pfsClient, err := a.getPFSClient()
 	if err != nil {
@@ -1068,7 +1150,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		}
 		provenanceChanged := len(provSet) > 0 || len(repoInfo.Provenance) != len(provenance)
 
-		if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
+		if _, err := pfsClient.CreateRepo(auth.In2Out(ctx), &pfs.CreateRepoRequest{
 			Repo:       outputRepo,
 			Provenance: provenance,
 			Update:     true,
@@ -1117,7 +1199,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		// because it's a very common pattern to create many pipelines in a
 		// row, some of which depend on the existence of the output repos
 		// of upstream pipelines.
-		if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
+		if _, err := pfsClient.CreateRepo(auth.In2Out(ctx), &pfs.CreateRepoRequest{
 			Repo:       &pfs.Repo{pipelineInfo.Pipeline.Name},
 			Provenance: provenance,
 		}); err != nil && !isAlreadyExistsErr(err) {
