@@ -361,7 +361,8 @@ be used.
 optional, if it's not specified then the present time (when the pipeline
 is created) will be used. Specifying a time allows you to run on matching
 times from the past or, skip times from the present and only start running
-on matching times in the future.
+on matching times in the future. Times should be formatted according to [RFC
+3339](https://www.ietf.org/rfc/rfc3339.txt).
 
 ### OutputBranch (optional)
 
