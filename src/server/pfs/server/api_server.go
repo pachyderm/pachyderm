@@ -81,8 +81,8 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) 
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	repoInfos, err := a.driver.listRepo(ctx, request.Provenance)
-	return &pfs.RepoInfos{RepoInfo: repoInfos}, err
+	repoInfos, err := a.driver.listRepo(ctx, request.Provenance, request.IncludeAuth)
+	return repoInfos, err
 }
 
 func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *types.Empty, retErr error) {

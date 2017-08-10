@@ -279,7 +279,10 @@ func (c *APIClient) Ctx() context.Context {
 	return c.AddMetadata(c.ctx)
 }
 
-// WithCtx returns a new APIClient that uses ctx for requests it sends.
+// WithCtx returns a new APIClient that uses ctx for requests it sends. Note
+// that the new APIClient will still use the authentication token and metrics
+// metadata of this client, so this is only useful for propagating other
+// context-associated metadata.
 func (c *APIClient) WithCtx(ctx context.Context) *APIClient {
 	result := *c // copy c
 	result.ctx = ctx
