@@ -44,7 +44,7 @@ var readinessCheck bool
 var migrate string
 
 func init() {
-	flag.StringVar(&mode, "mode", "full", "Pachd currently supports two modes: full and sidecar.  The former includes everything you need in a full pachd node.  The later runs only PFS and a stripped-down version of PPS.")
+	flag.StringVar(&mode, "mode", "full", "Pachd currently supports two modes: full and sidecar.  The former includes everything you need in a full pachd node.  The later runs only PFS, the Auth service, and a stripped-down version of PPS.")
 	flag.BoolVar(&readinessCheck, "readiness-check", false, "Set to true when checking if local pod is ready")
 	flag.StringVar(&migrate, "migrate", "", "Use the format FROM_VERSION-TO_VERSION; e.g. 1.4.8-1.5.0")
 	flag.Parse()
@@ -145,12 +145,14 @@ func doSidecarMode(appEnvObj interface{}) error {
 		return err
 	}
 	healthServer := health.NewHealthServer()
+	authAPIServer, err := authserver.NewAuthServer(etcdAddress, appEnv.PFSEtcdPrefix)
 	return grpcutil.Serve(
 		func(s *grpc.Server) {
 			pfsclient.RegisterAPIServer(s, pfsAPIServer)
 			pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
 			ppsclient.RegisterAPIServer(s, ppsAPIServer)
 			healthclient.RegisterHealthServer(s, healthServer)
+			authclient.RegisterAPIServer(s, authAPIServer)
 		},
 		grpcutil.ServeOptions{
 			Version:    version.Version,

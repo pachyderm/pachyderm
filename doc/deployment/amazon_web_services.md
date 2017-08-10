@@ -52,7 +52,7 @@ To deploy and interact with Pachyderm, you will need `pachctl`, a command-line u
 $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.5
 
 # For Linux (64 bit):
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.5.0/pachctl_1.5.0_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.5.2/pachctl_1.5.2_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 You can try running `pachctl version` to check that this worked correctly, but Pachyderm itself isn't deployed yet so you won't get a `pachd` version.
@@ -114,15 +114,15 @@ aws ec2 describe-volumes --query 'Volumes[].VolumeId'
 When you installed kops, you should have created a dedicated IAM user (see [here](https://github.com/kubernetes/kops/blob/master/docs/aws.md#aws) for details).  To deploy Pachyderm you will need to export these credentials to the following environmental variables:
 
 ```sh
-$ AWS_ID=[access key ID]
+$ AWS_ACCESS_KEY_ID=[access key ID]
 
-$ AWS_KEY=[secret access key]
+$ AWS_SECRET_ACCESS_KEY=[secret access key]
 ```
 
 Run the following command to deploy your Pachyderm cluster:
 
 ```shell
-$ pachctl deploy amazon ${BUCKET_NAME} ${AWS_ID} ${AWS_KEY} " " ${AWS_REGION} ${STORAGE_SIZE} --static-etcd-volume=${STORAGE_NAME}
+$ pachctl deploy amazon ${BUCKET_NAME} ${AWS_ACCESS_KEY_ID} ${AWS_SECRET_ACCESS_KEY} " " ${AWS_REGION} ${STORAGE_SIZE} --static-etcd-volume=${STORAGE_NAME}
 ```
 
 (Note, the `" "` in the deploy command is for an optional temporary AWS token, if you are just experimenting with a deploy.  Such a token should NOT be used for a production deploy).  It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub. You can see the cluster status by using:

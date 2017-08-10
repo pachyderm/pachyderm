@@ -5,9 +5,12 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+
+	"github.com/gogo/protobuf/types"
 )
 
 // NewJob creates a pps.Job.
@@ -39,9 +42,9 @@ const (
 	// PPSInputPrefix is the prefix of the path where datums are downloaded
 	// to.  A datum of an input named `XXX` is downloaded to `/pfs/XXX/`.
 	PPSInputPrefix = "/pfs"
-	// PPSOutputPath is the path where the user code is
-	// expected to write its output to.
-	PPSOutputPath = "/pfs/out"
+	// PPSScratchSpace is where pps workers store data while it's waiting to be
+	// processed.
+	PPSScratchSpace = "/scratch"
 	// PPSWorkerPort is the port that workers use for their gRPC server
 	PPSWorkerPort = 80
 	// PPSWorkerVolume is the name of the volume in which workers store
@@ -255,6 +258,37 @@ func (c APIClient) RestartDatum(jobID string, datumFilter []string) error {
 	return sanitizeErr(err)
 }
 
+// ListDatum returns info about all datums in a Job
+func (c APIClient) ListDatum(jobID string) ([]*pps.DatumInfo, error) {
+	datumInfos, err := c.PpsAPIClient.ListDatum(
+		c.Ctx(),
+		&pps.ListDatumRequest{
+			Job: &pps.Job{jobID},
+		},
+	)
+	if err != nil {
+		return nil, sanitizeErr(err)
+	}
+	return datumInfos.DatumInfo, nil
+}
+
+// InspectDatum returns info about a single datum
+func (c APIClient) InspectDatum(jobID string, datumID string) (*pps.DatumInfo, error) {
+	datumInfo, err := c.PpsAPIClient.InspectDatum(
+		c.Ctx(),
+		&pps.InspectDatumRequest{
+			Datum: &pps.Datum{
+				ID:  datumID,
+				Job: &pps.Job{jobID},
+			},
+		},
+	)
+	if err != nil {
+		return nil, sanitizeErr(err)
+	}
+	return datumInfo, nil
+}
+
 // LogsIter iterates through log messages returned from pps.GetLogs. Logs can
 // be fetched with 'Next()'. The log message received can be examined with
 // 'Message()', and any errors can be examined with 'Err()'.
@@ -444,4 +478,16 @@ func (c APIClient) GarbageCollect() error {
 		&pps.GarbageCollectRequest{},
 	)
 	return sanitizeErr(err)
+}
+
+// GetDatumTotalTime sums the timing stats from a DatumInfo
+func GetDatumTotalTime(s *pps.ProcessStats) time.Duration {
+	totalDuration := time.Duration(0)
+	duration, _ := types.DurationFromProto(s.DownloadTime)
+	totalDuration += duration
+	duration, _ = types.DurationFromProto(s.ProcessTime)
+	totalDuration += duration
+	duration, _ = types.DurationFromProto(s.UploadTime)
+	totalDuration += duration
+	return totalDuration
 }

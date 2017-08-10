@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -25,14 +26,15 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
-	workerpkg "github.com/pachyderm/pachyderm/src/server/pkg/worker"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
+	workerpkg "github.com/pachyderm/pachyderm/src/server/worker"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
+
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
@@ -281,6 +283,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			EnableStats:     request.EnableStats,
 			Salt:            request.Salt,
 			PipelineVersion: request.PipelineVersion,
+			Batch:           request.Batch,
 		}
 		if request.Pipeline != nil {
 			pipelineInfo := new(pps.PipelineInfo)
@@ -463,6 +466,219 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	return &types.Empty{}, nil
 }
 
+func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest) (response *pps.DatumInfos, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
+		Job: &pps.Job{
+			ID: request.Job.ID,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	pfsClient, err := a.getPFSClient()
+	if err != nil {
+		return nil, err
+	}
+	if jobInfo.StatsCommit == nil {
+		return nil, fmt.Errorf("stats not enabled on %v", jobInfo.Pipeline.Name)
+	}
+	// List the files under /jobID to get all the datums (including skipped ones)
+	file := &pfs.File{
+		Commit: jobInfo.StatsCommit,
+		Path:   "/",
+	}
+	allFileInfos, err := pfsClient.ListFile(ctx, &pfs.ListFileRequest{file})
+	if err != nil {
+		return nil, err
+	}
+	datums := make(map[string]*pps.DatumInfo)
+
+	// Omit files at the top level that correspond to aggregate job stats
+	blacklist := map[string]bool{
+		"stats": true,
+		"logs":  true,
+		"pfs":   true,
+	}
+	pathToDatumHash := func(path string) (string, error) {
+		_, datumHash := filepath.Split(path)
+		if _, ok := blacklist[datumHash]; ok {
+			return "", fmt.Errorf("value %v is not a datum hash", datumHash)
+		}
+		return datumHash, nil
+	}
+	var egGetDatums errgroup.Group
+	limiter := limit.New(200)
+	var datumsMutex sync.Mutex
+	for _, fileInfo := range allFileInfos.FileInfo {
+		fileInfo := fileInfo
+		egGetDatums.Go(func() error {
+			limiter.Acquire()
+			defer limiter.Release()
+			datumHash, err := pathToDatumHash(fileInfo.File.Path)
+			if err != nil {
+				// not a datum, nothing to do here
+				return nil
+			}
+			datum, err := a.getDatum(ctx, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Job.ID, datumHash)
+			if err != nil {
+				return err
+			}
+			datumsMutex.Lock()
+			defer datumsMutex.Unlock()
+			datums[datumHash] = datum
+			return nil
+		})
+	}
+	err = egGetDatums.Wait()
+	if err != nil {
+		return nil, err
+	}
+
+	var datumInfos []*pps.DatumInfo
+	for datumHash, datum := range datums {
+		if _, ok := blacklist[datumHash]; ok {
+			// not a datum
+			continue
+		}
+		datumInfos = append(datumInfos, datum)
+	}
+
+	// Sort results (failed first, slow first)
+	sort.Sort(byDatumStateThenTime(datumInfos))
+
+	return &pps.DatumInfos{datumInfos}, nil
+}
+
+type byDatumStateThenTime []*pps.DatumInfo
+
+func (a byDatumStateThenTime) Len() int      { return len(a) }
+func (a byDatumStateThenTime) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a byDatumStateThenTime) Less(i, j int) bool {
+	byState := a[i].State < a[j].State
+	if a[i].State != a[j].State {
+		return byState
+	}
+	if a[i].Stats == nil || a[j].Stats == nil {
+		return byState
+	}
+	return client.GetDatumTotalTime(a[i].Stats) > client.GetDatumTotalTime(a[j].Stats)
+}
+
+func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commit, jobID string, datumID string) (datumInfo *pps.DatumInfo, retErr error) {
+	datumInfo = &pps.DatumInfo{
+		Datum: &pps.Datum{
+			ID:  datumID,
+			Job: &pps.Job{jobID},
+		},
+		State: pps.DatumState_SKIPPED,
+	}
+
+	pfsClient, err := a.getPFSClient()
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if skipped
+	path := fmt.Sprintf("/%v", datumID)
+	newFile := &pfs.File{
+		Commit: commit,
+		Path:   path,
+	}
+	commitInfo, err := pfsClient.InspectCommit(
+		ctx,
+		&pfs.InspectCommitRequest{
+			Commit: &pfs.Commit{
+				Repo: commit.Repo,
+				ID:   commit.ID,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	oldFile := &pfs.File{
+		Commit: commitInfo.ParentCommit,
+		Path:   path,
+	}
+	resp, err := pfsClient.DiffFile(ctx, &pfs.DiffFileRequest{newFile, oldFile, true})
+	if err != nil {
+		return nil, err
+	}
+	// Datum wasn't added in this commit, so it was skipped
+	if len(resp.NewFiles) == 0 {
+		return datumInfo, nil
+	}
+
+	// Populate status
+	datumInfo.State = pps.DatumState_FAILED
+	stateFile := &pfs.File{
+		Commit: commit,
+		Path:   fmt.Sprintf("/%v/failure", datumID),
+	}
+	_, err = pfsClient.InspectFile(ctx, &pfs.InspectFileRequest{stateFile})
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			datumInfo.State = pps.DatumState_SUCCESS
+		} else {
+			return nil, err
+		}
+	}
+
+	// Populate stats
+	statsFile := &pfs.File{
+		Commit: commit,
+		Path:   fmt.Sprintf("/%v/stats", datumID),
+	}
+	getFileClient, err := pfsClient.GetFile(ctx, &pfs.GetFileRequest{statsFile, 0, 0})
+	if err != nil {
+		return nil, err
+	}
+	var buffer bytes.Buffer
+	if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, &buffer); err != nil {
+		return nil, err
+	}
+	stats := &pps.ProcessStats{}
+	err = jsonpb.Unmarshal(&buffer, stats)
+	if err != nil {
+		return nil, err
+	}
+	datumInfo.Stats = stats
+	datumInfo.PfsState = &pfs.File{
+		Commit: commit,
+		Path:   fmt.Sprintf("/%v/pfs", datumID),
+	}
+
+	return datumInfo, nil
+}
+
+func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumRequest) (response *pps.DatumInfo, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
+		Job: &pps.Job{
+			ID: request.Datum.Job.ID,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if jobInfo.StatsCommit == nil {
+		return nil, fmt.Errorf("stats not enabled on %v", jobInfo.Pipeline.Name)
+	}
+
+	// Populate datumInfo given a path
+	datumInfo, err := a.getDatum(ctx, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Datum.Job.ID, request.Datum.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return datumInfo, nil
+}
+
 func (a *apiServer) lookupRcNameForPipeline(ctx context.Context, pipeline *pps.Pipeline) (string, error) {
 	var pipelineInfo pps.PipelineInfo
 	err := a.pipelines.ReadOnly(ctx).Get(pipeline.Name, &pipelineInfo)
@@ -570,7 +786,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 					if request.Job != nil && request.Job.ID != msg.JobID {
 						continue
 					}
-					if request.DatumID != "" && request.DatumID != msg.DatumID {
+					if request.InputFileID != "" && request.InputFileID != msg.InputFileID {
 						continue
 					}
 					if request.Master != msg.Master {
@@ -588,7 +804,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 					}
 				}
 				return nil
-			}, backoff.New10sBackoff())
+			}, backoff.New10sBackOff())
 
 			// Used up all retries -- no logs from worker
 			if err != nil {
@@ -697,22 +913,93 @@ func translatePipelineInputs(inputs []*pps.PipelineInput) *pps.Input {
 	return result
 }
 
+// AuthorizeCreatePipelineRequest checks if the user indicated by 'ctx' is authorized to create or update
+// the pipeline in 'request'
+func (a *apiServer) AuthorizeCreatePipeline(ctx context.Context, authClient auth.APIClient, update bool, info *pps.PipelineInfo) error {
+	_, err := authClient.WhoAmI(auth.In2Out(ctx), &auth.WhoAmIRequest{})
+	if err != nil {
+		if auth.IsNotActivatedError(err) {
+			// TODO(msteffen): Think about how auth will degrade if auth is activated
+			// then deactivated. This is potentially insecure.
+			return nil // Auth isn't activated, user may proceed
+		}
+		return err
+	}
+
+	// Check that the user is authorized to read all input repos, and write to the
+	// output repo (which the pipeline needs to be able to do on the user's
+	// behalf)
+	// collect inputs by bfs info.Input (info.Inputs is no longer set)
+	if len(info.Inputs) > 0 {
+		return fmt.Errorf("cannot authorize PipelineInfo with 'Inputs' set")
+	}
+	inputRepos := make(map[string]struct{})
+	queue := []*pps.Input{info.Input}
+	for len(queue) > 0 {
+		in := queue[0]
+		queue = queue[1:]
+		if in == nil {
+			break
+		} else if in.Atom != nil {
+			inputRepos[in.Atom.Repo] = struct{}{}
+		} else if len(in.Cross) > 0 {
+			queue = append(queue, in.Cross...)
+		} else if len(in.Union) > 0 {
+			queue = append(queue, in.Union...)
+		} else {
+			return fmt.Errorf("cannot authorize pipeline input that is not an atom, a cross, or a union")
+		}
+	}
+
+	var eg errgroup.Group
+	for inputRepo := range inputRepos {
+		inputRepo := inputRepo
+		eg.Go(func() error {
+			resp, err := authClient.Authorize(auth.In2Out(ctx), &auth.AuthorizeRequest{
+				Repo:  &pfs.Repo{Name: inputRepo},
+				Scope: auth.Scope_READER,
+			})
+			if err != nil {
+				return err
+			}
+			if !resp.Authorized {
+				return fmt.Errorf("user is not authorized to read from input %s", inputRepo)
+			}
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
+	// Check that the user is authorized to write to the output repo
+	resp, err := authClient.Authorize(auth.In2Out(ctx), &auth.AuthorizeRequest{
+		Repo:  &pfs.Repo{Name: info.Pipeline.Name},
+		Scope: auth.Scope_WRITER,
+	})
+	if err != nil {
+		if !update && strings.HasSuffix(
+			err.Error(),
+			fmt.Sprintf("ACL not found for repo %s", info.Pipeline.Name)) {
+			// Output repo doesn't exist yet. It will be created
+			// TODO(msteffen): This is not a great way of handling this error, but
+			// right now the way we create ACLs for new repos doesn't really make
+			// sense.
+			return nil
+		}
+		return err
+	}
+	if !resp.Authorized {
+		return fmt.Errorf("user is not authorized to write to output repo %s", info.Pipeline.Name)
+	}
+	return nil
+}
+
 func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
-
-	// Get the capability of the user
-	authClient, err := a.getAuthClient()
-	if err != nil {
-		return nil, fmt.Errorf("error dialing auth client: %v", authClient)
-	}
-
-	capabilityResp, err := authClient.GetCapability(ctx, &auth.GetCapabilityRequest{})
-	if err != nil && !auth.IsNotActivatedError(err) {
-		return nil, fmt.Errorf("error getting capability for the user: %v", err)
-	}
 
 	// First translate Inputs field to Input field.
 	if len(request.Inputs) > 0 {
@@ -738,15 +1025,24 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		CacheSize:          request.CacheSize,
 		EnableStats:        request.EnableStats,
 		Salt:               uuid.NewWithoutDashes(),
+		Batch:              request.Batch,
 	}
 	setPipelineDefaults(pipelineInfo)
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
 		return nil, err
 	}
-
-	if capabilityResp != nil {
-		pipelineInfo.Capability = capabilityResp.Capability
+	authClient, err := a.getAuthClient()
+	if err != nil {
+		return nil, fmt.Errorf("error dialing auth client: %v", authClient)
 	}
+	if err := a.AuthorizeCreatePipeline(ctx, authClient, request.Update, pipelineInfo); err != nil {
+		return nil, err
+	}
+	capabilityResp, err := authClient.GetCapability(auth.In2Out(ctx), &auth.GetCapabilityRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("error getting capability for the user: %v", err)
+	}
+	pipelineInfo.Capability = capabilityResp.Capability // User is authorized -- grant capability token to pipeline
 
 	pfsClient, err := a.getPFSClient()
 	if err != nil {
@@ -837,7 +1133,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		}
 		provenanceChanged := len(provSet) > 0 || len(repoInfo.Provenance) != len(provenance)
 
-		if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
+		if _, err := pfsClient.CreateRepo(auth.In2Out(ctx), &pfs.CreateRepoRequest{
 			Repo:       outputRepo,
 			Provenance: provenance,
 			Update:     true,
@@ -886,7 +1182,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		// because it's a very common pattern to create many pipelines in a
 		// row, some of which depend on the existence of the output repos
 		// of upstream pipelines.
-		if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
+		if _, err := pfsClient.CreateRepo(auth.In2Out(ctx), &pfs.CreateRepoRequest{
 			Repo:       &pfs.Repo{pipelineInfo.Pipeline.Name},
 			Provenance: provenance,
 		}); err != nil && !isAlreadyExistsErr(err) {
@@ -1432,38 +1728,6 @@ func jobStateToStopped(state pps.JobState) bool {
 	default:
 		panic(fmt.Sprintf("unrecognized job state: %s", state))
 	}
-}
-
-func parseResourceList(resources *pps.ResourceSpec, cacheSize string) (*api.ResourceList, error) {
-	cpuQuantity, err := resource.ParseQuantity(fmt.Sprintf("%f", resources.Cpu))
-	if err != nil {
-		return nil, fmt.Errorf("could not parse cpu quantity: %s", err)
-	}
-
-	memQuantity, err := resource.ParseQuantity(resources.Memory)
-	if err != nil {
-		return nil, fmt.Errorf("could not parse memory quantity: %s", err)
-	}
-	cacheQuantity, err := resource.ParseQuantity(cacheSize)
-	if err != nil {
-		return nil, fmt.Errorf("could not parse cache quantity: %s", err)
-	}
-	// Here we are sanity checking.  A pipeline should request at least
-	// as much memory as it needs for caching.
-	if cacheQuantity.Cmp(memQuantity) > 0 {
-		memQuantity = cacheQuantity
-	}
-
-	gpuQuantity, err := resource.ParseQuantity(fmt.Sprintf("%d", resources.Gpu))
-	if err != nil {
-		return nil, fmt.Errorf("could not parse gpu quantity: %s", err)
-	}
-	var result api.ResourceList = map[api.ResourceName]resource.Quantity{
-		api.ResourceCPU:       cpuQuantity,
-		api.ResourceMemory:    memQuantity,
-		api.ResourceNvidiaGPU: gpuQuantity,
-	}
-	return &result, nil
 }
 
 func (a *apiServer) getPFSClient() (pfs.APIClient, error) {

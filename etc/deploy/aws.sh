@@ -112,7 +112,7 @@ deploy_k8s_on_aws() {
 
     export NODE_SIZE=r4.xlarge
     export MASTER_SIZE=r4.xlarge
-    export NUM_NODES=3
+    export NUM_NODES=2
     export NAME=$(uuid | cut -f 1 -d-)-pachydermcluster.kubernetes.com
     echo ${NAME} > .cluster_name
     echo "kops state store: ${STATE_BUCKET}"
@@ -214,12 +214,6 @@ check_all_nodes_ready() {
         return 1
     fi
 
-    master=`cat nodes.txt | grep master | wc -l`
-    if [ ${master} != "1" ]; then
-        echo "no master nodes found"
-        return 1
-    fi
-
     total_nodes=$((${NUM_NODES}+1))
     ready_nodes=`cat nodes.txt | grep -v NotReady | grep Ready | wc -l`
     echo "total ${total_nodes}, ready ${ready_nodes}"
@@ -278,13 +272,7 @@ if [ "${EUID}" -ne 0 ]; then
 fi
 parse_flags "${@}"
 
-set +euxo pipefail
 which pachctl
-if [ $? -ne 0 ]; then
-    echo "pachctl not found on path"
-    exit 1
-fi
-set -euxo pipefail
 
 deploy_k8s_on_aws
 deploy_pachyderm_on_aws
