@@ -1,6 +1,7 @@
 package require
 
 import (
+	"fmt"
 	"reflect"
 	"regexp"
 	"runtime"
@@ -58,35 +59,40 @@ func EqualOneOf(tb testing.TB, expecteds []interface{}, actual interface{}, msgA
 	}
 }
 
-// OneOfEquals checks one element of a slice equals a value.
-func OneOfEquals(tb testing.TB, expected interface{}, actuals interface{}, msgAndArgs ...interface{}) {
-	equal := false
+// oneOfEquals is a helper function for OneOfEquals and NoneEquals, that simply
+// returns a bool indicating whether 'expected' is in the slice 'actuals'.
+func oneOfEquals(expected interface{}, actuals interface{}) (bool, error) {
 	switch v := actuals.(type) {
 	case []string:
 		expectedStr, ok := expected.(string)
 		if !ok {
-			fatal(tb, msgAndArgs, "\"expected\" should be string, but instead was %T (%#v)", expected, expected)
+			return false, fmt.Errorf("\"expected\" should be string, but instead was %T (%#v)", expected, expected)
 		}
 		for _, actual := range v {
-			if reflect.DeepEqual(expectedStr, actual) {
-				equal = true
-				break
+			if expectedStr == actual {
+				return true, nil
 			}
 		}
 	case []interface{}:
 		for _, actual := range v {
 			if reflect.DeepEqual(expected, actual) {
-				equal = true
-				break
+				return true, nil
 			}
 		}
 	default:
-		fatal(tb, msgAndArgs, "invalid slice type %T", v)
+		return false, fmt.Errorf("invalid slice type %T", v)
+	}
+	return false, nil
+}
+
+// OneOfEquals checks whether one element of a slice equals a value.
+func OneOfEquals(tb testing.TB, expected interface{}, actuals interface{}, msgAndArgs ...interface{}) {
+	equal, err := oneOfEquals(expected, actuals)
+	if err != nil {
+		fatal(tb, msgAndArgs, err.Error())
 	}
 	if !equal {
-		fatal(
-			tb,
-			msgAndArgs,
+		fatal(tb, msgAndArgs,
 			"Not equal : %#v (expected)\n"+
 				" one of  != %#v (actuals)", expected, actuals)
 	}
@@ -94,27 +100,13 @@ func OneOfEquals(tb testing.TB, expected interface{}, actuals interface{}, msgAn
 
 // NoneEquals checks one element of a slice equals a value.
 func NoneEquals(tb testing.TB, expected interface{}, actuals interface{}, msgAndArgs ...interface{}) {
-	switch v := actuals.(type) {
-	case []string:
-		expectedStr, ok := expected.(string)
-		if !ok {
-			fatal(tb, msgAndArgs, "\"expected\" should be string, but instead was %T (%#v)", expected, expected)
-		}
-		for _, actual := range v {
-			if reflect.DeepEqual(expectedStr, actual) {
-				fatal(tb, msgAndArgs,
-					"Equal : %#v (expected)\n one of == %#v (actuals)", expected, v)
-			}
-		}
-	case []interface{}:
-		for _, actual := range v {
-			if reflect.DeepEqual(expected, actual) {
-				fatal(tb, msgAndArgs,
-					"Equal : %#v (expected)\n one of == %#v (actuals)", expected, v)
-			}
-		}
-	default:
-		fatal(tb, msgAndArgs, "invalid slice type %T", v)
+	equal, err := oneOfEquals(expected, actuals)
+	if err != nil {
+		fatal(tb, msgAndArgs, err.Error())
+	}
+	if equal {
+		fatal(tb, msgAndArgs,
+			"Equal : %#v (expected)\n one of == %#v (actuals)", expected, actuals)
 	}
 }
 
