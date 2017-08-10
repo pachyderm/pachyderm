@@ -518,14 +518,13 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 				// the datums.
 				var usedCache bool
 				if err := backoff.RetryNotify(func() error {
-					if !usedCache {
-						if tag, statsTag, ok := a.getCachedTags(datumHash); ok {
-							resp = new(ProcessResponse)
-							resp.Tag = tag
-							resp.StatsTag = statsTag
-							resp.Skipped = true
-							usedCache = true
-						}
+					tag, statsTag, ok := a.getCachedTags(datumHash)
+					if !usedCache && ok {
+						resp = new(ProcessResponse)
+						resp.Tag = tag
+						resp.StatsTag = statsTag
+						resp.Skipped = true
+						usedCache = true
 					} else {
 						if err := pool.Do(ctx, func(conn *grpc.ClientConn) error {
 							workerClient := NewWorkerClient(conn)
