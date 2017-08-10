@@ -462,11 +462,9 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 		return err
 	}
 
-	_, err = d.pachClient.AuthAPIClient.SetACL(auth.In2Out(ctx), &auth.SetACLRequest{
-		Repo:   repo,
-		NewACL: nil,
-	})
-	if err != nil && !auth.IsNotActivatedError(err) {
+	if _, err = d.pachClient.AuthAPIClient.SetACL(auth.In2Out(ctx), &auth.SetACLRequest{
+		Repo: repo, // NewACL is unset, so this will clear the acl for 'repo'
+	}); err != nil && !auth.IsNotActivatedError(err) {
 		return err
 	}
 	return nil
