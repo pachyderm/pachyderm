@@ -3962,6 +3962,19 @@ func TestCronPipeline(t *testing.T) {
 		"",
 		false,
 	))
+
+	repo := fmt.Sprintf("%s_%s", pipeline, "time")
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel() //cleanup resources
+	iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", "")
+	require.NoError(t, err)
+	commitInfo, err := iter.Next()
+	require.NoError(t, err)
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commitInfo.Commit}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
