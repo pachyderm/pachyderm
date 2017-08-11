@@ -526,6 +526,23 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 			return err
 		}
 
+		repoProvenanceMap := make(map[string]bool)
+		for _, repo := range repoInfo.Provenance {
+			repoProvenanceMap[repo.Name] = true
+		}
+
+		if len(provenance) != len(repoProvenanceMap) {
+			commitProvenanceMap := make(map[string]bool)
+			for _, provCommit := range provenance {
+				commitProvenanceMap[provCommit.Repo.Name] = true
+			}
+			for repo := range repoProvenanceMap {
+				if !commitProvenanceMap[repo] {
+					return fmt.Errorf("cannot start commit without a provenance commit from %s as it's part of %s's provenance", repo, commit.Repo.Name)
+				}
+			}
+		}
+
 		commitInfo := &pfs.CommitInfo{
 			Commit:  commit,
 			Started: now(),
@@ -536,6 +553,9 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 		// Build the full provenance; my provenance's provenance is
 		// my provenance
 		for _, prov := range provenance {
+			if !repoProvenanceMap[prov.Repo.Name] {
+				return fmt.Errorf("cannot start commit with provenance from repo %s as it's not part of %s's provenance", prov.Repo.Name, commit.Repo.Name)
+			}
 			provCommits := d.commits(prov.Repo.Name).ReadWrite(stm)
 			provCommitInfo := new(pfs.CommitInfo)
 			if err := provCommits.Get(prov.ID, provCommitInfo); err != nil {
