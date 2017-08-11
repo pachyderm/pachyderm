@@ -125,12 +125,14 @@ func newMicrosoftWriter(client *microsoftClient, name string) (*microsoftWriter,
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("BP1")
 
 	// create blob
 	err = client.blobClient.CreateBlockBlob(client.container, name)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("BP2")
 
 	return &microsoftWriter{
 		container:  client.container,
