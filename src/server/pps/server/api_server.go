@@ -185,7 +185,7 @@ func (a *apiServer) validateInput(ctx context.Context, pipelineName string, inpu
 				if _, err := cron.Parse(input.Cron.Spec); err != nil {
 					return err
 				}
-				if err := pachClient.CreateRepo(input.Cron.Repo); err != nil && !strings.Contains(err.Error(), "already exists") {
+				if _, err := pachClient.InspectRepo(input.Cron.Repo); err != nil {
 					return err
 				}
 			}
@@ -1002,6 +1002,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
+	pachClient, err := a.getPachClient()
+	if err != nil {
+		return nil, err
+	}
+
 	// First translate Inputs field to Input field.
 	if len(request.Inputs) > 0 {
 		if request.Input != nil {
@@ -1029,6 +1034,17 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Batch:              request.Batch,
 	}
 	setPipelineDefaults(pipelineInfo)
+	var visitErr error
+	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+		if input.Cron != nil {
+			if err := pachClient.CreateRepo(input.Cron.Repo); err != nil && !strings.Contains(err.Error(), "already exists") {
+				visitErr = err
+			}
+		}
+	})
+	if visitErr != nil {
+		return nil, visitErr
+	}
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
 		return nil, err
 	}
