@@ -126,7 +126,7 @@ func (a *apiServer) validateInput(ctx context.Context, pipelineName string, inpu
 	repoBranch := make(map[string]string)
 	var result error
 	pps.VisitInput(input, func(input *pps.Input) {
-		result = func() error {
+		if err := func() error {
 			set := false
 			if input.Atom != nil {
 				set = true
@@ -185,9 +185,6 @@ func (a *apiServer) validateInput(ctx context.Context, pipelineName string, inpu
 				if _, err := cron.Parse(input.Cron.Spec); err != nil {
 					return err
 				}
-				if input.Cron.Repo == "" {
-					input.Cron.Repo = fmt.Sprintf("%s_%s", pipelineName, input.Cron.Name)
-				}
 				if err := pachClient.CreateRepo(input.Cron.Repo); err != nil && !strings.Contains(err.Error(), "already exists") {
 					return err
 				}
@@ -196,7 +193,9 @@ func (a *apiServer) validateInput(ctx context.Context, pipelineName string, inpu
 				return fmt.Errorf("no input set")
 			}
 			return nil
-		}()
+		}(); err != nil && result == nil {
+			result = err
+		}
 	})
 	return result
 }
@@ -1211,6 +1210,9 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 			if input.Cron.Start == nil {
 				start, _ := types.TimestampProto(now)
 				input.Cron.Start = start
+			}
+			if input.Cron.Repo == "" {
+				input.Cron.Repo = fmt.Sprintf("%s_%s", pipelineInfo.Pipeline.Name, input.Cron.Name)
 			}
 		}
 	})
