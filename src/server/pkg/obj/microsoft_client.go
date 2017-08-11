@@ -119,7 +119,6 @@ type microsoftWriter struct {
 }
 
 func newMicrosoftWriter(client *microsoftClient, name string) (*microsoftWriter, error) {
-	fmt.Printf("creating object %v in container %v\n", name, client.container)
 	// create container
 	_, err := client.blobClient.CreateContainerIfNotExists(client.container, storage.ContainerAccessTypePrivate)
 	if err != nil {

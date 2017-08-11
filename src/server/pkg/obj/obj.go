@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"net"
 	"net/url"
+	"path"
+	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff"
@@ -182,24 +184,58 @@ func NewAmazonClientFromSecret(bucket string) (Client, error) {
 
 // NewClientFromURLAndSecret constructs a client by parsing `URL` and then
 // constructing the correct client for that URL using secrets.
-func NewClientFromURLAndSecret(ctx context.Context, URL string) (Client, error) {
-	_URL, err := url.Parse(URL)
-	if err != nil {
-		return nil, err
-	}
-	switch _URL.Scheme {
+func NewClientFromURLAndSecret(ctx context.Context, url *ObjectStoreURL) (Client, error) {
+	switch url.Store {
 	case "s3":
-		return NewAmazonClientFromSecret(_URL.Host)
+		return NewAmazonClientFromSecret(url.Bucket)
 	case "gcs":
 		fallthrough
 	case "gs":
-		return NewGoogleClientFromSecret(ctx, _URL.Host)
+		return NewGoogleClientFromSecret(ctx, url.Bucket)
 	case "as":
 		fallthrough
 	case "wasb":
-		return NewMicrosoftClientFromSecret(_URL.Host)
+		// In Azure, the first part of the path is the container name.
+		return NewMicrosoftClientFromSecret(url.Bucket)
 	}
-	return nil, fmt.Errorf("unrecognized object store: %s", _URL.Scheme)
+	return nil, fmt.Errorf("unrecognized object store: %s", url.Bucket)
+}
+
+// ObjectStoreURL represents a parsed URL to an object in an object store.
+type ObjectStoreURL struct {
+	// The object store, e.g. s3, gcs, as...
+	Store string
+	// The "bucket" (in AWS parlance) or the "container" (in Azure parlance).
+	Bucket string
+	// The object itself.
+	Object string
+}
+
+func ParseURL(urlStr string) (*ObjectStoreURL, error) {
+	url, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing url %v: %v", urlStr, err)
+	}
+	switch url.Scheme {
+	case "s3", "gcs", "gs":
+		return &ObjectStoreURL{
+			Store:  url.Scheme,
+			Bucket: url.Host,
+			Object: strings.Trim(url.Path, "/"),
+		}, nil
+	case "as", "wasb":
+		// In Azure, the first part of the path is the container name.
+		parts := strings.Split(url.Path, "/")
+		if len(parts) < 1 {
+			return nil, fmt.Errorf("malformed Azure URI: %v", urlStr)
+		}
+		return &ObjectStoreURL{
+			Store:  url.Scheme,
+			Bucket: path.Join(url.Host, parts[0]),
+			Object: strings.Trim(strings.Join(parts[1:], "/"), "/"),
+		}, nil
+	}
+	return nil, fmt.Errorf("unrecognized object store: %s", url.Scheme)
 }
 
 // NewExponentialBackOffConfig creates an exponential back-off config with
