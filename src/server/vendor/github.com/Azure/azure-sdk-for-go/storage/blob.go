@@ -396,7 +396,6 @@ func (b BlobStorageClient) CreateContainerIfNotExists(name string, access Contai
 func (b BlobStorageClient) createContainer(name string, access ContainerAccessType) (*storageResponse, error) {
 	verb := "PUT"
 	uri := b.client.getEndpoint(blobServiceName, pathForContainer(name), url.Values{"restype": {"container"}})
-	fmt.Printf("issuing PUT to: %v\n", uri)
 
 	headers := b.client.getStandardHeaders()
 	if access != "" {

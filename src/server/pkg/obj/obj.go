@@ -237,7 +237,7 @@ func ParseURL(urlStr string) (ret *ObjectStoreURL, retErr error) {
 		}
 		return &ObjectStoreURL{
 			Store:  url.Scheme,
-			Bucket: path.Join(url.Host, parts[0]),
+			Bucket: parts[0],
 			Object: strings.Trim(path.Join(parts[1:]...), "/"),
 		}, nil
 	}
