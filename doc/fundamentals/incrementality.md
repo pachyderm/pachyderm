@@ -2,7 +2,7 @@
 
 Pachyderm performs computations in an incremental fashion.  That is, rather
 than computing a result all at once, it computes it in small pieces and
-then stitches those pieces together to form results. This allows Pachyderm reuse results and compute
+then stitches those pieces together to form results. This allows Pachyderm to reuse results and compute
 things much more efficiently than traditional systems, which are forced to compute everything from
 scratch during every job.  
 
@@ -69,7 +69,7 @@ commit.
 
 As of Pachyderm v1.5.1, `list-job` and `inspect-job` will tell you how many
 datums the job processed and how many it skipped. Below is an example of
-a job that has processed 3 datums and skipped 2.
+a job that had 5 datums, 3 that were processed and 2 that were skipped.
 
 ```
 ID                                   OUTPUT COMMIT                             STARTED            DURATION           RESTART PROGRESS      DL       UL       STATE
@@ -82,7 +82,7 @@ Pachyderm also supports intra-datum incrementality, which is useful when
 the processing you're doing can be done
 ["online"](https://en.wikipedia.org/wiki/Online_algorithm).  For example, when you are
 performing online training of a model or when you are summing a set of
-numbers in an aggregation. N
+numbers in an aggregation. 
 
 Not all computations can be done online.  Thus, this intra-datum incrementality 
 is optionally enabled for Pachyderm pipelines via the 
