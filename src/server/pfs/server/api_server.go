@@ -49,8 +49,8 @@ func newLocalAPIServer(address string, etcdPrefix string) (*apiServer, error) {
 	}, nil
 }
 
-func newAPIServer(address string, etcdAddresses []string, etcdPrefix string, cacheBytes int64) (*apiServer, error) {
-	d, err := newDriver(address, etcdAddresses, etcdPrefix, cacheBytes)
+func newAPIServer(address string, etcdAddresses []string, etcdPrefix string, cacheSize int64) (*apiServer, error) {
+	d, err := newDriver(address, etcdAddresses, etcdPrefix, cacheSize)
 	if err != nil {
 		return nil, err
 	}
