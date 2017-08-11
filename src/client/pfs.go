@@ -497,7 +497,7 @@ func (c APIClient) Compact() error {
 // NOTE: PutFileWriter returns an io.WriteCloser you must call Close on it when
 // you are done writing.
 func (c APIClient) PutFileWriter(repoName string, commitID string, path string) (io.WriteCloser, error) {
-	return c.newPutFileWriteCloser(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0)
+	return c.newPutFileWriteCloser(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, false)
 }
 
 // PutFileSplitWriter writes a multiple files to PFS by splitting up the data
@@ -505,8 +505,8 @@ func (c APIClient) PutFileWriter(repoName string, commitID string, path string) 
 // NOTE: PutFileSplitWriter returns an io.WriteCloser you must call Close on it when
 // you are done writing.
 func (c APIClient) PutFileSplitWriter(repoName string, commitID string, path string,
-	delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64) (io.WriteCloser, error) {
-	return c.newPutFileWriteCloser(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes)
+	delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwrite bool) (io.WriteCloser, error) {
+	return c.newPutFileWriteCloser(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, overwrite)
 }
 
 // PutFile writes a file to PFS from a reader.
@@ -515,13 +515,29 @@ func (c APIClient) PutFile(repoName string, commitID string, path string, reader
 		c.streamSemaphore <- struct{}{}
 		defer func() { <-c.streamSemaphore }()
 	}
-	return c.PutFileSplit(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, reader)
+	return c.PutFileSplit(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, false, reader)
+}
+
+// PutFileOverwrite is like PutFile but it overwrites the file rather than
+// appending to it. It's equivalent to DeleteFile followed by PutFile.
+func (c APIClient) PutFileOverwrite(repoName string, commitID string, path string, reader io.Reader) (_ int, retErr error) {
+	writer, err := c.newPutFileWriteCloser(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, true)
+	if err != nil {
+		return 0, sanitizeErr(err)
+	}
+	defer func() {
+		if err := writer.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	written, err := io.Copy(writer, reader)
+	return int(written), err
 }
 
 //PutFileSplit writes a file to PFS from a reader
 // delimiter is used to tell PFS how to break the input into blocks
-func (c APIClient) PutFileSplit(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, reader io.Reader) (_ int, retErr error) {
-	writer, err := c.PutFileSplitWriter(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes)
+func (c APIClient) PutFileSplit(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwrite bool, reader io.Reader) (_ int, retErr error) {
+	writer, err := c.PutFileSplitWriter(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, overwrite)
 	if err != nil {
 		return 0, sanitizeErr(err)
 	}
@@ -537,7 +553,7 @@ func (c APIClient) PutFileSplit(repoName string, commitID string, path string, d
 // PutFileURL puts a file using the content found at a URL.
 // The URL is sent to the server which performs the request.
 // recursive allow for recursive scraping of some types URLs for example on s3:// urls.
-func (c APIClient) PutFileURL(repoName string, commitID string, path string, url string, recursive bool) (retErr error) {
+func (c APIClient) PutFileURL(repoName string, commitID string, path string, url string, recursive bool, overwrite bool) (retErr error) {
 	putFileClient, err := c.PfsAPIClient.PutFile(c.Ctx())
 	if err != nil {
 		return sanitizeErr(err)
@@ -551,6 +567,7 @@ func (c APIClient) PutFileURL(repoName string, commitID string, path string, url
 		File:      NewFile(repoName, commitID, path),
 		Url:       url,
 		Recursive: recursive,
+		Overwrite: overwrite,
 	}); err != nil {
 		return sanitizeErr(err)
 	}
@@ -720,7 +737,7 @@ type putFileWriteCloser struct {
 	sent          bool
 }
 
-func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64) (*putFileWriteCloser, error) {
+func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwrite bool) (*putFileWriteCloser, error) {
 	putFileClient, err := c.PfsAPIClient.PutFile(c.Ctx())
 	if err != nil {
 		return nil, err
@@ -731,6 +748,7 @@ func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path 
 			Delimiter:        delimiter,
 			TargetFileDatums: targetFileDatums,
 			TargetFileBytes:  targetFileBytes,
+			Overwrite:        overwrite,
 		},
 		putFileClient: putFileClient,
 	}, nil
