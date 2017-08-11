@@ -212,10 +212,6 @@ type ObjectStoreURL struct {
 }
 
 func ParseURL(urlStr string) (ret *ObjectStoreURL, retErr error) {
-	defer func() {
-		fmt.Printf("parsed: %+v; %v\n", ret, retErr)
-	}()
-	fmt.Printf("parsing %v\n", urlStr)
 	url, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing url %v: %v", urlStr, err)
@@ -229,9 +225,7 @@ func ParseURL(urlStr string) (ret *ObjectStoreURL, retErr error) {
 		}, nil
 	case "as", "wasb":
 		// In Azure, the first part of the path is the container name.
-		fmt.Printf("path: %v\n", url.Path)
 		parts := strings.Split(strings.Trim(url.Path, "/"), "/")
-		fmt.Printf("parts: %v\n", parts)
 		if len(parts) < 1 {
 			return nil, fmt.Errorf("malformed Azure URI: %v", urlStr)
 		}
