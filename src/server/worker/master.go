@@ -409,11 +409,14 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 		}
 		tree := hashtree.NewHashTree()
 		var statsTree hashtree.OpenHashTree
+		var skippedTree hashtree.OpenHashTree
 		if jobInfo.EnableStats {
 			statsTree = hashtree.NewHashTree()
+			skippedTree = hashtree.NewHashTree()
 		}
 		var processStats []*pps.ProcessStats
 		var treeMu sync.Mutex
+		var skippedTreeMu sync.Mutex
 
 		processedData := int64(0)
 		skippedData := int64(0)
@@ -558,6 +561,25 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 								logger.Logf("failed to retrieve stats hashtree after processing for datum %v: %v", files, err)
 								return nil
 							}
+							if resp.Skipped {
+								// write file to skipped stats tree
+								nodes, err := statsSubtree.Glob("*")
+								if err != nil {
+									logger.Logf("failed to retrieve datum ID from hashtree for datum %v: %v", files, err)
+								}
+								if len(nodes) != 1 {
+									logger.Logf("should have a single stats object for datum %v", files)
+									return nil
+								}
+								datumID := nodes[0].Name
+								fmt.Printf("datum skipped: %v\n", datumID)
+								skippedTreeMu.Lock()
+								err = skippedTree.PutFile(fmt.Sprintf("%v/skipped", datumID), nil, 0)
+								skippedTreeMu.Unlock()
+								if err != nil {
+									logger.Logf("unable to put skipped file to tree: %", err)
+								}
+							}
 							nodes, err := statsSubtree.Glob("*/stats")
 							if err != nil {
 								logger.Logf("failed to retrieve process stats from hashtree for datum %v: %v", files, err)
@@ -633,6 +655,11 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 				return statsTree.PutFile("/stats", []*pfs.Object{aggregateObject}, int64(len(marshalled)))
 			}(); err != nil {
 				logger.Logf("error aggregating stats")
+			}
+			if skippedTree != nil {
+				if err := statsTree.Merge(skippedTree); err != nil {
+					logger.Logf("failed to merge skipped files into stats tree: %v", err)
+				}
 			}
 			statsObject, err := a.putTree(ctx, statsTree)
 			if err != nil {
