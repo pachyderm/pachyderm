@@ -556,9 +556,8 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 							}
 						}
 						return fmt.Errorf("user code failed for datum %v", files)
-					} else {
-						a.setCachedTags(datumHash, resp.Tag, resp.StatsTag)
 					}
+					a.setCachedTags(datumHash, resp.Tag, resp.StatsTag)
 					var eg errgroup.Group
 					var subTree hashtree.HashTree
 					var statsSubtree hashtree.HashTree
