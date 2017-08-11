@@ -211,7 +211,11 @@ type ObjectStoreURL struct {
 	Object string
 }
 
-func ParseURL(urlStr string) (*ObjectStoreURL, error) {
+func ParseURL(urlStr string) (ret *ObjectStoreURL, retErr error) {
+	defer func() {
+		fmt.Printf("parsed: %+v; %v\n", ret, retErr)
+	}()
+	fmt.Printf("parsing %v\n", urlStr)
 	url, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing url %v: %v", urlStr, err)
@@ -225,14 +229,16 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 		}, nil
 	case "as", "wasb":
 		// In Azure, the first part of the path is the container name.
+		fmt.Printf("path: %v\n", url.Path)
 		parts := strings.Split(url.Path, "/")
+		fmt.Printf("parts: %v\n", parts)
 		if len(parts) < 1 {
 			return nil, fmt.Errorf("malformed Azure URI: %v", urlStr)
 		}
 		return &ObjectStoreURL{
 			Store:  url.Scheme,
 			Bucket: path.Join(url.Host, parts[0]),
-			Object: strings.Trim(strings.Join(parts[1:], "/"), "/"),
+			Object: strings.Trim(path.Join(parts[1:]...), "/"),
 		}, nil
 	}
 	return nil, fmt.Errorf("unrecognized object store: %s", url.Scheme)
