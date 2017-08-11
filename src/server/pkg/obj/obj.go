@@ -211,7 +211,8 @@ type ObjectStoreURL struct {
 	Object string
 }
 
-func ParseURL(urlStr string) (ret *ObjectStoreURL, retErr error) {
+// ParseURL parses an URL into ObjectStoreURL.
+func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 	url, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing url %v: %v", urlStr, err)
