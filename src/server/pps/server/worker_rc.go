@@ -71,6 +71,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 	secretVolume, secretMount, err := assets.GetSecretVolumeAndMount(a.storageBackend)
 	if err == nil {
 		options.volumes = append(options.volumes, secretVolume)
+		options.volumeMounts = append(options.volumeMounts, secretMount)
 		sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
 	}
 	podSpec := api.PodSpec{
@@ -80,8 +81,6 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 				Image:           a.workerImage,
 				Command:         []string{"/pach/worker.sh"},
 				ImagePullPolicy: api.PullPolicy(pullPolicy),
-				Env:             options.workerEnv,
-				VolumeMounts:    options.volumeMounts,
 			},
 		},
 		Containers: []api.Container{
