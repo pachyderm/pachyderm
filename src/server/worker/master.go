@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -691,11 +690,11 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 		if jobInfo.Egress != nil {
 			logger.Logf("Starting egress upload for job (%v)\n", jobInfo)
 			start := time.Now()
-			objClient, err := obj.NewClientFromURLAndSecret(ctx, jobInfo.Egress.URL)
+			url, err := obj.ParseURL(jobInfo.Egress.URL)
 			if err != nil {
 				return err
 			}
-			url, err := url.Parse(jobInfo.Egress.URL)
+			objClient, err := obj.NewClientFromURLAndSecret(ctx, url)
 			if err != nil {
 				return err
 			}
@@ -703,7 +702,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 				PfsAPIClient: pfsClient,
 			}
 			client.SetMaxConcurrentStreams(100)
-			if err := pfs_sync.PushObj(client, outputCommit, objClient, strings.TrimPrefix(url.Path, "/")); err != nil {
+			if err := pfs_sync.PushObj(client, outputCommit, objClient, url.Object); err != nil {
 				return err
 			}
 			logger.Logf("Completed egress upload for job (%v), duration (%v)\n", jobInfo, time.Since(start))
