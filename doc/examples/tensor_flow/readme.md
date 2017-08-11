@@ -1,4 +1,4 @@
-**Note**: This is a Pachyderm pre version 1.4 tutorial.  It needs to be updated for the latest versions of Pachyderm.
+**Note**: This example has been tested on Pachyderm version 1.5.2. It needs to be updated for the latest versions of Pachyderm.
 
 # Game of Thrones / Tensor Flow Example
 
@@ -200,7 +200,7 @@ Actually, you can see how 'dumb' the model is. If you [read through the Tensor F
 
 ```
 $pachctl list-job
-$pachctl get-logs {job ID from GoT_generate job}
+$pachctl get-logs {job ID from GoT_train job}
 0 | Epoch: 1 Learning rate: 1.000
 0 | 0.002 perplexity: 8526.820 speed: 1558 wps
 0 | 0.102 perplexity: 880.494 speed: 1598 wps
