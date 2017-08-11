@@ -3966,13 +3966,11 @@ func TestCronPipeline(t *testing.T) {
 	repo := fmt.Sprintf("%s_%s", pipeline, "time")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel() //cleanup resources
-	fmt.Printf("SubscribeCommit\n")
 	iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", "")
 	require.NoError(t, err)
 	commitInfo, err := iter.Next()
 	require.NoError(t, err)
 
-	fmt.Printf("FlushCommit: %+v\n", commitInfo.Commit)
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commitInfo.Commit}, nil)
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
