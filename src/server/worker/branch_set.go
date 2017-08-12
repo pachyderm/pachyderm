@@ -28,8 +28,12 @@ type branchSetFactory interface {
 }
 
 type branchSetFactoryImpl struct {
-	ch     chan *branchSet
-	cancel context.CancelFunc
+	ch              chan *branchSet
+	cancel          context.CancelFunc
+	rootInputs      []*pps.Input
+	directInputs    []*pps.Input
+	commitSets      [][]*pfs.CommitInfo
+	commitSetsMutex sync.Mutex
 }
 
 func (f *branchSetFactoryImpl) Close() {
@@ -52,17 +56,19 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (_ branchSetFactor
 	pachClient := a.pachClient.WithCtx(ctx)
 	pfsClient := a.pachClient.PfsAPIClient
 
-	rootInputs, err := a.rootInputs(ctx)
+	result := &branchSetFactoryImpl{
+		cancel: cancel,
+		ch:     make(chan *branchSet),
+	}
+	var err error
+	result.rootInputs, err = a.rootInputs(ctx)
 	if err != nil {
 		return nil, err
 	}
-	directInputs := a.directInputs(ctx)
+	result.directInputs = a.directInputs(ctx)
+	result.commitSets = make([][]*pfs.CommitInfo, len(result.directInputs))
 
-	commitSets := make([][]*pfs.CommitInfo, len(directInputs))
-	var commitSetsMutex sync.Mutex
-
-	ch := make(chan *branchSet)
-	for i, input := range directInputs {
+	for i, input := range result.directInputs {
 		i, input := i, input
 
 		if input.Atom != nil {
@@ -84,64 +90,15 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (_ branchSetFactor
 					if err != nil {
 						select {
 						case <-ctx.Done():
-						case ch <- &branchSet{
+							return
+						case result.ch <- &branchSet{
 							Err: err,
 						}:
 						}
 						return
 					}
 
-					commitSetsMutex.Lock()
-					commitSets[i] = append(commitSets[i], commitInfo)
-
-					// Now we look for a set of commits that have provenance
-					// commits from the root input repos.  The set is only valid
-					// if there's precisely one provenance commit from each root
-					// input repo.
-					if set := findCommitSet(commitSets, i, func(set []*pfs.CommitInfo) bool {
-						rootCommits := make(map[string]map[string]bool)
-						setRootCommit := func(commit *pfs.Commit) {
-							if rootCommits[commit.Repo.Name] == nil {
-								rootCommits[commit.Repo.Name] = make(map[string]bool)
-							}
-							rootCommits[commit.Repo.Name][commit.ID] = true
-						}
-						for _, commitInfo := range set {
-							setRootCommit(commitInfo.Commit)
-							for _, provCommit := range commitInfo.Provenance {
-								setRootCommit(provCommit)
-							}
-						}
-						for _, rootInput := range rootInputs {
-							if rootInput.Atom != nil {
-								if len(rootCommits[rootInput.Atom.Repo]) != 1 {
-									return false
-								}
-							}
-						}
-						return true
-					}); set != nil {
-						bs := &branchSet{
-							NewBranch: i,
-						}
-						for i, commitInfo := range set {
-							branch := "master"
-							if directInputs[i].Atom != nil {
-								branch = directInputs[i].Atom.Branch
-							}
-							bs.Branches = append(bs.Branches, &pfs.BranchInfo{
-								Name: branch,
-								Head: commitInfo.Commit,
-							})
-						}
-						select {
-						case <-ctx.Done():
-							commitSetsMutex.Unlock()
-							return
-						case ch <- bs:
-						}
-					}
-					commitSetsMutex.Unlock()
+					result.sendBranchSet(ctx, i, commitInfo)
 				}
 			}()
 		}
@@ -198,61 +155,13 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (_ branchSetFactor
 						if err != nil {
 							return err
 						}
-						commitSetsMutex.Lock()
-						commitSets[i] = append(commitSets[i], commitInfo)
-						// Now we look for a set of commits that have provenance
-						// commits from the root input repos.  The set is only valid
-						// if there's precisely one provenance commit from each root
-						// input repo.
-						if set := findCommitSet(commitSets, i, func(set []*pfs.CommitInfo) bool {
-							rootCommits := make(map[string]map[string]bool)
-							setRootCommit := func(commit *pfs.Commit) {
-								if rootCommits[commit.Repo.Name] == nil {
-									rootCommits[commit.Repo.Name] = make(map[string]bool)
-								}
-								rootCommits[commit.Repo.Name][commit.ID] = true
-							}
-							for _, commitInfo := range set {
-								setRootCommit(commitInfo.Commit)
-								for _, provCommit := range commitInfo.Provenance {
-									setRootCommit(provCommit)
-								}
-							}
-							for _, rootInput := range rootInputs {
-								if rootInput.Atom != nil {
-									if len(rootCommits[rootInput.Atom.Repo]) != 1 {
-										return false
-									}
-								}
-							}
-							return true
-						}); set != nil {
-							bs := &branchSet{
-								NewBranch: i,
-							}
-							for i, commitInfo := range set {
-								branch := "master"
-								if directInputs[i].Atom != nil {
-									branch = directInputs[i].Atom.Branch
-								}
-								bs.Branches = append(bs.Branches, &pfs.BranchInfo{
-									Name: branch,
-									Head: commitInfo.Commit,
-								})
-							}
-							select {
-							case <-ctx.Done():
-								commitSetsMutex.Unlock()
-								return nil
-							case ch <- bs:
-							}
-						}
-						commitSetsMutex.Unlock()
+						result.sendBranchSet(ctx, i, commitInfo)
 						return nil
 					}(); err != nil {
 						select {
 						case <-ctx.Done():
-						case ch <- &branchSet{
+							return
+						case result.ch <- &branchSet{
 							Err: err,
 						}:
 						}
@@ -263,12 +172,58 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (_ branchSetFactor
 		}
 	}
 
-	f := &branchSetFactoryImpl{
-		cancel: cancel,
-		ch:     ch,
-	}
+	return result, nil
+}
 
-	return f, nil
+func (b *branchSetFactoryImpl) sendBranchSet(ctx context.Context, i int, commitInfo *pfs.CommitInfo) {
+	b.commitSetsMutex.Lock()
+	defer b.commitSetsMutex.Unlock()
+	b.commitSets[i] = append(b.commitSets[i], commitInfo)
+	// Now we look for a set of commits that have provenance
+	// commits from the root input repos.  The set is only valid
+	// if there's precisely one provenance commit from each root
+	// input repo.
+	if set := findCommitSet(b.commitSets, i, func(set []*pfs.CommitInfo) bool {
+		rootCommits := make(map[string]map[string]bool)
+		setRootCommit := func(commit *pfs.Commit) {
+			if rootCommits[commit.Repo.Name] == nil {
+				rootCommits[commit.Repo.Name] = make(map[string]bool)
+			}
+			rootCommits[commit.Repo.Name][commit.ID] = true
+		}
+		for _, commitInfo := range set {
+			setRootCommit(commitInfo.Commit)
+			for _, provCommit := range commitInfo.Provenance {
+				setRootCommit(provCommit)
+			}
+		}
+		for _, rootInput := range b.rootInputs {
+			if rootInput.Atom != nil {
+				if len(rootCommits[rootInput.Atom.Repo]) != 1 {
+					return false
+				}
+			}
+		}
+		return true
+	}); set != nil {
+		bs := &branchSet{
+			NewBranch: i,
+		}
+		for i, commitInfo := range set {
+			branch := "master"
+			if b.directInputs[i].Atom != nil {
+				branch = b.directInputs[i].Atom.Branch
+			}
+			bs.Branches = append(bs.Branches, &pfs.BranchInfo{
+				Name: branch,
+				Head: commitInfo.Commit,
+			})
+		}
+		select {
+		case <-ctx.Done():
+		case b.ch <- bs:
+		}
+	}
 }
 
 // findCommitSet runs a function on every commit set, starting with the
