@@ -40,8 +40,15 @@ func (f *branchSetFactoryImpl) Chan() chan *branchSet {
 	return f.ch
 }
 
-func (a *APIServer) newBranchSetFactory(_ctx context.Context) (branchSetFactory, error) {
+func (a *APIServer) newBranchSetFactory(_ctx context.Context) (_ branchSetFactory, retErr error) {
 	ctx, cancel := context.WithCancel(_ctx)
+	defer func() {
+		// We call cancel if the there's an error, if there's not then cancel
+		// will be returned as part of the branchSetFactory
+		if retErr != nil {
+			cancel()
+		}
+	}()
 	pachClient := a.pachClient.WithCtx(ctx)
 	pfsClient := a.pachClient.PfsAPIClient
 
@@ -68,7 +75,6 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (branchSetFactory,
 			}
 			stream, err := pfsClient.SubscribeCommit(ctx, request)
 			if err != nil {
-				cancel()
 				return nil, err
 			}
 
@@ -143,26 +149,22 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (branchSetFactory,
 			schedule, err := cron.Parse(input.Cron.Spec)
 			// it shouldn't be possible to error here because we validate the spec in CreatePipeline
 			if err != nil {
-				cancel()
 				return nil, err
 			}
 			tstamp := &types.Timestamp{}
 			var buffer bytes.Buffer
 			if err := pachClient.GetFile(input.Cron.Repo, "master", "time", 0, 0, &buffer); err != nil && !isNotFoundErr(err) {
-				cancel()
 				return nil, err
 			} else if err != nil {
 				// File not found, this happens the first time the pipeline is run
 				tstamp = input.Cron.Start
 			} else {
 				if err := jsonpb.UnmarshalString(buffer.String(), tstamp); err != nil {
-					cancel()
 					return nil, err
 				}
 			}
 			t, err := types.TimestampFromProto(tstamp)
 			if err != nil {
-				cancel()
 				return nil, err
 			}
 			go func() {
