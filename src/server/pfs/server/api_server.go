@@ -308,11 +308,15 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 		case "pfs":
 			return a.putFilePfs(ctx, request, url)
 		default:
-			objClient, err := obj.NewClientFromURLAndSecret(putFileServer.Context(), request.Url)
+			url, err := obj.ParseURL(request.Url)
+			if err != nil {
+				return fmt.Errorf("error parsing url %v: %v", request.Url, err)
+			}
+			objClient, err := obj.NewClientFromURLAndSecret(putFileServer.Context(), url)
 			if err != nil {
 				return err
 			}
-			return a.putFileObj(ctx, objClient, request, url)
+			return a.putFileObj(ctx, objClient, request, url.Object)
 		}
 	} else {
 		reader := putFileReader{
@@ -370,7 +374,7 @@ func (a *apiServer) putFilePfs(ctx context.Context, request *pfs.PutFileRequest,
 	return put(request.File.Path, repo, commit, file)
 }
 
-func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, request *pfs.PutFileRequest, url *url.URL) (retErr error) {
+func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, request *pfs.PutFileRequest, object string) (retErr error) {
 	put := func(ctx context.Context, filePath string, objPath string) error {
 		logRequest := &pfs.PutFileRequest{
 			Delimiter: request.Delimiter,
@@ -398,7 +402,7 @@ func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, reques
 	}
 	if request.Recursive {
 		eg, egContext := errgroup.WithContext(ctx)
-		path := strings.TrimPrefix(url.Path, "/")
+		path := strings.TrimPrefix(object, "/")
 		sem := make(chan struct{}, client.DefaultMaxConcurrentStreams)
 		objClient.Walk(path, func(name string) error {
 			eg.Go(func() error {
@@ -422,7 +426,7 @@ func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, reques
 		return eg.Wait()
 	}
 	// Joining Host and Path to retrieve the full path after "scheme://"
-	return put(ctx, request.File.Path, path.Join(url.Host, url.Path))
+	return put(ctx, request.File.Path, object)
 }
 
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) (retErr error) {
