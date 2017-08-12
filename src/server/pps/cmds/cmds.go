@@ -205,6 +205,8 @@ $ pachctl list-job -p foo bar/YYY
 			return nil
 		}),
 	}
+	var paginate bool
+	var page int64
 	listDatum := &cobra.Command{
 		Use:   "list-datum job-id",
 		Short: "Return the datums in a job.",
@@ -214,7 +216,7 @@ $ pachctl list-job -p foo bar/YYY
 			if err != nil {
 				return err
 			}
-			datumInfos, err := client.ListDatum(args[0])
+			datumInfos, err := client.ListDatum(args[0], paginate, page)
 			if err != nil {
 				return err
 			}
@@ -235,6 +237,8 @@ $ pachctl list-job -p foo bar/YYY
 		}),
 	}
 	rawFlag(listDatum)
+	listDatum.Flags().BoolVar(&paginate, "paginate", false, "Get a subset of the results")
+	listDatum.Flags().Int64Var(&page, "page", 0, "Specify the page of results to send")
 
 	inspectDatum := &cobra.Command{
 		Use:   "inspect-datum job-id datum-id",
