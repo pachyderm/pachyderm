@@ -37,7 +37,6 @@ import (
 	"golang.org/x/net/context"
 
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
 
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/errors"
@@ -98,8 +97,6 @@ type apiServer struct {
 	hasher                *ppsserver.Hasher
 	address               string
 	etcdClient            *etcd.Client
-	pachConn              *grpc.ClientConn
-	pachConnOnce          sync.Once
 	kubeClient            *kube.Client
 	pachClient            *client.APIClient
 	pachClientOnce        sync.Once
@@ -479,10 +476,11 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		return nil, err
 	}
 
-	pfsClient, err := a.getPFSClient()
+	pachClient, err := a.getPachClient()
 	if err != nil {
 		return nil, err
 	}
+	pfsClient := pachClient.PfsAPIClient
 	if jobInfo.StatsCommit == nil {
 		return nil, fmt.Errorf("stats not enabled on %v", jobInfo.Pipeline.Name)
 	}
@@ -577,10 +575,11 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 		State: pps.DatumState_SKIPPED,
 	}
 
-	pfsClient, err := a.getPFSClient()
+	pachClient, err := a.getPachClient()
 	if err != nil {
 		return nil, err
 	}
+	pfsClient := pachClient.PfsAPIClient
 
 	// Check if skipped
 	path := fmt.Sprintf("/%v", datumID)
@@ -862,10 +861,11 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 		return fmt.Errorf("could not parse cacheSize '%s': %v", pipelineInfo.CacheSize, err)
 	}
 	if pipelineInfo.Incremental {
-		pfsClient, err := a.getPFSClient()
+		pachClient, err := a.getPachClient()
 		if err != nil {
 			return err
 		}
+		pfsClient := pachClient.PfsAPIClient
 		// for incremental jobs we can't have shared provenance
 		var provenance []*pfs.Repo
 		for _, commit := range pps.InputCommits(pipelineInfo.Input) {
@@ -1006,6 +1006,8 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if err != nil {
 		return nil, err
 	}
+	authClient := pachClient.AuthAPIClient
+	pfsClient := pachClient.PfsAPIClient
 
 	// First translate Inputs field to Input field.
 	if len(request.Inputs) > 0 {
@@ -1048,7 +1050,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
 		return nil, err
 	}
-	authClient, err := a.getAuthClient()
 	if err != nil {
 		return nil, fmt.Errorf("error dialing auth client: %v", authClient)
 	}
@@ -1060,11 +1061,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		return nil, fmt.Errorf("error getting capability for the user: %v", err)
 	}
 	pipelineInfo.Capability = capabilityResp.Capability // User is authorized -- grant capability token to pipeline
-
-	pfsClient, err := a.getPFSClient()
-	if err != nil {
-		return nil, err
-	}
 
 	pipelineName := pipelineInfo.Pipeline.Name
 
@@ -1312,13 +1308,17 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 }
 
 func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) (response *types.Empty, retErr error) {
+	pachClient, err := a.getPachClient()
+	if err != nil {
+		return nil, err
+	}
 	pipelineInfo, err := a.InspectPipeline(ctx, &pps.InspectPipelineRequest{request.Pipeline})
 	if err != nil {
 		return nil, fmt.Errorf("pipeline %v was not found: %v", request.Pipeline.Name, err)
 	}
 	// Revoke the pipeline's capability
 	if pipelineInfo.Capability != "" {
-		authClient, err := a.getAuthClient()
+		authClient := pachClient.AuthAPIClient
 		if err != nil {
 			return nil, fmt.Errorf("error dialing auth client: %v", authClient)
 		}
@@ -1378,10 +1378,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 
 	// Delete output repo
 	if request.DeleteRepo {
-		pfsClient, err := a.getPFSClient()
-		if err != nil {
-			return nil, err
-		}
+		pfsClient := pachClient.PfsAPIClient
 		if _, err := pfsClient.DeleteRepo(ctx, &pfs.DeleteRepoRequest{
 			Repo:  &pfs.Repo{request.Pipeline.Name},
 			Force: true,
@@ -1455,15 +1452,12 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	pfsClient, err := a.getPFSClient()
+	pachClient, err := a.getPachClient()
 	if err != nil {
 		return nil, err
 	}
-
-	objClient, err := a.getObjectClient()
-	if err != nil {
-		return nil, err
-	}
+	pfsClient := pachClient.PfsAPIClient
+	objClient := pachClient.ObjectAPIClient
 
 	// The set of objects that are in use.
 	activeObjects := make(map[string]bool)
@@ -1768,44 +1762,6 @@ func (a *apiServer) getPachClient() (*client.APIClient, error) {
 		}
 	}
 	return a.pachClient, nil
-}
-
-func (a *apiServer) getPFSClient() (pfs.APIClient, error) {
-	if err := a.dialPachConn(); err != nil {
-		return nil, err
-	}
-	return pfs.NewAPIClient(a.pachConn), nil
-}
-
-func (a *apiServer) getObjectClient() (pfs.ObjectAPIClient, error) {
-	if err := a.dialPachConn(); err != nil {
-		return nil, err
-	}
-	return pfs.NewObjectAPIClient(a.pachConn), nil
-}
-
-func (a *apiServer) getAuthClient() (auth.APIClient, error) {
-	if err := a.dialPachConn(); err != nil {
-		return nil, err
-	}
-	return auth.NewAPIClient(a.pachConn), nil
-}
-
-func (a *apiServer) dialPachConn() error {
-	if a.pachConn == nil {
-		var onceErr error
-		a.pachConnOnce.Do(func() {
-			pachConn, err := grpc.Dial(a.address, client.PachDialOptions()...)
-			if err != nil {
-				onceErr = err
-			}
-			a.pachConn = pachConn
-		})
-		if onceErr != nil {
-			return onceErr
-		}
-	}
-	return nil
 }
 
 // RepoNameToEnvString is a helper which uppercases a repo name for
