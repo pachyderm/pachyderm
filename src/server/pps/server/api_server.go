@@ -488,7 +488,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	if jobInfo.StatsCommit == nil {
 		return nil, fmt.Errorf("job not finished, no stats output yet")
 	}
-	// List the files under /jobID to get all the datums
+	// List the files under / to get all the datums
 	file := &pfs.File{
 		Commit: jobInfo.StatsCommit,
 		Path:   "/",
