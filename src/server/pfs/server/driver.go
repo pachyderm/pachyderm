@@ -113,17 +113,12 @@ const (
 	tombstone = "delete"
 )
 
-// Instead of making the user specify the respective size for each cache,
-// we decide internally how to split cache space among different caches.
-//
-// Each value specifies a percentage of the total cache space to be used.
 const (
-	// by default we use 1GB of RAM for cache
-	defaultCacheSize = 1024 * 1024
+	defaultTreeCacheSize = 128
 )
 
 // newDriver is used to create a new Driver instance
-func newDriver(address string, etcdAddresses []string, etcdPrefix string, cacheBytes int64) (*driver, error) {
+func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCacheSize int64) (*driver, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   etcdAddresses,
 		DialOptions: client.EtcdDialOptions(),
@@ -131,8 +126,10 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, cacheB
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to etcd: %s", err.Error())
 	}
-
-	treeCache, err := lru.New(int(cacheBytes))
+	if treeCacheSize <= 0 {
+		treeCacheSize = defaultTreeCacheSize
+	}
+	treeCache, err := lru.New(int(treeCacheSize))
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize treeCache: %s", err.Error())
 	}
@@ -159,7 +156,7 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, cacheB
 // newLocalDriver creates a driver using an local etcd instance.  This
 // function is intended for testing purposes
 func newLocalDriver(blockAddress string, etcdPrefix string) (*driver, error) {
-	return newDriver(blockAddress, []string{"localhost:32379"}, etcdPrefix, defaultCacheSize)
+	return newDriver(blockAddress, []string{"localhost:32379"}, etcdPrefix, defaultTreeCacheSize)
 }
 
 // initializePachConn initializes the connects that the pfs driver has with the
@@ -185,11 +182,11 @@ func (d *driver) initializePachConn() error {
 func (d *driver) checkIsAuthorized(ctx context.Context, r *pfs.Repo, s auth.Scope) error {
 	d.initializePachConn()
 	resp, err := d.pachClient.AuthAPIClient.Authorize(auth.In2Out(ctx), &auth.AuthorizeRequest{
-		Repo:  r,
+		Repo:  r.Name,
 		Scope: s,
 	})
 	if err == nil && !resp.Authorized {
-		return fmt.Errorf("you are not authorized to perform this operation on the repo %s", r.Name)
+		return auth.NotAuthorizedError{r.Name}
 	} else if err != nil && !auth.IsNotActivatedError(err) {
 		return fmt.Errorf("error during authorization check for operation on %s: %s", r.Name, err.Error())
 	}
@@ -277,12 +274,12 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 			// We also add the new provenance repos to the provenance
 			// of all downstream repos, and remove the old provenance
 			// repos from their provenance.
-			downstreamRepos, err := d.listRepo(ctx, []*pfs.Repo{repo})
+			downstreamRepos, err := d.listRepo(ctx, []*pfs.Repo{repo}, false)
 			if err != nil {
 				return err
 			}
 
-			for _, repoInfo := range downstreamRepos {
+			for _, repoInfo := range downstreamRepos.RepoInfo {
 			nextNewProv:
 				for newProv := range provToAdd {
 					for _, prov := range repoInfo.Provenance {
@@ -350,7 +347,7 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 	if authErr == nil {
 		// auth is active, and user is logged in. User is an owner of the new repo
 		_, err := d.pachClient.AuthAPIClient.SetScope(auth.In2Out(ctx), &auth.SetScopeRequest{
-			Repo:     repo,
+			Repo:     repo.Name,
 			Username: whoAmI.Username,
 			Scope:    auth.Scope_OWNER,
 		})
@@ -370,8 +367,7 @@ func (d *driver) inspectRepo(ctx context.Context, repo *pfs.Repo) (*pfs.RepoInfo
 	return repoInfo, nil
 }
 
-func (d *driver) listRepo(ctx context.Context, provenance []*pfs.Repo) ([]*pfs.RepoInfo, error) {
-	var result []*pfs.RepoInfo
+func (d *driver) listRepo(ctx context.Context, provenance []*pfs.Repo, includeAuth bool) (*pfs.RepoInfos, error) {
 	repos := d.repos.ReadOnly(ctx)
 	// Ensure that all provenance repos exist
 	for _, prov := range provenance {
@@ -385,6 +381,8 @@ func (d *driver) listRepo(ctx context.Context, provenance []*pfs.Repo) ([]*pfs.R
 	if err != nil {
 		return nil, err
 	}
+	var result pfs.RepoInfos
+	var repoNames []string
 nextRepo:
 	for {
 		repoName, repoInfo := "", new(pfs.RepoInfo)
@@ -408,13 +406,28 @@ nextRepo:
 				continue nextRepo
 			}
 		}
-		result = append(result, repoInfo)
+		result.RepoInfo = append(result.RepoInfo, repoInfo)
+		repoNames = append(repoNames, repoInfo.Repo.Name)
 	}
-	return result, nil
+	if includeAuth {
+		// Include auth information in the response
+		resp, err := d.pachClient.AuthAPIClient.GetScope(ctx, &auth.GetScopeRequest{
+			Repos: repoNames,
+		})
+		if err != nil && !auth.IsNotActivatedError(err) {
+			return nil, fmt.Errorf("error getting scopes: %v", err)
+		}
+		if resp != nil {
+			result.Scopes = resp.Scopes
+		}
+	}
+	return &result, nil
 }
 
 func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) error {
-	d.initializePachConn()
+	if err := d.checkIsAuthorized(ctx, repo, auth.Scope_OWNER); err != nil {
+		return err
+	}
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		repos := d.repos.ReadWrite(stm)
 		repoRefCounts := d.repoRefCounts.ReadWriteInt(stm)
@@ -456,7 +469,16 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 		branches.DeleteAll()
 		return nil
 	})
-	return err
+	if err != nil {
+		return err
+	}
+
+	if _, err = d.pachClient.AuthAPIClient.SetACL(auth.In2Out(ctx), &auth.SetACLRequest{
+		Repo: repo.Name, // NewACL is unset, so this will clear the acl for 'repo'
+	}); err != nil && !auth.IsNotActivatedError(err) {
+		return err
+	}
+	return nil
 }
 
 func (d *driver) startCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit) (*pfs.Commit, error) {
@@ -1270,7 +1292,7 @@ func checkPath(path string) error {
 }
 
 func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter,
-	targetFileDatums int64, targetFileBytes int64, reader io.Reader) error {
+	targetFileDatums int64, targetFileBytes int64, overwrite bool, reader io.Reader) error {
 	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
@@ -1285,6 +1307,12 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			return err
 		}
 		file.Commit = commitInfo.Commit
+	}
+
+	if overwrite {
+		if err := d.deleteFile(ctx, file); err != nil {
+			return err
+		}
 	}
 
 	records := &PutFileRecords{}
@@ -1695,12 +1723,12 @@ func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
 }
 
 func (d *driver) deleteAll(ctx context.Context) error {
-	repoInfos, err := d.listRepo(ctx, nil)
+	repoInfos, err := d.listRepo(ctx, nil, false)
 	if err != nil {
 		return err
 	}
-	for _, repoInfo := range repoInfos {
-		if err := d.deleteRepo(ctx, repoInfo.Repo, true); err != nil {
+	for _, repoInfo := range repoInfos.RepoInfo {
+		if err := d.deleteRepo(ctx, repoInfo.Repo, true); err != nil && !auth.IsNotAuthorizedError(err) {
 			return err
 		}
 	}

@@ -151,8 +151,14 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 		}
 		if tree != nil {
 			treePath := path.Join(treeRoot, basepath)
-			if err := tree.PutFile(treePath, fileInfo.Objects, int64(fileInfo.SizeBytes)); err != nil {
-				return err
+			if fileInfo.FileType == pfs.FileType_DIR {
+				if err := tree.PutDir(treePath); err != nil {
+					return err
+				}
+			} else {
+				if err := tree.PutFile(treePath, fileInfo.Objects, int64(fileInfo.SizeBytes)); err != nil {
+					return err
+				}
 			}
 		}
 		path := filepath.Join(root, basepath)

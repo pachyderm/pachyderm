@@ -9,8 +9,6 @@ import "gogoproto/gogo.proto";
 
 import "client/pfs/pfs.proto";
 
-option go_package = "pps";
-
 message Secret {
   // Name must be the name of the secret in kubernetes.
   string name = 1;
@@ -59,10 +57,19 @@ message AtomInput {
   string from_commit = 7;
 }
 
+message CronInput {
+  string name = 1;
+  string repo = 2;
+  string commit = 3;
+  string spec = 4;
+  google.protobuf.Timestamp start = 5;
+}
+
 message Input {
   AtomInput atom = 1;
   repeated Input cross = 2;
   repeated Input union = 3;
+  CronInput cron = 4;
 }
 
 message JobInput {

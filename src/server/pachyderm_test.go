@@ -5,8 +5,10 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"path"
@@ -2797,7 +2799,7 @@ func TestPfsPutFile(t *testing.T) {
 
 	commit2, err := c.StartCommit(repo2, "")
 	require.NoError(t, err)
-	err = c.PutFileURL(repo2, commit2.ID, "file", fmt.Sprintf("pfs://0.0.0.0:650/%s/%s/file1", repo1, commit1.ID), false)
+	err = c.PutFileURL(repo2, commit2.ID, "file", fmt.Sprintf("pfs://0.0.0.0:650/%s/%s/file1", repo1, commit1.ID), false, false)
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo2, commit2.ID))
 	var buf bytes.Buffer
@@ -2806,7 +2808,7 @@ func TestPfsPutFile(t *testing.T) {
 
 	commit3, err := c.StartCommit(repo2, "")
 	require.NoError(t, err)
-	err = c.PutFileURL(repo2, commit3.ID, "", fmt.Sprintf("pfs://0.0.0.0:650/%s/%s", repo1, commit1.ID), true)
+	err = c.PutFileURL(repo2, commit3.ID, "", fmt.Sprintf("pfs://0.0.0.0:650/%s/%s", repo1, commit1.ID), true, false)
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo2, commit3.ID))
 	buf = bytes.Buffer{}
@@ -2955,6 +2957,7 @@ func TestDatumStatusRestart(t *testing.T) {
 }
 
 func TestUseMultipleWorkers(t *testing.T) {
+	t.Skip("flaky")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2989,32 +2992,23 @@ func TestUseMultipleWorkers(t *testing.T) {
 		false,
 	))
 	// Get job info 2x/sec for 20s until we confirm two workers for the current job
-	jobInfoErr := fmt.Errorf("never queried job workers")
-	for i := 0; i < 40; i++ {
-		time.Sleep(500 * time.Millisecond)
+	require.NoError(t, backoff.Retry(func() error {
 		jobs, err := c.ListJob(pipeline, nil)
 		if err != nil {
-			jobInfoErr = fmt.Errorf("could not list job: %s", err.Error())
-			continue
+			return fmt.Errorf("could not list job: %s", err.Error())
 		}
 		if len(jobs) == 0 {
-			jobInfoErr = fmt.Errorf("failed to find job")
-			continue
+			return fmt.Errorf("failed to find job")
 		}
 		jobInfo, err := c.InspectJob(jobs[0].Job.ID, false)
 		if err != nil {
-			jobInfoErr = fmt.Errorf("could not inspect job: %s", err.Error())
-			continue
+			return fmt.Errorf("could not inspect job: %s", err.Error())
 		}
 		if len(jobInfo.WorkerStatus) != 2 {
-			jobInfoErr = fmt.Errorf("incorrect number of statuses: %v", len(jobInfo.WorkerStatus))
-			continue
-		} else {
-			jobInfoErr = nil
-			break
+			return fmt.Errorf("incorrect number of statuses: %v", len(jobInfo.WorkerStatus))
 		}
-	}
-	require.NoError(t, jobInfoErr)
+		return nil
+	}, backoff.RetryEvery(500*time.Millisecond).For(20*time.Second)))
 }
 
 // TestSystemResourceRequest doesn't create any jobs or pipelines, it
@@ -3436,7 +3430,7 @@ func TestIncrementalAppendPipeline(t *testing.T) {
 	for i := 0; i <= 150; i++ {
 		_, err := c.StartCommit(dataRepo, "master")
 		require.NoError(t, err)
-		w, err := c.PutFileSplitWriter(dataRepo, "master", "data", pfs.Delimiter_LINE, 0, 0)
+		w, err := c.PutFileSplitWriter(dataRepo, "master", "data", pfs.Delimiter_LINE, 0, 0, false)
 		require.NoError(t, err)
 		_, err = w.Write([]byte(fmt.Sprintf("%d\n", i)))
 		require.NoError(t, err)
@@ -3925,6 +3919,104 @@ func TestSkippedDatums(t *testing.T) {
 	*/
 }
 
+func TestOpencvDemo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+	require.NoError(t, c.CreateRepo("images"))
+	commit, err := c.StartCommit("images", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFileURL("images", "master", "46Q8nDz.jpg", "http://imgur.com/46Q8nDz.jpg", false, false))
+	require.NoError(t, c.FinishCommit("images", "master"))
+	bytes, err := ioutil.ReadFile("../../doc/examples/opencv/edges.json")
+	require.NoError(t, err)
+	createPipelineRequest := &pps.CreatePipelineRequest{}
+	require.NoError(t, json.Unmarshal(bytes, createPipelineRequest))
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(), createPipelineRequest)
+	require.NoError(t, err)
+	bytes, err = ioutil.ReadFile("../../doc/examples/opencv/montage.json")
+	require.NoError(t, err)
+	createPipelineRequest = &pps.CreatePipelineRequest{}
+	require.NoError(t, json.Unmarshal(bytes, createPipelineRequest))
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(), createPipelineRequest)
+	require.NoError(t, err)
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 2, len(commitInfos))
+}
+
+func TestCronPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+	pipeline1 := uniqueString("pipeline1")
+	require.NoError(t, c.CreatePipeline(
+		pipeline1,
+		"",
+		[]string{"cp", "/pfs/time/time", "/pfs/out/time"},
+		nil,
+		nil,
+		client.NewCronInput("time", "@every 20s"),
+		"",
+		false,
+	))
+
+	repo := fmt.Sprintf("%s_%s", pipeline1, "time")
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel() //cleanup resources
+	iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", "")
+	require.NoError(t, err)
+	commitInfo, err := iter.Next()
+	require.NoError(t, err)
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commitInfo.Commit}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	dataRepo := uniqueString("TestCronPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	pipeline2 := uniqueString("pipeline2")
+	require.NoError(t, c.CreatePipeline(
+		pipeline2,
+		"",
+		[]string{"bash"},
+		[]string{
+			"cp /pfs/time/time /pfs/out/time",
+			fmt.Sprintf("cp /pfs/%s/file /pfs/out/file", dataRepo),
+		},
+		nil,
+		client.NewCrossInput(
+			client.NewCronInput("time", "@every 20s"),
+			client.NewAtomInput(dataRepo, "/"),
+		),
+		"",
+		false,
+	))
+	dataCommit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("file"))
+	require.NoError(t, c.FinishCommit(dataRepo, "master"))
+
+	repo = fmt.Sprintf("%s_%s", pipeline2, "time")
+	ctx, cancel = context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel() //cleanup resources
+	iter, err = c.WithCtx(ctx).SubscribeCommit(repo, "master", "")
+	require.NoError(t, err)
+	commitInfo, err = iter.Next()
+	require.NoError(t, err)
+
+	commitIter, err = c.FlushCommit([]*pfs.Commit{dataCommit, commitInfo.Commit}, nil)
+	require.NoError(t, err)
+	commitInfos = collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+}
+
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
 	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
 	require.NoError(t, err)
@@ -4122,7 +4214,7 @@ func getPachClient(t testing.TB) *client.APIClient {
 		if addr := os.Getenv("PACHD_PORT_650_TCP_ADDR"); addr != "" {
 			pachClient, err = client.NewInCluster()
 		} else {
-			pachClient, err = client.NewFromAddress("0.0.0.0:30650")
+			pachClient, err = client.NewOnUserMachine(false, "user")
 		}
 		require.NoError(t, err)
 	})

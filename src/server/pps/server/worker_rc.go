@@ -38,8 +38,8 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 		Name:  "BLOCK_CACHE_BYTES",
 		Value: options.cacheSize,
 	}, {
-		Name:  "PFS_CACHE_BYTES",
-		Value: "10M",
+		Name:  "PFS_CACHE_SIZE",
+		Value: "16",
 	}, {
 		Name:  "PACH_ROOT",
 		Value: a.storageRoot,
@@ -68,10 +68,13 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 			},
 		}
 	}
+	userVolumeMounts := options.volumeMounts
 	secretVolume, secretMount, err := assets.GetSecretVolumeAndMount(a.storageBackend)
 	if err == nil {
 		options.volumes = append(options.volumes, secretVolume)
+		options.volumeMounts = append(options.volumeMounts, secretMount)
 		sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
+		userVolumeMounts = append(userVolumeMounts, secretMount)
 	}
 	podSpec := api.PodSpec{
 		InitContainers: []api.Container{
@@ -94,7 +97,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 				},
 				ImagePullPolicy: api.PullPolicy(pullPolicy),
 				Env:             options.workerEnv,
-				VolumeMounts:    options.volumeMounts,
+				VolumeMounts:    userVolumeMounts,
 			},
 			{
 				Name:            client.PPSWorkerSidecarContainerName,
