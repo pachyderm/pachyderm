@@ -1,7 +1,0 @@
-syntax = "proto3";
-
-package pkgexec;
-
-message RunningCommand {
-  string args = 1;
-}

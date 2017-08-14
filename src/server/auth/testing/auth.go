@@ -47,6 +47,11 @@ func (a *InactiveAPIServer) GetACL(ctx context.Context, req *auth.GetACLRequest)
 	return nil, auth.NotActivatedError{}
 }
 
+// SetACL implements the Pachdyerm Auth SetACL RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) SetACL(ctx context.Context, req *auth.SetACLRequest) (resp *auth.SetACLResponse, retErr error) {
+	return nil, auth.NotActivatedError{}
+}
+
 // GetCapability implements the Pachdyerm Auth GetCapability RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) GetCapability(ctx context.Context, req *auth.GetCapabilityRequest) (resp *auth.GetCapabilityResponse, retErr error) {
 	return nil, auth.NotActivatedError{}

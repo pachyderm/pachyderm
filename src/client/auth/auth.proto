@@ -1,15 +1,45 @@
 syntax = "proto3";
 package auth;
 
-import "client/pfs/pfs.proto";
+import "gogoproto/gogo.proto";
+
+// Auth Activation API
+
+message ActivateRequest {
+    string activation_code = 1;
+    repeated string admins = 2;
+}
+
+message ActivateResponse {}
+
+// Authentication data structures
+
+message User {
+    string username = 1;
+    bool admin = 2;
+}
+
+// Authentication API
 
 message AuthenticateRequest {
+    // If set, Pachyderm will compare this username to the GitHub account that
+    // issued the access token 'github_token'. For now, this is not required
+    // (if unset, your GitHub username will be looked up using 'github_token')
+    string github_username = 2;
     string github_token = 1;
 }
 
 message AuthenticateResponse {
     string pach_token = 1;
 }
+
+message WhoAmIRequest {}
+
+message WhoAmIResponse {
+  string username = 1;
+}
+
+// Authorization data structures
 
 enum Scope {
     // To remove a user's scope from a repo, set their scope to NONE
@@ -19,49 +49,9 @@ enum Scope {
     OWNER = 3;
 }
 
-message AuthorizeRequest {
-    pfs.Repo repo = 1;
-    Scope scope = 2;
-}
-
-message AuthorizeResponse {
-    bool authorized = 1;
-}
-
-message WhoAmIRequest {}
-
-message WhoAmIResponse {
-  string username = 1;
-}
-
-message SetScopeRequest {
-    string username = 1;
-    pfs.Repo repo = 2;
-    Scope scope = 3;
-}
-
-message SetScopeResponse {}
-
-message GetScopeRequest {
-    string username = 1;
-    pfs.Repo repo = 2;
-}
-
-message GetScopeResponse {
-    Scope scope = 1;
-}
-
 message ACLEntry {
     string username = 1;
     Scope scope = 2;
-}
-
-message GetACLRequest {
-    pfs.Repo repo = 1;
-}
-
-message GetACLResponse {
-    ACL acl = 1;
 }
 
 message ACL {
@@ -69,17 +59,50 @@ message ACL {
     map<string, Scope> entries = 1;
 }
 
-message User {
+// Authorization API
+
+message AuthorizeRequest {
+    string repo = 1;
+    Scope scope = 2;
+}
+
+message AuthorizeResponse {
+    bool authorized = 1;
+}
+
+message GetScopeRequest {
     string username = 1;
-    bool admin = 2;
+    repeated string repos = 2;
 }
 
-message ActivateRequest {
-    string activation_code = 1;
-    repeated string admins = 2;
+message GetScopeResponse {
+    repeated Scope scopes = 1;
 }
 
-message ActivateResponse {}
+message SetScopeRequest {
+    string username = 1;
+    string repo = 2;
+    Scope scope = 3;
+}
+
+message SetScopeResponse {}
+
+message GetACLRequest {
+    string repo = 1;
+}
+
+message GetACLResponse {
+    ACL acl = 1 [(gogoproto.customname) = "ACL"];
+}
+
+message SetACLRequest {
+    string repo = 1;
+    ACL new_acl = 2 [(gogoproto.customname) = "NewACL"];
+}
+
+message SetACLResponse {}
+
+// Capability-token API (very limited -- for pipelines)
 
 message GetCapabilityRequest {}
 
@@ -90,6 +113,7 @@ message GetCapabilityResponse {
 message RevokeAuthTokenRequest {
     string token = 1;
 }
+
 message RevokeAuthTokenResponse {}
 
 service API {
@@ -99,10 +123,10 @@ service API {
     rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse) {}
     rpc WhoAmI(WhoAmIRequest) returns (WhoAmIResponse) {}
 
-    rpc SetScope(SetScopeRequest) returns (SetScopeResponse) {}
     rpc GetScope(GetScopeRequest) returns (GetScopeResponse) {}
-
+    rpc SetScope(SetScopeRequest) returns (SetScopeResponse) {}
     rpc GetACL(GetACLRequest) returns (GetACLResponse) {}
+    rpc SetACL(SetACLRequest) returns (SetACLResponse) {}
 
     rpc GetCapability(GetCapabilityRequest) returns (GetCapabilityResponse) {}
     rpc RevokeAuthToken(RevokeAuthTokenRequest) returns (RevokeAuthTokenResponse) {}

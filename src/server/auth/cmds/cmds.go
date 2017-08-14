@@ -8,7 +8,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 
@@ -60,6 +59,7 @@ func ActivateCmd() *cobra.Command {
 // GitHub account. Any resources that have been restricted to the email address
 // registered with your GitHub account will subsequently be accessible.
 func LoginCmd() *cobra.Command {
+	var username string
 	login := &cobra.Command{
 		Use:   "login",
 		Short: "Login to Pachyderm with your GitHub account",
@@ -90,7 +90,7 @@ func LoginCmd() *cobra.Command {
 			}
 			resp, err := c.AuthAPIClient.Authenticate(
 				c.Ctx(),
-				&auth.AuthenticateRequest{GithubToken: token})
+				&auth.AuthenticateRequest{GithubUsername: username, GithubToken: token})
 			if err != nil {
 				return fmt.Errorf("error authenticating with Pachyderm cluster: %s",
 					err.Error())
@@ -102,6 +102,9 @@ func LoginCmd() *cobra.Command {
 			return cfg.Write()
 		}),
 	}
+	login.PersistentFlags().StringVar(&username, "user", "", "GitHub username of "+
+		"the user logging in. If unset, the username will be inferred from the "+
+		"github authorization code")
 	return login
 }
 
@@ -131,7 +134,7 @@ func CheckCmd() *cobra.Command {
 			resp, err := c.AuthAPIClient.Authorize(
 				c.Ctx(),
 				&auth.AuthorizeRequest{
-					Repo:  &pfs.Repo{Name: repo},
+					Repo:  repo,
 					Scope: scope,
 				})
 			if err != nil {
@@ -167,12 +170,12 @@ func GetCmd() *cobra.Command {
 				resp, err := c.AuthAPIClient.GetACL(
 					c.Ctx(),
 					&auth.GetACLRequest{
-						Repo: &pfs.Repo{Name: repo},
+						Repo: repo,
 					})
 				if err != nil {
 					return err
 				}
-				fmt.Println(resp.Acl.String())
+				fmt.Println(resp.ACL.String())
 				return nil
 			}
 			// Get User's scope on an acl
@@ -180,13 +183,13 @@ func GetCmd() *cobra.Command {
 			resp, err := c.AuthAPIClient.GetScope(
 				c.Ctx(),
 				&auth.GetScopeRequest{
-					Repo:     &pfs.Repo{Name: repo},
+					Repos:    []string{repo},
 					Username: username,
 				})
 			if err != nil {
 				return err
 			}
-			fmt.Println(resp.Scope.String())
+			fmt.Println(resp.Scopes[0].String())
 			return nil
 		}),
 	}
@@ -220,7 +223,7 @@ func SetScopeCmd() *cobra.Command {
 			_, err = c.AuthAPIClient.SetScope(
 				c.Ctx(),
 				&auth.SetScopeRequest{
-					Repo:     &pfs.Repo{Name: repo},
+					Repo:     repo,
 					Scope:    scope,
 					Username: username,
 				})
