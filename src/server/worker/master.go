@@ -572,7 +572,6 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 									return nil
 								}
 								datumID := nodes[0].Name
-								fmt.Printf("datum skipped: %v\n", datumID)
 								skippedTreeMu.Lock()
 								err = skippedTree.PutFile(fmt.Sprintf("%v/skipped", datumID), nil, 0)
 								skippedTreeMu.Unlock()
