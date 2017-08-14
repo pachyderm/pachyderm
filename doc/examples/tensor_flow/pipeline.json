@@ -16,14 +16,12 @@
   "parallelism_spec": {
        "constant" : 1
   },
-  "inputs": [
-    {
-      "repo": {
-        "name": "GoT_scripts"
-      },
-      "method": "global"
+  "input": {
+    "atom": {
+      "repo": "GoT_scripts",
+      "glob": "/"
     }
-  ]
+  }
 }
 {
   "pipeline": {
@@ -42,12 +40,10 @@
   "parallelism_spec": {
        "constant" : 1
   },
-  "inputs": [
-    {
-      "repo": {
-        "name": "GoT_train"
-      },
-      "method": "global"
+  "input": {
+    "atom": {
+      "repo": "GoT_train",
+      "glob": "/"
     }
-  ]
+  }
 }
