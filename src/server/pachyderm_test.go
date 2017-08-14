@@ -3862,9 +3862,9 @@ func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
 
 	var states []interface{}
 	for _, datum := range datums {
+		require.Equal(t, pps.DatumState_SKIPPED, datum.State)
 		states = append(states, datum.State)
 	}
-	require.OneOfEquals(t, pps.DatumState_SKIPPED, states)
 }
 
 func TestIncrementalSharedProvenance(t *testing.T) {
