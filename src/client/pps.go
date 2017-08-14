@@ -59,6 +59,8 @@ const (
 	// GCGenerationKey is the etcd key that stores a counter that the
 	// GC utility increments when it runs, so as to invalidate all cache.
 	GCGenerationKey = "gc-generation"
+	// PageSize determines the size of a page returned with paginated results
+	PageSize = 100
 )
 
 // DatumTagPrefix hashes a pipeline salt to a string of a fixed size for use as
@@ -259,11 +261,13 @@ func (c APIClient) RestartDatum(jobID string, datumFilter []string) error {
 }
 
 // ListDatum returns info about all datums in a Job
-func (c APIClient) ListDatum(jobID string) ([]*pps.DatumInfo, error) {
+func (c APIClient) ListDatum(jobID string, paginate bool, page int64) ([]*pps.DatumInfo, error) {
 	datumInfos, err := c.PpsAPIClient.ListDatum(
 		c.Ctx(),
 		&pps.ListDatumRequest{
-			Job: &pps.Job{jobID},
+			Job:      &pps.Job{jobID},
+			Paginate: paginate,
+			Page:     page,
 		},
 	)
 	if err != nil {

@@ -490,10 +490,22 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		Commit: jobInfo.StatsCommit,
 		Path:   "/",
 	}
-	allFileInfos, err := pfsClient.ListFile(ctx, &pfs.ListFileRequest{file})
+	allDatumFileInfos, err := pfsClient.ListFile(ctx, &pfs.ListFileRequest{file})
 	if err != nil {
 		return nil, err
 	}
+
+	// Sort results (failed first)
+	sort.Sort(byDatumState(allDatumFileInfos.FileInfo))
+
+	if request.Paginate {
+		end := int(request.Page*client.PageSize + client.PageSize)
+		if len(allDatumFileInfos.FileInfo) < end {
+			end = len(allDatumFileInfos.FileInfo)
+		}
+		allDatumFileInfos.FileInfo = allDatumFileInfos.FileInfo[request.Page*client.PageSize : end-1]
+	}
+
 	datums := make(map[string]*pps.DatumInfo)
 
 	// Omit files at the top level that correspond to aggregate job stats
@@ -512,7 +524,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	var egGetDatums errgroup.Group
 	limiter := limit.New(200)
 	var datumsMutex sync.Mutex
-	for _, fileInfo := range allFileInfos.FileInfo {
+	for _, fileInfo := range allDatumFileInfos.FileInfo {
 		fileInfo := fileInfo
 		egGetDatums.Go(func() error {
 			limiter.Acquire()
@@ -545,26 +557,34 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		}
 		datumInfos = append(datumInfos, datum)
 	}
-
-	// Sort results (failed first, slow first)
-	sort.Sort(byDatumStateThenTime(datumInfos))
-
 	return &pps.DatumInfos{datumInfos}, nil
 }
 
-type byDatumStateThenTime []*pps.DatumInfo
+type byDatumState []*pfs.FileInfo
 
-func (a byDatumStateThenTime) Len() int      { return len(a) }
-func (a byDatumStateThenTime) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a byDatumStateThenTime) Less(i, j int) bool {
-	byState := a[i].State < a[j].State
-	if a[i].State != a[j].State {
-		return byState
+func datumFileToState(f *pfs.FileInfo) pps.DatumState {
+	fmt.Printf("getting state for datum w fileinfo %v, and children (%v)\n", f, f.Children)
+	for _, childFileName := range f.Children {
+		fmt.Printf("walking over child ... %v\n", childFileName)
+		if childFileName == "skipped" {
+			return pps.DatumState_SKIPPED
+		}
+		if childFileName == "failed" {
+			return pps.DatumState_FAILED
+		}
 	}
-	if a[i].Stats == nil || a[j].Stats == nil {
-		return byState
-	}
-	return client.GetDatumTotalTime(a[i].Stats) > client.GetDatumTotalTime(a[j].Stats)
+	return pps.DatumState_SUCCESS
+}
+
+func (a byDatumState) Len() int      { return len(a) }
+func (a byDatumState) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a byDatumState) Less(i, j int) bool {
+	iState := datumFileToState(a[i])
+	fmt.Printf("datum i %v state: %v\n", a[i], datumFileToState(a[i]))
+	jState := datumFileToState(a[j])
+	fmt.Printf("datum j %v state: %v\n", a[j], datumFileToState(a[j]))
+	fmt.Printf(" i < j ? %v\n", iState < jState)
+	return iState < jState
 }
 
 func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commit, jobID string, datumID string) (datumInfo *pps.DatumInfo, retErr error) {
