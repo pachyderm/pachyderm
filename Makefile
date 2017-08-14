@@ -325,7 +325,7 @@ pretest:
 
 local-test: docker-build launch-dev test-pfs test-hashtree clean-launch-dev 
 
-test: docker-build clean-launch-dev launch-dev test-pfs test-pps test-hashtree
+test: docker-build clean-launch-dev launch-dev test-pfs test-pps test-hashtree test-auth
 
 test-pfs:
 	@# don't run this in verbose mode, as it produces a huge amount of logs
@@ -350,6 +350,9 @@ test-fuse:
 
 test-local:
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT)
+
+test-auth:
+	go test -v ./src/server/auth/server -timeout $(TIMEOUT)
 
 clean: clean-launch clean-launch-kube
 
