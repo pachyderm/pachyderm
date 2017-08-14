@@ -178,6 +178,13 @@ nextInput:
 				}
 				input.Atom.FromCommit = ""
 			}
+			if input.Cron != nil {
+				for _, branch := range bs.Branches {
+					if input.Cron.Repo == branch.Head.Repo.Name {
+						input.Cron.Commit = branch.Head.ID
+					}
+				}
+			}
 		})
 		if visitErr != nil {
 			return visitErr

@@ -13,11 +13,18 @@
   "parallelism_spec": {
     "constant": 1
   },
-  "inputs": [
-    {
-      "repo": {
-        "name": "urls"
+  "input": {
+    "cross": [ {
+      "atom": {
+        "glob": "urls/*",
+        "repo": "urls"
       }
-    }
-  ]
+    },
+    {
+      "cron": {
+        "name": "tick",
+        "spec": "@every 1m"
+      }
+    } ]
+  }
 }
