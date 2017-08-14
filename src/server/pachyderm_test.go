@@ -3669,7 +3669,7 @@ func TestPipelineWithStats(t *testing.T) {
 
 	// TODO: This makes this test less flaky, but points to a bug w stats or flushcommit
 	time.Sleep(time.Second * 15)
-	datums, err := c.ListDatum(jobs[0].Job.ID)
+	datums, err := c.ListDatum(jobs[0].Job.ID, false, 0)
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(datums))
 
@@ -3737,7 +3737,7 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 
 	// TODO: This makes this test less flaky, but points to a bug w stats or flushcommit
 	time.Sleep(time.Second * 15)
-	datums, err := c.ListDatum(jobs[0].Job.ID)
+	datums, err := c.ListDatum(jobs[0].Job.ID, false, 0)
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(datums))
 
@@ -3754,7 +3754,7 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 
-	datums, err = c.ListDatum(jobs[0].Job.ID)
+	datums, err = c.ListDatum(jobs[0].Job.ID, false, 0)
 	require.NoError(t, err)
 	// we should see all the datums from the first job (which should be skipped)
 	// in addition to all the new datums processed in this job
@@ -3831,7 +3831,7 @@ func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
 
 	// TODO: This makes this test less flaky, but points to a bug w stats or flushcommit
 	time.Sleep(time.Second * 15)
-	datums, err := c.ListDatum(jobs[0].Job.ID)
+	datums, err := c.ListDatum(jobs[0].Job.ID, false, 0)
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(datums))
 
@@ -3856,7 +3856,7 @@ func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
 
 	// TODO: This makes this test less flaky, but points to a bug w stats or flushcommit
 	time.Sleep(time.Second * 15)
-	datums, err = c.ListDatum(jobs[0].Job.ID)
+	datums, err = c.ListDatum(jobs[0].Job.ID, false, 0)
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(datums))
 
