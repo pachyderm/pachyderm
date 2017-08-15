@@ -609,7 +609,6 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 	_, err = pfsClient.InspectFile(ctx, &pfs.InspectFileRequest{stateFile})
 	if err == nil {
 		datumInfo.State = pps.DatumState_SKIPPED
-		// Datum wasn't added in this commit, so it was skipped
 		return datumInfo, nil
 	} else if !strings.Contains(err.Error(), "not found") {
 		return nil, err
