@@ -517,20 +517,20 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 				defer limiter.Release()
 				b := backoff.NewInfiniteBackOff()
 				b.Multiplier = 1
-				var resp *ProcessResponse
 				datumProcessStats := &pps.ProcessStats{}
 				// If usedCache is set to true, we know that we thought a
 				// datum has been processed, but it's not found in the
 				// object store.  Therefore if a retry happens, we know to
 				// skip the cache and recompute the datums.
 				var usedCache bool
-				var skipped, failed bool
+				var skipped bool
 				if err := backoff.RetryNotify(func() error {
+					var failed bool
 					processed := a.getCachedDatum(datumHash)
 					if usedCache || !processed {
 						if err := pool.Do(ctx, func(conn *grpc.ClientConn) error {
 							workerClient := NewWorkerClient(conn)
-							resp, err = workerClient.Process(ctx, &ProcessRequest{
+							resp, err := workerClient.Process(ctx, &ProcessRequest{
 								JobID:        jobInfo.Job.ID,
 								Data:         files,
 								ParentOutput: parentOutputTag,
