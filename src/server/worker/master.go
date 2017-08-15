@@ -585,6 +585,24 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 								logger.Logf("failed to retrieve stats hashtree after processing for datum %v: %v", files, err)
 								return nil
 							}
+							if resp.Skipped {
+								// write file to skipped stats tree
+								nodes, err := statsSubtree.Glob("*")
+								if err != nil {
+									logger.Logf("failed to retrieve datum ID from hashtree for datum %v: %v", files, err)
+								}
+								if len(nodes) != 1 {
+									logger.Logf("should have a single stats object for datum %v", files)
+									return nil
+								}
+								datumID := nodes[0].Name
+								treeMu.Lock()
+								err = statsTree.PutFile(fmt.Sprintf("%v/skipped", datumID), nil, 0)
+								treeMu.Unlock()
+								if err != nil {
+									logger.Logf("unable to put skipped file to tree: %", err)
+								}
+							}
 							nodes, err := statsSubtree.Glob("*/stats")
 							if err != nil {
 								logger.Logf("failed to retrieve process stats from hashtree for datum %v: %v", files, err)

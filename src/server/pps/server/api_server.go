@@ -575,7 +575,7 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 			ID:  datumID,
 			Job: &pps.Job{jobID},
 		},
-		State: pps.DatumState_SKIPPED,
+		State: pps.DatumState_SUCCESS,
 	}
 
 	pachClient, err := a.getPachClient()
@@ -585,49 +585,29 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 	pfsClient := pachClient.PfsAPIClient
 
 	// Check if skipped
-	path := fmt.Sprintf("/%v", datumID)
-	newFile := &pfs.File{
+	stateFile := &pfs.File{
 		Commit: commit,
-		Path:   path,
+		Path:   fmt.Sprintf("/%v/skipped", datumID),
 	}
-	commitInfo, err := pfsClient.InspectCommit(
-		ctx,
-		&pfs.InspectCommitRequest{
-			Commit: &pfs.Commit{
-				Repo: commit.Repo,
-				ID:   commit.ID,
-			},
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-	oldFile := &pfs.File{
-		Commit: commitInfo.ParentCommit,
-		Path:   path,
-	}
-	resp, err := pfsClient.DiffFile(ctx, &pfs.DiffFileRequest{newFile, oldFile, true})
-	if err != nil {
-		return nil, err
-	}
-	// Datum wasn't added in this commit, so it was skipped
-	if len(resp.NewFiles) == 0 {
+	_, err = pfsClient.InspectFile(ctx, &pfs.InspectFileRequest{stateFile})
+	if err == nil {
+		datumInfo.State = pps.DatumState_SKIPPED
+		// Datum wasn't added in this commit, so it was skipped
 		return datumInfo, nil
+	} else if !isNotFoundErr(err) {
+		return nil, err
 	}
 
-	// Populate status
-	datumInfo.State = pps.DatumState_FAILED
-	stateFile := &pfs.File{
+	// Check if failed
+	stateFile = &pfs.File{
 		Commit: commit,
 		Path:   fmt.Sprintf("/%v/failure", datumID),
 	}
 	_, err = pfsClient.InspectFile(ctx, &pfs.InspectFileRequest{stateFile})
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			datumInfo.State = pps.DatumState_SUCCESS
-		} else {
-			return nil, err
-		}
+	if err == nil {
+		datumInfo.State = pps.DatumState_FAILED
+	} else if !isNotFoundErr(err) {
+		return nil, err
 	}
 
 	// Populate stats
