@@ -121,6 +121,16 @@ func newCrossDatumFactory(ctx context.Context, pfsClient pfs.APIClient, cross []
 	return result, nil
 }
 
+func newCronDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.CronInput) (datumFactory, error) {
+	return newAtomDatumFactory(ctx, pfsClient, &pps.AtomInput{
+		Name:   input.Name,
+		Repo:   input.Repo,
+		Branch: "master",
+		Commit: input.Commit,
+		Glob:   "time",
+	})
+}
+
 func newDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.Input) (datumFactory, error) {
 	switch {
 	case input.Atom != nil:
@@ -129,6 +139,8 @@ func newDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.In
 		return newUnionDatumFactory(ctx, pfsClient, input.Union)
 	case input.Cross != nil:
 		return newCrossDatumFactory(ctx, pfsClient, input.Cross)
+	case input.Cron != nil:
+		return newCronDatumFactory(ctx, pfsClient, input.Cron)
 	}
 	return nil, fmt.Errorf("unrecognized input type")
 }
