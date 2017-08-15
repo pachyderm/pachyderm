@@ -585,7 +585,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 								logger.Logf("failed to retrieve stats hashtree after processing for datum %v: %v", files, err)
 								return nil
 							}
-							if resp.Skipped {
+							if skipped {
 								// write file to skipped stats tree
 								nodes, err := statsSubtree.Glob("*")
 								if err != nil {
