@@ -3784,7 +3784,7 @@ func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
 	t.Parallel()
 	c := getPachClient(t)
 
-	dataRepo := uniqueString("TestPipelineWithStats_data")
+	dataRepo := uniqueString("TestPipelineWithStatsSkippedEdgeCase_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	numFiles := 10
