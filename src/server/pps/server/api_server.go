@@ -571,7 +571,7 @@ func datumFileToState(f *pfs.FileInfo) pps.DatumState {
 		if childFileName == "skipped" {
 			return pps.DatumState_SKIPPED
 		}
-		if childFileName == "failed" {
+		if childFileName == "failure" {
 			return pps.DatumState_FAILED
 		}
 	}
