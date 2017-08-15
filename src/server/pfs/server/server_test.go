@@ -2895,7 +2895,7 @@ func TestOverwrite(t *testing.T) {
 	require.NoError(t, err)
 	_, err = c.PutFileOverwrite(repo, "master", "file2", strings.NewReader("buzz"))
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, "master", "file3", pfs.Delimiter_LINE, 0, 0, true, strings.NewReader("foo\nbar\nbuz\n"))
+	_, err = c.PutFileSplit(repo, "master", "file3", pfs.Delimiter_LINE, 0, 0, true, strings.NewReader("0\n1\n2\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, "master"))
 	var buffer bytes.Buffer
@@ -2907,6 +2907,11 @@ func TestOverwrite(t *testing.T) {
 	fileInfos, err := c.ListFile(repo, "master", "file3")
 	require.NoError(t, err)
 	require.Equal(t, 3, len(fileInfos))
+	for i := 0; i < 3; i++ {
+		buffer.Reset()
+		require.NoError(t, c.GetFile(repo, "master", fmt.Sprintf("file3/%016x", i), 0, 0, &buffer))
+		require.Equal(t, fmt.Sprintf("%d\n", i), buffer.String())
+	}
 }
 
 func uniqueString(prefix string) string {
