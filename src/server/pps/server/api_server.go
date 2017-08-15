@@ -481,10 +481,13 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		return nil, err
 	}
 	pfsClient := pachClient.PfsAPIClient
-	if jobInfo.StatsCommit == nil {
+	if !jobInfo.EnableStats {
 		return nil, fmt.Errorf("stats not enabled on %v", jobInfo.Pipeline.Name)
 	}
-	// List the files under /jobID to get all the datums (including skipped ones)
+	if jobInfo.StatsCommit == nil {
+		return nil, fmt.Errorf("job not finished, no stats output yet")
+	}
+	// List the files under / to get all the datums
 	file := &pfs.File{
 		Commit: jobInfo.StatsCommit,
 		Path:   "/",
@@ -666,8 +669,11 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 		return nil, err
 	}
 
-	if jobInfo.StatsCommit == nil {
+	if !jobInfo.EnableStats {
 		return nil, fmt.Errorf("stats not enabled on %v", jobInfo.Pipeline.Name)
+	}
+	if jobInfo.StatsCommit == nil {
+		return nil, fmt.Errorf("job not finished, no stats output yet")
 	}
 
 	// Populate datumInfo given a path

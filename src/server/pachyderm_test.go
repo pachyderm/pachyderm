@@ -3667,8 +3667,10 @@ func TestPipelineWithStats(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 
-	// TODO: This makes this test less flaky, but points to a bug w stats or flushcommit
-	time.Sleep(time.Second * 15)
+	// Block on the job being complete before we call ListDatum
+	_, err = c.InspectJob(jobs[0].Job.ID, true)
+	require.NoError(t, err)
+
 	datums, err := c.ListDatum(jobs[0].Job.ID)
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(datums))
@@ -3735,8 +3737,10 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 
-	// TODO: This makes this test less flaky, but points to a bug w stats or flushcommit
-	time.Sleep(time.Second * 15)
+	// Block on the job being complete before we call ListDatum
+	_, err = c.InspectJob(jobs[0].Job.ID, true)
+	require.NoError(t, err)
+
 	datums, err := c.ListDatum(jobs[0].Job.ID)
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(datums))
@@ -3754,6 +3758,10 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 
+	// Block on the job being complete before we call ListDatum
+	_, err = c.InspectJob(jobs[0].Job.ID, true)
+	require.NoError(t, err)
+
 	datums, err = c.ListDatum(jobs[0].Job.ID)
 	require.NoError(t, err)
 	// we should see all the datums from the first job (which should be skipped)
@@ -3763,16 +3771,11 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	datum, err = c.InspectDatum(jobs[0].Job.ID, datums[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
-
-	// Make sure list-datum and inspect-datum both return the correct 'skipped' status
-	for _, datum := range datums {
-		if datum.State == pps.DatumState_SKIPPED {
-			inspectedDatum, err := c.InspectDatum(jobs[0].Job.ID, datum.Datum.ID)
-			require.NoError(t, err)
-			require.Equal(t, pps.DatumState_SKIPPED, inspectedDatum.State)
-			break
-		}
-	}
+	// Test datums marked as skipped correctly
+	// (also tests list datums are sorted by state)
+	datum, err = c.InspectDatum(jobs[0].Job.ID, datums[numFiles].Datum.ID)
+	require.NoError(t, err)
+	require.Equal(t, pps.DatumState_SKIPPED, datum.State)
 }
 
 func TestIncrementalSharedProvenance(t *testing.T) {
