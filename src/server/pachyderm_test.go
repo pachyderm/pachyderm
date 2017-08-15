@@ -3686,6 +3686,69 @@ func TestPipelineWithStats(t *testing.T) {
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 }
 
+func TestPipelineWithStatsFailedDatums(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestPipelineWithStatsFailedDatums_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	numFiles := 200
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	for i := 0; i < numFiles; i++ {
+		_, err = c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file-%d", i), strings.NewReader(strings.Repeat("foo\n", 100)))
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	pipeline := uniqueString("pipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					"if [ $RANDOM -gt 15000 ]; then exit 1; fi",
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+				},
+			},
+			Input:       client.NewAtomInput(dataRepo, "/*"),
+			EnableStats: true,
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 4,
+			},
+		})
+
+	_, err = c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+
+	// Without this sleep, I get no results from list-job
+	time.Sleep(15 * time.Second)
+	jobs, err := c.ListJob(pipeline, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+	// Block on the job being complete before we call ListDatum
+	_, err = c.InspectJob(jobs[0].Job.ID, true)
+	require.NoError(t, err)
+
+	datums, err := c.ListDatum(jobs[0].Job.ID, false, 0)
+	require.NoError(t, err)
+	require.Equal(t, numFiles, len(datums))
+
+	// First entry should be failed
+	require.Equal(t, pps.DatumState_FAILED, datums[0].State)
+	// Last entry should be success
+	require.Equal(t, pps.DatumState_SUCCESS, datums[len(datums)-1].State)
+
+	// Make sure inspect-datum works for failed state
+	datum, err := c.InspectDatum(jobs[0].Job.ID, datums[0].Datum.ID)
+	require.NoError(t, err)
+	require.Equal(t, pps.DatumState_FAILED, datum.State)
+}
+
 func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -3693,7 +3756,7 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	t.Parallel()
 	c := getPachClient(t)
 
-	dataRepo := uniqueString("TestPipelineWithStats_data")
+	dataRepo := uniqueString("TestPipelineWithStatsAcrossJobs_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	numFiles := 500
