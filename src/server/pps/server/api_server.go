@@ -610,7 +610,7 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 	if err == nil {
 		datumInfo.State = pps.DatumState_SKIPPED
 		return datumInfo, nil
-	} else if !strings.Contains(err.Error(), "not found") {
+	} else if !isNotFoundErr(err) {
 		return nil, err
 	}
 
@@ -622,7 +622,7 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 	_, err = pfsClient.InspectFile(ctx, &pfs.InspectFileRequest{stateFile})
 	if err == nil {
 		datumInfo.State = pps.DatumState_FAILED
-	} else if !strings.Contains(err.Error(), "not found") {
+	} else if !isNotFoundErr(err) {
 		return nil, err
 	}
 
