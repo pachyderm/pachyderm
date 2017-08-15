@@ -49,6 +49,7 @@ const (
 
 var (
 	errSpecialFile = errors.New("cannot upload special file")
+	statsTagSuffix = "_stats"
 )
 
 // APIServer implements the worker API
@@ -627,7 +628,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	}
 	var statsTag *pfs.Tag
 	if req.EnableStats {
-		statsTag = &pfs.Tag{tag + "_stats"}
+		statsTag = &pfs.Tag{tag + statsTagSuffix}
 	}
 	if foundTag15 && !foundTag {
 		if _, err := a.pachClient.ObjectAPIClient.TagObject(ctx, &pfs.TagObjectRequest{
@@ -646,9 +647,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		// We've already computed the output for these inputs. Return immediately
 		logger.Logf("skipping input, as it's already been processed")
 		return &ProcessResponse{
-			Tag:      &pfs.Tag{tag},
-			StatsTag: statsTag,
-			Skipped:  true,
+			Skipped: true,
 		}, nil
 	}
 	stats := &pps.ProcessStats{}
@@ -774,8 +773,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 				}
 			}
 			return &ProcessResponse{
-				Failed:   true,
-				StatsTag: statsTag,
+				Failed: true,
 			}, nil
 		}
 		return nil, nil
@@ -803,16 +801,12 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		// infinitely retry to process this datum.
 		if err == errSpecialFile {
 			return &ProcessResponse{
-				Failed:   true,
-				StatsTag: statsTag,
+				Failed: true,
 			}, nil
 		}
 		return nil, err
 	}
-	return &ProcessResponse{
-		Tag:      &pfs.Tag{tag},
-		StatsTag: statsTag,
-	}, nil
+	return &ProcessResponse{}, nil
 }
 
 // Status returns the status of the current worker.

@@ -483,6 +483,8 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 			limiter.Acquire()
 			files := df.Datum(i)
 			datumHash := HashDatum(pipelineInfo, files)
+			tag := &pfs.Tag{datumHash}
+			statsTag := &pfs.Tag{datumHash + statsTagSuffix}
 			var parentOutputTag *pfs.Tag
 			if newBranchParentCommit != nil {
 				var parentFiles []*Input
@@ -517,21 +519,15 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 				b.Multiplier = 1
 				var resp *ProcessResponse
 				datumProcessStats := &pps.ProcessStats{}
-				// If usedCache is set to true, we know that we got
-				// the tags from the cache, and therefore if a retry
-				// happens (e.g. because the tags point to nonexistent
-				// objects), we know to skip the cache and recompute
-				// the datums.
+				// If usedCache is set to true, we know that we thought a
+				// datum has been processed, but it's not found in the
+				// object store.  Therefore if a retry happens, we know to
+				// skip the cache and recompute the datums.
 				var usedCache bool
+				var skipped, failed bool
 				if err := backoff.RetryNotify(func() error {
-					tag, statsTag, ok := a.getCachedTags(datumHash)
-					if !usedCache && ok {
-						resp = new(ProcessResponse)
-						resp.Tag = tag
-						resp.StatsTag = statsTag
-						resp.Skipped = true
-						usedCache = true
-					} else {
+					processed := a.getCachedDatum(datumHash)
+					if usedCache || !processed {
 						if err := pool.Do(ctx, func(conn *grpc.ClientConn) error {
 							workerClient := NewWorkerClient(conn)
 							resp, err = workerClient.Process(ctx, &ProcessRequest{
@@ -540,17 +536,25 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 								ParentOutput: parentOutputTag,
 								EnableStats:  jobInfo.EnableStats,
 							})
-							return err
+							if err != nil {
+								return err
+							}
+							skipped = resp.Skipped
+							failed = resp.Failed
+							return nil
 						}); err != nil {
 							return fmt.Errorf("Process() call failed: %v", err)
 						}
+					} else {
+						usedCache = true
+						skipped = true
 					}
-					if resp.Failed {
+					if failed {
 						userCodeFailures++
 						// If this is our last failure we merge in the stats
 						// tree for the failed run.
 						if userCodeFailures > maximumRetriesPerDatum && jobInfo.EnableStats {
-							statsSubtree, err := a.getTreeFromTag(ctx, resp.StatsTag)
+							statsSubtree, err := a.getTreeFromTag(ctx, statsTag)
 							if err != nil {
 								logger.Logf("failed to retrieve stats hashtree after processing for datum %v: %v", files, err)
 							} else {
@@ -563,12 +567,12 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 						}
 						return fmt.Errorf("user code failed for datum %v", files)
 					}
-					a.setCachedTags(datumHash, resp.Tag, resp.StatsTag)
+					a.setCachedDatum(datumHash)
 					var eg errgroup.Group
 					var subTree hashtree.HashTree
 					var statsSubtree hashtree.HashTree
 					eg.Go(func() error {
-						subTree, err = a.getTreeFromTag(ctx, resp.Tag)
+						subTree, err = a.getTreeFromTag(ctx, tag)
 						if err != nil {
 							return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
 						}
@@ -576,7 +580,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 					})
 					if jobInfo.EnableStats {
 						eg.Go(func() error {
-							statsSubtree, err = a.getTreeFromTag(ctx, resp.StatsTag)
+							statsSubtree, err = a.getTreeFromTag(ctx, statsTag)
 							if err != nil {
 								logger.Logf("failed to retrieve stats hashtree after processing for datum %v: %v", files, err)
 								return nil
@@ -628,7 +632,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 					logger.Logf("job %s failed to process datum %+v with: %+v, retrying in: %+v", jobID, files, err, d)
 					return nil
 				}); err == nil {
-					if resp.Skipped {
+					if skipped {
 						go updateProgress(0, 1, datumProcessStats)
 					} else {
 						go updateProgress(1, 0, datumProcessStats)
@@ -940,25 +944,16 @@ func (a *APIServer) scaleUpWorkers() error {
 	return err
 }
 
-type cachedTags struct {
-	tag      *pfs.Tag
-	statsTag *pfs.Tag
+// getCachedDatum returns whether the given datum (identified by its hash)
+// has been processed.
+func (a *APIServer) getCachedDatum(hash string) bool {
+	_, ok := a.datumCache.Get(hash)
+	return ok
 }
 
-func (a *APIServer) getCachedTags(hash string) (*pfs.Tag, *pfs.Tag, bool) {
-	tags, ok := a.datumCache.Get(hash)
-	if ok {
-		tags := tags.(cachedTags)
-		return tags.tag, tags.statsTag, true
-	}
-	return nil, nil, false
-}
-
-func (a *APIServer) setCachedTags(hash string, tag *pfs.Tag, statsTag *pfs.Tag) {
-	a.datumCache.Add(hash, cachedTags{
-		tag:      tag,
-		statsTag: statsTag,
-	})
+// setCachedDatum records that the given datum has been processed.
+func (a *APIServer) setCachedDatum(hash string) {
+	a.datumCache.Add(hash, struct{}{})
 }
 
 func untranslateJobInputs(input *pps.Input) []*pps.JobInput {
