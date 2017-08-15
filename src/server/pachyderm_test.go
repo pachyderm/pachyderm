@@ -3694,7 +3694,7 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	dataRepo := uniqueString("TestPipelineWithStats_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	numFiles := 10
+	numFiles := 500
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
