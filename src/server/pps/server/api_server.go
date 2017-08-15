@@ -490,22 +490,12 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		Commit: jobInfo.StatsCommit,
 		Path:   "/",
 	}
-	allDatumFileInfos, err := pfsClient.ListFile(ctx, &pfs.ListFileRequest{file, true})
+	allFileInfos, err := pfsClient.ListFile(ctx, &pfs.ListFileRequest{file, true})
 	if err != nil {
 		return nil, err
 	}
 
-	// Sort results (failed first)
-	sort.Sort(byDatumState(allDatumFileInfos.FileInfo))
-
-	if request.Paginate {
-		end := int(request.Page*client.PageSize + client.PageSize)
-		if len(allDatumFileInfos.FileInfo) < end {
-			end = len(allDatumFileInfos.FileInfo)
-		}
-		allDatumFileInfos.FileInfo = allDatumFileInfos.FileInfo[request.Page*client.PageSize : end-1]
-	}
-
+	var datumFileInfos []*pfs.FileInfo
 	// Omit files at the top level that correspond to aggregate job stats
 	blacklist := map[string]bool{
 		"stats": true,
@@ -519,33 +509,49 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		}
 		return datumHash, nil
 	}
+	for _, fileInfo := range allFileInfos.FileInfo {
+		_, err := pathToDatumHash(fileInfo.File.Path)
+		if err != nil {
+			// not a datum
+			continue
+		}
+		datumFileInfos = append(datumFileInfos, fileInfo)
+	}
+
+	// Sort results (failed first)
+	sort.Sort(byDatumState(datumFileInfos))
+
+	if request.Paginate {
+		start := request.Page * client.PageSize
+		if start > int64(len(datumFileInfos)-1) {
+			return nil, io.EOF
+		}
+		end := int(start + client.PageSize)
+		if len(datumFileInfos) < end {
+			end = len(datumFileInfos)
+		}
+		datumFileInfos = datumFileInfos[start : end-1]
+	}
+
 	var egGetDatums errgroup.Group
 	limiter := limit.New(200)
-	var datumIndexMutex sync.Mutex
-	var index int
-	datumInfos := make([]*pps.DatumInfo, len(allDatumFileInfos.FileInfo))
-	fmt.Printf("initial datumInfos length: %v\n", len(datumInfos))
-	for _, fileInfo := range allDatumFileInfos.FileInfo {
+	datumInfos := make([]*pps.DatumInfo, len(datumFileInfos))
+	for index, fileInfo := range datumFileInfos {
 		fileInfo := fileInfo
+		index := index
 		egGetDatums.Go(func() error {
 			limiter.Acquire()
 			defer limiter.Release()
 			datumHash, err := pathToDatumHash(fileInfo.File.Path)
 			if err != nil {
-				// not a datum, nothing to do here
+				// not a datum
 				return nil
 			}
-			datumIndexMutex.Lock()
-			fmt.Printf("setting index to: %v\n", index)
-			thisIndex := index
-			index += 1
-			datumIndexMutex.Unlock()
 			datum, err := a.getDatum(ctx, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Job.ID, datumHash)
 			if err != nil {
 				return err
 			}
-			fmt.Printf("writing to index: %v, datum %v\n", thisIndex, datum)
-			datumInfos[thisIndex] = datum
+			datumInfos[index] = datum
 			return nil
 		})
 	}
@@ -553,16 +559,13 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("returning %v datum infos: %v\n", len(datumInfos), datumInfos)
 	return &pps.DatumInfos{datumInfos}, nil
 }
 
 type byDatumState []*pfs.FileInfo
 
 func datumFileToState(f *pfs.FileInfo) pps.DatumState {
-	fmt.Printf("getting state for datum w fileinfo %v, and children (%v)\n", f, f.Children)
 	for _, childFileName := range f.Children {
-		fmt.Printf("walking over child ... %v\n", childFileName)
 		if childFileName == "skipped" {
 			return pps.DatumState_SKIPPED
 		}
@@ -577,10 +580,7 @@ func (a byDatumState) Len() int      { return len(a) }
 func (a byDatumState) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a byDatumState) Less(i, j int) bool {
 	iState := datumFileToState(a[i])
-	fmt.Printf("datum i %v state: %v\n", a[i], datumFileToState(a[i]))
 	jState := datumFileToState(a[j])
-	fmt.Printf("datum j %v state: %v\n", a[j], datumFileToState(a[j]))
-	fmt.Printf(" i < j ? %v\n", iState < jState)
 	return iState < jState
 }
 
