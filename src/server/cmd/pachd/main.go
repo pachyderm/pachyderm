@@ -6,6 +6,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"strconv"
 	"strings"
 
 	units "github.com/docker/go-units"
@@ -64,7 +65,7 @@ type appEnv struct {
 	Metrics               bool   `env:"METRICS,default=true"`
 	Init                  bool   `env:"INIT,default=false"`
 	BlockCacheBytes       string `env:"BLOCK_CACHE_BYTES,default=1G"`
-	PFSCacheBytes         string `env:"PFS_CACHE_BYTES,default=500M"`
+	PFSCacheSize          string `env:"PFS_CACHE_SIZE,default=0"`
 	WorkerImage           string `env:"WORKER_IMAGE,default="`
 	WorkerSidecarImage    string `env:"WORKER_SIDECAR_IMAGE,default="`
 	WorkerImagePullPolicy string `env:"WORKER_IMAGE_PULL_POLICY,default="`
@@ -119,11 +120,11 @@ func doSidecarMode(appEnvObj interface{}) error {
 		return err
 	}
 	address = fmt.Sprintf("%s:%d", address, appEnv.Port)
-	pfsCacheBytes, err := units.RAMInBytes(appEnv.PFSCacheBytes)
+	pfsCacheSize, err := strconv.Atoi(appEnv.PFSCacheSize)
 	if err != nil {
 		return err
 	}
-	pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, pfsCacheBytes)
+	pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, int64(pfsCacheSize))
 	if err != nil {
 		return err
 	}
@@ -244,7 +245,7 @@ func doFullMode(appEnvObj interface{}) error {
 			log.Printf("error from sharder.AssignRoles: %s", sanitizeErr(err))
 		}
 	}()
-	pfsCacheBytes, err := units.RAMInBytes(appEnv.PFSCacheBytes)
+	pfsCacheSize, err := strconv.Atoi(appEnv.PFSCacheSize)
 	if err != nil {
 		return err
 	}
@@ -256,7 +257,7 @@ func doFullMode(appEnvObj interface{}) error {
 		address,
 	)
 	cacheServer := cache_server.NewCacheServer(router, appEnv.NumShards)
-	pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, pfsCacheBytes)
+	pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, int64(pfsCacheSize))
 	if err != nil {
 		return err
 	}
