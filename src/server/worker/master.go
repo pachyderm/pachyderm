@@ -508,7 +508,6 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 				b := backoff.NewInfiniteBackOff()
 				b.Multiplier = 1
 				var resp *ProcessResponse
-				datumProcessStats := &pps.ProcessStats{}
 				if err := backoff.RetryNotify(func() error {
 					if err := pool.Do(ctx, func(conn *grpc.ClientConn) error {
 						workerClient := NewWorkerClient(conn)
@@ -557,24 +556,6 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 								logger.Logf("failed to retrieve stats hashtree after processing for datum %v: %v", files, err)
 								return nil
 							}
-							nodes, err := statsSubtree.Glob("*/stats")
-							if err != nil {
-								logger.Logf("failed to retrieve process stats from hashtree for datum %v: %v", files, err)
-							}
-							if len(nodes) != 1 {
-								logger.Logf("should have a single stats object for datum %v", files)
-								return nil
-							}
-							var objects []string
-							for _, object := range nodes[0].FileNode.Objects {
-								objects = append(objects, object.Hash)
-							}
-							var buffer bytes.Buffer
-							a.pachClient.WithCtx(ctx).GetObjects(objects, 0, 0, &buffer)
-							if err := jsonpb.UnmarshalString(buffer.String(), datumProcessStats); err != nil {
-								logger.Logf("error unmarshalling datum process stats for datum %v: %+v", files, err)
-								return nil
-							}
 							return nil
 						})
 					}
@@ -587,7 +568,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 						if err := statsTree.Merge(statsSubtree); err != nil {
 							logger.Logf("failed to merge into stats tree: %v", err)
 						}
-						processStats = append(processStats, datumProcessStats)
+						processStats = append(processStats, resp.Stats)
 					}
 					return tree.Merge(subTree)
 				}, b, func(err error, d time.Duration) error {
@@ -605,9 +586,9 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 					return nil
 				}); err == nil {
 					if resp.Skipped {
-						go updateProgress(0, 1, datumProcessStats)
+						go updateProgress(0, 1, resp.Stats)
 					} else {
-						go updateProgress(1, 0, datumProcessStats)
+						go updateProgress(1, 0, resp.Stats)
 					}
 				}
 			}()

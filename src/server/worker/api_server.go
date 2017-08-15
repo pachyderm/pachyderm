@@ -805,6 +805,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	return &ProcessResponse{
 		Tag:      &pfs.Tag{tag},
 		StatsTag: statsTag,
+		Stats:    stats,
 	}, nil
 }
 
