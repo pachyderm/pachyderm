@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	client "github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -28,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	workerpkg "github.com/pachyderm/pachyderm/src/server/worker"
+	"github.com/robfig/cron"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
@@ -36,7 +37,6 @@ import (
 	"golang.org/x/net/context"
 
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
 
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/errors"
@@ -97,9 +97,9 @@ type apiServer struct {
 	hasher                *ppsserver.Hasher
 	address               string
 	etcdClient            *etcd.Client
-	pachConn              *grpc.ClientConn
-	pachConnOnce          sync.Once
 	kubeClient            *kube.Client
+	pachClient            *client.APIClient
+	pachClientOnce        sync.Once
 	namespace             string
 	workerImage           string
 	workerSidecarImage    string
@@ -113,87 +113,85 @@ type apiServer struct {
 	jobs      col.Collection
 }
 
-func (a *apiServer) validateInput(ctx context.Context, input *pps.Input, job bool) error {
+func (a *apiServer) validateInput(ctx context.Context, pipelineName string, input *pps.Input, job bool) error {
+	pachClient, err := a.getPachClient()
+	if err != nil {
+		return err
+	}
+	pachClient = pachClient.WithCtx(ctx)
 	names := make(map[string]bool)
 	repoBranch := make(map[string]string)
 	var result error
 	pps.VisitInput(input, func(input *pps.Input) {
-		set := false
-		if input.Atom != nil {
-			set = true
-			switch {
-			case len(input.Atom.Name) == 0:
-				result = fmt.Errorf("input must specify a name")
-				return
-			case input.Atom.Name == "out":
-				result = fmt.Errorf("input cannot be named \"out\", as pachyderm " +
-					"already creates /pfs/out to collect job output")
-				return
-			case input.Atom.Repo == "":
-				result = fmt.Errorf("input must specify a repo")
-				return
-			case input.Atom.Branch == "" && !job:
-				result = fmt.Errorf("input must specify a branch")
-				return
-			case input.Atom.Commit == "" && job:
-				result = fmt.Errorf("input must specify a commit")
-				return
-			case len(input.Atom.Glob) == 0:
-				result = fmt.Errorf("input must specify a glob")
-				return
-			}
-			if _, ok := names[input.Atom.Name]; ok {
-				result = fmt.Errorf("conflicting input names: %s", input.Atom.Name)
-				return
-			}
-			names[input.Atom.Name] = true
-			if repoBranch[input.Atom.Repo] != "" && repoBranch[input.Atom.Repo] != input.Atom.Branch {
-				result = fmt.Errorf("cannot use the same repo in multiple inputs with different branches")
-				return
-			}
-			repoBranch[input.Atom.Repo] = input.Atom.Branch
-			pfsClient, err := a.getPFSClient()
-			if err != nil {
-				result = err
-				return
-			}
-			if job {
-				// for jobs we check that the input commit exists
-				_, err = pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-					Commit: client.NewCommit(input.Atom.Repo, input.Atom.Commit),
-				})
-				if err != nil {
-					result = err
-					return
+		if err := func() error {
+			set := false
+			if input.Atom != nil {
+				set = true
+				switch {
+				case len(input.Atom.Name) == 0:
+					return fmt.Errorf("input must specify a name")
+				case input.Atom.Name == "out":
+					return fmt.Errorf("input cannot be named \"out\", as pachyderm " +
+						"already creates /pfs/out to collect job output")
+				case input.Atom.Repo == "":
+					return fmt.Errorf("input must specify a repo")
+				case input.Atom.Branch == "" && !job:
+					return fmt.Errorf("input must specify a branch")
+				case input.Atom.Commit == "" && job:
+					return fmt.Errorf("input must specify a commit")
+				case len(input.Atom.Glob) == 0:
+					return fmt.Errorf("input must specify a glob")
 				}
-			} else {
-				// for pipelines we only check that the repo exists
-				_, err = pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{
-					Repo: client.NewRepo(input.Atom.Repo),
-				})
-				if err != nil {
-					result = err
-					return
+				if _, ok := names[input.Atom.Name]; ok {
+					return fmt.Errorf("conflicting input names: %s", input.Atom.Name)
+				}
+				names[input.Atom.Name] = true
+				if repoBranch[input.Atom.Repo] != "" && repoBranch[input.Atom.Repo] != input.Atom.Branch {
+					return fmt.Errorf("cannot use the same repo in multiple inputs with different branches")
+				}
+				repoBranch[input.Atom.Repo] = input.Atom.Branch
+				if job {
+					// for jobs we check that the input commit exists
+					if _, err := pachClient.InspectCommit(input.Atom.Repo, input.Atom.Commit); err != nil {
+						return err
+					}
+				} else {
+					// for pipelines we only check that the repo exists
+					if _, err = pachClient.InspectRepo(input.Atom.Repo); err != nil {
+						return err
+					}
 				}
 			}
-		}
-		if input.Cross != nil {
-			if set {
-				result = fmt.Errorf("multiple input types set")
-				return
+			if input.Cross != nil {
+				if set {
+					return fmt.Errorf("multiple input types set")
+				}
+				set = true
 			}
-			set = true
-		}
-		if input.Union != nil {
-			if set {
-				result = fmt.Errorf("multiple input types set")
-				return
+			if input.Union != nil {
+				if set {
+					return fmt.Errorf("multiple input types set")
+				}
+				set = true
 			}
-			set = true
-		}
-		if !set {
-			result = fmt.Errorf("no input set")
-			return
+			if input.Cron != nil {
+				if set {
+					return fmt.Errorf("multiple input types set")
+				}
+				set = true
+				if _, err := cron.Parse(input.Cron.Spec); err != nil {
+					return err
+				}
+				if _, err := pachClient.InspectRepo(input.Cron.Repo); err != nil {
+					return err
+				}
+			}
+			if !set {
+				return fmt.Errorf("no input set")
+			}
+			return nil
+		}(); err != nil && result == nil {
+			result = err
 		}
 	})
 	return result
@@ -210,7 +208,7 @@ func (a *apiServer) validateJob(ctx context.Context, jobInfo *pps.JobInfo) error
 	if err := validateTransform(jobInfo.Transform); err != nil {
 		return err
 	}
-	return a.validateInput(ctx, jobInfo.Input, true)
+	return a.validateInput(ctx, jobInfo.Pipeline.Name, jobInfo.Input, true)
 }
 
 func translateJobInputs(inputs []*pps.JobInput) *pps.Input {
@@ -478,14 +476,18 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		return nil, err
 	}
 
-	pfsClient, err := a.getPFSClient()
+	pachClient, err := a.getPachClient()
 	if err != nil {
 		return nil, err
 	}
-	if jobInfo.StatsCommit == nil {
+	pfsClient := pachClient.PfsAPIClient
+	if !jobInfo.EnableStats {
 		return nil, fmt.Errorf("stats not enabled on %v", jobInfo.Pipeline.Name)
 	}
-	// List the files under /jobID to get all the datums (including skipped ones)
+	if jobInfo.StatsCommit == nil {
+		return nil, fmt.Errorf("job not finished, no stats output yet")
+	}
+	// List the files under / to get all the datums
 	file := &pfs.File{
 		Commit: jobInfo.StatsCommit,
 		Path:   "/",
@@ -593,10 +595,11 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 		State: pps.DatumState_SUCCESS,
 	}
 
-	pfsClient, err := a.getPFSClient()
+	pachClient, err := a.getPachClient()
 	if err != nil {
 		return nil, err
 	}
+	pfsClient := pachClient.PfsAPIClient
 
 	// Check if skipped
 	stateFile := &pfs.File{
@@ -663,8 +666,11 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 		return nil, err
 	}
 
-	if jobInfo.StatsCommit == nil {
+	if !jobInfo.EnableStats {
 		return nil, fmt.Errorf("stats not enabled on %v", jobInfo.Pipeline.Name)
+	}
+	if jobInfo.StatsCommit == nil {
+		return nil, fmt.Errorf("job not finished, no stats output yet")
 	}
 
 	// Populate datumInfo given a path
@@ -832,7 +838,7 @@ nextLogCh:
 }
 
 func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
-	if err := a.validateInput(ctx, pipelineInfo.Input, false); err != nil {
+	if err := a.validateInput(ctx, pipelineInfo.Pipeline.Name, pipelineInfo.Input, false); err != nil {
 		return err
 	}
 	if err := validateTransform(pipelineInfo.Transform); err != nil {
@@ -858,10 +864,11 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 		return fmt.Errorf("could not parse cacheSize '%s': %v", pipelineInfo.CacheSize, err)
 	}
 	if pipelineInfo.Incremental {
-		pfsClient, err := a.getPFSClient()
+		pachClient, err := a.getPachClient()
 		if err != nil {
 			return err
 		}
+		pfsClient := pachClient.PfsAPIClient
 		// for incremental jobs we can't have shared provenance
 		var provenance []*pfs.Repo
 		for _, commit := range pps.InputCommits(pipelineInfo.Input) {
@@ -910,22 +917,100 @@ func translatePipelineInputs(inputs []*pps.PipelineInput) *pps.Input {
 	return result
 }
 
+// AuthorizeCreatePipelineRequest checks if the user indicated by 'ctx' is authorized to create or update
+// the pipeline in 'request'
+func (a *apiServer) AuthorizeCreatePipeline(ctx context.Context, authClient auth.APIClient, update bool, info *pps.PipelineInfo) error {
+	_, err := authClient.WhoAmI(auth.In2Out(ctx), &auth.WhoAmIRequest{})
+	if err != nil {
+		if auth.IsNotActivatedError(err) {
+			// TODO(msteffen): Think about how auth will degrade if auth is activated
+			// then deactivated. This is potentially insecure.
+			return nil // Auth isn't activated, user may proceed
+		}
+		return err
+	}
+
+	// Check that the user is authorized to read all input repos, and write to the
+	// output repo (which the pipeline needs to be able to do on the user's
+	// behalf)
+	// collect inputs by bfs info.Input (info.Inputs is no longer set)
+	if len(info.Inputs) > 0 {
+		return fmt.Errorf("cannot authorize PipelineInfo with 'Inputs' set")
+	}
+	inputRepos := make(map[string]struct{})
+	queue := []*pps.Input{info.Input}
+	for len(queue) > 0 {
+		in := queue[0]
+		queue = queue[1:]
+		if in == nil {
+			break
+		} else if in.Atom != nil {
+			inputRepos[in.Atom.Repo] = struct{}{}
+		} else if len(in.Cross) > 0 {
+			queue = append(queue, in.Cross...)
+		} else if len(in.Union) > 0 {
+			queue = append(queue, in.Union...)
+		} else {
+			return fmt.Errorf("cannot authorize pipeline input that is not an atom, a cross, or a union")
+		}
+	}
+
+	var eg errgroup.Group
+	for inputRepo := range inputRepos {
+		inputRepo := inputRepo
+		eg.Go(func() error {
+			resp, err := authClient.Authorize(auth.In2Out(ctx), &auth.AuthorizeRequest{
+				Repo:  inputRepo,
+				Scope: auth.Scope_READER,
+			})
+			if err != nil {
+				return err
+			}
+			if !resp.Authorized {
+				return fmt.Errorf("user is not authorized to read from input %s", inputRepo)
+			}
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
+	// Check that the user is authorized to write to the output repo
+	resp, err := authClient.Authorize(auth.In2Out(ctx), &auth.AuthorizeRequest{
+		Repo:  info.Pipeline.Name,
+		Scope: auth.Scope_WRITER,
+	})
+	if err != nil {
+		if !update && strings.HasSuffix(
+			err.Error(),
+			fmt.Sprintf("ACL not found for repo %s", info.Pipeline.Name)) {
+			// Output repo doesn't exist yet. It will be created
+			// TODO(msteffen): This is not a great way of handling this error, but
+			// right now the way we create ACLs for new repos doesn't really make
+			// sense.
+			return nil
+		}
+		return err
+	}
+	if !resp.Authorized {
+		return fmt.Errorf("user is not authorized to write to output repo %s", info.Pipeline.Name)
+	}
+	return nil
+}
+
 func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
 
-	// Get the capability of the user
-	authClient, err := a.getAuthClient()
+	pachClient, err := a.getPachClient()
 	if err != nil {
-		return nil, fmt.Errorf("error dialing auth client: %v", authClient)
+		return nil, err
 	}
-
-	capabilityResp, err := authClient.GetCapability(ctx, &auth.GetCapabilityRequest{})
-	if err != nil {
-		return nil, fmt.Errorf("error getting capability for the user: %v", err)
-	}
+	authClient := pachClient.AuthAPIClient
+	pfsClient := pachClient.PfsAPIClient
 
 	// First translate Inputs field to Input field.
 	if len(request.Inputs) > 0 {
@@ -952,17 +1037,33 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		EnableStats:        request.EnableStats,
 		Salt:               uuid.NewWithoutDashes(),
 		Batch:              request.Batch,
-		Capability:         capabilityResp.Capability,
 	}
 	setPipelineDefaults(pipelineInfo)
+	var visitErr error
+	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+		if input.Cron != nil {
+			if err := pachClient.CreateRepo(input.Cron.Repo); err != nil && !strings.Contains(err.Error(), "already exists") {
+				visitErr = err
+			}
+		}
+	})
+	if visitErr != nil {
+		return nil, visitErr
+	}
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
 		return nil, err
 	}
-
-	pfsClient, err := a.getPFSClient()
 	if err != nil {
+		return nil, fmt.Errorf("error dialing auth client: %v", authClient)
+	}
+	if err := a.AuthorizeCreatePipeline(ctx, authClient, request.Update, pipelineInfo); err != nil {
 		return nil, err
 	}
+	capabilityResp, err := authClient.GetCapability(auth.In2Out(ctx), &auth.GetCapabilityRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("error getting capability for the user: %v", err)
+	}
+	pipelineInfo.Capability = capabilityResp.Capability // User is authorized -- grant capability token to pipeline
 
 	pipelineName := pipelineInfo.Pipeline.Name
 
@@ -1048,7 +1149,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		}
 		provenanceChanged := len(provSet) > 0 || len(repoInfo.Provenance) != len(provenance)
 
-		if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
+		if _, err := pfsClient.CreateRepo(auth.In2Out(ctx), &pfs.CreateRepoRequest{
 			Repo:       outputRepo,
 			Provenance: provenance,
 			Update:     true,
@@ -1097,7 +1198,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		// because it's a very common pattern to create many pipelines in a
 		// row, some of which depend on the existence of the output repos
 		// of upstream pipelines.
-		if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
+		if _, err := pfsClient.CreateRepo(auth.In2Out(ctx), &pfs.CreateRepoRequest{
 			Repo:       &pfs.Repo{pipelineInfo.Pipeline.Name},
 			Provenance: provenance,
 		}); err != nil && !isAlreadyExistsErr(err) {
@@ -1110,6 +1211,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 // setPipelineDefaults sets the default values for a pipeline info
 func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
+	now := time.Now()
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
 		if input.Atom != nil {
 			if input.Atom.Branch == "" {
@@ -1117,6 +1219,15 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 			}
 			if input.Atom.Name == "" {
 				input.Atom.Name = input.Atom.Repo
+			}
+		}
+		if input.Cron != nil {
+			if input.Cron.Start == nil {
+				start, _ := types.TimestampProto(now)
+				input.Cron.Start = start
+			}
+			if input.Cron.Repo == "" {
+				input.Cron.Repo = fmt.Sprintf("%s_%s", pipelineInfo.Pipeline.Name, input.Cron.Name)
 			}
 		}
 	})
@@ -1200,13 +1311,17 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 }
 
 func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) (response *types.Empty, retErr error) {
+	pachClient, err := a.getPachClient()
+	if err != nil {
+		return nil, err
+	}
 	pipelineInfo, err := a.InspectPipeline(ctx, &pps.InspectPipelineRequest{request.Pipeline})
 	if err != nil {
 		return nil, fmt.Errorf("pipeline %v was not found: %v", request.Pipeline.Name, err)
 	}
 	// Revoke the pipeline's capability
 	if pipelineInfo.Capability != "" {
-		authClient, err := a.getAuthClient()
+		authClient := pachClient.AuthAPIClient
 		if err != nil {
 			return nil, fmt.Errorf("error dialing auth client: %v", authClient)
 		}
@@ -1266,10 +1381,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 
 	// Delete output repo
 	if request.DeleteRepo {
-		pfsClient, err := a.getPFSClient()
-		if err != nil {
-			return nil, err
-		}
+		pfsClient := pachClient.PfsAPIClient
 		if _, err := pfsClient.DeleteRepo(ctx, &pfs.DeleteRepoRequest{
 			Repo:  &pfs.Repo{request.Pipeline.Name},
 			Force: true,
@@ -1343,15 +1455,12 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	pfsClient, err := a.getPFSClient()
+	pachClient, err := a.getPachClient()
 	if err != nil {
 		return nil, err
 	}
-
-	objClient, err := a.getObjectClient()
-	if err != nil {
-		return nil, err
-	}
+	pfsClient := pachClient.PfsAPIClient
+	objClient := pachClient.ObjectAPIClient
 
 	// The set of objects that are in use.
 	activeObjects := make(map[string]bool)
@@ -1645,42 +1754,17 @@ func jobStateToStopped(state pps.JobState) bool {
 	}
 }
 
-func (a *apiServer) getPFSClient() (pfs.APIClient, error) {
-	if err := a.dialPachConn(); err != nil {
-		return nil, err
-	}
-	return pfs.NewAPIClient(a.pachConn), nil
-}
-
-func (a *apiServer) getObjectClient() (pfs.ObjectAPIClient, error) {
-	if err := a.dialPachConn(); err != nil {
-		return nil, err
-	}
-	return pfs.NewObjectAPIClient(a.pachConn), nil
-}
-
-func (a *apiServer) getAuthClient() (auth.APIClient, error) {
-	if err := a.dialPachConn(); err != nil {
-		return nil, err
-	}
-	return auth.NewAPIClient(a.pachConn), nil
-}
-
-func (a *apiServer) dialPachConn() error {
-	if a.pachConn == nil {
+func (a *apiServer) getPachClient() (*client.APIClient, error) {
+	if a.pachClient == nil {
 		var onceErr error
-		a.pachConnOnce.Do(func() {
-			pachConn, err := grpc.Dial(a.address, client.PachDialOptions()...)
-			if err != nil {
-				onceErr = err
-			}
-			a.pachConn = pachConn
+		a.pachClientOnce.Do(func() {
+			a.pachClient, onceErr = client.NewFromAddress(a.address)
 		})
 		if onceErr != nil {
-			return onceErr
+			return nil, onceErr
 		}
 	}
-	return nil
+	return a.pachClient, nil
 }
 
 // RepoNameToEnvString is a helper which uppercases a repo name for

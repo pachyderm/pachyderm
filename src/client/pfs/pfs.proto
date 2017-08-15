@@ -7,6 +7,8 @@ import "google/protobuf/wrappers.proto";
 
 import "gogoproto/gogo.proto";
 
+import "client/auth/auth.proto";
+
 message Repo {
   string name = 1;
 }
@@ -56,6 +58,7 @@ message RepoInfo {
 
 message RepoInfos {
   repeated RepoInfo repo_info = 1;
+  repeated auth.Scope scopes = 2;
 }
 
 message CommitInfo {
@@ -123,6 +126,9 @@ message InspectRepoRequest {
 
 message ListRepoRequest {
     repeated Repo provenance = 1;
+    // Include auth information in the response, i.e. what kind of
+    // scope the user has over each repo.
+    bool include_auth = 2;
 }
 
 message DeleteRepoRequest {
@@ -220,6 +226,9 @@ message PutFileRequest {
   // TargetFileBytes specifies the target number of bytes in each written
   // file, files may have more or fewer bytes than the target.
   int64 target_file_bytes = 9;
+  // If true overwrite the existing value of the file, equivalent to calling
+  // DeleteFile followed by PutFile.
+  bool overwrite = 10;
 }
 
 message InspectFileRequest {

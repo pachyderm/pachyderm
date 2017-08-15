@@ -36,8 +36,8 @@ type HTTPServer struct {
 	*httprouter.Router
 }
 
-func newHTTPServer(address string, etcdAddresses []string, etcdPrefix string, cacheBytes int64) (*HTTPServer, error) {
-	d, err := newDriver(address, etcdAddresses, etcdPrefix, cacheBytes)
+func newHTTPServer(address string, etcdAddresses []string, etcdPrefix string, cacheSize int64) (*HTTPServer, error) {
+	d, err := newDriver(address, etcdAddresses, etcdPrefix, cacheSize)
 	if err != nil {
 		return nil, err
 	}
