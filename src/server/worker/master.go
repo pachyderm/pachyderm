@@ -409,14 +409,11 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 		}
 		tree := hashtree.NewHashTree()
 		var statsTree hashtree.OpenHashTree
-		var skippedTree hashtree.OpenHashTree
 		if jobInfo.EnableStats {
 			statsTree = hashtree.NewHashTree()
-			skippedTree = hashtree.NewHashTree()
 		}
 		var processStats []*pps.ProcessStats
 		var treeMu sync.Mutex
-		var skippedTreeMu sync.Mutex
 
 		processedData := int64(0)
 		skippedData := int64(0)
@@ -572,9 +569,9 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 									return nil
 								}
 								datumID := nodes[0].Name
-								skippedTreeMu.Lock()
-								err = skippedTree.PutFile(fmt.Sprintf("%v/skipped", datumID), nil, 0)
-								skippedTreeMu.Unlock()
+								treeMu.Lock()
+								err = statsTree.PutFile(fmt.Sprintf("%v/skipped", datumID), nil, 0)
+								treeMu.Unlock()
 								if err != nil {
 									logger.Logf("unable to put skipped file to tree: %", err)
 								}
@@ -654,11 +651,6 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 				return statsTree.PutFile("/stats", []*pfs.Object{aggregateObject}, int64(len(marshalled)))
 			}(); err != nil {
 				logger.Logf("error aggregating stats")
-			}
-			if skippedTree != nil {
-				if err := statsTree.Merge(skippedTree); err != nil {
-					logger.Logf("failed to merge skipped files into stats tree: %v", err)
-				}
 			}
 			statsObject, err := a.putTree(ctx, statsTree)
 			if err != nil {
