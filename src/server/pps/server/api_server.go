@@ -490,7 +490,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		Commit: jobInfo.StatsCommit,
 		Path:   "/",
 	}
-	allDatumFileInfos, err := pfsClient.ListFile(ctx, &pfs.ListFileRequest{file})
+	allDatumFileInfos, err := pfsClient.ListFile(ctx, &pfs.ListFileRequest{file, true})
 	if err != nil {
 		return nil, err
 	}
@@ -505,8 +505,6 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		}
 		allDatumFileInfos.FileInfo = allDatumFileInfos.FileInfo[request.Page*client.PageSize : end-1]
 	}
-
-	datums := make(map[string]*pps.DatumInfo)
 
 	// Omit files at the top level that correspond to aggregate job stats
 	blacklist := map[string]bool{
@@ -523,7 +521,10 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	}
 	var egGetDatums errgroup.Group
 	limiter := limit.New(200)
-	var datumsMutex sync.Mutex
+	var datumIndexMutex sync.Mutex
+	var index int
+	datumInfos := make([]*pps.DatumInfo, len(allDatumFileInfos.FileInfo))
+	fmt.Printf("initial datumInfos length: %v\n", len(datumInfos))
 	for _, fileInfo := range allDatumFileInfos.FileInfo {
 		fileInfo := fileInfo
 		egGetDatums.Go(func() error {
@@ -534,13 +535,17 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 				// not a datum, nothing to do here
 				return nil
 			}
+			datumIndexMutex.Lock()
+			fmt.Printf("setting index to: %v\n", index)
+			thisIndex := index
+			index += 1
+			datumIndexMutex.Unlock()
 			datum, err := a.getDatum(ctx, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Job.ID, datumHash)
 			if err != nil {
 				return err
 			}
-			datumsMutex.Lock()
-			defer datumsMutex.Unlock()
-			datums[datumHash] = datum
+			fmt.Printf("writing to index: %v, datum %v\n", thisIndex, datum)
+			datumInfos[thisIndex] = datum
 			return nil
 		})
 	}
@@ -548,15 +553,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	if err != nil {
 		return nil, err
 	}
-
-	var datumInfos []*pps.DatumInfo
-	for datumHash, datum := range datums {
-		if _, ok := blacklist[datumHash]; ok {
-			// not a datum
-			continue
-		}
-		datumInfos = append(datumInfos, datum)
-	}
+	fmt.Printf("returning %v datum infos: %v\n", len(datumInfos), datumInfos)
 	return &pps.DatumInfos{datumInfos}, nil
 }
 

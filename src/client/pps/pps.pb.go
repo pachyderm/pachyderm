@@ -5686,7 +5686,10 @@ func (m *Datum) Size() (n int) {
 func (m *DatumInfo) Size() (n int) {
 	var l int
 	_ = l
+	fmt.Printf("in message: %v\n", m)
+	fmt.Printf("message datum: %v\n", m.Datum)
 	if m.Datum != nil {
+		fmt.Printf("message datum not nil, datum size: %v\n", m.Datum.Size())
 		l = m.Datum.Size()
 		n += 1 + l + sovPps(uint64(l))
 	}
