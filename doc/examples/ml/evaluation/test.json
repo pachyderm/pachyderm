@@ -1,0 +1,34 @@
+{
+  "pipeline": {
+    "name": "test"
+  },
+  "transform": {
+    "image": "pachyderm/iris-evaluate",
+    "cmd": [
+	"python3",
+	"/code/evaluate.py",
+	"/pfs/model/model.pkl",
+	"/pfs/split/test.csv",
+	"/pfs/out/"
+    ]
+  },
+  "parallelism_spec": {
+    "constant": "1"
+  },
+  "input": {
+    "cross": [
+      {
+        "atom": {
+	  "repo": "split",
+	  "glob": "/test.csv"
+	}
+      },
+      {
+	"atom": {
+	  "repo": "model",
+	  "glob": "/"
+        }
+      }
+    ]
+  }
+}

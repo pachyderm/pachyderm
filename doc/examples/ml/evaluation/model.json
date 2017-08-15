@@ -1,0 +1,22 @@
+{
+  "pipeline": {
+    "name": "model"
+  },
+  "transform": {
+    "image": "dwhitena/pytrain:lda",
+    "cmd": [ "/bin/ash" ],
+    "stdin": [
+        "cp /pfs/split/train.csv /tmp/iris.csv",
+        "python /code/pytrain.py /tmp/ /pfs/out/"
+    ]
+  },
+  "parallelism_spec": {
+    "constant": "1"
+  },
+  "input": {
+    "atom": {
+      "repo": "split",
+      "glob": "/train.csv"
+    }
+  }
+}
