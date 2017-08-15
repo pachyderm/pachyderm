@@ -3749,6 +3749,75 @@ func TestPipelineWithStatsFailedDatums(t *testing.T) {
 	require.Equal(t, pps.DatumState_FAILED, datum.State)
 }
 
+func TestPipelineWithStatsPaginated(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestPipelineWithStatsPaginated_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	numPages := 2
+	numFiles := numPages * client.PageSize
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	for i := 0; i < numFiles; i++ {
+		_, err = c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file-%d", i), strings.NewReader(strings.Repeat("foo\n", 100)))
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	pipeline := uniqueString("pipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					"if [ $RANDOM -gt 15000 ]; then exit 1; fi",
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+				},
+			},
+			Input:       client.NewAtomInput(dataRepo, "/*"),
+			EnableStats: true,
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 4,
+			},
+		})
+
+	_, err = c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+
+	// Without this sleep, I get no results from list-job
+	time.Sleep(15 * time.Second)
+	jobs, err := c.ListJob(pipeline, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+
+	// Block on the job being complete before we call ListDatum
+	_, err = c.InspectJob(jobs[0].Job.ID, true)
+	require.NoError(t, err)
+
+	datums, err := c.ListDatum(jobs[0].Job.ID, true, 0)
+	require.NoError(t, err)
+	require.Equal(t, client.PageSize, len(datums))
+
+	// First entry should be failed
+	require.Equal(t, pps.DatumState_FAILED, datums[0].State)
+
+	datums, err = c.ListDatum(jobs[0].Job.ID, true, int64(numPages-1))
+	require.NoError(t, err)
+	require.Equal(t, client.PageSize, len(datums))
+
+	// Last entry should be success
+	require.Equal(t, pps.DatumState_SUCCESS, datums[len(datums)-1].State)
+
+	// Make sure we get error when requesting pages too high
+	datums, err = c.ListDatum(jobs[0].Job.ID, true, int64(numPages))
+	require.YesError(t, err)
+}
+
 func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")

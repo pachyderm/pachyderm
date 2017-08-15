@@ -532,7 +532,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		if len(datumFileInfos) < end {
 			end = len(datumFileInfos)
 		}
-		datumFileInfos = datumFileInfos[start : end-1]
+		datumFileInfos = datumFileInfos[start:end]
 	}
 
 	var egGetDatums errgroup.Group
