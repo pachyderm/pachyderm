@@ -1590,7 +1590,7 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 	return nodeToFileInfo(file.Commit, file.Path, node, true), nil
 }
 
-func (d *driver) listFile(ctx context.Context, file *pfs.File) ([]*pfs.FileInfo, error) {
+func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool) ([]*pfs.FileInfo, error) {
 	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
@@ -1606,7 +1606,7 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File) ([]*pfs.FileInfo,
 
 	var fileInfos []*pfs.FileInfo
 	for _, node := range nodes {
-		fileInfos = append(fileInfos, nodeToFileInfo(file.Commit, path.Join(file.Path, node.Name), node, false))
+		fileInfos = append(fileInfos, nodeToFileInfo(file.Commit, path.Join(file.Path, node.Name), node, full))
 	}
 	return fileInfos, nil
 }
