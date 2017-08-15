@@ -3895,8 +3895,9 @@ func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 
-	// TODO: This makes this test less flaky, but points to a bug w stats or flushcommit
-	time.Sleep(time.Second * 15)
+	// Block on the job being complete before we call ListDatum
+	_, err = c.InspectJob(jobs[0].Job.ID, true)
+	require.NoError(t, err)
 	datums, err := c.ListDatum(jobs[0].Job.ID, false, 0)
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(datums))
