@@ -755,7 +755,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 			return nil, err
 		}
 		defer func() {
-			if err := syscall.Unmount(client.PPSInputPrefix, 0); err != nil && retErr == nil {
+			if err := syscall.Unmount(client.PPSInputPrefix, syscall.MNT_DETACH); err != nil && retErr == nil {
 				retErr = err
 			}
 		}()
