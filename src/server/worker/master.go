@@ -397,7 +397,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 		failed := false
 		limiter := limit.New(a.numWorkers * queueSize)
 		// process all datums
-		df, err := newDatumFactory(ctx, pfsClient, jobInfo.Input)
+		df, err := NewDatumFactory(ctx, pfsClient, jobInfo.Input)
 		if err != nil {
 			return err
 		}
@@ -502,7 +502,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 					parentFiles = append(parentFiles, parentFile)
 				}
 				if len(parentFiles) == len(files) {
-					_parentOutputTag, err := HashDatum(pipelineInfo, parentFiles)
+					_parentOutputTag, err := HashDatum(pipelineInfo.Pipeline.Name, pipelineInfo.Salt, parentFiles)
 					if err != nil {
 						return err
 					}

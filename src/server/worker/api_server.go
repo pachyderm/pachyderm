@@ -529,7 +529,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, lo
 
 // HashDatum computes and returns the hash of datum + pipeline, with a
 // pipeline-specific prefix.
-func HashDatum(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) {
+func HashDatum(pipelineName string, pipelineSalt string, data []*Input) (string, error) {
 	hash := sha256.New()
 	for _, datum := range data {
 		hash.Write([]byte(datum.Name))
@@ -537,10 +537,10 @@ func HashDatum(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) {
 		hash.Write(datum.FileInfo.Hash)
 	}
 
-	hash.Write([]byte(pipelineInfo.Pipeline.Name))
-	hash.Write([]byte(pipelineInfo.Salt))
+	hash.Write([]byte(pipelineName))
+	hash.Write([]byte(pipelineSalt))
 
-	return client.DatumTagPrefix(pipelineInfo.Salt) + hex.EncodeToString(hash.Sum(nil)), nil
+	return client.DatumTagPrefix(pipelineSalt) + hex.EncodeToString(hash.Sum(nil)), nil
 }
 
 // HashDatum15 computes and returns the hash of datum + pipeline for version <= 1.5.0, with a
@@ -590,7 +590,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	atomic.AddInt64(&a.queueSize, 1)
 	ctx, cancel := context.WithCancel(ctx)
 	// Hash inputs
-	tag, err := HashDatum(a.pipelineInfo, req.Data)
+	tag, err := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, req.Data)
 	if err != nil {
 		return nil, err
 	}
