@@ -568,6 +568,8 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 						if err := statsTree.Merge(statsSubtree); err != nil {
 							logger.Logf("failed to merge into stats tree: %v", err)
 						}
+					}
+					if resp.Stats != nil {
 						processStats = append(processStats, resp.Stats)
 					}
 					return tree.Merge(subTree)
