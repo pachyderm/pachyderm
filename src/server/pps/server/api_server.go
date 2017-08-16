@@ -113,13 +113,56 @@ type apiServer struct {
 	jobs      col.Collection
 }
 
+func merge(from, to map[string]bool) {
+	for s := range from {
+		to[s] = true
+	}
+}
+
+func validateNames(names map[string]bool, input *pps.Input) error {
+	switch {
+	case input.Atom != nil:
+		if names[input.Atom.Name] {
+			return fmt.Errorf("name %s was used more than once", input.Atom.Name)
+		}
+		names[input.Atom.Name] = true
+	case input.Cron != nil:
+		if names[input.Atom.Name] {
+			return fmt.Errorf("name %s was used more than once", input.Cron.Name)
+		}
+		names[input.Atom.Name] = true
+	case input.Union != nil:
+		for _, input := range input.Union {
+			namesCopy := make(map[string]bool)
+			merge(names, namesCopy)
+			if err := validateNames(namesCopy, input); err != nil {
+				return err
+			}
+			// we defer this because subinputs of a union input are allowed to
+			// have conflicting names but other inputs that are, for example,
+			// crossed with this union cannot conflict with any of the names it
+			// might present
+			defer merge(namesCopy, names)
+		}
+	case input.Cross != nil:
+		for _, input := range input.Cross {
+			if err := validateNames(names, input); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (a *apiServer) validateInput(ctx context.Context, pipelineName string, input *pps.Input, job bool) error {
 	pachClient, err := a.getPachClient()
 	if err != nil {
 		return err
 	}
+	if err := validateNames(make(map[string]bool), input); err != nil {
+		return err
+	}
 	pachClient = pachClient.WithCtx(ctx)
-	names := make(map[string]bool)
 	repoBranch := make(map[string]string)
 	var result error
 	pps.VisitInput(input, func(input *pps.Input) {
@@ -142,10 +185,6 @@ func (a *apiServer) validateInput(ctx context.Context, pipelineName string, inpu
 				case len(input.Atom.Glob) == 0:
 					return fmt.Errorf("input must specify a glob")
 				}
-				if _, ok := names[input.Atom.Name]; ok {
-					return fmt.Errorf("conflicting input names: %s", input.Atom.Name)
-				}
-				names[input.Atom.Name] = true
 				if repoBranch[input.Atom.Repo] != "" && repoBranch[input.Atom.Repo] != input.Atom.Branch {
 					return fmt.Errorf("cannot use the same repo in multiple inputs with different branches")
 				}
