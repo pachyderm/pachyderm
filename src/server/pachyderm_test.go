@@ -3257,7 +3257,7 @@ func TestUnionInput(t *testing.T) {
 		require.Equal(t, 2, len(fileInfos))
 		for _, fi := range fileInfos {
 			// 1 byte per repo
-			require.Equal(t, fi.SizeBytes, uint64(len(repos)))
+			require.Equal(t, uint64(len(repos)), fi.SizeBytes)
 		}
 	})
 
@@ -3298,7 +3298,7 @@ func TestUnionInput(t *testing.T) {
 			require.Equal(t, 2, len(fileInfos))
 			for _, fi := range fileInfos {
 				// each file should be seen twice
-				require.Equal(t, fi.SizeBytes, uint64(2))
+				require.Equal(t, uint64(2), fi.SizeBytes)
 			}
 		}
 	})
@@ -3340,7 +3340,7 @@ func TestUnionInput(t *testing.T) {
 			require.Equal(t, 2, len(fileInfos))
 			for _, fi := range fileInfos {
 				// each file should be seen twice
-				require.Equal(t, fi.SizeBytes, uint64(4))
+				require.Equal(t, uint64(4), fi.SizeBytes)
 			}
 		}
 	})
@@ -3352,7 +3352,7 @@ func TestUnionInput(t *testing.T) {
 			"",
 			[]string{"bash"},
 			[]string{
-				"cp -r /pfs/in/* /pfs/out",
+				"cp -r /pfs/in /pfs/out",
 			},
 			&pps.ParallelismSpec{
 				Constant: 1,
@@ -3372,14 +3372,11 @@ func TestUnionInput(t *testing.T) {
 		commitInfos := collectCommitInfos(t, commitIter)
 		require.Equal(t, 1, len(commitInfos))
 		outCommit := commitInfos[0].Commit
-		for _, repo := range repos {
-			fileInfos, err := c.ListFile(outCommit.Repo.Name, outCommit.ID, repo)
-			require.NoError(t, err)
-			require.Equal(t, 2, len(fileInfos))
-			for _, fi := range fileInfos {
-				// each file should be seen twice
-				require.Equal(t, fi.SizeBytes, uint64(4))
-			}
+		fileInfos, err := c.ListFile(outCommit.Repo.Name, outCommit.ID, "in")
+		require.NoError(t, err)
+		require.Equal(t, 2, len(fileInfos))
+		for _, fi := range fileInfos {
+			require.Equal(t, uint64(4), fi.SizeBytes)
 		}
 	})
 
@@ -3390,7 +3387,7 @@ func TestUnionInput(t *testing.T) {
 			"",
 			[]string{"bash"},
 			[]string{
-				"cp -r /pfs/in*/* /pfs/out",
+				"cp -r /pfs/in* /pfs/out",
 			},
 			&pps.ParallelismSpec{
 				Constant: 1,
@@ -3413,7 +3410,7 @@ func TestUnionInput(t *testing.T) {
 			"",
 			[]string{"bash"},
 			[]string{
-				"cp -r /pfs/in*/* /pfs/out",
+				"cp -r /pfs/in* /pfs/out",
 			},
 			&pps.ParallelismSpec{
 				Constant: 1,
@@ -3437,13 +3434,13 @@ func TestUnionInput(t *testing.T) {
 		commitInfos := collectCommitInfos(t, commitIter)
 		require.Equal(t, 1, len(commitInfos))
 		outCommit := commitInfos[0].Commit
-		for _, repo := range repos {
-			fileInfos, err := c.ListFile(outCommit.Repo.Name, outCommit.ID, repo)
+		for _, dir := range []string{"in1", "in2"} {
+			fileInfos, err := c.ListFile(outCommit.Repo.Name, outCommit.ID, dir)
 			require.NoError(t, err)
 			require.Equal(t, 2, len(fileInfos))
 			for _, fi := range fileInfos {
 				// each file should be seen twice
-				require.Equal(t, fi.SizeBytes, uint64(4))
+				require.Equal(t, uint64(4), fi.SizeBytes)
 			}
 		}
 	})
@@ -3454,7 +3451,7 @@ func TestUnionInput(t *testing.T) {
 			"",
 			[]string{"bash"},
 			[]string{
-				"cp -r /pfs/in*/* /pfs/out",
+				"cp -r /pfs/in* /pfs/out",
 			},
 			&pps.ParallelismSpec{
 				Constant: 1,
@@ -3477,7 +3474,7 @@ func TestUnionInput(t *testing.T) {
 			"",
 			[]string{"bash"},
 			[]string{
-				"cp -r /pfs/in*/* /pfs/out",
+				"cp -r /pfs/in* /pfs/out",
 			},
 			&pps.ParallelismSpec{
 				Constant: 1,
@@ -3501,13 +3498,13 @@ func TestUnionInput(t *testing.T) {
 		commitInfos := collectCommitInfos(t, commitIter)
 		require.Equal(t, 1, len(commitInfos))
 		outCommit := commitInfos[0].Commit
-		for _, repo := range repos {
-			fileInfos, err := c.ListFile(outCommit.Repo.Name, outCommit.ID, repo)
+		for _, dir := range []string{"in1", "in2"} {
+			fileInfos, err := c.ListFile(outCommit.Repo.Name, outCommit.ID, dir)
 			require.NoError(t, err)
 			require.Equal(t, 2, len(fileInfos))
 			for _, fi := range fileInfos {
 				// each file should be seen twice
-				require.Equal(t, fi.SizeBytes, uint64(4))
+				require.Equal(t, uint64(8), fi.SizeBytes)
 			}
 		}
 	})
