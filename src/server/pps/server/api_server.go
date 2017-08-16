@@ -488,10 +488,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		result := &pps.DatumInfos{}
 		for i := 0; i < df.Len(); i++ {
 			datum := df.Datum(i)
-			id, err := workerpkg.HashDatum(jobInfo.Pipeline.Name, jobInfo.Salt, datum)
-			if err != nil {
-				return nil, err
-			}
+			id := workerpkg.HashDatum(jobInfo.Pipeline.Name, jobInfo.Salt, datum)
 			result.DatumInfo = append(result.DatumInfo, &pps.DatumInfo{
 				Datum: &pps.Datum{
 					ID:  id,

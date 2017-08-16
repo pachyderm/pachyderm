@@ -482,7 +482,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 		for i := 0; i < df.Len(); i++ {
 			limiter.Acquire()
 			files := df.Datum(i)
-			datumHash := HashDatum(pipelineInfo, files)
+			datumHash := HashDatum(pipelineInfo.Pipeline.Name, pipelineInfo.Salt, files)
 			tag := &pfs.Tag{datumHash}
 			statsTag := &pfs.Tag{datumHash + statsTagSuffix}
 			var parentOutputTag *pfs.Tag
