@@ -10,7 +10,9 @@ import (
 	"golang.org/x/net/context"
 )
 
-type datumFactory interface {
+// DatumFactory is an interface which allows you to iterate through the datums
+// for a job.
+type DatumFactory interface {
 	Len() int
 	Datum(i int) []*Input
 }
@@ -20,7 +22,7 @@ type atomDatumFactory struct {
 	index  int
 }
 
-func newAtomDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.AtomInput) (datumFactory, error) {
+func newAtomDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.AtomInput) (DatumFactory, error) {
 	result := &atomDatumFactory{}
 	fileInfos, err := pfsClient.GlobFile(ctx, &pfs.GlobFileRequest{
 		Commit:  client.NewCommit(input.Repo, input.Commit),
@@ -49,10 +51,10 @@ func (d *atomDatumFactory) Datum(i int) []*Input {
 }
 
 type unionDatumFactory struct {
-	inputs []datumFactory
+	inputs []DatumFactory
 }
 
-func newUnionDatumFactory(ctx context.Context, pfsClient pfs.APIClient, union []*pps.Input) (datumFactory, error) {
+func newUnionDatumFactory(ctx context.Context, pfsClient pfs.APIClient, union []*pps.Input) (DatumFactory, error) {
 	result := &unionDatumFactory{}
 	for _, input := range union {
 		datumFactory, err := NewDatumFactory(ctx, pfsClient, input)
@@ -83,7 +85,7 @@ func (d *unionDatumFactory) Datum(i int) []*Input {
 }
 
 type crossDatumFactory struct {
-	inputs []datumFactory
+	inputs []DatumFactory
 }
 
 func (d *crossDatumFactory) Len() int {
@@ -109,7 +111,7 @@ func (d *crossDatumFactory) Datum(i int) []*Input {
 	return result
 }
 
-func newCrossDatumFactory(ctx context.Context, pfsClient pfs.APIClient, cross []*pps.Input) (datumFactory, error) {
+func newCrossDatumFactory(ctx context.Context, pfsClient pfs.APIClient, cross []*pps.Input) (DatumFactory, error) {
 	result := &crossDatumFactory{}
 	for _, input := range cross {
 		datumFactory, err := NewDatumFactory(ctx, pfsClient, input)
@@ -121,7 +123,7 @@ func newCrossDatumFactory(ctx context.Context, pfsClient pfs.APIClient, cross []
 	return result, nil
 }
 
-func newCronDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.CronInput) (datumFactory, error) {
+func newCronDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.CronInput) (DatumFactory, error) {
 	return newAtomDatumFactory(ctx, pfsClient, &pps.AtomInput{
 		Name:   input.Name,
 		Repo:   input.Repo,
@@ -131,7 +133,8 @@ func newCronDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pp
 	})
 }
 
-func NewDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.Input) (datumFactory, error) {
+// NewDatumFactory creates a datumFactory for an input.
+func NewDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.Input) (DatumFactory, error) {
 	switch {
 	case input.Atom != nil:
 		return newAtomDatumFactory(ctx, pfsClient, input.Atom)
