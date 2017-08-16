@@ -365,6 +365,8 @@ func shorthandInput(input *ppsclient.Input) string {
 			subInput = append(subInput, shorthandInput(input))
 		}
 		return "(" + strings.Join(subInput, " ∪ ") + ")"
+	case input.Cron != nil:
+		return fmt.Sprintf("%s:%s", input.Cron.Name, input.Cron.Spec)
 	}
 	return ""
 }

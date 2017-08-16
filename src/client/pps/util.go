@@ -63,6 +63,12 @@ func InputCommits(input *Input) []*pfs.Commit {
 				ID:   input.Atom.Commit,
 			})
 		}
+		if input.Cron != nil {
+			result = append(result, &pfs.Commit{
+				Repo: &pfs.Repo{input.Cron.Repo},
+				ID:   input.Cron.Commit,
+			})
+		}
 	})
 	return result
 }

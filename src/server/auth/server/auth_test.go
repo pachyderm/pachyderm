@@ -11,7 +11,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -108,7 +107,7 @@ func acl(items ...string) *auth.ACL {
 // TODO(msteffen) create an auth client?
 func GetACL(t *testing.T, c *client.APIClient, repo string) *auth.ACL {
 	resp, err := c.AuthAPIClient.GetACL(c.Ctx(), &auth.GetACLRequest{
-		Repo: &pfs.Repo{Name: repo},
+		Repo: repo,
 	})
 	require.NoError(t, err)
 	return resp.ACL
@@ -119,36 +118,6 @@ func CommitCnt(t *testing.T, c *client.APIClient, repo string) int {
 	commitList, err := c.ListCommitByRepo(repo)
 	require.NoError(t, err)
 	return len(commitList)
-}
-
-// CreatePipeline creates a "copy" pipeline with the name "name" that copies the
-// repo "repo"
-func CreatePipeline(c *client.APIClient, name, repo string) error {
-	return c.CreatePipeline(
-		name,
-		"", // default image: ubuntu:14.04
-		[]string{"bash"},
-		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
-		&pps.ParallelismSpec{Constant: 1},
-		client.NewAtomInput(repo, "/*"),
-		"",    // default output branch: master
-		false, // new pipeline, don't update
-	)
-}
-
-// UpdatePipeline creates a "copy" pipeline with the name "name" that copies the
-// repo "repo"
-func UpdatePipeline(c *client.APIClient, name, repo string) error {
-	return c.CreatePipeline(
-		name,
-		"", // default image: ubuntu:14.04
-		[]string{"bash"},
-		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
-		&pps.ParallelismSpec{Constant: 1},
-		client.NewAtomInput(repo, "/*"),
-		"",   // default output branch: master
-		true, // update existing pipeline
-	)
 }
 
 // PipelineNames returns the names of all pipelines that 'c' gets from
@@ -205,7 +174,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.Equal(t, 1, CommitCnt(t, alice, dataRepo)) // check that no commits were created
 	// bob can't update the ACL
 	_, err = bob.SetScope(bob.Ctx(), &auth.SetScopeRequest{
-		Repo:     &pfs.Repo{Name: dataRepo},
+		Repo:     dataRepo,
 		Username: "carol",
 		Scope:    auth.Scope_READER,
 	})
@@ -216,7 +185,7 @@ func TestGetSetBasic(t *testing.T) {
 	//////////
 	/// alice adds bob to the ACL as a reader (alice can modify ACL)
 	_, err = alice.SetScope(alice.Ctx(), &auth.SetScopeRequest{
-		Repo:     &pfs.Repo{Name: dataRepo},
+		Repo:     dataRepo,
 		Username: "bob",
 		Scope:    auth.Scope_READER,
 	})
@@ -232,7 +201,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.Equal(t, 1, CommitCnt(t, alice, dataRepo)) // check that no commits were created
 	// bob can't update the ACL
 	_, err = bob.SetScope(bob.Ctx(), &auth.SetScopeRequest{
-		Repo:     &pfs.Repo{Name: dataRepo},
+		Repo:     dataRepo,
 		Username: "carol",
 		Scope:    auth.Scope_READER,
 	})
@@ -244,7 +213,7 @@ func TestGetSetBasic(t *testing.T) {
 	//////////
 	/// alice adds bob to the ACL as a writer
 	_, err = alice.SetScope(alice.Ctx(), &auth.SetScopeRequest{
-		Repo:     &pfs.Repo{Name: dataRepo},
+		Repo:     dataRepo,
 		Username: "bob",
 		Scope:    auth.Scope_WRITER,
 	})
@@ -260,7 +229,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.Equal(t, 2, CommitCnt(t, alice, dataRepo)) // check that a new commit was created
 	// bob can't update the ACL
 	_, err = bob.SetScope(bob.Ctx(), &auth.SetScopeRequest{
-		Repo:     &pfs.Repo{Name: dataRepo},
+		Repo:     dataRepo,
 		Username: "carol",
 		Scope:    auth.Scope_READER,
 	})
@@ -272,7 +241,7 @@ func TestGetSetBasic(t *testing.T) {
 	//////////
 	/// alice adds bob to the ACL as an owner
 	_, err = alice.SetScope(alice.Ctx(), &auth.SetScopeRequest{
-		Repo:     &pfs.Repo{Name: dataRepo},
+		Repo:     dataRepo,
 		Username: "bob",
 		Scope:    auth.Scope_OWNER,
 	})
@@ -288,7 +257,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.Equal(t, 3, CommitCnt(t, alice, dataRepo)) // check that a new commit was created
 	// bob can update the ACL
 	_, err = bob.SetScope(bob.Ctx(), &auth.SetScopeRequest{
-		Repo:     &pfs.Repo{Name: dataRepo},
+		Repo:     dataRepo,
 		Username: "carol",
 		Scope:    auth.Scope_READER,
 	})
@@ -325,7 +294,7 @@ func TestGetSetReverse(t *testing.T) {
 	//////////
 	/// alice adds bob to the ACL as an owner
 	_, err = alice.SetScope(alice.Ctx(), &auth.SetScopeRequest{
-		Repo:     &pfs.Repo{Name: dataRepo},
+		Repo:     dataRepo,
 		Username: "bob",
 		Scope:    auth.Scope_OWNER,
 	})
@@ -341,7 +310,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.Equal(t, 2, CommitCnt(t, alice, dataRepo)) // check that a new commit was created
 	// bob can update the ACL
 	_, err = bob.SetScope(bob.Ctx(), &auth.SetScopeRequest{
-		Repo:     &pfs.Repo{Name: dataRepo},
+		Repo:     dataRepo,
 		Username: "carol",
 		Scope:    auth.Scope_READER,
 	})
@@ -351,7 +320,7 @@ func TestGetSetReverse(t *testing.T) {
 
 	// clear carol
 	alice.SetScope(alice.Ctx(), &auth.SetScopeRequest{
-		Repo:     &pfs.Repo{Name: dataRepo},
+		Repo:     dataRepo,
 		Username: "carol",
 		Scope:    auth.Scope_NONE,
 	})
@@ -361,7 +330,7 @@ func TestGetSetReverse(t *testing.T) {
 	//////////
 	/// alice adds bob to the ACL as a writer
 	_, err = alice.SetScope(alice.Ctx(), &auth.SetScopeRequest{
-		Repo:     &pfs.Repo{Name: dataRepo},
+		Repo:     dataRepo,
 		Username: "bob",
 		Scope:    auth.Scope_WRITER,
 	})
@@ -377,7 +346,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.Equal(t, 3, CommitCnt(t, alice, dataRepo)) // check that a new commit was created
 	// bob can't update the ACL
 	_, err = bob.SetScope(bob.Ctx(), &auth.SetScopeRequest{
-		Repo:     &pfs.Repo{Name: dataRepo},
+		Repo:     dataRepo,
 		Username: "carol",
 		Scope:    auth.Scope_READER,
 	})
@@ -389,7 +358,7 @@ func TestGetSetReverse(t *testing.T) {
 	//////////
 	/// alice adds bob to the ACL as a reader (alice can modify ACL)
 	_, err = alice.SetScope(alice.Ctx(), &auth.SetScopeRequest{
-		Repo:     &pfs.Repo{Name: dataRepo},
+		Repo:     dataRepo,
 		Username: "bob",
 		Scope:    auth.Scope_READER,
 	})
@@ -405,7 +374,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.Equal(t, 3, CommitCnt(t, alice, dataRepo)) // check that no commits were created
 	// bob can't update the ACL
 	_, err = bob.SetScope(bob.Ctx(), &auth.SetScopeRequest{
-		Repo:     &pfs.Repo{Name: dataRepo},
+		Repo:     dataRepo,
 		Username: "carol",
 		Scope:    auth.Scope_READER,
 	})
@@ -417,7 +386,7 @@ func TestGetSetReverse(t *testing.T) {
 	//////////
 	/// alice revokes all of bob's privileges
 	_, err = alice.SetScope(alice.Ctx(), &auth.SetScopeRequest{
-		Repo:     &pfs.Repo{Name: dataRepo},
+		Repo:     dataRepo,
 		Username: "bob",
 		Scope:    auth.Scope_NONE,
 	})
@@ -433,7 +402,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.Equal(t, 3, CommitCnt(t, alice, dataRepo)) // check that no commits were created
 	// bob can't update the ACL
 	_, err = bob.SetScope(bob.Ctx(), &auth.SetScopeRequest{
-		Repo:     &pfs.Repo{Name: dataRepo},
+		Repo:     dataRepo,
 		Username: "carol",
 		Scope:    auth.Scope_READER,
 	})
@@ -447,6 +416,23 @@ func TestCreatePipeline(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
+	type createArgs struct {
+		client     *client.APIClient
+		name, repo string
+		update     bool
+	}
+	createPipeline := func(args createArgs) error {
+		return args.client.CreatePipeline(
+			args.name,
+			"", // default image: ubuntu:14.04
+			[]string{"bash"},
+			[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", args.repo)},
+			&pps.ParallelismSpec{Constant: 1},
+			client.NewAtomInput(args.repo, "/*"),
+			"",    // default output branch: master
+			false, // new pipeline, don't update
+		)
+	}
 	alice := getPachClient(t, "alice")
 	bob := getPachClient(t, "bob")
 
@@ -456,22 +442,30 @@ func TestCreatePipeline(t *testing.T) {
 	require.Equal(t, acl("alice", "owner"), GetACL(t, alice, dataRepo))
 
 	// alice can create a pipeline (she owns the input repo)
-	pipeline := uniqueString("alice-pipeline")
-	require.NoError(t, CreatePipeline(alice, pipeline, dataRepo))
-	require.OneOfEquals(t, pipeline, PipelineNames(t, alice))
-	require.Equal(t, acl("alice", "owner"), GetACL(t, alice, pipeline)) // check that alice owns the output repo too
+	pipelineName := uniqueString("alice-pipeline")
+	require.NoError(t, createPipeline(createArgs{
+		client: alice,
+		name:   pipelineName,
+		repo:   dataRepo,
+	}))
+	require.OneOfEquals(t, pipelineName, PipelineNames(t, alice))
+	require.Equal(t, acl("alice", "owner"), GetACL(t, alice, pipelineName)) // check that alice owns the output repo too
 	// TODO(msteffen): check that the pipeline runs successfully
 
 	// bob can't create a pipeline
 	badPipeline := uniqueString("bob-bad")
-	err := CreatePipeline(bob, badPipeline, dataRepo)
+	err := createPipeline(createArgs{
+		client: bob,
+		name:   badPipeline,
+		repo:   dataRepo,
+	})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.NoneEquals(t, badPipeline, PipelineNames(t, alice))
 
 	// alice adds bob as a reader of the input repo
 	_, err = alice.SetScope(alice.Ctx(), &auth.SetScopeRequest{
-		Repo:     &pfs.Repo{Name: dataRepo},
+		Repo:     dataRepo,
 		Username: "bob",
 		Scope:    auth.Scope_READER,
 	})
@@ -479,7 +473,11 @@ func TestCreatePipeline(t *testing.T) {
 
 	// now bob can create a pipeline
 	goodPipeline := uniqueString("bob-good")
-	require.NoError(t, CreatePipeline(bob, goodPipeline, dataRepo))
+	require.NoError(t, createPipeline(createArgs{
+		client: bob,
+		name:   goodPipeline,
+		repo:   dataRepo,
+	}))
 	require.OneOfEquals(t, goodPipeline, PipelineNames(t, alice))
 	require.Equal(t, acl("bob", "owner"), GetACL(t, bob, goodPipeline)) // check that bob owns the output repo too
 }

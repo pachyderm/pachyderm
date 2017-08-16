@@ -2884,12 +2884,18 @@ func TestOverwrite(t *testing.T) {
 	_, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(repo, "master", "file1", strings.NewReader("foo"))
+	_, err = c.PutFileSplit(repo, "master", "file2", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
+	require.NoError(t, err)
+	_, err = c.PutFileSplit(repo, "master", "file3", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
+	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, "master"))
 	_, err = c.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFileOverwrite(repo, "master", "file1", strings.NewReader("bar"))
 	require.NoError(t, err)
 	_, err = c.PutFileOverwrite(repo, "master", "file2", strings.NewReader("buzz"))
+	require.NoError(t, err)
+	_, err = c.PutFileSplit(repo, "master", "file3", pfs.Delimiter_LINE, 0, 0, true, strings.NewReader("0\n1\n2\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, "master"))
 	var buffer bytes.Buffer
@@ -2898,6 +2904,14 @@ func TestOverwrite(t *testing.T) {
 	buffer.Reset()
 	require.NoError(t, c.GetFile(repo, "master", "file2", 0, 0, &buffer))
 	require.Equal(t, "buzz", buffer.String())
+	fileInfos, err := c.ListFile(repo, "master", "file3")
+	require.NoError(t, err)
+	require.Equal(t, 3, len(fileInfos))
+	for i := 0; i < 3; i++ {
+		buffer.Reset()
+		require.NoError(t, c.GetFile(repo, "master", fmt.Sprintf("file3/%016x", i), 0, 0, &buffer))
+		require.Equal(t, fmt.Sprintf("%d\n", i), buffer.String())
+	}
 }
 
 func uniqueString(prefix string) string {
