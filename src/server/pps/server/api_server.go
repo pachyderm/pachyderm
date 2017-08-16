@@ -127,10 +127,10 @@ func validateNames(names map[string]bool, input *pps.Input) error {
 		}
 		names[input.Atom.Name] = true
 	case input.Cron != nil:
-		if names[input.Atom.Name] {
+		if names[input.Cron.Name] {
 			return fmt.Errorf("name %s was used more than once", input.Cron.Name)
 		}
-		names[input.Atom.Name] = true
+		names[input.Cron.Name] = true
 	case input.Union != nil:
 		for _, input := range input.Union {
 			namesCopy := make(map[string]bool)
