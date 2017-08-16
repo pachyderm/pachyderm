@@ -55,7 +55,7 @@ type unionDatumFactory struct {
 func newUnionDatumFactory(ctx context.Context, pfsClient pfs.APIClient, union []*pps.Input) (datumFactory, error) {
 	result := &unionDatumFactory{}
 	for _, input := range union {
-		datumFactory, err := newDatumFactory(ctx, pfsClient, input)
+		datumFactory, err := NewDatumFactory(ctx, pfsClient, input)
 		if err != nil {
 			return nil, err
 		}
@@ -112,7 +112,7 @@ func (d *crossDatumFactory) Datum(i int) []*Input {
 func newCrossDatumFactory(ctx context.Context, pfsClient pfs.APIClient, cross []*pps.Input) (datumFactory, error) {
 	result := &crossDatumFactory{}
 	for _, input := range cross {
-		datumFactory, err := newDatumFactory(ctx, pfsClient, input)
+		datumFactory, err := NewDatumFactory(ctx, pfsClient, input)
 		if err != nil {
 			return nil, err
 		}
@@ -131,7 +131,7 @@ func newCronDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pp
 	})
 }
 
-func newDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.Input) (datumFactory, error) {
+func NewDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.Input) (datumFactory, error) {
 	switch {
 	case input.Atom != nil:
 		return newAtomDatumFactory(ctx, pfsClient, input.Atom)
