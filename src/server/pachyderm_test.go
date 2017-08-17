@@ -3969,16 +3969,22 @@ func TestPipelineWithStats(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 
-	resp, err := c.ListDatum(jobs[0].Job.ID)
+	// Check we can list datums before job completion
+	resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(resp.DatumInfos))
+
+	// Check we can list datums before job completion w pagination
+	resp, err = c.ListDatum(jobs[0].Job.ID, 100, 0)
+	require.NoError(t, err)
+	require.Equal(t, 100, len(resp.DatumInfos))
 
 	// Block on the job being complete before we call ListDatum again so we're
 	// sure the datums have actually been processed.
 	_, err = c.InspectJob(jobs[0].Job.ID, true)
 	require.NoError(t, err)
 
-	resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
+	resp, err = c.ListDatum(jobs[0].Job.ID, 0, 0)
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(resp.DatumInfos))
 

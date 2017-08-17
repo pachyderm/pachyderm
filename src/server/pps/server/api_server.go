@@ -521,12 +521,23 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		return nil, err
 	}
 	pfsClient := pachClient.PfsAPIClient
+	getPageBounds := func(totalSize int) (int, int, error) {
+		start := int(request.Page * request.PageSize)
+		if start > totalSize-1 {
+			return 0, 0, io.EOF
+		}
+		end := start + int(request.PageSize)
+		if totalSize < end {
+			end = totalSize
+		}
+		return start, end, nil
+	}
 	if jobInfo.StatsCommit == nil {
 		df, err := workerpkg.NewDatumFactory(ctx, pfsClient, jobInfo.Input)
 		if err != nil {
 			return nil, err
 		}
-		result := &pps.DatumInfos{}
+		var datumInfos []*pps.DatumInfo
 		for i := 0; i < df.Len(); i++ {
 			datum := df.Datum(i)
 			id := workerpkg.HashDatum(jobInfo.Pipeline.Name, jobInfo.Salt, datum)
@@ -543,9 +554,17 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 					Hash: input.FileInfo.Hash,
 				})
 			}
-			result.DatumInfo = append(result.DatumInfo, datumInfo)
+			datumInfos = append(datumInfos, datumInfo)
 		}
-		return result, nil
+		if request.PageSize > 0 {
+			start, end, err := getPageBounds(len(datumInfos))
+			if err != nil {
+				return nil, err
+			}
+			datumInfos = datumInfos[start:end]
+		}
+		response.DatumInfos = datumInfos
+		return response, nil
 	}
 
 	// List the files under / to get all the datums
@@ -579,19 +598,14 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		}
 		datumFileInfos = append(datumFileInfos, fileInfo)
 	}
-
 	// Sort results (failed first)
 	sort.Sort(byDatumState(datumFileInfos))
 	if request.PageSize > 0 {
 		response.Page = request.Page
 		response.TotalPages = int64(math.Ceil(float64(len(datumFileInfos)) / float64(request.PageSize)))
-		start := request.Page * request.PageSize
-		if start > int64(len(datumFileInfos)-1) {
-			return nil, io.EOF
-		}
-		end := int(start + request.PageSize)
-		if len(datumFileInfos) < end {
-			end = len(datumFileInfos)
+		start, end, err := getPageBounds(len(datumFileInfos))
+		if err != nil {
+			return nil, err
 		}
 		datumFileInfos = datumFileInfos[start:end]
 	}
