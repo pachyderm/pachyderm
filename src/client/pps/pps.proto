@@ -121,10 +121,11 @@ enum DatumState {
 }
 
 message DatumInfo {
-   Datum datum = 1;
-   DatumState state = 2;
-   ProcessStats stats = 3;
-   pfs.File pfs_state = 4;
+  Datum datum = 1;
+  DatumState state = 2;
+  ProcessStats stats = 3;
+  pfs.File pfs_state = 4;
+  repeated InputFile data = 5;
 }
 
 message DatumInfos {
