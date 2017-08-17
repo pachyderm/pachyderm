@@ -744,14 +744,18 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 
 	// Make sure that both from and to are valid commits
 	if from != nil {
-		if _, err := d.inspectCommit(ctx, from); err != nil {
+		fromCommitInfo, err := d.inspectCommit(ctx, from)
+		if err != nil {
 			return nil, err
 		}
+		from = fromCommitInfo.Commit
 	}
 	if to != nil {
-		if _, err := d.inspectCommit(ctx, to); err != nil {
+		toCommitInfo, err := d.inspectCommit(ctx, to)
+		if err != nil {
 			return nil, err
 		}
+		to = toCommitInfo.Commit
 	}
 
 	// if number is 0, we return all commits that match the criteria
@@ -897,7 +901,9 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 				case watch.EventDelete:
 					continue
 				}
-				if !seen[commit.ID] {
+
+				// We don't want to include the `from` commit itself
+				if !(seen[commit.ID] || (from != nil && from.ID == commit.ID)) {
 					break
 				}
 			}
