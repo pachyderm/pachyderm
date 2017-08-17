@@ -3726,6 +3726,7 @@ func TestPipelineWithStatsFailedDatums(t *testing.T) {
 	require.NoError(t, err)
 
 	// Without this sleep, I get no results from list-job
+	// See issue: https://github.com/pachyderm/pachyderm/issues/2181
 	time.Sleep(15 * time.Second)
 	jobs, err := c.ListJob(pipeline, nil)
 	require.NoError(t, err)
