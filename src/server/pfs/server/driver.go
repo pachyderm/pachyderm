@@ -744,9 +744,12 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 
 	// Make sure that both from and to are valid commits
 	if from != nil {
-		if _, err := d.inspectCommit(ctx, from); err != nil {
+		fromCommitInfo, err := d.inspectCommit(ctx, from)
+		if err != nil {
 			return nil, err
 		}
+		// In case the user has used a branch
+		from = fromCommitInfo.Commit
 	}
 	if to != nil {
 		if _, err := d.inspectCommit(ctx, to); err != nil {
