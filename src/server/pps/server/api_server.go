@@ -514,8 +514,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		return datumHash, nil
 	}
 	for _, fileInfo := range allFileInfos.FileInfo {
-		_, err := pathToDatumHash(fileInfo.File.Path)
-		if err != nil {
+		if _, err := pathToDatumHash(fileInfo.File.Path); err != nil {
 			// not a datum
 			continue
 		}
