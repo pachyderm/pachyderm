@@ -3070,24 +3070,6 @@ func TestSystemResourceRequests(t *testing.T) {
 	}
 }
 
-// TODO(msteffen) Refactor other tests to use this helper
-func PutFileAndFlush(t *testing.T, repo, branch, filepath, contents string) *pfs.Commit {
-	// This may be a bit wasteful, since the calling test likely has its own
-	// client, but for a test the overhead seems acceptable (and the code is
-	// shorter)
-	c := getPachClient(t)
-
-	commit, err := c.StartCommit(repo, branch)
-	require.NoError(t, err)
-	_, err = c.PutFile(repo, commit.ID, filepath, strings.NewReader(contents))
-	require.NoError(t, err)
-
-	require.NoError(t, c.FinishCommit(repo, commit.ID))
-	_, err = c.FlushCommit([]*pfs.Commit{commit}, nil)
-	require.NoError(t, err)
-	return commit
-}
-
 // TestPipelineResourceRequest creates a pipeline with a resource request, and
 // makes sure that's passed to k8s (by inspecting the pipeline's pods)
 func TestPipelineResourceRequest(t *testing.T) {
@@ -3115,7 +3097,6 @@ func TestPipelineResourceRequest(t *testing.T) {
 			ResourceSpec: &pps.ResourceSpec{
 				Memory: "100M",
 				Cpu:    0.5,
-				Gpu:    1,
 			},
 			Inputs: []*pps.PipelineInput{{
 				Repo:   &pfs.Repo{dataRepo},
@@ -3124,7 +3105,6 @@ func TestPipelineResourceRequest(t *testing.T) {
 			}},
 		})
 	require.NoError(t, err)
-	PutFileAndFlush(t, dataRepo, "master", "file", "foo\n")
 
 	// Get info about the pipeline pods from k8s & check for resources
 	pipelineInfo, err := c.InspectPipeline(pipelineName)
@@ -3157,7 +3137,81 @@ func TestPipelineResourceRequest(t *testing.T) {
 	require.Equal(t, "100M", mem.String())
 	gpu, ok := container.Resources.Requests[api.ResourceNvidiaGPU]
 	require.True(t, ok)
-	require.Equal(t, "1", gpu.String())
+	require.Equal(t, "0", gpu.String())
+}
+
+func TestPipelinePartialResourceRequest(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getPachClient(t)
+	// create repos
+	dataRepo := uniqueString("TestPipelinePartialResourceRequest")
+	pipelineName := uniqueString("pipeline")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// Resources are not yet in client.CreatePipeline() (we may add them later)
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: &pps.Pipeline{fmt.Sprintf("%s-%d", pipelineName, 0)},
+			Transform: &pps.Transform{
+				Cmd: []string{"true"},
+			},
+			ResourceSpec: &pps.ResourceSpec{
+				Cpu:    0.5,
+				Memory: "100M",
+			},
+			Inputs: []*pps.PipelineInput{{
+				Repo:   &pfs.Repo{dataRepo},
+				Branch: "master",
+				Glob:   "/*",
+			}},
+		})
+	require.NoError(t, err)
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: &pps.Pipeline{fmt.Sprintf("%s-%d", pipelineName, 1)},
+			Transform: &pps.Transform{
+				Cmd: []string{"true"},
+			},
+			ResourceSpec: &pps.ResourceSpec{
+				Memory: "100M",
+			},
+			Inputs: []*pps.PipelineInput{{
+				Repo:   &pfs.Repo{dataRepo},
+				Branch: "master",
+				Glob:   "/*",
+			}},
+		})
+	require.NoError(t, err)
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: &pps.Pipeline{fmt.Sprintf("%s-%d", pipelineName, 2)},
+			Transform: &pps.Transform{
+				Cmd: []string{"true"},
+			},
+			ResourceSpec: &pps.ResourceSpec{},
+			Inputs: []*pps.PipelineInput{{
+				Repo:   &pfs.Repo{dataRepo},
+				Branch: "master",
+				Glob:   "/*",
+			}},
+		})
+	require.NoError(t, err)
+	require.NoError(t, backoff.Retry(func() error {
+		for i := 0; i < 3; i++ {
+			pipelineInfo, err := c.InspectPipeline(fmt.Sprintf("%s-%d", pipelineName, i))
+			require.NoError(t, err)
+			if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
+				return fmt.Errorf("pipeline not in running state")
+			}
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 }
 
 func TestPipelineLargeOutput(t *testing.T) {
