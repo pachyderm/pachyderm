@@ -386,7 +386,7 @@ message InspectDatumRequest {
 message ListDatumRequest {
   Job job = 1;
   bool paginate = 2;
-  int64 page = 3;
+  uint64 page = 3;
 }
 
 message CreatePipelineRequest {
