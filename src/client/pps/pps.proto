@@ -12,7 +12,10 @@ import "client/pfs/pfs.proto";
 message Secret {
   // Name must be the name of the secret in kubernetes.
   string name = 1;
+  // Key of the secret to load into env_var, this field only has meaning if EnvVar != "".
+  string key = 4;
   string mount_path = 2;
+  string env_var = 3;
 }
 
 message Transform {
