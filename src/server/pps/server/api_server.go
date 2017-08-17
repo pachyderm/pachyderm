@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"math"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -464,9 +465,10 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest) (response *pps.DatumInfos, retErr error) {
+func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest) (response *pps.ListDatumResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	response = &pps.ListDatumResponse{}
 	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
 		Job: &pps.Job{
 			ID: request.Job.ID,
@@ -522,13 +524,14 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 
 	// Sort results (failed first)
 	sort.Sort(byDatumState(datumFileInfos))
-
-	if request.Paginate {
-		start := request.Page * client.PageSize
-		if start > uint64(len(datumFileInfos)-1) {
+	if request.PageSize > 0 {
+		response.Page = request.Page
+		response.TotalPages = int64(math.Ceil(float64(len(datumFileInfos)) / float64(request.PageSize)))
+		start := request.Page * request.PageSize
+		if start > int64(len(datumFileInfos)-1) {
 			return nil, io.EOF
 		}
-		end := int(start + client.PageSize)
+		end := int(start + request.PageSize)
 		if len(datumFileInfos) < end {
 			end = len(datumFileInfos)
 		}
@@ -561,7 +564,9 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	if err != nil {
 		return nil, err
 	}
-	return &pps.DatumInfos{datumInfos}, nil
+
+	response.DatumInfos = datumInfos
+	return response, nil
 }
 
 type byDatumState []*pfs.FileInfo

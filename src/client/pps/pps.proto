@@ -385,8 +385,14 @@ message InspectDatumRequest {
 
 message ListDatumRequest {
   Job job = 1;
-  bool paginate = 2;
-  uint64 page = 3;
+  int64 page_size = 2;
+  int64 page = 3;
+}
+
+message ListDatumResponse {
+  repeated DatumInfo datum_infos = 1;
+  int64 total_pages = 2;
+  int64 page = 3;
 }
 
 message CreatePipelineRequest {
@@ -449,7 +455,7 @@ service API {
   rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
   rpc StopJob(StopJobRequest) returns (google.protobuf.Empty) {}
   rpc InspectDatum(InspectDatumRequest) returns (DatumInfo) {}
-  rpc ListDatum(ListDatumRequest) returns (DatumInfos) {}
+  rpc ListDatum(ListDatumRequest) returns (ListDatumResponse) {}
   rpc RestartDatum(RestartDatumRequest) returns (google.protobuf.Empty) {}
 
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}

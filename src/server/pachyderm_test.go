@@ -3671,17 +3671,17 @@ func TestPipelineWithStats(t *testing.T) {
 	_, err = c.InspectJob(jobs[0].Job.ID, true)
 	require.NoError(t, err)
 
-	datums, err := c.ListDatum(jobs[0].Job.ID, false, 0)
+	resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
 	require.NoError(t, err)
-	require.Equal(t, numFiles, len(datums))
+	require.Equal(t, numFiles, len(resp.DatumInfos))
 
-	for _, datum := range datums {
+	for _, datum := range resp.DatumInfos {
 		require.NoError(t, err)
 		require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 	}
 
 	// Make sure inspect-datum works
-	datum, err := c.InspectDatum(jobs[0].Job.ID, datums[0].Datum.ID)
+	datum, err := c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 }
@@ -3734,17 +3734,17 @@ func TestPipelineWithStatsFailedDatums(t *testing.T) {
 	_, err = c.InspectJob(jobs[0].Job.ID, true)
 	require.NoError(t, err)
 
-	datums, err := c.ListDatum(jobs[0].Job.ID, false, 0)
+	resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
 	require.NoError(t, err)
-	require.Equal(t, numFiles, len(datums))
+	require.Equal(t, numFiles, len(resp.DatumInfos))
 
 	// First entry should be failed
-	require.Equal(t, pps.DatumState_FAILED, datums[0].State)
+	require.Equal(t, pps.DatumState_FAILED, resp.DatumInfos[0].State)
 	// Last entry should be success
-	require.Equal(t, pps.DatumState_SUCCESS, datums[len(datums)-1].State)
+	require.Equal(t, pps.DatumState_SUCCESS, resp.DatumInfos[len(resp.DatumInfos)-1].State)
 
 	// Make sure inspect-datum works for failed state
-	datum, err := c.InspectDatum(jobs[0].Job.ID, datums[0].Datum.ID)
+	datum, err := c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_FAILED, datum.State)
 }
@@ -3759,8 +3759,9 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 	dataRepo := uniqueString("TestPipelineWithStatsPaginated_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	numPages := 2
-	numFiles := numPages * client.PageSize
+	numPages := int64(2)
+	pageSize := int64(100)
+	numFiles := int(numPages * pageSize)
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
@@ -3799,22 +3800,22 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 	_, err = c.InspectJob(jobs[0].Job.ID, true)
 	require.NoError(t, err)
 
-	datums, err := c.ListDatum(jobs[0].Job.ID, true, 0)
+	resp, err := c.ListDatum(jobs[0].Job.ID, pageSize, 0)
 	require.NoError(t, err)
-	require.Equal(t, client.PageSize, len(datums))
+	require.Equal(t, pageSize, int64(len(resp.DatumInfos)))
 
 	// First entry should be failed
-	require.Equal(t, pps.DatumState_FAILED, datums[0].State)
+	require.Equal(t, pps.DatumState_FAILED, resp.DatumInfos[0].State)
 
-	datums, err = c.ListDatum(jobs[0].Job.ID, true, int64(numPages-1))
+	resp, err = c.ListDatum(jobs[0].Job.ID, pageSize, int64(numPages-1))
 	require.NoError(t, err)
-	require.Equal(t, client.PageSize, len(datums))
+	require.Equal(t, pageSize, int64(len(resp.DatumInfos)))
 
 	// Last entry should be success
-	require.Equal(t, pps.DatumState_SUCCESS, datums[len(datums)-1].State)
+	require.Equal(t, pps.DatumState_SUCCESS, resp.DatumInfos[len(resp.DatumInfos)-1].State)
 
 	// Make sure we get error when requesting pages too high
-	datums, err = c.ListDatum(jobs[0].Job.ID, true, int64(numPages))
+	resp, err = c.ListDatum(jobs[0].Job.ID, pageSize, int64(numPages))
 	require.YesError(t, err)
 }
 
@@ -3873,11 +3874,11 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	_, err = c.InspectJob(jobs[0].Job.ID, true)
 	require.NoError(t, err)
 
-	datums, err := c.ListDatum(jobs[0].Job.ID, false, 0)
+	resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
 	require.NoError(t, err)
-	require.Equal(t, numFiles, len(datums))
+	require.Equal(t, numFiles, len(resp.DatumInfos))
 
-	datum, err := c.InspectDatum(jobs[0].Job.ID, datums[0].Datum.ID)
+	datum, err := c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 
@@ -3894,18 +3895,18 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	_, err = c.InspectJob(jobs[0].Job.ID, true)
 	require.NoError(t, err)
 
-	datums, err = c.ListDatum(jobs[0].Job.ID, false, 0)
+	resp, err = c.ListDatum(jobs[0].Job.ID, 0, 0)
 	require.NoError(t, err)
 	// we should see all the datums from the first job (which should be skipped)
 	// in addition to all the new datums processed in this job
-	require.Equal(t, numFiles*2, len(datums))
+	require.Equal(t, numFiles*2, len(resp.DatumInfos))
 
-	datum, err = c.InspectDatum(jobs[0].Job.ID, datums[0].Datum.ID)
+	datum, err = c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 	// Test datums marked as skipped correctly
 	// (also tests list datums are sorted by state)
-	datum, err = c.InspectDatum(jobs[0].Job.ID, datums[numFiles].Datum.ID)
+	datum, err = c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[numFiles].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SKIPPED, datum.State)
 }
@@ -3967,17 +3968,17 @@ func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
 	// Block on the job being complete before we call ListDatum
 	_, err = c.InspectJob(jobs[0].Job.ID, true)
 	require.NoError(t, err)
-	datums, err := c.ListDatum(jobs[0].Job.ID, false, 0)
+	resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
 	require.NoError(t, err)
-	require.Equal(t, numFiles, len(datums))
+	require.Equal(t, numFiles, len(resp.DatumInfos))
 
-	for _, datum := range datums {
+	for _, datum := range resp.DatumInfos {
 		require.NoError(t, err)
 		require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 	}
 
 	// Make sure inspect-datum works
-	datum, err := c.InspectDatum(jobs[0].Job.ID, datums[0].Datum.ID)
+	datum, err := c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 
@@ -3993,12 +3994,12 @@ func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
 	// Block on the job being complete before we call ListDatum
 	_, err = c.InspectJob(jobs[0].Job.ID, true)
 	require.NoError(t, err)
-	datums, err = c.ListDatum(jobs[0].Job.ID, false, 0)
+	resp, err = c.ListDatum(jobs[0].Job.ID, 0, 0)
 	require.NoError(t, err)
-	require.Equal(t, numFiles, len(datums))
+	require.Equal(t, numFiles, len(resp.DatumInfos))
 
 	var states []interface{}
-	for _, datum := range datums {
+	for _, datum := range resp.DatumInfos {
 		require.Equal(t, pps.DatumState_SKIPPED, datum.State)
 		states = append(states, datum.State)
 	}
