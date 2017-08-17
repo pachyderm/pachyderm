@@ -400,7 +400,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 		failed := false
 		limiter := limit.New(a.numWorkers * queueSize)
 		// process all datums
-		df, err := newDatumFactory(ctx, pfsClient, jobInfo.Input)
+		df, err := NewDatumFactory(ctx, pfsClient, jobInfo.Input)
 		if err != nil {
 			return err
 		}
@@ -482,7 +482,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 		for i := 0; i < df.Len(); i++ {
 			limiter.Acquire()
 			files := df.Datum(i)
-			datumHash := HashDatum(pipelineInfo, files)
+			datumHash := HashDatum(pipelineInfo.Pipeline.Name, pipelineInfo.Salt, files)
 			tag := &pfs.Tag{datumHash}
 			statsTag := &pfs.Tag{datumHash + statsTagSuffix}
 			var parentOutputTag *pfs.Tag
@@ -508,7 +508,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 					parentFiles = append(parentFiles, parentFile)
 				}
 				if len(parentFiles) == len(files) {
-					_parentOutputTag := HashDatum(pipelineInfo, parentFiles)
+					_parentOutputTag := HashDatum(pipelineInfo.Pipeline.Name, pipelineInfo.Salt, parentFiles)
 					parentOutputTag = &pfs.Tag{Name: _parentOutputTag}
 				}
 			}

@@ -475,18 +475,38 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	if err != nil {
 		return nil, err
 	}
-
 	pachClient, err := a.getPachClient()
 	if err != nil {
 		return nil, err
 	}
 	pfsClient := pachClient.PfsAPIClient
-	if !jobInfo.EnableStats {
-		return nil, fmt.Errorf("stats not enabled on %v", jobInfo.Pipeline.Name)
-	}
 	if jobInfo.StatsCommit == nil {
-		return nil, fmt.Errorf("job not finished, no stats output yet")
+		df, err := workerpkg.NewDatumFactory(ctx, pfsClient, jobInfo.Input)
+		if err != nil {
+			return nil, err
+		}
+		result := &pps.DatumInfos{}
+		for i := 0; i < df.Len(); i++ {
+			datum := df.Datum(i)
+			id := workerpkg.HashDatum(jobInfo.Pipeline.Name, jobInfo.Salt, datum)
+			datumInfo := &pps.DatumInfo{
+				Datum: &pps.Datum{
+					ID:  id,
+					Job: jobInfo.Job,
+				},
+				State: pps.DatumState_STARTING,
+			}
+			for _, input := range datum {
+				datumInfo.Data = append(datumInfo.Data, &pps.InputFile{
+					Path: input.FileInfo.File.Path,
+					Hash: input.FileInfo.Hash,
+				})
+			}
+			result.DatumInfo = append(result.DatumInfo, datumInfo)
+		}
+		return result, nil
 	}
+
 	// List the files under / to get all the datums
 	file := &pfs.File{
 		Commit: jobInfo.StatsCommit,
