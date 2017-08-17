@@ -517,7 +517,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 				defer limiter.Release()
 				b := backoff.NewInfiniteBackOff()
 				b.Multiplier = 1
-				datumProcessStats := &pps.ProcessStats{}
+				var stats *pps.ProcessStats
 				// If usedCache is set to true, we know that we thought a
 				// datum has been processed, but it's not found in the
 				// object store.  Therefore if a retry happens, we know to
@@ -541,6 +541,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 							}
 							skipped = resp.Skipped
 							failed = resp.Failed
+							stats = resp.Stats
 							return nil
 						}); err != nil {
 							return fmt.Errorf("Process() call failed: %v", err)
@@ -603,24 +604,6 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 									logger.Logf("unable to put skipped file to tree: %", err)
 								}
 							}
-							nodes, err := statsSubtree.Glob("*/stats")
-							if err != nil {
-								logger.Logf("failed to retrieve process stats from hashtree for datum %v: %v", files, err)
-							}
-							if len(nodes) != 1 {
-								logger.Logf("should have a single stats object for datum %v", files)
-								return nil
-							}
-							var objects []string
-							for _, object := range nodes[0].FileNode.Objects {
-								objects = append(objects, object.Hash)
-							}
-							var buffer bytes.Buffer
-							a.pachClient.WithCtx(ctx).GetObjects(objects, 0, 0, &buffer)
-							if err := jsonpb.UnmarshalString(buffer.String(), datumProcessStats); err != nil {
-								logger.Logf("error unmarshalling datum process stats for datum %v: %+v", files, err)
-								return nil
-							}
 							return nil
 						})
 					}
@@ -633,7 +616,9 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 						if err := statsTree.Merge(statsSubtree); err != nil {
 							logger.Logf("failed to merge into stats tree: %v", err)
 						}
-						processStats = append(processStats, datumProcessStats)
+					}
+					if stats != nil {
+						processStats = append(processStats, stats)
 					}
 					return tree.Merge(subTree)
 				}, b, func(err error, d time.Duration) error {
@@ -651,9 +636,9 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 					return nil
 				}); err == nil {
 					if skipped {
-						go updateProgress(0, 1, datumProcessStats)
+						go updateProgress(0, 1, stats)
 					} else {
-						go updateProgress(1, 0, datumProcessStats)
+						go updateProgress(1, 0, stats)
 					}
 				}
 			}()

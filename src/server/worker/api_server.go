@@ -806,7 +806,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		}
 		return nil, err
 	}
-	return &ProcessResponse{}, nil
+	return &ProcessResponse{Stats: stats}, nil
 }
 
 // Status returns the status of the current worker.
