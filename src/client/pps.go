@@ -273,7 +273,7 @@ func (c APIClient) RestartDatum(jobID string, datumFilter []string) error {
 }
 
 // ListDatum returns info about all datums in a Job
-func (c APIClient) ListDatum(jobID string, paginate bool, page int64) ([]*pps.DatumInfo, error) {
+func (c APIClient) ListDatum(jobID string, paginate bool, page uint64) ([]*pps.DatumInfo, error) {
 	datumInfos, err := c.PpsAPIClient.ListDatum(
 		c.Ctx(),
 		&pps.ListDatumRequest{

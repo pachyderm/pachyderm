@@ -525,7 +525,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 
 	if request.Paginate {
 		start := request.Page * client.PageSize
-		if start > int64(len(datumFileInfos)-1) {
+		if start > uint64(len(datumFileInfos)-1) {
 			return nil, io.EOF
 		}
 		end := int(start + client.PageSize)
