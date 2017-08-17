@@ -62,7 +62,7 @@ xYp8vpeQ3by9WxPBE/WrxN8CAwEAAQ==
 )
 
 type apiServer struct {
-	log.Logger
+	pachLogger log.Logger
 	etcdClient *etcd.Client
 
 	// 'activated' stores a timestamp that is effectively a cache of whether the
@@ -79,6 +79,29 @@ type apiServer struct {
 	admins col.Collection
 }
 
+// LogReq is like log.Logger.Log(), but it assumes that it's being called from
+// the top level of a GRPC method implementation, and correspondingly extracts
+// the method name from the parent stack frame
+func (a *apiServer) LogReq(request interface{}) {
+	a.pachLogger.Log(request, nil, nil, 0)
+}
+
+// LogResp is like log.Logger.Log(). However,
+// 1) It assumes that it's being called from a defer() statement in a GRPC
+//    method , and correspondingly extracts the method name from the grandparent
+//    stack frame
+// 2) It logs NotActivatedError at DebugLevel instead of ErrorLevel, as, in most
+//    cases, this error is expected, and logging it frequently may confuse users
+func (a *apiServer) LogResp(request interface{}, response interface{}, err error, duration time.Duration) {
+	if err == nil {
+		a.pachLogger.LogAtLevelFromDepth(request, response, err, duration, logrus.InfoLevel, 4)
+	} else if authclient.IsNotActivatedError(err) {
+		a.pachLogger.LogAtLevelFromDepth(request, response, err, duration, logrus.DebugLevel, 4)
+	} else {
+		a.pachLogger.LogAtLevelFromDepth(request, response, err, duration, logrus.ErrorLevel, 4)
+	}
+}
+
 // NewAuthServer returns an implementation of auth.APIServer.
 func NewAuthServer(etcdAddress string, etcdPrefix string) (authclient.APIServer, error) {
 	etcdClient, err := etcd.New(etcd.Config{
@@ -90,7 +113,7 @@ func NewAuthServer(etcdAddress string, etcdPrefix string) (authclient.APIServer,
 	}
 
 	s := &apiServer{
-		Logger:     log.NewLogger("auth.API"),
+		pachLogger: log.NewLogger("auth.API"),
 		etcdClient: etcdClient,
 		tokens: col.NewCollection(
 			etcdClient,
@@ -156,8 +179,8 @@ func (a *apiServer) activationCheck() {
 }
 
 func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateRequest) (resp *authclient.ActivateResponse, retErr error) {
-	func() { a.Log(req, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	// Activating an already activated auth service should fail, because
 	// otherwise anyone can just activate the service again and set
@@ -218,7 +241,7 @@ func AccessTokenToUsername(ctx context.Context, token string) (string, error) {
 func (a *apiServer) Authenticate(ctx context.Context, req *authclient.AuthenticateRequest) (resp *authclient.AuthenticateResponse, retErr error) {
 	// We don't want to actually log the request/response since they contain
 	// credentials.
-	defer func(start time.Time) { a.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
 	if !a.isActivated() {
 		return nil, authclient.NotActivatedError{}
 	}
@@ -271,8 +294,8 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 }
 
 func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequest) (resp *authclient.AuthorizeResponse, retErr error) {
-	func() { a.Log(req, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if !a.isActivated() {
 		return nil, authclient.NotActivatedError{}
 	}
@@ -303,8 +326,8 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 }
 
 func (a *apiServer) WhoAmI(ctx context.Context, req *authclient.WhoAmIRequest) (resp *authclient.WhoAmIResponse, retErr error) {
-	func() { a.Log(req, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if !a.isActivated() {
 		return nil, authclient.NotActivatedError{}
 	}
@@ -329,8 +352,8 @@ func validateSetScopeRequest(req *authclient.SetScopeRequest) error {
 }
 
 func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeRequest) (resp *authclient.SetScopeResponse, retErr error) {
-	func() { a.Log(req, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if !a.isActivated() {
 		return nil, authclient.NotActivatedError{}
 	}
@@ -377,8 +400,8 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 }
 
 func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeRequest) (resp *authclient.GetScopeResponse, retErr error) {
-	func() { a.Log(req, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if !a.isActivated() {
 		return nil, authclient.NotActivatedError{}
 	}
@@ -414,8 +437,8 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 }
 
 func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (resp *authclient.GetACLResponse, retErr error) {
-	func() { a.Log(req, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if !a.isActivated() {
 		return nil, authclient.NotActivatedError{}
 	}
@@ -448,8 +471,8 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 }
 
 func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (resp *authclient.SetACLResponse, retErr error) {
-	func() { a.Log(req, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if !a.isActivated() {
 		return nil, authclient.NotActivatedError{}
 	}
@@ -489,8 +512,8 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 }
 
 func (a *apiServer) GetCapability(ctx context.Context, req *authclient.GetCapabilityRequest) (resp *authclient.GetCapabilityResponse, retErr error) {
-	func() { a.Log(req, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var user *authclient.User
 	if !a.isActivated() {
@@ -525,8 +548,8 @@ func (a *apiServer) GetCapability(ctx context.Context, req *authclient.GetCapabi
 }
 
 func (a *apiServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeAuthTokenRequest) (resp *authclient.RevokeAuthTokenResponse, retErr error) {
-	func() { a.Log(req, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if !a.isActivated() {
 		return nil, authclient.NotActivatedError{}
 	}
