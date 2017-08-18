@@ -3979,7 +3979,7 @@ func TestPipelineWithStats(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 100, len(resp.DatumInfos))
 	require.Equal(t, int64(numFiles/100), resp.TotalPages)
-	require.Equal(t, 0, resp.Page)
+	require.Equal(t, int64(0), resp.Page)
 
 	// Block on the job being complete before we call ListDatum again so we're
 	// sure the datums have actually been processed.
