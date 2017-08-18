@@ -3969,28 +3969,172 @@ func TestPipelineWithStats(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 
-	datums, err := c.ListDatum(jobs[0].Job.ID)
+	// Check we can list datums before job completion
+	resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
 	require.NoError(t, err)
-	require.Equal(t, numFiles, len(datums))
+	require.Equal(t, numFiles, len(resp.DatumInfos))
+
+	// Check we can list datums before job completion w pagination
+	resp, err = c.ListDatum(jobs[0].Job.ID, 100, 0)
+	require.NoError(t, err)
+	require.Equal(t, 100, len(resp.DatumInfos))
+	require.Equal(t, int64(numFiles/100), resp.TotalPages)
+	require.Equal(t, int64(0), resp.Page)
 
 	// Block on the job being complete before we call ListDatum again so we're
 	// sure the datums have actually been processed.
 	_, err = c.InspectJob(jobs[0].Job.ID, true)
 	require.NoError(t, err)
 
-	datums, err = c.ListDatum(jobs[0].Job.ID)
+	resp, err = c.ListDatum(jobs[0].Job.ID, 0, 0)
 	require.NoError(t, err)
-	require.Equal(t, numFiles, len(datums))
+	require.Equal(t, numFiles, len(resp.DatumInfos))
 
-	for _, datum := range datums {
+	for _, datum := range resp.DatumInfos {
 		require.NoError(t, err)
 		require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 	}
 
 	// Make sure inspect-datum works
-	datum, err := c.InspectDatum(jobs[0].Job.ID, datums[0].Datum.ID)
+	datum, err := c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
+}
+
+func TestPipelineWithStatsFailedDatums(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestPipelineWithStatsFailedDatums_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	numFiles := 200
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	for i := 0; i < numFiles; i++ {
+		_, err = c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file-%d", i), strings.NewReader(strings.Repeat("foo\n", 100)))
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	pipeline := uniqueString("pipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					"if [ $RANDOM -gt 15000 ]; then exit 1; fi",
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+				},
+			},
+			Input:       client.NewAtomInput(dataRepo, "/*"),
+			EnableStats: true,
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 4,
+			},
+		})
+
+	_, err = c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+
+	// Without this sleep, I get no results from list-job
+	// See issue: https://github.com/pachyderm/pachyderm/issues/2181
+	time.Sleep(15 * time.Second)
+	jobs, err := c.ListJob(pipeline, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+	// Block on the job being complete before we call ListDatum
+	_, err = c.InspectJob(jobs[0].Job.ID, true)
+	require.NoError(t, err)
+
+	resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
+	require.NoError(t, err)
+	require.Equal(t, numFiles, len(resp.DatumInfos))
+
+	// First entry should be failed
+	require.Equal(t, pps.DatumState_FAILED, resp.DatumInfos[0].State)
+	// Last entry should be success
+	require.Equal(t, pps.DatumState_SUCCESS, resp.DatumInfos[len(resp.DatumInfos)-1].State)
+
+	// Make sure inspect-datum works for failed state
+	datum, err := c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
+	require.NoError(t, err)
+	require.Equal(t, pps.DatumState_FAILED, datum.State)
+}
+
+func TestPipelineWithStatsPaginated(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestPipelineWithStatsPaginated_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	numPages := int64(2)
+	pageSize := int64(100)
+	numFiles := int(numPages * pageSize)
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	for i := 0; i < numFiles; i++ {
+		_, err = c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file-%d", i), strings.NewReader(strings.Repeat("foo\n", 100)))
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	pipeline := uniqueString("pipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					"if [ $RANDOM -gt 15000 ]; then exit 1; fi",
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+				},
+			},
+			Input:       client.NewAtomInput(dataRepo, "/*"),
+			EnableStats: true,
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 4,
+			},
+		})
+
+	_, err = c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+
+	// Without this sleep, I get no results from list-job
+	time.Sleep(15 * time.Second)
+	jobs, err := c.ListJob(pipeline, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+
+	// Block on the job being complete before we call ListDatum
+	_, err = c.InspectJob(jobs[0].Job.ID, true)
+	require.NoError(t, err)
+
+	resp, err := c.ListDatum(jobs[0].Job.ID, pageSize, 0)
+	require.NoError(t, err)
+	require.Equal(t, pageSize, int64(len(resp.DatumInfos)))
+	require.Equal(t, int64(numFiles)/pageSize, resp.TotalPages)
+
+	// First entry should be failed
+	require.Equal(t, pps.DatumState_FAILED, resp.DatumInfos[0].State)
+
+	resp, err = c.ListDatum(jobs[0].Job.ID, pageSize, int64(numPages-1))
+	require.NoError(t, err)
+	require.Equal(t, pageSize, int64(len(resp.DatumInfos)))
+	require.Equal(t, int64(int64(numFiles)/pageSize-1), resp.Page)
+
+	// Last entry should be success
+	require.Equal(t, pps.DatumState_SUCCESS, resp.DatumInfos[len(resp.DatumInfos)-1].State)
+
+	// Make sure we get error when requesting pages too high
+	resp, err = c.ListDatum(jobs[0].Job.ID, pageSize, int64(numPages))
+	require.YesError(t, err)
 }
 
 func TestPipelineWithStatsAcrossJobs(t *testing.T) {
@@ -4000,7 +4144,7 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	t.Parallel()
 	c := getPachClient(t)
 
-	dataRepo := uniqueString("TestPipelineWithStats_data")
+	dataRepo := uniqueString("TestPipelineWithStatsAcrossJobs_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	numFiles := 500
@@ -4048,11 +4192,11 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	_, err = c.InspectJob(jobs[0].Job.ID, true)
 	require.NoError(t, err)
 
-	datums, err := c.ListDatum(jobs[0].Job.ID)
+	resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
 	require.NoError(t, err)
-	require.Equal(t, numFiles, len(datums))
+	require.Equal(t, numFiles, len(resp.DatumInfos))
 
-	datum, err := c.InspectDatum(jobs[0].Job.ID, datums[0].Datum.ID)
+	datum, err := c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 
@@ -4069,18 +4213,18 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	_, err = c.InspectJob(jobs[0].Job.ID, true)
 	require.NoError(t, err)
 
-	datums, err = c.ListDatum(jobs[0].Job.ID)
+	resp, err = c.ListDatum(jobs[0].Job.ID, 0, 0)
 	require.NoError(t, err)
 	// we should see all the datums from the first job (which should be skipped)
 	// in addition to all the new datums processed in this job
-	require.Equal(t, numFiles*2, len(datums))
+	require.Equal(t, numFiles*2, len(resp.DatumInfos))
 
-	datum, err = c.InspectDatum(jobs[0].Job.ID, datums[0].Datum.ID)
+	datum, err = c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 	// Test datums marked as skipped correctly
 	// (also tests list datums are sorted by state)
-	datum, err = c.InspectDatum(jobs[0].Job.ID, datums[numFiles].Datum.ID)
+	datum, err = c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[numFiles].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SKIPPED, datum.State)
 }
@@ -4139,23 +4283,24 @@ func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 
-	// TODO: This makes this test less flaky, but points to a bug w stats or flushcommit
-	time.Sleep(time.Second * 15)
-	datums, err := c.ListDatum(jobs[0].Job.ID)
+	// Block on the job being complete before we call ListDatum
+	_, err = c.InspectJob(jobs[0].Job.ID, true)
 	require.NoError(t, err)
-	require.Equal(t, numFiles, len(datums))
+	resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
+	require.NoError(t, err)
+	require.Equal(t, numFiles, len(resp.DatumInfos))
 
-	for _, datum := range datums {
+	for _, datum := range resp.DatumInfos {
 		require.NoError(t, err)
 		require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 	}
 
 	// Make sure inspect-datum works
-	datum, err := c.InspectDatum(jobs[0].Job.ID, datums[0].Datum.ID)
+	datum, err := c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 
-	commitIter, err = c.FlushCommit([]*pfs.Commit{commit2}, nil)
+	commitIter, err = c.FlushCommit([]*pfs.Commit{commit3}, nil)
 	require.NoError(t, err)
 	commitInfos = collectCommitInfos(t, commitIter)
 	require.Equal(t, 1, len(commitInfos))
@@ -4164,14 +4309,15 @@ func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, len(jobs))
 
-	// TODO: This makes this test less flaky, but points to a bug w stats or flushcommit
-	time.Sleep(time.Second * 15)
-	datums, err = c.ListDatum(jobs[0].Job.ID)
+	// Block on the job being complete before we call ListDatum
+	_, err = c.InspectJob(jobs[0].Job.ID, true)
 	require.NoError(t, err)
-	require.Equal(t, numFiles, len(datums))
+	resp, err = c.ListDatum(jobs[0].Job.ID, 0, 0)
+	require.NoError(t, err)
+	require.Equal(t, numFiles, len(resp.DatumInfos))
 
 	var states []interface{}
-	for _, datum := range datums {
+	for _, datum := range resp.DatumInfos {
 		require.Equal(t, pps.DatumState_SKIPPED, datum.State)
 		states = append(states, datum.State)
 	}
