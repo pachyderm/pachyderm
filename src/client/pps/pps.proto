@@ -57,10 +57,19 @@ message AtomInput {
   string from_commit = 7;
 }
 
+message CronInput {
+  string name = 1;
+  string repo = 2;
+  string commit = 3;
+  string spec = 4;
+  google.protobuf.Timestamp start = 5;
+}
+
 message Input {
   AtomInput atom = 1;
   repeated Input cross = 2;
   repeated Input union = 3;
+  CronInput cron = 4;
 }
 
 message JobInput {
@@ -108,13 +117,15 @@ enum DatumState {
     FAILED = 0;
     SUCCESS = 1;
     SKIPPED = 2;
+    STARTING = 3;
 }
 
 message DatumInfo {
-   Datum datum = 1;
-   DatumState state = 2;
-   ProcessStats stats = 3;
-   pfs.File pfs_state = 4;
+  Datum datum = 1;
+  DatumState state = 2;
+  ProcessStats stats = 3;
+  pfs.File pfs_state = 4;
+  repeated InputFile data = 5;
 }
 
 message DatumInfos {
@@ -376,6 +387,14 @@ message InspectDatumRequest {
 
 message ListDatumRequest {
   Job job = 1;
+  int64 page_size = 2;
+  int64 page = 3;
+}
+
+message ListDatumResponse {
+  repeated DatumInfo datum_infos = 1;
+  int64 total_pages = 2;
+  int64 page = 3;
 }
 
 message CreatePipelineRequest {
@@ -438,7 +457,7 @@ service API {
   rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
   rpc StopJob(StopJobRequest) returns (google.protobuf.Empty) {}
   rpc InspectDatum(InspectDatumRequest) returns (DatumInfo) {}
-  rpc ListDatum(ListDatumRequest) returns (DatumInfos) {}
+  rpc ListDatum(ListDatumRequest) returns (ListDatumResponse) {}
   rpc RestartDatum(RestartDatumRequest) returns (google.protobuf.Empty) {}
 
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}

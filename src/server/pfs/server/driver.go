@@ -113,17 +113,12 @@ const (
 	tombstone = "delete"
 )
 
-// Instead of making the user specify the respective size for each cache,
-// we decide internally how to split cache space among different caches.
-//
-// Each value specifies a percentage of the total cache space to be used.
 const (
-	// by default we use 1GB of RAM for cache
-	defaultCacheSize = 1024 * 1024
+	defaultTreeCacheSize = 128
 )
 
 // newDriver is used to create a new Driver instance
-func newDriver(address string, etcdAddresses []string, etcdPrefix string, cacheBytes int64) (*driver, error) {
+func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCacheSize int64) (*driver, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   etcdAddresses,
 		DialOptions: client.EtcdDialOptions(),
@@ -131,8 +126,10 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, cacheB
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to etcd: %s", err.Error())
 	}
-
-	treeCache, err := lru.New(int(cacheBytes))
+	if treeCacheSize <= 0 {
+		treeCacheSize = defaultTreeCacheSize
+	}
+	treeCache, err := lru.New(int(treeCacheSize))
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize treeCache: %s", err.Error())
 	}
@@ -159,7 +156,7 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, cacheB
 // newLocalDriver creates a driver using an local etcd instance.  This
 // function is intended for testing purposes
 func newLocalDriver(blockAddress string, etcdPrefix string) (*driver, error) {
-	return newDriver(blockAddress, []string{"localhost:32379"}, etcdPrefix, defaultCacheSize)
+	return newDriver(blockAddress, []string{"localhost:32379"}, etcdPrefix, defaultTreeCacheSize)
 }
 
 // initializePachConn initializes the connects that the pfs driver has with the
@@ -761,14 +758,18 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 
 	// Make sure that both from and to are valid commits
 	if from != nil {
-		if _, err := d.inspectCommit(ctx, from); err != nil {
+		fromCommitInfo, err := d.inspectCommit(ctx, from)
+		if err != nil {
 			return nil, err
 		}
+		from = fromCommitInfo.Commit
 	}
 	if to != nil {
-		if _, err := d.inspectCommit(ctx, to); err != nil {
+		toCommitInfo, err := d.inspectCommit(ctx, to)
+		if err != nil {
 			return nil, err
 		}
+		to = toCommitInfo.Commit
 	}
 
 	// if number is 0, we return all commits that match the criteria
@@ -914,7 +915,9 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 				case watch.EventDelete:
 					continue
 				}
-				if !seen[commit.ID] {
+
+				// We don't want to include the `from` commit itself
+				if !(seen[commit.ID] || (from != nil && from.ID == commit.ID)) {
 					break
 				}
 			}
@@ -1622,7 +1625,7 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 	return nodeToFileInfo(file.Commit, file.Path, node, true), nil
 }
 
-func (d *driver) listFile(ctx context.Context, file *pfs.File) ([]*pfs.FileInfo, error) {
+func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool) ([]*pfs.FileInfo, error) {
 	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
@@ -1638,7 +1641,7 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File) ([]*pfs.FileInfo,
 
 	var fileInfos []*pfs.FileInfo
 	for _, node := range nodes {
-		fileInfos = append(fileInfos, nodeToFileInfo(file.Commit, path.Join(file.Path, node.Name), node, false))
+		fileInfos = append(fileInfos, nodeToFileInfo(file.Commit, path.Join(file.Path, node.Name), node, full))
 	}
 	return fileInfos, nil
 }

@@ -29,7 +29,7 @@ You'll need the following credentials / tools:
 
 Note that `make doc` (next step) will fail if there are any uncommited changes in the current branch
 
-3) Run `make VERSION_ADDITIONAL="" doc` with the new version values. If you're doing an RC or need to specify an additional version string, run it like `make VERSION_ADDITIONAL=RC1 doc`
+3) Run `make doc` with the new version values. If you're doing an RC or need to specify an additional version string, run it like `make VERSION_ADDITIONAL=RC1 doc-custom`
 
 Make sure you add any new doc files, e.g:
 
@@ -52,12 +52,13 @@ $ git add doc/pachctl/pachctl_rerun-pipeline.md
 
 5) Run `docker login` (as the release script pushes new versions of the pachd and job-shim binaries to dockerhub)
 
-6) Run `make release` or `make point-release`
+6) Run `make point-release` or `make VERSION_ADDITION=<RC version suffix> release-custom`
+(or just `make release-custom` to use the commit hash as the version suffix)
 
 To specify an additional version string:
 
 ```shell
-make VERSION_ADDITIONAL=RC1 release
+make VERSION_ADDITIONAL=RC1 release-custom
 ```
 
 Otherwise,

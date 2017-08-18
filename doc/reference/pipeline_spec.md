@@ -298,8 +298,15 @@ Union inputs take the union of other inputs. For example:
 |        |        | buzz            |
 ```
 
-Notice that union inputs, do not take a name and maintain the names of the sub-inputs.
-In the above example you would see files under `/pfs/inputA/...` and `/pfs/inputB/...`.
+Notice that union inputs, do not take a name and maintain the names of the
+sub-inputs. In the above example you would see files under
+`/pfs/inputA/...` or `/pfs/inputB/...`, but never both at the same time.
+This can be annoying to write code for since the first thing your code
+needs to do is figure out which input directory is present. As of 1.5.3
+the recommended way to fix this is to give your inputs the same `Name`,
+that way your code only needs to handle data being present in that
+directory. This, of course, only works if your code doesn't need to be
+aware of which of the underlying inputs the data comes from.
 
 `input.union` is an array of inputs to union, note that these need not be
 `atom` inputs, they can also be `union` and `cross` inputs. Although there's no
@@ -325,6 +332,44 @@ In the above example you would see files under `/pfs/inputA/...` and `/pfs/input
 `input.cross` is an array of inputs to cross, note that these need not be
 `atom` inputs, they can also be `union` and `cross` inputs. Although there's no
 reason to take a cross of crosses since cross products are associative.
+
+#### Cron Input
+
+Cron inputs allow you to trigger pipelines based on time. It's based on the
+unix utility `cron`. When you create a pipeline with one or more Cron Inputs
+pachd will create a repo for each of them. When a cron input triggers,
+that is when the present time satisfies its spec, pachd will commit
+a single file, called "time" to the repo which contains the time which
+satisfied the spec. The time is formatted according to [RFC
+3339](https://www.ietf.org/rfc/rfc3339.txt).
+
+```
+{
+    "name": string,
+    "spec": string,
+    "repo": string,
+    "start": time,
+}
+```
+
+`input.cron.name` is the name for the input, its semantics are similar to
+those of `input.atom.name`. Except that it's not optional.
+
+`input.cron.spec` is a cron expression which specifies the schedule on
+which to trigger the pipeline. The learn more about how to write schedules
+see the [Wikipedia page on cron](https://en.wikipedia.org/wiki/Cron).
+Pachyderm supports Nonstandard schedules such as `"@daily"`.
+
+`input.cron.repo` is the repo which will be created for the input. It is
+optional, if it's not specified then `"<pipeline-name>_<input-name>"` will
+be used.
+
+`input.cron.start` is the time to start counting from for the input. It is
+optional, if it's not specified then the present time (when the pipeline
+is created) will be used. Specifying a time allows you to run on matching
+times from the past or, skip times from the present and only start running
+on matching times in the future. Times should be formatted according to [RFC
+3339](https://www.ietf.org/rfc/rfc3339.txt).
 
 ### OutputBranch (optional)
 

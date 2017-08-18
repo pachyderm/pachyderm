@@ -114,6 +114,18 @@ func NewUnionInput(input ...*pps.Input) *pps.Input {
 	}
 }
 
+// NewCronInput returns an input which will trigger based on a timed schedule.
+// It uses cron syntax to specify the schedule. The input will be exposed to
+// jobs as `/pfs/<name>/time` which will contain a timestamp.
+func NewCronInput(name string, spec string) *pps.Input {
+	return &pps.Input{
+		Cron: &pps.CronInput{
+			Name: name,
+			Spec: spec,
+		},
+	}
+}
+
 // NewJobInput creates a pps.JobInput.
 func NewJobInput(repoName string, commitID string, glob string) *pps.JobInput {
 	return &pps.JobInput{
@@ -259,17 +271,19 @@ func (c APIClient) RestartDatum(jobID string, datumFilter []string) error {
 }
 
 // ListDatum returns info about all datums in a Job
-func (c APIClient) ListDatum(jobID string) ([]*pps.DatumInfo, error) {
-	datumInfos, err := c.PpsAPIClient.ListDatum(
+func (c APIClient) ListDatum(jobID string, pageSize int64, page int64) (*pps.ListDatumResponse, error) {
+	resp, err := c.PpsAPIClient.ListDatum(
 		c.Ctx(),
 		&pps.ListDatumRequest{
-			Job: &pps.Job{jobID},
+			Job:      &pps.Job{jobID},
+			PageSize: pageSize,
+			Page:     page,
 		},
 	)
 	if err != nil {
 		return nil, sanitizeErr(err)
 	}
-	return datumInfos.DatumInfo, nil
+	return resp, nil
 }
 
 // InspectDatum returns info about a single datum

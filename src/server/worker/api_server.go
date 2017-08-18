@@ -23,6 +23,7 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
+	lru "github.com/hashicorp/golang-lru"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
@@ -43,11 +44,12 @@ import (
 const (
 	// The maximum number of concurrent download/upload operations
 	concurrency = 10
-	maxLogItems = 10
+	logBuffer   = 25
 )
 
 var (
 	errSpecialFile = errors.New("cannot upload special file")
+	statsTagSuffix = "_stats"
 )
 
 // APIServer implements the worker API
@@ -93,6 +95,10 @@ type APIServer struct {
 	// Only one datum can be running at a time because they need to be
 	// accessing /pfs, runMu enforces this
 	runMu sync.Mutex
+
+	// datumCache is used by the master to keep track of the datums that
+	// have already been processed.
+	datumCache *lru.Cache
 }
 
 type putObjectResponse struct {
@@ -108,6 +114,8 @@ type taggedLogger struct {
 	buffer       bytes.Buffer
 	putObjClient pfs.ObjectAPI_PutObjectClient
 	objSize      int64
+	msgCh        chan string
+	eg           errgroup.Group
 }
 
 func (a *APIServer) getTaggedLogger(ctx context.Context, req *ProcessRequest) (*taggedLogger, error) {
@@ -115,6 +123,7 @@ func (a *APIServer) getTaggedLogger(ctx context.Context, req *ProcessRequest) (*
 		template:  a.logMsgTemplate, // Copy struct
 		stderrLog: log.Logger{},
 		marshaler: &jsonpb.Marshaler{},
+		msgCh:     make(chan string, logBuffer),
 	}
 	result.stderrLog.SetOutput(os.Stderr)
 	result.stderrLog.SetFlags(log.LstdFlags | log.Llongfile) // Log file/line
@@ -141,6 +150,19 @@ func (a *APIServer) getTaggedLogger(ctx context.Context, req *ProcessRequest) (*
 			return nil, err
 		}
 		result.putObjClient = putObjClient
+		result.eg.Go(func() error {
+			for msg := range result.msgCh {
+				for _, chunk := range grpcutil.Chunk([]byte(msg), grpcutil.MaxMsgSize/2) {
+					if err := result.putObjClient.Send(&pfs.PutObjectRequest{
+						Value: chunk,
+					}); err != nil && err != io.EOF {
+						return err
+					}
+				}
+				result.objSize += int64(len(msg))
+			}
+			return nil
+		})
 	}
 	return result, nil
 }
@@ -165,17 +187,7 @@ func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
 	bytes += "\n"
 	fmt.Printf(bytes)
 	if logger.putObjClient != nil {
-		for _, chunk := range grpcutil.Chunk([]byte(bytes), grpcutil.MaxMsgSize/2) {
-			if err := logger.putObjClient.Send(&pfs.PutObjectRequest{
-				Value: chunk,
-			}); err != nil && err != io.EOF {
-				// We swallow io.EOF errors here, that's because the final log
-				// statement gets called after Close() has already been called.
-				logger.stderrLog.Printf("could not write %s to object: %v", bytes, err)
-				return
-			}
-		}
-		logger.objSize += int64(len(bytes))
+		logger.msgCh <- bytes
 	}
 }
 
@@ -200,8 +212,15 @@ func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
 }
 
 func (logger *taggedLogger) Close() (*pfs.Object, int64, error) {
+	close(logger.msgCh)
 	if logger.putObjClient != nil {
+		if err := logger.eg.Wait(); err != nil {
+			return nil, 0, err
+		}
 		object, err := logger.putObjClient.CloseAndRecv()
+		// we set putObjClient to nil so that future calls to Logf won't send
+		// msg down logger.msgCh as we've just closed that channel.
+		logger.putObjClient = nil
 		return object, logger.objSize, err
 	}
 	return nil, 0, nil
@@ -213,6 +232,7 @@ func (logger *taggedLogger) clone() *taggedLogger {
 		stderrLog:    log.Logger{},
 		marshaler:    &jsonpb.Marshaler{},
 		putObjClient: logger.putObjClient,
+		msgCh:        logger.msgCh,
 	}
 }
 
@@ -232,6 +252,10 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	if err != nil {
 		return nil, err
 	}
+	datumCache, err := lru.New(numCachedDatums)
+	if err != nil {
+		return nil, fmt.Errorf("error creating datum cache: %v", err)
+	}
 	server := &APIServer{
 		pachClient:   pachClient,
 		kubeClient:   kubeClient,
@@ -247,6 +271,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		namespace:  namespace,
 		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
 		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
+		datumCache: datumCache,
 	}
 	go server.master()
 	return server, nil
@@ -515,7 +540,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, lo
 
 // HashDatum computes and returns the hash of datum + pipeline, with a
 // pipeline-specific prefix.
-func HashDatum(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) {
+func HashDatum(pipelineName string, pipelineSalt string, data []*Input) string {
 	hash := sha256.New()
 	for _, datum := range data {
 		hash.Write([]byte(datum.Name))
@@ -523,10 +548,10 @@ func HashDatum(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) {
 		hash.Write(datum.FileInfo.Hash)
 	}
 
-	hash.Write([]byte(pipelineInfo.Pipeline.Name))
-	hash.Write([]byte(pipelineInfo.Salt))
+	hash.Write([]byte(pipelineName))
+	hash.Write([]byte(pipelineSalt))
 
-	return client.DatumTagPrefix(pipelineInfo.Salt) + hex.EncodeToString(hash.Sum(nil)), nil
+	return client.DatumTagPrefix(pipelineSalt) + hex.EncodeToString(hash.Sum(nil))
 }
 
 // HashDatum15 computes and returns the hash of datum + pipeline for version <= 1.5.0, with a
@@ -574,13 +599,9 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		logger.Logf("process call finished - request: %v, response: %v, err %v, duration: %v", req, resp, retErr, time.Since(start))
 	}(time.Now())
 	atomic.AddInt64(&a.queueSize, 1)
-	logger.Logf("Received request")
 	ctx, cancel := context.WithCancel(ctx)
 	// Hash inputs
-	tag, err := HashDatum(a.pipelineInfo, req.Data)
-	if err != nil {
-		return nil, err
-	}
+	tag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, req.Data)
 	tag15, err := HashDatum15(a.pipelineInfo, req.Data)
 	if err != nil {
 		return nil, err
@@ -607,7 +628,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	}
 	var statsTag *pfs.Tag
 	if req.EnableStats {
-		statsTag = &pfs.Tag{tag + "_stats"}
+		statsTag = &pfs.Tag{tag + statsTagSuffix}
 	}
 	if foundTag15 && !foundTag {
 		if _, err := a.pachClient.ObjectAPIClient.TagObject(ctx, &pfs.TagObjectRequest{
@@ -626,9 +647,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		// We've already computed the output for these inputs. Return immediately
 		logger.Logf("skipping input, as it's already been processed")
 		return &ProcessResponse{
-			Tag:      &pfs.Tag{tag},
-			StatsTag: statsTag,
-			Skipped:  true,
+			Skipped: true,
 		}, nil
 	}
 	stats := &pps.ProcessStats{}
@@ -736,7 +755,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 			return nil, err
 		}
 		defer func() {
-			if err := syscall.Unmount(client.PPSInputPrefix, 0); err != nil && retErr == nil {
+			if err := syscall.Unmount(client.PPSInputPrefix, syscall.MNT_DETACH); err != nil && retErr == nil {
 				retErr = err
 			}
 		}()
@@ -754,8 +773,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 				}
 			}
 			return &ProcessResponse{
-				Failed:   true,
-				StatsTag: statsTag,
+				Failed: true,
 			}, nil
 		}
 		return nil, nil
@@ -783,16 +801,12 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		// infinitely retry to process this datum.
 		if err == errSpecialFile {
 			return &ProcessResponse{
-				Failed:   true,
-				StatsTag: statsTag,
+				Failed: true,
 			}, nil
 		}
 		return nil, err
 	}
-	return &ProcessResponse{
-		Tag:      &pfs.Tag{tag},
-		StatsTag: statsTag,
-	}, nil
+	return &ProcessResponse{Stats: stats}, nil
 }
 
 // Status returns the status of the current worker.

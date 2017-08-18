@@ -13,6 +13,7 @@ import (
 // Logger is a helper for emitting our grpc API logs
 type Logger interface {
 	Log(request interface{}, response interface{}, err error, duration time.Duration)
+	LogAtLevelFromDepth(request interface{}, response interface{}, err error, duration time.Duration, level logrus.Level, depth int)
 }
 
 type logger struct {
@@ -28,36 +29,55 @@ func NewLogger(service string) Logger {
 	}
 }
 
+// Helper function used to log requests and responses from our GRPC method
+// implementations
 func (l *logger) Log(request interface{}, response interface{}, err error, duration time.Duration) {
-	depth := 1
-	pc := make([]uintptr, 2+depth)
-	runtime.Callers(2+depth, pc)
+	if err != nil {
+		l.LogAtLevelFromDepth(request, response, err, duration, logrus.ErrorLevel, 4)
+	} else {
+		l.LogAtLevelFromDepth(request, response, err, duration, logrus.InfoLevel, 4)
+	}
+}
+
+func (l *logger) LogAtLevelFromDepth(request interface{}, response interface{}, err error, duration time.Duration, level logrus.Level, depth int) {
+	pc := make([]uintptr, depth)
+	runtime.Callers(depth, pc)
 	split := strings.Split(runtime.FuncForPC(pc[0]).Name(), ".")
 	method := split[len(split)-1]
 
-	var errString string
-	if err != nil {
-		errString = err.Error()
+	fields := logrus.Fields{
+		"method":  method,
+		"request": request,
 	}
-	entry := l.WithFields(
-		logrus.Fields{
-			"method":   method,
-			"request":  request,
-			"response": response,
-			"error":    errString,
-			"duration": duration,
-		},
-	)
-
+	if response != nil {
+		fields["response"] = response
+	}
 	if err != nil {
+		// "err" itself might be a code or even an empty struct
+		fields["error"] = err.Error()
+	}
+	if duration > 0 {
+		fields["duration"] = duration
+	}
+	entry := l.WithFields(fields)
+
+	switch level {
+	case logrus.PanicLevel:
+		entry.Panic()
+	case logrus.FatalLevel:
+		entry.Fatal()
+	case logrus.ErrorLevel:
 		entry.Error()
-	} else {
+	case logrus.WarnLevel:
+		entry.Warn()
+	case logrus.InfoLevel:
 		entry.Info()
+	case logrus.DebugLevel:
+		entry.Debug()
 	}
 }
 
-type prettyFormatter struct {
-}
+type prettyFormatter struct{}
 
 func (f *prettyFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	serialized := []byte(
