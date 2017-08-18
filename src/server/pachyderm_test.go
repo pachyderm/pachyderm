@@ -3978,6 +3978,8 @@ func TestPipelineWithStats(t *testing.T) {
 	resp, err = c.ListDatum(jobs[0].Job.ID, 100, 0)
 	require.NoError(t, err)
 	require.Equal(t, 100, len(resp.DatumInfos))
+	require.Equal(t, int64(numFiles/100), resp.TotalPages)
+	require.Equal(t, 0, resp.Page)
 
 	// Block on the job being complete before we call ListDatum again so we're
 	// sure the datums have actually been processed.
@@ -4117,6 +4119,7 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 	resp, err := c.ListDatum(jobs[0].Job.ID, pageSize, 0)
 	require.NoError(t, err)
 	require.Equal(t, pageSize, int64(len(resp.DatumInfos)))
+	require.Equal(t, int64(numFiles)/pageSize, resp.TotalPages)
 
 	// First entry should be failed
 	require.Equal(t, pps.DatumState_FAILED, resp.DatumInfos[0].State)
@@ -4124,6 +4127,7 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 	resp, err = c.ListDatum(jobs[0].Job.ID, pageSize, int64(numPages-1))
 	require.NoError(t, err)
 	require.Equal(t, pageSize, int64(len(resp.DatumInfos)))
+	require.Equal(t, int64(int64(numFiles)/pageSize-1), resp.Page)
 
 	// Last entry should be success
 	require.Equal(t, pps.DatumState_SUCCESS, resp.DatumInfos[len(resp.DatumInfos)-1].State)
