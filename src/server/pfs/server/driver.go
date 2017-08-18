@@ -700,7 +700,6 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.Co
 	}
 
 	commitID, ancestryLength := parseCommitID(commit.ID)
-	fmt.Printf("commitID: %s; ancestry: %v\n", commitID, ancestryLength)
 
 	// Check if the commitID is a branch name
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
