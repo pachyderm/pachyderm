@@ -45,15 +45,21 @@ func (l *logger) LogAtLevelFromDepth(request interface{}, response interface{}, 
 	split := strings.Split(runtime.FuncForPC(pc[0]).Name(), ".")
 	method := split[len(split)-1]
 
-	entry := l.WithFields(
-		logrus.Fields{
-			"method":   method,
-			"request":  request,
-			"response": response,
-			"error":    err,
-			"duration": duration,
-		},
-	)
+	fields := logrus.Fields{
+		"method":  method,
+		"request": request,
+	}
+	if response != nil {
+		fields["response"] = response
+	}
+	if err != nil {
+		// "err" itself might be a code or even an empty struct
+		fields["error"] = err.Error()
+	}
+	if duration > 0 {
+		fields["duration"] = duration
+	}
+	entry := l.WithFields(fields)
 
 	switch level {
 	case logrus.PanicLevel:
