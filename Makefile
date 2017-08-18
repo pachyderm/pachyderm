@@ -499,8 +499,7 @@ goxc-build:
 	sed 's/%%VERSION_ADDITIONAL%%/$(VERSION_ADDITIONAL)/' .goxc.json.template > .goxc.json
 	goxc -tasks=xc -wd=./src/server/cmd/pachctl
 
-.PHONY:
-	all \
+.PHONY: all \
 	version \
 	deps \
 	deps-client \

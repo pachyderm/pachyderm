@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"math"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -113,13 +114,56 @@ type apiServer struct {
 	jobs      col.Collection
 }
 
+func merge(from, to map[string]bool) {
+	for s := range from {
+		to[s] = true
+	}
+}
+
+func validateNames(names map[string]bool, input *pps.Input) error {
+	switch {
+	case input.Atom != nil:
+		if names[input.Atom.Name] {
+			return fmt.Errorf("name %s was used more than once", input.Atom.Name)
+		}
+		names[input.Atom.Name] = true
+	case input.Cron != nil:
+		if names[input.Cron.Name] {
+			return fmt.Errorf("name %s was used more than once", input.Cron.Name)
+		}
+		names[input.Cron.Name] = true
+	case input.Union != nil:
+		for _, input := range input.Union {
+			namesCopy := make(map[string]bool)
+			merge(names, namesCopy)
+			if err := validateNames(namesCopy, input); err != nil {
+				return err
+			}
+			// we defer this because subinputs of a union input are allowed to
+			// have conflicting names but other inputs that are, for example,
+			// crossed with this union cannot conflict with any of the names it
+			// might present
+			defer merge(namesCopy, names)
+		}
+	case input.Cross != nil:
+		for _, input := range input.Cross {
+			if err := validateNames(names, input); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (a *apiServer) validateInput(ctx context.Context, pipelineName string, input *pps.Input, job bool) error {
 	pachClient, err := a.getPachClient()
 	if err != nil {
 		return err
 	}
+	if err := validateNames(make(map[string]bool), input); err != nil {
+		return err
+	}
 	pachClient = pachClient.WithCtx(ctx)
-	names := make(map[string]bool)
 	repoBranch := make(map[string]string)
 	var result error
 	pps.VisitInput(input, func(input *pps.Input) {
@@ -142,10 +186,6 @@ func (a *apiServer) validateInput(ctx context.Context, pipelineName string, inpu
 				case len(input.Atom.Glob) == 0:
 					return fmt.Errorf("input must specify a glob")
 				}
-				if _, ok := names[input.Atom.Name]; ok {
-					return fmt.Errorf("conflicting input names: %s", input.Atom.Name)
-				}
-				names[input.Atom.Name] = true
 				if repoBranch[input.Atom.Repo] != "" && repoBranch[input.Atom.Repo] != input.Atom.Branch {
 					return fmt.Errorf("cannot use the same repo in multiple inputs with different branches")
 				}
@@ -464,9 +504,10 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest) (response *pps.DatumInfos, retErr error) {
+func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest) (response *pps.ListDatumResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	response = &pps.ListDatumResponse{}
 	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
 		Job: &pps.Job{
 			ID: request.Job.ID,
@@ -480,12 +521,26 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		return nil, err
 	}
 	pfsClient := pachClient.PfsAPIClient
+	getTotalPages := func(totalSize int) int64 {
+		return int64(math.Ceil(float64(totalSize) / float64(request.PageSize)))
+	}
+	getPageBounds := func(totalSize int) (int, int, error) {
+		start := int(request.Page * request.PageSize)
+		if start > totalSize-1 {
+			return 0, 0, io.EOF
+		}
+		end := start + int(request.PageSize)
+		if totalSize < end {
+			end = totalSize
+		}
+		return start, end, nil
+	}
 	if jobInfo.StatsCommit == nil {
 		df, err := workerpkg.NewDatumFactory(ctx, pfsClient, jobInfo.Input)
 		if err != nil {
 			return nil, err
 		}
-		result := &pps.DatumInfos{}
+		var datumInfos []*pps.DatumInfo
 		for i := 0; i < df.Len(); i++ {
 			datum := df.Datum(i)
 			id := workerpkg.HashDatum(jobInfo.Pipeline.Name, jobInfo.Salt, datum)
@@ -502,9 +557,19 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 					Hash: input.FileInfo.Hash,
 				})
 			}
-			result.DatumInfo = append(result.DatumInfo, datumInfo)
+			datumInfos = append(datumInfos, datumInfo)
 		}
-		return result, nil
+		if request.PageSize > 0 {
+			start, end, err := getPageBounds(len(datumInfos))
+			if err != nil {
+				return nil, err
+			}
+			datumInfos = datumInfos[start:end]
+			response.Page = request.Page
+			response.TotalPages = getTotalPages(len(datumInfos))
+		}
+		response.DatumInfos = datumInfos
+		return response, nil
 	}
 
 	// List the files under / to get all the datums
@@ -512,12 +577,12 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		Commit: jobInfo.StatsCommit,
 		Path:   "/",
 	}
-	allFileInfos, err := pfsClient.ListFile(ctx, &pfs.ListFileRequest{file})
+	allFileInfos, err := pfsClient.ListFile(ctx, &pfs.ListFileRequest{file, true})
 	if err != nil {
 		return nil, err
 	}
-	datums := make(map[string]*pps.DatumInfo)
 
+	var datumFileInfos []*pfs.FileInfo
 	// Omit files at the top level that correspond to aggregate job stats
 	blacklist := map[string]bool{
 		"stats": true,
@@ -531,26 +596,44 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		}
 		return datumHash, nil
 	}
+	for _, fileInfo := range allFileInfos.FileInfo {
+		if _, err := pathToDatumHash(fileInfo.File.Path); err != nil {
+			// not a datum
+			continue
+		}
+		datumFileInfos = append(datumFileInfos, fileInfo)
+	}
+	// Sort results (failed first)
+	sort.Sort(byDatumState(datumFileInfos))
+	if request.PageSize > 0 {
+		response.Page = request.Page
+		response.TotalPages = getTotalPages(len(datumFileInfos))
+		start, end, err := getPageBounds(len(datumFileInfos))
+		if err != nil {
+			return nil, err
+		}
+		datumFileInfos = datumFileInfos[start:end]
+	}
+
 	var egGetDatums errgroup.Group
 	limiter := limit.New(200)
-	var datumsMutex sync.Mutex
-	for _, fileInfo := range allFileInfos.FileInfo {
+	datumInfos := make([]*pps.DatumInfo, len(datumFileInfos))
+	for index, fileInfo := range datumFileInfos {
 		fileInfo := fileInfo
+		index := index
 		egGetDatums.Go(func() error {
 			limiter.Acquire()
 			defer limiter.Release()
 			datumHash, err := pathToDatumHash(fileInfo.File.Path)
 			if err != nil {
-				// not a datum, nothing to do here
+				// not a datum
 				return nil
 			}
 			datum, err := a.getDatum(ctx, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Job.ID, datumHash)
 			if err != nil {
 				return err
 			}
-			datumsMutex.Lock()
-			defer datumsMutex.Unlock()
-			datums[datumHash] = datum
+			datumInfos[index] = datum
 			return nil
 		})
 	}
@@ -559,34 +642,30 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		return nil, err
 	}
 
-	var datumInfos []*pps.DatumInfo
-	for datumHash, datum := range datums {
-		if _, ok := blacklist[datumHash]; ok {
-			// not a datum
-			continue
-		}
-		datumInfos = append(datumInfos, datum)
-	}
-
-	// Sort results (failed first, slow first)
-	sort.Sort(byDatumStateThenTime(datumInfos))
-
-	return &pps.DatumInfos{datumInfos}, nil
+	response.DatumInfos = datumInfos
+	return response, nil
 }
 
-type byDatumStateThenTime []*pps.DatumInfo
+type byDatumState []*pfs.FileInfo
 
-func (a byDatumStateThenTime) Len() int      { return len(a) }
-func (a byDatumStateThenTime) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a byDatumStateThenTime) Less(i, j int) bool {
-	byState := a[i].State < a[j].State
-	if a[i].State != a[j].State {
-		return byState
+func datumFileToState(f *pfs.FileInfo) pps.DatumState {
+	for _, childFileName := range f.Children {
+		if childFileName == "skipped" {
+			return pps.DatumState_SKIPPED
+		}
+		if childFileName == "failure" {
+			return pps.DatumState_FAILED
+		}
 	}
-	if a[i].Stats == nil || a[j].Stats == nil {
-		return byState
-	}
-	return client.GetDatumTotalTime(a[i].Stats) > client.GetDatumTotalTime(a[j].Stats)
+	return pps.DatumState_SUCCESS
+}
+
+func (a byDatumState) Len() int      { return len(a) }
+func (a byDatumState) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a byDatumState) Less(i, j int) bool {
+	iState := datumFileToState(a[i])
+	jState := datumFileToState(a[j])
+	return iState < jState
 }
 
 func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commit, jobID string, datumID string) (datumInfo *pps.DatumInfo, retErr error) {
@@ -612,7 +691,6 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 	_, err = pfsClient.InspectFile(ctx, &pfs.InspectFileRequest{stateFile})
 	if err == nil {
 		datumInfo.State = pps.DatumState_SKIPPED
-		// Datum wasn't added in this commit, so it was skipped
 		return datumInfo, nil
 	} else if !isNotFoundErr(err) {
 		return nil, err
