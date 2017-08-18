@@ -35,18 +35,22 @@ func (l *logger) Log(request interface{}, response interface{}, err error, durat
 	split := strings.Split(runtime.FuncForPC(pc[0]).Name(), ".")
 	method := split[len(split)-1]
 
+	var errString string
+	if err != nil {
+		errString = err.Error()
+	}
 	entry := l.WithFields(
 		logrus.Fields{
 			"method":   method,
 			"request":  request,
 			"response": response,
-			"error":    err,
+			"error":    errString,
 			"duration": duration,
 		},
 	)
 
 	if err != nil {
-		entry.Error(err)
+		entry.Error()
 	} else {
 		entry.Info()
 	}
