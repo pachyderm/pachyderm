@@ -243,6 +243,7 @@ enum ListFileMode {
 
 message ListFileRequest {
   File file = 1;
+  bool full = 2;
 }
 
 message GlobFileRequest {
