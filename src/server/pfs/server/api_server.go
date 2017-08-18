@@ -459,7 +459,7 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 		}
 	}(time.Now())
 
-	fileInfos, err := a.driver.listFile(ctx, request.File)
+	fileInfos, err := a.driver.listFile(ctx, request.File, request.Full)
 	if err != nil {
 		return nil, err
 	}
