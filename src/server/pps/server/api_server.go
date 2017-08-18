@@ -521,6 +521,9 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		return nil, err
 	}
 	pfsClient := pachClient.PfsAPIClient
+	getTotalPages := func(totalSize int) int64 {
+		return int64(math.Ceil(float64(totalSize) / float64(request.PageSize)))
+	}
 	getPageBounds := func(totalSize int) (int, int, error) {
 		start := int(request.Page * request.PageSize)
 		if start > totalSize-1 {
@@ -562,6 +565,8 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 				return nil, err
 			}
 			datumInfos = datumInfos[start:end]
+			response.Page = request.Page
+			response.TotalPages = getTotalPages(len(datumInfos))
 		}
 		response.DatumInfos = datumInfos
 		return response, nil
@@ -602,7 +607,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	sort.Sort(byDatumState(datumFileInfos))
 	if request.PageSize > 0 {
 		response.Page = request.Page
-		response.TotalPages = int64(math.Ceil(float64(len(datumFileInfos)) / float64(request.PageSize)))
+		response.TotalPages = getTotalPages(len(datumFileInfos))
 		start, end, err := getPageBounds(len(datumFileInfos))
 		if err != nil {
 			return nil, err
