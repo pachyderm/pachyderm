@@ -2,6 +2,7 @@ package worker
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -39,6 +40,17 @@ func newAtomDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pp
 			Branch:   input.Branch,
 		})
 	}
+	// We sort the inputs so that the order is deterministic. Note that it's
+	// not possible for 2 inputs to have the same path so this is guaranteed to
+	// produce a deterministic order.
+	sort.Slice(result.inputs, func(i, j int) bool {
+		// We sort by descending size first because it can boost performance to
+		// process the biggest datums first.
+		if result.inputs[i].FileInfo.SizeBytes != result.inputs[j].FileInfo.SizeBytes {
+			return result.inputs[i].FileInfo.SizeBytes > result.inputs[j].FileInfo.SizeBytes
+		}
+		return result.inputs[i].FileInfo.File.Path < result.inputs[j].FileInfo.File.Path
+	})
 	return result, nil
 }
 
