@@ -2057,12 +2057,15 @@ func TestPipelineEnv(t *testing.T) {
 					"ls /var/secret",
 					"cat /var/secret/foo > /pfs/out/foo",
 					"echo $bar> /pfs/out/bar",
+					"echo $foo> /pfs/out/foo_env",
 				},
 				Env: map[string]string{"bar": "bar"},
 				Secrets: []*pps.Secret{
 					{
 						Name:      secretName,
+						Key:       "foo",
 						MountPath: "/var/secret",
+						EnvVar:    "foo",
 					},
 				},
 			},
@@ -2088,7 +2091,10 @@ func TestPipelineEnv(t *testing.T) {
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "foo", 0, 0, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
-	buffer = bytes.Buffer{}
+	buffer.Reset()
+	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "foo_env", 0, 0, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+	buffer.Reset()
 	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "bar", 0, 0, &buffer))
 	require.Equal(t, "bar\n", buffer.String())
 }
