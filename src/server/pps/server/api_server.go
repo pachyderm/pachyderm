@@ -540,8 +540,19 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		if err != nil {
 			return nil, err
 		}
+		start := 0
+		end := df.Len()
+		if request.PageSize > 0 {
+			var err error
+			start, end, err = getPageBounds(df.Len())
+			if err != nil {
+				return nil, err
+			}
+			response.Page = request.Page
+			response.TotalPages = getTotalPages(df.Len())
+		}
 		var datumInfos []*pps.DatumInfo
-		for i := 0; i < df.Len(); i++ {
+		for i := start; i < end; i++ {
 			datum := df.Datum(i)
 			id := workerpkg.HashDatum(jobInfo.Pipeline.Name, jobInfo.Salt, datum)
 			datumInfo := &pps.DatumInfo{
@@ -558,15 +569,6 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 				})
 			}
 			datumInfos = append(datumInfos, datumInfo)
-		}
-		if request.PageSize > 0 {
-			start, end, err := getPageBounds(len(datumInfos))
-			if err != nil {
-				return nil, err
-			}
-			datumInfos = datumInfos[start:end]
-			response.Page = request.Page
-			response.TotalPages = getTotalPages(len(datumInfos))
 		}
 		response.DatumInfos = datumInfos
 		return response, nil
