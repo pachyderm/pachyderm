@@ -218,10 +218,8 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 	var whoAmI *auth.WhoAmIResponse
 	var authErr error
 	if update {
-		// We can't require the caller to be an OWNER to update the provenance,
-		// because we must do this every time UpdatePipeline is called, and a user
-		// only needs to be a WRITER of this repo to update the pipeline that feeds
-		// into it
+		// Caller only neads to be a WRITER to call UpdatePipeline(). Therefore
+		// caller only needs to be a WRITER to update the provenance.
 		if err := d.checkIsAuthorized(ctx, repo, auth.Scope_WRITER); err != nil {
 			return err
 		}
