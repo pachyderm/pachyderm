@@ -897,11 +897,20 @@ func TestDeletePipeline(t *testing.T) {
 	// alice deletes the pipeline
 	require.NoError(t, alice.DeletePipeline(pipeline, true))
 
+	// alice deletes the output repo
+	require.NoError(t, alice.DeleteRepo(pipeline, false))
+
+	// Make sure the repo's ACL is gone
+	_, err := alice.AuthAPIClient.GetACL(alice.Ctx(), &auth.GetACLRequest{
+		Repo: pipeline,
+	})
+	require.YesError(t, err)
+
 	// alice deletes the input repo
 	require.NoError(t, alice.DeleteRepo(repo, false))
 
 	// Make sure the repo's ACL is gone
-	_, err := alice.AuthAPIClient.GetACL(alice.Ctx(), &auth.GetACLRequest{
+	_, err = alice.AuthAPIClient.GetACL(alice.Ctx(), &auth.GetACLRequest{
 		Repo: repo,
 	})
 	require.YesError(t, err)
