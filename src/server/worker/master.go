@@ -81,7 +81,7 @@ func (a *APIServer) master() {
 	// to restart.
 	b.InitialInterval = 5 * time.Second
 	backoff.RetryNotify(func() error {
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(a.pachClient.AddMetadata(context.Background()))
 		defer cancel()
 
 		ctx, err := masterLock.Lock(ctx)
