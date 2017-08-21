@@ -250,8 +250,8 @@ func (c *APIClient) connect() error {
 func (c *APIClient) AddMetadata(ctx context.Context) context.Context {
 	// TODO(msteffen): There are several places in this client where it's possible
 	// to set per-request metadata (specifically auth tokens): client.WithCtx(),
-	// client.SetAuthToken(), etc. These should be consolidated, as right now it's
-	// not obvious how they're resolved when they conflict.
+	// client.SetAuthToken(), etc. These should be consolidated, as this API
+	// doesn't make it obvious how these settings are resolved when they conflict.
 	clientData := make(map[string]string)
 	if c.authenticationToken != "" {
 		clientData[auth.ContextTokenKey] = c.authenticationToken
