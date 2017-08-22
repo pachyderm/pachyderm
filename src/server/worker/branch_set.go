@@ -54,39 +54,32 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (_ branchSetFactor
 		}
 	}()
 	pachClient := a.pachClient.WithCtx(ctx)
-	pfsClient := a.pachClient.PfsAPIClient
 
 	result := &branchSetFactoryImpl{
 		cancel: cancel,
 		ch:     make(chan *branchSet),
 	}
 	var err error
-	result.rootInputs, err = a.rootInputs(ctx)
+	result.rootInputs, err = a.rootInputs(pachClient)
 	if err != nil {
 		return nil, err
 	}
-	result.directInputs = a.directInputs(ctx)
+	result.directInputs = a.directInputs()
 	result.commitSets = make([][]*pfs.CommitInfo, len(result.directInputs))
 
 	for i, input := range result.directInputs {
 		i, input := i, input
 
 		if input.Atom != nil {
-			request := &pfs.SubscribeCommitRequest{
-				Repo:   client.NewRepo(input.Atom.Repo),
-				Branch: input.Atom.Branch,
-			}
-			if input.Atom.FromCommit != "" {
-				request.From = client.NewCommit(input.Atom.Repo, input.Atom.FromCommit)
-			}
-			stream, err := pfsClient.SubscribeCommit(ctx, request)
+			iter, err := pachClient.SubscribeCommit(
+				input.Atom.Repo, input.Atom.Branch, input.Atom.FromCommit)
 			if err != nil {
 				return nil, err
 			}
 
 			go func() {
 				for {
-					commitInfo, err := stream.Recv()
+					commitInfo, err := iter.Next()
 					if err != nil {
 						select {
 						case <-ctx.Done():
@@ -97,7 +90,6 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (_ branchSetFactor
 						}
 						return
 					}
-
 					result.sendBranchSet(ctx, i, commitInfo)
 				}
 			}()
@@ -269,7 +261,7 @@ func findCommitSet(commitSets [][]*pfs.CommitInfo, i int, f func(commitSet []*pf
 
 // directInputs returns the inputs that should trigger the pipeline.  Inputs
 // from the same repo/branch are de-duplicated.
-func (a *APIServer) directInputs(ctx context.Context) []*pps.Input {
+func (a *APIServer) directInputs() []*pps.Input {
 	repoSet := make(map[string]bool)
 	var result []*pps.Input
 	pps.VisitInput(a.pipelineInfo.Input, func(input *pps.Input) {
@@ -288,20 +280,18 @@ func (a *APIServer) directInputs(ctx context.Context) []*pps.Input {
 }
 
 // rootInputs returns the root provenance of direct inputs.
-func (a *APIServer) rootInputs(ctx context.Context) ([]*pps.Input, error) {
-	atomInputs := a.directInputs(ctx)
-	return a._rootInputs(ctx, atomInputs)
+func (a *APIServer) rootInputs(c *client.APIClient) ([]*pps.Input, error) {
+	atomInputs := a.directInputs()
+	return a._rootInputs(c, atomInputs)
 }
 
-func (a *APIServer) _rootInputs(ctx context.Context, inputs []*pps.Input) ([]*pps.Input, error) {
-	pfsClient := a.pachClient.PfsAPIClient
-	ppsClient := a.pachClient.PpsAPIClient
+func (a *APIServer) _rootInputs(c *client.APIClient, inputs []*pps.Input) ([]*pps.Input, error) {
 	// map from repo.Name + branch to *pps.AtomInput so that we don't
 	// repeat ourselves.
 	resultMap := make(map[string]*pps.Input)
 	for _, input := range inputs {
 		if input.Atom != nil {
-			repoInfo, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{client.NewRepo(input.Atom.Repo)})
+			repoInfo, err := c.InspectRepo(input.Atom.Repo)
 			if err != nil {
 				return nil, err
 			}
@@ -310,7 +300,7 @@ func (a *APIServer) _rootInputs(ctx context.Context, inputs []*pps.Input) ([]*pp
 				continue
 			}
 			// if the repo has nonzero provenance we know that it's a pipeline
-			pipelineInfo, err := ppsClient.InspectPipeline(ctx, &pps.InspectPipelineRequest{client.NewPipeline(input.Atom.Repo)})
+			pipelineInfo, err := c.InspectPipeline(input.Atom.Repo)
 			if err != nil {
 				return nil, err
 			}
@@ -318,7 +308,7 @@ func (a *APIServer) _rootInputs(ctx context.Context, inputs []*pps.Input) ([]*pp
 			var visitErr error
 			pps.VisitInput(pipelineInfo.Input, func(visitInput *pps.Input) {
 				if input.Atom != nil {
-					subResults, err := a._rootInputs(ctx, []*pps.Input{visitInput})
+					subResults, err := a._rootInputs(c, []*pps.Input{visitInput})
 					if err != nil && visitErr == nil {
 						visitErr = err
 					}

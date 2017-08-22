@@ -8,12 +8,15 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 )
 
 const testActivationCode = `eyJ0b2tlbiI6IntcImV4cGlyeVwiOlwiMjAyNy0wNy0xMlQwM` +
@@ -64,10 +67,17 @@ func getPachClient(t testing.TB, u user) *client.APIClient {
 			clientMap[""] = seedClient
 
 			// Since this is the first auth client, also activate the auth service
-			seedClient.Activate(context.Background(), &auth.ActivateRequest{
-				ActivationCode: testActivationCode,
-				Admins:         []string{"admin"},
-			})
+			backoff.Retry(func() error {
+				_, err = seedClient.Activate(context.Background(),
+					&auth.ActivateRequest{
+						ActivationCode: testActivationCode,
+						Admins:         []string{"admin"},
+					})
+				if err != nil && !strings.HasSuffix(err.Error(), "already activated") {
+					return fmt.Errorf("could not activate auth service: %s", err.Error())
+				}
+				return nil
+			}, backoff.NewTestingBackOff())
 		}
 
 		// Re-use old client for 'u', or create a new one if none exists
@@ -429,8 +439,8 @@ func TestCreatePipeline(t *testing.T) {
 			[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", args.repo)},
 			&pps.ParallelismSpec{Constant: 1},
 			client.NewAtomInput(args.repo, "/*"),
-			"",    // default output branch: master
-			false, // new pipeline, don't update
+			"", // default output branch: master
+			args.update,
 		)
 	}
 	alice := getPachClient(t, "alice")
@@ -450,11 +460,24 @@ func TestCreatePipeline(t *testing.T) {
 	}))
 	require.OneOfEquals(t, pipelineName, PipelineNames(t, alice))
 	require.Equal(t, acl("alice", "owner"), GetACL(t, alice, pipelineName)) // check that alice owns the output repo too
-	// TODO(msteffen): check that the pipeline runs successfully
+
+	// Make sure alice's pipeline runs successfully
+	commit, err := alice.StartCommit(dataRepo, "master")
+	_, err = alice.PutFile(dataRepo, commit.ID, uniqueString("/file"),
+		strings.NewReader("test data"))
+	require.NoError(t, err)
+	require.NoError(t, alice.FinishCommit(dataRepo, commit.ID))
+	iter, err := alice.FlushCommit(
+		[]*pfs.Commit{commit},
+		[]*pfs.Repo{{Name: pipelineName}},
+	)
+	require.NoError(t, err)
+	_, err = iter.Next()
+	require.NoError(t, err)
 
 	// bob can't create a pipeline
 	badPipeline := uniqueString("bob-bad")
-	err := createPipeline(createArgs{
+	err = createPipeline(createArgs{
 		client: bob,
 		name:   badPipeline,
 		repo:   dataRepo,
@@ -480,4 +503,409 @@ func TestCreatePipeline(t *testing.T) {
 	}))
 	require.OneOfEquals(t, goodPipeline, PipelineNames(t, alice))
 	require.Equal(t, acl("bob", "owner"), GetACL(t, bob, goodPipeline)) // check that bob owns the output repo too
+
+	// Make sure bob's pipeline runs successfully
+	commit, err = alice.StartCommit(dataRepo, "master")
+	_, err = alice.PutFile(dataRepo, commit.ID, uniqueString("/file"),
+		strings.NewReader("test data"))
+	require.NoError(t, err)
+	require.NoError(t, alice.FinishCommit(dataRepo, commit.ID))
+	iter, err = bob.FlushCommit(
+		[]*pfs.Commit{commit},
+		[]*pfs.Repo{{Name: goodPipeline}},
+	)
+	require.NoError(t, err)
+	_, err = iter.Next()
+	require.NoError(t, err)
+
+	// bob can't update alice's pipeline
+	infoBefore, err := alice.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+	err = createPipeline(createArgs{client: bob,
+		name:   pipelineName,
+		repo:   dataRepo,
+		update: true,
+	})
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+	infoAfter, err := alice.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+	require.Equal(t, infoBefore.Version, infoAfter.Version)
+
+	// alice adds bob as a writer of the output repo
+	_, err = alice.SetScope(alice.Ctx(), &auth.SetScopeRequest{
+		Repo:     pipelineName,
+		Username: "bob",
+		Scope:    auth.Scope_WRITER,
+	})
+	require.NoError(t, err)
+
+	// now bob can update alice's pipeline
+	infoBefore, err = alice.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+	err = createPipeline(createArgs{client: bob,
+		name:   pipelineName,
+		repo:   dataRepo,
+		update: true,
+	})
+	require.NoError(t, err)
+	infoAfter, err = alice.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+	require.NotEqual(t, infoBefore.Version, infoAfter.Version)
+
+	// Make sure the updated pipeline runs successfully
+	commit, err = alice.StartCommit(dataRepo, "master")
+	_, err = alice.PutFile(dataRepo, commit.ID, uniqueString("/file"),
+		strings.NewReader("test data"))
+	require.NoError(t, err)
+	require.NoError(t, alice.FinishCommit(dataRepo, commit.ID))
+	iter, err = bob.FlushCommit(
+		[]*pfs.Commit{commit},
+		[]*pfs.Repo{{Name: pipelineName}},
+	)
+	require.NoError(t, err)
+	_, err = iter.Next()
+	require.NoError(t, err)
+
+}
+
+func TestPipelineMultipleInputs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	type createArgs struct {
+		client *client.APIClient
+		name   string
+		input  *pps.Input
+		update bool
+	}
+	createPipeline := func(args createArgs) error {
+		return args.client.CreatePipeline(
+			args.name,
+			"", // default image: ubuntu:14.04
+			[]string{"bash"},
+			[]string{"echo \"work\" >/pfs/out/x"},
+			&pps.ParallelismSpec{Constant: 1},
+			args.input,
+			"", // default output branch: master
+			args.update,
+		)
+	}
+	alice := getPachClient(t, "alice")
+	bob := getPachClient(t, "bob")
+
+	// create two repos, and check that alice is the owner of the new repos
+	dataRepo1 := uniqueString("TestPipelineMultipleInputs")
+	dataRepo2 := uniqueString("TestPipelineMultipleInputs")
+	require.NoError(t, alice.CreateRepo(dataRepo1))
+	require.NoError(t, alice.CreateRepo(dataRepo2))
+	require.Equal(t, acl("alice", "owner"), GetACL(t, alice, dataRepo1))
+	require.Equal(t, acl("alice", "owner"), GetACL(t, alice, dataRepo2))
+
+	// alice can create a cross-pipeline with both inputs
+	aliceCrossPipeline := uniqueString("alice-pipeline-cross")
+	require.NoError(t, createPipeline(createArgs{
+		client: alice,
+		name:   aliceCrossPipeline,
+		input: client.NewCrossInput(
+			client.NewAtomInput(dataRepo1, "/*"),
+			client.NewAtomInput(dataRepo2, "/*"),
+		),
+	}))
+	require.OneOfEquals(t, aliceCrossPipeline, PipelineNames(t, alice))
+	require.Equal(t, acl("alice", "owner"), GetACL(t, alice, aliceCrossPipeline)) // check that alice owns the output repo too
+
+	// alice can create a union-pipeline with both inputs
+	aliceUnionPipeline := uniqueString("alice-pipeline-union")
+	require.NoError(t, createPipeline(createArgs{
+		client: alice,
+		name:   aliceUnionPipeline,
+		input: client.NewUnionInput(
+			client.NewAtomInput(dataRepo1, "/*"),
+			client.NewAtomInput(dataRepo2, "/*"),
+		),
+	}))
+	require.OneOfEquals(t, aliceUnionPipeline, PipelineNames(t, alice))
+	require.Equal(t, acl("alice", "owner"), GetACL(t, alice, aliceUnionPipeline)) // check that alice owns the output repo too
+
+	// alice adds bob as a reader of one of the input repos, but not the other
+	_, err := alice.SetScope(alice.Ctx(), &auth.SetScopeRequest{
+		Repo:     dataRepo1,
+		Username: "bob",
+		Scope:    auth.Scope_READER,
+	})
+	require.NoError(t, err)
+
+	// bob cannot create a cross-pipeline with both inputs
+	bobCrossPipeline := uniqueString("bob-pipeline-cross")
+	err = createPipeline(createArgs{
+		client: bob,
+		name:   bobCrossPipeline,
+		input: client.NewCrossInput(
+			client.NewAtomInput(dataRepo1, "/*"),
+			client.NewAtomInput(dataRepo2, "/*"),
+		),
+	})
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+	require.NoneEquals(t, bobCrossPipeline, PipelineNames(t, alice))
+
+	// bob cannot create a union-pipeline with both inputs
+	bobUnionPipeline := uniqueString("bob-pipeline-union")
+	err = createPipeline(createArgs{
+		client: bob,
+		name:   bobUnionPipeline,
+		input: client.NewUnionInput(
+			client.NewAtomInput(dataRepo1, "/*"),
+			client.NewAtomInput(dataRepo2, "/*"),
+		),
+	})
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+	require.NoneEquals(t, bobUnionPipeline, PipelineNames(t, alice))
+
+	// alice adds bob as a writer of her pipeline's output
+	_, err = alice.SetScope(alice.Ctx(), &auth.SetScopeRequest{
+		Repo:     aliceCrossPipeline,
+		Username: "bob",
+		Scope:    auth.Scope_WRITER,
+	})
+	require.NoError(t, err)
+
+	// bob can update alice's pipeline if he removes one of the inputs
+	infoBefore, err := alice.InspectPipeline(aliceCrossPipeline)
+	require.NoError(t, createPipeline(createArgs{
+		client: bob,
+		name:   aliceCrossPipeline,
+		input: client.NewCrossInput(
+			// This cross input deliberately only has one element, to make sure it's
+			// not simply rejected for having a cross input
+			client.NewAtomInput(dataRepo1, "/*"),
+		),
+		update: true,
+	}))
+	infoAfter, err := alice.InspectPipeline(aliceCrossPipeline)
+	require.NoError(t, err)
+	require.NotEqual(t, infoBefore.Version, infoAfter.Version)
+
+	// bob cannot update alice's to put the second input back
+	infoBefore, err = alice.InspectPipeline(aliceCrossPipeline)
+	err = createPipeline(createArgs{
+		client: bob,
+		name:   aliceCrossPipeline,
+		input: client.NewCrossInput(
+			client.NewAtomInput(dataRepo1, "/*"),
+			client.NewAtomInput(dataRepo2, "/*"),
+		),
+		update: true,
+	})
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+	infoAfter, err = alice.InspectPipeline(aliceCrossPipeline)
+	require.NoError(t, err)
+	require.Equal(t, infoBefore.Version, infoAfter.Version)
+
+	// alice adds bob as a reader of the second input
+	_, err = alice.SetScope(alice.Ctx(), &auth.SetScopeRequest{
+		Repo:     dataRepo2,
+		Username: "bob",
+		Scope:    auth.Scope_READER,
+	})
+	require.NoError(t, err)
+
+	// bob can now update alice's to put the second input back
+	infoBefore, err = alice.InspectPipeline(aliceCrossPipeline)
+	require.NoError(t, createPipeline(createArgs{
+		client: bob,
+		name:   aliceCrossPipeline,
+		input: client.NewCrossInput(
+			client.NewAtomInput(dataRepo1, "/*"),
+			client.NewAtomInput(dataRepo2, "/*"),
+		),
+		update: true,
+	}))
+	infoAfter, err = alice.InspectPipeline(aliceCrossPipeline)
+	require.NoError(t, err)
+	require.NotEqual(t, infoBefore.Version, infoAfter.Version)
+
+	// bob can create a cross-pipeline with both inputs
+	require.NoError(t, createPipeline(createArgs{
+		client: bob,
+		name:   bobCrossPipeline,
+		input: client.NewCrossInput(
+			client.NewAtomInput(dataRepo1, "/*"),
+			client.NewAtomInput(dataRepo2, "/*"),
+		),
+	}))
+	require.OneOfEquals(t, bobCrossPipeline, PipelineNames(t, alice))
+
+	// bob can create a union-pipeline with both inputs
+	require.NoError(t, createPipeline(createArgs{
+		client: bob,
+		name:   bobUnionPipeline,
+		input: client.NewUnionInput(
+			client.NewAtomInput(dataRepo1, "/*"),
+			client.NewAtomInput(dataRepo2, "/*"),
+		),
+	}))
+	require.OneOfEquals(t, bobUnionPipeline, PipelineNames(t, alice))
+
+}
+
+func TestPipelineRevoke(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	alice := getPachClient(t, "alice")
+	alice.AddMetadata(context.Background())
+	bob := getPachClient(t, "bob")
+
+	// alice creates a repo, and adds bob as a reader
+	repo := uniqueString("TestPipelineRevoke")
+	require.NoError(t, alice.CreateRepo(repo))
+	_, err := alice.SetScope(alice.Ctx(), &auth.SetScopeRequest{
+		Repo:     repo,
+		Username: "bob",
+		Scope:    auth.Scope_READER,
+	})
+	require.NoError(t, err)
+	require.Equal(t, acl("alice", "owner", "bob", "reader"), GetACL(t, alice, repo))
+
+	// bob creates a pipeline
+	pipeline := uniqueString("bob-pipeline")
+	require.NoError(t, bob.CreatePipeline(
+		pipeline,
+		"", // default image: ubuntu:14.04
+		[]string{"bash"},
+		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewAtomInput(repo, "/*"),
+		"", // default output branch: master
+		false,
+	))
+	require.Equal(t, acl("bob", "owner"), GetACL(t, bob, pipeline))
+
+	// alice commits to the input repo, and the pipeline runs successfully
+	commit, err := alice.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = alice.PutFile(repo, commit.ID, "/file1", strings.NewReader("test"))
+	require.NoError(t, err)
+	require.NoError(t, alice.FinishCommit(repo, commit.ID))
+	iter, err := bob.FlushCommit(
+		[]*pfs.Commit{commit},
+		[]*pfs.Repo{{Name: pipeline}},
+	)
+	require.NoError(t, err)
+	_, err = iter.Next()
+	require.NoError(t, err)
+
+	// alice removes bob as a reader of her repo
+	_, err = alice.SetScope(alice.Ctx(), &auth.SetScopeRequest{
+		Repo:     repo,
+		Username: "bob",
+		Scope:    auth.Scope_NONE,
+	})
+	require.NoError(t, err)
+	require.Equal(t, acl("alice", "owner"), GetACL(t, alice, repo))
+
+	// alice commits to the input repo, and bob's pipeline does not run
+	commit, err = alice.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = alice.PutFile(repo, commit.ID, "/file1", strings.NewReader("test"))
+	require.NoError(t, err)
+	require.NoError(t, alice.FinishCommit(repo, commit.ID))
+
+	doneCh := make(chan struct{})
+	go func() {
+		iter, err = alice.FlushCommit(
+			[]*pfs.Commit{commit},
+			[]*pfs.Repo{{Name: pipeline}},
+		)
+		require.NoError(t, err)
+		_, err = iter.Next()
+		require.NoError(t, err)
+		close(doneCh)
+	}()
+	select {
+	case <-doneCh:
+		t.Fatal("pipeline should not be able to finish with no access")
+	case <-time.Tick(30 * time.Second):
+	}
+
+	// alice updates bob's pipline, and now it runs
+	_, err = bob.SetScope(bob.Ctx(), &auth.SetScopeRequest{
+		Repo:     pipeline,
+		Username: "alice",
+		Scope:    auth.Scope_WRITER,
+	})
+	require.NoError(t, err)
+	require.Equal(t, acl("bob", "owner", "alice", "writer"), GetACL(t, bob, pipeline))
+	require.NoError(t, alice.CreatePipeline(
+		pipeline,
+		"", // default image: ubuntu:14.04
+		[]string{"bash"},
+		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewAtomInput(repo, "/*"),
+		"", // default output branch: master
+		true,
+	))
+
+	// Pipeline now finishes successfully
+	iter, err = alice.FlushCommit(
+		[]*pfs.Commit{commit},
+		[]*pfs.Repo{{Name: pipeline}},
+	)
+	require.NoError(t, err)
+	_, err = iter.Next()
+	require.NoError(t, err)
+}
+
+func TestDeletePipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	alice := getPachClient(t, "alice")
+
+	// alice creates a repo
+	repo := uniqueString("TestPipelineRevoke")
+	require.NoError(t, alice.CreateRepo(repo))
+	require.Equal(t, acl("alice", "owner"), GetACL(t, alice, repo))
+
+	// alice creates a pipeline
+	pipeline := uniqueString("alice-pipeline")
+	require.NoError(t, alice.CreatePipeline(
+		pipeline,
+		"", // default image: ubuntu:14.04
+		[]string{"bash"},
+		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewAtomInput(repo, "/*"),
+		"", // default output branch: master
+		false,
+	))
+
+	// alice deletes the pipeline
+	require.NoError(t, alice.DeletePipeline(pipeline, true))
+
+	// alice deletes the output repo
+	require.NoError(t, alice.DeleteRepo(pipeline, false))
+
+	// Make sure the repo's ACL is gone
+	_, err := alice.AuthAPIClient.GetACL(alice.Ctx(), &auth.GetACLRequest{
+		Repo: pipeline,
+	})
+	require.YesError(t, err)
+
+	// alice deletes the input repo
+	require.NoError(t, alice.DeleteRepo(repo, false))
+
+	// Make sure the repo's ACL is gone
+	_, err = alice.AuthAPIClient.GetACL(alice.Ctx(), &auth.GetACLRequest{
+		Repo: repo,
+	})
+	require.YesError(t, err)
 }
