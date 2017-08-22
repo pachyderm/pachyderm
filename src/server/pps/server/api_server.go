@@ -563,10 +563,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 				State: pps.DatumState_STARTING,
 			}
 			for _, input := range datum {
-				datumInfo.Data = append(datumInfo.Data, &pps.InputFile{
-					Path: input.FileInfo.File.Path,
-					Hash: input.FileInfo.Hash,
-				})
+				datumInfo.Data = append(datumInfo.Data, input.FileInfo)
 			}
 			datumInfos = append(datumInfos, datumInfo)
 		}

@@ -128,7 +128,7 @@ message DatumInfo {
   DatumState state = 2;
   ProcessStats stats = 3;
   pfs.File pfs_state = 4;
-  repeated InputFile data = 5;
+  repeated pfs.FileInfo data = 5;
 }
 
 message DatumInfos {
