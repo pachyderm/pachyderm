@@ -816,6 +816,7 @@ func TestPipelineRevoke(t *testing.T) {
 	_, err = alice.PutFile(repo, commit.ID, "/file1", strings.NewReader("test"))
 	require.NoError(t, err)
 	require.NoError(t, alice.FinishCommit(repo, commit.ID))
+
 	doneCh := make(chan struct{})
 	go func() {
 		iter, err = alice.FlushCommit(
@@ -851,22 +852,15 @@ func TestPipelineRevoke(t *testing.T) {
 		"", // default output branch: master
 		true,
 	))
-	doneCh = make(chan struct{})
-	go func() {
-		iter, err = alice.FlushCommit(
-			[]*pfs.Commit{commit},
-			[]*pfs.Repo{{Name: pipeline}},
-		)
-		require.NoError(t, err)
-		_, err = iter.Next()
-		require.NoError(t, err)
-		close(doneCh)
-	}()
-	select {
-	case <-doneCh:
-	case <-time.Tick(30 * time.Second):
-		t.Fatal("pipeline should be able to finish")
-	}
+
+	// Pipeline now finishes successfully
+	iter, err = alice.FlushCommit(
+		[]*pfs.Commit{commit},
+		[]*pfs.Repo{{Name: pipeline}},
+	)
+	require.NoError(t, err)
+	_, err = iter.Next()
+	require.NoError(t, err)
 }
 
 func TestDeletePipeline(t *testing.T) {
