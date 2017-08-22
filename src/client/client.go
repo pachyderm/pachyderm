@@ -245,29 +245,37 @@ func (c *APIClient) connect() error {
 }
 
 // AddMetadata adds necessary metadata (including authentication credentials)
-// to the context 'ctx'
+// to the context 'ctx', preserving any metadata that is present in either the
+// incoming or outgoing metadata of 'ctx'.
 func (c *APIClient) AddMetadata(ctx context.Context) context.Context {
-	// TODO(msteffen): this doesn't make sense outside the pachctl CLI
-	// (e.g. pachd making requests to the auth API) because the user's
-	// authentication token is fixed in the client. See Ctx()
-
+	// TODO(msteffen): There are several places in this client where it's possible
+	// to set per-request metadata (specifically auth tokens): client.WithCtx(),
+	// client.SetAuthToken(), etc. These should be consolidated, as this API
+	// doesn't make it obvious how these settings are resolved when they conflict.
+	clientData := make(map[string]string)
+	if c.authenticationToken != "" {
+		clientData[auth.ContextTokenKey] = c.authenticationToken
+	}
 	// metadata API downcases all the key names
 	if c.metricsUserID != "" {
-		ctx = metadata.NewOutgoingContext(
-			ctx,
-			metadata.Pairs(
-				"userid", c.metricsUserID,
-				"prefix", c.metricsPrefix,
-			),
-		)
+		clientData["userid"] = c.metricsUserID
+		clientData["prefix"] = c.metricsPrefix
 	}
 
-	return metadata.NewOutgoingContext(
-		ctx,
-		metadata.Pairs(
-			auth.ContextTokenKey, c.authenticationToken,
-		),
-	)
+	// Rescue any metadata pairs already in 'ctx' (otherwise
+	// metadata.NewOutgoingContext() would drop them). Note that this is similar
+	// to metadata.Join(), but distinct because it discards conflicting k/v pairs
+	// instead of merging them)
+	incomingMD, _ := metadata.FromIncomingContext(ctx)
+	outgoingMD, _ := metadata.FromOutgoingContext(ctx)
+	clientMD := metadata.New(clientData)
+	finalMD := make(metadata.MD) // Collect k/v pairs
+	for _, md := range []metadata.MD{incomingMD, outgoingMD, clientMD} {
+		for k, v := range md {
+			finalMD[k] = v
+		}
+	}
+	return metadata.NewOutgoingContext(ctx, finalMD)
 }
 
 // Ctx is a convenience function that returns adds Pachyderm authn metadata

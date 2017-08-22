@@ -29,6 +29,7 @@ import (
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
@@ -145,7 +146,7 @@ func (a *APIServer) getTaggedLogger(ctx context.Context, req *ProcessRequest) (*
 	// the statsTree
 	result.template.InputFileID = hex.EncodeToString(hash.Sum(nil))
 	if req.EnableStats {
-		putObjClient, err := a.pachClient.ObjectAPIClient.PutObject(ctx)
+		putObjClient, err := a.pachClient.ObjectAPIClient.PutObject(auth.In2Out(ctx))
 		if err != nil {
 			return nil, err
 		}
@@ -451,7 +452,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, lo
 								return nil
 							}
 
-							fileInfo, err := a.pachClient.PfsAPIClient.InspectFile(ctx, &pfs.InspectFileRequest{
+							fileInfo, err := a.pachClient.PfsAPIClient.InspectFile(auth.In2Out(ctx), &pfs.InspectFileRequest{
 								File: &pfs.File{
 									Commit: input.FileInfo.File.Commit,
 									Path:   pfsPath,
@@ -485,7 +486,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, lo
 				}
 			}()
 
-			putObjClient, err := a.pachClient.ObjectAPIClient.PutObject(ctx)
+			putObjClient, err := a.pachClient.ObjectAPIClient.PutObject(auth.In2Out(ctx))
 			if err != nil {
 				return err
 			}
@@ -611,13 +612,13 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	var object *pfs.Object
 	var eg errgroup.Group
 	eg.Go(func() error {
-		if _, err := a.pachClient.InspectTag(ctx, &pfs.Tag{tag}); err == nil {
+		if _, err := a.pachClient.InspectTag(auth.In2Out(ctx), &pfs.Tag{tag}); err == nil {
 			foundTag = true
 		}
 		return nil
 	})
 	eg.Go(func() error {
-		if objectInfo, err := a.pachClient.InspectTag(ctx, &pfs.Tag{tag15}); err == nil {
+		if objectInfo, err := a.pachClient.InspectTag(auth.In2Out(ctx), &pfs.Tag{tag15}); err == nil {
 			foundTag15 = true
 			object = objectInfo.Object
 		}
@@ -631,15 +632,17 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		statsTag = &pfs.Tag{tag + statsTagSuffix}
 	}
 	if foundTag15 && !foundTag {
-		if _, err := a.pachClient.ObjectAPIClient.TagObject(ctx, &pfs.TagObjectRequest{
-			Object: object,
-			Tags:   []*pfs.Tag{&pfs.Tag{tag}},
-		}); err != nil {
+		if _, err := a.pachClient.ObjectAPIClient.TagObject(auth.In2Out(ctx),
+			&pfs.TagObjectRequest{
+				Object: object,
+				Tags:   []*pfs.Tag{&pfs.Tag{tag}},
+			}); err != nil {
 			return nil, err
 		}
-		if _, err := a.pachClient.ObjectAPIClient.DeleteTags(ctx, &pfs.DeleteTagsRequest{
-			Tags: []string{tag15},
-		}); err != nil {
+		if _, err := a.pachClient.ObjectAPIClient.DeleteTags(auth.In2Out(ctx),
+			&pfs.DeleteTagsRequest{
+				Tags: []string{tag15},
+			}); err != nil {
 			return nil, err
 		}
 	}

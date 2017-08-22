@@ -163,7 +163,7 @@ func (a *apiServer) validateInput(ctx context.Context, pipelineName string, inpu
 	if err := validateNames(make(map[string]bool), input); err != nil {
 		return err
 	}
-	pachClient = pachClient.WithCtx(ctx)
+	pachClient = pachClient.WithCtx(ctx) // pachClient will propagate auth info
 	repoBranch := make(map[string]string)
 	var result error
 	pps.VisitInput(input, func(input *pps.Input) {
@@ -1177,7 +1177,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 		// Revoke the old capability
 		if oldPipelineInfo.Capability != "" {
-			if _, err := authClient.RevokeAuthToken(ctx, &auth.RevokeAuthTokenRequest{
+			if _, err := authClient.RevokeAuthToken(auth.In2Out(ctx), &auth.RevokeAuthTokenRequest{
 				Token: oldPipelineInfo.Capability,
 			}); err != nil && !auth.IsNotActivatedError(err) {
 				return nil, fmt.Errorf("error revoking old capability: %v", err)
@@ -1406,7 +1406,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		if err != nil {
 			return nil, fmt.Errorf("error dialing auth client: %v", authClient)
 		}
-		if _, err := authClient.RevokeAuthToken(ctx, &auth.RevokeAuthTokenRequest{
+		if _, err := authClient.RevokeAuthToken(auth.In2Out(ctx), &auth.RevokeAuthTokenRequest{
 			Token: pipelineInfo.Capability,
 		}); err != nil && !auth.IsNotActivatedError(err) {
 			return nil, fmt.Errorf("error revoking old capability: %v", err)
