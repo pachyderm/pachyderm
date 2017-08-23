@@ -740,6 +740,81 @@ func TestStartCommitWithUnfinishedParent(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestAncestrySyntax(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit1, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit1.ID, "1", strings.NewReader("1"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	commit2, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit2.ID, "2", strings.NewReader("2"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit2.ID))
+
+	commit3, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit3.ID, "3", strings.NewReader("3"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit3.ID))
+
+	commitInfo, err := client.InspectCommit(repo, "master^")
+	require.NoError(t, err)
+	require.Equal(t, commit2, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master~")
+	require.NoError(t, err)
+	require.Equal(t, commit2, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master^1")
+	require.NoError(t, err)
+	require.Equal(t, commit2, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master~1")
+	require.NoError(t, err)
+	require.Equal(t, commit2, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master^^")
+	require.NoError(t, err)
+	require.Equal(t, commit1, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master~~")
+	require.NoError(t, err)
+	require.Equal(t, commit1, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master^2")
+	require.NoError(t, err)
+	require.Equal(t, commit1, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master~2")
+	require.NoError(t, err)
+	require.Equal(t, commit1, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master^^^")
+	require.YesError(t, err)
+
+	commitInfo, err = client.InspectCommit(repo, "master~~~")
+	require.YesError(t, err)
+
+	commitInfo, err = client.InspectCommit(repo, "master^3")
+	require.YesError(t, err)
+
+	commitInfo, err = client.InspectCommit(repo, "master~3")
+	require.YesError(t, err)
+
+	for i := 1; i <= 2; i++ {
+		_, err := client.InspectFile(repo, fmt.Sprintf("%v^%v", commit3.ID, 3-i), fmt.Sprintf("%v", i))
+		require.NoError(t, err)
+	}
+}
+
 func TestProvenance2(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
