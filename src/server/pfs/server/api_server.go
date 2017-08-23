@@ -28,11 +28,6 @@ var (
 	grpcErrorf = grpc.Errorf // needed to get passed govet
 )
 
-const (
-	// The maximum number of items we log in response to a List* API
-	maxListItemsLog = 10
-)
-
 type apiServer struct {
 	log.Logger
 	driver *driver
@@ -451,9 +446,9 @@ func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileReq
 func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (response *pfs.FileInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
-		if response != nil && len(response.FileInfo) > maxListItemsLog {
-			logrus.Infof("Response contains %d objects; logging the first %d", len(response.FileInfo), maxListItemsLog)
-			a.Log(request, &pfs.FileInfos{response.FileInfo[:maxListItemsLog]}, retErr, time.Since(start))
+		if response != nil && len(response.FileInfo) > client.MaxListItemsLog {
+			logrus.Infof("Response contains %d objects; logging the first %d", len(response.FileInfo), client.MaxListItemsLog)
+			a.Log(request, &pfs.FileInfos{response.FileInfo[:client.MaxListItemsLog]}, retErr, time.Since(start))
 		} else {
 			a.Log(request, response, retErr, time.Since(start))
 		}
@@ -471,9 +466,9 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 func (a *apiServer) GlobFile(ctx context.Context, request *pfs.GlobFileRequest) (response *pfs.FileInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
-		if response != nil && len(response.FileInfo) > maxListItemsLog {
-			logrus.Infof("Response contains %d objects; logging the first %d", len(response.FileInfo), maxListItemsLog)
-			a.Log(request, &pfs.FileInfos{response.FileInfo[:maxListItemsLog]}, retErr, time.Since(start))
+		if response != nil && len(response.FileInfo) > client.MaxListItemsLog {
+			logrus.Infof("Response contains %d objects; logging the first %d", len(response.FileInfo), client.MaxListItemsLog)
+			a.Log(request, &pfs.FileInfos{response.FileInfo[:client.MaxListItemsLog]}, retErr, time.Since(start))
 		} else {
 			a.Log(request, response, retErr, time.Since(start))
 		}
@@ -491,7 +486,7 @@ func (a *apiServer) GlobFile(ctx context.Context, request *pfs.GlobFileRequest) 
 func (a *apiServer) DiffFile(ctx context.Context, request *pfs.DiffFileRequest) (response *pfs.DiffFileResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
-		if response != nil && (len(response.NewFiles) > maxListItemsLog || len(response.OldFiles) > maxListItemsLog) {
+		if response != nil && (len(response.NewFiles) > client.MaxListItemsLog || len(response.OldFiles) > client.MaxListItemsLog) {
 			logrus.Infof("Response contains too many objects; truncating.")
 			a.Log(request, &pfs.DiffFileResponse{
 				NewFiles: truncateFiles(response.NewFiles),
@@ -560,8 +555,8 @@ func drainFileServer(putFileServer interface {
 }
 
 func truncateFiles(fileInfos []*pfs.FileInfo) []*pfs.FileInfo {
-	if len(fileInfos) > maxListItemsLog {
-		return fileInfos[:maxListItemsLog]
+	if len(fileInfos) > client.MaxListItemsLog {
+		return fileInfos[:client.MaxListItemsLog]
 	}
 	return fileInfos
 }
