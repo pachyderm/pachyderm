@@ -62,25 +62,18 @@ func EqualOneOf(tb testing.TB, expecteds []interface{}, actual interface{}, msgA
 // oneOfEquals is a helper function for OneOfEquals and NoneEquals, that simply
 // returns a bool indicating whether 'expected' is in the slice 'actuals'.
 func oneOfEquals(expected interface{}, actuals interface{}) (bool, error) {
-	switch v := actuals.(type) {
-	case []string:
-		expectedStr, ok := expected.(string)
-		if !ok {
-			return false, fmt.Errorf("\"expected\" should be string, but instead was %T (%#v)", expected, expected)
+	e := reflect.ValueOf(expected)
+	as := reflect.ValueOf(actuals)
+	if as.Kind() != reflect.Slice {
+		return false, fmt.Errorf("\"actuals\" must a be a slice, but instead was %s", as.Type().String())
+	}
+	if e.Type() != as.Type().Elem() {
+		return false, nil
+	}
+	for i := 0; i < as.Len(); i++ {
+		if e.Interface() == as.Index(i).Interface() {
+			return true, nil
 		}
-		for _, actual := range v {
-			if expectedStr == actual {
-				return true, nil
-			}
-		}
-	case []interface{}:
-		for _, actual := range v {
-			if reflect.DeepEqual(expected, actual) {
-				return true, nil
-			}
-		}
-	default:
-		return false, fmt.Errorf("invalid slice type %T", v)
 	}
 	return false, nil
 }
@@ -107,6 +100,62 @@ func NoneEquals(tb testing.TB, expected interface{}, actuals interface{}, msgAnd
 	if equal {
 		fatal(tb, msgAndArgs,
 			"Equal : %#v (expected)\n one of == %#v (actuals)", expected, actuals)
+	}
+}
+
+// ElementsEqual checks whether the elements of the slice "expecteds" are
+// exactly the elements of the slice "actuals", ignoring order (i.e.
+// setwise-equal)
+func ElementsEqual(tb testing.TB, expecteds interface{}, actuals interface{}, msgAndArgs ...interface{}) {
+	if equal := func() bool {
+		es := reflect.ValueOf(expecteds)
+		as := reflect.ValueOf(actuals)
+		if es.Kind() != reflect.Slice {
+			fatal(tb, msgAndArgs, "ElementsEqual must be called with a slice, but \"expected\" was %s", es.Type().String())
+			return false
+		}
+		if as.Kind() != reflect.Slice {
+			fatal(tb, msgAndArgs, "ElementsEqual must be called with a slice, but \"actual\" was %s", as.Type().String())
+			return false
+		}
+		if es.Type().Elem() != as.Type().Elem() {
+			return false
+		}
+		expectedCt := reflect.MakeMap(reflect.MapOf(es.Type().Elem(), reflect.TypeOf(int(0))))
+		actualCt := reflect.MakeMap(reflect.MapOf(as.Type().Elem(), reflect.TypeOf(int(0))))
+		for i := 0; i < es.Len(); i++ {
+			v := es.Index(i)
+			if !expectedCt.MapIndex(v).IsValid() {
+				expectedCt.SetMapIndex(v, reflect.ValueOf(1))
+			} else {
+				newCt := expectedCt.MapIndex(v).Int() + 1
+				expectedCt.SetMapIndex(v, reflect.ValueOf(newCt))
+			}
+		}
+		for i := 0; i < as.Len(); i++ {
+			v := as.Index(i)
+			if !actualCt.MapIndex(v).IsValid() {
+				actualCt.SetMapIndex(v, reflect.ValueOf(1))
+			} else {
+				newCt := actualCt.MapIndex(v).Int() + 1
+				actualCt.SetMapIndex(v, reflect.ValueOf(newCt))
+			}
+		}
+		if expectedCt.Len() != actualCt.Len() {
+			return false
+		}
+		for _, key := range expectedCt.MapKeys() {
+			ec := expectedCt.MapIndex(key)
+			ac := actualCt.MapIndex(key)
+			if !ec.IsValid() || !ac.IsValid() || ec.Interface() != ac.Interface() {
+				return false
+			}
+		}
+		return true
+	}(); !equal {
+		fatal(tb, msgAndArgs,
+			"Not equal: %#v (expecteds)\n"+
+				"      != %#v (actual)", expecteds, actuals)
 	}
 }
 
