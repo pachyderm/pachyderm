@@ -719,7 +719,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 		}
 
 		if jobInfo.Egress != nil {
-			logger.Logf("Starting egress upload for job (%v)\n", jobInfo)
+			logger.Logf("Starting egress upload for job (%v)", jobInfo)
 			start := time.Now()
 			url, err := obj.ParseURL(jobInfo.Egress.URL)
 			if err != nil {
@@ -736,7 +736,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 			if err := pfs_sync.PushObj(client, outputCommit, objClient, url.Object); err != nil {
 				return err
 			}
-			logger.Logf("Completed egress upload for job (%v), duration (%v)\n", jobInfo, time.Since(start))
+			logger.Logf("Completed egress upload for job (%v), duration (%v)", jobInfo, time.Since(start))
 		}
 
 		// Record the job's output commit and 'Finished' timestamp, and mark the job
@@ -855,19 +855,19 @@ func (a *APIServer) aggregate(datums []float64) (*pps.Aggregate, error) {
 	logger := a.getMasterLogger()
 	mean, err := stats.Mean(datums)
 	if err != nil {
-		logger.Logf("error aggregating mean: %v\n", err)
+		logger.Logf("error aggregating mean: %v", err)
 	}
 	stddev, err := stats.StandardDeviation(datums)
 	if err != nil {
-		logger.Logf("error aggregating std dev: %v\n", err)
+		logger.Logf("error aggregating std dev: %v", err)
 	}
 	fifth, err := stats.Percentile(datums, 5)
 	if err != nil {
-		logger.Logf("error aggregating 5th percentile: %v\n", err)
+		logger.Logf("error aggregating 5th percentile: %v", err)
 	}
 	ninetyFifth, err := stats.Percentile(datums, 95)
 	if err != nil {
-		logger.Logf("error aggregating 95th percentile: %v\n", err)
+		logger.Logf("error aggregating 95th percentile: %v", err)
 	}
 	return &pps.Aggregate{
 		Count:                 int64(len(datums)),
