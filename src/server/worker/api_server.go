@@ -284,7 +284,7 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 	}(time.Now())
 	logger.Logf("input has not been processed, downloading data")
 	defer func(start time.Time) {
-		logger.Logf("input data download took (%v)\n", time.Since(start))
+		logger.Logf("input data download took (%v)", time.Since(start))
 	}(time.Now())
 	dir := filepath.Join(client.PPSScratchSpace, uuid.NewWithoutDashes())
 	for _, input := range inputs {
@@ -327,7 +327,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	}(time.Now())
 	logger.Logf("beginning to run user code")
 	defer func(start time.Time) {
-		logger.Logf("finished running user code - took (%v) - with error (%v)\n", time.Since(start), retErr)
+		logger.Logf("finished running user code - took (%v) - with error (%v)", time.Since(start), retErr)
 	}(time.Now())
 	// Run user code
 	cmd := exec.CommandContext(ctx, a.pipelineInfo.Transform.Cmd[0], a.pipelineInfo.Transform.Cmd[1:]...)
@@ -360,7 +360,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, lo
 	}(time.Now())
 	logger.Logf("starting to upload output")
 	defer func(start time.Time) {
-		logger.Logf("finished uploading output - took %v\n", time.Since(start))
+		logger.Logf("finished uploading output - took %v", time.Since(start))
 	}(time.Now())
 	// hashtree is not thread-safe--guard with 'lock'
 	var lock sync.Mutex
