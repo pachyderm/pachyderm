@@ -6,10 +6,12 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 
 	"github.com/julienschmidt/httprouter"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc/metadata"
 )
 
 // HTTPPort specifies the port the server will listen on
@@ -60,8 +62,20 @@ func (s *HTTPServer) getFileHandler(w http.ResponseWriter, r *http.Request, ps h
 	}
 	filePaths := strings.Split(ps.ByName("filePath"), "/")
 	fileName := filePaths[len(filePaths)-1]
+	ctx := context.Background()
+	for _, cookie := range r.Cookies() {
+		if cookie.Name == auth.ContextTokenKey {
+			ctx = metadata.NewIncomingContext(
+				ctx,
+				metadata.New(
+					map[string]string{
+						auth.ContextTokenKey: cookie.Value,
+					},
+				))
+		}
+	}
 
-	file, err := s.driver.getFile(context.Background(), pfsFile, 0, 0)
+	file, err := s.driver.getFile(ctx, pfsFile, 0, 0)
 	if err != nil {
 		panic(err)
 	}
