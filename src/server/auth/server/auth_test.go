@@ -925,7 +925,8 @@ func TestAdmin(t *testing.T) {
 	// The initial set of admins is just the user "admin"
 	resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
 	require.NoError(t, err)
-	require.ElementsEqual(t, resp.Admins, []string{"admin"})
+	require.Equal(t, len(resp.Admins), 1)
+	require.Equal(t, resp.Admins[0], "admin")
 
 	// alice creates a repo (that only she owns) and puts a file
 	repo := uniqueString("TestAdmin")
