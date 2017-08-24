@@ -23,6 +23,11 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 )
 
+const (
+	// MaxListItemsLog specifies the maximum number of items we log in response to a List* API
+	MaxListItemsLog = 10
+)
+
 // PfsAPIClient is an alias for pfs.APIClient.
 type PfsAPIClient pfs.APIClient
 
