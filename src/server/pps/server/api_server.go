@@ -422,7 +422,14 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 
 func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (response *pps.JobInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) {
+		if response != nil && len(response.JobInfo) > client.MaxListItemsLog {
+			logrus.Infof("Response contains %d objects; logging the first %d", len(response.JobInfo), client.MaxListItemsLog)
+			a.Log(request, &pps.JobInfos{response.JobInfo[:client.MaxListItemsLog]}, retErr, time.Since(start))
+		} else {
+			a.Log(request, response, retErr, time.Since(start))
+		}
+	}(time.Now())
 
 	jobs := a.jobs.ReadOnly(ctx)
 	var iter col.Iterator
@@ -506,7 +513,19 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 
 func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest) (response *pps.ListDatumResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) {
+		if response != nil && len(response.DatumInfos) > client.MaxListItemsLog {
+			logrus.Infof("Response contains %d objects; logging the first %d", len(response.DatumInfos), client.MaxListItemsLog)
+			logResponse := &pps.ListDatumResponse{
+				TotalPages: response.TotalPages,
+				Page:       response.Page,
+				DatumInfos: response.DatumInfos[:client.MaxListItemsLog],
+			}
+			a.Log(request, logResponse, retErr, time.Since(start))
+		} else {
+			a.Log(request, response, retErr, time.Since(start))
+		}
+	}(time.Now())
 	response = &pps.ListDatumResponse{}
 	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
 		Job: &pps.Job{
@@ -1344,7 +1363,14 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 
 func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineRequest) (response *pps.PipelineInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) {
+		if response != nil && len(response.PipelineInfo) > client.MaxListItemsLog {
+			logrus.Infof("Response contains %d objects; logging the first %d", len(response.PipelineInfo), client.MaxListItemsLog)
+			a.Log(request, &pps.PipelineInfos{response.PipelineInfo[:client.MaxListItemsLog]}, retErr, time.Since(start))
+		} else {
+			a.Log(request, response, retErr, time.Since(start))
+		}
+	}(time.Now())
 
 	pipelineIter, err := a.pipelines.ReadOnly(ctx).List()
 	if err != nil {
