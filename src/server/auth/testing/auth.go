@@ -17,6 +17,16 @@ func (a *InactiveAPIServer) Activate(ctx context.Context, req *auth.ActivateRequ
 	return nil, auth.NotActivatedError{}
 }
 
+// GetAdmins implements the Pachdyerm Auth GetAdmins RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetAdmins(ctx context.Context, req *auth.GetAdminsRequest) (resp *auth.GetAdminsResponse, retErr error) {
+	return nil, auth.NotActivatedError{}
+}
+
+// ModifyAdmins implements the Pachdyerm Auth ModifyAdmins RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequest) (resp *auth.ModifyAdminsResponse, retErr error) {
+	return nil, auth.NotActivatedError{}
+}
+
 // Authenticate implements the Pachdyerm Auth Authenticate RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequest) (resp *auth.AuthenticateResponse, retErr error) {
 	return nil, auth.NotActivatedError{}
