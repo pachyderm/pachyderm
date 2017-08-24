@@ -480,6 +480,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 		updateProgress(0, 0, nil)
 
 		for i := 0; i < df.Len(); i++ {
+			i := i
 			limiter.Acquire()
 			files := df.Datum(i)
 			datumHash := HashDatum(pipelineInfo.Pipeline.Name, pipelineInfo.Salt, files)
@@ -586,20 +587,29 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 								logger.Logf("failed to retrieve stats hashtree after processing for datum %v: %v", files, err)
 								return nil
 							}
+							// write file to skipped stats tree
+							nodes, err := statsSubtree.Glob("*")
+							if err != nil {
+								logger.Logf("failed to retrieve datum ID from hashtree for datum %v: %v", files, err)
+							}
+							if len(nodes) != 1 {
+								logger.Logf("should have a single stats object for datum %v", files)
+								return nil
+							}
+							datumID := nodes[0].Name
+							indexObject, length, err := a.pachClient.WithCtx(ctx).PutObject(strings.NewReader(fmt.Sprint(i)))
+							if err != nil {
+								return err
+							}
+							treeMu.Lock()
+							defer treeMu.Unlock()
+							err = statsTree.PutFile(fmt.Sprintf("%v/index", datumID), []*pfs.Object{indexObject}, length)
+							if err != nil {
+								logger.Logf("unable to put skipped file to tree: %", err)
+							}
 							if skipped {
-								// write file to skipped stats tree
-								nodes, err := statsSubtree.Glob("*")
-								if err != nil {
-									logger.Logf("failed to retrieve datum ID from hashtree for datum %v: %v", files, err)
-								}
-								if len(nodes) != 1 {
-									logger.Logf("should have a single stats object for datum %v", files)
-									return nil
-								}
-								datumID := nodes[0].Name
-								treeMu.Lock()
+								// write a list of input files
 								err = statsTree.PutFile(fmt.Sprintf("%v/skipped", datumID), nil, 0)
-								treeMu.Unlock()
 								if err != nil {
 									logger.Logf("unable to put skipped file to tree: %", err)
 								}
