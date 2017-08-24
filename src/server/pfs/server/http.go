@@ -67,11 +67,8 @@ func (s *HTTPServer) getFileHandler(w http.ResponseWriter, r *http.Request, ps h
 		if cookie.Name == auth.ContextTokenKey {
 			ctx = metadata.NewIncomingContext(
 				ctx,
-				metadata.New(
-					map[string]string{
-						auth.ContextTokenKey: cookie.Value,
-					},
-				))
+				metadata.Pairs(auth.ContextTokenKey, cookie.Value),
+			)
 		}
 	}
 
