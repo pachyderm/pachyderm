@@ -3979,6 +3979,7 @@ func TestPipelineWithStats(t *testing.T) {
 	resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(resp.DatumInfos))
+	require.Equal(t, 1, len(resp.DatumInfos[0].Data))
 
 	// Check we can list datums before job completion w pagination
 	resp, err = c.ListDatum(jobs[0].Job.ID, 100, 0)
@@ -3995,6 +3996,7 @@ func TestPipelineWithStats(t *testing.T) {
 	resp, err = c.ListDatum(jobs[0].Job.ID, 0, 0)
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(resp.DatumInfos))
+	require.Equal(t, 1, len(resp.DatumInfos[0].Data))
 
 	for _, datum := range resp.DatumInfos {
 		require.NoError(t, err)

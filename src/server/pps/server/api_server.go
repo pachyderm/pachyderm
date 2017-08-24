@@ -535,11 +535,11 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		}
 		return start, end, nil
 	}
+	df, err := workerpkg.NewDatumFactory(ctx, pfsClient, jobInfo.Input)
+	if err != nil {
+		return nil, err
+	}
 	if jobInfo.StatsCommit == nil {
-		df, err := workerpkg.NewDatumFactory(ctx, pfsClient, jobInfo.Input)
-		if err != nil {
-			return nil, err
-		}
 		start := 0
 		end := df.Len()
 		if request.PageSize > 0 {
@@ -628,7 +628,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 				// not a datum
 				return nil
 			}
-			datum, err := a.getDatum(ctx, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Job.ID, datumHash)
+			datum, err := a.getDatum(ctx, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Job.ID, datumHash, df)
 			if err != nil {
 				return err
 			}
@@ -667,7 +667,7 @@ func (a byDatumState) Less(i, j int) bool {
 	return iState < jState
 }
 
-func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commit, jobID string, datumID string) (datumInfo *pps.DatumInfo, retErr error) {
+func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commit, jobID string, datumID string, df workerpkg.DatumFactory) (datumInfo *pps.DatumInfo, retErr error) {
 	datumInfo = &pps.DatumInfo{
 		Datum: &pps.Datum{
 			ID:  datumID,
@@ -708,16 +708,8 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 	}
 
 	// Populate stats
-	statsFile := &pfs.File{
-		Commit: commit,
-		Path:   fmt.Sprintf("/%v/stats", datumID),
-	}
-	getFileClient, err := pfsClient.GetFile(ctx, &pfs.GetFileRequest{statsFile, 0, 0})
-	if err != nil {
-		return nil, err
-	}
 	var buffer bytes.Buffer
-	if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, &buffer); err != nil {
+	if err := pachClient.WithCtx(ctx).GetFile(commit.Repo.Name, commit.ID, fmt.Sprintf("/%v/stats", datumID), 0, 0, &buffer); err != nil {
 		return nil, err
 	}
 	stats := &pps.ProcessStats{}
@@ -726,6 +718,21 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 		return nil, err
 	}
 	datumInfo.Stats = stats
+	buffer.Reset()
+	if err := pachClient.WithCtx(ctx).GetFile(commit.Repo.Name, commit.ID, fmt.Sprintf("/%v/index", datumID), 0, 0, &buffer); err != nil {
+		return nil, err
+	}
+	i, err := strconv.Atoi(buffer.String())
+	if err != nil {
+		return nil, err
+	}
+	if i >= df.Len() {
+		return nil, fmt.Errorf("index %d out of range", i)
+	}
+	inputs := df.Datum(i)
+	for _, input := range inputs {
+		datumInfo.Data = append(datumInfo.Data, input.FileInfo)
+	}
 	datumInfo.PfsState = &pfs.File{
 		Commit: commit,
 		Path:   fmt.Sprintf("/%v/pfs", datumID),
@@ -752,9 +759,18 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 	if jobInfo.StatsCommit == nil {
 		return nil, fmt.Errorf("job not finished, no stats output yet")
 	}
+	pachClient, err := a.getPachClient()
+	if err != nil {
+		return nil, err
+	}
+	pfsClient := pachClient.PfsAPIClient
+	df, err := workerpkg.NewDatumFactory(ctx, pfsClient, jobInfo.Input)
+	if err != nil {
+		return nil, err
+	}
 
 	// Populate datumInfo given a path
-	datumInfo, err := a.getDatum(ctx, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Datum.Job.ID, request.Datum.ID)
+	datumInfo, err := a.getDatum(ctx, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Datum.Job.ID, request.Datum.ID, df)
 	if err != nil {
 		return nil, err
 	}
