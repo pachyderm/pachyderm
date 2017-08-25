@@ -3,23 +3,41 @@ package auth;
 
 import "gogoproto/gogo.proto";
 
-// Auth Activation API
+//// Activation API
 
 message ActivateRequest {
+    // activation_code is a Pachyderm enterprise activation code. New users can
+    // obtain trial activation codes
     string activation_code = 1;
+
+    // An initial list of cluster administraters. Pachyderm requires that if its
+    // auth system is activated, the cluster must have at least one
+    // administrator
     repeated string admins = 2;
 }
-
 message ActivateResponse {}
 
-// Authentication data structures
-
-message User {
-    string username = 1;
-    bool admin = 2;
+// Get the current list of cluster admins
+message GetAdminsRequest{}
+message GetAdminsResponse{
+  repeated string admins = 1;
 }
 
-// Authentication API
+// Add or remove cluster admins
+message ModifyAdminsRequest {
+  repeated string add = 1;
+  repeated string remove = 2;
+}
+message ModifyAdminsResponse {}
+
+//// Authentication data structures
+
+// User is the 'value' of an auth token 'key' in the 'tokens' collection
+message User {
+    string username = 1;
+}
+
+//// Authentication API
 
 message AuthenticateRequest {
     // If set, Pachyderm will compare this username to the GitHub account that
@@ -39,7 +57,7 @@ message WhoAmIResponse {
   string username = 1;
 }
 
-// Authorization data structures
+//// Authorization data structures
 
 enum Scope {
     // To remove a user's scope from a repo, set their scope to NONE
@@ -59,7 +77,7 @@ message ACL {
     map<string, Scope> entries = 1;
 }
 
-// Authorization API
+//// Authorization API
 
 message AuthorizeRequest {
     string repo = 1;
@@ -102,7 +120,7 @@ message SetACLRequest {
 
 message SetACLResponse {}
 
-// Capability-token API (very limited -- for pipelines)
+//// Capability-token API (very limited -- for pipelines)
 
 message GetCapabilityRequest {}
 
@@ -118,6 +136,11 @@ message RevokeAuthTokenResponse {}
 
 service API {
     rpc Activate(ActivateRequest) returns (ActivateResponse) {}
+
+    // GetAdmins returns the current list of cluster admins
+    rpc GetAdmins(GetAdminsRequest) returns (GetAdminsResponse) {}
+    // ModifyAdmins adds or removes admins from the cluster
+    rpc ModifyAdmins(ModifyAdminsRequest) returns (ModifyAdminsResponse) {}
 
     rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {}
     rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse) {}
