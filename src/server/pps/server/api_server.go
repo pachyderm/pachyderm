@@ -920,21 +920,23 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			}
 		}()
 	}
+
 nextLogCh:
 	for _, logCh := range logChs {
 		for {
-			select {
-			case msg, ok := <-logCh:
-				if !ok {
-					continue nextLogCh
-				}
-				if err := apiGetLogsServer.Send(msg); err != nil {
-					return err
-				}
-			case err := <-errCh:
+			msg, ok := <-logCh
+			if !ok {
+				continue nextLogCh
+			}
+			if err := apiGetLogsServer.Send(msg); err != nil {
 				return err
 			}
 		}
+	}
+	select {
+	case err := <-errCh:
+		return err
+	default:
 	}
 	return nil
 }
