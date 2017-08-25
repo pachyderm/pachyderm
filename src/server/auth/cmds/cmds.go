@@ -233,6 +233,60 @@ func SetScopeCmd() *cobra.Command {
 	return setScope
 }
 
+// ListAdminsCmd returns a cobra command that lists the current cluster admins
+func ListAdminsCmd() *cobra.Command {
+	listAdmins := &cobra.Command{
+		Use:   "list-admins",
+		Short: "List the current cluster admins",
+		Long:  "List the current cluster admins",
+		Run: cmdutil.Run(func([]string) error {
+			c, err := client.NewOnUserMachine(true, "user")
+			if err != nil {
+				return err
+			}
+			resp, err := c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+			if err != nil {
+				return err
+			}
+			for _, user := range resp.Admins {
+				fmt.Println(user)
+			}
+			return nil
+		}),
+	}
+	return listAdmins
+}
+
+// ModifyAdminsCmd returns a cobra command that modifies the set of current
+// cluster admins
+func ModifyAdminsCmd() *cobra.Command {
+	var add []string
+	var remove []string
+	modifyAdmins := &cobra.Command{
+		Use:   "modify-admins",
+		Short: "Modify the current cluster admins",
+		Long: "Modify the current cluster admins. --add accepts a comma-" +
+			"separated list of users to grant admin status, and --remove accepts a " +
+			"comma-separated list of users to revoke admin status",
+		Run: cmdutil.Run(func([]string) error {
+			c, err := client.NewOnUserMachine(true, "user")
+			if err != nil {
+				return err
+			}
+			_, err = c.AuthAPIClient.ModifyAdmins(c.Ctx(), &auth.ModifyAdminsRequest{
+				Add:    add,
+				Remove: remove,
+			})
+			return err
+		}),
+	}
+	modifyAdmins.PersistentFlags().StringSliceVar(&add, "add", []string{},
+		"Comma-separated list of users to grant admin status")
+	modifyAdmins.PersistentFlags().StringSliceVar(&remove, "remove", []string{},
+		"Comma-separated list of users revoke admin status")
+	return modifyAdmins
+}
+
 // Cmds returns a list of cobra commands for authenticating and authorizing
 // users in an auth-enabled Pachyderm cluster.
 func Cmds() []*cobra.Command {
@@ -245,5 +299,7 @@ func Cmds() []*cobra.Command {
 	auth.AddCommand(CheckCmd())
 	auth.AddCommand(SetScopeCmd())
 	auth.AddCommand(GetCmd())
+	auth.AddCommand(ListAdminsCmd())
+	auth.AddCommand(ModifyAdminsCmd())
 	return []*cobra.Command{LoginCmd(), auth}
 }
