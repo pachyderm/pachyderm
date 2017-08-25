@@ -866,8 +866,8 @@ func TestDeletePipeline(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	alice := uniqueString("alice")
-	aliceClient := getPachClient(t, alice)
+	alice, bob := uniqueString("alice"), uniqueString("bob")
+	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
 	repo := uniqueString("TestPipelineRevoke")
@@ -893,7 +893,7 @@ func TestDeletePipeline(t *testing.T) {
 	// alice deletes the output repo
 	require.NoError(t, aliceClient.DeleteRepo(pipeline, false))
 
-	// Make sure the repo's ACL is gone
+	// Make sure the output repo's ACL is gone
 	_, err := aliceClient.AuthAPIClient.GetACL(aliceClient.Ctx(), &auth.GetACLRequest{
 		Repo: pipeline,
 	})
@@ -902,11 +902,96 @@ func TestDeletePipeline(t *testing.T) {
 	// alice deletes the input repo
 	require.NoError(t, aliceClient.DeleteRepo(repo, false))
 
-	// Make sure the repo's ACL is gone
+	// Make sure the input repo's ACL is gone
 	_, err = aliceClient.AuthAPIClient.GetACL(aliceClient.Ctx(), &auth.GetACLRequest{
 		Repo: repo,
 	})
 	require.YesError(t, err)
+
+	// alice creates another repo
+	repo = uniqueString("TestPipelineRevoke")
+	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.Equal(t, acl(alice, "owner"), GetACL(t, aliceClient, repo))
+
+	// alice creates another pipeline
+	pipeline = uniqueString("alice-pipeline")
+	require.NoError(t, aliceClient.CreatePipeline(
+		pipeline,
+		"", // default image: ubuntu:14.04
+		[]string{"bash"},
+		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewAtomInput(repo, "/*"),
+		"", // default output branch: master
+		false,
+	))
+
+	// bob can't delete alice's pipeline
+	err = bobClient.DeletePipeline(pipeline, true)
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+
+	// alice adds bob as a reader of the input repo
+	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
+		Repo:     repo,
+		Username: bob,
+		Scope:    auth.Scope_READER,
+	})
+	require.NoError(t, err)
+	require.Equal(t, acl(alice, "owner", bob, "reader"), GetACL(t, aliceClient, repo))
+
+	// bob still can't delete alice's pipeline
+	err = bobClient.DeletePipeline(pipeline, true)
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+
+	// alice removes bob as a reader of the input repo and adds bob as a writer of
+	// the output repo
+	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
+		Repo:     repo,
+		Username: bob,
+		Scope:    auth.Scope_NONE,
+	})
+	require.NoError(t, err)
+	require.Equal(t, acl(alice, "owner"), GetACL(t, aliceClient, repo))
+	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
+		Repo:     pipeline,
+		Username: bob,
+		Scope:    auth.Scope_WRITER,
+	})
+	require.NoError(t, err)
+	require.Equal(t, acl(alice, "owner", bob, "writer"), GetACL(t, aliceClient, pipeline))
+
+	// bob still can't delete alice's pipeline
+	err = bobClient.DeletePipeline(pipeline, true)
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+
+	// alice re-adds bob as a reader of the input repo
+	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
+		Repo:     repo,
+		Username: bob,
+		Scope:    auth.Scope_READER,
+	})
+	require.NoError(t, err)
+	require.Equal(t, acl(alice, "owner", bob, "reader"), GetACL(t, aliceClient, repo))
+
+	// bob still can't delete alice's pipeline
+	err = bobClient.DeletePipeline(pipeline, true)
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+
+	// alice adds bob as an owner of the output repo
+	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
+		Repo:     pipeline,
+		Username: bob,
+		Scope:    auth.Scope_OWNER,
+	})
+	require.NoError(t, err)
+	require.Equal(t, acl(alice, "owner", bob, "owner"), GetACL(t, aliceClient, pipeline))
+
+	// finally bob can delete alice's pipeline
+	require.NoError(t, bobClient.DeletePipeline(pipeline, true))
 }
 
 // TestAdmins tests adding and removing cluster admins. Note that cluster admins
