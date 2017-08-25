@@ -337,6 +337,7 @@ message StopJobRequest {
 }
 
 message GetLogsRequest {
+  reserved 4;
   // The pipeline from which we want to get logs (required if the job in 'job'
   // was created as part of a pipeline. To get logs from a non-orphan job
   // without the pipeline that created it, you need to use ElasticSearch).
@@ -351,7 +352,7 @@ message GetLogsRequest {
   // a hash for that file (to search for files at specific versions)
   repeated string data_filters = 3;
 
-  string input_file_id = 4 [(gogoproto.customname) = "InputFileID"];
+  Datum datum = 6;
 
   // If true get logs from the master process
   bool master = 5;
@@ -365,7 +366,7 @@ message LogMessage {
   string pipeline_name = 1;
   string job_id = 3 [(gogoproto.customname) = "JobID"];
   string worker_id = 7 [(gogoproto.customname) = "WorkerID"];
-  string input_file_id = 9 [(gogoproto.customname) = "InputFileID"];
+  string datum_id = 9 [(gogoproto.customname) = "DatumID"];
   bool master = 10;
 
   // The PFS files being processed (one per pipeline/job input)

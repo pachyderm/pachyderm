@@ -4170,7 +4170,7 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	}
 	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
 
-	pipeline := uniqueString("pipeline")
+	pipeline := uniqueString("StatsAcrossJobs")
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipeline),
@@ -4265,7 +4265,7 @@ func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
 	_, err = c.PutFile(dataRepo, commit3.ID, "file-0", strings.NewReader(strings.Repeat("foo\n", 100)))
 	require.NoError(t, c.FinishCommit(dataRepo, commit3.ID))
 
-	pipeline := uniqueString("pipeline")
+	pipeline := uniqueString("StatsEdgeCase")
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipeline),

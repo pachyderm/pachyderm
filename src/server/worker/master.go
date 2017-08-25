@@ -525,18 +525,20 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 				// skip the cache and recompute the datums.
 				var usedCache bool
 				var skipped bool
+				req := &ProcessRequest{
+					JobID:        jobInfo.Job.ID,
+					Data:         files,
+					ParentOutput: parentOutputTag,
+					EnableStats:  jobInfo.EnableStats,
+				}
+				datumID := a.DatumID(req)
 				if err := backoff.RetryNotify(func() error {
 					var failed bool
 					processed := a.getCachedDatum(datumHash)
 					if usedCache || !processed {
 						if err := pool.Do(ctx, func(conn *grpc.ClientConn) error {
 							workerClient := NewWorkerClient(conn)
-							resp, err := workerClient.Process(ctx, &ProcessRequest{
-								JobID:        jobInfo.Job.ID,
-								Data:         files,
-								ParentOutput: parentOutputTag,
-								EnableStats:  jobInfo.EnableStats,
-							})
+							resp, err := workerClient.Process(ctx, req)
 							if err != nil {
 								return err
 							}
@@ -558,12 +560,21 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 						if userCodeFailures > maximumRetriesPerDatum && jobInfo.EnableStats {
 							statsSubtree, err := a.getTreeFromTag(ctx, statsTag)
 							if err != nil {
-								logger.Logf("failed to retrieve stats hashtree after processing for datum %v: %v", files, err)
+								return err
 							} else {
+								indexObject, length, err := a.pachClient.WithCtx(ctx).PutObject(strings.NewReader(fmt.Sprint(i)))
+								if err != nil {
+									return err
+								}
 								treeMu.Lock()
 								defer treeMu.Unlock()
+								// Add a file to statsTree indicating the index of this
+								// datum in the datum factory.
+								if err := statsTree.PutFile(fmt.Sprintf("%v/index", datumID), []*pfs.Object{indexObject}, length); err != nil {
+									return err
+								}
 								if err := statsTree.Merge(statsSubtree); err != nil {
-									logger.Logf("failed to merge into stats tree: %v", err)
+									return err
 								}
 							}
 						}
@@ -582,39 +593,24 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 					})
 					if jobInfo.EnableStats {
 						eg.Go(func() error {
-							statsSubtree, err = a.getTreeFromTag(ctx, statsTag)
-							if err != nil {
-								logger.Logf("failed to retrieve stats hashtree after processing for datum %v: %v", files, err)
-								return nil
+							if statsSubtree, err = a.getTreeFromTag(ctx, statsTag); err != nil {
+								return err
 							}
-							// write file to skipped stats tree
-							nodes, err := statsSubtree.Glob("*")
-							if err != nil {
-								logger.Logf("failed to retrieve datum ID from hashtree for datum %v: %v", files, err)
-							}
-							if len(nodes) != 1 {
-								logger.Logf("should have a single stats object for datum %v", files)
-								return nil
-							}
-							datumID := nodes[0].Name
 							indexObject, length, err := a.pachClient.WithCtx(ctx).PutObject(strings.NewReader(fmt.Sprint(i)))
 							if err != nil {
 								return err
 							}
 							treeMu.Lock()
 							defer treeMu.Unlock()
-							err = statsTree.PutFile(fmt.Sprintf("%v/index", datumID), []*pfs.Object{indexObject}, length)
-							if err != nil {
-								logger.Logf("unable to put skipped file to tree: %", err)
-							}
 							if skipped {
 								// write a list of input files
-								err = statsTree.PutFile(fmt.Sprintf("%v/skipped", datumID), nil, 0)
-								if err != nil {
-									logger.Logf("unable to put skipped file to tree: %", err)
+								if err := statsTree.PutFile(fmt.Sprintf("%v/skipped", datumID), nil, 0); err != nil {
+									return err
 								}
 							}
-							return nil
+							// Add a file to statsTree indicating the index of this
+							// datum in the datum factory.
+							return statsTree.PutFile(fmt.Sprintf("%v/index", datumID), []*pfs.Object{indexObject}, length)
 						})
 					}
 					if err := eg.Wait(); err != nil {
