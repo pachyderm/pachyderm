@@ -100,6 +100,9 @@ func acl(items ...string) *auth.ACL {
 	if len(items)%2 != 0 {
 		panic("cannot create an ACL from an odd number of items")
 	}
+	if len(items) == 0 {
+		return &auth.ACL{}
+	}
 	result := &auth.ACL{Entries: make(map[string]auth.Scope)}
 	for i := 0; i < len(items); i += 2 {
 		scope, err := auth.ParseScope(items[i+1])
@@ -992,88 +995,4 @@ func TestDeletePipeline(t *testing.T) {
 
 	// finally bob can delete alice's pipeline
 	require.NoError(t, bobClient.DeletePipeline(pipeline, true))
-}
-
-// TestAdmins tests adding and removing cluster admins. Note that cluster admins
-// are global, unlike pipelines and repos, so while this test can run in
-// parallel with other auth tests, it cannot run in parallel with other cluster
-// admin tests. If any are added, t.Parallel() should be removed here.
-func TestAdmin(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	t.Parallel()
-	alice, bob := uniqueString("alice"), uniqueString("bob")
-	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
-	adminClient := getPachClient(t, "admin")
-
-	// The initial set of admins is just the user "admin"
-	resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
-	require.NoError(t, err)
-	require.Equal(t, len(resp.Admins), 1)
-	require.Equal(t, resp.Admins[0], "admin")
-
-	// alice creates a repo (that only she owns) and puts a file
-	repo := uniqueString("TestAdmin")
-	require.NoError(t, aliceClient.CreateRepo(repo))
-	require.Equal(t, acl(alice, "owner"), GetACL(t, aliceClient, repo))
-	commit, err := aliceClient.StartCommit(repo, "master")
-	require.NoError(t, err)
-	_, err = aliceClient.PutFile(repo, commit.ID, "/file", strings.NewReader("test data"))
-	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(repo, commit.ID))
-
-	// bob cannot get the file
-	buf := &bytes.Buffer{}
-	err = bobClient.GetFile(repo, "master", "/file", 0, 0, buf)
-	require.YesError(t, err)
-	require.Matches(t, "not authorized", err.Error())
-
-	// 'admin' makes bob an admin
-	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
-		&auth.ModifyAdminsRequest{Add: []string{bob}})
-	require.NoError(t, err)
-	// wait until bob shows up in admin list
-	require.NoError(t, backoff.Retry(func() error {
-		resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
-		require.NoError(t, err)
-		if len(resp.Admins) != 2 {
-			return fmt.Errorf("admins are \"%v\", but expected [\"bob\", \"admin\"]", resp.Admins)
-		}
-		if resp.Admins[0] != bob && resp.Admins[1] != bob {
-			return fmt.Errorf("admins are \"%v\", but expected at least one to be \"%s\"", resp.Admins, bob)
-		}
-		return nil
-	}, backoff.NewTestingBackOff()))
-
-	// now bob can get the file
-	buf.Reset()
-	require.NoError(t, bobClient.GetFile(repo, "master", "/file", 0, 0, buf))
-	require.Matches(t, "test data", buf.String())
-
-	// 'admin' revokes bob's admin status
-	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
-		&auth.ModifyAdminsRequest{Remove: []string{bob}})
-	require.NoError(t, err)
-	// wait until bob is not in admin list
-	backoff.Retry(func() error {
-		resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
-		require.NoError(t, err)
-		if len(resp.Admins) != 1 || resp.Admins[0] != "admin" {
-			return fmt.Errorf("admins are \"%v\", but expected [\"admin\"]", resp.Admins)
-		}
-		return nil
-	}, backoff.NewTestingBackOff())
-
-	// bob can no longer get the file
-	buf.Reset()
-	err = bobClient.GetFile(repo, "master", "/file", 0, 0, buf)
-	require.YesError(t, err)
-	require.Matches(t, "not authorized", err.Error())
-
-	// admin cannot remove themselves from the list of cluster admins (otherwise
-	// there would be no admins)
-	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
-		&auth.ModifyAdminsRequest{Remove: []string{"admin"}})
-	require.YesError(t, err)
 }
