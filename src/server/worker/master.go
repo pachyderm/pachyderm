@@ -558,10 +558,11 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 						// If this is our last failure we merge in the stats
 						// tree for the failed run.
 						if userCodeFailures > maximumRetriesPerDatum && jobInfo.EnableStats {
-							statsSubtree, err := a.getTreeFromTag(ctx, statsTag)
-							if err != nil {
-								return err
-							} else {
+							if err := func() error {
+								statsSubtree, err := a.getTreeFromTag(ctx, statsTag)
+								if err != nil {
+									return err
+								}
 								indexObject, length, err := a.pachClient.WithCtx(ctx).PutObject(strings.NewReader(fmt.Sprint(i)))
 								if err != nil {
 									return err
@@ -573,9 +574,9 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 								if err := statsTree.PutFile(fmt.Sprintf("%v/index", datumID), []*pfs.Object{indexObject}, length); err != nil {
 									return err
 								}
-								if err := statsTree.Merge(statsSubtree); err != nil {
-									return err
-								}
+								return statsTree.Merge(statsSubtree)
+							}(); err != nil {
+								logger.Logf("failed to populate stats after failed job: %+v", err)
 							}
 						}
 						return fmt.Errorf("user code failed for datum %v", files)

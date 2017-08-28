@@ -119,6 +119,8 @@ type taggedLogger struct {
 	eg           errgroup.Group
 }
 
+// DatumID computes the id for a datum, this value is used in ListDatum and
+// InspectDatum.
 func (a *APIServer) DatumID(req *ProcessRequest) string {
 	hash := sha256.New()
 	for _, d := range req.Data {
