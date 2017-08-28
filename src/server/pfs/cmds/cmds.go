@@ -79,6 +79,27 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 	}
 	createRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
 
+	updateRepo := &cobra.Command{
+		Use:   "update-repo repo-name",
+		Short: "Update a repo.",
+		Long:  "Update a repo.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			c, err := client.NewOnUserMachine(metrics, "user")
+			if err != nil {
+				return err
+			}
+			_, err = c.PfsAPIClient.CreateRepo(
+				c.Ctx(),
+				&pfsclient.CreateRepoRequest{
+					Repo:        client.NewRepo(args[0]),
+					Description: description,
+				},
+			)
+			return err
+		}),
+	}
+	updateRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
+
 	inspectRepo := &cobra.Command{
 		Use:   "inspect-repo repo-name",
 		Short: "Return info about a repo.",
@@ -1039,6 +1060,7 @@ $ pachctl diff-file foo master path1 bar master path2
 	var result []*cobra.Command
 	result = append(result, repo)
 	result = append(result, createRepo)
+	result = append(result, updateRepo)
 	result = append(result, inspectRepo)
 	result = append(result, listRepo)
 	result = append(result, deleteRepo)
