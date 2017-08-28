@@ -163,6 +163,18 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 				return err
 			}
 		}
+
+		// Retrieve the current state of the RC.  If the RC is scaled down,
+		// we want to ensure that it remains scaled down.
+		rc := a.kubeClient.ReplicationControllers(a.namespace)
+		workerRc, err := rc.Get(ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
+		if err == nil {
+			if (workerRc.Spec.Template.Spec.Containers[0].Resources.Requests == nil) && workerRc.Spec.Replicas == 1 {
+				parallelism = 1
+				resources = nil
+			}
+		}
+
 		options := a.getWorkerOptions(
 			ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 			int32(parallelism),
