@@ -103,63 +103,6 @@ func NoneEquals(tb testing.TB, expected interface{}, actuals interface{}, msgAnd
 	}
 }
 
-// ElementsEqual checks whether the elements of the slice "expecteds" are
-// exactly the elements of the slice "actuals", ignoring order (i.e.
-// setwise-equal)
-func ElementsEqual(tb testing.TB, expecteds interface{}, actuals interface{}, msgAndArgs ...interface{}) {
-	if equal := func() bool {
-		es := reflect.ValueOf(expecteds)
-		as := reflect.ValueOf(actuals)
-		if es.Kind() != reflect.Slice {
-			fatal(tb, msgAndArgs, "ElementsEqual must be called with a slice, but \"expected\" was %s", es.Type().String())
-			return false
-		}
-		if as.Kind() != reflect.Slice {
-			fatal(tb, msgAndArgs, "ElementsEqual must be called with a slice, but \"actual\" was %s", as.Type().String())
-			return false
-		}
-		if es.Type().Elem() != as.Type().Elem() {
-			return false
-		}
-		expectedCt := reflect.MakeMap(reflect.MapOf(es.Type().Elem(), reflect.TypeOf(int(0))))
-		actualCt := reflect.MakeMap(reflect.MapOf(as.Type().Elem(), reflect.TypeOf(int(0))))
-		for i := 0; i < es.Len(); i++ {
-			v := es.Index(i)
-			if !expectedCt.MapIndex(v).IsValid() {
-				expectedCt.SetMapIndex(v, reflect.ValueOf(1))
-			} else {
-				newCt := expectedCt.MapIndex(v).Int() + 1
-				expectedCt.SetMapIndex(v, reflect.ValueOf(newCt))
-			}
-		}
-		for i := 0; i < as.Len(); i++ {
-			v := as.Index(i)
-			if !actualCt.MapIndex(v).IsValid() {
-				actualCt.SetMapIndex(v, reflect.ValueOf(1))
-			} else {
-				newCt := actualCt.MapIndex(v).Int() + 1
-				actualCt.SetMapIndex(v, reflect.ValueOf(newCt))
-			}
-		}
-		if expectedCt.Len() != actualCt.Len() {
-			return false
-		}
-		for _, key := range expectedCt.MapKeys() {
-			ec := expectedCt.MapIndex(key)
-			ac := actualCt.MapIndex(key)
-			if !ec.IsValid() || !ac.IsValid() ||
-				!reflect.DeepEqual(ec.Interface(), ac.Interface()) {
-				return false
-			}
-		}
-		return true
-	}(); !equal {
-		fatal(tb, msgAndArgs,
-			"Not equal: %#v (expecteds)\n"+
-				"      != %#v (actual)", expecteds, actuals)
-	}
-}
-
 // NoError checks for no error.
 func NoError(tb testing.TB, err error, msgAndArgs ...interface{}) {
 	if err != nil {

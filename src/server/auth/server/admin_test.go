@@ -7,6 +7,7 @@ package auth
 import (
 	"bytes"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -14,6 +15,61 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 )
+
+// adminsEqual returns nil if the elements of the slice "expecteds" are
+// exactly the elements of the slice "actuals", ignoring order (i.e.
+// setwise-equal), and an error otherwise.
+func adminsEqual(expecteds interface{}, actuals interface{}) error {
+	es := reflect.ValueOf(expecteds)
+	as := reflect.ValueOf(actuals)
+	if es.Kind() != reflect.Slice {
+		return fmt.Errorf("ElementsEqual must be called with a slice, but \"expected\" was %s", es.Type().String())
+	}
+	if as.Kind() != reflect.Slice {
+		return fmt.Errorf("ElementsEqual must be called with a slice, but \"actual\" was %s", as.Type().String())
+	}
+	if es.Type().Elem() != as.Type().Elem() {
+		return fmt.Errorf("Expected []%s but got []%s", es.Type().Elem(), as.Type().Elem())
+	}
+	expectedCt := reflect.MakeMap(reflect.MapOf(es.Type().Elem(), reflect.TypeOf(int(0))))
+	actualCt := reflect.MakeMap(reflect.MapOf(as.Type().Elem(), reflect.TypeOf(int(0))))
+	for i := 0; i < es.Len(); i++ {
+		v := es.Index(i)
+		if !expectedCt.MapIndex(v).IsValid() {
+			expectedCt.SetMapIndex(v, reflect.ValueOf(1))
+		} else {
+			newCt := expectedCt.MapIndex(v).Int() + 1
+			expectedCt.SetMapIndex(v, reflect.ValueOf(newCt))
+		}
+	}
+	for i := 0; i < as.Len(); i++ {
+		v := as.Index(i)
+		if !actualCt.MapIndex(v).IsValid() {
+			actualCt.SetMapIndex(v, reflect.ValueOf(1))
+		} else {
+			newCt := actualCt.MapIndex(v).Int() + 1
+			actualCt.SetMapIndex(v, reflect.ValueOf(newCt))
+		}
+	}
+	if expectedCt.Len() != actualCt.Len() {
+		return fmt.Errorf("expected %d distinct elements, but got %d", expectedCt.Len(), actualCt.Len())
+	}
+	for _, key := range expectedCt.MapKeys() {
+		ec := expectedCt.MapIndex(key)
+		ac := actualCt.MapIndex(key)
+		if !ec.IsValid() || !ac.IsValid() || ec.Int() != ac.Int() {
+			ecInt, acInt := int64(0), int64(0)
+			if ec.IsValid() {
+				ecInt = ec.Int()
+			}
+			if ac.IsValid() {
+				acInt = ac.Int()
+			}
+			return fmt.Errorf("expected %d copies of %s, but got %d copies", ecInt, key.String(), acInt)
+		}
+	}
+	return nil
+}
 
 // TestAdmins tests adding and removing cluster admins, as well as admins
 // reading, writing, and moderating clusters.
@@ -28,8 +84,7 @@ func TestAdmin(t *testing.T) {
 	// The initial set of admins is just the user "admin"
 	resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
 	require.NoError(t, err)
-	require.Equal(t, len(resp.Admins), 1)
-	require.Equal(t, resp.Admins[0], "admin")
+	require.NoError(t, adminsEqual([]string{"admin"}, resp.Admins))
 
 	// alice creates a repo (that only she owns) and puts a file
 	repo := uniqueString("TestAdmin")
@@ -72,11 +127,8 @@ func TestAdmin(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		if len(resp.Admins) != 2 {
-			return fmt.Errorf("admins are \"%v\", but expected [\"bob\", \"admin\"]", resp.Admins)
-		}
-		if resp.Admins[0] != bob && resp.Admins[1] != bob {
-			return fmt.Errorf("admins are \"%v\", but expected at least one to be \"%s\"", resp.Admins, bob)
+		if err := adminsEqual([]string{"admin", bob}, resp.Admins); err != nil {
+			return err
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -111,8 +163,8 @@ func TestAdmin(t *testing.T) {
 	backoff.Retry(func() error {
 		resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		if len(resp.Admins) != 1 || resp.Admins[0] != "admin" {
-			return fmt.Errorf("admins are \"%v\", but expected [\"admin\"]", resp.Admins)
+		if err := adminsEqual([]string{"admin"}, resp.Admins); err != nil {
+			return err
 		}
 		return nil
 	}, backoff.NewTestingBackOff())
@@ -187,16 +239,21 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	// Check that the initial set of admins is just "admin"
 	resp, err := adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
 	require.NoError(t, err)
-	require.ElementsEqual(t, []string{"admin"}, resp.Admins)
+	require.NoError(t, adminsEqual([]string{"admin"}, resp.Admins))
 
 	// admin cannot remove themselves from the list of cluster admins (otherwise
 	// there would be no admins)
 	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
 		&auth.ModifyAdminsRequest{Remove: []string{"admin"}})
 	require.YesError(t, err)
-	resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
-	require.NoError(t, err)
-	require.ElementsEqual(t, []string{"admin"}, resp.Admins)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
+		require.NoError(t, err)
+		if err := adminsEqual([]string{"admin"}, resp.Admins); err != nil {
+			return err
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 
 	// admin can make alice a cluster administrator
 	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
@@ -204,35 +261,55 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 			Add: []string{alice},
 		})
 	require.NoError(t, err)
-	resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
-	require.NoError(t, err)
-	require.ElementsEqual(t, []string{"admin", alice}, resp.Admins)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
+		require.NoError(t, err)
+		if err := adminsEqual([]string{"admin", alice}, resp.Admins); err != nil {
+			return err
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 
 	// Now admin can remove themselves as a cluster admin
 	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
 		&auth.ModifyAdminsRequest{Remove: []string{"admin"}})
 	require.NoError(t, err)
-	resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
-	require.NoError(t, err)
-	require.ElementsEqual(t, []string{alice}, resp.Admins)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
+		require.NoError(t, err)
+		if err := adminsEqual([]string{alice}, resp.Admins); err != nil {
+			return err
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 
-	// now alice cannot remove herself as a cluster administrator
+	// now alice is the only admin, and she cannot remove herself as a cluster
+	// administrator
 	_, err = aliceClient.ModifyAdmins(aliceClient.Ctx(),
 		&auth.ModifyAdminsRequest{Remove: []string{alice}})
 	require.YesError(t, err)
-	resp, err = aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
-	require.NoError(t, err)
-	require.ElementsEqual(t, []string{alice}, resp.Admins)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err = aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
+		require.NoError(t, err)
+		if err := adminsEqual([]string{alice}, resp.Admins); err != nil {
+			return err
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 
-	// alice can make admin the cluster administrator again (swapping herself and
-	// admin)
+	// alice *can* swap herself and "admin"
 	_, err = aliceClient.ModifyAdmins(aliceClient.Ctx(),
 		&auth.ModifyAdminsRequest{
 			Add:    []string{"admin"},
 			Remove: []string{alice},
 		})
 	require.NoError(t, err)
-	resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
-	require.NoError(t, err)
-	require.ElementsEqual(t, []string{"admin"}, resp.Admins)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
+		require.NoError(t, err)
+		if err := adminsEqual([]string{"admin"}, resp.Admins); err != nil {
+			return err
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 }
