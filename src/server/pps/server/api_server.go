@@ -826,7 +826,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 
 		// If the job had stats enabled, we use the logs from the stats
 		// commit since that's likely to yield better results.
-		if jobInfo.EnableStats && jobInfo.StatsCommit != nil {
+		if jobInfo.StatsCommit != nil {
 			return a.getLogsFromStats(ctx, request, apiGetLogsServer, jobInfo.StatsCommit)
 		}
 
