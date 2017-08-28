@@ -17,7 +17,7 @@ The easiest way to demonstrate this example is with a free hosted MongoDB cluste
 
 2. Click on the "connect" button for your cluster and make sure that all IPs are whitelisted (or at least the k8s master IP where you have Pachyderm deployed):
 
-![alt text](mongo1.png)
+![alt text](mongo2.png)
 
 3. Then click on "Connect with the MongoDB shell" to find the URI, DB name (`test` if you are using MongoDB Atlas `Cluster0`), username, and authentication DB for connecting to your cluster.  You will need these to query MongoDB.
 
