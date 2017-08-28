@@ -4648,7 +4648,6 @@ func TestFixPipeline(t *testing.T) {
 		if len(jobInfos) != 2 {
 			return fmt.Errorf("expected 2 jobs, got %d", len(jobInfos))
 		}
-		return nil
 		jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, true)
 		require.NoError(t, err)
 		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
