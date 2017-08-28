@@ -842,7 +842,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	// (sort the pods to make sure that the order of log lines is stable)
 	sort.Sort(podSlice(pods))
 	logChs := make([]chan *pps.LogMessage, len(pods))
-	errCh := make(chan error)
+	errCh := make(chan error, 1)
 	done := make(chan struct{})
 	defer close(done)
 	for i := 0; i < len(pods); i++ {
@@ -916,25 +916,28 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				select {
 				case errCh <- err:
 				case <-done:
+				default:
 				}
 			}
 		}()
 	}
+
 nextLogCh:
 	for _, logCh := range logChs {
 		for {
-			select {
-			case msg, ok := <-logCh:
-				if !ok {
-					continue nextLogCh
-				}
-				if err := apiGetLogsServer.Send(msg); err != nil {
-					return err
-				}
-			case err := <-errCh:
+			msg, ok := <-logCh
+			if !ok {
+				continue nextLogCh
+			}
+			if err := apiGetLogsServer.Send(msg); err != nil {
 				return err
 			}
 		}
+	}
+	select {
+	case err := <-errCh:
+		return err
+	default:
 	}
 	return nil
 }
