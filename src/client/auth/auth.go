@@ -43,18 +43,26 @@ func IsNotActivatedError(e error) bool {
 // NotAuthorizedError is returned if the user is not authorized to perform
 // a certain operation on a given repo.
 type NotAuthorizedError struct {
-	Repo string
+	Repo     string
+	Required Scope
 }
 
-const notAuthorizedErrorMsg = "not authorized to perform this operation on the repo "
+const notAuthorizedErrorMsg = "not authorized to perform this operation"
 
-func (e NotAuthorizedError) Error() string {
-	return notAuthorizedErrorMsg + e.Repo
+func (e *NotAuthorizedError) Error() string {
+	msg := notAuthorizedErrorMsg
+	if e.Repo != "" {
+		msg += " on the repo " + e.Repo
+	}
+	if e.Required != Scope_NONE {
+		msg += ", must have at least " + e.Required.String() + " access"
+	}
+	return msg
 }
 
 // IsNotAuthorizedError checks if an error is a NotAuthorizedError
 func IsNotAuthorizedError(e error) bool {
-	return strings.Contains(e.Error(), notAuthorizedErrorMsg)
+	return strings.HasPrefix(e.Error(), notAuthorizedErrorMsg)
 }
 
 // In2Out converts an incoming context containing auth information into an
