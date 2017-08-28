@@ -45,7 +45,7 @@ const (
 	aclsPrefix   = "/auth/acls"
 	adminsPrefix = "/auth/admins"
 
-	defaultTokenTTLSecs = 14 * 24 * 60 * 60  // two weeks
+	defaultTokenTTLSecs = 14 * 24 * 60 * 60 // two weeks
 
 	publicKey = `-----BEGIN PUBLIC KEY-----
 MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAoaPoEfv5RcVUbCuWNnOB
@@ -435,6 +435,9 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 	var acl authclient.ACL
 	if err := a.acls.ReadOnly(ctx).Get(req.Repo, &acl); err != nil {
 		if _, ok := err.(col.ErrNotFound); ok {
+			// Return a special error instead of a generic "not authorized" response
+			// in case a consistency error has occurred and an admin needs to fix the
+			// repo--explaining that the ACL is gone will help debug
 			return nil, fmt.Errorf("ACL not found for repo %v", req.Repo)
 		}
 		return nil, fmt.Errorf("error getting ACL for repo %v: %s", req.Repo, err.Error())
@@ -495,30 +498,37 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 	if err != nil {
 		return nil, err
 	}
+	admin := a.isAdmin(user.Username) // Check if the caller is an admin
 
 	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		acls := a.acls.ReadWrite(stm)
-
 		var acl authclient.ACL
 		if err := acls.Get(req.Repo, &acl); err != nil {
-			// Might be creating a new ACL. Check that 'req' sets the caller to be an owner
-			// TODO(msteffen): check that the repo exists?
-			if req.Username != user.Username || req.Scope != authclient.Scope_OWNER {
-				return fmt.Errorf("ACL not found for repo %v", req.Repo)
-			}
+			// TODO(msteffen): ACL not found; check that the repo exists?
 			acl.Entries = make(map[string]authclient.Scope)
 		}
-		if len(acl.Entries) > 0 && !a.isAdmin(user.Username) &&
-			acl.Entries[user.Username] != authclient.Scope_OWNER {
-			return fmt.Errorf("user %v is not authorized to update ACL for repo %v", user, req.Repo)
+		switch {
+		case req.Username == user.Username && req.Scope == authclient.Scope_OWNER:
+			// Special case: creating a new ACL. This is allowed
+			// TODO(msteffen): remove this case and inline this into CreateRepo
+		case admin:
+			// Admins can fix empty ACLs
+		case acl.Entries[user.Username] == authclient.Scope_OWNER:
+			// user is an owner, and is authorized to modify the ACL
+		case len(acl.Entries) == 0:
+			// warn user that there is no ACL for this repo
+			return fmt.Errorf("ACL not found for repo %v", req.Repo)
+		default:
+			return &authclient.NotAuthorizedError{
+				Repo:     req.Repo,
+				Required: authclient.Scope_OWNER,
+			}
 		}
-
 		if req.Scope != authclient.Scope_NONE {
 			acl.Entries[req.Username] = req.Scope
 		} else {
 			delete(acl.Entries, req.Username)
 		}
-
 		acls.Put(req.Repo, &acl)
 		return nil
 	})
@@ -592,10 +602,14 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 		if _, ok := err.(col.ErrNotFound); !ok {
 			return nil, err
 		}
+		// else: ACL not found. No error, just return an empty ACL
 	}
 	// For now, require READER access to read repo metadata (commits, and ACLs)
 	if !a.isAdmin(user.Username) && resp.ACL.Entries[user.Username] < authclient.Scope_READER {
-		return nil, fmt.Errorf("you must have at least READER access to %s to read its ACL", req.Repo)
+		return nil, &authclient.NotAuthorizedError{
+			Repo:     req.Repo,
+			Required: authclient.Scope_READER,
+		}
 	}
 	return resp, nil
 }
@@ -626,7 +640,10 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 		var acl authclient.ACL
 		acls.Get(req.Repo, &acl)
 		if !a.isAdmin(user.Username) && acl.Entries[user.Username] < authclient.Scope_OWNER {
-			return fmt.Errorf("you must have OWNER access to %s to modify its ACL", req.Repo)
+			return &authclient.NotAuthorizedError{
+				Repo:     req.Repo,
+				Required: authclient.Scope_OWNER,
+			}
 		}
 
 		// Set new ACL
