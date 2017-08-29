@@ -41,7 +41,8 @@ func IsNotActivatedError(e error) bool {
 }
 
 // NotAuthorizedError is returned if the user is not authorized to perform
-// a certain operation on a given repo.
+// a certain operation on the repo 'Repo' (to do so, they would need to have the
+// authorization scope in 'Required').
 type NotAuthorizedError struct {
 	Repo     string
 	Required Scope

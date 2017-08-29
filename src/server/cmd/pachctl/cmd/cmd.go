@@ -138,7 +138,7 @@ This resets the cluster to its initial state.`,
 			if err != nil {
 				return sanitizeErr(err)
 			}
-			fmt.Printf("Are you sure you want to delete all repos, commits, files, pipelines and jobs? yN\n")
+			fmt.Printf("Are you sure you want to delete all ACLs, repos, commits, files, pipelines and jobs? yN\n")
 			r := bufio.NewReader(os.Stdin)
 			bytes, err := r.ReadBytes('\n')
 			if err != nil {
