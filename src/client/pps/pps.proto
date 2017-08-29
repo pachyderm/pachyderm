@@ -199,6 +199,7 @@ message JobInfo {
   google.protobuf.Timestamp finished = 8;
   pfs.Commit output_commit = 9;
   JobState state = 10;
+  string reason = 35;  // reason explains why the job is in the current state
   Service service = 14;
   pfs.Repo output_repo = 18;
   string output_branch = 17;
