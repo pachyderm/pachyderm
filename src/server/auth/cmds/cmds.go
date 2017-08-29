@@ -16,13 +16,13 @@ import (
 
 var githubAuthLink = `https://github.com/login/oauth/authorize?client_id=d3481e92b4f09ea74ff8&redirect_uri=https%3A%2F%2Fpachyderm.io%2Flogin-hook%2Fdisplay-token.html`
 
-// ActivateCmd returns a cobra.Command to enable Pachyderm's auth system
+// ActivateCmd returns a cobra.Command to activate Pachyderm's auth system
 func ActivateCmd() *cobra.Command {
 	var admins []string
-	enableAuth := &cobra.Command{
-		Use:   "enable --admins=[admins...]",
-		Short: "Enable Pachyderm's auth system",
-		Long:  "Enable Pachyderm's auth system, and restrict access to existing data",
+	activateAuth := &cobra.Command{
+		Use:   "activate --admins=[admins...]",
+		Short: "Activate Pachyderm's auth system",
+		Long:  "Activate Pachyderm's auth system, and restrict access to existing data to cluster admins",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
@@ -34,18 +34,18 @@ func ActivateCmd() *cobra.Command {
 			return err
 		}),
 	}
-	enableAuth.PersistentFlags().StringSliceVar(&admins, "admins", []string{},
+	activateAuth.PersistentFlags().StringSliceVar(&admins, "admins", []string{},
 		"The initial list of cluster admins (a comma-separated list of GitHub "+
 			"usernames. Must be nonempty, as any Pachyderm cluster with auth "+
-			"enabled must have at least one admin.")
-	return enableAuth
+			"activated must have at least one admin.")
+	return activateAuth
 }
 
 // DeactivateCmd returns a cobra.Command to delete all ACLs, tokens, and admins,
 // deactivating Pachyderm's auth system
 func DeactivateCmd() *cobra.Command {
-	disableAuth := &cobra.Command{
-		Use:   "disable",
+	deactivateAuth := &cobra.Command{
+		Use:   "deactivate",
 		Short: "Delete all ACLs, tokens, and admins, and deactivate Pachyderm auth",
 		Long: "Deactivate Pachyderm's auth system, which will delete ALL auth " +
 			"tokens, ACLs and admins, and expose all data in the cluster to any " +
@@ -65,7 +65,7 @@ func DeactivateCmd() *cobra.Command {
 			return err
 		}),
 	}
-	return disableAuth
+	return deactivateAuth
 }
 
 // LoginCmd returns a cobra.Command to login to a Pachyderm cluster with your
