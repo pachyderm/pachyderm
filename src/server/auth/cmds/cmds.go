@@ -16,43 +16,56 @@ import (
 
 var githubAuthLink = `https://github.com/login/oauth/authorize?client_id=d3481e92b4f09ea74ff8&redirect_uri=https%3A%2F%2Fpachyderm.io%2Flogin-hook%2Fdisplay-token.html`
 
-// ActivateCmd returns a cobra.Command to activate the security features of
-// Pachyderm within a Pachyderm cluster. All repos will go from
-// publicly-accessible to accessible only by the owner, who can subsequently add
-// users
+// ActivateCmd returns a cobra.Command to enable Pachyderm's auth system
 func ActivateCmd() *cobra.Command {
 	var admins []string
-	activate := &cobra.Command{
-		Use: "activate activation-code",
-		Short: "Activate the security features of pachyderm with an activation " +
-			"code",
-		Long: "Activate the security features of pachyderm with an activation " +
-			"code",
+	enableAuth := &cobra.Command{
+		Use:   "enable --admins=[admins...]",
+		Short: "Enable Pachyderm's auth system",
+		Long:  "Enable Pachyderm's auth system, and restrict access to existing data",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			activationCode := args[0]
-			if len(admins) == 0 {
-				return fmt.Errorf("must specify at least one cluster admin to enable " +
-					"auth")
+			c, err := client.NewOnUserMachine(true, "user")
+			if err != nil {
+				return fmt.Errorf("could not connect: %s", err.Error())
+			}
+			_, err = c.AuthAPIClient.Activate(c.Ctx(), &auth.ActivateRequest{
+				Admins: admins,
+			})
+			return err
+		}),
+	}
+	enableAuth.PersistentFlags().StringSliceVar(&admins, "admins", []string{},
+		"The initial list of cluster admins (a comma-separated list of GitHub "+
+			"usernames. Must be nonempty, as any Pachyderm cluster with auth "+
+			"enabled must have at least one admin.")
+	return enableAuth
+}
+
+// DeactivateCmd returns a cobra.Command to delete all ACLs, tokens, and admins,
+// deactivating Pachyderm's auth system
+func DeactivateCmd() *cobra.Command {
+	disableAuth := &cobra.Command{
+		Use:   "disable",
+		Short: "Delete all ACLs, tokens, and admins, and deactivate Pachyderm auth",
+		Long: "Deactivate Pachyderm's auth system, which will delete ALL auth " +
+			"tokens, ACLs and admins, and expose all data in the cluster to any " +
+			"user with cluster access. Use with caution.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			fmt.Println("Are you sure you want to delete ALL auth information " +
+				"(ACLs, tokens, and admins) in this cluster, and expose ALL data? yN")
+			confirm, err := bufio.NewReader(os.Stdin).ReadString('\n')
+			if !strings.Contains("yY", confirm) {
+				return fmt.Errorf("operation aborted")
 			}
 			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %s", err.Error())
 			}
-			_, err = c.AuthAPIClient.Activate(
-				c.Ctx(),
-				&auth.ActivateRequest{
-					ActivationCode: activationCode,
-					Admins:         admins,
-				})
+			_, err = c.AuthAPIClient.Deactivate(c.Ctx(), &auth.DeactivateRequest{})
 			return err
 		}),
 	}
-	activate.PersistentFlags().StringSliceVar(&admins, "admins", []string{},
-		"Comma-separated list of users who will be cluster admins once security "+
-			"is enabled. This list cannot be empty, as only admins can appoint new "+
-			"admins, so if a cluster has no admins to begin with, none can be "+
-			"appointed.")
-	return activate
+	return disableAuth
 }
 
 // LoginCmd returns a cobra.Command to login to a Pachyderm cluster with your
@@ -296,10 +309,12 @@ func Cmds() []*cobra.Command {
 		Long:  "Auth commands manage access to data in a Pachyderm cluster",
 	}
 	auth.AddCommand(ActivateCmd())
+	auth.AddCommand(DeactivateCmd())
+	auth.AddCommand(LoginCmd())
 	auth.AddCommand(CheckCmd())
 	auth.AddCommand(SetScopeCmd())
 	auth.AddCommand(GetCmd())
 	auth.AddCommand(ListAdminsCmd())
 	auth.AddCommand(ModifyAdminsCmd())
-	return []*cobra.Command{LoginCmd(), auth}
+	return []*cobra.Command{auth}
 }
