@@ -93,6 +93,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 				&pfsclient.CreateRepoRequest{
 					Repo:        client.NewRepo(args[0]),
 					Description: description,
+					Update:      true,
 				},
 			)
 			return err
