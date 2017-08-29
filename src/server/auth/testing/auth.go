@@ -12,23 +12,13 @@ import (
 // never be used in a real Pachyderm cluster
 type InactiveAPIServer struct{}
 
-// ActivateEnterpriseToken implements the ActivateEnterpriseToken RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) ActivateEnterpriseToken(ctx context.Context, req *auth.ActivateEnterpriseTokenRequest) (resp *auth.ActivateEnterpriseTokenResponse, retErr error) {
+// Activate implements the Activate RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) Activate(ctx context.Context, req *auth.ActivateRequest) (resp *auth.ActivateResponse, retErr error) {
 	return nil, auth.NotActivatedError{}
 }
 
-// GetEnterpriseTokenState implements the GetEnterpriseTokenState RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) GetEnterpriseTokenState(ctx context.Context, req *auth.GetEnterpriseTokenStateRequest) (resp *auth.GetEnterpriseTokenStateResponse, retErr error) {
-	return nil, auth.NotActivatedError{}
-}
-
-// EnableAuth implements the EnableAuth RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) EnableAuth(ctx context.Context, req *auth.EnableAuthRequest) (resp *auth.EnableAuthResponse, retErr error) {
-	return nil, auth.NotActivatedError{}
-}
-
-// DisableAuth implements the DisableAuth RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) DisableAuth(ctx context.Context, req *auth.DisableAuthRequest) (resp *auth.DisableAuthResponse, retErr error) {
+// Deactivate implements the Deactivate RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest) (resp *auth.DeactivateResponse, retErr error) {
 	return nil, auth.NotActivatedError{}
 }
 
