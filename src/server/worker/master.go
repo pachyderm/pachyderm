@@ -723,6 +723,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 		// Put egress into its own retry loop, because 1) we don't want to
 		// endlessly retry egress, and 2) we don't want to create the output
 		// commit over and over again.
+		var egressFailureCount int
 		egressErr := backoff.RetryNotify(func() (retErr error) {
 			if jobInfo.Egress != nil {
 				logger.Logf("Starting egress upload for job (%v)", jobInfo)
@@ -745,7 +746,11 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 				logger.Logf("Completed egress upload for job (%v), duration (%v)", jobInfo, time.Since(start))
 			}
 			return nil
-		}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
+		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+			egressFailureCount++
+			if egressFailureCount > 3 {
+				return err
+			}
 			logger.Logf("egress failed: %v; retrying in %v", err, d)
 			return nil
 		})
