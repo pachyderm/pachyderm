@@ -185,11 +185,9 @@ func (a *apiServer) GetState(ctx context.Context, req *ec.GetStateRequest) (resp
 	r := ec.EnterpriseRecord{}
 	if err := e.Get(enterpriseTokenKey, &r); err != nil {
 		if _, ok := err.(col.ErrNotFound); ok {
-			return &ec.GetStateResponse{
-				State: ec.State_NONE,
-			}, nil
-			return nil, fmt.Errorf("error getting enterprise token state: %s", err.Error())
+			return &ec.GetStateResponse{State: ec.State_NONE}, nil
 		}
+		return nil, fmt.Errorf("error getting enterprise token state: %s", err.Error())
 	}
 	expiry, err := types.TimestampFromProto(r.Expires)
 	if err != nil {
