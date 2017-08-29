@@ -313,7 +313,11 @@ func (a *APIServer) _rootInputs(c *client.APIClient, inputs []*pps.Input) ([]*pp
 						visitErr = err
 					}
 					for _, input := range subResults {
-						resultMap[input.Atom.Repo+input.Atom.Branch] = input
+						if input.Atom != nil {
+							resultMap[input.Atom.Repo+input.Atom.Branch] = input
+						} else {
+							resultMap[input.Cron.Name] = input
+						}
 					}
 				}
 			})
