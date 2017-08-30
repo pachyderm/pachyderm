@@ -3979,6 +3979,7 @@ func TestPipelineWithStats(t *testing.T) {
 	resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(resp.DatumInfos))
+	require.Equal(t, 1, len(resp.DatumInfos[0].Data))
 
 	// Check we can list datums before job completion w pagination
 	resp, err = c.ListDatum(jobs[0].Job.ID, 100, 0)
@@ -3995,6 +3996,7 @@ func TestPipelineWithStats(t *testing.T) {
 	resp, err = c.ListDatum(jobs[0].Job.ID, 0, 0)
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(resp.DatumInfos))
+	require.Equal(t, 1, len(resp.DatumInfos[0].Data))
 
 	for _, datum := range resp.DatumInfos {
 		require.NoError(t, err)
@@ -4168,7 +4170,7 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	}
 	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
 
-	pipeline := uniqueString("pipeline")
+	pipeline := uniqueString("StatsAcrossJobs")
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipeline),
@@ -4263,7 +4265,7 @@ func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
 	_, err = c.PutFile(dataRepo, commit3.ID, "file-0", strings.NewReader(strings.Repeat("foo\n", 100)))
 	require.NoError(t, c.FinishCommit(dataRepo, commit3.ID))
 
-	pipeline := uniqueString("pipeline")
+	pipeline := uniqueString("StatsEdgeCase")
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipeline),
