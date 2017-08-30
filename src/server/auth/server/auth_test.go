@@ -995,3 +995,73 @@ func TestDeletePipeline(t *testing.T) {
 	// finally bob can delete alice's pipeline
 	require.NoError(t, bobClient.DeletePipeline(pipeline, true))
 }
+
+// Test ListRepo checks that the auth information returned by ListRepo and
+// InspectRepo is correct.
+// TODO(msteffen): This should maybe go in pachyderm_test, since ListRepo isn't
+// an auth API call
+func TestListAndInspectRepo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	alice, bob := uniqueString("alice"), uniqueString("bob")
+	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
+
+	// alice creates a repo and makes Bob a writer
+	repoWriter := uniqueString("TestListRepo")
+	require.NoError(t, aliceClient.CreateRepo(repoWriter))
+	_, err := aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
+		Repo:     repoWriter,
+		Username: bob,
+		Scope:    auth.Scope_WRITER,
+	})
+	require.NoError(t, err)
+	require.Equal(t, acl(alice, "owner", bob, "writer"), GetACL(t, aliceClient, repoWriter))
+
+	// alice creates a repo and makes Bob a reader
+	repoReader := uniqueString("TestListRepo")
+	require.NoError(t, aliceClient.CreateRepo(repoReader))
+	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
+		Repo:     repoReader,
+		Username: bob,
+		Scope:    auth.Scope_READER,
+	})
+	require.NoError(t, err)
+	require.Equal(t, acl(alice, "owner", bob, "reader"), GetACL(t, aliceClient, repoReader))
+
+	// alice creates a repo and gives Bob no access privileges
+	repoNone := uniqueString("TestListRepo")
+	require.NoError(t, aliceClient.CreateRepo(repoNone))
+	require.Equal(t, acl(alice, "owner"), GetACL(t, aliceClient, repoNone))
+
+	// bob creates a repo
+	repoOwner := uniqueString("TestListRepo")
+	require.NoError(t, bobClient.CreateRepo(repoOwner))
+	require.Equal(t, acl(bob, "owner"), GetACL(t, bobClient, repoOwner))
+
+	// Bob calls ListRepo, and the response must indicate the correct access scope
+	// for each repo (because other tests have run, we may see repos besides the
+	// above. Bob's access to those should be NONE
+	listResp, err := bobClient.PfsAPIClient.ListRepo(bobClient.Ctx(),
+		&pfs.ListRepoRequest{IncludeAuth: true})
+	require.NoError(t, err)
+	expectedAccess := map[string]auth.Scope{
+		repoOwner:  auth.Scope_OWNER,
+		repoWriter: auth.Scope_WRITER,
+		repoReader: auth.Scope_READER,
+	}
+	for i, info := range listResp.RepoInfo {
+		require.Equal(t, expectedAccess[info.Repo.Name], listResp.Scopes[i])
+	}
+
+	for _, name := range []string{repoOwner, repoWriter, repoReader, repoNone} {
+		inspectResp, err := bobClient.PfsAPIClient.InspectRepo(bobClient.Ctx(),
+			&pfs.InspectRepoRequest{
+				Repo:        &pfs.Repo{Name: name},
+				IncludeAuth: true,
+			})
+		require.NoError(t, err)
+		require.Equal(t, expectedAccess[name], inspectResp.Scope)
+	}
+}
