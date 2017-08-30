@@ -1,4 +1,4 @@
-package enterprise
+package server
 
 import (
 	"testing"

@@ -2,7 +2,7 @@
 // Because the cluster has one global set of admins, these tests can't be run in
 // parallel
 
-package auth
+package server
 
 import (
 	"bytes"
