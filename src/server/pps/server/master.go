@@ -8,6 +8,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"k8s.io/kubernetes/pkg/api"
+	labelspkg "k8s.io/kubernetes/pkg/labels"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
@@ -46,85 +47,101 @@ func (a *apiServer) master() {
 		}
 		defer pipelineWatcher.Close()
 
+		kubePipelineWatch, err := a.kubeClient.ReplicationControllers(a.namespace).Watch(api.ListOptions{
+			LabelSelector: labelspkg.SelectorFromSet(map[string]string{
+				"component": "worker",
+			}),
+			Watch: true,
+		})
+		if err != nil {
+			return err
+		}
+		defer kubePipelineWatch.Stop()
+
+		log.Infof("listening...")
 		for {
-			event := <-pipelineWatcher.Watch()
-			if event.Err != nil {
-				return fmt.Errorf("event err: %+v", event.Err)
-			}
-			switch event.Type {
-			case watch.EventPut:
-				var pipelineName string
-				var pipelineInfo pps.PipelineInfo
-				if err := event.Unmarshal(&pipelineName, &pipelineInfo); err != nil {
-					return err
+			select {
+			case event := <-pipelineWatcher.Watch():
+				if event.Err != nil {
+					return fmt.Errorf("event err: %+v", event.Err)
 				}
-
-				if pipelineInfo.Salt == "" {
-					if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-						pipelines := a.pipelines.ReadWrite(stm)
-						newPipelineInfo := new(pps.PipelineInfo)
-						if err := pipelines.Get(pipelineInfo.Pipeline.Name, newPipelineInfo); err != nil {
-							return fmt.Errorf("error getting pipeline %s: %+v", pipelineName, err)
-						}
-						if newPipelineInfo.Salt == "" {
-							newPipelineInfo.Salt = uuid.NewWithoutDashes()
-						}
-						pipelines.Put(pipelineInfo.Pipeline.Name, newPipelineInfo)
-						return nil
-					}); err != nil {
+				switch event.Type {
+				case watch.EventPut:
+					var pipelineName string
+					var pipelineInfo pps.PipelineInfo
+					if err := event.Unmarshal(&pipelineName, &pipelineInfo); err != nil {
 						return err
 					}
-				}
 
-				var prevPipelineInfo pps.PipelineInfo
-				if event.PrevKey != nil {
-					if err := event.UnmarshalPrev(&pipelineName, &prevPipelineInfo); err != nil {
+					if pipelineInfo.Salt == "" {
+						if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+							pipelines := a.pipelines.ReadWrite(stm)
+							newPipelineInfo := new(pps.PipelineInfo)
+							if err := pipelines.Get(pipelineInfo.Pipeline.Name, newPipelineInfo); err != nil {
+								return fmt.Errorf("error getting pipeline %s: %+v", pipelineName, err)
+							}
+							if newPipelineInfo.Salt == "" {
+								newPipelineInfo.Salt = uuid.NewWithoutDashes()
+							}
+							pipelines.Put(pipelineInfo.Pipeline.Name, newPipelineInfo)
+							return nil
+						}); err != nil {
+							return err
+						}
+					}
+
+					var prevPipelineInfo pps.PipelineInfo
+					if event.PrevKey != nil {
+						if err := event.UnmarshalPrev(&pipelineName, &prevPipelineInfo); err != nil {
+							return err
+						}
+					}
+
+					// If the pipeline has been stopped, delete workers
+					if pipelineStateToStopped(pipelineInfo.State) {
+						log.Infof("master: deleting workers for pipeline %s", pipelineInfo.Pipeline.Name)
+						if err := a.deleteWorkersForPipeline(&pipelineInfo); err != nil {
+							return err
+						}
+					}
+
+					// If the pipeline has been restarted, create workers
+					if !pipelineStateToStopped(pipelineInfo.State) && event.PrevKey != nil && pipelineStateToStopped(prevPipelineInfo.State) {
+						if err := a.upsertWorkersForPipeline(&pipelineInfo); err != nil {
+							if err := a.setPipelineFailure(ctx, &pipelineInfo); err != nil {
+								return err
+							}
+							continue
+						}
+					}
+
+					// If the pipeline has been updated, create new workers
+					if pipelineInfo.Version > prevPipelineInfo.Version {
+						log.Infof("master: creating/updating workers for pipeline %s", pipelineInfo.Pipeline.Name)
+						if event.PrevKey != nil {
+							if err := a.deleteWorkersForPipeline(&prevPipelineInfo); err != nil {
+								return err
+							}
+						}
+						if err := a.upsertWorkersForPipeline(&pipelineInfo); err != nil {
+							if err := a.setPipelineFailure(ctx, &pipelineInfo); err != nil {
+								return err
+							}
+							continue
+						}
+					}
+				case watch.EventDelete:
+					var pipelineName string
+					var pipelineInfo pps.PipelineInfo
+					if err := event.UnmarshalPrev(&pipelineName, &pipelineInfo); err != nil {
 						return err
 					}
-				}
-
-				// If the pipeline has been stopped, delete workers
-				if pipelineStateToStopped(pipelineInfo.State) {
-					log.Infof("master: deleting workers for pipeline %s", pipelineInfo.Pipeline.Name)
 					if err := a.deleteWorkersForPipeline(&pipelineInfo); err != nil {
 						return err
 					}
 				}
-
-				// If the pipeline has been restarted, create workers
-				if !pipelineStateToStopped(pipelineInfo.State) && event.PrevKey != nil && pipelineStateToStopped(prevPipelineInfo.State) {
-					if err := a.upsertWorkersForPipeline(&pipelineInfo); err != nil {
-						if err := a.setPipelineFailure(ctx, &pipelineInfo); err != nil {
-							return err
-						}
-						continue
-					}
-				}
-
-				// If the pipeline has been updated, create new workers
-				if pipelineInfo.Version > prevPipelineInfo.Version {
-					log.Infof("master: creating/updating workers for pipeline %s", pipelineInfo.Pipeline.Name)
-					if event.PrevKey != nil {
-						if err := a.deleteWorkersForPipeline(&prevPipelineInfo); err != nil {
-							return err
-						}
-					}
-					if err := a.upsertWorkersForPipeline(&pipelineInfo); err != nil {
-						if err := a.setPipelineFailure(ctx, &pipelineInfo); err != nil {
-							return err
-						}
-						continue
-					}
-				}
-			case watch.EventDelete:
-				var pipelineName string
-				var pipelineInfo pps.PipelineInfo
-				if err := event.UnmarshalPrev(&pipelineName, &pipelineInfo); err != nil {
-					return err
-				}
-				if err := a.deleteWorkersForPipeline(&pipelineInfo); err != nil {
-					return err
-				}
+			case event := <-kubePipelineWatch.ResultChan():
+				log.Infof("kube event: %+v", event)
 			}
 		}
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
