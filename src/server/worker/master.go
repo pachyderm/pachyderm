@@ -399,7 +399,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 		}
 
 		failed := false
-		var failedDatum []*Input
+		var failedDatumID string
 		limiter := limit.New(a.numWorkers * queueSize)
 		// process all datums
 		df, err := NewDatumFactory(ctx, pfsClient, jobInfo.Input)
@@ -557,7 +557,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 					}
 					if failed {
 						userCodeFailures++
-						failedDatum = files
+						failedDatumID = datumID
 						// If this is our last failure we merge in the stats
 						// tree for the failed run.
 						if userCodeFailures > maximumRetriesPerDatum && jobInfo.EnableStats {
@@ -701,7 +701,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 				}
 				jobInfo.Finished = now()
 				jobInfo.StatsCommit = statsCommit
-				return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE, fmt.Sprintf("failed to process datum: %v", failedDatum))
+				return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE, fmt.Sprintf("failed to process datum: %v", failedDatumID))
 			})
 			return err
 		}

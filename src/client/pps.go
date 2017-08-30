@@ -340,13 +340,14 @@ func (l *LogsIter) Err() error {
 }
 
 // GetLogs gets logs from a job (logs includes stdout and stderr). 'pipelineName',
-// 'jobID', and 'data', are all filters. To forego any filter, simply pass an
-// empty value, though one of 'pipelineName' and 'jobID' must be set. Responses
-// are written to 'messages'
+// 'jobID', 'data', and 'datumID', are all filters. To forego any filter,
+// simply pass an empty value, though one of 'pipelineName' and 'jobID'
+// must be set. Responses are written to 'messages'
 func (c APIClient) GetLogs(
 	pipelineName string,
 	jobID string,
 	data []string,
+	datumID string,
 	master bool,
 ) *LogsIter {
 	request := pps.GetLogsRequest{Master: master}
@@ -358,6 +359,10 @@ func (c APIClient) GetLogs(
 		request.Job = &pps.Job{jobID}
 	}
 	request.DataFilters = data
+	request.Datum = &pps.Datum{
+		Job: &pps.Job{jobID},
+		ID:  datumID,
+	}
 	resp.logsClient, resp.err = c.PpsAPIClient.GetLogs(c.Ctx(), &request)
 	return resp
 }
