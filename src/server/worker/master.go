@@ -231,8 +231,9 @@ nextInput:
 					if err := a.runJob(ctx, &jobInfo, pool, logger); err != nil {
 						return err
 					}
+				case pps.JobState_JOB_SUCCESS:
+					continue nextInput
 				}
-				continue nextInput
 			}
 		}
 
