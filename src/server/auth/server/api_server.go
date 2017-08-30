@@ -1,4 +1,4 @@
-package auth
+package server
 
 import (
 	"crypto/sha256"
@@ -264,7 +264,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		a.acls.ReadWrite(stm).DeleteAll()
 		a.tokens.ReadWrite(stm).DeleteAll()
-		a.admins.ReadWrite(stm).DeleteAll()  // watchAdmins() will see the write
+		a.admins.ReadWrite(stm).DeleteAll() // watchAdmins() will see the write
 		return nil
 	})
 	if err != nil {
