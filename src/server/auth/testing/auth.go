@@ -12,62 +12,67 @@ import (
 // never be used in a real Pachyderm cluster
 type InactiveAPIServer struct{}
 
-// Activate implements the Pachdyerm Auth Activate RPC, but just returns NotActivatedError
+// Activate implements the Activate RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) Activate(ctx context.Context, req *auth.ActivateRequest) (resp *auth.ActivateResponse, retErr error) {
 	return nil, auth.NotActivatedError{}
 }
 
-// GetAdmins implements the Pachdyerm Auth GetAdmins RPC, but just returns NotActivatedError
+// Deactivate implements the Deactivate RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest) (resp *auth.DeactivateResponse, retErr error) {
+	return nil, auth.NotActivatedError{}
+}
+
+// GetAdmins implements the GetAdmins RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) GetAdmins(ctx context.Context, req *auth.GetAdminsRequest) (resp *auth.GetAdminsResponse, retErr error) {
 	return nil, auth.NotActivatedError{}
 }
 
-// ModifyAdmins implements the Pachdyerm Auth ModifyAdmins RPC, but just returns NotActivatedError
+// ModifyAdmins implements the ModifyAdmins RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) ModifyAdmins(ctx context.Context, req *auth.ModifyAdminsRequest) (resp *auth.ModifyAdminsResponse, retErr error) {
 	return nil, auth.NotActivatedError{}
 }
 
-// Authenticate implements the Pachdyerm Auth Authenticate RPC, but just returns NotActivatedError
+// Authenticate implements the Authenticate RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequest) (resp *auth.AuthenticateResponse, retErr error) {
 	return nil, auth.NotActivatedError{}
 }
 
-// Authorize implements the Pachdyerm Auth Authorize RPC, but just returns NotActivatedError
+// Authorize implements the Authorize RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) Authorize(ctx context.Context, req *auth.AuthorizeRequest) (resp *auth.AuthorizeResponse, retErr error) {
 	return nil, auth.NotActivatedError{}
 }
 
-// WhoAmI implements the Pachdyerm Auth WhoAmI RPC, but just returns NotActivatedError
+// WhoAmI implements the WhoAmI RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (resp *auth.WhoAmIResponse, retErr error) {
 	return nil, auth.NotActivatedError{}
 }
 
-// SetScope implements the Pachdyerm Auth SetScope RPC, but just returns NotActivatedError
+// SetScope implements the SetScope RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) SetScope(ctx context.Context, req *auth.SetScopeRequest) (resp *auth.SetScopeResponse, retErr error) {
 	return nil, auth.NotActivatedError{}
 }
 
-// GetScope implements the Pachdyerm Auth GetScope RPC, but just returns NotActivatedError
+// GetScope implements the GetScope RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) GetScope(ctx context.Context, req *auth.GetScopeRequest) (resp *auth.GetScopeResponse, retErr error) {
 	return nil, auth.NotActivatedError{}
 }
 
-// GetACL implements the Pachdyerm Auth GetACL RPC, but just returns NotActivatedError
+// GetACL implements the GetACL RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) GetACL(ctx context.Context, req *auth.GetACLRequest) (resp *auth.GetACLResponse, retErr error) {
 	return nil, auth.NotActivatedError{}
 }
 
-// SetACL implements the Pachdyerm Auth SetACL RPC, but just returns NotActivatedError
+// SetACL implements the SetACL RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) SetACL(ctx context.Context, req *auth.SetACLRequest) (resp *auth.SetACLResponse, retErr error) {
 	return nil, auth.NotActivatedError{}
 }
 
-// GetCapability implements the Pachdyerm Auth GetCapability RPC, but just returns NotActivatedError
+// GetCapability implements the GetCapability RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) GetCapability(ctx context.Context, req *auth.GetCapabilityRequest) (resp *auth.GetCapabilityResponse, retErr error) {
 	return nil, auth.NotActivatedError{}
 }
 
-// RevokeAuthToken implements the Pachdyerm Auth RevokeAuthToken RPC, but just returns NotActivatedError
+// RevokeAuthToken implements the RevokeAuthToken RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTokenRequest) (resp *auth.RevokeAuthTokenResponse, retErr error) {
 	return nil, auth.NotActivatedError{}
 }

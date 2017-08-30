@@ -71,7 +71,7 @@ func oneOfEquals(expected interface{}, actuals interface{}) (bool, error) {
 		return false, nil
 	}
 	for i := 0; i < as.Len(); i++ {
-		if e.Interface() == as.Index(i).Interface() {
+		if reflect.DeepEqual(e.Interface(), as.Index(i).Interface()) {
 			return true, nil
 		}
 	}

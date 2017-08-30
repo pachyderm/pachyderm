@@ -1,20 +1,13 @@
-package auth
+package server
 
 import (
-	"crypto"
-	"crypto/rsa"
 	"crypto/sha256"
-	"crypto/x509"
-	"encoding/base64"
-	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"os"
 	"path"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"google.golang.org/grpc/metadata"
@@ -28,11 +21,13 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	authclient "github.com/pachyderm/pachyderm/src/client/auth"
+	enterpriseclient "github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+	"google.golang.org/grpc"
 )
 
 const (
@@ -41,27 +36,11 @@ const (
 	// pachyderm token for any username in the AuthenticateRequest.GithubToken field
 	DisableAuthenticationEnvVar = "PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING"
 
-	tokensPrefix = "/auth/tokens"
-	aclsPrefix   = "/auth/acls"
-	adminsPrefix = "/auth/admins"
+	tokensPrefix = "/tokens"
+	aclsPrefix   = "/acls"
+	adminsPrefix = "/admins"
 
-	defaultTokenTTLSecs = 14 * 24 * 60 * 60  // two weeks
-
-	publicKey = `-----BEGIN PUBLIC KEY-----
-MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAoaPoEfv5RcVUbCuWNnOB
-WtLHzcyQSe4SbtGGQom/X27iq/7s8dcebSsCd2cwYoyKihEQ5OlaghrhcxTTV5AN
-39O6S0YnWjt/+4PWQQP3NpcEhqWj8RLPJtYq+JNrqlyjxBlca7vDcFSTa6iCqXay
-iVD2OyTbWrD6KZ/YTSmSY8mY2qdYvHyp3Ue5ueH3rSkKRUjo4Jyjf59PntZD884P
-yb9kC+weh/1KlbDQ4aV0U9p6DSBkW7dinOQj7a1/ikDoA9Nebnrkb1FF9Hr2+utO
-We4e4yOViDzAP9hhQiBhOVR0F6wJF5i+NfuLit4tk5ViboogEZqIyuakTD6abSFg
-UPqBTDDG0UsVqjnU5ysJ1DKQqALnOrxEKZoVXtH80/m7kgmeY3VDHCFt+WCSdaSq
-1w8SoIpJAZPJpKlDjMxe+NqsX2qUODQ2KNkqfEqFtyUNZzfS9o9pEg/KJzDuDclM
-oMQr1BG8vc3msX4UiGQPkohznwlCSGWf62IkSS6P8hQRCBKGRS5yGjmT3J+/chZw
-Je46y8zNLV7t2pOL6UemdmDjTaMCt0YBc1FmG2eUipAWcHJWEHgQm2Yz6QjtBgvt
-jFqnYeiDwdxU7CQD3oF9H+uVHqz8Jmmf9BxY9PhlMSUGPUsTpZ717ysL0UrBhQhW
-xYp8vpeQ3by9WxPBE/WrxN8CAwEAAQ==
------END PUBLIC KEY-----
-`
+	defaultTokenTTLSecs = 14 * 24 * 60 * 60 // two weeks
 
 	// magicUser is a special, unrevokable cluster administrator. It's not
 	// possible to log in as magicUser, but pipelines with no owner are run as
@@ -69,36 +48,26 @@ xYp8vpeQ3by9WxPBE/WrxN8CAwEAAQ==
 	magicUser = `GZD4jKDGcirJyWQt6HtK4hhRD6faOofP1mng34xNZsI`
 )
 
-type authState uint8
-
-const (
-	// If auth is disabled, authentication and authorization are disabled, and any
-	// RPCs sent to the cluster are executed.
-	authDisabled authState = iota
-
-	// If auth is expired, only admins can log in or perform any actions in the
-	// cluster. If an admin calls auth.Activate(), then the cluster will
-	// transition to the 'authEnabled' state. If all cluster admins are removed,
-	// the cluster will transition to the 'authDisabled' state.
-	authExpired
-
-	// If auth is enabled, users can log in, and users can manage access to repos
-	// repos with access control lists
-	authEnabled
-)
-
 // epsilon is small, nonempty protobuf to use as an etcd value (the etcd client
 // library can't distinguish between empty values and missing values, even
 // though empty values are still stored in etcd)
 var epsilon = &types.BoolValue{Value: true}
 
+// authEnterpriseClient contains address and connection info needed to check
+// the cluster's enterprise status (auth is an enterprise feature, and cannot
+// be used if the cluster doesn't have enterprise features enabled)
+type enterpriseClient struct {
+	clientOnce sync.Once
+	address    string
+	conn       *grpc.ClientConn
+	clientErr  error
+	client     enterpriseclient.APIClient
+}
+
 type apiServer struct {
 	pachLogger log.Logger
+	enterprise enterpriseClient // for checking enterprise token status
 	etcdClient *etcd.Client
-
-	// 'activated' stores an authState value, indicating the state that the
-	// cluster is in.
-	clusterState atomic.Value
 
 	// admins is a cache of the current cluster administrators
 	adminMu    sync.Mutex
@@ -136,8 +105,8 @@ func (a *apiServer) LogResp(request interface{}, response interface{}, err error
 	}
 }
 
-// NewAuthServer returns an implementation of auth.APIServer.
-func NewAuthServer(etcdAddress string, etcdPrefix string) (authclient.APIServer, error) {
+// NewAuthServer returns an implementation of authclient.APIServer.
+func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (authclient.APIServer, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   []string{etcdAddress},
 		DialOptions: client.EtcdDialOptions(),
@@ -147,8 +116,11 @@ func NewAuthServer(etcdAddress string, etcdPrefix string) (authclient.APIServer,
 	}
 
 	s := &apiServer{
-		pachLogger: log.NewLogger("auth.API"),
+		pachLogger: log.NewLogger("authclient.API"),
 		etcdClient: etcdClient,
+		enterprise: enterpriseClient{
+			address: pachdAddress,
+		},
 		adminCache: make(map[string]struct{}),
 		tokens: col.NewCollection(
 			etcdClient,
@@ -172,8 +144,7 @@ func NewAuthServer(etcdAddress string, etcdPrefix string) (authclient.APIServer,
 			nil,
 		),
 	}
-	s.clusterState.Store(authDisabled) // must store initial value before starting watchAdmins
-
+	go s.getEnterpriseTokenState() // initialize connection to enterprise API
 	go s.watchAdmins(path.Join(etcdPrefix, adminsPrefix))
 	return s, nil
 }
@@ -204,20 +175,15 @@ func (a *apiServer) watchAdmins(fullAdminPrefix string) {
 				// Parse event data and potentially update adminCache
 				var key string
 				var boolProto types.BoolValue
+				ev.Unmarshal(&key, &boolProto)
+				username := strings.TrimPrefix(key, fullAdminPrefix+"/")
 				switch ev.Type {
 				case watch.EventPut:
-					ev.Unmarshal(&key, &boolProto)
-					username := strings.TrimPrefix(key, fullAdminPrefix+"/")
 					a.adminCache[username] = struct{}{}
 				case watch.EventDelete:
-					ev.Unmarshal(&key, &boolProto)
-					username := strings.TrimPrefix(key, fullAdminPrefix+"/")
 					delete(a.adminCache, username)
 				case watch.EventError:
 					return ev.Err
-				}
-				if len(a.adminCache) > 0 && a.clusterState.Load().(authState) != authEnabled {
-					a.clusterState.Store(authEnabled)
 				}
 				return nil // unlock mu
 			}(); err != nil {
@@ -230,9 +196,33 @@ func (a *apiServer) watchAdmins(fullAdminPrefix string) {
 	})
 }
 
+func (a *apiServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
+	a.enterprise.clientOnce.Do(func() {
+		a.enterprise.conn, a.enterprise.clientErr = grpc.Dial(a.enterprise.address, client.PachDialOptions()...)
+		a.enterprise.client = enterpriseclient.NewAPIClient(a.enterprise.conn)
+	})
+	if a.enterprise.clientErr != nil {
+		return 0, a.enterprise.clientErr
+	}
+	resp, err := a.enterprise.client.GetState(context.Background(),
+		&enterpriseclient.GetStateRequest{})
+	if err != nil {
+		return 0, err
+	}
+	return resp.State, nil
+}
+
 func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateRequest) (resp *authclient.ActivateResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	state, err := a.getEnterpriseTokenState()
+	if err != nil {
+		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %s", err.Error())
+	}
+	if state != enterpriseclient.State_ACTIVE {
+		return nil, fmt.Errorf("Pachyderm Enterprise is not active in this cluster")
+	}
 
 	// Activating an already activated auth service should fail, because
 	// otherwise anyone can just activate the service again and set
@@ -241,13 +231,8 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 		return nil, fmt.Errorf("already activated")
 	}
 
-	// Validate the activation code
-	if err := validateActivationCode(req.ActivationCode); err != nil {
-		return nil, fmt.Errorf("error validating activation code: %s", err.Error())
-	}
-
 	// Initialize admins (watchAdmins() above will see the write)
-	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		admins := a.admins.ReadWrite(stm)
 		for _, user := range req.Admins {
 			admins.Put(user, epsilon)
@@ -260,8 +245,38 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	return &authclient.ActivateResponse{}, nil
 }
 
+func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRequest) (resp *authclient.DeactivateResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	if !a.isActivated() {
+		return nil, authclient.NotActivatedError{}
+	}
+
+	// Get calling user. The user must be a cluster admin to disable auth for the
+	// cluster
+	user, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !a.isAdmin(user.Username) {
+		return nil, fmt.Errorf("must be an admin to disable cluster auth")
+	}
+	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		a.acls.ReadWrite(stm).DeleteAll()
+		a.tokens.ReadWrite(stm).DeleteAll()
+		a.admins.ReadWrite(stm).DeleteAll() // watchAdmins() will see the write
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &authclient.DeactivateResponse{}, nil
+}
+
 func (a *apiServer) isActivated() bool {
-	return a.clusterState.Load().(authState) == authEnabled
+	a.adminMu.Lock()
+	defer a.adminMu.Unlock()
+	return len(a.adminCache) > 0
 }
 
 // AccessTokenToUsername takes a OAuth access token issued by GitHub and uses
@@ -435,6 +450,9 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 	var acl authclient.ACL
 	if err := a.acls.ReadOnly(ctx).Get(req.Repo, &acl); err != nil {
 		if _, ok := err.(col.ErrNotFound); ok {
+			// Return a special error instead of a generic "not authorized" response
+			// in case a consistency error has occurred and an admin needs to fix the
+			// repo--explaining that the ACL is gone will help debug
 			return nil, fmt.Errorf("ACL not found for repo %v", req.Repo)
 		}
 		return nil, fmt.Errorf("error getting ACL for repo %v: %s", req.Repo, err.Error())
@@ -495,30 +513,37 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 	if err != nil {
 		return nil, err
 	}
+	admin := a.isAdmin(user.Username) // Check if the caller is an admin
 
 	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		acls := a.acls.ReadWrite(stm)
-
 		var acl authclient.ACL
 		if err := acls.Get(req.Repo, &acl); err != nil {
-			// Might be creating a new ACL. Check that 'req' sets the caller to be an owner
-			// TODO(msteffen): check that the repo exists?
-			if req.Username != user.Username || req.Scope != authclient.Scope_OWNER {
-				return fmt.Errorf("ACL not found for repo %v", req.Repo)
-			}
+			// TODO(msteffen): ACL not found; check that the repo exists?
 			acl.Entries = make(map[string]authclient.Scope)
 		}
-		if len(acl.Entries) > 0 && !a.isAdmin(user.Username) &&
-			acl.Entries[user.Username] != authclient.Scope_OWNER {
-			return fmt.Errorf("user %v is not authorized to update ACL for repo %v", user, req.Repo)
+		switch {
+		case req.Username == user.Username && req.Scope == authclient.Scope_OWNER:
+			// Special case: creating a new ACL. This is allowed
+			// TODO(msteffen): remove this case and inline this into CreateRepo
+		case admin:
+			// Admins can fix empty ACLs
+		case acl.Entries[user.Username] == authclient.Scope_OWNER:
+			// user is an owner, and is authorized to modify the ACL
+		case len(acl.Entries) == 0:
+			// warn user that there is no ACL for this repo
+			return fmt.Errorf("ACL not found for repo %v", req.Repo)
+		default:
+			return &authclient.NotAuthorizedError{
+				Repo:     req.Repo,
+				Required: authclient.Scope_OWNER,
+			}
 		}
-
 		if req.Scope != authclient.Scope_NONE {
 			acl.Entries[req.Username] = req.Scope
 		} else {
 			delete(acl.Entries, req.Username)
 		}
-
 		acls.Put(req.Repo, &acl)
 		return nil
 	})
@@ -592,10 +617,14 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 		if _, ok := err.(col.ErrNotFound); !ok {
 			return nil, err
 		}
+		// else: ACL not found. No error, just return an empty ACL
 	}
 	// For now, require READER access to read repo metadata (commits, and ACLs)
 	if !a.isAdmin(user.Username) && resp.ACL.Entries[user.Username] < authclient.Scope_READER {
-		return nil, fmt.Errorf("you must have at least READER access to %s to read its ACL", req.Repo)
+		return nil, &authclient.NotAuthorizedError{
+			Repo:     req.Repo,
+			Required: authclient.Scope_READER,
+		}
 	}
 	return resp, nil
 }
@@ -626,7 +655,10 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 		var acl authclient.ACL
 		acls.Get(req.Repo, &acl)
 		if !a.isAdmin(user.Username) && acl.Entries[user.Username] < authclient.Scope_OWNER {
-			return fmt.Errorf("you must have OWNER access to %s to modify its ACL", req.Repo)
+			return &authclient.NotAuthorizedError{
+				Repo:     req.Repo,
+				Required: authclient.Scope_OWNER,
+			}
 		}
 
 		// Set new ACL
@@ -663,7 +695,7 @@ func (a *apiServer) GetCapability(ctx context.Context, req *authclient.GetCapabi
 	capability := uuid.NewWithoutDashes()
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		tokens := a.tokens.ReadWrite(stm)
-		// Capabilities are forver; they don't expire.
+		// Capabilities are forever; they don't expire.
 		return tokens.Put(hashToken(capability), user)
 	})
 	if err != nil {
@@ -737,74 +769,4 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.User,
 	}
 
 	return &user, nil
-}
-
-type activationCode struct {
-	Token     string
-	Signature string
-}
-
-type token struct {
-	Expiry string
-}
-
-// validateActivationCode checks the validity of an activation code
-func validateActivationCode(code string) error {
-	// Parse the public key.  If these steps fail, something is seriously
-	// wrong and we should crash the service by panicking.
-	block, _ := pem.Decode([]byte(publicKey))
-	if block == nil {
-		panic("failed to pem decode public key")
-	}
-	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
-	if err != nil {
-		panic(fmt.Sprintf("failed to parse DER encoded public key: %s", err.Error()))
-	}
-	rsaPub, ok := pub.(*rsa.PublicKey)
-	if !ok {
-		panic("public key isn't an RSA key")
-	}
-
-	// Decode the base64-encoded activation code
-	decodedActivationCode, err := base64.StdEncoding.DecodeString(code)
-	if err != nil {
-		return fmt.Errorf("activation code is not base64 encoded")
-	}
-	activationCode := &activationCode{}
-	if err := json.Unmarshal(decodedActivationCode, &activationCode); err != nil {
-		return fmt.Errorf("activation code is not valid JSON")
-	}
-
-	// Decode the signature
-	decodedSignature, err := base64.StdEncoding.DecodeString(activationCode.Signature)
-	if err != nil {
-		return fmt.Errorf("signature is not base64 encoded")
-	}
-
-	// Compute the sha256 checksum of the token
-	hashedToken := sha256.Sum256([]byte(activationCode.Token))
-
-	// Verify that the signature is valid
-	if err := rsa.VerifyPKCS1v15(rsaPub, crypto.SHA256, hashedToken[:], decodedSignature); err != nil {
-		return fmt.Errorf("invalid signature in activation code")
-	}
-
-	// Unmarshal the token
-	token := token{}
-	if err := json.Unmarshal([]byte(activationCode.Token), &token); err != nil {
-		return fmt.Errorf("token is not valid JSON")
-	}
-
-	// Parse the expiry
-	expiry, err := time.Parse(time.RFC3339, token.Expiry)
-	if err != nil {
-		return fmt.Errorf("expiry is not valid ISO 8601 string")
-	}
-
-	// Check that the activation code has not expired
-	if time.Now().After(expiry) {
-		return fmt.Errorf("the activation code has expired")
-	}
-
-	return nil
 }
