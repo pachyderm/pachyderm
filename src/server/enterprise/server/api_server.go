@@ -235,7 +235,7 @@ func (a *apiServer) GetState(ctx context.Context, req *ec.GetStateRequest) (resp
 	if !ok {
 		return nil, fmt.Errorf("could not retrieve enterprise expiration time")
 	}
-	if expiry == time.Time{} {
+	if expiry.IsZero() {
 		return &ec.GetStateResponse{State: ec.State_NONE}, nil
 	}
 	if time.Now().After(expiry) {
