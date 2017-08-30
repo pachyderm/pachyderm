@@ -359,9 +359,11 @@ func (c APIClient) GetLogs(
 		request.Job = &pps.Job{jobID}
 	}
 	request.DataFilters = data
-	request.Datum = &pps.Datum{
-		Job: &pps.Job{jobID},
-		ID:  datumID,
+	if datumID != "" {
+		request.Datum = &pps.Datum{
+			Job: &pps.Job{jobID},
+			ID:  datumID,
+		}
 	}
 	resp.logsClient, resp.err = c.PpsAPIClient.GetLogs(c.Ctx(), &request)
 	return resp

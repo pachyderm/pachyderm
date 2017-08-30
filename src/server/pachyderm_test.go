@@ -475,7 +475,7 @@ func TestPipelineFailure(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
-	require.True(t, strings.Contains(jobInfo.Reason, "/file"))
+	require.True(t, strings.Contains(jobInfo.Reason, "datum"))
 }
 
 func TestEgressFailure(t *testing.T) {
@@ -4166,11 +4166,15 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 	_, err = c.FlushCommit([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
 
-	// Without this sleep, I get no results from list-job
-	time.Sleep(15 * time.Second)
-	jobs, err := c.ListJob(pipeline, nil)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(jobs))
+	var jobs []*pps.JobInfo
+	require.NoError(t, backoff.Retry(func() error {
+		jobs, err = c.ListJob(pipeline, nil)
+		require.NoError(t, err)
+		if len(jobs) != 1 {
+			return fmt.Errorf("expected 1 jobs, got %d", len(jobs))
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 
 	// Block on the job being complete before we call ListDatum
 	_, err = c.InspectJob(jobs[0].Job.ID, true)
