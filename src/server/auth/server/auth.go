@@ -36,9 +36,9 @@ const (
 	// pachyderm token for any username in the AuthenticateRequest.GithubToken field
 	DisableAuthenticationEnvVar = "PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING"
 
-	tokensPrefix = "/auth/tokens"
-	aclsPrefix   = "/auth/acls"
-	adminsPrefix = "/auth/admins"
+	tokensPrefix = "/tokens"
+	aclsPrefix   = "/acls"
+	adminsPrefix = "/admins"
 
 	defaultTokenTTLSecs = 14 * 24 * 60 * 60 // two weeks
 
@@ -175,14 +175,12 @@ func (a *apiServer) watchAdmins(fullAdminPrefix string) {
 				// Parse event data and potentially update adminCache
 				var key string
 				var boolProto types.BoolValue
+				ev.Unmarshal(&key, &boolProto)
+				username := strings.TrimPrefix(key, fullAdminPrefix+"/")
 				switch ev.Type {
 				case watch.EventPut:
-					ev.Unmarshal(&key, &boolProto)
-					username := strings.TrimPrefix(key, fullAdminPrefix+"/")
 					a.adminCache[username] = struct{}{}
 				case watch.EventDelete:
-					ev.Unmarshal(&key, &boolProto)
-					username := strings.TrimPrefix(key, fullAdminPrefix+"/")
 					delete(a.adminCache, username)
 				case watch.EventError:
 					return ev.Err
@@ -697,7 +695,7 @@ func (a *apiServer) GetCapability(ctx context.Context, req *authclient.GetCapabi
 	capability := uuid.NewWithoutDashes()
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		tokens := a.tokens.ReadWrite(stm)
-		// Capabilities are forver; they don't expire.
+		// Capabilities are forever; they don't expire.
 		return tokens.Put(hashToken(capability), user)
 	})
 	if err != nil {

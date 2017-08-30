@@ -309,7 +309,7 @@ func doFullMode(appEnvObj interface{}) error {
 		return err
 	}
 
-	authAPIServer, err := authserver.NewAuthServer(address, etcdAddress, appEnv.PFSEtcdPrefix)
+	authAPIServer, err := authserver.NewAuthServer(address, etcdAddress, appEnv.AuthEtcdPrefix)
 	if err != nil {
 		return err
 	}
