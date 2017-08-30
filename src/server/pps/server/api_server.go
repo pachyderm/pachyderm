@@ -999,11 +999,11 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 				return fmt.Errorf("can't create an incremental pipeline with inputs that share provenance")
 			}
 			provMap[provRepo.Name] = true
-			repoInfo, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{Repo: provRepo})
+			resp, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{Repo: provRepo})
 			if err != nil {
 				return err
 			}
-			for _, provRepo := range repoInfo.Provenance {
+			for _, provRepo := range resp.RepoInfo.Provenance {
 				if provMap[provRepo.Name] {
 					return fmt.Errorf("can't create an incremental pipeline with inputs that share provenance")
 				}
@@ -1283,7 +1283,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		// We only need to restart downstream pipelines if the provenance
 		// of our output repo changed.
 		outputRepo := &pfs.Repo{pipelineInfo.Pipeline.Name}
-		repoInfo, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{
+		inspectResp, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{
 			Repo: outputRepo,
 		})
 		if err != nil {
@@ -1292,13 +1292,13 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 		// Check if the new and old provenance are equal
 		provSet := make(map[string]bool)
-		for _, oldProv := range repoInfo.Provenance {
+		for _, oldProv := range inspectResp.RepoInfo.Provenance {
 			provSet[oldProv.Name] = true
 		}
 		for _, newProv := range provenance {
 			delete(provSet, newProv.Name)
 		}
-		provenanceChanged := len(provSet) > 0 || len(repoInfo.Provenance) != len(provenance)
+		provenanceChanged := len(provSet) > 0 || len(inspectResp.RepoInfo.Provenance) != len(provenance)
 
 		if _, err := pfsClient.CreateRepo(auth.In2Out(ctx), &pfs.CreateRepoRequest{
 			Repo:       outputRepo,
