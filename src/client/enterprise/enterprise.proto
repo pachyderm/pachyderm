@@ -1,0 +1,42 @@
+syntax = "proto3";
+package enterprise;
+
+import "google/protobuf/timestamp.proto";
+
+// Enterprise data structures
+
+// EnterpriseRecord is the record we store of a Pachyderm enterprise token
+// that has been provided to a Pachyderm cluster
+message EnterpriseRecord {
+  string activation_code = 1;
+  google.protobuf.Timestamp expires = 2;
+}
+
+//// Enterprise Activation API
+
+message ActivateRequest {
+  // activation_code is a Pachyderm enterprise activation code. New users can
+  // obtain trial activation codes
+  string activation_code = 1;
+}
+message ActivateResponse {}
+
+message GetStateRequest {}
+
+enum State {
+  NONE = 0;
+  ACTIVE = 1;
+  EXPIRED = 2;
+}
+
+message GetStateResponse {
+  State state = 1;
+}
+
+service API {
+  // Provide a Pachyderm enterprise token, enabling Pachyderm enterprise
+  // features, such as the Pachyderm Dashboard and Auth system
+  rpc Activate(ActivateRequest) returns (ActivateResponse) {}
+  rpc GetState(GetStateRequest) returns (GetStateResponse) {}
+}
+

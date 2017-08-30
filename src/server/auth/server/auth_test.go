@@ -1,4 +1,4 @@
-package auth
+package server
 
 import (
 	"bytes"
@@ -12,6 +12,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
@@ -44,7 +45,7 @@ var clientMapMut sync.Mutex
 var clientMap = make(map[string]*client.APIClient)
 
 // getPachClient creates a seed client with a grpc connection to a pachyderm
-// cluster, and then activates the auth service in that cluster
+// cluster, and then enable the auth service in that cluster
 func getPachClient(t testing.TB, u string) *client.APIClient {
 	// Check if "u" already has a client -- if not create one, and block other
 	// concurrent tests from interfering
@@ -66,12 +67,14 @@ func getPachClient(t testing.TB, u string) *client.APIClient {
 
 			// Since this is the first auth client, also activate the auth service
 			require.NoError(t, backoff.Retry(func() error {
-				_, err = seedClient.Activate(context.Background(),
-					&auth.ActivateRequest{
-						ActivationCode: testActivationCode,
-						Admins:         []string{"admin"},
-					})
-				if err != nil && !strings.HasSuffix(err.Error(), "already activated") {
+				_, err = seedClient.Enterprise.Activate(context.Background(),
+					&enterprise.ActivateRequest{ActivationCode: testActivationCode})
+				if err != nil {
+					return fmt.Errorf("could not activate Pachyderm Enterprise: %s", err.Error())
+				}
+				if _, err := seedClient.AuthAPIClient.Activate(context.Background(),
+					&auth.ActivateRequest{Admins: []string{"admin"}},
+				); err != nil && !strings.HasSuffix(err.Error(), "already activated") {
 					return fmt.Errorf("could not activate auth service: %s", err.Error())
 				}
 				return nil
@@ -141,10 +144,6 @@ func PipelineNames(t *testing.T, c *client.APIClient) []string {
 		result[i] = p.Pipeline.Name
 	}
 	return result
-}
-
-func TestValidateActivationCode(t *testing.T) {
-	require.NoError(t, validateActivationCode(testActivationCode))
 }
 
 // TestGetSetBasic creates two users, alice and bob, and gives bob gradually
