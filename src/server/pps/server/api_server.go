@@ -58,6 +58,7 @@ const (
 
 var (
 	trueVal = true
+	zeroVal = int64(0)
 	suite   = "pachyderm"
 )
 
