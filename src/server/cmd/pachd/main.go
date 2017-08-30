@@ -12,6 +12,7 @@ import (
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client"
 	authclient "github.com/pachyderm/pachyderm/src/client/auth"
+	eprsclient "github.com/pachyderm/pachyderm/src/client/enterprise"
 	healthclient "github.com/pachyderm/pachyderm/src/client/health"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
@@ -21,6 +22,7 @@ import (
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
+	eprsserver "github.com/pachyderm/pachyderm/src/server/enterprise/server"
 	"github.com/pachyderm/pachyderm/src/server/health"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	cache_pb "github.com/pachyderm/pachyderm/src/server/pkg/cache/groupcachepb"
@@ -59,6 +61,8 @@ type appEnv struct {
 	StorageHostPath       string `env:"STORAGE_HOST_PATH,default="`
 	PPSEtcdPrefix         string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
 	PFSEtcdPrefix         string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
+	AuthEtcdPrefix        string `env:"PACHYDERM_AUTH_ETCD_PREFIX,default=pachyderm_auth"`
+	EnterpriseEtcdPrefix  string `env:"PACHYDERM_ENTERPRISE_ETCD_PREFIX,default=pachyderm_enterprise"`
 	KubeAddress           string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
 	EtcdAddress           string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
 	Namespace             string `env:"NAMESPACE,default=default"`
@@ -146,7 +150,14 @@ func doSidecarMode(appEnvObj interface{}) error {
 		return err
 	}
 	healthServer := health.NewHealthServer()
-	authAPIServer, err := authserver.NewAuthServer(etcdAddress, appEnv.PFSEtcdPrefix)
+	authAPIServer, err := authserver.NewAuthServer(address, etcdAddress, appEnv.AuthEtcdPrefix)
+	if err != nil {
+		return err
+	}
+	enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(etcdAddress, appEnv.EnterpriseEtcdPrefix)
+	if err != nil {
+		return err
+	}
 	return grpcutil.Serve(
 		func(s *grpc.Server) {
 			pfsclient.RegisterAPIServer(s, pfsAPIServer)
@@ -154,6 +165,7 @@ func doSidecarMode(appEnvObj interface{}) error {
 			ppsclient.RegisterAPIServer(s, ppsAPIServer)
 			healthclient.RegisterHealthServer(s, healthServer)
 			authclient.RegisterAPIServer(s, authAPIServer)
+			eprsclient.RegisterAPIServer(s, enterpriseAPIServer)
 		},
 		grpcutil.ServeOptions{
 			Version:    version.Version,
@@ -297,7 +309,11 @@ func doFullMode(appEnvObj interface{}) error {
 		return err
 	}
 
-	authAPIServer, err := authserver.NewAuthServer(etcdAddress, appEnv.PFSEtcdPrefix)
+	authAPIServer, err := authserver.NewAuthServer(address, etcdAddress, appEnv.AuthEtcdPrefix)
+	if err != nil {
+		return err
+	}
+	enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(etcdAddress, appEnv.EnterpriseEtcdPrefix)
 	if err != nil {
 		return err
 	}
@@ -315,12 +331,13 @@ func doFullMode(appEnvObj interface{}) error {
 	eg.Go(func() error {
 		return grpcutil.Serve(
 			func(s *grpc.Server) {
+				healthclient.RegisterHealthServer(s, healthServer)
 				pfsclient.RegisterAPIServer(s, pfsAPIServer)
 				pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
 				ppsclient.RegisterAPIServer(s, ppsAPIServer)
 				cache_pb.RegisterGroupCacheServer(s, cacheServer)
 				authclient.RegisterAPIServer(s, authAPIServer)
-				healthclient.RegisterHealthServer(s, healthServer)
+				eprsclient.RegisterAPIServer(s, enterpriseAPIServer)
 			},
 			grpcutil.ServeOptions{
 				Version:    version.Version,
