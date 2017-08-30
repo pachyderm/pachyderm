@@ -79,6 +79,28 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 	}
 	createRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
 
+	updateRepo := &cobra.Command{
+		Use:   "update-repo repo-name",
+		Short: "Update a repo.",
+		Long:  "Update a repo.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			c, err := client.NewOnUserMachine(metrics, "user")
+			if err != nil {
+				return err
+			}
+			_, err = c.PfsAPIClient.CreateRepo(
+				c.Ctx(),
+				&pfsclient.CreateRepoRequest{
+					Repo:        client.NewRepo(args[0]),
+					Description: description,
+					Update:      true,
+				},
+			)
+			return err
+		}),
+	}
+	updateRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
+
 	inspectRepo := &cobra.Command{
 		Use:   "inspect-repo repo-name",
 		Short: "Return info about a repo.",
@@ -696,7 +718,19 @@ want to consider using commit IDs directly.
 	getFile := &cobra.Command{
 		Use:   "get-file repo-name commit-id path/to/file",
 		Short: "Return the contents of a file.",
-		Long:  "Return the contents of a file.",
+		Long: `Return the contents of a file.
+
+# get file "XXX" on branch "master" in repo "foo"
+$ pachctl get-file foo master XXX
+
+# get file "XXX" in the parent of the current head of branch "master"
+# in repo "foo"
+$ pachctl get-file foo master^ XXX
+
+# get file "XXX" in the grandparent of the current head of branch "master"
+# in repo "foo"
+$ pachctl get-file foo master^2 XXX
+`,
 		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
 			client, err := client.NewOnUserMachine(metrics, "user")
 			if err != nil {
@@ -755,7 +789,24 @@ want to consider using commit IDs directly.
 	listFile := &cobra.Command{
 		Use:   "list-file repo-name commit-id path/to/dir",
 		Short: "Return the files in a directory.",
-		Long:  "Return the files in a directory.",
+		Long: `Return the files in a directory.
+
+Examples:
+
+` + codestart + `# list top-level files on branch "master" in repo "foo"
+$ pachctl list-file foo master
+
+# list files under path XXX on branch "master" in repo "foo"
+$ pachctl list-file foo master XXX
+
+# list top-level files in the parent commit of the current head of "master"
+# in repo "foo"
+$ pachctl list-file foo master^
+
+# list top-level files in the grandparent of the current head of "master"
+# in repo "foo"
+$ pachctl list-file foo master^2
+` + codeend,
 		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) error {
 			client, err := client.NewOnUserMachine(metrics, "user")
 			if err != nil {
@@ -1010,6 +1061,7 @@ $ pachctl diff-file foo master path1 bar master path2
 	var result []*cobra.Command
 	result = append(result, repo)
 	result = append(result, createRepo)
+	result = append(result, updateRepo)
 	result = append(result, inspectRepo)
 	result = append(result, listRepo)
 	result = append(result, deleteRepo)

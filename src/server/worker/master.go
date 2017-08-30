@@ -79,7 +79,7 @@ func (a *APIServer) master() {
 	// bring the pipeline state from PAUSED to RUNNING.  By setting a high
 	// retry interval, the master would be deleted before it gets a chance
 	// to restart.
-	b.InitialInterval = 5 * time.Second
+	b.InitialInterval = 10 * time.Second
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(a.pachClient.AddMetadata(context.Background()))
 		defer cancel()

@@ -352,6 +352,7 @@ test-local:
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT)
 
 test-auth:
+	yes | pachctl delete-all
 	go test -v ./src/server/auth/server -timeout $(TIMEOUT)
 
 clean: clean-launch clean-launch-kube

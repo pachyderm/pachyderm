@@ -24,8 +24,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	authtesting "github.com/pachyderm/pachyderm/src/server/auth/testing"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 
+	etcd "github.com/coreos/etcd/clientv3"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -2341,7 +2343,24 @@ func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
 	<-ready
 }
 
+var etcdOnce sync.Once
+
 func getClient(t *testing.T) pclient.APIClient {
+	// src/server/pfs/server/driver.go expects an etcd server at "localhost:32379"
+	// Try to establish a connection before proceeding with the test (which will
+	// fail if the connection can't be established)
+	etcdOnce.Do(func() {
+		require.NoError(t, backoff.Retry(func() error {
+			_, err := etcd.New(etcd.Config{
+				Endpoints:   []string{"localhost:32379"},
+				DialOptions: pclient.EtcdDialOptions(),
+			})
+			if err != nil {
+				return fmt.Errorf("could not connect to etcd: %s", err.Error())
+			}
+			return nil
+		}, backoff.NewTestingBackOff()))
+	})
 	dbName := "pachyderm_test_" + uuid.NewWithoutDashes()[0:12]
 	testDBs = append(testDBs, dbName)
 
