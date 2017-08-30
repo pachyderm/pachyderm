@@ -65,7 +65,8 @@ func getPachClient(t testing.TB, u string) *client.APIClient {
 			require.NoError(t, err)
 			clientMap[""] = seedClient
 
-			// Since this is the first auth client, also activate the auth service
+			// Since this is the first auth client, activate Pachyderm Enterprise and
+			// the Pachyderm auth system
 			require.NoError(t, backoff.Retry(func() error {
 				_, err = seedClient.Enterprise.Activate(context.Background(),
 					&enterprise.ActivateRequest{ActivationCode: testActivationCode})
@@ -76,6 +77,16 @@ func getPachClient(t testing.TB, u string) *client.APIClient {
 					&auth.ActivateRequest{Admins: []string{"admin"}},
 				); err != nil && !strings.HasSuffix(err.Error(), "already activated") {
 					return fmt.Errorf("could not activate auth service: %s", err.Error())
+				}
+				return nil
+			}, backoff.NewTestingBackOff()))
+
+			// Wait for the Pachyderm Auth system to activate
+			require.NoError(t, backoff.Retry(func() error {
+				if _, err := seedClient.AuthAPIClient.WhoAmI(seedClient.Ctx(),
+					&auth.WhoAmIRequest{},
+				); auth.IsNotActivatedError(err) {
+					return err
 				}
 				return nil
 			}, backoff.NewTestingBackOff()))
