@@ -39,10 +39,10 @@ func ActivateCmd() *cobra.Command {
 		}),
 	}
 	activate.PersistentFlags().StringSliceVar(&admins, "admins", []string{},
-		"Comma-separated list of GitHub usernames. These users will be the initial " +
+		"Comma-separated list of GitHub usernames. These users will be the initial "+
 			"cluster admins (must be nonempty, as any Pachyderm cluster with auth "+
 			"activated must have at least one admin.")
-	return activateAuth
+	return activate
 }
 
 // DeactivateCmd returns a cobra.Command to delete all ACLs, tokens, and admins,
@@ -51,7 +51,7 @@ func DeactivateCmd() *cobra.Command {
 	deactivate := &cobra.Command{
 		Use:   "deactivate",
 		Short: "Delete all ACLs, tokens, and admins, and deactivate Pachyderm auth",
-		Long:  "Deactivate Pachyderm's auth system, which will delete ALL auth " +
+		Long: "Deactivate Pachyderm's auth system, which will delete ALL auth " +
 			"tokens, ACLs and admins, and expose all data in the cluster to any " +
 			"user with cluster access. Use with caution.",
 		Run: cmdutil.Run(func(args []string) error {
