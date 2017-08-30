@@ -8,19 +8,22 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
-	"path"
 	"sync/atomic"
 	"time"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/types"
+	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	ec "github.com/pachyderm/pachyderm/src/client/enterprise"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
+	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 )
 
 const (
@@ -52,9 +55,10 @@ type apiServer struct {
 	pachLogger log.Logger
 	etcdClient *etcd.Client
 
-	// enterpriseState is a cached ec.State value, indicating the state of the
-	// cluster's enterprise token
-	enterpriseState atomic.Value
+	// enterpriseState is a cached timestamp, indicating when the current
+	// Pachyderm Enterprise token will expire (or 0 if there is no Pachyderm
+	// Enterprise token
+	enterpriseExpiry atomic.Value
 
 	// enterpriseToken is a collection containing at most one Pachyderm enterprise
 	// token
@@ -76,14 +80,60 @@ func NewEnterpriseServer(etcdAddress string, etcdPrefix string) (ec.APIServer, e
 		etcdClient: etcdClient,
 		enterpriseToken: col.NewCollection(
 			etcdClient,
-			path.Join(etcdPrefix, enterprisePrefix),
+			etcdPrefix, // enterprise API only has one collection, no extra prefix needed
 			nil,
 			&types.Timestamp{},
 			nil,
 		),
 	}
-	// go s.watchEnterpriseToken(path.Join(etcdPrefix, enterprisePrefix))
+	s.enterpriseExpiry.Store(time.Time{})
+	go s.watchEnterpriseToken(etcdPrefix)
 	return s, nil
+}
+
+func (a *apiServer) watchEnterpriseToken(etcdPrefix string) {
+	backoff.RetryNotify(func() error {
+		// Watch for incoming enterprise tokens
+		watcher, err := a.enterpriseToken.ReadOnly(context.Background()).Watch()
+		if err != nil {
+			return err
+		}
+		defer watcher.Close()
+		for {
+			ev, ok := <-watcher.Watch()
+			if !ok {
+				return errors.New("admin watch closed unexpectedly")
+			}
+
+			// Parse event data and potentially update adminCache
+			var key string
+			var record ec.EnterpriseRecord
+			ev.Unmarshal(&key, &record)
+			expiry, err := types.TimestampFromProto(record.Expires)
+			if err != nil {
+				return fmt.Errorf("could not parse expiration timestamp: %s", err.Error())
+			}
+			switch ev.Type {
+			case watch.EventPut:
+				a.enterpriseExpiry.Store(expiry)
+			case watch.EventDelete:
+				cachedExpiry, ok := a.enterpriseExpiry.Load().(time.Time)
+				if !ok {
+					return errors.New("could not retrieve cached expiration time")
+				}
+				if expiry == cachedExpiry {
+					// unexpected, but we'll dutifully unset the expiration time if it
+					// does
+					a.enterpriseExpiry.Store(time.Time{})
+				}
+			case watch.EventError:
+				return ev.Err
+			}
+		}
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		logrus.Printf("error from activation check: %v; retrying in %v", err, d)
+		return nil
+	})
 }
 
 type activationCode struct {
@@ -181,24 +231,15 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 
 // GetState implements the GetState RPC, but just returns NotActivatedError
 func (a *apiServer) GetState(ctx context.Context, req *ec.GetStateRequest) (resp *ec.GetStateResponse, retErr error) {
-	e := a.enterpriseToken.ReadOnly(ctx)
-	r := ec.EnterpriseRecord{}
-	if err := e.Get(enterpriseTokenKey, &r); err != nil {
-		if _, ok := err.(col.ErrNotFound); ok {
-			return &ec.GetStateResponse{State: ec.State_NONE}, nil
-		}
-		return nil, fmt.Errorf("error getting enterprise token state: %s", err.Error())
+	expiry, ok := a.enterpriseExpiry.Load().(time.Time)
+	if !ok {
+		return nil, fmt.Errorf("could not retrieve enterprise expiration time")
 	}
-	expiry, err := types.TimestampFromProto(r.Expires)
-	if err != nil {
-		return nil, fmt.Errorf("error getting enterprise token state: %s", err.Error())
+	if expiry == time.Time{} {
+		return &ec.GetStateResponse{State: ec.State_NONE}, nil
 	}
 	if time.Now().After(expiry) {
-		return &ec.GetStateResponse{
-			State: ec.State_EXPIRED,
-		}, nil
+		return &ec.GetStateResponse{State: ec.State_EXPIRED}, nil
 	}
-	return &ec.GetStateResponse{
-		State: ec.State_ACTIVE,
-	}, nil
+	return &ec.GetStateResponse{State: ec.State_ACTIVE}, nil
 }
