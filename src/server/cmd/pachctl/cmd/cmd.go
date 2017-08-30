@@ -25,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	authcmds "github.com/pachyderm/pachyderm/src/server/auth/cmds"
+	enterprisecmds "github.com/pachyderm/pachyderm/src/server/enterprise/cmds"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
@@ -83,6 +84,10 @@ Environment variables:
 	for _, cmd := range authCmds {
 		rootCmd.AddCommand(cmd)
 	}
+	enterpriseCmds := enterprisecmds.Cmds()
+	for _, cmd := range enterpriseCmds {
+		rootCmd.AddCommand(cmd)
+	}
 
 	versionCmd := &cobra.Command{
 		Use:   "version",
@@ -138,7 +143,7 @@ This resets the cluster to its initial state.`,
 			if err != nil {
 				return sanitizeErr(err)
 			}
-			fmt.Printf("Are you sure you want to delete all repos, commits, files, pipelines and jobs? yN\n")
+			fmt.Printf("Are you sure you want to delete all ACLs, repos, commits, files, pipelines and jobs? yN\n")
 			r := bufio.NewReader(os.Stdin)
 			bytes, err := r.ReadBytes('\n')
 			if err != nil {

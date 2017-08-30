@@ -186,7 +186,7 @@ func (d *driver) checkIsAuthorized(ctx context.Context, r *pfs.Repo, s auth.Scop
 		Scope: s,
 	})
 	if err == nil && !resp.Authorized {
-		return auth.NotAuthorizedError{r.Name}
+		return &auth.NotAuthorizedError{Repo: r.Name, Required: s}
 	} else if err != nil && !auth.IsNotActivatedError(err) {
 		return fmt.Errorf("error during authorization check for operation on %s: %s", r.Name, err.Error())
 	}

@@ -4557,7 +4557,7 @@ func TestCronPipeline(t *testing.T) {
 	}
 	t.Parallel()
 	c := getPachClient(t)
-	pipeline1 := uniqueString("pipeline1")
+	pipeline1 := uniqueString("cron1")
 	require.NoError(t, c.CreatePipeline(
 		pipeline1,
 		"",
@@ -4565,6 +4565,17 @@ func TestCronPipeline(t *testing.T) {
 		nil,
 		nil,
 		client.NewCronInput("time", "@every 20s"),
+		"",
+		false,
+	))
+	pipeline2 := uniqueString("cron2")
+	require.NoError(t, c.CreatePipeline(
+		pipeline2,
+		"",
+		[]string{"cp", fmt.Sprintf("/pfs/%s/time", pipeline1), "/pfs/out/time"},
+		nil,
+		nil,
+		client.NewAtomInput(pipeline1, "/*"),
 		"",
 		false,
 	))
@@ -4580,13 +4591,13 @@ func TestCronPipeline(t *testing.T) {
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commitInfo.Commit}, nil)
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 
 	dataRepo := uniqueString("TestCronPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	pipeline2 := uniqueString("pipeline2")
+	pipeline3 := uniqueString("cron3")
 	require.NoError(t, c.CreatePipeline(
-		pipeline2,
+		pipeline3,
 		"",
 		[]string{"bash"},
 		[]string{
@@ -4606,7 +4617,7 @@ func TestCronPipeline(t *testing.T) {
 	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("file"))
 	require.NoError(t, c.FinishCommit(dataRepo, "master"))
 
-	repo = fmt.Sprintf("%s_%s", pipeline2, "time")
+	repo = fmt.Sprintf("%s_%s", pipeline3, "time")
 	ctx, cancel = context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel() //cleanup resources
 	iter, err = c.WithCtx(ctx).SubscribeCommit(repo, "master", "")
