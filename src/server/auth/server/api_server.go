@@ -53,7 +53,7 @@ const (
 // though empty values are still stored in etcd)
 var epsilon = &types.BoolValue{Value: true}
 
-// authEnterpriseClient contains address and connection info needed to check
+// enterpriseClient contains address and connection info needed to check
 // the cluster's enterprise status (auth is an enterprise feature, and cannot
 // be used if the cluster doesn't have enterprise features enabled)
 type enterpriseClient struct {
