@@ -135,7 +135,7 @@ message RevokeAuthTokenRequest {
 message RevokeAuthTokenResponse {}
 
 service API {
-  // Enable/Disable the auth API. 'Activate' sets an initial set of admins
+  // Activate/Deactivate the auth API. 'Activate' sets an initial set of admins
   // for the Pachyderm cluster, and 'Deactivate' removes all ACLs, tokens, and
   // admins from the Pachyderm cluster, making all data publicly accessable
   rpc Activate(ActivateRequest) returns (ActivateResponse) {}

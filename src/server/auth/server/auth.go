@@ -56,7 +56,7 @@ var epsilon = &types.BoolValue{Value: true}
 // authEnterpriseClient contains address and connection info needed to check
 // the cluster's enterprise status (auth is an enterprise feature, and cannot
 // be used if the cluster doesn't have enterprise features enabled)
-type enterpriseClientInfo struct {
+type enterpriseClient struct {
 	clientOnce sync.Once
 	address    string
 	conn       *grpc.ClientConn
@@ -66,7 +66,7 @@ type enterpriseClientInfo struct {
 
 type apiServer struct {
 	pachLogger log.Logger
-	enterprise enterpriseClientInfo // for checking enterprise token status
+	enterprise enterpriseClient // for checking enterprise token status
 	etcdClient *etcd.Client
 
 	// admins is a cache of the current cluster administrators
@@ -118,7 +118,7 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (
 	s := &apiServer{
 		pachLogger: log.NewLogger("authclient.API"),
 		etcdClient: etcdClient,
-		enterprise: enterpriseClientInfo{
+		enterprise: enterpriseClient{
 			address: pachdAddress,
 		},
 		adminCache: make(map[string]struct{}),
@@ -264,7 +264,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		a.acls.ReadWrite(stm).DeleteAll()
 		a.tokens.ReadWrite(stm).DeleteAll()
-		a.admins.ReadWrite(stm).DeleteAll()
+		a.admins.ReadWrite(stm).DeleteAll()  // watchAdmins() will see the write
 		return nil
 	})
 	if err != nil {

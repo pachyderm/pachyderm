@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 
@@ -20,7 +20,7 @@ import (
 // users
 func ActivateCmd() *cobra.Command {
 	activate := &cobra.Command{
-		Use: "activate-pachyderm-enterprise activation-code",
+		Use: "activate activation-code",
 		Short: "Activate the enterprise features of Pachyderm with an activation " +
 			"code",
 		Long: "Activate the enterprise features of Pachyderm with an activation " +
@@ -31,11 +31,35 @@ func ActivateCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("could not connect: %s", err.Error())
 			}
-			// _, err = c.AuthAPIClient.ActivateEnterprise(c.Ctx(),
-			// 	&auth.ActivateEnterpriseRequest{
-			// 		ActivationCode: activationCode,
-			// 	})
-			// return err
+			_, err = c.AuthAPIClient.ActivateEnterprise(c.Ctx(),
+				&enterprise.ActivateRequest{ActivationCode: activationCode})
+			return err
+		}),
+	}
+	return activate
+}
+
+// ActivateCmd returns a cobra.Command to activate the enterprise features of
+// Pachyderm within a Pachyderm cluster. All repos will go from
+// publicly-accessible to accessible only by the owner, who can subsequently add
+// users
+func GetStateCmd() *cobra.Command {
+	activate := &cobra.Command{
+		Use: "get-state",
+		Short: "Check whether the Pachyderm cluster has enterprise features " +
+			"activated",
+		Long: "Check whether the Pachyderm cluster has enterprise features " +
+			"activated",
+		Run: cmdutil.Run(func(args []string) error {
+			c, err := client.NewOnUserMachine(true, "user")
+			if err != nil {
+				return fmt.Errorf("could not connect: %s", err.Error())
+			}
+			resp, err = c.Enterprise.GetState(c.Ctx(), &enterprise.GetStateRequest{})
+			if err != nil {
+				return err
+			}
+			fmt.Println(resp.State.String())
 		}),
 	}
 	return activate

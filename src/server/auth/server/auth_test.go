@@ -69,13 +69,14 @@ func getPachClient(t testing.TB, u string) *client.APIClient {
 			require.NoError(t, backoff.Retry(func() error {
 				_, err = seedClient.Enterprise.Activate(context.Background(),
 					&enterprise.ActivateRequest{ActivationCode: testActivationCode})
-				if err != nil && !strings.HasSuffix(err.Error(), "already activated") {
+				if err != nil {
 					return fmt.Errorf("could not activate Pachyderm Enterprise: %s", err.Error())
 				}
 				if _, err := seedClient.AuthAPIClient.Activate(context.Background(),
 					&auth.ActivateRequest{
 						Admins: []string{"admin"},
-					}); err != nil {
+					}
+				); err != nil && !strings.HasSuffix(err.Error(), "already activated") {
 					return fmt.Errorf("could not activate auth service: %s", err.Error())
 				}
 				return nil
