@@ -392,13 +392,14 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 			if err := jobs.Get(jobID, jobInfo); err != nil {
 				return err
 			}
-			return a.updateJobState(stm, jobInfo, pps.JobState_JOB_RUNNING)
+			return a.updateJobState(stm, jobInfo, pps.JobState_JOB_RUNNING, "")
 		})
 		if err != nil {
 			return err
 		}
 
 		failed := false
+		var failedDatumID string
 		limiter := limit.New(a.numWorkers * queueSize)
 		// process all datums
 		df, err := NewDatumFactory(ctx, pfsClient, jobInfo.Input)
@@ -556,6 +557,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 					}
 					if failed {
 						userCodeFailures++
+						failedDatumID = datumID
 						// If this is our last failure we merge in the stats
 						// tree for the failed run.
 						if userCodeFailures > maximumRetriesPerDatum && jobInfo.EnableStats {
@@ -699,7 +701,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 				}
 				jobInfo.Finished = now()
 				jobInfo.StatsCommit = statsCommit
-				return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE)
+				return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE, fmt.Sprintf("failed to process datum: %v", failedDatumID))
 			})
 			return err
 		}
@@ -726,27 +728,54 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 			return err
 		}
 
-		if jobInfo.Egress != nil {
-			logger.Logf("Starting egress upload for job (%v)", jobInfo)
-			start := time.Now()
-			url, err := obj.ParseURL(jobInfo.Egress.URL)
-			if err != nil {
+		// Put egress into its own retry loop, because 1) we don't want to
+		// endlessly retry egress, and 2) we don't want to create the output
+		// commit over and over again.
+		var egressFailureCount int
+		egressErr := backoff.RetryNotify(func() (retErr error) {
+			if jobInfo.Egress != nil {
+				logger.Logf("Starting egress upload for job (%v)", jobInfo)
+				start := time.Now()
+				url, err := obj.ParseURL(jobInfo.Egress.URL)
+				if err != nil {
+					return err
+				}
+				objClient, err := obj.NewClientFromURLAndSecret(ctx, url)
+				if err != nil {
+					return err
+				}
+				client := client.APIClient{
+					PfsAPIClient: pfsClient,
+				}
+				client.SetMaxConcurrentStreams(100)
+				if err := pfs_sync.PushObj(client, outputCommit, objClient, url.Object); err != nil {
+					return err
+				}
+				logger.Logf("Completed egress upload for job (%v), duration (%v)", jobInfo, time.Since(start))
+			}
+			return nil
+		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+			egressFailureCount++
+			if egressFailureCount > 3 {
 				return err
 			}
-			objClient, err := obj.NewClientFromURLAndSecret(ctx, url)
-			if err != nil {
-				return err
-			}
-			client := client.APIClient{
-				PfsAPIClient: pfsClient,
-			}
-			client.SetMaxConcurrentStreams(100)
-			if err := pfs_sync.PushObj(client, outputCommit, objClient, url.Object); err != nil {
-				return err
-			}
-			logger.Logf("Completed egress upload for job (%v), duration (%v)", jobInfo, time.Since(start))
+			logger.Logf("egress failed: %v; retrying in %v", err, d)
+			return nil
+		})
+		if egressErr != nil {
+			_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				jobs := a.jobs.ReadWrite(stm)
+				jobInfo := new(pps.JobInfo)
+				if err := jobs.Get(jobID, jobInfo); err != nil {
+					return err
+				}
+				jobInfo.Finished = now()
+				jobInfo.StatsCommit = statsCommit
+				return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE, fmt.Sprintf("egress error: %v", egressErr))
+			})
+			// returning nil so we don't retry
+			return nil
 		}
-
 		// Record the job's output commit and 'Finished' timestamp, and mark the job
 		// as a SUCCESS
 		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
@@ -764,7 +793,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 			// likely already set but just in case it failed
 			jobInfo.DataTotal = totalData
 			jobInfo.StatsCommit = statsCommit
-			return a.updateJobState(stm, jobInfo, pps.JobState_JOB_SUCCESS)
+			return a.updateJobState(stm, jobInfo, pps.JobState_JOB_SUCCESS, "")
 		})
 		return err
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
