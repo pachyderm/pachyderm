@@ -71,7 +71,6 @@ func (a *apiServer) master() {
 		}
 		defer kubePipelineWatch.Stop()
 
-		log.Infof("listening...")
 		for {
 			select {
 			case event := <-pipelineWatcher.Watch():
@@ -121,7 +120,7 @@ func (a *apiServer) master() {
 					// If the pipeline has been restarted, create workers
 					if !pipelineStateToStopped(pipelineInfo.State) && event.PrevKey != nil && pipelineStateToStopped(prevPipelineInfo.State) {
 						if err := a.upsertWorkersForPipeline(&pipelineInfo); err != nil {
-							if err := a.setPipelineFailure(ctx, &pipelineInfo); err != nil {
+							if err := a.setPipelineFailure(ctx, pipelineInfo.Pipeline.Name, fmt.Sprintf("failed to create workers: %s", err.Error())); err != nil {
 								return err
 							}
 							continue
@@ -137,7 +136,7 @@ func (a *apiServer) master() {
 							}
 						}
 						if err := a.upsertWorkersForPipeline(&pipelineInfo); err != nil {
-							if err := a.setPipelineFailure(ctx, &pipelineInfo); err != nil {
+							if err := a.setPipelineFailure(ctx, pipelineInfo.Pipeline.Name, fmt.Sprintf("failed to create workers: %s", err.Error())); err != nil {
 								return err
 							}
 							continue
@@ -162,20 +161,8 @@ func (a *apiServer) master() {
 					log.Errorf("pod failed because: %s", pod.Status.Message)
 				}
 				for _, status := range pod.Status.ContainerStatuses {
-					log.Infof("waiting: %+v", status.State.Waiting)
 					if status.Name == "user" && status.State.Waiting != nil && isFailure(status.State.Waiting.Reason) {
-						if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-							pipelineName := pod.ObjectMeta.Annotations["pipelineName"]
-							pipelines := a.pipelines.ReadWrite(stm)
-							newPipelineInfo := new(pps.PipelineInfo)
-							if err := pipelines.Get(pipelineName, newPipelineInfo); err != nil {
-								return fmt.Errorf("error getting pipeline %s: %+v", pipelineName, err)
-							}
-							newPipelineInfo.State = pps.PipelineState_PIPELINE_FAILURE
-							newPipelineInfo.Reason = status.State.Waiting.Message
-							pipelines.Put(pipelineName, newPipelineInfo)
-							return nil
-						}); err != nil {
+						if err := a.setPipelineFailure(ctx, pod.ObjectMeta.Annotations["pipelineName"], status.State.Waiting.Message); err != nil {
 							return err
 						}
 					}
@@ -188,16 +175,16 @@ func (a *apiServer) master() {
 	})
 }
 
-func (a *apiServer) setPipelineFailure(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
+func (a *apiServer) setPipelineFailure(ctx context.Context, pipelineName string, reason string) error {
 	// Set pipeline state to failure
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		pipelineName := pipelineInfo.Pipeline.Name
 		pipelines := a.pipelines.ReadWrite(stm)
 		pipelineInfo := new(pps.PipelineInfo)
 		if err := pipelines.Get(pipelineName, pipelineInfo); err != nil {
 			return err
 		}
 		pipelineInfo.State = pps.PipelineState_PIPELINE_FAILURE
+		pipelineInfo.Reason = reason
 		pipelines.Put(pipelineName, pipelineInfo)
 		return nil
 	})
