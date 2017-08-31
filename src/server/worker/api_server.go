@@ -874,7 +874,7 @@ func (a *APIServer) userCodeEnviron(req *ProcessRequest) []string {
 	return append(os.Environ(), fmt.Sprintf("PACH_JOB_ID=%s", req.JobID))
 }
 
-func (a *APIServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.JobState) error {
+func (a *APIServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.JobState, reason string) error {
 	// Update job counts
 	if jobInfo.Pipeline != nil {
 		pipelines := a.pipelines.ReadWrite(stm)
@@ -892,6 +892,7 @@ func (a *APIServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.
 		pipelines.Put(pipelineInfo.Pipeline.Name, pipelineInfo)
 	}
 	jobInfo.State = state
+	jobInfo.Reason = reason
 	jobs := a.jobs.ReadWrite(stm)
 	jobs.Put(jobInfo.Job.ID, jobInfo)
 	return nil
