@@ -189,7 +189,7 @@ func (a *apiServer) master() {
 }
 
 func (a *apiServer) setPipelineFailure(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
-	// Set pipeline state to running
+	// Set pipeline state to failure
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		pipelineName := pipelineInfo.Pipeline.Name
 		pipelines := a.pipelines.ReadWrite(stm)

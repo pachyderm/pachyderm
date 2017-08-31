@@ -58,6 +58,7 @@ const (
 
 var (
 	trueVal = true
+	zeroVal = int64(0)
 	suite   = "pachyderm"
 )
 
@@ -554,11 +555,11 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		}
 		return start, end, nil
 	}
+	df, err := workerpkg.NewDatumFactory(ctx, pfsClient, jobInfo.Input)
+	if err != nil {
+		return nil, err
+	}
 	if jobInfo.StatsCommit == nil {
-		df, err := workerpkg.NewDatumFactory(ctx, pfsClient, jobInfo.Input)
-		if err != nil {
-			return nil, err
-		}
 		start := 0
 		end := df.Len()
 		if request.PageSize > 0 {
@@ -582,10 +583,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 				State: pps.DatumState_STARTING,
 			}
 			for _, input := range datum {
-				datumInfo.Data = append(datumInfo.Data, &pps.InputFile{
-					Path: input.FileInfo.File.Path,
-					Hash: input.FileInfo.Hash,
-				})
+				datumInfo.Data = append(datumInfo.Data, input.FileInfo)
 			}
 			datumInfos = append(datumInfos, datumInfo)
 		}
@@ -650,7 +648,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 				// not a datum
 				return nil
 			}
-			datum, err := a.getDatum(ctx, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Job.ID, datumHash)
+			datum, err := a.getDatum(ctx, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Job.ID, datumHash, df)
 			if err != nil {
 				return err
 			}
@@ -689,7 +687,7 @@ func (a byDatumState) Less(i, j int) bool {
 	return iState < jState
 }
 
-func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commit, jobID string, datumID string) (datumInfo *pps.DatumInfo, retErr error) {
+func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commit, jobID string, datumID string, df workerpkg.DatumFactory) (datumInfo *pps.DatumInfo, retErr error) {
 	datumInfo = &pps.DatumInfo{
 		Datum: &pps.Datum{
 			ID:  datumID,
@@ -730,16 +728,8 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 	}
 
 	// Populate stats
-	statsFile := &pfs.File{
-		Commit: commit,
-		Path:   fmt.Sprintf("/%v/stats", datumID),
-	}
-	getFileClient, err := pfsClient.GetFile(ctx, &pfs.GetFileRequest{statsFile, 0, 0})
-	if err != nil {
-		return nil, err
-	}
 	var buffer bytes.Buffer
-	if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, &buffer); err != nil {
+	if err := pachClient.WithCtx(ctx).GetFile(commit.Repo.Name, commit.ID, fmt.Sprintf("/%v/stats", datumID), 0, 0, &buffer); err != nil {
 		return nil, err
 	}
 	stats := &pps.ProcessStats{}
@@ -748,6 +738,21 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 		return nil, err
 	}
 	datumInfo.Stats = stats
+	buffer.Reset()
+	if err := pachClient.WithCtx(ctx).GetFile(commit.Repo.Name, commit.ID, fmt.Sprintf("/%v/index", datumID), 0, 0, &buffer); err != nil {
+		return nil, err
+	}
+	i, err := strconv.Atoi(buffer.String())
+	if err != nil {
+		return nil, err
+	}
+	if i >= df.Len() {
+		return nil, fmt.Errorf("index %d out of range", i)
+	}
+	inputs := df.Datum(i)
+	for _, input := range inputs {
+		datumInfo.Data = append(datumInfo.Data, input.FileInfo)
+	}
 	datumInfo.PfsState = &pfs.File{
 		Commit: commit,
 		Path:   fmt.Sprintf("/%v/pfs", datumID),
@@ -774,9 +779,18 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 	if jobInfo.StatsCommit == nil {
 		return nil, fmt.Errorf("job not finished, no stats output yet")
 	}
+	pachClient, err := a.getPachClient()
+	if err != nil {
+		return nil, err
+	}
+	pfsClient := pachClient.PfsAPIClient
+	df, err := workerpkg.NewDatumFactory(ctx, pfsClient, jobInfo.Input)
+	if err != nil {
+		return nil, err
+	}
 
 	// Populate datumInfo given a path
-	datumInfo, err := a.getDatum(ctx, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Datum.Job.ID, request.Datum.ID)
+	datumInfo, err := a.getDatum(ctx, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Datum.Job.ID, request.Datum.ID, df)
 	if err != nil {
 		return nil, err
 	}
@@ -891,7 +905,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 					if request.Job != nil && request.Job.ID != msg.JobID {
 						continue
 					}
-					if request.InputFileID != "" && request.InputFileID != msg.InputFileID {
+					if request.Datum != nil && request.Datum.ID != msg.DatumID {
 						continue
 					}
 					if request.Master != msg.Master {
@@ -985,11 +999,11 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 				return fmt.Errorf("can't create an incremental pipeline with inputs that share provenance")
 			}
 			provMap[provRepo.Name] = true
-			repoInfo, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{Repo: provRepo})
+			resp, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{Repo: provRepo})
 			if err != nil {
 				return err
 			}
-			for _, provRepo := range repoInfo.Provenance {
+			for _, provRepo := range resp.RepoInfo.Provenance {
 				if provMap[provRepo.Name] {
 					return fmt.Errorf("can't create an incremental pipeline with inputs that share provenance")
 				}
@@ -1269,7 +1283,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		// We only need to restart downstream pipelines if the provenance
 		// of our output repo changed.
 		outputRepo := &pfs.Repo{pipelineInfo.Pipeline.Name}
-		repoInfo, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{
+		inspectResp, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{
 			Repo: outputRepo,
 		})
 		if err != nil {
@@ -1278,13 +1292,13 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 		// Check if the new and old provenance are equal
 		provSet := make(map[string]bool)
-		for _, oldProv := range repoInfo.Provenance {
+		for _, oldProv := range inspectResp.RepoInfo.Provenance {
 			provSet[oldProv.Name] = true
 		}
 		for _, newProv := range provenance {
 			delete(provSet, newProv.Name)
 		}
-		provenanceChanged := len(provSet) > 0 || len(repoInfo.Provenance) != len(provenance)
+		provenanceChanged := len(provSet) > 0 || len(inspectResp.RepoInfo.Provenance) != len(provenance)
 
 		if _, err := pfsClient.CreateRepo(auth.In2Out(ctx), &pfs.CreateRepoRequest{
 			Repo:       outputRepo,

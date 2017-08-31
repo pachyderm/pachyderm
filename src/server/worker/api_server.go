@@ -119,6 +119,19 @@ type taggedLogger struct {
 	eg           errgroup.Group
 }
 
+// DatumID computes the id for a datum, this value is used in ListDatum and
+// InspectDatum.
+func (a *APIServer) DatumID(req *ProcessRequest) string {
+	hash := sha256.New()
+	for _, d := range req.Data {
+		hash.Write([]byte(d.FileInfo.File.Path))
+		hash.Write(d.FileInfo.Hash)
+	}
+	// InputFileID is a single string id for the data from this input, it's used in logs and in
+	// the statsTree
+	return hex.EncodeToString(hash.Sum(nil))
+}
+
 func (a *APIServer) getTaggedLogger(ctx context.Context, req *ProcessRequest) (*taggedLogger, error) {
 	result := &taggedLogger{
 		template:  a.logMsgTemplate, // Copy struct
@@ -133,18 +146,15 @@ func (a *APIServer) getTaggedLogger(ctx context.Context, req *ProcessRequest) (*
 	result.template.JobID = req.JobID
 
 	// Add inputs' details to log metadata, so we can find these logs later
-	hash := sha256.New()
 	for _, d := range req.Data {
 		result.template.Data = append(result.template.Data, &pps.InputFile{
 			Path: d.FileInfo.File.Path,
 			Hash: d.FileInfo.Hash,
 		})
-		hash.Write([]byte(d.FileInfo.File.Path))
-		hash.Write(d.FileInfo.Hash)
 	}
 	// InputFileID is a single string id for the data from this input, it's used in logs and in
 	// the statsTree
-	result.template.InputFileID = hex.EncodeToString(hash.Sum(nil))
+	result.template.DatumID = a.DatumID(req)
 	if req.EnableStats {
 		putObjClient, err := a.pachClient.ObjectAPIClient.PutObject(auth.In2Out(ctx))
 		if err != nil {
@@ -654,7 +664,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		}, nil
 	}
 	stats := &pps.ProcessStats{}
-	statsPath := path.Join("/", logger.template.InputFileID)
+	statsPath := path.Join("/", logger.template.DatumID)
 	var statsTree hashtree.OpenHashTree
 	if req.EnableStats {
 		statsTree = hashtree.NewHashTree()
@@ -864,7 +874,7 @@ func (a *APIServer) userCodeEnviron(req *ProcessRequest) []string {
 	return append(os.Environ(), fmt.Sprintf("PACH_JOB_ID=%s", req.JobID))
 }
 
-func (a *APIServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.JobState) error {
+func (a *APIServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.JobState, reason string) error {
 	// Update job counts
 	if jobInfo.Pipeline != nil {
 		pipelines := a.pipelines.ReadWrite(stm)
@@ -882,6 +892,7 @@ func (a *APIServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.
 		pipelines.Put(pipelineInfo.Pipeline.Name, pipelineInfo)
 	}
 	jobInfo.State = state
+	jobInfo.Reason = reason
 	jobs := a.jobs.ReadWrite(stm)
 	jobs.Put(jobInfo.Job.ID, jobInfo)
 	return nil
