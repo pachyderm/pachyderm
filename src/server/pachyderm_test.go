@@ -4593,10 +4593,10 @@ func TestPipelineBadImage(t *testing.T) {
 	}
 	t.Parallel()
 	c := getPachClient(t)
-	pipeline := uniqueString("pipeline")
+	pipeline1 := uniqueString("bad_pipeline")
 	require.NoError(t, c.CreatePipeline(
-		pipeline,
-		"pachyderm/badimage:latest",
+		pipeline1,
+		"BadImage",
 		[]string{"true"},
 		nil,
 		nil,
@@ -4604,6 +4604,29 @@ func TestPipelineBadImage(t *testing.T) {
 		"",
 		false,
 	))
+	pipeline2 := uniqueString("bad_pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline2,
+		"bs/badimage:vcrap",
+		[]string{"true"},
+		nil,
+		nil,
+		client.NewCronInput("time", "@every 20s"),
+		"",
+		false,
+	))
+	require.NoError(t, backoff.Retry(func() error {
+		for _, pipeline := range []string{pipeline1, pipeline2} {
+			pipelineInfo, err := c.InspectPipeline(pipeline)
+			if err != nil {
+				return err
+			}
+			if pipelineInfo.State != pps.PipelineState_PIPELINE_FAILURE {
+				return fmt.Errorf("pipeline %s should have failed", pipeline)
+			}
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {

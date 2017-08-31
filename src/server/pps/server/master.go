@@ -25,6 +25,19 @@ const (
 	masterLockPath = "_master_lock"
 )
 
+func isFailure(reason string) bool {
+	failReasons := []string{
+		"InvalidImageName",
+		"ErrImagePull",
+	}
+	for _, failReason := range failReasons {
+		if reason == failReason {
+			return true
+		}
+	}
+	return false
+}
+
 // The master process is responsible for creating/deleting workers as
 // pipelines are created/removed.
 func (a *apiServer) master() {
@@ -150,7 +163,7 @@ func (a *apiServer) master() {
 				}
 				for _, status := range pod.Status.ContainerStatuses {
 					log.Infof("waiting: %+v", status.State.Waiting)
-					if status.Name == "user" && status.State.Waiting != nil && status.State.Waiting.Reason == "InvalidImageName" {
+					if status.Name == "user" && status.State.Waiting != nil && isFailure(status.State.Waiting.Reason) {
 						if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 							pipelineName := pod.ObjectMeta.Annotations["pipelineName"]
 							pipelines := a.pipelines.ReadWrite(stm)
