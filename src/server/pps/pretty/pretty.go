@@ -126,6 +126,7 @@ Parent: {{.ParentJob.ID}} {{end}}
 Started: {{prettyAgo .Started}} {{if .Finished}}
 Duration: {{prettyTimeDifference .Started .Finished}} {{end}}
 State: {{jobState .State}}
+Reason: {{.Reason}}
 Processed: {{.DataProcessed}}
 Skipped: {{.DataSkipped}}
 Total: {{.DataTotal}}

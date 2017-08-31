@@ -109,9 +109,10 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 				VolumeMounts:    sidecarVolumeMounts,
 			},
 		},
-		RestartPolicy:    "Always",
-		Volumes:          options.volumes,
-		ImagePullSecrets: options.imagePullSecrets,
+		RestartPolicy:                 "Always",
+		Volumes:                       options.volumes,
+		ImagePullSecrets:              options.imagePullSecrets,
+		TerminationGracePeriodSeconds: &zeroVal,
 	}
 	if options.resources != nil {
 		podSpec.Containers[0].Resources = api.ResourceRequirements{
