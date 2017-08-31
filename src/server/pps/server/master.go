@@ -47,7 +47,7 @@ func (a *apiServer) master() {
 		}
 		defer pipelineWatcher.Close()
 
-		kubePipelineWatch, err := a.kubeClient.ReplicationControllers(a.namespace).Watch(api.ListOptions{
+		kubePipelineWatch, err := a.kubeClient.Pods(a.namespace).Watch(api.ListOptions{
 			LabelSelector: labelspkg.SelectorFromSet(map[string]string{
 				"component": "worker",
 			}),
@@ -141,7 +141,32 @@ func (a *apiServer) master() {
 					}
 				}
 			case event := <-kubePipelineWatch.ResultChan():
-				log.Infof("kube event: %+v", event)
+				pod, ok := event.Object.(*api.Pod)
+				if !ok {
+					continue
+				}
+				if pod.Status.Phase == api.PodFailed {
+					log.Errorf("pod failed because: %s", pod.Status.Message)
+				}
+				for _, status := range pod.Status.ContainerStatuses {
+					log.Infof("waiting: %+v", status.State.Waiting)
+					if status.Name == "user" && status.State.Waiting != nil && status.State.Waiting.Reason == "InvalidImageName" {
+						if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+							pipelineName := pod.ObjectMeta.Annotations["pipelineName"]
+							pipelines := a.pipelines.ReadWrite(stm)
+							newPipelineInfo := new(pps.PipelineInfo)
+							if err := pipelines.Get(pipelineName, newPipelineInfo); err != nil {
+								return fmt.Errorf("error getting pipeline %s: %+v", pipelineName, err)
+							}
+							newPipelineInfo.State = pps.PipelineState_PIPELINE_FAILURE
+							newPipelineInfo.Reason = status.State.Waiting.Message
+							pipelines.Put(pipelineName, newPipelineInfo)
+							return nil
+						}); err != nil {
+							return err
+						}
+					}
+				}
 			}
 		}
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
@@ -193,6 +218,7 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		}
 
 		options := a.getWorkerOptions(
+			pipelineInfo.Pipeline.Name,
 			ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 			int32(parallelism),
 			resources,

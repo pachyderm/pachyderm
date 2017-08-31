@@ -289,6 +289,7 @@ message PipelineInfo {
   string salt = 25;
   string capability = 26;
   bool batch = 27;
+  string reason = 28;
 }
 
 message PipelineInfos {

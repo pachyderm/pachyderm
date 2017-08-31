@@ -594,7 +594,7 @@ const _ = grpc.SupportPackageIsVersion4
 // Client API for API service
 
 type APIClient interface {
-	// Enable/Disable the auth API. 'Activate' sets an initial set of admins
+	// Activate/Deactivate the auth API. 'Activate' sets an initial set of admins
 	// for the Pachyderm cluster, and 'Deactivate' removes all ACLs, tokens, and
 	// admins from the Pachyderm cluster, making all data publicly accessable
 	Activate(ctx context.Context, in *ActivateRequest, opts ...grpc.CallOption) (*ActivateResponse, error)
@@ -742,7 +742,7 @@ func (c *aPIClient) RevokeAuthToken(ctx context.Context, in *RevokeAuthTokenRequ
 // Server API for API service
 
 type APIServer interface {
-	// Enable/Disable the auth API. 'Activate' sets an initial set of admins
+	// Activate/Deactivate the auth API. 'Activate' sets an initial set of admins
 	// for the Pachyderm cluster, and 'Deactivate' removes all ACLs, tokens, and
 	// admins from the Pachyderm cluster, making all data publicly accessable
 	Activate(context.Context, *ActivateRequest) (*ActivateResponse, error)

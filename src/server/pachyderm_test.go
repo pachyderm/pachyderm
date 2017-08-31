@@ -4587,6 +4587,25 @@ func TestSelfReferentialPipeline(t *testing.T) {
 	))
 }
 
+func TestPipelineBadImage(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+	pipeline := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"pachyderm/badimage:latest",
+		[]string{"true"},
+		nil,
+		nil,
+		client.NewCronInput("time", "@every 20s"),
+		"",
+		false,
+	))
+}
+
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
 	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
 	require.NoError(t, err)
