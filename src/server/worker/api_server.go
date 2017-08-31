@@ -719,6 +719,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		}()
 	}
 
+	env := a.userCodeEnv(req)
 	// Download input data
 	puller := filesync.NewPuller()
 	dir, err := a.downloadData(logger, req.Data, puller, req.ParentOutput, stats, statsTree, path.Join(statsPath, "pfs"))
@@ -740,9 +741,6 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	if err != nil {
 		return nil, err
 	}
-
-	environ := a.userCodeEnviron(req)
-
 	// Create output directory (currently /pfs/out) and run user code
 	if err := os.MkdirAll(filepath.Join(dir, "out"), 0666); err != nil {
 		return nil, err
@@ -772,7 +770,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 				retErr = err
 			}
 		}()
-		err = a.runUserCode(ctx, logger, environ, stats)
+		err = a.runUserCode(ctx, logger, env, stats)
 		if err != nil {
 			logger.Logf("failed to process datum with error: %+v", err)
 			if statsTree != nil {
@@ -870,8 +868,13 @@ func (a *APIServer) datum() []*pps.InputFile {
 	return result
 }
 
-func (a *APIServer) userCodeEnviron(req *ProcessRequest) []string {
-	return append(os.Environ(), fmt.Sprintf("PACH_JOB_ID=%s", req.JobID))
+func (a *APIServer) userCodeEnv(req *ProcessRequest) []string {
+	result := os.Environ()
+	for _, input := range req.Data {
+		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(client.PPSInputPrefix, input.Name, input.FileInfo.File.Path)))
+	}
+	result = append(result, fmt.Sprintf("PACH_JOB_ID=%s", req.JobID))
+	return result
 }
 
 func (a *APIServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.JobState, reason string) error {
