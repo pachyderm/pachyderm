@@ -62,25 +62,18 @@ func EqualOneOf(tb testing.TB, expecteds []interface{}, actual interface{}, msgA
 // oneOfEquals is a helper function for OneOfEquals and NoneEquals, that simply
 // returns a bool indicating whether 'expected' is in the slice 'actuals'.
 func oneOfEquals(expected interface{}, actuals interface{}) (bool, error) {
-	switch v := actuals.(type) {
-	case []string:
-		expectedStr, ok := expected.(string)
-		if !ok {
-			return false, fmt.Errorf("\"expected\" should be string, but instead was %T (%#v)", expected, expected)
+	e := reflect.ValueOf(expected)
+	as := reflect.ValueOf(actuals)
+	if as.Kind() != reflect.Slice {
+		return false, fmt.Errorf("\"actuals\" must a be a slice, but instead was %s", as.Type().String())
+	}
+	if e.Type() != as.Type().Elem() {
+		return false, nil
+	}
+	for i := 0; i < as.Len(); i++ {
+		if reflect.DeepEqual(e.Interface(), as.Index(i).Interface()) {
+			return true, nil
 		}
-		for _, actual := range v {
-			if expectedStr == actual {
-				return true, nil
-			}
-		}
-	case []interface{}:
-		for _, actual := range v {
-			if reflect.DeepEqual(expected, actual) {
-				return true, nil
-			}
-		}
-	default:
-		return false, fmt.Errorf("invalid slice type %T", v)
 	}
 	return false, nil
 }

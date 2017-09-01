@@ -9,17 +9,10 @@ import "gogoproto/gogo.proto";
 
 import "client/auth/auth.proto";
 
+////  PFS Data structures (stored in etcd)
+
 message Repo {
   string name = 1;
-}
-
-message Commit {
-  Repo repo = 1;
-  string id = 2 [(gogoproto.customname) = "ID"];
-}
-
-message Commits {
-  repeated Commit commit = 1;
 }
 
 message BranchInfo {
@@ -48,6 +41,7 @@ message Tag {
   string name = 1;
 }
 
+// RepoInfo is the main data structure representing a Repo in etcd
 message RepoInfo {
   Repo repo = 1;
   google.protobuf.Timestamp created = 2;
@@ -56,11 +50,15 @@ message RepoInfo {
   string description = 5;
 }
 
-message RepoInfos {
-  repeated RepoInfo repo_info = 1;
-  repeated auth.Scope scopes = 2;
+// Commit is a reference to a commit (e.g. the collection of branches and the
+// collection of currently-open commits in etcd are collections of Commit
+// protos)
+message Commit {
+  Repo repo = 1;
+  string id = 2 [(gogoproto.customname) = "ID"];
 }
 
+// CommitInfo is the main data structure representing a commit in etcd
 message CommitInfo {
   Commit commit = 1;
   Commit parent_commit = 2;
@@ -69,12 +67,8 @@ message CommitInfo {
   uint64 size_bytes = 5;
   repeated Commit provenance = 6;
   // this is the block that stores the serialized form of a tree that
-  // represents the entire file system hierarchy of the repo at this commit 
+  // represents the entire file system hierarchy of the repo at this commit
   Object tree = 7;
-}
-
-message CommitInfos {
-  repeated CommitInfo commit_info = 1;
 }
 
 enum FileType {
@@ -94,10 +88,6 @@ message FileInfo {
   bytes hash = 7;
 }
 
-message FileInfos {
-  repeated FileInfo file_info = 1;
-}
-
 message ByteRange {
   uint64 lower = 1;
   uint64 upper = 2;
@@ -113,6 +103,8 @@ message ObjectInfo {
   BlockRef block_ref = 2;
 }
 
+// PFS API
+
 message CreateRepoRequest {
   Repo repo = 1;
   repeated Repo provenance = 2;
@@ -122,13 +114,31 @@ message CreateRepoRequest {
 
 message InspectRepoRequest {
   Repo repo = 1;
+  // Include auth information in the response, i.e. what kind of
+  // scope the user has over each repo.
+  bool include_auth = 2;
+}
+
+message InspectRepoResponse {
+  RepoInfo repo_info = 1;
+  auth.Scope scope = 2;
 }
 
 message ListRepoRequest {
-    repeated Repo provenance = 1;
-    // Include auth information in the response, i.e. what kind of
-    // scope the user has over each repo.
-    bool include_auth = 2;
+  repeated Repo provenance = 1;
+
+  // Include auth information in the response, i.e. what kind of
+  // scope the user has over each repo.
+  bool include_auth = 2;
+}
+
+message ListRepoResponse {
+  repeated RepoInfo repo_info = 1;
+
+  // scopes is the list of access scopes that the caller has to each repo in
+  // 'repo_info'. Note that 'scopes' is the same length as 'repo_info' and
+  // scopes[i] describes the callers access to repo_info[i].
+  repeated auth.Scope scopes = 2;
 }
 
 message DeleteRepoRequest {
@@ -165,6 +175,10 @@ message ListCommitRequest {
   Commit from = 2;
   Commit to = 3;
   uint64 number = 4;
+}
+
+message CommitInfos {
+  repeated CommitInfo commit_info = 1;
 }
 
 message ListBranchRequest {
@@ -243,11 +257,17 @@ enum ListFileMode {
 
 message ListFileRequest {
   File file = 1;
+  bool full = 2;
 }
 
 message GlobFileRequest {
   Commit commit = 1;
   string pattern = 2;
+}
+
+// FileInfos is the result of both ListFile and GlobFile
+message FileInfos {
+  repeated FileInfo file_info = 1;
 }
 
 message DiffFileRequest {
@@ -273,9 +293,9 @@ service API {
   // An error is returned if the repo already exists.
   rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {}
   // InspectRepo returns info about a repo.
-  rpc InspectRepo(InspectRepoRequest) returns (RepoInfo) {}
+  rpc InspectRepo(InspectRepoRequest) returns (InspectRepoResponse) {}
   // ListRepo returns info about all repos.
-  rpc ListRepo(ListRepoRequest) returns (RepoInfos) {}
+  rpc ListRepo(ListRepoRequest) returns (ListRepoResponse) {}
   // DeleteRepo deletes a repo.
   rpc DeleteRepo(DeleteRepoRequest) returns (google.protobuf.Empty) {}
 

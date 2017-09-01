@@ -44,6 +44,9 @@ const (
 
 	// The number of datums that will be enqueued on each worker.
 	queueSize = 10
+
+	// The number of datums the master caches
+	numCachedDatums = 1000000
 )
 
 func (a *APIServer) getMasterLogger() *taggedLogger {
@@ -76,9 +79,9 @@ func (a *APIServer) master() {
 	// bring the pipeline state from PAUSED to RUNNING.  By setting a high
 	// retry interval, the master would be deleted before it gets a chance
 	// to restart.
-	b.InitialInterval = 5 * time.Second
+	b.InitialInterval = 10 * time.Second
 	backoff.RetryNotify(func() error {
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(a.pachClient.AddMetadata(context.Background()))
 		defer cancel()
 
 		ctx, err := masterLock.Lock(ctx)
@@ -228,8 +231,9 @@ nextInput:
 					if err := a.runJob(ctx, &jobInfo, pool, logger); err != nil {
 						return err
 					}
+				case pps.JobState_JOB_SUCCESS:
+					continue nextInput
 				}
-				continue nextInput
 			}
 		}
 
@@ -388,16 +392,17 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 			if err := jobs.Get(jobID, jobInfo); err != nil {
 				return err
 			}
-			return a.updateJobState(stm, jobInfo, pps.JobState_JOB_RUNNING)
+			return a.updateJobState(stm, jobInfo, pps.JobState_JOB_RUNNING, "")
 		})
 		if err != nil {
 			return err
 		}
 
 		failed := false
+		var failedDatumID string
 		limiter := limit.New(a.numWorkers * queueSize)
 		// process all datums
-		df, err := newDatumFactory(ctx, pfsClient, jobInfo.Input)
+		df, err := NewDatumFactory(ctx, pfsClient, jobInfo.Input)
 		if err != nil {
 			return err
 		}
@@ -477,8 +482,12 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 		updateProgress(0, 0, nil)
 
 		for i := 0; i < df.Len(); i++ {
+			i := i
 			limiter.Acquire()
 			files := df.Datum(i)
+			datumHash := HashDatum(pipelineInfo.Pipeline.Name, pipelineInfo.Salt, files)
+			tag := &pfs.Tag{datumHash}
+			statsTag := &pfs.Tag{datumHash + statsTagSuffix}
 			var parentOutputTag *pfs.Tag
 			if newBranchParentCommit != nil {
 				var parentFiles []*Input
@@ -502,10 +511,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 					parentFiles = append(parentFiles, parentFile)
 				}
 				if len(parentFiles) == len(files) {
-					_parentOutputTag, err := HashDatum(pipelineInfo, parentFiles)
-					if err != nil {
-						return err
-					}
+					_parentOutputTag := HashDatum(pipelineInfo.Pipeline.Name, pipelineInfo.Salt, parentFiles)
 					parentOutputTag = &pfs.Tag{Name: _parentOutputTag}
 				}
 			}
@@ -514,44 +520,76 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 				defer limiter.Release()
 				b := backoff.NewInfiniteBackOff()
 				b.Multiplier = 1
-				var resp *ProcessResponse
-				datumProcessStats := &pps.ProcessStats{}
+				var stats *pps.ProcessStats
+				// If usedCache is set to true, we know that we thought a
+				// datum has been processed, but it's not found in the
+				// object store.  Therefore if a retry happens, we know to
+				// skip the cache and recompute the datums.
+				var usedCache bool
+				var skipped bool
+				req := &ProcessRequest{
+					JobID:        jobInfo.Job.ID,
+					Data:         files,
+					ParentOutput: parentOutputTag,
+					EnableStats:  jobInfo.EnableStats,
+				}
+				datumID := a.DatumID(req)
 				if err := backoff.RetryNotify(func() error {
-					if err := pool.Do(ctx, func(conn *grpc.ClientConn) error {
-						workerClient := NewWorkerClient(conn)
-						resp, err = workerClient.Process(ctx, &ProcessRequest{
-							JobID:        jobInfo.Job.ID,
-							Data:         files,
-							ParentOutput: parentOutputTag,
-							EnableStats:  jobInfo.EnableStats,
-						})
-						return err
-					}); err != nil {
-						return fmt.Errorf("Process() call failed: %v", err)
+					var failed bool
+					processed := a.getCachedDatum(datumHash)
+					if usedCache || !processed {
+						if err := pool.Do(ctx, func(conn *grpc.ClientConn) error {
+							workerClient := NewWorkerClient(conn)
+							resp, err := workerClient.Process(ctx, req)
+							if err != nil {
+								return err
+							}
+							skipped = resp.Skipped
+							failed = resp.Failed
+							stats = resp.Stats
+							return nil
+						}); err != nil {
+							return fmt.Errorf("Process() call failed: %v", err)
+						}
+					} else {
+						usedCache = true
+						skipped = true
 					}
-					if resp.Failed {
+					if failed {
 						userCodeFailures++
+						failedDatumID = datumID
 						// If this is our last failure we merge in the stats
 						// tree for the failed run.
 						if userCodeFailures > maximumRetriesPerDatum && jobInfo.EnableStats {
-							statsSubtree, err := a.getTreeFromTag(ctx, resp.StatsTag)
-							if err != nil {
-								logger.Logf("failed to retrieve stats hashtree after processing for datum %v: %v", files, err)
-							} else {
+							if err := func() error {
+								statsSubtree, err := a.getTreeFromTag(ctx, statsTag)
+								if err != nil {
+									return err
+								}
+								indexObject, length, err := a.pachClient.WithCtx(ctx).PutObject(strings.NewReader(fmt.Sprint(i)))
+								if err != nil {
+									return err
+								}
 								treeMu.Lock()
 								defer treeMu.Unlock()
-								if err := statsTree.Merge(statsSubtree); err != nil {
-									logger.Logf("failed to merge into stats tree: %v", err)
+								// Add a file to statsTree indicating the index of this
+								// datum in the datum factory.
+								if err := statsTree.PutFile(fmt.Sprintf("%v/index", datumID), []*pfs.Object{indexObject}, length); err != nil {
+									return err
 								}
+								return statsTree.Merge(statsSubtree)
+							}(); err != nil {
+								logger.Logf("failed to populate stats after failed job: %+v", err)
 							}
 						}
 						return fmt.Errorf("user code failed for datum %v", files)
 					}
+					a.setCachedDatum(datumHash)
 					var eg errgroup.Group
 					var subTree hashtree.HashTree
 					var statsSubtree hashtree.HashTree
 					eg.Go(func() error {
-						subTree, err = a.getTreeFromTag(ctx, resp.Tag)
+						subTree, err = a.getTreeFromTag(ctx, tag)
 						if err != nil {
 							return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
 						}
@@ -559,30 +597,24 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 					})
 					if jobInfo.EnableStats {
 						eg.Go(func() error {
-							statsSubtree, err = a.getTreeFromTag(ctx, resp.StatsTag)
+							if statsSubtree, err = a.getTreeFromTag(ctx, statsTag); err != nil {
+								return err
+							}
+							indexObject, length, err := a.pachClient.WithCtx(ctx).PutObject(strings.NewReader(fmt.Sprint(i)))
 							if err != nil {
-								logger.Logf("failed to retrieve stats hashtree after processing for datum %v: %v", files, err)
-								return nil
+								return err
 							}
-							nodes, err := statsSubtree.Glob("*/stats")
-							if err != nil {
-								logger.Logf("failed to retrieve process stats from hashtree for datum %v: %v", files, err)
+							treeMu.Lock()
+							defer treeMu.Unlock()
+							if skipped {
+								// write a list of input files
+								if err := statsTree.PutFile(fmt.Sprintf("%v/skipped", datumID), nil, 0); err != nil {
+									return err
+								}
 							}
-							if len(nodes) != 1 {
-								logger.Logf("should have a single stats object for datum %v", files)
-								return nil
-							}
-							var objects []string
-							for _, object := range nodes[0].FileNode.Objects {
-								objects = append(objects, object.Hash)
-							}
-							var buffer bytes.Buffer
-							a.pachClient.WithCtx(ctx).GetObjects(objects, 0, 0, &buffer)
-							if err := jsonpb.UnmarshalString(buffer.String(), datumProcessStats); err != nil {
-								logger.Logf("error unmarshalling datum process stats for datum %v: %+v", files, err)
-								return nil
-							}
-							return nil
+							// Add a file to statsTree indicating the index of this
+							// datum in the datum factory.
+							return statsTree.PutFile(fmt.Sprintf("%v/index", datumID), []*pfs.Object{indexObject}, length)
 						})
 					}
 					if err := eg.Wait(); err != nil {
@@ -594,7 +626,9 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 						if err := statsTree.Merge(statsSubtree); err != nil {
 							logger.Logf("failed to merge into stats tree: %v", err)
 						}
-						processStats = append(processStats, datumProcessStats)
+					}
+					if stats != nil {
+						processStats = append(processStats, stats)
 					}
 					return tree.Merge(subTree)
 				}, b, func(err error, d time.Duration) error {
@@ -611,10 +645,10 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 					logger.Logf("job %s failed to process datum %+v with: %+v, retrying in: %+v", jobID, files, err, d)
 					return nil
 				}); err == nil {
-					if resp.Skipped {
-						go updateProgress(0, 1, datumProcessStats)
+					if skipped {
+						go updateProgress(0, 1, stats)
 					} else {
-						go updateProgress(1, 0, datumProcessStats)
+						go updateProgress(1, 0, stats)
 					}
 				}
 			}()
@@ -667,7 +701,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 				}
 				jobInfo.Finished = now()
 				jobInfo.StatsCommit = statsCommit
-				return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE)
+				return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE, fmt.Sprintf("failed to process datum: %v", failedDatumID))
 			})
 			return err
 		}
@@ -694,27 +728,54 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 			return err
 		}
 
-		if jobInfo.Egress != nil {
-			logger.Logf("Starting egress upload for job (%v)\n", jobInfo)
-			start := time.Now()
-			url, err := obj.ParseURL(jobInfo.Egress.URL)
-			if err != nil {
+		// Put egress into its own retry loop, because 1) we don't want to
+		// endlessly retry egress, and 2) we don't want to create the output
+		// commit over and over again.
+		var egressFailureCount int
+		egressErr := backoff.RetryNotify(func() (retErr error) {
+			if jobInfo.Egress != nil {
+				logger.Logf("Starting egress upload for job (%v)", jobInfo)
+				start := time.Now()
+				url, err := obj.ParseURL(jobInfo.Egress.URL)
+				if err != nil {
+					return err
+				}
+				objClient, err := obj.NewClientFromURLAndSecret(ctx, url)
+				if err != nil {
+					return err
+				}
+				client := client.APIClient{
+					PfsAPIClient: pfsClient,
+				}
+				client.SetMaxConcurrentStreams(100)
+				if err := pfs_sync.PushObj(client, outputCommit, objClient, url.Object); err != nil {
+					return err
+				}
+				logger.Logf("Completed egress upload for job (%v), duration (%v)", jobInfo, time.Since(start))
+			}
+			return nil
+		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+			egressFailureCount++
+			if egressFailureCount > 3 {
 				return err
 			}
-			objClient, err := obj.NewClientFromURLAndSecret(ctx, url)
-			if err != nil {
-				return err
-			}
-			client := client.APIClient{
-				PfsAPIClient: pfsClient,
-			}
-			client.SetMaxConcurrentStreams(100)
-			if err := pfs_sync.PushObj(client, outputCommit, objClient, url.Object); err != nil {
-				return err
-			}
-			logger.Logf("Completed egress upload for job (%v), duration (%v)\n", jobInfo, time.Since(start))
+			logger.Logf("egress failed: %v; retrying in %v", err, d)
+			return nil
+		})
+		if egressErr != nil {
+			_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				jobs := a.jobs.ReadWrite(stm)
+				jobInfo := new(pps.JobInfo)
+				if err := jobs.Get(jobID, jobInfo); err != nil {
+					return err
+				}
+				jobInfo.Finished = now()
+				jobInfo.StatsCommit = statsCommit
+				return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE, fmt.Sprintf("egress error: %v", egressErr))
+			})
+			// returning nil so we don't retry
+			return nil
 		}
-
 		// Record the job's output commit and 'Finished' timestamp, and mark the job
 		// as a SUCCESS
 		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
@@ -732,7 +793,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 			// likely already set but just in case it failed
 			jobInfo.DataTotal = totalData
 			jobInfo.StatsCommit = statsCommit
-			return a.updateJobState(stm, jobInfo, pps.JobState_JOB_SUCCESS)
+			return a.updateJobState(stm, jobInfo, pps.JobState_JOB_SUCCESS, "")
 		})
 		return err
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
@@ -831,19 +892,19 @@ func (a *APIServer) aggregate(datums []float64) (*pps.Aggregate, error) {
 	logger := a.getMasterLogger()
 	mean, err := stats.Mean(datums)
 	if err != nil {
-		logger.Logf("error aggregating mean: %v\n", err)
+		logger.Logf("error aggregating mean: %v", err)
 	}
 	stddev, err := stats.StandardDeviation(datums)
 	if err != nil {
-		logger.Logf("error aggregating std dev: %v\n", err)
+		logger.Logf("error aggregating std dev: %v", err)
 	}
 	fifth, err := stats.Percentile(datums, 5)
 	if err != nil {
-		logger.Logf("error aggregating 5th percentile: %v\n", err)
+		logger.Logf("error aggregating 5th percentile: %v", err)
 	}
 	ninetyFifth, err := stats.Percentile(datums, 95)
 	if err != nil {
-		logger.Logf("error aggregating 95th percentile: %v\n", err)
+		logger.Logf("error aggregating 95th percentile: %v", err)
 	}
 	return &pps.Aggregate{
 		Count:                 int64(len(datums)),
@@ -921,6 +982,18 @@ func (a *APIServer) scaleUpWorkers() error {
 	}
 	_, err = rc.Update(workerRc)
 	return err
+}
+
+// getCachedDatum returns whether the given datum (identified by its hash)
+// has been processed.
+func (a *APIServer) getCachedDatum(hash string) bool {
+	_, ok := a.datumCache.Get(hash)
+	return ok
+}
+
+// setCachedDatum records that the given datum has been processed.
+func (a *APIServer) setCachedDatum(hash string) {
+	a.datumCache.Add(hash, struct{}{})
 }
 
 func untranslateJobInputs(input *pps.Input) []*pps.JobInput {

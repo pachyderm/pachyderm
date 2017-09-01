@@ -12,7 +12,10 @@ import "client/pfs/pfs.proto";
 message Secret {
   // Name must be the name of the secret in kubernetes.
   string name = 1;
+  // Key of the secret to load into env_var, this field only has meaning if EnvVar != "".
+  string key = 4;
   string mount_path = 2;
+  string env_var = 3;
 }
 
 message Transform {
@@ -117,13 +120,15 @@ enum DatumState {
     FAILED = 0;
     SUCCESS = 1;
     SKIPPED = 2;
+    STARTING = 3;
 }
 
 message DatumInfo {
-   Datum datum = 1;
-   DatumState state = 2;
-   ProcessStats stats = 3;
-   pfs.File pfs_state = 4;
+  Datum datum = 1;
+  DatumState state = 2;
+  ProcessStats stats = 3;
+  pfs.File pfs_state = 4;
+  repeated pfs.FileInfo data = 5;
 }
 
 message DatumInfos {
@@ -194,6 +199,7 @@ message JobInfo {
   google.protobuf.Timestamp finished = 8;
   pfs.Commit output_commit = 9;
   JobState state = 10;
+  string reason = 35;  // reason explains why the job is in the current state
   Service service = 14;
   pfs.Repo output_repo = 18;
   string output_branch = 17;
@@ -332,6 +338,7 @@ message StopJobRequest {
 }
 
 message GetLogsRequest {
+  reserved 4;
   // The pipeline from which we want to get logs (required if the job in 'job'
   // was created as part of a pipeline. To get logs from a non-orphan job
   // without the pipeline that created it, you need to use ElasticSearch).
@@ -346,7 +353,7 @@ message GetLogsRequest {
   // a hash for that file (to search for files at specific versions)
   repeated string data_filters = 3;
 
-  string input_file_id = 4 [(gogoproto.customname) = "InputFileID"];
+  Datum datum = 6;
 
   // If true get logs from the master process
   bool master = 5;
@@ -360,7 +367,7 @@ message LogMessage {
   string pipeline_name = 1;
   string job_id = 3 [(gogoproto.customname) = "JobID"];
   string worker_id = 7 [(gogoproto.customname) = "WorkerID"];
-  string input_file_id = 9 [(gogoproto.customname) = "InputFileID"];
+  string datum_id = 9 [(gogoproto.customname) = "DatumID"];
   bool master = 10;
 
   // The PFS files being processed (one per pipeline/job input)
@@ -385,6 +392,14 @@ message InspectDatumRequest {
 
 message ListDatumRequest {
   Job job = 1;
+  int64 page_size = 2;
+  int64 page = 3;
+}
+
+message ListDatumResponse {
+  repeated DatumInfo datum_infos = 1;
+  int64 total_pages = 2;
+  int64 page = 3;
 }
 
 message CreatePipelineRequest {
@@ -447,7 +462,7 @@ service API {
   rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
   rpc StopJob(StopJobRequest) returns (google.protobuf.Empty) {}
   rpc InspectDatum(InspectDatumRequest) returns (DatumInfo) {}
-  rpc ListDatum(ListDatumRequest) returns (DatumInfos) {}
+  rpc ListDatum(ListDatumRequest) returns (ListDatumResponse) {}
   rpc RestartDatum(RestartDatumRequest) returns (google.protobuf.Empty) {}
 
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}

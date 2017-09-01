@@ -31,8 +31,7 @@ message ProcessRequest {
 
 // ProcessResponse contains a tag, only if the processing was successful.
 message ProcessResponse {
-  pfs.Tag tag = 1;
-  pfs.Tag stats_tag = 3;
+  pps.ProcessStats stats = 4;
   // If true, the user program has errored
   bool failed = 2;
   bool skipped = 5;

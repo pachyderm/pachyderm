@@ -1,0 +1,30 @@
+{
+  "pipeline": {
+    "name": "query"
+  },
+  "transform": {
+    "image": "mongo",
+    "cmd": [ "/bin/bash" ],
+    "stdin": [
+      "export uri=$(cat /tmp/mongosecret/uri)",
+      "export db=$(cat /tmp/mongosecret/db)",
+      "export collection=$(cat /tmp/mongosecret/collection)",
+      "export username=$(cat /tmp/mongosecret/username)",
+      "export password=$(cat /tmp/mongosecret/password)",
+      "mongo \"$uri\" --authenticationDatabase admin --ssl --username $username --password $password --quiet --eval 'db.restaurants.aggregate({ $sample: { size: 1 } });' | tail -n1 | egrep -v \"^>|^bye\" > /pfs/out/output.json"
+    ],
+    "secrets": [ 
+      {
+        "name": "mongosecret",
+        "mountPath": "/tmp/mongosecret"
+      } 
+    ]
+  },
+  "input": {
+    "cron": {
+      "name": "tick",
+      "spec": "@every 10s"
+    }  
+  }
+}
+

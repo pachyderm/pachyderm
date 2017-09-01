@@ -38,6 +38,9 @@ const (
 	splitSuffixBase  = 16
 	splitSuffixWidth = 64
 	splitSuffixFmt   = "%016x"
+
+	// Makes calls to ListRepo and InspectRepo more legible
+	includeAuth = true
 )
 
 // ValidateRepoName determines if a repo name is valid
@@ -186,7 +189,7 @@ func (d *driver) checkIsAuthorized(ctx context.Context, r *pfs.Repo, s auth.Scop
 		Scope: s,
 	})
 	if err == nil && !resp.Authorized {
-		return auth.NotAuthorizedError{r.Name}
+		return &auth.NotAuthorizedError{Repo: r.Name, Required: s}
 	} else if err != nil && !auth.IsNotActivatedError(err) {
 		return fmt.Errorf("error during authorization check for operation on %s: %s", r.Name, err.Error())
 	}
@@ -214,14 +217,25 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 		return err
 	}
 
-	// If the auth system is activated and the user is not signed in, reject the
-	// request. However, don't create the ACL until the repo has been created
-	// successfully, because a repo w/ no ACL can be fixed by a cluster admin.
 	d.initializePachConn()
-	whoAmI, authErr := d.pachClient.AuthAPIClient.WhoAmI(auth.In2Out(ctx),
-		&auth.WhoAmIRequest{})
-	if authErr != nil && !auth.IsNotActivatedError(authErr) {
-		return fmt.Errorf("authorization error while creating repo \"%s\": %s", repo.Name, authErr.Error())
+	var whoAmI *auth.WhoAmIResponse
+	var authErr error
+	if update {
+		// Caller only neads to be a WRITER to call UpdatePipeline(). Therefore
+		// caller only needs to be a WRITER to update the provenance.
+		if err := d.checkIsAuthorized(ctx, repo, auth.Scope_WRITER); err != nil {
+			return err
+		}
+	} else {
+		// If the auth system is activated and the user is not signed in, reject the
+		// request. However, don't create the ACL until the repo has been created
+		// successfully, because a repo w/ no ACL can be fixed by a cluster admin.
+		// note that 'whoAmI' and 'authErr' are set iff 'update' == false.
+		whoAmI, authErr = d.pachClient.AuthAPIClient.WhoAmI(auth.In2Out(ctx),
+			&auth.WhoAmIRequest{})
+		if authErr != nil && !auth.IsNotActivatedError(authErr) {
+			return fmt.Errorf("authorization error while creating repo \"%s\": %s", repo.Name, authErr.Error())
+		}
 	}
 
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
@@ -344,7 +358,7 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 	if err != nil {
 		return err
 	}
-	if authErr == nil {
+	if !update && authErr == nil {
 		// auth is active, and user is logged in. User is an owner of the new repo
 		_, err := d.pachClient.AuthAPIClient.SetScope(auth.In2Out(ctx), &auth.SetScopeRequest{
 			Repo:     repo.Name,
@@ -352,26 +366,39 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 			Scope:    auth.Scope_OWNER,
 		})
 		if err != nil {
-			return fmt.Errorf("repo creted successfully, but could not create ACL " +
+			return fmt.Errorf("repo created successfully, but could not create ACL " +
 				"for new repo (a cluster admin can create ACL for you): " + err.Error())
 		}
 	}
 	return nil
 }
 
-func (d *driver) inspectRepo(ctx context.Context, repo *pfs.Repo) (*pfs.RepoInfo, error) {
-	repoInfo := new(pfs.RepoInfo)
-	if err := d.repos.ReadOnly(ctx).Get(repo.Name, repoInfo); err != nil {
+func (d *driver) inspectRepo(ctx context.Context, repo *pfs.Repo, includeAuth bool) (*pfs.InspectRepoResponse, error) {
+	result := &pfs.InspectRepoResponse{
+		RepoInfo: &pfs.RepoInfo{},
+	}
+	if err := d.repos.ReadOnly(ctx).Get(repo.Name, result.RepoInfo); err != nil {
 		return nil, err
 	}
-	return repoInfo, nil
+	if includeAuth {
+		resp, err := d.pachClient.AuthAPIClient.GetScope(auth.In2Out(ctx),
+			&auth.GetScopeRequest{Repos: []string{repo.Name}})
+		if err != nil && !auth.IsNotActivatedError(err) {
+			return nil, fmt.Errorf("error getting scope for %s: %s", repo.Name, err.Error())
+		}
+		if len(resp.Scopes) != 1 {
+			return nil, fmt.Errorf("unexpected result from GetScope(): %#v", resp)
+		}
+		result.Scope = resp.Scopes[0]
+	}
+	return result, nil
 }
 
-func (d *driver) listRepo(ctx context.Context, provenance []*pfs.Repo, includeAuth bool) (*pfs.RepoInfos, error) {
+func (d *driver) listRepo(ctx context.Context, provenance []*pfs.Repo, includeAuth bool) (*pfs.ListRepoResponse, error) {
 	repos := d.repos.ReadOnly(ctx)
 	// Ensure that all provenance repos exist
 	for _, prov := range provenance {
-		repoInfo := new(pfs.RepoInfo)
+		repoInfo := &pfs.RepoInfo{}
 		if err := repos.Get(prov.Name, repoInfo); err != nil {
 			return nil, err
 		}
@@ -381,7 +408,7 @@ func (d *driver) listRepo(ctx context.Context, provenance []*pfs.Repo, includeAu
 	if err != nil {
 		return nil, err
 	}
-	var result pfs.RepoInfos
+	result := new(pfs.ListRepoResponse)
 	var repoNames []string
 nextRepo:
 	for {
@@ -411,17 +438,18 @@ nextRepo:
 	}
 	if includeAuth {
 		// Include auth information in the response
-		resp, err := d.pachClient.AuthAPIClient.GetScope(ctx, &auth.GetScopeRequest{
-			Repos: repoNames,
-		})
+		resp, err := d.pachClient.AuthAPIClient.GetScope(auth.In2Out(ctx),
+			&auth.GetScopeRequest{
+				Repos: repoNames,
+			})
 		if err != nil && !auth.IsNotActivatedError(err) {
-			return nil, fmt.Errorf("error getting scopes: %v", err)
+			return nil, fmt.Errorf("error getting scopes: %s", err.Error())
 		}
 		if resp != nil {
 			result.Scopes = resp.Scopes
 		}
 	}
-	return &result, nil
+	return result, nil
 }
 
 func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) error {
@@ -689,11 +717,8 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 
 // inspectCommit takes a Commit and returns the corresponding CommitInfo.
 //
-// As a side effect, it sets the commit ID to the real commit ID, if the
-// original commit ID is actually a branch.
-//
-// This side effect is used internally by other APIs to resolve branch
-// names to real commit IDs.
+// As a side effect, this function also replaces the ID in the given commit
+// with a real commit ID.
 func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
 	if commit == nil {
 		return nil, fmt.Errorf("cannot inspect nil commit")
@@ -701,31 +726,85 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.Co
 	if err := d.checkIsAuthorized(ctx, commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
+
+	commitID, ancestryLength := parseCommitID(commit.ID)
+
+	// Check if the commitID is a branch name
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		branches := d.branches(commit.Repo.Name).ReadWrite(stm)
 
 		head := new(pfs.Commit)
 		// See if we are given a branch
-		if err := branches.Get(commit.ID, head); err != nil {
+		if err := branches.Get(commitID, head); err != nil {
 			if _, ok := err.(col.ErrNotFound); !ok {
 				return err
 			}
 			// If it's not a branch, use it as it is
 			return nil
 		}
-		commit.ID = head.ID
+		commitID = head.ID
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	commits := d.commits(commit.Repo.Name).ReadOnly(ctx)
-	commitInfo := &pfs.CommitInfo{}
-	if err := commits.Get(commit.ID, commitInfo); err != nil {
-		return nil, err
+	var commitInfo *pfs.CommitInfo
+	nextCommit := &pfs.Commit{
+		Repo: commit.Repo,
+		ID:   commitID,
 	}
+	for i := 0; i <= ancestryLength; i++ {
+		if nextCommit == nil {
+			return nil, pfsserver.ErrCommitNotFound{commit}
+		}
+		commits := d.commits(commit.Repo.Name).ReadOnly(ctx)
+		commitInfo = new(pfs.CommitInfo)
+		if err := commits.Get(nextCommit.ID, commitInfo); err != nil {
+			return nil, pfsserver.ErrCommitNotFound{nextCommit}
+		}
+		nextCommit = commitInfo.ParentCommit
+	}
+
+	commit.ID = commitInfo.Commit.ID
 	return commitInfo, nil
+}
+
+// parseCommitID accepts a commit ID that might contain the Git ancestry
+// syntax, such as "master^2", "master~~", "master^^", "master~5", etc.
+// It then returns the ID component such as "master" and the depth of the
+// ancestor.  For instance, for "master^2" it'd return "master" and 2.
+func parseCommitID(commitID string) (string, int) {
+	sepIndex := strings.IndexAny(commitID, "^~")
+	if sepIndex == -1 {
+		return commitID, 0
+	}
+
+	// Find the separator, which is either "^" or "~"
+	sep := commitID[sepIndex]
+	strAfterSep := commitID[sepIndex+1:]
+
+	// Try convert the string after the separator to an int.
+	intAfterSep, err := strconv.Atoi(strAfterSep)
+	// If it works, return
+	if err == nil {
+		return commitID[:sepIndex], intAfterSep
+	}
+
+	// Otherwise, we check if there's a sequence of separators, as in
+	// "master^^^^" or "master~~~~"
+	for i := sepIndex + 1; i < len(commitID); i++ {
+		if commitID[i] != sep {
+			// If we find a character that's not the separator, as in
+			// "master~whatever", then we return.
+			return commitID, 0
+		}
+	}
+
+	// Here we've confirmed that the commit ID ends with a sequence of
+	// (the same) separators and therefore uses the correct ancestry
+	// syntax.
+	return commitID[:sepIndex], len(commitID) - sepIndex
 }
 
 func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit, from *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error) {
@@ -737,19 +816,21 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 	}
 
 	// Make sure that the repo exists
-	_, err := d.inspectRepo(ctx, repo)
+	_, err := d.inspectRepo(ctx, repo, !includeAuth)
 	if err != nil {
 		return nil, err
 	}
 
 	// Make sure that both from and to are valid commits
 	if from != nil {
-		if _, err := d.inspectCommit(ctx, from); err != nil {
+		_, err = d.inspectCommit(ctx, from)
+		if err != nil {
 			return nil, err
 		}
 	}
 	if to != nil {
-		if _, err := d.inspectCommit(ctx, to); err != nil {
+		_, err = d.inspectCommit(ctx, to)
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -897,7 +978,9 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 				case watch.EventDelete:
 					continue
 				}
-				if !seen[commit.ID] {
+
+				// We don't want to include the `from` commit itself
+				if !(seen[commit.ID] || (from != nil && from.ID == commit.ID)) {
 					break
 				}
 			}
@@ -1605,7 +1688,7 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 	return nodeToFileInfo(file.Commit, file.Path, node, true), nil
 }
 
-func (d *driver) listFile(ctx context.Context, file *pfs.File) ([]*pfs.FileInfo, error) {
+func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool) ([]*pfs.FileInfo, error) {
 	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
@@ -1621,7 +1704,7 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File) ([]*pfs.FileInfo,
 
 	var fileInfos []*pfs.FileInfo
 	for _, node := range nodes {
-		fileInfos = append(fileInfos, nodeToFileInfo(file.Commit, path.Join(file.Path, node.Name), node, false))
+		fileInfos = append(fileInfos, nodeToFileInfo(file.Commit, path.Join(file.Path, node.Name), node, full))
 	}
 	return fileInfos, nil
 }

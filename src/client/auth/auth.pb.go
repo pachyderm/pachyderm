@@ -10,6 +10,12 @@
 	It has these top-level messages:
 		ActivateRequest
 		ActivateResponse
+		DeactivateRequest
+		DeactivateResponse
+		GetAdminsRequest
+		GetAdminsResponse
+		ModifyAdminsRequest
+		ModifyAdminsResponse
 		User
 		AuthenticateRequest
 		AuthenticateResponse
@@ -86,21 +92,16 @@ func (x Scope) String() string {
 func (Scope) EnumDescriptor() ([]byte, []int) { return fileDescriptorAuth, []int{0} }
 
 type ActivateRequest struct {
-	ActivationCode string   `protobuf:"bytes,1,opt,name=activation_code,json=activationCode,proto3" json:"activation_code,omitempty"`
-	Admins         []string `protobuf:"bytes,2,rep,name=admins" json:"admins,omitempty"`
+	// An initial list of cluster administraters. Pachyderm requires that if its
+	// auth system is activated, the cluster must have at least one
+	// administrator
+	Admins []string `protobuf:"bytes,2,rep,name=admins" json:"admins,omitempty"`
 }
 
 func (m *ActivateRequest) Reset()                    { *m = ActivateRequest{} }
 func (m *ActivateRequest) String() string            { return proto.CompactTextString(m) }
 func (*ActivateRequest) ProtoMessage()               {}
 func (*ActivateRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{0} }
-
-func (m *ActivateRequest) GetActivationCode() string {
-	if m != nil {
-		return m.ActivationCode
-	}
-	return ""
-}
 
 func (m *ActivateRequest) GetAdmins() []string {
 	if m != nil {
@@ -117,28 +118,95 @@ func (m *ActivateResponse) String() string            { return proto.CompactText
 func (*ActivateResponse) ProtoMessage()               {}
 func (*ActivateResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{1} }
 
+type DeactivateRequest struct {
+}
+
+func (m *DeactivateRequest) Reset()                    { *m = DeactivateRequest{} }
+func (m *DeactivateRequest) String() string            { return proto.CompactTextString(m) }
+func (*DeactivateRequest) ProtoMessage()               {}
+func (*DeactivateRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{2} }
+
+type DeactivateResponse struct {
+}
+
+func (m *DeactivateResponse) Reset()                    { *m = DeactivateResponse{} }
+func (m *DeactivateResponse) String() string            { return proto.CompactTextString(m) }
+func (*DeactivateResponse) ProtoMessage()               {}
+func (*DeactivateResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{3} }
+
+// Get the current list of cluster admins
+type GetAdminsRequest struct {
+}
+
+func (m *GetAdminsRequest) Reset()                    { *m = GetAdminsRequest{} }
+func (m *GetAdminsRequest) String() string            { return proto.CompactTextString(m) }
+func (*GetAdminsRequest) ProtoMessage()               {}
+func (*GetAdminsRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{4} }
+
+type GetAdminsResponse struct {
+	Admins []string `protobuf:"bytes,1,rep,name=admins" json:"admins,omitempty"`
+}
+
+func (m *GetAdminsResponse) Reset()                    { *m = GetAdminsResponse{} }
+func (m *GetAdminsResponse) String() string            { return proto.CompactTextString(m) }
+func (*GetAdminsResponse) ProtoMessage()               {}
+func (*GetAdminsResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{5} }
+
+func (m *GetAdminsResponse) GetAdmins() []string {
+	if m != nil {
+		return m.Admins
+	}
+	return nil
+}
+
+// Add or remove cluster admins
+type ModifyAdminsRequest struct {
+	Add    []string `protobuf:"bytes,1,rep,name=add" json:"add,omitempty"`
+	Remove []string `protobuf:"bytes,2,rep,name=remove" json:"remove,omitempty"`
+}
+
+func (m *ModifyAdminsRequest) Reset()                    { *m = ModifyAdminsRequest{} }
+func (m *ModifyAdminsRequest) String() string            { return proto.CompactTextString(m) }
+func (*ModifyAdminsRequest) ProtoMessage()               {}
+func (*ModifyAdminsRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{6} }
+
+func (m *ModifyAdminsRequest) GetAdd() []string {
+	if m != nil {
+		return m.Add
+	}
+	return nil
+}
+
+func (m *ModifyAdminsRequest) GetRemove() []string {
+	if m != nil {
+		return m.Remove
+	}
+	return nil
+}
+
+type ModifyAdminsResponse struct {
+}
+
+func (m *ModifyAdminsResponse) Reset()                    { *m = ModifyAdminsResponse{} }
+func (m *ModifyAdminsResponse) String() string            { return proto.CompactTextString(m) }
+func (*ModifyAdminsResponse) ProtoMessage()               {}
+func (*ModifyAdminsResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{7} }
+
+// User is the 'value' of an auth token 'key' in the 'tokens' collection
 type User struct {
 	Username string `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
-	Admin    bool   `protobuf:"varint,2,opt,name=admin,proto3" json:"admin,omitempty"`
 }
 
 func (m *User) Reset()                    { *m = User{} }
 func (m *User) String() string            { return proto.CompactTextString(m) }
 func (*User) ProtoMessage()               {}
-func (*User) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{2} }
+func (*User) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{8} }
 
 func (m *User) GetUsername() string {
 	if m != nil {
 		return m.Username
 	}
 	return ""
-}
-
-func (m *User) GetAdmin() bool {
-	if m != nil {
-		return m.Admin
-	}
-	return false
 }
 
 type AuthenticateRequest struct {
@@ -152,7 +220,7 @@ type AuthenticateRequest struct {
 func (m *AuthenticateRequest) Reset()                    { *m = AuthenticateRequest{} }
 func (m *AuthenticateRequest) String() string            { return proto.CompactTextString(m) }
 func (*AuthenticateRequest) ProtoMessage()               {}
-func (*AuthenticateRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{3} }
+func (*AuthenticateRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{9} }
 
 func (m *AuthenticateRequest) GetGithubUsername() string {
 	if m != nil {
@@ -175,7 +243,7 @@ type AuthenticateResponse struct {
 func (m *AuthenticateResponse) Reset()                    { *m = AuthenticateResponse{} }
 func (m *AuthenticateResponse) String() string            { return proto.CompactTextString(m) }
 func (*AuthenticateResponse) ProtoMessage()               {}
-func (*AuthenticateResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{4} }
+func (*AuthenticateResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{10} }
 
 func (m *AuthenticateResponse) GetPachToken() string {
 	if m != nil {
@@ -190,7 +258,7 @@ type WhoAmIRequest struct {
 func (m *WhoAmIRequest) Reset()                    { *m = WhoAmIRequest{} }
 func (m *WhoAmIRequest) String() string            { return proto.CompactTextString(m) }
 func (*WhoAmIRequest) ProtoMessage()               {}
-func (*WhoAmIRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{5} }
+func (*WhoAmIRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{11} }
 
 type WhoAmIResponse struct {
 	Username string `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
@@ -199,7 +267,7 @@ type WhoAmIResponse struct {
 func (m *WhoAmIResponse) Reset()                    { *m = WhoAmIResponse{} }
 func (m *WhoAmIResponse) String() string            { return proto.CompactTextString(m) }
 func (*WhoAmIResponse) ProtoMessage()               {}
-func (*WhoAmIResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{6} }
+func (*WhoAmIResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{12} }
 
 func (m *WhoAmIResponse) GetUsername() string {
 	if m != nil {
@@ -216,7 +284,7 @@ type ACLEntry struct {
 func (m *ACLEntry) Reset()                    { *m = ACLEntry{} }
 func (m *ACLEntry) String() string            { return proto.CompactTextString(m) }
 func (*ACLEntry) ProtoMessage()               {}
-func (*ACLEntry) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{7} }
+func (*ACLEntry) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{13} }
 
 func (m *ACLEntry) GetUsername() string {
 	if m != nil {
@@ -240,7 +308,7 @@ type ACL struct {
 func (m *ACL) Reset()                    { *m = ACL{} }
 func (m *ACL) String() string            { return proto.CompactTextString(m) }
 func (*ACL) ProtoMessage()               {}
-func (*ACL) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{8} }
+func (*ACL) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{14} }
 
 func (m *ACL) GetEntries() map[string]Scope {
 	if m != nil {
@@ -257,7 +325,7 @@ type AuthorizeRequest struct {
 func (m *AuthorizeRequest) Reset()                    { *m = AuthorizeRequest{} }
 func (m *AuthorizeRequest) String() string            { return proto.CompactTextString(m) }
 func (*AuthorizeRequest) ProtoMessage()               {}
-func (*AuthorizeRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{9} }
+func (*AuthorizeRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{15} }
 
 func (m *AuthorizeRequest) GetRepo() string {
 	if m != nil {
@@ -280,7 +348,7 @@ type AuthorizeResponse struct {
 func (m *AuthorizeResponse) Reset()                    { *m = AuthorizeResponse{} }
 func (m *AuthorizeResponse) String() string            { return proto.CompactTextString(m) }
 func (*AuthorizeResponse) ProtoMessage()               {}
-func (*AuthorizeResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{10} }
+func (*AuthorizeResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{16} }
 
 func (m *AuthorizeResponse) GetAuthorized() bool {
 	if m != nil {
@@ -297,7 +365,7 @@ type GetScopeRequest struct {
 func (m *GetScopeRequest) Reset()                    { *m = GetScopeRequest{} }
 func (m *GetScopeRequest) String() string            { return proto.CompactTextString(m) }
 func (*GetScopeRequest) ProtoMessage()               {}
-func (*GetScopeRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{11} }
+func (*GetScopeRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{17} }
 
 func (m *GetScopeRequest) GetUsername() string {
 	if m != nil {
@@ -320,7 +388,7 @@ type GetScopeResponse struct {
 func (m *GetScopeResponse) Reset()                    { *m = GetScopeResponse{} }
 func (m *GetScopeResponse) String() string            { return proto.CompactTextString(m) }
 func (*GetScopeResponse) ProtoMessage()               {}
-func (*GetScopeResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{12} }
+func (*GetScopeResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{18} }
 
 func (m *GetScopeResponse) GetScopes() []Scope {
 	if m != nil {
@@ -338,7 +406,7 @@ type SetScopeRequest struct {
 func (m *SetScopeRequest) Reset()                    { *m = SetScopeRequest{} }
 func (m *SetScopeRequest) String() string            { return proto.CompactTextString(m) }
 func (*SetScopeRequest) ProtoMessage()               {}
-func (*SetScopeRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{13} }
+func (*SetScopeRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{19} }
 
 func (m *SetScopeRequest) GetUsername() string {
 	if m != nil {
@@ -367,7 +435,7 @@ type SetScopeResponse struct {
 func (m *SetScopeResponse) Reset()                    { *m = SetScopeResponse{} }
 func (m *SetScopeResponse) String() string            { return proto.CompactTextString(m) }
 func (*SetScopeResponse) ProtoMessage()               {}
-func (*SetScopeResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{14} }
+func (*SetScopeResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{20} }
 
 type GetACLRequest struct {
 	Repo string `protobuf:"bytes,1,opt,name=repo,proto3" json:"repo,omitempty"`
@@ -376,7 +444,7 @@ type GetACLRequest struct {
 func (m *GetACLRequest) Reset()                    { *m = GetACLRequest{} }
 func (m *GetACLRequest) String() string            { return proto.CompactTextString(m) }
 func (*GetACLRequest) ProtoMessage()               {}
-func (*GetACLRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{15} }
+func (*GetACLRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{21} }
 
 func (m *GetACLRequest) GetRepo() string {
 	if m != nil {
@@ -392,7 +460,7 @@ type GetACLResponse struct {
 func (m *GetACLResponse) Reset()                    { *m = GetACLResponse{} }
 func (m *GetACLResponse) String() string            { return proto.CompactTextString(m) }
 func (*GetACLResponse) ProtoMessage()               {}
-func (*GetACLResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{16} }
+func (*GetACLResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{22} }
 
 func (m *GetACLResponse) GetACL() *ACL {
 	if m != nil {
@@ -409,7 +477,7 @@ type SetACLRequest struct {
 func (m *SetACLRequest) Reset()                    { *m = SetACLRequest{} }
 func (m *SetACLRequest) String() string            { return proto.CompactTextString(m) }
 func (*SetACLRequest) ProtoMessage()               {}
-func (*SetACLRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{17} }
+func (*SetACLRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{23} }
 
 func (m *SetACLRequest) GetRepo() string {
 	if m != nil {
@@ -431,7 +499,7 @@ type SetACLResponse struct {
 func (m *SetACLResponse) Reset()                    { *m = SetACLResponse{} }
 func (m *SetACLResponse) String() string            { return proto.CompactTextString(m) }
 func (*SetACLResponse) ProtoMessage()               {}
-func (*SetACLResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{18} }
+func (*SetACLResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{24} }
 
 type GetCapabilityRequest struct {
 }
@@ -439,7 +507,7 @@ type GetCapabilityRequest struct {
 func (m *GetCapabilityRequest) Reset()                    { *m = GetCapabilityRequest{} }
 func (m *GetCapabilityRequest) String() string            { return proto.CompactTextString(m) }
 func (*GetCapabilityRequest) ProtoMessage()               {}
-func (*GetCapabilityRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{19} }
+func (*GetCapabilityRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{25} }
 
 type GetCapabilityResponse struct {
 	Capability string `protobuf:"bytes,1,opt,name=capability,proto3" json:"capability,omitempty"`
@@ -448,7 +516,7 @@ type GetCapabilityResponse struct {
 func (m *GetCapabilityResponse) Reset()                    { *m = GetCapabilityResponse{} }
 func (m *GetCapabilityResponse) String() string            { return proto.CompactTextString(m) }
 func (*GetCapabilityResponse) ProtoMessage()               {}
-func (*GetCapabilityResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{20} }
+func (*GetCapabilityResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{26} }
 
 func (m *GetCapabilityResponse) GetCapability() string {
 	if m != nil {
@@ -464,7 +532,7 @@ type RevokeAuthTokenRequest struct {
 func (m *RevokeAuthTokenRequest) Reset()                    { *m = RevokeAuthTokenRequest{} }
 func (m *RevokeAuthTokenRequest) String() string            { return proto.CompactTextString(m) }
 func (*RevokeAuthTokenRequest) ProtoMessage()               {}
-func (*RevokeAuthTokenRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{21} }
+func (*RevokeAuthTokenRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{27} }
 
 func (m *RevokeAuthTokenRequest) GetToken() string {
 	if m != nil {
@@ -479,11 +547,17 @@ type RevokeAuthTokenResponse struct {
 func (m *RevokeAuthTokenResponse) Reset()                    { *m = RevokeAuthTokenResponse{} }
 func (m *RevokeAuthTokenResponse) String() string            { return proto.CompactTextString(m) }
 func (*RevokeAuthTokenResponse) ProtoMessage()               {}
-func (*RevokeAuthTokenResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{22} }
+func (*RevokeAuthTokenResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{28} }
 
 func init() {
 	proto.RegisterType((*ActivateRequest)(nil), "auth.ActivateRequest")
 	proto.RegisterType((*ActivateResponse)(nil), "auth.ActivateResponse")
+	proto.RegisterType((*DeactivateRequest)(nil), "auth.DeactivateRequest")
+	proto.RegisterType((*DeactivateResponse)(nil), "auth.DeactivateResponse")
+	proto.RegisterType((*GetAdminsRequest)(nil), "auth.GetAdminsRequest")
+	proto.RegisterType((*GetAdminsResponse)(nil), "auth.GetAdminsResponse")
+	proto.RegisterType((*ModifyAdminsRequest)(nil), "auth.ModifyAdminsRequest")
+	proto.RegisterType((*ModifyAdminsResponse)(nil), "auth.ModifyAdminsResponse")
 	proto.RegisterType((*User)(nil), "auth.User")
 	proto.RegisterType((*AuthenticateRequest)(nil), "auth.AuthenticateRequest")
 	proto.RegisterType((*AuthenticateResponse)(nil), "auth.AuthenticateResponse")
@@ -519,7 +593,15 @@ const _ = grpc.SupportPackageIsVersion4
 // Client API for API service
 
 type APIClient interface {
+	// Activate/Deactivate the auth API. 'Activate' sets an initial set of admins
+	// for the Pachyderm cluster, and 'Deactivate' removes all ACLs, tokens, and
+	// admins from the Pachyderm cluster, making all data publicly accessable
 	Activate(ctx context.Context, in *ActivateRequest, opts ...grpc.CallOption) (*ActivateResponse, error)
+	Deactivate(ctx context.Context, in *DeactivateRequest, opts ...grpc.CallOption) (*DeactivateResponse, error)
+	// GetAdmins returns the current list of cluster admins
+	GetAdmins(ctx context.Context, in *GetAdminsRequest, opts ...grpc.CallOption) (*GetAdminsResponse, error)
+	// ModifyAdmins adds or removes admins from the cluster
+	ModifyAdmins(ctx context.Context, in *ModifyAdminsRequest, opts ...grpc.CallOption) (*ModifyAdminsResponse, error)
 	Authenticate(ctx context.Context, in *AuthenticateRequest, opts ...grpc.CallOption) (*AuthenticateResponse, error)
 	Authorize(ctx context.Context, in *AuthorizeRequest, opts ...grpc.CallOption) (*AuthorizeResponse, error)
 	WhoAmI(ctx context.Context, in *WhoAmIRequest, opts ...grpc.CallOption) (*WhoAmIResponse, error)
@@ -542,6 +624,33 @@ func NewAPIClient(cc *grpc.ClientConn) APIClient {
 func (c *aPIClient) Activate(ctx context.Context, in *ActivateRequest, opts ...grpc.CallOption) (*ActivateResponse, error) {
 	out := new(ActivateResponse)
 	err := grpc.Invoke(ctx, "/auth.API/Activate", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) Deactivate(ctx context.Context, in *DeactivateRequest, opts ...grpc.CallOption) (*DeactivateResponse, error) {
+	out := new(DeactivateResponse)
+	err := grpc.Invoke(ctx, "/auth.API/Deactivate", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) GetAdmins(ctx context.Context, in *GetAdminsRequest, opts ...grpc.CallOption) (*GetAdminsResponse, error) {
+	out := new(GetAdminsResponse)
+	err := grpc.Invoke(ctx, "/auth.API/GetAdmins", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) ModifyAdmins(ctx context.Context, in *ModifyAdminsRequest, opts ...grpc.CallOption) (*ModifyAdminsResponse, error) {
+	out := new(ModifyAdminsResponse)
+	err := grpc.Invoke(ctx, "/auth.API/ModifyAdmins", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -632,7 +741,15 @@ func (c *aPIClient) RevokeAuthToken(ctx context.Context, in *RevokeAuthTokenRequ
 // Server API for API service
 
 type APIServer interface {
+	// Activate/Deactivate the auth API. 'Activate' sets an initial set of admins
+	// for the Pachyderm cluster, and 'Deactivate' removes all ACLs, tokens, and
+	// admins from the Pachyderm cluster, making all data publicly accessable
 	Activate(context.Context, *ActivateRequest) (*ActivateResponse, error)
+	Deactivate(context.Context, *DeactivateRequest) (*DeactivateResponse, error)
+	// GetAdmins returns the current list of cluster admins
+	GetAdmins(context.Context, *GetAdminsRequest) (*GetAdminsResponse, error)
+	// ModifyAdmins adds or removes admins from the cluster
+	ModifyAdmins(context.Context, *ModifyAdminsRequest) (*ModifyAdminsResponse, error)
 	Authenticate(context.Context, *AuthenticateRequest) (*AuthenticateResponse, error)
 	Authorize(context.Context, *AuthorizeRequest) (*AuthorizeResponse, error)
 	WhoAmI(context.Context, *WhoAmIRequest) (*WhoAmIResponse, error)
@@ -662,6 +779,60 @@ func _API_Activate_Handler(srv interface{}, ctx context.Context, dec func(interf
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(APIServer).Activate(ctx, req.(*ActivateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _API_Deactivate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeactivateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).Deactivate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/auth.API/Deactivate",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).Deactivate(ctx, req.(*DeactivateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _API_GetAdmins_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAdminsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).GetAdmins(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/auth.API/GetAdmins",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).GetAdmins(ctx, req.(*GetAdminsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _API_ModifyAdmins_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ModifyAdminsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).ModifyAdmins(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/auth.API/ModifyAdmins",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).ModifyAdmins(ctx, req.(*ModifyAdminsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -837,6 +1008,18 @@ var _API_serviceDesc = grpc.ServiceDesc{
 			Handler:    _API_Activate_Handler,
 		},
 		{
+			MethodName: "Deactivate",
+			Handler:    _API_Deactivate_Handler,
+		},
+		{
+			MethodName: "GetAdmins",
+			Handler:    _API_GetAdmins_Handler,
+		},
+		{
+			MethodName: "ModifyAdmins",
+			Handler:    _API_ModifyAdmins_Handler,
+		},
+		{
 			MethodName: "Authenticate",
 			Handler:    _API_Authenticate_Handler,
 		},
@@ -892,12 +1075,6 @@ func (m *ActivateRequest) MarshalTo(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if len(m.ActivationCode) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.ActivationCode)))
-		i += copy(dAtA[i:], m.ActivationCode)
-	}
 	if len(m.Admins) > 0 {
 		for _, s := range m.Admins {
 			dAtA[i] = 0x12
@@ -934,6 +1111,159 @@ func (m *ActivateResponse) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *DeactivateRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *DeactivateRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	return i, nil
+}
+
+func (m *DeactivateResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *DeactivateResponse) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	return i, nil
+}
+
+func (m *GetAdminsRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GetAdminsRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	return i, nil
+}
+
+func (m *GetAdminsResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GetAdminsResponse) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Admins) > 0 {
+		for _, s := range m.Admins {
+			dAtA[i] = 0xa
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	return i, nil
+}
+
+func (m *ModifyAdminsRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ModifyAdminsRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Add) > 0 {
+		for _, s := range m.Add {
+			dAtA[i] = 0xa
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	if len(m.Remove) > 0 {
+		for _, s := range m.Remove {
+			dAtA[i] = 0x12
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	return i, nil
+}
+
+func (m *ModifyAdminsResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ModifyAdminsResponse) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	return i, nil
+}
+
 func (m *User) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -954,16 +1284,6 @@ func (m *User) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintAuth(dAtA, i, uint64(len(m.Username)))
 		i += copy(dAtA[i:], m.Username)
-	}
-	if m.Admin {
-		dAtA[i] = 0x10
-		i++
-		if m.Admin {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
 	}
 	return i, nil
 }
@@ -1529,10 +1849,6 @@ func encodeVarintAuth(dAtA []byte, offset int, v uint64) int {
 func (m *ActivateRequest) Size() (n int) {
 	var l int
 	_ = l
-	l = len(m.ActivationCode)
-	if l > 0 {
-		n += 1 + l + sovAuth(uint64(l))
-	}
 	if len(m.Admins) > 0 {
 		for _, s := range m.Admins {
 			l = len(s)
@@ -1548,15 +1864,66 @@ func (m *ActivateResponse) Size() (n int) {
 	return n
 }
 
+func (m *DeactivateRequest) Size() (n int) {
+	var l int
+	_ = l
+	return n
+}
+
+func (m *DeactivateResponse) Size() (n int) {
+	var l int
+	_ = l
+	return n
+}
+
+func (m *GetAdminsRequest) Size() (n int) {
+	var l int
+	_ = l
+	return n
+}
+
+func (m *GetAdminsResponse) Size() (n int) {
+	var l int
+	_ = l
+	if len(m.Admins) > 0 {
+		for _, s := range m.Admins {
+			l = len(s)
+			n += 1 + l + sovAuth(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *ModifyAdminsRequest) Size() (n int) {
+	var l int
+	_ = l
+	if len(m.Add) > 0 {
+		for _, s := range m.Add {
+			l = len(s)
+			n += 1 + l + sovAuth(uint64(l))
+		}
+	}
+	if len(m.Remove) > 0 {
+		for _, s := range m.Remove {
+			l = len(s)
+			n += 1 + l + sovAuth(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *ModifyAdminsResponse) Size() (n int) {
+	var l int
+	_ = l
+	return n
+}
+
 func (m *User) Size() (n int) {
 	var l int
 	_ = l
 	l = len(m.Username)
 	if l > 0 {
 		n += 1 + l + sovAuth(uint64(l))
-	}
-	if m.Admin {
-		n += 2
 	}
 	return n
 }
@@ -1816,35 +2183,6 @@ func (m *ActivateRequest) Unmarshal(dAtA []byte) error {
 			return fmt.Errorf("proto: ActivateRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ActivationCode", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAuth
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthAuth
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.ActivationCode = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Admins", wireType)
@@ -1945,6 +2283,393 @@ func (m *ActivateResponse) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *DeactivateRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAuth
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: DeactivateRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: DeactivateRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAuth(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAuth
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *DeactivateResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAuth
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: DeactivateResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: DeactivateResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAuth(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAuth
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GetAdminsRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAuth
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GetAdminsRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GetAdminsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAuth(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAuth
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GetAdminsResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAuth
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GetAdminsResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GetAdminsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Admins", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthAuth
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Admins = append(m.Admins, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAuth(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAuth
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ModifyAdminsRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAuth
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ModifyAdminsRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ModifyAdminsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Add", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthAuth
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Add = append(m.Add, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Remove", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthAuth
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Remove = append(m.Remove, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAuth(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAuth
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ModifyAdminsResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAuth
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ModifyAdminsResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ModifyAdminsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAuth(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAuth
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func (m *User) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -2003,26 +2728,6 @@ func (m *User) Unmarshal(dAtA []byte) error {
 			}
 			m.Username = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
-		case 2:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Admin", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAuth
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.Admin = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipAuth(dAtA[iNdEx:])
@@ -3869,57 +4574,62 @@ var (
 func init() { proto.RegisterFile("client/auth/auth.proto", fileDescriptorAuth) }
 
 var fileDescriptorAuth = []byte{
-	// 832 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x55, 0x51, 0x6f, 0xe2, 0x46,
-	0x10, 0x8e, 0x31, 0x38, 0x30, 0x24, 0xe0, 0xee, 0x71, 0x1c, 0xe7, 0xf6, 0x38, 0x6e, 0xaf, 0x52,
-	0x51, 0x55, 0x71, 0x15, 0xd7, 0xf4, 0x4e, 0x3d, 0xa9, 0x92, 0x43, 0x11, 0xa2, 0x42, 0x24, 0xb2,
-	0x13, 0xe5, 0x31, 0x72, 0xcc, 0x2a, 0x58, 0x21, 0x36, 0xc5, 0x4b, 0xa2, 0xf4, 0xa9, 0x8f, 0xfd,
-	0x09, 0xfd, 0x49, 0x7d, 0xec, 0x2f, 0x88, 0x2a, 0xfa, 0x47, 0xaa, 0xf5, 0xee, 0x1a, 0xdb, 0x90,
-	0xa4, 0x7d, 0x41, 0xbb, 0xdf, 0xcc, 0x7c, 0xf3, 0xcd, 0x78, 0x66, 0x81, 0xba, 0x3b, 0xf3, 0x88,
-	0x4f, 0xdf, 0x39, 0x4b, 0x3a, 0x8d, 0x7e, 0x3a, 0xf3, 0x45, 0x40, 0x03, 0x94, 0x67, 0x67, 0xa3,
-	0x76, 0x19, 0x5c, 0x06, 0x11, 0xf0, 0x8e, 0x9d, 0xb8, 0x0d, 0x5b, 0x50, 0x35, 0x5d, 0xea, 0xdd,
-	0x38, 0x94, 0x58, 0xe4, 0x97, 0x25, 0x09, 0x29, 0xfa, 0x0a, 0xaa, 0x0e, 0x87, 0xbc, 0xc0, 0x3f,
-	0x77, 0x83, 0x09, 0x69, 0x28, 0x2d, 0xa5, 0x5d, 0xb2, 0x2a, 0x6b, 0xb8, 0x17, 0x4c, 0x08, 0xaa,
-	0x83, 0xe6, 0x4c, 0xae, 0x3d, 0x3f, 0x6c, 0xe4, 0x5a, 0x6a, 0xbb, 0x64, 0x89, 0x1b, 0x46, 0xa0,
-	0xaf, 0x39, 0xc3, 0x79, 0xe0, 0x87, 0x04, 0x7f, 0x84, 0xfc, 0x69, 0x48, 0x16, 0xc8, 0x80, 0xe2,
-	0x32, 0x24, 0x0b, 0xdf, 0xb9, 0x96, 0xac, 0xf1, 0x1d, 0xd5, 0xa0, 0x10, 0x31, 0x34, 0x72, 0x2d,
-	0xa5, 0x5d, 0xb4, 0xf8, 0x05, 0x3b, 0xf0, 0xcc, 0x5c, 0xd2, 0x29, 0xf1, 0xa9, 0xe7, 0x26, 0x54,
-	0xbe, 0x81, 0xbd, 0x4b, 0x8f, 0x4e, 0x97, 0x17, 0xe7, 0x34, 0xb8, 0x22, 0xbe, 0x20, 0x2b, 0x73,
-	0xec, 0x84, 0x41, 0xac, 0x10, 0xe1, 0x12, 0xa7, 0xcc, 0xf1, 0x42, 0x38, 0x7c, 0x2a, 0x50, 0x7c,
-	0x00, 0xb5, 0x74, 0x0a, 0x2e, 0x1a, 0xbd, 0x02, 0x98, 0x3b, 0xee, 0x34, 0x95, 0xa1, 0xc4, 0x90,
-	0x88, 0x1f, 0x57, 0x61, 0xff, 0x6c, 0x1a, 0x98, 0xd7, 0x43, 0xa1, 0x09, 0x7f, 0x03, 0x15, 0x09,
-	0x08, 0x86, 0x47, 0xca, 0xc5, 0x43, 0x28, 0x9a, 0xbd, 0x51, 0xdf, 0xa7, 0x8b, 0xbb, 0x47, 0xdb,
-	0xf2, 0x06, 0x0a, 0xa1, 0x1b, 0xcc, 0xb9, 0xf8, 0x4a, 0xb7, 0xdc, 0x89, 0x3e, 0xad, 0xcd, 0x20,
-	0x8b, 0x5b, 0xf0, 0x6f, 0x0a, 0xa8, 0x66, 0x6f, 0x84, 0xbe, 0x85, 0x5d, 0xe2, 0xd3, 0x85, 0x47,
-	0xc2, 0x86, 0xd2, 0x52, 0xdb, 0xe5, 0x6e, 0x9d, 0x3b, 0x9b, 0xbd, 0x51, 0xa7, 0xcf, 0x0d, 0x51,
-	0x3e, 0x4b, 0xba, 0x19, 0x03, 0xd8, 0x4b, 0x1a, 0x90, 0x0e, 0xea, 0x15, 0xb9, 0x13, 0x1a, 0xd8,
-	0x91, 0xa5, 0xbf, 0x71, 0x66, 0xcb, 0xed, 0xe9, 0x23, 0xcb, 0x0f, 0xb9, 0x8f, 0x0a, 0x1e, 0x82,
-	0xce, 0x7a, 0x18, 0x2c, 0xbc, 0x5f, 0xe3, 0x6f, 0x84, 0x20, 0xbf, 0x20, 0xf3, 0x40, 0xb0, 0x45,
-	0xe7, 0xff, 0x52, 0xcd, 0x7b, 0xf8, 0x2c, 0x41, 0x25, 0x3a, 0xd9, 0x04, 0x70, 0x24, 0x38, 0x89,
-	0x18, 0x8b, 0x56, 0x02, 0xc1, 0x3d, 0xa8, 0x0e, 0x08, 0xe5, 0x3c, 0x22, 0xfd, 0x13, 0xb3, 0xc6,
-	0xe4, 0xc8, 0xd1, 0xe5, 0x17, 0xfc, 0x01, 0xf4, 0x35, 0x89, 0x48, 0xfc, 0x16, 0xb4, 0x48, 0x16,
-	0x6f, 0x69, 0x46, 0xb1, 0x30, 0xe1, 0x09, 0x54, 0xed, 0xff, 0x91, 0x5d, 0x36, 0x26, 0xb7, 0xad,
-	0x31, 0xea, 0x83, 0x8d, 0x41, 0xa0, 0xdb, 0x19, 0x79, 0xf8, 0x2d, 0xec, 0x0f, 0x08, 0x35, 0x7b,
-	0xa3, 0x47, 0x9a, 0x8e, 0xbf, 0x87, 0x8a, 0x74, 0x12, 0x55, 0x7d, 0x09, 0xaa, 0xe3, 0xce, 0x22,
-	0xa7, 0x72, 0xb7, 0x14, 0x4f, 0xc9, 0xe1, 0xee, 0xea, 0xfe, 0x35, 0x1b, 0x25, 0x8b, 0x99, 0xb1,
-	0x0d, 0xfb, 0xf6, 0x53, 0xe4, 0xa8, 0x03, 0xbb, 0x3e, 0xb9, 0x3d, 0x67, 0x74, 0xb9, 0x2c, 0x1d,
-	0xac, 0xee, 0x5f, 0x6b, 0x63, 0x72, 0xcb, 0x28, 0x34, 0x9f, 0xdc, 0x9a, 0xee, 0x0c, 0xeb, 0x50,
-	0xb1, 0x53, 0x62, 0x70, 0x1d, 0x6a, 0x03, 0x42, 0x7b, 0xce, 0xdc, 0xb9, 0xf0, 0x66, 0x1e, 0xbd,
-	0x93, 0xfb, 0xf4, 0x01, 0x9e, 0x67, 0xf0, 0xf5, 0x30, 0xb8, 0x31, 0x2a, 0xc4, 0x24, 0x10, 0xdc,
-	0x81, 0xba, 0x45, 0x6e, 0x82, 0x2b, 0xc2, 0xe6, 0x28, 0x5a, 0x56, 0x59, 0x40, 0x0d, 0x0a, 0xc9,
-	0x6d, 0xe6, 0x17, 0xfc, 0x12, 0x5e, 0x6c, 0xf8, 0xf3, 0x54, 0x5f, 0x7f, 0x07, 0x85, 0xa8, 0xe1,
-	0xa8, 0x08, 0xf9, 0xf1, 0xd1, 0xb8, 0xaf, 0xef, 0x20, 0x00, 0xcd, 0xea, 0x9b, 0x3f, 0xf5, 0x2d,
-	0x5d, 0x61, 0xe7, 0x33, 0x6b, 0x78, 0xd2, 0xb7, 0xf4, 0x1c, 0x2a, 0x41, 0xe1, 0xe8, 0x6c, 0xdc,
-	0xb7, 0x74, 0xb5, 0xfb, 0x7b, 0x01, 0x54, 0xf3, 0x78, 0x88, 0x3e, 0x41, 0x51, 0x3e, 0x85, 0xe8,
-	0xb9, 0x68, 0x4b, 0xfa, 0xb9, 0x35, 0xea, 0x59, 0x58, 0x34, 0x65, 0x07, 0x0d, 0x60, 0x2f, 0xf9,
-	0x2c, 0xa1, 0x97, 0xc2, 0x73, 0xf3, 0x35, 0x34, 0x8c, 0x6d, 0xa6, 0x98, 0xe8, 0x47, 0x28, 0xc5,
-	0x0b, 0x85, 0xea, 0x6b, 0xd7, 0xe4, 0xb2, 0x1a, 0x2f, 0x36, 0xf0, 0x38, 0xfe, 0x00, 0x34, 0xfe,
-	0xae, 0xa1, 0x67, 0xdc, 0x29, 0xf5, 0xec, 0x19, 0xb5, 0x34, 0x18, 0x87, 0x7d, 0x82, 0xa2, 0xdc,
-	0x26, 0x59, 0x7c, 0x66, 0x45, 0x65, 0xf1, 0xd9, 0xa5, 0xe3, 0xc1, 0x76, 0x26, 0xd8, 0xde, 0x1e,
-	0x6c, 0x6f, 0x06, 0x1f, 0x80, 0xc6, 0xe7, 0x5d, 0x0a, 0x4e, 0xad, 0x88, 0x14, 0x9c, 0x5e, 0x09,
-	0x1e, 0x66, 0xa7, 0xc2, 0xec, 0x6d, 0x61, 0x76, 0x36, 0xec, 0xe7, 0x68, 0x05, 0xd7, 0x63, 0x8a,
-	0x8c, 0x98, 0x7f, 0x63, 0xa6, 0x8d, 0xcf, 0xb7, 0xda, 0x62, 0xae, 0x63, 0xa8, 0x66, 0x26, 0x11,
-	0x7d, 0xc1, 0x23, 0xb6, 0x0f, 0xb4, 0xf1, 0xea, 0x01, 0xab, 0x64, 0x3c, 0xd4, 0xff, 0x5c, 0x35,
-	0x95, 0xbf, 0x56, 0x4d, 0xe5, 0xef, 0x55, 0x53, 0xf9, 0xe3, 0x9f, 0xe6, 0xce, 0x85, 0x16, 0xfd,
-	0xf5, 0xbf, 0xff, 0x37, 0x00, 0x00, 0xff, 0xff, 0xb5, 0x1b, 0x19, 0xcb, 0x30, 0x08, 0x00, 0x00,
+	// 909 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x56, 0x5f, 0x6f, 0xda, 0x56,
+	0x14, 0x8f, 0x21, 0x38, 0x70, 0x92, 0x80, 0x73, 0x43, 0x49, 0xea, 0xad, 0xb4, 0xbd, 0x9d, 0xb4,
+	0xee, 0x8f, 0xe8, 0x94, 0x2e, 0xeb, 0xb4, 0x4a, 0x9b, 0x5c, 0x8a, 0x10, 0x13, 0xa3, 0x95, 0xdd,
+	0x2a, 0x8f, 0x95, 0x63, 0xee, 0x82, 0x15, 0xb0, 0x99, 0xb9, 0x10, 0xb1, 0xa7, 0x7d, 0x8c, 0x7d,
+	0xa4, 0x3d, 0xee, 0x61, 0xcf, 0xd5, 0xc4, 0xbe, 0xc8, 0x74, 0xff, 0x19, 0xdb, 0x38, 0x6c, 0x7d,
+	0x89, 0xee, 0xfd, 0x9d, 0x73, 0x7e, 0xe7, 0x8f, 0xef, 0xf9, 0x11, 0x68, 0x78, 0x63, 0x9f, 0x04,
+	0xf4, 0x89, 0x3b, 0xa7, 0x23, 0xfe, 0xa7, 0x35, 0x8d, 0x42, 0x1a, 0xa2, 0x5d, 0x76, 0x36, 0xeb,
+	0x57, 0xe1, 0x55, 0xc8, 0x81, 0x27, 0xec, 0x24, 0x6c, 0xf8, 0x33, 0xa8, 0x59, 0x1e, 0xf5, 0x17,
+	0x2e, 0x25, 0x36, 0xf9, 0x65, 0x4e, 0x66, 0x14, 0x35, 0x40, 0x77, 0x87, 0x13, 0x3f, 0x98, 0x9d,
+	0x16, 0x1e, 0x14, 0x1f, 0x57, 0x6c, 0x79, 0xc3, 0x08, 0x8c, 0xb5, 0xeb, 0x6c, 0x1a, 0x06, 0x33,
+	0x82, 0x8f, 0xe1, 0xe8, 0x25, 0x71, 0xd3, 0x04, 0xb8, 0x0e, 0x28, 0x09, 0x4a, 0x57, 0x04, 0x46,
+	0x97, 0x50, 0x8b, 0x73, 0x29, 0xcf, 0x2f, 0xe0, 0x28, 0x81, 0x09, 0xc7, 0x44, 0x7e, 0x2d, 0x95,
+	0xff, 0x07, 0x38, 0xfe, 0x29, 0x1c, 0xfa, 0x3f, 0x2f, 0x53, 0x1c, 0xc8, 0x80, 0xa2, 0x3b, 0x1c,
+	0x4a, 0x5f, 0x76, 0x64, 0x04, 0x11, 0x99, 0x84, 0x0b, 0xa2, 0x1a, 0x10, 0x37, 0xdc, 0x80, 0x7a,
+	0x9a, 0x40, 0x56, 0x86, 0x61, 0xf7, 0xed, 0x8c, 0x44, 0xc8, 0x84, 0xf2, 0x7c, 0x46, 0xa2, 0xc0,
+	0x9d, 0x90, 0x53, 0xed, 0x81, 0xf6, 0xb8, 0x62, 0xc7, 0x77, 0xec, 0xc2, 0xb1, 0x35, 0xa7, 0x23,
+	0x12, 0x50, 0xdf, 0x4b, 0xcc, 0xea, 0x21, 0x1c, 0x5c, 0xf9, 0x74, 0x34, 0xbf, 0x7c, 0x47, 0xc3,
+	0x6b, 0x12, 0xc8, 0xb0, 0x7d, 0x81, 0xbd, 0x61, 0x10, 0xfa, 0x14, 0x6a, 0xd2, 0x25, 0x26, 0x2f,
+	0x70, 0xaf, 0xaa, 0x80, 0xdf, 0xaa, 0x14, 0xe7, 0x50, 0x4f, 0xa7, 0x90, 0xf3, 0xb8, 0x07, 0x30,
+	0x75, 0xbd, 0x51, 0x2a, 0x43, 0x85, 0x21, 0x9c, 0x1f, 0xd7, 0xe0, 0xf0, 0x62, 0x14, 0x5a, 0x93,
+	0x9e, 0x1a, 0xea, 0x97, 0x50, 0x55, 0x80, 0x64, 0xd8, 0xd6, 0x58, 0x0f, 0xca, 0x56, 0xbb, 0xdf,
+	0x09, 0x68, 0xb4, 0xdc, 0xe6, 0x87, 0x1e, 0x42, 0x69, 0xe6, 0x85, 0x53, 0x51, 0x7c, 0xf5, 0x6c,
+	0xbf, 0xc5, 0x1f, 0x98, 0xc3, 0x20, 0x5b, 0x58, 0xf0, 0x6f, 0x1a, 0x14, 0xad, 0x76, 0x1f, 0x7d,
+	0x05, 0x7b, 0x24, 0xa0, 0x91, 0x4f, 0xc4, 0x17, 0xdc, 0x3f, 0x6b, 0x08, 0x67, 0xab, 0xdd, 0x6f,
+	0x75, 0x84, 0x81, 0xe7, 0xb3, 0x95, 0x9b, 0xd9, 0x85, 0x83, 0xa4, 0x81, 0x7d, 0xd3, 0x6b, 0xb2,
+	0x94, 0x35, 0xb0, 0x23, 0x4b, 0xbf, 0x70, 0xc7, 0xf3, 0xfc, 0xf4, 0xdc, 0xf2, 0x5d, 0xe1, 0x5b,
+	0x0d, 0xf7, 0xc0, 0x60, 0x33, 0x0c, 0x23, 0xff, 0xd7, 0xf8, 0x1b, 0x21, 0xd8, 0x8d, 0xc8, 0x34,
+	0x94, 0x6c, 0xfc, 0xfc, 0x7f, 0xba, 0x79, 0x0a, 0x47, 0x09, 0x2a, 0x39, 0xc9, 0x26, 0x80, 0xab,
+	0xc0, 0x21, 0x67, 0x2c, 0xdb, 0x09, 0x04, 0xb7, 0xa1, 0xd6, 0x25, 0x54, 0xf0, 0xc8, 0xf4, 0xdb,
+	0x86, 0x5a, 0x87, 0x12, 0x2b, 0x47, 0x6d, 0x9a, 0xb8, 0xe0, 0x67, 0x7c, 0x53, 0x24, 0x89, 0x4c,
+	0xfc, 0x08, 0x74, 0x5e, 0x96, 0x18, 0x69, 0xa6, 0x62, 0x69, 0xc2, 0x43, 0xa8, 0x39, 0x1f, 0x90,
+	0x5d, 0x0d, 0xa6, 0x90, 0x37, 0x98, 0xe2, 0xad, 0x83, 0x41, 0x60, 0x38, 0x99, 0xf2, 0xf0, 0x23,
+	0x38, 0x64, 0x8b, 0xdc, 0xee, 0x6f, 0x19, 0x3a, 0xfe, 0x06, 0xaa, 0xca, 0x49, 0x76, 0xf5, 0x09,
+	0x14, 0x5d, 0x6f, 0xcc, 0x9d, 0xf6, 0xcf, 0x2a, 0xf1, 0x2b, 0x79, 0xb1, 0xb7, 0x7a, 0x7f, 0x9f,
+	0x3d, 0x25, 0x9b, 0x99, 0xb1, 0x03, 0x87, 0xce, 0x7f, 0x91, 0xa3, 0x16, 0xec, 0x05, 0xe4, 0xe6,
+	0x1d, 0xa3, 0x2b, 0x64, 0xe9, 0x60, 0xf5, 0xfe, 0xbe, 0x3e, 0x20, 0x37, 0x8c, 0x42, 0x0f, 0xc8,
+	0x8d, 0xe5, 0x8d, 0xb1, 0x01, 0x55, 0x27, 0x55, 0x0c, 0x93, 0x87, 0x2e, 0xa1, 0x6d, 0x77, 0xea,
+	0x5e, 0xfa, 0x63, 0x9f, 0x2e, 0xd5, 0x3e, 0x3d, 0x83, 0x3b, 0x19, 0x7c, 0xfd, 0x18, 0xbc, 0x18,
+	0x95, 0xc5, 0x24, 0x10, 0xdc, 0x82, 0x86, 0x4d, 0x16, 0xe1, 0x35, 0x61, 0xef, 0x88, 0x2f, 0xab,
+	0x6a, 0xa0, 0x0e, 0xa5, 0xe4, 0x36, 0x8b, 0x0b, 0xbe, 0x0b, 0x27, 0x1b, 0xfe, 0x22, 0xd5, 0xe7,
+	0x5f, 0x43, 0x89, 0x0f, 0x1c, 0x95, 0x61, 0x77, 0xf0, 0x6a, 0xd0, 0x31, 0x76, 0x10, 0x80, 0x6e,
+	0x77, 0xac, 0x97, 0x1d, 0xdb, 0xd0, 0xd8, 0xf9, 0xc2, 0xee, 0xbd, 0xe9, 0xd8, 0x46, 0x01, 0x55,
+	0xa0, 0xf4, 0xea, 0x62, 0xd0, 0xb1, 0x8d, 0xe2, 0xd9, 0x5f, 0x3a, 0x14, 0xad, 0xd7, 0x3d, 0xf4,
+	0x1c, 0xca, 0x4a, 0xb9, 0xd1, 0x1d, 0x39, 0x96, 0xb4, 0x66, 0x9b, 0x8d, 0x2c, 0x2c, 0x87, 0xb2,
+	0x83, 0x2c, 0x80, 0xb5, 0x9a, 0xa3, 0x13, 0xe1, 0xb7, 0x21, 0xfa, 0xe6, 0xe9, 0xa6, 0x21, 0xa6,
+	0xf8, 0x1e, 0x2a, 0xb1, 0xcc, 0x23, 0x99, 0x29, 0xfb, 0x5b, 0x60, 0x9e, 0x6c, 0xe0, 0x71, 0x7c,
+	0x17, 0x0e, 0x92, 0xc2, 0x8d, 0xee, 0x0a, 0xd7, 0x9c, 0x5f, 0x03, 0xd3, 0xcc, 0x33, 0x25, 0x89,
+	0x92, 0x12, 0xab, 0x88, 0x72, 0x94, 0x5d, 0x11, 0xe5, 0x29, 0xb2, 0xe8, 0x28, 0x16, 0x07, 0xd5,
+	0x51, 0x56, 0x78, 0x54, 0x47, 0x1b, 0x2a, 0x82, 0x77, 0xd0, 0x39, 0xe8, 0x42, 0xa3, 0xd1, 0xb1,
+	0x70, 0x4a, 0x49, 0xb8, 0x59, 0x4f, 0x83, 0x71, 0xd8, 0x73, 0x28, 0x2b, 0x65, 0x50, 0x1f, 0x32,
+	0x23, 0x37, 0x66, 0x23, 0x0b, 0x27, 0x83, 0x9d, 0x4c, 0xb0, 0x93, 0x1f, 0xec, 0x6c, 0x06, 0x9f,
+	0x83, 0x2e, 0x76, 0x57, 0x15, 0x9c, 0x5a, 0x77, 0x55, 0x70, 0x7a, 0xbd, 0x45, 0x98, 0x93, 0x0a,
+	0x73, 0xf2, 0xc2, 0x9c, 0x6c, 0xd8, 0x8f, 0x5c, 0x4e, 0xd6, 0x2b, 0x87, 0xcc, 0x98, 0x7f, 0x63,
+	0x3f, 0xcd, 0x8f, 0x72, 0x6d, 0x31, 0xd7, 0x6b, 0xa8, 0x65, 0xb6, 0x0a, 0x7d, 0x2c, 0x22, 0xf2,
+	0x97, 0xd3, 0xbc, 0x77, 0x8b, 0x55, 0x31, 0xbe, 0x30, 0xfe, 0x58, 0x35, 0xb5, 0x3f, 0x57, 0x4d,
+	0xed, 0xef, 0x55, 0x53, 0xfb, 0xfd, 0x9f, 0xe6, 0xce, 0xa5, 0xce, 0xff, 0x99, 0x7a, 0xfa, 0x6f,
+	0x00, 0x00, 0x00, 0xff, 0xff, 0x3c, 0xdb, 0x24, 0x82, 0x82, 0x09, 0x00, 0x00,
 }

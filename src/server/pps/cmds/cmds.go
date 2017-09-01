@@ -205,6 +205,8 @@ $ pachctl list-job -p foo bar/YYY
 			return nil
 		}),
 	}
+	var pageSize int64
+	var page int64
 	listDatum := &cobra.Command{
 		Use:   "list-datum job-id",
 		Short: "Return the datums in a job.",
@@ -214,12 +216,18 @@ $ pachctl list-job -p foo bar/YYY
 			if err != nil {
 				return err
 			}
-			datumInfos, err := client.ListDatum(args[0])
+			if pageSize < 0 {
+				return fmt.Errorf("pageSize must be zero or positive")
+			}
+			if page < 0 {
+				return fmt.Errorf("page must be zero or positive")
+			}
+			resp, err := client.ListDatum(args[0], pageSize, page)
 			if err != nil {
 				return err
 			}
 			if raw {
-				for _, datumInfo := range datumInfos {
+				for _, datumInfo := range resp.DatumInfos {
 					if err := marshaller.Marshal(os.Stdout, datumInfo); err != nil {
 						return err
 					}
@@ -228,13 +236,15 @@ $ pachctl list-job -p foo bar/YYY
 			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			pretty.PrintDatumInfoHeader(writer)
-			for _, datumInfo := range datumInfos {
+			for _, datumInfo := range resp.DatumInfos {
 				pretty.PrintDatumInfo(writer, datumInfo)
 			}
 			return writer.Flush()
 		}),
 	}
 	rawFlag(listDatum)
+	listDatum.Flags().Int64Var(&pageSize, "pageSize", 0, "Specify the number of results sent back in a single page")
+	listDatum.Flags().Int64Var(&page, "page", 0, "Specify the page of results to send")
 
 	inspectDatum := &cobra.Command{
 		Use:   "inspect-datum job-id datum-id",
@@ -263,11 +273,12 @@ $ pachctl list-job -p foo bar/YYY
 
 	var (
 		jobID       string
+		datumID     string
 		commaInputs string // comma-separated list of input files of interest
 		master      bool
 	)
 	getLogs := &cobra.Command{
-		Use:   "get-logs [--pipeline=<pipeline>|--job=<job id>]",
+		Use:   "get-logs [--pipeline=<pipeline>|--job=<job id>] [--datum=<datum id>]",
 		Short: "Return logs from a job.",
 		Long: `Return logs from a job.
 
@@ -307,7 +318,7 @@ $ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
 
 			// Issue RPC
 			marshaler := &jsonpb.Marshaler{}
-			iter := client.GetLogs(pipelineName, jobID, data, master)
+			iter := client.GetLogs(pipelineName, jobID, data, datumID, master)
 			for iter.Next() {
 				var messageStr string
 				if raw {
@@ -330,6 +341,7 @@ $ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
 		"for lines from this pipeline (accepts pipeline name)")
 	getLogs.Flags().StringVar(&jobID, "job", "", "Filter for log lines from "+
 		"this job (accepts job ID)")
+	getLogs.Flags().StringVar(&datumID, "datum", "", "Filter for log lines for this datum (accepts datum ID)")
 	getLogs.Flags().StringVar(&commaInputs, "inputs", "", "Filter for log lines "+
 		"generated while processing these files (accepts PFS paths or file hashes)")
 	getLogs.Flags().BoolVar(&master, "master", false, "Return log messages from the master process (pipeline must be set).")

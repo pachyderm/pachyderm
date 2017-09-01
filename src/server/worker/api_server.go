@@ -23,11 +23,13 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
+	lru "github.com/hashicorp/golang-lru"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
@@ -48,6 +50,7 @@ const (
 
 var (
 	errSpecialFile = errors.New("cannot upload special file")
+	statsTagSuffix = "_stats"
 )
 
 // APIServer implements the worker API
@@ -93,6 +96,10 @@ type APIServer struct {
 	// Only one datum can be running at a time because they need to be
 	// accessing /pfs, runMu enforces this
 	runMu sync.Mutex
+
+	// datumCache is used by the master to keep track of the datums that
+	// have already been processed.
+	datumCache *lru.Cache
 }
 
 type putObjectResponse struct {
@@ -112,6 +119,19 @@ type taggedLogger struct {
 	eg           errgroup.Group
 }
 
+// DatumID computes the id for a datum, this value is used in ListDatum and
+// InspectDatum.
+func (a *APIServer) DatumID(req *ProcessRequest) string {
+	hash := sha256.New()
+	for _, d := range req.Data {
+		hash.Write([]byte(d.FileInfo.File.Path))
+		hash.Write(d.FileInfo.Hash)
+	}
+	// InputFileID is a single string id for the data from this input, it's used in logs and in
+	// the statsTree
+	return hex.EncodeToString(hash.Sum(nil))
+}
+
 func (a *APIServer) getTaggedLogger(ctx context.Context, req *ProcessRequest) (*taggedLogger, error) {
 	result := &taggedLogger{
 		template:  a.logMsgTemplate, // Copy struct
@@ -126,20 +146,17 @@ func (a *APIServer) getTaggedLogger(ctx context.Context, req *ProcessRequest) (*
 	result.template.JobID = req.JobID
 
 	// Add inputs' details to log metadata, so we can find these logs later
-	hash := sha256.New()
 	for _, d := range req.Data {
 		result.template.Data = append(result.template.Data, &pps.InputFile{
 			Path: d.FileInfo.File.Path,
 			Hash: d.FileInfo.Hash,
 		})
-		hash.Write([]byte(d.FileInfo.File.Path))
-		hash.Write(d.FileInfo.Hash)
 	}
 	// InputFileID is a single string id for the data from this input, it's used in logs and in
 	// the statsTree
-	result.template.InputFileID = hex.EncodeToString(hash.Sum(nil))
+	result.template.DatumID = a.DatumID(req)
 	if req.EnableStats {
-		putObjClient, err := a.pachClient.ObjectAPIClient.PutObject(ctx)
+		putObjClient, err := a.pachClient.ObjectAPIClient.PutObject(auth.In2Out(ctx))
 		if err != nil {
 			return nil, err
 		}
@@ -246,6 +263,10 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	if err != nil {
 		return nil, err
 	}
+	datumCache, err := lru.New(numCachedDatums)
+	if err != nil {
+		return nil, fmt.Errorf("error creating datum cache: %v", err)
+	}
 	server := &APIServer{
 		pachClient:   pachClient,
 		kubeClient:   kubeClient,
@@ -261,6 +282,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		namespace:  namespace,
 		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
 		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
+		datumCache: datumCache,
 	}
 	go server.master()
 	return server, nil
@@ -272,7 +294,7 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 	}(time.Now())
 	logger.Logf("input has not been processed, downloading data")
 	defer func(start time.Time) {
-		logger.Logf("input data download took (%v)\n", time.Since(start))
+		logger.Logf("input data download took (%v)", time.Since(start))
 	}(time.Now())
 	dir := filepath.Join(client.PPSScratchSpace, uuid.NewWithoutDashes())
 	for _, input := range inputs {
@@ -315,7 +337,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	}(time.Now())
 	logger.Logf("beginning to run user code")
 	defer func(start time.Time) {
-		logger.Logf("finished running user code - took (%v) - with error (%v)\n", time.Since(start), retErr)
+		logger.Logf("finished running user code - took (%v) - with error (%v)", time.Since(start), retErr)
 	}(time.Now())
 	// Run user code
 	cmd := exec.CommandContext(ctx, a.pipelineInfo.Transform.Cmd[0], a.pipelineInfo.Transform.Cmd[1:]...)
@@ -348,7 +370,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, lo
 	}(time.Now())
 	logger.Logf("starting to upload output")
 	defer func(start time.Time) {
-		logger.Logf("finished uploading output - took %v\n", time.Since(start))
+		logger.Logf("finished uploading output - took %v", time.Since(start))
 	}(time.Now())
 	// hashtree is not thread-safe--guard with 'lock'
 	var lock sync.Mutex
@@ -440,7 +462,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, lo
 								return nil
 							}
 
-							fileInfo, err := a.pachClient.PfsAPIClient.InspectFile(ctx, &pfs.InspectFileRequest{
+							fileInfo, err := a.pachClient.PfsAPIClient.InspectFile(auth.In2Out(ctx), &pfs.InspectFileRequest{
 								File: &pfs.File{
 									Commit: input.FileInfo.File.Commit,
 									Path:   pfsPath,
@@ -474,7 +496,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, lo
 				}
 			}()
 
-			putObjClient, err := a.pachClient.ObjectAPIClient.PutObject(ctx)
+			putObjClient, err := a.pachClient.ObjectAPIClient.PutObject(auth.In2Out(ctx))
 			if err != nil {
 				return err
 			}
@@ -529,7 +551,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, lo
 
 // HashDatum computes and returns the hash of datum + pipeline, with a
 // pipeline-specific prefix.
-func HashDatum(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) {
+func HashDatum(pipelineName string, pipelineSalt string, data []*Input) string {
 	hash := sha256.New()
 	for _, datum := range data {
 		hash.Write([]byte(datum.Name))
@@ -537,10 +559,10 @@ func HashDatum(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) {
 		hash.Write(datum.FileInfo.Hash)
 	}
 
-	hash.Write([]byte(pipelineInfo.Pipeline.Name))
-	hash.Write([]byte(pipelineInfo.Salt))
+	hash.Write([]byte(pipelineName))
+	hash.Write([]byte(pipelineSalt))
 
-	return client.DatumTagPrefix(pipelineInfo.Salt) + hex.EncodeToString(hash.Sum(nil)), nil
+	return client.DatumTagPrefix(pipelineSalt) + hex.EncodeToString(hash.Sum(nil))
 }
 
 // HashDatum15 computes and returns the hash of datum + pipeline for version <= 1.5.0, with a
@@ -590,10 +612,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	atomic.AddInt64(&a.queueSize, 1)
 	ctx, cancel := context.WithCancel(ctx)
 	// Hash inputs
-	tag, err := HashDatum(a.pipelineInfo, req.Data)
-	if err != nil {
-		return nil, err
-	}
+	tag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, req.Data)
 	tag15, err := HashDatum15(a.pipelineInfo, req.Data)
 	if err != nil {
 		return nil, err
@@ -603,13 +622,13 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	var object *pfs.Object
 	var eg errgroup.Group
 	eg.Go(func() error {
-		if _, err := a.pachClient.InspectTag(ctx, &pfs.Tag{tag}); err == nil {
+		if _, err := a.pachClient.InspectTag(auth.In2Out(ctx), &pfs.Tag{tag}); err == nil {
 			foundTag = true
 		}
 		return nil
 	})
 	eg.Go(func() error {
-		if objectInfo, err := a.pachClient.InspectTag(ctx, &pfs.Tag{tag15}); err == nil {
+		if objectInfo, err := a.pachClient.InspectTag(auth.In2Out(ctx), &pfs.Tag{tag15}); err == nil {
 			foundTag15 = true
 			object = objectInfo.Object
 		}
@@ -620,18 +639,20 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	}
 	var statsTag *pfs.Tag
 	if req.EnableStats {
-		statsTag = &pfs.Tag{tag + "_stats"}
+		statsTag = &pfs.Tag{tag + statsTagSuffix}
 	}
 	if foundTag15 && !foundTag {
-		if _, err := a.pachClient.ObjectAPIClient.TagObject(ctx, &pfs.TagObjectRequest{
-			Object: object,
-			Tags:   []*pfs.Tag{&pfs.Tag{tag}},
-		}); err != nil {
+		if _, err := a.pachClient.ObjectAPIClient.TagObject(auth.In2Out(ctx),
+			&pfs.TagObjectRequest{
+				Object: object,
+				Tags:   []*pfs.Tag{&pfs.Tag{tag}},
+			}); err != nil {
 			return nil, err
 		}
-		if _, err := a.pachClient.ObjectAPIClient.DeleteTags(ctx, &pfs.DeleteTagsRequest{
-			Tags: []string{tag15},
-		}); err != nil {
+		if _, err := a.pachClient.ObjectAPIClient.DeleteTags(auth.In2Out(ctx),
+			&pfs.DeleteTagsRequest{
+				Tags: []string{tag15},
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -639,13 +660,11 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		// We've already computed the output for these inputs. Return immediately
 		logger.Logf("skipping input, as it's already been processed")
 		return &ProcessResponse{
-			Tag:      &pfs.Tag{tag},
-			StatsTag: statsTag,
-			Skipped:  true,
+			Skipped: true,
 		}, nil
 	}
 	stats := &pps.ProcessStats{}
-	statsPath := path.Join("/", logger.template.InputFileID)
+	statsPath := path.Join("/", logger.template.DatumID)
 	var statsTree hashtree.OpenHashTree
 	if req.EnableStats {
 		statsTree = hashtree.NewHashTree()
@@ -700,6 +719,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		}()
 	}
 
+	env := a.userCodeEnv(req)
 	// Download input data
 	puller := filesync.NewPuller()
 	dir, err := a.downloadData(logger, req.Data, puller, req.ParentOutput, stats, statsTree, path.Join(statsPath, "pfs"))
@@ -721,9 +741,6 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	if err != nil {
 		return nil, err
 	}
-
-	environ := a.userCodeEnviron(req)
-
 	// Create output directory (currently /pfs/out) and run user code
 	if err := os.MkdirAll(filepath.Join(dir, "out"), 0666); err != nil {
 		return nil, err
@@ -749,11 +766,11 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 			return nil, err
 		}
 		defer func() {
-			if err := syscall.Unmount(client.PPSInputPrefix, 0); err != nil && retErr == nil {
+			if err := syscall.Unmount(client.PPSInputPrefix, syscall.MNT_DETACH); err != nil && retErr == nil {
 				retErr = err
 			}
 		}()
-		err = a.runUserCode(ctx, logger, environ, stats)
+		err = a.runUserCode(ctx, logger, env, stats)
 		if err != nil {
 			logger.Logf("failed to process datum with error: %+v", err)
 			if statsTree != nil {
@@ -767,8 +784,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 				}
 			}
 			return &ProcessResponse{
-				Failed:   true,
-				StatsTag: statsTag,
+				Failed: true,
 			}, nil
 		}
 		return nil, nil
@@ -796,16 +812,12 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		// infinitely retry to process this datum.
 		if err == errSpecialFile {
 			return &ProcessResponse{
-				Failed:   true,
-				StatsTag: statsTag,
+				Failed: true,
 			}, nil
 		}
 		return nil, err
 	}
-	return &ProcessResponse{
-		Tag:      &pfs.Tag{tag},
-		StatsTag: statsTag,
-	}, nil
+	return &ProcessResponse{Stats: stats}, nil
 }
 
 // Status returns the status of the current worker.
@@ -856,11 +868,16 @@ func (a *APIServer) datum() []*pps.InputFile {
 	return result
 }
 
-func (a *APIServer) userCodeEnviron(req *ProcessRequest) []string {
-	return append(os.Environ(), fmt.Sprintf("PACH_JOB_ID=%s", req.JobID))
+func (a *APIServer) userCodeEnv(req *ProcessRequest) []string {
+	result := os.Environ()
+	for _, input := range req.Data {
+		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(client.PPSInputPrefix, input.Name, input.FileInfo.File.Path)))
+	}
+	result = append(result, fmt.Sprintf("PACH_JOB_ID=%s", req.JobID))
+	return result
 }
 
-func (a *APIServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.JobState) error {
+func (a *APIServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.JobState, reason string) error {
 	// Update job counts
 	if jobInfo.Pipeline != nil {
 		pipelines := a.pipelines.ReadWrite(stm)
@@ -878,6 +895,7 @@ func (a *APIServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.
 		pipelines.Put(pipelineInfo.Pipeline.Name, pipelineInfo)
 	}
 	jobInfo.State = state
+	jobInfo.Reason = reason
 	jobs := a.jobs.ReadWrite(stm)
 	jobs.Put(jobInfo.Job.ID, jobInfo)
 	return nil

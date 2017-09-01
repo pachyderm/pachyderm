@@ -298,8 +298,15 @@ Union inputs take the union of other inputs. For example:
 |        |        | buzz            |
 ```
 
-Notice that union inputs, do not take a name and maintain the names of the sub-inputs.
-In the above example you would see files under `/pfs/inputA/...` and `/pfs/inputB/...`.
+Notice that union inputs, do not take a name and maintain the names of the
+sub-inputs. In the above example you would see files under
+`/pfs/inputA/...` or `/pfs/inputB/...`, but never both at the same time.
+This can be annoying to write code for since the first thing your code
+needs to do is figure out which input directory is present. As of 1.5.3
+the recommended way to fix this is to give your inputs the same `Name`,
+that way your code only needs to handle data being present in that
+directory. This, of course, only works if your code doesn't need to be
+aware of which of the underlying inputs the data comes from.
 
 `input.union` is an array of inputs to union, note that these need not be
 `atom` inputs, they can also be `union` and `cross` inputs. Although there's no

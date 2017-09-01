@@ -24,8 +24,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	authtesting "github.com/pachyderm/pachyderm/src/server/auth/testing"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 
+	etcd "github.com/coreos/etcd/clientv3"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -738,6 +740,81 @@ func TestStartCommitWithUnfinishedParent(t *testing.T) {
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 	_, err = client.StartCommit(repo, "master")
 	require.NoError(t, err)
+}
+
+func TestAncestrySyntax(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit1, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit1.ID, "1", strings.NewReader("1"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	commit2, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit2.ID, "2", strings.NewReader("2"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit2.ID))
+
+	commit3, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit3.ID, "3", strings.NewReader("3"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit3.ID))
+
+	commitInfo, err := client.InspectCommit(repo, "master^")
+	require.NoError(t, err)
+	require.Equal(t, commit2, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master~")
+	require.NoError(t, err)
+	require.Equal(t, commit2, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master^1")
+	require.NoError(t, err)
+	require.Equal(t, commit2, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master~1")
+	require.NoError(t, err)
+	require.Equal(t, commit2, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master^^")
+	require.NoError(t, err)
+	require.Equal(t, commit1, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master~~")
+	require.NoError(t, err)
+	require.Equal(t, commit1, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master^2")
+	require.NoError(t, err)
+	require.Equal(t, commit1, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master~2")
+	require.NoError(t, err)
+	require.Equal(t, commit1, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master^^^")
+	require.YesError(t, err)
+
+	commitInfo, err = client.InspectCommit(repo, "master~~~")
+	require.YesError(t, err)
+
+	commitInfo, err = client.InspectCommit(repo, "master^3")
+	require.YesError(t, err)
+
+	commitInfo, err = client.InspectCommit(repo, "master~3")
+	require.YesError(t, err)
+
+	for i := 1; i <= 2; i++ {
+		_, err := client.InspectFile(repo, fmt.Sprintf("%v^%v", commit3.ID, 3-i), fmt.Sprintf("%v", i))
+		require.NoError(t, err)
+	}
 }
 
 func TestProvenance2(t *testing.T) {
@@ -2266,7 +2343,24 @@ func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
 	<-ready
 }
 
+var etcdOnce sync.Once
+
 func getClient(t *testing.T) pclient.APIClient {
+	// src/server/pfs/server/driver.go expects an etcd server at "localhost:32379"
+	// Try to establish a connection before proceeding with the test (which will
+	// fail if the connection can't be established)
+	etcdOnce.Do(func() {
+		require.NoError(t, backoff.Retry(func() error {
+			_, err := etcd.New(etcd.Config{
+				Endpoints:   []string{"localhost:32379"},
+				DialOptions: pclient.EtcdDialOptions(),
+			})
+			if err != nil {
+				return fmt.Errorf("could not connect to etcd: %s", err.Error())
+			}
+			return nil
+		}, backoff.NewTestingBackOff()))
+	})
 	dbName := "pachyderm_test_" + uuid.NewWithoutDashes()[0:12]
 	testDBs = append(testDBs, dbName)
 
@@ -2884,12 +2978,18 @@ func TestOverwrite(t *testing.T) {
 	_, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(repo, "master", "file1", strings.NewReader("foo"))
+	_, err = c.PutFileSplit(repo, "master", "file2", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
+	require.NoError(t, err)
+	_, err = c.PutFileSplit(repo, "master", "file3", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
+	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, "master"))
 	_, err = c.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFileOverwrite(repo, "master", "file1", strings.NewReader("bar"))
 	require.NoError(t, err)
 	_, err = c.PutFileOverwrite(repo, "master", "file2", strings.NewReader("buzz"))
+	require.NoError(t, err)
+	_, err = c.PutFileSplit(repo, "master", "file3", pfs.Delimiter_LINE, 0, 0, true, strings.NewReader("0\n1\n2\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, "master"))
 	var buffer bytes.Buffer
@@ -2898,6 +2998,14 @@ func TestOverwrite(t *testing.T) {
 	buffer.Reset()
 	require.NoError(t, c.GetFile(repo, "master", "file2", 0, 0, &buffer))
 	require.Equal(t, "buzz", buffer.String())
+	fileInfos, err := c.ListFile(repo, "master", "file3")
+	require.NoError(t, err)
+	require.Equal(t, 3, len(fileInfos))
+	for i := 0; i < 3; i++ {
+		buffer.Reset()
+		require.NoError(t, c.GetFile(repo, "master", fmt.Sprintf("file3/%016x", i), 0, 0, &buffer))
+		require.Equal(t, fmt.Sprintf("%d\n", i), buffer.String())
+	}
 }
 
 func uniqueString(prefix string) string {

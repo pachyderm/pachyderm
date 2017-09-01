@@ -271,17 +271,19 @@ func (c APIClient) RestartDatum(jobID string, datumFilter []string) error {
 }
 
 // ListDatum returns info about all datums in a Job
-func (c APIClient) ListDatum(jobID string) ([]*pps.DatumInfo, error) {
-	datumInfos, err := c.PpsAPIClient.ListDatum(
+func (c APIClient) ListDatum(jobID string, pageSize int64, page int64) (*pps.ListDatumResponse, error) {
+	resp, err := c.PpsAPIClient.ListDatum(
 		c.Ctx(),
 		&pps.ListDatumRequest{
-			Job: &pps.Job{jobID},
+			Job:      &pps.Job{jobID},
+			PageSize: pageSize,
+			Page:     page,
 		},
 	)
 	if err != nil {
 		return nil, sanitizeErr(err)
 	}
-	return datumInfos.DatumInfo, nil
+	return resp, nil
 }
 
 // InspectDatum returns info about a single datum
@@ -338,13 +340,14 @@ func (l *LogsIter) Err() error {
 }
 
 // GetLogs gets logs from a job (logs includes stdout and stderr). 'pipelineName',
-// 'jobID', and 'data', are all filters. To forego any filter, simply pass an
-// empty value, though one of 'pipelineName' and 'jobID' must be set. Responses
-// are written to 'messages'
+// 'jobID', 'data', and 'datumID', are all filters. To forego any filter,
+// simply pass an empty value, though one of 'pipelineName' and 'jobID'
+// must be set. Responses are written to 'messages'
 func (c APIClient) GetLogs(
 	pipelineName string,
 	jobID string,
 	data []string,
+	datumID string,
 	master bool,
 ) *LogsIter {
 	request := pps.GetLogsRequest{Master: master}
@@ -356,6 +359,12 @@ func (c APIClient) GetLogs(
 		request.Job = &pps.Job{jobID}
 	}
 	request.DataFilters = data
+	if datumID != "" {
+		request.Datum = &pps.Datum{
+			Job: &pps.Job{jobID},
+			ID:  datumID,
+		}
+	}
 	resp.logsClient, resp.err = c.PpsAPIClient.GetLogs(c.Ctx(), &request)
 	return resp
 }

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"math"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -57,6 +58,7 @@ const (
 
 var (
 	trueVal = true
+	zeroVal = int64(0)
 	suite   = "pachyderm"
 )
 
@@ -113,13 +115,56 @@ type apiServer struct {
 	jobs      col.Collection
 }
 
+func merge(from, to map[string]bool) {
+	for s := range from {
+		to[s] = true
+	}
+}
+
+func validateNames(names map[string]bool, input *pps.Input) error {
+	switch {
+	case input.Atom != nil:
+		if names[input.Atom.Name] {
+			return fmt.Errorf("name %s was used more than once", input.Atom.Name)
+		}
+		names[input.Atom.Name] = true
+	case input.Cron != nil:
+		if names[input.Cron.Name] {
+			return fmt.Errorf("name %s was used more than once", input.Cron.Name)
+		}
+		names[input.Cron.Name] = true
+	case input.Union != nil:
+		for _, input := range input.Union {
+			namesCopy := make(map[string]bool)
+			merge(names, namesCopy)
+			if err := validateNames(namesCopy, input); err != nil {
+				return err
+			}
+			// we defer this because subinputs of a union input are allowed to
+			// have conflicting names but other inputs that are, for example,
+			// crossed with this union cannot conflict with any of the names it
+			// might present
+			defer merge(namesCopy, names)
+		}
+	case input.Cross != nil:
+		for _, input := range input.Cross {
+			if err := validateNames(names, input); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (a *apiServer) validateInput(ctx context.Context, pipelineName string, input *pps.Input, job bool) error {
 	pachClient, err := a.getPachClient()
 	if err != nil {
 		return err
 	}
-	pachClient = pachClient.WithCtx(ctx)
-	names := make(map[string]bool)
+	if err := validateNames(make(map[string]bool), input); err != nil {
+		return err
+	}
+	pachClient = pachClient.WithCtx(ctx) // pachClient will propagate auth info
 	repoBranch := make(map[string]string)
 	var result error
 	pps.VisitInput(input, func(input *pps.Input) {
@@ -142,10 +187,6 @@ func (a *apiServer) validateInput(ctx context.Context, pipelineName string, inpu
 				case len(input.Atom.Glob) == 0:
 					return fmt.Errorf("input must specify a glob")
 				}
-				if _, ok := names[input.Atom.Name]; ok {
-					return fmt.Errorf("conflicting input names: %s", input.Atom.Name)
-				}
-				names[input.Atom.Name] = true
 				if repoBranch[input.Atom.Repo] != "" && repoBranch[input.Atom.Repo] != input.Atom.Branch {
 					return fmt.Errorf("cannot use the same repo in multiple inputs with different branches")
 				}
@@ -382,7 +423,14 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 
 func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (response *pps.JobInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) {
+		if response != nil && len(response.JobInfo) > client.MaxListItemsLog {
+			logrus.Infof("Response contains %d objects; logging the first %d", len(response.JobInfo), client.MaxListItemsLog)
+			a.Log(request, &pps.JobInfos{response.JobInfo[:client.MaxListItemsLog]}, retErr, time.Since(start))
+		} else {
+			a.Log(request, response, retErr, time.Since(start))
+		}
+	}(time.Now())
 
 	jobs := a.jobs.ReadOnly(ctx)
 	var iter col.Iterator
@@ -464,9 +512,22 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest) (response *pps.DatumInfos, retErr error) {
+func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest) (response *pps.ListDatumResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) {
+		if response != nil && len(response.DatumInfos) > client.MaxListItemsLog {
+			logrus.Infof("Response contains %d objects; logging the first %d", len(response.DatumInfos), client.MaxListItemsLog)
+			logResponse := &pps.ListDatumResponse{
+				TotalPages: response.TotalPages,
+				Page:       response.Page,
+				DatumInfos: response.DatumInfos[:client.MaxListItemsLog],
+			}
+			a.Log(request, logResponse, retErr, time.Since(start))
+		} else {
+			a.Log(request, response, retErr, time.Since(start))
+		}
+	}(time.Now())
+	response = &pps.ListDatumResponse{}
 	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
 		Job: &pps.Job{
 			ID: request.Job.ID,
@@ -475,26 +536,72 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	if err != nil {
 		return nil, err
 	}
-
 	pachClient, err := a.getPachClient()
 	if err != nil {
 		return nil, err
 	}
 	pfsClient := pachClient.PfsAPIClient
-	if jobInfo.StatsCommit == nil {
-		return nil, fmt.Errorf("stats not enabled on %v", jobInfo.Pipeline.Name)
+	getTotalPages := func(totalSize int) int64 {
+		return int64(math.Ceil(float64(totalSize) / float64(request.PageSize)))
 	}
-	// List the files under /jobID to get all the datums (including skipped ones)
+	getPageBounds := func(totalSize int) (int, int, error) {
+		start := int(request.Page * request.PageSize)
+		if start > totalSize-1 {
+			return 0, 0, io.EOF
+		}
+		end := start + int(request.PageSize)
+		if totalSize < end {
+			end = totalSize
+		}
+		return start, end, nil
+	}
+	df, err := workerpkg.NewDatumFactory(ctx, pfsClient, jobInfo.Input)
+	if err != nil {
+		return nil, err
+	}
+	if jobInfo.StatsCommit == nil {
+		start := 0
+		end := df.Len()
+		if request.PageSize > 0 {
+			var err error
+			start, end, err = getPageBounds(df.Len())
+			if err != nil {
+				return nil, err
+			}
+			response.Page = request.Page
+			response.TotalPages = getTotalPages(df.Len())
+		}
+		var datumInfos []*pps.DatumInfo
+		for i := start; i < end; i++ {
+			datum := df.Datum(i)
+			id := workerpkg.HashDatum(jobInfo.Pipeline.Name, jobInfo.Salt, datum)
+			datumInfo := &pps.DatumInfo{
+				Datum: &pps.Datum{
+					ID:  id,
+					Job: jobInfo.Job,
+				},
+				State: pps.DatumState_STARTING,
+			}
+			for _, input := range datum {
+				datumInfo.Data = append(datumInfo.Data, input.FileInfo)
+			}
+			datumInfos = append(datumInfos, datumInfo)
+		}
+		response.DatumInfos = datumInfos
+		return response, nil
+	}
+
+	// List the files under / to get all the datums
 	file := &pfs.File{
 		Commit: jobInfo.StatsCommit,
 		Path:   "/",
 	}
-	allFileInfos, err := pfsClient.ListFile(ctx, &pfs.ListFileRequest{file})
+	allFileInfos, err := pfsClient.ListFile(ctx, &pfs.ListFileRequest{file, true})
 	if err != nil {
 		return nil, err
 	}
-	datums := make(map[string]*pps.DatumInfo)
 
+	var datumFileInfos []*pfs.FileInfo
 	// Omit files at the top level that correspond to aggregate job stats
 	blacklist := map[string]bool{
 		"stats": true,
@@ -508,26 +615,44 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		}
 		return datumHash, nil
 	}
+	for _, fileInfo := range allFileInfos.FileInfo {
+		if _, err := pathToDatumHash(fileInfo.File.Path); err != nil {
+			// not a datum
+			continue
+		}
+		datumFileInfos = append(datumFileInfos, fileInfo)
+	}
+	// Sort results (failed first)
+	sort.Sort(byDatumState(datumFileInfos))
+	if request.PageSize > 0 {
+		response.Page = request.Page
+		response.TotalPages = getTotalPages(len(datumFileInfos))
+		start, end, err := getPageBounds(len(datumFileInfos))
+		if err != nil {
+			return nil, err
+		}
+		datumFileInfos = datumFileInfos[start:end]
+	}
+
 	var egGetDatums errgroup.Group
 	limiter := limit.New(200)
-	var datumsMutex sync.Mutex
-	for _, fileInfo := range allFileInfos.FileInfo {
+	datumInfos := make([]*pps.DatumInfo, len(datumFileInfos))
+	for index, fileInfo := range datumFileInfos {
 		fileInfo := fileInfo
+		index := index
 		egGetDatums.Go(func() error {
 			limiter.Acquire()
 			defer limiter.Release()
 			datumHash, err := pathToDatumHash(fileInfo.File.Path)
 			if err != nil {
-				// not a datum, nothing to do here
+				// not a datum
 				return nil
 			}
-			datum, err := a.getDatum(ctx, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Job.ID, datumHash)
+			datum, err := a.getDatum(ctx, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Job.ID, datumHash, df)
 			if err != nil {
 				return err
 			}
-			datumsMutex.Lock()
-			defer datumsMutex.Unlock()
-			datums[datumHash] = datum
+			datumInfos[index] = datum
 			return nil
 		})
 	}
@@ -536,43 +661,39 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		return nil, err
 	}
 
-	var datumInfos []*pps.DatumInfo
-	for datumHash, datum := range datums {
-		if _, ok := blacklist[datumHash]; ok {
-			// not a datum
-			continue
+	response.DatumInfos = datumInfos
+	return response, nil
+}
+
+type byDatumState []*pfs.FileInfo
+
+func datumFileToState(f *pfs.FileInfo) pps.DatumState {
+	for _, childFileName := range f.Children {
+		if childFileName == "skipped" {
+			return pps.DatumState_SKIPPED
 		}
-		datumInfos = append(datumInfos, datum)
+		if childFileName == "failure" {
+			return pps.DatumState_FAILED
+		}
 	}
-
-	// Sort results (failed first, slow first)
-	sort.Sort(byDatumStateThenTime(datumInfos))
-
-	return &pps.DatumInfos{datumInfos}, nil
+	return pps.DatumState_SUCCESS
 }
 
-type byDatumStateThenTime []*pps.DatumInfo
-
-func (a byDatumStateThenTime) Len() int      { return len(a) }
-func (a byDatumStateThenTime) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a byDatumStateThenTime) Less(i, j int) bool {
-	byState := a[i].State < a[j].State
-	if a[i].State != a[j].State {
-		return byState
-	}
-	if a[i].Stats == nil || a[j].Stats == nil {
-		return byState
-	}
-	return client.GetDatumTotalTime(a[i].Stats) > client.GetDatumTotalTime(a[j].Stats)
+func (a byDatumState) Len() int      { return len(a) }
+func (a byDatumState) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a byDatumState) Less(i, j int) bool {
+	iState := datumFileToState(a[i])
+	jState := datumFileToState(a[j])
+	return iState < jState
 }
 
-func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commit, jobID string, datumID string) (datumInfo *pps.DatumInfo, retErr error) {
+func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commit, jobID string, datumID string, df workerpkg.DatumFactory) (datumInfo *pps.DatumInfo, retErr error) {
 	datumInfo = &pps.DatumInfo{
 		Datum: &pps.Datum{
 			ID:  datumID,
 			Job: &pps.Job{jobID},
 		},
-		State: pps.DatumState_SKIPPED,
+		State: pps.DatumState_SUCCESS,
 	}
 
 	pachClient, err := a.getPachClient()
@@ -582,62 +703,33 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 	pfsClient := pachClient.PfsAPIClient
 
 	// Check if skipped
-	path := fmt.Sprintf("/%v", datumID)
-	newFile := &pfs.File{
+	stateFile := &pfs.File{
 		Commit: commit,
-		Path:   path,
+		Path:   fmt.Sprintf("/%v/skipped", datumID),
 	}
-	commitInfo, err := pfsClient.InspectCommit(
-		ctx,
-		&pfs.InspectCommitRequest{
-			Commit: &pfs.Commit{
-				Repo: commit.Repo,
-				ID:   commit.ID,
-			},
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-	oldFile := &pfs.File{
-		Commit: commitInfo.ParentCommit,
-		Path:   path,
-	}
-	resp, err := pfsClient.DiffFile(ctx, &pfs.DiffFileRequest{newFile, oldFile, true})
-	if err != nil {
-		return nil, err
-	}
-	// Datum wasn't added in this commit, so it was skipped
-	if len(resp.NewFiles) == 0 {
+	_, err = pfsClient.InspectFile(ctx, &pfs.InspectFileRequest{stateFile})
+	if err == nil {
+		datumInfo.State = pps.DatumState_SKIPPED
 		return datumInfo, nil
+	} else if !isNotFoundErr(err) {
+		return nil, err
 	}
 
-	// Populate status
-	datumInfo.State = pps.DatumState_FAILED
-	stateFile := &pfs.File{
+	// Check if failed
+	stateFile = &pfs.File{
 		Commit: commit,
 		Path:   fmt.Sprintf("/%v/failure", datumID),
 	}
 	_, err = pfsClient.InspectFile(ctx, &pfs.InspectFileRequest{stateFile})
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			datumInfo.State = pps.DatumState_SUCCESS
-		} else {
-			return nil, err
-		}
+	if err == nil {
+		datumInfo.State = pps.DatumState_FAILED
+	} else if !isNotFoundErr(err) {
+		return nil, err
 	}
 
 	// Populate stats
-	statsFile := &pfs.File{
-		Commit: commit,
-		Path:   fmt.Sprintf("/%v/stats", datumID),
-	}
-	getFileClient, err := pfsClient.GetFile(ctx, &pfs.GetFileRequest{statsFile, 0, 0})
-	if err != nil {
-		return nil, err
-	}
 	var buffer bytes.Buffer
-	if err := grpcutil.WriteFromStreamingBytesClient(getFileClient, &buffer); err != nil {
+	if err := pachClient.WithCtx(ctx).GetFile(commit.Repo.Name, commit.ID, fmt.Sprintf("/%v/stats", datumID), 0, 0, &buffer); err != nil {
 		return nil, err
 	}
 	stats := &pps.ProcessStats{}
@@ -646,6 +738,21 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 		return nil, err
 	}
 	datumInfo.Stats = stats
+	buffer.Reset()
+	if err := pachClient.WithCtx(ctx).GetFile(commit.Repo.Name, commit.ID, fmt.Sprintf("/%v/index", datumID), 0, 0, &buffer); err != nil {
+		return nil, err
+	}
+	i, err := strconv.Atoi(buffer.String())
+	if err != nil {
+		return nil, err
+	}
+	if i >= df.Len() {
+		return nil, fmt.Errorf("index %d out of range", i)
+	}
+	inputs := df.Datum(i)
+	for _, input := range inputs {
+		datumInfo.Data = append(datumInfo.Data, input.FileInfo)
+	}
 	datumInfo.PfsState = &pfs.File{
 		Commit: commit,
 		Path:   fmt.Sprintf("/%v/pfs", datumID),
@@ -666,12 +773,24 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 		return nil, err
 	}
 
-	if jobInfo.StatsCommit == nil {
+	if !jobInfo.EnableStats {
 		return nil, fmt.Errorf("stats not enabled on %v", jobInfo.Pipeline.Name)
+	}
+	if jobInfo.StatsCommit == nil {
+		return nil, fmt.Errorf("job not finished, no stats output yet")
+	}
+	pachClient, err := a.getPachClient()
+	if err != nil {
+		return nil, err
+	}
+	pfsClient := pachClient.PfsAPIClient
+	df, err := workerpkg.NewDatumFactory(ctx, pfsClient, jobInfo.Input)
+	if err != nil {
+		return nil, err
 	}
 
 	// Populate datumInfo given a path
-	datumInfo, err := a.getDatum(ctx, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Datum.Job.ID, request.Datum.ID)
+	datumInfo, err := a.getDatum(ctx, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Datum.Job.ID, request.Datum.ID, df)
 	if err != nil {
 		return nil, err
 	}
@@ -737,7 +856,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	// (sort the pods to make sure that the order of log lines is stable)
 	sort.Sort(podSlice(pods))
 	logChs := make([]chan *pps.LogMessage, len(pods))
-	errCh := make(chan error)
+	errCh := make(chan error, 1)
 	done := make(chan struct{})
 	defer close(done)
 	for i := 0; i < len(pods); i++ {
@@ -786,7 +905,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 					if request.Job != nil && request.Job.ID != msg.JobID {
 						continue
 					}
-					if request.InputFileID != "" && request.InputFileID != msg.InputFileID {
+					if request.Datum != nil && request.Datum.ID != msg.DatumID {
 						continue
 					}
 					if request.Master != msg.Master {
@@ -811,25 +930,28 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				select {
 				case errCh <- err:
 				case <-done:
+				default:
 				}
 			}
 		}()
 	}
+
 nextLogCh:
 	for _, logCh := range logChs {
 		for {
-			select {
-			case msg, ok := <-logCh:
-				if !ok {
-					continue nextLogCh
-				}
-				if err := apiGetLogsServer.Send(msg); err != nil {
-					return err
-				}
-			case err := <-errCh:
+			msg, ok := <-logCh
+			if !ok {
+				continue nextLogCh
+			}
+			if err := apiGetLogsServer.Send(msg); err != nil {
 				return err
 			}
 		}
+	}
+	select {
+	case err := <-errCh:
+		return err
+	default:
 	}
 	return nil
 }
@@ -877,11 +999,11 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 				return fmt.Errorf("can't create an incremental pipeline with inputs that share provenance")
 			}
 			provMap[provRepo.Name] = true
-			repoInfo, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{Repo: provRepo})
+			resp, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{Repo: provRepo})
 			if err != nil {
 				return err
 			}
-			for _, provRepo := range repoInfo.Provenance {
+			for _, provRepo := range resp.RepoInfo.Provenance {
 				if provMap[provRepo.Name] {
 					return fmt.Errorf("can't create an incremental pipeline with inputs that share provenance")
 				}
@@ -914,11 +1036,25 @@ func translatePipelineInputs(inputs []*pps.PipelineInput) *pps.Input {
 	return result
 }
 
-// AuthorizeCreatePipelineRequest checks if the user indicated by 'ctx' is authorized to create or update
-// the pipeline in 'request'
-func (a *apiServer) AuthorizeCreatePipeline(ctx context.Context, authClient auth.APIClient, update bool, info *pps.PipelineInfo) error {
-	_, err := authClient.WhoAmI(auth.In2Out(ctx), &auth.WhoAmIRequest{})
+// authorizing a pipeline modification varies slightly depending on whether the
+// pipeline is being created, updated, or deleted
+type pipelineModification uint8
+
+const (
+	pipelineCreate pipelineModification = iota
+	pipelineUpdate
+	pipelineDelete
+)
+
+// authorizeModifyPipeline checks if the user indicated by 'ctx' is authorized
+// to perform 'modification' on the pipeline in 'info'
+func (a *apiServer) authorizeModifyPipeline(ctx context.Context, modification pipelineModification, info *pps.PipelineInfo) error {
+	pachClient, err := a.getPachClient()
 	if err != nil {
+		return err
+	}
+	authClient := pachClient.AuthAPIClient
+	if _, err = authClient.WhoAmI(auth.In2Out(ctx), &auth.WhoAmIRequest{}); err != nil {
 		if auth.IsNotActivatedError(err) {
 			// TODO(msteffen): Think about how auth will degrade if auth is activated
 			// then deactivated. This is potentially insecure.
@@ -932,7 +1068,7 @@ func (a *apiServer) AuthorizeCreatePipeline(ctx context.Context, authClient auth
 	// behalf)
 	// collect inputs by bfs info.Input (info.Inputs is no longer set)
 	if len(info.Inputs) > 0 {
-		return fmt.Errorf("cannot authorize PipelineInfo with 'Inputs' set")
+		return fmt.Errorf("cannot authorize using PipelineInfo with 'Inputs' field set")
 	}
 	inputRepos := make(map[string]struct{})
 	queue := []*pps.Input{info.Input}
@@ -964,7 +1100,8 @@ func (a *apiServer) AuthorizeCreatePipeline(ctx context.Context, authClient auth
 				return err
 			}
 			if !resp.Authorized {
-				return fmt.Errorf("user is not authorized to read from input %s", inputRepo)
+				return fmt.Errorf("not authorized to perform this operation: "+
+					"insufficient access to the repo \"%s\"", inputRepo)
 			}
 			return nil
 		})
@@ -973,13 +1110,25 @@ func (a *apiServer) AuthorizeCreatePipeline(ctx context.Context, authClient auth
 		return err
 	}
 
+	var req *auth.AuthorizeRequest
+	if modification == pipelineDelete {
+		// To delete a pipeline, you must own the output repo
+		req = &auth.AuthorizeRequest{
+			Repo:  info.Pipeline.Name,
+			Scope: auth.Scope_OWNER,
+		}
+	} else {
+		// Otherwise, you just need to be a writer of the output repo
+		req = &auth.AuthorizeRequest{
+			Repo:  info.Pipeline.Name,
+			Scope: auth.Scope_WRITER,
+		}
+	}
+
 	// Check that the user is authorized to write to the output repo
-	resp, err := authClient.Authorize(auth.In2Out(ctx), &auth.AuthorizeRequest{
-		Repo:  info.Pipeline.Name,
-		Scope: auth.Scope_WRITER,
-	})
+	resp, err := authClient.Authorize(auth.In2Out(ctx), req)
 	if err != nil {
-		if !update && strings.HasSuffix(
+		if modification == pipelineCreate && strings.HasSuffix(
 			err.Error(),
 			fmt.Sprintf("ACL not found for repo %s", info.Pipeline.Name)) {
 			// Output repo doesn't exist yet. It will be created
@@ -991,7 +1140,8 @@ func (a *apiServer) AuthorizeCreatePipeline(ctx context.Context, authClient auth
 		return err
 	}
 	if !resp.Authorized {
-		return fmt.Errorf("user is not authorized to write to output repo %s", info.Pipeline.Name)
+		return fmt.Errorf("not authorized to perform this operation: "+
+			"insufficient access to the repo \"%s\"", info.Pipeline.Name)
 	}
 	return nil
 }
@@ -1053,7 +1203,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if err != nil {
 		return nil, fmt.Errorf("error dialing auth client: %v", authClient)
 	}
-	if err := a.AuthorizeCreatePipeline(ctx, authClient, request.Update, pipelineInfo); err != nil {
+	modification := pipelineCreate
+	if request.Update {
+		modification = pipelineUpdate
+	}
+	if err := a.authorizeModifyPipeline(ctx, modification, pipelineInfo); err != nil {
 		return nil, err
 	}
 	capabilityResp, err := authClient.GetCapability(auth.In2Out(ctx), &auth.GetCapabilityRequest{})
@@ -1093,7 +1247,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 		// Revoke the old capability
 		if oldPipelineInfo.Capability != "" {
-			if _, err := authClient.RevokeAuthToken(ctx, &auth.RevokeAuthTokenRequest{
+			if _, err := authClient.RevokeAuthToken(auth.In2Out(ctx), &auth.RevokeAuthTokenRequest{
 				Token: oldPipelineInfo.Capability,
 			}); err != nil && !auth.IsNotActivatedError(err) {
 				return nil, fmt.Errorf("error revoking old capability: %v", err)
@@ -1129,7 +1283,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		// We only need to restart downstream pipelines if the provenance
 		// of our output repo changed.
 		outputRepo := &pfs.Repo{pipelineInfo.Pipeline.Name}
-		repoInfo, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{
+		inspectResp, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{
 			Repo: outputRepo,
 		})
 		if err != nil {
@@ -1138,13 +1292,13 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 		// Check if the new and old provenance are equal
 		provSet := make(map[string]bool)
-		for _, oldProv := range repoInfo.Provenance {
+		for _, oldProv := range inspectResp.RepoInfo.Provenance {
 			provSet[oldProv.Name] = true
 		}
 		for _, newProv := range provenance {
 			delete(provSet, newProv.Name)
 		}
-		provenanceChanged := len(provSet) > 0 || len(repoInfo.Provenance) != len(provenance)
+		provenanceChanged := len(provSet) > 0 || len(inspectResp.RepoInfo.Provenance) != len(provenance)
 
 		if _, err := pfsClient.CreateRepo(auth.In2Out(ctx), &pfs.CreateRepoRequest{
 			Repo:       outputRepo,
@@ -1258,7 +1412,14 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 
 func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineRequest) (response *pps.PipelineInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) {
+		if response != nil && len(response.PipelineInfo) > client.MaxListItemsLog {
+			logrus.Infof("Response contains %d objects; logging the first %d", len(response.PipelineInfo), client.MaxListItemsLog)
+			a.Log(request, &pps.PipelineInfos{response.PipelineInfo[:client.MaxListItemsLog]}, retErr, time.Since(start))
+		} else {
+			a.Log(request, response, retErr, time.Since(start))
+		}
+	}(time.Now())
 
 	pipelineIter, err := a.pipelines.ReadOnly(ctx).List()
 	if err != nil {
@@ -1316,13 +1477,17 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	if err != nil {
 		return nil, fmt.Errorf("pipeline %v was not found: %v", request.Pipeline.Name, err)
 	}
+	// Check if the caller is authorized to delete this pipeline
+	if err := a.authorizeModifyPipeline(ctx, pipelineDelete, pipelineInfo); err != nil {
+		return nil, err
+	}
 	// Revoke the pipeline's capability
 	if pipelineInfo.Capability != "" {
 		authClient := pachClient.AuthAPIClient
 		if err != nil {
 			return nil, fmt.Errorf("error dialing auth client: %v", authClient)
 		}
-		if _, err := authClient.RevokeAuthToken(ctx, &auth.RevokeAuthTokenRequest{
+		if _, err := authClient.RevokeAuthToken(auth.In2Out(ctx), &auth.RevokeAuthTokenRequest{
 			Token: pipelineInfo.Capability,
 		}); err != nil && !auth.IsNotActivatedError(err) {
 			return nil, fmt.Errorf("error revoking old capability: %v", err)

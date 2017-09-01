@@ -108,9 +108,10 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 				VolumeMounts:    sidecarVolumeMounts,
 			},
 		},
-		RestartPolicy:    "Always",
-		Volumes:          options.volumes,
-		ImagePullSecrets: options.imagePullSecrets,
+		RestartPolicy:                 "Always",
+		Volumes:                       options.volumes,
+		ImagePullSecrets:              options.imagePullSecrets,
+		TerminationGracePeriodSeconds: &zeroVal,
 	}
 	if options.resources != nil {
 		podSpec.Containers[0].Resources = api.ResourceRequirements{
@@ -172,18 +173,33 @@ func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, resources
 	var volumes []api.Volume
 	var volumeMounts []api.VolumeMount
 	for _, secret := range transform.Secrets {
-		volumes = append(volumes, api.Volume{
-			Name: secret.Name,
-			VolumeSource: api.VolumeSource{
-				Secret: &api.SecretVolumeSource{
-					SecretName: secret.Name,
+		if secret.MountPath != "" {
+			volumes = append(volumes, api.Volume{
+				Name: secret.Name,
+				VolumeSource: api.VolumeSource{
+					Secret: &api.SecretVolumeSource{
+						SecretName: secret.Name,
+					},
 				},
-			},
-		})
-		volumeMounts = append(volumeMounts, api.VolumeMount{
-			Name:      secret.Name,
-			MountPath: secret.MountPath,
-		})
+			})
+			volumeMounts = append(volumeMounts, api.VolumeMount{
+				Name:      secret.Name,
+				MountPath: secret.MountPath,
+			})
+		}
+		if secret.EnvVar != "" {
+			workerEnv = append(workerEnv, api.EnvVar{
+				Name: secret.EnvVar,
+				ValueFrom: &api.EnvVarSource{
+					SecretKeyRef: &api.SecretKeySelector{
+						LocalObjectReference: api.LocalObjectReference{
+							Name: secret.Name,
+						},
+						Key: secret.Key,
+					},
+				},
+			})
+		}
 	}
 
 	volumes = append(volumes, api.Volume{
