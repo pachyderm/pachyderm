@@ -1,0 +1,51 @@
+{
+  "pipeline": {
+    "name": "select"
+  },
+  "transform": {
+    "cmd": [ "/bin/bash" ],
+    "stdin": [
+      "bestmetric=0.0",
+      "for f in /pfs/test/*",
+      "do",
+      "metric=`cat $f`",
+      "echo $metric'>='$bestmetric | bc -l",
+      "if [ `echo $metric'>='$bestmetric | bc -l` eq 0 ]",
+      "then",
+      "bestmetric=$metric",
+      "fi",
+      "done",
+      "for model in /pfs/model/*",
+      "do",
+      "modelfile=$(model \"$f\")",
+      "modelfile=${modelfile::-4}",
+      "metricfile=\"_metric.txt\"",
+      "metricfile=$modelfile$metricfile",
+      "metric=`cat /pfs/test/$metricfile`",
+      "if [ $metric == $bestmetric ]",
+      "then",
+      "ln -s $model /pfs/out/$modelfile",
+      "fi",
+      "done"
+    ]
+  },
+  "parallelism_spec": {
+    "constant": "1"
+  },
+  "input": {
+    "cross": [
+      {
+        "atom": {
+	  "repo": "test",
+	  "glob": "/"
+	}
+      },
+      {
+	"atom": {
+	  "repo": "model",
+	  "glob": "/"
+        }
+      }
+    ]
+  }
+}

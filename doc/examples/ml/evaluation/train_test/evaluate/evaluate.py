@@ -3,6 +3,7 @@ from sklearn.externals import joblib
 from sklearn.metrics import accuracy_score
 import argparse
 import os
+import re
 
 # command line arguments
 parser = argparse.ArgumentParser(description='Evaluate a model for iris classification.')
@@ -32,10 +33,9 @@ predictions = mymodel.predict(testData[features])
 
 # calculate the accuracy
 accuracy = accuracy_score(testData[response], predictions)
-print(accuracy)
 
 # save the accuracy
-model_name = args.model.split("/")[-1].split(".")[0]
+model_name = re.sub('\.pkl$', '', args.model.split("/")[-1])
 text_file = open(os.path.join(args.out, model_name + "_metric.txt"), "w")
 text_file.write(str(accuracy))
 text_file.close()  
