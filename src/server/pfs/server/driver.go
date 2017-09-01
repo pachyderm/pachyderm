@@ -407,7 +407,6 @@ func (d *driver) listRepo(ctx context.Context, provenance []*pfs.Repo, includeAu
 		return nil, err
 	}
 	result := new(pfs.ListRepoResponse)
-	var repoNames []string
 nextRepo:
 	for {
 		repoName, repoInfo := "", new(pfs.RepoInfo)
@@ -435,7 +434,7 @@ nextRepo:
 			// Include auth information in the response
 			resp, err := d.pachClient.AuthAPIClient.GetScope(auth.In2Out(ctx),
 				&auth.GetScopeRequest{
-					Repos: repoNames,
+					Repos: []string{repoName},
 				})
 			if err != nil && !auth.IsNotActivatedError(err) {
 				return nil, fmt.Errorf("error getting scopes: %s", err.Error())
@@ -448,7 +447,6 @@ nextRepo:
 			}
 		}
 		result.RepoInfo = append(result.RepoInfo, repoInfo)
-		repoNames = append(repoNames, repoInfo.Repo.Name)
 	}
 	return result, nil
 }
