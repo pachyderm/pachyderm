@@ -3,28 +3,28 @@
     "name": "select"
   },
   "transform": {
+    "image": "dianoga/docker-ubuntu-jq-curl-bc",
     "cmd": [ "/bin/bash" ],
     "stdin": [
       "bestmetric=0.0",
       "for f in /pfs/test/*",
       "do",
       "metric=`cat $f`",
-      "echo $metric'>='$bestmetric | bc -l",
-      "if [ `echo $metric'>='$bestmetric | bc -l` eq 0 ]",
+      "if [ `echo $metric'>='$bestmetric | bc -l` -eq 1 ]",
       "then",
       "bestmetric=$metric",
       "fi",
       "done",
       "for model in /pfs/model/*",
       "do",
-      "modelfile=$(model \"$f\")",
+      "modelfile=$(basename \"$model\")",
       "modelfile=${modelfile::-4}",
       "metricfile=\"_metric.txt\"",
       "metricfile=$modelfile$metricfile",
       "metric=`cat /pfs/test/$metricfile`",
       "if [ $metric == $bestmetric ]",
       "then",
-      "ln -s $model /pfs/out/$modelfile",
+      "ln -s $model /pfs/out/$modelfile.pkl",
       "fi",
       "done"
     ]
