@@ -1062,8 +1062,8 @@ func TestListAndInspectRepo(t *testing.T) {
 		repoWriter: auth.Scope_WRITER,
 		repoReader: auth.Scope_READER,
 	}
-	for i, info := range listResp.RepoInfo {
-		require.Equal(t, expectedAccess[info.Repo.Name], listResp.Scopes[i])
+	for _, info := range listResp.RepoInfo {
+		require.Equal(t, expectedAccess[info.Repo.Name], info.Scope)
 	}
 
 	for _, name := range []string{repoOwner, repoWriter, repoReader, repoNone} {
