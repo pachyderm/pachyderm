@@ -48,6 +48,7 @@ message RepoInfo {
   uint64 size_bytes = 3;
   repeated Repo provenance = 4;
   string description = 5;
+  auth.Scope scope = 6;
 }
 
 // Commit is a reference to a commit (e.g. the collection of branches and the
@@ -119,11 +120,6 @@ message InspectRepoRequest {
   bool include_auth = 2;
 }
 
-message InspectRepoResponse {
-  RepoInfo repo_info = 1;
-  auth.Scope scope = 2;
-}
-
 message ListRepoRequest {
   repeated Repo provenance = 1;
 
@@ -134,11 +130,6 @@ message ListRepoRequest {
 
 message ListRepoResponse {
   repeated RepoInfo repo_info = 1;
-
-  // scopes is the list of access scopes that the caller has to each repo in
-  // 'repo_info'. Note that 'scopes' is the same length as 'repo_info' and
-  // scopes[i] describes the callers access to repo_info[i].
-  repeated auth.Scope scopes = 2;
 }
 
 message DeleteRepoRequest {
@@ -293,7 +284,7 @@ service API {
   // An error is returned if the repo already exists.
   rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {}
   // InspectRepo returns info about a repo.
-  rpc InspectRepo(InspectRepoRequest) returns (InspectRepoResponse) {}
+  rpc InspectRepo(InspectRepoRequest) returns (RepoInfo) {}
   // ListRepo returns info about all repos.
   rpc ListRepo(ListRepoRequest) returns (ListRepoResponse) {}
   // DeleteRepo deletes a repo.
