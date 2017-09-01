@@ -18,6 +18,7 @@ import (
 	"github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/jsonpb"
 	pachdclient "github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
@@ -89,6 +90,7 @@ The increase the throughput of a job increase the Shard paremeter.
 	rawFlag(inspectJob)
 
 	var pipelineName string
+	var outputCommit string
 	listJob := &cobra.Command{
 		Use:   "list-job [-p pipeline-name] [commits]",
 		Short: "Return info about jobs.",
@@ -119,7 +121,16 @@ $ pachctl list-job -p foo bar/YYY
 				return err
 			}
 
-			jobInfos, err := client.ListJob(pipelineName, commits)
+			outputCommits, err := cmdutil.ParseCommits([]string{outputCommit})
+			if err != nil {
+				return sanitizeErr(err)
+			}
+			var outputCommit *pfs.Commit
+			if len(outputCommits) == 1 {
+				outputCommit = outputCommits[0]
+			}
+
+			jobInfos, err := client.ListJob(pipelineName, commits, outputCommit)
 			if err != nil {
 				return sanitizeErr(err)
 			}
@@ -145,6 +156,7 @@ $ pachctl list-job -p foo bar/YYY
 		}),
 	}
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
+	listJob.Flags().StringVarP(&outputCommit, "output", "o", "", "List jobs with a specific output commit.")
 	rawFlag(listJob)
 
 	deleteJob := &cobra.Command{

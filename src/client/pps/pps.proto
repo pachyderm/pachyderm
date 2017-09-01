@@ -327,6 +327,7 @@ message InspectJobRequest {
 message ListJobRequest {
   Pipeline pipeline = 1; // nil means all pipelines
   repeated pfs.Commit input_commit = 2; // nil means all inputs
+  pfs.Commit output_commit = 3;
 }
 
 message DeleteJobRequest {
