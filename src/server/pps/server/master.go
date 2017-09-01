@@ -9,6 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"k8s.io/kubernetes/pkg/api"
 	labelspkg "k8s.io/kubernetes/pkg/labels"
+	kube_watch "k8s.io/kubernetes/pkg/watch"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
@@ -153,6 +154,18 @@ func (a *apiServer) master() {
 					}
 				}
 			case event := <-kubePipelineWatch.ResultChan():
+				if event.Type == kube_watch.Error {
+					kubePipelineWatch, err = a.kubeClient.Pods(a.namespace).Watch(api.ListOptions{
+						LabelSelector: labelspkg.SelectorFromSet(map[string]string{
+							"component": "worker",
+						}),
+						Watch: true,
+					})
+					if err != nil {
+						return err
+					}
+					defer kubePipelineWatch.Stop()
+				}
 				pod, ok := event.Object.(*api.Pod)
 				if !ok {
 					continue
