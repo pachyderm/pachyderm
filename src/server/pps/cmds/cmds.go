@@ -273,11 +273,12 @@ $ pachctl list-job -p foo bar/YYY
 
 	var (
 		jobID       string
+		datumID     string
 		commaInputs string // comma-separated list of input files of interest
 		master      bool
 	)
 	getLogs := &cobra.Command{
-		Use:   "get-logs [--pipeline=<pipeline>|--job=<job id>]",
+		Use:   "get-logs [--pipeline=<pipeline>|--job=<job id>] [--datum=<datum id>]",
 		Short: "Return logs from a job.",
 		Long: `Return logs from a job.
 
@@ -317,7 +318,7 @@ $ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
 
 			// Issue RPC
 			marshaler := &jsonpb.Marshaler{}
-			iter := client.GetLogs(pipelineName, jobID, data, master)
+			iter := client.GetLogs(pipelineName, jobID, data, datumID, master)
 			for iter.Next() {
 				var messageStr string
 				if raw {
@@ -340,6 +341,7 @@ $ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
 		"for lines from this pipeline (accepts pipeline name)")
 	getLogs.Flags().StringVar(&jobID, "job", "", "Filter for log lines from "+
 		"this job (accepts job ID)")
+	getLogs.Flags().StringVar(&datumID, "datum", "", "Filter for log lines for this datum (accepts datum ID)")
 	getLogs.Flags().StringVar(&commaInputs, "inputs", "", "Filter for log lines "+
 		"generated while processing these files (accepts PFS paths or file hashes)")
 	getLogs.Flags().BoolVar(&master, "master", false, "Return log messages from the master process (pipeline must be set).")

@@ -38,6 +38,9 @@ const (
 	splitSuffixBase  = 16
 	splitSuffixWidth = 64
 	splitSuffixFmt   = "%016x"
+
+	// Makes calls to ListRepo and InspectRepo more legible
+	includeAuth = true
 )
 
 // ValidateRepoName determines if a repo name is valid
@@ -370,19 +373,30 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 	return nil
 }
 
-func (d *driver) inspectRepo(ctx context.Context, repo *pfs.Repo) (*pfs.RepoInfo, error) {
-	repoInfo := new(pfs.RepoInfo)
-	if err := d.repos.ReadOnly(ctx).Get(repo.Name, repoInfo); err != nil {
+func (d *driver) inspectRepo(ctx context.Context, repo *pfs.Repo, includeAuth bool) (*pfs.RepoInfo, error) {
+	result := &pfs.RepoInfo{}
+	if err := d.repos.ReadOnly(ctx).Get(repo.Name, result); err != nil {
 		return nil, err
 	}
-	return repoInfo, nil
+	if includeAuth {
+		resp, err := d.pachClient.AuthAPIClient.GetScope(auth.In2Out(ctx),
+			&auth.GetScopeRequest{Repos: []string{repo.Name}})
+		if err != nil && !auth.IsNotActivatedError(err) {
+			return nil, fmt.Errorf("error getting scope for %s: %s", repo.Name, err.Error())
+		}
+		if len(resp.Scopes) != 1 {
+			return nil, fmt.Errorf("unexpected result from GetScope(): %#v", resp)
+		}
+		result.Scope = resp.Scopes[0]
+	}
+	return result, nil
 }
 
-func (d *driver) listRepo(ctx context.Context, provenance []*pfs.Repo, includeAuth bool) (*pfs.RepoInfos, error) {
+func (d *driver) listRepo(ctx context.Context, provenance []*pfs.Repo, includeAuth bool) (*pfs.ListRepoResponse, error) {
 	repos := d.repos.ReadOnly(ctx)
 	// Ensure that all provenance repos exist
 	for _, prov := range provenance {
-		repoInfo := new(pfs.RepoInfo)
+		repoInfo := &pfs.RepoInfo{}
 		if err := repos.Get(prov.Name, repoInfo); err != nil {
 			return nil, err
 		}
@@ -392,8 +406,7 @@ func (d *driver) listRepo(ctx context.Context, provenance []*pfs.Repo, includeAu
 	if err != nil {
 		return nil, err
 	}
-	var result pfs.RepoInfos
-	var repoNames []string
+	result := new(pfs.ListRepoResponse)
 nextRepo:
 	for {
 		repoName, repoInfo := "", new(pfs.RepoInfo)
@@ -417,22 +430,25 @@ nextRepo:
 				continue nextRepo
 			}
 		}
+		if includeAuth {
+			// Include auth information in the response
+			resp, err := d.pachClient.AuthAPIClient.GetScope(auth.In2Out(ctx),
+				&auth.GetScopeRequest{
+					Repos: []string{repoName},
+				})
+			if err != nil && !auth.IsNotActivatedError(err) {
+				return nil, fmt.Errorf("error getting scopes: %s", err.Error())
+			}
+			if len(resp.Scopes) != 1 {
+				return nil, fmt.Errorf("unexpected result from GetScope(): %#v", resp)
+			}
+			if resp != nil {
+				repoInfo.Scope = resp.Scopes[0]
+			}
+		}
 		result.RepoInfo = append(result.RepoInfo, repoInfo)
-		repoNames = append(repoNames, repoInfo.Repo.Name)
 	}
-	if includeAuth {
-		// Include auth information in the response
-		resp, err := d.pachClient.AuthAPIClient.GetScope(ctx, &auth.GetScopeRequest{
-			Repos: repoNames,
-		})
-		if err != nil && !auth.IsNotActivatedError(err) {
-			return nil, fmt.Errorf("error getting scopes: %v", err)
-		}
-		if resp != nil {
-			result.Scopes = resp.Scopes
-		}
-	}
-	return &result, nil
+	return result, nil
 }
 
 func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) error {
@@ -799,7 +815,7 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 	}
 
 	// Make sure that the repo exists
-	_, err := d.inspectRepo(ctx, repo)
+	_, err := d.inspectRepo(ctx, repo, !includeAuth)
 	if err != nil {
 		return nil, err
 	}
