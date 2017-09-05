@@ -26,18 +26,12 @@ const (
 	masterLockPath = "_master_lock"
 )
 
-func isFailure(reason string) bool {
-	failReasons := []string{
-		"InvalidImageName",
-		"ErrImagePull",
+var (
+	failures = map[string]bool{
+		"InvalidImageName": true,
+		"ErrImagePull":     true,
 	}
-	for _, failReason := range failReasons {
-		if reason == failReason {
-			return true
-		}
-	}
-	return false
-}
+)
 
 // The master process is responsible for creating/deleting workers as
 // pipelines are created/removed.
@@ -174,7 +168,7 @@ func (a *apiServer) master() {
 					log.Errorf("pod failed because: %s", pod.Status.Message)
 				}
 				for _, status := range pod.Status.ContainerStatuses {
-					if status.Name == "user" && status.State.Waiting != nil && isFailure(status.State.Waiting.Reason) {
+					if status.Name == "user" && status.State.Waiting != nil && failures[status.State.Waiting.Reason] {
 						if err := a.setPipelineFailure(ctx, pod.ObjectMeta.Annotations["pipelineName"], status.State.Waiting.Message); err != nil {
 							return err
 						}
