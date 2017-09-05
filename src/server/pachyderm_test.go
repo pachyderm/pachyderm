@@ -4656,6 +4656,49 @@ func TestSelfReferentialPipeline(t *testing.T) {
 	))
 }
 
+func TestPipelineBadImage(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+	pipeline1 := uniqueString("bad_pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline1,
+		"BadImage",
+		[]string{"true"},
+		nil,
+		nil,
+		client.NewCronInput("time", "@every 20s"),
+		"",
+		false,
+	))
+	pipeline2 := uniqueString("bad_pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline2,
+		"bs/badimage:vcrap",
+		[]string{"true"},
+		nil,
+		nil,
+		client.NewCronInput("time", "@every 20s"),
+		"",
+		false,
+	))
+	require.NoError(t, backoff.Retry(func() error {
+		for _, pipeline := range []string{pipeline1, pipeline2} {
+			pipelineInfo, err := c.InspectPipeline(pipeline)
+			if err != nil {
+				return err
+			}
+			if pipelineInfo.State != pps.PipelineState_PIPELINE_FAILURE {
+				return fmt.Errorf("pipeline %s should have failed", pipeline)
+			}
+			require.True(t, pipelineInfo.Reason != "")
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+}
+
 func TestFixPipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")

@@ -1951,8 +1951,9 @@ func (a *apiServer) rcPods(rcName string) ([]api.Pod, error) {
 
 func labels(app string) map[string]string {
 	return map[string]string{
-		"app":   app,
-		"suite": suite,
+		"app":       app,
+		"suite":     suite,
+		"component": "worker",
 	}
 }
 
