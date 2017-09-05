@@ -24,7 +24,7 @@ import (
 var (
 	suite                   = "pachyderm"
 	pachdImage              = "pachyderm/pachd"
-	etcdImage               = "quay.io/coreos/etcd:v3.1.4"
+	etcdImage               = "quay.io/coreos/etcd:v3.2.7"
 	serviceAccountName      = "pachyderm"
 	etcdHeadlessServiceName = "etcd-headless"
 	etcdName                = "etcd"
@@ -482,6 +482,7 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *extensions.Deployment {
 								"--advertise-client-urls=http://0.0.0.0:2379",
 								"--data-dir=/var/data/etcd",
 								"--auto-compaction-retention=1",
+								"--max-ops-per-txn=4096",
 							},
 							Ports: []api.ContainerPort{
 								{
@@ -712,6 +713,7 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 		"--initial-advertise-peer-urls=http://${ETCD_NAME}.etcd-headless.${NAMESPACE}.svc.cluster.local:2380",
 		"--initial-cluster=" + strings.Join(initialCluster, ","),
 		"--auto-compaction-retention=1",
+		"--max-ops-per-txn=4096",
 	}
 	for i, str := range etcdCmd {
 		etcdCmd[i] = fmt.Sprintf("\"%s\"", str) // quote all arguments, for shell
