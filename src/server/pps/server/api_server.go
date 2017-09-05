@@ -1066,24 +1066,26 @@ func (a *apiServer) authorizeModifyPipeline(ctx context.Context, modification pi
 	// Check that the user is authorized to read all input repos, and write to the
 	// output repo (which the pipeline needs to be able to do on the user's
 	// behalf)
-	// collect inputs by bfs info.Input (info.Inputs is no longer set)
 	if len(info.Inputs) > 0 {
+		// Should never happen. authorizeModifyPipeline is called in CreatePipeline
+		// and DeletePipeline. In the former case, translateInputs() is called on
+		// the request before authorizeModifyPipeline, and in the latter case, the
+		// pipelineInfo is read from etcd (after it has been normalized)
 		return fmt.Errorf("cannot authorize using PipelineInfo with 'Inputs' field set")
 	}
+	// collect inputs by bfs through info.Input
 	inputRepos := make(map[string]struct{})
-	queue := []*pps.Input{info.Input}
+	in, queue := (*pps.Input)(nil), []*pps.Input{info.Input}
 	for len(queue) > 0 {
-		in := queue[0]
-		queue = queue[1:]
-		if in == nil {
-			break
-		} else if in.Atom != nil {
+		in, queue = queue[0], queue[1:]
+		switch {
+		case in.Atom != nil:
 			inputRepos[in.Atom.Repo] = struct{}{}
-		} else if len(in.Cross) > 0 {
+		case len(in.Cross) > 0:
 			queue = append(queue, in.Cross...)
-		} else if len(in.Union) > 0 {
+		case len(in.Union) > 0:
 			queue = append(queue, in.Union...)
-		} else {
+		default:
 			return fmt.Errorf("cannot authorize pipeline input that is not an atom, a cross, or a union")
 		}
 	}
@@ -1110,6 +1112,13 @@ func (a *apiServer) authorizeModifyPipeline(ctx context.Context, modification pi
 		return err
 	}
 
+	// Check that the user is authorized to write to the output repo
+	if modification == pipelineCreate {
+		_, err = pachClient.InspectRepo(info.Pipeline.Name)
+		if err != nil && strings.HasSuffix(err.Error(), "not found") {
+			return nil // No output repo exists -- it will be created
+		}
+	}
 	var req *auth.AuthorizeRequest
 	if modification == pipelineDelete {
 		// To delete a pipeline, you must own the output repo
@@ -1124,19 +1133,8 @@ func (a *apiServer) authorizeModifyPipeline(ctx context.Context, modification pi
 			Scope: auth.Scope_WRITER,
 		}
 	}
-
-	// Check that the user is authorized to write to the output repo
 	resp, err := authClient.Authorize(auth.In2Out(ctx), req)
 	if err != nil {
-		if modification == pipelineCreate && strings.HasSuffix(
-			err.Error(),
-			fmt.Sprintf("ACL not found for repo %s", info.Pipeline.Name)) {
-			// Output repo doesn't exist yet. It will be created
-			// TODO(msteffen): This is not a great way of handling this error, but
-			// right now the way we create ACLs for new repos doesn't really make
-			// sense.
-			return nil
-		}
 		return err
 	}
 	if !resp.Authorized {
