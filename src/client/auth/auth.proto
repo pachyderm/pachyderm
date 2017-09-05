@@ -2,9 +2,8 @@ syntax = "proto3";
 package auth;
 
 import "gogoproto/gogo.proto";
-import "google/protobuf/timestamp.proto";
 
-//// Auth Activation API
+//// Activation API
 
 message ActivateRequest {
   // An initial list of cluster administraters. Pachyderm requires that if its

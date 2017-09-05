@@ -55,7 +55,7 @@ func (c APIClient) CreateRepo(repoName string) error {
 
 // InspectRepo returns info about a specific Repo.
 func (c APIClient) InspectRepo(repoName string) (*pfs.RepoInfo, error) {
-	repoInfo, err := c.PfsAPIClient.InspectRepo(
+	resp, err := c.PfsAPIClient.InspectRepo(
 		c.Ctx(),
 		&pfs.InspectRepoRequest{
 			Repo: NewRepo(repoName),
@@ -64,7 +64,7 @@ func (c APIClient) InspectRepo(repoName string) (*pfs.RepoInfo, error) {
 	if err != nil {
 		return nil, sanitizeErr(err)
 	}
-	return repoInfo, nil
+	return resp, nil
 }
 
 // ListRepo returns info about all Repos.
