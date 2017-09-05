@@ -22,9 +22,12 @@ import (
 )
 
 var (
-	suite                   = "pachyderm"
-	pachdImage              = "pachyderm/pachd"
-	etcdImage               = "quay.io/coreos/etcd:v3.1.4"
+	suite      = "pachyderm"
+	pachdImage = "pachyderm/pachd"
+	// Using our own etcd image for now because there's a fix we need
+	// that hasn't been released, and which has been manually applied
+	// to the official v3.2.7 release.
+	etcdImage               = "pachyderm/etcd:v3.2.7"
 	serviceAccountName      = "pachyderm"
 	etcdHeadlessServiceName = "etcd-headless"
 	etcdName                = "etcd"
