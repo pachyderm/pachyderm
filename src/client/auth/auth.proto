@@ -34,6 +34,13 @@ message ModifyAdminsResponse {}
 // User is the 'value' of an auth token 'key' in the 'tokens' collection
 message User {
   string username = 1;
+
+  enum UserType {
+    INVALID = 0;
+    HUMAN = 1;
+    PIPELINE = 2;
+  }
+  UserType type = 2;
 }
 
 //// Authentication API

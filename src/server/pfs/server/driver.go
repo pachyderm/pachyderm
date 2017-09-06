@@ -218,8 +218,6 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 	}
 
 	d.initializePachConn()
-	var whoAmI *auth.WhoAmIResponse
-	var authErr error
 	if update {
 		// Caller only neads to be a WRITER to call UpdatePipeline(). Therefore
 		// caller only needs to be a WRITER to update the provenance.
@@ -231,10 +229,22 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 		// request. However, don't create the ACL until the repo has been created
 		// successfully, because a repo w/ no ACL can be fixed by a cluster admin.
 		// note that 'whoAmI' and 'authErr' are set iff 'update' == false.
-		whoAmI, authErr = d.pachClient.AuthAPIClient.WhoAmI(auth.In2Out(ctx),
+		whoAmI, err := d.pachClient.AuthAPIClient.WhoAmI(auth.In2Out(ctx),
 			&auth.WhoAmIRequest{})
-		if authErr != nil && !auth.IsNotActivatedError(authErr) {
-			return fmt.Errorf("authorization error while creating repo \"%s\": %s", repo.Name, authErr.Error())
+		if err != nil {
+			if !auth.IsNotActivatedError(err) {
+				return fmt.Errorf("authorization error while creating repo \"%s\": %s", repo.Name, err.Error())
+			}
+		} else {
+			// auth is active, and user is logged in. Make user an owner of the new repo
+			_, err := d.pachClient.AuthAPIClient.SetScope(auth.In2Out(ctx), &auth.SetScopeRequest{
+				Repo:     repo.Name,
+				Username: whoAmI.Username,
+				Scope:    auth.Scope_OWNER,
+			})
+			if err != nil {
+				return fmt.Errorf("could not create ACL for new repo \"%s\": %s", repo.Name, err.Error())
+			}
 		}
 	}
 
@@ -358,26 +368,12 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 	if err != nil {
 		return err
 	}
-	if !update && authErr == nil {
-		// auth is active, and user is logged in. User is an owner of the new repo
-		_, err := d.pachClient.AuthAPIClient.SetScope(auth.In2Out(ctx), &auth.SetScopeRequest{
-			Repo:     repo.Name,
-			Username: whoAmI.Username,
-			Scope:    auth.Scope_OWNER,
-		})
-		if err != nil {
-			return fmt.Errorf("repo created successfully, but could not create ACL " +
-				"for new repo (a cluster admin can create ACL for you): " + err.Error())
-		}
-	}
 	return nil
 }
 
-func (d *driver) inspectRepo(ctx context.Context, repo *pfs.Repo, includeAuth bool) (*pfs.InspectRepoResponse, error) {
-	result := &pfs.InspectRepoResponse{
-		RepoInfo: &pfs.RepoInfo{},
-	}
-	if err := d.repos.ReadOnly(ctx).Get(repo.Name, result.RepoInfo); err != nil {
+func (d *driver) inspectRepo(ctx context.Context, repo *pfs.Repo, includeAuth bool) (*pfs.RepoInfo, error) {
+	result := &pfs.RepoInfo{}
+	if err := d.repos.ReadOnly(ctx).Get(repo.Name, result); err != nil {
 		return nil, err
 	}
 	if includeAuth {
@@ -409,7 +405,6 @@ func (d *driver) listRepo(ctx context.Context, provenance []*pfs.Repo, includeAu
 		return nil, err
 	}
 	result := new(pfs.ListRepoResponse)
-	var repoNames []string
 nextRepo:
 	for {
 		repoName, repoInfo := "", new(pfs.RepoInfo)
@@ -433,21 +428,23 @@ nextRepo:
 				continue nextRepo
 			}
 		}
+		if includeAuth {
+			// Include auth information in the response
+			resp, err := d.pachClient.AuthAPIClient.GetScope(auth.In2Out(ctx),
+				&auth.GetScopeRequest{
+					Repos: []string{repoName},
+				})
+			if err != nil && !auth.IsNotActivatedError(err) {
+				return nil, fmt.Errorf("error getting scopes: %s", err.Error())
+			}
+			if len(resp.Scopes) != 1 {
+				return nil, fmt.Errorf("unexpected result from GetScope(): %#v", resp)
+			}
+			if resp != nil {
+				repoInfo.Scope = resp.Scopes[0]
+			}
+		}
 		result.RepoInfo = append(result.RepoInfo, repoInfo)
-		repoNames = append(repoNames, repoInfo.Repo.Name)
-	}
-	if includeAuth {
-		// Include auth information in the response
-		resp, err := d.pachClient.AuthAPIClient.GetScope(auth.In2Out(ctx),
-			&auth.GetScopeRequest{
-				Repos: repoNames,
-			})
-		if err != nil && !auth.IsNotActivatedError(err) {
-			return nil, fmt.Errorf("error getting scopes: %s", err.Error())
-		}
-		if resp != nil {
-			result.Scopes = resp.Scopes
-		}
 	}
 	return result, nil
 }
