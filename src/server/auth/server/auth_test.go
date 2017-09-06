@@ -1148,3 +1148,34 @@ func TestUnprivilegedUserCannotMakeSelfOwner(t *testing.T) {
 	// make sure ACL wasn't updated
 	require.Equal(t, acl(alice, "owner"), GetACL(t, aliceClient, repo))
 }
+
+func TestGetScopeRequiresReader(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	alice, bob := uniqueString("alice"), uniqueString("bob")
+	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
+
+	// alice creates a repo
+	repo := uniqueString("TestUnprivilegedUserCannotMakeSelfOwner")
+	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.Equal(t, acl(alice, "owner"), GetACL(t, aliceClient, repo))
+
+	// bob calls GetScope(repo). This should succeed
+	resp, err := bobClient.GetScope(bobClient.Ctx(), &auth.GetScopeRequest{
+		Repos: []string{repo},
+	})
+	require.NoError(t, err)
+	require.Equal(t, []auth.Scope{auth.Scope_NONE}, resp.Scopes)
+
+	// bob calls GetScope(repo, alice). This should fail because bob isn't a
+	// READER
+	_, err = bobClient.GetScope(bobClient.Ctx(),
+		&auth.GetScopeRequest{
+			Repos:    []string{repo},
+			Username: alice,
+		})
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+}
