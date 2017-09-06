@@ -45,7 +45,7 @@ func (s *localBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServ
 	func() { s.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
 	defer drainObjectServer(server)
-	hash := newHash()
+	hash := NewHash()
 	tmpPath := filepath.Join(s.objectDir(), uuid.NewWithoutDashes())
 	putObjectReader := &putObjectReader{
 		server: server,

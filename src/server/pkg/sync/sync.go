@@ -2,10 +2,12 @@
 package sync
 
 import (
+	"encoding/hex"
 	"io"
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -13,6 +15,7 @@ import (
 	pachclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
@@ -377,6 +380,32 @@ func Push(client *pachclient.APIClient, root string, commit *pfs.Commit, overwri
 	}
 
 	return g.Wait()
+}
+
+func isNotExist(err error) bool {
+	return strings.Contains(err.Error(), "not found")
+}
+
+func SyncFile(client *pachclient.APIClient, file *pfs.File, f *os.File) error {
+	fileInfo, err := client.InspectFile(file.Commit.Repo.Name, file.Commit.ID, file.Path)
+	if err != nil && !isNotExist(err) {
+		return err
+	}
+	if len(fileInfo.Objects) == 1 {
+		hash := pfs_server.NewHash()
+		if _, err := io.Copy(hash, f); err != nil {
+			return err
+		}
+		if fileInfo.Objects[0].Hash == hex.EncodeToString(hash.Sum(nil)) {
+			// File already has the correct content, no need to upload it.
+			return nil
+		}
+		if _, err := f.Seek(0, 0); err != nil {
+			return err
+		}
+	}
+	_, err = client.PutFile(file.Commit.Repo.Name, file.Commit.ID, file.Path, f)
+	return err
 }
 
 // PushObj pushes data from commit to an object store.
