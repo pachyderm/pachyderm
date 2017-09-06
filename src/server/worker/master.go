@@ -212,15 +212,15 @@ nextInput:
 			var jobID string
 			var jobInfo pps.JobInfo
 			ok, err := jobIter.Next(&jobID, &jobInfo)
-			if err != nil {
+			if err != nil && !col.IsErrNotFound(err) {
 				return err
 			}
-			if !ok {
+			if !ok || col.IsErrNotFound(err) {
 				ok, err := oldJobIter.Next(&jobID, &jobInfo)
-				if err != nil {
+				if err != nil && !col.IsErrNotFound(err) {
 					return err
 				}
-				if !ok {
+				if !ok || col.IsErrNotFound(err) {
 					break
 				}
 			}
