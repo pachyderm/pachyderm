@@ -64,7 +64,7 @@ func (c APIClient) InspectRepo(repoName string) (*pfs.RepoInfo, error) {
 	if err != nil {
 		return nil, sanitizeErr(err)
 	}
-	return resp.RepoInfo, nil
+	return resp, nil
 }
 
 // ListRepo returns info about all Repos.
