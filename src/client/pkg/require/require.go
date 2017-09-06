@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"runtime"
 	"testing"
+	"time"
 )
 
 // Matches checks that a string matches a regular-expression.
@@ -106,7 +107,26 @@ func NoneEquals(tb testing.TB, expected interface{}, actuals interface{}, msgAnd
 // NoError checks for no error.
 func NoError(tb testing.TB, err error, msgAndArgs ...interface{}) {
 	if err != nil {
-		fatal(tb, msgAndArgs, "No error is expected but got %v", err)
+		fatal(tb, msgAndArgs, "No error is expected but got %s", err.Error())
+	}
+}
+
+// NoErrorWithinT checks that 'f' finishes within time 't' and does not emit an
+// error
+func NoErrorWithinT(tb testing.TB, t time.Duration, f func() error, msgAndArgs ...interface{}) {
+	errCh := make(chan error)
+	go func() {
+		// This goro will leak if the timeout is exceeded, but it's okay because the
+		// test is failing anyway
+		errCh <- f()
+	}()
+	select {
+	case err := <-errCh:
+		if err != nil {
+			fatal(tb, msgAndArgs, "No error is expected but got %s", err.Error())
+		}
+	case <-time.After(t):
+		fatal(tb, msgAndArgs, "operation did not finish within %s", t.String())
 	}
 }
 
