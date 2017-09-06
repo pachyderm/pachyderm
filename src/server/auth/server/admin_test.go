@@ -471,6 +471,18 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 			ActivationCode: testActivationCode,
 			Expires:        TSProtoOrDie(t, time.Now().Add(-30*time.Second)),
 		})
+	// wait for Enterprise token to expire
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := adminClient.Enterprise.GetState(adminClient.Ctx(),
+			&enterprise.GetStateRequest{})
+		if err != nil {
+			return err
+		}
+		if resp.State == enterprise.State_ACTIVE {
+			return errors.New("Pachyderm Enterprise is still active")
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 
 	// now alice can't read from the repo
 	buf := &bytes.Buffer{}
@@ -537,6 +549,18 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 			// This will stop working some time in 2026
 			Expires: TSProtoOrDie(t, time.Now().Add(year)),
 		})
+	// wait for Enterprise token to re-enable
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := adminClient.Enterprise.GetState(adminClient.Ctx(),
+			&enterprise.GetStateRequest{})
+		if err != nil {
+			return err
+		}
+		if resp.State != enterprise.State_ACTIVE {
+			return errors.New("Pachyderm Enterprise is still expired")
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 
 	// alice can now re-authenticate
 	resp, err = aliceClient.Authenticate(context.Background(),
@@ -618,6 +642,18 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 			ActivationCode: testActivationCode,
 			Expires:        TSProtoOrDie(t, time.Now().Add(-30*time.Second)),
 		})
+	// wait for Enterprise token to expire
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := adminClient.Enterprise.GetState(adminClient.Ctx(),
+			&enterprise.GetStateRequest{})
+		if err != nil {
+			return err
+		}
+		if resp.State == enterprise.State_ACTIVE {
+			return errors.New("Pachyderm Enterprise is still active")
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 
 	// Make sure alice's pipeline still runs successfully
 	commit, err = adminClient.StartCommit(repo, "master")
@@ -637,7 +673,10 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	})
 }
 
-func TestGetSetScopeAclWithExpiredToken(t *testing.T) {
+// Tests that GetAcl, SetAcl, GetScope, and SetScope all respect expired
+// Enterprise tokens (i.e. reject non-admin requests once the token is expired,
+// and allow admin requests)
+func TestGetSetScopeAndAclWithExpiredToken(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -645,7 +684,7 @@ func TestGetSetScopeAclWithExpiredToken(t *testing.T) {
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, "admin")
 
 	// alice creates a repo
-	repo := uniqueString("TestPipelinesRunAfterExpiration")
+	repo := uniqueString("TestGetSetScopeAndAclWithExpiredToken")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.Equal(t, acl(alice, "owner"), GetACL(t, aliceClient, repo))
 
@@ -655,6 +694,18 @@ func TestGetSetScopeAclWithExpiredToken(t *testing.T) {
 			ActivationCode: testActivationCode,
 			Expires:        TSProtoOrDie(t, time.Now().Add(-30*time.Second)),
 		})
+	// wait for Enterprise token to expire
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := adminClient.Enterprise.GetState(adminClient.Ctx(),
+			&enterprise.GetStateRequest{})
+		if err != nil {
+			return err
+		}
+		if resp.State == enterprise.State_ACTIVE {
+			return errors.New("Pachyderm Enterprise is still active")
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 
 	// alice can't call GetScope on repo, even though she owns it
 	_, err := aliceClient.GetScope(aliceClient.Ctx(), &auth.GetScopeRequest{
