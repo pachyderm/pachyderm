@@ -421,7 +421,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 	if state != enterpriseclient.State_ACTIVE && !a.isAdmin(username) {
 		return nil, errors.New("Pachyderm Enterprise is not active in this " +
 			"cluster (until Pachyderm Enterprise is re-activated or Pachyderm " +
-			"auth is deactivated, only cluster admins can perform any operations")
+			"auth is deactivated, only cluster admins can perform any operations)")
 	}
 
 	// Generate a new Pachyderm token and return it
@@ -620,15 +620,19 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 		return nil, authclient.NotActivatedError{}
 	}
 
-	var username string
-	if req.Username != "" {
-		username = req.Username
-	} else {
-		user, err := a.getAuthenticatedUser(ctx)
-		if err != nil {
-			return nil, err
-		}
-		username = user.Username
+	user, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if the cluster's enterprise token is expired (fail if so)
+	state, err := a.getEnterpriseTokenState()
+	if err != nil {
+		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %s", err.Error())
+	}
+	if state != enterpriseclient.State_ACTIVE && !a.isAdmin(user.Username) {
+		return nil, fmt.Errorf("Pachyderm Enterprise is not active in this " +
+			"cluster (only a cluster admin can perform any operations)")
 	}
 
 	// For now, we don't return OWNER if the user is an admin, even though that's
@@ -636,15 +640,27 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 	// what will happen if the user's admin privileges are revoked
 
 	// Read repo ACL from etcd
+	acls := a.acls.ReadOnly(ctx)
 	resp = new(authclient.GetScopeResponse)
+
 	for _, repo := range req.Repos {
 		var acl authclient.ACL
-		err := a.acls.ReadOnly(ctx).Get(repo, &acl)
-		if err != nil || acl.Entries == nil {
-			// ACL not found. User has no scope
-			resp.Scopes = append(resp.Scopes, authclient.Scope_NONE)
+		err := acls.Get(repo, &acl)
+		if err != nil {
+			if _, ok := err.(col.ErrNotFound); !ok {
+				return nil, err
+			} // else: ACL not found -- ignore
+		}
+		if req.Username == "" {
+			resp.Scopes = append(resp.Scopes, acl.Entries[user.Username])
 		} else {
-			resp.Scopes = append(resp.Scopes, acl.Entries[username])
+			if !a.isAdmin(user.Username) && acl.Entries[user.Username] < authclient.Scope_READER {
+				return nil, &authclient.NotAuthorizedError{
+					Repo:     repo,
+					Required: authclient.Scope_READER,
+				}
+			}
+			resp.Scopes = append(resp.Scopes, acl.Entries[req.Username])
 		}
 	}
 	return resp, nil
@@ -668,6 +684,16 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 		return nil, err
 	}
 
+	// Check if the cluster's enterprise token is expired (fail if so)
+	state, err := a.getEnterpriseTokenState()
+	if err != nil {
+		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %s", err.Error())
+	}
+	if state != enterpriseclient.State_ACTIVE && !a.isAdmin(user.Username) {
+		return nil, fmt.Errorf("Pachyderm Enterprise is not active in this " +
+			"cluster (only a cluster admin can perform any operations)")
+	}
+
 	// Read repo ACL from etcd
 	resp = &authclient.GetACLResponse{
 		ACL: &authclient.ACL{},
@@ -675,8 +701,7 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	if err = a.acls.ReadOnly(ctx).Get(req.Repo, resp.ACL); err != nil {
 		if _, ok := err.(col.ErrNotFound); !ok {
 			return nil, err
-		}
-		// else: ACL not found. No error, just return an empty ACL
+		} // else: ACL not found -- ignore
 	}
 	// For now, require READER access to read repo metadata (commits, and ACLs)
 	if !a.isAdmin(user.Username) && resp.ACL.Entries[user.Username] < authclient.Scope_READER {
@@ -704,6 +729,16 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 	user, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	// Check if the cluster's enterprise token is expired (fail if so)
+	state, err := a.getEnterpriseTokenState()
+	if err != nil {
+		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %s", err.Error())
+	}
+	if state != enterpriseclient.State_ACTIVE && !a.isAdmin(user.Username) {
+		return nil, fmt.Errorf("Pachyderm Enterprise is not active in this " +
+			"cluster (only a cluster admin can perform any operations)")
 	}
 
 	// Read repo ACL from etcd

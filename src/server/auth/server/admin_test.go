@@ -406,14 +406,19 @@ func TestPreActivationPipelinesRunAsAdmin(t *testing.T) {
 	require.NoError(t, err)
 
 	// re-authenticate, as old tokens were deleted
-	for i, client := range []*client.APIClient{adminClient, aliceClient} {
-		resp, err := client.Authenticate(context.Background(),
-			&auth.AuthenticateRequest{
-				GithubUsername: []string{"admin", alice}[i],
-			})
-		require.NoError(t, err)
-		client.SetAuthToken(resp.PachToken)
-	}
+	require.NoError(t, backoff.Retry(func() error {
+		for i, client := range []*client.APIClient{adminClient, aliceClient} {
+			resp, err := client.Authenticate(context.Background(),
+				&auth.AuthenticateRequest{
+					GithubUsername: []string{"admin", alice}[i],
+				})
+			if err != nil {
+				return err
+			}
+			client.SetAuthToken(resp.PachToken)
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 
 	// Make sure alice cannot read the input repo (i.e. if the pipeline runs as
 	// alice, it will fail)
@@ -449,7 +454,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, "admin")
 
 	// alice creates a repo
-	repo := uniqueString("TestPreActivationPipelinesRunAsAdmin")
+	repo := uniqueString("TestExpirationRepoOnlyAccessibleToAdmins")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 
 	// alice creates a commit
@@ -516,7 +521,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, acl(alice, "owner", "carol", "reader"),
-		GetACL(t, aliceClient, repo)) // check that ACL was updated
+		GetACL(t, adminClient, repo)) // check that ACL was updated
 
 	// admin can re-authenticate
 	resp, err := adminClient.Authenticate(context.Background(),
@@ -560,7 +565,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, acl(alice, "owner", "carol", "writer"),
-		GetACL(t, aliceClient, repo)) // check that ACL was updated
+		GetACL(t, adminClient, repo)) // check that ACL was updated
 }
 
 func TestPipelinesRunAfterExpiration(t *testing.T) {
@@ -630,4 +635,100 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 		_, err := iter.Next()
 		return err
 	})
+}
+
+func TestGetSetScopeAclWithExpiredToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	alice := uniqueString("alice")
+	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, "admin")
+
+	// alice creates a repo
+	repo := uniqueString("TestPipelinesRunAfterExpiration")
+	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.Equal(t, acl(alice, "owner"), GetACL(t, aliceClient, repo))
+
+	// Make current enterprise token expire
+	adminClient.Enterprise.Activate(adminClient.Ctx(),
+		&enterprise.ActivateRequest{
+			ActivationCode: testActivationCode,
+			Expires:        TSProtoOrDie(t, time.Now().Add(-30*time.Second)),
+		})
+
+	// alice can't call GetScope on repo, even though she owns it
+	_, err := aliceClient.GetScope(aliceClient.Ctx(), &auth.GetScopeRequest{
+		Repos: []string{repo},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "not active", err.Error())
+
+	// alice can't call SetScope on repo
+	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
+		Repo:     repo,
+		Username: "carol",
+		Scope:    auth.Scope_READER,
+	})
+	require.YesError(t, err)
+	require.Matches(t, "not active", err.Error())
+	require.Equal(t, acl(alice, "owner"), GetACL(t, adminClient, repo))
+
+	// alice can't call GetAcl on repo
+	_, err = aliceClient.GetACL(aliceClient.Ctx(), &auth.GetACLRequest{
+		Repo: repo,
+	})
+	require.YesError(t, err)
+	require.Matches(t, "not active", err.Error())
+
+	// alice can't call GetAcl on repo
+	_, err = aliceClient.SetACL(aliceClient.Ctx(), &auth.SetACLRequest{
+		Repo: repo,
+		NewACL: &auth.ACL{
+			Entries: map[string]auth.Scope{
+				alice:   auth.Scope_OWNER,
+				"carol": auth.Scope_READER,
+			},
+		},
+	})
+	require.YesError(t, err)
+	require.Matches(t, "not active", err.Error())
+	require.Equal(t, acl(alice, "owner"), GetACL(t, adminClient, repo))
+
+	// admin *can* call GetScope on repo
+	resp, err := adminClient.GetScope(adminClient.Ctx(), &auth.GetScopeRequest{
+		Repos: []string{repo},
+	})
+	require.NoError(t, err)
+	require.Equal(t, []auth.Scope{auth.Scope_NONE}, resp.Scopes)
+
+	// admin can call SetScope on repo
+	_, err = adminClient.SetScope(adminClient.Ctx(), &auth.SetScopeRequest{
+		Repo:     repo,
+		Username: "carol",
+		Scope:    auth.Scope_READER,
+	})
+	require.NoError(t, err)
+	require.Equal(t, acl(alice, "owner", "carol", "reader"),
+		GetACL(t, adminClient, repo))
+
+	// admin can call GetAcl on repo
+	aclResp, err := adminClient.GetACL(adminClient.Ctx(), &auth.GetACLRequest{
+		Repo: repo,
+	})
+	require.NoError(t, err)
+	require.Equal(t, acl(alice, "owner", "carol", "reader"), aclResp.ACL)
+
+	// admin can call GetAcl on repo
+	_, err = adminClient.SetACL(adminClient.Ctx(), &auth.SetACLRequest{
+		Repo: repo,
+		NewACL: &auth.ACL{
+			Entries: map[string]auth.Scope{
+				alice:   auth.Scope_OWNER,
+				"carol": auth.Scope_WRITER,
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, acl(alice, "owner", "carol", "writer"),
+		GetACL(t, adminClient, repo))
 }
