@@ -4761,9 +4761,16 @@ func TestListJobOutput(t *testing.T) {
 	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 1, len(commitInfos))
 
-	jobInfos, err := c.ListJob("", nil, commitInfos[0].Commit)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
+	require.NoError(t, backoff.Retry(func() error {
+		jobInfos, err := c.ListJob("", nil, commitInfos[0].Commit)
+		if err != nil {
+			return err
+		}
+		if len(jobInfos) != 1 {
+			return fmt.Errorf("expected 1 job")
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
