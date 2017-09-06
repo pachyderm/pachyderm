@@ -1,14 +1,20 @@
-## ./pachctl get-object
+## ./pachctl update-repo
 
-Return the contents of an object
+Update a repo.
 
 ### Synopsis
 
 
-Return the contents of an object
+Update a repo.
 
 ```
-./pachctl get-object hash
+./pachctl update-repo repo-name
+```
+
+### Options
+
+```
+  -d, --description string   A description of the repo.
 ```
 
 ### Options inherited from parent commands
