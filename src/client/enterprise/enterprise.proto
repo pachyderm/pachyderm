@@ -5,10 +5,12 @@ import "google/protobuf/timestamp.proto";
 
 // Enterprise data structures
 
-// EnterpriseRecord is the record we store of a Pachyderm enterprise token
-// that has been provided to a Pachyderm cluster
+// EnterpriseRecord is the record we store in etcd for a Pachyderm enterprise
+// token that has been provided to a Pachyderm cluster
 message EnterpriseRecord {
   string activation_code = 1;
+
+  // expires is a timestamp indicating when this activation code will expire.
   google.protobuf.Timestamp expires = 2;
 }
 
@@ -18,6 +20,12 @@ message ActivateRequest {
   // activation_code is a Pachyderm enterprise activation code. New users can
   // obtain trial activation codes
   string activation_code = 1;
+
+  // expires is a timestamp indicating when this activation code will expire.
+  // This should not generally be set (it's primarily used for testing), and is
+  // only applied if it's earlier than the signed expiration time in
+  // 'activation_code'.
+  google.protobuf.Timestamp expires = 2;
 }
 message ActivateResponse {}
 
