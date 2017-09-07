@@ -4812,6 +4812,69 @@ func TestPipelineEnvVarAlias(t *testing.T) {
 	}
 }
 
+func TestMaxQueueSize(t *testing.T) {
+	t.Skip("flaky")
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestMaxQueueSize_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	for i := 0; i < 20; i++ {
+		_, err = c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file%d", i), strings.NewReader("foo"))
+		require.NoError(t, err)
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	pipeline := uniqueString("pipeline")
+	// This pipeline sleeps for 10 secs per datum
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					"sleep 10",
+				},
+			},
+			Input: client.NewAtomInput(dataRepo, "/*"),
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 2,
+			},
+			MaxQueueSize: 1,
+		})
+	require.NoError(t, err)
+	// Get job info 2x/sec for 20s until we confirm two workers for the current job
+	require.NoError(t, backoff.Retry(func() error {
+		jobs, err := c.ListJob(pipeline, nil)
+		if err != nil {
+			return fmt.Errorf("could not list job: %s", err.Error())
+		}
+		if len(jobs) == 0 {
+			return fmt.Errorf("failed to find job")
+		}
+		jobInfo, err := c.InspectJob(jobs[0].Job.ID, false)
+		if err != nil {
+			return fmt.Errorf("could not inspect job: %s", err.Error())
+		}
+		if len(jobInfo.WorkerStatus) != 2 {
+			return fmt.Errorf("incorrect number of statuses: %v", len(jobInfo.WorkerStatus))
+		}
+		for _, status := range jobInfo.WorkerStatus {
+			if status.QueueSize > 1 {
+				return fmt.Errorf("queue size too big")
+			}
+		}
+		return nil
+	}, backoff.RetryEvery(500*time.Millisecond).For(20*time.Second)))
+}
+
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
 	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
 	require.NoError(t, err)

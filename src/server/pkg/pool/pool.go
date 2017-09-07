@@ -117,8 +117,8 @@ func (p *Pool) Do(ctx context.Context, f func(cc *grpc.ClientConn) error) error 
 					// we're not beating
 					break
 				} else {
-					mapCountCount := atomic.LoadInt64(&mapConn.count)
-					if mapCountCount < p.queueSize && (conn == nil || mapCountCount < atomic.LoadInt64(&conn.count)) {
+					mapConnCount := atomic.LoadInt64(&mapConn.count)
+					if mapConnCount < p.queueSize && (conn == nil || mapConnCount < atomic.LoadInt64(&conn.count)) {
 						conn = mapConn
 					}
 				}
@@ -134,6 +134,7 @@ func (p *Pool) Do(ctx context.Context, f func(cc *grpc.ClientConn) error) error 
 	}(); err != nil {
 		return err
 	}
+	defer p.connsCond.Broadcast()
 	defer atomic.AddInt64(&conn.count, -1)
 	return f(conn.cc)
 }
