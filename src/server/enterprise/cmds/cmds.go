@@ -38,7 +38,7 @@ func ActivateCmd() *cobra.Command {
 				}
 				req.Expires, err = types.TimestampProto(t)
 				if err != nil {
-					return fmt.Errorf("error convertin expiration time of \"%s\"; %s", t.String(), err.Error())
+					return fmt.Errorf("error converting expiration time \"%s\"; %s", t.String(), err.Error())
 				}
 			}
 			_, err = c.Enterprise.Activate(c.Ctx(), req)
