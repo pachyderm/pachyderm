@@ -21,4 +21,4 @@ $ cd images
 $ pachctl put-file images master -c -f airplane.jpg
 ```
 
-![alt text](detected_airplane.png)
+![alt text](detected_airplane.jpg)
