@@ -13,6 +13,7 @@ func (e ErrNotFound) Error() string {
 	return fmt.Sprintf("%s %s not found", e.Type, e.Key)
 }
 
+// IsErrNotFound determines if an error is an ErrNotFound error
 func IsErrNotFound(e error) bool {
 	_, ok := e.(ErrNotFound)
 	return ok
@@ -29,6 +30,7 @@ func (e ErrExists) Error() string {
 	return fmt.Sprintf("%s %s already exists", e.Type, e.Key)
 }
 
+// IsErrExists determines if an error is an ErrExists error
 func IsErrExists(e error) bool {
 	_, ok := e.(ErrExists)
 	return ok
@@ -46,6 +48,7 @@ func (e ErrMalformedValue) Error() string {
 	return fmt.Sprintf("malformed value at %s/%s: %s", e.Type, e.Key, e.Val)
 }
 
+// IsErrMalformedValue determines if an error is an ErrMalformedValue error
 func IsErrMalformedValue(e error) bool {
 	_, ok := e.(ErrMalformedValue)
 	return ok
