@@ -4508,6 +4508,7 @@ func TestSkippedDatums(t *testing.T) {
 }
 
 func TestOpencvDemo(t *testing.T) {
+	t.Skip("flaky")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
