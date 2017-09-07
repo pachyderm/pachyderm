@@ -47,7 +47,7 @@ func ActivateCmd() *cobra.Command {
 	}
 	activate.PersistentFlags().StringVar(&expires, "expires", "", "A timestamp "+
 		"indicating when the token provided above should expire (formatted as an "+
-		"RFC 3339/ISO 8601 timestamp). This is only applied if it's earlier than "+
+		"RFC 3339/ISO 8601 datetime). This is only applied if it's earlier than "+
 		"the signed expiration time encoded in 'activation-code', and therefore "+
 		"is only useful for testing.")
 	return activate
