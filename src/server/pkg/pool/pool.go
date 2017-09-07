@@ -25,14 +25,16 @@ type connCount struct {
 type Pool struct {
 	conns          map[string]*connCount
 	connsLock      sync.Mutex
+	connsCond      *sync.Cond
 	endpointsWatch watch.Interface
 	opts           []grpc.DialOption
 	done           chan struct{}
+	queueSize      int
 }
 
 // NewPool creates a new connection pool with connections to pods in the
 // given service.
-func NewPool(kubeClient *kube.Client, namespace string, serviceName string, opts ...grpc.DialOption) (*Pool, error) {
+func NewPool(kubeClient *kube.Client, namespace string, serviceName string, queueSize int, opts ...grpc.DialOption) (*Pool, error) {
 	endpointsInterface := kubeClient.Endpoints(namespace)
 
 	watch, err := endpointsInterface.Watch(api.ListOptions{
@@ -49,7 +51,9 @@ func NewPool(kubeClient *kube.Client, namespace string, serviceName string, opts
 		endpointsWatch: watch,
 		opts:           opts,
 		done:           make(chan struct{}),
+		queueSize:      queueSize,
 	}
+	pool.connsCond = sync.NewCond(&pool.connsLock)
 	go pool.watchEndpoints()
 	return pool, nil
 }
@@ -90,6 +94,7 @@ func (p *Pool) updateAddresses(endpoints *api.Endpoints) {
 		}
 	}
 	p.conns = addresses
+	p.connsCond.Broadcast()
 }
 
 // Do allows you to do something with a grpc.ClientConn.
@@ -99,27 +104,32 @@ func (p *Pool) Do(ctx context.Context, f func(cc *grpc.ClientConn) error) error 
 	if err := func() error {
 		p.connsLock.Lock()
 		defer p.connsLock.Unlock()
-		for addr, mapConn := range p.conns {
-			if mapConn.cc == nil {
-				cc, err := grpc.DialContext(ctx, addr, p.opts...)
-				if err != nil {
-					return err
-				}
-				mapConn.cc = cc
-				conn = mapConn
-				// We break because this conn has a count of 0 which we know
-				// we're not beating
-				break
-			} else {
-				if conn == nil || atomic.LoadInt64(&mapConn.count) < atomic.LoadInt64(&conn.count) {
+		for {
+			for addr, mapConn := range p.conns {
+				if mapConn.cc == nil {
+					cc, err := grpc.DialContext(ctx, addr, p.opts...)
+					if err != nil {
+						return err
+					}
+					mapConn.cc = cc
 					conn = mapConn
+					// We break because this conn has a count of 0 which we know
+					// we're not beating
+					break
+				} else {
+					mapCountCount := atomic.LoadInt64(&mapConn.count)
+					if mapCountCount < int64(p.queueSize) && (conn == nil || mapCountCount < atomic.LoadInt64(&conn.count)) {
+						conn = mapConn
+					}
 				}
 			}
+			if conn == nil {
+				p.connsCond.Wait()
+			} else {
+				atomic.AddInt64(&conn.count, 1)
+				break
+			}
 		}
-		if conn == nil {
-			return fmt.Errorf("no endpoints found")
-		}
-		atomic.AddInt64(&conn.count, 1)
 		return nil
 	}(); err != nil {
 		return err
