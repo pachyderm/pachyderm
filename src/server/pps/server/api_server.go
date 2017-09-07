@@ -1182,6 +1182,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		EnableStats:        request.EnableStats,
 		Salt:               uuid.NewWithoutDashes(),
 		Batch:              request.Batch,
+		MaxQueueSize:       request.MaxQueueSize,
 	}
 	setPipelineDefaults(pipelineInfo)
 	var visitErr error
@@ -1391,6 +1392,9 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 		pipelineInfo.ResourceSpec = &pps.ResourceSpec{
 			Memory: pipelineInfo.CacheSize,
 		}
+	}
+	if pipelineInfo.MaxQueueSize == 0 {
+		pipelineInfo.MaxQueueSize = 10
 	}
 }
 
