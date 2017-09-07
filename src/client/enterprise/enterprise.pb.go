@@ -95,9 +95,9 @@ type ActivateRequest struct {
 	// obtain trial activation codes
 	ActivationCode string `protobuf:"bytes,1,opt,name=activation_code,json=activationCode,proto3" json:"activation_code,omitempty"`
 	// expires is a timestamp indicating when this activation code will expire.
-	// Note that this should not generally be set (it's primarily used for
-	// testing), and is only applied if it's earlier than the signed expiration
-	// time in 'activation_code'.
+	// This should not generally be set (it's primarily used for testing), and is
+	// only applied if it's earlier than the signed expiration time in
+	// 'activation_code'.
 	Expires *google_protobuf.Timestamp `protobuf:"bytes,2,opt,name=expires" json:"expires,omitempty"`
 }
 

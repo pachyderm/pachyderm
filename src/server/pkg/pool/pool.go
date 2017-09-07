@@ -29,12 +29,12 @@ type Pool struct {
 	endpointsWatch watch.Interface
 	opts           []grpc.DialOption
 	done           chan struct{}
-	queueSize      int
+	queueSize      int64
 }
 
 // NewPool creates a new connection pool with connections to pods in the
 // given service.
-func NewPool(kubeClient *kube.Client, namespace string, serviceName string, queueSize int, opts ...grpc.DialOption) (*Pool, error) {
+func NewPool(kubeClient *kube.Client, namespace string, serviceName string, queueSize int64, opts ...grpc.DialOption) (*Pool, error) {
 	endpointsInterface := kubeClient.Endpoints(namespace)
 
 	watch, err := endpointsInterface.Watch(api.ListOptions{
@@ -118,7 +118,7 @@ func (p *Pool) Do(ctx context.Context, f func(cc *grpc.ClientConn) error) error 
 					break
 				} else {
 					mapCountCount := atomic.LoadInt64(&mapConn.count)
-					if mapCountCount < int64(p.queueSize) && (conn == nil || mapCountCount < atomic.LoadInt64(&conn.count)) {
+					if mapCountCount < p.queueSize && (conn == nil || mapCountCount < atomic.LoadInt64(&conn.count)) {
 						conn = mapConn
 					}
 				}

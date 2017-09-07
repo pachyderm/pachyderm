@@ -42,9 +42,6 @@ const (
 
 	masterLockPath = "_master_worker_lock"
 
-	// The number of datums that will be enqueued on each worker.
-	queueSize = 10
-
 	// The number of datums the master caches
 	numCachedDatums = 1000000
 )
@@ -114,7 +111,7 @@ func (a *APIServer) master() {
 // jobSpawner spawns jobs
 func (a *APIServer) jobSpawner(ctx context.Context, logger *taggedLogger) error {
 	// Establish connection pool
-	pool, err := pool.NewPool(a.kubeClient, a.namespace, ppsserver.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version), queueSize, client.PachDialOptions()...)
+	pool, err := pool.NewPool(a.kubeClient, a.namespace, ppsserver.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version), a.pipelineInfo.MaxQueueSize, client.PachDialOptions()...)
 	if err != nil {
 		return fmt.Errorf("master: error constructing worker pool: %v; retrying in %v", err)
 	}
@@ -400,7 +397,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 
 		failed := false
 		var failedDatumID string
-		limiter := limit.New(a.numWorkers * queueSize)
+		limiter := limit.New(a.numWorkers * int(a.pipelineInfo.MaxQueueSize))
 		// process all datums
 		df, err := NewDatumFactory(ctx, pfsClient, jobInfo.Input)
 		if err != nil {
