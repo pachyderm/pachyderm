@@ -16,6 +16,13 @@ message EnterpriseRecord {
 
 //// Enterprise Activation API
 
+// TokenInfo contains information about the currently active enterprise token
+message TokenInfo {
+  // expires indicates when the current token expires (unset if there is no
+  // current token)
+  google.protobuf.Timestamp expires = 1;
+}
+
 message ActivateRequest {
   // activation_code is a Pachyderm enterprise activation code. New users can
   // obtain trial activation codes
@@ -27,7 +34,9 @@ message ActivateRequest {
   // 'activation_code'.
   google.protobuf.Timestamp expires = 2;
 }
-message ActivateResponse {}
+message ActivateResponse {
+  TokenInfo info = 1;
+}
 
 message GetStateRequest {}
 
@@ -39,6 +48,7 @@ enum State {
 
 message GetStateResponse {
   State state = 1;
+  TokenInfo info = 2;
 }
 
 service API {
