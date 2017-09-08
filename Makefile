@@ -259,7 +259,7 @@ launch-dev: check-kubectl check-kubectl-connection install
 	pachctl deploy local -d --dry-run | kubectl $(KUBECTLFLAGS) create -f -
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
-	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"	
+	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 clean-launch: check-kubectl
 	pachctl deploy local --dry-run | kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f -
@@ -323,7 +323,7 @@ pretest:
 
 #test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build docker-build-netcat clean-launch-dev launch-dev integration-tests example-tests
 
-local-test: docker-build launch-dev test-pfs test-hashtree clean-launch-dev 
+local-test: docker-build launch-dev test-pfs test-hashtree clean-launch-dev
 
 test: docker-build clean-launch-dev launch-dev test-pfs test-pps test-hashtree test-auth test-enterprise
 
@@ -480,6 +480,11 @@ lint:
 			echo "golint errors!" && echo && exit 1; \
 		fi; \
 	done;
+
+lint-all:
+	@go get -u gopkg.in/alecthomas/gometalinter.v1
+	@gometalinter.v1 --install --update
+	@gometalinter.v1 --exclude='\.pb\.go' --vendor --deadline 360s --enable-gc ./...
 
 vet:
 	@etc/testing/vet.sh
