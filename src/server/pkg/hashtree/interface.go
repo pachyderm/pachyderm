@@ -69,7 +69,7 @@ type HashTree interface {
 	// Walk calls a given function against every node in the hash tree.
 	// The order of traversal is not guaranteed.  If any invocation of the
 	// function returns an error, the walk stops and returns the error.
-	Walk(func(path string, node *NodeProto) error) error
+	Walk(path string, f func(path string, node *NodeProto) error) error
 
 	// Diff returns a the diff of 2 HashTrees at particular Paths. It takes a
 	// callback function f, which will be called with paths that are not

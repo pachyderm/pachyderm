@@ -269,7 +269,7 @@ func (p *Puller) PullDiff(client *pachclient.APIClient, root string, newRepo, ne
 func (p *Puller) PullTree(client *pachclient.APIClient, root string, tree hashtree.HashTree, pipes bool, concurrency int) error {
 	limiter := limit.New(concurrency)
 	var eg errgroup.Group
-	if err := tree.Walk(func(path string, node *hashtree.NodeProto) error {
+	if err := tree.Walk("", func(path string, node *hashtree.NodeProto) error {
 		if node.FileNode != nil {
 			path := filepath.Join(root, path)
 			var hashes []string

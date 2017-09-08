@@ -1511,6 +1511,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 }
 
 func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File) error {
+	fmt.Println("copyFile")
 	if err := d.checkIsAuthorized(ctx, src.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
@@ -1536,9 +1537,13 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File) err
 	if err != nil {
 		return err
 	}
+	// This is necessary so we can call filepath.Rel below
+	if !strings.HasPrefix(src.Path, "/") {
+		src.Path = "/" + src.Path
+	}
 	var eg errgroup.Group
-	if err := srcTree.Walk(func(walkPath string, node *hashtree.NodeProto) error {
-		if node.FileNode == nil || !strings.HasPrefix(walkPath, src.Path) {
+	if err := srcTree.Walk(src.Path, func(walkPath string, node *hashtree.NodeProto) error {
+		if node.FileNode == nil {
 			return nil
 		}
 		eg.Go(func() error {
@@ -1548,7 +1553,7 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File) err
 				return fmt.Errorf("error from filepath.Rel: %+v (this is likely a bug)", err)
 			}
 			records := &PutFileRecords{}
-			file := client.NewFile(dst.Commit.Repo.Name, dst.Commit.ID, path.Join(dst.Path, relPath))
+			file := client.NewFile(dst.Commit.Repo.Name, dst.Commit.ID, path.Clean(path.Join(dst.Path, relPath)))
 			prefix, err := d.scratchFilePrefix(ctx, file)
 			if err != nil {
 				return err
@@ -1563,13 +1568,11 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File) err
 					ObjectHash: object.Hash,
 				})
 			}
-
 			marshalledRecords, err := records.Marshal()
 			if err != nil {
 				return err
 			}
 			kvc := etcd.NewKV(d.etcdClient)
-
 			txnResp, err := kvc.Txn(ctx).
 				If(etcd.Compare(etcd.CreateRevision(d.openCommits.Path(file.Commit.ID)), ">", 0)).Then(etcd.OpPut(path.Join(prefix, uuid.NewWithoutDashes()), string(marshalledRecords))).Commit()
 			if err != nil {
