@@ -218,8 +218,6 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 	}
 
 	d.initializePachConn()
-	var whoAmI *auth.WhoAmIResponse
-	var authErr error
 	if update {
 		// Caller only neads to be a WRITER to call UpdatePipeline(). Therefore
 		// caller only needs to be a WRITER to update the provenance.
@@ -231,10 +229,22 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 		// request. However, don't create the ACL until the repo has been created
 		// successfully, because a repo w/ no ACL can be fixed by a cluster admin.
 		// note that 'whoAmI' and 'authErr' are set iff 'update' == false.
-		whoAmI, authErr = d.pachClient.AuthAPIClient.WhoAmI(auth.In2Out(ctx),
+		whoAmI, err := d.pachClient.AuthAPIClient.WhoAmI(auth.In2Out(ctx),
 			&auth.WhoAmIRequest{})
-		if authErr != nil && !auth.IsNotActivatedError(authErr) {
-			return fmt.Errorf("authorization error while creating repo \"%s\": %s", repo.Name, authErr.Error())
+		if err != nil {
+			if !auth.IsNotActivatedError(err) {
+				return fmt.Errorf("authorization error while creating repo \"%s\": %s", repo.Name, err.Error())
+			}
+		} else {
+			// auth is active, and user is logged in. Make user an owner of the new repo
+			_, err := d.pachClient.AuthAPIClient.SetScope(auth.In2Out(ctx), &auth.SetScopeRequest{
+				Repo:     repo.Name,
+				Username: whoAmI.Username,
+				Scope:    auth.Scope_OWNER,
+			})
+			if err != nil {
+				return fmt.Errorf("could not create ACL for new repo \"%s\": %s", repo.Name, err.Error())
+			}
 		}
 	}
 
@@ -357,18 +367,6 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 	})
 	if err != nil {
 		return err
-	}
-	if !update && authErr == nil {
-		// auth is active, and user is logged in. User is an owner of the new repo
-		_, err := d.pachClient.AuthAPIClient.SetScope(auth.In2Out(ctx), &auth.SetScopeRequest{
-			Repo:     repo.Name,
-			Username: whoAmI.Username,
-			Scope:    auth.Scope_OWNER,
-		})
-		if err != nil {
-			return fmt.Errorf("repo created successfully, but could not create ACL " +
-				"for new repo (a cluster admin can create ACL for you): " + err.Error())
-		}
 	}
 	return nil
 }

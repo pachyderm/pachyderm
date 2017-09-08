@@ -15,7 +15,8 @@ type workerOptions struct {
 	rcName string // Name of the replication controller managing workers
 
 	userImage    string            // The user's pipeline/job image
-	labels       map[string]string // k8s labels attached to the Deployment and workers
+	labels       map[string]string // k8s labels attached to the RC and workers
+	annotations  map[string]string // k8s annotations attached to the RC and workers
 	parallelism  int32             // Number of replicas the RC maintains
 	cacheSize    string            // Size of cache that sidecar uses
 	resources    *api.ResourceList // Resources requested by pipeline/job pods
@@ -121,7 +122,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 	return podSpec
 }
 
-func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, resources *api.ResourceList, transform *pps.Transform, cacheSize string) *workerOptions {
+func (a *apiServer) getWorkerOptions(pipelineName string, rcName string, parallelism int32, resources *api.ResourceList, transform *pps.Transform, cacheSize string) *workerOptions {
 	labels := labels(rcName)
 	userImage := transform.Image
 	if userImage == "" {
@@ -245,6 +246,7 @@ func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, resources
 	return &workerOptions{
 		rcName:           rcName,
 		labels:           labels,
+		annotations:      map[string]string{"pipelineName": pipelineName},
 		parallelism:      int32(parallelism),
 		resources:        resources,
 		userImage:        userImage,
@@ -263,16 +265,18 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name:   options.rcName,
-			Labels: options.labels,
+			Name:        options.rcName,
+			Labels:      options.labels,
+			Annotations: options.annotations,
 		},
 		Spec: api.ReplicationControllerSpec{
 			Selector: options.labels,
 			Replicas: options.parallelism,
 			Template: &api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
-					Name:   options.rcName,
-					Labels: options.labels,
+					Name:        options.rcName,
+					Labels:      options.labels,
+					Annotations: options.annotations,
 				},
 				Spec: a.workerPodSpec(options),
 			},
