@@ -332,7 +332,7 @@ test-pfs:
 	go test ./src/server/pfs/server -timeout $(TIMEOUT)
 
 test-pps:
-	go test -v ./src/server -timeout $(TIMEOUT)
+	go test -v ./src/server -parallel 1 -timeout $(TIMEOUT)
 
 test-hashtree:
 	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
