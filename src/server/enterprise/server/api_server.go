@@ -110,26 +110,20 @@ func (a *apiServer) watchEnterpriseToken(etcdPrefix string) {
 			}
 
 			// Parse event data and potentially update adminCache
-			var key string
-			var record ec.EnterpriseRecord
-			ev.Unmarshal(&key, &record)
-			expiration, err := types.TimestampFromProto(record.Expires)
-			if err != nil {
-				return fmt.Errorf("could not parse expiration timestamp: %s", err.Error())
-			}
 			switch ev.Type {
 			case watch.EventPut:
+				var key string
+				var record ec.EnterpriseRecord
+				ev.Unmarshal(&key, &record)
+				expiration, err := types.TimestampFromProto(record.Expires)
+				if err != nil {
+					return fmt.Errorf("could not parse expiration timestamp: %s", err.Error())
+				}
 				a.enterpriseExpiration.Store(expiration)
 			case watch.EventDelete:
-				cachedExpiration, ok := a.enterpriseExpiration.Load().(time.Time)
-				if !ok {
-					return errors.New("could not retrieve cached expiration time")
-				}
-				if expiration == cachedExpiration {
-					// unexpected, but we'll dutifully unset the expiration time if it
-					// does
-					a.enterpriseExpiration.Store(time.Time{})
-				}
+				// This should only occur if the etcd value is deleted via the etcd API,
+				// but that does occur during testing
+				a.enterpriseExpiration.Store(time.Time{})
 			case watch.EventError:
 				return ev.Err
 			}
