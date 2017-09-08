@@ -334,7 +334,7 @@ test-pfs:
 	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
 
 test-pps:
-	go test -v ./src/server -timeout $(TIMEOUT)
+	go test -v ./src/server -parallel 1 -timeout $(TIMEOUT)
 
 test-client:
 	rm -rf src/client/vendor
