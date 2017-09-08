@@ -424,6 +424,15 @@ func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, reques
 	return put(ctx, request.File.Path, object)
 }
 
+func (a *apiServer) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	if err := a.driver.copyFile(ctx, request.Src, request.Dst); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) (retErr error) {
 	ctx := apiGetFileServer.Context()
 	func() { a.Log(request, nil, nil, 0) }()
