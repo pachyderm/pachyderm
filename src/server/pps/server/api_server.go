@@ -837,6 +837,13 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		if err != nil {
 			return fmt.Errorf("could not get job information for %s: %s", request.Job.ID, err.Error())
 		}
+
+		// If the job had stats enabled, we use the logs from the stats
+		// commit since that's likely to yield better results.
+		if jobInfo.StatsCommit != nil {
+			return a.getLogsFromStats(ctx, request, apiGetLogsServer, jobInfo.StatsCommit)
+		}
+
 		rcName, err = a.lookupRcNameForPipeline(ctx, jobInfo.Pipeline)
 		if err != nil {
 			return err
@@ -954,6 +961,63 @@ nextLogCh:
 	default:
 	}
 	return nil
+}
+
+func (a *apiServer) getLogsFromStats(ctx context.Context, request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer, statsCommit *pfs.Commit) error {
+	pachClient, err := a.getPachClient()
+	if err != nil {
+		return err
+	}
+	pfsClient := pachClient.PfsAPIClient
+
+	fileInfos, err := pfsClient.GlobFile(ctx, &pfs.GlobFileRequest{
+		Commit:  statsCommit,
+		Pattern: "*/logs", // this is the path where logs reside
+	})
+
+	limiter := limit.New(20)
+	var eg errgroup.Group
+	for _, fileInfo := range fileInfos.FileInfo {
+		fileInfo := fileInfo
+		eg.Go(func() error {
+			limiter.Acquire()
+			defer limiter.Release()
+			var buf bytes.Buffer
+			if err := pachClient.WithCtx(ctx).GetFile(fileInfo.File.Commit.Repo.Name, fileInfo.File.Commit.ID, fileInfo.File.Path, 0, 0, &buf); err != nil {
+				return err
+			}
+			// Parse pods' log lines, and filter out irrelevant ones
+			scanner := bufio.NewScanner(&buf)
+			for scanner.Scan() {
+				logBytes := scanner.Bytes()
+				msg := new(pps.LogMessage)
+				if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
+					continue
+				}
+				if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
+					continue
+				}
+				if request.Job != nil && request.Job.ID != msg.JobID {
+					continue
+				}
+				if request.Datum != nil && request.Datum.ID != msg.DatumID {
+					continue
+				}
+				if request.Master != msg.Master {
+					continue
+				}
+				if !workerpkg.MatchDatum(request.DataFilters, msg.Data) {
+					continue
+				}
+
+				if err := apiGetLogsServer.Send(msg); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+	return eg.Wait()
 }
 
 func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {

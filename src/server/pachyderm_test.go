@@ -2708,6 +2708,14 @@ func TestStopJob(t *testing.T) {
 }
 
 func TestGetLogs(t *testing.T) {
+	testGetLogs(t, false)
+}
+
+func TestGetLogsWithStats(t *testing.T) {
+	testGetLogs(t, true)
+}
+
+func testGetLogs(t *testing.T, enableStats bool) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2719,22 +2727,24 @@ func TestGetLogs(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 	// create pipeline
 	pipelineName := uniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
-		pipelineName,
-		"",
-		[]string{"sh"},
-		[]string{
-			fmt.Sprintf("cp /pfs/%s/file /pfs/out/file", dataRepo),
-			"echo foo",
-			"echo foo",
-		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewAtomInput(dataRepo, "/*"),
-		"",
-		false,
-	))
+	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &pps.Transform{
+				Cmd: []string{"sh"},
+				Stdin: []string{
+					fmt.Sprintf("cp /pfs/%s/file /pfs/out/file", dataRepo),
+					"echo foo",
+					"echo foo",
+				},
+			},
+			Input:       client.NewAtomInput(dataRepo, "/*"),
+			EnableStats: enableStats,
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 4,
+			},
+		})
+	require.NoError(t, err)
 
 	// Commit data to repo and flush commit
 	commit, err := c.StartCommit(dataRepo, "")
@@ -2747,11 +2757,6 @@ func TestGetLogs(t *testing.T) {
 	require.NoError(t, err)
 	_, err = commitIter.Next()
 	require.NoError(t, err)
-
-	// List output commits, to make sure one exists?
-	commits, err := c.ListCommitByRepo(pipelineName)
-	require.NoError(t, err)
-	require.True(t, len(commits) == 1)
 
 	// Get logs from pipeline, using pipeline
 	iter := c.GetLogs(pipelineName, "", nil, "", false)
