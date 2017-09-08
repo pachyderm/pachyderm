@@ -23,7 +23,7 @@ func ActivateCmd() *cobra.Command {
 		Use:   "activate --admins=[admins...]",
 		Short: "Activate Pachyderm's auth system",
 		Long:  "Activate Pachyderm's auth system, and restrict access to existing data to cluster admins",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.Run(func(args []string) error {
 			if len(admins) == 0 {
 				return fmt.Errorf("must specify at least one cluster admin to enable " +
 					"auth")

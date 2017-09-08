@@ -2,7 +2,9 @@ package cmds
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
@@ -15,6 +17,7 @@ import (
 // publicly-accessible to accessible only by the owner, who can subsequently add
 // users
 func ActivateCmd() *cobra.Command {
+	var expires string
 	activate := &cobra.Command{
 		Use: "activate activation-code",
 		Short: "Activate the enterprise features of Pachyderm with an activation " +
@@ -22,16 +25,31 @@ func ActivateCmd() *cobra.Command {
 		Long: "Activate the enterprise features of Pachyderm with an activation " +
 			"code",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			activationCode := args[0]
 			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %s", err.Error())
 			}
-			_, err = c.Enterprise.Activate(c.Ctx(),
-				&enterprise.ActivateRequest{ActivationCode: activationCode})
+			req := &enterprise.ActivateRequest{}
+			req.ActivationCode = args[0]
+			if expires != "" {
+				t, err := time.Parse(time.RFC3339, expires)
+				if err != nil {
+					return fmt.Errorf("could not parse the timestamp \"%s\": %s", expires, err.Error())
+				}
+				req.Expires, err = types.TimestampProto(t)
+				if err != nil {
+					return fmt.Errorf("error converting expiration time \"%s\"; %s", t.String(), err.Error())
+				}
+			}
+			_, err = c.Enterprise.Activate(c.Ctx(), req)
 			return err
 		}),
 	}
+	activate.PersistentFlags().StringVar(&expires, "expires", "", "A timestamp "+
+		"indicating when the token provided above should expire (formatted as an "+
+		"RFC 3339/ISO 8601 datetime). This is only applied if it's earlier than "+
+		"the signed expiration time encoded in 'activation-code', and therefore "+
+		"is only useful for testing.")
 	return activate
 }
 
