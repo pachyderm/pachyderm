@@ -239,6 +239,7 @@ message PutFileRequest {
 message CopyFileRequest {
   File src = 1;
   File dst = 2;
+  bool overwrite = 3;
 }
 
 message InspectFileRequest {

@@ -3027,8 +3027,8 @@ func TestCopyFile(t *testing.T) {
 	require.NoError(t, c.FinishCommit(repo, "master"))
 	_, err = c.StartCommit(repo, "other")
 	require.NoError(t, err)
-	require.NoError(t, c.CopyFile(repo, "master", "files", repo, "other", "files"))
-	require.NoError(t, c.CopyFile(repo, "master", "files/0", repo, "other", "file0"))
+	require.NoError(t, c.CopyFile(repo, "master", "files", repo, "other", "files", false))
+	require.NoError(t, c.CopyFile(repo, "master", "files/0", repo, "other", "file0", false))
 	require.NoError(t, c.FinishCommit(repo, "other"))
 	for i := 0; i < numFiles; i++ {
 		var b bytes.Buffer
@@ -3037,6 +3037,12 @@ func TestCopyFile(t *testing.T) {
 	}
 	var b bytes.Buffer
 	require.NoError(t, c.GetFile(repo, "other", "file0", 0, 0, &b))
+	require.Equal(t, "foo 0\n", b.String())
+	_, err = c.StartCommit(repo, "other")
+	require.NoError(t, c.CopyFile(repo, "master", "files/0", repo, "other", "files", true))
+	require.NoError(t, c.FinishCommit(repo, "other"))
+	b.Reset()
+	require.NoError(t, c.GetFile(repo, "other", "files", 0, 0, &b))
 	require.Equal(t, "foo 0\n", b.String())
 }
 
