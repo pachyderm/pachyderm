@@ -325,14 +325,14 @@ pretest:
 
 local-test: docker-build launch-dev test-pfs test-hashtree clean-launch-dev 
 
-test: docker-build clean-launch-dev launch-dev test-pfs test-pps test-hashtree test-auth
+test: docker-build clean-launch-dev launch-dev test-pfs test-pps test-hashtree test-auth test-enterprise
 
 test-pfs:
 	@# don't run this in verbose mode, as it produces a huge amount of logs
 	go test ./src/server/pfs/server -timeout $(TIMEOUT)
 
 test-pps:
-	go test -v ./src/server -timeout $(TIMEOUT)
+	go test -v ./src/server -parallel 1 -timeout $(TIMEOUT)
 
 test-hashtree:
 	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
@@ -354,6 +354,9 @@ test-local:
 test-auth:
 	yes | pachctl delete-all
 	go test -v ./src/server/auth/server -timeout $(TIMEOUT)
+
+test-enterprise:
+	go test -v ./src/server/enterprise/server -timeout $(TIMEOUT)
 
 clean: clean-launch clean-launch-kube
 

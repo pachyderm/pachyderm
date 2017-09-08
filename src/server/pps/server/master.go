@@ -8,6 +8,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"k8s.io/kubernetes/pkg/api"
+	labelspkg "k8s.io/kubernetes/pkg/labels"
+	kube_watch "k8s.io/kubernetes/pkg/watch"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
@@ -22,6 +24,13 @@ import (
 
 const (
 	masterLockPath = "_master_lock"
+)
+
+var (
+	failures = map[string]bool{
+		"InvalidImageName": true,
+		"ErrImagePull":     true,
+	}
 )
 
 // The master process is responsible for creating/deleting workers as
@@ -46,84 +55,129 @@ func (a *apiServer) master() {
 		}
 		defer pipelineWatcher.Close()
 
+		kubePipelineWatch, err := a.kubeClient.Pods(a.namespace).Watch(api.ListOptions{
+			LabelSelector: labelspkg.SelectorFromSet(map[string]string{
+				"component": "worker",
+			}),
+			Watch: true,
+		})
+		if err != nil {
+			return err
+		}
+		defer kubePipelineWatch.Stop()
+
 		for {
-			event := <-pipelineWatcher.Watch()
-			if event.Err != nil {
-				return fmt.Errorf("event err: %+v", event.Err)
-			}
-			switch event.Type {
-			case watch.EventPut:
-				var pipelineName string
-				var pipelineInfo pps.PipelineInfo
-				if err := event.Unmarshal(&pipelineName, &pipelineInfo); err != nil {
-					return err
+			select {
+			case event := <-pipelineWatcher.Watch():
+				if event.Err != nil {
+					return fmt.Errorf("event err: %+v", event.Err)
 				}
-
-				if pipelineInfo.Salt == "" {
-					if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-						pipelines := a.pipelines.ReadWrite(stm)
-						newPipelineInfo := new(pps.PipelineInfo)
-						if err := pipelines.Get(pipelineInfo.Pipeline.Name, newPipelineInfo); err != nil {
-							return fmt.Errorf("error getting pipeline %s: %+v", pipelineName, err)
-						}
-						if newPipelineInfo.Salt == "" {
-							newPipelineInfo.Salt = uuid.NewWithoutDashes()
-						}
-						pipelines.Put(pipelineInfo.Pipeline.Name, newPipelineInfo)
-						return nil
-					}); err != nil {
+				switch event.Type {
+				case watch.EventPut:
+					var pipelineName string
+					var pipelineInfo pps.PipelineInfo
+					if err := event.Unmarshal(&pipelineName, &pipelineInfo); err != nil {
 						return err
 					}
-				}
 
-				var prevPipelineInfo pps.PipelineInfo
-				if event.PrevKey != nil {
-					if err := event.UnmarshalPrev(&pipelineName, &prevPipelineInfo); err != nil {
+					if pipelineInfo.Salt == "" {
+						if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+							pipelines := a.pipelines.ReadWrite(stm)
+							newPipelineInfo := new(pps.PipelineInfo)
+							if err := pipelines.Get(pipelineInfo.Pipeline.Name, newPipelineInfo); err != nil {
+								return fmt.Errorf("error getting pipeline %s: %+v", pipelineName, err)
+							}
+							if newPipelineInfo.Salt == "" {
+								newPipelineInfo.Salt = uuid.NewWithoutDashes()
+							}
+							pipelines.Put(pipelineInfo.Pipeline.Name, newPipelineInfo)
+							return nil
+						}); err != nil {
+							return err
+						}
+					}
+
+					var prevPipelineInfo pps.PipelineInfo
+					if event.PrevKey != nil {
+						if err := event.UnmarshalPrev(&pipelineName, &prevPipelineInfo); err != nil {
+							return err
+						}
+					}
+
+					// If the pipeline has been stopped, delete workers
+					if pipelineStateToStopped(pipelineInfo.State) {
+						log.Infof("master: deleting workers for pipeline %s", pipelineInfo.Pipeline.Name)
+						if err := a.deleteWorkersForPipeline(&pipelineInfo); err != nil {
+							return err
+						}
+					}
+
+					// If the pipeline has been restarted, create workers
+					if !pipelineStateToStopped(pipelineInfo.State) && event.PrevKey != nil && pipelineStateToStopped(prevPipelineInfo.State) {
+						if err := a.upsertWorkersForPipeline(&pipelineInfo); err != nil {
+							if err := a.setPipelineFailure(ctx, pipelineInfo.Pipeline.Name, fmt.Sprintf("failed to create workers: %s", err.Error())); err != nil {
+								return err
+							}
+							continue
+						}
+					}
+
+					// If the pipeline has been updated, create new workers
+					if pipelineInfo.Version > prevPipelineInfo.Version {
+						log.Infof("master: creating/updating workers for pipeline %s", pipelineInfo.Pipeline.Name)
+						if event.PrevKey != nil {
+							if err := a.deleteWorkersForPipeline(&prevPipelineInfo); err != nil {
+								return err
+							}
+						}
+						if err := a.upsertWorkersForPipeline(&pipelineInfo); err != nil {
+							if err := a.setPipelineFailure(ctx, pipelineInfo.Pipeline.Name, fmt.Sprintf("failed to create workers: %s", err.Error())); err != nil {
+								return err
+							}
+							continue
+						}
+					}
+				case watch.EventDelete:
+					var pipelineName string
+					var pipelineInfo pps.PipelineInfo
+					if err := event.UnmarshalPrev(&pipelineName, &pipelineInfo); err != nil {
 						return err
 					}
-				}
-
-				// If the pipeline has been stopped, delete workers
-				if pipelineStateToStopped(pipelineInfo.State) {
-					log.Infof("master: deleting workers for pipeline %s", pipelineInfo.Pipeline.Name)
 					if err := a.deleteWorkersForPipeline(&pipelineInfo); err != nil {
 						return err
 					}
 				}
-
-				// If the pipeline has been restarted, create workers
-				if !pipelineStateToStopped(pipelineInfo.State) && event.PrevKey != nil && pipelineStateToStopped(prevPipelineInfo.State) {
-					if err := a.upsertWorkersForPipeline(&pipelineInfo); err != nil {
-						if err := a.setPipelineFailure(ctx, &pipelineInfo); err != nil {
+			case event := <-kubePipelineWatch.ResultChan():
+				// if we get an error we restart the watch, k8s watches seem to
+				// sometimes get stuck in a loop returning events with Type =
+				// "" we treat these as errors since otherwise we get an
+				// endless stream of them and can't do anything.
+				if event.Type == kube_watch.Error || event.Type == "" {
+					kubePipelineWatch.Stop()
+					kubePipelineWatch, err = a.kubeClient.Pods(a.namespace).Watch(api.ListOptions{
+						LabelSelector: labelspkg.SelectorFromSet(map[string]string{
+							"component": "worker",
+						}),
+						Watch: true,
+					})
+					if err != nil {
+						return err
+					}
+					defer kubePipelineWatch.Stop()
+				}
+				pod, ok := event.Object.(*api.Pod)
+				if !ok {
+					continue
+				}
+				if pod.Status.Phase == api.PodFailed {
+					log.Errorf("pod failed because: %s", pod.Status.Message)
+				}
+				for _, status := range pod.Status.ContainerStatuses {
+					if status.Name == "user" && status.State.Waiting != nil && failures[status.State.Waiting.Reason] {
+						if err := a.setPipelineFailure(ctx, pod.ObjectMeta.Annotations["pipelineName"], status.State.Waiting.Message); err != nil {
 							return err
 						}
-						continue
 					}
-				}
-
-				// If the pipeline has been updated, create new workers
-				if pipelineInfo.Version > prevPipelineInfo.Version {
-					log.Infof("master: creating/updating workers for pipeline %s", pipelineInfo.Pipeline.Name)
-					if event.PrevKey != nil {
-						if err := a.deleteWorkersForPipeline(&prevPipelineInfo); err != nil {
-							return err
-						}
-					}
-					if err := a.upsertWorkersForPipeline(&pipelineInfo); err != nil {
-						if err := a.setPipelineFailure(ctx, &pipelineInfo); err != nil {
-							return err
-						}
-						continue
-					}
-				}
-			case watch.EventDelete:
-				var pipelineName string
-				var pipelineInfo pps.PipelineInfo
-				if err := event.UnmarshalPrev(&pipelineName, &pipelineInfo); err != nil {
-					return err
-				}
-				if err := a.deleteWorkersForPipeline(&pipelineInfo); err != nil {
-					return err
 				}
 			}
 		}
@@ -133,16 +187,16 @@ func (a *apiServer) master() {
 	})
 }
 
-func (a *apiServer) setPipelineFailure(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
+func (a *apiServer) setPipelineFailure(ctx context.Context, pipelineName string, reason string) error {
 	// Set pipeline state to failure
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		pipelineName := pipelineInfo.Pipeline.Name
 		pipelines := a.pipelines.ReadWrite(stm)
 		pipelineInfo := new(pps.PipelineInfo)
 		if err := pipelines.Get(pipelineName, pipelineInfo); err != nil {
 			return err
 		}
 		pipelineInfo.State = pps.PipelineState_PIPELINE_FAILURE
+		pipelineInfo.Reason = reason
 		pipelines.Put(pipelineName, pipelineInfo)
 		return nil
 	})
@@ -176,6 +230,7 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		}
 
 		options := a.getWorkerOptions(
+			pipelineInfo.Pipeline.Name,
 			ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 			int32(parallelism),
 			resources,
