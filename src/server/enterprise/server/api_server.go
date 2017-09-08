@@ -110,11 +110,11 @@ func (a *apiServer) watchEnterpriseToken(etcdPrefix string) {
 			}
 
 			// Parse event data and potentially update adminCache
-			var key string
-			var record ec.EnterpriseRecord
-			ev.Unmarshal(&key, &record)
 			switch ev.Type {
 			case watch.EventPut:
+				var key string
+				var record ec.EnterpriseRecord
+				ev.Unmarshal(&key, &record)
 				expiration, err := types.TimestampFromProto(record.Expires)
 				if err != nil {
 					return fmt.Errorf("could not parse expiration timestamp: %s", err.Error())
