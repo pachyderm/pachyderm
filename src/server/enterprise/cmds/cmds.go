@@ -41,8 +41,18 @@ func ActivateCmd() *cobra.Command {
 					return fmt.Errorf("error converting expiration time \"%s\"; %s", t.String(), err.Error())
 				}
 			}
-			_, err = c.Enterprise.Activate(c.Ctx(), req)
-			return err
+			resp, err := c.Enterprise.Activate(c.Ctx(), req)
+			if err != nil {
+				return err
+			}
+			ts, err := types.TimestampFromProto(resp.Info.Expires)
+			if err != nil {
+				return fmt.Errorf("Activation request succeeded, but could not "+
+					"convert token expiration time to a timestamp: %s", err.Error())
+			}
+			fmt.Printf("Activation succeeded. Your Pachyderm Enterprise token "+
+				"expires %s", ts.String())
+			return nil
 		}),
 	}
 	activate.PersistentFlags().StringVar(&expires, "expires", "", "A timestamp "+
@@ -73,7 +83,17 @@ func GetStateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Println(resp.State.String())
+			if resp.State == enterprise.State_NONE {
+				fmt.Println("No Pachyderm Enterprise token was found")
+				return nil
+			}
+			ts, err := types.TimestampFromProto(resp.Info.Expires)
+			if err != nil {
+				return fmt.Errorf("Activation request succeeded, but could not "+
+					"convert token expiration time to a timestamp: %s", err.Error())
+			}
+			fmt.Printf("Pachyderm Enterprise token state: %s\nExpiration: %s\n",
+				resp.State.String(), ts.String())
 			return nil
 		}),
 	}
