@@ -148,7 +148,12 @@ func (a *apiServer) master() {
 					}
 				}
 			case event := <-kubePipelineWatch.ResultChan():
-				if event.Type == kube_watch.Error {
+				// if we get an error we restart the watch, k8s watches seem to
+				// sometimes get stuck in a loop returning events with Type =
+				// "" we treat these as errors since otherwise we get an
+				// endless stream of them and can't do anything.
+				if event.Type == kube_watch.Error || event.Type == "" {
+					kubePipelineWatch.Stop()
 					kubePipelineWatch, err = a.kubeClient.Pods(a.namespace).Watch(api.ListOptions{
 						LabelSelector: labelspkg.SelectorFromSet(map[string]string{
 							"component": "worker",
