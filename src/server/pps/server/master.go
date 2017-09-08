@@ -123,7 +123,7 @@ func (a *apiServer) master() {
 					}
 
 					// If the pipeline has been updated, create new workers
-					if pipelineInfo.Version > prevPipelineInfo.Version {
+					if pipelineInfo.Version > prevPipelineInfo.Version && !pipelineStateToStopped(pipelineInfo.State) {
 						log.Infof("master: creating/updating workers for pipeline %s", pipelineInfo.Pipeline.Name)
 						if event.PrevKey != nil {
 							if err := a.deleteWorkersForPipeline(&prevPipelineInfo); err != nil {
