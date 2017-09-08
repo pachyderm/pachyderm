@@ -1511,7 +1511,6 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 }
 
 func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, overwrite bool) error {
-	fmt.Println("copyFile")
 	if err := d.checkIsAuthorized(ctx, src.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
