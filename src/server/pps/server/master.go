@@ -260,6 +260,13 @@ func (a *apiServer) deleteWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 			return err
 		}
 	}
+	if pipelineInfo.Service != nil {
+		if err := a.kubeClient.Services(a.namespace).Delete(rcName + "-user"); err != nil {
+			if !isNotFoundErr(err) {
+				return err
+			}
+		}
+	}
 	falseVal := false
 	deleteOptions := &api.DeleteOptions{
 		OrphanDependents: &falseVal,
