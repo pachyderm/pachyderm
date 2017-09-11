@@ -255,6 +255,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 		volumes[0].HostPath = &api.HostPathVolumeSource{
 			Path: storageHostPath,
 		}
+		backendEnvVar = pfs.LocalBackendEnvVar
 	case minioBackend:
 		backendEnvVar = pfs.MinioBackendEnvVar
 	case amazonBackend:
