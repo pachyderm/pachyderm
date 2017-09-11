@@ -110,26 +110,20 @@ func (a *apiServer) watchEnterpriseToken(etcdPrefix string) {
 			}
 
 			// Parse event data and potentially update adminCache
-			var key string
-			var record ec.EnterpriseRecord
-			ev.Unmarshal(&key, &record)
-			expiration, err := types.TimestampFromProto(record.Expires)
-			if err != nil {
-				return fmt.Errorf("could not parse expiration timestamp: %s", err.Error())
-			}
 			switch ev.Type {
 			case watch.EventPut:
+				var key string
+				var record ec.EnterpriseRecord
+				ev.Unmarshal(&key, &record)
+				expiration, err := types.TimestampFromProto(record.Expires)
+				if err != nil {
+					return fmt.Errorf("could not parse expiration timestamp: %s", err.Error())
+				}
 				a.enterpriseExpiration.Store(expiration)
 			case watch.EventDelete:
-				cachedExpiration, ok := a.enterpriseExpiration.Load().(time.Time)
-				if !ok {
-					return errors.New("could not retrieve cached expiration time")
-				}
-				if expiration == cachedExpiration {
-					// unexpected, but we'll dutifully unset the expiration time if it
-					// does
-					a.enterpriseExpiration.Store(time.Time{})
-				}
+				// This should only occur if the etcd value is deleted via the etcd API,
+				// but that does occur during testing
+				a.enterpriseExpiration.Store(time.Time{})
 			case watch.EventError:
 				return ev.Err
 			}
@@ -229,12 +223,12 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 			expiration = customExpiration
 		}
 	}
+	expirationProto, err := types.TimestampProto(expiration)
+	if err != nil {
+		return nil, fmt.Errorf("could not convert expiration time \"%s\" to proto: %s", expiration.String(), err.Error())
+	}
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		e := a.enterpriseToken.ReadWrite(stm)
-		expirationProto, err := types.TimestampProto(expiration)
-		if err != nil {
-			return err
-		}
 		// blind write
 		e.Put(enterpriseTokenKey, &ec.EnterpriseRecord{
 			ActivationCode: req.ActivationCode,
@@ -244,7 +238,11 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 	}); err != nil {
 		return nil, err
 	}
-	return &ec.ActivateResponse{}, nil
+	return &ec.ActivateResponse{
+		Info: &ec.TokenInfo{
+			Expires: expirationProto,
+		},
+	}, nil
 }
 
 // GetState returns the current state of the cluster's Pachyderm Enterprise key (ACTIVE, EXPIRED, or NONE)
@@ -259,8 +257,19 @@ func (a *apiServer) GetState(ctx context.Context, req *ec.GetStateRequest) (resp
 	if expiration.IsZero() {
 		return &ec.GetStateResponse{State: ec.State_NONE}, nil
 	}
-	if time.Now().After(expiration) {
-		return &ec.GetStateResponse{State: ec.State_EXPIRED}, nil
+	expirationProto, err := types.TimestampProto(expiration)
+	if err != nil {
+		return nil, fmt.Errorf("could not convert expiration time \"%s\" to response proto: %s", expiration.String(), err.Error())
 	}
-	return &ec.GetStateResponse{State: ec.State_ACTIVE}, nil
+	resp = &ec.GetStateResponse{
+		Info: &ec.TokenInfo{
+			Expires: expirationProto,
+		},
+	}
+	if time.Now().After(expiration) {
+		resp.State = ec.State_EXPIRED
+	} else {
+		resp.State = ec.State_ACTIVE
+	}
+	return resp, nil
 }

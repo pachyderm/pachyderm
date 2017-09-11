@@ -24,7 +24,7 @@ func TestIndex(t *testing.T) {
 	require.NoError(t, err)
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	jobInfos := NewCollection(etcdClient, uuidPrefix, []Index{pipelineIndex}, &pps.JobInfo{})
+	jobInfos := NewCollection(etcdClient, uuidPrefix, []Index{pipelineIndex}, &pps.JobInfo{}, nil)
 
 	j1 := &pps.JobInfo{
 		Job:      &pps.Job{"j1"},
@@ -84,7 +84,7 @@ func TestIndexWatch(t *testing.T) {
 	require.NoError(t, err)
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	jobInfos := NewCollection(etcdClient, uuidPrefix, []Index{pipelineIndex}, &pps.JobInfo{})
+	jobInfos := NewCollection(etcdClient, uuidPrefix, []Index{pipelineIndex}, &pps.JobInfo{}, nil)
 
 	j1 := &pps.JobInfo{
 		Job:      &pps.Job{"j1"},
@@ -180,7 +180,7 @@ func TestMultiIndex(t *testing.T) {
 	require.NoError(t, err)
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	jobInfos := NewCollection(etcdClient, uuidPrefix, []Index{inputsMultiIndex}, &pps.JobInfo{})
+	jobInfos := NewCollection(etcdClient, uuidPrefix, []Index{inputsMultiIndex}, &pps.JobInfo{}, nil)
 
 	j1 := &pps.JobInfo{
 		Job: &pps.Job{"j1"},
@@ -219,6 +219,7 @@ func TestMultiIndex(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, j1.Job.ID, ID)
 	require.Equal(t, j1, job)
+	job = new(pps.JobInfo)
 	ok, err = iter.Next(&ID, job)
 	require.NoError(t, err)
 	require.True(t, ok)
@@ -229,11 +230,13 @@ func TestMultiIndex(t *testing.T) {
 		Name: "input2",
 	})
 	require.NoError(t, err)
+	job = new(pps.JobInfo)
 	ok, err = iter.Next(&ID, job)
 	require.NoError(t, err)
 	require.True(t, ok)
 	require.Equal(t, j1.Job.ID, ID)
 	require.Equal(t, j1, job)
+	job = new(pps.JobInfo)
 	ok, err = iter.Next(&ID, job)
 	require.NoError(t, err)
 	require.True(t, ok)
@@ -252,6 +255,7 @@ func TestMultiIndex(t *testing.T) {
 		Name: "input3",
 	})
 	require.NoError(t, err)
+	job = new(pps.JobInfo)
 	ok, err = iter.Next(&ID, job)
 	require.NoError(t, err)
 	require.True(t, ok)
@@ -262,6 +266,7 @@ func TestMultiIndex(t *testing.T) {
 		Name: "input4",
 	})
 	require.NoError(t, err)
+	job = new(pps.JobInfo)
 	ok, err = iter.Next(&ID, job)
 	require.NoError(t, err)
 	require.True(t, ok)
@@ -278,6 +283,7 @@ func TestMultiIndex(t *testing.T) {
 		Name: "input1",
 	})
 	require.NoError(t, err)
+	job = new(pps.JobInfo)
 	ok, err = iter.Next(&ID, job)
 	require.NoError(t, err)
 	require.True(t, ok)
@@ -287,7 +293,7 @@ func TestMultiIndex(t *testing.T) {
 
 func getEtcdClient() (*etcd.Client, error) {
 	etcdClient, err := etcd.New(etcd.Config{
-		Endpoints:   []string{"localhost:2379"},
+		Endpoints:   []string{"localhost:32379"},
 		DialOptions: client.EtcdDialOptions(),
 	})
 	if err != nil {

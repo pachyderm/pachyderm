@@ -36,6 +36,8 @@ var (
 	clientOnce sync.Once
 )
 
+const year = 365 * 24 * time.Hour
+
 // getPachClient creates a seed client with a grpc connection to a pachyderm
 // cluster
 func getPachClient(t testing.TB) *client.APIClient {
@@ -47,7 +49,7 @@ func getPachClient(t testing.TB) *client.APIClient {
 			pachClient, err = client.NewOnUserMachine(false, "user")
 		}
 		if err != nil {
-			t.Fatal("error getting Pachyderm client: %s", err.Error())
+			t.Fatalf("error getting Pachyderm client: %s", err.Error())
 		}
 	})
 	return pachClient
@@ -70,6 +72,9 @@ func TestGetState(t *testing.T) {
 	resp, err := client.Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
 	require.NoError(t, err)
 	require.Equal(t, resp.State, enterprise.State_ACTIVE)
+	expires, err := types.TimestampFromProto(resp.Info.Expires)
+	require.NoError(t, err)
+	require.True(t, expires.Sub(time.Now()) > year)
 
 	// Make current enterprise token expire
 	expiresProto, err := types.TimestampProto(time.Now().Add(-30 * time.Second))
@@ -82,4 +87,5 @@ func TestGetState(t *testing.T) {
 	resp, err = client.Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
 	require.NoError(t, err)
 	require.Equal(t, enterprise.State_EXPIRED, resp.State)
+	require.Equal(t, expiresProto, resp.Info.Expires)
 }

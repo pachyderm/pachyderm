@@ -13,6 +13,12 @@ func (e ErrNotFound) Error() string {
 	return fmt.Sprintf("%s %s not found", e.Type, e.Key)
 }
 
+// IsErrNotFound determines if an error is an ErrNotFound error
+func IsErrNotFound(e error) bool {
+	_, ok := e.(ErrNotFound)
+	return ok
+}
+
 // ErrExists indicates that a key was found to exist when it was expected not
 // to.
 type ErrExists struct {
@@ -22,6 +28,12 @@ type ErrExists struct {
 
 func (e ErrExists) Error() string {
 	return fmt.Sprintf("%s %s already exists", e.Type, e.Key)
+}
+
+// IsErrExists determines if an error is an ErrExists error
+func IsErrExists(e error) bool {
+	_, ok := e.(ErrExists)
+	return ok
 }
 
 // ErrMalformedValue indicates that a value was malformed, such as when it was
@@ -34,4 +46,10 @@ type ErrMalformedValue struct {
 
 func (e ErrMalformedValue) Error() string {
 	return fmt.Sprintf("malformed value at %s/%s: %s", e.Type, e.Key, e.Val)
+}
+
+// IsErrMalformedValue determines if an error is an ErrMalformedValue error
+func IsErrMalformedValue(e error) bool {
+	_, ok := e.(ErrMalformedValue)
+	return ok
 }
