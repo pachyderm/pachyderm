@@ -217,7 +217,7 @@ func (c APIClient) InspectJob(jobID string, blockState bool) (*pps.JobInfo, erro
 // If pipelineName is non empty then only jobs that were started by the named pipeline will be returned
 // If inputCommit is non-nil then only jobs which took the specific commits as inputs will be returned.
 // The order of the inputCommits doesn't matter.
-// If outputCommit is non-nil then only the job which created that commit as output will be returns.
+// If outputCommit is non-nil then only the job which created that commit as output will be returned.
 func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outputCommit *pfs.Commit) ([]*pps.JobInfo, error) {
 	var pipeline *pps.Pipeline
 	if pipelineName != "" {
