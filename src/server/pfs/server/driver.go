@@ -282,14 +282,12 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 			myRefCount++
 
 			for newProv := range provToAdd {
-				fmt.Printf("incrementing %v by %v\n", newProv, myRefCount)
 				if err := repoRefCounts.IncrementBy(newProv, myRefCount); err != nil {
 					return err
 				}
 			}
 
 			for oldProv := range provToRemove {
-				fmt.Printf("decrementing %v by %v\n", oldProv, myRefCount)
 				if err := repoRefCounts.DecrementBy(oldProv, myRefCount); err != nil {
 					return err
 				}
@@ -548,6 +546,11 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 			return err
 		}
 
+		repoProvenanceMap := make(map[string]bool)
+		for _, repo := range repoInfo.Provenance {
+			repoProvenanceMap[repo.Name] = true
+		}
+
 		commitInfo := &pfs.CommitInfo{
 			Commit:  commit,
 			Started: now(),
@@ -558,6 +561,9 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 		// Build the full provenance; my provenance's provenance is
 		// my provenance
 		for _, prov := range provenance {
+			if !repoProvenanceMap[prov.Repo.Name] {
+				return fmt.Errorf("cannot start commit with provenance from repo %s as it's not part of %s's provenance", prov.Repo.Name, commit.Repo.Name)
+			}
 			provCommits := d.commits(prov.Repo.Name).ReadWrite(stm)
 			provCommitInfo := new(pfs.CommitInfo)
 			if err := provCommits.Get(prov.ID, provCommitInfo); err != nil {
@@ -574,6 +580,14 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 
 		for _, c := range provenanceMap {
 			commitInfo.Provenance = append(commitInfo.Provenance, c)
+		}
+
+		if len(provenanceMap) != len(repoProvenanceMap) {
+			for repo := range repoProvenanceMap {
+				if provenanceMap[repo] == nil {
+					return fmt.Errorf("cannot start commit without a provenance commit from %s as it's part of %s's provenance", repo, commit.Repo.Name)
+				}
+			}
 		}
 
 		if branch != "" {

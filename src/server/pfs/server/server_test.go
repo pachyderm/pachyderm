@@ -3008,6 +3008,38 @@ func TestOverwrite(t *testing.T) {
 	}
 }
 
+func TestProvenanceValidation(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+	repo1 := uniqueString("TestProvenanceValidation1")
+	repo2 := uniqueString("TestProvenanceValidation2")
+	repo3 := uniqueString("TestProvenanceValidation3")
+	require.NoError(t, client.CreateRepo(repo1))
+	require.NoError(t, client.CreateRepo(repo2))
+	_, err := client.PfsAPIClient.CreateRepo(context.Background(),
+		&pfs.CreateRepoRequest{
+			Repo:       pclient.NewRepo(repo3),
+			Provenance: []*pfs.Repo{pclient.NewRepo(repo1)},
+		})
+	require.NoError(t, err)
+	commit, err := client.StartCommit(repo2, "master")
+	require.NoError(t, err)
+	err = client.FinishCommit(repo2, "master")
+	require.NoError(t, err)
+
+	// create a commit with provenance that's not from its provenance repo
+	_, err = client.PfsAPIClient.StartCommit(context.Background(),
+		&pfs.StartCommitRequest{
+			Parent:     pclient.NewCommit(repo3, ""),
+			Provenance: []*pfs.Commit{commit},
+		})
+	require.YesError(t, err)
+
+	// create a commit with no provenance when the repo has provenance
+	_, err = client.StartCommit(repo3, "master")
+	require.YesError(t, err)
+}
+
 func uniqueString(prefix string) string {
 	return prefix + "-" + uuid.NewWithoutDashes()[0:12]
 }
