@@ -292,6 +292,7 @@ message PipelineInfo {
   bool batch = 27;
   string reason = 28;
   int64 max_queue_size = 29;
+  Service service = 30;
 }
 
 message PipelineInfos {
@@ -425,6 +426,7 @@ message CreatePipelineRequest {
   bool reprocess = 18;
   bool batch = 19;
   int64 max_queue_size = 20;
+  Service service = 21;
 }
 
 message InspectPipelineRequest {

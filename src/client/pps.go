@@ -490,6 +490,39 @@ func (c APIClient) RerunPipeline(name string, include []*pfs.Commit, exclude []*
 	return sanitizeErr(err)
 }
 
+// CreatePipelineService creates a new pipeline service.
+func (c APIClient) CreatePipelineService(
+	name string,
+	image string,
+	cmd []string,
+	stdin []string,
+	parallelismSpec *pps.ParallelismSpec,
+	input *pps.Input,
+	update bool,
+	internalPort int32,
+	externalPort int32,
+) error {
+	_, err := c.PpsAPIClient.CreatePipeline(
+		c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: NewPipeline(name),
+			Transform: &pps.Transform{
+				Image: image,
+				Cmd:   cmd,
+				Stdin: stdin,
+			},
+			ParallelismSpec: parallelismSpec,
+			Input:           input,
+			Update:          update,
+			Service: &pps.Service{
+				InternalPort: internalPort,
+				ExternalPort: externalPort,
+			},
+		},
+	)
+	return sanitizeErr(err)
+}
+
 // GarbageCollect garbage collects unused data.  Currently GC needs to be
 // run while no data is being added or removed (which, among other things,
 // implies that there shouldn't be jobs actively running).

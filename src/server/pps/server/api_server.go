@@ -1247,6 +1247,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Salt:               uuid.NewWithoutDashes(),
 		Batch:              request.Batch,
 		MaxQueueSize:       request.MaxQueueSize,
+		Service:            request.Service,
 	}
 	setPipelineDefaults(pipelineInfo)
 	var visitErr error
