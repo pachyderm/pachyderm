@@ -109,7 +109,7 @@ func (p *Pool) Do(ctx context.Context, f func(cc *grpc.ClientConn) error) error 
 				if mapConn.cc == nil {
 					cc, err := grpc.DialContext(ctx, addr, p.opts...)
 					if err != nil {
-						return err
+						return fmt.Errorf("failed to connect to %s: %+v", addr, err)
 					}
 					mapConn.cc = cc
 					conn = mapConn
