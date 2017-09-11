@@ -43,7 +43,7 @@ Note in particular:
 
 ```
 > git add <all docs files>
-> git commit -m"Update version and run make doc for VERSION (point release|release candidate|etc)"
+> git commit -m"Update version and run make doc for <version> (point release|release candidate|etc)" (e.g. "...run make doc for 1.0.0 point release" or "...run make doc for 1.0.0rc1 release candidate")
 > git push origin master
 ```
 
@@ -63,8 +63,6 @@ Otherwise,
 ```shell
 make point-release
 ```
-
-Afterwards, you'll note that the VERSION file has been deleted. Please create a git commit with this change (i.e. removing VERSION) and push it master.
 
 ### If the release failed
 You'll need to do two things: remove the relevant tags in GitHub, and re-build the docs in ReadTheDocs
