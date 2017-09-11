@@ -383,8 +383,13 @@ message CheckObjectResponse {
   bool exists = 1;
 }
 
+message Objects {
+  repeated Object objects = 1;
+}
+
 service ObjectAPI {
   rpc PutObject(stream PutObjectRequest) returns (Object) {}
+  rpc PutObjectSplit(stream PutObjectRequest) returns (Objects) {}
   rpc GetObject(Object) returns (stream google.protobuf.BytesValue) {}
   rpc GetObjects(GetObjectsRequest) returns (stream google.protobuf.BytesValue) {}
   rpc TagObject(TagObjectRequest) returns (google.protobuf.Empty) {}

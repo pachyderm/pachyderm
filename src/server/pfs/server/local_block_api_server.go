@@ -85,6 +85,10 @@ func (s *localBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServ
 	return nil
 }
 
+func (s *localBlockAPIServer) PutObjectSplit(server pfsclient.ObjectAPI_PutObjectSplitServer) (retErr error) {
+	return fmt.Errorf("TODO")
+}
+
 func (s *localBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServer pfsclient.ObjectAPI_GetObjectServer) (retErr error) {
 	func() { s.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
@@ -271,8 +275,12 @@ func (s *localBlockAPIServer) indexPath(prefix string) string {
 	return filepath.Join(s.indexDir(), prefix)
 }
 
+type putObjectServer interface {
+	Recv() (*pfsclient.PutObjectRequest, error)
+}
+
 type putObjectReader struct {
-	server pfsclient.ObjectAPI_PutObjectServer
+	server putObjectServer
 	buffer bytes.Buffer
 	tags   []*pfsclient.Tag
 }
@@ -290,7 +298,7 @@ func (r *putObjectReader) Read(p []byte) (int, error) {
 	return r.buffer.Read(p)
 }
 
-func drainObjectServer(putObjectServer pfsclient.ObjectAPI_PutObjectServer) {
+func drainObjectServer(putObjectServer putObjectServer) {
 	for {
 		if _, err := putObjectServer.Recv(); err != nil {
 			break
