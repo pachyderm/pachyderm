@@ -4952,7 +4952,7 @@ func TestMaxQueueSize(t *testing.T) {
 	require.NoError(t, err)
 	// Get job info 2x/sec for 20s until we confirm two workers for the current job
 	require.NoError(t, backoff.Retry(func() error {
-		jobs, err := c.ListJob(pipeline, nil)
+		jobs, err := c.ListJob(pipeline, nil, nil)
 		if err != nil {
 			return fmt.Errorf("could not list job: %s", err.Error())
 		}
