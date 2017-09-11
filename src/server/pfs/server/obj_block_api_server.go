@@ -40,7 +40,6 @@ const (
 	objectInfoCacheShares = 1
 	maxCachedObjectDenom  = 4                // We will only cache objects less than 1/maxCachedObjectDenom of total cache size
 	bufferSize            = 15 * 1024 * 1024 // 15 MB
-	chunkSize             = 16 * 1024 * 1024 // 16 MB
 )
 
 type objBlockAPIServer struct {
@@ -231,7 +230,7 @@ func (s *objBlockAPIServer) PutObjectSplit(server pfsclient.ObjectAPI_PutObjectS
 }
 
 func (s *objBlockAPIServer) putObject(ctx context.Context, dataReader io.Reader, split bool) (_ *pfsclient.Object, retErr error) {
-	hash := newHash()
+	hash := NewHash()
 	r := io.TeeReader(dataReader, hash)
 	block := &pfsclient.Block{Hash: uuid.NewWithoutDashes()}
 	var size int64
@@ -247,7 +246,7 @@ func (s *objBlockAPIServer) putObject(ctx context.Context, dataReader io.Reader,
 			}
 		}()
 		if split {
-			size, err = io.CopyN(w, r, chunkSize)
+			size, err = io.CopyN(w, r, ChunkSize)
 		} else {
 			buf := grpcutil.GetBuffer()
 			defer grpcutil.PutBuffer(buf)

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -13,6 +14,7 @@ import (
 	pachclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
@@ -406,4 +408,39 @@ func PushObj(pachClient pachclient.APIClient, commit *pfs.Commit, objClient obj.
 		return err
 	}
 	return eg.Wait()
+}
+
+func isNotExist(err error) bool {
+	return strings.Contains(err.Error(), "not found")
+}
+
+// SuncFile makes sure that pfsFile has the same content as osFile.
+func SyncFile(client *pachclient.APIClient, pfsFile *pfs.File, osFile *os.File) error {
+	fileInfo, err := client.InspectFile(pfsFile.Commit.Repo.Name, pfsFile.Commit.ID, pfsFile.Path)
+	if err != nil && !isNotExist(err) {
+		return err
+	}
+	if len(fileInfo.Objects) > 0 {
+		var i int
+		var object *pfs.Object
+		for i, object = range fileInfo.Objects {
+			hash := pfs_server.NewHash()
+			if _, err := io.CopyN(hash, osFile, pfs_server.ChunkSize); err != nil {
+				if err == io.EOF {
+					break
+				}
+				return err
+			}
+
+			if object.Hash != pfs_server.EncodeHash(hash.Sum(nil)) {
+				break
+			}
+		}
+
+		if _, err := osFile.Seek(int64(i)*pfs_server.ChunkSize, 0); err != nil {
+			return err
+		}
+	}
+	_, err = client.PutFile(pfsFile.Commit.Repo.Name, pfsFile.Commit.ID, pfsFile.Path, osFile)
+	return err
 }
