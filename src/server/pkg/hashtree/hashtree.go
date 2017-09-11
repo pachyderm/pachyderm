@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	pathlib "path"
+	"strings"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -184,12 +185,21 @@ func (h *HashTreeProto) FSSize() int64 {
 	return size(h.Fs)
 }
 
-func walk(fs map[string]*NodeProto, f func(string, *NodeProto) error) error {
-	for path, node := range fs {
-		if path == "" {
-			path = "/"
+func walk(fs map[string]*NodeProto, path string, f func(string, *NodeProto) error) error {
+	path = clean(path)
+	if node, ok := fs[path]; ok && node.FileNode != nil {
+		return f(path, node)
+	} else if !ok {
+		return errorf(PathNotFound, "no node at \"%s\"", path)
+	}
+	for rangePath, node := range fs {
+		if rangePath == "" {
+			rangePath = "/"
 		}
-		if err := f(path, node); err != nil {
+		if !strings.HasPrefix(rangePath, path) {
+			continue
+		}
+		if err := f(rangePath, node); err != nil {
 			return err
 		}
 	}
@@ -197,8 +207,8 @@ func walk(fs map[string]*NodeProto, f func(string, *NodeProto) error) error {
 }
 
 // Walk implements HashTree.Walk
-func (h *HashTreeProto) Walk(f func(string, *NodeProto) error) error {
-	return walk(h.Fs, f)
+func (h *HashTreeProto) Walk(path string, f func(string, *NodeProto) error) error {
+	return walk(h.Fs, path, f)
 }
 
 func diff(new HashTree, old HashTree, newPath string, oldPath string, recursiveDepth int64, f func(string, *NodeProto, bool) error) error {
@@ -296,8 +306,8 @@ func (h *hashtree) FSSize() int64 {
 }
 
 // Walk implements HashTree.Walk
-func (h *hashtree) Walk(f func(string, *NodeProto) error) error {
-	return walk(h.fs, f)
+func (h *hashtree) Walk(path string, f func(string, *NodeProto) error) error {
+	return walk(h.fs, path, f)
 }
 
 // Diff implements HashTree.Diff

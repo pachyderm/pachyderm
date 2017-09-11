@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -1507,6 +1508,90 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	}
 
 	return putRecords()
+}
+
+func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, overwrite bool) error {
+	if err := d.checkIsAuthorized(ctx, src.Commit.Repo, auth.Scope_READER); err != nil {
+		return err
+	}
+	if err := d.checkIsAuthorized(ctx, dst.Commit.Repo, auth.Scope_WRITER); err != nil {
+		return err
+	}
+	if err := checkPath(dst.Path); err != nil {
+		return err
+	}
+	// Check if the commit ID is a branch name.  If so, we have to
+	// get the real commit ID in order to check if the commit does exist
+	// and is open.
+	// Since we use UUIDv4 for commit IDs, the 13th character would be 4 if
+	// this is a commit ID.
+	if len(dst.Commit.ID) != uuid.UUIDWithoutDashesLength || dst.Commit.ID[12] != '4' {
+		commitInfo, err := d.inspectCommit(ctx, dst.Commit)
+		if err != nil {
+			return err
+		}
+		dst.Commit = commitInfo.Commit
+	}
+	if overwrite {
+		if err := d.deleteFile(ctx, dst); err != nil {
+			return err
+		}
+	}
+	srcTree, err := d.getTreeForFile(ctx, src)
+	if err != nil {
+		return err
+	}
+	// This is necessary so we can call filepath.Rel below
+	if !strings.HasPrefix(src.Path, "/") {
+		src.Path = "/" + src.Path
+	}
+	var eg errgroup.Group
+	if err := srcTree.Walk(src.Path, func(walkPath string, node *hashtree.NodeProto) error {
+		if node.FileNode == nil {
+			return nil
+		}
+		eg.Go(func() error {
+			relPath, err := filepath.Rel(src.Path, walkPath)
+			if err != nil {
+				// This shouldn't be possible
+				return fmt.Errorf("error from filepath.Rel: %+v (this is likely a bug)", err)
+			}
+			records := &PutFileRecords{}
+			file := client.NewFile(dst.Commit.Repo.Name, dst.Commit.ID, path.Clean(path.Join(dst.Path, relPath)))
+			prefix, err := d.scratchFilePrefix(ctx, file)
+			if err != nil {
+				return err
+			}
+			for i, object := range node.FileNode.Objects {
+				var size int64
+				if i == 0 {
+					size = node.SubtreeSize
+				}
+				records.Records = append(records.Records, &PutFileRecord{
+					SizeBytes:  size,
+					ObjectHash: object.Hash,
+				})
+			}
+			marshalledRecords, err := records.Marshal()
+			if err != nil {
+				return err
+			}
+			kvc := etcd.NewKV(d.etcdClient)
+			txnResp, err := kvc.Txn(ctx).
+				If(etcd.Compare(etcd.CreateRevision(d.openCommits.Path(file.Commit.ID)), ">", 0)).Then(etcd.OpPut(path.Join(prefix, uuid.NewWithoutDashes()), string(marshalledRecords))).Commit()
+			if err != nil {
+				return err
+			}
+			if !txnResp.Succeeded {
+				return fmt.Errorf("commit %v is not open", file.Commit.ID)
+			}
+			return nil
+		})
+		return nil
+	}); err != nil {
+		return err
+	}
+	return eg.Wait()
 }
 
 func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hashtree.HashTree, error) {
