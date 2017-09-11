@@ -1,6 +1,8 @@
 package server
 
 import (
+	"fmt"
+
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
@@ -11,6 +13,7 @@ const (
 	AmazonBackendEnvVar    = "AMAZON"
 	GoogleBackendEnvVar    = "GOOGLE"
 	MicrosoftBackendEnvVar = "MICROSOFT"
+	LocalBackendEnvVar     = "LOCAL"
 )
 
 var (
@@ -39,11 +42,6 @@ func NewAPIServer(address string, etcdAddresses []string, etcdPrefix string, cac
 // cacheSize is the number of commit trees which will be cached in the server.
 func NewHTTPServer(address string, etcdAddresses []string, etcdPrefix string, cacheSize int64) (*HTTPServer, error) {
 	return newHTTPServer(address, etcdAddresses, etcdPrefix, cacheSize)
-}
-
-// NewLocalBlockAPIServer creates a BlockAPIServer.
-func NewLocalBlockAPIServer(dir string) (BlockAPIServer, error) {
-	return newLocalBlockAPIServer(dir)
 }
 
 // NewObjBlockAPIServer create a BlockAPIServer from an obj.Client.
@@ -88,7 +86,13 @@ func NewBlockAPIServer(dir string, cacheBytes int64, backend string, etcdAddress
 			return nil, err
 		}
 		return blockAPIServer, nil
+	case LocalBackendEnvVar:
+		blockAPIServer, err := newLocalBlockAPIServer(dir, cacheBytes, etcdAddress)
+		if err != nil {
+			return nil, err
+		}
+		return blockAPIServer, nil
 	default:
-		return NewLocalBlockAPIServer(dir)
+		return nil, fmt.Errorf("unrecognized storage backend")
 	}
 }
