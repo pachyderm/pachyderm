@@ -4926,6 +4926,38 @@ func TestMaxQueueSize(t *testing.T) {
 	}, backoff.RetryEvery(500*time.Millisecond).For(20*time.Second)))
 }
 
+func TestService(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestService_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	pipeline := uniqueString("pipelineservice")
+	// This pipeline sleeps for 10 secs per datum
+	require.NoError(t, c.CreatePipelineService(
+		pipeline,
+		"",
+		[]string{"python", "-m", "SimpleHTTPServer", "8000"},
+		nil,
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/"),
+		false,
+		8000,
+		31800,
+	))
+}
+
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
 	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
 	require.NoError(t, err)

@@ -7,6 +7,7 @@ import (
 
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/unversioned"
+	"k8s.io/kubernetes/pkg/util/intstr"
 )
 
 // Parameters used when creating the kubernetes replication controller in charge
@@ -27,6 +28,7 @@ type workerOptions struct {
 	// Secrets that we mount in the worker container (e.g. for reading/writing to
 	// s3)
 	imagePullSecrets []api.LocalObjectReference
+	service          *pps.Service
 }
 
 func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
@@ -122,7 +124,9 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 	return podSpec
 }
 
-func (a *apiServer) getWorkerOptions(pipelineName string, rcName string, parallelism int32, resources *api.ResourceList, transform *pps.Transform, cacheSize string) *workerOptions {
+func (a *apiServer) getWorkerOptions(pipelineName string, rcName string,
+	parallelism int32, resources *api.ResourceList, transform *pps.Transform,
+	cacheSize string, service *pps.Service) *workerOptions {
 	labels := labels(rcName)
 	userImage := transform.Image
 	if userImage == "" {
@@ -255,6 +259,7 @@ func (a *apiServer) getWorkerOptions(pipelineName string, rcName string, paralle
 		volumeMounts:     volumeMounts,
 		imagePullSecrets: imagePullSecrets,
 		cacheSize:        cacheSize,
+		service:          service,
 	}
 }
 
@@ -307,10 +312,39 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 			},
 		},
 	}
-
 	if _, err := a.kubeClient.Services(a.namespace).Create(service); err != nil {
 		if !isAlreadyExistsErr(err) {
 			return err
+		}
+	}
+
+	if options.service != nil {
+		service := &api.Service{
+			TypeMeta: unversioned.TypeMeta{
+				Kind:       "Service",
+				APIVersion: "v1",
+			},
+			ObjectMeta: api.ObjectMeta{
+				Name:   options.rcName + "-user",
+				Labels: options.labels,
+			},
+			Spec: api.ServiceSpec{
+				Selector: options.labels,
+				Type:     api.ServiceTypeNodePort,
+				Ports: []api.ServicePort{
+					{
+						Port:       options.service.ExternalPort,
+						TargetPort: intstr.FromInt(int(options.service.InternalPort)),
+						Name:       "user-port",
+						NodePort:   options.service.ExternalPort,
+					},
+				},
+			},
+		}
+		if _, err := a.kubeClient.Services(a.namespace).Create(service); err != nil {
+			if !isAlreadyExistsErr(err) {
+				return err
+			}
 		}
 	}
 
