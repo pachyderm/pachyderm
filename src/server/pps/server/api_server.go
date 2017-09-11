@@ -1725,7 +1725,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 			return err
 		}
 
-		return tree.Walk(func(path string, node *hashtree.NodeProto) error {
+		return tree.Walk("/", func(path string, node *hashtree.NodeProto) error {
 			if node.FileNode != nil {
 				addActiveObjects(node.FileNode.Objects...)
 			}
