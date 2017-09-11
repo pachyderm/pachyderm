@@ -91,6 +91,10 @@ $ AWS_AVAILABILITY_ZONE=[the AWS availability zone of your Kubernetes cluster. e
 
 Then to actually create the resources, you can run:
 ```
+# If AWS_REGION is us-east-1.
+$ aws s3api create-bucket --bucket ${BUCKET_NAME} --region ${AWS_REGION}
+
+# If AWS_REGION is outside of us-east-1.
 $ aws s3api create-bucket --bucket ${BUCKET_NAME} --region ${AWS_REGION} --create-bucket-configuration LocationConstraint=${AWS_REGION}
 
 $ aws ec2 create-volume --size ${STORAGE_SIZE} --region ${AWS_REGION} --availability-zone ${AWS_AVAILABILITY_ZONE} --volume-type gp2

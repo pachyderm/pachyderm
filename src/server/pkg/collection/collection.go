@@ -341,18 +341,27 @@ type indirectIterator struct {
 }
 
 func (i *indirectIterator) Next(key *string, val proto.Unmarshaler) (ok bool, retErr error) {
-	if i.index < len(i.resp.Kvs) {
-		kv := i.resp.Kvs[i.index]
-		i.index++
+	for {
+		if i.index < len(i.resp.Kvs) {
+			kv := i.resp.Kvs[i.index]
+			i.index++
 
-		*key = path.Base(string(kv.Key))
-		if err := i.col.Get(*key, val); err != nil {
-			return false, err
+			*key = path.Base(string(kv.Key))
+			if err := i.col.Get(*key, val); err != nil {
+				if IsErrNotFound(err) {
+					// In cases where we changed how certain objects are
+					// indexed, we could end up in a situation where the
+					// object is deleted but the old indexes still exist.
+					continue
+				} else {
+					return false, err
+				}
+			}
+
+			return true, nil
 		}
-
-		return true, nil
+		return false, nil
 	}
-	return false, nil
 }
 
 func (c *readonlyCollection) GetByIndex(index Index, val interface{}) (Iterator, error) {
