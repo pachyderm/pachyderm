@@ -35,6 +35,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
@@ -121,9 +122,9 @@ type taggedLogger struct {
 
 // DatumID computes the id for a datum, this value is used in ListDatum and
 // InspectDatum.
-func (a *APIServer) DatumID(req *ProcessRequest) string {
+func (a *APIServer) DatumID(data []*Input) string {
 	hash := sha256.New()
-	for _, d := range req.Data {
+	for _, d := range data {
 		hash.Write([]byte(d.FileInfo.File.Path))
 		hash.Write(d.FileInfo.Hash)
 	}
@@ -132,7 +133,7 @@ func (a *APIServer) DatumID(req *ProcessRequest) string {
 	return hex.EncodeToString(hash.Sum(nil))
 }
 
-func (a *APIServer) getTaggedLogger(ctx context.Context, req *ProcessRequest) (*taggedLogger, error) {
+func (a *APIServer) getTaggedLogger(ctx context.Context, jobID string, data []*Input, enableStats bool) (*taggedLogger, error) {
 	result := &taggedLogger{
 		template:  a.logMsgTemplate, // Copy struct
 		stderrLog: log.Logger{},
@@ -143,10 +144,10 @@ func (a *APIServer) getTaggedLogger(ctx context.Context, req *ProcessRequest) (*
 	result.stderrLog.SetFlags(log.LstdFlags | log.Llongfile) // Log file/line
 
 	// Add Job ID to log metadata
-	result.template.JobID = req.JobID
+	result.template.JobID = jobID
 
 	// Add inputs' details to log metadata, so we can find these logs later
-	for _, d := range req.Data {
+	for _, d := range data {
 		result.template.Data = append(result.template.Data, &pps.InputFile{
 			Path: d.FileInfo.File.Path,
 			Hash: d.FileInfo.Hash,
@@ -154,8 +155,8 @@ func (a *APIServer) getTaggedLogger(ctx context.Context, req *ProcessRequest) (*
 	}
 	// InputFileID is a single string id for the data from this input, it's used in logs and in
 	// the statsTree
-	result.template.DatumID = a.DatumID(req)
-	if req.EnableStats {
+	result.template.DatumID = a.DatumID(data)
+	if enableStats {
 		putObjClient, err := a.pachClient.ObjectAPIClient.PutObject(auth.In2Out(ctx))
 		if err != nil {
 			return nil, err
@@ -601,7 +602,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	// Set the auth parameters for the context
 	ctx = a.pachClient.AddMetadata(ctx)
 
-	logger, err := a.getTaggedLogger(ctx, req)
+	logger, err := a.getTaggedLogger(ctx, req.JobID, req.Data, req.EnableStats)
 	if err != nil {
 		return nil, err
 	}
@@ -719,7 +720,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		}()
 	}
 
-	env := a.userCodeEnv(req)
+	env := a.userCodeEnv(req.JobID, req.Data)
 	// Download input data
 	puller := filesync.NewPuller()
 	dir, err := a.downloadData(logger, req.Data, puller, req.ParentOutput, stats, statsTree, path.Join(statsPath, "pfs"))
@@ -820,6 +821,59 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	return &ProcessResponse{Stats: stats}, nil
 }
 
+func (a *APIServer) Serve(ctx context.Context, req *ServeRequest) (_ *types.Empty, retErr error) {
+	// Set the auth parameters for the context
+	ctx = a.pachClient.AddMetadata(ctx)
+
+	logger, err := a.getTaggedLogger(ctx, req.JobID, req.Data, false)
+	if err != nil {
+		return nil, err
+	}
+	logger.Logf("serve call started - request: %v", req)
+	defer func(start time.Time) {
+		logger.Logf("serve call finished - request: %v, err %v, duration: %v", req, retErr, time.Since(start))
+	}(time.Now())
+	stats := &pps.ProcessStats{}
+	ctx, cancel := context.WithCancel(ctx)
+	a.statusMu.Lock()
+	a.cancel = cancel
+	a.statusMu.Unlock()
+	env := a.userCodeEnv(req.JobID, req.Data)
+	// Download input data
+	puller := filesync.NewPuller()
+	dir, err := a.downloadData(logger, req.Data, puller, nil, stats, nil, "")
+	if err != nil {
+		return nil, err
+	}
+	// We run these cleanup functions no matter what, so that if
+	// downloadData partially succeeded, we still clean up the resources.
+	defer func() {
+		if err := os.RemoveAll(dir); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	if err := os.MkdirAll(client.PPSInputPrefix, 0666); err != nil {
+		return nil, err
+	}
+	if err := syscall.Mount(dir, client.PPSInputPrefix, "", syscall.MS_BIND, ""); err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := syscall.Unmount(client.PPSInputPrefix, syscall.MNT_DETACH); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	go func() {
+		backoff.RetryNotify(func() error {
+			return a.runUserCode(ctx, logger, env, nil)
+		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+			logger.Logf("error running user code: %+v, retrying in: %+v", err, d)
+			return nil
+		})
+	}()
+	return &types.Empty{}, nil
+}
+
 // Status returns the status of the current worker.
 func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStatus, error) {
 	a.statusMu.Lock()
@@ -868,12 +922,12 @@ func (a *APIServer) datum() []*pps.InputFile {
 	return result
 }
 
-func (a *APIServer) userCodeEnv(req *ProcessRequest) []string {
+func (a *APIServer) userCodeEnv(jobID string, data []*Input) []string {
 	result := os.Environ()
-	for _, input := range req.Data {
+	for _, input := range data {
 		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(client.PPSInputPrefix, input.Name, input.FileInfo.File.Path)))
 	}
-	result = append(result, fmt.Sprintf("PACH_JOB_ID=%s", req.JobID))
+	result = append(result, fmt.Sprintf("PACH_JOB_ID=%s", jobID))
 	return result
 }
 
