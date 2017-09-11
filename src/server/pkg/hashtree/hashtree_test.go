@@ -541,7 +541,7 @@ func TestWalk(t *testing.T) {
 		"/dir":     true,
 		"/dir/bar": true,
 	}
-	require.NoError(t, tree.Walk("", func(path string, node *NodeProto) error {
+	require.NoError(t, tree.Walk("/", func(path string, node *NodeProto) error {
 		require.True(t, expectedPaths[path])
 		delete(expectedPaths, path)
 		return nil
