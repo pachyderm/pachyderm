@@ -546,7 +546,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 					ParentOutput: parentOutputTag,
 					EnableStats:  jobInfo.EnableStats,
 				}
-				datumID := a.DatumID(req)
+				datumID := a.DatumID(files)
 				if err := backoff.RetryNotify(func() error {
 					var failed bool
 					processed := a.getCachedDatum(datumHash)
@@ -911,33 +911,20 @@ func (a *APIServer) runService(ctx context.Context, jobInfo *pps.JobInfo, pool *
 			limiter.Acquire()
 			files := df.Datum(0)
 			go func() {
-				userCodeFailures := 0
 				defer limiter.Release()
 				b := backoff.NewInfiniteBackOff()
 				b.Multiplier = 1
-				req := &ProcessRequest{
-					JobID:       jobInfo.Job.ID,
-					Data:        files,
-					EnableStats: jobInfo.EnableStats,
+				req := &ServeRequest{
+					JobID: jobInfo.Job.ID,
+					Data:  files,
 				}
-				datumID := a.DatumID(req)
 				backoff.RetryNotify(func() error {
-					var failed bool
 					if err := pool.Do(ctx, func(conn *grpc.ClientConn) error {
 						workerClient := NewWorkerClient(conn)
-						resp, err := workerClient.Process(ctx, req)
-						if err != nil {
-							return err
-						}
-						failed = resp.Failed
-						return nil
+						_, err := workerClient.Serve(ctx, req)
+						return err
 					}); err != nil {
 						return fmt.Errorf("Process() call failed: %v", err)
-					}
-					if failed {
-						userCodeFailures++
-						failedDatumID = datumID
-						return fmt.Errorf("user code failed for datum %v", files)
 					}
 					return nil
 				}, b, func(err error, d time.Duration) error {
@@ -945,11 +932,6 @@ func (a *APIServer) runService(ctx context.Context, jobInfo *pps.JobInfo, pool *
 					case <-ctx.Done():
 						return err
 					default:
-					}
-					if userCodeFailures > maximumRetriesPerDatum {
-						logger.Logf("job %s failed to process datum %+v %d times failing", jobID, files, userCodeFailures)
-						failed = true
-						return err
 					}
 					logger.Logf("job %s failed to process datum %+v with: %+v, retrying in: %+v", jobID, files, err, d)
 					return nil
