@@ -10,6 +10,9 @@
 /protofix
 doc/_build
 
+# Release artifacts
+VERSION
+
 # Compiled Object files, Static and Dynamic libs (Shared Objects)
 *.o
 *.a
