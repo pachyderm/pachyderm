@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// NewLocalClient returns a Client that stores data on the local file system
 func NewLocalClient(root string) (Client, error) {
 	if err := os.MkdirAll(root, 0755); err != nil {
 		return nil, err

@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
 
 // Valid object storage backends
@@ -41,11 +40,6 @@ func NewAPIServer(address string, etcdAddresses []string, etcdPrefix string, cac
 // cacheSize is the number of commit trees which will be cached in the server.
 func NewHTTPServer(address string, etcdAddresses []string, etcdPrefix string, cacheSize int64) (*HTTPServer, error) {
 	return newHTTPServer(address, etcdAddresses, etcdPrefix, cacheSize)
-}
-
-// NewObjBlockAPIServer create a BlockAPIServer from an obj.Client.
-func NewObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objClient obj.Client) (BlockAPIServer, error) {
-	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient)
 }
 
 // NewBlockAPIServer creates a BlockAPIServer using the credentials it finds in
