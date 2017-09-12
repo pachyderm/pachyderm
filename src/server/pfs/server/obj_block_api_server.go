@@ -62,7 +62,10 @@ type objBlockAPIServer struct {
 	objectIndexesLock sync.RWMutex
 }
 
-func newObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objClient obj.Client) (*objBlockAPIServer, error) {
+// In test mode, we use unique names for cache groups, since we might want
+// to run multiple block servers locally, which would conflict if groups
+// had the same name.
+func newObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objClient obj.Client, test bool) (*objBlockAPIServer, error) {
 	// defensive mesaure incase IsNotExist checking breaks due to underlying changes
 	if err := obj.TestIsNotExist(objClient); err != nil {
 		return nil, err
@@ -75,9 +78,20 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objC
 		objectIndexes:    make(map[string]*pfsclient.ObjectIndex),
 		objectCacheBytes: oneCacheShare * objectCacheShares,
 	}
-	s.objectCache = groupcache.NewGroup("object", oneCacheShare*objectCacheShares, groupcache.GetterFunc(s.objectGetter))
-	s.tagCache = groupcache.NewGroup("tag", oneCacheShare*tagCacheShares, groupcache.GetterFunc(s.tagGetter))
-	s.objectInfoCache = groupcache.NewGroup("objectInfo", oneCacheShare*objectInfoCacheShares, groupcache.GetterFunc(s.objectInfoGetter))
+
+	objectGroupName := "object"
+	tagGroupName := "tag"
+	objectInfoGroupName := "objectInfo"
+	if test {
+		uuid := uuid.New()
+		objectGroupName += uuid
+		tagGroupName += uuid
+		objectInfoGroupName += uuid
+	}
+
+	s.objectCache = groupcache.NewGroup(objectGroupName, oneCacheShare*objectCacheShares, groupcache.GetterFunc(s.objectGetter))
+	s.tagCache = groupcache.NewGroup(tagGroupName, oneCacheShare*tagCacheShares, groupcache.GetterFunc(s.tagGetter))
+	s.objectInfoCache = groupcache.NewGroup(objectInfoGroupName, oneCacheShare*objectInfoCacheShares, groupcache.GetterFunc(s.objectInfoGetter))
 	// Periodically print cache stats for debugging purposes
 	// TODO: make the stats accessible via HTTP or gRPC.
 	go func() {
@@ -150,7 +164,7 @@ func newMinioBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*
 	if err != nil {
 		return nil, err
 	}
-	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient)
+	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient, false)
 }
 
 func newAmazonBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*objBlockAPIServer, error) {
@@ -158,7 +172,7 @@ func newAmazonBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (
 	if err != nil {
 		return nil, err
 	}
-	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient)
+	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient, false)
 }
 
 func newGoogleBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*objBlockAPIServer, error) {
@@ -166,7 +180,7 @@ func newGoogleBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (
 	if err != nil {
 		return nil, err
 	}
-	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient)
+	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient, false)
 }
 
 func newMicrosoftBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*objBlockAPIServer, error) {
@@ -174,7 +188,7 @@ func newMicrosoftBlockAPIServer(dir string, cacheBytes int64, etcdAddress string
 	if err != nil {
 		return nil, err
 	}
-	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient)
+	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient, false)
 }
 
 func newLocalBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*objBlockAPIServer, error) {
@@ -182,7 +196,7 @@ func newLocalBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*
 	if err != nil {
 		return nil, err
 	}
-	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient)
+	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient, true)
 }
 
 func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer) (retErr error) {
