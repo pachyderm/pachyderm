@@ -19,7 +19,14 @@ type localClient struct {
 }
 
 func (c *localClient) Writer(path string) (io.WriteCloser, error) {
-	file, err := os.Create(filepath.Join(c.root, path))
+	fullPath := filepath.Join(c.root, path)
+
+	// Create the directory since it may not exist
+	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
+		return nil, err
+	}
+
+	file, err := os.Create(fullPath)
 	if err != nil {
 		return nil, err
 	}
