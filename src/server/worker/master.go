@@ -9,6 +9,7 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -29,6 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pool"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
+	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/util"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
@@ -90,7 +92,7 @@ func (a *APIServer) master() {
 		logger.Logf("Launching worker master process")
 
 		// Set pipeline state to running
-		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		if _, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			pipelineName := a.pipelineInfo.Pipeline.Name
 			pipelines := a.pipelines.ReadWrite(stm)
 			pipelineInfo := new(pps.PipelineInfo)
@@ -100,12 +102,73 @@ func (a *APIServer) master() {
 			pipelineInfo.State = pps.PipelineState_PIPELINE_RUNNING
 			pipelines.Put(pipelineName, pipelineInfo)
 			return nil
-		})
+		}); err != nil {
+			return err
+		}
 		return a.jobSpawner(ctx, logger)
 	}, b, func(err error, d time.Duration) error {
 		logger.Logf("master: error running the master process: %v; retrying in %v", err, d)
 		return nil
 	})
+}
+
+func (a *APIServer) serviceMaster() {
+	logger := a.getMasterLogger()
+	b := backoff.NewInfiniteBackOff()
+	backoff.RetryNotify(func() error {
+		ctx, cancel := context.WithCancel(a.pachClient.AddMetadata(context.Background()))
+		defer cancel()
+
+		logger.Logf("Launching master process")
+
+		// Set pipeline state to running
+		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			pipelineName := a.pipelineInfo.Pipeline.Name
+			pipelines := a.pipelines.ReadWrite(stm)
+			pipelineInfo := new(pps.PipelineInfo)
+			if err := pipelines.Get(pipelineName, pipelineInfo); err != nil {
+				return err
+			}
+			pipelineInfo.State = pps.PipelineState_PIPELINE_RUNNING
+			pipelines.Put(pipelineName, pipelineInfo)
+			return nil
+		}); err != nil {
+			return err
+		}
+		return a.serviceSpawner(ctx, logger)
+	}, b, func(err error, d time.Duration) error {
+		logger.Logf("master: error running the master process: %v; retrying in %v", err, d)
+		return nil
+	})
+}
+
+func (a *APIServer) jobInput(bs *branchSet) (*pps.Input, error) {
+	jobInput := proto.Clone(a.pipelineInfo.Input).(*pps.Input)
+	var visitErr error
+	pps.VisitInput(jobInput, func(input *pps.Input) {
+		if input.Atom != nil {
+			for _, branch := range bs.Branches {
+				if input.Atom.Repo == branch.Head.Repo.Name && input.Atom.Branch == branch.Name {
+					input.Atom.Commit = branch.Head.ID
+				}
+			}
+			if input.Atom.Commit == "" {
+				visitErr = fmt.Errorf("didn't find input commit for %s/%s", input.Atom.Repo, input.Atom.Branch)
+			}
+			input.Atom.FromCommit = ""
+		}
+		if input.Cron != nil {
+			for _, branch := range bs.Branches {
+				if input.Cron.Repo == branch.Head.Repo.Name {
+					input.Cron.Commit = branch.Head.ID
+				}
+			}
+		}
+	})
+	if visitErr != nil {
+		return nil, visitErr
+	}
+	return jobInput, nil
 }
 
 // jobSpawner spawns jobs
@@ -167,30 +230,9 @@ nextInput:
 		}
 
 		// (create JobInput for new processing job)
-		jobInput := proto.Clone(a.pipelineInfo.Input).(*pps.Input)
-		var visitErr error
-		pps.VisitInput(jobInput, func(input *pps.Input) {
-			if input.Atom != nil {
-				for _, branch := range bs.Branches {
-					if input.Atom.Repo == branch.Head.Repo.Name && input.Atom.Branch == branch.Name {
-						input.Atom.Commit = branch.Head.ID
-					}
-				}
-				if input.Atom.Commit == "" {
-					visitErr = fmt.Errorf("didn't find input commit for %s/%s", input.Atom.Repo, input.Atom.Branch)
-				}
-				input.Atom.FromCommit = ""
-			}
-			if input.Cron != nil {
-				for _, branch := range bs.Branches {
-					if input.Cron.Repo == branch.Head.Repo.Name {
-						input.Cron.Commit = branch.Head.ID
-					}
-				}
-			}
-		})
-		if visitErr != nil {
-			return visitErr
+		jobInput, err := a.jobInput(bs)
+		if err != nil {
+			return err
 		}
 
 		jobsRO := a.jobs.ReadOnly(ctx)
@@ -228,14 +270,8 @@ nextInput:
 				(jobInfo.Salt == a.pipelineInfo.Salt || (jobInfo.Salt == "" && jobInfo.PipelineVersion == a.pipelineInfo.Version)) {
 				switch jobInfo.State {
 				case pps.JobState_JOB_STARTING, pps.JobState_JOB_RUNNING:
-					if jobInfo.Service == nil {
-						if err := a.runJob(ctx, &jobInfo, pool, logger); err != nil {
-							return err
-						}
-					} else {
-						if err := a.runService(ctx, &jobInfo, pool, logger); err != nil {
-							return err
-						}
+					if err := a.runJob(ctx, &jobInfo, pool, logger); err != nil {
+						return err
 					}
 				case pps.JobState_JOB_SUCCESS:
 					continue nextInput
@@ -263,9 +299,6 @@ nextInput:
 					input.Atom.Commit = newCommitInfo.ParentCommit.ID
 				}
 			})
-			if visitErr != nil {
-				return visitErr
-			}
 			jobIter, err := jobsRO.GetByIndex(ppsdb.JobsInputIndex, parentJobInput)
 			if err != nil {
 				return err
@@ -309,16 +342,63 @@ nextInput:
 			return err
 		}
 
-		if jobInfo.Service == nil {
-			if err := a.runJob(ctx, jobInfo, pool, logger); err != nil {
-				return err
-			}
-		} else {
-			if err := a.runService(ctx, jobInfo, pool, logger); err != nil {
-				return err
-			}
+		if err := a.runJob(ctx, jobInfo, pool, logger); err != nil {
+			return err
 		}
 	}
+}
+
+func (a *APIServer) serviceSpawner(ctx context.Context, logger *taggedLogger) error {
+	go func() {
+		if err := a.runService(ctx, logger); err != nil {
+			logger.Logf("error from runService: %+v", err)
+		}
+	}()
+	bsf, err := a.newBranchSetFactory(ctx)
+	if err != nil {
+		return fmt.Errorf("error constructing branch set factory: %v", err)
+	}
+	defer bsf.Close()
+
+	for {
+		var bs *branchSet
+		select {
+		case <-ctx.Done():
+			return context.Canceled
+		case bs = <-bsf.Chan():
+			if bs.Err != nil {
+				return fmt.Errorf("error from branch set factory: %v", bs.Err)
+			}
+		}
+		// create the jobInput
+		jobInput, err := a.jobInput(bs)
+		if err != nil {
+			return err
+		}
+		df, err := NewDatumFactory(ctx, a.pachClient.PfsAPIClient, jobInput)
+		if err != nil {
+			return err
+		}
+		if df.Len() != 1 {
+			return fmt.Errorf("services must have a single datum")
+		}
+		puller := filesync.NewPuller()
+		dir, err := a.downloadData(logger, df.Datum(0), puller, nil, &pps.ProcessStats{}, nil, "")
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(client.PPSInputPrefix, 0666); err != nil {
+			return err
+		}
+		if err := syscall.Unmount(client.PPSInputPrefix, syscall.MNT_DETACH); err != nil {
+			fmt.Errorf("error unmounting %+v", err)
+		}
+		if err := syscall.Mount(dir, client.PPSInputPrefix, "", syscall.MS_BIND, ""); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func plusDuration(x *types.Duration, y *types.Duration) (*types.Duration, error) {
@@ -846,183 +926,18 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 	return nil
 }
 
-func (a *APIServer) runService(ctx context.Context, jobInfo *pps.JobInfo, pool *pool.Pool, logger *taggedLogger) error {
-	pfsClient := a.pachClient.PfsAPIClient
-	ppsClient := a.pachClient.PpsAPIClient
-
-	jobID := jobInfo.Job.ID
-	var jobStopped bool
-	var jobStoppedMutex sync.Mutex
-	backoff.RetryNotify(func() (retErr error) {
-		// We use a new context for this particular instance of the retry
-		// loop, to ensure that all resources are released properly when
-		// this job retries.
-		ctx, cancel := context.WithCancel(ctx)
-		defer cancel()
-
-		// Cancel the context and move on to the next job if this job
-		// has been manually stopped.
-		go func() {
-			currentJobInfo, err := ppsClient.InspectJob(ctx, &pps.InspectJobRequest{
-				Job:        jobInfo.Job,
-				BlockState: true,
-			})
-			if err != nil {
-				logger.Logf("error monitoring job state: %v", err)
-				return
-			}
-			switch currentJobInfo.State {
-			case pps.JobState_JOB_KILLED, pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE:
-				jobStoppedMutex.Lock()
-				defer jobStoppedMutex.Unlock()
-				jobStopped = true
-				cancel()
-			}
-		}()
-
-		// Set the state of this job to 'RUNNING'
-		_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-			jobs := a.jobs.ReadWrite(stm)
-			jobInfo := new(pps.JobInfo)
-			if err := jobs.Get(jobID, jobInfo); err != nil {
-				return err
-			}
-			return a.updateJobState(stm, jobInfo, pps.JobState_JOB_RUNNING, "")
-		})
-		if err != nil {
-			return err
-		}
-
-		failed := false
-		var failedDatumID string
-		limiter := limit.New(a.numWorkers)
-		// process all datums
-		df, err := NewDatumFactory(ctx, pfsClient, jobInfo.Input)
-		if err != nil {
-			return err
-		}
-		if df.Len() != 1 {
-			jobStoppedMutex.Lock()
-			defer jobStoppedMutex.Unlock()
-			jobStopped = true
-			return fmt.Errorf("services should not have multiple datums")
-		}
-		for i := 0; i < a.numWorkers; i++ {
-			limiter.Acquire()
-			files := df.Datum(0)
-			go func() {
-				defer limiter.Release()
-				b := backoff.NewInfiniteBackOff()
-				b.Multiplier = 1
-				req := &ServeRequest{
-					JobID: jobInfo.Job.ID,
-					Data:  files,
-				}
-				backoff.RetryNotify(func() error {
-					if err := pool.Do(ctx, func(conn *grpc.ClientConn) error {
-						workerClient := NewWorkerClient(conn)
-						_, err := workerClient.Serve(ctx, req)
-						return err
-					}); err != nil {
-						return fmt.Errorf("Process() call failed: %v", err)
-					}
-					return nil
-				}, b, func(err error, d time.Duration) error {
-					select {
-					case <-ctx.Done():
-						return err
-					default:
-					}
-					logger.Logf("job %s failed to process datum %+v with: %+v, retrying in: %+v", jobID, files, err, d)
-					return nil
-				})
-			}()
-		}
-		limiter.Wait()
-
-		// check if the job failed
-		if failed {
-			_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-				jobs := a.jobs.ReadWrite(stm)
-				jobInfo := new(pps.JobInfo)
-				if err := jobs.Get(jobID, jobInfo); err != nil {
-					return err
-				}
-				jobInfo.Finished = now()
-				return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE, fmt.Sprintf("failed to process datum: %v", failedDatumID))
-			})
-			return err
-		}
-
-		var provenance []*pfs.Commit
-		for _, commit := range pps.InputCommits(jobInfo.Input) {
-			provenance = append(provenance, commit)
-		}
-
-		outputCommit, err := pfsClient.StartCommit(ctx, &pfs.StartCommitRequest{
-			Parent: &pfs.Commit{
-				Repo: jobInfo.OutputRepo,
-			},
-			Branch:     jobInfo.OutputBranch,
-			Provenance: provenance,
-		})
-		if err != nil {
-			return err
-		}
-		if _, err := pfsClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
-			Commit: outputCommit,
-		}); err != nil {
-			return err
-		}
-
-		// Record the job's output commit and 'Finished' timestamp, and mark the job
-		// as a SUCCESS
-		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-			jobs := a.jobs.ReadWrite(stm)
-			jobInfo := new(pps.JobInfo)
-			if err := jobs.Get(jobID, jobInfo); err != nil {
-				return err
-			}
-			jobInfo.OutputCommit = outputCommit
-			jobInfo.Finished = now()
-			return a.updateJobState(stm, jobInfo, pps.JobState_JOB_SUCCESS, "")
-		})
-		return err
+func (a *APIServer) runService(ctx context.Context, logger *taggedLogger) error {
+	return backoff.RetryNotify(func() error {
+		return a.runUserCode(ctx, logger, nil, &pps.ProcessStats{})
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		select {
 		case <-ctx.Done():
-			// Exit the retry loop if context got cancelled
 			return err
 		default:
-		}
-
-		jobStoppedMutex.Lock()
-		defer jobStoppedMutex.Unlock()
-		if jobStopped {
-			// If the job has been stopped, exit the retry loop
-			return err
-		}
-
-		logger.Logf("error running jobManager for job %s: %v; retrying in %v", jobInfo.Job.ID, err, d)
-
-		// Increment the job's restart count
-		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-			jobs := a.jobs.ReadWrite(stm)
-			jobInfo := new(pps.JobInfo)
-			if err := jobs.Get(jobID, jobInfo); err != nil {
-				return err
-			}
-			jobInfo.Restart++
-			jobs.Put(jobInfo.Job.ID, jobInfo)
+			logger.Logf("error running user code: %+v, retrying in: %+v", err, d)
 			return nil
-		})
-		if err != nil {
-			logger.Logf("error incrementing job %s's restart count", jobInfo.Job.ID)
 		}
-
-		return nil
 	})
-	return nil
 }
 
 func (a *APIServer) aggregateProcessStats(stats []*pps.ProcessStats) (*pps.AggregateProcessStats, error) {
