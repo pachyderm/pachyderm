@@ -35,7 +35,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
@@ -285,7 +284,11 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
 		datumCache: datumCache,
 	}
-	go server.master()
+	if pipelineInfo.Service == nil {
+		go server.master()
+	} else {
+		go server.serviceMaster()
+	}
 	return server, nil
 }
 
@@ -819,59 +822,6 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		return nil, err
 	}
 	return &ProcessResponse{Stats: stats}, nil
-}
-
-func (a *APIServer) Serve(ctx context.Context, req *ServeRequest) (_ *types.Empty, retErr error) {
-	// Set the auth parameters for the context
-	ctx = a.pachClient.AddMetadata(ctx)
-
-	logger, err := a.getTaggedLogger(ctx, req.JobID, req.Data, false)
-	if err != nil {
-		return nil, err
-	}
-	logger.Logf("serve call started - request: %v", req)
-	defer func(start time.Time) {
-		logger.Logf("serve call finished - request: %v, err %v, duration: %v", req, retErr, time.Since(start))
-	}(time.Now())
-	stats := &pps.ProcessStats{}
-	ctx, cancel := context.WithCancel(ctx)
-	a.statusMu.Lock()
-	a.cancel = cancel
-	a.statusMu.Unlock()
-	env := a.userCodeEnv(req.JobID, req.Data)
-	// Download input data
-	puller := filesync.NewPuller()
-	dir, err := a.downloadData(logger, req.Data, puller, nil, stats, nil, "")
-	if err != nil {
-		return nil, err
-	}
-	// We run these cleanup functions no matter what, so that if
-	// downloadData partially succeeded, we still clean up the resources.
-	// defer func() {
-	// 	if err := os.RemoveAll(dir); err != nil && retErr == nil {
-	// 		retErr = err
-	// 	}
-	// }()
-	if err := os.MkdirAll(client.PPSInputPrefix, 0666); err != nil {
-		return nil, err
-	}
-	if err := syscall.Mount(dir, client.PPSInputPrefix, "", syscall.MS_BIND, ""); err != nil {
-		return nil, err
-	}
-	// defer func() {
-	// 	if err := syscall.Unmount(client.PPSInputPrefix, syscall.MNT_DETACH); err != nil && retErr == nil {
-	// 		retErr = err
-	// 	}
-	// }()
-	go func() {
-		backoff.RetryNotify(func() error {
-			return a.runUserCode(context.Background(), logger, env, stats)
-		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-			logger.Logf("error running user code: %+v, retrying in: %+v", err, d)
-			return nil
-		})
-	}()
-	return &types.Empty{}, nil
 }
 
 // Status returns the status of the current worker.

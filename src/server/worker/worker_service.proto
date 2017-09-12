@@ -46,18 +46,8 @@ message CancelResponse {
   bool success = 1;
 }
 
-message ServeRequest {
-  // ID of the job for which we're processing 'data'. This is attached to logs
-  // generated while processing 'data', so that they can be searched.
-  string job_id = 2 [(gogoproto.customname) = "JobID"];
-
-  // The datum to process
-  repeated Input data = 1;
-}
-
 service Worker {
   rpc Process(ProcessRequest) returns (ProcessResponse) {}
   rpc Status(google.protobuf.Empty) returns (pps.WorkerStatus) {}
   rpc Cancel(CancelRequest) returns (CancelResponse) {}
-  rpc Serve(ServeRequest) returns (google.protobuf.Empty) {}
 }
