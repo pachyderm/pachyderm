@@ -17,22 +17,26 @@ Assuming you followed one of our [deploy guides](http://pachyderm.readthedocs.io
 
 ```
 $ kubectl get all
-NAME                        READY     STATUS    RESTARTS   AGE
-po/etcd-4197107720-br61m    1/1       Running   0          8m
-po/pachd-3548222380-s086m   1/1       Running   2          8m
+NAME                       READY     STATUS    RESTARTS   AGE
+po/dash-361776027-vbj73    2/2       Running   0          1h
+po/etcd-2142892294-whlpn   1/1       Running   0          1h
+po/pachd-776177201-ktjlv   1/1       Running   0          1h
 
-NAME             CLUSTER-IP     EXTERNAL-IP   PORT(S)                       AGE
-svc/etcd         10.111.11.36   <nodes>       2379:32379/TCP                8m
-svc/kubernetes   10.96.0.1      <none>        443/TCP                       10m
-svc/pachd        10.97.116.5    <nodes>       650:30650/TCP,651:30651/TCP   8m
+NAME             CLUSTER-IP   EXTERNAL-IP   PORT(S)                                     AGE
+svc/dash         10.0.0.91    <nodes>       8080:30080/TCP,8081:30081/TCP               1h
+svc/etcd         10.0.0.231   <nodes>       2379:32379/TCP                              1h
+svc/kubernetes   10.0.0.1     <none>        443/TCP                                     2h
+svc/pachd        10.0.0.136   <nodes>       650:30650/TCP,651:30651/TCP,652:30652/TCP   1h
 
 NAME           DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-deploy/etcd    1         1         1            1           8m
-deploy/pachd   1         1         1            1           8m
+deploy/dash    1         1         1            1           1h
+deploy/etcd    1         1         1            1           1h
+deploy/pachd   1         1         1            1           1h
 
-NAME                  DESIRED   CURRENT   READY     AGE
-rs/etcd-4197107720    1         1         1         8m
-rs/pachd-3548222380   1         1         1         8m
+NAME                 DESIRED   CURRENT   READY     AGE
+rs/dash-361776027    1         1         1         1h
+rs/etcd-2142892294   1         1         1         1h
+rs/pachd-776177201   1         1         1         1h 
 ```
 
 You should also be able to connect to the Pachyderm cluster via the `pachctl` CLI:
@@ -59,33 +63,7 @@ ACTIVE
 
 ### Activate via the dashboard
 
-Assuming that you have a running Pachyderm cluster and you have deployed the Pachyderm Enterprise dashboard using [this guide](#deploying-the-pachyderm-enterprise-edition-dashboard), you should see that the state of your Pachyderm cluster is similar to the following:
-
-```
-$ kubectl get all
-NAME                       READY     STATUS    RESTARTS   AGE
-po/dash-361776027-vbj73    2/2       Running   0          1h
-po/etcd-2142892294-whlpn   1/1       Running   0          1h
-po/pachd-776177201-ktjlv   1/1       Running   0          1h
-
-NAME             CLUSTER-IP   EXTERNAL-IP   PORT(S)                                     AGE
-svc/dash         10.0.0.91    <nodes>       8080:30080/TCP,8081:30081/TCP               1h
-svc/etcd         10.0.0.231   <nodes>       2379:32379/TCP                              1h
-svc/kubernetes   10.0.0.1     <none>        443/TCP                                     2h
-svc/pachd        10.0.0.136   <nodes>       650:30650/TCP,651:30651/TCP,652:30652/TCP   1h
-
-NAME           DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-deploy/dash    1         1         1            1           1h
-deploy/etcd    1         1         1            1           1h
-deploy/pachd   1         1         1            1           1h
-
-NAME                 DESIRED   CURRENT   READY     AGE
-rs/dash-361776027    1         1         1         1h
-rs/etcd-2142892294   1         1         1         1h
-rs/pachd-776177201   1         1         1         1h 
-```
-
-When you visit `<pachyderm host IP>:30080` (e.g., `localhost:30080` when you are using `pachctl port-forward`), the dashboard will prompt you for your activation code:
+Assuming that you have a running Pachyderm cluster and you have deployed the Pachyderm Enterprise dashboard using [this guide](#deploying-the-pachyderm-enterprise-edition-dashboard), you should be able to visit `<pachyderm host IP>:30080` (e.g., `localhost:30080` when you are using `pachctl port-forward`) to see the dashboard. When you first visit the dashboard, it will prompt you for your activation code:
 
 ![alt tag](token.png)
 

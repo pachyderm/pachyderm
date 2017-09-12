@@ -3,11 +3,11 @@
 To take advantage of the advanced statistics features in Pachyderm Enterprise Edition, you need to:
 
 1. Run your pipelines on a Pachyderm cluster that has activated Enterprise features (see [Deploying Enterprise Edition](deployment.html) for more details).
-2. Enable stats coolection in your pipelines by including `"enable_stats": true` in your [pipeline specifications](http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html#enable-stats-optional).
+2. Enable stats collection in your pipelines by including `"enable_stats": true` in your [pipeline specifications](http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html#enable-stats-optional).
 
 You will then be able to access the following information for any jobs corresponding to your pipelines:
 
-- The amount of data that was uploaded and downloaded during the job and on a per-datum level.
+- The amount of data that was uploaded and downloaded during the job and on a per-datum level (see [here](http://pachyderm.readthedocs.io/en/latest/fundamentals/distributed_computing.html#datums) for info about Pachyderm datums).
 - The time spend uploading and downloading data on a per-datum level.
 - The amount of data uploaded and downloaded on a per-datum level.
 - The total time spend processing on a per-datum level.
@@ -16,7 +16,7 @@ You will then be able to access the following information for any jobs correspon
 
 The primary and recommended way to view this information is via the Pachyderm Enterprise dashboard, which can be deployed as detailed [here](deployment.html#deploying-the-pachyderm-enterprise-edition-dashboard). However, the same information is available through the `inspect-datum` and `list-datum` `pachctl` commands or through their language client equivalents.  
 
-**Note** - We recommend enabling stats for all of your pipeline and only disabling the feature for very stable, long-running pipelines. The persisted stats are persisted minimal in size in comparison to the actual size of your data, and none of your data is duplicated in producing the stats.
+**Note** - We recommend enabling stats for all of your pipeline and only disabling the feature for very stable, long-running pipelines. In most cases, the debugging/maintainence benefits of the stats data will outweigh any disadvantages of storing the extra data associated with the stats. Also note, none of your data is duplicated in producing the stats.
 
 ## Enabling stats for a pipeline
 
@@ -65,7 +65,7 @@ In this example case, we can see that the pipeline has had 1 recent successful j
 
 ![alt tag](stats2.png)
 
-To get more granular per-datum stats, we can click on the `41 datums total`, which will reveal the following:
+To get more granular per-datum stats (see [here](http://pachyderm.readthedocs.io/en/latest/fundamentals/distributed_computing.html#datums) for info on Pachyderm datums), we can click on the `41 datums total`, which will reveal the following:
 
 ![alt tag](stats3.png)
 
