@@ -714,6 +714,20 @@ want to consider using commit IDs directly.
 	putFile.Flags().BoolVarP(&putFileCommit, "commit", "c", false, "Put file(s) in a new commit.")
 	putFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to put-file within this commit.")
 
+	copyFile := &cobra.Command{
+		Use:   "copy-file src-repo src-commit src-path dst-repo dst-commit dst-path",
+		Short: "Copy files between pfs paths.",
+		Long:  "Copy files between pfs paths.",
+		Run: cmdutil.RunFixedArgs(6, func(args []string) (retErr error) {
+			client, err := client.NewOnUserMachineWithConcurrency(metrics, "user", parallelism)
+			if err != nil {
+				return err
+			}
+			return client.CopyFile(args[0], args[1], args[2], args[3], args[4], args[5], overwrite)
+		}),
+	}
+	copyFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to put-file within this commit.")
+
 	var outputPath string
 	getFile := &cobra.Command{
 		Use:   "get-file repo-name commit-id path/to/file",
@@ -1078,6 +1092,7 @@ $ pachctl diff-file foo master path1 bar master path2
 	result = append(result, deleteBranch)
 	result = append(result, file)
 	result = append(result, putFile)
+	result = append(result, copyFile)
 	result = append(result, getFile)
 	result = append(result, inspectFile)
 	result = append(result, listFile)

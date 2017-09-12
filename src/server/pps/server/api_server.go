@@ -1246,6 +1246,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		EnableStats:        request.EnableStats,
 		Salt:               uuid.NewWithoutDashes(),
 		Batch:              request.Batch,
+		MaxQueueSize:       request.MaxQueueSize,
 	}
 	setPipelineDefaults(pipelineInfo)
 	var visitErr error
@@ -1455,6 +1456,9 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 		pipelineInfo.ResourceSpec = &pps.ResourceSpec{
 			Memory: pipelineInfo.CacheSize,
 		}
+	}
+	if pipelineInfo.MaxQueueSize == 0 {
+		pipelineInfo.MaxQueueSize = 10
 	}
 }
 
@@ -1721,7 +1725,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 			return err
 		}
 
-		return tree.Walk(func(path string, node *hashtree.NodeProto) error {
+		return tree.Walk("/", func(path string, node *hashtree.NodeProto) error {
 			if node.FileNode != nil {
 				addActiveObjects(node.FileNode.Objects...)
 			}

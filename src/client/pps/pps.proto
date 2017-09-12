@@ -291,6 +291,7 @@ message PipelineInfo {
   string capability = 26;
   bool batch = 27;
   string reason = 28;
+  int64 max_queue_size = 29;
 }
 
 message PipelineInfos {
@@ -423,6 +424,7 @@ message CreatePipelineRequest {
   // It only has meaning if Update is true
   bool reprocess = 18;
   bool batch = 19;
+  int64 max_queue_size = 20;
 }
 
 message InspectPipelineRequest {

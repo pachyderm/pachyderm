@@ -574,6 +574,20 @@ func (c APIClient) PutFileURL(repoName string, commitID string, path string, url
 	return nil
 }
 
+// CopyFile copys a file from one pfs location to another. It can be used on
+// directories or regular files.
+func (c APIClient) CopyFile(srcRepo, srcCommit, srcPath, dstRepo, dstCommit, dstPath string, overwrite bool) error {
+	if _, err := c.PfsAPIClient.CopyFile(c.Ctx(),
+		&pfs.CopyFileRequest{
+			Src:       NewFile(srcRepo, srcCommit, srcPath),
+			Dst:       NewFile(dstRepo, dstCommit, dstPath),
+			Overwrite: overwrite,
+		}); err != nil {
+		return sanitizeErr(err)
+	}
+	return nil
+}
+
 // GetFile returns the contents of a file at a specific Commit.
 // offset specifies a number of bytes that should be skipped in the beginning of the file.
 // size limits the total amount of data returned, note you will get fewer bytes
