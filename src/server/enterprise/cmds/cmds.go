@@ -12,6 +12,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Unfortunately, Go's pre-defined format strings for parsing RFC-3339-compliant
+// timestamps aren't exhaustive. This method attempts to parse a larger set of
+// of ISO-8601-compatible timestampts (which are themselves a subset of RFC-3339
+// timestamps)
+func parseISO8601(s string) (time.Time, error) {
+	t, err := time.Parse(time.RFC3339, s)
+	if err == nil {
+		return t, nil
+	}
+	t, err = time.Parse("2006-01-02T15:04:05Z0700", s)
+	if err == nil {
+		return t, nil
+	}
+	return time.Time{}, fmt.Errorf("could not parse \"%s\" as any of %v", s, []string{time.RFC3339, "2006-01-02T15:04:05Z0700"})
+}
+
 // ActivateCmd returns a cobra.Command to activate the enterprise features of
 // Pachyderm within a Pachyderm cluster. All repos will go from
 // publicly-accessible to accessible only by the owner, who can subsequently add
@@ -32,7 +48,7 @@ func ActivateCmd() *cobra.Command {
 			req := &enterprise.ActivateRequest{}
 			req.ActivationCode = args[0]
 			if expires != "" {
-				t, err := time.Parse(time.RFC3339, expires)
+				t, err := parseISO8601(expires)
 				if err != nil {
 					return fmt.Errorf("could not parse the timestamp \"%s\": %s", expires, err.Error())
 				}
