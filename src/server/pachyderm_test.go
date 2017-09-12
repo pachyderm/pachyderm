@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
+	"net/http"
 	"os"
 	"path"
 	"strconv"
@@ -4959,6 +4960,11 @@ func TestService(t *testing.T) {
 		8000,
 		31800,
 	))
+
+	require.NoError(t, backoff.Retry(func() error {
+		_, err := http.Get("http://localhost:31800")
+		return err
+	}, backoff.NewTestingBackOff()))
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {

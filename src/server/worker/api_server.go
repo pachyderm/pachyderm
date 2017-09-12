@@ -847,25 +847,25 @@ func (a *APIServer) Serve(ctx context.Context, req *ServeRequest) (_ *types.Empt
 	}
 	// We run these cleanup functions no matter what, so that if
 	// downloadData partially succeeded, we still clean up the resources.
-	defer func() {
-		if err := os.RemoveAll(dir); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
+	// defer func() {
+	// 	if err := os.RemoveAll(dir); err != nil && retErr == nil {
+	// 		retErr = err
+	// 	}
+	// }()
 	if err := os.MkdirAll(client.PPSInputPrefix, 0666); err != nil {
 		return nil, err
 	}
 	if err := syscall.Mount(dir, client.PPSInputPrefix, "", syscall.MS_BIND, ""); err != nil {
 		return nil, err
 	}
-	defer func() {
-		if err := syscall.Unmount(client.PPSInputPrefix, syscall.MNT_DETACH); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
+	// defer func() {
+	// 	if err := syscall.Unmount(client.PPSInputPrefix, syscall.MNT_DETACH); err != nil && retErr == nil {
+	// 		retErr = err
+	// 	}
+	// }()
 	go func() {
 		backoff.RetryNotify(func() error {
-			return a.runUserCode(ctx, logger, env, nil)
+			return a.runUserCode(context.Background(), logger, env, stats)
 		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 			logger.Logf("error running user code: %+v, retrying in: %+v", err, d)
 			return nil
