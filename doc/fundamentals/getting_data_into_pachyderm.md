@@ -33,7 +33,7 @@ Add a single file to a new branch:
 
 ```sh
 # first start a commit
-$ pachctl start-commit <repo> -b <branch>
+$ pachctl start-commit <repo> <branch>
 
 # then utilize the returned <commit-id> in the put-file request
 # to put <file> at <path> in the <repo>
