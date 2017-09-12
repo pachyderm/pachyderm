@@ -236,6 +236,12 @@ message PutFileRequest {
   bool overwrite = 10;
 }
 
+message CopyFileRequest {
+  File src = 1;
+  File dst = 2;
+  bool overwrite = 3;
+}
+
 message InspectFileRequest {
   File file = 1;
 }
@@ -318,6 +324,8 @@ service API {
   // File rpcs
   // PutFile writes the specified file to pfs.
   rpc PutFile(stream PutFileRequest) returns (google.protobuf.Empty) {}
+  // CopyFile copies the contents of one file to another.
+  rpc CopyFile(CopyFileRequest) returns (google.protobuf.Empty) {}
   // GetFile returns a byte stream of the contents of the file.
   rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
   // InspectFile returns info about a file.

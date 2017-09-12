@@ -437,6 +437,8 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 	var err error
 	if request.Pipeline != nil {
 		iter, err = jobs.GetByIndex(ppsdb.JobsPipelineIndex, request.Pipeline)
+	} else if request.OutputCommit != nil {
+		iter, err = jobs.GetByIndex(ppsdb.JobsOutputIndex, request.OutputCommit)
 	} else {
 		iter, err = jobs.List()
 	}
@@ -1726,7 +1728,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 			return err
 		}
 
-		return tree.Walk(func(path string, node *hashtree.NodeProto) error {
+		return tree.Walk("/", func(path string, node *hashtree.NodeProto) error {
 			if node.FileNode != nil {
 				addActiveObjects(node.FileNode.Objects...)
 			}
