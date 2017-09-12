@@ -3008,6 +3008,44 @@ func TestOverwrite(t *testing.T) {
 	}
 }
 
+func TestCopyFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getClient(t)
+	repo := uniqueString("TestCopyFile")
+	require.NoError(t, c.CreateRepo(repo))
+	_, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	numFiles := 5
+	for i := 0; i < numFiles; i++ {
+		_, err = c.PutFile(repo, "master", fmt.Sprintf("files/%d", i), strings.NewReader(fmt.Sprintf("foo %d\n", i)))
+		require.NoError(t, err)
+	}
+	require.NoError(t, c.FinishCommit(repo, "master"))
+	_, err = c.StartCommit(repo, "other")
+	require.NoError(t, err)
+	require.NoError(t, c.CopyFile(repo, "master", "files", repo, "other", "files", false))
+	require.NoError(t, c.CopyFile(repo, "master", "files/0", repo, "other", "file0", false))
+	require.NoError(t, c.FinishCommit(repo, "other"))
+	for i := 0; i < numFiles; i++ {
+		var b bytes.Buffer
+		require.NoError(t, c.GetFile(repo, "other", fmt.Sprintf("files/%d", i), 0, 0, &b))
+		require.Equal(t, fmt.Sprintf("foo %d\n", i), b.String())
+	}
+	var b bytes.Buffer
+	require.NoError(t, c.GetFile(repo, "other", "file0", 0, 0, &b))
+	require.Equal(t, "foo 0\n", b.String())
+	_, err = c.StartCommit(repo, "other")
+	require.NoError(t, c.CopyFile(repo, "other", "files/0", repo, "other", "files", true))
+	require.NoError(t, c.FinishCommit(repo, "other"))
+	b.Reset()
+	require.NoError(t, c.GetFile(repo, "other", "files", 0, 0, &b))
+	require.Equal(t, "foo 0\n", b.String())
+}
+
 func uniqueString(prefix string) string {
 	return prefix + "-" + uuid.NewWithoutDashes()[0:12]
 }
