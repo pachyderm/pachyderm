@@ -349,17 +349,14 @@ nextInput:
 }
 
 func (a *APIServer) serviceSpawner(ctx context.Context, logger *taggedLogger) error {
-	go func() {
-		if err := a.runService(ctx, logger); err != nil {
-			logger.Logf("error from runService: %+v", err)
-		}
-	}()
 	bsf, err := a.newBranchSetFactory(ctx)
 	if err != nil {
 		return fmt.Errorf("error constructing branch set factory: %v", err)
 	}
 	defer bsf.Close()
 
+	var serviceCtx context.Context
+	var serviceCancel func()
 	for {
 		var bs *branchSet
 		select {
@@ -396,6 +393,15 @@ func (a *APIServer) serviceSpawner(ctx context.Context, logger *taggedLogger) er
 		if err := syscall.Mount(dir, client.PPSInputPrefix, "", syscall.MS_BIND, ""); err != nil {
 			return err
 		}
+		if serviceCancel != nil {
+			serviceCancel()
+		}
+		serviceCtx, serviceCancel = context.WithCancel(ctx)
+		go func() {
+			if err := a.runService(serviceCtx, logger); err != nil {
+				logger.Logf("error from runService: %+v", err)
+			}
+		}()
 	}
 
 	return nil

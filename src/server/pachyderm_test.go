@@ -4999,7 +4999,7 @@ func TestService(t *testing.T) {
 		[]string{"sh"},
 		[]string{
 			"cd /pfs",
-			"python -m SimpleHTTPServer 8000",
+			"exec python -m SimpleHTTPServer 8000",
 		},
 		&pps.ParallelismSpec{
 			Constant: 1,
