@@ -2349,10 +2349,11 @@ func getClient(t *testing.T) pclient.APIClient {
 	// src/server/pfs/server/driver.go expects an etcd server at "localhost:32379"
 	// Try to establish a connection before proceeding with the test (which will
 	// fail if the connection can't be established)
+	etcdAddress := "localhost:32379"
 	etcdOnce.Do(func() {
 		require.NoError(t, backoff.Retry(func() error {
 			_, err := etcd.New(etcd.Config{
-				Endpoints:   []string{"localhost:32379"},
+				Endpoints:   []string{etcdAddress},
 				DialOptions: pclient.EtcdDialOptions(),
 			})
 			if err != nil {
@@ -2377,7 +2378,7 @@ func getClient(t *testing.T) pclient.APIClient {
 	prefix := generateRandomString(32)
 	for i, port := range ports {
 		address := addresses[i]
-		blockAPIServer, err := NewLocalBlockAPIServer(root)
+		blockAPIServer, err := newLocalBlockAPIServer(root, 256*1024*1024, etcdAddress)
 		require.NoError(t, err)
 		apiServer, err := newLocalAPIServer(address, prefix)
 		require.NoError(t, err)
