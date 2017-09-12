@@ -295,7 +295,7 @@ func AccessTokenToUsername(ctx context.Context, token string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("error getting the authenticated user: %s", err.Error())
 	}
-	return user.GetName(), nil
+	return user.GetLogin(), nil
 }
 
 func (a *apiServer) GetAdmins(ctx context.Context, req *authclient.GetAdminsRequest) (resp *authclient.GetAdminsResponse, retErr error) {
@@ -397,7 +397,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 
 	// Determine caller's Pachyderm/GitHub username
 	var username string
-	if os.Getenv(DisableAuthenticationEnvVar) == "true" {
+	if os.Getenv(DisableAuthenticationEnvVar) == "true" && req.GithubUsername != "" {
 		// Test mode--the caller automatically authenticates as whoever is requested
 		username = req.GithubUsername
 	} else {
