@@ -246,7 +246,7 @@ func (s *objBlockAPIServer) PutObjectSplit(server pfsclient.ObjectAPI_PutObjectS
 }
 
 func (s *objBlockAPIServer) putObject(ctx context.Context, dataReader io.Reader, split bool) (_ *pfsclient.Object, retErr error) {
-	hash := NewHash()
+	hash := pfsclient.NewHash()
 	r := io.TeeReader(dataReader, hash)
 	block := &pfsclient.Block{Hash: uuid.NewWithoutDashes()}
 	var size int64
@@ -262,7 +262,7 @@ func (s *objBlockAPIServer) putObject(ctx context.Context, dataReader io.Reader,
 			}
 		}()
 		if split {
-			size, err = io.CopyN(w, r, ChunkSize)
+			size, err = io.CopyN(w, r, pfsclient.ChunkSize)
 		} else {
 			buf := grpcutil.GetBuffer()
 			defer grpcutil.PutBuffer(buf)

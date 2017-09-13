@@ -526,8 +526,8 @@ func (c APIClient) PutFile(repoName string, commitID string, path string, reader
 // appending to it.  overwriteIndex allows you to specify the index of the
 // object starting from which you'd like to overwrite.  If you want to
 // overwrite the entire file, specify an index of 0.
-func (c APIClient) PutFileOverwrite(repoName string, commitID string, path string, reader io.Reader, overwriteIndex *pfs.OverwriteIndex) (_ int, retErr error) {
-	writer, err := c.newPutFileWriteCloser(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, overwriteIndex)
+func (c APIClient) PutFileOverwrite(repoName string, commitID string, path string, reader io.Reader, overwriteIndex int64) (_ int, retErr error) {
+	writer, err := c.newPutFileWriteCloser(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, &pfs.OverwriteIndex{overwriteIndex})
 	if err != nil {
 		return 0, sanitizeErr(err)
 	}

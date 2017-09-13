@@ -14,7 +14,6 @@ import (
 	pachclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
@@ -424,23 +423,23 @@ func SyncFile(client *pachclient.APIClient, pfsFile *pfs.File, osFile io.ReadSee
 	var i int
 	var object *pfs.Object
 	for i, object = range fileInfo.Objects {
-		hash := pfs_server.NewHash()
-		if _, err := io.CopyN(hash, osFile, pfs_server.ChunkSize); err != nil {
+		hash := pfs.NewHash()
+		if _, err := io.CopyN(hash, osFile, pfs.ChunkSize); err != nil {
 			if err == io.EOF {
 				break
 			}
 			return err
 		}
 
-		if object.Hash != pfs_server.EncodeHash(hash.Sum(nil)) {
+		if object.Hash != pfs.EncodeHash(hash.Sum(nil)) {
 			break
 		}
 	}
 
-	if _, err := osFile.Seek(int64(i)*pfs_server.ChunkSize, 0); err != nil {
+	if _, err := osFile.Seek(int64(i)*pfs.ChunkSize, 0); err != nil {
 		return err
 	}
 
-	_, err = client.PutFileOverwrite(pfsFile.Commit.Repo.Name, pfsFile.Commit.ID, pfsFile.Path, osFile, i)
+	_, err = client.PutFileOverwrite(pfsFile.Commit.Repo.Name, pfsFile.Commit.ID, pfsFile.Path, osFile, int64(i))
 	return err
 }

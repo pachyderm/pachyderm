@@ -15,11 +15,6 @@ const (
 	LocalBackendEnvVar     = "LOCAL"
 )
 
-var (
-	// The size of file chunks when resumable upload is used
-	ChunkSize = int64(16 * 1024 * 1024) // 16 MB
-)
-
 // APIServer represents and api server.
 type APIServer interface {
 	pfsclient.APIServer
