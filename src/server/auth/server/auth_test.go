@@ -1179,3 +1179,24 @@ func TestGetScopeRequiresReader(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 }
+
+func TestListRepoNotLoggedInError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	alice := uniqueString("alice")
+	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
+
+	// alice creates a repo
+	repoWriter := uniqueString("TestListRepo")
+	require.NoError(t, aliceClient.CreateRepo(repoWriter))
+	require.Equal(t, acl(alice, "owner"), GetACL(t, aliceClient, repoWriter))
+
+	// Anon (non-logged-in user) calls ListRepo, and must recieve an error
+	_, err := anonClient.PfsAPIClient.ListRepo(anonClient.Ctx(),
+		&pfs.ListRepoRequest{IncludeAuth: true})
+	require.YesError(t, err)
+	require.Matches(t, "auth token not found in context", err.Error())
+	t.Fatal("expected failure")
+}
