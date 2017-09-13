@@ -807,6 +807,7 @@ func parseCommitID(commitID string) (string, int) {
 
 func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit, from *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error) {
 	if err := d.checkIsAuthorized(ctx, repo, auth.Scope_READER); err != nil {
+		fmt.Printf("error: %#v\n", err)
 		return nil, err
 	}
 	if from != nil && from.Repo.Name != repo.Name || to != nil && to.Repo.Name != repo.Name {

@@ -17,18 +17,22 @@ func PrintRepoHeader(w io.Writer) {
 }
 
 // PrintRepoInfo pretty-prints repo info.
-func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo) {
+func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo, printAuth bool) {
 	fmt.Fprintf(w, "%s\t", repoInfo.Repo.Name)
 	fmt.Fprintf(
 		w,
 		"%s\t",
 		pretty.Ago(repoInfo.Created),
 	)
-	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(repoInfo.SizeBytes)))
+	fmt.Fprintf(w, "%s\t", units.BytesSize(float64(repoInfo.SizeBytes)))
+	if printAuth {
+		fmt.Fprintf(w, "%s\t", repoInfo.Scope.String())
+	}
+	fmt.Fprintln(w)
 }
 
 // PrintDetailedRepoInfo pretty-prints detailed repo info.
-func PrintDetailedRepoInfo(repoInfo *pfs.RepoInfo) error {
+func PrintDetailedRepoInfo(repoInfo *pfs.RepoInfo, printAuth bool) error {
 	template, err := template.New("RepoInfo").Funcs(funcMap).Parse(
 		`Name: {{.Repo.Name}}{{if .Description}}
 Description: {{.Description}}{{end}}
@@ -42,6 +46,9 @@ Provenance: {{range .Provenance}} {{.Name}} {{end}} {{end}}
 	err = template.Execute(os.Stdout, repoInfo)
 	if err != nil {
 		return err
+	}
+	if printAuth {
+		fmt.Printf("Access Scope: %s\n", repoInfo.Scope)
 	}
 	return nil
 }
