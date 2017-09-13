@@ -114,7 +114,7 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (
 		DialOptions: client.EtcdDialOptions(),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("error constructing etcdClient: %s", err.Error())
+		return nil, fmt.Errorf("error constructing etcdClient: %v", err)
 	}
 
 	s := &apiServer{
@@ -204,8 +204,7 @@ func (a *apiServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
 	resp, err := pachClient.Enterprise.GetState(context.Background(),
 		&enterpriseclient.GetStateRequest{})
 	if err != nil {
-		return 0, fmt.Errorf("could not get Enterprise status: %s",
-			grpcutil.StripGRPCCode(err).Error())
+		return 0, fmt.Errorf("could not get Enterprise status: %v", grpcutil.StripGRPCCode(err))
 	}
 	return resp.State, nil
 }
@@ -218,7 +217,7 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	// cannot be activated
 	state, err := a.getEnterpriseTokenState()
 	if err != nil {
-		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %s", err.Error())
+		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
 	if state != enterpriseclient.State_ACTIVE {
 		return nil, fmt.Errorf("Pachyderm Enterprise is not active in this " +
@@ -295,7 +294,7 @@ func AccessTokenToUsername(ctx context.Context, token string) (string, error) {
 	// Passing the empty string gets us the authenticated user
 	user, _, err := gclient.Users.Get(ctx, "")
 	if err != nil {
-		return "", fmt.Errorf("error getting the authenticated user: %s", err.Error())
+		return "", fmt.Errorf("error getting the authenticated user: %v", err)
 	}
 	return user.GetLogin(), nil
 }
@@ -418,7 +417,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 	// If the cluster's enterprise token is expired, only admins may log in
 	state, err := a.getEnterpriseTokenState()
 	if err != nil {
-		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %s", err.Error())
+		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
 	if state != enterpriseclient.State_ACTIVE && !a.isAdmin(username) {
 		return nil, errors.New("Pachyderm Enterprise is not active in this " +
@@ -438,7 +437,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 			defaultTokenTTLSecs)
 	})
 	if err != nil {
-		return nil, fmt.Errorf("error storing auth token for user %v: %s", username, err.Error())
+		return nil, fmt.Errorf("error storing auth token for user \"%s\": %v", username, err)
 	}
 
 	return &authclient.AuthenticateResponse{
@@ -467,7 +466,7 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 	// authorize (and admins are already handled)
 	state, err := a.getEnterpriseTokenState()
 	if err != nil {
-		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %s", err.Error())
+		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
 	if state != enterpriseclient.State_ACTIVE && user.Type != authclient.User_PIPELINE {
 		return nil, fmt.Errorf("Pachyderm Enterprise is not active in this " +
@@ -480,7 +479,7 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 			// ACL not found -- same as empty ACL
 			return &authclient.AuthorizeResponse{Authorized: false}, nil
 		}
-		return nil, fmt.Errorf("error getting ACL for repo %v: %s", req.Repo, err.Error())
+		return nil, fmt.Errorf("error getting ACL for repo \"%s\": %v", req.Repo, err)
 	}
 
 	return &authclient.AuthorizeResponse{
@@ -555,7 +554,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 			// Check if the cluster's enterprise token is expired (fail if so)
 			state, err := a.getEnterpriseTokenState()
 			if err != nil {
-				return false, fmt.Errorf("error confirming Pachyderm Enterprise token: %s", err.Error())
+				return false, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 			}
 			if state != enterpriseclient.State_ACTIVE {
 				return false, fmt.Errorf("Pachyderm Enterprise is not active in this " +
@@ -588,7 +587,6 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 			return acls.Delete(req.Repo)
 		}
 		return acls.Put(req.Repo, &acl)
-		return nil
 	})
 	if err != nil {
 		return nil, err
@@ -612,7 +610,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 	// Check if the cluster's enterprise token is expired (fail if so)
 	state, err := a.getEnterpriseTokenState()
 	if err != nil {
-		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %s", err.Error())
+		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
 	if state != enterpriseclient.State_ACTIVE && !a.isAdmin(user.Username) {
 		return nil, fmt.Errorf("Pachyderm Enterprise is not active in this " +
@@ -671,7 +669,7 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	// Check if the cluster's enterprise token is expired (fail if so)
 	state, err := a.getEnterpriseTokenState()
 	if err != nil {
-		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %s", err.Error())
+		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
 	if state != enterpriseclient.State_ACTIVE && !a.isAdmin(user.Username) {
 		return nil, fmt.Errorf("Pachyderm Enterprise is not active in this " +
@@ -729,7 +727,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 			// Check if the cluster's enterprise token is expired (fail if so)
 			state, err := a.getEnterpriseTokenState()
 			if err != nil {
-				return false, fmt.Errorf("error confirming Pachyderm Enterprise token: %s", err.Error())
+				return false, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 			}
 			if state != enterpriseclient.State_ACTIVE {
 				return false, fmt.Errorf("Pachyderm Enterprise is not active in this " +
@@ -753,7 +751,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 			// No ACL -- check if the repo being modified exists
 			pachClient, err := a.getPachClient()
 			if err != nil {
-				return false, fmt.Errorf("could not check if repo \"%s\" exists: %s", req.Repo, err.Error())
+				return false, fmt.Errorf("could not check if repo \"%s\" exists: %v", req.Repo, err)
 			}
 			_, err = pachClient.InspectRepo(req.Repo)
 			err = grpcutil.StripGRPCCode(err)
@@ -762,7 +760,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 				return false, nil
 			} else if !strings.HasSuffix(err.Error(), "not found") {
 				// Unclear if repo exists -- return error
-				return false, fmt.Errorf("could not inspect %s: %s", req.Repo, err.Error())
+				return false, fmt.Errorf("could not inspect \"%s\": %v", req.Repo, err)
 			} else if req.NewACL != nil && len(req.NewACL.Entries) == 1 &&
 				req.NewACL.Entries[user.Username] == authclient.Scope_OWNER {
 				// Special case: Repo doesn't exist, but user is creating a new Repo, and
@@ -789,7 +787,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 		return acls.Put(req.Repo, req.NewACL)
 	})
 	if err != nil {
-		return nil, fmt.Errorf("could not put new ACL: %s", err.Error())
+		return nil, fmt.Errorf("could not put new ACL: %v", err)
 	}
 	return &authclient.SetACLResponse{}, nil
 }
@@ -824,7 +822,7 @@ func (a *apiServer) GetCapability(ctx context.Context, req *authclient.GetCapabi
 		return tokens.Put(hashToken(capability), user)
 	})
 	if err != nil {
-		return nil, fmt.Errorf("error storing capability for user %v: %s", user.Username, err.Error())
+		return nil, fmt.Errorf("error storing capability for user \"%s\": %v", user.Username, err)
 	}
 
 	return &authclient.GetCapabilityResponse{
@@ -896,7 +894,7 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.User,
 		if _, ok := err.(col.ErrNotFound); ok {
 			return nil, fmt.Errorf("provided auth token is corrupted or has expired")
 		}
-		return nil, fmt.Errorf("error getting token: %s", err.Error())
+		return nil, fmt.Errorf("error getting token: %v", err)
 	}
 
 	return &user, nil
