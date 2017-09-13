@@ -192,7 +192,8 @@ func (d *driver) checkIsAuthorized(ctx context.Context, r *pfs.Repo, s auth.Scop
 	if err == nil && !resp.Authorized {
 		return &auth.NotAuthorizedError{Repo: r.Name, Required: s}
 	} else if err != nil && !auth.IsNotActivatedError(err) {
-		return fmt.Errorf("error during authorization check for operation on %s: %s", r.Name, err.Error())
+		return fmt.Errorf("error during authorization check for operation on \"%s\": %s",
+			r.Name, grpcutil.StripGRPCCode(err).Error())
 	}
 	return nil
 }
@@ -234,17 +235,24 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 			&auth.WhoAmIRequest{})
 		if err != nil {
 			if !auth.IsNotActivatedError(err) {
-				return fmt.Errorf("authorization error while creating repo \"%s\": %s", repo.Name, err.Error())
+				return fmt.Errorf("authorization error while creating repo \"%s\": %s",
+					repo.Name, grpcutil.StripGRPCCode(err).Error())
 			}
 		} else {
-			// auth is active, and user is logged in. Make user an owner of the new repo
-			_, err := d.pachClient.AuthAPIClient.SetScope(auth.In2Out(ctx), &auth.SetScopeRequest{
-				Repo:     repo.Name,
-				Username: whoAmI.Username,
-				Scope:    auth.Scope_OWNER,
+			// auth is active, and user is logged in. Make user an owner of the new
+			// (and clear any existing ACL under this name that might have been
+			// created by accident)
+			_, err := d.pachClient.AuthAPIClient.SetACL(auth.In2Out(ctx), &auth.SetACLRequest{
+				Repo: repo.Name,
+				NewACL: &auth.ACL{
+					Entries: map[string]auth.Scope{
+						whoAmI.Username: auth.Scope_OWNER,
+					},
+				},
 			})
 			if err != nil {
-				return fmt.Errorf("could not create ACL for new repo \"%s\": %s", repo.Name, err.Error())
+				return fmt.Errorf("could not create ACL for new repo \"%s\": %s",
+					repo.Name, grpcutil.StripGRPCCode(err).Error())
 			}
 		}
 	}
@@ -381,12 +389,14 @@ func (d *driver) inspectRepo(ctx context.Context, repo *pfs.Repo, includeAuth bo
 		resp, err := d.pachClient.AuthAPIClient.GetScope(auth.In2Out(ctx),
 			&auth.GetScopeRequest{Repos: []string{repo.Name}})
 		if err != nil && !auth.IsNotActivatedError(err) {
-			return nil, fmt.Errorf("error getting scope for %s: %s", repo.Name, err.Error())
+			return nil, fmt.Errorf("error getting scope for \"%s\": %s", repo.Name,
+				grpcutil.StripGRPCCode(err).Error())
+		} else if err == nil {
+			if len(resp.Scopes) != 1 {
+				return nil, fmt.Errorf("unexpected result from GetScope(): %#v", resp)
+			}
+			result.Scope = resp.Scopes[0]
 		}
-		if len(resp.Scopes) != 1 {
-			return nil, fmt.Errorf("unexpected result from GetScope(): %#v", resp)
-		}
-		result.Scope = resp.Scopes[0]
 	}
 	return result, nil
 }
@@ -436,7 +446,8 @@ nextRepo:
 					Repos: []string{repoName},
 				})
 			if err != nil && !auth.IsNotActivatedError(err) {
-				return nil, fmt.Errorf("error getting scopes: %s", err.Error())
+				return nil, fmt.Errorf("error getting scopes: %s",
+					grpcutil.StripGRPCCode(err).Error())
 			}
 			if len(resp.Scopes) != 1 {
 				return nil, fmt.Errorf("unexpected result from GetScope(): %#v", resp)
@@ -502,7 +513,7 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 	if _, err = d.pachClient.AuthAPIClient.SetACL(auth.In2Out(ctx), &auth.SetACLRequest{
 		Repo: repo.Name, // NewACL is unset, so this will clear the acl for 'repo'
 	}); err != nil && !auth.IsNotActivatedError(err) {
-		return err
+		return grpcutil.StripGRPCCode(err)
 	}
 	return nil
 }
@@ -807,7 +818,6 @@ func parseCommitID(commitID string) (string, int) {
 
 func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit, from *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error) {
 	if err := d.checkIsAuthorized(ctx, repo, auth.Scope_READER); err != nil {
-		fmt.Printf("error: %#v\n", err)
 		return nil, err
 	}
 	if from != nil && from.Repo.Name != repo.Name || to != nil && to.Repo.Name != repo.Name {
