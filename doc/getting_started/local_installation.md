@@ -35,28 +35,32 @@ To check that installation was successful, you can try running `pachctl help`, w
 Now that you have Minikube running, it's incredibly easy to deploy Pachyderm.
 
 ```sh
-pachctl deploy local
+pachctl deploy local --dashboard
 ```
 This generates a Pachyderm manifest and deploys Pachyderm on Kubernetes. It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub. You can see the cluster status by using `kubectl get all`:
 
 ```sh
 $ kubectl get all
-NAME                        READY     STATUS    RESTARTS   AGE
-po/etcd-4197107720-br61m    1/1       Running   0          8m
-po/pachd-3548222380-s086m   1/1       Running   2          8m
+NAME                       READY     STATUS    RESTARTS   AGE
+po/dash-361776027-cdd5k    2/2       Running   0          16m
+po/etcd-2142892294-nf4p5   1/1       Running   0          16m
+po/pachd-776177201-48g87   1/1       Running   2          16m
 
-NAME             CLUSTER-IP     EXTERNAL-IP   PORT(S)                       AGE
-svc/etcd         10.111.11.36   <nodes>       2379:32379/TCP                8m
-svc/kubernetes   10.96.0.1      <none>        443/TCP                       10m
-svc/pachd        10.97.116.5    <nodes>       650:30650/TCP,651:30651/TCP   8m
+NAME             CLUSTER-IP   EXTERNAL-IP   PORT(S)                                     AGE
+svc/dash         10.0.0.201   <nodes>       8080:30080/TCP,8081:30081/TCP               16m
+svc/etcd         10.0.0.38    <nodes>       2379:32379/TCP                              16m
+svc/kubernetes   10.0.0.1     <none>        443/TCP                                     17m
+svc/pachd        10.0.0.64    <nodes>       650:30650/TCP,651:30651/TCP,652:30652/TCP   16m
 
 NAME           DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-deploy/etcd    1         1         1            1           8m
-deploy/pachd   1         1         1            1           8m
+deploy/dash    1         1         1            1           16m
+deploy/etcd    1         1         1            1           16m
+deploy/pachd   1         1         1            1           16m
 
-NAME                  DESIRED   CURRENT   READY     AGE
-rs/etcd-4197107720    1         1         1         8m
-rs/pachd-3548222380   1         1         1         8m
+NAME                 DESIRED   CURRENT   READY     AGE
+rs/dash-361776027    1         1         1         16m
+rs/etcd-2142892294   1         1         1         16m
+rs/pachd-776177201   1         1         1         16m
 ```
 Note: If you see a few restarts on the pachd nodes, that's ok. That simply means that Kubernetes tried to bring up those containers before etcd was ready so it restarted them.
 
@@ -73,8 +77,8 @@ Once port forwarding is complete, pachctl should automatically be connected. Try
 ```shell
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.4.6
-pachd               1.4.6
+pachctl             1.6.0
+pachd               1.6.0
 ```
 We're good to go!
 
