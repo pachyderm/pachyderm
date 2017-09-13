@@ -1373,7 +1373,7 @@ func checkPath(path string) error {
 }
 
 func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter,
-	targetFileDatums int64, targetFileBytes int64, overwrite bool, reader io.Reader) error {
+	targetFileDatums int64, targetFileBytes int64, overwriteIndex *pfs.OverwriteIndex, reader io.Reader) error {
 	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
@@ -1390,13 +1390,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		file.Commit = commitInfo.Commit
 	}
 
-	if overwrite {
-		if err := d.deleteFile(ctx, file); err != nil {
-			return err
-		}
-	}
-
-	records := &PutFileRecords{}
+	records := &pfs.PutFileRecords{}
 	if err := checkPath(file.Path); err != nil {
 		return err
 	}
@@ -1432,9 +1426,10 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		if err != nil {
 			return err
 		}
-		records.Records = append(records.Records, &PutFileRecord{
-			SizeBytes:  size,
-			ObjectHash: object.Hash,
+		records.Records = append(records.Records, &pfs.PutFileRecord{
+			SizeBytes:      size,
+			ObjectHash:     object.Hash,
+			OverwriteIndex: overwriteIndex,
 		})
 		return putRecords()
 	}
@@ -1447,7 +1442,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	decoder := json.NewDecoder(reader)
 	bufioR := bufio.NewReader(reader)
 
-	indexToRecord := make(map[int]*PutFileRecord)
+	indexToRecord := make(map[int]*pfs.PutFileRecord)
 	var mu sync.Mutex
 	for !EOF {
 		var err error
@@ -1486,7 +1481,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 				}
 				mu.Lock()
 				defer mu.Unlock()
-				indexToRecord[index] = &PutFileRecord{
+				indexToRecord[index] = &pfs.PutFileRecord{
 					SizeBytes:  size,
 					ObjectHash: object.Hash,
 				}
@@ -1556,7 +1551,7 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 				// This shouldn't be possible
 				return fmt.Errorf("error from filepath.Rel: %+v (this is likely a bug)", err)
 			}
-			records := &PutFileRecords{}
+			records := &pfs.PutFileRecords{}
 			file := client.NewFile(dst.Commit.Repo.Name, dst.Commit.ID, path.Clean(path.Join(dst.Path, relPath)))
 			prefix, err := d.scratchFilePrefix(ctx, file)
 			if err != nil {
@@ -1567,7 +1562,7 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 				if i == 0 {
 					size = node.SubtreeSize
 				}
-				records.Records = append(records.Records, &PutFileRecord{
+				records.Records = append(records.Records, &pfs.PutFileRecord{
 					SizeBytes:  size,
 					ObjectHash: object.Hash,
 				})
@@ -1901,6 +1896,8 @@ func (d *driver) deleteAll(ctx context.Context) error {
 }
 
 func (d *driver) applyWrites(resp *etcd.GetResponse, tree hashtree.OpenHashTree) error {
+	// a map that keeps track of the sizes of objects
+	sizeMap := make(map[string]int64)
 	for _, kv := range resp.Kvs {
 		// fileStr is going to look like "some/path/UUID"
 		fileStr := d.filePathFromEtcdPath(string(kv.Key))
@@ -1918,16 +1915,34 @@ func (d *driver) applyWrites(resp *etcd.GetResponse, tree hashtree.OpenHashTree)
 				}
 			}
 		} else {
-			records := &PutFileRecords{}
+			records := &pfs.PutFileRecords{}
 			if err := records.Unmarshal(kv.Value); err != nil {
 				return err
 			}
 			if !records.Split {
 				if len(records.Records) != 1 {
-					return fmt.Errorf("unexpect %d length PutFileRecord (this is likely a bug)", len(records.Records))
+					return fmt.Errorf("unexpect %d length pfs.PutFileRecord (this is likely a bug)", len(records.Records))
 				}
-				if err := tree.PutFile(filePath, []*pfs.Object{{Hash: records.Records[0].ObjectHash}}, records.Records[0].SizeBytes); err != nil {
-					return err
+				record := records.Records[0]
+				sizeMap[record.ObjectHash] = record.SizeBytes
+				if record.OverwriteIndex != nil {
+					// Computing size delta
+					delta := record.SizeBytes
+					fileNode, err := tree.Get(filePath)
+					if err == nil {
+						// If we can't find the file, that's fine.
+						for i := record.OverwriteIndex.Index; int(i) < len(fileNode.FileNode.Objects); i++ {
+							delta -= sizeMap[fileNode.FileNode.Objects[i].Hash]
+						}
+					}
+
+					if err := tree.PutFileOverwrite(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.OverwriteIndex, delta); err != nil {
+						return err
+					}
+				} else {
+					if err := tree.PutFile(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+						return err
+					}
 				}
 			} else {
 				nodes, err := tree.List(filePath)

@@ -420,27 +420,27 @@ func SyncFile(client *pachclient.APIClient, pfsFile *pfs.File, osFile io.ReadSee
 	if err != nil && !isNotExist(err) {
 		return err
 	}
-	if len(fileInfo.Objects) > 0 {
-		var i int
-		var object *pfs.Object
-		for i, object = range fileInfo.Objects {
-			hash := pfs_server.NewHash()
-			if _, err := io.CopyN(hash, osFile, pfs_server.ChunkSize); err != nil {
-				if err == io.EOF {
-					break
-				}
-				return err
-			}
 
-			if object.Hash != pfs_server.EncodeHash(hash.Sum(nil)) {
+	var i int
+	var object *pfs.Object
+	for i, object = range fileInfo.Objects {
+		hash := pfs_server.NewHash()
+		if _, err := io.CopyN(hash, osFile, pfs_server.ChunkSize); err != nil {
+			if err == io.EOF {
 				break
 			}
-		}
-
-		if _, err := osFile.Seek(int64(i)*pfs_server.ChunkSize, 0); err != nil {
 			return err
 		}
+
+		if object.Hash != pfs_server.EncodeHash(hash.Sum(nil)) {
+			break
+		}
 	}
-	_, err = client.PutFile(pfsFile.Commit.Repo.Name, pfsFile.Commit.ID, pfsFile.Path, osFile)
+
+	if _, err := osFile.Seek(int64(i)*pfs_server.ChunkSize, 0); err != nil {
+		return err
+	}
+
+	_, err = client.PutFileOverwrite(pfsFile.Commit.Repo.Name, pfsFile.Commit.ID, pfsFile.Path, osFile, i)
 	return err
 }
