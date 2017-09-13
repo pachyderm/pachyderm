@@ -2,9 +2,12 @@ package cmds
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
+
+	"google.golang.org/grpc/status"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
@@ -15,6 +18,18 @@ import (
 )
 
 var githubAuthLink = `https://github.com/login/oauth/authorize?client_id=d3481e92b4f09ea74ff8&redirect_uri=https%3A%2F%2Fpachyderm.io%2Flogin-hook%2Fdisplay-token.html`
+
+// StripGRPCCode removes GRPC error code information from 'err' if it came from
+// GRPC (and returns it unchanged otherwise)
+func StripGRPCCode(err error) error {
+	if err == nil {
+		return nil
+	}
+	if s, ok := status.FromError(err); err != nil && ok {
+		return errors.New(s.Message())
+	}
+	return err
+}
 
 // ActivateCmd returns a cobra.Command to activate Pachyderm's auth system
 func ActivateCmd() *cobra.Command {
@@ -32,10 +47,10 @@ func ActivateCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("could not connect: %s", err.Error())
 			}
-			_, err = c.AuthAPIClient.Activate(c.Ctx(), &auth.ActivateRequest{
+			_, err = c.Activate(c.Ctx(), &auth.ActivateRequest{
 				Admins: admins,
 			})
-			return err
+			return StripGRPCCode(err)
 		}),
 	}
 	activate.PersistentFlags().StringSliceVar(&admins, "admins", []string{},
@@ -65,8 +80,8 @@ func DeactivateCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("could not connect: %s", err.Error())
 			}
-			_, err = c.AuthAPIClient.Deactivate(c.Ctx(), &auth.DeactivateRequest{})
-			return err
+			_, err = c.Deactivate(c.Ctx(), &auth.DeactivateRequest{})
+			return StripGRPCCode(err)
 		}),
 	}
 	return deactivate
@@ -105,12 +120,12 @@ func LoginCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("could not connect: %s", err.Error())
 			}
-			resp, err := c.AuthAPIClient.Authenticate(
+			resp, err := c.Authenticate(
 				c.Ctx(),
 				&auth.AuthenticateRequest{GithubUsername: username, GithubToken: token})
 			if err != nil {
 				return fmt.Errorf("error authenticating with Pachyderm cluster: %s",
-					err.Error())
+					StripGRPCCode(err).Error())
 			}
 			if cfg.V1 == nil {
 				cfg.V1 = &config.ConfigV1{}
@@ -148,14 +163,12 @@ func CheckCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("could not connect: %s", err.Error())
 			}
-			resp, err := c.AuthAPIClient.Authorize(
-				c.Ctx(),
-				&auth.AuthorizeRequest{
-					Repo:  repo,
-					Scope: scope,
-				})
+			resp, err := c.Authorize(c.Ctx(), &auth.AuthorizeRequest{
+				Repo:  repo,
+				Scope: scope,
+			})
 			if err != nil {
-				return err
+				return StripGRPCCode(err)
 			}
 			fmt.Printf("%t\n", resp.Authorized)
 			return nil
@@ -184,27 +197,23 @@ func GetCmd() *cobra.Command {
 			if len(args) == 1 {
 				// Get ACL for a repo
 				repo := args[0]
-				resp, err := c.AuthAPIClient.GetACL(
-					c.Ctx(),
-					&auth.GetACLRequest{
-						Repo: repo,
-					})
+				resp, err := c.GetACL(c.Ctx(), &auth.GetACLRequest{
+					Repo: repo,
+				})
 				if err != nil {
-					return err
+					return StripGRPCCode(err)
 				}
 				fmt.Println(resp.ACL.String())
 				return nil
 			}
 			// Get User's scope on an acl
 			username, repo := args[0], args[1]
-			resp, err := c.AuthAPIClient.GetScope(
-				c.Ctx(),
-				&auth.GetScopeRequest{
-					Repos:    []string{repo},
-					Username: username,
-				})
+			resp, err := c.GetScope(c.Ctx(), &auth.GetScopeRequest{
+				Repos:    []string{repo},
+				Username: username,
+			})
 			if err != nil {
-				return err
+				return StripGRPCCode(err)
 			}
 			fmt.Println(resp.Scopes[0].String())
 			return nil
@@ -237,14 +246,12 @@ func SetScopeCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("could not connect: %s", err.Error())
 			}
-			_, err = c.AuthAPIClient.SetScope(
-				c.Ctx(),
-				&auth.SetScopeRequest{
-					Repo:     repo,
-					Scope:    scope,
-					Username: username,
-				})
-			return err
+			_, err = c.SetScope(c.Ctx(), &auth.SetScopeRequest{
+				Repo:     repo,
+				Scope:    scope,
+				Username: username,
+			})
+			return StripGRPCCode(err)
 		}),
 	}
 	return setScope
@@ -261,9 +268,9 @@ func ListAdminsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			resp, err := c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+			resp, err := c.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 			if err != nil {
-				return err
+				return StripGRPCCode(err)
 			}
 			for _, user := range resp.Admins {
 				fmt.Println(user)
@@ -290,11 +297,11 @@ func ModifyAdminsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			_, err = c.AuthAPIClient.ModifyAdmins(c.Ctx(), &auth.ModifyAdminsRequest{
+			_, err = c.ModifyAdmins(c.Ctx(), &auth.ModifyAdminsRequest{
 				Add:    add,
 				Remove: remove,
 			})
-			return err
+			return StripGRPCCode(err)
 		}),
 	}
 	modifyAdmins.PersistentFlags().StringSliceVar(&add, "add", []string{},
