@@ -515,8 +515,8 @@ func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *p
 	}
 
 	// Append new objects.  Remove existing objects if overwriting.
-	if overwriteIndex != nil && int64(len(node.FileNode.Objects)) <= overwriteIndex.Index {
-		node.FileNode.Objects = node.FileNode.Objects[overwriteIndex.Index:]
+	if overwriteIndex != nil && overwriteIndex.Index <= int64(len(node.FileNode.Objects)) {
+		node.FileNode.Objects = node.FileNode.Objects[:overwriteIndex.Index]
 	}
 	node.SubtreeSize += sizeDelta
 	node.FileNode.Objects = append(node.FileNode.Objects, objects...)
