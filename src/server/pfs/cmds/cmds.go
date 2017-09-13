@@ -107,15 +107,15 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 		Short: "Return info about a repo.",
 		Long:  "Return info about a repo.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, "user")
+			c, err := client.NewOnUserMachine(metrics, "user")
 			if err != nil {
 				return err
 			}
 			// Determine if auth is active, and if the user is signed in
-			_, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+			_, err = c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 			authActive := err == nil
 
-			repoInfo, err := client.InspectRepo(args[0])
+			repoInfo, err := c.InspectRepo(args[0])
 			if err != nil {
 				return err
 			}
@@ -125,7 +125,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 			if raw {
 				return marshaller.Marshal(os.Stdout, repoInfo)
 			}
-			return pretty.PrintDetailedRepoInfo(repoInfo)
+			return pretty.PrintDetailedRepoInfo(repoInfo, authActive)
 		}),
 	}
 	rawFlag(inspectRepo)
@@ -141,7 +141,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 				return err
 			}
 			// Determine if auth is active, and if the user is signed in
-			_, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+			_, err = c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 			authActive := err == nil
 
 			repoInfos, err := c.ListRepo(listRepoProvenance)
@@ -157,7 +157,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 				return nil
 			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintRepoHeader(writer)
+			pretty.PrintRepoHeader(writer, authActive)
 			for _, repoInfo := range repoInfos {
 				pretty.PrintRepoInfo(writer, repoInfo, authActive)
 			}

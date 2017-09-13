@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	authclient "github.com/pachyderm/pachyderm/src/client/auth"
 	enterpriseclient "github.com/pachyderm/pachyderm/src/client/enterprise"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
@@ -203,7 +204,8 @@ func (a *apiServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
 	resp, err := pachClient.Enterprise.GetState(context.Background(),
 		&enterpriseclient.GetStateRequest{})
 	if err != nil {
-		return 0, fmt.Errorf("could not get Enterprise status: %s", err.Error())
+		return 0, fmt.Errorf("could not get Enterprise status: %s",
+			grpcutil.StripGRPCCode(err).Error())
 	}
 	return resp.State, nil
 }
@@ -560,32 +562,11 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 					"cluster (only a cluster admin can set a scope)")
 			}
 
-			// Check if there is an ACL, and if the user is on it
-			if len(acl.Entries) > 0 {
-				if acl.Entries[user.Username] == authclient.Scope_OWNER {
-					return true, nil
-				}
-				return false, nil
-			}
-
-			// No ACL -- check if the repo being modified exists
-			pachClient, err := a.getPachClient()
-			if err != nil {
-				return false, fmt.Errorf("could not check if repo \"%s\" exists: %s", req.Repo, err.Error())
-			}
-			_, err = pachClient.InspectRepo(req.Repo)
-			if err == nil {
-				// Repo exists -- user isn't authorized
-				return false, nil
-			} else if !strings.HasSuffix(err.Error(), "not found") {
-				// Unclear if repo exists -- return error
-				return false, fmt.Errorf("could not inspect %s: %s", req.Repo, err.Error())
-			} else if req.Username == user.Username && req.Scope == authclient.Scope_OWNER {
-				// Repo doesn't exist -- special case: A user is creating a new Repo,
-				// and making themself the owner, e.g. for CreateRepo or CreatePipeline
+			// Check if the user is on the ACL directly
+			if acl.Entries[user.Username] == authclient.Scope_OWNER {
 				return true, nil
 			}
-			return false, fmt.Errorf("repo \"%v\" not found", req.Repo)
+			return false, nil
 		}()
 		if err != nil {
 			return err
@@ -603,7 +584,10 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 		} else {
 			delete(acl.Entries, req.Username)
 		}
-		acls.Put(req.Repo, &acl)
+		if len(acl.Entries) == 0 {
+			return acls.Delete(req.Repo)
+		}
+		return acls.Put(req.Repo, &acl)
 		return nil
 	})
 	if err != nil {
@@ -731,24 +715,67 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 		return nil, err
 	}
 
-	// Check if the cluster's enterprise token is expired (fail if so)
-	state, err := a.getEnterpriseTokenState()
-	if err != nil {
-		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %s", err.Error())
-	}
-	if state != enterpriseclient.State_ACTIVE && !a.isAdmin(user.Username) {
-		return nil, fmt.Errorf("Pachyderm Enterprise is not active in this " +
-			"cluster (only a cluster admin can perform any operations)")
-	}
-
 	// Read repo ACL from etcd
 	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		acls := a.acls.ReadWrite(stm)
 
-		// Require OWNER access to modify repo ACL
-		var acl authclient.ACL
-		acls.Get(req.Repo, &acl)
-		if !a.isAdmin(user.Username) && acl.Entries[user.Username] < authclient.Scope_OWNER {
+		// determine if the caller is authorized to set this repo's ACL
+		authorized, err := func() (bool, error) {
+			if a.isAdmin(user.Username) {
+				// admins are automatically authorized
+				return true, nil
+			}
+
+			// Check if the cluster's enterprise token is expired (fail if so)
+			state, err := a.getEnterpriseTokenState()
+			if err != nil {
+				return false, fmt.Errorf("error confirming Pachyderm Enterprise token: %s", err.Error())
+			}
+			if state != enterpriseclient.State_ACTIVE {
+				return false, fmt.Errorf("Pachyderm Enterprise is not active in this " +
+					"cluster (only a cluster admin can modify an ACL)")
+			}
+
+			// Check if there is an existing ACL, and if the user is on it
+			var acl authclient.ACL
+			if err := acls.Get(req.Repo, &acl); err != nil {
+				// ACL not found -- construct empty ACL proto
+				acl.Entries = make(map[string]authclient.Scope)
+			}
+			if len(acl.Entries) > 0 {
+				// ACL is present; caller must be authorized directly
+				if acl.Entries[user.Username] == authclient.Scope_OWNER {
+					return true, nil
+				}
+				return false, nil
+			}
+
+			// No ACL -- check if the repo being modified exists
+			pachClient, err := a.getPachClient()
+			if err != nil {
+				return false, fmt.Errorf("could not check if repo \"%s\" exists: %s", req.Repo, err.Error())
+			}
+			_, err = pachClient.InspectRepo(req.Repo)
+			err = grpcutil.StripGRPCCode(err)
+			if err == nil {
+				// Repo exists -- user isn't authorized
+				return false, nil
+			} else if !strings.HasSuffix(err.Error(), "not found") {
+				// Unclear if repo exists -- return error
+				return false, fmt.Errorf("could not inspect %s: %s", req.Repo, err.Error())
+			} else if req.NewACL != nil && len(req.NewACL.Entries) == 1 &&
+				req.NewACL.Entries[user.Username] == authclient.Scope_OWNER {
+				// Special case: Repo doesn't exist, but user is creating a new Repo, and
+				// making themself the owner, e.g. for CreateRepo or CreatePipeline, then
+				// the request is authorized
+				return true, nil
+			}
+			return false, err
+		}()
+		if err != nil {
+			return err
+		}
+		if !authorized {
 			return &authclient.NotAuthorizedError{
 				Repo:     req.Repo,
 				Required: authclient.Scope_OWNER,
@@ -867,7 +894,7 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.User,
 	var user authclient.User
 	if err := a.tokens.ReadOnly(ctx).Get(hashToken(token), &user); err != nil {
 		if _, ok := err.(col.ErrNotFound); ok {
-			return nil, fmt.Errorf("token not found")
+			return nil, fmt.Errorf("provided auth token is corrupted or has expired")
 		}
 		return nil, fmt.Errorf("error getting token: %s", err.Error())
 	}

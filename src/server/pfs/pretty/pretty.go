@@ -12,7 +12,11 @@ import (
 )
 
 // PrintRepoHeader prints a repo header.
-func PrintRepoHeader(w io.Writer) {
+func PrintRepoHeader(w io.Writer, printAuth bool) {
+	if printAuth {
+		fmt.Fprint(w, "NAME\tCREATED\tSIZE\tACCESS\t\n")
+		return
+	}
 	fmt.Fprint(w, "NAME\tCREATED\tSIZE\t\n")
 }
 
