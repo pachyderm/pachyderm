@@ -2,7 +2,6 @@ package server
 
 import (
 	"bytes"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -276,7 +275,7 @@ func (s *objBlockAPIServer) putObject(ctx context.Context, dataReader io.Reader,
 	}(); err != nil {
 		return nil, err
 	}
-	object := &pfsclient.Object{Hash: hex.EncodeToString(hash.Sum(nil))}
+	object := &pfsclient.Object{Hash: pfsclient.EncodeHash(hash.Sum(nil))}
 	// Now that we have a hash of the object we can check if it already exists.
 	resp, err := s.CheckObject(ctx, &pfsclient.CheckObjectRequest{object})
 	if err != nil {

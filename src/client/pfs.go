@@ -374,6 +374,32 @@ func (c APIClient) PutObject(r io.Reader, tags ...string) (object *pfs.Object, _
 	return nil, written, nil
 }
 
+// PutObjectSplit is the same as PutObject except that the data is splitted
+// into several smaller objects.  This is primarily useful if you'd like to
+// be able to resume upload.
+func (c APIClient) PutObjectSplit(r io.Reader) (objects []*pfs.Object, _ int64, retErr error) {
+	w, err := c.newPutObjectSplitWriteCloser()
+	if err != nil {
+		return nil, 0, sanitizeErr(err)
+	}
+	defer func() {
+		if err := w.Close(); err != nil && retErr == nil {
+			retErr = sanitizeErr(err)
+		}
+		if retErr == nil {
+			objects = w.objects
+		}
+	}()
+	buf := grpcutil.GetBuffer()
+	defer grpcutil.PutBuffer(buf)
+	written, err := io.CopyBuffer(w, r, buf)
+	if err != nil {
+		return nil, 0, sanitizeErr(err)
+	}
+	// return value set by deferred function
+	return nil, written, nil
+}
+
 // GetObject gets an object out of the object store by hash.
 func (c APIClient) GetObject(hash string, writer io.Writer) error {
 	getObjectClient, err := c.ObjectAPIClient.GetObject(
@@ -818,13 +844,13 @@ func (w *putFileWriteCloser) Close() error {
 }
 
 type putObjectWriteCloser struct {
-	request         *pfs.PutObjectRequest
-	putObjectClient pfs.ObjectAPI_PutObjectClient
-	object          *pfs.Object
+	request *pfs.PutObjectRequest
+	client  pfs.ObjectAPI_PutObjectClient
+	object  *pfs.Object
 }
 
 func (c APIClient) newPutObjectWriteCloser(tags ...string) (*putObjectWriteCloser, error) {
-	putObjectClient, err := c.ObjectAPIClient.PutObject(c.Ctx())
+	client, err := c.ObjectAPIClient.PutObject(c.Ctx())
 	if err != nil {
 		return nil, sanitizeErr(err)
 	}
@@ -836,36 +862,52 @@ func (c APIClient) newPutObjectWriteCloser(tags ...string) (*putObjectWriteClose
 		request: &pfs.PutObjectRequest{
 			Tags: _tags,
 		},
-		putObjectClient: putObjectClient,
+		client: client,
 	}, nil
 }
 
 func (w *putObjectWriteCloser) Write(p []byte) (int, error) {
-	bytesWritten := 0
-	for {
-		// Buffer the write so that we don't exceed the grpc
-		// MaxMsgSize. This value includes the whole payload
-		// including headers, so we're conservative and halve it
-		ceil := bytesWritten + grpcutil.MaxMsgSize/2
-		if ceil > len(p) {
-			ceil = len(p)
-		}
-		actualP := p[bytesWritten:ceil]
-		if len(actualP) == 0 {
-			break
-		}
-		w.request.Value = actualP
-		if err := w.putObjectClient.Send(w.request); err != nil {
-			return 0, sanitizeErr(err)
-		}
-		w.request.Value = nil
-		bytesWritten += len(actualP)
+	if err := w.client.Send(w.request); err != nil {
+		return 0, sanitizeErr(err)
 	}
-	return bytesWritten, nil
+	return len(p), nil
 }
 
 func (w *putObjectWriteCloser) Close() error {
 	var err error
-	w.object, err = w.putObjectClient.CloseAndRecv()
+	w.object, err = w.client.CloseAndRecv()
 	return sanitizeErr(err)
+}
+
+type putObjectSplitWriteCloser struct {
+	request *pfs.PutObjectRequest
+	client  pfs.ObjectAPI_PutObjectSplitClient
+	objects []*pfs.Object
+}
+
+func (c APIClient) newPutObjectSplitWriteCloser() (*putObjectSplitWriteCloser, error) {
+	client, err := c.ObjectAPIClient.PutObjectSplit(c.Ctx())
+	if err != nil {
+		return nil, sanitizeErr(err)
+	}
+	return &putObjectSplitWriteCloser{
+		request: &pfs.PutObjectRequest{},
+		client:  client,
+	}, nil
+}
+
+func (w *putObjectSplitWriteCloser) Write(p []byte) (int, error) {
+	if err := w.client.Send(w.request); err != nil {
+		return 0, sanitizeErr(err)
+	}
+	return len(p), nil
+}
+
+func (w *putObjectSplitWriteCloser) Close() error {
+	objects, err := w.client.CloseAndRecv()
+	if err != nil {
+		return sanitizeErr(err)
+	}
+	w.objects = objects.Objects
+	return nil
 }

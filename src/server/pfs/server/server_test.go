@@ -2293,29 +2293,47 @@ func TestSyncFile(t *testing.T) {
 	repo := "repo"
 	require.NoError(t, client.CreateRepo(repo))
 
+	content1 := generateRandomString(int(pfs.ChunkSize))
+
 	commit1, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, pfssync.SyncFile(client, &pfs.File{
 		Commit: commit1,
 		Path:   "file",
-	}, strings.NewReader("foo")))
+	}, strings.NewReader(content1)))
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
 	var buffer bytes.Buffer
 	require.NoError(t, client.GetFile(repo, commit1.ID, "file", 0, 0, &buffer))
-	require.Equal(t, "foo", buffer.String())
+	require.Equal(t, content1, buffer.String())
+
+	content2 := generateRandomString(int(pfs.ChunkSize * 2))
 
 	commit2, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, pfssync.SyncFile(client, &pfs.File{
 		Commit: commit2,
 		Path:   "file",
-	}, strings.NewReader("bar")))
+	}, strings.NewReader(content2)))
 	require.NoError(t, client.FinishCommit(repo, commit2.ID))
 
 	buffer.Reset()
-	require.NoError(t, client.GetFile(repo, commit1.ID, "file", 0, 0, &buffer))
-	require.Equal(t, "bar", buffer.String())
+	require.NoError(t, client.GetFile(repo, commit2.ID, "file", 0, 0, &buffer))
+	require.Equal(t, content2, buffer.String())
+
+	content3 := content2 + generateRandomString(int(pfs.ChunkSize))
+
+	commit3, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, pfssync.SyncFile(client, &pfs.File{
+		Commit: commit3,
+		Path:   "file",
+	}, strings.NewReader(content3)))
+	require.NoError(t, client.FinishCommit(repo, commit3.ID))
+
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, commit3.ID, "file", 0, 0, &buffer))
+	require.Equal(t, content3, buffer.String())
 }
 
 func TestSyncEmptyDir(t *testing.T) {

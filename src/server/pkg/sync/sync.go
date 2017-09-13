@@ -2,6 +2,7 @@
 package sync
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path"
@@ -422,20 +423,23 @@ func SyncFile(client *pachclient.APIClient, pfsFile *pfs.File, osFile io.ReadSee
 
 	var i int
 	var object *pfs.Object
-	for i, object = range fileInfo.Objects {
-		hash := pfs.NewHash()
-		if _, err := io.CopyN(hash, osFile, pfs.ChunkSize); err != nil {
-			if err == io.EOF {
+	if fileInfo != nil {
+		for i, object = range fileInfo.Objects {
+			hash := pfs.NewHash()
+			if _, err := io.CopyN(hash, osFile, pfs.ChunkSize); err != nil {
+				if err == io.EOF {
+					break
+				}
+				return err
+			}
+
+			if object.Hash != pfs.EncodeHash(hash.Sum(nil)) {
 				break
 			}
-			return err
-		}
-
-		if object.Hash != pfs.EncodeHash(hash.Sum(nil)) {
-			break
 		}
 	}
 
+	fmt.Printf("testlog: writing from the %vth chunk\n", i)
 	if _, err := osFile.Seek(int64(i)*pfs.ChunkSize, 0); err != nil {
 		return err
 	}
