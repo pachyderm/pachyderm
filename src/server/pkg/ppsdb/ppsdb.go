@@ -27,6 +27,9 @@ var (
 	// pipeline version) to output commit. This is how we know if we need
 	// to start a job Needed for legacy compatibility.
 	JobsInputsIndex = col.Index{"Inputs", false}
+
+	// JobsOutputIndex maps job outputs to the job that create them.
+	JobsOutputIndex = col.Index{"OutputCommit", false}
 )
 
 // Pipelines returns a Collection of pipelines
@@ -45,7 +48,7 @@ func Jobs(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 	return col.NewCollection(
 		etcdClient,
 		path.Join(etcdPrefix, jobsPrefix),
-		[]col.Index{JobsPipelineIndex, JobsInputIndex},
+		[]col.Index{JobsPipelineIndex, JobsInputIndex, JobsOutputIndex},
 		&pps.JobInfo{},
 		nil,
 	)

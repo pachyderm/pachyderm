@@ -63,17 +63,19 @@ func ParseCommits(args []string) ([]*pfs.Commit, error) {
 	var commits []*pfs.Commit
 	for _, arg := range args {
 		parts := strings.SplitN(arg, "/", 2)
-		commit := &pfs.Commit{
-			Repo: &pfs.Repo{
-				Name: parts[0],
-			},
+		if parts[0] != "" {
+			commit := &pfs.Commit{
+				Repo: &pfs.Repo{
+					Name: parts[0],
+				},
+			}
+			if len(parts) == 2 {
+				commit.ID = parts[1]
+			} else {
+				commit.ID = ""
+			}
+			commits = append(commits, commit)
 		}
-		if len(parts) == 2 {
-			commit.ID = parts[1]
-		} else {
-			commit.ID = ""
-		}
-		commits = append(commits, commit)
 	}
 
 	return commits, nil
