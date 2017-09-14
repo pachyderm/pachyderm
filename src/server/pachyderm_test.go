@@ -1126,11 +1126,27 @@ func TestDeletePipeline(t *testing.T) {
 	}
 
 	createPipeline()
-	// Wait for the job to start running
-	time.Sleep(15 * time.Second)
+	// Wait for the pipeline to start running
+	require.NoError(t, backoff.Retry(func() error {
+		pipelineInfo, err := c.InspectPipeline(pipeline)
+		if err != nil {
+			return err
+		}
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
+			return fmt.Errorf("no running pipeline")
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 	require.NoError(t, c.DeleteRepo(pipeline, false))
 	require.NoError(t, c.DeletePipeline(pipeline, true))
-	time.Sleep(5 * time.Second)
+	// Wait for the pipeline to disappear
+	require.NoError(t, backoff.Retry(func() error {
+		_, err := c.InspectPipeline(pipeline)
+		if err == nil {
+			return fmt.Errorf("expected pipeline to be missing, but it's still present")
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 
 	// The job should be gone
 	jobs, err := c.ListJob(pipeline, nil, nil)
@@ -1138,11 +1154,27 @@ func TestDeletePipeline(t *testing.T) {
 	require.Equal(t, len(jobs), 0)
 
 	createPipeline()
-	// Wait for the job to start running
-	time.Sleep(15 * time.Second)
+	// Wait for the pipeline to start running
+	require.NoError(t, backoff.Retry(func() error {
+		pipelineInfo, err := c.InspectPipeline(pipeline)
+		if err != nil {
+			return err
+		}
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
+			return fmt.Errorf("no running pipeline")
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 	require.NoError(t, c.DeleteRepo(pipeline, false))
 	require.NoError(t, c.DeletePipeline(pipeline, false))
-	time.Sleep(5 * time.Second)
+	// Wait for the pipeline to disappear
+	require.NoError(t, backoff.Retry(func() error {
+		_, err := c.InspectPipeline(pipeline)
+		if err == nil {
+			return fmt.Errorf("expected pipeline to be missing, but it's still present")
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 
 	// The job should still be there, and its state should be "KILLED"
 	jobs, err = c.ListJob(pipeline, nil, nil)
