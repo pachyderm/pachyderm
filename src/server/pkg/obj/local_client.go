@@ -49,7 +49,10 @@ func (c *localClient) Delete(path string) error {
 }
 
 func (c *localClient) Walk(dir string, walkFn func(name string) error) error {
-	return filepath.Walk(filepath.Join(c.root, dir), func(path string, _ os.FileInfo, err error) error {
+	return filepath.Walk(filepath.Join(c.root, dir), func(path string, fileInfo os.FileInfo, err error) error {
+		if fileInfo.IsDir() {
+			return nil
+		}
 		relPath, _ := filepath.Rel(c.root, path)
 		return walkFn(relPath)
 	})
