@@ -351,7 +351,8 @@ func (c APIClient) SubscribeCommit(repo string, branch string, from string) (Com
 }
 
 // PutObject puts a value into the object store and tags it with 0 or more tags.
-func (c APIClient) PutObject(r io.Reader, tags ...string) (object *pfs.Object, _ int64, retErr error) {
+func (c APIClient) PutObject(_r io.Reader, tags ...string) (object *pfs.Object, _ int64, retErr error) {
+	r := grpcutil.ReaderWrapper{_r}
 	w, err := c.newPutObjectWriteCloser(tags...)
 	if err != nil {
 		return nil, 0, sanitizeErr(err)
@@ -377,7 +378,8 @@ func (c APIClient) PutObject(r io.Reader, tags ...string) (object *pfs.Object, _
 // PutObjectSplit is the same as PutObject except that the data is splitted
 // into several smaller objects.  This is primarily useful if you'd like to
 // be able to resume upload.
-func (c APIClient) PutObjectSplit(r io.Reader) (objects []*pfs.Object, _ int64, retErr error) {
+func (c APIClient) PutObjectSplit(_r io.Reader) (objects []*pfs.Object, _ int64, retErr error) {
+	r := grpcutil.ReaderWrapper{_r}
 	w, err := c.newPutObjectSplitWriteCloser()
 	if err != nil {
 		return nil, 0, sanitizeErr(err)
@@ -867,6 +869,7 @@ func (c APIClient) newPutObjectWriteCloser(tags ...string) (*putObjectWriteClose
 }
 
 func (w *putObjectWriteCloser) Write(p []byte) (int, error) {
+	w.request.Value = p
 	if err := w.client.Send(w.request); err != nil {
 		return 0, sanitizeErr(err)
 	}
@@ -897,6 +900,7 @@ func (c APIClient) newPutObjectSplitWriteCloser() (*putObjectSplitWriteCloser, e
 }
 
 func (w *putObjectSplitWriteCloser) Write(p []byte) (int, error) {
+	w.request.Value = p
 	if err := w.client.Send(w.request); err != nil {
 		return 0, sanitizeErr(err)
 	}
