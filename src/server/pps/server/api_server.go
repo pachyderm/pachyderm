@@ -437,6 +437,8 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 	var err error
 	if request.Pipeline != nil {
 		iter, err = jobs.GetByIndex(ppsdb.JobsPipelineIndex, request.Pipeline)
+	} else if request.OutputCommit != nil {
+		iter, err = jobs.GetByIndex(ppsdb.JobsOutputIndex, request.OutputCommit)
 	} else {
 		iter, err = jobs.List()
 	}
