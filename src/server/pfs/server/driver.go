@@ -449,10 +449,10 @@ nextRepo:
 				return nil, fmt.Errorf("error getting scopes: %v",
 					grpcutil.StripGRPCCode(err))
 			}
-			if len(resp.Scopes) != 1 {
-				return nil, fmt.Errorf("unexpected result from GetScope(): %#v", resp)
-			}
-			if resp != nil {
+			if err != nil {
+				if len(resp.Scopes) != 1 {
+					return nil, fmt.Errorf("unexpected result from GetScope(): %#v", resp)
+				}
 				repoInfo.Scope = resp.Scopes[0]
 			}
 		}
