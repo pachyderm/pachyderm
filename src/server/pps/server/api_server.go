@@ -1041,6 +1041,9 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 			return fmt.Errorf("contradictory parallelism strategies: must set at " +
 				"most one of ParallelismSpec.Constant and ParallelismSpec.Coefficient")
 		}
+		if pipelineInfo.Service != nil && (pipelineInfo.ParallelismSpec.Constant > 1 || pipelineInfo.ParallelismSpec.Coefficient > 0) {
+			return fmt.Errorf("services can only be run with a constant parallelism of 1")
+		}
 	}
 	if pipelineInfo.OutputBranch == "" {
 		return fmt.Errorf("pipeline needs to specify an output branch")
