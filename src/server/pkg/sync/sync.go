@@ -2,7 +2,6 @@
 package sync
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"path"
@@ -439,7 +438,6 @@ func SyncFile(client *pachclient.APIClient, pfsFile *pfs.File, osFile io.ReadSee
 		}
 	}
 
-	fmt.Printf("testlog: writing from the %vth chunk\n", i)
 	if _, err := osFile.Seek(int64(i)*pfs.ChunkSize, 0); err != nil {
 		return err
 	}

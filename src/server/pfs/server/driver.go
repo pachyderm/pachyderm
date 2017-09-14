@@ -1422,15 +1422,33 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	}
 
 	if delimiter == pfs.Delimiter_NONE {
-		object, size, err := d.pachClient.PutObject(reader)
+		objects, size, err := d.pachClient.PutObjectSplit(reader)
 		if err != nil {
 			return err
 		}
-		records.Records = append(records.Records, &pfs.PutFileRecord{
-			SizeBytes:      size,
-			ObjectHash:     object.Hash,
-			OverwriteIndex: overwriteIndex,
-		})
+
+		// Here we use the invariant that every one but the last object
+		// should have a size of ChunkSize.
+		for i, object := range objects {
+			record := &pfs.PutFileRecord{
+				ObjectHash: object.Hash,
+			}
+
+			if size > pfs.ChunkSize {
+				record.SizeBytes = pfs.ChunkSize
+			} else {
+				record.SizeBytes = size
+			}
+			size -= pfs.ChunkSize
+
+			// The first record takes care of the overwriting
+			if i == 0 {
+				record.OverwriteIndex = overwriteIndex
+			}
+
+			records.Records = append(records.Records, record)
+		}
+
 		return putRecords()
 	}
 	buffer := &bytes.Buffer{}
@@ -1920,28 +1938,29 @@ func (d *driver) applyWrites(resp *etcd.GetResponse, tree hashtree.OpenHashTree)
 				return err
 			}
 			if !records.Split {
-				if len(records.Records) != 1 {
+				if len(records.Records) == 0 {
 					return fmt.Errorf("unexpect %d length pfs.PutFileRecord (this is likely a bug)", len(records.Records))
 				}
-				record := records.Records[0]
-				sizeMap[record.ObjectHash] = record.SizeBytes
-				if record.OverwriteIndex != nil {
-					// Computing size delta
-					delta := record.SizeBytes
-					fileNode, err := tree.Get(filePath)
-					if err == nil {
-						// If we can't find the file, that's fine.
-						for i := record.OverwriteIndex.Index; int(i) < len(fileNode.FileNode.Objects); i++ {
-							delta -= sizeMap[fileNode.FileNode.Objects[i].Hash]
+				for _, record := range records.Records {
+					sizeMap[record.ObjectHash] = record.SizeBytes
+					if record.OverwriteIndex != nil {
+						// Computing size delta
+						delta := record.SizeBytes
+						fileNode, err := tree.Get(filePath)
+						if err == nil {
+							// If we can't find the file, that's fine.
+							for i := record.OverwriteIndex.Index; int(i) < len(fileNode.FileNode.Objects); i++ {
+								delta -= sizeMap[fileNode.FileNode.Objects[i].Hash]
+							}
 						}
-					}
 
-					if err := tree.PutFileOverwrite(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.OverwriteIndex, delta); err != nil {
-						return err
-					}
-				} else {
-					if err := tree.PutFile(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
-						return err
+						if err := tree.PutFileOverwrite(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.OverwriteIndex, delta); err != nil {
+							return err
+						}
+					} else {
+						if err := tree.PutFile(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+							return err
+						}
 					}
 				}
 			} else {
