@@ -1,8 +1,6 @@
 package server
 
 import (
-	"fmt"
-
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
@@ -81,12 +79,12 @@ func NewBlockAPIServer(dir string, cacheBytes int64, backend string, etcdAddress
 		}
 		return blockAPIServer, nil
 	case LocalBackendEnvVar:
+		fallthrough
+	default:
 		blockAPIServer, err := newLocalBlockAPIServer(dir, cacheBytes, etcdAddress)
 		if err != nil {
 			return nil, err
 		}
 		return blockAPIServer, nil
-	default:
-		return nil, fmt.Errorf("unrecognized storage backend")
 	}
 }
