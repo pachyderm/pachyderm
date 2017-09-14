@@ -4987,7 +4987,7 @@ func TestService(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	commit1, err := c.StartCommit(dataRepo, "master")
-	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo"))
+	_, err = c.PutFile(dataRepo, commit1.ID, "file1", strings.NewReader("foo"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
@@ -5011,8 +5011,30 @@ func TestService(t *testing.T) {
 	))
 
 	require.NoError(t, backoff.Retry(func() error {
-		_, err := http.Get("http://localhost:31800")
-		return err
+		resp, err := http.Get(fmt.Sprintf("http://localhost:31800/%s/file1", dataRepo))
+		if err != nil {
+			return err
+		}
+		if resp.StatusCode != 200 {
+			return fmt.Errorf("GET returned %d", resp.StatusCode)
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+
+	commit2, err := c.StartCommit(dataRepo, "master")
+	_, err = c.PutFile(dataRepo, commit2.ID, "file2", strings.NewReader("bar"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
+
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := http.Get(fmt.Sprintf("http://localhost:31800/%s/file2", dataRepo))
+		if err != nil {
+			return err
+		}
+		if resp.StatusCode != 200 {
+			return fmt.Errorf("GET returned %d", resp.StatusCode)
+		}
+		return nil
 	}, backoff.NewTestingBackOff()))
 }
 
