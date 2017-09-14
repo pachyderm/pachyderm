@@ -233,13 +233,15 @@ func (s *objBlockAPIServer) PutObjectSplit(server pfsclient.ObjectAPI_PutObjectS
 			server: server,
 		}
 		object, err := s.putObject(server.Context(), putObjectReader, true)
+		if object != nil {
+			objects = append(objects, object)
+		}
 		if err != nil {
 			if err == io.EOF {
 				break
 			}
 			return err
 		}
-		objects = append(objects, object)
 	}
 	return server.SendAndClose(&pfsclient.Objects{objects})
 }
@@ -268,12 +270,22 @@ func (s *objBlockAPIServer) putObject(ctx context.Context, dataReader io.Reader,
 			size, err = io.CopyBuffer(w, r, buf)
 		}
 		if err != nil {
-			s.objClient.Delete(blockPath)
+			if err != io.EOF {
+				s.objClient.Delete(blockPath)
+			}
 			return err
 		}
 		return nil
 	}(); err != nil {
-		return nil, err
+		if err == io.EOF {
+			defer func() {
+				if retErr == nil {
+					retErr = io.EOF
+				}
+			}()
+		} else {
+			return nil, err
+		}
 	}
 	object := &pfsclient.Object{Hash: pfsclient.EncodeHash(hash.Sum(nil))}
 	// Now that we have a hash of the object we can check if it already exists.
