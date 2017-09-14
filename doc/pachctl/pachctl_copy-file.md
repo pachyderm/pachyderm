@@ -1,21 +1,20 @@
-## ./pachctl delete-repo
+## ./pachctl copy-file
 
-Delete a repo.
+Copy files between pfs paths.
 
 ### Synopsis
 
 
-Delete a repo.
+Copy files between pfs paths.
 
 ```
-./pachctl delete-repo repo-name
+./pachctl copy-file src-repo src-commit src-path dst-repo dst-commit dst-path
 ```
 
 ### Options
 
 ```
-      --all     remove all repos
-  -f, --force   remove the repo regardless of errors; use with care
+  -o, --overwrite   Overwrite the existing content of the file, either from previous commits or previous calls to put-file within this commit.
 ```
 
 ### Options inherited from parent commands
