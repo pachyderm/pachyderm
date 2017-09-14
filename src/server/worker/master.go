@@ -80,10 +80,7 @@ func (a *APIServer) master() {
 	// to restart.
 	b.InitialInterval = 10 * time.Second
 	backoff.RetryNotify(func() error {
-		ctx, cancel := context.WithCancel(a.pachClient.AddMetadata(context.Background()))
-		defer cancel()
-
-		ctx, err := masterLock.Lock(ctx)
+		ctx, err := masterLock.Lock(context.Background())
 		if err != nil {
 			return err
 		}
@@ -113,11 +110,15 @@ func (a *APIServer) master() {
 }
 
 func (a *APIServer) serviceMaster() {
+	masterLock := dlock.NewDLock(a.etcdClient, path.Join(a.etcdPrefix, masterLockPath, a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt))
 	logger := a.getMasterLogger()
 	b := backoff.NewInfiniteBackOff()
 	backoff.RetryNotify(func() error {
-		ctx, cancel := context.WithCancel(a.pachClient.AddMetadata(context.Background()))
-		defer cancel()
+		ctx, err := masterLock.Lock(context.Background())
+		if err != nil {
+			return err
+		}
+		defer masterLock.Unlock(ctx)
 
 		logger.Logf("Launching master process")
 
@@ -135,7 +136,7 @@ func (a *APIServer) serviceMaster() {
 		}); err != nil {
 			return err
 		}
-		return a.serviceSpawner(ctx, logger)
+		return a.serviceSpawner(ctx)
 	}, b, func(err error, d time.Duration) error {
 		logger.Logf("master: error running the master process: %v; retrying in %v", err, d)
 		return nil
@@ -348,7 +349,7 @@ nextInput:
 	}
 }
 
-func (a *APIServer) serviceSpawner(ctx context.Context, logger *taggedLogger) error {
+func (a *APIServer) serviceSpawner(ctx context.Context) error {
 	bsf, err := a.newBranchSetFactory(ctx)
 	if err != nil {
 		return fmt.Errorf("error constructing branch set factory: %v", err)
@@ -357,6 +358,7 @@ func (a *APIServer) serviceSpawner(ctx context.Context, logger *taggedLogger) er
 
 	var serviceCtx context.Context
 	var serviceCancel func()
+nextInput:
 	for {
 		var bs *branchSet
 		select {
@@ -372,6 +374,51 @@ func (a *APIServer) serviceSpawner(ctx context.Context, logger *taggedLogger) er
 		if err != nil {
 			return err
 		}
+		jobsRO := a.jobs.ReadOnly(ctx)
+		// Check if the job has already been created.
+		jobCreated := false
+		jobIter, err := jobsRO.GetByIndex(ppsdb.JobsInputIndex, jobInput)
+		if err != nil {
+			return err
+		}
+		for {
+			var jobID string
+			var jobInfo pps.JobInfo
+			ok, err := jobIter.Next(&jobID, &jobInfo)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				break
+			}
+			if jobInfo.Pipeline.Name == a.pipelineInfo.Pipeline.Name &&
+				(jobInfo.Salt == a.pipelineInfo.Salt || (jobInfo.Salt == "" && jobInfo.PipelineVersion == a.pipelineInfo.Version)) {
+				switch jobInfo.State {
+				case pps.JobState_JOB_STARTING, pps.JobState_JOB_RUNNING:
+					jobCreated = true
+				case pps.JobState_JOB_SUCCESS:
+					continue nextInput
+				}
+			}
+		}
+		var jobID string
+		if !jobCreated {
+			newBranch := bs.Branches[bs.NewBranch]
+			job, err := a.pachClient.PpsAPIClient.CreateJob(ctx, &pps.CreateJobRequest{
+				Pipeline:        a.pipelineInfo.Pipeline,
+				Input:           jobInput,
+				NewBranch:       newBranch,
+				Salt:            a.pipelineInfo.Salt,
+				PipelineVersion: a.pipelineInfo.Version,
+				EnableStats:     a.pipelineInfo.EnableStats,
+				Batch:           a.pipelineInfo.Batch,
+				Service:         a.pipelineInfo.Service,
+			})
+			if err != nil {
+				return err
+			}
+			jobID = job.ID
+		}
 		df, err := NewDatumFactory(ctx, a.pachClient.PfsAPIClient, jobInput)
 		if err != nil {
 			return err
@@ -379,8 +426,10 @@ func (a *APIServer) serviceSpawner(ctx context.Context, logger *taggedLogger) er
 		if df.Len() != 1 {
 			return fmt.Errorf("services must have a single datum")
 		}
+		data := df.Datum(0)
+		logger, err := a.getTaggedLogger(ctx, jobID, data, false)
 		puller := filesync.NewPuller()
-		dir, err := a.downloadData(logger, df.Datum(0), puller, nil, &pps.ProcessStats{}, nil, "")
+		dir, err := a.downloadData(logger, data, puller, nil, &pps.ProcessStats{}, nil, "")
 		if err != nil {
 			return err
 		}
@@ -398,8 +447,38 @@ func (a *APIServer) serviceSpawner(ctx context.Context, logger *taggedLogger) er
 		}
 		serviceCtx, serviceCancel = context.WithCancel(ctx)
 		go func() {
-			if err := a.runService(serviceCtx, logger); err != nil {
+			serviceCtx := serviceCtx
+			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				jobs := a.jobs.ReadWrite(stm)
+				jobInfo := new(pps.JobInfo)
+				if err := jobs.Get(jobID, jobInfo); err != nil {
+					return err
+				}
+				jobInfo.State = pps.JobState_JOB_RUNNING
+				jobs.Put(jobInfo.Job.ID, jobInfo)
+				return nil
+			}); err != nil {
+				logger.Logf("error updating job state: %+v", err)
+			}
+			err := a.runService(serviceCtx, logger)
+			if err != nil {
 				logger.Logf("error from runService: %+v", err)
+			}
+			select {
+			case <-serviceCtx.Done():
+				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+					jobs := a.jobs.ReadWrite(stm)
+					jobInfo := new(pps.JobInfo)
+					if err := jobs.Get(jobID, jobInfo); err != nil {
+						return err
+					}
+					jobInfo.State = pps.JobState_JOB_SUCCESS
+					jobs.Put(jobInfo.Job.ID, jobInfo)
+					return nil
+				}); err != nil {
+					logger.Logf("error updating job progress: %+v", err)
+				}
+			default:
 			}
 		}()
 	}
