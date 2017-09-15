@@ -228,38 +228,6 @@ Adding a new commit of data will automatically trigger the pipeline to run on th
 
   $ pachctl get-file edges master kitten.png | display
 
-Exploring the File System (optional)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Another nifty feature of Pachyderm is that you can mount the file system locally to poke around and explore your data using FUSE. FUSE comes pre-installed on most Linux distributions. For OS X, you'll need to install `OSX FUSE <https://osxfuse.github.io/>`_. This is just an optional step if you want another view of your data and system and can be useful for local development. 
-
-
-The first thing we need to do is mount Pachyderm's filesystem (pfs).
-
-First create the mount point:
-
-.. code-block:: shell
-
-  $ mkdir ~/pfs
-
-
-And then mount it:
-
-.. code-block:: bash
-
-  # We background this process because it blocks.
-  $ pachctl mount ~/pfs &
-
-.. note:: 
-
- If you get any errors on OSX, those are most likely benign as it's just SpotLight trying to index the Fuse volume and not having access.
-
-This will mount pfs on ``~/pfs`` you can inspect the filesystem like you would any
-other local filesystem such as using ``ls`` or pointing your browser at it.
-
-.. note::
-
- Use ``pachctl unmount ~/pfs`` to unmount the filesystem. You can also use the ``-a`` flag to remove all Pachyderm FUSE mounts.
-
 Next Steps
 ^^^^^^^^^^
 We've now got Pachyderm running locally with data and a pipeline! If you want to keep playing with Pachyderm locally, you can  use what you've learned to build on or change this pipeline. You can also start learning some of the more advanced topics to develop analysis in Pachyderm:
