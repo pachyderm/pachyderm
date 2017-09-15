@@ -1139,17 +1139,16 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string,
 	putFile := func(reader io.ReadSeeker) error {
 		if split == "" {
 			if overwrite {
-				return sync.SyncFile(client, &pfsclient.File{
+				return sync.File(client, &pfsclient.File{
 					Commit: &pfsclient.Commit{
 						Repo: &pfsclient.Repo{repo},
 						ID:   commit,
 					},
 					Path: path,
 				}, reader)
-			} else {
-				_, err := client.PutFile(repo, commit, path, reader)
-				return err
 			}
+			_, err := client.PutFile(repo, commit, path, reader)
+			return err
 		}
 
 		var delimiter pfsclient.Delimiter
