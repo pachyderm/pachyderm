@@ -500,6 +500,7 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *authclient.WhoAmIRequest) (
 	}
 	return &authclient.WhoAmIResponse{
 		Username: user.Username,
+		IsAdmin:    a.isAdmin(user.Username),
 	}, nil
 }
 

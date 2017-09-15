@@ -307,7 +307,7 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 			// We also add the new provenance repos to the provenance
 			// of all downstream repos, and remove the old provenance
 			// repos from their provenance.
-			downstreamRepos, err := d.listRepo(ctx, []*pfs.Repo{repo}, false)
+			downstreamRepos, err := d.listRepo(ctx, []*pfs.Repo{repo}, !includeAuth)
 			if err != nil {
 				return err
 			}
@@ -387,19 +387,37 @@ func (d *driver) inspectRepo(ctx context.Context, repo *pfs.Repo, includeAuth bo
 		return nil, err
 	}
 	if includeAuth {
-		resp, err := d.pachClient.AuthAPIClient.GetScope(auth.In2Out(ctx),
-			&auth.GetScopeRequest{Repos: []string{repo.Name}})
-		if err != nil && !auth.IsNotActivatedError(err) {
-			return nil, fmt.Errorf("error getting scope for \"%s\": %v", repo.Name,
-				grpcutil.ScrubGRPC(err))
-		} else if err == nil {
-			if len(resp.Scopes) != 1 {
-				return nil, fmt.Errorf("unexpected result from GetScope(): %#v", resp)
+		accessLevel, err := d.getAccessLevel(ctx, repo)
+		if err != nil {
+			if auth.IsNotActivatedError(err) {
+				return result, nil
 			}
-			result.Scope = resp.Scopes[0]
+			return nil, fmt.Errorf("error getting access level for \"%s\": %v",
+				repo.Name, grpcutil.ScrubGRPC(err))
 		}
+		result.AuthInfo = &pfs.RepoAuthInfo{AccessLevel: accessLevel}
 	}
 	return result, nil
+}
+
+func (d *driver) getAccessLevel(ctx context.Context, repo *pfs.Repo) (auth.Scope, error) {
+	who, err := d.pachClient.AuthAPIClient.WhoAmI(auth.In2Out(ctx),
+		&auth.WhoAmIRequest{})
+	if err != nil {
+		return auth.Scope_NONE, err
+	}
+	if who.IsAdmin {
+		return auth.Scope_OWNER, nil
+	}
+	resp, err := d.pachClient.AuthAPIClient.GetScope(auth.In2Out(ctx),
+		&auth.GetScopeRequest{Repos: []string{repo.Name}})
+	if err != nil {
+		return auth.Scope_NONE, err
+	}
+	if len(resp.Scopes) != 1 {
+		return auth.Scope_NONE, fmt.Errorf("too many results from GetScope: %#v", resp)
+	}
+	return resp.Scopes[0], nil
 }
 
 func (d *driver) listRepo(ctx context.Context, provenance []*pfs.Repo, includeAuth bool) (*pfs.ListRepoResponse, error) {
@@ -417,6 +435,7 @@ func (d *driver) listRepo(ctx context.Context, provenance []*pfs.Repo, includeAu
 		return nil, err
 	}
 	result := new(pfs.ListRepoResponse)
+	authSeemsActive := true
 nextRepo:
 	for {
 		repoName, repoInfo := "", new(pfs.RepoInfo)
@@ -440,20 +459,15 @@ nextRepo:
 				continue nextRepo
 			}
 		}
-		if includeAuth {
-			// Include auth information in the response
-			resp, err := d.pachClient.AuthAPIClient.GetScope(auth.In2Out(ctx),
-				&auth.GetScopeRequest{
-					Repos: []string{repoName},
-				})
-			if err != nil && !auth.IsNotActivatedError(err) {
-				return nil, fmt.Errorf("error getting scopes: %v",
-					grpcutil.ScrubGRPC(err))
-			} else if err == nil {
-				if len(resp.Scopes) != 1 {
-					return nil, fmt.Errorf("unexpected result from GetScope(): %#v", resp)
-				}
-				repoInfo.Scope = resp.Scopes[0]
+		if includeAuth && authSeemsActive {
+			accessLevel, err := d.getAccessLevel(ctx, repoInfo.Repo)
+			if err == nil {
+				repoInfo.AuthInfo = &pfs.RepoAuthInfo{AccessLevel: accessLevel}
+			} else if auth.IsNotActivatedError(err) {
+				authSeemsActive = false
+			} else {
+				return nil, fmt.Errorf("error getting access level for \"%s\": %v",
+					repoName, grpcutil.ScrubGRPC(err))
 			}
 		}
 		result.RepoInfo = append(result.RepoInfo, repoInfo)
@@ -1899,7 +1913,7 @@ func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
 }
 
 func (d *driver) deleteAll(ctx context.Context) error {
-	repoInfos, err := d.listRepo(ctx, nil, false)
+	repoInfos, err := d.listRepo(ctx, nil, !includeAuth)
 	if err != nil {
 		return err
 	}
