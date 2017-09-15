@@ -19,6 +19,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	pachdclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
@@ -121,10 +122,7 @@ $ pachctl list-job -p foo bar/YYY
 				return err
 			}
 
-			outputCommits, err := cmdutil.ParseCommits([]string{outputCommit})
-			if err != nil {
-				return sanitizeErr(err)
-			}
+			outputCommits := cmdutil.ParseCommits([]string{outputCommit})
 			var outputCommit *pfs.Commit
 			if len(outputCommits) == 1 {
 				outputCommit = outputCommits[0]
@@ -132,7 +130,7 @@ $ pachctl list-job -p foo bar/YYY
 
 			jobInfos, err := client.ListJob(pipelineName, commits, outputCommit)
 			if err != nil {
-				return sanitizeErr(err)
+				return grpcutil.ScrubGRPC(err)
 			}
 
 			// Display newest jobs first
@@ -198,7 +196,7 @@ $ pachctl list-job -p foo bar/YYY
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			client, err := pachdclient.NewOnUserMachine(metrics, "user")
 			if err != nil {
-				return fmt.Errorf("error connecting to pachd: %v", sanitizeErr(err))
+				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
 			datumFilter := strings.Split(args[1], ",")
 			for i := 0; i < len(datumFilter); {
@@ -212,7 +210,7 @@ $ pachctl list-job -p foo bar/YYY
 				}
 			}
 			if err := client.RestartDatum(args[0], datumFilter); err != nil {
-				return sanitizeErr(err)
+				return grpcutil.ScrubGRPC(err)
 			}
 			return nil
 		}),
@@ -308,7 +306,7 @@ $ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			client, err := pachdclient.NewOnUserMachine(metrics, "user")
 			if err != nil {
-				return fmt.Errorf("error connecting to pachd: %v", sanitizeErr(err))
+				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
 			// Validate flags
 			if len(jobID) == 0 && len(pipelineName) == 0 {
@@ -391,7 +389,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 			client, err := pachdclient.NewOnUserMachine(metrics, "user")
 			if err != nil {
-				return sanitizeErr(err)
+				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
 			for {
 				request, err := cfgReader.nextCreatePipelineRequest()
@@ -414,7 +412,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					client.Ctx(),
 					request,
 				); err != nil {
-					return sanitizeErr(err)
+					return grpcutil.ScrubGRPC(err)
 				}
 			}
 			return nil
@@ -438,7 +436,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 			client, err := pachdclient.NewOnUserMachine(metrics, "user")
 			if err != nil {
-				return sanitizeErr(err)
+				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
 			for {
 				request, err := cfgReader.nextCreatePipelineRequest()
@@ -460,7 +458,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					client.Ctx(),
 					request,
 				); err != nil {
-					return sanitizeErr(err)
+					return grpcutil.ScrubGRPC(err)
 				}
 			}
 			return nil
@@ -484,7 +482,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 			pipelineInfo, err := client.InspectPipeline(args[0])
 			if err != nil {
-				return sanitizeErr(err)
+				return grpcutil.ScrubGRPC(err)
 			}
 			if pipelineInfo == nil {
 				return fmt.Errorf("pipeline %s not found", args[0])
@@ -504,11 +502,11 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			client, err := pachdclient.NewOnUserMachine(metrics, "user")
 			if err != nil {
-				return err
+				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
 			pipelineInfos, err := client.ListPipeline()
 			if err != nil {
-				return sanitizeErr(err)
+				return grpcutil.ScrubGRPC(err)
 			}
 			if raw {
 				for _, pipelineInfo := range pipelineInfos {
@@ -651,7 +649,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				request,
 			)
 			if err != nil {
-				return sanitizeErr(err)
+				return grpcutil.ScrubGRPC(err)
 			}
 			fmt.Println(job.ID)
 			return nil
@@ -719,11 +717,11 @@ func newPipelineManifestReader(path string) (result *pipelineManifestReader, ret
 	} else if url, err := url.Parse(path); err == nil && url.Scheme != "" {
 		resp, err := http.Get(url.String())
 		if err != nil {
-			return nil, sanitizeErr(err)
+			return nil, err
 		}
 		defer func() {
 			if err := resp.Body.Close(); err != nil && retErr == nil {
-				retErr = sanitizeErr(err)
+				retErr = err
 			}
 		}()
 		rawBytes, err := ioutil.ReadAll(resp.Body)
@@ -780,14 +778,6 @@ func describeSyntaxError(originalErr error, parsedBuffer bytes.Buffer) error {
 	)
 
 	return errors.New(descriptiveErrorString)
-}
-
-func sanitizeErr(err error) error {
-	if err == nil {
-		return nil
-	}
-
-	return errors.New(grpc.ErrorDesc(err))
 }
 
 // pushImage pushes an image as registry/user/image. Registry and user can be

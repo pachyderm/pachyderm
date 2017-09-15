@@ -59,10 +59,13 @@ func ErrorAndExit(format string, args ...interface{}) {
 // ParseCommits takes a slice of arguments of the form "repo/commit-id" or
 // "repo" (in which case we consider the commit ID to be empty), and returns
 // a list of Commits
-func ParseCommits(args []string) ([]*pfs.Commit, error) {
+func ParseCommits(args []string) []*pfs.Commit {
 	var commits []*pfs.Commit
 	for _, arg := range args {
 		parts := strings.SplitN(arg, "/", 2)
+		if len(parts) == 0 {
+			continue
+		}
 		if parts[0] != "" {
 			commit := &pfs.Commit{
 				Repo: &pfs.Repo{
@@ -78,7 +81,7 @@ func ParseCommits(args []string) ([]*pfs.Commit, error) {
 		}
 	}
 
-	return commits, nil
+	return commits
 }
 
 // RepeatedStringArg is an alias for []string
