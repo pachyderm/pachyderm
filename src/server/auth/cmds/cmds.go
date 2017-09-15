@@ -96,6 +96,7 @@ func LoginCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("error reading token: %v", err)
 			}
+			fmt.Println("Retrieving Pachyderm token...")
 			token = strings.TrimSpace(token) // drop trailing newline
 			cfg, err := config.Read()
 			if err != nil {
@@ -120,10 +121,61 @@ func LoginCmd() *cobra.Command {
 			return cfg.Write()
 		}),
 	}
-	login.PersistentFlags().StringVar(&username, "user", "", "GitHub username of "+
-		"the user logging in. If unset, the username will be inferred from the "+
-		"github authorization code")
+	login.PersistentFlags().StringVarP(&username, "user", "u", "", "GitHub "+
+		"username of the user logging in. If unset, the username will be inferred "+
+		"from the github authorization code")
 	return login
+}
+
+// LogoutCmd returns a cobra.Command that deletes your local Pachyderm
+// credential, logging you out of your cluster. Note that this is not necessary
+// to do before logging in as another user, but is useful for testing.
+func LogoutCmd() *cobra.Command {
+	logout := &cobra.Command{
+		Use:   "logout",
+		Short: "Log out of Pachyderm by deleting your local credential",
+		Long: "Log out of Pachyderm by deleting your local credential. Note that " +
+			"it's not necessary to log out before logging in with another account " +
+			"(simply run 'pachctl auth login' twice) but 'logout' can be useful on " +
+			"shared workstations.",
+		Run: cmdutil.Run(func([]string) error {
+			cfg, err := config.Read()
+			if err != nil {
+				return fmt.Errorf("error reading Pachyderm config (for cluster "+
+					"address): %v", err)
+			}
+			if cfg.V1 == nil {
+				return nil
+			}
+			cfg.V1.SessionToken = ""
+			return cfg.Write()
+		}),
+	}
+	return logout
+}
+
+// WhoamiCmd returns a cobra.Command that deletes your local Pachyderm
+// credential, logging you out of your cluster. Note that this is not necessary
+// to do before logging in as another user, but is useful for testing.
+func WhoamiCmd() *cobra.Command {
+	whoami := &cobra.Command{
+		Use:   "whoami",
+		Short: "Print your Pachyderm identity",
+		Long:  "Print your Pachyderm identity.",
+		Run: cmdutil.Run(func([]string) error {
+			c, err := client.NewOnUserMachine(true, "user")
+			if err != nil {
+				return fmt.Errorf("could not connect: %v", err)
+			}
+			resp, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+			if err != nil {
+				return fmt.Errorf("error: %v", grpcutil.ScrubGRPC(err))
+			}
+			fmt.Printf("You are \"%s\"\n", resp.Username)
+			return nil
+		}),
+	}
+	return whoami
 }
 
 // CheckCmd returns a cobra command that sends an "Authorize" RPC to Pachd, to
@@ -308,6 +360,8 @@ func Cmds() []*cobra.Command {
 	auth.AddCommand(ActivateCmd())
 	auth.AddCommand(DeactivateCmd())
 	auth.AddCommand(LoginCmd())
+	auth.AddCommand(LogoutCmd())
+	auth.AddCommand(WhoamiCmd())
 	auth.AddCommand(CheckCmd())
 	auth.AddCommand(SetScopeCmd())
 	auth.AddCommand(GetCmd())
