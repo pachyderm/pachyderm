@@ -63,7 +63,7 @@ func getPachClient(t testing.TB, u string) *client.APIClient {
 				seedClient, err = client.NewOnUserMachine(false, "user")
 			}
 			require.NoError(t, err)
-			seedClient.SetAuthToken("")  // anonymous client
+			seedClient.SetAuthToken("") // anonymous client
 			clientMap[""] = seedClient
 		}
 
@@ -1112,7 +1112,7 @@ func TestListAndInspectRepo(t *testing.T) {
 		repoReader: auth.Scope_READER,
 	}
 	for _, info := range listResp.RepoInfo {
-		require.Equal(t, expectedAccess[info.Repo.Name], info.Scope)
+		require.Equal(t, expectedAccess[info.Repo.Name], info.AuthInfo.AccessLevel)
 	}
 
 	for _, name := range []string{repoOwner, repoWriter, repoReader, repoNone} {
@@ -1121,7 +1121,7 @@ func TestListAndInspectRepo(t *testing.T) {
 				Repo: &pfs.Repo{Name: name},
 			})
 		require.NoError(t, err)
-		require.Equal(t, expectedAccess[name], inspectResp.Scope)
+		require.Equal(t, expectedAccess[name], inspectResp.AuthInfo.AccessLevel)
 	}
 }
 
