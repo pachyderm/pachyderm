@@ -1348,9 +1348,10 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		// We only need to restart downstream pipelines if the provenance
 		// of our output repo changed.
 		outputRepo := &pfs.Repo{pipelineInfo.Pipeline.Name}
-		repoInfo, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{
-			Repo: outputRepo,
-		})
+		repoInfo, err := pfsClient.InspectRepo(auth.In2Out(ctx),
+			&pfs.InspectRepoRequest{
+				Repo: outputRepo,
+			})
 		if err != nil {
 			return nil, err
 		}
