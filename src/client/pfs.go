@@ -382,11 +382,11 @@ func (c APIClient) PutObjectSplit(_r io.Reader) (objects []*pfs.Object, _ int64,
 	r := grpcutil.ReaderWrapper{_r}
 	w, err := c.newPutObjectSplitWriteCloser()
 	if err != nil {
-		return nil, 0, sanitizeErr(err)
+		return nil, 0, grpcutil.ScrubGRPC(err)
 	}
 	defer func() {
 		if err := w.Close(); err != nil && retErr == nil {
-			retErr = sanitizeErr(err)
+			retErr = grpcutil.ScrubGRPC(err)
 		}
 		if retErr == nil {
 			objects = w.objects
@@ -396,7 +396,7 @@ func (c APIClient) PutObjectSplit(_r io.Reader) (objects []*pfs.Object, _ int64,
 	defer grpcutil.PutBuffer(buf)
 	written, err := io.CopyBuffer(w, r, buf)
 	if err != nil {
-		return nil, 0, sanitizeErr(err)
+		return nil, 0, grpcutil.ScrubGRPC(err)
 	}
 	// return value set by deferred function
 	return nil, written, nil
@@ -891,7 +891,7 @@ type putObjectSplitWriteCloser struct {
 func (c APIClient) newPutObjectSplitWriteCloser() (*putObjectSplitWriteCloser, error) {
 	client, err := c.ObjectAPIClient.PutObjectSplit(c.Ctx())
 	if err != nil {
-		return nil, sanitizeErr(err)
+		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return &putObjectSplitWriteCloser{
 		request: &pfs.PutObjectRequest{},
@@ -902,7 +902,7 @@ func (c APIClient) newPutObjectSplitWriteCloser() (*putObjectSplitWriteCloser, e
 func (w *putObjectSplitWriteCloser) Write(p []byte) (int, error) {
 	w.request.Value = p
 	if err := w.client.Send(w.request); err != nil {
-		return 0, sanitizeErr(err)
+		return 0, grpcutil.ScrubGRPC(err)
 	}
 	return len(p), nil
 }
@@ -910,7 +910,7 @@ func (w *putObjectSplitWriteCloser) Write(p []byte) (int, error) {
 func (w *putObjectSplitWriteCloser) Close() error {
 	objects, err := w.client.CloseAndRecv()
 	if err != nil {
-		return sanitizeErr(err)
+		return grpcutil.ScrubGRPC(err)
 	}
 	w.objects = objects.Objects
 	return nil
