@@ -1,28 +1,24 @@
 Beginner Tutorial
 =================
-Welcome to the beginner tutorial for Pachyderm. If you've already got Pachyderm installed, this guide should take about 15 minutes and you'll be introduced to the basic concepts of Pachyderm.
+Welcome to the beginner tutorial for Pachyderm! If you've already got Pachyderm installed, this guide should take about 15 minut!s, and it will introduce you to the basic concepts of Pachyderm.
 
 Image processing with OpenCV
 ----------------------------
 
-In this guide we're going to create a Pachyderm pipeline to do some simple `edge detection <https://en.wikipedia.org/wiki/Edge_detection>`_ on a few images. Thanks to Pachyderm's processing system, we'll be able to run the pipeline in a distributed, streaming fashion. As new data is
-added, the pipeline will automatically process it and output the results.
+In this guide we're going to create a Pachyderm pipeline to do some simple `edge detection <https://en.wikipedia.org/wiki/Edge_detection>`_ on a few images. Thanks to Pachyderm's processing system, we'll be able to run the pipeline in a distributed, streaming fashion. As new data is added, the pipeline will automatically process it and output the results.
 
-If you hit any errors not covered in this guide, check our :doc:`troubleshooting` docs for common errors, submit an issue on `GitHub <https://github.com/pachyderm/pachyderm>`_, join our `users channel on Slack <http://slack.pachyderm.io>`_, or email us at `support@pachyderm.io <mailto:support@pachyderm.io>`_ and we can help you right away.
+If you hit any errors not covered in this guide, get help in our `public commity Slack <http://slack.pachyderm.io>`_, submit an issue on `GitHub <https://github.com/pachyderm/pachyderm>`_, or email us at `support@pachyderm.io <mailto:support@pachyderm.io>`_. We are more than happy to help!
 
 Prerequisites
 ^^^^^^^^^^^^^
-
 This guide assumes that you already have Pachyderm running locally. Check out our :doc:`local_installation` instructions if haven't done that yet and then come back here to continue.
-
 
 Create a Repo
 ^^^^^^^^^^^^^
 
 A ``repo`` is the highest level data primitive in Pachyderm. Like many things in Pachyderm, it shares it's name with primitives in Git and is designed to behave analogously. Generally, repos should be dedicated to a single source of data such as log messages from a particular service, a users table, or training data for an ML model. Repos are dirt cheap so don't be shy about making tons of them.
 
-For this demo, we'll simply create a repo called
-"images" to hold the data we want to process:
+For this demo, we'll simply create a repo called ``images`` to hold the data we want to process:
 
 .. code-block:: shell
 
@@ -89,7 +85,7 @@ When you want to create your own pipelines later, you can refer to the full :doc
 
 For now, we're going to create a single pipeline that takes in images and does some simple edge detection.
 
-.. image:: opencv-liberty.jpg
+.. image:: opencv-liberty.png
 
 Below is the pipeline spec and python code we're using. Let's walk through the details. 
 
@@ -189,6 +185,9 @@ We can view the output data from the "edges" repo in the same fashion that we vi
   # on Linux
   $ pachctl get-file edges master liberty.png | display
 
+The output should look similar to:
+
+.. image:: edges-screenshot.png
 
 Processing More Data
 ^^^^^^^^^^^^^^^^^^^^
@@ -227,6 +226,78 @@ Adding a new commit of data will automatically trigger the pipeline to run on th
   $ pachctl get-file edges master AT-AT.png | display
 
   $ pachctl get-file edges master kitten.png | display
+
+Adding Another Pipeline
+^^^^^^^^^^^^^^^^^^^^^^^
+
+We have succesfully deployed and utilized a single stage Pachyderm pipeline, but now let's add a processing stage to illustrate a multi-stage Pachyderm pipeline. Specifically, let's add a ``montage`` pipeline that take our original and edge detected images and arranges them into a single montage of images:
+
+.. image:: opencv-liberty-montage.png
+
+Below is the pipeline spec for this new pipeline:
+
+.. code-block:: shell
+
+  # montage.json
+  {
+    "pipeline": {
+      "name": "montage"
+    },
+    "input": {
+      "cross": [ {
+        "atom": {
+          "glob": "/",
+          "repo": "images"
+        }
+      },
+      {
+        "atom": {
+          "glob": "/",
+          "repo": "edges"
+        }
+      } ]
+    },
+    "transform": {
+      "cmd": [ "sh" ],
+      "image": "v4tech/imagemagick",
+      "stdin": [ "montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find /pfs -type f | sort) /pfs/out/montage.png" ]
+    }
+  }
+
+This pipeline spec is very similar to our ``edges`` pipeline except, for ``montage``: (1) we are using a different Docker image that has imagemagick installed, (2) we are executing a ``sh`` command with ``stdin`` instead of a python script, and (3) we have multiple input data repositories.  
+
+In this case we are combining our multiple input data repositories using a ``cross`` pattern.  There are multiple interesting ways to combine data in Pachyderm, which are further discussed `here <http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html#input-required>`_ and `here <http://pachyderm.readthedocs.io/en/latest/cookbook/combining.html>`_.  For the purposes of this example, suffice it to say that this ``cross`` pattern creates a single pairing of our input images with our edge detected images.
+
+We create this next pipeline as before, with ``pachctl``:
+
+.. code-block:: shell
+
+  $ pachctl create-pipeline -f montage.json
+
+This will automatically trigger jobs that generate montages for all of the commits to our input repo:
+
+.. code-block:: shell
+
+  $ pachctl list-job
+  ID                                   OUTPUT COMMIT                            STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE            
+  3bddeb20-1b49-4980-85ab-8423ab902322 montage/bff0999b4cd84f0d96a923f92f933c1e 2 seconds ago  1 second           0       1 + 0 / 1 371.9KiB 1.284MiB success 
+  246377b0-0710-437b-ad9f-9dafd326efed montage/8956fa782b894ef68ef9ae0a3213334d 3 seconds ago  Less than a second 0       1 + 0 / 1 195.3KiB 809.2KiB success 
+  3c03465c-3d96-4d57-ac18-40b761f943cd montage/6cdb6ca9455341d193555cd9e523bc5b 3 seconds ago  Less than a second 0       1 + 0 / 1 79.49KiB 378.6KiB success 
+  80651695-98ef-44dd-a382-f476b9bc75ea edges/8fa0be775d66479daadb71af82d6ed49   38 seconds ago Less than a second 0       1 + 2 / 3 102.4KiB 74.21KiB success 
+  d97bdaad-e651-4ee5-a3c4-5b6c7697ccb6 edges/e3e40dee57174bacbd359575f2e4a87f   44 seconds ago Less than a second 0       1 + 1 / 2 78.7KiB  37.15KiB success 
+  28d0be41-69cf-46d3-b3e0-ebe2a66540d1 edges/61f5e8fbf4b444219805e49584a42d5c   51 seconds ago Less than a second 0       1 + 0 / 1 57.27KiB 22.22KiB success
+
+And you can view the generated montage image via:
+
+.. code-block:: shell
+
+  # on OSX
+  $ pachctl get-file montage master montage.png | open -f -a /Applications/Preview.app
+
+  # on Linux
+  $ pachctl get-file montage master montage.png | display
+
+.. image:: montage-screenshot.png
 
 Next Steps
 ^^^^^^^^^^
