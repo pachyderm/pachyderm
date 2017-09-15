@@ -8,7 +8,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
-func newHash() hash.Hash {
+// NewHash returns a new hash.Hash for hashing objects.
+func NewHash() hash.Hash {
 	return sha512.New()
 }
 
