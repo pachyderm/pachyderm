@@ -79,6 +79,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 		sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
 		userVolumeMounts = append(userVolumeMounts, secretMount)
 	}
+	zeroVal := int64(0)
 	podSpec := api.PodSpec{
 		InitContainers: []api.Container{
 			{
@@ -115,6 +116,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 		Volumes:                       options.volumes,
 		ImagePullSecrets:              options.imagePullSecrets,
 		TerminationGracePeriodSeconds: &zeroVal,
+		SecurityContext:               &api.PodSecurityContext{RunAsUser: &zeroVal},
 	}
 	if options.resources != nil {
 		podSpec.Containers[0].Resources = api.ResourceRequirements{
