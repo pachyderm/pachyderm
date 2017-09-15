@@ -448,8 +448,7 @@ nextRepo:
 			if err != nil && !auth.IsNotActivatedError(err) {
 				return nil, fmt.Errorf("error getting scopes: %v",
 					grpcutil.StripGRPCCode(err))
-			}
-			if err != nil {
+			} else if err == nil {
 				if len(resp.Scopes) != 1 {
 					return nil, fmt.Errorf("unexpected result from GetScope(): %#v", resp)
 				}
