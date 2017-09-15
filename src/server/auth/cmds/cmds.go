@@ -31,7 +31,7 @@ func ActivateCmd() *cobra.Command {
 			}
 			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
-				return fmt.Errorf("could not connect: %s", err.Error())
+				return fmt.Errorf("could not connect: %v", err)
 			}
 			_, err = c.Activate(c.Ctx(), &auth.ActivateRequest{
 				Admins: admins,
@@ -64,7 +64,7 @@ func DeactivateCmd() *cobra.Command {
 			}
 			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
-				return fmt.Errorf("could not connect: %s", err.Error())
+				return fmt.Errorf("could not connect: %v", err)
 			}
 			_, err = c.Deactivate(c.Ctx(), &auth.DeactivateRequest{})
 			return grpcutil.ScrubGRPC(err)
@@ -94,24 +94,24 @@ func LoginCmd() *cobra.Command {
 				"from GitHub here:")
 			token, err := bufio.NewReader(os.Stdin).ReadString('\n')
 			if err != nil {
-				return fmt.Errorf("error reading token: %s", err.Error())
+				return fmt.Errorf("error reading token: %v", err)
 			}
 			token = strings.TrimSpace(token) // drop trailing newline
 			cfg, err := config.Read()
 			if err != nil {
 				return fmt.Errorf("error reading Pachyderm config (for cluster "+
-					"address): %s", err.Error())
+					"address): %v", err)
 			}
 			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
-				return fmt.Errorf("could not connect: %s", err.Error())
+				return fmt.Errorf("could not connect: %v", err)
 			}
 			resp, err := c.Authenticate(
 				c.Ctx(),
 				&auth.AuthenticateRequest{GithubUsername: username, GithubToken: token})
 			if err != nil {
-				return fmt.Errorf("error authenticating with Pachyderm cluster: %s",
-					grpcutil.ScrubGRPC(err).Error())
+				return fmt.Errorf("error authenticating with Pachyderm cluster: %v",
+					grpcutil.ScrubGRPC(err))
 			}
 			if cfg.V1 == nil {
 				cfg.V1 = &config.ConfigV1{}
@@ -147,7 +147,7 @@ func CheckCmd() *cobra.Command {
 			repo := args[1]
 			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
-				return fmt.Errorf("could not connect: %s", err.Error())
+				return fmt.Errorf("could not connect: %v", err)
 			}
 			resp, err := c.Authorize(c.Ctx(), &auth.AuthorizeRequest{
 				Repo:  repo,
@@ -178,7 +178,7 @@ func GetCmd() *cobra.Command {
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
 			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
-				return fmt.Errorf("could not connect: %s", err.Error())
+				return fmt.Errorf("could not connect: %v", err)
 			}
 			if len(args) == 1 {
 				// Get ACL for a repo
@@ -230,7 +230,7 @@ func SetScopeCmd() *cobra.Command {
 			username, repo := args[0], args[2]
 			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
-				return fmt.Errorf("could not connect: %s", err.Error())
+				return fmt.Errorf("could not connect: %v", err)
 			}
 			_, err = c.SetScope(c.Ctx(), &auth.SetScopeRequest{
 				Repo:     repo,
