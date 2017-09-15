@@ -381,6 +381,7 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 }
 
 func (d *driver) inspectRepo(ctx context.Context, repo *pfs.Repo, includeAuth bool) (*pfs.RepoInfo, error) {
+	d.initializePachConn()
 	result := &pfs.RepoInfo{}
 	if err := d.repos.ReadOnly(ctx).Get(repo.Name, result); err != nil {
 		return nil, err
