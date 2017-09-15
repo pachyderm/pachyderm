@@ -193,7 +193,7 @@ func (d *driver) checkIsAuthorized(ctx context.Context, r *pfs.Repo, s auth.Scop
 		return &auth.NotAuthorizedError{Repo: r.Name, Required: s}
 	} else if err != nil && !auth.IsNotActivatedError(err) {
 		return fmt.Errorf("error during authorization check for operation on \"%s\": %v",
-			r.Name, grpcutil.StripGRPCCode(err))
+			r.Name, grpcutil.ScrubGRPC(err))
 	}
 	return nil
 }
@@ -236,7 +236,7 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 		if err != nil {
 			if !auth.IsNotActivatedError(err) {
 				return fmt.Errorf("authorization error while creating repo \"%s\": %v",
-					repo.Name, grpcutil.StripGRPCCode(err))
+					repo.Name, grpcutil.ScrubGRPC(err))
 			}
 		} else {
 			// auth is active, and user is logged in. Make user an owner of the new
@@ -252,7 +252,7 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 			})
 			if err != nil {
 				return fmt.Errorf("could not create ACL for new repo \"%s\": %v",
-					repo.Name, grpcutil.StripGRPCCode(err))
+					repo.Name, grpcutil.ScrubGRPC(err))
 			}
 		}
 	}
@@ -391,7 +391,7 @@ func (d *driver) inspectRepo(ctx context.Context, repo *pfs.Repo, includeAuth bo
 			&auth.GetScopeRequest{Repos: []string{repo.Name}})
 		if err != nil && !auth.IsNotActivatedError(err) {
 			return nil, fmt.Errorf("error getting scope for \"%s\": %v", repo.Name,
-				grpcutil.StripGRPCCode(err))
+				grpcutil.ScrubGRPC(err))
 		} else if err == nil {
 			if len(resp.Scopes) != 1 {
 				return nil, fmt.Errorf("unexpected result from GetScope(): %#v", resp)
@@ -448,7 +448,7 @@ nextRepo:
 				})
 			if err != nil && !auth.IsNotActivatedError(err) {
 				return nil, fmt.Errorf("error getting scopes: %v",
-					grpcutil.StripGRPCCode(err))
+					grpcutil.ScrubGRPC(err))
 			} else if err == nil {
 				if len(resp.Scopes) != 1 {
 					return nil, fmt.Errorf("unexpected result from GetScope(): %#v", resp)
@@ -513,7 +513,7 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 	if _, err = d.pachClient.AuthAPIClient.SetACL(auth.In2Out(ctx), &auth.SetACLRequest{
 		Repo: repo.Name, // NewACL is unset, so this will clear the acl for 'repo'
 	}); err != nil && !auth.IsNotActivatedError(err) {
-		return grpcutil.StripGRPCCode(err)
+		return grpcutil.ScrubGRPC(err)
 	}
 	return nil
 }
