@@ -79,6 +79,19 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 		sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
 		userVolumeMounts = append(userVolumeMounts, secretMount)
 	}
+
+	options.volumes = append(options.volumes, api.Volume{
+		Name: "docker",
+		VolumeSource: api.VolumeSource{
+			HostPath: &api.HostPathVolumeSource{
+				Path: "/var/run/docker.sock",
+			},
+		},
+	})
+	userVolumeMounts = append(userVolumeMounts, api.VolumeMount{
+		Name:      "docker",
+		MountPath: "/var/run/docker.sock",
+	})
 	zeroVal := int64(0)
 	podSpec := api.PodSpec{
 		InitContainers: []api.Container{

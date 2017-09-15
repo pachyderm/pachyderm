@@ -28,6 +28,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 
+	"github.com/fsouza/go-dockerclient"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/limit"
@@ -39,6 +40,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
+	"github.com/pachyderm/pachyderm/src/server/pkg/util"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 )
 
@@ -343,13 +345,39 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	defer func(start time.Time) {
 		logger.Logf("finished running user code - took (%v) - with error (%v)", time.Since(start), retErr)
 	}(time.Now())
+	docker, err := docker.NewClientFromEnv()
+	if err != nil {
+		return err
+	}
+	image, err := docker.InspectImage(a.pipelineInfo.Transform.Image)
+	if err != nil {
+		return err
+	}
+	user, err := util.LookupUser(image.Config.User)
+	if err != nil {
+		return err
+	}
+	uid, err := strconv.ParseUint(user.Uid, 10, 32)
+	if err != nil {
+		return err
+	}
+	gid, err := strconv.ParseUint(user.Gid, 10, 32)
+	if err != nil {
+		return err
+	}
 	// Run user code
 	cmd := exec.CommandContext(ctx, a.pipelineInfo.Transform.Cmd[0], a.pipelineInfo.Transform.Cmd[1:]...)
 	cmd.Stdin = strings.NewReader(strings.Join(a.pipelineInfo.Transform.Stdin, "\n") + "\n")
 	cmd.Stdout = logger.userLogger()
 	cmd.Stderr = logger.userLogger()
 	cmd.Env = environ
-	err := cmd.Run()
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Credential: &syscall.Credential{
+			Uid: uint32(uid),
+			Gid: uint32(gid),
+		},
+	}
+	err = cmd.Run()
 
 	// Return result
 	if err == nil {
