@@ -1102,6 +1102,7 @@ func TestDeletePipeline(t *testing.T) {
 
 	c := getPachClient(t)
 	defer require.NoError(t, c.DeleteAll())
+
 	repo := uniqueString("data")
 	require.NoError(t, c.CreateRepo(repo))
 	commit, err := c.StartCommit(repo, "master")
@@ -1126,6 +1127,7 @@ func TestDeletePipeline(t *testing.T) {
 	}
 
 	createPipeline()
+	time.Sleep(10 * time.Second)
 	// Wait for the pipeline to start running
 	require.NoError(t, backoff.Retry(func() error {
 		pipelineInfo, err := c.InspectPipeline(pipeline)
@@ -1139,6 +1141,7 @@ func TestDeletePipeline(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 	require.NoError(t, c.DeleteRepo(pipeline, false))
 	require.NoError(t, c.DeletePipeline(pipeline, true))
+	time.Sleep(5 * time.Second)
 	// Wait for the pipeline to disappear
 	require.NoError(t, backoff.Retry(func() error {
 		_, err := c.InspectPipeline(pipeline)
@@ -1155,6 +1158,7 @@ func TestDeletePipeline(t *testing.T) {
 
 	createPipeline()
 	// Wait for the pipeline to start running
+	time.Sleep(10 * time.Second)
 	require.NoError(t, backoff.Retry(func() error {
 		pipelineInfo, err := c.InspectPipeline(pipeline)
 		if err != nil {
@@ -1168,6 +1172,7 @@ func TestDeletePipeline(t *testing.T) {
 	require.NoError(t, c.DeleteRepo(pipeline, false))
 	require.NoError(t, c.DeletePipeline(pipeline, false))
 	// Wait for the pipeline to disappear
+	time.Sleep(5 * time.Second)
 	require.NoError(t, backoff.Retry(func() error {
 		_, err := c.InspectPipeline(pipeline)
 		if err == nil {
@@ -3033,37 +3038,35 @@ func TestDatumStatusRestart(t *testing.T) {
 	))
 	var jobID string
 	var datumStarted time.Time
+	// checkStatus waits for 'pipeline' to start and makes sure that each time
+	// it's called, the datum being processes was started at a new and later time
+	// (than the last time checkStatus was called)
 	checkStatus := func() {
-		started := time.Now()
-		for {
-			time.Sleep(time.Second)
-			if time.Since(started) > time.Second*60 {
-				t.Fatalf("failed to find status in time")
-			}
+		require.NoError(t, backoff.Retry(func() error {
+			// get the
 			jobs, err := c.ListJob(pipeline, nil, nil)
 			require.NoError(t, err)
 			if len(jobs) == 0 {
-				continue
+				return fmt.Errorf("no jobs found")
 			}
+
 			jobID = jobs[0].Job.ID
 			jobInfo, err := c.InspectJob(jobs[0].Job.ID, false)
 			require.NoError(t, err)
 			if len(jobInfo.WorkerStatus) == 0 {
-				continue
+				return fmt.Errorf("no worker statuses")
 			}
 			if jobInfo.WorkerStatus[0].JobID == jobInfo.Job.ID {
-				// This method is called before and after the datum is
-				// restarted, this makes sure that the restart actually did
-				// something.
 				// The first time this function is called, datumStarted is zero
 				// so `Before` is true for any non-zero time.
 				_datumStarted, err := types.TimestampFromProto(jobInfo.WorkerStatus[0].Started)
 				require.NoError(t, err)
 				require.True(t, datumStarted.Before(_datumStarted))
 				datumStarted = _datumStarted
-				break
+				return nil
 			}
-		}
+			return fmt.Errorf("worker status from wrong job")
+		}, backoff.RetryEvery(time.Second).For(30*time.Second)))
 	}
 	checkStatus()
 	require.NoError(t, c.RestartDatum(jobID, []string{"/file"}))
