@@ -115,17 +115,10 @@ message CreateRepoRequest {
 
 message InspectRepoRequest {
   Repo repo = 1;
-  // Include auth information in the response, i.e. what kind of
-  // scope the user has over each repo.
-  bool include_auth = 2;
 }
 
 message ListRepoRequest {
   repeated Repo provenance = 1;
-
-  // Include auth information in the response, i.e. what kind of
-  // scope the user has over each repo.
-  bool include_auth = 2;
 }
 
 message ListRepoResponse {

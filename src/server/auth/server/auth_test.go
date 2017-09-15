@@ -63,6 +63,7 @@ func getPachClient(t testing.TB, u string) *client.APIClient {
 				seedClient, err = client.NewOnUserMachine(false, "user")
 			}
 			require.NoError(t, err)
+			seedClient.SetAuthToken("")  // anonymous client
 			clientMap[""] = seedClient
 		}
 
@@ -1103,7 +1104,7 @@ func TestListAndInspectRepo(t *testing.T) {
 	// for each repo (because other tests have run, we may see repos besides the
 	// above. Bob's access to those should be NONE
 	listResp, err := bobClient.PfsAPIClient.ListRepo(bobClient.Ctx(),
-		&pfs.ListRepoRequest{IncludeAuth: true})
+		&pfs.ListRepoRequest{})
 	require.NoError(t, err)
 	expectedAccess := map[string]auth.Scope{
 		repoOwner:  auth.Scope_OWNER,
@@ -1117,8 +1118,7 @@ func TestListAndInspectRepo(t *testing.T) {
 	for _, name := range []string{repoOwner, repoWriter, repoReader, repoNone} {
 		inspectResp, err := bobClient.PfsAPIClient.InspectRepo(bobClient.Ctx(),
 			&pfs.InspectRepoRequest{
-				Repo:        &pfs.Repo{Name: name},
-				IncludeAuth: true,
+				Repo: &pfs.Repo{Name: name},
 			})
 		require.NoError(t, err)
 		require.Equal(t, expectedAccess[name], inspectResp.Scope)
@@ -1178,4 +1178,26 @@ func TestGetScopeRequiresReader(t *testing.T) {
 		})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
+}
+
+// TestListRepoNotLoggedInError makes sure that if a user isn't logged in, and
+// they call ListRepo(), they get an error.
+func TestListRepoNotLoggedInError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	alice := uniqueString("alice")
+	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
+
+	// alice creates a repo
+	repoWriter := uniqueString("TestListRepo")
+	require.NoError(t, aliceClient.CreateRepo(repoWriter))
+	require.Equal(t, acl(alice, "owner"), GetACL(t, aliceClient, repoWriter))
+
+	// Anon (non-logged-in user) calls ListRepo, and must recieve an error
+	_, err := anonClient.PfsAPIClient.ListRepo(anonClient.Ctx(),
+		&pfs.ListRepoRequest{})
+	require.YesError(t, err)
+	require.Matches(t, "auth token not found in context", err.Error())
 }
