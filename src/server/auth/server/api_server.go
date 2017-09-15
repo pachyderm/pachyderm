@@ -204,7 +204,7 @@ func (a *apiServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
 	resp, err := pachClient.Enterprise.GetState(context.Background(),
 		&enterpriseclient.GetStateRequest{})
 	if err != nil {
-		return 0, fmt.Errorf("could not get Enterprise status: %v", grpcutil.StripGRPCCode(err))
+		return 0, fmt.Errorf("could not get Enterprise status: %v", grpcutil.ScrubGRPC(err))
 	}
 	return resp.State, nil
 }
@@ -754,7 +754,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 				return false, fmt.Errorf("could not check if repo \"%s\" exists: %v", req.Repo, err)
 			}
 			_, err = pachClient.InspectRepo(req.Repo)
-			err = grpcutil.StripGRPCCode(err)
+			err = grpcutil.ScrubGRPC(err)
 			if err == nil {
 				// Repo exists -- user isn't authorized
 				return false, nil
