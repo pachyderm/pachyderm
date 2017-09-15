@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 
 	"github.com/gogo/protobuf/types"
@@ -197,7 +198,7 @@ func (c APIClient) CreateJob(
 			Service:         service,
 		},
 	)
-	return job, sanitizeErr(err)
+	return job, grpcutil.ScrubGRPC(err)
 }
 
 // InspectJob returns info about a specific job.
@@ -210,7 +211,7 @@ func (c APIClient) InspectJob(jobID string, blockState bool) (*pps.JobInfo, erro
 			Job:        NewJob(jobID),
 			BlockState: blockState,
 		})
-	return jobInfo, sanitizeErr(err)
+	return jobInfo, grpcutil.ScrubGRPC(err)
 }
 
 // ListJob returns info about all jobs.
@@ -231,7 +232,7 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outpu
 			OutputCommit: outputCommit,
 		})
 	if err != nil {
-		return nil, sanitizeErr(err)
+		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return jobInfos.JobInfo, nil
 }
@@ -244,7 +245,7 @@ func (c APIClient) DeleteJob(jobID string) error {
 			Job: NewJob(jobID),
 		},
 	)
-	return sanitizeErr(err)
+	return grpcutil.ScrubGRPC(err)
 }
 
 // StopJob stops a job.
@@ -255,7 +256,7 @@ func (c APIClient) StopJob(jobID string) error {
 			Job: NewJob(jobID),
 		},
 	)
-	return sanitizeErr(err)
+	return grpcutil.ScrubGRPC(err)
 }
 
 // RestartDatum restarts a datum that's being processed as part of a job.
@@ -269,7 +270,7 @@ func (c APIClient) RestartDatum(jobID string, datumFilter []string) error {
 			DataFilters: datumFilter,
 		},
 	)
-	return sanitizeErr(err)
+	return grpcutil.ScrubGRPC(err)
 }
 
 // ListDatum returns info about all datums in a Job
@@ -283,7 +284,7 @@ func (c APIClient) ListDatum(jobID string, pageSize int64, page int64) (*pps.Lis
 		},
 	)
 	if err != nil {
-		return nil, sanitizeErr(err)
+		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return resp, nil
 }
@@ -300,7 +301,7 @@ func (c APIClient) InspectDatum(jobID string, datumID string) (*pps.DatumInfo, e
 		},
 	)
 	if err != nil {
-		return nil, sanitizeErr(err)
+		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return datumInfo, nil
 }
@@ -415,7 +416,7 @@ func (c APIClient) CreatePipeline(
 			Update:          update,
 		},
 	)
-	return sanitizeErr(err)
+	return grpcutil.ScrubGRPC(err)
 }
 
 // InspectPipeline returns info about a specific pipeline.
@@ -426,7 +427,7 @@ func (c APIClient) InspectPipeline(pipelineName string) (*pps.PipelineInfo, erro
 			Pipeline: NewPipeline(pipelineName),
 		},
 	)
-	return pipelineInfo, sanitizeErr(err)
+	return pipelineInfo, grpcutil.ScrubGRPC(err)
 }
 
 // ListPipeline returns info about all pipelines.
@@ -436,7 +437,7 @@ func (c APIClient) ListPipeline() ([]*pps.PipelineInfo, error) {
 		&pps.ListPipelineRequest{},
 	)
 	if err != nil {
-		return nil, sanitizeErr(err)
+		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return pipelineInfos.PipelineInfo, nil
 }
@@ -450,7 +451,7 @@ func (c APIClient) DeletePipeline(name string, deleteJobs bool) error {
 			DeleteJobs: deleteJobs,
 		},
 	)
-	return sanitizeErr(err)
+	return grpcutil.ScrubGRPC(err)
 }
 
 // StartPipeline restarts a stopped pipeline.
@@ -461,7 +462,7 @@ func (c APIClient) StartPipeline(name string) error {
 			Pipeline: NewPipeline(name),
 		},
 	)
-	return sanitizeErr(err)
+	return grpcutil.ScrubGRPC(err)
 }
 
 // StopPipeline prevents a pipeline from processing things, it can be restarted
@@ -473,7 +474,7 @@ func (c APIClient) StopPipeline(name string) error {
 			Pipeline: NewPipeline(name),
 		},
 	)
-	return sanitizeErr(err)
+	return grpcutil.ScrubGRPC(err)
 }
 
 // RerunPipeline reruns a pipeline over a given set of commits. Exclude and
@@ -489,7 +490,7 @@ func (c APIClient) RerunPipeline(name string, include []*pfs.Commit, exclude []*
 			Exclude:  exclude,
 		},
 	)
-	return sanitizeErr(err)
+	return grpcutil.ScrubGRPC(err)
 }
 
 // GarbageCollect garbage collects unused data.  Currently GC needs to be
@@ -500,7 +501,7 @@ func (c APIClient) GarbageCollect() error {
 		c.Ctx(),
 		&pps.GarbageCollectRequest{},
 	)
-	return sanitizeErr(err)
+	return grpcutil.ScrubGRPC(err)
 }
 
 // GetDatumTotalTime sums the timing stats from a DatumInfo
