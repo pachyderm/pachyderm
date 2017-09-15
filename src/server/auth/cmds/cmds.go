@@ -2,34 +2,20 @@ package cmds
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
 
-	"google.golang.org/grpc/status"
-
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 
 	"github.com/spf13/cobra"
 )
 
 var githubAuthLink = `https://github.com/login/oauth/authorize?client_id=d3481e92b4f09ea74ff8&redirect_uri=https%3A%2F%2Fpachyderm.io%2Flogin-hook%2Fdisplay-token.html`
-
-// StripGRPCCode removes GRPC error code information from 'err' if it came from
-// GRPC (and returns it unchanged otherwise)
-func StripGRPCCode(err error) error {
-	if err == nil {
-		return nil
-	}
-	if s, ok := status.FromError(err); err != nil && ok {
-		return errors.New(s.Message())
-	}
-	return err
-}
 
 // ActivateCmd returns a cobra.Command to activate Pachyderm's auth system
 func ActivateCmd() *cobra.Command {
@@ -50,7 +36,7 @@ func ActivateCmd() *cobra.Command {
 			_, err = c.Activate(c.Ctx(), &auth.ActivateRequest{
 				Admins: admins,
 			})
-			return StripGRPCCode(err)
+			return grpcutil.ScrubGRPC(err)
 		}),
 	}
 	activate.PersistentFlags().StringSliceVar(&admins, "admins", []string{},
@@ -81,7 +67,7 @@ func DeactivateCmd() *cobra.Command {
 				return fmt.Errorf("could not connect: %s", err.Error())
 			}
 			_, err = c.Deactivate(c.Ctx(), &auth.DeactivateRequest{})
-			return StripGRPCCode(err)
+			return grpcutil.ScrubGRPC(err)
 		}),
 	}
 	return deactivate
@@ -125,7 +111,7 @@ func LoginCmd() *cobra.Command {
 				&auth.AuthenticateRequest{GithubUsername: username, GithubToken: token})
 			if err != nil {
 				return fmt.Errorf("error authenticating with Pachyderm cluster: %s",
-					StripGRPCCode(err).Error())
+					grpcutil.ScrubGRPC(err).Error())
 			}
 			if cfg.V1 == nil {
 				cfg.V1 = &config.ConfigV1{}
@@ -168,7 +154,7 @@ func CheckCmd() *cobra.Command {
 				Scope: scope,
 			})
 			if err != nil {
-				return StripGRPCCode(err)
+				return grpcutil.ScrubGRPC(err)
 			}
 			fmt.Printf("%t\n", resp.Authorized)
 			return nil
@@ -201,7 +187,7 @@ func GetCmd() *cobra.Command {
 					Repo: repo,
 				})
 				if err != nil {
-					return StripGRPCCode(err)
+					return grpcutil.ScrubGRPC(err)
 				}
 				fmt.Println(resp.ACL.String())
 				return nil
@@ -213,7 +199,7 @@ func GetCmd() *cobra.Command {
 				Username: username,
 			})
 			if err != nil {
-				return StripGRPCCode(err)
+				return grpcutil.ScrubGRPC(err)
 			}
 			fmt.Println(resp.Scopes[0].String())
 			return nil
@@ -251,7 +237,7 @@ func SetScopeCmd() *cobra.Command {
 				Scope:    scope,
 				Username: username,
 			})
-			return StripGRPCCode(err)
+			return grpcutil.ScrubGRPC(err)
 		}),
 	}
 	return setScope
@@ -270,7 +256,7 @@ func ListAdminsCmd() *cobra.Command {
 			}
 			resp, err := c.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 			if err != nil {
-				return StripGRPCCode(err)
+				return grpcutil.ScrubGRPC(err)
 			}
 			for _, user := range resp.Admins {
 				fmt.Println(user)
@@ -301,7 +287,7 @@ func ModifyAdminsCmd() *cobra.Command {
 				Add:    add,
 				Remove: remove,
 			})
-			return StripGRPCCode(err)
+			return grpcutil.ScrubGRPC(err)
 		}),
 	}
 	modifyAdmins.PersistentFlags().StringSliceVar(&add, "add", []string{},
