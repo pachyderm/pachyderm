@@ -1390,6 +1390,12 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		file.Commit = commitInfo.Commit
 	}
 
+	if overwriteIndex != nil && overwriteIndex.Index == 0 {
+		if err := d.deleteFile(ctx, file); err != nil {
+			return err
+		}
+	}
+
 	records := &pfs.PutFileRecords{}
 	if err := checkPath(file.Path); err != nil {
 		return err
@@ -1442,7 +1448,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			size -= pfs.ChunkSize
 
 			// The first record takes care of the overwriting
-			if i == 0 {
+			if i == 0 && overwriteIndex != nil && overwriteIndex.Index != 0 {
 				record.OverwriteIndex = overwriteIndex
 			}
 
