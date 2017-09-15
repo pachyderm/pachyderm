@@ -413,8 +413,8 @@ func isNotExist(err error) bool {
 	return strings.Contains(err.Error(), "not found")
 }
 
-// File makes sure that pfsFile has the same content as osFile.
-func File(client *pachclient.APIClient, pfsFile *pfs.File, osFile io.ReadSeeker) error {
+// PushFile makes sure that pfsFile has the same content as osFile.
+func PushFile(client *pachclient.APIClient, pfsFile *pfs.File, osFile io.ReadSeeker) error {
 	fileInfo, err := client.InspectFile(pfsFile.Commit.Repo.Name, pfsFile.Commit.ID, pfsFile.Path)
 	if err != nil && !isNotExist(err) {
 		return err
