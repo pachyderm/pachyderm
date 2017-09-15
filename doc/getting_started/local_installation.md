@@ -35,33 +35,30 @@ To check that installation was successful, you can try running `pachctl help`, w
 Now that you have Minikube running, it's incredibly easy to deploy Pachyderm.
 
 ```sh
-pachctl deploy local --dashboard
+$ pachctl deploy local
 ```
 This generates a Pachyderm manifest and deploys Pachyderm on Kubernetes. It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub. You can see the cluster status by using `kubectl get all`:
 
 ```sh
 $ kubectl get all
 NAME                       READY     STATUS    RESTARTS   AGE
-po/dash-361776027-cdd5k    2/2       Running   0          16m
-po/etcd-2142892294-nf4p5   1/1       Running   0          16m
-po/pachd-776177201-48g87   1/1       Running   2          16m
+po/etcd-2142892294-l25tj   1/1       Running   0          10m
+po/pachd-915907039-z0hl2   1/1       Running   0          10m
 
 NAME             CLUSTER-IP   EXTERNAL-IP   PORT(S)                                     AGE
-svc/dash         10.0.0.201   <nodes>       8080:30080/TCP,8081:30081/TCP               16m
-svc/etcd         10.0.0.38    <nodes>       2379:32379/TCP                              16m
-svc/kubernetes   10.0.0.1     <none>        443/TCP                                     17m
-svc/pachd        10.0.0.64    <nodes>       650:30650/TCP,651:30651/TCP,652:30652/TCP   16m
+svc/etcd         10.0.0.25    <nodes>       2379:32379/TCP                              10m
+svc/kubernetes   10.0.0.1     <none>        443/TCP                                     11m
+svc/pachd        10.0.0.60    <nodes>       650:30650/TCP,651:30651/TCP,652:30652/TCP   10m
 
 NAME           DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-deploy/dash    1         1         1            1           16m
-deploy/etcd    1         1         1            1           16m
-deploy/pachd   1         1         1            1           16m
+deploy/etcd    1         1         1            1           10m
+deploy/pachd   1         1         1            1           10m
 
 NAME                 DESIRED   CURRENT   READY     AGE
-rs/dash-361776027    1         1         1         16m
-rs/etcd-2142892294   1         1         1         16m
-rs/pachd-776177201   1         1         1         16m
+rs/etcd-2142892294   1         1         1         10m
+rs/pachd-915907039   1         1         1         10m
 ```
+
 Note: If you see a few restarts on the pachd nodes, that's ok. That simply means that Kubernetes tried to bring up those containers before etcd was ready so it restarted them.
 
 ### Port Forwarding
