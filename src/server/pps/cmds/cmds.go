@@ -26,7 +26,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 )
 
 const (
@@ -121,8 +120,10 @@ $ pachctl list-job -p foo bar/YYY
 			if err != nil {
 				return err
 			}
-
-			outputCommits := cmdutil.ParseCommits([]string{outputCommit})
+			outputCommits, err := cmdutil.ParseCommits([]string{outputCommit})
+			if err != nil {
+				return err
+			}
 			var outputCommit *pfs.Commit
 			if len(outputCommits) == 1 {
 				outputCommit = outputCommits[0]
