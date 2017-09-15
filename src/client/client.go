@@ -1,7 +1,6 @@
 package client
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -184,19 +183,19 @@ func (c APIClient) DeleteAll() error {
 		c.Ctx(),
 		&auth.DeactivateRequest{},
 	); err != nil && !auth.IsNotActivatedError(err) {
-		return sanitizeErr(err)
+		return grpcutil.ScrubGRPC(err)
 	}
 	if _, err := c.PpsAPIClient.DeleteAll(
 		c.Ctx(),
 		&types.Empty{},
 	); err != nil {
-		return sanitizeErr(err)
+		return grpcutil.ScrubGRPC(err)
 	}
 	if _, err := c.PfsAPIClient.DeleteAll(
 		c.Ctx(),
 		&types.Empty{},
 	); err != nil {
-		return sanitizeErr(err)
+		return grpcutil.ScrubGRPC(err)
 	}
 	return nil
 }
@@ -246,7 +245,7 @@ func (c *APIClient) connect() error {
 	dialOptions := append(PachDialOptions(), keepaliveOpt)
 	clientConn, err := grpc.Dial(c.addr, dialOptions...)
 	if err != nil {
-		return err
+		return grpcutil.ScrubGRPC(err)
 	}
 	c.AuthAPIClient = auth.NewAPIClient(clientConn)
 	c.PfsAPIClient = pfs.NewAPIClient(clientConn)
@@ -315,12 +314,4 @@ func (c *APIClient) WithCtx(ctx context.Context) *APIClient {
 // API calls for this client.
 func (c *APIClient) SetAuthToken(token string) {
 	c.authenticationToken = token
-}
-
-func sanitizeErr(err error) error {
-	if err == nil {
-		return nil
-	}
-
-	return errors.New(grpc.ErrorDesc(err))
 }

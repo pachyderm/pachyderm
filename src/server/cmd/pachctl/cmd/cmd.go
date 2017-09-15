@@ -22,6 +22,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	authcmds "github.com/pachyderm/pachyderm/src/server/auth/cmds"
@@ -71,7 +72,7 @@ Environment variables:
 	}
 	ppsCmds, err := ppscmds.Cmds(&noMetrics)
 	if err != nil {
-		return nil, sanitizeErr(err)
+		return nil, err
 	}
 	for _, cmd := range ppsCmds {
 		rootCmd.AddCommand(cmd)
@@ -115,7 +116,7 @@ Environment variables:
 			pachdAddress := client.GetAddressFromUserMachine(cfg)
 			versionClient, err := getVersionAPIClient(pachdAddress)
 			if err != nil {
-				return sanitizeErr(err)
+				return err
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
@@ -124,7 +125,7 @@ Environment variables:
 			if err != nil {
 				buf := bytes.NewBufferString("")
 				errWriter := tabwriter.NewWriter(buf, 20, 1, 3, ' ', 0)
-				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", pachdAddress, sanitizeErr(err))
+				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", pachdAddress, grpcutil.ScrubGRPC(err))
 				errWriter.Flush()
 				return errors.New(buf.String())
 			}
@@ -141,7 +142,7 @@ This resets the cluster to its initial state.`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			client, err := client.NewOnUserMachine(!noMetrics, "user")
 			if err != nil {
-				return sanitizeErr(err)
+				return err
 			}
 			fmt.Printf("Are you sure you want to delete all ACLs, repos, commits, files, pipelines and jobs? yN\n")
 			r := bufio.NewReader(os.Stdin)
@@ -282,7 +283,7 @@ $ pachctl migrate --from 1.4.8 --to 1.5.0
 				pachdAddress := client.GetAddressFromUserMachine(cfg)
 				versionClient, err := getVersionAPIClient(pachdAddress)
 				if err != nil {
-					return sanitizeErr(err)
+					return err
 				}
 				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 				defer cancel()
@@ -377,12 +378,4 @@ func printVersionHeader(w io.Writer) {
 
 func printVersion(w io.Writer, component string, v *versionpb.Version) {
 	fmt.Fprintf(w, "%s\t%s\t\n", component, version.PrettyPrintVersion(v))
-}
-
-func sanitizeErr(err error) error {
-	if err == nil {
-		return nil
-	}
-
-	return errors.New(grpc.ErrorDesc(err))
 }
