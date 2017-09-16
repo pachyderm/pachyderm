@@ -58,7 +58,6 @@ func TestShortTag(t *testing.T) {
 	object, _, err := c.PutObject(strings.NewReader("content"), "t")
 	require.NoError(t, err)
 
-	require.NoError(t, c.Compact())
 	value, err := c.ReadObject(object.Hash)
 	require.NoError(t, err)
 	require.Equal(t, []byte("content"), value)
@@ -78,7 +77,6 @@ func TestManyObjects(t *testing.T) {
 		require.NoError(t, err)
 		objects = append(objects, object.Hash)
 	}
-	require.NoError(t, c.Compact())
 	for i, hash := range objects {
 		value, err := c.ReadObject(hash)
 		require.NoError(t, err)

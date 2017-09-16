@@ -360,7 +360,7 @@ satisfied the spec. The time is formatted according to [RFC
 those of `input.atom.name`. Except that it's not optional.
 
 `input.cron.spec` is a cron expression which specifies the schedule on
-which to trigger the pipeline. The learn more about how to write schedules
+which to trigger the pipeline. To learn more about how to write schedules
 see the [Wikipedia page on cron](https://en.wikipedia.org/wiki/Cron).
 Pachyderm supports Nonstandard schedules such as `"@daily"`.
 
