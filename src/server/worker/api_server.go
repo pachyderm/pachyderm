@@ -102,6 +102,10 @@ type APIServer struct {
 	// datumCache is used by the master to keep track of the datums that
 	// have already been processed.
 	datumCache *lru.Cache
+
+	uid        uint32
+	gid        uint32
+	workingDir string
 }
 
 type putObjectResponse struct {
@@ -269,6 +273,29 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	if err != nil {
 		return nil, fmt.Errorf("error creating datum cache: %v", err)
 	}
+	docker, err := docker.NewClientFromEnv()
+	if err != nil {
+		return nil, err
+	}
+	image, err := docker.InspectImage(pipelineInfo.Transform.Image)
+	if err != nil {
+		return nil, err
+	}
+	user, err := util.LookupUser(image.Config.User)
+	if err != nil {
+		return nil, err
+	}
+	uid, err := strconv.ParseUint(user.Uid, 10, 32)
+	if err != nil {
+		return nil, err
+	}
+	gid, err := strconv.ParseUint(user.Gid, 10, 32)
+	if err != nil {
+		return nil, err
+	}
+	if pipelineInfo.Transform.Cmd == nil {
+		pipelineInfo.Transform.Cmd = image.Config.Entrypoint
+	}
 	server := &APIServer{
 		pachClient:   pachClient,
 		kubeClient:   kubeClient,
@@ -285,6 +312,9 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
 		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
 		datumCache: datumCache,
+		uid:        uint32(uid),
+		gid:        uint32(gid),
+		workingDir: image.Config.WorkingDir,
 	}
 	if pipelineInfo.Service == nil {
 		go server.master()
@@ -345,26 +375,6 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	defer func(start time.Time) {
 		logger.Logf("finished running user code - took (%v) - with error (%v)", time.Since(start), retErr)
 	}(time.Now())
-	docker, err := docker.NewClientFromEnv()
-	if err != nil {
-		return err
-	}
-	image, err := docker.InspectImage(a.pipelineInfo.Transform.Image)
-	if err != nil {
-		return err
-	}
-	user, err := util.LookupUser(image.Config.User)
-	if err != nil {
-		return err
-	}
-	uid, err := strconv.ParseUint(user.Uid, 10, 32)
-	if err != nil {
-		return err
-	}
-	gid, err := strconv.ParseUint(user.Gid, 10, 32)
-	if err != nil {
-		return err
-	}
 	// Run user code
 	cmd := exec.CommandContext(ctx, a.pipelineInfo.Transform.Cmd[0], a.pipelineInfo.Transform.Cmd[1:]...)
 	cmd.Stdin = strings.NewReader(strings.Join(a.pipelineInfo.Transform.Stdin, "\n") + "\n")
@@ -373,11 +383,12 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	cmd.Env = environ
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Credential: &syscall.Credential{
-			Uid: uint32(uid),
-			Gid: uint32(gid),
+			Uid: a.uid,
+			Gid: a.gid,
 		},
 	}
-	err = cmd.Run()
+	cmd.Dir = a.workingDir
+	err := cmd.Run()
 
 	// Return result
 	if err == nil {
