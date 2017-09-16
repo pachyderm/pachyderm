@@ -128,14 +128,14 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCa
 		DialOptions: client.EtcdDialOptions(),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("could not connect to etcd: %s", err.Error())
+		return nil, fmt.Errorf("could not connect to etcd: %v", err)
 	}
 	if treeCacheSize <= 0 {
 		treeCacheSize = defaultTreeCacheSize
 	}
 	treeCache, err := lru.New(int(treeCacheSize))
 	if err != nil {
-		return nil, fmt.Errorf("could not initialize treeCache: %s", err.Error())
+		return nil, fmt.Errorf("could not initialize treeCache: %v", err)
 	}
 
 	d := &driver{
@@ -192,7 +192,8 @@ func (d *driver) checkIsAuthorized(ctx context.Context, r *pfs.Repo, s auth.Scop
 	if err == nil && !resp.Authorized {
 		return &auth.NotAuthorizedError{Repo: r.Name, Required: s}
 	} else if err != nil && !auth.IsNotActivatedError(err) {
-		return fmt.Errorf("error during authorization check for operation on %s: %s", r.Name, err.Error())
+		return fmt.Errorf("error during authorization check for operation on \"%s\": %v",
+			r.Name, grpcutil.ScrubGRPC(err))
 	}
 	return nil
 }
@@ -234,17 +235,24 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 			&auth.WhoAmIRequest{})
 		if err != nil {
 			if !auth.IsNotActivatedError(err) {
-				return fmt.Errorf("authorization error while creating repo \"%s\": %s", repo.Name, err.Error())
+				return fmt.Errorf("authorization error while creating repo \"%s\": %v",
+					repo.Name, grpcutil.ScrubGRPC(err))
 			}
 		} else {
-			// auth is active, and user is logged in. Make user an owner of the new repo
-			_, err := d.pachClient.AuthAPIClient.SetScope(auth.In2Out(ctx), &auth.SetScopeRequest{
-				Repo:     repo.Name,
-				Username: whoAmI.Username,
-				Scope:    auth.Scope_OWNER,
+			// auth is active, and user is logged in. Make user an owner of the new
+			// (and clear any existing ACL under this name that might have been
+			// created by accident)
+			_, err := d.pachClient.AuthAPIClient.SetACL(auth.In2Out(ctx), &auth.SetACLRequest{
+				Repo: repo.Name,
+				NewACL: &auth.ACL{
+					Entries: map[string]auth.Scope{
+						whoAmI.Username: auth.Scope_OWNER,
+					},
+				},
 			})
 			if err != nil {
-				return fmt.Errorf("could not create ACL for new repo \"%s\": %s", repo.Name, err.Error())
+				return fmt.Errorf("could not create ACL for new repo \"%s\": %v",
+					repo.Name, grpcutil.ScrubGRPC(err))
 			}
 		}
 	}
@@ -299,7 +307,7 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 			// We also add the new provenance repos to the provenance
 			// of all downstream repos, and remove the old provenance
 			// repos from their provenance.
-			downstreamRepos, err := d.listRepo(ctx, []*pfs.Repo{repo}, false)
+			downstreamRepos, err := d.listRepo(ctx, []*pfs.Repo{repo}, !includeAuth)
 			if err != nil {
 				return err
 			}
@@ -373,22 +381,43 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 }
 
 func (d *driver) inspectRepo(ctx context.Context, repo *pfs.Repo, includeAuth bool) (*pfs.RepoInfo, error) {
+	d.initializePachConn()
 	result := &pfs.RepoInfo{}
 	if err := d.repos.ReadOnly(ctx).Get(repo.Name, result); err != nil {
 		return nil, err
 	}
 	if includeAuth {
-		resp, err := d.pachClient.AuthAPIClient.GetScope(auth.In2Out(ctx),
-			&auth.GetScopeRequest{Repos: []string{repo.Name}})
-		if err != nil && !auth.IsNotActivatedError(err) {
-			return nil, fmt.Errorf("error getting scope for %s: %s", repo.Name, err.Error())
+		accessLevel, err := d.getAccessLevel(ctx, repo)
+		if err != nil {
+			if auth.IsNotActivatedError(err) {
+				return result, nil
+			}
+			return nil, fmt.Errorf("error getting access level for \"%s\": %v",
+				repo.Name, grpcutil.ScrubGRPC(err))
 		}
-		if len(resp.Scopes) != 1 {
-			return nil, fmt.Errorf("unexpected result from GetScope(): %#v", resp)
-		}
-		result.Scope = resp.Scopes[0]
+		result.AuthInfo = &pfs.RepoAuthInfo{AccessLevel: accessLevel}
 	}
 	return result, nil
+}
+
+func (d *driver) getAccessLevel(ctx context.Context, repo *pfs.Repo) (auth.Scope, error) {
+	who, err := d.pachClient.AuthAPIClient.WhoAmI(auth.In2Out(ctx),
+		&auth.WhoAmIRequest{})
+	if err != nil {
+		return auth.Scope_NONE, err
+	}
+	if who.IsAdmin {
+		return auth.Scope_OWNER, nil
+	}
+	resp, err := d.pachClient.AuthAPIClient.GetScope(auth.In2Out(ctx),
+		&auth.GetScopeRequest{Repos: []string{repo.Name}})
+	if err != nil {
+		return auth.Scope_NONE, err
+	}
+	if len(resp.Scopes) != 1 {
+		return auth.Scope_NONE, fmt.Errorf("too many results from GetScope: %#v", resp)
+	}
+	return resp.Scopes[0], nil
 }
 
 func (d *driver) listRepo(ctx context.Context, provenance []*pfs.Repo, includeAuth bool) (*pfs.ListRepoResponse, error) {
@@ -406,6 +435,7 @@ func (d *driver) listRepo(ctx context.Context, provenance []*pfs.Repo, includeAu
 		return nil, err
 	}
 	result := new(pfs.ListRepoResponse)
+	authSeemsActive := true
 nextRepo:
 	for {
 		repoName, repoInfo := "", new(pfs.RepoInfo)
@@ -429,20 +459,15 @@ nextRepo:
 				continue nextRepo
 			}
 		}
-		if includeAuth {
-			// Include auth information in the response
-			resp, err := d.pachClient.AuthAPIClient.GetScope(auth.In2Out(ctx),
-				&auth.GetScopeRequest{
-					Repos: []string{repoName},
-				})
-			if err != nil && !auth.IsNotActivatedError(err) {
-				return nil, fmt.Errorf("error getting scopes: %s", err.Error())
-			}
-			if len(resp.Scopes) != 1 {
-				return nil, fmt.Errorf("unexpected result from GetScope(): %#v", resp)
-			}
-			if resp != nil {
-				repoInfo.Scope = resp.Scopes[0]
+		if includeAuth && authSeemsActive {
+			accessLevel, err := d.getAccessLevel(ctx, repoInfo.Repo)
+			if err == nil {
+				repoInfo.AuthInfo = &pfs.RepoAuthInfo{AccessLevel: accessLevel}
+			} else if auth.IsNotActivatedError(err) {
+				authSeemsActive = false
+			} else {
+				return nil, fmt.Errorf("error getting access level for \"%s\": %v",
+					repoName, grpcutil.ScrubGRPC(err))
 			}
 		}
 		result.RepoInfo = append(result.RepoInfo, repoInfo)
@@ -502,7 +527,7 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 	if _, err = d.pachClient.AuthAPIClient.SetACL(auth.In2Out(ctx), &auth.SetACLRequest{
 		Repo: repo.Name, // NewACL is unset, so this will clear the acl for 'repo'
 	}); err != nil && !auth.IsNotActivatedError(err) {
-		return err
+		return grpcutil.ScrubGRPC(err)
 	}
 	return nil
 }
@@ -1888,7 +1913,7 @@ func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
 }
 
 func (d *driver) deleteAll(ctx context.Context) error {
-	repoInfos, err := d.listRepo(ctx, nil, false)
+	repoInfos, err := d.listRepo(ctx, nil, !includeAuth)
 	if err != nil {
 		return err
 	}

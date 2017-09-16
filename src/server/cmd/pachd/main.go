@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
@@ -254,7 +253,7 @@ func doFullMode(appEnvObj interface{}) error {
 	)
 	go func() {
 		if err := sharder.AssignRoles(address, nil); err != nil {
-			log.Printf("error from sharder.AssignRoles: %s", sanitizeErr(err))
+			log.Printf("error from sharder.AssignRoles: %s", grpcutil.ScrubGRPC(err))
 		}
 	}()
 	pfsCacheSize, err := strconv.Atoi(appEnv.PFSCacheSize)
@@ -292,12 +291,12 @@ func doFullMode(appEnvObj interface{}) error {
 	}
 	go func() {
 		if err := sharder.RegisterFrontends(nil, address, []shard.Frontend{cacheServer}); err != nil {
-			log.Printf("error from sharder.RegisterFrontend %s", sanitizeErr(err))
+			log.Printf("error from sharder.RegisterFrontend %s", grpcutil.ScrubGRPC(err))
 		}
 	}()
 	go func() {
 		if err := sharder.Register(nil, address, []shard.Server{cacheServer}); err != nil {
-			log.Printf("error from sharder.Register %s", sanitizeErr(err))
+			log.Printf("error from sharder.Register %s", grpcutil.ScrubGRPC(err))
 		}
 	}()
 	blockCacheBytes, err := units.RAMInBytes(appEnv.BlockCacheBytes)
@@ -375,7 +374,7 @@ func getClusterID(client discovery.Client) (string, error) {
 func getKubeClient(env *appEnv) (*kube.Client, error) {
 	kubeClient, err := kube.NewInCluster()
 	if err != nil {
-		log.Errorf("falling back to insecure kube client due to error from NewInCluster: %s", sanitizeErr(err))
+		log.Errorf("falling back to insecure kube client due to error from NewInCluster: %s", grpcutil.ScrubGRPC(err))
 	} else {
 		return kubeClient, err
 	}
@@ -393,12 +392,4 @@ func getNamespace() string {
 		return namespace
 	}
 	return api.NamespaceDefault
-}
-
-func sanitizeErr(err error) error {
-	if err == nil {
-		return nil
-	}
-
-	return errors.New(grpc.ErrorDesc(err))
 }
