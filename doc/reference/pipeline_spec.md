@@ -45,7 +45,11 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   "scale_down_threshold": string,
   "incremental": bool,
   "cache_size": string,
-  "enable_stats": bool
+  "enable_stats": bool,
+  "service": {
+    "internal_port": int,
+    "external_port": int
+  }
 }
 
 ------------------------------------
@@ -383,7 +387,7 @@ store such as s3, Google Cloud Storage or Azure Storage. Data will be pushed
 after the user code has finished running but before the job is marked as
 successful.
 
-## Scale-down threshold (optional)
+### Scale-down threshold (optional)
 
 `scale_down_threshold` specifies when the worker pods of a pipeline should be terminated.
 
@@ -391,7 +395,7 @@ by default, a pipeline’s worker pods are always running.  when `scale_down_thr
 
 `scale_down_threshold` is a string that needs to be sequence of decimal numbers with a unit suffix, such as “300ms”, “1.5h” or “2h45m”. valid time units are “s”, “m”, “h”.
 
-## Incremental (optional)
+### Incremental (optional)
 
 Incremental, if set will cause the pipeline to be run "incrementally". This
 means that when a datum changes it won't be reprocessed from scratch, instead
@@ -407,13 +411,13 @@ total. Incremental is design to work nicely with the `--split` flag to
 `put-file` because it will cause only the new chunks of the file to be
 displayed to each step of the pipeline.
 
-## Cache Size (optional)
+### Cache Size (optional)
 
 `cache_size` controls how much cache a pipeline worker uses.  In general,
 your pipeline's performance will increase with the cache size, but only
 up to a certain point depending on your workload.
 
-## Enable Stats (optional)
+### Enable Stats (optional)
 
 `enable_stats` turns on stat tracking for the pipeline. This will cause the
 pipeline to commit to a second branch in its output repo called `"stats"`. This
@@ -427,6 +431,18 @@ However it will not use as much extra storage as it appears to due to the fact
 that snapshots of the `/pfs` directory, which are generally the largest thing
 stored, don't actually require extra storage because the data is already stored
 in the input repos.
+
+### Service (optional)
+
+`service` specifies that the pipeline should be treated as a long running
+service rather than a data transformation. This means that `transform.cmd` is
+not expected to exit, if it does it will be restarted. Furthermore, the service
+will be exposed outside the container using a kubernetes service.
+`"internal_port"` should be a port that the user code binds to inside the
+container, `"external_port"` is the port on which it is exposed, via the
+NodePorts functionality of kubernetes services. After a service has been
+created you should be able to access it at
+`http://<kubernetes-host>:<external_port>`.
 
 ## The Input Glob Pattern
 
