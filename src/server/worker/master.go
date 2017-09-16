@@ -437,7 +437,7 @@ nextInput:
 			return err
 		}
 		if err := syscall.Unmount(client.PPSInputPrefix, syscall.MNT_DETACH); err != nil {
-			fmt.Errorf("error unmounting %+v", err)
+			logger.Logf("error unmounting %+v", err)
 		}
 		if err := syscall.Mount(dir, client.PPSInputPrefix, "", syscall.MS_BIND, ""); err != nil {
 			return err
@@ -446,6 +446,7 @@ nextInput:
 			serviceCancel()
 		}
 		serviceCtx, serviceCancel = context.WithCancel(ctx)
+		defer serviceCancel()
 		go func() {
 			serviceCtx := serviceCtx
 			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
@@ -482,8 +483,6 @@ nextInput:
 			}
 		}()
 	}
-
-	return nil
 }
 
 func plusDuration(x *types.Duration, y *types.Duration) (*types.Duration, error) {
