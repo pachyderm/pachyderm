@@ -273,29 +273,6 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	if err != nil {
 		return nil, fmt.Errorf("error creating datum cache: %v", err)
 	}
-	docker, err := docker.NewClientFromEnv()
-	if err != nil {
-		return nil, err
-	}
-	image, err := docker.InspectImage(pipelineInfo.Transform.Image)
-	if err != nil {
-		return nil, err
-	}
-	user, err := util.LookupUser(image.Config.User)
-	if err != nil {
-		return nil, err
-	}
-	uid, err := strconv.ParseUint(user.Uid, 10, 32)
-	if err != nil {
-		return nil, err
-	}
-	gid, err := strconv.ParseUint(user.Gid, 10, 32)
-	if err != nil {
-		return nil, err
-	}
-	if pipelineInfo.Transform.Cmd == nil {
-		pipelineInfo.Transform.Cmd = image.Config.Entrypoint
-	}
 	server := &APIServer{
 		pachClient:   pachClient,
 		kubeClient:   kubeClient,
@@ -312,9 +289,39 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
 		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
 		datumCache: datumCache,
-		uid:        uint32(uid),
-		gid:        uint32(gid),
-		workingDir: image.Config.WorkingDir,
+	}
+	if pipelineInfo.Transform.Image != "" {
+		docker, err := docker.NewClientFromEnv()
+		if err != nil {
+			return nil, err
+		}
+		image, err := docker.InspectImage(pipelineInfo.Transform.Image)
+		if err != nil {
+			return nil, fmt.Errorf("error inspecting image %s: %+v", pipelineInfo.Transform.Image, err)
+		}
+		// if image.Config.User == "" then uid, and gid don't get set which
+		// means they default to a value of 0 which means we run the code as
+		// root which is the only sane default.
+		if image.Config.User != "" {
+			user, err := util.LookupUser(image.Config.User)
+			if err != nil {
+				return nil, err
+			}
+			uid, err := strconv.ParseUint(user.Uid, 10, 32)
+			if err != nil {
+				return nil, err
+			}
+			server.uid = uint32(uid)
+			gid, err := strconv.ParseUint(user.Gid, 10, 32)
+			if err != nil {
+				return nil, err
+			}
+			server.gid = uint32(gid)
+		}
+		server.workingDir = image.Config.WorkingDir
+		if server.pipelineInfo.Transform.Cmd == nil {
+			server.pipelineInfo.Transform.Cmd = image.Config.Entrypoint
+		}
 	}
 	if pipelineInfo.Service == nil {
 		go server.master()
