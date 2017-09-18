@@ -523,7 +523,7 @@ func (c APIClient) CreatePipelineService(
 			},
 		},
 	)
-	return sanitizeErr(err)
+	return grpcutil.ScrubGRPC(err)
 }
 
 // GarbageCollect garbage collects unused data.  Currently GC needs to be
