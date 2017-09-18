@@ -1129,14 +1129,18 @@ func parseCommitMounts(args []string) []*fuse.CommitMount {
 func putFileHelper(client *client.APIClient, repo, commit, path, source string,
 	recursive bool, overwrite bool, limiter limit.ConcurrencyLimiter, split string,
 	targetFileDatums uint, targetFileBytes uint) (retErr error) {
-	putFile := func(reader io.Reader) error {
+	putFile := func(reader io.ReadSeeker) error {
 		if split == "" {
-			var err error
 			if overwrite {
-				_, err = client.PutFileOverwrite(repo, commit, path, reader)
-			} else {
-				_, err = client.PutFile(repo, commit, path, reader)
+				return sync.PushFile(client, &pfsclient.File{
+					Commit: &pfsclient.Commit{
+						Repo: &pfsclient.Repo{repo},
+						ID:   commit,
+					},
+					Path: path,
+				}, reader)
 			}
+			_, err := client.PutFile(repo, commit, path, reader)
 			return err
 		}
 
