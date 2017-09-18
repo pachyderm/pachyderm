@@ -87,6 +87,12 @@ $ pachctl auth get JoeyZwicker myrepo
 READER
 ```
 
+In Pachyderm the heirarchy of users is as follows:
+
+- An OWNER can read and write to/from a repo, and they can add/remove other OWNER, READER, or WRITER users to/from a repo.
+- A WRITER can read and write to/from a repo.
+- A READER can read from a repo.
+
 ## Behavior of pipelines as related to access control
 
 In Pachyderm, you don't explicitly set the scope of access for users on pipelines.  Rather, pipelines infer access from the repositories that are input to the pipeline, as follows:
@@ -99,4 +105,8 @@ In Pachyderm, you don't explicitly set the scope of access for users on pipeline
 
 When an enterprise activation code expires, an auth-activated Pachyderm cluster goes into an "admin only" state.  In this state, only admins will have access to data that is in Pachyderm.  This safety measure keeps sensitive data protected, even when an enterprise subscription becomes stale. As soon as the enterprise activation code is updated (via the dashboard or via `pachctl enterprise activate ...`), the Pachyderm cluster will return to it's previous state.
 
-When access controls are de-activated on a Pachyderm cluster via `pachctl auth deactivate`, the cluster returns to being a non-access controlled Pachyderm cluster.  That is, all ACLs are deleted and the cluster returns to being a blank slate in regards to access control.
+When access controls are de-activated on a Pachyderm cluster via `pachctl auth deactivate`, the cluster returns to being a non-access controlled Pachyderm cluster.   That is, 
+
+- All ACLs are deleted.
+- The cluster returns to being a blank slate in regards to access control.  Everyone that can connect to Pachyderm will be able to access and modify the data in all repos.
+- There will no longer be a concept of users (i.e., no one will be able to login to Pachyderm).
