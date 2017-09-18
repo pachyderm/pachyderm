@@ -100,6 +100,15 @@ type OpenHashTree interface {
 	// PutFile appends data to a file (and creates the file if it doesn't exist).
 	PutFile(path string, objects []*pfs.Object, size int64) error
 
+	// PutFileOverwrite is the same as PutFile, except that instead of
+	// appending the objects to the end of the given file, the objects
+	// are inserted to the given index, and the existing objects starting
+	// from the given index are removed.
+	//
+	// sizeDelta is the delta between the size of the objects added and
+	// the size of the objects removed.
+	PutFileOverwrite(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64) error
+
 	// PutDir creates a directory (or does nothing if one exists).
 	PutDir(path string) error
 
