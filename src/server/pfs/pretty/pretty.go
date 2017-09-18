@@ -14,14 +14,14 @@ import (
 // PrintRepoHeader prints a repo header.
 func PrintRepoHeader(w io.Writer, printAuth bool) {
 	if printAuth {
-		fmt.Fprint(w, "NAME\tCREATED\tSIZE\tACCESS\t\n")
+		fmt.Fprint(w, "NAME\tCREATED\tSIZE\tACCESS LEVEL\t\n")
 		return
 	}
 	fmt.Fprint(w, "NAME\tCREATED\tSIZE\t\n")
 }
 
 // PrintRepoInfo pretty-prints repo info.
-func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo, printAuth bool) {
+func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo) {
 	fmt.Fprintf(w, "%s\t", repoInfo.Repo.Name)
 	fmt.Fprintf(
 		w,
@@ -29,20 +29,21 @@ func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo, printAuth bool) {
 		pretty.Ago(repoInfo.Created),
 	)
 	fmt.Fprintf(w, "%s\t", units.BytesSize(float64(repoInfo.SizeBytes)))
-	if printAuth {
-		fmt.Fprintf(w, "%s\t", repoInfo.Scope.String())
+	if repoInfo.AuthInfo != nil {
+		fmt.Fprintf(w, "%s\t", repoInfo.AuthInfo.AccessLevel.String())
 	}
 	fmt.Fprintln(w)
 }
 
 // PrintDetailedRepoInfo pretty-prints detailed repo info.
-func PrintDetailedRepoInfo(repoInfo *pfs.RepoInfo, printAuth bool) error {
+func PrintDetailedRepoInfo(repoInfo *pfs.RepoInfo) error {
 	template, err := template.New("RepoInfo").Funcs(funcMap).Parse(
 		`Name: {{.Repo.Name}}{{if .Description}}
 Description: {{.Description}}{{end}}
 Created: {{prettyAgo .Created}}
 Size: {{prettySize .SizeBytes}}{{if .Provenance}}
-Provenance: {{range .Provenance}} {{.Name}} {{end}} {{end}}
+Provenance: {{range .Provenance}} {{.Name}} {{end}}{{end}}{{if .AuthInfo}}
+Access level: {{ .AuthInfo.AccessLevel.String }}{{end}}
 `)
 	if err != nil {
 		return err
@@ -50,9 +51,6 @@ Provenance: {{range .Provenance}} {{.Name}} {{end}} {{end}}
 	err = template.Execute(os.Stdout, repoInfo)
 	if err != nil {
 		return err
-	}
-	if printAuth {
-		fmt.Printf("Access Scope: %s\n", repoInfo.Scope)
 	}
 	return nil
 }
