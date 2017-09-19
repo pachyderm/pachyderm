@@ -144,10 +144,7 @@ Children: {{range .Children}} {{.}} {{end}}
 	if err != nil {
 		return err
 	}
-	if err := template.Execute(os.Stdout, fileInfo); err != nil {
-		return err
-	}
-	return nil
+	return template.Execute(os.Stdout, fileInfo)
 }
 
 type uint64Slice []uint64
