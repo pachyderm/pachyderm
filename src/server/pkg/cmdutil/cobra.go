@@ -63,7 +63,9 @@ func ParseCommits(args []string) ([]*pfs.Commit, error) {
 	var commits []*pfs.Commit
 	for _, arg := range args {
 		parts := strings.SplitN(arg, "/", 2)
-		if len(parts) == 0 || parts[0] == "" {
+		hasRepo := len(parts) > 0 && parts[0] != ""
+		hasCommit := len(parts) == 2 && parts[1] != ""
+		if hasCommit && !hasRepo {
 			return nil, fmt.Errorf("invalid commit id \"%s\": repo cannot be empty", arg)
 		}
 		commit := &pfs.Commit{
