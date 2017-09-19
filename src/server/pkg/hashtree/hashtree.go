@@ -523,7 +523,7 @@ func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *p
 	h.changed[path] = true
 
 	// Add 'path' to parent (if it's new) & mark nodes as 'changed' back to root
-	if err := h.visit(path, func(node *NodeProto, parent, child string) error {
+	return h.visit(path, func(node *NodeProto, parent, child string) error {
 		if node == nil {
 			node = &NodeProto{
 				Name:    base(parent),
@@ -535,10 +535,7 @@ func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *p
 		node.SubtreeSize += sizeDelta
 		h.changed[parent] = true
 		return nil
-	}); err != nil {
-		return err
-	}
-	return nil
+	})
 }
 
 // PutDir creates a directory (or does nothing if one exists).
@@ -566,7 +563,7 @@ func (h *hashtree) PutDir(path string) error {
 	h.changed[path] = true
 
 	// Add 'path' to parent & update hashes back to root
-	if err := h.visit(path, func(node *NodeProto, parent, child string) error {
+	return h.visit(path, func(node *NodeProto, parent, child string) error {
 		if node == nil {
 			node = &NodeProto{
 				Name:    base(parent),
@@ -577,10 +574,7 @@ func (h *hashtree) PutDir(path string) error {
 		insertStr(&node.DirNode.Children, child)
 		h.changed[parent] = true
 		return nil
-	}); err != nil {
-		return err
-	}
-	return nil
+	})
 }
 
 // DeleteFile deletes a regular file or directory (along with its children).
@@ -609,7 +603,7 @@ func (h *hashtree) DeleteFile(path string) error {
 		return errorf(Internal, "parent of \"%s\" does not contain it", path)
 	}
 	// Mark nodes as 'changed' back to root
-	if err := h.visit(path, func(node *NodeProto, parent, child string) error {
+	return h.visit(path, func(node *NodeProto, parent, child string) error {
 		if node == nil {
 			return errorf(Internal,
 				"encountered orphaned file \"%s\" while deleting \"%s\"", path,
@@ -618,10 +612,7 @@ func (h *hashtree) DeleteFile(path string) error {
 		node.SubtreeSize -= size
 		h.changed[parent] = true
 		return nil
-	}); err != nil {
-		return err
-	}
-	return nil
+	})
 }
 
 // GetOpen retrieves a file.

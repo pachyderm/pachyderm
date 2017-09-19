@@ -145,10 +145,7 @@ func TestAdminRWO(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		if err := adminsEqual([]string{"admin", bob}, resp.Admins); err != nil {
-			return err
-		}
-		return nil
+		return adminsEqual([]string{"admin", bob}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
 
 	// now bob can read from the repo
@@ -181,10 +178,7 @@ func TestAdminRWO(t *testing.T) {
 	backoff.Retry(func() error {
 		resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		if err := adminsEqual([]string{"admin"}, resp.Admins); err != nil {
-			return err
-		}
-		return nil
+		return adminsEqual([]string{"admin"}, resp.Admins)
 	}, backoff.NewTestingBackOff())
 
 	// bob can no longer read from the repo
@@ -281,10 +275,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		if err := adminsEqual([]string{"admin"}, resp.Admins); err != nil {
-			return err
-		}
-		return nil
+		return adminsEqual([]string{"admin"}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
 
 	// admin can make alice a cluster administrator
@@ -296,10 +287,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		if err := adminsEqual([]string{"admin", alice}, resp.Admins); err != nil {
-			return err
-		}
-		return nil
+		return adminsEqual([]string{"admin", alice}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
 
 	// Now admin can remove themselves as a cluster admin
@@ -309,10 +297,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		if err := adminsEqual([]string{alice}, resp.Admins); err != nil {
-			return err
-		}
-		return nil
+		return adminsEqual([]string{alice}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
 
 	// now alice is the only admin, and she cannot remove herself as a cluster
@@ -323,10 +308,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		if err := adminsEqual([]string{alice}, resp.Admins); err != nil {
-			return err
-		}
-		return nil
+		return adminsEqual([]string{alice}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
 
 	// alice *can* swap herself and "admin"
@@ -339,10 +321,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		if err := adminsEqual([]string{"admin"}, resp.Admins); err != nil {
-			return err
-		}
-		return nil
+		return adminsEqual([]string{"admin"}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
 }
 
