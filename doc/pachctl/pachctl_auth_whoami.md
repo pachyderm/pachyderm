@@ -1,14 +1,14 @@
-## ./pachctl auth list-admins
+## ./pachctl auth whoami
 
-List the current cluster admins
+Print your Pachyderm identity
 
 ### Synopsis
 
 
-List the current cluster admins
+Print your Pachyderm identity.
 
 ```
-./pachctl auth list-admins
+./pachctl auth whoami
 ```
 
 ### Options inherited from parent commands
