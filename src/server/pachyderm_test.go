@@ -5053,6 +5053,13 @@ func TestService(t *testing.T) {
 		if resp.StatusCode != 200 {
 			return fmt.Errorf("GET returned %d", resp.StatusCode)
 		}
+		content, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		if string(content) != "foo" {
+			return fmt.Errorf("wrong content for file1: expected foo, got %s", string(content))
+		}
 		return nil
 	}, backoff.NewTestingBackOff()))
 
@@ -5068,6 +5075,13 @@ func TestService(t *testing.T) {
 		}
 		if resp.StatusCode != 200 {
 			return fmt.Errorf("GET returned %d", resp.StatusCode)
+		}
+		content, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		if string(content) != "bar" {
+			return fmt.Errorf("wrong content for file2: expected bar, got %s", string(content))
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
