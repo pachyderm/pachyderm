@@ -291,14 +291,12 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 			myRefCount++
 
 			for newProv := range provToAdd {
-				fmt.Printf("incrementing %v by %v\n", newProv, myRefCount)
 				if err := repoRefCounts.IncrementBy(newProv, myRefCount); err != nil {
 					return err
 				}
 			}
 
 			for oldProv := range provToRemove {
-				fmt.Printf("decrementing %v by %v\n", oldProv, myRefCount)
 				if err := repoRefCounts.DecrementBy(oldProv, myRefCount); err != nil {
 					return err
 				}
@@ -551,17 +549,17 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 		Repo: parent.Repo,
 		ID:   uuid.NewWithoutDashes(),
 	}
-	var commitSize uint64
+	var tree hashtree.HashTree
 	if treeRef != nil {
 		var buf bytes.Buffer
 		if err := d.pachClient.GetObject(treeRef.Hash, &buf); err != nil {
 			return nil, err
 		}
-		tree, err := hashtree.Deserialize(buf.Bytes())
+		_tree, err := hashtree.Deserialize(buf.Bytes())
 		if err != nil {
 			return nil, err
 		}
-		commitSize = uint64(tree.FSSize())
+		tree = _tree
 	}
 	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		repos := d.repos.ReadWrite(stm)
@@ -631,11 +629,15 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 			}
 			commitInfo.ParentCommit = parent
 		}
+		parentTree, err := d.getTreeForCommit(ctx, parent)
+		if err != nil {
+			return err
+		}
 		if treeRef != nil {
 			commitInfo.Tree = treeRef
-			commitInfo.SizeBytes = commitSize
+			commitInfo.SizeBytes = uint64(tree.FSSize())
 			commitInfo.Finished = now()
-			repoInfo.SizeBytes += commitSize
+			repoInfo.SizeBytes += sizeChange(tree, parentTree)
 			repos.Put(parent.Repo.Name, repoInfo)
 		} else {
 			d.openCommits.ReadWrite(stm).Put(commit.ID, commit)
@@ -704,6 +706,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 	commitInfo.SizeBytes = uint64(finishedTree.FSSize())
 	commitInfo.Finished = now()
 
+	sizeChange := sizeChange(finishedTree, parentTree)
 	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
 		repos := d.repos.ReadWrite(stm)
@@ -720,12 +723,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 
 		// Increment the repo sizes by the sizes of the files that have
 		// been added in this commit.
-		finishedTree.Diff(parentTree, "", "", -1, func(path string, node *hashtree.NodeProto, new bool) error {
-			if node.FileNode != nil && new {
-				repoInfo.SizeBytes += uint64(node.SubtreeSize)
-			}
-			return nil
-		})
+		repoInfo.SizeBytes += sizeChange
 		repos.Put(commit.Repo.Name, repoInfo)
 		return nil
 	})
@@ -736,6 +734,20 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 	// Delete the scratch space for this commit
 	_, err = d.etcdClient.Delete(ctx, prefix, etcd.WithPrefix())
 	return err
+}
+
+func sizeChange(tree hashtree.HashTree, parentTree hashtree.HashTree) uint64 {
+	if parentTree == nil {
+		return uint64(tree.FSSize())
+	}
+	var result uint64
+	tree.Diff(parentTree, "", "", -1, func(path string, node *hashtree.NodeProto, new bool) error {
+		if node.FileNode != nil && new {
+			result += uint64(node.SubtreeSize)
+		}
+		return nil
+	})
+	return result
 }
 
 // inspectCommit takes a Commit and returns the corresponding CommitInfo.
@@ -1636,7 +1648,7 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 }
 
 func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hashtree.HashTree, error) {
-	if commit == nil {
+	if commit == nil || commit.ID == "" {
 		t, err := hashtree.NewHashTree().Finish()
 		if err != nil {
 			return nil, err
