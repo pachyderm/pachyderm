@@ -304,19 +304,21 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		// root which is the only sane default.
 		if image.Config.User != "" {
 			user, err := util.LookupUser(image.Config.User)
-			if err != nil {
+			if err != nil && !os.IsNotExist(err) {
 				return nil, err
 			}
-			uid, err := strconv.ParseUint(user.Uid, 10, 32)
-			if err != nil {
-				return nil, err
+			if user != nil { // user is nil when os.IsNotExist(err) is true in which case we use root
+				uid, err := strconv.ParseUint(user.Uid, 10, 32)
+				if err != nil {
+					return nil, err
+				}
+				server.uid = uint32(uid)
+				gid, err := strconv.ParseUint(user.Gid, 10, 32)
+				if err != nil {
+					return nil, err
+				}
+				server.gid = uint32(gid)
 			}
-			server.uid = uint32(uid)
-			gid, err := strconv.ParseUint(user.Gid, 10, 32)
-			if err != nil {
-				return nil, err
-			}
-			server.gid = uint32(gid)
 		}
 		server.workingDir = image.Config.WorkingDir
 		if server.pipelineInfo.Transform.Cmd == nil {
