@@ -10,12 +10,12 @@ import "gogoproto/gogo.proto";
 import "client/pfs/pfs.proto";
 
 message Secret {
+  reserved 4, 3;
   // Name must be the name of the secret in kubernetes.
   string name = 1;
-  // Key of the secret to load into env_var, this field only has meaning if EnvVar != "".
-  string key = 4;
   string mount_path = 2;
-  string env_var = 3;
+  // EnvVarToKey allows you to define EnvVars that map to the value of a key.
+  map<string, string> env_var_to_key = 5;
 }
 
 message Transform {

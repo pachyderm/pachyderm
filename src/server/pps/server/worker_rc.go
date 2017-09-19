@@ -188,15 +188,15 @@ func (a *apiServer) getWorkerOptions(pipelineName string, rcName string, paralle
 				MountPath: secret.MountPath,
 			})
 		}
-		if secret.EnvVar != "" {
+		for ev, key := range secret.EnvVarToKey {
 			workerEnv = append(workerEnv, api.EnvVar{
-				Name: secret.EnvVar,
+				Name: ev,
 				ValueFrom: &api.EnvVarSource{
 					SecretKeyRef: &api.SecretKeySelector{
 						LocalObjectReference: api.LocalObjectReference{
 							Name: secret.Name,
 						},
-						Key: secret.Key,
+						Key: key,
 					},
 				},
 			})

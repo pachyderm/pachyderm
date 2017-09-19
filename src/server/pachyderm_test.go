@@ -2142,6 +2142,7 @@ func TestPipelineEnv(t *testing.T) {
 			},
 			Data: map[string][]byte{
 				"foo": []byte("foo\n"),
+				"bar": []byte("bar\n"),
 			},
 		},
 	)
@@ -2162,16 +2163,20 @@ func TestPipelineEnv(t *testing.T) {
 				Stdin: []string{
 					"ls /var/secret",
 					"cat /var/secret/foo > /pfs/out/foo",
-					"echo $bar> /pfs/out/bar",
+					"cat /var/secret/bar> /pfs/out/bar",
 					"echo $foo> /pfs/out/foo_env",
+					"echo $bar> /pfs/out/bar_env",
+					"echo $buzz> /pfs/out/buzz",
 				},
-				Env: map[string]string{"bar": "bar"},
+				Env: map[string]string{"buzz": "buzz"},
 				Secrets: []*pps.Secret{
 					{
 						Name:      secretName,
-						Key:       "foo",
 						MountPath: "/var/secret",
-						EnvVar:    "foo",
+						EnvVarToKey: map[string]string{
+							"foo": "foo",
+							"bar": "bar",
+						},
 					},
 				},
 			},
@@ -2198,11 +2203,17 @@ func TestPipelineEnv(t *testing.T) {
 	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "foo", 0, 0, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 	buffer.Reset()
+	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "bar", 0, 0, &buffer))
+	require.Equal(t, "bar\n", buffer.String())
+	buffer.Reset()
 	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "foo_env", 0, 0, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 	buffer.Reset()
-	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "bar", 0, 0, &buffer))
+	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "bar_env", 0, 0, &buffer))
 	require.Equal(t, "bar\n", buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "buzz", 0, 0, &buffer))
+	require.Equal(t, "buzz\n", buffer.String())
 }
 
 func TestPipelineWithFullObjects(t *testing.T) {
