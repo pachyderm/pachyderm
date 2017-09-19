@@ -47,6 +47,8 @@ func newHTTPServer(address string, etcdAddresses []string, etcdPrefix string, ca
 	s := &HTTPServer{d, router}
 
 	router.GET(fmt.Sprintf("/%v/pfs/repos/:repoName/commits/:commitID/files/*filePath", apiVersion), s.getFileHandler)
+	router.POST(fmt.Sprintf("/%v/auth/login", apiVersion), s.authLoginHandler)
+	router.POST(fmt.Sprintf("/%v/auth/logout", apiVersion), s.authLogoutHandler)
 	return s, nil
 }
 
@@ -83,4 +85,18 @@ func (s *HTTPServer) getFileHandler(w http.ResponseWriter, r *http.Request, ps h
 		fw.f = f
 	}
 	io.Copy(&fw, file)
+}
+
+func (s *HTTPServer) authLoginHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	ctx := context.Background()
+	for _, cookie := range r.Cookies() {
+		if cookie.Name == auth.ContextTokenKey {
+			ctx = metadata.NewIncomingContext(
+				ctx,
+				metadata.Pairs(auth.ContextTokenKey, cookie.Value),
+			)
+		}
+	}
+
+	w.Header().Add("Content-Type", "application/octet-stream")
 }
