@@ -485,6 +485,15 @@ func (h *hashtree) Finish() (HashTree, error) {
 
 // PutFile appends data to a file (and creates the file if it doesn't exist).
 func (h *hashtree) PutFile(path string, objects []*pfs.Object, size int64) error {
+	return h.putFile(path, objects, nil, size)
+}
+
+func (h *hashtree) PutFileOverwrite(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64) error {
+	return h.putFile(path, objects, overwriteIndex, sizeDelta)
+}
+
+// PutFile appends data to a file (and creates the file if it doesn't exist).
+func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64) error {
 	path = clean(path)
 
 	// Detect any path conflicts before modifying 'h'
@@ -505,10 +514,13 @@ func (h *hashtree) PutFile(path string, objects []*pfs.Object, size int64) error
 			"type %s is already there", path, node.nodetype().tostring())
 	}
 
-	// Append new object
+	// Append new objects.  Remove existing objects if overwriting.
+	if overwriteIndex != nil && overwriteIndex.Index <= int64(len(node.FileNode.Objects)) {
+		node.FileNode.Objects = node.FileNode.Objects[:overwriteIndex.Index]
+	}
+	node.SubtreeSize += sizeDelta
 	node.FileNode.Objects = append(node.FileNode.Objects, objects...)
 	h.changed[path] = true
-	node.SubtreeSize += size
 
 	// Add 'path' to parent (if it's new) & mark nodes as 'changed' back to root
 	if err := h.visit(path, func(node *NodeProto, parent, child string) error {
@@ -520,7 +532,7 @@ func (h *hashtree) PutFile(path string, objects []*pfs.Object, size int64) error
 			h.fs[parent] = node
 		}
 		insertStr(&node.DirNode.Children, child)
-		node.SubtreeSize += size
+		node.SubtreeSize += sizeDelta
 		h.changed[parent] = true
 		return nil
 	}); err != nil {
