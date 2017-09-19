@@ -87,16 +87,26 @@ func (s *HTTPServer) getFileHandler(w http.ResponseWriter, r *http.Request, ps h
 	io.Copy(&fw, file)
 }
 
-func (s *HTTPServer) authLoginHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	ctx := context.Background()
-	for _, cookie := range r.Cookies() {
-		if cookie.Name == auth.ContextTokenKey {
-			ctx = metadata.NewIncomingContext(
-				ctx,
-				metadata.Pairs(auth.ContextTokenKey, cookie.Value),
-			)
-		}
-	}
+type loginRequestPayload struct {
+	Token string
+}
 
-	w.Header().Add("Content-Type", "application/octet-stream")
+func (s *HTTPServer) authLoginHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	var data loginRequestPayload
+	err := json.Unmarshal(r.Body, &data)
+	if err != nil {
+		// Return 500
+		w.Write(fmt.Sprintf("malformed JSON sent in payload: %v", err))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if data.Token == "" {
+		// Return 500
+		w.Write("empty token provided")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Header().Add("Set-Cookie", fmt.Sprintf("%v=%v", auth.ContextTokenKey,
+		data.Token))
+	w.WriteHeader(http.StatusOK)
 }
