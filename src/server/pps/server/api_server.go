@@ -1612,15 +1612,21 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 
 	// Delete output repo
 	if request.DeleteRepo {
-		pfsClient := pachClient.PfsAPIClient
-		if _, err := pfsClient.DeleteRepo(ctx, &pfs.DeleteRepoRequest{
-			Repo:  &pfs.Repo{request.Pipeline.Name},
-			Force: true,
-		}); err != nil {
+		var eg errgroup.Group
+		eg.Go(func() error {
+			return pachClient.WithCtx(ctx).DeleteRepo(request.Pipeline.Name, true)
+		})
+		pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+			if input.Cron != nil {
+				eg.Go(func() error {
+					return pachClient.WithCtx(ctx).DeleteRepo(input.Cron.Repo, true)
+				})
+			}
+		})
+		if err := eg.Wait(); err != nil {
 			return nil, err
 		}
 	}
-
 	return &types.Empty{}, nil
 }
 
