@@ -89,7 +89,6 @@ func (s *HTTPServer) getFileHandler(w http.ResponseWriter, r *http.Request, ps h
 	}
 	w.Header().Add("Content-Type", contentType)
 	downloadValues := r.URL.Query()["download"]
-	fmt.Printf("params: %v\n", r.URL.Query())
 	if len(downloadValues) == 1 && downloadValues[0] == "true" {
 		w.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=\"%v\"", fileName))
 	}
