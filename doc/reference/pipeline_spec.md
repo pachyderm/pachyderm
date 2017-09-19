@@ -21,7 +21,10 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
     },
     "secrets": [ {
         "name": string,
-        "mount_path": string
+        "mount_path": string,
+        "env_var_to_key" {
+            "env_var": "key"
+        }
     } ],
     "image_pull_secrets": [ string ],
     "accept_return_code": [ int ]
