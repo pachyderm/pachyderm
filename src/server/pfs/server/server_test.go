@@ -25,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version"
 	authtesting "github.com/pachyderm/pachyderm/src/server/auth/testing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -3095,6 +3096,52 @@ func TestCopyFile(t *testing.T) {
 	b.Reset()
 	require.NoError(t, c.GetFile(repo, "other", "files", 0, 0, &b))
 	require.Equal(t, "foo 0\n", b.String())
+}
+
+func TestBuildCommit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getClient(t)
+	repo := uniqueString("TestBuildCommit")
+	require.NoError(t, c.CreateRepo(repo))
+
+	tree1 := hashtree.NewHashTree()
+	fooObj, fooSize, err := c.PutObject(strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, tree1.PutFile("foo", []*pfs.Object{fooObj}, fooSize))
+	tree1Finish, err := tree1.Finish()
+	require.NoError(t, err)
+	serialized, err := hashtree.Serialize(tree1Finish)
+	require.NoError(t, err)
+	tree1Obj, _, err := c.PutObject(bytes.NewReader(serialized))
+	_, err = c.BuildCommit(repo, "master", "", tree1Obj.Hash)
+	require.NoError(t, err)
+	repoInfo, err := c.InspectRepo(repo)
+	require.NoError(t, err)
+	require.Equal(t, uint64(fooSize), repoInfo.SizeBytes)
+	commitInfo, err := c.InspectCommit(repo, "master")
+	require.NoError(t, err)
+	require.Equal(t, uint64(fooSize), commitInfo.SizeBytes)
+
+	barObj, barSize, err := c.PutObject(strings.NewReader("bar\n"))
+	require.NoError(t, err)
+	require.NoError(t, tree1.PutFile("bar", []*pfs.Object{barObj}, barSize))
+	tree2Finish, err := tree1.Finish()
+	require.NoError(t, err)
+	serialized, err = hashtree.Serialize(tree2Finish)
+	require.NoError(t, err)
+	tree2Obj, _, err := c.PutObject(bytes.NewReader(serialized))
+	_, err = c.BuildCommit(repo, "master", "", tree2Obj.Hash)
+	require.NoError(t, err)
+	repoInfo, err = c.InspectRepo(repo)
+	require.NoError(t, err)
+	require.Equal(t, uint64(fooSize+barSize), repoInfo.SizeBytes)
+	commitInfo, err = c.InspectCommit(repo, "master")
+	require.NoError(t, err)
+	require.Equal(t, uint64(fooSize+barSize), commitInfo.SizeBytes)
 }
 
 func uniqueString(prefix string) string {
