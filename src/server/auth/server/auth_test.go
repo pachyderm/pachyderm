@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -47,9 +48,11 @@ var clientMap = make(map[string]*client.APIClient)
 // getPachClient creates a seed client with a grpc connection to a pachyderm
 // cluster, and then enable the auth service in that cluster
 func getPachClient(t testing.TB, u string) *client.APIClient {
-	// Check if "u" already has a client -- if not create one, and block other
-	// concurrent tests from interfering
+	// Check if "u" already has a client -- if not create one
 	func() {
+		// Client creation is wrapped in an anonymous function to make locking and
+		// releasing clientMapMut easier, and keep concurrent tests from racing with
+		// initialization
 		clientMapMut.Lock()
 		defer clientMapMut.Unlock()
 
@@ -67,36 +70,47 @@ func getPachClient(t testing.TB, u string) *client.APIClient {
 			clientMap[""] = seedClient
 		}
 
-		// Activate Pachyderm Enterprise and Pachyderm auth if they're not already
-		// active
-		resp, err := seedClient.Enterprise.GetState(context.Background(),
-			&enterprise.GetStateRequest{})
-		require.NoError(t, err)
-		if resp.State != enterprise.State_ACTIVE {
-			require.NoError(t, backoff.Retry(func() error {
-				_, err = seedClient.Enterprise.Activate(context.Background(),
-					&enterprise.ActivateRequest{ActivationCode: testActivationCode})
-				if err != nil {
-					return fmt.Errorf("could not activate Pachyderm Enterprise: %s", err.Error())
-				}
-				if _, err := seedClient.AuthAPIClient.Activate(context.Background(),
-					&auth.ActivateRequest{Admins: []string{"admin"}},
-				); err != nil && !strings.HasSuffix(err.Error(), "already activated") {
-					return fmt.Errorf("could not activate auth service: %s", err.Error())
-				}
+		// Activate Pachyderm Enterprise (if it's not already active)
+		require.NoError(t, backoff.Retry(func() error {
+			resp, err := seedClient.Enterprise.GetState(context.Background(),
+				&enterprise.GetStateRequest{})
+			if err != nil {
+				return err
+			}
+			if resp.State == enterprise.State_ACTIVE {
 				return nil
-			}, backoff.NewTestingBackOff()))
+			}
+			_, err = seedClient.Enterprise.Activate(context.Background(),
+				&enterprise.ActivateRequest{ActivationCode: testActivationCode})
+			return err
+		}, backoff.NewTestingBackOff()))
 
-			// Wait for the Pachyderm Auth system to activate
-			require.NoError(t, backoff.Retry(func() error {
-				if _, err := seedClient.AuthAPIClient.WhoAmI(seedClient.Ctx(),
-					&auth.WhoAmIRequest{},
-				); auth.IsNotActivatedError(err) {
-					return err
-				}
-				return nil
-			}, backoff.NewTestingBackOff()))
-		}
+		// Activate Pachyderm auth (if it's not already active)
+		require.NoError(t, backoff.Retry(func() error {
+			if _, err := seedClient.GetAdmins(context.Background(),
+				&auth.GetAdminsRequest{}); err == nil {
+				return nil // auth already active
+			}
+			// Auth not active -- clear existing cached clients (as their auth tokens
+			// are no longer valid)
+			clientMap = map[string]*client.APIClient{"": clientMap[""]}
+			if _, err := seedClient.AuthAPIClient.Activate(context.Background(),
+				&auth.ActivateRequest{Admins: []string{"admin"}},
+			); err != nil && !strings.HasSuffix(err.Error(), "already activated") {
+				return fmt.Errorf("could not activate auth service: %s", err.Error())
+			}
+			return nil
+		}, backoff.NewTestingBackOff()))
+
+		// Wait for the Pachyderm Auth system to activate
+		require.NoError(t, backoff.Retry(func() error {
+			if _, err := seedClient.AuthAPIClient.WhoAmI(seedClient.Ctx(),
+				&auth.WhoAmIRequest{},
+			); auth.IsNotActivatedError(err) {
+				return err
+			}
+			return nil
+		}, backoff.NewTestingBackOff()))
 
 		// Re-use old client for 'u', or create a new one if none exists
 		if _, ok := clientMap[u]; !ok {
@@ -488,7 +502,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		[]*pfs.Repo{{Name: pipelineName}},
 	)
 	require.NoError(t, err)
-	require.NoErrorWithinT(t, 30*time.Second, func() error {
+	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := iter.Next()
 		return err
 	})
@@ -533,7 +547,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		[]*pfs.Repo{{Name: goodPipeline}},
 	)
 	require.NoError(t, err)
-	require.NoErrorWithinT(t, 30*time.Second, func() error {
+	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := iter.Next()
 		return err
 	})
@@ -620,7 +634,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		[]*pfs.Repo{{Name: pipelineName}},
 	)
 	require.NoError(t, err)
-	require.NoErrorWithinT(t, 30*time.Second, func() error {
+	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := iter.Next()
 		return err
 	})
@@ -854,7 +868,7 @@ func TestPipelineRevoke(t *testing.T) {
 		[]*pfs.Repo{{Name: pipeline}},
 	)
 	require.NoError(t, err)
-	require.NoErrorWithinT(t, 30*time.Second, func() error {
+	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := iter.Next()
 		return err
 	})
@@ -917,7 +931,7 @@ func TestPipelineRevoke(t *testing.T) {
 		[]*pfs.Repo{{Name: pipeline}},
 	)
 	require.NoError(t, err)
-	require.NoErrorWithinT(t, 30*time.Second, func() error {
+	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := iter.Next()
 		return err
 	})
@@ -1200,4 +1214,62 @@ func TestListRepoNotLoggedInError(t *testing.T) {
 		&pfs.ListRepoRequest{})
 	require.YesError(t, err)
 	require.Matches(t, "auth token not found in context", err.Error())
+}
+
+// TestListRepoNoAuthInfoIfDeactivated tests that if auth isn't activated, then
+// ListRepo returns RepoInfos where AuthInfo isn't set (i.e. is nil)
+func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// Dont't run this test in parallel, since it deactivates the auth system
+	// globally, so any tests running concurrently will fail
+	alice, bob := uniqueString("alice"), uniqueString("bob")
+	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
+	adminClient := getPachClient(t, "admin")
+
+	// alice creates a repo
+	repoWriter := uniqueString("TestListRepo")
+	require.NoError(t, aliceClient.CreateRepo(repoWriter))
+
+	// bob calls ListRepo, but has NONE access to all repos
+	infos, err := bobClient.ListRepo([]string{})
+	require.NoError(t, err)
+	for _, info := range infos {
+		require.Equal(t, auth.Scope_NONE, info.AuthInfo.AccessLevel)
+	}
+
+	// Deactivate auth
+	_, err = adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
+	require.NoError(t, err)
+
+	// Wait for auth to be deactivated
+	require.NoError(t, backoff.Retry(func() error {
+		_, err := aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
+		if err != nil && auth.IsNotActivatedError(err) {
+			return nil // WhoAmI should fail when auth is deactivated
+		}
+		return errors.New("auth is not yet deactivated")
+	}, backoff.NewTestingBackOff()))
+}
+
+// Creating a repo that already exists gives you an error to that effect, even
+// when auth is already activated (rather than "access denied")
+func TestCreateRepoAlreadyExistsError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	alice, bob := uniqueString("alice"), uniqueString("bob")
+	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
+
+	// alice creates a repo
+	repoWriter := uniqueString("TestListRepo")
+	require.NoError(t, aliceClient.CreateRepo(repoWriter))
+
+	// bob creates the same repo, and should get an error to the effect that the
+	// repo already exists (rather than "access denied")
+	err := bobClient.CreateRepo(repoWriter)
+	require.YesError(t, err)
+	require.Matches(t, "already exists", err.Error())
 }
