@@ -120,18 +120,16 @@ $ pachctl list-job -p foo bar/YYY
 			if err != nil {
 				return err
 			}
-			var _outputCommit *pfs.Commit
-			if outputCommit != "" {
-				outputCommits, err := cmdutil.ParseCommits([]string{outputCommit})
-				if err != nil {
-					return err
-				}
-				if len(outputCommits) == 1 {
-					_outputCommit = outputCommits[0]
-				}
+			outputCommits, err := cmdutil.ParseCommits([]string{outputCommit})
+			if err != nil {
+				return err
+			}
+			var outputCommit *pfs.Commit
+			if len(outputCommits) == 1 {
+				outputCommit = outputCommits[0]
 			}
 
-			jobInfos, err := client.ListJob(pipelineName, commits, _outputCommit)
+			jobInfos, err := client.ListJob(pipelineName, commits, outputCommit)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
