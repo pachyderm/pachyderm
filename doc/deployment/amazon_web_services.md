@@ -60,7 +60,7 @@ You can try running `pachctl version` to check that this worked correctly, but P
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.4.6
+pachctl             1.6.0
 pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded.
 ```
 
@@ -96,21 +96,12 @@ $ aws s3api create-bucket --bucket ${BUCKET_NAME} --region ${AWS_REGION}
 
 # If AWS_REGION is outside of us-east-1.
 $ aws s3api create-bucket --bucket ${BUCKET_NAME} --region ${AWS_REGION} --create-bucket-configuration LocationConstraint=${AWS_REGION}
-
-$ aws ec2 create-volume --size ${STORAGE_SIZE} --region ${AWS_REGION} --availability-zone ${AWS_AVAILABILITY_ZONE} --volume-type gp2
 ```
 
-Record the "volume-id" that is output (e.g. "vol-8050b807") from the above `create-volume` command as shown below (you can also view it in the aws console or with  `aws ec2 describe-volumes`):
+Now, as a sanity check, you should be able to see the bucket that you just created as follows:
 
 ```shell
-$ STORAGE_NAME=<volume id>
-```
-
-Now, as a sanity check, you should be able to see the bucket and the EBS volume that are just created:
-
-```shell
-aws s3api list-buckets --query 'Buckets[].Name'
-aws ec2 describe-volumes --query 'Volumes[].VolumeId'
+$ aws s3api list-buckets --query 'Buckets[].Name'
 ```
 
 #### Deploy Pachyderm
@@ -126,7 +117,7 @@ $ AWS_SECRET_ACCESS_KEY=[secret access key]
 Run the following command to deploy your Pachyderm cluster:
 
 ```shell
-$ pachctl deploy amazon ${BUCKET_NAME} ${AWS_ACCESS_KEY_ID} ${AWS_SECRET_ACCESS_KEY} " " ${AWS_REGION} ${STORAGE_SIZE} --static-etcd-volume=${STORAGE_NAME}
+$ pachctl deploy amazon ${BUCKET_NAME} ${AWS_ACCESS_KEY_ID} ${AWS_SECRET_ACCESS_KEY} " " ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3
 ```
 
 (Note, the `" "` in the deploy command is for an optional temporary AWS token, if you are just experimenting with a deploy.  Such a token should NOT be used for a production deploy).  It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub. You can see the cluster status by using:
@@ -134,21 +125,29 @@ $ pachctl deploy amazon ${BUCKET_NAME} ${AWS_ACCESS_KEY_ID} ${AWS_SECRET_ACCESS_
 ```sh
 $ kubectl get all
 NAME                        READY     STATUS    RESTARTS   AGE
-po/etcd-4197107720-br61m    1/1       Running   0          8m
-po/pachd-3548222380-s086m   1/1       Running   2          8m
+po/dash-4171841423-rsg4r    2/2       Running   0          1m
+po/etcd-0                   1/1       Running   0          1m
+po/etcd-1                   1/1       Running   0          1m
+po/etcd-2                   1/1       Running   0          56s
+po/pachd-2566441599-g2d1q   1/1       Running   2          1m
 
-NAME             CLUSTER-IP     EXTERNAL-IP   PORT(S)                       AGE
-svc/etcd         10.111.11.36   <nodes>       2379:32379/TCP                8m
-svc/kubernetes   10.96.0.1      <none>        443/TCP                       10m
-svc/pachd        10.97.116.5    <nodes>       650:30650/TCP,651:30651/TCP   8m
+NAME                CLUSTER-IP      EXTERNAL-IP   PORT(S)                                     AGE
+svc/dash            10.55.252.198   <nodes>       8080:30080/TCP,8081:30081/TCP               1m
+svc/etcd            10.55.254.232   <nodes>       2379:30408/TCP                              1m
+svc/etcd-headless   None            <none>        2380/TCP                                    1m
+svc/kubernetes      10.55.240.1     <none>        443/TCP                                     24m
+svc/pachd           10.55.248.19    <nodes>       650:30650/TCP,651:30651/TCP,652:30652/TCP   1m
+
+NAME                DESIRED   CURRENT   AGE
+statefulsets/etcd   3         3         1m
 
 NAME           DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-deploy/etcd    1         1         1            1           8m
-deploy/pachd   1         1         1            1           8m
+deploy/dash    1         1         1            1           1m
+deploy/pachd   1         1         1            1           1m
 
 NAME                  DESIRED   CURRENT   READY     AGE
-rs/etcd-4197107720    1         1         1         8m
-rs/pachd-3548222380   1         1         1         8m
+rs/dash-4171841423    1         1         1         1m
+rs/pachd-2566441599   1         1         1         1m
 ```
 
 Note: If you see a few restarts on the pachd nodes, that's totally ok. That simply means that Kubernetes tried to bring up those containers before etcd was ready so it restarted them.
@@ -164,8 +163,8 @@ And you're done! You can test to make sure the cluster is working by trying `pac
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.4.6
-pachd               1.4.6
+pachctl             1.6.0
+pachd               1.6.0
 ```
 
 ## One Shot Script
@@ -193,21 +192,29 @@ The script will take a few minutes, and Pachyderm will take an addition couple o
 
 ```
 NAME                        READY     STATUS    RESTARTS   AGE
-po/etcd-4197107720-br61m    1/1       Running   0          8m
-po/pachd-3548222380-s086m   1/1       Running   2          8m
+po/dash-4171841423-rsg4r    2/2       Running   0          1m
+po/etcd-0                   1/1       Running   0          1m
+po/etcd-1                   1/1       Running   0          1m
+po/etcd-2                   1/1       Running   0          56s
+po/pachd-2566441599-g2d1q   1/1       Running   2          1m
 
-NAME             CLUSTER-IP     EXTERNAL-IP   PORT(S)                       AGE
-svc/etcd         10.111.11.36   <nodes>       2379:32379/TCP                8m
-svc/kubernetes   10.96.0.1      <none>        443/TCP                       10m
-svc/pachd        10.97.116.5    <nodes>       650:30650/TCP,651:30651/TCP   8m
+NAME                CLUSTER-IP      EXTERNAL-IP   PORT(S)                                     AGE
+svc/dash            10.55.252.198   <nodes>       8080:30080/TCP,8081:30081/TCP               1m
+svc/etcd            10.55.254.232   <nodes>       2379:30408/TCP                              1m
+svc/etcd-headless   None            <none>        2380/TCP                                    1m
+svc/kubernetes      10.55.240.1     <none>        443/TCP                                     24m
+svc/pachd           10.55.248.19    <nodes>       650:30650/TCP,651:30651/TCP,652:30652/TCP   1m
+
+NAME                DESIRED   CURRENT   AGE
+statefulsets/etcd   3         3         1m
 
 NAME           DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-deploy/etcd    1         1         1            1           8m
-deploy/pachd   1         1         1            1           8m
+deploy/dash    1         1         1            1           1m
+deploy/pachd   1         1         1            1           1m
 
 NAME                  DESIRED   CURRENT   READY     AGE
-rs/etcd-4197107720    1         1         1         8m
-rs/pachd-3548222380   1         1         1         8m
+rs/dash-4171841423    1         1         1         1m
+rs/pachd-2566441599   1         1         1         1m
 ```
 
 ### Connect `pachctl`
@@ -223,6 +230,6 @@ And you're done! You can test to make sure the cluster is working by trying `pac
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.4.6
-pachd               1.4.6
+pachctl             1.6.0
+pachd               1.6.0
 ```

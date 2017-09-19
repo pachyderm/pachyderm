@@ -2227,7 +2227,7 @@ func TestSyncPullPush(t *testing.T) {
 	require.NoError(t, err)
 
 	puller := pfssync.NewPuller()
-	require.NoError(t, puller.Pull(&client, tmpDir, repo1, commit1.ID, "", false, 2, nil, ""))
+	require.NoError(t, puller.Pull(client, tmpDir, repo1, commit1.ID, "", false, 2, nil, ""))
 	_, err = puller.CleanUp()
 	require.NoError(t, err)
 
@@ -2237,7 +2237,7 @@ func TestSyncPullPush(t *testing.T) {
 	commit2, err := client.StartCommit(repo2, "master")
 	require.NoError(t, err)
 
-	require.NoError(t, pfssync.Push(&client, tmpDir, commit2, false))
+	require.NoError(t, pfssync.Push(client, tmpDir, commit2, false))
 	require.NoError(t, client.FinishCommit(repo2, commit2.ID))
 
 	var buffer bytes.Buffer
@@ -2257,7 +2257,7 @@ func TestSyncPullPush(t *testing.T) {
 	// Test the overwrite flag.
 	// After this Push operation, all files should still look the same, since
 	// the old files were overwritten.
-	require.NoError(t, pfssync.Push(&client, tmpDir, commit3, true))
+	require.NoError(t, pfssync.Push(client, tmpDir, commit3, true))
 	require.NoError(t, client.FinishCommit(repo2, commit3.ID))
 
 	buffer.Reset()
@@ -2276,7 +2276,7 @@ func TestSyncPullPush(t *testing.T) {
 	require.NoError(t, err)
 
 	puller = pfssync.NewPuller()
-	require.NoError(t, puller.Pull(&client, tmpDir2, repo1, "master", "", true, 2, nil, ""))
+	require.NoError(t, puller.Pull(client, tmpDir2, repo1, "master", "", true, 2, nil, ""))
 
 	data, err := ioutil.ReadFile(path.Join(tmpDir2, "dir/bar"))
 	require.NoError(t, err)
@@ -2284,6 +2284,56 @@ func TestSyncPullPush(t *testing.T) {
 
 	_, err = puller.CleanUp()
 	require.NoError(t, err)
+}
+
+func TestSyncFile(t *testing.T) {
+	t.Parallel()
+	client := getClient(t)
+
+	repo := "repo"
+	require.NoError(t, client.CreateRepo(repo))
+
+	content1 := generateRandomString(int(pfs.ChunkSize))
+
+	commit1, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, pfssync.PushFile(client, &pfs.File{
+		Commit: commit1,
+		Path:   "file",
+	}, strings.NewReader(content1)))
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, commit1.ID, "file", 0, 0, &buffer))
+	require.Equal(t, content1, buffer.String())
+
+	content2 := generateRandomString(int(pfs.ChunkSize * 2))
+
+	commit2, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, pfssync.PushFile(client, &pfs.File{
+		Commit: commit2,
+		Path:   "file",
+	}, strings.NewReader(content2)))
+	require.NoError(t, client.FinishCommit(repo, commit2.ID))
+
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, commit2.ID, "file", 0, 0, &buffer))
+	require.Equal(t, content2, buffer.String())
+
+	content3 := content2 + generateRandomString(int(pfs.ChunkSize))
+
+	commit3, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, pfssync.PushFile(client, &pfs.File{
+		Commit: commit3,
+		Path:   "file",
+	}, strings.NewReader(content3)))
+	require.NoError(t, client.FinishCommit(repo, commit3.ID))
+
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, commit3.ID, "file", 0, 0, &buffer))
+	require.Equal(t, content3, buffer.String())
 }
 
 func TestSyncEmptyDir(t *testing.T) {
@@ -2305,7 +2355,7 @@ func TestSyncEmptyDir(t *testing.T) {
 	dir := filepath.Join(tmpDir, "tmp")
 
 	puller := pfssync.NewPuller()
-	require.NoError(t, puller.Pull(&client, dir, repo, commit.ID, "", false, 0, nil, ""))
+	require.NoError(t, puller.Pull(client, dir, repo, commit.ID, "", false, 0, nil, ""))
 	_, err = os.Stat(dir)
 	require.NoError(t, err)
 	_, err = puller.CleanUp()
@@ -2345,7 +2395,7 @@ func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
 
 var etcdOnce sync.Once
 
-func getClient(t *testing.T) pclient.APIClient {
+func getClient(t *testing.T) *pclient.APIClient {
 	// src/server/pfs/server/driver.go expects an etcd server at "localhost:32379"
 	// Try to establish a connection before proceeding with the test (which will
 	// fail if the connection can't be established)
@@ -2386,7 +2436,7 @@ func getClient(t *testing.T) pclient.APIClient {
 	}
 	c, err := pclient.NewFromAddress(addresses[0])
 	require.NoError(t, err)
-	return *c
+	return c
 }
 
 func collectCommitInfos(commitInfoIter pclient.CommitInfoIterator) ([]*pfs.CommitInfo, error) {
@@ -2986,9 +3036,9 @@ func TestOverwrite(t *testing.T) {
 	require.NoError(t, c.FinishCommit(repo, "master"))
 	_, err = c.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = c.PutFileOverwrite(repo, "master", "file1", strings.NewReader("bar"))
+	_, err = c.PutFileOverwrite(repo, "master", "file1", strings.NewReader("bar"), 0)
 	require.NoError(t, err)
-	_, err = c.PutFileOverwrite(repo, "master", "file2", strings.NewReader("buzz"))
+	_, err = c.PutFileOverwrite(repo, "master", "file2", strings.NewReader("buzz"), 0)
 	require.NoError(t, err)
 	_, err = c.PutFileSplit(repo, "master", "file3", pfs.Delimiter_LINE, 0, 0, true, strings.NewReader("0\n1\n2\n"))
 	require.NoError(t, err)

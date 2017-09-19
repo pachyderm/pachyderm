@@ -221,6 +221,14 @@ enum Delimiter {
   LINE = 2;
 }
 
+// An OverwriteIndex specifies the index of objects from which new writes
+// are applied to.  Existing objects starting from the index are deleted.
+// We want a separate message for ObjectIndex because we want to be able to
+// distinguish between a zero index and a non-existent index.
+message OverwriteIndex {
+  int64 index = 1;
+}
+
 message PutFileRequest {
   reserved 2;
   File file = 1;
@@ -238,9 +246,21 @@ message PutFileRequest {
   // TargetFileBytes specifies the target number of bytes in each written
   // file, files may have more or fewer bytes than the target.
   int64 target_file_bytes = 9;
-  // If true overwrite the existing value of the file, equivalent to calling
-  // DeleteFile followed by PutFile.
-  bool overwrite = 10;
+  // overwrite_index is the object index where the write starts from.  All
+  // existing objects starting from the index are deleted.
+  OverwriteIndex overwrite_index = 10;
+}
+
+// PutFileRecord is used to record PutFile requests in etcd temporarily.
+message PutFileRecord {
+  int64 size_bytes = 1;
+  string object_hash = 2;
+  OverwriteIndex overwrite_index = 3;
+}
+
+message PutFileRecords {
+  bool split = 1;
+  repeated PutFileRecord records = 2;
 }
 
 message CopyFileRequest {
@@ -398,8 +418,13 @@ message CheckObjectResponse {
   bool exists = 1;
 }
 
+message Objects {
+  repeated Object objects = 1;
+}
+
 service ObjectAPI {
   rpc PutObject(stream PutObjectRequest) returns (Object) {}
+  rpc PutObjectSplit(stream PutObjectRequest) returns (Objects) {}
   rpc GetObject(Object) returns (stream google.protobuf.BytesValue) {}
   rpc GetObjects(GetObjectsRequest) returns (stream google.protobuf.BytesValue) {}
   rpc TagObject(TagObjectRequest) returns (google.protobuf.Empty) {}
