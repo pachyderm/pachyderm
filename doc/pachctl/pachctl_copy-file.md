@@ -1,21 +1,20 @@
-## ./pachctl mount
+## ./pachctl copy-file
 
-Mount pfs locally. This command blocks.
+Copy files between pfs paths.
 
 ### Synopsis
 
 
-Mount pfs locally. This command blocks.
+Copy files between pfs paths.
 
 ```
-./pachctl mount path/to/mount/point
+./pachctl copy-file src-repo src-commit src-path dst-repo dst-commit dst-path
 ```
 
 ### Options
 
 ```
-  -a, --all-commits   Show archived and cancelled commits.
-  -d, --debug         Turn on debug messages.
+  -o, --overwrite   Overwrite the existing content of the file, either from previous commits or previous calls to put-file within this commit.
 ```
 
 ### Options inherited from parent commands
