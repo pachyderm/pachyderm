@@ -339,10 +339,7 @@ func (f *file) touch() error {
 	if err != nil {
 		return err
 	}
-	if err := w.Close(); err != nil {
-		return err
-	}
-	return nil
+	return w.Close()
 }
 
 func (f *filesystem) inode(file *pfsclient.File) uint64 {

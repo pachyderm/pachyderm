@@ -1340,10 +1340,7 @@ func (d *driver) setBranch(ctx context.Context, commit *pfs.Commit, name string)
 			return err
 		}
 
-		if err := branches.Put(name, commit); err != nil {
-			return err
-		}
-		return nil
+		return branches.Put(name, commit)
 	})
 	return err
 }
