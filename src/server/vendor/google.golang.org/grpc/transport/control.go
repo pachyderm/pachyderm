@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"math"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/net/http2"
@@ -31,8 +32,7 @@ const (
 	// The default value of flow control window size in HTTP2 spec.
 	defaultWindowSize = 65535
 	// The initial window size for flow control.
-	initialWindowSize             = defaultWindowSize      // for an RPC
-	initialConnWindowSize         = defaultWindowSize * 16 // for a connection
+	initialWindowSize             = defaultWindowSize // for an RPC
 	infinity                      = time.Duration(math.MaxInt64)
 	defaultClientKeepaliveTime    = infinity
 	defaultClientKeepaliveTimeout = time.Duration(20 * time.Second)
@@ -45,15 +45,42 @@ const (
 	defaultKeepalivePolicyMinTime = time.Duration(5 * time.Minute)
 	// max window limit set by HTTP2 Specs.
 	maxWindowSize = math.MaxInt32
+	// defaultLocalSendQuota sets is default value for number of data
+	// bytes that each stream can schedule before some of it being
+	// flushed out.
+	defaultLocalSendQuota = 64 * 1024
 )
 
 // The following defines various control items which could flow through
 // the control buffer of transport. They represent different aspects of
 // control tasks, e.g., flow control, settings, streaming resetting, etc.
+
+type headerFrame struct {
+	p http2.HeadersFrameParam
+}
+
+func (*headerFrame) item() {}
+
+type continuationFrame struct {
+	streamID            uint32
+	endHeaders          bool
+	headerBlockFragment []byte
+}
+
+type dataFrame struct {
+	streamID  uint32
+	endStream bool
+	d         []byte
+	f         func()
+}
+
+func (*dataFrame) item() {}
+
+func (*continuationFrame) item() {}
+
 type windowUpdate struct {
 	streamID  uint32
 	increment uint32
-	flush     bool
 }
 
 func (*windowUpdate) item() {}
@@ -75,6 +102,8 @@ func (*resetStream) item() {}
 type goAway struct {
 	code      http2.ErrCode
 	debugData []byte
+	headsUp   bool
+	closeConn bool
 }
 
 func (*goAway) item() {}
@@ -96,8 +125,9 @@ func (*ping) item() {}
 type quotaPool struct {
 	c chan int
 
-	mu    sync.Mutex
-	quota int
+	mu      sync.Mutex
+	version uint32
+	quota   int
 }
 
 // newQuotaPool creates a quotaPool which has quota q available to consume.
@@ -118,6 +148,10 @@ func newQuotaPool(q int) *quotaPool {
 func (qb *quotaPool) add(v int) {
 	qb.mu.Lock()
 	defer qb.mu.Unlock()
+	qb.lockedAdd(v)
+}
+
+func (qb *quotaPool) lockedAdd(v int) {
 	select {
 	case n := <-qb.c:
 		qb.quota += n
@@ -138,6 +172,35 @@ func (qb *quotaPool) add(v int) {
 	}
 }
 
+func (qb *quotaPool) addAndUpdate(v int) {
+	qb.mu.Lock()
+	defer qb.mu.Unlock()
+	qb.lockedAdd(v)
+	// Update the version only after having added to the quota
+	// so that if acquireWithVesrion sees the new vesrion it is
+	// guaranteed to have seen the updated quota.
+	// Also, still keep this inside of the lock, so that when
+	// compareAndExecute is processing, this function doesn't
+	// get executed partially (quota gets updated but the version
+	// doesn't).
+	atomic.AddUint32(&(qb.version), 1)
+}
+
+func (qb *quotaPool) acquireWithVersion() (<-chan int, uint32) {
+	return qb.c, atomic.LoadUint32(&(qb.version))
+}
+
+func (qb *quotaPool) compareAndExecute(version uint32, success, failure func()) bool {
+	qb.mu.Lock()
+	defer qb.mu.Unlock()
+	if version == atomic.LoadUint32(&(qb.version)) {
+		success()
+		return true
+	}
+	failure()
+	return false
+}
+
 // acquire returns the channel on which available quota amounts are sent.
 func (qb *quotaPool) acquire() <-chan int {
 	return qb.c
@@ -145,10 +208,9 @@ func (qb *quotaPool) acquire() <-chan int {
 
 // inFlow deals with inbound flow control
 type inFlow struct {
+	mu sync.Mutex
 	// The inbound flow control limit for pending data.
 	limit uint32
-
-	mu sync.Mutex
 	// pendingData is the overall data which have been received but not been
 	// consumed by applications.
 	pendingData uint32
@@ -158,6 +220,16 @@ type inFlow struct {
 	// delta is the extra window update given by receiver when an application
 	// is reading data bigger in size than the inFlow limit.
 	delta uint32
+}
+
+// newLimit updates the inflow window to a new value n.
+// It assumes that n is always greater than the old limit.
+func (f *inFlow) newLimit(n uint32) uint32 {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	d := n - f.limit
+	f.limit = n
+	return d
 }
 
 func (f *inFlow) maybeAdjust(n uint32) uint32 {
