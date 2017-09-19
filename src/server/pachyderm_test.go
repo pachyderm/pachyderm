@@ -5030,8 +5030,14 @@ func TestHTTPGetFile(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
+	var host string
+	clientAddr := client.APIClient.GetAddr()
+	tokens := strings.split(clientAddr, ":")
+	require.Equal(t, 2, len(tokens))
+	host = tokens[0]
+
 	// Try to get raw contents
-	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:30652/v1/pfs/repos/%v/commits/%v/files/file", dataRepo, commit1.ID))
+	resp, err := http.Get(fmt.Sprintf("http://%v:30652/v1/pfs/repos/%v/commits/%v/files/file", host, dataRepo, commit1.ID))
 	require.NoError(t, err)
 	defer resp.Body.Close()
 	contents, err := ioutil.ReadAll(resp.Body)
@@ -5041,7 +5047,7 @@ func TestHTTPGetFile(t *testing.T) {
 	require.Equal(t, "", contentDisposition)
 
 	// Try to get file for downloading
-	resp, err = http.Get(fmt.Sprintf("http://127.0.0.1:30652/v1/pfs/repos/%v/commits/%v/files/file?download=true", dataRepo, commit1.ID))
+	resp, err = http.Get(fmt.Sprintf("http://%v:30652/v1/pfs/repos/%v/commits/%v/files/file?download=true", host, dataRepo, commit1.ID))
 	require.NoError(t, err)
 	defer resp.Body.Close()
 	contents, err = ioutil.ReadAll(resp.Body)
@@ -5051,7 +5057,7 @@ func TestHTTPGetFile(t *testing.T) {
 	require.Equal(t, "attachment; filename=\"file\"", contentDisposition)
 
 	// Make sure MIME type is set
-	resp, err = http.Get(fmt.Sprintf("http://127.0.0.1:30652/v1/pfs/repos/%v/commits/%v/files/giphy.gif", dataRepo, commit1.ID))
+	resp, err = http.Get(fmt.Sprintf("http://%v:30652/v1/pfs/repos/%v/commits/%v/files/giphy.gif", host, dataRepo, commit1.ID))
 	require.NoError(t, err)
 	defer resp.Body.Close()
 	contentDisposition = resp.Header.Get("Content-Type")
