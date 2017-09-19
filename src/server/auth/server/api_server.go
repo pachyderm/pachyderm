@@ -500,7 +500,7 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *authclient.WhoAmIRequest) (
 	}
 	return &authclient.WhoAmIResponse{
 		Username: user.Username,
-		IsAdmin:    a.isAdmin(user.Username),
+		IsAdmin:  a.isAdmin(user.Username),
 	}, nil
 }
 
@@ -859,10 +859,7 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeA
 		if user.Type != authclient.User_PIPELINE {
 			return fmt.Errorf("cannot revoke a non-pipeline auth token")
 		}
-		if err := tokens.Delete(hashToken(req.Token)); err != nil {
-			return err
-		}
-		return nil
+		return tokens.Delete(hashToken(req.Token))
 	}); err != nil {
 		return nil, err
 	}

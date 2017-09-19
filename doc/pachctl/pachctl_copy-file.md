@@ -1,20 +1,20 @@
-## ./pachctl list-branch
+## ./pachctl copy-file
 
-Return all branches on a repo.
+Copy files between pfs paths.
 
 ### Synopsis
 
 
-Return all branches on a repo.
+Copy files between pfs paths.
 
 ```
-./pachctl list-branch <repo-name>
+./pachctl copy-file src-repo src-commit src-path dst-repo dst-commit dst-path
 ```
 
 ### Options
 
 ```
-      --raw   disable pretty printing, print raw json
+  -o, --overwrite   Overwrite the existing content of the file, either from previous commits or previous calls to put-file within this commit.
 ```
 
 ### Options inherited from parent commands
