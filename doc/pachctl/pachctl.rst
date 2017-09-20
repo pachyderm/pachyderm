@@ -24,6 +24,7 @@ Options
     :maxdepth: 1
     :caption: pachctl CLI
 
+    pachctl_copy-file
     pachctl_create-job
     pachctl_create-pipeline
     pachctl_create-repo
