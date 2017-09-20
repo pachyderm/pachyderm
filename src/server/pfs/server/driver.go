@@ -307,7 +307,7 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 			// We also add the new provenance repos to the provenance
 			// of all downstream repos, and remove the old provenance
 			// repos from their provenance.
-			downstreamRepos, err := d.listRepo(ctx, []*pfs.Repo{repo}, false)
+			downstreamRepos, err := d.listRepo(ctx, []*pfs.Repo{repo}, !includeAuth)
 			if err != nil {
 				return err
 			}
@@ -387,19 +387,37 @@ func (d *driver) inspectRepo(ctx context.Context, repo *pfs.Repo, includeAuth bo
 		return nil, err
 	}
 	if includeAuth {
-		resp, err := d.pachClient.AuthAPIClient.GetScope(auth.In2Out(ctx),
-			&auth.GetScopeRequest{Repos: []string{repo.Name}})
-		if err != nil && !auth.IsNotActivatedError(err) {
-			return nil, fmt.Errorf("error getting scope for \"%s\": %v", repo.Name,
-				grpcutil.ScrubGRPC(err))
-		} else if err == nil {
-			if len(resp.Scopes) != 1 {
-				return nil, fmt.Errorf("unexpected result from GetScope(): %#v", resp)
+		accessLevel, err := d.getAccessLevel(ctx, repo)
+		if err != nil {
+			if auth.IsNotActivatedError(err) {
+				return result, nil
 			}
-			result.Scope = resp.Scopes[0]
+			return nil, fmt.Errorf("error getting access level for \"%s\": %v",
+				repo.Name, grpcutil.ScrubGRPC(err))
 		}
+		result.AuthInfo = &pfs.RepoAuthInfo{AccessLevel: accessLevel}
 	}
 	return result, nil
+}
+
+func (d *driver) getAccessLevel(ctx context.Context, repo *pfs.Repo) (auth.Scope, error) {
+	who, err := d.pachClient.AuthAPIClient.WhoAmI(auth.In2Out(ctx),
+		&auth.WhoAmIRequest{})
+	if err != nil {
+		return auth.Scope_NONE, err
+	}
+	if who.IsAdmin {
+		return auth.Scope_OWNER, nil
+	}
+	resp, err := d.pachClient.AuthAPIClient.GetScope(auth.In2Out(ctx),
+		&auth.GetScopeRequest{Repos: []string{repo.Name}})
+	if err != nil {
+		return auth.Scope_NONE, err
+	}
+	if len(resp.Scopes) != 1 {
+		return auth.Scope_NONE, fmt.Errorf("too many results from GetScope: %#v", resp)
+	}
+	return resp.Scopes[0], nil
 }
 
 func (d *driver) listRepo(ctx context.Context, provenance []*pfs.Repo, includeAuth bool) (*pfs.ListRepoResponse, error) {
@@ -417,6 +435,7 @@ func (d *driver) listRepo(ctx context.Context, provenance []*pfs.Repo, includeAu
 		return nil, err
 	}
 	result := new(pfs.ListRepoResponse)
+	authSeemsActive := true
 nextRepo:
 	for {
 		repoName, repoInfo := "", new(pfs.RepoInfo)
@@ -440,20 +459,15 @@ nextRepo:
 				continue nextRepo
 			}
 		}
-		if includeAuth {
-			// Include auth information in the response
-			resp, err := d.pachClient.AuthAPIClient.GetScope(auth.In2Out(ctx),
-				&auth.GetScopeRequest{
-					Repos: []string{repoName},
-				})
-			if err != nil && !auth.IsNotActivatedError(err) {
-				return nil, fmt.Errorf("error getting scopes: %v",
-					grpcutil.ScrubGRPC(err))
-			} else if err == nil {
-				if len(resp.Scopes) != 1 {
-					return nil, fmt.Errorf("unexpected result from GetScope(): %#v", resp)
-				}
-				repoInfo.Scope = resp.Scopes[0]
+		if includeAuth && authSeemsActive {
+			accessLevel, err := d.getAccessLevel(ctx, repoInfo.Repo)
+			if err == nil {
+				repoInfo.AuthInfo = &pfs.RepoAuthInfo{AccessLevel: accessLevel}
+			} else if auth.IsNotActivatedError(err) {
+				authSeemsActive = false
+			} else {
+				return nil, fmt.Errorf("error getting access level for \"%s\": %v",
+					repoName, grpcutil.ScrubGRPC(err))
 			}
 		}
 		result.RepoInfo = append(result.RepoInfo, repoInfo)
@@ -1326,10 +1340,7 @@ func (d *driver) setBranch(ctx context.Context, commit *pfs.Commit, name string)
 			return err
 		}
 
-		if err := branches.Put(name, commit); err != nil {
-			return err
-		}
-		return nil
+		return branches.Put(name, commit)
 	})
 	return err
 }
@@ -1384,7 +1395,7 @@ func checkPath(path string) error {
 }
 
 func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter,
-	targetFileDatums int64, targetFileBytes int64, overwrite bool, reader io.Reader) error {
+	targetFileDatums int64, targetFileBytes int64, overwriteIndex *pfs.OverwriteIndex, reader io.Reader) error {
 	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
@@ -1401,13 +1412,13 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		file.Commit = commitInfo.Commit
 	}
 
-	if overwrite {
+	if overwriteIndex != nil && overwriteIndex.Index == 0 {
 		if err := d.deleteFile(ctx, file); err != nil {
 			return err
 		}
 	}
 
-	records := &PutFileRecords{}
+	records := &pfs.PutFileRecords{}
 	if err := checkPath(file.Path); err != nil {
 		return err
 	}
@@ -1439,14 +1450,33 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	}
 
 	if delimiter == pfs.Delimiter_NONE {
-		object, size, err := d.pachClient.PutObject(reader)
+		objects, size, err := d.pachClient.PutObjectSplit(reader)
 		if err != nil {
 			return err
 		}
-		records.Records = append(records.Records, &PutFileRecord{
-			SizeBytes:  size,
-			ObjectHash: object.Hash,
-		})
+
+		// Here we use the invariant that every one but the last object
+		// should have a size of ChunkSize.
+		for i, object := range objects {
+			record := &pfs.PutFileRecord{
+				ObjectHash: object.Hash,
+			}
+
+			if size > pfs.ChunkSize {
+				record.SizeBytes = pfs.ChunkSize
+			} else {
+				record.SizeBytes = size
+			}
+			size -= pfs.ChunkSize
+
+			// The first record takes care of the overwriting
+			if i == 0 && overwriteIndex != nil && overwriteIndex.Index != 0 {
+				record.OverwriteIndex = overwriteIndex
+			}
+
+			records.Records = append(records.Records, record)
+		}
+
 		return putRecords()
 	}
 	buffer := &bytes.Buffer{}
@@ -1458,7 +1488,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	decoder := json.NewDecoder(reader)
 	bufioR := bufio.NewReader(reader)
 
-	indexToRecord := make(map[int]*PutFileRecord)
+	indexToRecord := make(map[int]*pfs.PutFileRecord)
 	var mu sync.Mutex
 	for !EOF {
 		var err error
@@ -1497,7 +1527,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 				}
 				mu.Lock()
 				defer mu.Unlock()
-				indexToRecord[index] = &PutFileRecord{
+				indexToRecord[index] = &pfs.PutFileRecord{
 					SizeBytes:  size,
 					ObjectHash: object.Hash,
 				}
@@ -1567,7 +1597,7 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 				// This shouldn't be possible
 				return fmt.Errorf("error from filepath.Rel: %+v (this is likely a bug)", err)
 			}
-			records := &PutFileRecords{}
+			records := &pfs.PutFileRecords{}
 			file := client.NewFile(dst.Commit.Repo.Name, dst.Commit.ID, path.Clean(path.Join(dst.Path, relPath)))
 			prefix, err := d.scratchFilePrefix(ctx, file)
 			if err != nil {
@@ -1578,7 +1608,7 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 				if i == 0 {
 					size = node.SubtreeSize
 				}
-				records.Records = append(records.Records, &PutFileRecord{
+				records.Records = append(records.Records, &pfs.PutFileRecord{
 					SizeBytes:  size,
 					ObjectHash: object.Hash,
 				})
@@ -1899,7 +1929,7 @@ func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
 }
 
 func (d *driver) deleteAll(ctx context.Context) error {
-	repoInfos, err := d.listRepo(ctx, nil, false)
+	repoInfos, err := d.listRepo(ctx, nil, !includeAuth)
 	if err != nil {
 		return err
 	}
@@ -1912,6 +1942,8 @@ func (d *driver) deleteAll(ctx context.Context) error {
 }
 
 func (d *driver) applyWrites(resp *etcd.GetResponse, tree hashtree.OpenHashTree) error {
+	// a map that keeps track of the sizes of objects
+	sizeMap := make(map[string]int64)
 	for _, kv := range resp.Kvs {
 		// fileStr is going to look like "some/path/UUID"
 		fileStr := d.filePathFromEtcdPath(string(kv.Key))
@@ -1929,16 +1961,35 @@ func (d *driver) applyWrites(resp *etcd.GetResponse, tree hashtree.OpenHashTree)
 				}
 			}
 		} else {
-			records := &PutFileRecords{}
+			records := &pfs.PutFileRecords{}
 			if err := records.Unmarshal(kv.Value); err != nil {
 				return err
 			}
 			if !records.Split {
-				if len(records.Records) != 1 {
-					return fmt.Errorf("unexpect %d length PutFileRecord (this is likely a bug)", len(records.Records))
+				if len(records.Records) == 0 {
+					return fmt.Errorf("unexpect %d length pfs.PutFileRecord (this is likely a bug)", len(records.Records))
 				}
-				if err := tree.PutFile(filePath, []*pfs.Object{{Hash: records.Records[0].ObjectHash}}, records.Records[0].SizeBytes); err != nil {
-					return err
+				for _, record := range records.Records {
+					sizeMap[record.ObjectHash] = record.SizeBytes
+					if record.OverwriteIndex != nil {
+						// Computing size delta
+						delta := record.SizeBytes
+						fileNode, err := tree.Get(filePath)
+						if err == nil {
+							// If we can't find the file, that's fine.
+							for i := record.OverwriteIndex.Index; int(i) < len(fileNode.FileNode.Objects); i++ {
+								delta -= sizeMap[fileNode.FileNode.Objects[i].Hash]
+							}
+						}
+
+						if err := tree.PutFileOverwrite(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.OverwriteIndex, delta); err != nil {
+							return err
+						}
+					} else {
+						if err := tree.PutFile(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+							return err
+						}
+					}
 				}
 			} else {
 				nodes, err := tree.List(filePath)
