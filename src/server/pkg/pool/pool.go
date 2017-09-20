@@ -23,6 +23,7 @@ type connCount struct {
 // Pool stores a pool of grpc connections to a k8s service, it's useful in
 // places where you would otherwise need to keep recreating connections.
 type Pool struct {
+	port           int
 	conns          map[string]*connCount
 	connsLock      sync.Mutex
 	connsCond      *sync.Cond
@@ -34,7 +35,7 @@ type Pool struct {
 
 // NewPool creates a new connection pool with connections to pods in the
 // given service.
-func NewPool(kubeClient *kube.Client, namespace string, serviceName string, queueSize int64, opts ...grpc.DialOption) (*Pool, error) {
+func NewPool(kubeClient *kube.Client, namespace string, serviceName string, port int, queueSize int64, opts ...grpc.DialOption) (*Pool, error) {
 	endpointsInterface := kubeClient.Endpoints(namespace)
 
 	watch, err := endpointsInterface.Watch(api.ListOptions{
@@ -48,6 +49,7 @@ func NewPool(kubeClient *kube.Client, namespace string, serviceName string, queu
 	}
 
 	pool := &Pool{
+		port:           port,
 		endpointsWatch: watch,
 		opts:           opts,
 		done:           make(chan struct{}),
@@ -81,15 +83,13 @@ func (p *Pool) updateAddresses(endpoints *api.Endpoints) {
 		// According the k8s docs, the full set of endpoints is the cross
 		// product of (addresses x ports).
 		for _, address := range subset.Addresses {
-			for _, port := range subset.Ports {
-				addr := fmt.Sprintf("%s:%d", address.IP, port.Port)
-				if cc := p.conns[addr]; cc != nil {
-					addresses[addr] = cc
-				} else {
-					// we don't actually connect here because there's no way to
-					// return the error
-					addresses[addr] = &connCount{}
-				}
+			addr := fmt.Sprintf("%s:%d", address.IP, p.port)
+			if cc := p.conns[addr]; cc != nil {
+				addresses[addr] = cc
+			} else {
+				// we don't actually connect here because there's no way to
+				// return the error
+				addresses[addr] = &connCount{}
 			}
 		}
 	}
@@ -109,7 +109,7 @@ func (p *Pool) Do(ctx context.Context, f func(cc *grpc.ClientConn) error) error 
 				if mapConn.cc == nil {
 					cc, err := grpc.DialContext(ctx, addr, p.opts...)
 					if err != nil {
-						return err
+						return fmt.Errorf("failed to connect to %s: %+v", addr, err)
 					}
 					mapConn.cc = cc
 					conn = mapConn

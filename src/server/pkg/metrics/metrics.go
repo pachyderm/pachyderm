@@ -60,7 +60,7 @@ func getKeyFromMD(md metadata.MD, key string) (string, error) {
 }
 
 func (r *Reporter) reportUserAction(ctx context.Context, action string, value interface{}) {
-	md, ok := metadata.FromContext(ctx)
+	md, ok := metadata.FromIncomingContext(ctx)
 	if ok {
 		// metadata API downcases all the key names
 		userID, err := getKeyFromMD(md, "userid")
