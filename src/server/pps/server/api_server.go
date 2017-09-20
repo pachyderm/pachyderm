@@ -1105,19 +1105,19 @@ func translatePipelineInputs(inputs []*pps.PipelineInput) *pps.Input {
 	return result
 }
 
-// authorizing a pipeline modification varies slightly depending on whether the
+// authorizing a pipeline operation varies slightly depending on whether the
 // pipeline is being created, updated, or deleted
-type pipelineModification uint8
+type pipelineOperation uint8
 
 const (
-	pipelineCreate pipelineModification = iota
-	pipelineUpdate
-	pipelineDelete
+	opPipelineCreate pipelineOperation = iota
+	opPipelineUpdate
+	opPipelineDelete
 )
 
 // authorizeModifyPipeline checks if the user indicated by 'ctx' is authorized
-// to perform 'modification' on the pipeline in 'info'
-func (a *apiServer) authorizeModifyPipeline(ctx context.Context, modification pipelineModification, info *pps.PipelineInfo) error {
+// to perform 'operation' on the pipeline in 'info'
+func (a *apiServer) authorizeModifyPipeline(ctx context.Context, operation pipelineOperation, info *pps.PipelineInfo) error {
 	pachClient, err := a.getPachClient()
 	if err != nil {
 		return err
@@ -1182,14 +1182,14 @@ func (a *apiServer) authorizeModifyPipeline(ctx context.Context, modification pi
 	}
 
 	// Check that the user is authorized to write to the output repo
-	if modification == pipelineCreate {
+	if operation == opPipelineCreate {
 		_, err = pachClient.InspectRepo(info.Pipeline.Name)
 		if err != nil && strings.HasSuffix(err.Error(), "not found") {
 			return nil // No output repo exists -- it will be created
 		}
 	}
 	var req *auth.AuthorizeRequest
-	if modification == pipelineDelete {
+	if operation == opPipelineDelete {
 		// To delete a pipeline, you must own the output repo
 		req = &auth.AuthorizeRequest{
 			Repo:  info.Pipeline.Name,
@@ -1272,11 +1272,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if err != nil {
 		return nil, fmt.Errorf("error dialing auth client: %v", authClient)
 	}
-	modification := pipelineCreate
+	operation := opPipelineCreate
 	if request.Update {
-		modification = pipelineUpdate
+		operation = opPipelineUpdate
 	}
-	if err := a.authorizeModifyPipeline(ctx, modification, pipelineInfo); err != nil {
+	if err := a.authorizeModifyPipeline(ctx, operation, pipelineInfo); err != nil {
 		return nil, err
 	}
 	capabilityResp, err := authClient.GetCapability(auth.In2Out(ctx), &auth.GetCapabilityRequest{})
@@ -1554,7 +1554,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		return nil, fmt.Errorf("pipeline %v was not found: %v", request.Pipeline.Name, err)
 	}
 	// Check if the caller is authorized to delete this pipeline
-	if err := a.authorizeModifyPipeline(ctx, pipelineDelete, pipelineInfo); err != nil {
+	if err := a.authorizeModifyPipeline(ctx, opPipelineDelete, pipelineInfo); err != nil {
 		return nil, err
 	}
 	// Revoke the pipeline's capability

@@ -218,29 +218,35 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 	if err := ValidateRepoName(repo.Name); err != nil {
 		return err
 	}
-
 	d.initializePachConn()
 	if update {
-		// Caller only neads to be a WRITER to call UpdatePipeline(). Therefore
-		// caller only needs to be a WRITER to update the provenance.
-		if err := d.checkIsAuthorized(ctx, repo, auth.Scope_WRITER); err != nil {
-			return err
+		return d.updateRepo(ctx, repo, provenance, description)
+	}
+
+	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		repos := d.repos.ReadWrite(stm)
+		repoRefCounts := d.repoRefCounts.ReadWriteInt(stm)
+
+		// check if 'repo' already exists. If so, return that error. Otherwise,
+		// proceed with auth check (avoids awkward "access denied" error when
+		// calling "createRepo" on a repo that already exists)
+		var existingRepoInfo pfs.RepoInfo
+		err := repos.Get(repo.Name, &existingRepoInfo)
+		if err != nil && !col.IsErrNotFound(err) {
+			return fmt.Errorf("error checking whether \"%s\" exists: %v",
+				repo.Name, err)
+		} else if err == nil {
+			return fmt.Errorf("cannot create \"%s\" as it already exists", repo.Name)
 		}
-	} else {
-		// If the auth system is activated and the user is not signed in, reject the
-		// request. However, don't create the ACL until the repo has been created
-		// successfully, because a repo w/ no ACL can be fixed by a cluster admin.
-		// note that 'whoAmI' and 'authErr' are set iff 'update' == false.
+		// Create ACL for new repo
 		whoAmI, err := d.pachClient.AuthAPIClient.WhoAmI(auth.In2Out(ctx),
 			&auth.WhoAmIRequest{})
-		if err != nil {
-			if !auth.IsNotActivatedError(err) {
-				return fmt.Errorf("authorization error while creating repo \"%s\": %v",
-					repo.Name, grpcutil.ScrubGRPC(err))
-			}
-		} else {
+		if err != nil && !auth.IsNotActivatedError(err) {
+			return fmt.Errorf("error while creating repo \"%s\": %v",
+				repo.Name, grpcutil.ScrubGRPC(err))
+		} else if err == nil {
 			// auth is active, and user is logged in. Make user an owner of the new
-			// (and clear any existing ACL under this name that might have been
+			// repo (and clear any existing ACL under this name that might have been
 			// created by accident)
 			_, err := d.pachClient.AuthAPIClient.SetACL(auth.In2Out(ctx), &auth.SetACLRequest{
 				Repo: repo.Name,
@@ -254,90 +260,6 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 				return fmt.Errorf("could not create ACL for new repo \"%s\": %v",
 					repo.Name, grpcutil.ScrubGRPC(err))
 			}
-		}
-	}
-
-	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		repos := d.repos.ReadWrite(stm)
-		repoRefCounts := d.repoRefCounts.ReadWriteInt(stm)
-
-		if update {
-			repoInfo := new(pfs.RepoInfo)
-			if err := repos.Get(repo.Name, repoInfo); err != nil {
-				return err
-			}
-
-			provToAdd := make(map[string]bool)
-			provToRemove := make(map[string]bool)
-			for _, newProv := range provenance {
-				provToAdd[newProv.Name] = true
-			}
-			for _, oldProv := range repoInfo.Provenance {
-				delete(provToAdd, oldProv.Name)
-				provToRemove[oldProv.Name] = true
-			}
-			for _, newProv := range provenance {
-				delete(provToRemove, newProv.Name)
-			}
-
-			// For each new provenance repo, we increase its ref count
-			// by N where N is this repo's ref count.
-			// For each old provenance repo we do the opposite.
-			myRefCount, err := repoRefCounts.Get(repo.Name)
-			if err != nil {
-				return err
-			}
-			// +1 because we need to include ourselves.
-			myRefCount++
-
-			for newProv := range provToAdd {
-				fmt.Printf("incrementing %v by %v\n", newProv, myRefCount)
-				if err := repoRefCounts.IncrementBy(newProv, myRefCount); err != nil {
-					return err
-				}
-			}
-
-			for oldProv := range provToRemove {
-				fmt.Printf("decrementing %v by %v\n", oldProv, myRefCount)
-				if err := repoRefCounts.DecrementBy(oldProv, myRefCount); err != nil {
-					return err
-				}
-			}
-
-			// We also add the new provenance repos to the provenance
-			// of all downstream repos, and remove the old provenance
-			// repos from their provenance.
-			downstreamRepos, err := d.listRepo(ctx, []*pfs.Repo{repo}, !includeAuth)
-			if err != nil {
-				return err
-			}
-
-			for _, repoInfo := range downstreamRepos.RepoInfo {
-			nextNewProv:
-				for newProv := range provToAdd {
-					for _, prov := range repoInfo.Provenance {
-						if newProv == prov.Name {
-							continue nextNewProv
-						}
-					}
-					repoInfo.Provenance = append(repoInfo.Provenance, &pfs.Repo{newProv})
-				}
-			nextOldProv:
-				for oldProv := range provToRemove {
-					for i, prov := range repoInfo.Provenance {
-						if oldProv == prov.Name {
-							repoInfo.Provenance = append(repoInfo.Provenance[:i], repoInfo.Provenance[i+1:]...)
-							continue nextOldProv
-						}
-					}
-				}
-				repos.Put(repoInfo.Repo.Name, repoInfo)
-			}
-
-			repoInfo.Description = description
-			repoInfo.Provenance = provenance
-			repos.Put(repo.Name, repoInfo)
-			return nil
 		}
 
 		// compute the full provenance of this repo
@@ -361,11 +283,9 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 				return err
 			}
 		}
-
 		if err := repoRefCounts.Create(repo.Name, 0); err != nil {
 			return err
 		}
-
 		repoInfo := &pfs.RepoInfo{
 			Repo:        repo,
 			Created:     now(),
@@ -374,10 +294,97 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 		}
 		return repos.Create(repo.Name, repoInfo)
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
+}
+
+func (d *driver) updateRepo(ctx context.Context, repo *pfs.Repo, provenance []*pfs.Repo, description string) error {
+	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		repos := d.repos.ReadWrite(stm)
+		repoRefCounts := d.repoRefCounts.ReadWriteInt(stm)
+
+		repoInfo := new(pfs.RepoInfo)
+		if err := repos.Get(repo.Name, repoInfo); err != nil {
+			return fmt.Errorf("error updating repo: %v", err)
+		}
+		// Caller only neads to be a WRITER to call UpdatePipeline(), so caller only
+		// needs to be a WRITER to update the provenance.
+		if err := d.checkIsAuthorized(ctx, repo, auth.Scope_WRITER); err != nil {
+			return err
+		}
+
+		provToAdd := make(map[string]bool)
+		provToRemove := make(map[string]bool)
+		for _, newProv := range provenance {
+			provToAdd[newProv.Name] = true
+		}
+		for _, oldProv := range repoInfo.Provenance {
+			delete(provToAdd, oldProv.Name)
+			provToRemove[oldProv.Name] = true
+		}
+		for _, newProv := range provenance {
+			delete(provToRemove, newProv.Name)
+		}
+
+		// For each new provenance repo, we increase its ref count
+		// by N where N is this repo's ref count.
+		// For each old provenance repo we do the opposite.
+		myRefCount, err := repoRefCounts.Get(repo.Name)
+		if err != nil {
+			return err
+		}
+		// +1 because we need to include ourselves.
+		myRefCount++
+
+		for newProv := range provToAdd {
+			fmt.Printf("incrementing %v by %v\n", newProv, myRefCount)
+			if err := repoRefCounts.IncrementBy(newProv, myRefCount); err != nil {
+				return err
+			}
+		}
+
+		for oldProv := range provToRemove {
+			fmt.Printf("decrementing %v by %v\n", oldProv, myRefCount)
+			if err := repoRefCounts.DecrementBy(oldProv, myRefCount); err != nil {
+				return err
+			}
+		}
+
+		// We also add the new provenance repos to the provenance
+		// of all downstream repos, and remove the old provenance
+		// repos from their provenance.
+		downstreamRepos, err := d.listRepo(ctx, []*pfs.Repo{repo}, !includeAuth)
+		if err != nil {
+			return err
+		}
+
+		for _, repoInfo := range downstreamRepos.RepoInfo {
+		nextNewProv:
+			for newProv := range provToAdd {
+				for _, prov := range repoInfo.Provenance {
+					if newProv == prov.Name {
+						continue nextNewProv
+					}
+				}
+				repoInfo.Provenance = append(repoInfo.Provenance, &pfs.Repo{newProv})
+			}
+		nextOldProv:
+			for oldProv := range provToRemove {
+				for i, prov := range repoInfo.Provenance {
+					if oldProv == prov.Name {
+						repoInfo.Provenance = append(repoInfo.Provenance[:i], repoInfo.Provenance[i+1:]...)
+						continue nextOldProv
+					}
+				}
+			}
+			repos.Put(repoInfo.Repo.Name, repoInfo)
+		}
+
+		repoInfo.Description = description
+		repoInfo.Provenance = provenance
+		repos.Put(repo.Name, repoInfo)
+		return nil
+	})
+	return err
 }
 
 func (d *driver) inspectRepo(ctx context.Context, repo *pfs.Repo, includeAuth bool) (*pfs.RepoInfo, error) {
@@ -1459,7 +1466,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		// should have a size of ChunkSize.
 		for i, object := range objects {
 			record := &pfs.PutFileRecord{
-				ObjectHash: object.Hash,
+			ObjectHash: object.Hash,
 			}
 
 			if size > pfs.ChunkSize {
@@ -1983,7 +1990,7 @@ func (d *driver) applyWrites(resp *etcd.GetResponse, tree hashtree.OpenHashTree)
 						}
 
 						if err := tree.PutFileOverwrite(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.OverwriteIndex, delta); err != nil {
-							return err
+					return err
 						}
 					} else {
 						if err := tree.PutFile(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
