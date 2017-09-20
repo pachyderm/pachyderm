@@ -35,8 +35,8 @@ type Client interface {
 	Walk(prefix string, fn func(name string) error) error
 	// Exsits checks if a given object already exists
 	Exists(name string) bool
-	// isRetryable determines if an operation should be retried given an error
-	isRetryable(err error) bool
+	// IsRetryable determines if an operation should be retried given an error
+	IsRetryable(err error) bool
 	// IsNotExist returns true if err is a non existence error
 	IsNotExist(err error) bool
 	// IsIgnorable returns true if the error can be ignored
@@ -345,7 +345,7 @@ func (b *BackoffWriteCloser) Close() error {
 
 // IsRetryable determines if an operation should be retried given an error
 func IsRetryable(client Client, err error) bool {
-	return isNetRetryable(err) || client.isRetryable(err)
+	return isNetRetryable(err) || client.IsRetryable(err)
 }
 
 func byteRange(offset uint64, size uint64) string {

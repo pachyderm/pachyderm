@@ -48,7 +48,21 @@ message RepoInfo {
   uint64 size_bytes = 3;
   repeated Repo provenance = 4;
   string description = 5;
-  auth.Scope scope = 6;
+
+  // Set by ListRepo and InspectRepo if Pachyderm's auth system is active, but
+  // not stored in etcd. To set a user's auth scope for a repo, use the
+  // Pachyderm Auth API (in src/client/auth/auth.proto)
+  RepoAuthInfo auth_info = 6;
+}
+
+// RepoAuthInfo includes the caller's access scope for a repo, and is returned
+// by ListRepo and InspectRepo but not persisted in etcd. It's used by the
+// Pachyderm dashboard to render repo access appropriately. To set a user's auth
+// scope for a repo, use the Pachyderm Auth API (in src/client/auth/auth.proto)
+message RepoAuthInfo {
+  // The callers access level to the relevant repo (e.g. may be OWNER even if
+  // the user isn't an OWNER of the repo, if they're an admin for the cluster)
+  auth.Scope access_level = 1;
 }
 
 // Commit is a reference to a commit (e.g. the collection of branches and the
@@ -115,17 +129,10 @@ message CreateRepoRequest {
 
 message InspectRepoRequest {
   Repo repo = 1;
-  // Include auth information in the response, i.e. what kind of
-  // scope the user has over each repo.
-  bool include_auth = 2;
 }
 
 message ListRepoRequest {
   repeated Repo provenance = 1;
-
-  // Include auth information in the response, i.e. what kind of
-  // scope the user has over each repo.
-  bool include_auth = 2;
 }
 
 message ListRepoResponse {
@@ -214,6 +221,14 @@ enum Delimiter {
   LINE = 2;
 }
 
+// An OverwriteIndex specifies the index of objects from which new writes
+// are applied to.  Existing objects starting from the index are deleted.
+// We want a separate message for ObjectIndex because we want to be able to
+// distinguish between a zero index and a non-existent index.
+message OverwriteIndex {
+  int64 index = 1;
+}
+
 message PutFileRequest {
   reserved 2;
   File file = 1;
@@ -231,9 +246,21 @@ message PutFileRequest {
   // TargetFileBytes specifies the target number of bytes in each written
   // file, files may have more or fewer bytes than the target.
   int64 target_file_bytes = 9;
-  // If true overwrite the existing value of the file, equivalent to calling
-  // DeleteFile followed by PutFile.
-  bool overwrite = 10;
+  // overwrite_index is the object index where the write starts from.  All
+  // existing objects starting from the index are deleted.
+  OverwriteIndex overwrite_index = 10;
+}
+
+// PutFileRecord is used to record PutFile requests in etcd temporarily.
+message PutFileRecord {
+  int64 size_bytes = 1;
+  string object_hash = 2;
+  OverwriteIndex overwrite_index = 3;
+}
+
+message PutFileRecords {
+  bool split = 1;
+  repeated PutFileRecord records = 2;
 }
 
 message CopyFileRequest {
@@ -391,8 +418,13 @@ message CheckObjectResponse {
   bool exists = 1;
 }
 
+message Objects {
+  repeated Object objects = 1;
+}
+
 service ObjectAPI {
   rpc PutObject(stream PutObjectRequest) returns (Object) {}
+  rpc PutObjectSplit(stream PutObjectRequest) returns (Objects) {}
   rpc GetObject(Object) returns (stream google.protobuf.BytesValue) {}
   rpc GetObjects(GetObjectsRequest) returns (stream google.protobuf.BytesValue) {}
   rpc TagObject(TagObjectRequest) returns (google.protobuf.Empty) {}
