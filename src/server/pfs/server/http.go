@@ -110,10 +110,12 @@ func (s *HTTPServer) authLoginHandler(w http.ResponseWriter, r *http.Request, ps
 	}
 	w.Header().Add("Set-Cookie", fmt.Sprintf("%v=%v", auth.ContextTokenKey,
 		data.Token))
+	w.Header().Add("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(http.StatusOK)
 }
 
 func (s *HTTPServer) authLogoutHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	w.Header().Add("Set-Cookie", fmt.Sprintf("%v=", auth.ContextTokenKey))
+	w.Header().Add("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(http.StatusOK)
 }
