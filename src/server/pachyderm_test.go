@@ -5050,6 +5050,82 @@ func TestHTTPAuth(t *testing.T) {
 	require.Equal(t, "", resp.Cookies()[0].Value)
 }
 
+func TestService(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestService_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	_, err = c.PutFile(dataRepo, commit1.ID, "file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	pipeline := uniqueString("pipelineservice")
+	// This pipeline sleeps for 10 secs per datum
+	require.NoError(t, c.CreatePipelineService(
+		pipeline,
+		"trinitronx/python-simplehttpserver",
+		[]string{"sh"},
+		[]string{
+			"cd /pfs",
+			"exec python -m SimpleHTTPServer 8000",
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/"),
+		false,
+		8000,
+		31800,
+	))
+
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := http.Get(fmt.Sprintf("http://localhost:31800/%s/file1", dataRepo))
+		if err != nil {
+			return err
+		}
+		if resp.StatusCode != 200 {
+			return fmt.Errorf("GET returned %d", resp.StatusCode)
+		}
+		content, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		if string(content) != "foo" {
+			return fmt.Errorf("wrong content for file1: expected foo, got %s", string(content))
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+
+	commit2, err := c.StartCommit(dataRepo, "master")
+	_, err = c.PutFile(dataRepo, commit2.ID, "file2", strings.NewReader("bar"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
+
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := http.Get(fmt.Sprintf("http://localhost:31800/%s/file2", dataRepo))
+		if err != nil {
+			return err
+		}
+		if resp.StatusCode != 200 {
+			return fmt.Errorf("GET returned %d", resp.StatusCode)
+		}
+		content, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		if string(content) != "bar" {
+			return fmt.Errorf("wrong content for file2: expected bar, got %s", string(content))
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+}
+
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
 	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
 	require.NoError(t, err)
