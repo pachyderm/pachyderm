@@ -1,7 +1,11 @@
 package util
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"os/user"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"k8s.io/kubernetes/pkg/api"
@@ -47,4 +51,34 @@ func GetResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*api.ResourceL
 		result[api.ResourceNvidiaGPU] = gpuQuantity
 	}
 	return &result, nil
+}
+
+// LookupUser is a reimplementation of user.Lookup that doesn't require cgo.
+func LookupUser(name string) (_ *user.User, retErr error) {
+	passwd, err := os.Open("/etc/passwd")
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := passwd.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	scanner := bufio.NewScanner(passwd)
+	for scanner.Scan() {
+		parts := strings.Split(scanner.Text(), ":")
+		if parts[0] == name {
+			return &user.User{
+				Username: parts[0],
+				Uid:      parts[2],
+				Gid:      parts[3],
+				Name:     parts[4],
+				HomeDir:  parts[5],
+			}, nil
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+	return nil, fmt.Errorf("user %s not found", name)
 }

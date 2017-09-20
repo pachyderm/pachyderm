@@ -1041,6 +1041,9 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 			return fmt.Errorf("contradictory parallelism strategies: must set at " +
 				"most one of ParallelismSpec.Constant and ParallelismSpec.Coefficient")
 		}
+		if pipelineInfo.Service != nil && pipelineInfo.ParallelismSpec.Constant != 1 {
+			return fmt.Errorf("services can only be run with a constant parallelism of 1")
+		}
 	}
 	if pipelineInfo.OutputBranch == "" {
 		return fmt.Errorf("pipeline needs to specify an output branch")
@@ -1249,6 +1252,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Salt:               uuid.NewWithoutDashes(),
 		Batch:              request.Batch,
 		MaxQueueSize:       request.MaxQueueSize,
+		Service:            request.Service,
 	}
 	setPipelineDefaults(pipelineInfo)
 	var visitErr error
@@ -1429,6 +1433,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 // setPipelineDefaults sets the default values for a pipeline info
 func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 	now := time.Now()
+	if pipelineInfo.Transform.Image == "" {
+		pipelineInfo.Transform.Image = DefaultUserImage
+	}
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
 		if input.Atom != nil {
 			if input.Atom.Branch == "" {
