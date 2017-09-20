@@ -34,6 +34,7 @@ before_script:
 - ./etc/testing/travis_install_batch_deps.sh
 script:
 - make lint vet
+- make lint-all || exit 0 # Don't fail the build if this fails yet.
 - ./etc/testing/travis.sh
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
