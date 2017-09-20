@@ -55,6 +55,12 @@ func (a *apiServer) master() {
 		}
 		defer pipelineWatcher.Close()
 
+		// watchChan will be nil if the Watch call below errors, this means
+		// that we won't receive events from k8s and won't be able to detect
+		// errors in pods. We could just return that error and retry but that
+		// prevents pachyderm from creating pipelines when there's an issue
+		// talking to k8s.
+		var watchChan <-chan kube_watch.Event
 		kubePipelineWatch, err := a.kubeClient.Pods(a.namespace).Watch(api.ListOptions{
 			LabelSelector: labelspkg.SelectorFromSet(map[string]string{
 				"component": "worker",
@@ -62,9 +68,11 @@ func (a *apiServer) master() {
 			Watch: true,
 		})
 		if err != nil {
-			return err
+			log.Errorf("failed to watch kuburnetes pods: %v", err)
+		} else {
+			watchChan = kubePipelineWatch.ResultChan()
+			defer kubePipelineWatch.Stop()
 		}
-		defer kubePipelineWatch.Stop()
 
 		for {
 			select {
@@ -147,7 +155,7 @@ func (a *apiServer) master() {
 						return err
 					}
 				}
-			case event := <-kubePipelineWatch.ResultChan():
+			case event := <-watchChan:
 				// if we get an error we restart the watch, k8s watches seem to
 				// sometimes get stuck in a loop returning events with Type =
 				// "" we treat these as errors since otherwise we get an
