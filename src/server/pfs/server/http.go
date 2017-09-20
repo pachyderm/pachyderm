@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -47,6 +48,8 @@ func newHTTPServer(address string, etcdAddresses []string, etcdPrefix string, ca
 	s := &HTTPServer{d, router}
 
 	router.GET(fmt.Sprintf("/%v/pfs/repos/:repoName/commits/:commitID/files/*filePath", apiVersion), s.getFileHandler)
+	router.POST(fmt.Sprintf("/%v/auth/login", apiVersion), s.authLoginHandler)
+	router.POST(fmt.Sprintf("/%v/auth/logout", apiVersion), s.authLogoutHandler)
 	return s, nil
 }
 
@@ -97,4 +100,34 @@ func (s *HTTPServer) getFileHandler(w http.ResponseWriter, r *http.Request, ps h
 		fw.f = f
 	}
 	io.Copy(&fw, file)
+}
+
+type loginRequestPayload struct {
+	Token string
+}
+
+func (s *HTTPServer) authLoginHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	var data loginRequestPayload
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&data)
+	if err != nil {
+		// Return 500
+		http.Error(w, fmt.Sprintf("malformed JSON sent in payload: %v", err), http.StatusInternalServerError)
+		return
+	}
+	if data.Token == "" {
+		// Return 500
+		http.Error(w, "empty token provided", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Add("Set-Cookie", fmt.Sprintf("%v=%v", auth.ContextTokenKey,
+		data.Token))
+	w.Header().Add("Access-Control-Allow-Origin", "*")
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *HTTPServer) authLogoutHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	w.Header().Add("Set-Cookie", fmt.Sprintf("%v=", auth.ContextTokenKey))
+	w.Header().Add("Access-Control-Allow-Origin", "*")
+	w.WriteHeader(http.StatusOK)
 }

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
@@ -5009,6 +5010,46 @@ func TestMaxQueueSize(t *testing.T) {
 		}
 		return nil
 	}, backoff.RetryEvery(500*time.Millisecond).For(20*time.Second)))
+}
+
+func TestHTTPAuth(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	var host string
+	clientAddr := c.GetAddress()
+	tokens := strings.Split(clientAddr, ":")
+	require.Equal(t, 2, len(tokens))
+	host = tokens[0]
+
+	// Try to login
+	token := "abbazabbadoo"
+	jsonString := []byte(fmt.Sprintf("{\"Token\":\"%v\"}", token))
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://%v:30652/v1/auth/login", host), bytes.NewBuffer(jsonString))
+	require.NoError(t, err)
+	httpClient := &http.Client{}
+	resp, err := httpClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, 1, len(resp.Cookies()))
+	require.Equal(t, auth.ContextTokenKey, resp.Cookies()[0].Name)
+	require.Equal(t, "*", resp.Header.Get("Access-Control-Allow-Origin"))
+	require.Equal(t, token, resp.Cookies()[0].Value)
+
+	// Try to logout
+	req, err = http.NewRequest("POST", fmt.Sprintf("http://%v:30652/v1/auth/logout", host), nil)
+	require.NoError(t, err)
+	resp, err = httpClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, 1, len(resp.Cookies()))
+	require.Equal(t, auth.ContextTokenKey, resp.Cookies()[0].Name)
+	require.Equal(t, "*", resp.Header.Get("Access-Control-Allow-Origin"))
+	// The cookie should be unset now
+	require.Equal(t, "", resp.Cookies()[0].Value)
 }
 
 func TestHTTPGetFile(t *testing.T) {
