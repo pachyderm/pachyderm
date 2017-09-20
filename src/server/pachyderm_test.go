@@ -5011,6 +5011,59 @@ func TestMaxQueueSize(t *testing.T) {
 	}, backoff.RetryEvery(500*time.Millisecond).For(20*time.Second)))
 }
 
+func TestHTTPGetFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestHTTPGetFile_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo"))
+	f, err := os.Open("../../etc/testing/artifacts/giphy.gif")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "giphy.gif", f)
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	var host string
+	clientAddr := c.GetAddress()
+	tokens := strings.Split(clientAddr, ":")
+	require.Equal(t, 2, len(tokens))
+	host = tokens[0]
+
+	// Try to get raw contents
+	resp, err := http.Get(fmt.Sprintf("http://%v:30652/v1/pfs/repos/%v/commits/%v/files/file", host, dataRepo, commit1.ID))
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	contents, err := ioutil.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, "foo", string(contents))
+	contentDisposition := resp.Header.Get("Content-Disposition")
+	require.Equal(t, "", contentDisposition)
+
+	// Try to get file for downloading
+	resp, err = http.Get(fmt.Sprintf("http://%v:30652/v1/pfs/repos/%v/commits/%v/files/file?download=true", host, dataRepo, commit1.ID))
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	contents, err = ioutil.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, "foo", string(contents))
+	contentDisposition = resp.Header.Get("Content-Disposition")
+	require.Equal(t, "attachment; filename=\"file\"", contentDisposition)
+
+	// Make sure MIME type is set
+	resp, err = http.Get(fmt.Sprintf("http://%v:30652/v1/pfs/repos/%v/commits/%v/files/giphy.gif", host, dataRepo, commit1.ID))
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	contentDisposition = resp.Header.Get("Content-Type")
+	require.Equal(t, "image/gif", contentDisposition)
+}
+
 func TestService(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
