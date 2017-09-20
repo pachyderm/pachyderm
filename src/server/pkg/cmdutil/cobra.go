@@ -58,26 +58,28 @@ func ErrorAndExit(format string, args ...interface{}) {
 
 // ParseCommits takes a slice of arguments of the form "repo/commit-id" or
 // "repo" (in which case we consider the commit ID to be empty), and returns
-// a list of Commits
+// a list of *pfs.Commits
 func ParseCommits(args []string) ([]*pfs.Commit, error) {
 	var commits []*pfs.Commit
 	for _, arg := range args {
 		parts := strings.SplitN(arg, "/", 2)
-		if parts[0] != "" {
-			commit := &pfs.Commit{
-				Repo: &pfs.Repo{
-					Name: parts[0],
-				},
-			}
-			if len(parts) == 2 {
-				commit.ID = parts[1]
-			} else {
-				commit.ID = ""
-			}
-			commits = append(commits, commit)
+		hasRepo := len(parts) > 0 && parts[0] != ""
+		hasCommit := len(parts) == 2 && parts[1] != ""
+		if hasCommit && !hasRepo {
+			return nil, fmt.Errorf("invalid commit id \"%s\": repo cannot be empty", arg)
 		}
+		commit := &pfs.Commit{
+			Repo: &pfs.Repo{
+				Name: parts[0],
+			},
+		}
+		if len(parts) == 2 {
+			commit.ID = parts[1]
+		} else {
+			commit.ID = ""
+		}
+		commits = append(commits, commit)
 	}
-
 	return commits, nil
 }
 

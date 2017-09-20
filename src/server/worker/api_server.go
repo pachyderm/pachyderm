@@ -28,6 +28,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 
+	"github.com/fsouza/go-dockerclient"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/limit"
@@ -39,6 +40,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
+	"github.com/pachyderm/pachyderm/src/server/pkg/util"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 )
 
@@ -100,6 +102,10 @@ type APIServer struct {
 	// datumCache is used by the master to keep track of the datums that
 	// have already been processed.
 	datumCache *lru.Cache
+
+	uid        uint32
+	gid        uint32
+	workingDir string
 }
 
 type putObjectResponse struct {
@@ -121,9 +127,9 @@ type taggedLogger struct {
 
 // DatumID computes the id for a datum, this value is used in ListDatum and
 // InspectDatum.
-func (a *APIServer) DatumID(req *ProcessRequest) string {
+func (a *APIServer) DatumID(data []*Input) string {
 	hash := sha256.New()
-	for _, d := range req.Data {
+	for _, d := range data {
 		hash.Write([]byte(d.FileInfo.File.Path))
 		hash.Write(d.FileInfo.Hash)
 	}
@@ -132,7 +138,7 @@ func (a *APIServer) DatumID(req *ProcessRequest) string {
 	return hex.EncodeToString(hash.Sum(nil))
 }
 
-func (a *APIServer) getTaggedLogger(ctx context.Context, req *ProcessRequest) (*taggedLogger, error) {
+func (a *APIServer) getTaggedLogger(ctx context.Context, jobID string, data []*Input, enableStats bool) (*taggedLogger, error) {
 	result := &taggedLogger{
 		template:  a.logMsgTemplate, // Copy struct
 		stderrLog: log.Logger{},
@@ -143,10 +149,10 @@ func (a *APIServer) getTaggedLogger(ctx context.Context, req *ProcessRequest) (*
 	result.stderrLog.SetFlags(log.LstdFlags | log.Llongfile) // Log file/line
 
 	// Add Job ID to log metadata
-	result.template.JobID = req.JobID
+	result.template.JobID = jobID
 
 	// Add inputs' details to log metadata, so we can find these logs later
-	for _, d := range req.Data {
+	for _, d := range data {
 		result.template.Data = append(result.template.Data, &pps.InputFile{
 			Path: d.FileInfo.File.Path,
 			Hash: d.FileInfo.Hash,
@@ -154,8 +160,8 @@ func (a *APIServer) getTaggedLogger(ctx context.Context, req *ProcessRequest) (*
 	}
 	// InputFileID is a single string id for the data from this input, it's used in logs and in
 	// the statsTree
-	result.template.DatumID = a.DatumID(req)
-	if req.EnableStats {
+	result.template.DatumID = a.DatumID(data)
+	if enableStats {
 		putObjClient, err := a.pachClient.ObjectAPIClient.PutObject(auth.In2Out(ctx))
 		if err != nil {
 			return nil, err
@@ -284,7 +290,46 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
 		datumCache: datumCache,
 	}
-	go server.master()
+	if pipelineInfo.Transform.Image != "" {
+		docker, err := docker.NewClientFromEnv()
+		if err != nil {
+			return nil, err
+		}
+		image, err := docker.InspectImage(pipelineInfo.Transform.Image)
+		if err != nil {
+			return nil, fmt.Errorf("error inspecting image %s: %+v", pipelineInfo.Transform.Image, err)
+		}
+		// if image.Config.User == "" then uid, and gid don't get set which
+		// means they default to a value of 0 which means we run the code as
+		// root which is the only sane default.
+		if image.Config.User != "" {
+			user, err := util.LookupUser(image.Config.User)
+			if err != nil && !os.IsNotExist(err) {
+				return nil, err
+			}
+			if user != nil { // user is nil when os.IsNotExist(err) is true in which case we use root
+				uid, err := strconv.ParseUint(user.Uid, 10, 32)
+				if err != nil {
+					return nil, err
+				}
+				server.uid = uint32(uid)
+				gid, err := strconv.ParseUint(user.Gid, 10, 32)
+				if err != nil {
+					return nil, err
+				}
+				server.gid = uint32(gid)
+			}
+		}
+		server.workingDir = image.Config.WorkingDir
+		if server.pipelineInfo.Transform.Cmd == nil {
+			server.pipelineInfo.Transform.Cmd = image.Config.Entrypoint
+		}
+	}
+	if pipelineInfo.Service == nil {
+		go server.master()
+	} else {
+		go server.serviceMaster()
+	}
 	return server, nil
 }
 
@@ -345,6 +390,13 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	cmd.Stdout = logger.userLogger()
 	cmd.Stderr = logger.userLogger()
 	cmd.Env = environ
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Credential: &syscall.Credential{
+			Uid: a.uid,
+			Gid: a.gid,
+		},
+	}
+	cmd.Dir = a.workingDir
 	err := cmd.Run()
 
 	// Return result
@@ -601,7 +653,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	// Set the auth parameters for the context
 	ctx = a.pachClient.AddMetadata(ctx)
 
-	logger, err := a.getTaggedLogger(ctx, req)
+	logger, err := a.getTaggedLogger(ctx, req.JobID, req.Data, req.EnableStats)
 	if err != nil {
 		return nil, err
 	}
@@ -719,7 +771,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 		}()
 	}
 
-	env := a.userCodeEnv(req)
+	env := a.userCodeEnv(req.JobID, req.Data)
 	// Download input data
 	puller := filesync.NewPuller()
 	dir, err := a.downloadData(logger, req.Data, puller, req.ParentOutput, stats, statsTree, path.Join(statsPath, "pfs"))
@@ -868,12 +920,12 @@ func (a *APIServer) datum() []*pps.InputFile {
 	return result
 }
 
-func (a *APIServer) userCodeEnv(req *ProcessRequest) []string {
+func (a *APIServer) userCodeEnv(jobID string, data []*Input) []string {
 	result := os.Environ()
-	for _, input := range req.Data {
+	for _, input := range data {
 		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(client.PPSInputPrefix, input.Name, input.FileInfo.File.Path)))
 	}
-	result = append(result, fmt.Sprintf("PACH_JOB_ID=%s", req.JobID))
+	result = append(result, fmt.Sprintf("PACH_JOB_ID=%s", jobID))
 	return result
 }
 

@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
+	"net/http"
 	"os"
 	"path"
 	"strconv"
@@ -1102,6 +1103,7 @@ func TestDeletePipeline(t *testing.T) {
 
 	c := getPachClient(t)
 	defer require.NoError(t, c.DeleteAll())
+
 	repo := uniqueString("data")
 	require.NoError(t, c.CreateRepo(repo))
 	commit, err := c.StartCommit(repo, "master")
@@ -1126,11 +1128,29 @@ func TestDeletePipeline(t *testing.T) {
 	}
 
 	createPipeline()
-	// Wait for the job to start running
-	time.Sleep(15 * time.Second)
+	time.Sleep(10 * time.Second)
+	// Wait for the pipeline to start running
+	require.NoError(t, backoff.Retry(func() error {
+		pipelineInfo, err := c.InspectPipeline(pipeline)
+		if err != nil {
+			return err
+		}
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
+			return fmt.Errorf("no running pipeline")
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 	require.NoError(t, c.DeleteRepo(pipeline, false))
 	require.NoError(t, c.DeletePipeline(pipeline, true))
 	time.Sleep(5 * time.Second)
+	// Wait for the pipeline to disappear
+	require.NoError(t, backoff.Retry(func() error {
+		_, err := c.InspectPipeline(pipeline)
+		if err == nil {
+			return fmt.Errorf("expected pipeline to be missing, but it's still present")
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 
 	// The job should be gone
 	jobs, err := c.ListJob(pipeline, nil, nil)
@@ -1138,11 +1158,29 @@ func TestDeletePipeline(t *testing.T) {
 	require.Equal(t, len(jobs), 0)
 
 	createPipeline()
-	// Wait for the job to start running
-	time.Sleep(15 * time.Second)
+	// Wait for the pipeline to start running
+	time.Sleep(10 * time.Second)
+	require.NoError(t, backoff.Retry(func() error {
+		pipelineInfo, err := c.InspectPipeline(pipeline)
+		if err != nil {
+			return err
+		}
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
+			return fmt.Errorf("no running pipeline")
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 	require.NoError(t, c.DeleteRepo(pipeline, false))
 	require.NoError(t, c.DeletePipeline(pipeline, false))
+	// Wait for the pipeline to disappear
 	time.Sleep(5 * time.Second)
+	require.NoError(t, backoff.Retry(func() error {
+		_, err := c.InspectPipeline(pipeline)
+		if err == nil {
+			return fmt.Errorf("expected pipeline to be missing, but it's still present")
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 
 	// The job should still be there, and its state should be "KILLED"
 	jobs, err = c.ListJob(pipeline, nil, nil)
@@ -3001,37 +3039,35 @@ func TestDatumStatusRestart(t *testing.T) {
 	))
 	var jobID string
 	var datumStarted time.Time
+	// checkStatus waits for 'pipeline' to start and makes sure that each time
+	// it's called, the datum being processes was started at a new and later time
+	// (than the last time checkStatus was called)
 	checkStatus := func() {
-		started := time.Now()
-		for {
-			time.Sleep(time.Second)
-			if time.Since(started) > time.Second*60 {
-				t.Fatalf("failed to find status in time")
-			}
+		require.NoError(t, backoff.Retry(func() error {
+			// get the
 			jobs, err := c.ListJob(pipeline, nil, nil)
 			require.NoError(t, err)
 			if len(jobs) == 0 {
-				continue
+				return fmt.Errorf("no jobs found")
 			}
+
 			jobID = jobs[0].Job.ID
 			jobInfo, err := c.InspectJob(jobs[0].Job.ID, false)
 			require.NoError(t, err)
 			if len(jobInfo.WorkerStatus) == 0 {
-				continue
+				return fmt.Errorf("no worker statuses")
 			}
 			if jobInfo.WorkerStatus[0].JobID == jobInfo.Job.ID {
-				// This method is called before and after the datum is
-				// restarted, this makes sure that the restart actually did
-				// something.
 				// The first time this function is called, datumStarted is zero
 				// so `Before` is true for any non-zero time.
 				_datumStarted, err := types.TimestampFromProto(jobInfo.WorkerStatus[0].Started)
 				require.NoError(t, err)
 				require.True(t, datumStarted.Before(_datumStarted))
 				datumStarted = _datumStarted
-				break
+				return nil
 			}
-		}
+			return fmt.Errorf("worker status from wrong job")
+		}, backoff.RetryEvery(time.Second).For(30*time.Second)))
 	}
 	checkStatus()
 	require.NoError(t, c.RestartDatum(jobID, []string{"/file"}))
@@ -4973,6 +5009,135 @@ func TestMaxQueueSize(t *testing.T) {
 		}
 		return nil
 	}, backoff.RetryEvery(500*time.Millisecond).For(20*time.Second)))
+}
+
+func TestHTTPGetFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestHTTPGetFile_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo"))
+	f, err := os.Open("../../etc/testing/artifacts/giphy.gif")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "giphy.gif", f)
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	var host string
+	clientAddr := c.GetAddress()
+	tokens := strings.Split(clientAddr, ":")
+	require.Equal(t, 2, len(tokens))
+	host = tokens[0]
+
+	// Try to get raw contents
+	resp, err := http.Get(fmt.Sprintf("http://%v:30652/v1/pfs/repos/%v/commits/%v/files/file", host, dataRepo, commit1.ID))
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	contents, err := ioutil.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, "foo", string(contents))
+	contentDisposition := resp.Header.Get("Content-Disposition")
+	require.Equal(t, "", contentDisposition)
+
+	// Try to get file for downloading
+	resp, err = http.Get(fmt.Sprintf("http://%v:30652/v1/pfs/repos/%v/commits/%v/files/file?download=true", host, dataRepo, commit1.ID))
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	contents, err = ioutil.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, "foo", string(contents))
+	contentDisposition = resp.Header.Get("Content-Disposition")
+	require.Equal(t, "attachment; filename=\"file\"", contentDisposition)
+
+	// Make sure MIME type is set
+	resp, err = http.Get(fmt.Sprintf("http://%v:30652/v1/pfs/repos/%v/commits/%v/files/giphy.gif", host, dataRepo, commit1.ID))
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	contentDisposition = resp.Header.Get("Content-Type")
+	require.Equal(t, "image/gif", contentDisposition)
+}
+
+func TestService(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestService_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	_, err = c.PutFile(dataRepo, commit1.ID, "file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	pipeline := uniqueString("pipelineservice")
+	// This pipeline sleeps for 10 secs per datum
+	require.NoError(t, c.CreatePipelineService(
+		pipeline,
+		"trinitronx/python-simplehttpserver",
+		[]string{"sh"},
+		[]string{
+			"cd /pfs",
+			"exec python -m SimpleHTTPServer 8000",
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/"),
+		false,
+		8000,
+		31800,
+	))
+
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := http.Get(fmt.Sprintf("http://localhost:31800/%s/file1", dataRepo))
+		if err != nil {
+			return err
+		}
+		if resp.StatusCode != 200 {
+			return fmt.Errorf("GET returned %d", resp.StatusCode)
+		}
+		content, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		if string(content) != "foo" {
+			return fmt.Errorf("wrong content for file1: expected foo, got %s", string(content))
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+
+	commit2, err := c.StartCommit(dataRepo, "master")
+	_, err = c.PutFile(dataRepo, commit2.ID, "file2", strings.NewReader("bar"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
+
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := http.Get(fmt.Sprintf("http://localhost:31800/%s/file2", dataRepo))
+		if err != nil {
+			return err
+		}
+		if resp.StatusCode != 200 {
+			return fmt.Errorf("GET returned %d", resp.StatusCode)
+		}
+		content, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		if string(content) != "bar" {
+			return fmt.Errorf("wrong content for file2: expected bar, got %s", string(content))
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {

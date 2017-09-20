@@ -128,14 +128,14 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCa
 		DialOptions: client.EtcdDialOptions(),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("could not connect to etcd: %s", err.Error())
+		return nil, fmt.Errorf("could not connect to etcd: %v", err)
 	}
 	if treeCacheSize <= 0 {
 		treeCacheSize = defaultTreeCacheSize
 	}
 	treeCache, err := lru.New(int(treeCacheSize))
 	if err != nil {
-		return nil, fmt.Errorf("could not initialize treeCache: %s", err.Error())
+		return nil, fmt.Errorf("could not initialize treeCache: %v", err)
 	}
 
 	d := &driver{
@@ -192,7 +192,8 @@ func (d *driver) checkIsAuthorized(ctx context.Context, r *pfs.Repo, s auth.Scop
 	if err == nil && !resp.Authorized {
 		return &auth.NotAuthorizedError{Repo: r.Name, Required: s}
 	} else if err != nil && !auth.IsNotActivatedError(err) {
-		return fmt.Errorf("error during authorization check for operation on %s: %s", r.Name, err.Error())
+		return fmt.Errorf("error during authorization check for operation on \"%s\": %v",
+			r.Name, grpcutil.ScrubGRPC(err))
 	}
 	return nil
 }
@@ -217,119 +218,48 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 	if err := ValidateRepoName(repo.Name); err != nil {
 		return err
 	}
-
 	d.initializePachConn()
 	if update {
-		// Caller only neads to be a WRITER to call UpdatePipeline(). Therefore
-		// caller only needs to be a WRITER to update the provenance.
-		if err := d.checkIsAuthorized(ctx, repo, auth.Scope_WRITER); err != nil {
-			return err
-		}
-	} else {
-		// If the auth system is activated and the user is not signed in, reject the
-		// request. However, don't create the ACL until the repo has been created
-		// successfully, because a repo w/ no ACL can be fixed by a cluster admin.
-		// note that 'whoAmI' and 'authErr' are set iff 'update' == false.
-		whoAmI, err := d.pachClient.AuthAPIClient.WhoAmI(auth.In2Out(ctx),
-			&auth.WhoAmIRequest{})
-		if err != nil {
-			if !auth.IsNotActivatedError(err) {
-				return fmt.Errorf("authorization error while creating repo \"%s\": %s", repo.Name, err.Error())
-			}
-		} else {
-			// auth is active, and user is logged in. Make user an owner of the new repo
-			_, err := d.pachClient.AuthAPIClient.SetScope(auth.In2Out(ctx), &auth.SetScopeRequest{
-				Repo:     repo.Name,
-				Username: whoAmI.Username,
-				Scope:    auth.Scope_OWNER,
-			})
-			if err != nil {
-				return fmt.Errorf("could not create ACL for new repo \"%s\": %s", repo.Name, err.Error())
-			}
-		}
+		return d.updateRepo(ctx, repo, provenance, description)
 	}
 
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		repos := d.repos.ReadWrite(stm)
 		repoRefCounts := d.repoRefCounts.ReadWriteInt(stm)
 
-		if update {
-			repoInfo := new(pfs.RepoInfo)
-			if err := repos.Get(repo.Name, repoInfo); err != nil {
-				return err
-			}
-
-			provToAdd := make(map[string]bool)
-			provToRemove := make(map[string]bool)
-			for _, newProv := range provenance {
-				provToAdd[newProv.Name] = true
-			}
-			for _, oldProv := range repoInfo.Provenance {
-				delete(provToAdd, oldProv.Name)
-				provToRemove[oldProv.Name] = true
-			}
-			for _, newProv := range provenance {
-				delete(provToRemove, newProv.Name)
-			}
-
-			// For each new provenance repo, we increase its ref count
-			// by N where N is this repo's ref count.
-			// For each old provenance repo we do the opposite.
-			myRefCount, err := repoRefCounts.Get(repo.Name)
+		// check if 'repo' already exists. If so, return that error. Otherwise,
+		// proceed with auth check (avoids awkward "access denied" error when
+		// calling "createRepo" on a repo that already exists)
+		var existingRepoInfo pfs.RepoInfo
+		err := repos.Get(repo.Name, &existingRepoInfo)
+		if err != nil && !col.IsErrNotFound(err) {
+			return fmt.Errorf("error checking whether \"%s\" exists: %v",
+				repo.Name, err)
+		} else if err == nil {
+			return fmt.Errorf("cannot create \"%s\" as it already exists", repo.Name)
+		}
+		// Create ACL for new repo
+		whoAmI, err := d.pachClient.AuthAPIClient.WhoAmI(auth.In2Out(ctx),
+			&auth.WhoAmIRequest{})
+		if err != nil && !auth.IsNotActivatedError(err) {
+			return fmt.Errorf("error while creating repo \"%s\": %v",
+				repo.Name, grpcutil.ScrubGRPC(err))
+		} else if err == nil {
+			// auth is active, and user is logged in. Make user an owner of the new
+			// repo (and clear any existing ACL under this name that might have been
+			// created by accident)
+			_, err := d.pachClient.AuthAPIClient.SetACL(auth.In2Out(ctx), &auth.SetACLRequest{
+				Repo: repo.Name,
+				NewACL: &auth.ACL{
+					Entries: map[string]auth.Scope{
+						whoAmI.Username: auth.Scope_OWNER,
+					},
+				},
+			})
 			if err != nil {
-				return err
+				return fmt.Errorf("could not create ACL for new repo \"%s\": %v",
+					repo.Name, grpcutil.ScrubGRPC(err))
 			}
-			// +1 because we need to include ourselves.
-			myRefCount++
-
-			for newProv := range provToAdd {
-				fmt.Printf("incrementing %v by %v\n", newProv, myRefCount)
-				if err := repoRefCounts.IncrementBy(newProv, myRefCount); err != nil {
-					return err
-				}
-			}
-
-			for oldProv := range provToRemove {
-				fmt.Printf("decrementing %v by %v\n", oldProv, myRefCount)
-				if err := repoRefCounts.DecrementBy(oldProv, myRefCount); err != nil {
-					return err
-				}
-			}
-
-			// We also add the new provenance repos to the provenance
-			// of all downstream repos, and remove the old provenance
-			// repos from their provenance.
-			downstreamRepos, err := d.listRepo(ctx, []*pfs.Repo{repo}, false)
-			if err != nil {
-				return err
-			}
-
-			for _, repoInfo := range downstreamRepos.RepoInfo {
-			nextNewProv:
-				for newProv := range provToAdd {
-					for _, prov := range repoInfo.Provenance {
-						if newProv == prov.Name {
-							continue nextNewProv
-						}
-					}
-					repoInfo.Provenance = append(repoInfo.Provenance, &pfs.Repo{newProv})
-				}
-			nextOldProv:
-				for oldProv := range provToRemove {
-					for i, prov := range repoInfo.Provenance {
-						if oldProv == prov.Name {
-							repoInfo.Provenance = append(repoInfo.Provenance[:i], repoInfo.Provenance[i+1:]...)
-							continue nextOldProv
-						}
-					}
-				}
-				repos.Put(repoInfo.Repo.Name, repoInfo)
-			}
-
-			repoInfo.Description = description
-			repoInfo.Provenance = provenance
-			repos.Put(repo.Name, repoInfo)
-			return nil
 		}
 
 		// compute the full provenance of this repo
@@ -353,11 +283,9 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 				return err
 			}
 		}
-
 		if err := repoRefCounts.Create(repo.Name, 0); err != nil {
 			return err
 		}
-
 		repoInfo := &pfs.RepoInfo{
 			Repo:        repo,
 			Created:     now(),
@@ -366,29 +294,137 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 		}
 		return repos.Create(repo.Name, repoInfo)
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
+}
+
+func (d *driver) updateRepo(ctx context.Context, repo *pfs.Repo, provenance []*pfs.Repo, description string) error {
+	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		repos := d.repos.ReadWrite(stm)
+		repoRefCounts := d.repoRefCounts.ReadWriteInt(stm)
+
+		repoInfo := new(pfs.RepoInfo)
+		if err := repos.Get(repo.Name, repoInfo); err != nil {
+			return fmt.Errorf("error updating repo: %v", err)
+		}
+		// Caller only neads to be a WRITER to call UpdatePipeline(), so caller only
+		// needs to be a WRITER to update the provenance.
+		if err := d.checkIsAuthorized(ctx, repo, auth.Scope_WRITER); err != nil {
+			return err
+		}
+
+		provToAdd := make(map[string]bool)
+		provToRemove := make(map[string]bool)
+		for _, newProv := range provenance {
+			provToAdd[newProv.Name] = true
+		}
+		for _, oldProv := range repoInfo.Provenance {
+			delete(provToAdd, oldProv.Name)
+			provToRemove[oldProv.Name] = true
+		}
+		for _, newProv := range provenance {
+			delete(provToRemove, newProv.Name)
+		}
+
+		// For each new provenance repo, we increase its ref count
+		// by N where N is this repo's ref count.
+		// For each old provenance repo we do the opposite.
+		myRefCount, err := repoRefCounts.Get(repo.Name)
+		if err != nil {
+			return err
+		}
+		// +1 because we need to include ourselves.
+		myRefCount++
+
+		for newProv := range provToAdd {
+			fmt.Printf("incrementing %v by %v\n", newProv, myRefCount)
+			if err := repoRefCounts.IncrementBy(newProv, myRefCount); err != nil {
+				return err
+			}
+		}
+
+		for oldProv := range provToRemove {
+			fmt.Printf("decrementing %v by %v\n", oldProv, myRefCount)
+			if err := repoRefCounts.DecrementBy(oldProv, myRefCount); err != nil {
+				return err
+			}
+		}
+
+		// We also add the new provenance repos to the provenance
+		// of all downstream repos, and remove the old provenance
+		// repos from their provenance.
+		downstreamRepos, err := d.listRepo(ctx, []*pfs.Repo{repo}, !includeAuth)
+		if err != nil {
+			return err
+		}
+
+		for _, repoInfo := range downstreamRepos.RepoInfo {
+		nextNewProv:
+			for newProv := range provToAdd {
+				for _, prov := range repoInfo.Provenance {
+					if newProv == prov.Name {
+						continue nextNewProv
+					}
+				}
+				repoInfo.Provenance = append(repoInfo.Provenance, &pfs.Repo{newProv})
+			}
+		nextOldProv:
+			for oldProv := range provToRemove {
+				for i, prov := range repoInfo.Provenance {
+					if oldProv == prov.Name {
+						repoInfo.Provenance = append(repoInfo.Provenance[:i], repoInfo.Provenance[i+1:]...)
+						continue nextOldProv
+					}
+				}
+			}
+			repos.Put(repoInfo.Repo.Name, repoInfo)
+		}
+
+		repoInfo.Description = description
+		repoInfo.Provenance = provenance
+		repos.Put(repo.Name, repoInfo)
+		return nil
+	})
+	return err
 }
 
 func (d *driver) inspectRepo(ctx context.Context, repo *pfs.Repo, includeAuth bool) (*pfs.RepoInfo, error) {
+	d.initializePachConn()
 	result := &pfs.RepoInfo{}
 	if err := d.repos.ReadOnly(ctx).Get(repo.Name, result); err != nil {
 		return nil, err
 	}
 	if includeAuth {
-		resp, err := d.pachClient.AuthAPIClient.GetScope(auth.In2Out(ctx),
-			&auth.GetScopeRequest{Repos: []string{repo.Name}})
-		if err != nil && !auth.IsNotActivatedError(err) {
-			return nil, fmt.Errorf("error getting scope for %s: %s", repo.Name, err.Error())
+		accessLevel, err := d.getAccessLevel(ctx, repo)
+		if err != nil {
+			if auth.IsNotActivatedError(err) {
+				return result, nil
+			}
+			return nil, fmt.Errorf("error getting access level for \"%s\": %v",
+				repo.Name, grpcutil.ScrubGRPC(err))
 		}
-		if len(resp.Scopes) != 1 {
-			return nil, fmt.Errorf("unexpected result from GetScope(): %#v", resp)
-		}
-		result.Scope = resp.Scopes[0]
+		result.AuthInfo = &pfs.RepoAuthInfo{AccessLevel: accessLevel}
 	}
 	return result, nil
+}
+
+func (d *driver) getAccessLevel(ctx context.Context, repo *pfs.Repo) (auth.Scope, error) {
+	who, err := d.pachClient.AuthAPIClient.WhoAmI(auth.In2Out(ctx),
+		&auth.WhoAmIRequest{})
+	if err != nil {
+		return auth.Scope_NONE, err
+	}
+	if who.IsAdmin {
+		return auth.Scope_OWNER, nil
+	}
+	resp, err := d.pachClient.AuthAPIClient.GetScope(auth.In2Out(ctx),
+		&auth.GetScopeRequest{Repos: []string{repo.Name}})
+	if err != nil {
+		return auth.Scope_NONE, err
+	}
+	if len(resp.Scopes) != 1 {
+		return auth.Scope_NONE, fmt.Errorf("too many results from GetScope: %#v", resp)
+	}
+	return resp.Scopes[0], nil
 }
 
 func (d *driver) listRepo(ctx context.Context, provenance []*pfs.Repo, includeAuth bool) (*pfs.ListRepoResponse, error) {
@@ -406,6 +442,7 @@ func (d *driver) listRepo(ctx context.Context, provenance []*pfs.Repo, includeAu
 		return nil, err
 	}
 	result := new(pfs.ListRepoResponse)
+	authSeemsActive := true
 nextRepo:
 	for {
 		repoName, repoInfo := "", new(pfs.RepoInfo)
@@ -429,20 +466,15 @@ nextRepo:
 				continue nextRepo
 			}
 		}
-		if includeAuth {
-			// Include auth information in the response
-			resp, err := d.pachClient.AuthAPIClient.GetScope(auth.In2Out(ctx),
-				&auth.GetScopeRequest{
-					Repos: []string{repoName},
-				})
-			if err != nil && !auth.IsNotActivatedError(err) {
-				return nil, fmt.Errorf("error getting scopes: %s", err.Error())
-			}
-			if len(resp.Scopes) != 1 {
-				return nil, fmt.Errorf("unexpected result from GetScope(): %#v", resp)
-			}
-			if resp != nil {
-				repoInfo.Scope = resp.Scopes[0]
+		if includeAuth && authSeemsActive {
+			accessLevel, err := d.getAccessLevel(ctx, repoInfo.Repo)
+			if err == nil {
+				repoInfo.AuthInfo = &pfs.RepoAuthInfo{AccessLevel: accessLevel}
+			} else if auth.IsNotActivatedError(err) {
+				authSeemsActive = false
+			} else {
+				return nil, fmt.Errorf("error getting access level for \"%s\": %v",
+					repoName, grpcutil.ScrubGRPC(err))
 			}
 		}
 		result.RepoInfo = append(result.RepoInfo, repoInfo)
@@ -502,7 +534,7 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 	if _, err = d.pachClient.AuthAPIClient.SetACL(auth.In2Out(ctx), &auth.SetACLRequest{
 		Repo: repo.Name, // NewACL is unset, so this will clear the acl for 'repo'
 	}); err != nil && !auth.IsNotActivatedError(err) {
-		return err
+		return grpcutil.ScrubGRPC(err)
 	}
 	return nil
 }
@@ -1315,10 +1347,7 @@ func (d *driver) setBranch(ctx context.Context, commit *pfs.Commit, name string)
 			return err
 		}
 
-		if err := branches.Put(name, commit); err != nil {
-			return err
-		}
-		return nil
+		return branches.Put(name, commit)
 	})
 	return err
 }
@@ -1373,7 +1402,7 @@ func checkPath(path string) error {
 }
 
 func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter,
-	targetFileDatums int64, targetFileBytes int64, overwrite bool, reader io.Reader) error {
+	targetFileDatums int64, targetFileBytes int64, overwriteIndex *pfs.OverwriteIndex, reader io.Reader) error {
 	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
@@ -1390,13 +1419,13 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		file.Commit = commitInfo.Commit
 	}
 
-	if overwrite {
+	if overwriteIndex != nil && overwriteIndex.Index == 0 {
 		if err := d.deleteFile(ctx, file); err != nil {
 			return err
 		}
 	}
 
-	records := &PutFileRecords{}
+	records := &pfs.PutFileRecords{}
 	if err := checkPath(file.Path); err != nil {
 		return err
 	}
@@ -1428,14 +1457,33 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	}
 
 	if delimiter == pfs.Delimiter_NONE {
-		object, size, err := d.pachClient.PutObject(reader)
+		objects, size, err := d.pachClient.PutObjectSplit(reader)
 		if err != nil {
 			return err
 		}
-		records.Records = append(records.Records, &PutFileRecord{
-			SizeBytes:  size,
+
+		// Here we use the invariant that every one but the last object
+		// should have a size of ChunkSize.
+		for i, object := range objects {
+			record := &pfs.PutFileRecord{
 			ObjectHash: object.Hash,
-		})
+			}
+
+			if size > pfs.ChunkSize {
+				record.SizeBytes = pfs.ChunkSize
+			} else {
+				record.SizeBytes = size
+			}
+			size -= pfs.ChunkSize
+
+			// The first record takes care of the overwriting
+			if i == 0 && overwriteIndex != nil && overwriteIndex.Index != 0 {
+				record.OverwriteIndex = overwriteIndex
+			}
+
+			records.Records = append(records.Records, record)
+		}
+
 		return putRecords()
 	}
 	buffer := &bytes.Buffer{}
@@ -1447,7 +1495,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	decoder := json.NewDecoder(reader)
 	bufioR := bufio.NewReader(reader)
 
-	indexToRecord := make(map[int]*PutFileRecord)
+	indexToRecord := make(map[int]*pfs.PutFileRecord)
 	var mu sync.Mutex
 	for !EOF {
 		var err error
@@ -1486,7 +1534,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 				}
 				mu.Lock()
 				defer mu.Unlock()
-				indexToRecord[index] = &PutFileRecord{
+				indexToRecord[index] = &pfs.PutFileRecord{
 					SizeBytes:  size,
 					ObjectHash: object.Hash,
 				}
@@ -1556,7 +1604,7 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 				// This shouldn't be possible
 				return fmt.Errorf("error from filepath.Rel: %+v (this is likely a bug)", err)
 			}
-			records := &PutFileRecords{}
+			records := &pfs.PutFileRecords{}
 			file := client.NewFile(dst.Commit.Repo.Name, dst.Commit.ID, path.Clean(path.Join(dst.Path, relPath)))
 			prefix, err := d.scratchFilePrefix(ctx, file)
 			if err != nil {
@@ -1567,7 +1615,7 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 				if i == 0 {
 					size = node.SubtreeSize
 				}
-				records.Records = append(records.Records, &PutFileRecord{
+				records.Records = append(records.Records, &pfs.PutFileRecord{
 					SizeBytes:  size,
 					ObjectHash: object.Hash,
 				})
@@ -1888,7 +1936,7 @@ func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
 }
 
 func (d *driver) deleteAll(ctx context.Context) error {
-	repoInfos, err := d.listRepo(ctx, nil, false)
+	repoInfos, err := d.listRepo(ctx, nil, !includeAuth)
 	if err != nil {
 		return err
 	}
@@ -1901,6 +1949,8 @@ func (d *driver) deleteAll(ctx context.Context) error {
 }
 
 func (d *driver) applyWrites(resp *etcd.GetResponse, tree hashtree.OpenHashTree) error {
+	// a map that keeps track of the sizes of objects
+	sizeMap := make(map[string]int64)
 	for _, kv := range resp.Kvs {
 		// fileStr is going to look like "some/path/UUID"
 		fileStr := d.filePathFromEtcdPath(string(kv.Key))
@@ -1918,16 +1968,35 @@ func (d *driver) applyWrites(resp *etcd.GetResponse, tree hashtree.OpenHashTree)
 				}
 			}
 		} else {
-			records := &PutFileRecords{}
+			records := &pfs.PutFileRecords{}
 			if err := records.Unmarshal(kv.Value); err != nil {
 				return err
 			}
 			if !records.Split {
-				if len(records.Records) != 1 {
-					return fmt.Errorf("unexpect %d length PutFileRecord (this is likely a bug)", len(records.Records))
+				if len(records.Records) == 0 {
+					return fmt.Errorf("unexpect %d length pfs.PutFileRecord (this is likely a bug)", len(records.Records))
 				}
-				if err := tree.PutFile(filePath, []*pfs.Object{{Hash: records.Records[0].ObjectHash}}, records.Records[0].SizeBytes); err != nil {
+				for _, record := range records.Records {
+					sizeMap[record.ObjectHash] = record.SizeBytes
+					if record.OverwriteIndex != nil {
+						// Computing size delta
+						delta := record.SizeBytes
+						fileNode, err := tree.Get(filePath)
+						if err == nil {
+							// If we can't find the file, that's fine.
+							for i := record.OverwriteIndex.Index; int(i) < len(fileNode.FileNode.Objects); i++ {
+								delta -= sizeMap[fileNode.FileNode.Objects[i].Hash]
+							}
+						}
+
+						if err := tree.PutFileOverwrite(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.OverwriteIndex, delta); err != nil {
 					return err
+						}
+					} else {
+						if err := tree.PutFile(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+							return err
+						}
+					}
 				}
 			} else {
 				nodes, err := tree.List(filePath)

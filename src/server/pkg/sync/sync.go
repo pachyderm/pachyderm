@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -406,4 +407,41 @@ func PushObj(pachClient pachclient.APIClient, commit *pfs.Commit, objClient obj.
 		return err
 	}
 	return eg.Wait()
+}
+
+func isNotExist(err error) bool {
+	return strings.Contains(err.Error(), "not found")
+}
+
+// PushFile makes sure that pfsFile has the same content as osFile.
+func PushFile(client *pachclient.APIClient, pfsFile *pfs.File, osFile io.ReadSeeker) error {
+	fileInfo, err := client.InspectFile(pfsFile.Commit.Repo.Name, pfsFile.Commit.ID, pfsFile.Path)
+	if err != nil && !isNotExist(err) {
+		return err
+	}
+
+	var i int
+	var object *pfs.Object
+	if fileInfo != nil {
+		for i, object = range fileInfo.Objects {
+			hash := pfs.NewHash()
+			if _, err := io.CopyN(hash, osFile, pfs.ChunkSize); err != nil {
+				if err == io.EOF {
+					break
+				}
+				return err
+			}
+
+			if object.Hash != pfs.EncodeHash(hash.Sum(nil)) {
+				break
+			}
+		}
+	}
+
+	if _, err := osFile.Seek(int64(i)*pfs.ChunkSize, 0); err != nil {
+		return err
+	}
+
+	_, err = client.PutFileOverwrite(pfsFile.Commit.Repo.Name, pfsFile.Commit.ID, pfsFile.Path, osFile, int64(i))
+	return err
 }
