@@ -125,7 +125,7 @@ deploy_k8s_on_aws() {
         --dns=private \
         --dns-zone=kubernetes.com \
         --node-size=${NODE_SIZE} \
-        --master-size=${NODE_SIZE} \
+        --master-size=${MASTER_SIZE} \
         --name=${NAME} \
         --yes
     kops update cluster ${NAME} --yes --state=${STATE_BUCKET}
