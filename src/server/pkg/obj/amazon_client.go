@@ -32,10 +32,13 @@ type amazonClient struct {
 }
 
 func newAmazonClient(bucket string, cloudfrontDistribution string, id string, secret string, token string, region string) (*amazonClient, error) {
-	session := session.New(&aws.Config{
-		Credentials: credentials.NewStaticCredentials(id, secret, token),
-		Region:      aws.String(region),
-	})
+	config := &aws.Config{
+		Region: aws.String(region),
+	}
+	if id != "" {
+		config.Credentials = credentials.NewStaticCredentials(id, secret, token)
+	}
+	session := session.New(config)
 	var signer *sign.URLSigner
 	cloudfrontDistribution = strings.TrimSpace(cloudfrontDistribution)
 	if cloudfrontDistribution != "" {
