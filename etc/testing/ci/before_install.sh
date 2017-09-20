@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -ex
 
 echo 'DOCKER_OPTS="-H unix:///var/run/docker.sock -s devicemapper"' | tee /etc/default/docker
 > /dev/null
