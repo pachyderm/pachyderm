@@ -98,14 +98,12 @@ func (s *HTTPServer) authLoginHandler(w http.ResponseWriter, r *http.Request, ps
 	err := decoder.Decode(&data)
 	if err != nil {
 		// Return 500
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("malformed JSON sent in payload: %v", err)))
+		http.Error(w, fmt.Sprintf("malformed JSON sent in payload: %v", err), http.StatusInternalServerError)
 		return
 	}
 	if data.Token == "" {
 		// Return 500
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("empty token provided"))
+		http.Error(w, "empty token provided", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Add("Set-Cookie", fmt.Sprintf("%v=%v", auth.ContextTokenKey,

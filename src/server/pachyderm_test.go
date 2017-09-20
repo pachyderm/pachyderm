@@ -5036,6 +5036,7 @@ func TestHTTPAuth(t *testing.T) {
 	defer resp.Body.Close()
 	require.Equal(t, 1, len(resp.Cookies()))
 	require.Equal(t, auth.ContextTokenKey, resp.Cookies()[0].Name)
+	require.Equal(t, "*", resp.Header.Get("Access-Control-Allow-Origin"))
 	require.Equal(t, token, resp.Cookies()[0].Value)
 
 	// Try to logout
@@ -5046,6 +5047,7 @@ func TestHTTPAuth(t *testing.T) {
 	defer resp.Body.Close()
 	require.Equal(t, 1, len(resp.Cookies()))
 	require.Equal(t, auth.ContextTokenKey, resp.Cookies()[0].Name)
+	require.Equal(t, "*", resp.Header.Get("Access-Control-Allow-Origin"))
 	// The cookie should be unset now
 	require.Equal(t, "", resp.Cookies()[0].Value)
 }
