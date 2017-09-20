@@ -165,7 +165,7 @@ func (c *amazonClient) Exists(name string) bool {
 	return err == nil
 }
 
-func (c *amazonClient) isRetryable(err error) (retVal bool) {
+func (c *amazonClient) IsRetryable(err error) (retVal bool) {
 	if strings.Contains(err.Error(), "unexpected EOF") {
 		return true
 	}

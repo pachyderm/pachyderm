@@ -61,6 +61,7 @@ message WhoAmIRequest {}
 
 message WhoAmIResponse {
   string username = 1;
+  bool is_admin = 2;
 }
 
 //// Authorization data structures

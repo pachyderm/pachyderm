@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 
 	"github.com/spf13/cobra"
@@ -30,12 +31,12 @@ func ActivateCmd() *cobra.Command {
 			}
 			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
-				return fmt.Errorf("could not connect: %s", err.Error())
+				return fmt.Errorf("could not connect: %v", err)
 			}
-			_, err = c.AuthAPIClient.Activate(c.Ctx(), &auth.ActivateRequest{
+			_, err = c.Activate(c.Ctx(), &auth.ActivateRequest{
 				Admins: admins,
 			})
-			return err
+			return grpcutil.ScrubGRPC(err)
 		}),
 	}
 	activate.PersistentFlags().StringSliceVar(&admins, "admins", []string{},
@@ -58,15 +59,15 @@ func DeactivateCmd() *cobra.Command {
 			fmt.Println("Are you sure you want to delete ALL auth information " +
 				"(ACLs, tokens, and admins) in this cluster, and expose ALL data? yN")
 			confirm, err := bufio.NewReader(os.Stdin).ReadString('\n')
-			if !strings.Contains("yY", confirm) {
+			if !strings.Contains("yY", confirm[:1]) {
 				return fmt.Errorf("operation aborted")
 			}
 			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
-				return fmt.Errorf("could not connect: %s", err.Error())
+				return fmt.Errorf("could not connect: %v", err)
 			}
-			_, err = c.AuthAPIClient.Deactivate(c.Ctx(), &auth.DeactivateRequest{})
-			return err
+			_, err = c.Deactivate(c.Ctx(), &auth.DeactivateRequest{})
+			return grpcutil.ScrubGRPC(err)
 		}),
 	}
 	return deactivate
@@ -93,24 +94,25 @@ func LoginCmd() *cobra.Command {
 				"from GitHub here:")
 			token, err := bufio.NewReader(os.Stdin).ReadString('\n')
 			if err != nil {
-				return fmt.Errorf("error reading token: %s", err.Error())
+				return fmt.Errorf("error reading token: %v", err)
 			}
+			fmt.Println("Retrieving Pachyderm token...")
 			token = strings.TrimSpace(token) // drop trailing newline
 			cfg, err := config.Read()
 			if err != nil {
 				return fmt.Errorf("error reading Pachyderm config (for cluster "+
-					"address): %s", err.Error())
+					"address): %v", err)
 			}
 			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
-				return fmt.Errorf("could not connect: %s", err.Error())
+				return fmt.Errorf("could not connect: %v", err)
 			}
-			resp, err := c.AuthAPIClient.Authenticate(
+			resp, err := c.Authenticate(
 				c.Ctx(),
 				&auth.AuthenticateRequest{GithubUsername: username, GithubToken: token})
 			if err != nil {
-				return fmt.Errorf("error authenticating with Pachyderm cluster: %s",
-					err.Error())
+				return fmt.Errorf("error authenticating with Pachyderm cluster: %v",
+					grpcutil.ScrubGRPC(err))
 			}
 			if cfg.V1 == nil {
 				cfg.V1 = &config.ConfigV1{}
@@ -119,10 +121,61 @@ func LoginCmd() *cobra.Command {
 			return cfg.Write()
 		}),
 	}
-	login.PersistentFlags().StringVar(&username, "user", "", "GitHub username of "+
-		"the user logging in. If unset, the username will be inferred from the "+
-		"github authorization code")
+	login.PersistentFlags().StringVarP(&username, "user", "u", "", "GitHub "+
+		"username of the user logging in. If unset, the username will be inferred "+
+		"from the github authorization code")
 	return login
+}
+
+// LogoutCmd returns a cobra.Command that deletes your local Pachyderm
+// credential, logging you out of your cluster. Note that this is not necessary
+// to do before logging in as another user, but is useful for testing.
+func LogoutCmd() *cobra.Command {
+	logout := &cobra.Command{
+		Use:   "logout",
+		Short: "Log out of Pachyderm by deleting your local credential",
+		Long: "Log out of Pachyderm by deleting your local credential. Note that " +
+			"it's not necessary to log out before logging in with another account " +
+			"(simply run 'pachctl auth login' twice) but 'logout' can be useful on " +
+			"shared workstations.",
+		Run: cmdutil.Run(func([]string) error {
+			cfg, err := config.Read()
+			if err != nil {
+				return fmt.Errorf("error reading Pachyderm config (for cluster "+
+					"address): %v", err)
+			}
+			if cfg.V1 == nil {
+				return nil
+			}
+			cfg.V1.SessionToken = ""
+			return cfg.Write()
+		}),
+	}
+	return logout
+}
+
+// WhoamiCmd returns a cobra.Command that deletes your local Pachyderm
+// credential, logging you out of your cluster. Note that this is not necessary
+// to do before logging in as another user, but is useful for testing.
+func WhoamiCmd() *cobra.Command {
+	whoami := &cobra.Command{
+		Use:   "whoami",
+		Short: "Print your Pachyderm identity",
+		Long:  "Print your Pachyderm identity.",
+		Run: cmdutil.Run(func([]string) error {
+			c, err := client.NewOnUserMachine(true, "user")
+			if err != nil {
+				return fmt.Errorf("could not connect: %v", err)
+			}
+			resp, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+			if err != nil {
+				return fmt.Errorf("error: %v", grpcutil.ScrubGRPC(err))
+			}
+			fmt.Printf("You are \"%s\"\n", resp.Username)
+			return nil
+		}),
+	}
+	return whoami
 }
 
 // CheckCmd returns a cobra command that sends an "Authorize" RPC to Pachd, to
@@ -146,16 +199,14 @@ func CheckCmd() *cobra.Command {
 			repo := args[1]
 			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
-				return fmt.Errorf("could not connect: %s", err.Error())
+				return fmt.Errorf("could not connect: %v", err)
 			}
-			resp, err := c.AuthAPIClient.Authorize(
-				c.Ctx(),
-				&auth.AuthorizeRequest{
-					Repo:  repo,
-					Scope: scope,
-				})
+			resp, err := c.Authorize(c.Ctx(), &auth.AuthorizeRequest{
+				Repo:  repo,
+				Scope: scope,
+			})
 			if err != nil {
-				return err
+				return grpcutil.ScrubGRPC(err)
 			}
 			fmt.Printf("%t\n", resp.Authorized)
 			return nil
@@ -179,32 +230,28 @@ func GetCmd() *cobra.Command {
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
 			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
-				return fmt.Errorf("could not connect: %s", err.Error())
+				return fmt.Errorf("could not connect: %v", err)
 			}
 			if len(args) == 1 {
 				// Get ACL for a repo
 				repo := args[0]
-				resp, err := c.AuthAPIClient.GetACL(
-					c.Ctx(),
-					&auth.GetACLRequest{
-						Repo: repo,
-					})
+				resp, err := c.GetACL(c.Ctx(), &auth.GetACLRequest{
+					Repo: repo,
+				})
 				if err != nil {
-					return err
+					return grpcutil.ScrubGRPC(err)
 				}
 				fmt.Println(resp.ACL.String())
 				return nil
 			}
 			// Get User's scope on an acl
 			username, repo := args[0], args[1]
-			resp, err := c.AuthAPIClient.GetScope(
-				c.Ctx(),
-				&auth.GetScopeRequest{
-					Repos:    []string{repo},
-					Username: username,
-				})
+			resp, err := c.GetScope(c.Ctx(), &auth.GetScopeRequest{
+				Repos:    []string{repo},
+				Username: username,
+			})
 			if err != nil {
-				return err
+				return grpcutil.ScrubGRPC(err)
 			}
 			fmt.Println(resp.Scopes[0].String())
 			return nil
@@ -235,16 +282,14 @@ func SetScopeCmd() *cobra.Command {
 			username, repo := args[0], args[2]
 			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
-				return fmt.Errorf("could not connect: %s", err.Error())
+				return fmt.Errorf("could not connect: %v", err)
 			}
-			_, err = c.AuthAPIClient.SetScope(
-				c.Ctx(),
-				&auth.SetScopeRequest{
-					Repo:     repo,
-					Scope:    scope,
-					Username: username,
-				})
-			return err
+			_, err = c.SetScope(c.Ctx(), &auth.SetScopeRequest{
+				Repo:     repo,
+				Scope:    scope,
+				Username: username,
+			})
+			return grpcutil.ScrubGRPC(err)
 		}),
 	}
 	return setScope
@@ -261,9 +306,9 @@ func ListAdminsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			resp, err := c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+			resp, err := c.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 			if err != nil {
-				return err
+				return grpcutil.ScrubGRPC(err)
 			}
 			for _, user := range resp.Admins {
 				fmt.Println(user)
@@ -290,11 +335,11 @@ func ModifyAdminsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			_, err = c.AuthAPIClient.ModifyAdmins(c.Ctx(), &auth.ModifyAdminsRequest{
+			_, err = c.ModifyAdmins(c.Ctx(), &auth.ModifyAdminsRequest{
 				Add:    add,
 				Remove: remove,
 			})
-			return err
+			return grpcutil.ScrubGRPC(err)
 		}),
 	}
 	modifyAdmins.PersistentFlags().StringSliceVar(&add, "add", []string{},
@@ -315,6 +360,8 @@ func Cmds() []*cobra.Command {
 	auth.AddCommand(ActivateCmd())
 	auth.AddCommand(DeactivateCmd())
 	auth.AddCommand(LoginCmd())
+	auth.AddCommand(LogoutCmd())
+	auth.AddCommand(WhoamiCmd())
 	auth.AddCommand(CheckCmd())
 	auth.AddCommand(SetScopeCmd())
 	auth.AddCommand(GetCmd())

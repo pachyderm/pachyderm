@@ -155,8 +155,5 @@ func do(appEnvObj interface{}) error {
 	}
 
 	// If server ever exits, return error
-	if err := eg.Wait(); err != nil {
-		return err
-	}
-	return nil
+	return eg.Wait()
 }

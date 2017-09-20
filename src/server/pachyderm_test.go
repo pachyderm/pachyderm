@@ -1768,7 +1768,7 @@ func TestPrettyPrinting(t *testing.T) {
 	require.Equal(t, 1, len(commitInfos))
 	repoInfo, err := c.InspectRepo(dataRepo)
 	require.NoError(t, err)
-	require.NoError(t, pfspretty.PrintDetailedRepoInfo(repoInfo, false))
+	require.NoError(t, pfspretty.PrintDetailedRepoInfo(repoInfo))
 	for _, commitInfo := range commitInfos {
 		require.NoError(t, pfspretty.PrintDetailedCommitInfo(commitInfo))
 	}

@@ -2,7 +2,6 @@ package server
 
 import (
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
 
 // Valid object storage backends
@@ -11,12 +10,7 @@ const (
 	AmazonBackendEnvVar    = "AMAZON"
 	GoogleBackendEnvVar    = "GOOGLE"
 	MicrosoftBackendEnvVar = "MICROSOFT"
-)
-
-var (
-	blockSize = 8 * 1024 * 1024 // 8 Megabytes
-	// maxBlockSize specifies the maximum block size for any data type
-	maxBlockSize = 100 * 1024 * 1024 // 100 MB
+	LocalBackendEnvVar     = "LOCAL"
 )
 
 // APIServer represents and api server.
@@ -39,16 +33,6 @@ func NewAPIServer(address string, etcdAddresses []string, etcdPrefix string, cac
 // cacheSize is the number of commit trees which will be cached in the server.
 func NewHTTPServer(address string, etcdAddresses []string, etcdPrefix string, cacheSize int64) (*HTTPServer, error) {
 	return newHTTPServer(address, etcdAddresses, etcdPrefix, cacheSize)
-}
-
-// NewLocalBlockAPIServer creates a BlockAPIServer.
-func NewLocalBlockAPIServer(dir string) (BlockAPIServer, error) {
-	return newLocalBlockAPIServer(dir)
-}
-
-// NewObjBlockAPIServer create a BlockAPIServer from an obj.Client.
-func NewObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objClient obj.Client) (BlockAPIServer, error) {
-	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient)
 }
 
 // NewBlockAPIServer creates a BlockAPIServer using the credentials it finds in
@@ -88,7 +72,13 @@ func NewBlockAPIServer(dir string, cacheBytes int64, backend string, etcdAddress
 			return nil, err
 		}
 		return blockAPIServer, nil
+	case LocalBackendEnvVar:
+		fallthrough
 	default:
-		return NewLocalBlockAPIServer(dir)
+		blockAPIServer, err := newLocalBlockAPIServer(dir, cacheBytes, etcdAddress)
+		if err != nil {
+			return nil, err
+		}
+		return blockAPIServer, nil
 	}
 }

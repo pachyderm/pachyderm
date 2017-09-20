@@ -500,6 +500,7 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *authclient.WhoAmIRequest) (
 	}
 	return &authclient.WhoAmIResponse{
 		Username: user.Username,
+		IsAdmin:  a.isAdmin(user.Username),
 	}, nil
 }
 
@@ -858,10 +859,7 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeA
 		if user.Type != authclient.User_PIPELINE {
 			return fmt.Errorf("cannot revoke a non-pipeline auth token")
 		}
-		if err := tokens.Delete(hashToken(req.Token)); err != nil {
-			return err
-		}
-		return nil
+		return tokens.Delete(hashToken(req.Token))
 	}); err != nil {
 		return nil, err
 	}
@@ -880,7 +878,7 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.User,
 	// TODO(msteffen) cache these lookups, especially since users always authorize
 	// themselves at the beginning of a request. Don't want to look up the same
 	// token -> username entry twice.
-	md, ok := metadata.FromContext(ctx)
+	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return nil, fmt.Errorf("no authentication metadata found in context")
 	}
