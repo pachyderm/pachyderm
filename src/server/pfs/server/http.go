@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -93,20 +94,26 @@ type loginRequestPayload struct {
 
 func (s *HTTPServer) authLoginHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	var data loginRequestPayload
-	err := json.Unmarshal(r.Body, &data)
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&data)
 	if err != nil {
 		// Return 500
-		w.Write(fmt.Sprintf("malformed JSON sent in payload: %v", err))
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(fmt.Sprintf("malformed JSON sent in payload: %v", err)))
 		return
 	}
 	if data.Token == "" {
 		// Return 500
-		w.Write("empty token provided")
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("empty token provided"))
 		return
 	}
 	w.Header().Add("Set-Cookie", fmt.Sprintf("%v=%v", auth.ContextTokenKey,
 		data.Token))
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *HTTPServer) authLogoutHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	w.Header().Add("Set-Cookie", fmt.Sprintf("%v=", auth.ContextTokenKey))
 	w.WriteHeader(http.StatusOK)
 }
