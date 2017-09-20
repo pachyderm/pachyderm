@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -47,6 +48,8 @@ func newHTTPServer(address string, etcdAddresses []string, etcdPrefix string, ca
 	s := &HTTPServer{d, router}
 
 	router.GET(fmt.Sprintf("/%v/pfs/repos/:repoName/commits/:commitID/files/*filePath", apiVersion), s.getFileHandler)
+	router.POST(fmt.Sprintf("/%v/auth/login", apiVersion), s.authLoginHandler)
+	router.POST(fmt.Sprintf("/%v/auth/logout", apiVersion), s.authLogoutHandler)
 	return s, nil
 }
 
@@ -71,16 +74,60 @@ func (s *HTTPServer) getFileHandler(w http.ResponseWriter, r *http.Request, ps h
 			)
 		}
 	}
+	// Since we can't seek, open a separate reader to sniff mimetype
+	mimeReader, err := s.driver.getFile(ctx, pfsFile, 0, 0)
+	if err != nil {
+		panic(err)
+	}
+	buffer := make([]byte, 512)
+	_, err = mimeReader.Read(buffer)
+	if err != nil && err != io.EOF {
+		panic(err)
+	}
+	contentType := http.DetectContentType(buffer)
 
 	file, err := s.driver.getFile(ctx, pfsFile, 0, 0)
 	if err != nil {
 		panic(err)
 	}
-	w.Header().Add("Content-Type", "application/octet-stream")
-	w.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=\"%v\"", fileName))
+	w.Header().Add("Content-Type", contentType)
+	downloadValues := r.URL.Query()["download"]
+	if len(downloadValues) == 1 && downloadValues[0] == "true" {
+		w.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=\"%v\"", fileName))
+	}
 	fw := flushWriter{w: w}
 	if f, ok := w.(http.Flusher); ok {
 		fw.f = f
 	}
 	io.Copy(&fw, file)
+}
+
+type loginRequestPayload struct {
+	Token string
+}
+
+func (s *HTTPServer) authLoginHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	var data loginRequestPayload
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&data)
+	if err != nil {
+		// Return 500
+		http.Error(w, fmt.Sprintf("malformed JSON sent in payload: %v", err), http.StatusInternalServerError)
+		return
+	}
+	if data.Token == "" {
+		// Return 500
+		http.Error(w, "empty token provided", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Add("Set-Cookie", fmt.Sprintf("%v=%v", auth.ContextTokenKey,
+		data.Token))
+	w.Header().Add("Access-Control-Allow-Origin", "*")
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *HTTPServer) authLogoutHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	w.Header().Add("Set-Cookie", fmt.Sprintf("%v=", auth.ContextTokenKey))
+	w.Header().Add("Access-Control-Allow-Origin", "*")
+	w.WriteHeader(http.StatusOK)
 }

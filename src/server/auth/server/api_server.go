@@ -878,7 +878,7 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.User,
 	// TODO(msteffen) cache these lookups, especially since users always authorize
 	// themselves at the beginning of a request. Don't want to look up the same
 	// token -> username entry twice.
-	md, ok := metadata.FromContext(ctx)
+	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return nil, fmt.Errorf("no authentication metadata found in context")
 	}

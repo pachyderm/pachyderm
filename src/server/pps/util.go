@@ -51,13 +51,7 @@ func getNumNodes(kubeClient *kube.Client) (int, error) {
 // This is only exported for testing
 func GetExpectedNumWorkers(kubeClient *kube.Client, spec *ppsclient.ParallelismSpec) (int, error) {
 	if spec == nil || (spec.Constant == 0 && spec.Coefficient == 0) {
-		// Unset or zero-initialized ParallelismSpec is handled here. Start one
-		// worker per node
-		numNodes, err := getNumNodes(kubeClient)
-		if err != nil {
-			return 0, err
-		}
-		return numNodes, nil
+		return 1, nil
 	} else if spec.Constant > 0 && spec.Coefficient == 0 {
 		return int(spec.Constant), nil
 	} else if spec.Constant == 0 && spec.Coefficient > 0 {
