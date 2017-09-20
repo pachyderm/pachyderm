@@ -402,9 +402,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				} else if err != nil {
 					return err
 				}
-				if len(request.Inputs) != 0 {
-					fmt.Printf("WARNING: field `inputs` is deprecated and will be removed in v1.6. Both formats are valid for v1.4.6 to 1.5.x. See docs for the new input format: http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html \n")
-				}
 				if pushImages {
 					pushedImage, err := pushImage(registry, username, password, request.Transform.Image)
 					if err != nil {
