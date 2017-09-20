@@ -5031,8 +5031,8 @@ func TestHTTPGetFile(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
 	var host string
-	clientAddr := client.APIClient.GetAddr()
-	tokens := strings.split(clientAddr, ":")
+	clientAddr := c.GetAddress()
+	tokens := strings.Split(clientAddr, ":")
 	require.Equal(t, 2, len(tokens))
 	host = tokens[0]
 
