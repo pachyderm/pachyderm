@@ -1261,12 +1261,50 @@ func TestCreateRepoAlreadyExistsError(t *testing.T) {
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	repoWriter := uniqueString("TestListRepo")
-	require.NoError(t, aliceClient.CreateRepo(repoWriter))
+	repo := uniqueString("TestCreateRepoAlreadyExistsError")
+	require.NoError(t, aliceClient.CreateRepo(repo))
 
 	// bob creates the same repo, and should get an error to the effect that the
 	// repo already exists (rather than "access denied")
-	err := bobClient.CreateRepo(repoWriter)
+	err := bobClient.CreateRepo(repo)
 	require.YesError(t, err)
 	require.Matches(t, "already exists", err.Error())
+}
+
+// Creating a pipeline when the output repo already exists gives you an error to
+// that effect, even when auth is already activated (rather than "access
+// denied")
+func TestCreatePipelineRepoAlreadyExistsError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	alice, bob := uniqueString("alice"), uniqueString("bob")
+	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
+
+	// alice creates a repo
+	inputRepo := uniqueString("TestCreatePipelineRepoAlreadyExistsError")
+	require.NoError(t, aliceClient.CreateRepo(inputRepo))
+	aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
+		Username: bob,
+		Scope:    auth.Scope_READER,
+		Repo:     inputRepo,
+	})
+	pipeline := uniqueString("pipeline")
+	require.NoError(t, aliceClient.CreateRepo(pipeline))
+
+	// bob creates a pipeline, and should get an error to the effect that the
+	// repo already exists (rather than "access denied")
+	err := bobClient.CreatePipeline(
+		pipeline,
+		"", // default image: ubuntu:14.04
+		[]string{"bash"},
+		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", inputRepo)},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewAtomInput(inputRepo, "/*"),
+		"",    // default output branch: master
+		false, // Don't update -- we want an error
+	)
+	require.YesError(t, err)
+	require.Matches(t, "cannot overwrite repo", err.Error())
 }

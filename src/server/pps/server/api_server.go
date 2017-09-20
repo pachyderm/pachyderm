@@ -252,52 +252,9 @@ func (a *apiServer) validateJob(ctx context.Context, jobInfo *pps.JobInfo) error
 	return a.validateInput(ctx, jobInfo.Pipeline.Name, jobInfo.Input, true)
 }
 
-func translateJobInputs(inputs []*pps.JobInput) *pps.Input {
-	result := &pps.Input{}
-	for _, input := range inputs {
-		result.Cross = append(result.Cross,
-			&pps.Input{
-				Atom: &pps.AtomInput{
-					Name:   input.Name,
-					Repo:   input.Commit.Repo.Name,
-					Commit: input.Commit.ID,
-					Glob:   input.Glob,
-					Lazy:   input.Lazy,
-				},
-			})
-	}
-	return result
-}
-
-func untranslateJobInputs(input *pps.Input) []*pps.JobInput {
-	var result []*pps.JobInput
-	if input.Cross != nil {
-		for _, input := range input.Cross {
-			if input.Atom == nil {
-				return nil
-			}
-			result = append(result, &pps.JobInput{
-				Name:   input.Atom.Name,
-				Commit: client.NewCommit(input.Atom.Repo, input.Atom.Commit),
-				Glob:   input.Atom.Glob,
-				Lazy:   input.Atom.Lazy,
-			})
-		}
-	}
-	return result
-}
-
 func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-
-	// First translate Inputs field to Input field.
-	if len(request.Inputs) > 0 {
-		if request.Input != nil {
-			return nil, fmt.Errorf("cannot set both Inputs and Input field")
-		}
-		request.Input = translateJobInputs(request.Inputs)
-	}
 
 	job := &pps.Job{uuid.NewWithoutUnderscores()}
 	pps.SortInput(request.Input)
@@ -396,9 +353,6 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	if err := jobs.Get(request.Job.ID, jobInfo); err != nil {
 		return nil, err
 	}
-	if jobInfo.Input == nil {
-		jobInfo.Input = translateJobInputs(jobInfo.Inputs)
-	}
 	// If the job is running we fill in WorkerStatus field, otherwise we just
 	// return the jobInfo.
 	if jobInfo.State != pps.JobState_JOB_RUNNING {
@@ -456,9 +410,6 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 		}
 		if !ok {
 			break
-		}
-		if jobInfo.Input == nil {
-			jobInfo.Input = translateJobInputs(jobInfo.Inputs)
 		}
 		jobInfos = append(jobInfos, &jobInfo)
 	}
@@ -1083,28 +1034,6 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 	return nil
 }
 
-func translatePipelineInputs(inputs []*pps.PipelineInput) *pps.Input {
-	result := &pps.Input{}
-	for _, input := range inputs {
-		var fromCommitID string
-		if input.From != nil {
-			fromCommitID = input.From.ID
-		}
-		atomInput := &pps.AtomInput{
-			Name:       input.Name,
-			Repo:       input.Repo.Name,
-			Branch:     input.Branch,
-			Glob:       input.Glob,
-			Lazy:       input.Lazy,
-			FromCommit: fromCommitID,
-		}
-		result.Cross = append(result.Cross, &pps.Input{
-			Atom: atomInput,
-		})
-	}
-	return result
-}
-
 // authorizing a pipeline operation varies slightly depending on whether the
 // pipeline is being created, updated, or deleted
 type pipelineOperation uint8
@@ -1135,14 +1064,7 @@ func (a *apiServer) authorizeModifyPipeline(ctx context.Context, operation pipel
 	// Check that the user is authorized to read all input repos, and write to the
 	// output repo (which the pipeline needs to be able to do on the user's
 	// behalf)
-	if len(info.Inputs) > 0 {
-		// Should never happen. authorizeModifyPipeline is called in CreatePipeline
-		// and DeletePipeline. In the former case, translateInputs() is called on
-		// the request before authorizeModifyPipeline, and in the latter case, the
-		// pipelineInfo is read from etcd (after it has been normalized)
-		return fmt.Errorf("cannot authorize using PipelineInfo with 'Inputs' field set")
-	}
-	// collect inputs by bfs through info.Input
+	// 1) Collect inputs by bfs through info.Input
 	inputRepos := make(map[string]struct{})
 	in, queue := (*pps.Input)(nil), []*pps.Input{info.Input}
 	for len(queue) > 0 {
@@ -1159,6 +1081,7 @@ func (a *apiServer) authorizeModifyPipeline(ctx context.Context, operation pipel
 		}
 	}
 
+	// 2) Check user's access to each input in parallel
 	var eg errgroup.Group
 	for inputRepo := range inputRepos {
 		inputRepo := inputRepo
@@ -1171,8 +1094,10 @@ func (a *apiServer) authorizeModifyPipeline(ctx context.Context, operation pipel
 				return err
 			}
 			if !resp.Authorized {
-				return fmt.Errorf("not authorized to perform this operation: "+
-					"insufficient access to the repo \"%s\"", inputRepo)
+				return &auth.NotAuthorizedError{
+					Repo:     inputRepo,
+					Required: auth.Scope_READER,
+				}
 			}
 			return nil
 		})
@@ -1181,34 +1106,44 @@ func (a *apiServer) authorizeModifyPipeline(ctx context.Context, operation pipel
 		return err
 	}
 
-	// Check that the user is authorized to write to the output repo
-	if operation == opPipelineCreate {
-		_, err = pachClient.InspectRepo(info.Pipeline.Name)
-		if err != nil && strings.HasSuffix(err.Error(), "not found") {
-			return nil // No output repo exists -- it will be created
+	// 3) Check that the user is authorized to write to the output repo.
+	// Note: authorizeModifyPipeline is called before CreateRepo creates a
+	// PipelineInfo proto in etcd, so PipelineManager won't have created an output
+	// repo yet, and it's possible to check that the output repo doesn't exist
+	// (if it did exist, we'd have to check that the user has permission to write
+	// to it, and this is simpler)
+	var required auth.Scope
+	switch operation {
+	case opPipelineCreate:
+		_, err := pachClient.WithCtx(ctx).InspectRepo(info.Pipeline.Name)
+		fmt.Printf("pachClient.InspectRepo(\"%s\") => _, %v\n", info.Pipeline.Name, err)
+		if err == nil {
+			return fmt.Errorf("cannot overwrite repo \"%s\" with new output repo", info.Pipeline.Name)
+		} else if !isNotFoundErr(err) {
+			fmt.Printf("returning %v\n", err)
+			return err
 		}
+	case opPipelineUpdate:
+		required = auth.Scope_WRITER
+	case opPipelineDelete:
+		required = auth.Scope_OWNER
+	default:
+		return fmt.Errorf("internal error, unrecognized operation %v", operation)
 	}
-	var req *auth.AuthorizeRequest
-	if operation == opPipelineDelete {
-		// To delete a pipeline, you must own the output repo
-		req = &auth.AuthorizeRequest{
+	if required != auth.Scope_NONE {
+		resp, err := authClient.Authorize(auth.In2Out(ctx), &auth.AuthorizeRequest{
 			Repo:  info.Pipeline.Name,
-			Scope: auth.Scope_OWNER,
+			Scope: required,
+		})
+		if err != nil {
+			return err
 		}
-	} else {
-		// Otherwise, you just need to be a writer of the output repo
-		req = &auth.AuthorizeRequest{
-			Repo:  info.Pipeline.Name,
-			Scope: auth.Scope_WRITER,
+		if !resp.Authorized {
+			return &auth.NotAuthorizedError{
+				Repo:     info.Pipeline.Name,
+				Required: required,
+			}
 		}
-	}
-	resp, err := authClient.Authorize(auth.In2Out(ctx), req)
-	if err != nil {
-		return err
-	}
-	if !resp.Authorized {
-		return fmt.Errorf("not authorized to perform this operation: "+
-			"insufficient access to the repo \"%s\"", info.Pipeline.Name)
 	}
 	return nil
 }
@@ -1225,14 +1160,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	}
 	authClient := pachClient.AuthAPIClient
 	pfsClient := pachClient.PfsAPIClient
-
-	// First translate Inputs field to Input field.
-	if len(request.Inputs) > 0 {
-		if request.Input != nil {
-			return nil, fmt.Errorf("cannot set both Inputs and Input field")
-		}
-		request.Input = translatePipelineInputs(request.Inputs)
-	}
 
 	pipelineInfo := &pps.PipelineInfo{
 		Pipeline:           request.Pipeline,
@@ -1258,7 +1185,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	var visitErr error
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
 		if input.Cron != nil {
-			if err := pachClient.CreateRepo(input.Cron.Repo); err != nil && !strings.Contains(err.Error(), "already exists") {
+			if err := pachClient.CreateRepo(input.Cron.Repo); err != nil && !isAlreadyExistsErr(err) {
 				visitErr = err
 			}
 		}
@@ -1377,9 +1304,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		}); err != nil && !isAlreadyExistsErr(err) {
 			return nil, err
 		}
-
 		if provenanceChanged {
-
 			// Restart all downstream pipelines so they relaunch with the
 			// correct provenance.
 			repoInfos, err := pfsClient.ListRepo(ctx, &pfs.ListRepoRequest{
@@ -1480,9 +1405,6 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 	if err := a.pipelines.ReadOnly(ctx).Get(request.Pipeline.Name, pipelineInfo); err != nil {
 		return nil, err
 	}
-	if pipelineInfo.Input == nil {
-		pipelineInfo.Input = translatePipelineInputs(pipelineInfo.Inputs)
-	}
 	return pipelineInfo, nil
 }
 
@@ -1512,9 +1434,6 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 			return nil, err
 		}
 		if ok {
-			if pipelineInfo.Input == nil {
-				pipelineInfo.Input = translatePipelineInputs(pipelineInfo.Inputs)
-			}
 			pipelineInfos.PipelineInfo = append(pipelineInfos.PipelineInfo, pipelineInfo)
 		} else {
 			break

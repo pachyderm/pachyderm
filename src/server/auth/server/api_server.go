@@ -473,12 +473,9 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 			"cluster (only a cluster admin can authorize)")
 	}
 
+	// Get ACL to check
 	var acl authclient.ACL
-	if err := a.acls.ReadOnly(ctx).Get(req.Repo, &acl); err != nil {
-		if _, ok := err.(col.ErrNotFound); ok {
-			// ACL not found -- same as empty ACL
-			return &authclient.AuthorizeResponse{Authorized: false}, nil
-		}
+	if err := a.acls.ReadOnly(ctx).Get(req.Repo, &acl); err != nil && !col.IsErrNotFound(err) {
 		return nil, fmt.Errorf("error getting ACL for repo \"%s\": %v", req.Repo, err)
 	}
 
@@ -628,11 +625,8 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 
 	for _, repo := range req.Repos {
 		var acl authclient.ACL
-		err := acls.Get(repo, &acl)
-		if err != nil {
-			if _, ok := err.(col.ErrNotFound); !ok {
-				return nil, err
-			} // else: ACL not found -- ignore
+		if err := acls.Get(repo, &acl); err != nil && !col.IsErrNotFound(err) {
+			return nil, err
 		}
 		if req.Username == "" {
 			resp.Scopes = append(resp.Scopes, acl.Entries[user.Username])
@@ -681,10 +675,8 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	resp = &authclient.GetACLResponse{
 		ACL: &authclient.ACL{},
 	}
-	if err = a.acls.ReadOnly(ctx).Get(req.Repo, resp.ACL); err != nil {
-		if _, ok := err.(col.ErrNotFound); !ok {
-			return nil, err
-		} // else: ACL not found -- ignore
+	if err = a.acls.ReadOnly(ctx).Get(req.Repo, resp.ACL); err != nil && !col.IsErrNotFound(err) {
+		return nil, err
 	}
 	// For now, require READER access to read repo metadata (commits, and ACLs)
 	if !a.isAdmin(user.Username) && resp.ACL.Entries[user.Username] < authclient.Scope_READER {
@@ -847,13 +839,7 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeA
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		tokens := a.tokens.ReadWrite(stm)
 		user := authclient.User{}
-		err := tokens.Get(hashToken(req.Token), &user)
-		if err != nil {
-			// We ignore NotFound errors, since it's ok to revoke a
-			// nonexistent token.
-			if _, ok := err.(col.ErrNotFound); ok {
-				return nil
-			}
+		if err := tokens.Get(hashToken(req.Token), &user); err != nil && !col.IsErrNotFound(err) {
 			return err
 		}
 		if user.Type != authclient.User_PIPELINE {
@@ -883,13 +869,13 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.User,
 		return nil, fmt.Errorf("no authentication metadata found in context")
 	}
 	if len(md[authclient.ContextTokenKey]) != 1 {
-		return nil, fmt.Errorf("auth token not found in context")
+		return nil, authclient.NotSignedInError{}
 	}
 	token := md[authclient.ContextTokenKey][0]
 
 	var user authclient.User
 	if err := a.tokens.ReadOnly(ctx).Get(hashToken(token), &user); err != nil {
-		if _, ok := err.(col.ErrNotFound); ok {
+		if col.IsErrNotFound(err) {
 			return nil, fmt.Errorf("provided auth token is corrupted or has expired")
 		}
 		return nil, fmt.Errorf("error getting token: %v", err)
