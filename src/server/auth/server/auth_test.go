@@ -19,31 +19,17 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
-
-const testActivationCode = `eyJ0b2tlbiI6IntcImV4cGlyeVwiOlwiMjAyNy0wNy0xMlQwM` +
-	`zowOTowNi4xODBaXCIsXCJzY29wZXNcIjp7XCJiYXNpY1wiOnRydWV9LFwibmFtZVwiOlwicGF` +
-	`jaHlkZXJtRW5naW5lZXJpbmdcIn0iLCJzaWduYXR1cmUiOiJWdjZQbEkrL3RJamlWYUNHMGw0T` +
-	`Ud6WldDS2YrUFMyWS9WUzFkZ3plcVdjS3RETlJvdkRnSnd3TXFXbWdCOUs5a2lPemVQRlh4eTh` +
-	`3U2dMbTJ4dnBlTHN2bGlsTlc5MEhKbGxxcjhKWEVTbVV4R2tKQldMTHZHak5mYUlHZ0IvZTFEM` +
-	`zQzMi95eUVnSW1LZDlpZ3J3RXZsRCtGdW0wa1hqS3Rrb2pPRmhkMDR6RHFEMSt5ZWpsTmRtUzB` +
-	`TaDJKWHRTMnFqWk0zTE5lWlpTRldLcEVJTmlXa2dhOTdTNUw2ZVlCdXFZcFJLMTkwd1pXNTVCO` +
-	`VFJSHJNNWtDWGQrWUN5aTh0QU9kcFY2a3FMSDNoVGgxVDIwVjYveFNZNUVheHZObm8yRmFYbDU` +
-	`yQzRFSWIvZ05RWW8xVExDd1hJN0FYL2lpL0VTckVBQmYzdDlYZmlwWGxleE9OMmhJaWY5dDROZ` +
-	`FBaQ1pmYlErbW8vSlQ3Um5VTGpTb2J3alNWVk1qMUozLzZKbmhQRFpFSWNDdlVvUnMyL2M2WUZ` +
-	`xOVo1TFRJNkUxV2Q0bE1RczRJYXVsTHVQOEFVa3R3ejBiQmY2dUhPd3VvTlk4UjJ3ZTA1MmUxW` +
-	`VVGbmNyUE4wd2ZJVHo5Vm51M1dNcktpaDhhRzNmMzRLb2x0R3hpWXJHL2JZQjgweUFaTytCbzF` +
-	`mTTJwaDB0emRXejFLR0lNQUlEbjBFWHU2V0duSUFFUWN1NHVFc1pSVXRzNFhuYk5PTC9vYU1NK` +
-	`3RLV3UzdnFMdEhMWWlPaWZHNHpEcUxwYnNNN2NhZGNXWjJ3QzNoZVh6Y1loaUwzMHJlOGJ4MFc` +
-	`3Vm1FOSt4elJHZisyNEdvRjFaS1BvaDNhY3hCS0dsZzRxN2JQd0c3QWJESmxkak1HbkVEdz0if` +
-	`Q==`
 
 func uniqueString(prefix string) string {
 	return prefix + uuid.NewWithoutDashes()[0:12]
 }
 
-var clientMapMut sync.Mutex
-var clientMap = make(map[string]*client.APIClient)
+var (
+	clientMapMut sync.Mutex
+	clientMap    = make(map[string]*client.APIClient)
+)
 
 // getPachClient creates a seed client with a grpc connection to a pachyderm
 // cluster, and then enable the auth service in that cluster
@@ -81,14 +67,18 @@ func getPachClient(t testing.TB, u string) *client.APIClient {
 				return nil
 			}
 			_, err = seedClient.Enterprise.Activate(context.Background(),
-				&enterprise.ActivateRequest{ActivationCode: testActivationCode})
+				&enterprise.ActivateRequest{
+					ActivationCode: testutil.GetTestEnterpriseCode(),
+				})
+
 			return err
 		}, backoff.NewTestingBackOff()))
 
 		// Activate Pachyderm auth (if it's not already active)
 		require.NoError(t, backoff.Retry(func() error {
 			if _, err := seedClient.GetAdmins(context.Background(),
-				&auth.GetAdminsRequest{}); err == nil {
+				&auth.GetAdminsRequest{},
+			); err == nil {
 				return nil // auth already active
 			}
 			// Auth not active -- clear existing cached clients (as their auth tokens
@@ -1251,6 +1241,13 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 		}
 		return errors.New("auth is not yet deactivated")
 	}, backoff.NewTestingBackOff()))
+
+	// bob calls ListRepo, now AuthInfo isn't set anywhere
+	infos, err = bobClient.ListRepo([]string{})
+	require.NoError(t, err)
+	for _, info := range infos {
+		require.Nil(t, info.AuthInfo)
+	}
 }
 
 // Creating a repo that already exists gives you an error to that effect, even
