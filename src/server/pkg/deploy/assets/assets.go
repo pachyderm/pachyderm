@@ -101,6 +101,10 @@ type AssetOpts struct {
 	// EtcdMemRequest is the amount of memory we request for each etcd node. If
 	// empty, assets.go will choose a default size.
 	EtcdMemRequest string
+
+	// IAMRole is the IAM role that the Pachyderm deployment should
+	// assume when talking to AWS services.
+	IAMRole string
 }
 
 // fillDefaultResourceRequests sets any of:
@@ -347,6 +351,10 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 								{
 									Name:  "BLOCK_CACHE_BYTES",
 									Value: opts.BlockCacheSize,
+								},
+								{
+									Name:  "IAM_ROLE",
+									Value: opts.IAMRole,
 								},
 								{
 									Name:  auth.DisableAuthenticationEnvVar,

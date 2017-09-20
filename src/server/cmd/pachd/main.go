@@ -73,6 +73,7 @@ type appEnv struct {
 	WorkerSidecarImage    string `env:"WORKER_SIDECAR_IMAGE,default="`
 	WorkerImagePullPolicy string `env:"WORKER_IMAGE_PULL_POLICY,default="`
 	LogLevel              string `env:"LOG_LEVEL,default=info"`
+	IAMRole               string `env:"IAM_ROLE,default="`
 }
 
 func main() {
@@ -135,6 +136,7 @@ func doSidecarMode(appEnvObj interface{}) error {
 		etcdAddress,
 		appEnv.PPSEtcdPrefix,
 		address,
+		appEnv.IAMRole,
 		reporter,
 	)
 	if err != nil {
@@ -284,6 +286,7 @@ func doFullMode(appEnvObj interface{}) error {
 		appEnv.StorageRoot,
 		appEnv.StorageBackend,
 		appEnv.StorageHostPath,
+		appEnv.IAMRole,
 		reporter,
 	)
 	if err != nil {
