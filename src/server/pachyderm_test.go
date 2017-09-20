@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
+	"net/http"
 	"os"
 	"path"
 	"strconv"
@@ -19,6 +20,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
@@ -5023,32 +5025,29 @@ func TestHTTPAuth(t *testing.T) {
 	require.Equal(t, 2, len(tokens))
 	host = tokens[0]
 
-	// Try to login, expect an error
-	resp, err := http.Post(fmt.Sprintf("http://%v:30652/v1/login", host))
+	// Try to login
+	token := "abbazabbadoo"
+	jsonString := []byte(fmt.Sprintf("{\"Token\":\"%v\"}", token))
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://%v:30652/v1/auth/login", host), bytes.NewBuffer(jsonString))
+	require.NoError(t, err)
+	httpClient := &http.Client{}
+	resp, err := httpClient.Do(req)
 	require.NoError(t, err)
 	defer resp.Body.Close()
-	contents, err := ioutil.ReadAll(resp.Body)
-	require.NoError(t, err)
-	require.Equal(t, "foo", string(contents))
-	contentDisposition := resp.Header.Get("Content-Disposition")
-	require.Equal(t, "", contentDisposition)
+	require.Equal(t, 1, len(resp.Cookies()))
+	require.Equal(t, auth.ContextTokenKey, resp.Cookies()[0].Name)
+	require.Equal(t, token, resp.Cookies()[0].Value)
 
-	// Try to get file for downloading
-	resp, err = http.Get(fmt.Sprintf("http://%v:30652/v1/pfs/repos/%v/commits/%v/files/file?download=true", host, dataRepo, commit1.ID))
+	// Try to logout
+	req, err = http.NewRequest("POST", fmt.Sprintf("http://%v:30652/v1/auth/logout", host), nil)
+	require.NoError(t, err)
+	resp, err = httpClient.Do(req)
 	require.NoError(t, err)
 	defer resp.Body.Close()
-	contents, err = ioutil.ReadAll(resp.Body)
-	require.NoError(t, err)
-	require.Equal(t, "foo", string(contents))
-	contentDisposition = resp.Header.Get("Content-Disposition")
-	require.Equal(t, "attachment; filename=\"file\"", contentDisposition)
-
-	// Make sure MIME type is set
-	resp, err = http.Get(fmt.Sprintf("http://%v:30652/v1/pfs/repos/%v/commits/%v/files/giphy.gif", host, dataRepo, commit1.ID))
-	require.NoError(t, err)
-	defer resp.Body.Close()
-	contentDisposition = resp.Header.Get("Content-Type")
-	require.Equal(t, "image/gif", contentDisposition)
+	require.Equal(t, 1, len(resp.Cookies()))
+	require.Equal(t, auth.ContextTokenKey, resp.Cookies()[0].Name)
+	// The cookie should be unset now
+	require.Equal(t, "", resp.Cookies()[0].Value)
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
