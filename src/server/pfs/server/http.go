@@ -138,12 +138,7 @@ type notFoundRouter struct {
 func (s notFoundRouter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusNotFound)
-	b := strings.NewReader("route not found")
-	fw := flushWriter{w: w}
-	if f, ok := w.(http.Flusher); ok {
-		fw.f = f
-	}
-	io.Copy(&fw, b)
+	io.Copy(&w, strings.NewReader("route not found"))
 }
 func (s *HTTPServer) loginForm(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	w.Header().Add("Content-Type", "text/html; charset=utf-8")
@@ -158,10 +153,5 @@ func (s *HTTPServer) loginForm(w http.ResponseWriter, r *http.Request, ps httpro
 </body>
 </html>
 	`, s.loginPath)
-	b := strings.NewReader(content)
-	fw := flushWriter{w: w}
-	if f, ok := w.(http.Flusher); ok {
-		fw.f = f
-	}
-	io.Copy(&fw, b)
+	io.Copy(&w, strings.NewReader(content))
 }
