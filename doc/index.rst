@@ -39,6 +39,7 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
 
     enterprise/overview
     enterprise/deployment
+    enterprise/auth
     enterprise/stats
 
 .. toctree::
