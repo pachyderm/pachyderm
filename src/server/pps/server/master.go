@@ -235,7 +235,8 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 			int32(parallelism),
 			resources,
 			pipelineInfo.Transform,
-			pipelineInfo.CacheSize)
+			pipelineInfo.CacheSize,
+			pipelineInfo.Service)
 		// Set the pipeline name env
 		options.workerEnv = append(options.workerEnv, api.EnvVar{
 			Name:  client.PPSPipelineNameEnv,
@@ -257,6 +258,13 @@ func (a *apiServer) deleteWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 	if err := a.kubeClient.Services(a.namespace).Delete(rcName); err != nil {
 		if !isNotFoundErr(err) {
 			return err
+		}
+	}
+	if pipelineInfo.Service != nil {
+		if err := a.kubeClient.Services(a.namespace).Delete(rcName + "-user"); err != nil {
+			if !isNotFoundErr(err) {
+				return err
+			}
 		}
 	}
 	falseVal := false

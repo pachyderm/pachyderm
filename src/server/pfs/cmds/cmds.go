@@ -106,11 +106,11 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 		Short: "Return info about a repo.",
 		Long:  "Return info about a repo.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, "user")
+			c, err := client.NewOnUserMachine(metrics, "user")
 			if err != nil {
 				return err
 			}
-			repoInfo, err := client.InspectRepo(args[0])
+			repoInfo, err := c.InspectRepo(args[0])
 			if err != nil {
 				return err
 			}
@@ -147,8 +147,10 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 				}
 				return nil
 			}
+
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintRepoHeader(writer)
+			authActive := (len(repoInfos) > 0) && (repoInfos[0].AuthInfo != nil)
+			pretty.PrintRepoHeader(writer, authActive)
 			for _, repoInfo := range repoInfos {
 				pretty.PrintRepoInfo(writer, repoInfo)
 			}
@@ -733,8 +735,7 @@ want to consider using commit IDs directly.
 		Use:   "get-file repo-name commit-id path/to/file",
 		Short: "Return the contents of a file.",
 		Long: `Return the contents of a file.
-
-# get file "XXX" on branch "master" in repo "foo"
+` + codestart + `# get file "XXX" on branch "master" in repo "foo"
 $ pachctl get-file foo master XXX
 
 # get file "XXX" in the parent of the current head of branch "master"
@@ -744,7 +745,7 @@ $ pachctl get-file foo master^ XXX
 # get file "XXX" in the grandparent of the current head of branch "master"
 # in repo "foo"
 $ pachctl get-file foo master^2 XXX
-`,
+` + codeend,
 		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
 			client, err := client.NewOnUserMachine(metrics, "user")
 			if err != nil {
@@ -1127,14 +1128,18 @@ func parseCommitMounts(args []string) []*fuse.CommitMount {
 func putFileHelper(client *client.APIClient, repo, commit, path, source string,
 	recursive bool, overwrite bool, limiter limit.ConcurrencyLimiter, split string,
 	targetFileDatums uint, targetFileBytes uint) (retErr error) {
-	putFile := func(reader io.Reader) error {
+	putFile := func(reader io.ReadSeeker) error {
 		if split == "" {
-			var err error
 			if overwrite {
-				_, err = client.PutFileOverwrite(repo, commit, path, reader)
-			} else {
-				_, err = client.PutFile(repo, commit, path, reader)
+				return sync.PushFile(client, &pfsclient.File{
+					Commit: &pfsclient.Commit{
+						Repo: &pfsclient.Repo{repo},
+						ID:   commit,
+					},
+					Path: path,
+				}, reader)
 			}
+			_, err := client.PutFile(repo, commit, path, reader)
 			return err
 		}
 

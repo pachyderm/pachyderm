@@ -37,7 +37,7 @@ var (
 	dashName                = "dash"
 	dashImage               = "pachyderm/dash"
 	grpcProxyName           = "grpc-proxy"
-	grpcProxyImage          = "pachyderm/grpc-proxy:0.4.0"
+	grpcProxyImage          = "pachyderm/grpc-proxy:0.4.2"
 	pachdName               = "pachd"
 	minioSecretName         = "minio-secret"
 	amazonSecretName        = "amazon-secret"
@@ -255,6 +255,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 		volumes[0].HostPath = &api.HostPathVolumeSource{
 			Path: storageHostPath,
 		}
+		backendEnvVar = pfs.LocalBackendEnvVar
 	case minioBackend:
 		backendEnvVar = pfs.MinioBackendEnvVar
 	case amazonBackend:

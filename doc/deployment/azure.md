@@ -92,7 +92,7 @@ $ az storage blob list \
 $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.6
 
 # For Linux (64 bit):
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.6.0-RC1/pachctl_1.6.0-RC1_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.6.0rc5/pachctl_1.6.0rc5_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 You can try running `pachctl version` to check that this worked correctly, but Pachyderm itself isn't deployed yet so you won't get a `pachd` version.
@@ -100,7 +100,7 @@ You can try running `pachctl version` to check that this worked correctly, but P
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.4.6
+pachctl             1.6.0
 pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded.
 ```
 
@@ -115,22 +115,27 @@ $ pachctl deploy microsoft ${CONTAINER_NAME} ${STORAGE_ACCOUNT} ${STORAGE_KEY} $
 It may take a few minutes for the pachd nodes to be running because it's pulling containers from Docker Hub. You can see the cluster status by using:
 
 ```sh
-NAME                        READY     STATUS    RESTARTS   AGE
-po/etcd-4197107720-br61m    1/1       Running   0          8m
-po/pachd-3548222380-s086m   1/1       Running   2          8m
+$ kubectl get all
+NAME                       READY     STATUS    RESTARTS   AGE
+po/dash-361776027-cdd5k    2/2       Running   0          16m
+po/etcd-2142892294-nf4p5   1/1       Running   0          16m
+po/pachd-776177201-48g87   1/1       Running   2          16m
 
-NAME             CLUSTER-IP     EXTERNAL-IP   PORT(S)                       AGE
-svc/etcd         10.111.11.36   <nodes>       2379:32379/TCP                8m
-svc/kubernetes   10.96.0.1      <none>        443/TCP                       10m
-svc/pachd        10.97.116.5    <nodes>       650:30650/TCP,651:30651/TCP   8m
+NAME             CLUSTER-IP   EXTERNAL-IP   PORT(S)                                     AGE
+svc/dash         10.0.0.201   <nodes>       8080:30080/TCP,8081:30081/TCP               16m
+svc/etcd         10.0.0.38    <nodes>       2379:32379/TCP                              16m
+svc/kubernetes   10.0.0.1     <none>        443/TCP                                     17m
+svc/pachd        10.0.0.64    <nodes>       650:30650/TCP,651:30651/TCP,652:30652/TCP   16m
 
 NAME           DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-deploy/etcd    1         1         1            1           8m
-deploy/pachd   1         1         1            1           8m
+deploy/dash    1         1         1            1           16m
+deploy/etcd    1         1         1            1           16m
+deploy/pachd   1         1         1            1           16m
 
-NAME                  DESIRED   CURRENT   READY     AGE
-rs/etcd-4197107720    1         1         1         8m
-rs/pachd-3548222380   1         1         1         8m
+NAME                 DESIRED   CURRENT   READY     AGE
+rs/dash-361776027    1         1         1         16m
+rs/etcd-2142892294   1         1         1         16m
+rs/pachd-776177201   1         1         1         16m
 ```
 
 Note: If you see a few restarts on the pachd nodes, that's totally ok. That simply means that Kubernetes tried to bring up those containers before etcd was ready so it restarted them.
@@ -147,7 +152,7 @@ And you're done! You can test to make sure the cluster is working by trying `pac
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.4.6
-pachd               1.4.6
+pachctl             1.6.0
+pachd               1.6.0
 ```
 

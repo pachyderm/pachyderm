@@ -50,7 +50,7 @@ func (c APIClient) CreateRepo(repoName string) error {
 			Repo: NewRepo(repoName),
 		},
 	)
-	return sanitizeErr(err)
+	return grpcutil.ScrubGRPC(err)
 }
 
 // InspectRepo returns info about a specific Repo.
@@ -62,7 +62,7 @@ func (c APIClient) InspectRepo(repoName string) (*pfs.RepoInfo, error) {
 		},
 	)
 	if err != nil {
-		return nil, sanitizeErr(err)
+		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return resp, nil
 }
@@ -81,7 +81,7 @@ func (c APIClient) ListRepo(provenance []string) ([]*pfs.RepoInfo, error) {
 		request,
 	)
 	if err != nil {
-		return nil, sanitizeErr(err)
+		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return repoInfos.RepoInfo, nil
 }
@@ -126,7 +126,7 @@ func (c APIClient) StartCommit(repoName string, branch string) (*pfs.Commit, err
 		},
 	)
 	if err != nil {
-		return nil, sanitizeErr(err)
+		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return commit, nil
 }
@@ -159,7 +159,7 @@ func (c APIClient) StartCommitParent(repoName string, branch string, parentCommi
 		},
 	)
 	if err != nil {
-		return nil, sanitizeErr(err)
+		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return commit, nil
 }
@@ -174,7 +174,7 @@ func (c APIClient) FinishCommit(repoName string, commitID string) error {
 			Commit: NewCommit(repoName, commitID),
 		},
 	)
-	return sanitizeErr(err)
+	return grpcutil.ScrubGRPC(err)
 }
 
 // InspectCommit returns info about a specific Commit.
@@ -186,7 +186,7 @@ func (c APIClient) InspectCommit(repoName string, commitID string) (*pfs.CommitI
 		},
 	)
 	if err != nil {
-		return nil, sanitizeErr(err)
+		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return commitInfo, nil
 }
@@ -215,7 +215,7 @@ func (c APIClient) ListCommit(repoName string, to string, from string, number ui
 		req,
 	)
 	if err != nil {
-		return nil, sanitizeErr(err)
+		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return commitInfos.CommitInfo, nil
 }
@@ -234,7 +234,7 @@ func (c APIClient) ListBranch(repoName string) ([]*pfs.BranchInfo, error) {
 		},
 	)
 	if err != nil {
-		return nil, sanitizeErr(err)
+		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return branchInfos.BranchInfo, nil
 }
@@ -248,7 +248,7 @@ func (c APIClient) SetBranch(repoName string, commit string, branch string) erro
 			Branch: branch,
 		},
 	)
-	return sanitizeErr(err)
+	return grpcutil.ScrubGRPC(err)
 }
 
 // DeleteBranch deletes a branch, but leaves the commits themselves intact.
@@ -262,7 +262,7 @@ func (c APIClient) DeleteBranch(repoName string, branch string) error {
 			Branch: branch,
 		},
 	)
-	return sanitizeErr(err)
+	return grpcutil.ScrubGRPC(err)
 }
 
 // DeleteCommit deletes a commit.
@@ -274,7 +274,7 @@ func (c APIClient) DeleteCommit(repoName string, commitID string) error {
 			Commit: NewCommit(repoName, commitID),
 		},
 	)
-	return sanitizeErr(err)
+	return grpcutil.ScrubGRPC(err)
 }
 
 // FlushCommit returns an iterator that returns commits that have the
@@ -299,7 +299,7 @@ func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo) (Comm
 	)
 	if err != nil {
 		cancel()
-		return nil, sanitizeErr(err)
+		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return &commitInfoIterator{stream, cancel}, nil
 }
@@ -345,20 +345,21 @@ func (c APIClient) SubscribeCommit(repo string, branch string, from string) (Com
 	stream, err := c.PfsAPIClient.SubscribeCommit(ctx, req)
 	if err != nil {
 		cancel()
-		return nil, sanitizeErr(err)
+		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return &commitInfoIterator{stream, cancel}, nil
 }
 
 // PutObject puts a value into the object store and tags it with 0 or more tags.
-func (c APIClient) PutObject(r io.Reader, tags ...string) (object *pfs.Object, _ int64, retErr error) {
+func (c APIClient) PutObject(_r io.Reader, tags ...string) (object *pfs.Object, _ int64, retErr error) {
+	r := grpcutil.ReaderWrapper{_r}
 	w, err := c.newPutObjectWriteCloser(tags...)
 	if err != nil {
-		return nil, 0, sanitizeErr(err)
+		return nil, 0, grpcutil.ScrubGRPC(err)
 	}
 	defer func() {
 		if err := w.Close(); err != nil && retErr == nil {
-			retErr = sanitizeErr(err)
+			retErr = grpcutil.ScrubGRPC(err)
 		}
 		if retErr == nil {
 			object = w.object
@@ -368,7 +369,34 @@ func (c APIClient) PutObject(r io.Reader, tags ...string) (object *pfs.Object, _
 	defer grpcutil.PutBuffer(buf)
 	written, err := io.CopyBuffer(w, r, buf)
 	if err != nil {
-		return nil, 0, sanitizeErr(err)
+		return nil, 0, grpcutil.ScrubGRPC(err)
+	}
+	// return value set by deferred function
+	return nil, written, nil
+}
+
+// PutObjectSplit is the same as PutObject except that the data is splitted
+// into several smaller objects.  This is primarily useful if you'd like to
+// be able to resume upload.
+func (c APIClient) PutObjectSplit(_r io.Reader) (objects []*pfs.Object, _ int64, retErr error) {
+	r := grpcutil.ReaderWrapper{_r}
+	w, err := c.newPutObjectSplitWriteCloser()
+	if err != nil {
+		return nil, 0, grpcutil.ScrubGRPC(err)
+	}
+	defer func() {
+		if err := w.Close(); err != nil && retErr == nil {
+			retErr = grpcutil.ScrubGRPC(err)
+		}
+		if retErr == nil {
+			objects = w.objects
+		}
+	}()
+	buf := grpcutil.GetBuffer()
+	defer grpcutil.PutBuffer(buf)
+	written, err := io.CopyBuffer(w, r, buf)
+	if err != nil {
+		return nil, 0, grpcutil.ScrubGRPC(err)
 	}
 	// return value set by deferred function
 	return nil, written, nil
@@ -381,10 +409,10 @@ func (c APIClient) GetObject(hash string, writer io.Writer) error {
 		&pfs.Object{Hash: hash},
 	)
 	if err != nil {
-		return sanitizeErr(err)
+		return grpcutil.ScrubGRPC(err)
 	}
 	if err := grpcutil.WriteFromStreamingBytesClient(getObjectClient, writer); err != nil {
-		return sanitizeErr(err)
+		return grpcutil.ScrubGRPC(err)
 	}
 	return nil
 }
@@ -413,10 +441,10 @@ func (c APIClient) GetObjects(hashes []string, offset uint64, size uint64, write
 		},
 	)
 	if err != nil {
-		return sanitizeErr(err)
+		return grpcutil.ScrubGRPC(err)
 	}
 	if err := grpcutil.WriteFromStreamingBytesClient(getObjectsClient, writer); err != nil {
-		return sanitizeErr(err)
+		return grpcutil.ScrubGRPC(err)
 	}
 	return nil
 }
@@ -443,7 +471,7 @@ func (c APIClient) TagObject(hash string, tags ...string) error {
 			Tags:   _tags,
 		},
 	); err != nil {
-		return sanitizeErr(err)
+		return grpcutil.ScrubGRPC(err)
 	}
 	return nil
 }
@@ -455,7 +483,7 @@ func (c APIClient) InspectObject(hash string) (*pfs.ObjectInfo, error) {
 		&pfs.Object{Hash: hash},
 	)
 	if err != nil {
-		return nil, sanitizeErr(err)
+		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return value, nil
 }
@@ -467,10 +495,10 @@ func (c APIClient) GetTag(tag string, writer io.Writer) error {
 		&pfs.Tag{Name: tag},
 	)
 	if err != nil {
-		return sanitizeErr(err)
+		return grpcutil.ScrubGRPC(err)
 	}
 	if err := grpcutil.WriteFromStreamingBytesClient(getTagClient, writer); err != nil {
-		return sanitizeErr(err)
+		return grpcutil.ScrubGRPC(err)
 	}
 	return nil
 }
@@ -497,7 +525,7 @@ func (c APIClient) Compact() error {
 // NOTE: PutFileWriter returns an io.WriteCloser you must call Close on it when
 // you are done writing.
 func (c APIClient) PutFileWriter(repoName string, commitID string, path string) (io.WriteCloser, error) {
-	return c.newPutFileWriteCloser(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, false)
+	return c.newPutFileWriteCloser(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, nil)
 }
 
 // PutFileSplitWriter writes a multiple files to PFS by splitting up the data
@@ -506,7 +534,11 @@ func (c APIClient) PutFileWriter(repoName string, commitID string, path string) 
 // you are done writing.
 func (c APIClient) PutFileSplitWriter(repoName string, commitID string, path string,
 	delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwrite bool) (io.WriteCloser, error) {
-	return c.newPutFileWriteCloser(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, overwrite)
+	var overwriteIndex *pfs.OverwriteIndex
+	if overwrite {
+		overwriteIndex = &pfs.OverwriteIndex{0}
+	}
+	return c.newPutFileWriteCloser(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, overwriteIndex)
 }
 
 // PutFile writes a file to PFS from a reader.
@@ -519,11 +551,13 @@ func (c APIClient) PutFile(repoName string, commitID string, path string, reader
 }
 
 // PutFileOverwrite is like PutFile but it overwrites the file rather than
-// appending to it. It's equivalent to DeleteFile followed by PutFile.
-func (c APIClient) PutFileOverwrite(repoName string, commitID string, path string, reader io.Reader) (_ int, retErr error) {
-	writer, err := c.newPutFileWriteCloser(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, true)
+// appending to it.  overwriteIndex allows you to specify the index of the
+// object starting from which you'd like to overwrite.  If you want to
+// overwrite the entire file, specify an index of 0.
+func (c APIClient) PutFileOverwrite(repoName string, commitID string, path string, reader io.Reader, overwriteIndex int64) (_ int, retErr error) {
+	writer, err := c.newPutFileWriteCloser(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, &pfs.OverwriteIndex{overwriteIndex})
 	if err != nil {
-		return 0, sanitizeErr(err)
+		return 0, grpcutil.ScrubGRPC(err)
 	}
 	defer func() {
 		if err := writer.Close(); err != nil && retErr == nil {
@@ -539,7 +573,7 @@ func (c APIClient) PutFileOverwrite(repoName string, commitID string, path strin
 func (c APIClient) PutFileSplit(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwrite bool, reader io.Reader) (_ int, retErr error) {
 	writer, err := c.PutFileSplitWriter(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, overwrite)
 	if err != nil {
-		return 0, sanitizeErr(err)
+		return 0, grpcutil.ScrubGRPC(err)
 	}
 	defer func() {
 		if err := writer.Close(); err != nil && retErr == nil {
@@ -556,20 +590,24 @@ func (c APIClient) PutFileSplit(repoName string, commitID string, path string, d
 func (c APIClient) PutFileURL(repoName string, commitID string, path string, url string, recursive bool, overwrite bool) (retErr error) {
 	putFileClient, err := c.PfsAPIClient.PutFile(c.Ctx())
 	if err != nil {
-		return sanitizeErr(err)
+		return grpcutil.ScrubGRPC(err)
 	}
 	defer func() {
 		if _, err := putFileClient.CloseAndRecv(); err != nil && retErr == nil {
-			retErr = sanitizeErr(err)
+			retErr = grpcutil.ScrubGRPC(err)
 		}
 	}()
+	var overwriteIndex *pfs.OverwriteIndex
+	if overwrite {
+		overwriteIndex = &pfs.OverwriteIndex{0}
+	}
 	if err := putFileClient.Send(&pfs.PutFileRequest{
-		File:      NewFile(repoName, commitID, path),
-		Url:       url,
-		Recursive: recursive,
-		Overwrite: overwrite,
+		File:           NewFile(repoName, commitID, path),
+		Url:            url,
+		Recursive:      recursive,
+		OverwriteIndex: overwriteIndex,
 	}); err != nil {
-		return sanitizeErr(err)
+		return grpcutil.ScrubGRPC(err)
 	}
 	return nil
 }
@@ -583,7 +621,7 @@ func (c APIClient) CopyFile(srcRepo, srcCommit, srcPath, dstRepo, dstCommit, dst
 			Dst:       NewFile(dstRepo, dstCommit, dstPath),
 			Overwrite: overwrite,
 		}); err != nil {
-		return sanitizeErr(err)
+		return grpcutil.ScrubGRPC(err)
 	}
 	return nil
 }
@@ -600,10 +638,10 @@ func (c APIClient) GetFile(repoName string, commitID string, path string, offset
 	}
 	apiGetFileClient, err := c.getFile(repoName, commitID, path, offset, size)
 	if err != nil {
-		return sanitizeErr(err)
+		return grpcutil.ScrubGRPC(err)
 	}
 	if err := grpcutil.WriteFromStreamingBytesClient(apiGetFileClient, writer); err != nil {
-		return sanitizeErr(err)
+		return grpcutil.ScrubGRPC(err)
 	}
 	return nil
 }
@@ -616,7 +654,7 @@ func (c APIClient) GetFile(repoName string, commitID string, path string, offset
 func (c APIClient) GetFileReader(repoName string, commitID string, path string, offset int64, size int64) (io.Reader, error) {
 	apiGetFileClient, err := c.getFile(repoName, commitID, path, offset, size)
 	if err != nil {
-		return nil, sanitizeErr(err)
+		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return grpcutil.NewStreamingBytesReader(apiGetFileClient), nil
 }
@@ -646,7 +684,7 @@ func (c APIClient) inspectFile(repoName string, commitID string, path string) (*
 		},
 	)
 	if err != nil {
-		return nil, sanitizeErr(err)
+		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return fileInfo, nil
 }
@@ -660,7 +698,7 @@ func (c APIClient) ListFile(repoName string, commitID string, path string) ([]*p
 		},
 	)
 	if err != nil {
-		return nil, sanitizeErr(err)
+		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return fileInfos.FileInfo, nil
 }
@@ -677,7 +715,7 @@ func (c APIClient) GlobFile(repoName string, commitID string, pattern string) ([
 		},
 	)
 	if err != nil {
-		return nil, sanitizeErr(err)
+		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return fileInfos.FileInfo, nil
 }
@@ -702,7 +740,7 @@ func (c APIClient) DiffFile(newRepoName, newCommitID, newPath, oldRepoName,
 		},
 	)
 	if err != nil {
-		return nil, nil, sanitizeErr(err)
+		return nil, nil, grpcutil.ScrubGRPC(err)
 	}
 	return resp.NewFiles, resp.OldFiles, nil
 }
@@ -751,7 +789,7 @@ type putFileWriteCloser struct {
 	sent          bool
 }
 
-func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwrite bool) (*putFileWriteCloser, error) {
+func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwriteIndex *pfs.OverwriteIndex) (*putFileWriteCloser, error) {
 	putFileClient, err := c.PfsAPIClient.PutFile(c.Ctx())
 	if err != nil {
 		return nil, err
@@ -762,7 +800,7 @@ func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path 
 			Delimiter:        delimiter,
 			TargetFileDatums: targetFileDatums,
 			TargetFileBytes:  targetFileBytes,
-			Overwrite:        overwrite,
+			OverwriteIndex:   overwriteIndex,
 		},
 		putFileClient: putFileClient,
 	}, nil
@@ -784,7 +822,7 @@ func (w *putFileWriteCloser) Write(p []byte) (int, error) {
 		}
 		w.request.Value = actualP
 		if err := w.putFileClient.Send(w.request); err != nil {
-			return 0, sanitizeErr(err)
+			return 0, grpcutil.ScrubGRPC(err)
 		}
 		w.sent = true
 		w.request.Value = nil
@@ -804,19 +842,19 @@ func (w *putFileWriteCloser) Close() error {
 		}
 	}
 	_, err := w.putFileClient.CloseAndRecv()
-	return sanitizeErr(err)
+	return grpcutil.ScrubGRPC(err)
 }
 
 type putObjectWriteCloser struct {
-	request         *pfs.PutObjectRequest
-	putObjectClient pfs.ObjectAPI_PutObjectClient
-	object          *pfs.Object
+	request *pfs.PutObjectRequest
+	client  pfs.ObjectAPI_PutObjectClient
+	object  *pfs.Object
 }
 
 func (c APIClient) newPutObjectWriteCloser(tags ...string) (*putObjectWriteCloser, error) {
-	putObjectClient, err := c.ObjectAPIClient.PutObject(c.Ctx())
+	client, err := c.ObjectAPIClient.PutObject(c.Ctx())
 	if err != nil {
-		return nil, sanitizeErr(err)
+		return nil, grpcutil.ScrubGRPC(err)
 	}
 	var _tags []*pfs.Tag
 	for _, tag := range tags {
@@ -826,36 +864,54 @@ func (c APIClient) newPutObjectWriteCloser(tags ...string) (*putObjectWriteClose
 		request: &pfs.PutObjectRequest{
 			Tags: _tags,
 		},
-		putObjectClient: putObjectClient,
+		client: client,
 	}, nil
 }
 
 func (w *putObjectWriteCloser) Write(p []byte) (int, error) {
-	bytesWritten := 0
-	for {
-		// Buffer the write so that we don't exceed the grpc
-		// MaxMsgSize. This value includes the whole payload
-		// including headers, so we're conservative and halve it
-		ceil := bytesWritten + grpcutil.MaxMsgSize/2
-		if ceil > len(p) {
-			ceil = len(p)
-		}
-		actualP := p[bytesWritten:ceil]
-		if len(actualP) == 0 {
-			break
-		}
-		w.request.Value = actualP
-		if err := w.putObjectClient.Send(w.request); err != nil {
-			return 0, sanitizeErr(err)
-		}
-		w.request.Value = nil
-		bytesWritten += len(actualP)
+	w.request.Value = p
+	if err := w.client.Send(w.request); err != nil {
+		return 0, grpcutil.ScrubGRPC(err)
 	}
-	return bytesWritten, nil
+	return len(p), nil
 }
 
 func (w *putObjectWriteCloser) Close() error {
 	var err error
-	w.object, err = w.putObjectClient.CloseAndRecv()
-	return sanitizeErr(err)
+	w.object, err = w.client.CloseAndRecv()
+	return grpcutil.ScrubGRPC(err)
+}
+
+type putObjectSplitWriteCloser struct {
+	request *pfs.PutObjectRequest
+	client  pfs.ObjectAPI_PutObjectSplitClient
+	objects []*pfs.Object
+}
+
+func (c APIClient) newPutObjectSplitWriteCloser() (*putObjectSplitWriteCloser, error) {
+	client, err := c.ObjectAPIClient.PutObjectSplit(c.Ctx())
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return &putObjectSplitWriteCloser{
+		request: &pfs.PutObjectRequest{},
+		client:  client,
+	}, nil
+}
+
+func (w *putObjectSplitWriteCloser) Write(p []byte) (int, error) {
+	w.request.Value = p
+	if err := w.client.Send(w.request); err != nil {
+		return 0, grpcutil.ScrubGRPC(err)
+	}
+	return len(p), nil
+}
+
+func (w *putObjectSplitWriteCloser) Close() error {
+	objects, err := w.client.CloseAndRecv()
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	w.objects = objects.Objects
+	return nil
 }

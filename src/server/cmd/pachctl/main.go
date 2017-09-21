@@ -18,10 +18,7 @@ func main() {
 		if err != nil {
 			return err
 		}
-		if err := rootCmd.Execute(); err != nil {
-			return err
-		}
-		return nil
+		return rootCmd.Execute()
 	}()
 	if err != nil {
 		if errString := strings.TrimSpace(err.Error()); errString != "" {
