@@ -23,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
 // adminsEqual returns nil if the elements of the slice "expecteds" are
@@ -373,7 +374,7 @@ func TestPreActivationPipelinesRunAsAdmin(t *testing.T) {
 		[]*pfs.Repo{{Name: pipeline}},
 	)
 	require.NoError(t, err)
-	require.NoErrorWithinT(t, 30*time.Second, func() error {
+	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := iter.Next()
 		return err
 	})
@@ -419,7 +420,7 @@ func TestPreActivationPipelinesRunAsAdmin(t *testing.T) {
 		[]*pfs.Repo{{Name: pipeline}},
 	)
 	require.NoError(t, err)
-	require.NoErrorWithinT(t, 30*time.Second, func() error {
+	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := iter.Next()
 		return err
 	})
@@ -447,7 +448,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	// Make current enterprise token expire
 	adminClient.Enterprise.Activate(adminClient.Ctx(),
 		&enterprise.ActivateRequest{
-			ActivationCode: testActivationCode,
+			ActivationCode: testutil.GetTestEnterpriseCode(),
 			Expires:        TSProtoOrDie(t, time.Now().Add(-30*time.Second)),
 		})
 	// wait for Enterprise token to expire
@@ -524,7 +525,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	year := 365 * 24 * time.Hour
 	adminClient.Enterprise.Activate(adminClient.Ctx(),
 		&enterprise.ActivateRequest{
-			ActivationCode: testActivationCode,
+			ActivationCode: testutil.GetTestEnterpriseCode(),
 			// This will stop working some time in 2026
 			Expires: TSProtoOrDie(t, time.Now().Add(year)),
 		})
@@ -610,7 +611,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 		[]*pfs.Repo{{Name: pipeline}},
 	)
 	require.NoError(t, err)
-	require.NoErrorWithinT(t, 30*time.Second, func() error {
+	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := iter.Next()
 		return err
 	})
@@ -618,7 +619,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	// Make current enterprise token expire
 	adminClient.Enterprise.Activate(adminClient.Ctx(),
 		&enterprise.ActivateRequest{
-			ActivationCode: testActivationCode,
+			ActivationCode: testutil.GetTestEnterpriseCode(),
 			Expires:        TSProtoOrDie(t, time.Now().Add(-30*time.Second)),
 		})
 	// wait for Enterprise token to expire
@@ -646,7 +647,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 		[]*pfs.Repo{{Name: pipeline}},
 	)
 	require.NoError(t, err)
-	require.NoErrorWithinT(t, 30*time.Second, func() error {
+	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := iter.Next()
 		return err
 	})
@@ -670,7 +671,7 @@ func TestGetSetScopeAndAclWithExpiredToken(t *testing.T) {
 	// Make current enterprise token expire
 	adminClient.Enterprise.Activate(adminClient.Ctx(),
 		&enterprise.ActivateRequest{
-			ActivationCode: testActivationCode,
+			ActivationCode: testutil.GetTestEnterpriseCode(),
 			Expires:        TSProtoOrDie(t, time.Now().Add(-30*time.Second)),
 		})
 	// wait for Enterprise token to expire
@@ -761,4 +762,56 @@ func TestGetSetScopeAndAclWithExpiredToken(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, acl(alice, "owner", "carol", "writer"),
 		GetACL(t, adminClient, repo))
+}
+
+// TestAdminWhoAmI tests that when an admin calls WhoAmI(), the IsAdmin field
+// in the result is true (and if a non-admin calls WhoAmI(), IsAdmin is false)
+func TestAdminWhoAmI(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	alice := uniqueString("alice")
+	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, "admin")
+
+	// Make sure admin WhoAmI indicates that they're an admin, and non-admin
+	// WhoAmI indicates that they're not
+	resp, err := aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, alice, resp.Username)
+	require.False(t, resp.IsAdmin)
+	resp, err = adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, "admin", resp.Username)
+	require.True(t, resp.IsAdmin)
+}
+
+// TestListRepoAdminIsOwnerOfAllRepos tests that when an admin calls ListRepo,
+// the result indicates that they're an owner of every repo in the cluster
+// (needed by the Pachyderm dashboard)
+func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	alice, bob := uniqueString("alice"), uniqueString("bob")
+	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
+	adminClient := getPachClient(t, "admin")
+
+	// alice creates a repo
+	repoWriter := uniqueString("TestListRepoAdminIsOwnerOfAllRepos")
+	require.NoError(t, aliceClient.CreateRepo(repoWriter))
+
+	// bob calls ListRepo, but has NONE access to all repos
+	infos, err := bobClient.ListRepo([]string{})
+	require.NoError(t, err)
+	for _, info := range infos {
+		require.Equal(t, auth.Scope_NONE, info.AuthInfo.AccessLevel)
+	}
+
+	// admin calls ListRepo, and has OWNER access to all repos
+	infos, err = adminClient.ListRepo([]string{})
+	require.NoError(t, err)
+	for _, info := range infos {
+		require.Equal(t, auth.Scope_OWNER, info.AuthInfo.AccessLevel)
+	}
 }
