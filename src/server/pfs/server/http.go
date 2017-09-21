@@ -56,7 +56,7 @@ func newHTTPServer(address string, etcdAddresses []string, etcdPrefix string, ca
 	router.POST(fmt.Sprintf("/%v/auth/logout", apiVersion), s.authLogoutHandler)
 	// Debug method (to check login cookies):
 	router.GET(s.loginPath, s.loginForm)
-	router.NotFound = &notFoundRouter{}
+	router.NotFound = http.HandlerFunc(notFound)
 	return s, nil
 }
 
@@ -132,13 +132,9 @@ func (s *HTTPServer) authLogoutHandler(w http.ResponseWriter, r *http.Request, p
 	w.WriteHeader(http.StatusOK)
 }
 
-type notFoundRouter struct {
-}
-
-func (s notFoundRouter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func notFound(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(http.StatusNotFound)
-	io.Copy(&w, strings.NewReader("route not found"))
+	http.Error(w, "route not found", http.StatusNotFound)
 }
 func (s *HTTPServer) loginForm(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	w.Header().Add("Content-Type", "text/html; charset=utf-8")
