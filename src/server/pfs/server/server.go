@@ -37,7 +37,7 @@ func NewHTTPServer(address string, etcdAddresses []string, etcdPrefix string, ca
 
 // NewBlockAPIServer creates a BlockAPIServer using the credentials it finds in
 // the environment
-func NewBlockAPIServer(dir string, cacheBytes int64, backend string, etcdAddress string, iamRole string) (BlockAPIServer, error) {
+func NewBlockAPIServer(dir string, cacheBytes int64, backend string, etcdAddress string) (BlockAPIServer, error) {
 	switch backend {
 	case MinioBackendEnvVar:
 		// S3 compatible doesn't like leading slashes
