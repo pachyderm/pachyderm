@@ -735,8 +735,7 @@ want to consider using commit IDs directly.
 		Use:   "get-file repo-name commit-id path/to/file",
 		Short: "Return the contents of a file.",
 		Long: `Return the contents of a file.
-
-# get file "XXX" on branch "master" in repo "foo"
+` + codestart + `# get file "XXX" on branch "master" in repo "foo"
 $ pachctl get-file foo master XXX
 
 # get file "XXX" in the parent of the current head of branch "master"
@@ -746,7 +745,7 @@ $ pachctl get-file foo master^ XXX
 # get file "XXX" in the grandparent of the current head of branch "master"
 # in repo "foo"
 $ pachctl get-file foo master^2 XXX
-`,
+` + codeend,
 		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
 			client, err := client.NewOnUserMachine(metrics, "user")
 			if err != nil {

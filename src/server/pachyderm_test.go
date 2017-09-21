@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
+	"net/http"
 	"os"
 	"path"
 	"strconv"
@@ -19,6 +20,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
@@ -5008,6 +5010,175 @@ func TestMaxQueueSize(t *testing.T) {
 		}
 		return nil
 	}, backoff.RetryEvery(500*time.Millisecond).For(20*time.Second)))
+}
+
+func TestHTTPAuth(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	var host string
+	clientAddr := c.GetAddress()
+	tokens := strings.Split(clientAddr, ":")
+	require.Equal(t, 2, len(tokens))
+	host = tokens[0]
+
+	// Try to login
+	token := "abbazabbadoo"
+	jsonString := []byte(fmt.Sprintf("{\"Token\":\"%v\"}", token))
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://%v:30652/v1/auth/login", host), bytes.NewBuffer(jsonString))
+	require.NoError(t, err)
+	httpClient := &http.Client{}
+	resp, err := httpClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, 1, len(resp.Cookies()))
+	require.Equal(t, auth.ContextTokenKey, resp.Cookies()[0].Name)
+	require.Equal(t, "*", resp.Header.Get("Access-Control-Allow-Origin"))
+	require.Equal(t, token, resp.Cookies()[0].Value)
+
+	// Try to logout
+	req, err = http.NewRequest("POST", fmt.Sprintf("http://%v:30652/v1/auth/logout", host), nil)
+	require.NoError(t, err)
+	resp, err = httpClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, 1, len(resp.Cookies()))
+	require.Equal(t, auth.ContextTokenKey, resp.Cookies()[0].Name)
+	require.Equal(t, "*", resp.Header.Get("Access-Control-Allow-Origin"))
+	// The cookie should be unset now
+	require.Equal(t, "", resp.Cookies()[0].Value)
+}
+
+func TestHTTPGetFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestHTTPGetFile_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo"))
+	f, err := os.Open("../../etc/testing/artifacts/giphy.gif")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "giphy.gif", f)
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	var host string
+	clientAddr := c.GetAddress()
+	tokens := strings.Split(clientAddr, ":")
+	require.Equal(t, 2, len(tokens))
+	host = tokens[0]
+
+	// Try to get raw contents
+	resp, err := http.Get(fmt.Sprintf("http://%v:30652/v1/pfs/repos/%v/commits/%v/files/file", host, dataRepo, commit1.ID))
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	contents, err := ioutil.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, "foo", string(contents))
+	contentDisposition := resp.Header.Get("Content-Disposition")
+	require.Equal(t, "", contentDisposition)
+
+	// Try to get file for downloading
+	resp, err = http.Get(fmt.Sprintf("http://%v:30652/v1/pfs/repos/%v/commits/%v/files/file?download=true", host, dataRepo, commit1.ID))
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	contents, err = ioutil.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, "foo", string(contents))
+	contentDisposition = resp.Header.Get("Content-Disposition")
+	require.Equal(t, "attachment; filename=\"file\"", contentDisposition)
+
+	// Make sure MIME type is set
+	resp, err = http.Get(fmt.Sprintf("http://%v:30652/v1/pfs/repos/%v/commits/%v/files/giphy.gif", host, dataRepo, commit1.ID))
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	contentDisposition = resp.Header.Get("Content-Type")
+	require.Equal(t, "image/gif", contentDisposition)
+}
+
+func TestService(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c := getPachClient(t)
+
+	dataRepo := uniqueString("TestService_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	_, err = c.PutFile(dataRepo, commit1.ID, "file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	pipeline := uniqueString("pipelineservice")
+	// This pipeline sleeps for 10 secs per datum
+	require.NoError(t, c.CreatePipelineService(
+		pipeline,
+		"trinitronx/python-simplehttpserver",
+		[]string{"sh"},
+		[]string{
+			"cd /pfs",
+			"exec python -m SimpleHTTPServer 8000",
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/"),
+		false,
+		8000,
+		31800,
+	))
+
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := http.Get(fmt.Sprintf("http://localhost:31800/%s/file1", dataRepo))
+		if err != nil {
+			return err
+		}
+		if resp.StatusCode != 200 {
+			return fmt.Errorf("GET returned %d", resp.StatusCode)
+		}
+		content, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		if string(content) != "foo" {
+			return fmt.Errorf("wrong content for file1: expected foo, got %s", string(content))
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+
+	commit2, err := c.StartCommit(dataRepo, "master")
+	_, err = c.PutFile(dataRepo, commit2.ID, "file2", strings.NewReader("bar"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
+
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := http.Get(fmt.Sprintf("http://localhost:31800/%s/file2", dataRepo))
+		if err != nil {
+			return err
+		}
+		if resp.StatusCode != 200 {
+			return fmt.Errorf("GET returned %d", resp.StatusCode)
+		}
+		content, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		if string(content) != "bar" {
+			return fmt.Errorf("wrong content for file2: expected bar, got %s", string(content))
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
