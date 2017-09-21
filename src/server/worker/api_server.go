@@ -265,10 +265,6 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	if err != nil {
 		return nil, err
 	}
-	numWorkers, err := ppsserver.GetExpectedNumWorkers(kubeClient, pipelineInfo.ParallelismSpec)
-	if err != nil {
-		return nil, err
-	}
 	datumCache, err := lru.New(numCachedDatums)
 	if err != nil {
 		return nil, fmt.Errorf("error creating datum cache: %v", err)
@@ -284,12 +280,21 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 			WorkerID:     os.Getenv(client.PPSPodNameEnv),
 		},
 		workerName: workerName,
-		numWorkers: numWorkers,
 		namespace:  namespace,
 		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
 		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
 		datumCache: datumCache,
 	}
+	logger, err := server.getTaggedLogger(context.Background(), "", nil, false)
+	if err != nil {
+		return nil, err
+	}
+	numWorkers, err := ppsserver.GetExpectedNumWorkers(kubeClient, pipelineInfo.ParallelismSpec)
+	if err != nil {
+		logger.Logf("error getting number of workers, default to 1 worker: %v", err)
+		numWorkers = 1
+	}
+	server.numWorkers = numWorkers
 	if pipelineInfo.Transform.Image != "" {
 		docker, err := docker.NewClientFromEnv()
 		if err != nil {

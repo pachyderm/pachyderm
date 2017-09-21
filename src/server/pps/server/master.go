@@ -218,7 +218,8 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 	return backoff.RetryNotify(func() error {
 		parallelism, err := ppsserver.GetExpectedNumWorkers(a.kubeClient, pipelineInfo.ParallelismSpec)
 		if err != nil {
-			return err
+			log.Errorf("error getting number of workers, default to 1 worker: %v", err)
+			parallelism = 1
 		}
 		var resources *api.ResourceList
 		if pipelineInfo.ResourceSpec != nil {
