@@ -149,5 +149,5 @@ func (s *HTTPServer) loginForm(w http.ResponseWriter, r *http.Request, ps httpro
 </body>
 </html>
 	`, s.loginPath)
-	io.Copy(&w, strings.NewReader(content))
+	io.Copy(w, strings.NewReader(content))
 }
