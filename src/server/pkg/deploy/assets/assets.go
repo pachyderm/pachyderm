@@ -292,6 +292,9 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 				ObjectMeta: api.ObjectMeta{
 					Name:   pachdName,
 					Labels: labels(pachdName),
+					Annotations: map[string]string{
+						"iam.amazonaws.com/role": opts.IAMRole,
+					},
 				},
 				Spec: api.PodSpec{
 					Containers: []api.Container{
