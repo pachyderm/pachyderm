@@ -125,7 +125,7 @@ deploy_k8s_on_aws() {
         --dns=private \
         --dns-zone=kubernetes.com \
         --node-size=${NODE_SIZE} \
-        --master-size=${NODE_SIZE} \
+        --master-size=${MASTER_SIZE} \
         --name=${NAME} \
         --yes
     kops update cluster ${NAME} --yes --state=${STATE_BUCKET}
@@ -146,7 +146,7 @@ deploy_k8s_on_aws() {
 
 update_sec_group() {
     export SECURITY_GROUP_ID="$(
-        aws ec2 describe-instances --filters "Name=instance-type,Values=${NODE_SIZE}" --region ${AWS_REGION} \
+        aws ec2 describe-instances --filters "Name=instance-type,Values=${NODE_SIZE}" --region ${AWS_REGION} --output=json \
           | jq --raw-output ".Reservations[].Instances[] | select([.Tags[]?.Value | contains(\"masters.${NAME}\")] | any) | .SecurityGroups[0].GroupId"
     )"
     # For k8s access
@@ -226,7 +226,7 @@ check_all_nodes_ready() {
 
 get_k8s_master_domain() {
     export K8S_MASTER_DOMAIN="$(
-        aws ec2 describe-instances --filters "Name=instance-type,Values=${NODE_SIZE}" --region ${AWS_REGION} \
+        aws ec2 describe-instances --filters "Name=instance-type,Values=${NODE_SIZE}" --region ${AWS_REGION} --output=json \
           | jq --raw-output ".Reservations[].Instances[] | select([.Tags[]?.Value | contains(\"masters.${NAME}\")] | any) | .PublicDnsName"
     )"
     if [ -n "${K8S_MASTER_DOMAIN}" ]; then
