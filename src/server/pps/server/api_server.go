@@ -1027,7 +1027,7 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 		return err
 	}
 	if err := validateTransform(pipelineInfo.Transform); err != nil {
-		return err
+		return fmt.Errorf("invalid transform: %v", err)
 	}
 	if pipelineInfo.ParallelismSpec != nil {
 		if pipelineInfo.ParallelismSpec.Constant < 0 {
