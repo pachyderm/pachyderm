@@ -1250,8 +1250,9 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 	}
 }
 
-// Creating a repo that already exists gives you an error to that effect, even
-// when auth is already activated (rather than "access denied")
+// TestCreateRepoAlreadyExistsError tests that creating a repo that already
+// exists gives you an error to that effect, even when auth is already
+// activated (rather than "access denied")
 func TestCreateRepoAlreadyExistsError(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -1307,4 +1308,45 @@ func TestCreatePipelineRepoAlreadyExistsError(t *testing.T) {
 	)
 	require.YesError(t, err)
 	require.Matches(t, "cannot overwrite repo", err.Error())
+}
+
+// TestAuthorizedNoneRole tests that Authorized(user, repo, NONE) yields 'true',
+// even for repos with no ACL
+func TestAuthorizedNoneRole(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	adminClient := getPachClient(t, "admin")
+
+	// Deactivate auth
+	_, err := adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
+	require.NoError(t, err)
+
+	// Wait for auth to be deactivated
+	require.NoError(t, backoff.Retry(func() error {
+		_, err = adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
+		if err != nil && auth.IsNotActivatedError(err) {
+			return nil // WhoAmI should fail when auth is deactivated
+		}
+		return errors.New("auth is not yet deactivated")
+	}, backoff.NewTestingBackOff()))
+
+	// alice creates a repo
+	repo := uniqueString("TestAuthorizedNoneRole")
+	require.NoError(t, adminClient.CreateRepo(repo))
+
+	// Get new pach clients, re-activating auth
+	alice := uniqueString("alice")
+	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, "admin")
+
+	// Check that the repo has no ACL
+	require.Equal(t, acl(), GetACL(t, adminClient, repo))
+
+	// alice authorizes against it with the 'NONE' scope
+	resp, err := aliceClient.Authorize(aliceClient.Ctx(), &auth.AuthorizeRequest{
+		Repo:  repo,
+		Scope: auth.Scope_NONE,
+	})
+	require.NoError(t, err)
+	require.True(t, resp.Authorized)
 }
