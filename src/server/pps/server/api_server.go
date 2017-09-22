@@ -983,7 +983,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				for scanner.Scan() {
 					msg := new(pps.LogMessage)
 					if containerName == "pachd" {
-						msg.Message = scanner.Text()
+						msg.Message = scanner.Text() + "\n"
 					} else {
 						logBytes := scanner.Bytes()
 						if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
