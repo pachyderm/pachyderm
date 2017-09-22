@@ -252,6 +252,84 @@ func (a *apiServer) validateJob(ctx context.Context, jobInfo *pps.JobInfo) error
 	return a.validateInput(ctx, jobInfo.Pipeline.Name, jobInfo.Input, true)
 }
 
+func (a *apiServer) validateKube() {
+	logrus.Infof("validating kubernetes access")
+	errors := false
+	_, err := a.kubeClient.Nodes().List(api.ListOptions{})
+	if err != nil {
+		errors = true
+		logrus.Errorf("unable to access kubernetes nodeslist, Pachyderm will continue to work but it will not be possible to use COEFFICIENT parallelism. error: %v", err)
+	}
+	_, err = a.kubeClient.Pods(a.namespace).Watch(api.ListOptions{Watch: true})
+	if err != nil {
+		errors = true
+		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but certain pipeline errors will result in pipelines being stuck indefinitely in \"starting\" state. error: %v", err)
+	}
+	pods, err := a.rcPods("pachd")
+	if err != nil {
+		errors = true
+		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but get-logs will not work. error: %v", err)
+	} else {
+		for _, pod := range pods {
+			_, err = a.kubeClient.Pods(a.namespace).GetLogs(
+				pod.ObjectMeta.Name, &api.PodLogOptions{
+					Container: "pachd",
+				}).Timeout(10 * time.Second).Do().Raw()
+			if err != nil {
+				errors = true
+				logrus.Errorf("unable to access kubernetes logs, Pachyderm will continue to work but get-logs will not work. error: %v", err)
+			}
+			break
+		}
+	}
+	name := uuid.NewWithoutDashes()
+	labels := map[string]string{"app": name}
+	rc := &api.ReplicationController{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "ReplicationController",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   name,
+			Labels: labels,
+		},
+		Spec: api.ReplicationControllerSpec{
+			Selector: labels,
+			Replicas: 0,
+			Template: &api.PodTemplateSpec{
+				ObjectMeta: api.ObjectMeta{
+					Name:   name,
+					Labels: labels,
+				},
+				Spec: api.PodSpec{
+					Containers: []api.Container{
+						{
+							Name:    "name",
+							Image:   DefaultUserImage,
+							Command: []string{"true"},
+						},
+					},
+				},
+			},
+		},
+	}
+	if _, err := a.kubeClient.ReplicationControllers(a.namespace).Create(rc); err != nil {
+		if err != nil {
+			errors = true
+			logrus.Errorf("unable to create kubernetes replication controllers, Pachyderm will not function properly until this is fixed. error: %v", err)
+		}
+	}
+	if err := a.kubeClient.ReplicationControllers(a.namespace).Delete(name, nil); err != nil {
+		if err != nil {
+			errors = true
+			logrus.Errorf("unable to delete kubernetes replication controllers, Pachyderm function properly but pipeline cleanup will not work. error: %v", err)
+		}
+	}
+	if !errors {
+		logrus.Infof("validating kubernetes access returned no errors")
+	}
+}
+
 func translateJobInputs(inputs []*pps.JobInput) *pps.Input {
 	result := &pps.Input{}
 	for _, input := range inputs {
@@ -850,6 +928,9 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		if err != nil {
 			return err
 		}
+	} else {
+		// by default we get messages from
+		rcName = "pachd"
 	}
 
 	pods, err := a.rcPods(rcName)
@@ -2017,7 +2098,7 @@ func (a *apiServer) rcPods(rcName string) ([]api.Pod, error) {
 			Kind:       "ListOptions",
 			APIVersion: "v1",
 		},
-		LabelSelector: kube_labels.SelectorFromSet(labels(rcName)),
+		LabelSelector: kube_labels.SelectorFromSet(map[string]string{"app": rcName}),
 	})
 	if err != nil {
 		return nil, err
