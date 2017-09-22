@@ -141,7 +141,7 @@ docker-build-microsoft-vhd:
 docker-wait-pachd:
 	etc/compile/wait.sh pachd_compile
 
-docker-build: docker-build-worker docker-build-pachd docker-wait-worker docker-wait-pachd
+docker-build: enterprise-code-checkin-test docker-build-worker docker-build-pachd docker-wait-worker docker-wait-pachd
 
 docker-build-proto:
 	docker build -t pachyderm_proto etc/proto
@@ -328,11 +328,11 @@ local-test: docker-build launch-dev test-pfs clean-launch-dev
 test: enterprise-code-checkin-test docker-build clean-launch-dev launch-dev test-pfs test-pps test-auth test-enterprise
 
 enterprise-code-checkin-test:
-	# Check if we've accidentally added our test activation code to the repo
+	# Check if our test activation code is anywhere in the repo
 	@echo "Files containing test Pachyderm Enterprise activation token:"; \
 	if grep --files-with-matches --exclude=Makefile -r -e 'eyJ0b2tl' . ; \
 	then \
-		$$( which echo ) -e "\n*** It looks like Pachyderm Engineering's test activation code may be in this repo. Please remove it before commiting ***\n"; \
+		$$( which echo ) -e "\n*** It looks like Pachyderm Engineering's test activation code may be in this repo. Please remove it before committing! ***\n"; \
 		false; \
 	fi
 
