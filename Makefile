@@ -325,7 +325,16 @@ pretest:
 
 local-test: docker-build launch-dev test-pfs clean-launch-dev 
 
-test: docker-build clean-launch-dev launch-dev test-pfs test-pps test-auth test-enterprise
+test: enterprise-code-checkin-test docker-build clean-launch-dev launch-dev test-pfs test-pps test-auth test-enterprise
+
+enterprise-code-checkin-test:
+	# Check if we've accidentally added our test activation code to the repo
+	@echo "Files containing test Pachyderm Enterprise activation token:"; \
+	if grep --files-with-matches --exclude=Makefile -r -e 'eyJ0b2tl' . ; \
+	then \
+		$$( which echo ) -e "\n*** It looks like Pachyderm Engineering's test activation code may be in this repo. Please remove it before commiting ***\n"; \
+		false; \
+	fi
 
 test-pfs:
 	@# don't run this in verbose mode, as it produces a huge amount of logs
