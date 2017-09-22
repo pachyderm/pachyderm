@@ -309,10 +309,6 @@ $ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
 			if err != nil {
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
-			// Validate flags
-			if len(jobID) == 0 && len(pipelineName) == 0 {
-				return fmt.Errorf("must set either --pipeline or --job (or both)")
-			}
 
 			// Break up comma-separated input paths, and filter out empty entries
 			data := strings.Split(commaInputs, ",")
@@ -342,6 +338,8 @@ $ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
 				} else if iter.Message().User {
 					fmt.Print(iter.Message().Message)
 				} else if iter.Message().Master && master {
+					fmt.Println(iter.Message().Message)
+				} else if pipelineName == "" && jobID == "" {
 					fmt.Println(iter.Message().Message)
 				}
 			}
