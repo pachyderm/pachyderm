@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"strconv"
@@ -5027,8 +5028,10 @@ func TestHTTPAuth(t *testing.T) {
 
 	// Try to login
 	token := "abbazabbadoo"
-	jsonString := []byte(fmt.Sprintf("{\"Token\":\"%v\"}", token))
-	req, err := http.NewRequest("POST", fmt.Sprintf("http://%v:30652/v1/auth/login", host), bytes.NewBuffer(jsonString))
+	form := url.Values{}
+	form.Add("Token", token)
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://%v:30652/v1/auth/login", host), strings.NewReader(form.Encode()))
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	require.NoError(t, err)
 	httpClient := &http.Client{}
 	resp, err := httpClient.Do(req)
@@ -5050,6 +5053,13 @@ func TestHTTPAuth(t *testing.T) {
 	require.Equal(t, "*", resp.Header.Get("Access-Control-Allow-Origin"))
 	// The cookie should be unset now
 	require.Equal(t, "", resp.Cookies()[0].Value)
+
+	// Make sure we get 404s for non existent routes
+	req, err = http.NewRequest("POST", fmt.Sprintf("http://%v:30652/v1/auth/logoutzz", host), nil)
+	require.NoError(t, err)
+	resp, err = httpClient.Do(req)
+	require.NoError(t, err)
+	require.Equal(t, 404, resp.StatusCode)
 }
 
 func TestHTTPGetFile(t *testing.T) {
