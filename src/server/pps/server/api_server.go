@@ -894,14 +894,10 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	// to finish reasonably quickly
 	ctx, _ := context.WithTimeout(context.Background(), 60*time.Second)
 
-	// Validate request
-	if request.Pipeline == nil && request.Job == nil {
-		return fmt.Errorf("must set either pipeline or job filter in call to GetLogs")
-	}
-
 	// Get list of pods containing logs we're interested in (based on pipeline and
 	// job filters)
 	var rcName string
+	var containerName string
 	if request.Pipeline != nil {
 		// If the user provides a pipeline, get logs from the pipeline RC directly
 		var err error
@@ -909,6 +905,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		if err != nil {
 			return err
 		}
+		containerName = client.PPSWorkerUserContainerName
 	} else if request.Job != nil {
 		// If user provides a job, lookup the pipeline from the job info, and then
 		// get the pipeline RC
@@ -928,9 +925,11 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		if err != nil {
 			return err
 		}
+		containerName = client.PPSWorkerUserContainerName
 	} else {
 		// by default we get messages from
 		rcName = "pachd"
+		containerName = "pachd"
 	}
 
 	pods, err := a.rcPods(rcName)
@@ -960,7 +959,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			err := backoff.Retry(func() error {
 				result := a.kubeClient.Pods(a.namespace).GetLogs(
 					pod.ObjectMeta.Name, &api.PodLogOptions{
-						Container: client.PPSWorkerUserContainerName,
+						Container: containerName,
 					}).Timeout(10 * time.Second).Do()
 				fullLogs, err := result.Raw()
 				if err != nil {
@@ -982,27 +981,31 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				// Parse pods' log lines, and filter out irrelevant ones
 				scanner := bufio.NewScanner(bytes.NewReader(fullLogs))
 				for scanner.Scan() {
-					logBytes := scanner.Bytes()
 					msg := new(pps.LogMessage)
-					if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
-						continue
-					}
+					if containerName == "pachd" {
+						msg.Message = scanner.Text()
+					} else {
+						logBytes := scanner.Bytes()
+						if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
+							continue
+						}
 
-					// Filter out log lines that don't match on pipeline or job
-					if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
-						continue
-					}
-					if request.Job != nil && request.Job.ID != msg.JobID {
-						continue
-					}
-					if request.Datum != nil && request.Datum.ID != msg.DatumID {
-						continue
-					}
-					if request.Master != msg.Master {
-						continue
-					}
-					if !workerpkg.MatchDatum(request.DataFilters, msg.Data) {
-						continue
+						// Filter out log lines that don't match on pipeline or job
+						if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
+							continue
+						}
+						if request.Job != nil && request.Job.ID != msg.JobID {
+							continue
+						}
+						if request.Datum != nil && request.Datum.ID != msg.DatumID {
+							continue
+						}
+						if request.Master != msg.Master {
+							continue
+						}
+						if !workerpkg.MatchDatum(request.DataFilters, msg.Data) {
+							continue
+						}
 					}
 
 					// Log message passes all filters -- return it
