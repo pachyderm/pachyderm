@@ -876,7 +876,7 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.User,
 	var user authclient.User
 	if err := a.tokens.ReadOnly(ctx).Get(hashToken(token), &user); err != nil {
 		if col.IsErrNotFound(err) {
-			return nil, fmt.Errorf("provided auth token is corrupted or has expired")
+			return nil, fmt.Errorf("provided auth token is corrupted or has expired (try logging in again)")
 		}
 		return nil, fmt.Errorf("error getting token: %v", err)
 	}
