@@ -508,12 +508,10 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 			return err
 		}
 		for _, prov := range repoInfo.Provenance {
-			if err := repoRefCounts.Decrement(prov.Name); err != nil {
+			if err := repoRefCounts.Decrement(prov.Name); err != nil && !col.IsErrNotFound(err) {
 				// Skip NotFound error, because it's possible that the
 				// provenance repo has been deleted via --force.
-				if _, ok := err.(col.ErrNotFound); !ok {
-					return err
-				}
+				return err
 			}
 		}
 
@@ -1466,7 +1464,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		// should have a size of ChunkSize.
 		for i, object := range objects {
 			record := &pfs.PutFileRecord{
-			ObjectHash: object.Hash,
+				ObjectHash: object.Hash,
 			}
 
 			if size > pfs.ChunkSize {
@@ -1990,7 +1988,7 @@ func (d *driver) applyWrites(resp *etcd.GetResponse, tree hashtree.OpenHashTree)
 						}
 
 						if err := tree.PutFileOverwrite(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.OverwriteIndex, delta); err != nil {
-					return err
+							return err
 						}
 					} else {
 						if err := tree.PutFile(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {

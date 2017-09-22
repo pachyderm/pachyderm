@@ -186,13 +186,12 @@ message ResourceSpec {
 }
 
 message JobInfo {
-  reserved 4;
+  reserved 4, 5;
   Job job = 1;
   Transform transform = 2;
   Pipeline pipeline = 3;
   uint64 pipeline_version = 13;
   ParallelismSpec parallelism_spec = 12;
-  repeated JobInput inputs = 5;
   Egress egress = 15;
   Job parent_job = 6;
   google.protobuf.Timestamp started = 7;
@@ -267,13 +266,12 @@ enum PipelineState {
 }
 
 message PipelineInfo {
-  reserved 3;
+  reserved 3, 4;
   string id = 17 [(gogoproto.customname) = "ID"];
   Pipeline pipeline = 1;
   uint64 version = 11;
   Transform transform = 2;
   ParallelismSpec parallelism_spec = 10;
-  repeated PipelineInput inputs = 4;
   Egress egress = 15;
   google.protobuf.Timestamp created_at = 6;
   PipelineState state = 7;
@@ -300,12 +298,11 @@ message PipelineInfos {
 }
 
 message CreateJobRequest {
-  reserved 3;
+  reserved 3, 4;
   Transform transform = 1;
   Pipeline pipeline = 2;
   uint64 pipeline_version = 10;
   ParallelismSpec parallelism_spec = 7;
-  repeated JobInput inputs = 4;
   Egress egress = 9;
   // When service is defined, we create a long running job
   // by using a k8s RC and Service instead of a k8s Job
@@ -407,11 +404,10 @@ message ListDatumResponse {
 }
 
 message CreatePipelineRequest {
-  reserved 3;
+  reserved 3, 4;
   Pipeline pipeline = 1;
   Transform transform = 2;
   ParallelismSpec parallelism_spec = 7;
-  repeated PipelineInput inputs = 4;
   Egress egress = 9;
   bool update = 5;
   string output_branch = 10;
