@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -15,8 +16,14 @@ import (
 )
 
 var (
-	pipelineIndex    Index = Index{"Pipeline", false}
-	inputsMultiIndex Index = Index{"Inputs", true}
+	pipelineIndex Index = Index{
+		Field: "Pipeline",
+		Multi: false,
+	}
+	repoMultiIndex Index = Index{
+		Field: "Provenance",
+		Multi: true,
+	}
 )
 
 func TestIndex(t *testing.T) {
@@ -180,115 +187,112 @@ func TestMultiIndex(t *testing.T) {
 	require.NoError(t, err)
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	jobInfos := NewCollection(etcdClient, uuidPrefix, []Index{inputsMultiIndex}, &pps.JobInfo{}, nil)
+	repoInfos := NewCollection(etcdClient, uuidPrefix, []Index{repoMultiIndex}, &pfs.RepoInfo{}, nil)
 
-	j1 := &pps.JobInfo{
-		Job: &pps.Job{"j1"},
-		Inputs: []*pps.JobInput{
-			{Name: "input1"},
-			{Name: "input2"},
-			{Name: "input3"},
+	r1 := &pfs.RepoInfo{
+		Repo: &pfs.Repo{"r1"},
+		Provenance: []*pfs.Repo{
+			{"input1"},
+			{"input2"},
+			{"input3"},
 		},
 	}
-	j2 := &pps.JobInfo{
-		Job: &pps.Job{"j2"},
-		Inputs: []*pps.JobInput{
-			{Name: "input1"},
-			{Name: "input2"},
-			{Name: "input3"},
+	r2 := &pfs.RepoInfo{
+		Repo: &pfs.Repo{"r2"},
+		Provenance: []*pfs.Repo{
+			{"input1"},
+			{"input2"},
+			{"input3"},
 		},
 	}
 	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
-		jobInfos := jobInfos.ReadWrite(stm)
-		jobInfos.Put(j1.Job.ID, j1)
-		jobInfos.Put(j2.Job.ID, j2)
+		repoInfos := repoInfos.ReadWrite(stm)
+		repoInfos.Put(r1.Repo.Name, r1)
+		repoInfos.Put(r2.Repo.Name, r2)
 		return nil
 	})
 	require.NoError(t, err)
 
-	jobInfosReadonly := jobInfos.ReadOnly(context.Background())
+	repoInfosReadonly := repoInfos.ReadOnly(context.Background())
 
-	iter, err := jobInfosReadonly.GetByIndex(inputsMultiIndex, &pps.JobInput{
-		Name: "input1",
-	})
+	// Test that the first key retrieves both r1 and r2
+	iter, err := repoInfosReadonly.GetByIndex(repoMultiIndex, &pfs.Repo{"input1"})
 	require.NoError(t, err)
-	var ID string
-	job := new(pps.JobInfo)
-	ok, err := iter.Next(&ID, job)
-	require.NoError(t, err)
-	require.True(t, ok)
-	require.Equal(t, j1.Job.ID, ID)
-	require.Equal(t, j1, job)
-	job = new(pps.JobInfo)
-	ok, err = iter.Next(&ID, job)
+	var Name string
+	repo := new(pfs.RepoInfo)
+	ok, err := iter.Next(&Name, repo)
 	require.NoError(t, err)
 	require.True(t, ok)
-	require.Equal(t, j2.Job.ID, ID)
-	require.Equal(t, j2, job)
+	require.Equal(t, r1.Repo.Name, Name)
+	require.Equal(t, r1, repo)
+	repo = new(pfs.RepoInfo)
+	ok, err = iter.Next(&Name, repo)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, r2.Repo.Name, Name)
+	require.Equal(t, r2, repo)
 
-	iter, err = jobInfosReadonly.GetByIndex(inputsMultiIndex, &pps.JobInput{
-		Name: "input2",
-	})
+	// Test that the *second* key retrieves both r1 and r2
+	iter, err = repoInfosReadonly.GetByIndex(repoMultiIndex, &pfs.Repo{"input2"})
 	require.NoError(t, err)
-	job = new(pps.JobInfo)
-	ok, err = iter.Next(&ID, job)
-	require.NoError(t, err)
-	require.True(t, ok)
-	require.Equal(t, j1.Job.ID, ID)
-	require.Equal(t, j1, job)
-	job = new(pps.JobInfo)
-	ok, err = iter.Next(&ID, job)
+	repo = new(pfs.RepoInfo)
+	ok, err = iter.Next(&Name, repo)
 	require.NoError(t, err)
 	require.True(t, ok)
-	require.Equal(t, j2.Job.ID, ID)
-	require.Equal(t, j2, job)
+	require.Equal(t, r1.Repo.Name, Name)
+	require.Equal(t, r1, repo)
+	repo = new(pfs.RepoInfo)
+	ok, err = iter.Next(&Name, repo)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, r2.Repo.Name, Name)
+	require.Equal(t, r2, repo)
 
-	j1.Inputs[2] = &pps.JobInput{Name: "input4"}
+	// replace "input3" in the provenance of r1 with "input4"
+	r1.Provenance[2] = &pfs.Repo{"input4"}
 	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
-		jobInfos := jobInfos.ReadWrite(stm)
-		jobInfos.Put(j1.Job.ID, j1)
+		repoInfos := repoInfos.ReadWrite(stm)
+		repoInfos.Put(r1.Repo.Name, r1)
 		return nil
 	})
 	require.NoError(t, err)
 
-	iter, err = jobInfosReadonly.GetByIndex(inputsMultiIndex, &pps.JobInput{
-		Name: "input3",
-	})
+	// Now "input3" only retrieves r2 (indexes are updated)
+	iter, err = repoInfosReadonly.GetByIndex(repoMultiIndex, &pfs.Repo{"input3"})
 	require.NoError(t, err)
-	job = new(pps.JobInfo)
-	ok, err = iter.Next(&ID, job)
-	require.NoError(t, err)
-	require.True(t, ok)
-	require.Equal(t, j2.Job.ID, ID)
-	require.Equal(t, j2, job)
-
-	iter, err = jobInfosReadonly.GetByIndex(inputsMultiIndex, &pps.JobInput{
-		Name: "input4",
-	})
-	require.NoError(t, err)
-	job = new(pps.JobInfo)
-	ok, err = iter.Next(&ID, job)
+	repo = new(pfs.RepoInfo)
+	ok, err = iter.Next(&Name, repo)
 	require.NoError(t, err)
 	require.True(t, ok)
-	require.Equal(t, j1.Job.ID, ID)
-	require.Equal(t, j1, job)
+	require.Equal(t, r2.Repo.Name, Name)
+	require.Equal(t, r2, repo)
 
+	// As well, "input4" only retrieves r1 (indexes are updated)
+	iter, err = repoInfosReadonly.GetByIndex(repoMultiIndex, &pfs.Repo{"input4"})
+	require.NoError(t, err)
+	repo = new(pfs.RepoInfo)
+	ok, err = iter.Next(&Name, repo)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, r1.Repo.Name, Name)
+	require.Equal(t, r1, repo)
+
+	// Delete r1 from etcd completely
 	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
-		jobInfos := jobInfos.ReadWrite(stm)
-		jobInfos.Delete(j1.Job.ID)
+		repoInfos := repoInfos.ReadWrite(stm)
+		repoInfos.Delete(r1.Repo.Name)
 		return nil
 	})
 
-	iter, err = jobInfosReadonly.GetByIndex(inputsMultiIndex, &pps.JobInput{
-		Name: "input1",
-	})
+	// Now "input1" only retrieves r2
+	iter, err = repoInfosReadonly.GetByIndex(repoMultiIndex, &pfs.Repo{"input1"})
 	require.NoError(t, err)
-	job = new(pps.JobInfo)
-	ok, err = iter.Next(&ID, job)
+	repo = new(pfs.RepoInfo)
+	ok, err = iter.Next(&Name, repo)
 	require.NoError(t, err)
 	require.True(t, ok)
-	require.Equal(t, j2.Job.ID, ID)
-	require.Equal(t, j2, job)
+	require.Equal(t, r2.Repo.Name, Name)
+	require.Equal(t, r2, repo)
 }
 
 func getEtcdClient() (*etcd.Client, error) {
