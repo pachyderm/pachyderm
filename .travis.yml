@@ -34,6 +34,11 @@ before_script:
 - ./etc/testing/travis_install_batch_deps.sh
 script:
 - make lint vet
-- travis_wait 30 ./etc/testing/travis.sh
+- ./etc/testing/travis.sh
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
+  email:
+    recipients:
+      - derek@pachyderm.io
+    on_success: never
+    on_failure: always

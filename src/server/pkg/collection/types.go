@@ -13,6 +13,8 @@ import (
 // because most of our data is modelled as collections, such as repos,
 // commits, branches, etc.
 type Collection interface {
+	// Path returns the full etcd path of the given key in the collection
+	Path(string) string
 	// ReadWrite enables reads and writes on a collection in a
 	// transactional manner.  Specifically, all writes are applied
 	// atomically, and writes are only applied if reads have not been
@@ -57,7 +59,13 @@ type Index struct {
 // operations.
 type ReadWriteCollection interface {
 	Get(key string, val proto.Unmarshaler) error
-	Put(key string, val proto.Marshaler)
+	Put(key string, val proto.Marshaler) error
+	// PutTTL is the same as Put except that the object is removed after
+	// TTL seconds.
+	// WARNING: using PutTTL with a collection that has secondary indices
+	// can result in inconsistency, as the indices are removed at roughly
+	// but not exactly the same time as the documents.
+	PutTTL(key string, val proto.Marshaler, ttl int64) error
 	Create(key string, val proto.Marshaler) error
 	Delete(key string) error
 	DeleteAll()
@@ -79,6 +87,7 @@ type ReadonlyCollection interface {
 	Get(key string, val proto.Unmarshaler) error
 	GetByIndex(index Index, val interface{}) (Iterator, error)
 	List() (Iterator, error)
+	Count() (int64, error)
 	Watch() (watch.Watcher, error)
 	// WatchWithPrev is like Watch, but the events will include the previous
 	// versions of the key/value.

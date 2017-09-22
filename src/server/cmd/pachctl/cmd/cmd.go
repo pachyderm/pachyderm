@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 	"text/tabwriter"
 	"time"
 
@@ -17,17 +18,22 @@ import (
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/apis/batch"
 
+	"github.com/facebookgo/pidfile"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/config"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
+	authcmds "github.com/pachyderm/pachyderm/src/server/auth/cmds"
+	enterprisecmds "github.com/pachyderm/pachyderm/src/server/enterprise/cmds"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/ugorji/go/codec"
 	"golang.org/x/net/context"
@@ -36,9 +42,9 @@ import (
 	"google.golang.org/grpc/grpclog"
 )
 
-// PachctlCmd takes a pachd host-address and creates a cobra.Command
-// which may interact with the host.
-func PachctlCmd(address string) (*cobra.Command, error) {
+// PachctlCmd creates a cobra.Command which can deploy pachyderm clusters and
+// interact with them (it implements the pachctl binary).
+func PachctlCmd() (*cobra.Command, error) {
 	var verbose bool
 	var noMetrics bool
 	rootCmd := &cobra.Command{
@@ -60,19 +66,27 @@ Environment variables:
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Output verbose logs")
 	rootCmd.PersistentFlags().BoolVarP(&noMetrics, "no-metrics", "", false, "Don't report user metrics for this command")
 
-	pfsCmds := pfscmds.Cmds(address, &noMetrics)
+	pfsCmds := pfscmds.Cmds(&noMetrics)
 	for _, cmd := range pfsCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	ppsCmds, err := ppscmds.Cmds(address, &noMetrics)
+	ppsCmds, err := ppscmds.Cmds(&noMetrics)
 	if err != nil {
-		return nil, sanitizeErr(err)
+		return nil, err
 	}
 	for _, cmd := range ppsCmds {
 		rootCmd.AddCommand(cmd)
 	}
 	deployCmds := deploycmds.Cmds(&noMetrics)
 	for _, cmd := range deployCmds {
+		rootCmd.AddCommand(cmd)
+	}
+	authCmds := authcmds.Cmds()
+	for _, cmd := range authCmds {
+		rootCmd.AddCommand(cmd)
+	}
+	enterpriseCmds := enterprisecmds.Cmds()
+	for _, cmd := range enterpriseCmds {
 		rootCmd.AddCommand(cmd)
 	}
 
@@ -95,9 +109,14 @@ Environment variables:
 			printVersion(writer, "pachctl", version.Version)
 			writer.Flush()
 
-			versionClient, err := getVersionAPIClient(address)
+			cfg, err := config.Read()
 			if err != nil {
-				return sanitizeErr(err)
+				log.Warningf("error loading user config from ~/.pachderm/config: %v", err)
+			}
+			pachdAddress := client.GetAddressFromUserMachine(cfg)
+			versionClient, err := getVersionAPIClient(pachdAddress)
+			if err != nil {
+				return err
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
@@ -106,7 +125,7 @@ Environment variables:
 			if err != nil {
 				buf := bytes.NewBufferString("")
 				errWriter := tabwriter.NewWriter(buf, 20, 1, 3, ' ', 0)
-				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", address, sanitizeErr(err))
+				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", pachdAddress, grpcutil.ScrubGRPC(err))
 				errWriter.Flush()
 				return errors.New(buf.String())
 			}
@@ -121,11 +140,11 @@ Environment variables:
 		Long: `Delete all repos, commits, files, pipelines and jobs.
 This resets the cluster to its initial state.`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewMetricsClientFromAddress(address, !noMetrics, "user")
+			client, err := client.NewOnUserMachine(!noMetrics, "user")
 			if err != nil {
-				return sanitizeErr(err)
+				return err
 			}
-			fmt.Printf("Are you sure you want to delete all repos, commits, files, pipelines and jobs? yN\n")
+			fmt.Printf("Are you sure you want to delete all ACLs, repos, commits, files, pipelines and jobs? yN\n")
 			r := bufio.NewReader(os.Stdin)
 			bytes, err := r.ReadBytes('\n')
 			if err != nil {
@@ -146,6 +165,21 @@ This resets the cluster to its initial state.`,
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
 		Long:  "Forward a port on the local machine to pachd. This command blocks.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			pidfile.SetPidfilePath("~/.pachyderm/port-forward.pid")
+			pid, err := pidfile.Read()
+			if err != nil && !os.IsNotExist(err) {
+				return err
+			}
+			if pid != 0 {
+				if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil {
+					if !strings.Contains(err.Error(), "no such process") {
+						return err
+					}
+				}
+			}
+			if err := pidfile.Write(); err != nil {
+				return err
+			}
 
 			var eg errgroup.Group
 
@@ -189,8 +223,8 @@ kubectl %v port-forward "$pod" %d:8081
 		}),
 	}
 	portForward.Flags().IntVarP(&port, "port", "p", 30650, "The local port to bind to.")
-	portForward.Flags().IntVarP(&uiPort, "ui-port", "u", 38080, "The local port to bind to.")
-	portForward.Flags().IntVarP(&uiWebsocketPort, "proxy-port", "x", 38081, "The local port to bind to.")
+	portForward.Flags().IntVarP(&uiPort, "ui-port", "u", 30080, "The local port to bind to.")
+	portForward.Flags().IntVarP(&uiWebsocketPort, "proxy-port", "x", 30081, "The local port to bind to.")
 	portForward.Flags().StringVarP(&kubeCtlFlags, "kubectlflags", "k", "", "Any kubectl flags to proxy, e.g. --kubectlflags='--kubeconfig /some/path/kubeconfig'")
 
 	garbageCollect := &cobra.Command{
@@ -205,7 +239,7 @@ To actually remove the data, you will need to manually invoke garbage collection
 Currently "pachctl garbage-collect" can only be started when there are no active jobs running.  You also need to ensure that there's no ongoing "put-file".  Garbage collection puts the cluster into a readonly mode where no new jobs can be created and no data can be added.
 `,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			client, err := client.NewMetricsClientFromAddress(address, !noMetrics, "user")
+			client, err := client.NewOnUserMachine(!noMetrics, "user")
 			if err != nil {
 				return err
 			}
@@ -242,9 +276,14 @@ $ pachctl migrate --from 1.4.8 --to 1.5.0
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			// If `from` is not provided, we use the cluster version.
 			if from == "" {
-				versionClient, err := getVersionAPIClient(address)
+				cfg, err := config.Read()
 				if err != nil {
-					return sanitizeErr(err)
+					log.Warningf("error loading user config from ~/.pachderm/config: %v", err)
+				}
+				pachdAddress := client.GetAddressFromUserMachine(cfg)
+				versionClient, err := getVersionAPIClient(pachdAddress)
+				if err != nil {
+					return err
 				}
 				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 				defer cancel()
@@ -339,12 +378,4 @@ func printVersionHeader(w io.Writer) {
 
 func printVersion(w io.Writer, component string, v *versionpb.Version) {
 	fmt.Fprintf(w, "%s\t%s\t\n", component, version.PrettyPrintVersion(v))
-}
-
-func sanitizeErr(err error) error {
-	if err == nil {
-		return nil
-	}
-
-	return errors.New(grpc.ErrorDesc(err))
 }

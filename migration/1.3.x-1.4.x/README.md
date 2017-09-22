@@ -49,7 +49,7 @@ NOTE: Now is when you need to think about how you want to
 parallelize over your data. If your repo contains large files which were
 processed in 1.3 with `BLOCK` or `MAP` pipelines, then you should use the
 `--split` flag in your `put-file` invocation to split the data up now.
-Refer to the [`put-file` docs](../../doc/pachctl/pachctl_put-file.html) to learn more about `--split` works.
+Refer to the [`put-file` docs](http://pachyderm.readthedocs.io/en/latest/pachctl/pachctl_put-file.html) to learn more about `--split` works.
 
 After data has been migrated, you can safely shut down the 1.3 cluster.
 

@@ -6,12 +6,11 @@
     "image": "dwhitena/pix2pix",
     "cmd": [ "/bin/bash" ],
     "stdin": [
-	"python pix2pix.py --mode train --output_dir /pfs/out --max_epochs 5 --input_dir /pfs/training --which_direction BtoA", 
+	"python pix2pix.py --mode train --output_dir /pfs/out --max_epochs 5 --input_dir /pfs/training --which_direction BtoA",
 	"sed -i 's/out/checkpoint/g' /pfs/out/checkpoint"
     ]
   },
   "parallelism_spec": {
-    "strategy": "CONSTANT",
     "constant": "1"
   },
   "input": {
@@ -28,13 +27,12 @@
   "transform": {
     "image": "dwhitena/pix2pix",
     "cmd": [ "/bin/bash" ],
-    "stdin": [ 
+    "stdin": [
 	"python pix2pix.py --mode export --output_dir /pfs/out --checkpoint /pfs/checkpoint",
-	"sed -i 's/out/model/g' /pfs/out/checkpoint" 
+	"sed -i 's/out/model/g' /pfs/out/checkpoint"
     ]
   },
   "parallelism_spec": {
-    "strategy": "CONSTANT",
     "constant": "1"
   },
   "input": {

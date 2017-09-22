@@ -25,10 +25,13 @@ type collection struct {
 	// To be clear, this is only necessary because of `Delete`, where we
 	// need to know the type in order to properly remove secondary indexes.
 	template proto.Message
+	// keyCheck is a function that checks if a key is valid.  Invalid keys
+	// cannot be created.
+	keyCheck func(string) error
 }
 
 // NewCollection creates a new collection.
-func NewCollection(etcdClient *etcd.Client, prefix string, indexes []Index, template proto.Message) Collection {
+func NewCollection(etcdClient *etcd.Client, prefix string, indexes []Index, template proto.Message, keyCheck func(string) error) Collection {
 	// We want to ensure that the prefix always ends with a trailing
 	// slash.  Otherwise, when you list the items under a collection
 	// such as `foo`, you might end up listing items under `foobar`
@@ -42,6 +45,7 @@ func NewCollection(etcdClient *etcd.Client, prefix string, indexes []Index, temp
 		etcdClient: etcdClient,
 		indexes:    indexes,
 		template:   template,
+		keyCheck:   keyCheck,
 	}
 }
 
@@ -66,8 +70,8 @@ func (c *collection) ReadOnly(ctx context.Context) ReadonlyCollection {
 	}
 }
 
-// path returns the full path of a key in the etcd namespace
-func (c *collection) path(key string) string {
+// Path returns the full path of a key in the etcd namespace
+func (c *collection) Path(key string) string {
 	return path.Join(c.prefix, key)
 }
 
@@ -90,7 +94,7 @@ type readWriteCollection struct {
 }
 
 func (c *readWriteCollection) Get(key string, val proto.Unmarshaler) error {
-	valStr := c.stm.Get(c.path(key))
+	valStr := c.stm.Get(c.Path(key))
 	if valStr == "" {
 		return ErrNotFound{c.prefix, key}
 	}
@@ -126,7 +130,25 @@ func (c *readWriteCollection) getMultiIndexPaths(val interface{}, index Index, k
 	return indexPaths
 }
 
-func (c *readWriteCollection) Put(key string, val proto.Marshaler) {
+func (c *readWriteCollection) Put(key string, val proto.Marshaler) error {
+	return c.PutTTL(key, val, 0)
+}
+
+func (c *readWriteCollection) PutTTL(key string, val proto.Marshaler, ttl int64) error {
+	var options []etcd.OpOption
+	if ttl > 0 {
+		lease, err := c.collection.etcdClient.Grant(context.Background(), ttl)
+		if err != nil {
+			return fmt.Errorf("error granting lease: %v", err)
+		}
+		options = append(options, etcd.WithLease(lease.ID))
+	}
+
+	if c.collection.keyCheck != nil {
+		if err := c.collection.keyCheck(key); err != nil {
+			return err
+		}
+	}
 	if c.indexes != nil {
 		clone := cloneProtoMsg(val)
 
@@ -139,7 +161,7 @@ func (c *readWriteCollection) Put(key string, val proto.Marshaler) {
 					// we might trigger an unnecessary event if someone is
 					// watching the index
 					if c.stm.Get(indexPath) == "" {
-						c.stm.Put(indexPath, key)
+						c.stm.Put(indexPath, key, options...)
 					}
 				}
 				// If we can get the original value, we remove the original indexes
@@ -169,17 +191,18 @@ func (c *readWriteCollection) Put(key string, val proto.Marshaler) {
 				// we might trigger an unnecessary event if someone is
 				// watching the index
 				if c.stm.Get(indexPath) == "" {
-					c.stm.Put(indexPath, key)
+					c.stm.Put(indexPath, key, options...)
 				}
 			}
 		}
 	}
 	bytes, _ := val.Marshal()
-	c.stm.Put(c.path(key), string(bytes))
+	c.stm.Put(c.Path(key), string(bytes), options...)
+	return nil
 }
 
 func (c *readWriteCollection) Create(key string, val proto.Marshaler) error {
-	fullKey := c.path(key)
+	fullKey := c.Path(key)
 	valStr := c.stm.Get(fullKey)
 	if valStr != "" {
 		return ErrExists{c.prefix, key}
@@ -189,7 +212,7 @@ func (c *readWriteCollection) Create(key string, val proto.Marshaler) error {
 }
 
 func (c *readWriteCollection) Delete(key string) error {
-	fullKey := c.path(key)
+	fullKey := c.Path(key)
 	if c.stm.Get(fullKey) == "" {
 		return ErrNotFound{c.prefix, key}
 	}
@@ -229,7 +252,7 @@ type readWriteIntCollection struct {
 }
 
 func (c *readWriteIntCollection) Create(key string, val int) error {
-	fullKey := c.path(key)
+	fullKey := c.Path(key)
 	valStr := c.stm.Get(fullKey)
 	if valStr != "" {
 		return ErrExists{c.prefix, key}
@@ -239,7 +262,7 @@ func (c *readWriteIntCollection) Create(key string, val int) error {
 }
 
 func (c *readWriteIntCollection) Get(key string) (int, error) {
-	valStr := c.stm.Get(c.path(key))
+	valStr := c.stm.Get(c.Path(key))
 	if valStr == "" {
 		return 0, ErrNotFound{c.prefix, key}
 	}
@@ -251,7 +274,7 @@ func (c *readWriteIntCollection) Increment(key string) error {
 }
 
 func (c *readWriteIntCollection) IncrementBy(key string, n int) error {
-	fullKey := c.path(key)
+	fullKey := c.Path(key)
 	valStr := c.stm.Get(fullKey)
 	if valStr == "" {
 		return ErrNotFound{c.prefix, key}
@@ -269,7 +292,7 @@ func (c *readWriteIntCollection) Decrement(key string) error {
 }
 
 func (c *readWriteIntCollection) DecrementBy(key string, n int) error {
-	fullKey := c.path(key)
+	fullKey := c.Path(key)
 	valStr := c.stm.Get(fullKey)
 	if valStr == "" {
 		return ErrNotFound{c.prefix, key}
@@ -283,7 +306,7 @@ func (c *readWriteIntCollection) DecrementBy(key string, n int) error {
 }
 
 func (c *readWriteIntCollection) Delete(key string) error {
-	fullKey := c.path(key)
+	fullKey := c.Path(key)
 	if c.stm.Get(fullKey) == "" {
 		return ErrNotFound{c.prefix, key}
 	}
@@ -297,7 +320,7 @@ type readonlyCollection struct {
 }
 
 func (c *readonlyCollection) Get(key string, val proto.Unmarshaler) error {
-	resp, err := c.etcdClient.Get(c.ctx, c.path(key))
+	resp, err := c.etcdClient.Get(c.ctx, c.Path(key))
 	if err != nil {
 		return err
 	}
@@ -318,18 +341,27 @@ type indirectIterator struct {
 }
 
 func (i *indirectIterator) Next(key *string, val proto.Unmarshaler) (ok bool, retErr error) {
-	if i.index < len(i.resp.Kvs) {
-		kv := i.resp.Kvs[i.index]
-		i.index++
+	for {
+		if i.index < len(i.resp.Kvs) {
+			kv := i.resp.Kvs[i.index]
+			i.index++
 
-		*key = path.Base(string(kv.Key))
-		if err := i.col.Get(*key, val); err != nil {
-			return false, err
+			*key = path.Base(string(kv.Key))
+			if err := i.col.Get(*key, val); err != nil {
+				if IsErrNotFound(err) {
+					// In cases where we changed how certain objects are
+					// indexed, we could end up in a situation where the
+					// object is deleted but the old indexes still exist.
+					continue
+				} else {
+					return false, err
+				}
+			}
+
+			return true, nil
 		}
-
-		return true, nil
+		return false, nil
 	}
-	return false, nil
 }
 
 func (c *readonlyCollection) GetByIndex(index Index, val interface{}) (Iterator, error) {
@@ -360,6 +392,14 @@ func (c *readonlyCollection) List() (Iterator, error) {
 type iterator struct {
 	index int
 	resp  *etcd.GetResponse
+}
+
+func (c *readonlyCollection) Count() (int64, error) {
+	resp, err := c.etcdClient.Get(c.ctx, c.prefix, etcd.WithPrefix(), etcd.WithCountOnly())
+	if err != nil {
+		return 0, err
+	}
+	return resp.Count, err
 }
 
 func (i *iterator) Next(key *string, val proto.Unmarshaler) (ok bool, retErr error) {
@@ -426,7 +466,7 @@ func (c *readonlyCollection) WatchByIndex(index Index, val interface{}) (watch.W
 				// pass along the error
 				return ev.Err
 			case watch.EventPut:
-				resp, err := c.etcdClient.Get(c.ctx, c.path(path.Base(string(ev.Key))))
+				resp, err := c.etcdClient.Get(c.ctx, c.Path(path.Base(string(ev.Key))))
 				if err != nil {
 					return err
 				}
@@ -455,5 +495,5 @@ func (c *readonlyCollection) WatchByIndex(index Index, val interface{}) (watch.W
 // WatchOne watches a given item.  The first value returned from the watch
 // will be the current value of the item.
 func (c *readonlyCollection) WatchOne(key string) (watch.Watcher, error) {
-	return watch.NewWatcher(c.ctx, c.etcdClient, c.path(key))
+	return watch.NewWatcher(c.ctx, c.etcdClient, c.Path(key))
 }

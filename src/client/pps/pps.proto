@@ -9,12 +9,13 @@ import "gogoproto/gogo.proto";
 
 import "client/pfs/pfs.proto";
 
-option go_package = "pps";
-
 message Secret {
   // Name must be the name of the secret in kubernetes.
   string name = 1;
+  // Key of the secret to load into env_var, this field only has meaning if EnvVar != "".
+  string key = 4;
   string mount_path = 2;
+  string env_var = 3;
 }
 
 message Transform {
@@ -41,7 +42,7 @@ enum JobState {
   JOB_RUNNING = 1;
   JOB_FAILURE = 2;
   JOB_SUCCESS = 3;
-  JOB_STOPPED = 4;
+  JOB_KILLED = 4;
 }
 
 message Service {
@@ -59,10 +60,19 @@ message AtomInput {
   string from_commit = 7;
 }
 
+message CronInput {
+  string name = 1;
+  string repo = 2;
+  string commit = 3;
+  string spec = 4;
+  google.protobuf.Timestamp start = 5;
+}
+
 message Input {
   AtomInput atom = 1;
   repeated Input cross = 2;
   repeated Input union = 3;
+  CronInput cron = 4;
 }
 
 message JobInput {
@@ -73,24 +83,14 @@ message JobInput {
 }
 
 message ParallelismSpec {
-  // Which Parallelism strategy to use. Depending on the value of
-  // 'strategy', other messages in the spec will or will not be set.
-  enum Strategy {
-    CONSTANT = 0;
-    COEFFICIENT = 1;
-  }
-  Strategy strategy = 1;
+  reserved 1;
 
-  // If 'strategy' is set to CONSTANT, then the field 'constant' is used.
-  //
   // Starts the pipeline/job with a 'constant' workers, unless 'constant' is
   // zero. If 'constant' is zero (which is the zero value of ParallelismSpec),
   // then Pachyderm will choose the number of workers that is started,
   // (currently it chooses the number of workers in the cluster)
   uint64 constant = 2;
 
-  // If 'strategy' is set to COEFFICIENT, then the field 'coefficient' is used.
-  //
   // Starts the pipeline/job with number of workers equal to 'coefficient' * N,
   // where N is the number of nodes in the kubernetes cluster.
   //
@@ -102,7 +102,7 @@ message ParallelismSpec {
   double coefficient = 3;
 }
 
-message Datum {
+message InputFile {
   // This file's absolute path within its pfs repo.
   string path = 4;
 
@@ -110,12 +110,64 @@ message Datum {
   bytes hash = 5;
 }
 
+message Datum {
+  // ID is the hash computed from all the files
+  string id = 1 [(gogoproto.customname) = "ID"];
+  Job job = 2;
+}
+
+enum DatumState {
+    FAILED = 0;
+    SUCCESS = 1;
+    SKIPPED = 2;
+    STARTING = 3;
+}
+
+message DatumInfo {
+  Datum datum = 1;
+  DatumState state = 2;
+  ProcessStats stats = 3;
+  pfs.File pfs_state = 4;
+  repeated pfs.FileInfo data = 5;
+}
+
+message DatumInfos {
+  repeated DatumInfo datum_info = 1;
+}
+
+
+message Aggregate {
+  int64 count = 1;
+  double mean = 2;
+  double stddev = 3;
+  double fifth_percentile = 4;
+  double ninety_fifth_percentile = 5;
+}
+
+message ProcessStats {
+  google.protobuf.Duration download_time = 1;
+  google.protobuf.Duration process_time = 2;
+  google.protobuf.Duration upload_time = 3;
+  uint64 download_bytes = 4;
+  uint64 upload_bytes = 5;
+}
+
+message AggregateProcessStats {
+  Aggregate download_time = 1;
+  Aggregate process_time = 2;
+  Aggregate upload_time = 3;
+  Aggregate download_bytes = 4;
+  Aggregate upload_bytes = 5;
+}
+
 message WorkerStatus {
   string worker_id = 1 [(gogoproto.customname) = "WorkerID"];
   string job_id = 2 [(gogoproto.customname) = "JobID"];
-  repeated pps.Datum data = 3;
+  repeated pps.InputFile data = 3;
   // Started is the time processing on the current datum began.
   google.protobuf.Timestamp started = 4;
+  ProcessStats stats = 5;
+  int64 queue_size = 6;
 }
 
 // ResourceSpec describes the amount of resources that pipeline pods should
@@ -137,7 +189,6 @@ message JobInfo {
   reserved 4;
   Job job = 1;
   Transform transform = 2;
-  string pipeline_id = 19 [(gogoproto.customname) = "PipelineID"];
   Pipeline pipeline = 3;
   uint64 pipeline_version = 13;
   ParallelismSpec parallelism_spec = 12;
@@ -148,17 +199,24 @@ message JobInfo {
   google.protobuf.Timestamp finished = 8;
   pfs.Commit output_commit = 9;
   JobState state = 10;
+  string reason = 35;  // reason explains why the job is in the current state
   Service service = 14;
   pfs.Repo output_repo = 18;
   string output_branch = 17;
   uint64 restart = 20;
   int64 data_processed = 22;
+  int64 data_skipped = 30;
   int64 data_total = 23;
+  ProcessStats stats = 31;
   repeated WorkerStatus worker_status = 24;
   ResourceSpec resource_spec = 25;
   Input input = 26;
-  pfs.Branch new_branch = 27;
+  pfs.BranchInfo new_branch = 27;
   bool incremental = 28;
+  pfs.Commit stats_commit = 29;
+  bool enable_stats = 32;
+  string salt = 33;
+  bool batch = 34;
 }
 
 enum WorkerState {
@@ -204,8 +262,8 @@ enum PipelineState {
   PIPELINE_RESTARTING = 2;
   // We have retried too many times and we have given up on this pipeline.
   PIPELINE_FAILURE = 3;
-  // The pipeline has been explicitly stopped by the user.
-  PIPELINE_STOPPED = 4;
+  // The pipeline has been explicitly paused by the user.
+  PIPELINE_PAUSED = 4;
 }
 
 message PipelineInfo {
@@ -227,6 +285,14 @@ message PipelineInfo {
   Input input = 20;
   string description = 21;
   bool incremental = 22;
+  string cache_size = 23;
+  bool enable_stats = 24;
+  string salt = 25;
+  string capability = 26;
+  bool batch = 27;
+  string reason = 28;
+  int64 max_queue_size = 29;
+  Service service = 30;
 }
 
 message PipelineInfos {
@@ -249,8 +315,11 @@ message CreateJobRequest {
   Job parent_job = 13;
   ResourceSpec resource_spec = 14;
   Input input = 15;
-  pfs.Branch new_branch = 16;
+  pfs.BranchInfo new_branch = 16;
   bool incremental = 17;
+  bool enable_stats = 18;
+  string salt = 19;
+  bool batch = 20;
 }
 
 message InspectJobRequest {
@@ -261,6 +330,7 @@ message InspectJobRequest {
 message ListJobRequest {
   Pipeline pipeline = 1; // nil means all pipelines
   repeated pfs.Commit input_commit = 2; // nil means all inputs
+  pfs.Commit output_commit = 3;
 }
 
 message DeleteJobRequest {
@@ -272,6 +342,7 @@ message StopJobRequest {
 }
 
 message GetLogsRequest {
+  reserved 4;
   // The pipeline from which we want to get logs (required if the job in 'job'
   // was created as part of a pipeline. To get logs from a non-orphan job
   // without the pipeline that created it, you need to use ElasticSearch).
@@ -285,6 +356,11 @@ message GetLogsRequest {
   // filter may be an absolute path of a file within a pps repo, or it may be
   // a hash for that file (to search for files at specific versions)
   repeated string data_filters = 3;
+
+  Datum datum = 6;
+
+  // If true get logs from the master process
+  bool master = 5;
 }
 
 // LogMessage is a log line from a PPS worker, annotated with metadata
@@ -293,12 +369,13 @@ message LogMessage {
   // The job and pipeline for which a PFS file is being processed (if the job
   // is an orphan job, pipeline name and ID will be unset)
   string pipeline_name = 1;
-  string pipeline_id = 2 [(gogoproto.customname) = "PipelineID"];
   string job_id = 3 [(gogoproto.customname) = "JobID"];
   string worker_id = 7 [(gogoproto.customname) = "WorkerID"];
+  string datum_id = 9 [(gogoproto.customname) = "DatumID"];
+  bool master = 10;
 
   // The PFS files being processed (one per pipeline/job input)
-  repeated Datum data = 4;
+  repeated InputFile data = 4;
 
   // User is true if log message comes from the users code.
   bool user = 8;
@@ -311,6 +388,22 @@ message LogMessage {
 message RestartDatumRequest {
   Job job = 1;
   repeated string data_filters = 2;
+}
+
+message InspectDatumRequest {
+  Datum datum = 1;
+}
+
+message ListDatumRequest {
+  Job job = 1;
+  int64 page_size = 2;
+  int64 page = 3;
+}
+
+message ListDatumResponse {
+  repeated DatumInfo datum_infos = 1;
+  int64 total_pages = 2;
+  int64 page = 3;
 }
 
 message CreatePipelineRequest {
@@ -327,6 +420,14 @@ message CreatePipelineRequest {
   Input input = 13;
   string description = 14;
   bool incremental = 15;
+  string cache_size = 16;
+  bool enable_stats = 17;
+  // Reprocess forces the pipeline to reprocess all datums.
+  // It only has meaning if Update is true
+  bool reprocess = 18;
+  bool batch = 19;
+  int64 max_queue_size = 20;
+  Service service = 21;
 }
 
 message InspectPipelineRequest {
@@ -366,6 +467,8 @@ service API {
   rpc ListJob(ListJobRequest) returns (JobInfos) {}
   rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
   rpc StopJob(StopJobRequest) returns (google.protobuf.Empty) {}
+  rpc InspectDatum(InspectDatumRequest) returns (DatumInfo) {}
+  rpc ListDatum(ListDatumRequest) returns (ListDatumResponse) {}
   rpc RestartDatum(RestartDatumRequest) returns (google.protobuf.Empty) {}
 
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}

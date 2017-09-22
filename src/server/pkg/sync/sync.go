@@ -4,8 +4,11 @@ package sync
 import (
 	"io"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 
 	pachclient "github.com/pachyderm/pachyderm/src/client"
@@ -29,6 +32,8 @@ type Puller struct {
 	// wg is used to wait for all goroutines associated with this Puller
 	// to complete.
 	wg sync.WaitGroup
+	// size is the total amount this puller has pulled
+	size int64
 }
 
 // NewPuller creates a new Puller struct.
@@ -37,6 +42,17 @@ func NewPuller() *Puller {
 		errCh: make(chan error, 1),
 		pipes: make(map[string]bool),
 	}
+}
+
+type sizeWriter struct {
+	w    io.Writer
+	size int64
+}
+
+func (s *sizeWriter) Write(p []byte) (int, error) {
+	n, err := s.w.Write(p)
+	s.size += int64(n)
+	return n, err
 }
 
 func (p *Puller) makePipe(path string, f func(io.Writer) error) error {
@@ -81,7 +97,12 @@ func (p *Puller) makePipe(path string, f func(io.Writer) error) error {
 			}() {
 				return nil
 			}
-			return f(file)
+			w := &sizeWriter{w: file}
+			if err := f(w); err != nil {
+				return err
+			}
+			atomic.AddInt64(&p.size, w.size)
+			return nil
 		}(); err != nil {
 			select {
 			case p.errCh <- err:
@@ -105,7 +126,12 @@ func (p *Puller) makeFile(path string, f func(io.Writer) error) (retErr error) {
 			retErr = err
 		}
 	}()
-	return f(file)
+	w := &sizeWriter{w: file}
+	if err := f(w); err != nil {
+		return err
+	}
+	atomic.AddInt64(&p.size, w.size)
+	return nil
 }
 
 // Pull clones an entire repo at a certain commit.
@@ -113,18 +139,33 @@ func (p *Puller) makeFile(path string, f func(io.Writer) error) (retErr error) {
 // fileInfo is the file/dir we are puuling.
 // pipes causes the function to create named pipes in place of files, thus
 // lazily downloading the data as it's needed.
-func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, file string, pipes bool, concurrency int) error {
+// tree is a hashtree to mirror the pulled content into (it may be left nil)
+// treeRoot is the root the data is mirrored to within tree
+func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, file string,
+	pipes bool, concurrency int, tree hashtree.OpenHashTree, treeRoot string) error {
 	limiter := limit.New(concurrency)
 	var eg errgroup.Group
 	if err := client.Walk(repo, commit, file, func(fileInfo *pfs.FileInfo) error {
-		if fileInfo.FileType != pfs.FileType_FILE {
-			return nil
-		}
 		basepath, err := filepath.Rel(file, fileInfo.File.Path)
 		if err != nil {
 			return err
 		}
+		if tree != nil {
+			treePath := path.Join(treeRoot, basepath)
+			if fileInfo.FileType == pfs.FileType_DIR {
+				if err := tree.PutDir(treePath); err != nil {
+					return err
+				}
+			} else {
+				if err := tree.PutFile(treePath, fileInfo.Objects, int64(fileInfo.SizeBytes)); err != nil {
+					return err
+				}
+			}
+		}
 		path := filepath.Join(root, basepath)
+		if fileInfo.FileType == pfs.FileType_DIR {
+			return os.MkdirAll(path, 0700)
+		}
 		if pipes {
 			return p.makePipe(path, func(w io.Writer) error {
 				return client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, w)
@@ -148,10 +189,11 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 // rather than a the actual content. If newOnly is true then only new files
 // will be downloaded and they will be downloaded under root. Otherwise new and
 // old files will be downloaded under root/new and root/old respectively.
-func (p *Puller) PullDiff(client *pachclient.APIClient, root string, newRepo, newCommit, newPath, oldRepo, oldCommit, oldPath string, newOnly bool, pipes bool, concurrency int) error {
+func (p *Puller) PullDiff(client *pachclient.APIClient, root string, newRepo, newCommit, newPath, oldRepo, oldCommit, oldPath string,
+	newOnly bool, pipes bool, concurrency int, tree hashtree.OpenHashTree, treeRoot string) error {
 	limiter := limit.New(concurrency)
 	var eg errgroup.Group
-	newFiles, oldFiles, err := client.DiffFile(newRepo, newCommit, newPath, oldRepo, oldCommit, oldPath)
+	newFiles, oldFiles, err := client.DiffFile(newRepo, newCommit, newPath, oldRepo, oldCommit, oldPath, false)
 	if err != nil {
 		return err
 	}
@@ -159,6 +201,15 @@ func (p *Puller) PullDiff(client *pachclient.APIClient, root string, newRepo, ne
 		basepath, err := filepath.Rel(newPath, newFile.File.Path)
 		if err != nil {
 			return err
+		}
+		if tree != nil {
+			treePath := path.Join(treeRoot, "new", basepath)
+			if newOnly {
+				treePath = path.Join(treeRoot, basepath)
+			}
+			if err := tree.PutFile(treePath, newFile.Objects, int64(newFile.SizeBytes)); err != nil {
+				return err
+			}
 		}
 		path := filepath.Join(root, "new", basepath)
 		if newOnly {
@@ -187,6 +238,12 @@ func (p *Puller) PullDiff(client *pachclient.APIClient, root string, newRepo, ne
 			if err != nil {
 				return err
 			}
+			if tree != nil {
+				treePath := path.Join(treeRoot, "old", basepath)
+				if err := tree.PutFile(treePath, oldFile.Objects, int64(oldFile.SizeBytes)); err != nil {
+					return err
+				}
+			}
 			path := filepath.Join(root, "old", basepath)
 			if pipes {
 				if err := p.makePipe(path, func(w io.Writer) error {
@@ -213,7 +270,7 @@ func (p *Puller) PullDiff(client *pachclient.APIClient, root string, newRepo, ne
 func (p *Puller) PullTree(client *pachclient.APIClient, root string, tree hashtree.HashTree, pipes bool, concurrency int) error {
 	limiter := limit.New(concurrency)
 	var eg errgroup.Group
-	if err := tree.Walk(func(path string, node *hashtree.NodeProto) error {
+	if err := tree.Walk("/", func(path string, node *hashtree.NodeProto) error {
 		if node.FileNode != nil {
 			path := filepath.Join(root, path)
 			var hashes []string
@@ -240,11 +297,12 @@ func (p *Puller) PullTree(client *pachclient.APIClient, root string, tree hashtr
 	return eg.Wait()
 }
 
-// CleanUp cleans up blocked syscalls for pipes that were never opened. It also
+// CleanUp cleans up blocked syscalls for pipes that were never opened. And
+// returns the total number of bytes that have been pulled/pushed. It also
 // returns any errors that might have been encountered while trying to read
 // data for the pipes. CleanUp should be called after all code that might
 // access pipes has completed running, it should not be called concurrently.
-func (p *Puller) CleanUp() error {
+func (p *Puller) CleanUp() (int64, error) {
 	var result error
 	select {
 	case result = <-p.errCh:
@@ -276,7 +334,9 @@ func (p *Puller) CleanUp() error {
 			result = err
 		}
 	}
-	return result
+	size := p.size
+	p.size = 0
+	return size, result
 }
 
 // Push puts files under root into an open commit.
@@ -347,4 +407,41 @@ func PushObj(pachClient pachclient.APIClient, commit *pfs.Commit, objClient obj.
 		return err
 	}
 	return eg.Wait()
+}
+
+func isNotExist(err error) bool {
+	return strings.Contains(err.Error(), "not found")
+}
+
+// PushFile makes sure that pfsFile has the same content as osFile.
+func PushFile(client *pachclient.APIClient, pfsFile *pfs.File, osFile io.ReadSeeker) error {
+	fileInfo, err := client.InspectFile(pfsFile.Commit.Repo.Name, pfsFile.Commit.ID, pfsFile.Path)
+	if err != nil && !isNotExist(err) {
+		return err
+	}
+
+	var i int
+	var object *pfs.Object
+	if fileInfo != nil {
+		for i, object = range fileInfo.Objects {
+			hash := pfs.NewHash()
+			if _, err := io.CopyN(hash, osFile, pfs.ChunkSize); err != nil {
+				if err == io.EOF {
+					break
+				}
+				return err
+			}
+
+			if object.Hash != pfs.EncodeHash(hash.Sum(nil)) {
+				break
+			}
+		}
+	}
+
+	if _, err := osFile.Seek(int64(i)*pfs.ChunkSize, 0); err != nil {
+		return err
+	}
+
+	_, err = client.PutFileOverwrite(pfsFile.Commit.Repo.Name, pfsFile.Commit.ID, pfsFile.Path, osFile, int64(i))
+	return err
 }

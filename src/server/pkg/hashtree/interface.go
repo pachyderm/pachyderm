@@ -69,12 +69,13 @@ type HashTree interface {
 	// Walk calls a given function against every node in the hash tree.
 	// The order of traversal is not guaranteed.  If any invocation of the
 	// function returns an error, the walk stops and returns the error.
-	Walk(func(path string, node *NodeProto) error) error
+	Walk(path string, f func(path string, node *NodeProto) error) error
 
 	// Diff returns a the diff of 2 HashTrees at particular Paths. It takes a
 	// callback function f, which will be called with paths that are not
 	// identical to the same path in the other HashTree.
-	Diff(oldHashTree HashTree, newPath string, oldPath string, f func(path string, node *NodeProto, new bool) error) error
+	// Specify '-1' for fully recursive, or '1' for shallow diff
+	Diff(oldHashTree HashTree, newPath string, oldPath string, recursiveDepth int64, f func(path string, node *NodeProto, new bool) error) error
 }
 
 // OpenNode is similar to NodeProto, except that it doesn't include the Hash
@@ -99,6 +100,15 @@ type OpenHashTree interface {
 	// PutFile appends data to a file (and creates the file if it doesn't exist).
 	PutFile(path string, objects []*pfs.Object, size int64) error
 
+	// PutFileOverwrite is the same as PutFile, except that instead of
+	// appending the objects to the end of the given file, the objects
+	// are inserted to the given index, and the existing objects starting
+	// from the given index are removed.
+	//
+	// sizeDelta is the delta between the size of the objects added and
+	// the size of the objects removed.
+	PutFileOverwrite(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64) error
+
 	// PutDir creates a directory (or does nothing if one exists).
 	PutDir(path string) error
 
@@ -106,7 +116,9 @@ type OpenHashTree interface {
 	DeleteFile(path string) error
 
 	// Merge adds all of the files and directories in each tree in 'trees' into
-	// this tree.
+	// this tree. If it errors this tree will be left in a undefined state and
+	// should be discarded. If you'd like to be able to revert to the previous
+	// state of the tree you should Finish and then Open the tree.
 	Merge(trees ...HashTree) error
 
 	// Finish makes a deep copy of the OpenHashTree, updates all of the hashes and

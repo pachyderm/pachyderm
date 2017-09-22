@@ -8,6 +8,7 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/api/unversioned"
+	"k8s.io/kubernetes/pkg/util/intstr"
 )
 
 // Parameters used when creating the kubernetes replication controller in charge
@@ -16,8 +17,10 @@ type workerOptions struct {
 	rcName string // Name of the replication controller managing workers
 
 	userImage    string            // The user's pipeline/job image
-	labels       map[string]string // k8s labels attached to the Deployment and workers
+	labels       map[string]string // k8s labels attached to the RC and workers
+	annotations  map[string]string // k8s annotations attached to the RC and workers
 	parallelism  int32             // Number of replicas the RC maintains
+	cacheSize    string            // Size of cache that sidecar uses
 	resources    *api.ResourceList // Resources requested by pipeline/job pods
 	workerEnv    []api.EnvVar      // Environment vars set in the user container
 	volumes      []api.Volume      // Volumes that we expose to the user container
@@ -26,6 +29,7 @@ type workerOptions struct {
 	// Secrets that we mount in the worker container (e.g. for reading/writing to
 	// s3)
 	imagePullSecrets []api.LocalObjectReference
+	service          *pps.Service
 }
 
 func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
@@ -33,14 +37,12 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 	if pullPolicy == "" {
 		pullPolicy = "IfNotPresent"
 	}
-	// TODO: make these cache sizes configurable
-	sidecarCacheSize := "64M"
 	sidecarEnv := []api.EnvVar{{
 		Name:  "BLOCK_CACHE_BYTES",
-		Value: sidecarCacheSize,
+		Value: options.cacheSize,
 	}, {
-		Name:  "PFS_CACHE_BYTES",
-		Value: "10M",
+		Name:  "PFS_CACHE_SIZE",
+		Value: "16",
 	}, {
 		Name:  "PACH_ROOT",
 		Value: a.storageRoot,
@@ -69,16 +71,33 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 			},
 		}
 	}
+	userVolumeMounts := options.volumeMounts
 	secretVolume, secretMount, err := assets.GetSecretVolumeAndMount(a.storageBackend)
 	if err == nil {
 		options.volumes = append(options.volumes, secretVolume)
+		options.volumeMounts = append(options.volumeMounts, secretMount)
 		sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
+		userVolumeMounts = append(userVolumeMounts, secretMount)
 	}
 	// Explicitly set CPU and MEM requests to zero because some cloud
 	// providers set their own defaults which are usually not what we want.
 	cpuZeroQuantity := resource.MustParse("0")
 	memZeroQuantity := resource.MustParse("0M")
-	memSidecarQuantity := resource.MustParse(sidecarCacheSize)
+	memSidecarQuantity := resource.MustParse(options.cacheSize)
+
+	options.volumes = append(options.volumes, api.Volume{
+		Name: "docker",
+		VolumeSource: api.VolumeSource{
+			HostPath: &api.HostPathVolumeSource{
+				Path: "/var/run/docker.sock",
+			},
+		},
+	})
+	userVolumeMounts = append(userVolumeMounts, api.VolumeMount{
+		Name:      "docker",
+		MountPath: "/var/run/docker.sock",
+	})
+	zeroVal := int64(0)
 	podSpec := api.PodSpec{
 		InitContainers: []api.Container{
 			{
@@ -100,13 +119,13 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 				},
 				ImagePullPolicy: api.PullPolicy(pullPolicy),
 				Env:             options.workerEnv,
-				VolumeMounts:    options.volumeMounts,
 				Resources: api.ResourceRequirements{
 					Requests: map[api.ResourceName]resource.Quantity{
 						api.ResourceCPU:    cpuZeroQuantity,
 						api.ResourceMemory: memZeroQuantity,
 					},
 				},
+				VolumeMounts: userVolumeMounts,
 			},
 			{
 				Name:            client.PPSWorkerSidecarContainerName,
@@ -123,9 +142,11 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 				},
 			},
 		},
-		RestartPolicy:    "Always",
-		Volumes:          options.volumes,
-		ImagePullSecrets: options.imagePullSecrets,
+		RestartPolicy:                 "Always",
+		Volumes:                       options.volumes,
+		ImagePullSecrets:              options.imagePullSecrets,
+		TerminationGracePeriodSeconds: &zeroVal,
+		SecurityContext:               &api.PodSecurityContext{RunAsUser: &zeroVal},
 	}
 	if options.resources != nil {
 		podSpec.Containers[0].Resources = api.ResourceRequirements{
@@ -135,7 +156,9 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 	return podSpec
 }
 
-func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, resources *api.ResourceList, transform *pps.Transform) *workerOptions {
+func (a *apiServer) getWorkerOptions(pipelineName string, rcName string,
+	parallelism int32, resources *api.ResourceList, transform *pps.Transform,
+	cacheSize string, service *pps.Service) *workerOptions {
 	labels := labels(rcName)
 	userImage := transform.Image
 	if userImage == "" {
@@ -187,18 +210,33 @@ func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, resources
 	var volumes []api.Volume
 	var volumeMounts []api.VolumeMount
 	for _, secret := range transform.Secrets {
-		volumes = append(volumes, api.Volume{
-			Name: secret.Name,
-			VolumeSource: api.VolumeSource{
-				Secret: &api.SecretVolumeSource{
-					SecretName: secret.Name,
+		if secret.MountPath != "" {
+			volumes = append(volumes, api.Volume{
+				Name: secret.Name,
+				VolumeSource: api.VolumeSource{
+					Secret: &api.SecretVolumeSource{
+						SecretName: secret.Name,
+					},
 				},
-			},
-		})
-		volumeMounts = append(volumeMounts, api.VolumeMount{
-			Name:      secret.Name,
-			MountPath: secret.MountPath,
-		})
+			})
+			volumeMounts = append(volumeMounts, api.VolumeMount{
+				Name:      secret.Name,
+				MountPath: secret.MountPath,
+			})
+		}
+		if secret.EnvVar != "" {
+			workerEnv = append(workerEnv, api.EnvVar{
+				Name: secret.EnvVar,
+				ValueFrom: &api.EnvVarSource{
+					SecretKeyRef: &api.SecretKeySelector{
+						LocalObjectReference: api.LocalObjectReference{
+							Name: secret.Name,
+						},
+						Key: secret.Key,
+					},
+				},
+			})
+		}
 	}
 
 	volumes = append(volumes, api.Volume{
@@ -220,7 +258,7 @@ func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, resources
 	})
 	volumeMounts = append(volumeMounts, api.VolumeMount{
 		Name:      client.PPSWorkerVolume,
-		MountPath: client.PPSInputPrefix,
+		MountPath: client.PPSScratchSpace,
 	})
 	if resources != nil && resources.NvidiaGPU() != nil && !resources.NvidiaGPU().IsZero() {
 		volumes = append(volumes, api.Volume{
@@ -244,6 +282,7 @@ func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, resources
 	return &workerOptions{
 		rcName:           rcName,
 		labels:           labels,
+		annotations:      map[string]string{"pipelineName": pipelineName},
 		parallelism:      int32(parallelism),
 		resources:        resources,
 		userImage:        userImage,
@@ -251,6 +290,8 @@ func (a *apiServer) getWorkerOptions(rcName string, parallelism int32, resources
 		volumes:          volumes,
 		volumeMounts:     volumeMounts,
 		imagePullSecrets: imagePullSecrets,
+		cacheSize:        cacheSize,
+		service:          service,
 	}
 }
 
@@ -261,16 +302,18 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name:   options.rcName,
-			Labels: options.labels,
+			Name:        options.rcName,
+			Labels:      options.labels,
+			Annotations: options.annotations,
 		},
 		Spec: api.ReplicationControllerSpec{
 			Selector: options.labels,
 			Replicas: options.parallelism,
 			Template: &api.PodTemplateSpec{
 				ObjectMeta: api.ObjectMeta{
-					Name:   options.rcName,
-					Labels: options.labels,
+					Name:        options.rcName,
+					Labels:      options.labels,
+					Annotations: options.annotations,
 				},
 				Spec: a.workerPodSpec(options),
 			},
@@ -301,10 +344,39 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 			},
 		},
 	}
-
 	if _, err := a.kubeClient.Services(a.namespace).Create(service); err != nil {
 		if !isAlreadyExistsErr(err) {
 			return err
+		}
+	}
+
+	if options.service != nil {
+		service := &api.Service{
+			TypeMeta: unversioned.TypeMeta{
+				Kind:       "Service",
+				APIVersion: "v1",
+			},
+			ObjectMeta: api.ObjectMeta{
+				Name:   options.rcName + "-user",
+				Labels: options.labels,
+			},
+			Spec: api.ServiceSpec{
+				Selector: options.labels,
+				Type:     api.ServiceTypeNodePort,
+				Ports: []api.ServicePort{
+					{
+						Port:       options.service.ExternalPort,
+						TargetPort: intstr.FromInt(int(options.service.InternalPort)),
+						Name:       "user-port",
+						NodePort:   options.service.ExternalPort,
+					},
+				},
+			},
+		}
+		if _, err := a.kubeClient.Services(a.namespace).Create(service); err != nil {
+			if !isAlreadyExistsErr(err) {
+				return err
+			}
 		}
 	}
 

@@ -14,17 +14,14 @@
     ]
   },
   "parallelism_spec": {
-       "strategy" : "CONSTANT",
        "constant" : 1
   },
-  "inputs": [
-    {
-      "repo": {
-        "name": "GoT_scripts"
-      },
-      "method": "global"
+  "input": {
+    "atom": {
+      "repo": "GoT_scripts",
+      "glob": "/"
     }
-  ]
+  }
 }
 {
   "pipeline": {
@@ -37,19 +34,16 @@
       "mkdir /training_data",
       "cp /pfs/GoT_train/ptb.ckpt* /training_data",
       "cp /pfs/GoT_train/*.json /training_data",
-      "cd /code && python ptb_word_lm.py --model=test --generate=true --model_path_prefix=/training_data > /pfs/out/new_script.txt" 
+      "cd /code && python ptb_word_lm.py --model=test --generate=true --model_path_prefix=/training_data > /pfs/out/new_script.txt"
     ]
   },
   "parallelism_spec": {
-       "strategy" : "CONSTANT",
        "constant" : 1
   },
-  "inputs": [
-    {
-      "repo": {
-        "name": "GoT_train"
-      },
-      "method": "global"
+  "input": {
+    "atom": {
+      "repo": "GoT_train",
+      "glob": "/"
     }
-  ]
+  }
 }

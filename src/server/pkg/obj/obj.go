@@ -6,11 +6,13 @@ import (
 	"io/ioutil"
 	"net"
 	"net/url"
+	"path"
+	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
-	"go.pedge.io/lion"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
 
@@ -33,8 +35,8 @@ type Client interface {
 	Walk(prefix string, fn func(name string) error) error
 	// Exsits checks if a given object already exists
 	Exists(name string) bool
-	// isRetryable determines if an operation should be retried given an error
-	isRetryable(err error) bool
+	// IsRetryable determines if an operation should be retried given an error
+	IsRetryable(err error) bool
 	// IsNotExist returns true if err is a non existence error
 	IsNotExist(err error) bool
 	// IsIgnorable returns true if the error can be ignored
@@ -156,9 +158,9 @@ func NewAmazonClientFromSecret(bucket string) (Client, error) {
 		distribution, err = ioutil.ReadFile("/amazon-secret/distribution")
 		if err != nil {
 			// Distribution is not required, but we can log a warning
-			lion.Warnln("AWS deployed without cloudfront distribution\n")
+			log.Warnln("AWS deployed without cloudfront distribution\n")
 		} else {
-			lion.Infof("AWS deployed with cloudfront distribution at %v\n", string(distribution))
+			log.Infof("AWS deployed with cloudfront distribution at %v\n", string(distribution))
 		}
 	}
 	id, err := ioutil.ReadFile("/amazon-secret/id")
@@ -182,24 +184,59 @@ func NewAmazonClientFromSecret(bucket string) (Client, error) {
 
 // NewClientFromURLAndSecret constructs a client by parsing `URL` and then
 // constructing the correct client for that URL using secrets.
-func NewClientFromURLAndSecret(ctx context.Context, URL string) (Client, error) {
-	_URL, err := url.Parse(URL)
-	if err != nil {
-		return nil, err
-	}
-	switch _URL.Scheme {
+func NewClientFromURLAndSecret(ctx context.Context, url *ObjectStoreURL) (Client, error) {
+	switch url.Store {
 	case "s3":
-		return NewAmazonClientFromSecret(_URL.Host)
+		return NewAmazonClientFromSecret(url.Bucket)
 	case "gcs":
 		fallthrough
 	case "gs":
-		return NewGoogleClientFromSecret(ctx, _URL.Host)
+		return NewGoogleClientFromSecret(ctx, url.Bucket)
 	case "as":
 		fallthrough
 	case "wasb":
-		return NewMicrosoftClientFromSecret(_URL.Host)
+		// In Azure, the first part of the path is the container name.
+		return NewMicrosoftClientFromSecret(url.Bucket)
 	}
-	return nil, fmt.Errorf("unrecognized object store: %s", _URL.Scheme)
+	return nil, fmt.Errorf("unrecognized object store: %s", url.Bucket)
+}
+
+// ObjectStoreURL represents a parsed URL to an object in an object store.
+type ObjectStoreURL struct {
+	// The object store, e.g. s3, gcs, as...
+	Store string
+	// The "bucket" (in AWS parlance) or the "container" (in Azure parlance).
+	Bucket string
+	// The object itself.
+	Object string
+}
+
+// ParseURL parses an URL into ObjectStoreURL.
+func ParseURL(urlStr string) (*ObjectStoreURL, error) {
+	url, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing url %v: %v", urlStr, err)
+	}
+	switch url.Scheme {
+	case "s3", "gcs", "gs":
+		return &ObjectStoreURL{
+			Store:  url.Scheme,
+			Bucket: url.Host,
+			Object: strings.Trim(url.Path, "/"),
+		}, nil
+	case "as", "wasb":
+		// In Azure, the first part of the path is the container name.
+		parts := strings.Split(strings.Trim(url.Path, "/"), "/")
+		if len(parts) < 1 {
+			return nil, fmt.Errorf("malformed Azure URI: %v", urlStr)
+		}
+		return &ObjectStoreURL{
+			Store:  url.Scheme,
+			Bucket: parts[0],
+			Object: strings.Trim(path.Join(parts[1:]...), "/"),
+		}, nil
+	}
+	return nil, fmt.Errorf("unrecognized object store: %s", url.Scheme)
 }
 
 // NewExponentialBackOffConfig creates an exponential back-off config with
@@ -209,7 +246,7 @@ func NewExponentialBackOffConfig() *backoff.ExponentialBackOff {
 	// We want to backoff more aggressively (i.e. wait longer) than the default
 	config.InitialInterval = 1 * time.Second
 	config.Multiplier = 2
-	config.MaxElapsedTime = 15 * time.Minute
+	config.MaxInterval = 15 * time.Minute
 	return config
 }
 
@@ -247,7 +284,7 @@ func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 		}
 		return nil
 	}, b.backoffConfig, func(err error, d time.Duration) {
-		lion.Infof("Error reading; retrying in %s: %#v", d, RetryError{
+		log.Infof("Error reading; retrying in %s: %#v", d, RetryError{
 			Err:               err.Error(),
 			TimeTillNextRetry: d.String(),
 			BytesProcessed:    bytesRead,
@@ -288,7 +325,7 @@ func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 		}
 		return nil
 	}, b.backoffConfig, func(err error, d time.Duration) {
-		lion.Infof("Error writing; retrying in %s: %#v", d, RetryError{
+		log.Infof("Error writing; retrying in %s: %#v", d, RetryError{
 			Err:               err.Error(),
 			TimeTillNextRetry: d.String(),
 			BytesProcessed:    bytesWritten,
@@ -308,7 +345,7 @@ func (b *BackoffWriteCloser) Close() error {
 
 // IsRetryable determines if an operation should be retried given an error
 func IsRetryable(client Client, err error) bool {
-	return isNetRetryable(err) || client.isRetryable(err)
+	return isNetRetryable(err) || client.IsRetryable(err)
 }
 
 func byteRange(offset uint64, size uint64) string {

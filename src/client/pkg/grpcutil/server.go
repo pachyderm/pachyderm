@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 )
 
 var (
@@ -43,7 +45,12 @@ func Serve(
 	}
 	grpcServer := grpc.NewServer(
 		grpc.MaxConcurrentStreams(math.MaxUint32),
-		grpc.MaxMsgSize(options.MaxMsgSize),
+		grpc.MaxRecvMsgSize(options.MaxMsgSize),
+		grpc.MaxSendMsgSize(options.MaxMsgSize),
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime:             5 * time.Second,
+			PermitWithoutStream: true,
+		}),
 	)
 	registerFunc(grpcServer)
 	if options.Version != nil {

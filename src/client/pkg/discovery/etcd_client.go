@@ -1,7 +1,11 @@
 package discovery
 
 import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
 	"strings"
+	"time"
 
 	"github.com/coreos/go-etcd/etcd"
 )
@@ -10,8 +14,59 @@ type etcdClient struct {
 	client *etcd.Client
 }
 
+// customCheckRetry is a fork of etcd's DefaultCheckRetry, except that it issues
+// more retries before giving up. Because Pachyderm often starts before etcd is
+// ready, retrying Pachd's connection to etcd in a tight loop (<1s) is often
+// much faster than waiting for kubernetes to restart the pachd pod.
+func customCheckRetry(cluster *etcd.Cluster, numReqs int, lastResp http.Response,
+	err error) error {
+	// Retry for 5 minutes, unless the cluster is super huge
+	maxRetries := 2 * len(cluster.Machines)
+	if 600 > maxRetries {
+		maxRetries = 600
+	}
+	if numReqs > maxRetries {
+		errStr := fmt.Sprintf("failed to propose on members %v [last error: %v]", cluster.Machines, err)
+		return &etcd.EtcdError{
+			ErrorCode: etcd.ErrCodeEtcdNotReachable,
+			Message:   "All the given peers are not reachable",
+			Cause:     errStr,
+			Index:     0,
+		}
+	}
+
+	if lastResp.StatusCode == 0 {
+		// always retry if it failed to get a response
+		return nil
+	}
+	if lastResp.StatusCode != http.StatusInternalServerError {
+		// The status code  indicates that etcd is no longer in leader election.
+		// Something is wrong
+		body := []byte("nil")
+		if lastResp.Body != nil {
+			if b, err := ioutil.ReadAll(lastResp.Body); err == nil {
+				body = b
+			}
+		}
+		errStr := fmt.Sprintf("unhandled http status [%s] with body [%s]", http.StatusText(lastResp.StatusCode), body)
+		return &etcd.EtcdError{
+			ErrorCode: etcd.ErrCodeUnhandledHTTPStatus,
+			Message:   "Unhandled HTTP Status",
+			Cause:     errStr,
+			Index:     0,
+		}
+	}
+
+	// sleep some time and expect leader election finish
+	time.Sleep(time.Millisecond * 500)
+	fmt.Println("Warning: bad response status code ", lastResp.StatusCode)
+	return nil
+}
+
 func newEtcdClient(addresses ...string) *etcdClient {
-	return &etcdClient{etcd.NewClient(addresses)}
+	client := etcd.NewClient(addresses)
+	client.CheckRetry = customCheckRetry
+	return &etcdClient{client}
 }
 
 func (c *etcdClient) Close() error {

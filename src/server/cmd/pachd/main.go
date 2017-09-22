@@ -1,15 +1,17 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"strconv"
 	"strings"
 
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client"
+	authclient "github.com/pachyderm/pachyderm/src/client/auth"
+	eprsclient "github.com/pachyderm/pachyderm/src/client/enterprise"
 	healthclient "github.com/pachyderm/pachyderm/src/client/health"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
@@ -18,6 +20,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
+	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
+	eprsserver "github.com/pachyderm/pachyderm/src/server/enterprise/server"
 	"github.com/pachyderm/pachyderm/src/server/health"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	cache_pb "github.com/pachyderm/pachyderm/src/server/pkg/cache/groupcachepb"
@@ -28,9 +32,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 
+	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
-	"go.pedge.io/lion"
-	"go.pedge.io/lion/proto"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"k8s.io/kubernetes/pkg/api"
 	kube_client "k8s.io/kubernetes/pkg/client/restclient"
@@ -42,7 +46,7 @@ var readinessCheck bool
 var migrate string
 
 func init() {
-	flag.StringVar(&mode, "mode", "full", "Pachd currently supports two modes: full and sidecar.  The former includes everything you need in a full pachd node.  The later runs only PFS and a stripped-down version of PPS.")
+	flag.StringVar(&mode, "mode", "full", "Pachd currently supports two modes: full and sidecar.  The former includes everything you need in a full pachd node.  The later runs only PFS, the Auth service, and a stripped-down version of PPS.")
 	flag.BoolVar(&readinessCheck, "readiness-check", false, "Set to true when checking if local pod is ready")
 	flag.StringVar(&migrate, "migrate", "", "Use the format FROM_VERSION-TO_VERSION; e.g. 1.4.8-1.5.0")
 	flag.Parse()
@@ -56,13 +60,15 @@ type appEnv struct {
 	StorageHostPath       string `env:"STORAGE_HOST_PATH,default="`
 	PPSEtcdPrefix         string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
 	PFSEtcdPrefix         string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
+	AuthEtcdPrefix        string `env:"PACHYDERM_AUTH_ETCD_PREFIX,default=pachyderm_auth"`
+	EnterpriseEtcdPrefix  string `env:"PACHYDERM_ENTERPRISE_ETCD_PREFIX,default=pachyderm_enterprise"`
 	KubeAddress           string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
 	EtcdAddress           string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
 	Namespace             string `env:"NAMESPACE,default=default"`
 	Metrics               bool   `env:"METRICS,default=true"`
 	Init                  bool   `env:"INIT,default=false"`
 	BlockCacheBytes       string `env:"BLOCK_CACHE_BYTES,default=1G"`
-	PFSCacheBytes         string `env:"PFS_CACHE_BYTES,default=500M"`
+	PFSCacheSize          string `env:"PFS_CACHE_SIZE,default=0"`
 	WorkerImage           string `env:"WORKER_IMAGE,default="`
 	WorkerSidecarImage    string `env:"WORKER_SIDECAR_IMAGE,default="`
 	WorkerImagePullPolicy string `env:"WORKER_IMAGE_PULL_POLICY,default="`
@@ -82,19 +88,19 @@ func main() {
 
 func doSidecarMode(appEnvObj interface{}) error {
 	go func() {
-		lion.Println(http.ListenAndServe(":651", nil))
+		log.Println(http.ListenAndServe(":651", nil))
 	}()
 	appEnv := appEnvObj.(*appEnv)
 	switch appEnv.LogLevel {
 	case "debug":
-		lion.SetLevel(lion.LevelDebug)
+		log.SetLevel(log.DebugLevel)
 	case "info":
-		lion.SetLevel(lion.LevelInfo)
+		log.SetLevel(log.InfoLevel)
 	case "error":
-		lion.SetLevel(lion.LevelError)
+		log.SetLevel(log.ErrorLevel)
 	default:
-		lion.Errorf("Unrecognized log level %s, falling back to default of \"info\"", appEnv.LogLevel)
-		lion.SetLevel(lion.LevelInfo)
+		log.Errorf("Unrecognized log level %s, falling back to default of \"info\"", appEnv.LogLevel)
+		log.SetLevel(log.InfoLevel)
 	}
 
 	etcdAddress := fmt.Sprintf("http://%s:2379", appEnv.EtcdAddress)
@@ -117,11 +123,11 @@ func doSidecarMode(appEnvObj interface{}) error {
 		return err
 	}
 	address = fmt.Sprintf("%s:%d", address, appEnv.Port)
-	pfsCacheBytes, err := units.RAMInBytes(appEnv.PFSCacheBytes)
+	pfsCacheSize, err := strconv.Atoi(appEnv.PFSCacheSize)
 	if err != nil {
 		return err
 	}
-	pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, pfsCacheBytes)
+	pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, int64(pfsCacheSize))
 	if err != nil {
 		return err
 	}
@@ -143,12 +149,22 @@ func doSidecarMode(appEnvObj interface{}) error {
 		return err
 	}
 	healthServer := health.NewHealthServer()
+	authAPIServer, err := authserver.NewAuthServer(address, etcdAddress, appEnv.AuthEtcdPrefix)
+	if err != nil {
+		return err
+	}
+	enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(etcdAddress, appEnv.EnterpriseEtcdPrefix)
+	if err != nil {
+		return err
+	}
 	return grpcutil.Serve(
 		func(s *grpc.Server) {
 			pfsclient.RegisterAPIServer(s, pfsAPIServer)
 			pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
 			ppsclient.RegisterAPIServer(s, ppsAPIServer)
 			healthclient.RegisterHealthServer(s, healthServer)
+			authclient.RegisterAPIServer(s, authAPIServer)
+			eprsclient.RegisterAPIServer(s, enterpriseAPIServer)
 		},
 		grpcutil.ServeOptions{
 			Version:    version.Version,
@@ -175,18 +191,18 @@ func doFullMode(appEnvObj interface{}) error {
 	}
 
 	go func() {
-		lion.Println(http.ListenAndServe(":651", nil))
+		log.Println(http.ListenAndServe(":651", nil))
 	}()
 	switch appEnv.LogLevel {
 	case "debug":
-		lion.SetLevel(lion.LevelDebug)
+		log.SetLevel(log.DebugLevel)
 	case "info":
-		lion.SetLevel(lion.LevelInfo)
+		log.SetLevel(log.InfoLevel)
 	case "error":
-		lion.SetLevel(lion.LevelError)
+		log.SetLevel(log.ErrorLevel)
 	default:
-		lion.Errorf("Unrecognized log level %s, falling back to default of \"info\"", appEnv.LogLevel)
-		lion.SetLevel(lion.LevelInfo)
+		log.Errorf("Unrecognized log level %s, falling back to default of \"info\"", appEnv.LogLevel)
+		log.SetLevel(log.InfoLevel)
 	}
 	etcdAddress := fmt.Sprintf("http://%s:2379", appEnv.EtcdAddress)
 	etcdClient := getEtcdClient(etcdAddress)
@@ -237,10 +253,10 @@ func doFullMode(appEnvObj interface{}) error {
 	)
 	go func() {
 		if err := sharder.AssignRoles(address, nil); err != nil {
-			protolion.Printf("error from sharder.AssignRoles: %s", sanitizeErr(err))
+			log.Printf("error from sharder.AssignRoles: %s", grpcutil.ScrubGRPC(err))
 		}
 	}()
-	pfsCacheBytes, err := units.RAMInBytes(appEnv.PFSCacheBytes)
+	pfsCacheSize, err := strconv.Atoi(appEnv.PFSCacheSize)
 	if err != nil {
 		return err
 	}
@@ -252,7 +268,7 @@ func doFullMode(appEnvObj interface{}) error {
 		address,
 	)
 	cacheServer := cache_server.NewCacheServer(router, appEnv.NumShards)
-	pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, pfsCacheBytes)
+	pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, int64(pfsCacheSize))
 	if err != nil {
 		return err
 	}
@@ -275,12 +291,12 @@ func doFullMode(appEnvObj interface{}) error {
 	}
 	go func() {
 		if err := sharder.RegisterFrontends(nil, address, []shard.Frontend{cacheServer}); err != nil {
-			protolion.Printf("error from sharder.RegisterFrontend %s", sanitizeErr(err))
+			log.Printf("error from sharder.RegisterFrontend %s", grpcutil.ScrubGRPC(err))
 		}
 	}()
 	go func() {
 		if err := sharder.Register(nil, address, []shard.Server{cacheServer}); err != nil {
-			protolion.Printf("error from sharder.Register %s", sanitizeErr(err))
+			log.Printf("error from sharder.Register %s", grpcutil.ScrubGRPC(err))
 		}
 	}()
 	blockCacheBytes, err := units.RAMInBytes(appEnv.BlockCacheBytes)
@@ -291,23 +307,47 @@ func doFullMode(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
+
+	authAPIServer, err := authserver.NewAuthServer(address, etcdAddress, appEnv.AuthEtcdPrefix)
+	if err != nil {
+		return err
+	}
+	enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(etcdAddress, appEnv.EnterpriseEtcdPrefix)
+	if err != nil {
+		return err
+	}
+
 	healthServer := health.NewHealthServer()
-	return grpcutil.Serve(
-		func(s *grpc.Server) {
-			pfsclient.RegisterAPIServer(s, pfsAPIServer)
-			pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
-			ppsclient.RegisterAPIServer(s, ppsAPIServer)
-			cache_pb.RegisterGroupCacheServer(s, cacheServer)
-			healthclient.RegisterHealthServer(s, healthServer)
-		},
-		grpcutil.ServeOptions{
-			Version:    version.Version,
-			MaxMsgSize: grpcutil.MaxMsgSize,
-		},
-		grpcutil.ServeEnv{
-			GRPCPort: appEnv.Port,
-		},
-	)
+
+	httpServer, err := pfs_server.NewHTTPServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, blockCacheBytes)
+	if err != nil {
+		return err
+	}
+	var eg errgroup.Group
+	eg.Go(func() error {
+		return http.ListenAndServe(fmt.Sprintf(":%v", pfs_server.HTTPPort), httpServer)
+	})
+	eg.Go(func() error {
+		return grpcutil.Serve(
+			func(s *grpc.Server) {
+				healthclient.RegisterHealthServer(s, healthServer)
+				pfsclient.RegisterAPIServer(s, pfsAPIServer)
+				pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
+				ppsclient.RegisterAPIServer(s, ppsAPIServer)
+				cache_pb.RegisterGroupCacheServer(s, cacheServer)
+				authclient.RegisterAPIServer(s, authAPIServer)
+				eprsclient.RegisterAPIServer(s, enterpriseAPIServer)
+			},
+			grpcutil.ServeOptions{
+				Version:    version.Version,
+				MaxMsgSize: grpcutil.MaxMsgSize,
+			},
+			grpcutil.ServeEnv{
+				GRPCPort: appEnv.Port,
+			},
+		)
+	})
+	return eg.Wait()
 }
 
 func getEtcdClient(etcdAddress string) discovery.Client {
@@ -334,7 +374,7 @@ func getClusterID(client discovery.Client) (string, error) {
 func getKubeClient(env *appEnv) (*kube.Client, error) {
 	kubeClient, err := kube.NewInCluster()
 	if err != nil {
-		protolion.Errorf("falling back to insecure kube client due to error from NewInCluster: %s", sanitizeErr(err))
+		log.Errorf("falling back to insecure kube client due to error from NewInCluster: %s", grpcutil.ScrubGRPC(err))
 	} else {
 		return kubeClient, err
 	}
@@ -352,12 +392,4 @@ func getNamespace() string {
 		return namespace
 	}
 	return api.NamespaceDefault
-}
-
-func sanitizeErr(err error) error {
-	if err == nil {
-		return nil
-	}
-
-	return errors.New(grpc.ErrorDesc(err))
 }

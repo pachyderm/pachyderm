@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	pathlib "path"
+	"strings"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -184,12 +185,21 @@ func (h *HashTreeProto) FSSize() int64 {
 	return size(h.Fs)
 }
 
-func walk(fs map[string]*NodeProto, f func(string, *NodeProto) error) error {
-	for path, node := range fs {
-		if path == "" {
-			path = "/"
+func walk(fs map[string]*NodeProto, path string, f func(string, *NodeProto) error) error {
+	path = clean(path)
+	if node, ok := fs[path]; ok && node.FileNode != nil {
+		return f(path, node)
+	} else if !ok {
+		return errorf(PathNotFound, "no node at \"%s\"", path)
+	}
+	for rangePath, node := range fs {
+		if rangePath == "" {
+			rangePath = "/"
 		}
-		if err := f(path, node); err != nil {
+		if !strings.HasPrefix(rangePath, path) {
+			continue
+		}
+		if err := f(rangePath, node); err != nil {
 			return err
 		}
 	}
@@ -197,11 +207,11 @@ func walk(fs map[string]*NodeProto, f func(string, *NodeProto) error) error {
 }
 
 // Walk implements HashTree.Walk
-func (h *HashTreeProto) Walk(f func(string, *NodeProto) error) error {
-	return walk(h.Fs, f)
+func (h *HashTreeProto) Walk(path string, f func(string, *NodeProto) error) error {
+	return walk(h.Fs, path, f)
 }
 
-func diff(new HashTree, old HashTree, newPath string, oldPath string, f func(string, *NodeProto, bool) error) error {
+func diff(new HashTree, old HashTree, newPath string, oldPath string, recursiveDepth int64, f func(string, *NodeProto, bool) error) error {
 	newNode, err := new.Get(newPath)
 	if err != nil && Code(err) != PathNotFound {
 		return err
@@ -216,7 +226,7 @@ func diff(new HashTree, old HashTree, newPath string, oldPath string, f func(str
 	}
 	children := make(map[string]bool)
 	if newNode != nil {
-		if newNode.FileNode != nil {
+		if newNode.FileNode != nil || recursiveDepth == 0 {
 			if err := f(newPath, newNode, true); err != nil {
 				return err
 			}
@@ -227,7 +237,7 @@ func diff(new HashTree, old HashTree, newPath string, oldPath string, f func(str
 		}
 	}
 	if oldNode != nil {
-		if oldNode.FileNode != nil {
+		if oldNode.FileNode != nil || recursiveDepth == 0 {
 			if err := f(oldPath, oldNode, false); err != nil {
 				return err
 			}
@@ -237,17 +247,23 @@ func diff(new HashTree, old HashTree, newPath string, oldPath string, f func(str
 			}
 		}
 	}
-	for child := range children {
-		if err := diff(new, old, pathlib.Join(newPath, child), pathlib.Join(oldPath, child), f); err != nil {
-			return err
+	if recursiveDepth > 0 || recursiveDepth == -1 {
+		newDepth := recursiveDepth
+		if recursiveDepth > 0 {
+			newDepth--
+		}
+		for child := range children {
+			if err := diff(new, old, pathlib.Join(newPath, child), pathlib.Join(oldPath, child), newDepth, f); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
 }
 
 // Diff implements HashTree.Diff
-func (h *HashTreeProto) Diff(old HashTree, newPath string, oldPath string, f func(string, *NodeProto, bool) error) error {
-	return diff(h, old, newPath, oldPath, f)
+func (h *HashTreeProto) Diff(old HashTree, newPath string, oldPath string, recursiveDepth int64, f func(string, *NodeProto, bool) error) error {
+	return diff(h, old, newPath, oldPath, recursiveDepth, f)
 }
 
 // hashtree is an implementation of the HashTree and OpenHashTree interfaces.
@@ -290,13 +306,13 @@ func (h *hashtree) FSSize() int64 {
 }
 
 // Walk implements HashTree.Walk
-func (h *hashtree) Walk(f func(string, *NodeProto) error) error {
-	return walk(h.fs, f)
+func (h *hashtree) Walk(path string, f func(string, *NodeProto) error) error {
+	return walk(h.fs, path, f)
 }
 
 // Diff implements HashTree.Diff
-func (h *hashtree) Diff(old HashTree, newPath string, oldPath string, f func(string, *NodeProto, bool) error) error {
-	return diff(h, old, newPath, oldPath, f)
+func (h *hashtree) Diff(old HashTree, newPath string, oldPath string, recursiveDepth int64, f func(string, *NodeProto, bool) error) error {
+	return diff(h, old, newPath, oldPath, recursiveDepth, f)
 }
 
 // clone makes a deep copy of 'h' and returns it. This performs one fewer copy
@@ -469,6 +485,15 @@ func (h *hashtree) Finish() (HashTree, error) {
 
 // PutFile appends data to a file (and creates the file if it doesn't exist).
 func (h *hashtree) PutFile(path string, objects []*pfs.Object, size int64) error {
+	return h.putFile(path, objects, nil, size)
+}
+
+func (h *hashtree) PutFileOverwrite(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64) error {
+	return h.putFile(path, objects, overwriteIndex, sizeDelta)
+}
+
+// PutFile appends data to a file (and creates the file if it doesn't exist).
+func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64) error {
 	path = clean(path)
 
 	// Detect any path conflicts before modifying 'h'
@@ -489,13 +514,16 @@ func (h *hashtree) PutFile(path string, objects []*pfs.Object, size int64) error
 			"type %s is already there", path, node.nodetype().tostring())
 	}
 
-	// Append new object
+	// Append new objects.  Remove existing objects if overwriting.
+	if overwriteIndex != nil && overwriteIndex.Index <= int64(len(node.FileNode.Objects)) {
+		node.FileNode.Objects = node.FileNode.Objects[:overwriteIndex.Index]
+	}
+	node.SubtreeSize += sizeDelta
 	node.FileNode.Objects = append(node.FileNode.Objects, objects...)
 	h.changed[path] = true
-	node.SubtreeSize += size
 
 	// Add 'path' to parent (if it's new) & mark nodes as 'changed' back to root
-	if err := h.visit(path, func(node *NodeProto, parent, child string) error {
+	return h.visit(path, func(node *NodeProto, parent, child string) error {
 		if node == nil {
 			node = &NodeProto{
 				Name:    base(parent),
@@ -504,13 +532,10 @@ func (h *hashtree) PutFile(path string, objects []*pfs.Object, size int64) error
 			h.fs[parent] = node
 		}
 		insertStr(&node.DirNode.Children, child)
-		node.SubtreeSize += size
+		node.SubtreeSize += sizeDelta
 		h.changed[parent] = true
 		return nil
-	}); err != nil {
-		return err
-	}
-	return nil
+	})
 }
 
 // PutDir creates a directory (or does nothing if one exists).
@@ -538,7 +563,7 @@ func (h *hashtree) PutDir(path string) error {
 	h.changed[path] = true
 
 	// Add 'path' to parent & update hashes back to root
-	if err := h.visit(path, func(node *NodeProto, parent, child string) error {
+	return h.visit(path, func(node *NodeProto, parent, child string) error {
 		if node == nil {
 			node = &NodeProto{
 				Name:    base(parent),
@@ -549,10 +574,7 @@ func (h *hashtree) PutDir(path string) error {
 		insertStr(&node.DirNode.Children, child)
 		h.changed[parent] = true
 		return nil
-	}); err != nil {
-		return err
-	}
-	return nil
+	})
 }
 
 // DeleteFile deletes a regular file or directory (along with its children).
@@ -581,7 +603,7 @@ func (h *hashtree) DeleteFile(path string) error {
 		return errorf(Internal, "parent of \"%s\" does not contain it", path)
 	}
 	// Mark nodes as 'changed' back to root
-	if err := h.visit(path, func(node *NodeProto, parent, child string) error {
+	return h.visit(path, func(node *NodeProto, parent, child string) error {
 		if node == nil {
 			return errorf(Internal,
 				"encountered orphaned file \"%s\" while deleting \"%s\"", path,
@@ -590,10 +612,7 @@ func (h *hashtree) DeleteFile(path string) error {
 		node.SubtreeSize -= size
 		h.changed[parent] = true
 		return nil
-	}); err != nil {
-		return err
-	}
-	return nil
+	})
 }
 
 // GetOpen retrieves a file.
@@ -728,15 +747,8 @@ func (h *hashtree) Merge(trees ...HashTree) error {
 	if len(nonEmptyTrees) == 0 {
 		return nil
 	}
-
-	hmod, err := h.clone()
-	if err != nil {
-		return errorf(Internal, "could not snapshot hashtree before merge: %s", err)
-	}
-	if _, err = hmod.mergeNode("/", nonEmptyTrees); err != nil {
+	if _, err := h.mergeNode("/", nonEmptyTrees); err != nil {
 		return err
 	}
-	*h = *hmod
-
 	return nil
 }

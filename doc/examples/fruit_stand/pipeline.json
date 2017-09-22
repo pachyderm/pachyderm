@@ -11,7 +11,6 @@
     ]
   },
   "parallelism_spec": {
-    "strategy": "CONSTANT",
     "constant": 1
   },
   "inputs": [
@@ -31,13 +30,12 @@
     "cmd": [ "sh" ],
     "stdin": [
         "for fruit in apple orange banana; do",
-        "   [[ -e /pfs/filter/$fruit ]] || continue",
+        "   [ -e /pfs/filter/$fruit ] || continue",
         "   cat /pfs/filter/$fruit | awk '{s+=$1} END {print s}' >/pfs/out/$fruit",
         "done"
     ]
   },
   "parallelism_spec": {
-    "strategy": "CONSTANT",
     "constant": 1
   },
   "inputs": [
