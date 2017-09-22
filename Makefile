@@ -16,7 +16,7 @@ ifdef VENDOR_ALL
 endif
 
 COMPILE_RUN_ARGS = -d -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
-VERSION_ADDITIONAL = $(shell git log --pretty=format:%H | head -n 1)
+VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
 LD_FLAGS = -X github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 
 CLUSTER_NAME?=pachyderm
@@ -70,11 +70,21 @@ install:
 install-doc:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl-doc
 
-point-release:
-	@make VERSION_ADDITIONAL= release
+check-docker-version:
+	# The latest docker client requires server api version >= 1.24.
+	# However, minikube uses 1.23, so if you're connected to minikube, releases
+	# may break
+	@ \
+		docker_major="$$(docker version -f "{{.Server.APIVersion}}" | cut -d. -f1)"; \
+		docker_minor="$$(docker version -f "{{.Server.APIVersion}}" | cut -d. -f2)"; \
+		echo "docker version = $${docker_major}.$${docker_minor}, need at least 1.24"; \
+		test \( "$${docker_major}" -gt 1 \) -o \( "$${docker_minor}" -ge 24 \)
 
-# Run via 'make VERSION_ADDITIONAL=RC release' to specify a version string
-release: release-version release-pachd release-worker release-pachctl doc
+point-release:
+	@make VERSION_ADDITIONAL= release-custom
+
+# Run via 'make VERSION_ADDITIONAL=RC release-custom' to specify a version string
+release-custom: check-docker-version release-version release-pachd release-worker release-pachctl doc-custom
 	@rm VERSION
 	@echo "Release completed"
 
@@ -120,6 +130,10 @@ docker-clean-test:
 docker-build-test: docker-clean-test docker-build-compile
 	docker run --name test_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile_test.sh
 	etc/compile/wait.sh test_compile
+	docker tag pachyderm_test:latest pachyderm/test:`git rev-list HEAD --max-count=1`
+
+docker-push-test:
+	docker push pachyderm/test:`git rev-list HEAD --max-count=1`
 
 docker-build-microsoft-vhd:
 	docker build -t microsoft_vhd etc/microsoft/create-blank-vhd
@@ -127,7 +141,7 @@ docker-build-microsoft-vhd:
 docker-wait-pachd:
 	etc/compile/wait.sh pachd_compile
 
-docker-build: docker-build-worker docker-build-pachd docker-wait-worker docker-wait-pachd
+docker-build: enterprise-code-checkin-test docker-build-worker docker-build-pachd docker-wait-worker docker-wait-pachd
 
 docker-build-proto:
 	docker build -t pachyderm_proto etc/proto
@@ -197,12 +211,18 @@ install-bench: install
 	rm /usr/local/bin/pachctl || true
 	[ -f /usr/local/bin/pachctl ] || sudo ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 
-launch-dev-test: docker-build-test
-	kubectl run bench --image=pachyderm/test:local \
+launch-dev-test: docker-build-test docker-push-test
+	sudo kubectl run bench --image=pachyderm/test:`git rev-list HEAD --max-count=1` \
 	    --restart=Never \
 	    --attach=true \
 	    -- \
 	    ./test -test.v
+
+aws-test: tag-images push-images
+	ZONE=sa-east-1a etc/testing/deploy/aws.sh --create
+	$(MAKE) launch-dev-test
+	rm $(HOME)/.pachyderm/config.json
+	ZONE=sa-east-1a etc/testing/deploy/aws.sh --delete
 
 run-bench:
 	kubectl scale --replicas=4 deploy/pachd
@@ -303,16 +323,27 @@ pretest:
 
 #test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build docker-build-netcat clean-launch-dev launch-dev integration-tests example-tests
 
-test: docker-build clean-launch-dev launch-dev test-pfs test-pps test-hashtree
+local-test: docker-build launch-dev test-pfs clean-launch-dev 
+
+test: enterprise-code-checkin-test docker-build clean-launch-dev launch-dev test-pfs test-pps test-auth test-enterprise
+
+enterprise-code-checkin-test:
+	# Check if our test activation code is anywhere in the repo
+	@echo "Files containing test Pachyderm Enterprise activation token:"; \
+	if grep --files-with-matches --exclude=Makefile -r -e 'eyJ0b2tl' . ; \
+	then \
+		$$( which echo ) -e "\n*** It looks like Pachyderm Engineering's test activation code may be in this repo. Please remove it before committing! ***\n"; \
+		false; \
+	fi
 
 test-pfs:
+	@# don't run this in verbose mode, as it produces a huge amount of logs
 	go test ./src/server/pfs/server -timeout $(TIMEOUT)
+	go test ./src/server/pkg/collection -timeout $(TIMEOUT)
+	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
 
 test-pps:
-	go test -v ./src/server/ -timeout $(TIMEOUT)
-
-test-hashtree:
-	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
+	go test -v ./src/server -parallel 1 -timeout $(TIMEOUT)
 
 test-client:
 	rm -rf src/client/vendor
@@ -328,9 +359,16 @@ test-fuse:
 test-local:
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT)
 
+test-auth:
+	yes | pachctl delete-all
+	go test -v ./src/server/auth/server -timeout $(TIMEOUT)
+
+test-enterprise:
+	go test -v ./src/server/enterprise/server -timeout $(TIMEOUT)
+
 clean: clean-launch clean-launch-kube
 
-doc: install-doc release-version
+doc-custom: install-doc release-version
 	# we rename to pachctl because the program name is used in generating docs
 	cp $(GOPATH)/bin/pachctl-doc ./pachctl
 	# This file isn't autogenerated so we need to keep it around:
@@ -340,6 +378,9 @@ doc: install-doc release-version
 	rm ./pachctl
 	mv pachctl.rst doc/pachctl
 	VERSION="$(shell cat VERSION)" ./etc/build/release_doc
+
+doc:
+	@make VERSION_ADDITIONAL= doc-custom
 
 clean-launch-monitoring:
 	kubectl delete --ignore-not-found -f ./etc/plugin/monitoring
@@ -470,8 +511,7 @@ goxc-build:
 	sed 's/%%VERSION_ADDITIONAL%%/$(VERSION_ADDITIONAL)/' .goxc.json.template > .goxc.json
 	goxc -tasks=xc -wd=./src/server/cmd/pachctl
 
-.PHONY:
-	all \
+.PHONY: all \
 	version \
 	deps \
 	deps-client \

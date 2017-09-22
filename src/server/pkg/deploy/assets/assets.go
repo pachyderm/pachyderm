@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pachyderm/pachyderm/src/server/pfs/server"
-	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
+	auth "github.com/pachyderm/pachyderm/src/server/auth/server"
+	pfs "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/ugorji/go/codec"
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/api/resource"
@@ -22,9 +22,12 @@ import (
 )
 
 var (
-	suite                   = "pachyderm"
-	pachdImage              = "pachyderm/pachd"
-	etcdImage               = "quay.io/coreos/etcd:v3.1.4"
+	suite      = "pachyderm"
+	pachdImage = "pachyderm/pachd"
+	// Using our own etcd image for now because there's a fix we need
+	// that hasn't been released, and which has been manually applied
+	// to the official v3.2.7 release.
+	etcdImage               = "pachyderm/etcd:v3.2.7"
 	serviceAccountName      = "pachyderm"
 	etcdHeadlessServiceName = "etcd-headless"
 	etcdName                = "etcd"
@@ -34,7 +37,7 @@ var (
 	dashName                = "dash"
 	dashImage               = "pachyderm/dash"
 	grpcProxyName           = "grpc-proxy"
-	grpcProxyImage          = "pachyderm/grpc-proxy"
+	grpcProxyImage          = "pachyderm/grpc-proxy:0.4.2"
 	pachdName               = "pachd"
 	minioSecretName         = "minio-secret"
 	amazonSecretName        = "amazon-secret"
@@ -72,6 +75,11 @@ type AssetOpts struct {
 	EnableDash  bool
 	DashOnly    bool
 	DashImage   string
+
+	// DisableAuthentication stops Pachyderm's authentication service
+	// from talking to GitHub, for testing. Instead users can authenticate
+	// simply by providing a username.
+	DisableAuthentication bool
 
 	// BlockCacheSize is the amount of memory each PachD node allocates towards
 	// its cache of PFS blocks. If empty, assets.go will choose a default size.
@@ -165,7 +173,7 @@ func ServiceAccount() *api.ServiceAccount {
 // constants defined in pfs/server.
 func GetSecretVolumeAndMount(backend string) (api.Volume, api.VolumeMount, error) {
 	switch backend {
-	case server.MinioBackendEnvVar:
+	case pfs.MinioBackendEnvVar:
 		return api.Volume{
 				Name: minioSecretName,
 				VolumeSource: api.VolumeSource{
@@ -177,7 +185,7 @@ func GetSecretVolumeAndMount(backend string) (api.Volume, api.VolumeMount, error
 				Name:      minioSecretName,
 				MountPath: "/" + minioSecretName,
 			}, nil
-	case server.AmazonBackendEnvVar:
+	case pfs.AmazonBackendEnvVar:
 		return api.Volume{
 				Name: amazonSecretName,
 				VolumeSource: api.VolumeSource{
@@ -189,7 +197,7 @@ func GetSecretVolumeAndMount(backend string) (api.Volume, api.VolumeMount, error
 				Name:      amazonSecretName,
 				MountPath: "/" + amazonSecretName,
 			}, nil
-	case server.GoogleBackendEnvVar:
+	case pfs.GoogleBackendEnvVar:
 		return api.Volume{
 				Name: googleSecretName,
 				VolumeSource: api.VolumeSource{
@@ -201,7 +209,7 @@ func GetSecretVolumeAndMount(backend string) (api.Volume, api.VolumeMount, error
 				Name:      googleSecretName,
 				MountPath: "/" + googleSecretName,
 			}, nil
-	case server.MicrosoftBackendEnvVar:
+	case pfs.MicrosoftBackendEnvVar:
 		return api.Volume{
 				Name: microsoftSecretName,
 				VolumeSource: api.VolumeSource{
@@ -226,11 +234,6 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 	if opts.Version != "" {
 		image += ":" + opts.Version
 	}
-	// we turn metrics off if we dont have a static version
-	// this prevents dev clusters from reporting metrics
-	if opts.Version == deploy.DevVersionTag {
-		opts.Metrics = false
-	}
 	volumes := []api.Volume{
 		{
 			Name: "pach-disk",
@@ -242,6 +245,8 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 			MountPath: "/pach",
 		},
 	}
+
+	// Set up storage options
 	var backendEnvVar string
 	var storageHostPath string
 	switch objectStoreBackend {
@@ -250,14 +255,15 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 		volumes[0].HostPath = &api.HostPathVolumeSource{
 			Path: storageHostPath,
 		}
+		backendEnvVar = pfs.LocalBackendEnvVar
 	case minioBackend:
-		backendEnvVar = server.MinioBackendEnvVar
+		backendEnvVar = pfs.MinioBackendEnvVar
 	case amazonBackend:
-		backendEnvVar = server.AmazonBackendEnvVar
+		backendEnvVar = pfs.AmazonBackendEnvVar
 	case googleBackend:
-		backendEnvVar = server.GoogleBackendEnvVar
+		backendEnvVar = pfs.GoogleBackendEnvVar
 	case microsoftBackend:
-		backendEnvVar = server.MicrosoftBackendEnvVar
+		backendEnvVar = pfs.MicrosoftBackendEnvVar
 	}
 	volume, mount, err := GetSecretVolumeAndMount(backendEnvVar)
 	if err == nil {
@@ -342,6 +348,10 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 									Name:  "BLOCK_CACHE_BYTES",
 									Value: opts.BlockCacheSize,
 								},
+								{
+									Name:  auth.DisableAuthenticationEnvVar,
+									Value: strconv.FormatBool(opts.DisableAuthentication),
+								},
 							},
 							Ports: []api.ContainerPort{
 								{
@@ -352,6 +362,11 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 								{
 									ContainerPort: 651,
 									Name:          "trace-port",
+								},
+								{
+									ContainerPort: pfs.HTTPPort,
+									Protocol:      "TCP",
+									Name:          "api-http-port",
 								},
 							},
 							VolumeMounts: volumeMounts,
@@ -401,6 +416,11 @@ func PachdService() *v1.Service {
 					Port:     651,
 					Name:     "trace-port",
 					NodePort: 30651,
+				},
+				{
+					Port:     pfs.HTTPPort,
+					Name:     "api-http-port",
+					NodePort: 30000 + pfs.HTTPPort,
 				},
 			},
 		},

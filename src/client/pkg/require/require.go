@@ -1,10 +1,12 @@
 package require
 
 import (
+	"fmt"
 	"reflect"
 	"regexp"
 	"runtime"
 	"testing"
+	"time"
 )
 
 // Matches checks that a string matches a regular-expression.
@@ -58,28 +60,73 @@ func EqualOneOf(tb testing.TB, expecteds []interface{}, actual interface{}, msgA
 	}
 }
 
-// OneOfEquals checks one element of a slice equals a value.
-func OneOfEquals(tb testing.TB, expected interface{}, actuals []interface{}, msgAndArgs ...interface{}) {
-	equal := false
-	for _, actual := range actuals {
-		if reflect.DeepEqual(expected, actual) {
-			equal = true
-			break
+// oneOfEquals is a helper function for OneOfEquals and NoneEquals, that simply
+// returns a bool indicating whether 'expected' is in the slice 'actuals'.
+func oneOfEquals(expected interface{}, actuals interface{}) (bool, error) {
+	e := reflect.ValueOf(expected)
+	as := reflect.ValueOf(actuals)
+	if as.Kind() != reflect.Slice {
+		return false, fmt.Errorf("\"actuals\" must a be a slice, but instead was %s", as.Type().String())
+	}
+	if e.Type() != as.Type().Elem() {
+		return false, nil
+	}
+	for i := 0; i < as.Len(); i++ {
+		if reflect.DeepEqual(e.Interface(), as.Index(i).Interface()) {
+			return true, nil
 		}
 	}
+	return false, nil
+}
+
+// OneOfEquals checks whether one element of a slice equals a value.
+func OneOfEquals(tb testing.TB, expected interface{}, actuals interface{}, msgAndArgs ...interface{}) {
+	equal, err := oneOfEquals(expected, actuals)
+	if err != nil {
+		fatal(tb, msgAndArgs, err.Error())
+	}
 	if !equal {
-		fatal(
-			tb,
-			msgAndArgs,
+		fatal(tb, msgAndArgs,
 			"Not equal : %#v (expected)\n"+
 				" one of  != %#v (actuals)", expected, actuals)
+	}
+}
+
+// NoneEquals checks one element of a slice equals a value.
+func NoneEquals(tb testing.TB, expected interface{}, actuals interface{}, msgAndArgs ...interface{}) {
+	equal, err := oneOfEquals(expected, actuals)
+	if err != nil {
+		fatal(tb, msgAndArgs, err.Error())
+	}
+	if equal {
+		fatal(tb, msgAndArgs,
+			"Equal : %#v (expected)\n one of == %#v (actuals)", expected, actuals)
 	}
 }
 
 // NoError checks for no error.
 func NoError(tb testing.TB, err error, msgAndArgs ...interface{}) {
 	if err != nil {
-		fatal(tb, msgAndArgs, "No error is expected but got %v", err)
+		fatal(tb, msgAndArgs, "No error is expected but got %s", err.Error())
+	}
+}
+
+// NoErrorWithinT checks that 'f' finishes within time 't' and does not emit an
+// error
+func NoErrorWithinT(tb testing.TB, t time.Duration, f func() error, msgAndArgs ...interface{}) {
+	errCh := make(chan error)
+	go func() {
+		// This goro will leak if the timeout is exceeded, but it's okay because the
+		// test is failing anyway
+		errCh <- f()
+	}()
+	select {
+	case err := <-errCh:
+		if err != nil {
+			fatal(tb, msgAndArgs, "No error is expected but got %s", err.Error())
+		}
+	case <-time.After(t):
+		fatal(tb, msgAndArgs, "operation did not finish within %s", t.String())
 	}
 }
 

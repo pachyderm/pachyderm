@@ -18,8 +18,8 @@ import (
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
-	log "github.com/Sirupsen/logrus"
 	"github.com/gogo/protobuf/types"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -339,10 +339,7 @@ func (f *file) touch() error {
 	if err != nil {
 		return err
 	}
-	if err := w.Close(); err != nil {
-		return err
-	}
-	return nil
+	return w.Close()
 }
 
 func (f *filesystem) inode(file *pfsclient.File) uint64 {

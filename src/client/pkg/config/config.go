@@ -13,35 +13,44 @@ import (
 var configDirPath = filepath.Join(os.Getenv("HOME"), ".pachyderm")
 var configPath = filepath.Join(configDirPath, "config.json")
 
-//Read loads pachyderm user config
-//If an existing configuration cannot be found, it sets up the defaults
+// Read loads the Pachyderm config on this machine.
+// If an existing configuration cannot be found, it sets up the defaults. Read
+// returns a nil Config if and only if it returns a non-nil error.
 func Read() (*Config, error) {
-	raw, err := ioutil.ReadFile(configPath)
-	if err != nil {
-		// File doesn't exist, so create the UID
-		return createDefaults()
-	}
 	var c *Config
-	err = json.Unmarshal(raw, &c)
-	return c, err
+
+	// Read json file
+	if raw, err := ioutil.ReadFile(configPath); err == nil {
+		err = json.Unmarshal(raw, &c)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// File doesn't exist, so create a new config
+		fmt.Println("No config detected. Generating new config...")
+		c = &Config{}
+	}
+	if c.UserID == "" {
+		fmt.Printf("No UserID present in config. Generating new UserID and "+
+			"updating config at %s\n", configPath)
+		c.UserID = uuid.NewWithoutDashes()
+		if err := c.Write(); err != nil {
+			return nil, err
+		}
+	}
+	return c, nil
 }
 
-func createDefaults() (*Config, error) {
-	c := &Config{
-		UserID: uuid.NewWithoutDashes(),
-	}
-	rawConfig, err := json.Marshal(c)
+// Write writes the configuration in 'c' to this machine's Pachyderm config
+// file.
+func (c *Config) Write() error {
+	rawConfig, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
-		return nil, err
+		return err
 	}
 	err = os.MkdirAll(configDirPath, 0755)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	fmt.Printf("No config detected.\nDefault config created at %v\n", configPath)
-	err = ioutil.WriteFile(configPath, rawConfig, 0644)
-	if err != nil {
-		return nil, err
-	}
-	return c, nil
+	return ioutil.WriteFile(configPath, rawConfig, 0644)
 }

@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -16,27 +15,21 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
-	protolion "go.pedge.io/lion/proto"
-	"go.pedge.io/proto/rpclog"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 )
 
 var (
 	grpcErrorf = grpc.Errorf // needed to get passed govet
 )
 
-const (
-	// The maximum number of items we log in response to a List* API
-	maxListItemsLog = 10
-)
-
 type apiServer struct {
-	protorpclog.Logger
+	log.Logger
 	driver *driver
 }
 
@@ -46,18 +39,18 @@ func newLocalAPIServer(address string, etcdPrefix string) (*apiServer, error) {
 		return nil, err
 	}
 	return &apiServer{
-		Logger: protorpclog.NewLogger("pfs.API"),
+		Logger: log.NewLogger("pfs.API"),
 		driver: d,
 	}, nil
 }
 
-func newAPIServer(address string, etcdAddresses []string, etcdPrefix string, cacheBytes int64) (*apiServer, error) {
-	d, err := newDriver(address, etcdAddresses, etcdPrefix, cacheBytes)
+func newAPIServer(address string, etcdAddresses []string, etcdPrefix string, cacheSize int64) (*apiServer, error) {
+	d, err := newDriver(address, etcdAddresses, etcdPrefix, cacheSize)
 	if err != nil {
 		return nil, err
 	}
 	return &apiServer{
-		Logger: protorpclog.NewLogger("pfs.API"),
+		Logger: log.NewLogger("pfs.API"),
 		driver: d,
 	}, nil
 }
@@ -76,15 +69,15 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	return a.driver.inspectRepo(ctx, request.Repo)
+	return a.driver.inspectRepo(ctx, request.Repo, true)
 }
 
-func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) (response *pfs.RepoInfos, retErr error) {
+func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) (response *pfs.ListRepoResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	repoInfos, err := a.driver.listRepo(ctx, request.Provenance)
-	return &pfs.RepoInfos{RepoInfo: repoInfos}, err
+	repoInfos, err := a.driver.listRepo(ctx, request.Provenance, true)
+	return repoInfos, err
 }
 
 func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *types.Empty, retErr error) {
@@ -156,7 +149,7 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 	}, nil
 }
 
-func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.Branches, retErr error) {
+func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.BranchInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -164,7 +157,7 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 	if err != nil {
 		return nil, err
 	}
-	return &pfs.Branches{Branches: branches}, nil
+	return &pfs.BranchInfos{BranchInfo: branches}, nil
 }
 
 func (a *apiServer) SetBranch(ctx context.Context, request *pfs.SetBranchRequest) (response *types.Empty, retErr error) {
@@ -310,11 +303,15 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 		case "pfs":
 			return a.putFilePfs(ctx, request, url)
 		default:
-			objClient, err := obj.NewClientFromURLAndSecret(putFileServer.Context(), request.Url)
+			url, err := obj.ParseURL(request.Url)
+			if err != nil {
+				return fmt.Errorf("error parsing url %v: %v", request.Url, err)
+			}
+			objClient, err := obj.NewClientFromURLAndSecret(putFileServer.Context(), url)
 			if err != nil {
 				return err
 			}
-			return a.putFileObj(ctx, objClient, request, url)
+			return a.putFileObj(ctx, objClient, request, url.Object)
 		}
 	} else {
 		reader := putFileReader{
@@ -326,10 +323,7 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 		}
 		r = &reader
 	}
-	if err := a.driver.putFile(ctx, request.File, request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, r); err != nil {
-		return err
-	}
-	return nil
+	return a.driver.putFile(ctx, request.File, request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, request.OverwriteIndex, r)
 }
 
 func (a *apiServer) putFilePfs(ctx context.Context, request *pfs.PutFileRequest, url *url.URL) error {
@@ -342,7 +336,7 @@ func (a *apiServer) putFilePfs(ctx context.Context, request *pfs.PutFileRequest,
 		if err != nil {
 			return err
 		}
-		return a.driver.putFile(ctx, client.NewFile(request.File.Commit.Repo.Name, request.File.Commit.ID, outPath), request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, r)
+		return a.driver.putFile(ctx, client.NewFile(request.File.Commit.Repo.Name, request.File.Commit.ID, outPath), request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, request.OverwriteIndex, r)
 	}
 	splitPath := strings.Split(strings.TrimPrefix(url.Path, "/"), "/")
 	if len(splitPath) < 2 {
@@ -372,8 +366,8 @@ func (a *apiServer) putFilePfs(ctx context.Context, request *pfs.PutFileRequest,
 	return put(request.File.Path, repo, commit, file)
 }
 
-func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, request *pfs.PutFileRequest, url *url.URL) (retErr error) {
-	put := func(filePath string, objPath string) error {
+func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, request *pfs.PutFileRequest, object string) (retErr error) {
+	put := func(ctx context.Context, filePath string, objPath string) error {
 		logRequest := &pfs.PutFileRequest{
 			Delimiter: request.Delimiter,
 			Url:       objPath,
@@ -382,9 +376,9 @@ func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, reques
 			},
 			Recursive: request.Recursive,
 		}
-		protorpclog.Log("pfs.API", "putFileObj", logRequest, nil, nil, 0)
+		a.Log(logRequest, nil, nil, 0)
 		defer func(start time.Time) {
-			protorpclog.Log("pfs.API", "putFileObj", logRequest, nil, retErr, time.Since(start))
+			a.Log(logRequest, nil, retErr, time.Since(start))
 		}(time.Now())
 		r, err := objClient.Reader(objPath, 0, 0)
 		if err != nil {
@@ -396,11 +390,11 @@ func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, reques
 			}
 		}()
 		return a.driver.putFile(ctx, client.NewFile(request.File.Commit.Repo.Name, request.File.Commit.ID, filePath),
-			request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, r)
+			request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, request.OverwriteIndex, r)
 	}
 	if request.Recursive {
-		var eg errgroup.Group
-		path := strings.TrimPrefix(url.Path, "/")
+		eg, egContext := errgroup.WithContext(ctx)
+		path := strings.TrimPrefix(object, "/")
 		sem := make(chan struct{}, client.DefaultMaxConcurrentStreams)
 		objClient.Walk(path, func(name string) error {
 			eg.Go(func() error {
@@ -414,17 +408,26 @@ func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, reques
 					// PFS needs to treat such a key as a directory.
 					// In this case, we rely on the driver PutFile to
 					// construct the 'directory' diffs from the file prefix
-					protolion.Warnf("ambiguous key %v, not creating a directory or putting this entry as a file", name)
+					logrus.Warnf("ambiguous key %v, not creating a directory or putting this entry as a file", name)
 					return nil
 				}
-				return put(filepath.Join(request.File.Path, strings.TrimPrefix(name, path)), name)
+				return put(egContext, filepath.Join(request.File.Path, strings.TrimPrefix(name, path)), name)
 			})
 			return nil
 		})
 		return eg.Wait()
 	}
 	// Joining Host and Path to retrieve the full path after "scheme://"
-	return put(request.File.Path, path.Join(url.Host, url.Path))
+	return put(ctx, request.File.Path, object)
+}
+
+func (a *apiServer) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	if err := a.driver.copyFile(ctx, request.Src, request.Dst, request.Overwrite); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
 }
 
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) (retErr error) {
@@ -449,15 +452,15 @@ func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileReq
 func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (response *pfs.FileInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
-		if response != nil && len(response.FileInfo) > maxListItemsLog {
-			protolion.Infof("Response contains %d objects; logging the first %d", len(response.FileInfo), maxListItemsLog)
-			a.Log(request, &pfs.FileInfos{response.FileInfo[:maxListItemsLog]}, retErr, time.Since(start))
+		if response != nil && len(response.FileInfo) > client.MaxListItemsLog {
+			logrus.Infof("Response contains %d objects; logging the first %d", len(response.FileInfo), client.MaxListItemsLog)
+			a.Log(request, &pfs.FileInfos{response.FileInfo[:client.MaxListItemsLog]}, retErr, time.Since(start))
 		} else {
 			a.Log(request, response, retErr, time.Since(start))
 		}
 	}(time.Now())
 
-	fileInfos, err := a.driver.listFile(ctx, request.File)
+	fileInfos, err := a.driver.listFile(ctx, request.File, request.Full)
 	if err != nil {
 		return nil, err
 	}
@@ -469,9 +472,9 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 func (a *apiServer) GlobFile(ctx context.Context, request *pfs.GlobFileRequest) (response *pfs.FileInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
-		if response != nil && len(response.FileInfo) > maxListItemsLog {
-			protolion.Infof("Response contains %d objects; logging the first %d", len(response.FileInfo), maxListItemsLog)
-			a.Log(request, &pfs.FileInfos{response.FileInfo[:maxListItemsLog]}, retErr, time.Since(start))
+		if response != nil && len(response.FileInfo) > client.MaxListItemsLog {
+			logrus.Infof("Response contains %d objects; logging the first %d", len(response.FileInfo), client.MaxListItemsLog)
+			a.Log(request, &pfs.FileInfos{response.FileInfo[:client.MaxListItemsLog]}, retErr, time.Since(start))
 		} else {
 			a.Log(request, response, retErr, time.Since(start))
 		}
@@ -489,8 +492,8 @@ func (a *apiServer) GlobFile(ctx context.Context, request *pfs.GlobFileRequest) 
 func (a *apiServer) DiffFile(ctx context.Context, request *pfs.DiffFileRequest) (response *pfs.DiffFileResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
-		if response != nil && (len(response.NewFiles) > maxListItemsLog || len(response.OldFiles) > maxListItemsLog) {
-			protolion.Infof("Response contains too many objects; truncating.")
+		if response != nil && (len(response.NewFiles) > client.MaxListItemsLog || len(response.OldFiles) > client.MaxListItemsLog) {
+			logrus.Infof("Response contains too many objects; truncating.")
 			a.Log(request, &pfs.DiffFileResponse{
 				NewFiles: truncateFiles(response.NewFiles),
 				OldFiles: truncateFiles(response.OldFiles),
@@ -499,7 +502,7 @@ func (a *apiServer) DiffFile(ctx context.Context, request *pfs.DiffFileRequest) 
 			a.Log(request, response, retErr, time.Since(start))
 		}
 	}(time.Now())
-	newFileInfos, oldFileInfos, err := a.driver.diffFile(ctx, request.NewFile, request.OldFile)
+	newFileInfos, oldFileInfos, err := a.driver.diffFile(ctx, request.NewFile, request.OldFile, request.Shallow)
 	if err != nil {
 		return nil, err
 	}
@@ -547,21 +550,6 @@ func (r *putFileReader) Read(p []byte) (int, error) {
 	return r.buffer.Read(p)
 }
 
-func (a *apiServer) getVersion(ctx context.Context) (int64, error) {
-	md, ok := metadata.FromContext(ctx)
-	if !ok {
-		return 0, fmt.Errorf("version not found in context")
-	}
-	encodedVersion, ok := md["version"]
-	if !ok {
-		return 0, fmt.Errorf("version not found in context")
-	}
-	if len(encodedVersion) != 1 {
-		return 0, fmt.Errorf("version not found in context")
-	}
-	return strconv.ParseInt(encodedVersion[0], 10, 64)
-}
-
 func drainFileServer(putFileServer interface {
 	Recv() (*pfs.PutFileRequest, error)
 }) {
@@ -573,8 +561,8 @@ func drainFileServer(putFileServer interface {
 }
 
 func truncateFiles(fileInfos []*pfs.FileInfo) []*pfs.FileInfo {
-	if len(fileInfos) > maxListItemsLog {
-		return fileInfos[:maxListItemsLog]
+	if len(fileInfos) > client.MaxListItemsLog {
+		return fileInfos[:client.MaxListItemsLog]
 	}
 	return fileInfos
 }

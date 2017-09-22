@@ -1,0 +1,34 @@
+{
+  "pipeline": {
+    "name": "inference"
+  },
+  "transform": {
+    "image": "dwhitena/pyinfer",
+    "cmd": [
+	"python3",
+	"/code/pyinfer.py",
+	"/pfs/model/",
+	"/pfs/attributes/",
+	"/pfs/out/"
+    ]
+  },
+  "parallelism_spec": {
+    "constant": "1"
+  },
+  "input": {
+    "cross": [
+      {
+        "atom": {
+	  "repo": "attributes",
+	  "glob": "/*"
+	}
+      },
+      {
+	"atom": {
+	  "repo": "model",
+	  "glob": "/"
+	}
+      }
+    ]
+  }
+}

@@ -10,6 +10,9 @@
 /protofix
 doc/_build
 
+# Release artifacts
+VERSION
+
 # Compiled Object files, Static and Dynamic libs (Shared Objects)
 *.o
 *.a
@@ -48,3 +51,6 @@ src/cmd/pps/pps
 src/cmd/ppsd/ppsd
 /.goxc.local.json
 /build/
+
+.bucket
+.cluster_name

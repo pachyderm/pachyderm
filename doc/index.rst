@@ -29,8 +29,18 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     fundamentals/getting_data_into_pachyderm
     fundamentals/creating_analysis_pipelines
     fundamentals/distributed_computing
+    fundamentals/incrementality
     fundamentals/getting_data_out_of_pachyderm
     fundamentals/updating_pipelines
+
+.. toctree::
+    :maxdepth: 1
+    :caption: Pachyderm Enterprise Edition
+
+    enterprise/overview
+    enterprise/deployment
+    enterprise/auth
+    enterprise/stats
 
 .. toctree::
     :maxdepth: 1
@@ -53,8 +63,19 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
 
 .. toctree::
     :maxdepth: 1
+    :caption: Manage Pachyderm
+
+    managing_pachyderm/autoscaling
+    managing_pachyderm/data_management
+    managing_pachyderm/general_troubleshooting
+    managing_pachyderm/deploy_troubleshooting
+
+.. toctree::
+    :maxdepth: 1
     :caption: Pachyderm Cookbook
 
+    cookbook/splitting
+    cookbook/combining
     cookbook/ml
     cookbook/time_windows
     cookbook/gpus
@@ -64,7 +85,6 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     :caption: Reference
 
     reference/pipeline_spec
-    reference/best_practices
     pachctl/pachctl
     reference/clients
     

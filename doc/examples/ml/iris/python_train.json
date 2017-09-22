@@ -1,0 +1,23 @@
+{
+  "pipeline": {
+    "name": "model"
+  },
+  "transform": {
+    "image": "dwhitena/pytrain:lda",
+    "cmd": [
+	"python3",
+	"/code/pytrain.py",
+	"/pfs/training/",
+	"/pfs/out/"
+    ]
+  },
+  "parallelism_spec": {
+    "constant": "1"
+  },
+  "input": {
+    "atom": {
+      "repo": "training",
+      "glob": "/"
+    }
+  }
+}

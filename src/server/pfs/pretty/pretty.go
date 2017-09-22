@@ -12,7 +12,11 @@ import (
 )
 
 // PrintRepoHeader prints a repo header.
-func PrintRepoHeader(w io.Writer) {
+func PrintRepoHeader(w io.Writer, printAuth bool) {
+	if printAuth {
+		fmt.Fprint(w, "NAME\tCREATED\tSIZE\tACCESS LEVEL\t\n")
+		return
+	}
 	fmt.Fprint(w, "NAME\tCREATED\tSIZE\t\n")
 }
 
@@ -24,7 +28,11 @@ func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo) {
 		"%s\t",
 		pretty.Ago(repoInfo.Created),
 	)
-	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(repoInfo.SizeBytes)))
+	fmt.Fprintf(w, "%s\t", units.BytesSize(float64(repoInfo.SizeBytes)))
+	if repoInfo.AuthInfo != nil {
+		fmt.Fprintf(w, "%s\t", repoInfo.AuthInfo.AccessLevel.String())
+	}
+	fmt.Fprintln(w)
 }
 
 // PrintDetailedRepoInfo pretty-prints detailed repo info.
@@ -34,7 +42,8 @@ func PrintDetailedRepoInfo(repoInfo *pfs.RepoInfo) error {
 Description: {{.Description}}{{end}}
 Created: {{prettyAgo .Created}}
 Size: {{prettySize .SizeBytes}}{{if .Provenance}}
-Provenance: {{range .Provenance}} {{.Name}} {{end}} {{end}}
+Provenance: {{range .Provenance}} {{.Name}} {{end}}{{end}}{{if .AuthInfo}}
+Access level: {{ .AuthInfo.AccessLevel.String }}{{end}}
 `)
 	if err != nil {
 		return err
@@ -52,7 +61,7 @@ func PrintBranchHeader(w io.Writer) {
 }
 
 // PrintBranch pretty-prints a Branch.
-func PrintBranch(w io.Writer, branch *pfs.Branch) {
+func PrintBranch(w io.Writer, branch *pfs.BranchInfo) {
 	fmt.Fprintf(w, "%s\t", branch.Name)
 	fmt.Fprintf(w, "%s\t\n", branch.Head.ID)
 }
@@ -76,12 +85,14 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 		"%s\t",
 		pretty.Ago(commitInfo.Started),
 	)
-	duration := "-\t"
 	if commitInfo.Finished != nil {
-		duration = fmt.Sprintf("%s\t", pretty.Duration(commitInfo.Started, commitInfo.Finished))
+		fmt.Fprintf(w, fmt.Sprintf("%s\t", pretty.TimeDifference(commitInfo.Started, commitInfo.Finished)))
+		fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(commitInfo.SizeBytes)))
+	} else {
+		fmt.Fprintf(w, "-\t")
+		// Open commits don't have meaningful size information
+		fmt.Fprintf(w, "-\t\n")
 	}
-	fmt.Fprintf(w, duration)
-	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(commitInfo.SizeBytes)))
 }
 
 // PrintDetailedCommitInfo pretty-prints detailed commit info.
@@ -133,10 +144,7 @@ Children: {{range .Children}} {{.}} {{end}}
 	if err != nil {
 		return err
 	}
-	if err := template.Execute(os.Stdout, fileInfo); err != nil {
-		return err
-	}
-	return nil
+	return template.Execute(os.Stdout, fileInfo)
 }
 
 type uint64Slice []uint64

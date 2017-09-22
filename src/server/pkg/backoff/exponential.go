@@ -79,6 +79,25 @@ const (
 	DefaultMaxElapsedTime      = 15 * time.Minute
 )
 
+// withCanonicalRandomizationFactor is a utility function used by all
+// NewXYZBackoff functions to clamp b.RandomizationFactor to either 0 or 1
+func (b *ExponentialBackOff) withCanonicalRandomizationFactor() *ExponentialBackOff {
+	if b.RandomizationFactor < 0 {
+		b.RandomizationFactor = 0
+	} else if b.RandomizationFactor > 1 {
+		b.RandomizationFactor = 1
+	}
+	return b
+}
+
+// withReset is a utility function that calls 'b.Reset()' and then returns it,
+// so that all NewXYZBackoff functions can reset their result and return it
+// inline
+func (b *ExponentialBackOff) withReset() *ExponentialBackOff {
+	b.Reset()
+	return b
+}
+
 // NewExponentialBackOff creates an instance of ExponentialBackOff using default values.
 func NewExponentialBackOff() *ExponentialBackOff {
 	b := &ExponentialBackOff{
@@ -89,13 +108,7 @@ func NewExponentialBackOff() *ExponentialBackOff {
 		MaxElapsedTime:      DefaultMaxElapsedTime,
 		Clock:               SystemClock,
 	}
-	if b.RandomizationFactor < 0 {
-		b.RandomizationFactor = 0
-	} else if b.RandomizationFactor > 1 {
-		b.RandomizationFactor = 1
-	}
-	b.Reset()
-	return b
+	return b.withCanonicalRandomizationFactor().withReset()
 }
 
 // NewInfiniteBackOff creates an instance of ExponentialBackOff that never
@@ -109,13 +122,38 @@ func NewInfiniteBackOff() *ExponentialBackOff {
 		MaxElapsedTime:      0,
 		Clock:               SystemClock,
 	}
-	if b.RandomizationFactor < 0 {
-		b.RandomizationFactor = 0
-	} else if b.RandomizationFactor > 1 {
-		b.RandomizationFactor = 1
+	return b.withCanonicalRandomizationFactor().withReset()
+}
+
+// NewTestingBackOff returns a backoff tuned towards waiting for a Pachyderm
+// state change in a test
+func NewTestingBackOff() *ExponentialBackOff {
+	b := &ExponentialBackOff{
+		InitialInterval:     DefaultInitialInterval,
+		RandomizationFactor: DefaultRandomizationFactor,
+		Multiplier:          DefaultMultiplier,
+		MaxInterval:         5 * time.Second,
+		MaxElapsedTime:      60 * time.Second,
+		Clock:               SystemClock,
 	}
-	b.Reset()
-	return b
+	return b.withCanonicalRandomizationFactor().withReset()
+}
+
+// New10sBackOff returns a backoff that's slightly more aggressive than
+// NewExponentialBackOff. The Max Elapsed time for this backoff is 10s, and the
+// initial backoff is 100ms (instead of 500). Therefore this will retry at most
+// 10 times and then fail (depending on RPC timeout), and may be more useful
+// for interactive RPCs than the default timeout of 60s.
+func New10sBackOff() *ExponentialBackOff {
+	b := &ExponentialBackOff{
+		InitialInterval:     100 * time.Millisecond,
+		RandomizationFactor: DefaultRandomizationFactor,
+		Multiplier:          DefaultMultiplier,
+		MaxInterval:         2 * time.Second,
+		MaxElapsedTime:      10 * time.Second,
+		Clock:               SystemClock,
+	}
+	return b.withCanonicalRandomizationFactor().withReset()
 }
 
 type systemClock struct{}

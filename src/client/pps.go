@@ -5,9 +5,13 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+
+	"github.com/gogo/protobuf/types"
 )
 
 // NewJob creates a pps.Job.
@@ -39,9 +43,9 @@ const (
 	// PPSInputPrefix is the prefix of the path where datums are downloaded
 	// to.  A datum of an input named `XXX` is downloaded to `/pfs/XXX/`.
 	PPSInputPrefix = "/pfs"
-	// PPSOutputPath is the path where the user code is
-	// expected to write its output to.
-	PPSOutputPath = "/pfs/out"
+	// PPSScratchSpace is where pps workers store data while it's waiting to be
+	// processed.
+	PPSScratchSpace = "/scratch"
 	// PPSWorkerPort is the port that workers use for their gRPC server
 	PPSWorkerPort = 80
 	// PPSWorkerVolume is the name of the volume in which workers store
@@ -58,13 +62,15 @@ const (
 	GCGenerationKey = "gc-generation"
 )
 
-// HashPipelineID hashes a pipeline ID to a string of a fixed size
-func HashPipelineID(pipelineID string) string {
-	// We need to hash the pipeline ID because UUIDs are not necessarily
+// DatumTagPrefix hashes a pipeline salt to a string of a fixed size for use as
+// the prefix for datum output trees. This prefix allows us to do garbage
+// collection correctly.
+func DatumTagPrefix(salt string) string {
+	// We need to hash the salt because UUIDs are not necessarily
 	// random in every bit.
-	pipelineIDHash := sha256.New()
-	pipelineIDHash.Write([]byte(pipelineID))
-	return hex.EncodeToString(pipelineIDHash.Sum(nil))[:4]
+	h := sha256.New()
+	h.Write([]byte(salt))
+	return hex.EncodeToString(h.Sum(nil))[:4]
 }
 
 // NewAtomInput returns a new atom input. It only includes required options.
@@ -106,6 +112,18 @@ func NewCrossInput(input ...*pps.Input) *pps.Input {
 func NewUnionInput(input ...*pps.Input) *pps.Input {
 	return &pps.Input{
 		Union: input,
+	}
+}
+
+// NewCronInput returns an input which will trigger based on a timed schedule.
+// It uses cron syntax to specify the schedule. The input will be exposed to
+// jobs as `/pfs/<name>/time` which will contain a timestamp.
+func NewCronInput(name string, spec string) *pps.Input {
+	return &pps.Input{
+		Cron: &pps.CronInput{
+			Name: name,
+			Spec: spec,
+		},
 	}
 }
 
@@ -168,7 +186,7 @@ func (c APIClient) CreateJob(
 		service.ExternalPort = externalPort
 	}
 	job, err := c.PpsAPIClient.CreateJob(
-		c.ctx(),
+		c.Ctx(),
 		&pps.CreateJobRequest{
 			Transform: &pps.Transform{
 				Image: image,
@@ -180,7 +198,7 @@ func (c APIClient) CreateJob(
 			Service:         service,
 		},
 	)
-	return job, sanitizeErr(err)
+	return job, grpcutil.ScrubGRPC(err)
 }
 
 // InspectJob returns info about a specific job.
@@ -188,31 +206,33 @@ func (c APIClient) CreateJob(
 // blockState will cause the call to block until the job reaches a terminal state (failure or success).
 func (c APIClient) InspectJob(jobID string, blockState bool) (*pps.JobInfo, error) {
 	jobInfo, err := c.PpsAPIClient.InspectJob(
-		c.ctx(),
+		c.Ctx(),
 		&pps.InspectJobRequest{
 			Job:        NewJob(jobID),
 			BlockState: blockState,
 		})
-	return jobInfo, sanitizeErr(err)
+	return jobInfo, grpcutil.ScrubGRPC(err)
 }
 
 // ListJob returns info about all jobs.
 // If pipelineName is non empty then only jobs that were started by the named pipeline will be returned
 // If inputCommit is non-nil then only jobs which took the specific commits as inputs will be returned.
 // The order of the inputCommits doesn't matter.
-func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit) ([]*pps.JobInfo, error) {
+// If outputCommit is non-nil then only the job which created that commit as output will be returned.
+func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outputCommit *pfs.Commit) ([]*pps.JobInfo, error) {
 	var pipeline *pps.Pipeline
 	if pipelineName != "" {
 		pipeline = NewPipeline(pipelineName)
 	}
 	jobInfos, err := c.PpsAPIClient.ListJob(
-		c.ctx(),
+		c.Ctx(),
 		&pps.ListJobRequest{
-			Pipeline:    pipeline,
-			InputCommit: inputCommit,
+			Pipeline:     pipeline,
+			InputCommit:  inputCommit,
+			OutputCommit: outputCommit,
 		})
 	if err != nil {
-		return nil, sanitizeErr(err)
+		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return jobInfos.JobInfo, nil
 }
@@ -220,23 +240,23 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit) ([]*p
 // DeleteJob deletes a job.
 func (c APIClient) DeleteJob(jobID string) error {
 	_, err := c.PpsAPIClient.DeleteJob(
-		c.ctx(),
+		c.Ctx(),
 		&pps.DeleteJobRequest{
 			Job: NewJob(jobID),
 		},
 	)
-	return sanitizeErr(err)
+	return grpcutil.ScrubGRPC(err)
 }
 
 // StopJob stops a job.
 func (c APIClient) StopJob(jobID string) error {
 	_, err := c.PpsAPIClient.StopJob(
-		c.ctx(),
+		c.Ctx(),
 		&pps.StopJobRequest{
 			Job: NewJob(jobID),
 		},
 	)
-	return sanitizeErr(err)
+	return grpcutil.ScrubGRPC(err)
 }
 
 // RestartDatum restarts a datum that's being processed as part of a job.
@@ -244,13 +264,46 @@ func (c APIClient) StopJob(jobID string) error {
 // or Hash of the datum, the order of the strings in datumFilter is irrelevant.
 func (c APIClient) RestartDatum(jobID string, datumFilter []string) error {
 	_, err := c.PpsAPIClient.RestartDatum(
-		c.ctx(),
+		c.Ctx(),
 		&pps.RestartDatumRequest{
 			Job:         NewJob(jobID),
 			DataFilters: datumFilter,
 		},
 	)
-	return sanitizeErr(err)
+	return grpcutil.ScrubGRPC(err)
+}
+
+// ListDatum returns info about all datums in a Job
+func (c APIClient) ListDatum(jobID string, pageSize int64, page int64) (*pps.ListDatumResponse, error) {
+	resp, err := c.PpsAPIClient.ListDatum(
+		c.Ctx(),
+		&pps.ListDatumRequest{
+			Job:      &pps.Job{jobID},
+			PageSize: pageSize,
+			Page:     page,
+		},
+	)
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return resp, nil
+}
+
+// InspectDatum returns info about a single datum
+func (c APIClient) InspectDatum(jobID string, datumID string) (*pps.DatumInfo, error) {
+	datumInfo, err := c.PpsAPIClient.InspectDatum(
+		c.Ctx(),
+		&pps.InspectDatumRequest{
+			Datum: &pps.Datum{
+				ID:  datumID,
+				Job: &pps.Job{jobID},
+			},
+		},
+	)
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return datumInfo, nil
 }
 
 // LogsIter iterates through log messages returned from pps.GetLogs. Logs can
@@ -290,15 +343,17 @@ func (l *LogsIter) Err() error {
 }
 
 // GetLogs gets logs from a job (logs includes stdout and stderr). 'pipelineName',
-// 'jobID', and 'data', are all filters. To forego any filter, simply pass an
-// empty value, though one of 'pipelineName' and 'jobID' must be set. Responses
-// are written to 'messages'
+// 'jobID', 'data', and 'datumID', are all filters. To forego any filter,
+// simply pass an empty value, though one of 'pipelineName' and 'jobID'
+// must be set. Responses are written to 'messages'
 func (c APIClient) GetLogs(
 	pipelineName string,
 	jobID string,
 	data []string,
+	datumID string,
+	master bool,
 ) *LogsIter {
-	request := pps.GetLogsRequest{}
+	request := pps.GetLogsRequest{Master: master}
 	resp := &LogsIter{}
 	if pipelineName != "" {
 		request.Pipeline = &pps.Pipeline{pipelineName}
@@ -307,7 +362,13 @@ func (c APIClient) GetLogs(
 		request.Job = &pps.Job{jobID}
 	}
 	request.DataFilters = data
-	resp.logsClient, resp.err = c.PpsAPIClient.GetLogs(c.ctx(), &request)
+	if datumID != "" {
+		request.Datum = &pps.Datum{
+			Job: &pps.Job{jobID},
+			ID:  datumID,
+		}
+	}
+	resp.logsClient, resp.err = c.PpsAPIClient.GetLogs(c.Ctx(), &request)
 	return resp
 }
 
@@ -341,7 +402,7 @@ func (c APIClient) CreatePipeline(
 	update bool,
 ) error {
 	_, err := c.PpsAPIClient.CreatePipeline(
-		c.ctx(),
+		c.Ctx(),
 		&pps.CreatePipelineRequest{
 			Pipeline: NewPipeline(name),
 			Transform: &pps.Transform{
@@ -355,28 +416,28 @@ func (c APIClient) CreatePipeline(
 			Update:          update,
 		},
 	)
-	return sanitizeErr(err)
+	return grpcutil.ScrubGRPC(err)
 }
 
 // InspectPipeline returns info about a specific pipeline.
 func (c APIClient) InspectPipeline(pipelineName string) (*pps.PipelineInfo, error) {
 	pipelineInfo, err := c.PpsAPIClient.InspectPipeline(
-		c.ctx(),
+		c.Ctx(),
 		&pps.InspectPipelineRequest{
 			Pipeline: NewPipeline(pipelineName),
 		},
 	)
-	return pipelineInfo, sanitizeErr(err)
+	return pipelineInfo, grpcutil.ScrubGRPC(err)
 }
 
 // ListPipeline returns info about all pipelines.
 func (c APIClient) ListPipeline() ([]*pps.PipelineInfo, error) {
 	pipelineInfos, err := c.PpsAPIClient.ListPipeline(
-		c.ctx(),
+		c.Ctx(),
 		&pps.ListPipelineRequest{},
 	)
 	if err != nil {
-		return nil, sanitizeErr(err)
+		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return pipelineInfos.PipelineInfo, nil
 }
@@ -384,36 +445,36 @@ func (c APIClient) ListPipeline() ([]*pps.PipelineInfo, error) {
 // DeletePipeline deletes a pipeline along with its output Repo.
 func (c APIClient) DeletePipeline(name string, deleteJobs bool) error {
 	_, err := c.PpsAPIClient.DeletePipeline(
-		c.ctx(),
+		c.Ctx(),
 		&pps.DeletePipelineRequest{
 			Pipeline:   NewPipeline(name),
 			DeleteJobs: deleteJobs,
 		},
 	)
-	return sanitizeErr(err)
+	return grpcutil.ScrubGRPC(err)
 }
 
 // StartPipeline restarts a stopped pipeline.
 func (c APIClient) StartPipeline(name string) error {
 	_, err := c.PpsAPIClient.StartPipeline(
-		c.ctx(),
+		c.Ctx(),
 		&pps.StartPipelineRequest{
 			Pipeline: NewPipeline(name),
 		},
 	)
-	return sanitizeErr(err)
+	return grpcutil.ScrubGRPC(err)
 }
 
 // StopPipeline prevents a pipeline from processing things, it can be restarted
 // with StartPipeline.
 func (c APIClient) StopPipeline(name string) error {
 	_, err := c.PpsAPIClient.StopPipeline(
-		c.ctx(),
+		c.Ctx(),
 		&pps.StopPipelineRequest{
 			Pipeline: NewPipeline(name),
 		},
 	)
-	return sanitizeErr(err)
+	return grpcutil.ScrubGRPC(err)
 }
 
 // RerunPipeline reruns a pipeline over a given set of commits. Exclude and
@@ -422,14 +483,47 @@ func (c APIClient) StopPipeline(name string) error {
 // is the same as that of ListCommit.
 func (c APIClient) RerunPipeline(name string, include []*pfs.Commit, exclude []*pfs.Commit) error {
 	_, err := c.PpsAPIClient.RerunPipeline(
-		c.ctx(),
+		c.Ctx(),
 		&pps.RerunPipelineRequest{
 			Pipeline: NewPipeline(name),
 			Include:  include,
 			Exclude:  exclude,
 		},
 	)
-	return sanitizeErr(err)
+	return grpcutil.ScrubGRPC(err)
+}
+
+// CreatePipelineService creates a new pipeline service.
+func (c APIClient) CreatePipelineService(
+	name string,
+	image string,
+	cmd []string,
+	stdin []string,
+	parallelismSpec *pps.ParallelismSpec,
+	input *pps.Input,
+	update bool,
+	internalPort int32,
+	externalPort int32,
+) error {
+	_, err := c.PpsAPIClient.CreatePipeline(
+		c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: NewPipeline(name),
+			Transform: &pps.Transform{
+				Image: image,
+				Cmd:   cmd,
+				Stdin: stdin,
+			},
+			ParallelismSpec: parallelismSpec,
+			Input:           input,
+			Update:          update,
+			Service: &pps.Service{
+				InternalPort: internalPort,
+				ExternalPort: externalPort,
+			},
+		},
+	)
+	return grpcutil.ScrubGRPC(err)
 }
 
 // GarbageCollect garbage collects unused data.  Currently GC needs to be
@@ -437,8 +531,20 @@ func (c APIClient) RerunPipeline(name string, include []*pfs.Commit, exclude []*
 // implies that there shouldn't be jobs actively running).
 func (c APIClient) GarbageCollect() error {
 	_, err := c.PpsAPIClient.GarbageCollect(
-		c.ctx(),
+		c.Ctx(),
 		&pps.GarbageCollectRequest{},
 	)
-	return sanitizeErr(err)
+	return grpcutil.ScrubGRPC(err)
+}
+
+// GetDatumTotalTime sums the timing stats from a DatumInfo
+func GetDatumTotalTime(s *pps.ProcessStats) time.Duration {
+	totalDuration := time.Duration(0)
+	duration, _ := types.DurationFromProto(s.DownloadTime)
+	totalDuration += duration
+	duration, _ = types.DurationFromProto(s.ProcessTime)
+	totalDuration += duration
+	duration, _ = types.DurationFromProto(s.UploadTime)
+	totalDuration += duration
+	return totalDuration
 }
