@@ -23,6 +23,13 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+var (
+	// By default, objects uploaded to a bucket are only accessible to the
+	// uploader, and not the owner of the bucket.  We want to ensure that
+	// the owner of the bucket can access the buckets as well.
+	uploadACL = "bucket-owner-full-control"
+)
+
 type amazonClient struct {
 	bucket                 string
 	cloudfrontDistribution string
@@ -223,6 +230,7 @@ func newWriter(client *amazonClient, name string) *amazonWriter {
 	}
 	go func() {
 		_, err := client.uploader.Upload(&s3manager.UploadInput{
+			ACL:             &uploadACL,
 			Body:            reader,
 			Bucket:          aws.String(client.bucket),
 			Key:             aws.String(name),
