@@ -1116,11 +1116,9 @@ func (a *apiServer) authorizeModifyPipeline(ctx context.Context, operation pipel
 	switch operation {
 	case opPipelineCreate:
 		_, err := pachClient.WithCtx(ctx).InspectRepo(info.Pipeline.Name)
-		fmt.Printf("pachClient.InspectRepo(\"%s\") => _, %v\n", info.Pipeline.Name, err)
 		if err == nil {
 			return fmt.Errorf("cannot overwrite repo \"%s\" with new output repo", info.Pipeline.Name)
 		} else if !isNotFoundErr(err) {
-			fmt.Printf("returning %v\n", err)
 			return err
 		}
 	case opPipelineUpdate:
