@@ -253,7 +253,6 @@ func (a *apiServer) validateJob(ctx context.Context, jobInfo *pps.JobInfo) error
 }
 
 func (a *apiServer) validateKube() {
-	logrus.Infof("validating kubernetes access")
 	errors := false
 	_, err := a.kubeClient.Nodes().List(api.ListOptions{})
 	if err != nil {
