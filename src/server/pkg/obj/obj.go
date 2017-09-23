@@ -178,6 +178,7 @@ func NewAmazonClientFromSecret(bucket string) (Client, error) {
 	if err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
+	// region is required for constructing an AWS client
 	region, err := ioutil.ReadFile("/amazon-secret/region")
 	if err != nil {
 		return nil, err
