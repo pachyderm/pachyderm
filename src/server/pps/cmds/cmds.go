@@ -90,7 +90,7 @@ The increase the throughput of a job increase the Shard paremeter.
 	rawFlag(inspectJob)
 
 	var pipelineName string
-	var outputCommit string
+	var outputCommitStr string
 	listJob := &cobra.Command{
 		Use:   "list-job [-p pipeline-name] [commits]",
 		Short: "Return info about jobs.",
@@ -120,13 +120,16 @@ $ pachctl list-job -p foo bar/YYY
 			if err != nil {
 				return err
 			}
-			outputCommits, err := cmdutil.ParseCommits([]string{outputCommit})
-			if err != nil {
-				return err
-			}
+
 			var outputCommit *pfs.Commit
-			if len(outputCommits) == 1 {
-				outputCommit = outputCommits[0]
+			if outputCommitStr != "" {
+				outputCommits, err := cmdutil.ParseCommits([]string{outputCommitStr})
+				if err != nil {
+					return err
+				}
+				if len(outputCommits) == 1 {
+					outputCommit = outputCommits[0]
+				}
 			}
 
 			jobInfos, err := client.ListJob(pipelineName, commits, outputCommit)
@@ -155,7 +158,7 @@ $ pachctl list-job -p foo bar/YYY
 		}),
 	}
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
-	listJob.Flags().StringVarP(&outputCommit, "output", "o", "", "List jobs with a specific output commit.")
+	listJob.Flags().StringVarP(&outputCommitStr, "output", "o", "", "List jobs with a specific output commit.")
 	rawFlag(listJob)
 
 	deleteJob := &cobra.Command{
@@ -396,9 +399,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					break
 				} else if err != nil {
 					return err
-				}
-				if len(request.Inputs) != 0 {
-					fmt.Printf("WARNING: field `inputs` is deprecated and will be removed in v1.6. Both formats are valid for v1.4.6 to 1.5.x. See docs for the new input format: http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html \n")
 				}
 				if pushImages {
 					pushedImage, err := pushImage(registry, username, password, request.Transform.Image)

@@ -16,11 +16,9 @@ Pachdyerm Enterprise Edition can be deployed easily on top of an existing or new
 
 Pachyderm Enterprise Edition includes a full UI for visualizing pipelines and exploring data.  Pachyderm Enterprise will automatically infer the structure of data scientists' DAG pipelines and display them visually.  Data scientists and cluster admins can even click on individual segments of the pipelines to see what data is being processed, how many jobs have run, what images and commands are being run, and much more!  Data scientists can also explore the versioned data in Pachyderm data respositories and see how the state of data has changed over time.  
 
-## Administrative Controls, Interactive Pipeline Configuration*
-
-With Pachyderm Enterprise, cluster admins don't have to rely solely on command line tools and language libraries to configure and control Pachyderm. With new versions of our UI you can control, scale, and configure Pachyderm interactively.
-
 ## Access Controls
+
+![alt tag](auth_dash5.png)
 
 Enterprise-scale deployments require access controls and multitenancy.  Pachyderm Enterprise Edition gives teams the ability to control access to production pipelines, data, and configuration.  Administrators can silo data, prevent unintended modficiations to production pipelines, and support multiple data scientists or even mutliple data science groups.
 
@@ -30,4 +28,7 @@ Enterprise-scale deployments require access controls and multitenancy.  Pachyder
 
 Pachyderm Enterprise Edition gives data scientists advanced insights into their data, jobs, and results. For example, data scientists can see how much time jobs spend downloading/uploading data, what data was processed or skipped, and which workers were given particular datums. This information can be explored programmatically or via a number of charts and plots that help users parse the information quickly.
 
-*Note - These features are currently beta.  Please contact [sales@pachyderm.io](mailto:sales@pachyderm.io) for help in getting up and running with these features. 
+## Administrative Controls, Interactive Pipeline Configuration
+
+With Pachyderm Enterprise, cluster admins don't have to rely solely on command line tools and language libraries to configure and control Pachyderm. With new versions of our UI you can control, scale, and configure Pachyderm interactively.
+

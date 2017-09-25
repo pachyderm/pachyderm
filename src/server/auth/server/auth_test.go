@@ -1250,8 +1250,9 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 	}
 }
 
-// Creating a repo that already exists gives you an error to that effect, even
-// when auth is already activated (rather than "access denied")
+// TestCreateRepoAlreadyExistsError tests that creating a repo that already
+// exists gives you an error to that effect, even when auth is already
+// activated (rather than "access denied")
 func TestCreateRepoAlreadyExistsError(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -1261,12 +1262,91 @@ func TestCreateRepoAlreadyExistsError(t *testing.T) {
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	repoWriter := uniqueString("TestListRepo")
-	require.NoError(t, aliceClient.CreateRepo(repoWriter))
+	repo := uniqueString("TestCreateRepoAlreadyExistsError")
+	require.NoError(t, aliceClient.CreateRepo(repo))
 
 	// bob creates the same repo, and should get an error to the effect that the
 	// repo already exists (rather than "access denied")
-	err := bobClient.CreateRepo(repoWriter)
+	err := bobClient.CreateRepo(repo)
 	require.YesError(t, err)
 	require.Matches(t, "already exists", err.Error())
+}
+
+// Creating a pipeline when the output repo already exists gives you an error to
+// that effect, even when auth is already activated (rather than "access
+// denied")
+func TestCreatePipelineRepoAlreadyExistsError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	alice, bob := uniqueString("alice"), uniqueString("bob")
+	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
+
+	// alice creates a repo
+	inputRepo := uniqueString("TestCreatePipelineRepoAlreadyExistsError")
+	require.NoError(t, aliceClient.CreateRepo(inputRepo))
+	aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
+		Username: bob,
+		Scope:    auth.Scope_READER,
+		Repo:     inputRepo,
+	})
+	pipeline := uniqueString("pipeline")
+	require.NoError(t, aliceClient.CreateRepo(pipeline))
+
+	// bob creates a pipeline, and should get an error to the effect that the
+	// repo already exists (rather than "access denied")
+	err := bobClient.CreatePipeline(
+		pipeline,
+		"", // default image: ubuntu:14.04
+		[]string{"bash"},
+		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", inputRepo)},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewAtomInput(inputRepo, "/*"),
+		"",    // default output branch: master
+		false, // Don't update -- we want an error
+	)
+	require.YesError(t, err)
+	require.Matches(t, "cannot overwrite repo", err.Error())
+}
+
+// TestAuthorizedNoneRole tests that Authorized(user, repo, NONE) yields 'true',
+// even for repos with no ACL
+func TestAuthorizedNoneRole(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	adminClient := getPachClient(t, "admin")
+
+	// Deactivate auth
+	_, err := adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
+	require.NoError(t, err)
+
+	// Wait for auth to be deactivated
+	require.NoError(t, backoff.Retry(func() error {
+		_, err = adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
+		if err != nil && auth.IsNotActivatedError(err) {
+			return nil // WhoAmI should fail when auth is deactivated
+		}
+		return errors.New("auth is not yet deactivated")
+	}, backoff.NewTestingBackOff()))
+
+	// alice creates a repo
+	repo := uniqueString("TestAuthorizedNoneRole")
+	require.NoError(t, adminClient.CreateRepo(repo))
+
+	// Get new pach clients, re-activating auth
+	alice := uniqueString("alice")
+	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, "admin")
+
+	// Check that the repo has no ACL
+	require.Equal(t, acl(), GetACL(t, adminClient, repo))
+
+	// alice authorizes against it with the 'NONE' scope
+	resp, err := aliceClient.Authorize(aliceClient.Ctx(), &auth.AuthorizeRequest{
+		Repo:  repo,
+		Scope: auth.Scope_NONE,
+	})
+	require.NoError(t, err)
+	require.True(t, resp.Authorized)
 }

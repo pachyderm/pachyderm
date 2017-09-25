@@ -6,6 +6,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 
 	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/api/resource"
 	"k8s.io/kubernetes/pkg/api/unversioned"
 	"k8s.io/kubernetes/pkg/util/intstr"
 )
@@ -36,7 +37,6 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 	if pullPolicy == "" {
 		pullPolicy = "IfNotPresent"
 	}
-	// TODO: make the cache sizes configurable
 	sidecarEnv := []api.EnvVar{{
 		Name:  "BLOCK_CACHE_BYTES",
 		Value: options.cacheSize,
@@ -79,6 +79,11 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 		sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
 		userVolumeMounts = append(userVolumeMounts, secretMount)
 	}
+	// Explicitly set CPU and MEM requests to zero because some cloud
+	// providers set their own defaults which are usually not what we want.
+	cpuZeroQuantity := resource.MustParse("0")
+	memZeroQuantity := resource.MustParse("0M")
+	memSidecarQuantity := resource.MustParse(options.cacheSize)
 
 	options.volumes = append(options.volumes, api.Volume{
 		Name: "docker",
@@ -114,7 +119,13 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 				},
 				ImagePullPolicy: api.PullPolicy(pullPolicy),
 				Env:             options.workerEnv,
-				VolumeMounts:    userVolumeMounts,
+				Resources: api.ResourceRequirements{
+					Requests: map[api.ResourceName]resource.Quantity{
+						api.ResourceCPU:    cpuZeroQuantity,
+						api.ResourceMemory: memZeroQuantity,
+					},
+				},
+				VolumeMounts: userVolumeMounts,
 			},
 			{
 				Name:            client.PPSWorkerSidecarContainerName,
@@ -123,6 +134,12 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 				ImagePullPolicy: api.PullPolicy(pullPolicy),
 				Env:             sidecarEnv,
 				VolumeMounts:    sidecarVolumeMounts,
+				Resources: api.ResourceRequirements{
+					Requests: map[api.ResourceName]resource.Quantity{
+						api.ResourceCPU:    cpuZeroQuantity,
+						api.ResourceMemory: memSidecarQuantity,
+					},
+				},
 			},
 		},
 		RestartPolicy:                 "Always",

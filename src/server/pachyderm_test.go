@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"strconv"
@@ -512,10 +513,7 @@ func TestEgressFailure(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 			},
-			Inputs: []*pps.PipelineInput{{
-				Repo: &pfs.Repo{Name: dataRepo},
-				Glob: "/",
-			}},
+			Input:  client.NewAtomInput(dataRepo, "/"),
 			Egress: &pps.Egress{"invalid://blahblah"},
 		})
 	require.NoError(t, err)
@@ -618,11 +616,13 @@ func TestLazyPipeline(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			Inputs: []*pps.PipelineInput{{
-				Repo: &pfs.Repo{Name: dataRepo},
-				Glob: "/",
-				Lazy: true,
-			}},
+			Input: &pps.Input{
+				Atom: &pps.AtomInput{
+					Repo: dataRepo,
+					Glob: "/",
+					Lazy: true,
+				},
+			},
 		})
 	require.NoError(t, err)
 	// Do a commit
@@ -676,11 +676,13 @@ func TestLazyPipelineCPPipes(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			Inputs: []*pps.PipelineInput{{
-				Repo: &pfs.Repo{Name: dataRepo},
-				Glob: "/",
-				Lazy: true,
-			}},
+			Input: &pps.Input{
+				Atom: &pps.AtomInput{
+					Repo: dataRepo,
+					Glob: "/",
+					Lazy: true,
+				},
+			},
 		})
 	require.NoError(t, err)
 	// Do a commit
@@ -1606,10 +1608,7 @@ func TestAcceptReturnCode(t *testing.T) {
 				Stdin:            []string{"exit 1"},
 				AcceptReturnCode: []int64{1},
 			},
-			Inputs: []*pps.PipelineInput{{
-				Repo: &pfs.Repo{Name: dataRepo},
-				Glob: "/*",
-			}},
+			Input: client.NewAtomInput(dataRepo, "/*"),
 		},
 	)
 	require.NoError(t, err)
@@ -1751,10 +1750,7 @@ func TestPrettyPrinting(t *testing.T) {
 				Memory: "100M",
 				Cpu:    0.5,
 			},
-			Inputs: []*pps.PipelineInput{{
-				Repo: &pfs.Repo{Name: dataRepo},
-				Glob: "/*",
-			}},
+			Input: client.NewAtomInput(dataRepo, "/*"),
 		})
 	require.NoError(t, err)
 	// Do a commit to repo
@@ -2079,10 +2075,7 @@ func TestPipelineAutoScaledown(t *testing.T) {
 			ResourceSpec: &pps.ResourceSpec{
 				Memory: "100M",
 			},
-			Inputs: []*pps.PipelineInput{{
-				Repo: &pfs.Repo{Name: dataRepo},
-				Glob: "/",
-			}},
+			Input:              client.NewAtomInput(dataRepo, "/"),
 			ScaleDownThreshold: types.DurationProto(scaleDownThreshold),
 		})
 	require.NoError(t, err)
@@ -2180,10 +2173,7 @@ func TestPipelineEnv(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			Inputs: []*pps.PipelineInput{{
-				Repo: &pfs.Repo{Name: dataRepo},
-				Glob: "/*",
-			}},
+			Input: client.NewAtomInput(dataRepo, "/*"),
 		})
 	require.NoError(t, err)
 	// Do first commit to repo
@@ -3223,11 +3213,13 @@ func TestPipelineResourceRequest(t *testing.T) {
 				Memory: "100M",
 				Cpu:    0.5,
 			},
-			Inputs: []*pps.PipelineInput{{
-				Repo:   &pfs.Repo{dataRepo},
-				Branch: "master",
-				Glob:   "/*",
-			}},
+			Input: &pps.Input{
+				Atom: &pps.AtomInput{
+					Repo:   dataRepo,
+					Branch: "master",
+					Glob:   "/*",
+				},
+			},
 		})
 	require.NoError(t, err)
 
@@ -3288,11 +3280,13 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 				Cpu:    0.5,
 				Memory: "100M",
 			},
-			Inputs: []*pps.PipelineInput{{
-				Repo:   &pfs.Repo{dataRepo},
-				Branch: "master",
-				Glob:   "/*",
-			}},
+			Input: &pps.Input{
+				Atom: &pps.AtomInput{
+					Repo:   dataRepo,
+					Branch: "master",
+					Glob:   "/*",
+				},
+			},
 		})
 	require.NoError(t, err)
 	_, err = c.PpsAPIClient.CreatePipeline(
@@ -3305,11 +3299,13 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 			ResourceSpec: &pps.ResourceSpec{
 				Memory: "100M",
 			},
-			Inputs: []*pps.PipelineInput{{
-				Repo:   &pfs.Repo{dataRepo},
-				Branch: "master",
-				Glob:   "/*",
-			}},
+			Input: &pps.Input{
+				Atom: &pps.AtomInput{
+					Repo:   dataRepo,
+					Branch: "master",
+					Glob:   "/*",
+				},
+			},
 		})
 	require.NoError(t, err)
 	_, err = c.PpsAPIClient.CreatePipeline(
@@ -3320,11 +3316,13 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 				Cmd: []string{"true"},
 			},
 			ResourceSpec: &pps.ResourceSpec{},
-			Inputs: []*pps.PipelineInput{{
-				Repo:   &pfs.Repo{dataRepo},
-				Branch: "master",
-				Glob:   "/*",
-			}},
+			Input: &pps.Input{
+				Atom: &pps.AtomInput{
+					Repo:   dataRepo,
+					Branch: "master",
+					Glob:   "/*",
+				},
+			},
 		})
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
@@ -5027,8 +5025,10 @@ func TestHTTPAuth(t *testing.T) {
 
 	// Try to login
 	token := "abbazabbadoo"
-	jsonString := []byte(fmt.Sprintf("{\"Token\":\"%v\"}", token))
-	req, err := http.NewRequest("POST", fmt.Sprintf("http://%v:30652/v1/auth/login", host), bytes.NewBuffer(jsonString))
+	form := url.Values{}
+	form.Add("Token", token)
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://%v:30652/v1/auth/login", host), strings.NewReader(form.Encode()))
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	require.NoError(t, err)
 	httpClient := &http.Client{}
 	resp, err := httpClient.Do(req)
@@ -5050,6 +5050,13 @@ func TestHTTPAuth(t *testing.T) {
 	require.Equal(t, "*", resp.Header.Get("Access-Control-Allow-Origin"))
 	// The cookie should be unset now
 	require.Equal(t, "", resp.Cookies()[0].Value)
+
+	// Make sure we get 404s for non existent routes
+	req, err = http.NewRequest("POST", fmt.Sprintf("http://%v:30652/v1/auth/logoutzz", host), nil)
+	require.NoError(t, err)
+	resp, err = httpClient.Do(req)
+	require.NoError(t, err)
+	require.Equal(t, 404, resp.StatusCode)
 }
 
 func TestHTTPGetFile(t *testing.T) {
