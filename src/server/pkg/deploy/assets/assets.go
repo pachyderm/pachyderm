@@ -3,6 +3,7 @@ package assets
 import (
 	"fmt"
 	"io"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -75,6 +76,7 @@ type AssetOpts struct {
 	EnableDash  bool
 	DashOnly    bool
 	DashImage   string
+	Registry    string
 
 	// DisableAuthentication stops Pachyderm's authentication service
 	// from talking to GitHub, for testing. Instead users can authenticate
@@ -230,7 +232,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 	mem := resource.MustParse(opts.BlockCacheSize)
 	mem.Add(resource.MustParse(opts.PachdNonCacheMemRequest))
 	cpu := resource.MustParse(opts.PachdCPURequest)
-	image := pachdImage
+	image := addRegistry(opts, pachdImage)
 	if opts.Version != "" {
 		image += ":" + opts.Version
 	}
@@ -322,11 +324,11 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 								},
 								{
 									Name:  "WORKER_IMAGE",
-									Value: fmt.Sprintf("pachyderm/worker:%s", opts.Version),
+									Value: addRegistry(opts, fmt.Sprintf("pachyderm/worker:%s", opts.Version)),
 								},
 								{
 									Name:  "WORKER_SIDECAR_IMAGE",
-									Value: fmt.Sprintf("pachyderm/pachd:%s", opts.Version),
+									Value: image,
 								},
 								{
 									Name:  "WORKER_IMAGE_PULL_POLICY",
@@ -478,7 +480,7 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *extensions.Deployment {
 					Containers: []api.Container{
 						{
 							Name:  etcdName,
-							Image: etcdImage,
+							Image: addRegistry(opts, etcdImage),
 							//TODO figure out how to get a cluster of these to talk to each other
 							Command: []string{
 								"/usr/local/bin/etcd",
@@ -789,7 +791,7 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 					"containers": []interface{}{
 						map[string]interface{}{
 							"name":    etcdName,
-							"image":   etcdImage,
+							"image":   addRegistry(opts, etcdImage),
 							"command": []string{"/bin/sh", "-c"},
 							"args":    []string{strings.Join(etcdCmd, " ")},
 							// Use the downward API to pass the pod name to etcd. This sets
@@ -844,7 +846,7 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 }
 
 // DashDeployment creates a Deployment for the pachyderm dashboard.
-func DashDeployment(dashImage string) *extensions.Deployment {
+func DashDeployment(opts *AssetOpts) *extensions.Deployment {
 	return &extensions.Deployment{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Deployment",
@@ -867,7 +869,7 @@ func DashDeployment(dashImage string) *extensions.Deployment {
 					Containers: []api.Container{
 						{
 							Name:  dashName,
-							Image: dashImage,
+							Image: addRegistry(opts, opts.DashImage),
 							Ports: []api.ContainerPort{
 								{
 									ContainerPort: 8080,
@@ -878,7 +880,7 @@ func DashDeployment(dashImage string) *extensions.Deployment {
 						},
 						{
 							Name:  grpcProxyName,
-							Image: grpcProxyImage,
+							Image: addRegistry(opts, grpcProxyImage),
 							Ports: []api.ContainerPort{
 								{
 									ContainerPort: 8081,
@@ -1026,7 +1028,7 @@ func WriteDashboardAssets(w io.Writer, opts *AssetOpts) {
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	DashService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-	DashDeployment(opts.DashImage).CodecEncodeSelf(encoder)
+	DashDeployment(opts).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 }
 
@@ -1183,4 +1185,11 @@ func labels(name string) map[string]string {
 		"app":   name,
 		"suite": suite,
 	}
+}
+
+func addRegistry(opts *AssetOpts, imageName string) string {
+	if opts.Registry != "" {
+		return path.Join(opts.Registry, imageName)
+	}
+	return imageName
 }

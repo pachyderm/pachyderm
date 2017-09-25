@@ -66,6 +66,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var enableDash bool
 	var dashOnly bool
 	var dashImage string
+	var registry string
 
 	deployLocal := &cobra.Command{
 		Use:   "local",
@@ -261,6 +262,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				EnableDash:              enableDash,
 				DashOnly:                dashOnly,
 				DashImage:               dashImage,
+				Registry:                registry,
 			}
 			return nil
 		}),
@@ -272,6 +274,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
 	deploy.PersistentFlags().BoolVar(&enableDash, "dashboard", false, "Deploy the Pachyderm UI along with Pachyderm (experimental). After deployment, run \"pachctl port-forward\" to connect")
 	deploy.PersistentFlags().BoolVar(&dashOnly, "dashboard-only", false, "Only deploy the Pachyderm UI (experimental), without the rest of pachyderm. This is for launching the UI adjacent to an existing Pachyderm cluster. After deployment, run \"pachctl port-forward\" to connect")
+	deploy.PersistentFlags().StringVar(&registry, "registry", "", "The registry to pull images from.")
 	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", defaultDashImage, "Image URL for pachyderm dashboard")
 	deploy.AddCommand(deployLocal)
 	deploy.AddCommand(deployAmazon)
