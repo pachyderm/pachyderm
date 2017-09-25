@@ -47,16 +47,13 @@ func maybeKcCreate(dryRun bool, manifest *bytes.Buffer, opts *assets.AssetOpts, 
 	if err != nil {
 		return err
 	}
-	if err := backoff.Retry(func() error {
+	return backoff.Retry(func() error {
 		iter := client.GetLogs("", "", nil, "", false)
 		for iter.Next() {
 			fmt.Print(iter.Message().Message)
 		}
 		return iter.Err()
-	}, backoff.NewInfiniteBackOff()); err != nil {
-		return err
-	}
-	return nil
+	}, backoff.NewInfiniteBackOff())
 }
 
 // DeployCmd returns a cobra.Command to deploy pachyderm.
