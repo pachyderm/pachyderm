@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 	"time"
@@ -163,18 +164,21 @@ func NewAmazonClientFromSecret(bucket string) (Client, error) {
 			log.Infof("AWS deployed with cloudfront distribution at %v\n", string(distribution))
 		}
 	}
+	// It's ok if we can't find static credentials; we will use IAM roles
+	// in that case.
 	id, err := ioutil.ReadFile("/amazon-secret/id")
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
 	secret, err := ioutil.ReadFile("/amazon-secret/secret")
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
 	token, err := ioutil.ReadFile("/amazon-secret/token")
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
+	// region is required for constructing an AWS client
 	region, err := ioutil.ReadFile("/amazon-secret/region")
 	if err != nil {
 		return nil, err
