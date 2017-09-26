@@ -79,6 +79,7 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     cookbook/ml
     cookbook/time_windows
     cookbook/gpus
+    cookbook/cron
  
 .. toctree::
     :maxdepth: 2
