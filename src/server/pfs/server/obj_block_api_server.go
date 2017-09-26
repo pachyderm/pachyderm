@@ -37,7 +37,6 @@ const (
 	objectCacheShares     = 8
 	tagCacheShares        = 1
 	objectInfoCacheShares = 1
-	maxCachedObjectDenom  = 4                // We will only cache objects less than 1/maxCachedObjectDenom of total cache size
 	bufferSize            = 15 * 1024 * 1024 // 15 MB
 )
 
@@ -322,7 +321,7 @@ func (s *objBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServer
 		return err
 	}
 	objectSize := objectInfo.BlockRef.Range.Upper - objectInfo.BlockRef.Range.Lower
-	if (objectSize) >= uint64(s.objectCacheBytes/maxCachedObjectDenom) {
+	if s.objectCacheBytes < int64(objectSize) || int64(objectSize) > pfsclient.ChunkSize {
 		// The object is a substantial portion of the available cache space so
 		// we bypass the cache and stream it directly out of the underlying store.
 		blockPath := s.blockPath(objectInfo.BlockRef.Block)
@@ -368,7 +367,7 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 		if size < readSize && request.SizeBytes != 0 {
 			readSize = size
 		}
-		if s.objectCacheBytes == 0 || (objectSize) > uint64(s.objectCacheBytes/maxCachedObjectDenom) {
+		if s.objectCacheBytes < int64(objectSize) || int64(objectSize) > pfsclient.ChunkSize {
 			// The object is a substantial portion of the available cache space so
 			// we bypass the cache and stream it directly out of the underlying store.
 			blockPath := s.blockPath(objectInfo.BlockRef.Block)
@@ -376,7 +375,9 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 			if err != nil {
 				return err
 			}
-			return grpcutil.WriteToStreamingBytesServer(r, getObjectsServer)
+			if err := grpcutil.WriteToStreamingBytesServer(r, getObjectsServer); err != nil {
+				return err
+			}
 		}
 		var data []byte
 		sink := groupcache.AllocatingByteSliceSink(&data)
