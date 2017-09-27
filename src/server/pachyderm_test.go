@@ -104,18 +104,18 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 	dataRepo := uniqueString("TestPipelineInputDataModification_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	seed := int64(99)
-	r := rand.New(rand.NewSource(seed))
-	randContent := func(r *rand.Rand, i int) string {
-		return workload.RandString(r, int(pfs.ChunkSize)+i*1024*1024)
-	}
-
+	r := rand.New(rand.NewSource(99))
 	numFiles := 10
+	var fileContents []string
+
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
+		fileContent := workload.RandString(r, int(pfs.ChunkSize)+i*MB)
 		_, err = c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file-%d", i),
-			strings.NewReader(randContent(r, i)))
+			strings.NewReader(fileContent))
+		require.NoError(t, err)
+		fileContents = append(fileContents, fileContent)
 	}
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
@@ -138,14 +138,20 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 1, len(commitInfos))
 
-	// Use the same rand generator to get the same content
-	r = rand.New(rand.NewSource(seed))
+	commit := commitInfos[0].Commit
+
 	for i := 0; i < numFiles; i++ {
 		var buf bytes.Buffer
-		require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, fmt.Sprintf("file-%d", i), 0, 0, &buf))
+		fileName := fmt.Sprintf("file-%d", i)
+
+		fileInfo, err := c.InspectFile(commit.Repo.Name, commit.ID, fileName)
+		require.NoError(t, err)
+		require.Equal(t, int(pfs.ChunkSize)+i*MB, int(fileInfo.SizeBytes))
+
+		require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileName, 0, 0, &buf))
 		// we don't wanna use the `require` package here since it prints
 		// the strings, which would clutter the output.
-		if randContent(r, i) != buf.String() {
+		if fileContents[i] != buf.String() {
 			t.Fatalf("file content does not match")
 		}
 	}
