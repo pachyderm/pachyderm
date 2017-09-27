@@ -378,6 +378,7 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 			if err := grpcutil.WriteToStreamingBytesServer(r, getObjectsServer); err != nil {
 				return err
 			}
+			continue
 		}
 		var data []byte
 		sink := groupcache.AllocatingByteSliceSink(&data)
