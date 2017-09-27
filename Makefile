@@ -511,6 +511,17 @@ goxc-build:
 	sed 's/%%VERSION_ADDITIONAL%%/$(VERSION_ADDITIONAL)/' .goxc.json.template > .goxc.json
 	goxc -tasks=xc -wd=./src/server/cmd/pachctl
 
+image-tarball:
+	mkdir -p images
+	docker save pachyderm/pachd -o images/pachd
+	docker save pachyderm/worker -o images/worker
+	docker save gcr.io/google_containers/pause-amd64:3.0 -o images/pause
+	docker save pachyderm/etcd:v3.2.7 -o images/etcd
+	docker save pachyderm/dash -o images/dash
+	docker save pachyderm/grpc-proxy:0.4.2 -o images/proxy
+	cp etc/deploy/load.sh images/load.sh
+	tar -czvf pachyderm.tar.gz images
+
 .PHONY: all \
 	version \
 	deps \
