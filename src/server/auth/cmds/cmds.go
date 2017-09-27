@@ -184,13 +184,12 @@ func CheckCmd() *cobra.Command {
 	check := &cobra.Command{
 		Use:   "check (none|reader|writer|owner) repo",
 		Short: "Check whether you have reader/writer/etc-level access to 'repo'",
-		Long: "Check whether you or another user has a reader/writer/etc-level " +
-			"access to 'repo'. For " +
-			"example, 'pachctl auth check reader private-data' prints " +
-			"\"true\" if the you have at least \"reader\" access " +
-			"to the repo \"private-data\" (you could be a reader, writer, " +
-			"or owner). Unlike. `pachctl get-acl`, you do not need to have access " +
-			"to 'repo' to discover your own acess level.",
+		Long: "Check whether you have reader/writer/etc-level access to 'repo'. " +
+			"For example, 'pachctl auth check reader private-data' prints \"true\" " +
+			"if the you have at least \"reader\" access to the repo " +
+			"\"private-data\" (you could be a reader, writer, or owner). Unlike " +
+			"`pachctl get-acl`, you do not need to have access to 'repo' to " +
+			"discover your own acess level.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			scope, err := auth.ParseScope(args[0])
 			if err != nil {
