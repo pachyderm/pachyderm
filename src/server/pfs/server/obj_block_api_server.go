@@ -37,6 +37,7 @@ const (
 	objectCacheShares     = 8
 	tagCacheShares        = 1
 	objectInfoCacheShares = 1
+	maxCachedObjectDenom  = 4                // We will only cache objects less than 1/maxCachedObjectDenom of total cache size
 	bufferSize            = 15 * 1024 * 1024 // 15 MB
 )
 
@@ -321,7 +322,7 @@ func (s *objBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServer
 		return err
 	}
 	objectSize := objectInfo.BlockRef.Range.Upper - objectInfo.BlockRef.Range.Lower
-	if s.objectCacheBytes < int64(objectSize) || int64(objectSize) > pfsclient.ChunkSize {
+	if (objectSize) >= uint64(s.objectCacheBytes/maxCachedObjectDenom) {
 		// The object is a substantial portion of the available cache space so
 		// we bypass the cache and stream it directly out of the underlying store.
 		blockPath := s.blockPath(objectInfo.BlockRef.Block)
@@ -367,9 +368,7 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 		if size < readSize && request.SizeBytes != 0 {
 			readSize = size
 		}
-		if s.objectCacheBytes < int64(objectSize) || int64(objectSize) > pfsclient.ChunkSize {
-			// The object is a substantial portion of the available cache space so
-			// we bypass the cache and stream it directly out of the underlying store.
+		if request.TotalSize >= uint64(s.objectCacheBytes/maxCachedObjectDenom) {
 			blockPath := s.blockPath(objectInfo.BlockRef.Block)
 			r, err := s.objClient.Reader(blockPath, objectInfo.BlockRef.Range.Lower+offset, readSize)
 			if err != nil {
