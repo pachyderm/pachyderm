@@ -166,7 +166,7 @@ func TestAdmins(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	activateAuth(t)
-	// defer deactivateAuth(t)
+	defer deactivateAuth(t)
 
 	// Modify the list of admins to replace 'admin' with 'admin2'
 	require.NoError(t, C("pachctl", "auth", "login", "-u", "admin").Run())
