@@ -1779,6 +1779,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 			Objects:     node.FileNode.Objects,
 			OffsetBytes: uint64(offset),
 			SizeBytes:   uint64(size),
+			TotalSize:   uint64(node.SubtreeSize),
 		})
 	if err != nil {
 		return nil, err
