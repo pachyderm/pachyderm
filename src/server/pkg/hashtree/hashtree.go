@@ -7,8 +7,10 @@ import (
 	pathlib "path"
 	"strings"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+
+	globlib "github.com/gobwas/glob"
+	"github.com/golang/protobuf/proto"
 )
 
 type nodetype uint8
@@ -147,16 +149,14 @@ func glob(fs map[string]*NodeProto, pattern string) ([]*NodeProto, error) {
 	// modify the pattern to fit our path structure.
 	pattern = clean(pattern)
 
+	g, err := globlib.Compile(pattern, '/')
+	if err != nil {
+		return nil, errorf(MalformedGlob, err.Error())
+	}
+
 	var res []*NodeProto
 	for path, node := range fs {
-		matched, err := pathlib.Match(pattern, path)
-		if err != nil {
-			if err == pathlib.ErrBadPattern {
-				return nil, errorf(MalformedGlob, "glob \"%s\" is malformed", pattern)
-			}
-			return nil, err
-		}
-		if matched {
+		if g.Match(path) {
 			nodeCopy := new(NodeProto)
 			*nodeCopy = *node
 			nodeCopy.Name = path

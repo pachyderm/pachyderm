@@ -11,6 +11,7 @@ import (
 
 // Matches checks that a string matches a regular-expression.
 func Matches(tb testing.TB, expectedMatch string, actual string, msgAndArgs ...interface{}) {
+	tb.Helper()
 	r, err := regexp.Compile(expectedMatch)
 	if err != nil {
 		fatal(tb, msgAndArgs, "Match string provided (%v) is invalid", expectedMatch)
@@ -22,6 +23,7 @@ func Matches(tb testing.TB, expectedMatch string, actual string, msgAndArgs ...i
 
 // Equal checks equality of two values.
 func Equal(tb testing.TB, expected interface{}, actual interface{}, msgAndArgs ...interface{}) {
+	tb.Helper()
 	if !reflect.DeepEqual(expected, actual) {
 		fatal(
 			tb,
@@ -33,6 +35,7 @@ func Equal(tb testing.TB, expected interface{}, actual interface{}, msgAndArgs .
 
 // NotEqual checks inequality of two values.
 func NotEqual(tb testing.TB, expected interface{}, actual interface{}, msgAndArgs ...interface{}) {
+	tb.Helper()
 	if reflect.DeepEqual(expected, actual) {
 		fatal(
 			tb,
@@ -44,6 +47,7 @@ func NotEqual(tb testing.TB, expected interface{}, actual interface{}, msgAndArg
 
 // EqualOneOf checks if a value is equal to one of the elements of a slice.
 func EqualOneOf(tb testing.TB, expecteds []interface{}, actual interface{}, msgAndArgs ...interface{}) {
+	tb.Helper()
 	equal := false
 	for _, expected := range expecteds {
 		if reflect.DeepEqual(expected, actual) {
@@ -81,6 +85,7 @@ func oneOfEquals(expected interface{}, actuals interface{}) (bool, error) {
 
 // OneOfEquals checks whether one element of a slice equals a value.
 func OneOfEquals(tb testing.TB, expected interface{}, actuals interface{}, msgAndArgs ...interface{}) {
+	tb.Helper()
 	equal, err := oneOfEquals(expected, actuals)
 	if err != nil {
 		fatal(tb, msgAndArgs, err.Error())
@@ -94,6 +99,7 @@ func OneOfEquals(tb testing.TB, expected interface{}, actuals interface{}, msgAn
 
 // NoneEquals checks one element of a slice equals a value.
 func NoneEquals(tb testing.TB, expected interface{}, actuals interface{}, msgAndArgs ...interface{}) {
+	tb.Helper()
 	equal, err := oneOfEquals(expected, actuals)
 	if err != nil {
 		fatal(tb, msgAndArgs, err.Error())
@@ -106,6 +112,7 @@ func NoneEquals(tb testing.TB, expected interface{}, actuals interface{}, msgAnd
 
 // NoError checks for no error.
 func NoError(tb testing.TB, err error, msgAndArgs ...interface{}) {
+	tb.Helper()
 	if err != nil {
 		fatal(tb, msgAndArgs, "No error is expected but got %s", err.Error())
 	}
@@ -114,6 +121,7 @@ func NoError(tb testing.TB, err error, msgAndArgs ...interface{}) {
 // NoErrorWithinT checks that 'f' finishes within time 't' and does not emit an
 // error
 func NoErrorWithinT(tb testing.TB, t time.Duration, f func() error, msgAndArgs ...interface{}) {
+	tb.Helper()
 	errCh := make(chan error)
 	go func() {
 		// This goro will leak if the timeout is exceeded, but it's okay because the
@@ -132,6 +140,7 @@ func NoErrorWithinT(tb testing.TB, t time.Duration, f func() error, msgAndArgs .
 
 // YesError checks for an error.
 func YesError(tb testing.TB, err error, msgAndArgs ...interface{}) {
+	tb.Helper()
 	if err == nil {
 		fatal(tb, msgAndArgs, "Error is expected but got %v", err)
 	}
@@ -139,6 +148,7 @@ func YesError(tb testing.TB, err error, msgAndArgs ...interface{}) {
 
 // NotNil checks a value is non-nil.
 func NotNil(tb testing.TB, object interface{}, msgAndArgs ...interface{}) {
+	tb.Helper()
 	success := true
 
 	if object == nil {
@@ -158,6 +168,7 @@ func NotNil(tb testing.TB, object interface{}, msgAndArgs ...interface{}) {
 
 // Nil checks a value is nil.
 func Nil(tb testing.TB, object interface{}, msgAndArgs ...interface{}) {
+	tb.Helper()
 	if object == nil {
 		return
 	}
@@ -172,6 +183,7 @@ func Nil(tb testing.TB, object interface{}, msgAndArgs ...interface{}) {
 
 // True checks a value is true.
 func True(tb testing.TB, value bool, msgAndArgs ...interface{}) {
+	tb.Helper()
 	if !value {
 		fatal(tb, msgAndArgs, "Should be true.")
 	}
@@ -179,12 +191,14 @@ func True(tb testing.TB, value bool, msgAndArgs ...interface{}) {
 
 // False checks a value is false.
 func False(tb testing.TB, value bool, msgAndArgs ...interface{}) {
+	tb.Helper()
 	if value {
 		fatal(tb, msgAndArgs, "Should be false.")
 	}
 }
 
 func logMessage(tb testing.TB, msgAndArgs []interface{}) {
+	tb.Helper()
 	if len(msgAndArgs) == 1 {
 		tb.Logf(msgAndArgs[0].(string))
 	}
@@ -194,6 +208,7 @@ func logMessage(tb testing.TB, msgAndArgs []interface{}) {
 }
 
 func fatal(tb testing.TB, userMsgAndArgs []interface{}, msgFmt string, msgArgs ...interface{}) {
+	tb.Helper()
 	logMessage(tb, userMsgAndArgs)
 	_, file, line, ok := runtime.Caller(2)
 	if ok {
