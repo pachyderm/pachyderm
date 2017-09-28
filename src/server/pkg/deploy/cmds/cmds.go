@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
+	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/images"
 	_metrics "github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 
 	"github.com/spf13/cobra"
@@ -242,15 +243,24 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		}),
 	}
 
-	images := &cobra.Command{
-		Use:   "images",
-		Short: "Output the list of images that a deployment will use.",
-		Long:  "Output the list of images that a deployment will use.",
+	listImages := &cobra.Command{
+		Use:   "list-images",
+		Short: "Output the list of images in a deployment.",
+		Long:  "Output the list of images in a deployment.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			for _, image := range assets.Images(opts) {
 				fmt.Println(image)
 			}
 			return nil
+		}),
+	}
+
+	exportImages := &cobra.Command{
+		Use:   "export-images",
+		Short: "Export a tarball containing all of the images in a deployment.",
+		Long:  "Export a tarball containing all of the images in a deployment.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			return images.Export(opts, os.Stdout)
 		}),
 	}
 
@@ -289,7 +299,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deploy.PersistentFlags().StringVar(&registry, "registry", "", "The registry to pull images from.")
 	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", defaultDashImage, "Image URL for pachyderm dashboard")
 
-	deploy.AddCommand(deployLocal, deployAmazon, deployGoogle, deployMicrosoft, deployCustom, images)
+	deploy.AddCommand(deployLocal, deployAmazon, deployGoogle, deployMicrosoft, deployCustom, listImages, exportImages)
 
 	// Flags for setting pachd resource requests. These should rarely be set --
 	// only if we get the defaults wrong, or users have an unusual access pattern
