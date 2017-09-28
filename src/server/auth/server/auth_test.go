@@ -84,29 +84,38 @@ func getPachClient(t testing.TB, u string) *client.APIClient {
 			// Auth not active -- clear existing cached clients (as their auth tokens
 			// are no longer valid)
 			clientMap = map[string]*client.APIClient{"": clientMap[""]}
-			if _, err := seedClient.AuthAPIClient.Activate(context.Background(),
-				&auth.ActivateRequest{Admins: []string{"admin"}},
-			); err != nil && !strings.HasSuffix(err.Error(), "already activated") {
+			resp, err := seedClient.AuthAPIClient.Activate(context.Background(),
+				&auth.ActivateRequest{GithubUsername: "admin"})
+			if err == nil {
+				// Activate success -- create "admin" client with response token
+				clientMap["admin"] = *clientMap[""]
+				clientMap["admin"].SetAuthToken(resp.PachToken)
+			} else if !strings.HasSuffix(err.Error(), "already activated") {
+				_, ok := clientMap["admin"]
+				require.True(t, ok)
 				return fmt.Errorf("could not activate auth service: %s", err.Error())
 			}
 			return nil
 		}, backoff.NewTestingBackOff()))
 
 		// Wait for the Pachyderm Auth system to activate
+		adminClient := clientMap["admin"]
+		resp, err := adminClient.AuthAPIClient.WhoAmI(adminClient.Ctx(),
+			&auth.WhoAmIRequest{},
+		)
 		require.NoError(t, backoff.Retry(func() error {
-			if _, err := seedClient.AuthAPIClient.WhoAmI(seedClient.Ctx(),
-				&auth.WhoAmIRequest{},
-			); auth.IsNotActivatedError(err) {
+			if auth.IsNotActivatedError(err) {
 				return err
 			}
+			require.Equal(t, "admin", resp.Username)
+			require.True(t, resp.IsAdmin)
 			return nil
 		}, backoff.NewTestingBackOff()))
 
 		// Re-use old client for 'u', or create a new one if none exists
 		if _, ok := clientMap[u]; !ok {
 			userClient := *clientMap[""]
-			resp, err := userClient.AuthAPIClient.Authenticate(
-				context.Background(),
+			resp, err := userClient.Authenticate(context.Background(),
 				&auth.AuthenticateRequest{GithubUsername: string(u)})
 			require.NoError(t, err)
 			userClient.SetAuthToken(resp.PachToken)
