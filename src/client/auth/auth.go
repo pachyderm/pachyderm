@@ -45,6 +45,8 @@ func In2Out(ctx context.Context) context.Context {
 // has not been activated.
 type NotActivatedError struct{}
 
+// This error message string is matched in the UI. If edited,
+// it also needs to be updated in the UI code
 const notActivatedErrorMsg = "the auth service is not activated"
 
 func (e NotActivatedError) Error() string {
@@ -66,6 +68,8 @@ type NotAuthorizedError struct {
 	Required Scope
 }
 
+// This error message string is matched in the UI. If edited,
+// it also needs to be updated in the UI code
 const notAuthorizedErrorMsg = "not authorized to perform this operation"
 
 func (e *NotAuthorizedError) Error() string {
@@ -86,6 +90,8 @@ func IsNotAuthorizedError(e error) bool {
 	return strings.HasPrefix(e.Error(), notAuthorizedErrorMsg)
 }
 
+// This error message string is matched in the UI. If edited,
+// it also needs to be updated in the UI code
 const isNotSignedInErrMsg = "auth token not found in context (user may not be signed in)"
 
 // NotSignedInError indicates that the caller isn't signed in

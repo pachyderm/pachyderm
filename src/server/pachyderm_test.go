@@ -28,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfspretty "github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
 
@@ -89,6 +90,70 @@ func TestPipelineWithParallelism(t *testing.T) {
 		var buf bytes.Buffer
 		require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, fmt.Sprintf("file-%d", i), 0, 0, &buf))
 		require.Equal(t, fmt.Sprintf("%d", i), buf.String())
+	}
+}
+
+func TestPipelineWithLargeFiles(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	dataRepo := uniqueString("TestPipelineInputDataModification_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	r := rand.New(rand.NewSource(99))
+	numFiles := 10
+	var fileContents []string
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	for i := 0; i < numFiles; i++ {
+		fileContent := workload.RandString(r, int(pfs.ChunkSize)+i*MB)
+		_, err = c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file-%d", i),
+			strings.NewReader(fileContent))
+		require.NoError(t, err)
+		fileContents = append(fileContents, fileContent)
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	pipeline := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		nil,
+		client.NewAtomInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	commit := commitInfos[0].Commit
+
+	for i := 0; i < numFiles; i++ {
+		var buf bytes.Buffer
+		fileName := fmt.Sprintf("file-%d", i)
+
+		fileInfo, err := c.InspectFile(commit.Repo.Name, commit.ID, fileName)
+		require.NoError(t, err)
+		require.Equal(t, int(pfs.ChunkSize)+i*MB, int(fileInfo.SizeBytes))
+
+		require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileName, 0, 0, &buf))
+		// we don't wanna use the `require` package here since it prints
+		// the strings, which would clutter the output.
+		if fileContents[i] != buf.String() {
+			t.Fatalf("file content does not match")
+		}
 	}
 }
 

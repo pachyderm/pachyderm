@@ -964,20 +964,20 @@ func TestPutFileBig(t *testing.T) {
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
-	rawMessage := "Some\ncontent\nthat\nshouldnt\nbe\nline\ndelimited.\n"
-
 	// Write a big blob that would normally not fit in a block
-	var expectedOutputA []byte
-	for !(len(expectedOutputA) > 5*1024*1024) {
-		expectedOutputA = append(expectedOutputA, []byte(rawMessage)...)
-	}
+	fileSize := int(pfs.ChunkSize + 5*1024*1024)
+	expectedOutputA := generateRandomString(fileSize)
 	r := strings.NewReader(string(expectedOutputA))
 
 	commit1, err := client.StartCommit(repo, "")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, commit1.ID, "foo", r)
-	err = client.FinishCommit(repo, commit1.ID)
 	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
+
+	fileInfo, err := client.InspectFile(repo, commit1.ID, "foo")
+	require.NoError(t, err)
+	require.Equal(t, fileSize, int(fileInfo.SizeBytes))
 
 	var buffer bytes.Buffer
 	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, &buffer))

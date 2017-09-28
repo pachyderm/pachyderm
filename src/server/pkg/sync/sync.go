@@ -279,14 +279,14 @@ func (p *Puller) PullTree(client *pachclient.APIClient, root string, tree hashtr
 			}
 			if pipes {
 				return p.makePipe(path, func(w io.Writer) error {
-					return client.GetObjects(hashes, 0, 0, w)
+					return client.GetObjects(hashes, 0, 0, uint64(node.SubtreeSize), w)
 				})
 			}
 			limiter.Acquire()
 			eg.Go(func() (retErr error) {
 				defer limiter.Release()
 				return p.makeFile(path, func(w io.Writer) error {
-					return client.GetObjects(hashes, 0, 0, w)
+					return client.GetObjects(hashes, 0, 0, uint64(node.SubtreeSize), w)
 				})
 			})
 		}

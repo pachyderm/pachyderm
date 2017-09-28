@@ -445,7 +445,7 @@ func (c APIClient) ReadObject(hash string) ([]byte, error) {
 }
 
 // GetObjects gets several objects out of the object store by hash.
-func (c APIClient) GetObjects(hashes []string, offset uint64, size uint64, writer io.Writer) error {
+func (c APIClient) GetObjects(hashes []string, offset uint64, size uint64, totalSize uint64, writer io.Writer) error {
 	var objects []*pfs.Object
 	for _, hash := range hashes {
 		objects = append(objects, &pfs.Object{Hash: hash})
@@ -456,6 +456,7 @@ func (c APIClient) GetObjects(hashes []string, offset uint64, size uint64, write
 			Objects:     objects,
 			OffsetBytes: offset,
 			SizeBytes:   size,
+			TotalSize:   totalSize,
 		},
 	)
 	if err != nil {
@@ -470,7 +471,7 @@ func (c APIClient) GetObjects(hashes []string, offset uint64, size uint64, write
 // ReadObjects gets  several objects by hash and returns them directly as []byte.
 func (c APIClient) ReadObjects(hashes []string, offset uint64, size uint64) ([]byte, error) {
 	var buffer bytes.Buffer
-	if err := c.GetObjects(hashes, offset, size, &buffer); err != nil {
+	if err := c.GetObjects(hashes, offset, size, 0, &buffer); err != nil {
 		return nil, err
 	}
 	return buffer.Bytes(), nil
