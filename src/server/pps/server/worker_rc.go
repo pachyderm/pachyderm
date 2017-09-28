@@ -279,10 +279,15 @@ func (a *apiServer) getWorkerOptions(pipelineName string, rcName string,
 		imagePullSecrets = append(imagePullSecrets, api.LocalObjectReference{Name: secret})
 	}
 
+	annotations := map[string]string{"pipelineName": pipelineName}
+	if a.iamRole != "" {
+		annotations["iam.amazonaws.com/role"] = a.iamRole
+	}
+
 	return &workerOptions{
 		rcName:           rcName,
 		labels:           labels,
-		annotations:      map[string]string{"pipelineName": pipelineName},
+		annotations:      annotations,
 		parallelism:      int32(parallelism),
 		resources:        resources,
 		userImage:        userImage,

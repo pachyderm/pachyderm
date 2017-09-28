@@ -368,15 +368,16 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 		if size < readSize && request.SizeBytes != 0 {
 			readSize = size
 		}
-		if s.objectCacheBytes == 0 || (objectSize) > uint64(s.objectCacheBytes/maxCachedObjectDenom) {
-			// The object is a substantial portion of the available cache space so
-			// we bypass the cache and stream it directly out of the underlying store.
+		if request.TotalSize >= uint64(s.objectCacheBytes/maxCachedObjectDenom) {
 			blockPath := s.blockPath(objectInfo.BlockRef.Block)
 			r, err := s.objClient.Reader(blockPath, objectInfo.BlockRef.Range.Lower+offset, readSize)
 			if err != nil {
 				return err
 			}
-			return grpcutil.WriteToStreamingBytesServer(r, getObjectsServer)
+			if err := grpcutil.WriteToStreamingBytesServer(r, getObjectsServer); err != nil {
+				return err
+			}
+			continue
 		}
 		var data []byte
 		sink := groupcache.AllocatingByteSliceSink(&data)

@@ -21,7 +21,7 @@ import (
 	"go.pedge.io/pkg/cobra"
 )
 
-var defaultDashImage = "pachyderm/dash:0.5.4"
+var defaultDashImage = "pachyderm/dash:0.5.6"
 
 func maybeKcCreate(dryRun bool, manifest *bytes.Buffer, opts *assets.AssetOpts) error {
 	if dryRun {
@@ -165,15 +165,17 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		"(required) Backend providing an object-storage API to pachyderm. One of: "+
 			"s3, gcs, or azure-blob.")
 	var cloudfrontDistribution string
+	var creds string
+	var iamRole string
 	deployAmazon := &cobra.Command{
-		Use:   "amazon <S3 bucket> <id> <secret> <token> <region> <size of volumes (in GB)>",
+		Use:   "amazon <S3 bucket> <region> <size of volumes (in GB)>",
 		Short: "Deploy a Pachyderm cluster running on AWS.",
 		Long: "Deploy a Pachyderm cluster running on AWS. Arguments are:\n" +
 			"  <S3 bucket>: An S3 bucket where Pachyderm will store PFS data.\n" +
-			"  <id>, <secret>, <token>: Session token details, used for authorization. You can get these by running 'aws sts get-session-token'\n" +
+			"\n" +
 			"  <region>: The aws region where pachyderm is being deployed (e.g. us-west-1)\n" +
 			"  <size of volumes>: Size of EBS volumes, in GB (assumed to all be the same).\n",
-		Run: cmdutil.RunFixedArgs(6, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(3, func(args []string) (retErr error) {
 			if metrics && !dev {
 				start := time.Now()
 				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
@@ -183,16 +185,28 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 					finishMetricsWait()
 				}()
 			}
-			volumeSize, err := strconv.Atoi(args[5])
+			if creds == "" && iamRole == "" {
+				return fmt.Errorf("Either the --credentials or the --iam-role flag needs to be provided")
+			}
+			var id, secret, token string
+			if creds != "" {
+				parts := strings.Split(creds, ",")
+				if len(parts) != 3 {
+					return fmt.Errorf("Incorrect format of --credentials")
+				}
+				id, secret, token = parts[0], parts[1], parts[2]
+			}
+			opts.IAMRole = iamRole
+			volumeSize, err := strconv.Atoi(args[2])
 			if err != nil {
-				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[5])
+				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[2])
 			}
 			if strings.TrimSpace(cloudfrontDistribution) != "" {
 				fmt.Printf("WARNING: You specified a cloudfront distribution. Deploying on AWS with cloudfront is currently " +
 					"an alpha feature. No security restrictions have been applied to cloudfront, making all data public (obscured but not secured)\n")
 			}
 			manifest := &bytes.Buffer{}
-			if err = assets.WriteAmazonAssets(manifest, opts, args[0], args[1], args[2], args[3], args[4], volumeSize, cloudfrontDistribution); err != nil {
+			if err = assets.WriteAmazonAssets(manifest, opts, args[0], id, secret, token, args[1], volumeSize, cloudfrontDistribution); err != nil {
 				return err
 			}
 			return maybeKcCreate(dryRun, manifest, opts)
@@ -202,6 +216,8 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		"Deploying on AWS with cloudfront is currently "+
 			"an alpha feature. No security restrictions have been"+
 			"applied to cloudfront, making all data public (obscured but not secured)")
+	deployAmazon.Flags().StringVar(&creds, "credentials", "", "Use the format '--credentials=<id>,<secret>,<token>'\n<id>, <secret>, and <token> are session token details, used for authorization. You can get these by running 'aws sts get-session-token'")
+	deployAmazon.Flags().StringVar(&iamRole, "iam-role", "", "Use the given IAM role for authorization, as opposed to using static credentials.  The nodes on which Pachyderm is deployed needs to have the given IAM role.")
 
 	deployMicrosoft := &cobra.Command{
 		Use:   "microsoft <container> <storage account name> <storage account key> <size of volumes (in GB)>",
