@@ -39,10 +39,7 @@ var (
 	grpcProxyName           = "grpc-proxy"
 	grpcProxyImage          = "pachyderm/grpc-proxy:0.4.2"
 	pachdName               = "pachd"
-	minioSecretName         = "minio-secret"
-	amazonSecretName        = "amazon-secret"
-	googleSecretName        = "google-secret"
-	microsoftSecretName     = "microsoft-secret"
+	storageSecretName       = "pachyderm-storage-secret"
 	trueVal                 = true
 	jsonEncoderHandle       = &codec.JsonHandle{
 		BasicHandle: codec.BasicHandle{
@@ -175,58 +172,18 @@ func ServiceAccount() *api.ServiceAccount {
 // GetSecretVolumeAndMount returns a properly configured Volume and
 // VolumeMount object given a backend.  The backend needs to be one of the
 // constants defined in pfs/server.
-func GetSecretVolumeAndMount(backend string) (api.Volume, api.VolumeMount, error) {
-	switch backend {
-	case pfs.MinioBackendEnvVar:
-		return api.Volume{
-				Name: minioSecretName,
-				VolumeSource: api.VolumeSource{
-					Secret: &api.SecretVolumeSource{
-						SecretName: minioSecretName,
-					},
+func GetSecretVolumeAndMount(backend string) (api.Volume, api.VolumeMount) {
+	return api.Volume{
+			Name: storageSecretName,
+			VolumeSource: api.VolumeSource{
+				Secret: &api.SecretVolumeSource{
+					SecretName: storageSecretName,
 				},
-			}, api.VolumeMount{
-				Name:      minioSecretName,
-				MountPath: "/" + minioSecretName,
-			}, nil
-	case pfs.AmazonBackendEnvVar:
-		return api.Volume{
-				Name: amazonSecretName,
-				VolumeSource: api.VolumeSource{
-					Secret: &api.SecretVolumeSource{
-						SecretName: amazonSecretName,
-					},
-				},
-			}, api.VolumeMount{
-				Name:      amazonSecretName,
-				MountPath: "/" + amazonSecretName,
-			}, nil
-	case pfs.GoogleBackendEnvVar:
-		return api.Volume{
-				Name: googleSecretName,
-				VolumeSource: api.VolumeSource{
-					Secret: &api.SecretVolumeSource{
-						SecretName: googleSecretName,
-					},
-				},
-			}, api.VolumeMount{
-				Name:      googleSecretName,
-				MountPath: "/" + googleSecretName,
-			}, nil
-	case pfs.MicrosoftBackendEnvVar:
-		return api.Volume{
-				Name: microsoftSecretName,
-				VolumeSource: api.VolumeSource{
-					Secret: &api.SecretVolumeSource{
-						SecretName: microsoftSecretName,
-					},
-				},
-			}, api.VolumeMount{
-				Name:      microsoftSecretName,
-				MountPath: "/" + microsoftSecretName,
-			}, nil
-	}
-	return api.Volume{}, api.VolumeMount{}, fmt.Errorf("not found")
+			},
+		}, api.VolumeMount{
+			Name:      storageSecretName,
+			MountPath: "/" + storageSecretName,
+		}
 }
 
 // PachdDeployment returns a pachd k8s Deployment.
@@ -269,11 +226,9 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 	case microsoftBackend:
 		backendEnvVar = pfs.MicrosoftBackendEnvVar
 	}
-	volume, mount, err := GetSecretVolumeAndMount(backendEnvVar)
-	if err == nil {
-		volumes = append(volumes, volume)
-		volumeMounts = append(volumeMounts, mount)
-	}
+	volume, mount := GetSecretVolumeAndMount(backendEnvVar)
+	volumes = append(volumes, volume)
+	volumeMounts = append(volumeMounts, mount)
 	return &extensions.Deployment{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Deployment",
@@ -952,15 +907,15 @@ func MinioSecret(bucket string, id string, secret string, endpoint string, secur
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name:   minioSecretName,
-			Labels: labels(minioSecretName),
+			Name:   storageSecretName,
+			Labels: labels(storageSecretName),
 		},
 		Data: map[string][]byte{
-			"bucket":   []byte(bucket),
-			"id":       []byte(id),
-			"secret":   []byte(secret),
-			"endpoint": []byte(endpoint),
-			"secure":   []byte(secureV),
+			"minio-bucket":   []byte(bucket),
+			"minio-id":       []byte(id),
+			"minio-secret":   []byte(secret),
+			"minio-endpoint": []byte(endpoint),
+			"minio-secure":   []byte(secureV),
 		},
 	}
 }
@@ -978,16 +933,16 @@ func AmazonSecret(bucket string, distribution string, id string, secret string, 
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name:   amazonSecretName,
-			Labels: labels(amazonSecretName),
+			Name:   storageSecretName,
+			Labels: labels(storageSecretName),
 		},
 		Data: map[string][]byte{
-			"bucket":       []byte(bucket),
-			"distribution": []byte(distribution),
-			"id":           []byte(id),
-			"secret":       []byte(secret),
-			"token":        []byte(token),
-			"region":       []byte(region),
+			"amazon-bucket":       []byte(bucket),
+			"amazon-distribution": []byte(distribution),
+			"amazon-id":           []byte(id),
+			"amazon-secret":       []byte(secret),
+			"amazon-token":        []byte(token),
+			"amazon-region":       []byte(region),
 		},
 	}
 }
@@ -1000,11 +955,11 @@ func GoogleSecret(bucket string) *api.Secret {
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name:   googleSecretName,
-			Labels: labels(googleSecretName),
+			Name:   storageSecretName,
+			Labels: labels(storageSecretName),
 		},
 		Data: map[string][]byte{
-			"bucket": []byte(bucket),
+			"google-bucket": []byte(bucket),
 		},
 	}
 }
@@ -1020,13 +975,13 @@ func MicrosoftSecret(container string, id string, secret string) *api.Secret {
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name:   microsoftSecretName,
-			Labels: labels(microsoftSecretName),
+			Name:   storageSecretName,
+			Labels: labels(storageSecretName),
 		},
 		Data: map[string][]byte{
-			"container": []byte(container),
-			"id":        []byte(id),
-			"secret":    []byte(secret),
+			"microsoft-container": []byte(container),
+			"microsoft-id":        []byte(id),
+			"microsoft-secret":    []byte(secret),
 		},
 	}
 }
