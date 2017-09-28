@@ -381,7 +381,7 @@ func TestPreActivationPipelinesRunAsAdmin(t *testing.T) {
 
 	// activate auth
 	_, err = adminClient.Activate(adminClient.Ctx(), &auth.ActivateRequest{
-		Admins: []string{"admin"},
+		GithubUsername: "admin",
 	})
 	require.NoError(t, err)
 

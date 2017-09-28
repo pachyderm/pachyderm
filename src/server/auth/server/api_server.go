@@ -210,8 +210,12 @@ func (a *apiServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
 }
 
 func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateRequest) (resp *authclient.ActivateResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	// We don't want to actually log the request/response since they contain
+	// credentials.
+	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
+	if req.GithubUsername == magicUser {
+		return nil, fmt.Errorf("invalid user")
+	}
 
 	// If the cluster's Pachyderm Enterprise token isn't active, the auth system
 	// cannot be activated
@@ -231,18 +235,43 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 		return nil, fmt.Errorf("already activated")
 	}
 
-	// Initialize admins (watchAdmins() above will see the write)
+	// Determine caller's Pachyderm/GitHub username
+	var username string
+	if os.Getenv(DisableAuthenticationEnvVar) == "true" && req.GithubUsername != "" {
+		// Test mode--the caller automatically authenticates as whoever is requested
+		username = req.GithubUsername
+	} else {
+		// Prod mode--send access code to GitHub to discover authenticating user
+		var err error
+		username, err = AccessTokenToUsername(ctx, req.GithubToken)
+		if err != nil {
+			return nil, err
+		}
+		if req.GithubUsername != "" && req.GithubUsername != username {
+			return nil, fmt.Errorf("attempted to authenticate as %s, but Github " +
+				"token did not originate from that account")
+		}
+	}
+
+	// Generate a new Pachyderm token (as the caller is authenticating) and
+	// initialize admins (watchAdmins() above will see the write)
+	pachToken := uuid.NewWithoutDashes()
 	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		admins := a.admins.ReadWrite(stm)
-		for _, user := range req.Admins {
-			admins.Put(user, epsilon)
+		tokens := a.tokens.ReadWrite(stm)
+		if err := admins.Put(username, epsilon); err != nil {
+			return err
 		}
-		return nil
+		return tokens.PutTTL(
+			hashToken(pachToken),
+			&authclient.User{Username: username, Type: authclient.User_HUMAN},
+			defaultTokenTTLSecs,
+		)
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &authclient.ActivateResponse{}, nil
+	return &authclient.ActivateResponse{PachToken: pachToken}, nil
 }
 
 func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRequest) (resp *authclient.DeactivateResponse, retErr error) {

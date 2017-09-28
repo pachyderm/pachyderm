@@ -85,7 +85,7 @@ func getPachClient(t testing.TB, u string) *client.APIClient {
 			// are no longer valid)
 			clientMap = map[string]*client.APIClient{"": clientMap[""]}
 			if _, err := seedClient.AuthAPIClient.Activate(context.Background(),
-				&auth.ActivateRequest{Admins: []string{"admin"}},
+				&auth.ActivateRequest{GithubUsername: "admin"},
 			); err != nil && !strings.HasSuffix(err.Error(), "already activated") {
 				return fmt.Errorf("could not activate auth service: %s", err.Error())
 			}
@@ -96,7 +96,7 @@ func getPachClient(t testing.TB, u string) *client.APIClient {
 		require.NoError(t, backoff.Retry(func() error {
 			if _, err := seedClient.AuthAPIClient.WhoAmI(seedClient.Ctx(),
 				&auth.WhoAmIRequest{},
-			); auth.IsNotActivatedError(err) {
+			); err != nil && auth.IsNotActivatedError(err) {
 				return err
 			}
 			return nil
@@ -105,8 +105,7 @@ func getPachClient(t testing.TB, u string) *client.APIClient {
 		// Re-use old client for 'u', or create a new one if none exists
 		if _, ok := clientMap[u]; !ok {
 			userClient := *clientMap[""]
-			resp, err := userClient.AuthAPIClient.Authenticate(
-				context.Background(),
+			resp, err := userClient.Authenticate(context.Background(),
 				&auth.AuthenticateRequest{GithubUsername: string(u)})
 			require.NoError(t, err)
 			userClient.SetAuthToken(resp.PachToken)
@@ -163,6 +162,57 @@ func PipelineNames(t *testing.T, c *client.APIClient) []string {
 		result[i] = p.Pipeline.Name
 	}
 	return result
+}
+
+// TestActivate tests the Activate API (in particular, verifying
+// that Activate() also authenticates). Even though GetClient also activates
+// auth, this makes sure the code path is exercised (as auth may already be
+// active when the test starts)
+func TestActivate(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// Get client, but don't use getPachClient, as that will call Activate()
+	var c *client.APIClient
+	var err error
+	if _, ok := os.LookupEnv("PACHD_PORT_650_TCP_ADDR"); ok {
+		c, err = client.NewInCluster()
+	} else {
+		c, err = client.NewOnUserMachine(false, "user")
+	}
+	require.NoError(t, err)
+
+	// Deactivate auth (if it's activated)
+	require.NoError(t, func() error {
+		adminClient := &client.APIClient{}
+		*adminClient = *c
+		resp, err := adminClient.Authenticate(adminClient.Ctx(),
+			&auth.AuthenticateRequest{
+				GithubUsername: "admin",
+			})
+		if err != nil {
+			if auth.IsNotActivatedError(err) {
+				return nil
+			}
+			return err
+		}
+		adminClient.SetAuthToken(resp.PachToken)
+		_, err = adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
+		return err
+	}())
+
+	// Activate auth
+	resp, err := c.Activate(c.Ctx(), &auth.ActivateRequest{
+		GithubUsername: "admin",
+	})
+	require.NoError(t, err)
+	c.SetAuthToken(resp.PachToken)
+
+	// Check that the token 'c' recieved from PachD authenticates them as "admin"
+	who, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.True(t, who.IsAdmin)
+	require.Equal(t, "admin", who.Username)
 }
 
 // TestGetSetBasic creates two users, alice and bob, and gives bob gradually
