@@ -240,6 +240,13 @@ func versionedPachdImage(opts *AssetOpts) string {
 	return pachdImage
 }
 
+func versionedWorkerImage(opts *AssetOpts) string {
+	if opts.Version != "" {
+		return fmt.Sprintf("%s:%s", workerImage, opts.Version)
+	}
+	return workerImage
+}
+
 // PachdDeployment returns a pachd k8s Deployment.
 func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath string) *extensions.Deployment {
 	mem := resource.MustParse(opts.BlockCacheSize)
@@ -334,7 +341,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 								},
 								{
 									Name:  "WORKER_IMAGE",
-									Value: addRegistry(opts, fmt.Sprintf("pachyderm/worker:%s", opts.Version)),
+									Value: addRegistry(opts, versionedWorkerImage(opts)),
 								},
 								{
 									Name:  "WORKER_SIDECAR_IMAGE",
@@ -1193,12 +1200,12 @@ func WriteMicrosoftAssets(w io.Writer, opts *AssetOpts, container string, id str
 // Images returns a list of all the images that are used by a pachyderm deployment.
 func Images(opts *AssetOpts) []string {
 	return []string{
+		versionedWorkerImage(opts),
 		etcdImage,
 		grpcProxyImage,
 		pauseImage,
 		versionedPachdImage(opts),
 		opts.DashImage,
-		workerImage,
 	}
 }
 
