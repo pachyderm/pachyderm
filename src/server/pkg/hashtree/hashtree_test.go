@@ -565,9 +565,6 @@ func TestErrorCode(t *testing.T) {
 	h.PutFile("/bar/foo", obj(`hash:"9d432"`), 1)
 	err = h.PutFile("/bar", obj(`hash:"20c27"`), 1)
 	require.Equal(t, PathConflict, Code(err))
-
-	_, err = finish(t, h).Glob("/*\\")
-	require.Equal(t, MalformedGlob, Code(err))
 }
 
 func TestSerialize(t *testing.T) {
