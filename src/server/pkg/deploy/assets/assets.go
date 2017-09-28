@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	auth "github.com/pachyderm/pachyderm/src/server/auth/server"
 	pfs "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/ugorji/go/codec"
@@ -39,7 +40,6 @@ var (
 	grpcProxyName           = "grpc-proxy"
 	grpcProxyImage          = "pachyderm/grpc-proxy:0.4.2"
 	pachdName               = "pachd"
-	storageSecretName       = "pachyderm-storage-secret"
 	trueVal                 = true
 	jsonEncoderHandle       = &codec.JsonHandle{
 		BasicHandle: codec.BasicHandle{
@@ -174,15 +174,15 @@ func ServiceAccount() *api.ServiceAccount {
 // constants defined in pfs/server.
 func GetSecretVolumeAndMount(backend string) (api.Volume, api.VolumeMount) {
 	return api.Volume{
-			Name: storageSecretName,
+			Name: client.StorageSecretName,
 			VolumeSource: api.VolumeSource{
 				Secret: &api.SecretVolumeSource{
-					SecretName: storageSecretName,
+					SecretName: client.StorageSecretName,
 				},
 			},
 		}, api.VolumeMount{
-			Name:      storageSecretName,
-			MountPath: "/" + storageSecretName,
+			Name:      client.StorageSecretName,
+			MountPath: "/" + client.StorageSecretName,
 		}
 }
 
@@ -907,8 +907,8 @@ func MinioSecret(bucket string, id string, secret string, endpoint string, secur
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name:   storageSecretName,
-			Labels: labels(storageSecretName),
+			Name:   client.StorageSecretName,
+			Labels: labels(client.StorageSecretName),
 		},
 		Data: map[string][]byte{
 			"minio-bucket":   []byte(bucket),
@@ -933,8 +933,8 @@ func AmazonSecret(bucket string, distribution string, id string, secret string, 
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name:   storageSecretName,
-			Labels: labels(storageSecretName),
+			Name:   client.StorageSecretName,
+			Labels: labels(client.StorageSecretName),
 		},
 		Data: map[string][]byte{
 			"amazon-bucket":       []byte(bucket),
@@ -955,8 +955,8 @@ func GoogleSecret(bucket string) *api.Secret {
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name:   storageSecretName,
-			Labels: labels(storageSecretName),
+			Name:   client.StorageSecretName,
+			Labels: labels(client.StorageSecretName),
 		},
 		Data: map[string][]byte{
 			"google-bucket": []byte(bucket),
@@ -975,8 +975,8 @@ func MicrosoftSecret(container string, id string, secret string) *api.Secret {
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name:   storageSecretName,
-			Labels: labels(storageSecretName),
+			Name:   client.StorageSecretName,
+			Labels: labels(client.StorageSecretName),
 		},
 		Data: map[string][]byte{
 			"microsoft-container": []byte(container),
