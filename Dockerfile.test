@@ -1,4 +1,7 @@
 FROM ubuntu:16.04
 MAINTAINER jdoliner@pachyderm.io
 
-ADD ./test .
+RUN mkdir -p /src/server /etc/testing/artifacts
+ADD ./test /src/server
+ADD ./giphy.gif /etc/testing/artifacts
+WORKDIR /src/server
