@@ -23,29 +23,35 @@ import (
 )
 
 var (
-	suite      = "pachyderm"
+	suite = "pachyderm"
+
 	pachdImage = "pachyderm/pachd"
 	// Using our own etcd image for now because there's a fix we need
 	// that hasn't been released, and which has been manually applied
 	// to the official v3.2.7 release.
-	etcdImage               = "pachyderm/etcd:v3.2.7"
+	etcdImage      = "pachyderm/etcd:v3.2.7"
+	grpcProxyImage = "pachyderm/grpc-proxy:0.4.2"
+	dashName       = "dash"
+	workerImage    = "pachyderm/worker"
+	pauseImage     = "gcr.io/google_containers/pause-amd64:3.0"
+	dashImage      = "pachyderm/dash"
+
 	serviceAccountName      = "pachyderm"
 	etcdHeadlessServiceName = "etcd-headless"
 	etcdName                = "etcd"
 	etcdVolumeName          = "etcd-volume"
 	etcdVolumeClaimName     = "etcd-storage"
 	etcdStorageClassName    = "etcd-storage-class"
-	dashName                = "dash"
-	dashImage               = "pachyderm/dash"
 	grpcProxyName           = "grpc-proxy"
-	grpcProxyImage          = "pachyderm/grpc-proxy:0.4.2"
 	pachdName               = "pachd"
 	minioSecretName         = "minio-secret"
 	amazonSecretName        = "amazon-secret"
 	googleSecretName        = "google-secret"
 	microsoftSecretName     = "microsoft-secret"
-	trueVal                 = true
-	jsonEncoderHandle       = &codec.JsonHandle{
+
+	trueVal = true
+
+	jsonEncoderHandle = &codec.JsonHandle{
 		BasicHandle: codec.BasicHandle{
 			EncodeOptions: codec.EncodeOptions{Canonical: true},
 		},
@@ -227,15 +233,19 @@ func GetSecretVolumeAndMount(backend string) (api.Volume, api.VolumeMount, error
 	return api.Volume{}, api.VolumeMount{}, fmt.Errorf("not found")
 }
 
+func versionedPachdImage(opts *AssetOpts) string {
+	if opts.Version != "" {
+		return fmt.Sprintf("%s:%s", pachdImage, opts.Version)
+	}
+	return pachdImage
+}
+
 // PachdDeployment returns a pachd k8s Deployment.
 func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath string) *extensions.Deployment {
 	mem := resource.MustParse(opts.BlockCacheSize)
 	mem.Add(resource.MustParse(opts.PachdNonCacheMemRequest))
 	cpu := resource.MustParse(opts.PachdCPURequest)
-	image := addRegistry(opts, pachdImage)
-	if opts.Version != "" {
-		image += ":" + opts.Version
-	}
+	image := addRegistry(opts, versionedPachdImage(opts))
 	volumes := []api.Volume{
 		{
 			Name: "pach-disk",
@@ -1178,6 +1188,18 @@ func WriteMicrosoftAssets(w io.Writer, opts *AssetOpts, container string, id str
 	MicrosoftSecret(container, id, secret).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 	return nil
+}
+
+// Images returns a list of all the images that are used by a pachyderm deployment.
+func Images(opts *AssetOpts) []string {
+	return []string{
+		etcdImage,
+		grpcProxyImage,
+		pauseImage,
+		versionedPachdImage(opts),
+		opts.DashImage,
+		workerImage,
+	}
 }
 
 func labels(name string) map[string]string {

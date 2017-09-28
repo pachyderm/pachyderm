@@ -242,6 +242,18 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		}),
 	}
 
+	images := &cobra.Command{
+		Use:   "images",
+		Short: "Output the list of images that a deployment will use.",
+		Long:  "Output the list of images that a deployment will use.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			for _, image := range assets.Images(opts) {
+				fmt.Println(image)
+			}
+			return nil
+		}),
+	}
+
 	deploy := &cobra.Command{
 		Use:   "deploy amazon|google|microsoft|local|custom",
 		Short: "Deploy a Pachyderm cluster.",
@@ -276,11 +288,8 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deploy.PersistentFlags().BoolVar(&dashOnly, "dashboard-only", false, "Only deploy the Pachyderm UI (experimental), without the rest of pachyderm. This is for launching the UI adjacent to an existing Pachyderm cluster. After deployment, run \"pachctl port-forward\" to connect")
 	deploy.PersistentFlags().StringVar(&registry, "registry", "", "The registry to pull images from.")
 	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", defaultDashImage, "Image URL for pachyderm dashboard")
-	deploy.AddCommand(deployLocal)
-	deploy.AddCommand(deployAmazon)
-	deploy.AddCommand(deployGoogle)
-	deploy.AddCommand(deployMicrosoft)
-	deploy.AddCommand(deployCustom)
+
+	deploy.AddCommand(deployLocal, deployAmazon, deployGoogle, deployMicrosoft, deployCustom, images)
 
 	// Flags for setting pachd resource requests. These should rarely be set --
 	// only if we get the defaults wrong, or users have an unusual access pattern
