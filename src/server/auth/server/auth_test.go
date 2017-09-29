@@ -34,6 +34,7 @@ var (
 // getPachClient creates a seed client with a grpc connection to a pachyderm
 // cluster, and then enable the auth service in that cluster
 func getPachClient(t testing.TB, u string) *client.APIClient {
+	t.Helper()
 	// Check if "u" already has a client -- if not create one
 	func() {
 		// Client creation is wrapped in an anonymous function to make locking and
@@ -138,6 +139,7 @@ func acl(items ...string) *auth.ACL {
 // GetACL uses the client 'c' to get the ACL protecting the repo 'repo'
 // TODO(msteffen) create an auth client?
 func GetACL(t *testing.T, c *client.APIClient, repo string) *auth.ACL {
+	t.Helper()
 	resp, err := c.AuthAPIClient.GetACL(c.Ctx(), &auth.GetACLRequest{
 		Repo: repo,
 	})
@@ -147,6 +149,7 @@ func GetACL(t *testing.T, c *client.APIClient, repo string) *auth.ACL {
 
 // CommitCnt uses 'c' to get the number of commits made to the repo 'repo'
 func CommitCnt(t *testing.T, c *client.APIClient, repo string) int {
+	t.Helper()
 	commitList, err := c.ListCommitByRepo(repo)
 	require.NoError(t, err)
 	return len(commitList)
@@ -155,6 +158,7 @@ func CommitCnt(t *testing.T, c *client.APIClient, repo string) int {
 // PipelineNames returns the names of all pipelines that 'c' gets from
 // ListPipeline
 func PipelineNames(t *testing.T, c *client.APIClient) []string {
+	t.Helper()
 	ps, err := c.ListPipeline()
 	require.NoError(t, err)
 	result := make([]string, len(ps))
@@ -1009,20 +1013,22 @@ func TestDeletePipeline(t *testing.T) {
 	// alice deletes the output repo
 	require.NoError(t, aliceClient.DeleteRepo(pipeline, false))
 
-	// Make sure the output repo's ACL is gone
-	_, err := aliceClient.AuthAPIClient.GetACL(aliceClient.Ctx(), &auth.GetACLRequest{
+	// Make sure the *output* repo's ACL is gone
+	resp, err := aliceClient.AuthAPIClient.GetACL(aliceClient.Ctx(), &auth.GetACLRequest{
 		Repo: pipeline,
 	})
-	require.YesError(t, err)
+	require.NoError(t, err)
+	require.Equal(t, acl(), resp.ACL)
 
 	// alice deletes the input repo
 	require.NoError(t, aliceClient.DeleteRepo(repo, false))
 
-	// Make sure the input repo's ACL is gone
-	_, err = aliceClient.AuthAPIClient.GetACL(aliceClient.Ctx(), &auth.GetACLRequest{
+	// Make sure the *input* repo's ACL is gone
+	resp, err = aliceClient.AuthAPIClient.GetACL(aliceClient.Ctx(), &auth.GetACLRequest{
 		Repo: repo,
 	})
-	require.YesError(t, err)
+	require.NoError(t, err)
+	require.Equal(t, acl(), resp.ACL)
 
 	// alice creates another repo
 	repo = uniqueString("TestPipelineRevoke")
