@@ -707,13 +707,8 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	if err = a.acls.ReadOnly(ctx).Get(req.Repo, resp.ACL); err != nil && !col.IsErrNotFound(err) {
 		return nil, err
 	}
-	// For now, require READER access to read repo metadata (commits, and ACLs)
-	if !a.isAdmin(user.Username) && resp.ACL.Entries[user.Username] < authclient.Scope_READER {
-		return nil, &authclient.NotAuthorizedError{
-			Repo:     req.Repo,
-			Required: authclient.Scope_READER,
-		}
-	}
+	// For now, no access is require to read a repo's ACL
+	// https://github.com/pachyderm/pachyderm/issues/2353
 	return resp, nil
 }
 
