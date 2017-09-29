@@ -1052,8 +1052,7 @@ func (a *apiServer) authorizeModifyPipeline(ctx context.Context, operation pipel
 	if err != nil {
 		return err
 	}
-	authClient := pachClient.AuthAPIClient
-	if _, err = authClient.WhoAmI(auth.In2Out(ctx), &auth.WhoAmIRequest{}); err != nil {
+	if _, err = pachClient.WhoAmI(auth.In2Out(ctx), &auth.WhoAmIRequest{}); err != nil {
 		if auth.IsNotActivatedError(err) {
 			// TODO(msteffen): Think about how auth will degrade if auth is activated
 			// then deactivated. This is potentially insecure.
@@ -1087,7 +1086,7 @@ func (a *apiServer) authorizeModifyPipeline(ctx context.Context, operation pipel
 	for inputRepo := range inputRepos {
 		inputRepo := inputRepo
 		eg.Go(func() error {
-			resp, err := authClient.Authorize(auth.In2Out(ctx), &auth.AuthorizeRequest{
+			resp, err := pachClient.Authorize(auth.In2Out(ctx), &auth.AuthorizeRequest{
 				Repo:  inputRepo,
 				Scope: auth.Scope_READER,
 			})
@@ -1130,7 +1129,7 @@ func (a *apiServer) authorizeModifyPipeline(ctx context.Context, operation pipel
 		return fmt.Errorf("internal error, unrecognized operation %v", operation)
 	}
 	if required != auth.Scope_NONE {
-		resp, err := authClient.Authorize(auth.In2Out(ctx), &auth.AuthorizeRequest{
+		resp, err := pachClient.Authorize(auth.In2Out(ctx), &auth.AuthorizeRequest{
 			Repo:  info.Pipeline.Name,
 			Scope: required,
 		})
@@ -1157,7 +1156,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if err != nil {
 		return nil, err
 	}
-	authClient := pachClient.AuthAPIClient
 	pfsClient := pachClient.PfsAPIClient
 
 	pipelineInfo := &pps.PipelineInfo{
@@ -1195,9 +1193,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
 		return nil, err
 	}
-	if err != nil {
-		return nil, fmt.Errorf("error dialing auth client: %v", authClient)
-	}
 	operation := opPipelineCreate
 	if request.Update {
 		operation = opPipelineUpdate
@@ -1205,7 +1200,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if err := a.authorizeModifyPipeline(ctx, operation, pipelineInfo); err != nil {
 		return nil, err
 	}
-	capabilityResp, err := authClient.GetCapability(auth.In2Out(ctx), &auth.GetCapabilityRequest{})
+	capabilityResp, err := pachClient.GetCapability(auth.In2Out(ctx), &auth.GetCapabilityRequest{})
 	if err != nil {
 		return nil, fmt.Errorf("error getting capability for the user: %v", err)
 	}
@@ -1242,7 +1237,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 		// Revoke the old capability
 		if oldPipelineInfo.Capability != "" {
-			if _, err := authClient.RevokeAuthToken(auth.In2Out(ctx), &auth.RevokeAuthTokenRequest{
+			if _, err := pachClient.RevokeAuthToken(auth.In2Out(ctx), &auth.RevokeAuthTokenRequest{
 				Token: oldPipelineInfo.Capability,
 			}); err != nil && !auth.IsNotActivatedError(err) {
 				return nil, fmt.Errorf("error revoking old capability: %v", err)
@@ -1477,11 +1472,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	}
 	// Revoke the pipeline's capability
 	if pipelineInfo.Capability != "" {
-		authClient := pachClient.AuthAPIClient
-		if err != nil {
-			return nil, fmt.Errorf("error dialing auth client: %v", authClient)
-		}
-		if _, err := authClient.RevokeAuthToken(auth.In2Out(ctx), &auth.RevokeAuthTokenRequest{
+		if _, err := pachClient.RevokeAuthToken(auth.In2Out(ctx), &auth.RevokeAuthTokenRequest{
 			Token: pipelineInfo.Capability,
 		}); err != nil && !auth.IsNotActivatedError(err) {
 			return nil, fmt.Errorf("error revoking old capability: %v", err)
@@ -1585,6 +1576,19 @@ func (a *apiServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelin
 func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+
+	pachClient, err := a.getPachClient()
+	if err != nil {
+		return nil, err
+	}
+	if me, err := pachClient.WhoAmI(auth.In2Out(ctx), &auth.WhoAmIRequest{}); err == nil {
+		if !me.IsAdmin {
+			return nil, fmt.Errorf("not authorized to delete all cluster data, must " +
+				"be a cluster admin")
+		}
+	} else if !auth.IsNotActivatedError(err) {
+		return nil, fmt.Errorf("could not verify that caller is admin: %v", err)
+	}
 
 	pipelineInfos, err := a.ListPipeline(ctx, &pps.ListPipelineRequest{})
 	if err != nil {
