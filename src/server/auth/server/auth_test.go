@@ -1013,20 +1013,22 @@ func TestDeletePipeline(t *testing.T) {
 	// alice deletes the output repo
 	require.NoError(t, aliceClient.DeleteRepo(pipeline, false))
 
-	// Make sure the output repo's ACL is gone
-	_, err := aliceClient.AuthAPIClient.GetACL(aliceClient.Ctx(), &auth.GetACLRequest{
+	// Make sure the *output* repo's ACL is gone
+	resp, err := aliceClient.AuthAPIClient.GetACL(aliceClient.Ctx(), &auth.GetACLRequest{
 		Repo: pipeline,
 	})
-	require.YesError(t, err)
+	require.NoError(t, err)
+	require.Equal(t, acl(), resp.ACL)
 
 	// alice deletes the input repo
 	require.NoError(t, aliceClient.DeleteRepo(repo, false))
 
-	// Make sure the input repo's ACL is gone
-	_, err = aliceClient.AuthAPIClient.GetACL(aliceClient.Ctx(), &auth.GetACLRequest{
+	// Make sure the *input* repo's ACL is gone
+	resp, err = aliceClient.AuthAPIClient.GetACL(aliceClient.Ctx(), &auth.GetACLRequest{
 		Repo: repo,
 	})
-	require.YesError(t, err)
+	require.NoError(t, err)
+	require.Equal(t, acl(), resp.ACL)
 
 	// alice creates another repo
 	repo = uniqueString("TestPipelineRevoke")
