@@ -252,7 +252,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 	mem := resource.MustParse(opts.BlockCacheSize)
 	mem.Add(resource.MustParse(opts.PachdNonCacheMemRequest))
 	cpu := resource.MustParse(opts.PachdCPURequest)
-	image := addRegistry(opts, versionedPachdImage(opts))
+	image := AddRegistry(opts, versionedPachdImage(opts))
 	volumes := []api.Volume{
 		{
 			Name: "pach-disk",
@@ -341,7 +341,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 								},
 								{
 									Name:  "WORKER_IMAGE",
-									Value: addRegistry(opts, versionedWorkerImage(opts)),
+									Value: AddRegistry(opts, versionedWorkerImage(opts)),
 								},
 								{
 									Name:  "WORKER_SIDECAR_IMAGE",
@@ -497,7 +497,7 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *extensions.Deployment {
 					Containers: []api.Container{
 						{
 							Name:  etcdName,
-							Image: addRegistry(opts, etcdImage),
+							Image: AddRegistry(opts, etcdImage),
 							//TODO figure out how to get a cluster of these to talk to each other
 							Command: []string{
 								"/usr/local/bin/etcd",
@@ -808,7 +808,7 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 					"containers": []interface{}{
 						map[string]interface{}{
 							"name":    etcdName,
-							"image":   addRegistry(opts, etcdImage),
+							"image":   AddRegistry(opts, etcdImage),
 							"command": []string{"/bin/sh", "-c"},
 							"args":    []string{strings.Join(etcdCmd, " ")},
 							// Use the downward API to pass the pod name to etcd. This sets
@@ -886,7 +886,7 @@ func DashDeployment(opts *AssetOpts) *extensions.Deployment {
 					Containers: []api.Container{
 						{
 							Name:  dashName,
-							Image: addRegistry(opts, opts.DashImage),
+							Image: AddRegistry(opts, opts.DashImage),
 							Ports: []api.ContainerPort{
 								{
 									ContainerPort: 8080,
@@ -897,7 +897,7 @@ func DashDeployment(opts *AssetOpts) *extensions.Deployment {
 						},
 						{
 							Name:  grpcProxyName,
-							Image: addRegistry(opts, grpcProxyImage),
+							Image: AddRegistry(opts, grpcProxyImage),
 							Ports: []api.ContainerPort{
 								{
 									ContainerPort: 8081,
@@ -1200,12 +1200,12 @@ func WriteMicrosoftAssets(w io.Writer, opts *AssetOpts, container string, id str
 // Images returns a list of all the images that are used by a pachyderm deployment.
 func Images(opts *AssetOpts) []string {
 	return []string{
-		versionedWorkerImage(opts),
-		etcdImage,
-		grpcProxyImage,
-		pauseImage,
-		versionedPachdImage(opts),
-		opts.DashImage,
+		AddRegistry(opts, versionedWorkerImage(opts)),
+		AddRegistry(opts, etcdImage),
+		AddRegistry(opts, grpcProxyImage),
+		AddRegistry(opts, pauseImage),
+		AddRegistry(opts, versionedPachdImage(opts)),
+		AddRegistry(opts, opts.DashImage),
 	}
 }
 
@@ -1216,9 +1216,14 @@ func labels(name string) map[string]string {
 	}
 }
 
-func addRegistry(opts *AssetOpts, imageName string) string {
+// AddRegistry switchs the registry that an image is targetting.
+func AddRegistry(opts *AssetOpts, imageName string) string {
 	if opts.Registry != "" {
-		return path.Join(opts.Registry, imageName)
+		parts := strings.Split(imageName, "/")
+		if len(parts) == 3 {
+			parts = parts[1:]
+		}
+		return path.Join(opts.Registry, parts[0], parts[1])
 	}
 	return imageName
 }

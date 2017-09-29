@@ -51,3 +51,60 @@ func Export(opts *assets.AssetOpts, out io.Writer) error {
 		OutputStream: out,
 	})
 }
+
+// Import a tarball of the images needed by a deployment such as the one
+// created by Export and push those images to the registry specific in opts.
+func Import(opts *assets.AssetOpts, in io.Reader) error {
+	client, err := docker.NewClientFromEnv()
+	if err != nil {
+		return err
+	}
+	authConfigs, err := docker.NewAuthConfigurationsFromDockerCfg()
+	if err != nil {
+		return fmt.Errorf("error parsing auth: %s, try running `docker login`", err.Error())
+	}
+	if len(authConfigs.Configs) == 0 {
+		return fmt.Errorf("didn't find any valid auth configurations")
+	}
+	if err := client.LoadImage(docker.LoadImageOptions{
+		InputStream: in,
+	}); err != nil {
+		return err
+	}
+	registry := opts.Registry
+	opts.Registry = "" // pretend we're using default images so we can get targets to tag
+	images := assets.Images(opts)
+	opts.Registry = registry
+	for _, image := range images {
+		repository, tag := docker.ParseRepositoryTag(image)
+		if err := client.TagImage(image, docker.TagImageOptions{
+			Repo: assets.AddRegistry(opts, repository),
+			Tag:  tag,
+		},
+		); err != nil {
+			return fmt.Errorf("error tagging image: %v", err)
+		}
+		pushed := false
+		var loopErr error
+		for _, authConfig := range authConfigs.Configs {
+			if err := client.PushImage(
+				docker.PushImageOptions{
+					Name:              repository,
+					Tag:               tag,
+					Registry:          opts.Registry,
+					InactivityTimeout: 10 * time.Millisecond,
+				},
+				authConfig,
+			); err != nil {
+				loopErr = err
+				continue
+			}
+			pushed = true
+			break
+		}
+		if !pushed {
+			return fmt.Errorf("error pushing image: %+v", loopErr)
+		}
+	}
+	return nil
+}

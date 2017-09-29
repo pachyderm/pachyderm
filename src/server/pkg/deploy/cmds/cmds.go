@@ -257,10 +257,19 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 
 	exportImages := &cobra.Command{
 		Use:   "export-images",
-		Short: "Export a tarball containing all of the images in a deployment.",
-		Long:  "Export a tarball containing all of the images in a deployment.",
+		Short: "Export a tarball (to stdout) containing all of the images in a deployment.",
+		Long:  "Export a tarball (to stdout) containing all of the images in a deployment.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			return images.Export(opts, os.Stdout)
+		}),
+	}
+
+	importImages := &cobra.Command{
+		Use:   "import-images",
+		Short: "Import a tarball (from stdin) containing all of the images in a deployment and push them to a private registry.",
+		Long:  "Import a tarball (from stdin) containing all of the images in a deployment and push them to a private registry.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			return images.Import(opts, os.Stdin)
 		}),
 	}
 
@@ -299,7 +308,16 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deploy.PersistentFlags().StringVar(&registry, "registry", "", "The registry to pull images from.")
 	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", defaultDashImage, "Image URL for pachyderm dashboard")
 
-	deploy.AddCommand(deployLocal, deployAmazon, deployGoogle, deployMicrosoft, deployCustom, listImages, exportImages)
+	deploy.AddCommand(
+		deployLocal,
+		deployAmazon,
+		deployGoogle,
+		deployMicrosoft,
+		deployCustom,
+		listImages,
+		exportImages,
+		importImages,
+	)
 
 	// Flags for setting pachd resource requests. These should rarely be set --
 	// only if we get the defaults wrong, or users have an unusual access pattern
