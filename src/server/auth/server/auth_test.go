@@ -1381,6 +1381,26 @@ func TestCreateRepoAlreadyExistsError(t *testing.T) {
 	require.Matches(t, "already exists", err.Error())
 }
 
+// TestDeleteRepoDoesntExistError tests that if a client calls DeleteRepo on a
+// repo that doesn't exist, they get an error notifying them that the repo
+// doesn't exist, rather than an auth error
+func TestDeleteRepoDoesntExistError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	alice := uniqueString("alice")
+	aliceClient := getPachClient(t, alice)
+
+	err := aliceClient.DeleteRepo("dOeSnOtExIsT", false)
+	require.YesError(t, err)
+	require.Matches(t, "does not exist", err.Error())
+
+	err = aliceClient.DeleteRepo("dOeSnOtExIsT", true)
+	require.YesError(t, err)
+	require.Matches(t, "does not exist", err.Error())
+}
+
 // Creating a pipeline when the output repo already exists gives you an error to
 // that effect, even when auth is already activated (rather than "access
 // denied")

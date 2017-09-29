@@ -981,7 +981,6 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.User,
 // up the corresponding user's GitHub profile and extracting their login ID
 // from that
 func canonicalizeGitHubUsername(ctx context.Context, username string) (string, error) {
-	fmt.Printf("--- Canonicalizing(\"%s\")\n", username)
 	if os.Getenv(DisableAuthenticationEnvVar) == "true" {
 		// authentication is off -- username might not even be real
 		return githubPrefix + username, nil
