@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"text/template"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
@@ -261,8 +262,9 @@ func GetCmd() *cobra.Command {
 				if err != nil {
 					return grpcutil.ScrubGRPC(err)
 				}
-				fmt.Println(resp.ACL.String())
-				return nil
+				t := template.Must(template.New("ACLEntries").Parse(
+					"{{range .}}{{.Username }}: {{.Scope}}\n{{end}}"))
+				return t.Execute(os.Stdout, resp.Entries)
 			}
 			// Get User's scope on an acl
 			username, repo := args[0], args[1]

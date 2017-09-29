@@ -19,6 +19,7 @@ message ActivateRequest {
   // simulate logins
   string github_token = 1;
 }
+
 message ActivateResponse {
   // pach_token authenticates the caller with Pachyderm (if you want to perform
   // Pachyderm operations after auth has been activated as themselves, you must
@@ -50,7 +51,7 @@ message User {
 
   enum UserType {
     INVALID = 0;
-    HUMAN = 1;
+    GITHUB = 1;
     PIPELINE = 2;
   }
   UserType type = 2;
@@ -94,11 +95,6 @@ enum Scope {
   OWNER = 3;
 }
 
-message ACLEntry {
-  string username = 1;
-  Scope scope = 2;
-}
-
 message ACL {
   // username -> scope
   map<string, Scope> entries = 1;
@@ -136,13 +132,18 @@ message GetACLRequest {
   string repo = 1;
 }
 
+message ACLEntry {
+  string username = 1;
+  Scope scope = 2;
+}
+
 message GetACLResponse {
-  ACL acl = 1 [(gogoproto.customname) = "ACL"];
+  repeated ACLEntry entries = 1;
 }
 
 message SetACLRequest {
   string repo = 1;
-  ACL new_acl = 2 [(gogoproto.customname) = "NewACL"];
+  repeated ACLEntry entries = 2;
 }
 
 message SetACLResponse {}
