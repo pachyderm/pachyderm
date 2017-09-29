@@ -54,6 +54,9 @@ func NewGoogleClient(ctx context.Context, bucket string) (Client, error) {
 func readSecretFile(name string) (string, error) {
 	bytes, err := ioutil.ReadFile(filepath.Join("/", client.StorageSecretName, name))
 	if err != nil {
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("secret %v not found", name)
+		}
 		return "", err
 	}
 	return string(bytes), nil
