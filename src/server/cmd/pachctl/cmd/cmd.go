@@ -365,9 +365,6 @@ $ pachctl migrate --from 1.4.8 --to 1.5.0
 		Short: "Install bash completion code.",
 		Long:  "Install bash completion code.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			if len(args) != 0 {
-				return fmt.Errorf("invalid argument")
-			}
 			bashCompletionFile, err := os.Create(bashCompletionPath)
 			if err != nil {
 				if os.IsPermission(err) {
