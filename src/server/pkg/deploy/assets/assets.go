@@ -920,6 +920,20 @@ func MinioSecret(bucket string, id string, secret string, endpoint string, secur
 	}
 }
 
+// LocalSecret creates an empty secret.
+func LocalSecret() *api.Secret {
+	return &api.Secret{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   client.StorageSecretName,
+			Labels: labels(client.StorageSecretName),
+		},
+	}
+}
+
 // AmazonSecret creates an amazon secret with the following parameters:
 //   bucket - S3 bucket name
 //   id     - AWS access key id
@@ -1070,7 +1084,13 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 
 // WriteLocalAssets writes assets to a local backend.
 func WriteLocalAssets(w io.Writer, opts *AssetOpts, hostPath string) error {
-	return WriteAssets(w, opts, localBackend, localBackend, 1 /* = volume size (gb) */, hostPath)
+	if err := WriteAssets(w, opts, localBackend, localBackend, 1 /* = volume size (gb) */, hostPath); err != nil {
+		return err
+	}
+	encoder := codec.NewEncoder(w, jsonEncoderHandle)
+	LocalSecret().CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
+	return nil
 }
 
 // WriteCustomAssets writes assets to a custom combination of object-store and persistent disk.
