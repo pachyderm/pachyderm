@@ -21,7 +21,7 @@ import (
 	"go.pedge.io/pkg/cobra"
 )
 
-var defaultDashImage = "pachyderm/dash:0.5.7"
+var defaultDashImage = "pachyderm/dash:0.5.9"
 
 func maybeKcCreate(dryRun bool, manifest *bytes.Buffer, opts *assets.AssetOpts) error {
 	if dryRun {
