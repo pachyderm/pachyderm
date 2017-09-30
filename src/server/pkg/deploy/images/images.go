@@ -77,7 +77,7 @@ func Import(opts *assets.AssetOpts, in io.Reader) error {
 	opts.Registry = registry
 	for _, image := range images {
 		repository, tag := docker.ParseRepositoryTag(image)
-		registryRepo := assets.AddRegistry(opts, repository)
+		registryRepo := assets.AddRegistry(opts.Registry, repository)
 		if err := client.TagImage(image, docker.TagImageOptions{
 			Repo: registryRepo,
 			Tag:  tag,
