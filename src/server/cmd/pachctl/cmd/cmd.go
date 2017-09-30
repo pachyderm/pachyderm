@@ -42,6 +42,10 @@ import (
 	"google.golang.org/grpc/grpclog"
 )
 
+const (
+	bashCompletionPath = "/etc/bash_completion.d/pachctl"
+)
+
 // PachctlCmd creates a cobra.Command which can deploy pachyderm clusters and
 // interact with them (it implements the pachctl binary).
 func PachctlCmd() (*cobra.Command, error) {
@@ -356,11 +360,37 @@ $ pachctl migrate --from 1.4.8 --to 1.5.0
 	migrate.Flags().StringVar(&to, "to", "", "The version of Pachyderm to migrate to.  If not specified, pachctl will use its own version.")
 	migrate.Flags().StringVar(&namespace, "namespace", "default", "The kubernetes namespace under which Pachyderm is deployed.")
 
+	completion := &cobra.Command{
+		Use:   "completion",
+		Short: "Install bash completion code.",
+		Long:  "Install bash completion code.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+			bashCompletionFile, err := os.Create(bashCompletionPath)
+			if err != nil {
+				if os.IsPermission(err) {
+					fmt.Fprintf(os.Stderr, "Permission error installing completions, rerun this command with sudo:\n$ sudo env \"PATH=$PATH\" pachctl completion\n")
+				}
+				return err
+			}
+			defer func() {
+				if err := bashCompletionFile.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			if err := rootCmd.GenBashCompletion(bashCompletionFile); err != nil {
+				return err
+			}
+			fmt.Printf("Bash completions installed in %s, you must restart bash to enable completions.\n", bashCompletionPath)
+			return nil
+		}),
+	}
+
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(deleteAll)
 	rootCmd.AddCommand(portForward)
 	rootCmd.AddCommand(garbageCollect)
 	rootCmd.AddCommand(migrate)
+	rootCmd.AddCommand(completion)
 	return rootCmd, nil
 }
 
