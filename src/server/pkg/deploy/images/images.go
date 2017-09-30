@@ -77,8 +77,9 @@ func Import(opts *assets.AssetOpts, in io.Reader) error {
 	opts.Registry = registry
 	for _, image := range images {
 		repository, tag := docker.ParseRepositoryTag(image)
+		registryRepo := assets.AddRegistry(opts, repository)
 		if err := client.TagImage(image, docker.TagImageOptions{
-			Repo: assets.AddRegistry(opts, repository),
+			Repo: registryRepo,
 			Tag:  tag,
 		},
 		); err != nil {
@@ -89,10 +90,10 @@ func Import(opts *assets.AssetOpts, in io.Reader) error {
 		for _, authConfig := range authConfigs.Configs {
 			if err := client.PushImage(
 				docker.PushImageOptions{
-					Name:              repository,
+					Name:              registryRepo,
 					Tag:               tag,
 					Registry:          opts.Registry,
-					InactivityTimeout: 10 * time.Millisecond,
+					InactivityTimeout: time.Second,
 				},
 				authConfig,
 			); err != nil {
