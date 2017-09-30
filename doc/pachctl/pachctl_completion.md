@@ -1,15 +1,14 @@
-## ./pachctl delete-all
+## ./pachctl completion
 
-Delete everything.
+Install bash completion code.
 
 ### Synopsis
 
 
-Delete all repos, commits, files, pipelines and jobs.
-This resets the cluster to its initial state.
+Install bash completion code.
 
 ```
-./pachctl delete-all
+./pachctl completion
 ```
 
 ### Options inherited from parent commands
