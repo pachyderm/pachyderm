@@ -1,7 +1,10 @@
 package server
 
 import (
+	"context"
+
 	client "github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 
@@ -32,7 +35,7 @@ type workerOptions struct {
 	service          *pps.Service
 }
 
-func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
+func (a *apiServer) workerPodSpec(options *workerOptions) (api.PodSpec, error) {
 	pullPolicy := a.workerImagePullPolicy
 	if pullPolicy == "" {
 		pullPolicy = "IfNotPresent"
@@ -98,11 +101,19 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 		MountPath: "/var/run/docker.sock",
 	})
 	zeroVal := int64(0)
+	workerImage := a.workerImage
+	resp, err := a.pachClient.Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
+	if err != nil {
+		return api.PodSpec{}, err
+	}
+	if resp.State != enterprise.State_ACTIVE {
+		workerImage = assets.AddRegistry("", workerImage)
+	}
 	podSpec := api.PodSpec{
 		InitContainers: []api.Container{
 			{
 				Name:            "init",
-				Image:           a.workerImage,
+				Image:           workerImage,
 				Command:         []string{"/pach/worker.sh"},
 				ImagePullPolicy: api.PullPolicy(pullPolicy),
 				Env:             options.workerEnv,
@@ -153,7 +164,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 			Requests: *options.resources,
 		}
 	}
-	return podSpec
+	return podSpec, nil
 }
 
 func (a *apiServer) getWorkerOptions(pipelineName string, rcName string,
@@ -296,6 +307,10 @@ func (a *apiServer) getWorkerOptions(pipelineName string, rcName string,
 }
 
 func (a *apiServer) createWorkerRc(options *workerOptions) error {
+	podSpec, err := a.workerPodSpec(options)
+	if err != nil {
+		return err
+	}
 	rc := &api.ReplicationController{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "ReplicationController",
@@ -315,7 +330,7 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 					Labels:      options.labels,
 					Annotations: options.annotations,
 				},
-				Spec: a.workerPodSpec(options),
+				Spec: podSpec,
 			},
 		},
 	}
