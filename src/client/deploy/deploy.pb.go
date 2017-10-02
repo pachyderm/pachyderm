@@ -36,7 +36,7 @@ var _ = math.Inf
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 type DeployStorageSecretRequest struct {
-	Secrets map[string]string `protobuf:"bytes,1,rep,name=secrets" json:"secrets,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Secrets map[string][]byte `protobuf:"bytes,1,rep,name=secrets" json:"secrets,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 }
 
 func (m *DeployStorageSecretRequest) Reset()                    { *m = DeployStorageSecretRequest{} }
@@ -44,7 +44,7 @@ func (m *DeployStorageSecretRequest) String() string            { return proto.C
 func (*DeployStorageSecretRequest) ProtoMessage()               {}
 func (*DeployStorageSecretRequest) Descriptor() ([]byte, []int) { return fileDescriptorDeploy, []int{0} }
 
-func (m *DeployStorageSecretRequest) GetSecrets() map[string]string {
+func (m *DeployStorageSecretRequest) GetSecrets() map[string][]byte {
 	if m != nil {
 		return m.Secrets
 	}
@@ -158,16 +158,22 @@ func (m *DeployStorageSecretRequest) MarshalTo(dAtA []byte) (int, error) {
 			dAtA[i] = 0xa
 			i++
 			v := m.Secrets[k]
-			mapSize := 1 + len(k) + sovDeploy(uint64(len(k))) + 1 + len(v) + sovDeploy(uint64(len(v)))
+			byteSize := 0
+			if len(v) > 0 {
+				byteSize = 1 + len(v) + sovDeploy(uint64(len(v)))
+			}
+			mapSize := 1 + len(k) + sovDeploy(uint64(len(k))) + byteSize
 			i = encodeVarintDeploy(dAtA, i, uint64(mapSize))
 			dAtA[i] = 0xa
 			i++
 			i = encodeVarintDeploy(dAtA, i, uint64(len(k)))
 			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintDeploy(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
+			if len(v) > 0 {
+				dAtA[i] = 0x12
+				i++
+				i = encodeVarintDeploy(dAtA, i, uint64(len(v)))
+				i += copy(dAtA[i:], v)
+			}
 		}
 	}
 	return i, nil
@@ -225,7 +231,11 @@ func (m *DeployStorageSecretRequest) Size() (n int) {
 		for k, v := range m.Secrets {
 			_ = k
 			_ = v
-			mapEntrySize := 1 + len(k) + sovDeploy(uint64(len(k))) + 1 + len(v) + sovDeploy(uint64(len(v)))
+			l = 0
+			if len(v) > 0 {
+				l = 1 + len(v) + sovDeploy(uint64(len(v)))
+			}
+			mapEntrySize := 1 + len(k) + sovDeploy(uint64(len(k))) + l
 			n += mapEntrySize + 1 + sovDeploy(uint64(mapEntrySize))
 		}
 	}
@@ -347,7 +357,7 @@ func (m *DeployStorageSecretRequest) Unmarshal(dAtA []byte) error {
 			mapkey := string(dAtA[iNdEx:postStringIndexmapkey])
 			iNdEx = postStringIndexmapkey
 			if m.Secrets == nil {
-				m.Secrets = make(map[string]string)
+				m.Secrets = make(map[string][]byte)
 			}
 			if iNdEx < postIndex {
 				var valuekey uint64
@@ -365,7 +375,7 @@ func (m *DeployStorageSecretRequest) Unmarshal(dAtA []byte) error {
 						break
 					}
 				}
-				var stringLenmapvalue uint64
+				var mapbyteLen uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowDeploy
@@ -375,24 +385,25 @@ func (m *DeployStorageSecretRequest) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					stringLenmapvalue |= (uint64(b) & 0x7F) << shift
+					mapbyteLen |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				intStringLenmapvalue := int(stringLenmapvalue)
-				if intStringLenmapvalue < 0 {
+				intMapbyteLen := int(mapbyteLen)
+				if intMapbyteLen < 0 {
 					return ErrInvalidLengthDeploy
 				}
-				postStringIndexmapvalue := iNdEx + intStringLenmapvalue
-				if postStringIndexmapvalue > l {
+				postbytesIndex := iNdEx + intMapbyteLen
+				if postbytesIndex > l {
 					return io.ErrUnexpectedEOF
 				}
-				mapvalue := string(dAtA[iNdEx:postStringIndexmapvalue])
-				iNdEx = postStringIndexmapvalue
+				mapvalue := make([]byte, mapbyteLen)
+				copy(mapvalue, dAtA[iNdEx:postbytesIndex])
+				iNdEx = postbytesIndex
 				m.Secrets[mapkey] = mapvalue
 			} else {
-				var mapvalue string
+				var mapvalue []byte
 				m.Secrets[mapkey] = mapvalue
 			}
 			iNdEx = postIndex
@@ -575,7 +586,7 @@ var (
 func init() { proto.RegisterFile("client/deploy/deploy.proto", fileDescriptorDeploy) }
 
 var fileDescriptorDeploy = []byte{
-	// 215 bytes of a gzipped FileDescriptorProto
+	// 218 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x4a, 0xce, 0xc9, 0x4c,
 	0xcd, 0x2b, 0xd1, 0x4f, 0x49, 0x2d, 0xc8, 0xc9, 0xaf, 0x84, 0x52, 0x7a, 0x05, 0x45, 0xf9, 0x25,
 	0xf9, 0x42, 0x6c, 0x10, 0x9e, 0xd2, 0x62, 0x46, 0x2e, 0x29, 0x17, 0x30, 0x33, 0xb8, 0x24, 0xbf,
@@ -584,10 +595,10 @@ var fileDescriptorDeploy = []byte{
 	0xaf, 0x07, 0x35, 0x06, 0xb7, 0x26, 0x3d, 0x08, 0xaf, 0xd8, 0x35, 0xaf, 0xa4, 0xa8, 0x32, 0x08,
 	0xa6, 0x5f, 0xca, 0x8a, 0x8b, 0x07, 0x59, 0x42, 0x48, 0x80, 0x8b, 0x39, 0x3b, 0xb5, 0x52, 0x82,
 	0x51, 0x81, 0x51, 0x83, 0x33, 0x08, 0xc4, 0x14, 0x12, 0xe1, 0x62, 0x2d, 0x4b, 0xcc, 0x29, 0x4d,
-	0x95, 0x60, 0x02, 0x8b, 0x41, 0x38, 0x56, 0x4c, 0x16, 0x8c, 0x4a, 0xb2, 0x5c, 0xd2, 0x58, 0xed,
-	0x2b, 0x2e, 0xc8, 0xcf, 0x2b, 0x4e, 0x35, 0x4a, 0xe7, 0x62, 0x76, 0x0c, 0xf0, 0x14, 0x4a, 0xe0,
-	0x12, 0xc6, 0xa2, 0x4a, 0x48, 0x89, 0xb0, 0x93, 0xa5, 0x94, 0xf1, 0xaa, 0x81, 0x58, 0xa3, 0xc4,
-	0xe0, 0x24, 0x70, 0xe2, 0x91, 0x1c, 0xe3, 0x85, 0x47, 0x72, 0x8c, 0x0f, 0x1e, 0xc9, 0x31, 0xce,
-	0x78, 0x2c, 0xc7, 0x90, 0xc4, 0x06, 0x0e, 0x4e, 0x63, 0x40, 0x00, 0x00, 0x00, 0xff, 0xff, 0xb6,
-	0x47, 0x68, 0xf7, 0x6c, 0x01, 0x00, 0x00,
+	0x95, 0x60, 0x52, 0x60, 0xd4, 0xe0, 0x09, 0x82, 0x70, 0xac, 0x98, 0x2c, 0x18, 0x95, 0x64, 0xb9,
+	0xa4, 0xb1, 0xda, 0x57, 0x5c, 0x90, 0x9f, 0x57, 0x9c, 0x6a, 0x94, 0xce, 0xc5, 0xec, 0x18, 0xe0,
+	0x29, 0x94, 0xc0, 0x25, 0x8c, 0x45, 0x95, 0x90, 0x12, 0x61, 0x27, 0x4b, 0x29, 0xe3, 0x55, 0x03,
+	0xb1, 0x46, 0x89, 0xc1, 0x49, 0xe0, 0xc4, 0x23, 0x39, 0xc6, 0x0b, 0x8f, 0xe4, 0x18, 0x1f, 0x3c,
+	0x92, 0x63, 0x9c, 0xf1, 0x58, 0x8e, 0x21, 0x89, 0x0d, 0x1c, 0x9c, 0xc6, 0x80, 0x00, 0x00, 0x00,
+	0xff, 0xff, 0x2d, 0x8d, 0x7f, 0xf8, 0x6c, 0x01, 0x00, 0x00,
 }
