@@ -397,7 +397,7 @@ removed.`)
 	return []*cobra.Command{deploy, undeploy}
 }
 
-func getDefaultOrLatestDashImage(string dashImage) string {
+func getDefaultOrLatestDashImage(dashImage string) string {
 	var err error
 	version := version.PrettyPrintVersion(version.Version)
 	defer func() {
@@ -420,11 +420,11 @@ func getDefaultOrLatestDashImage(string dashImage) string {
 	if err != nil {
 		return dashImage
 	}
-	allVersions = strings.Split(versions, "\n")
+	allVersions := strings.Split(string(versions), "\n")
 	if len(allVersions) < 1 {
 		return dashImage
 	}
-	latestVersion = allVersions[len(allVersions)-1]
+	latestVersion := strings.TrimSpace(allVersions[len(allVersions)-1])
 
 	return fmt.Sprintf("pachyderm/dash:%v", latestVersion)
 }
