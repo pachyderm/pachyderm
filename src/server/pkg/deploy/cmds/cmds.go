@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"net/url"
 	"os"
 	"strconv"
@@ -262,6 +264,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		Short: "Deploy a Pachyderm cluster.",
 		Long:  "Deploy a Pachyderm cluster.",
 		PersistentPreRun: cmdutil.Run(func([]string) error {
+			dashImage = getDefaultOrLatestDashImage(dashImage)
 			opts = &assets.AssetOpts{
 				PachdShards:             uint64(pachdShards),
 				Version:                 version.PrettyPrintVersion(version.Version),
@@ -288,7 +291,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
 	deploy.PersistentFlags().BoolVar(&enableDash, "dashboard", false, "Deploy the Pachyderm UI along with Pachyderm (experimental). After deployment, run \"pachctl port-forward\" to connect")
 	deploy.PersistentFlags().BoolVar(&dashOnly, "dashboard-only", false, "Only deploy the Pachyderm UI (experimental), without the rest of pachyderm. This is for launching the UI adjacent to an existing Pachyderm cluster. After deployment, run \"pachctl port-forward\" to connect")
-	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", defaultDashImage, "Image URL for pachyderm dashboard")
+	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", "", "Image URL for pachyderm dashboard")
 	deploy.AddCommand(deployLocal)
 	deploy.AddCommand(deployAmazon)
 	deploy.AddCommand(deployGoogle)
@@ -392,4 +395,36 @@ unrecoverable. If your persistent volume was manually provisioned (i.e. if
 you used the "--static-etcd-volume" flag), the underlying volume will not be
 removed.`)
 	return []*cobra.Command{deploy, undeploy}
+}
+
+func getDefaultOrLatestDashImage(string dashImage) string {
+	var err error
+	version := version.PrettyPrintVersion(version.Version)
+	defer func() {
+		if err != nil {
+			fmt.Printf("Error retrieving latest dash image for pachctl %v: %v Falling back to dash image %v\n", version, err, defaultDashImage)
+		}
+	}()
+	if dashImage != "" {
+		// It has been supplied explicitly by version on the command line
+		return dashImage
+	}
+	dashImage = defaultDashImage
+	// DEBUG ... for now use this branch by name:
+	compatibleDashVersionsURL := fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/dash_cd/etc/compatibility/%v", version)
+	resp, err := http.Get(compatibleDashVersionsURL)
+	if err != nil {
+		return dashImage
+	}
+	versions, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return dashImage
+	}
+	allVersions = strings.Split(versions, "\n")
+	if len(allVersions) < 1 {
+		return dashImage
+	}
+	latestVersion = allVersions[len(allVersions)-1]
+
+	return fmt.Sprintf("pachyderm/dash:%v", latestVersion)
 }
