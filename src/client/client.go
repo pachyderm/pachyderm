@@ -15,6 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/deploy"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/health"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -43,12 +44,16 @@ type ObjectAPIClient pfs.ObjectAPIClient
 // AuthAPIClient is an alias of auth.APIClient
 type AuthAPIClient auth.APIClient
 
+// DeployAPIClient is an alias of auth.APIClient
+type DeployAPIClient deploy.APIClient
+
 // An APIClient is a wrapper around pfs, pps and block APIClients.
 type APIClient struct {
 	PfsAPIClient
 	PpsAPIClient
 	ObjectAPIClient
 	AuthAPIClient
+	DeployAPIClient
 	Enterprise enterprise.APIClient // not embedded--method name conflicts with AuthAPIClient
 
 	// addr is a "host:port" string pointing at a pachd endpoint
@@ -250,11 +255,12 @@ func (c *APIClient) connect() error {
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
-	c.AuthAPIClient = auth.NewAPIClient(clientConn)
 	c.PfsAPIClient = pfs.NewAPIClient(clientConn)
 	c.PpsAPIClient = pps.NewAPIClient(clientConn)
 	c.ObjectAPIClient = pfs.NewObjectAPIClient(clientConn)
+	c.AuthAPIClient = auth.NewAPIClient(clientConn)
 	c.Enterprise = enterprise.NewAPIClient(clientConn)
+	c.DeployAPIClient = deploy.NewAPIClient(clientConn)
 	c.clientConn = clientConn
 	c.healthClient = health.NewHealthClient(clientConn)
 	return nil
