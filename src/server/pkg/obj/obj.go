@@ -54,9 +54,6 @@ func NewGoogleClient(ctx context.Context, bucket string) (Client, error) {
 func readSecretFile(name string) (string, error) {
 	bytes, err := ioutil.ReadFile(filepath.Join("/", client.StorageSecretName, name))
 	if err != nil {
-		if os.IsNotExist(err) {
-			return "", fmt.Errorf("secret %v not found", name)
-		}
 		return "", err
 	}
 	return string(bytes), nil
@@ -70,7 +67,7 @@ func NewGoogleClientFromSecret(ctx context.Context, bucket string) (Client, erro
 	if bucket == "" {
 		bucket, err = readSecretFile("/google-bucket")
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("google-bucket not found")
 		}
 	}
 	return NewGoogleClient(ctx, bucket)
@@ -92,16 +89,16 @@ func NewMicrosoftClientFromSecret(container string) (Client, error) {
 	if container == "" {
 		container, err = readSecretFile("/microsoft-container")
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("microsoft-container not found")
 		}
 	}
 	id, err := readSecretFile("/microsoft-id")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("microsoft-id not found")
 	}
 	secret, err := readSecretFile("/microsoft-secret")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("microsoft-secret not found")
 	}
 	return NewMicrosoftClient(container, id, secret)
 }
@@ -194,7 +191,7 @@ func NewAmazonClientFromSecret(bucket string) (Client, error) {
 	// region is required for constructing an AWS client
 	region, err := readSecretFile("/amazon-region")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("amazon-region not found")
 	}
 	return NewAmazonClient(bucket, distribution, id, secret, token, region)
 }
