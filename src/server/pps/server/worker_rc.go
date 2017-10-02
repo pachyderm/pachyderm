@@ -102,7 +102,11 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (api.PodSpec, error) {
 	})
 	zeroVal := int64(0)
 	workerImage := a.workerImage
-	resp, err := a.pachClient.Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
+	pachClient, err := a.getPachClient()
+	if err != nil {
+		return api.PodSpec{}, err
+	}
+	resp, err := pachClient.Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
 	if err != nil {
 		return api.PodSpec{}, err
 	}
