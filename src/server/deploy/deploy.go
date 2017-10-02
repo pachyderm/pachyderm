@@ -31,6 +31,9 @@ func (s *apiServer) DeployStorageSecret(ctx context.Context, req *deploy.DeployS
 	}
 
 	// merge the secrets
+	if secret.Data == nil {
+		secret.Data = make(map[string][]byte)
+	}
 	for key, val := range req.Secrets {
 		secret.Data[key] = val
 	}
