@@ -394,7 +394,40 @@ removed, making metadata such repos, commits, pipelines, and jobs
 unrecoverable. If your persistent volume was manually provisioned (i.e. if
 you used the "--static-etcd-volume" flag), the underlying volume will not be
 removed.`)
-	return []*cobra.Command{deploy, undeploy}
+
+	var updateDashDryRun bool
+	updateDash := &cobra.Command{
+		Use:   "update-dash",
+		Short: "Update and redeploy the Pachyderm Dashboard at the latest compatible version.",
+		Long:  "Update and redeploy the Pachyderm Dashboard at the latest compatible version.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			// Undeploy the dash
+			if !updateDashDryRun {
+				io := cmdutil.IO{
+					Stdout: os.Stdout,
+					Stderr: os.Stderr,
+				}
+				if err := cmdutil.RunIO(io, "kubectl", "delete", "deploy", "-l", "suite=pachyderm,app=dash"); err != nil {
+					return err
+				}
+				if err := cmdutil.RunIO(io, "kubectl", "delete", "svc", "-l", "suite=pachyderm,app=dash"); err != nil {
+					return err
+				}
+			}
+			// Redeploy the dash
+			manifest := &bytes.Buffer{}
+			dashImage := getDefaultOrLatestDashImage("")
+			opts := &assets.AssetOpts{
+				DashOnly:  true,
+				DashImage: dashImage,
+			}
+			assets.WriteDashboardAssets(manifest, opts)
+			return maybeKcCreate(updateDashDryRun, manifest, opts)
+		}),
+	}
+	updateDash.Flags().BoolVar(&updateDashDryRun, "dry-run", false, "Don't actually deploy Pachyderm Dash to Kubernetes, instead just print the manifest.")
+
+	return []*cobra.Command{deploy, undeploy, updateDash}
 }
 
 func getDefaultOrLatestDashImage(dashImage string) string {
