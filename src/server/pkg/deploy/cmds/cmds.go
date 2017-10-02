@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/deploy"
+	deployclient "github.com/pachyderm/pachyderm/src/client/deploy"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
@@ -268,13 +268,13 @@ Deploy credentials for a particular storage provider, so that Pachyderm can
 ingress data from and egress data to it.  Currently three backends are
 supported: aws, google, and azure.  To see the required arguments for a
 particular backend, run "pachctl deploy storage <backend>"`,
-		Run: cmdutil.RunBoundedArgs(2, 5, func(args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(1, 5, func(args []string) (retErr error) {
 			var data map[string][]byte
 			switch args[0] {
 			case "aws":
 				// Need at least 4 arguments: backend, bucket, id, secret
 				if len(args) < 4 {
-					return fmt.Errorf("Usage: pachctl deploy storage amazon <region> <id> <secret> <token>\n\n<token> is optional")
+					return fmt.Errorf("Usage: pachctl deploy storage aws <region> <id> <secret> <token>\n\n<token> is optional")
 				}
 				var token string
 				if len(args) == 5 {
@@ -288,7 +288,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 				if len(args) != 3 {
 					return fmt.Errorf("Usage: pachctl deploy storage azure <account name> <account key>")
 				}
-				data := assets.MicrosoftSecret("", args[1], args[2])
+				data = assets.MicrosoftSecret("", args[1], args[2])
 			}
 
 			c, err := client.NewOnUserMachine(metrics, "user")
@@ -296,12 +296,13 @@ particular backend, run "pachctl deploy storage <backend>"`,
 				return fmt.Errorf("error constructing pachyderm client: %v", err)
 			}
 
-			_, err := c.DeployStorageSecret(context.Background(), deploy.DeployStorageSecret{
+			_, err = c.DeployStorageSecret(context.Background(), &deployclient.DeployStorageSecretRequest{
 				Secrets: data,
 			})
 			if err != nil {
 				return fmt.Errorf("error deploying storage secret to pachd: %v", err)
 			}
+			return nil
 		}),
 	}
 
