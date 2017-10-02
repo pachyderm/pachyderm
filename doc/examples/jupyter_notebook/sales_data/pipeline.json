@@ -7,12 +7,10 @@
     "cmd": [ "/sales" ],
     "stdin": []
   },
-  "inputs": [
-    {
-      "repo": {
-        "name": "trips"
-      },
-      "method": "global"
+  "input": {
+    "atom": {
+      "repo": "trips",
+      "glob": "/"
     }
-  ]
+  }
 }
