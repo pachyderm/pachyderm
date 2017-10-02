@@ -18,7 +18,7 @@ This allows us to retrieve the lastest dash image a user can use with their vers
 
 ```
 # Easy upgrades
-pachctl deploy --upgrade-dash
+pachctl update-dash
 # Implicit upgrades each time deploy is used
 pachctl deploy ...
 
