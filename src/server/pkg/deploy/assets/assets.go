@@ -896,33 +896,22 @@ func DashService() *v1.Service {
 //   secret - S3 secret access key
 //   endpoint  - S3 compatible endpoint
 //   secure - set to true for a secure connection.
-func MinioSecret(bucket string, id string, secret string, endpoint string, secure bool) *api.Secret {
+func MinioSecret(bucket string, id string, secret string, endpoint string, secure bool) map[string][]byte {
 	secureV := "0"
 	if secure {
 		secureV = "1"
 	}
-	return &api.Secret{
-		TypeMeta: unversioned.TypeMeta{
-			Kind:       "Secret",
-			APIVersion: "v1",
-		},
-		ObjectMeta: api.ObjectMeta{
-			Name:   client.StorageSecretName,
-			Labels: labels(client.StorageSecretName),
-		},
-		Data: map[string][]byte{
-			"minio-bucket":   []byte(bucket),
-			"minio-id":       []byte(id),
-			"minio-secret":   []byte(secret),
-			"minio-endpoint": []byte(endpoint),
-			"minio-secure":   []byte(secureV),
-		},
+	return map[string][]byte{
+		"minio-bucket":   []byte(bucket),
+		"minio-id":       []byte(id),
+		"minio-secret":   []byte(secret),
+		"minio-endpoint": []byte(endpoint),
+		"minio-secure":   []byte(secureV),
 	}
 }
 
-// LocalSecret creates an empty secret.
-func LocalSecret() *api.Secret {
-	return &api.Secret{
+func WriteSecret(w io.Writer, data map[string][]byte) {
+	secret := &api.Secret{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Secret",
 			APIVersion: "v1",
@@ -931,7 +920,16 @@ func LocalSecret() *api.Secret {
 			Name:   client.StorageSecretName,
 			Labels: labels(client.StorageSecretName),
 		},
+		Data: data,
 	}
+	encoder := codec.NewEncoder(w, jsonEncoderHandle)
+	secret.CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
+}
+
+// LocalSecret creates an empty secret.
+func LocalSecret() map[string][]byte {
+	return nil
 }
 
 // AmazonSecret creates an amazon secret with the following parameters:
@@ -940,41 +938,21 @@ func LocalSecret() *api.Secret {
 //   secret - AWS secret access key
 //   token  - AWS access token
 //   region - AWS region
-func AmazonSecret(bucket string, distribution string, id string, secret string, token string, region string) *api.Secret {
-	return &api.Secret{
-		TypeMeta: unversioned.TypeMeta{
-			Kind:       "Secret",
-			APIVersion: "v1",
-		},
-		ObjectMeta: api.ObjectMeta{
-			Name:   client.StorageSecretName,
-			Labels: labels(client.StorageSecretName),
-		},
-		Data: map[string][]byte{
-			"amazon-bucket":       []byte(bucket),
-			"amazon-distribution": []byte(distribution),
-			"amazon-id":           []byte(id),
-			"amazon-secret":       []byte(secret),
-			"amazon-token":        []byte(token),
-			"amazon-region":       []byte(region),
-		},
+func AmazonSecret(bucket string, distribution string, id string, secret string, token string, region string) map[string][]byte {
+	return map[string][]byte{
+		"amazon-bucket":       []byte(bucket),
+		"amazon-distribution": []byte(distribution),
+		"amazon-id":           []byte(id),
+		"amazon-secret":       []byte(secret),
+		"amazon-token":        []byte(token),
+		"amazon-region":       []byte(region),
 	}
 }
 
 // GoogleSecret creates a google secret with a bucket name.
-func GoogleSecret(bucket string) *api.Secret {
-	return &api.Secret{
-		TypeMeta: unversioned.TypeMeta{
-			Kind:       "Secret",
-			APIVersion: "v1",
-		},
-		ObjectMeta: api.ObjectMeta{
-			Name:   client.StorageSecretName,
-			Labels: labels(client.StorageSecretName),
-		},
-		Data: map[string][]byte{
-			"google-bucket": []byte(bucket),
-		},
+func GoogleSecret(bucket string) map[string][]byte {
+	return map[string][]byte{
+		"google-bucket": []byte(bucket),
 	}
 }
 
@@ -982,21 +960,11 @@ func GoogleSecret(bucket string) *api.Secret {
 //   container - Azure blob container
 //   id    	   - Azure storage account name
 //   secret    - Azure storage account key
-func MicrosoftSecret(container string, id string, secret string) *api.Secret {
-	return &api.Secret{
-		TypeMeta: unversioned.TypeMeta{
-			Kind:       "Secret",
-			APIVersion: "v1",
-		},
-		ObjectMeta: api.ObjectMeta{
-			Name:   client.StorageSecretName,
-			Labels: labels(client.StorageSecretName),
-		},
-		Data: map[string][]byte{
-			"microsoft-container": []byte(container),
-			"microsoft-id":        []byte(id),
-			"microsoft-secret":    []byte(secret),
-		},
+func MicrosoftSecret(container string, id string, secret string) map[string][]byte {
+	return map[string][]byte{
+		"microsoft-container": []byte(container),
+		"microsoft-id":        []byte(id),
+		"microsoft-secret":    []byte(secret),
 	}
 }
 
@@ -1087,9 +1055,7 @@ func WriteLocalAssets(w io.Writer, opts *AssetOpts, hostPath string) error {
 	if err := WriteAssets(w, opts, localBackend, localBackend, 1 /* = volume size (gb) */, hostPath); err != nil {
 		return err
 	}
-	encoder := codec.NewEncoder(w, jsonEncoderHandle)
-	LocalSecret().CodecEncodeSelf(encoder)
-	fmt.Fprintf(w, "\n")
+	WriteSecret(w, LocalSecret())
 	return nil
 }
 
@@ -1121,9 +1087,7 @@ func WriteCustomAssets(w io.Writer, opts *AssetOpts, args []string, objectStoreB
 		default:
 			return fmt.Errorf("Did not recognize the choice of persistent-disk")
 		}
-		encoder := codec.NewEncoder(w, jsonEncoderHandle)
-		MinioSecret(args[2], args[3], args[4], args[5], secure).CodecEncodeSelf(encoder)
-		fmt.Fprintf(w, "\n")
+		WriteSecret(w, MinioSecret(args[2], args[3], args[4], args[5], secure))
 		return nil
 	default:
 		return fmt.Errorf("Did not recognize the choice of object-store")
@@ -1136,9 +1100,7 @@ func WriteAmazonAssets(w io.Writer, opts *AssetOpts, bucket string, id string, s
 	if err := WriteAssets(w, opts, amazonBackend, amazonBackend, volumeSize, ""); err != nil {
 		return err
 	}
-	encoder := codec.NewEncoder(w, jsonEncoderHandle)
-	AmazonSecret(bucket, distribution, id, secret, token, region).CodecEncodeSelf(encoder)
-	fmt.Fprintf(w, "\n")
+	WriteSecret(w, AmazonSecret(bucket, distribution, id, secret, token, region))
 	return nil
 }
 
@@ -1147,9 +1109,7 @@ func WriteGoogleAssets(w io.Writer, opts *AssetOpts, bucket string, volumeSize i
 	if err := WriteAssets(w, opts, googleBackend, googleBackend, volumeSize, ""); err != nil {
 		return err
 	}
-	encoder := codec.NewEncoder(w, jsonEncoderHandle)
-	GoogleSecret(bucket).CodecEncodeSelf(encoder)
-	fmt.Fprintf(w, "\n")
+	WriteSecret(w, GoogleSecret(bucket))
 	return nil
 }
 
@@ -1158,9 +1118,7 @@ func WriteMicrosoftAssets(w io.Writer, opts *AssetOpts, container string, id str
 	if err := WriteAssets(w, opts, microsoftBackend, microsoftBackend, volumeSize, ""); err != nil {
 		return err
 	}
-	encoder := codec.NewEncoder(w, jsonEncoderHandle)
-	MicrosoftSecret(container, id, secret).CodecEncodeSelf(encoder)
-	fmt.Fprintf(w, "\n")
+	WriteSecret(w, MicrosoftSecret(container, id, secret))
 	return nil
 }
 
