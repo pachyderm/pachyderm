@@ -420,7 +420,7 @@ func getDefaultOrLatestDashImage(dashImage string) string {
 	if err != nil {
 		return dashImage
 	}
-	allVersions := strings.Split(string(versions), "\n")
+	allVersions := strings.Split(strings.TrimSpace(string(versions)), "\n")
 	if len(allVersions) < 1 {
 		return dashImage
 	}
