@@ -282,7 +282,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 				}
 				data = assets.AmazonSecret("", "", args[2], args[3], token, args[1])
 			case "google":
-				return fmt.Errorf("Deploying credentials for GCS storage is not currently supported.")
+				return fmt.Errorf("deploying credentials for GCS storage is not currently supported")
 			case "azure":
 				// Need 3 arguments: backend, account name, account key
 				if len(args) != 3 {

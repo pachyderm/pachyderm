@@ -15,6 +15,7 @@ type apiServer struct {
 	kubeNamespace string
 }
 
+// NewDeployServer creates a deploy server
 func NewDeployServer(kubeClient *kube.Client, kubeNamespace string) deploy.APIServer {
 	return &apiServer{
 		kubeClient:    kubeClient,
