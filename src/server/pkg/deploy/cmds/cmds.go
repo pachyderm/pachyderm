@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -443,17 +444,20 @@ func getDefaultOrLatestDashImage(dashImage string) string {
 		return dashImage
 	}
 	dashImage = defaultDashImage
-	// DEBUG ... for now use this branch by name:
-	compatibleDashVersionsURL := fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/dash_cd/etc/compatibility/%v", version)
+	compatibleDashVersionsURL := fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/master/etc/compatibility/%v", version)
 	resp, err := http.Get(compatibleDashVersionsURL)
 	if err != nil {
 		return dashImage
 	}
-	versions, err := ioutil.ReadAll(resp.Body)
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return dashImage
 	}
-	allVersions := strings.Split(strings.TrimSpace(string(versions)), "\n")
+	if resp.StatusCode != 200 {
+		err = errors.New(string(body))
+		return dashImage
+	}
+	allVersions := strings.Split(strings.TrimSpace(string(body)), "\n")
 	if len(allVersions) < 1 {
 		return dashImage
 	}
