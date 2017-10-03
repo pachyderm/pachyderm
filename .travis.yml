@@ -18,6 +18,7 @@ before_script:
 script:
 - make lint vet
 - ./etc/testing/travis.sh
+- kubectl get all
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
   email:
