@@ -19,6 +19,7 @@ script:
 - make lint vet
 - ./etc/testing/travis.sh
 - kubectl get all
+- kubectl describe pod -l app=pachd
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
   email:
