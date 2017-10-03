@@ -265,7 +265,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		Short: "Deploy a Pachyderm cluster.",
 		Long:  "Deploy a Pachyderm cluster.",
 		PersistentPreRun: cmdutil.Run(func([]string) error {
-			dashImage = getDefaultOrLatestDashImage(dashImage)
+			dashImage = getDefaultOrLatestDashImage(dashImage, dryRun)
 			opts = &assets.AssetOpts{
 				PachdShards:             uint64(pachdShards),
 				Version:                 version.PrettyPrintVersion(version.Version),
@@ -417,7 +417,7 @@ removed.`)
 			}
 			// Redeploy the dash
 			manifest := &bytes.Buffer{}
-			dashImage := getDefaultOrLatestDashImage("")
+			dashImage := getDefaultOrLatestDashImage("", updateDashDryRun)
 			opts := &assets.AssetOpts{
 				DashOnly:  true,
 				DashImage: dashImage,
@@ -431,11 +431,11 @@ removed.`)
 	return []*cobra.Command{deploy, undeploy, updateDash}
 }
 
-func getDefaultOrLatestDashImage(dashImage string) string {
+func getDefaultOrLatestDashImage(dashImage string, dryRun bool) string {
 	var err error
 	version := version.PrettyPrintVersion(version.Version)
 	defer func() {
-		if err != nil {
+		if err != nil && !dryRun {
 			fmt.Printf("Error retrieving latest dash image for pachctl %v: %v Falling back to dash image %v\n", version, err, defaultDashImage)
 		}
 	}()
