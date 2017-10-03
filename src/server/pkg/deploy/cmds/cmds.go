@@ -435,7 +435,7 @@ removed.`)
 				DashImage: dashImage,
 			}
 			assets.WriteDashboardAssets(manifest, opts)
-			return maybeKcCreate(updateDashDryRun, manifest, opts)
+			return maybeKcCreate(updateDashDryRun, manifest, opts, false)
 		}),
 	}
 	updateDash.Flags().BoolVar(&updateDashDryRun, "dry-run", false, "Don't actually deploy Pachyderm Dash to Kubernetes, instead just print the manifest.")
