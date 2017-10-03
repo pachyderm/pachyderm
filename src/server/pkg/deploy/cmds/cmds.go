@@ -5,7 +5,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"net/url"
 	"os"
 	"strconv"
@@ -323,6 +326,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 		Short: "Deploy a Pachyderm cluster.",
 		Long:  "Deploy a Pachyderm cluster.",
 		PersistentPreRun: cmdutil.Run(func([]string) error {
+			dashImage = getDefaultOrLatestDashImage(dashImage, dryRun)
 			opts = &assets.AssetOpts{
 				PachdShards:             uint64(pachdShards),
 				Version:                 version.PrettyPrintVersion(version.Version),
@@ -349,7 +353,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
 	deploy.PersistentFlags().BoolVar(&enableDash, "dashboard", false, "Deploy the Pachyderm UI along with Pachyderm (experimental). After deployment, run \"pachctl port-forward\" to connect")
 	deploy.PersistentFlags().BoolVar(&dashOnly, "dashboard-only", false, "Only deploy the Pachyderm UI (experimental), without the rest of pachyderm. This is for launching the UI adjacent to an existing Pachyderm cluster. After deployment, run \"pachctl port-forward\" to connect")
-	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", defaultDashImage, "Image URL for pachyderm dashboard")
+	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", "", "Image URL for pachyderm dashboard")
 	deploy.AddCommand(deployLocal)
 	deploy.AddCommand(deployAmazon)
 	deploy.AddCommand(deployGoogle)
@@ -453,5 +457,73 @@ removed, making metadata such repos, commits, pipelines, and jobs
 unrecoverable. If your persistent volume was manually provisioned (i.e. if
 you used the "--static-etcd-volume" flag), the underlying volume will not be
 removed.`)
-	return []*cobra.Command{deploy, undeploy}
+
+	var updateDashDryRun bool
+	updateDash := &cobra.Command{
+		Use:   "update-dash",
+		Short: "Update and redeploy the Pachyderm Dashboard at the latest compatible version.",
+		Long:  "Update and redeploy the Pachyderm Dashboard at the latest compatible version.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			// Undeploy the dash
+			if !updateDashDryRun {
+				io := cmdutil.IO{
+					Stdout: os.Stdout,
+					Stderr: os.Stderr,
+				}
+				if err := cmdutil.RunIO(io, "kubectl", "delete", "deploy", "-l", "suite=pachyderm,app=dash"); err != nil {
+					return err
+				}
+				if err := cmdutil.RunIO(io, "kubectl", "delete", "svc", "-l", "suite=pachyderm,app=dash"); err != nil {
+					return err
+				}
+			}
+			// Redeploy the dash
+			manifest := &bytes.Buffer{}
+			dashImage := getDefaultOrLatestDashImage("", updateDashDryRun)
+			opts := &assets.AssetOpts{
+				DashOnly:  true,
+				DashImage: dashImage,
+			}
+			assets.WriteDashboardAssets(manifest, opts)
+			return maybeKcCreate(updateDashDryRun, manifest, opts, false)
+		}),
+	}
+	updateDash.Flags().BoolVar(&updateDashDryRun, "dry-run", false, "Don't actually deploy Pachyderm Dash to Kubernetes, instead just print the manifest.")
+
+	return []*cobra.Command{deploy, undeploy, updateDash}
+}
+
+func getDefaultOrLatestDashImage(dashImage string, dryRun bool) string {
+	var err error
+	version := version.PrettyPrintVersion(version.Version)
+	defer func() {
+		if err != nil && !dryRun {
+			fmt.Printf("Error retrieving latest dash image for pachctl %v: %v Falling back to dash image %v\n", version, err, defaultDashImage)
+		}
+	}()
+	if dashImage != "" {
+		// It has been supplied explicitly by version on the command line
+		return dashImage
+	}
+	dashImage = defaultDashImage
+	compatibleDashVersionsURL := fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/master/etc/compatibility/%v", version)
+	resp, err := http.Get(compatibleDashVersionsURL)
+	if err != nil {
+		return dashImage
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return dashImage
+	}
+	if resp.StatusCode != 200 {
+		err = errors.New(string(body))
+		return dashImage
+	}
+	allVersions := strings.Split(strings.TrimSpace(string(body)), "\n")
+	if len(allVersions) < 1 {
+		return dashImage
+	}
+	latestVersion := strings.TrimSpace(allVersions[len(allVersions)-1])
+
+	return fmt.Sprintf("pachyderm/dash:%v", latestVersion)
 }
