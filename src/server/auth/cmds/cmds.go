@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"text/template"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
@@ -17,32 +18,67 @@ import (
 
 var githubAuthLink = `https://github.com/login/oauth/authorize?client_id=d3481e92b4f09ea74ff8&redirect_uri=https%3A%2F%2Fpachyderm.io%2Flogin-hook%2Fdisplay-token.html`
 
+func githubLogin() (string, error) {
+	fmt.Println("(1) Please paste this link into a browser:\n\n" +
+		githubAuthLink + "\n\n" +
+		"(You will be directed to GitHub and asked to authorize Pachyderm's " +
+		"login app on Github. If you accept, you will be given a token to " +
+		"paste here, which will give you an externally verified account in " +
+		"this Pachyderm cluster)\n\n(2) Please paste the token you receive " +
+		"from GitHub here:")
+	token, err := bufio.NewReader(os.Stdin).ReadString('\n')
+	if err != nil {
+		return "", fmt.Errorf("error reading token: %v", err)
+	}
+	return strings.TrimSpace(token), nil // drop trailing newline
+}
+
+func writePachTokenToCfg(token string) error {
+	cfg, err := config.Read()
+	if err != nil {
+		return fmt.Errorf("error reading Pachyderm config (for cluster "+
+			"address): %v", err)
+	}
+	if cfg.V1 == nil {
+		cfg.V1 = &config.ConfigV1{}
+	}
+	cfg.V1.SessionToken = token
+	return cfg.Write()
+}
+
 // ActivateCmd returns a cobra.Command to activate Pachyderm's auth system
 func ActivateCmd() *cobra.Command {
-	var admins []string
+	var username string
 	activate := &cobra.Command{
-		Use:   "activate --admins=[admins...]",
+		Use:   "activate",
 		Short: "Activate Pachyderm's auth system",
 		Long:  "Activate Pachyderm's auth system, and restrict access to existing data to cluster admins",
 		Run: cmdutil.Run(func(args []string) error {
-			if len(admins) == 0 {
-				return fmt.Errorf("must specify at least one cluster admin to enable " +
-					"auth")
+			token, err := githubLogin()
+			if err != nil {
+				return err
 			}
+			fmt.Println("Retrieving Pachyderm token...")
+
+			// Exchange GitHub token for Pachyderm token
 			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
-			_, err = c.Activate(c.Ctx(), &auth.ActivateRequest{
-				Admins: admins,
-			})
-			return grpcutil.ScrubGRPC(err)
+			resp, err := c.Activate(
+				c.Ctx(),
+				&auth.ActivateRequest{GithubUsername: username, GithubToken: token})
+			if err != nil {
+				return fmt.Errorf("error activating Pachyderm auth: %v",
+					grpcutil.ScrubGRPC(err))
+			}
+			return writePachTokenToCfg(resp.PachToken)
 		}),
 	}
-	activate.PersistentFlags().StringSliceVar(&admins, "admins", []string{},
-		"Comma-separated list of GitHub usernames. These users will be the initial "+
-			"cluster admins (must be nonempty, as any Pachyderm cluster with auth "+
-			"activated must have at least one admin.")
+	activate.PersistentFlags().StringVarP(&username, "user", "u", "", "GitHub "+
+		"username of the user activating auth. If set, the GitHub authorization "+
+		"code will be used to verify posession of this account. If unset, the "+
+		"username will be inferred from the GitHub authorization code")
 	return activate
 }
 
@@ -85,24 +121,13 @@ func LoginCmd() *cobra.Command {
 			"have been restricted to the email address registered with your GitHub " +
 			"account will subsequently be accessible.",
 		Run: cmdutil.Run(func([]string) error {
-			fmt.Println("(1) Please paste this link into a browser:\n\n" +
-				githubAuthLink + "\n\n" +
-				"(You will be directed to GitHub and asked to authorize Pachyderm's " +
-				"login app on Github. If you accept, you will be given a token to " +
-				"paste here, which will give you an externally verified account in " +
-				"this Pachyderm cluster)\n\n(2) Please paste the token you receive " +
-				"from GitHub here:")
-			token, err := bufio.NewReader(os.Stdin).ReadString('\n')
+			token, err := githubLogin()
 			if err != nil {
-				return fmt.Errorf("error reading token: %v", err)
+				return err
 			}
 			fmt.Println("Retrieving Pachyderm token...")
-			token = strings.TrimSpace(token) // drop trailing newline
-			cfg, err := config.Read()
-			if err != nil {
-				return fmt.Errorf("error reading Pachyderm config (for cluster "+
-					"address): %v", err)
-			}
+
+			// Exchange GitHub token for Pachyderm token
 			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
@@ -114,16 +139,13 @@ func LoginCmd() *cobra.Command {
 				return fmt.Errorf("error authenticating with Pachyderm cluster: %v",
 					grpcutil.ScrubGRPC(err))
 			}
-			if cfg.V1 == nil {
-				cfg.V1 = &config.ConfigV1{}
-			}
-			cfg.V1.SessionToken = resp.PachToken
-			return cfg.Write()
+			return writePachTokenToCfg(resp.PachToken)
 		}),
 	}
 	login.PersistentFlags().StringVarP(&username, "user", "u", "", "GitHub "+
-		"username of the user logging in. If unset, the username will be inferred "+
-		"from the github authorization code")
+		"username of the user logging in.  If set, the GitHub authorization code "+
+		"will be used to verify posession of this account.If unset, the username "+
+		"will be inferred from the github authorization code")
 	return login
 }
 
@@ -240,8 +262,9 @@ func GetCmd() *cobra.Command {
 				if err != nil {
 					return grpcutil.ScrubGRPC(err)
 				}
-				fmt.Println(resp.ACL.String())
-				return nil
+				t := template.Must(template.New("ACLEntries").Parse(
+					"{{range .}}{{.Username }}: {{.Scope}}\n{{end}}"))
+				return t.Execute(os.Stdout, resp.Entries)
 			}
 			// Get User's scope on an acl
 			username, repo := args[0], args[1]

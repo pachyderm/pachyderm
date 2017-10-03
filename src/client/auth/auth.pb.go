@@ -21,7 +21,6 @@
 		AuthenticateResponse
 		WhoAmIRequest
 		WhoAmIResponse
-		ACLEntry
 		ACL
 		AuthorizeRequest
 		AuthorizeResponse
@@ -30,6 +29,7 @@
 		SetScopeRequest
 		SetScopeResponse
 		GetACLRequest
+		ACLEntry
 		GetACLResponse
 		SetACLRequest
 		SetACLResponse
@@ -95,18 +95,18 @@ type User_UserType int32
 
 const (
 	User_INVALID  User_UserType = 0
-	User_HUMAN    User_UserType = 1
+	User_GITHUB   User_UserType = 1
 	User_PIPELINE User_UserType = 2
 )
 
 var User_UserType_name = map[int32]string{
 	0: "INVALID",
-	1: "HUMAN",
+	1: "GITHUB",
 	2: "PIPELINE",
 }
 var User_UserType_value = map[string]int32{
 	"INVALID":  0,
-	"HUMAN":    1,
+	"GITHUB":   1,
 	"PIPELINE": 2,
 }
 
@@ -115,11 +115,18 @@ func (x User_UserType) String() string {
 }
 func (User_UserType) EnumDescriptor() ([]byte, []int) { return fileDescriptorAuth, []int{8, 0} }
 
+// ActivateRequest mirrors AuthenticateRequest. The caller is authenticated via
+// GitHub OAuth, and then promoted to the cluster's first Admin. Afterwards, the
+// caller can promote other users to Admin and remove themselves
 type ActivateRequest struct {
-	// An initial list of cluster administraters. Pachyderm requires that if its
-	// auth system is activated, the cluster must have at least one
-	// administrator
-	Admins []string `protobuf:"bytes,2,rep,name=admins" json:"admins,omitempty"`
+	// If set, Pachyderm will compare this username to the GitHub account that
+	// issued the access token 'github_token'. For now, this is not required
+	// (if unset, your GitHub username will be looked up using 'github_token')
+	GithubUsername string `protobuf:"bytes,2,opt,name=github_username,json=githubUsername,proto3" json:"github_username,omitempty"`
+	// This is the token returned by GitHub and used to authenticate the caller.
+	// In dev mode, the caller may set "github_username" without setting this to
+	// simulate logins
+	GithubToken string `protobuf:"bytes,1,opt,name=github_token,json=githubToken,proto3" json:"github_token,omitempty"`
 }
 
 func (m *ActivateRequest) Reset()                    { *m = ActivateRequest{} }
@@ -127,20 +134,38 @@ func (m *ActivateRequest) String() string            { return proto.CompactTextS
 func (*ActivateRequest) ProtoMessage()               {}
 func (*ActivateRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{0} }
 
-func (m *ActivateRequest) GetAdmins() []string {
+func (m *ActivateRequest) GetGithubUsername() string {
 	if m != nil {
-		return m.Admins
+		return m.GithubUsername
 	}
-	return nil
+	return ""
+}
+
+func (m *ActivateRequest) GetGithubToken() string {
+	if m != nil {
+		return m.GithubToken
+	}
+	return ""
 }
 
 type ActivateResponse struct {
+	// pach_token authenticates the caller with Pachyderm (if you want to perform
+	// Pachyderm operations after auth has been activated as themselves, you must
+	// present this token along with your regular request)
+	PachToken string `protobuf:"bytes,1,opt,name=pach_token,json=pachToken,proto3" json:"pach_token,omitempty"`
 }
 
 func (m *ActivateResponse) Reset()                    { *m = ActivateResponse{} }
 func (m *ActivateResponse) String() string            { return proto.CompactTextString(m) }
 func (*ActivateResponse) ProtoMessage()               {}
 func (*ActivateResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{1} }
+
+func (m *ActivateResponse) GetPachToken() string {
+	if m != nil {
+		return m.PachToken
+	}
+	return ""
+}
 
 type DeactivateRequest struct {
 }
@@ -246,7 +271,10 @@ type AuthenticateRequest struct {
 	// issued the access token 'github_token'. For now, this is not required
 	// (if unset, your GitHub username will be looked up using 'github_token')
 	GithubUsername string `protobuf:"bytes,2,opt,name=github_username,json=githubUsername,proto3" json:"github_username,omitempty"`
-	GithubToken    string `protobuf:"bytes,1,opt,name=github_token,json=githubToken,proto3" json:"github_token,omitempty"`
+	// This is the token returned by GitHub and used to authenticate the caller.
+	// In dev mode, the caller may set "github_username" without setting this to
+	// simulate logins
+	GithubToken string `protobuf:"bytes,1,opt,name=github_token,json=githubToken,proto3" json:"github_token,omitempty"`
 }
 
 func (m *AuthenticateRequest) Reset()                    { *m = AuthenticateRequest{} }
@@ -269,6 +297,9 @@ func (m *AuthenticateRequest) GetGithubToken() string {
 }
 
 type AuthenticateResponse struct {
+	// pach_token authenticates the caller with Pachyderm (if you want to perform
+	// Pachyderm operations after auth has been activated as themselves, you must
+	// present this token along with your regular request)
 	PachToken string `protobuf:"bytes,1,opt,name=pach_token,json=pachToken,proto3" json:"pach_token,omitempty"`
 }
 
@@ -316,30 +347,6 @@ func (m *WhoAmIResponse) GetIsAdmin() bool {
 	return false
 }
 
-type ACLEntry struct {
-	Username string `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
-	Scope    Scope  `protobuf:"varint,2,opt,name=scope,proto3,enum=auth.Scope" json:"scope,omitempty"`
-}
-
-func (m *ACLEntry) Reset()                    { *m = ACLEntry{} }
-func (m *ACLEntry) String() string            { return proto.CompactTextString(m) }
-func (*ACLEntry) ProtoMessage()               {}
-func (*ACLEntry) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{13} }
-
-func (m *ACLEntry) GetUsername() string {
-	if m != nil {
-		return m.Username
-	}
-	return ""
-}
-
-func (m *ACLEntry) GetScope() Scope {
-	if m != nil {
-		return m.Scope
-	}
-	return Scope_NONE
-}
-
 type ACL struct {
 	// username -> scope
 	Entries map[string]Scope `protobuf:"bytes,1,rep,name=entries" json:"entries,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3,enum=auth.Scope"`
@@ -348,7 +355,7 @@ type ACL struct {
 func (m *ACL) Reset()                    { *m = ACL{} }
 func (m *ACL) String() string            { return proto.CompactTextString(m) }
 func (*ACL) ProtoMessage()               {}
-func (*ACL) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{14} }
+func (*ACL) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{13} }
 
 func (m *ACL) GetEntries() map[string]Scope {
 	if m != nil {
@@ -365,7 +372,7 @@ type AuthorizeRequest struct {
 func (m *AuthorizeRequest) Reset()                    { *m = AuthorizeRequest{} }
 func (m *AuthorizeRequest) String() string            { return proto.CompactTextString(m) }
 func (*AuthorizeRequest) ProtoMessage()               {}
-func (*AuthorizeRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{15} }
+func (*AuthorizeRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{14} }
 
 func (m *AuthorizeRequest) GetRepo() string {
 	if m != nil {
@@ -388,7 +395,7 @@ type AuthorizeResponse struct {
 func (m *AuthorizeResponse) Reset()                    { *m = AuthorizeResponse{} }
 func (m *AuthorizeResponse) String() string            { return proto.CompactTextString(m) }
 func (*AuthorizeResponse) ProtoMessage()               {}
-func (*AuthorizeResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{16} }
+func (*AuthorizeResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{15} }
 
 func (m *AuthorizeResponse) GetAuthorized() bool {
 	if m != nil {
@@ -405,7 +412,7 @@ type GetScopeRequest struct {
 func (m *GetScopeRequest) Reset()                    { *m = GetScopeRequest{} }
 func (m *GetScopeRequest) String() string            { return proto.CompactTextString(m) }
 func (*GetScopeRequest) ProtoMessage()               {}
-func (*GetScopeRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{17} }
+func (*GetScopeRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{16} }
 
 func (m *GetScopeRequest) GetUsername() string {
 	if m != nil {
@@ -428,7 +435,7 @@ type GetScopeResponse struct {
 func (m *GetScopeResponse) Reset()                    { *m = GetScopeResponse{} }
 func (m *GetScopeResponse) String() string            { return proto.CompactTextString(m) }
 func (*GetScopeResponse) ProtoMessage()               {}
-func (*GetScopeResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{18} }
+func (*GetScopeResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{17} }
 
 func (m *GetScopeResponse) GetScopes() []Scope {
 	if m != nil {
@@ -446,7 +453,7 @@ type SetScopeRequest struct {
 func (m *SetScopeRequest) Reset()                    { *m = SetScopeRequest{} }
 func (m *SetScopeRequest) String() string            { return proto.CompactTextString(m) }
 func (*SetScopeRequest) ProtoMessage()               {}
-func (*SetScopeRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{19} }
+func (*SetScopeRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{18} }
 
 func (m *SetScopeRequest) GetUsername() string {
 	if m != nil {
@@ -475,7 +482,7 @@ type SetScopeResponse struct {
 func (m *SetScopeResponse) Reset()                    { *m = SetScopeResponse{} }
 func (m *SetScopeResponse) String() string            { return proto.CompactTextString(m) }
 func (*SetScopeResponse) ProtoMessage()               {}
-func (*SetScopeResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{20} }
+func (*SetScopeResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{19} }
 
 type GetACLRequest struct {
 	Repo string `protobuf:"bytes,1,opt,name=repo,proto3" json:"repo,omitempty"`
@@ -484,7 +491,7 @@ type GetACLRequest struct {
 func (m *GetACLRequest) Reset()                    { *m = GetACLRequest{} }
 func (m *GetACLRequest) String() string            { return proto.CompactTextString(m) }
 func (*GetACLRequest) ProtoMessage()               {}
-func (*GetACLRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{21} }
+func (*GetACLRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{20} }
 
 func (m *GetACLRequest) GetRepo() string {
 	if m != nil {
@@ -493,8 +500,32 @@ func (m *GetACLRequest) GetRepo() string {
 	return ""
 }
 
+type ACLEntry struct {
+	Username string `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
+	Scope    Scope  `protobuf:"varint,2,opt,name=scope,proto3,enum=auth.Scope" json:"scope,omitempty"`
+}
+
+func (m *ACLEntry) Reset()                    { *m = ACLEntry{} }
+func (m *ACLEntry) String() string            { return proto.CompactTextString(m) }
+func (*ACLEntry) ProtoMessage()               {}
+func (*ACLEntry) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{21} }
+
+func (m *ACLEntry) GetUsername() string {
+	if m != nil {
+		return m.Username
+	}
+	return ""
+}
+
+func (m *ACLEntry) GetScope() Scope {
+	if m != nil {
+		return m.Scope
+	}
+	return Scope_NONE
+}
+
 type GetACLResponse struct {
-	ACL *ACL `protobuf:"bytes,1,opt,name=acl" json:"acl,omitempty"`
+	Entries []*ACLEntry `protobuf:"bytes,1,rep,name=entries" json:"entries,omitempty"`
 }
 
 func (m *GetACLResponse) Reset()                    { *m = GetACLResponse{} }
@@ -502,16 +533,16 @@ func (m *GetACLResponse) String() string            { return proto.CompactTextSt
 func (*GetACLResponse) ProtoMessage()               {}
 func (*GetACLResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{22} }
 
-func (m *GetACLResponse) GetACL() *ACL {
+func (m *GetACLResponse) GetEntries() []*ACLEntry {
 	if m != nil {
-		return m.ACL
+		return m.Entries
 	}
 	return nil
 }
 
 type SetACLRequest struct {
-	Repo   string `protobuf:"bytes,1,opt,name=repo,proto3" json:"repo,omitempty"`
-	NewACL *ACL   `protobuf:"bytes,2,opt,name=new_acl,json=newAcl" json:"new_acl,omitempty"`
+	Repo    string      `protobuf:"bytes,1,opt,name=repo,proto3" json:"repo,omitempty"`
+	Entries []*ACLEntry `protobuf:"bytes,2,rep,name=entries" json:"entries,omitempty"`
 }
 
 func (m *SetACLRequest) Reset()                    { *m = SetACLRequest{} }
@@ -526,9 +557,9 @@ func (m *SetACLRequest) GetRepo() string {
 	return ""
 }
 
-func (m *SetACLRequest) GetNewACL() *ACL {
+func (m *SetACLRequest) GetEntries() []*ACLEntry {
 	if m != nil {
-		return m.NewACL
+		return m.Entries
 	}
 	return nil
 }
@@ -603,7 +634,6 @@ func init() {
 	proto.RegisterType((*AuthenticateResponse)(nil), "auth.AuthenticateResponse")
 	proto.RegisterType((*WhoAmIRequest)(nil), "auth.WhoAmIRequest")
 	proto.RegisterType((*WhoAmIResponse)(nil), "auth.WhoAmIResponse")
-	proto.RegisterType((*ACLEntry)(nil), "auth.ACLEntry")
 	proto.RegisterType((*ACL)(nil), "auth.ACL")
 	proto.RegisterType((*AuthorizeRequest)(nil), "auth.AuthorizeRequest")
 	proto.RegisterType((*AuthorizeResponse)(nil), "auth.AuthorizeResponse")
@@ -612,6 +642,7 @@ func init() {
 	proto.RegisterType((*SetScopeRequest)(nil), "auth.SetScopeRequest")
 	proto.RegisterType((*SetScopeResponse)(nil), "auth.SetScopeResponse")
 	proto.RegisterType((*GetACLRequest)(nil), "auth.GetACLRequest")
+	proto.RegisterType((*ACLEntry)(nil), "auth.ACLEntry")
 	proto.RegisterType((*GetACLResponse)(nil), "auth.GetACLResponse")
 	proto.RegisterType((*SetACLRequest)(nil), "auth.SetACLRequest")
 	proto.RegisterType((*SetACLResponse)(nil), "auth.SetACLResponse")
@@ -1116,20 +1147,17 @@ func (m *ActivateRequest) MarshalTo(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if len(m.Admins) > 0 {
-		for _, s := range m.Admins {
-			dAtA[i] = 0x12
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
-		}
+	if len(m.GithubToken) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.GithubToken)))
+		i += copy(dAtA[i:], m.GithubToken)
+	}
+	if len(m.GithubUsername) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.GithubUsername)))
+		i += copy(dAtA[i:], m.GithubUsername)
 	}
 	return i, nil
 }
@@ -1149,6 +1177,12 @@ func (m *ActivateResponse) MarshalTo(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
+	if len(m.PachToken) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.PachToken)))
+		i += copy(dAtA[i:], m.PachToken)
+	}
 	return i, nil
 }
 
@@ -1440,35 +1474,6 @@ func (m *WhoAmIResponse) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-func (m *ACLEntry) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *ACLEntry) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.Username) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.Username)))
-		i += copy(dAtA[i:], m.Username)
-	}
-	if m.Scope != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(m.Scope))
-	}
-	return i, nil
-}
-
 func (m *ACL) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -1711,6 +1716,35 @@ func (m *GetACLRequest) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *ACLEntry) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ACLEntry) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Username) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Username)))
+		i += copy(dAtA[i:], m.Username)
+	}
+	if m.Scope != 0 {
+		dAtA[i] = 0x10
+		i++
+		i = encodeVarintAuth(dAtA, i, uint64(m.Scope))
+	}
+	return i, nil
+}
+
 func (m *GetACLResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -1726,15 +1760,17 @@ func (m *GetACLResponse) MarshalTo(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.ACL != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(m.ACL.Size()))
-		n3, err := m.ACL.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+	if len(m.Entries) > 0 {
+		for _, msg := range m.Entries {
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintAuth(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
 		}
-		i += n3
 	}
 	return i, nil
 }
@@ -1760,15 +1796,17 @@ func (m *SetACLRequest) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintAuth(dAtA, i, uint64(len(m.Repo)))
 		i += copy(dAtA[i:], m.Repo)
 	}
-	if m.NewACL != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintAuth(dAtA, i, uint64(m.NewACL.Size()))
-		n4, err := m.NewACL.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+	if len(m.Entries) > 0 {
+		for _, msg := range m.Entries {
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintAuth(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
 		}
-		i += n4
 	}
 	return i, nil
 }
@@ -1905,11 +1943,13 @@ func encodeVarintAuth(dAtA []byte, offset int, v uint64) int {
 func (m *ActivateRequest) Size() (n int) {
 	var l int
 	_ = l
-	if len(m.Admins) > 0 {
-		for _, s := range m.Admins {
-			l = len(s)
-			n += 1 + l + sovAuth(uint64(l))
-		}
+	l = len(m.GithubToken)
+	if l > 0 {
+		n += 1 + l + sovAuth(uint64(l))
+	}
+	l = len(m.GithubUsername)
+	if l > 0 {
+		n += 1 + l + sovAuth(uint64(l))
 	}
 	return n
 }
@@ -1917,6 +1957,10 @@ func (m *ActivateRequest) Size() (n int) {
 func (m *ActivateResponse) Size() (n int) {
 	var l int
 	_ = l
+	l = len(m.PachToken)
+	if l > 0 {
+		n += 1 + l + sovAuth(uint64(l))
+	}
 	return n
 }
 
@@ -2030,19 +2074,6 @@ func (m *WhoAmIResponse) Size() (n int) {
 	return n
 }
 
-func (m *ACLEntry) Size() (n int) {
-	var l int
-	_ = l
-	l = len(m.Username)
-	if l > 0 {
-		n += 1 + l + sovAuth(uint64(l))
-	}
-	if m.Scope != 0 {
-		n += 1 + sovAuth(uint64(m.Scope))
-	}
-	return n
-}
-
 func (m *ACL) Size() (n int) {
 	var l int
 	_ = l
@@ -2141,12 +2172,27 @@ func (m *GetACLRequest) Size() (n int) {
 	return n
 }
 
+func (m *ACLEntry) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Username)
+	if l > 0 {
+		n += 1 + l + sovAuth(uint64(l))
+	}
+	if m.Scope != 0 {
+		n += 1 + sovAuth(uint64(m.Scope))
+	}
+	return n
+}
+
 func (m *GetACLResponse) Size() (n int) {
 	var l int
 	_ = l
-	if m.ACL != nil {
-		l = m.ACL.Size()
-		n += 1 + l + sovAuth(uint64(l))
+	if len(m.Entries) > 0 {
+		for _, e := range m.Entries {
+			l = e.Size()
+			n += 1 + l + sovAuth(uint64(l))
+		}
 	}
 	return n
 }
@@ -2158,9 +2204,11 @@ func (m *SetACLRequest) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovAuth(uint64(l))
 	}
-	if m.NewACL != nil {
-		l = m.NewACL.Size()
-		n += 1 + l + sovAuth(uint64(l))
+	if len(m.Entries) > 0 {
+		for _, e := range m.Entries {
+			l = e.Size()
+			n += 1 + l + sovAuth(uint64(l))
+		}
 	}
 	return n
 }
@@ -2245,9 +2293,9 @@ func (m *ActivateRequest) Unmarshal(dAtA []byte) error {
 			return fmt.Errorf("proto: ActivateRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
-		case 2:
+		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Admins", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field GithubToken", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -2272,7 +2320,36 @@ func (m *ActivateRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Admins = append(m.Admins, string(dAtA[iNdEx:postIndex]))
+			m.GithubToken = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field GithubUsername", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthAuth
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.GithubUsername = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -2324,6 +2401,35 @@ func (m *ActivateResponse) Unmarshal(dAtA []byte) error {
 			return fmt.Errorf("proto: ActivateResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PachToken", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthAuth
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.PachToken = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipAuth(dAtA[iNdEx:])
@@ -3166,104 +3272,6 @@ func (m *WhoAmIResponse) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *ACLEntry) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowAuth
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: ACLEntry: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ACLEntry: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Username", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAuth
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthAuth
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Username = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 2:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Scope", wireType)
-			}
-			m.Scope = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowAuth
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.Scope |= (Scope(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		default:
-			iNdEx = preIndex
-			skippy, err := skipAuth(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthAuth
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
 func (m *ACL) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -4064,6 +4072,104 @@ func (m *GetACLRequest) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *ACLEntry) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAuth
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ACLEntry: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ACLEntry: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Username", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthAuth
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Username = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Scope", wireType)
+			}
+			m.Scope = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Scope |= (Scope(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAuth(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAuth
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func (m *GetACLResponse) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -4095,7 +4201,7 @@ func (m *GetACLResponse) Unmarshal(dAtA []byte) error {
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ACL", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Entries", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -4119,10 +4225,8 @@ func (m *GetACLResponse) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.ACL == nil {
-				m.ACL = &ACL{}
-			}
-			if err := m.ACL.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			m.Entries = append(m.Entries, &ACLEntry{})
+			if err := m.Entries[len(m.Entries)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -4207,7 +4311,7 @@ func (m *SetACLRequest) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field NewACL", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Entries", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -4231,10 +4335,8 @@ func (m *SetACLRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.NewACL == nil {
-				m.NewACL = &ACL{}
-			}
-			if err := m.NewACL.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			m.Entries = append(m.Entries, &ACLEntry{})
+			if err := m.Entries[len(m.Entries)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -4675,67 +4777,65 @@ var (
 func init() { proto.RegisterFile("client/auth/auth.proto", fileDescriptorAuth) }
 
 var fileDescriptorAuth = []byte{
-	// 984 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x56, 0x5f, 0x6f, 0xdb, 0x54,
-	0x14, 0x8f, 0xf3, 0xd7, 0x39, 0x69, 0x13, 0xf7, 0x36, 0x4b, 0x5b, 0xc3, 0xb2, 0xed, 0x0e, 0x69,
-	0x05, 0xa4, 0x6c, 0xea, 0x28, 0x43, 0x4c, 0x02, 0x79, 0x69, 0x14, 0x8c, 0xb2, 0xac, 0xb2, 0x5b,
-	0xfa, 0x58, 0xb9, 0xc9, 0xa5, 0xb1, 0x9a, 0xda, 0x21, 0x76, 0x5a, 0x05, 0x09, 0x89, 0x8f, 0xc1,
-	0x47, 0xe2, 0x91, 0x07, 0x9e, 0x27, 0x14, 0xbe, 0x08, 0xba, 0xff, 0x5c, 0xdb, 0xf1, 0x0a, 0xbc,
-	0x44, 0xd7, 0xbf, 0x73, 0xce, 0xef, 0x9c, 0xfb, 0xbb, 0xf7, 0x9c, 0x1b, 0x68, 0x8d, 0xa6, 0x2e,
-	0xf1, 0xc2, 0xe7, 0xce, 0x22, 0x9c, 0xb0, 0x9f, 0xce, 0x6c, 0xee, 0x87, 0x3e, 0x2a, 0xd2, 0xb5,
-	0xde, 0xbc, 0xf4, 0x2f, 0x7d, 0x06, 0x3c, 0xa7, 0x2b, 0x6e, 0xc3, 0x9f, 0x42, 0xc3, 0x18, 0x85,
-	0xee, 0x8d, 0x13, 0x12, 0x8b, 0xfc, 0xb4, 0x20, 0x41, 0x88, 0x5a, 0x50, 0x76, 0xc6, 0xd7, 0xae,
-	0x17, 0xec, 0xe6, 0x1f, 0x17, 0xf6, 0xab, 0x96, 0xf8, 0xc2, 0x08, 0xb4, 0x3b, 0xd7, 0x60, 0xe6,
-	0x7b, 0x01, 0xc1, 0xdb, 0xb0, 0x75, 0x44, 0x9c, 0x24, 0x01, 0x6e, 0x02, 0x8a, 0x83, 0xc2, 0x15,
-	0x81, 0xd6, 0x27, 0xa1, 0xc1, 0xb8, 0xa4, 0xe7, 0xe7, 0xb0, 0x15, 0xc3, 0xb8, 0x63, 0x2c, 0xbf,
-	0x92, 0xc8, 0xff, 0x2d, 0x6c, 0xbf, 0xf5, 0xc7, 0xee, 0x8f, 0xcb, 0x04, 0x07, 0xd2, 0xa0, 0xe0,
-	0x8c, 0xc7, 0xc2, 0x97, 0x2e, 0x29, 0xc1, 0x9c, 0x5c, 0xfb, 0x37, 0x44, 0x6e, 0x80, 0x7f, 0xe1,
-	0x16, 0x34, 0x93, 0x04, 0xa2, 0xb2, 0x5f, 0xa0, 0x78, 0x1a, 0x90, 0x39, 0xd2, 0x41, 0x5d, 0x04,
-	0x64, 0xee, 0x39, 0xd7, 0x64, 0x57, 0x79, 0xac, 0xec, 0x57, 0xad, 0xe8, 0x1b, 0x3d, 0x83, 0x62,
-	0xb8, 0x9c, 0x51, 0x46, 0x65, 0xbf, 0x7e, 0xb0, 0xdd, 0x61, 0xf2, 0xd2, 0x28, 0xf6, 0x73, 0xb2,
-	0x9c, 0x11, 0x8b, 0x39, 0xe0, 0x17, 0xa0, 0x4a, 0x04, 0xd5, 0xa0, 0x62, 0x0e, 0x7f, 0x30, 0x06,
-	0xe6, 0x91, 0x96, 0x43, 0x55, 0x28, 0x7d, 0x77, 0xfa, 0xd6, 0x18, 0x6a, 0x0a, 0xda, 0x00, 0xf5,
-	0xd8, 0x3c, 0xee, 0x0d, 0xcc, 0x61, 0x4f, 0xcb, 0x63, 0x07, 0xb6, 0x8d, 0x45, 0x38, 0x21, 0x5e,
-	0xe8, 0x8e, 0x62, 0xc7, 0xf0, 0x04, 0x36, 0x2e, 0xdd, 0x70, 0xb2, 0xb8, 0x38, 0x0f, 0xfd, 0x2b,
-	0xe2, 0x89, 0x8a, 0x6a, 0x1c, 0x3b, 0xa1, 0x10, 0x7a, 0x06, 0x0d, 0xe1, 0x12, 0xd5, 0x9d, 0x67,
-	0x5e, 0x75, 0x0e, 0x9f, 0x0a, 0x14, 0x1f, 0x42, 0x33, 0x99, 0x42, 0x48, 0xfd, 0x10, 0x60, 0xe6,
-	0x8c, 0x26, 0x89, 0x0c, 0x55, 0x8a, 0x30, 0x7e, 0xdc, 0x80, 0xcd, 0xb3, 0x89, 0x6f, 0x5c, 0x9b,
-	0xf2, 0xbc, 0xfa, 0x50, 0x97, 0x80, 0x60, 0xb8, 0x4f, 0xb3, 0x3d, 0x50, 0xdd, 0xe0, 0x9c, 0x9d,
-	0x1e, 0xab, 0x4b, 0xb5, 0x2a, 0x6e, 0xc0, 0xb4, 0xc7, 0x26, 0xa8, 0x46, 0x77, 0xd0, 0xf3, 0xc2,
-	0xf9, 0xf2, 0x5e, 0x8a, 0x27, 0x50, 0x0a, 0x46, 0x7e, 0xa4, 0x7b, 0x8d, 0xeb, 0x6e, 0x53, 0xc8,
-	0xe2, 0x16, 0xfc, 0xab, 0x02, 0x05, 0xa3, 0x3b, 0x40, 0x2f, 0xa0, 0x42, 0xbc, 0x70, 0xee, 0x12,
-	0x7e, 0x6f, 0x6a, 0x07, 0x2d, 0xee, 0x6c, 0x74, 0x07, 0x9d, 0x1e, 0x37, 0xb0, 0x7c, 0x96, 0x74,
-	0xd3, 0xfb, 0xb0, 0x11, 0x37, 0xd0, 0x9b, 0x74, 0x45, 0x96, 0xa2, 0x06, 0xba, 0xa4, 0xe9, 0x6f,
-	0x9c, 0xe9, 0x22, 0x3b, 0x3d, 0xb3, 0x7c, 0x9d, 0xff, 0x4a, 0xc1, 0x26, 0x68, 0x54, 0x5e, 0x7f,
-	0xee, 0xfe, 0x1c, 0x1d, 0x1f, 0x82, 0xe2, 0x9c, 0xcc, 0x7c, 0xc1, 0xc6, 0xd6, 0xff, 0x65, 0x37,
-	0x2f, 0x61, 0x2b, 0x46, 0x25, 0x44, 0x6e, 0x03, 0x38, 0x12, 0x1c, 0x33, 0x46, 0xd5, 0x8a, 0x21,
-	0xb8, 0x0b, 0x8d, 0x3e, 0x09, 0x39, 0x8f, 0x48, 0x7f, 0x9f, 0xa8, 0x4d, 0x28, 0xd1, 0x72, 0x64,
-	0x7f, 0xf3, 0x0f, 0xfc, 0x8a, 0xf5, 0xa7, 0x20, 0x11, 0x89, 0x9f, 0x42, 0x99, 0x95, 0xc5, 0x25,
-	0x4d, 0x55, 0x2c, 0x4c, 0x78, 0x0c, 0x0d, 0xfb, 0x7f, 0x64, 0x97, 0xc2, 0xe4, 0xb3, 0x84, 0x29,
-	0x7c, 0x50, 0x18, 0x04, 0x9a, 0x9d, 0x2a, 0x0f, 0x3f, 0x85, 0x4d, 0x3a, 0x3e, 0xba, 0x83, 0x7b,
-	0x44, 0xc7, 0x5f, 0x42, 0x5d, 0x3a, 0x89, 0x5d, 0x7d, 0x02, 0x05, 0x67, 0x34, 0x65, 0x4e, 0xb5,
-	0x83, 0x6a, 0x74, 0x4b, 0xde, 0x54, 0x56, 0xef, 0x1f, 0xd1, 0xab, 0x64, 0x51, 0x33, 0xb6, 0x61,
-	0xd3, 0xfe, 0x37, 0x72, 0xd4, 0x81, 0x8a, 0x47, 0x6e, 0xcf, 0x29, 0x5d, 0x3e, 0x4d, 0x07, 0xab,
-	0xf7, 0x8f, 0xca, 0x43, 0x72, 0x4b, 0x29, 0xca, 0x1e, 0xb9, 0x35, 0x46, 0x53, 0xac, 0x41, 0xdd,
-	0x4e, 0x14, 0x43, 0x87, 0x52, 0x9f, 0x84, 0x5d, 0x67, 0xe6, 0x5c, 0xb8, 0x53, 0x37, 0x5c, 0xca,
-	0x56, 0x7b, 0x05, 0x0f, 0x52, 0xf8, 0xdd, 0x65, 0x18, 0x45, 0xa8, 0x28, 0x26, 0x86, 0xe0, 0x0e,
-	0xb4, 0x2c, 0x72, 0xe3, 0x5f, 0x11, 0x7a, 0x8f, 0x58, 0x1f, 0xcb, 0x0d, 0x34, 0xa1, 0x14, 0x6f,
-	0x74, 0xfe, 0x81, 0xf7, 0x60, 0x67, 0xcd, 0x9f, 0xa7, 0xfa, 0xec, 0x0b, 0x28, 0x31, 0xc1, 0x91,
-	0x0a, 0xc5, 0xe1, 0xbb, 0x61, 0x4f, 0xcb, 0x21, 0x80, 0xb2, 0xd5, 0x33, 0x8e, 0x7a, 0x96, 0xa6,
-	0xd0, 0xf5, 0x99, 0x65, 0x9e, 0xf4, 0x2c, 0x2d, 0x4f, 0xa7, 0xdb, 0xbb, 0xb3, 0x61, 0xcf, 0xd2,
-	0x0a, 0x07, 0x7f, 0x96, 0xa1, 0x60, 0x1c, 0x9b, 0xe8, 0x35, 0xa8, 0xf2, 0xbd, 0x40, 0x0f, 0x84,
-	0x2c, 0xc9, 0x97, 0x42, 0x6f, 0xa5, 0x61, 0x21, 0x4a, 0x0e, 0x19, 0x00, 0x77, 0x6f, 0x08, 0xda,
-	0xe1, 0x7e, 0x6b, 0x4f, 0x8d, 0xbe, 0xbb, 0x6e, 0x88, 0x28, 0xbe, 0x81, 0x6a, 0xf4, 0xb8, 0x20,
-	0x91, 0x29, 0xfd, 0x02, 0xe9, 0x3b, 0x6b, 0x78, 0x14, 0xdf, 0x87, 0x8d, 0xf8, 0x73, 0x81, 0xf6,
-	0xb8, 0x6b, 0xc6, 0x1b, 0xa4, 0xeb, 0x59, 0xa6, 0x38, 0x51, 0x7c, 0xfa, 0x4a, 0xa2, 0x8c, 0xa1,
-	0x2f, 0x89, 0xb2, 0x86, 0x35, 0xdf, 0x51, 0x34, 0x1c, 0xe4, 0x8e, 0xd2, 0x83, 0x47, 0xee, 0x68,
-	0x6d, 0x8a, 0xe0, 0x1c, 0x3a, 0x84, 0x32, 0x1f, 0xdf, 0x48, 0x3c, 0x60, 0x89, 0xe9, 0xae, 0x37,
-	0x93, 0x60, 0x14, 0xf6, 0x1a, 0x54, 0x39, 0x19, 0xe4, 0x41, 0xa6, 0xc6, 0x8d, 0xde, 0x4a, 0xc3,
-	0xf1, 0x60, 0x3b, 0x15, 0x6c, 0x67, 0x07, 0xdb, 0xeb, 0xc1, 0x87, 0x50, 0xe6, 0xbd, 0x2b, 0x0b,
-	0x4e, 0xb4, 0xbb, 0x2c, 0x38, 0xd9, 0xde, 0x3c, 0xcc, 0x4e, 0x84, 0xd9, 0x59, 0x61, 0x76, 0x3a,
-	0xec, 0x7b, 0x36, 0x4e, 0xee, 0x5a, 0x0e, 0xe9, 0x11, 0xff, 0x5a, 0x7f, 0xea, 0x1f, 0x65, 0xda,
-	0x22, 0xae, 0x63, 0x68, 0xa4, 0xba, 0x0a, 0x7d, 0xcc, 0x23, 0xb2, 0x9b, 0x53, 0x7f, 0xf8, 0x01,
-	0xab, 0x64, 0x7c, 0xa3, 0xfd, 0xbe, 0x6a, 0x2b, 0x7f, 0xac, 0xda, 0xca, 0x5f, 0xab, 0xb6, 0xf2,
-	0xdb, 0xdf, 0xed, 0xdc, 0x45, 0x99, 0xfd, 0x85, 0x7b, 0xf9, 0x4f, 0x00, 0x00, 0x00, 0xff, 0xff,
-	0xe1, 0x42, 0x30, 0x6b, 0xf8, 0x09, 0x00, 0x00,
+	// 950 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x56, 0xcd, 0x6e, 0xdb, 0x46,
+	0x10, 0x36, 0xf5, 0x67, 0x6a, 0x6c, 0x4b, 0xf4, 0x5a, 0x91, 0x6d, 0xb6, 0x11, 0x92, 0xcd, 0x21,
+	0x46, 0x0b, 0x38, 0x8d, 0x53, 0x23, 0x45, 0x02, 0xb4, 0x60, 0x64, 0x42, 0x65, 0xa1, 0x28, 0x06,
+	0xe9, 0xd4, 0xa7, 0x22, 0xa0, 0xa5, 0xad, 0x45, 0xd8, 0x16, 0x59, 0x71, 0x65, 0x40, 0x3d, 0x14,
+	0x7d, 0x8c, 0x3e, 0x52, 0x8f, 0x3d, 0xf4, 0x01, 0x0a, 0xf7, 0x45, 0x8a, 0xfd, 0xa3, 0x48, 0x8a,
+	0x51, 0xdd, 0x43, 0x2f, 0xf2, 0xf2, 0x9b, 0x9d, 0x6f, 0x67, 0xbf, 0xd9, 0x99, 0x31, 0xb4, 0x87,
+	0xd7, 0x01, 0x99, 0xd0, 0x67, 0xfe, 0x8c, 0x8e, 0xf9, 0xcf, 0x61, 0x34, 0x0d, 0x69, 0x88, 0x2a,
+	0x6c, 0x6d, 0xb6, 0x2e, 0xc3, 0xcb, 0x90, 0x03, 0xcf, 0xd8, 0x4a, 0xd8, 0xf0, 0x0f, 0xd0, 0xb4,
+	0x86, 0x34, 0xb8, 0xf5, 0x29, 0x71, 0xc9, 0x4f, 0x33, 0x12, 0x53, 0xf4, 0x18, 0x36, 0x2f, 0x03,
+	0x3a, 0x9e, 0x5d, 0x7c, 0xa0, 0xe1, 0x15, 0x99, 0xec, 0x69, 0x8f, 0xb4, 0x83, 0xba, 0xbb, 0x21,
+	0xb0, 0x33, 0x06, 0xa1, 0xa7, 0xd0, 0x94, 0x5b, 0x66, 0x31, 0x99, 0x4e, 0xfc, 0x1b, 0xb2, 0x57,
+	0xe2, 0xbb, 0x1a, 0x02, 0x7e, 0x2f, 0x51, 0xfc, 0x1c, 0x8c, 0x05, 0x7d, 0x1c, 0x85, 0x93, 0x98,
+	0xa0, 0x87, 0x00, 0x91, 0x3f, 0x1c, 0x67, 0xd8, 0xeb, 0x0c, 0xe1, 0xdc, 0x78, 0x07, 0xb6, 0x4f,
+	0x88, 0x9f, 0x8d, 0x09, 0xb7, 0x00, 0xa5, 0x41, 0xc1, 0x84, 0x11, 0x18, 0x3d, 0x42, 0xad, 0xd1,
+	0x4d, 0x30, 0x89, 0xd5, 0xce, 0xcf, 0x61, 0x3b, 0x85, 0xc9, 0x23, 0xdb, 0x50, 0xf3, 0x39, 0xb2,
+	0xa7, 0x3d, 0x2a, 0x1f, 0xd4, 0x5d, 0xf9, 0x85, 0xbf, 0x81, 0x9d, 0xb7, 0xe1, 0x28, 0xf8, 0x71,
+	0x9e, 0xe1, 0x40, 0x06, 0x94, 0xfd, 0xd1, 0x48, 0xee, 0x65, 0x4b, 0x46, 0x30, 0x25, 0x37, 0xe1,
+	0x2d, 0xbb, 0x27, 0x27, 0x10, 0x5f, 0xb8, 0x0d, 0xad, 0x2c, 0x81, 0x8c, 0xec, 0x17, 0xa8, 0x30,
+	0x0d, 0x90, 0x09, 0x7a, 0xa2, 0x90, 0xb8, 0x69, 0xf2, 0x8d, 0x9e, 0x42, 0x85, 0xce, 0x23, 0xa1,
+	0x5c, 0xe3, 0x68, 0xe7, 0x90, 0x67, 0x8c, 0x79, 0xf1, 0x9f, 0xb3, 0x79, 0x44, 0x5c, 0xbe, 0x01,
+	0x3f, 0x07, 0x5d, 0x21, 0x68, 0x03, 0xd6, 0x9d, 0xc1, 0xf7, 0x56, 0xdf, 0x39, 0x31, 0xd6, 0x10,
+	0x40, 0xad, 0xe7, 0x9c, 0x7d, 0xfb, 0xfe, 0x8d, 0xa1, 0xa1, 0x4d, 0xd0, 0x4f, 0x9d, 0x53, 0xbb,
+	0xef, 0x0c, 0x6c, 0xa3, 0x84, 0x7d, 0xd8, 0xb1, 0x66, 0x74, 0x4c, 0x26, 0x34, 0x18, 0xfe, 0x4f,
+	0xa9, 0x3d, 0x86, 0x56, 0xf6, 0x88, 0xfb, 0xa5, 0xb7, 0x09, 0x5b, 0xe7, 0xe3, 0xd0, 0xba, 0x71,
+	0x54, 0xc2, 0x7a, 0xd0, 0x50, 0x80, 0x64, 0x58, 0x25, 0xda, 0x3e, 0xe8, 0x41, 0xfc, 0x81, 0xa7,
+	0x8f, 0xc7, 0xa5, 0xbb, 0xeb, 0x41, 0xcc, 0xc5, 0xc7, 0xbf, 0x6a, 0x50, 0xb6, 0xba, 0x7d, 0xf4,
+	0x05, 0xac, 0x93, 0x09, 0x9d, 0x06, 0x44, 0x64, 0x7b, 0xe3, 0xa8, 0x2d, 0xa4, 0xb5, 0xba, 0xfd,
+	0x43, 0x5b, 0x18, 0xd8, 0x9f, 0xb9, 0xab, 0xb6, 0x99, 0x3d, 0xd8, 0x4c, 0x1b, 0x58, 0xfe, 0xaf,
+	0xc8, 0x5c, 0x9e, 0xcd, 0x96, 0xe8, 0x31, 0x54, 0x6f, 0xfd, 0xeb, 0x99, 0x4a, 0xd6, 0x86, 0x60,
+	0xf4, 0x86, 0x61, 0x44, 0x5c, 0x61, 0x79, 0x55, 0xfa, 0x4a, 0xc3, 0x0e, 0x18, 0x4c, 0x93, 0x70,
+	0x1a, 0xfc, 0x9c, 0x68, 0x8e, 0xa0, 0x32, 0x25, 0x51, 0x28, 0xd9, 0xf8, 0x9a, 0xd1, 0xc5, 0xcc,
+	0xb7, 0x90, 0x8e, 0x5b, 0xf0, 0x0b, 0xd8, 0x4e, 0x51, 0x49, 0x65, 0x3a, 0x00, 0xbe, 0x02, 0x47,
+	0x9c, 0x51, 0x77, 0x53, 0x08, 0xee, 0x42, 0xb3, 0x47, 0xa8, 0xe0, 0x91, 0xc7, 0xaf, 0x12, 0xb3,
+	0x05, 0x55, 0x16, 0x4e, 0x2c, 0x1f, 0xb5, 0xf8, 0xc0, 0x2f, 0x79, 0x55, 0x49, 0x12, 0x79, 0xf0,
+	0x13, 0xa8, 0xf1, 0xb0, 0x84, 0xa4, 0xb9, 0x88, 0xa5, 0x09, 0x8f, 0xa0, 0xe9, 0xfd, 0x87, 0xd3,
+	0x95, 0x30, 0xa5, 0x22, 0x61, 0xca, 0x1f, 0x15, 0x06, 0x81, 0xe1, 0xe5, 0xc2, 0xc3, 0x4f, 0x60,
+	0x8b, 0x15, 0x7d, 0xb7, 0xbf, 0x42, 0x74, 0xec, 0x80, 0x6e, 0x75, 0xfb, 0x22, 0xc3, 0xab, 0xe2,
+	0xba, 0x47, 0x72, 0x5e, 0x41, 0x43, 0x9d, 0x27, 0x05, 0x3a, 0xc8, 0x3f, 0xba, 0x46, 0xf2, 0xe8,
+	0xb2, 0x8f, 0x0d, 0xbf, 0x85, 0x2d, 0xef, 0xdf, 0x62, 0x4d, 0xd3, 0x95, 0x56, 0xd3, 0x19, 0xd0,
+	0xf0, 0x32, 0xa1, 0xb0, 0x9e, 0xd4, 0x23, 0xb4, 0xeb, 0x47, 0xfe, 0x45, 0x70, 0x1d, 0xd0, 0xb9,
+	0x2a, 0xb4, 0x97, 0xf0, 0x20, 0x87, 0x2f, 0x5e, 0xd5, 0x30, 0x41, 0x65, 0x18, 0x29, 0x04, 0x1f,
+	0x42, 0xdb, 0x25, 0xb7, 0xe1, 0x15, 0x61, 0x0f, 0x92, 0x57, 0xb1, 0x0a, 0xbd, 0x05, 0xd5, 0x74,
+	0x99, 0x8b, 0x0f, 0xbc, 0x0f, 0xbb, 0x4b, 0xfb, 0xc5, 0x51, 0x9f, 0x7d, 0x09, 0x55, 0x2e, 0x24,
+	0xd2, 0xa1, 0x32, 0x78, 0x37, 0xb0, 0x45, 0x13, 0x73, 0x6d, 0xeb, 0xc4, 0x76, 0x0d, 0x8d, 0xad,
+	0xcf, 0x5d, 0xe7, 0xcc, 0x76, 0x8d, 0x12, 0xaa, 0x43, 0xf5, 0xdd, 0xf9, 0xc0, 0x76, 0x8d, 0xf2,
+	0xd1, 0x9f, 0x35, 0x28, 0x5b, 0xa7, 0x0e, 0x7a, 0x0d, 0xba, 0x9a, 0x26, 0xe8, 0x81, 0x14, 0x24,
+	0x3b, 0x28, 0xcc, 0x76, 0x1e, 0x96, 0xa2, 0xac, 0x21, 0x0b, 0x60, 0x31, 0x42, 0xd0, 0xae, 0xd8,
+	0xb7, 0x34, 0x69, 0xcc, 0xbd, 0x65, 0x43, 0x42, 0xf1, 0x35, 0xd4, 0x93, 0xd9, 0x82, 0xe4, 0x49,
+	0xf9, 0x01, 0x64, 0xee, 0x2e, 0xe1, 0x89, 0x7f, 0x0f, 0x36, 0xd3, 0xd3, 0x02, 0xed, 0x8b, 0xad,
+	0x05, 0x23, 0xc8, 0x34, 0x8b, 0x4c, 0x69, 0xa2, 0x74, 0xef, 0x55, 0x44, 0x05, 0x2d, 0x5f, 0x11,
+	0x15, 0xb5, 0x6a, 0x71, 0xa3, 0xa4, 0xcb, 0xa8, 0x1b, 0xe5, 0x3b, 0x98, 0xba, 0xd1, 0x52, 0x3b,
+	0xc2, 0x6b, 0xe8, 0x18, 0x6a, 0xa2, 0x79, 0x23, 0x39, 0xbf, 0x32, 0xbd, 0xdd, 0x6c, 0x65, 0xc1,
+	0xc4, 0xed, 0x35, 0xe8, 0xaa, 0xc5, 0xa8, 0x44, 0xe6, 0xfa, 0x96, 0xd9, 0xce, 0xc3, 0x69, 0x67,
+	0x2f, 0xe7, 0xec, 0x15, 0x3b, 0x7b, 0xcb, 0xce, 0xc7, 0x50, 0x13, 0x95, 0xab, 0x02, 0xce, 0xf4,
+	0x0d, 0x15, 0x70, 0xb6, 0xb8, 0x85, 0x9b, 0x97, 0x71, 0xf3, 0x8a, 0xdc, 0xbc, 0xbc, 0xdb, 0x77,
+	0xbc, 0x2f, 0x2d, 0x4a, 0x0e, 0x99, 0x09, 0xff, 0x52, 0x7d, 0x9a, 0x9f, 0x14, 0xda, 0x12, 0xae,
+	0x53, 0x68, 0xe6, 0xaa, 0x0a, 0x7d, 0x2a, 0x3c, 0x8a, 0x8b, 0xd3, 0x7c, 0xf8, 0x11, 0xab, 0x62,
+	0x7c, 0x63, 0xfc, 0x7e, 0xd7, 0xd1, 0xfe, 0xb8, 0xeb, 0x68, 0x7f, 0xdd, 0x75, 0xb4, 0xdf, 0xfe,
+	0xee, 0xac, 0x5d, 0xd4, 0xf8, 0x3f, 0x85, 0x2f, 0xfe, 0x09, 0x00, 0x00, 0xff, 0xff, 0x69, 0x1c,
+	0x8b, 0xec, 0x4a, 0x0a, 0x00, 0x00,
 }
