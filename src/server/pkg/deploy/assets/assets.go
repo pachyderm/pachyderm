@@ -390,6 +390,10 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 									api.ResourceCPU:    cpu,
 									api.ResourceMemory: mem,
 								},
+								Limits: api.ResourceList{
+									api.ResourceCPU:    cpu,
+									api.ResourceMemory: mem,
+								},
 							},
 						},
 					},
@@ -517,6 +521,10 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *extensions.Deployment {
 							ImagePullPolicy: "IfNotPresent",
 							Resources: api.ResourceRequirements{
 								Requests: api.ResourceList{
+									api.ResourceCPU:    cpu,
+									api.ResourceMemory: mem,
+								},
+								Limits: api.ResourceList{
 									api.ResourceCPU:    cpu,
 									api.ResourceMemory: mem,
 								},
