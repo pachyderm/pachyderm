@@ -5,6 +5,7 @@ import (
 	"sort"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 
@@ -25,7 +26,7 @@ type atomDatumFactory struct {
 
 func newAtomDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.AtomInput) (DatumFactory, error) {
 	result := &atomDatumFactory{}
-	fileInfos, err := pfsClient.GlobFile(ctx, &pfs.GlobFileRequest{
+	fileInfos, err := pfsClient.GlobFile(auth.In2Out(ctx), &pfs.GlobFileRequest{
 		Commit:  client.NewCommit(input.Repo, input.Commit),
 		Pattern: input.Glob,
 	})

@@ -53,6 +53,7 @@ func NewAPIServer(
 		pipelines:             ppsdb.Pipelines(etcdClient, etcdPrefix),
 		jobs:                  ppsdb.Jobs(etcdClient, etcdPrefix),
 	}
+	apiServer.validateKube()
 	go apiServer.master()
 	return apiServer, nil
 }

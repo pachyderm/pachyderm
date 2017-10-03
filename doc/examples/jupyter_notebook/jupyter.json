@@ -13,30 +13,17 @@
   "parallelism_spec": {
     "constant": 1
   },
-  "inputs": [
-    {
-      "commit": {
-        "repo": {
-            "name": "trips"
-        },
-        "id": "master/30"
+  "input": {
+    "cross": [
+      {
+        "atom": {"repo": "trips"}
+      },
+      {
+        "atom": {"repo": "weather"}
+      },
+      {
+        "atom": {"repo": "sales"}
       }
-    },
-    {
-      "commit": {
-        "repo": {
-            "name": "weather"
-        },
-        "id": "master/30"
-      }
-    },
-    {
-      "commit": {
-        "repo": {
-            "name": "sales"
-        },
-        "id": "<output-commitid>/0"
-      }
-    }
-  ]
+    ]
+  }
 }

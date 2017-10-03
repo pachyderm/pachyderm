@@ -1,14 +1,14 @@
-## ./pachctl version
+## ./pachctl completion
 
-Return version information.
+Install bash completion code.
 
 ### Synopsis
 
 
-Return version information.
+Install bash completion code.
 
 ```
-./pachctl version
+./pachctl completion
 ```
 
 ### Options inherited from parent commands

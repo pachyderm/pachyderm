@@ -2,12 +2,11 @@
     "pipeline": {
         "name": "upload_to_redshift"
     },
-    "inputs": [
-      {
-        "repo": { "name": "data" },
-        "method": "reduce"
+    "input": {
+      "atom": {
+        "repo": "data"
       }
-    ],
+    },
     "transform": {
         "image": "msteffenpachyderm/to_sql",
         "cmd" : ["/bin/sh"],
