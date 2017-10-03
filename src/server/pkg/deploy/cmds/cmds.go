@@ -41,7 +41,8 @@ func maybeKcCreate(dryRun bool, manifest *bytes.Buffer, opts *assets.AssetOpts, 
 			Stdin:  manifest,
 			Stdout: os.Stdout,
 			Stderr: os.Stderr,
-		}, "kubectl", "create", "-f", "-"); err != nil {
+			// we set --validate=false due to https://github.com/kubernetes/kubernetes/issues/53309
+		}, "kubectl", "create", "-f", "-", "--validate=false"); err != nil {
 		return err
 	}
 	fmt.Println("\nPachyderm is launching, this process will block until it's up.\nTo Monitor it do `kubectl get all`.")
