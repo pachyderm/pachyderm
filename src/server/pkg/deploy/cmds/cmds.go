@@ -3,6 +3,7 @@ package cmds
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/base64"
 	"fmt"
 	"net/url"
@@ -12,6 +13,8 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	deployclient "github.com/pachyderm/pachyderm/src/client/deploy"
+
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
@@ -269,8 +272,54 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		}),
 	}
 
+	deployStorage := &cobra.Command{
+		Use:   "storage <backend> ...",
+		Short: "Deploy credentials for a particular storage provider.",
+		Long: `
+Deploy credentials for a particular storage provider, so that Pachyderm can
+ingress data from and egress data to it.  Currently three backends are
+supported: aws, google, and azure.  To see the required arguments for a
+particular backend, run "pachctl deploy storage <backend>"`,
+		Run: cmdutil.RunBoundedArgs(1, 5, func(args []string) (retErr error) {
+			var data map[string][]byte
+			switch args[0] {
+			case "aws":
+				// Need at least 4 arguments: backend, bucket, id, secret
+				if len(args) < 4 {
+					return fmt.Errorf("Usage: pachctl deploy storage aws <region> <id> <secret> <token>\n\n<token> is optional")
+				}
+				var token string
+				if len(args) == 5 {
+					token = args[4]
+				}
+				data = assets.AmazonSecret("", "", args[2], args[3], token, args[1])
+			case "google":
+				return fmt.Errorf("deploying credentials for GCS storage is not currently supported")
+			case "azure":
+				// Need 3 arguments: backend, account name, account key
+				if len(args) != 3 {
+					return fmt.Errorf("Usage: pachctl deploy storage azure <account name> <account key>")
+				}
+				data = assets.MicrosoftSecret("", args[1], args[2])
+			}
+
+			c, err := client.NewOnUserMachine(metrics, "user")
+			if err != nil {
+				return fmt.Errorf("error constructing pachyderm client: %v", err)
+			}
+
+			_, err = c.DeployStorageSecret(context.Background(), &deployclient.DeployStorageSecretRequest{
+				Secrets: data,
+			})
+			if err != nil {
+				return fmt.Errorf("error deploying storage secret to pachd: %v", err)
+			}
+			return nil
+		}),
+	}
+
 	deploy := &cobra.Command{
-		Use:   "deploy amazon|google|microsoft|local|custom",
+		Use:   "deploy amazon|google|microsoft|local|custom|storage",
 		Short: "Deploy a Pachyderm cluster.",
 		Long:  "Deploy a Pachyderm cluster.",
 		PersistentPreRun: cmdutil.Run(func([]string) error {
@@ -306,6 +355,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deploy.AddCommand(deployGoogle)
 	deploy.AddCommand(deployMicrosoft)
 	deploy.AddCommand(deployCustom)
+	deploy.AddCommand(deployStorage)
 
 	// Flags for setting pachd resource requests. These should rarely be set --
 	// only if we get the defaults wrong, or users have an unusual access pattern
