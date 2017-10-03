@@ -56,7 +56,7 @@ func readSecretFile(name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return string(bytes), nil
+	return strings.TrimSpace(string(bytes)), nil
 }
 
 // NewGoogleClientFromSecret creates a google client by reading credentials
