@@ -339,7 +339,7 @@ func (l *LogsIter) Err() error {
 	if l.err == io.EOF {
 		return nil
 	}
-	return l.err
+	return grpcutil.ScrubGRPC(l.err)
 }
 
 // GetLogs gets logs from a job (logs includes stdout and stderr). 'pipelineName',
@@ -369,6 +369,7 @@ func (c APIClient) GetLogs(
 		}
 	}
 	resp.logsClient, resp.err = c.PpsAPIClient.GetLogs(c.Ctx(), &request)
+	resp.err = grpcutil.ScrubGRPC(resp.err)
 	return resp
 }
 
