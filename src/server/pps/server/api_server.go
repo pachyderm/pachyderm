@@ -852,11 +852,6 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	// to finish reasonably quickly
 	ctx := apiGetLogsServer.Context()
 
-	// Validate request
-	if request.Pipeline == nil && request.Job == nil {
-		return fmt.Errorf("must set either pipeline or job filter in call to GetLogs")
-	}
-
 	// Authorize request and get list of pods containing logs we're interested in
 	// (based on pipeline and job filters)
 	var rcName, containerName string
