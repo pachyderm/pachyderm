@@ -19,7 +19,6 @@ import (
 	deployclient "github.com/pachyderm/pachyderm/src/client/deploy"
 
 	"github.com/pachyderm/pachyderm/src/client/version"
-	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
@@ -36,30 +35,22 @@ func maybeKcCreate(dryRun bool, manifest *bytes.Buffer, opts *assets.AssetOpts, 
 		_, err := os.Stdout.Write(manifest.Bytes())
 		return err
 	}
-	if err := cmdutil.RunIO(
-		cmdutil.IO{
-			Stdin:  manifest,
-			Stdout: os.Stdout,
-			Stderr: os.Stderr,
-		}, "kubectl", "create", "-f", "-"); err != nil {
+	io := cmdutil.IO{
+		Stdin:  manifest,
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
+	}
+	if err := cmdutil.RunIO(io, "kubectl", "create", "-f", "-"); err != nil {
 		return err
 	}
-	fmt.Println("\nPachyderm is launching, this process will block until it's up.\nTo Monitor it do `kubectl get all`.")
-	if opts.DashOnly || opts.EnableDash {
-		fmt.Println("Once launched, access the dashboard by running \"pachctl port-forward\"")
-	}
-	fmt.Println("")
-	client, err := client.NewOnUserMachine(metrics, "user")
-	if err != nil {
-		return err
-	}
-	return backoff.Retry(func() error {
-		iter := client.GetLogs("", "", nil, "", false)
-		for iter.Next() {
-			fmt.Print(iter.Message().Message)
+	if !dryRun {
+		fmt.Println("\nPachyderm is launching. Check it's status with \"kubectl get all\"")
+		if opts.DashOnly || opts.EnableDash {
+			fmt.Println("Once launched, access the dashboard by running \"pachctl port-forward\"")
 		}
-		return iter.Err()
-	}, backoff.NewInfiniteBackOff())
+		fmt.Println("")
+	}
+	return nil
 }
 
 // DeployCmd returns a cobra.Command to deploy pachyderm.
