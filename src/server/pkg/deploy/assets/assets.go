@@ -127,14 +127,14 @@ func fillDefaultResourceRequests(opts *AssetOpts, persistentDiskBackend backend)
 			opts.PachdNonCacheMemRequest = "256M"
 		}
 		if opts.PachdCPURequest == "" {
-			opts.PachdCPURequest = "0.25"
+			opts.PachdCPURequest = "0.50"
 		}
 
 		if opts.EtcdMemRequest == "" {
 			opts.EtcdMemRequest = "256M"
 		}
 		if opts.EtcdCPURequest == "" {
-			opts.EtcdCPURequest = "0.25"
+			opts.EtcdCPURequest = "0.50"
 		}
 	} else {
 		// For non-local deployments, we set the resource requirements and cache

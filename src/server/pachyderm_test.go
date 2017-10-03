@@ -4921,7 +4921,6 @@ func TestListJobOutput(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 	c := getPachClient(t)
 
 	dataRepo := uniqueString("TestListJobOutput_data")
@@ -5017,7 +5016,6 @@ func TestMaxQueueSize(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 	c := getPachClient(t)
 
 	dataRepo := uniqueString("TestMaxQueueSize_data")
@@ -5079,7 +5077,6 @@ func TestHTTPAuth(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 	c := getPachClient(t)
 
 	var host string
@@ -5128,7 +5125,6 @@ func TestHTTPGetFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 	c := getPachClient(t)
 
 	dataRepo := uniqueString("TestHTTPGetFile_data")
@@ -5181,7 +5177,6 @@ func TestService(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 	c := getPachClient(t)
 
 	dataRepo := uniqueString("TestService_data")
