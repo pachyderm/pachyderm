@@ -40,9 +40,6 @@ func newSharder(discoveryClient discovery.Client, numShards uint64, namespace st
 }
 
 func (a *sharder) GetAddress(shard uint64, version int64) (result string, ok bool, retErr error) {
-	defer func() {
-		log.Debug(&GetAddress{shard, version, result, ok, errorToString(retErr)})
-	}()
 	addresses, err := a.getAddresses(version)
 	if err != nil {
 		return "", false, err
@@ -55,9 +52,6 @@ func (a *sharder) GetAddress(shard uint64, version int64) (result string, ok boo
 }
 
 func (a *sharder) GetShardToAddress(version int64) (result map[uint64]string, retErr error) {
-	defer func() {
-		log.Debug(&GetShardToAddress{version, result, errorToString(retErr)})
-	}()
 	addresses, err := a.getAddresses(version)
 	if err != nil {
 		return nil, err
@@ -70,10 +64,6 @@ func (a *sharder) GetShardToAddress(version int64) (result map[uint64]string, re
 }
 
 func (a *sharder) Register(cancel chan bool, address string, servers []Server) (retErr error) {
-	log.Info(&StartRegister{address})
-	defer func() {
-		log.Info(&FinishRegister{address, errorToString(retErr)})
-	}()
 	var once sync.Once
 	versionChan := make(chan int64)
 	internalCancel := make(chan bool)
@@ -188,10 +178,6 @@ func (a *sharder) AssignRoles(address string, cancel chan bool) (retErr error) {
 
 // unsafeAssignRoles should be run
 func (a *sharder) unsafeAssignRoles(cancel chan bool) (retErr error) {
-	log.Info(&StartAssignRoles{})
-	defer func() {
-		log.Info(&FinishAssignRoles{errorToString(retErr)})
-	}()
 	var version int64
 	oldServers := make(map[string]bool)
 	oldRoles := make(map[string]*ServerRole)
@@ -282,7 +268,6 @@ func (a *sharder) unsafeAssignRoles(cancel chan bool) (retErr error) {
 						if err := a.discoveryClient.Delete(key); err != nil {
 							return err
 						}
-						log.Info(&DeleteServerRole{serverRole})
 					}
 				}
 			}
@@ -321,7 +306,6 @@ func (a *sharder) unsafeAssignRoles(cancel chan bool) (retErr error) {
 				if err := a.discoveryClient.Set(a.serverRoleKeyVersion(address, version), encodedServerRole, 0); err != nil {
 					return err
 				}
-				log.Info(&SetServerRole{serverRole})
 				address := newServerStates[address].Address
 				for shard := range serverRole.Shards {
 					addresses.Addresses[shard] = address
@@ -334,7 +318,6 @@ func (a *sharder) unsafeAssignRoles(cancel chan bool) (retErr error) {
 			if err := a.discoveryClient.Set(a.addressesKey(version), encodedAddresses, 0); err != nil {
 				return err
 			}
-			log.Info(&SetAddresses{&addresses})
 			version++
 			oldServers = make(map[string]bool)
 			for address := range newServerStates {
@@ -430,12 +413,10 @@ func (a *sharder) WaitForAvailability(frontendAddresses []string, serverAddresse
 				}
 
 				if frontendState.Version != version {
-					log.Printf("Wrong version: %d != %d", frontendState.Version, version)
 					return nil
 				}
 				frontendStates[frontendState.Address] = frontendState
 			}
-			log.Printf("frontendStates: %+v", frontendStates)
 			if len(frontendStates) != len(frontendAddresses) {
 				return nil
 			}
@@ -689,9 +670,8 @@ func (a *sharder) announceServers(
 			return err
 		}
 		if err := a.discoveryClient.Set(a.serverStateKey(address), encodedServerState, holdTTL); err != nil {
-			log.Printf("Error setting server state: %s", err.Error())
+			log.Error("Error setting server state: %s", err.Error())
 		}
-		log.Debug(&SetServerState{serverState})
 		select {
 		case <-cancel:
 			return nil
@@ -718,9 +698,8 @@ func (a *sharder) announceFrontends(
 			return err
 		}
 		if err := a.discoveryClient.Set(a.frontendStateKey(address), encodedFrontendState, holdTTL); err != nil {
-			log.Printf("Error setting server state: %s", err.Error())
+			log.Errorf("Error setting server state: %s", err.Error())
 		}
-		log.Debug(&SetFrontendState{frontendState})
 		select {
 		case <-cancel:
 			return nil
@@ -789,10 +768,8 @@ func (a *sharder) fillRoles(
 				}
 				wg.Wait()
 				if addShardErr != nil {
-					log.Info(&AddServerRole{&serverRole, addShardErr.Error()})
 					return addShardErr
 				}
-				log.Info(&AddServerRole{&serverRole, ""})
 				oldRoles[version] = serverRole
 				versionChan <- version
 			}
@@ -821,10 +798,9 @@ func (a *sharder) fillRoles(
 				}
 				wg.Wait()
 				if removeShardErr != nil {
-					log.Info(&RemoveServerRole{&serverRole, removeShardErr.Error()})
+					log.Error(&RemoveServerRole{&serverRole, removeShardErr.Error()})
 					return removeShardErr
 				}
-				log.Info(&RemoveServerRole{&serverRole, ""})
 			}
 			oldRoles = make(map[int64]ServerRole)
 			for _, version := range versions {

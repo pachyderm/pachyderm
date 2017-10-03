@@ -14,7 +14,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/version"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
@@ -24,27 +26,37 @@ import (
 	"go.pedge.io/pkg/cobra"
 )
 
-var defaultDashImage = "pachyderm/dash:0.5.9"
+var defaultDashImage = "pachyderm/dash:0.5.10"
 
-func maybeKcCreate(dryRun bool, manifest *bytes.Buffer, opts *assets.AssetOpts) error {
+func maybeKcCreate(dryRun bool, manifest *bytes.Buffer, opts *assets.AssetOpts, metrics bool) error {
 	if dryRun {
 		_, err := os.Stdout.Write(manifest.Bytes())
 		return err
 	}
-	ret := cmdutil.RunIO(
+	if err := cmdutil.RunIO(
 		cmdutil.IO{
 			Stdin:  manifest,
 			Stdout: os.Stdout,
 			Stderr: os.Stderr,
-		}, "kubectl", "create", "-f", "-")
-	if !dryRun {
-		fmt.Println("\nPachyderm is launching. Check it's status with \"kubectl get all\"")
-		if opts.DashOnly || opts.EnableDash {
-			fmt.Println("Once launched, access the dashboard by running \"pachctl port-forward\"")
-		}
-		fmt.Println("")
+		}, "kubectl", "create", "-f", "-"); err != nil {
+		return err
 	}
-	return ret
+	fmt.Println("\nPachyderm is launching, this process will block until it's up.\nTo Monitor it do `kubectl get all`.")
+	if opts.DashOnly || opts.EnableDash {
+		fmt.Println("Once launched, access the dashboard by running \"pachctl port-forward\"")
+	}
+	fmt.Println("")
+	client, err := client.NewOnUserMachine(metrics, "user")
+	if err != nil {
+		return err
+	}
+	return backoff.Retry(func() error {
+		iter := client.GetLogs("", "", nil, "", false)
+		for iter.Next() {
+			fmt.Print(iter.Message().Message)
+		}
+		return iter.Err()
+	}, backoff.NewInfiniteBackOff())
 }
 
 // DeployCmd returns a cobra.Command to deploy pachyderm.
@@ -99,7 +111,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			if err := assets.WriteLocalAssets(manifest, opts, hostPath); err != nil {
 				return err
 			}
-			return maybeKcCreate(dryRun, manifest, opts)
+			return maybeKcCreate(dryRun, manifest, opts, metrics)
 		}),
 	}
 	deployLocal.Flags().StringVar(&hostPath, "host-path", "/var/pachyderm", "Location on the host machine where PFS metadata will be stored.")
@@ -132,7 +144,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			if err = assets.WriteGoogleAssets(manifest, opts, args[0], volumeSize); err != nil {
 				return err
 			}
-			return maybeKcCreate(dryRun, manifest, opts)
+			return maybeKcCreate(dryRun, manifest, opts, metrics)
 		}),
 	}
 
@@ -157,7 +169,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return maybeKcCreate(dryRun, manifest, opts)
+			return maybeKcCreate(dryRun, manifest, opts, metrics)
 		}),
 	}
 	deployCustom.Flags().BoolVarP(&secure, "secure", "s", false, "Enable secure access to a Minio server.")
@@ -212,7 +224,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			if err = assets.WriteAmazonAssets(manifest, opts, args[0], id, secret, token, args[1], volumeSize, cloudfrontDistribution); err != nil {
 				return err
 			}
-			return maybeKcCreate(dryRun, manifest, opts)
+			return maybeKcCreate(dryRun, manifest, opts, metrics)
 		}),
 	}
 	deployAmazon.Flags().StringVar(&cloudfrontDistribution, "cloudfront-distribution", "",
@@ -256,7 +268,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			if err = assets.WriteMicrosoftAssets(manifest, opts, args[0], args[1], args[2], volumeSize); err != nil {
 				return err
 			}
-			return maybeKcCreate(dryRun, manifest, opts)
+			return maybeKcCreate(dryRun, manifest, opts, metrics)
 		}),
 	}
 
