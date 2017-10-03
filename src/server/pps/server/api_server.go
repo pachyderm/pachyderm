@@ -253,6 +253,83 @@ func (a *apiServer) validateJob(ctx context.Context, jobInfo *pps.JobInfo) error
 	return a.validateInput(ctx, jobInfo.Pipeline.Name, jobInfo.Input, true)
 }
 
+func (a *apiServer) validateKube() {
+	errors := false
+	_, err := a.kubeClient.Nodes().List(api.ListOptions{})
+	if err != nil {
+		errors = true
+		logrus.Errorf("unable to access kubernetes nodeslist, Pachyderm will continue to work but it will not be possible to use COEFFICIENT parallelism. error: %v", err)
+	}
+	_, err = a.kubeClient.Pods(a.namespace).Watch(api.ListOptions{Watch: true})
+	if err != nil {
+		errors = true
+		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but certain pipeline errors will result in pipelines being stuck indefinitely in \"starting\" state. error: %v", err)
+	}
+	pods, err := a.rcPods("pachd")
+	if err != nil {
+		errors = true
+		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but get-logs will not work. error: %v", err)
+	} else {
+		for _, pod := range pods {
+			_, err = a.kubeClient.Pods(a.namespace).GetLogs(
+				pod.ObjectMeta.Name, &api.PodLogOptions{
+					Container: "pachd",
+				}).Timeout(10 * time.Second).Do().Raw()
+			if err != nil {
+				errors = true
+				logrus.Errorf("unable to access kubernetes logs, Pachyderm will continue to work but get-logs will not work. error: %v", err)
+			}
+			break
+		}
+	}
+	name := uuid.NewWithoutDashes()
+	labels := map[string]string{"app": name}
+	rc := &api.ReplicationController{
+		TypeMeta: unversioned.TypeMeta{
+			Kind:       "ReplicationController",
+			APIVersion: "v1",
+		},
+		ObjectMeta: api.ObjectMeta{
+			Name:   name,
+			Labels: labels,
+		},
+		Spec: api.ReplicationControllerSpec{
+			Selector: labels,
+			Replicas: 0,
+			Template: &api.PodTemplateSpec{
+				ObjectMeta: api.ObjectMeta{
+					Name:   name,
+					Labels: labels,
+				},
+				Spec: api.PodSpec{
+					Containers: []api.Container{
+						{
+							Name:    "name",
+							Image:   DefaultUserImage,
+							Command: []string{"true"},
+						},
+					},
+				},
+			},
+		},
+	}
+	if _, err := a.kubeClient.ReplicationControllers(a.namespace).Create(rc); err != nil {
+		if err != nil {
+			errors = true
+			logrus.Errorf("unable to create kubernetes replication controllers, Pachyderm will not function properly until this is fixed. error: %v", err)
+		}
+	}
+	if err := a.kubeClient.ReplicationControllers(a.namespace).Delete(name, nil); err != nil {
+		if err != nil {
+			errors = true
+			logrus.Errorf("unable to delete kubernetes replication controllers, Pachyderm function properly but pipeline cleanup will not work. error: %v", err)
+		}
+	}
+	if !errors {
+		logrus.Infof("validating kubernetes access returned no errors")
+	}
+}
+
 func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -768,14 +845,10 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	// to finish reasonably quickly
 	ctx, _ := context.WithTimeout(context.Background(), 60*time.Second)
 
-	// Validate request
-	if request.Pipeline == nil && request.Job == nil {
-		return fmt.Errorf("must set either pipeline or job filter in call to GetLogs")
-	}
-
 	// Get list of pods containing logs we're interested in (based on pipeline and
 	// job filters)
 	var rcName string
+	var containerName string
 	if request.Pipeline != nil {
 		// If the user provides a pipeline, get logs from the pipeline RC directly
 		var err error
@@ -783,6 +856,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		if err != nil {
 			return err
 		}
+		containerName = client.PPSWorkerUserContainerName
 	} else if request.Job != nil {
 		// If user provides a job, lookup the pipeline from the job info, and then
 		// get the pipeline RC
@@ -802,6 +876,11 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		if err != nil {
 			return err
 		}
+		containerName = client.PPSWorkerUserContainerName
+	} else {
+		// by default we get messages from
+		rcName = "pachd"
+		containerName = "pachd"
 	}
 
 	pods, err := a.rcPods(rcName)
@@ -831,7 +910,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			err := backoff.Retry(func() error {
 				result := a.kubeClient.Pods(a.namespace).GetLogs(
 					pod.ObjectMeta.Name, &api.PodLogOptions{
-						Container: client.PPSWorkerUserContainerName,
+						Container: containerName,
 					}).Timeout(10 * time.Second).Do()
 				fullLogs, err := result.Raw()
 				if err != nil {
@@ -853,27 +932,31 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				// Parse pods' log lines, and filter out irrelevant ones
 				scanner := bufio.NewScanner(bytes.NewReader(fullLogs))
 				for scanner.Scan() {
-					logBytes := scanner.Bytes()
 					msg := new(pps.LogMessage)
-					if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
-						continue
-					}
+					if containerName == "pachd" {
+						msg.Message = scanner.Text() + "\n"
+					} else {
+						logBytes := scanner.Bytes()
+						if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
+							continue
+						}
 
-					// Filter out log lines that don't match on pipeline or job
-					if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
-						continue
-					}
-					if request.Job != nil && request.Job.ID != msg.JobID {
-						continue
-					}
-					if request.Datum != nil && request.Datum.ID != msg.DatumID {
-						continue
-					}
-					if request.Master != msg.Master {
-						continue
-					}
-					if !workerpkg.MatchDatum(request.DataFilters, msg.Data) {
-						continue
+						// Filter out log lines that don't match on pipeline or job
+						if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
+							continue
+						}
+						if request.Job != nil && request.Job.ID != msg.JobID {
+							continue
+						}
+						if request.Datum != nil && request.Datum.ID != msg.DatumID {
+							continue
+						}
+						if request.Master != msg.Master {
+							continue
+						}
+						if !workerpkg.MatchDatum(request.DataFilters, msg.Data) {
+							continue
+						}
 					}
 
 					// Log message passes all filters -- return it
@@ -1945,7 +2028,7 @@ func (a *apiServer) rcPods(rcName string) ([]api.Pod, error) {
 			Kind:       "ListOptions",
 			APIVersion: "v1",
 		},
-		LabelSelector: kube_labels.SelectorFromSet(labels(rcName)),
+		LabelSelector: kube_labels.SelectorFromSet(map[string]string{"app": rcName}),
 	})
 	if err != nil {
 		return nil, err
