@@ -2671,12 +2671,12 @@ func TestParallelismSpec(t *testing.T) {
 	// Test 0-initialized JobSpec
 	parellelism, err = ppsserver.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{})
 	require.NoError(t, err)
-	require.Equal(t, numNodes, parellelism)
+	require.Equal(t, 1, parellelism)
 
 	// Test nil JobSpec
 	parellelism, err = ppsserver.GetExpectedNumWorkers(kubeclient, nil)
 	require.NoError(t, err)
-	require.Equal(t, numNodes, parellelism)
+	require.Equal(t, 1, parellelism)
 }
 
 func TestPipelineJobDeletion(t *testing.T) {
