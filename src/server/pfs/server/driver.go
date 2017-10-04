@@ -11,6 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -735,6 +736,9 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 		if err := d.openCommits.ReadWrite(stm).Delete(commit.ID); err != nil {
 			return fmt.Errorf("could not confirm that commit %s is open; this is likely a bug. err: %v", commit.ID, err)
 		}
+		if err := d.propagateCommit(ctx, commit, stm); err != nil {
+			return err
+		}
 		// update repo size
 		repoInfo := new(pfs.RepoInfo)
 		if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
@@ -754,6 +758,65 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 	// Delete the scratch space for this commit
 	_, err = d.etcdClient.Delete(ctx, prefix, etcd.WithPrefix())
 	return err
+}
+
+func (d *driver) propagateCommit(ctx context.Context, commit *pfs.Commit, stm col.STM) error {
+	repos := d.repos.ReadOnly(ctx)
+	iterator, err := repos.List()
+	if err != nil {
+		return err
+	}
+	var repoInfos []*pfs.RepoInfo
+	for {
+		var repoName string
+		var repoInfo pfs.RepoInfo
+		ok, err := iterator.Next(&repoName, &repoInfo)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			break
+		}
+		for _, provRepo := range repoInfo.Provenance {
+			if provRepo.Name == commit.Repo.Name {
+				repoInfos = append(repoInfos, &repoInfo)
+			}
+		}
+	}
+	sort.Slice(repoInfos, func(i, j int) bool { return len(repoInfos[i].Provenance) < len(repoInfos[j].Provenance) })
+	repoToCommit := make(map[string]*pfs.Commit)
+	repoToCommit[commit.Repo.Name] = commit
+	for _, repoInfo := range repoInfos {
+		branches := d.branches(repoInfo.Repo.Name).ReadWrite(stm)
+		commits := d.commits(repoInfo.Repo.Name).ReadWrite(stm)
+		commit := &pfs.Commit{
+			Repo: repoInfo.Repo,
+			ID:   uuid.NewWithoutDashes(),
+		}
+		repoToCommit[repoInfo.Repo.Name] = commit
+		var provenance []*pfs.Commit
+		for _, repo := range repoInfo.Provenance {
+			provenance = append(provenance, repoToCommit[repo.Name])
+		}
+		commitInfo := &pfs.CommitInfo{
+			Commit:     commit,
+			Started:    now(),
+			Provenance: provenance,
+		}
+		var head pfs.Commit
+		if err := branches.Get("master", &head); err != nil {
+			if _, ok := err.(col.ErrNotFound); !ok {
+				return err
+			}
+		} else {
+			commitInfo.ParentCommit = &head
+		}
+		if err := commits.Create(commit.ID, commitInfo); err != nil {
+			return err
+		}
+		return branches.Put("master", commit)
+	}
+	return nil
 }
 
 func sizeChange(tree hashtree.HashTree, parentTree hashtree.HashTree) uint64 {
