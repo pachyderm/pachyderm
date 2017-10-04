@@ -5,13 +5,27 @@ import "gogoproto/gogo.proto";
 
 //// Activation API
 
+// ActivateRequest mirrors AuthenticateRequest. The caller is authenticated via
+// GitHub OAuth, and then promoted to the cluster's first Admin. Afterwards, the
+// caller can promote other users to Admin and remove themselves
 message ActivateRequest {
-  // An initial list of cluster administraters. Pachyderm requires that if its
-  // auth system is activated, the cluster must have at least one
-  // administrator
-  repeated string admins = 2;
+  // If set, Pachyderm will compare this username to the GitHub account that
+  // issued the access token 'github_token'. For now, this is not required
+  // (if unset, your GitHub username will be looked up using 'github_token')
+  string github_username = 2;
+
+  // This is the token returned by GitHub and used to authenticate the caller.
+  // In dev mode, the caller may set "github_username" without setting this to
+  // simulate logins
+  string github_token = 1;
 }
-message ActivateResponse {}
+
+message ActivateResponse {
+  // pach_token authenticates the caller with Pachyderm (if you want to perform
+  // Pachyderm operations after auth has been activated as themselves, you must
+  // present this token along with your regular request)
+  string pach_token = 1;
+}
 
 message DeactivateRequest {}
 message DeactivateResponse {}
@@ -37,7 +51,7 @@ message User {
 
   enum UserType {
     INVALID = 0;
-    HUMAN = 1;
+    GITHUB = 1;
     PIPELINE = 2;
   }
   UserType type = 2;
@@ -50,10 +64,17 @@ message AuthenticateRequest {
   // issued the access token 'github_token'. For now, this is not required
   // (if unset, your GitHub username will be looked up using 'github_token')
   string github_username = 2;
+
+  // This is the token returned by GitHub and used to authenticate the caller.
+  // In dev mode, the caller may set "github_username" without setting this to
+  // simulate logins
   string github_token = 1;
 }
 
 message AuthenticateResponse {
+  // pach_token authenticates the caller with Pachyderm (if you want to perform
+  // Pachyderm operations after auth has been activated as themselves, you must
+  // present this token along with your regular request)
   string pach_token = 1;
 }
 
@@ -72,11 +93,6 @@ enum Scope {
   READER = 1;
   WRITER = 2;
   OWNER = 3;
-}
-
-message ACLEntry {
-  string username = 1;
-  Scope scope = 2;
 }
 
 message ACL {
@@ -116,13 +132,18 @@ message GetACLRequest {
   string repo = 1;
 }
 
+message ACLEntry {
+  string username = 1;
+  Scope scope = 2;
+}
+
 message GetACLResponse {
-  ACL acl = 1 [(gogoproto.customname) = "ACL"];
+  repeated ACLEntry entries = 1;
 }
 
 message SetACLRequest {
   string repo = 1;
-  ACL new_acl = 2 [(gogoproto.customname) = "NewACL"];
+  repeated ACLEntry entries = 2;
 }
 
 message SetACLResponse {}

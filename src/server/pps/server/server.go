@@ -24,6 +24,7 @@ func NewAPIServer(
 	storageRoot string,
 	storageBackend string,
 	storageHostPath string,
+	iamRole string,
 	reporter *metrics.Reporter,
 ) (ppsclient.APIServer, error) {
 	etcdClient, err := etcd.New(etcd.Config{
@@ -47,10 +48,12 @@ func NewAPIServer(
 		storageRoot:           storageRoot,
 		storageBackend:        storageBackend,
 		storageHostPath:       storageHostPath,
+		iamRole:               iamRole,
 		reporter:              reporter,
 		pipelines:             ppsdb.Pipelines(etcdClient, etcdPrefix),
 		jobs:                  ppsdb.Jobs(etcdClient, etcdPrefix),
 	}
+	apiServer.validateKube()
 	go apiServer.master()
 	return apiServer, nil
 }
@@ -62,6 +65,7 @@ func NewSidecarAPIServer(
 	etcdAddress string,
 	etcdPrefix string,
 	address string,
+	iamRole string,
 	reporter *metrics.Reporter,
 ) (ppsclient.APIServer, error) {
 	etcdClient, err := etcd.New(etcd.Config{
@@ -77,6 +81,7 @@ func NewSidecarAPIServer(
 		address:    address,
 		etcdPrefix: etcdPrefix,
 		etcdClient: etcdClient,
+		iamRole:    iamRole,
 		reporter:   reporter,
 		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
 		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),

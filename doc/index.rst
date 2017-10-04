@@ -60,6 +60,7 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     deployment/on_premises
     deployment/custom_object_stores
     deployment/migrations
+    deployment/storage_credentials
 
 .. toctree::
     :maxdepth: 1
@@ -79,6 +80,7 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     cookbook/ml
     cookbook/time_windows
     cookbook/gpus
+    cookbook/cron
  
 .. toctree::
     :maxdepth: 2

@@ -228,7 +228,7 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 		repoRefCounts := d.repoRefCounts.ReadWriteInt(stm)
 
 		// check if 'repo' already exists. If so, return that error. Otherwise,
-		// proceed with auth check (avoids awkward "access denied" error when
+		// proceed with ACL creation (avoids awkward "access denied" error when
 		// calling "createRepo" on a repo that already exists)
 		var existingRepoInfo pfs.RepoInfo
 		err := repos.Get(repo.Name, &existingRepoInfo)
@@ -238,6 +238,7 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 		} else if err == nil {
 			return fmt.Errorf("cannot create \"%s\" as it already exists", repo.Name)
 		}
+
 		// Create ACL for new repo
 		whoAmI, err := d.pachClient.AuthAPIClient.WhoAmI(auth.In2Out(ctx),
 			&auth.WhoAmIRequest{})
@@ -250,11 +251,10 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 			// created by accident)
 			_, err := d.pachClient.AuthAPIClient.SetACL(auth.In2Out(ctx), &auth.SetACLRequest{
 				Repo: repo.Name,
-				NewACL: &auth.ACL{
-					Entries: map[string]auth.Scope{
-						whoAmI.Username: auth.Scope_OWNER,
-					},
-				},
+				Entries: []*auth.ACLEntry{{
+					Username: whoAmI.Username,
+					Scope:    auth.Scope_OWNER,
+				}},
 			})
 			if err != nil {
 				return fmt.Errorf("could not create ACL for new repo \"%s\": %v",
@@ -481,14 +481,29 @@ nextRepo:
 }
 
 func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) error {
-	if err := d.checkIsAuthorized(ctx, repo, auth.Scope_OWNER); err != nil {
-		return err
-	}
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		repos := d.repos.ReadWrite(stm)
 		repoRefCounts := d.repoRefCounts.ReadWriteInt(stm)
 		commits := d.commits(repo.Name).ReadWrite(stm)
 		branches := d.branches(repo.Name).ReadWrite(stm)
+
+		// check if 'repo' is already gone. If so, return that error. Otherwise,
+		// proceed with auth check (avoids awkward "access denied" error when calling
+		// "deleteRepo" on a repo that's already gone)
+		var existingRepoInfo pfs.RepoInfo
+		err := repos.Get(repo.Name, &existingRepoInfo)
+		if err != nil {
+			if col.IsErrNotFound(err) {
+				return fmt.Errorf("cannot delete \"%s\" as it does not exist", repo.Name)
+			}
+			return fmt.Errorf("error checking whether \"%s\" exists: %v",
+				repo.Name, err)
+		}
+
+		// Check if the caller is authorized to delete this repo
+		if err := d.checkIsAuthorized(ctx, repo, auth.Scope_OWNER); err != nil {
+			return err
+		}
 
 		// Check if this repo is the provenance of some other repos
 		if !force {
@@ -527,7 +542,7 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 		return err
 	}
 
-	if _, err = d.pachClient.AuthAPIClient.SetACL(auth.In2Out(ctx), &auth.SetACLRequest{
+	if _, err = d.pachClient.SetACL(auth.In2Out(ctx), &auth.SetACLRequest{
 		Repo: repo.Name, // NewACL is unset, so this will clear the acl for 'repo'
 	}); err != nil && !auth.IsNotActivatedError(err) {
 		return grpcutil.ScrubGRPC(err)
@@ -1779,6 +1794,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 			Objects:     node.FileNode.Objects,
 			OffsetBytes: uint64(offset),
 			SizeBytes:   uint64(size),
+			TotalSize:   uint64(node.SubtreeSize),
 		})
 	if err != nil {
 		return nil, err

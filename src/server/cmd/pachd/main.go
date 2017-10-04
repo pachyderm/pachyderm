@@ -11,6 +11,7 @@ import (
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client"
 	authclient "github.com/pachyderm/pachyderm/src/client/auth"
+	deployclient "github.com/pachyderm/pachyderm/src/client/deploy"
 	eprsclient "github.com/pachyderm/pachyderm/src/client/enterprise"
 	healthclient "github.com/pachyderm/pachyderm/src/client/health"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
@@ -21,6 +22,7 @@ import (
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
+	deployserver "github.com/pachyderm/pachyderm/src/server/deploy"
 	eprsserver "github.com/pachyderm/pachyderm/src/server/enterprise/server"
 	"github.com/pachyderm/pachyderm/src/server/health"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
@@ -73,6 +75,7 @@ type appEnv struct {
 	WorkerSidecarImage    string `env:"WORKER_SIDECAR_IMAGE,default="`
 	WorkerImagePullPolicy string `env:"WORKER_IMAGE_PULL_POLICY,default="`
 	LogLevel              string `env:"LOG_LEVEL,default=info"`
+	IAMRole               string `env:"IAM_ROLE,default="`
 }
 
 func main() {
@@ -135,6 +138,7 @@ func doSidecarMode(appEnvObj interface{}) error {
 		etcdAddress,
 		appEnv.PPSEtcdPrefix,
 		address,
+		appEnv.IAMRole,
 		reporter,
 	)
 	if err != nil {
@@ -272,18 +276,20 @@ func doFullMode(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
+	kubeNamespace := getNamespace()
 	ppsAPIServer, err := pps_server.NewAPIServer(
 		etcdAddress,
 		appEnv.PPSEtcdPrefix,
 		address,
 		kubeClient,
-		getNamespace(),
+		kubeNamespace,
 		appEnv.WorkerImage,
 		appEnv.WorkerSidecarImage,
 		appEnv.WorkerImagePullPolicy,
 		appEnv.StorageRoot,
 		appEnv.StorageBackend,
 		appEnv.StorageHostPath,
+		appEnv.IAMRole,
 		reporter,
 	)
 	if err != nil {
@@ -319,6 +325,8 @@ func doFullMode(appEnvObj interface{}) error {
 
 	healthServer := health.NewHealthServer()
 
+	deployServer := deployserver.NewDeployServer(kubeClient, kubeNamespace)
+
 	httpServer, err := pfs_server.NewHTTPServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, blockCacheBytes)
 	if err != nil {
 		return err
@@ -337,6 +345,7 @@ func doFullMode(appEnvObj interface{}) error {
 				cache_pb.RegisterGroupCacheServer(s, cacheServer)
 				authclient.RegisterAPIServer(s, authAPIServer)
 				eprsclient.RegisterAPIServer(s, enterpriseAPIServer)
+				deployclient.RegisterAPIServer(s, deployServer)
 			},
 			grpcutil.ServeOptions{
 				Version:    version.Version,

@@ -75,13 +75,12 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (api.PodSpec, error) {
 		}
 	}
 	userVolumeMounts := options.volumeMounts
-	secretVolume, secretMount, err := assets.GetSecretVolumeAndMount(a.storageBackend)
-	if err == nil {
-		options.volumes = append(options.volumes, secretVolume)
-		options.volumeMounts = append(options.volumeMounts, secretMount)
-		sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
-		userVolumeMounts = append(userVolumeMounts, secretMount)
-	}
+	secretVolume, secretMount := assets.GetSecretVolumeAndMount(a.storageBackend)
+	options.volumes = append(options.volumes, secretVolume)
+	options.volumeMounts = append(options.volumeMounts, secretMount)
+	sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
+	userVolumeMounts = append(userVolumeMounts, secretMount)
+
 	// Explicitly set CPU and MEM requests to zero because some cloud
 	// providers set their own defaults which are usually not what we want.
 	cpuZeroQuantity := resource.MustParse("0")
@@ -294,10 +293,15 @@ func (a *apiServer) getWorkerOptions(pipelineName string, rcName string,
 		imagePullSecrets = append(imagePullSecrets, api.LocalObjectReference{Name: secret})
 	}
 
+	annotations := map[string]string{"pipelineName": pipelineName}
+	if a.iamRole != "" {
+		annotations["iam.amazonaws.com/role"] = a.iamRole
+	}
+
 	return &workerOptions{
 		rcName:           rcName,
 		labels:           labels,
-		annotations:      map[string]string{"pipelineName": pipelineName},
+		annotations:      annotations,
 		parallelism:      int32(parallelism),
 		resources:        resources,
 		userImage:        userImage,

@@ -6,11 +6,14 @@ import (
 	"io/ioutil"
 	"net"
 	"net/url"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
@@ -48,16 +51,24 @@ func NewGoogleClient(ctx context.Context, bucket string) (Client, error) {
 	return newGoogleClient(ctx, bucket)
 }
 
+func readSecretFile(name string) (string, error) {
+	bytes, err := ioutil.ReadFile(filepath.Join("/", client.StorageSecretName, name))
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(bytes)), nil
+}
+
 // NewGoogleClientFromSecret creates a google client by reading credentials
 // from a mounted GoogleSecret. You may pass "" for bucket in which case it
 // will read the bucket from the secret.
 func NewGoogleClientFromSecret(ctx context.Context, bucket string) (Client, error) {
+	var err error
 	if bucket == "" {
-		_bucket, err := ioutil.ReadFile("/google-secret/bucket")
+		bucket, err = readSecretFile("/google-bucket")
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("google-bucket not found")
 		}
-		bucket = string(_bucket)
 	}
 	return NewGoogleClient(ctx, bucket)
 }
@@ -74,22 +85,22 @@ func NewMicrosoftClient(container string, accountName string, accountKey string)
 // credentials from a mounted MicrosoftSecret. You may pass "" for container in
 // which case it will read the container from the secret.
 func NewMicrosoftClientFromSecret(container string) (Client, error) {
+	var err error
 	if container == "" {
-		_container, err := ioutil.ReadFile("/microsoft-secret/container")
+		container, err = readSecretFile("/microsoft-container")
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("microsoft-container not found")
 		}
-		container = string(_container)
 	}
-	id, err := ioutil.ReadFile("/microsoft-secret/id")
+	id, err := readSecretFile("/microsoft-id")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("microsoft-id not found")
 	}
-	secret, err := ioutil.ReadFile("/microsoft-secret/secret")
+	secret, err := readSecretFile("/microsoft-secret")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("microsoft-secret not found")
 	}
-	return NewMicrosoftClient(container, string(id), string(secret))
+	return NewMicrosoftClient(container, id, secret)
 }
 
 // NewMinioClient creates an s3 compatible client with the following credentials:
@@ -118,44 +129,44 @@ func NewAmazonClient(bucket string, distribution string, id string, secret strin
 // credentials from a mounted AmazonSecret. You may pass "" for bucket in which case it
 // will read the bucket from the secret.
 func NewMinioClientFromSecret(bucket string) (Client, error) {
+	var err error
 	if bucket == "" {
-		_bucket, err := ioutil.ReadFile("/minio-secret/bucket")
+		bucket, err = readSecretFile("/minio-bucket")
 		if err != nil {
 			return nil, err
 		}
-		bucket = string(_bucket)
 	}
-	endpoint, err := ioutil.ReadFile("/minio-secret/endpoint")
+	endpoint, err := readSecretFile("/minio-endpoint")
 	if err != nil {
 		return nil, err
 	}
-	id, err := ioutil.ReadFile("/minio-secret/id")
+	id, err := readSecretFile("/minio-id")
 	if err != nil {
 		return nil, err
 	}
-	secret, err := ioutil.ReadFile("/minio-secret/secret")
+	secret, err := readSecretFile("/minio-secret")
 	if err != nil {
 		return nil, err
 	}
-	secure, err := ioutil.ReadFile("/minio-secret/secure")
+	secure, err := readSecretFile("/minio-secure")
 	if err != nil {
 		return nil, err
 	}
-	return NewMinioClient(string(endpoint), bucket, string(id), string(secret), string(secure) == "1")
+	return NewMinioClient(endpoint, bucket, id, secret, secure == "1")
 }
 
 // NewAmazonClientFromSecret constructs an amazon client by reading credentials
 // from a mounted AmazonSecret. You may pass "" for bucket in which case it
 // will read the bucket from the secret.
 func NewAmazonClientFromSecret(bucket string) (Client, error) {
-	var distribution []byte
+	var distribution string
+	var err error
 	if bucket == "" {
-		_bucket, err := ioutil.ReadFile("/amazon-secret/bucket")
+		bucket, err = readSecretFile("/amazon-bucket")
 		if err != nil {
 			return nil, err
 		}
-		bucket = string(_bucket)
-		distribution, err = ioutil.ReadFile("/amazon-secret/distribution")
+		distribution, err = readSecretFile("/amazon-distribution")
 		if err != nil {
 			// Distribution is not required, but we can log a warning
 			log.Warnln("AWS deployed without cloudfront distribution\n")
@@ -163,23 +174,26 @@ func NewAmazonClientFromSecret(bucket string) (Client, error) {
 			log.Infof("AWS deployed with cloudfront distribution at %v\n", string(distribution))
 		}
 	}
-	id, err := ioutil.ReadFile("/amazon-secret/id")
-	if err != nil {
+	// It's ok if we can't find static credentials; we will use IAM roles
+	// in that case.
+	id, err := readSecretFile("/amazon-id")
+	if err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
-	secret, err := ioutil.ReadFile("/amazon-secret/secret")
-	if err != nil {
+	secret, err := readSecretFile("/amazon-secret")
+	if err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
-	token, err := ioutil.ReadFile("/amazon-secret/token")
-	if err != nil {
+	token, err := readSecretFile("/amazon-token")
+	if err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
-	region, err := ioutil.ReadFile("/amazon-secret/region")
+	// region is required for constructing an AWS client
+	region, err := readSecretFile("/amazon-region")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("amazon-region not found")
 	}
-	return NewAmazonClient(bucket, string(distribution), string(id), string(secret), string(token), string(region))
+	return NewAmazonClient(bucket, distribution, id, secret, token, region)
 }
 
 // NewClientFromURLAndSecret constructs a client by parsing `URL` and then
