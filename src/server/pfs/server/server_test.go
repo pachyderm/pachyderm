@@ -3144,6 +3144,31 @@ func TestBuildCommit(t *testing.T) {
 	require.Equal(t, uint64(fooSize+barSize), commitInfo.SizeBytes)
 }
 
+func TestPropagateCommit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c := getClient(t)
+	repo1 := uniqueString("TestPropagateCommit1")
+	require.NoError(t, c.CreateRepo(repo1))
+	repo2 := uniqueString("TestPropagateCommit2")
+	_, err := c.PfsAPIClient.CreateRepo(
+		context.Background(),
+		&pfs.CreateRepoRequest{
+			Repo:       pclient.NewRepo(repo2),
+			Provenance: []*pfs.Repo{pclient.NewRepo(repo1)},
+		})
+	require.NoError(t, err)
+	commit, err := c.StartCommit(repo1, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo1, commit.ID))
+	commits, err := c.ListCommitByRepo(repo2)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commits))
+}
+
 func uniqueString(prefix string) string {
 	return prefix + "-" + uuid.NewWithoutDashes()[0:12]
 }
