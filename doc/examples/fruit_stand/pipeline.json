@@ -13,14 +13,12 @@
   "parallelism_spec": {
     "constant": 1
   },
-  "inputs": [
-    {
-      "name": "data",
-      "repo": { "name": "data" },
-      "branch": "master",
+  "input": {
+    "atom": {
+      "repo": "data",
       "glob": "/*"
     }
-  ]
+  }
 }
 {
   "pipeline": {
@@ -38,12 +36,10 @@
   "parallelism_spec": {
     "constant": 1
   },
-  "inputs": [
-    {
-      "name": "filter",
-      "repo": { "name": "filter" },
-      "branch": "master",
+  "input": {
+    "atom": {
+      "repo": "filter",
       "glob": "/*"
     }
-  ]
+  }
 }

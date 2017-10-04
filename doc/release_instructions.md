@@ -50,7 +50,7 @@ You'll need the following credentials / tools:
 
 6) Run `docker login` (as the release script pushes new versions of the pachd and job-shim binaries to dockerhub)
 
-7) Run `make point-release` or `make VERSION_ADDITION=<rc/version suffix> release-custom`
+7) Run `make point-release` or `make VERSION_ADDITIONAL=<rc/version suffix> release-custom`
 
 
 ### If the release failed

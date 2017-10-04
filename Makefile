@@ -362,6 +362,7 @@ test-local:
 test-auth:
 	yes | pachctl delete-all
 	go test -v ./src/server/auth/server -timeout $(TIMEOUT)
+	go test -v ./src/server/auth/cmds -timeout $(TIMEOUT)
 
 test-enterprise:
 	go test -v ./src/server/enterprise/server -timeout $(TIMEOUT)

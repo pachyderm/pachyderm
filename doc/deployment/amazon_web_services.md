@@ -52,7 +52,7 @@ To deploy and interact with Pachyderm, you will need `pachctl`, a command-line u
 $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.6
 
 # For Linux (64 bit):
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.6.0rc6/pachctl_1.6.0rc6_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.6.0/pachctl_1.6.0_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 You can try running `pachctl version` to check that this worked correctly, but Pachyderm itself isn't deployed yet so you won't get a `pachd` version.
@@ -106,7 +106,65 @@ $ aws s3api list-buckets --query 'Buckets[].Name'
 
 #### Deploy Pachyderm
 
-When you installed kops, you should have created a dedicated IAM user (see [here](https://github.com/kubernetes/kops/blob/master/docs/aws.md#aws) for details).  To deploy Pachyderm you will need to export these credentials to the following environmental variables:
+##### Deploying with IAM role
+
+Run the following command to deploy your Pachyderm cluster:
+
+```shell
+$ pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3 --iam-role <your-iam-role> 
+```
+
+Note that for this to work, the following need to be true:
+
+* The nodes on which Pachyderm is deployed need to be assigned with the IAM role.  If you created your cluster with kops, the nodes should have a dedicated IAM role.  You should be able to find the IAM role by going to the AWS console, click on a EC2 instance, and look at the "Description" of the instance.
+
+* The IAM role needs to have access to the bucket you just created.  For instance, you could go to the `Permissions` tab of the IAM role, then edit the policy to include the following segment:
+
+```json
+{
+    "Effect": "Allow",
+        "Action": [
+            "s3:ListBucket"
+        ],
+        "Resource": [
+            "arn:aws:s3:::your-bucket"
+        ]
+},
+{
+    "Effect": "Allow",
+    "Action": [
+        "s3:PutObject",
+    "s3:GetObject",
+    "s3:DeleteObject"
+    ],
+    "Resource": [
+        "arn:aws:s3:::your-bucket/*"
+    ]
+}
+```
+
+Make sure to replace `your-bucket` with your actual bucket name.
+
+* The IAM role needs to have the proper "trust relationships" set up.  Go to the `Trust relationships` tab of your IAM role, click `Edit trust relationship`, and ensure that you see a `statement` with `sts:AssumeRole`.  For instance, this would be a valid trust relationship:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "ec2.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+```
+
+##### Deploying with static credentials
+
+When you installed kops, you should have created a dedicated IAM user (see [here](https://github.com/kubernetes/kops/blob/master/docs/aws.md#aws) for details).  You could deploy Pachyderm using the credentials of the IAM user directly, although that's not recommended:
 
 ```sh
 $ AWS_ACCESS_KEY_ID=[access key ID]
@@ -117,10 +175,10 @@ $ AWS_SECRET_ACCESS_KEY=[secret access key]
 Run the following command to deploy your Pachyderm cluster:
 
 ```shell
-$ pachctl deploy amazon ${BUCKET_NAME} ${AWS_ACCESS_KEY_ID} ${AWS_SECRET_ACCESS_KEY} " " ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3
+$ pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3 --credentials "${AWS_ACCESS_KEY_ID},${AWS_SECRET_ACCESS_KEY}," 
 ```
 
-(Note, the `" "` in the deploy command is for an optional temporary AWS token, if you are just experimenting with a deploy.  Such a token should NOT be used for a production deploy).  It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub. You can see the cluster status by using:
+(Note, the `,` at the end of the `credentials` flag in the deploy command is for an optional temporary AWS token, if you are just experimenting with a deploy.  Such a token should NOT be used for a production deploy).  It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub. You can see the cluster status by using:
 
 ```sh
 $ kubectl get all
