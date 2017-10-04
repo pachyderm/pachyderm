@@ -74,6 +74,7 @@ Environment variables:
 * [./pachctl subscribe-commit](./pachctl_subscribe-commit.md)	 - Print commits as they are created (finished).
 * [./pachctl undeploy](./pachctl_undeploy.md)	 - Tear down a deployed Pachyderm cluster.
 * [./pachctl unmount](./pachctl_unmount.md)	 - Unmount pfs.
+* [./pachctl update-dash](./pachctl_update-dash.md)	 - Update and redeploy the Pachyderm Dashboard at the latest compatible version.
 * [./pachctl update-pipeline](./pachctl_update-pipeline.md)	 - Update an existing Pachyderm pipeline.
 * [./pachctl update-repo](./pachctl_update-repo.md)	 - Update a repo.
 * [./pachctl version](./pachctl_version.md)	 - Return version information.

@@ -1,25 +1,18 @@
-## ./pachctl deploy custom
+## ./pachctl deploy storage
 
-(in progress) Deploy a custom Pachyderm cluster configuration
+Deploy credentials for a particular storage provider.
 
 ### Synopsis
 
 
-(in progress) Deploy a custom Pachyderm cluster configuration.
-If <object store backend> is "s3", then the arguments are:
-    <volumes> <size of volumes (in GB)> <bucket> <id> <secret> <endpoint>
 
-
-```
-./pachctl deploy custom --persistent-disk <persistent disk backend> --object-store <object store backend> <persistent disk args> <object store args>
-```
-
-### Options
+Deploy credentials for a particular storage provider, so that Pachyderm can
+ingress data from and egress data to it.  Currently three backends are
+supported: aws, google, and azure.  To see the required arguments for a
+particular backend, run "pachctl deploy storage <backend>"
 
 ```
-      --object-store string      (required) Backend providing an object-storage API to pachyderm. One of: s3, gcs, or azure-blob. (default "s3")
-      --persistent-disk string   (required) Backend providing persistent local volumes to stateful pods. One of: aws, google, or azure. (default "aws")
-  -s, --secure                   Enable secure access to a Minio server.
+./pachctl deploy storage <backend> ...
 ```
 
 ### Options inherited from parent commands
