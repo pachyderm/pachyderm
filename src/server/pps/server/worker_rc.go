@@ -292,6 +292,9 @@ func (a *apiServer) getWorkerOptions(pipelineName string, rcName string,
 	for _, secret := range transform.ImagePullSecrets {
 		imagePullSecrets = append(imagePullSecrets, api.LocalObjectReference{Name: secret})
 	}
+	if a.imagePullSecret != "" {
+		imagePullSecrets = append(imagePullSecrets, api.LocalObjectReference{Name: a.imagePullSecret})
+	}
 
 	annotations := map[string]string{"pipelineName": pipelineName}
 	if a.iamRole != "" {
