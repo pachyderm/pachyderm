@@ -1932,11 +1932,19 @@ func TestSubscribeCommit(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, client.FinishCommit(repo, "master"))
 		commits = append(commits, commit)
+		fmt.Printf("%d: %s\n", i, commit.ID)
+	}
+
+	_commits, err := client.ListCommitByRepo(repo)
+	require.NoError(t, err)
+	for _, commit := range _commits {
+		fmt.Printf("%+v\n", commit)
 	}
 
 	for i := 0; i < numCommits; i++ {
 		commitInfo, err := commitIter.Next()
 		require.NoError(t, err)
+		fmt.Printf("checking %d\n", i)
 		require.Equal(t, commits[i], commitInfo.Commit)
 	}
 
