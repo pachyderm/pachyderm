@@ -744,7 +744,9 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	if err = a.acls.ReadOnly(ctx).Get(req.Repo, acl); err != nil && !col.IsErrNotFound(err) {
 		return nil, err
 	}
-	resp = &authclient.GetACLResponse{}
+	resp = &authclient.GetACLResponse{
+		Entries: make([]*authclient.ACLEntry, 0),
+	}
 	for user, scope := range acl.Entries {
 		resp.Entries = append(resp.Entries, &authclient.ACLEntry{
 			Username: strings.TrimPrefix(user, githubPrefix),
