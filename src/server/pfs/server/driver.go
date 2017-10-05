@@ -624,20 +624,21 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 		if branch != "" {
 			// If we don't have an explicit parent we use the previous head of
 			// branch as the parent, if it exists.
-			if parent.ID == "" {
-				head := new(pfs.Commit)
-				if err := branches.Get(branch, head); err != nil {
-					if _, ok := err.(col.ErrNotFound); !ok {
-						return err
-					}
-				} else {
-					parent.ID = head.ID
+			branchInfo := new(pfs.BranchInfo)
+			if err := branches.Get(branch, branchInfo); err != nil {
+				if _, ok := err.(col.ErrNotFound); !ok {
+					return err
 				}
+			} else if parent.ID == "" {
+				parent.ID = branchInfo.Head.ID
 			}
+			branchInfo.Name = branch
+			branchInfo.Head = commit
 			// Make commit the new head of the branch
-			if err := branches.Put(branch, commit); err != nil {
+			if err := branches.Put(branch, branchInfo); err != nil {
 				return err
 			}
+			fmt.Printf("%s -> %s\n", branch, commit.ID)
 		}
 		if parent.ID != "" {
 			parentCommitInfo, err := d.inspectCommit(ctx, parent)
@@ -803,18 +804,19 @@ func (d *driver) propagateCommit(ctx context.Context, commit *pfs.Commit, stm co
 			Started:    now(),
 			Provenance: provenance,
 		}
-		var head pfs.Commit
-		if err := branches.Get("master", &head); err != nil {
+		var branchInfo pfs.BranchInfo
+		if err := branches.Get("master", &branchInfo); err != nil {
 			if _, ok := err.(col.ErrNotFound); !ok {
 				return err
 			}
 		} else {
-			commitInfo.ParentCommit = &head
+			commitInfo.ParentCommit = branchInfo.Head
 		}
 		if err := commits.Create(commit.ID, commitInfo); err != nil {
 			return err
 		}
-		return branches.Put("master", commit)
+		branchInfo.Head = commit
+		return branches.Put("master", &branchInfo)
 	}
 	return nil
 }
@@ -851,16 +853,16 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.Co
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		branches := d.branches(commit.Repo.Name).ReadWrite(stm)
 
-		head := new(pfs.Commit)
+		branchInfo := new(pfs.BranchInfo)
 		// See if we are given a branch
-		if err := branches.Get(commitID, head); err != nil {
+		if err := branches.Get(commitID, branchInfo); err != nil {
 			if _, ok := err.(col.ErrNotFound); !ok {
 				return err
 			}
 			// If it's not a branch, use it as it is
 			return nil
 		}
-		commitID = head.ID
+		commitID = branchInfo.Head.ID
 		return nil
 	})
 	if err != nil {
@@ -1389,6 +1391,20 @@ func (d *driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
 	return err
 }
 
+func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, provenance []*pfs.Branch) error {
+	if err := d.checkIsAuthorized(ctx, branch.Repo, auth.Scope_WRITER); err != nil {
+		return err
+	}
+	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		branches := d.branches(branch.Repo.Name).ReadWrite(stm)
+		return branches.Create(branch.Name, &pfs.BranchInfo{
+			Name:       branch.Name,
+			Provenance: provenance,
+		})
+	})
+	return err
+}
+
 func (d *driver) listBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.BranchInfo, error) {
 	if err := d.checkIsAuthorized(ctx, repo, auth.Scope_READER); err != nil {
 		return nil, err
@@ -1402,18 +1418,15 @@ func (d *driver) listBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.BranchI
 	var res []*pfs.BranchInfo
 	for {
 		var branchName string
-		head := new(pfs.Commit)
-		ok, err := iterator.Next(&branchName, head)
+		branchInfo := new(pfs.BranchInfo)
+		ok, err := iterator.Next(&branchName, branchInfo)
 		if err != nil {
 			return nil, err
 		}
 		if !ok {
 			break
 		}
-		res = append(res, &pfs.BranchInfo{
-			Name: path.Base(branchName),
-			Head: head,
-		})
+		res = append(res, branchInfo)
 	}
 	return res, nil
 }
@@ -1434,8 +1447,15 @@ func (d *driver) setBranch(ctx context.Context, commit *pfs.Commit, name string)
 		if err := commits.Get(commit.ID, &commitInfo); err != nil {
 			return err
 		}
-
-		return branches.Put(name, commit)
+		var branchInfo pfs.BranchInfo
+		if err := branches.Get(name, &branchInfo); err != nil {
+			if _, ok := err.(col.ErrNotFound); !ok {
+				return err
+			}
+		}
+		branchInfo.Name = name
+		branchInfo.Head = commit
+		return branches.Put(name, &branchInfo)
 	})
 	return err
 }
