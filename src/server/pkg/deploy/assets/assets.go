@@ -124,14 +124,14 @@ func fillDefaultResourceRequests(opts *AssetOpts, persistentDiskBackend backend)
 			opts.BlockCacheSize = "256M"
 		}
 		if opts.PachdNonCacheMemRequest == "" {
-			opts.PachdNonCacheMemRequest = "512M"
+			opts.PachdNonCacheMemRequest = "1G"
 		}
 		if opts.PachdCPURequest == "" {
 			opts.PachdCPURequest = "0.50"
 		}
 
 		if opts.EtcdMemRequest == "" {
-			opts.EtcdMemRequest = "256M"
+			opts.EtcdMemRequest = "1G"
 		}
 		if opts.EtcdCPURequest == "" {
 			opts.EtcdCPURequest = "0.50"
