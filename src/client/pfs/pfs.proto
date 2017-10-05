@@ -15,9 +15,15 @@ message Repo {
   string name = 1;
 }
 
+message Branch {
+  Repo repo = 1;
+  string Name = 2;
+}
+
 message BranchInfo {
   string name = 1;
   Commit head = 2;
+  repeated Branch provenance = 3;
 }
 
 message BranchInfos {
@@ -177,6 +183,11 @@ message ListCommitRequest {
 
 message CommitInfos {
   repeated CommitInfo commit_info = 1;
+}
+
+message CreateBranchRequest {
+  Branch branch = 1;
+  repeated Branch provenance = 2;
 }
 
 message ListBranchRequest {
@@ -341,6 +352,8 @@ service API {
   // BuildCommit builds a commit that's backed by the given tree
   rpc BuildCommit(BuildCommitRequest) returns (Commit) {}
 
+  // CreateBranch creates a new branch
+  rpc CreateBranch(CreateBranchRequest) returns (google.protobuf.Empty) {}
   // ListBranch returns info about the heads of branches.
   rpc ListBranch(ListBranchRequest) returns (BranchInfos) {}
   // SetBranch assigns a commit and its ancestors to a branch.
