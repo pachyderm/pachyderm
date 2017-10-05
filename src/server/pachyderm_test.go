@@ -3204,12 +3204,12 @@ func TestSystemResourceRequests(t *testing.T) {
 
 	// Expected resource requests for pachyderm system pods:
 	defaultLocalMem := map[string]string{
-		"pachd": "512M",
-		"etcd":  "256M",
+		"pachd": "1256M",
+		"etcd":  "1G",
 	}
 	defaultLocalCPU := map[string]string{
-		"pachd": "250m",
-		"etcd":  "250m",
+		"pachd": "500m",
+		"etcd":  "500m",
 	}
 	defaultCloudMem := map[string]string{
 		"pachd": "3G",
@@ -3241,10 +3241,12 @@ func TestSystemResourceRequests(t *testing.T) {
 		// Make sure the pod's container has resource requests
 		cpu, ok := c.Resources.Requests[api.ResourceCPU]
 		require.True(t, ok, "could not get CPU request for "+app)
+		fmt.Println(cpu.String())
 		require.True(t, cpu.String() == defaultLocalCPU[app] ||
 			cpu.String() == defaultCloudCPU[app])
 		mem, ok := c.Resources.Requests[api.ResourceMemory]
 		require.True(t, ok, "could not get memory request for "+app)
+		fmt.Println(mem.String())
 		require.True(t, mem.String() == defaultLocalMem[app] ||
 			mem.String() == defaultCloudMem[app])
 	}
