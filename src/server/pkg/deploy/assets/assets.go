@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	auth "github.com/pachyderm/pachyderm/src/server/auth/server"
 	pfs "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/ugorji/go/codec"
@@ -39,10 +40,6 @@ var (
 	grpcProxyName           = "grpc-proxy"
 	grpcProxyImage          = "pachyderm/grpc-proxy:0.4.2"
 	pachdName               = "pachd"
-	minioSecretName         = "minio-secret"
-	amazonSecretName        = "amazon-secret"
-	googleSecretName        = "google-secret"
-	microsoftSecretName     = "microsoft-secret"
 	trueVal                 = true
 	jsonEncoderHandle       = &codec.JsonHandle{
 		BasicHandle: codec.BasicHandle{
@@ -182,58 +179,18 @@ func ServiceAccount() *api.ServiceAccount {
 // GetSecretVolumeAndMount returns a properly configured Volume and
 // VolumeMount object given a backend.  The backend needs to be one of the
 // constants defined in pfs/server.
-func GetSecretVolumeAndMount(backend string) (api.Volume, api.VolumeMount, error) {
-	switch backend {
-	case pfs.MinioBackendEnvVar:
-		return api.Volume{
-				Name: minioSecretName,
-				VolumeSource: api.VolumeSource{
-					Secret: &api.SecretVolumeSource{
-						SecretName: minioSecretName,
-					},
+func GetSecretVolumeAndMount(backend string) (api.Volume, api.VolumeMount) {
+	return api.Volume{
+			Name: client.StorageSecretName,
+			VolumeSource: api.VolumeSource{
+				Secret: &api.SecretVolumeSource{
+					SecretName: client.StorageSecretName,
 				},
-			}, api.VolumeMount{
-				Name:      minioSecretName,
-				MountPath: "/" + minioSecretName,
-			}, nil
-	case pfs.AmazonBackendEnvVar:
-		return api.Volume{
-				Name: amazonSecretName,
-				VolumeSource: api.VolumeSource{
-					Secret: &api.SecretVolumeSource{
-						SecretName: amazonSecretName,
-					},
-				},
-			}, api.VolumeMount{
-				Name:      amazonSecretName,
-				MountPath: "/" + amazonSecretName,
-			}, nil
-	case pfs.GoogleBackendEnvVar:
-		return api.Volume{
-				Name: googleSecretName,
-				VolumeSource: api.VolumeSource{
-					Secret: &api.SecretVolumeSource{
-						SecretName: googleSecretName,
-					},
-				},
-			}, api.VolumeMount{
-				Name:      googleSecretName,
-				MountPath: "/" + googleSecretName,
-			}, nil
-	case pfs.MicrosoftBackendEnvVar:
-		return api.Volume{
-				Name: microsoftSecretName,
-				VolumeSource: api.VolumeSource{
-					Secret: &api.SecretVolumeSource{
-						SecretName: microsoftSecretName,
-					},
-				},
-			}, api.VolumeMount{
-				Name:      microsoftSecretName,
-				MountPath: "/" + microsoftSecretName,
-			}, nil
-	}
-	return api.Volume{}, api.VolumeMount{}, fmt.Errorf("not found")
+			},
+		}, api.VolumeMount{
+			Name:      client.StorageSecretName,
+			MountPath: "/" + client.StorageSecretName,
+		}
 }
 
 // PachdDeployment returns a pachd k8s Deployment.
@@ -276,11 +233,9 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 	case microsoftBackend:
 		backendEnvVar = pfs.MicrosoftBackendEnvVar
 	}
-	volume, mount, err := GetSecretVolumeAndMount(backendEnvVar)
-	if err == nil {
-		volumes = append(volumes, volume)
-		volumeMounts = append(volumeMounts, mount)
-	}
+	volume, mount := GetSecretVolumeAndMount(backendEnvVar)
+	volumes = append(volumes, volume)
+	volumeMounts = append(volumeMounts, mount)
 	resourceRequirements := api.ResourceRequirements{
 		Requests: api.ResourceList{
 			api.ResourceCPU:    cpu,
@@ -962,28 +917,42 @@ func DashService() *v1.Service {
 //   secret - S3 secret access key
 //   endpoint  - S3 compatible endpoint
 //   secure - set to true for a secure connection.
-func MinioSecret(bucket string, id string, secret string, endpoint string, secure bool) *api.Secret {
+func MinioSecret(bucket string, id string, secret string, endpoint string, secure bool) map[string][]byte {
 	secureV := "0"
 	if secure {
 		secureV = "1"
 	}
-	return &api.Secret{
+	return map[string][]byte{
+		"minio-bucket":   []byte(bucket),
+		"minio-id":       []byte(id),
+		"minio-secret":   []byte(secret),
+		"minio-endpoint": []byte(endpoint),
+		"minio-secure":   []byte(secureV),
+	}
+}
+
+// WriteSecret writes a JSON-encoded k8s secret to the given writer.
+// The secret uses the given map as data.
+func WriteSecret(w io.Writer, data map[string][]byte) {
+	secret := &api.Secret{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Secret",
 			APIVersion: "v1",
 		},
 		ObjectMeta: api.ObjectMeta{
-			Name:   minioSecretName,
-			Labels: labels(minioSecretName),
+			Name:   client.StorageSecretName,
+			Labels: labels(client.StorageSecretName),
 		},
-		Data: map[string][]byte{
-			"bucket":   []byte(bucket),
-			"id":       []byte(id),
-			"secret":   []byte(secret),
-			"endpoint": []byte(endpoint),
-			"secure":   []byte(secureV),
-		},
+		Data: data,
 	}
+	encoder := codec.NewEncoder(w, jsonEncoderHandle)
+	secret.CodecEncodeSelf(encoder)
+	fmt.Fprintf(w, "\n")
+}
+
+// LocalSecret creates an empty secret.
+func LocalSecret() map[string][]byte {
+	return nil
 }
 
 // AmazonSecret creates an amazon secret with the following parameters:
@@ -992,41 +961,21 @@ func MinioSecret(bucket string, id string, secret string, endpoint string, secur
 //   secret - AWS secret access key
 //   token  - AWS access token
 //   region - AWS region
-func AmazonSecret(bucket string, distribution string, id string, secret string, token string, region string) *api.Secret {
-	return &api.Secret{
-		TypeMeta: unversioned.TypeMeta{
-			Kind:       "Secret",
-			APIVersion: "v1",
-		},
-		ObjectMeta: api.ObjectMeta{
-			Name:   amazonSecretName,
-			Labels: labels(amazonSecretName),
-		},
-		Data: map[string][]byte{
-			"bucket":       []byte(bucket),
-			"distribution": []byte(distribution),
-			"id":           []byte(id),
-			"secret":       []byte(secret),
-			"token":        []byte(token),
-			"region":       []byte(region),
-		},
+func AmazonSecret(bucket string, distribution string, id string, secret string, token string, region string) map[string][]byte {
+	return map[string][]byte{
+		"amazon-bucket":       []byte(bucket),
+		"amazon-distribution": []byte(distribution),
+		"amazon-id":           []byte(id),
+		"amazon-secret":       []byte(secret),
+		"amazon-token":        []byte(token),
+		"amazon-region":       []byte(region),
 	}
 }
 
 // GoogleSecret creates a google secret with a bucket name.
-func GoogleSecret(bucket string) *api.Secret {
-	return &api.Secret{
-		TypeMeta: unversioned.TypeMeta{
-			Kind:       "Secret",
-			APIVersion: "v1",
-		},
-		ObjectMeta: api.ObjectMeta{
-			Name:   googleSecretName,
-			Labels: labels(googleSecretName),
-		},
-		Data: map[string][]byte{
-			"bucket": []byte(bucket),
-		},
+func GoogleSecret(bucket string) map[string][]byte {
+	return map[string][]byte{
+		"google-bucket": []byte(bucket),
 	}
 }
 
@@ -1034,21 +983,11 @@ func GoogleSecret(bucket string) *api.Secret {
 //   container - Azure blob container
 //   id    	   - Azure storage account name
 //   secret    - Azure storage account key
-func MicrosoftSecret(container string, id string, secret string) *api.Secret {
-	return &api.Secret{
-		TypeMeta: unversioned.TypeMeta{
-			Kind:       "Secret",
-			APIVersion: "v1",
-		},
-		ObjectMeta: api.ObjectMeta{
-			Name:   microsoftSecretName,
-			Labels: labels(microsoftSecretName),
-		},
-		Data: map[string][]byte{
-			"container": []byte(container),
-			"id":        []byte(id),
-			"secret":    []byte(secret),
-		},
+func MicrosoftSecret(container string, id string, secret string) map[string][]byte {
+	return map[string][]byte{
+		"microsoft-container": []byte(container),
+		"microsoft-id":        []byte(id),
+		"microsoft-secret":    []byte(secret),
 	}
 }
 
@@ -1136,7 +1075,11 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 
 // WriteLocalAssets writes assets to a local backend.
 func WriteLocalAssets(w io.Writer, opts *AssetOpts, hostPath string) error {
-	return WriteAssets(w, opts, localBackend, localBackend, 1 /* = volume size (gb) */, hostPath)
+	if err := WriteAssets(w, opts, localBackend, localBackend, 1 /* = volume size (gb) */, hostPath); err != nil {
+		return err
+	}
+	WriteSecret(w, LocalSecret())
+	return nil
 }
 
 // WriteCustomAssets writes assets to a custom combination of object-store and persistent disk.
@@ -1167,9 +1110,7 @@ func WriteCustomAssets(w io.Writer, opts *AssetOpts, args []string, objectStoreB
 		default:
 			return fmt.Errorf("Did not recognize the choice of persistent-disk")
 		}
-		encoder := codec.NewEncoder(w, jsonEncoderHandle)
-		MinioSecret(args[2], args[3], args[4], args[5], secure).CodecEncodeSelf(encoder)
-		fmt.Fprintf(w, "\n")
+		WriteSecret(w, MinioSecret(args[2], args[3], args[4], args[5], secure))
 		return nil
 	default:
 		return fmt.Errorf("Did not recognize the choice of object-store")
@@ -1182,9 +1123,7 @@ func WriteAmazonAssets(w io.Writer, opts *AssetOpts, bucket string, id string, s
 	if err := WriteAssets(w, opts, amazonBackend, amazonBackend, volumeSize, ""); err != nil {
 		return err
 	}
-	encoder := codec.NewEncoder(w, jsonEncoderHandle)
-	AmazonSecret(bucket, distribution, id, secret, token, region).CodecEncodeSelf(encoder)
-	fmt.Fprintf(w, "\n")
+	WriteSecret(w, AmazonSecret(bucket, distribution, id, secret, token, region))
 	return nil
 }
 
@@ -1193,9 +1132,7 @@ func WriteGoogleAssets(w io.Writer, opts *AssetOpts, bucket string, volumeSize i
 	if err := WriteAssets(w, opts, googleBackend, googleBackend, volumeSize, ""); err != nil {
 		return err
 	}
-	encoder := codec.NewEncoder(w, jsonEncoderHandle)
-	GoogleSecret(bucket).CodecEncodeSelf(encoder)
-	fmt.Fprintf(w, "\n")
+	WriteSecret(w, GoogleSecret(bucket))
 	return nil
 }
 
@@ -1204,9 +1141,7 @@ func WriteMicrosoftAssets(w io.Writer, opts *AssetOpts, container string, id str
 	if err := WriteAssets(w, opts, microsoftBackend, microsoftBackend, volumeSize, ""); err != nil {
 		return err
 	}
-	encoder := codec.NewEncoder(w, jsonEncoderHandle)
-	MicrosoftSecret(container, id, secret).CodecEncodeSelf(encoder)
-	fmt.Fprintf(w, "\n")
+	WriteSecret(w, MicrosoftSecret(container, id, secret))
 	return nil
 }
 

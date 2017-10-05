@@ -114,13 +114,11 @@ The `pipeline` we're creating can be found at [scraper.json](scraper.json).  The
     "acceptReturnCode": [4,5,6,7,8]
   },
   "parallelism": "1",
-  "inputs": [
-    {
-      "repo": {
-        "name": "urls"
-      }
+  "input": {
+    "atom": {
+      "repo": "urls"
     }
-  ]
+  }
 }
 ```
 

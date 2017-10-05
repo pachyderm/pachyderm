@@ -72,13 +72,12 @@ func (a *apiServer) workerPodSpec(options *workerOptions) api.PodSpec {
 		}
 	}
 	userVolumeMounts := options.volumeMounts
-	secretVolume, secretMount, err := assets.GetSecretVolumeAndMount(a.storageBackend)
-	if err == nil {
-		options.volumes = append(options.volumes, secretVolume)
-		options.volumeMounts = append(options.volumeMounts, secretMount)
-		sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
-		userVolumeMounts = append(userVolumeMounts, secretMount)
-	}
+	secretVolume, secretMount := assets.GetSecretVolumeAndMount(a.storageBackend)
+	options.volumes = append(options.volumes, secretVolume)
+	options.volumeMounts = append(options.volumeMounts, secretMount)
+	sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
+	userVolumeMounts = append(userVolumeMounts, secretMount)
+
 	// Explicitly set CPU and MEM requests to zero because some cloud
 	// providers set their own defaults which are usually not what we want.
 	cpuZeroQuantity := resource.MustParse("0")

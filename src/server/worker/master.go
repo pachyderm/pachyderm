@@ -229,7 +229,7 @@ nextInput:
 
 		// Once we received a job, scale up the workers
 		if a.pipelineInfo.ScaleDownThreshold != nil {
-			if err := a.scaleUpWorkers(); err != nil {
+			if err := a.scaleUpWorkers(logger); err != nil {
 				logger.Logf("error scaling up workers: %v", err)
 			}
 		}
@@ -1150,7 +1150,7 @@ func (a *APIServer) scaleDownWorkers() error {
 	return err
 }
 
-func (a *APIServer) scaleUpWorkers() error {
+func (a *APIServer) scaleUpWorkers(logger *taggedLogger) error {
 	rc := a.kubeClient.ReplicationControllers(a.namespace)
 	workerRc, err := rc.Get(ppsserver.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version))
 	if err != nil {
@@ -1158,7 +1158,8 @@ func (a *APIServer) scaleUpWorkers() error {
 	}
 	parallelism, err := ppsserver.GetExpectedNumWorkers(a.kubeClient, a.pipelineInfo.ParallelismSpec)
 	if err != nil {
-		return err
+		logger.Logf("error getting number of workers, default to 1 worker: %v", err)
+		parallelism = 1
 	}
 	if workerRc.Spec.Replicas != int32(parallelism) {
 		workerRc.Spec.Replicas = int32(parallelism)
