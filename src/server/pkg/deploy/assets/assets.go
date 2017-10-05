@@ -110,6 +110,11 @@ type AssetOpts struct {
 	// IAMRole is the IAM role that the Pachyderm deployment should
 	// assume when talking to AWS services.
 	IAMRole string
+
+	// ImagePullSecret specifies an image pull secret that gets attached to the
+	// various deployments so that their images can be pulled from a private
+	// registry.
+	ImagePullSecret string
 }
 
 // fillDefaultResourceRequests sets any of:
@@ -206,6 +211,14 @@ func versionedWorkerImage(opts *AssetOpts) string {
 		return fmt.Sprintf("%s:%s", workerImage, opts.Version)
 	}
 	return workerImage
+}
+
+func imagePullSecrets(opts *AssetOpts) []api.LocalObjectReference {
+	var result []api.LocalObjectReference
+	if opts.ImagePullSecret != "" {
+		result = append(result, api.LocalObjectReference{Name: opts.ImagePullSecret})
+	}
+	return result
 }
 
 // PachdDeployment returns a pachd k8s Deployment.
@@ -306,6 +319,10 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 									Value: AddRegistry(opts.Registry, versionedWorkerImage(opts)),
 								},
 								{
+									Name:  "IMAGE_PULL_SECRET",
+									Value: opts.ImagePullSecret,
+								},
+								{
 									Name:  "WORKER_SIDECAR_IMAGE",
 									Value: image,
 								},
@@ -369,6 +386,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 					},
 					ServiceAccountName: serviceAccountName,
 					Volumes:            volumes,
+					ImagePullSecrets:   imagePullSecrets(opts),
 				},
 			},
 		},
@@ -497,7 +515,8 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *extensions.Deployment {
 							},
 						},
 					},
-					Volumes: volumes,
+					Volumes:          volumes,
+					ImagePullSecrets: imagePullSecrets(opts),
 				},
 			},
 		},
@@ -746,7 +765,10 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 			},
 		}
 	}
-
+	var imagePullSecrets []map[string]string
+	if opts.ImagePullSecret != "" {
+		imagePullSecrets = append(imagePullSecrets, map[string]string{"name": opts.ImagePullSecret})
+	}
 	// As of March 17, 2017, the Kubernetes client does not include structs for
 	// Stateful Set, so we generate the kubernetes manifest using raw json.
 	return map[string]interface{}{
@@ -824,6 +846,7 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 				},
 			},
 			"volumeClaimTemplates": pvcTemplates,
+			"imagePullSecrets":     imagePullSecrets,
 		},
 	}
 }
@@ -873,6 +896,7 @@ func DashDeployment(opts *AssetOpts) *extensions.Deployment {
 							ImagePullPolicy: "IfNotPresent",
 						},
 					},
+					ImagePullSecrets: imagePullSecrets(opts),
 				},
 			},
 		},

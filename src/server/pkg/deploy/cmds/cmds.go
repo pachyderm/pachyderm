@@ -78,6 +78,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var dashOnly bool
 	var dashImage string
 	var registry string
+	var imagePullSecret string
 
 	deployLocal := &cobra.Command{
 		Use:   "local",
@@ -379,6 +380,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 	deploy.PersistentFlags().BoolVar(&enableDash, "dashboard", false, "Deploy the Pachyderm UI along with Pachyderm (experimental). After deployment, run \"pachctl port-forward\" to connect")
 	deploy.PersistentFlags().BoolVar(&dashOnly, "dashboard-only", false, "Only deploy the Pachyderm UI (experimental), without the rest of pachyderm. This is for launching the UI adjacent to an existing Pachyderm cluster. After deployment, run \"pachctl port-forward\" to connect")
 	deploy.PersistentFlags().StringVar(&registry, "registry", "", "The registry to pull images from.")
+	deploy.PersistentFlags().StringVar(&imagePullSecret, "image-pull-secret", "", "A secret in Kubernetes that's needed to pull from your private registry.")
 	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", "", "Image URL for pachyderm dashboard")
 
 	deploy.AddCommand(
