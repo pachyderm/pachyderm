@@ -20,7 +20,7 @@ func Export(opts *assets.AssetOpts, out io.Writer) error {
 		return fmt.Errorf("error parsing auth: %s, try running `docker login`", err.Error())
 	}
 	if len(authConfigs.Configs) == 0 {
-		return fmt.Errorf("didn't find any valud auth configurations")
+		return fmt.Errorf("didn't find any valid auth configurations")
 	}
 	images := assets.Images(opts)
 	for _, image := range images {
