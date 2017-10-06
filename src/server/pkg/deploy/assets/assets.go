@@ -1170,12 +1170,12 @@ func WriteMicrosoftAssets(w io.Writer, opts *AssetOpts, container string, id str
 // Images returns a list of all the images that are used by a pachyderm deployment.
 func Images(opts *AssetOpts) []string {
 	return []string{
-		AddRegistry(opts.Registry, versionedWorkerImage(opts)),
-		AddRegistry(opts.Registry, etcdImage),
-		AddRegistry(opts.Registry, grpcProxyImage),
-		AddRegistry(opts.Registry, pauseImage),
-		AddRegistry(opts.Registry, versionedPachdImage(opts)),
-		AddRegistry(opts.Registry, opts.DashImage),
+		versionedWorkerImage(opts),
+		etcdImage,
+		grpcProxyImage,
+		pauseImage,
+		versionedPachdImage(opts),
+		opts.DashImage,
 	}
 }
 

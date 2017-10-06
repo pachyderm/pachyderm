@@ -26,24 +26,28 @@ func Export(opts *assets.AssetOpts, out io.Writer) error {
 	for _, image := range images {
 		repository, tag := docker.ParseRepositoryTag(image)
 		pulled := false
-		var loopErr error
-		for _, authConfig := range authConfigs.Configs {
+		var loopErr []error
+		for registry, authConfig := range authConfigs.Configs {
 			if err := client.PullImage(
 				docker.PullImageOptions{
 					Repository:        repository,
 					Tag:               tag,
-					InactivityTimeout: 10 * time.Millisecond,
+					InactivityTimeout: 5 * time.Second,
 				},
 				authConfig,
 			); err != nil {
-				loopErr = err
+				loopErr = append(loopErr, fmt.Errorf("error pulling from %s: %v", registry, err))
 				continue
 			}
 			pulled = true
 			break
 		}
 		if !pulled {
-			return fmt.Errorf("error pulling image: %+v", loopErr)
+			errStr := ""
+			for _, err := range loopErr {
+				errStr += err.Error() + "\n"
+			}
+			return fmt.Errorf("errors pulling image %s:%s:\n%s", repository, tag, errStr)
 		}
 	}
 	return client.ExportImages(docker.ExportImagesOptions{
@@ -86,25 +90,29 @@ func Import(opts *assets.AssetOpts, in io.Reader) error {
 			return fmt.Errorf("error tagging image: %v", err)
 		}
 		pushed := false
-		var loopErr error
-		for _, authConfig := range authConfigs.Configs {
+		var loopErr []error
+		for registry, authConfig := range authConfigs.Configs {
 			if err := client.PushImage(
 				docker.PushImageOptions{
 					Name:              registryRepo,
 					Tag:               tag,
 					Registry:          opts.Registry,
-					InactivityTimeout: time.Second,
+					InactivityTimeout: 5 * time.Second,
 				},
 				authConfig,
 			); err != nil {
-				loopErr = err
+				loopErr = append(loopErr, fmt.Errorf("error pushing to %s: %v", registry, err))
 				continue
 			}
 			pushed = true
 			break
 		}
 		if !pushed {
-			return fmt.Errorf("error pushing image: %+v", loopErr)
+			errStr := ""
+			for _, err := range loopErr {
+				errStr += err.Error() + "\n"
+			}
+			return fmt.Errorf("errors pushing image %s:%s:\n%s", registryRepo, tag, errStr)
 		}
 	}
 	return nil
