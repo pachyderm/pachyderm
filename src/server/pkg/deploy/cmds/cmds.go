@@ -329,20 +329,38 @@ particular backend, run "pachctl deploy storage <backend>"`,
 	}
 
 	exportImages := &cobra.Command{
-		Use:   "export-images",
+		Use:   "export-images output-file",
 		Short: "Export a tarball (to stdout) containing all of the images in a deployment.",
 		Long:  "Export a tarball (to stdout) containing all of the images in a deployment.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			return images.Export(opts, os.Stdout)
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			file, err := os.Create(args[0])
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := file.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			return images.Export(opts, file)
 		}),
 	}
 
 	importImages := &cobra.Command{
-		Use:   "import-images",
+		Use:   "import-images input-file",
 		Short: "Import a tarball (from stdin) containing all of the images in a deployment and push them to a private registry.",
 		Long:  "Import a tarball (from stdin) containing all of the images in a deployment and push them to a private registry.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			return images.Import(opts, os.Stdin)
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			file, err := os.Open(args[0])
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := file.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			return images.Import(opts, file)
 		}),
 	}
 
