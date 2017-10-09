@@ -110,6 +110,7 @@ type apiServer struct {
 	storageBackend        string
 	storageHostPath       string
 	iamRole               string
+	imagePullSecret       string
 	reporter              *metrics.Reporter
 	// collections
 	pipelines col.Collection

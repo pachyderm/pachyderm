@@ -76,6 +76,7 @@ type appEnv struct {
 	WorkerImagePullPolicy string `env:"WORKER_IMAGE_PULL_POLICY,default="`
 	LogLevel              string `env:"LOG_LEVEL,default=info"`
 	IAMRole               string `env:"IAM_ROLE,default="`
+	ImagePullSecret       string `env:"IMAGE_PULL_SECRET,default="`
 }
 
 func main() {
@@ -290,6 +291,7 @@ func doFullMode(appEnvObj interface{}) error {
 		appEnv.StorageBackend,
 		appEnv.StorageHostPath,
 		appEnv.IAMRole,
+		appEnv.ImagePullSecret,
 		reporter,
 	)
 	if err != nil {
