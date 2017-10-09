@@ -131,7 +131,7 @@ deploy_secrets() {
     echo "Updating secrets for cluster:"
     kubectl cluster-info
     mkdir -p tmp
-    kubectl get secrets/amazon-secret -o json > tmp/existing-amazon-secrets.json
+    kubectl get secrets/pachyderm-storage-secret -o json > tmp/existing-amazon-secrets.json
     ENCODED_KEYPAIR=$(echo $CLOUDFRONT_KEYPAIR_ID | base64 -w0)
     cat tmp/existing-amazon-secrets.json | jq '.data.cloudfrontKeyPairId = "'$ENCODED_KEYPAIR'"' > tmp-result.json
     mv tmp-result.json tmp/updated-amazon-secrets.json
