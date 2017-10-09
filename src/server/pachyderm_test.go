@@ -3205,12 +3205,12 @@ func TestSystemResourceRequests(t *testing.T) {
 
 	// Expected resource requests for pachyderm system pods:
 	defaultLocalMem := map[string]string{
-		"pachd": "512M",
-		"etcd":  "256M",
+		"pachd": "1256M",
+		"etcd":  "1G",
 	}
 	defaultLocalCPU := map[string]string{
-		"pachd": "250m",
-		"etcd":  "250m",
+		"pachd": "500m",
+		"etcd":  "500m",
 	}
 	defaultCloudMem := map[string]string{
 		"pachd": "3G",
@@ -3242,10 +3242,12 @@ func TestSystemResourceRequests(t *testing.T) {
 		// Make sure the pod's container has resource requests
 		cpu, ok := c.Resources.Requests[api.ResourceCPU]
 		require.True(t, ok, "could not get CPU request for "+app)
+		fmt.Println(cpu.String())
 		require.True(t, cpu.String() == defaultLocalCPU[app] ||
 			cpu.String() == defaultCloudCPU[app])
 		mem, ok := c.Resources.Requests[api.ResourceMemory]
 		require.True(t, ok, "could not get memory request for "+app)
+		fmt.Println(mem.String())
 		require.True(t, mem.String() == defaultLocalMem[app] ||
 			mem.String() == defaultCloudMem[app])
 	}
@@ -4922,7 +4924,6 @@ func TestListJobOutput(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 	c := getPachClient(t)
 
 	dataRepo := uniqueString("TestListJobOutput_data")
@@ -5018,7 +5019,6 @@ func TestMaxQueueSize(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 	c := getPachClient(t)
 
 	dataRepo := uniqueString("TestMaxQueueSize_data")
@@ -5080,7 +5080,6 @@ func TestHTTPAuth(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 	c := getPachClient(t)
 
 	clientAddr := c.GetAddress()
@@ -5131,7 +5130,6 @@ func TestHTTPGetFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 	c := getPachClient(t)
 
 	dataRepo := uniqueString("TestHTTPGetFile_data")
@@ -5186,7 +5184,6 @@ func TestService(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 	c := getPachClient(t)
 
 	dataRepo := uniqueString("TestService_data")

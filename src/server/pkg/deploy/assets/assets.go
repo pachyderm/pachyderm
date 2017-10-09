@@ -73,6 +73,13 @@ type AssetOpts struct {
 	DashOnly    bool
 	DashImage   string
 
+	// NoGuaranteed will not generate assets that have both resource limits and
+	// resource requests set which causes kubernetes to give the pods
+	// guaranteed QoS. Guaranteed QoS generally leads to more stable clusters
+	// but on smaller test clusters such as those run on minikube it doesn't
+	// help much and may cause more instability than it prevents.
+	NoGuaranteed bool
+
 	// DisableAuthentication stops Pachyderm's authentication service
 	// from talking to GitHub, for testing. Instead users can authenticate
 	// simply by providing a username.
@@ -121,17 +128,17 @@ func fillDefaultResourceRequests(opts *AssetOpts, persistentDiskBackend backend)
 			opts.BlockCacheSize = "256M"
 		}
 		if opts.PachdNonCacheMemRequest == "" {
-			opts.PachdNonCacheMemRequest = "256M"
+			opts.PachdNonCacheMemRequest = "1G"
 		}
 		if opts.PachdCPURequest == "" {
-			opts.PachdCPURequest = "0.25"
+			opts.PachdCPURequest = "0.50"
 		}
 
 		if opts.EtcdMemRequest == "" {
-			opts.EtcdMemRequest = "256M"
+			opts.EtcdMemRequest = "1G"
 		}
 		if opts.EtcdCPURequest == "" {
-			opts.EtcdCPURequest = "0.25"
+			opts.EtcdCPURequest = "0.50"
 		}
 	} else {
 		// For non-local deployments, we set the resource requirements and cache
@@ -229,6 +236,18 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 	volume, mount := GetSecretVolumeAndMount(backendEnvVar)
 	volumes = append(volumes, volume)
 	volumeMounts = append(volumeMounts, mount)
+	resourceRequirements := api.ResourceRequirements{
+		Requests: api.ResourceList{
+			api.ResourceCPU:    cpu,
+			api.ResourceMemory: mem,
+		},
+	}
+	if !opts.NoGuaranteed {
+		resourceRequirements.Limits = api.ResourceList{
+			api.ResourceCPU:    cpu,
+			api.ResourceMemory: mem,
+		}
+	}
 	return &extensions.Deployment{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Deployment",
@@ -340,12 +359,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 								Privileged: &trueVal, // god is this dumb
 							},
 							ImagePullPolicy: "IfNotPresent",
-							Resources: api.ResourceRequirements{
-								Requests: api.ResourceList{
-									api.ResourceCPU:    cpu,
-									api.ResourceMemory: mem,
-								},
-							},
+							Resources:       resourceRequirements,
 						},
 					},
 					ServiceAccountName: serviceAccountName,
@@ -421,6 +435,18 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *extensions.Deployment {
 			},
 		}
 	}
+	resourceRequirements := api.ResourceRequirements{
+		Requests: api.ResourceList{
+			api.ResourceCPU:    cpu,
+			api.ResourceMemory: mem,
+		},
+	}
+	if !opts.NoGuaranteed {
+		resourceRequirements.Limits = api.ResourceList{
+			api.ResourceCPU:    cpu,
+			api.ResourceMemory: mem,
+		}
+	}
 	return &extensions.Deployment{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Deployment",
@@ -470,12 +496,7 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *extensions.Deployment {
 								},
 							},
 							ImagePullPolicy: "IfNotPresent",
-							Resources: api.ResourceRequirements{
-								Requests: api.ResourceList{
-									api.ResourceCPU:    cpu,
-									api.ResourceMemory: mem,
-								},
-							},
+							Resources:       resourceRequirements,
 						},
 					},
 					Volumes: volumes,
