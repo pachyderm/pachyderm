@@ -3,7 +3,7 @@
 If you're contributing to pachyderm, you may need the following additional setup.
 
 1. General Requirements
-  - golang version 1.7
+  - golang version 1.9
   - docker
   - FUSE
 2. bash helpers
@@ -19,7 +19,7 @@ If you're contributing to pachyderm, you may need the following additional setup
 
 Install:
 
-- golang 1.7
+- golang 1.9
 - docker
 - FUSE
 
@@ -123,7 +123,7 @@ Now that you have gcloud, just do:
 
     docker ps
     # you should see a few processes
-    
+
     kubectl get all
     # and you should see the kubernetes controller running
 
@@ -162,7 +162,7 @@ Once you restart, this will take effect. To see the limits, run:
 
     launchctl limit maxfiles
 
-Before the change is in place you'll see something like `256    unlimited`. After the change you'll see a much bigger number in the first field. This ups the system wide limit, but you'll also need to set a per-process limit. 
+Before the change is in place you'll see something like `256    unlimited`. After the change you'll see a much bigger number in the first field. This ups the system wide limit, but you'll also need to set a per-process limit.
 
 Second, up the per process limit by adding something like this to your `~/.bash_profile` :
 
@@ -189,4 +189,3 @@ You'll need the `timeout` utility to run the `make launch` task. To install on m
 And then make sure to prepend the following to your path:
 
     PATH="/usr/local/opt/coreutils/libexec/gnubin:$PATH"
-

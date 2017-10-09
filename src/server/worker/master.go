@@ -779,23 +779,30 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 					if jobInfo.EnableStats {
 						eg.Go(func() error {
 							if statsSubtree, err = a.getTreeFromTag(ctx, statsTag); err != nil {
-								return err
+								logger.Logf("failed to read stats tree, this is non-fatal but will result in some missing stats")
+								return nil
 							}
 							indexObject, length, err := a.pachClient.WithCtx(ctx).PutObject(strings.NewReader(fmt.Sprint(i)))
 							if err != nil {
-								return err
+								logger.Logf("failed to write stats tree, this is non-fatal but will result in some missing stats")
+								return nil
 							}
 							treeMu.Lock()
 							defer treeMu.Unlock()
 							if skipped {
 								// write a list of input files
 								if err := statsTree.PutFile(fmt.Sprintf("%v/skipped", datumID), nil, 0); err != nil {
-									return err
+									logger.Logf("failed to write skipped file, this is non-fatal but will result in some missing stats")
+									return nil
 								}
 							}
 							// Add a file to statsTree indicating the index of this
 							// datum in the datum factory.
-							return statsTree.PutFile(fmt.Sprintf("%v/index", datumID), []*pfs.Object{indexObject}, length)
+							if err := statsTree.PutFile(fmt.Sprintf("%v/index", datumID), []*pfs.Object{indexObject}, length); err != nil {
+								logger.Logf("failed to write index file, this is non-fatal but will result in some missing stats")
+								return nil
+							}
+							return nil
 						})
 					}
 					if err := eg.Wait(); err != nil {
