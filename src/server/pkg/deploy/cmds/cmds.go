@@ -79,6 +79,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var dashImage string
 	var registry string
 	var imagePullSecret string
+	var noGuaranteed bool
 
 	deployLocal := &cobra.Command{
 		Use:   "local",
@@ -386,6 +387,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 				DashOnly:                dashOnly,
 				DashImage:               dashImage,
 				Registry:                registry,
+				NoGuaranteed:            noGuaranteed,
 			}
 			return nil
 		}),
@@ -400,6 +402,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 	deploy.PersistentFlags().StringVar(&registry, "registry", "", "The registry to pull images from.")
 	deploy.PersistentFlags().StringVar(&imagePullSecret, "image-pull-secret", "", "A secret in Kubernetes that's needed to pull from your private registry.")
 	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", "", "Image URL for pachyderm dashboard")
+	deploy.PersistentFlags().BoolVar(&noGuaranteed, "no-guaranteed", false, "Don't use guaranteed QoS for etcd and pachd deployments. Turning this on (turning guaranteed QoS off) can lead to more stable local clusters (such as a on Minikube), it should normally be used for production clusters.")
 
 	deploy.AddCommand(
 		deployLocal,
