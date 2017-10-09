@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
+	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/images"
 	_metrics "github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 
 	"github.com/spf13/cobra"
@@ -76,6 +77,8 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var enableDash bool
 	var dashOnly bool
 	var dashImage string
+	var registry string
+	var imagePullSecret string
 	var noGuaranteed bool
 
 	deployLocal := &cobra.Command{
@@ -314,6 +317,54 @@ particular backend, run "pachctl deploy storage <backend>"`,
 		}),
 	}
 
+	listImages := &cobra.Command{
+		Use:   "list-images",
+		Short: "Output the list of images in a deployment.",
+		Long:  "Output the list of images in a deployment.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			for _, image := range assets.Images(opts) {
+				fmt.Println(image)
+			}
+			return nil
+		}),
+	}
+
+	exportImages := &cobra.Command{
+		Use:   "export-images output-file",
+		Short: "Export a tarball (to stdout) containing all of the images in a deployment.",
+		Long:  "Export a tarball (to stdout) containing all of the images in a deployment.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			file, err := os.Create(args[0])
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := file.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			return images.Export(opts, file)
+		}),
+	}
+
+	importImages := &cobra.Command{
+		Use:   "import-images input-file",
+		Short: "Import a tarball (from stdin) containing all of the images in a deployment and push them to a private registry.",
+		Long:  "Import a tarball (from stdin) containing all of the images in a deployment and push them to a private registry.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			file, err := os.Open(args[0])
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := file.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			return images.Import(opts, file)
+		}),
+	}
+
 	deploy := &cobra.Command{
 		Use:   "deploy amazon|google|microsoft|local|custom|storage",
 		Short: "Deploy a Pachyderm cluster.",
@@ -335,6 +386,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 				EnableDash:              enableDash,
 				DashOnly:                dashOnly,
 				DashImage:               dashImage,
+				Registry:                registry,
 				NoGuaranteed:            noGuaranteed,
 			}
 			return nil
@@ -347,14 +399,22 @@ particular backend, run "pachctl deploy storage <backend>"`,
 	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
 	deploy.PersistentFlags().BoolVar(&enableDash, "dashboard", false, "Deploy the Pachyderm UI along with Pachyderm (experimental). After deployment, run \"pachctl port-forward\" to connect")
 	deploy.PersistentFlags().BoolVar(&dashOnly, "dashboard-only", false, "Only deploy the Pachyderm UI (experimental), without the rest of pachyderm. This is for launching the UI adjacent to an existing Pachyderm cluster. After deployment, run \"pachctl port-forward\" to connect")
+	deploy.PersistentFlags().StringVar(&registry, "registry", "", "The registry to pull images from.")
+	deploy.PersistentFlags().StringVar(&imagePullSecret, "image-pull-secret", "", "A secret in Kubernetes that's needed to pull from your private registry.")
 	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", "", "Image URL for pachyderm dashboard")
 	deploy.PersistentFlags().BoolVar(&noGuaranteed, "no-guaranteed", false, "Don't use guaranteed QoS for etcd and pachd deployments. Turning this on (turning guaranteed QoS off) can lead to more stable local clusters (such as a on Minikube), it should normally be used for production clusters.")
-	deploy.AddCommand(deployLocal)
-	deploy.AddCommand(deployAmazon)
-	deploy.AddCommand(deployGoogle)
-	deploy.AddCommand(deployMicrosoft)
-	deploy.AddCommand(deployCustom)
-	deploy.AddCommand(deployStorage)
+
+	deploy.AddCommand(
+		deployLocal,
+		deployAmazon,
+		deployGoogle,
+		deployMicrosoft,
+		deployCustom,
+		deployStorage,
+		listImages,
+		exportImages,
+		importImages,
+	)
 
 	// Flags for setting pachd resource requests. These should rarely be set --
 	// only if we get the defaults wrong, or users have an unusual access pattern
