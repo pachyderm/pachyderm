@@ -161,7 +161,9 @@ func (a *apiServer) master() {
 				// "" we treat these as errors since otherwise we get an
 				// endless stream of them and can't do anything.
 				if event.Type == kube_watch.Error || event.Type == "" {
-					kubePipelineWatch.Stop()
+					if kubePipelineWatch != nil {
+						kubePipelineWatch.Stop()
+					}
 					kubePipelineWatch, err = a.kubeClient.Pods(a.namespace).Watch(api.ListOptions{
 						LabelSelector: labelspkg.SelectorFromSet(map[string]string{
 							"component": "worker",
@@ -170,6 +172,7 @@ func (a *apiServer) master() {
 					})
 					if err != nil {
 						log.Errorf("failed to watch kuburnetes pods: %v", err)
+						watchChan = nil
 					} else {
 						watchChan = kubePipelineWatch.ResultChan()
 						defer kubePipelineWatch.Stop()
