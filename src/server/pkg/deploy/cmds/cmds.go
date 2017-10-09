@@ -76,6 +76,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var enableDash bool
 	var dashOnly bool
 	var dashImage string
+	var noGuaranteed bool
 
 	deployLocal := &cobra.Command{
 		Use:   "local",
@@ -334,6 +335,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 				EnableDash:              enableDash,
 				DashOnly:                dashOnly,
 				DashImage:               dashImage,
+				NoGuaranteed:            noGuaranteed,
 			}
 			return nil
 		}),
@@ -346,6 +348,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 	deploy.PersistentFlags().BoolVar(&enableDash, "dashboard", false, "Deploy the Pachyderm UI along with Pachyderm (experimental). After deployment, run \"pachctl port-forward\" to connect")
 	deploy.PersistentFlags().BoolVar(&dashOnly, "dashboard-only", false, "Only deploy the Pachyderm UI (experimental), without the rest of pachyderm. This is for launching the UI adjacent to an existing Pachyderm cluster. After deployment, run \"pachctl port-forward\" to connect")
 	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", "", "Image URL for pachyderm dashboard")
+	deploy.PersistentFlags().BoolVar(&noGuaranteed, "no-guaranteed", false, "Don't use guaranteed QoS for etcd and pachd deployments. Turning this on (turning guaranteed QoS off) can lead to more stable local clusters (such as a on Minikube), it should normally be used for production clusters.")
 	deploy.AddCommand(deployLocal)
 	deploy.AddCommand(deployAmazon)
 	deploy.AddCommand(deployGoogle)
