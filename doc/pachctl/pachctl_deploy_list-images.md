@@ -1,28 +1,14 @@
-## ./pachctl deploy amazon
+## ./pachctl deploy list-images
 
-Deploy a Pachyderm cluster running on AWS.
+Output the list of images in a deployment.
 
 ### Synopsis
 
 
-Deploy a Pachyderm cluster running on AWS. Arguments are:
-  <S3 bucket>: An S3 bucket where Pachyderm will store PFS data.
-
-  <region>: The aws region where pachyderm is being deployed (e.g. us-west-1)
-  <size of volumes>: Size of EBS volumes, in GB (assumed to all be the same).
-
+Output the list of images in a deployment.
 
 ```
-./pachctl deploy amazon <S3 bucket> <region> <size of volumes (in GB)>
-```
-
-### Options
-
-```
-      --cloudfront-distribution string   Deploying on AWS with cloudfront is currently an alpha feature. No security restrictions have beenapplied to cloudfront, making all data public (obscured but not secured)
-      --credentials string               Use the format '--credentials=<id>,<secret>,<token>'
-<id>, <secret>, and <token> are session token details, used for authorization. You can get these by running 'aws sts get-session-token'
-      --iam-role string                  Use the given IAM role for authorization, as opposed to using static credentials.  The nodes on which Pachyderm is deployed needs to have the given IAM role.
+./pachctl deploy list-images
 ```
 
 ### Options inherited from parent commands
