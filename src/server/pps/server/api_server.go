@@ -918,8 +918,6 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	sort.Sort(podSlice(pods))
 	logChs := make([]chan *pps.LogMessage, len(pods))
 	errCh := make(chan error, 1)
-	done := make(chan struct{})
-	defer close(done)
 	for i := 0; i < len(pods); i++ {
 		logChs[i] = make(chan *pps.LogMessage)
 	}
@@ -928,30 +926,46 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		go func() {
 			defer close(logChs[i]) // Main thread reads from here, so must close
 			// Get full set of logs from pod i
-			err := backoff.Retry(func() error {
-				result := a.kubeClient.Pods(a.namespace).GetLogs(
-					pod.ObjectMeta.Name, &api.PodLogOptions{
-						Container: containerName,
-					}).Timeout(10 * time.Second).Do()
-				fullLogs, err := result.Raw()
-				if err != nil {
-					if apiStatus, ok := err.(errors.APIStatus); ok &&
-						strings.Contains(apiStatus.Status().Message, "PodInitializing") {
-						return nil // No logs to collect from this node yet, just skip it
+			err := backoff.RetryNotify(func() error {
+				var logs io.Reader
+				if request.Follow {
+					stream, err := a.kubeClient.Pods(a.namespace).GetLogs(
+						pod.ObjectMeta.Name, &api.PodLogOptions{
+							Container: containerName,
+							Follow:    true,
+						}).Stream()
+					if err != nil {
+						return fmt.Errorf("error retrieiving log stream: %v", err)
 					}
-					return err
-				}
-				// Occasionally, fullLogs is truncated and contains the string
-				// 'unexpected stream type ""' at the end. I believe this is a recent
-				// bug in k8s (https://github.com/kubernetes/kubernetes/issues/47800)
-				// so we're adding a special handler for this corner case.
-				// TODO(msteffen) remove this handling once the issue is fixed
-				if bytes.HasSuffix(fullLogs, []byte("unexpected stream type \"\"")) {
-					return fmt.Errorf("interrupted log stream due to kubernetes/kubernetes/issues/47800")
+					defer stream.Close()
+					logs = stream
+				} else {
+					result := a.kubeClient.Pods(a.namespace).GetLogs(
+						pod.ObjectMeta.Name, &api.PodLogOptions{
+							Container: containerName,
+						}).Timeout(10 * time.Second).Do()
+					fullLogs, err := result.Raw()
+					if err != nil {
+						if apiStatus, ok := err.(errors.APIStatus); ok &&
+							strings.Contains(apiStatus.Status().Message, "PodInitializing") {
+							return nil // No logs to collect from this node yet, just skip it
+						}
+						return err
+					}
+					// Occasionally, fullLogs is truncated and contains the string
+					// 'unexpected stream type ""' at the end. I believe this is a recent
+					// bug in k8s (https://github.com/kubernetes/kubernetes/issues/47800)
+					// so we're adding a special handler for this corner case.
+					// TODO(msteffen) remove this handling once the issue is fixed
+					if bytes.HasSuffix(fullLogs, []byte("unexpected stream type \"\"")) {
+						return fmt.Errorf("interrupted log stream due to kubernetes/kubernetes/issues/47800")
+					}
+
+					logs = bytes.NewReader(fullLogs)
 				}
 
 				// Parse pods' log lines, and filter out irrelevant ones
-				scanner := bufio.NewScanner(bytes.NewReader(fullLogs))
+				scanner := bufio.NewScanner(logs)
 				for scanner.Scan() {
 					msg := new(pps.LogMessage)
 					if containerName == "pachd" {
@@ -983,42 +997,89 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 					// Log message passes all filters -- return it
 					select {
 					case logChs[i] <- msg:
-					case <-done:
+					case <-ctx.Done():
 						return nil
 					}
 				}
 				return nil
-			}, backoff.New10sBackOff())
+			}, backoff.New10sBackOff(), func(err error, t time.Duration) error {
+				logrus.Errorf("error retreiving logs; retrying in %s: %v", t, err)
+				return nil
+			})
 
 			// Used up all retries -- no logs from worker
 			if err != nil {
 				select {
 				case errCh <- err:
-				case <-done:
 				default:
 				}
 			}
 		}()
 	}
 
-nextLogCh:
-	for _, logCh := range logChs {
+	// If we are not following logs, we want to print logs from the pods one
+	// by one, so that the logs appear continuous within a pod.
+	if request.Follow {
+		// Otherwise, we stream logs from all pods concurrently.
+		logCh := forwardLogs(ctx, logChs)
 		for {
-			msg, ok := <-logCh
-			if !ok {
-				continue nextLogCh
-			}
-			if err := apiGetLogsServer.Send(msg); err != nil {
+			select {
+			case msg := <-logCh:
+				if err := apiGetLogsServer.Send(msg); err != nil {
+					return err
+				}
+			case err := <-errCh:
 				return err
+			case <-ctx.Done():
+				return nil
 			}
 		}
+	} else {
+	nextLogCh:
+		for _, logCh := range logChs {
+			for {
+				msg, ok := <-logCh
+				if !ok {
+					continue nextLogCh
+				}
+				if err := apiGetLogsServer.Send(msg); err != nil {
+					return err
+				}
+			}
+		}
+
+		select {
+		case err := <-errCh:
+			return err
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+		return nil
 	}
-	select {
-	case err := <-errCh:
-		return err
-	default:
+}
+
+// forwardLogs is a helper functions that aggregates logs from a number of
+// channels of logs.
+func forwardLogs(ctx context.Context, logChs []chan *pps.LogMessage) chan *pps.LogMessage {
+	logCh := make(chan *pps.LogMessage)
+	for _, ch := range logChs {
+		ch := ch
+		go func() {
+			for {
+				select {
+				case msg, ok := <-ch:
+					if !ok {
+						return
+					}
+					logCh <- msg
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
 	}
-	return nil
+	return logCh
 }
 
 func (a *apiServer) getLogsFromStats(ctx context.Context, request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer, statsCommit *pfs.Commit) error {

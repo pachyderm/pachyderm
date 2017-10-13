@@ -346,14 +346,19 @@ func (l *LogsIter) Err() error {
 // 'jobID', 'data', and 'datumID', are all filters. To forego any filter,
 // simply pass an empty value, though one of 'pipelineName' and 'jobID'
 // must be set. Responses are written to 'messages'
+// `follow` streams logs indefinitely.
 func (c APIClient) GetLogs(
 	pipelineName string,
 	jobID string,
 	data []string,
 	datumID string,
 	master bool,
+	follow bool,
 ) *LogsIter {
-	request := pps.GetLogsRequest{Master: master}
+	request := pps.GetLogsRequest{
+		Master: master,
+		Follow: follow,
+	}
 	resp := &LogsIter{}
 	if pipelineName != "" {
 		request.Pipeline = &pps.Pipeline{pipelineName}
