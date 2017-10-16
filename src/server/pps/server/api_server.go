@@ -1038,6 +1038,7 @@ func (a *apiServer) getLogsFromStats(ctx context.Context, request *pps.GetLogsRe
 
 	limiter := limit.New(20)
 	var eg errgroup.Group
+	var mu sync.Mutex
 	for _, fileInfo := range fileInfos.FileInfo {
 		fileInfo := fileInfo
 		eg.Go(func() error {
@@ -1071,9 +1072,12 @@ func (a *apiServer) getLogsFromStats(ctx context.Context, request *pps.GetLogsRe
 					continue
 				}
 
+				mu.Lock()
 				if err := apiGetLogsServer.Send(msg); err != nil {
+					mu.Unlock()
 					return err
 				}
+				mu.Unlock()
 			}
 			return nil
 		})
