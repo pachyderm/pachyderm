@@ -51,3 +51,13 @@ service Worker {
   rpc Status(google.protobuf.Empty) returns (pps.WorkerStatus) {}
   rpc Cancel(CancelRequest) returns (CancelResponse) {}
 }
+
+message DatumRange {
+  int64 lower = 1;
+  int64 upper = 2;
+}
+
+message Progress {
+  repeated DatumRange complete_ranges = 1;
+  repeated DatumRange active_ranges = 2;
+}
