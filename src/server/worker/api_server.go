@@ -48,6 +48,9 @@ const (
 	// The maximum number of concurrent download/upload operations
 	concurrency = 10
 	logBuffer   = 25
+
+	progressPrefix = "/progress"
+	rangePrefix    = "/range"
 )
 
 var (
@@ -94,6 +97,8 @@ type APIServer struct {
 	jobs col.Collection
 	// The pipelines collection
 	pipelines col.Collection
+	// The progress collection
+	progresses col.Collection
 
 	// Only one datum can be running at a time because they need to be
 	// accessing /pfs, runMu enforces this
@@ -283,6 +288,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		namespace:  namespace,
 		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
 		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
+		progresses: col.NewCollection(etcdClient, path.Join(etcdPrefix, progressPrefix), []col.Index{}, &Progress{}, nil),
 		datumCache: datumCache,
 	}
 	logger, err := server.getTaggedLogger(context.Background(), "", nil, false)

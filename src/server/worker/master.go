@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -46,6 +47,8 @@ const (
 
 	// The number of datums the master caches
 	numCachedDatums = 1000000
+
+	ttl = int64(30)
 )
 
 func (a *APIServer) getMasterLogger() *taggedLogger {
@@ -99,8 +102,7 @@ func (a *APIServer) master() {
 				return err
 			}
 			pipelineInfo.State = pps.PipelineState_PIPELINE_RUNNING
-			pipelines.Put(pipelineName, pipelineInfo)
-			return nil
+			return pipelines.Put(pipelineName, pipelineInfo)
 		}); err != nil {
 			return err
 		}
@@ -135,8 +137,7 @@ func (a *APIServer) serviceMaster() {
 				return err
 			}
 			pipelineInfo.State = pps.PipelineState_PIPELINE_RUNNING
-			pipelines.Put(pipelineName, pipelineInfo)
-			return nil
+			return pipelines.Put(pipelineName, pipelineInfo)
 		}); err != nil {
 			return err
 		}
@@ -460,8 +461,7 @@ nextInput:
 					return err
 				}
 				jobInfo.State = pps.JobState_JOB_RUNNING
-				jobs.Put(jobInfo.Job.ID, jobInfo)
-				return nil
+				return jobs.Put(jobInfo.Job.ID, jobInfo)
 			}); err != nil {
 				logger.Logf("error updating job state: %+v", err)
 			}
@@ -478,8 +478,7 @@ nextInput:
 						return err
 					}
 					jobInfo.State = pps.JobState_JOB_SUCCESS
-					jobs.Put(jobInfo.Job.ID, jobInfo)
-					return nil
+					return jobs.Put(jobInfo.Job.ID, jobInfo)
 				}); err != nil {
 					logger.Logf("error updating job progress: %+v", err)
 				}
@@ -506,6 +505,119 @@ func plusDuration(x *types.Duration, y *types.Duration) (*types.Duration, error)
 		}
 	}
 	return types.DurationProto(xd + yd), nil
+}
+
+func (a *APIServer) datumRanges(jobID string) col.Collection {
+	return col.NewCollection(a.etcdClient, path.Join(a.etcdPrefix, rangePrefix, jobID), nil, &types.Empty{}, nil)
+}
+
+func (a *APIServer) acquireDatums(ctx context.Context, jobInfo *pps.JobInfo, logger *taggedLogger) error {
+	df, err := NewDatumFactory(ctx, a.pachClient.PfsAPIClient, jobInfo.Input)
+	if err != nil {
+		return err
+	}
+	if df.Len() == 0 {
+		return nil
+	}
+	complete := false
+	for !complete {
+		var newRange *DatumRange
+		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			progresses := a.progresses.ReadWrite(stm)
+			progress := &Progress{}
+			if err := progresses.Get(jobInfo.Job.ID, progress); err != nil {
+				return err
+			}
+			if progress.CompleteRanges[len(progress.CompleteRanges)-1].Upper == int64(df.Len()) {
+				complete = true
+				return nil
+			}
+			ranges := a.datumRanges(jobInfo.Job.ID).ReadWrite(stm)
+			for _, datumRange := range progress.ActiveRanges {
+				if err := ranges.Get(fmt.Sprintf("%d-%d", datumRange.Lower, datumRange.Upper), &types.Empty{}); err != nil {
+					if col.IsErrNotFound(err) {
+						newRange = datumRange
+						break
+					}
+					return err
+				}
+			}
+			if newRange == nil {
+				var lower int64
+				if len(progress.CompleteRanges) > 0 {
+					// Ranges are sorted so the
+					lower = progress.CompleteRanges[len(progress.CompleteRanges)-1].Upper
+				}
+				if len(progress.ActiveRanges) > 0 {
+					lower = max(progress.ActiveRanges[len(progress.ActiveRanges)-1].Upper, lower)
+				}
+				if lower == int64(df.Len()) {
+					complete = true
+					return nil
+				}
+				newRange = &DatumRange{
+					Lower: lower,
+					Upper: max(lower+10, int64(df.Len())),
+				}
+			}
+			progress.ActiveRanges = append(progress.ActiveRanges, newRange)
+			if err := progresses.Put(jobInfo.Job.ID, progress); err != nil {
+				return err
+			}
+			return ranges.PutTTL(fmt.Sprintf("%d-%d", newRange.Lower, newRange.Upper), &types.Empty{}, ttl)
+		}); err != nil {
+			return err
+		}
+		// process the datums in newRange
+
+		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			progresses := a.progresses.ReadWrite(stm)
+			progress := &Progress{}
+			if err := progresses.Get(jobInfo.Job.ID, progress); err != nil {
+				return err
+			}
+			for i, datumRange := range progress.ActiveRanges {
+				if datumRange.Lower == newRange.Lower && datumRange.Upper == newRange.Upper {
+					progress.ActiveRanges = append(progress.ActiveRanges[:i], progress.ActiveRanges[i+1:]...)
+				}
+			}
+			progress.CompleteRanges = mergeRanges(append(progress.CompleteRanges, newRange))
+			if progress.CompleteRanges[len(progress.CompleteRanges)-1].Upper == int64(df.Len()) {
+				complete = true
+				return nil
+			}
+			return a.datumRanges(jobInfo.Job.ID).ReadWrite(stm).Delete(fmt.Sprintf("%d-%d", newRange.Lower, newRange.Upper))
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func max(x, y int64) int64 {
+	if x > y {
+		return x
+	}
+	return y
+}
+
+func mergeRanges(rs []*DatumRange) []*DatumRange {
+	sort.Slice(rs, func(i, j int) bool { return rs[i].Lower < rs[j].Lower })
+	for i := 0; i < len(rs); i++ {
+		j := i + 1
+		for ; j < len(rs); j++ {
+			if rs[j].Lower != rs[j-1].Upper {
+				break
+			}
+		}
+		tmp := append(rs[:i], &DatumRange{rs[i].Lower, rs[j-1].Upper})
+		if j < len(rs) {
+			rs = append(tmp, rs[j:]...)
+		} else {
+			rs = tmp
+		}
+	}
+	return rs
 }
 
 // jobManager feeds datums to jobs
@@ -652,8 +764,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 					jobInfo.DataSkipped = skippedData
 					jobInfo.DataTotal = totalData
 					jobInfo.Stats = stats
-					jobs.Put(jobInfo.Job.ID, jobInfo)
-					return nil
+					return jobs.Put(jobInfo.Job.ID, jobInfo)
 				}); err != nil {
 					logger.Logf("error updating job progress: %+v", err)
 				}
@@ -1009,8 +1120,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 				return err
 			}
 			jobInfo.Restart++
-			jobs.Put(jobInfo.Job.ID, jobInfo)
-			return nil
+			return jobs.Put(jobInfo.Job.ID, jobInfo)
 		})
 		if err != nil {
 			logger.Logf("error incrementing job %s's restart count", jobInfo.Job.ID)
