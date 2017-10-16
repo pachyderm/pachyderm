@@ -46,7 +46,7 @@ func maybeKcCreate(dryRun bool, manifest *bytes.Buffer, opts *assets.AssetOpts, 
 		return err
 	}
 	if !dryRun {
-		fmt.Println("\nPachyderm is launching. Check it's status with \"kubectl get all\"")
+		fmt.Println("\nPachyderm is launching. Check its status with \"kubectl get all\"")
 		if opts.DashOnly || opts.EnableDash {
 			fmt.Println("Once launched, access the dashboard by running \"pachctl port-forward\"")
 		}
