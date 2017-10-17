@@ -2,7 +2,7 @@
 
 To deploy a production ready AWS cluster with CloudFront
 
-1) Follow the instructions for a normal AWS deployment
+1. Follow the instructions for a normal AWS deployment
 
 You'll need to use the 'one shot' script. To do that you'll need to clone this repo, cd to it, and run the script:
 
@@ -16,7 +16,7 @@ Here we've redirected the output to a file. Make sure you keep this file around 
 
 Note: You may see a few extra restarts on your pachd pod. Sometimes it takes a bit before your cloudfront distribution comes online
 
-2) Ask your IT department for a cloudfront keypair
+2. Ask your IT department for a cloudfront keypair
 
 [You can pass along this link for instructions](http://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-trusted-signers.html#private-content-creating-cloudfront-key-pairs)
 
@@ -42,7 +42,7 @@ $ cat pk-APKAXXXXXXXXXXXX.pem
 ...
 ```
 
-3) Run the script to apply these security credentials to your cloudfront distribution:
+3. Run the script to apply these security credentials to your cloudfront distribution:
 
 ```
 $./etc/deploy/cloudfront/secure-cloudfront.sh --region us-west-2 --zone us-west-2c --bucket YYYY-pachyderm-store --cloudfront-distribution-id E1BEBVLIDYTLEV  --cloudfront-keypair-id APKAXXXXXXXXXXXX --cloudfront-private-key-file ~/Downloads/pk-APKAXXXXXXXXXXXX.pem 
@@ -58,7 +58,7 @@ kubectl scale --replicas=0 deployment/pachd && kubectl scale --replicas=1 deploy
 
 After that, you're cloudfront setup is all ready!
 
-4) Verify the setup
+4. Verify the setup
 
 To verify the setup, we can look at the pachd logs to make sure the cloudfront credentials are being used:
 
