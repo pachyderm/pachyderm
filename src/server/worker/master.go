@@ -514,7 +514,7 @@ func (a *APIServer) datumRanges(jobID string) col.Collection {
 func (a *APIServer) acquireDatums(ctx context.Context, jobInfo *pps.JobInfo, logger *taggedLogger) error {
 	df, err := NewDatumFactory(ctx, a.pachClient.PfsAPIClient, jobInfo.Input)
 	if err != nil {
-		return err
+		return fmt.Errorf("error from NewDatumFactory: %v", err)
 	}
 	if df.Len() == 0 {
 		return nil
@@ -525,10 +525,10 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobInfo *pps.JobInfo, log
 		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			progresses := a.progresses.ReadWrite(stm)
 			progress := &Progress{}
-			if err := progresses.Get(jobInfo.Job.ID, progress); err != nil {
-				return err
+			if err := progresses.Get(jobInfo.Job.ID, progress); err != nil && !col.IsErrNotFound(err) {
+				return fmt.Errorf("error getting Progress: %v", err)
 			}
-			if progress.CompleteRanges[len(progress.CompleteRanges)-1].Upper == int64(df.Len()) {
+			if len(progress.CompleteRanges) > 0 && progress.CompleteRanges[len(progress.CompleteRanges)-1].Upper == int64(df.Len()) {
 				complete = true
 				return nil
 			}
@@ -578,7 +578,11 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobInfo *pps.JobInfo, log
 			}
 			for i, datumRange := range progress.ActiveRanges {
 				if datumRange.Lower == newRange.Lower && datumRange.Upper == newRange.Upper {
-					progress.ActiveRanges = append(progress.ActiveRanges[:i], progress.ActiveRanges[i+1:]...)
+					if i+1 < len(progress.ActiveRanges) {
+						progress.ActiveRanges = append(progress.ActiveRanges[:i], progress.ActiveRanges[i+1:]...)
+					} else {
+						progress.ActiveRanges = progress.ActiveRanges[:i]
+					}
 				}
 			}
 			progress.CompleteRanges = mergeRanges(append(progress.CompleteRanges, newRange))
