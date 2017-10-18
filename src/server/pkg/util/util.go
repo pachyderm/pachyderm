@@ -50,7 +50,7 @@ func GetRequestsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*api.R
 // maximally is limited to.
 func GetLimitsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*api.ResourceList, error) {
 	var result api.ResourceList = make(map[api.ResourceName]resource.Quantity)
-	gpuStr := fmt.Sprintf("%d", resources.Gpu)
+	gpuStr := fmt.Sprintf("%d", pipelineInfo.ResourceSpec.Gpu)
 	gpuQuantity, err := resource.ParseQuantity(gpuStr)
 	if err != nil {
 		log.Warnf("error parsing gpu string: %s: %+v", gpuStr, err)

@@ -1184,7 +1184,7 @@ func (a *APIServer) scaleUpWorkers(logger *taggedLogger) error {
 			return fmt.Errorf("error parsing resource spec; this is likely a bug: %v", err)
 		}
 		workerRc.Spec.Template.Spec.Containers[0].Resources = api.ResourceRequirements{
-			Requests: *resourceList,
+			Requests: *requestsResourceList,
 			Limits:   *limitsResourceList,
 		}
 	}
