@@ -2,6 +2,7 @@ package worker
 
 import (
 	"fmt"
+	"io"
 	"sort"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -26,14 +27,20 @@ type atomDatumFactory struct {
 
 func newAtomDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.AtomInput) (DatumFactory, error) {
 	result := &atomDatumFactory{}
-	fileInfos, err := pfsClient.GlobFile(auth.In2Out(ctx), &pfs.GlobFileRequest{
+	fs, err := pfsClient.GlobFileStream(auth.In2Out(ctx), &pfs.GlobFileRequest{
 		Commit:  client.NewCommit(input.Repo, input.Commit),
 		Pattern: input.Glob,
 	})
 	if err != nil {
 		return nil, err
 	}
-	for _, fileInfo := range fileInfos.FileInfo {
+	for {
+		fileInfo, err := fs.Recv()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, err
+		}
 		result.inputs = append(result.inputs, &Input{
 			FileInfo: fileInfo,
 			Name:     input.Name,
