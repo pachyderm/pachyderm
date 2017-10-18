@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 
 	client "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
@@ -345,6 +346,7 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 			},
 		},
 	}
+	fmt.Printf("Worker RC:\n%v\n%v\n", rc, podSpec)
 	if _, err := a.kubeClient.ReplicationControllers(a.namespace).Create(rc); err != nil {
 		if !isAlreadyExistsErr(err) {
 			return err
