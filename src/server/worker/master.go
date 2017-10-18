@@ -1175,12 +1175,17 @@ func (a *APIServer) scaleUpWorkers(logger *taggedLogger) error {
 	// is in scale-down mode and probably has removed its resource
 	// requirements.
 	if a.pipelineInfo.ResourceSpec != nil {
-		resourceList, err := util.GetResourceListFromPipeline(a.pipelineInfo)
+		requestsResourceList, err := util.GetRequestsResourceListFromPipeline(a.pipelineInfo)
+		if err != nil {
+			return fmt.Errorf("error parsing resource spec; this is likely a bug: %v", err)
+		}
+		limitsResourceList, err := util.GetRequestsResourceListFromPipeline(a.pipelineInfo)
 		if err != nil {
 			return fmt.Errorf("error parsing resource spec; this is likely a bug: %v", err)
 		}
 		workerRc.Spec.Template.Spec.Containers[0].Resources = api.ResourceRequirements{
 			Requests: *resourceList,
+			Limits:   *limitsResourceList,
 		}
 	}
 	_, err = rc.Update(workerRc)

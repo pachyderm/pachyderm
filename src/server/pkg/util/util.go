@@ -14,9 +14,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 )
 
-// GetResourceListFromPipeline returns a list of resources that the pipeline,
+// GetRequestsResourceListFromPipeline returns a list of resources that the pipeline,
 // minimally requires.
-func GetResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*api.ResourceList, error) {
+func GetRequestsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*api.ResourceList, error) {
 	var result api.ResourceList = make(map[api.ResourceName]resource.Quantity)
 	resources, cacheSize := pipelineInfo.ResourceSpec, pipelineInfo.CacheSize
 	cpuStr := fmt.Sprintf("%f", resources.Cpu)
@@ -43,6 +43,13 @@ func GetResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*api.ResourceL
 		result[api.ResourceMemory] = cacheQuantity
 	}
 
+	return &result, nil
+}
+
+// GetLimitsResourceListFromPipeline returns a list of resources that the pipeline,
+// maximally is limited to.
+func GetLimitsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*api.ResourceList, error) {
+	var result api.ResourceList = make(map[api.ResourceName]resource.Quantity)
 	gpuStr := fmt.Sprintf("%d", resources.Gpu)
 	gpuQuantity, err := resource.ParseQuantity(gpuStr)
 	if err != nil {
