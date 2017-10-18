@@ -710,7 +710,7 @@ func (c APIClient) inspectFile(repoName string, commitID string, path string) (*
 
 // ListFile returns info about all files in a Commit.
 func (c APIClient) ListFile(repoName string, commitID string, path string) ([]*pfs.FileInfo, error) {
-	iter, err := c.PfsAPIClient.ListFileStream(
+	fs, err := c.PfsAPIClient.ListFileStream(
 		c.Ctx(),
 		&pfs.ListFileRequest{
 			File: NewFile(repoName, commitID, path),
@@ -721,7 +721,7 @@ func (c APIClient) ListFile(repoName string, commitID string, path string) ([]*p
 	}
 	var result []*pfs.FileInfo
 	for {
-		f, err := iter.Recv()
+		f, err := fs.Recv()
 		if err == io.EOF {
 			break
 		} else if err != nil {
@@ -736,7 +736,7 @@ func (c APIClient) ListFile(repoName string, commitID string, path string) ([]*p
 // The pattern is documented here:
 // https://golang.org/pkg/path/filepath/#Match
 func (c APIClient) GlobFile(repoName string, commitID string, pattern string) ([]*pfs.FileInfo, error) {
-	iter, err := c.PfsAPIClient.GlobFileStream(
+	fs, err := c.PfsAPIClient.GlobFileStream(
 		c.Ctx(),
 		&pfs.GlobFileRequest{
 			Commit:  NewCommit(repoName, commitID),
@@ -748,8 +748,10 @@ func (c APIClient) GlobFile(repoName string, commitID string, pattern string) ([
 	}
 	var result []*pfs.FileInfo
 	for {
-		f, err := iter.Recv()
-		if err != nil {
+		f, err := fs.Recv()
+		if err == io.EOF {
+			break
+		} else if err != nil {
 			return nil, grpcutil.ScrubGRPC(err)
 		}
 		result = append(result, f)
