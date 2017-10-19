@@ -26,7 +26,7 @@ import (
 type STM interface {
 	// Get returns the value for a key and inserts the key in the txn's read set.
 	// If Get fails, it aborts the transaction with an error, never returning.
-	Get(key string) string
+	Get(key string) (string, error)
 	// Put adds a value for a key to the write set.
 	Put(key, val string, opts ...v3.OpOption)
 	// Rev returns the revision of a key in the read set.
@@ -131,11 +131,11 @@ func (s *stm) Context() context.Context {
 	return s.ctx
 }
 
-func (s *stm) Get(key string) string {
+func (s *stm) Get(key string) (string, error) {
 	if wv, ok := s.wset[key]; ok {
-		return wv.val
+		return wv.val, nil
 	}
-	return respToValue(s.fetch(key))
+	return respToValue(key, s.fetch(key))
 }
 
 func (s *stm) Put(key, val string, opts ...v3.OpOption) {
@@ -204,9 +204,9 @@ type stmSerializable struct {
 	prefetch map[string]*v3.GetResponse
 }
 
-func (s *stmSerializable) Get(key string) string {
+func (s *stmSerializable) Get(key string) (string, error) {
 	if wv, ok := s.wset[key]; ok {
-		return wv.val
+		return wv.val, nil
 	}
 	firstRead := len(s.rset) == 0
 	if resp, ok := s.prefetch[key]; ok {
@@ -221,7 +221,7 @@ func (s *stmSerializable) Get(key string) string {
 			v3.WithSerializable(),
 		}
 	}
-	return respToValue(resp)
+	return respToValue(key, resp)
 }
 
 func (s *stmSerializable) Rev(key string) int64 {
@@ -275,9 +275,9 @@ func isKeyCurrent(k string, r *v3.GetResponse) v3.Cmp {
 	return v3.Compare(v3.ModRevision(k), "=", 0)
 }
 
-func respToValue(resp *v3.GetResponse) string {
+func respToValue(key string, resp *v3.GetResponse) (string, error) {
 	if len(resp.Kvs) == 0 {
-		return ""
+		return "", ErrNotFound{Key: key}
 	}
-	return string(resp.Kvs[0].Value)
+	return string(resp.Kvs[0].Value), nil
 }
