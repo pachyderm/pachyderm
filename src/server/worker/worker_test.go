@@ -75,7 +75,7 @@ func TestAcquireDatums(t *testing.T) {
 	})
 	require.NoError(t, err)
 	var eg errgroup.Group
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 1; i++ {
 		server := newTestAPIServer(c, etcdClient, "", t)
 		logger := server.getMasterLogger()
 		eg.Go(func() error {
