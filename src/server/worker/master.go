@@ -528,6 +528,7 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobInfo *pps.JobInfo, log
 			if err := progresses.Get(jobInfo.Job.ID, progress); err != nil && !col.IsErrNotFound(err) {
 				return fmt.Errorf("error getting Progress: %v", err)
 			}
+			fmt.Printf("Progress: %+v\n", progress)
 			if len(progress.CompleteRanges) > 0 && progress.CompleteRanges[len(progress.CompleteRanges)-1].Upper == int64(df.Len()) {
 				complete = true
 				return nil
@@ -557,7 +558,7 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobInfo *pps.JobInfo, log
 				}
 				newRange = &DatumRange{
 					Lower: lower,
-					Upper: max(lower+10, int64(df.Len())),
+					Upper: min(lower+10, int64(df.Len())),
 				}
 			}
 			progress.ActiveRanges = append(progress.ActiveRanges, newRange)
@@ -576,6 +577,7 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobInfo *pps.JobInfo, log
 			if err := progresses.Get(jobInfo.Job.ID, progress); err != nil {
 				return err
 			}
+			fmt.Printf("Progress: %+v\n", progress)
 			for i, datumRange := range progress.ActiveRanges {
 				if datumRange.Lower == newRange.Lower && datumRange.Upper == newRange.Upper {
 					if i+1 < len(progress.ActiveRanges) {
@@ -590,7 +592,10 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobInfo *pps.JobInfo, log
 				complete = true
 				return nil
 			}
-			return a.datumRanges(jobInfo.Job.ID).ReadWrite(stm).Delete(fmt.Sprintf("%d-%d", newRange.Lower, newRange.Upper))
+			if err := a.datumRanges(jobInfo.Job.ID).ReadWrite(stm).Delete(fmt.Sprintf("%d-%d", newRange.Lower, newRange.Upper)); err != nil {
+				return fmt.Errorf("error deleting datum range: %v", err)
+			}
+			return progresses.Put(jobInfo.Job.ID, progress)
 		}); err != nil {
 			return err
 		}
@@ -600,6 +605,13 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobInfo *pps.JobInfo, log
 
 func max(x, y int64) int64 {
 	if x > y {
+		return x
+	}
+	return y
+}
+
+func min(x, y int64) int64 {
+	if x < y {
 		return x
 	}
 	return y
