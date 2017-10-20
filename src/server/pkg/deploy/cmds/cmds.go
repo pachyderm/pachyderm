@@ -485,6 +485,7 @@ Are you sure you want to proceed? yN
 				"deployment",
 				"serviceaccount",
 				"secret",
+				"statefulset",
 			}
 			if all {
 				assets = append(assets, []string{
