@@ -297,7 +297,7 @@ config_path="${HOME}/.pachyderm/config.json"
   echo '{}' >"${config_path}"
   chmod 777 "${config_path}"
 }
-tmpfile="$(mktemp -p .)"
+tmpfile="$(mktemp $(pwd)/tmp.XXXXXXXXXX)"
 cp "${config_path}" "${tmpfile}"
 jq --monochrome-output \
   ".v1.pachd_address=\"${K8S_MASTER_DOMAIN}:30650\"" \
