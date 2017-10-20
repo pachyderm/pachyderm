@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"path"
-	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -507,133 +506,65 @@ func plusDuration(x *types.Duration, y *types.Duration) (*types.Duration, error)
 	return types.DurationProto(xd + yd), nil
 }
 
-func (a *APIServer) datumRanges(jobID string) col.Collection {
-	return col.NewCollection(a.etcdClient, path.Join(a.etcdPrefix, rangePrefix, jobID), nil, &types.Empty{}, nil)
+func (a *APIServer) locks(jobID string) col.Collection {
+	return col.NewCollection(a.etcdClient, path.Join(a.etcdPrefix, lockPrefix, jobID), nil, &types.Empty{}, nil)
 }
 
-func (a *APIServer) acquireDatums(ctx context.Context, jobInfo *pps.JobInfo, logger *taggedLogger) error {
-	df, err := NewDatumFactory(ctx, a.pachClient.PfsAPIClient, jobInfo.Input)
-	if err != nil {
-		return fmt.Errorf("error from NewDatumFactory: %v", err)
-	}
-	if df.Len() == 0 {
-		return nil
-	}
+func (a *APIServer) acquireDatums(ctx context.Context, jobInfo *pps.JobInfo, logger *taggedLogger, process func(low, high int64) error) error {
 	complete := false
 	for !complete {
-		var newRange *DatumRange
+		var low int64
+		var high int64
+		var found bool
 		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-			progresses := a.progresses.ReadWrite(stm)
-			progress := &Progress{}
-			if err := progresses.Get(jobInfo.Job.ID, progress); err != nil && !col.IsErrNotFound(err) {
-				return fmt.Errorf("error getting Progress: %v", err)
+			found = false
+			chunksCol := a.chunks.ReadWrite(stm)
+			chunks := &Chunks{}
+			if err := chunksCol.Get(jobInfo.Job.ID, chunks); err != nil {
+				return fmt.Errorf("error getting Chunks: %v", err)
 			}
-			fmt.Printf("Progress: %+v\n", progress)
-			if len(progress.CompleteRanges) > 0 && progress.CompleteRanges[len(progress.CompleteRanges)-1].Upper == int64(df.Len()) {
-				complete = true
-				return nil
-			}
-			ranges := a.datumRanges(jobInfo.Job.ID).ReadWrite(stm)
-			for _, datumRange := range progress.ActiveRanges {
-				if err := ranges.Get(fmt.Sprintf("%d-%d", datumRange.Lower, datumRange.Upper), &types.Empty{}); err != nil {
+			locks := a.locks(jobInfo.Job.ID).ReadWrite(stm)
+			// we set complete to true and then unset it if we find an incomplete chunk
+			complete = true
+			for _, high = range chunks.Chunks {
+				var chunkState ChunkState
+				if err := locks.Get(fmt.Sprintf("%d", high), &chunkState); err != nil {
 					if col.IsErrNotFound(err) {
-						newRange = datumRange
-						break
+						found = true
+					} else {
+						return err
 					}
-					return err
 				}
+				if chunkState.State != ChunkState_COMPLETE {
+					complete = false
+				}
+				if found {
+					break
+				}
+				low = high
 			}
-			if newRange == nil {
-				var lower int64
-				if len(progress.CompleteRanges) > 0 {
-					// Ranges are sorted so the
-					lower = progress.CompleteRanges[len(progress.CompleteRanges)-1].Upper
-				}
-				if len(progress.ActiveRanges) > 0 {
-					lower = max(progress.ActiveRanges[len(progress.ActiveRanges)-1].Upper, lower)
-				}
-				if lower == int64(df.Len()) {
-					complete = true
-					return nil
-				}
-				newRange = &DatumRange{
-					Lower: lower,
-					Upper: min(lower+10, int64(df.Len())),
-				}
+			if found {
+				return locks.PutTTL(fmt.Sprintf("%d", high), &ChunkState{State: ChunkState_RUNNING}, ttl)
 			}
-			progress.ActiveRanges = append(progress.ActiveRanges, newRange)
-			if err := progresses.Put(jobInfo.Job.ID, progress); err != nil {
-				return err
-			}
-			return ranges.PutTTL(fmt.Sprintf("%d-%d", newRange.Lower, newRange.Upper), &types.Empty{}, ttl)
+			return nil
 		}); err != nil {
 			return err
 		}
-		// process the datums in newRange
-
-		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-			progresses := a.progresses.ReadWrite(stm)
-			progress := &Progress{}
-			if err := progresses.Get(jobInfo.Job.ID, progress); err != nil {
+		if found {
+			// process the datums in newRange
+			if err := process(low, high); err != nil {
 				return err
 			}
-			fmt.Printf("Progress: %+v\n", progress)
-			for i, datumRange := range progress.ActiveRanges {
-				if datumRange.Lower == newRange.Lower && datumRange.Upper == newRange.Upper {
-					if i+1 < len(progress.ActiveRanges) {
-						progress.ActiveRanges = append(progress.ActiveRanges[:i], progress.ActiveRanges[i+1:]...)
-					} else {
-						progress.ActiveRanges = progress.ActiveRanges[:i]
-					}
-				}
+
+			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				locks := a.locks(jobInfo.Job.ID).ReadWrite(stm)
+				return locks.Put(fmt.Sprintf("%d", high), &ChunkState{State: ChunkState_COMPLETE})
+			}); err != nil {
+				return err
 			}
-			progress.CompleteRanges = mergeRanges(append(progress.CompleteRanges, newRange))
-			if progress.CompleteRanges[len(progress.CompleteRanges)-1].Upper == int64(df.Len()) {
-				complete = true
-				return nil
-			}
-			if err := a.datumRanges(jobInfo.Job.ID).ReadWrite(stm).Delete(fmt.Sprintf("%d-%d", newRange.Lower, newRange.Upper)); err != nil {
-				return fmt.Errorf("error deleting datum range: %v", err)
-			}
-			return progresses.Put(jobInfo.Job.ID, progress)
-		}); err != nil {
-			return err
 		}
 	}
 	return nil
-}
-
-func max(x, y int64) int64 {
-	if x > y {
-		return x
-	}
-	return y
-}
-
-func min(x, y int64) int64 {
-	if x < y {
-		return x
-	}
-	return y
-}
-
-func mergeRanges(rs []*DatumRange) []*DatumRange {
-	sort.Slice(rs, func(i, j int) bool { return rs[i].Lower < rs[j].Lower })
-	for i := 0; i < len(rs); i++ {
-		j := i + 1
-		for ; j < len(rs); j++ {
-			if rs[j].Lower != rs[j-1].Upper {
-				break
-			}
-		}
-		tmp := append(rs[:i], &DatumRange{rs[i].Lower, rs[j-1].Upper})
-		if j < len(rs) {
-			rs = append(tmp, rs[j:]...)
-		} else {
-			rs = tmp
-		}
-	}
-	return rs
 }
 
 // jobManager feeds datums to jobs

@@ -52,12 +52,14 @@ service Worker {
   rpc Cancel(CancelRequest) returns (CancelResponse) {}
 }
 
-message DatumRange {
-  int64 lower = 1;
-  int64 upper = 2;
+message ChunkState {
+  enum State {
+    RUNNING = 0;
+    COMPLETE = 1;
+  }
+  State state = 1;
 }
 
-message Progress {
-  repeated DatumRange complete_ranges = 1;
-  repeated DatumRange active_ranges = 2;
+message Chunks {
+  repeated int64 chunks = 1;
 }
