@@ -224,9 +224,14 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 			log.Errorf("error getting number of workers, default to 1 worker: %v", err)
 			parallelism = 1
 		}
-		var resources *api.ResourceList
+		var resourceRequests *api.ResourceList
+		var resourceLimits *api.ResourceList
 		if pipelineInfo.ResourceSpec != nil {
-			resources, err = util.GetResourceListFromPipeline(pipelineInfo)
+			resourceRequests, err = util.GetRequestsResourceListFromPipeline(pipelineInfo)
+			if err != nil {
+				return err
+			}
+			resourceLimits, err = util.GetLimitsResourceListFromPipeline(pipelineInfo)
 			if err != nil {
 				return err
 			}
@@ -239,7 +244,8 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		if err == nil {
 			if (workerRc.Spec.Template.Spec.Containers[0].Resources.Requests == nil) && workerRc.Spec.Replicas == 1 {
 				parallelism = 1
-				resources = nil
+				resourceRequests = nil
+				resourceLimits = nil
 			}
 		}
 
@@ -247,7 +253,8 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 			pipelineInfo.Pipeline.Name,
 			ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 			int32(parallelism),
-			resources,
+			resourceRequests,
+			resourceLimits,
 			pipelineInfo.Transform,
 			pipelineInfo.CacheSize,
 			pipelineInfo.Service)
