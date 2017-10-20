@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strings"
 	"sync"
 	"testing"
 
@@ -26,63 +25,43 @@ var (
 	port int32 = 30653
 )
 
-func TestMergeRanges(t *testing.T) {
-	require.Equal(t, []*DatumRange(nil), mergeRanges(nil))
-	require.Equal(t, []*DatumRange{}, mergeRanges([]*DatumRange{}))
-	require.Equal(t, []*DatumRange{&DatumRange{Upper: 10}}, mergeRanges([]*DatumRange{&DatumRange{Upper: 10}}))
-	require.Equal(t, []*DatumRange{
-		&DatumRange{Upper: 30},
-	}, mergeRanges([]*DatumRange{
-		&DatumRange{Lower: 20, Upper: 30},
-		&DatumRange{Lower: 10, Upper: 20},
-		&DatumRange{Upper: 10},
-	}))
-	require.Equal(t, []*DatumRange{
-		&DatumRange{Upper: 10},
-		&DatumRange{Lower: 20, Upper: 30},
-	}, mergeRanges([]*DatumRange{
-		&DatumRange{Lower: 20, Upper: 30},
-		&DatumRange{Upper: 10},
-	}))
-}
-
 func TestAcquireDatums(t *testing.T) {
 	c := getPachClient(t)
 	etcdClient := getEtcdClient(t)
-	dataRepo := uniqueString("TestAcquireDatums")
-	require.NoError(t, c.CreateRepo(dataRepo))
-	commit, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	for i := 0; i < 100; i++ {
-		_, err = c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i), strings.NewReader(fmt.Sprintf("%d", i)))
-		require.NoError(t, err)
-	}
-	require.NoError(t, c.FinishCommit(dataRepo, "master"))
 
-	jobInfo := &pps.JobInfo{
-		Job: client.NewJob(uuid.New()),
-		Input: &pps.Input{
-			Atom: &pps.AtomInput{
-				Name:   dataRepo,
-				Repo:   dataRepo,
-				Glob:   "/*",
-				Commit: commit.ID,
-			}},
+	chunks := col.NewCollection(etcdClient, path.Join("", chunksPrefix), []col.Index{}, &Chunks{}, nil)
+	for nChunks := 1; nChunks < 200; nChunks += 50 {
+		for nWorkers := 1; nWorkers < 40; nWorkers += 10 {
+			jobInfo := &pps.JobInfo{
+				Job: client.NewJob(uuid.New()),
+			}
+			_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+				c := &Chunks{}
+				for i := 1; i <= nChunks; i++ {
+					c.Chunks = append(c.Chunks, int64(i))
+				}
+				return chunks.ReadWrite(stm).Create(jobInfo.Job.ID, c)
+			})
+			require.NoError(t, err)
+			var chunks []int64
+			var chunksMu sync.Mutex
+			var eg errgroup.Group
+			for i := 0; i < nWorkers; i++ {
+				server := newTestAPIServer(c, etcdClient, "", t)
+				logger := server.getMasterLogger()
+				eg.Go(func() error {
+					return server.acquireDatums(context.Background(), jobInfo, logger, func(low, high int64) error {
+						chunksMu.Lock()
+						defer chunksMu.Unlock()
+						chunks = append(chunks, high)
+						return nil
+					})
+				})
+			}
+			require.NoError(t, eg.Wait())
+			require.Equal(t, nChunks, len(chunks))
+		}
 	}
-	progresses := col.NewCollection(etcdClient, path.Join("", progressPrefix), []col.Index{}, &Progress{}, nil)
-	_, err = col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-		return progresses.ReadWrite(stm).Create(jobInfo.Job.ID, &Progress{})
-	})
-	require.NoError(t, err)
-	var eg errgroup.Group
-	for i := 0; i < 1; i++ {
-		server := newTestAPIServer(c, etcdClient, "", t)
-		logger := server.getMasterLogger()
-		eg.Go(func() error {
-			return server.acquireDatums(context.Background(), jobInfo, logger)
-		})
-	}
-	require.NoError(t, eg.Wait())
 }
 
 var etcdClient *etcd.Client
@@ -134,9 +113,9 @@ func newTestAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etc
 			PipelineName: "test",
 			WorkerID:     "local",
 		},
-		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
-		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
-		progresses: col.NewCollection(etcdClient, path.Join(etcdPrefix, progressPrefix), []col.Index{}, &Progress{}, nil),
+		jobs:      ppsdb.Jobs(etcdClient, etcdPrefix),
+		pipelines: ppsdb.Pipelines(etcdClient, etcdPrefix),
+		chunks:    col.NewCollection(etcdClient, path.Join(etcdPrefix, chunksPrefix), []col.Index{}, &Chunks{}, nil),
 	}
 }
 

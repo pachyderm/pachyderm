@@ -49,8 +49,8 @@ const (
 	concurrency = 10
 	logBuffer   = 25
 
-	progressPrefix = "/progress"
-	rangePrefix    = "/range"
+	chunksPrefix = "/chunks"
+	lockPrefix   = "/locks"
 )
 
 var (
@@ -98,7 +98,7 @@ type APIServer struct {
 	// The pipelines collection
 	pipelines col.Collection
 	// The progress collection
-	progresses col.Collection
+	chunks col.Collection
 
 	// Only one datum can be running at a time because they need to be
 	// accessing /pfs, runMu enforces this
@@ -288,7 +288,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		namespace:  namespace,
 		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
 		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
-		progresses: col.NewCollection(etcdClient, path.Join(etcdPrefix, progressPrefix), []col.Index{}, &Progress{}, nil),
+		chunks:     col.NewCollection(etcdClient, path.Join(etcdPrefix, chunksPrefix), []col.Index{}, &Chunks{}, nil),
 		datumCache: datumCache,
 	}
 	logger, err := server.getTaggedLogger(context.Background(), "", nil, false)
