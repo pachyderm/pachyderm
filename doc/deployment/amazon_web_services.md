@@ -134,7 +134,6 @@ Here are the environmental variables you should set up to create these resources
 $ kubectl cluster-info
   Kubernetes master is running at https://1.2.3.4
   ...
-$ KUBECTLFLAGS="-s [The public IP of the Kubernetes master. e.g. 1.2.3.4]"
 
 # BUCKET_NAME needs to be globally unique across the entire AWS region
 $ BUCKET_NAME=[The name of the S3 bucket where your data will be stored]
