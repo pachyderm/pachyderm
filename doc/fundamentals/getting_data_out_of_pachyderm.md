@@ -57,7 +57,7 @@ In addition to getting data out of Pachyderm with `pachctl get-file`, you can ad
 
 ## Other ways to view, interact with, or export data in Pachyderm
 
-Although `pachctl` and `output` provide easy ways to interact with data in Pachyderm repos, they are by no means the only ways.  For example, you can:
+Although `pachctl` and `egress` provide easy ways to interact with data in Pachyderm repos, they are by no means the only ways.  For example, you can:
 
 - Have one or more of your pipeline stages connect and export data to databases running outside of Pachyderm.
 - Use a Pachyderm service to launch a long running service, like Jupyter, that has access to internal Pachyderm data and can be accessed externally via a specified port.
