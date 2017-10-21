@@ -178,20 +178,6 @@ func (a *APIServer) jobInput(bs *branchSet) (*pps.Input, error) {
 
 // jobSpawner spawns jobs
 func (a *APIServer) jobSpawner(ctx context.Context, logger *taggedLogger) error {
-	// Establish connection pool
-	pool, err := pool.NewPool(
-		a.kubeClient, a.namespace,
-		ppsserver.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version),
-		client.PPSWorkerPort, a.pipelineInfo.MaxQueueSize, client.PachDialOptions()...)
-	if err != nil {
-		return fmt.Errorf("master: error constructing worker pool: %v; retrying in %v", err)
-	}
-	defer func() {
-		if err := pool.Close(); err != nil {
-			logger.Logf("error closing pool: %v", err)
-		}
-	}()
-
 	bsf, err := a.newBranchSetFactory(ctx)
 	if err != nil {
 		return fmt.Errorf("error constructing branch set factory: %v", err)
@@ -275,7 +261,7 @@ nextInput:
 				(jobInfo.Salt == a.pipelineInfo.Salt || (jobInfo.Salt == "" && jobInfo.PipelineVersion == a.pipelineInfo.Version)) {
 				switch jobInfo.State {
 				case pps.JobState_JOB_STARTING, pps.JobState_JOB_RUNNING:
-					if err := a.runJob(ctx, &jobInfo, pool, logger); err != nil {
+					if err := a.waitJob(ctx, &jobInfo, logger); err != nil {
 						return err
 					}
 				case pps.JobState_JOB_SUCCESS:
@@ -347,7 +333,7 @@ nextInput:
 			return err
 		}
 
-		if err := a.runJob(ctx, jobInfo, pool, logger); err != nil {
+		if err := a.waitJob(ctx, jobInfo, logger); err != nil {
 			return err
 		}
 	}
@@ -564,6 +550,113 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobInfo *pps.JobInfo, log
 			}
 		}
 	}
+	return nil
+}
+
+func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *taggedLogger) error {
+	backoff.RetryNotify(func() (retErr error) {
+		chunksCol := a.chunks.ReadOnly(ctx)
+		locks := a.locks(jobInfo.Job.ID).ReadOnly(ctx)
+		chunks := &Chunks{}
+		if err := chunksCol.Get(jobInfo.Job.ID, chunks); err != nil {
+			return fmt.Errorf("error getting Chunks: %v", err)
+		}
+		for _, high := range chunks.Chunks {
+			if err := func() error {
+				chunkState := &ChunkState{}
+				watcher, err := locks.WatchOne(fmt.Sprint("%d", high))
+				if err != nil {
+					return err
+				}
+				defer watcher.Close()
+				for {
+					select {
+					case e := <-watcher.Watch():
+						var key string
+						if err := e.Unmarshal(&key, chunkState); err != nil {
+							if chunkState.State == ChunkState_COMPLETE {
+								break
+							}
+						}
+					case <-ctx.Done():
+						return context.Canceled
+					}
+				}
+			}(); err != nil {
+				return err
+			}
+		}
+
+		df, err := NewDatumFactory(ctx, a.pachClient.PfsAPIClient, jobInfo.Input)
+		if err != nil {
+			return err
+		}
+		tree := hashtree.NewHashTree()
+		var statsTree hashtree.OpenHashTree
+		if jobInfo.EnableStats {
+			statsTree = hashtree.NewHashTree()
+		}
+		var treeMu sync.Mutex
+		for i := 0; i < df.Len(); i++ {
+			files := df.Datum(i)
+			datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
+			datumID := a.DatumID(files)
+			tag := &pfs.Tag{datumHash}
+			statsTag := &pfs.Tag{datumHash + statsTagSuffix}
+
+			var eg errgroup.Group
+			var subTree hashtree.HashTree
+			var statsSubtree hashtree.HashTree
+			eg.Go(func() error {
+				subTree, err = a.getTreeFromTag(ctx, tag)
+				if err != nil {
+					return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
+				}
+				return nil
+			})
+			if jobInfo.EnableStats {
+				eg.Go(func() error {
+					if statsSubtree, err = a.getTreeFromTag(ctx, statsTag); err != nil {
+						logger.Logf("failed to read stats tree, this is non-fatal but will result in some missing stats")
+						return nil
+					}
+					indexObject, length, err := a.pachClient.WithCtx(ctx).PutObject(strings.NewReader(fmt.Sprint(i)))
+					if err != nil {
+						logger.Logf("failed to write stats tree, this is non-fatal but will result in some missing stats")
+						return nil
+					}
+					treeMu.Lock()
+					defer treeMu.Unlock()
+					// Add a file to statsTree indicating the index of this
+					// datum in the datum factory.
+					if err := statsTree.PutFile(fmt.Sprintf("%v/index", datumID), []*pfs.Object{indexObject}, length); err != nil {
+						logger.Logf("failed to write index file, this is non-fatal but will result in some missing stats")
+						return nil
+					}
+					return nil
+				})
+			}
+			if err := eg.Wait(); err != nil {
+				return err
+			}
+			treeMu.Lock()
+			defer treeMu.Unlock()
+			if statsSubtree != nil {
+				if err := statsTree.Merge(statsSubtree); err != nil {
+					logger.Logf("failed to merge into stats tree: %v", err)
+				}
+			}
+			return tree.Merge(subTree)
+		}
+		return nil
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		select {
+		case <-ctx.Done():
+			return err
+		default:
+		}
+		return nil
+	})
 	return nil
 }
 
