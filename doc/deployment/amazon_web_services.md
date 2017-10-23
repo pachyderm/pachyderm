@@ -6,79 +6,14 @@
 - [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
 - [kops](https://github.com/kubernetes/kops/blob/master/docs/install.md)
 
-Below, we show how to deploy Pachyderm on AWS in a couple of different ways:
+## Options
 
-1. [By executing a one shot deploy script that will both deploy Kubernetes and Pachyderm.](amazon_web_services.html#one-shot-script)
+We have two methods of deploying pachyderm on AWS, and each is more appropriate for certain circumstances
+
 2. [By manually deploying Kubernetes and Pachyderm.](amazon_web_services.html#manual-pachyderm-deploy)
-
-If you already have a Kubernetes deployment or would like to customize the types of instances, size of volumes, etc. in your Kubernetes cluster, you should follow option (1).  If you just want a quick deploy to experiment with Pachyderm in AWS or would just like to use our default configuration, you might want to try option (2)
-
-## One Shot Script
-
-### Install additional prerequisites
-
-This scripted deploy requires a couple of prerequisites in addition to the ones listed under [Prerequisites](amazon_web_services.md#prerequisites):
-
-- [jq](https://stedolan.github.io/jq/download/)
-- [uuid](http://man7.org/linux/man-pages/man1/uuidgen.1.html)
-
-### Run the deploy script
-
-Once you have the prerequisites mentioned above, download and run our AWS deploy script by running:
-
-```
-curl -o aws.sh https://raw.githubusercontent.com/pachyderm/pachyderm/master/etc/deploy/aws.sh
-chmod +x aws.sh
-sudo -E ./aws.sh
-```
-
-This script will use kops to deploy Kubernetes and Pachyderm in AWS.  The script will ask you for your AWS credentials, region preference, etc.  If you would like to customize the number of nodes in the cluster, node types, etc., you can open up the deploy script and modify the respective fields.
-
-The script will take a few minutes, and Pachyderm will take an addition couple of minutes to spin up.  Once it is up, `kubectl get all` should return something like:
-
-```
-NAME                        READY     STATUS    RESTARTS   AGE
-po/dash-4171841423-rsg4r    2/2       Running   0          1m
-po/etcd-0                   1/1       Running   0          1m
-po/etcd-1                   1/1       Running   0          1m
-po/etcd-2                   1/1       Running   0          56s
-po/pachd-2566441599-g2d1q   1/1       Running   2          1m
-
-NAME                CLUSTER-IP      EXTERNAL-IP   PORT(S)                                     AGE
-svc/dash            10.55.252.198   <nodes>       8080:30080/TCP,8081:30081/TCP               1m
-svc/etcd            10.55.254.232   <nodes>       2379:30408/TCP                              1m
-svc/etcd-headless   None            <none>        2380/TCP                                    1m
-svc/kubernetes      10.55.240.1     <none>        443/TCP                                     24m
-svc/pachd           10.55.248.19    <nodes>       650:30650/TCP,651:30651/TCP,652:30652/TCP   1m
-
-NAME                DESIRED   CURRENT   AGE
-statefulsets/etcd   3         3         1m
-
-NAME           DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-deploy/dash    1         1         1            1           1m
-deploy/pachd   1         1         1            1           1m
-
-NAME                  DESIRED   CURRENT   READY     AGE
-rs/dash-4171841423    1         1         1         1m
-rs/pachd-2566441599   1         1         1         1m
-```
-
-### Connect `pachctl`
-
-Finally, we need to set up forward a port so that pachctl can talk to the cluster.
-
-```sh
-# Forward the ports. We background this process because it blocks.
-$ pachctl port-forward &
-```
-
-And you're done! You can test to make sure the cluster is working by trying `pachctl version`:
-```sh
-$ pachctl version
-COMPONENT           VERSION
-pachctl             1.6.0
-pachd               1.6.0
-```
+    - This is more appropriate if you already have a kubernetes deployment, if you would like to customize the types of instances, size of volumes, or you're setting up a production cluster or processing a large workload
+1. [By executing a one shot deploy script that will both deploy Kubernetes and Pachyderm.](amazon_web_services.html#one-shot-script)
+    - If you're experimenting with Pachyderm, our one-shot script is much faster and simpler.
 
 ## Manual Pachyderm Deploy
 
@@ -271,7 +206,7 @@ rs/pachd-2566441599   1         1         1         1m
 
 Note: If you see a few restarts on the pachd nodes, that's totally ok. That simply means that Kubernetes tried to bring up those containers before etcd was ready so it restarted them.
 
-Finally, we need to set up forward a port so that pachctl can talk to the cluster.
+Finally, we need to forward a port so that pachctl can talk to the cluster.
 
 ```sh
 # Forward the ports. We background this process because it blocks.
@@ -285,6 +220,74 @@ COMPONENT           VERSION
 pachctl             1.6.0
 pachd               1.6.0
 ```
+
+## One Shot Script
+
+### Install additional prerequisites
+
+This scripted deploy requires a couple of prerequisites in addition to the ones listed under [Prerequisites](amazon_web_services.md#prerequisites):
+
+- [jq](https://stedolan.github.io/jq/download/)
+- [uuid](http://man7.org/linux/man-pages/man1/uuidgen.1.html)
+
+### Run the deploy script
+
+Once you have the prerequisites mentioned above, download and run our AWS deploy script by running:
+
+```
+curl -o aws.sh https://raw.githubusercontent.com/pachyderm/pachyderm/master/etc/deploy/aws.sh
+chmod +x aws.sh
+sudo -E ./aws.sh
+```
+
+This script will use kops to deploy Kubernetes and Pachyderm in AWS.  The script will ask you for your AWS credentials, region preference, etc.  If you would like to customize the number of nodes in the cluster, node types, etc., you can open up the deploy script and modify the respective fields.
+
+The script will take a few minutes, and Pachyderm will take an addition couple of minutes to spin up.  Once it is up, `kubectl get all` should return something like:
+
+```
+NAME                        READY     STATUS    RESTARTS   AGE
+po/dash-4171841423-rsg4r    2/2       Running   0          1m
+po/etcd-0                   1/1       Running   0          1m
+po/etcd-1                   1/1       Running   0          1m
+po/etcd-2                   1/1       Running   0          56s
+po/pachd-2566441599-g2d1q   1/1       Running   2          1m
+
+NAME                CLUSTER-IP      EXTERNAL-IP   PORT(S)                                     AGE
+svc/dash            10.55.252.198   <nodes>       8080:30080/TCP,8081:30081/TCP               1m
+svc/etcd            10.55.254.232   <nodes>       2379:30408/TCP                              1m
+svc/etcd-headless   None            <none>        2380/TCP                                    1m
+svc/kubernetes      10.55.240.1     <none>        443/TCP                                     24m
+svc/pachd           10.55.248.19    <nodes>       650:30650/TCP,651:30651/TCP,652:30652/TCP   1m
+
+NAME                DESIRED   CURRENT   AGE
+statefulsets/etcd   3         3         1m
+
+NAME           DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+deploy/dash    1         1         1            1           1m
+deploy/pachd   1         1         1            1           1m
+
+NAME                  DESIRED   CURRENT   READY     AGE
+rs/dash-4171841423    1         1         1         1m
+rs/pachd-2566441599   1         1         1         1m
+```
+
+### Connect `pachctl`
+
+Finally, we need to set up forward a port so that pachctl can talk to the cluster.
+
+```sh
+# Forward the ports. We background this process because it blocks.
+$ pachctl port-forward &
+```
+
+And you're done! You can test to make sure the cluster is working by trying `pachctl version`:
+```sh
+$ pachctl version
+COMPONENT           VERSION
+pachctl             1.6.0
+pachd               1.6.0
+```
+
 ## Production Deployment
 
 Note - for production deployments we recommend setting up AWS CloudFront. AWS puts S3 rate limits in place that can limit the data throughput for your cluster, and CloudFront helps mitigate this issue.
