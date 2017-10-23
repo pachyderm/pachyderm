@@ -40,7 +40,7 @@ set +x
 ############
 # Hash aXXXXX into a_hashes.txt, and likewise for b_hashes.txt
 ############
-for i in $(seq -f '%05.0f' $(( ${COUNT} - 1 )) ); do
+for i in $(seq -f '%05.0f' 0 $(( ${COUNT} - 1 )) ); do
   md5sum ${tmp}/a${i} | awk '{print $1}' >> ${tmp}/a_hashes.txt
   md5sum ${tmp}/b${i} | awk '{print $1}' >> ${tmp}/b_hashes.txt
 done
@@ -48,5 +48,5 @@ done
 ############
 # Create a side-by-side diff of the hashes
 ############
-diff -y ${tmp}/a_hashes.txt ${tmp}/b_hashes.txt | awk '{ printf("%03d.\t%s\n", NR, $0) }' >${tmp}/diff.txt
+diff -y ${tmp}/a_hashes.txt ${tmp}/b_hashes.txt | awk '{ printf("%03d.\t%s\n", NR-1, $0) }' >${tmp}/diff.txt
 
