@@ -94,20 +94,23 @@ func (a *apiServer) master() {
 					// created with an older version of the server doesn't have
 					// that field set because setPipelineDefaults was different
 					// when it was created.
-					if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-						pipelines := a.pipelines.ReadWrite(stm)
-						newPipelineInfo := new(pps.PipelineInfo)
-						if err := pipelines.Get(pipelineInfo.Pipeline.Name, newPipelineInfo); err != nil {
-							return fmt.Errorf("error getting pipeline %s: %+v", pipelineName, err)
+					if pipelineInfo.Salt == "" || pipelineInfo.CacheSize == "" {
+						if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+							pipelines := a.pipelines.ReadWrite(stm)
+							newPipelineInfo := new(pps.PipelineInfo)
+							if err := pipelines.Get(pipelineInfo.Pipeline.Name, newPipelineInfo); err != nil {
+								return fmt.Errorf("error getting pipeline %s: %+v", pipelineName, err)
+							}
+							if newPipelineInfo.Salt == "" {
+								newPipelineInfo.Salt = uuid.NewWithoutDashes()
+							}
+							setPipelineDefaults(newPipelineInfo)
+							pipelines.Put(pipelineInfo.Pipeline.Name, newPipelineInfo)
+							pipelineInfo = *newPipelineInfo
+							return nil
+						}); err != nil {
+							return err
 						}
-						if newPipelineInfo.Salt == "" {
-							newPipelineInfo.Salt = uuid.NewWithoutDashes()
-						}
-						setPipelineDefaults(newPipelineInfo)
-						pipelines.Put(pipelineInfo.Pipeline.Name, newPipelineInfo)
-						return nil
-					}); err != nil {
-						return err
 					}
 
 					var prevPipelineInfo pps.PipelineInfo
