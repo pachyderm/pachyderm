@@ -36,6 +36,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
@@ -341,6 +342,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	} else {
 		go server.serviceMaster()
 	}
+	go server.worker()
 	return server, nil
 }
 
@@ -962,4 +964,110 @@ func (a *APIServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.
 	jobs := a.jobs.ReadWrite(stm)
 	jobs.Put(jobInfo.Job.ID, jobInfo)
 	return nil
+}
+
+func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chunks, logger *taggedLogger, process func(low, high int64) error) error {
+	complete := false
+	for !complete {
+		var low int64
+		var high int64
+		var found bool
+		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			found = false
+			locks := a.locks(jobID).ReadWrite(stm)
+			// we set complete to true and then unset it if we find an incomplete chunk
+			complete = true
+			for _, high = range chunks.Chunks {
+				var chunkState ChunkState
+				if err := locks.Get(fmt.Sprintf("%d", high), &chunkState); err != nil {
+					if col.IsErrNotFound(err) {
+						found = true
+					} else {
+						return err
+					}
+				}
+				if chunkState.State != ChunkState_COMPLETE {
+					complete = false
+				}
+				if found {
+					break
+				}
+				low = high
+			}
+			if found {
+				return locks.PutTTL(fmt.Sprintf("%d", high), &ChunkState{State: ChunkState_RUNNING}, ttl)
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+		if found {
+			// process the datums in newRange
+			if err := process(low, high); err != nil {
+				return err
+			}
+
+			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				locks := a.locks(jobID).ReadWrite(stm)
+				return locks.Put(fmt.Sprintf("%d", high), &ChunkState{State: ChunkState_COMPLETE})
+			}); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (a *APIServer) worker() {
+	logger := a.getMasterLogger()
+	backoff.RetryNotify(func() error {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		jobs := a.jobs.ReadOnly(ctx)
+		watcher, err := jobs.WatchByIndex(ppsdb.JobsPipelineIndex, a.pipelineInfo.Pipeline)
+		if err != nil {
+			return fmt.Errorf("error creating watch: %v", err)
+		}
+		defer watcher.Close()
+		for e := range watcher.Watch() {
+			var jobID string
+			jobInfo := &pps.JobInfo{}
+			if err := e.Unmarshal(&jobID, jobInfo); err != nil {
+				return fmt.Errorf("error unmarshalling: %v", err)
+			}
+			df, err := NewDatumFactory(ctx, a.pachClient.PfsAPIClient, jobInfo.Input)
+			if err != nil {
+				return fmt.Errorf("error from NewDatumFactory: %v", err)
+			}
+			parallelism, err := ppsserver.GetExpectedNumWorkers(a.kubeClient, a.pipelineInfo.ParallelismSpec)
+			if err != nil {
+				return fmt.Errorf("error from GetExpectedNumWorkers: %v")
+			}
+			chunks := &Chunks{}
+			chunksize := df.Len() / parallelism
+			for i := chunksize; i < df.Len(); i++ {
+				chunks.Chunks = append(chunks.Chunks, int64(i))
+			}
+			chunks.Chunks = append(chunks.Chunks, int64(df.Len()))
+			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				chunksCol := a.chunks.ReadWrite(stm)
+				if err := chunksCol.Get(jobInfo.Job.ID, chunks); err == nil {
+					return nil
+				}
+				return chunksCol.Put(jobInfo.Job.ID, chunks)
+			}); err != nil {
+				return err
+			}
+			if err := a.acquireDatums(ctx, jobInfo.Job.ID, chunks, logger, func(low, high int64) error {
+				logger.Logf("processing %d-%d", low, high)
+				return nil
+			}); err != nil {
+				return fmt.Errorf("error from acquireDatums: %v", err)
+			}
+		}
+		return nil
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		logger.Logf("worker: error running the worker process: %v; retrying in %v", err, d)
+		return nil
+	})
 }

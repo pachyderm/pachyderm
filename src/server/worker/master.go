@@ -496,63 +496,6 @@ func (a *APIServer) locks(jobID string) col.Collection {
 	return col.NewCollection(a.etcdClient, path.Join(a.etcdPrefix, lockPrefix, jobID), nil, &types.Empty{}, nil)
 }
 
-func (a *APIServer) acquireDatums(ctx context.Context, jobInfo *pps.JobInfo, logger *taggedLogger, process func(low, high int64) error) error {
-	complete := false
-	for !complete {
-		var low int64
-		var high int64
-		var found bool
-		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-			found = false
-			chunksCol := a.chunks.ReadWrite(stm)
-			chunks := &Chunks{}
-			if err := chunksCol.Get(jobInfo.Job.ID, chunks); err != nil {
-				return fmt.Errorf("error getting Chunks: %v", err)
-			}
-			locks := a.locks(jobInfo.Job.ID).ReadWrite(stm)
-			// we set complete to true and then unset it if we find an incomplete chunk
-			complete = true
-			for _, high = range chunks.Chunks {
-				var chunkState ChunkState
-				if err := locks.Get(fmt.Sprintf("%d", high), &chunkState); err != nil {
-					if col.IsErrNotFound(err) {
-						found = true
-					} else {
-						return err
-					}
-				}
-				if chunkState.State != ChunkState_COMPLETE {
-					complete = false
-				}
-				if found {
-					break
-				}
-				low = high
-			}
-			if found {
-				return locks.PutTTL(fmt.Sprintf("%d", high), &ChunkState{State: ChunkState_RUNNING}, ttl)
-			}
-			return nil
-		}); err != nil {
-			return err
-		}
-		if found {
-			// process the datums in newRange
-			if err := process(low, high); err != nil {
-				return err
-			}
-
-			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-				locks := a.locks(jobInfo.Job.ID).ReadWrite(stm)
-				return locks.Put(fmt.Sprintf("%d", high), &ChunkState{State: ChunkState_COMPLETE})
-			}); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *taggedLogger) error {
 	backoff.RetryNotify(func() (retErr error) {
 		chunksCol := a.chunks.ReadOnly(ctx)
@@ -597,57 +540,105 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 			statsTree = hashtree.NewHashTree()
 		}
 		var treeMu sync.Mutex
+		limiter := limit.New(100)
+		var eg errgroup.Group
 		for i := 0; i < df.Len(); i++ {
-			files := df.Datum(i)
-			datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
-			datumID := a.DatumID(files)
-			tag := &pfs.Tag{datumHash}
-			statsTag := &pfs.Tag{datumHash + statsTagSuffix}
-
-			var eg errgroup.Group
-			var subTree hashtree.HashTree
-			var statsSubtree hashtree.HashTree
+			limiter.Acquire()
 			eg.Go(func() error {
-				subTree, err = a.getTreeFromTag(ctx, tag)
-				if err != nil {
-					return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
-				}
-				return nil
-			})
-			if jobInfo.EnableStats {
+				files := df.Datum(i)
+				datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
+				datumID := a.DatumID(files)
+				tag := &pfs.Tag{datumHash}
+				statsTag := &pfs.Tag{datumHash + statsTagSuffix}
+
+				var eg errgroup.Group
+				var subTree hashtree.HashTree
+				var statsSubtree hashtree.HashTree
 				eg.Go(func() error {
-					if statsSubtree, err = a.getTreeFromTag(ctx, statsTag); err != nil {
-						logger.Logf("failed to read stats tree, this is non-fatal but will result in some missing stats")
-						return nil
-					}
-					indexObject, length, err := a.pachClient.WithCtx(ctx).PutObject(strings.NewReader(fmt.Sprint(i)))
+					subTree, err = a.getTreeFromTag(ctx, tag)
 					if err != nil {
-						logger.Logf("failed to write stats tree, this is non-fatal but will result in some missing stats")
-						return nil
-					}
-					treeMu.Lock()
-					defer treeMu.Unlock()
-					// Add a file to statsTree indicating the index of this
-					// datum in the datum factory.
-					if err := statsTree.PutFile(fmt.Sprintf("%v/index", datumID), []*pfs.Object{indexObject}, length); err != nil {
-						logger.Logf("failed to write index file, this is non-fatal but will result in some missing stats")
-						return nil
+						return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
 					}
 					return nil
 				})
-			}
-			if err := eg.Wait(); err != nil {
+				if jobInfo.EnableStats {
+					eg.Go(func() error {
+						if statsSubtree, err = a.getTreeFromTag(ctx, statsTag); err != nil {
+							logger.Logf("failed to read stats tree, this is non-fatal but will result in some missing stats")
+							return nil
+						}
+						indexObject, length, err := a.pachClient.WithCtx(ctx).PutObject(strings.NewReader(fmt.Sprint(i)))
+						if err != nil {
+							logger.Logf("failed to write stats tree, this is non-fatal but will result in some missing stats")
+							return nil
+						}
+						treeMu.Lock()
+						defer treeMu.Unlock()
+						// Add a file to statsTree indicating the index of this
+						// datum in the datum factory.
+						if err := statsTree.PutFile(fmt.Sprintf("%v/index", datumID), []*pfs.Object{indexObject}, length); err != nil {
+							logger.Logf("failed to write index file, this is non-fatal but will result in some missing stats")
+							return nil
+						}
+						return nil
+					})
+				}
+				if err := eg.Wait(); err != nil {
+					return err
+				}
+				treeMu.Lock()
+				defer treeMu.Unlock()
+				if statsSubtree != nil {
+					if err := statsTree.Merge(statsSubtree); err != nil {
+						logger.Logf("failed to merge into stats tree: %v", err)
+					}
+				}
+				return tree.Merge(subTree)
+			})
+		}
+		if err := eg.Wait(); err != nil {
+			return err
+		}
+		object, err := a.putTree(ctx, tree)
+		if err != nil {
+			return err
+		}
+
+		var provenance []*pfs.Commit
+		for _, commit := range pps.InputCommits(jobInfo.Input) {
+			provenance = append(provenance, commit)
+		}
+
+		outputCommit, err := a.pachClient.PfsAPIClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
+			Parent: &pfs.Commit{
+				Repo: jobInfo.OutputRepo,
+			},
+			Branch:     jobInfo.OutputBranch,
+			Provenance: provenance,
+			Tree:       object,
+		})
+		if err != nil {
+			return err
+		}
+		// Record the job's output commit and 'Finished' timestamp, and mark the job
+		// as a SUCCESS
+		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			jobs := a.jobs.ReadWrite(stm)
+			jobInfo := new(pps.JobInfo)
+			if err := jobs.Get(jobInfo.Job.ID, jobInfo); err != nil {
 				return err
 			}
-			treeMu.Lock()
-			defer treeMu.Unlock()
-			if statsSubtree != nil {
-				if err := statsTree.Merge(statsSubtree); err != nil {
-					logger.Logf("failed to merge into stats tree: %v", err)
-				}
-			}
-			return tree.Merge(subTree)
-		}
+			jobInfo.OutputCommit = outputCommit
+			jobInfo.Finished = now()
+			// By definition, we will have processed all datums at this point
+			// jobInfo.DataProcessed = processedData
+			// jobInfo.DataSkipped = skippedData
+			// jobInfo.Stats = stats
+			// likely already set but just in case it failed
+			// jobInfo.DataTotal = totalData
+			// jobInfo.StatsCommit = statsCommit
+			return a.updateJobState(stm, jobInfo, pps.JobState_JOB_SUCCESS, "")
+		})
 		return nil
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		select {
