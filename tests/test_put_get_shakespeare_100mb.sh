@@ -1,5 +1,10 @@
 #!/bin/bash
 
+pachctl version || {
+  echo "Could not connect to Pachyderm"
+  exit 1
+}
+
 RANGE=gcs
 if [[ "${1}" == "--all" ]]; then
   ALL=true

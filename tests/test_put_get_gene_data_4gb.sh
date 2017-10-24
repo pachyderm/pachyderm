@@ -1,5 +1,10 @@
 #!/bin/bash
 
+pachctl version || {
+  echo "Could not connect to Pachyderm"
+  exit 1
+}
+
 cat <<EOF
 Files:
   https://storage.googleapis.com/indx/Sequencing/Exome_seq/input/MB_1294_N_P0061.R1.fastq.gz
