@@ -4,7 +4,7 @@ import random, time, argparse
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Generate easily-aligned test data for diagnosing Pachyderm\' GCS bug.')
-    parser.add_argument('--size', default=int(1e6), type=int, help='The total size of the generated test data')
+    parser.add_argument('--size', default=int(1e8), type=int, help='The total size of the generated test data')
     return parser.parse_args()
 
 
@@ -54,8 +54,8 @@ def main():
     out = open("data.txt", "w")
     r = random.Random()
     r.seed(271828)
-    for i in range((size+49)//50):
-        out.write("{:05}. {}\n".format(i, fill(r, 94, words)))
+    for i in range((size+99)//100):
+        out.write("{:05}. {}\n".format(i, fill(r, 92, words)))
 
 
 if __name__ == "__main__":
