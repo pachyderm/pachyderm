@@ -979,13 +979,15 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 			complete = true
 			for _, high = range chunks.Chunks {
 				var chunkState ChunkState
-				if err := locks.Get(fmt.Sprintf("%d", high), &chunkState); err != nil {
+				if err := locks.Get(fmt.Sprint(high), &chunkState); err != nil {
 					if col.IsErrNotFound(err) {
 						found = true
 					} else {
 						return err
 					}
 				}
+				// This gets triggered either if we found a chunk that wasn't
+				// complete or if we didn't find a chunk at all.
 				if chunkState.State != ChunkState_COMPLETE {
 					complete = false
 				}
@@ -995,7 +997,7 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 				low = high
 			}
 			if found {
-				return locks.PutTTL(fmt.Sprintf("%d", high), &ChunkState{State: ChunkState_RUNNING}, ttl)
+				return locks.PutTTL(fmt.Sprint(high), &ChunkState{State: ChunkState_RUNNING}, ttl)
 			}
 			return nil
 		}); err != nil {
@@ -1009,7 +1011,7 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 
 			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 				locks := a.locks(jobID).ReadWrite(stm)
-				return locks.Put(fmt.Sprintf("%d", high), &ChunkState{State: ChunkState_COMPLETE})
+				return locks.Put(fmt.Sprint(high), &ChunkState{State: ChunkState_COMPLETE})
 			}); err != nil {
 				return err
 			}

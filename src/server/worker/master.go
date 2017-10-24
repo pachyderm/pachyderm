@@ -507,24 +507,27 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		for _, high := range chunks.Chunks {
 			if err := func() error {
 				chunkState := &ChunkState{}
-				watcher, err := locks.WatchOne(fmt.Sprint("%d", high))
+				watcher, err := locks.WatchOne(fmt.Sprint(high))
 				if err != nil {
 					return err
 				}
 				defer watcher.Close()
+			EventLoop:
 				for {
 					select {
 					case e := <-watcher.Watch():
 						var key string
 						if err := e.Unmarshal(&key, chunkState); err != nil {
-							if chunkState.State == ChunkState_COMPLETE {
-								break
-							}
+							return err
+						}
+						if chunkState.State == ChunkState_COMPLETE {
+							break EventLoop
 						}
 					case <-ctx.Done():
 						return context.Canceled
 					}
 				}
+				return nil
 			}(); err != nil {
 				return err
 			}
@@ -543,6 +546,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		limiter := limit.New(100)
 		var eg errgroup.Group
 		for i := 0; i < df.Len(); i++ {
+			i := i
 			limiter.Acquire()
 			eg.Go(func() error {
 				files := df.Datum(i)
