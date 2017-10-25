@@ -507,6 +507,60 @@ func (a *APIServer) locks(jobID string) col.Collection {
 	return col.NewCollection(a.etcdClient, path.Join(a.etcdPrefix, lockPrefix, jobID), nil, &types.Empty{}, nil)
 }
 
+func (a *APIServer) collectDatum(ctx context.Context, index int, files []*Input, logger *taggedLogger,
+	tree hashtree.OpenHashTree, statsTree hashtree.OpenHashTree, treeMu *sync.Mutex) error {
+	datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
+	datumID := a.DatumID(files)
+	tag := &pfs.Tag{datumHash}
+	statsTag := &pfs.Tag{datumHash + statsTagSuffix}
+
+	var eg errgroup.Group
+	var subTree hashtree.HashTree
+	var statsSubtree hashtree.HashTree
+	eg.Go(func() error {
+		var err error
+		subTree, err = a.getTreeFromTag(ctx, tag)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
+		}
+		return nil
+	})
+	if a.pipelineInfo.EnableStats {
+		eg.Go(func() error {
+			var err error
+			if statsSubtree, err = a.getTreeFromTag(ctx, statsTag); err != nil {
+				logger.Logf("failed to read stats tree, this is non-fatal but will result in some missing stats")
+				return nil
+			}
+			indexObject, length, err := a.pachClient.WithCtx(ctx).PutObject(strings.NewReader(fmt.Sprint(index)))
+			if err != nil {
+				logger.Logf("failed to write stats tree, this is non-fatal but will result in some missing stats")
+				return nil
+			}
+			treeMu.Lock()
+			defer treeMu.Unlock()
+			// Add a file to statsTree indicating the index of this
+			// datum in the datum factory.
+			if err := statsTree.PutFile(fmt.Sprintf("%v/index", datumID), []*pfs.Object{indexObject}, length); err != nil {
+				logger.Logf("failed to write index file, this is non-fatal but will result in some missing stats")
+				return nil
+			}
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+	treeMu.Lock()
+	defer treeMu.Unlock()
+	if statsSubtree != nil {
+		if err := statsTree.Merge(statsSubtree); err != nil {
+			logger.Logf("failed to merge into stats tree: %v", err)
+		}
+	}
+	return tree.Merge(subTree)
+}
+
 func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *taggedLogger) error {
 	backoff.RetryNotify(func() (retErr error) {
 		df, err := NewDatumFactory(ctx, a.pachClient.PfsAPIClient, jobInfo.Input)
@@ -575,54 +629,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 			eg.Go(func() error {
 				defer limiter.Release()
 				files := df.Datum(i)
-				datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
-				datumID := a.DatumID(files)
-				tag := &pfs.Tag{datumHash}
-				statsTag := &pfs.Tag{datumHash + statsTagSuffix}
-
-				var eg errgroup.Group
-				var subTree hashtree.HashTree
-				var statsSubtree hashtree.HashTree
-				eg.Go(func() error {
-					subTree, err = a.getTreeFromTag(ctx, tag)
-					if err != nil {
-						return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
-					}
-					return nil
-				})
-				if jobInfo.EnableStats {
-					eg.Go(func() error {
-						if statsSubtree, err = a.getTreeFromTag(ctx, statsTag); err != nil {
-							logger.Logf("failed to read stats tree, this is non-fatal but will result in some missing stats")
-							return nil
-						}
-						indexObject, length, err := a.pachClient.WithCtx(ctx).PutObject(strings.NewReader(fmt.Sprint(i)))
-						if err != nil {
-							logger.Logf("failed to write stats tree, this is non-fatal but will result in some missing stats")
-							return nil
-						}
-						treeMu.Lock()
-						defer treeMu.Unlock()
-						// Add a file to statsTree indicating the index of this
-						// datum in the datum factory.
-						if err := statsTree.PutFile(fmt.Sprintf("%v/index", datumID), []*pfs.Object{indexObject}, length); err != nil {
-							logger.Logf("failed to write index file, this is non-fatal but will result in some missing stats")
-							return nil
-						}
-						return nil
-					})
-				}
-				if err := eg.Wait(); err != nil {
-					return err
-				}
-				treeMu.Lock()
-				defer treeMu.Unlock()
-				if statsSubtree != nil {
-					if err := statsTree.Merge(statsSubtree); err != nil {
-						logger.Logf("failed to merge into stats tree: %v", err)
-					}
-				}
-				return tree.Merge(subTree)
+				return a.collectDatum(ctx, i, files, logger, tree, statsTree, &treeMu)
 			})
 		}
 		if err := eg.Wait(); err != nil {
