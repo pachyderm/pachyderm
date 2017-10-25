@@ -587,7 +587,15 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 			return err
 		}
 		locks := a.locks(jobInfo.Job.ID).ReadOnly(ctx)
-		for _, high := range chunks.Chunks {
+		tree := hashtree.NewHashTree()
+		var statsTree hashtree.OpenHashTree
+		if jobInfo.EnableStats {
+			statsTree = hashtree.NewHashTree()
+		}
+		var treeMu sync.Mutex
+		limiter := limit.New(100)
+		var eg errgroup.Group
+		for i, high := range chunks.Chunks {
 			if err := func() error {
 				chunkState := &ChunkState{}
 				watcher, err := locks.WatchOne(fmt.Sprint(high))
@@ -604,6 +612,23 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 							return err
 						}
 						if chunkState.State == ChunkState_COMPLETE {
+							var low int64
+							if i > 0 {
+								low = chunks.Chunks[i-1]
+							}
+							high := high
+							eg.Go(func() error {
+								for i := low; i < high; i++ {
+									i := i
+									limiter.Acquire()
+									eg.Go(func() error {
+										defer limiter.Release()
+										files := df.Datum(int(i))
+										return a.collectDatum(ctx, int(i), files, logger, tree, statsTree, &treeMu)
+									})
+								}
+								return nil
+							})
 							break EventLoop
 						}
 					case <-ctx.Done():
@@ -614,23 +639,6 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 			}(); err != nil {
 				return err
 			}
-		}
-		tree := hashtree.NewHashTree()
-		var statsTree hashtree.OpenHashTree
-		if jobInfo.EnableStats {
-			statsTree = hashtree.NewHashTree()
-		}
-		var treeMu sync.Mutex
-		limiter := limit.New(100)
-		var eg errgroup.Group
-		for i := 0; i < df.Len(); i++ {
-			i := i
-			limiter.Acquire()
-			eg.Go(func() error {
-				defer limiter.Release()
-				files := df.Datum(i)
-				return a.collectDatum(ctx, i, files, logger, tree, statsTree, &treeMu)
-			})
 		}
 		if err := eg.Wait(); err != nil {
 			return err
