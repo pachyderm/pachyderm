@@ -1021,7 +1021,7 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 }
 
 func (a *APIServer) worker() {
-	logger := a.getMasterLogger()
+	logger := a.getWorkerLogger()
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()

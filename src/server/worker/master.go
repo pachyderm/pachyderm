@@ -62,6 +62,17 @@ func (a *APIServer) getMasterLogger() *taggedLogger {
 	return result
 }
 
+func (a *APIServer) getWorkerLogger() *taggedLogger {
+	result := &taggedLogger{
+		template:  a.logMsgTemplate, // Copy struct
+		stderrLog: log.Logger{},
+		marshaler: &jsonpb.Marshaler{},
+	}
+	result.stderrLog.SetOutput(os.Stderr)
+	result.stderrLog.SetFlags(log.LstdFlags | log.Llongfile) // Log file/line
+	return result
+}
+
 func (logger *taggedLogger) jobLogger(jobID string) *taggedLogger {
 	result := logger.clone()
 	result.template.JobID = jobID
@@ -549,6 +560,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 			i := i
 			limiter.Acquire()
 			eg.Go(func() error {
+				defer limiter.Release()
 				files := df.Datum(i)
 				datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
 				datumID := a.DatumID(files)
