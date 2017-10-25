@@ -98,7 +98,7 @@ func TestPipelineWithParallelism(t *testing.T) {
 	c := getPachClient(t)
 	defer require.NoError(t, c.DeleteAll())
 
-	dataRepo := uniqueString("TestPipelineInputDataModification_data")
+	dataRepo := uniqueString("TestPipelineWithParallelism_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	numFiles := 1000
