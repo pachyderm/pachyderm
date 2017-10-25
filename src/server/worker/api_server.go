@@ -1041,23 +1041,8 @@ func (a *APIServer) worker() {
 			if err != nil {
 				return fmt.Errorf("error from NewDatumFactory: %v", err)
 			}
-			parallelism, err := ppsserver.GetExpectedNumWorkers(a.kubeClient, a.pipelineInfo.ParallelismSpec)
-			if err != nil {
-				return fmt.Errorf("error from GetExpectedNumWorkers: %v")
-			}
 			chunks := &Chunks{}
-			chunksize := df.Len() / parallelism
-			for i := chunksize; i < df.Len(); i++ {
-				chunks.Chunks = append(chunks.Chunks, int64(i))
-			}
-			chunks.Chunks = append(chunks.Chunks, int64(df.Len()))
-			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-				chunksCol := a.chunks.ReadWrite(stm)
-				if err := chunksCol.Get(jobInfo.Job.ID, chunks); err == nil {
-					return nil
-				}
-				return chunksCol.Put(jobInfo.Job.ID, chunks)
-			}); err != nil {
+			if err := a.chunks.ReadOnly(ctx).Get(jobInfo.Job.ID, chunks); err != nil {
 				return err
 			}
 			if err := a.acquireDatums(ctx, jobInfo.Job.ID, chunks, logger, func(low, high int64) error {

@@ -509,12 +509,30 @@ func (a *APIServer) locks(jobID string) col.Collection {
 
 func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *taggedLogger) error {
 	backoff.RetryNotify(func() (retErr error) {
-		chunksCol := a.chunks.ReadOnly(ctx)
-		locks := a.locks(jobInfo.Job.ID).ReadOnly(ctx)
-		chunks := &Chunks{}
-		if err := chunksCol.Get(jobInfo.Job.ID, chunks); err != nil {
-			return fmt.Errorf("error getting Chunks: %v", err)
+		df, err := NewDatumFactory(ctx, a.pachClient.PfsAPIClient, jobInfo.Input)
+		if err != nil {
+			return err
 		}
+		parallelism, err := ppsserver.GetExpectedNumWorkers(a.kubeClient, a.pipelineInfo.ParallelismSpec)
+		if err != nil {
+			return fmt.Errorf("error from GetExpectedNumWorkers: %v")
+		}
+		chunks := &Chunks{}
+		chunksize := df.Len() / (parallelism * 10)
+		for i := chunksize; i < df.Len(); i += chunksize {
+			chunks.Chunks = append(chunks.Chunks, int64(i))
+		}
+		chunks.Chunks = append(chunks.Chunks, int64(df.Len()))
+		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			chunksCol := a.chunks.ReadWrite(stm)
+			if err := chunksCol.Get(jobInfo.Job.ID, chunks); err == nil {
+				return nil
+			}
+			return chunksCol.Put(jobInfo.Job.ID, chunks)
+		}); err != nil {
+			return err
+		}
+		locks := a.locks(jobInfo.Job.ID).ReadOnly(ctx)
 		for _, high := range chunks.Chunks {
 			if err := func() error {
 				chunkState := &ChunkState{}
@@ -542,11 +560,6 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 			}(); err != nil {
 				return err
 			}
-		}
-
-		df, err := NewDatumFactory(ctx, a.pachClient.PfsAPIClient, jobInfo.Input)
-		if err != nil {
-			return err
 		}
 		tree := hashtree.NewHashTree()
 		var statsTree hashtree.OpenHashTree
