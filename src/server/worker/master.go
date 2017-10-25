@@ -628,7 +628,6 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		// as a SUCCESS
 		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			jobs := a.jobs.ReadWrite(stm)
-			jobInfo := new(pps.JobInfo)
 			if err := jobs.Get(jobInfo.Job.ID, jobInfo); err != nil {
 				return err
 			}
@@ -645,6 +644,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		})
 		return nil
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		logger.Logf("error in waitJob %v, retrying in %v", err, d)
 		select {
 		case <-ctx.Done():
 			return err
