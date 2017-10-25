@@ -2854,7 +2854,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	require.NoError(t, err)
 
 	// Get logs from pipeline, using pipeline
-	iter := c.GetLogs(pipelineName, "", nil, "", false)
+	iter := c.GetLogs(pipelineName, "", nil, "", false, false)
 	var numLogs int
 	for iter.Next() {
 		numLogs++
@@ -2865,7 +2865,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 
 	// Get logs from pipeline, using a pipeline that doesn't exist. There should
 	// be an error
-	iter = c.GetLogs("__DOES_NOT_EXIST__", "", nil, "", false)
+	iter = c.GetLogs("__DOES_NOT_EXIST__", "", nil, "", false, false)
 	require.False(t, iter.Next())
 	require.YesError(t, iter.Err())
 	require.Matches(t, "could not get", iter.Err().Error())
@@ -2878,7 +2878,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	// (2) Get logs using extracted job ID
 	// wait for logs to be collected
 	time.Sleep(10 * time.Second)
-	iter = c.GetLogs("", jobInfos[0].Job.ID, nil, "", false)
+	iter = c.GetLogs("", jobInfos[0].Job.ID, nil, "", false, false)
 	numLogs = 0
 	for iter.Next() {
 		numLogs++
@@ -2890,7 +2890,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 
 	// Get logs from pipeline, using a job that doesn't exist. There should
 	// be an error
-	iter = c.GetLogs("", "__DOES_NOT_EXIST__", nil, "", false)
+	iter = c.GetLogs("", "__DOES_NOT_EXIST__", nil, "", false, false)
 	require.False(t, iter.Next())
 	require.YesError(t, iter.Err())
 	require.Matches(t, "could not get", iter.Err().Error())
@@ -2903,15 +2903,15 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	// TODO(msteffen) This code shouldn't be wrapped in a backoff, but for some
 	// reason GetLogs is not yet 100% consistent. This reduces flakes in testing.
 	require.NoError(t, backoff.Retry(func() error {
-		pathLog := c.GetLogs("", jobInfos[0].Job.ID, []string{"/file"}, "", false)
+		pathLog := c.GetLogs("", jobInfos[0].Job.ID, []string{"/file"}, "", false, false)
 
 		hexHash := "19fdf57bdf9eb5a9602bfa9c0e6dd7ed3835f8fd431d915003ea82747707be66"
 		require.Equal(t, hexHash, hex.EncodeToString(fileInfo.Hash)) // sanity-check test
-		hexLog := c.GetLogs("", jobInfos[0].Job.ID, []string{hexHash}, "", false)
+		hexLog := c.GetLogs("", jobInfos[0].Job.ID, []string{hexHash}, "", false, false)
 
 		base64Hash := "Gf31e9+etalgK/qcDm3X7Tg1+P1DHZFQA+qCdHcHvmY="
 		require.Equal(t, base64Hash, base64.StdEncoding.EncodeToString(fileInfo.Hash))
-		base64Log := c.GetLogs("", jobInfos[0].Job.ID, []string{base64Hash}, "", false)
+		base64Log := c.GetLogs("", jobInfos[0].Job.ID, []string{base64Hash}, "", false, false)
 
 		numLogs = 0
 		for {
@@ -2945,9 +2945,101 @@ func testGetLogs(t *testing.T, enableStats bool) {
 
 	// Filter logs based on input (using file that doesn't exist). There should
 	// be no logs
-	iter = c.GetLogs("", jobInfos[0].Job.ID, []string{"__DOES_NOT_EXIST__"}, "", false)
+	iter = c.GetLogs("", jobInfos[0].Job.ID, []string{"__DOES_NOT_EXIST__"}, "", false, false)
 	require.False(t, iter.Next())
 	require.NoError(t, iter.Err())
+}
+
+func TestGetLogsFollow(t *testing.T) {
+
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	// create repos
+	dataRepo := uniqueString("data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	// create pipeline
+	pipelineSleepTime := 10
+	pipelineName := uniqueString("pipeline")
+	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &pps.Transform{
+				Cmd: []string{"sh"},
+				Stdin: []string{
+					// Print something, sleep a little, then print
+					// something else.
+					"echo foo",
+					fmt.Sprintf("sleep %v", pipelineSleepTime),
+					"echo bar",
+				},
+			},
+			Input: client.NewAtomInput(dataRepo, "/*"),
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 2,
+			},
+		})
+	require.NoError(t, err)
+
+	// Create two files so both pods get to run
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file1", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file2", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
+	// Wait for the pipeline and the job to start, since getting logs
+	// without the pods running first yields an error.
+	require.NoError(t, backoff.Retry(func() error {
+		jobs, err := c.ListJob(pipelineName, nil, nil)
+		require.NoError(t, err)
+		if len(jobs) == 0 {
+			return fmt.Errorf("no jobs found")
+		}
+		return nil
+	}, backoff.RetryEvery(time.Second).For(30*time.Second)))
+
+	// Immediately get the logs.  If the "follow" flag is not effective,
+	// we should either get no logs or partial logs, since the job takes
+	// a while to finish running.
+	//
+	// Retrieve the logs in a goroutine so we don't the main test thread
+	logs := make(chan string)
+	go func() {
+		iter := c.GetLogs(pipelineName, "", nil, "", false, true)
+		for iter.Next() {
+			// We only care about logs from the user code
+			if iter.Message().User {
+				logs <- iter.Message().Message
+			}
+		}
+	}()
+
+	// Give enough time for the pipeline to finish running
+	timeout := time.After(time.Duration(2*pipelineSleepTime) * time.Second)
+
+	expect := func(s string) {
+		select {
+		case log := <-logs:
+			require.Equal(t, s, log)
+		case <-timeout:
+			t.Fatalf("Did not get log %s in time", s)
+		}
+	}
+
+	// We should see "foo" before "bar" because "bar" is only printed
+	// after the pipeline has slept.
+	expect("foo\n")
+	expect("foo\n")
+	expect("bar\n")
+	expect("bar\n")
 }
 
 func TestPfsPutFile(t *testing.T) {

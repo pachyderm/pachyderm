@@ -358,6 +358,10 @@ message GetLogsRequest {
 
   // If true get logs from the master process
   bool master = 5;
+
+  // If true, logs will be streamed.  This is useful for getting logs
+  // as the pipeline/job is running.
+  bool follow = 7;
 }
 
 // LogMessage is a log line from a PPS worker, annotated with metadata
