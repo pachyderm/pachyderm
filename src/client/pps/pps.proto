@@ -68,11 +68,20 @@ message CronInput {
   google.protobuf.Timestamp start = 5;
 }
 
+message GithubInput {
+  string name = 1;
+  string repo = 2;
+  string branch = 3;
+  string commit = 4;
+  string webhook_url = 5;
+}
+
 message Input {
   AtomInput atom = 1;
   repeated Input cross = 2;
   repeated Input union = 3;
   CronInput cron = 4;
+  GithubInput github = 5;
 }
 
 message JobInput {
