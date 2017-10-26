@@ -21,7 +21,7 @@ parse_flags() {
   local USE_EXISTING_STATE_BUCKET='false'
 
   # Parse flags
-  eval "set -- $( getopt -l "state:,region:,zone:,no-metrics,use-cloudfront" "--" "${0}" "${@}" )"
+  eval "set -- $( getopt -l "state:,region:,zone:,no-metrics,use-cloudfront" "--" "${0}" "${@:-}" )"
   while true; do
       case "${1}" in
           --state)
@@ -270,7 +270,7 @@ if [ "${EUID}" -ne 0 ]; then
   echo "Please run this command like 'sudo -E make launch-bench'"
   exit 1
 fi
-parse_flags "${@}"
+parse_flags "${@:-}"
 
 which pachctl
 
