@@ -573,6 +573,9 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		}
 		chunks := &Chunks{}
 		chunksize := df.Len() / (parallelism * 10)
+		if chunksize == 0 {
+			chunksize = 1
+		}
 		for i := chunksize; i < df.Len(); i += chunksize {
 			chunks.Chunks = append(chunks.Chunks, int64(i))
 		}
