@@ -1023,7 +1023,13 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 				}
 
 				// We don't want to include the `from` commit itself
-				if !(seen[commit.ID] || (from != nil && from.ID == commit.ID)) {
+
+				// TODO we're check the branchName because right now WatchOne,
+				// like all collection watching commands returns prefixes which
+				// means we'll get back `master-v1` if we're looking for
+				// `master` once this is changed we should remove the
+				// comparison between branchName and branch.
+				if path.Base(branchName) == branch && (!(seen[commit.ID] || (from != nil && from.ID == commit.ID))) {
 					break
 				}
 			}
