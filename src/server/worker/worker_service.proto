@@ -56,6 +56,7 @@ message ChunkState {
   enum State {
     RUNNING = 0;
     COMPLETE = 1;
+    FAILED = 3;
   }
   State state = 1;
 }

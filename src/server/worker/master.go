@@ -507,8 +507,11 @@ func (a *APIServer) locks(jobID string) col.Collection {
 	return col.NewCollection(a.etcdClient, path.Join(a.etcdPrefix, lockPrefix, jobID), nil, &types.Empty{}, nil)
 }
 
+// collectDatum collects the output and stats output from a datum, and merges
+// it into the passed trees. It errors if it can't find the tree object for
+// this datum, unless failed is true in which case it tolerates missing trees.
 func (a *APIServer) collectDatum(ctx context.Context, index int, files []*Input, logger *taggedLogger,
-	tree hashtree.OpenHashTree, statsTree hashtree.OpenHashTree, treeMu *sync.Mutex) error {
+	tree hashtree.OpenHashTree, statsTree hashtree.OpenHashTree, treeMu *sync.Mutex, failed bool) error {
 	datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
 	datumID := a.DatumID(files)
 	tag := &pfs.Tag{datumHash}
@@ -520,7 +523,7 @@ func (a *APIServer) collectDatum(ctx context.Context, index int, files []*Input,
 	eg.Go(func() error {
 		var err error
 		subTree, err = a.getTreeFromTag(ctx, tag)
-		if err != nil {
+		if err != nil && !failed {
 			return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
 		}
 		return nil
@@ -558,7 +561,10 @@ func (a *APIServer) collectDatum(ctx context.Context, index int, files []*Input,
 			logger.Logf("failed to merge into stats tree: %v", err)
 		}
 	}
-	return tree.Merge(subTree)
+	if subTree != nil {
+		return tree.Merge(subTree)
+	}
+	return nil
 }
 
 func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *taggedLogger) error {
@@ -597,6 +603,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		}
 		var treeMu sync.Mutex
 		limiter := limit.New(100)
+		failed := false
 		var eg errgroup.Group
 		for i, high := range chunks.Chunks {
 			if err := func() error {
@@ -614,7 +621,10 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 						if err := e.Unmarshal(&key, chunkState); err != nil {
 							return err
 						}
-						if chunkState.State == ChunkState_COMPLETE {
+						if chunkState.State != ChunkState_RUNNING {
+							if chunkState.State == ChunkState_FAILED {
+								failed = true
+							}
 							var low int64
 							if i > 0 {
 								low = chunks.Chunks[i-1]
@@ -627,7 +637,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 									eg.Go(func() error {
 										defer limiter.Release()
 										files := df.Datum(int(i))
-										return a.collectDatum(ctx, int(i), files, logger, tree, statsTree, &treeMu)
+										return a.collectDatum(ctx, int(i), files, logger, tree, statsTree, &treeMu, chunkState.State == ChunkState_FAILED)
 									})
 								}
 								return nil
@@ -683,6 +693,9 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 			// likely already set but just in case it failed
 			// jobInfo.DataTotal = totalData
 			// jobInfo.StatsCommit = statsCommit
+			if failed {
+				return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE, "")
+			}
 			return a.updateJobState(stm, jobInfo, pps.JobState_JOB_SUCCESS, "")
 		})
 		return nil
