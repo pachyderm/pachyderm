@@ -254,7 +254,7 @@ deploy_pachyderm_on_aws() {
     AWS_ID=`cat ~/.aws/credentials | grep aws_access_key_id  | cut -d " " -f 3`
 
     # Omit token since im using my personal creds
-    cmd=( pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3 --credentials=${AWS_ID},${AWS_KEY},)
+    cmd=( pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --credentials=${AWS_ID},${AWS_KEY},)
     if [[ "${USE_CLOUDFRONT}" == "true" ]]; then
       cmd+=( "--cloudfront-distribution" "${CLOUDFRONT_DOMAIN}" )
     fi
@@ -297,7 +297,7 @@ config_path="${HOME}/.pachyderm/config.json"
   echo '{}' >"${config_path}"
   chmod 777 "${config_path}"
 }
-tmpfile="$(mktemp -p .)"
+tmpfile="$(mktemp $(pwd)/tmp.XXXXXXXXXX)"
 cp "${config_path}" "${tmpfile}"
 jq --monochrome-output \
   ".v1.pachd_address=\"${K8S_MASTER_DOMAIN}:30650\"" \
