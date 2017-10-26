@@ -966,7 +966,9 @@ func (a *APIServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.
 	return nil
 }
 
-func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chunks, logger *taggedLogger, process func(low, high int64) error) error {
+type acquireDatumsFunc func(low, high int64) (failed bool, _ error)
+
+func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chunks, logger *taggedLogger, process acquireDatumsFunc) error {
 	complete := false
 	for !complete {
 		var low int64
@@ -988,7 +990,7 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 				}
 				// This gets triggered either if we found a chunk that wasn't
 				// complete or if we didn't find a chunk at all.
-				if chunkState.State != ChunkState_COMPLETE {
+				if chunkState.State == ChunkState_RUNNING {
 					complete = false
 				}
 				if found {
@@ -1005,12 +1007,16 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 		}
 		if found {
 			// process the datums in newRange
-			if err := process(low, high); err != nil {
+			failed, err := process(low, high)
+			if err != nil {
 				return err
 			}
 
 			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 				locks := a.locks(jobID).ReadWrite(stm)
+				if failed {
+					return locks.Put(fmt.Sprint(high), &ChunkState{State: ChunkState_FAILED})
+				}
 				return locks.Put(fmt.Sprint(high), &ChunkState{State: ChunkState_COMPLETE})
 			}); err != nil {
 				return err
@@ -1045,13 +1051,13 @@ func (a *APIServer) worker() {
 			if err := a.chunks.ReadOnly(ctx).Get(jobInfo.Job.ID, chunks); err != nil {
 				return err
 			}
-			if err := a.acquireDatums(ctx, jobInfo.Job.ID, chunks, logger, func(low, high int64) error {
+			if err := a.acquireDatums(ctx, jobInfo.Job.ID, chunks, logger, func(low, high int64) (bool, error) {
 				logger.Logf("processing %d-%d", low, high)
-				_, err := a.processDatums(ctx, jobInfo.Job.ID, df, low, high)
+				failed, err := a.processDatums(ctx, jobInfo.Job.ID, df, low, high)
 				if err != nil {
-					return err
+					return false, err
 				}
-				return nil
+				return failed, nil
 			}); err != nil {
 				return fmt.Errorf("error from acquireDatums: %v", err)
 			}
@@ -1063,7 +1069,10 @@ func (a *APIServer) worker() {
 	})
 }
 
-func (a *APIServer) processDatums(ctx context.Context, jobID string, df DatumFactory, low, high int64) (bool, error) {
+// processDatums processes datums from low to high in df, it returns a bool,
+// which is true if 1 or more datums failed, it also may return a variety of
+// errors such as network errors.
+func (a *APIServer) processDatums(ctx context.Context, jobID string, df DatumFactory, low, high int64) (failed bool, _ error) {
 	// Set the auth parameters for the context
 	ctx = a.pachClient.AddMetadata(ctx)
 
