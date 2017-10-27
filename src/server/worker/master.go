@@ -568,6 +568,27 @@ func (a *APIServer) collectDatum(ctx context.Context, index int, files []*Input,
 }
 
 func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *taggedLogger) error {
+	ctx, cancel := context.WithCancel(ctx)
+	go func() {
+		backoff.RetryNotify(func() error {
+			currentJobInfo, err := a.pachClient.WithCtx(ctx).InspectJob(jobInfo.Job.ID, true)
+			if err != nil {
+				return err
+			}
+			switch currentJobInfo.State {
+			case pps.JobState_JOB_KILLED, pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE:
+				cancel()
+			}
+			return nil
+		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+			select {
+			case <-ctx.Done():
+				return err
+			default:
+			}
+			return nil
+		})
+	}()
 	backoff.RetryNotify(func() (retErr error) {
 		df, err := NewDatumFactory(ctx, a.pachClient.PfsAPIClient, jobInfo.Input)
 		if err != nil {
@@ -587,6 +608,16 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		}
 		chunks.Chunks = append(chunks.Chunks, int64(df.Len()))
 		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			jobs := a.jobs.ReadWrite(stm)
+			if err := jobs.Get(jobInfo.Job.ID, jobInfo); err != nil {
+				return err
+			}
+			if jobInfo.State == pps.JobState_JOB_KILLED {
+				return nil
+			}
+			if err := a.updateJobState(stm, jobInfo, pps.JobState_JOB_RUNNING, ""); err != nil {
+				return err
+			}
 			chunksCol := a.chunks.ReadWrite(stm)
 			if err := chunksCol.Get(jobInfo.Job.ID, chunks); err == nil {
 				return nil
@@ -705,6 +736,18 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		case <-ctx.Done():
 			return err
 		default:
+		}
+		// Increment the job's restart count
+		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			jobs := a.jobs.ReadWrite(stm)
+			if err := jobs.Get(jobInfo.Job.ID, jobInfo); err != nil {
+				return err
+			}
+			jobInfo.Restart++
+			return jobs.Put(jobInfo.Job.ID, jobInfo)
+		})
+		if err != nil {
+			logger.Logf("error incrementing job %s's restart count", jobInfo.Job.ID)
 		}
 		return nil
 	})
