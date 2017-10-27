@@ -59,6 +59,7 @@ message ChunkState {
     FAILED = 3;
   }
   State state = 1;
+  string datum_id = 2 [(gogoproto.customname) = "DatumID"];
 }
 
 message Chunks {
