@@ -603,7 +603,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		}
 		var treeMu sync.Mutex
 		limiter := limit.New(100)
-		failed := false
+		var failedDatumID string
 		var eg errgroup.Group
 		for i, high := range chunks.Chunks {
 			if err := func() error {
@@ -623,7 +623,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 						}
 						if chunkState.State != ChunkState_RUNNING {
 							if chunkState.State == ChunkState_FAILED {
-								failed = true
+								failedDatumID = chunkState.DatumID
 							}
 							var low int64
 							if i > 0 {
@@ -693,8 +693,8 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 			// likely already set but just in case it failed
 			// jobInfo.DataTotal = totalData
 			// jobInfo.StatsCommit = statsCommit
-			if failed {
-				return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE, "")
+			if failedDatumID != "" {
+				return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE, fmt.Sprintf("failed to process datum: %v", failedDatumID))
 			}
 			return a.updateJobState(stm, jobInfo, pps.JobState_JOB_SUCCESS, "")
 		})
