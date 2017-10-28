@@ -615,6 +615,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 			if jobInfo.State == pps.JobState_JOB_KILLED {
 				return nil
 			}
+			jobInfo.DataTotal = int64(df.Len())
 			if err := a.updateJobState(stm, jobInfo, pps.JobState_JOB_RUNNING, ""); err != nil {
 				return err
 			}

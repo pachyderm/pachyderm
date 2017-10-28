@@ -1081,6 +1081,7 @@ func (a *APIServer) processDatums(ctx context.Context, jobID string, df DatumFac
 
 	var failedDatumID string
 	var eg errgroup.Group
+	var skipped int64
 	for i := low; i < high; i++ {
 		i := i
 		eg.Go(func() (retErr error) {
@@ -1137,6 +1138,7 @@ func (a *APIServer) processDatums(ctx context.Context, jobID string, df DatumFac
 				}
 			}
 			if foundTag15 || foundTag {
+				skipped++
 				return nil
 			}
 			stats := &pps.ProcessStats{}
@@ -1294,6 +1296,18 @@ func (a *APIServer) processDatums(ctx context.Context, jobID string, df DatumFac
 			}
 			return nil
 		})
+	}
+	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		jobs := a.jobs.ReadWrite(stm)
+		jobInfo := &pps.JobInfo{}
+		if err := jobs.Get(jobID, jobInfo); err != nil {
+			return err
+		}
+		jobInfo.DataProcessed += high - low - skipped
+		jobInfo.DataSkipped += skipped
+		return jobs.Put(jobID, jobInfo)
+	}); err != nil {
+		return "", err
 	}
 	return failedDatumID, eg.Wait()
 }
