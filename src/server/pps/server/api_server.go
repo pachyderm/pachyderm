@@ -370,7 +370,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			}
 			jobInfo.Transform = pipelineInfo.Transform
 			jobInfo.ParallelismSpec = pipelineInfo.ParallelismSpec
-			jobInfo.OutputRepo = &pfs.Repo{pipelineInfo.Pipeline.Name}
+			jobInfo.OutputRepo = &pfs.Repo{Name: pipelineInfo.Pipeline.Name}
 			jobInfo.OutputBranch = pipelineInfo.OutputBranch
 			jobInfo.Egress = pipelineInfo.Egress
 			jobInfo.ResourceSpec = pipelineInfo.ResourceSpec
@@ -378,7 +378,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			jobInfo.EnableStats = pipelineInfo.EnableStats
 		} else {
 			if jobInfo.OutputRepo == nil {
-				jobInfo.OutputRepo = &pfs.Repo{job.ID}
+				jobInfo.OutputRepo = &pfs.Repo{Name: job.ID}
 			}
 		}
 		if err := a.validateJob(ctx, jobInfo); err != nil {
@@ -1376,7 +1376,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		// may not actually exist.
 		if _, err := pfsClient.SetBranch(ctx, &pfs.SetBranchRequest{
 			Commit: &pfs.Commit{
-				Repo: &pfs.Repo{pipelineName},
+				Repo: &pfs.Repo{Name: pipelineName},
 				ID:   oldPipelineInfo.OutputBranch,
 			},
 			Branch: fmt.Sprintf("%s-v%d", oldPipelineInfo.OutputBranch, oldPipelineInfo.Version),
@@ -1385,7 +1385,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		}
 
 		if _, err := pfsClient.DeleteBranch(ctx, &pfs.DeleteBranchRequest{
-			Repo:   &pfs.Repo{pipelineName},
+			Repo:   &pfs.Repo{Name: pipelineName},
 			Branch: oldPipelineInfo.OutputBranch,
 		}); err != nil && !isNotFoundErr(err) {
 			return nil, err
@@ -1397,7 +1397,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 		// We only need to restart downstream pipelines if the provenance
 		// of our output repo changed.
-		outputRepo := &pfs.Repo{pipelineInfo.Pipeline.Name}
+		outputRepo := &pfs.Repo{Name: pipelineInfo.Pipeline.Name}
 		repoInfo, err := pfsClient.InspectRepo(auth.In2Out(ctx),
 			&pfs.InspectRepoRequest{
 				Repo: outputRepo,
@@ -1427,7 +1427,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			// Restart all downstream pipelines so they relaunch with the
 			// correct provenance.
 			repoInfos, err := pfsClient.ListRepo(ctx, &pfs.ListRepoRequest{
-				Provenance: []*pfs.Repo{{request.Pipeline.Name}},
+				Provenance: []*pfs.Repo{{Name: request.Pipeline.Name}},
 			})
 			if err != nil {
 				return nil, err
@@ -1464,7 +1464,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		// row, some of which depend on the existence of the output repos
 		// of upstream pipelines.
 		if _, err := pfsClient.CreateRepo(auth.In2Out(ctx), &pfs.CreateRepoRequest{
-			Repo:       &pfs.Repo{pipelineInfo.Pipeline.Name},
+			Repo:       &pfs.Repo{Name: pipelineInfo.Pipeline.Name},
 			Provenance: provenance,
 		}); err != nil && !isAlreadyExistsErr(err) {
 			return nil, err
