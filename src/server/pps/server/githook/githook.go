@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
+	"github.com/pachyderm/pachyderm/src/client"
 )
 
 // GitHookPort specifies the port the server will listen on
@@ -30,12 +31,18 @@ func (fw *flushWriter) Write(p []byte) (n int, err error) {
 // e.g. http://localhost:30652/v1/pfs/repos/foo/commits/b7a1923be56744f6a3f1525ec222dc3b/files/ttt.log
 type GitHookServer struct {
 	*httprouter.Router
+	client *client.APIClient
 }
 
 func NewGitHookServer(address string) (*GitHookServer, error) {
 	router := httprouter.New()
+	c, err := client.NewInCluster()
+	if err != nil {
+		return nil, err
+	}
 	s := &GitHookServer{
 		router,
+		c,
 	}
 
 	router.POST(fmt.Sprintf("/%v/handle/gitpush", apiVersion), s.gitPushHandler)
@@ -52,6 +59,15 @@ func (s *GitHookServer) gitPushHandler(w http.ResponseWriter, r *http.Request, p
 		return
 	}
 	fmt.Printf("Payload:\n%v\n", string(body))
+	repos, err := s.client.ListRepo(nil)
+	if err != nil {
+		http.Error(w, "couldn't read from body", http.StatusInternalServerError)
+		return
+	}
+	fmt.Printf("Repos:%v\n", repos)
+	//func (c APIClient) PutFile(repoName string, commitID string, path string, reader io.Reader) (_ int, retErr error) {
+	payload := json.Parse(body)
+	s.client.PutFile("hook1", commitID, path, bytes.NewReader(body))
 
 	fmt.Fprintf(w, "Received push payload:\n%v\n", string(body))
 }

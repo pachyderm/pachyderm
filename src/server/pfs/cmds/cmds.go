@@ -58,6 +58,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 	}
 
 	var description string
+	var githubURL string
 	createRepo := &cobra.Command{
 		Use:   "create-repo repo-name",
 		Short: "Create a new repo.",
@@ -70,7 +71,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 			_, err = c.PfsAPIClient.CreateRepo(
 				c.Ctx(),
 				&pfsclient.CreateRepoRequest{
-					Repo:        client.NewRepo(args[0]),
+					Repo:        client.NewGithubRepo(args[0], githubURL),
 					Description: description,
 				},
 			)
@@ -78,6 +79,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 		}),
 	}
 	createRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
+	createRepo.Flags().StringVarP(&githubURL, "github-url", "g", "", "Create a repo linked to a public github repository.")
 
 	updateRepo := &cobra.Command{
 		Use:   "update-repo repo-name",

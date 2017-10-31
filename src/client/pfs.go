@@ -16,6 +16,11 @@ func NewRepo(repoName string) *pfs.Repo {
 	return &pfs.Repo{Name: repoName}
 }
 
+// NewGithubRepo creates a pfs.Repo linked to a public github repo
+func NewGithubRepo(repoName string, githubURL string) *pfs.Repo {
+	return &pfs.Repo{Name: repoName}
+}
+
 // NewCommit creates a pfs.Commit.
 func NewCommit(repoName string, commitID string) *pfs.Commit {
 	return &pfs.Commit{
@@ -43,11 +48,11 @@ func NewBlock(hash string) *pfs.Block {
 // the top level data object in pfs and should be used to store data of a
 // similar type. For example rather than having a single Repo for an entire
 // project you might have seperate Repos for logs, metrics, database dumps etc.
-func (c APIClient) CreateRepo(repoName string) error {
+func (c APIClient) CreateRepo(repoName string, githubURL string) error {
 	_, err := c.PfsAPIClient.CreateRepo(
 		c.Ctx(),
 		&pfs.CreateRepoRequest{
-			Repo: NewRepo(repoName),
+			Repo: NewGithubRepo(repoName, githubURL),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
