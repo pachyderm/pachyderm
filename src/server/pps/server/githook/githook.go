@@ -1,75 +1,93 @@
 package githook
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"net/http"
+	"strconv"
+	"time"
 
-	"github.com/julienschmidt/httprouter"
 	"github.com/pachyderm/pachyderm/src/client"
+
+	"gopkg.in/go-playground/webhooks.v3"
+	"gopkg.in/go-playground/webhooks.v3/github"
 )
 
 // GitHookPort specifies the port the server will listen on
 const GitHookPort = 999
 const apiVersion = "v1"
 
-type flushWriter struct {
-	f http.Flusher
-	w io.Writer
-}
-
-func (fw *flushWriter) Write(p []byte) (n int, err error) {
-	n, err = fw.w.Write(p)
-	if fw.f != nil {
-		fw.f.Flush()
-	}
-	return
-}
-
-// GitHookServer serves GetFile requests over HTTP
-// e.g. http://localhost:30652/v1/pfs/repos/foo/commits/b7a1923be56744f6a3f1525ec222dc3b/files/ttt.log
-type GitHookServer struct {
-	*httprouter.Router
+// gitHookServer serves GetFile requests over HTTP
+type gitHookServer struct {
+	hook   *github.Webhook
 	client *client.APIClient
 }
 
-func NewGitHookServer(address string) (*GitHookServer, error) {
-	router := httprouter.New()
-	c, err := client.NewInCluster()
-	if err != nil {
-		return nil, err
+func RunGitHookServer(address string) error {
+	fmt.Printf("new in cluster\n")
+	/*
+		_, err := client.NewInCluster()
+		fmt.Printf("new in cluster err %v\n", err)
+		if err != nil {
+			return err
+		}*/
+	fmt.Printf("new github hook\n")
+	hook := github.New(&github.Config{})
+	s := &gitHookServer{
+		hook,
+		nil,
 	}
-	s := &GitHookServer{
-		router,
-		c,
-	}
-
-	router.POST(fmt.Sprintf("/%v/handle/gitpush", apiVersion), s.gitPushHandler)
-	router.NotFound = http.HandlerFunc(notFound)
-	return s, nil
+	hook.RegisterEvents(s.HandlePush, github.PushEvent)
+	fmt.Printf("running github webhook\n")
+	return webhooks.Run(hook, ":"+strconv.Itoa(GitHookPort), fmt.Sprintf("/%v/handle/push", apiVersion))
 }
 
-func (s *GitHookServer) gitPushHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	fmt.Printf("GitHook got POST: %v\n", r)
-	defer r.Body.Close()
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "couldn't read from body", http.StatusInternalServerError)
+// HandleRelease handles GitHub release events
+func HandleRelease(payload interface{}, header webhooks.Header) {
+
+	fmt.Println("Handling Release")
+
+	pl := payload.(github.ReleasePayload)
+
+	// only want to compile on full releases
+	if pl.Release.Draft || pl.Release.Prerelease || pl.Release.TargetCommitish != "master" {
 		return
 	}
-	fmt.Printf("Payload:\n%v\n", string(body))
+
+	// Do whatever you want from here...
+	fmt.Printf("%+v", pl)
+}
+
+func (s *gitHookServer) HandlePush(payload interface{}, header webhooks.Header) {
+
+	pl := payload.(github.PushPayload)
+	fmt.Printf("push payload: %v\n", pl)
+
 	repos, err := s.client.ListRepo(nil)
 	if err != nil {
-		http.Error(w, "couldn't read from body", http.StatusInternalServerError)
+		fmt.Printf("error listing repo %v\n", err)
 		return
 	}
 	fmt.Printf("Repos:%v\n", repos)
-	//func (c APIClient) PutFile(repoName string, commitID string, path string, reader io.Reader) (_ int, retErr error) {
-	payload := json.Parse(body)
-	s.client.PutFile("hook1", commitID, path, bytes.NewReader(body))
 
-	fmt.Fprintf(w, "Received push payload:\n%v\n", string(body))
+	raw, err := json.Marshal(pl)
+	if err != nil {
+		fmt.Printf("error marshalling payload (%v): %v", pl, err)
+		return
+	}
+
+	t := time.Now()
+	path := fmt.Sprintf("%d-%02d-%02dT%02d:%02d:%02d-00:00\n",
+		t.Year(), t.Month(), t.Day(),
+		t.Hour(), t.Minute(), t.Second())
+
+	_, err = s.client.PutFile("hook1", pl.HeadCommit.ID, path, bytes.NewReader(raw))
+	if err != nil {
+		fmt.Printf("error putting file: %v\n", err)
+	}
+
+	fmt.Printf("received push payload:\n%v\n", string(raw))
 }
 
 func notFound(w http.ResponseWriter, r *http.Request) {

@@ -1454,6 +1454,18 @@
 			"revisionTime": "2017-09-18T18:48:03Z"
 		},
 		{
+			"checksumSHA1": "khf8dvx8syRMezOkRKyQMerf8IA=",
+			"path": "gopkg.in/go-playground/webhooks.v3",
+			"revision": "ced2e979bc7419d571930126aaf053abd54db4f2",
+			"revisionTime": "2017-10-22T16:17:54Z"
+		},
+		{
+			"checksumSHA1": "5dvKeVgPrMdIc9Vj0Gs6WhLAHjA=",
+			"path": "gopkg.in/go-playground/webhooks.v3/github",
+			"revision": "ced2e979bc7419d571930126aaf053abd54db4f2",
+			"revisionTime": "2017-10-22T16:17:54Z"
+		},
+		{
 			"checksumSHA1": "6f8MEU31llHM1sLM/GGH4/Qxu0A=",
 			"path": "gopkg.in/inf.v0",
 			"revision": "3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4",
