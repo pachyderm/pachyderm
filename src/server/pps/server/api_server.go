@@ -1307,7 +1307,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	var visitErr error
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
 		if input.Cron != nil {
-			if err := pachClient.CreateRepo(input.Cron.Repo); err != nil && !isAlreadyExistsErr(err) {
+			if err := pachClient.CreateRepo(input.Cron.Repo, ""); err != nil && !isAlreadyExistsErr(err) {
 				visitErr = err
 			}
 		}
