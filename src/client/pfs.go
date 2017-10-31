@@ -18,7 +18,7 @@ func NewRepo(repoName string) *pfs.Repo {
 
 // NewGithubRepo creates a pfs.Repo linked to a public github repo
 func NewGithubRepo(repoName string, githubURL string) *pfs.Repo {
-	return &pfs.Repo{Name: repoName}
+	return &pfs.Repo{Name: repoName, GithubURL: githubURL}
 }
 
 // NewCommit creates a pfs.Commit.

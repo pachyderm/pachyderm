@@ -59,13 +59,13 @@ func InputCommits(input *Input) []*pfs.Commit {
 	VisitInput(input, func(input *Input) {
 		if input.Atom != nil {
 			result = append(result, &pfs.Commit{
-				Repo: &pfs.Repo{input.Atom.Repo},
+				Repo: &pfs.Repo{Name: input.Atom.Repo},
 				ID:   input.Atom.Commit,
 			})
 		}
 		if input.Cron != nil {
 			result = append(result, &pfs.Commit{
-				Repo: &pfs.Repo{input.Cron.Repo},
+				Repo: &pfs.Repo{Name: input.Cron.Repo},
 				ID:   input.Cron.Commit,
 			})
 		}
