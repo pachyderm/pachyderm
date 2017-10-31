@@ -3,7 +3,7 @@
     "name": "model"
   },
   "transform": {
-    "image": "dwhitena/pytrain:lda",
+    "image": "pachyderm/iris-train:python-svm",
     "cmd": [
 	"python3",
 	"/code/pytrain.py",
