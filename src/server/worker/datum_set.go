@@ -131,6 +131,32 @@ func (d *crossDatumFactory) Datum(i int) []*Input {
 	return result
 }
 
+type githubDatumFactory struct {
+	inputs []*Input
+	index  int
+}
+
+func newGithubDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.GithubInput) (DatumFactory, error) {
+	result := &githubDatumFactory{}
+	result.inputs = append(
+		result.inputs,
+		&Input{
+			Name:      input.Name,
+			Branch:    input.Branch,
+			GithubURL: input.URL,
+		},
+	)
+	return result, nil
+}
+
+func (d *githubDatumFactory) Len() int {
+	return len(d.inputs)
+}
+
+func (d *githubDatumFactory) Datum(i int) []*Input {
+	return []*Input{d.inputs[i]}
+}
+
 func newCrossDatumFactory(ctx context.Context, pfsClient pfs.APIClient, cross []*pps.Input) (DatumFactory, error) {
 	result := &crossDatumFactory{}
 	for _, input := range cross {
@@ -164,6 +190,8 @@ func NewDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.In
 		return newCrossDatumFactory(ctx, pfsClient, input.Cross)
 	case input.Cron != nil:
 		return newCronDatumFactory(ctx, pfsClient, input.Cron)
+	case input.Github != nil:
+		return newGithubDatumFactory(ctx, pfsClient, input.Github)
 	}
 	return nil, fmt.Errorf("unrecognized input type")
 }

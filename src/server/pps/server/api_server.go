@@ -36,6 +36,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
+	"gopkg.in/src-d/go-git.v4"
 
 	"golang.org/x/sync/errgroup"
 
@@ -227,6 +228,27 @@ func (a *apiServer) validateInput(ctx context.Context, pipelineName string, inpu
 				}
 				if _, err := pachClient.InspectRepo(input.Cron.Repo); err != nil {
 					return err
+				}
+			}
+			if input.Github != nil {
+				if set {
+					return fmt.Errorf("multiple input types set")
+				}
+				set = true
+				o := &git.CloneOptions{
+					URL: input.Github.URL,
+				}
+				if err := o.Validate(); err != nil {
+					return err
+				}
+				repoName := client.RepoNameFromGithubInfo(input.Github.URL, input.Github.Name)
+				if _, err := pachClient.InspectRepo(repoName); err != nil {
+					if !strings.Contains(err.Error(), "not found") {
+						return err
+					}
+					if err = pachClient.CreateRepo(repoName); err != nil {
+						return err
+					}
 				}
 			}
 			if !set {
@@ -1307,7 +1329,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	var visitErr error
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
 		if input.Cron != nil {
-			if err := pachClient.CreateRepo(input.Cron.Repo, ""); err != nil && !isAlreadyExistsErr(err) {
+			if err := pachClient.CreateRepo(input.Cron.Repo); err != nil && !isAlreadyExistsErr(err) {
 				visitErr = err
 			}
 		}

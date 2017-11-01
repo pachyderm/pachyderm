@@ -13,7 +13,6 @@ import "client/auth/auth.proto";
 
 message Repo {
   string name = 1;
-  string github_url = 2 [(gogoproto.customname) = "GithubURL"];
 }
 
 message BranchInfo {

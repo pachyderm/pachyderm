@@ -50,13 +50,15 @@ func (s *gitHookServer) findRepoByGitURL(gitURL string) string {
 	}
 	fmt.Printf("Repos:%v\n", repos)
 	fmt.Printf("looking for: %v\n", gitURL)
-	for _, repo := range repos {
-		fmt.Printf("comparing repo info: %v\n", repo)
-		fmt.Printf("current git url: %v\n", repo.Repo.GithubURL)
-		if repo.Repo.GithubURL == gitURL {
-			return repo.Repo.Name
-		}
-	}
+	// TODO: Search over all pipeline inputs for GithubINputs ... to find the repos w the right name / branch to commit to
+	/*
+		for _, repo := range repos {
+			fmt.Printf("comparing repo info: %v\n", repo)
+			fmt.Printf("current git url: %v\n", repo.Repo.GithubURL)
+			if repo.Repo.GithubURL == gitURL {
+				return repo.Repo.Name
+			}
+		}*/
 	return ""
 }
 

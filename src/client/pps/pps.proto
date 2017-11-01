@@ -70,10 +70,9 @@ message CronInput {
 
 message GithubInput {
   string name = 1;
-  string repo = 2;
+  string url = 2 [(gogoproto.customname) = "URL"];
   string branch = 3;
   string commit = 4;
-  string webhook_url = 5;
 }
 
 message Input {

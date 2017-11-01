@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -548,4 +549,12 @@ func GetDatumTotalTime(s *pps.ProcessStats) time.Duration {
 	duration, _ = types.DurationFromProto(s.UploadTime)
 	totalDuration += duration
 	return totalDuration
+}
+
+func RepoNameFromGithubInfo(url string, name string) string {
+	if name != "" {
+		return name
+	}
+	tokens := strings.Split(url, "/")
+	return tokens[len(tokens)-1]
 }
