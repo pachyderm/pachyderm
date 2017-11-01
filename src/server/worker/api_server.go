@@ -27,6 +27,7 @@ import (
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/src-d/go-git.v4"
+	gitPlumbing "gopkg.in/src-d/go-git.v4/plumbing"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 
 	"github.com/fsouza/go-dockerclient"
@@ -352,7 +353,6 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 		file := input.FileInfo.File
 		root := filepath.Join(dir, input.Name, file.Path)
 		treeRoot := path.Join(statsPath, input.Name, file.Path)
-		githubURL := file.Commit.Repo.GithubURL
 		if a.pipelineInfo.Incremental && input.ParentCommit != nil {
 			if err := puller.PullDiff(a.pachClient, root,
 				file.Commit.Repo.Name, file.Commit.ID, file.Path,
@@ -360,12 +360,20 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 				true, input.Lazy, concurrency, statsTree, treeRoot); err != nil {
 				return "", err
 			}
-		} else if githubURL != "" {
+		} else if input.GithubURL != "" {
+			var branch gitPlumbing.ReferenceName = "master"
+			if input.Branch != "" {
+				branch = gitPlumbing.ReferenceName(input.Branch)
+			}
+
 			if _, err := git.PlainClone(
-				fmt.Sprintf("/pfs/%v", file.Commit.Repo.Name),
+				fmt.Sprintf("/pfs/%v", client.RepoNameFromGithubInfo(input.GithubURL, input.Name)),
 				false,
 				&git.CloneOptions{
-					URL: githubURL,
+					URL:           input.GithubURL,
+					Depth:         1,
+					SingleBranch:  true,
+					ReferenceName: branch,
 				},
 			); err != nil {
 				return "", err
