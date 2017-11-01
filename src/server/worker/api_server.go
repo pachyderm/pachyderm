@@ -26,6 +26,7 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
+	"gopkg.in/src-d/go-git.v4"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 
 	"github.com/fsouza/go-dockerclient"
@@ -351,11 +352,22 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 		file := input.FileInfo.File
 		root := filepath.Join(dir, input.Name, file.Path)
 		treeRoot := path.Join(statsPath, input.Name, file.Path)
+		githubURL := file.Commit.Repo.GithubURL
 		if a.pipelineInfo.Incremental && input.ParentCommit != nil {
 			if err := puller.PullDiff(a.pachClient, root,
 				file.Commit.Repo.Name, file.Commit.ID, file.Path,
 				input.ParentCommit.Repo.Name, input.ParentCommit.ID, file.Path,
 				true, input.Lazy, concurrency, statsTree, treeRoot); err != nil {
+				return "", err
+			}
+		} else if githubURL != "" {
+			if _, err := git.PlainClone(
+				fmt.Sprintf("/pfs/%v", file.Commit.Repo.Name),
+				false,
+				&git.CloneOptions{
+					URL: githubURL,
+				},
+			); err != nil {
 				return "", err
 			}
 		} else {
