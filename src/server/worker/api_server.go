@@ -1056,7 +1056,7 @@ func (a *APIServer) worker() {
 			}
 			if err := a.acquireDatums(ctx, jobInfo.Job.ID, chunks, logger, func(low, high int64) (string, error) {
 				logger.Logf("processing %d-%d", low, high)
-				failedDatumID, err := a.processDatums(ctx, jobInfo.Job.ID, df, low, high)
+				failedDatumID, err := a.processDatums(ctx, logger, jobInfo.Job.ID, df, low, high)
 				if err != nil {
 					return "", err
 				}
@@ -1075,10 +1075,12 @@ func (a *APIServer) worker() {
 // processDatums processes datums from low to high in df, if a datum fails it
 // returns the id of the failed datum it also may return a variety of errors
 // such as network errors.
-func (a *APIServer) processDatums(ctx context.Context, jobID string, df DatumFactory, low, high int64) (string, error) {
+func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, jobID string, df DatumFactory, low, high int64) (string, error) {
 	// Set the auth parameters for the context
 	ctx = a.pachClient.AddMetadata(ctx)
 
+	stats := &pps.ProcessStats{}
+	var statsMu sync.Mutex
 	var failedDatumID string
 	var eg errgroup.Group
 	var skipped int64
@@ -1141,7 +1143,7 @@ func (a *APIServer) processDatums(ctx context.Context, jobID string, df DatumFac
 				skipped++
 				return nil
 			}
-			stats := &pps.ProcessStats{}
+			subStats := &pps.ProcessStats{}
 			statsPath := path.Join("/", logger.template.DatumID)
 			var statsTree hashtree.OpenHashTree
 			if a.pipelineInfo.EnableStats {
@@ -1180,7 +1182,7 @@ func (a *APIServer) processDatums(ctx context.Context, jobID string, df DatumFac
 				}()
 				defer func() {
 					marshaler := &jsonpb.Marshaler{}
-					statsString, err := marshaler.MarshalToString(stats)
+					statsString, err := marshaler.MarshalToString(subStats)
 					if err != nil {
 						logger.stderrLog.Printf("could not serialize stats: %s\n", err)
 						return
@@ -1201,7 +1203,7 @@ func (a *APIServer) processDatums(ctx context.Context, jobID string, df DatumFac
 			// Download input data
 			puller := filesync.NewPuller()
 			// TODO parent tag shouldn't be nil
-			dir, err := a.downloadData(logger, data, puller, nil, stats, statsTree, path.Join(statsPath, "pfs"))
+			dir, err := a.downloadData(logger, data, puller, nil, subStats, statsTree, path.Join(statsPath, "pfs"))
 			// We run these cleanup functions no matter what, so that if
 			// downloadData partially succeeded, we still clean up the resources.
 			defer func() {
@@ -1249,7 +1251,7 @@ func (a *APIServer) processDatums(ctx context.Context, jobID string, df DatumFac
 						retErr = err
 					}
 				}()
-				err = a.runUserCode(ctx, logger, env, stats)
+				err = a.runUserCode(ctx, logger, env, subStats)
 				if err != nil {
 					logger.Logf("failed to process datum with error: %+v", err)
 					if statsTree != nil {
@@ -1282,8 +1284,8 @@ func (a *APIServer) processDatums(ctx context.Context, jobID string, df DatumFac
 				logger.Logf("puller encountered an error while cleaning up: %+v", err)
 				return err
 			}
-			atomic.AddUint64(&stats.DownloadBytes, uint64(downSize))
-			if err := a.uploadOutput(ctx, dir, tag, logger, data, stats, statsTree, path.Join(statsPath, "pfs", "out")); err != nil {
+			atomic.AddUint64(&subStats.DownloadBytes, uint64(downSize))
+			if err := a.uploadOutput(ctx, dir, tag, logger, data, subStats, statsTree, path.Join(statsPath, "pfs", "out")); err != nil {
 				// If uploading failed because the user program outputed a special
 				// file, then there's no point in retrying.  Thus we signal that
 				// there's some problem with the user code so the job doesn't
@@ -1294,8 +1296,18 @@ func (a *APIServer) processDatums(ctx context.Context, jobID string, df DatumFac
 				}
 				return err
 			}
+			statsMu.Lock()
+			defer statsMu.Unlock()
+			logger.Logf("subStats: %v", subStats)
+			if err := mergeStats(stats, subStats); err != nil {
+				logger.Logf("failed to merge Stats: %v", err)
+			}
+			logger.Logf("merged stats: %v", stats)
 			return nil
 		})
+	}
+	if err := eg.Wait(); err != nil {
+		return "", err
 	}
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		jobs := a.jobs.ReadWrite(stm)
@@ -1305,9 +1317,34 @@ func (a *APIServer) processDatums(ctx context.Context, jobID string, df DatumFac
 		}
 		jobInfo.DataProcessed += high - low - skipped
 		jobInfo.DataSkipped += skipped
+		if jobInfo.Stats == nil {
+			jobInfo.Stats = &pps.ProcessStats{}
+		}
+		logger.Logf("jobInfo.Stats: %v", jobInfo.Stats)
+		if err := mergeStats(jobInfo.Stats, stats); err != nil {
+			logger.Logf("failed to merge Stats: %v", err)
+		}
+		logger.Logf("jobInfo.Stats: %v", jobInfo.Stats)
 		return jobs.Put(jobID, jobInfo)
 	}); err != nil {
 		return "", err
 	}
-	return failedDatumID, eg.Wait()
+	return failedDatumID, nil
+}
+
+// mergeStats merges y into x
+func mergeStats(x, y *pps.ProcessStats) error {
+	var err error
+	if x.DownloadTime, err = plusDuration(x.DownloadTime, y.DownloadTime); err != nil {
+		return err
+	}
+	if x.ProcessTime, err = plusDuration(x.ProcessTime, y.ProcessTime); err != nil {
+		return err
+	}
+	if x.UploadTime, err = plusDuration(x.UploadTime, y.UploadTime); err != nil {
+		return err
+	}
+	x.DownloadBytes += y.DownloadBytes
+	x.UploadBytes += y.UploadBytes
+	return nil
 }
