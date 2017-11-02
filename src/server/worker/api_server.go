@@ -1298,11 +1298,9 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 			}
 			statsMu.Lock()
 			defer statsMu.Unlock()
-			logger.Logf("subStats: %v", subStats)
 			if err := mergeStats(stats, subStats); err != nil {
 				logger.Logf("failed to merge Stats: %v", err)
 			}
-			logger.Logf("merged stats: %v", stats)
 			return nil
 		})
 	}
@@ -1320,11 +1318,9 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 		if jobInfo.Stats == nil {
 			jobInfo.Stats = &pps.ProcessStats{}
 		}
-		logger.Logf("jobInfo.Stats: %v", jobInfo.Stats)
 		if err := mergeStats(jobInfo.Stats, stats); err != nil {
 			logger.Logf("failed to merge Stats: %v", err)
 		}
-		logger.Logf("jobInfo.Stats: %v", jobInfo.Stats)
 		return jobs.Put(jobID, jobInfo)
 	}); err != nil {
 		return "", err
