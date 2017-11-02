@@ -1,5 +1,5 @@
 FROM ubuntu:16.04
-MAINTAINER jdoliner@pachyderm.io
+LABEL maintainer="jdoliner@pachyderm.io"
 
 RUN mkdir -p /src/server /etc/testing/artifacts
 ADD ./test /src/server

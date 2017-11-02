@@ -1,5 +1,5 @@
 FROM golang:1.8.3
-MAINTAINER derek@pachyderm.io
+LABEL maintainer="derek@pachyderm.io"
 
 RUN apt-get update -yq
 RUN apt-get install -yq unzip
