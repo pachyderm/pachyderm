@@ -70,13 +70,11 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (_ branchSetFactor
 	for i, input := range result.directInputs {
 		i, input := i, input
 
-		if input.Atom != nil {
-			iter, err := pachClient.SubscribeCommit(
-				input.Atom.Repo, input.Atom.Branch, input.Atom.FromCommit)
+		subscribe := func(repo string, branch string, fromCommit string) error {
+			iter, err := pachClient.SubscribeCommit(repo, branch, fromCommit)
 			if err != nil {
-				return nil, err
+				return err
 			}
-
 			go func() {
 				for {
 					commitInfo, err := iter.Next()
@@ -93,6 +91,20 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (_ branchSetFactor
 					result.sendBranchSet(ctx, i, commitInfo)
 				}
 			}()
+			return nil
+		}
+		if input.Atom != nil {
+			err = subscribe(input.Atom.Repo, input.Atom.Branch, input.Atom.FromCommit)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if input.Github != nil {
+			name := client.RepoNameFromGithubInfo(input.Github.URL, input.Github.Name)
+			err = subscribe(name, input.Github.Branch, "")
+			if err != nil {
+				return nil, err
+			}
 		}
 		if input.Cron != nil {
 			schedule, err := cron.Parse(input.Cron.Spec)
@@ -275,6 +287,9 @@ func (a *APIServer) directInputs() []*pps.Input {
 		if input.Cron != nil {
 			result = append(result, input)
 		}
+		if input.Github != nil {
+			result = append(result, input)
+		}
 	})
 	return result
 }
@@ -327,6 +342,15 @@ func (a *APIServer) _rootInputs(c *client.APIClient, inputs []*pps.Input) ([]*pp
 		}
 		if input.Cron != nil {
 			resultMap[input.Cron.Name] = input
+		}
+		if input.Github != nil {
+			repoName := client.RepoNameFromGithubInfo(input.Github.URL, input.Github.Name)
+			// Sanity check that the repo exists
+			_, err := c.InspectRepo(repoName)
+			if err != nil {
+				return nil, err
+			}
+			resultMap[repoName] = input
 		}
 	}
 	var result []*pps.Input

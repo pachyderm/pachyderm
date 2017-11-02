@@ -238,6 +238,11 @@ func (a *apiServer) validateInput(ctx context.Context, pipelineName string, inpu
 				o := &git.CloneOptions{
 					URL: input.Github.URL,
 				}
+				// Valid URLs strings:
+				//git_url: "git://github.com/sjezewski/testgithook.git",
+				//ssh_url: "git@github.com:sjezewski/testgithook.git",
+				//clone_url: "https://github.com/sjezewski/testgithook.git",
+				//svn_url: "https://github.com/sjezewski/testgithook",
 				if err := o.Validate(); err != nil {
 					return err
 				}

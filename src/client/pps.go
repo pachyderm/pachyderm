@@ -555,6 +555,13 @@ func RepoNameFromGithubInfo(url string, name string) string {
 	if name != "" {
 		return name
 	}
+	// Valid URLs strings:
+	//git_url: "git://github.com/sjezewski/testgithook.git",
+	//ssh_url: "git@github.com:sjezewski/testgithook.git",
+	//clone_url: "https://github.com/sjezewski/testgithook.git",
+	//svn_url: "https://github.com/sjezewski/testgithook",
 	tokens := strings.Split(url, "/")
-	return tokens[len(tokens)-1]
+	last := tokens[len(tokens)-1]
+	tokens = strings.Split(last, ".")
+	return tokens[0]
 }
