@@ -365,9 +365,10 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 			if input.Branch != "" {
 				branch = gitPlumbing.ReferenceName(input.Branch)
 			}
-
+			branch = gitPlumbing.ReferenceName(fmt.Sprintf("refs/heads/%v", branch))
+			repoName := client.RepoNameFromGithubInfo(input.GithubURL, input.Name)
 			if _, err := git.PlainClone(
-				fmt.Sprintf("/pfs/%v", client.RepoNameFromGithubInfo(input.GithubURL, input.Name)),
+				filepath.Join(dir, repoName),
 				false,
 				&git.CloneOptions{
 					URL:           input.GithubURL,
@@ -378,6 +379,7 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 			); err != nil {
 				return "", err
 			}
+
 		} else {
 			if err := puller.Pull(a.pachClient, root, file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, concurrency, statsTree, treeRoot); err != nil {
 				return "", err

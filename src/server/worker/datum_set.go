@@ -137,25 +137,35 @@ type githubDatumFactory struct {
 }
 
 func newGithubDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.GithubInput) (DatumFactory, error) {
-	/*
-		result := &githubDatumFactory{}
-		result.inputs = append(
-			result.inputs,
-			&Input{
-				Name:      input.Name,
-				Branch:    input.Branch,
-				GithubURL: input.URL,
+	result := &githubDatumFactory{}
+	repoName := client.RepoNameFromGithubInfo(input.URL, input.Name)
+	fileInfo, err := pfsClient.InspectFile(
+		auth.In2Out(ctx),
+		&pfs.InspectFileRequest{
+			File: &pfs.File{
+				Commit: &pfs.Commit{
+					Repo: &pfs.Repo{
+						Name: repoName,
+					},
+					ID: input.Commit,
+				},
+				Path: "/commit.json",
 			},
-		)
-		return result, nil*/
-	return newAtomDatumFactory(ctx, pfsClient, &pps.AtomInput{
-		Name: input.Name,
-		Repo: client.RepoNameFromGithubInfo(input.URL, input.Name),
-		// Todo: support other branches
-		Branch: "master",
-		Commit: input.Commit,
-		Glob:   "commit.json",
-	})
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	result.inputs = append(
+		result.inputs,
+		&Input{
+			FileInfo:  fileInfo,
+			Name:      repoName,
+			Branch:    input.Branch,
+			GithubURL: input.URL,
+		},
+	)
+	return result, nil
 }
 
 func (d *githubDatumFactory) Len() int {
