@@ -22,6 +22,7 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	lru "github.com/hashicorp/golang-lru"
 	"golang.org/x/net/context"
@@ -1056,7 +1057,7 @@ func (a *APIServer) worker() {
 			}
 			if err := a.acquireDatums(ctx, jobInfo.Job.ID, chunks, logger, func(low, high int64) (string, error) {
 				logger.Logf("processing %d-%d", low, high)
-				failedDatumID, err := a.processDatums(ctx, logger, jobInfo.Job.ID, df, low, high)
+				failedDatumID, err := a.processDatums(ctx, logger, jobInfo, df, low, high)
 				if err != nil {
 					return "", err
 				}
@@ -1075,7 +1076,7 @@ func (a *APIServer) worker() {
 // processDatums processes datums from low to high in df, if a datum fails it
 // returns the id of the failed datum it also may return a variety of errors
 // such as network errors.
-func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, jobID string, df DatumFactory, low, high int64) (string, error) {
+func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, jobInfo *pps.JobInfo, df DatumFactory, low, high int64) (string, error) {
 	// Set the auth parameters for the context
 	ctx = a.pachClient.AddMetadata(ctx)
 
@@ -1088,7 +1089,7 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 		i := i
 		eg.Go(func() (retErr error) {
 			data := df.Datum(int(i))
-			logger, err := a.getTaggedLogger(ctx, jobID, data, a.pipelineInfo.EnableStats)
+			logger, err := a.getTaggedLogger(ctx, jobInfo.Job.ID, data, a.pipelineInfo.EnableStats)
 			if err != nil {
 				return err
 			}
@@ -1198,12 +1199,16 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 					}
 				}()
 			}
+			parentTag, err := a.parentTag(ctx, jobInfo, data)
+			if err != nil {
+				return err
+			}
 
-			env := a.userCodeEnv(jobID, data)
+			env := a.userCodeEnv(jobInfo.Job.ID, data)
 			// Download input data
 			puller := filesync.NewPuller()
 			// TODO parent tag shouldn't be nil
-			dir, err := a.downloadData(logger, data, puller, nil, subStats, statsTree, path.Join(statsPath, "pfs"))
+			dir, err := a.downloadData(logger, data, puller, parentTag, subStats, statsTree, path.Join(statsPath, "pfs"))
 			// We run these cleanup functions no matter what, so that if
 			// downloadData partially succeeded, we still clean up the resources.
 			defer func() {
@@ -1234,7 +1239,7 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 				func() {
 					a.statusMu.Lock()
 					defer a.statusMu.Unlock()
-					a.jobID = jobID
+					a.jobID = jobInfo.Job.ID
 					a.data = data
 					a.started = time.Now()
 					a.cancel = cancel
@@ -1309,6 +1314,7 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 	}
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		jobs := a.jobs.ReadWrite(stm)
+		jobID := jobInfo.Job.ID
 		jobInfo := &pps.JobInfo{}
 		if err := jobs.Get(jobID, jobInfo); err != nil {
 			return err
@@ -1326,6 +1332,45 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 		return "", err
 	}
 	return failedDatumID, nil
+}
+
+func (a *APIServer) parentTag(ctx context.Context, jobInfo *pps.JobInfo, files []*Input) (*pfs.Tag, error) {
+	var newBranchParentCommit *pfs.Commit
+	// If this is an incremental job we need to find the parent
+	// commit of the new branch.
+	if jobInfo.Incremental && jobInfo.NewBranch != nil {
+		commit := jobInfo.NewBranch.Head
+		newBranchCommitInfo, err := a.pachClient.WithCtx(ctx).InspectCommit(commit.Repo.Name, commit.ID)
+		if err != nil {
+			return nil, err
+		}
+		newBranchParentCommit = newBranchCommitInfo.ParentCommit
+	}
+	if newBranchParentCommit != nil {
+		var parentFiles []*Input
+		for _, file := range files {
+			parentFile := proto.Clone(file).(*Input)
+			if file.FileInfo.File.Commit.Repo.Name == jobInfo.NewBranch.Head.Repo.Name && file.Branch == jobInfo.NewBranch.Name {
+				parentFileInfo, err := a.pachClient.WithCtx(ctx).InspectFile(parentFile.FileInfo.File.Commit.Repo.Name, newBranchParentCommit.ID, parentFile.FileInfo.File.Path)
+				if err != nil {
+					if !isNotFoundErr(err) {
+						return nil, err
+					}
+					// we didn't find a match for this file,
+					// so we know there's no matching datum
+					break
+				}
+				file.ParentCommit = parentFileInfo.File.Commit
+				parentFile.FileInfo = parentFileInfo
+			}
+			parentFiles = append(parentFiles, parentFile)
+		}
+		if len(parentFiles) == len(files) {
+			_parentOutputTag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, parentFiles)
+			return &pfs.Tag{Name: _parentOutputTag}, nil
+		}
+	}
+	return nil, nil
 }
 
 // mergeStats merges y into x
