@@ -162,12 +162,19 @@ func (a *APIServer) jobInput(bs *branchSet) (*pps.Input, error) {
 			}
 			input.Atom.FromCommit = ""
 		}
-		if input.Cron != nil {
+		commitFromBranchSet := func(repoName string) string {
 			for _, branch := range bs.Branches {
-				if input.Cron.Repo == branch.Head.Repo.Name {
-					input.Cron.Commit = branch.Head.ID
+				if repoName == branch.Head.Repo.Name {
+					return branch.Head.ID
 				}
 			}
+			return ""
+		}
+		if input.Cron != nil {
+			input.Cron.Commit = commitFromBranchSet(input.Cron.Repo)
+		}
+		if input.Github != nil {
+			input.Github.Commit = commitFromBranchSet(client.RepoNameFromGithubInfo(input.Github.URL, input.Github.Name))
 		}
 	})
 	if visitErr != nil {
