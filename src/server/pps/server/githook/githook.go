@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pps"
 
 	"gopkg.in/go-playground/webhooks.v3"
 	"gopkg.in/go-playground/webhooks.v3/github"
@@ -42,61 +42,92 @@ func RunGitHookServer(address string) error {
 	return webhooks.Run(hook, ":"+strconv.Itoa(GitHookPort), fmt.Sprintf("/%v/handle/push", apiVersion))
 }
 
-func (s *gitHookServer) findRepoByGitURL(gitURL string) string {
-	repos, err := s.client.ListRepo(nil)
-	if err != nil {
-		fmt.Printf("error listing repo %v\n", err)
-		return ""
+func (s *gitHookServer) findRepoByGitURL(payload github.PushPayload) (string, error) {
+	urls := []string{
+		payload.Repository.SSHURL,
+		payload.Repository.GitURL,
+		payload.Repository.CloneURL,
+		payload.Repository.SvnURL,
 	}
-	fmt.Printf("Repos:%v\n", repos)
-	fmt.Printf("looking for: %v\n", gitURL)
-	// TODO: Search over all pipeline inputs for GithubINputs ... to find the repos w the right name / branch to commit to
-	/*
-		for _, repo := range repos {
-			fmt.Printf("comparing repo info: %v\n", repo)
-			fmt.Printf("current git url: %v\n", repo.Repo.GithubURL)
-			if repo.Repo.GithubURL == gitURL {
-				return repo.Repo.Name
+	var repoName string
+	var walkInput func(*pps.Input)
+	// TODO use this instead:
+	//pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+	walkInput = func(input *pps.Input) {
+		if input.Github != nil {
+			for _, url := range urls {
+				fmt.Printf("compariny input url (%v) to push event (%v)\n", input.Github.URL, url)
+				if input.Github.URL == url {
+					repoName = client.RepoNameFromGithubInfo(input.Github.URL, input.Github.Name)
+				}
 			}
-		}*/
-	return ""
+		}
+		var inputs []*pps.Input
+		if input.Cross != nil {
+			inputs = input.Cross
+		}
+		if input.Union != nil {
+			inputs = input.Union
+		}
+		for _, input := range inputs {
+			walkInput(input)
+		}
+	}
+	pipelines, err := s.client.ListPipeline()
+	if err != nil {
+		return "", err
+	}
+	for _, pipelineInfo := range pipelines {
+		walkInput(pipelineInfo.Input)
+	}
+	if repoName == "" {
+		return "", fmt.Errorf("no repo corresponding to github URL (%v) found, perhaps the github input is not set yet on a pipeline", urls[0])
+	}
+	return repoName, nil
 }
 
 func (s *gitHookServer) HandlePush(payload interface{}, header webhooks.Header) {
+	var err error
+	defer func() {
+		// Handle any return error
+		if err != nil {
+			//TODO: This should probably be a logger of some sort
+			// so that we emit the error in the right format for a log parser
+			fmt.Printf("Github Webhook failed to handle push with error: %v\n", err)
+		}
+	}()
 
 	pl := payload.(github.PushPayload)
 	fmt.Printf("push payload: %v\n", pl)
 
 	raw, err := json.Marshal(pl)
 	if err != nil {
-		fmt.Printf("error marshalling payload (%v): %v", pl, err)
+		err = fmt.Errorf("error marshalling payload (%v): %v", pl, err)
 		return
 	}
 
-	t := time.Now()
-	path := fmt.Sprintf("%d-%02d-%02dT%02d:%02d:%02d",
-		t.Year(), t.Month(), t.Day(),
-		t.Hour(), t.Minute(), t.Second())
-
-	repo := s.findRepoByGitURL(pl.Repository.SSHURL)
+	repo, err := s.findRepoByGitURL(pl)
+	if err != nil {
+		return
+	}
 	fmt.Printf("got repo: %v\n", repo)
 	commit, err := s.client.StartCommit(repo, getBranch(pl.Ref))
 	if err != nil {
 		fmt.Printf("error starting commit on repo %v: %v\n", repo, err)
 		return
 	}
-	_, err = s.client.PutFile(repo, commit.ID, path, bytes.NewReader(raw))
+	defer func() {
+		if err != nil {
+			err = s.client.DeleteCommit(repo, commit.ID)
+			return
+		}
+		err = s.client.FinishCommit(repo, commit.ID)
+		//Final deferred function deals w non nil error
+	}()
+	_, err = s.client.PutFile(repo, commit.ID, "commit.json", bytes.NewReader(raw))
 	if err != nil {
-		fmt.Printf("error putting file: %v\n", err)
 		return
 	}
-	//TODO: what if the putfile fails ... what happens if we start multiple commits on head and some are open?
-	// should we destroy these open commits?
-	err = s.client.FinishCommit(repo, commit.ID)
-	if err != nil {
-		fmt.Printf("error finishing commit %v on repo %v: %v\n", commit.ID, repo, err)
-	}
-
 }
 
 func getBranch(fullRef string) string {
