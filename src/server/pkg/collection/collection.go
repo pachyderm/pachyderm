@@ -382,6 +382,21 @@ func (c *readonlyCollection) GetByIndex(index Index, val interface{}) (Iterator,
 	}, nil
 }
 
+func (c *readonlyCollection) GetBlock(key string, val proto.Unmarshaler) error {
+	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.Path(key))
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+	for {
+		e := <-watcher.Watch()
+		if e.Err != nil {
+			return e.Err
+		}
+		return e.Unmarshal(&key, val)
+	}
+}
+
 // List returns an iteraor that can be used to iterate over the collection.
 // The objects are sorted by revision time in descending order, i.e. newer
 // objects are returned first.

@@ -86,6 +86,7 @@ type ReadWriteIntCollection interface {
 type ReadonlyCollection interface {
 	Get(key string, val proto.Unmarshaler) error
 	GetByIndex(index Index, val interface{}) (Iterator, error)
+	GetBlock(key string, val proto.Unmarshaler) error
 	List() (Iterator, error)
 	Count() (int64, error)
 	Watch() (watch.Watcher, error)
