@@ -632,12 +632,8 @@ func HashDatum(pipelineName string, pipelineSalt string, data []*Input) string {
 	hash := sha256.New()
 	for _, datum := range data {
 		hash.Write([]byte(datum.Name))
-		if datum.GithubURL == "" {
-			hash.Write([]byte(datum.FileInfo.File.Path))
-			hash.Write(datum.FileInfo.Hash)
-		} else {
-
-		}
+		hash.Write([]byte(datum.FileInfo.File.Path))
+		hash.Write(datum.FileInfo.Hash)
 	}
 
 	hash.Write([]byte(pipelineName))
