@@ -711,6 +711,22 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		if err != nil {
 			return err
 		}
+		if err := a.egress(ctx, logger, jobInfo, outputCommit); err != nil {
+			reason := fmt.Sprintf("egress error: %v", err)
+			_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				jobs := a.jobs.ReadWrite(stm)
+				jobID := jobInfo.Job.ID
+				jobInfo := &pps.JobInfo{}
+				if err := jobs.Get(jobID, jobInfo); err != nil {
+					return err
+				}
+				jobInfo.Finished = now()
+				// jobInfo.StatsCommit = statsCommit
+				return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE, reason)
+			})
+			// returning nil so we don't retry
+			return err
+		}
 		// Record the job's output commit and 'Finished' timestamp, and mark the job
 		// as a SUCCESS
 		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
@@ -759,6 +775,40 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		return nil
 	})
 	return nil
+}
+
+func (a *APIServer) egress(ctx context.Context, logger *taggedLogger, jobInfo *pps.JobInfo, outputCommit *pfs.Commit) error {
+	var egressFailureCount int
+	return backoff.RetryNotify(func() (retErr error) {
+		if jobInfo.Egress != nil {
+			logger.Logf("Starting egress upload for job (%v)", jobInfo)
+			start := time.Now()
+			url, err := obj.ParseURL(jobInfo.Egress.URL)
+			if err != nil {
+				return err
+			}
+			objClient, err := obj.NewClientFromURLAndSecret(ctx, url)
+			if err != nil {
+				return err
+			}
+			client := client.APIClient{
+				PfsAPIClient: a.pachClient.PfsAPIClient,
+			}
+			client.SetMaxConcurrentStreams(100)
+			if err := pfs_sync.PushObj(client, outputCommit, objClient, url.Object); err != nil {
+				return err
+			}
+			logger.Logf("Completed egress upload for job (%v), duration (%v)", jobInfo, time.Since(start))
+		}
+		return nil
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		egressFailureCount++
+		if egressFailureCount > 3 {
+			return err
+		}
+		logger.Logf("egress failed: %v; retrying in %v", err, d)
+		return nil
+	})
 }
 
 // jobManager feeds datums to jobs
