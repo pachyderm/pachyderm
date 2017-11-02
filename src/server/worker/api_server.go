@@ -1052,7 +1052,7 @@ func (a *APIServer) worker() {
 				return fmt.Errorf("error from NewDatumFactory: %v", err)
 			}
 			chunks := &Chunks{}
-			if err := a.chunks.ReadOnly(ctx).Get(jobInfo.Job.ID, chunks); err != nil {
+			if err := a.chunks.ReadOnly(ctx).GetBlock(jobInfo.Job.ID, chunks); err != nil {
 				return err
 			}
 			if err := a.acquireDatums(ctx, jobInfo.Job.ID, chunks, logger, func(low, high int64) (string, error) {
