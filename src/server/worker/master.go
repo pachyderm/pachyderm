@@ -452,7 +452,7 @@ nextInput:
 			serviceCtx := serviceCtx
 			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 				jobs := a.jobs.ReadWrite(stm)
-				jobInfo := new(pps.JobInfo)
+				jobInfo := &pps.JobInfo{}
 				if err := jobs.Get(jobID, jobInfo); err != nil {
 					return err
 				}
@@ -469,7 +469,7 @@ nextInput:
 			case <-serviceCtx.Done():
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 					jobs := a.jobs.ReadWrite(stm)
-					jobInfo := new(pps.JobInfo)
+					jobInfo := &pps.JobInfo{}
 					if err := jobs.Get(jobID, jobInfo); err != nil {
 						return err
 					}
@@ -609,7 +609,9 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		chunks.Chunks = append(chunks.Chunks, int64(df.Len()))
 		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			jobs := a.jobs.ReadWrite(stm)
-			if err := jobs.Get(jobInfo.Job.ID, jobInfo); err != nil {
+			jobID := jobInfo.Job.ID
+			jobInfo := &pps.JobInfo{}
+			if err := jobs.Get(jobID, jobInfo); err != nil {
 				return err
 			}
 			if jobInfo.State == pps.JobState_JOB_KILLED {
@@ -620,10 +622,10 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 				return err
 			}
 			chunksCol := a.chunks.ReadWrite(stm)
-			if err := chunksCol.Get(jobInfo.Job.ID, chunks); err == nil {
+			if err := chunksCol.Get(jobID, chunks); err == nil {
 				return nil
 			}
-			return chunksCol.Put(jobInfo.Job.ID, chunks)
+			return chunksCol.Put(jobID, chunks)
 		}); err != nil {
 			return err
 		}
@@ -713,7 +715,9 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		// as a SUCCESS
 		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			jobs := a.jobs.ReadWrite(stm)
-			if err := jobs.Get(jobInfo.Job.ID, jobInfo); err != nil {
+			jobID := jobInfo.Job.ID
+			jobInfo := &pps.JobInfo{}
+			if err := jobs.Get(jobID, jobInfo); err != nil {
 				return err
 			}
 			jobInfo.OutputCommit = outputCommit
@@ -741,11 +745,13 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		// Increment the job's restart count
 		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			jobs := a.jobs.ReadWrite(stm)
-			if err := jobs.Get(jobInfo.Job.ID, jobInfo); err != nil {
+			jobID := jobInfo.Job.ID
+			jobInfo := &pps.JobInfo{}
+			if err := jobs.Get(jobID, jobInfo); err != nil {
 				return err
 			}
 			jobInfo.Restart++
-			return jobs.Put(jobInfo.Job.ID, jobInfo)
+			return jobs.Put(jobID, jobInfo)
 		})
 		if err != nil {
 			logger.Logf("error incrementing job %s's restart count", jobInfo.Job.ID)
@@ -816,7 +822,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 		// Set the state of this job to 'RUNNING'
 		_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			jobs := a.jobs.ReadWrite(stm)
-			jobInfo := new(pps.JobInfo)
+			jobInfo := &pps.JobInfo{}
 			if err := jobs.Get(jobID, jobInfo); err != nil {
 				return err
 			}
@@ -891,7 +897,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 				setData = totalProcessedData
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 					jobs := a.jobs.ReadWrite(stm)
-					jobInfo := new(pps.JobInfo)
+					jobInfo := &pps.JobInfo{}
 					if err := jobs.Get(jobID, jobInfo); err != nil {
 						return err
 					}
@@ -1129,7 +1135,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 		if failed {
 			_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 				jobs := a.jobs.ReadWrite(stm)
-				jobInfo := new(pps.JobInfo)
+				jobInfo := &pps.JobInfo{}
 				if err := jobs.Get(jobID, jobInfo); err != nil {
 					return err
 				}
@@ -1199,7 +1205,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 		if egressErr != nil {
 			_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 				jobs := a.jobs.ReadWrite(stm)
-				jobInfo := new(pps.JobInfo)
+				jobInfo := &pps.JobInfo{}
 				if err := jobs.Get(jobID, jobInfo); err != nil {
 					return err
 				}
@@ -1214,7 +1220,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 		// as a SUCCESS
 		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			jobs := a.jobs.ReadWrite(stm)
-			jobInfo := new(pps.JobInfo)
+			jobInfo := &pps.JobInfo{}
 			if err := jobs.Get(jobID, jobInfo); err != nil {
 				return err
 			}
@@ -1250,7 +1256,7 @@ func (a *APIServer) runJob(ctx context.Context, jobInfo *pps.JobInfo, pool *pool
 		// Increment the job's restart count
 		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			jobs := a.jobs.ReadWrite(stm)
-			jobInfo := new(pps.JobInfo)
+			jobInfo := &pps.JobInfo{}
 			if err := jobs.Get(jobID, jobInfo); err != nil {
 				return err
 			}
