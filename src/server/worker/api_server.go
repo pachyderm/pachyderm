@@ -377,7 +377,7 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 					ReferenceName: branch,
 				},
 			); err != nil {
-				return "", err
+				return "", fmt.Errorf("error cloning repo %v branch %v from URL %v: %v", repoName, branch, input.GithubURL, err)
 			}
 
 		} else {
