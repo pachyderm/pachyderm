@@ -2,6 +2,7 @@ package pps
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
@@ -69,6 +70,27 @@ func InputCommits(input *Input) []*pfs.Commit {
 				ID:   input.Cron.Commit,
 			})
 		}
+		if input.Github != nil {
+			result = append(result, &pfs.Commit{
+				Repo: &pfs.Repo{Name: RepoNameFromGithubInfo(input.Github.URL, input.Github.Name)},
+				ID:   input.Github.Commit,
+			})
+		}
 	})
 	return result
+}
+
+func RepoNameFromGithubInfo(url string, name string) string {
+	if name != "" {
+		return name
+	}
+	// Valid URLs strings:
+	//git_url: "git://github.com/sjezewski/testgithook.git",
+	//ssh_url: "git@github.com:sjezewski/testgithook.git",
+	//clone_url: "https://github.com/sjezewski/testgithook.git",
+	//svn_url: "https://github.com/sjezewski/testgithook",
+	tokens := strings.Split(url, "/")
+	last := tokens[len(tokens)-1]
+	tokens = strings.Split(last, ".")
+	return tokens[0]
 }

@@ -100,7 +100,7 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (_ branchSetFactor
 			}
 		}
 		if input.Github != nil {
-			name := client.RepoNameFromGithubInfo(input.Github.URL, input.Github.Name)
+			name := pps.RepoNameFromGithubInfo(input.Github.URL, input.Github.Name)
 			err = subscribe(name, input.Github.Branch, "")
 			if err != nil {
 				return nil, err
@@ -344,7 +344,7 @@ func (a *APIServer) _rootInputs(c *client.APIClient, inputs []*pps.Input) ([]*pp
 			resultMap[input.Cron.Name] = input
 		}
 		if input.Github != nil {
-			repoName := client.RepoNameFromGithubInfo(input.Github.URL, input.Github.Name)
+			repoName := pps.RepoNameFromGithubInfo(input.Github.URL, input.Github.Name)
 			// Sanity check that the repo exists
 			_, err := c.InspectRepo(repoName)
 			if err != nil {

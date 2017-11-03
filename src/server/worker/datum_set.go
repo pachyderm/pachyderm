@@ -138,7 +138,7 @@ type githubDatumFactory struct {
 
 func newGithubDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.GithubInput) (DatumFactory, error) {
 	result := &githubDatumFactory{}
-	repoName := client.RepoNameFromGithubInfo(input.URL, input.Name)
+	repoName := pps.RepoNameFromGithubInfo(input.URL, input.Name)
 	fileInfo, err := pfsClient.InspectFile(
 		auth.In2Out(ctx),
 		&pfs.InspectFileRequest{

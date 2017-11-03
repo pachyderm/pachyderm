@@ -58,7 +58,7 @@ func (s *gitHookServer) findRepoByGitURL(payload github.PushPayload) (string, er
 			for _, url := range urls {
 				fmt.Printf("compariny input url (%v) to push event (%v)\n", input.Github.URL, url)
 				if input.Github.URL == url {
-					repoName = client.RepoNameFromGithubInfo(input.Github.URL, input.Github.Name)
+					repoName = pps.RepoNameFromGithubInfo(input.Github.URL, input.Github.Name)
 				}
 			}
 		}

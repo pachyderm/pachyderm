@@ -366,7 +366,7 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 				branch = gitPlumbing.ReferenceName(input.Branch)
 			}
 			branch = gitPlumbing.ReferenceName(fmt.Sprintf("refs/heads/%v", branch))
-			repoName := client.RepoNameFromGithubInfo(input.GithubURL, input.Name)
+			repoName := pps.RepoNameFromGithubInfo(input.GithubURL, input.Name)
 			if _, err := git.PlainClone(
 				filepath.Join(dir, repoName),
 				false,
