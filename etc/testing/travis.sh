@@ -2,7 +2,7 @@
 
 set -e
 
-sudo apt-get install silversearcher-ag
+go install ./src/server/cmd/match
 echo "Running local tests"
 make test
 
