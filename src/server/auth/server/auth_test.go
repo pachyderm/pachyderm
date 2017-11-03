@@ -23,10 +23,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
-func uniqueString(prefix string) string {
-	return prefix + uuid.NewWithoutDashes()[0:12]
-}
-
 var (
 	clientMapMut sync.Mutex
 	clientMap    = make(map[string]*client.APIClient)
@@ -231,11 +227,11 @@ func TestGetSetBasic(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	alice, bob := uniqueString("alice"), uniqueString("bob")
+	alice, bob := tu.UniqueString("alice"), tu.uniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// create repo, and check that alice is the owner of the new repo
-	dataRepo := uniqueString("TestGetSetBasic")
+	dataRepo := tu.UniqueString("TestGetSetBasic")
 	require.NoError(t, aliceClient.CreateRepo(dataRepo))
 	require.NoError(t, ElementsEqual(
 		entries(alice, "owner"), GetACL(t, aliceClient, dataRepo)))
@@ -368,11 +364,11 @@ func TestGetSetReverse(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	alice, bob := uniqueString("alice"), uniqueString("bob")
+	alice, bob := tu.UniqueString("alice"), tu.uniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// create repo, and check that alice is the owner of the new repo
-	dataRepo := uniqueString("TestGetSetReverse")
+	dataRepo := tu.UniqueString("TestGetSetReverse")
 	require.NoError(t, aliceClient.CreateRepo(dataRepo))
 	require.NoError(t, ElementsEqual(
 		entries(alice, "owner"), GetACL(t, aliceClient, dataRepo)))
@@ -535,17 +531,17 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 			args.update,
 		)
 	}
-	alice, bob := uniqueString("alice"), uniqueString("bob")
+	alice, bob := tu.UniqueString("alice"), tu.uniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// create repo, and check that alice is the owner of the new repo
-	dataRepo := uniqueString("TestCreateAndUpdatePipeline")
+	dataRepo := tu.UniqueString("TestCreateAndUpdatePipeline")
 	require.NoError(t, aliceClient.CreateRepo(dataRepo))
 	require.NoError(t, ElementsEqual(
 		entries(alice, "owner"), GetACL(t, aliceClient, dataRepo)))
 
 	// alice can create a pipeline (she owns the input repo)
-	pipelineName := uniqueString("alice-pipeline")
+	pipelineName := tu.UniqueString("alice-pipeline")
 	require.NoError(t, createPipeline(createArgs{
 		client: aliceClient,
 		name:   pipelineName,
@@ -559,7 +555,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	// Make sure alice's pipeline runs successfully
 	commit, err := aliceClient.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	_, err = aliceClient.PutFile(dataRepo, commit.ID, uniqueString("/file"),
+	_, err = aliceClient.PutFile(dataRepo, commit.ID, tu.UniqueString("/file"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(dataRepo, commit.ID))
@@ -574,7 +570,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	})
 
 	// bob can't create a pipeline
-	badPipeline := uniqueString("bob-bad")
+	badPipeline := tu.UniqueString("bob-bad")
 	err = createPipeline(createArgs{
 		client: bobClient,
 		name:   badPipeline,
@@ -593,7 +589,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	require.NoError(t, err)
 
 	// now bob can create a pipeline
-	goodPipeline := uniqueString("bob-good")
+	goodPipeline := tu.UniqueString("bob-good")
 	require.NoError(t, createPipeline(createArgs{
 		client: bobClient,
 		name:   goodPipeline,
@@ -606,7 +602,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 
 	// Make sure bob's pipeline runs successfully
 	commit, err = aliceClient.StartCommit(dataRepo, "master")
-	_, err = aliceClient.PutFile(dataRepo, commit.ID, uniqueString("/file"),
+	_, err = aliceClient.PutFile(dataRepo, commit.ID, tu.UniqueString("/file"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(dataRepo, commit.ID))
@@ -698,7 +694,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 
 	// Make sure the updated pipeline runs successfully
 	commit, err = aliceClient.StartCommit(dataRepo, "master")
-	_, err = aliceClient.PutFile(dataRepo, commit.ID, uniqueString("/file"),
+	_, err = aliceClient.PutFile(dataRepo, commit.ID, tu.UniqueString("/file"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(dataRepo, commit.ID))
@@ -736,12 +732,12 @@ func TestPipelineMultipleInputs(t *testing.T) {
 			args.update,
 		)
 	}
-	alice, bob := uniqueString("alice"), uniqueString("bob")
+	alice, bob := tu.UniqueString("alice"), tu.uniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// create two repos, and check that alice is the owner of the new repos
-	dataRepo1 := uniqueString("TestPipelineMultipleInputs")
-	dataRepo2 := uniqueString("TestPipelineMultipleInputs")
+	dataRepo1 := tu.UniqueString("TestPipelineMultipleInputs")
+	dataRepo2 := tu.UniqueString("TestPipelineMultipleInputs")
 	require.NoError(t, aliceClient.CreateRepo(dataRepo1))
 	require.NoError(t, aliceClient.CreateRepo(dataRepo2))
 	require.NoError(t, ElementsEqual(
@@ -750,7 +746,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		entries(alice, "owner"), GetACL(t, aliceClient, dataRepo2)))
 
 	// alice can create a cross-pipeline with both inputs
-	aliceCrossPipeline := uniqueString("alice-pipeline-cross")
+	aliceCrossPipeline := tu.UniqueString("alice-pipeline-cross")
 	require.NoError(t, createPipeline(createArgs{
 		client: aliceClient,
 		name:   aliceCrossPipeline,
@@ -765,7 +761,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		entries(alice, "owner"), GetACL(t, aliceClient, aliceCrossPipeline)))
 
 	// alice can create a union-pipeline with both inputs
-	aliceUnionPipeline := uniqueString("alice-pipeline-union")
+	aliceUnionPipeline := tu.UniqueString("alice-pipeline-union")
 	require.NoError(t, createPipeline(createArgs{
 		client: aliceClient,
 		name:   aliceUnionPipeline,
@@ -788,7 +784,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	require.NoError(t, err)
 
 	// bob cannot create a cross-pipeline with both inputs
-	bobCrossPipeline := uniqueString("bob-pipeline-cross")
+	bobCrossPipeline := tu.UniqueString("bob-pipeline-cross")
 	err = createPipeline(createArgs{
 		client: bobClient,
 		name:   bobCrossPipeline,
@@ -802,7 +798,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	require.NoneEquals(t, bobCrossPipeline, PipelineNames(t, aliceClient))
 
 	// bob cannot create a union-pipeline with both inputs
-	bobUnionPipeline := uniqueString("bob-pipeline-union")
+	bobUnionPipeline := tu.UniqueString("bob-pipeline-union")
 	err = createPipeline(createArgs{
 		client: bobClient,
 		name:   bobUnionPipeline,
@@ -908,11 +904,11 @@ func TestPipelineRevoke(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	alice, bob := uniqueString("alice"), uniqueString("bob")
+	alice, bob := tu.UniqueString("alice"), tu.uniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo, and adds bob as a reader
-	repo := uniqueString("TestPipelineRevoke")
+	repo := tu.UniqueString("TestPipelineRevoke")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	_, err := aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     repo,
@@ -924,7 +920,7 @@ func TestPipelineRevoke(t *testing.T) {
 		entries(alice, "owner", bob, "reader"), GetACL(t, aliceClient, repo)))
 
 	// bob creates a pipeline
-	pipeline := uniqueString("bob-pipeline")
+	pipeline := tu.UniqueString("bob-pipeline")
 	require.NoError(t, bobClient.CreatePipeline(
 		pipeline,
 		"", // default image: ubuntu:16.04
@@ -1025,17 +1021,17 @@ func TestDeletePipeline(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	alice, bob := uniqueString("alice"), uniqueString("bob")
+	alice, bob := tu.UniqueString("alice"), tu.uniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	repo := uniqueString("TestDeletePipeline")
+	repo := tu.UniqueString("TestDeletePipeline")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.NoError(t, ElementsEqual(
 		entries(alice, "owner"), GetACL(t, aliceClient, repo)))
 
 	// alice creates a pipeline
-	pipeline := uniqueString("alice-pipeline")
+	pipeline := tu.UniqueString("alice-pipeline")
 	require.NoError(t, aliceClient.CreatePipeline(
 		pipeline,
 		"", // default image: ubuntu:16.04
@@ -1070,13 +1066,13 @@ func TestDeletePipeline(t *testing.T) {
 	require.NoError(t, ElementsEqual(entries(), GetACL(t, aliceClient, repo)))
 
 	// alice creates another repo
-	repo = uniqueString("TestDeletePipeline")
+	repo = tu.UniqueString("TestDeletePipeline")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.NoError(t, ElementsEqual(
 		entries(alice, "owner"), GetACL(t, aliceClient, repo)))
 
 	// alice creates another pipeline
-	pipeline = uniqueString("alice-pipeline")
+	pipeline = tu.UniqueString("alice-pipeline")
 	require.NoError(t, aliceClient.CreatePipeline(
 		pipeline,
 		"", // default image: ubuntu:16.04
@@ -1171,11 +1167,11 @@ func TestListAndInspectRepo(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	alice, bob := uniqueString("alice"), uniqueString("bob")
+	alice, bob := tu.UniqueString("alice"), tu.uniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo and makes Bob a writer
-	repoWriter := uniqueString("TestListRepo")
+	repoWriter := tu.UniqueString("TestListRepo")
 	require.NoError(t, aliceClient.CreateRepo(repoWriter))
 	_, err := aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     repoWriter,
@@ -1187,7 +1183,7 @@ func TestListAndInspectRepo(t *testing.T) {
 		entries(alice, "owner", bob, "writer"), GetACL(t, aliceClient, repoWriter)))
 
 	// alice creates a repo and makes Bob a reader
-	repoReader := uniqueString("TestListRepo")
+	repoReader := tu.UniqueString("TestListRepo")
 	require.NoError(t, aliceClient.CreateRepo(repoReader))
 	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     repoReader,
@@ -1199,13 +1195,13 @@ func TestListAndInspectRepo(t *testing.T) {
 		entries(alice, "owner", bob, "reader"), GetACL(t, aliceClient, repoReader)))
 
 	// alice creates a repo and gives Bob no access privileges
-	repoNone := uniqueString("TestListRepo")
+	repoNone := tu.UniqueString("TestListRepo")
 	require.NoError(t, aliceClient.CreateRepo(repoNone))
 	require.NoError(t, ElementsEqual(
 		entries(alice, "owner"), GetACL(t, aliceClient, repoNone)))
 
 	// bob creates a repo
-	repoOwner := uniqueString("TestListRepo")
+	repoOwner := tu.UniqueString("TestListRepo")
 	require.NoError(t, bobClient.CreateRepo(repoOwner))
 	require.NoError(t, ElementsEqual(
 		entries(bob, "owner"), GetACL(t, bobClient, repoOwner)))
@@ -1240,11 +1236,11 @@ func TestUnprivilegedUserCannotMakeSelfOwner(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	alice, bob := uniqueString("alice"), uniqueString("bob")
+	alice, bob := tu.UniqueString("alice"), tu.uniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	repo := uniqueString("TestUnprivilegedUserCannotMakeSelfOwner")
+	repo := tu.UniqueString("TestUnprivilegedUserCannotMakeSelfOwner")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.NoError(t, ElementsEqual(
 		entries(alice, "owner"), GetACL(t, aliceClient, repo)))
@@ -1266,11 +1262,11 @@ func TestGetScopeRequiresReader(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	alice, bob := uniqueString("alice"), uniqueString("bob")
+	alice, bob := tu.UniqueString("alice"), tu.uniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	repo := uniqueString("TestUnprivilegedUserCannotMakeSelfOwner")
+	repo := tu.UniqueString("TestUnprivilegedUserCannotMakeSelfOwner")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.NoError(t, ElementsEqual(
 		entries(alice, "owner"), GetACL(t, aliceClient, repo)))
@@ -1300,11 +1296,11 @@ func TestListRepoNotLoggedInError(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	alice := uniqueString("alice")
+	alice := tu.UniqueString("alice")
 	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
 
 	// alice creates a repo
-	repoWriter := uniqueString("TestListRepo")
+	repoWriter := tu.UniqueString("TestListRepo")
 	require.NoError(t, aliceClient.CreateRepo(repoWriter))
 	require.NoError(t, ElementsEqual(
 		entries(alice, "owner"), GetACL(t, aliceClient, repoWriter)))
@@ -1324,12 +1320,12 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 	}
 	// Dont't run this test in parallel, since it deactivates the auth system
 	// globally, so any tests running concurrently will fail
-	alice, bob := uniqueString("alice"), uniqueString("bob")
+	alice, bob := tu.UniqueString("alice"), tu.uniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 	adminClient := getPachClient(t, "admin")
 
 	// alice creates a repo
-	repoWriter := uniqueString("TestListRepo")
+	repoWriter := tu.UniqueString("TestListRepo")
 	require.NoError(t, aliceClient.CreateRepo(repoWriter))
 
 	// bob calls ListRepo, but has NONE access to all repos
@@ -1368,11 +1364,11 @@ func TestCreateRepoAlreadyExistsError(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	alice, bob := uniqueString("alice"), uniqueString("bob")
+	alice, bob := tu.UniqueString("alice"), tu.uniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	repo := uniqueString("TestCreateRepoAlreadyExistsError")
+	repo := tu.UniqueString("TestCreateRepoAlreadyExistsError")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 
 	// bob creates the same repo, and should get an error to the effect that the
@@ -1390,7 +1386,7 @@ func TestDeleteRepoDoesntExistError(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	alice := uniqueString("alice")
+	alice := tu.UniqueString("alice")
 	aliceClient := getPachClient(t, alice)
 
 	err := aliceClient.DeleteRepo("dOeSnOtExIsT", false)
@@ -1410,18 +1406,18 @@ func TestCreatePipelineRepoAlreadyExistsError(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	alice, bob := uniqueString("alice"), uniqueString("bob")
+	alice, bob := tu.UniqueString("alice"), tu.uniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	inputRepo := uniqueString("TestCreatePipelineRepoAlreadyExistsError")
+	inputRepo := tu.UniqueString("TestCreatePipelineRepoAlreadyExistsError")
 	require.NoError(t, aliceClient.CreateRepo(inputRepo))
 	aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
 		Username: bob,
 		Scope:    auth.Scope_READER,
 		Repo:     inputRepo,
 	})
-	pipeline := uniqueString("pipeline")
+	pipeline := tu.UniqueString("pipeline")
 	require.NoError(t, aliceClient.CreateRepo(pipeline))
 
 	// bob creates a pipeline, and should get an error to the effect that the
@@ -1462,11 +1458,11 @@ func TestAuthorizedNoneRole(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// alice creates a repo
-	repo := uniqueString("TestAuthorizedNoneRole")
+	repo := tu.UniqueString("TestAuthorizedNoneRole")
 	require.NoError(t, adminClient.CreateRepo(repo))
 
 	// Get new pach clients, re-activating auth
-	alice := uniqueString("alice")
+	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, "admin")
 
 	// Check that the repo has no ACL
@@ -1486,11 +1482,11 @@ func TestDeleteAll(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	alice := uniqueString("alice")
+	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, "admin")
 
 	// alice creates a repo
-	repo := uniqueString("TestAuthorizedNoneRole")
+	repo := tu.UniqueString("TestAuthorizedNoneRole")
 	require.NoError(t, adminClient.CreateRepo(repo))
 
 	// alice calls DeleteAll, but it fails
@@ -1508,17 +1504,17 @@ func TestListDatum(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	alice, bob := uniqueString("alice"), uniqueString("bob")
+	alice, bob := tu.UniqueString("alice"), tu.uniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	repoA := uniqueString("TestListDatum")
+	repoA := tu.UniqueString("TestListDatum")
 	require.NoError(t, aliceClient.CreateRepo(repoA))
-	repoB := uniqueString("TestListDatum")
+	repoB := tu.UniqueString("TestListDatum")
 	require.NoError(t, aliceClient.CreateRepo(repoB))
 
 	// alice creates a pipeline
-	pipeline := uniqueString("alice-pipeline")
+	pipeline := tu.UniqueString("alice-pipeline")
 	require.NoError(t, aliceClient.CreatePipeline(
 		pipeline,
 		"", // default image: ubuntu:16.04
@@ -1618,16 +1614,16 @@ func TestInspectDatum(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	alice := uniqueString("alice")
+	alice := tu.UniqueString("alice")
 	aliceClient := getPachClient(t, alice)
 
 	// alice creates a repo
-	repo := uniqueString("TestInspectDatum")
+	repo := tu.UniqueString("TestInspectDatum")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 
 	// alice creates a pipeline (we must enable stats for InspectDatum, which
 	// means calling the grpc client function directly)
-	pipeline := uniqueString("alice-pipeline")
+	pipeline := tu.UniqueString("alice-pipeline")
 	_, err := aliceClient.PpsAPIClient.CreatePipeline(aliceClient.Ctx(),
 		&pps.CreatePipelineRequest{
 			Pipeline: &pps.Pipeline{Name: pipeline},
@@ -1683,15 +1679,15 @@ func TestGetLogs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	alice, bob := uniqueString("alice"), uniqueString("bob")
+	alice, bob := tu.UniqueString("alice"), tu.uniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	repo := uniqueString("TestGetLogs")
+	repo := tu.UniqueString("TestGetLogs")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 
 	// alice creates a pipeline
-	pipeline := uniqueString("pipeline")
+	pipeline := tu.UniqueString("pipeline")
 	require.NoError(t, aliceClient.CreatePipeline(
 		pipeline,
 		"", // default image: ubuntu:16.04
@@ -1781,16 +1777,16 @@ func TestGetLogsFromStats(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	alice := uniqueString("alice")
+	alice := tu.UniqueString("alice")
 	aliceClient := getPachClient(t, alice)
 
 	// alice creates a repo
-	repo := uniqueString("TestGetLogsFromStats")
+	repo := tu.UniqueString("TestGetLogsFromStats")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 
 	// alice creates a pipeline (we must enable stats for InspectDatum, which
 	// means calling the grpc client function directly)
-	pipeline := uniqueString("alice")
+	pipeline := tu.UniqueString("alice")
 	_, err := aliceClient.PpsAPIClient.CreatePipeline(aliceClient.Ctx(),
 		&pps.CreatePipelineRequest{
 			Pipeline: &pps.Pipeline{Name: pipeline},

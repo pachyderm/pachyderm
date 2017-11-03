@@ -2,6 +2,7 @@
 
 set -e
 
+sudo apt-get install silversearcher-ag
 echo "Running local tests"
 make test
 

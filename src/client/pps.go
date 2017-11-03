@@ -224,7 +224,7 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outpu
 	if pipelineName != "" {
 		pipeline = NewPipeline(pipelineName)
 	}
-	jobInfos, err := c.PpsAPIClient.ListJob(
+	client, err := c.PpsAPIClient.ListJobStream(
 		c.Ctx(),
 		&pps.ListJobRequest{
 			Pipeline:     pipeline,
@@ -234,7 +234,17 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outpu
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	return jobInfos.JobInfo, nil
+	var result []*pps.JobInfo
+	for {
+		ji, err := client.Recv()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, err
+		}
+		result = append(result, ji)
+	}
+	return result, nil
 }
 
 // DeleteJob deletes a job.
@@ -275,7 +285,7 @@ func (c APIClient) RestartDatum(jobID string, datumFilter []string) error {
 
 // ListDatum returns info about all datums in a Job
 func (c APIClient) ListDatum(jobID string, pageSize int64, page int64) (*pps.ListDatumResponse, error) {
-	resp, err := c.PpsAPIClient.ListDatum(
+	client, err := c.PpsAPIClient.ListDatumStream(
 		c.Ctx(),
 		&pps.ListDatumRequest{
 			Job:      &pps.Job{jobID},
@@ -285,6 +295,22 @@ func (c APIClient) ListDatum(jobID string, pageSize int64, page int64) (*pps.Lis
 	)
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
+	}
+	resp := &pps.ListDatumResponse{}
+	first := true
+	for {
+		r, err := client.Recv()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, err
+		}
+		if first {
+			resp.TotalPages = r.TotalPages
+			resp.Page = r.Page
+			first = false
+		}
+		resp.DatumInfos = append(resp.DatumInfos, r.DatumInfo)
 	}
 	return resp, nil
 }
