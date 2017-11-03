@@ -574,9 +574,9 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 // listDatum contains our internal implementation of ListDatum, which is shared
 // between ListDatum and ListDatumStream. When ListDatum is removed, this should
 // be inlined into ListDatumStream
-func (a *apiServer) listDatum(ctx context.Context, job *pps.Job, page, pageSize int64)  (response *pps.ListDatumResponse, retErr error) {
+func (a *apiServer) listDatum(ctx context.Context, job *pps.Job, page, pageSize int64) (response *pps.ListDatumResponse, retErr error) {
 	response = &pps.ListDatumResponse{}
-	
+
 	// get information about 'job'
 	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
 		Job: &pps.Job{
@@ -605,18 +605,18 @@ func (a *apiServer) listDatum(ctx context.Context, job *pps.Job, page, pageSize 
 
 	// helper functions for pagination
 	getTotalPages := func(totalSize int) int64 {
-		return int64(math.Ceil(float64(totalSize) / float64(request.PageSize)))
+		return (totalSize + pageSize - 1) / pageSize // == ceil(totalSize/pageSize)
 	}
 	getPageBounds := func(totalSize int) (int, int, error) {
-		start := int(request.Page * request.PageSize)
-		if start > totalSize-1 {
+		lastPage := getTotalPages(totalSize) - 1
+		switch {
+		case page < lastPage:
+			return page * pageSize, (page + 1) * pageSize, nil
+		case page == lastPage:
+			return page * pageSize, totalSize, nil
+		case page > lastPage:
 			return 0, 0, io.EOF
 		}
-		end := start + int(request.PageSize)
-		if totalSize < end {
-			end = totalSize
-		}
-		return start, end, nil
 	}
 
 	// If there's no stats commit (job not finished), compute datums using jobInfo
@@ -749,7 +749,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 			a.Log(request, response, retErr, time.Since(start))
 		}
 	}(time.Now())
-	return  a.listDatum(ctx, request.Job, request.Page, request.PageSize)
+	return a.listDatum(ctx, request.Job, request.Page, request.PageSize)
 }
 
 func (a *apiServer) ListDatumStream(ctx context.Context, req *pps.ListDatumRequest, resp pps.API_ListDatumStreamServer) (retErr error) {
