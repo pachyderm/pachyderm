@@ -5294,6 +5294,71 @@ func TestService(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 }
 
+func TestPipelineWithGithubInput(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	outputFilename := "commitSHA"
+	pipeline := uniqueString("github_pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cd /pfs/pachyderm && git log -n 1 --pretty=format:%H > /pfs/out/%v", outputFilename),
+		},
+		nil,
+		&pps.GithubInput{
+			URL: "https://github.com/pachyderm/pachyderm.git",
+		},
+		"",
+		false,
+	))
+	// There should be a pachyderm repo created w no commits:
+	repos, err := c.ListRepo(nil)
+	require.NoError(t, err)
+	found := false
+	for _, repo := range repos {
+		if repo.Repo.Name == "pachyderm" {
+			found = true
+		}
+	}
+	require.Equal(t, true, found)
+
+	commits, err := c.ListCommit("pachyderm")
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commits))
+
+	// To trigger the pipeline, we'll need to simulate the webhook by pushing a POST payload to the githook server
+	simulateGitPush(t, "etc/testing/artifacts/githook-payloads/master.json")
+	// Now there should be a new commit on the pachyderm repo / master branch
+	branches, err := c.ListBranch("pachyderm")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(branches))
+	require.Equal(t, "master", branches[0].Name)
+	commit := branches[0].Commit
+
+	// Now wait for the pipeline complete as normal
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	commit := commitInfos[0].Commit
+
+	var buf bytes.Buffer
+
+	fileInfo, err := c.InspectFile(commit.Repo.Name, commit.ID, outputFilename)
+	require.NoError(t, err)
+
+	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
+	require.Equal(t, "c2ea2034f2df0914c837406dbd305726ea271015", buf.String())
+}
+
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
 	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
 	require.NoError(t, err)
@@ -5403,6 +5468,35 @@ func waitForReadiness(t testing.TB) {
 			}
 		}
 	}
+}
+
+func simulateGitPush(t *testing.T, pathToPayload string) {
+	//Headers:
+	//Accept	*/*
+	//Content-Length	7970
+	//Content-Type	application/json
+	//User-Agent	GitHub-Hookshot/c1d08eb
+	//X-Forwarded-For	192.30.252.45
+	//X-Github-Delivery	2984f5d0-c032-11e7-82d7-ed3ee54be25d
+	//X-Github-Event	push
+	payload, err := ioutil.ReadFile(ppathToPayload)
+	require.NoError(t, err)
+	req, err := http.NewRequest(
+		"POST",
+		fmt.Sprintf("http://127.0.0.1:%v", githook.GitHookPort),
+		bytes.NewBuffer(payload),
+	)
+	req.Header.Set("X-Github-Delivery", "2984f5d0-c032-11e7-82d7-ed3ee54be25d")
+	req.Header.Set("User-Agent", "GitHub-Hookshot/c1d08eb")
+	req.Header.Set("X-Github-Event", "push")
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, 200, resp.StatusCode)
 }
 
 func pipelineRc(t testing.TB, pipelineInfo *pps.PipelineInfo) (*api.ReplicationController, error) {
