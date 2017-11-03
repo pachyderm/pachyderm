@@ -690,6 +690,43 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		if err := eg.Wait(); err != nil {
 			return err
 		}
+
+		var statsCommit *pfs.Commit
+		if jobInfo.EnableStats {
+			// if err := func() error {
+			// 	aggregateProcessStats, err := a.aggregateProcessStats(processStats)
+			// 	if err != nil {
+			// 		return err
+			// 	}
+			// 	marshalled, err := (&jsonpb.Marshaler{}).MarshalToString(aggregateProcessStats)
+			// 	if err != nil {
+			// 		return err
+			// 	}
+			// 	aggregateObject, _, err := a.pachClient.WithCtx(ctx).PutObject(strings.NewReader(marshalled))
+			// 	if err != nil {
+			// 		return err
+			// 	}
+			// 	return statsTree.PutFile("/stats", []*pfs.Object{aggregateObject}, int64(len(marshalled)))
+			// }(); err != nil {
+			// 	logger.Logf("error aggregating stats")
+			// }
+			statsObject, err := a.putTree(ctx, statsTree)
+			if err != nil {
+				return err
+			}
+
+			statsCommit, err = a.pachClient.PfsAPIClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
+				Parent: &pfs.Commit{
+					Repo: jobInfo.OutputRepo,
+				},
+				Branch: "stats",
+				Tree:   statsObject,
+			})
+			if err != nil {
+				return err
+			}
+		}
+
 		object, err := a.putTree(ctx, tree)
 		if err != nil {
 			return err
@@ -744,7 +781,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 			// jobInfo.Stats = stats
 			// likely already set but just in case it failed
 			// jobInfo.DataTotal = totalData
-			// jobInfo.StatsCommit = statsCommit
+			jobInfo.StatsCommit = statsCommit
 			if failedDatumID != "" {
 				return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE, fmt.Sprintf("failed to process datum: %v", failedDatumID))
 			}
