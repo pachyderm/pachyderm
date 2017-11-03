@@ -5307,10 +5307,10 @@ func TestPipelineWithGithubInput(t *testing.T) {
 	pipeline := uniqueString("github_pipeline")
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
-		"filiosoft/git",
+		"",
 		[]string{"bash"},
 		[]string{
-			fmt.Sprintf("cd /pfs/pachyderm && git log -n 1 --pretty=format:%%H > /pfs/out/%v", outputFilename),
+			fmt.Sprintf("cat /pfs/pachyderm/.git/`cat /pfs/pachyderm/.git/HEAD | cut -f 2 -d \" \"` > /pfs/out/%v", outputFilename),
 		},
 		nil,
 		&pps.Input{
@@ -5360,7 +5360,7 @@ func TestPipelineWithGithubInput(t *testing.T) {
 	var buf bytes.Buffer
 
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
-	require.Equal(t, "c2ea2034f2df0914c837406dbd305726ea271015", buf.String())
+	require.Equal(t, "c2ea2034f2df0914c837406dbd305726ea271015", strings.TrimSpace(buf.String()))
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
