@@ -1882,14 +1882,19 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 	var eg errgroup.Group
 	for _, repo := range repoInfos.RepoInfo {
 		repo := repo
-		commitInfos, err := pfsClient.ListCommit(ctx, &pfs.ListCommitRequest{
+		client, err := pfsClient.ListCommitStream(ctx, &pfs.ListCommitRequest{
 			Repo: repo.Repo,
 		})
 		if err != nil {
 			return nil, err
 		}
-		for _, commit := range commitInfos.CommitInfo {
-			commit := commit
+		for {
+			commit, err := client.Recv()
+			if err == io.EOF {
+				break
+			} else if err != nil {
+				return nil, grpcutil.ScrubGRPC(err)
+			}
 			limiter.Acquire()
 			eg.Go(func() error {
 				defer limiter.Release()
