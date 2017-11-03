@@ -246,7 +246,7 @@ func (a *apiServer) validateInput(ctx context.Context, pipelineName string, inpu
 				if err := o.Validate(); err != nil {
 					return err
 				}
-				repoName := client.RepoNameFromGithubInfo(input.Github.URL, input.Github.Name)
+				repoName := pps.RepoNameFromGithubInfo(input.Github.URL, input.Github.Name)
 				if _, err := pachClient.InspectRepo(repoName); err != nil {
 					if !strings.Contains(err.Error(), "not found") {
 						return err
@@ -1338,6 +1338,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				visitErr = err
 			}
 		}
+		if input.Github != nil {
+			if err := pachClient.CreateRepo(pps.RepoNameFromGithubInfo(input.Github.URL, input.Github.Name)); err != nil && !isAlreadyExistsErr(err) {
+				visitErr = err
+			}
+		}
 	})
 	if visitErr != nil {
 		return nil, visitErr
@@ -1362,6 +1367,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 	var provenance []*pfs.Repo
 	for _, commit := range pps.InputCommits(pipelineInfo.Input) {
+		fmt.Printf("Adding commit (%v) to pipelines provenance\n", commit)
 		provenance = append(provenance, commit.Repo)
 	}
 

@@ -32,6 +32,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
+	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 
 	"github.com/gogo/protobuf/types"
 	"k8s.io/kubernetes/pkg/api"
@@ -5306,14 +5307,16 @@ func TestPipelineWithGithubInput(t *testing.T) {
 	pipeline := uniqueString("github_pipeline")
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
-		"",
+		"filiosoft/git",
 		[]string{"bash"},
 		[]string{
-			fmt.Sprintf("cd /pfs/pachyderm && git log -n 1 --pretty=format:%H > /pfs/out/%v", outputFilename),
+			fmt.Sprintf("cd /pfs/pachyderm && git log -n 1 --pretty=format:%%H > /pfs/out/%v", outputFilename),
 		},
 		nil,
-		&pps.GithubInput{
-			URL: "https://github.com/pachyderm/pachyderm.git",
+		&pps.Input{
+			Github: &pps.GithubInput{
+				URL: "https://github.com/pachyderm/pachyderm.git",
+			},
 		},
 		"",
 		false,
@@ -5329,31 +5332,32 @@ func TestPipelineWithGithubInput(t *testing.T) {
 	}
 	require.Equal(t, true, found)
 
-	commits, err := c.ListCommit("pachyderm")
+	commits, err := c.ListCommit("pachyderm", "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(commits))
 
 	// To trigger the pipeline, we'll need to simulate the webhook by pushing a POST payload to the githook server
-	simulateGitPush(t, "etc/testing/artifacts/githook-payloads/master.json")
+	simulateGitPush(t, "../../etc/testing/artifacts/githook-payloads/master.json")
+	// Need to sleep since the webhook http handler is non blocking
+	time.Sleep(2 * time.Second)
+
 	// Now there should be a new commit on the pachyderm repo / master branch
 	branches, err := c.ListBranch("pachyderm")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(branches))
 	require.Equal(t, "master", branches[0].Name)
-	commit := branches[0].Commit
+	commit := branches[0].Head
 
 	// Now wait for the pipeline complete as normal
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	outputRepo := &pfs.Repo{Name: pipeline}
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, []*pfs.Repo{outputRepo})
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 1, len(commitInfos))
 
-	commit := commitInfos[0].Commit
+	commit = commitInfos[0].Commit
 
 	var buf bytes.Buffer
-
-	fileInfo, err := c.InspectFile(commit.Repo.Name, commit.ID, outputFilename)
-	require.NoError(t, err)
 
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
 	require.Equal(t, "c2ea2034f2df0914c837406dbd305726ea271015", buf.String())
@@ -5479,11 +5483,11 @@ func simulateGitPush(t *testing.T, pathToPayload string) {
 	//X-Forwarded-For	192.30.252.45
 	//X-Github-Delivery	2984f5d0-c032-11e7-82d7-ed3ee54be25d
 	//X-Github-Event	push
-	payload, err := ioutil.ReadFile(ppathToPayload)
+	payload, err := ioutil.ReadFile(pathToPayload)
 	require.NoError(t, err)
 	req, err := http.NewRequest(
 		"POST",
-		fmt.Sprintf("http://127.0.0.1:%v", githook.GitHookPort),
+		fmt.Sprintf("http://127.0.0.1:%v/v1/handle/push", githook.GitHookPort+30000),
 		bytes.NewBuffer(payload),
 	)
 	req.Header.Set("X-Github-Delivery", "2984f5d0-c032-11e7-82d7-ed3ee54be25d")

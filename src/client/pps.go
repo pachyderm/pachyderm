@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -549,19 +548,4 @@ func GetDatumTotalTime(s *pps.ProcessStats) time.Duration {
 	duration, _ = types.DurationFromProto(s.UploadTime)
 	totalDuration += duration
 	return totalDuration
-}
-
-func RepoNameFromGithubInfo(url string, name string) string {
-	if name != "" {
-		return name
-	}
-	// Valid URLs strings:
-	//git_url: "git://github.com/sjezewski/testgithook.git",
-	//ssh_url: "git@github.com:sjezewski/testgithook.git",
-	//clone_url: "https://github.com/sjezewski/testgithook.git",
-	//svn_url: "https://github.com/sjezewski/testgithook",
-	tokens := strings.Split(url, "/")
-	last := tokens[len(tokens)-1]
-	tokens = strings.Split(last, ".")
-	return tokens[0]
 }
