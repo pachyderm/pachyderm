@@ -5,96 +5,50 @@ package cmds
 // login with no auth service deployed
 
 import (
-	"bytes"
 	"errors"
+	"fmt"
 	"os"
-	"os/exec"
-	"strings"
 	"sync"
 	"testing"
-	"text/template"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
-
-func uniqueString(prefix string) string {
-	return prefix + uuid.NewWithoutDashes()[0:12]
-}
-
-// C is a convenience function that replaces exec.Command. It's both shorter
-// and it uses the current process's stderr as output for the command, which
-// makes debugging failures much easier (i.e. you get an error message
-// rather than "exit status 1")
-func C(name string, args ...string) *exec.Cmd {
-	cmd := exec.Command(name, args...)
-	cmd.Stderr = os.Stderr
-	// for convenience, simulate hitting "enter" after any prompt. This can easily
-	// be replaced
-	cmd.Stdin = strings.NewReader("\n")
-	return cmd
-}
-
-// BashC is a convenience function that replaces exec.Command, running the given
-// string in a bash shell
-func BashC(cmds string) *exec.Cmd {
-	cmd := exec.Command("bash", "-c", cmds)
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = strings.NewReader("\n")
-	return cmd
-}
-
-// sub is a convenience function to do inline template substitution
-func sub(s string, subs ...string) string {
-	buf := &bytes.Buffer{}
-	if len(subs)%2 == 1 {
-		panic("some variable does not have a corresponding value")
-	}
-
-	// copy 'subs' into a map
-	subsMap := make(map[string]string)
-	for i := 0; i < len(subs); i += 2 {
-		subsMap[subs[i]] = subs[i+1]
-	}
-
-	// do the substitution
-	template.Must(template.New("").Parse(s)).Execute(buf, subsMap)
-	return buf.String()
-}
 
 var activateMut sync.Mutex
 
 func activateAuth(t *testing.T) {
+	t.Helper()
 	activateMut.Lock()
 	defer activateMut.Unlock()
 	// TODO(msteffen): Make sure client & server have the same version
 
 	// Check if Pachyderm Enterprise is active -- if not, activate it
-	cmd := C("pachctl", "enterprise", "get-state")
+	cmd := tu.Cmd("pachctl", "enterprise", "get-state")
 	out, err := cmd.Output()
 	require.NoError(t, err)
 	if string(out) != "ACTIVE" {
-		cmd = C("pachctl", "enterprise", "activate", testutil.GetTestEnterpriseCode())
+		cmd = tu.Cmd("pachctl", "enterprise", "activate", tu.GetTestEnterpriseCode())
 		require.NoError(t, cmd.Run())
 	}
 
 	// Logout (to clear any expired tokens) and activate Pachyderm auth
-	C("pachctl", "auth", "logout").Run()
-	C("pachctl", "auth", "activate", "--user=admin").Run()
+	require.NoError(t, tu.Cmd("pachctl", "auth", "logout").Run())
+	require.NoError(t, tu.Cmd("pachctl", "auth", "activate", "--user=admin").Run())
 }
 
 func deactivateAuth(t *testing.T) {
+	t.Helper()
 	activateMut.Lock()
 	defer activateMut.Unlock()
 
 	// Check if Pachyderm Auth is active -- if so, deactivate it
-	cmd := C("pachctl", "auth", "login", "-u", "admin")
-	require.NoError(t, cmd.Run())
-	cmd = BashC("yes | pachctl auth deactivate")
-	require.NoError(t, cmd.Run())
+	fmt.Println("logging in...")
+	if err := tu.Cmd("pachctl", "auth", "login", "-u", "admin").Run(); err == nil {
+		require.NoError(t, tu.BashCmd("yes | pachctl auth deactivate").Run())
+	}
 }
 
 func TestAuthBasic(t *testing.T) {
@@ -103,17 +57,16 @@ func TestAuthBasic(t *testing.T) {
 	}
 	activateAuth(t)
 	defer deactivateAuth(t)
-	cmd := BashC(sub(`
+	require.NoError(t, tu.BashCmd(`
 		echo "\n" | pachctl auth login -u {{.alice}}
 		pachctl create-repo {{.repo}}
 		pachctl list-repo \
-			| grep -q {{.repo}}
+			| match {{.repo}}
 		pachctl inspect-repo {{.repo}}
 		`,
-		"alice", uniqueString("alice"),
-		"repo", uniqueString("TestAuthBasic-repo"),
-	))
-	require.NoError(t, cmd.Run())
+		"alice", tu.UniqueString("alice"),
+		"repo", tu.UniqueString("TestAuthBasic-repo"),
+	).Run(t))
 }
 
 func TestWhoAmI(t *testing.T) {
@@ -122,13 +75,12 @@ func TestWhoAmI(t *testing.T) {
 	}
 	activateAuth(t)
 	defer deactivateAuth(t)
-	cmd := BashC(sub(`
+	require.NoError(t, tu.BashCmd(`
 		pachctl auth login -u {{.alice}}
-		pachctl auth whoami | grep -q {{.alice}}
+		pachctl auth whoami | match {{.alice}}
 		`,
-		"alice", uniqueString("alice"),
-	))
-	require.NoError(t, cmd.Run())
+		"alice", tu.UniqueString("alice"),
+	).Run())
 }
 
 func TestCheckGetSet(t *testing.T) {
@@ -138,34 +90,32 @@ func TestCheckGetSet(t *testing.T) {
 	activateAuth(t)
 	defer deactivateAuth(t)
 	// Test both forms of the 'pachctl auth get' command, as well as 'pachctl auth check'
-	cmd := BashC(sub(`
+	require.NoError(t, tu.BashCmd(`
 		pachctl auth login -u {{.alice}}
 		pachctl create-repo {{.repo}}
 		pachctl auth check owner {{.repo}}
 		pachctl auth get {{.repo}} \
-			| grep -q {{.alice}}
+			| match {{.alice}}
 		pachctl auth get {{.bob}} {{.repo}} \
-			| grep -q NONE
+			| match NONE
 		`,
-		"alice", uniqueString("alice"),
-		"bob", uniqueString("bob"),
-		"repo", uniqueString("TestGet-repo"),
-	))
-	require.NoError(t, cmd.Run())
+		"alice", tu.UniqueString("alice"),
+		"bob", tu.UniqueString("bob"),
+		"repo", tu.UniqueString("TestGet-repo"),
+	).Run())
 
 	// Test 'pachctl auth set'
-	cmd = BashC(sub(`
+	require.NoError(t, tu.BashCmd(`
 		pachctl auth login -u {{.alice}}
 		pachctl create-repo {{.repo}}
 		pachctl auth set {{.bob}} reader {{.repo}}
 		pachctl auth get {{.bob}} {{.repo}} \
-			| grep -q READER
+			| match READER
 		`,
-		"alice", uniqueString("alice"),
-		"bob", uniqueString("bob"),
-		"repo", uniqueString("TestGet-repo"),
-	))
-	require.NoError(t, cmd.Run())
+		"alice", tu.UniqueString("alice"),
+		"bob", tu.UniqueString("bob"),
+		"repo", tu.UniqueString("TestGet-repo"),
+	).Run())
 }
 
 func TestAdmins(t *testing.T) {
@@ -176,47 +126,47 @@ func TestAdmins(t *testing.T) {
 	defer deactivateAuth(t)
 
 	// Modify the list of admins to replace 'admin' with 'admin2'
-	require.NoError(t, C("pachctl", "auth", "login", "-u", "admin").Run())
-	cmd := BashC(sub(`
+	require.NoError(t, tu.Cmd("pachctl", "auth", "login", "-u", "admin").Run())
+	require.NoError(t, tu.BashCmd(`
 		pachctl auth list-admins \
-			| grep -q "admin"
+			| match "admin"
 		pachctl auth modify-admins --add admin2
 		pachctl auth list-admins \
-			| grep -q  "admin2"
+			| match  "admin2"
 		pachctl auth modify-admins --remove admin
 
 		# as 'admin' is a substr of 'admin2', use '^admin$' regex...
 		pachctl auth list-admins \
-			| grep -v "^admin$" \
-			| grep -q "^admin2$"
-		`))
-	require.NoError(t, cmd.Run())
+			| match -v "^admin$" \
+			| match "^admin2$"
+		`).Run())
 
 	// Now 'admin2' is the only admin. Login as admin2, and swap 'admin' back in
 	// (so that deactivateAuth() runs), and call 'list-admin' (to make sure it
 	// works for non-admins)
-	require.NoError(t, C("pachctl", "auth", "login", "-u", "admin2").Run())
-	cmd = BashC(sub(`
+	require.NoError(t, tu.Cmd("pachctl", "auth", "login", "-u", "admin2").Run())
+	cmd := tu.BashCmd(`
 		pachctl auth modify-admins --add admin --remove admin2
 		pachctl auth list-admins \
-			| grep -v "admin2" \
-			| grep -q "admin"
+			| match -v "admin2" \
+			| match "admin"
 		`,
-		"alice", uniqueString("alice"),
-		"bob", uniqueString("bob"),
-	))
+		"alice", tu.UniqueString("alice"),
+		"bob", tu.UniqueString("bob"),
+	)
 	require.NoError(t, cmd.Run())
 }
 
 func TestMain(m *testing.M) {
 	// Preemptively deactivate Pachyderm auth (to avoid errors in early tests)
-	cmd := C("pachctl", "auth", "login", "-u", "admin")
-	cmd.Run()
-	cmd = BashC("yes | pachctl auth deactivate")
-	cmd.Run()
+	if err := tu.BashCmd("pachctl auth login -u admin").Run(); err == nil {
+		if err := tu.BashCmd("yes | pachctl auth deactivate").Run(); err != nil {
+			panic(err.Error())
+		}
+	}
 	time.Sleep(5 * time.Second)
 	backoff.Retry(func() error {
-		cmd := C("pachctl", "auth", "login", "-u", "admin")
+		cmd := tu.Cmd("pachctl", "auth", "login", "-u", "admin")
 		if cmd.Run() != nil {
 			return nil // success -- auth is deactivated
 		}
