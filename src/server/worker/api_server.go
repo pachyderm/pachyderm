@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -26,6 +27,7 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
+	"gopkg.in/go-playground/webhooks.v3/github"
 	"gopkg.in/src-d/go-git.v4"
 	gitPlumbing "gopkg.in/src-d/go-git.v4/plumbing"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
@@ -361,25 +363,52 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 				return "", err
 			}
 		} else if input.GithubURL != "" {
-			var branch gitPlumbing.ReferenceName = "master"
-			if input.Branch != "" {
-				branch = gitPlumbing.ReferenceName(input.Branch)
+			//
+			//and the git.plumbing
+			//func NewReferenceFromStrings(name, target string)
+			pachydermRepoName := pps.RepoNameFromGithubInfo(input.GithubURL, input.Name)
+			var rawJSON bytes.Buffer
+			err := a.pachClient.GetFile(pachydermRepoName, file.Commit.ID, "commit.json", 0, 0, &rawJSON)
+			if err != nil {
+				return "", err
 			}
-			branch = gitPlumbing.ReferenceName(fmt.Sprintf("refs/heads/%v", branch))
-			repoName := pps.RepoNameFromGithubInfo(input.GithubURL, input.Name)
-			if _, err := git.PlainClone(
-				filepath.Join(dir, repoName),
+			var payload github.PushPayload
+			err = json.Unmarshal(rawJSON.Bytes(), &payload)
+			if err != nil {
+				return "", err
+			}
+			/*
+				branch := "master"
+				if input.Branch != "" {
+					//branch = gitPlumbing.ReferenceName(input.Branch)
+					branch = input.Branch
+				}
+				branch = gitPlumbing.ReferenceName(fmt.Sprintf("refs/heads/%v", branch))
+			*/
+			///			ref := gitPlumbing.NewReferenceFromStrings(payload.Ref, payload.After)
+			sha := payload.After
+			// Clone checks out a reference, not a SHA
+			r, err := git.PlainClone(
+				filepath.Join(dir, pachydermRepoName),
 				false,
 				&git.CloneOptions{
-					URL:           input.GithubURL,
-					Depth:         1,
+					URL:           payload.Repository.CloneURL,
 					SingleBranch:  true,
-					ReferenceName: branch,
+					ReferenceName: gitPlumbing.ReferenceName(payload.Ref),
 				},
-			); err != nil {
-				return "", fmt.Errorf("error cloning repo %v branch %v from URL %v: %v", repoName, branch, input.GithubURL, err)
+			)
+			if err != nil {
+				return "", fmt.Errorf("error cloning repo %v at SHA %v from URL %v: %v", pachydermRepoName, sha, input.GithubURL, err)
 			}
-
+			hash := gitPlumbing.NewHash(sha)
+			wt, err := r.Worktree()
+			if err != nil {
+				return "", err
+			}
+			err = wt.Checkout(&git.CheckoutOptions{Hash: hash})
+			if err != nil {
+				return "", fmt.Errorf("error checking out SHA %v from repo %v: %v", sha, pachydermRepoName, err)
+			}
 		} else {
 			if err := puller.Pull(a.pachClient, root, file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, concurrency, statsTree, treeRoot); err != nil {
 				return "", err
