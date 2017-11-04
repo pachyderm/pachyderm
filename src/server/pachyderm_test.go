@@ -5405,11 +5405,19 @@ func TestPipelineWithGithubInputAndBranch(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 0, len(commits))
 
+	// Make sure a push to master does NOT trigger this pipeline
+	simulateGitPush(t, "../../etc/testing/artifacts/githook-payloads/branch.json")
+	// Need to sleep since the webhook http handler is non blocking
+	time.Sleep(5 * time.Second)
+	// Now there should be a new commit on the pachyderm repo / master branch
+	branches, err := c.ListBranch("pachyderm")
+	require.NoError(t, err)
+	require.Equal(t, 0, len(branches))
+
 	// To trigger the pipeline, we'll need to simulate the webhook by pushing a POST payload to the githook server
 	simulateGitPush(t, "../../etc/testing/artifacts/githook-payloads/master.json")
 	// Need to sleep since the webhook http handler is non blocking
 	time.Sleep(2 * time.Second)
-
 	// Now there should be a new commit on the pachyderm repo / master branch
 	branches, err := c.ListBranch("pachyderm")
 	require.NoError(t, err)
