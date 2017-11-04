@@ -363,9 +363,6 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 				return "", err
 			}
 		} else if input.GithubURL != "" {
-			//
-			//and the git.plumbing
-			//func NewReferenceFromStrings(name, target string)
 			pachydermRepoName := pps.RepoNameFromGithubInfo(input.GithubURL, input.Name)
 			var rawJSON bytes.Buffer
 			err := a.pachClient.GetFile(pachydermRepoName, file.Commit.ID, "commit.json", 0, 0, &rawJSON)
@@ -377,15 +374,6 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 			if err != nil {
 				return "", err
 			}
-			/*
-				branch := "master"
-				if input.Branch != "" {
-					//branch = gitPlumbing.ReferenceName(input.Branch)
-					branch = input.Branch
-				}
-				branch = gitPlumbing.ReferenceName(fmt.Sprintf("refs/heads/%v", branch))
-			*/
-			///			ref := gitPlumbing.NewReferenceFromStrings(payload.Ref, payload.After)
 			sha := payload.After
 			// Clone checks out a reference, not a SHA
 			r, err := git.PlainClone(
