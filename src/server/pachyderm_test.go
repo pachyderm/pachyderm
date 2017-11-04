@@ -5310,7 +5310,7 @@ func TestPipelineWithGithubInput(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			fmt.Sprintf("cat /pfs/pachyderm/.git/`cat /pfs/pachyderm/.git/HEAD | cut -f 2 -d \" \"` > /pfs/out/%v", outputFilename),
+			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
 		},
 		nil,
 		&pps.Input{
