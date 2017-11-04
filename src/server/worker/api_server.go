@@ -1149,6 +1149,9 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 			var statsTree hashtree.OpenHashTree
 			if a.pipelineInfo.EnableStats {
 				statsTree = hashtree.NewHashTree()
+				if err := statsTree.PutFile(path.Join(statsPath, fmt.Sprintf("job:%s", jobInfo.Job.ID)), nil, 0); err != nil {
+					logger.stderrLog.Printf("error from hashtree.PutFile for job object: %s\n", err)
+				}
 				defer func() {
 					if retErr != nil {
 						return

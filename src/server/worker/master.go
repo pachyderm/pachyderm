@@ -775,12 +775,6 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 			}
 			jobInfo.OutputCommit = outputCommit
 			jobInfo.Finished = now()
-			// By definition, we will have processed all datums at this point
-			// jobInfo.DataProcessed = processedData
-			// jobInfo.DataSkipped = skippedData
-			// jobInfo.Stats = stats
-			// likely already set but just in case it failed
-			// jobInfo.DataTotal = totalData
 			jobInfo.StatsCommit = statsCommit
 			if failedDatumID != "" {
 				return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE, fmt.Sprintf("failed to process datum: %v", failedDatumID))
