@@ -5406,7 +5406,7 @@ func TestPipelineWithGithubInputAndBranch(t *testing.T) {
 	require.Equal(t, 0, len(commits))
 
 	// Make sure a push to master does NOT trigger this pipeline
-	simulateGitPush(t, "../../etc/testing/artifacts/githook-payloads/branch.json")
+	simulateGitPush(t, "../../etc/testing/artifacts/githook-payloads/master.json")
 	// Need to sleep since the webhook http handler is non blocking
 	time.Sleep(5 * time.Second)
 	// Now there should be a new commit on the pachyderm repo / master branch
@@ -5415,11 +5415,11 @@ func TestPipelineWithGithubInputAndBranch(t *testing.T) {
 	require.Equal(t, 0, len(branches))
 
 	// To trigger the pipeline, we'll need to simulate the webhook by pushing a POST payload to the githook server
-	simulateGitPush(t, "../../etc/testing/artifacts/githook-payloads/master.json")
+	simulateGitPush(t, "../../etc/testing/artifacts/githook-payloads/branch.json")
 	// Need to sleep since the webhook http handler is non blocking
 	time.Sleep(2 * time.Second)
 	// Now there should be a new commit on the pachyderm repo / master branch
-	branches, err := c.ListBranch("pachyderm")
+	branches, err = c.ListBranch("pachyderm")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(branches))
 	require.Equal(t, "master", branches[0].Name)
@@ -5437,7 +5437,7 @@ func TestPipelineWithGithubInputAndBranch(t *testing.T) {
 	var buf bytes.Buffer
 
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
-	require.Equal(t, "c2ea2034f2df0914c837406dbd305726ea271015", strings.TrimSpace(buf.String()))
+	require.Equal(t, "c7f697432dc805eb2b92f39d4961a585e8a0b2d5", strings.TrimSpace(buf.String()))
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
