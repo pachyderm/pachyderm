@@ -1035,7 +1035,7 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 func (a *APIServer) worker() {
 	logger := a.getWorkerLogger()
 	backoff.RetryNotify(func() error {
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(a.pachClient.AddMetadata(context.Background()))
 		defer cancel()
 		jobs := a.jobs.ReadOnly(ctx)
 		watcher, err := jobs.WatchByIndex(ppsdb.JobsPipelineIndex, a.pipelineInfo.Pipeline)
@@ -1078,9 +1078,6 @@ func (a *APIServer) worker() {
 // returns the id of the failed datum it also may return a variety of errors
 // such as network errors.
 func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, jobInfo *pps.JobInfo, df DatumFactory, low, high int64) (string, error) {
-	// Set the auth parameters for the context
-	ctx = a.pachClient.AddMetadata(ctx)
-
 	stats := &pps.ProcessStats{}
 	var statsMu sync.Mutex
 	var failedDatumID string
