@@ -41,6 +41,15 @@ func RunGitHookServer(address string) error {
 	fmt.Printf("running github webhook\n")
 	return webhooks.Run(hook, ":"+strconv.Itoa(GitHookPort), fmt.Sprintf("/%v/handle/push", apiVersion))
 }
+func matchingBranch(inputBranch string, payloadBranch string) bool {
+	if inputBranch == payloadBranch {
+		return true
+	}
+	if inputBranch == "" && payloadBranch == "master" {
+		return true
+	}
+	return false
+}
 
 func (s *gitHookServer) findMatchingPipelineInputs(payload github.PushPayload) (inputs []*pps.GithubInput, err error) {
 	urls := []string{
@@ -57,7 +66,8 @@ func (s *gitHookServer) findMatchingPipelineInputs(payload github.PushPayload) (
 		if input.Github != nil {
 			for _, url := range urls {
 				fmt.Printf("compariny input url (%v) to push event (%v)\n", input.Github.URL, url)
-				if input.Github.URL == url && input.Github.Branch == payloadBranch {
+				fmt.Printf("pipeline branch (%v), payload branch (%v), match? (%v)\n", input.Github.Branch, payloadBranch, matchingBranch(input.Github.Branch, payloadBranch))
+				if input.Github.URL == url && matchingBranch(input.Github.Branch, payloadBranch) {
 					//			repoName = pps.RepoNameFromGithubInfo(input.Github.URL, input.Github.Name)
 					inputs = append(inputs, input.Github)
 				}
@@ -113,7 +123,11 @@ func (s *gitHookServer) HandlePush(payload interface{}, header webhooks.Header) 
 	for _, input := range githubInputs {
 		repoName := pps.RepoNameFromGithubInfo(input.URL, input.Name)
 		fmt.Printf("got repo: %v\n", repoName)
-		commit, err := s.client.StartCommit(repoName, input.Branch)
+		branchName := "master"
+		if input.Branch != "" {
+			branchName = input.Branch
+		}
+		commit, err := s.client.StartCommit(repoName, branchName)
 		if err != nil {
 			fmt.Printf("error starting commit on repo %v: %v\n", repoName, err)
 			return
