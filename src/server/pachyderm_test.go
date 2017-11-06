@@ -5295,6 +5295,72 @@ func TestService(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 }
 
+func TestPipelineWithGithubInputInvalidURLs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	outputFilename := "commitSHA"
+	pipeline := uniqueString("github_pipeline")
+	// Of the common git URL types (listed below), only the 'clone' url is supported RN
+	// (for several reasons, one of which is that we can't assume we have SSH / an ssh env setup on the user container)
+	//git_url: "git://github.com/sjezewski/testgithook.git",
+	//ssh_url: "git@github.com:sjezewski/testgithook.git",
+	//svn_url: "https://github.com/sjezewski/testgithook",
+	//clone_url: "https://github.com/sjezewski/testgithook.git",
+	require.YesError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
+		},
+		nil,
+		&pps.Input{
+			Github: &pps.GithubInput{
+				URL: "git://github.com/pachyderm/pachyderm.git",
+			},
+		},
+		"",
+		false,
+	))
+	require.YesError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
+		},
+		nil,
+		&pps.Input{
+			Github: &pps.GithubInput{
+				URL: "git@github.com:pachyderm/pachyderm.git",
+			},
+		},
+		"",
+		false,
+	))
+	require.YesError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
+		},
+		nil,
+		&pps.Input{
+			Github: &pps.GithubInput{
+				URL: "https://github.com:pachyderm/pachyderm",
+			},
+		},
+		"",
+		false,
+	))
+}
+
 func TestPipelineWithGithubInput(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
