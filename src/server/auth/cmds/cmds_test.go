@@ -6,7 +6,6 @@ package cmds
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"sync"
 	"testing"

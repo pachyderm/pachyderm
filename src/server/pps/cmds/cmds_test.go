@@ -26,22 +26,10 @@
 package cmds
 
 import (
-	"fmt"
-	"io/ioutil"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
 	"testing"
-	"time"
 
-	"golang.org/x/net/context"
-
-	"github.com/cenkalti/backoff"
-	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
-	"github.com/spf13/cobra"
 )
 
 const badJSON1 = `
