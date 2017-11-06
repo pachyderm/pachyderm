@@ -120,8 +120,14 @@ func (s *gitHookServer) HandlePush(payload interface{}, header webhooks.Header) 
 	if err != nil {
 		return
 	}
+	triggeredRepos := make(map[string]bool)
 	for _, input := range githubInputs {
 		repoName := pps.RepoNameFromGithubInfo(input.URL, input.Name)
+		if alreadyTriggered := triggeredRepos[repoName]; alreadyTriggered {
+			// This input is used on multiple pipelines, and we've already
+			// committed to this input repo
+			continue
+		}
 		fmt.Printf("got repo: %v\n", repoName)
 		branchName := "master"
 		if input.Branch != "" {
@@ -140,6 +146,7 @@ func (s *gitHookServer) HandlePush(payload interface{}, header webhooks.Header) 
 					// so that we emit the error in the right format for a log parser
 					fmt.Printf("Github Webhook failed to handle push with error: %v\n", err)
 				}
+				triggeredRepos[repoName] = true
 			}()
 			defer func() {
 				if err != nil {
