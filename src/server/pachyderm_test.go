@@ -5371,6 +5371,7 @@ func TestPipelineWithGithubInputAndBranch(t *testing.T) {
 	c := getPachClient(t)
 	defer require.NoError(t, c.DeleteAll())
 
+	branchName := "test_artifact_dont_delete"
 	outputFilename := "commitSHA"
 	pipeline := uniqueString("github_pipeline")
 	require.NoError(t, c.CreatePipeline(
@@ -5384,7 +5385,7 @@ func TestPipelineWithGithubInputAndBranch(t *testing.T) {
 		&pps.Input{
 			Github: &pps.GithubInput{
 				URL:    "https://github.com/pachyderm/pachyderm.git",
-				Branch: "test_artifact_dont_delete",
+				Branch: branchName,
 			},
 		},
 		"",
@@ -5422,7 +5423,7 @@ func TestPipelineWithGithubInputAndBranch(t *testing.T) {
 	branches, err = c.ListBranch("pachyderm")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(branches))
-	require.Equal(t, "master", branches[0].Name)
+	require.Equal(t, branchName, branches[0].Name)
 	commit := branches[0].Head
 
 	// Now wait for the pipeline complete as normal
