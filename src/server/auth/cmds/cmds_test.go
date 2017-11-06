@@ -45,7 +45,6 @@ func deactivateAuth(t *testing.T) {
 	defer activateMut.Unlock()
 
 	// Check if Pachyderm Auth is active -- if so, deactivate it
-	fmt.Println("logging in...")
 	if err := tu.Cmd("pachctl", "auth", "login", "-u", "admin").Run(); err == nil {
 		require.NoError(t, tu.BashCmd("yes | pachctl auth deactivate").Run())
 	}
@@ -66,7 +65,7 @@ func TestAuthBasic(t *testing.T) {
 		`,
 		"alice", tu.UniqueString("alice"),
 		"repo", tu.UniqueString("TestAuthBasic-repo"),
-	).Run(t))
+	).Run())
 }
 
 func TestWhoAmI(t *testing.T) {
