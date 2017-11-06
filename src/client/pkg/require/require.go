@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -209,5 +210,9 @@ func logMessage(tb testing.TB, msgAndArgs []interface{}) {
 func fatal(tb testing.TB, userMsgAndArgs []interface{}, msgFmt string, msgArgs ...interface{}) {
 	tb.Helper()
 	logMessage(tb, userMsgAndArgs)
+	_, file, line, ok := runtime.Caller(2)
+	if ok {
+		tb.Logf("%s:%d", file, line)
+	}
 	tb.Fatalf(msgFmt, msgArgs...)
 }
