@@ -4,6 +4,12 @@
 
 * Install [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli) >= 2.0.1
 * Install [jq](https://stedolan.github.io/jq/download/)
+* Install [pachctl](#install-pachctl)
+* Clone the Pachyderm GitHub repo:
+
+    ```
+    $ git clone https://github.com/pachyderm/pachyderm.git
+    ``` 
 
 ## Deploy Kubernetes
 
@@ -42,7 +48,7 @@ $ STORAGE_NAME=pach-disk.vhd
 $ STORAGE_SIZE=[the size of the data disk volume that you are going to create, in GBs. e.g. "10"]
 ```
 
-And then run:
+And then, from the root of the cloned Pachyderm git repo, run:
 
 ```sh
 # Create a resource group

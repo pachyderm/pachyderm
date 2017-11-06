@@ -18,6 +18,7 @@ In addition, we recommend setting up AWS CloudFront for production deployments. 
 - [AWS CLI](https://aws.amazon.com/cli/) - have it installed and have your [AWS credentials](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html) configured.
 - [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
 - [kops](https://github.com/kubernetes/kops/blob/master/docs/install.md)
+- [pachctl](#install-pachctl)
 
 ### Deploy Kubernetes
 
@@ -230,6 +231,7 @@ pachd               1.6.0
 - [AWS CLI](https://aws.amazon.com/cli/) - have it installed and have your [AWS credentials](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html) configured.
 - [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
 - [kops](https://github.com/kubernetes/kops/blob/master/docs/install.md)
+- [pachctl](#install-pachctl)
 - [jq](https://stedolan.github.io/jq/download/)
 - [uuid](http://man7.org/linux/man-pages/man1/uuidgen.1.html)
 
