@@ -53,6 +53,8 @@ const (
 
 	chunksPrefix = "/chunks"
 	lockPrefix   = "/locks"
+
+	maxRetries = 3
 )
 
 var (
@@ -1056,7 +1058,6 @@ func (a *APIServer) worker() {
 				return err
 			}
 			if err := a.acquireDatums(ctx, jobInfo.Job.ID, chunks, logger, func(low, high int64) (string, error) {
-				logger.Logf("processing %d-%d", low, high)
 				failedDatumID, err := a.processDatums(ctx, logger, jobInfo, df, low, high)
 				if err != nil {
 					return "", err
@@ -1094,7 +1095,6 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 				return err
 			}
 			atomic.AddInt64(&a.queueSize, 1)
-			ctx, cancel := context.WithCancel(ctx)
 			// Hash inputs
 			tag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, data)
 			tag15, err := HashDatum15(a.pipelineInfo, data)
@@ -1230,15 +1230,12 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 			if err != nil {
 				return err
 			}
-			// Create output directory (currently /pfs/out) and run user code
-			if err := os.MkdirAll(filepath.Join(dir, "out"), 0666); err != nil {
-				return err
-			}
-			// unset the status when this function exits
-			if failed, err := func() (_ bool, retErr error) {
+			atomic.AddInt64(&a.queueSize, -1)
+			var retries int
+			if err := backoff.RetryNotify(func() error {
 				a.runMu.Lock()
 				defer a.runMu.Unlock()
-				atomic.AddInt64(&a.queueSize, -1)
+				ctx, cancel := context.WithCancel(ctx)
 				func() {
 					a.statusMu.Lock()
 					defer a.statusMu.Unlock()
@@ -1249,18 +1246,27 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 					a.stats = stats
 				}()
 				if err := os.MkdirAll(client.PPSInputPrefix, 0666); err != nil {
-					return false, err
+					return err
+				}
+				if err := os.RemoveAll(filepath.Join(dir, "out")); err != nil {
+					return err
+				}
+				// Create output directory (currently /pfs/out) and run user code
+				if err := os.MkdirAll(filepath.Join(dir, "out"), 0666); err != nil {
+					return err
 				}
 				if err := syscall.Mount(dir, client.PPSInputPrefix, "", syscall.MS_BIND, ""); err != nil {
-					return false, err
+					return err
 				}
 				defer func() {
 					if err := syscall.Unmount(client.PPSInputPrefix, syscall.MNT_DETACH); err != nil && retErr == nil {
 						retErr = err
 					}
 				}()
-				err = a.runUserCode(ctx, logger, env, subStats)
-				if err != nil {
+				return a.runUserCode(ctx, logger, env, subStats)
+			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
+				retries++
+				if retries >= maxRetries {
 					logger.Logf("failed to process datum with error: %+v", err)
 					if statsTree != nil {
 						object, size, err := a.pachClient.PutObject(strings.NewReader(err.Error()))
@@ -1272,12 +1278,11 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 							}
 						}
 					}
-					return true, nil
+					return err
 				}
-				return false, nil
-			}(); err != nil {
-				return err
-			} else if failed {
+				logger.Logf("failed processing datum: %v, retrying in %v", err, d)
+				return nil
+			}); err != nil {
 				failedDatumID = a.DatumID(data)
 				return nil
 			}
