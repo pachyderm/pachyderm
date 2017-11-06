@@ -240,7 +240,7 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outpu
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			return nil, err
+			return nil, grpcutil.ScrubGRPC(err)
 		}
 		result = append(result, ji)
 	}
@@ -303,7 +303,7 @@ func (c APIClient) ListDatum(jobID string, pageSize int64, page int64) (*pps.Lis
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			return nil, err
+			return nil, grpcutil.ScrubGRPC(err)
 		}
 		if first {
 			resp.TotalPages = r.TotalPages
