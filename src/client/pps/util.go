@@ -1,6 +1,7 @@
 package pps
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -84,13 +85,35 @@ func RepoNameFromGithubInfo(url string, name string) string {
 	if name != "" {
 		return name
 	}
-	// Valid URLs strings:
-	//git_url: "git://github.com/sjezewski/testgithook.git",
-	//ssh_url: "git@github.com:sjezewski/testgithook.git",
-	//clone_url: "https://github.com/sjezewski/testgithook.git",
-	//svn_url: "https://github.com/sjezewski/testgithook",
+	// We know URL looks like:
+	// "https://github.com/sjezewski/testgithook.git",
 	tokens := strings.Split(url, "/")
 	last := tokens[len(tokens)-1]
 	tokens = strings.Split(last, ".")
 	return tokens[0]
+}
+
+func ValidateGithubCloneURL(url string) error {
+	// Of the following we only accept the 'clone' type of url
+	//     git_url: "git://github.com/sjezewski/testgithook.git",
+	//     ssh_url: "git@github.com:sjezewski/testgithook.git",
+	//     clone_url: "https://github.com/sjezewski/testgithook.git",
+	//     svn_url: "https://github.com/sjezewski/testgithook",
+	exampleURL := "https://github.com/org/foo.git"
+	if url == "" {
+		return fmt.Errorf("clone URL is missing (example clone URL %v)", exampleURL)
+	}
+
+	invalidErr := fmt.Errorf("clone URL is missing .git suffix (example clone URL %v)", exampleURL)
+
+	if !strings.HasSuffix(url, ".git") {
+		// svn_url case
+		return invalidErr
+	}
+	if !strings.HasPrefix(url, "https://") {
+		// git_url or ssh_url cases
+		return invalidErr
+	}
+
+	return nil
 }
