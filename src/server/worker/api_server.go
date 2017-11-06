@@ -1248,9 +1248,6 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 				if err := os.MkdirAll(client.PPSInputPrefix, 0666); err != nil {
 					return err
 				}
-				if err := os.RemoveAll(filepath.Join(dir, "out")); err != nil {
-					return err
-				}
 				// Create output directory (currently /pfs/out) and run user code
 				if err := os.MkdirAll(filepath.Join(dir, "out"), 0666); err != nil {
 					return err
