@@ -1339,6 +1339,10 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			}
 		}
 		if input.Github != nil {
+			if err := pps.ValidateGithubCloneURL(input.Github.URL); err != nil {
+				visitErr = err
+				return
+			}
 			if err := pachClient.CreateRepo(pps.RepoNameFromGithubInfo(input.Github.URL, input.Github.Name)); err != nil && !isAlreadyExistsErr(err) {
 				visitErr = err
 			}
