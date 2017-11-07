@@ -106,7 +106,7 @@ func (s *gitHookServer) HandlePush(payload interface{}, header webhooks.Header) 
 	}()
 
 	pl := payload.(github.PushPayload)
-	fmt.Printf("push payload: %v\n", pl)
+	logrus.Infof("received github push payload for repo (%v) on branch (%v)", pl.Repository.Name, getBranch(payload.Ref))
 
 	raw, err := json.Marshal(pl)
 	if err != nil {
