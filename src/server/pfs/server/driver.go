@@ -266,7 +266,7 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 
 		var fullProvRepos []*pfs.Repo
 		for prov := range fullProv {
-			fullProvRepos = append(fullProvRepos, &pfs.Repo{Name: prov})
+			fullProvRepos = append(fullProvRepos, &pfs.Repo{prov})
 			if err := repoRefCounts.Increment(prov); err != nil {
 				return err
 			}
@@ -351,7 +351,7 @@ func (d *driver) updateRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 						continue nextNewProv
 					}
 				}
-				repoInfo.Provenance = append(repoInfo.Provenance, &pfs.Repo{Name: newProv})
+				repoInfo.Provenance = append(repoInfo.Provenance, &pfs.Repo{newProv})
 			}
 		nextOldProv:
 			for oldProv := range provToRemove {
@@ -1023,7 +1023,13 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 				}
 
 				// We don't want to include the `from` commit itself
-				if !(seen[commit.ID] || (from != nil && from.ID == commit.ID)) {
+
+				// TODO we're check the branchName because right now WatchOne,
+				// like all collection watching commands returns prefixes which
+				// means we'll get back `master-v1` if we're looking for
+				// `master` once this is changed we should remove the
+				// comparison between branchName and branch.
+				if path.Base(branchName) == branch && (!(seen[commit.ID] || (from != nil && from.ID == commit.ID))) {
 					break
 				}
 			}
