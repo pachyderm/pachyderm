@@ -1,6 +1,6 @@
 # Creating Services
 
-Services are special kinds of pipelines, rather then processing data, they
+Services are special kinds of pipelines, rather than processing data, they
 serve it to the outside world. For example you might use a service to expose a
 Jupyter notebook that's always got the most up-to-date version of your data
 exposed to it. Creating a service is much like creating a pipeline, the only

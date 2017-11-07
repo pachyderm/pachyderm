@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -2670,12 +2671,12 @@ func TestParallelismSpec(t *testing.T) {
 	// Test 0-initialized JobSpec
 	parellelism, err = ppsserver.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{})
 	require.NoError(t, err)
-	require.Equal(t, numNodes, parellelism)
+	require.Equal(t, 1, parellelism)
 
 	// Test nil JobSpec
 	parellelism, err = ppsserver.GetExpectedNumWorkers(kubeclient, nil)
 	require.NoError(t, err)
-	require.Equal(t, numNodes, parellelism)
+	require.Equal(t, 1, parellelism)
 }
 
 func TestPipelineJobDeletion(t *testing.T) {
@@ -3241,10 +3242,12 @@ func TestSystemResourceRequests(t *testing.T) {
 		// Make sure the pod's container has resource requests
 		cpu, ok := c.Resources.Requests[api.ResourceCPU]
 		require.True(t, ok, "could not get CPU request for "+app)
+		fmt.Println(cpu.String())
 		require.True(t, cpu.String() == defaultLocalCPU[app] ||
 			cpu.String() == defaultCloudCPU[app])
 		mem, ok := c.Resources.Requests[api.ResourceMemory]
 		require.True(t, ok, "could not get memory request for "+app)
+		fmt.Println(mem.String())
 		require.True(t, mem.String() == defaultLocalMem[app] ||
 			mem.String() == defaultCloudMem[app])
 	}
@@ -4921,7 +4924,6 @@ func TestListJobOutput(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 	c := getPachClient(t)
 
 	dataRepo := uniqueString("TestListJobOutput_data")
@@ -5017,7 +5019,6 @@ func TestMaxQueueSize(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 	c := getPachClient(t)
 
 	dataRepo := uniqueString("TestMaxQueueSize_data")
@@ -5079,20 +5080,21 @@ func TestHTTPAuth(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 	c := getPachClient(t)
 
-	var host string
 	clientAddr := c.GetAddress()
-	tokens := strings.Split(clientAddr, ":")
-	require.Equal(t, 2, len(tokens))
-	host = tokens[0]
+	host, _, err := net.SplitHostPort(clientAddr)
+	port, ok := os.LookupEnv("PACHD_SERVICE_PORT_API_HTTP_PORT")
+	if !ok {
+		port = "30652" // default NodePort port for Pachd's HTTP API
+	}
+	httpAPIAddr := net.JoinHostPort(host, port)
 
 	// Try to login
 	token := "abbazabbadoo"
 	form := url.Values{}
 	form.Add("Token", token)
-	req, err := http.NewRequest("POST", fmt.Sprintf("http://%v:30652/v1/auth/login", host), strings.NewReader(form.Encode()))
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v1/auth/login", httpAPIAddr), strings.NewReader(form.Encode()))
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	require.NoError(t, err)
 	httpClient := &http.Client{}
@@ -5105,7 +5107,7 @@ func TestHTTPAuth(t *testing.T) {
 	require.Equal(t, token, resp.Cookies()[0].Value)
 
 	// Try to logout
-	req, err = http.NewRequest("POST", fmt.Sprintf("http://%v:30652/v1/auth/logout", host), nil)
+	req, err = http.NewRequest("POST", fmt.Sprintf("http://%s/v1/auth/logout", httpAPIAddr), nil)
 	require.NoError(t, err)
 	resp, err = httpClient.Do(req)
 	require.NoError(t, err)
@@ -5117,7 +5119,7 @@ func TestHTTPAuth(t *testing.T) {
 	require.Equal(t, "", resp.Cookies()[0].Value)
 
 	// Make sure we get 404s for non existent routes
-	req, err = http.NewRequest("POST", fmt.Sprintf("http://%v:30652/v1/auth/logoutzz", host), nil)
+	req, err = http.NewRequest("POST", fmt.Sprintf("http://%s/v1/auth/logoutzz", httpAPIAddr), nil)
 	require.NoError(t, err)
 	resp, err = httpClient.Do(req)
 	require.NoError(t, err)
@@ -5128,7 +5130,6 @@ func TestHTTPGetFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 	c := getPachClient(t)
 
 	dataRepo := uniqueString("TestHTTPGetFile_data")
@@ -5143,14 +5144,16 @@ func TestHTTPGetFile(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
-	var host string
 	clientAddr := c.GetAddress()
-	tokens := strings.Split(clientAddr, ":")
-	require.Equal(t, 2, len(tokens))
-	host = tokens[0]
+	host, _, err := net.SplitHostPort(clientAddr)
+	port, ok := os.LookupEnv("PACHD_SERVICE_PORT_API_HTTP_PORT")
+	if !ok {
+		port = "30652" // default NodePort port for Pachd's HTTP API
+	}
+	httpAPIAddr := net.JoinHostPort(host, port)
 
 	// Try to get raw contents
-	resp, err := http.Get(fmt.Sprintf("http://%v:30652/v1/pfs/repos/%v/commits/%v/files/file", host, dataRepo, commit1.ID))
+	resp, err := http.Get(fmt.Sprintf("http://%s/v1/pfs/repos/%v/commits/%v/files/file", httpAPIAddr, dataRepo, commit1.ID))
 	require.NoError(t, err)
 	defer resp.Body.Close()
 	contents, err := ioutil.ReadAll(resp.Body)
@@ -5160,7 +5163,7 @@ func TestHTTPGetFile(t *testing.T) {
 	require.Equal(t, "", contentDisposition)
 
 	// Try to get file for downloading
-	resp, err = http.Get(fmt.Sprintf("http://%v:30652/v1/pfs/repos/%v/commits/%v/files/file?download=true", host, dataRepo, commit1.ID))
+	resp, err = http.Get(fmt.Sprintf("http://%s/v1/pfs/repos/%v/commits/%v/files/file?download=true", httpAPIAddr, dataRepo, commit1.ID))
 	require.NoError(t, err)
 	defer resp.Body.Close()
 	contents, err = ioutil.ReadAll(resp.Body)
@@ -5170,7 +5173,7 @@ func TestHTTPGetFile(t *testing.T) {
 	require.Equal(t, "attachment; filename=\"file\"", contentDisposition)
 
 	// Make sure MIME type is set
-	resp, err = http.Get(fmt.Sprintf("http://%v:30652/v1/pfs/repos/%v/commits/%v/files/giphy.gif", host, dataRepo, commit1.ID))
+	resp, err = http.Get(fmt.Sprintf("http://%s/v1/pfs/repos/%v/commits/%v/files/giphy.gif", httpAPIAddr, dataRepo, commit1.ID))
 	require.NoError(t, err)
 	defer resp.Body.Close()
 	contentDisposition = resp.Header.Get("Content-Type")
@@ -5181,7 +5184,6 @@ func TestService(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 	c := getPachClient(t)
 
 	dataRepo := uniqueString("TestService_data")
@@ -5210,9 +5212,48 @@ func TestService(t *testing.T) {
 		8000,
 		31800,
 	))
+	time.Sleep(10 * time.Second)
+
+	// Lookup the address for 'pipelineservice' (different inside vs outside k8s)
+	serviceAddr := func() string {
+		// Hack: detect if running inside the cluster by looking for this env var
+		if _, ok := os.LookupEnv("KUBERNETES_PORT"); !ok {
+			// Outside cluster: Re-use external IP and external port defined above
+			clientAddr := c.GetAddress()
+			host, _, err := net.SplitHostPort(clientAddr)
+			require.NoError(t, err)
+			return net.JoinHostPort(host, "31800")
+		}
+		// Get k8s service corresponding to pachyderm service above--must access
+		// via internal cluster IP, but we don't know what that is
+		var address string
+		kubeClient := getKubeClient(t)
+		backoff.Retry(func() error {
+			svcs, err := kubeClient.Services("default").List(api.ListOptions{})
+			require.NoError(t, err)
+			for _, svc := range svcs.Items {
+				// Pachyderm actually generates two services for pipelineservice: one
+				// for pachyderm (a ClusterIP service) and one for the user container
+				// (a NodePort service, which is the one we want)
+				rightName := strings.Contains(svc.Name, "pipelineservice")
+				rightType := svc.Spec.Type == api.ServiceTypeNodePort
+				if !rightName || !rightType {
+					continue
+				}
+				host := svc.Spec.ClusterIP
+				port := fmt.Sprintf("%d", svc.Spec.Ports[0].Port)
+				address = net.JoinHostPort(host, port)
+				return nil
+			}
+			return fmt.Errorf("no matching k8s service found")
+		}, backoff.NewTestingBackOff())
+
+		require.NotEqual(t, "", address)
+		return address
+	}()
 
 	require.NoError(t, backoff.Retry(func() error {
-		resp, err := http.Get(fmt.Sprintf("http://localhost:31800/%s/file1", dataRepo))
+		resp, err := http.Get(fmt.Sprintf("http://%s/%s/file1", serviceAddr, dataRepo))
 		if err != nil {
 			return err
 		}
@@ -5235,7 +5276,7 @@ func TestService(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
 
 	require.NoError(t, backoff.Retry(func() error {
-		resp, err := http.Get(fmt.Sprintf("http://localhost:31800/%s/file2", dataRepo))
+		resp, err := http.Get(fmt.Sprintf("http://%s/%s/file2", serviceAddr, dataRepo))
 		if err != nil {
 			return err
 		}

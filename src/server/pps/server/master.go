@@ -88,7 +88,13 @@ func (a *apiServer) master() {
 						return err
 					}
 
-					if pipelineInfo.Salt == "" {
+					// This is a bit of a hack that covers for migrations bugs
+					// where a field is set by setPipelineDefaults in a newer
+					// version of the server but a PipelineInfo which was
+					// created with an older version of the server doesn't have
+					// that field set because setPipelineDefaults was different
+					// when it was created.
+					if pipelineInfo.Salt == "" || pipelineInfo.CacheSize == "" {
 						if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 							pipelines := a.pipelines.ReadWrite(stm)
 							newPipelineInfo := new(pps.PipelineInfo)
@@ -98,7 +104,9 @@ func (a *apiServer) master() {
 							if newPipelineInfo.Salt == "" {
 								newPipelineInfo.Salt = uuid.NewWithoutDashes()
 							}
+							setPipelineDefaults(newPipelineInfo)
 							pipelines.Put(pipelineInfo.Pipeline.Name, newPipelineInfo)
+							pipelineInfo = *newPipelineInfo
 							return nil
 						}); err != nil {
 							return err
@@ -161,7 +169,9 @@ func (a *apiServer) master() {
 				// "" we treat these as errors since otherwise we get an
 				// endless stream of them and can't do anything.
 				if event.Type == kube_watch.Error || event.Type == "" {
-					kubePipelineWatch.Stop()
+					if kubePipelineWatch != nil {
+						kubePipelineWatch.Stop()
+					}
 					kubePipelineWatch, err = a.kubeClient.Pods(a.namespace).Watch(api.ListOptions{
 						LabelSelector: labelspkg.SelectorFromSet(map[string]string{
 							"component": "worker",
@@ -170,6 +180,7 @@ func (a *apiServer) master() {
 					})
 					if err != nil {
 						log.Errorf("failed to watch kuburnetes pods: %v", err)
+						watchChan = nil
 					} else {
 						watchChan = kubePipelineWatch.ResultChan()
 						defer kubePipelineWatch.Stop()

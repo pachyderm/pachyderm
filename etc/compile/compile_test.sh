@@ -11,6 +11,7 @@ go test \
   ./src/server
 
 cp Dockerfile.test _tmp/Dockerfile
+cp etc/testing/artifacts/giphy.gif _tmp/
 docker build -t pachyderm_test _tmp
 docker tag pachyderm_test:latest pachyderm/test:latest
 docker tag pachyderm_test:latest pachyderm/test:local

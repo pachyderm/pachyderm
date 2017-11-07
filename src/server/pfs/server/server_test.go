@@ -1909,6 +1909,14 @@ func TestSubscribeCommit(t *testing.T) {
 
 	numCommits := 10
 
+	// create some commits that shouldn't affect the below SubscribeCommit call
+	// reproduces #2469
+	for i := 0; i < numCommits; i++ {
+		commit, err := client.StartCommit(repo, "master-v1")
+		require.NoError(t, err)
+		require.NoError(t, client.FinishCommit(repo, commit.ID))
+	}
+
 	var commits []*pfs.Commit
 	for i := 0; i < numCommits; i++ {
 		commit, err := client.StartCommit(repo, "master")

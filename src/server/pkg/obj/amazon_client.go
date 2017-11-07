@@ -6,7 +6,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
@@ -49,16 +48,15 @@ func newAmazonClient(bucket string, cloudfrontDistribution string, id string, se
 	var signer *sign.URLSigner
 	cloudfrontDistribution = strings.TrimSpace(cloudfrontDistribution)
 	if cloudfrontDistribution != "" {
-		rawCloudfrontPrivateKey, err := ioutil.ReadFile("/amazon-secret/cloudfrontPrivateKey")
+		rawCloudfrontPrivateKey, err := readSecretFile("/cloudfrontPrivateKey")
 		if err != nil {
 			return nil, err
 		}
-
-		cloudfrontKeyPairID, err := ioutil.ReadFile("/amazon-secret/cloudfrontKeyPairId")
+		cloudfrontKeyPairID, err := readSecretFile("/cloudfrontKeyPairId")
 		if err != nil {
 			return nil, err
 		}
-		block, _ := pem.Decode(bytes.TrimSpace(rawCloudfrontPrivateKey))
+		block, _ := pem.Decode(bytes.TrimSpace([]byte(rawCloudfrontPrivateKey)))
 		if block == nil || block.Type != "RSA PRIVATE KEY" {
 			return nil, fmt.Errorf("block undefined or wrong type: type is (%v) should be (RSA PRIVATE KEY)", block.Type)
 		}
@@ -66,7 +64,7 @@ func newAmazonClient(bucket string, cloudfrontDistribution string, id string, se
 		if err != nil {
 			return nil, err
 		}
-		signer = sign.NewURLSigner(string(cloudfrontKeyPairID), cloudfrontPrivateKey)
+		signer = sign.NewURLSigner(cloudfrontKeyPairID, cloudfrontPrivateKey)
 		log.Infof("Using cloudfront security credentials - keypair ID (%v) - to sign cloudfront URLs", string(cloudfrontKeyPairID))
 	}
 	return &amazonClient{
