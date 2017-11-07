@@ -36,7 +36,6 @@ import (
 	"github.com/gogo/protobuf/types"
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
-	"gopkg.in/src-d/go-git.v4"
 
 	"golang.org/x/sync/errgroup"
 
@@ -241,26 +240,6 @@ func (a *apiServer) validateInput(ctx context.Context, pipelineName string, inpu
 					return fmt.Errorf("multiple input types set")
 				}
 				set = true
-				o := &git.CloneOptions{
-					URL: input.Github.URL,
-				}
-				// Valid URLs strings:
-				//git_url: "git://github.com/sjezewski/testgithook.git",
-				//ssh_url: "git@github.com:sjezewski/testgithook.git",
-				//clone_url: "https://github.com/sjezewski/testgithook.git",
-				//svn_url: "https://github.com/sjezewski/testgithook",
-				if err := o.Validate(); err != nil {
-					return err
-				}
-				repoName := pps.RepoNameFromGithubInfo(input.Github.URL, input.Github.Name)
-				if _, err := pachClient.InspectRepo(repoName); err != nil {
-					if !strings.Contains(err.Error(), "not found") {
-						return err
-					}
-					if err = pachClient.CreateRepo(repoName); err != nil {
-						return err
-					}
-				}
 			}
 			if !set {
 				return fmt.Errorf("no input set")
