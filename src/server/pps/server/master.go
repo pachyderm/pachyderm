@@ -88,7 +88,13 @@ func (a *apiServer) master() {
 						return err
 					}
 
-					if pipelineInfo.Salt == "" {
+					// This is a bit of a hack that covers for migrations bugs
+					// where a field is set by setPipelineDefaults in a newer
+					// version of the server but a PipelineInfo which was
+					// created with an older version of the server doesn't have
+					// that field set because setPipelineDefaults was different
+					// when it was created.
+					if pipelineInfo.Salt == "" || pipelineInfo.CacheSize == "" {
 						if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 							pipelines := a.pipelines.ReadWrite(stm)
 							newPipelineInfo := new(pps.PipelineInfo)
@@ -98,7 +104,9 @@ func (a *apiServer) master() {
 							if newPipelineInfo.Salt == "" {
 								newPipelineInfo.Salt = uuid.NewWithoutDashes()
 							}
+							setPipelineDefaults(newPipelineInfo)
 							pipelines.Put(pipelineInfo.Pipeline.Name, newPipelineInfo)
+							pipelineInfo = *newPipelineInfo
 							return nil
 						}); err != nil {
 							return err
