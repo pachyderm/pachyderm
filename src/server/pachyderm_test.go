@@ -5484,8 +5484,8 @@ func TestPipelineWithGithubInputDuplicateNames(t *testing.T) {
 		"",
 		false,
 	))
-	// Test same URL despite different names
-	require.YesError(t, c.CreatePipeline(
+	// Test same URL but different names
+	require.NoError(t, c.CreatePipeline(
 		pipeline,
 		"",
 		[]string{"bash"},
