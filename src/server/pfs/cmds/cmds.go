@@ -67,11 +67,10 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 			if err != nil {
 				return err
 			}
-			r := client.NewRepo(args[0])
 			_, err = c.PfsAPIClient.CreateRepo(
 				c.Ctx(),
 				&pfsclient.CreateRepoRequest{
-					Repo:        r,
+					Repo:        client.NewRepo(args[0]),
 					Description: description,
 				},
 			)
@@ -1134,7 +1133,7 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string,
 			if overwrite {
 				return sync.PushFile(client, &pfsclient.File{
 					Commit: &pfsclient.Commit{
-						Repo: &pfsclient.Repo{Name: repo},
+						Repo: &pfsclient.Repo{repo},
 						ID:   commit,
 					},
 					Path: path,
