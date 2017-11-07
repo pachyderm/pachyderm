@@ -86,9 +86,9 @@ func LookupUser(name string) (_ *user.User, retErr error) {
 	return nil, fmt.Errorf("user %s not found", name)
 }
 
+// FailPipeline updates the pipeline's state to failed and sets the failure reason
 func FailPipeline(ctx context.Context, etcdClient *etcd.Client, pipelinesCollection col.Collection, pipelineName string, reason string) error {
 
-	// Set pipeline state to failure
 	_, err := col.NewSTM(ctx, etcdClient, func(stm col.STM) error {
 		pipelines := pipelinesCollection.ReadWrite(stm)
 		pipelineInfo := new(pps.PipelineInfo)

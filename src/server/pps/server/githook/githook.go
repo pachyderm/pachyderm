@@ -32,6 +32,7 @@ type gitHookServer struct {
 	pipelines  col.Collection
 }
 
+// RunGitHookServer starts the webhook server
 func RunGitHookServer(address string, etcdAddress string, etcdPrefix string) error {
 	c, err := client.NewFromAddress(address)
 	if err != nil {
