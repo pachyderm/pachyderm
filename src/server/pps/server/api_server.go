@@ -1249,7 +1249,7 @@ func (a *apiServer) authorizePipelineOp(ctx context.Context, operation pipelineO
 	case pipelineOpCreate:
 		_, err := pachClient.PfsAPIClient.InspectRepo(auth.In2Out(ctx),
 			&pfs.InspectRepoRequest{
-				Repo: &pfs.Repo{output},
+				Repo: &pfs.Repo{Name: output},
 			})
 		if err == nil {
 			return fmt.Errorf("cannot overwrite repo \"%s\" with new output repo", output)
