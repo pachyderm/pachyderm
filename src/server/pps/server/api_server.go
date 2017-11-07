@@ -155,6 +155,12 @@ func validateNames(names map[string]bool, input *pps.Input) error {
 				return err
 			}
 		}
+	case input.Github != nil:
+		repoName := pps.RepoNameFromGithubInfo(input.Github.URL, input.Github.Name)
+		if names[repoName] == true {
+			return fmt.Errorf("name %s was used more than once", repoName)
+		}
+		names[repoName] = true
 	}
 	return nil
 }
