@@ -9,7 +9,12 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
+	"github.com/pachyderm/pachyderm/src/server/pkg/util"
 
+	etcd "github.com/coreos/etcd/clientv3"
+	"golang.org/x/net/context"
 	"gopkg.in/go-playground/webhooks.v3"
 	"gopkg.in/go-playground/webhooks.v3/github"
 )
@@ -20,14 +25,23 @@ const apiVersion = "v1"
 
 // gitHookServer serves GetFile requests over HTTP
 type gitHookServer struct {
-	hook   *github.Webhook
-	client *client.APIClient
+	hook       *github.Webhook
+	client     *client.APIClient
+	etcdClient *etcd.Client
+	pipelines  col.Collection
 }
 
-func RunGitHookServer(address string) error {
+func RunGitHookServer(address string, etcdAddress string, etcdPrefix string) error {
 	fmt.Printf("new in cluster\n")
 	c, err := client.NewFromAddress(address)
 	fmt.Printf("new in cluster err %v\n", err)
+	if err != nil {
+		return err
+	}
+	etcdClient, err := etcd.New(etcd.Config{
+		Endpoints:   []string{etcdAddress},
+		DialOptions: client.EtcdDialOptions(),
+	})
 	if err != nil {
 		return err
 	}
@@ -36,6 +50,8 @@ func RunGitHookServer(address string) error {
 	s := &gitHookServer{
 		hook,
 		c,
+		etcdClient,
+		ppsdb.Pipelines(etcdClient, etcdPrefix),
 	}
 	hook.RegisterEvents(s.HandlePush, github.PushEvent)
 	fmt.Printf("running github webhook\n")
@@ -51,7 +67,7 @@ func matchingBranch(inputBranch string, payloadBranch string) bool {
 	return false
 }
 
-func (s *gitHookServer) findMatchingPipelineInputs(payload github.PushPayload) (inputs []*pps.GithubInput, err error) {
+func (s *gitHookServer) findMatchingPipelineInputs(payload github.PushPayload) (pipelines []*pps.PipelineInfo, inputs []*pps.GithubInput, err error) {
 	urls := []string{
 		payload.Repository.SSHURL,
 		payload.Repository.GitURL,
@@ -84,17 +100,17 @@ func (s *gitHookServer) findMatchingPipelineInputs(payload github.PushPayload) (
 			walkInput(input)
 		}
 	}
-	pipelines, err := s.client.ListPipeline()
+	pipelines, err = s.client.ListPipeline()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for _, pipelineInfo := range pipelines {
 		walkInput(pipelineInfo.Input)
 	}
 	if len(inputs) == 0 {
-		return nil, fmt.Errorf("no pipeline inputs corresponding to github URL (%v) on branch (%v) found, perhaps the github input is not set yet on a pipeline", urls[0], payloadBranch)
+		return nil, nil, fmt.Errorf("no pipeline inputs corresponding to github URL (%v) on branch (%v) found, perhaps the github input is not set yet on a pipeline", urls[0], payloadBranch)
 	}
-	return inputs, nil
+	return pipelines, inputs, nil
 }
 
 func (s *gitHookServer) HandlePush(payload interface{}, header webhooks.Header) {
@@ -116,8 +132,22 @@ func (s *gitHookServer) HandlePush(payload interface{}, header webhooks.Header) 
 		err = fmt.Errorf("error marshalling payload (%v): %v", pl, err)
 		return
 	}
-	githubInputs, err := s.findMatchingPipelineInputs(pl)
+	pipelines, githubInputs, err := s.findMatchingPipelineInputs(pl)
 	if err != nil {
+		return
+	}
+	if pl.Repository.Private {
+		var loopErr error
+		for _, pipelineInfo := range pipelines {
+			someErr := util.FailPipeline(context.Background(), s.etcdClient, s.pipelines, pipelineInfo.Pipeline.Name, fmt.Sprintf("unable to clone private github repo (%v)", pl.Repository.CloneURL))
+			// Err will be handled by final defer function, but first we want to
+			// try and fail all relevant pipelines
+			if someErr != nil {
+				// Only set loopErr if someErr isn't nil
+				loopErr = someErr
+			}
+		}
+		err = loopErr
 		return
 	}
 	triggeredRepos := make(map[string]bool)

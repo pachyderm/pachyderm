@@ -5361,6 +5361,65 @@ func TestPipelineWithGithubInputInvalidURLs(t *testing.T) {
 	))
 }
 
+func TestPipelineWithGithubInputPrivateGHRepo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	outputFilename := "commitSHA"
+	pipeline := uniqueString("github_pipeline")
+	repoName := "pachyderm-dummy"
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cat /pfs/%v/.git/HEAD > /pfs/out/%v", repoName, outputFilename),
+		},
+		nil,
+		&pps.Input{
+			Github: &pps.GithubInput{
+				URL: fmt.Sprintf("https://github.com/pachyderm/%v.git", repoName),
+			},
+		},
+		"",
+		false,
+	))
+	// There should be a pachyderm repo created w no commits:
+	repos, err := c.ListRepo(nil)
+	require.NoError(t, err)
+	found := false
+	for _, repo := range repos {
+		if repo.Repo.Name == repoName {
+			found = true
+		}
+	}
+	require.Equal(t, true, found)
+
+	commits, err := c.ListCommit(repoName, "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commits))
+
+	// To trigger the pipeline, we'll need to simulate the webhook by pushing a POST payload to the githook server
+	simulateGitPush(t, "../../etc/testing/artifacts/githook-payloads/private.json")
+	// Need to sleep since the webhook http handler is non blocking
+	time.Sleep(2 * time.Second)
+
+	// Now there should NOT be a new commit on the pachyderm repo
+	branches, err := c.ListBranch(repoName)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(branches))
+
+	// We should see that the pipeline has failed
+	pipelineInfo, err := c.InspectPipeline(pipeline)
+	require.NoError(t, err)
+	require.Equal(t, pps.PipelineState_PIPELINE_FAILURE, pipelineInfo.State)
+	require.Equal(t, fmt.Sprintf("unable to clone private github repo (https://github.com/pachyderm/%v.git)", repoName), pipelineInfo.Reason)
+}
+
 func TestPipelineWithGithubInput(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
