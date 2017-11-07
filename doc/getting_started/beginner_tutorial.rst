@@ -1,6 +1,6 @@
 Beginner Tutorial
 =================
-Welcome to the beginner tutorial for Pachyderm! If you've already got Pachyderm installed, this guide should take about 15 minut!s, and it will introduce you to the basic concepts of Pachyderm.
+Welcome to the beginner tutorial for Pachyderm! If you've already got Pachyderm installed, this guide should take about 15 minutes, and it will introduce you to the basic concepts of Pachyderm.
 
 Image processing with OpenCV
 ----------------------------

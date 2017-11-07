@@ -284,14 +284,14 @@ message InspectFileRequest {
   File file = 1;
 }
 
-enum ListFileMode {
-  ListFile_NORMAL = 0;
-  ListFile_FAST = 1;
-  ListFile_RECURSE = 2;
-}
-
 message ListFileRequest {
+  // File is the parent directory of the files we want to list. This fixes the
+  // repo, the commit/branch, and path prefix of files we're interested it
   File file = 1;
+
+  // Full indicates whether the result should include file contents, which may
+  // be large (i.e. the list of children for directories, and the list of object
+  // references for regular files)
   bool full = 2;
 }
 
@@ -372,8 +372,16 @@ service API {
   rpc InspectFile(InspectFileRequest) returns (FileInfo) {}
   // ListFile returns info about all files.
   rpc ListFile(ListFileRequest) returns (FileInfos) {}
+  // ListFileStream is a streaming version of ListFile
+  // TODO(msteffen): When the dash has been updated to use ListFileStream,
+  // replace ListFile with this RPC (https://github.com/pachyderm/dash/issues/201)
+  rpc ListFileStream(ListFileRequest) returns (stream FileInfo) {}
   // GlobFile returns info about all files.
   rpc GlobFile(GlobFileRequest) returns (FileInfos) {}
+  // GlobFileStream is a streaming version of GlobFile
+  // TODO(msteffen): When the dash has been updated to use GlobFileStream,
+  // replace GlobFile with this RPC (https://github.com/pachyderm/dash/issues/201)
+  rpc GlobFileStream(GlobFileRequest) returns (stream FileInfo) {}
   // DiffFile returns the differences between 2 paths at 2 commits.
   rpc DiffFile(DiffFileRequest) returns (DiffFileResponse) {}
   // DeleteFile deletes a file.

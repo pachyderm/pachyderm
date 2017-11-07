@@ -110,6 +110,7 @@ type apiServer struct {
 	storageBackend        string
 	storageHostPath       string
 	iamRole               string
+	imagePullSecret       string
 	reporter              *metrics.Reporter
 	// collections
 	pipelines col.Collection
@@ -634,12 +635,12 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		Commit: jobInfo.StatsCommit,
 		Path:   "/",
 	}
-	allFileInfos, err := pfsClient.ListFile(auth.In2Out(ctx), &pfs.ListFileRequest{file, true})
-	if err != nil {
-		return nil, err
-	}
 
 	var datumFileInfos []*pfs.FileInfo
+	fs, err := pfsClient.ListFileStream(auth.In2Out(ctx), &pfs.ListFileRequest{file, true})
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
 	// Omit files at the top level that correspond to aggregate job stats
 	blacklist := map[string]bool{
 		"stats": true,
@@ -653,12 +654,18 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		}
 		return datumHash, nil
 	}
-	for _, fileInfo := range allFileInfos.FileInfo {
-		if _, err := pathToDatumHash(fileInfo.File.Path); err != nil {
+	for {
+		f, err := fs.Recv()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, grpcutil.ScrubGRPC(err)
+		}
+		if _, err := pathToDatumHash(f.File.Path); err != nil {
 			// not a datum
 			continue
 		}
-		datumFileInfos = append(datumFileInfos, fileInfo)
+		datumFileInfos = append(datumFileInfos, f)
 	}
 	// Sort results (failed first)
 	sort.Sort(byDatumState(datumFileInfos))
@@ -1027,7 +1034,7 @@ func (a *apiServer) getLogsFromStats(ctx context.Context, request *pps.GetLogsRe
 	}
 	pfsClient := pachClient.PfsAPIClient
 
-	fileInfos, err := pfsClient.GlobFile(auth.In2Out(ctx), &pfs.GlobFileRequest{
+	fs, err := pfsClient.GlobFileStream(auth.In2Out(ctx), &pfs.GlobFileRequest{
 		Commit:  statsCommit,
 		Pattern: "*/logs", // this is the path where logs reside
 	})
@@ -1037,9 +1044,16 @@ func (a *apiServer) getLogsFromStats(ctx context.Context, request *pps.GetLogsRe
 
 	limiter := limit.New(20)
 	var eg errgroup.Group
-	for _, fileInfo := range fileInfos.FileInfo {
-		fileInfo := fileInfo
+	var mu sync.Mutex
+	for {
+		fileInfo, err := fs.Recv()
+		if err == io.EOF {
+			break
+		}
 		eg.Go(func() error {
+			if err != nil {
+				return err
+			}
 			limiter.Acquire()
 			defer limiter.Release()
 			var buf bytes.Buffer
@@ -1070,9 +1084,12 @@ func (a *apiServer) getLogsFromStats(ctx context.Context, request *pps.GetLogsRe
 					continue
 				}
 
+				mu.Lock()
 				if err := apiGetLogsServer.Send(msg); err != nil {
+					mu.Unlock()
 					return err
 				}
+				mu.Unlock()
 			}
 			return nil
 		})

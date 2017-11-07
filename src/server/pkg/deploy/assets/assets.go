@@ -3,6 +3,7 @@ package assets
 import (
 	"fmt"
 	"io"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -23,25 +24,31 @@ import (
 )
 
 var (
-	suite      = "pachyderm"
+	suite = "pachyderm"
+
 	pachdImage = "pachyderm/pachd"
 	// Using our own etcd image for now because there's a fix we need
 	// that hasn't been released, and which has been manually applied
 	// to the official v3.2.7 release.
-	etcdImage               = "pachyderm/etcd:v3.2.7"
+	etcdImage      = "pachyderm/etcd:v3.2.7"
+	grpcProxyImage = "pachyderm/grpc-proxy:0.4.2"
+	dashName       = "dash"
+	workerImage    = "pachyderm/worker"
+	pauseImage     = "gcr.io/google_containers/pause-amd64:3.0"
+	dashImage      = "pachyderm/dash"
+
 	serviceAccountName      = "pachyderm"
 	etcdHeadlessServiceName = "etcd-headless"
 	etcdName                = "etcd"
 	etcdVolumeName          = "etcd-volume"
 	etcdVolumeClaimName     = "etcd-storage"
 	etcdStorageClassName    = "etcd-storage-class"
-	dashName                = "dash"
-	dashImage               = "pachyderm/dash"
 	grpcProxyName           = "grpc-proxy"
-	grpcProxyImage          = "pachyderm/grpc-proxy:0.4.2"
 	pachdName               = "pachd"
-	trueVal                 = true
-	jsonEncoderHandle       = &codec.JsonHandle{
+
+	trueVal = true
+
+	jsonEncoderHandle = &codec.JsonHandle{
 		BasicHandle: codec.BasicHandle{
 			EncodeOptions: codec.EncodeOptions{Canonical: true},
 		},
@@ -72,6 +79,14 @@ type AssetOpts struct {
 	EnableDash  bool
 	DashOnly    bool
 	DashImage   string
+	Registry    string
+
+	// NoGuaranteed will not generate assets that have both resource limits and
+	// resource requests set which causes kubernetes to give the pods
+	// guaranteed QoS. Guaranteed QoS generally leads to more stable clusters
+	// but on smaller test clusters such as those run on minikube it doesn't
+	// help much and may cause more instability than it prevents.
+	NoGuaranteed bool
 
 	// DisableAuthentication stops Pachyderm's authentication service
 	// from talking to GitHub, for testing. Instead users can authenticate
@@ -102,6 +117,11 @@ type AssetOpts struct {
 	// IAMRole is the IAM role that the Pachyderm deployment should
 	// assume when talking to AWS services.
 	IAMRole string
+
+	// ImagePullSecret specifies an image pull secret that gets attached to the
+	// various deployments so that their images can be pulled from a private
+	// registry.
+	ImagePullSecret string
 }
 
 // fillDefaultResourceRequests sets any of:
@@ -186,15 +206,34 @@ func GetSecretVolumeAndMount(backend string) (api.Volume, api.VolumeMount) {
 		}
 }
 
+func versionedPachdImage(opts *AssetOpts) string {
+	if opts.Version != "" {
+		return fmt.Sprintf("%s:%s", pachdImage, opts.Version)
+	}
+	return pachdImage
+}
+
+func versionedWorkerImage(opts *AssetOpts) string {
+	if opts.Version != "" {
+		return fmt.Sprintf("%s:%s", workerImage, opts.Version)
+	}
+	return workerImage
+}
+
+func imagePullSecrets(opts *AssetOpts) []api.LocalObjectReference {
+	var result []api.LocalObjectReference
+	if opts.ImagePullSecret != "" {
+		result = append(result, api.LocalObjectReference{Name: opts.ImagePullSecret})
+	}
+	return result
+}
+
 // PachdDeployment returns a pachd k8s Deployment.
 func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath string) *extensions.Deployment {
 	mem := resource.MustParse(opts.BlockCacheSize)
 	mem.Add(resource.MustParse(opts.PachdNonCacheMemRequest))
 	cpu := resource.MustParse(opts.PachdCPURequest)
-	image := pachdImage
-	if opts.Version != "" {
-		image += ":" + opts.Version
-	}
+	image := AddRegistry(opts.Registry, versionedPachdImage(opts))
 	volumes := []api.Volume{
 		{
 			Name: "pach-disk",
@@ -229,6 +268,18 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 	volume, mount := GetSecretVolumeAndMount(backendEnvVar)
 	volumes = append(volumes, volume)
 	volumeMounts = append(volumeMounts, mount)
+	resourceRequirements := api.ResourceRequirements{
+		Requests: api.ResourceList{
+			api.ResourceCPU:    cpu,
+			api.ResourceMemory: mem,
+		},
+	}
+	if !opts.NoGuaranteed {
+		resourceRequirements.Limits = api.ResourceList{
+			api.ResourceCPU:    cpu,
+			api.ResourceMemory: mem,
+		}
+	}
 	return &extensions.Deployment{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Deployment",
@@ -284,11 +335,15 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 								},
 								{
 									Name:  "WORKER_IMAGE",
-									Value: fmt.Sprintf("pachyderm/worker:%s", opts.Version),
+									Value: AddRegistry(opts.Registry, versionedWorkerImage(opts)),
+								},
+								{
+									Name:  "IMAGE_PULL_SECRET",
+									Value: opts.ImagePullSecret,
 								},
 								{
 									Name:  "WORKER_SIDECAR_IMAGE",
-									Value: fmt.Sprintf("pachyderm/pachd:%s", opts.Version),
+									Value: image,
 								},
 								{
 									Name:  "WORKER_IMAGE_PULL_POLICY",
@@ -340,16 +395,12 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 								Privileged: &trueVal, // god is this dumb
 							},
 							ImagePullPolicy: "IfNotPresent",
-							Resources: api.ResourceRequirements{
-								Requests: api.ResourceList{
-									api.ResourceCPU:    cpu,
-									api.ResourceMemory: mem,
-								},
-							},
+							Resources:       resourceRequirements,
 						},
 					},
 					ServiceAccountName: serviceAccountName,
 					Volumes:            volumes,
+					ImagePullSecrets:   imagePullSecrets(opts),
 				},
 			},
 		},
@@ -421,6 +472,18 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *extensions.Deployment {
 			},
 		}
 	}
+	resourceRequirements := api.ResourceRequirements{
+		Requests: api.ResourceList{
+			api.ResourceCPU:    cpu,
+			api.ResourceMemory: mem,
+		},
+	}
+	if !opts.NoGuaranteed {
+		resourceRequirements.Limits = api.ResourceList{
+			api.ResourceCPU:    cpu,
+			api.ResourceMemory: mem,
+		}
+	}
 	return &extensions.Deployment{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Deployment",
@@ -444,7 +507,7 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *extensions.Deployment {
 					Containers: []api.Container{
 						{
 							Name:  etcdName,
-							Image: etcdImage,
+							Image: AddRegistry(opts.Registry, etcdImage),
 							//TODO figure out how to get a cluster of these to talk to each other
 							Command: []string{
 								"/usr/local/bin/etcd",
@@ -470,15 +533,11 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *extensions.Deployment {
 								},
 							},
 							ImagePullPolicy: "IfNotPresent",
-							Resources: api.ResourceRequirements{
-								Requests: api.ResourceList{
-									api.ResourceCPU:    cpu,
-									api.ResourceMemory: mem,
-								},
-							},
+							Resources:       resourceRequirements,
 						},
 					},
-					Volumes: volumes,
+					Volumes:          volumes,
+					ImagePullSecrets: imagePullSecrets(opts),
 				},
 			},
 		},
@@ -727,7 +786,10 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 			},
 		}
 	}
-
+	var imagePullSecrets []map[string]string
+	if opts.ImagePullSecret != "" {
+		imagePullSecrets = append(imagePullSecrets, map[string]string{"name": opts.ImagePullSecret})
+	}
 	// As of March 17, 2017, the Kubernetes client does not include structs for
 	// Stateful Set, so we generate the kubernetes manifest using raw json.
 	return map[string]interface{}{
@@ -755,7 +817,7 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 					"containers": []interface{}{
 						map[string]interface{}{
 							"name":    etcdName,
-							"image":   etcdImage,
+							"image":   AddRegistry(opts.Registry, etcdImage),
 							"command": []string{"/bin/sh", "-c"},
 							"args":    []string{strings.Join(etcdCmd, " ")},
 							// Use the downward API to pass the pod name to etcd. This sets
@@ -805,12 +867,13 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 				},
 			},
 			"volumeClaimTemplates": pvcTemplates,
+			"imagePullSecrets":     imagePullSecrets,
 		},
 	}
 }
 
 // DashDeployment creates a Deployment for the pachyderm dashboard.
-func DashDeployment(dashImage string) *extensions.Deployment {
+func DashDeployment(opts *AssetOpts) *extensions.Deployment {
 	return &extensions.Deployment{
 		TypeMeta: unversioned.TypeMeta{
 			Kind:       "Deployment",
@@ -833,7 +896,7 @@ func DashDeployment(dashImage string) *extensions.Deployment {
 					Containers: []api.Container{
 						{
 							Name:  dashName,
-							Image: dashImage,
+							Image: AddRegistry(opts.Registry, opts.DashImage),
 							Ports: []api.ContainerPort{
 								{
 									ContainerPort: 8080,
@@ -844,7 +907,7 @@ func DashDeployment(dashImage string) *extensions.Deployment {
 						},
 						{
 							Name:  grpcProxyName,
-							Image: grpcProxyImage,
+							Image: AddRegistry(opts.Registry, grpcProxyImage),
 							Ports: []api.ContainerPort{
 								{
 									ContainerPort: 8081,
@@ -854,6 +917,7 @@ func DashDeployment(dashImage string) *extensions.Deployment {
 							ImagePullPolicy: "IfNotPresent",
 						},
 					},
+					ImagePullSecrets: imagePullSecrets(opts),
 				},
 			},
 		},
@@ -976,7 +1040,7 @@ func WriteDashboardAssets(w io.Writer, opts *AssetOpts) {
 	encoder := codec.NewEncoder(w, jsonEncoderHandle)
 	DashService().CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
-	DashDeployment(opts.DashImage).CodecEncodeSelf(encoder)
+	DashDeployment(opts).CodecEncodeSelf(encoder)
 	fmt.Fprintf(w, "\n")
 }
 
@@ -1124,9 +1188,33 @@ func WriteMicrosoftAssets(w io.Writer, opts *AssetOpts, container string, id str
 	return nil
 }
 
+// Images returns a list of all the images that are used by a pachyderm deployment.
+func Images(opts *AssetOpts) []string {
+	return []string{
+		versionedWorkerImage(opts),
+		etcdImage,
+		grpcProxyImage,
+		pauseImage,
+		versionedPachdImage(opts),
+		opts.DashImage,
+	}
+}
+
 func labels(name string) map[string]string {
 	return map[string]string{
 		"app":   name,
 		"suite": suite,
 	}
+}
+
+// AddRegistry switchs the registry that an image is targetting.
+func AddRegistry(registry string, imageName string) string {
+	parts := strings.Split(imageName, "/")
+	if len(parts) == 3 {
+		parts = parts[1:]
+	}
+	if registry != "" {
+		return path.Join(registry, parts[0], parts[1])
+	}
+	return path.Join(parts[0], parts[1])
 }
