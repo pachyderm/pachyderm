@@ -5420,6 +5420,99 @@ func TestPipelineWithGithubInputPrivateGHRepo(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("unable to clone private github repo (https://github.com/pachyderm/%v.git)", repoName), pipelineInfo.Reason)
 }
 
+func TestPipelineWithGithubInputDuplicateNames(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	outputFilename := "commitSHA"
+	pipeline := uniqueString("github_pipeline")
+	//Test same name on one pipeline
+	require.YesError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
+		},
+		nil,
+		&pps.Input{
+			Cross: []*pps.Input{
+				&pps.Input{
+					Github: &pps.GithubInput{
+						URL:  "https://github.com/pachyderm/pachyderm.git",
+						Name: "foo",
+					},
+				},
+				&pps.Input{
+					Github: &pps.GithubInput{
+						URL:  "https://github.com/pachyderm/pachyderm.git",
+						Name: "foo",
+					},
+				},
+			},
+		},
+		"",
+		false,
+	))
+	//Test same URL on one pipeline
+	require.YesError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
+		},
+		nil,
+		&pps.Input{
+			Cross: []*pps.Input{
+				&pps.Input{
+					Github: &pps.GithubInput{
+						URL: "https://github.com/pachyderm/pachyderm.git",
+					},
+				},
+				&pps.Input{
+					Github: &pps.GithubInput{
+						URL: "https://github.com/pachyderm/pachyderm.git",
+					},
+				},
+			},
+		},
+		"",
+		false,
+	))
+	// Test same URL despite different names
+	require.YesError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
+		},
+		nil,
+		&pps.Input{
+			Cross: []*pps.Input{
+				&pps.Input{
+					Github: &pps.GithubInput{
+						URL:  "https://github.com/pachyderm/pachyderm.git",
+						Name: "foo",
+					},
+				},
+				&pps.Input{
+					Github: &pps.GithubInput{
+						URL: "https://github.com/pachyderm/pachyderm.git",
+					},
+				},
+			},
+		},
+		"",
+		false,
+	))
+}
+
 func TestPipelineWithGithubInput(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
