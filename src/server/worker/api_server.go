@@ -981,31 +981,33 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 			}
 
 			env := a.userCodeEnv(jobInfo.Job.ID, data)
-			// Download input data
-			puller := filesync.NewPuller()
-			// TODO parent tag shouldn't be nil
-			dir, err := a.downloadData(logger, data, puller, parentTag, subStats, statsTree, path.Join(statsPath, "pfs"))
-			// We run these cleanup functions no matter what, so that if
-			// downloadData partially succeeded, we still clean up the resources.
-			defer func() {
-				if err := os.RemoveAll(dir); err != nil && retErr == nil {
-					retErr = err
-				}
-			}()
-			// It's important that we run puller.CleanUp before os.RemoveAll,
-			// because otherwise puller.Cleanup might try tp open pipes that have
-			// been deleted.
-			defer func() {
-				if _, err := puller.CleanUp(); err != nil && retErr == nil {
-					retErr = err
-				}
-			}()
-			if err != nil {
-				return err
-			}
 			atomic.AddInt64(&a.queueSize, -1)
+			var dir string
 			var retries int
 			if err := backoff.RetryNotify(func() error {
+				// Download input data
+				puller := filesync.NewPuller()
+				// TODO parent tag shouldn't be nil
+				var err error
+				dir, err = a.downloadData(logger, data, puller, parentTag, subStats, statsTree, path.Join(statsPath, "pfs"))
+				// We run these cleanup functions no matter what, so that if
+				// downloadData partially succeeded, we still clean up the resources.
+				defer func() {
+					if err := os.RemoveAll(dir); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
+				// It's important that we run puller.CleanUp before os.RemoveAll,
+				// because otherwise puller.Cleanup might try tp open pipes that have
+				// been deleted.
+				defer func() {
+					if _, err := puller.CleanUp(); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
+				if err != nil {
+					return err
+				}
 				a.runMu.Lock()
 				defer a.runMu.Unlock()
 				ctx, cancel := context.WithCancel(ctx)
@@ -1033,7 +1035,16 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 						retErr = err
 					}
 				}()
-				return a.runUserCode(ctx, logger, env, subStats)
+				if err := a.runUserCode(ctx, logger, env, subStats); err != nil {
+					return err
+				}
+				downSize, err := puller.CleanUp()
+				if err != nil {
+					logger.Logf("puller encountered an error while cleaning up: %+v", err)
+					return err
+				}
+				atomic.AddUint64(&subStats.DownloadBytes, uint64(downSize))
+				return nil
 			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
 				retries++
 				if retries >= maxRetries {
@@ -1062,12 +1073,6 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 			// the output might be invalid since as far as the user's code is
 			// concerned, they might've just seen an empty or partially completed
 			// file.
-			downSize, err := puller.CleanUp()
-			if err != nil {
-				logger.Logf("puller encountered an error while cleaning up: %+v", err)
-				return err
-			}
-			atomic.AddUint64(&subStats.DownloadBytes, uint64(downSize))
 			if err := a.uploadOutput(ctx, dir, tag, logger, data, subStats, statsTree, path.Join(statsPath, "pfs", "out")); err != nil {
 				// If uploading failed because the user program outputed a special
 				// file, then there's no point in retrying.  Thus we signal that
