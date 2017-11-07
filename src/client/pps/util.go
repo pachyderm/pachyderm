@@ -61,19 +61,19 @@ func InputCommits(input *Input) []*pfs.Commit {
 	VisitInput(input, func(input *Input) {
 		if input.Atom != nil {
 			result = append(result, &pfs.Commit{
-				Repo: &pfs.Repo{Name: input.Atom.Repo},
+				Repo: &pfs.Repo{input.Atom.Repo},
 				ID:   input.Atom.Commit,
 			})
 		}
 		if input.Cron != nil {
 			result = append(result, &pfs.Commit{
-				Repo: &pfs.Repo{Name: input.Cron.Repo},
+				Repo: &pfs.Repo{input.Cron.Repo},
 				ID:   input.Cron.Commit,
 			})
 		}
 		if input.Github != nil {
 			result = append(result, &pfs.Commit{
-				Repo: &pfs.Repo{Name: RepoNameFromGithubInfo(input.Github.URL, input.Github.Name)},
+				Repo: &pfs.Repo{RepoNameFromGithubInfo(input.Github.URL, input.Github.Name)},
 				ID:   input.Github.Commit,
 			})
 		}
