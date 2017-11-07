@@ -92,9 +92,7 @@ func FailPipeline(ctx context.Context, etcdClient *etcd.Client, pipelinesCollect
 	_, err := col.NewSTM(ctx, etcdClient, func(stm col.STM) error {
 		pipelines := pipelinesCollection.ReadWrite(stm)
 		pipelineInfo := new(pps.PipelineInfo)
-		fmt.Printf("trying to get pipeline (%v) from etcd\n", pipelineName)
 		if err := pipelines.Get(pipelineName, pipelineInfo); err != nil {
-			fmt.Printf("error getting pipeline (%v) from etcd: %v\n", pipelineName, err)
 			return err
 		}
 		pipelineInfo.State = pps.PipelineState_PIPELINE_FAILURE
