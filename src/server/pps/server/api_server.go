@@ -1356,7 +1356,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 	var provenance []*pfs.Repo
 	for _, commit := range pps.InputCommits(pipelineInfo.Input) {
-		fmt.Printf("Adding commit (%v) to pipelines provenance\n", commit)
 		provenance = append(provenance, commit.Repo)
 	}
 
@@ -1543,7 +1542,6 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
 	pipelineInfo := new(pps.PipelineInfo)
-	fmt.Printf("trying to get pipeline by name (%v)\n", request.Pipeline.Name)
 	if err := a.pipelines.ReadOnly(ctx).Get(request.Pipeline.Name, pipelineInfo); err != nil {
 		return nil, err
 	}
