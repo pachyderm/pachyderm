@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/util"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"gopkg.in/go-playground/webhooks.v3"
 	"gopkg.in/go-playground/webhooks.v3/github"
@@ -32,9 +33,7 @@ type gitHookServer struct {
 }
 
 func RunGitHookServer(address string, etcdAddress string, etcdPrefix string) error {
-	fmt.Printf("new in cluster\n")
 	c, err := client.NewFromAddress(address)
-	fmt.Printf("new in cluster err %v\n", err)
 	if err != nil {
 		return err
 	}
@@ -45,7 +44,6 @@ func RunGitHookServer(address string, etcdAddress string, etcdPrefix string) err
 	if err != nil {
 		return err
 	}
-	fmt.Printf("new github hook\n")
 	hook := github.New(&github.Config{})
 	s := &gitHookServer{
 		hook,
@@ -54,7 +52,6 @@ func RunGitHookServer(address string, etcdAddress string, etcdPrefix string) err
 		ppsdb.Pipelines(etcdClient, etcdPrefix),
 	}
 	hook.RegisterEvents(s.HandlePush, github.PushEvent)
-	fmt.Printf("running github webhook\n")
 	return webhooks.Run(hook, ":"+strconv.Itoa(GitHookPort), fmt.Sprintf("/%v/handle/push", apiVersion))
 }
 func matchingBranch(inputBranch string, payloadBranch string) bool {
@@ -68,47 +65,33 @@ func matchingBranch(inputBranch string, payloadBranch string) bool {
 }
 
 func (s *gitHookServer) findMatchingPipelineInputs(payload github.PushPayload) (pipelines []*pps.PipelineInfo, inputs []*pps.GithubInput, err error) {
-	urls := []string{
-		payload.Repository.SSHURL,
-		payload.Repository.GitURL,
-		payload.Repository.CloneURL,
-		payload.Repository.SvnURL,
-	}
 	var walkInput func(*pps.Input)
 	payloadBranch := getBranch(payload.Ref)
-	// TODO use this instead:
-	//pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
-	walkInput = func(input *pps.Input) {
-		if input.Github != nil {
-			for _, url := range urls {
-				fmt.Printf("compariny input url (%v) to push event (%v)\n", input.Github.URL, url)
-				fmt.Printf("pipeline branch (%v), payload branch (%v), match? (%v)\n", input.Github.Branch, payloadBranch, matchingBranch(input.Github.Branch, payloadBranch))
-				if input.Github.URL == url && matchingBranch(input.Github.Branch, payloadBranch) {
-					//			repoName = pps.RepoNameFromGithubInfo(input.Github.URL, input.Github.Name)
-					inputs = append(inputs, input.Github)
-				}
-			}
-		}
-		var inputs []*pps.Input
-		if input.Cross != nil {
-			inputs = input.Cross
-		}
-		if input.Union != nil {
-			inputs = input.Union
-		}
-		for _, input := range inputs {
-			walkInput(input)
-		}
-	}
 	pipelines, err = s.client.ListPipeline()
 	if err != nil {
 		return nil, nil, err
 	}
 	for _, pipelineInfo := range pipelines {
-		walkInput(pipelineInfo.Input)
+		pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+			if input.Github != nil {
+				if input.Github.URL == payload.Repository.CloneURL && matchingBranch(input.Github.Branch, payloadBranch) {
+					inputs = append(inputs, input.Github)
+				}
+			}
+			var inputs []*pps.Input
+			if input.Cross != nil {
+				inputs = input.Cross
+			}
+			if input.Union != nil {
+				inputs = input.Union
+			}
+			for _, input := range inputs {
+				walkInput(input)
+			}
+		})
 	}
 	if len(inputs) == 0 {
-		return nil, nil, fmt.Errorf("no pipeline inputs corresponding to github URL (%v) on branch (%v) found, perhaps the github input is not set yet on a pipeline", urls[0], payloadBranch)
+		return nil, nil, fmt.Errorf("no pipeline inputs corresponding to github URL (%v) on branch (%v) found, perhaps the github input is not set yet on a pipeline", payload.Repository.CloneURL, payloadBranch)
 	}
 	return pipelines, inputs, nil
 }
@@ -116,11 +99,9 @@ func (s *gitHookServer) findMatchingPipelineInputs(payload github.PushPayload) (
 func (s *gitHookServer) HandlePush(payload interface{}, header webhooks.Header) {
 	var err error
 	defer func() {
-		// Handle any return error
+		// handle any return error
 		if err != nil {
-			//TODO: This should probably be a logger of some sort
-			// so that we emit the error in the right format for a log parser
-			fmt.Printf("Github Webhook failed to handle push with error: %v\n", err)
+			logrus.Errorf("github webhook failed to handle push with error: %v\n", err)
 		}
 	}()
 
@@ -158,26 +139,23 @@ func (s *gitHookServer) HandlePush(payload interface{}, header webhooks.Header) 
 			// committed to this input repo
 			continue
 		}
-		fmt.Printf("got repo: %v\n", repoName)
 		branchName := "master"
 		if input.Branch != "" {
 			branchName = input.Branch
 		}
-		commit, err := s.client.StartCommit(repoName, branchName)
-		if err != nil {
-			fmt.Printf("error starting commit on repo %v: %v\n", repoName, err)
-			return
-		}
 		func() {
+			var err error
 			defer func() {
 				// Handle any return error
 				if err != nil {
-					//TODO: This should probably be a logger of some sort
-					// so that we emit the error in the right format for a log parser
-					fmt.Printf("Github Webhook failed to handle push with error: %v\n", err)
+					logrus.Errorf("github webhook failed to handle push with error: %v\n", err)
 				}
 				triggeredRepos[repoName] = true
 			}()
+			commit, err := s.client.StartCommit(repoName, branchName)
+			if err != nil {
+				return
+			}
 			defer func() {
 				if err != nil {
 					err = s.client.DeleteCommit(repoName, commit.ID)
