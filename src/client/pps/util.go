@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+
+	"gopkg.in/src-d/go-git.v4"
 )
 
 // VisitInput visits each input recursively in ascending order (root last)
@@ -94,16 +96,25 @@ func RepoNameFromGithubInfo(url string, name string) string {
 }
 
 func ValidateGithubCloneURL(url string) error {
-	// Of the following we only accept the 'clone' type of url
-	//     git_url: "git://github.com/sjezewski/testgithook.git",
-	//     ssh_url: "git@github.com:sjezewski/testgithook.git",
-	//     clone_url: "https://github.com/sjezewski/testgithook.git",
-	//     svn_url: "https://github.com/sjezewski/testgithook",
 	exampleURL := "https://github.com/org/foo.git"
 	if url == "" {
 		return fmt.Errorf("clone URL is missing (example clone URL %v)", exampleURL)
 	}
+	// Use the git clients validator to make sure its a valid URL
+	o := &git.CloneOptions{
+		URL: url,
+	}
+	// Example Valid URL string:
+	if err := o.Validate(); err != nil {
+		return err
+	}
 
+	// Make sure its the type that we want. Of the following we
+	// only accept the 'clone' type of url:
+	//     git_url: "git://github.com/sjezewski/testgithook.git",
+	//     ssh_url: "git@github.com:sjezewski/testgithook.git",
+	//     clone_url: "https://github.com/sjezewski/testgithook.git",
+	//     svn_url: "https://github.com/sjezewski/testgithook",
 	invalidErr := fmt.Errorf("clone URL is missing .git suffix (example clone URL %v)", exampleURL)
 
 	if !strings.HasSuffix(url, ".git") {
