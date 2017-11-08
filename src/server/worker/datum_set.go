@@ -131,14 +131,14 @@ func (d *crossDatumFactory) Datum(i int) []*Input {
 	return result
 }
 
-type githubDatumFactory struct {
+type gitDatumFactory struct {
 	inputs []*Input
 	index  int
 }
 
-func newGithubDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.GithubInput) (DatumFactory, error) {
-	result := &githubDatumFactory{}
-	repoName := pps.RepoNameFromGithubInfo(input.URL, input.Name)
+func newGitDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.GitInput) (DatumFactory, error) {
+	result := &gitDatumFactory{}
+	repoName := pps.RepoNameFromGitInfo(input.URL, input.Name)
 	fileInfo, err := pfsClient.InspectFile(
 		auth.In2Out(ctx),
 		&pfs.InspectFileRequest{
@@ -159,20 +159,20 @@ func newGithubDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *
 	result.inputs = append(
 		result.inputs,
 		&Input{
-			FileInfo:  fileInfo,
-			Name:      repoName,
-			Branch:    input.Branch,
-			GithubURL: input.URL,
+			FileInfo: fileInfo,
+			Name:     repoName,
+			Branch:   input.Branch,
+			GitURL:   input.URL,
 		},
 	)
 	return result, nil
 }
 
-func (d *githubDatumFactory) Len() int {
+func (d *gitDatumFactory) Len() int {
 	return len(d.inputs)
 }
 
-func (d *githubDatumFactory) Datum(i int) []*Input {
+func (d *gitDatumFactory) Datum(i int) []*Input {
 	return []*Input{d.inputs[i]}
 }
 
@@ -209,8 +209,8 @@ func NewDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.In
 		return newCrossDatumFactory(ctx, pfsClient, input.Cross)
 	case input.Cron != nil:
 		return newCronDatumFactory(ctx, pfsClient, input.Cron)
-	case input.Github != nil:
-		return newGithubDatumFactory(ctx, pfsClient, input.Github)
+	case input.Git != nil:
+		return newGitDatumFactory(ctx, pfsClient, input.Git)
 	}
 	return nil, fmt.Errorf("unrecognized input type")
 }

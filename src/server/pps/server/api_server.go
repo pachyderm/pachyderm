@@ -154,8 +154,8 @@ func validateNames(names map[string]bool, input *pps.Input) error {
 				return err
 			}
 		}
-	case input.Github != nil:
-		repoName := pps.RepoNameFromGithubInfo(input.Github.URL, input.Github.Name)
+	case input.Git != nil:
+		repoName := pps.RepoNameFromGitInfo(input.Git.URL, input.Git.Name)
 		if names[repoName] == true {
 			return fmt.Errorf("name %s was used more than once", repoName)
 		}
@@ -235,7 +235,7 @@ func (a *apiServer) validateInput(ctx context.Context, pipelineName string, inpu
 					return err
 				}
 			}
-			if input.Github != nil {
+			if input.Git != nil {
 				if set {
 					return fmt.Errorf("multiple input types set")
 				}
@@ -1323,12 +1323,12 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				visitErr = err
 			}
 		}
-		if input.Github != nil {
-			if err := pps.ValidateGithubCloneURL(input.Github.URL); err != nil {
+		if input.Git != nil {
+			if err := pps.ValidateGitCloneURL(input.Git.URL); err != nil {
 				visitErr = err
 				return
 			}
-			if err := pachClient.CreateRepo(pps.RepoNameFromGithubInfo(input.Github.URL, input.Github.Name)); err != nil && !isAlreadyExistsErr(err) {
+			if err := pachClient.CreateRepo(pps.RepoNameFromGitInfo(input.Git.URL, input.Git.Name)); err != nil && !isAlreadyExistsErr(err) {
 				visitErr = err
 			}
 		}
@@ -1519,9 +1519,9 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 				input.Cron.Repo = fmt.Sprintf("%s_%s", pipelineInfo.Pipeline.Name, input.Cron.Name)
 			}
 		}
-		if input.Github != nil {
-			if input.Github.Branch == "" {
-				input.Github.Branch = "master"
+		if input.Git != nil {
+			if input.Git.Branch == "" {
+				input.Git.Branch = "master"
 			}
 		}
 	})

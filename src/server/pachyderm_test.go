@@ -5295,7 +5295,7 @@ func TestService(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 }
 
-func TestPipelineWithGithubInputInvalidURLs(t *testing.T) {
+func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -5320,7 +5320,7 @@ func TestPipelineWithGithubInputInvalidURLs(t *testing.T) {
 		},
 		nil,
 		&pps.Input{
-			Github: &pps.GithubInput{
+			Git: &pps.GitInput{
 				URL: "git://github.com/pachyderm/pachyderm.git",
 			},
 		},
@@ -5336,7 +5336,7 @@ func TestPipelineWithGithubInputInvalidURLs(t *testing.T) {
 		},
 		nil,
 		&pps.Input{
-			Github: &pps.GithubInput{
+			Git: &pps.GitInput{
 				URL: "git@github.com:pachyderm/pachyderm.git",
 			},
 		},
@@ -5352,7 +5352,7 @@ func TestPipelineWithGithubInputInvalidURLs(t *testing.T) {
 		},
 		nil,
 		&pps.Input{
-			Github: &pps.GithubInput{
+			Git: &pps.GitInput{
 				URL: "https://github.com:pachyderm/pachyderm",
 			},
 		},
@@ -5361,7 +5361,7 @@ func TestPipelineWithGithubInputInvalidURLs(t *testing.T) {
 	))
 }
 
-func TestPipelineWithGithubInputPrivateGHRepo(t *testing.T) {
+func TestPipelineWithGitInputPrivateGHRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -5381,7 +5381,7 @@ func TestPipelineWithGithubInputPrivateGHRepo(t *testing.T) {
 		},
 		nil,
 		&pps.Input{
-			Github: &pps.GithubInput{
+			Git: &pps.GitInput{
 				URL: fmt.Sprintf("https://github.com/pachyderm/%v.git", repoName),
 			},
 		},
@@ -5420,7 +5420,7 @@ func TestPipelineWithGithubInputPrivateGHRepo(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("unable to clone private github repo (https://github.com/pachyderm/%v.git)", repoName), pipelineInfo.Reason)
 }
 
-func TestPipelineWithGithubInputDuplicateNames(t *testing.T) {
+func TestPipelineWithGitInputDuplicateNames(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -5442,13 +5442,13 @@ func TestPipelineWithGithubInputDuplicateNames(t *testing.T) {
 		&pps.Input{
 			Cross: []*pps.Input{
 				&pps.Input{
-					Github: &pps.GithubInput{
+					Git: &pps.GitInput{
 						URL:  "https://github.com/pachyderm/pachyderm.git",
 						Name: "foo",
 					},
 				},
 				&pps.Input{
-					Github: &pps.GithubInput{
+					Git: &pps.GitInput{
 						URL:  "https://github.com/pachyderm/pachyderm.git",
 						Name: "foo",
 					},
@@ -5470,12 +5470,12 @@ func TestPipelineWithGithubInputDuplicateNames(t *testing.T) {
 		&pps.Input{
 			Cross: []*pps.Input{
 				&pps.Input{
-					Github: &pps.GithubInput{
+					Git: &pps.GitInput{
 						URL: "https://github.com/pachyderm/pachyderm.git",
 					},
 				},
 				&pps.Input{
-					Github: &pps.GithubInput{
+					Git: &pps.GitInput{
 						URL: "https://github.com/pachyderm/pachyderm.git",
 					},
 				},
@@ -5496,13 +5496,13 @@ func TestPipelineWithGithubInputDuplicateNames(t *testing.T) {
 		&pps.Input{
 			Cross: []*pps.Input{
 				&pps.Input{
-					Github: &pps.GithubInput{
+					Git: &pps.GitInput{
 						URL:  "https://github.com/pachyderm/pachyderm.git",
 						Name: "foo",
 					},
 				},
 				&pps.Input{
-					Github: &pps.GithubInput{
+					Git: &pps.GitInput{
 						URL: "https://github.com/pachyderm/pachyderm.git",
 					},
 				},
@@ -5513,7 +5513,7 @@ func TestPipelineWithGithubInputDuplicateNames(t *testing.T) {
 	))
 }
 
-func TestPipelineWithGithubInput(t *testing.T) {
+func TestPipelineWithGitInput(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -5532,7 +5532,7 @@ func TestPipelineWithGithubInput(t *testing.T) {
 		},
 		nil,
 		&pps.Input{
-			Github: &pps.GithubInput{
+			Git: &pps.GitInput{
 				URL: "https://github.com/pachyderm/pachyderm.git",
 			},
 		},
@@ -5581,7 +5581,7 @@ func TestPipelineWithGithubInput(t *testing.T) {
 	require.Equal(t, "c2ea2034f2df0914c837406dbd305726ea271015", strings.TrimSpace(buf.String()))
 }
 
-func TestPipelineWithGithubInputSequentialPushes(t *testing.T) {
+func TestPipelineWithGitInputSequentialPushes(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -5600,7 +5600,7 @@ func TestPipelineWithGithubInputSequentialPushes(t *testing.T) {
 		},
 		nil,
 		&pps.Input{
-			Github: &pps.GithubInput{
+			Git: &pps.GitInput{
 				URL: "https://github.com/pachyderm/pachyderm.git",
 			},
 		},
@@ -5672,7 +5672,7 @@ func TestPipelineWithGithubInputSequentialPushes(t *testing.T) {
 	require.Equal(t, "6c7da7691d949d2d7442e64911463cd4b88b2709", strings.TrimSpace(buf.String()))
 }
 
-func TestPipelineWithGithubInputCustomName(t *testing.T) {
+func TestPipelineWithGitInputCustomName(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -5692,7 +5692,7 @@ func TestPipelineWithGithubInputCustomName(t *testing.T) {
 		},
 		nil,
 		&pps.Input{
-			Github: &pps.GithubInput{
+			Git: &pps.GitInput{
 				URL:  "https://github.com/pachyderm/pachyderm.git",
 				Name: repoName,
 			},
@@ -5742,7 +5742,7 @@ func TestPipelineWithGithubInputCustomName(t *testing.T) {
 	require.Equal(t, "c2ea2034f2df0914c837406dbd305726ea271015", strings.TrimSpace(buf.String()))
 }
 
-func TestPipelineWithGithubInputMultiPipelineSeparateInputs(t *testing.T) {
+func TestPipelineWithGitInputMultiPipelineSeparateInputs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -5766,7 +5766,7 @@ func TestPipelineWithGithubInputMultiPipelineSeparateInputs(t *testing.T) {
 			},
 			nil,
 			&pps.Input{
-				Github: &pps.GithubInput{
+				Git: &pps.GitInput{
 					URL:  "https://github.com/pachyderm/pachyderm.git",
 					Name: repoName,
 				},
@@ -5819,7 +5819,7 @@ func TestPipelineWithGithubInputMultiPipelineSeparateInputs(t *testing.T) {
 	}
 }
 
-func TestPipelineWithGithubInputMultiPipelineSameInput(t *testing.T) {
+func TestPipelineWithGitInputMultiPipelineSameInput(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -5843,7 +5843,7 @@ func TestPipelineWithGithubInputMultiPipelineSameInput(t *testing.T) {
 			},
 			nil,
 			&pps.Input{
-				Github: &pps.GithubInput{
+				Git: &pps.GitInput{
 					URL: "https://github.com/pachyderm/pachyderm.git",
 				},
 			},
@@ -5894,7 +5894,7 @@ func TestPipelineWithGithubInputMultiPipelineSameInput(t *testing.T) {
 	}
 }
 
-func TestPipelineWithGithubInputAndBranch(t *testing.T) {
+func TestPipelineWithGitInputAndBranch(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -5914,7 +5914,7 @@ func TestPipelineWithGithubInputAndBranch(t *testing.T) {
 		},
 		nil,
 		&pps.Input{
-			Github: &pps.GithubInput{
+			Git: &pps.GitInput{
 				URL:    "https://github.com/pachyderm/pachyderm.git",
 				Branch: branchName,
 			},
@@ -6084,14 +6084,6 @@ func waitForReadiness(t testing.TB) {
 }
 
 func simulateGitPush(t *testing.T, pathToPayload string) {
-	//Headers:
-	//Accept	*/*
-	//Content-Length	7970
-	//Content-Type	application/json
-	//User-Agent	GitHub-Hookshot/c1d08eb
-	//X-Forwarded-For	192.30.252.45
-	//X-Github-Delivery	2984f5d0-c032-11e7-82d7-ed3ee54be25d
-	//X-Github-Event	push
 	payload, err := ioutil.ReadFile(pathToPayload)
 	require.NoError(t, err)
 	req, err := http.NewRequest(

@@ -189,8 +189,8 @@ func (a *APIServer) jobInput(bs *branchSet) (*pps.Input, error) {
 		if input.Cron != nil {
 			input.Cron.Commit = commitFromBranchSet(input.Cron.Repo)
 		}
-		if input.Github != nil {
-			input.Github.Commit = commitFromBranchSet(pps.RepoNameFromGithubInfo(input.Github.URL, input.Github.Name))
+		if input.Git != nil {
+			input.Git.Commit = commitFromBranchSet(pps.RepoNameFromGitInfo(input.Git.URL, input.Git.Name))
 		}
 	})
 	if visitErr != nil {
