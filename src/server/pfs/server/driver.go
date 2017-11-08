@@ -626,7 +626,6 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 			if err := branches.Put(branch, branchInfo); err != nil {
 				return err
 			}
-			fmt.Printf("%s -> %s\n", branch, commit.ID)
 		}
 		if parent.ID != "" {
 			parentCommitInfo, err := d.inspectCommit(ctx, parent)
@@ -1066,7 +1065,7 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 
 		for {
 			var branchName string
-			commit := new(pfs.Commit)
+			branchInfo := &pfs.BranchInfo{}
 			for {
 				var event *watch.Event
 				var ok bool
@@ -1082,7 +1081,9 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 				case watch.EventError:
 					return event.Err
 				case watch.EventPut:
-					event.Unmarshal(&branchName, commit)
+					if err := event.Unmarshal(&branchName, branchInfo); err != nil {
+						return fmt.Errorf("Unmarshal: %v", err)
+					}
 				case watch.EventDelete:
 					continue
 				}
@@ -1094,15 +1095,15 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 				// means we'll get back `master-v1` if we're looking for
 				// `master` once this is changed we should remove the
 				// comparison between branchName and branch.
-				if path.Base(branchName) == branch && (!(seen[commit.ID] || (from != nil && from.ID == commit.ID))) {
+				if path.Base(branchName) == branch && (!(seen[branchInfo.Head.ID] || (from != nil && from.ID == branchInfo.Head.ID))) {
 					break
 				}
 			}
 			// Now we watch the CommitInfo until the commit has been finished
-			commits := d.commits(commit.Repo.Name).ReadOnly(ctx)
+			commits := d.commits(branchInfo.Head.Repo.Name).ReadOnly(ctx)
 			// closure for defer
 			if err := func() error {
-				commitInfoWatcher, err := commits.WatchOne(commit.ID)
+				commitInfoWatcher, err := commits.WatchOne(branchInfo.Head.ID)
 				if err != nil {
 					return err
 				}
@@ -1115,7 +1116,9 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 					case watch.EventError:
 						return event.Err
 					case watch.EventPut:
-						event.Unmarshal(&commitID, commitInfo)
+						if err := event.Unmarshal(&commitID, commitInfo); err != nil {
+							return fmt.Errorf("Unmarshal: %v", err)
+						}
 					case watch.EventDelete:
 						// if this commit that we are waiting for is
 						// deleted, then we go back to watch the branch
