@@ -150,6 +150,27 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 	}, nil
 }
 
+func (a *apiServer) ListCommitStream(req *pfs.ListCommitRequest, respServer pfs.API_ListCommitStreamServer) (retErr error) {
+	func() { a.Log(req, nil, nil, 0) }()
+	sent := 0
+	defer func(start time.Time) {
+		a.Log(req, fmt.Sprintf("stream containing %d commits", sent), retErr, time.Since(start))
+	}(time.Now())
+	ctx := auth.In2Out(respServer.Context())
+
+	commitInfos, err := a.driver.listCommit(ctx, req.Repo, req.To, req.From, req.Number)
+	if err != nil {
+		return err
+	}
+	for _, ci := range commitInfos {
+		if err := respServer.Send(ci); err != nil {
+			return err
+		}
+		sent++
+	}
+	return nil
+}
+
 func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.BranchInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())

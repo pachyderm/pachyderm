@@ -23,7 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
 // ElementsEqual returns nil if the elements of the slice "expecteds" are
@@ -116,7 +116,7 @@ func TestAdminRWO(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	alice, bob := uniqueString("alice"), uniqueString("bob")
+	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 	adminClient := getPachClient(t, "admin")
 
@@ -126,7 +126,7 @@ func TestAdminRWO(t *testing.T) {
 	require.NoError(t, ElementsEqual([]string{"admin"}, resp.Admins))
 
 	// alice creates a repo (that only she owns) and puts a file
-	repo := uniqueString("TestAdminRWO")
+	repo := tu.UniqueString("TestAdminRWO")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.Equal(t, entries(alice, "owner"), GetACL(t, aliceClient, repo))
 	commit, err := aliceClient.StartCommit(repo, "master")
@@ -235,11 +235,11 @@ func TestAdminFixBrokenRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	alice := uniqueString("alice")
+	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, "admin")
 
 	// alice creates a repo (that only she owns) and puts a file
-	repo := uniqueString("TestAdmin")
+	repo := tu.UniqueString("TestAdmin")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.Equal(t, entries(alice, "owner"), GetACL(t, aliceClient, repo))
 
@@ -285,7 +285,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	alice := uniqueString("alice")
+	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, "admin")
 
 	// Check that the initial set of admins is just "admin"
@@ -355,7 +355,7 @@ func TestPreActivationPipelinesRunAsAdmin(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	alice := uniqueString("alice")
+	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, "admin")
 
 	// Deactivate auth
@@ -372,8 +372,8 @@ func TestPreActivationPipelinesRunAsAdmin(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// alice creates a pipeline
-	repo := uniqueString("TestPreActivationPipelinesRunAsAdmin")
-	pipeline := uniqueString("alice-pipeline")
+	repo := tu.UniqueString("TestPreActivationPipelinesRunAsAdmin")
+	pipeline := tu.UniqueString("alice-pipeline")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.NoError(t, aliceClient.CreatePipeline(
 		pipeline,
@@ -455,11 +455,11 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	alice := uniqueString("alice")
+	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, "admin")
 
 	// alice creates a repo
-	repo := uniqueString("TestExpirationRepoOnlyAccessibleToAdmins")
+	repo := tu.UniqueString("TestExpirationRepoOnlyAccessibleToAdmins")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 
 	// alice creates a commit
@@ -473,7 +473,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	// Make current enterprise token expire
 	adminClient.Enterprise.Activate(adminClient.Ctx(),
 		&enterprise.ActivateRequest{
-			ActivationCode: testutil.GetTestEnterpriseCode(),
+			ActivationCode: tu.GetTestEnterpriseCode(),
 			Expires:        TSProtoOrDie(t, time.Now().Add(-30*time.Second)),
 		})
 	// wait for Enterprise token to expire
@@ -551,7 +551,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	year := 365 * 24 * time.Hour
 	adminClient.Enterprise.Activate(adminClient.Ctx(),
 		&enterprise.ActivateRequest{
-			ActivationCode: testutil.GetTestEnterpriseCode(),
+			ActivationCode: tu.GetTestEnterpriseCode(),
 			// This will stop working some time in 2026
 			Expires: TSProtoOrDie(t, time.Now().Add(year)),
 		})
@@ -603,16 +603,16 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	alice := uniqueString("alice")
+	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, "admin")
 
 	// alice creates a repo
-	repo := uniqueString("TestPipelinesRunAfterExpiration")
+	repo := tu.UniqueString("TestPipelinesRunAfterExpiration")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.Equal(t, entries(alice, "owner"), GetACL(t, aliceClient, repo))
 
 	// alice creates a pipeline
-	pipeline := uniqueString("alice-pipeline")
+	pipeline := tu.UniqueString("alice-pipeline")
 	require.NoError(t, aliceClient.CreatePipeline(
 		pipeline,
 		"", // default image: ubuntu:14.04
@@ -629,7 +629,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	// Make sure alice's pipeline runs successfully
 	commit, err := aliceClient.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = aliceClient.PutFile(repo, commit.ID, uniqueString("/file1"),
+	_, err = aliceClient.PutFile(repo, commit.ID, tu.UniqueString("/file1"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.ID))
@@ -646,7 +646,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	// Make current enterprise token expire
 	adminClient.Enterprise.Activate(adminClient.Ctx(),
 		&enterprise.ActivateRequest{
-			ActivationCode: testutil.GetTestEnterpriseCode(),
+			ActivationCode: tu.GetTestEnterpriseCode(),
 			Expires:        TSProtoOrDie(t, time.Now().Add(-30*time.Second)),
 		})
 	// wait for Enterprise token to expire
@@ -665,7 +665,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	// Make sure alice's pipeline still runs successfully
 	commit, err = adminClient.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = adminClient.PutFile(repo, commit.ID, uniqueString("/file2"),
+	_, err = adminClient.PutFile(repo, commit.ID, tu.UniqueString("/file2"),
 		strings.NewReader("test data"))
 	require.NoError(t, err)
 	require.NoError(t, adminClient.FinishCommit(repo, commit.ID))
@@ -687,18 +687,18 @@ func TestGetSetScopeAndAclWithExpiredToken(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	alice := uniqueString("alice")
+	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, "admin")
 
 	// alice creates a repo
-	repo := uniqueString("TestGetSetScopeAndAclWithExpiredToken")
+	repo := tu.UniqueString("TestGetSetScopeAndAclWithExpiredToken")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.Equal(t, entries(alice, "owner"), GetACL(t, aliceClient, repo))
 
 	// Make current enterprise token expire
 	adminClient.Enterprise.Activate(adminClient.Ctx(),
 		&enterprise.ActivateRequest{
-			ActivationCode: testutil.GetTestEnterpriseCode(),
+			ActivationCode: tu.GetTestEnterpriseCode(),
 			Expires:        TSProtoOrDie(t, time.Now().Add(-30*time.Second)),
 		})
 	// wait for Enterprise token to expire
@@ -794,7 +794,7 @@ func TestAdminWhoAmI(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	alice := uniqueString("alice")
+	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, "admin")
 
 	// Make sure admin WhoAmI indicates that they're an admin, and non-admin
@@ -817,12 +817,12 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	alice, bob := uniqueString("alice"), uniqueString("bob")
+	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 	adminClient := getPachClient(t, "admin")
 
 	// alice creates a repo
-	repoWriter := uniqueString("TestListRepoAdminIsOwnerOfAllRepos")
+	repoWriter := tu.UniqueString("TestListRepoAdminIsOwnerOfAllRepos")
 	require.NoError(t, aliceClient.CreateRepo(repoWriter))
 
 	// bob calls ListRepo, but has NONE access to all repos
