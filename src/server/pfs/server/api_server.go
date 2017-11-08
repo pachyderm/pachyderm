@@ -13,6 +13,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
@@ -147,6 +148,27 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 	return &pfs.CommitInfos{
 		CommitInfo: commitInfos,
 	}, nil
+}
+
+func (a *apiServer) ListCommitStream(req *pfs.ListCommitRequest, respServer pfs.API_ListCommitStreamServer) (retErr error) {
+	func() { a.Log(req, nil, nil, 0) }()
+	sent := 0
+	defer func(start time.Time) {
+		a.Log(req, fmt.Sprintf("stream containing %d commits", sent), retErr, time.Since(start))
+	}(time.Now())
+	ctx := auth.In2Out(respServer.Context())
+
+	commitInfos, err := a.driver.listCommit(ctx, req.Repo, req.To, req.From, req.Number)
+	if err != nil {
+		return err
+	}
+	for _, ci := range commitInfos {
+		if err := respServer.Send(ci); err != nil {
+			return err
+		}
+		sent++
+	}
+	return nil
 }
 
 func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.BranchInfos, retErr error) {
@@ -460,13 +482,32 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 		}
 	}(time.Now())
 
-	fileInfos, err := a.driver.listFile(ctx, request.File, request.Full)
+	fileInfos, err := a.driver.listFile(auth.In2Out(ctx), request.File, request.Full)
 	if err != nil {
 		return nil, err
 	}
 	return &pfs.FileInfos{
 		FileInfo: fileInfos,
 	}, nil
+}
+
+func (a *apiServer) ListFileStream(request *pfs.ListFileRequest, respServer pfs.API_ListFileStreamServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	var sent int
+	defer func(start time.Time) {
+		a.Log(request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
+	}(time.Now())
+	fileInfos, err := a.driver.listFile(auth.In2Out(respServer.Context()), request.File, request.Full)
+	if err != nil {
+		return err
+	}
+	for i := 0; i < len(fileInfos); i++ {
+		if err := respServer.Send(fileInfos[i]); err != nil {
+			return err
+		}
+		sent++
+	}
+	return nil
 }
 
 func (a *apiServer) GlobFile(ctx context.Context, request *pfs.GlobFileRequest) (response *pfs.FileInfos, retErr error) {
@@ -480,13 +521,32 @@ func (a *apiServer) GlobFile(ctx context.Context, request *pfs.GlobFileRequest) 
 		}
 	}(time.Now())
 
-	fileInfos, err := a.driver.globFile(ctx, request.Commit, request.Pattern)
+	fileInfos, err := a.driver.globFile(auth.In2Out(ctx), request.Commit, request.Pattern)
 	if err != nil {
 		return nil, err
 	}
 	return &pfs.FileInfos{
 		FileInfo: fileInfos,
 	}, nil
+}
+
+func (a *apiServer) GlobFileStream(request *pfs.GlobFileRequest, respServer pfs.API_GlobFileStreamServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	var sent int
+	defer func(start time.Time) {
+		a.Log(request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
+	}(time.Now())
+	fileInfos, err := a.driver.globFile(auth.In2Out(respServer.Context()), request.Commit, request.Pattern)
+	if err != nil {
+		return err
+	}
+	for i := 0; i < len(fileInfos); i++ {
+		if err := respServer.Send(fileInfos[i]); err != nil {
+			return err
+		}
+		sent++
+	}
+	return nil
 }
 
 func (a *apiServer) DiffFile(ctx context.Context, request *pfs.DiffFileRequest) (response *pfs.DiffFileResponse, retErr error) {

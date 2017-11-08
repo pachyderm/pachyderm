@@ -228,14 +228,22 @@ func (c APIClient) ListCommit(repoName string, to string, from string, number ui
 	if to != "" {
 		req.To = NewCommit(repoName, to)
 	}
-	commitInfos, err := c.PfsAPIClient.ListCommit(
-		c.Ctx(),
-		req,
-	)
+	stream, err := c.PfsAPIClient.ListCommitStream(c.Ctx(), req)
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	return commitInfos.CommitInfo, nil
+	var result []*pfs.CommitInfo
+	for {
+		ci, err := stream.Recv()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, grpcutil.ScrubGRPC(err)
+		}
+		result = append(result, ci)
+
+	}
+	return result, nil
 }
 
 // ListCommitByRepo lists all commits in a repo.
@@ -710,7 +718,7 @@ func (c APIClient) inspectFile(repoName string, commitID string, path string) (*
 
 // ListFile returns info about all files in a Commit.
 func (c APIClient) ListFile(repoName string, commitID string, path string) ([]*pfs.FileInfo, error) {
-	fileInfos, err := c.PfsAPIClient.ListFile(
+	fs, err := c.PfsAPIClient.ListFileStream(
 		c.Ctx(),
 		&pfs.ListFileRequest{
 			File: NewFile(repoName, commitID, path),
@@ -719,14 +727,24 @@ func (c APIClient) ListFile(repoName string, commitID string, path string) ([]*p
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	return fileInfos.FileInfo, nil
+	var result []*pfs.FileInfo
+	for {
+		f, err := fs.Recv()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, grpcutil.ScrubGRPC(err)
+		}
+		result = append(result, f)
+	}
+	return result, nil
 }
 
 // GlobFile returns files that match a given glob pattern in a given commit.
 // The pattern is documented here:
 // https://golang.org/pkg/path/filepath/#Match
 func (c APIClient) GlobFile(repoName string, commitID string, pattern string) ([]*pfs.FileInfo, error) {
-	fileInfos, err := c.PfsAPIClient.GlobFile(
+	fs, err := c.PfsAPIClient.GlobFileStream(
 		c.Ctx(),
 		&pfs.GlobFileRequest{
 			Commit:  NewCommit(repoName, commitID),
@@ -736,7 +754,17 @@ func (c APIClient) GlobFile(repoName string, commitID string, pattern string) ([
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	return fileInfos.FileInfo, nil
+	var result []*pfs.FileInfo
+	for {
+		f, err := fs.Recv()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, grpcutil.ScrubGRPC(err)
+		}
+		result = append(result, f)
+	}
+	return result, nil
 }
 
 // DiffFile returns the difference between 2 paths, old path may be omitted in

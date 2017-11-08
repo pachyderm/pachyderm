@@ -101,6 +101,7 @@ func (a *APIServer) master() {
 
 		logger.Logf("Launching worker master process")
 
+		paused := false
 		// Set pipeline state to running
 		if _, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			pipelineName := a.pipelineInfo.Pipeline.Name
@@ -109,10 +110,17 @@ func (a *APIServer) master() {
 			if err := pipelines.Get(pipelineName, pipelineInfo); err != nil {
 				return err
 			}
+			if pipelineInfo.State == pps.PipelineState_PIPELINE_PAUSED {
+				paused = true
+				return nil
+			}
 			pipelineInfo.State = pps.PipelineState_PIPELINE_RUNNING
 			return pipelines.Put(pipelineName, pipelineInfo)
 		}); err != nil {
 			return err
+		}
+		if paused {
+			return fmt.Errorf("can't run master for a paused pipeline")
 		}
 		return a.jobSpawner(ctx, logger)
 	}, b, func(err error, d time.Duration) error {
@@ -136,6 +144,7 @@ func (a *APIServer) serviceMaster() {
 
 		logger.Logf("Launching master process")
 
+		paused := false
 		// Set pipeline state to running
 		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			pipelineName := a.pipelineInfo.Pipeline.Name
@@ -144,10 +153,17 @@ func (a *APIServer) serviceMaster() {
 			if err := pipelines.Get(pipelineName, pipelineInfo); err != nil {
 				return err
 			}
+			if pipelineInfo.State == pps.PipelineState_PIPELINE_PAUSED {
+				paused = true
+				return nil
+			}
 			pipelineInfo.State = pps.PipelineState_PIPELINE_RUNNING
 			return pipelines.Put(pipelineName, pipelineInfo)
 		}); err != nil {
 			return err
+		}
+		if paused {
+			return fmt.Errorf("can't run master for a paused pipeline")
 		}
 		return a.serviceSpawner(ctx)
 	}, b, func(err error, d time.Duration) error {

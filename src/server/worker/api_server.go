@@ -378,7 +378,7 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 	if parentTag != nil {
 		var buffer bytes.Buffer
 		if err := a.pachClient.GetTag(parentTag.Name, &buffer); err != nil {
-			logger.Logf("error getting parent for datum %v: %v", inputs, err)
+			return "", fmt.Errorf("error getting parent for datum %v: %v", inputs, err)
 		}
 		tree, err := hashtree.Deserialize(buffer.Bytes())
 		if err != nil {
