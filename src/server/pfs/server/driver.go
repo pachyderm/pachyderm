@@ -266,7 +266,7 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 
 		var fullProvRepos []*pfs.Repo
 		for prov := range fullProv {
-			fullProvRepos = append(fullProvRepos, &pfs.Repo{Name: prov})
+			fullProvRepos = append(fullProvRepos, &pfs.Repo{prov})
 			if err := repoRefCounts.Increment(prov); err != nil {
 				return err
 			}
@@ -351,7 +351,7 @@ func (d *driver) updateRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 						continue nextNewProv
 					}
 				}
-				repoInfo.Provenance = append(repoInfo.Provenance, &pfs.Repo{Name: newProv})
+				repoInfo.Provenance = append(repoInfo.Provenance, &pfs.Repo{newProv})
 			}
 		nextOldProv:
 			for oldProv := range provToRemove {
