@@ -1519,6 +1519,11 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 				input.Cron.Repo = fmt.Sprintf("%s_%s", pipelineInfo.Pipeline.Name, input.Cron.Name)
 			}
 		}
+		if input.Github != nil {
+			if input.Github.Branch == "" {
+				input.Github.Branch = "master"
+			}
+		}
 	})
 	if pipelineInfo.OutputBranch == "" {
 		// Output branches default to master
