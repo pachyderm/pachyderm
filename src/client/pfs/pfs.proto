@@ -330,8 +330,11 @@ service API {
   rpc FinishCommit(FinishCommitRequest) returns (google.protobuf.Empty) {}
   // InspectCommit returns the info about a commit.
   rpc InspectCommit(InspectCommitRequest) returns (CommitInfo) {}
-  // ListCommit returns info about all commits.
+  // ListCommit returns info about all commits. This is deprecated in favor of
+  // ListCommitStream.
   rpc ListCommit(ListCommitRequest) returns (CommitInfos) {}
+  // ListCommitStream is like ListCommit, but returns its results in a GRPC stream
+  rpc ListCommitStream(ListCommitRequest) returns (stream CommitInfo) {}
   // DeleteCommit deletes a commit.
   rpc DeleteCommit(DeleteCommitRequest) returns (google.protobuf.Empty) {}
   // FlushCommit waits for downstream commits to finish
@@ -357,13 +360,15 @@ service API {
   rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
   // InspectFile returns info about a file.
   rpc InspectFile(InspectFileRequest) returns (FileInfo) {}
-  // ListFile returns info about all files.
+  // ListFile returns info about all files. This is deprecated in favor of
+  // ListFileStream
   rpc ListFile(ListFileRequest) returns (FileInfos) {}
   // ListFileStream is a streaming version of ListFile
   // TODO(msteffen): When the dash has been updated to use ListFileStream,
   // replace ListFile with this RPC (https://github.com/pachyderm/dash/issues/201)
   rpc ListFileStream(ListFileRequest) returns (stream FileInfo) {}
-  // GlobFile returns info about all files.
+  // GlobFile returns info about all files. This is deprecated in favor of
+  // GlobFileStream
   rpc GlobFile(GlobFileRequest) returns (FileInfos) {}
   // GlobFileStream is a streaming version of GlobFile
   // TODO(msteffen): When the dash has been updated to use GlobFileStream,

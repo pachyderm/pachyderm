@@ -3,9 +3,9 @@ package server
 import (
 	"bufio"
 	"bytes"
+	goerr "errors"
 	"fmt"
 	"io"
-	"math"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -454,24 +454,17 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	return jobInfo, nil
 }
 
-func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (response *pps.JobInfos, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) {
-		if response != nil && len(response.JobInfo) > client.MaxListItemsLog {
-			logrus.Infof("Response contains %d objects; logging the first %d", len(response.JobInfo), client.MaxListItemsLog)
-			a.Log(request, &pps.JobInfos{response.JobInfo[:client.MaxListItemsLog]}, retErr, time.Since(start))
-		} else {
-			a.Log(request, response, retErr, time.Since(start))
-		}
-	}(time.Now())
-
+// listJob is the internal implementation of ListJob shared between ListJob and
+// ListJobStream. When ListJob is removed, this should be inlined into
+// ListJobStream.
+func (a *apiServer) listJob(ctx context.Context, pipeline *pps.Pipeline, outputCommit *pfs.Commit) ([]*pps.JobInfo, error) {
 	jobs := a.jobs.ReadOnly(ctx)
 	var iter col.Iterator
 	var err error
-	if request.Pipeline != nil {
-		iter, err = jobs.GetByIndex(ppsdb.JobsPipelineIndex, request.Pipeline)
-	} else if request.OutputCommit != nil {
-		iter, err = jobs.GetByIndex(ppsdb.JobsOutputIndex, request.OutputCommit)
+	if pipeline != nil {
+		iter, err = jobs.GetByIndex(ppsdb.JobsPipelineIndex, pipeline)
+	} else if outputCommit != nil {
+		iter, err = jobs.GetByIndex(ppsdb.JobsOutputIndex, outputCommit)
 	} else {
 		iter, err = jobs.List()
 	}
@@ -492,8 +485,44 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 		}
 		jobInfos = append(jobInfos, &jobInfo)
 	}
+	return jobInfos, nil
+}
 
+func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (response *pps.JobInfos, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) {
+		if response != nil && len(response.JobInfo) > client.MaxListItemsLog {
+			logrus.Infof("Response contains %d objects; logging the first %d", len(response.JobInfo), client.MaxListItemsLog)
+			a.Log(request, &pps.JobInfos{response.JobInfo[:client.MaxListItemsLog]}, retErr, time.Since(start))
+		} else {
+			a.Log(request, response, retErr, time.Since(start))
+		}
+	}(time.Now())
+	jobInfos, err := a.listJob(ctx, request.Pipeline, request.OutputCommit)
+	if err != nil {
+		return nil, err
+	}
 	return &pps.JobInfos{jobInfos}, nil
+}
+
+func (a *apiServer) ListJobStream(request *pps.ListJobRequest, resp pps.API_ListJobStreamServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	sent := 0
+	defer func(start time.Time) {
+		a.Log(request, fmt.Sprintf("stream containing %d JobInfos", sent), retErr, time.Since(start))
+	}(time.Now())
+	ctx := auth.In2Out(resp.Context())
+	jobInfos, err := a.listJob(ctx, request.Pipeline, request.OutputCommit)
+	if err != nil {
+		return err
+	}
+	for _, ji := range jobInfos {
+		if err := resp.Send(ji); err != nil {
+			return err
+		}
+		sent++
+	}
+	return nil
 }
 
 func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest) (response *types.Empty, retErr error) {
@@ -544,30 +573,23 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest) (response *pps.ListDatumResponse, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) {
-		if response != nil && len(response.DatumInfos) > client.MaxListItemsLog {
-			logrus.Infof("Response contains %d objects; logging the first %d", len(response.DatumInfos), client.MaxListItemsLog)
-			logResponse := &pps.ListDatumResponse{
-				TotalPages: response.TotalPages,
-				Page:       response.Page,
-				DatumInfos: response.DatumInfos[:client.MaxListItemsLog],
-			}
-			a.Log(request, logResponse, retErr, time.Since(start))
-		} else {
-			a.Log(request, response, retErr, time.Since(start))
-		}
-	}(time.Now())
+// listDatum contains our internal implementation of ListDatum, which is shared
+// between ListDatum and ListDatumStream. When ListDatum is removed, this should
+// be inlined into ListDatumStream
+func (a *apiServer) listDatum(ctx context.Context, job *pps.Job, page, pageSize int64) (response *pps.ListDatumResponse, retErr error) {
 	response = &pps.ListDatumResponse{}
+
+	// get information about 'job'
 	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
 		Job: &pps.Job{
-			ID: request.Job.ID,
+			ID: job.ID,
 		},
 	})
 	if err != nil {
 		return nil, err
 	}
+
+	// authorize ListDatum (must have READER access to all inputs)
 	if err := a.authorizePipelineOp(ctx,
 		pipelineOpListDatum,
 		jobInfo.Input,
@@ -575,44 +597,52 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	); err != nil {
 		return nil, err
 	}
+
+	// get clients
 	pachClient, err := a.getPachClient()
 	if err != nil {
 		return nil, err
 	}
 	pfsClient := pachClient.PfsAPIClient
+
+	// helper functions for pagination
 	getTotalPages := func(totalSize int) int64 {
-		return int64(math.Ceil(float64(totalSize) / float64(request.PageSize)))
+		return (int64(totalSize) + pageSize - 1) / pageSize // == ceil(totalSize/pageSize)
 	}
 	getPageBounds := func(totalSize int) (int, int, error) {
-		start := int(request.Page * request.PageSize)
-		if start > totalSize-1 {
+		start := int(page * pageSize)
+		end := int((page + 1) * pageSize)
+		switch {
+		case totalSize <= start:
 			return 0, 0, io.EOF
+		case totalSize <= end:
+			return start, totalSize, nil
+		case end < totalSize:
+			return start, end, nil
 		}
-		end := start + int(request.PageSize)
-		if totalSize < end {
-			end = totalSize
-		}
-		return start, end, nil
+		return 0, 0, goerr.New("getPageBounds: unreachable code")
 	}
+
 	df, err := workerpkg.NewDatumFactory(ctx, pfsClient, jobInfo.Input)
 	if err != nil {
 		return nil, err
 	}
+	// If there's no stats commit (job not finished), compute datums using jobInfo
 	if jobInfo.StatsCommit == nil {
 		start := 0
 		end := df.Len()
-		if request.PageSize > 0 {
+		if pageSize > 0 {
 			var err error
 			start, end, err = getPageBounds(df.Len())
 			if err != nil {
 				return nil, err
 			}
-			response.Page = request.Page
+			response.Page = page
 			response.TotalPages = getTotalPages(df.Len())
 		}
 		var datumInfos []*pps.DatumInfo
 		for i := start; i < end; i++ {
-			datum := df.Datum(i)
+			datum := df.Datum(i) // flattened slice of *worker.Input to job
 			id := workerpkg.HashDatum(jobInfo.Pipeline.Name, jobInfo.Salt, datum)
 			datumInfo := &pps.DatumInfo{
 				Datum: &pps.Datum{
@@ -630,7 +660,8 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 		return response, nil
 	}
 
-	// List the files under / to get all the datums
+	// There is a stats commit -- job is finished
+	// List the files under / in the stats branch to get all the datums
 	file := &pfs.File{
 		Commit: jobInfo.StatsCommit,
 		Path:   "/",
@@ -669,8 +700,8 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	}
 	// Sort results (failed first)
 	sort.Sort(byDatumState(datumFileInfos))
-	if request.PageSize > 0 {
-		response.Page = request.Page
+	if pageSize > 0 {
+		response.Page = page
 		response.TotalPages = getTotalPages(len(datumFileInfos))
 		start, end, err := getPageBounds(len(datumFileInfos))
 		if err != nil {
@@ -693,7 +724,7 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 				// not a datum
 				return nil
 			}
-			datum, err := a.getDatum(ctx, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, request.Job.ID, datumHash, df)
+			datum, err := a.getDatum(ctx, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, job.ID, datumHash, df)
 			if err != nil {
 				return err
 			}
@@ -701,13 +732,57 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 			return nil
 		})
 	}
-	err = egGetDatums.Wait()
-	if err != nil {
+	if err = egGetDatums.Wait(); err != nil {
 		return nil, err
 	}
-
 	response.DatumInfos = datumInfos
 	return response, nil
+}
+
+func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest) (response *pps.ListDatumResponse, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) {
+		if response != nil && len(response.DatumInfos) > client.MaxListItemsLog {
+			logrus.Infof("Response contains %d objects; logging the first %d", len(response.DatumInfos), client.MaxListItemsLog)
+			logResponse := &pps.ListDatumResponse{
+				TotalPages: response.TotalPages,
+				Page:       response.Page,
+				DatumInfos: response.DatumInfos[:client.MaxListItemsLog],
+			}
+			a.Log(request, logResponse, retErr, time.Since(start))
+		} else {
+			a.Log(request, response, retErr, time.Since(start))
+		}
+	}(time.Now())
+	return a.listDatum(ctx, request.Job, request.Page, request.PageSize)
+}
+
+func (a *apiServer) ListDatumStream(req *pps.ListDatumRequest, resp pps.API_ListDatumStreamServer) (retErr error) {
+	func() { a.Log(req, nil, nil, 0) }()
+	sent := 0
+	defer func(start time.Time) {
+		a.Log(req, fmt.Sprintf("stream containing %d DatumInfos", sent), retErr, time.Since(start))
+	}(time.Now())
+	ctx := auth.In2Out(resp.Context())
+	ldr, err := a.listDatum(ctx, req.Job, req.Page, req.PageSize)
+	if err != nil {
+		return err
+	}
+	first := true
+	for _, di := range ldr.DatumInfos {
+		r := &pps.ListDatumStreamResponse{}
+		if first {
+			r.Page = ldr.Page
+			r.TotalPages = ldr.TotalPages
+			first = false
+		}
+		r.DatumInfo = di
+		if err := resp.Send(r); err != nil {
+			return err
+		}
+		sent++
+	}
+	return nil
 }
 
 type byDatumState []*pfs.FileInfo
@@ -1807,14 +1882,19 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 	var eg errgroup.Group
 	for _, repo := range repoInfos.RepoInfo {
 		repo := repo
-		commitInfos, err := pfsClient.ListCommit(ctx, &pfs.ListCommitRequest{
+		client, err := pfsClient.ListCommitStream(ctx, &pfs.ListCommitRequest{
 			Repo: repo.Repo,
 		})
 		if err != nil {
 			return nil, err
 		}
-		for _, commit := range commitInfos.CommitInfo {
-			commit := commit
+		for {
+			commit, err := client.Recv()
+			if err == io.EOF {
+				break
+			} else if err != nil {
+				return nil, grpcutil.ScrubGRPC(err)
+			}
 			limiter.Acquire()
 			eg.Go(func() error {
 				defer limiter.Release()
