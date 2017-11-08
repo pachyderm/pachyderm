@@ -1038,12 +1038,21 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 				if err := a.runUserCode(ctx, logger, env, subStats); err != nil {
 					return err
 				}
+				// CleanUp is idempotent so we can call it however many times we want.
+				// The reason we are calling it here is that the puller could've
+				// encountered an error as it was lazily loading files, in which case
+				// the output might be invalid since as far as the user's code is
+				// concerned, they might've just seen an empty or partially completed
+				// file.
 				downSize, err := puller.CleanUp()
 				if err != nil {
 					logger.Logf("puller encountered an error while cleaning up: %+v", err)
 					return err
 				}
 				atomic.AddUint64(&subStats.DownloadBytes, uint64(downSize))
+				if err := a.uploadOutput(ctx, dir, tag, logger, data, subStats, statsTree, path.Join(statsPath, "pfs", "out")); err != nil {
+					return err
+				}
 				return nil
 			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
 				retries++
@@ -1066,23 +1075,6 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 			}); err != nil {
 				failedDatumID = a.DatumID(data)
 				return nil
-			}
-			// CleanUp is idempotent so we can call it however many times we want.
-			// The reason we are calling it here is that the puller could've
-			// encountered an error as it was lazily loading files, in which case
-			// the output might be invalid since as far as the user's code is
-			// concerned, they might've just seen an empty or partially completed
-			// file.
-			if err := a.uploadOutput(ctx, dir, tag, logger, data, subStats, statsTree, path.Join(statsPath, "pfs", "out")); err != nil {
-				// If uploading failed because the user program outputed a special
-				// file, then there's no point in retrying.  Thus we signal that
-				// there's some problem with the user code so the job doesn't
-				// infinitely retry to process this datum.
-				if err == errSpecialFile {
-					failedDatumID = a.DatumID(data)
-					return nil
-				}
-				return err
 			}
 			statsMu.Lock()
 			defer statsMu.Unlock()
