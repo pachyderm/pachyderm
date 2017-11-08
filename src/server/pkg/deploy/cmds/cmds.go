@@ -478,26 +478,24 @@ Are you sure you want to proceed? yN
 				Stdout: os.Stdout,
 				Stderr: os.Stderr,
 			}
-			if err := cmdutil.RunIO(io, "kubectl", "delete", "job", "-l", "suite=pachyderm"); err != nil {
-				return err
-			}
-			if err := cmdutil.RunIO(io, "kubectl", "delete", "all", "-l", "suite=pachyderm"); err != nil {
-				return err
-			}
-			if err := cmdutil.RunIO(io, "kubectl", "delete", "sa", "-l", "suite=pachyderm"); err != nil {
-				return err
-			}
-			if err := cmdutil.RunIO(io, "kubectl", "delete", "secret", "-l", "suite=pachyderm"); err != nil {
-				return err
+			assets := []string{
+				"job",
+				"service",
+				"replicationcontroller",
+				"deployment",
+				"serviceaccount",
+				"secret",
+				"statefulset",
 			}
 			if all {
-				if err := cmdutil.RunIO(io, "kubectl", "delete", "storageclass", "-l", "suite=pachyderm"); err != nil {
-					return err
-				}
-				if err := cmdutil.RunIO(io, "kubectl", "delete", "pvc", "-l", "suite=pachyderm"); err != nil {
-					return err
-				}
-				if err := cmdutil.RunIO(io, "kubectl", "delete", "pv", "-l", "suite=pachyderm"); err != nil {
+				assets = append(assets, []string{
+					"storageclass",
+					"persistentvolumeclaim",
+					"persistentvolume",
+				}...)
+			}
+			for _, asset := range assets {
+				if err := cmdutil.RunIO(io, "kubectl", "delete", asset, "-l", "suite=pachyderm"); err != nil {
 					return err
 				}
 			}

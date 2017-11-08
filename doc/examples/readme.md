@@ -18,6 +18,12 @@ This example pipeline executes a query periodically against a MongoDB database o
 
 [Periodic Ingress from MongoDB](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/cron)
 
+## Variant Calling and Joint Genotyping with GATK
+
+This example illustrates the use of GATK in Pachyderm for Germline variant calling and joint genotyping. Each stage of this GATK best practice pipeline can be scaled individually and is automatically triggered as data flows into the top of the pipeline. The example follows [this tutorial](https://drive.google.com/open?id=0BzI1CyccGsZiQ1BONUxfaGhZRGc) from GATK, which includes more details about the various stages.
+
+[GATK - Variant Calling](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/gatk)
+
 ## Machine Learning
 
 ### Iris flower classification with R, Python, or Julia

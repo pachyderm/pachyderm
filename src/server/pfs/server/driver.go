@@ -55,18 +55,6 @@ func ValidateRepoName(name string) error {
 	return nil
 }
 
-// ListFileMode specifies how ListFile executes.
-type ListFileMode int
-
-const (
-	// ListFileNORMAL computes sizes for files but not for directories
-	ListFileNORMAL ListFileMode = iota
-	// ListFileFAST does not compute sizes for files or directories
-	ListFileFAST
-	// ListFileRECURSE computes sizes for files and directories
-	ListFileRECURSE
-)
-
 // IsPermissionError returns true if a given error is a permission error.
 func IsPermissionError(err error) bool {
 	return strings.Contains(err.Error(), "has already finished")
@@ -1035,7 +1023,13 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 				}
 
 				// We don't want to include the `from` commit itself
-				if !(seen[commit.ID] || (from != nil && from.ID == commit.ID)) {
+
+				// TODO we're check the branchName because right now WatchOne,
+				// like all collection watching commands returns prefixes which
+				// means we'll get back `master-v1` if we're looking for
+				// `master` once this is changed we should remove the
+				// comparison between branchName and branch.
+				if path.Base(branchName) == branch && (!(seen[commit.ID] || (from != nil && from.ID == commit.ID))) {
 					break
 				}
 			}

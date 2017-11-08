@@ -1,4 +1,4 @@
-# Combining or Merging Data
+# Combining/Merging/Joining Data
 
 There are a variety of use cases in which you would want to match datums from multiple data repositories to do some combined processing, joining, or aggregation.  For example, you may need to process multiple records corresponding to a certain user, a certain experiment, or a certain device together.  In these scenarios, we recommend a 2-stage method of merging your data:
 

@@ -256,7 +256,7 @@ launch: install check-kubectl
 
 launch-dev: check-kubectl check-kubectl-connection install
 	$(eval STARTTIME := $(shell date +%s))
-	pachctl deploy local -d --dry-run | kubectl $(KUBECTLFLAGS) create -f -
+	pachctl deploy local --no-guaranteed -d --dry-run | kubectl $(KUBECTLFLAGS) create -f -
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"	
@@ -339,11 +339,13 @@ enterprise-code-checkin-test:
 test-pfs:
 	@# don't run this in verbose mode, as it produces a huge amount of logs
 	go test ./src/server/pfs/server -timeout $(TIMEOUT)
+	go test ./src/server/pfs/cmds -timeout $(TIMEOUT)
 	go test ./src/server/pkg/collection -timeout $(TIMEOUT)
 	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
 
 test-pps:
 	go test -v ./src/server -parallel 1 -timeout $(TIMEOUT)
+	go test ./src/server/pps/cmds -timeout $(TIMEOUT)
 
 test-client:
 	rm -rf src/client/vendor

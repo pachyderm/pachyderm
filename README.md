@@ -44,7 +44,7 @@ If you'd like to see some examples and learn about core use cases for Pachyderm:
 
 ## Community
 Keep up to date and get Pachyderm support via:
-- [Twitter](http://twitter.com/pachydermio)
+- [![Twitter](https://img.shields.io/twitter/url/https/twitter.com/pachydermio.svg?style=social&label=Follow%20%40pachydermio)](http://twitter.com/pachydermio) Follow us on Twitter.
 - [![Slack Status](http://slack.pachyderm.io/badge.svg)](http://slack.pachyderm.io) Join our community [Slack Channel](http://slack.pachyderm.io) to get help from the Pachyderm team and other users.
 
 ### Contributing
