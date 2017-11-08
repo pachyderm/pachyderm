@@ -73,18 +73,18 @@ func InputCommits(input *Input) []*pfs.Commit {
 				ID:   input.Cron.Commit,
 			})
 		}
-		if input.Github != nil {
+		if input.Git != nil {
 			result = append(result, &pfs.Commit{
-				Repo: &pfs.Repo{RepoNameFromGithubInfo(input.Github.URL, input.Github.Name)},
-				ID:   input.Github.Commit,
+				Repo: &pfs.Repo{RepoNameFromGitInfo(input.Git.URL, input.Git.Name)},
+				ID:   input.Git.Commit,
 			})
 		}
 	})
 	return result
 }
 
-// RepoNameFromGithubInfo returns the normalized repo name
-func RepoNameFromGithubInfo(url string, name string) string {
+// RepoNameFromGitInfo returns the normalized repo name
+func RepoNameFromGitInfo(url string, name string) string {
 	if name != "" {
 		return name
 	}
@@ -96,8 +96,8 @@ func RepoNameFromGithubInfo(url string, name string) string {
 	return tokens[0]
 }
 
-// ValidateGithubCloneURL returns an error if the provided URL is invalid
-func ValidateGithubCloneURL(url string) error {
+// ValidateGitCloneURL returns an error if the provided URL is invalid
+func ValidateGitCloneURL(url string) error {
 	exampleURL := "https://github.com/org/foo.git"
 	if url == "" {
 		return fmt.Errorf("clone URL is missing (example clone URL %v)", exampleURL)

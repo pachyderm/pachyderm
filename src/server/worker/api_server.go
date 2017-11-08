@@ -362,8 +362,8 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 				true, input.Lazy, concurrency, statsTree, treeRoot); err != nil {
 				return "", err
 			}
-		} else if input.GithubURL != "" {
-			pachydermRepoName := pps.RepoNameFromGithubInfo(input.GithubURL, input.Name)
+		} else if input.GitURL != "" {
+			pachydermRepoName := pps.RepoNameFromGitInfo(input.GitURL, input.Name)
 			var rawJSON bytes.Buffer
 			err := a.pachClient.GetFile(pachydermRepoName, file.Commit.ID, "commit.json", 0, 0, &rawJSON)
 			if err != nil {
@@ -386,7 +386,7 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 				},
 			)
 			if err != nil {
-				return "", fmt.Errorf("error cloning repo %v at SHA %v from URL %v: %v", pachydermRepoName, sha, input.GithubURL, err)
+				return "", fmt.Errorf("error cloning repo %v at SHA %v from URL %v: %v", pachydermRepoName, sha, input.GitURL, err)
 			}
 			hash := gitPlumbing.NewHash(sha)
 			wt, err := r.Worktree()

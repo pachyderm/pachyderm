@@ -65,7 +65,7 @@ func matchingBranch(inputBranch string, payloadBranch string) bool {
 	return false
 }
 
-func (s *gitHookServer) findMatchingPipelineInputs(payload github.PushPayload) (pipelines []*pps.PipelineInfo, inputs []*pps.GithubInput, err error) {
+func (s *gitHookServer) findMatchingPipelineInputs(payload github.PushPayload) (pipelines []*pps.PipelineInfo, inputs []*pps.GitInput, err error) {
 	var walkInput func(*pps.Input)
 	payloadBranch := getBranch(payload.Ref)
 	pipelines, err = s.client.ListPipeline()
@@ -74,9 +74,9 @@ func (s *gitHookServer) findMatchingPipelineInputs(payload github.PushPayload) (
 	}
 	for _, pipelineInfo := range pipelines {
 		pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
-			if input.Github != nil {
-				if input.Github.URL == payload.Repository.CloneURL && matchingBranch(input.Github.Branch, payloadBranch) {
-					inputs = append(inputs, input.Github)
+			if input.Git != nil {
+				if input.Git.URL == payload.Repository.CloneURL && matchingBranch(input.Git.Branch, payloadBranch) {
+					inputs = append(inputs, input.Git)
 				}
 			}
 			var inputs []*pps.Input
@@ -114,7 +114,7 @@ func (s *gitHookServer) HandlePush(payload interface{}, header webhooks.Header) 
 		err = fmt.Errorf("error marshalling payload (%v): %v", pl, err)
 		return
 	}
-	pipelines, githubInputs, err := s.findMatchingPipelineInputs(pl)
+	pipelines, gitInputs, err := s.findMatchingPipelineInputs(pl)
 	if err != nil {
 		return
 	}
@@ -133,8 +133,8 @@ func (s *gitHookServer) HandlePush(payload interface{}, header webhooks.Header) 
 		return
 	}
 	triggeredRepos := make(map[string]bool)
-	for _, input := range githubInputs {
-		repoName := pps.RepoNameFromGithubInfo(input.URL, input.Name)
+	for _, input := range gitInputs {
+		repoName := pps.RepoNameFromGitInfo(input.URL, input.Name)
 		if alreadyTriggered := triggeredRepos[repoName]; alreadyTriggered {
 			// This input is used on multiple pipelines, and we've already
 			// committed to this input repo

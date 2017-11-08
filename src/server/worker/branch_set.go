@@ -99,9 +99,9 @@ func (a *APIServer) newBranchSetFactory(_ctx context.Context) (_ branchSetFactor
 				return nil, err
 			}
 		}
-		if input.Github != nil {
-			name := pps.RepoNameFromGithubInfo(input.Github.URL, input.Github.Name)
-			err = subscribe(name, input.Github.Branch, "")
+		if input.Git != nil {
+			name := pps.RepoNameFromGitInfo(input.Git.URL, input.Git.Name)
+			err = subscribe(name, input.Git.Branch, "")
 			if err != nil {
 				return nil, err
 			}
@@ -287,7 +287,7 @@ func (a *APIServer) directInputs() []*pps.Input {
 		if input.Cron != nil {
 			result = append(result, input)
 		}
-		if input.Github != nil {
+		if input.Git != nil {
 			result = append(result, input)
 		}
 	})
@@ -343,8 +343,8 @@ func (a *APIServer) _rootInputs(c *client.APIClient, inputs []*pps.Input) ([]*pp
 		if input.Cron != nil {
 			resultMap[input.Cron.Name] = input
 		}
-		if input.Github != nil {
-			repoName := pps.RepoNameFromGithubInfo(input.Github.URL, input.Github.Name)
+		if input.Git != nil {
+			repoName := pps.RepoNameFromGitInfo(input.Git.URL, input.Git.Name)
 			// Sanity check that the repo exists
 			_, err := c.InspectRepo(repoName)
 			if err != nil {
