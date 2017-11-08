@@ -6,6 +6,7 @@ Google Cloud Platform has excellent support for Kubernetes through the [Google C
 
 - [Google Cloud SDK](https://cloud.google.com/sdk/) >= 124.0.0
 - [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
+- [pachctl](#install-pachctl)
 
 If this is the first time you use the SDK, make sure to follow the [quick start guide](https://cloud.google.com/sdk/docs/quickstarts). This may update your `~/.bash_profile` and point your `$PATH` at the location where you extracted `google-cloud-sdk`. We recommend extracting this to `~/bin`.
 

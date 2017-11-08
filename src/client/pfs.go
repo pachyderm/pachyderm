@@ -228,14 +228,22 @@ func (c APIClient) ListCommit(repoName string, to string, from string, number ui
 	if to != "" {
 		req.To = NewCommit(repoName, to)
 	}
-	commitInfos, err := c.PfsAPIClient.ListCommit(
-		c.Ctx(),
-		req,
-	)
+	stream, err := c.PfsAPIClient.ListCommitStream(c.Ctx(), req)
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	return commitInfos.CommitInfo, nil
+	var result []*pfs.CommitInfo
+	for {
+		ci, err := stream.Recv()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, grpcutil.ScrubGRPC(err)
+		}
+		result = append(result, ci)
+
+	}
+	return result, nil
 }
 
 // ListCommitByRepo lists all commits in a repo.
