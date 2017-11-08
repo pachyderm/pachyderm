@@ -165,6 +165,10 @@ func (s *gitHookServer) HandlePush(payload interface{}, header webhooks.Header) 
 				err = s.client.FinishCommit(repoName, commit.ID)
 				//Final deferred function deals w non nil error
 			}()
+			err = s.client.DeleteFile(repoName, commit.ID, "commit.json")
+			if err != nil {
+				return
+			}
 			_, err = s.client.PutFile(repoName, commit.ID, "commit.json", bytes.NewReader(raw))
 			if err != nil {
 				return
