@@ -5,6 +5,7 @@
 * [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli) >= 2.0.1
 * [jq](https://stedolan.github.io/jq/download/)
 * [kubectl](https://docs.microsoft.com/cli/azure/aks?view=azure-cli-latest#az_aks_install_cli)
+* [pachctl](#install-pachctl)
 
 ## Deploy Kubernetes
 
@@ -40,7 +41,7 @@ $ CONTAINER_NAME=[The name of the Azure blob container where your data will be s
 $ STORAGE_SIZE=[the size of the data disk volume that you are going to create, in GBs. e.g. "10"]
 ```
 
-And then run:
+And then, from the root of the cloned Pachyderm git repo, run:
 
 ```sh
 # Create a resource group
