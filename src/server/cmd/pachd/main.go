@@ -339,8 +339,7 @@ func doFullMode(appEnvObj interface{}) error {
 		return http.ListenAndServe(fmt.Sprintf(":%v", pfs_server.HTTPPort), httpServer)
 	})
 	eg.Go(func() error {
-		err := githook.RunGitHookServer(address, etcdAddress, appEnv.PPSEtcdPrefix)
-		return err
+		return githook.RunGitHookServer(address, etcdAddress, appEnv.PPSEtcdPrefix)
 	})
 	eg.Go(func() error {
 		return grpcutil.Serve(
