@@ -1050,10 +1050,7 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 					return err
 				}
 				atomic.AddUint64(&subStats.DownloadBytes, uint64(downSize))
-				if err := a.uploadOutput(ctx, dir, tag, logger, data, subStats, statsTree, path.Join(statsPath, "pfs", "out")); err != nil {
-					return err
-				}
-				return nil
+				return a.uploadOutput(ctx, dir, tag, logger, data, subStats, statsTree, path.Join(statsPath, "pfs", "out"))
 			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
 				retries++
 				if retries >= maxRetries {
