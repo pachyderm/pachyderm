@@ -279,7 +279,8 @@ message PipelineInfo {
   map<int32, int32> job_counts = 9;
   string output_branch = 16;
   google.protobuf.Duration scale_down_threshold = 18;
-  ResourceSpec resource_spec = 19;
+  ResourceSpec resource_requests_spec = 19;
+  ResourceSpec resource_limits_spec = 31;
   Input input = 20;
   string description = 21;
   bool incremental = 22;
