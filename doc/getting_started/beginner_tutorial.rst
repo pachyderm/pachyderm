@@ -109,7 +109,7 @@ Below is the pipeline spec and python code we're using. Let's walk through the d
   }
 
 
-Our pipeline spec contains a few simple sections. First is the pipeline ``name``, edges. Then we have the ``transform`` which specifies the docker image we want to use, ``pachyderm/opencv`` (defaults to Dockerhub as the registry), and the entry point ``edges.py``. Lastly, we specify the input.  Here we only have one "atom" input, our images repo with a particular glob pattern. 
+Our pipeline spec contains a few simple sections. First is the pipeline ``name``, edges. Then we have the ``transform`` which specifies the docker image we want to use, ``pachyderm/opencv`` (defaults to DockerHub as the registry), and the entry point ``edges.py``. Lastly, we specify the input.  Here we only have one "atom" input, our images repo with a particular glob pattern. 
 
 The glob pattern defines how the input data can be broken up if we wanted to distribute our computation. ``/*`` means that each file can be processed individually, which makes sense for images. Glob patterns are one of the most powerful features of Pachyderm so when you start creating your own pipelines, check out the :doc:`../reference/pipeline_spec`.
 
