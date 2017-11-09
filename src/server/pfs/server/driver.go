@@ -817,6 +817,9 @@ DownstreamRepos:
 		if err := commits.Create(commit.ID, commitInfo); err != nil {
 			return err
 		}
+		if err := d.openCommits.ReadWrite(stm).Put(commit.ID, commit); err != nil {
+			return err
+		}
 		branchInfo.Head = commit
 		if err := branches.Put("master", &branchInfo); err != nil {
 			return err

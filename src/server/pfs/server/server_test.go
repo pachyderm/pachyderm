@@ -2523,30 +2523,12 @@ func TestFlush2(t *testing.T) {
 	BCommit, err := client.StartCommit("B", "master")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit("B", BCommit.ID))
-	CCommit, err := client.PfsAPIClient.StartCommit(
-		context.Background(),
-		&pfs.StartCommitRequest{
-			Parent:     pclient.NewCommit("C", ""),
-			Branch:     "master",
-			Provenance: []*pfs.Commit{ACommit, BCommit},
-		},
-	)
-	require.NoError(t, err)
-	require.NoError(t, client.FinishCommit("C", CCommit.ID))
+	require.NoError(t, client.FinishCommit("C", "master"))
 
 	BCommit, err = client.StartCommit("B", "master")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit("B", BCommit.ID))
-	CCommit, err = client.PfsAPIClient.StartCommit(
-		context.Background(),
-		&pfs.StartCommitRequest{
-			Parent:     pclient.NewCommit("C", ""),
-			Branch:     "master",
-			Provenance: []*pfs.Commit{ACommit, BCommit},
-		},
-	)
-	require.NoError(t, err)
-	require.NoError(t, client.FinishCommit("C", CCommit.ID))
+	require.NoError(t, client.FinishCommit("C", "master"))
 
 	commitIter, err := client.FlushCommit([]*pfs.Commit{pclient.NewCommit("B", BCommit.ID), pclient.NewCommit("A", ACommit.ID)}, nil)
 	require.NoError(t, err)
@@ -2555,7 +2537,6 @@ func TestFlush2(t *testing.T) {
 	require.Equal(t, 1, len(commitInfos))
 
 	require.Equal(t, commitInfos[0].Commit.Repo.Name, "C")
-	require.Equal(t, commitInfos[0].Commit.ID, CCommit.ID)
 }
 
 func TestFlushCommitWithNoDownstreamRepos(t *testing.T) {
