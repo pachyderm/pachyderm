@@ -818,7 +818,7 @@ func TestAncestrySyntax(t *testing.T) {
 	}
 }
 
-func TestProvenance2(t *testing.T) {
+func TestProvenance(t *testing.T) {
 
 	client := getClient(t)
 	require.NoError(t, client.CreateRepo("A"))
