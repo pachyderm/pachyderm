@@ -109,10 +109,9 @@ func (s *gitHookServer) HandlePush(payload interface{}, _ webhooks.Header) (retE
 	}
 	if pl.Repository.Private {
 		for _, pipelineInfo := range pipelines {
-			err := util.FailPipeline(context.Background(), s.etcdClient, s.pipelines, pipelineInfo.Pipeline.Name, fmt.Sprintf("unable to clone private github repo (%v)", pl.Repository.CloneURL))
-			// err will be handled but first we want to
-			// try and fail all relevant pipelines
-			if err != nil {
+			if err := util.FailPipeline(context.Background(), s.etcdClient, s.pipelines, pipelineInfo.Pipeline.Name, fmt.Sprintf("unable to clone private github repo (%v)", pl.Repository.CloneURL)); err != nil {
+				// err will be handled but first we want to
+				// try and fail all relevant pipelines
 				logrus.Errorf("error marking pipeline %v as failed %v", pipelineInfo.Pipeline.Name, err)
 				retErr = err
 			}
@@ -126,8 +125,7 @@ func (s *gitHookServer) HandlePush(payload interface{}, _ webhooks.Header) (retE
 			// committed to this input repo
 			continue
 		}
-		err := s.commitPayload(input.Name, input.Branch, raw)
-		if err != nil {
+		if err := s.commitPayload(input.Name, input.Branch, raw); err != nil {
 			logrus.Errorf("github webhook failed to commit payload to repo (%v) push with error: %v\n", input.Name, err)
 			retErr = err
 			continue
