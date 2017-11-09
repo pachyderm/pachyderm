@@ -44,4 +44,8 @@ If you haven't seen pix2pix, check out [this great demo](https://affinelayer.com
 
 [TensorFlow - pix2pix](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/ml/tensorflow)
 
+### Recurrent Neural Network with Tensorflow
 
+Based on [this Tensorflow example](https://www.tensorflow.org/tutorials/recurrent#recurrent-neural-networks), this pipeline generates a new Game of Thrones script using a model trained on existing Game of Thrones scripts.
+
+[Tensorflow - Recurrent Neural Network](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/ml/rnn)  
