@@ -346,6 +346,7 @@ nextInput:
 			EnableStats:     a.pipelineInfo.EnableStats,
 			Batch:           a.pipelineInfo.Batch,
 			Service:         a.pipelineInfo.Service,
+			ChunkSpec:       a.pipelineInfo.ChunkSpec,
 		})
 		if err != nil {
 			return err
@@ -428,6 +429,7 @@ nextInput:
 				EnableStats:     a.pipelineInfo.EnableStats,
 				Batch:           a.pipelineInfo.Batch,
 				Service:         a.pipelineInfo.Service,
+				ChunkSpec:       a.pipelineInfo.ChunkSpec,
 			})
 			if err != nil {
 				return err
