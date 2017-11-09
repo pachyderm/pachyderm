@@ -774,6 +774,7 @@ func (d *driver) propagateCommit(ctx context.Context, commit *pfs.Commit, stm co
 	sort.Slice(repoInfos, func(i, j int) bool { return len(repoInfos[i].Provenance) < len(repoInfos[j].Provenance) })
 	repoToCommit := make(map[string]*pfs.Commit)
 	repoToCommit[commit.Repo.Name] = commit
+DownstreamRepos:
 	for _, repoInfo := range repoInfos {
 		branches := d.branches(repoInfo.Repo.Name).ReadWrite(stm)
 		commits := d.commits(repoInfo.Repo.Name).ReadWrite(stm)
@@ -784,6 +785,20 @@ func (d *driver) propagateCommit(ctx context.Context, commit *pfs.Commit, stm co
 		repoToCommit[repoInfo.Repo.Name] = commit
 		var provenance []*pfs.Commit
 		for _, repo := range repoInfo.Provenance {
+			if _, ok := repoToCommit[repo.Name]; !ok {
+				branchInfo := &pfs.BranchInfo{}
+				if err := d.branches(repo.Name).ReadWrite(stm).Get("master", branchInfo); err != nil {
+					if col.IsErrNotFound(err) {
+						repoToCommit[repo.Name] = nil
+					} else {
+						return err
+					}
+				}
+				repoToCommit[repo.Name] = branchInfo.Head
+			}
+			if repoToCommit[repo.Name] == nil {
+				continue DownstreamRepos
+			}
 			provenance = append(provenance, repoToCommit[repo.Name])
 		}
 		commitInfo := &pfs.CommitInfo{
@@ -803,7 +818,9 @@ func (d *driver) propagateCommit(ctx context.Context, commit *pfs.Commit, stm co
 			return err
 		}
 		branchInfo.Head = commit
-		return branches.Put("master", &branchInfo)
+		if err := branches.Put("master", &branchInfo); err != nil {
+			return err
+		}
 	}
 	return nil
 }

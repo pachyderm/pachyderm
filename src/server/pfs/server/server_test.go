@@ -47,7 +47,7 @@ var (
 var testDBs []string
 
 func TestInvalidRepo(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 	require.YesError(t, client.CreateRepo("/repo"))
 
@@ -157,7 +157,7 @@ func TestCreateRepoDeleteRepoRace(t *testing.T) {
 }
 
 func TestCreateAndInspectRepo(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "repo"
@@ -191,7 +191,7 @@ func TestCreateAndInspectRepo(t *testing.T) {
 }
 
 func TestRepoSize(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "repo"
@@ -231,7 +231,7 @@ func TestRepoSize(t *testing.T) {
 }
 
 func TestListRepo(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	numRepos := 10
@@ -254,7 +254,7 @@ func TestListRepo(t *testing.T) {
 
 // Make sure that commits of deleted repos do not resurface
 func TestCreateDeletedRepo(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "repo"
@@ -293,7 +293,7 @@ func TestCreateDeletedRepo(t *testing.T) {
 //   /    \
 // d1      d2
 func TestUpdateProvenance(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	prov1 := "prov1"
@@ -382,7 +382,7 @@ func TestUpdateProvenance(t *testing.T) {
 }
 
 func TestPutFileIntoOpenCommit(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "test"
@@ -415,7 +415,7 @@ func TestPutFileIntoOpenCommit(t *testing.T) {
 }
 
 func TestCreateInvalidBranchName(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "test"
@@ -427,7 +427,7 @@ func TestCreateInvalidBranchName(t *testing.T) {
 }
 
 func TestListRepoWithProvenance(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	require.NoError(t, client.CreateRepo("prov1"))
@@ -462,7 +462,7 @@ func TestListRepoWithProvenance(t *testing.T) {
 }
 
 func TestDeleteRepo(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	numRepos := 10
@@ -494,7 +494,7 @@ func TestDeleteRepo(t *testing.T) {
 }
 
 func TestDeleteProvenanceRepo(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	// Create two repos, one as another's provenance
@@ -539,7 +539,7 @@ func TestDeleteProvenanceRepo(t *testing.T) {
 }
 
 func TestInspectCommit(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "test"
@@ -586,7 +586,7 @@ func TestInspectCommit(t *testing.T) {
 }
 
 func TestDeleteCommit(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "test"
@@ -646,7 +646,7 @@ func TestDeleteCommit(t *testing.T) {
 }
 
 func TestCleanPath(t *testing.T) {
-	t.Parallel()
+
 	c := getClient(t)
 	repo := "TestCleanPath"
 	require.NoError(t, c.CreateRepo(repo))
@@ -660,7 +660,7 @@ func TestCleanPath(t *testing.T) {
 }
 
 func TestBasicFile(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "repo"
@@ -685,7 +685,7 @@ func TestBasicFile(t *testing.T) {
 }
 
 func TestSimpleFile(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "test"
@@ -726,7 +726,7 @@ func TestSimpleFile(t *testing.T) {
 }
 
 func TestStartCommitWithUnfinishedParent(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "test"
@@ -744,7 +744,7 @@ func TestStartCommitWithUnfinishedParent(t *testing.T) {
 }
 
 func TestAncestrySyntax(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "test"
@@ -819,7 +819,7 @@ func TestAncestrySyntax(t *testing.T) {
 }
 
 func TestProvenance2(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 	require.NoError(t, client.CreateRepo("A"))
 	require.NoError(t, client.CreateRepo("E"))
@@ -837,55 +837,28 @@ func TestProvenance2(t *testing.T) {
 		Provenance: []*pfs.Repo{pclient.NewRepo("C")},
 	})
 
-	ACommit, err := client.StartCommit("A", "")
+	ACommit, err := client.StartCommit("A", "master")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit("A", ACommit.ID))
-	ECommit, err := client.StartCommit("E", "")
+	ECommit, err := client.StartCommit("E", "master")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit("E", ECommit.ID))
-	BCommit, err := client.PfsAPIClient.StartCommit(
-		context.Background(),
-		&pfs.StartCommitRequest{
-			Parent:     pclient.NewCommit("B", ""),
-			Provenance: []*pfs.Commit{ACommit},
-		},
-	)
-	require.NoError(t, err)
-	require.NoError(t, client.FinishCommit("B", BCommit.ID))
-	commitInfo, err := client.InspectCommit("B", BCommit.ID)
-	require.NoError(t, err)
 
-	CCommit, err := client.PfsAPIClient.StartCommit(
-		context.Background(),
-		&pfs.StartCommitRequest{
-			Parent:     pclient.NewCommit("C", ""),
-			Provenance: []*pfs.Commit{BCommit, ECommit},
-		},
-	)
+	commitInfo, err := client.InspectCommit("B", "master")
 	require.NoError(t, err)
-	require.NoError(t, client.FinishCommit("C", CCommit.ID))
-	commitInfo, err = client.InspectCommit("C", CCommit.ID)
-	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfo.Provenance))
 
-	DCommit, err := client.PfsAPIClient.StartCommit(
-		context.Background(),
-		&pfs.StartCommitRequest{
-			Parent:     pclient.NewCommit("D", ""),
-			Provenance: []*pfs.Commit{CCommit},
-		},
-	)
+	commitInfo, err = client.InspectCommit("C", "master")
 	require.NoError(t, err)
-	require.NoError(t, client.FinishCommit("D", DCommit.ID))
+	require.Equal(t, 3, len(commitInfo.Provenance))
 
-	commitInfo, err = client.InspectCommit("D", DCommit.ID)
+	commitInfo, err = client.InspectCommit("D", "master")
 	require.NoError(t, err)
-	for _, commit := range commitInfo.Provenance {
-		require.EqualOneOf(t, []interface{}{ACommit, ECommit, BCommit, CCommit}, commit)
-	}
+	require.Equal(t, 4, len(commitInfo.Provenance))
 }
 
 func TestSimple(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "test"
@@ -916,7 +889,7 @@ func TestSimple(t *testing.T) {
 }
 
 func TestBranch1(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 	repo := "test"
 
@@ -958,7 +931,7 @@ func TestBranch1(t *testing.T) {
 }
 
 func TestPutFileBig(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "test"
@@ -985,7 +958,7 @@ func TestPutFileBig(t *testing.T) {
 }
 
 func TestPutFile(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "test"
@@ -1047,7 +1020,7 @@ func TestPutFile(t *testing.T) {
 }
 
 func TestPutFile2(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1100,7 +1073,7 @@ func TestPutFile2(t *testing.T) {
 }
 
 func TestPutFileLongName(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "test"
@@ -1119,7 +1092,7 @@ func TestPutFileLongName(t *testing.T) {
 }
 
 func TestPutSameFileInParallel(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "test"
@@ -1145,7 +1118,7 @@ func TestPutSameFileInParallel(t *testing.T) {
 }
 
 func TestInspectFile(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "test"
@@ -1205,7 +1178,7 @@ func TestInspectFile(t *testing.T) {
 }
 
 func TestInspectFile2(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1250,7 +1223,7 @@ func TestInspectFile2(t *testing.T) {
 }
 
 func TestInspectDir(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "test"
@@ -1287,7 +1260,7 @@ func TestInspectDir(t *testing.T) {
 }
 
 func TestInspectDir2(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1341,7 +1314,7 @@ func TestInspectDir2(t *testing.T) {
 }
 
 func TestListFileTwoCommits(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "test"
@@ -1387,7 +1360,7 @@ func TestListFileTwoCommits(t *testing.T) {
 }
 
 func TestListFile(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "test"
@@ -1423,7 +1396,7 @@ func TestListFile(t *testing.T) {
 }
 
 func TestListFile2(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1469,7 +1442,7 @@ func TestListFile2(t *testing.T) {
 }
 
 func TestListFile3(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1524,7 +1497,7 @@ func TestListFile3(t *testing.T) {
 }
 
 func TestPutFileTypeConflict(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1545,7 +1518,7 @@ func TestPutFileTypeConflict(t *testing.T) {
 }
 
 func TestRootDirectory(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1569,7 +1542,7 @@ func TestRootDirectory(t *testing.T) {
 }
 
 func TestDeleteFile(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "test"
@@ -1650,7 +1623,7 @@ func TestDeleteFile(t *testing.T) {
 }
 
 func TestDeleteDir(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "test"
@@ -1735,7 +1708,7 @@ func TestDeleteDir(t *testing.T) {
 }
 
 func TestDeleteFile2(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1835,7 +1808,7 @@ func TestListCommit(t *testing.T) {
 }
 
 func TestOffsetRead(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 	repo := "TestOffsetRead"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1940,19 +1913,11 @@ func TestSubscribeCommit(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, client.FinishCommit(repo, "master"))
 		commits = append(commits, commit)
-		fmt.Printf("%d: %s\n", i, commit.ID)
-	}
-
-	_commits, err := client.ListCommitByRepo(repo)
-	require.NoError(t, err)
-	for _, commit := range _commits {
-		fmt.Printf("%+v\n", commit)
 	}
 
 	for i := 0; i < numCommits; i++ {
 		commitInfo, err := commitIter.Next()
 		require.NoError(t, err)
-		fmt.Printf("checking %d\n", i)
 		require.Equal(t, commits[i], commitInfo.Commit)
 	}
 
@@ -1960,7 +1925,7 @@ func TestSubscribeCommit(t *testing.T) {
 }
 
 func TestInspectRepoSimple(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "test"
@@ -1986,7 +1951,7 @@ func TestInspectRepoSimple(t *testing.T) {
 }
 
 func TestInspectRepoComplex(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "test"
@@ -2027,7 +1992,7 @@ func TestInspectRepoComplex(t *testing.T) {
 }
 
 func TestCreate(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "test"
@@ -2043,7 +2008,7 @@ func TestCreate(t *testing.T) {
 }
 
 func TestGetFileInvalidCommit(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "test"
@@ -2065,7 +2030,7 @@ func TestATonOfPuts(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping long tests in short mode")
 	}
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "test"
@@ -2116,7 +2081,7 @@ func TestATonOfPuts(t *testing.T) {
 }
 
 func TestPutFileNullCharacter(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "test"
@@ -2135,7 +2100,7 @@ func TestPutFileURL(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
+
 	c := getClient(t)
 	repo := "TestPutFileURL"
 	require.NoError(t, c.CreateRepo(repo))
@@ -2149,7 +2114,7 @@ func TestPutFileURL(t *testing.T) {
 }
 
 func TestBigListFile(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "TestBigListFile"
@@ -2177,7 +2142,7 @@ func TestBigListFile(t *testing.T) {
 }
 
 func TestStartCommitLatestOnBranch(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "test"
@@ -2201,7 +2166,7 @@ func TestStartCommitLatestOnBranch(t *testing.T) {
 }
 
 func TestSetBranchTwice(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "test"
@@ -2226,7 +2191,7 @@ func TestSetBranchTwice(t *testing.T) {
 }
 
 func TestSyncPullPush(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo1 := "repo1"
@@ -2304,7 +2269,7 @@ func TestSyncPullPush(t *testing.T) {
 }
 
 func TestSyncFile(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "repo"
@@ -2354,7 +2319,7 @@ func TestSyncFile(t *testing.T) {
 }
 
 func TestSyncEmptyDir(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "repo"
@@ -2471,7 +2436,7 @@ func collectCommitInfos(commitInfoIter pclient.CommitInfoIterator) ([]*pfs.Commi
 }
 
 func TestFlush(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 	require.NoError(t, client.CreateRepo("A"))
 	_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
@@ -2542,7 +2507,7 @@ func TestFlush(t *testing.T) {
 }
 
 func TestFlush2(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 	require.NoError(t, client.CreateRepo("A"))
 	require.NoError(t, client.CreateRepo("B"))
@@ -2594,7 +2559,7 @@ func TestFlush2(t *testing.T) {
 }
 
 func TestFlushCommitWithNoDownstreamRepos(t *testing.T) {
-	t.Parallel()
+
 	c := getClient(t)
 	repo := "test"
 	require.NoError(t, c.CreateRepo(repo))
@@ -2609,7 +2574,7 @@ func TestFlushCommitWithNoDownstreamRepos(t *testing.T) {
 }
 
 func TestFlushOpenCommit(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 	require.NoError(t, client.CreateRepo("A"))
 	_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
@@ -2643,7 +2608,7 @@ func TestFlushOpenCommit(t *testing.T) {
 }
 
 func TestEmptyFlush(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 	commitIter, err := client.FlushCommit(nil, nil)
 	require.NoError(t, err)
@@ -2652,7 +2617,7 @@ func TestEmptyFlush(t *testing.T) {
 }
 
 func TestFlushNonExistentCommit(t *testing.T) {
-	t.Parallel()
+
 	c := getClient(t)
 	iter, err := c.FlushCommit([]*pfs.Commit{pclient.NewCommit("fake-repo", "fake-commit")}, nil)
 	require.NoError(t, err)
@@ -2670,7 +2635,6 @@ func TestPutFileSplit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 
 	c := getClient(t)
 	// create repos
@@ -2777,7 +2741,6 @@ func TestPutFileSplitDelete(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 
 	c := getClient(t)
 	// create repos
@@ -2815,7 +2778,6 @@ func TestPutFileSplitBig(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 
 	c := getClient(t)
 	// create repos
@@ -2843,7 +2805,6 @@ func TestDiff(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 
 	c := getClient(t)
 	repo := uniqueString("TestDiff")
@@ -2978,7 +2939,6 @@ func TestGlob(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 
 	c := getClient(t)
 	repo := uniqueString("TestGlob")
@@ -3036,7 +2996,6 @@ func TestOverwrite(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 
 	c := getClient(t)
 	repo := uniqueString("TestGlob")
@@ -3080,7 +3039,6 @@ func TestCopyFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 
 	c := getClient(t)
 	repo := uniqueString("TestCopyFile")
@@ -3118,7 +3076,6 @@ func TestBuildCommit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 
 	c := getClient(t)
 	repo := uniqueString("TestBuildCommit")
@@ -3164,7 +3121,6 @@ func TestPropagateCommit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 
 	c := getClient(t)
 	repo1 := uniqueString("TestPropagateCommit1")
