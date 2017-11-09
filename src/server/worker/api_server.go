@@ -363,7 +363,7 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 				return "", err
 			}
 		} else if input.GitURL != "" {
-			pachydermRepoName := pps.RepoNameFromGitInfo(input.GitURL, input.Name)
+			pachydermRepoName := input.Name
 			var rawJSON bytes.Buffer
 			err := a.pachClient.GetFile(pachydermRepoName, file.Commit.ID, "commit.json", 0, 0, &rawJSON)
 			if err != nil {

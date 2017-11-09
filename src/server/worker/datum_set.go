@@ -138,14 +138,13 @@ type gitDatumFactory struct {
 
 func newGitDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.GitInput) (DatumFactory, error) {
 	result := &gitDatumFactory{}
-	repoName := pps.RepoNameFromGitInfo(input.URL, input.Name)
 	fileInfo, err := pfsClient.InspectFile(
 		auth.In2Out(ctx),
 		&pfs.InspectFileRequest{
 			File: &pfs.File{
 				Commit: &pfs.Commit{
 					Repo: &pfs.Repo{
-						Name: repoName,
+						Name: input.Name,
 					},
 					ID: input.Commit,
 				},
@@ -160,7 +159,7 @@ func newGitDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps
 		result.inputs,
 		&Input{
 			FileInfo: fileInfo,
-			Name:     repoName,
+			Name:     input.Name,
 			Branch:   input.Branch,
 			GitURL:   input.URL,
 		},

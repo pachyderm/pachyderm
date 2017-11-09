@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -155,11 +156,10 @@ func validateNames(names map[string]bool, input *pps.Input) error {
 			}
 		}
 	case input.Git != nil:
-		repoName := pps.RepoNameFromGitInfo(input.Git.URL, input.Git.Name)
-		if names[repoName] == true {
-			return fmt.Errorf("name %s was used more than once", repoName)
+		if names[input.Git.Name] == true {
+			return fmt.Errorf("name %s was used more than once", input.Git.Name)
 		}
-		names[repoName] = true
+		names[input.Git.Name] = true
 	}
 	return nil
 }
@@ -1328,7 +1328,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				visitErr = err
 				return
 			}
-			if err := pachClient.CreateRepo(pps.RepoNameFromGitInfo(input.Git.URL, input.Git.Name)); err != nil && !isAlreadyExistsErr(err) {
+			if err := pachClient.CreateRepo(input.Git.Name); err != nil && !isAlreadyExistsErr(err) {
 				visitErr = err
 			}
 		}
@@ -1522,6 +1522,12 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 		if input.Git != nil {
 			if input.Git.Branch == "" {
 				input.Git.Branch = "master"
+			}
+			if input.Git.Name == "" {
+				// We know URL looks like:
+				// "https://github.com/sjezewski/testgithook.git",
+				tokens := strings.Split(path.Base(input.Git.URL), ".")
+				input.Git.Name = tokens[0]
 			}
 		}
 	})

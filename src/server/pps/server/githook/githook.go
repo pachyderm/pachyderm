@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"path"
 	"strconv"
-	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -122,19 +121,18 @@ func (s *gitHookServer) HandlePush(payload interface{}, _ webhooks.Header) (retE
 	}
 	triggeredRepos := make(map[string]bool)
 	for _, input := range gitInputs {
-		repoName := pps.RepoNameFromGitInfo(input.URL, input.Name)
-		if triggeredRepos[repoName] {
+		if triggeredRepos[input.Name] {
 			// This input is used on multiple pipelines, and we've already
 			// committed to this input repo
 			continue
 		}
-		err := s.commitPayload(repoName, input.Branch, raw)
+		err := s.commitPayload(input.Name, input.Branch, raw)
 		if err != nil {
-			logrus.Errorf("github webhook failed to commit payload to repo (%v) push with error: %v\n", repoName, err)
+			logrus.Errorf("github webhook failed to commit payload to repo (%v) push with error: %v\n", input.Name, err)
 			retErr = err
 			continue
 		}
-		triggeredRepos[repoName] = true
+		triggeredRepos[input.Name] = true
 	}
 	return nil
 }
