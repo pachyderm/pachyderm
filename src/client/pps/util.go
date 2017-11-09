@@ -102,11 +102,10 @@ func ValidateGitCloneURL(url string) error {
 	if url == "" {
 		return fmt.Errorf("clone URL is missing (example clone URL %v)", exampleURL)
 	}
-	// Use the git clients validator to make sure its a valid URL
+	// Use the git client's validator to make sure its a valid URL
 	o := &git.CloneOptions{
 		URL: url,
 	}
-	// Example Valid URL string:
 	if err := o.Validate(); err != nil {
 		return err
 	}
