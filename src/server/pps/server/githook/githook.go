@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"path"
 	"strconv"
 	"strings"
 
@@ -57,7 +58,7 @@ func RunGitHookServer(address string, etcdAddress string, etcdPrefix string) err
 		func(payload interface{}, header webhooks.Header) {
 			if err := s.HandlePush(payload, header); err != nil {
 				pl := payload.(github.PushPayload)
-				logrus.Infof("github webhook failed to handle push for repo (%v) on branch (%v) with error %v", pl.Repository.Name, getBranch(pl.Ref), err)
+				logrus.Infof("github webhook failed to handle push for repo (%v) on branch (%v) with error %v", pl.Repository.Name, path.Base(pl.Ref), err)
 			}
 		},
 		github.PushEvent,
@@ -75,7 +76,7 @@ func matchingBranch(inputBranch string, payloadBranch string) bool {
 }
 
 func (s *gitHookServer) findMatchingPipelineInputs(payload github.PushPayload) (pipelines []*pps.PipelineInfo, inputs []*pps.GitInput, err error) {
-	payloadBranch := getBranch(payload.Ref)
+	payloadBranch := path.Base(payload.Ref)
 	pipelines, err = s.client.ListPipeline()
 	if err != nil {
 		return nil, nil, err
@@ -97,7 +98,7 @@ func (s *gitHookServer) findMatchingPipelineInputs(payload github.PushPayload) (
 
 func (s *gitHookServer) HandlePush(payload interface{}, _ webhooks.Header) (retErr error) {
 	pl := payload.(github.PushPayload)
-	logrus.Infof("received github push payload for repo (%v) on branch (%v)", pl.Repository.Name, getBranch(pl.Ref))
+	logrus.Infof("received github push payload for repo (%v) on branch (%v)", pl.Repository.Name, path.Base(pl.Ref))
 
 	raw, err := json.Marshal(pl)
 	if err != nil {
@@ -160,10 +161,4 @@ func (s *gitHookServer) commitPayload(repoName string, branchName string, rawPay
 		return err
 	}
 	return nil
-}
-
-func getBranch(fullRef string) string {
-	// e.g. 'refs/heads/master'
-	tokens := strings.Split(fullRef, "/")
-	return tokens[len(tokens)-1]
 }
