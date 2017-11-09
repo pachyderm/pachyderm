@@ -75,25 +75,12 @@ func InputCommits(input *Input) []*pfs.Commit {
 		}
 		if input.Git != nil {
 			result = append(result, &pfs.Commit{
-				Repo: &pfs.Repo{RepoNameFromGitInfo(input.Git.URL, input.Git.Name)},
+				Repo: &pfs.Repo{input.Git.Name},
 				ID:   input.Git.Commit,
 			})
 		}
 	})
 	return result
-}
-
-// RepoNameFromGitInfo returns the normalized repo name
-func RepoNameFromGitInfo(url string, name string) string {
-	if name != "" {
-		return name
-	}
-	// We know URL looks like:
-	// "https://github.com/sjezewski/testgithook.git",
-	tokens := strings.Split(url, "/")
-	last := tokens[len(tokens)-1]
-	tokens = strings.Split(last, ".")
-	return tokens[0]
 }
 
 // ValidateGitCloneURL returns an error if the provided URL is invalid
