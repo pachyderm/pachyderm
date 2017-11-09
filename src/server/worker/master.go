@@ -583,6 +583,36 @@ func (a *APIServer) collectDatum(ctx context.Context, index int, files []*Input,
 	return nil
 }
 
+func chunks(df DatumFactory, spec *pps.ChunkSpec, parallelism int) *Chunks {
+	if spec == nil {
+		spec = &pps.ChunkSpec{}
+	}
+	if spec.Number == 0 && spec.SizeBytes == 0 {
+		spec.Number = int64(df.Len() / (parallelism * 10))
+		if spec.Number == 0 {
+			spec.Number = 1
+		}
+	}
+	chunks := &Chunks{}
+	if spec.Number != 0 {
+		for i := spec.Number; i < int64(df.Len()); i += spec.Number {
+			chunks.Chunks = append(chunks.Chunks, int64(i))
+		}
+	} else {
+		size := int64(0)
+		for i := 0; i < df.Len(); i++ {
+			for _, input := range df.Datum(i) {
+				size += int64(input.FileInfo.SizeBytes)
+			}
+			if size > spec.SizeBytes {
+				chunks.Chunks = append(chunks.Chunks, int64(i))
+			}
+		}
+	}
+	chunks.Chunks = append(chunks.Chunks, int64(df.Len()))
+	return chunks
+}
+
 func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *taggedLogger) error {
 	ctx, cancel := context.WithCancel(ctx)
 	go func() {
@@ -614,15 +644,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		if err != nil {
 			return fmt.Errorf("error from GetExpectedNumWorkers: %v")
 		}
-		chunks := &Chunks{}
-		chunksize := df.Len() / (parallelism * 10)
-		if chunksize == 0 {
-			chunksize = 1
-		}
-		for i := chunksize; i < df.Len(); i += chunksize {
-			chunks.Chunks = append(chunks.Chunks, int64(i))
-		}
-		chunks.Chunks = append(chunks.Chunks, int64(df.Len()))
+		chunks := chunks(df, jobInfo.ChunkSpec, parallelism)
 		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			jobs := a.jobs.ReadWrite(stm)
 			jobID := jobInfo.Job.ID
