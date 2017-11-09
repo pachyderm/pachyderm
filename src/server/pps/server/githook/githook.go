@@ -56,7 +56,12 @@ func RunGitHookServer(address string, etcdAddress string, etcdPrefix string) err
 	hook.RegisterEvents(
 		func(payload interface{}, header webhooks.Header) {
 			if err := s.HandlePush(payload, header); err != nil {
-				pl := payload.(github.PushPayload)
+				pl, ok := payload.(github.PushPayload)
+				if !ok {
+					logrus.Infof("github webhook failed to cast payload, this is likely a bug")
+					logrus.Infof("github webhook failed to handle push with error %v", err)
+					return
+				}
 				logrus.Infof("github webhook failed to handle push for repo (%v) on branch (%v) with error %v", pl.Repository.Name, path.Base(pl.Ref), err)
 			}
 		},
@@ -96,7 +101,10 @@ func (s *gitHookServer) findMatchingPipelineInputs(payload github.PushPayload) (
 }
 
 func (s *gitHookServer) HandlePush(payload interface{}, _ webhooks.Header) (retErr error) {
-	pl := payload.(github.PushPayload)
+	pl, ok := payload.(github.PushPayload)
+	if !ok {
+		return fmt.Errorf("received invalid github.PushPayload")
+	}
 	logrus.Infof("received github push payload for repo (%v) on branch (%v)", pl.Repository.Name, path.Base(pl.Ref))
 
 	raw, err := json.Marshal(pl)
