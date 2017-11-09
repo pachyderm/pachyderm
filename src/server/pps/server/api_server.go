@@ -359,6 +359,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			Salt:            request.Salt,
 			PipelineVersion: request.PipelineVersion,
 			Batch:           request.Batch,
+			ChunkSpec:       request.ChunkSpec,
 		}
 		if request.Pipeline != nil {
 			pipelineInfo := new(pps.PipelineInfo)
@@ -1368,6 +1369,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Batch:              request.Batch,
 		MaxQueueSize:       request.MaxQueueSize,
 		Service:            request.Service,
+		ChunkSpec:          request.ChunkSpec,
 	}
 	setPipelineDefaults(pipelineInfo)
 	var visitErr error
