@@ -45,7 +45,7 @@ Now the image can be referenced on any Docker host as `<your-docker-hub-username
 
 Now that you have an image, you need to tell Pachyderm how to run it. To do this, you'll need to create a pipeline. The pipeline for this example is [edges.json](./edges.json).
 
-First, notice that this file references the image you just created in the field `transform.image`. Since you just pushed your image to Dockerhub, you'll need to tell Pachyderm to go there to find it. Open `edges.json` in a text editor, and change the following line:
+First, notice that this file references the image you just created in the field `transform.image`. Since you just pushed your image to DockerHub, you'll need to tell Pachyderm to go there to find it. Open `edges.json` in a text editor, and change the following line:
 
 ```sh
 "image": "opencv"
