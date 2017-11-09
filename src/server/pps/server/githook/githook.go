@@ -66,7 +66,6 @@ func matchingBranch(inputBranch string, payloadBranch string) bool {
 }
 
 func (s *gitHookServer) findMatchingPipelineInputs(payload github.PushPayload) (pipelines []*pps.PipelineInfo, inputs []*pps.GitInput, err error) {
-	var walkInput func(*pps.Input)
 	payloadBranch := getBranch(payload.Ref)
 	pipelines, err = s.client.ListPipeline()
 	if err != nil {
@@ -79,20 +78,10 @@ func (s *gitHookServer) findMatchingPipelineInputs(payload github.PushPayload) (
 					inputs = append(inputs, input.Git)
 				}
 			}
-			var inputs []*pps.Input
-			if input.Cross != nil {
-				inputs = input.Cross
-			}
-			if input.Union != nil {
-				inputs = input.Union
-			}
-			for _, input := range inputs {
-				walkInput(input)
-			}
 		})
 	}
 	if len(inputs) == 0 {
-		return nil, nil, fmt.Errorf("no pipeline inputs corresponding to github URL (%v) on branch (%v) found, perhaps the github input is not set yet on a pipeline", payload.Repository.CloneURL, payloadBranch)
+		return nil, nil, fmt.Errorf("no pipeline inputs corresponding to git URL (%v) on branch (%v) found, perhaps the git input is not set yet on a pipeline", payload.Repository.CloneURL, payloadBranch)
 	}
 	return pipelines, inputs, nil
 }
