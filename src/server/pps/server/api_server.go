@@ -240,6 +240,9 @@ func (a *apiServer) validateInput(ctx context.Context, pipelineName string, inpu
 					return fmt.Errorf("multiple input types set")
 				}
 				set = true
+				if err := pps.ValidateGitCloneURL(input.Git.URL); err != nil {
+					return err
+				}
 			}
 			if !set {
 				return fmt.Errorf("no input set")
@@ -1391,6 +1394,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Service:            request.Service,
 	}
 	setPipelineDefaults(pipelineInfo)
+	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
+		return nil, err
+	}
 	var visitErr error
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
 		if input.Cron != nil {
@@ -1399,10 +1405,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			}
 		}
 		if input.Git != nil {
-			if err := pps.ValidateGitCloneURL(input.Git.URL); err != nil {
-				visitErr = err
-				return
-			}
 			if err := pachClient.CreateRepo(input.Git.Name); err != nil && !isAlreadyExistsErr(err) {
 				visitErr = err
 			}
@@ -1410,9 +1412,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	})
 	if visitErr != nil {
 		return nil, visitErr
-	}
-	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
-		return nil, err
 	}
 	operation := pipelineOpCreate
 	if request.Update {
