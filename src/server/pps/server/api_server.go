@@ -339,26 +339,27 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	pps.SortInput(request.Input)
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		jobInfo := &pps.JobInfo{
-			Job:             job,
-			Transform:       request.Transform,
-			Pipeline:        request.Pipeline,
-			ParallelismSpec: request.ParallelismSpec,
-			Input:           request.Input,
-			OutputRepo:      request.OutputRepo,
-			OutputBranch:    request.OutputBranch,
-			Started:         now(),
-			Finished:        nil,
-			OutputCommit:    nil,
-			Service:         request.Service,
-			ParentJob:       request.ParentJob,
-			ResourceSpec:    request.ResourceSpec,
-			NewBranch:       request.NewBranch,
-			Incremental:     request.Incremental,
-			Stats:           &pps.ProcessStats{},
-			EnableStats:     request.EnableStats,
-			Salt:            request.Salt,
-			PipelineVersion: request.PipelineVersion,
-			Batch:           request.Batch,
+			Job:                  job,
+			Transform:            request.Transform,
+			Pipeline:             request.Pipeline,
+			ParallelismSpec:      request.ParallelismSpec,
+			Input:                request.Input,
+			OutputRepo:           request.OutputRepo,
+			OutputBranch:         request.OutputBranch,
+			Started:              now(),
+			Finished:             nil,
+			OutputCommit:         nil,
+			Service:              request.Service,
+			ParentJob:            request.ParentJob,
+			ResourceRequestsSpec: request.ResourceRequestsSpec,
+			ResourceLimitsSpec:   request.ResourceLimitsSpec,
+			NewBranch:            request.NewBranch,
+			Incremental:          request.Incremental,
+			Stats:                &pps.ProcessStats{},
+			EnableStats:          request.EnableStats,
+			Salt:                 request.Salt,
+			PipelineVersion:      request.PipelineVersion,
+			Batch:                request.Batch,
 		}
 		if request.Pipeline != nil {
 			pipelineInfo := new(pps.PipelineInfo)
@@ -373,7 +374,8 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			jobInfo.OutputRepo = &pfs.Repo{pipelineInfo.Pipeline.Name}
 			jobInfo.OutputBranch = pipelineInfo.OutputBranch
 			jobInfo.Egress = pipelineInfo.Egress
-			jobInfo.ResourceSpec = pipelineInfo.ResourceSpec
+			jobInfo.ResourceRequestsSpec = pipelineInfo.ResourceRequestsSpec
+			jobInfo.ResourceLimitsSpec = pipelineInfo.ResourceLimitsSpec
 			jobInfo.Incremental = pipelineInfo.Incremental
 			jobInfo.EnableStats = pipelineInfo.EnableStats
 		} else {
@@ -1272,24 +1274,25 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	pfsClient := pachClient.PfsAPIClient
 
 	pipelineInfo := &pps.PipelineInfo{
-		Pipeline:           request.Pipeline,
-		Version:            1,
-		Transform:          request.Transform,
-		ParallelismSpec:    request.ParallelismSpec,
-		Input:              request.Input,
-		OutputBranch:       request.OutputBranch,
-		Egress:             request.Egress,
-		CreatedAt:          now(),
-		ScaleDownThreshold: request.ScaleDownThreshold,
-		ResourceSpec:       request.ResourceSpec,
-		Description:        request.Description,
-		Incremental:        request.Incremental,
-		CacheSize:          request.CacheSize,
-		EnableStats:        request.EnableStats,
-		Salt:               uuid.NewWithoutDashes(),
-		Batch:              request.Batch,
-		MaxQueueSize:       request.MaxQueueSize,
-		Service:            request.Service,
+		Pipeline:             request.Pipeline,
+		Version:              1,
+		Transform:            request.Transform,
+		ParallelismSpec:      request.ParallelismSpec,
+		Input:                request.Input,
+		OutputBranch:         request.OutputBranch,
+		Egress:               request.Egress,
+		CreatedAt:            now(),
+		ScaleDownThreshold:   request.ScaleDownThreshold,
+		ResourceRequestsSpec: request.ResourceRequestsSpec,
+		ResourceLimitsSpec:   request.ResourceLimitsSpec,
+		Description:          request.Description,
+		Incremental:          request.Incremental,
+		CacheSize:            request.CacheSize,
+		EnableStats:          request.EnableStats,
+		Salt:                 uuid.NewWithoutDashes(),
+		Batch:                request.Batch,
+		MaxQueueSize:         request.MaxQueueSize,
+		Service:              request.Service,
 	}
 	setPipelineDefaults(pipelineInfo)
 	var visitErr error
@@ -1494,8 +1497,8 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 	if pipelineInfo.CacheSize == "" {
 		pipelineInfo.CacheSize = "64M"
 	}
-	if pipelineInfo.ResourceSpec == nil && pipelineInfo.CacheSize != "" {
-		pipelineInfo.ResourceSpec = &pps.ResourceSpec{
+	if pipelineInfo.ResourceRequestSpec == nil && pipelineInfo.CacheSize != "" {
+		pipelineInfo.ResourceRequestSpec = &pps.ResourceRequestSpec{
 			Memory: pipelineInfo.CacheSize,
 		}
 	}

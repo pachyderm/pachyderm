@@ -17,8 +17,11 @@ import (
 // GetRequestsResourceListFromPipeline returns a list of resources that the pipeline,
 // minimally requires.
 func GetRequestsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*api.ResourceList, error) {
+	return getResourceListFromSpec(pipelineInfo.ResourceRequestsSpec, pipelineInfo.CacheSize)
+}
+
+func getResourceListFromSpec(resources *pps.ResourceSpec, cacheSize string) (*api.ResourceList, error) {
 	var result api.ResourceList = make(map[api.ResourceName]resource.Quantity)
-	resources, cacheSize := pipelineInfo.ResourceSpec, pipelineInfo.CacheSize
 	cpuStr := fmt.Sprintf("%f", resources.Cpu)
 	cpuQuantity, err := resource.ParseQuantity(cpuStr)
 	if err != nil {
@@ -49,15 +52,17 @@ func GetRequestsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*api.R
 // GetLimitsResourceListFromPipeline returns a list of resources that the pipeline,
 // maximally is limited to.
 func GetLimitsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*api.ResourceList, error) {
-	var result api.ResourceList = make(map[api.ResourceName]resource.Quantity)
-	gpuStr := fmt.Sprintf("%d", pipelineInfo.ResourceSpec.Gpu)
-	gpuQuantity, err := resource.ParseQuantity(gpuStr)
-	if err != nil {
-		log.Warnf("error parsing gpu string: %s: %+v", gpuStr, err)
-	} else {
-		result[api.ResourceNvidiaGPU] = gpuQuantity
-	}
-	return &result, nil
+	result, err := getResourceListFromSpec(pipelineInfo.ResourceLimitsSpec, pipelineInfo.CacheSize)
+	/*
+		// Todo: Always specify a GPU limit of 0 for k8s 1.8
+		gpuStr := fmt.Sprintf("%d", pipelineInfo.ResourceLimitsSpec.Gpu)
+		gpuQuantity, err := resource.ParseQuantity(gpuStr)
+		if err != nil {
+			log.Warnf("error parsing gpu string: %s: %+v", gpuStr, err)
+		} else {
+			result[api.ResourceNvidiaGPU] = gpuQuantity
+		}*/
+	return result, nil
 }
 
 // LookupUser is a reimplementation of user.Lookup that doesn't require cgo.

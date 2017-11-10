@@ -226,11 +226,13 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		}
 		var resourceRequests *api.ResourceList
 		var resourceLimits *api.ResourceList
-		if pipelineInfo.ResourceSpec != nil {
+		if pipelineInfo.ResourceRequestsSpec != nil {
 			resourceRequests, err = util.GetRequestsResourceListFromPipeline(pipelineInfo)
 			if err != nil {
 				return err
 			}
+		}
+		if pipelineInfo.ResourceLimitsSpec != nil {
 			resourceLimits, err = util.GetLimitsResourceListFromPipeline(pipelineInfo)
 			if err != nil {
 				return err
