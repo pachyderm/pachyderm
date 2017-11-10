@@ -18,6 +18,12 @@ This example pipeline executes a query periodically against a MongoDB database o
 
 [Periodic Ingress from MongoDB](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/cron)
 
+## Variant Calling and Joint Genotyping with GATK
+
+This example illustrates the use of GATK in Pachyderm for Germline variant calling and joint genotyping. Each stage of this GATK best practice pipeline can be scaled individually and is automatically triggered as data flows into the top of the pipeline. The example follows [this tutorial](https://drive.google.com/open?id=0BzI1CyccGsZiQ1BONUxfaGhZRGc) from GATK, which includes more details about the various stages.
+
+[GATK - Variant Calling](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/gatk)
+
 ## Machine Learning
 
 ### Iris flower classification with R, Python, or Julia
@@ -38,4 +44,8 @@ If you haven't seen pix2pix, check out [this great demo](https://affinelayer.com
 
 [TensorFlow - pix2pix](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/ml/tensorflow)
 
+### Recurrent Neural Network with Tensorflow
 
+Based on [this Tensorflow example](https://www.tensorflow.org/tutorials/recurrent#recurrent-neural-networks), this pipeline generates a new Game of Thrones script using a model trained on existing Game of Thrones scripts.
+
+[Tensorflow - Recurrent Neural Network](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/ml/rnn)  

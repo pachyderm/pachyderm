@@ -4,14 +4,27 @@ The access control features of Pachyderm Enterprise let you create and manage va
 
 These docs will guide you through:
 
-1. [Activating access control features (aka "auth" features).](#activating-access-control)
-2. [Logging into Pachyderm.](#logging-into-pachyderm)
-3. [Managing/updating user access to data repositories.](#managing-and-updating-user-access)
+1. [Understanding Pachyderm access controls.](#understanding-pachyderm-access-controls)
+2. [Activating access control features (aka "auth" features).](#activating-access-control)
+3. [Logging into Pachyderm.](#logging-into-pachyderm)
+4. [Managing/updating user access to data repositories.](#managing-and-updating-user-access)
 
 We will also discuss:
 
 - [The behavior of pipelines when using access control](#behavior-of-pipelines-as-related-to-access-control)
 - [The behavior of a cluster when access control is de-activated or an enterprise token expires](#activation-code-expiration-and-de-activation)
+
+## Understanding Pachyderm access controls
+
+Assuming access controls are activated, each data repository (aka _repo_) in Pachyderm will have an Access Control List (ACL) associated with it. The ACL will include:
+
+- READERs - users who can read the data versioned in the repo.
+- WRITERs - users with READER access who can also commit additions, deletions, or modifications of data into the repo.
+- OWNERs - users with READER and WRITER access who can also modify the repo's ACL.
+
+Currently, Pachyderm accounts correspond to GitHub users, who authenticate inside of Pachyderm using OAuth integration with GitHub. Pachyderm user accounts are identified within Pachyderm via their GitHub usernames.
+
+There is a single, hardcoded "admin" group (and no other groups) in Pachyderm.  Users in that admin group have the ability to perform any action in the cluster, including appointing other admins. Further, a repo with no ACL can only be managed by the cluster admins.
 
 ## Activating access control
 
@@ -98,12 +111,6 @@ OWNER
 An OWNER of `test` or a cluster admin can then set other user's scope of access to the repo.  This can be done via the `pachctl auth set ...` command or via the dasboard.  For example, to give the GitHub users `JoeyZwicker` and `msteffen` READER (but not WRITER or OWNER) access to `test` and `jdoliner` WRITER (but not OWNER) access, we can click on `Modify access controls` under the repo details in the dashboard.  This will allow us to easily add the users one by one:
 
 ![alt tag](auth_dash5.png)
-
-In Pachyderm, the heirarchy of users is as follows:
-
-- An OWNER can read and write to/from a repo, and they can add/remove other OWNER, READER, or WRITER users to/from a repo.
-- A WRITER can read and write to/from a repo.
-- A READER can read from a repo.
 
 ## Behavior of pipelines as related to access control
 

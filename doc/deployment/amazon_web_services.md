@@ -1,30 +1,28 @@
 # Amazon Web Services
 
-Below, we show how to deploy Pachyderm on AWS in a couple of different ways:
+We have two methods of deploying pachyderm on AWS, and each is more appropriate for certain circumstances
 
-1. [By manually deploying Kubernetes and Pachyderm.](amazon_web_services.html#manual-pachyderm-deploy)
-2. [By executing a one shot deploy script that will both deploy Kubernetes and Pachyderm.](amazon_web_services.html#one-shot-script)
+2. [By manually deploying Kubernetes and Pachyderm.](amazon_web_services.html#manual-pachyderm-deploy)
+    - This is more appropriate if you already have a kubernetes deployment, if you would like to customize the types of instances, size of volumes, or you're setting up a production cluster or processing a large workload
+1. [By executing a one shot deploy script that will both deploy Kubernetes and Pachyderm.](amazon_web_services.html#one-shot-script)
+    - If you're experimenting with Pachyderm, our one-shot script is much faster and simpler.
 
-If you already have a Kubernetes deployment or would like to customize the types of instances, size of volumes, etc. in your Kubernetes cluster, you should follow option (1).  If you just want a quick deploy to experiment with Pachyderm in AWS or would just like to use our default configuration, you might want to try option (2)
+In addition, we recommend setting up AWS CloudFront for production deployments. AWS puts S3 rate limits in place that can limit the data throughput for your cluster, and CloudFront helps mitigate this issue. Follow these instructions to deploy with CloudFront
 
+- [Deploy a Pachyderm cluster with CloudFront](./aws_cloudfront.html)
 
-## Production Deployment
+## Manual Pachyderm Deploy
 
-Note - for production deployments we recommend setting up AWS CloudFront. AWS puts S3 rate limits in place that can limit the data throughput for your cluster, and CloudFront helps mitigate this issue.
-
-[Follow the instructions here to deploy a Pachyderm cluster with CloudFront](./aws_cloudfront.html)
-
-## Prerequisites
+### Prerequisites
 
 - [AWS CLI](https://aws.amazon.com/cli/) - have it installed and have your [AWS credentials](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html) configured.
 - [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
 - [kops](https://github.com/kubernetes/kops/blob/master/docs/install.md)
-
-## Manual Pachyderm Deploy
+- [pachctl](#install-pachctl)
 
 ### Deploy Kubernetes
 
-The easiest way to install Kubernetes on AWS is with kops. Kubenetes has provided a [step by step guide](https://github.com/kubernetes/kops/blob/master/docs/aws.md) for the deploy.  Please follow [this guide](https://github.com/kubernetes/kops/blob/master/docs/aws.md) to deploy Kubernetes on AWS.  
+The easiest way to install Kubernetes on AWS is with kops. Kubenetes has provided a [step by step guide](https://github.com/kubernetes/kops/blob/master/docs/aws.md) for the deploy.  Please follow [this guide](https://github.com/kubernetes/kops/blob/master/docs/aws.md) to deploy Kubernetes on AWS.
 
 Once, you have a Kubernetes cluster up and running in AWS, you should be able to see the following output from `kubectl`:
 
@@ -39,7 +37,7 @@ svc/kubernetes   10.0.0.1     <none>        443/TCP   22s
 To deploy Pachyderm we will need to:
 
 1. Install the `pachctl` CLI tool,
-2. Add some storage resources on AWS, 
+2. Add some storage resources on AWS,
 3. Deploy Pachyderm on top of the storage resources.
 
 #### Install `pachctl`
@@ -52,7 +50,7 @@ To deploy and interact with Pachyderm, you will need `pachctl`, a command-line u
 $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.6
 
 # For Linux (64 bit):
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.6.1/pachctl_1.6.1_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.6.4/pachctl_1.6.4_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 You can try running `pachctl version` to check that this worked correctly, but Pachyderm itself isn't deployed yet so you won't get a `pachd` version.
@@ -74,7 +72,6 @@ Here are the environmental variables you should set up to create these resources
 $ kubectl cluster-info
   Kubernetes master is running at https://1.2.3.4
   ...
-$ KUBECTLFLAGS="-s [The public IP of the Kubernetes master. e.g. 1.2.3.4]"
 
 # BUCKET_NAME needs to be globally unique across the entire AWS region
 $ BUCKET_NAME=[The name of the S3 bucket where your data will be stored]
@@ -106,12 +103,30 @@ $ aws s3api list-buckets --query 'Buckets[].Name'
 
 #### Deploy Pachyderm
 
+##### Deploying with static credentials
+
+When you installed kops, you should have created a dedicated IAM user (see [here](https://github.com/kubernetes/kops/blob/master/docs/aws.md#aws) for details).  You could deploy Pachyderm using the credentials of the IAM user directly, although that's not recommended:
+
+```sh
+$ AWS_ACCESS_KEY_ID=[access key ID]
+
+$ AWS_SECRET_ACCESS_KEY=[secret access key]
+```
+
+Run the following command to deploy your Pachyderm cluster:
+
+```shell
+$ pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3 --credentials "${AWS_ACCESS_KEY_ID},${AWS_SECRET_ACCESS_KEY},"
+```
+
+(Note, the `,` at the end of the `credentials` flag in the deploy command is for an optional temporary AWS token, if you are just experimenting with a deploy.  Such a token should NOT be used for a production deploy).  It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub.
+
 ##### Deploying with IAM role
 
 Run the following command to deploy your Pachyderm cluster:
 
 ```shell
-$ pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3 --iam-role <your-iam-role> 
+$ pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3 --iam-role <your-iam-role>
 ```
 
 Note that for this to work, the following need to be true:
@@ -162,23 +177,7 @@ Make sure to replace `your-bucket` with your actual bucket name.
 }
 ```
 
-##### Deploying with static credentials
-
-When you installed kops, you should have created a dedicated IAM user (see [here](https://github.com/kubernetes/kops/blob/master/docs/aws.md#aws) for details).  You could deploy Pachyderm using the credentials of the IAM user directly, although that's not recommended:
-
-```sh
-$ AWS_ACCESS_KEY_ID=[access key ID]
-
-$ AWS_SECRET_ACCESS_KEY=[secret access key]
-```
-
-Run the following command to deploy your Pachyderm cluster:
-
-```shell
-$ pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3 --credentials "${AWS_ACCESS_KEY_ID},${AWS_SECRET_ACCESS_KEY}," 
-```
-
-(Note, the `,` at the end of the `credentials` flag in the deploy command is for an optional temporary AWS token, if you are just experimenting with a deploy.  Such a token should NOT be used for a production deploy).  It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub. You can see the cluster status by using:
+Once you've run `pachctl deploy`, you can see the cluster status by using:
 
 ```sh
 $ kubectl get all
@@ -210,7 +209,7 @@ rs/pachd-2566441599   1         1         1         1m
 
 Note: If you see a few restarts on the pachd nodes, that's totally ok. That simply means that Kubernetes tried to bring up those containers before etcd was ready so it restarted them.
 
-Finally, we need to set up forward a port so that pachctl can talk to the cluster.
+Finally, we need to forward a port so that pachctl can talk to the cluster.
 
 ```sh
 # Forward the ports. We background this process because it blocks.
@@ -227,10 +226,12 @@ pachd               1.6.0
 
 ## One Shot Script
 
-### Install additional prerequisites
+### Prerequisites
 
-This scripted deploy requires a couple of prerequisites in addition to the ones listed under [Prerequisites](amazon_web_services.md#prerequisites):
-
+- [AWS CLI](https://aws.amazon.com/cli/) - have it installed and have your [AWS credentials](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html) configured.
+- [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
+- [kops](https://github.com/kubernetes/kops/blob/master/docs/install.md)
+- [pachctl](#install-pachctl)
 - [jq](https://stedolan.github.io/jq/download/)
 - [uuid](http://man7.org/linux/man-pages/man1/uuidgen.1.html)
 
@@ -291,3 +292,4 @@ COMPONENT           VERSION
 pachctl             1.6.0
 pachd               1.6.0
 ```
+

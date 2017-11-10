@@ -135,9 +135,6 @@ docker-build-test: docker-clean-test docker-build-compile
 docker-push-test:
 	docker push pachyderm/test:`git rev-list HEAD --max-count=1`
 
-docker-build-microsoft-vhd:
-	docker build -t microsoft_vhd etc/microsoft/create-blank-vhd
-
 docker-wait-pachd:
 	etc/compile/wait.sh pachd_compile
 
@@ -339,11 +336,13 @@ enterprise-code-checkin-test:
 test-pfs:
 	@# don't run this in verbose mode, as it produces a huge amount of logs
 	go test ./src/server/pfs/server -timeout $(TIMEOUT)
+	go test ./src/server/pfs/cmds -timeout $(TIMEOUT)
 	go test ./src/server/pkg/collection -timeout $(TIMEOUT)
 	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
 
 test-pps:
 	go test -v ./src/server -parallel 1 -timeout $(TIMEOUT)
+	go test ./src/server/pps/cmds -timeout $(TIMEOUT)
 
 test-client:
 	rm -rf src/client/vendor
@@ -472,8 +471,6 @@ microsoft-cluster-manifest:
 microsoft-cluster:
 	azure group create --name $(AZURE_RESOURCE_GROUP) --location $(AZURE_LOCATION)
 	azure storage account create $(AZURE_STORAGE_NAME) --location $(AZURE_LOCATION) --resource-group $(AZURE_RESOURCE_GROUP) --sku-name LRS --kind Storage
-	$(eval _AZURE_STORAGE_KEY :="`azure storage account keys list $(AZURE_STORAGE_NAME) --resource-group $(AZURE_RESOURCE_GROUP) --json | jq .[0].value`")
-	docker run -it microsoft_vhd $(AZURE_STORAGE_NAME) $(_AZURE_STORAGE_KEY) vhds $(DISK_NAME)
 
 clean-microsoft-cluster:
 	azure group delete $(AZURE_RESOURCE_GROUP) -q
@@ -532,7 +529,6 @@ goxc-build:
 	docker-build \
 	docker-build-compile \
 	docker-build-worker \
-	docker-build-microsoft-vhd \
 	docker-build-pachd \
 	docker-build-proto \
 	docker-push-worker \

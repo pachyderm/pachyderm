@@ -38,9 +38,10 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   "resource_limits_spec": {
     "memory": string
     "cpu": double
+    "gpu": double
   },
   "input": {
-    <"atom" or "cross" or "union", see below>
+    <"atom", "cross", "union", or "cron", see below>
   },
   "output_branch": string,
   "egress": {
@@ -96,6 +97,17 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   }
   etc...
 ]
+
+------------------------------------
+"cron" input
+------------------------------------
+
+"cron": {
+    "name": string,
+    "spec": string,
+    "repo": string,
+    "start": time,
+}
 
 ```
 
@@ -410,7 +422,7 @@ Incremental, if set will cause the pipeline to be run "incrementally". This
 means that when a datum changes it won't be reprocessed from scratch, instead
 `/pfs/out` will be populated with the previous results of processing that datum
 and instead of seeing the full datum under `/pfs/repo` you will see only
-new/modified values.
+new/modified values. Incremental pipelines are discussed in more detail [here](../fundamentals/incrementality.html).
 
 Incremental processing is useful for [online
 algorithms](https://en.wikipedia.org/wiki/Online_algorithm), a canonical

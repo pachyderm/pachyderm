@@ -3,7 +3,7 @@
     "name": "inference"
   },
   "transform": {
-    "image": "dwhitena/pachrinfer",
+    "image": "pachyderm/iris-infer:rstats",
     "cmd": [
 	"Rscript",
 	"infer.R"

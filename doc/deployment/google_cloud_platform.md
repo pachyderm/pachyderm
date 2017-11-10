@@ -6,6 +6,7 @@ Google Cloud Platform has excellent support for Kubernetes through the [Google C
 
 - [Google Cloud SDK](https://cloud.google.com/sdk/) >= 124.0.0
 - [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
+- [pachctl](#install-pachctl)
 
 If this is the first time you use the SDK, make sure to follow the [quick start guide](https://cloud.google.com/sdk/docs/quickstarts). This may update your `~/.bash_profile` and point your `$PATH` at the location where you extracted `google-cloud-sdk`. We recommend extracting this to `~/bin`.
 
@@ -96,7 +97,7 @@ $ gsutil ls
 $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.6
 
 # For Linux (64 bit):
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.6.1/pachctl_1.6.1_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.6.4/pachctl_1.6.4_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 You can try running `pachctl version` to check that this worked correctly, but Pachyderm itself isn't deployed yet so you won't get a `pachd` version.

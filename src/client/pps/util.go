@@ -1,9 +1,13 @@
 package pps
 
 import (
+	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+
+	"gopkg.in/src-d/go-git.v4"
 )
 
 // VisitInput visits each input recursively in ascending order (root last)
@@ -69,6 +73,46 @@ func InputCommits(input *Input) []*pfs.Commit {
 				ID:   input.Cron.Commit,
 			})
 		}
+		if input.Git != nil {
+			result = append(result, &pfs.Commit{
+				Repo: &pfs.Repo{input.Git.Name},
+				ID:   input.Git.Commit,
+			})
+		}
 	})
 	return result
+}
+
+// ValidateGitCloneURL returns an error if the provided URL is invalid
+func ValidateGitCloneURL(url string) error {
+	exampleURL := "https://github.com/org/foo.git"
+	if url == "" {
+		return fmt.Errorf("clone URL is missing (example clone URL %v)", exampleURL)
+	}
+	// Use the git client's validator to make sure its a valid URL
+	o := &git.CloneOptions{
+		URL: url,
+	}
+	if err := o.Validate(); err != nil {
+		return err
+	}
+
+	// Make sure its the type that we want. Of the following we
+	// only accept the 'clone' type of url:
+	//     git_url: "git://github.com/sjezewski/testgithook.git",
+	//     ssh_url: "git@github.com:sjezewski/testgithook.git",
+	//     clone_url: "https://github.com/sjezewski/testgithook.git",
+	//     svn_url: "https://github.com/sjezewski/testgithook",
+	invalidErr := fmt.Errorf("clone URL is missing .git suffix (example clone URL %v)", exampleURL)
+
+	if !strings.HasSuffix(url, ".git") {
+		// svn_url case
+		return invalidErr
+	}
+	if !strings.HasPrefix(url, "https://") {
+		// git_url or ssh_url cases
+		return invalidErr
+	}
+
+	return nil
 }
