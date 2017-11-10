@@ -1,7 +1,5 @@
 #!/bin/sh
 
-set -x
-
 tar xf /dev/stdin
 
 for i in $(find src -name "*.proto"); do \
