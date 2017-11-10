@@ -279,7 +279,7 @@ func (a *apiServer) getWorkerOptions(pipelineName string, rcName string,
 		Name:      client.PPSWorkerVolume,
 		MountPath: client.PPSScratchSpace,
 	})
-	if resourceRequests != nil && resourceRequests.NvidiaGPU() != nil && !resourceRequests.NvidiaGPU().IsZero() {
+	if resourceLimits != nil && resourceLimits.NvidiaGPU() != nil && !resourceLimits.NvidiaGPU().IsZero() {
 		volumes = append(volumes, api.Volume{
 			Name: "root-lib",
 			VolumeSource: api.VolumeSource{
