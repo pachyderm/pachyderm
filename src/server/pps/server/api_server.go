@@ -6,6 +6,7 @@ import (
 	goerr "errors"
 	"fmt"
 	"io"
+	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -154,6 +155,11 @@ func validateNames(names map[string]bool, input *pps.Input) error {
 				return err
 			}
 		}
+	case input.Git != nil:
+		if names[input.Git.Name] == true {
+			return fmt.Errorf("name %s was used more than once", input.Git.Name)
+		}
+		names[input.Git.Name] = true
 	}
 	return nil
 }
@@ -225,7 +231,13 @@ func (a *apiServer) validateInput(ctx context.Context, pipelineName string, inpu
 				if _, err := cron.Parse(input.Cron.Spec); err != nil {
 					return err
 				}
-				if _, err := pachClient.InspectRepo(input.Cron.Repo); err != nil {
+			}
+			if input.Git != nil {
+				if set {
+					return fmt.Errorf("multiple input types set")
+				}
+				set = true
+				if err := pps.ValidateGitCloneURL(input.Git.URL); err != nil {
 					return err
 				}
 			}
@@ -359,6 +371,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			Salt:            request.Salt,
 			PipelineVersion: request.PipelineVersion,
 			Batch:           request.Batch,
+			ChunkSpec:       request.ChunkSpec,
 		}
 		if request.Pipeline != nil {
 			pipelineInfo := new(pps.PipelineInfo)
@@ -699,7 +712,9 @@ func (a *apiServer) listDatum(ctx context.Context, job *pps.Job, page, pageSize 
 		datumFileInfos = append(datumFileInfos, f)
 	}
 	// Sort results (failed first)
-	sort.Sort(byDatumState(datumFileInfos))
+	sort.Slice(datumFileInfos, func(i, j int) bool {
+		return datumFileToState(datumFileInfos[i], jobInfo.Job.ID) < datumFileToState(datumFileInfos[j], jobInfo.Job.ID)
+	})
 	if pageSize > 0 {
 		response.Page = page
 		response.TotalPages = getTotalPages(len(datumFileInfos))
@@ -785,11 +800,9 @@ func (a *apiServer) ListDatumStream(req *pps.ListDatumRequest, resp pps.API_List
 	return nil
 }
 
-type byDatumState []*pfs.FileInfo
-
-func datumFileToState(f *pfs.FileInfo) pps.DatumState {
+func datumFileToState(f *pfs.FileInfo, jobID string) pps.DatumState {
 	for _, childFileName := range f.Children {
-		if childFileName == "skipped" {
+		if strings.HasPrefix(childFileName, "job") && strings.Split(childFileName, ":")[1] != jobID {
 			return pps.DatumState_SKIPPED
 		}
 		if childFileName == "failure" {
@@ -797,14 +810,6 @@ func datumFileToState(f *pfs.FileInfo) pps.DatumState {
 		}
 	}
 	return pps.DatumState_SUCCESS
-}
-
-func (a byDatumState) Len() int      { return len(a) }
-func (a byDatumState) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a byDatumState) Less(i, j int) bool {
-	iState := datumFileToState(a[i])
-	jState := datumFileToState(a[j])
-	return iState < jState
 }
 
 func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commit, jobID string, datumID string, df workerpkg.DatumFactory) (datumInfo *pps.DatumInfo, retErr error) {
@@ -823,20 +828,19 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 	pfsClient := pachClient.PfsAPIClient
 
 	// Check if skipped
-	stateFile := &pfs.File{
-		Commit: commit,
-		Path:   fmt.Sprintf("/%v/skipped", datumID),
-	}
-	_, err = pfsClient.InspectFile(ctx, &pfs.InspectFileRequest{stateFile})
-	if err == nil {
-		datumInfo.State = pps.DatumState_SKIPPED
-		return datumInfo, nil
-	} else if !isNotFoundErr(err) {
+	fileInfos, err := pachClient.WithCtx(ctx).GlobFile(commit.Repo.Name, commit.ID, fmt.Sprintf("/%v/job:*", datumID))
+	if err != nil {
 		return nil, err
+	}
+	if len(fileInfos) != 1 {
+		return nil, fmt.Errorf("couldn't find job file")
+	}
+	if strings.Split(fileInfos[0].File.Path, ":")[1] != jobID {
+		datumInfo.State = pps.DatumState_SKIPPED
 	}
 
 	// Check if failed
-	stateFile = &pfs.File{
+	stateFile := &pfs.File{
 		Commit: commit,
 		Path:   fmt.Sprintf("/%v/failure", datumID),
 	}
@@ -1377,8 +1381,12 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Batch:              request.Batch,
 		MaxQueueSize:       request.MaxQueueSize,
 		Service:            request.Service,
+		ChunkSpec:          request.ChunkSpec,
 	}
 	setPipelineDefaults(pipelineInfo)
+	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
+		return nil, err
+	}
 	var visitErr error
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
 		if input.Cron != nil {
@@ -1386,12 +1394,14 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				visitErr = err
 			}
 		}
+		if input.Git != nil {
+			if err := pachClient.CreateRepo(input.Git.Name); err != nil && !isAlreadyExistsErr(err) {
+				visitErr = err
+			}
+		}
 	})
 	if visitErr != nil {
 		return nil, visitErr
-	}
-	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
-		return nil, err
 	}
 	operation := pipelineOpCreate
 	if request.Update {
@@ -1571,6 +1581,17 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 			}
 			if input.Cron.Repo == "" {
 				input.Cron.Repo = fmt.Sprintf("%s_%s", pipelineInfo.Pipeline.Name, input.Cron.Name)
+			}
+		}
+		if input.Git != nil {
+			if input.Git.Branch == "" {
+				input.Git.Branch = "master"
+			}
+			if input.Git.Name == "" {
+				// We know URL looks like:
+				// "https://github.com/sjezewski/testgithook.git",
+				tokens := strings.Split(path.Base(input.Git.URL), ".")
+				input.Git.Name = tokens[0]
 			}
 		}
 	})
