@@ -1150,7 +1150,7 @@ func (a *APIServer) scaleDownWorkers() error {
 	// requirements so that the remaining master pod does not take up
 	// the resource it doesn't need, since by definition when a pipeline
 	// is in scale-down mode, it doesn't process any work.
-	if a.pipelineInfo.ResourceSpec != nil {
+	if a.pipelineInfo.ResourceRequestsSpec != nil {
 		workerRc.Spec.Template.Spec.Containers[0].Resources = api.ResourceRequirements{}
 	}
 	_, err = rc.Update(workerRc)
@@ -1174,7 +1174,7 @@ func (a *APIServer) scaleUpWorkers(logger *taggedLogger) error {
 	// Reset the resource requirements for the RC since the pipeline
 	// is in scale-down mode and probably has removed its resource
 	// requirements.
-	if a.pipelineInfo.ResourceSpec != nil {
+	if a.pipelineInfo.ResourceRequestsSpec != nil {
 		requestsResourceList, err := util.GetRequestsResourceListFromPipeline(a.pipelineInfo)
 		if err != nil {
 			return fmt.Errorf("error parsing resource spec; this is likely a bug: %v", err)

@@ -208,7 +208,8 @@ message JobInfo {
   int64 data_total = 23;
   ProcessStats stats = 31;
   repeated WorkerStatus worker_status = 24;
-  ResourceSpec resource_spec = 25;
+  ResourceSpec resource_requests_spec = 25;
+  ResourceSpec resource_limits_spec = 35;
   Input input = 26;
   pfs.BranchInfo new_branch = 27;
   bool incremental = 28;
@@ -311,7 +312,8 @@ message CreateJobRequest {
   pfs.Repo output_repo = 12;
   string output_branch = 11;
   Job parent_job = 13;
-  ResourceSpec resource_spec = 14;
+  ResourceSpec resource_requests_spec = 14;
+  ResourceSpec resource_limits_spec = 21;
   Input input = 15;
   pfs.BranchInfo new_branch = 16;
   bool incremental = 17;
@@ -413,7 +415,8 @@ message CreatePipelineRequest {
   bool update = 5;
   string output_branch = 10;
   google.protobuf.Duration scale_down_threshold = 11;
-  ResourceSpec resource_spec = 12;
+  ResourceSpec resource_requests_spec = 12;
+  ResourceSpec resource_limits_spec = 22;
   Input input = 13;
   string description = 14;
   bool incremental = 15;
