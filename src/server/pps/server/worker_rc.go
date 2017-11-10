@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 
 	client "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
