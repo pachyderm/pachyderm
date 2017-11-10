@@ -49,6 +49,14 @@ func getResourceListFromSpec(resources *pps.ResourceSpec, cacheSize string) (*ap
 		result[api.ResourceMemory] = cacheQuantity
 	}
 
+	gpuStr := fmt.Sprintf("%d", resources.Gpu)
+	gpuQuantity, err := resource.ParseQuantity(gpuStr)
+	if err != nil {
+		log.Warnf("error parsing gpu string: %s: %+v", gpuStr, err)
+	} else {
+		result[api.ResourceNvidiaGPU] = gpuQuantity
+	}
+
 	return &result, nil
 }
 
@@ -56,15 +64,6 @@ func getResourceListFromSpec(resources *pps.ResourceSpec, cacheSize string) (*ap
 // maximally is limited to.
 func GetLimitsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*api.ResourceList, error) {
 	return getResourceListFromSpec(pipelineInfo.ResourceLimitsSpec, pipelineInfo.CacheSize)
-	/*
-		// Todo: Always specify a GPU limit of 0 for k8s 1.8
-		gpuStr := fmt.Sprintf("%d", pipelineInfo.ResourceLimitsSpec.Gpu)
-		gpuQuantity, err := resource.ParseQuantity(gpuStr)
-		if err != nil {
-			log.Warnf("error parsing gpu string: %s: %+v", gpuStr, err)
-		} else {
-			result[api.ResourceNvidiaGPU] = gpuQuantity
-		}*/
 }
 
 // LookupUser is a reimplementation of user.Lookup that doesn't require cgo.
