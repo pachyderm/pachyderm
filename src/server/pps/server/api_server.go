@@ -1497,8 +1497,8 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 	if pipelineInfo.CacheSize == "" {
 		pipelineInfo.CacheSize = "64M"
 	}
-	if pipelineInfo.ResourceRequestSpec == nil && pipelineInfo.CacheSize != "" {
-		pipelineInfo.ResourceRequestSpec = &pps.ResourceRequestSpec{
+	if pipelineInfo.ResourceRequestsSpec == nil && pipelineInfo.CacheSize != "" {
+		pipelineInfo.ResourceRequestsSpec = &pps.ResourceSpec{
 			Memory: pipelineInfo.CacheSize,
 		}
 	}

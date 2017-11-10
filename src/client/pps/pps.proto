@@ -209,7 +209,7 @@ message JobInfo {
   ProcessStats stats = 31;
   repeated WorkerStatus worker_status = 24;
   ResourceSpec resource_requests_spec = 25;
-  ResourceSpec resource_limits_spec = 35;
+  ResourceSpec resource_limits_spec = 36;
   Input input = 26;
   pfs.BranchInfo new_branch = 27;
   bool incremental = 28;

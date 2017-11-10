@@ -3347,7 +3347,7 @@ func TestPipelineResourceLimit(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			ResourceLimitSpec: &pps.ResourceSpec{
+			ResourceLimitsSpec: &pps.ResourceSpec{
 				Memory: "100M",
 				Cpu:    0.5,
 			},
@@ -3390,9 +3390,6 @@ func TestPipelineResourceLimit(t *testing.T) {
 	mem, ok := container.Resources.Limits[api.ResourceMemory]
 	require.True(t, ok)
 	require.Equal(t, "100M", mem.String())
-	gpu, ok := container.Resources.Limits[api.ResourceNvidiaGPU]
-	require.True(t, ok)
-	require.Equal(t, "0", gpu.String())
 }
 
 func TestPipelinePartialResourceRequest(t *testing.T) {
