@@ -231,9 +231,6 @@ func (a *apiServer) validateInput(ctx context.Context, pipelineName string, inpu
 				if _, err := cron.Parse(input.Cron.Spec); err != nil {
 					return err
 				}
-				if _, err := pachClient.InspectRepo(input.Cron.Repo); err != nil {
-					return err
-				}
 			}
 			if input.Git != nil {
 				if set {
