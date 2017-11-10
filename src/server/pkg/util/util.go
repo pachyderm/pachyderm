@@ -20,7 +20,7 @@ import (
 // GetRequestsResourceListFromPipeline returns a list of resources that the pipeline,
 // minimally requires.
 func GetRequestsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*api.ResourceList, error) {
-	return getResourceListFromSpec(pipelineInfo.ResourceRequestsSpec, pipelineInfo.CacheSize)
+	return getResourceListFromSpec(pipelineInfo.ResourceRequests, pipelineInfo.CacheSize)
 }
 
 func getResourceListFromSpec(resources *pps.ResourceSpec, cacheSize string) (*api.ResourceList, error) {
@@ -62,7 +62,7 @@ func getResourceListFromSpec(resources *pps.ResourceSpec, cacheSize string) (*ap
 // GetLimitsResourceListFromPipeline returns a list of resources that the pipeline,
 // maximally is limited to.
 func GetLimitsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*api.ResourceList, error) {
-	return getResourceListFromSpec(pipelineInfo.ResourceLimitsSpec, pipelineInfo.CacheSize)
+	return getResourceListFromSpec(pipelineInfo.ResourceLimits, pipelineInfo.CacheSize)
 }
 
 // LookupUser is a reimplementation of user.Lookup that doesn't require cgo.

@@ -1813,7 +1813,7 @@ func TestPrettyPrinting(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			ResourceRequestsSpec: &pps.ResourceSpec{
+			ResourceRequests: &pps.ResourceSpec{
 				Memory: "100M",
 				Cpu:    0.5,
 			},
@@ -2139,7 +2139,7 @@ func TestPipelineAutoScaledown(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: uint64(parallelism),
 			},
-			ResourceRequestsSpec: &pps.ResourceSpec{
+			ResourceRequests: &pps.ResourceSpec{
 				Memory: "100M",
 			},
 			Input:              client.NewAtomInput(dataRepo, "/"),
@@ -3278,7 +3278,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			ResourceRequestsSpec: &pps.ResourceSpec{
+			ResourceRequests: &pps.ResourceSpec{
 				Memory: "100M",
 				Cpu:    0.5,
 			},
@@ -3348,7 +3348,7 @@ func TestPipelineResourceLimit(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			ResourceLimitsSpec: &pps.ResourceSpec{
+			ResourceLimits: &pps.ResourceSpec{
 				Memory: "100M",
 				Cpu:    0.5,
 			},
@@ -3412,7 +3412,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"true"},
 			},
-			ResourceRequestsSpec: &pps.ResourceSpec{
+			ResourceRequests: &pps.ResourceSpec{
 				Cpu:    0.5,
 				Memory: "100M",
 			},
@@ -3432,7 +3432,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"true"},
 			},
-			ResourceRequestsSpec: &pps.ResourceSpec{
+			ResourceRequests: &pps.ResourceSpec{
 				Memory: "100M",
 			},
 			Input: &pps.Input{
@@ -3451,7 +3451,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"true"},
 			},
-			ResourceRequestsSpec: &pps.ResourceSpec{},
+			ResourceRequests: &pps.ResourceSpec{},
 			Input: &pps.Input{
 				Atom: &pps.AtomInput{
 					Repo:   dataRepo,
