@@ -33,6 +33,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/migration"
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
+	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
@@ -336,6 +337,9 @@ func doFullMode(appEnvObj interface{}) error {
 	var eg errgroup.Group
 	eg.Go(func() error {
 		return http.ListenAndServe(fmt.Sprintf(":%v", pfs_server.HTTPPort), httpServer)
+	})
+	eg.Go(func() error {
+		return githook.RunGitHookServer(address, etcdAddress, appEnv.PPSEtcdPrefix)
 	})
 	eg.Go(func() error {
 		return grpcutil.Serve(
