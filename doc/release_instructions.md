@@ -52,6 +52,26 @@ You'll need the following credentials / tools:
 
 7) Run `make point-release` or `make VERSION_ADDITIONAL=<rc/version suffix> release-custom`
 
+8) Commit the changes (the dash compatibility file will have been newly created), e.g:
+
+```
+$git status
+On branch master
+Your branch is ahead of 'origin/master' by 4 commits.
+  (use "git push" to publish your local commits)
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+
+	etc/compatibility/1.6.4
+
+nothing added to commit but untracked files present (use "git add" to track)
+$git add etc/compatibility/1.6.4 
+$git commit -a -m "Update dash compatibility for pachctl 1.6.4"
+[master e7009a3] Update dash compatibility for pachctl 1.6.4
+ 1 file changed, 1 insertion(+)
+ create mode 100644 etc/compatibility/1.6.4
+```
+
 
 ### If the release failed
 You'll need to do two things: remove the relevant tags in GitHub, and re-build the docs in ReadTheDocs
