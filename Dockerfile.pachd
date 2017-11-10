@@ -1,5 +1,5 @@
 FROM scratch
-MAINTAINER jdoliner@pachyderm.io
+LABEL maintainer="jdoliner@pachyderm.io"
 
 ADD ./pachd /
 ADD ca-certificates.crt /etc/ssl/certs/

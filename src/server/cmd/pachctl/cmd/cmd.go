@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
 	"strings"
 	"syscall"
 	"text/tabwriter"
@@ -169,7 +170,7 @@ This resets the cluster to its initial state.`,
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
 		Long:  "Forward a port on the local machine to pachd. This command blocks.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			pidfile.SetPidfilePath("~/.pachyderm/port-forward.pid")
+			pidfile.SetPidfilePath(path.Join(os.Getenv("HOME"), ".pachyderm/port-forward.pid"))
 			pid, err := pidfile.Read()
 			if err != nil && !os.IsNotExist(err) {
 				return err

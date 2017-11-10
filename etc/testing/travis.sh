@@ -2,6 +2,7 @@
 
 set -e
 
+go install ./src/server/cmd/match
 echo "Running local tests"
 make test
 

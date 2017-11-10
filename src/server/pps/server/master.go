@@ -88,7 +88,13 @@ func (a *apiServer) master() {
 						return err
 					}
 
-					if pipelineInfo.Salt == "" {
+					// This is a bit of a hack that covers for migrations bugs
+					// where a field is set by setPipelineDefaults in a newer
+					// version of the server but a PipelineInfo which was
+					// created with an older version of the server doesn't have
+					// that field set because setPipelineDefaults was different
+					// when it was created.
+					if pipelineInfo.Salt == "" || pipelineInfo.CacheSize == "" {
 						if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 							pipelines := a.pipelines.ReadWrite(stm)
 							newPipelineInfo := new(pps.PipelineInfo)
@@ -98,7 +104,9 @@ func (a *apiServer) master() {
 							if newPipelineInfo.Salt == "" {
 								newPipelineInfo.Salt = uuid.NewWithoutDashes()
 							}
+							setPipelineDefaults(newPipelineInfo)
 							pipelines.Put(pipelineInfo.Pipeline.Name, newPipelineInfo)
+							pipelineInfo = *newPipelineInfo
 							return nil
 						}); err != nil {
 							return err
@@ -201,19 +209,7 @@ func (a *apiServer) master() {
 }
 
 func (a *apiServer) setPipelineFailure(ctx context.Context, pipelineName string, reason string) error {
-	// Set pipeline state to failure
-	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		pipelines := a.pipelines.ReadWrite(stm)
-		pipelineInfo := new(pps.PipelineInfo)
-		if err := pipelines.Get(pipelineName, pipelineInfo); err != nil {
-			return err
-		}
-		pipelineInfo.State = pps.PipelineState_PIPELINE_FAILURE
-		pipelineInfo.Reason = reason
-		pipelines.Put(pipelineName, pipelineInfo)
-		return nil
-	})
-	return err
+	return util.FailPipeline(ctx, a.etcdClient, a.pipelines, pipelineName, reason)
 }
 
 func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {

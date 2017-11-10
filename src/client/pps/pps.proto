@@ -68,11 +68,19 @@ message CronInput {
   google.protobuf.Timestamp start = 5;
 }
 
+message GitInput {
+  string name = 1;
+  string url = 2 [(gogoproto.customname) = "URL"];
+  string branch = 3;
+  string commit = 4;
+}
+
 message Input {
   AtomInput atom = 1;
   repeated Input cross = 2;
   repeated Input union = 3;
   CronInput cron = 4;
+  GitInput git = 5;
 }
 
 message JobInput {
@@ -130,11 +138,6 @@ message DatumInfo {
   pfs.File pfs_state = 4;
   repeated pfs.FileInfo data = 5;
 }
-
-message DatumInfos {
-  repeated DatumInfo datum_info = 1;
-}
-
 
 message Aggregate {
   int64 count = 1;
@@ -406,6 +409,18 @@ message ListDatumResponse {
   int64 page = 3;
 }
 
+// ListDatumStreamResponse is identical to ListDatumResponse, except that only
+// one DatumInfo is present (as these responses are streamed)
+message ListDatumStreamResponse {
+  DatumInfo datum_info = 1;
+  // total_pages is only set in the first response (and set to 0 in all other
+  // responses)
+  int64 total_pages = 2;
+  // page is only set in the first response (and set to 0 in all other
+  // responses)
+  int64 page = 3;
+}
+
 message CreatePipelineRequest {
   reserved 3, 4;
   Pipeline pipeline = 1;
@@ -464,11 +479,19 @@ message GarbageCollectResponse {}
 service API {
   rpc CreateJob(CreateJobRequest) returns (Job) {}
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
+  // ListJob returns information about current and past Pachyderm jobs. This is
+  // deprecated in favor of ListJobStream
   rpc ListJob(ListJobRequest) returns (JobInfos) {}
+  // ListJobStream returns information about current and past Pachyderm jobs.
+  rpc ListJobStream(ListJobRequest) returns (stream JobInfo) {}
   rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
   rpc StopJob(StopJobRequest) returns (google.protobuf.Empty) {}
   rpc InspectDatum(InspectDatumRequest) returns (DatumInfo) {}
+  // ListDatum returns information about each datum fed to a Pachyderm job. This
+  // is deprecated in favor of ListDatumStream
   rpc ListDatum(ListDatumRequest) returns (ListDatumResponse) {}
+  // ListDatumStream returns information about each datum fed to a Pachyderm job
+  rpc ListDatumStream(ListDatumRequest) returns (stream ListDatumStreamResponse) {}
   rpc RestartDatum(RestartDatumRequest) returns (google.protobuf.Empty) {}
 
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}

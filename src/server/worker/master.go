@@ -90,6 +90,7 @@ func (a *APIServer) master() {
 
 		logger.Logf("Launching worker master process")
 
+		paused := false
 		// Set pipeline state to running
 		if _, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			pipelineName := a.pipelineInfo.Pipeline.Name
@@ -98,11 +99,18 @@ func (a *APIServer) master() {
 			if err := pipelines.Get(pipelineName, pipelineInfo); err != nil {
 				return err
 			}
+			if pipelineInfo.State == pps.PipelineState_PIPELINE_PAUSED {
+				paused = true
+				return nil
+			}
 			pipelineInfo.State = pps.PipelineState_PIPELINE_RUNNING
 			pipelines.Put(pipelineName, pipelineInfo)
 			return nil
 		}); err != nil {
 			return err
+		}
+		if paused {
+			return fmt.Errorf("can't run master for a paused pipeline")
 		}
 		return a.jobSpawner(ctx, logger)
 	}, b, func(err error, d time.Duration) error {
@@ -126,6 +134,7 @@ func (a *APIServer) serviceMaster() {
 
 		logger.Logf("Launching master process")
 
+		paused := false
 		// Set pipeline state to running
 		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			pipelineName := a.pipelineInfo.Pipeline.Name
@@ -134,11 +143,18 @@ func (a *APIServer) serviceMaster() {
 			if err := pipelines.Get(pipelineName, pipelineInfo); err != nil {
 				return err
 			}
+			if pipelineInfo.State == pps.PipelineState_PIPELINE_PAUSED {
+				paused = true
+				return nil
+			}
 			pipelineInfo.State = pps.PipelineState_PIPELINE_RUNNING
 			pipelines.Put(pipelineName, pipelineInfo)
 			return nil
 		}); err != nil {
 			return err
+		}
+		if paused {
+			return fmt.Errorf("can't run master for a paused pipeline")
 		}
 		return a.serviceSpawner(ctx)
 	}, b, func(err error, d time.Duration) error {
@@ -162,12 +178,19 @@ func (a *APIServer) jobInput(bs *branchSet) (*pps.Input, error) {
 			}
 			input.Atom.FromCommit = ""
 		}
-		if input.Cron != nil {
+		commitFromBranchSet := func(repoName string) string {
 			for _, branch := range bs.Branches {
-				if input.Cron.Repo == branch.Head.Repo.Name {
-					input.Cron.Commit = branch.Head.ID
+				if repoName == branch.Head.Repo.Name {
+					return branch.Head.ID
 				}
 			}
+			return ""
+		}
+		if input.Cron != nil {
+			input.Cron.Commit = commitFromBranchSet(input.Cron.Repo)
+		}
+		if input.Git != nil {
+			input.Git.Commit = commitFromBranchSet(input.Git.Name)
 		}
 	})
 	if visitErr != nil {

@@ -3,7 +3,7 @@
     "name": "inference"
   },
   "transform": {
-    "image": "dwhitena/pyinfer",
+    "image": "pachyderm/iris-infer:python",
     "cmd": [
 	"python3",
 	"/code/pyinfer.py",

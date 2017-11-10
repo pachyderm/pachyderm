@@ -228,10 +228,10 @@ func (s *objBlockAPIServer) PutObjectSplit(server pfsclient.ObjectAPI_PutObjectS
 	defer func(start time.Time) { s.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
 	defer drainObjectServer(server)
 	var objects []*pfsclient.Object
+	putObjectReader := &putObjectReader{
+		server: server,
+	}
 	for {
-		putObjectReader := &putObjectReader{
-			server: server,
-		}
 		object, err := s.putObject(server.Context(), putObjectReader, true)
 		if object != nil {
 			objects = append(objects, object)
