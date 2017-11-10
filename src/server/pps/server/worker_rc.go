@@ -279,7 +279,7 @@ func (a *apiServer) getWorkerOptions(pipelineName string, rcName string,
 		Name:      client.PPSWorkerVolume,
 		MountPath: client.PPSScratchSpace,
 	})
-	if resourceLimits != nil && resourceLimits.NvidiaGPU() != nil && !resourceLimits.NvidiaGPU().IsZero() {
+	if resourceRequests != nil && resourceRequests.NvidiaGPU() != nil && !resourceRequests.NvidiaGPU().IsZero() {
 		volumes = append(volumes, api.Volume{
 			Name: "root-lib",
 			VolumeSource: api.VolumeSource{
@@ -351,7 +351,6 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 			},
 		},
 	}
-	fmt.Printf("Worker RC:\n%v\n%v\n", rc, podSpec)
 	if _, err := a.kubeClient.ReplicationControllers(a.namespace).Create(rc); err != nil {
 		if !isAlreadyExistsErr(err) {
 			return err
