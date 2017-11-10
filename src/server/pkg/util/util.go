@@ -56,7 +56,6 @@ func getResourceListFromSpec(resources *pps.ResourceSpec, cacheSize string) (*ap
 	} else {
 		result[api.ResourceNvidiaGPU] = gpuQuantity
 	}
-
 	return &result, nil
 }
 
