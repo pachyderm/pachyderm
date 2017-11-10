@@ -168,7 +168,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (api.PodSpec, error) {
 	if options.resourceRequests != nil {
 		resourceRequirements.Requests = *options.resourceRequests
 	}
-	if options.resourceRequests != nil {
+	if options.resourceLimits != nil {
 		resourceRequirements.Limits = *options.resourceLimits
 	}
 	podSpec.Containers[0].Resources = resourceRequirements
