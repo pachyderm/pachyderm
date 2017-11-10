@@ -750,59 +750,91 @@ type acquireDatumsFunc func(low, high int64) (failedDatumID string, _ error)
 func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chunks, logger *taggedLogger, process acquireDatumsFunc) error {
 	complete := false
 	for !complete {
-		var low int64
-		var high int64
-		var found bool
-		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-			found = false
-			locks := a.locks(jobID).ReadWrite(stm)
-			// we set complete to true and then unset it if we find an incomplete chunk
-			complete = true
-			for _, high = range chunks.Chunks {
-				var chunkState ChunkState
-				if err := locks.Get(fmt.Sprint(high), &chunkState); err != nil {
-					if col.IsErrNotFound(err) {
-						found = true
-					} else {
-						return err
+		// func to defer cancel in
+		if err := func() error {
+			ctx, cancel := context.WithCancel(ctx)
+			defer cancel()
+			var low int64
+			var high int64
+			var found bool
+			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				found = false
+				locks := a.locks(jobID).ReadWrite(stm)
+				// we set complete to true and then unset it if we find an incomplete chunk
+				complete = true
+				for _, high = range chunks.Chunks {
+					var chunkState ChunkState
+					if err := locks.Get(fmt.Sprint(high), &chunkState); err != nil {
+						if col.IsErrNotFound(err) {
+							found = true
+						} else {
+							return err
+						}
 					}
-				}
-				// This gets triggered either if we found a chunk that wasn't
-				// complete or if we didn't find a chunk at all.
-				if chunkState.State == ChunkState_RUNNING {
-					complete = false
+					// This gets triggered either if we found a chunk that wasn't
+					// complete or if we didn't find a chunk at all.
+					if chunkState.State == ChunkState_RUNNING {
+						complete = false
+					}
+					if found {
+						break
+					}
+					low = high
 				}
 				if found {
-					break
+					return locks.PutTTL(fmt.Sprint(high), &ChunkState{State: ChunkState_RUNNING}, ttl)
 				}
-				low = high
-			}
-			if found {
-				return locks.PutTTL(fmt.Sprint(high), &ChunkState{State: ChunkState_RUNNING}, ttl)
-			}
-			return nil
-		}); err != nil {
-			return err
-		}
-		if found {
-			// process the datums in newRange
-			failedDatumID, err := process(low, high)
-			if err != nil {
-				return err
-			}
-
-			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-				locks := a.locks(jobID).ReadWrite(stm)
-				if failedDatumID != "" {
-					return locks.Put(fmt.Sprint(high), &ChunkState{
-						State:   ChunkState_FAILED,
-						DatumID: failedDatumID,
-					})
-				}
-				return locks.Put(fmt.Sprint(high), &ChunkState{State: ChunkState_COMPLETE})
+				return nil
 			}); err != nil {
 				return err
 			}
+			if found {
+				go func() {
+				Renew:
+					for {
+						select {
+						case <-time.After((time.Second * time.Duration(ttl)) / 2):
+						case <-ctx.Done():
+							break Renew
+						}
+						if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+							locks := a.locks(jobID).ReadWrite(stm)
+							var chunkState ChunkState
+							if err := locks.Get(fmt.Sprint(high), &chunkState); err != nil {
+								return err
+							}
+							if chunkState.State == ChunkState_RUNNING {
+								return locks.PutTTL(fmt.Sprint(high), &chunkState, ttl)
+							}
+							return nil
+						}); err != nil {
+							cancel()
+							logger.Logf("failed to renew lock: %v", err)
+						}
+					}
+				}()
+				// process the datums in newRange
+				failedDatumID, err := process(low, high)
+				if err != nil {
+					return err
+				}
+
+				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+					locks := a.locks(jobID).ReadWrite(stm)
+					if failedDatumID != "" {
+						return locks.Put(fmt.Sprint(high), &ChunkState{
+							State:   ChunkState_FAILED,
+							DatumID: failedDatumID,
+						})
+					}
+					return locks.Put(fmt.Sprint(high), &ChunkState{State: ChunkState_COMPLETE})
+				}); err != nil {
+					return err
+				}
+			}
+			return nil
+		}(); err != nil {
+			return err
 		}
 	}
 	return nil
