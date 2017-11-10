@@ -32,6 +32,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
+	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 
 	"github.com/gogo/protobuf/types"
 	"k8s.io/kubernetes/pkg/api"
@@ -5294,6 +5295,683 @@ func TestService(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 }
 
+func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	outputFilename := "commitSHA"
+	pipeline := uniqueString("github_pipeline")
+	// Of the common git URL types (listed below), only the 'clone' url is supported RN
+	// (for several reasons, one of which is that we can't assume we have SSH / an ssh env setup on the user container)
+	//git_url: "git://github.com/sjezewski/testgithook.git",
+	//ssh_url: "git@github.com:sjezewski/testgithook.git",
+	//svn_url: "https://github.com/sjezewski/testgithook",
+	//clone_url: "https://github.com/sjezewski/testgithook.git",
+	require.YesError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
+		},
+		nil,
+		&pps.Input{
+			Git: &pps.GitInput{
+				URL: "git://github.com/pachyderm/pachyderm.git",
+			},
+		},
+		"",
+		false,
+	))
+	require.YesError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
+		},
+		nil,
+		&pps.Input{
+			Git: &pps.GitInput{
+				URL: "git@github.com:pachyderm/pachyderm.git",
+			},
+		},
+		"",
+		false,
+	))
+	require.YesError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
+		},
+		nil,
+		&pps.Input{
+			Git: &pps.GitInput{
+				URL: "https://github.com:pachyderm/pachyderm",
+			},
+		},
+		"",
+		false,
+	))
+}
+
+func TestPipelineWithGitInputPrivateGHRepo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	outputFilename := "commitSHA"
+	pipeline := uniqueString("github_pipeline")
+	repoName := "pachyderm-dummy"
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cat /pfs/%v/.git/HEAD > /pfs/out/%v", repoName, outputFilename),
+		},
+		nil,
+		&pps.Input{
+			Git: &pps.GitInput{
+				URL: fmt.Sprintf("https://github.com/pachyderm/%v.git", repoName),
+			},
+		},
+		"",
+		false,
+	))
+	// There should be a pachyderm repo created w no commits:
+	repos, err := c.ListRepo(nil)
+	require.NoError(t, err)
+	found := false
+	for _, repo := range repos {
+		if repo.Repo.Name == repoName {
+			found = true
+		}
+	}
+	require.Equal(t, true, found)
+
+	commits, err := c.ListCommit(repoName, "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commits))
+
+	// To trigger the pipeline, we'll need to simulate the webhook by pushing a POST payload to the githook server
+	simulateGitPush(t, "../../etc/testing/artifacts/githook-payloads/private.json")
+	// Need to sleep since the webhook http handler is non blocking
+	time.Sleep(2 * time.Second)
+
+	// Now there should NOT be a new commit on the pachyderm repo
+	branches, err := c.ListBranch(repoName)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(branches))
+
+	// We should see that the pipeline has failed
+	pipelineInfo, err := c.InspectPipeline(pipeline)
+	require.NoError(t, err)
+	require.Equal(t, pps.PipelineState_PIPELINE_FAILURE, pipelineInfo.State)
+	require.Equal(t, fmt.Sprintf("unable to clone private github repo (https://github.com/pachyderm/%v.git)", repoName), pipelineInfo.Reason)
+}
+
+func TestPipelineWithGitInputDuplicateNames(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	outputFilename := "commitSHA"
+	pipeline := uniqueString("github_pipeline")
+	//Test same name on one pipeline
+	require.YesError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
+		},
+		nil,
+		&pps.Input{
+			Cross: []*pps.Input{
+				&pps.Input{
+					Git: &pps.GitInput{
+						URL:  "https://github.com/pachyderm/pachyderm.git",
+						Name: "foo",
+					},
+				},
+				&pps.Input{
+					Git: &pps.GitInput{
+						URL:  "https://github.com/pachyderm/pachyderm.git",
+						Name: "foo",
+					},
+				},
+			},
+		},
+		"",
+		false,
+	))
+	//Test same URL on one pipeline
+	require.YesError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
+		},
+		nil,
+		&pps.Input{
+			Cross: []*pps.Input{
+				&pps.Input{
+					Git: &pps.GitInput{
+						URL: "https://github.com/pachyderm/pachyderm.git",
+					},
+				},
+				&pps.Input{
+					Git: &pps.GitInput{
+						URL: "https://github.com/pachyderm/pachyderm.git",
+					},
+				},
+			},
+		},
+		"",
+		false,
+	))
+	// Test same URL but different names
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
+		},
+		nil,
+		&pps.Input{
+			Cross: []*pps.Input{
+				&pps.Input{
+					Git: &pps.GitInput{
+						URL:  "https://github.com/pachyderm/pachyderm.git",
+						Name: "foo",
+					},
+				},
+				&pps.Input{
+					Git: &pps.GitInput{
+						URL: "https://github.com/pachyderm/pachyderm.git",
+					},
+				},
+			},
+		},
+		"",
+		false,
+	))
+}
+
+func TestPipelineWithGitInput(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	outputFilename := "commitSHA"
+	pipeline := uniqueString("github_pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
+		},
+		nil,
+		&pps.Input{
+			Git: &pps.GitInput{
+				URL: "https://github.com/pachyderm/pachyderm.git",
+			},
+		},
+		"",
+		false,
+	))
+	// There should be a pachyderm repo created w no commits:
+	repos, err := c.ListRepo(nil)
+	require.NoError(t, err)
+	found := false
+	for _, repo := range repos {
+		if repo.Repo.Name == "pachyderm" {
+			found = true
+		}
+	}
+	require.Equal(t, true, found)
+
+	commits, err := c.ListCommit("pachyderm", "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commits))
+
+	// To trigger the pipeline, we'll need to simulate the webhook by pushing a POST payload to the githook server
+	simulateGitPush(t, "../../etc/testing/artifacts/githook-payloads/master.json")
+	// Need to sleep since the webhook http handler is non blocking
+	time.Sleep(2 * time.Second)
+
+	// Now there should be a new commit on the pachyderm repo / master branch
+	branches, err := c.ListBranch("pachyderm")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(branches))
+	require.Equal(t, "master", branches[0].Name)
+	commit := branches[0].Head
+
+	// Now wait for the pipeline complete as normal
+	outputRepo := &pfs.Repo{Name: pipeline}
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, []*pfs.Repo{outputRepo})
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	commit = commitInfos[0].Commit
+
+	var buf bytes.Buffer
+
+	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
+	require.Equal(t, "c2ea2034f2df0914c837406dbd305726ea271015", strings.TrimSpace(buf.String()))
+}
+
+func TestPipelineWithGitInputSequentialPushes(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	outputFilename := "commitSHA"
+	pipeline := uniqueString("github_pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
+		},
+		nil,
+		&pps.Input{
+			Git: &pps.GitInput{
+				URL: "https://github.com/pachyderm/pachyderm.git",
+			},
+		},
+		"",
+		false,
+	))
+	// There should be a pachyderm repo created w no commits:
+	repos, err := c.ListRepo(nil)
+	require.NoError(t, err)
+	found := false
+	for _, repo := range repos {
+		if repo.Repo.Name == "pachyderm" {
+			found = true
+		}
+	}
+	require.Equal(t, true, found)
+
+	commits, err := c.ListCommit("pachyderm", "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commits))
+
+	// To trigger the pipeline, we'll need to simulate the webhook by pushing a POST payload to the githook server
+	simulateGitPush(t, "../../etc/testing/artifacts/githook-payloads/master.json")
+	// Need to sleep since the webhook http handler is non blocking
+	time.Sleep(2 * time.Second)
+
+	// Now there should be a new commit on the pachyderm repo / master branch
+	branches, err := c.ListBranch("pachyderm")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(branches))
+	require.Equal(t, "master", branches[0].Name)
+	commit := branches[0].Head
+
+	// Now wait for the pipeline complete as normal
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	commit = commitInfos[0].Commit
+
+	var buf bytes.Buffer
+
+	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
+	require.Equal(t, "c2ea2034f2df0914c837406dbd305726ea271015", strings.TrimSpace(buf.String()))
+
+	// To trigger the pipeline, we'll need to simulate the webhook by pushing a POST payload to the githook server
+	simulateGitPush(t, "../../etc/testing/artifacts/githook-payloads/master-2.json")
+	// Need to sleep since the webhook http handler is non blocking
+	time.Sleep(2 * time.Second)
+
+	// Now there should be a new commit on the pachyderm repo / master branch
+	branches, err = c.ListBranch("pachyderm")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(branches))
+	require.Equal(t, "master", branches[0].Name)
+	commit = branches[0].Head
+
+	// Now wait for the pipeline complete as normal
+	commitIter, err = c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	commitInfos = collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	commit = commitInfos[0].Commit
+
+	buf.Reset()
+	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
+	require.Equal(t, "6c7da7691d949d2d7442e64911463cd4b88b2709", strings.TrimSpace(buf.String()))
+}
+
+func TestPipelineWithGitInputCustomName(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	outputFilename := "commitSHA"
+	pipeline := uniqueString("github_pipeline")
+	repoName := "foo"
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cat /pfs/%v/.git/HEAD > /pfs/out/%v", repoName, outputFilename),
+		},
+		nil,
+		&pps.Input{
+			Git: &pps.GitInput{
+				URL:  "https://github.com/pachyderm/pachyderm.git",
+				Name: repoName,
+			},
+		},
+		"",
+		false,
+	))
+	// There should be a pachyderm repo created w no commits:
+	repos, err := c.ListRepo(nil)
+	require.NoError(t, err)
+	found := false
+	for _, repo := range repos {
+		if repo.Repo.Name == repoName {
+			found = true
+		}
+	}
+	require.Equal(t, true, found)
+
+	commits, err := c.ListCommit(repoName, "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commits))
+
+	// To trigger the pipeline, we'll need to simulate the webhook by pushing a POST payload to the githook server
+	simulateGitPush(t, "../../etc/testing/artifacts/githook-payloads/master.json")
+	// Need to sleep since the webhook http handler is non blocking
+	time.Sleep(2 * time.Second)
+
+	// Now there should be a new commit on the pachyderm repo / master branch
+	branches, err := c.ListBranch(repoName)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(branches))
+	require.Equal(t, "master", branches[0].Name)
+	commit := branches[0].Head
+
+	// Now wait for the pipeline complete as normal
+	outputRepo := &pfs.Repo{Name: pipeline}
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, []*pfs.Repo{outputRepo})
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	commit = commitInfos[0].Commit
+
+	var buf bytes.Buffer
+
+	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
+	require.Equal(t, "c2ea2034f2df0914c837406dbd305726ea271015", strings.TrimSpace(buf.String()))
+}
+
+func TestPipelineWithGitInputMultiPipelineSeparateInputs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	outputFilename := "commitSHA"
+	repos := []string{"pachyderm", "foo"}
+	pipelines := []string{
+		uniqueString("github_pipeline_a_"),
+		uniqueString("github_pipeline_b_"),
+	}
+	for i, repoName := range repos {
+		require.NoError(t, c.CreatePipeline(
+			pipelines[i],
+			"",
+			[]string{"bash"},
+			[]string{
+				fmt.Sprintf("cat /pfs/%v/.git/HEAD > /pfs/out/%v", repoName, outputFilename),
+			},
+			nil,
+			&pps.Input{
+				Git: &pps.GitInput{
+					URL:  "https://github.com/pachyderm/pachyderm.git",
+					Name: repoName,
+				},
+			},
+			"",
+			false,
+		))
+		// There should be a pachyderm repo created w no commits:
+		repos, err := c.ListRepo(nil)
+		require.NoError(t, err)
+		found := false
+		for _, repo := range repos {
+			if repo.Repo.Name == repoName {
+				found = true
+			}
+		}
+		require.Equal(t, true, found)
+
+		commits, err := c.ListCommit(repoName, "", "", 0)
+		require.NoError(t, err)
+		require.Equal(t, 0, len(commits))
+	}
+
+	// To trigger the pipeline, we'll need to simulate the webhook by pushing a POST payload to the githook server
+	simulateGitPush(t, "../../etc/testing/artifacts/githook-payloads/master.json")
+	// Need to sleep since the webhook http handler is non blocking
+	time.Sleep(2 * time.Second)
+
+	for i, repoName := range repos {
+		// Now there should be a new commit on the pachyderm repo / master branch
+		branches, err := c.ListBranch(repoName)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(branches))
+		require.Equal(t, "master", branches[0].Name)
+		commit := branches[0].Head
+
+		// Now wait for the pipeline complete as normal
+		outputRepo := &pfs.Repo{Name: pipelines[i]}
+		commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, []*pfs.Repo{outputRepo})
+		require.NoError(t, err)
+		commitInfos := collectCommitInfos(t, commitIter)
+		require.Equal(t, 1, len(commitInfos))
+
+		commit = commitInfos[0].Commit
+
+		var buf bytes.Buffer
+
+		require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
+		require.Equal(t, "c2ea2034f2df0914c837406dbd305726ea271015", strings.TrimSpace(buf.String()))
+	}
+}
+
+func TestPipelineWithGitInputMultiPipelineSameInput(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	outputFilename := "commitSHA"
+	repos := []string{"pachyderm", "pachyderm"}
+	pipelines := []string{
+		uniqueString("github_pipeline_a_"),
+		uniqueString("github_pipeline_b_"),
+	}
+	for i, repoName := range repos {
+		require.NoError(t, c.CreatePipeline(
+			pipelines[i],
+			"",
+			[]string{"bash"},
+			[]string{
+				fmt.Sprintf("cat /pfs/%v/.git/HEAD > /pfs/out/%v", repoName, outputFilename),
+			},
+			nil,
+			&pps.Input{
+				Git: &pps.GitInput{
+					URL: "https://github.com/pachyderm/pachyderm.git",
+				},
+			},
+			"",
+			false,
+		))
+		// There should be a pachyderm repo created w no commits:
+		repos, err := c.ListRepo(nil)
+		require.NoError(t, err)
+		found := false
+		for _, repo := range repos {
+			if repo.Repo.Name == repoName {
+				found = true
+			}
+		}
+		require.Equal(t, true, found)
+
+		commits, err := c.ListCommit(repoName, "", "", 0)
+		require.NoError(t, err)
+		require.Equal(t, 0, len(commits))
+	}
+
+	// To trigger the pipeline, we'll need to simulate the webhook by pushing a POST payload to the githook server
+	simulateGitPush(t, "../../etc/testing/artifacts/githook-payloads/master.json")
+	// Need to sleep since the webhook http handler is non blocking
+	time.Sleep(2 * time.Second)
+
+	// Now there should be a new commit on the pachyderm repo / master branch
+	branches, err := c.ListBranch(repos[0])
+	require.NoError(t, err)
+	require.Equal(t, 1, len(branches))
+	require.Equal(t, "master", branches[0].Name)
+	commit := branches[0].Head
+
+	// Now wait for the pipeline complete as normal
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 2, len(commitInfos))
+
+	commit = commitInfos[0].Commit
+
+	for _, commitInfo := range commitInfos {
+		commit = commitInfo.Commit
+		var buf bytes.Buffer
+		require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
+		require.Equal(t, "c2ea2034f2df0914c837406dbd305726ea271015", strings.TrimSpace(buf.String()))
+	}
+}
+
+func TestPipelineWithGitInputAndBranch(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	branchName := "test_artifact_dont_delete"
+	outputFilename := "commitSHA"
+	pipeline := uniqueString("github_pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
+		},
+		nil,
+		&pps.Input{
+			Git: &pps.GitInput{
+				URL:    "https://github.com/pachyderm/pachyderm.git",
+				Branch: branchName,
+			},
+		},
+		"",
+		false,
+	))
+	// There should be a pachyderm repo created w no commits:
+	repos, err := c.ListRepo(nil)
+	require.NoError(t, err)
+	found := false
+	for _, repo := range repos {
+		if repo.Repo.Name == "pachyderm" {
+			found = true
+		}
+	}
+	require.Equal(t, true, found)
+
+	commits, err := c.ListCommit("pachyderm", "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commits))
+
+	// Make sure a push to master does NOT trigger this pipeline
+	simulateGitPush(t, "../../etc/testing/artifacts/githook-payloads/master.json")
+	// Need to sleep since the webhook http handler is non blocking
+	time.Sleep(5 * time.Second)
+	// Now there should be a new commit on the pachyderm repo / master branch
+	branches, err := c.ListBranch("pachyderm")
+	require.NoError(t, err)
+	require.Equal(t, 0, len(branches))
+
+	// To trigger the pipeline, we'll need to simulate the webhook by pushing a POST payload to the githook server
+	simulateGitPush(t, "../../etc/testing/artifacts/githook-payloads/branch.json")
+	// Need to sleep since the webhook http handler is non blocking
+	time.Sleep(2 * time.Second)
+	// Now there should be a new commit on the pachyderm repo / master branch
+	branches, err = c.ListBranch("pachyderm")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(branches))
+	require.Equal(t, branchName, branches[0].Name)
+	commit := branches[0].Head
+
+	// Now wait for the pipeline complete as normal
+	outputRepo := &pfs.Repo{Name: pipeline}
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, []*pfs.Repo{outputRepo})
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	commit = commitInfos[0].Commit
+
+	var buf bytes.Buffer
+
+	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
+	require.Equal(t, "c7f697432dc805eb2b92f39d4961a585e8a0b2d5", strings.TrimSpace(buf.String()))
+}
+
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
 	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
 	require.NoError(t, err)
@@ -5403,6 +6081,27 @@ func waitForReadiness(t testing.TB) {
 			}
 		}
 	}
+}
+
+func simulateGitPush(t *testing.T, pathToPayload string) {
+	payload, err := ioutil.ReadFile(pathToPayload)
+	require.NoError(t, err)
+	req, err := http.NewRequest(
+		"POST",
+		fmt.Sprintf("http://127.0.0.1:%v/v1/handle/push", githook.GitHookPort+30000),
+		bytes.NewBuffer(payload),
+	)
+	req.Header.Set("X-Github-Delivery", "2984f5d0-c032-11e7-82d7-ed3ee54be25d")
+	req.Header.Set("User-Agent", "GitHub-Hookshot/c1d08eb")
+	req.Header.Set("X-Github-Event", "push")
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, 200, resp.StatusCode)
 }
 
 func pipelineRc(t testing.TB, pipelineInfo *pps.PipelineInfo) (*api.ReplicationController, error) {

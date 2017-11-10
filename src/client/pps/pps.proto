@@ -68,11 +68,19 @@ message CronInput {
   google.protobuf.Timestamp start = 5;
 }
 
+message GitInput {
+  string name = 1;
+  string url = 2 [(gogoproto.customname) = "URL"];
+  string branch = 3;
+  string commit = 4;
+}
+
 message Input {
   AtomInput atom = 1;
   repeated Input cross = 2;
   repeated Input union = 3;
   CronInput cron = 4;
+  GitInput git = 5;
 }
 
 message JobInput {
