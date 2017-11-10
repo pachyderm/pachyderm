@@ -1,13 +1,5 @@
 # Amazon Web Services
 
-## Prerequisites
-
-- [AWS CLI](https://aws.amazon.com/cli/) - have it installed and have your [AWS credentials](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html) configured.
-- [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
-- [kops](https://github.com/kubernetes/kops/blob/master/docs/install.md)
-
-## Options
-
 We have two methods of deploying pachyderm on AWS, and each is more appropriate for certain circumstances
 
 2. [By manually deploying Kubernetes and Pachyderm.](amazon_web_services.html#manual-pachyderm-deploy)
@@ -15,7 +7,18 @@ We have two methods of deploying pachyderm on AWS, and each is more appropriate 
 1. [By executing a one shot deploy script that will both deploy Kubernetes and Pachyderm.](amazon_web_services.html#one-shot-script)
     - If you're experimenting with Pachyderm, our one-shot script is much faster and simpler.
 
+In addition, we recommend setting up AWS CloudFront for production deployments. AWS puts S3 rate limits in place that can limit the data throughput for your cluster, and CloudFront helps mitigate this issue. Follow these instructions to deploy with CloudFront
+
+- [Deploy a Pachyderm cluster with CloudFront](./aws_cloudfront.html)
+
 ## Manual Pachyderm Deploy
+
+### Prerequisites
+
+- [AWS CLI](https://aws.amazon.com/cli/) - have it installed and have your [AWS credentials](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html) configured.
+- [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
+- [kops](https://github.com/kubernetes/kops/blob/master/docs/install.md)
+- [pachctl](#install-pachctl)
 
 ### Deploy Kubernetes
 
@@ -47,7 +50,7 @@ To deploy and interact with Pachyderm, you will need `pachctl`, a command-line u
 $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.6
 
 # For Linux (64 bit):
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.6.3/pachctl_1.6.3_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.6.4/pachctl_1.6.4_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 You can try running `pachctl version` to check that this worked correctly, but Pachyderm itself isn't deployed yet so you won't get a `pachd` version.
@@ -223,10 +226,12 @@ pachd               1.6.0
 
 ## One Shot Script
 
-### Install additional prerequisites
+### Prerequisites
 
-This scripted deploy requires a couple of prerequisites in addition to the ones listed under [Prerequisites](amazon_web_services.md#prerequisites):
-
+- [AWS CLI](https://aws.amazon.com/cli/) - have it installed and have your [AWS credentials](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html) configured.
+- [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
+- [kops](https://github.com/kubernetes/kops/blob/master/docs/install.md)
+- [pachctl](#install-pachctl)
 - [jq](https://stedolan.github.io/jq/download/)
 - [uuid](http://man7.org/linux/man-pages/man1/uuidgen.1.html)
 
@@ -287,10 +292,4 @@ COMPONENT           VERSION
 pachctl             1.6.0
 pachd               1.6.0
 ```
-
-## Production Deployment
-
-Note - for production deployments we recommend setting up AWS CloudFront. AWS puts S3 rate limits in place that can limit the data throughput for your cluster, and CloudFront helps mitigate this issue.
-
-[Follow the instructions here to deploy a Pachyderm cluster with CloudFront](./aws_cloudfront.html)
 

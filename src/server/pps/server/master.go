@@ -209,19 +209,7 @@ func (a *apiServer) master() {
 }
 
 func (a *apiServer) setPipelineFailure(ctx context.Context, pipelineName string, reason string) error {
-	// Set pipeline state to failure
-	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		pipelines := a.pipelines.ReadWrite(stm)
-		pipelineInfo := new(pps.PipelineInfo)
-		if err := pipelines.Get(pipelineName, pipelineInfo); err != nil {
-			return err
-		}
-		pipelineInfo.State = pps.PipelineState_PIPELINE_FAILURE
-		pipelineInfo.Reason = reason
-		pipelines.Put(pipelineName, pipelineInfo)
-		return nil
-	})
-	return err
+	return util.FailPipeline(ctx, a.etcdClient, a.pipelines, pipelineName, reason)
 }
 
 func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {

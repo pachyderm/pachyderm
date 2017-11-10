@@ -6,6 +6,7 @@ import (
 	goerr "errors"
 	"fmt"
 	"io"
+	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -154,6 +155,11 @@ func validateNames(names map[string]bool, input *pps.Input) error {
 				return err
 			}
 		}
+	case input.Git != nil:
+		if names[input.Git.Name] == true {
+			return fmt.Errorf("name %s was used more than once", input.Git.Name)
+		}
+		names[input.Git.Name] = true
 	}
 	return nil
 }
@@ -225,7 +231,13 @@ func (a *apiServer) validateInput(ctx context.Context, pipelineName string, inpu
 				if _, err := cron.Parse(input.Cron.Spec); err != nil {
 					return err
 				}
-				if _, err := pachClient.InspectRepo(input.Cron.Repo); err != nil {
+			}
+			if input.Git != nil {
+				if set {
+					return fmt.Errorf("multiple input types set")
+				}
+				set = true
+				if err := pps.ValidateGitCloneURL(input.Git.URL); err != nil {
 					return err
 				}
 			}
@@ -1372,6 +1384,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		ChunkSpec:          request.ChunkSpec,
 	}
 	setPipelineDefaults(pipelineInfo)
+	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
+		return nil, err
+	}
 	var visitErr error
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
 		if input.Cron != nil {
@@ -1379,12 +1394,14 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				visitErr = err
 			}
 		}
+		if input.Git != nil {
+			if err := pachClient.CreateRepo(input.Git.Name); err != nil && !isAlreadyExistsErr(err) {
+				visitErr = err
+			}
+		}
 	})
 	if visitErr != nil {
 		return nil, visitErr
-	}
-	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
-		return nil, err
 	}
 	operation := pipelineOpCreate
 	if request.Update {
@@ -1564,6 +1581,17 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 			}
 			if input.Cron.Repo == "" {
 				input.Cron.Repo = fmt.Sprintf("%s_%s", pipelineInfo.Pipeline.Name, input.Cron.Name)
+			}
+		}
+		if input.Git != nil {
+			if input.Git.Branch == "" {
+				input.Git.Branch = "master"
+			}
+			if input.Git.Name == "" {
+				// We know URL looks like:
+				// "https://github.com/sjezewski/testgithook.git",
+				tokens := strings.Split(path.Base(input.Git.URL), ".")
+				input.Git.Name = tokens[0]
 			}
 		}
 	})

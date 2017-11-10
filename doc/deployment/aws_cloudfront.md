@@ -1,40 +1,43 @@
 # AWS Cloudfront
 
-To deploy a production ready AWS cluster with CloudFront
+To deploy a production ready AWS cluster with CloudFront:
 
-1. Follow the instructions for a normal AWS deployment
+1. [Deploy a cloudfront enabled Pachyderm cluster in AWS](#deploy-a-cloudfront-enabled-cluster-in-aws)
+2. [Obtain a cloudfront keypair](#obtain-a-cloudfront-keypair)
+3. [Apply the security credentials](#apply-the-security-credentials)
+4. [Verify the setup](#verify-the-setup)
 
-  You'll need to use the 'one shot' script. To do that you'll need to clone this repo, cd to it, and run the script:
+## Deploy a cloudfront enabled cluster in AWS
+
+  You'll need to use our "one shot" AWS deployment script to deploy this cluster as follows:
 
   ```
-  $ git clone git@github.com:pachyderm/pachyderm
-  $ cd pachyderm
-  $ sudo -E ./etc/deploy/aws.sh --region=us-east-1 --zone=us-east-1b --use-cloudfront &> deploy.log
+  $ curl -o aws.sh https://raw.githubusercontent.com/pachyderm/pachyderm/master/etc/deploy/aws.sh
+  $ chmod +x aws.sh
+  $ sudo -E ./aws.sh --region=us-east-1 --zone=us-east-1b --use-cloudfront &> deploy.log
   ```
 
   Here we've redirected the output to a file. Make sure you keep this file around for reference.
 
-  Note: You may see a few extra restarts on your pachd pod. Sometimes it takes a bit before your cloudfront distribution comes online
+  **Note:** You may see a few extra restarts on your pachd pod. Sometimes it takes a bit before your cloudfront distribution comes online
 
-2. Ask your IT department for a cloudfront keypair
+## Obtain a cloudfront keypair
 
-  [You can pass along this link for instructions](http://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-trusted-signers.html#private-content-creating-cloudfront-key-pairs)
+  You will most likely need to Ask your IT department for a cloudfront keypair, because only a root AWS account can generate this keypair. You can pass along [this link with instructions](http://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-trusted-signers.html#private-content-creating-cloudfront-key-pairs).
 
-  Only the root AWS account can generate this keypair.
+  When you get the keypair, you should receive:
 
-  You should receive:
+  - the private/public key (although you only need the private key)
+  - the keypair ID (which is usually in the filename)
 
-  - the private/public key (you only really need the private key)
-  - the keypair ID (usually its in the filename)
-
-  e.g.
+  For example,
 
   ```
   rsa-APKAXXXXXXXXXXXXXXXX.pem
   pk-APKAXXXXXXXXXXXXXXXX.pem
   ```
 
-  Here we see the Key Pair ID is `APKAXXXXXXXXXXXXXXXX`. The latter file is the private key. You can check by doing:
+  Here we see that the Key Pair ID is `APKAXXXXXXXXXXXXXXXX`, and the second file is the private key, which should look similar to the following:
 
   ```
   $ cat pk-APKAXXXXXXXXXXXX.pem
@@ -42,25 +45,27 @@ To deploy a production ready AWS cluster with CloudFront
   ...
   ```
 
-3. Run the script to apply these security credentials to your cloudfront distribution:
+## Apply the security credentials
+
+  You can now run the following script to apply these security credentials to your cloudfront distribution:
 
   ```
-  $./etc/deploy/cloudfront/secure-cloudfront.sh --region us-west-2 --zone us-west-2c --bucket YYYY-pachyderm-store --cloudfront-distribution-id E1BEBVLIDYTLEV  --cloudfront-keypair-id APKAXXXXXXXXXXXX --cloudfront-private-key-file ~/Downloads/pk-APKAXXXXXXXXXXXX.pem 
+  $ curl -o secure-cloudfront.sh https://raw.githubusercontent.com/pachyderm/pachyderm/master/etc/deploy/cloudfront/secure-cloudfront.sh
+  $ chmod +x secure-cloudfront.sh
+  $ ./secure-cloudfront.sh --region us-west-2 --zone us-west-2c --bucket YYYY-pachyderm-store --cloudfront-distribution-id E1BEBVLIDYTLEV  --cloudfront-keypair-id APKAXXXXXXXXXXXX --cloudfront-private-key-file ~/Downloads/pk-APKAXXXXXXXXXXXX.pem 
   ```
 
-  You'll need to look in the file you saved from above `deploy.log` for the values for the `--bucket` and `--cloudfront-distribution-id` flags
+  where the values for the `--bucket` and `--cloudfront-distribution-id` flags can be obtained from the `deploy.log` file containing your deployment logs.
 
-  Then restart the pachd pod like so:
+  You will then need to restart the `pachd` pod in kubernetes for the changes to take effect:
 
   ```
-  kubectl scale --replicas=0 deployment/pachd && kubectl scale --replicas=1 deployment/pachd && kubectl get pod
+  $ kubectl scale --replicas=0 deployment/pachd && kubectl scale --replicas=1 deployment/pachd && kubectl get pod
   ```
 
-  After that, you're cloudfront setup is all ready!
+## Verify the setup
 
-4. Verify the setup
-
-  To verify the setup, we can look at the pachd logs to make sure the cloudfront credentials are being used:
+  To verify the setup, we can look at the pachd logs to confirm usage of the cloudfront credentials:
 
   ```
   $ kubectl get pod
