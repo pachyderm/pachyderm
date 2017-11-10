@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -27,6 +28,9 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
+	"gopkg.in/go-playground/webhooks.v3/github"
+	"gopkg.in/src-d/go-git.v4"
+	gitPlumbing "gopkg.in/src-d/go-git.v4/plumbing"
 	kube "k8s.io/kubernetes/pkg/client/unversioned"
 
 	"github.com/fsouza/go-dockerclient"
@@ -368,6 +372,41 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 				input.ParentCommit.Repo.Name, input.ParentCommit.ID, file.Path,
 				true, input.Lazy, concurrency, statsTree, treeRoot); err != nil {
 				return "", err
+			}
+		} else if input.GitURL != "" {
+			pachydermRepoName := input.Name
+			var rawJSON bytes.Buffer
+			err := a.pachClient.GetFile(pachydermRepoName, file.Commit.ID, "commit.json", 0, 0, &rawJSON)
+			if err != nil {
+				return "", err
+			}
+			var payload github.PushPayload
+			err = json.Unmarshal(rawJSON.Bytes(), &payload)
+			if err != nil {
+				return "", err
+			}
+			sha := payload.After
+			// Clone checks out a reference, not a SHA
+			r, err := git.PlainClone(
+				filepath.Join(dir, pachydermRepoName),
+				false,
+				&git.CloneOptions{
+					URL:           payload.Repository.CloneURL,
+					SingleBranch:  true,
+					ReferenceName: gitPlumbing.ReferenceName(payload.Ref),
+				},
+			)
+			if err != nil {
+				return "", fmt.Errorf("error cloning repo %v at SHA %v from URL %v: %v", pachydermRepoName, sha, input.GitURL, err)
+			}
+			hash := gitPlumbing.NewHash(sha)
+			wt, err := r.Worktree()
+			if err != nil {
+				return "", err
+			}
+			err = wt.Checkout(&git.CheckoutOptions{Hash: hash})
+			if err != nil {
+				return "", fmt.Errorf("error checking out SHA %v from repo %v: %v", sha, pachydermRepoName, err)
 			}
 		} else {
 			if err := puller.Pull(a.pachClient, root, file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, concurrency, statsTree, treeRoot); err != nil {
