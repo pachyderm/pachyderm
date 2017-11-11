@@ -585,6 +585,28 @@ func TestInspectCommit(t *testing.T) {
 	require.True(t, finished.After(tFinished))
 }
 
+func TestInspectCommitBlock(t *testing.T) {
+	client := getClient(t)
+
+	repo := "TestInspectCommitBlock"
+	require.NoError(t, client.CreateRepo(repo))
+	commit, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+
+	go func() {
+		time.Sleep(2 * time.Second)
+		require.NoError(t, client.FinishCommit(repo, commit.ID))
+	}()
+
+	commitInfo, err := client.PfsAPIClient.InspectCommit(context.Background(),
+		&pfs.InspectCommitRequest{
+			Commit: commit,
+			Block:  true,
+		})
+	require.NoError(t, err)
+	require.NotNil(t, commitInfo.Finished)
+}
+
 func TestDeleteCommit(t *testing.T) {
 
 	client := getClient(t)
