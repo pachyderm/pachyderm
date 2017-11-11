@@ -1119,81 +1119,50 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 		for {
 			var branchName string
 			branchInfo := &pfs.BranchInfo{}
-			for {
-				var event *watch.Event
-				var ok bool
-				select {
-				case event, ok = <-newCommitWatcher.Watch():
-				case <-done:
-					return nil
-				}
-				if !ok {
-					return nil
-				}
-				switch event.Type {
-				case watch.EventError:
-					return event.Err
-				case watch.EventPut:
-					if err := event.Unmarshal(&branchName, branchInfo); err != nil {
-						return fmt.Errorf("Unmarshal: %v", err)
-					}
-				case watch.EventDelete:
-					continue
-				}
-
-				// We don't want to include the `from` commit itself
-
-				// TODO we're check the branchName because right now WatchOne,
-				// like all collection watching commands returns prefixes which
-				// means we'll get back `master-v1` if we're looking for
-				// `master` once this is changed we should remove the
-				// comparison between branchName and branch.
-				if path.Base(branchName) == branch && (!(seen[branchInfo.Head.ID] || (from != nil && from.ID == branchInfo.Head.ID))) {
-					break
-				}
+			var event *watch.Event
+			var ok bool
+			select {
+			case event, ok = <-newCommitWatcher.Watch():
+			case <-done:
+				return nil
 			}
-			// Now we watch the CommitInfo until the commit has been finished
-			commits := d.commits(branchInfo.Head.Repo.Name).ReadOnly(ctx)
-			// closure for defer
-			if err := func() error {
-				commitInfoWatcher, err := commits.WatchOne(branchInfo.Head.ID)
+			if !ok {
+				return nil
+			}
+			switch event.Type {
+			case watch.EventError:
+				return event.Err
+			case watch.EventPut:
+				if err := event.Unmarshal(&branchName, branchInfo); err != nil {
+					return fmt.Errorf("Unmarshal: %v", err)
+				}
+			case watch.EventDelete:
+				continue
+			}
+
+			// We don't want to include the `from` commit itself
+
+			// TODO we're check the branchName because right now WatchOne,
+			// like all collection watching commands returns prefixes which
+			// means we'll get back `master-v1` if we're looking for
+			// `master` once this is changed we should remove the
+			// comparison between branchName and branch.
+			if path.Base(branchName) == branch && (!(seen[branchInfo.Head.ID] || (from != nil && from.ID == branchInfo.Head.ID))) {
+				commitInfo, err := d.inspectCommit(ctx, branchInfo.Head, false)
 				if err != nil {
 					return err
 				}
-				defer commitInfoWatcher.Close()
-				for {
-					var commitID string
-					commitInfo := new(pfs.CommitInfo)
-					event := <-commitInfoWatcher.Watch()
-					switch event.Type {
-					case watch.EventError:
-						return event.Err
-					case watch.EventPut:
-						if err := event.Unmarshal(&commitID, commitInfo); err != nil {
-							return fmt.Errorf("Unmarshal: %v", err)
-						}
-					case watch.EventDelete:
-						// if this commit that we are waiting for is
-						// deleted, then we go back to watch the branch
-						// to get a new commit
-						return nil
-					}
-					if commitInfo.Finished != nil {
-						select {
-						case stream <- CommitEvent{
-							Value: commitInfo,
-						}:
-							seen[commitInfo.Commit.ID] = true
-						case <-done:
-							return nil
-						}
-						return nil
-					}
+				select {
+				case stream <- CommitEvent{
+					Value: commitInfo,
+				}:
+					seen[commitInfo.Commit.ID] = true
+				case <-done:
+					return nil
 				}
-			}(); err != nil {
-				return err
 			}
 		}
+		return nil
 	}()
 
 	return &commitStream{
