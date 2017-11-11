@@ -905,19 +905,20 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, block bo
 			defer commitInfoWatcher.Close()
 			for {
 				var commitID string
-				commitInfo := new(pfs.CommitInfo)
+				_commitInfo := new(pfs.CommitInfo)
 				event := <-commitInfoWatcher.Watch()
 				switch event.Type {
 				case watch.EventError:
 					return event.Err
 				case watch.EventPut:
-					if err := event.Unmarshal(&commitID, commitInfo); err != nil {
+					if err := event.Unmarshal(&commitID, _commitInfo); err != nil {
 						return fmt.Errorf("Unmarshal: %v", err)
 					}
 				case watch.EventDelete:
 					return fmt.Errorf("commit %s deleted", commit.ID)
 				}
-				if commitInfo.Finished != nil {
+				if _commitInfo.Finished != nil {
+					commitInfo = _commitInfo
 					break
 				}
 			}
