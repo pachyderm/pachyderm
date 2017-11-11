@@ -134,7 +134,7 @@ func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommi
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	return a.driver.inspectCommit(ctx, request.Commit)
+	return a.driver.inspectCommit(ctx, request.Commit, request.Block)
 }
 
 func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitRequest) (response *pfs.CommitInfos, retErr error) {

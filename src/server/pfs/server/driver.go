@@ -628,7 +628,7 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 			}
 		}
 		if parent.ID != "" {
-			parentCommitInfo, err := d.inspectCommit(ctx, parent)
+			parentCommitInfo, err := d.inspectCommit(ctx, parent, false)
 			if err != nil {
 				return err
 			}
@@ -663,7 +663,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 	if err := d.checkIsAuthorized(ctx, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	commitInfo, err := d.inspectCommit(ctx, commit)
+	commitInfo, err := d.inspectCommit(ctx, commit, false)
 	if err != nil {
 		return err
 	}
@@ -846,7 +846,7 @@ func sizeChange(tree hashtree.HashTree, parentTree hashtree.HashTree) uint64 {
 //
 // As a side effect, this function also replaces the ID in the given commit
 // with a real commit ID.
-func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.CommitInfo, error) {
+func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, block bool) (*pfs.CommitInfo, error) {
 	if commit == nil {
 		return nil, fmt.Errorf("cannot inspect nil commit")
 	}
@@ -894,6 +894,38 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit) (*pfs.Co
 	}
 
 	commit.ID = commitInfo.Commit.ID
+	if block {
+		// Watch the CommitInfo until the commit has been finished
+		commits := d.commits(commit.Repo.Name).ReadOnly(ctx)
+		if err := func() error {
+			commitInfoWatcher, err := commits.WatchOne(commit.ID)
+			if err != nil {
+				return err
+			}
+			defer commitInfoWatcher.Close()
+			for {
+				var commitID string
+				commitInfo := new(pfs.CommitInfo)
+				event := <-commitInfoWatcher.Watch()
+				switch event.Type {
+				case watch.EventError:
+					return event.Err
+				case watch.EventPut:
+					if err := event.Unmarshal(&commitID, commitInfo); err != nil {
+						return fmt.Errorf("Unmarshal: %v", err)
+					}
+				case watch.EventDelete:
+					return fmt.Errorf("commit %s deleted", commit.ID)
+				}
+				if commitInfo.Finished != nil {
+					break
+				}
+			}
+			return nil
+		}(); err != nil {
+			return nil, err
+		}
+	}
 	return commitInfo, nil
 }
 
@@ -950,13 +982,13 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 
 	// Make sure that both from and to are valid commits
 	if from != nil {
-		_, err = d.inspectCommit(ctx, from)
+		_, err = d.inspectCommit(ctx, from, false)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if to != nil {
-		_, err = d.inspectCommit(ctx, to)
+		_, err = d.inspectCommit(ctx, to, false)
 		if err != nil {
 			return nil, err
 		}
@@ -1176,7 +1208,7 @@ func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 	d.initializePachConn()
 
 	for _, commit := range fromCommits {
-		if _, err := d.inspectCommit(ctx, commit); err != nil {
+		if _, err := d.inspectCommit(ctx, commit, false); err != nil {
 			return nil, err
 		}
 	}
@@ -1349,7 +1381,7 @@ func (d *driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
 	if err := d.checkIsAuthorized(ctx, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	commitInfo, err := d.inspectCommit(ctx, commit)
+	commitInfo, err := d.inspectCommit(ctx, commit, false)
 	if err != nil {
 		return err
 	}
@@ -1452,7 +1484,7 @@ func (d *driver) setBranch(ctx context.Context, commit *pfs.Commit, name string)
 	if err := d.checkIsAuthorized(ctx, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	if _, err := d.inspectCommit(ctx, commit); err != nil {
+	if _, err := d.inspectCommit(ctx, commit, false); err != nil {
 		return err
 	}
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
@@ -1496,7 +1528,7 @@ func (d *driver) scratchPrefix() string {
 // store the state of a file in an open commit.  Once the commit is finished,
 // the scratch space is removed.
 func (d *driver) scratchCommitPrefix(ctx context.Context, commit *pfs.Commit) (string, error) {
-	if _, err := d.inspectCommit(ctx, commit); err != nil {
+	if _, err := d.inspectCommit(ctx, commit, false); err != nil {
 		return "", err
 	}
 	return path.Join(d.scratchPrefix(), commit.Repo.Name, commit.ID), nil
@@ -1537,7 +1569,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	// Since we use UUIDv4 for commit IDs, the 13th character would be 4 if
 	// this is a commit ID.
 	if len(file.Commit.ID) != uuid.UUIDWithoutDashesLength || file.Commit.ID[12] != '4' {
-		commitInfo, err := d.inspectCommit(ctx, file.Commit)
+		commitInfo, err := d.inspectCommit(ctx, file.Commit, false)
 		if err != nil {
 			return err
 		}
@@ -1699,7 +1731,7 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 	// Since we use UUIDv4 for commit IDs, the 13th character would be 4 if
 	// this is a commit ID.
 	if len(dst.Commit.ID) != uuid.UUIDWithoutDashesLength || dst.Commit.ID[12] != '4' {
-		commitInfo, err := d.inspectCommit(ctx, dst.Commit)
+		commitInfo, err := d.inspectCommit(ctx, dst.Commit, false)
 		if err != nil {
 			return err
 		}
@@ -1785,7 +1817,7 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 		return nil, fmt.Errorf("corrupted cache: expected hashtree.Hashtree, found %v", tree)
 	}
 
-	if _, err := d.inspectCommit(ctx, commit); err != nil {
+	if _, err := d.inspectCommit(ctx, commit, false); err != nil {
 		return nil, err
 	}
 
@@ -1834,7 +1866,7 @@ func (d *driver) getTreeForFile(ctx context.Context, file *pfs.File) (hashtree.H
 		}
 		return t, nil
 	}
-	commitInfo, err := d.inspectCommit(ctx, file.Commit)
+	commitInfo, err := d.inspectCommit(ctx, file.Commit, false)
 	if err != nil {
 		return nil, err
 	}
@@ -2007,7 +2039,7 @@ func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.F
 	// if oldFile is new we use the parent of newFile
 	if oldFile == nil {
 		oldFile = &pfs.File{}
-		newCommitInfo, err := d.inspectCommit(ctx, newFile.Commit)
+		newCommitInfo, err := d.inspectCommit(ctx, newFile.Commit, false)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -2043,7 +2075,7 @@ func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
 	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	commitInfo, err := d.inspectCommit(ctx, file.Commit)
+	commitInfo, err := d.inspectCommit(ctx, file.Commit, false)
 	if err != nil {
 		return err
 	}
