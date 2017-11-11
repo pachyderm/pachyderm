@@ -172,6 +172,9 @@ message FinishCommitRequest {
 
 message InspectCommitRequest {
   Commit commit = 1;
+  // Block, if true, causes InspectCommit to block until the commit has been
+  // finished.
+  bool block = 2;
 }
 
 message ListCommitRequest {
