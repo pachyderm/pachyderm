@@ -1372,20 +1372,20 @@ func (d *driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
 
 	// If this commit is the head of a branch, make the commit's parent
 	// the head instead.
-	branches, err := d.listBranch(ctx, commit.Repo)
+	branchInfos, err := d.listBranch(ctx, commit.Repo)
 	if err != nil {
 		return err
 	}
 
-	for _, branch := range branches {
-		if branch.Head.ID == commitInfo.Commit.ID {
+	for _, branchInfo := range branchInfos {
+		if branchInfo.Head.ID == commitInfo.Commit.ID {
 			if commitInfo.ParentCommit != nil {
-				if err := d.setBranch(ctx, commitInfo.ParentCommit, branch.Name); err != nil {
+				if err := d.createBranch(ctx, branchInfo.Branch, commitInfo.ParentCommit, nil); err != nil {
 					return err
 				}
 			} else {
 				// If this commit doesn't have a parent, delete the branch
-				if err := d.deleteBranch(ctx, commit.Repo, branch.Name); err != nil {
+				if err := d.deleteBranch(ctx, branchInfo.Branch); err != nil {
 					return err
 				}
 			}
@@ -1410,7 +1410,7 @@ func (d *driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
 	return err
 }
 
-func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, provenance []*pfs.Branch) error {
+func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *pfs.Commit, provenance []*pfs.Branch) error {
 	if err := d.checkIsAuthorized(ctx, branch.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
@@ -1450,42 +1450,13 @@ func (d *driver) listBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.BranchI
 	return res, nil
 }
 
-func (d *driver) setBranch(ctx context.Context, commit *pfs.Commit, name string) error {
-	if err := d.checkIsAuthorized(ctx, commit.Repo, auth.Scope_WRITER); err != nil {
-		return err
-	}
-	if _, err := d.inspectCommit(ctx, commit, false); err != nil {
+func (d *driver) deleteBranch(ctx context.Context, branch *pfs.Branch) error {
+	if err := d.checkIsAuthorized(ctx, branch.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
-		branches := d.branches(commit.Repo.Name).ReadWrite(stm)
-
-		// Make sure that the commit exists
-		var commitInfo pfs.CommitInfo
-		if err := commits.Get(commit.ID, &commitInfo); err != nil {
-			return err
-		}
-		var branchInfo pfs.BranchInfo
-		if err := branches.Get(name, &branchInfo); err != nil {
-			if _, ok := err.(col.ErrNotFound); !ok {
-				return err
-			}
-		}
-		branchInfo.Name = name
-		branchInfo.Head = commit
-		return branches.Put(name, &branchInfo)
-	})
-	return err
-}
-
-func (d *driver) deleteBranch(ctx context.Context, repo *pfs.Repo, name string) error {
-	if err := d.checkIsAuthorized(ctx, repo, auth.Scope_WRITER); err != nil {
-		return err
-	}
-	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		branches := d.branches(repo.Name).ReadWrite(stm)
-		return branches.Delete(name)
+		branches := d.branches(branch.Repo.Name).ReadWrite(stm)
+		return branches.Delete(branch.Name)
 	})
 	return err
 }

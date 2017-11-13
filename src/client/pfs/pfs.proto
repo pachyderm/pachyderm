@@ -21,9 +21,12 @@ message Branch {
 }
 
 message BranchInfo {
-  string name = 1;
+  Branch branch = 4;
   Commit head = 2;
   repeated Branch provenance = 3;
+
+  // Deprecated field left for backward compatibility.
+  string name = 1;
 }
 
 message BranchInfos {
@@ -190,21 +193,16 @@ message CommitInfos {
 
 message CreateBranchRequest {
   Branch branch = 1;
-  repeated Branch provenance = 2;
+  Commit head = 2;
+  repeated Branch provenance = 3;
 }
 
 message ListBranchRequest {
   Repo repo = 1;
 }
 
-message SetBranchRequest {
-  Commit commit = 1;
-  string branch = 2;
-}
-
 message DeleteBranchRequest {
-  Repo repo = 1;
-  string branch = 2;
+  Branch branch = 1;
 }
 
 message DeleteCommitRequest {
@@ -362,8 +360,6 @@ service API {
   rpc CreateBranch(CreateBranchRequest) returns (google.protobuf.Empty) {}
   // ListBranch returns info about the heads of branches.
   rpc ListBranch(ListBranchRequest) returns (BranchInfos) {}
-  // SetBranch assigns a commit and its ancestors to a branch.
-  rpc SetBranch(SetBranchRequest) returns (google.protobuf.Empty) {}
   // DeleteBranch deletes a branch; note that the commits still exist.
   rpc DeleteBranch(DeleteBranchRequest) returns (google.protobuf.Empty) {}
 
