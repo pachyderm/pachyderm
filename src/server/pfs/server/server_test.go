@@ -47,7 +47,6 @@ var (
 var testDBs []string
 
 func TestInvalidRepo(t *testing.T) {
-
 	client := getClient(t)
 	require.YesError(t, client.CreateRepo("/repo"))
 
@@ -157,7 +156,6 @@ func TestCreateRepoDeleteRepoRace(t *testing.T) {
 }
 
 func TestCreateAndInspectRepo(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "repo"
@@ -191,7 +189,6 @@ func TestCreateAndInspectRepo(t *testing.T) {
 }
 
 func TestRepoSize(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "repo"
@@ -231,7 +228,6 @@ func TestRepoSize(t *testing.T) {
 }
 
 func TestListRepo(t *testing.T) {
-
 	client := getClient(t)
 
 	numRepos := 10
@@ -254,7 +250,6 @@ func TestListRepo(t *testing.T) {
 
 // Make sure that commits of deleted repos do not resurface
 func TestCreateDeletedRepo(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "repo"
@@ -293,7 +288,6 @@ func TestCreateDeletedRepo(t *testing.T) {
 //   /    \
 // d1      d2
 func TestUpdateProvenance(t *testing.T) {
-
 	client := getClient(t)
 
 	prov1 := "prov1"
@@ -382,7 +376,6 @@ func TestUpdateProvenance(t *testing.T) {
 }
 
 func TestPutFileIntoOpenCommit(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "test"
@@ -427,7 +420,6 @@ func TestCreateInvalidBranchName(t *testing.T) {
 }
 
 func TestListRepoWithProvenance(t *testing.T) {
-
 	client := getClient(t)
 
 	require.NoError(t, client.CreateRepo("prov1"))
@@ -462,7 +454,6 @@ func TestListRepoWithProvenance(t *testing.T) {
 }
 
 func TestDeleteRepo(t *testing.T) {
-
 	client := getClient(t)
 
 	numRepos := 10
@@ -494,7 +485,6 @@ func TestDeleteRepo(t *testing.T) {
 }
 
 func TestDeleteProvenanceRepo(t *testing.T) {
-
 	client := getClient(t)
 
 	// Create two repos, one as another's provenance
@@ -539,7 +529,6 @@ func TestDeleteProvenanceRepo(t *testing.T) {
 }
 
 func TestInspectCommit(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "test"
@@ -608,7 +597,6 @@ func TestInspectCommitBlock(t *testing.T) {
 }
 
 func TestDeleteCommit(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "test"
@@ -668,7 +656,6 @@ func TestDeleteCommit(t *testing.T) {
 }
 
 func TestCleanPath(t *testing.T) {
-
 	c := getClient(t)
 	repo := "TestCleanPath"
 	require.NoError(t, c.CreateRepo(repo))
@@ -682,7 +669,6 @@ func TestCleanPath(t *testing.T) {
 }
 
 func TestBasicFile(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "repo"
@@ -707,7 +693,6 @@ func TestBasicFile(t *testing.T) {
 }
 
 func TestSimpleFile(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "test"
@@ -748,7 +733,6 @@ func TestSimpleFile(t *testing.T) {
 }
 
 func TestStartCommitWithUnfinishedParent(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "test"
@@ -766,7 +750,6 @@ func TestStartCommitWithUnfinishedParent(t *testing.T) {
 }
 
 func TestAncestrySyntax(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "test"
@@ -841,8 +824,8 @@ func TestAncestrySyntax(t *testing.T) {
 }
 
 func TestProvenance(t *testing.T) {
-
 	client := getClient(t)
+
 	require.NoError(t, client.CreateRepo("A"))
 	require.NoError(t, client.CreateRepo("E"))
 	_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
@@ -880,7 +863,6 @@ func TestProvenance(t *testing.T) {
 }
 
 func TestSimple(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "test"
@@ -911,10 +893,9 @@ func TestSimple(t *testing.T) {
 }
 
 func TestBranch1(t *testing.T) {
-
 	client := getClient(t)
-	repo := "test"
 
+	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 	commit, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
@@ -953,7 +934,6 @@ func TestBranch1(t *testing.T) {
 }
 
 func TestPutFileBig(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "test"
@@ -980,7 +960,6 @@ func TestPutFileBig(t *testing.T) {
 }
 
 func TestPutFile(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "test"
@@ -1042,8 +1021,8 @@ func TestPutFile(t *testing.T) {
 }
 
 func TestPutFile2(t *testing.T) {
-
 	client := getClient(t)
+
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 	commit1, err := client.StartCommit(repo, "master")
@@ -1095,7 +1074,6 @@ func TestPutFile2(t *testing.T) {
 }
 
 func TestPutFileLongName(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "test"
@@ -1114,7 +1092,6 @@ func TestPutFileLongName(t *testing.T) {
 }
 
 func TestPutSameFileInParallel(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "test"
@@ -1140,7 +1117,6 @@ func TestPutSameFileInParallel(t *testing.T) {
 }
 
 func TestInspectFile(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "test"
@@ -1200,8 +1176,8 @@ func TestInspectFile(t *testing.T) {
 }
 
 func TestInspectFile2(t *testing.T) {
-
 	client := getClient(t)
+
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -1245,7 +1221,6 @@ func TestInspectFile2(t *testing.T) {
 }
 
 func TestInspectDir(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "test"
@@ -1282,8 +1257,8 @@ func TestInspectDir(t *testing.T) {
 }
 
 func TestInspectDir2(t *testing.T) {
-
 	client := getClient(t)
+
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -1336,7 +1311,6 @@ func TestInspectDir2(t *testing.T) {
 }
 
 func TestListFileTwoCommits(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "test"
@@ -1382,7 +1356,6 @@ func TestListFileTwoCommits(t *testing.T) {
 }
 
 func TestListFile(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "test"
@@ -1418,8 +1391,8 @@ func TestListFile(t *testing.T) {
 }
 
 func TestListFile2(t *testing.T) {
-
 	client := getClient(t)
+
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -1464,8 +1437,8 @@ func TestListFile2(t *testing.T) {
 }
 
 func TestListFile3(t *testing.T) {
-
 	client := getClient(t)
+
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -1519,8 +1492,8 @@ func TestListFile3(t *testing.T) {
 }
 
 func TestPutFileTypeConflict(t *testing.T) {
-
 	client := getClient(t)
+
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -1540,8 +1513,8 @@ func TestPutFileTypeConflict(t *testing.T) {
 }
 
 func TestRootDirectory(t *testing.T) {
-
 	client := getClient(t)
+
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -1564,7 +1537,6 @@ func TestRootDirectory(t *testing.T) {
 }
 
 func TestDeleteFile(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "test"
@@ -1645,7 +1617,6 @@ func TestDeleteFile(t *testing.T) {
 }
 
 func TestDeleteDir(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "test"
@@ -1730,8 +1701,8 @@ func TestDeleteDir(t *testing.T) {
 }
 
 func TestDeleteFile2(t *testing.T) {
-
 	client := getClient(t)
+
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -1772,6 +1743,7 @@ func TestDeleteFile2(t *testing.T) {
 
 func TestListCommit(t *testing.T) {
 	client := getClient(t)
+
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -1830,8 +1802,8 @@ func TestListCommit(t *testing.T) {
 }
 
 func TestOffsetRead(t *testing.T) {
-
 	client := getClient(t)
+
 	repo := "TestOffsetRead"
 	require.NoError(t, client.CreateRepo(repo))
 	commit, err := client.StartCommit(repo, "")
@@ -1947,7 +1919,6 @@ func TestSubscribeCommit(t *testing.T) {
 }
 
 func TestInspectRepoSimple(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "test"
@@ -1973,7 +1944,6 @@ func TestInspectRepoSimple(t *testing.T) {
 }
 
 func TestInspectRepoComplex(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "test"
@@ -2014,7 +1984,6 @@ func TestInspectRepoComplex(t *testing.T) {
 }
 
 func TestCreate(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "test"
@@ -2030,7 +1999,6 @@ func TestCreate(t *testing.T) {
 }
 
 func TestGetFileInvalidCommit(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "test"
@@ -2103,7 +2071,6 @@ func TestATonOfPuts(t *testing.T) {
 }
 
 func TestPutFileNullCharacter(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "test"
@@ -2124,6 +2091,7 @@ func TestPutFileURL(t *testing.T) {
 	}
 
 	c := getClient(t)
+
 	repo := "TestPutFileURL"
 	require.NoError(t, c.CreateRepo(repo))
 	commit, err := c.StartCommit(repo, "master")
@@ -2136,7 +2104,6 @@ func TestPutFileURL(t *testing.T) {
 }
 
 func TestBigListFile(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "TestBigListFile"
@@ -2164,7 +2131,6 @@ func TestBigListFile(t *testing.T) {
 }
 
 func TestStartCommitLatestOnBranch(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "test"
@@ -2188,7 +2154,6 @@ func TestStartCommitLatestOnBranch(t *testing.T) {
 }
 
 func TestSetBranchTwice(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "test"
@@ -2213,7 +2178,6 @@ func TestSetBranchTwice(t *testing.T) {
 }
 
 func TestSyncPullPush(t *testing.T) {
-
 	client := getClient(t)
 
 	repo1 := "repo1"
@@ -2291,7 +2255,6 @@ func TestSyncPullPush(t *testing.T) {
 }
 
 func TestSyncFile(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "repo"
@@ -2341,7 +2304,6 @@ func TestSyncFile(t *testing.T) {
 }
 
 func TestSyncEmptyDir(t *testing.T) {
-
 	client := getClient(t)
 
 	repo := "repo"
