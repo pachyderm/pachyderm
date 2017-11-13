@@ -175,7 +175,7 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.driver.createBranch(ctx, request.Branch, request.Provenance); err != nil {
+	if err := a.driver.createBranch(ctx, request.Branch, request.Head, request.Provenance); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -192,21 +192,11 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 	return &pfs.BranchInfos{BranchInfo: branches}, nil
 }
 
-func (a *apiServer) SetBranch(ctx context.Context, request *pfs.SetBranchRequest) (response *types.Empty, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-
-	if err := a.driver.setBranch(ctx, request.Commit, request.Branch); err != nil {
-		return nil, err
-	}
-	return &types.Empty{}, nil
-}
-
 func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.driver.deleteBranch(ctx, request.Repo, request.Branch); err != nil {
+	if err := a.driver.deleteBranch(ctx, request.Branch); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil

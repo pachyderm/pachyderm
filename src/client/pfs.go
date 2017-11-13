@@ -16,6 +16,14 @@ func NewRepo(repoName string) *pfs.Repo {
 	return &pfs.Repo{Name: repoName}
 }
 
+// NewBranch creates a pfs.Branch
+func NewBranch(repoName string, branchName string) *pfs.Branch {
+	return &pfs.Branch{
+		Repo: NewRepo(repoName),
+		Name: branchName,
+	}
+}
+
 // NewCommit creates a pfs.Commit.
 func NewCommit(repoName string, commitID string) *pfs.Commit {
 	return &pfs.Commit{
@@ -251,6 +259,19 @@ func (c APIClient) ListCommitByRepo(repoName string) ([]*pfs.CommitInfo, error) 
 	return c.ListCommit(repoName, "", "", 0)
 }
 
+// CreateBranch creates a new branch
+func (c APIClient) CreateBranch(repoName string, branch string, commit string, provenance []*pfs.Branch) error {
+	_, err := c.PfsAPIClient.CreateBranch(
+		c.Ctx(),
+		&pfs.CreateBranchRequest{
+			Branch:     NewBranch(repoName, branch),
+			Head:       NewCommit(repoName, commit),
+			Provenance: provenance,
+		},
+	)
+	return grpcutil.ScrubGRPC(err)
+}
+
 // ListBranch lists the active branches on a Repo.
 func (c APIClient) ListBranch(repoName string) ([]*pfs.BranchInfo, error) {
 	branchInfos, err := c.PfsAPIClient.ListBranch(
@@ -265,18 +286,6 @@ func (c APIClient) ListBranch(repoName string) ([]*pfs.BranchInfo, error) {
 	return branchInfos.BranchInfo, nil
 }
 
-// SetBranch sets a commit and its ancestors as a branch
-func (c APIClient) SetBranch(repoName string, commit string, branch string) error {
-	_, err := c.PfsAPIClient.SetBranch(
-		c.Ctx(),
-		&pfs.SetBranchRequest{
-			Commit: NewCommit(repoName, commit),
-			Branch: branch,
-		},
-	)
-	return grpcutil.ScrubGRPC(err)
-}
-
 // DeleteBranch deletes a branch, but leaves the commits themselves intact.
 // In other words, those commits can still be accessed via commit IDs and
 // other branches they happen to be on.
@@ -284,11 +293,16 @@ func (c APIClient) DeleteBranch(repoName string, branch string) error {
 	_, err := c.PfsAPIClient.DeleteBranch(
 		c.Ctx(),
 		&pfs.DeleteBranchRequest{
-			Repo:   NewRepo(repoName),
-			Branch: branch,
+			Branch: NewBranch(repoName, branch),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
+}
+
+// SetBranch sets a commit and its ancestors as a branch.
+// SetBranch is deprecated in favor of CommitBranch.
+func (c APIClient) SetBranch(repoName string, commit string, branch string) error {
+	return c.CreateBranch(repoName, branch, commit, nil)
 }
 
 // DeleteCommit deletes a commit.

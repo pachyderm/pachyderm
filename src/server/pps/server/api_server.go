@@ -1459,23 +1459,16 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		// We ignore NotFound errors because this pipeline might not have
 		// even output anything yet, in which case the output branch
 		// may not actually exist.
-		if _, err := pfsClient.SetBranch(ctx, &pfs.SetBranchRequest{
-			Commit: &pfs.Commit{
-				Repo: &pfs.Repo{pipelineName},
-				ID:   oldPipelineInfo.OutputBranch,
-			},
-			Branch: fmt.Sprintf("%s-v%d", oldPipelineInfo.OutputBranch, oldPipelineInfo.Version),
-		}); err != nil && !isNotFoundErr(err) {
+		if err := pachClient.WithCtx(ctx).SetBranch(
+			pipelineName,
+			oldPipelineInfo.OutputBranch,
+			fmt.Sprintf("%s-v%d", oldPipelineInfo.OutputBranch, oldPipelineInfo.Version),
+		); err != nil && !isNotFoundErr(err) {
 			return nil, err
 		}
-
-		if _, err := pfsClient.DeleteBranch(ctx, &pfs.DeleteBranchRequest{
-			Repo:   &pfs.Repo{pipelineName},
-			Branch: oldPipelineInfo.OutputBranch,
-		}); err != nil && !isNotFoundErr(err) {
+		if err := pachClient.WithCtx(ctx).DeleteBranch(pipelineName, oldPipelineInfo.OutputBranch); err != nil && !isNotFoundErr(err) {
 			return nil, err
 		}
-
 		if _, err := a.StartPipeline(ctx, &pps.StartPipelineRequest{request.Pipeline}); err != nil {
 			return nil, err
 		}
