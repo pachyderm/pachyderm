@@ -622,6 +622,7 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 			}
 			branchInfo.Name = branch
 			branchInfo.Head = commit
+			branchInfo.Branch = client.NewBranch(commit.Repo.Name, branch)
 			// Make commit the new head of the branch
 			if err := branches.Put(branch, branchInfo); err != nil {
 				return err
@@ -1416,7 +1417,9 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 	}
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		branches := d.branches(branch.Repo.Name).ReadWrite(stm)
-		return branches.Create(branch.Name, &pfs.BranchInfo{
+		return branches.Put(branch.Name, &pfs.BranchInfo{
+			Branch:     branch,
+			Head:       commit,
 			Name:       branch.Name,
 			Provenance: provenance,
 		})
