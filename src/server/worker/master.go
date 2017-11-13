@@ -738,23 +738,6 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 
 		var statsCommit *pfs.Commit
 		if jobInfo.EnableStats {
-			// if err := func() error {
-			// 	aggregateProcessStats, err := a.aggregateProcessStats(processStats)
-			// 	if err != nil {
-			// 		return err
-			// 	}
-			// 	marshalled, err := (&jsonpb.Marshaler{}).MarshalToString(aggregateProcessStats)
-			// 	if err != nil {
-			// 		return err
-			// 	}
-			// 	aggregateObject, _, err := a.pachClient.WithCtx(ctx).PutObject(strings.NewReader(marshalled))
-			// 	if err != nil {
-			// 		return err
-			// 	}
-			// 	return statsTree.PutFile("/stats", []*pfs.Object{aggregateObject}, int64(len(marshalled)))
-			// }(); err != nil {
-			// 	logger.Logf("error aggregating stats")
-			// }
 			statsObject, err := a.putTree(ctx, statsTree)
 			if err != nil {
 				return err
