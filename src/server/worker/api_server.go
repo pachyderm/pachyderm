@@ -879,6 +879,11 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 	return nil
 }
 
+// worker does the following:
+//  - watches for new jobs (jobInfos in the jobs collection)
+//  - claims chunks from the chunk layout it finds in the chunks collection
+//  - claims those chunks with acquireDatums
+//  - processes the chunks with processDatums
 func (a *APIServer) worker() {
 	logger := a.getWorkerLogger()
 	backoff.RetryNotify(func() error {
