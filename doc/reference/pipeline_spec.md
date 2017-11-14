@@ -214,7 +214,7 @@ example, a worker that needs to read a 1GB file into memory might set
 `"memory": "1.2G"` (with a little extra for the code to use in addition to the
 file. Workers for this pipeline will only be placed on machines with at least
 1.2GB of free memory, and other large workers will be prevented from using it
-(if they also set their `resource_requests_spec`).
+(if they also set their `resource_requests`).
 
 The `cpu` field is a double that describes the amount of CPU time (in (cpu
 seconds)/(real seconds) each worker needs. Setting `"cpu": 0.5` indicates that
