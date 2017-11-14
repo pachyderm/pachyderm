@@ -1489,6 +1489,14 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 	return err
 }
 
+func (d *driver) inspectBranch(ctx context.Context, branch *pfs.Branch) (*pfs.BranchInfo, error) {
+	result := &pfs.BranchInfo{}
+	if err := d.branches(branch.Repo.Name).ReadOnly(ctx).Get(branch.Name, result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 func (d *driver) listBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.BranchInfo, error) {
 	if err := d.checkIsAuthorized(ctx, repo, auth.Scope_READER); err != nil {
 		return nil, err

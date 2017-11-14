@@ -272,6 +272,16 @@ func (c APIClient) CreateBranch(repoName string, branch string, commit string, p
 	return grpcutil.ScrubGRPC(err)
 }
 
+func (c APIClient) InspectBranch(repoName string, branch string) (*pfs.BranchInfo, error) {
+	branchInfo, err := c.PfsAPIClient.InspectBranch(
+		c.Ctx(),
+		&pfs.InspectBranchRequest{
+			Branch: NewBranch(repoName, branch),
+		},
+	)
+	return branchInfo, grpcutil.ScrubGRPC(err)
+}
+
 // ListBranch lists the active branches on a Repo.
 func (c APIClient) ListBranch(repoName string) ([]*pfs.BranchInfo, error) {
 	branchInfos, err := c.PfsAPIClient.ListBranch(
