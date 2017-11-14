@@ -46,12 +46,9 @@ func GetResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*api.ResourceL
 		result[api.ResourceMemory] = cacheQuantity
 	}
 
-	gpuStr := fmt.Sprintf("%d", resources.Gpu)
-	gpuQuantity, err := resource.ParseQuantity(gpuStr)
-	if err != nil {
-		log.Warnf("error parsing gpu string: %s: %+v", gpuStr, err)
-	} else {
-		result[api.ResourceNvidiaGPU] = gpuQuantity
+	if resources.Gpu != 0 {
+		fmt.Fprint(os.Stderr, "Warning, cannot add GPU to pipeline resource "+
+			"request, due to compatibility issues with kubernetes 1.8")
 	}
 	return &result, nil
 }
