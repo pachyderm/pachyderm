@@ -28,16 +28,16 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   },
   "parallelism_spec": {
     // Set at most one of the following:
-    "constant": int
+    "constant": int,
     "coefficient": double
   },
   "resource_requests": {
-    "memory": string
+    "memory": string,
     "cpu": double
   },
   "resource_limits": {
-    "memory": string
-    "cpu": double
+    "memory": string,
+    "cpu": double,
     "gpu": double
   },
   "input": {
