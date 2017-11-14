@@ -3091,13 +3091,8 @@ func TestPropagateCommit(t *testing.T) {
 	repo1 := uniqueString("TestPropagateCommit1")
 	require.NoError(t, c.CreateRepo(repo1))
 	repo2 := uniqueString("TestPropagateCommit2")
-	_, err := c.PfsAPIClient.CreateRepo(
-		context.Background(),
-		&pfs.CreateRepoRequest{
-			Repo:       pclient.NewRepo(repo2),
-			Provenance: []*pfs.Repo{pclient.NewRepo(repo1)},
-		})
-	require.NoError(t, err)
+	require.NoError(t, c.CreateRepo(repo2))
+	require.NoError(t, c.CreateBranch(repo2, "master", "", []*pfs.Branch{pclient.NewBranch(repo1, "master")}))
 	commit, err := c.StartCommit(repo1, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo1, commit.ID))
