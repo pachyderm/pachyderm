@@ -839,7 +839,18 @@ func TestProvenance(t *testing.T) {
 
 	require.NoError(t, client.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
 	require.NoError(t, client.CreateBranch("C", "master", "", []*pfs.Branch{pclient.NewBranch("B", "master"), pclient.NewBranch("E", "master")}))
-	require.NoError(t, client.CreateBranch("D", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
+	require.NoError(t, client.CreateBranch("D", "master", "", []*pfs.Branch{pclient.NewBranch("C", "master")}))
+
+	branchInfo, err := client.InspectBranch("B", "master")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(branchInfo.Provenance))
+	branchInfo, err = client.InspectBranch("C", "master")
+	require.NoError(t, err)
+	require.Equal(t, 3, len(branchInfo.Provenance))
+	branchInfo, err = client.InspectBranch("D", "master")
+	require.NoError(t, err)
+	require.Equal(t, 4, len(branchInfo.Provenance))
+
 	ACommit, err := client.StartCommit("A", "master")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit("A", ACommit.ID))

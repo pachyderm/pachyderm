@@ -197,6 +197,10 @@ message CreateBranchRequest {
   repeated Branch provenance = 3;
 }
 
+message InspectBranchRequest {
+  Branch branch = 1;
+}
+
 message ListBranchRequest {
   Repo repo = 1;
 }
@@ -358,6 +362,8 @@ service API {
 
   // CreateBranch creates a new branch
   rpc CreateBranch(CreateBranchRequest) returns (google.protobuf.Empty) {}
+  // InspectBranch returns info about a branch.
+  rpc InspectBranch(InspectBranchRequest) returns (BranchInfo) {}
   // ListBranch returns info about the heads of branches.
   rpc ListBranch(ListBranchRequest) returns (BranchInfos) {}
   // DeleteBranch deletes a branch; note that the commits still exist.
