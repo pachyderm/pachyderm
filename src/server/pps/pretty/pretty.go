@@ -138,9 +138,6 @@ Upload Time: {{prettyDuration .Stats.UploadTime}}
 Worker Status:
 {{workerStatus .}}Restarts: {{.Restart}}
 ParallelismSpec: {{.ParallelismSpec}}
-{{ if .ResourceSpec }}ResourceRequests:
-	CPU: {{ .ResourceSpec.Cpu }}
-	Memory: {{ .ResourceSpec.Memory }} {{end}}
 {{ if .ResourceRequests }}ResourceRequests:
 	CPU: {{ .ResourceRequests.Cpu }}
 	Memory: {{ .ResourceRequests.Memory }} {{end}}
@@ -176,9 +173,6 @@ Created: {{prettyAgo .CreatedAt}}
 State: {{pipelineState .State}}
 Reason: {{.Reason}}
 Parallelism Spec: {{.ParallelismSpec}}
-{{ if .ResourceSpec }}ResourceRequests:
-	CPU: {{ .ResourceSpec.Cpu }}
-	Memory: {{ .ResourceSpec.Memory }} {{end}}
 {{ if .ResourceRequests }}ResourceRequests:
 	CPU: {{ .ResourceRequests.Cpu }}
 	Memory: {{ .ResourceRequests.Memory }} {{end}}
