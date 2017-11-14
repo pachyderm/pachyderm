@@ -31,11 +31,11 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
     "constant": int
     "coefficient": double
   },
-  "resource_requests_spec": {
+  "resource_requests": {
     "memory": string
     "cpu": double
   },
-  "resource_limits_spec": {
+  "resource_limits": {
     "memory": string
     "cpu": double
     "gpu": double
@@ -201,9 +201,9 @@ will start five workers. If you set it to 2.0, Pachyderm will start 20 workers
 By default, we use the parallelism spec "coefficient=1", which means that
 we spawn one worker per node for this pipeline.
 
-### Resource Requests Spec (optional)
+### Resource Requests (optional)
 
-`resource_requests_spec` describes the amount of resources you expect the
+`resource_requests` describes the amount of resources you expect the
 workers for a given pipeline to consume. Knowing this in advance
 lets us schedule big jobs on separate machines, so that they don't
 conflict and either slow down or die.
@@ -238,9 +238,9 @@ avoid scheduling problems that prevent users from being unable to run
 pipelines).  This means that if a node runs out of memory, any such worker
 might be killed.
 
-### Resource Limits Spec (optional)
+### Resource Limits (optional)
 
-`resource_limits_spec` describes the upper threshold of allowed resources a given 
+`resource_limits` describes the upper threshold of allowed resources a given 
 worker can consume. If a worker exceeds this value, it will be evicted.
 
 ### Input (required)
