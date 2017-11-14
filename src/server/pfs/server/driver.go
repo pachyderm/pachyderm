@@ -719,14 +719,34 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 	sizeChange := sizeChange(finishedTree, parentTree)
 	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
+		// TODO this isn't part of the transaction because we can't do lists in transactions.
+		// We need to maintain a repo's branch list in the repo info.
+		branches := d.branches(commit.Repo.Name).ReadOnly(ctx)
 		repos := d.repos.ReadWrite(stm)
 
 		commits.Put(commit.ID, commitInfo)
 		if err := d.openCommits.ReadWrite(stm).Delete(commit.ID); err != nil {
 			return fmt.Errorf("could not confirm that commit %s is open; this is likely a bug. err: %v", commit.ID, err)
 		}
-		if err := d.propagateCommit(ctx, commit, stm); err != nil {
+		bIterator, err := branches.List()
+		if err != nil {
 			return err
+		}
+		for {
+			var branchName string
+			var branchInfo pfs.BranchInfo
+			ok, err := bIterator.Next(&branchName, &branchInfo)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				break
+			}
+			if branchInfo.Head.ID == commitInfo.Commit.ID {
+				if err := d.propagateCommit(ctx, branchInfo.Branch, commit, stm); err != nil {
+					return err
+				}
+			}
 		}
 		// update repo size
 		repoInfo := new(pfs.RepoInfo)
@@ -749,13 +769,13 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 	return err
 }
 
-func (d *driver) propagateCommit(ctx context.Context, commit *pfs.Commit, stm col.STM) error {
+func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit *pfs.Commit, stm col.STM) error {
 	repos := d.repos.ReadOnly(ctx)
 	iterator, err := repos.List()
 	if err != nil {
 		return err
 	}
-	var repoInfos []*pfs.RepoInfo
+	var branchInfos []*pfs.BranchInfo
 	for {
 		var repoName string
 		var repoInfo pfs.RepoInfo
@@ -766,41 +786,62 @@ func (d *driver) propagateCommit(ctx context.Context, commit *pfs.Commit, stm co
 		if !ok {
 			break
 		}
-		for _, provRepo := range repoInfo.Provenance {
-			if provRepo.Name == commit.Repo.Name {
-				repoInfos = append(repoInfos, &repoInfo)
+		branches := d.branches(repoInfo.Repo.Name).ReadOnly(ctx)
+		brIterator, err := branches.List()
+		if err != nil {
+			return err
+		}
+		for {
+			var branchName string
+			var branchInfo pfs.BranchInfo
+			ok, err = brIterator.Next(&branchName, &branchInfo)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				break
+			}
+			for _, provBranch := range branchInfo.Provenance {
+				if provBranch.Name == branch.Name {
+					branchInfos = append(branchInfos, &branchInfo)
+				}
+				break
 			}
 		}
 	}
-	sort.Slice(repoInfos, func(i, j int) bool { return len(repoInfos[i].Provenance) < len(repoInfos[j].Provenance) })
-	repoToCommit := make(map[string]*pfs.Commit)
-	repoToCommit[commit.Repo.Name] = commit
-DownstreamRepos:
-	for _, repoInfo := range repoInfos {
-		branches := d.branches(repoInfo.Repo.Name).ReadWrite(stm)
-		commits := d.commits(repoInfo.Repo.Name).ReadWrite(stm)
+	sort.Slice(branchInfos, func(i, j int) bool { return len(branchInfos[i].Provenance) < len(branchInfos[j].Provenance) })
+	branchToCommit := make(map[string]*pfs.Commit)
+	branchKey := func(branch *pfs.Branch) string { return fmt.Sprintf("%s/%s", branch.Repo.Name, branch.Name) }
+	branchToCommit[branchKey(branch)] = commit
+DownstreamBranches:
+	for _, branchInfo := range branchInfos {
+		branch := branchInfo.Branch
+		repo := branch.Repo
+		branches := d.branches(repo.Name).ReadWrite(stm)
+		commits := d.commits(repo.Name).ReadWrite(stm)
 		commit := &pfs.Commit{
-			Repo: repoInfo.Repo,
+			Repo: repo,
 			ID:   uuid.NewWithoutDashes(),
 		}
-		repoToCommit[repoInfo.Repo.Name] = commit
+		branchToCommit[branchKey(branchInfo.Branch)] = commit
 		var provenance []*pfs.Commit
-		for _, repo := range repoInfo.Provenance {
-			if _, ok := repoToCommit[repo.Name]; !ok {
+		for _, branch := range branchInfo.Provenance {
+			_, ok := branchToCommit[repo.Name]
+			if !ok {
 				branchInfo := &pfs.BranchInfo{}
-				if err := d.branches(repo.Name).ReadWrite(stm).Get("master", branchInfo); err != nil {
+				if err := d.branches(branch.Repo.Name).ReadWrite(stm).Get(branch.Name, branchInfo); err != nil {
 					if col.IsErrNotFound(err) {
-						repoToCommit[repo.Name] = nil
+						branchToCommit[branchKey(branch)] = nil
 					} else {
 						return err
 					}
 				}
-				repoToCommit[repo.Name] = branchInfo.Head
+				branchToCommit[branchKey(branch)] = branchInfo.Head
 			}
-			if repoToCommit[repo.Name] == nil {
-				continue DownstreamRepos
+			if branchToCommit[branchKey(branch)] == nil {
+				continue DownstreamBranches
 			}
-			provenance = append(provenance, repoToCommit[repo.Name])
+			provenance = append(provenance, branchToCommit[branchKey(branch)])
 		}
 		commitInfo := &pfs.CommitInfo{
 			Commit:     commit,
@@ -808,7 +849,7 @@ DownstreamRepos:
 			Provenance: provenance,
 		}
 		var branchInfo pfs.BranchInfo
-		if err := branches.Get("master", &branchInfo); err != nil {
+		if err := branches.Get(branch.Name, &branchInfo); err != nil {
 			if _, ok := err.(col.ErrNotFound); !ok {
 				return err
 			}
