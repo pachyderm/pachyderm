@@ -811,7 +811,6 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 	}
 	sort.Slice(branchInfos, func(i, j int) bool { return len(branchInfos[i].Provenance) < len(branchInfos[j].Provenance) })
 	branchToCommit := make(map[string]*pfs.Commit)
-	branchKey := func(branch *pfs.Branch) string { return fmt.Sprintf("%s/%s", branch.Repo.Name, branch.Name) }
 	branchToCommit[branchKey(branch)] = commit
 DownstreamBranches:
 	for _, branchInfo := range branchInfos {
@@ -823,7 +822,7 @@ DownstreamBranches:
 			Repo: repo,
 			ID:   uuid.NewWithoutDashes(),
 		}
-		branchToCommit[branchKey(branchInfo.Branch)] = commit
+		branchToCommit[branchKey(branch)] = commit
 		var provenance []*pfs.Commit
 		for _, branch := range branchInfo.Provenance {
 			_, ok := branchToCommit[repo.Name]
@@ -1457,13 +1456,35 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 		return err
 	}
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		// compute the transitive closure of our provenance
+		provMap := make(map[string]*pfs.Branch)
+		for _, branch := range provenance {
+			provMap[branchKey(branch)] = branch
+			branchInfo := &pfs.BranchInfo{}
+			if err := d.branches(branch.Repo.Name).ReadWrite(stm).Get(branch.Name, branchInfo); err != nil {
+				// we ignore col.IsErrNotFound because branches are allowed to
+				// reference branches that don't exist yet.
+				if col.IsErrNotFound(err) {
+					continue
+				}
+				return err
+			}
+			for _, branch := range branchInfo.Provenance {
+				provMap[branchKey(branch)] = branch
+			}
+			// no need to recurse because the other branches are already
+			// storing a transitive closure
+		}
+		branchInfo := &pfs.BranchInfo{
+			Branch: branch,
+			Head:   commit,
+			Name:   branch.Name,
+		}
+		for _, branch := range provMap {
+			branchInfo.Provenance = append(branchInfo.Provenance, branch)
+		}
 		branches := d.branches(branch.Repo.Name).ReadWrite(stm)
-		return branches.Put(branch.Name, &pfs.BranchInfo{
-			Branch:     branch,
-			Head:       commit,
-			Name:       branch.Name,
-			Provenance: provenance,
-		})
+		return branches.Put(branch.Name, branchInfo)
 	})
 	return err
 }
@@ -2169,4 +2190,8 @@ func (d *driver) applyWrites(resp *etcd.GetResponse, tree hashtree.OpenHashTree)
 
 func isNotFoundErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "not found")
+}
+
+func branchKey(branch *pfs.Branch) string {
+	return fmt.Sprintf("%s/%s", branch.Repo.Name, branch.Name)
 }
