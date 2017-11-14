@@ -823,25 +823,23 @@ func TestAncestrySyntax(t *testing.T) {
 	}
 }
 
+// TestProvenance implements the following DAG
+//  A -> B -> C -> D
+//           /
+//  E - - - /
+
 func TestProvenance(t *testing.T) {
 	client := getClient(t)
 
 	require.NoError(t, client.CreateRepo("A"))
+	require.NoError(t, client.CreateRepo("B"))
+	require.NoError(t, client.CreateRepo("C"))
+	require.NoError(t, client.CreateRepo("D"))
 	require.NoError(t, client.CreateRepo("E"))
-	_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
-		Repo:       pclient.NewRepo("B"),
-		Provenance: []*pfs.Repo{pclient.NewRepo("A")},
-	})
-	require.NoError(t, err)
-	_, err = client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
-		Repo:       pclient.NewRepo("C"),
-		Provenance: []*pfs.Repo{pclient.NewRepo("B"), pclient.NewRepo("E")},
-	})
-	_, err = client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
-		Repo:       pclient.NewRepo("D"),
-		Provenance: []*pfs.Repo{pclient.NewRepo("C")},
-	})
 
+	require.NoError(t, client.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
+	require.NoError(t, client.CreateBranch("C", "master", "", []*pfs.Branch{pclient.NewBranch("B", "master"), pclient.NewBranch("E", "master")}))
+	require.NoError(t, client.CreateBranch("D", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
 	ACommit, err := client.StartCommit("A", "master")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit("A", ACommit.ID))
