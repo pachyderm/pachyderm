@@ -748,11 +748,6 @@ func (r *pipelineManifestReader) nextCreatePipelineRequest() (*ppsclient.CreateP
 		}
 		return nil, fmt.Errorf("malformed pipeline spec: %s", err)
 	}
-	if result.ResourceSpec != nil {
-		fmt.Printf("WARNING: 'resource_spec' is deprecated and will be removed in 1.7\nPlease use 'resource_requests' instead\n")
-		result.ResourceRequests = result.ResourceSpec
-		result.ResourceSpec = nil
-	}
 	return &result, nil
 }
 
