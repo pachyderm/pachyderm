@@ -1619,9 +1619,7 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 	}
 	if pipelineInfo.ResourceLimits == nil {
 		pipelineInfo.ResourceLimits = &pps.ResourceSpec{
-			Memory: "64G",
-			Cpu:    16,
-			Gpu:    0,
+			Gpu: 0,
 		}
 
 	}
