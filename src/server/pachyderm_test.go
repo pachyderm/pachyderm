@@ -3391,6 +3391,69 @@ func TestPipelineResourceLimit(t *testing.T) {
 	mem, ok := container.Resources.Limits[api.ResourceMemory]
 	require.True(t, ok)
 	require.Equal(t, "100M", mem.String())
+	gpu, ok := container.Resources.Requests[api.ResourceNvidiaGPU]
+	require.True(t, ok)
+	require.Equal(t, "0", gpu.String())
+}
+
+func TestPipelineResourceLimitDefaults(t *testing.T) {
+	// We need to make sure GPU is set to 0 for k8s 1.8
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+	// create repos
+	dataRepo := uniqueString("TestPipelineResourceLimit")
+	pipelineName := uniqueString("TestPipelineResourceLimit_Pipeline")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// Resources are not yet in client.CreatePipeline() (we may add them later)
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: &pps.Pipeline{pipelineName},
+			Transform: &pps.Transform{
+				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input: &pps.Input{
+				Atom: &pps.AtomInput{
+					Repo:   dataRepo,
+					Branch: "master",
+					Glob:   "/*",
+				},
+			},
+		})
+	require.NoError(t, err)
+
+	// Get info about the pipeline pods from k8s & check for resources
+	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+
+	var container api.Container
+	rcName := ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	kubeClient := getKubeClient(t)
+	err = backoff.Retry(func() error {
+		podList, err := kubeClient.Pods(api.NamespaceDefault).List(api.ListOptions{
+			LabelSelector: labels.SelectorFromSet(
+				map[string]string{"app": rcName}),
+		})
+		if err != nil {
+			return err // retry
+		}
+		if len(podList.Items) != 1 || len(podList.Items[0].Spec.Containers) == 0 {
+			return fmt.Errorf("could not find single container for pipeline %s", pipelineInfo.Pipeline.Name)
+		}
+		container = podList.Items[0].Spec.Containers[0]
+		return nil // no more retries
+	}, backoff.NewTestingBackOff())
+	require.NoError(t, err)
+	gpu, ok := container.Resources.Requests[api.ResourceNvidiaGPU]
+	require.True(t, ok)
+	require.Equal(t, "0", gpu.String())
 }
 
 func TestPipelinePartialResourceRequest(t *testing.T) {
