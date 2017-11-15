@@ -143,7 +143,8 @@ ParallelismSpec: {{.ParallelismSpec}}
 	Memory: {{ .ResourceRequests.Memory }} {{end}}
 {{ if .ResourceLimits }}ResourceLimits:
 	CPU: {{ .ResourceLimits.Cpu }}
-	Memory: {{ .ResourceLimits.Memory }} {{end}}
+	Memory: {{ .ResourceLimits.Memory }}
+	GPU: {{ .ResourceLimits.Gpu }} {{end}}
 {{ if .Service }}Service:
 	{{ if .Service.InternalPort }}InternalPort: {{ .Service.InternalPort }} {{end}}
 	{{ if .Service.ExternalPort }}ExternalPort: {{ .Service.ExternalPort }} {{end}} {{end}}Input:
@@ -178,7 +179,8 @@ Parallelism Spec: {{.ParallelismSpec}}
 	Memory: {{ .ResourceRequests.Memory }} {{end}}
 {{ if .ResourceLimits }}ResourceLimits:
 	CPU: {{ .ResourceLimits.Cpu }}
-	Memory: {{ .ResourceLimits.Memory }} {{end}}
+	Memory: {{ .ResourceLimits.Memory }}
+	GPU: {{ .ResourceLimits.Gpu }} {{end}}
 Input:
 {{pipelineInput .}}
 Output Branch: {{.OutputBranch}}
