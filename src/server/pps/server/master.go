@@ -7,9 +7,9 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	"k8s.io/kubernetes/pkg/api"
-	labelspkg "k8s.io/kubernetes/pkg/labels"
-	kube_watch "k8s.io/kubernetes/pkg/watch"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kube_watch "k8s.io/apimachinery/pkg/watch"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
@@ -61,12 +61,14 @@ func (a *apiServer) master() {
 		// prevents pachyderm from creating pipelines when there's an issue
 		// talking to k8s.
 		var watchChan <-chan kube_watch.Event
-		kubePipelineWatch, err := a.kubeClient.Pods(a.namespace).Watch(api.ListOptions{
-			LabelSelector: labelspkg.SelectorFromSet(map[string]string{
-				"component": "worker",
-			}),
-			Watch: true,
-		})
+		kubePipelineWatch, err := a.kubeClient.CoreV1().Pods(a.namespace).Watch(
+			metav1.ListOptions{
+				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
+					map[string]string{
+						"component": "worker",
+					})),
+				Watch: true,
+			})
 		if err != nil {
 			log.Errorf("failed to watch kuburnetes pods: %v", err)
 		} else {
@@ -172,12 +174,14 @@ func (a *apiServer) master() {
 					if kubePipelineWatch != nil {
 						kubePipelineWatch.Stop()
 					}
-					kubePipelineWatch, err = a.kubeClient.Pods(a.namespace).Watch(api.ListOptions{
-						LabelSelector: labelspkg.SelectorFromSet(map[string]string{
-							"component": "worker",
-						}),
-						Watch: true,
-					})
+					kubePipelineWatch, err = a.kubeClient.CoreV1().Pods(a.namespace).Watch(
+						metav1.ListOptions{
+							LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
+								map[string]string{
+									"component": "worker",
+								})),
+							Watch: true,
+						})
 					if err != nil {
 						log.Errorf("failed to watch kuburnetes pods: %v", err)
 						watchChan = nil
@@ -186,11 +190,11 @@ func (a *apiServer) master() {
 						defer kubePipelineWatch.Stop()
 					}
 				}
-				pod, ok := event.Object.(*api.Pod)
+				pod, ok := event.Object.(*v1.Pod)
 				if !ok {
 					continue
 				}
-				if pod.Status.Phase == api.PodFailed {
+				if pod.Status.Phase == v1.PodFailed {
 					log.Errorf("pod failed because: %s", pod.Status.Message)
 				}
 				for _, status := range pod.Status.ContainerStatuses {
@@ -220,8 +224,8 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 			log.Errorf("error getting number of workers, default to 1 worker: %v", err)
 			parallelism = 1
 		}
-		var resourceRequests *api.ResourceList
-		var resourceLimits *api.ResourceList
+		var resourceRequests *v1.ResourceList
+		var resourceLimits *v1.ResourceList
 		if pipelineInfo.ResourceRequests != nil {
 			resourceRequests, err = util.GetRequestsResourceListFromPipeline(pipelineInfo)
 			if err != nil {
@@ -237,10 +241,12 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 
 		// Retrieve the current state of the RC.  If the RC is scaled down,
 		// we want to ensure that it remains scaled down.
-		rc := a.kubeClient.ReplicationControllers(a.namespace)
-		workerRc, err := rc.Get(ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
+		rc := a.kubeClient.CoreV1().ReplicationControllers(a.namespace)
+		workerRc, err := rc.Get(
+			ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
+			metav1.GetOptions{})
 		if err == nil {
-			if (workerRc.Spec.Template.Spec.Containers[0].Resources.Requests == nil) && workerRc.Spec.Replicas == 1 {
+			if (workerRc.Spec.Template.Spec.Containers[0].Resources.Requests == nil) && *workerRc.Spec.Replicas == 1 {
 				parallelism = 1
 				resourceRequests = nil
 				resourceLimits = nil
@@ -257,7 +263,7 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 			pipelineInfo.CacheSize,
 			pipelineInfo.Service)
 		// Set the pipeline name env
-		options.workerEnv = append(options.workerEnv, api.EnvVar{
+		options.workerEnv = append(options.workerEnv, v1.EnvVar{
 			Name:  client.PPSPipelineNameEnv,
 			Value: pipelineInfo.Pipeline.Name,
 		})
@@ -274,23 +280,27 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 
 func (a *apiServer) deleteWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
 	rcName := ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	if err := a.kubeClient.Services(a.namespace).Delete(rcName); err != nil {
+	if err := a.kubeClient.CoreV1().Services(a.namespace).Delete(
+		rcName, &metav1.DeleteOptions{},
+	); err != nil {
 		if !isNotFoundErr(err) {
 			return err
 		}
 	}
 	if pipelineInfo.Service != nil {
-		if err := a.kubeClient.Services(a.namespace).Delete(rcName + "-user"); err != nil {
+		if err := a.kubeClient.CoreV1().Services(a.namespace).Delete(
+			rcName+"-user", &metav1.DeleteOptions{},
+		); err != nil {
 			if !isNotFoundErr(err) {
 				return err
 			}
 		}
 	}
 	falseVal := false
-	deleteOptions := &api.DeleteOptions{
+	deleteOptions := &metav1.DeleteOptions{
 		OrphanDependents: &falseVal,
 	}
-	if err := a.kubeClient.ReplicationControllers(a.namespace).Delete(rcName, deleteOptions); err != nil {
+	if err := a.kubeClient.CoreV1().ReplicationControllers(a.namespace).Delete(rcName, deleteOptions); err != nil {
 		if !isNotFoundErr(err) {
 			return err
 		}

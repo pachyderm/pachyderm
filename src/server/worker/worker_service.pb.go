@@ -24,10 +24,8 @@ import pps "github.com/pachyderm/pachyderm/src/client/pps"
 import _ "github.com/gogo/protobuf/gogoproto"
 import google_protobuf "github.com/gogo/protobuf/types"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
 import io "io"
 

@@ -7,10 +7,10 @@ import (
 	"sync/atomic"
 
 	"google.golang.org/grpc"
-	"k8s.io/kubernetes/pkg/api"
-	kube "k8s.io/kubernetes/pkg/client/unversioned"
-	"k8s.io/kubernetes/pkg/labels"
-	"k8s.io/kubernetes/pkg/watch"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
+	kube "k8s.io/client-go/kubernetes"
 )
 
 // connCount stores a connection and a count of the number of datums currently outstanding
@@ -35,13 +35,13 @@ type Pool struct {
 
 // NewPool creates a new connection pool with connections to pods in the
 // given service.
-func NewPool(kubeClient *kube.Client, namespace string, serviceName string, port int, queueSize int64, opts ...grpc.DialOption) (*Pool, error) {
-	endpointsInterface := kubeClient.Endpoints(namespace)
+func NewPool(kubeClient *kube.Clientset, namespace string, serviceName string, port int, queueSize int64, opts ...grpc.DialOption) (*Pool, error) {
+	endpointsInterface := kubeClient.CoreV1().Endpoints(namespace)
 
-	watch, err := endpointsInterface.Watch(api.ListOptions{
-		LabelSelector: labels.SelectorFromSet(
+	watch, err := endpointsInterface.Watch(metav1.ListOptions{
+		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
 			map[string]string{"app": serviceName},
-		),
+		)),
 		Watch: true,
 	})
 	if err != nil {
@@ -67,7 +67,7 @@ func (p *Pool) watchEndpoints() {
 			if !ok {
 				return
 			}
-			endpoints := event.Object.(*api.Endpoints)
+			endpoints := event.Object.(*v1.Endpoints)
 			p.updateAddresses(endpoints)
 		case <-p.done:
 			return
@@ -75,7 +75,7 @@ func (p *Pool) watchEndpoints() {
 	}
 }
 
-func (p *Pool) updateAddresses(endpoints *api.Endpoints) {
+func (p *Pool) updateAddresses(endpoints *v1.Endpoints) {
 	addresses := make(map[string]*connCount)
 	p.connsLock.Lock()
 	defer p.connsLock.Unlock()

@@ -1,6 +1,7 @@
 package assets
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"path"
@@ -12,16 +13,10 @@ import (
 	auth "github.com/pachyderm/pachyderm/src/server/auth/server"
 	pfs "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
-	"github.com/ugorji/go/codec"
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/resource"
-	"k8s.io/kubernetes/pkg/api/unversioned"
-	// k8s.io/kubernetes/pkg/api/v1 is very similar to
-	// "k8s.io/kubernetes/pkg/api" above, we import both because services need
-	// to use v1 otherwise they get empty fields that make them invalid to
-	// kubectl, we need the api version to interact correctly with deployments
-	"k8s.io/kubernetes/pkg/api/v1"
-	"k8s.io/kubernetes/pkg/apis/extensions"
+	apps "k8s.io/api/apps/v1beta2"
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -48,13 +43,6 @@ var (
 	pachdName               = "pachd"
 
 	trueVal = true
-
-	jsonEncoderHandle = &codec.JsonHandle{
-		BasicHandle: codec.BasicHandle{
-			EncodeOptions: codec.EncodeOptions{Canonical: true},
-		},
-		Indent: 2,
-	}
 )
 
 type backend int
@@ -125,6 +113,12 @@ type AssetOpts struct {
 	ImagePullSecret string
 }
 
+// replicas lets us create a pointer to a non-zero int32 in-line. This is
+// helpful because the Replicas field of many specs expectes an *int32
+func replicas(r int32) *int32 {
+	return &r
+}
+
 // fillDefaultResourceRequests sets any of:
 //   opts.BlockCacheSize
 //   opts.PachdNonCacheMemRequest
@@ -177,13 +171,13 @@ func fillDefaultResourceRequests(opts *AssetOpts, persistentDiskBackend backend)
 }
 
 // ServiceAccount returns a kubernetes service account for use with Pachyderm.
-func ServiceAccount() *api.ServiceAccount {
-	return &api.ServiceAccount{
-		TypeMeta: unversioned.TypeMeta{
+func ServiceAccount() *v1.ServiceAccount {
+	return &v1.ServiceAccount{
+		TypeMeta: metav1.TypeMeta{
 			Kind:       "ServiceAccount",
 			APIVersion: "v1",
 		},
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:   serviceAccountName,
 			Labels: labels(""),
 		},
@@ -193,15 +187,15 @@ func ServiceAccount() *api.ServiceAccount {
 // GetSecretVolumeAndMount returns a properly configured Volume and
 // VolumeMount object given a backend.  The backend needs to be one of the
 // constants defined in pfs/server.
-func GetSecretVolumeAndMount(backend string) (api.Volume, api.VolumeMount) {
-	return api.Volume{
+func GetSecretVolumeAndMount(backend string) (v1.Volume, v1.VolumeMount) {
+	return v1.Volume{
 			Name: client.StorageSecretName,
-			VolumeSource: api.VolumeSource{
-				Secret: &api.SecretVolumeSource{
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
 					SecretName: client.StorageSecretName,
 				},
 			},
-		}, api.VolumeMount{
+		}, v1.VolumeMount{
 			Name:      client.StorageSecretName,
 			MountPath: "/" + client.StorageSecretName,
 		}
@@ -221,26 +215,26 @@ func versionedWorkerImage(opts *AssetOpts) string {
 	return workerImage
 }
 
-func imagePullSecrets(opts *AssetOpts) []api.LocalObjectReference {
-	var result []api.LocalObjectReference
+func imagePullSecrets(opts *AssetOpts) []v1.LocalObjectReference {
+	var result []v1.LocalObjectReference
 	if opts.ImagePullSecret != "" {
-		result = append(result, api.LocalObjectReference{Name: opts.ImagePullSecret})
+		result = append(result, v1.LocalObjectReference{Name: opts.ImagePullSecret})
 	}
 	return result
 }
 
 // PachdDeployment returns a pachd k8s Deployment.
-func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath string) *extensions.Deployment {
+func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath string) *apps.Deployment {
 	mem := resource.MustParse(opts.BlockCacheSize)
 	mem.Add(resource.MustParse(opts.PachdNonCacheMemRequest))
 	cpu := resource.MustParse(opts.PachdCPURequest)
 	image := AddRegistry(opts.Registry, versionedPachdImage(opts))
-	volumes := []api.Volume{
+	volumes := []v1.Volume{
 		{
 			Name: "pach-disk",
 		},
 	}
-	volumeMounts := []api.VolumeMount{
+	volumeMounts := []v1.VolumeMount{
 		{
 			Name:      "pach-disk",
 			MountPath: "/pach",
@@ -253,7 +247,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 	switch objectStoreBackend {
 	case localBackend:
 		storageHostPath = filepath.Join(hostPath, "pachd")
-		volumes[0].HostPath = &api.HostPathVolumeSource{
+		volumes[0].HostPath = &v1.HostPathVolumeSource{
 			Path: storageHostPath,
 		}
 		backendEnvVar = pfs.LocalBackendEnvVar
@@ -269,46 +263,46 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 	volume, mount := GetSecretVolumeAndMount(backendEnvVar)
 	volumes = append(volumes, volume)
 	volumeMounts = append(volumeMounts, mount)
-	resourceRequirements := api.ResourceRequirements{
-		Requests: api.ResourceList{
-			api.ResourceCPU:    cpu,
-			api.ResourceMemory: mem,
+	resourceRequirements := v1.ResourceRequirements{
+		Requests: v1.ResourceList{
+			v1.ResourceCPU:    cpu,
+			v1.ResourceMemory: mem,
 		},
 	}
 	if !opts.NoGuaranteed {
-		resourceRequirements.Limits = api.ResourceList{
-			api.ResourceCPU:    cpu,
-			api.ResourceMemory: mem,
+		resourceRequirements.Limits = v1.ResourceList{
+			v1.ResourceCPU:    cpu,
+			v1.ResourceMemory: mem,
 		}
 	}
-	return &extensions.Deployment{
-		TypeMeta: unversioned.TypeMeta{
+	return &apps.Deployment{
+		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
-			APIVersion: "extensions/v1beta1",
+			APIVersion: "apps/v1beta2",
 		},
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:   pachdName,
 			Labels: labels(pachdName),
 		},
-		Spec: extensions.DeploymentSpec{
-			Replicas: 1,
-			Selector: &unversioned.LabelSelector{
+		Spec: apps.DeploymentSpec{
+			Replicas: replicas(1),
+			Selector: &metav1.LabelSelector{
 				MatchLabels: labels(pachdName),
 			},
-			Template: api.PodTemplateSpec{
-				ObjectMeta: api.ObjectMeta{
+			Template: v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:   pachdName,
 					Labels: labels(pachdName),
 					Annotations: map[string]string{
 						"iam.amazonaws.com/role": opts.IAMRole,
 					},
 				},
-				Spec: api.PodSpec{
-					Containers: []api.Container{
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
 						{
 							Name:  pachdName,
 							Image: image,
-							Env: []api.EnvVar{
+							Env: []v1.EnvVar{
 								{
 									Name:  "PACH_ROOT",
 									Value: "/pach",
@@ -327,8 +321,8 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 								},
 								{
 									Name: "PACHD_POD_NAMESPACE",
-									ValueFrom: &api.EnvVarSource{
-										FieldRef: &api.ObjectFieldSelector{
+									ValueFrom: &v1.EnvVarSource{
+										FieldRef: &v1.ObjectFieldSelector{
 											APIVersion: "v1",
 											FieldPath:  "metadata.namespace",
 										},
@@ -375,7 +369,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 									Value: strconv.FormatBool(opts.DisableAuthentication),
 								},
 							},
-							Ports: []api.ContainerPort{
+							Ports: []v1.ContainerPort{
 								{
 									ContainerPort: 650,
 									Protocol:      "TCP",
@@ -397,7 +391,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 								},
 							},
 							VolumeMounts: volumeMounts,
-							SecurityContext: &api.SecurityContext{
+							SecurityContext: &v1.SecurityContext{
 								Privileged: &trueVal, // god is this dumb
 							},
 							ImagePullPolicy: "IfNotPresent",
@@ -416,11 +410,11 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 // PachdService returns a pachd service.
 func PachdService() *v1.Service {
 	return &v1.Service{
-		TypeMeta: unversioned.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:   pachdName,
 			Labels: labels(pachdName),
 		},
@@ -456,66 +450,66 @@ func PachdService() *v1.Service {
 }
 
 // EtcdDeployment returns an etcd k8s Deployment.
-func EtcdDeployment(opts *AssetOpts, hostPath string) *extensions.Deployment {
+func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 	cpu := resource.MustParse(opts.EtcdCPURequest)
 	mem := resource.MustParse(opts.EtcdMemRequest)
-	var volumes []api.Volume
+	var volumes []v1.Volume
 	if hostPath == "" {
-		volumes = []api.Volume{
+		volumes = []v1.Volume{
 			{
 				Name: "etcd-storage",
-				VolumeSource: api.VolumeSource{
-					PersistentVolumeClaim: &api.PersistentVolumeClaimVolumeSource{
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 						ClaimName: etcdVolumeClaimName,
 					},
 				},
 			},
 		}
 	} else {
-		volumes = []api.Volume{
+		volumes = []v1.Volume{
 			{
 				Name: "etcd-storage",
-				VolumeSource: api.VolumeSource{
-					HostPath: &api.HostPathVolumeSource{
+				VolumeSource: v1.VolumeSource{
+					HostPath: &v1.HostPathVolumeSource{
 						Path: filepath.Join(hostPath, "etcd"),
 					},
 				},
 			},
 		}
 	}
-	resourceRequirements := api.ResourceRequirements{
-		Requests: api.ResourceList{
-			api.ResourceCPU:    cpu,
-			api.ResourceMemory: mem,
+	resourceRequirements := v1.ResourceRequirements{
+		Requests: v1.ResourceList{
+			v1.ResourceCPU:    cpu,
+			v1.ResourceMemory: mem,
 		},
 	}
 	if !opts.NoGuaranteed {
-		resourceRequirements.Limits = api.ResourceList{
-			api.ResourceCPU:    cpu,
-			api.ResourceMemory: mem,
+		resourceRequirements.Limits = v1.ResourceList{
+			v1.ResourceCPU:    cpu,
+			v1.ResourceMemory: mem,
 		}
 	}
-	return &extensions.Deployment{
-		TypeMeta: unversioned.TypeMeta{
+	return &apps.Deployment{
+		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
-			APIVersion: "extensions/v1beta1",
+			APIVersion: "apps/v1beta2",
 		},
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:   etcdName,
 			Labels: labels(etcdName),
 		},
-		Spec: extensions.DeploymentSpec{
-			Replicas: 1,
-			Selector: &unversioned.LabelSelector{
+		Spec: apps.DeploymentSpec{
+			Replicas: replicas(1),
+			Selector: &metav1.LabelSelector{
 				MatchLabels: labels(etcdName),
 			},
-			Template: api.PodTemplateSpec{
-				ObjectMeta: api.ObjectMeta{
+			Template: v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:   etcdName,
 					Labels: labels(etcdName),
 				},
-				Spec: api.PodSpec{
-					Containers: []api.Container{
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
 						{
 							Name:  etcdName,
 							Image: AddRegistry(opts.Registry, etcdImage),
@@ -527,7 +521,7 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *extensions.Deployment {
 								"--data-dir=/var/data/etcd",
 								"--auto-compaction-retention=1",
 							},
-							Ports: []api.ContainerPort{
+							Ports: []v1.ContainerPort{
 								{
 									ContainerPort: 2379,
 									Name:          "client-port",
@@ -537,7 +531,7 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *extensions.Deployment {
 									Name:          "peer-port",
 								},
 							},
-							VolumeMounts: []api.VolumeMount{
+							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "etcd-storage",
 									MountPath: "/var/data/etcd",
@@ -586,36 +580,36 @@ func EtcdStorageClass(backend backend) (interface{}, error) {
 
 // EtcdVolume creates a persistent volume backed by a volume with name "name"
 func EtcdVolume(persistentDiskBackend backend, opts *AssetOpts,
-	hostPath string, name string, size int) (*api.PersistentVolume, error) {
-	spec := &api.PersistentVolume{
-		TypeMeta: unversioned.TypeMeta{
+	hostPath string, name string, size int) (*v1.PersistentVolume, error) {
+	spec := &v1.PersistentVolume{
+		TypeMeta: metav1.TypeMeta{
 			Kind:       "PersistentVolume",
 			APIVersion: "v1",
 		},
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:   etcdVolumeName,
 			Labels: labels(etcdName),
 		},
-		Spec: api.PersistentVolumeSpec{
-			Capacity: map[api.ResourceName]resource.Quantity{
+		Spec: v1.PersistentVolumeSpec{
+			Capacity: map[v1.ResourceName]resource.Quantity{
 				"storage": resource.MustParse(fmt.Sprintf("%vGi", size)),
 			},
-			AccessModes:                   []api.PersistentVolumeAccessMode{api.ReadWriteOnce},
-			PersistentVolumeReclaimPolicy: api.PersistentVolumeReclaimRetain,
+			AccessModes:                   []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
+			PersistentVolumeReclaimPolicy: v1.PersistentVolumeReclaimRetain,
 		},
 	}
 
 	switch persistentDiskBackend {
 	case amazonBackend:
-		spec.Spec.PersistentVolumeSource = api.PersistentVolumeSource{
-			AWSElasticBlockStore: &api.AWSElasticBlockStoreVolumeSource{
+		spec.Spec.PersistentVolumeSource = v1.PersistentVolumeSource{
+			AWSElasticBlockStore: &v1.AWSElasticBlockStoreVolumeSource{
 				FSType:   "ext4",
 				VolumeID: name,
 			},
 		}
 	case googleBackend:
-		spec.Spec.PersistentVolumeSource = api.PersistentVolumeSource{
-			GCEPersistentDisk: &api.GCEPersistentDiskVolumeSource{
+		spec.Spec.PersistentVolumeSource = v1.PersistentVolumeSource{
+			GCEPersistentDisk: &v1.GCEPersistentDiskVolumeSource{
 				FSType: "ext4",
 				PDName: name,
 			},
@@ -625,8 +619,8 @@ func EtcdVolume(persistentDiskBackend backend, opts *AssetOpts,
 		split := strings.Split(name, "/")
 		diskName := split[len(split)-1]
 
-		spec.Spec.PersistentVolumeSource = api.PersistentVolumeSource{
-			AzureDisk: &api.AzureDiskVolumeSource{
+		spec.Spec.PersistentVolumeSource = v1.PersistentVolumeSource{
+			AzureDisk: &v1.AzureDiskVolumeSource{
 				DiskName:    diskName,
 				DataDiskURI: dataDiskURI,
 			},
@@ -634,8 +628,8 @@ func EtcdVolume(persistentDiskBackend backend, opts *AssetOpts,
 	case minioBackend:
 		fallthrough
 	case localBackend:
-		spec.Spec.PersistentVolumeSource = api.PersistentVolumeSource{
-			HostPath: &api.HostPathVolumeSource{
+		spec.Spec.PersistentVolumeSource = v1.PersistentVolumeSource{
+			HostPath: &v1.HostPathVolumeSource{
 				Path: filepath.Join(hostPath, "etcd"),
 			},
 		}
@@ -649,23 +643,23 @@ func EtcdVolume(persistentDiskBackend backend, opts *AssetOpts,
 //
 // Note that if you're controlling Etcd with a Stateful Set, this is
 // unneccessary (the stateful set controller will create PVCs automatically).
-func EtcdVolumeClaim(size int) *api.PersistentVolumeClaim {
-	return &api.PersistentVolumeClaim{
-		TypeMeta: unversioned.TypeMeta{
+func EtcdVolumeClaim(size int) *v1.PersistentVolumeClaim {
+	return &v1.PersistentVolumeClaim{
+		TypeMeta: metav1.TypeMeta{
 			Kind:       "PersistentVolumeClaim",
 			APIVersion: "v1",
 		},
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:   etcdVolumeClaimName,
 			Labels: labels(etcdName),
 		},
-		Spec: api.PersistentVolumeClaimSpec{
-			Resources: api.ResourceRequirements{
-				Requests: map[api.ResourceName]resource.Quantity{
+		Spec: v1.PersistentVolumeClaimSpec{
+			Resources: v1.ResourceRequirements{
+				Requests: map[v1.ResourceName]resource.Quantity{
 					"storage": resource.MustParse(fmt.Sprintf("%vGi", size)),
 				},
 			},
-			AccessModes: []api.PersistentVolumeAccessMode{api.ReadWriteOnce},
+			AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
 			VolumeName:  etcdVolumeName,
 		},
 	}
@@ -679,11 +673,11 @@ func EtcdNodePortService(local bool) *v1.Service {
 		clientNodePort = 32379
 	}
 	return &v1.Service{
-		TypeMeta: unversioned.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:   etcdName,
 			Labels: labels(etcdName),
 		},
@@ -707,11 +701,11 @@ func EtcdNodePortService(local bool) *v1.Service {
 // resolution.
 func EtcdHeadlessService() *v1.Service {
 	return &v1.Service{
-		TypeMeta: unversioned.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:   etcdHeadlessServiceName,
 			Labels: labels(etcdName),
 		},
@@ -803,6 +797,8 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 	}
 	// As of March 17, 2017, the Kubernetes client does not include structs for
 	// Stateful Set, so we generate the kubernetes manifest using raw json.
+	// TODO(msteffen): we're now upgrading our kubernetes client, so we should be
+	// abe to rewrite this spec using k8s client structs
 	return map[string]interface{}{
 		"apiVersion": "apps/v1beta1",
 		"kind":       "StatefulSet",
@@ -869,8 +865,8 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 							"imagePullPolicy": "IfNotPresent",
 							"resources": map[string]interface{}{
 								"requests": map[string]interface{}{
-									string(api.ResourceCPU):    cpu.String(),
-									string(api.ResourceMemory): mem.String(),
+									string(v1.ResourceCPU):    cpu.String(),
+									string(v1.ResourceMemory): mem.String(),
 								},
 							},
 						},
@@ -884,31 +880,31 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 }
 
 // DashDeployment creates a Deployment for the pachyderm dashboard.
-func DashDeployment(opts *AssetOpts) *extensions.Deployment {
-	return &extensions.Deployment{
-		TypeMeta: unversioned.TypeMeta{
+func DashDeployment(opts *AssetOpts) *apps.Deployment {
+	return &apps.Deployment{
+		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
-			APIVersion: "extensions/v1beta1",
+			APIVersion: "apps/v1beta2",
 		},
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:   dashName,
 			Labels: labels(dashName),
 		},
-		Spec: extensions.DeploymentSpec{
-			Selector: &unversioned.LabelSelector{
+		Spec: apps.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
 				MatchLabels: labels(dashName),
 			},
-			Template: api.PodTemplateSpec{
-				ObjectMeta: api.ObjectMeta{
+			Template: v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:   dashName,
 					Labels: labels(dashName),
 				},
-				Spec: api.PodSpec{
-					Containers: []api.Container{
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
 						{
 							Name:  dashName,
 							Image: AddRegistry(opts.Registry, opts.DashImage),
-							Ports: []api.ContainerPort{
+							Ports: []v1.ContainerPort{
 								{
 									ContainerPort: 8080,
 									Name:          "dash-http",
@@ -919,7 +915,7 @@ func DashDeployment(opts *AssetOpts) *extensions.Deployment {
 						{
 							Name:  grpcProxyName,
 							Image: AddRegistry(opts.Registry, grpcProxyImage),
-							Ports: []api.ContainerPort{
+							Ports: []v1.ContainerPort{
 								{
 									ContainerPort: 8081,
 									Name:          "grpc-proxy-http",
@@ -938,11 +934,11 @@ func DashDeployment(opts *AssetOpts) *extensions.Deployment {
 // DashService creates a Service for the pachyderm dashboard.
 func DashService() *v1.Service {
 	return &v1.Service{
-		TypeMeta: unversioned.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:   dashName,
 			Labels: labels(dashName),
 		},
@@ -988,19 +984,19 @@ func MinioSecret(bucket string, id string, secret string, endpoint string, secur
 // WriteSecret writes a JSON-encoded k8s secret to the given writer.
 // The secret uses the given map as data.
 func WriteSecret(w io.Writer, data map[string][]byte) {
-	secret := &api.Secret{
-		TypeMeta: unversioned.TypeMeta{
+	secret := &v1.Secret{
+		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
 			APIVersion: "v1",
 		},
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:   client.StorageSecretName,
 			Labels: labels(client.StorageSecretName),
 		},
 		Data: data,
 	}
-	encoder := codec.NewEncoder(w, jsonEncoderHandle)
-	secret.CodecEncodeSelf(encoder)
+	encoder := json.NewEncoder(w)
+	encoder.Encode(secret)
 	fmt.Fprintf(w, "\n")
 }
 
@@ -1048,10 +1044,10 @@ func MicrosoftSecret(container string, id string, secret string) map[string][]by
 // WriteDashboardAssets writes the k8s config for deploying the Pachyderm
 // dashboard to 'w'
 func WriteDashboardAssets(w io.Writer, opts *AssetOpts) {
-	encoder := codec.NewEncoder(w, jsonEncoderHandle)
-	DashService().CodecEncodeSelf(encoder)
+	encoder := json.NewEncoder(w)
+	encoder.Encode(DashService())
 	fmt.Fprintf(w, "\n")
-	DashDeployment(opts).CodecEncodeSelf(encoder)
+	encoder.Encode(DashDeployment(opts))
 	fmt.Fprintf(w, "\n")
 }
 
@@ -1071,9 +1067,9 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 		WriteDashboardAssets(w, opts)
 		return nil
 	}
-	encoder := codec.NewEncoder(w, jsonEncoderHandle)
+	encoder := json.NewEncoder(w)
 
-	ServiceAccount().CodecEncodeSelf(encoder)
+	encoder.Encode(ServiceAccount())
 	fmt.Fprintf(w, "\n")
 
 	if opts.EtcdNodes > 0 && opts.EtcdVolume != "" {
@@ -1085,7 +1081,7 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 	// In the static route, we create a single volume, a single volume
 	// claim, and run etcd as a replication controller with a single node.
 	if objectStoreBackend == localBackend {
-		EtcdDeployment(opts, hostPath).CodecEncodeSelf(encoder)
+		encoder.Encode(EtcdDeployment(opts, hostPath))
 		fmt.Fprintf(w, "\n")
 	} else if opts.EtcdNodes > 0 {
 		sc, err := EtcdStorageClass(persistentDiskBackend)
@@ -1096,7 +1092,7 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 			encoder.Encode(sc)
 			fmt.Fprintf(w, "\n")
 		}
-		EtcdHeadlessService().CodecEncodeSelf(encoder)
+		encoder.Encode(EtcdHeadlessService())
 		fmt.Fprintf(w, "\n")
 		encoder.Encode(EtcdStatefulSet(opts, persistentDiskBackend, volumeSize))
 		fmt.Fprintf(w, "\n")
@@ -1105,21 +1101,21 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 		if err != nil {
 			return err
 		}
-		volume.CodecEncodeSelf(encoder)
+		encoder.Encode(volume)
 		fmt.Fprintf(w, "\n")
-		EtcdVolumeClaim(volumeSize).CodecEncodeSelf(encoder)
+		encoder.Encode(EtcdVolumeClaim(volumeSize))
 		fmt.Fprintf(w, "\n")
-		EtcdDeployment(opts, "").CodecEncodeSelf(encoder)
+		encoder.Encode(EtcdDeployment(opts, ""))
 		fmt.Fprintf(w, "\n")
 	} else {
 		return fmt.Errorf("unless deploying locally, either --dynamic-etcd-nodes or --static-etcd-volume needs to be provided")
 	}
-	EtcdNodePortService(objectStoreBackend == localBackend).CodecEncodeSelf(encoder)
+	encoder.Encode(EtcdNodePortService(objectStoreBackend == localBackend))
 	fmt.Fprintf(w, "\n")
 
-	PachdService().CodecEncodeSelf(encoder)
+	encoder.Encode(PachdService())
 	fmt.Fprintf(w, "\n")
-	PachdDeployment(opts, objectStoreBackend, hostPath).CodecEncodeSelf(encoder)
+	encoder.Encode(PachdDeployment(opts, objectStoreBackend, hostPath))
 	fmt.Fprintf(w, "\n")
 	if opts.EnableDash {
 		WriteDashboardAssets(w, opts)
