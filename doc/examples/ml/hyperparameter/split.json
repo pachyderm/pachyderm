@@ -6,8 +6,8 @@
     "cmd": [ "/bin/bash" ],
     "stdin": [
       "shuf /pfs/raw-data/iris.csv > /tmp/iris_shuffled.csv",
-      "head -n120 /tmp/iris_shuffled.csv > /pfs/out/train.csv",
-      "tail -n30 /tmp/iris_shuffled.csv > /pfs/out/test.csv"
+      "head -n80 /tmp/iris_shuffled.csv > /pfs/out/train.csv",
+      "tail -n20 /tmp/iris_shuffled.csv > /pfs/out/test.csv"
     ]
   },
   "parallelism_spec": {
