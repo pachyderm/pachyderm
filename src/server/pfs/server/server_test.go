@@ -2504,11 +2504,9 @@ func TestFlush2(t *testing.T) {
 	client := getClient(t)
 	require.NoError(t, client.CreateRepo("A"))
 	require.NoError(t, client.CreateRepo("B"))
-	_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
-		Repo:       pclient.NewRepo("C"),
-		Provenance: []*pfs.Repo{pclient.NewRepo("A"), pclient.NewRepo("B")},
-	})
-	require.NoError(t, err)
+	require.NoError(t, client.CreateRepo("C"))
+
+	require.NoError(t, client.CreateBranch("C", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master"), pclient.NewBranch("B", "master")}))
 
 	ACommit, err := client.StartCommit("A", "master")
 	require.NoError(t, err)
