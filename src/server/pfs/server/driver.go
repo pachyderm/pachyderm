@@ -720,7 +720,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
 		// TODO this isn't part of the transaction because we can't do lists in transactions.
-		// We need to maintain a repo's branch list in the repo info.
+		// We need to maintain a list of branch refcounts.
 		branches := d.branches(commit.Repo.Name).ReadOnly(ctx)
 		repos := d.repos.ReadWrite(stm)
 
@@ -742,6 +742,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 			if !ok {
 				break
 			}
+			// TODO, all branches should be propagated at once
 			if branchInfo.Head.ID == commitInfo.Commit.ID {
 				if err := d.propagateCommit(ctx, branchInfo.Branch, commit, stm); err != nil {
 					return err
@@ -802,10 +803,10 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 				break
 			}
 			for _, provBranch := range branchInfo.Provenance {
-				if provBranch.Name == branch.Name {
+				if provBranch.Repo.Name == branch.Repo.Name && provBranch.Name == branch.Name {
 					branchInfos = append(branchInfos, &branchInfo)
+					break
 				}
-				break
 			}
 		}
 	}
