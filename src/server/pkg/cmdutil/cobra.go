@@ -83,6 +83,18 @@ func ParseCommits(args []string) ([]*pfs.Commit, error) {
 	return commits, nil
 }
 
+func ParseBranches(args []string) ([]*pfs.Branch, error) {
+	commits, err := ParseCommits(args)
+	if err != nil {
+		return nil, err
+	}
+	var result []*pfs.Branch
+	for _, commit := range commits {
+		result = append(result, &pfs.Branch{Repo: commit.Repo, Name: commit.ID})
+	}
+	return result, nil
+}
+
 // RepeatedStringArg is an alias for []string
 type RepeatedStringArg []string
 
