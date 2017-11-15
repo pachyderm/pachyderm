@@ -1,4 +1,4 @@
-# Migrations
+# Migrations, Upgrades, Backup
 
 Occationally, Pachyderm introduces changes that are backward-incompatible: repos/commits/files created on an old version of Pachyderm may be unusable on a new version of Pachyderm. When that happens, we try our best to write a migration script that "upgrades" your data so it’s usable by the new version of Pachyderm.
 
