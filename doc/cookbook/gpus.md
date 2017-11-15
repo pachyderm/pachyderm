@@ -35,7 +35,7 @@ Again, this can be baked into your Docker image via an `ENV` statement in your D
 ENV LD_LIBRARY_PATH /usr/lib/nvidia:/usr/local/cuda/lib64:/rootfs/usr/lib/x86_64-linux-gnu
 ```
 
-or it can be defined in your [pipeline specification](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html) via the `env` field (as shown below).  
+or it can be defined in your [pipeline specification](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html) via the `env` field (as shown below).
 
 ### Creating your pipeline specification with access to GPU resources
 
@@ -50,7 +50,7 @@ An example pipeline definition for a GPU enabled Pachyderm Pipeline is as follow
   },
   "transform": {
     "image": "acme/your-gpu-image",
-    "cmd": [ 
+    "cmd": [
       "python",
       "train.py"
     ],
@@ -78,15 +78,15 @@ An example pipeline definition for a GPU enabled Pachyderm Pipeline is as follow
 
 ```
 $kubectl version
-Client Version: version.Info{Major:"1", Minor:"6", GitVersion:"v1.6.1", GitCommit:"b0b7a323cc5a4a2019b2e9520c21c7830b7f708e", GitTreeState:"clean", BuildDate:"2017-04-03T20:44:38Z", GoVersion:"go1.7.5", Compiler:"gc", Platform:"linux/amd64"}
-Server Version: version.Info{Major:"1", Minor:"6", GitVersion:"v1.6.2", GitCommit:"477efc3cbe6a7effca06bd1452fa356e2201e1ee", GitTreeState:"clean", BuildDate:"2017-04-19T20:22:08Z", GoVersion:"go1.7.5", Compiler:"gc", Platform:"linux/amd64"}
+Client Version: version.Info{Major:"1", Minor:"6", GitVersion:"v1.7.10", GitCommit:"b0b7a323cc5a4a2019b2e9520c21c7830b7f708e", GitTreeState:"clean", BuildDate:"2017-04-03T20:44:38Z", GoVersion:"go1.7.5", Compiler:"gc", Platform:"linux/amd64"}
+Server Version: version.Info{Major:"1", Minor:"6", GitVersion:"v1.7.10", GitCommit:"477efc3cbe6a7effca06bd1452fa356e2201e1ee", GitTreeState:"clean", BuildDate:"2017-04-19T20:22:08Z", GoVersion:"go1.7.5", Compiler:"gc", Platform:"linux/amd64"}
 $kops version
 Version 1.6.0-beta.1 (git-77f222d)
 ```
 
 To deploy a Pachyderm cluster with GPU support we assume:
 
-- You're using kops for your deployment (which means you're using AWS or GCE, not GKE). Other deploy methods are available, but these are the ones we've tested most thoroughly. 
+- You're using kops for your deployment (which means you're using AWS or GCE, not GKE). Other deploy methods are available, but these are the ones we've tested most thoroughly.
 - You have a working pachyderm cluster already up and running that you can connect to with `kubectl`.
 
 ### Add GPU nodes to your k8s cluster
@@ -152,13 +152,13 @@ Finally, we "update" our cluster to actually make the above changes:
 $kops update cluster --name XXXXXXX-pachydermcluster.kubernetes.com --state s3://k8scom-state-store-pachyderm-YYYY --yes
 ```
 
-This will spin up the new `gpunodes` instance group, and apply the changes to your kops cluster. 
+This will spin up the new `gpunodes` instance group, and apply the changes to your kops cluster.
 
 ### Sanity check
 
 You'll know the cluster is ready to schedule GPU resources when:
 
-- you see the new node in the output of `kubectl get nodes` and the state is `Ready`, and 
+- you see the new node in the output of `kubectl get nodes` and the state is `Ready`, and
 - the node has the `alpha.kubernetes.io/nvidia-gpu: "1"` field set (and the value is 1 not 0)
 
 ```
@@ -171,7 +171,7 @@ $kubectl get nodes/ip-172-20-38-179.us-west-2.compute.internal -o yaml | grep nv
 
 ### Deal with known issues (if necessary)
 
-If you're not seeing the node, its possible that your resource limits (from your cloud provider) are preventing you from creating the GPU node(s).  You should check your resource limits and ensure that GPU nodes are available in your region/zone (as further discussed [here](../managing_pachyderm/deploy_troubleshooting.html#gpu-node-never-appears)).  
+If you're not seeing the node, its possible that your resource limits (from your cloud provider) are preventing you from creating the GPU node(s).  You should check your resource limits and ensure that GPU nodes are available in your region/zone (as further discussed [here](../managing_pachyderm/deploy_troubleshooting.html#gpu-node-never-appears)).
 
 If you have checked your resource limits and everything seems ok, its very possible that you're hitting [a known k8s bug](https://github.com/kubernetes/kubernetes/issues/45753).  In this case, you can try to overcome the issue by restarting the k8s api server. To do that, run:
 
@@ -210,7 +210,7 @@ At this point your local machine should be recognized by kubernetes. To check yo
 ```
 $kubectl get nodes
 NAME        STATUS    AGE       VERSION
-127.0.0.1   Ready     13d       v1.6.2
+127.0.0.1   Ready     13d       v1.7.10
 $kubectl get nodes/127.0.0.1 -o yaml | grep nvidia
     alpha.kubernetes.io/nvidia-gpu: "1"
     alpha.kubernetes.io/nvidia-gpu-name: Quadro-M2000M
