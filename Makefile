@@ -257,6 +257,8 @@ launch-dev: check-kubectl check-kubectl-connection install
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"	
+	kubectl get nodes
+	kubectl describe node/127.0.0.1
 
 clean-launch: check-kubectl
 	pachctl deploy local --dry-run | kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f -
