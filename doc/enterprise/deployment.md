@@ -1,78 +1,11 @@
 # Deploying Enterprise Edition
 
-To use Pachyderm's Enterprise Edition features, you simply need to [activate them](#activating-pachyderm-enterprise-edition) on a deployed pachyderm cluster.  Also, assuming you want to use the Pachyderm Enterprise Dashboard features (which is the primary interface to Pachyderm Enterprise), you will need to [deploy the dashboard](#deploying-the-pachyderm-enterprise-edition-dashboard) on top of or along with your Pachyderm cluster.
+To deploy Pachyderm's Enterprise Edition, you simply need to:
 
-## Activating Pachyderm Enterprise Edition
+1. [Deploy the Pachyderm dashboard](#deploying-the-pachyderm-enterprise-edition-dashboard)
+2. [Activate the Enterprise Edition](#activating-pachyderm-enterprise-edition)
 
-There are two ways to activate Pachyderm's enterprise features::
-
-- [Activate Pachyderm Enterprise via the `pachctl` CLI](#activate-via-the-pachctl-cli)
-- [Activate Pachyderm Enterprise via the dashboard](#activate-via-the-dashboard)
-
-For either method, you will need to have your Pachyderm Enterprise activation code available.  You should have received this from Pachyderm sales/support when registering for the Enterprise Edition.  Please contact [support@pachyderm.io](mailto:support@pachyderm.io) if you are having trouble locating your activation code. 
-
-### Activate via the `pachctl` CLI
-
-Assuming you followed one of our [deploy guides](http://pachyderm.readthedocs.io/en/latest/deployment/deploy_intro.html) and you have a Pachyderm cluster running, you should see that the state of your Pachyderm cluster is similar to the following:
-
-```
-$ kubectl get all
-NAME                       READY     STATUS    RESTARTS   AGE
-po/dash-361776027-vbj73    2/2       Running   0          1h
-po/etcd-2142892294-whlpn   1/1       Running   0          1h
-po/pachd-776177201-ktjlv   1/1       Running   0          1h
-
-NAME             CLUSTER-IP   EXTERNAL-IP   PORT(S)                                     AGE
-svc/dash         10.0.0.91    <nodes>       8080:30080/TCP,8081:30081/TCP               1h
-svc/etcd         10.0.0.231   <nodes>       2379:32379/TCP                              1h
-svc/kubernetes   10.0.0.1     <none>        443/TCP                                     2h
-svc/pachd        10.0.0.136   <nodes>       650:30650/TCP,651:30651/TCP,652:30652/TCP   1h
-
-NAME           DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-deploy/dash    1         1         1            1           1h
-deploy/etcd    1         1         1            1           1h
-deploy/pachd   1         1         1            1           1h
-
-NAME                 DESIRED   CURRENT   READY     AGE
-rs/dash-361776027    1         1         1         1h
-rs/etcd-2142892294   1         1         1         1h
-rs/pachd-776177201   1         1         1         1h 
-```
-
-You should also be able to connect to the Pachyderm cluster via the `pachctl` CLI:
-
-```
-$ pachctl version
-COMPONENT           VERSION             
-pachctl             1.6.0           
-pachd               1.6.0
-```
-
-Activating the Enterprise features of Pachyderm is then as easy as:
-
-```
-$ pachctl enterprise activate <activation-code>
-```
-
-If this command returns no error, then the activation was successful. The state of the Enterprise activation can also be retrieved at any time via:
-
-```
-$ pachctl enterprise get-state   
-ACTIVE
-```  
-
-### Activate via the dashboard
-
-Assuming that you have a running Pachyderm cluster and you have deployed the Pachyderm Enterprise dashboard using [this guide](#deploying-the-pachyderm-enterprise-edition-dashboard), you should be able to visit `<pachyderm host IP>:30080` (e.g., `localhost:30080` when you are using `pachctl port-forward`) to see the dashboard. When you first visit the dashboard, it will prompt you for your activation code:
-
-![alt tag](token.png)
-
-Once you enter your activation code, you should have full access to the Enterprise dashboard and your cluster will be an active Enterprise Edition cluster.  This could be confirmed with:
-
-```
-$ pachctl enterprise get-state   
-ACTIVE
-```
+**Note** - You can get a FREE evaluation token for the enterprise edition on the landing page of the Enterprise dashboard.
 
 ## Deploying the Pachyderm Enterprise Edition Dashboard
 
@@ -180,3 +113,76 @@ pachctl deploy custom ... --dashboard
 Each of these deploys are further detailed [here](http://pachyderm.readthedocs.io/en/latest/deployment/deploy_intro.html).  
 
 After deploying with those commands, you should see the `dash-xxxxxxxxx` pod running in Kubernetes, and you should be able to access the dashboard at `localhost:30080`, as discussed further [above](#deploying-on-top-of-an-existing-pachyderm-deployment).
+
+## Activating Pachyderm Enterprise Edition
+
+There are two ways to activate Pachyderm's enterprise features::
+
+- [Activate Pachyderm Enterprise via the `pachctl` CLI](#activate-via-the-pachctl-cli)
+- [Activate Pachyderm Enterprise via the dashboard](#activate-via-the-dashboard)
+
+For either method, you will need to have your Pachyderm Enterprise activation code available.  You should have received this from Pachyderm sales/support when registering for the Enterprise Edition.  If you are a new user evaluating Pachyderm, you can receive a FREE evaluation code on the landing page of the dashboard. Please contact [support@pachyderm.io](mailto:support@pachyderm.io) if you are having trouble locating your activation code. 
+
+### Activate via the `pachctl` CLI
+
+Assuming you followed one of our [deploy guides](http://pachyderm.readthedocs.io/en/latest/deployment/deploy_intro.html) and you have a Pachyderm cluster running, you should see that the state of your Pachyderm cluster is similar to the following:
+
+```
+$ kubectl get all
+NAME                       READY     STATUS    RESTARTS   AGE
+po/dash-361776027-vbj73    2/2       Running   0          1h
+po/etcd-2142892294-whlpn   1/1       Running   0          1h
+po/pachd-776177201-ktjlv   1/1       Running   0          1h
+
+NAME             CLUSTER-IP   EXTERNAL-IP   PORT(S)                                     AGE
+svc/dash         10.0.0.91    <nodes>       8080:30080/TCP,8081:30081/TCP               1h
+svc/etcd         10.0.0.231   <nodes>       2379:32379/TCP                              1h
+svc/kubernetes   10.0.0.1     <none>        443/TCP                                     2h
+svc/pachd        10.0.0.136   <nodes>       650:30650/TCP,651:30651/TCP,652:30652/TCP   1h
+
+NAME           DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+deploy/dash    1         1         1            1           1h
+deploy/etcd    1         1         1            1           1h
+deploy/pachd   1         1         1            1           1h
+
+NAME                 DESIRED   CURRENT   READY     AGE
+rs/dash-361776027    1         1         1         1h
+rs/etcd-2142892294   1         1         1         1h
+rs/pachd-776177201   1         1         1         1h 
+```
+
+You should also be able to connect to the Pachyderm cluster via the `pachctl` CLI:
+
+```
+$ pachctl version
+COMPONENT           VERSION             
+pachctl             1.6.0           
+pachd               1.6.0
+```
+
+Activating the Enterprise features of Pachyderm is then as easy as:
+
+```
+$ pachctl enterprise activate <activation-code>
+```
+
+If this command returns no error, then the activation was successful. The state of the Enterprise activation can also be retrieved at any time via:
+
+```
+$ pachctl enterprise get-state   
+ACTIVE
+```  
+
+### Activate via the dashboard
+
+Assuming that you have a running Pachyderm cluster and you have deployed the Pachyderm Enterprise dashboard using [this guide](#deploying-the-pachyderm-enterprise-edition-dashboard), you should be able to visit `<pachyderm host IP>:30080` (e.g., `localhost:30080` when you are using `pachctl port-forward`) to see the dashboard. When you first visit the dashboard, it will prompt you for your activation code:
+
+![alt tag](token.png)
+
+Once you enter your activation code, you should have full access to the Enterprise dashboard and your cluster will be an active Enterprise Edition cluster.  This could be confirmed with:
+
+```
+$ pachctl enterprise get-state   
+ACTIVE
+```
+
