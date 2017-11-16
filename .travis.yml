@@ -16,6 +16,10 @@ before_script:
 # Install any deps used by our "batch test" cron
 - ./etc/testing/ci/travis_install_batch_deps.sh
 script:
+- docker images | wc -l
+- docker images
+- sudo df -k /
+- sudo du -h / -d 5 | sort -h
 - make lint vet
 - ./etc/testing/travis.sh
 - kubectl get all
