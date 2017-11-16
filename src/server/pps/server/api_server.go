@@ -1624,6 +1624,8 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 		if pipelineInfo.ResourceRequests != nil {
 			pipelineInfo.ResourceLimits.Cpu = pipelineInfo.ResourceRequests.Cpu
 			pipelineInfo.ResourceLimits.Memory = pipelineInfo.ResourceRequests.Memory
+			pipelineInfo.ResourceLimits.Cpu = 16.0
+			pipelineInfo.ResourceLimits.Memory = "32G"
 		}
 	}
 	if pipelineInfo.MaxQueueSize == 0 {
