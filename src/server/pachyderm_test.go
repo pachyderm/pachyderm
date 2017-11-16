@@ -120,7 +120,7 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 		fileContents = append(fileContents, fileContent)
 	}
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
-
+	fmt.Printf("Finished putting large files to input repo\n")
 	pipeline := uniqueString("pipeline")
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
@@ -134,9 +134,11 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 		"",
 		false,
 	))
-
+	fmt.Printf("created pipeline ... now waiting on flush commit\n")
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	fmt.Printf("flush commit completed!\n")
 	require.NoError(t, err)
+	fmt.Printf("collecting commit infos from commitIter len %v\n", len(commitIter))
 	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 1, len(commitInfos))
 
