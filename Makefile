@@ -257,8 +257,6 @@ launch-dev: check-kubectl check-kubectl-connection install
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"	
-	kubectl get nodes
-	kubectl describe node/127.0.0.1
 
 clean-launch: check-kubectl
 	pachctl deploy local --dry-run | kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f -
@@ -343,10 +341,6 @@ test-pfs:
 	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
 
 test-pps:
-	docker images | wc -l
-	docker images
-	sudo df -k /
-	sudo du -h / -d 5 | sort -h | tail -n 20
 	go test -v ./src/server -parallel 1 -timeout $(TIMEOUT)
 	go test ./src/server/pps/cmds -timeout $(TIMEOUT)
 

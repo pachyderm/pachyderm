@@ -16,18 +16,12 @@ before_script:
 # Install any deps used by our "batch test" cron
 - ./etc/testing/ci/travis_install_batch_deps.sh
 script:
-- docker images | wc -l
-- docker images
-- sudo df -k /
-- sudo du -h / -d 5 | sort -h | tail -n 20
 - make lint vet
 - ./etc/testing/travis.sh
 after_failure:
 - kubectl version
 - kubectl get all
 - kubectl describe pod -l app=pachd
-- kubectl describe node/127.0.0.1
-- kubectl get pod | grep pipeline | cut -f 1 -d " " | while read pod; do kubectl describe po/$pod; kubectl logs po/$pod user;  done
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
   email:

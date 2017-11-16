@@ -1617,18 +1617,6 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 			Memory: pipelineInfo.CacheSize,
 		}
 	}
-	/*
-		if pipelineInfo.ResourceLimits == nil {
-			pipelineInfo.ResourceLimits = &pps.ResourceSpec{
-				Gpu: 0,
-			}
-			if pipelineInfo.ResourceRequests != nil {
-				pipelineInfo.ResourceLimits.Cpu = pipelineInfo.ResourceRequests.Cpu
-				pipelineInfo.ResourceLimits.Memory = pipelineInfo.ResourceRequests.Memory
-				//			pipelineInfo.ResourceLimits.Cpu = 16.0
-				//			pipelineInfo.ResourceLimits.Memory = "32G"
-			}
-		}*/
 	if pipelineInfo.MaxQueueSize == 0 {
 		pipelineInfo.MaxQueueSize = 10
 	}
