@@ -23,10 +23,11 @@ script:
 - make lint vet
 - ./etc/testing/travis.sh
 after_failure:
+- kubectl version
 - kubectl get all
 - kubectl describe pod -l app=pachd
-- kubectl get pod | grep pipeline | cut -f 1 -d " " | while read pod; do kubectl describe po/$pod; kubectl logs op/$pod user; kubectl logs po/$pod storage; done
 - kubectl describe node/127.0.0.1
+- kubectl get pod | grep pipeline | cut -f 1 -d " " | while read pod; do kubectl describe po/$pod; kubectl logs po/$pod user;  done
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
   email:
