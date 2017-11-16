@@ -621,6 +621,8 @@ func chunks(df DatumFactory, spec *pps.ChunkSpec, parallelism int) *Chunks {
 }
 
 func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *taggedLogger) error {
+	//todo: use the jobinfo's timeout to set a deadline on the context here ...
+	// but! additionally ... when the timeout happens ... we need to make sure the job state gets updated in etcd as failed
 	ctx, cancel := context.WithCancel(ctx)
 	go func() {
 		backoff.RetryNotify(func() error {

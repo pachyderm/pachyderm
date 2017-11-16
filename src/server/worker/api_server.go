@@ -1111,6 +1111,7 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 						retErr = err
 					}
 				}()
+				// todo: use jobinfo's timeout to set a deadline on the context here
 				if err := a.runUserCode(ctx, logger, env, subStats); err != nil {
 					return err
 				}
