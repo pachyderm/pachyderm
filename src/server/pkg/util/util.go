@@ -49,12 +49,14 @@ func getResourceListFromSpec(resources *pps.ResourceSpec, cacheSize string) (*ap
 		result[api.ResourceMemory] = cacheQuantity
 	}
 
-	gpuStr := fmt.Sprintf("%d", resources.Gpu)
-	gpuQuantity, err := resource.ParseQuantity(gpuStr)
-	if err != nil {
-		log.Warnf("error parsing gpu string: %s: %+v", gpuStr, err)
-	} else {
-		result[api.ResourceNvidiaGPU] = gpuQuantity
+	if resources.Gpu != 0 {
+		gpuStr := fmt.Sprintf("%d", resources.Gpu)
+		gpuQuantity, err := resource.ParseQuantity(gpuStr)
+		if err != nil {
+			log.Warnf("error parsing gpu string: %s: %+v", gpuStr, err)
+		} else {
+			result[api.ResourceNvidiaGPU] = gpuQuantity
+		}
 	}
 	return &result, nil
 }
