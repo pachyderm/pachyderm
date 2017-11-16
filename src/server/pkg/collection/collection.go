@@ -201,6 +201,16 @@ func (c *readWriteCollection) PutTTL(key string, val proto.Marshaler, ttl int64)
 	return nil
 }
 
+func (c *readWriteCollection) Update(key string, val Value, f func() error) error {
+	if err := c.Get(key, val); err != nil {
+		return err
+	}
+	if err := f(); err != nil {
+		return err
+	}
+	return c.Put(key, val)
+}
+
 func (c *readWriteCollection) Upsert(key string, val Value, f func() error) error {
 	if err := c.Get(key, val); err != nil && !IsErrNotFound(err) {
 		return err

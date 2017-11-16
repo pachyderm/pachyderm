@@ -3090,10 +3090,6 @@ func TestBuildCommit(t *testing.T) {
 }
 
 func TestPropagateCommit(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
 	c := getClient(t)
 	repo1 := uniqueString("TestPropagateCommit1")
 	require.NoError(t, c.CreateRepo(repo1))
