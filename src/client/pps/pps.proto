@@ -220,6 +220,7 @@ message JobInfo {
   string salt = 33;
   bool batch = 34;
   ChunkSpec chunk_spec = 36;
+  uint64 datum_timeout_seconds = 37;
 }
 
 enum WorkerState {
@@ -296,6 +297,7 @@ message PipelineInfo {
   int64 max_queue_size = 29;
   Service service = 30;
   ChunkSpec chunk_spec = 31;
+  uint64 datum_timeout_seconds = 32;
 }
 
 message PipelineInfos {
