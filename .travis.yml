@@ -19,7 +19,7 @@ script:
 - docker images | wc -l
 - docker images
 - sudo df -k /
-- sudo du -h / -d 5 | sort -h
+- sudo du -h / -d 5 | sort -h | tail -n 20
 - make lint vet
 - ./etc/testing/travis.sh
 after_script:
