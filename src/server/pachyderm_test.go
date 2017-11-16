@@ -135,10 +135,11 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 		false,
 	))
 	fmt.Printf("created pipeline ... now waiting on flush commit\n")
+	time.Sleep(20 * time.Second)
+	panic("failing largefiletest on purpose")
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
 	fmt.Printf("flush commit completed!\n")
 	require.NoError(t, err)
-	fmt.Printf("collecting commit infos from commitIter len %v\n", len(commitIter))
 	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 1, len(commitInfos))
 
