@@ -341,6 +341,10 @@ test-pfs:
 	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
 
 test-pps:
+	docker images | wc -l
+	docker images
+	sudo df -k /
+	sudo du -h / -d 5 | sort -h | tail -n 20
 	go test -v ./src/server -parallel 1 -timeout $(TIMEOUT)
 	go test ./src/server/pps/cmds -timeout $(TIMEOUT)
 
