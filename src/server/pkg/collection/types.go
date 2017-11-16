@@ -71,6 +71,7 @@ type ReadWriteCollection interface {
 	// can result in inconsistency, as the indices are removed at roughly
 	// but not exactly the same time as the documents.
 	PutTTL(key string, val proto.Marshaler, ttl int64) error
+	Update(key string, val Value, f func() error) error
 	Upsert(key string, val Value, f func() error) error
 	Create(key string, val proto.Marshaler) error
 	Delete(key string) error
