@@ -1614,8 +1614,8 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 			Memory: pipelineInfo.CacheSize,
 		}
 	}
-	if pipelineInfo.MaxQueueSize == 0 {
-		pipelineInfo.MaxQueueSize = 10
+	if pipelineInfo.MaxQueueSize < 1 {
+		pipelineInfo.MaxQueueSize = 1
 	}
 }
 
