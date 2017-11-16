@@ -11,21 +11,16 @@ branches:
 before_install:
 - sudo etc/testing/ci/before_install.sh
 before_script:
-- etc/testing/ci/launch_k8s.sh
+- make launch-kube
 - docker version
 # Install any deps used by our "batch test" cron
-- ./etc/testing/ci/travis_install_batch_deps.sh
+- etc/testing/ci/travis_install_batch_deps.sh
 script:
 - make lint vet
-- ./etc/testing/travis.sh
+- etc/testing/travis.sh
 after_failure:
 - kubectl version
 - kubectl get all
 - kubectl describe pod -l app=pachd
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
-  email:
-    recipients:
-      - derek@pachyderm.io
-    on_success: never
-    on_failure: always
