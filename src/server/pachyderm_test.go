@@ -3330,9 +3330,8 @@ func TestPipelineResourceRequest(t *testing.T) {
 	mem, ok := container.Resources.Requests[api.ResourceMemory]
 	require.True(t, ok)
 	require.Equal(t, "100M", mem.String())
-	gpu, ok := container.Resources.Requests[api.ResourceNvidiaGPU]
-	require.True(t, ok)
-	require.Equal(t, "0", gpu.String())
+	_, ok := container.Resources.Requests[api.ResourceNvidiaGPU]
+	require.False(t, ok)
 }
 
 func TestPipelineResourceLimit(t *testing.T) {
@@ -3400,9 +3399,8 @@ func TestPipelineResourceLimit(t *testing.T) {
 	mem, ok := container.Resources.Limits[api.ResourceMemory]
 	require.True(t, ok)
 	require.Equal(t, "100M", mem.String())
-	gpu, ok := container.Resources.Requests[api.ResourceNvidiaGPU]
-	require.True(t, ok)
-	require.Equal(t, "0", gpu.String())
+	_, ok := container.Resources.Requests[api.ResourceNvidiaGPU]
+	require.False(t, ok)
 }
 
 func TestPipelineResourceLimitDefaults(t *testing.T) {
@@ -3460,9 +3458,8 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 		return nil // no more retries
 	}, backoff.NewTestingBackOff())
 	require.NoError(t, err)
-	gpu, ok := container.Resources.Requests[api.ResourceNvidiaGPU]
-	require.True(t, ok)
-	require.Equal(t, "0", gpu.String())
+	_, ok := container.Resources.Requests[api.ResourceNvidiaGPU]
+	require.False(t, ok)
 }
 
 func TestPipelinePartialResourceRequest(t *testing.T) {
