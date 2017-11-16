@@ -135,8 +135,13 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 		false,
 	))
 	fmt.Printf("created pipeline ... now waiting on flush commit\n")
-	time.Sleep(20 * time.Second)
-	panic("failing largefiletest on purpose")
+	done := false
+	go func() {
+		time.Sleep(60 * time.Second)
+		if !done {
+			panic("failing largefiletest on purpose")
+		}
+	}()
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
 	fmt.Printf("flush commit completed!\n")
 	require.NoError(t, err)
@@ -160,6 +165,7 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 			t.Fatalf("file content does not match")
 		}
 	}
+	done = true
 }
 
 func TestDatumDedup(t *testing.T) {
