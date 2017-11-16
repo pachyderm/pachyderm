@@ -22,7 +22,7 @@ script:
 - sudo du -h / -d 5 | sort -h | tail -n 20
 - make lint vet
 - ./etc/testing/travis.sh
-after_script:
+after_failure:
 - kubectl get all
 - kubectl describe pod -l app=pachd
 notifications:
