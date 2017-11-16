@@ -223,26 +223,7 @@ func (a *apiServer) FlushCommit(request *pfs.FlushCommitRequest, stream pfs.API_
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 
-	commitStream, err := a.driver.flushCommit(ctx, request.Commits, request.ToRepos)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		commitStream.Close()
-	}()
-
-	for {
-		ev, ok := <-commitStream.Stream()
-		if !ok {
-			return nil
-		}
-		if ev.Err != nil {
-			return ev.Err
-		}
-		if err := stream.Send(ev.Value); err != nil {
-			return err
-		}
-	}
+	return a.driver.flushCommit(ctx, request.Commits, request.ToRepos, stream.Send)
 }
 
 func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream pfs.API_SubscribeCommitServer) (retErr error) {
