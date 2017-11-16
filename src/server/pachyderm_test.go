@@ -120,7 +120,6 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 		fileContents = append(fileContents, fileContent)
 	}
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
-
 	pipeline := uniqueString("pipeline")
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
@@ -134,7 +133,6 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 		"",
 		false,
 	))
-
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
@@ -1813,7 +1811,7 @@ func TestPrettyPrinting(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			ResourceSpec: &pps.ResourceSpec{
+			ResourceRequests: &pps.ResourceSpec{
 				Memory: "100M",
 				Cpu:    0.5,
 			},
@@ -2139,7 +2137,7 @@ func TestPipelineAutoScaledown(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: uint64(parallelism),
 			},
-			ResourceSpec: &pps.ResourceSpec{
+			ResourceRequests: &pps.ResourceSpec{
 				Memory: "100M",
 			},
 			Input:              client.NewAtomInput(dataRepo, "/"),
@@ -3278,7 +3276,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			ResourceSpec: &pps.ResourceSpec{
+			ResourceRequests: &pps.ResourceSpec{
 				Memory: "100M",
 				Cpu:    0.5,
 			},
@@ -3321,9 +3319,136 @@ func TestPipelineResourceRequest(t *testing.T) {
 	mem, ok := container.Resources.Requests[api.ResourceMemory]
 	require.True(t, ok)
 	require.Equal(t, "100M", mem.String())
-	gpu, ok := container.Resources.Requests[api.ResourceNvidiaGPU]
+	_, ok = container.Resources.Requests[api.ResourceNvidiaGPU]
+	require.False(t, ok)
+}
+
+func TestPipelineResourceLimit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+	// create repos
+	dataRepo := uniqueString("TestPipelineResourceLimit")
+	pipelineName := uniqueString("TestPipelineResourceLimit_Pipeline")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// Resources are not yet in client.CreatePipeline() (we may add them later)
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: &pps.Pipeline{pipelineName},
+			Transform: &pps.Transform{
+				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			ResourceLimits: &pps.ResourceSpec{
+				Memory: "100M",
+				Cpu:    0.5,
+			},
+			Input: &pps.Input{
+				Atom: &pps.AtomInput{
+					Repo:   dataRepo,
+					Branch: "master",
+					Glob:   "/*",
+				},
+			},
+		})
+	require.NoError(t, err)
+
+	// Get info about the pipeline pods from k8s & check for resources
+	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+
+	var container api.Container
+	rcName := ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	kubeClient := getKubeClient(t)
+	err = backoff.Retry(func() error {
+		podList, err := kubeClient.Pods(api.NamespaceDefault).List(api.ListOptions{
+			LabelSelector: labels.SelectorFromSet(
+				map[string]string{"app": rcName}),
+		})
+		if err != nil {
+			return err // retry
+		}
+		if len(podList.Items) != 1 || len(podList.Items[0].Spec.Containers) == 0 {
+			return fmt.Errorf("could not find single container for pipeline %s", pipelineInfo.Pipeline.Name)
+		}
+		container = podList.Items[0].Spec.Containers[0]
+		return nil // no more retries
+	}, backoff.NewTestingBackOff())
+	require.NoError(t, err)
+	// Make sure a CPU and Memory request are both set
+	cpu, ok := container.Resources.Limits[api.ResourceCPU]
 	require.True(t, ok)
-	require.Equal(t, "0", gpu.String())
+	require.Equal(t, "500m", cpu.String())
+	mem, ok := container.Resources.Limits[api.ResourceMemory]
+	require.True(t, ok)
+	require.Equal(t, "100M", mem.String())
+	_, ok = container.Resources.Requests[api.ResourceNvidiaGPU]
+	require.False(t, ok)
+}
+
+func TestPipelineResourceLimitDefaults(t *testing.T) {
+	// We need to make sure GPU is set to 0 for k8s 1.8
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+	// create repos
+	dataRepo := uniqueString("TestPipelineResourceLimit")
+	pipelineName := uniqueString("TestPipelineResourceLimit_Pipeline")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// Resources are not yet in client.CreatePipeline() (we may add them later)
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: &pps.Pipeline{pipelineName},
+			Transform: &pps.Transform{
+				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input: &pps.Input{
+				Atom: &pps.AtomInput{
+					Repo:   dataRepo,
+					Branch: "master",
+					Glob:   "/*",
+				},
+			},
+		})
+	require.NoError(t, err)
+
+	// Get info about the pipeline pods from k8s & check for resources
+	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+
+	var container api.Container
+	rcName := ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	kubeClient := getKubeClient(t)
+	err = backoff.Retry(func() error {
+		podList, err := kubeClient.Pods(api.NamespaceDefault).List(api.ListOptions{
+			LabelSelector: labels.SelectorFromSet(
+				map[string]string{"app": rcName}),
+		})
+		if err != nil {
+			return err // retry
+		}
+		if len(podList.Items) != 1 || len(podList.Items[0].Spec.Containers) == 0 {
+			return fmt.Errorf("could not find single container for pipeline %s", pipelineInfo.Pipeline.Name)
+		}
+		container = podList.Items[0].Spec.Containers[0]
+		return nil // no more retries
+	}, backoff.NewTestingBackOff())
+	require.NoError(t, err)
+	_, ok := container.Resources.Requests[api.ResourceNvidiaGPU]
+	require.False(t, ok)
 }
 
 func TestPipelinePartialResourceRequest(t *testing.T) {
@@ -3345,7 +3470,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"true"},
 			},
-			ResourceSpec: &pps.ResourceSpec{
+			ResourceRequests: &pps.ResourceSpec{
 				Cpu:    0.5,
 				Memory: "100M",
 			},
@@ -3365,7 +3490,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"true"},
 			},
-			ResourceSpec: &pps.ResourceSpec{
+			ResourceRequests: &pps.ResourceSpec{
 				Memory: "100M",
 			},
 			Input: &pps.Input{
@@ -3384,7 +3509,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"true"},
 			},
-			ResourceSpec: &pps.ResourceSpec{},
+			ResourceRequests: &pps.ResourceSpec{},
 			Input: &pps.Input{
 				Atom: &pps.AtomInput{
 					Repo:   dataRepo,

@@ -18,6 +18,8 @@ before_script:
 script:
 - make lint vet
 - ./etc/testing/travis.sh
+after_failure:
+- kubectl version
 - kubectl get all
 - kubectl describe pod -l app=pachd
 notifications:

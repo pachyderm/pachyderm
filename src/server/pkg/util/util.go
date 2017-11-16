@@ -17,11 +17,14 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 )
 
-// GetResourceListFromPipeline returns a list of resources that the pipeline,
+// GetRequestsResourceListFromPipeline returns a list of resources that the pipeline,
 // minimally requires.
-func GetResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*api.ResourceList, error) {
+func GetRequestsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*api.ResourceList, error) {
+	return getResourceListFromSpec(pipelineInfo.ResourceRequests, pipelineInfo.CacheSize)
+}
+
+func getResourceListFromSpec(resources *pps.ResourceSpec, cacheSize string) (*api.ResourceList, error) {
 	var result api.ResourceList = make(map[api.ResourceName]resource.Quantity)
-	resources, cacheSize := pipelineInfo.ResourceSpec, pipelineInfo.CacheSize
 	cpuStr := fmt.Sprintf("%f", resources.Cpu)
 	cpuQuantity, err := resource.ParseQuantity(cpuStr)
 	if err != nil {
@@ -46,14 +49,22 @@ func GetResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*api.ResourceL
 		result[api.ResourceMemory] = cacheQuantity
 	}
 
-	gpuStr := fmt.Sprintf("%d", resources.Gpu)
-	gpuQuantity, err := resource.ParseQuantity(gpuStr)
-	if err != nil {
-		log.Warnf("error parsing gpu string: %s: %+v", gpuStr, err)
-	} else {
-		result[api.ResourceNvidiaGPU] = gpuQuantity
+	if resources.Gpu != 0 {
+		gpuStr := fmt.Sprintf("%d", resources.Gpu)
+		gpuQuantity, err := resource.ParseQuantity(gpuStr)
+		if err != nil {
+			log.Warnf("error parsing gpu string: %s: %+v", gpuStr, err)
+		} else {
+			result[api.ResourceNvidiaGPU] = gpuQuantity
+		}
 	}
 	return &result, nil
+}
+
+// GetLimitsResourceListFromPipeline returns a list of resources that the pipeline,
+// maximally is limited to.
+func GetLimitsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*api.ResourceList, error) {
+	return getResourceListFromSpec(pipelineInfo.ResourceLimits, pipelineInfo.CacheSize)
 }
 
 // LookupUser is a reimplementation of user.Lookup that doesn't require cgo.

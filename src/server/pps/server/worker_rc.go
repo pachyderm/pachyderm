@@ -19,15 +19,16 @@ import (
 type workerOptions struct {
 	rcName string // Name of the replication controller managing workers
 
-	userImage    string            // The user's pipeline/job image
-	labels       map[string]string // k8s labels attached to the RC and workers
-	annotations  map[string]string // k8s annotations attached to the RC and workers
-	parallelism  int32             // Number of replicas the RC maintains
-	cacheSize    string            // Size of cache that sidecar uses
-	resources    *api.ResourceList // Resources requested by pipeline/job pods
-	workerEnv    []api.EnvVar      // Environment vars set in the user container
-	volumes      []api.Volume      // Volumes that we expose to the user container
-	volumeMounts []api.VolumeMount // Paths where we mount each volume in 'volumes'
+	userImage        string            // The user's pipeline/job image
+	labels           map[string]string // k8s labels attached to the RC and workers
+	annotations      map[string]string // k8s annotations attached to the RC and workers
+	parallelism      int32             // Number of replicas the RC maintains
+	cacheSize        string            // Size of cache that sidecar uses
+	resourceRequests *api.ResourceList // Resources requested by pipeline/job pods
+	resourceLimits   *api.ResourceList // Resources requested by pipeline/job pods
+	workerEnv        []api.EnvVar      // Environment vars set in the user container
+	volumes          []api.Volume      // Volumes that we expose to the user container
+	volumeMounts     []api.VolumeMount // Paths where we mount each volume in 'volumes'
 
 	// Secrets that we mount in the worker container (e.g. for reading/writing to
 	// s3)
@@ -162,16 +163,19 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (api.PodSpec, error) {
 		TerminationGracePeriodSeconds: &zeroVal,
 		SecurityContext:               &api.PodSecurityContext{RunAsUser: &zeroVal},
 	}
-	if options.resources != nil {
-		podSpec.Containers[0].Resources = api.ResourceRequirements{
-			Requests: *options.resources,
-		}
+	resourceRequirements := api.ResourceRequirements{}
+	if options.resourceRequests != nil {
+		resourceRequirements.Requests = *options.resourceRequests
 	}
+	if options.resourceLimits != nil {
+		resourceRequirements.Limits = *options.resourceLimits
+	}
+	podSpec.Containers[0].Resources = resourceRequirements
 	return podSpec, nil
 }
 
 func (a *apiServer) getWorkerOptions(pipelineName string, rcName string,
-	parallelism int32, resources *api.ResourceList, transform *pps.Transform,
+	parallelism int32, resourceRequests *api.ResourceList, resourceLimits *api.ResourceList, transform *pps.Transform,
 	cacheSize string, service *pps.Service) *workerOptions {
 	labels := labels(rcName)
 	userImage := transform.Image
@@ -274,7 +278,7 @@ func (a *apiServer) getWorkerOptions(pipelineName string, rcName string,
 		Name:      client.PPSWorkerVolume,
 		MountPath: client.PPSScratchSpace,
 	})
-	if resources != nil && resources.NvidiaGPU() != nil && !resources.NvidiaGPU().IsZero() {
+	if resourceLimits != nil && resourceLimits.NvidiaGPU() != nil && !resourceLimits.NvidiaGPU().IsZero() {
 		volumes = append(volumes, api.Volume{
 			Name: "root-lib",
 			VolumeSource: api.VolumeSource{
@@ -306,7 +310,8 @@ func (a *apiServer) getWorkerOptions(pipelineName string, rcName string,
 		labels:           labels,
 		annotations:      annotations,
 		parallelism:      int32(parallelism),
-		resources:        resources,
+		resourceRequests: resourceRequests,
+		resourceLimits:   resourceLimits,
 		userImage:        userImage,
 		workerEnv:        workerEnv,
 		volumes:          volumes,
