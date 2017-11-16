@@ -1481,8 +1481,17 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 			Head:   commit,
 			Name:   branch.Name,
 		}
-		for _, branch := range provMap {
-			branchInfo.Provenance = append(branchInfo.Provenance, branch)
+		for _, provBranch := range provMap {
+			branchInfo.Provenance = append(branchInfo.Provenance, provBranch)
+			provBranchInfo := &pfs.BranchInfo{}
+			// record the fact that we are subvenance for all of our provenant branches
+			if err := d.branches(provBranch.Repo.Name).ReadWrite(stm).Upsert(provBranch.Name, provBranchInfo, func() error {
+				provBranchInfo.Branch = provBranch
+				provBranchInfo.Subvenance = append(provBranchInfo.Subvenance, branch)
+				return nil
+			}); err != nil {
+				return err
+			}
 		}
 		branches := d.branches(branch.Repo.Name).ReadWrite(stm)
 		return branches.Put(branch.Name, branchInfo)

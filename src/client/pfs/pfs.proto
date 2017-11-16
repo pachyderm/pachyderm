@@ -17,13 +17,14 @@ message Repo {
 
 message Branch {
   Repo repo = 1;
-  string Name = 2;
+  string name = 2;
 }
 
 message BranchInfo {
   Branch branch = 4;
   Commit head = 2;
   repeated Branch provenance = 3;
+  repeated Branch subvenance = 5;
 
   // Deprecated field left for backward compatibility.
   string name = 1;
