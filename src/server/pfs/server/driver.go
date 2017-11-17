@@ -634,11 +634,6 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 			if err := branches.Put(branch, branchInfo); err != nil {
 				return err
 			}
-			subvenance, err := d.propagateCommit(ctx, branchInfo.Branch, commit, stm)
-			if err != nil {
-				return err
-			}
-			commitInfo.Subvenance = subvenance
 		}
 		if parent.ID != "" {
 			parentCommitInfo, err := d.inspectCommit(ctx, parent, false)
@@ -664,7 +659,15 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 		} else {
 			d.openCommits.ReadWrite(stm).Put(commit.ID, commit)
 		}
-		return commits.Create(commit.ID, commitInfo)
+		if err := commits.Create(commit.ID, commitInfo); err != nil {
+			return err
+		}
+		// We propagate the branch last so it can write to the commit we just
+		// created.
+		if branch != "" {
+			return d.propagateCommit(ctx, client.NewBranch(commit.Repo.Name, branch), commit, stm)
+		}
+		return nil
 	}); err != nil {
 		return nil, err
 	}
@@ -760,13 +763,11 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 	return err
 }
 
-// propagateCommit propagates a new commit to its downstream branches and returns all of the newly created commits on those branches
-func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit *pfs.Commit, stm col.STM) ([]*pfs.Commit, error) {
-	var result []*pfs.Commit
+func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit *pfs.Commit, stm col.STM) error {
 	repos := d.repos.ReadOnly(ctx)
 	iterator, err := repos.List()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	var branchInfos []*pfs.BranchInfo
 	for {
@@ -774,7 +775,7 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 		var repoInfo pfs.RepoInfo
 		ok, err := iterator.Next(&repoName, &repoInfo)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if !ok {
 			break
@@ -782,14 +783,14 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 		branches := d.branches(repoInfo.Repo.Name).ReadOnly(ctx)
 		brIterator, err := branches.List()
 		if err != nil {
-			return nil, err
+			return err
 		}
 		for {
 			var branchName string
 			var branchInfo pfs.BranchInfo
 			ok, err = brIterator.Next(&branchName, &branchInfo)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			if !ok {
 				break
@@ -815,7 +816,6 @@ DownstreamBranches:
 			Repo: repo,
 			ID:   uuid.NewWithoutDashes(),
 		}
-		result = append(result, commit)
 		branchToCommit[branchKey(branch)] = commit
 		var provenance []*pfs.Commit
 		for _, branch := range branchInfo.Provenance {
@@ -826,7 +826,7 @@ DownstreamBranches:
 					if col.IsErrNotFound(err) {
 						branchToCommit[branchKey(branch)] = nil
 					} else {
-						return nil, err
+						return err
 					}
 				}
 				branchToCommit[branchKey(branch)] = branchInfo.Head
@@ -844,23 +844,32 @@ DownstreamBranches:
 		var branchInfo pfs.BranchInfo
 		if err := branches.Get(branch.Name, &branchInfo); err != nil {
 			if _, ok := err.(col.ErrNotFound); !ok {
-				return nil, err
+				return err
 			}
 		} else {
 			commitInfo.ParentCommit = branchInfo.Head
 		}
 		if err := commits.Create(commit.ID, commitInfo); err != nil {
-			return nil, err
+			return err
 		}
 		if err := d.openCommits.ReadWrite(stm).Put(commit.ID, commit); err != nil {
-			return nil, err
+			return err
 		}
 		branchInfo.Head = commit
 		if err := branches.Put("master", &branchInfo); err != nil {
-			return nil, err
+			return err
+		}
+		for _, provCommit := range commitInfo.Provenance {
+			provCommitInfo := &pfs.CommitInfo{}
+			if err := d.commits(provCommit.Repo.Name).ReadWrite(stm).Update(provCommit.ID, provCommitInfo, func() error {
+				provCommitInfo.Subvenance = append(provCommitInfo.Subvenance, commit)
+				return nil
+			}); err != nil {
+				return err
+			}
 		}
 	}
-	return result, nil
+	return nil
 }
 
 func sizeChange(tree hashtree.HashTree, parentTree hashtree.HashTree) uint64 {
@@ -1241,11 +1250,10 @@ func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 	}
 	// Wait for each of the commitsToWatch to be finished.
 	for _, commitToWatch := range commitsToWatch {
-		relevant := false
 		if len(toRepoMap) > 0 {
 			var err error
 			// closure for control flow
-			relevant, err = func() (bool, error) {
+			relevant, err := func() (bool, error) {
 				if _, ok := toRepoMap[commitToWatch.Repo.Name]; ok {
 					return true, nil
 				}
@@ -1263,9 +1271,9 @@ func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 			if err != nil {
 				return err
 			}
-		}
-		if !relevant {
-			continue
+			if !relevant {
+				continue
+			}
 		}
 		finishedCommitInfo, err := d.inspectCommit(ctx, commitToWatch, true)
 		if err != nil {
