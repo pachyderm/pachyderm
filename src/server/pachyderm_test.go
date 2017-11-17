@@ -2182,7 +2182,7 @@ func TestPipelineAutoScaledown(t *testing.T) {
 	require.Equal(t, 1, len(commitInfos))
 	rc, err := pipelineRc(t, pipelineInfo)
 	require.NoError(t, err)
-	require.Equal(t, parallelism, *rc.Spec.Replicas)
+	require.Equal(t, int32(parallelism), int32(*rc.Spec.Replicas))
 	// Check that the resource requests have been reset
 	require.Equal(t, "100M", rc.Spec.Template.Spec.Containers[0].Resources.Requests.Memory().String())
 
