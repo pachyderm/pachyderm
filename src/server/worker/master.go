@@ -874,7 +874,7 @@ func (a *APIServer) egress(ctx context.Context, logger *taggedLogger, jobInfo *p
 
 func (a *APIServer) runService(ctx context.Context, logger *taggedLogger) error {
 	return backoff.RetryNotify(func() error {
-		return a.runUserCode(ctx, logger, nil, &pps.ProcessStats{})
+		return a.runUserCode(ctx, logger, nil, &pps.ProcessStats{}, "")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		select {
 		case <-ctx.Done():
