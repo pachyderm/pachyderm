@@ -3324,9 +3324,8 @@ func TestPipelineResourceRequest(t *testing.T) {
 	mem, ok := container.Resources.Requests[v1.ResourceMemory]
 	require.True(t, ok)
 	require.Equal(t, "100M", mem.String())
-	gpu, ok := container.Resources.Requests[v1.ResourceNvidiaGPU]
-	require.True(t, ok)
-	require.Equal(t, "0", gpu.String())
+	_, ok = container.Resources.Requests[v1.ResourceNvidiaGPU]
+	require.False(t, ok)
 }
 
 func TestPipelineResourceLimit(t *testing.T) {
