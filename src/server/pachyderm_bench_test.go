@@ -131,6 +131,8 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 			client.NewAtomInput(repo, "/*"),
 			"",
 			false,
+			"",
+			"",
 		))
 		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(repo, commit.ID)}, nil)
 		require.NoError(b, err)
@@ -296,6 +298,8 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 			client.NewAtomInput(dataRepo, "/*"),
 			"",
 			false,
+			"",
+			"",
 		))
 		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
 		require.NoError(b, err)
@@ -332,6 +336,8 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 			client.NewAtomInput(pipelineOne, "/*"),
 			"",
 			false,
+			"",
+			"",
 		))
 		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
 		require.NoError(b, err)
@@ -365,6 +371,8 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 			client.NewAtomInput(pipelineTwo, "/*"),
 			"",
 			false,
+			"",
+			"",
 		))
 		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
 		require.NoError(b, err)
