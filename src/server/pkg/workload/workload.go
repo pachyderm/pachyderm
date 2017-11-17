@@ -275,6 +275,8 @@ func (w *worker) createPipeline(c *client.APIClient) error {
 		client.NewCrossInput(input...),
 		"master",
 		false,
+		"",
+		"",
 	); err != nil {
 		return err
 	}

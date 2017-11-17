@@ -38,6 +38,8 @@ func TestInvalidCreatePipeline(t *testing.T) {
 		client.NewAtomInputOpts("out", dataRepo, "", "/*", false, ""),
 		"master",
 		false,
+		"",
+		"",
 	)
 	require.YesError(t, err)
 	require.Matches(t, "out", err.Error())
@@ -54,6 +56,8 @@ func TestInvalidCreatePipeline(t *testing.T) {
 		client.NewAtomInputOpts("input", dataRepo, "", "", false, ""),
 		"master",
 		false,
+		"",
+		"",
 	)
 	require.YesError(t, err)
 	require.Matches(t, "glob", err.Error())
@@ -70,6 +74,8 @@ func TestInvalidCreatePipeline(t *testing.T) {
 		client.NewAtomInputOpts("input", dataRepo, "", "/*", false, ""),
 		"master",
 		false,
+		"",
+		"",
 	)
 	require.YesError(t, err)
 	require.Matches(t, "cmd", err.Error())
@@ -94,6 +100,8 @@ func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 		client.NewAtomInputOpts("whatever", "nonexistent", "", "/*", false, ""),
 		"master",
 		false,
+		"",
+		"",
 	))
 }
 
@@ -119,6 +127,8 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
+		"",
+		"",
 	))
 
 	require.NoError(t, c.CreatePipeline(
@@ -132,6 +142,8 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
+		"",
+		"",
 	))
 }
 
@@ -159,6 +171,8 @@ func TestPipelineInvalidParallelism(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/*"),
 		"master",
 		false,
+		"",
+		"",
 	)
 	require.YesError(t, err)
 	require.Matches(t, "parallelism", err.Error())

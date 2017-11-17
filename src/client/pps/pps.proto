@@ -327,6 +327,8 @@ message CreateJobRequest {
   string salt = 19;
   bool batch = 20;
   ChunkSpec chunk_spec = 21;
+  string datum_timeout = 22;
+  string job_timeout = 23;
 }
 
 message InspectJobRequest {
@@ -459,6 +461,8 @@ message CreatePipelineRequest {
   int64 max_queue_size = 20;
   Service service = 21;
   ChunkSpec chunk_spec = 22;
+  string datum_timeout = 23;
+  string job_timeout = 24;
 }
 
 message InspectPipelineRequest {
