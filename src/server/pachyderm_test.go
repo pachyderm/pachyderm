@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path"
 	"strconv"
 	"strings"
@@ -29,6 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfspretty "github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
@@ -3241,12 +3243,10 @@ func TestSystemResourceRequests(t *testing.T) {
 		// Make sure the pod's container has resource requests
 		cpu, ok := c.Resources.Requests[api.ResourceCPU]
 		require.True(t, ok, "could not get CPU request for "+app)
-		fmt.Println(cpu.String())
 		require.True(t, cpu.String() == defaultLocalCPU[app] ||
 			cpu.String() == defaultCloudCPU[app])
 		mem, ok := c.Resources.Requests[api.ResourceMemory]
 		require.True(t, ok, "could not get memory request for "+app)
-		fmt.Println(mem.String())
 		require.True(t, mem.String() == defaultLocalMem[app] ||
 			mem.String() == defaultCloudMem[app])
 	}
@@ -6296,9 +6296,67 @@ func getKubeClient(t testing.TB) *kube.Client {
 		config, err = kube_client.InClusterConfig()
 		require.NoError(t, err)
 	} else {
-		config = &kube_client.Config{
-			Host:     "http://0.0.0.0:8080",
-			Insecure: false,
+		// Use kubectl binary to parse .kube/config and get address of current
+		// cluster. Hopefully, once we upgrade to k8s.io/client-go, we will be able
+		// to do this in-process with a library
+		// First, figure out if we're talking to minikube or localhost
+		cmd := exec.Command("kubectl", "config", "current-context")
+		if context, err := cmd.Output(); err == nil {
+			context = bytes.TrimSpace(context)
+			// kubectl has a context -- not talking to localhost
+			// Get cluster and user name from kubectl
+			buf := &bytes.Buffer{}
+			cmd := tu.BashCmd(strings.Join([]string{
+				`kubectl config get-contexts "{{.context}}" | tail -n+2 | awk '{print $3}'`,
+				`kubectl config get-contexts "{{.context}}" | tail -n+2 | awk '{print $4}'`,
+			}, "\n"),
+				"context", string(context))
+			cmd.Stdout = buf
+			require.NoError(t, cmd.Run(), "couldn't get kubernetes context info")
+			lines := strings.Split(buf.String(), "\n")
+			clustername, username := lines[0], lines[1]
+
+			// Get user info
+			buf.Reset()
+			cmd = tu.BashCmd(strings.Join([]string{
+				`cluster="$(kubectl config view -o json | jq -r '.users[] | select(.name == "{{.user}}") | .user' )"`,
+				`echo "${cluster}" | jq -r '.["client-certificate"]'`,
+				`echo "${cluster}" | jq -r '.["client-key"]'`,
+			}, "\n"),
+				"user", username)
+			cmd.Stdout = buf
+			require.NoError(t, cmd.Run(), "couldn't get kubernetes user info")
+			lines = strings.Split(buf.String(), "\n")
+			clientCert, clientKey := lines[0], lines[1]
+
+			// Get cluster info
+			buf.Reset()
+			cmd = tu.BashCmd(strings.Join([]string{
+				`cluster="$(kubectl config view -o json | jq -r '.clusters[] | select(.name == "{{.cluster}}") | .cluster')"`,
+				`echo "${cluster}" | jq -r .server`,
+				`echo "${cluster}" | jq -r '.["certificate-authority"]'`,
+			}, "\n"),
+				"cluster", clustername)
+			cmd.Stdout = buf
+			require.NoError(t, cmd.Run(), "couldn't get kubernetes cluster info: %s", buf.String())
+			lines = strings.Split(buf.String(), "\n")
+			address, CAKey := lines[0], lines[1]
+
+			// Generate config
+			config = &kube_client.Config{
+				Host: address,
+				TLSClientConfig: kube_client.TLSClientConfig{
+					CertFile: clientCert,
+					KeyFile:  clientKey,
+					CAFile:   CAKey,
+				},
+			}
+		} else {
+			// no context -- talking to localhost
+			config = &kube_client.Config{
+				Host:     "http://0.0.0.0:8080",
+				Insecure: false,
+			}
 		}
 	}
 	k, err := kube.New(config)
