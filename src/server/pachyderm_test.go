@@ -6288,12 +6288,25 @@ func scalePachd(t testing.TB) {
 	scalePachdN(t, n)
 }
 
+var kubeConfigMu sync.Mutex
+var kubeConfig *kube_client.Config
+
 func getKubeClient(t testing.TB) *kube.Client {
-	var config *kube_client.Config
+	kubeConfigMu.Lock()
+	defer kubeConfigMu.Unlock()
+
+	// See if we already have a kube client config
+	if kubeConfig != nil {
+		k, err := kube.New(kubeConfig)
+		require.NoError(t, err)
+		return k
+	}
+
+	// No existing config -- generate new kube client config
 	host := os.Getenv("KUBERNETES_SERVICE_HOST")
 	if host != "" {
 		var err error
-		config, err = kube_client.InClusterConfig()
+		kubeConfig, err = kube_client.InClusterConfig()
 		require.NoError(t, err)
 	} else {
 		// Use kubectl binary to parse .kube/config and get address of current
@@ -6343,7 +6356,7 @@ func getKubeClient(t testing.TB) *kube.Client {
 			address, CAKey := lines[0], lines[1]
 
 			// Generate config
-			config = &kube_client.Config{
+			kubeConfig = &kube_client.Config{
 				Host: address,
 				TLSClientConfig: kube_client.TLSClientConfig{
 					CertFile: clientCert,
@@ -6353,13 +6366,14 @@ func getKubeClient(t testing.TB) *kube.Client {
 			}
 		} else {
 			// no context -- talking to localhost
-			config = &kube_client.Config{
+			kubeConfig = &kube_client.Config{
 				Host:     "http://0.0.0.0:8080",
 				Insecure: false,
 			}
 		}
 	}
-	k, err := kube.New(config)
+
+	k, err := kube.New(kubeConfig)
 	require.NoError(t, err)
 	return k
 }
