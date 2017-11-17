@@ -67,12 +67,10 @@ import google_protobuf2 "github.com/gogo/protobuf/types"
 import _ "github.com/gogo/protobuf/gogoproto"
 import pfs "github.com/pachyderm/pachyderm/src/client/pfs"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
-import encoding_binary "encoding/binary"
+import binary "encoding/binary"
 
 import io "io"
 
@@ -3794,7 +3792,7 @@ func (m *ParallelismSpec) MarshalTo(dAtA []byte) (int, error) {
 	if m.Coefficient != 0 {
 		dAtA[i] = 0x19
 		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Coefficient))))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Coefficient))))
 		i += 8
 	}
 	return i, nil
@@ -3952,25 +3950,25 @@ func (m *Aggregate) MarshalTo(dAtA []byte) (int, error) {
 	if m.Mean != 0 {
 		dAtA[i] = 0x11
 		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Mean))))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Mean))))
 		i += 8
 	}
 	if m.Stddev != 0 {
 		dAtA[i] = 0x19
 		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Stddev))))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Stddev))))
 		i += 8
 	}
 	if m.FifthPercentile != 0 {
 		dAtA[i] = 0x21
 		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.FifthPercentile))))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.FifthPercentile))))
 		i += 8
 	}
 	if m.NinetyFifthPercentile != 0 {
 		dAtA[i] = 0x29
 		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.NinetyFifthPercentile))))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.NinetyFifthPercentile))))
 		i += 8
 	}
 	return i, nil
@@ -4187,7 +4185,7 @@ func (m *ResourceSpec) MarshalTo(dAtA []byte) (int, error) {
 	if m.Cpu != 0 {
 		dAtA[i] = 0xd
 		i++
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.Cpu))))
+		binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.Cpu))))
 		i += 4
 	}
 	if len(m.Memory) > 0 {
@@ -9098,7 +9096,7 @@ func (m *ParallelismSpec) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.Coefficient = float64(math.Float64frombits(v))
 		default:
@@ -9599,7 +9597,7 @@ func (m *Aggregate) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.Mean = float64(math.Float64frombits(v))
 		case 3:
@@ -9610,7 +9608,7 @@ func (m *Aggregate) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.Stddev = float64(math.Float64frombits(v))
 		case 4:
@@ -9621,7 +9619,7 @@ func (m *Aggregate) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.FifthPercentile = float64(math.Float64frombits(v))
 		case 5:
@@ -9632,7 +9630,7 @@ func (m *Aggregate) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.NinetyFifthPercentile = float64(math.Float64frombits(v))
 		default:
@@ -10319,7 +10317,7 @@ func (m *ResourceSpec) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 4) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+			v = uint32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 			iNdEx += 4
 			m.Cpu = float32(math.Float32frombits(v))
 		case 2:

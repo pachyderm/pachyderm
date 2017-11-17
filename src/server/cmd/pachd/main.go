@@ -39,9 +39,9 @@ import (
 	flag "github.com/spf13/pflag"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
-	"k8s.io/kubernetes/pkg/api"
-	kube_client "k8s.io/kubernetes/pkg/client/restclient"
-	kube "k8s.io/kubernetes/pkg/client/unversioned"
+	v1 "k8s.io/api/core/v1"
+	kube "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 var mode string
@@ -386,18 +386,24 @@ func getClusterID(client discovery.Client) (string, error) {
 	return client.Get(clusterIDKey)
 }
 
-func getKubeClient(env *appEnv) (*kube.Client, error) {
-	kubeClient, err := kube.NewInCluster()
+func getKubeClient(env *appEnv) (*kube.Clientset, error) {
+	cfg, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
+	}
+	kubeClient, err := kube.NewForConfig(cfg)
 	if err != nil {
 		log.Errorf("falling back to insecure kube client due to error from NewInCluster: %s", grpcutil.ScrubGRPC(err))
 	} else {
 		return kubeClient, err
 	}
-	config := &kube_client.Config{
-		Host:     fmt.Sprintf("%s:443", env.KubeAddress),
-		Insecure: true,
+	config := &rest.Config{
+		Host: fmt.Sprintf("%s:443", env.KubeAddress),
+		TLSClientConfig: rest.TLSClientConfig{
+			Insecure: true,
+		},
 	}
-	return kube.New(config)
+	return kube.NewForConfig(config)
 }
 
 // getNamespace returns the kubernetes namespace that this pachd pod runs in
@@ -406,5 +412,5 @@ func getNamespace() string {
 	if namespace != "" {
 		return namespace
 	}
-	return api.NamespaceDefault
+	return v1.NamespaceDefault
 }

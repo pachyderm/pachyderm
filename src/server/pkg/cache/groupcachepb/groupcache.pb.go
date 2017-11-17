@@ -17,13 +17,10 @@ import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
-import github_com_golang_protobuf_proto "github.com/golang/protobuf/proto"
-import encoding_binary "encoding/binary"
+import binary "encoding/binary"
 
 import io "io"
 
@@ -181,7 +178,7 @@ func (m *GetRequest) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.Group == nil {
-		return 0, new(github_com_golang_protobuf_proto.RequiredNotSetError)
+		return 0, new(proto.RequiredNotSetError)
 	} else {
 		dAtA[i] = 0xa
 		i++
@@ -189,7 +186,7 @@ func (m *GetRequest) MarshalTo(dAtA []byte) (int, error) {
 		i += copy(dAtA[i:], *m.Group)
 	}
 	if m.Key == nil {
-		return 0, new(github_com_golang_protobuf_proto.RequiredNotSetError)
+		return 0, new(proto.RequiredNotSetError)
 	} else {
 		dAtA[i] = 0x12
 		i++
@@ -226,7 +223,7 @@ func (m *GetResponse) MarshalTo(dAtA []byte) (int, error) {
 	if m.MinuteQps != nil {
 		dAtA[i] = 0x11
 		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(*m.MinuteQps))))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(*m.MinuteQps))))
 		i += 8
 	}
 	if m.XXX_unrecognized != nil {
@@ -399,10 +396,10 @@ func (m *GetRequest) Unmarshal(dAtA []byte) error {
 		}
 	}
 	if hasFields[0]&uint64(0x00000001) == 0 {
-		return new(github_com_golang_protobuf_proto.RequiredNotSetError)
+		return new(proto.RequiredNotSetError)
 	}
 	if hasFields[0]&uint64(0x00000002) == 0 {
-		return new(github_com_golang_protobuf_proto.RequiredNotSetError)
+		return new(proto.RequiredNotSetError)
 	}
 
 	if iNdEx > l {
@@ -478,7 +475,7 @@ func (m *GetResponse) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			v2 := float64(math.Float64frombits(v))
 			m.MinuteQps = &v2
