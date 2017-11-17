@@ -2534,26 +2534,16 @@ func TestFlushOpenCommit(t *testing.T) {
 
 	client := getClient(t)
 	require.NoError(t, client.CreateRepo("A"))
-	_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
-		Repo:       pclient.NewRepo("B"),
-		Provenance: []*pfs.Repo{pclient.NewRepo("A")},
-	})
-	ACommit, err := client.StartCommit("A", "")
+	require.NoError(t, client.CreateRepo("B"))
+	require.NoError(t, client.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
+	ACommit, err := client.StartCommit("A", "master")
 	require.NoError(t, err)
 
 	// do the other commits in a goro so we can block for them
 	go func() {
 		time.Sleep(5 * time.Second)
-		require.NoError(t, client.FinishCommit("A", ACommit.ID))
-		BCommit, err := client.PfsAPIClient.StartCommit(
-			context.Background(),
-			&pfs.StartCommitRequest{
-				Parent:     pclient.NewCommit("B", ""),
-				Provenance: []*pfs.Commit{ACommit},
-			},
-		)
-		require.NoError(t, err)
-		require.NoError(t, client.FinishCommit("B", BCommit.ID))
+		require.NoError(t, client.FinishCommit("A", "master"))
+		require.NoError(t, client.FinishCommit("B", "master"))
 	}()
 
 	// Flush ACommit
