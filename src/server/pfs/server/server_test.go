@@ -2447,7 +2447,6 @@ func TestFlush(t *testing.T) {
 // TestFlush2 implements the following DAG:
 // A -> B -> C -> D
 func TestFlush2(t *testing.T) {
-
 	client := getClient(t)
 	require.NoError(t, client.CreateRepo("A"))
 	require.NoError(t, client.CreateRepo("B"))
@@ -2490,7 +2489,6 @@ func TestFlush2(t *testing.T) {
 //  /
 // B
 func TestFlush3(t *testing.T) {
-
 	client := getClient(t)
 	require.NoError(t, client.CreateRepo("A"))
 	require.NoError(t, client.CreateRepo("B"))
@@ -2522,7 +2520,6 @@ func TestFlush3(t *testing.T) {
 }
 
 func TestFlushCommitWithNoDownstreamRepos(t *testing.T) {
-
 	c := getClient(t)
 	repo := "test"
 	require.NoError(t, c.CreateRepo(repo))
@@ -3110,6 +3107,12 @@ func TestBackfillBranch(t *testing.T) {
 	require.NoError(t, c.FinishCommit("B", "master"))
 	require.NoError(t, c.FinishCommit("C", "master"))
 	commits, err := c.ListCommitByRepo("C")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commits))
+
+	// Create a branch in D, it should receive commits similar to what C/master received.
+	require.NoError(t, c.CreateBranch("D", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master"), pclient.NewBranch("B", "master")}))
+	commits, err = c.ListCommitByRepo("D")
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commits))
 }
