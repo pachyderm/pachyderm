@@ -239,7 +239,7 @@ delete-all-launch-bench:
 bench: clean-launch-bench build-bench-images push-bench-images launch-bench run-bench clean-launch-bench
 
 launch-kube: check-kubectl
-	etc/kube/start-kube-docker.sh
+	etc/kube/start-minikube.sh
 
 clean-launch-kube:
 	docker kill $$(docker ps -q)
