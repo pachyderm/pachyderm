@@ -25,7 +25,6 @@ func GetRequestsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*v1.Re
 
 func getResourceListFromSpec(resources *pps.ResourceSpec, cacheSize string) (*v1.ResourceList, error) {
 	var result v1.ResourceList = make(map[v1.ResourceName]resource.Quantity)
-	resources, cacheSize := pipelineInfo.ResourceSpec, pipelineInfo.CacheSize
 	cpuStr := fmt.Sprintf("%f", resources.Cpu)
 	cpuQuantity, err := resource.ParseQuantity(cpuStr)
 	if err != nil {
