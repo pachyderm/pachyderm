@@ -1234,6 +1234,18 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 			}
 		}
 	}
+	if pipelineInfo.JobTimeout != "" {
+		_, err := time.ParseDuration(pipelineInfo.JobTimeout)
+		if err != nil {
+			return err
+		}
+	}
+	if pipelineInfo.DatumTimeout != "" {
+		_, err := time.ParseDuration(pipelineInfo.DatumTimeout)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
