@@ -2484,6 +2484,11 @@ func TestFlush2(t *testing.T) {
 	require.Equal(t, 2, len(commitInfos))
 }
 
+// A
+//  \
+//   C
+//  /
+// B
 func TestFlush3(t *testing.T) {
 
 	client := getClient(t)
@@ -2496,6 +2501,7 @@ func TestFlush3(t *testing.T) {
 	ACommit, err := client.StartCommit("A", "master")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit("A", ACommit.ID))
+	require.NoError(t, client.FinishCommit("C", "master"))
 	BCommit, err := client.StartCommit("B", "master")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit("B", BCommit.ID))
