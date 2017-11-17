@@ -6190,12 +6190,6 @@ func waitForReadiness(t testing.TB) {
 	k := getKubeClient(t)
 	deployment := pachdDeployment(t)
 	for {
-		// This code is taken from
-		// k8s.io/kubernetes/pkg/client/unversioned.ControllerHasDesiredReplicas
-		// It used to call that fun ction but an update to the k8s library
-		// broke it due to a type error.  We should see if we can go back to
-		// using that code but I(jdoliner) couldn't figure out how to fanagle
-		// the types into compiling.
 		newDeployment, err := k.Apps().Deployments(v1.NamespaceDefault).Get(deployment.Name, metav1.GetOptions{})
 		require.NoError(t, err)
 		if newDeployment.Status.ObservedGeneration >= deployment.Generation && newDeployment.Status.Replicas == *newDeployment.Spec.Replicas {
@@ -6284,8 +6278,11 @@ func scalePachdRandom(t testing.TB, up bool) {
 // scalePachdN scales the number of pachd nodes to N
 func scalePachdN(t testing.TB, n int) {
 	k := getKubeClient(t)
+	// Modify the type metadata of the Deployment spec we read from k8s, so that
+	// k8s will accept it if we're talking to a 1.7 cluster
 	pachdDeployment := pachdDeployment(t)
 	*pachdDeployment.Spec.Replicas = int32(n)
+	pachdDeployment.TypeMeta.APIVersion = "apps/v1beta1"
 	_, err := k.Apps().Deployments(v1.NamespaceDefault).Update(pachdDeployment)
 	require.NoError(t, err)
 	waitForReadiness(t)
