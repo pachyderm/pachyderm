@@ -6312,7 +6312,7 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	//defer require.NoError(t, c.DeleteAll())
+	defer require.NoError(t, c.DeleteAll())
 
 	dataRepo := uniqueString("TestPipelineWithDatumTimeout_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -6344,7 +6344,7 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 0, len(commitInfos))
+	require.Equal(t, 1, len(commitInfos))
 
 	// Without this sleep, I get no results from list-job
 	// See issue: https://github.com/pachyderm/pachyderm/issues/2181
@@ -6353,8 +6353,9 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 	// Block on the job being complete before we call ListDatum
-	_, err = c.InspectJob(jobs[0].Job.ID, true)
+	jobInfo, err := c.InspectJob(jobs[0].Job.ID, true)
 	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {

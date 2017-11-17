@@ -431,7 +431,7 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 }
 
 // Run user code and return the combined output of stdout and stderr.
-func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string, stats *pps.ProcessStats) (retErr error) {
+func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string, stats *pps.ProcessStats, rawTimeout string) (retErr error) {
 	defer func(start time.Time) {
 		stats.ProcessTime = types.DurationProto(time.Since(start))
 	}(time.Now())
@@ -439,6 +439,14 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	defer func(start time.Time) {
 		logger.Logf("finished running user code - took (%v) - with error (%v)", time.Since(start), retErr)
 	}(time.Now())
+	if rawTimeout != "" {
+		timeout, err := time.ParseDuration(rawTimeout)
+		if err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
 	// Run user code
 	cmd := exec.CommandContext(ctx, a.pipelineInfo.Transform.Cmd[0], a.pipelineInfo.Transform.Cmd[1:]...)
 	cmd.Stdin = strings.NewReader(strings.Join(a.pipelineInfo.Transform.Stdin, "\n") + "\n")
@@ -452,7 +460,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 		},
 	}
 	cmd.Dir = a.workingDir
-	err := cmd.Run()
+	err = cmd.Run()
 
 	// Return result
 	if err == nil {
@@ -1112,7 +1120,7 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 					}
 				}()
 				// todo: use jobinfo's timeout to set a deadline on the context here
-				if err := a.runUserCode(ctx, logger, env, subStats); err != nil {
+				if err := a.runUserCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
 					return err
 				}
 				// CleanUp is idempotent so we can call it however many times we want.
