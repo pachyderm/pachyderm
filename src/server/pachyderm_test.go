@@ -3373,9 +3373,10 @@ func TestPipelineResourceLimit(t *testing.T) {
 	rcName := ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := getKubeClient(t)
 	err = backoff.Retry(func() error {
-		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(api.ListOptions{
-			LabelSelector: labels.SelectorFromSet(
-				map[string]string{"app": rcName}),
+		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(metav1.ListOptions{
+			LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
+				map[string]string{"app": rcName, "suite": "pachyderm"},
+			)),
 		})
 		if err != nil {
 			return err // retry
@@ -3388,13 +3389,13 @@ func TestPipelineResourceLimit(t *testing.T) {
 	}, backoff.NewTestingBackOff())
 	require.NoError(t, err)
 	// Make sure a CPU and Memory request are both set
-	cpu, ok := container.Resources.Limits[api.ResourceCPU]
+	cpu, ok := container.Resources.Limits[v1.ResourceCPU]
 	require.True(t, ok)
 	require.Equal(t, "500m", cpu.String())
-	mem, ok := container.Resources.Limits[api.ResourceMemory]
+	mem, ok := container.Resources.Limits[v1.ResourceMemory]
 	require.True(t, ok)
 	require.Equal(t, "100M", mem.String())
-	_, ok = container.Resources.Requests[api.ResourceNvidiaGPU]
+	_, ok = container.Resources.Requests[v1.ResourceNvidiaGPU]
 	require.False(t, ok)
 }
 
@@ -3435,13 +3436,14 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 	pipelineInfo, err := c.InspectPipeline(pipelineName)
 	require.NoError(t, err)
 
-	var container api.Container
+	var container v1.Container
 	rcName := ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := getKubeClient(t)
 	err = backoff.Retry(func() error {
-		podList, err := kubeClient.Pods(api.NamespaceDefault).List(api.ListOptions{
-			LabelSelector: labels.SelectorFromSet(
-				map[string]string{"app": rcName}),
+		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(metav1.ListOptions{
+			LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
+				map[string]string{"app": rcName, "suite": "pachyderm"},
+			)),
 		})
 		if err != nil {
 			return err // retry
@@ -3453,7 +3455,7 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 		return nil // no more retries
 	}, backoff.NewTestingBackOff())
 	require.NoError(t, err)
-	_, ok := container.Resources.Requests[api.ResourceNvidiaGPU]
+	_, ok := container.Resources.Requests[v1.ResourceNvidiaGPU]
 	require.False(t, ok)
 }
 
@@ -6363,7 +6365,7 @@ func getKubeClient(t testing.TB) *kube.Clientset {
 			// Generate config
 			config = &rest.Config{
 				Host: address,
-				TLSClientConfig: kube_client.TLSClientConfig{
+				TLSClientConfig: rest.TLSClientConfig{
 					CertFile: clientCert,
 					KeyFile:  clientKey,
 					CAFile:   CAKey,
@@ -6372,7 +6374,7 @@ func getKubeClient(t testing.TB) *kube.Clientset {
 		} else {
 			// no context -- talking to localhost
 			config = &rest.Config{
-				Host:     "http://0.0.0.0:8080",
+				Host: "http://0.0.0.0:8080",
 				TLSClientConfig: rest.TLSClientConfig{
 					Insecure: false,
 				},
