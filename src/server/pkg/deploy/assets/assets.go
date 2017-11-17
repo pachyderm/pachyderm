@@ -13,7 +13,7 @@ import (
 	auth "github.com/pachyderm/pachyderm/src/server/auth/server"
 	pfs "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
-	apps "k8s.io/api/apps/v1beta2"
+	apps "k8s.io/api/apps/v1beta1"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -278,7 +278,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 	return &apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
-			APIVersion: "apps/v1beta2",
+			APIVersion: "apps/v1beta1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   pachdName,
@@ -492,7 +492,7 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 	return &apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
-			APIVersion: "apps/v1beta2",
+			APIVersion: "apps/v1beta1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   etcdName,
@@ -884,7 +884,7 @@ func DashDeployment(opts *AssetOpts) *apps.Deployment {
 	return &apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
-			APIVersion: "apps/v1beta2",
+			APIVersion: "apps/v1beta1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   dashName,
