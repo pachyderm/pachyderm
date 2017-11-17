@@ -72,7 +72,6 @@ $git commit -a -m "Update dash compatibility for pachctl 1.6.4"
  create mode 100644 etc/compatibility/1.6.4
 ```
 
-
 ### If the release failed
 You'll need to do two things: remove the relevant tags in GitHub, and re-build the docs in ReadTheDocs
 
@@ -95,6 +94,18 @@ You'll need to do two things: remove the relevant tags in GitHub, and re-build t
   * Repeat the release process until you're happy with the tagged release in GitHub.
   * Navigate to the [Builds](https://readthedocs.org/projects/pachyderm/builds/) page in ReadTheDocs, select the version corresponding to this release next to the "Build Version" button, and then click "Build Version".
   * Check the updated ReadTheDocs page for the release, and make the docs (particularly the download link under "Local Installation") are correct.
+
+## Rolling back a release
+If a release has a problem and needs to be withdrawn, the steps in rolling back a release are similar to the steps under "If the release failed". In general, you'll need to:
+- Delete the tag and GitHub Release for both the bad release *and the most recent good release*
+- Re-release the previous version (to update homebrew)
+
+All of these can be accomplished by:
+- Following the steps under "If the release failed" for deleting the tag and GitHub release for both the bad release
+- Checking out the git commit associated with the most recent good release (`git checkout tags/v<good release>`). Save this commit SHA (`git rev-list tags/v<good> --max-count=1`), in case you need it later, as we'll be deleting the tag.
+- Delete the tag and GitHub release for the last good release (the one you just checked out)
+- Syncing your local Git tags with the set of tags on Github (either re-clone the Pachyderm repo, or run `git tag -l | xargs git tag -d; git fetch origin master --tags`). This prevents the release process from failing with `tag already exists`.
+- Run `make point-release` (or follow the release process for custom releases)
 
 ## Custom Release
 
