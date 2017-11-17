@@ -3079,6 +3079,35 @@ func TestPropagateCommit(t *testing.T) {
 	require.Equal(t, 1, len(commits))
 }
 
+// TestBackfillBranch implements the following DAG:
+//
+// A---->C
+//  \   ^
+//   \ /
+//    X
+//   / \
+//  /   v
+// B---->D
+func TestBackfillBranch(t *testing.T) {
+	c := getClient(t)
+	require.NoError(t, c.CreateRepo("A"))
+	require.NoError(t, c.CreateRepo("B"))
+	require.NoError(t, c.CreateRepo("C"))
+	require.NoError(t, c.CreateRepo("D"))
+	require.NoError(t, c.CreateBranch("C", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master"), pclient.NewBranch("B", "master")}))
+	_, err := c.StartCommit("A", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("A", "master"))
+	require.NoError(t, c.FinishCommit("C", "master"))
+	_, err = c.StartCommit("B", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("B", "master"))
+	require.NoError(t, c.FinishCommit("C", "master"))
+	commits, err := c.ListCommitByRepo("C")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commits))
+}
+
 func uniqueString(prefix string) string {
 	return prefix + "-" + uuid.NewWithoutDashes()[0:12]
 }
