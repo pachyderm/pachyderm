@@ -804,9 +804,9 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 		}
 	}
 	sort.Slice(branchInfos, func(i, j int) bool { return len(branchInfos[i].Provenance) < len(branchInfos[j].Provenance) })
+	// branchToCommit contains the commit we're using for each branch
 	branchToCommit := make(map[string]*pfs.Commit)
 	branchToCommit[branchKey(branch)] = commit
-DownstreamBranches:
 	for _, branchInfo := range branchInfos {
 		branch := branchInfo.Branch
 		repo := branch.Repo
@@ -831,10 +831,9 @@ DownstreamBranches:
 				}
 				branchToCommit[branchKey(branch)] = branchInfo.Head
 			}
-			if branchToCommit[branchKey(branch)] == nil {
-				continue DownstreamBranches
+			if branchToCommit[branchKey(branch)] != nil {
+				provenance = append(provenance, branchToCommit[branchKey(branch)])
 			}
-			provenance = append(provenance, branchToCommit[branchKey(branch)])
 		}
 		commitInfo := &pfs.CommitInfo{
 			Commit:     commit,
