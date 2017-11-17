@@ -79,10 +79,8 @@ import google_protobuf2 "github.com/gogo/protobuf/types"
 import _ "github.com/gogo/protobuf/gogoproto"
 import auth "github.com/pachyderm/pachyderm/src/client/auth"
 
-import (
-	context "golang.org/x/net/context"
-	grpc "google.golang.org/grpc"
-)
+import context "golang.org/x/net/context"
+import grpc "google.golang.org/grpc"
 
 import io "io"
 
