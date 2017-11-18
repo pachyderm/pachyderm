@@ -6358,6 +6358,58 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 }
 
+func TestPipelineWithDatumTimeoutControl(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	dataRepo := uniqueString("TestPipelineWithDatumTimeout_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "file",
+		strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+	timeout := 20
+	pipeline := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("sleep %v", timeout-10),
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		nil,
+		client.NewAtomInput(dataRepo, "/*"),
+		"",
+		false,
+		fmt.Sprintf("%vs", timeout),
+		"",
+	))
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	// Without this sleep, I get no results from list-job
+	// See issue: https://github.com/pachyderm/pachyderm/issues/2181
+	time.Sleep(15 * time.Second)
+	jobs, err := c.ListJob(pipeline, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+	// Block on the job being complete before we call ListDatum
+	jobInfo, err := c.InspectJob(jobs[0].Job.ID, true)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+}
+
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
 	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
 	require.NoError(t, err)

@@ -372,6 +372,8 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			PipelineVersion: request.PipelineVersion,
 			Batch:           request.Batch,
 			ChunkSpec:       request.ChunkSpec,
+			DatumTimeout:    request.DatumTimeout,
+			JobTimeout:      request.JobTimeout,
 		}
 		if request.Pipeline != nil {
 			pipelineInfo := new(pps.PipelineInfo)
@@ -1394,6 +1396,8 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		MaxQueueSize:       request.MaxQueueSize,
 		Service:            request.Service,
 		ChunkSpec:          request.ChunkSpec,
+		DatumTimeout:       request.DatumTimeout,
+		JobTimeout:         request.JobTimeout,
 	}
 	setPipelineDefaults(pipelineInfo)
 	if err := a.validatePipeline(ctx, pipelineInfo); err != nil {
