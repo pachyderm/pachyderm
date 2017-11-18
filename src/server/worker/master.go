@@ -354,6 +354,8 @@ nextInput:
 			Batch:           a.pipelineInfo.Batch,
 			Service:         a.pipelineInfo.Service,
 			ChunkSpec:       a.pipelineInfo.ChunkSpec,
+			DatumTimeout:    a.pipelineInfo.DatumTimeout,
+			JobTimeout:      a.pipelineInfo.JobTimeout,
 		})
 		if err != nil {
 			return err
@@ -437,6 +439,8 @@ nextInput:
 				Batch:           a.pipelineInfo.Batch,
 				Service:         a.pipelineInfo.Service,
 				ChunkSpec:       a.pipelineInfo.ChunkSpec,
+				DatumTimeout:    a.pipelineInfo.DatumTimeout,
+				JobTimeout:      a.pipelineInfo.JobTimeout,
 			})
 			if err != nil {
 				return err

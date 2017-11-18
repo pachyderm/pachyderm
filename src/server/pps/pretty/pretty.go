@@ -135,6 +135,8 @@ Data Uploaded: {{prettySize .Stats.UploadBytes}}
 Download Time: {{prettyDuration .Stats.DownloadTime}}
 Process Time: {{prettyDuration .Stats.ProcessTime}}
 Upload Time: {{prettyDuration .Stats.UploadTime}}
+Datum Timeout: {{.DatumTimeout}}
+Job Timeout: {{.JobTimeout}}
 Worker Status:
 {{workerStatus .}}Restarts: {{.Restart}}
 ParallelismSpec: {{.ParallelismSpec}}
@@ -173,6 +175,8 @@ Parallelism Spec: {{.ParallelismSpec}}
 {{ if .ResourceSpec }}ResourceSpec:
 	CPU: {{ .ResourceSpec.Cpu }}
 	Memory: {{ .ResourceSpec.Memory }} {{end}}
+Datum Timeout: {{.DatumTimeout}}
+Job Timeout: {{.JobTimeout}}
 Input:
 {{pipelineInput .}}
 Output Branch: {{.OutputBranch}}

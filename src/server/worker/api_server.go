@@ -439,14 +439,36 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	defer func(start time.Time) {
 		logger.Logf("finished running user code - took (%v) - with error (%v)", time.Since(start), retErr)
 	}(time.Now())
-	if rawTimeout != "" {
-		timeout, err := time.ParseDuration(rawTimeout)
-		if err != nil {
-			return err
-		}
-		ctx, cancel := context.WithTimeout(ctx, timeout)
-		defer cancel()
+	fmt.Printf("rawTimeout (%v)\n", rawTimeout)
+	/*
+		if rawTimeout != "" {
+			timeout, err := time.ParseDuration(rawTimeout)
+			if err != nil {
+				return err
+			}
+			ctx, cancel := context.WithTimeout(ctx, timeout)
+			defer cancel()
+			defer func() {
+				select {
+				case <-ctx.Done():
+					//check for error/log if cancelled from timeout
+					if err := ctx.Err(); err != nil {
+						fmt.Printf("got error running datum %v\n", err)
+						if err == context.DeadlineExceeded {
+							fmt.Printf("its a deadline exceeded error\n")
+						}
+						retErr = err
+					}
+				default:
+				}
+			}()
+		}*/
+	timeout, err := time.ParseDuration("20s")
+	if err != nil {
+		return err
 	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	// Run user code
 	cmd := exec.CommandContext(ctx, a.pipelineInfo.Transform.Cmd[0], a.pipelineInfo.Transform.Cmd[1:]...)
 	cmd.Stdin = strings.NewReader(strings.Join(a.pipelineInfo.Transform.Stdin, "\n") + "\n")
@@ -460,7 +482,33 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 		},
 	}
 	cmd.Dir = a.workingDir
-	err = cmd.Run()
+	/*err := cmd.Run()
+	if err != nil {
+	return err
+	}
+	*/
+	err = cmd.Start()
+	if err != nil {
+		return err
+	}
+	cmdErr := make(chan error, 1)
+	go func() {
+		cmdErr <- cmd.Wait()
+	}()
+	select {
+	case <-ctx.Done():
+		if err = ctx.Err(); err != nil {
+			fmt.Printf("ctx erred: %v\n", err)
+			if err == context.DeadlineExceeded {
+				fmt.Printf("deadline exceeded ... calling cancel")
+			}
+			return err
+		}
+	case err := <-cmdErr:
+		if err != nil {
+			return err
+		}
+	}
 
 	// Return result
 	if err == nil {
