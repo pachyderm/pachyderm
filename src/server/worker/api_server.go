@@ -463,11 +463,6 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 		},
 	}
 	cmd.Dir = a.workingDir
-	/*err := cmd.Run()
-	if err != nil {
-	return err
-	}
-	*/
 	err := cmd.Start()
 	if err != nil {
 		return err
