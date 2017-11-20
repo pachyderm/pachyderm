@@ -438,7 +438,7 @@ finished.
 Examples:
 
 ` + codestart + `# subscribe to commits in repo "test" on branch "master"
-$ pachctl susbcribe-commit test master
+$ pachctl subscribe-commit test master
 
 # subscribe to commits in repo "test" on branch "master", but only since commit XXX.
 $ pachctl subscribe-commit test master --from XXX

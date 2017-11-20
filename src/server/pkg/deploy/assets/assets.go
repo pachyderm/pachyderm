@@ -642,7 +642,7 @@ func EtcdVolume(persistentDiskBackend backend, opts *AssetOpts,
 // EtcdVolumeClaim creates a persistent volume claim of 'size' GB.
 //
 // Note that if you're controlling Etcd with a Stateful Set, this is
-// unneccessary (the stateful set controller will create PVCs automatically).
+// unnecessary (the stateful set controller will create PVCs automatically).
 func EtcdVolumeClaim(size int) *v1.PersistentVolumeClaim {
 	return &v1.PersistentVolumeClaim{
 		TypeMeta: metav1.TypeMeta{
