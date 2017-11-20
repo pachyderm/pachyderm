@@ -498,8 +498,7 @@ vet:
 	@etc/testing/vet.sh
 
 spellcheck:
-	sudo npm update -g markdown-spellcheck
-	mdspell doc/*.md doc/**/*.md *.md --en-us --ignore-numbers --ignore-acronyms --report --no-suggestions
+	@mdspell doc/*.md doc/**/*.md *.md --en-us --ignore-numbers --ignore-acronyms --report --no-suggestions
 
 goxc-generate-local:
 	@if [ -z $$GITHUB_OAUTH_TOKEN ]; then \
