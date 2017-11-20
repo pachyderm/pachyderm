@@ -3110,11 +3110,11 @@ func TestBackfillBranch(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commits))
 
-	// Create a branch in D, it should receive commits similar to what C/master received.
+	// Create a branch in D, it should receive a single commit for the heads of `A` and `B`.
 	require.NoError(t, c.CreateBranch("D", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master"), pclient.NewBranch("B", "master")}))
 	commits, err = c.ListCommitByRepo("D")
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commits))
+	require.Equal(t, 1, len(commits))
 }
 
 func uniqueString(prefix string) string {
