@@ -17,7 +17,8 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/montanaflynn/stats"
 	"golang.org/x/sync/errgroup"
-	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
@@ -738,23 +739,6 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 
 		var statsCommit *pfs.Commit
 		if jobInfo.EnableStats {
-			// if err := func() error {
-			// 	aggregateProcessStats, err := a.aggregateProcessStats(processStats)
-			// 	if err != nil {
-			// 		return err
-			// 	}
-			// 	marshalled, err := (&jsonpb.Marshaler{}).MarshalToString(aggregateProcessStats)
-			// 	if err != nil {
-			// 		return err
-			// 	}
-			// 	aggregateObject, _, err := a.pachClient.WithCtx(ctx).PutObject(strings.NewReader(marshalled))
-			// 	if err != nil {
-			// 		return err
-			// 	}
-			// 	return statsTree.PutFile("/stats", []*pfs.Object{aggregateObject}, int64(len(marshalled)))
-			// }(); err != nil {
-			// 	logger.Logf("error aggregating stats")
-			// }
 			statsObject, err := a.putTree(ctx, statsTree)
 			if err != nil {
 				return err
@@ -1006,26 +990,29 @@ func (a *APIServer) putTree(ctx context.Context, tree hashtree.OpenHashTree) (*p
 }
 
 func (a *APIServer) scaleDownWorkers() error {
-	rc := a.kubeClient.ReplicationControllers(a.namespace)
-	workerRc, err := rc.Get(ppsserver.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version))
+	rc := a.kubeClient.CoreV1().ReplicationControllers(a.namespace)
+	workerRc, err := rc.Get(
+		ppsserver.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version),
+		metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
-	workerRc.Spec.Replicas = 1
+	*workerRc.Spec.Replicas = 1
 	// When we scale down the workers, we also remove the resource
 	// requirements so that the remaining master pod does not take up
 	// the resource it doesn't need, since by definition when a pipeline
 	// is in scale-down mode, it doesn't process any work.
-	if a.pipelineInfo.ResourceSpec != nil {
-		workerRc.Spec.Template.Spec.Containers[0].Resources = api.ResourceRequirements{}
+	if a.pipelineInfo.ResourceRequests != nil {
+		workerRc.Spec.Template.Spec.Containers[0].Resources = v1.ResourceRequirements{}
 	}
 	_, err = rc.Update(workerRc)
 	return err
 }
 
 func (a *APIServer) scaleUpWorkers(logger *taggedLogger) error {
-	rc := a.kubeClient.ReplicationControllers(a.namespace)
-	workerRc, err := rc.Get(ppsserver.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version))
+	rc := a.kubeClient.CoreV1().ReplicationControllers(a.namespace)
+	workerRc, err := rc.Get(ppsserver.PipelineRcName(
+		a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version), metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -1034,19 +1021,24 @@ func (a *APIServer) scaleUpWorkers(logger *taggedLogger) error {
 		logger.Logf("error getting number of workers, default to 1 worker: %v", err)
 		parallelism = 1
 	}
-	if workerRc.Spec.Replicas != int32(parallelism) {
-		workerRc.Spec.Replicas = int32(parallelism)
+	if *workerRc.Spec.Replicas != int32(parallelism) {
+		*workerRc.Spec.Replicas = int32(parallelism)
 	}
 	// Reset the resource requirements for the RC since the pipeline
 	// is in scale-down mode and probably has removed its resource
 	// requirements.
-	if a.pipelineInfo.ResourceSpec != nil {
-		resourceList, err := util.GetResourceListFromPipeline(a.pipelineInfo)
+	if a.pipelineInfo.ResourceRequests != nil {
+		requestsResourceList, err := util.GetRequestsResourceListFromPipeline(a.pipelineInfo)
 		if err != nil {
 			return fmt.Errorf("error parsing resource spec; this is likely a bug: %v", err)
 		}
-		workerRc.Spec.Template.Spec.Containers[0].Resources = api.ResourceRequirements{
-			Requests: *resourceList,
+		limitsResourceList, err := util.GetRequestsResourceListFromPipeline(a.pipelineInfo)
+		if err != nil {
+			return fmt.Errorf("error parsing resource spec; this is likely a bug: %v", err)
+		}
+		workerRc.Spec.Template.Spec.Containers[0].Resources = v1.ResourceRequirements{
+			Requests: *requestsResourceList,
+			Limits:   *limitsResourceList,
 		}
 	}
 	_, err = rc.Update(workerRc)

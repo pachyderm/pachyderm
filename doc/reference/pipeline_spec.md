@@ -28,12 +28,16 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   },
   "parallelism_spec": {
     // Set at most one of the following:
-    "constant": int
+    "constant": int,
     "coefficient": double
   },
-  "resource_spec": {
-    "memory": string
+  "resource_requests": {
+    "memory": string,
     "cpu": double
+  },
+  "resource_limits": {
+    "memory": string,
+    "cpu": double,
     "gpu": double
   },
   "input": {
@@ -197,9 +201,9 @@ will start five workers. If you set it to 2.0, Pachyderm will start 20 workers
 By default, we use the parallelism spec "coefficient=1", which means that
 we spawn one worker per node for this pipeline.
 
-### Resource Spec (optional)
+### Resource Requests (optional)
 
-`resource_spec` describes the amount of resources you expect the
+`resource_requests` describes the amount of resources you expect the
 workers for a given pipeline to consume. Knowing this in advance
 lets us schedule big jobs on separate machines, so that they don't
 conflict and either slow down or die.
@@ -210,7 +214,7 @@ example, a worker that needs to read a 1GB file into memory might set
 `"memory": "1.2G"` (with a little extra for the code to use in addition to the
 file. Workers for this pipeline will only be placed on machines with at least
 1.2GB of free memory, and other large workers will be prevented from using it
-(if they also set their `resource_spec`).
+(if they also set their `resource_requests`).
 
 The `cpu` field is a double that describes the amount of CPU time (in (cpu
 seconds)/(real seconds) each worker needs. Setting `"cpu": 0.5` indicates that
@@ -233,6 +237,11 @@ By default, workers are scheduled with an effective resource request of 0 (to
 avoid scheduling problems that prevent users from being unable to run
 pipelines).  This means that if a node runs out of memory, any such worker
 might be killed.
+
+### Resource Limits (optional)
+
+`resource_limits` describes the upper threshold of allowed resources a given 
+worker can consume. If a worker exceeds this value, it will be evicted.
 
 ### Input (required)
 

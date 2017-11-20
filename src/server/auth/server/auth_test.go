@@ -212,7 +212,7 @@ func TestActivate(t *testing.T) {
 	require.NoError(t, err)
 	c.SetAuthToken(resp.PachToken)
 
-	// Check that the token 'c' recieved from PachD authenticates them as "admin"
+	// Check that the token 'c' received from PachD authenticates them as "admin"
 	who, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.True(t, who.IsAdmin)
@@ -1304,7 +1304,7 @@ func TestListRepoNotLoggedInError(t *testing.T) {
 	require.NoError(t, ElementsEqual(
 		entries(alice, "owner"), GetACL(t, aliceClient, repoWriter)))
 
-	// Anon (non-logged-in user) calls ListRepo, and must recieve an error
+	// Anon (non-logged-in user) calls ListRepo, and must receive an error
 	_, err := anonClient.PfsAPIClient.ListRepo(anonClient.Ctx(),
 		&pfs.ListRepoRequest{})
 	require.YesError(t, err)
