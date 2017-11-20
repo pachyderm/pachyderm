@@ -159,7 +159,7 @@ func NewPipelineInput(repoName string, glob string) *pps.PipelineInput {
 // not end in newline characters.
 // parallelism is how many copies of your container should run in parallel. You
 // may pass 0 for parallelism in which case PPS will set the parallelism based
-// on availabe resources.
+// on available resources.
 // input specifies a set of Commits that will be visible to the job during runtime.
 // parentJobID specifies the a job to use as a parent, it may be left empty in
 // which case there is no parent job. If not left empty your job will use the
@@ -414,7 +414,7 @@ func (c APIClient) GetLogs(
 // not end in newline characters.
 // parallelism is how many copies of your container should run in parallel. You
 // may pass 0 for parallelism in which case PPS will set the parallelism based
-// on availabe resources.
+// on available resources.
 // input specifies a set of Repos that will be visible to the jobs during runtime.
 // commits to these repos will cause the pipeline to create new jobs to process them.
 // update indicates that you want to update an existing pipeline
