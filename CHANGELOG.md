@@ -193,7 +193,7 @@ As a consequence of this change, a user can now fix a pipeline that has processe
 
 - A new way to specify how input data is partitioned.  Instead of using two flags `partition` and `incrementality`, we now use a single `glob` pattern.  See the [glob doc](http://pachyderm.readthedocs.io/en/stable/reference/pipeline_spec.html#input-glob-pattern) for details.
 
-- Flexible branch management.  In prior versions, branches are fixed, in that a commit always stays on the same branch, and a branch always refers to the same series of commits.  In 1.4, branches are modeled similar to Git's tags; they can be created, deleted, and renamed indepedently of commits.
+- Flexible branch management.  In prior versions, branches are fixed, in that a commit always stays on the same branch, and a branch always refers to the same series of commits.  In 1.4, branches are modeled similar to Git's tags; they can be created, deleted, and renamed independently of commits.
 
 - Simplified commit states.  In prior versions, commits can be in many states including `started`, `finished`, `cancelled`, and `archived`.  In particular, `cancelled` and `archived` have confusing semantics that routinely trip up users.  In 1.4, `cancelled` and `archived` have been removed.
 
@@ -240,7 +240,7 @@ Features:
 Features:
 
 - PFS has been rewritten to be more reliable and optimizeable
-- PFS now has a much simpler name scheme for commits (eg `master/10`)
+- PFS now has a much simpler name scheme for commits (e.g. `master/10`)
 - PFS now supports merging, there are 2 types of merge. Squash and Replay
 - Caching has been added to several of the higher cost parts of PFS
 - UpdatePipeline, which allows you to modify an existing pipeline
@@ -318,7 +318,7 @@ Bug fixes:
 - Starting a commit with a nonexistant parent now errors instead of silently failing
 - Previously pachd nodes would crash when deleting a watched repo
 - Jobs now get recreated if you delete and recreate a pipeline
-- Getting files from non existant commits gives a nicer error message
+- Getting files from non existent commits gives a nicer error message
 - RunPipeline would fail to create a new job if the pipeline had already run
 - FUSE no longer chokes if a commit is closed after the mount happened
 - GCE/AWS backends have been made a lot more reliable
