@@ -10,31 +10,34 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/resource"
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 )
 
-// GetResourceListFromPipeline returns a list of resources that the pipeline,
+// GetRequestsResourceListFromPipeline returns a list of resources that the pipeline,
 // minimally requires.
-func GetResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*api.ResourceList, error) {
-	var result api.ResourceList = make(map[api.ResourceName]resource.Quantity)
-	resources, cacheSize := pipelineInfo.ResourceSpec, pipelineInfo.CacheSize
+func GetRequestsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*v1.ResourceList, error) {
+	return getResourceListFromSpec(pipelineInfo.ResourceRequests, pipelineInfo.CacheSize)
+}
+
+func getResourceListFromSpec(resources *pps.ResourceSpec, cacheSize string) (*v1.ResourceList, error) {
+	var result v1.ResourceList = make(map[v1.ResourceName]resource.Quantity)
 	cpuStr := fmt.Sprintf("%f", resources.Cpu)
 	cpuQuantity, err := resource.ParseQuantity(cpuStr)
 	if err != nil {
 		log.Warnf("error parsing cpu string: %s: %+v", cpuStr, err)
 	} else {
-		result[api.ResourceCPU] = cpuQuantity
+		result[v1.ResourceCPU] = cpuQuantity
 	}
 
 	memQuantity, err := resource.ParseQuantity(resources.Memory)
 	if err != nil {
 		log.Warnf("error parsing memory string: %s: %+v", resources.Memory, err)
 	} else {
-		result[api.ResourceMemory] = memQuantity
+		result[v1.ResourceMemory] = memQuantity
 	}
 
 	// Here we are sanity checking.  A pipeline should request at least
@@ -43,17 +46,25 @@ func GetResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*api.ResourceL
 	if err != nil {
 		log.Warnf("error parsing cache string: %s: %+v", cacheSize, err)
 	} else if cacheQuantity.Cmp(memQuantity) > 0 {
-		result[api.ResourceMemory] = cacheQuantity
+		result[v1.ResourceMemory] = cacheQuantity
 	}
 
-	gpuStr := fmt.Sprintf("%d", resources.Gpu)
-	gpuQuantity, err := resource.ParseQuantity(gpuStr)
-	if err != nil {
-		log.Warnf("error parsing gpu string: %s: %+v", gpuStr, err)
-	} else {
-		result[api.ResourceNvidiaGPU] = gpuQuantity
+	if resources.Gpu != 0 {
+		gpuStr := fmt.Sprintf("%d", resources.Gpu)
+		gpuQuantity, err := resource.ParseQuantity(gpuStr)
+		if err != nil {
+			log.Warnf("error parsing gpu string: %s: %+v", gpuStr, err)
+		} else {
+			result[v1.ResourceNvidiaGPU] = gpuQuantity
+		}
 	}
 	return &result, nil
+}
+
+// GetLimitsResourceListFromPipeline returns a list of resources that the pipeline,
+// maximally is limited to.
+func GetLimitsResourceListFromPipeline(pipelineInfo *pps.PipelineInfo) (*v1.ResourceList, error) {
+	return getResourceListFromSpec(pipelineInfo.ResourceLimits, pipelineInfo.CacheSize)
 }
 
 // LookupUser is a reimplementation of user.Lookup that doesn't require cgo.

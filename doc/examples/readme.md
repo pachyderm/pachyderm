@@ -48,4 +48,10 @@ If you haven't seen pix2pix, check out [this great demo](https://affinelayer.com
 
 Based on [this Tensorflow example](https://www.tensorflow.org/tutorials/recurrent#recurrent-neural-networks), this pipeline generates a new Game of Thrones script using a model trained on existing Game of Thrones scripts.
 
-[Tensorflow - Recurrent Neural Network](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/ml/rnn)  
+[Tensorflow - Recurrent Neural Network](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/ml/rnn) 
+
+### Distributed Hyperparameter Tuning
+
+This example demonstrates how you can evaluate a model or function in a distributed manner on multiple sets of parameters.  In this particular case, we will evaluate many machine learning models, each configured uses different sets of parameters (aka hyperparameters), and we will output only the best performing model or models.
+
+[Hyperparameter Tuning](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/ml/hyperparameter)
