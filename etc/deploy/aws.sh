@@ -243,7 +243,7 @@ check_kops_version() {
   KOPS_VERSION="${KOPS_VERSION%-*}" # remove -alpha, -beta, etc
   if [[ "$( echo "${KOPS_VERSION#1.} >= 8.0" | bc )" -ne 1 ]]; then
     set +x
-    echo "Your kops version is too old--must have at least 1.7.1"
+    echo "Your kops version is too old--must have at least 1.8.0-beta.1"
     exit 1
   fi
 }
