@@ -21,3 +21,5 @@ curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.23.0/minik
     chmod +x ./minikube && \
     sudo mv ./minikube /usr/local/bin/minikube
 
+curl -sL https://deb.nodesource.com/setup_9.x | sudo -E bash -
+sudo apt-get install -y nodejs
