@@ -2,12 +2,13 @@ FROM ubuntu:14.04
 LABEL maintainer="jdoliner@pachyderm.io"
 
 RUN \
-  /bin/bash -c "$(wget -qO- https://git.io/vokNn)" && \
+  apt-get update -yq && \
+  apt-get install curl -yq --no-install-recommends && \
+  /bin/bash -c "$(curl -sL https://git.io/vokNn)" && \
   /usr/local/sbin/apt-fast install -yq --no-install-recommends \
     build-essential \
     ca-certificates \
     cmake \
-    curl \
     fuse \
     git \
     libssl-dev \
