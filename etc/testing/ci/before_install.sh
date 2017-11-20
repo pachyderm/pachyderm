@@ -23,3 +23,4 @@ curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.23.0/minik
 
 curl -sL https://deb.nodesource.com/setup_9.x | sudo -E bash -
 sudo apt-get install -y nodejs
+sudo npm install -g markdown-spellcheck

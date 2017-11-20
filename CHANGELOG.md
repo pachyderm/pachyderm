@@ -170,7 +170,7 @@
 * A pipeline that has multiple inputs might place data into the wrong `/pfs` directories.
 * `pachctl put-file --split` errors when splitting to a large number of files.
 * Pipeline names do not allow underscores.
-* `egress` does not work with a pipeline that outputs a large number of files. 
+* `egress` does not work with a pipeline that outputs a large number of files.
 * Deleting nonexistent files returns errors.
 * A job might try to process datums even if the job has been terminated.
 * A job doesn't exit after it has encountered a failure.
@@ -189,7 +189,7 @@ Features/improvements:
 
 As a consequence of this change, a user can now fix a pipeline that has processed erroneous data by simply making a new commit that fixes the said erroneous data, as opposed to having to create a new pipeline.
 
-- Vastly improved performance for metadata operations (e.g. list-file, inspect-file).  In prior versions, metadata operations on commits that are N levels deep are O(N) in runtime.  In 1.4, metadata operations are always O(1), regardless of the depth of the commit. 
+- Vastly improved performance for metadata operations (e.g. list-file, inspect-file).  In prior versions, metadata operations on commits that are N levels deep are O(N) in runtime.  In 1.4, metadata operations are always O(1), regardless of the depth of the commit.
 
 - A new way to specify how input data is partitioned.  Instead of using two flags `partition` and `incrementality`, we now use a single `glob` pattern.  See the [glob doc](http://pachyderm.readthedocs.io/en/stable/reference/pipeline_spec.html#input-glob-pattern) for details.
 
@@ -225,11 +225,11 @@ Features:
 - Put Files via Object Store URLs - You can now use “put-file” with s3://, gcs://, and as:// URLS.
 - Update your Pipeline code easily - You can now call “create-pipeline” or “update-pipeline” with the “--push-images” flag to re-run your pipeline on the same data with new images.
 - Support for all Docker images - It is no longer necessary to include anything Pachyderm specific in your custom Docker images, so use any Docker image you like (with a couple very small caveats discussed below).
-- Cloud Deployment with a single command for Amazon / Google / Microsoft / a local cluster - via `pachctl deploy ...` 
+- Cloud Deployment with a single command for Amazon / Google / Microsoft / a local cluster - via `pachctl deploy ...`
 - Migration support for all Pachyderm data from version `1.2.2` through latest `1.3.0`
 - High Availability upgrade to rethink, which is now deployed as a petset
 - Upgraded fault tolerance via a new PPS job subscription model
-- Removed redundancy in log messages, making logs substantially smaller 
+- Removed redundancy in log messages, making logs substantially smaller
 - Garbage collect completed jobs
 - Support for deleting a commit
 - Added user metrics (and an opt out mechanism) to anonymously track usage, so we can discover new bottlenecks
@@ -315,7 +315,7 @@ Bug fixes:
 - Failed jobs were being marked failed too early resulting in a race condition
 - Jobs could get stuck in running when they had failed
 - Pachd could panic due to membership changes
-- Starting a commit with a nonexistant parent now errors instead of silently failing
+- Starting a commit with a nonexistent parent now errors instead of silently failing
 - Previously pachd nodes would crash when deleting a watched repo
 - Jobs now get recreated if you delete and recreate a pipeline
 - Getting files from non existent commits gives a nicer error message
