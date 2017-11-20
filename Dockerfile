@@ -2,8 +2,9 @@ FROM ubuntu:14.04
 LABEL maintainer="jdoliner@pachyderm.io"
 
 RUN \
+  /bin/bash -c "$(wget -qO- https://git.io/vokNn)" && \
   apt-get update -yq && \
-  apt-get install -yq --no-install-recommends \
+  /usr/local/sbin/apt-fast install -yq --no-install-recommends \
     build-essential \
     ca-certificates \
     cmake \
