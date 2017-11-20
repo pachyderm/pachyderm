@@ -3,7 +3,6 @@ LABEL maintainer="jdoliner@pachyderm.io"
 
 RUN \
   /bin/bash -c "$(wget -qO- https://git.io/vokNn)" && \
-  apt-get update -yq && \
   /usr/local/sbin/apt-fast install -yq --no-install-recommends \
     build-essential \
     ca-certificates \
