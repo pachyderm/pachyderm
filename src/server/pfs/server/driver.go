@@ -1372,6 +1372,11 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 	if err := d.checkIsAuthorized(ctx, branch.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
+	if commit != nil && provenance != nil {
+		return fmt.Errorf("cannot specify a head commit and provenance for a" +
+			"branch, this is because specifying provenance causes pfs to" +
+			"automatically create commits on a branch")
+	}
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		// compute the transitive closure of our provenance
 		provMap := make(map[string]*pfs.Branch)
@@ -1397,16 +1402,55 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 			Head:   commit,
 			Name:   branch.Name,
 		}
-		for _, provBranch := range provMap {
-			branchInfo.Provenance = append(branchInfo.Provenance, provBranch)
-			provBranchInfo := &pfs.BranchInfo{}
-			// record the fact that we are subvenance for all of our provenant branches
-			if err := d.branches(provBranch.Repo.Name).ReadWrite(stm).Upsert(provBranch.Name, provBranchInfo, func() error {
-				provBranchInfo.Branch = provBranch
-				provBranchInfo.Subvenance = append(provBranchInfo.Subvenance, branch)
-				return nil
-			}); err != nil {
-				return err
+		if len(provMap) > 0 {
+			commitProvMap := make(map[string]*pfs.Commit)
+			// Update branches to have this new branch as subvenance
+			for _, provBranch := range provMap {
+				branchInfo.Provenance = append(branchInfo.Provenance, provBranch)
+				provBranchInfo := &pfs.BranchInfo{}
+				// record the fact that we are subvenance for all of our provenant branches
+				if err := d.branches(provBranch.Repo.Name).ReadWrite(stm).Upsert(provBranch.Name, provBranchInfo, func() error {
+					provBranchInfo.Branch = provBranch
+					provBranchInfo.Subvenance = append(provBranchInfo.Subvenance, branch)
+					return nil
+				}); err != nil {
+					return err
+				}
+				// provBranchInfo will still contain valid data following Upsert
+				if provBranchInfo.Head != nil {
+					provCommitInfo := &pfs.CommitInfo{}
+					if err := d.commits(provBranchInfo.Head.Repo.Name).ReadWrite(stm).Get(provBranchInfo.Head.ID, provCommitInfo); err != nil {
+						return err
+					}
+					commitProvMap[commitKey(provBranchInfo.Head)] = provBranchInfo.Head
+					for _, provCommit := range provCommitInfo.Provenance {
+						commitProvMap[commitKey(provCommit)] = provCommit
+					}
+				}
+			}
+			if len(commitProvMap) > 0 {
+				commit := &pfs.Commit{
+					Repo: branch.Repo,
+					ID:   uuid.NewWithoutDashes(),
+				}
+				commitInfo := &pfs.CommitInfo{
+					Commit:  commit,
+					Started: now(),
+				}
+				branchInfo.Head = commitInfo.Commit
+				for _, provCommit := range commitProvMap {
+					commitInfo.Provenance = append(commitInfo.Provenance, provCommit)
+					provCommitInfo := &pfs.CommitInfo{}
+					if err := d.commits(provCommit.Repo.Name).ReadWrite(stm).Upsert(provCommit.ID, provCommitInfo, func() error {
+						provCommitInfo.Subvenance = append(provCommitInfo.Subvenance, provCommit)
+						return nil
+					}); err != nil {
+						return err
+					}
+				}
+				if err := d.commits(commitInfo.Commit.Repo.Name).ReadWrite(stm).Create(commitInfo.Commit.ID, commitInfo); err != nil {
+					return err
+				}
 			}
 		}
 		branches := d.branches(branch.Repo.Name).ReadWrite(stm)

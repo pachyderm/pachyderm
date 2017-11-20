@@ -261,11 +261,15 @@ func (c APIClient) ListCommitByRepo(repoName string) ([]*pfs.CommitInfo, error) 
 
 // CreateBranch creates a new branch
 func (c APIClient) CreateBranch(repoName string, branch string, commit string, provenance []*pfs.Branch) error {
+	var head *pfs.Commit
+	if commit != "" {
+		head = NewCommit(repoName, commit)
+	}
 	_, err := c.PfsAPIClient.CreateBranch(
 		c.Ctx(),
 		&pfs.CreateBranchRequest{
 			Branch:     NewBranch(repoName, branch),
-			Head:       NewCommit(repoName, commit),
+			Head:       head,
 			Provenance: provenance,
 		},
 	)
