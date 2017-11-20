@@ -239,10 +239,10 @@ delete-all-launch-bench:
 bench: clean-launch-bench build-bench-images push-bench-images launch-bench run-bench clean-launch-bench
 
 launch-kube: check-kubectl
-	etc/kube/start-kube-docker.sh
+	etc/kube/start-minikube.sh
 
 clean-launch-kube:
-	docker kill $$(docker ps -q)
+	sudo minikube delete
 
 launch: install check-kubectl
 	$(eval STARTTIME := $(shell date +%s))
@@ -258,13 +258,11 @@ launch-dev: check-kubectl check-kubectl-connection install
 	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"	
 
-clean-launch: check-kubectl
-	pachctl deploy local --dry-run | kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f -
+clean-launch: check-kubectl install
+	yes | pachctl undeploy
 
-clean-launch-dev: check-kubectl
-	pachctl deploy local -d --dry-run | kubectl $(KUBECTLFLAGS) delete --ignore-not-found -f -
-	kubectl $(KUBECTLFLAGS) delete rc -l suite=pachyderm
-	kubectl $(KUBECTLFLAGS) delete svc -l suite=pachyderm
+clean-launch-dev: check-kubectl install
+	yes | pachctl undeploy
 
 full-clean-launch: check-kubectl
 	kubectl $(KUBECTLFLAGS) delete --ignore-not-found job -l suite=pachyderm
@@ -320,9 +318,9 @@ pretest:
 
 #test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build docker-build-netcat clean-launch-dev launch-dev integration-tests example-tests
 
-local-test: docker-build launch-dev test-pfs clean-launch-dev 
+local-test: docker-build launch-dev test-pfs clean-launch-dev
 
-test: enterprise-code-checkin-test docker-build clean-launch-dev launch-dev test-pfs test-pps test-auth test-enterprise
+test: enterprise-code-checkin-test docker-build clean-launch-dev launch-dev test-pfs test-pps test-auth test-enterprise test-kube-17
 
 enterprise-code-checkin-test:
 	# Check if our test activation code is anywhere in the repo
@@ -365,6 +363,15 @@ test-auth:
 
 test-enterprise:
 	go test -v ./src/server/enterprise/server -timeout $(TIMEOUT)
+
+test-kube-17:
+	@# Delete existing minikube, but test should still pass if minikube hasn't been started
+	@make clean-launch-kube || true
+	./etc/kube/start-minikube.sh -v 1.7.5
+	@make launch-dev
+	@# If we can deploy a pipeline, 1.7 probably works
+	go test -v ./src/server -run TestPipelineWithParallelism
+
 
 clean: clean-launch clean-launch-kube
 

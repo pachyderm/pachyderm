@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -14,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path"
 	"strconv"
 	"strings"
@@ -29,17 +31,19 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfspretty "github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 
 	"github.com/gogo/protobuf/types"
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/apis/extensions"
-	kube_client "k8s.io/kubernetes/pkg/client/restclient"
-	kube "k8s.io/kubernetes/pkg/client/unversioned"
-	"k8s.io/kubernetes/pkg/labels"
+	apps "k8s.io/api/apps/v1beta2"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
+	kube "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 const (
@@ -163,7 +167,6 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 		fileContents = append(fileContents, fileContent)
 	}
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
-
 	pipeline := uniqueString("pipeline")
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
@@ -177,7 +180,6 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 		"",
 		false,
 	))
-
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
@@ -1856,7 +1858,7 @@ func TestPrettyPrinting(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			ResourceSpec: &pps.ResourceSpec{
+			ResourceRequests: &pps.ResourceSpec{
 				Memory: "100M",
 				Cpu:    0.5,
 			},
@@ -2182,7 +2184,7 @@ func TestPipelineAutoScaledown(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: uint64(parallelism),
 			},
-			ResourceSpec: &pps.ResourceSpec{
+			ResourceRequests: &pps.ResourceSpec{
 				Memory: "100M",
 			},
 			Input:              client.NewAtomInput(dataRepo, "/"),
@@ -2201,7 +2203,7 @@ func TestPipelineAutoScaledown(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if rc.Spec.Replicas != 1 {
+		if *rc.Spec.Replicas != 1 {
 			return fmt.Errorf("rc.Spec.Replicas should be 1")
 		}
 		if !rc.Spec.Template.Spec.Containers[0].Resources.Requests.Memory().IsZero() {
@@ -2223,7 +2225,7 @@ func TestPipelineAutoScaledown(t *testing.T) {
 	require.Equal(t, 1, len(commitInfos))
 	rc, err := pipelineRc(t, pipelineInfo)
 	require.NoError(t, err)
-	require.Equal(t, parallelism, int(rc.Spec.Replicas))
+	require.Equal(t, int32(parallelism), int32(*rc.Spec.Replicas))
 	// Check that the resource requests have been reset
 	require.Equal(t, "100M", rc.Spec.Template.Spec.Containers[0].Resources.Requests.Memory().String())
 
@@ -2240,9 +2242,9 @@ func TestPipelineEnv(t *testing.T) {
 	// make a secret to reference
 	k := getKubeClient(t)
 	secretName := uniqueString("test-secret")
-	_, err := k.Secrets(api.NamespaceDefault).Create(
-		&api.Secret{
-			ObjectMeta: api.ObjectMeta{
+	_, err := k.CoreV1().Secrets(v1.NamespaceDefault).Create(
+		&v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
 				Name: secretName,
 			},
 			Data: map[string][]byte{
@@ -2678,7 +2680,7 @@ func TestParallelismSpec(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	kubeclient := getKubeClient(t)
-	nodes, err := kubeclient.Nodes().List(api.ListOptions{})
+	nodes, err := kubeclient.CoreV1().Nodes().List(metav1.ListOptions{})
 	numNodes := len(nodes.Items)
 
 	// Test Constant strategy
@@ -3244,7 +3246,6 @@ func TestSystemResourceRequests(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-
 	kubeClient := getKubeClient(t)
 
 	// Expected resource requests for pachyderm system pods:
@@ -3265,13 +3266,15 @@ func TestSystemResourceRequests(t *testing.T) {
 		"etcd":  "1",
 	}
 	// Get Pod info for 'app' from k8s
-	var c api.Container
+	var c v1.Container
 	for _, app := range []string{"pachd", "etcd"} {
 		err := backoff.Retry(func() error {
-			podList, err := kubeClient.Pods(api.NamespaceDefault).List(api.ListOptions{
-				LabelSelector: labels.SelectorFromSet(
-					map[string]string{"app": app, "suite": "pachyderm"}),
-			})
+			podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(
+				metav1.ListOptions{
+					LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
+						map[string]string{"app": app, "suite": "pachyderm"},
+					)),
+				})
 			if err != nil {
 				return err
 			}
@@ -3284,14 +3287,12 @@ func TestSystemResourceRequests(t *testing.T) {
 		require.NoError(t, err)
 
 		// Make sure the pod's container has resource requests
-		cpu, ok := c.Resources.Requests[api.ResourceCPU]
+		cpu, ok := c.Resources.Requests[v1.ResourceCPU]
 		require.True(t, ok, "could not get CPU request for "+app)
-		fmt.Println(cpu.String())
 		require.True(t, cpu.String() == defaultLocalCPU[app] ||
 			cpu.String() == defaultCloudCPU[app])
-		mem, ok := c.Resources.Requests[api.ResourceMemory]
+		mem, ok := c.Resources.Requests[v1.ResourceMemory]
 		require.True(t, ok, "could not get memory request for "+app)
-		fmt.Println(mem.String())
 		require.True(t, mem.String() == defaultLocalMem[app] ||
 			mem.String() == defaultCloudMem[app])
 	}
@@ -3321,7 +3322,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 1,
 			},
-			ResourceSpec: &pps.ResourceSpec{
+			ResourceRequests: &pps.ResourceSpec{
 				Memory: "100M",
 				Cpu:    0.5,
 			},
@@ -3339,13 +3340,85 @@ func TestPipelineResourceRequest(t *testing.T) {
 	pipelineInfo, err := c.InspectPipeline(pipelineName)
 	require.NoError(t, err)
 
-	var container api.Container
+	var container v1.Container
 	rcName := ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := getKubeClient(t)
 	err = backoff.Retry(func() error {
-		podList, err := kubeClient.Pods(api.NamespaceDefault).List(api.ListOptions{
-			LabelSelector: labels.SelectorFromSet(
-				map[string]string{"app": rcName}),
+		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(
+			metav1.ListOptions{
+				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
+					map[string]string{"app": rcName},
+				)),
+			})
+		if err != nil {
+			return err // retry
+		}
+		if len(podList.Items) != 1 || len(podList.Items[0].Spec.Containers) == 0 {
+			return fmt.Errorf("could not find single container for pipeline %s", pipelineInfo.Pipeline.Name)
+		}
+		container = podList.Items[0].Spec.Containers[0]
+		return nil // no more retries
+	}, backoff.NewTestingBackOff())
+	require.NoError(t, err)
+	// Make sure a CPU and Memory request are both set
+	cpu, ok := container.Resources.Requests[v1.ResourceCPU]
+	require.True(t, ok)
+	require.Equal(t, "500m", cpu.String())
+	mem, ok := container.Resources.Requests[v1.ResourceMemory]
+	require.True(t, ok)
+	require.Equal(t, "100M", mem.String())
+	_, ok = container.Resources.Requests[v1.ResourceNvidiaGPU]
+	require.False(t, ok)
+}
+
+func TestPipelineResourceLimit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+	// create repos
+	dataRepo := uniqueString("TestPipelineResourceLimit")
+	pipelineName := uniqueString("TestPipelineResourceLimit_Pipeline")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// Resources are not yet in client.CreatePipeline() (we may add them later)
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: &pps.Pipeline{pipelineName},
+			Transform: &pps.Transform{
+				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			ResourceLimits: &pps.ResourceSpec{
+				Memory: "100M",
+				Cpu:    0.5,
+			},
+			Input: &pps.Input{
+				Atom: &pps.AtomInput{
+					Repo:   dataRepo,
+					Branch: "master",
+					Glob:   "/*",
+				},
+			},
+		})
+	require.NoError(t, err)
+
+	// Get info about the pipeline pods from k8s & check for resources
+	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+
+	var container v1.Container
+	rcName := ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	kubeClient := getKubeClient(t)
+	err = backoff.Retry(func() error {
+		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(metav1.ListOptions{
+			LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
+				map[string]string{"app": rcName, "suite": "pachyderm"},
+			)),
 		})
 		if err != nil {
 			return err // retry
@@ -3358,15 +3431,74 @@ func TestPipelineResourceRequest(t *testing.T) {
 	}, backoff.NewTestingBackOff())
 	require.NoError(t, err)
 	// Make sure a CPU and Memory request are both set
-	cpu, ok := container.Resources.Requests[api.ResourceCPU]
+	cpu, ok := container.Resources.Limits[v1.ResourceCPU]
 	require.True(t, ok)
 	require.Equal(t, "500m", cpu.String())
-	mem, ok := container.Resources.Requests[api.ResourceMemory]
+	mem, ok := container.Resources.Limits[v1.ResourceMemory]
 	require.True(t, ok)
 	require.Equal(t, "100M", mem.String())
-	gpu, ok := container.Resources.Requests[api.ResourceNvidiaGPU]
-	require.True(t, ok)
-	require.Equal(t, "0", gpu.String())
+	_, ok = container.Resources.Requests[v1.ResourceNvidiaGPU]
+	require.False(t, ok)
+}
+
+func TestPipelineResourceLimitDefaults(t *testing.T) {
+	// We need to make sure GPU is set to 0 for k8s 1.8
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+	// create repos
+	dataRepo := uniqueString("TestPipelineResourceLimit")
+	pipelineName := uniqueString("TestPipelineResourceLimit_Pipeline")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// Resources are not yet in client.CreatePipeline() (we may add them later)
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: &pps.Pipeline{pipelineName},
+			Transform: &pps.Transform{
+				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input: &pps.Input{
+				Atom: &pps.AtomInput{
+					Repo:   dataRepo,
+					Branch: "master",
+					Glob:   "/*",
+				},
+			},
+		})
+	require.NoError(t, err)
+
+	// Get info about the pipeline pods from k8s & check for resources
+	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+
+	var container v1.Container
+	rcName := ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	kubeClient := getKubeClient(t)
+	err = backoff.Retry(func() error {
+		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(metav1.ListOptions{
+			LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
+				map[string]string{"app": rcName, "suite": "pachyderm"},
+			)),
+		})
+		if err != nil {
+			return err // retry
+		}
+		if len(podList.Items) != 1 || len(podList.Items[0].Spec.Containers) == 0 {
+			return fmt.Errorf("could not find single container for pipeline %s", pipelineInfo.Pipeline.Name)
+		}
+		container = podList.Items[0].Spec.Containers[0]
+		return nil // no more retries
+	}, backoff.NewTestingBackOff())
+	require.NoError(t, err)
+	_, ok := container.Resources.Requests[v1.ResourceNvidiaGPU]
+	require.False(t, ok)
 }
 
 func TestPipelinePartialResourceRequest(t *testing.T) {
@@ -3388,7 +3520,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"true"},
 			},
-			ResourceSpec: &pps.ResourceSpec{
+			ResourceRequests: &pps.ResourceSpec{
 				Cpu:    0.5,
 				Memory: "100M",
 			},
@@ -3408,7 +3540,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"true"},
 			},
-			ResourceSpec: &pps.ResourceSpec{
+			ResourceRequests: &pps.ResourceSpec{
 				Memory: "100M",
 			},
 			Input: &pps.Input{
@@ -3427,7 +3559,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"true"},
 			},
-			ResourceSpec: &pps.ResourceSpec{},
+			ResourceRequests: &pps.ResourceSpec{},
 			Input: &pps.Input{
 				Atom: &pps.AtomInput{
 					Repo:   dataRepo,
@@ -5273,14 +5405,14 @@ func TestService(t *testing.T) {
 		var address string
 		kubeClient := getKubeClient(t)
 		backoff.Retry(func() error {
-			svcs, err := kubeClient.Services("default").List(api.ListOptions{})
+			svcs, err := kubeClient.CoreV1().Services("default").List(metav1.ListOptions{})
 			require.NoError(t, err)
 			for _, svc := range svcs.Items {
 				// Pachyderm actually generates two services for pipelineservice: one
 				// for pachyderm (a ClusterIP service) and one for the user container
 				// (a NodePort service, which is the one we want)
 				rightName := strings.Contains(svc.Name, "pipelineservice")
-				rightType := svc.Spec.Type == api.ServiceTypeNodePort
+				rightType := svc.Spec.Type == v1.ServiceTypeNodePort
 				if !rightName || !rightType {
 					continue
 				}
@@ -6162,31 +6294,31 @@ func getAllTags(t testing.TB, c *client.APIClient) []string {
 
 func restartAll(t *testing.T) {
 	k := getKubeClient(t)
-	podsInterface := k.Pods(api.NamespaceDefault)
-	labelSelector, err := labels.Parse("suite=pachyderm")
-	require.NoError(t, err)
+	podsInterface := k.CoreV1().Pods(v1.NamespaceDefault)
 	podList, err := podsInterface.List(
-		api.ListOptions{
-			LabelSelector: labelSelector,
+		metav1.ListOptions{
+			LabelSelector: "suite=pachyderm",
 		})
 	require.NoError(t, err)
 	for _, pod := range podList.Items {
-		require.NoError(t, podsInterface.Delete(pod.Name, api.NewDeleteOptions(0)))
+		require.NoError(t, podsInterface.Delete(pod.Name, &metav1.DeleteOptions{
+			GracePeriodSeconds: new(int64),
+		}))
 	}
 	waitForReadiness(t)
 }
 
 func restartOne(t *testing.T) {
 	k := getKubeClient(t)
-	podsInterface := k.Pods(api.NamespaceDefault)
-	labelSelector, err := labels.Parse("app=pachd")
-	require.NoError(t, err)
+	podsInterface := k.CoreV1().Pods(v1.NamespaceDefault)
 	podList, err := podsInterface.List(
-		api.ListOptions{
-			LabelSelector: labelSelector,
+		metav1.ListOptions{
+			LabelSelector: "app=pachd",
 		})
 	require.NoError(t, err)
-	require.NoError(t, podsInterface.Delete(podList.Items[rand.Intn(len(podList.Items))].Name, api.NewDeleteOptions(0)))
+	require.NoError(t, podsInterface.Delete(
+		podList.Items[rand.Intn(len(podList.Items))].Name,
+		&metav1.DeleteOptions{GracePeriodSeconds: new(int64)}))
 	waitForReadiness(t)
 }
 
@@ -6210,39 +6342,43 @@ func getUsablePachClient(t *testing.T) *client.APIClient {
 	return nil
 }
 
+func podRunningAndReady(e watch.Event) (bool, error) {
+	if e.Type == watch.Deleted {
+		return false, errors.New("received DELETE while watching pods")
+	}
+	pod, ok := e.Object.(*v1.Pod)
+	if !ok {
+	}
+	return pod.Status.Phase == v1.PodRunning, nil
+}
+
 func waitForReadiness(t testing.TB) {
 	k := getKubeClient(t)
 	deployment := pachdDeployment(t)
 	for {
-		// This code is taken from
-		// k8s.io/kubernetes/pkg/client/unversioned.ControllerHasDesiredReplicas
-		// It used to call that fun ction but an update to the k8s library
-		// broke it due to a type error.  We should see if we can go back to
-		// using that code but I(jdoliner) couldn't figure out how to fanagle
-		// the types into compiling.
-		newDeployment, err := k.Extensions().Deployments(api.NamespaceDefault).Get(deployment.Name)
+		newDeployment, err := k.Apps().Deployments(v1.NamespaceDefault).Get(deployment.Name, metav1.GetOptions{})
 		require.NoError(t, err)
-		if newDeployment.Status.ObservedGeneration >= deployment.Generation && newDeployment.Status.Replicas == newDeployment.Spec.Replicas {
+		if newDeployment.Status.ObservedGeneration >= deployment.Generation && newDeployment.Status.Replicas == *newDeployment.Spec.Replicas {
 			break
 		}
 		time.Sleep(time.Second * 5)
 	}
-	watch, err := k.Pods(api.NamespaceDefault).Watch(api.ListOptions{
-		LabelSelector: labels.SelectorFromSet(map[string]string{"app": "pachd"}),
+	watch, err := k.CoreV1().Pods(v1.NamespaceDefault).Watch(metav1.ListOptions{
+		LabelSelector: "app=pachd",
 	})
 	defer watch.Stop()
 	require.NoError(t, err)
 	readyPods := make(map[string]bool)
 	for event := range watch.ResultChan() {
-		ready, err := kube.PodRunningAndReady(event)
+		ready, err := podRunningAndReady(event)
 		require.NoError(t, err)
 		if ready {
-			pod, ok := event.Object.(*api.Pod)
+			pod, ok := event.Object.(*v1.Pod)
 			if !ok {
 				t.Fatal("event.Object should be an object")
 			}
 			readyPods[pod.Name] = true
-			if len(readyPods) == int(deployment.Spec.Replicas) {
+			if len(readyPods) == int(*deployment.Spec.Replicas) {
 				break
 			}
 		}
@@ -6270,15 +6406,17 @@ func simulateGitPush(t *testing.T, pathToPayload string) {
 	require.Equal(t, 200, resp.StatusCode)
 }
 
-func pipelineRc(t testing.TB, pipelineInfo *pps.PipelineInfo) (*api.ReplicationController, error) {
+func pipelineRc(t testing.TB, pipelineInfo *pps.PipelineInfo) (*v1.ReplicationController, error) {
 	k := getKubeClient(t)
-	rc := k.ReplicationControllers(api.NamespaceDefault)
-	return rc.Get(ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version))
+	rc := k.CoreV1().ReplicationControllers(v1.NamespaceDefault)
+	return rc.Get(
+		ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
+		metav1.GetOptions{})
 }
 
-func pachdDeployment(t testing.TB) *extensions.Deployment {
+func pachdDeployment(t testing.TB) *apps.Deployment {
 	k := getKubeClient(t)
-	result, err := k.Extensions().Deployments(api.NamespaceDefault).Get("pachd")
+	result, err := k.Apps().Deployments(v1.NamespaceDefault).Get("pachd", metav1.GetOptions{})
 	require.NoError(t, err)
 	return result
 }
@@ -6288,27 +6426,30 @@ func pachdDeployment(t testing.TB) *extensions.Deployment {
 // If up is false, then the number of nodes will be within [1, n)
 func scalePachdRandom(t testing.TB, up bool) {
 	pachdRc := pachdDeployment(t)
-	originalReplicas := pachdRc.Spec.Replicas
+	originalReplicas := *pachdRc.Spec.Replicas
 	for {
 		if up {
-			pachdRc.Spec.Replicas = originalReplicas + int32(rand.Intn(int(originalReplicas))+1)
+			*pachdRc.Spec.Replicas = originalReplicas + int32(rand.Intn(int(originalReplicas))+1)
 		} else {
-			pachdRc.Spec.Replicas = int32(rand.Intn(int(originalReplicas)-1) + 1)
+			*pachdRc.Spec.Replicas = int32(rand.Intn(int(originalReplicas)-1) + 1)
 		}
 
-		if pachdRc.Spec.Replicas != originalReplicas {
+		if *pachdRc.Spec.Replicas != originalReplicas {
 			break
 		}
 	}
-	scalePachdN(t, int(pachdRc.Spec.Replicas))
+	scalePachdN(t, int(*pachdRc.Spec.Replicas))
 }
 
 // scalePachdN scales the number of pachd nodes to N
 func scalePachdN(t testing.TB, n int) {
 	k := getKubeClient(t)
+	// Modify the type metadata of the Deployment spec we read from k8s, so that
+	// k8s will accept it if we're talking to a 1.7 cluster
 	pachdDeployment := pachdDeployment(t)
-	pachdDeployment.Spec.Replicas = int32(n)
-	_, err := k.Extensions().Deployments(api.NamespaceDefault).Update(pachdDeployment)
+	*pachdDeployment.Spec.Replicas = int32(n)
+	pachdDeployment.TypeMeta.APIVersion = "apps/v1beta1"
+	_, err := k.Apps().Deployments(v1.NamespaceDefault).Update(pachdDeployment)
 	require.NoError(t, err)
 	waitForReadiness(t)
 	// Unfortunately, even when all pods are ready, the cluster membership
@@ -6329,20 +6470,80 @@ func scalePachd(t testing.TB) {
 	scalePachdN(t, n)
 }
 
-func getKubeClient(t testing.TB) *kube.Client {
-	var config *kube_client.Config
+func getKubeClient(t testing.TB) *kube.Clientset {
+	var config *rest.Config
 	host := os.Getenv("KUBERNETES_SERVICE_HOST")
 	if host != "" {
 		var err error
-		config, err = kube_client.InClusterConfig()
+		config, err = rest.InClusterConfig()
 		require.NoError(t, err)
 	} else {
-		config = &kube_client.Config{
-			Host:     "http://0.0.0.0:8080",
-			Insecure: false,
+		// Use kubectl binary to parse .kube/config and get address of current
+		// cluster. Hopefully, once we upgrade to k8s.io/client-go, we will be able
+		// to do this in-process with a library
+		// First, figure out if we're talking to minikube or localhost
+		cmd := exec.Command("kubectl", "config", "current-context")
+		if context, err := cmd.Output(); err == nil {
+			context = bytes.TrimSpace(context)
+			// kubectl has a context -- not talking to localhost
+			// Get cluster and user name from kubectl
+			buf := &bytes.Buffer{}
+			cmd := tu.BashCmd(strings.Join([]string{
+				`kubectl config get-contexts "{{.context}}" | tail -n+2 | awk '{print $3}'`,
+				`kubectl config get-contexts "{{.context}}" | tail -n+2 | awk '{print $4}'`,
+			}, "\n"),
+				"context", string(context))
+			cmd.Stdout = buf
+			require.NoError(t, cmd.Run(), "couldn't get kubernetes context info")
+			lines := strings.Split(buf.String(), "\n")
+			clustername, username := lines[0], lines[1]
+
+			// Get user info
+			buf.Reset()
+			cmd = tu.BashCmd(strings.Join([]string{
+				`cluster="$(kubectl config view -o json | jq -r '.users[] | select(.name == "{{.user}}") | .user' )"`,
+				`echo "${cluster}" | jq -r '.["client-certificate"]'`,
+				`echo "${cluster}" | jq -r '.["client-key"]'`,
+			}, "\n"),
+				"user", username)
+			cmd.Stdout = buf
+			require.NoError(t, cmd.Run(), "couldn't get kubernetes user info")
+			lines = strings.Split(buf.String(), "\n")
+			clientCert, clientKey := lines[0], lines[1]
+
+			// Get cluster info
+			buf.Reset()
+			cmd = tu.BashCmd(strings.Join([]string{
+				`cluster="$(kubectl config view -o json | jq -r '.clusters[] | select(.name == "{{.cluster}}") | .cluster')"`,
+				`echo "${cluster}" | jq -r .server`,
+				`echo "${cluster}" | jq -r '.["certificate-authority"]'`,
+			}, "\n"),
+				"cluster", clustername)
+			cmd.Stdout = buf
+			require.NoError(t, cmd.Run(), "couldn't get kubernetes cluster info: %s", buf.String())
+			lines = strings.Split(buf.String(), "\n")
+			address, CAKey := lines[0], lines[1]
+
+			// Generate config
+			config = &rest.Config{
+				Host: address,
+				TLSClientConfig: rest.TLSClientConfig{
+					CertFile: clientCert,
+					KeyFile:  clientKey,
+					CAFile:   CAKey,
+				},
+			}
+		} else {
+			// no context -- talking to localhost
+			config = &rest.Config{
+				Host: "http://0.0.0.0:8080",
+				TLSClientConfig: rest.TLSClientConfig{
+					Insecure: false,
+				},
+			}
 		}
 	}
-	k, err := kube.New(config)
+	k, err := kube.NewForConfig(config)
 	require.NoError(t, err)
 	return k
 }

@@ -12,19 +12,19 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
-	kube "k8s.io/kubernetes/pkg/client/unversioned"
+	kube "k8s.io/client-go/kubernetes"
 )
 
 //Reporter is used to submit user & cluster metrics to segment
 type Reporter struct {
 	segmentClient *analytics.Client
 	clusterID     string
-	kubeClient    *kube.Client
+	kubeClient    *kube.Clientset
 }
 
 // NewReporter creates a new reporter and kicks off the loop to report cluster
 // metrics
-func NewReporter(clusterID string, kubeClient *kube.Client) *Reporter {
+func NewReporter(clusterID string, kubeClient *kube.Clientset) *Reporter {
 	reporter := &Reporter{
 		segmentClient: newPersistentClient(),
 		clusterID:     clusterID,
