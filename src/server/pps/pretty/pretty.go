@@ -138,9 +138,13 @@ Upload Time: {{prettyDuration .Stats.UploadTime}}
 Worker Status:
 {{workerStatus .}}Restarts: {{.Restart}}
 ParallelismSpec: {{.ParallelismSpec}}
-{{ if .ResourceSpec }}ResourceSpec:
-	CPU: {{ .ResourceSpec.Cpu }}
-	Memory: {{ .ResourceSpec.Memory }} {{end}}
+{{ if .ResourceRequests }}ResourceRequests:
+	CPU: {{ .ResourceRequests.Cpu }}
+	Memory: {{ .ResourceRequests.Memory }} {{end}}
+{{ if .ResourceLimits }}ResourceLimits:
+	CPU: {{ .ResourceLimits.Cpu }}
+	Memory: {{ .ResourceLimits.Memory }}
+	GPU: {{ .ResourceLimits.Gpu }} {{end}}
 {{ if .Service }}Service:
 	{{ if .Service.InternalPort }}InternalPort: {{ .Service.InternalPort }} {{end}}
 	{{ if .Service.ExternalPort }}ExternalPort: {{ .Service.ExternalPort }} {{end}} {{end}}Input:
@@ -170,9 +174,13 @@ Created: {{prettyAgo .CreatedAt}}
 State: {{pipelineState .State}}
 Reason: {{.Reason}}
 Parallelism Spec: {{.ParallelismSpec}}
-{{ if .ResourceSpec }}ResourceSpec:
-	CPU: {{ .ResourceSpec.Cpu }}
-	Memory: {{ .ResourceSpec.Memory }} {{end}}
+{{ if .ResourceRequests }}ResourceRequests:
+	CPU: {{ .ResourceRequests.Cpu }}
+	Memory: {{ .ResourceRequests.Memory }} {{end}}
+{{ if .ResourceLimits }}ResourceLimits:
+	CPU: {{ .ResourceLimits.Cpu }}
+	Memory: {{ .ResourceLimits.Memory }}
+	GPU: {{ .ResourceLimits.Gpu }} {{end}}
 Input:
 {{pipelineInput .}}
 Output Branch: {{.OutputBranch}}
