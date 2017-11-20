@@ -211,7 +211,7 @@ message JobInfo {
   int64 data_total = 23;
   ProcessStats stats = 31;
   repeated WorkerStatus worker_status = 24;
-  ResourceSpec resource_requests = 25; 
+  ResourceSpec resource_requests = 25;
   ResourceSpec resource_limits = 36;
   Input input = 26;
   pfs.BranchInfo new_branch = 27;
@@ -220,6 +220,7 @@ message JobInfo {
   bool enable_stats = 32;
   string salt = 33;
   bool batch = 34;
+  ChunkSpec chunk_spec = 37;
 }
 
 enum WorkerState {
@@ -296,6 +297,7 @@ message PipelineInfo {
   string reason = 28;
   int64 max_queue_size = 29;
   Service service = 30;
+  ChunkSpec chunk_spec = 32;
 }
 
 message PipelineInfos {
@@ -323,6 +325,7 @@ message CreateJobRequest {
   bool enable_stats = 18;
   string salt = 19;
   bool batch = 20;
+  ChunkSpec chunk_spec = 22;
 }
 
 message InspectJobRequest {
@@ -421,6 +424,18 @@ message ListDatumStreamResponse {
   int64 page = 3;
 }
 
+// ChunkSpec specifies how a pipeline should chunk its datums.
+message ChunkSpec {
+  // number, if nonzero, specifies that each chunk should contain `number`
+  // datums. Chunks may contain fewer if the total number of datums don't
+  // divide evenly.
+  int64 number = 1;
+  // size_bytes, if nonzero, specifies a target size for each chunk of datums.
+  // Chunks may be larger or smaller than size_bytes, but will usually be
+  // pretty close to size_bytes in size.
+  int64 size_bytes = 2;
+}
+
 message CreatePipelineRequest {
   reserved 3, 4;
   Pipeline pipeline = 1;
@@ -443,6 +458,7 @@ message CreatePipelineRequest {
   bool batch = 19;
   int64 max_queue_size = 20;
   Service service = 21;
+  ChunkSpec chunk_spec = 23;
 }
 
 message InspectPipelineRequest {

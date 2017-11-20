@@ -23,6 +23,7 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	lru "github.com/hashicorp/golang-lru"
 	"golang.org/x/net/context"
@@ -41,6 +42,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
@@ -53,6 +55,11 @@ const (
 	// The maximum number of concurrent download/upload operations
 	concurrency = 10
 	logBuffer   = 25
+
+	chunksPrefix = "/chunks"
+	lockPrefix   = "/locks"
+
+	maxRetries = 3
 )
 
 var (
@@ -99,6 +106,8 @@ type APIServer struct {
 	jobs col.Collection
 	// The pipelines collection
 	pipelines col.Collection
+	// The progress collection
+	chunks col.Collection
 
 	// Only one datum can be running at a time because they need to be
 	// accessing /pfs, runMu enforces this
@@ -292,6 +301,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		namespace:  namespace,
 		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
 		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
+		chunks:     col.NewCollection(etcdClient, path.Join(etcdPrefix, chunksPrefix), []col.Index{}, &Chunks{}, nil),
 		datumCache: datumCache,
 	}
 	logger, err := server.getTaggedLogger(context.Background(), "", nil, false)
@@ -344,6 +354,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	} else {
 		go server.serviceMaster()
 	}
+	go server.worker()
 	return server, nil
 }
 
@@ -697,230 +708,6 @@ func HashDatum15(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) 
 	return client.DatumTagPrefix(pipelineInfo.ID) + hex.EncodeToString(hash.Sum(nil)), nil
 }
 
-// Process processes a datum.
-func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *ProcessResponse, retErr error) {
-	// Set the auth parameters for the context
-	ctx = a.pachClient.AddMetadata(ctx)
-
-	logger, err := a.getTaggedLogger(ctx, req.JobID, req.Data, req.EnableStats)
-	if err != nil {
-		return nil, err
-	}
-	logger.Logf("process call started - request: %v", req)
-	defer func(start time.Time) {
-		logger.Logf("process call finished - request: %v, response: %v, err %v, duration: %v", req, resp, retErr, time.Since(start))
-	}(time.Now())
-	atomic.AddInt64(&a.queueSize, 1)
-	ctx, cancel := context.WithCancel(ctx)
-	// Hash inputs
-	tag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, req.Data)
-	tag15, err := HashDatum15(a.pipelineInfo, req.Data)
-	if err != nil {
-		return nil, err
-	}
-	foundTag := false
-	foundTag15 := false
-	var object *pfs.Object
-	var eg errgroup.Group
-	eg.Go(func() error {
-		if _, err := a.pachClient.InspectTag(auth.In2Out(ctx), &pfs.Tag{tag}); err == nil {
-			foundTag = true
-		}
-		return nil
-	})
-	eg.Go(func() error {
-		if objectInfo, err := a.pachClient.InspectTag(auth.In2Out(ctx), &pfs.Tag{tag15}); err == nil {
-			foundTag15 = true
-			object = objectInfo.Object
-		}
-		return nil
-	})
-	if err := eg.Wait(); err != nil {
-		return nil, err
-	}
-	var statsTag *pfs.Tag
-	if req.EnableStats {
-		statsTag = &pfs.Tag{tag + statsTagSuffix}
-	}
-	if foundTag15 && !foundTag {
-		if _, err := a.pachClient.ObjectAPIClient.TagObject(auth.In2Out(ctx),
-			&pfs.TagObjectRequest{
-				Object: object,
-				Tags:   []*pfs.Tag{&pfs.Tag{tag}},
-			}); err != nil {
-			return nil, err
-		}
-		if _, err := a.pachClient.ObjectAPIClient.DeleteTags(auth.In2Out(ctx),
-			&pfs.DeleteTagsRequest{
-				Tags: []string{tag15},
-			}); err != nil {
-			return nil, err
-		}
-	}
-	if foundTag15 || foundTag {
-		// We've already computed the output for these inputs. Return immediately
-		logger.Logf("skipping input, as it's already been processed")
-		return &ProcessResponse{
-			Skipped: true,
-		}, nil
-	}
-	stats := &pps.ProcessStats{}
-	statsPath := path.Join("/", logger.template.DatumID)
-	var statsTree hashtree.OpenHashTree
-	if req.EnableStats {
-		statsTree = hashtree.NewHashTree()
-		defer func() {
-			if retErr != nil {
-				return
-			}
-			finStatsTree, err := statsTree.Finish()
-			if err != nil {
-				retErr = err
-				return
-			}
-			statsTreeBytes, err := hashtree.Serialize(finStatsTree)
-			if err != nil {
-				retErr = err
-				return
-			}
-			if _, _, err := a.pachClient.PutObject(bytes.NewReader(statsTreeBytes), statsTag.Name); err != nil {
-				retErr = err
-				return
-			}
-		}()
-		defer func() {
-			object, size, err := logger.Close()
-			if err != nil && retErr == nil {
-				retErr = err
-				return
-			}
-			if object != nil && req.EnableStats {
-				if err := statsTree.PutFile(path.Join(statsPath, "logs"), []*pfs.Object{object}, size); err != nil && retErr == nil {
-					retErr = err
-					return
-				}
-			}
-		}()
-		defer func() {
-			marshaler := &jsonpb.Marshaler{}
-			statsString, err := marshaler.MarshalToString(stats)
-			if err != nil {
-				logger.stderrLog.Printf("could not serialize stats: %s\n", err)
-				return
-			}
-			object, size, err := a.pachClient.PutObject(strings.NewReader(statsString))
-			if err != nil {
-				logger.stderrLog.Printf("could not put stats object: %s\n", err)
-				return
-			}
-			if err := statsTree.PutFile(path.Join(statsPath, "stats"), []*pfs.Object{object}, size); err != nil {
-				logger.stderrLog.Printf("could not put-file stats object: %s\n", err)
-				return
-			}
-		}()
-	}
-
-	env := a.userCodeEnv(req.JobID, req.Data)
-	// Download input data
-	puller := filesync.NewPuller()
-	dir, err := a.downloadData(logger, req.Data, puller, req.ParentOutput, stats, statsTree, path.Join(statsPath, "pfs"))
-	// We run these cleanup functions no matter what, so that if
-	// downloadData partially succeeded, we still clean up the resources.
-	defer func() {
-		if err := os.RemoveAll(dir); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	// It's important that we run puller.CleanUp before os.RemoveAll,
-	// because otherwise puller.Cleanup might try tp open pipes that have
-	// been deleted.
-	defer func() {
-		if _, err := puller.CleanUp(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	if err != nil {
-		return nil, err
-	}
-	// Create output directory (currently /pfs/out) and run user code
-	if err := os.MkdirAll(filepath.Join(dir, "out"), 0666); err != nil {
-		return nil, err
-	}
-	// unset the status when this function exits
-	if response, err := func() (_ *ProcessResponse, retErr error) {
-		a.runMu.Lock()
-		defer a.runMu.Unlock()
-		atomic.AddInt64(&a.queueSize, -1)
-		func() {
-			a.statusMu.Lock()
-			defer a.statusMu.Unlock()
-			a.jobID = req.JobID
-			a.data = req.Data
-			a.started = time.Now()
-			a.cancel = cancel
-			a.stats = stats
-		}()
-		if err := os.MkdirAll(client.PPSInputPrefix, 0666); err != nil {
-			return nil, err
-		}
-		if err := syscall.Mount(dir, client.PPSInputPrefix, "", syscall.MS_BIND, ""); err != nil {
-			return nil, err
-		}
-		defer func() {
-			if err := syscall.Unmount(client.PPSInputPrefix, syscall.MNT_DETACH); err != nil && retErr == nil {
-				retErr = err
-			}
-		}()
-		err = a.runUserCode(ctx, logger, env, stats)
-		if err != nil {
-			logger.Logf("failed to process datum with error: %+v", err)
-			if statsTree != nil {
-				object, size, err := a.pachClient.PutObject(strings.NewReader(err.Error()))
-				if err != nil {
-					logger.stderrLog.Printf("could not put error object: %s\n", err)
-				} else {
-					if err := statsTree.PutFile(path.Join(statsPath, "failure"), []*pfs.Object{object}, size); err != nil {
-						logger.stderrLog.Printf("could not put-file error object: %s\n", err)
-					}
-				}
-			}
-			return &ProcessResponse{
-				Failed: true,
-			}, nil
-		}
-		return nil, nil
-	}(); err != nil {
-		return nil, err
-	} else if response != nil {
-		return response, nil
-	}
-	// CleanUp is idempotent so we can call it however many times we want.
-	// The reason we are calling it here is that the puller could've
-	// encountered an error as it was lazily loading files, in which case
-	// the output might be invalid since as far as the user's code is
-	// concerned, they might've just seen an empty or partially completed
-	// file.
-	downSize, err := puller.CleanUp()
-	if err != nil {
-		logger.Logf("puller encountered an error while cleaning up: %+v", err)
-		return nil, err
-	}
-	atomic.AddUint64(&stats.DownloadBytes, uint64(downSize))
-	if err := a.uploadOutput(ctx, dir, tag, logger, req.Data, stats, statsTree, path.Join(statsPath, "pfs", "out")); err != nil {
-		// If uploading failed because the user program outputted a special
-		// file, then there's no point in retrying.  Thus we signal that
-		// there's some problem with the user code so the job doesn't
-		// infinitely retry to process this datum.
-		if err == errSpecialFile {
-			return &ProcessResponse{
-				Failed: true,
-			}, nil
-		}
-		return nil, err
-	}
-	return &ProcessResponse{Stats: stats}, nil
-}
-
 // Status returns the status of the current worker.
 func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStatus, error) {
 	a.statusMu.Lock()
@@ -999,5 +786,459 @@ func (a *APIServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.
 	jobInfo.Reason = reason
 	jobs := a.jobs.ReadWrite(stm)
 	jobs.Put(jobInfo.Job.ID, jobInfo)
+	return nil
+}
+
+type acquireDatumsFunc func(low, high int64) (failedDatumID string, _ error)
+
+func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chunks, logger *taggedLogger, process acquireDatumsFunc) error {
+	complete := false
+	for !complete {
+		// func to defer cancel in
+		if err := func() error {
+			ctx, cancel := context.WithCancel(ctx)
+			defer cancel()
+			var low int64
+			var high int64
+			var found bool
+			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				found = false
+				locks := a.locks(jobID).ReadWrite(stm)
+				// we set complete to true and then unset it if we find an incomplete chunk
+				complete = true
+				for _, high = range chunks.Chunks {
+					var chunkState ChunkState
+					if err := locks.Get(fmt.Sprint(high), &chunkState); err != nil {
+						if col.IsErrNotFound(err) {
+							found = true
+						} else {
+							return err
+						}
+					}
+					// This gets triggered either if we found a chunk that wasn't
+					// complete or if we didn't find a chunk at all.
+					if chunkState.State == ChunkState_RUNNING {
+						complete = false
+					}
+					if found {
+						break
+					}
+					low = high
+				}
+				if found {
+					return locks.PutTTL(fmt.Sprint(high), &ChunkState{State: ChunkState_RUNNING}, ttl)
+				}
+				return nil
+			}); err != nil {
+				return err
+			}
+			if found {
+				go func() {
+				Renew:
+					for {
+						select {
+						case <-time.After((time.Second * time.Duration(ttl)) / 2):
+						case <-ctx.Done():
+							break Renew
+						}
+						if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+							locks := a.locks(jobID).ReadWrite(stm)
+							var chunkState ChunkState
+							if err := locks.Get(fmt.Sprint(high), &chunkState); err != nil {
+								return err
+							}
+							if chunkState.State == ChunkState_RUNNING {
+								return locks.PutTTL(fmt.Sprint(high), &chunkState, ttl)
+							}
+							return nil
+						}); err != nil {
+							cancel()
+							logger.Logf("failed to renew lock: %v", err)
+						}
+					}
+				}()
+				// process the datums in newRange
+				failedDatumID, err := process(low, high)
+				if err != nil {
+					return err
+				}
+
+				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+					locks := a.locks(jobID).ReadWrite(stm)
+					if failedDatumID != "" {
+						return locks.Put(fmt.Sprint(high), &ChunkState{
+							State:   ChunkState_FAILED,
+							DatumID: failedDatumID,
+						})
+					}
+					return locks.Put(fmt.Sprint(high), &ChunkState{State: ChunkState_COMPLETE})
+				}); err != nil {
+					return err
+				}
+			}
+			return nil
+		}(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// worker does the following:
+//  - watches for new jobs (jobInfos in the jobs collection)
+//  - claims chunks from the chunk layout it finds in the chunks collection
+//  - claims those chunks with acquireDatums
+//  - processes the chunks with processDatums
+func (a *APIServer) worker() {
+	logger := a.getWorkerLogger()
+	backoff.RetryNotify(func() error {
+		ctx, cancel := context.WithCancel(a.pachClient.AddMetadata(context.Background()))
+		defer cancel()
+		jobs := a.jobs.ReadOnly(ctx)
+		watcher, err := jobs.WatchByIndex(ppsdb.JobsPipelineIndex, a.pipelineInfo.Pipeline)
+		if err != nil {
+			return fmt.Errorf("error creating watch: %v", err)
+		}
+		defer watcher.Close()
+		for e := range watcher.Watch() {
+			var jobID string
+			jobInfo := &pps.JobInfo{}
+			if err := e.Unmarshal(&jobID, jobInfo); err != nil {
+				return fmt.Errorf("error unmarshalling: %v", err)
+			}
+			df, err := NewDatumFactory(ctx, a.pachClient.PfsAPIClient, jobInfo.Input)
+			if err != nil {
+				return fmt.Errorf("error from NewDatumFactory: %v", err)
+			}
+			chunks := &Chunks{}
+			if err := a.chunks.ReadOnly(ctx).GetBlock(jobInfo.Job.ID, chunks); err != nil {
+				return err
+			}
+			if err := a.acquireDatums(ctx, jobInfo.Job.ID, chunks, logger, func(low, high int64) (string, error) {
+				failedDatumID, err := a.processDatums(ctx, logger, jobInfo, df, low, high)
+				if err != nil {
+					return "", err
+				}
+				return failedDatumID, nil
+			}); err != nil {
+				return fmt.Errorf("error from acquireDatums: %v", err)
+			}
+		}
+		return nil
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		logger.Logf("worker: error running the worker process: %v; retrying in %v", err, d)
+		return nil
+	})
+}
+
+// processDatums processes datums from low to high in df, if a datum fails it
+// returns the id of the failed datum it also may return a variety of errors
+// such as network errors.
+func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, jobInfo *pps.JobInfo, df DatumFactory, low, high int64) (string, error) {
+	stats := &pps.ProcessStats{}
+	var statsMu sync.Mutex
+	var failedDatumID string
+	var eg errgroup.Group
+	var skipped int64
+	for i := low; i < high; i++ {
+		i := i
+		eg.Go(func() (retErr error) {
+			data := df.Datum(int(i))
+			logger, err := a.getTaggedLogger(ctx, jobInfo.Job.ID, data, a.pipelineInfo.EnableStats)
+			if err != nil {
+				return err
+			}
+			atomic.AddInt64(&a.queueSize, 1)
+			// Hash inputs
+			tag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, data)
+			tag15, err := HashDatum15(a.pipelineInfo, data)
+			if err != nil {
+				return err
+			}
+			foundTag := false
+			foundTag15 := false
+			var object *pfs.Object
+			var eg errgroup.Group
+			eg.Go(func() error {
+				if _, err := a.pachClient.InspectTag(auth.In2Out(ctx), &pfs.Tag{tag}); err == nil {
+					foundTag = true
+				}
+				return nil
+			})
+			eg.Go(func() error {
+				if objectInfo, err := a.pachClient.InspectTag(auth.In2Out(ctx), &pfs.Tag{tag15}); err == nil {
+					foundTag15 = true
+					object = objectInfo.Object
+				}
+				return nil
+			})
+			if err := eg.Wait(); err != nil {
+				return err
+			}
+			var statsTag *pfs.Tag
+			if a.pipelineInfo.EnableStats {
+				statsTag = &pfs.Tag{tag + statsTagSuffix}
+			}
+			if foundTag15 && !foundTag {
+				if _, err := a.pachClient.ObjectAPIClient.TagObject(auth.In2Out(ctx),
+					&pfs.TagObjectRequest{
+						Object: object,
+						Tags:   []*pfs.Tag{&pfs.Tag{tag}},
+					}); err != nil {
+					return err
+				}
+				if _, err := a.pachClient.ObjectAPIClient.DeleteTags(auth.In2Out(ctx),
+					&pfs.DeleteTagsRequest{
+						Tags: []string{tag15},
+					}); err != nil {
+					return err
+				}
+			}
+			if foundTag15 || foundTag {
+				skipped++
+				return nil
+			}
+			subStats := &pps.ProcessStats{}
+			statsPath := path.Join("/", logger.template.DatumID)
+			var statsTree hashtree.OpenHashTree
+			if a.pipelineInfo.EnableStats {
+				statsTree = hashtree.NewHashTree()
+				if err := statsTree.PutFile(path.Join(statsPath, fmt.Sprintf("job:%s", jobInfo.Job.ID)), nil, 0); err != nil {
+					logger.stderrLog.Printf("error from hashtree.PutFile for job object: %s\n", err)
+				}
+				defer func() {
+					if retErr != nil {
+						return
+					}
+					finStatsTree, err := statsTree.Finish()
+					if err != nil {
+						retErr = err
+						return
+					}
+					statsTreeBytes, err := hashtree.Serialize(finStatsTree)
+					if err != nil {
+						retErr = err
+						return
+					}
+					if _, _, err := a.pachClient.PutObject(bytes.NewReader(statsTreeBytes), statsTag.Name); err != nil {
+						retErr = err
+						return
+					}
+				}()
+				defer func() {
+					object, size, err := logger.Close()
+					if err != nil && retErr == nil {
+						retErr = err
+						return
+					}
+					if object != nil && a.pipelineInfo.EnableStats {
+						if err := statsTree.PutFile(path.Join(statsPath, "logs"), []*pfs.Object{object}, size); err != nil && retErr == nil {
+							retErr = err
+							return
+						}
+					}
+				}()
+				defer func() {
+					marshaler := &jsonpb.Marshaler{}
+					statsString, err := marshaler.MarshalToString(subStats)
+					if err != nil {
+						logger.stderrLog.Printf("could not serialize stats: %s\n", err)
+						return
+					}
+					object, size, err := a.pachClient.PutObject(strings.NewReader(statsString))
+					if err != nil {
+						logger.stderrLog.Printf("could not put stats object: %s\n", err)
+						return
+					}
+					if err := statsTree.PutFile(path.Join(statsPath, "stats"), []*pfs.Object{object}, size); err != nil {
+						logger.stderrLog.Printf("could not put-file stats object: %s\n", err)
+						return
+					}
+				}()
+			}
+			parentTag, err := a.parentTag(ctx, jobInfo, data)
+			if err != nil {
+				return err
+			}
+
+			env := a.userCodeEnv(jobInfo.Job.ID, data)
+			atomic.AddInt64(&a.queueSize, -1)
+			var dir string
+			var retries int
+			if err := backoff.RetryNotify(func() error {
+				// Download input data
+				puller := filesync.NewPuller()
+				// TODO parent tag shouldn't be nil
+				var err error
+				dir, err = a.downloadData(logger, data, puller, parentTag, subStats, statsTree, path.Join(statsPath, "pfs"))
+				// We run these cleanup functions no matter what, so that if
+				// downloadData partially succeeded, we still clean up the resources.
+				defer func() {
+					if err := os.RemoveAll(dir); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
+				// It's important that we run puller.CleanUp before os.RemoveAll,
+				// because otherwise puller.Cleanup might try tp open pipes that have
+				// been deleted.
+				defer func() {
+					if _, err := puller.CleanUp(); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
+				if err != nil {
+					return err
+				}
+				a.runMu.Lock()
+				defer a.runMu.Unlock()
+				ctx, cancel := context.WithCancel(ctx)
+				func() {
+					a.statusMu.Lock()
+					defer a.statusMu.Unlock()
+					a.jobID = jobInfo.Job.ID
+					a.data = data
+					a.started = time.Now()
+					a.cancel = cancel
+					a.stats = stats
+				}()
+				if err := os.MkdirAll(client.PPSInputPrefix, 0666); err != nil {
+					return err
+				}
+				// Create output directory (currently /pfs/out) and run user code
+				if err := os.MkdirAll(filepath.Join(dir, "out"), 0666); err != nil {
+					return err
+				}
+				if err := syscall.Mount(dir, client.PPSInputPrefix, "", syscall.MS_BIND, ""); err != nil {
+					return err
+				}
+				defer func() {
+					if err := syscall.Unmount(client.PPSInputPrefix, syscall.MNT_DETACH); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
+				if err := a.runUserCode(ctx, logger, env, subStats); err != nil {
+					return err
+				}
+				// CleanUp is idempotent so we can call it however many times we want.
+				// The reason we are calling it here is that the puller could've
+				// encountered an error as it was lazily loading files, in which case
+				// the output might be invalid since as far as the user's code is
+				// concerned, they might've just seen an empty or partially completed
+				// file.
+				downSize, err := puller.CleanUp()
+				if err != nil {
+					logger.Logf("puller encountered an error while cleaning up: %+v", err)
+					return err
+				}
+				atomic.AddUint64(&subStats.DownloadBytes, uint64(downSize))
+				return a.uploadOutput(ctx, dir, tag, logger, data, subStats, statsTree, path.Join(statsPath, "pfs", "out"))
+			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
+				retries++
+				if retries >= maxRetries {
+					logger.Logf("failed to process datum with error: %+v", err)
+					if statsTree != nil {
+						object, size, err := a.pachClient.PutObject(strings.NewReader(err.Error()))
+						if err != nil {
+							logger.stderrLog.Printf("could not put error object: %s\n", err)
+						} else {
+							if err := statsTree.PutFile(path.Join(statsPath, "failure"), []*pfs.Object{object}, size); err != nil {
+								logger.stderrLog.Printf("could not put-file error object: %s\n", err)
+							}
+						}
+					}
+					return err
+				}
+				logger.Logf("failed processing datum: %v, retrying in %v", err, d)
+				return nil
+			}); err != nil {
+				failedDatumID = a.DatumID(data)
+				return nil
+			}
+			statsMu.Lock()
+			defer statsMu.Unlock()
+			if err := mergeStats(stats, subStats); err != nil {
+				logger.Logf("failed to merge Stats: %v", err)
+			}
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return "", err
+	}
+	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		jobs := a.jobs.ReadWrite(stm)
+		jobID := jobInfo.Job.ID
+		jobInfo := &pps.JobInfo{}
+		if err := jobs.Get(jobID, jobInfo); err != nil {
+			return err
+		}
+		jobInfo.DataProcessed += high - low - skipped
+		jobInfo.DataSkipped += skipped
+		if jobInfo.Stats == nil {
+			jobInfo.Stats = &pps.ProcessStats{}
+		}
+		if err := mergeStats(jobInfo.Stats, stats); err != nil {
+			logger.Logf("failed to merge Stats: %v", err)
+		}
+		return jobs.Put(jobID, jobInfo)
+	}); err != nil {
+		return "", err
+	}
+	return failedDatumID, nil
+}
+
+func (a *APIServer) parentTag(ctx context.Context, jobInfo *pps.JobInfo, files []*Input) (*pfs.Tag, error) {
+	var newBranchParentCommit *pfs.Commit
+	// If this is an incremental job we need to find the parent
+	// commit of the new branch.
+	if jobInfo.Incremental && jobInfo.NewBranch != nil {
+		commit := jobInfo.NewBranch.Head
+		newBranchCommitInfo, err := a.pachClient.WithCtx(ctx).InspectCommit(commit.Repo.Name, commit.ID)
+		if err != nil {
+			return nil, err
+		}
+		newBranchParentCommit = newBranchCommitInfo.ParentCommit
+	}
+	if newBranchParentCommit != nil {
+		var parentFiles []*Input
+		for _, file := range files {
+			parentFile := proto.Clone(file).(*Input)
+			if file.FileInfo.File.Commit.Repo.Name == jobInfo.NewBranch.Head.Repo.Name && file.Branch == jobInfo.NewBranch.Name {
+				parentFileInfo, err := a.pachClient.WithCtx(ctx).InspectFile(parentFile.FileInfo.File.Commit.Repo.Name, newBranchParentCommit.ID, parentFile.FileInfo.File.Path)
+				if err != nil {
+					if !isNotFoundErr(err) {
+						return nil, err
+					}
+					// we didn't find a match for this file,
+					// so we know there's no matching datum
+					break
+				}
+				file.ParentCommit = parentFileInfo.File.Commit
+				parentFile.FileInfo = parentFileInfo
+			}
+			parentFiles = append(parentFiles, parentFile)
+		}
+		if len(parentFiles) == len(files) {
+			_parentOutputTag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, parentFiles)
+			return &pfs.Tag{Name: _parentOutputTag}, nil
+		}
+	}
+	return nil, nil
+}
+
+// mergeStats merges y into x
+func mergeStats(x, y *pps.ProcessStats) error {
+	var err error
+	if x.DownloadTime, err = plusDuration(x.DownloadTime, y.DownloadTime); err != nil {
+		return err
+	}
+	if x.ProcessTime, err = plusDuration(x.ProcessTime, y.ProcessTime); err != nil {
+		return err
+	}
+	if x.UploadTime, err = plusDuration(x.UploadTime, y.UploadTime); err != nil {
+		return err
+	}
+	x.DownloadBytes += y.DownloadBytes
+	x.UploadBytes += y.UploadBytes
 	return nil
 }
