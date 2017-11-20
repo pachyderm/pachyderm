@@ -29,6 +29,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfspretty "github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
@@ -6325,30 +6326,29 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 	timeout := 20
 	pipeline := uniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{
-			fmt.Sprintf("sleep %v", timeout+10),
-			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					fmt.Sprintf("sleep %v", timeout+10),
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+				},
+			},
+			Input:        client.NewAtomInput(dataRepo, "/*"),
+			EnableStats:  true,
+			DatumTimeout: fmt.Sprintf("%vs", timeout),
 		},
-		nil,
-		client.NewAtomInput(dataRepo, "/*"),
-		"",
-		false,
-		fmt.Sprintf("%vs", timeout),
-		"",
-	))
+	)
+	require.NoError(t, err)
 
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 1, len(commitInfos))
 
-	// Without this sleep, I get no results from list-job
-	// See issue: https://github.com/pachyderm/pachyderm/issues/2181
-	time.Sleep(15 * time.Second)
 	jobs, err := c.ListJob(pipeline, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
@@ -6356,6 +6356,21 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 	jobInfo, err := c.InspectJob(jobs[0].Job.ID, true)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
+
+	// Now validate the datum timed out properly
+	resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(resp.DatumInfos))
+
+	datum, err := c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
+	require.NoError(t, err)
+	require.Equal(t, pps.DatumState_FAILED, datum.State)
+	// ProcessTime looks like "20 seconds"
+	tokens := strings.Split(pretty.Duration(datum.Stats.ProcessTime), " ")
+	require.Equal(t, 2, len(tokens))
+	seconds, err := strconv.Atoi(tokens[0])
+	require.NoError(t, err)
+	require.Equal(t, timeout, seconds)
 }
 
 func TestPipelineWithDatumTimeoutControl(t *testing.T) {
@@ -6398,9 +6413,6 @@ func TestPipelineWithDatumTimeoutControl(t *testing.T) {
 	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 1, len(commitInfos))
 
-	// Without this sleep, I get no results from list-job
-	// See issue: https://github.com/pachyderm/pachyderm/issues/2181
-	time.Sleep(15 * time.Second)
 	jobs, err := c.ListJob(pipeline, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
