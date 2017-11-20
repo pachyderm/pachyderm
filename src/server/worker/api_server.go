@@ -440,35 +440,16 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 		logger.Logf("finished running user code - took (%v) - with error (%v)", time.Since(start), retErr)
 	}(time.Now())
 	fmt.Printf("rawTimeout (%v)\n", rawTimeout)
-	/*
-		if rawTimeout != "" {
-			timeout, err := time.ParseDuration(rawTimeout)
-			if err != nil {
-				return err
-			}
-			ctx, cancel := context.WithTimeout(ctx, timeout)
-			defer cancel()
-			defer func() {
-				select {
-				case <-ctx.Done():
-					//check for error/log if cancelled from timeout
-					if err := ctx.Err(); err != nil {
-						fmt.Printf("got error running datum %v\n", err)
-						if err == context.DeadlineExceeded {
-							fmt.Printf("its a deadline exceeded error\n")
-						}
-						retErr = err
-					}
-				default:
-				}
-			}()
-		}*/
-	timeout, err := time.ParseDuration("20s")
-	if err != nil {
-		return err
+	if rawTimeout != "" {
+		timeout, err := time.ParseDuration(rawTimeout)
+		if err != nil {
+			return err
+		}
+		timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+		ctx = timeoutCtx
 	}
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
+
 	// Run user code
 	cmd := exec.CommandContext(ctx, a.pipelineInfo.Transform.Cmd[0], a.pipelineInfo.Transform.Cmd[1:]...)
 	cmd.Stdin = strings.NewReader(strings.Join(a.pipelineInfo.Transform.Stdin, "\n") + "\n")
@@ -487,7 +468,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	return err
 	}
 	*/
-	err = cmd.Start()
+	err := cmd.Start()
 	if err != nil {
 		return err
 	}
@@ -504,7 +485,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 			}
 			return err
 		}
-	case err := <-cmdErr:
+	case err = <-cmdErr:
 		if err != nil {
 			return err
 		}
