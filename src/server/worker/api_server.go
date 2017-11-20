@@ -31,7 +31,8 @@ import (
 	"gopkg.in/go-playground/webhooks.v3/github"
 	"gopkg.in/src-d/go-git.v4"
 	gitPlumbing "gopkg.in/src-d/go-git.v4/plumbing"
-	kube "k8s.io/kubernetes/pkg/client/unversioned"
+	kube "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/pachyderm/pachyderm/src/client"
@@ -69,7 +70,7 @@ var (
 // APIServer implements the worker API
 type APIServer struct {
 	pachClient *client.APIClient
-	kubeClient *kube.Client
+	kubeClient *kube.Clientset
 	etcdClient *etcd.Client
 	etcdPrefix string
 
@@ -274,7 +275,11 @@ func (logger *taggedLogger) userLogger() *taggedLogger {
 
 // NewAPIServer creates an APIServer for a given pipeline
 func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string, pipelineInfo *pps.PipelineInfo, workerName string, namespace string) (*APIServer, error) {
-	kubeClient, err := kube.NewInCluster()
+	cfg, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
+	}
+	kubeClient, err := kube.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}

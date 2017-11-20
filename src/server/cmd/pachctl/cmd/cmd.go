@@ -3,6 +3,7 @@ package cmd
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -15,9 +16,9 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/unversioned"
-	"k8s.io/kubernetes/pkg/apis/batch"
+	batch "k8s.io/api/batch/v1"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/facebookgo/pidfile"
 	"github.com/gogo/protobuf/types"
@@ -36,7 +37,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/ugorji/go/codec"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -305,20 +305,20 @@ $ pachctl migrate --from 1.4.8 --to 1.5.0
 			}
 
 			jobSpec := batch.Job{
-				TypeMeta: unversioned.TypeMeta{
+				TypeMeta: metav1.TypeMeta{
 					Kind:       "Job",
 					APIVersion: "batch/v1",
 				},
-				ObjectMeta: api.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Name: "pach-migration",
 					Labels: map[string]string{
 						"suite": "pachyderm",
 					},
 				},
 				Spec: batch.JobSpec{
-					Template: api.PodTemplateSpec{
-						Spec: api.PodSpec{
-							Containers: []api.Container{
+					Template: v1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
 								{
 									Name:    "migration",
 									Image:   fmt.Sprintf("pachyderm/pachd:%v", version.PrettyPrintVersion(version.Version)),
@@ -337,14 +337,8 @@ $ pachctl migrate --from 1.4.8 --to 1.5.0
 			}
 			defer os.Remove(tmpFile.Name())
 
-			jsonEncoderHandle := &codec.JsonHandle{
-				BasicHandle: codec.BasicHandle{
-					EncodeOptions: codec.EncodeOptions{Canonical: true},
-				},
-				Indent: 2,
-			}
-			encoder := codec.NewEncoder(tmpFile, jsonEncoderHandle)
-			jobSpec.CodecEncodeSelf(encoder)
+			encoder := json.NewEncoder(tmpFile)
+			encoder.Encode(jobSpec)
 			tmpFile.Close()
 
 			cmd := exec.Command("kubectl", "create", "--validate=false", "-f", tmpFile.Name())
