@@ -907,7 +907,7 @@ func (a *APIServer) Process(ctx context.Context, req *ProcessRequest) (resp *Pro
 	}
 	atomic.AddUint64(&stats.DownloadBytes, uint64(downSize))
 	if err := a.uploadOutput(ctx, dir, tag, logger, req.Data, stats, statsTree, path.Join(statsPath, "pfs", "out")); err != nil {
-		// If uploading failed because the user program outputed a special
+		// If uploading failed because the user program outputted a special
 		// file, then there's no point in retrying.  Thus we signal that
 		// there's some problem with the user code so the job doesn't
 		// infinitely retry to process this datum.
