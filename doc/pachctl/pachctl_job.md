@@ -14,7 +14,7 @@ parent. If the job is created with a parent it will use the same repo as its
 parent job and the commit it creates will use the parent job's commit as a
 parent.
 If the job fails the commit it creates will not be finished.
-The increase the throughput of a job increase the Shard paremeter.
+The increase the throughput of a job increase the Shard parameter.
 
 
 ```

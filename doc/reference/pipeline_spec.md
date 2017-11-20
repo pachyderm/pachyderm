@@ -250,7 +250,7 @@ Commits to these repos will automatically trigger the pipeline to create new
 jobs to process them. Input is a recursive type, there are multiple different
 kinds of inputs which can be combined together. The `input` object is a
 container for the different input types with a field for each, only one of
-these fields be set for any insantiation of the object.
+these fields be set for any instantiation of the object.
 
 ```
 {
