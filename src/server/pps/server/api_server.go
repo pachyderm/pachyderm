@@ -356,10 +356,10 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			ParallelismSpec:  request.ParallelismSpec,
 			Input:            request.Input,
 			OutputRepo:       request.OutputRepo,
+			OutputCommit:     request.OutputCommit,
 			OutputBranch:     request.OutputBranch,
 			Started:          now(),
 			Finished:         nil,
-			OutputCommit:     nil,
 			Service:          request.Service,
 			ParentJob:        request.ParentJob,
 			ResourceRequests: request.ResourceRequests,
@@ -1351,6 +1351,22 @@ func (a *apiServer) authorizePipelineOp(ctx context.Context, operation pipelineO
 	return nil
 }
 
+func branchProvenance(input *pps.Input) []*pfs.Branch {
+	var result []*pfs.Branch
+	pps.VisitInput(input, func(input *pps.Input) {
+		if input.Atom != nil {
+			result = append(result, client.NewBranch(input.Atom.Repo, input.Atom.Branch))
+		}
+		if input.Cron != nil {
+			result = append(result, client.NewBranch(input.Cron.Repo, "master"))
+		}
+		if input.Git != nil {
+			result = append(result, client.NewBranch(input.Git.Name, "master"))
+		}
+	})
+	return result
+}
+
 func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -1549,6 +1565,12 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		}); err != nil && !isAlreadyExistsErr(err) {
 			return nil, err
 		}
+	}
+	if _, err := pfsClient.CreateBranch(auth.In2Out(ctx), &pfs.CreateBranchRequest{
+		Branch:     client.NewBranch(pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch),
+		Provenance: branchProvenance(pipelineInfo.Input),
+	}); err != nil {
+		return nil, err
 	}
 
 	return &types.Empty{}, nil
