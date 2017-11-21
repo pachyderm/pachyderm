@@ -625,9 +625,12 @@ func chunks(df DatumFactory, spec *pps.ChunkSpec, parallelism int) *Chunks {
 }
 
 func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *taggedLogger) error {
-	//todo: use the jobinfo's timeout to set a deadline on the context here ...
-	// but! additionally ... when the timeout happens ... we need to make sure the job state gets updated in etcd as failed
-	ctx, cancel := context.WithCancel(ctx)
+	timeout, err := time.ParseDuration(jobInfo.JobTimeout)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	go func() {
 		backoff.RetryNotify(func() error {
 			currentJobInfo, err := a.pachClient.WithCtx(ctx).InspectJob(jobInfo.Job.ID, true)
@@ -649,6 +652,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		})
 	}()
 	backoff.RetryNotify(func() (retErr error) {
+		fmt.Printf("retrying job %v\n", jobInfo)
 		df, err := NewDatumFactory(ctx, a.pachClient.PfsAPIClient, jobInfo.Input)
 		if err != nil {
 			return err
@@ -816,11 +820,50 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 			return a.updateJobState(stm, jobInfo, pps.JobState_JOB_SUCCESS, "")
 		})
 		return nil
-	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) (retErr error) {
 		logger.Logf("error in waitJob %v, retrying in %v", err, d)
+		defer func() {
+			fmt.Printf("final return error of notify fn: %v\n", retErr)
+		}()
 		select {
 		case <-ctx.Done():
-			return err
+			if err := ctx.Err(); err != nil {
+				fmt.Printf("ctx err: %v\n", err)
+				if err == context.DeadlineExceeded {
+					fmt.Printf("deadline exceeded ... updating job as failed\n")
+					reason := fmt.Sprintf("job exceeded timeout (%v)", timeout)
+					_, err := col.NewSTM(context.Background(), a.etcdClient, func(stm col.STM) error {
+						fmt.Printf("within stm ... jobInfo: %v\n", jobInfo)
+						jobs := a.jobs.ReadWrite(stm)
+						fmt.Printf("within stm ... jobs: %v\n", jobs)
+						jobID := jobInfo.Job.ID
+						jobInfo := &pps.JobInfo{}
+						fmt.Printf("did some assignments, now getting the job by ID %v\n", jobID)
+						if err := jobs.Get(jobID, jobInfo); err != nil {
+							fmt.Printf("error getting job %v: %v\n", jobID, err)
+							return err
+						}
+						fmt.Printf("got job by id %v, %v\n", jobID, jobInfo)
+						jobInfo.Finished = now()
+						fmt.Printf("updating job to: %v\n", jobInfo)
+						err = a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE, reason)
+						if err != nil {
+							retErr = err
+							return nil
+						}
+						fmt.Printf("making notify function return w error: %v\n", reason)
+						retErr = fmt.Errorf(reason)
+						return nil
+					})
+					if err != nil {
+						return err
+					}
+					if retErr != nil {
+						return retErr
+					}
+				}
+				return err
+			}
 		default:
 		}
 		// Increment the job's restart count
