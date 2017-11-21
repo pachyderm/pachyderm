@@ -1448,7 +1448,10 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 						return err
 					}
 				}
-				if err := d.commits(commitInfo.Commit.Repo.Name).ReadWrite(stm).Create(commitInfo.Commit.ID, commitInfo); err != nil {
+				if err := d.commits(commit.Repo.Name).ReadWrite(stm).Create(commit.ID, commitInfo); err != nil {
+					return err
+				}
+				if err := d.openCommits.ReadWrite(stm).Put(commit.ID, commit); err != nil {
 					return err
 				}
 			}

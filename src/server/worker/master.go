@@ -123,7 +123,7 @@ func (a *APIServer) master() {
 		if paused {
 			return fmt.Errorf("can't run master for a paused pipeline")
 		}
-		return a.jobSpawner(ctx, logger)
+		return a.jobSpawner2(ctx, logger)
 	}, b, func(err error, d time.Duration) error {
 		logger.Logf("master: error running the master process: %v; retrying in %v", err, d)
 		return nil
@@ -207,6 +207,79 @@ func (a *APIServer) jobInput(bs *branchSet) (*pps.Input, error) {
 		return nil, visitErr
 	}
 	return jobInput, nil
+}
+
+func (a *APIServer) jobInput2(commitInfo *pfs.CommitInfo) *pps.Input {
+	// TODO this breaks if there's 2 branches from the same repo
+	repoToCommit := make(map[string]*pfs.Commit)
+	for _, provCommit := range commitInfo.Provenance {
+		repoToCommit[provCommit.Repo.Name] = provCommit
+	}
+	jobInput := proto.Clone(a.pipelineInfo.Input).(*pps.Input)
+	pps.VisitInput(jobInput, func(input *pps.Input) {
+		if input.Atom != nil {
+			if commit, ok := repoToCommit[input.Atom.Repo]; ok {
+				input.Atom.Commit = commit.ID
+			}
+		}
+		if input.Cron != nil {
+			if commit, ok := repoToCommit[input.Cron.Repo]; ok {
+				input.Cron.Commit = commit.ID
+			}
+		}
+		if input.Git != nil {
+			if commit, ok := repoToCommit[input.Git.Name]; ok {
+				input.Git.Commit = commit.ID
+			}
+		}
+	})
+	return jobInput
+}
+
+func (a *APIServer) jobSpawner2(ctx context.Context, logger *taggedLogger) error {
+	commitIter, err := a.pachClient.WithCtx(ctx).SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "")
+	if err != nil {
+		return err
+	}
+	defer commitIter.Close()
+	for {
+		commitInfo, err := commitIter.Next()
+		if err != nil {
+			return err
+		}
+		if commitInfo.Finished != nil {
+			continue
+		}
+		// TODO scale down
+		job, err := a.pachClient.PpsAPIClient.CreateJob(ctx, &pps.CreateJobRequest{
+			Pipeline:     a.pipelineInfo.Pipeline,
+			OutputCommit: commitInfo.Commit,
+			Input:        a.jobInput2(commitInfo),
+			// ParentJob:       parentJob, TODO
+			// NewBranch:       newBranch, TODO
+			Salt:            a.pipelineInfo.Salt,
+			PipelineVersion: a.pipelineInfo.Version,
+			EnableStats:     a.pipelineInfo.EnableStats,
+			Batch:           a.pipelineInfo.Batch,
+			Service:         a.pipelineInfo.Service,
+			ChunkSpec:       a.pipelineInfo.ChunkSpec,
+		})
+		if err != nil {
+			return err
+		}
+
+		jobInfo, err := a.pachClient.PpsAPIClient.InspectJob(ctx, &pps.InspectJobRequest{
+			Job: job,
+		})
+		if err != nil {
+			return err
+		}
+
+		if err := a.waitJob(ctx, jobInfo, logger); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // jobSpawner spawns jobs
@@ -766,18 +839,14 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 			provenance = append(provenance, commit)
 		}
 
-		outputCommit, err := a.pachClient.PfsAPIClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
-			Parent: &pfs.Commit{
-				Repo: jobInfo.OutputRepo,
-			},
-			Branch:     jobInfo.OutputBranch,
-			Provenance: provenance,
-			Tree:       object,
+		_, err = a.pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+			Commit: jobInfo.OutputCommit,
+			Tree:   object,
 		})
 		if err != nil {
 			return err
 		}
-		if err := a.egress(ctx, logger, jobInfo, outputCommit); err != nil {
+		if err := a.egress(ctx, logger, jobInfo); err != nil {
 			reason := fmt.Sprintf("egress error: %v", err)
 			_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 				jobs := a.jobs.ReadWrite(stm)
@@ -802,7 +871,6 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 			if err := jobs.Get(jobID, jobInfo); err != nil {
 				return err
 			}
-			jobInfo.OutputCommit = outputCommit
 			jobInfo.Finished = now()
 			jobInfo.StatsCommit = statsCommit
 			if failedDatumID != "" {
@@ -837,7 +905,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 	return nil
 }
 
-func (a *APIServer) egress(ctx context.Context, logger *taggedLogger, jobInfo *pps.JobInfo, outputCommit *pfs.Commit) error {
+func (a *APIServer) egress(ctx context.Context, logger *taggedLogger, jobInfo *pps.JobInfo) error {
 	var egressFailureCount int
 	return backoff.RetryNotify(func() (retErr error) {
 		if jobInfo.Egress != nil {
@@ -855,7 +923,7 @@ func (a *APIServer) egress(ctx context.Context, logger *taggedLogger, jobInfo *p
 				PfsAPIClient: a.pachClient.PfsAPIClient,
 			}
 			client.SetMaxConcurrentStreams(100)
-			if err := pfs_sync.PushObj(client, outputCommit, objClient, url.Object); err != nil {
+			if err := pfs_sync.PushObj(client, jobInfo.OutputCommit, objClient, url.Object); err != nil {
 				return err
 			}
 			logger.Logf("Completed egress upload for job (%v), duration (%v)", jobInfo, time.Since(start))
