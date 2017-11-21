@@ -173,6 +173,7 @@ message BuildCommitRequest {
 
 message FinishCommitRequest {
   Commit commit = 1;
+  Object tree = 2;
 }
 
 message InspectCommitRequest {
