@@ -1442,7 +1442,7 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 					commitInfo.Provenance = append(commitInfo.Provenance, provCommit)
 					provCommitInfo := &pfs.CommitInfo{}
 					if err := d.commits(provCommit.Repo.Name).ReadWrite(stm).Upsert(provCommit.ID, provCommitInfo, func() error {
-						provCommitInfo.Subvenance = append(provCommitInfo.Subvenance, provCommit)
+						provCommitInfo.Subvenance = append(provCommitInfo.Subvenance, commit)
 						return nil
 					}); err != nil {
 						return err
