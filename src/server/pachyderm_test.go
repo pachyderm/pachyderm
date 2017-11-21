@@ -6462,11 +6462,8 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
-	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
-
+	// Wait for the job to get scheduled / appear in listjob
+	time.Sleep(15 * time.Second)
 	jobs, err := c.ListJob(pipeline, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
@@ -6476,6 +6473,8 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 
 	// ProcessTime looks like "20 seconds"
+	fmt.Printf("jobinfo: %v\n", jobInfo)
+	fmt.Printf("job proc time: %v\n", jobInfo.Stats.ProcessTime)
 	tokens := strings.Split(pretty.Duration(jobInfo.Stats.ProcessTime), " ")
 	require.Equal(t, 2, len(tokens))
 	seconds, err := strconv.Atoi(tokens[0])
