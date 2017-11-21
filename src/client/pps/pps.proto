@@ -315,6 +315,7 @@ message CreateJobRequest {
   // by using a k8s RC and Service instead of a k8s Job
   Service service = 8;
   pfs.Repo output_repo = 12;
+  pfs.Commit output_commit = 23;
   string output_branch = 11;
   Job parent_job = 13;
   ResourceSpec resource_requests = 14;
