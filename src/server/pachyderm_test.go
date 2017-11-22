@@ -6473,16 +6473,9 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 	jobInfo, err := c.InspectJob(jobs[0].Job.ID, true)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
-
-	// Need to sleep since there's a race between job marked as failure,
-	// and stats trees getting populated
-	time.Sleep(5 * time.Second)
-	jobInfo, err = c.InspectJob(jobs[0].Job.ID, true)
-	require.NoError(t, err)
-	// ProcessTime looks like "20 seconds"
-	fmt.Printf("jobinfo: %v\n", jobInfo)
-	fmt.Printf("job proc time: %v\n", jobInfo.Stats.ProcessTime)
-	tokens := strings.Split(pretty.Duration(jobInfo.Stats.ProcessTime), " ")
+	durationString := pretty.TimeDifference(jobInfo.Started, jobInfo.Finished)
+	// duration looks like "20 seconds"
+	tokens := strings.Split(durationString, " ")
 	require.Equal(t, 2, len(tokens))
 	seconds, err := strconv.Atoi(tokens[0])
 	require.NoError(t, err)
