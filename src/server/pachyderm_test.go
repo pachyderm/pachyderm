@@ -6463,15 +6463,22 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 	require.NoError(t, err)
 
 	// Wait for the job to get scheduled / appear in listjob
-	time.Sleep(15 * time.Second)
+	// A sleep of 15s is insufficient
+	time.Sleep(25 * time.Second)
 	jobs, err := c.ListJob(pipeline, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
+
 	// Block on the job being complete before we call ListDatum
 	jobInfo, err := c.InspectJob(jobs[0].Job.ID, true)
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 
+	// Need to sleep since there's a race between job marked as failure,
+	// and stats trees getting populated
+	time.Sleep(5 * time.Second)
+	jobInfo, err = c.InspectJob(jobs[0].Job.ID, true)
+	require.NoError(t, err)
 	// ProcessTime looks like "20 seconds"
 	fmt.Printf("jobinfo: %v\n", jobInfo)
 	fmt.Printf("job proc time: %v\n", jobInfo.Stats.ProcessTime)
