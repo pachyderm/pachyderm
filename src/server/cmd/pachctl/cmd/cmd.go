@@ -95,11 +95,16 @@ Environment variables:
 		rootCmd.AddCommand(cmd)
 	}
 
+	var clientOnly bool
 	versionCmd := &cobra.Command{
 		Use:   "version",
 		Short: "Return version information.",
 		Long:  "Return version information.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+			if clientOnly {
+				fmt.Println(version.PrettyPrintVersion(version.Version))
+				return nil
+			}
 			if !noMetrics {
 				start := time.Now()
 				startMetricsWait := metrics.StartReportAndFlushUserAction("Version", start)
@@ -139,6 +144,10 @@ Environment variables:
 			return writer.Flush()
 		}),
 	}
+	versionCmd.Flags().BoolVar(&clientOnly, "client-only", false, "If set, "+
+		"only print pachctl's version, but don't make any RPCs to pachd. Useful "+
+		"if pachd is unavailable")
+
 	deleteAll := &cobra.Command{
 		Use:   "delete-all",
 		Short: "Delete everything.",
