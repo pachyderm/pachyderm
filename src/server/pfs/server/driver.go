@@ -1162,15 +1162,13 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 		// order, so we reverse the order.
 		for i := range commitInfos {
 			commitInfo := commitInfos[len(commitInfos)-i-1]
-			if commitInfo.Finished != nil {
-				select {
-				case stream <- CommitEvent{
-					Value: commitInfo,
-				}:
-					seen[commitInfo.Commit.ID] = true
-				case <-done:
-					return nil
-				}
+			select {
+			case stream <- CommitEvent{
+				Value: commitInfo,
+			}:
+				seen[commitInfo.Commit.ID] = true
+			case <-done:
+				return nil
 			}
 		}
 
