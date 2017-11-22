@@ -675,7 +675,7 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 	return commit, nil
 }
 
-func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
+func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs.Object) error {
 	if err := d.checkIsAuthorized(ctx, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
@@ -692,40 +692,55 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit) error {
 		return err
 	}
 
-	// Read everything under the scratch space for this commit
-	resp, err := d.etcdClient.Get(ctx, prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend))
-	if err != nil {
-		return err
-	}
-
 	parentTree, err := d.getTreeForCommit(ctx, commitInfo.ParentCommit)
 	if err != nil {
 		return err
 	}
-	tree := parentTree.Open()
 
-	if err := d.applyWrites(resp, tree); err != nil {
-		return err
-	}
-
-	finishedTree, err := tree.Finish()
-	if err != nil {
-		return err
-	}
-	// Serialize the tree
-	data, err := hashtree.Serialize(finishedTree)
-	if err != nil {
-		return err
-	}
-
-	if len(data) > 0 {
-		// Put the tree into the blob store
-		obj, _, err := d.pachClient.PutObject(bytes.NewReader(data))
+	var finishedTree hashtree.HashTree
+	if tree == nil {
+		// Read everything under the scratch space for this commit
+		resp, err := d.etcdClient.Get(ctx, prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend))
 		if err != nil {
 			return err
 		}
 
-		commitInfo.Tree = obj
+		tree := parentTree.Open()
+
+		if err := d.applyWrites(resp, tree); err != nil {
+			return err
+		}
+
+		finishedTree, err = tree.Finish()
+		if err != nil {
+			return err
+		}
+		// Serialize the tree
+		data, err := hashtree.Serialize(finishedTree)
+		if err != nil {
+			return err
+		}
+
+		if len(data) > 0 {
+			// Put the tree into the blob store
+			obj, _, err := d.pachClient.PutObject(bytes.NewReader(data))
+			if err != nil {
+				return err
+			}
+
+			commitInfo.Tree = obj
+		}
+	} else {
+		var buf bytes.Buffer
+		if err := d.pachClient.GetObject(tree.Hash, &buf); err != nil {
+			return err
+		}
+		var err error
+		finishedTree, err = hashtree.Deserialize(buf.Bytes())
+		if err != nil {
+			return err
+		}
+		commitInfo.Tree = tree
 	}
 
 	commitInfo.SizeBytes = uint64(finishedTree.FSSize())
