@@ -914,6 +914,9 @@ func (a *APIServer) worker() {
 			if err := a.chunks.ReadOnly(ctx).GetBlock(jobInfo.Job.ID, chunks); err != nil {
 				return err
 			}
+			if err := a.blockInputs(ctx, jobInfo); err != nil {
+				return err
+			}
 			if err := a.acquireDatums(ctx, jobInfo.Job.ID, chunks, logger, func(low, high int64) (string, error) {
 				failedDatumID, err := a.processDatums(ctx, logger, jobInfo, df, low, high)
 				if err != nil {
@@ -929,6 +932,31 @@ func (a *APIServer) worker() {
 		logger.Logf("worker: error running the worker process: %v; retrying in %v", err, d)
 		return nil
 	})
+}
+
+func (a *APIServer) blockInputs(ctx context.Context, jobInfo *pps.JobInfo) error {
+	var vistErr error
+	blockCommit := func(commit *pfs.Commit) {
+		if _, err := a.pachClient.PfsAPIClient.InspectCommit(ctx,
+			&pfs.InspectCommitRequest{
+				Commit: commit,
+				Block:  true,
+			}); err != nil && vistErr == nil {
+			vistErr = err
+		}
+	}
+	pps.VisitInput(jobInfo.Input, func(input *pps.Input) {
+		if input.Atom != nil {
+			blockCommit(client.NewCommit(input.Atom.Repo, input.Atom.Commit))
+		}
+		if input.Cron != nil {
+			blockCommit(client.NewCommit(input.Cron.Repo, input.Cron.Commit))
+		}
+		if input.Git != nil {
+			blockCommit(client.NewCommit(input.Git.Name, input.Git.Commit))
+		}
+	})
+	return vistErr
 }
 
 // processDatums processes datums from low to high in df, if a datum fails it
