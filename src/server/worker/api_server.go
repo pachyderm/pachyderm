@@ -885,6 +885,7 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 						}
 					}
 				}()
+
 				// process the datums in newRange
 				failedDatumID, err := process(low, high)
 				if err != nil {
@@ -942,6 +943,35 @@ func (a *APIServer) worker() {
 			if err := a.chunks.ReadOnly(ctx).GetBlock(jobInfo.Job.ID, chunks); err != nil {
 				return err
 			}
+			ctx, cancel := context.WithCancel(ctx)
+			go func() {
+				backoff.RetryNotify(func() error {
+					fmt.Printf("trying to find job state\n")
+					currentJobInfo, err := a.pachClient.WithCtx(context.Background()).InspectJob(jobID, true)
+					if err != nil {
+						fmt.Printf("err getting job state: %v\n", err)
+						return err
+					}
+					fmt.Printf("got job state: %v\n", currentJobInfo)
+					switch currentJobInfo.State {
+					case pps.JobState_JOB_KILLED, pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE:
+						fmt.Printf("detected job already failed ... should stop datum proc now\n")
+						//_, err := a.Cancel(ctx, &CancelRequest{jobID, nil})
+						//metaCancel()
+						cancel()
+						logger.Logf("job is done, but failed to cancel job with err: %v", err)
+					}
+					return nil
+				}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+					select {
+					case <-ctx.Done():
+						return err
+					default:
+					}
+					return nil
+				})
+			}()
+			fmt.Printf("WOOOO")
 			if err := a.acquireDatums(ctx, jobInfo.Job.ID, chunks, logger, func(low, high int64) (string, error) {
 				failedDatumID, err := a.processDatums(ctx, logger, jobInfo, df, low, high)
 				if err != nil {
@@ -1093,8 +1123,14 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 			atomic.AddInt64(&a.queueSize, -1)
 			var dir string
 			var retries int
-			var jobContext context.Context
 			if err := backoff.RetryNotify(func() error {
+				fmt.Printf("checking if context is already cancelled\n")
+				select {
+				case <-ctx.Done():
+					fmt.Printf("context is already cancelled ... dont even run user code, %v\n", ctx.Err())
+					return ctx.Err()
+				default:
+				}
 				// Download input data
 				puller := filesync.NewPuller()
 				// TODO parent tag shouldn't be nil
@@ -1128,7 +1164,6 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 					a.data = data
 					a.started = time.Now()
 					a.cancel = cancel
-					jobContext = ctx
 					a.stats = stats
 				}()
 				if err := os.MkdirAll(client.PPSInputPrefix, 0666); err != nil {
@@ -1145,30 +1180,6 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 					if err := syscall.Unmount(client.PPSInputPrefix, syscall.MNT_DETACH); err != nil && retErr == nil {
 						retErr = err
 					}
-				}()
-				go func() {
-					backoff.RetryNotify(func() error {
-						fmt.Printf("trying to find job state\n")
-						currentJobInfo, err := a.pachClient.WithCtx(context.Background()).InspectJob(jobInfo.Job.ID, true)
-						if err != nil {
-							fmt.Printf("err getting job state: %v\n", err)
-							return err
-						}
-						fmt.Printf("got job state: %v\n", currentJobInfo)
-						switch currentJobInfo.State {
-						case pps.JobState_JOB_KILLED, pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE:
-							fmt.Printf("detected job already failed ... should stop datum proc now\n")
-							a.cancel()
-						}
-						return nil
-					}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-						select {
-						case <-ctx.Done():
-							return err
-						default:
-						}
-						return nil
-					})
 				}()
 				if err := a.runUserCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
 					return err
@@ -1188,14 +1199,7 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 				return a.uploadOutput(ctx, dir, tag, logger, data, subStats, statsTree, path.Join(statsPath, "pfs", "out"))
 			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
 				retries++
-				timedOut := false
-				select {
-				case <-jobContext.Done():
-					timedOut = true
-					err = fmt.Errorf("job has exceeded timeout (%v), datum processing cancelled", jobInfo.JobTimeout)
-				default:
-				}
-				if retries >= maxRetries || timedOut {
+				if retries >= maxRetries {
 					logger.Logf("failed to process datum with error: %+v", err)
 					if statsTree != nil {
 						object, size, err := a.pachClient.PutObject(strings.NewReader(err.Error()))
