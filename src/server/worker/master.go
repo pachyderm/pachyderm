@@ -652,7 +652,6 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		})
 	}()
 	backoff.RetryNotify(func() (retErr error) {
-		fmt.Printf("retrying job %v\n", jobInfo)
 		df, err := NewDatumFactory(ctx, a.pachClient.PfsAPIClient, jobInfo.Input)
 		if err != nil {
 			return err
@@ -822,36 +821,24 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		return nil
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) (retErr error) {
 		logger.Logf("error in waitJob %v, retrying in %v", err, d)
-		defer func() {
-			fmt.Printf("final return error of notify fn: %v\n", retErr)
-		}()
 		select {
 		case <-ctx.Done():
 			if err := ctx.Err(); err != nil {
-				fmt.Printf("ctx err: %v\n", err)
 				if err == context.DeadlineExceeded {
-					fmt.Printf("deadline exceeded ... updating job as failed\n")
 					reason := fmt.Sprintf("job exceeded timeout (%v)", timeout)
 					_, err := col.NewSTM(context.Background(), a.etcdClient, func(stm col.STM) error {
-						fmt.Printf("within stm ... jobInfo: %v\n", jobInfo)
 						jobs := a.jobs.ReadWrite(stm)
-						fmt.Printf("within stm ... jobs: %v\n", jobs)
 						jobID := jobInfo.Job.ID
 						jobInfo := &pps.JobInfo{}
-						fmt.Printf("did some assignments, now getting the job by ID %v\n", jobID)
 						if err := jobs.Get(jobID, jobInfo); err != nil {
-							fmt.Printf("error getting job %v: %v\n", jobID, err)
 							return err
 						}
-						fmt.Printf("got job by id %v, %v\n", jobID, jobInfo)
 						jobInfo.Finished = now()
-						fmt.Printf("updating job to: %v\n", jobInfo)
 						err = a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE, reason)
 						if err != nil {
 							retErr = err
 							return nil
 						}
-						fmt.Printf("making notify function return w error: %v\n", reason)
 						retErr = fmt.Errorf(reason)
 						return nil
 					})

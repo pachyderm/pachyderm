@@ -439,7 +439,6 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	defer func(start time.Time) {
 		logger.Logf("finished running user code - took (%v) - with error (%v)", time.Since(start), retErr)
 	}(time.Now())
-	fmt.Printf("rawTimeout (%v)\n", rawTimeout)
 	if rawTimeout != "" {
 		timeout, err := time.ParseDuration(rawTimeout)
 		if err != nil {
@@ -463,7 +462,6 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 		},
 	}
 	cmd.Dir = a.workingDir
-	fmt.Printf("starting user code\n")
 	err := cmd.Start()
 	if err != nil {
 		return err
@@ -475,9 +473,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	select {
 	case <-ctx.Done():
 		if err = ctx.Err(); err != nil {
-			fmt.Printf("ctx erred: %v\n", err)
 			if err == context.DeadlineExceeded {
-				fmt.Printf("deadline exceeded ... calling cancel")
 			}
 			return err
 		}
@@ -946,20 +942,13 @@ func (a *APIServer) worker() {
 			ctx, cancel := context.WithCancel(ctx)
 			go func() {
 				backoff.RetryNotify(func() error {
-					fmt.Printf("trying to find job state\n")
 					currentJobInfo, err := a.pachClient.WithCtx(context.Background()).InspectJob(jobID, true)
 					if err != nil {
-						fmt.Printf("err getting job state: %v\n", err)
 						return err
 					}
-					fmt.Printf("got job state: %v\n", currentJobInfo)
 					switch currentJobInfo.State {
 					case pps.JobState_JOB_KILLED, pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE:
-						fmt.Printf("detected job already failed ... should stop datum proc now\n")
-						//_, err := a.Cancel(ctx, &CancelRequest{jobID, nil})
-						//metaCancel()
 						cancel()
-						logger.Logf("job is done, but failed to cancel job with err: %v", err)
 					}
 					return nil
 				}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
@@ -971,7 +960,6 @@ func (a *APIServer) worker() {
 					return nil
 				})
 			}()
-			fmt.Printf("WOOOO")
 			if err := a.acquireDatums(ctx, jobInfo.Job.ID, chunks, logger, func(low, high int64) (string, error) {
 				failedDatumID, err := a.processDatums(ctx, logger, jobInfo, df, low, high)
 				if err != nil {
@@ -1124,10 +1112,8 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 			var dir string
 			var retries int
 			if err := backoff.RetryNotify(func() error {
-				fmt.Printf("checking if context is already cancelled\n")
 				select {
 				case <-ctx.Done():
-					fmt.Printf("context is already cancelled ... dont even run user code, %v\n", ctx.Err())
 					return ctx.Err()
 				default:
 				}
@@ -1216,7 +1202,6 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 				logger.Logf("failed processing datum: %v, retrying in %v", err, d)
 				return nil
 			}); err != nil {
-				fmt.Printf("backoff loop ended w err: %v\n", err)
 				failedDatumID = a.DatumID(data)
 				return nil
 			}
@@ -1229,10 +1214,8 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 		})
 	}
 	if err := eg.Wait(); err != nil {
-		fmt.Printf("errgroup has err: %v\n", err)
 		return "", err
 	}
-	fmt.Printf("going to merge stats into jobinfo\n")
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		jobs := a.jobs.ReadWrite(stm)
 		jobID := jobInfo.Job.ID
@@ -1252,7 +1235,6 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 	}); err != nil {
 		return "", err
 	}
-	fmt.Printf("returning final failed datum ID: %v\n", failedDatumID)
 	return failedDatumID, nil
 }
 
