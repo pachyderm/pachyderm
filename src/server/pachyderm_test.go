@@ -2476,6 +2476,13 @@ func TestChainedPipelines(t *testing.T) {
 	require.NoError(t, err)
 	results := collectCommitInfos(t, resultIter)
 	require.Equal(t, 1, len(results))
+	require.Equal(t, cPipeline, results[0].Commit.Repo.Name)
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(cPipeline, results[0].Commit.ID, "bFile", 0, 0, &buf))
+	require.Equal(t, "foo\n", buf.String())
+	buf.Reset()
+	require.NoError(t, c.GetFile(cPipeline, results[0].Commit.ID, "dFile", 0, 0, &buf))
+	require.Equal(t, "bar\n", buf.String())
 }
 
 // DAG:
