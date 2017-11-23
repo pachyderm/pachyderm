@@ -717,6 +717,9 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		})
 	}()
 	backoff.RetryNotify(func() (retErr error) {
+		if err := a.blockInputs(ctx, jobInfo); err != nil {
+			return err
+		}
 		df, err := NewDatumFactory(ctx, a.pachClient.PfsAPIClient, jobInfo.Input)
 		if err != nil {
 			return err

@@ -906,16 +906,13 @@ func (a *APIServer) worker() {
 			if err := e.Unmarshal(&jobID, jobInfo); err != nil {
 				return fmt.Errorf("error unmarshalling: %v", err)
 			}
-			df, err := NewDatumFactory(ctx, a.pachClient.PfsAPIClient, jobInfo.Input)
-			if err != nil {
-				return fmt.Errorf("error from NewDatumFactory: %v", err)
-			}
 			chunks := &Chunks{}
 			if err := a.chunks.ReadOnly(ctx).GetBlock(jobInfo.Job.ID, chunks); err != nil {
 				return err
 			}
-			if err := a.blockInputs(ctx, jobInfo); err != nil {
-				return err
+			df, err := NewDatumFactory(ctx, a.pachClient.PfsAPIClient, jobInfo.Input)
+			if err != nil {
+				return fmt.Errorf("error from NewDatumFactory: %v", err)
 			}
 			if err := a.acquireDatums(ctx, jobInfo.Job.ID, chunks, logger, func(low, high int64) (string, error) {
 				failedDatumID, err := a.processDatums(ctx, logger, jobInfo, df, low, high)
