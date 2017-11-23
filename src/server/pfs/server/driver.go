@@ -1263,27 +1263,7 @@ func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 	// Wait for each of the commitsToWatch to be finished.
 	for _, commitToWatch := range commitsToWatch {
 		if len(toRepoMap) > 0 {
-			var err error
-			// closure for control flow
-			relevant, err := func() (bool, error) {
-				if _, ok := toRepoMap[commitToWatch.Repo.Name]; ok {
-					return true, nil
-				}
-				commitToWatchInfo, err := d.inspectCommit(ctx, commitToWatch, false)
-				if err != nil {
-					return false, err
-				}
-				for _, subvCommit := range commitToWatchInfo.Subvenance {
-					if _, ok := toRepoMap[subvCommit.Repo.Name]; ok {
-						return true, nil
-					}
-				}
-				return false, nil
-			}()
-			if err != nil {
-				return err
-			}
-			if !relevant {
+			if _, ok := toRepoMap[commitToWatch.Repo.Name]; !ok {
 				continue
 			}
 		}
