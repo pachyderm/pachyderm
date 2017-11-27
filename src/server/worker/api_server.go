@@ -1112,6 +1112,7 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 			var dir string
 			var retries int
 			if err := backoff.RetryNotify(func() error {
+				// If the context is already cancelled (timeout, cancelled job), don't run datum)
 				select {
 				case <-ctx.Done():
 					return ctx.Err()
