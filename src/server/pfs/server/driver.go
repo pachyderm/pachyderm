@@ -692,9 +692,24 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 		return err
 	}
 
-	parentTree, err := d.getTreeForCommit(ctx, commitInfo.ParentCommit)
-	if err != nil {
-		return err
+	// Retrieve commit tree from parent commit. If tree != nil, walk up the branch
+	// until we find a closed commit. Otherwise, require that the immediate parent
+	// of 'commitInfo' is closed, as we use its contents
+	var parentTree hashtree.HashTree
+	parentCommit := commitInfo.ParentCommit
+	for {
+		parentTree, err = d.getTreeForCommit(ctx, parentCommit) // result is empty if parentCommit == nil
+		if err == nil {
+			break // done -- succeeded
+		}
+		if tree == nil || err.Error() != "cannot read from an open commit" {
+			return err
+		}
+		parentCommitInfo, err := d.inspectCommit(ctx, parentCommit, false)
+		if err != nil {
+			return err
+		}
+		parentCommit = parentCommitInfo.ParentCommit
 	}
 
 	var finishedTree hashtree.HashTree

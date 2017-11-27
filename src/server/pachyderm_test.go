@@ -2083,6 +2083,7 @@ func TestStopPipeline(t *testing.T) {
 }
 
 func TestPipelineAutoScaledown(t *testing.T) {
+	t.Fatal("Scaledown not yet implemented")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
