@@ -1969,11 +1969,10 @@ func TestUpdatePipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, "master"))
 
-	iter, err := c.SubscribeCommit(pipelineName, "master", "")
+	iter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
+	collectCommitInfos(t, iter)
 
-	_, err = iter.Next()
-	require.NoError(t, err)
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
@@ -1998,9 +1997,10 @@ func TestUpdatePipeline(t *testing.T) {
 	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("2"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, "master"))
-
-	_, err = iter.Next()
+	iter, err = c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
+	collectCommitInfos(t, iter)
+
 	buffer.Reset()
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
 	require.Equal(t, "bar\n", buffer.String())
@@ -2022,8 +2022,9 @@ func TestUpdatePipeline(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	_, err = iter.Next()
+	iter, err = c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
+	collectCommitInfos(t, iter)
 	buffer.Reset()
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
 	require.Equal(t, "buzz\n", buffer.String())
