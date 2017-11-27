@@ -473,31 +473,24 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	select {
 	case <-ctx.Done():
 		if err = ctx.Err(); err != nil {
-			if err == context.DeadlineExceeded {
-			}
 			return err
 		}
 	case err = <-cmdErr:
 		if err != nil {
+			// (if err is an acceptable return code, don't return err)
+			if exiterr, ok := err.(*exec.ExitError); ok {
+				if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+					for _, returnCode := range a.pipelineInfo.Transform.AcceptReturnCode {
+						if int(returnCode) == status.ExitStatus() {
+							return nil
+						}
+					}
+				}
+			}
 			return err
 		}
 	}
-
-	// Return result
-	if err == nil {
-		return nil
-	}
-	// (if err is an acceptable return code, don't return err)
-	if exiterr, ok := err.(*exec.ExitError); ok {
-		if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-			for _, returnCode := range a.pipelineInfo.Transform.AcceptReturnCode {
-				if int(returnCode) == status.ExitStatus() {
-					return nil
-				}
-			}
-		}
-	}
-	return err
+	return nil
 }
 
 func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, logger *taggedLogger, inputs []*Input, stats *pps.ProcessStats, statsTree hashtree.OpenHashTree, statsRoot string) error {
