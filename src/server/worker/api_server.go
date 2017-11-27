@@ -931,6 +931,9 @@ func (a *APIServer) worker() {
 			if err := e.Unmarshal(&jobID, jobInfo); err != nil {
 				return fmt.Errorf("error unmarshalling: %v", err)
 			}
+			if jobInfo.State == pps.JobState_JOB_KILLED {
+				continue
+			}
 			df, err := NewDatumFactory(ctx, a.pachClient.PfsAPIClient, jobInfo.Input)
 			if err != nil {
 				return fmt.Errorf("error from NewDatumFactory: %v", err)
