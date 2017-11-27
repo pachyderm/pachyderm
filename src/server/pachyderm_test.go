@@ -2054,18 +2054,24 @@ func TestStopPipeline(t *testing.T) {
 		"",
 		false,
 	))
+
+	// Stop the pipeline, so it doesn't process incoming commits
 	require.NoError(t, c.StopPipeline(pipelineName))
+
 	// Do first commit to repo
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
 	// wait for 10 seconds and check that no commit has been outputted
 	time.Sleep(10 * time.Second)
 	commits, err := c.ListCommit(pipelineName, "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, len(commits), 0)
+
+	// Restart pipeline, and make sure old commit is processed
 	require.NoError(t, c.StartPipeline(pipelineName))
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)

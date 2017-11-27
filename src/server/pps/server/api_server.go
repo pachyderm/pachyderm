@@ -1443,6 +1443,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 	pps.SortInput(pipelineInfo.Input)
 	if request.Update {
+		// TODO do we still need to do this after commit invarants change has landed?
 		if _, err := a.StopPipeline(ctx, &pps.StopPipelineRequest{request.Pipeline}); err != nil {
 			return nil, err
 		}
@@ -1788,6 +1789,20 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
+	// Get request.Pipeline's info
+	pipelineInfo, err := a.InspectPipeline(auth.In2Out(ctx), &pps.InspectPipelineRequest{
+		Pipeline: request.Pipeline,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Remove branch provenance (pass branch twice so that it continues to point
+	// at the same commit, but also pass empty provenance slice)
+	if err := a.pachClient.WithCtx(auth.In2Out(ctx)).CreateBranch(request.Pipeline.Name, pipelineInfo.OutputBranch, pipelineInfo.OutputBranch, branchProvenance(pipelineInfo.Input)); err != nil {
+		return nil, err
+	}
+
 	if err := a.updatePipelineState(ctx, request.Pipeline.Name, pps.PipelineState_PIPELINE_RUNNING); err != nil {
 		return nil, err
 	}
@@ -1798,7 +1813,22 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.updatePipelineState(ctx, request.Pipeline.Name, pps.PipelineState_PIPELINE_PAUSED); err != nil {
+	// Get request.Pipeline's info
+	pipelineInfo, err := a.InspectPipeline(auth.In2Out(ctx), &pps.InspectPipelineRequest{
+		Pipeline: request.Pipeline,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Remove branch provenance (pass branch twice so that it continues to point
+	// at the same commit, but also pass empty provenance slice)
+	if err := a.pachClient.WithCtx(auth.In2Out(ctx)).CreateBranch(request.Pipeline.Name, pipelineInfo.OutputBranch, pipelineInfo.OutputBranch, nil); err != nil {
+		return nil, err
+	}
+
+	// Update PipelineInfo with new state
+	if err := a.updatePipelineState(auth.In2Out(ctx), request.Pipeline.Name, pps.PipelineState_PIPELINE_PAUSED); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil

@@ -927,6 +927,9 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, block bo
 			// If it's not a branch, use it as it is
 			return nil
 		}
+		if branchInfo.Head == nil {
+			return fmt.Errorf("branch has no head commit")
+		}
 		commitID = branchInfo.Head.ID
 		return nil
 	})
@@ -1365,11 +1368,6 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 	if err := d.checkIsAuthorized(ctx, branch.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	if commit != nil && provenance != nil {
-		return fmt.Errorf("cannot specify a head commit and provenance for a" +
-			"branch, this is because specifying provenance causes pfs to" +
-			"automatically create commits on a branch")
-	}
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		// compute the transitive closure of our provenance
 		provMap := make(map[string]*pfs.Branch)
@@ -1390,11 +1388,27 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 			// no need to recurse because the other branches are already
 			// storing a transitive closure
 		}
+		// if 'commit' is a branch, resolve it
+		var commitInfo *pfs.CommitInfo
+		var err error
+		if commit != nil {
+			commitInfo, err = d.inspectCommit(ctx, commit, false)
+			if err != nil {
+				// possible that branch exists but has no head commit. This is fine, but
+				// branchInfo.Head must also be nil
+				if err.Error() != "branch has no head commit" {
+					return err
+				}
+			}
+		}
 		branchInfo := &pfs.BranchInfo{
 			Branch: branch,
-			Head:   commit,
 			Name:   branch.Name,
 		}
+		if commitInfo != nil {
+			branchInfo.Head = commitInfo.Commit
+		}
+
 		if len(provMap) > 0 {
 			commitProvMap := make(map[string]*pfs.Commit)
 			// Update branches to have this new branch as subvenance
@@ -1422,6 +1436,22 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 				}
 			}
 			if len(commitProvMap) > 0 {
+				// Special case: provenance was removed because the pipeline writing to
+				// this branch was stopped, and then the pipeline was restarted and
+				// provenance was re-added to the branch, but we may have no new commits
+				// to process
+				if commitInfo != nil {
+					headIsSubset := true
+					for _, c := range commitInfo.Provenance {
+						if _, ok := commitProvMap[commitKey(c)]; !ok {
+							headIsSubset = false
+							break
+						}
+					}
+					if len(commitInfo.Provenance) == len(commitProvMap) && headIsSubset {
+						return nil // existing head commit is the same as the one we want to create--nothing new to do
+					}
+				}
 				commit := &pfs.Commit{
 					Repo: branch.Repo,
 					ID:   uuid.NewWithoutDashes(),
