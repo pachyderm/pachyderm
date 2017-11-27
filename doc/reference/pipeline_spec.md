@@ -428,7 +428,7 @@ Incremental processing is useful for [online
 algorithms](https://en.wikipedia.org/wiki/Online_algorithm), a canonical
 example is summing a set of numbers since the new numbers can be added to the
 old total without having to reconsider the numbers which went into that old
-total. Incremental is design to work nicely with the `--split` flag to
+total. Incremental is designed to work nicely with the `--split` flag to
 `put-file` because it will cause only the new chunks of the file to be
 displayed to each step of the pipeline.
 
