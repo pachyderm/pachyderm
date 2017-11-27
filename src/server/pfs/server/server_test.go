@@ -2480,7 +2480,7 @@ func TestFlush2(t *testing.T) {
 	require.NoError(t, err)
 	commitInfos, err = collectCommitInfos(commitInfoIter)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commitInfos))
+	require.Equal(t, 1, len(commitInfos))
 }
 
 // A
