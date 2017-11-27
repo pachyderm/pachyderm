@@ -2331,10 +2331,10 @@ func TestPipelineWithExistingInputCommits(t *testing.T) {
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buffer))
 	require.Equal(t, "foo\nbar\n", buffer.String())
 
-	// Make sure that we got two output commits
+	// Check that one output commit is created (processing the inputs' head commits)
 	commitInfos, err = c.ListCommit(pipelineName, "master", "", 0)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commitInfos))
+	require.Equal(t, 1, len(commitInfos))
 }
 
 func TestPipelineThatSymlinks(t *testing.T) {
