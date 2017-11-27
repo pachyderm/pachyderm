@@ -625,12 +625,15 @@ func chunks(df DatumFactory, spec *pps.ChunkSpec, parallelism int) *Chunks {
 }
 
 func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *taggedLogger) error {
-	timeout, err := time.ParseDuration(jobInfo.JobTimeout)
-	if err != nil {
-		return err
+	ctx, cancel := context.WithCancel(ctx)
+	if jobInfo.JobTimeout != "" {
+		timeout, err := time.ParseDuration(jobInfo.JobTimeout)
+		if err != nil {
+			return err
+		}
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
 	}
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
 	go func() {
 		backoff.RetryNotify(func() error {
 			currentJobInfo, err := a.pachClient.WithCtx(ctx).InspectJob(jobInfo.Job.ID, true)
@@ -825,7 +828,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		case <-ctx.Done():
 			if err := ctx.Err(); err != nil {
 				if err == context.DeadlineExceeded {
-					reason := fmt.Sprintf("job exceeded timeout (%v)", timeout)
+					reason := fmt.Sprintf("job exceeded timeout (%v)", jobInfo.JobTimeout)
 					_, err := col.NewSTM(context.Background(), a.etcdClient, func(stm col.STM) error {
 						jobs := a.jobs.ReadWrite(stm)
 						jobID := jobInfo.Job.ID
