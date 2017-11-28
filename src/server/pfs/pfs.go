@@ -26,6 +26,12 @@ type ErrCommitNotFound struct {
 	Commit *pfs.Commit
 }
 
+// ErrNoHead represents an error encountered because a branch has no head (e.g.
+// inspectCommit(master) when 'master' has no commits)
+type ErrNoHead struct {
+	Branch *pfs.Branch
+}
+
 // ErrCommitExists represents an error where the commit already exists.
 type ErrCommitExists struct {
 	Commit *pfs.Commit
@@ -55,6 +61,10 @@ func (e ErrRepoExists) Error() string {
 
 func (e ErrCommitNotFound) Error() string {
 	return fmt.Sprintf("commit %v not found in repo %v", e.Commit.ID, e.Commit.Repo.Name)
+}
+
+func (e ErrNoHead) Error() string {
+	return fmt.Sprintf("the branch \"%s\" is nil", e.Branch.Name)
 }
 
 func (e ErrCommitExists) Error() string {
