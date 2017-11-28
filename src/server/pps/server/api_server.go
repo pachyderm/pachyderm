@@ -1443,10 +1443,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 	pps.SortInput(pipelineInfo.Input)
 	if request.Update {
-		// TODO do we still need to do this after commit invarants change has landed?
-		if _, err := a.StopPipeline(ctx, &pps.StopPipelineRequest{request.Pipeline}); err != nil {
-			return nil, err
-		}
+		// Look up pipelineInfo and update it
 		var oldPipelineInfo pps.PipelineInfo
 		_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			pipelines := a.pipelines.ReadWrite(stm)
@@ -1464,7 +1461,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			return nil, err
 		}
 
-		// Revoke the old capability
+		// Revoke the old capability retrieved from pipelineInfo
 		if oldPipelineInfo.Capability != "" {
 			if _, err := pachClient.RevokeAuthToken(auth.In2Out(ctx), &auth.RevokeAuthTokenRequest{
 				Token: oldPipelineInfo.Capability,
@@ -1489,54 +1486,12 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			return nil, err
 		}
 
-		// We only need to restart downstream pipelines if the provenance
-		// of our output repo changed.
-		outputRepo := &pfs.Repo{pipelineInfo.Pipeline.Name}
-		repoInfo, err := pfsClient.InspectRepo(auth.In2Out(ctx),
-			&pfs.InspectRepoRequest{
-				Repo: outputRepo,
-			})
-		if err != nil {
-			return nil, err
-		}
-
-		// Check if the new and old provenance are equal
-		provSet := make(map[string]bool)
-		for _, oldProv := range repoInfo.Provenance {
-			provSet[oldProv.Name] = true
-		}
-		for _, newProv := range provenance {
-			delete(provSet, newProv.Name)
-		}
-		provenanceChanged := len(provSet) > 0 || len(repoInfo.Provenance) != len(provenance)
-
 		if _, err := pfsClient.CreateRepo(auth.In2Out(ctx), &pfs.CreateRepoRequest{
 			Repo:       outputRepo,
 			Provenance: provenance,
 			Update:     true,
 		}); err != nil && !isAlreadyExistsErr(err) {
 			return nil, err
-		}
-		if provenanceChanged {
-			// Restart all downstream pipelines so they relaunch with the
-			// correct provenance.
-			repoInfos, err := pfsClient.ListRepo(ctx, &pfs.ListRepoRequest{
-				Provenance: []*pfs.Repo{{request.Pipeline.Name}},
-			})
-			if err != nil {
-				return nil, err
-			}
-			for _, repoInfo := range repoInfos.RepoInfo {
-				if _, err := a.StopPipeline(ctx, &pps.StopPipelineRequest{&pps.Pipeline{repoInfo.Repo.Name}}); err != nil {
-					if isNotFoundErr(err) {
-						continue
-					}
-					return nil, err
-				}
-				if _, err := a.StartPipeline(ctx, &pps.StartPipelineRequest{&pps.Pipeline{repoInfo.Repo.Name}}); err != nil {
-					return nil, err
-				}
-			}
 		}
 	} else {
 		_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
