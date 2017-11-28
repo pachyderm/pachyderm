@@ -212,7 +212,7 @@ func TestActivate(t *testing.T) {
 	require.NoError(t, err)
 	c.SetAuthToken(resp.PachToken)
 
-	// Check that the token 'c' recieved from PachD authenticates them as "admin"
+	// Check that the token 'c' received from PachD authenticates them as "admin"
 	who, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.True(t, who.IsAdmin)
@@ -528,6 +528,8 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 			client.NewAtomInput(args.repo, "/*"),
 			"", // default output branch: master
 			args.update,
+			"",
+			"",
 		)
 	}
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
@@ -729,6 +731,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 			args.input,
 			"", // default output branch: master
 			args.update,
+			"",
+			"",
 		)
 	}
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
@@ -929,6 +933,8 @@ func TestPipelineRevoke(t *testing.T) {
 		client.NewAtomInput(repo, "/*"),
 		"", // default output branch: master
 		false,
+		"",
+		"",
 	))
 	require.NoError(t, ElementsEqual(
 		entries(bob, "owner"), GetACL(t, bobClient, pipeline)))
@@ -1001,6 +1007,8 @@ func TestPipelineRevoke(t *testing.T) {
 		client.NewAtomInput(repo, "/*"),
 		"", // default output branch: master
 		true,
+		"",
+		"",
 	))
 
 	// Pipeline now finishes successfully
@@ -1040,6 +1048,8 @@ func TestDeletePipeline(t *testing.T) {
 		client.NewAtomInput(repo, "/*"),
 		"", // default output branch: master
 		false,
+		"",
+		"",
 	))
 	// Make sure the input and output repos have non-empty ACLs
 	require.NoError(t, ElementsEqual(
@@ -1081,6 +1091,8 @@ func TestDeletePipeline(t *testing.T) {
 		client.NewAtomInput(repo, "/*"),
 		"", // default output branch: master
 		false,
+		"",
+		"",
 	))
 
 	// bob can't delete alice's pipeline
@@ -1304,7 +1316,7 @@ func TestListRepoNotLoggedInError(t *testing.T) {
 	require.NoError(t, ElementsEqual(
 		entries(alice, "owner"), GetACL(t, aliceClient, repoWriter)))
 
-	// Anon (non-logged-in user) calls ListRepo, and must recieve an error
+	// Anon (non-logged-in user) calls ListRepo, and must receive an error
 	_, err := anonClient.PfsAPIClient.ListRepo(anonClient.Ctx(),
 		&pfs.ListRepoRequest{})
 	require.YesError(t, err)
@@ -1430,6 +1442,8 @@ func TestCreatePipelineRepoAlreadyExistsError(t *testing.T) {
 		client.NewAtomInput(inputRepo, "/*"),
 		"",    // default output branch: master
 		false, // Don't update -- we want an error
+		"",
+		"",
 	)
 	require.YesError(t, err)
 	require.Matches(t, "cannot overwrite repo", err.Error())
@@ -1526,6 +1540,8 @@ func TestListDatum(t *testing.T) {
 		),
 		"", // default output branch: master
 		false,
+		"",
+		"",
 	))
 
 	// alice commits to the input repos, and the pipeline runs successfully
@@ -1696,6 +1712,8 @@ func TestGetLogs(t *testing.T) {
 		client.NewAtomInput(repo, "/*"),
 		"", // default output branch: master
 		false,
+		"",
+		"",
 	))
 
 	// alice commits to the input repos, and the pipeline runs successfully
