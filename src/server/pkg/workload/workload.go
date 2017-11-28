@@ -210,7 +210,7 @@ func (w *worker) advanceJob(c *client.APIClient) error {
 			}
 			repoSet[commit.Repo.Name] = true
 			inputs[i] = commit.Repo.Name
-			input = append(input, client.NewAtomInputOpts("", commit.Repo.Name, commit.ID, "*", false, ""))
+			input = append(input, client.NewAtomInputOpts("", commit.Repo.Name, commit.ID, "*", false))
 		}
 		outFilename := w.randString(10)
 

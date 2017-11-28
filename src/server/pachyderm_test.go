@@ -366,8 +366,8 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 		},
 		nil,
 		client.NewCrossInput(
-			client.NewAtomInputOpts("dirA", dataRepo, "", "/dirA/*", false, ""),
-			client.NewAtomInputOpts("dirB", dataRepo, "", "/dirB/*", false, ""),
+			client.NewAtomInputOpts("dirA", dataRepo, "", "/dirA/*", false),
+			client.NewAtomInputOpts("dirB", dataRepo, "", "/dirB/*", false),
 		),
 		"",
 		false,
@@ -444,8 +444,8 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 		},
 		nil,
 		client.NewCrossInput(
-			client.NewAtomInputOpts("", dataRepo, branchA, "/*", false, ""),
-			client.NewAtomInputOpts("", dataRepo, branchB, "/*", false, ""),
+			client.NewAtomInputOpts("", dataRepo, branchA, "/*", false),
+			client.NewAtomInputOpts("", dataRepo, branchB, "/*", false),
 		),
 		"",
 		false,
@@ -461,8 +461,8 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 		},
 		nil,
 		client.NewCrossInput(
-			client.NewAtomInputOpts(branchA, dataRepo, branchA, "/*", false, ""),
-			client.NewAtomInputOpts(branchB, dataRepo, branchB, "/*", false, ""),
+			client.NewAtomInputOpts(branchA, dataRepo, branchA, "/*", false),
+			client.NewAtomInputOpts(branchB, dataRepo, branchB, "/*", false),
 		),
 		"",
 		false,
@@ -584,7 +584,7 @@ func TestLazyPipelinePropagation(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewAtomInputOpts("", dataRepo, "", "/*", true, ""),
+		client.NewAtomInputOpts("", dataRepo, "", "/*", true),
 		"",
 		false,
 	))
@@ -597,7 +597,7 @@ func TestLazyPipelinePropagation(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewAtomInputOpts("", pipelineA, "", "/*", true, ""),
+		client.NewAtomInputOpts("", pipelineA, "", "/*", true),
 		"",
 		false,
 	))
@@ -3713,10 +3713,10 @@ func TestUnionInput(t *testing.T) {
 				Constant: 1,
 			},
 			client.NewUnionInput(
-				client.NewAtomInputOpts("in", repos[0], "", "/*", false, ""),
-				client.NewAtomInputOpts("in", repos[1], "", "/*", false, ""),
-				client.NewAtomInputOpts("in", repos[2], "", "/*", false, ""),
-				client.NewAtomInputOpts("in", repos[3], "", "/*", false, ""),
+				client.NewAtomInputOpts("in", repos[0], "", "/*", false),
+				client.NewAtomInputOpts("in", repos[1], "", "/*", false),
+				client.NewAtomInputOpts("in", repos[2], "", "/*", false),
+				client.NewAtomInputOpts("in", repos[3], "", "/*", false),
 			),
 			"",
 			false,
@@ -3749,12 +3749,12 @@ func TestUnionInput(t *testing.T) {
 			},
 			client.NewUnionInput(
 				client.NewCrossInput(
-					client.NewAtomInputOpts("in1", repos[0], "", "/*", false, ""),
-					client.NewAtomInputOpts("in1", repos[1], "", "/*", false, ""),
+					client.NewAtomInputOpts("in1", repos[0], "", "/*", false),
+					client.NewAtomInputOpts("in1", repos[1], "", "/*", false),
 				),
 				client.NewCrossInput(
-					client.NewAtomInputOpts("in2", repos[2], "", "/*", false, ""),
-					client.NewAtomInputOpts("in2", repos[3], "", "/*", false, ""),
+					client.NewAtomInputOpts("in2", repos[2], "", "/*", false),
+					client.NewAtomInputOpts("in2", repos[3], "", "/*", false),
 				),
 			),
 			"",
@@ -3772,12 +3772,12 @@ func TestUnionInput(t *testing.T) {
 			},
 			client.NewUnionInput(
 				client.NewCrossInput(
-					client.NewAtomInputOpts("in1", repos[0], "", "/*", false, ""),
-					client.NewAtomInputOpts("in2", repos[1], "", "/*", false, ""),
+					client.NewAtomInputOpts("in1", repos[0], "", "/*", false),
+					client.NewAtomInputOpts("in2", repos[1], "", "/*", false),
 				),
 				client.NewCrossInput(
-					client.NewAtomInputOpts("in1", repos[2], "", "/*", false, ""),
-					client.NewAtomInputOpts("in2", repos[3], "", "/*", false, ""),
+					client.NewAtomInputOpts("in1", repos[2], "", "/*", false),
+					client.NewAtomInputOpts("in2", repos[3], "", "/*", false),
 				),
 			),
 			"",
@@ -3813,12 +3813,12 @@ func TestUnionInput(t *testing.T) {
 			},
 			client.NewCrossInput(
 				client.NewUnionInput(
-					client.NewAtomInputOpts("in1", repos[0], "", "/*", false, ""),
-					client.NewAtomInputOpts("in2", repos[1], "", "/*", false, ""),
+					client.NewAtomInputOpts("in1", repos[0], "", "/*", false),
+					client.NewAtomInputOpts("in2", repos[1], "", "/*", false),
 				),
 				client.NewUnionInput(
-					client.NewAtomInputOpts("in1", repos[2], "", "/*", false, ""),
-					client.NewAtomInputOpts("in2", repos[3], "", "/*", false, ""),
+					client.NewAtomInputOpts("in1", repos[2], "", "/*", false),
+					client.NewAtomInputOpts("in2", repos[3], "", "/*", false),
 				),
 			),
 			"",
@@ -3836,12 +3836,12 @@ func TestUnionInput(t *testing.T) {
 			},
 			client.NewCrossInput(
 				client.NewUnionInput(
-					client.NewAtomInputOpts("in1", repos[0], "", "/*", false, ""),
-					client.NewAtomInputOpts("in1", repos[1], "", "/*", false, ""),
+					client.NewAtomInputOpts("in1", repos[0], "", "/*", false),
+					client.NewAtomInputOpts("in1", repos[1], "", "/*", false),
 				),
 				client.NewUnionInput(
-					client.NewAtomInputOpts("in2", repos[2], "", "/*", false, ""),
-					client.NewAtomInputOpts("in2", repos[3], "", "/*", false, ""),
+					client.NewAtomInputOpts("in2", repos[2], "", "/*", false),
+					client.NewAtomInputOpts("in2", repos[3], "", "/*", false),
 				),
 			),
 			"",
