@@ -176,9 +176,9 @@ Created: {{prettyAgo .CreatedAt}}
 State: {{pipelineState .State}}
 Reason: {{.Reason}}
 Parallelism Spec: {{.ParallelismSpec}}
-{{ if .ResourceSpec }}ResourceSpec:
-	CPU: {{ .ResourceSpec.Cpu }}
-	Memory: {{ .ResourceSpec.Memory }} {{end}}
+{{ if .ResourceRequests }}ResourceRequests:
+	CPU: {{ .ResourceRequests.Cpu }}
+	Memory: {{ .ResourceRequests.Memory }} {{end}}
 {{ if .ResourceLimits }}ResourceLimits:
 	CPU: {{ .ResourceLimits.Cpu }}
 	Memory: {{ .ResourceLimits.Memory }}
