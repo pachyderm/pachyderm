@@ -16,6 +16,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/montanaflynn/stats"
+	// "github.com/robfig/cron"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -122,7 +123,7 @@ func (a *APIServer) master() {
 		if paused {
 			return fmt.Errorf("can't run master for a paused pipeline")
 		}
-		return a.jobSpawner(ctx, logger)
+		return a.jobSpawner(ctx)
 	}, b, func(err error, d time.Duration) error {
 		logger.Logf("master: error running the master process: %v; retrying in %v", err, d)
 		return nil
@@ -199,33 +200,44 @@ func (a *APIServer) jobInput(commitInfo *pfs.CommitInfo) *pps.Input {
 	return jobInput
 }
 
-func (a *APIServer) jobSpawner(ctx context.Context, logger *taggedLogger) error {
+// spawnScaleDownGoroutine is a helper function for jobSpawner. It spawns a
+// goroutine that waits until this pipeline's ScaleDownThreshold is reached and
+// then scales down the pipeline's RC. 'cancel' is a channel that, when closed
+// cancels the spawned goroutine.
+func (a *APIServer) spawnScaleDownGoroutine() (cancel chan struct{}) {
+	logger := a.getMasterLogger()
+	cancel = make(chan struct{})
+	if a.pipelineInfo.ScaleDownThreshold != nil {
+		go func() {
+			scaleDownThreshold, err := types.DurationFromProto(a.pipelineInfo.ScaleDownThreshold)
+			if err != nil {
+				logger.Logf("invalid ScaleDownThreshold: \"%v\"", err)
+				return
+			}
+			select {
+			case <-time.After(scaleDownThreshold):
+				if err := a.scaleDownWorkers(); err != nil {
+					logger.Logf("could not scale down workers: \"%v\"", err)
+				}
+			case <-cancel:
+			}
+		}()
+	}
+	return cancel
+}
+
+func (a *APIServer) jobSpawner(ctx context.Context) error {
+	logger := a.getMasterLogger()
 	commitIter, err := a.pachClient.WithCtx(ctx).SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "")
 	if err != nil {
 		return err
 	}
 	defer commitIter.Close()
 	for {
-		cancel := make(chan struct{})
-		if a.pipelineInfo.ScaleDownThreshold != nil {
-			go func() {
-				scaleDownThreshold, err := types.DurationFromProto(a.pipelineInfo.ScaleDownThreshold)
-				if err != nil {
-					logger.Logf("invalid ScaleDownThreshold: \"%v\"", err)
-					return
-				}
-				select {
-				case <-time.After(scaleDownThreshold):
-					if err := a.scaleDownWorkers(); err != nil {
-						logger.Logf("could not scale down workers: \"%v\"", err)
-					}
-				case <-cancel:
-				}
-			}()
-		}
+		cancel := a.spawnScaleDownGoroutine()
 		commitInfo, err := commitIter.Next()
-		// loop will re-create goroutine whether we start the job or not, so cancel
-		// channel to make sure loop doesn't create two goroutines
+		// loop will spawn new scale-down goroutine whether we start the job or not,
+		// so cancel channel to avoid leaking the current goroutine
 		close(cancel)
 		if err != nil {
 			return err
