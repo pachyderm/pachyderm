@@ -83,6 +83,9 @@ func ParseCommits(args []string) ([]*pfs.Commit, error) {
 	return commits, nil
 }
 
+// ParseBranches takes a slice of arguments of the form "repo/branch-name" or
+// "repo" (in which case we consider the branch name to be empty), and returns
+// a list of *pfs.Branches
 func ParseBranches(args []string) ([]*pfs.Branch, error) {
 	commits, err := ParseCommits(args)
 	if err != nil {
