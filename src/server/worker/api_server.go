@@ -879,7 +879,6 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 						}
 					}
 				}()
-
 				// process the datums in newRange
 				failedDatumID, err := process(low, high)
 				if err != nil {
