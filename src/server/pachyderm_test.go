@@ -2121,6 +2121,7 @@ func TestPipelineAutoScaledown(t *testing.T) {
 	require.NoError(t, err)
 
 	// Wait for the pipeline to scale down
+	time.Sleep(10 * time.Second)
 	b := backoff.NewTestingBackOff()
 	b.MaxElapsedTime = scaleDownThreshold + 30*time.Second
 	checkScaleDown := func() error {
