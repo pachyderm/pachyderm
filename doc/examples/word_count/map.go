@@ -27,7 +27,7 @@ func main() {
 	flag.Parse()
 	args := flag.Args()
 	if len(args) != 2 {
-		log.Fatalf("expect two arguemnts; got %v", len(args))
+		log.Fatalf("expect two arguments; got %v", len(args))
 	}
 
 	var err error
