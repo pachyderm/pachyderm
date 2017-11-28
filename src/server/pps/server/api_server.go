@@ -1485,9 +1485,8 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		if _, err := a.StartPipeline(ctx, &pps.StartPipelineRequest{request.Pipeline}); err != nil {
 			return nil, err
 		}
-
 		if _, err := pfsClient.CreateRepo(auth.In2Out(ctx), &pfs.CreateRepoRequest{
-			Repo:       outputRepo,
+			Repo:       &pfs.Repo{pipelineInfo.Pipeline.Name},
 			Provenance: provenance,
 			Update:     true,
 		}); err != nil && !isAlreadyExistsErr(err) {

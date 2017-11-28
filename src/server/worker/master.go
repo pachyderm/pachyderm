@@ -29,7 +29,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/util"
@@ -123,7 +122,7 @@ func (a *APIServer) master() {
 		if paused {
 			return fmt.Errorf("can't run master for a paused pipeline")
 		}
-		return a.jobSpawner2(ctx, logger)
+		return a.jobSpawner(ctx, logger)
 	}, b, func(err error, d time.Duration) error {
 		logger.Logf("master: error running the master process: %v; retrying in %v", err, d)
 		return nil
@@ -173,43 +172,7 @@ func (a *APIServer) serviceMaster() {
 	})
 }
 
-func (a *APIServer) jobInput(bs *branchSet) (*pps.Input, error) {
-	jobInput := proto.Clone(a.pipelineInfo.Input).(*pps.Input)
-	var visitErr error
-	pps.VisitInput(jobInput, func(input *pps.Input) {
-		if input.Atom != nil {
-			for _, branch := range bs.Branches {
-				if input.Atom.Repo == branch.Head.Repo.Name && input.Atom.Branch == branch.Name {
-					input.Atom.Commit = branch.Head.ID
-				}
-			}
-			if input.Atom.Commit == "" {
-				visitErr = fmt.Errorf("didn't find input commit for %s/%s", input.Atom.Repo, input.Atom.Branch)
-			}
-			input.Atom.FromCommit = ""
-		}
-		commitFromBranchSet := func(repoName string) string {
-			for _, branch := range bs.Branches {
-				if repoName == branch.Head.Repo.Name {
-					return branch.Head.ID
-				}
-			}
-			return ""
-		}
-		if input.Cron != nil {
-			input.Cron.Commit = commitFromBranchSet(input.Cron.Repo)
-		}
-		if input.Git != nil {
-			input.Git.Commit = commitFromBranchSet(input.Git.Name)
-		}
-	})
-	if visitErr != nil {
-		return nil, visitErr
-	}
-	return jobInput, nil
-}
-
-func (a *APIServer) jobInput2(commitInfo *pfs.CommitInfo) *pps.Input {
+func (a *APIServer) jobInput(commitInfo *pfs.CommitInfo) *pps.Input {
 	// TODO this breaks if there's 2 branches from the same repo
 	repoToCommit := make(map[string]*pfs.Commit)
 	for _, provCommit := range commitInfo.Provenance {
@@ -236,7 +199,7 @@ func (a *APIServer) jobInput2(commitInfo *pfs.CommitInfo) *pps.Input {
 	return jobInput
 }
 
-func (a *APIServer) jobSpawner2(ctx context.Context, logger *taggedLogger) error {
+func (a *APIServer) jobSpawner(ctx context.Context, logger *taggedLogger) error {
 	commitIter, err := a.pachClient.WithCtx(ctx).SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "")
 	if err != nil {
 		return err
@@ -254,7 +217,7 @@ func (a *APIServer) jobSpawner2(ctx context.Context, logger *taggedLogger) error
 		job, err := a.pachClient.PpsAPIClient.CreateJob(ctx, &pps.CreateJobRequest{
 			Pipeline:     a.pipelineInfo.Pipeline,
 			OutputCommit: commitInfo.Commit,
-			Input:        a.jobInput2(commitInfo),
+			Input:        a.jobInput(commitInfo),
 			// ParentJob:       parentJob, TODO
 			// NewBranch:       newBranch, TODO
 			Salt:            a.pipelineInfo.Salt,
@@ -282,146 +245,29 @@ func (a *APIServer) jobSpawner2(ctx context.Context, logger *taggedLogger) error
 	return nil
 }
 
-// jobSpawner spawns jobs
-func (a *APIServer) jobSpawner(ctx context.Context, logger *taggedLogger) error {
-	bsf, err := a.newBranchSetFactory(ctx)
+func (a *APIServer) serviceSpawner(ctx context.Context) error {
+	commitIter, err := a.pachClient.WithCtx(ctx).SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "")
 	if err != nil {
-		return fmt.Errorf("error constructing branch set factory: %v", err)
+		return err
 	}
-	defer bsf.Close()
-nextInput:
+	defer commitIter.Close()
+	var serviceCtx context.Context
+	var serviceCancel func()
 	for {
-		// scaleDownCh is closed after we have not received a job for
-		// a certain amount of time specified by ScaleDownThreshold.
-		scaleDownCh := make(chan struct{})
-		if a.pipelineInfo.ScaleDownThreshold != nil {
-			scaleDownThreshold, err := types.DurationFromProto(a.pipelineInfo.ScaleDownThreshold)
-			if err != nil {
-				logger.Logf("error converting scaleDownThreshold: %v", err)
-			} else {
-				time.AfterFunc(scaleDownThreshold, func() {
-					close(scaleDownCh)
-				})
-			}
-		}
-		var bs *branchSet
-		select {
-		case <-ctx.Done():
-			return context.Canceled
-		case bs = <-bsf.Chan():
-			if bs.Err != nil {
-				return fmt.Errorf("error from branch set factory: %v", bs.Err)
-			}
-		case <-scaleDownCh:
-			if err := a.scaleDownWorkers(); err != nil {
-				logger.Logf("error scaling down workers: %v", err)
-			}
-			continue nextInput
-		}
-
-		// Once we received a job, scale up the workers
-		if a.pipelineInfo.ScaleDownThreshold != nil {
-			if err := a.scaleUpWorkers(logger); err != nil {
-				logger.Logf("error scaling up workers: %v", err)
-			}
-		}
-
-		// (create JobInput for new processing job)
-		jobInput, err := a.jobInput(bs)
+		commitInfo, err := commitIter.Next()
 		if err != nil {
 			return err
 		}
-
-		jobsRO := a.jobs.ReadOnly(ctx)
-		// Check if this input set has already been processed
-		jobIter, err := jobsRO.GetByIndex(ppsdb.JobsInputIndex, jobInput)
-		if err != nil {
-			return err
+		if commitInfo.Finished != nil {
+			continue
 		}
 
-		// This is doing the same thing as the line above but for 1.4.5 style jobs
-		oldJobIter, err := jobsRO.GetByIndex(ppsdb.JobsInputsIndex, untranslateJobInputs(jobInput))
-		if err != nil {
-			return err
-		}
-
-		// Check if any of the jobs in jobIter have been run already. If so, skip
-		// this input.
-		for {
-			var jobID string
-			var jobInfo pps.JobInfo
-			ok, err := jobIter.Next(&jobID, &jobInfo)
-			if err != nil {
-				return err
-			}
-			if !ok {
-				ok, err := oldJobIter.Next(&jobID, &jobInfo)
-				if err != nil {
-					return err
-				}
-				if !ok {
-					break
-				}
-			}
-			if jobInfo.Pipeline.Name == a.pipelineInfo.Pipeline.Name &&
-				(jobInfo.Salt == a.pipelineInfo.Salt || (jobInfo.Salt == "" && jobInfo.PipelineVersion == a.pipelineInfo.Version)) {
-				switch jobInfo.State {
-				case pps.JobState_JOB_STARTING, pps.JobState_JOB_RUNNING:
-					if err := a.waitJob(ctx, &jobInfo, logger); err != nil {
-						return err
-					}
-				case pps.JobState_JOB_SUCCESS:
-					continue nextInput
-				}
-			}
-		}
-
-		// now we need to find the parentJob for this job. The parent job
-		// is defined as the job with the same input commits except for the
-		// newest input commit which triggered this job. In place of it we
-		// use that commit's parent.
-		newBranch := bs.Branches[bs.NewBranch]
-		newCommitInfo, err := a.pachClient.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
-			Commit: newBranch.Head,
-		})
-		if err != nil {
-			return err
-		}
-		var parentJob *pps.Job
-		if newCommitInfo.ParentCommit != nil {
-			// recreate our parent's inputs so we can look it up in etcd
-			parentJobInput := proto.Clone(jobInput).(*pps.Input)
-			pps.VisitInput(parentJobInput, func(input *pps.Input) {
-				if input.Atom != nil && input.Atom.Repo == newBranch.Head.Repo.Name && input.Atom.Branch == newBranch.Name {
-					input.Atom.Commit = newCommitInfo.ParentCommit.ID
-				}
-			})
-			jobIter, err := jobsRO.GetByIndex(ppsdb.JobsInputIndex, parentJobInput)
-			if err != nil {
-				return err
-			}
-			for {
-				var jobID string
-				var jobInfo pps.JobInfo
-				ok, err := jobIter.Next(&jobID, &jobInfo)
-				if err != nil {
-					return err
-				}
-				if !ok {
-					break
-				}
-				if jobInfo.Pipeline.Name == a.pipelineInfo.Pipeline.Name &&
-					(jobInfo.Salt == a.pipelineInfo.Salt || (jobInfo.Salt == "" && jobInfo.PipelineVersion == a.pipelineInfo.Version)) {
-					parentJob = jobInfo.Job
-				}
-			}
-		}
-
+		// Create a job document matching the service's output commit
+		jobInput := a.jobInput(commitInfo)
 		job, err := a.pachClient.PpsAPIClient.CreateJob(ctx, &pps.CreateJobRequest{
-			Pipeline:        a.pipelineInfo.Pipeline,
-			Input:           jobInput,
-			ParentJob:       parentJob,
-			NewBranch:       newBranch,
+			Pipeline: a.pipelineInfo.Pipeline,
+			Input:    jobInput,
+			// NewBranch:       newBranch, TODO
 			Salt:            a.pipelineInfo.Salt,
 			PipelineVersion: a.pipelineInfo.Version,
 			EnableStats:     a.pipelineInfo.EnableStats,
@@ -432,91 +278,6 @@ nextInput:
 		if err != nil {
 			return err
 		}
-
-		jobInfo, err := a.pachClient.PpsAPIClient.InspectJob(ctx, &pps.InspectJobRequest{
-			Job: job,
-		})
-		if err != nil {
-			return err
-		}
-
-		if err := a.waitJob(ctx, jobInfo, logger); err != nil {
-			return err
-		}
-	}
-}
-
-func (a *APIServer) serviceSpawner(ctx context.Context) error {
-	bsf, err := a.newBranchSetFactory(ctx)
-	if err != nil {
-		return fmt.Errorf("error constructing branch set factory: %v", err)
-	}
-	defer bsf.Close()
-
-	var serviceCtx context.Context
-	var serviceCancel func()
-nextInput:
-	for {
-		var bs *branchSet
-		select {
-		case <-ctx.Done():
-			return context.Canceled
-		case bs = <-bsf.Chan():
-			if bs.Err != nil {
-				return fmt.Errorf("error from branch set factory: %v", bs.Err)
-			}
-		}
-		// create the jobInput
-		jobInput, err := a.jobInput(bs)
-		if err != nil {
-			return err
-		}
-		jobsRO := a.jobs.ReadOnly(ctx)
-		// Check if the job has already been created.
-		jobCreated := false
-		jobIter, err := jobsRO.GetByIndex(ppsdb.JobsInputIndex, jobInput)
-		if err != nil {
-			return err
-		}
-		for {
-			var jobID string
-			var jobInfo pps.JobInfo
-			ok, err := jobIter.Next(&jobID, &jobInfo)
-			if err != nil {
-				return err
-			}
-			if !ok {
-				break
-			}
-			if jobInfo.Pipeline.Name == a.pipelineInfo.Pipeline.Name &&
-				(jobInfo.Salt == a.pipelineInfo.Salt || (jobInfo.Salt == "" && jobInfo.PipelineVersion == a.pipelineInfo.Version)) {
-				switch jobInfo.State {
-				case pps.JobState_JOB_STARTING, pps.JobState_JOB_RUNNING:
-					jobCreated = true
-				case pps.JobState_JOB_SUCCESS:
-					continue nextInput
-				}
-			}
-		}
-		var jobID string
-		if !jobCreated {
-			newBranch := bs.Branches[bs.NewBranch]
-			job, err := a.pachClient.PpsAPIClient.CreateJob(ctx, &pps.CreateJobRequest{
-				Pipeline:        a.pipelineInfo.Pipeline,
-				Input:           jobInput,
-				NewBranch:       newBranch,
-				Salt:            a.pipelineInfo.Salt,
-				PipelineVersion: a.pipelineInfo.Version,
-				EnableStats:     a.pipelineInfo.EnableStats,
-				Batch:           a.pipelineInfo.Batch,
-				Service:         a.pipelineInfo.Service,
-				ChunkSpec:       a.pipelineInfo.ChunkSpec,
-			})
-			if err != nil {
-				return err
-			}
-			jobID = job.ID
-		}
 		df, err := NewDatumFactory(ctx, a.pachClient.PfsAPIClient, jobInput)
 		if err != nil {
 			return err
@@ -525,7 +286,7 @@ nextInput:
 			return fmt.Errorf("services must have a single datum")
 		}
 		data := df.Datum(0)
-		logger, err := a.getTaggedLogger(ctx, jobID, data, false)
+		logger, err := a.getTaggedLogger(ctx, job.ID, data, false)
 		puller := filesync.NewPuller()
 		dir, err := a.downloadData(logger, data, puller, nil, &pps.ProcessStats{}, nil, "")
 		if err != nil {
@@ -550,7 +311,7 @@ nextInput:
 			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 				jobs := a.jobs.ReadWrite(stm)
 				jobInfo := &pps.JobInfo{}
-				if err := jobs.Get(jobID, jobInfo); err != nil {
+				if err := jobs.Get(job.ID, jobInfo); err != nil {
 					return err
 				}
 				jobInfo.State = pps.JobState_JOB_RUNNING
@@ -567,13 +328,18 @@ nextInput:
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 					jobs := a.jobs.ReadWrite(stm)
 					jobInfo := &pps.JobInfo{}
-					if err := jobs.Get(jobID, jobInfo); err != nil {
+					if err := jobs.Get(job.ID, jobInfo); err != nil {
 						return err
 					}
 					jobInfo.State = pps.JobState_JOB_SUCCESS
 					return jobs.Put(jobInfo.Job.ID, jobInfo)
 				}); err != nil {
 					logger.Logf("error updating job progress: %+v", err)
+				}
+				if _, err := a.pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+					Commit: commitInfo.Commit,
+				}); err != nil {
+					logger.Logf("could not finish output commit: %v", err)
 				}
 			default:
 			}
