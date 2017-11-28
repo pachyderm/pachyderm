@@ -941,6 +941,9 @@ func (a *APIServer) worker() {
 				return err
 			}
 			ctx, cancel := context.WithCancel(ctx)
+			// Each worker needs to poll etcd for state changes on this job.
+			// The master may cancel the job (e.g. job timeout), and the workers
+			// need to detect this change, and cancel their work
 			go func() {
 				backoff.RetryNotify(func() error {
 					currentJobInfo, err := a.pachClient.WithCtx(context.Background()).InspectJob(jobID, true)
