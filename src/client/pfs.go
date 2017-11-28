@@ -276,6 +276,7 @@ func (c APIClient) CreateBranch(repoName string, branch string, commit string, p
 	return grpcutil.ScrubGRPC(err)
 }
 
+// InspectBranch returns information on a specific PFS branch
 func (c APIClient) InspectBranch(repoName string, branch string) (*pfs.BranchInfo, error) {
 	branchInfo, err := c.PfsAPIClient.InspectBranch(
 		c.Ctx(),

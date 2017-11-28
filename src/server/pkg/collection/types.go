@@ -55,6 +55,8 @@ type Index struct {
 	Multi bool
 }
 
+// Value must be implemented by any data types that you want to store in a
+// Collection
 type Value interface {
 	proto.Unmarshaler
 	proto.Marshaler
