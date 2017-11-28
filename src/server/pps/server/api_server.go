@@ -40,12 +40,11 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/api/errors"
-	"k8s.io/kubernetes/pkg/api/resource"
-	"k8s.io/kubernetes/pkg/api/unversioned"
-	kube "k8s.io/kubernetes/pkg/client/unversioned"
-	kube_labels "k8s.io/kubernetes/pkg/labels"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kube "k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -100,7 +99,7 @@ type apiServer struct {
 	hasher                *ppsserver.Hasher
 	address               string
 	etcdClient            *etcd.Client
-	kubeClient            *kube.Client
+	kubeClient            *kube.Clientset
 	pachClient            *client.APIClient
 	pachClientOnce        sync.Once
 	namespace             string
@@ -268,12 +267,12 @@ func (a *apiServer) validateJob(ctx context.Context, jobInfo *pps.JobInfo) error
 
 func (a *apiServer) validateKube() {
 	errors := false
-	_, err := a.kubeClient.Nodes().List(api.ListOptions{})
+	_, err := a.kubeClient.CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {
 		errors = true
 		logrus.Errorf("unable to access kubernetes nodeslist, Pachyderm will continue to work but it will not be possible to use COEFFICIENT parallelism. error: %v", err)
 	}
-	_, err = a.kubeClient.Pods(a.namespace).Watch(api.ListOptions{Watch: true})
+	_, err = a.kubeClient.CoreV1().Pods(a.namespace).Watch(metav1.ListOptions{Watch: true})
 	if err != nil {
 		errors = true
 		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but certain pipeline errors will result in pipelines being stuck indefinitely in \"starting\" state. error: %v", err)
@@ -284,8 +283,8 @@ func (a *apiServer) validateKube() {
 		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but get-logs will not work. error: %v", err)
 	} else {
 		for _, pod := range pods {
-			_, err = a.kubeClient.Pods(a.namespace).GetLogs(
-				pod.ObjectMeta.Name, &api.PodLogOptions{
+			_, err = a.kubeClient.CoreV1().Pods(a.namespace).GetLogs(
+				pod.ObjectMeta.Name, &v1.PodLogOptions{
 					Container: "pachd",
 				}).Timeout(10 * time.Second).Do().Raw()
 			if err != nil {
@@ -297,25 +296,25 @@ func (a *apiServer) validateKube() {
 	}
 	name := uuid.NewWithoutDashes()
 	labels := map[string]string{"app": name}
-	rc := &api.ReplicationController{
-		TypeMeta: unversioned.TypeMeta{
+	rc := &v1.ReplicationController{
+		TypeMeta: metav1.TypeMeta{
 			Kind:       "ReplicationController",
 			APIVersion: "v1",
 		},
-		ObjectMeta: api.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:   name,
 			Labels: labels,
 		},
-		Spec: api.ReplicationControllerSpec{
+		Spec: v1.ReplicationControllerSpec{
 			Selector: labels,
-			Replicas: 0,
-			Template: &api.PodTemplateSpec{
-				ObjectMeta: api.ObjectMeta{
+			Replicas: new(int32),
+			Template: &v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
 					Name:   name,
 					Labels: labels,
 				},
-				Spec: api.PodSpec{
-					Containers: []api.Container{
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
 						{
 							Name:    "name",
 							Image:   DefaultUserImage,
@@ -326,13 +325,13 @@ func (a *apiServer) validateKube() {
 			},
 		},
 	}
-	if _, err := a.kubeClient.ReplicationControllers(a.namespace).Create(rc); err != nil {
+	if _, err := a.kubeClient.CoreV1().ReplicationControllers(a.namespace).Create(rc); err != nil {
 		if err != nil {
 			errors = true
 			logrus.Errorf("unable to create kubernetes replication controllers, Pachyderm will not function properly until this is fixed. error: %v", err)
 		}
 	}
-	if err := a.kubeClient.ReplicationControllers(a.namespace).Delete(name, nil); err != nil {
+	if err := a.kubeClient.CoreV1().ReplicationControllers(a.namespace).Delete(name, nil); err != nil {
 		if err != nil {
 			errors = true
 			logrus.Errorf("unable to delete kubernetes replication controllers, Pachyderm function properly but pipeline cleanup will not work. error: %v", err)
@@ -351,29 +350,30 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	pps.SortInput(request.Input)
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		jobInfo := &pps.JobInfo{
-			Job:             job,
-			Transform:       request.Transform,
-			Pipeline:        request.Pipeline,
-			ParallelismSpec: request.ParallelismSpec,
-			Input:           request.Input,
-			OutputRepo:      request.OutputRepo,
-			OutputBranch:    request.OutputBranch,
-			Started:         now(),
-			Finished:        nil,
-			OutputCommit:    nil,
-			Service:         request.Service,
-			ParentJob:       request.ParentJob,
-			ResourceSpec:    request.ResourceSpec,
-			NewBranch:       request.NewBranch,
-			Incremental:     request.Incremental,
-			Stats:           &pps.ProcessStats{},
-			EnableStats:     request.EnableStats,
-			Salt:            request.Salt,
-			PipelineVersion: request.PipelineVersion,
-			Batch:           request.Batch,
-			ChunkSpec:       request.ChunkSpec,
-			DatumTimeout:    request.DatumTimeout,
-			JobTimeout:      request.JobTimeout,
+			Job:              job,
+			Transform:        request.Transform,
+			Pipeline:         request.Pipeline,
+			ParallelismSpec:  request.ParallelismSpec,
+			Input:            request.Input,
+			OutputRepo:       request.OutputRepo,
+			OutputBranch:     request.OutputBranch,
+			Started:          now(),
+			Finished:         nil,
+			OutputCommit:     nil,
+			Service:          request.Service,
+			ParentJob:        request.ParentJob,
+			ResourceRequests: request.ResourceRequests,
+			ResourceLimits:   request.ResourceLimits,
+			NewBranch:        request.NewBranch,
+			Incremental:      request.Incremental,
+			Stats:            &pps.ProcessStats{},
+			EnableStats:      request.EnableStats,
+			Salt:             request.Salt,
+			PipelineVersion:  request.PipelineVersion,
+			Batch:            request.Batch,
+			ChunkSpec:        request.ChunkSpec,
+			DatumTimeout:     request.DatumTimeout,
+			JobTimeout:       request.JobTimeout,
 		}
 		if request.Pipeline != nil {
 			pipelineInfo := new(pps.PipelineInfo)
@@ -388,7 +388,8 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			jobInfo.OutputRepo = &pfs.Repo{pipelineInfo.Pipeline.Name}
 			jobInfo.OutputBranch = pipelineInfo.OutputBranch
 			jobInfo.Egress = pipelineInfo.Egress
-			jobInfo.ResourceSpec = pipelineInfo.ResourceSpec
+			jobInfo.ResourceRequests = pipelineInfo.ResourceRequests
+			jobInfo.ResourceLimits = pipelineInfo.ResourceLimits
 			jobInfo.Incremental = pipelineInfo.Incremental
 			jobInfo.EnableStats = pipelineInfo.EnableStats
 		} else {
@@ -1016,8 +1017,8 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			defer close(logChs[i]) // Main thread reads from here, so must close
 			// Get full set of logs from pod i
 			err := backoff.Retry(func() error {
-				result := a.kubeClient.Pods(a.namespace).GetLogs(
-					pod.ObjectMeta.Name, &api.PodLogOptions{
+				result := a.kubeClient.CoreV1().Pods(a.namespace).GetLogs(
+					pod.ObjectMeta.Name, &v1.PodLogOptions{
 						Container: containerName,
 					}).Timeout(10 * time.Second).Do()
 				fullLogs, err := result.Raw()
@@ -1386,7 +1387,8 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Egress:             request.Egress,
 		CreatedAt:          now(),
 		ScaleDownThreshold: request.ScaleDownThreshold,
-		ResourceSpec:       request.ResourceSpec,
+		ResourceRequests:   request.ResourceRequests,
+		ResourceLimits:     request.ResourceLimits,
 		Description:        request.Description,
 		Incremental:        request.Incremental,
 		CacheSize:          request.CacheSize,
@@ -1618,13 +1620,13 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 	if pipelineInfo.CacheSize == "" {
 		pipelineInfo.CacheSize = "64M"
 	}
-	if pipelineInfo.ResourceSpec == nil && pipelineInfo.CacheSize != "" {
-		pipelineInfo.ResourceSpec = &pps.ResourceSpec{
+	if pipelineInfo.ResourceRequests == nil && pipelineInfo.CacheSize != "" {
+		pipelineInfo.ResourceRequests = &pps.ResourceSpec{
 			Memory: pipelineInfo.CacheSize,
 		}
 	}
-	if pipelineInfo.MaxQueueSize == 0 {
-		pipelineInfo.MaxQueueSize = 10
+	if pipelineInfo.MaxQueueSize < 1 {
+		pipelineInfo.MaxQueueSize = 1
 	}
 }
 
@@ -2181,13 +2183,13 @@ func RepoNameToEnvString(repoName string) string {
 	return strings.ToUpper(repoName)
 }
 
-func (a *apiServer) rcPods(rcName string) ([]api.Pod, error) {
-	podList, err := a.kubeClient.Pods(a.namespace).List(api.ListOptions{
-		TypeMeta: unversioned.TypeMeta{
+func (a *apiServer) rcPods(rcName string) ([]v1.Pod, error) {
+	podList, err := a.kubeClient.CoreV1().Pods(a.namespace).List(metav1.ListOptions{
+		TypeMeta: metav1.TypeMeta{
 			Kind:       "ListOptions",
 			APIVersion: "v1",
 		},
-		LabelSelector: kube_labels.SelectorFromSet(labels(rcName)),
+		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(labels(rcName))),
 	})
 	if err != nil {
 		return nil, err
@@ -2203,7 +2205,7 @@ func labels(app string) map[string]string {
 	}
 }
 
-type podSlice []api.Pod
+type podSlice []v1.Pod
 
 func (s podSlice) Len() int {
 	return len(s)

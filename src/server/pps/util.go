@@ -5,8 +5,8 @@ import (
 	"math"
 	"strings"
 
-	"k8s.io/kubernetes/pkg/api"
-	kube "k8s.io/kubernetes/pkg/client/unversioned"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kube "k8s.io/client-go/kubernetes"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
@@ -34,8 +34,8 @@ func PipelineRcName(name string, version uint64) string {
 
 // getNumNodes attempts to retrieve the number of nodes in the current k8s
 // cluster
-func getNumNodes(kubeClient *kube.Client) (int, error) {
-	nodeList, err := kubeClient.Nodes().List(api.ListOptions{})
+func getNumNodes(kubeClient *kube.Clientset) (int, error) {
+	nodeList, err := kubeClient.CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {
 		return 0, fmt.Errorf("unable to retrieve node list from k8s to determine parallelism: %v", err)
 	}
@@ -49,7 +49,7 @@ func getNumNodes(kubeClient *kube.Client) (int, error) {
 // pachyderm will start given the ParallelismSpec 'spec'.
 //
 // This is only exported for testing
-func GetExpectedNumWorkers(kubeClient *kube.Client, spec *ppsclient.ParallelismSpec) (int, error) {
+func GetExpectedNumWorkers(kubeClient *kube.Clientset, spec *ppsclient.ParallelismSpec) (int, error) {
 	if spec == nil || (spec.Constant == 0 && spec.Coefficient == 0) {
 		return 1, nil
 	} else if spec.Constant > 0 && spec.Coefficient == 0 {

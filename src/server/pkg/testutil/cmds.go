@@ -46,9 +46,9 @@ func BashCmd(cmd string, subs ...string) *TestCmd {
 	buf := &bytes.Buffer{}
 	buf.WriteString(`
 	set -e -o pipefail
-	which match || {
-		echo "You must have 'match' installed to run these tests. Please run:"
-		echo "  go install ${GOPATH}/src/github.com/pachyderm/pachyderm/src/server/cmd/match"
+	which match >/dev/null || {
+		echo "You must have 'match' installed to run these tests. Please run:" >&2
+		echo "  go install ${GOPATH}/src/github.com/pachyderm/pachyderm/src/server/cmd/match" >&2
 		exit 1
 	}
 	`)

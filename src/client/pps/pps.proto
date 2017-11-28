@@ -211,7 +211,8 @@ message JobInfo {
   int64 data_total = 23;
   ProcessStats stats = 31;
   repeated WorkerStatus worker_status = 24;
-  ResourceSpec resource_spec = 25;
+  ResourceSpec resource_requests = 25;
+  ResourceSpec resource_limits = 36;
   Input input = 26;
   pfs.BranchInfo new_branch = 27;
   bool incremental = 28;
@@ -219,9 +220,9 @@ message JobInfo {
   bool enable_stats = 32;
   string salt = 33;
   bool batch = 34;
-  ChunkSpec chunk_spec = 36;
-  string datum_timeout = 37;
-  string job_timeout = 38;
+  ChunkSpec chunk_spec = 37;
+  string datum_timeout = 38;
+  string job_timeout = 39;
 }
 
 enum WorkerState {
@@ -285,7 +286,8 @@ message PipelineInfo {
   map<int32, int32> job_counts = 9;
   string output_branch = 16;
   google.protobuf.Duration scale_down_threshold = 18;
-  ResourceSpec resource_spec = 19;
+  ResourceSpec resource_requests = 19;
+  ResourceSpec resource_limits = 31;
   Input input = 20;
   string description = 21;
   bool incremental = 22;
@@ -297,9 +299,9 @@ message PipelineInfo {
   string reason = 28;
   int64 max_queue_size = 29;
   Service service = 30;
-  ChunkSpec chunk_spec = 31;
-  string datum_timeout = 32;
-  string job_timeout = 33;
+  ChunkSpec chunk_spec = 32;
+  string datum_timeout = 33;
+  string job_timeout = 34;
 }
 
 message PipelineInfos {
@@ -319,16 +321,17 @@ message CreateJobRequest {
   pfs.Repo output_repo = 12;
   string output_branch = 11;
   Job parent_job = 13;
-  ResourceSpec resource_spec = 14;
+  ResourceSpec resource_requests = 14;
+  ResourceSpec resource_limits = 21;
   Input input = 15;
   pfs.BranchInfo new_branch = 16;
   bool incremental = 17;
   bool enable_stats = 18;
   string salt = 19;
   bool batch = 20;
-  ChunkSpec chunk_spec = 21;
-  string datum_timeout = 22;
-  string job_timeout = 23;
+  ChunkSpec chunk_spec = 22;
+  string datum_timeout = 23;
+  string job_timeout = 24;
 }
 
 message InspectJobRequest {
@@ -448,7 +451,8 @@ message CreatePipelineRequest {
   bool update = 5;
   string output_branch = 10;
   google.protobuf.Duration scale_down_threshold = 11;
-  ResourceSpec resource_spec = 12;
+  ResourceSpec resource_requests = 12;
+  ResourceSpec resource_limits = 22;
   Input input = 13;
   string description = 14;
   bool incremental = 15;
@@ -460,9 +464,9 @@ message CreatePipelineRequest {
   bool batch = 19;
   int64 max_queue_size = 20;
   Service service = 21;
-  ChunkSpec chunk_spec = 22;
-  string datum_timeout = 23;
-  string job_timeout = 24;
+  ChunkSpec chunk_spec = 23;
+  string datum_timeout = 24;
+  string job_timeout = 25;
 }
 
 message InspectPipelineRequest {
