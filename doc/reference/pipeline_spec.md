@@ -54,7 +54,8 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   "service": {
     "internal_port": int,
     "external_port": int
-  }
+  },
+  "max_queue_size": int
 }
 
 ------------------------------------
@@ -464,6 +465,16 @@ container, `"external_port"` is the port on which it is exposed, via the
 NodePorts functionality of kubernetes services. After a service has been
 created you should be able to access it at
 `http://<kubernetes-host>:<external_port>`.
+
+### Max Queue Size (optional)
+`max_queue_size` specifies that maximum number of elements that a worker should
+hold in its processing queue at a given time. The default value is `1` which
+means workers will only hold onto the value that they're currently processing.
+Increasing this value can improve pipeline performance as it allows workers to
+simultaneously download, process and upload different datums at the same time.
+Setting this value too high can cause problems if you have `lazy` inputs as
+there's a cap of 10,000 `lazy` files per worker and multiple datums that are
+running all count against this limit.
 
 ## The Input Glob Pattern
 
