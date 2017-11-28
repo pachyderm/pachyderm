@@ -419,7 +419,7 @@ func (c APIClient) GetLogs(
 // commits to these repos will cause the pipeline to create new jobs to process them.
 // update indicates that you want to update an existing pipeline
 // datumTimeout is a duration string (e.g. "1s") that defines the max time a datum
-// can fun
+// can run
 // jobTimeout is a duration string (e.g. "1m") that defines the max time a job can run
 func (c APIClient) CreatePipeline(
 	name string,
