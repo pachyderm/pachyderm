@@ -40,6 +40,8 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
     "cpu": double,
     "gpu": double
   },
+  "datum_timeout": "1s",
+  "job_timeout": "1h",
   "input": {
     <"atom", "cross", "union", or "cron", see below>
   },
@@ -242,6 +244,23 @@ might be killed.
 
 `resource_limits` describes the upper threshold of allowed resources a given 
 worker can consume. If a worker exceeds this value, it will be evicted.
+
+
+### Datum Timeout (optional)
+
+`datum_timeout` is a string (e.g. `1s`, `5m`, or `15h`) that determines the 
+maximum execution time allowed per datum. So no matter what your parallelism
+or number of datums, no single datum is allowed to exceed this value.
+
+### Job Timeout (optional)
+
+`job_timeout` is a string (e.g. `1s`, `5m`, or `15h`) that determines the 
+maximum execution time allowed for a job. It differs from `datum_timeout`
+in that the limit gets applied across all workers and all datums. That 
+means that you'll need to keep in mind the parallelism, total number of
+datums, and execution time per datum when setting this value. Keep in 
+mind that the number of datums may change over jobs. Some new commits may
+have a bunch of new files (and so new datums). Some may have fewer.
 
 ### Input (required)
 
