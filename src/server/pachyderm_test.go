@@ -2821,16 +2821,15 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	require.NoError(t, err)
 
 	// Commit data to repo and flush commit
-	commit, err := c.StartCommit(dataRepo, "")
+	commit, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
-	require.NoError(t, c.SetBranch(dataRepo, commit.ID, "master"))
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
-	_, err = commitIter.Next()
-	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
 
 	// Get logs from pipeline, using pipeline
 	iter := c.GetLogs(pipelineName, "", nil, "", false)
