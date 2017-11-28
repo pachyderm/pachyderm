@@ -1252,7 +1252,9 @@ func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 	d.initializePachConn()
 
 	// First compute intersection of the fromCommits subvenant commits, those
-	// are the commits we're interested in.
+	// are the commits we're interested in. Iterate over all commits and keep a
+	// running intersection (in commitsToWatch) of the subvenance of all commits
+	// processed so far
 	commitsToWatch := make(map[string]*pfs.Commit)
 	for i, commit := range fromCommits {
 		commitInfo, err := d.inspectCommit(ctx, commit, false)
@@ -1287,6 +1289,9 @@ func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 		}
 		finishedCommitInfo, err := d.inspectCommit(ctx, commitToWatch, true)
 		if err != nil {
+			if _, ok := err.(pfsserver.ErrCommitNotFound); ok {
+				continue // just skip this
+			}
 			return err
 		}
 		if err := f(finishedCommitInfo); err != nil {
