@@ -943,7 +943,7 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, block bo
 			return nil
 		}
 		if branchInfo.Head == nil {
-			return fmt.Errorf("branch has no head commit")
+			return pfsserver.ErrNoHead{branchInfo.Branch}
 		}
 		commitID = branchInfo.Head.ID
 		return nil
@@ -1067,6 +1067,9 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 	if to != nil {
 		_, err = d.inspectCommit(ctx, to, false)
 		if err != nil {
+			if _, ok := err.(pfsserver.ErrNoHead); ok {
+				return nil, nil
+			}
 			return nil, err
 		}
 	}
@@ -1212,6 +1215,9 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 				}
 			case watch.EventDelete:
 				continue
+			}
+			if branchInfo.Head == nil {
+				continue // put event == new branch was created. No commits yet though
 			}
 
 			// We don't want to include the `from` commit itself

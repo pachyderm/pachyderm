@@ -206,12 +206,37 @@ func (a *APIServer) jobSpawner(ctx context.Context, logger *taggedLogger) error 
 	}
 	defer commitIter.Close()
 	for {
+		cancel := make(chan struct{})
+		if a.pipelineInfo.ScaleDownThreshold != nil {
+			go func() {
+				scaleDownThreshold, err := types.DurationFromProto(a.pipelineInfo.ScaleDownThreshold)
+				if err != nil {
+					logger.Logf("invalid ScaleDownThreshold: \"%v\"", err)
+					return
+				}
+				select {
+				case <-time.After(scaleDownThreshold):
+					if err := a.scaleDownWorkers(); err != nil {
+						logger.Logf("could not scale down workers: \"%v\"", err)
+					}
+				case <-cancel:
+				}
+			}()
+		}
 		commitInfo, err := commitIter.Next()
+		// loop will re-create goroutine whether we start the job or not, so cancel
+		// channel to make sure loop doesn't create two goroutines
+		close(cancel)
 		if err != nil {
 			return err
 		}
 		if commitInfo.Finished != nil {
 			continue
+		}
+		if a.pipelineInfo.ScaleDownThreshold != nil {
+			if err := a.scaleUpWorkers(logger); err != nil {
+				return err
+			}
 		}
 		// TODO scale down
 		job, err := a.pachClient.PpsAPIClient.CreateJob(ctx, &pps.CreateJobRequest{
