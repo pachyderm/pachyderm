@@ -84,15 +84,14 @@ func NewAtomInput(repo string, glob string) *pps.Input {
 }
 
 // NewAtomInputOpts returns a new atom input. It includes all options.
-func NewAtomInputOpts(name string, repo string, branch string, glob string, lazy bool, fromCommit string) *pps.Input {
+func NewAtomInputOpts(name string, repo string, branch string, glob string, lazy bool) *pps.Input {
 	return &pps.Input{
 		Atom: &pps.AtomInput{
-			Name:       name,
-			Repo:       repo,
-			Branch:     branch,
-			Glob:       glob,
-			Lazy:       lazy,
-			FromCommit: fromCommit,
+			Name:   name,
+			Repo:   repo,
+			Branch: branch,
+			Glob:   glob,
+			Lazy:   lazy,
 		},
 	}
 }
