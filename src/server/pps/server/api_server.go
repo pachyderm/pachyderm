@@ -1483,10 +1483,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			oldPipelineInfo.OutputBranch,
 			fmt.Sprintf("%s-v%d", oldPipelineInfo.OutputBranch, oldPipelineInfo.Version),
 		); err != nil && !isNotFoundErr(err) {
-			return nil, err
-		}
-		if err := pachClient.WithCtx(ctx).DeleteBranch(pipelineName, oldPipelineInfo.OutputBranch); err != nil && !isNotFoundErr(err) {
-			return nil, err
+			return nil, fmt.Errorf("could not rename original output branch: %v", err)
 		}
 		if _, err := a.StartPipeline(ctx, &pps.StartPipelineRequest{request.Pipeline}); err != nil {
 			return nil, err
@@ -1571,7 +1568,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Branch:     client.NewBranch(pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch),
 		Provenance: branchProvenance(pipelineInfo.Input),
 	}); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not update output branch provenance: %v", err)
 	}
 
 	return &types.Empty{}, nil
