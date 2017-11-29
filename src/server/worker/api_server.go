@@ -930,12 +930,15 @@ func (a *APIServer) worker() {
 			}
 			if jobInfo.State == pps.JobState_JOB_KILLED {
 				// This is odd.
-				// We see an event come in on the watcher ... ONLY if the cancel() statement
-				// a few lines below (in the goro that blocks on the job / cancels if killed)
-				// is called.
-				// On master (before this PR was merged), we never seem to see the JOB_KILLED
-				// event. Since this code is changing, we'll leave this here for now. We
-				// cannot account for this difference, which is a concern.
+				// We see a JOB_KILLED event come in on the watcher ... ONLY if the cancel()
+				// statement a few lines below (in the goro that blocks on the job / cancels
+				// if killed) is called.
+				//
+				// On master (before this PR [1] was merged), we never seem to see the
+				// JOB_KILLED event. Since this code is changing, we'll leave this here for
+				// now. We cannot account for this difference, which is a concern.
+				//
+				// [1] https://github.com/pachyderm/pachyderm/pull/2542
 				continue
 			}
 			df, err := NewDatumFactory(ctx, a.pachClient.PfsAPIClient, jobInfo.Input)
