@@ -16,7 +16,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/montanaflynn/stats"
-	// "github.com/robfig/cron"
+	"github.com/robfig/cron"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -174,12 +174,75 @@ func (a *APIServer) serviceMaster() {
 }
 
 func (a *APIServer) jobInput(commitInfo *pfs.CommitInfo) *pps.Input {
+	return JobInput(a.pipelineInfo, commitInfo)
+}
+
+// JobInput creates a JobInput from the job's pipeline (which provides the input
+// spec) and a commit (which has the particular commits on which the job's
+// output is provenant). This function is public for testing
+func JobInput(pipelineInfo *pps.PipelineInfo, commitInfo *pfs.CommitInfo) *pps.Input {
 	// TODO this breaks if there's 2 branches from the same repo
+	// 1) Collect set of provenant commits from this job's output commit (commitInfo)
 	repoToCommit := make(map[string]*pfs.Commit)
 	for _, provCommit := range commitInfo.Provenance {
 		repoToCommit[provCommit.Repo.Name] = provCommit
 	}
-	jobInput := proto.Clone(a.pipelineInfo.Input).(*pps.Input)
+
+	// 2) Clone input from job's pipeline
+	jobInput := proto.Clone(pipelineInfo.Input).(*pps.Input)
+
+	// 3) Create helper function that uses 'repoToCommit' to remove empty inputs
+	// from a slice (used below). This function simplifies 'inputs' by
+	// - removing Atom inputs and Cron inputs that aren't in the commit
+	//   provenance (can happen when pipeline has multiple inputs but some have
+	//   no commits yet)
+	// - removing Cross/Union inputs with no children (i.e. all children were
+	//   removed by previous iterations)
+	removeEmptyInputs := func(inputs []*pps.Input) ([]*pps.Input, bool) {
+		changed := false
+		for i := len(inputs) - 1; i >= 0; i-- {
+			child := inputs[i]
+			ok := true
+			switch {
+			case child.Atom != nil:
+				_, ok = repoToCommit[child.Atom.Repo]
+			case child.Cron != nil:
+				_, ok = repoToCommit[child.Cron.Repo]
+			case child.Union != nil:
+				ok = len(child.Union) > 0
+			case child.Cross != nil:
+				ok = len(child.Cross) > 0
+			}
+			if !ok {
+				changed = true
+				if i+1 < len(inputs) {
+					inputs = append(inputs[:i], inputs[i+1:]...)
+				} else {
+					inputs = inputs[:i]
+				}
+			}
+		}
+		return inputs, changed
+	}
+
+	// 4) Iteratively simplify job input by removing empty inputs
+	changed := true
+	for changed {
+		changed = false
+		pps.VisitInput(jobInput, func(input *pps.Input) {
+			changedThisInput := false
+			// Can only remove empty atom/cron inputs while visiting parent. Handle
+			// case where 'input' is Cross or Union and clean up empty children
+			if input.Cross != nil {
+				input.Cross, changedThisInput = removeEmptyInputs(input.Cross)
+			} else if input.Union != nil {
+				input.Union, changedThisInput = removeEmptyInputs(input.Union)
+			}
+			changed = changed || changedThisInput
+		})
+	}
+
+	// 5) Set the commit ID of remaining Atom, Cron, and Git inputs
 	pps.VisitInput(jobInput, func(input *pps.Input) {
 		if input.Atom != nil {
 			if commit, ok := repoToCommit[input.Atom.Repo]; ok {
@@ -226,60 +289,124 @@ func (a *APIServer) spawnScaleDownGoroutine() (cancel chan struct{}) {
 	return cancel
 }
 
-func (a *APIServer) jobSpawner(ctx context.Context) error {
-	logger := a.getMasterLogger()
-	commitIter, err := a.pachClient.WithCtx(ctx).SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "")
+// makeCronCommits makes commits to a single cron input's repo. It's
+// a helper function called by makeCronCommits
+func (a *APIServer) makeCronCommits(ctx context.Context, in *pps.Input) error {
+	schedule, err := cron.Parse(in.Cron.Spec)
+	if err != nil {
+		return err // Shouldn't happen, as the input is validated in CreatePipeline
+	}
+	var tstamp *types.Timestamp
+	var buffer bytes.Buffer
+	if err := a.pachClient.GetFile(in.Cron.Repo, "master", "time", 0, 0, &buffer); err != nil && !isNilBranchErr(err) {
+		return err
+	} else if err != nil {
+		// File not found, this happens the first time the pipeline is run
+		tstamp = in.Cron.Start
+	} else {
+		if err := jsonpb.UnmarshalString(buffer.String(), tstamp); err != nil {
+			return err
+		}
+	}
+	t, err := types.TimestampFromProto(tstamp)
 	if err != nil {
 		return err
 	}
-	defer commitIter.Close()
 	for {
-		cancel := a.spawnScaleDownGoroutine()
-		commitInfo, err := commitIter.Next()
-		// loop will spawn new scale-down goroutine whether we start the job or not,
-		// so cancel channel to avoid leaking the current goroutine
-		close(cancel)
+		t = schedule.Next(t)
+		time.Sleep(time.Until(t))
+		if _, err := a.pachClient.StartCommit(in.Cron.Repo, "master"); err != nil {
+			return err
+		}
+		timestamp, err := types.TimestampProto(t)
 		if err != nil {
 			return err
 		}
-		if commitInfo.Finished != nil {
-			continue
-		}
-		if a.pipelineInfo.ScaleDownThreshold != nil {
-			if err := a.scaleUpWorkers(logger); err != nil {
-				return err
-			}
-		}
-		// TODO scale down
-		job, err := a.pachClient.PpsAPIClient.CreateJob(ctx, &pps.CreateJobRequest{
-			Pipeline:     a.pipelineInfo.Pipeline,
-			OutputCommit: commitInfo.Commit,
-			Input:        a.jobInput(commitInfo),
-			// ParentJob:       parentJob, TODO
-			// NewBranch:       newBranch, TODO
-			Salt:            a.pipelineInfo.Salt,
-			PipelineVersion: a.pipelineInfo.Version,
-			EnableStats:     a.pipelineInfo.EnableStats,
-			Batch:           a.pipelineInfo.Batch,
-			Service:         a.pipelineInfo.Service,
-			ChunkSpec:       a.pipelineInfo.ChunkSpec,
-		})
+		timeString, err := (&jsonpb.Marshaler{}).MarshalToString(timestamp)
 		if err != nil {
 			return err
 		}
-
-		jobInfo, err := a.pachClient.PpsAPIClient.InspectJob(ctx, &pps.InspectJobRequest{
-			Job: job,
-		})
-		if err != nil {
+		if err := a.pachClient.DeleteFile(in.Cron.Repo, "master", "time"); err != nil {
 			return err
 		}
-
-		if err := a.waitJob(ctx, jobInfo, logger); err != nil {
+		if _, err := a.pachClient.PutFile(in.Cron.Repo, "master", "time", strings.NewReader(timeString)); err != nil {
+			return err
+		}
+		if err := a.pachClient.FinishCommit(in.Cron.Repo, "master"); err != nil {
 			return err
 		}
 	}
-	return nil
+}
+
+func (a *APIServer) jobSpawner(ctx context.Context) error {
+	logger := a.getMasterLogger()
+	var eg errgroup.Group
+
+	// Spawn one goroutine per cron input, each of which commits to its cron repo
+	// per its spec
+	pps.VisitInput(a.pipelineInfo.Input, func(in *pps.Input) {
+		if in.Cron != nil {
+			eg.Go(func() error {
+				return a.makeCronCommits(ctx, in)
+			})
+		}
+	})
+
+	// Spawn a goroutine to listen for new commits, and create jobs when they
+	// arrive
+	eg.Go(func() error {
+		commitIter, err := a.pachClient.WithCtx(ctx).SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "")
+		if err != nil {
+			return err
+		}
+		defer commitIter.Close()
+		for {
+			cancel := a.spawnScaleDownGoroutine()
+			commitInfo, err := commitIter.Next()
+			// loop will spawn new scale-down goroutine whether we start the job or not,
+			// so cancel channel to avoid leaking the current goroutine
+			close(cancel)
+			if err != nil {
+				return err
+			}
+			if commitInfo.Finished != nil {
+				continue
+			}
+			if a.pipelineInfo.ScaleDownThreshold != nil {
+				if err := a.scaleUpWorkers(logger); err != nil {
+					return err
+				}
+			}
+			job, err := a.pachClient.PpsAPIClient.CreateJob(ctx, &pps.CreateJobRequest{
+				Pipeline:     a.pipelineInfo.Pipeline,
+				OutputCommit: commitInfo.Commit,
+				Input:        a.jobInput(commitInfo),
+				// ParentJob:       parentJob, TODO
+				// NewBranch:       newBranch, TODO
+				Salt:            a.pipelineInfo.Salt,
+				PipelineVersion: a.pipelineInfo.Version,
+				EnableStats:     a.pipelineInfo.EnableStats,
+				Batch:           a.pipelineInfo.Batch,
+				Service:         a.pipelineInfo.Service,
+				ChunkSpec:       a.pipelineInfo.ChunkSpec,
+			})
+			if err != nil {
+				return err
+			}
+
+			jobInfo, err := a.pachClient.PpsAPIClient.InspectJob(ctx, &pps.InspectJobRequest{
+				Job: job,
+			})
+			if err != nil {
+				return err
+			}
+			if err := a.waitJob(ctx, jobInfo, logger); err != nil {
+				return err
+			}
+		}
+	})
+
+	return eg.Wait() // if anything goes wrong, retry in master()
 }
 
 func (a *APIServer) serviceSpawner(ctx context.Context) error {
@@ -497,8 +624,14 @@ func chunks(df DatumFactory, spec *pps.ChunkSpec, parallelism int) *Chunks {
 	return chunks
 }
 
+// waitJob waits for the job in 'jobInfo' to finish, and then it collects the
+// output from the job's workers and merges it into a commit (and may merge
+// stats into a commit in the stats branch as well)
 func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *taggedLogger) error {
 	ctx, cancel := context.WithCancel(ctx)
+
+	// Watch the job to see if it's terminated (KILLED, FAILED, or SUCCESS) and if
+	// so, cancel the current context
 	go func() {
 		backoff.RetryNotify(func() error {
 			currentJobInfo, err := a.pachClient.WithCtx(ctx).InspectJob(jobInfo.Job.ID, true)
@@ -519,10 +652,15 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 			return nil
 		})
 	}()
+
 	backoff.RetryNotify(func() (retErr error) {
+		// block until job inputs are ready
 		if err := a.blockInputs(ctx, jobInfo); err != nil {
 			return err
 		}
+
+		// Create a datum factory pointing at the job's inputs and split up the
+		// input data into chunks
 		df, err := NewDatumFactory(ctx, a.pachClient.PfsAPIClient, jobInfo.Input)
 		if err != nil {
 			return err
@@ -532,6 +670,10 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 			return fmt.Errorf("error from GetExpectedNumWorkers: %v")
 		}
 		chunks := chunks(df, jobInfo.ChunkSpec, parallelism)
+
+		// Read the job document, and either resume (if we're recovering from a
+		// crash) or mark it running. Also write the input chunks calculated above
+		// into chunksCol
 		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			jobs := a.jobs.ReadWrite(stm)
 			jobID := jobInfo.Job.ID
@@ -554,6 +696,8 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		}); err != nil {
 			return err
 		}
+
+		// Watch the chunk locks in order, and merge chunk outputs into commit tree
 		locks := a.locks(jobInfo.Job.ID).ReadOnly(ctx)
 		tree := hashtree.NewHashTree()
 		var statsTree hashtree.OpenHashTree
@@ -565,6 +709,8 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		var failedDatumID string
 		var eg errgroup.Group
 		for i, high := range chunks.Chunks {
+			// Watch this chunk's lock and when it's finished, handle the result
+			// (merge chunk output into commit trees, fail if chunk failed, etc)
 			if err := func() error {
 				chunkState := &ChunkState{}
 				watcher, err := locks.WatchOne(fmt.Sprint(high))
@@ -584,11 +730,12 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 							if chunkState.State == ChunkState_FAILED {
 								failedDatumID = chunkState.DatumID
 							}
-							var low int64
+							var low int64 // chunk lower bound
 							if i > 0 {
 								low = chunks.Chunks[i-1]
 							}
-							high := high
+							high := high // chunk upper bound
+							// merge results into output tree
 							eg.Go(func() error {
 								for i := low; i < high; i++ {
 									i := i
@@ -612,17 +759,32 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 				return err
 			}
 		}
-		if err := eg.Wait(); err != nil {
+		if err := eg.Wait(); err != nil { // all results have been merged
+			return err
+		}
+		// put output tree into object store
+		object, err := a.putTree(ctx, tree)
+		if err != nil {
+			return err
+		}
+		// Finish the job's output commit
+		_, err = a.pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+			Commit: jobInfo.OutputCommit,
+			Tree:   object,
+		})
+		if err != nil {
 			return err
 		}
 
+		// merge stats into stats commit
+		// TODO stats branch should be provenant on inputs, rather than us creating
+		// the stats commit here
 		var statsCommit *pfs.Commit
 		if jobInfo.EnableStats {
 			statsObject, err := a.putTree(ctx, statsTree)
 			if err != nil {
 				return err
 			}
-
 			statsCommit, err = a.pachClient.PfsAPIClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
 				Parent: &pfs.Commit{
 					Repo: jobInfo.OutputRepo,
@@ -635,23 +797,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 			}
 		}
 
-		object, err := a.putTree(ctx, tree)
-		if err != nil {
-			return err
-		}
-
-		var provenance []*pfs.Commit
-		for _, commit := range pps.InputCommits(jobInfo.Input) {
-			provenance = append(provenance, commit)
-		}
-
-		_, err = a.pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
-			Commit: jobInfo.OutputCommit,
-			Tree:   object,
-		})
-		if err != nil {
-			return err
-		}
+		// Handle egress
 		if err := a.egress(ctx, logger, jobInfo); err != nil {
 			reason := fmt.Sprintf("egress error: %v", err)
 			_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
@@ -666,8 +812,10 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 				return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE, reason)
 			})
 			// returning nil so we don't retry
+			logger.Logf("possibly a bug -- returning \"%v\"", err)
 			return err
 		}
+
 		// Record the job's output commit and 'Finished' timestamp, and mark the job
 		// as a SUCCESS
 		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
@@ -951,6 +1099,12 @@ func untranslateJobInputs(input *pps.Input) []*pps.JobInput {
 
 func isNotFoundErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "not found")
+}
+
+func isNilBranchErr(err error) bool {
+	return err != nil &&
+		strings.HasPrefix(err.Error(), "the branch \"") &&
+		strings.HasSuffix(err.Error(), "\" is nil")
 }
 
 func now() *types.Timestamp {

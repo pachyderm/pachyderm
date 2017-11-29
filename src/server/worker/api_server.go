@@ -939,7 +939,8 @@ func (a *APIServer) blockInputs(ctx context.Context, jobInfo *pps.JobInfo) error
 				Commit: commit,
 				Block:  true,
 			}); err != nil && vistErr == nil {
-			vistErr = err
+			vistErr = fmt.Errorf("error blocking on commit %s/%s: %v",
+				commit.Repo.Name, commit.ID, err)
 		}
 	}
 	pps.VisitInput(jobInfo.Input, func(input *pps.Input) {

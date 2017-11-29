@@ -7,6 +7,9 @@ import (
 	"runtime"
 	"testing"
 	"time"
+
+	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
 )
 
 // Matches checks that a string matches a regular-expression.
@@ -30,6 +33,53 @@ func Equal(tb testing.TB, expected interface{}, actual interface{}, msgAndArgs .
 			msgAndArgs,
 			"Not equal: %#v (expected)\n"+
 				"        != %#v (actual)", expected, actual)
+	}
+}
+
+// InputEquals checks whether a pps.Input expression equals another, expected
+// expression (this assumes expected and actual are both valid)
+func InputEquals(tb testing.TB, expected *pps.Input, actual *pps.Input, msgAndArgs ...interface{}) {
+	tb.Helper()
+	// eq is a helper function that recursively compares 'expected' and 'actual'
+	var eq func(*pps.Input, *pps.Input) (*pps.Input, *pps.Input)
+	eq = func(expected, actual *pps.Input) (badExpected, badActual *pps.Input) {
+		switch {
+		case expected.Atom != nil:
+			if !reflect.DeepEqual(*expected.Atom, *actual.Atom) {
+				return expected, actual
+			}
+		case expected.Cron != nil:
+			if !reflect.DeepEqual(*expected.Cron, *actual.Cron) {
+				return expected, actual
+			}
+		case expected.Git != nil:
+			if !reflect.DeepEqual(*expected.Git, *actual.Git) {
+				return expected, actual
+			}
+		case expected.Cross != nil:
+			if len(expected.Cross) != len(actual.Cross) {
+				return expected, actual
+			}
+			for i := 0; i < len(expected.Cross); i++ {
+				return eq(expected.Cross[i], actual.Cross[i])
+			}
+		case expected.Union != nil:
+			if len(expected.Union) != len(actual.Union) {
+				return expected, actual
+			}
+			for i := 0; i < len(expected.Union); i++ {
+				return eq(expected.Union[i], actual.Union[i])
+			}
+		}
+		return nil, nil
+	}
+	e, a := eq(expected, actual)
+	if e != nil && a != nil {
+		fatal(
+			tb,
+			msgAndArgs,
+			"Not equal: \"%s\" (expected) \n"+
+				"      != \"%s\" (actual)", pretty.ShorthandInput(e), pretty.ShorthandInput(a))
 	}
 }
 
