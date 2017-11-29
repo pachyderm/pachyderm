@@ -831,7 +831,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 				if err == context.DeadlineExceeded {
 					reason := fmt.Sprintf("job exceeded timeout (%v)", jobInfo.JobTimeout)
 					// Mark the job as failed.
-					// Workers poll etcd for this state change to cancel their work
+					// Workers subscribe to etcd for this state change to cancel their work
 					_, err := col.NewSTM(context.Background(), a.etcdClient, func(stm col.STM) error {
 						jobs := a.jobs.ReadWrite(stm)
 						jobID := jobInfo.Job.ID
