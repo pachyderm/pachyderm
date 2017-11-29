@@ -5876,7 +5876,7 @@ func TestPipelineWithGitInput(t *testing.T) {
 	var buf bytes.Buffer
 
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
-	require.Equal(t, "c2ea2034f2df0914c837406dbd305726ea271015", strings.TrimSpace(buf.String()))
+	require.Equal(t, "9047fbfc251e7412ef3300868f743f2c24852539", strings.TrimSpace(buf.String()))
 }
 
 func TestPipelineWithGitInputSequentialPushes(t *testing.T) {
@@ -5943,7 +5943,7 @@ func TestPipelineWithGitInputSequentialPushes(t *testing.T) {
 	var buf bytes.Buffer
 
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
-	require.Equal(t, "c2ea2034f2df0914c837406dbd305726ea271015", strings.TrimSpace(buf.String()))
+	require.Equal(t, "9047fbfc251e7412ef3300868f743f2c24852539", strings.TrimSpace(buf.String()))
 
 	// To trigger the pipeline, we'll need to simulate the webhook by pushing a POST payload to the githook server
 	simulateGitPush(t, "../../etc/testing/artifacts/githook-payloads/master-2.json")
@@ -5967,7 +5967,7 @@ func TestPipelineWithGitInputSequentialPushes(t *testing.T) {
 
 	buf.Reset()
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
-	require.Equal(t, "6c7da7691d949d2d7442e64911463cd4b88b2709", strings.TrimSpace(buf.String()))
+	require.Equal(t, "162963b4adf00cd378488abdedc085ba08e21674", strings.TrimSpace(buf.String()))
 }
 
 func TestPipelineWithGitInputCustomName(t *testing.T) {
@@ -6037,7 +6037,7 @@ func TestPipelineWithGitInputCustomName(t *testing.T) {
 	var buf bytes.Buffer
 
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
-	require.Equal(t, "c2ea2034f2df0914c837406dbd305726ea271015", strings.TrimSpace(buf.String()))
+	require.Equal(t, "9047fbfc251e7412ef3300868f743f2c24852539", strings.TrimSpace(buf.String()))
 }
 
 func TestPipelineWithGitInputMultiPipelineSeparateInputs(t *testing.T) {
@@ -6113,7 +6113,7 @@ func TestPipelineWithGitInputMultiPipelineSeparateInputs(t *testing.T) {
 		var buf bytes.Buffer
 
 		require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
-		require.Equal(t, "c2ea2034f2df0914c837406dbd305726ea271015", strings.TrimSpace(buf.String()))
+		require.Equal(t, "9047fbfc251e7412ef3300868f743f2c24852539", strings.TrimSpace(buf.String()))
 	}
 }
 
@@ -6188,7 +6188,7 @@ func TestPipelineWithGitInputMultiPipelineSameInput(t *testing.T) {
 		commit = commitInfo.Commit
 		var buf bytes.Buffer
 		require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
-		require.Equal(t, "c2ea2034f2df0914c837406dbd305726ea271015", strings.TrimSpace(buf.String()))
+		require.Equal(t, "9047fbfc251e7412ef3300868f743f2c24852539", strings.TrimSpace(buf.String()))
 	}
 }
 
@@ -6267,7 +6267,7 @@ func TestPipelineWithGitInputAndBranch(t *testing.T) {
 	var buf bytes.Buffer
 
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
-	require.Equal(t, "c7f697432dc805eb2b92f39d4961a585e8a0b2d5", strings.TrimSpace(buf.String()))
+	require.Equal(t, "81269575dcfc6ac2e2a463ad8016163f79c97f5c", strings.TrimSpace(buf.String()))
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
