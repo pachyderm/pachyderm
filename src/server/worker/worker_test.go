@@ -1,18 +1,19 @@
 package worker
 
 import (
-	"context"
+	// "context"
 	"fmt"
 	"os"
 	"path"
 	"sync"
 	"testing"
 
-	"golang.org/x/sync/errgroup"
+	// "golang.org/x/sync/errgroup"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/src/client"
 	pclient "github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -25,42 +26,119 @@ var (
 	port int32 = 30653
 )
 
-func TestAcquireDatums(t *testing.T) {
-	c := getPachClient(t)
-	etcdClient := getEtcdClient(t)
+// func TestAcquireDatums(t *testing.T) {
+// 	c := getPachClient(t)
+// 	etcdClient := getEtcdClient(t)
+//
+// 	chunks := col.NewCollection(etcdClient, path.Join("", chunksPrefix), []col.Index{}, &Chunks{}, nil)
+// 	for nChunks := 1; nChunks < 200; nChunks += 50 {
+// 		for nWorkers := 1; nWorkers < 40; nWorkers += 10 {
+// 			jobInfo := &pps.JobInfo{
+// 				Job: client.NewJob(uuid.New()),
+// 			}
+// 			_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+// 				c := &Chunks{}
+// 				for i := 1; i <= nChunks; i++ {
+// 					c.Chunks = append(c.Chunks, int64(i))
+// 				}
+// 				return chunks.ReadWrite(stm).Create(jobInfo.Job.ID, c)
+// 			})
+// 			require.NoError(t, err)
+// 			var chunks []int64
+// 			var chunksMu sync.Mutex
+// 			var eg errgroup.Group
+// 			for i := 0; i < nWorkers; i++ {
+// 				server := newTestAPIServer(c, etcdClient, "", t)
+// 				logger := server.getMasterLogger()
+// 				eg.Go(func() error {
+// 					return server.acquireDatums(context.Background(), jobInfo, logger, func(low, high int64) error {
+// 						chunksMu.Lock()
+// 						defer chunksMu.Unlock()
+// 						chunks = append(chunks, high)
+// 						return nil
+// 					})
+// 				})
+// 			}
+// 			require.NoError(t, eg.Wait())
+// 			require.Equal(t, nChunks, len(chunks))
+// 		}
+// 	}
+// }
 
-	chunks := col.NewCollection(etcdClient, path.Join("", chunksPrefix), []col.Index{}, &Chunks{}, nil)
-	for nChunks := 1; nChunks < 200; nChunks += 50 {
-		for nWorkers := 1; nWorkers < 40; nWorkers += 10 {
-			jobInfo := &pps.JobInfo{
-				Job: client.NewJob(uuid.New()),
-			}
-			_, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
-				c := &Chunks{}
-				for i := 1; i <= nChunks; i++ {
-					c.Chunks = append(c.Chunks, int64(i))
-				}
-				return chunks.ReadWrite(stm).Create(jobInfo.Job.ID, c)
+// TestJobInput tests the conversion logic in worker/master.go from pipeline
+// inputs and commit provenance to job input
+func TestJobInput(t *testing.T) {
+	pipelineInputs := []*pps.Input{
+		client.NewAtomInput("does_exist", "/*"),
+		client.NewCrossInput(
+			client.NewAtomInput("does_not_exist", "/*"),
+			client.NewAtomInput("does_exist", "/*"),
+			client.NewAtomInput("does_not_exist", "/*"),
+		),
+		client.NewCrossInput(
+			&pps.Input{
+				Cron: &pps.CronInput{Repo: "does_not_exist"},
+			}, &pps.Input{
+				Cron: &pps.CronInput{Repo: "does_exist"},
+			}, &pps.Input{
+				Cron: &pps.CronInput{Repo: "does_not_exist"},
+			},
+		),
+		client.NewUnionInput(
+			client.NewAtomInput("does_exist", "/*"),
+			client.NewAtomInput("does_not_exist", "/*"),
+		),
+		client.NewCrossInput(
+			client.NewAtomInput("does_exist", "/*"),
+			client.NewUnionInput(
+				client.NewAtomInput("does_not_exist_1", "/*"),
+				client.NewAtomInput("does_not_exist_2", "/*"),
+			),
+		),
+		client.NewCrossInput(
+			client.NewAtomInput("does_exist", "/*"),
+			client.NewUnionInput(
+				client.NewCrossInput(
+					client.NewAtomInput("does_not_exist_1", "/*"),
+					client.NewAtomInput("does_not_exist_2", "/*"),
+				),
+			),
+		),
+	}
+	expectedJobOutputs := []*pps.Input{
+		client.NewAtomInput("does_exist", "/*"),
+		client.NewCrossInput(
+			client.NewAtomInput("does_exist", "/*"),
+		),
+		client.NewCrossInput(
+			&pps.Input{
+				Cron: &pps.CronInput{Repo: "does_exist"},
+			},
+		),
+		client.NewUnionInput(
+			client.NewAtomInput("does_exist", "/*"),
+		),
+		client.NewCrossInput(
+			client.NewAtomInput("does_exist", "/*"),
+		),
+		client.NewCrossInput(
+			client.NewAtomInput("does_exist", "/*"),
+		),
+	}
+	cases := []string{
+		"atom", "cross", "cross+cron", "union", "nested", "nested union",
+	}
+	require.Equal(t, len(cases), len(pipelineInputs))
+	require.Equal(t, len(cases), len(expectedJobOutputs))
+	for i, name := range cases {
+		require.True(t, t.Run(name, func(t *testing.T) {
+			actual := JobInput(&pps.PipelineInfo{
+				Input: pipelineInputs[i],
+			}, &pfs.CommitInfo{
+				Provenance: []*pfs.Commit{{Repo: &pfs.Repo{Name: "does_exist"}}},
 			})
-			require.NoError(t, err)
-			var chunks []int64
-			var chunksMu sync.Mutex
-			var eg errgroup.Group
-			for i := 0; i < nWorkers; i++ {
-				server := newTestAPIServer(c, etcdClient, "", t)
-				logger := server.getMasterLogger()
-				eg.Go(func() error {
-					return server.acquireDatums(context.Background(), jobInfo, logger, func(low, high int64) error {
-						chunksMu.Lock()
-						defer chunksMu.Unlock()
-						chunks = append(chunks, high)
-						return nil
-					})
-				})
-			}
-			require.NoError(t, eg.Wait())
-			require.Equal(t, nChunks, len(chunks))
-		}
+			require.InputEquals(t, expectedJobOutputs[i], actual)
+		}))
 	}
 }
 
