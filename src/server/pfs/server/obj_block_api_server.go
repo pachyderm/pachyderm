@@ -321,6 +321,16 @@ func (s *objBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServer
 	if err != nil {
 		return err
 	}
+	if objectInfo == nil {
+		logrus.Errorf("objectInfo is nil; info: %+v; request: %v", objectInfo, request)
+		return nil
+	} else if objectInfo.BlockRef == nil {
+		logrus.Errorf("objectInfo.BlockRef is nil; info: %+v; request: %v", objectInfo, request)
+		return nil
+	} else if objectInfo.BlockRef.Range == nil {
+		logrus.Errorf("objectInfo.BlockRef.Range is nil; info: %+v; request: %v", objectInfo, request)
+		return nil
+	}
 	objectSize := objectInfo.BlockRef.Range.Upper - objectInfo.BlockRef.Range.Lower
 	if (objectSize) >= uint64(s.objectCacheBytes/maxCachedObjectDenom) {
 		// The object is a substantial portion of the available cache space so
@@ -352,11 +362,14 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 			return err
 		}
 		if objectInfo == nil {
-			logrus.Debugf("objectInfo is nil; info: %+v; request: %v", objectInfo, request)
+			logrus.Errorf("objectInfo is nil; info: %+v; request: %v", objectInfo, request)
+			continue
 		} else if objectInfo.BlockRef == nil {
-			logrus.Debugf("objectInfo.BlockRef is nil; info: %+v; request: %v", objectInfo, request)
+			logrus.Errorf("objectInfo.BlockRef is nil; info: %+v; request: %v", objectInfo, request)
+			continue
 		} else if objectInfo.BlockRef.Range == nil {
-			logrus.Debugf("objectInfo.BlockRef.Range is nil; info: %+v; request: %v", objectInfo, request)
+			logrus.Errorf("objectInfo.BlockRef.Range is nil; info: %+v; request: %v", objectInfo, request)
+			continue
 		}
 
 		objectSize := objectInfo.BlockRef.Range.Upper - objectInfo.BlockRef.Range.Lower
@@ -737,10 +750,39 @@ func (s *objBlockAPIServer) readProto(path string, pb proto.Unmarshaler) (retErr
 	if err != nil {
 		return err
 	}
+	if len(data) == 0 {
+		logrus.Infof("readProto(%s) yielded len(0) data", path)
+	}
 	return pb.Unmarshal(data)
 }
 
 func (s *objBlockAPIServer) writeProto(path string, pb proto.Marshaler) (retErr error) {
+	var data []byte
+	defer func() {
+		if retErr != nil {
+			return
+		}
+		retErr = func() (retErr error) {
+			r, err := s.objClient.Reader(path, 0, 0)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := r.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			rData, err := ioutil.ReadAll(r)
+			if err != nil {
+				return err
+			}
+			if !bytes.Equal(data, rData) {
+				logrus.Errorf("can't %s after write", path)
+				return fmt.Errorf("can't read %s after write", path)
+			}
+			return nil
+		}()
+	}()
 	w, err := s.objClient.Writer(path)
 	if err != nil {
 		return err
@@ -750,7 +792,7 @@ func (s *objBlockAPIServer) writeProto(path string, pb proto.Marshaler) (retErr 
 			retErr = err
 		}
 	}()
-	data, err := pb.Marshal()
+	data, err = pb.Marshal()
 	if err != nil {
 		return err
 	}
