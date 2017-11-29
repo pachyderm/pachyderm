@@ -857,6 +857,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 				}
 				return err
 			}
+			return err
 		default:
 		}
 		// Increment the job's restart count
