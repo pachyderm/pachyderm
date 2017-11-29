@@ -279,7 +279,7 @@ single repo.
 `input.atom.name` is the name of the input.  An input with name `XXX` will be
 visible under the path `/pfs/XXX` when a job runs.  Input names must be unique
 if the inputs are crossed, but they may be duplicated between `AtomInput`s that are unioned.  This is because when `AtomInput`s are unioned, you'll only ever see a datum from one input at a time. Overlapping the names of unioned inputs allows
-you to write simpler code since you no longer need to consider which input directory path a particular datum come from.  If an input's name is not specified, it defaults to the name of the repo.  Therefore, if you have two crossed inputs from the same repo, you'll be required to give at least one of them a unique name.
+you to write simpler code since you no longer need to consider which input directory a particular datum come from.  If an input's name is not specified, it defaults to the name of the repo.  Therefore, if you have two crossed inputs from the same repo, you'll be required to give at least one of them a unique name.
 
 `input.atom.repo` is the `repo` to be used for the input.
 
