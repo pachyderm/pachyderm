@@ -28,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	workerpkg "github.com/pachyderm/pachyderm/src/server/worker"
 	"github.com/robfig/cron"
@@ -1237,14 +1238,14 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 			}
 		}
 	}
-	if pipelineInfo.JobTimeout != "" {
-		_, err := time.ParseDuration(pipelineInfo.JobTimeout)
+	if pipelineInfo.JobTimeout != nil {
+		_, err := types.DurationFromProto(pipelineInfo.JobTimeout)
 		if err != nil {
 			return err
 		}
 	}
-	if pipelineInfo.DatumTimeout != "" {
-		_, err := time.ParseDuration(pipelineInfo.DatumTimeout)
+	if pipelineInfo.DatumTimeout != nil {
+		_, err := types.DurationFromProto(pipelineInfo.DatumTimeout)
 		if err != nil {
 			return err
 		}

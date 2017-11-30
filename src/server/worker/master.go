@@ -627,8 +627,8 @@ func chunks(df DatumFactory, spec *pps.ChunkSpec, parallelism int) *Chunks {
 
 func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *taggedLogger) error {
 	ctx, cancel := context.WithCancel(ctx)
-	if jobInfo.JobTimeout != "" {
-		timeout, err := time.ParseDuration(jobInfo.JobTimeout)
+	if jobInfo.JobTimeout != nil {
+		timeout, err := types.DurationFromProto(jobInfo.JobTimeout)
 		if err != nil {
 			return err
 		}
@@ -915,7 +915,7 @@ func (a *APIServer) egress(ctx context.Context, logger *taggedLogger, jobInfo *p
 
 func (a *APIServer) runService(ctx context.Context, logger *taggedLogger) error {
 	return backoff.RetryNotify(func() error {
-		return a.runUserCode(ctx, logger, nil, &pps.ProcessStats{}, "")
+		return a.runUserCode(ctx, logger, nil, &pps.ProcessStats{}, nil)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		select {
 		case <-ctx.Done():
