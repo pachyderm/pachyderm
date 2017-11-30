@@ -528,8 +528,6 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 			client.NewAtomInput(args.repo, "/*"),
 			"", // default output branch: master
 			args.update,
-			"",
-			"",
 		)
 	}
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
@@ -731,8 +729,6 @@ func TestPipelineMultipleInputs(t *testing.T) {
 			args.input,
 			"", // default output branch: master
 			args.update,
-			"",
-			"",
 		)
 	}
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
@@ -933,8 +929,6 @@ func TestPipelineRevoke(t *testing.T) {
 		client.NewAtomInput(repo, "/*"),
 		"", // default output branch: master
 		false,
-		"",
-		"",
 	))
 	require.NoError(t, ElementsEqual(
 		entries(bob, "owner"), GetACL(t, bobClient, pipeline)))
@@ -1007,8 +1001,6 @@ func TestPipelineRevoke(t *testing.T) {
 		client.NewAtomInput(repo, "/*"),
 		"", // default output branch: master
 		true,
-		"",
-		"",
 	))
 
 	// Pipeline now finishes successfully
@@ -1048,8 +1040,6 @@ func TestDeletePipeline(t *testing.T) {
 		client.NewAtomInput(repo, "/*"),
 		"", // default output branch: master
 		false,
-		"",
-		"",
 	))
 	// Make sure the input and output repos have non-empty ACLs
 	require.NoError(t, ElementsEqual(
@@ -1091,8 +1081,6 @@ func TestDeletePipeline(t *testing.T) {
 		client.NewAtomInput(repo, "/*"),
 		"", // default output branch: master
 		false,
-		"",
-		"",
 	))
 
 	// bob can't delete alice's pipeline
@@ -1442,8 +1430,6 @@ func TestCreatePipelineRepoAlreadyExistsError(t *testing.T) {
 		client.NewAtomInput(inputRepo, "/*"),
 		"",    // default output branch: master
 		false, // Don't update -- we want an error
-		"",
-		"",
 	)
 	require.YesError(t, err)
 	require.Matches(t, "cannot overwrite repo", err.Error())
@@ -1540,8 +1526,6 @@ func TestListDatum(t *testing.T) {
 		),
 		"", // default output branch: master
 		false,
-		"",
-		"",
 	))
 
 	// alice commits to the input repos, and the pipeline runs successfully
@@ -1712,8 +1696,6 @@ func TestGetLogs(t *testing.T) {
 		client.NewAtomInput(repo, "/*"),
 		"", // default output branch: master
 		false,
-		"",
-		"",
 	))
 
 	// alice commits to the input repos, and the pipeline runs successfully
