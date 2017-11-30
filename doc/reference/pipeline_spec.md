@@ -40,8 +40,8 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
     "cpu": double,
     "gpu": double
   },
-  "datum_timeout": "1s",
-  "job_timeout": "1h",
+  "datum_timeout": string,
+  "job_timeout": string,
   "input": {
     <"atom", "cross", "union", or "cron", see below>
   },
