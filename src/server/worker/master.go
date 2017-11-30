@@ -823,7 +823,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 			return a.updateJobState(stm, jobInfo, pps.JobState_JOB_SUCCESS, "")
 		})
 		return nil
-	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) (retErr error) {
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		logger.Logf("error in waitJob %v, retrying in %v", err, d)
 		select {
 		case <-ctx.Done():
@@ -842,17 +842,12 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 						jobInfo.Finished = now()
 						err = a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE, reason)
 						if err != nil {
-							retErr = err
 							return nil
 						}
-						retErr = fmt.Errorf(reason)
 						return nil
 					})
 					if err != nil {
 						return err
-					}
-					if retErr != nil {
-						return retErr
 					}
 				}
 				return err
