@@ -5614,12 +5614,12 @@ func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
+			fmt.Sprintf("cat /pfs/test-artifacts/.git/HEAD > /pfs/out/%v", outputFilename),
 		},
 		nil,
 		&pps.Input{
 			Git: &pps.GitInput{
-				URL: "git://github.com/pachyderm/pachyderm.git",
+				URL: "git://github.com/pachyderm/test-artifacts.git",
 			},
 		},
 		"",
@@ -5630,12 +5630,12 @@ func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
+			fmt.Sprintf("cat /pfs/test-artifacts/.git/HEAD > /pfs/out/%v", outputFilename),
 		},
 		nil,
 		&pps.Input{
 			Git: &pps.GitInput{
-				URL: "git@github.com:pachyderm/pachyderm.git",
+				URL: "git@github.com:pachyderm/test-artifacts.git",
 			},
 		},
 		"",
@@ -5646,12 +5646,12 @@ func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
+			fmt.Sprintf("cat /pfs/test-artifacts/.git/HEAD > /pfs/out/%v", outputFilename),
 		},
 		nil,
 		&pps.Input{
 			Git: &pps.GitInput{
-				URL: "https://github.com:pachyderm/pachyderm",
+				URL: "https://github.com:pachyderm/test-artifacts",
 			},
 		},
 		"",
@@ -5741,13 +5741,13 @@ func TestPipelineWithGitInputDuplicateNames(t *testing.T) {
 			Cross: []*pps.Input{
 				&pps.Input{
 					Git: &pps.GitInput{
-						URL:  "https://github.com/pachyderm/pachyderm.git",
+						URL:  "https://github.com/pachyderm/test-artifacts.git",
 						Name: "foo",
 					},
 				},
 				&pps.Input{
 					Git: &pps.GitInput{
-						URL:  "https://github.com/pachyderm/pachyderm.git",
+						URL:  "https://github.com/pachyderm/test-artifacts.git",
 						Name: "foo",
 					},
 				},
@@ -5769,12 +5769,12 @@ func TestPipelineWithGitInputDuplicateNames(t *testing.T) {
 			Cross: []*pps.Input{
 				&pps.Input{
 					Git: &pps.GitInput{
-						URL: "https://github.com/pachyderm/pachyderm.git",
+						URL: "https://github.com/pachyderm/test-artifacts.git",
 					},
 				},
 				&pps.Input{
 					Git: &pps.GitInput{
-						URL: "https://github.com/pachyderm/pachyderm.git",
+						URL: "https://github.com/pachyderm/test-artifacts.git",
 					},
 				},
 			},
@@ -5795,13 +5795,13 @@ func TestPipelineWithGitInputDuplicateNames(t *testing.T) {
 			Cross: []*pps.Input{
 				&pps.Input{
 					Git: &pps.GitInput{
-						URL:  "https://github.com/pachyderm/pachyderm.git",
+						URL:  "https://github.com/pachyderm/test-artifacts.git",
 						Name: "foo",
 					},
 				},
 				&pps.Input{
 					Git: &pps.GitInput{
-						URL: "https://github.com/pachyderm/pachyderm.git",
+						URL: "https://github.com/pachyderm/test-artifacts.git",
 					},
 				},
 			},
@@ -5826,12 +5826,12 @@ func TestPipelineWithGitInput(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
+			fmt.Sprintf("cat /pfs/test-artifacts/.git/HEAD > /pfs/out/%v", outputFilename),
 		},
 		nil,
 		&pps.Input{
 			Git: &pps.GitInput{
-				URL: "https://github.com/pachyderm/pachyderm.git",
+				URL: "https://github.com/pachyderm/test-artifacts.git",
 			},
 		},
 		"",
@@ -5841,14 +5841,15 @@ func TestPipelineWithGitInput(t *testing.T) {
 	repos, err := c.ListRepo(nil)
 	require.NoError(t, err)
 	found := false
+	newRepoName := "test-artifacts"
 	for _, repo := range repos {
-		if repo.Repo.Name == "pachyderm" {
+		if repo.Repo.Name == newRepoName {
 			found = true
 		}
 	}
 	require.Equal(t, true, found)
 
-	commits, err := c.ListCommit("pachyderm", "", "", 0)
+	commits, err := c.ListCommit(newRepoName, "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(commits))
 
@@ -5858,7 +5859,7 @@ func TestPipelineWithGitInput(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// Now there should be a new commit on the pachyderm repo / master branch
-	branches, err := c.ListBranch("pachyderm")
+	branches, err := c.ListBranch(newRepoName)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(branches))
 	require.Equal(t, "master", branches[0].Name)
@@ -5894,12 +5895,12 @@ func TestPipelineWithGitInputSequentialPushes(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
+			fmt.Sprintf("cat /pfs/test-artifacts/.git/HEAD > /pfs/out/%v", outputFilename),
 		},
 		nil,
 		&pps.Input{
 			Git: &pps.GitInput{
-				URL: "https://github.com/pachyderm/pachyderm.git",
+				URL: "https://github.com/pachyderm/test-artifacts.git",
 			},
 		},
 		"",
@@ -5909,14 +5910,15 @@ func TestPipelineWithGitInputSequentialPushes(t *testing.T) {
 	repos, err := c.ListRepo(nil)
 	require.NoError(t, err)
 	found := false
+	newRepoName := "test-artifacts"
 	for _, repo := range repos {
-		if repo.Repo.Name == "pachyderm" {
+		if repo.Repo.Name == newRepoName {
 			found = true
 		}
 	}
 	require.Equal(t, true, found)
 
-	commits, err := c.ListCommit("pachyderm", "", "", 0)
+	commits, err := c.ListCommit(newRepoName, "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(commits))
 
@@ -5926,7 +5928,7 @@ func TestPipelineWithGitInputSequentialPushes(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// Now there should be a new commit on the pachyderm repo / master branch
-	branches, err := c.ListBranch("pachyderm")
+	branches, err := c.ListBranch(newRepoName)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(branches))
 	require.Equal(t, "master", branches[0].Name)
@@ -5951,7 +5953,7 @@ func TestPipelineWithGitInputSequentialPushes(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// Now there should be a new commit on the pachyderm repo / master branch
-	branches, err = c.ListBranch("pachyderm")
+	branches, err = c.ListBranch(newRepoName)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(branches))
 	require.Equal(t, "master", branches[0].Name)
@@ -5991,7 +5993,7 @@ func TestPipelineWithGitInputCustomName(t *testing.T) {
 		nil,
 		&pps.Input{
 			Git: &pps.GitInput{
-				URL:  "https://github.com/pachyderm/pachyderm.git",
+				URL:  "https://github.com/pachyderm/test-artifacts.git",
 				Name: repoName,
 			},
 		},
@@ -6065,7 +6067,7 @@ func TestPipelineWithGitInputMultiPipelineSeparateInputs(t *testing.T) {
 			nil,
 			&pps.Input{
 				Git: &pps.GitInput{
-					URL:  "https://github.com/pachyderm/pachyderm.git",
+					URL:  "https://github.com/pachyderm/test-artifacts.git",
 					Name: repoName,
 				},
 			},
@@ -6126,7 +6128,7 @@ func TestPipelineWithGitInputMultiPipelineSameInput(t *testing.T) {
 	defer require.NoError(t, c.DeleteAll())
 
 	outputFilename := "commitSHA"
-	repos := []string{"pachyderm", "pachyderm"}
+	repos := []string{"test-artifacts", "test-artifacts"}
 	pipelines := []string{
 		uniqueString("github_pipeline_a_"),
 		uniqueString("github_pipeline_b_"),
@@ -6142,7 +6144,7 @@ func TestPipelineWithGitInputMultiPipelineSameInput(t *testing.T) {
 			nil,
 			&pps.Input{
 				Git: &pps.GitInput{
-					URL: "https://github.com/pachyderm/pachyderm.git",
+					URL: "https://github.com/pachyderm/test-artifacts.git",
 				},
 			},
 			"",
@@ -6208,12 +6210,12 @@ func TestPipelineWithGitInputAndBranch(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
+			fmt.Sprintf("cat /pfs/test-artifacts/.git/HEAD > /pfs/out/%v", outputFilename),
 		},
 		nil,
 		&pps.Input{
 			Git: &pps.GitInput{
-				URL:    "https://github.com/pachyderm/pachyderm.git",
+				URL:    "https://github.com/pachyderm/test-artifacts.git",
 				Branch: branchName,
 			},
 		},
@@ -6224,14 +6226,15 @@ func TestPipelineWithGitInputAndBranch(t *testing.T) {
 	repos, err := c.ListRepo(nil)
 	require.NoError(t, err)
 	found := false
+	newRepoName := "test-artifacts"
 	for _, repo := range repos {
-		if repo.Repo.Name == "pachyderm" {
+		if repo.Repo.Name == newRepoName {
 			found = true
 		}
 	}
 	require.Equal(t, true, found)
 
-	commits, err := c.ListCommit("pachyderm", "", "", 0)
+	commits, err := c.ListCommit(newRepoName, "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(commits))
 
@@ -6240,7 +6243,7 @@ func TestPipelineWithGitInputAndBranch(t *testing.T) {
 	// Need to sleep since the webhook http handler is non blocking
 	time.Sleep(5 * time.Second)
 	// Now there should be a new commit on the pachyderm repo / master branch
-	branches, err := c.ListBranch("pachyderm")
+	branches, err := c.ListBranch(newRepoName)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(branches))
 
@@ -6249,7 +6252,7 @@ func TestPipelineWithGitInputAndBranch(t *testing.T) {
 	// Need to sleep since the webhook http handler is non blocking
 	time.Sleep(2 * time.Second)
 	// Now there should be a new commit on the pachyderm repo / master branch
-	branches, err = c.ListBranch("pachyderm")
+	branches, err = c.ListBranch(newRepoName)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(branches))
 	require.Equal(t, branchName, branches[0].Name)
