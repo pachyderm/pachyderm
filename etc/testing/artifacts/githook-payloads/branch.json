@@ -1,5 +1,5 @@
 {
-    "ref": "refs/heads/test_artifact_dont_delete",
+    "ref": "refs/heads/foo",
     "before": "0000000000000000000000000000000000000000",
     "after": "81269575dcfc6ac2e2a463ad8016163f79c97f5c",
     "created": true,
@@ -57,7 +57,7 @@
     },
     "repository": {
         "id": 23653453,
-        "name": "pachyderm",
+        "name": "test-artifacts",
         "full_name": "pachyderm/test-artifacts",
         "owner": {
             "name": "pachyderm",
