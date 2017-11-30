@@ -384,8 +384,6 @@ func TestPreActivationPipelinesRunAsAdmin(t *testing.T) {
 		client.NewAtomInput(repo, "/*"),
 		"", // default output branch: master
 		false,
-		"",
-		"",
 	))
 
 	// alice makes an input commit
@@ -624,8 +622,6 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 		client.NewAtomInput(repo, "/*"),
 		"",    // default output branch: master
 		false, // no update
-		"",
-		"",
 	))
 	require.OneOfEquals(t, pipeline, PipelineNames(t, aliceClient))
 	require.Equal(t, entries(alice, "owner"), GetACL(t, aliceClient, pipeline)) // check that alice owns the output repo too

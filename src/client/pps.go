@@ -418,9 +418,6 @@ func (c APIClient) GetLogs(
 // input specifies a set of Repos that will be visible to the jobs during runtime.
 // commits to these repos will cause the pipeline to create new jobs to process them.
 // update indicates that you want to update an existing pipeline
-// datumTimeout is a duration string (e.g. "1s") that defines the max time a datum
-// can run
-// jobTimeout is a duration string (e.g. "1m") that defines the max time a job can run
 func (c APIClient) CreatePipeline(
 	name string,
 	image string,
@@ -430,8 +427,6 @@ func (c APIClient) CreatePipeline(
 	input *pps.Input,
 	outputBranch string,
 	update bool,
-	datumTimeout string,
-	jobTimeout string,
 ) error {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
@@ -446,8 +441,6 @@ func (c APIClient) CreatePipeline(
 			Input:           input,
 			OutputBranch:    outputBranch,
 			Update:          update,
-			DatumTimeout:    datumTimeout,
-			JobTimeout:      jobTimeout,
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
