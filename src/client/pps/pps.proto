@@ -221,8 +221,8 @@ message JobInfo {
   string salt = 33;
   bool batch = 34;
   ChunkSpec chunk_spec = 37;
-  string datum_timeout = 38;
-  string job_timeout = 39;
+  google.protobuf.Duration datum_timeout = 38;
+  google.protobuf.Duration job_timeout = 39;
 }
 
 enum WorkerState {
@@ -300,8 +300,8 @@ message PipelineInfo {
   int64 max_queue_size = 29;
   Service service = 30;
   ChunkSpec chunk_spec = 32;
-  string datum_timeout = 33;
-  string job_timeout = 34;
+  google.protobuf.Duration datum_timeout = 33;
+  google.protobuf.Duration job_timeout = 34;
 }
 
 message PipelineInfos {
@@ -330,8 +330,8 @@ message CreateJobRequest {
   string salt = 19;
   bool batch = 20;
   ChunkSpec chunk_spec = 22;
-  string datum_timeout = 23;
-  string job_timeout = 24;
+  google.protobuf.Duration datum_timeout = 23;
+  google.protobuf.Duration job_timeout = 24;
 }
 
 message InspectJobRequest {
@@ -465,8 +465,8 @@ message CreatePipelineRequest {
   int64 max_queue_size = 20;
   Service service = 21;
   ChunkSpec chunk_spec = 23;
-  string datum_timeout = 24;
-  string job_timeout = 25;
+  google.protobuf.Duration datum_timeout = 24;
+  google.protobuf.Duration job_timeout = 25;
 }
 
 message InspectPipelineRequest {
