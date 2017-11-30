@@ -6269,6 +6269,9 @@ func TestPipelineWithGitInputAndBranch(t *testing.T) {
 
 	var buf bytes.Buffer
 
+	files, err := c.ListFile(commit.Repo.Name, commit.ID, "/")
+	require.NoError(t, err)
+	fmt.Printf("Files on %v at commit %v at path / :\n%v\n", commit.Repo.Name, commit.ID, files)
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
 	require.Equal(t, "81269575dcfc6ac2e2a463ad8016163f79c97f5c", strings.TrimSpace(buf.String()))
 }
