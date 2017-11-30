@@ -436,7 +436,8 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 }
 
 // Run user code and return the combined output of stdout and stderr.
-func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string, stats *pps.ProcessStats, rawDatumTimeout string) (retErr error) {
+func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string, stats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
+
 	defer func(start time.Time) {
 		stats.ProcessTime = types.DurationProto(time.Since(start))
 	}(time.Now())
@@ -444,8 +445,8 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	defer func(start time.Time) {
 		logger.Logf("finished running user code - took (%v) - with error (%v)", time.Since(start), retErr)
 	}(time.Now())
-	if rawDatumTimeout != "" {
-		datumTimeout, err := time.ParseDuration(rawDatumTimeout)
+	if rawDatumTimeout != nil {
+		datumTimeout, err := types.DurationFromProto(rawDatumTimeout)
 		if err != nil {
 			return err
 		}
