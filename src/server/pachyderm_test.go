@@ -6202,7 +6202,7 @@ func TestPipelineWithGitInputAndBranch(t *testing.T) {
 	c := getPachClient(t)
 	defer require.NoError(t, c.DeleteAll())
 
-	branchName := "test_artifact_dont_delete"
+	branchName := "foo"
 	outputFilename := "commitSHA"
 	pipeline := uniqueString("github_pipeline")
 	require.NoError(t, c.CreatePipeline(
@@ -6271,7 +6271,6 @@ func TestPipelineWithGitInputAndBranch(t *testing.T) {
 
 	files, err := c.ListFile(commit.Repo.Name, commit.ID, "/")
 	require.NoError(t, err)
-	fmt.Printf("Files on %v at commit %v at path / :\n%v\n", commit.Repo.Name, commit.ID, files)
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
 	require.Equal(t, "81269575dcfc6ac2e2a463ad8016163f79c97f5c", strings.TrimSpace(buf.String()))
 }
