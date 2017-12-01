@@ -339,6 +339,8 @@ test-pfs:
 	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
 
 test-pps:
+	@# Check if docker is still ok here ... right before the test:
+	docker images
 	go test -v ./src/server -parallel 1 -timeout $(TIMEOUT)
 	go test ./src/server/pps/cmds -timeout $(TIMEOUT)
 
