@@ -1421,7 +1421,7 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 			if err != nil {
 				// possible that branch exists but has no head commit. This is fine, but
 				// branchInfo.Head must also be nil
-				if err.Error() != "branch has no head commit" {
+				if _, ok := err.(pfsserver.ErrNoHead); !ok {
 					return err
 				}
 			}

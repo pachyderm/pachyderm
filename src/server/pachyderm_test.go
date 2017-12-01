@@ -4758,7 +4758,7 @@ func TestPipelineTriggerManyInputs(t *testing.T) {
 			},
 		})
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 	defer cancel() //cleanup resources
 	_, err := c.PpsAPIClient.CreatePipeline(ctx, req)
 	require.NoError(t, err)
@@ -4769,7 +4769,7 @@ func TestPipelineTriggerManyInputs(t *testing.T) {
 	_, err = c.PutFile(repo[0], "master", "/file", strings.NewReader("data"))
 	require.NoError(t, err)
 	c.FinishCommit(repo[0], "master")
-	iter, err := c.FlushCommit([]*pfs.Commit{{
+	iter, err := c.WithCtx(ctx).FlushCommit([]*pfs.Commit{{
 		Repo: &pfs.Repo{repo[0]},
 		ID:   "master",
 	}}, nil)
