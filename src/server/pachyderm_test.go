@@ -4480,14 +4480,6 @@ func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
 		_, err = c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file-%d", i), strings.NewReader(strings.Repeat("foo\n", 100)))
 	}
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
-	commit2, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	err = c.DeleteFile(dataRepo, commit2.ID, "file-0")
-	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
-	commit3, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, commit3.ID, "file-0", strings.NewReader(strings.Repeat("foo\n", 100)))
-	require.NoError(t, c.FinishCommit(dataRepo, commit3.ID))
 
 	pipeline := uniqueString("StatsEdgeCase")
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
@@ -4531,6 +4523,18 @@ func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
 	datum, err := c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
+
+	// Create a second commit that deletes a file in commit1
+	commit2, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	err = c.DeleteFile(dataRepo, commit2.ID, "file-0")
+	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
+
+	// Create a third commit that re-adds the file removed in commit2
+	commit3, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit3.ID, "file-0", strings.NewReader(strings.Repeat("foo\n", 100)))
+	require.NoError(t, c.FinishCommit(dataRepo, commit3.ID))
 
 	commitIter, err = c.FlushCommit([]*pfs.Commit{commit3}, nil)
 	require.NoError(t, err)
