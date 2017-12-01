@@ -11,6 +11,7 @@ branches:
 before_install:
 - sudo etc/testing/ci/before_install.sh
 before_script:
+- docker images
 - make launch-kube
 - docker version
 # Install any deps used by our "batch test" cron
