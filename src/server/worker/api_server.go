@@ -474,7 +474,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	}
 	// A context w a deadline will successfully cancel/kill
 	// the running process (minus zombies)
-	if err := cmd.Process.Wait(); err != nil {
+	if _, err := cmd.Process.Wait(); err != nil {
 		return err
 	}
 	select {
