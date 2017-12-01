@@ -339,6 +339,7 @@ test-pfs:
 	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
 
 test-pps:
+	./etc/build/print-k8s-status.sh &
 	go test -v ./src/server -parallel 1 -timeout $(TIMEOUT)
 	go test ./src/server/pps/cmds -timeout $(TIMEOUT)
 
