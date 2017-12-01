@@ -3,7 +3,7 @@
 set -Eex
 
 # Parse flags
-VERSION=v1.8.0
+VERSION=v1.7.0
 while getopts ":v:" opt; do
   case "${opt}" in
     v)

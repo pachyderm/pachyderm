@@ -341,6 +341,10 @@ test-pfs:
 test-pps:
 	@# Check if docker is still ok here ... right before the test:
 	docker images
+	kubectl get all
+	kubectl get pod -l component=worker
+	cat /etc/resolv.conf || true
+	cat /etc/systemd/resolved.conf  || true
 	go test -v ./src/server -parallel 1 -timeout $(TIMEOUT)
 	go test ./src/server/pps/cmds -timeout $(TIMEOUT)
 
