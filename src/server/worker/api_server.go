@@ -472,29 +472,36 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	if err != nil {
 		return err
 	}
-	cmdErr := make(chan error, 1)
-	go func() {
-		cmdErr <- cmd.Wait()
-	}()
+	// A context w a deadline will successfully cancel/kill
+	// the running process (minus zombies)
+	if err := cmd.Process.Wait(); err != nil {
+		return err
+	}
 	select {
 	case <-ctx.Done():
 		if err = ctx.Err(); err != nil {
 			return err
 		}
-	case err = <-cmdErr:
-		if err != nil {
-			// (if err is an acceptable return code, don't return err)
-			if exiterr, ok := err.(*exec.ExitError); ok {
-				if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-					for _, returnCode := range a.pipelineInfo.Transform.AcceptReturnCode {
-						if int(returnCode) == status.ExitStatus() {
-							return nil
-						}
+	default:
+	}
+
+	// We wait on the rest of the command (basically log I/O) separately
+	// from the cmd.Process.Wait(), as a cancelled context won't stop the
+	// I/O, as noted here:
+	// https://github.com/golang/go/issues/18874
+	err = cmd.Wait()
+	if err != nil {
+		// (if err is an acceptable return code, don't return err)
+		if exiterr, ok := err.(*exec.ExitError); ok {
+			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+				for _, returnCode := range a.pipelineInfo.Transform.AcceptReturnCode {
+					if int(returnCode) == status.ExitStatus() {
+						return nil
 					}
 				}
 			}
-			return err
 		}
+		return err
 	}
 	return nil
 }
