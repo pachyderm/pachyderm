@@ -4386,13 +4386,6 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	}
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
-	commit2, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	for i := 0; i < numFiles; i++ {
-		_, err = c.PutFile(dataRepo, commit2.ID, fmt.Sprintf("bar-%d", i), strings.NewReader(strings.Repeat("bar\n", 100)))
-	}
-	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
-
 	pipeline := uniqueString("StatsAcrossJobs")
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
@@ -4430,6 +4423,13 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	datum, err := c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
+
+	commit2, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	for i := 0; i < numFiles; i++ {
+		_, err = c.PutFile(dataRepo, commit2.ID, fmt.Sprintf("bar-%d", i), strings.NewReader(strings.Repeat("bar\n", 100)))
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
 
 	commitIter, err = c.FlushCommit([]*pfs.Commit{commit2}, nil)
 	require.NoError(t, err)
