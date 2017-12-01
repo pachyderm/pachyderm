@@ -944,13 +944,13 @@ func (a *APIServer) blockInputs(ctx context.Context, jobInfo *pps.JobInfo) error
 		}
 	}
 	pps.VisitInput(jobInfo.Input, func(input *pps.Input) {
-		if input.Atom != nil {
+		if input.Atom != nil && input.Atom.Commit != "" {
 			blockCommit(client.NewCommit(input.Atom.Repo, input.Atom.Commit))
 		}
-		if input.Cron != nil {
+		if input.Cron != nil && input.Cron.Commit != "" {
 			blockCommit(client.NewCommit(input.Cron.Repo, input.Cron.Commit))
 		}
-		if input.Git != nil {
+		if input.Git != nil && input.Git.Commit != "" {
 			blockCommit(client.NewCommit(input.Git.Name, input.Git.Commit))
 		}
 	})
