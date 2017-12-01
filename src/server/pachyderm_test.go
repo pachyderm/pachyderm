@@ -4733,60 +4733,6 @@ func TestOpencvDemo(t *testing.T) {
 	require.Equal(t, 2, len(commitInfos))
 }
 
-func TestPipelineTriggerManyInputs(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
-
-	// Create N repos, and a copy pipeline with N inputs
-	N := 2
-	pipeline := uniqueString("pipeline")
-	req := &pps.CreatePipelineRequest{
-		Pipeline: &pps.Pipeline{pipeline},
-		Transform: &pps.Transform{
-			Cmd:   []string{"bash"},
-			Stdin: []string{"cp -R /pfs/*/* /pfs/out"},
-		},
-		Input: &pps.Input{Cross: make([]*pps.Input, 0, N)},
-	}
-	repo := make([]string, 0, N)
-	for i := 0; i < N; i++ {
-		repo = append(repo, uniqueString(fmt.Sprintf("input-%d-", i)))
-		c.CreateRepo(repo[i])
-		req.Input.Cross = append(req.Input.Cross, &pps.Input{
-			Atom: &pps.AtomInput{
-				Repo: repo[i],
-				Glob: "/*",
-			},
-		})
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
-	defer cancel() //cleanup resources
-	_, err := c.PpsAPIClient.CreatePipeline(ctx, req)
-	require.NoError(t, err)
-
-	// Commit to repo[0] and flush the commit
-	_, err = c.StartCommit(repo[0], "master")
-	require.NoError(t, err)
-	_, err = c.PutFile(repo[0], "master", "/file", strings.NewReader("data"))
-	require.NoError(t, err)
-	c.FinishCommit(repo[0], "master")
-	iter, err := c.WithCtx(ctx).FlushCommit([]*pfs.Commit{{
-		Repo: &pfs.Repo{repo[0]},
-		ID:   "master",
-	}}, nil)
-	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, iter)
-	require.Equal(t, 1, len(commitInfos))
-
-	// Read file in output commit
-	buf := &bytes.Buffer{}
-	require.NoError(t, c.GetFile(pipeline, "master", "/file", 0, 0, buf))
-	require.Equal(t, "data", buf.String())
-}
-
 func TestCronPipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
