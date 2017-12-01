@@ -174,75 +174,12 @@ func (a *APIServer) serviceMaster() {
 }
 
 func (a *APIServer) jobInput(commitInfo *pfs.CommitInfo) *pps.Input {
-	return JobInput(a.pipelineInfo, commitInfo)
-}
-
-// JobInput creates a JobInput from the job's pipeline (which provides the input
-// spec) and a commit (which has the particular commits on which the job's
-// output is provenant). This function is public for testing
-func JobInput(pipelineInfo *pps.PipelineInfo, commitInfo *pfs.CommitInfo) *pps.Input {
 	// TODO this breaks if there's 2 branches from the same repo
-	// 1) Collect set of provenant commits from this job's output commit (commitInfo)
 	repoToCommit := make(map[string]*pfs.Commit)
 	for _, provCommit := range commitInfo.Provenance {
 		repoToCommit[provCommit.Repo.Name] = provCommit
 	}
-
-	// 2) Clone input from job's pipeline
-	jobInput := proto.Clone(pipelineInfo.Input).(*pps.Input)
-
-	// 3) Create helper function that uses 'repoToCommit' to remove empty inputs
-	// from a slice (used below). This function simplifies 'inputs' by
-	// - removing Atom inputs and Cron inputs that aren't in the commit
-	//   provenance (can happen when pipeline has multiple inputs but some have
-	//   no commits yet)
-	// - removing Cross/Union inputs with no children (i.e. all children were
-	//   removed by previous iterations)
-	removeEmptyInputs := func(inputs []*pps.Input) ([]*pps.Input, bool) {
-		changed := false
-		for i := len(inputs) - 1; i >= 0; i-- {
-			child := inputs[i]
-			ok := true
-			switch {
-			case child.Atom != nil:
-				_, ok = repoToCommit[child.Atom.Repo]
-			case child.Cron != nil:
-				_, ok = repoToCommit[child.Cron.Repo]
-			case child.Union != nil:
-				ok = len(child.Union) > 0
-			case child.Cross != nil:
-				ok = len(child.Cross) > 0
-			}
-			if !ok {
-				changed = true
-				if i+1 < len(inputs) {
-					inputs = append(inputs[:i], inputs[i+1:]...)
-				} else {
-					inputs = inputs[:i]
-				}
-			}
-		}
-		return inputs, changed
-	}
-
-	// 4) Iteratively simplify job input by removing empty inputs
-	changed := true
-	for changed {
-		changed = false
-		pps.VisitInput(jobInput, func(input *pps.Input) {
-			changedThisInput := false
-			// Can only remove empty atom/cron inputs while visiting parent. Handle
-			// case where 'input' is Cross or Union and clean up empty children
-			if input.Cross != nil {
-				input.Cross, changedThisInput = removeEmptyInputs(input.Cross)
-			} else if input.Union != nil {
-				input.Union, changedThisInput = removeEmptyInputs(input.Union)
-			}
-			changed = changed || changedThisInput
-		})
-	}
-
-	// 5) Set the commit ID of remaining Atom, Cron, and Git inputs
+	jobInput := proto.Clone(a.pipelineInfo.Input).(*pps.Input)
 	pps.VisitInput(jobInput, func(input *pps.Input) {
 		if input.Atom != nil {
 			if commit, ok := repoToCommit[input.Atom.Repo]; ok {
@@ -400,6 +337,10 @@ func (a *APIServer) jobSpawner(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
+
+			// Now that the jobInfo is persisted, wait until all input commits are
+			// ready, split the input datums into chunks and merge the results of
+			// chunks as they're processed
 			if err := a.waitJob(ctx, jobInfo, logger); err != nil {
 				return err
 			}

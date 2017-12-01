@@ -22,11 +22,15 @@ type DatumFactory interface {
 
 type atomDatumFactory struct {
 	inputs []*Input
-	index  int
 }
 
 func newAtomDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.AtomInput) (DatumFactory, error) {
 	result := &atomDatumFactory{}
+	if input.Commit == "" {
+		// this can happen if a pipeline with multiple inputs has been triggered
+		// before all commits have inputs
+		return result, nil
+	}
 	fs, err := pfsClient.GlobFileStream(auth.In2Out(ctx), &pfs.GlobFileRequest{
 		Commit:  client.NewCommit(input.Repo, input.Commit),
 		Pattern: input.Glob,
@@ -133,11 +137,15 @@ func (d *crossDatumFactory) Datum(i int) []*Input {
 
 type gitDatumFactory struct {
 	inputs []*Input
-	index  int
 }
 
 func newGitDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.GitInput) (DatumFactory, error) {
 	result := &gitDatumFactory{}
+	if input.Commit == "" {
+		// this can happen if a pipeline with multiple inputs has been triggered
+		// before all commits have inputs
+		return result, nil
+	}
 	fileInfo, err := pfsClient.InspectFile(
 		auth.In2Out(ctx),
 		&pfs.InspectFileRequest{

@@ -4815,7 +4815,7 @@ func TestCronPipeline(t *testing.T) {
 
 	// subscribe to the pipeline1 cron repo and wait for inputs
 	repo := fmt.Sprintf("%s_%s", pipeline1, "time")
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 	defer cancel() //cleanup resources
 	iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", "")
 	require.NoError(t, err)
