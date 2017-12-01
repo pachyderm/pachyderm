@@ -16,5 +16,5 @@ while getopts ":v:" opt; do
   esac
 done
 
-sudo CHANGE_MINIKUBE_NONE_USER=true minikube start --vm-driver=none --kubernetes-version="${VERSION}" --extra-config=kubelet.CertDir=/var/lib/kubelet/pki
+sudo CHANGE_MINIKUBE_NONE_USER=true minikube start --vm-driver=none --kubernetes-version="${VERSION}" --extra-config=kubelet.CertDir=/var/lib/kubelet/pki --extra-config=apiserver.ServiceClusterIpRange=10.0.0.1/12
 until kubectl version 2>/dev/null >/dev/null; do sleep 5; done
