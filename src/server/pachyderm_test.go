@@ -84,8 +84,6 @@ func TestSimplePipeline(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
-		"",
-		"",
 	))
 
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
@@ -131,8 +129,6 @@ func TestPipelineWithParallelism(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
-		"",
-		"",
 	))
 
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
@@ -184,8 +180,6 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
-		"",
-		"",
 	))
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
@@ -240,8 +234,6 @@ func TestDatumDedup(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
-		"",
-		"",
 	))
 
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
@@ -295,8 +287,6 @@ func TestPipelineInputDataModification(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
-		"",
-		"",
 	))
 
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
@@ -382,8 +372,6 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 		),
 		"",
 		false,
-		"",
-		"",
 	))
 
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
@@ -462,8 +450,6 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 		),
 		"",
 		false,
-		"",
-		"",
 	))
 
 	require.YesError(t, c.CreatePipeline(
@@ -481,8 +467,6 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 		),
 		"",
 		false,
-		"",
-		"",
 	))
 }
 
@@ -597,8 +581,6 @@ func TestPipelineFailure(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
-		"",
-		"",
 	))
 	var jobInfos []*pps.JobInfo
 	require.NoError(t, backoff.Retry(func() error {
@@ -688,8 +670,6 @@ func TestLazyPipelinePropagation(t *testing.T) {
 		client.NewAtomInputOpts("", dataRepo, "", "/*", true, ""),
 		"",
 		false,
-		"",
-		"",
 	))
 	pipelineB := uniqueString("pipelineB")
 	require.NoError(t, c.CreatePipeline(
@@ -703,8 +683,6 @@ func TestLazyPipelinePropagation(t *testing.T) {
 		client.NewAtomInputOpts("", pipelineA, "", "/*", true, ""),
 		"",
 		false,
-		"",
-		"",
 	))
 
 	commit1, err := c.StartCommit(dataRepo, "master")
@@ -882,8 +860,6 @@ func TestProvenance(t *testing.T) {
 		client.NewAtomInput(aRepo, "/*"),
 		"",
 		false,
-		"",
-		"",
 	))
 	cPipeline := uniqueString("C")
 	require.NoError(t, c.CreatePipeline(
@@ -901,8 +877,6 @@ func TestProvenance(t *testing.T) {
 		),
 		"",
 		false,
-		"",
-		"",
 	))
 	// commit to aRepo
 	commit1, err := c.StartCommit(aRepo, "master")
@@ -971,8 +945,6 @@ func TestProvenance2(t *testing.T) {
 		client.NewAtomInput(aRepo, "/b*"),
 		"",
 		false,
-		"",
-		"",
 	))
 	cPipeline := uniqueString("C")
 	require.NoError(t, c.CreatePipeline(
@@ -986,8 +958,6 @@ func TestProvenance2(t *testing.T) {
 		client.NewAtomInput(aRepo, "/c*"),
 		"",
 		false,
-		"",
-		"",
 	))
 	dPipeline := uniqueString("D")
 	require.NoError(t, c.CreatePipeline(
@@ -1006,8 +976,6 @@ func TestProvenance2(t *testing.T) {
 		),
 		"",
 		false,
-		"",
-		"",
 	))
 	// commit to aRepo
 	commit1, err := c.StartCommit(aRepo, "master")
@@ -1146,8 +1114,6 @@ func TestFlushCommit(t *testing.T) {
 			client.NewAtomInput(repo, "/*"),
 			"",
 			false,
-			"",
-			"",
 		))
 	}
 
@@ -1197,8 +1163,6 @@ func TestFlushCommitAfterCreatePipeline(t *testing.T) {
 		client.NewAtomInput(repo, "/*"),
 		"",
 		false,
-		"",
-		"",
 	))
 	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(repo, "master")}, nil)
 	require.NoError(t, err)
@@ -1233,8 +1197,6 @@ func TestRecreatePipeline(t *testing.T) {
 			client.NewAtomInput(repo, "/*"),
 			"",
 			false,
-			"",
-			"",
 		))
 		commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
 		require.NoError(t, err)
@@ -1278,8 +1240,6 @@ func TestDeletePipeline(t *testing.T) {
 			client.NewAtomInput(repo, "/*"),
 			"",
 			false,
-			"",
-			"",
 		))
 	}
 
@@ -1366,8 +1326,6 @@ func TestPipelineState(t *testing.T) {
 		client.NewAtomInput(repo, "/*"),
 		"",
 		false,
-		"",
-		"",
 	))
 
 	// Wait for pipeline to get picked up
@@ -1433,8 +1391,6 @@ func TestPipelineJobCounts(t *testing.T) {
 		client.NewAtomInput(repo, "/*"),
 		"",
 		false,
-		"",
-		"",
 	))
 
 	// Trigger a job by creating a commit
@@ -1571,8 +1527,6 @@ func TestPachdRestartResumesRunningJobs(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/"),
 		"",
 		false,
-		"",
-		"",
 	))
 	commit, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
@@ -1706,8 +1660,6 @@ func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/"),
 		"",
 		false,
-		"",
-		"",
 	))
 
 	// Wait for job to spawn
@@ -1739,8 +1691,6 @@ func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/"),
 		"",
 		true,
-		"",
-		"",
 	))
 }
 
@@ -1813,8 +1763,6 @@ func TestRestartAll(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
-		"",
-		"",
 	))
 	// Do first commit to repo
 	commit, err := c.StartCommit(dataRepo, "master")
@@ -1865,8 +1813,6 @@ func TestRestartOne(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/"),
 		"",
 		false,
-		"",
-		"",
 	))
 	// Do first commit to repo
 	commit, err := c.StartCommit(dataRepo, "master")
@@ -1971,8 +1917,6 @@ func TestDeleteAll(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/"),
 		"",
 		false,
-		"",
-		"",
 	))
 	// Do commit to repo
 	commit, err := c.StartCommit(dataRepo, "master")
@@ -2020,8 +1964,6 @@ func TestRecursiveCp(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
-		"",
-		"",
 	))
 	// Do commit to repo
 	commit, err := c.StartCommit(dataRepo, "master")
@@ -2063,8 +2005,6 @@ func TestPipelineUniqueness(t *testing.T) {
 		client.NewAtomInput(repo, "/"),
 		"",
 		false,
-		"",
-		"",
 	))
 	err := c.CreatePipeline(
 		pipelineName,
@@ -2077,8 +2017,6 @@ func TestPipelineUniqueness(t *testing.T) {
 		client.NewAtomInput(repo, "/"),
 		"",
 		false,
-		"",
-		"",
 	)
 	require.YesError(t, err)
 	require.Matches(t, "pipeline .*? already exists", err.Error())
@@ -2106,8 +2044,6 @@ func TestUpdatePipeline(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
-		"",
-		"",
 	))
 
 	_, err := c.StartCommit(dataRepo, "master")
@@ -2138,8 +2074,6 @@ func TestUpdatePipeline(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		true,
-		"",
-		"",
 	))
 
 	_, err = c.StartCommit(dataRepo, "master")
@@ -2201,8 +2135,6 @@ func TestStopPipeline(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
-		"",
-		"",
 	))
 	require.NoError(t, c.StopPipeline(pipelineName))
 	// Do first commit to repo
@@ -2401,8 +2333,6 @@ func TestPipelineWithFullObjects(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
-		"",
-		"",
 	))
 	// Do first commit to repo
 	commit1, err := c.StartCommit(dataRepo, "master")
@@ -2467,8 +2397,6 @@ func TestPipelineWithExistingInputCommits(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
-		"",
-		"",
 	))
 
 	commitInfoIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
@@ -2519,8 +2447,6 @@ func TestPipelineThatSymlinks(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/"),
 		"",
 		false,
-		"",
-		"",
 	))
 
 	// Do first commit to repo
@@ -2610,8 +2536,6 @@ func TestChainedPipelines(t *testing.T) {
 		client.NewAtomInput(aRepo, "/"),
 		"",
 		false,
-		"",
-		"",
 	))
 
 	cPipeline := uniqueString("C")
@@ -2630,8 +2554,6 @@ func TestChainedPipelines(t *testing.T) {
 		),
 		"",
 		false,
-		"",
-		"",
 	))
 	resultIter, err := c.FlushCommit([]*pfs.Commit{aCommit, dCommit}, nil)
 	require.NoError(t, err)
@@ -2685,8 +2607,6 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 		client.NewAtomInput(aRepo, "/"),
 		"",
 		false,
-		"",
-		"",
 	))
 
 	cPipeline := uniqueString("C")
@@ -2705,8 +2625,6 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 		),
 		"",
 		false,
-		"",
-		"",
 	))
 
 	dPipeline := uniqueString("D")
@@ -2722,8 +2640,6 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 		client.NewAtomInput(cPipeline, "/"),
 		"",
 		false,
-		"",
-		"",
 	))
 
 	resultsIter, err := c.FlushCommit([]*pfs.Commit{aCommit, eCommit}, nil)
@@ -2833,8 +2749,6 @@ func TestPipelineJobDeletion(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/"),
 		"",
 		false,
-		"",
-		"",
 	))
 
 	commit, err := c.StartCommit(dataRepo, "master")
@@ -2880,8 +2794,6 @@ func TestStopJob(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/"),
 		"",
 		false,
-		"",
-		"",
 	))
 
 	// Create two input commits to trigger two jobs.
@@ -3185,8 +3097,6 @@ func TestAllDatumsAreProcessed(t *testing.T) {
 		),
 		"",
 		false,
-		"",
-		"",
 	))
 
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1, commit2}, nil)
@@ -3230,8 +3140,6 @@ func TestDatumStatusRestart(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
-		"",
-		"",
 	))
 	var jobID string
 	var datumStarted time.Time
@@ -3310,8 +3218,6 @@ func TestUseMultipleWorkers(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
-		"",
-		"",
 	))
 	// Get job info 2x/sec for 20s until we confirm two workers for the current job
 	require.NoError(t, backoff.Retry(func() error {
@@ -3709,8 +3615,6 @@ func TestPipelineLargeOutput(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
-		"",
-		"",
 	))
 
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
@@ -3771,8 +3675,6 @@ func TestFromCommit(t *testing.T) {
 		),
 		"",
 		false,
-		"",
-		"",
 	))
 
 	// Wait for the pipeline to launch
@@ -3852,8 +3754,6 @@ func TestUnionInput(t *testing.T) {
 			),
 			"",
 			false,
-			"",
-			"",
 		))
 
 		commitIter, err := c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
@@ -3894,8 +3794,6 @@ func TestUnionInput(t *testing.T) {
 			),
 			"",
 			false,
-			"",
-			"",
 		))
 
 		commitIter, err := c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
@@ -3938,8 +3836,6 @@ func TestUnionInput(t *testing.T) {
 			),
 			"",
 			false,
-			"",
-			"",
 		))
 
 		commitIter, err := c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
@@ -3978,8 +3874,6 @@ func TestUnionInput(t *testing.T) {
 			),
 			"",
 			false,
-			"",
-			"",
 		))
 
 		commitIter, err := c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
@@ -4019,8 +3913,6 @@ func TestUnionInput(t *testing.T) {
 			),
 			"",
 			false,
-			"",
-			"",
 		))
 		require.NoError(t, c.CreatePipeline(
 			pipeline,
@@ -4044,8 +3936,6 @@ func TestUnionInput(t *testing.T) {
 			),
 			"",
 			false,
-			"",
-			"",
 		))
 
 		commitIter, err := c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
@@ -4087,8 +3977,6 @@ func TestUnionInput(t *testing.T) {
 			),
 			"",
 			false,
-			"",
-			"",
 		))
 		require.NoError(t, c.CreatePipeline(
 			pipeline,
@@ -4112,8 +4000,6 @@ func TestUnionInput(t *testing.T) {
 			),
 			"",
 			false,
-			"",
-			"",
 		))
 
 		commitIter, err := c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
@@ -4336,8 +4222,6 @@ func TestGarbageCollection(t *testing.T) {
 			client.NewAtomInput(dataRepo, "/"),
 			"",
 			false,
-			"",
-			"",
 		))
 		commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
 		require.NoError(t, err)
@@ -4848,8 +4732,6 @@ func TestIncrementalSharedProvenance(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/"),
 		"",
 		false,
-		"",
-		"",
 	))
 	pipeline2 := uniqueString("pipeline2")
 	_, err := c.PpsAPIClient.CreatePipeline(
@@ -4881,8 +4763,6 @@ func TestIncrementalSharedProvenance(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/"),
 		"",
 		false,
-		"",
-		"",
 	))
 	pipeline4 := uniqueString("pipeline4")
 	_, err = c.PpsAPIClient.CreatePipeline(
@@ -5020,8 +4900,6 @@ func TestCronPipeline(t *testing.T) {
 		client.NewCronInput("time", "@every 20s"),
 		"",
 		false,
-		"",
-		"",
 	))
 	pipeline2 := uniqueString("cron2")
 	require.NoError(t, c.CreatePipeline(
@@ -5033,8 +4911,6 @@ func TestCronPipeline(t *testing.T) {
 		client.NewAtomInput(pipeline1, "/*"),
 		"",
 		false,
-		"",
-		"",
 	))
 
 	repo := fmt.Sprintf("%s_%s", pipeline1, "time")
@@ -5068,8 +4944,6 @@ func TestCronPipeline(t *testing.T) {
 		),
 		"",
 		false,
-		"",
-		"",
 	))
 	dataCommit, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
@@ -5107,8 +4981,6 @@ func TestSelfReferentialPipeline(t *testing.T) {
 		client.NewAtomInput(pipeline, "/"),
 		"",
 		false,
-		"",
-		"",
 	))
 }
 
@@ -5129,8 +5001,6 @@ func TestPipelineBadImage(t *testing.T) {
 		client.NewCronInput("time", "@every 20s"),
 		"",
 		false,
-		"",
-		"",
 	))
 	pipeline2 := uniqueString("bad_pipeline")
 	require.NoError(t, c.CreatePipeline(
@@ -5142,8 +5012,6 @@ func TestPipelineBadImage(t *testing.T) {
 		client.NewCronInput("time", "@every 20s"),
 		"",
 		false,
-		"",
-		"",
 	))
 	require.NoError(t, backoff.Retry(func() error {
 		for _, pipeline := range []string{pipeline1, pipeline2} {
@@ -5187,8 +5055,6 @@ func TestFixPipeline(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
-		"",
-		"",
 	))
 
 	require.NoError(t, backoff.Retry(func() error {
@@ -5216,8 +5082,6 @@ func TestFixPipeline(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		true,
-		"",
-		"",
 	))
 
 	require.NoError(t, backoff.Retry(func() error {
@@ -5262,8 +5126,6 @@ func TestListJobOutput(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
-		"",
-		"",
 	))
 
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
@@ -5315,8 +5177,6 @@ func TestPipelineEnvVarAlias(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
-		"",
-		"",
 	))
 
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
@@ -5720,8 +5580,6 @@ func TestLongDatums(t *testing.T) {
 		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
-		"",
-		"",
 	))
 
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
@@ -5767,8 +5625,6 @@ func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
 		},
 		"",
 		false,
-		"",
-		"",
 	))
 	require.YesError(t, c.CreatePipeline(
 		pipeline,
@@ -5785,8 +5641,6 @@ func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
 		},
 		"",
 		false,
-		"",
-		"",
 	))
 	require.YesError(t, c.CreatePipeline(
 		pipeline,
@@ -5803,8 +5657,6 @@ func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
 		},
 		"",
 		false,
-		"",
-		"",
 	))
 }
 
@@ -5834,8 +5686,6 @@ func TestPipelineWithGitInputPrivateGHRepo(t *testing.T) {
 		},
 		"",
 		false,
-		"",
-		"",
 	))
 	// There should be a pachyderm repo created w no commits:
 	repos, err := c.ListRepo(nil)
@@ -5906,8 +5756,6 @@ func TestPipelineWithGitInputDuplicateNames(t *testing.T) {
 		},
 		"",
 		false,
-		"",
-		"",
 	))
 	//Test same URL on one pipeline
 	require.YesError(t, c.CreatePipeline(
@@ -5934,8 +5782,6 @@ func TestPipelineWithGitInputDuplicateNames(t *testing.T) {
 		},
 		"",
 		false,
-		"",
-		"",
 	))
 	// Test same URL but different names
 	require.NoError(t, c.CreatePipeline(
@@ -5963,8 +5809,6 @@ func TestPipelineWithGitInputDuplicateNames(t *testing.T) {
 		},
 		"",
 		false,
-		"",
-		"",
 	))
 }
 
@@ -5993,8 +5837,6 @@ func TestPipelineWithGitInput(t *testing.T) {
 		},
 		"",
 		false,
-		"",
-		"",
 	))
 	// There should be a pachyderm repo created w no commits:
 	repos, err := c.ListRepo(nil)
@@ -6063,8 +5905,6 @@ func TestPipelineWithGitInputSequentialPushes(t *testing.T) {
 		},
 		"",
 		false,
-		"",
-		"",
 	))
 	// There should be a pachyderm repo created w no commits:
 	repos, err := c.ListRepo(nil)
@@ -6158,8 +5998,6 @@ func TestPipelineWithGitInputCustomName(t *testing.T) {
 		},
 		"",
 		false,
-		"",
-		"",
 	))
 	// There should be a pachyderm repo created w no commits:
 	repos, err := c.ListRepo(nil)
@@ -6234,8 +6072,6 @@ func TestPipelineWithGitInputMultiPipelineSeparateInputs(t *testing.T) {
 			},
 			"",
 			false,
-			"",
-			"",
 		))
 		// There should be a pachyderm repo created w no commits:
 		repos, err := c.ListRepo(nil)
@@ -6312,8 +6148,6 @@ func TestPipelineWithGitInputMultiPipelineSameInput(t *testing.T) {
 			},
 			"",
 			false,
-			"",
-			"",
 		))
 		// There should be a pachyderm repo created w no commits:
 		repos, err := c.ListRepo(nil)
@@ -6386,8 +6220,6 @@ func TestPipelineWithGitInputAndBranch(t *testing.T) {
 		},
 		"",
 		false,
-		"",
-		"",
 	))
 	// There should be a pachyderm repo created w no commits:
 	repos, err := c.ListRepo(nil)
@@ -6458,6 +6290,8 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 	timeout := 20
 	pipeline := uniqueString("pipeline")
+	duration, err := time.ParseDuration(fmt.Sprintf("%vs", timeout))
+	require.NoError(t, err)
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
@@ -6471,7 +6305,7 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 			},
 			Input:        client.NewAtomInput(dataRepo, "/*"),
 			EnableStats:  true,
-			DatumTimeout: fmt.Sprintf("%vs", timeout),
+			DatumTimeout: types.DurationProto(duration),
 		},
 	)
 	require.NoError(t, err)
@@ -6524,21 +6358,24 @@ func TestPipelineWithDatumTimeoutControl(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 	timeout := 20
 	pipeline := uniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{
-			fmt.Sprintf("sleep %v", timeout-10),
-			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+	duration, err := time.ParseDuration(fmt.Sprintf("%vs", timeout))
+	require.NoError(t, err)
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					fmt.Sprintf("sleep %v", timeout-10),
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+				},
+			},
+			Input:        client.NewAtomInput(dataRepo, "/*"),
+			DatumTimeout: types.DurationProto(duration),
 		},
-		nil,
-		client.NewAtomInput(dataRepo, "/*"),
-		"",
-		false,
-		fmt.Sprintf("%vs", timeout),
-		"",
-	))
+	)
+	require.NoError(t, err)
 
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
@@ -6576,6 +6413,8 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 	timeout := 20
 	pipeline := uniqueString("pipeline")
+	duration, err := time.ParseDuration(fmt.Sprintf("%vs", timeout))
+	require.NoError(t, err)
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
@@ -6589,7 +6428,7 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 			},
 			Input:       client.NewAtomInput(dataRepo, "/*"),
 			EnableStats: true,
-			JobTimeout:  fmt.Sprintf("%vs", timeout),
+			JobTimeout:  types.DurationProto(duration),
 		},
 	)
 	require.NoError(t, err)
