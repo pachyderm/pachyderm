@@ -1242,7 +1242,6 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 				}
 			}
 		}
-		return nil
 	}()
 
 	return &commitStream{
