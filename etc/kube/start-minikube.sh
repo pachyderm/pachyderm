@@ -3,10 +3,10 @@
 set -Eex
 
 echo 'pre resolv conf:'
-cat /etc/resolve.conf
+cat /etc/resolve.conf || true
 sudo echo 'nameserver 8.8.8.8' > /etc/resolv.conf
 echo 'post resolv conf:'
-cat /etc/resolve.conf
+cat /etc/resolve.conf || true
 
 sudo systemctl stop systemd-resolved
 sudo systemctl disable systemd-resolved
