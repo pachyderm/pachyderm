@@ -1,17 +1,6 @@
 #!/bin/sh
 
 set -Eex
-
-sudo touch /etc/resolve.conf
-echo 'pre resolv conf:'
-cat /etc/resolve.conf || true
-sudo echo 'nameserver 8.8.8.8' > /etc/resolv.conf
-echo 'post resolv conf:'
-cat /etc/resolve.conf || true
-
-sudo systemctl stop systemd-resolved
-sudo systemctl disable systemd-resolved
-
 # Parse flags
 VERSION=v1.8.0
 while getopts ":v:" opt; do
