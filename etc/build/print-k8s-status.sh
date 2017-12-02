@@ -13,8 +13,11 @@ function dump() {
 	# Get node status
 	kubectl get node | tail -n 1 | cut -f 1 -d " " | while read node; do kubectl get node/$node -o yaml; done
 	
-	kubectl describe pod -l app=pachd
-	kubectl logs -l app=pachd
+    # too verbose for now
+	#kubectl describe pod -l app=pachd
+	#kubectl logs -l app=pachd
+
+    minikube logs
 }
 
 while true; do

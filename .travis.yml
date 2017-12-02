@@ -18,6 +18,7 @@ before_script:
 - etc/testing/ci/travis_install_batch_deps.sh
 script:
 - make lint vet
+- sudo ./etc/build/print-k8s-status.sh &
 - etc/testing/travis.sh
 after_failure:
 - kubectl version

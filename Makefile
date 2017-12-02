@@ -345,7 +345,6 @@ test-pps:
 	kubectl get pod -l component=worker
 	cat /etc/resolv.conf || true
 	cat /etc/systemd/resolved.conf  || true
-	./etc/build/print-k8s-status.sh &
 	go test -v ./src/server -parallel 1 -timeout $(TIMEOUT)
 	go test ./src/server/pps/cmds -timeout $(TIMEOUT)
 
