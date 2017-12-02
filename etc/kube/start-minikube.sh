@@ -2,6 +2,7 @@
 
 set -Eex
 
+sudo touch /etc/resolve.conf
 echo 'pre resolv conf:'
 cat /etc/resolve.conf || true
 sudo echo 'nameserver 8.8.8.8' > /etc/resolv.conf
@@ -28,3 +29,4 @@ done
 #sudo CHANGE_MINIKUBE_NONE_USER=true minikube start --vm-driver=none --kubernetes-version="${VERSION}" --extra-config=kubelet.CertDir=/var/lib/kubelet/pki --extra-config=apiserver.ServiceClusterIpRange=10.0.0.1/12
 sudo CHANGE_MINIKUBE_NONE_USER=true minikube start --vm-driver=none --kubernetes-version="${VERSION}" --extra-config=kubelet.CertDir=/var/lib/kubelet/pki
 until kubectl version 2>/dev/null >/dev/null; do sleep 5; done
+kubectl version
