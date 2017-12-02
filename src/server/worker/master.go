@@ -315,11 +315,9 @@ func (a *APIServer) jobSpawner(ctx context.Context) error {
 				}
 			}
 			job, err := a.pachClient.PpsAPIClient.CreateJob(ctx, &pps.CreateJobRequest{
-				Pipeline:     a.pipelineInfo.Pipeline,
-				OutputCommit: commitInfo.Commit,
-				Input:        a.jobInput(commitInfo),
-				// ParentJob:       parentJob, TODO
-				// NewBranch:       newBranch, TODO
+				Pipeline:        a.pipelineInfo.Pipeline,
+				OutputCommit:    commitInfo.Commit,
+				Input:           a.jobInput(commitInfo),
 				Salt:            a.pipelineInfo.Salt,
 				PipelineVersion: a.pipelineInfo.Version,
 				EnableStats:     a.pipelineInfo.EnableStats,
@@ -370,9 +368,8 @@ func (a *APIServer) serviceSpawner(ctx context.Context) error {
 		// Create a job document matching the service's output commit
 		jobInput := a.jobInput(commitInfo)
 		job, err := a.pachClient.PpsAPIClient.CreateJob(ctx, &pps.CreateJobRequest{
-			Pipeline: a.pipelineInfo.Pipeline,
-			Input:    jobInput,
-			// NewBranch:       newBranch, TODO
+			Pipeline:        a.pipelineInfo.Pipeline,
+			Input:           jobInput,
 			Salt:            a.pipelineInfo.Salt,
 			PipelineVersion: a.pipelineInfo.Version,
 			EnableStats:     a.pipelineInfo.EnableStats,
@@ -563,6 +560,32 @@ func chunks(df DatumFactory, spec *pps.ChunkSpec, parallelism int) *Chunks {
 	}
 	chunks.Chunks = append(chunks.Chunks, int64(df.Len()))
 	return chunks
+}
+
+func (a *APIServer) blockInputs(ctx context.Context, jobInfo *pps.JobInfo) error {
+	var vistErr error
+	blockCommit := func(commit *pfs.Commit) {
+		if _, err := a.pachClient.PfsAPIClient.InspectCommit(ctx,
+			&pfs.InspectCommitRequest{
+				Commit: commit,
+				Block:  true,
+			}); err != nil && vistErr == nil {
+			vistErr = fmt.Errorf("error blocking on commit %s/%s: %v",
+				commit.Repo.Name, commit.ID, err)
+		}
+	}
+	pps.VisitInput(jobInfo.Input, func(input *pps.Input) {
+		if input.Atom != nil && input.Atom.Commit != "" {
+			blockCommit(client.NewCommit(input.Atom.Repo, input.Atom.Commit))
+		}
+		if input.Cron != nil && input.Cron.Commit != "" {
+			blockCommit(client.NewCommit(input.Cron.Repo, input.Cron.Commit))
+		}
+		if input.Git != nil && input.Git.Commit != "" {
+			blockCommit(client.NewCommit(input.Git.Name, input.Git.Commit))
+		}
+	})
+	return vistErr
 }
 
 // waitJob waits for the job in 'jobInfo' to finish, and then it collects the
