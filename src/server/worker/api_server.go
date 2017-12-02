@@ -379,6 +379,7 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 				return "", err
 			}
 		} else if input.GitURL != "" {
+			// TODO put this in its own if statement
 			pachydermRepoName := input.Name
 			var rawJSON bytes.Buffer
 			err := a.pachClient.GetFile(pachydermRepoName, file.Commit.ID, "commit.json", 0, 0, &rawJSON)
@@ -931,32 +932,6 @@ func (a *APIServer) worker() {
 	})
 }
 
-func (a *APIServer) blockInputs(ctx context.Context, jobInfo *pps.JobInfo) error {
-	var vistErr error
-	blockCommit := func(commit *pfs.Commit) {
-		if _, err := a.pachClient.PfsAPIClient.InspectCommit(ctx,
-			&pfs.InspectCommitRequest{
-				Commit: commit,
-				Block:  true,
-			}); err != nil && vistErr == nil {
-			vistErr = fmt.Errorf("error blocking on commit %s/%s: %v",
-				commit.Repo.Name, commit.ID, err)
-		}
-	}
-	pps.VisitInput(jobInfo.Input, func(input *pps.Input) {
-		if input.Atom != nil && input.Atom.Commit != "" {
-			blockCommit(client.NewCommit(input.Atom.Repo, input.Atom.Commit))
-		}
-		if input.Cron != nil && input.Cron.Commit != "" {
-			blockCommit(client.NewCommit(input.Cron.Repo, input.Cron.Commit))
-		}
-		if input.Git != nil && input.Git.Commit != "" {
-			blockCommit(client.NewCommit(input.Git.Name, input.Git.Commit))
-		}
-	})
-	return vistErr
-}
-
 // processDatums processes datums from low to high in df, if a datum fails it
 // returns the id of the failed datum it also may return a variety of errors
 // such as network errors.
@@ -1214,40 +1189,68 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 }
 
 func (a *APIServer) parentTag(ctx context.Context, jobInfo *pps.JobInfo, files []*Input) (*pfs.Tag, error) {
-	var newBranchParentCommit *pfs.Commit
-	// If this is an incremental job we need to find the parent
-	// commit of the new branch.
-	if jobInfo.Incremental && jobInfo.NewBranch != nil {
-		commit := jobInfo.NewBranch.Head
-		newBranchCommitInfo, err := a.pachClient.WithCtx(ctx).InspectCommit(commit.Repo.Name, commit.ID)
-		if err != nil {
-			return nil, err
-		}
-		newBranchParentCommit = newBranchCommitInfo.ParentCommit
+	ci, err := a.pachClient.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
+	if err != nil {
+		return nil, fmt.Errorf("could not get output commit's commitInfo: %v", err)
 	}
-	if newBranchParentCommit != nil {
-		var parentFiles []*Input
-		for _, file := range files {
-			parentFile := proto.Clone(file).(*Input)
-			if file.FileInfo.File.Commit.Repo.Name == jobInfo.NewBranch.Head.Repo.Name && file.Branch == jobInfo.NewBranch.Name {
-				parentFileInfo, err := a.pachClient.WithCtx(ctx).InspectFile(parentFile.FileInfo.File.Commit.Repo.Name, newBranchParentCommit.ID, parentFile.FileInfo.File.Path)
-				if err != nil {
-					if !isNotFoundErr(err) {
-						return nil, err
-					}
-					// we didn't find a match for this file,
-					// so we know there's no matching datum
-					break
-				}
-				file.ParentCommit = parentFileInfo.File.Commit
-				parentFile.FileInfo = parentFileInfo
+	if ci.ParentCommit == nil {
+		return nil, nil
+	}
+	parentCi, err := a.pachClient.InspectCommit(ci.ParentCommit.Repo.Name, ci.ParentCommit.ID)
+	if err != nil {
+		return nil, fmt.Errorf("could not get output commit's parent's commitInfo: %v", err)
+	}
+
+	// compare provenance of ci and parentCi to figure out which commit is new
+	// TODO use repo/branch as the key instead of just repo, in case the pipeline
+	// takes multiple branches from the same repo as input
+	parentProv := make(map[string]*pfs.Commit)
+	for _, commit := range parentCi.Provenance {
+		parentProv[commit.Repo.Name] = commit
+	}
+	var newInputCommit, newInputCommitParent *pfs.Commit
+	for _, c := range ci.Provenance {
+		pc, ok := parentProv[c.Repo.Name]
+		if !ok {
+			return nil, nil // 'c' has no parent, so there's no parent tag
+		}
+		if pc.ID != c.ID {
+			if newInputCommit != nil {
+				// Multiple new commits have arrived since last run. Process everything
+				// from scratch
+				return nil, nil
 			}
-			parentFiles = append(parentFiles, parentFile)
+			newInputCommit = c
+			newInputCommitParent = pc
 		}
-		if len(parentFiles) == len(files) {
-			_parentOutputTag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, parentFiles)
-			return &pfs.Tag{Name: _parentOutputTag}, nil
+	}
+	var parentFiles []*Input // the equivalent datum to 'files', which the parent job processed
+	for _, file := range files {
+		parentFile := proto.Clone(file).(*Input)
+		if file.FileInfo.File.Commit.Repo.Name == newInputCommit.Repo.Name && file.FileInfo.File.Commit.ID == newInputCommit.ID {
+			// 'file' from datumFactory is in the new input commit
+			parentFileInfo, err := a.pachClient.WithCtx(ctx).InspectFile(
+				newInputCommitParent.Repo.Name, newInputCommitParent.ID, file.FileInfo.File.Path)
+			if err != nil {
+				if !isNotFoundErr(err) {
+					return nil, err
+				}
+				// we didn't find a match for this file,
+				// so we know there's no matching datum
+				break
+			}
+			parentFile.FileInfo = parentFileInfo
+			// also tell downloadData to make a diff for 'file'
+			// side effect of the main work (derive _parentOutputTag)
+			file.ParentCommit = newInputCommitParent
 		}
+		parentFiles = append(parentFiles, parentFile)
+	}
+
+	// We have derived what files the parent saw -- compute the tag
+	if len(parentFiles) == len(files) {
+		_parentOutputTag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, parentFiles)
+		return &pfs.Tag{Name: _parentOutputTag}, nil
 	}
 	return nil, nil
 }
