@@ -16,7 +16,7 @@ before_script:
 # Install any deps used by our "batch test" cron
 - etc/testing/ci/travis_install_batch_deps.sh
 script:
-- make lint vet
+- make -j2 lint vet
 - etc/testing/travis.sh
 after_failure:
 - kubectl version
