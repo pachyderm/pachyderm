@@ -172,7 +172,6 @@ func (a *apiServer) validateInput(ctx context.Context, pipelineName string, inpu
 		return err
 	}
 	pachClient = pachClient.WithCtx(ctx) // pachClient will propagate auth info
-	repoBranch := make(map[string]string)
 	var result error
 	pps.VisitInput(input, func(input *pps.Input) {
 		if err := func() error {
@@ -194,10 +193,6 @@ func (a *apiServer) validateInput(ctx context.Context, pipelineName string, inpu
 				case len(input.Atom.Glob) == 0:
 					return fmt.Errorf("input must specify a glob")
 				}
-				if repoBranch[input.Atom.Repo] != "" && repoBranch[input.Atom.Repo] != input.Atom.Branch {
-					return fmt.Errorf("cannot use the same repo in multiple inputs with different branches")
-				}
-				repoBranch[input.Atom.Repo] = input.Atom.Branch
 				if job {
 					// for jobs we check that the input commit exists
 					if _, err := pachClient.InspectCommit(input.Atom.Repo, input.Atom.Commit); err != nil {

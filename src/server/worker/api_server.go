@@ -1189,6 +1189,9 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 }
 
 func (a *APIServer) parentTag(ctx context.Context, jobInfo *pps.JobInfo, files []*Input) (*pfs.Tag, error) {
+	if !jobInfo.Incremental {
+		return nil, nil // don't bother downloading the parent for non-incremental jobs
+	}
 	ci, err := a.pachClient.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
 	if err != nil {
 		return nil, fmt.Errorf("could not get output commit's commitInfo: %v", err)

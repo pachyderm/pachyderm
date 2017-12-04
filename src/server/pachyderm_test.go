@@ -434,39 +434,51 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 	pipeline := uniqueString("pipeline")
 	// Creating this pipeline should error, because the two inputs are
 	// from the same repo but they don't specify different names.
-	require.YesError(t, c.CreatePipeline(
+	require.NoError(t, c.CreatePipeline(
 		pipeline,
 		"",
 		[]string{"bash"},
 		[]string{
-			fmt.Sprintf("cat /pfs/%s/file > /pfs/out/file", dataRepo),
-			fmt.Sprintf("cat /pfs/%s/file > /pfs/out/file", dataRepo),
+      "echo \"cat /pfs/out/file:\"",
+      "cat /pfs/out/file",
+
+      "echo \"cat /pfs/branch-a/file:\"",
+      "cat /pfs/branch-a/file",
+			"cat /pfs/branch-a/file >> /pfs/out/file",
+
+      "echo \"cat /pfs/branch-b/file:\"",
+      "cat /pfs/branch-b/file",
+			"cat /pfs/branch-b/file >> /pfs/out/file",
+
+      "echo \"cat /pfs/out/file:\"",
+      "cat /pfs/out/file",
 		},
 		nil,
 		client.NewCrossInput(
-			client.NewAtomInputOpts("", dataRepo, branchA, "/*", false),
-			client.NewAtomInputOpts("", dataRepo, branchB, "/*", false),
+			client.NewAtomInputOpts("branch-a", dataRepo, branchA, "/*", false),
+			client.NewAtomInputOpts("branch-b", dataRepo, branchB, "/*", false),
 		),
 		"",
 		false,
 	))
 
-	require.YesError(t, c.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{
-			fmt.Sprintf("cat /pfs/%s/file >> /pfs/out/file", branchA),
-			fmt.Sprintf("cat /pfs/%s/file >> /pfs/out/file", branchB),
-		},
-		nil,
-		client.NewCrossInput(
-			client.NewAtomInputOpts(branchA, dataRepo, branchA, "/*", false),
-			client.NewAtomInputOpts(branchB, dataRepo, branchB, "/*", false),
-		),
-		"",
-		false,
-	))
+	commitA, err := c.StartCommit(dataRepo, branchA)
+	require.NoError(t, err)
+	c.PutFile(dataRepo, commitA.ID, "/file", strings.NewReader("data A\n"))
+	c.FinishCommit(dataRepo, commitA.ID)
+
+	commitB, err := c.StartCommit(dataRepo, branchB)
+	require.NoError(t, err)
+	c.PutFile(dataRepo, commitB.ID, "/file", strings.NewReader("data B\n"))
+	c.FinishCommit(dataRepo, commitB.ID)
+
+	iter, err := c.FlushCommit([]*pfs.Commit{commitA, commitB}, nil)
+	require.NoError(t, err)
+	commits := collectCommitInfos(t, iter)
+	require.Equal(t, 1, len(commits))
+	buffer := bytes.Buffer{}
+	require.NoError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "file", 0, 0, &buffer))
+	require.Equal(t, "data A\ndata B\n", buffer.String())
 }
 
 func TestPipelineFailure(t *testing.T) {
