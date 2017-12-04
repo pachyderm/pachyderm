@@ -3,11 +3,16 @@ LABEL maintainer="jdoliner@pachyderm.io"
 
 RUN \
   apt-get update -yq && \
-  apt-get install -yq --no-install-recommends \
+  apt-get install ca-certificates aria2 -yq --no-install-recommends && \
+  aria2c -Z https://raw.githubusercontent.com/ilikenwf/apt-fast/master/apt-fast https://raw.githubusercontent.com/ilikenwf/apt-fast/master/apt-fast.conf && \
+  mv ./apt-fast /bin/apt-fast && \
+  chmod +x /bin/apt-fast && \
+  mv ./apt-fast.conf /etc/apt-fast.conf && \
+  /bin/apt-fast install -y -q --no-install-recommends \
     build-essential \
+    curl \
     ca-certificates \
     cmake \
-    curl \
     fuse \
     git \
     libssl-dev \
