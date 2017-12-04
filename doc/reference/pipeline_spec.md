@@ -56,7 +56,8 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   "service": {
     "internal_port": int,
     "external_port": int
-  }
+  },
+  "max_queue_size": int
 }
 
 ------------------------------------
@@ -294,11 +295,10 @@ single repo.
 }
 ```
 
-`input.atom.name` is the name of the input.  An input with name `XXX` will be visible
-under the path `/pfs/XXX` when a job runs.  Input names must be unique. If an
-input's name is not specified, it defaults to the name of the repo. Therefore,
-if you have two inputs from the same repo, you'll need to give at least one
-of them a unique name.
+`input.atom.name` is the name of the input.  An input with name `XXX` will be
+visible under the path `/pfs/XXX` when a job runs.  Input names must be unique
+if the inputs are crossed, but they may be duplicated between `AtomInput`s that are unioned.  This is because when `AtomInput`s are unioned, you'll only ever see a datum from one input at a time. Overlapping the names of unioned inputs allows
+you to write simpler code since you no longer need to consider which input directory a particular datum come from.  If an input's name is not specified, it defaults to the name of the repo.  Therefore, if you have two crossed inputs from the same repo, you'll be required to give at least one of them a unique name.
 
 `input.atom.repo` is the `repo` to be used for the input.
 
@@ -447,7 +447,7 @@ Incremental processing is useful for [online
 algorithms](https://en.wikipedia.org/wiki/Online_algorithm), a canonical
 example is summing a set of numbers since the new numbers can be added to the
 old total without having to reconsider the numbers which went into that old
-total. Incremental is design to work nicely with the `--split` flag to
+total. Incremental is designed to work nicely with the `--split` flag to
 `put-file` because it will cause only the new chunks of the file to be
 displayed to each step of the pipeline.
 
@@ -483,6 +483,16 @@ container, `"external_port"` is the port on which it is exposed, via the
 NodePorts functionality of kubernetes services. After a service has been
 created you should be able to access it at
 `http://<kubernetes-host>:<external_port>`.
+
+### Max Queue Size (optional)
+`max_queue_size` specifies that maximum number of elements that a worker should
+hold in its processing queue at a given time. The default value is `1` which
+means workers will only hold onto the value that they're currently processing.
+Increasing this value can improve pipeline performance as it allows workers to
+simultaneously download, process and upload different datums at the same time.
+Setting this value too high can cause problems if you have `lazy` inputs as
+there's a cap of 10,000 `lazy` files per worker and multiple datums that are
+running all count against this limit.
 
 ## The Input Glob Pattern
 
