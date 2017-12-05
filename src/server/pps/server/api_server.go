@@ -2139,19 +2139,21 @@ func (a *apiServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.
 	return nil
 }
 func (a *apiServer) checkOrDeployGithookService() error {
+	labels := map[string]string{
+		"app":   "githook",
+		"suite": suite,
+	}
 	serviceList, err := a.kubeClient.CoreV1().Services(a.namespace).List(metav1.ListOptions{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ListOptions",
 			APIVersion: "v1",
 		},
-		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(labels("githook"))),
+		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(labels)),
 	})
-	fmt.Printf("got services: %v\n", serviceList)
 	if err != nil {
 		return err
 	}
 	if len(serviceList.Items) != 0 {
-		fmt.Printf("already deploy githook service, returning\n")
 		//service is already deployed
 		return nil
 	}
