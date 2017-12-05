@@ -255,7 +255,6 @@ $ pachctl start-commit test -p XXX
 	}
 	startCommit.Flags().StringVarP(&parent, "parent", "p", "", "The parent of the new commit, unneeded if branch is specified and you want to use the previous head of the branch as the parent.")
 
-	var message string
 	finishCommit := &cobra.Command{
 		Use:   "finish-commit repo-name commit-id",
 		Short: "Finish a started commit.",
@@ -265,18 +264,18 @@ $ pachctl start-commit test -p XXX
 			if err != nil {
 				return err
 			}
-			if message != "" {
+			if description != "" {
 				_, err := cli.PfsAPIClient.FinishCommit(cli.Ctx(),
 					&pfsclient.FinishCommitRequest{
-						Commit:  client.NewCommit(args[0], args[1]),
-						Message: message,
+						Commit:      client.NewCommit(args[0], args[1]),
+						Description: description,
 					})
 				return err
 			}
 			return cli.FinishCommit(args[0], args[1])
 		}),
 	}
-	finishCommit.Flags().StringVarP(&message, "message", "m", "", "A description of this commit's contents")
+	finishCommit.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents")
 
 	inspectCommit := &cobra.Command{
 		Use:   "inspect-commit repo-name commit-id",

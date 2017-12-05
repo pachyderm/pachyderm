@@ -76,8 +76,8 @@ message Commit {
 // CommitInfo is the main data structure representing a commit in etcd
 message CommitInfo {
   Commit commit = 1;
-  // User-provided message describing the contents of the commit
-  string commit_message = 8;
+  // description is a user-provided script describing this commit
+  string description = 8;
   Commit parent_commit = 2;
   google.protobuf.Timestamp started = 3;
   google.protobuf.Timestamp finished = 4;
@@ -163,9 +163,9 @@ message BuildCommitRequest {
 }
 
 message FinishCommitRequest {
-  // message is a user-provided string describing this commit
-  string message = 2;
   Commit commit = 1;
+  // description is a user-provided string describing this commit
+  string description = 2;
 }
 
 message InspectCommitRequest {
