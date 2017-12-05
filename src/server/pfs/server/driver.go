@@ -662,8 +662,8 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 		if err := commits.Create(commit.ID, commitInfo); err != nil {
 			return err
 		}
-		// We propagate the branch last so it can write to the commit we just
-		// created.
+		// We propagate the branch last so propagateCommit can write to the
+		// now-existing commit's subvenance
 		if branch != "" {
 			return d.propagateCommit(ctx, client.NewBranch(commit.Repo.Name, branch), commit, stm)
 		}
@@ -794,6 +794,9 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 }
 
 func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit *pfs.Commit, stm col.STM) error {
+	// TODO This iterates through all branches in PFS and checks whether each one
+	// has 'branch' in its provenance (adding it to branchInfos if so. Rewrite to
+	// use 'branch' subvenance
 	repos := d.repos.ReadOnly(ctx)
 	iterator, err := repos.List()
 	if err != nil {
@@ -834,42 +837,70 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 		}
 	}
 	sort.Slice(branchInfos, func(i, j int) bool { return len(branchInfos[i].Provenance) < len(branchInfos[j].Provenance) })
-	// branchToCommit contains the commit we're using for each branch
-	branchToCommit := make(map[string]*pfs.Commit)
-	branchToCommit[branchKey(branch)] = commit
+
+	// Iterate through downstream branches, and create a new HEAD commit in all of
+	// them.
+	// branchToCommit contains the commit we're using for each branch (branchInfos
+	// may have repeats)
+	branchToCommit := make(map[string]*branchCommit)
+	branchToCommit[branchKey(branch)] = &branchCommit{
+		branch: branch,
+		commit: commit,
+	}
 	for _, branchInfo := range branchInfos {
 		branch := branchInfo.Branch
 		repo := branch.Repo
 		branches := d.branches(repo.Name).ReadWrite(stm)
 		commits := d.commits(repo.Name).ReadWrite(stm)
+		// new downstream commit
 		commit := &pfs.Commit{
 			Repo: repo,
 			ID:   uuid.NewWithoutDashes(),
 		}
-		branchToCommit[branchKey(branch)] = commit
+		branchToCommit[branchKey(branch)] = &branchCommit{
+			branch: branch, // downstream branch
+			commit: commit, // new downstream commit
+		}
+
+		// 'commit' (new downstream commit) must have correct provenance. One member
+		// of it's provenance will be the top-level commit that we're propagating,
+		// but the head commit of other upstream branches will be in its provenance
+		// too. Look those up and fill them into 'commit's provenance
 		var provenance []*pfs.Commit
-		for _, branch := range branchInfo.Provenance {
-			_, ok := branchToCommit[repo.Name]
+		var branchProvenance []*pfs.Branch
+		for _, provBranch := range branchInfo.Provenance {
+			// TODO we store retrieved values in branchToCommit, but d.branches is
+			// is already cached. Remove branchToCommit and just read from d.branches
+			// in every iteration (simplifying this code)
+			_, ok := branchToCommit[branchKey(provBranch)]
+			provBranchInfo := &pfs.BranchInfo{}
 			if !ok {
-				branchInfo := &pfs.BranchInfo{}
-				if err := d.branches(branch.Repo.Name).ReadWrite(stm).Get(branch.Name, branchInfo); err != nil {
+				if err := d.branches(provBranch.Repo.Name).ReadWrite(stm).Get(provBranch.Name, provBranchInfo); err != nil {
 					if col.IsErrNotFound(err) {
-						branchToCommit[branchKey(branch)] = nil
+						branchToCommit[branchKey(provBranch)] = nil
 					} else {
 						return err
 					}
 				}
-				branchToCommit[branchKey(branch)] = branchInfo.Head
+				if provBranchInfo.Head != nil {
+					branchToCommit[branchKey(provBranch)] = &branchCommit{
+						commit: provBranchInfo.Head,
+						branch: provBranch,
+					}
+				}
 			}
-			if branchToCommit[branchKey(branch)] != nil {
-				provenance = append(provenance, branchToCommit[branchKey(branch)])
+			if branchToCommit[branchKey(provBranch)] != nil {
+				provenance = append(provenance, branchToCommit[branchKey(provBranch)].commit)
+				branchProvenance = append(branchProvenance, branchToCommit[branchKey(provBranch)].branch)
 			}
 		}
-		commitInfo := &pfs.CommitInfo{
-			Commit:     commit,
-			Started:    now(),
-			Provenance: provenance,
+		commitInfo := &pfs.CommitInfo{ // metadata for 'commit'
+			Commit:           commit,
+			Started:          now(),
+			Provenance:       provenance,
+			BranchProvenance: branchProvenance,
 		}
+		// Get 'commit's parent commit ('commit's branch head)
 		var branchInfo pfs.BranchInfo
 		if err := branches.Get(branch.Name, &branchInfo); err != nil {
 			if _, ok := err.(col.ErrNotFound); !ok {
@@ -878,6 +909,7 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 		} else {
 			commitInfo.ParentCommit = branchInfo.Head
 		}
+		// finally create the commit
 		if err := commits.Create(commit.ID, commitInfo); err != nil {
 			return err
 		}
@@ -1435,28 +1467,41 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 		}
 
 		if len(provMap) > 0 {
-			commitProvMap := make(map[string]*pfs.Commit)
-			// Update branches to have this new branch as subvenance
+			commitProvMap := make(map[string]*branchCommit)
+			// Update branches to have this new branch as subvenance, and possibly
+			// create a new HEAD commit in this new branch
 			for _, provBranch := range provMap {
 				branchInfo.Provenance = append(branchInfo.Provenance, provBranch)
 				provBranchInfo := &pfs.BranchInfo{}
 				// record the fact that we are subvenance for all of our provenant branches
 				if err := d.branches(provBranch.Repo.Name).ReadWrite(stm).Upsert(provBranch.Name, provBranchInfo, func() error {
+					// It's possible we're creating an upstream branch (e.g. user created
+					// a pipeline consuming a repo's "master" branch, even though the
+					// repo has no "master" branch yet. It's created here). If so, we need
+					// to set the Branch value
 					provBranchInfo.Branch = provBranch
 					provBranchInfo.Subvenance = append(provBranchInfo.Subvenance, branch)
 					return nil
 				}); err != nil {
 					return err
 				}
-				// provBranchInfo will still contain valid data following Upsert
+				// provBranchInfo contains valid data re:provBranch following Upsert.
+				// Check if there are any commits in provBranch (might need to create a
+				// HEAD commit in this branch)
 				if provBranchInfo.Head != nil {
 					provCommitInfo := &pfs.CommitInfo{}
 					if err := d.commits(provBranchInfo.Head.Repo.Name).ReadWrite(stm).Get(provBranchInfo.Head.ID, provCommitInfo); err != nil {
 						return err
 					}
-					commitProvMap[commitKey(provBranchInfo.Head)] = provBranchInfo.Head
-					for _, provCommit := range provCommitInfo.Provenance {
-						commitProvMap[commitKey(provCommit)] = provCommit
+					commitProvMap[commitKey(provBranchInfo.Head)] = &branchCommit{
+						commit: provBranchInfo.Head,
+						branch: provBranchInfo.Branch,
+					}
+					for i, provCommit := range provCommitInfo.Provenance {
+						commitProvMap[commitKey(provCommit)] = &branchCommit{
+							commit: provCommit,
+							branch: provCommitInfo.BranchProvenance[i],
+						}
 					}
 				}
 			}
@@ -1487,9 +1532,10 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 				}
 				branchInfo.Head = commitInfo.Commit
 				for _, provCommit := range commitProvMap {
-					commitInfo.Provenance = append(commitInfo.Provenance, provCommit)
+					commitInfo.Provenance = append(commitInfo.Provenance, provCommit.commit)
+					commitInfo.BranchProvenance = append(commitInfo.BranchProvenance, provCommit.branch)
 					provCommitInfo := &pfs.CommitInfo{}
-					if err := d.commits(provCommit.Repo.Name).ReadWrite(stm).Upsert(provCommit.ID, provCommitInfo, func() error {
+					if err := d.commits(provCommit.commit.Repo.Name).ReadWrite(stm).Upsert(provCommit.commit.ID, provCommitInfo, func() error {
 						provCommitInfo.Subvenance = append(provCommitInfo.Subvenance, commit)
 						return nil
 					}); err != nil {
@@ -2227,4 +2273,9 @@ func commitKey(commit *pfs.Commit) string {
 
 func branchKey(branch *pfs.Branch) string {
 	return fmt.Sprintf("%s/%s", branch.Repo.Name, branch.Name)
+}
+
+type branchCommit struct {
+	commit *pfs.Commit
+	branch *pfs.Branch
 }

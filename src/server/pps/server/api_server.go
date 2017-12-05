@@ -188,12 +188,12 @@ func (a *apiServer) validateInput(ctx context.Context, pipelineName string, inpu
 					return fmt.Errorf("input must specify a repo")
 				case input.Atom.Branch == "" && !job:
 					return fmt.Errorf("input must specify a branch")
-				case input.Atom.Commit == "" && job:
-					return fmt.Errorf("input must specify a commit")
 				case len(input.Atom.Glob) == 0:
 					return fmt.Errorf("input must specify a glob")
 				}
-				if job {
+				// Note that input.Atom.Commit is empty if a) this is a job b) one of
+				// the job pipeline's input branches has no commits yet
+				if job && input.Atom.Commit != "" {
 					// for jobs we check that the input commit exists
 					if _, err := pachClient.InspectCommit(input.Atom.Repo, input.Atom.Commit); err != nil {
 						return err

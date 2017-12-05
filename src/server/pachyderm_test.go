@@ -425,7 +425,7 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 	c := getPachClient(t)
 	defer require.NoError(t, c.DeleteAll())
 
-	dataRepo := uniqueString("TestMultipleInputsFromTheSameRepo_data")
+	dataRepo := uniqueString("TestMultipleInputsFromTheSameRepoDifferentBranches_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	branchA := "branchA"
@@ -439,19 +439,8 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-      "echo \"cat /pfs/out/file:\"",
-      "cat /pfs/out/file",
-
-      "echo \"cat /pfs/branch-a/file:\"",
-      "cat /pfs/branch-a/file",
 			"cat /pfs/branch-a/file >> /pfs/out/file",
-
-      "echo \"cat /pfs/branch-b/file:\"",
-      "cat /pfs/branch-b/file",
 			"cat /pfs/branch-b/file >> /pfs/out/file",
-
-      "echo \"cat /pfs/out/file:\"",
-      "cat /pfs/out/file",
 		},
 		nil,
 		client.NewCrossInput(
