@@ -378,8 +378,8 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 				true, input.Lazy, concurrency, statsTree, treeRoot); err != nil {
 				return "", err
 			}
-		} else if input.GitURL != "" {
-			// TODO put this in its own if statement
+		}
+		if input.GitURL != "" {
 			pachydermRepoName := input.Name
 			var rawJSON bytes.Buffer
 			err := a.pachClient.GetFile(pachydermRepoName, file.Commit.ID, "commit.json", 0, 0, &rawJSON)
