@@ -470,6 +470,79 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 	require.Equal(t, "data A\ndata B\n", buffer.String())
 }
 
+func TestMultipleInputsFromTheSameRepoDifferentBranchesIncremental(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	dataRepo := uniqueString("TestMultipleInputsFromTheSameRepoDifferentBranchesIncremental_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	branchA := "branchA"
+	branchB := "branchB"
+
+	pipeline := uniqueString("pipeline")
+	// Creating this pipeline should error, because the two inputs are
+	// from the same repo but they don't specify different names.
+	req := &pps.CreatePipelineRequest{
+		Pipeline: &pps.Pipeline{Name: pipeline},
+		Transform: &pps.Transform{
+			Cmd: []string{"bash"},
+			Stdin: []string{
+				"ls /pfs/out/file-a && echo true >> /pfs/out/prev-a",
+				"ls /pfs/out/file-b && echo true >> /pfs/out/prev-b",
+				"ls /pfs/branch-a/file && echo true >> /pfs/out/file-a",
+				"ls /pfs/branch-b/file && echo true >> /pfs/out/file-b",
+			},
+		},
+		Input: client.NewCrossInput(
+			client.NewAtomInputOpts("branch-a", dataRepo, branchA, "/*", false),
+			client.NewAtomInputOpts("branch-b", dataRepo, branchB, "/*", false),
+		),
+		Incremental: true,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	_, err := c.PpsAPIClient.CreatePipeline(ctx, req)
+	require.NoError(t, err)
+
+	// Make four commits: branchA, branchB, branchA, branchB. We should see
+	// 'prev-a' after the third commit, and 'prev-b' after the fourth
+	commit, err := c.StartCommit(dataRepo, branchA)
+	require.NoError(t, err)
+	c.PutFile(dataRepo, commit.ID, "/file", strings.NewReader("data A\n"))
+	c.FinishCommit(dataRepo, commit.ID)
+
+	commit, err = c.StartCommit(dataRepo, branchB)
+	require.NoError(t, err)
+	c.PutFile(dataRepo, commit.ID, "/file", strings.NewReader("data B\n"))
+	c.FinishCommit(dataRepo, commit.ID)
+	iter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	commits := collectCommitInfos(t, iter)
+	require.Equal(t, 1, len(commits))
+	buffer := bytes.Buffer{}
+	require.YesError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "prev-a", 0, 0, &buffer))
+	buffer.Reset()
+	require.YesError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "prev-b", 0, 0, &buffer))
+
+	commit, err = c.StartCommit(dataRepo, branchA)
+	require.NoError(t, err)
+	c.PutFile(dataRepo, commit.ID, "/file", strings.NewReader("data A\n"))
+	c.FinishCommit(dataRepo, commit.ID)
+	iter, err = c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	commits = collectCommitInfos(t, iter)
+	require.Equal(t, 1, len(commits))
+	buffer = bytes.Buffer{}
+	require.NoError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "prev-a", 0, 0, &buffer))
+	buffer.Reset()
+	require.NoError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "prev-b", 0, 0, &buffer))
+}
+
 func TestPipelineFailure(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")

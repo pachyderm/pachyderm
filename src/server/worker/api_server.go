@@ -1205,15 +1205,14 @@ func (a *APIServer) parentTag(ctx context.Context, jobInfo *pps.JobInfo, files [
 	}
 
 	// compare provenance of ci and parentCi to figure out which commit is new
-	// TODO use repo/branch as the key instead of just repo, in case the pipeline
-	// takes multiple branches from the same repo as input
+	key := path.Join
 	parentProv := make(map[string]*pfs.Commit)
-	for _, commit := range parentCi.Provenance {
-		parentProv[commit.Repo.Name] = commit
+	for i, commit := range parentCi.Provenance {
+		parentProv[key(commit.Repo.Name, parentCi.BranchProvenance[i].Name)] = commit
 	}
 	var newInputCommit, newInputCommitParent *pfs.Commit
-	for _, c := range ci.Provenance {
-		pc, ok := parentProv[c.Repo.Name]
+	for i, c := range ci.Provenance {
+		pc, ok := parentProv[key(c.Repo.Name, ci.BranchProvenance[i].Name)]
 		if !ok {
 			return nil, nil // 'c' has no parent, so there's no parent tag
 		}

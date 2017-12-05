@@ -176,9 +176,7 @@ func (a *APIServer) serviceMaster() {
 func (a *APIServer) jobInput(commitInfo *pfs.CommitInfo) *pps.Input {
 	// branchToCommit maps strings of the form "<repo>/<branch>" to PFS commits
 	branchToCommit := make(map[string]*pfs.Commit)
-	key := func(repo, branch string) string {
-		return path.Join(repo, branch)
-	}
+	key := path.Join
 	for i, provCommit := range commitInfo.Provenance {
 		branchToCommit[key(provCommit.Repo.Name, commitInfo.BranchProvenance[i].Name)] = provCommit
 	}
