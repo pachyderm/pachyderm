@@ -449,6 +449,34 @@ func PachdService() *v1.Service {
 	}
 }
 
+// GithookService returns a pachd service.
+func GithookService() *v1.Service {
+	name := "githook"
+	return &v1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   name,
+			Labels: labels(name),
+		},
+		Spec: v1.ServiceSpec{
+			Type: v1.ServiceTypeLoadBalancer,
+			Selector: map[string]string{
+				"app": name,
+			},
+			Ports: []v1.ServicePort{
+				{
+					Port:     30000 + githook.GitHookPort, // route to the nodeport
+					Name:     "api-git-port",
+					NodePort: 31000 + githook.GitHookPort,
+				},
+			},
+		},
+	}
+}
+
 // EtcdDeployment returns an etcd k8s Deployment.
 func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 	cpu := resource.MustParse(opts.EtcdCPURequest)

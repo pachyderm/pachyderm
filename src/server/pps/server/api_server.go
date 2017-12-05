@@ -23,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
@@ -1390,6 +1391,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		return nil, err
 	}
 	var visitErr error
+	var hasGitInput bool
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
 		if input.Cron != nil {
 			if err := pachClient.CreateRepo(input.Cron.Repo); err != nil && !isAlreadyExistsErr(err) {
@@ -1397,6 +1399,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			}
 		}
 		if input.Git != nil {
+			hasGitInput = true
 			if err := pachClient.CreateRepo(input.Git.Name); err != nil && !isAlreadyExistsErr(err) {
 				visitErr = err
 			}
@@ -1417,6 +1420,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		return nil, fmt.Errorf("error getting capability for the user: %v", err)
 	}
 	pipelineInfo.Capability = capabilityResp.Capability // User is authorized -- grant capability token to pipeline
+	if hasGitInput {
+		if err := a.checkOrDeployGithookService(); err != nil {
+			return nil, fmt.Errorf("error provisioning githook service: %v", err)
+		}
+	}
 
 	pipelineName := pipelineInfo.Pipeline.Name
 
@@ -2129,6 +2137,27 @@ func (a *apiServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.
 	jobs := a.jobs.ReadWrite(stm)
 	jobs.Put(jobInfo.Job.ID, jobInfo)
 	return nil
+}
+func (a *apiServer) checkOrDeployGithookService() error {
+	serviceList, err := a.kubeClient.CoreV1().Services(a.namespace).List(metav1.ListOptions{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ListOptions",
+			APIVersion: "v1",
+		},
+		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(labels("githook"))),
+	})
+	fmt.Printf("got services: %v\n", serviceList)
+	if err != nil {
+		return err
+	}
+	if len(serviceList.Items) != 0 {
+		fmt.Printf("already deploy githook service, returning\n")
+		//service is already deployed
+		return nil
+	}
+	svc := assets.GithookService()
+	_, err = a.kubeClient.CoreV1().Services(a.namespace).Create(svc)
+	return err
 }
 
 func jobStateToStopped(state pps.JobState) bool {
