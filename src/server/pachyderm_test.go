@@ -6292,6 +6292,7 @@ func TestCommitMessage(t *testing.T) {
 	commitInfo, err := c.InspectCommit(dataRepo, commit.ID)
 	require.NoError(t, err)
 	require.Equal(t, "test commit message", commitInfo.CommitMessage)
+	require.NoError(pfspretty.PrintCommitInfo(ioutil.Discard, commitInfo))
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
