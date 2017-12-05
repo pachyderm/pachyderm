@@ -658,7 +658,7 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 	return commit, nil
 }
 
-func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, message string) error {
+func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, description string) error {
 	if err := d.checkIsAuthorized(ctx, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
@@ -669,7 +669,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, message s
 	if commitInfo.Finished != nil {
 		return fmt.Errorf("commit %s has already been finished", commit.FullID())
 	}
-	commitInfo.CommitMessage = message
+	commitInfo.Description = description
 
 	prefix, err := d.scratchCommitPrefix(ctx, commit)
 	if err != nil {
