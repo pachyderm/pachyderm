@@ -1208,25 +1208,27 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 		}
 		pfsClient := pachClient.PfsAPIClient
 		// for incremental jobs we can't have shared provenance
-		var provenance []*pfs.Repo
-		for _, commit := range pps.InputCommits(pipelineInfo.Input) {
-			provenance = append(provenance, commit.Repo)
-		}
+		key := path.Join
 		provMap := make(map[string]bool)
-		for _, provRepo := range provenance {
-			if provMap[provRepo.Name] {
+		for _, branch := range pps.InputBranches(pipelineInfo.Input) {
+			// Add the branches themselves to provMap
+			if provMap[key(branch.Repo.Name, branch.Name)] {
 				return fmt.Errorf("can't create an incremental pipeline with inputs that share provenance")
 			}
-			provMap[provRepo.Name] = true
-			resp, err := pfsClient.InspectRepo(ctx, &pfs.InspectRepoRequest{Repo: provRepo})
+			provMap[key(branch.Repo.Name, branch.Name)] = true
+			// Add the input branches' provenance to provMap
+			resp, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: branch})
 			if err != nil {
+				if strings.HasSuffix(err.Error(), "not found") {
+					continue // input branch doesn't exist--will be created w/ empty provenance
+				}
 				return err
 			}
-			for _, provRepo := range resp.Provenance {
-				if provMap[provRepo.Name] {
+			for _, provBranch := range resp.Provenance {
+				if provMap[key(provBranch.Repo.Name, provBranch.Name)] {
 					return fmt.Errorf("can't create an incremental pipeline with inputs that share provenance")
 				}
-				provMap[provRepo.Name] = true
+				provMap[key(provBranch.Repo.Name, provBranch.Name)] = true
 			}
 		}
 	}
@@ -1432,8 +1434,8 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	pipelineName := pipelineInfo.Pipeline.Name
 
 	var provenance []*pfs.Repo
-	for _, commit := range pps.InputCommits(pipelineInfo.Input) {
-		provenance = append(provenance, commit.Repo)
+	for _, branch := range pps.InputBranches(pipelineInfo.Input) {
+		provenance = append(provenance, branch.Repo)
 	}
 
 	pps.SortInput(pipelineInfo.Input)
