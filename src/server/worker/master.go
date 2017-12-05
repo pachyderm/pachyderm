@@ -174,25 +174,28 @@ func (a *APIServer) serviceMaster() {
 }
 
 func (a *APIServer) jobInput(commitInfo *pfs.CommitInfo) *pps.Input {
-	// TODO this breaks if there's 2 branches from the same repo
-	repoToCommit := make(map[string]*pfs.Commit)
-	for _, provCommit := range commitInfo.Provenance {
-		repoToCommit[provCommit.Repo.Name] = provCommit
+	// branchToCommit maps strings of the form "<repo>/<branch>" to PFS commits
+	branchToCommit := make(map[string]*pfs.Commit)
+	key := func(repo, branch string) string {
+		return path.Join(repo, branch)
+	}
+	for i, provCommit := range commitInfo.Provenance {
+		branchToCommit[key(provCommit.Repo.Name, commitInfo.BranchProvenance[i].Name)] = provCommit
 	}
 	jobInput := proto.Clone(a.pipelineInfo.Input).(*pps.Input)
 	pps.VisitInput(jobInput, func(input *pps.Input) {
 		if input.Atom != nil {
-			if commit, ok := repoToCommit[input.Atom.Repo]; ok {
+			if commit, ok := branchToCommit[key(input.Atom.Repo, input.Atom.Branch)]; ok {
 				input.Atom.Commit = commit.ID
 			}
 		}
 		if input.Cron != nil {
-			if commit, ok := repoToCommit[input.Cron.Repo]; ok {
+			if commit, ok := branchToCommit[key(input.Cron.Repo, "master")]; ok {
 				input.Cron.Commit = commit.ID
 			}
 		}
 		if input.Git != nil {
-			if commit, ok := repoToCommit[input.Git.Name]; ok {
+			if commit, ok := branchToCommit[key(input.Git.Name, input.Git.Branch)]; ok {
 				input.Git.Commit = commit.ID
 			}
 		}
@@ -1041,24 +1044,6 @@ func (a *APIServer) getCachedDatum(hash string) bool {
 // setCachedDatum records that the given datum has been processed.
 func (a *APIServer) setCachedDatum(hash string) {
 	a.datumCache.Add(hash, struct{}{})
-}
-
-func untranslateJobInputs(input *pps.Input) []*pps.JobInput {
-	var result []*pps.JobInput
-	if input.Cross != nil {
-		for _, input := range input.Cross {
-			if input.Atom == nil {
-				return nil
-			}
-			result = append(result, &pps.JobInput{
-				Name:   input.Atom.Name,
-				Commit: client.NewCommit(input.Atom.Repo, input.Atom.Commit),
-				Glob:   input.Atom.Glob,
-				Lazy:   input.Atom.Lazy,
-			})
-		}
-	}
-	return result
 }
 
 func isNotFoundErr(err error) bool {
