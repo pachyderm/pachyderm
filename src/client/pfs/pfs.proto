@@ -151,6 +151,8 @@ message StartCommitRequest {
   // Parent.ID may be empty in which case the commit that Branch points to will be used as the parent.
   // If branch is empty, or if branch does not exist, the commit will have no parent.
   Commit parent = 1;
+  // description is a user-provided string describing this commit
+  string description = 4;
   string branch = 3;
   repeated Commit provenance = 2;
 }
@@ -164,7 +166,8 @@ message BuildCommitRequest {
 
 message FinishCommitRequest {
   Commit commit = 1;
-  // description is a user-provided string describing this commit
+  // description is a user-provided string describing this commit. Setting this
+  // will overwrite the description set in StartCommit
   string description = 2;
 }
 

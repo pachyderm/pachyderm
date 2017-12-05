@@ -538,15 +538,15 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 	return nil
 }
 
-func (d *driver) startCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit) (*pfs.Commit, error) {
-	return d.makeCommit(ctx, parent, branch, provenance, nil)
+func (d *driver) startCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit, description string) (*pfs.Commit, error) {
+	return d.makeCommit(ctx, parent, branch, provenance, nil, description)
 }
 
 func (d *driver) buildCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit, tree *pfs.Object) (*pfs.Commit, error) {
-	return d.makeCommit(ctx, parent, branch, provenance, tree)
+	return d.makeCommit(ctx, parent, branch, provenance, tree, "")
 }
 
-func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit, treeRef *pfs.Object) (*pfs.Commit, error) {
+func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit, treeRef *pfs.Object, description string) (*pfs.Commit, error) {
 	if err := d.checkIsAuthorized(ctx, parent.Repo, auth.Scope_WRITER); err != nil {
 		return nil, err
 	}
@@ -581,8 +581,9 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 		}
 
 		commitInfo := &pfs.CommitInfo{
-			Commit:  commit,
-			Started: now(),
+			Commit:      commit,
+			Started:     now(),
+			Description: description,
 		}
 
 		// Use a map to de-dup provenance
@@ -669,7 +670,9 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, descripti
 	if commitInfo.Finished != nil {
 		return fmt.Errorf("commit %s has already been finished", commit.FullID())
 	}
-	commitInfo.Description = description
+	if description != "" {
+		commitInfo.Description = description
+	}
 
 	prefix, err := d.scratchCommitPrefix(ctx, commit)
 	if err != nil {
