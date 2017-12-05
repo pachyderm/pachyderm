@@ -6270,6 +6270,30 @@ func TestPipelineWithGitInputAndBranch(t *testing.T) {
 	require.Equal(t, "c7f697432dc805eb2b92f39d4961a585e8a0b2d5", strings.TrimSpace(buf.String()))
 }
 
+func TestCommitMessage(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	dataRepo := uniqueString("TestCommitMessage")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	c.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+		Commit:  commit,
+		Message: "test commit message",
+	})
+
+	commitInfo, err := c.InspectCommit(dataRepo, commit.ID)
+	require.NoError(t, err)
+	require.Equal(t, "test commit message", commitInfo.CommitMessage)
+}
+
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
 	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
 	require.NoError(t, err)
