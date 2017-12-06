@@ -777,7 +777,10 @@ func (s *objBlockAPIServer) writeProto(path string, pb proto.Marshaler) (retErr 
 				return err
 			}
 			if !bytes.Equal(data, rData) {
-				logrus.Errorf("can't %s after write", path)
+				logrus.Errorf("can't read %s after write", path)
+				if err := s.objClient.Delete(path); err != nil {
+					logrus.Errorf("failed to delete: %s", path)
+				}
 				return fmt.Errorf("can't read %s after write", path)
 			}
 			return nil
