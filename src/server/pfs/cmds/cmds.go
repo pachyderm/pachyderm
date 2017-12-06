@@ -237,7 +237,7 @@ $ pachctl start-commit test patch -p master
 $ pachctl start-commit test -p XXX
 ` + codeend,
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, "user")
+			cli, err := client.NewOnUserMachine(metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -245,7 +245,12 @@ $ pachctl start-commit test -p XXX
 			if len(args) == 2 {
 				branch = args[1]
 			}
-			commit, err := client.StartCommitParent(args[0], branch, parent)
+			commit, err := cli.PfsAPIClient.StartCommit(cli.Ctx(),
+				&pfsclient.StartCommitRequest{
+					Branch:      branch,
+					Parent:      client.NewCommit(args[0], parent),
+					Description: description,
+				})
 			if err != nil {
 				return err
 			}
@@ -254,19 +259,31 @@ $ pachctl start-commit test -p XXX
 		}),
 	}
 	startCommit.Flags().StringVarP(&parent, "parent", "p", "", "The parent of the new commit, unneeded if branch is specified and you want to use the previous head of the branch as the parent.")
+	startCommit.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents")
+	startCommit.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
 
 	finishCommit := &cobra.Command{
 		Use:   "finish-commit repo-name commit-id",
 		Short: "Finish a started commit.",
 		Long:  "Finish a started commit. Commit-id must be a writeable commit.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, "user")
+			cli, err := client.NewOnUserMachine(metrics, "user")
 			if err != nil {
 				return err
 			}
-			return client.FinishCommit(args[0], args[1])
+			if description != "" {
+				_, err := cli.PfsAPIClient.FinishCommit(cli.Ctx(),
+					&pfsclient.FinishCommitRequest{
+						Commit:      client.NewCommit(args[0], args[1]),
+						Description: description,
+					})
+				return err
+			}
+			return cli.FinishCommit(args[0], args[1])
 		}),
 	}
+	finishCommit.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents (overwrites any existing commit description)")
+	finishCommit.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
 
 	inspectCommit := &cobra.Command{
 		Use:   "inspect-commit repo-name commit-id",
