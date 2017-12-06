@@ -6273,6 +6273,61 @@ func TestPipelineWithGitInputAndBranch(t *testing.T) {
 	require.Equal(t, "81269575dcfc6ac2e2a463ad8016163f79c97f5c", strings.TrimSpace(buf.String()))
 }
 
+func TestCommitDescription(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	dataRepo := uniqueString("TestCommitDescription")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	// Test putting a message in StartCommit
+	commit, err := c.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
+		Branch:      "master",
+		Parent:      client.NewCommit(dataRepo, ""),
+		Description: "test commit description in start-commit",
+	})
+	require.NoError(t, err)
+	c.FinishCommit(dataRepo, commit.ID)
+	commitInfo, err := c.InspectCommit(dataRepo, commit.ID)
+	require.NoError(t, err)
+	require.Equal(t, "test commit description in start-commit", commitInfo.Description)
+	require.NoError(t, pfspretty.PrintDetailedCommitInfo(commitInfo))
+
+	// Test putting a message in FinishCommit
+	commit, err = c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	c.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+		Commit:      commit,
+		Description: "test commit description in finish-commit",
+	})
+	commitInfo, err = c.InspectCommit(dataRepo, commit.ID)
+	require.NoError(t, err)
+	require.Equal(t, "test commit description in finish-commit", commitInfo.Description)
+	require.NoError(t, pfspretty.PrintDetailedCommitInfo(commitInfo))
+
+	// Test overwriting a commit message
+	commit, err = c.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
+		Branch:      "master",
+		Parent:      client.NewCommit(dataRepo, ""),
+		Description: "test commit description in start-commit",
+	})
+	require.NoError(t, err)
+	c.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+		Commit:      commit,
+		Description: "test commit description in finish-commit that overwrites",
+	})
+	commitInfo, err = c.InspectCommit(dataRepo, commit.ID)
+	require.NoError(t, err)
+	require.Equal(t, "test commit description in finish-commit that overwrites", commitInfo.Description)
+	require.NoError(t, pfspretty.PrintDetailedCommitInfo(commitInfo))
+}
+
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
 	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
 	require.NoError(t, err)
