@@ -298,6 +298,7 @@ message PipelineInfo {
   int64 max_queue_size = 29;
   Service service = 30;
   ChunkSpec chunk_spec = 32;
+  string githook_url = 33 [(gogoproto.customname) = "GithookURL"];
 }
 
 message PipelineInfos {
