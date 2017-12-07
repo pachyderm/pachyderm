@@ -491,7 +491,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	// happens after blocking on the process. Unfortunately calling
 	// cmd.Process.Wait() then cmd.Wait() will produce an error. So instead we
 	// close the IO using this helper
-	err = cmd.CloseIOAndReturnProcError(state, err)
+	err = cmd.WaitIO(state, err)
 	if err != nil {
 		// (if err is an acceptable return code, don't return err)
 		if exiterr, ok := err.(*exec.ExitError); ok {
