@@ -449,6 +449,9 @@ func (c *Cmd) Wait() error {
 	return c.CloseIOAndReturnProcError(state, err)
 }
 
+// CloseIOAndReturnProcError is a helper function and the reason we forked this
+// package from stdlib. This way, we can manually close IO when
+// c.Process.Wait() has already been called once
 func (c *Cmd) CloseIOAndReturnProcError(state *os.ProcessState, err error) (retErr error) {
 	if c.waitDone != nil {
 		close(c.waitDone)
