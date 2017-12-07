@@ -27,7 +27,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"fmt"
 	"runtime"
 	"strconv"
 	"strings"
@@ -444,14 +443,11 @@ func (c *Cmd) Wait() error {
 	}
 	c.finished = true
 
-	fmt.Printf("cmd Wait blocking on process wait ....\n")
 	state, err := c.Process.Wait()
-	fmt.Printf("process wait finished ... state %v, err %v\n", state, err)
 	if c.waitDone != nil {
 		close(c.waitDone)
 	}
 	c.ProcessState = state
-	fmt.Printf("closing out goros i/o\n")
 	var copyError error
 	for range c.goroutine {
 		if err := <-c.errch; err != nil && copyError == nil {
@@ -459,9 +455,7 @@ func (c *Cmd) Wait() error {
 		}
 	}
 
-	fmt.Printf("done closing out goros i/o w err : %v \n", copyError)
 	c.closeDescriptors(c.closeAfterWait)
-	fmt.Printf("closed out descriptors\n")
 
 	if err != nil {
 		return err
