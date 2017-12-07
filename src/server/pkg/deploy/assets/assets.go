@@ -442,7 +442,7 @@ func PachdService() *v1.Service {
 				{
 					Port:     githook.GitHookPort,
 					Name:     "api-git-port",
-					NodePort: 30000 + githook.GitHookPort,
+					NodePort: githook.NodePort(),
 				},
 			},
 		},
@@ -468,9 +468,9 @@ func GithookService() *v1.Service {
 			},
 			Ports: []v1.ServicePort{
 				{
-					Port:     30000 + githook.GitHookPort, // route to the nodeport
+					Port:     githook.NodePort(),
 					Name:     "api-git-port",
-					NodePort: 31000 + githook.GitHookPort,
+					NodePort: githook.ExternalPort(),
 				},
 			},
 		},

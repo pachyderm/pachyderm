@@ -32,6 +32,21 @@ type gitHookServer struct {
 	pipelines  col.Collection
 }
 
+func hookPath() string {
+	return fmt.Sprintf("/%v/handle/push", apiVersion)
+}
+
+func ExternalPort() int32 {
+	return int32(31000 + GitHookPort)
+}
+func NodePort() int32 {
+	return int32(30000 + GitHookPort)
+}
+
+func URLFromDomain(domain string) string {
+	return fmt.Sprintf("http://%v:%v%v", domain, ExternalPort(), hookPath())
+}
+
 // RunGitHookServer starts the webhook server
 func RunGitHookServer(address string, etcdAddress string, etcdPrefix string) error {
 	c, err := client.NewFromAddress(address)
@@ -67,7 +82,7 @@ func RunGitHookServer(address string, etcdAddress string, etcdPrefix string) err
 		},
 		github.PushEvent,
 	)
-	return webhooks.Run(hook, ":"+strconv.Itoa(GitHookPort), fmt.Sprintf("/%v/handle/push", apiVersion))
+	return webhooks.Run(hook, ":"+strconv.Itoa(GitHookPort), hookPath())
 }
 func matchingBranch(inputBranch string, payloadBranch string) bool {
 	if inputBranch == payloadBranch {

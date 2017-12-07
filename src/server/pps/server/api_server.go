@@ -30,6 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
+	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	workerpkg "github.com/pachyderm/pachyderm/src/server/worker"
 	"github.com/robfig/cron"
 
@@ -83,6 +84,10 @@ func newErrEmptyInput(commitID string) *errEmptyInput {
 	return &errEmptyInput{
 		error: fmt.Errorf("job was not started due to empty input at commit %v", commitID),
 	}
+}
+
+type errGithookServiceNotFound struct {
+	error
 }
 
 func newErrParentInputsMismatch(parent string) error {
@@ -1630,6 +1635,24 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 	if err := a.pipelines.ReadOnly(ctx).Get(request.Pipeline.Name, pipelineInfo); err != nil {
 		return nil, err
 	}
+	// If any of the inputs are a GitInput, we should provide the githook URL
+	// To do that, we need to poll the service from k8s
+	var hasGitInput bool
+	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+		if input.Git != nil {
+			hasGitInput = true
+		}
+	})
+	if hasGitInput {
+		svc, err := a.getGithookService()
+		if err != nil {
+			return nil, fmt.Errorf("error retrieving githook service info")
+		}
+		if len(svc.Spec.ExternalIPs) != 1 {
+			return nil, fmt.Errorf("unexpected number of external IPs set for githook service: %v", strings.Join(svc.Spec.ExternalIPs, ","))
+		}
+		pipelineInfo.GithookURL = githook.URLFromDomain(svc.Spec.ExternalIPs[0])
+	}
 	return pipelineInfo, nil
 }
 
@@ -2139,6 +2162,20 @@ func (a *apiServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.
 	return nil
 }
 func (a *apiServer) checkOrDeployGithookService() error {
+	_, err := a.getGithookService()
+	if err != nil {
+		if _, ok := err.(*errGithookServiceNotFound); ok {
+			svc := assets.GithookService()
+			_, err = a.kubeClient.CoreV1().Services(a.namespace).Create(svc)
+			return err
+		}
+		return err
+	}
+	// service already exists
+	return nil
+}
+
+func (a *apiServer) getGithookService() (*v1.Service, error) {
 	labels := map[string]string{
 		"app":   "githook",
 		"suite": suite,
@@ -2151,15 +2188,14 @@ func (a *apiServer) checkOrDeployGithookService() error {
 		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(labels)),
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if len(serviceList.Items) != 0 {
-		//service is already deployed
-		return nil
+	if len(serviceList.Items) != 1 {
+		return nil, &errGithookServiceNotFound{
+			fmt.Errorf("githook service not found"),
+		}
 	}
-	svc := assets.GithookService()
-	_, err = a.kubeClient.CoreV1().Services(a.namespace).Create(svc)
-	return err
+	return &serviceList.Items[0], nil
 }
 
 func jobStateToStopped(state pps.JobState) bool {
