@@ -26,6 +26,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -143,7 +144,7 @@ func Command(name string, arg ...string) *Cmd {
 		Args: append([]string{name}, arg...),
 	}
 	if filepath.Base(name) == name {
-		if lp, err := LookPath(name); err != nil {
+		if lp, err := exec.LookPath(name); err != nil {
 			cmd.lookPathErr = err
 		} else {
 			cmd.Path = lp
@@ -297,17 +298,17 @@ func lookExtensions(path, dir string) (string, error) {
 		path = filepath.Join(".", path)
 	}
 	if dir == "" {
-		return LookPath(path)
+		return exec.LookPath(path)
 	}
 	if filepath.VolumeName(path) != "" {
-		return LookPath(path)
+		return exec.LookPath(path)
 	}
 	if len(path) > 1 && os.IsPathSeparator(path[0]) {
-		return LookPath(path)
+		return exec.LookPath(path)
 	}
 	dirandpath := filepath.Join(dir, path)
 	// We assume that LookPath will only add file extension.
-	lp, err := LookPath(dirandpath)
+	lp, err := exec.LookPath(dirandpath)
 	if err != nil {
 		return "", err
 	}
@@ -444,26 +445,27 @@ func (c *Cmd) Wait() error {
 	c.finished = true
 
 	state, err := c.Process.Wait()
+
+	return c.CloseIOAndReturnProcError(state, err)
+}
+
+func (c *Cmd) CloseIOAndReturnProcError(state *os.ProcessState, err error) (retErr error) {
 	if c.waitDone != nil {
 		close(c.waitDone)
 	}
 	c.ProcessState = state
-	var copyError error
-	for range c.goroutine {
-		if err := <-c.errch; err != nil && copyError == nil {
-			copyError = err
-		}
-	}
-
-	c.closeDescriptors(c.closeAfterWait)
-
 	if err != nil {
 		return err
 	} else if !state.Success() {
 		return &ExitError{ProcessState: state}
 	}
-
-	return copyError
+	for range c.goroutine {
+		if err := <-c.errch; err != nil && retErr == nil {
+			retErr = err
+		}
+	}
+	c.closeDescriptors(c.closeAfterWait)
+	return retErr
 }
 
 // Output runs the command and returns its standard output.
