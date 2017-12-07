@@ -623,6 +623,7 @@ func chunks(df DatumFactory, spec *pps.ChunkSpec, parallelism int) *Chunks {
 
 func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *taggedLogger) error {
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	go func() {
 		backoff.RetryNotify(func() error {
 			currentJobInfo, err := a.pachClient.WithCtx(ctx).InspectJob(jobInfo.Job.ID, true)
@@ -637,6 +638,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 			select {
 			case <-ctx.Done():
+				// we return this error simply so that this goro can exit
 				return err
 			default:
 			}
