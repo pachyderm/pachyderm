@@ -71,20 +71,25 @@ func TestSimplePipeline(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
 	pipeline := uniqueString("TestSimplePipeline")
-	require.NoError(t, c.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{
-			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+					"ls /pfs/out",
+				},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input:       client.NewAtomInput(dataRepo, "/*"),
+			EnableStats: true,
 		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewAtomInput(dataRepo, "/*"),
-		"",
-		false,
-	))
+	)
+	require.NoError(t, err)
 
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
@@ -6302,7 +6307,7 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
-					fmt.Sprintf("sleep %v", timeout+10),
+					"while true; do sleep 1; date; done",
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 				},
 			},
