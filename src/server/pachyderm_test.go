@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"math/rand"
 	"net"
 	"net/http"
@@ -6453,7 +6454,8 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 	require.Equal(t, 2, len(tokens))
 	seconds, err := strconv.Atoi(tokens[0])
 	require.NoError(t, err)
-	require.Equal(t, timeout, seconds)
+	epsilon := math.Abs(float64(seconds - timeout))
+	require.True(t, epsilon <= 1.0)
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
