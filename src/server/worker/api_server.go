@@ -38,12 +38,12 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/exec"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/exec"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
@@ -474,7 +474,8 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	}
 	// A context w a deadline will successfully cancel/kill
 	// the running process (minus zombies)
-	if _, err := cmd.Process.Wait(); err != nil {
+	state, err := cmd.Process.Wait()
+	if err != nil {
 		return err
 	}
 	select {
@@ -485,11 +486,12 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	default:
 	}
 
-	// We wait on the rest of the command (basically log I/O) separately
-	// from the cmd.Process.Wait(), as a cancelled context won't stop the
-	// I/O, as noted here:
-	// https://github.com/golang/go/issues/18874
-	err = cmd.Wait()
+	// Because of this issue: https://github.com/golang/go/issues/18874
+	// We forked os/exec so that we can call just the part of cmd.Wait() that
+	// happens after blocking on the process. Unfortunately calling
+	// cmd.Process.Wait() then cmd.Wait() will produce an error. So instead we
+	// close the IO using this helper
+	err = cmd.CloseIOAndReturnProcError(state, err)
 	if err != nil {
 		// (if err is an acceptable return code, don't return err)
 		if exiterr, ok := err.(*exec.ExitError); ok {
