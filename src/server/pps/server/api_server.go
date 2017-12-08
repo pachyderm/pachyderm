@@ -23,7 +23,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
-	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
@@ -1635,8 +1634,6 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 	if err := a.pipelines.ReadOnly(ctx).Get(request.Pipeline.Name, pipelineInfo); err != nil {
 		return nil, err
 	}
-	// If any of the inputs are a GitInput, we should provide the githook URL
-	// To do that, we need to poll the service from k8s
 	var hasGitInput bool
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
 		if input.Git != nil {
@@ -1645,9 +1642,9 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 	})
 	fmt.Printf("got pipelineInfo: %v\n", pipelineInfo)
 	if hasGitInput {
-		svc, err := a.getGithookService()
+		pipelineInfo.GithookURL = "pending"
+		svc, err := getGithookService(a.kubeClient, a.namespace)
 		if err != nil {
-			pipelineInfo.GitHookURL = "pending"
 			return pipelineInfo, nil
 		}
 		numIPs := len(svc.Spec.ExternalIPs)
@@ -2167,42 +2164,6 @@ func (a *apiServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.
 	jobs := a.jobs.ReadWrite(stm)
 	jobs.Put(jobInfo.Job.ID, jobInfo)
 	return nil
-}
-func (a *apiServer) checkOrDeployGithookService() error {
-	_, err := a.getGithookService()
-	if err != nil {
-		if _, ok := err.(*errGithookServiceNotFound); ok {
-			svc := assets.GithookService()
-			_, err = a.kubeClient.CoreV1().Services(a.namespace).Create(svc)
-			return err
-		}
-		return err
-	}
-	// service already exists
-	return nil
-}
-
-func (a *apiServer) getGithookService() (*v1.Service, error) {
-	labels := map[string]string{
-		"app":   "githook",
-		"suite": suite,
-	}
-	serviceList, err := a.kubeClient.CoreV1().Services(a.namespace).List(metav1.ListOptions{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ListOptions",
-			APIVersion: "v1",
-		},
-		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(labels)),
-	})
-	if err != nil {
-		return nil, err
-	}
-	if len(serviceList.Items) != 1 {
-		return nil, &errGithookServiceNotFound{
-			fmt.Errorf("githook service not found"),
-		}
-	}
-	return &serviceList.Items[0], nil
 }
 
 func jobStateToStopped(state pps.JobState) bool {
