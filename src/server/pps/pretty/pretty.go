@@ -135,6 +135,8 @@ Data Uploaded: {{prettySize .Stats.UploadBytes}}
 Download Time: {{prettyDuration .Stats.DownloadTime}}
 Process Time: {{prettyDuration .Stats.ProcessTime}}
 Upload Time: {{prettyDuration .Stats.UploadTime}}
+Datum Timeout: {{.DatumTimeout}}
+Job Timeout: {{.JobTimeout}}
 Worker Status:
 {{workerStatus .}}Restarts: {{.Restart}}
 ParallelismSpec: {{.ParallelismSpec}}
@@ -181,8 +183,11 @@ Parallelism Spec: {{.ParallelismSpec}}
 	CPU: {{ .ResourceLimits.Cpu }}
 	Memory: {{ .ResourceLimits.Memory }}
 	GPU: {{ .ResourceLimits.Gpu }} {{end}}
+Datum Timeout: {{.DatumTimeout}}
+Job Timeout: {{.JobTimeout}}
 Input:
 {{pipelineInput .}}
+{{ if .GithookURL }}Githook URL: {{.GithookURL}} {{end}}
 Output Branch: {{.OutputBranch}}
 Transform:
 {{prettyTransform .Transform}}
