@@ -1645,14 +1645,19 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 		pipelineInfo.GithookURL = "pending"
 		svc, err := getGithookService(a.kubeClient, a.namespace)
 		if err != nil {
+			fmt.Printf("err getting igthook service: %v, %v\n", svc, err)
 			return pipelineInfo, nil
 		}
 		numIPs := len(svc.Spec.ExternalIPs)
 		if numIPs == 0 {
+			fmt.Printf("numIPs is zero: %v\n", svc.Spec)
+			fmt.Printf("external ip (%v)\n", svc.Spec.ExternalIPs)
 			// When running locally, no external IP is set
 			return pipelineInfo, nil
 		}
 		if numIPs != 1 {
+			fmt.Printf("numIPs > 1: %v\n", svc.Spec)
+			fmt.Printf("external ip (%v)\n", svc.Spec.ExternalIPs)
 			return nil, fmt.Errorf("unexpected number of external IPs set for githook service: %v", strings.Join(svc.Spec.ExternalIPs, ","))
 		}
 		pipelineInfo.GithookURL = githook.URLFromDomain(svc.Spec.ExternalIPs[0])
