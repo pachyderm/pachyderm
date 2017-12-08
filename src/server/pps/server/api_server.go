@@ -1645,23 +1645,25 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 		pipelineInfo.GithookURL = "pending"
 		svc, err := getGithookService(a.kubeClient, a.namespace)
 		if err != nil {
-			fmt.Printf("err getting igthook service: %v, %v\n", svc, err)
 			return pipelineInfo, nil
 		}
 		fmt.Printf("debug service info\n status(%v)\n", svc.Status)
-		numIPs := len(svc.Spec.ExternalIPs)
+		numIPs := len(svc.Status.LoadBalancer.Ingress)
 		if numIPs == 0 {
-			fmt.Printf("numIPs is zero: %v\n", svc.Spec)
-			fmt.Printf("external ip (%v)\n", svc.Spec.ExternalIPs)
 			// When running locally, no external IP is set
 			return pipelineInfo, nil
 		}
 		if numIPs != 1 {
-			fmt.Printf("numIPs > 1: %v\n", svc.Spec)
-			fmt.Printf("external ip (%v)\n", svc.Spec.ExternalIPs)
-			return nil, fmt.Errorf("unexpected number of external IPs set for githook service: %v", strings.Join(svc.Spec.ExternalIPs, ","))
+			return nil, fmt.Errorf("unexpected number of external IPs set for githook service")
 		}
-		pipelineInfo.GithookURL = githook.URLFromDomain(svc.Spec.ExternalIPs[0])
+		ingress := svc.Status.LoadBalancer.Ingress[0]
+		if ingress.IP != "" {
+			// GKE load balancing
+			pipelineInfo.GithookURL = githook.URLFromDomain(ingress.IP)
+		} else if ingress.Domain != "" {
+			// AWS load balancing
+			pipelineInfo.GithookURL = githook.URLFromDomain(ingress.Domain)
+		}
 	}
 	return pipelineInfo, nil
 }
