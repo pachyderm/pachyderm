@@ -1208,6 +1208,13 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 				atomic.AddUint64(&subStats.DownloadBytes, uint64(downSize))
 				return a.uploadOutput(ctx, dir, tag, logger, data, subStats, statsTree, path.Join(statsPath, "pfs", "out"))
 			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
+				// If the context is already cancelled (timeout, cancelled job),
+				// err out and don't retry
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				default:
+				}
 				retries++
 				if retries >= maxRetries {
 					logger.Logf("failed to process datum with error: %+v", err)
