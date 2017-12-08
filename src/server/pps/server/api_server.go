@@ -1648,6 +1648,7 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 			fmt.Printf("err getting igthook service: %v, %v\n", svc, err)
 			return pipelineInfo, nil
 		}
+		fmt.Printf("debug service info\n status(%v)\n", svc.Status)
 		numIPs := len(svc.Spec.ExternalIPs)
 		if numIPs == 0 {
 			fmt.Printf("numIPs is zero: %v\n", svc.Spec)
