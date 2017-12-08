@@ -1660,9 +1660,9 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 		if ingress.IP != "" {
 			// GKE load balancing
 			pipelineInfo.GithookURL = githook.URLFromDomain(ingress.IP)
-		} else if ingress.Domain != "" {
+		} else if ingress.Hostname != "" {
 			// AWS load balancing
-			pipelineInfo.GithookURL = githook.URLFromDomain(ingress.Domain)
+			pipelineInfo.GithookURL = githook.URLFromDomain(ingress.Hostname)
 		}
 	}
 	return pipelineInfo, nil
