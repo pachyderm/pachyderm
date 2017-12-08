@@ -1643,12 +1643,19 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 			hasGitInput = true
 		}
 	})
+	fmt.Printf("got pipelineInfo: %v\n", pipelineInfo)
 	if hasGitInput {
 		svc, err := a.getGithookService()
 		if err != nil {
-			return nil, fmt.Errorf("error retrieving githook service info")
+			pipelineInfo.GitHookURL = "pending"
+			return pipelineInfo, nil
 		}
-		if len(svc.Spec.ExternalIPs) != 1 {
+		numIPs := len(svc.Spec.ExternalIPs)
+		if numIPs == 0 {
+			// When running locally, no external IP is set
+			return pipelineInfo, nil
+		}
+		if numIPs != 1 {
 			return nil, fmt.Errorf("unexpected number of external IPs set for githook service: %v", strings.Join(svc.Spec.ExternalIPs, ","))
 		}
 		pipelineInfo.GithookURL = githook.URLFromDomain(svc.Spec.ExternalIPs[0])
