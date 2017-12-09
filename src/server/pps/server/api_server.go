@@ -1640,14 +1640,12 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 			hasGitInput = true
 		}
 	})
-	fmt.Printf("got pipelineInfo: %v\n", pipelineInfo)
 	if hasGitInput {
 		pipelineInfo.GithookURL = "pending"
 		svc, err := getGithookService(a.kubeClient, a.namespace)
 		if err != nil {
 			return pipelineInfo, nil
 		}
-		fmt.Printf("debug service info\n status(%v)\n", svc.Status)
 		numIPs := len(svc.Status.LoadBalancer.Ingress)
 		if numIPs == 0 {
 			// When running locally, no external IP is set
