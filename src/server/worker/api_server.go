@@ -938,7 +938,7 @@ func (a *APIServer) worker() {
 			if err := e.Unmarshal(&jobID, jobInfo); err != nil {
 				return fmt.Errorf("error unmarshalling: %v", err)
 			}
-			if jobInfo.State == pps.JobState_JOB_KILLED {
+			if jobInfo.State == pps.JobState_JOB_FAILURE || jobInfo.State == pps.JobState_JOB_SUCCESS || jobInfo.State == pps.JobState_JOB_KILLED {
 				// This is odd.
 				// We see a JOB_KILLED event come in on the watcher ... ONLY if the cancel()
 				// statement a few lines below (in the goro that blocks on the job / cancels
