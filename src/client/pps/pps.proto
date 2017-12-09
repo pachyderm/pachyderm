@@ -221,6 +221,8 @@ message JobInfo {
   string salt = 33;
   bool batch = 34;
   ChunkSpec chunk_spec = 37;
+  google.protobuf.Duration datum_timeout = 38;
+  google.protobuf.Duration job_timeout = 39;
 }
 
 enum WorkerState {
@@ -298,7 +300,9 @@ message PipelineInfo {
   int64 max_queue_size = 29;
   Service service = 30;
   ChunkSpec chunk_spec = 32;
-  string githook_url = 33 [(gogoproto.customname) = "GithookURL"];
+  google.protobuf.Duration datum_timeout = 33;
+  google.protobuf.Duration job_timeout = 34;
+  string githook_url = 35 [(gogoproto.customname) = "GithookURL"];
 }
 
 message PipelineInfos {
@@ -327,6 +331,8 @@ message CreateJobRequest {
   string salt = 19;
   bool batch = 20;
   ChunkSpec chunk_spec = 22;
+  google.protobuf.Duration datum_timeout = 23;
+  google.protobuf.Duration job_timeout = 24;
 }
 
 message InspectJobRequest {
@@ -460,6 +466,8 @@ message CreatePipelineRequest {
   int64 max_queue_size = 20;
   Service service = 21;
   ChunkSpec chunk_spec = 23;
+  google.protobuf.Duration datum_timeout = 24;
+  google.protobuf.Duration job_timeout = 25;
 }
 
 message InspectPipelineRequest {
