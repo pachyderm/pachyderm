@@ -76,6 +76,8 @@ message Commit {
 // CommitInfo is the main data structure representing a commit in etcd
 message CommitInfo {
   Commit commit = 1;
+  // description is a user-provided script describing this commit
+  string description = 8;
   Commit parent_commit = 2;
   google.protobuf.Timestamp started = 3;
   google.protobuf.Timestamp finished = 4;
@@ -149,6 +151,8 @@ message StartCommitRequest {
   // Parent.ID may be empty in which case the commit that Branch points to will be used as the parent.
   // If branch is empty, or if branch does not exist, the commit will have no parent.
   Commit parent = 1;
+  // description is a user-provided string describing this commit
+  string description = 4;
   string branch = 3;
   repeated Commit provenance = 2;
 }
@@ -162,6 +166,9 @@ message BuildCommitRequest {
 
 message FinishCommitRequest {
   Commit commit = 1;
+  // description is a user-provided string describing this commit. Setting this
+  // will overwrite the description set in StartCommit
+  string description = 2;
 }
 
 message InspectCommitRequest {

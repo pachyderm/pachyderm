@@ -24,6 +24,18 @@ func newMinioClient(endpoint, bucket, id, secret string, secure bool) (*minioCli
 	}, nil
 }
 
+// Creates a new minioClient S3V2 structure and returns
+func newMinioClientV2(endpoint, bucket, id, secret string, secure bool) (*minioClient, error) {
+	mclient, err := minio.NewV2(endpoint, id, secret, secure)
+	if err != nil {
+		return nil, err
+	}
+	return &minioClient{
+		bucket: bucket,
+		Client: mclient,
+	}, nil
+}
+
 // Represents minio writer structure with pipe and the error channel
 type minioWriter struct {
 	errChan chan error
