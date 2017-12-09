@@ -17,6 +17,7 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 var (
@@ -464,11 +465,11 @@ func GithookService() *v1.Service {
 		Spec: v1.ServiceSpec{
 			Type: v1.ServiceTypeLoadBalancer,
 			Selector: map[string]string{
-				"app": name,
+				"app": pachdName,
 			},
 			Ports: []v1.ServicePort{
 				{
-					TargetPort: githook.GitHookPort,
+					TargetPort: intstr.FromInt(githook.GitHookPort),
 					Name:       "api-git-port",
 					Port:       githook.ExternalPort(),
 				},
