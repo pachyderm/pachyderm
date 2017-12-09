@@ -373,6 +373,9 @@ message GetLogsRequest {
 
   // If true get logs from the master process
   bool master = 5;
+
+  // Continue to follow new logs as they become available.
+  bool follow = 7;
 }
 
 // LogMessage is a log line from a PPS worker, annotated with metadata
