@@ -11,7 +11,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -44,6 +43,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/exec"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
@@ -436,7 +436,8 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 }
 
 // Run user code and return the combined output of stdout and stderr.
-func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string, stats *pps.ProcessStats) (retErr error) {
+func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string, stats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
+
 	defer func(start time.Time) {
 		stats.ProcessTime = types.DurationProto(time.Since(start))
 	}(time.Now())
@@ -444,6 +445,16 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	defer func(start time.Time) {
 		logger.Logf("finished running user code - took (%v) - with error (%v)", time.Since(start), retErr)
 	}(time.Now())
+	if rawDatumTimeout != nil {
+		datumTimeout, err := types.DurationFromProto(rawDatumTimeout)
+		if err != nil {
+			return err
+		}
+		datumTimeoutCtx, cancel := context.WithTimeout(ctx, datumTimeout)
+		defer cancel()
+		ctx = datumTimeoutCtx
+	}
+
 	// Run user code
 	cmd := exec.CommandContext(ctx, a.pipelineInfo.Transform.Cmd[0], a.pipelineInfo.Transform.Cmd[1:]...)
 	cmd.Stdin = strings.NewReader(strings.Join(a.pipelineInfo.Transform.Stdin, "\n") + "\n")
@@ -457,23 +468,44 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 		},
 	}
 	cmd.Dir = a.workingDir
-	err := cmd.Run()
-
-	// Return result
-	if err == nil {
-		return nil
+	err := cmd.Start()
+	if err != nil {
+		return err
 	}
-	// (if err is an acceptable return code, don't return err)
-	if exiterr, ok := err.(*exec.ExitError); ok {
-		if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-			for _, returnCode := range a.pipelineInfo.Transform.AcceptReturnCode {
-				if int(returnCode) == status.ExitStatus() {
-					return nil
+	// A context w a deadline will successfully cancel/kill
+	// the running process (minus zombies)
+	state, err := cmd.Process.Wait()
+	if err != nil {
+		return err
+	}
+	select {
+	case <-ctx.Done():
+		if err = ctx.Err(); err != nil {
+			return err
+		}
+	default:
+	}
+
+	// Because of this issue: https://github.com/golang/go/issues/18874
+	// We forked os/exec so that we can call just the part of cmd.Wait() that
+	// happens after blocking on the process. Unfortunately calling
+	// cmd.Process.Wait() then cmd.Wait() will produce an error. So instead we
+	// close the IO using this helper
+	err = cmd.WaitIO(state, err)
+	if err != nil {
+		// (if err is an acceptable return code, don't return err)
+		if exiterr, ok := err.(*exec.ExitError); ok {
+			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+				for _, returnCode := range a.pipelineInfo.Transform.AcceptReturnCode {
+					if int(returnCode) == status.ExitStatus() {
+						return nil
+					}
 				}
 			}
 		}
+		return err
 	}
-	return err
+	return nil
 }
 
 func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, logger *taggedLogger, inputs []*Input, stats *pps.ProcessStats, statsTree hashtree.OpenHashTree, statsRoot string) error {
@@ -906,9 +938,17 @@ func (a *APIServer) worker() {
 			if err := e.Unmarshal(&jobID, jobInfo); err != nil {
 				return fmt.Errorf("error unmarshalling: %v", err)
 			}
-			// Don't bother with already completed jobs.
-			switch jobInfo.State {
-			case pps.JobState_JOB_FAILURE, pps.JobState_JOB_SUCCESS, pps.JobState_JOB_KILLED:
+			if jobInfo.State == pps.JobState_JOB_FAILURE || jobInfo.State == pps.JobState_JOB_SUCCESS || jobInfo.State == pps.JobState_JOB_KILLED {
+				// This is odd.
+				// We see a JOB_KILLED event come in on the watcher ... ONLY if the cancel()
+				// statement a few lines below (in the goro that blocks on the job / cancels
+				// if killed) is called.
+				//
+				// On master (before this PR [1] was merged), we never seem to see the
+				// JOB_KILLED event. Since this code is changing, we'll leave this here for
+				// now. We cannot account for this difference, which is a concern.
+				//
+				// [1] https://github.com/pachyderm/pachyderm/pull/2542
 				continue
 			}
 			df, err := NewDatumFactory(ctx, a.pachClient.PfsAPIClient, jobInfo.Input)
@@ -919,6 +959,30 @@ func (a *APIServer) worker() {
 			if err := a.chunks.ReadOnly(ctx).GetBlock(jobInfo.Job.ID, chunks); err != nil {
 				return err
 			}
+			ctx, cancel := context.WithCancel(ctx)
+			// Each worker needs to subscribe to etcd for state changes on this job.
+			// The master may cancel the job (e.g. job timeout), and the workers
+			// need to detect this change, and cancel their work
+			go func() {
+				backoff.RetryNotify(func() error {
+					currentJobInfo, err := a.pachClient.WithCtx(context.Background()).InspectJob(jobID, true)
+					if err != nil {
+						return err
+					}
+					switch currentJobInfo.State {
+					case pps.JobState_JOB_KILLED, pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE:
+						cancel()
+					}
+					return nil
+				}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+					select {
+					case <-ctx.Done():
+						return err
+					default:
+					}
+					return nil
+				})
+			}()
 			if err := a.acquireDatums(ctx, jobInfo.Job.ID, chunks, logger, func(low, high int64) (string, error) {
 				failedDatumID, err := a.processDatums(ctx, logger, jobInfo, df, low, high)
 				if err != nil {
@@ -1071,6 +1135,12 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 			var dir string
 			var retries int
 			if err := backoff.RetryNotify(func() error {
+				// If the context is already cancelled (timeout, cancelled job), don't run datum
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				default:
+				}
 				// Download input data
 				puller := filesync.NewPuller()
 				// TODO parent tag shouldn't be nil
@@ -1121,7 +1191,7 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 						retErr = err
 					}
 				}()
-				if err := a.runUserCode(ctx, logger, env, subStats); err != nil {
+				if err := a.runUserCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
 					return err
 				}
 				// CleanUp is idempotent so we can call it however many times we want.
@@ -1138,6 +1208,13 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 				atomic.AddUint64(&subStats.DownloadBytes, uint64(downSize))
 				return a.uploadOutput(ctx, dir, tag, logger, data, subStats, statsTree, path.Join(statsPath, "pfs", "out"))
 			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
+				// If the context is already cancelled (timeout, cancelled job),
+				// err out and don't retry
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				default:
+				}
 				retries++
 				if retries >= maxRetries {
 					logger.Logf("failed to process datum with error: %+v", err)
