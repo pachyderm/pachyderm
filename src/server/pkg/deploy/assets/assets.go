@@ -468,9 +468,9 @@ func GithookService() *v1.Service {
 			},
 			Ports: []v1.ServicePort{
 				{
-					Port:     githook.NodePort(),
-					Name:     "api-git-port",
-					NodePort: githook.ExternalPort(),
+					TargetPort: githook.GitHookPort,
+					Name:       "api-git-port",
+					Port:       githook.ExternalPort(),
 				},
 			},
 		},
