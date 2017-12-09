@@ -36,13 +36,18 @@ func hookPath() string {
 	return fmt.Sprintf("/%v/handle/push", apiVersion)
 }
 
+// ExternalPort provides the port used to access the service via a load
+// balancer
 func ExternalPort() int32 {
 	return int32(31000 + GitHookPort)
 }
+
+// NodePort provides the port used to access the service via a node
 func NodePort() int32 {
 	return int32(30000 + GitHookPort)
 }
 
+// URLFromDomain provides the webhook URL given an input domain
 func URLFromDomain(domain string) string {
 	return fmt.Sprintf("http://%v:%v%v", domain, ExternalPort(), hookPath())
 }
