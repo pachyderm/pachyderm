@@ -21,7 +21,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
@@ -937,8 +936,6 @@ func (a *apiServer) lookupRcNameForPipeline(ctx context.Context, pipeline *pps.P
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	// No deadline in request, but we create one here, since we do expect the call
-	// to finish reasonably quickly
 	ctx := apiGetLogsServer.Context()
 
 	// Authorize request and get list of pods containing logs we're interested in
@@ -979,7 +976,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 
 		// If the job had stats enabled, we use the logs from the stats
 		// commit since that's likely to yield better results.
-		if statsCommit != nil {
+		if statsCommit != nil && !request.Follow {
 			return a.getLogsFromStats(ctx, request, apiGetLogsServer, statsCommit)
 		}
 
@@ -1004,109 +1001,89 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	// and channels are read into the output server in a stable order.
 	// (sort the pods to make sure that the order of log lines is stable)
 	sort.Sort(podSlice(pods))
-	logChs := make([]chan *pps.LogMessage, len(pods))
-	errCh := make(chan error, 1)
-	done := make(chan struct{})
-	defer close(done)
-	for i := 0; i < len(pods); i++ {
-		logChs[i] = make(chan *pps.LogMessage)
-	}
-	for i, pod := range pods {
-		i, pod := i, pod
-		go func() {
-			defer close(logChs[i]) // Main thread reads from here, so must close
+	logCh := make(chan *pps.LogMessage)
+	var eg errgroup.Group
+	var mu sync.Mutex
+	for _, pod := range pods {
+		pod := pod
+		if !request.Follow {
+			mu.Lock()
+		}
+		eg.Go(func() (retErr error) {
+			if !request.Follow {
+				defer mu.Unlock()
+			}
 			// Get full set of logs from pod i
-			err := backoff.Retry(func() error {
-				result := a.kubeClient.CoreV1().Pods(a.namespace).GetLogs(
-					pod.ObjectMeta.Name, &v1.PodLogOptions{
-						Container: containerName,
-					}).Timeout(10 * time.Second).Do()
-				fullLogs, err := result.Raw()
-				if err != nil {
-					if apiStatus, ok := err.(errors.APIStatus); ok &&
-						strings.Contains(apiStatus.Status().Message, "PodInitializing") {
-						return nil // No logs to collect from this node yet, just skip it
-					}
-					return err
-				}
-				// Occasionally, fullLogs is truncated and contains the string
-				// 'unexpected stream type ""' at the end. I believe this is a recent
-				// bug in k8s (https://github.com/kubernetes/kubernetes/issues/47800)
-				// so we're adding a special handler for this corner case.
-				// TODO(msteffen) remove this handling once the issue is fixed
-				if bytes.HasSuffix(fullLogs, []byte("unexpected stream type \"\"")) {
-					return fmt.Errorf("interrupted log stream due to kubernetes/kubernetes/issues/47800")
-				}
-
-				// Parse pods' log lines, and filter out irrelevant ones
-				scanner := bufio.NewScanner(bytes.NewReader(fullLogs))
-				for scanner.Scan() {
-					msg := new(pps.LogMessage)
-					if containerName == "pachd" {
-						msg.Message = scanner.Text() + "\n"
-					} else {
-						logBytes := scanner.Bytes()
-						if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
-							continue
-						}
-
-						// Filter out log lines that don't match on pipeline or job
-						if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
-							continue
-						}
-						if request.Job != nil && request.Job.ID != msg.JobID {
-							continue
-						}
-						if request.Datum != nil && request.Datum.ID != msg.DatumID {
-							continue
-						}
-						if request.Master != msg.Master {
-							continue
-						}
-						if !workerpkg.MatchDatum(request.DataFilters, msg.Data) {
-							continue
-						}
-					}
-
-					// Log message passes all filters -- return it
-					select {
-					case logChs[i] <- msg:
-					case <-done:
-						return nil
-					}
-				}
-				return nil
-			}, backoff.New10sBackOff())
-
-			// Used up all retries -- no logs from worker
+			stream, err := a.kubeClient.CoreV1().Pods(a.namespace).GetLogs(
+				pod.ObjectMeta.Name, &v1.PodLogOptions{
+					Container: containerName,
+					Follow:    request.Follow,
+				}).Timeout(10 * time.Second).Stream()
 			if err != nil {
-				select {
-				case errCh <- err:
-				case <-done:
-				default:
+				if apiStatus, ok := err.(errors.APIStatus); ok &&
+					strings.Contains(apiStatus.Status().Message, "PodInitializing") {
+					return nil // No logs to collect from this node yet, just skip it
 				}
-			}
-		}()
-	}
-
-nextLogCh:
-	for _, logCh := range logChs {
-		for {
-			msg, ok := <-logCh
-			if !ok {
-				continue nextLogCh
-			}
-			if err := apiGetLogsServer.Send(msg); err != nil {
 				return err
 			}
+			defer func() {
+				if err := stream.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+
+			// Parse pods' log lines, and filter out irrelevant ones
+			scanner := bufio.NewScanner(stream)
+			for scanner.Scan() {
+				msg := new(pps.LogMessage)
+				if containerName == "pachd" {
+					msg.Message = scanner.Text() + "\n"
+				} else {
+					logBytes := scanner.Bytes()
+					if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
+						continue
+					}
+
+					// Filter out log lines that don't match on pipeline or job
+					if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
+						continue
+					}
+					if request.Job != nil && request.Job.ID != msg.JobID {
+						continue
+					}
+					if request.Datum != nil && request.Datum.ID != msg.DatumID {
+						continue
+					}
+					if request.Master != msg.Master {
+						continue
+					}
+					if !workerpkg.MatchDatum(request.DataFilters, msg.Data) {
+						continue
+					}
+				}
+
+				// Log message passes all filters -- return it
+				select {
+				case logCh <- msg:
+				case <-ctx.Done():
+					return nil
+				}
+			}
+			return nil
+		})
+	}
+	var egErr error
+	go func() {
+		egErr = eg.Wait()
+		close(logCh)
+	}()
+
+	for msg := range logCh {
+		if err := apiGetLogsServer.Send(msg); err != nil {
+			return err
 		}
 	}
-	select {
-	case err := <-errCh:
-		return err
-	default:
-	}
-	return nil
+	return egErr
 }
 
 func (a *apiServer) getLogsFromStats(ctx context.Context, request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer, statsCommit *pfs.Commit) error {
