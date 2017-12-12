@@ -378,8 +378,12 @@ func (c APIClient) GetLogs(
 	data []string,
 	datumID string,
 	master bool,
+	follow bool,
 ) *LogsIter {
-	request := pps.GetLogsRequest{Master: master}
+	request := pps.GetLogsRequest{
+		Master: master,
+		Follow: follow,
+	}
 	resp := &LogsIter{}
 	if pipelineName != "" {
 		request.Pipeline = &pps.Pipeline{pipelineName}
