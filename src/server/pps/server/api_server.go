@@ -1004,74 +1004,77 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	logCh := make(chan *pps.LogMessage)
 	var eg errgroup.Group
 	var mu sync.Mutex
-	for _, pod := range pods {
-		pod := pod
-		if !request.Follow {
-			mu.Lock()
-		}
-		eg.Go(func() (retErr error) {
+	eg.Go(func() error {
+		for _, pod := range pods {
+			pod := pod
 			if !request.Follow {
-				defer mu.Unlock()
+				mu.Lock()
 			}
-			// Get full set of logs from pod i
-			stream, err := a.kubeClient.CoreV1().Pods(a.namespace).GetLogs(
-				pod.ObjectMeta.Name, &v1.PodLogOptions{
-					Container: containerName,
-					Follow:    request.Follow,
-				}).Timeout(10 * time.Second).Stream()
-			if err != nil {
-				if apiStatus, ok := err.(errors.APIStatus); ok &&
-					strings.Contains(apiStatus.Status().Message, "PodInitializing") {
-					return nil // No logs to collect from this node yet, just skip it
+			eg.Go(func() (retErr error) {
+				if !request.Follow {
+					defer mu.Unlock()
 				}
-				return err
-			}
-			defer func() {
-				if err := stream.Close(); err != nil && retErr == nil {
-					retErr = err
+				// Get full set of logs from pod i
+				stream, err := a.kubeClient.CoreV1().Pods(a.namespace).GetLogs(
+					pod.ObjectMeta.Name, &v1.PodLogOptions{
+						Container: containerName,
+						Follow:    request.Follow,
+					}).Timeout(10 * time.Second).Stream()
+				if err != nil {
+					if apiStatus, ok := err.(errors.APIStatus); ok &&
+						strings.Contains(apiStatus.Status().Message, "PodInitializing") {
+						return nil // No logs to collect from this node yet, just skip it
+					}
+					return err
 				}
-			}()
+				defer func() {
+					if err := stream.Close(); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
 
-			// Parse pods' log lines, and filter out irrelevant ones
-			scanner := bufio.NewScanner(stream)
-			for scanner.Scan() {
-				msg := new(pps.LogMessage)
-				if containerName == "pachd" {
-					msg.Message = scanner.Text() + "\n"
-				} else {
-					logBytes := scanner.Bytes()
-					if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
-						continue
+				// Parse pods' log lines, and filter out irrelevant ones
+				scanner := bufio.NewScanner(stream)
+				for scanner.Scan() {
+					msg := new(pps.LogMessage)
+					if containerName == "pachd" {
+						msg.Message = scanner.Text() + "\n"
+					} else {
+						logBytes := scanner.Bytes()
+						if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
+							continue
+						}
+
+						// Filter out log lines that don't match on pipeline or job
+						if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
+							continue
+						}
+						if request.Job != nil && request.Job.ID != msg.JobID {
+							continue
+						}
+						if request.Datum != nil && request.Datum.ID != msg.DatumID {
+							continue
+						}
+						if request.Master != msg.Master {
+							continue
+						}
+						if !workerpkg.MatchDatum(request.DataFilters, msg.Data) {
+							continue
+						}
 					}
 
-					// Filter out log lines that don't match on pipeline or job
-					if request.Pipeline != nil && request.Pipeline.Name != msg.PipelineName {
-						continue
-					}
-					if request.Job != nil && request.Job.ID != msg.JobID {
-						continue
-					}
-					if request.Datum != nil && request.Datum.ID != msg.DatumID {
-						continue
-					}
-					if request.Master != msg.Master {
-						continue
-					}
-					if !workerpkg.MatchDatum(request.DataFilters, msg.Data) {
-						continue
+					// Log message passes all filters -- return it
+					select {
+					case logCh <- msg:
+					case <-ctx.Done():
+						return nil
 					}
 				}
-
-				// Log message passes all filters -- return it
-				select {
-				case logCh <- msg:
-				case <-ctx.Done():
-					return nil
-				}
-			}
-			return nil
-		})
-	}
+				return nil
+			})
+		}
+		return nil
+	})
 	var egErr error
 	go func() {
 		egErr = eg.Wait()
