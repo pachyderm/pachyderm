@@ -1502,7 +1502,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		// existing commits and close any open ones.
 		iter, err := pachClient.ListCommitStream(ctx, &pfs.ListCommitRequest{
 			Repo: client.NewRepo(pipelineName),
-			To:   client.NewBranch(pipelineInfo.OutputBranch),
+			To:   client.NewCommit(pipelineName, pipelineInfo.OutputBranch),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("couldn't get open commits on '%s': %v", pipelineInfo.OutputBranch, err)
@@ -1518,6 +1518,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				// Finish the commit and don't pass a tree
 				pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
 					Commit: ci.Commit,
+					Empty:  true,
 				})
 			}
 		}
