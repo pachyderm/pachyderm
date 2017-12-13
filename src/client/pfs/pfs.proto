@@ -185,7 +185,7 @@ message FinishCommitRequest {
   Object tree = 2;
   // If set, 'commit' will be closed (its 'finished' field will be set to the
   // current time) but its 'tree' will be left nil.
-  bool failed = 3;
+  bool empty = 3;
 }
 
 message InspectCommitRequest {
