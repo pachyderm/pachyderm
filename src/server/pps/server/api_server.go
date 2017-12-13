@@ -1019,6 +1019,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 					pod.ObjectMeta.Name, &v1.PodLogOptions{
 						Container: containerName,
 						Follow:    request.Follow,
+						TailLines: &request.Tail,
 					}).Timeout(10 * time.Second).Stream()
 				if err != nil {
 					if apiStatus, ok := err.(errors.APIStatus); ok &&
