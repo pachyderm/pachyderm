@@ -517,6 +517,12 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 			}
 		}
 
+		// TODO(msteffen):
+		// Check if this repo has a 'spec' branch, with a 'spec' file at the top.
+		// PPS uses this branch to store pipeline infos, and if it's deleted, PPS
+		// commands affecting this pipeline will no longer work (including
+		// DeletePipeline, forcing the repo into a permanent, broken state).
+
 		if err := repos.Delete(repo.Name); err != nil {
 			return err
 		}
@@ -1324,6 +1330,7 @@ func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 				continue
 			}
 		}
+		fmt.Printf("waiting for %s/%s to finish...\n", commitToWatch.Repo.Name, commitToWatch.ID)
 		finishedCommitInfo, err := d.inspectCommit(ctx, commitToWatch, true)
 		if err != nil {
 			if _, ok := err.(pfsserver.ErrCommitNotFound); ok {

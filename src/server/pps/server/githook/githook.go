@@ -11,7 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
-	"github.com/pachyderm/pachyderm/src/server/pkg/util"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	logrus "github.com/sirupsen/logrus"
@@ -117,7 +117,7 @@ func (s *gitHookServer) HandlePush(payload interface{}, _ webhooks.Header) (retE
 	}
 	if pl.Repository.Private {
 		for _, pipelineInfo := range pipelines {
-			if err := util.FailPipeline(context.Background(), s.etcdClient, s.pipelines, pipelineInfo.Pipeline.Name, fmt.Sprintf("unable to clone private github repo (%v)", pl.Repository.CloneURL)); err != nil {
+			if err := ppsutil.FailPipeline(context.Background(), s.etcdClient, s.pipelines, pipelineInfo.Pipeline.Name, fmt.Sprintf("unable to clone private github repo (%v)", pl.Repository.CloneURL)); err != nil {
 				// err will be handled but first we want to
 				// try and fail all relevant pipelines
 				logrus.Errorf("error marking pipeline %v as failed %v", pipelineInfo.Pipeline.Name, err)

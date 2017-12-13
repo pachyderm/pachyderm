@@ -31,9 +31,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfspretty "github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
-	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 
@@ -297,6 +297,7 @@ func TestPipelineInputDataModification(t *testing.T) {
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
 	require.Equal(t, "foo", buf.String())
 
+	// replace the contents of 'file' in dataRepo (from "foo" to "bar")
 	commit2, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.DeleteFile(dataRepo, commit2.ID, "file"))
@@ -313,6 +314,7 @@ func TestPipelineInputDataModification(t *testing.T) {
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
 	require.Equal(t, "bar", buf.String())
 
+	// Add a file to dataRepo
 	commit3, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.DeleteFile(dataRepo, commit3.ID, "file"))
@@ -330,7 +332,7 @@ func TestPipelineInputDataModification(t *testing.T) {
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file2", 0, 0, &buf))
 	require.Equal(t, "foo", buf.String())
 
-	commitInfos, err = c.ListCommit(pipeline, "", "", 0)
+	commitInfos, err = c.ListCommit(pipeline, "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
 }
@@ -412,7 +414,7 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
 	require.Equal(t, "foo\nbar\nfoo\nbuzz\n", buf.String())
 
-	commitInfos, err = c.ListCommit(pipeline, "", "", 0)
+	commitInfos, err = c.ListCommit(pipeline, "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
 }
@@ -688,12 +690,13 @@ func TestLazyPipelinePropagation(t *testing.T) {
 
 	jobInfos, err := c.ListJob(pipelineA, nil, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
+	// Two jobs -- one from creating the pipeline, one from the commit
+	require.Equal(t, 2, len(jobInfos))
 	require.NotNil(t, jobInfos[0].Input.Atom)
 	require.Equal(t, true, jobInfos[0].Input.Atom.Lazy)
 	jobInfos, err = c.ListJob(pipelineB, nil, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
+	require.Equal(t, 2, len(jobInfos))
 	require.NotNil(t, jobInfos[0].Input.Atom)
 	require.Equal(t, true, jobInfos[0].Input.Atom.Lazy)
 }
@@ -804,8 +807,8 @@ func TestLazyPipelineCPPipes(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if len(jobInfos) != 1 {
-			return fmt.Errorf("len(jobInfos) should be 1")
+		if len(jobInfos) != 2 {
+			return fmt.Errorf("len(jobInfos) should be 2 (an empty job from creating the pipeline and a real job from committing to the input repo)")
 		}
 		jobID = jobInfos[0].Job.ID
 		jobInfo, err := c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
@@ -895,18 +898,20 @@ func TestProvenance(t *testing.T) {
 	cCommitInfo := commitInfos[0]
 	require.Equal(t, uint64(0), cCommitInfo.SizeBytes)
 
-	// We should only see two commits in each repo.
-	commitInfos, err = c.ListCommit(aRepo, "", "", 0)
+	// We should only see two commits in aRepo
+	commitInfos, err = c.ListCommit(aRepo, "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 
-	commitInfos, err = c.ListCommit(bPipeline, "", "", 0)
+	// There are three commits in the pipeline repos (two from input commits, and
+	// one from the CreatePipeline call that created each repo)
+	commitInfos, err = c.ListCommit(bPipeline, "master", "", 0)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commitInfos))
+	require.Equal(t, 3, len(commitInfos))
 
-	commitInfos, err = c.ListCommit(cPipeline, "", "", 0)
+	commitInfos, err = c.ListCommit(cPipeline, "master", "", 0)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commitInfos))
+	require.Equal(t, 3, len(commitInfos))
 }
 
 // TestProvenance2 tests the following DAG:
@@ -991,15 +996,15 @@ func TestProvenance2(t *testing.T) {
 	require.Equal(t, 1, len(commitInfos))
 
 	// We should only see two commits in each repo.
-	commitInfos, err = c.ListCommit(bPipeline, "", "", 0)
+	commitInfos, err = c.ListCommit(bPipeline, "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 
-	commitInfos, err = c.ListCommit(cPipeline, "", "", 0)
+	commitInfos, err = c.ListCommit(cPipeline, "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 
-	commitInfos, err = c.ListCommit(dPipeline, "", "", 0)
+	commitInfos, err = c.ListCommit(dPipeline, "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 
@@ -1197,7 +1202,6 @@ func TestRecreatePipeline(t *testing.T) {
 	// Do it twice.  We expect jobs to be created on both runs.
 	createPipeline()
 	time.Sleep(5 * time.Second)
-	require.NoError(t, c.DeleteRepo(pipeline, false))
 	require.NoError(t, c.DeletePipeline(pipeline, true))
 	time.Sleep(5 * time.Second)
 	createPipeline()
@@ -1247,7 +1251,6 @@ func TestDeletePipeline(t *testing.T) {
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
-	require.NoError(t, c.DeleteRepo(pipeline, false))
 	require.NoError(t, c.DeletePipeline(pipeline, true))
 	time.Sleep(5 * time.Second)
 	// Wait for the pipeline to disappear
@@ -1277,7 +1280,6 @@ func TestDeletePipeline(t *testing.T) {
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
-	require.NoError(t, c.DeleteRepo(pipeline, false))
 	require.NoError(t, c.DeletePipeline(pipeline, false))
 	// Wait for the pipeline to disappear
 	time.Sleep(5 * time.Second)
@@ -1395,7 +1397,10 @@ func TestPipelineJobCounts(t *testing.T) {
 	collectCommitInfos(t, commitIter)
 	jobInfos, err := c.ListJob(pipeline, nil, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
+	// There are two jobs even though we only made one commit: an empty one
+	// corresponding to the commit triggered by the new pipeline, and a real one,
+	// corresponding to the commit triggered by our input commit above
+	require.Equal(t, 2, len(jobInfos))
 	inspectJobRequest := &pps.InspectJobRequest{
 		Job:        jobInfos[0].Job,
 		BlockState: true,
@@ -1408,7 +1413,7 @@ func TestPipelineJobCounts(t *testing.T) {
 	// check that the job has been accounted for
 	pipelineInfo, err := c.InspectPipeline(pipeline)
 	require.NoError(t, err)
-	require.Equal(t, int32(1), pipelineInfo.JobCounts[int32(pps.JobState_JOB_SUCCESS)])
+	require.Equal(t, int32(2), pipelineInfo.JobCounts[int32(pps.JobState_JOB_SUCCESS)])
 }
 
 //func TestJobState(t *testing.T) {
@@ -2023,7 +2028,8 @@ func TestUpdatePipeline(t *testing.T) {
 	// create repos
 	dataRepo := uniqueString("TestUpdatePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	pipelineName := uniqueString("TestUpdatePipeline_pipeline")
+	pipelineName := uniqueString("pipeline")
+	fmt.Println("2032: Creating first pipeline: ", pipelineName)
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
 		"",
@@ -2053,6 +2059,7 @@ func TestUpdatePipeline(t *testing.T) {
 
 	// Update the pipeline, this will not create a new pipeline as reprocess
 	// isn't set to true.
+	fmt.Println("2062: updating ", pipelineName, " without --reprocess")
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
 		"",
@@ -2079,6 +2086,7 @@ func TestUpdatePipeline(t *testing.T) {
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
 	require.Equal(t, "bar\n", buffer.String())
 
+	fmt.Println("2089: updating ", pipelineName, " *with* --reprocess")
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
@@ -2141,7 +2149,7 @@ func TestStopPipeline(t *testing.T) {
 
 	// wait for 10 seconds and check that no commit has been outputted
 	time.Sleep(10 * time.Second)
-	commits, err := c.ListCommit(pipelineName, "", "", 0)
+	commits, err := c.ListCommit(pipelineName, "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, len(commits), 0)
 
@@ -2691,7 +2699,7 @@ func TestParallelismSpec(t *testing.T) {
 	numNodes := len(nodes.Items)
 
 	// Test Constant strategy
-	parellelism, err := ppsserver.GetExpectedNumWorkers(getKubeClient(t), &pps.ParallelismSpec{
+	parellelism, err := ppsutil.GetExpectedNumWorkers(getKubeClient(t), &pps.ParallelismSpec{
 		Constant: 7,
 	})
 	require.NoError(t, err)
@@ -2701,33 +2709,33 @@ func TestParallelismSpec(t *testing.T) {
 	// TODO(msteffen): This test can fail when run against cloud providers, if the
 	// remote cluster has more than one node (in which case "Coefficient: 1" will
 	// cause more than 1 worker to start)
-	parellelism, err = ppsserver.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
+	parellelism, err = ppsutil.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
 		Coefficient: 1,
 	})
 	require.NoError(t, err)
 	require.Equal(t, numNodes, parellelism)
 
 	// Coefficient > 1
-	parellelism, err = ppsserver.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
+	parellelism, err = ppsutil.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
 		Coefficient: 2,
 	})
 	require.NoError(t, err)
 	require.Equal(t, 2*numNodes, parellelism)
 
 	// Make sure we start at least one worker
-	parellelism, err = ppsserver.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
+	parellelism, err = ppsutil.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{
 		Coefficient: 0.01,
 	})
 	require.NoError(t, err)
 	require.Equal(t, 1, parellelism)
 
 	// Test 0-initialized JobSpec
-	parellelism, err = ppsserver.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{})
+	parellelism, err = ppsutil.GetExpectedNumWorkers(kubeclient, &pps.ParallelismSpec{})
 	require.NoError(t, err)
 	require.Equal(t, 1, parellelism)
 
 	// Test nil JobSpec
-	parellelism, err = ppsserver.GetExpectedNumWorkers(kubeclient, nil)
+	parellelism, err = ppsutil.GetExpectedNumWorkers(kubeclient, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, parellelism)
 }
@@ -2772,7 +2780,8 @@ func TestPipelineJobDeletion(t *testing.T) {
 	// Now delete the corresponding job
 	jobInfos, err := c.ListJob(pipelineName, nil, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
+	// One empty job from the pipeline creation, and one real job
+	require.Equal(t, 2, len(jobInfos))
 	err = c.DeleteJob(jobInfos[0].Job.ID)
 	require.NoError(t, err)
 }
@@ -3347,7 +3356,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	var container v1.Container
-	rcName := ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := getKubeClient(t)
 	err = backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(
@@ -3418,7 +3427,7 @@ func TestPipelineResourceLimit(t *testing.T) {
 	require.NoError(t, err)
 
 	var container v1.Container
-	rcName := ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := getKubeClient(t)
 	err = backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(metav1.ListOptions{
@@ -3485,7 +3494,7 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 	require.NoError(t, err)
 
 	var container v1.Container
-	rcName := ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	kubeClient := getKubeClient(t)
 	err = backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(metav1.ListOptions{
@@ -5625,7 +5634,7 @@ func TestPipelineWithGitInputPrivateGHRepo(t *testing.T) {
 	}
 	require.Equal(t, true, found)
 
-	commits, err := c.ListCommit(repoName, "", "", 0)
+	commits, err := c.ListCommit(repoName, "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(commits))
 
@@ -5776,7 +5785,7 @@ func TestPipelineWithGitInput(t *testing.T) {
 	}
 	require.Equal(t, true, found)
 
-	commits, err := c.ListCommit("pachyderm", "", "", 0)
+	commits, err := c.ListCommit("pachyderm", "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(commits))
 
@@ -5844,7 +5853,7 @@ func TestPipelineWithGitInputSequentialPushes(t *testing.T) {
 	}
 	require.Equal(t, true, found)
 
-	commits, err := c.ListCommit("pachyderm", "", "", 0)
+	commits, err := c.ListCommit("pachyderm", "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(commits))
 
@@ -5937,7 +5946,7 @@ func TestPipelineWithGitInputCustomName(t *testing.T) {
 	}
 	require.Equal(t, true, found)
 
-	commits, err := c.ListCommit(repoName, "", "", 0)
+	commits, err := c.ListCommit(repoName, "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(commits))
 
@@ -6011,7 +6020,7 @@ func TestPipelineWithGitInputMultiPipelineSeparateInputs(t *testing.T) {
 		}
 		require.Equal(t, true, found)
 
-		commits, err := c.ListCommit(repoName, "", "", 0)
+		commits, err := c.ListCommit(repoName, "master", "", 0)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(commits))
 	}
@@ -6087,7 +6096,7 @@ func TestPipelineWithGitInputMultiPipelineSameInput(t *testing.T) {
 		}
 		require.Equal(t, true, found)
 
-		commits, err := c.ListCommit(repoName, "", "", 0)
+		commits, err := c.ListCommit(repoName, "master", "", 0)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(commits))
 	}
@@ -6159,7 +6168,7 @@ func TestPipelineWithGitInputAndBranch(t *testing.T) {
 	}
 	require.Equal(t, true, found)
 
-	commits, err := c.ListCommit("pachyderm", "", "", 0)
+	commits, err := c.ListCommit("pachyderm", "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(commits))
 
@@ -6338,7 +6347,7 @@ func pipelineRc(t testing.TB, pipelineInfo *pps.PipelineInfo) (*v1.ReplicationCo
 	k := getKubeClient(t)
 	rc := k.CoreV1().ReplicationControllers(v1.NamespaceDefault)
 	return rc.Get(
-		ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
+		ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 		metav1.GetOptions{})
 }
 

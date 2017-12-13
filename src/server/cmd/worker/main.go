@@ -16,7 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
-	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/worker"
 	"google.golang.org/grpc"
 
@@ -54,7 +54,7 @@ func main() {
 
 // getPipelineInfo gets the PipelineInfo proto describing the pipeline that this
 // worker is part of
-func getPipelineInfo(etcdClient *etcd.Client, appEnv *appEnv) (*pps.PipelineInfo, error) {
+func getPipelineInfo(etcdClient *etcd.Client, pachClient *client.APIClient, appEnv *appEnv) (*pps.PipelineInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	resp, err := etcdClient.Get(ctx, path.Join(appEnv.PPSPrefix, "pipelines", appEnv.PPSPipelineName))
@@ -62,14 +62,14 @@ func getPipelineInfo(etcdClient *etcd.Client, appEnv *appEnv) (*pps.PipelineInfo
 		return nil, err
 	}
 	if len(resp.Kvs) != 1 {
-		return nil, fmt.Errorf("expected to find 1 pipeline, got %d: %v", len(resp.Kvs), resp)
+		return nil, fmt.Errorf("expected to find 1 pipeline (%s), got %d: %v", appEnv.PPSPipelineName, len(resp.Kvs), resp)
 	}
-	pipelineInfo := new(pps.PipelineInfo)
-
-	if err := pipelineInfo.Unmarshal(resp.Kvs[0].Value); err != nil {
+	log.Printf("successfully read %s\n", appEnv.PPSPipelineName)
+	var pipelinePtr pps.EtcdPipelineInfo
+	if err := pipelinePtr.Unmarshal(resp.Kvs[0].Value); err != nil {
 		return nil, err
 	}
-	return pipelineInfo, nil
+	return ppsutil.GetPipelineInfo(pachClient, appEnv.PPSPipelineName, &pipelinePtr)
 }
 
 func do(appEnvObj interface{}) error {
@@ -94,7 +94,7 @@ func do(appEnvObj interface{}) error {
 		return fmt.Errorf("error constructing etcdClient: %v", err)
 	}
 
-	pipelineInfo, err := getPipelineInfo(etcdClient, appEnv)
+	pipelineInfo, err := getPipelineInfo(etcdClient, pachClient, appEnv)
 	if err != nil {
 		return fmt.Errorf("error getting pipelineInfo: %v", err)
 	}
@@ -103,7 +103,7 @@ func do(appEnvObj interface{}) error {
 	pachClient.SetAuthToken(pipelineInfo.Capability)
 
 	// Construct worker API server.
-	workerRcName := ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	workerRcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	apiServer, err := worker.NewAPIServer(pachClient, etcdClient, appEnv.PPSPrefix, pipelineInfo, appEnv.PodName, appEnv.Namespace)
 	if err != nil {
 		return err

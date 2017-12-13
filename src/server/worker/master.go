@@ -30,10 +30,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
-	"github.com/pachyderm/pachyderm/src/server/pkg/util"
-	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 )
 
 const (
@@ -107,16 +106,16 @@ func (a *APIServer) master() {
 		if _, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			pipelineName := a.pipelineInfo.Pipeline.Name
 			pipelines := a.pipelines.ReadWrite(stm)
-			pipelineInfo := new(pps.PipelineInfo)
-			if err := pipelines.Get(pipelineName, pipelineInfo); err != nil {
+			pipelinePtr := &pps.EtcdPipelineInfo{}
+			if err := pipelines.Get(pipelineName, pipelinePtr); err != nil {
 				return err
 			}
-			if pipelineInfo.State == pps.PipelineState_PIPELINE_PAUSED {
+			if pipelinePtr.State == pps.PipelineState_PIPELINE_PAUSED {
 				paused = true
 				return nil
 			}
-			pipelineInfo.State = pps.PipelineState_PIPELINE_RUNNING
-			return pipelines.Put(pipelineName, pipelineInfo)
+			pipelinePtr.State = pps.PipelineState_PIPELINE_RUNNING
+			return pipelines.Put(pipelineName, pipelinePtr)
 		}); err != nil {
 			return err
 		}
@@ -150,16 +149,16 @@ func (a *APIServer) serviceMaster() {
 		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			pipelineName := a.pipelineInfo.Pipeline.Name
 			pipelines := a.pipelines.ReadWrite(stm)
-			pipelineInfo := new(pps.PipelineInfo)
-			if err := pipelines.Get(pipelineName, pipelineInfo); err != nil {
+			pipelinePtr := &pps.EtcdPipelineInfo{}
+			if err := pipelines.Get(pipelineName, pipelinePtr); err != nil {
 				return err
 			}
-			if pipelineInfo.State == pps.PipelineState_PIPELINE_PAUSED {
+			if pipelinePtr.State == pps.PipelineState_PIPELINE_PAUSED {
 				paused = true
 				return nil
 			}
-			pipelineInfo.State = pps.PipelineState_PIPELINE_RUNNING
-			return pipelines.Put(pipelineName, pipelineInfo)
+			pipelinePtr.State = pps.PipelineState_PIPELINE_RUNNING
+			return pipelines.Put(pipelineName, pipelinePtr)
 		}); err != nil {
 			return err
 		}
@@ -630,7 +629,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		if err != nil {
 			return err
 		}
-		parallelism, err := ppsserver.GetExpectedNumWorkers(a.kubeClient, a.pipelineInfo.ParallelismSpec)
+		parallelism, err := ppsutil.GetExpectedNumWorkers(a.kubeClient, a.pipelineInfo.ParallelismSpec)
 		if err != nil {
 			return fmt.Errorf("error from GetExpectedNumWorkers: %v")
 		}
@@ -773,6 +772,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 					return err
 				}
 				jobInfo.Finished = now()
+				// TODO Why is this commented out?
 				// jobInfo.StatsCommit = statsCommit
 				return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE, reason)
 			})
@@ -979,7 +979,7 @@ func (a *APIServer) putTree(ctx context.Context, tree hashtree.OpenHashTree) (*p
 func (a *APIServer) scaleDownWorkers() error {
 	rc := a.kubeClient.CoreV1().ReplicationControllers(a.namespace)
 	workerRc, err := rc.Get(
-		ppsserver.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version),
+		ppsutil.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version),
 		metav1.GetOptions{})
 	if err != nil {
 		return err
@@ -998,12 +998,12 @@ func (a *APIServer) scaleDownWorkers() error {
 
 func (a *APIServer) scaleUpWorkers(logger *taggedLogger) error {
 	rc := a.kubeClient.CoreV1().ReplicationControllers(a.namespace)
-	workerRc, err := rc.Get(ppsserver.PipelineRcName(
+	workerRc, err := rc.Get(ppsutil.PipelineRcName(
 		a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version), metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
-	parallelism, err := ppsserver.GetExpectedNumWorkers(a.kubeClient, a.pipelineInfo.ParallelismSpec)
+	parallelism, err := ppsutil.GetExpectedNumWorkers(a.kubeClient, a.pipelineInfo.ParallelismSpec)
 	if err != nil {
 		logger.Logf("error getting number of workers, default to 1 worker: %v", err)
 		parallelism = 1
@@ -1015,11 +1015,11 @@ func (a *APIServer) scaleUpWorkers(logger *taggedLogger) error {
 	// is in scale-down mode and probably has removed its resource
 	// requirements.
 	if a.pipelineInfo.ResourceRequests != nil {
-		requestsResourceList, err := util.GetRequestsResourceListFromPipeline(a.pipelineInfo)
+		requestsResourceList, err := ppsutil.GetRequestsResourceListFromPipeline(a.pipelineInfo)
 		if err != nil {
 			return fmt.Errorf("error parsing resource spec; this is likely a bug: %v", err)
 		}
-		limitsResourceList, err := util.GetRequestsResourceListFromPipeline(a.pipelineInfo)
+		limitsResourceList, err := ppsutil.GetRequestsResourceListFromPipeline(a.pipelineInfo)
 		if err != nil {
 			return fmt.Errorf("error parsing resource spec; this is likely a bug: %v", err)
 		}

@@ -270,6 +270,16 @@ enum PipelineState {
   PIPELINE_PAUSED = 4;
 }
 
+// EtcdPipelineInfo is proto that Pachd stores in etcd for each pipeline. It
+// tracks the state of the pipeline, and points to its metadata in PFS (and,
+// by pointing to a PFS commit, de facto tracks the pipeline's version)
+message EtcdPipelineInfo {
+  PipelineState state = 1;
+  string reason = 4;
+  pfs.Commit spec_commit = 2;
+  map<int32, int32> job_counts = 3;
+}
+
 message PipelineInfo {
   reserved 3, 4;
   string id = 17 [(gogoproto.customname) = "ID"];
@@ -279,8 +289,16 @@ message PipelineInfo {
   ParallelismSpec parallelism_spec = 10;
   Egress egress = 15;
   google.protobuf.Timestamp created_at = 6;
+
+  // state indicates the current state of the pipeline. This is not stored in
+  // PFS along with the rest of this data structure--PPS.InspectPipeline fills
+  // it in
   PipelineState state = 7;
   string recent_error = 8;
+
+  // job_counts indicates the number of jobs within this pipeline in a given
+  // state. This is not stored in PFS along with the rest of this data
+  // structure--PPS.InspectPipeline fills it in
   map<int32, int32> job_counts = 9;
   string output_branch = 16;
   google.protobuf.Duration scale_down_threshold = 18;
@@ -294,6 +312,8 @@ message PipelineInfo {
   string salt = 25;
   string capability = 26;
   bool batch = 27;
+
+  // reason includes any error messages associated with a failed pipeline
   string reason = 28;
   int64 max_queue_size = 29;
   Service service = 30;

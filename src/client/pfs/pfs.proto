@@ -100,6 +100,9 @@ message CommitInfo {
   repeated Commit subvenance = 8;
   // this is the block that stores the serialized form of a tree that
   // represents the entire file system hierarchy of the repo at this commit
+  // If this is nil, then the commit is either open (in which case 'finished'
+  // will also be nil) or is the output commit of a failed job (in which case
+  // 'finished' will have a value -- the end time of the job)
   Object tree = 7;
 }
 
@@ -180,6 +183,9 @@ message BuildCommitRequest {
 message FinishCommitRequest {
   Commit commit = 1;
   Object tree = 2;
+  // If set, 'commit' will be closed (its 'finished' field will be set to the
+  // current time) but its 'tree' will be left nil.
+  bool failed = 3;
 }
 
 message InspectCommitRequest {
