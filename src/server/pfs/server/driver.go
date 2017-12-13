@@ -711,19 +711,19 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 		// until we find a closed commit. Otherwise, require that the immediate parent
 		// of 'commitInfo' is closed, as we use its contents
 		parentCommit := commitInfo.ParentCommit
-		for {
+		for parentCommit != nil {
 			parentCommitInfo, err := d.inspectCommit(ctx, parentCommit, false)
 			if err != nil {
 				return err
 			}
 			if parentCommitInfo.Tree != nil {
-				parentTree, err = d.getTreeForCommit(ctx, parentCommit) // result is empty if parentCommit == nil
-				if err != nil {
-					return err
-				}
 				break
 			}
 			parentCommit = parentCommitInfo.ParentCommit
+		}
+		parentTree, err = d.getTreeForCommit(ctx, parentCommit) // result is empty if parentCommit == nil
+		if err != nil {
+			return err
 		}
 
 		if tree == nil {
