@@ -4,6 +4,7 @@
 package watch
 
 import (
+	"bytes"
 	"context"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -96,9 +97,9 @@ func NewWatcherWithPrev(ctx context.Context, client *etcd.Client, prefix string)
 func newWatcher(ctx context.Context, client *etcd.Client, prefix string, withPrev bool) (Watcher, error) {
 	eventCh := make(chan *Event)
 	done := make(chan struct{})
-	// Firstly we list the collection to get the current items
-	// Sort them by ascending order because that's how the items would have
-	// been returned if we watched them from the beginning.
+	// First list the collection to get the current items
+	// Sort by mod revision--how the items would have been returned if we watched
+	// them from the beginning.
 	resp, err := client.Get(ctx, prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend))
 	if err != nil {
 		return nil, err
@@ -106,7 +107,7 @@ func newWatcher(ctx context.Context, client *etcd.Client, prefix string, withPre
 
 	nextRevision := resp.Header.Revision + 1
 	etcdWatcher := etcd.NewWatcher(client)
-	// Now we issue a watch that uses the revision timestamp returned by the
+	// Issue a watch that uses the revision timestamp returned by the
 	// Get request earlier.  That way even if some items are added between
 	// when we list the collection and when we start watching the collection,
 	// we won't miss any items.
@@ -138,6 +139,7 @@ func newWatcher(ctx context.Context, client *etcd.Client, prefix string, withPre
 				Rev:   etcdKv.ModRevision,
 			}
 		}
+		prefixBytes := []byte(prefix)
 		for {
 			var resp etcd.WatchResponse
 			var ok bool
@@ -159,12 +161,12 @@ func newWatcher(ctx context.Context, client *etcd.Client, prefix string, withPre
 			}
 			for _, etcdEv := range resp.Events {
 				ev := &Event{
-					Key:   etcdEv.Kv.Key,
+					Key:   bytes.TrimPrefix(etcdEv.Kv.Key, prefixBytes),
 					Value: etcdEv.Kv.Value,
 					Rev:   etcdEv.Kv.ModRevision,
 				}
 				if etcdEv.PrevKv != nil {
-					ev.PrevKey = etcdEv.PrevKv.Key
+					ev.PrevKey = bytes.TrimPrefix(etcdEv.PrevKv.Key, prefixBytes)
 					ev.PrevValue = etcdEv.PrevKv.Value
 				}
 				if etcdEv.Type == etcd.EventTypePut {

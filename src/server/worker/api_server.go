@@ -12,6 +12,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/user"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -46,9 +47,8 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
-	"github.com/pachyderm/pachyderm/src/server/pkg/util"
-	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 )
 
 const (
@@ -308,7 +308,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	if err != nil {
 		return nil, err
 	}
-	numWorkers, err := ppsserver.GetExpectedNumWorkers(kubeClient, pipelineInfo.ParallelismSpec)
+	numWorkers, err := ppsutil.GetExpectedNumWorkers(kubeClient, pipelineInfo.ParallelismSpec)
 	if err != nil {
 		logger.Logf("error getting number of workers, default to 1 worker: %v", err)
 		numWorkers = 1
@@ -327,7 +327,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		// means they default to a value of 0 which means we run the code as
 		// root which is the only sane default.
 		if image.Config.User != "" {
-			user, err := util.LookupUser(image.Config.User)
+			user, err := lookupUser(image.Config.User)
 			if err != nil && !os.IsNotExist(err) {
 				return nil, err
 			}
@@ -770,18 +770,18 @@ func (a *APIServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.
 	// Update job counts
 	if jobInfo.Pipeline != nil {
 		pipelines := a.pipelines.ReadWrite(stm)
-		pipelineInfo := new(pps.PipelineInfo)
-		if err := pipelines.Get(jobInfo.Pipeline.Name, pipelineInfo); err != nil {
+		pipelinePtr := &pps.EtcdPipelineInfo{}
+		if err := pipelines.Get(jobInfo.Pipeline.Name, pipelinePtr); err != nil {
 			return err
 		}
-		if pipelineInfo.JobCounts == nil {
-			pipelineInfo.JobCounts = make(map[int32]int32)
+		if pipelinePtr.JobCounts == nil {
+			pipelinePtr.JobCounts = make(map[int32]int32)
 		}
-		if pipelineInfo.JobCounts[int32(jobInfo.State)] != 0 {
-			pipelineInfo.JobCounts[int32(jobInfo.State)]--
+		if pipelinePtr.JobCounts[int32(jobInfo.State)] != 0 {
+			pipelinePtr.JobCounts[int32(jobInfo.State)]--
 		}
-		pipelineInfo.JobCounts[int32(state)]++
-		pipelines.Put(pipelineInfo.Pipeline.Name, pipelineInfo)
+		pipelinePtr.JobCounts[int32(state)]++
+		pipelines.Put(jobInfo.Pipeline.Name, pipelinePtr)
 	}
 	jobInfo.State = state
 	jobInfo.Reason = reason
@@ -1272,4 +1272,34 @@ func mergeStats(x, y *pps.ProcessStats) error {
 	x.DownloadBytes += y.DownloadBytes
 	x.UploadBytes += y.UploadBytes
 	return nil
+}
+
+// lookupUser is a reimplementation of user.Lookup that doesn't require cgo.
+func lookupUser(name string) (_ *user.User, retErr error) {
+	passwd, err := os.Open("/etc/passwd")
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := passwd.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	scanner := bufio.NewScanner(passwd)
+	for scanner.Scan() {
+		parts := strings.Split(scanner.Text(), ":")
+		if parts[0] == name {
+			return &user.User{
+				Username: parts[0],
+				Uid:      parts[2],
+				Gid:      parts[3],
+				Name:     parts[4],
+				HomeDir:  parts[5],
+			}, nil
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+	return nil, fmt.Errorf("user %s not found", name)
 }
