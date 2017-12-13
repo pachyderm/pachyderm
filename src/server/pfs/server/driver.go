@@ -681,7 +681,7 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 	return commit, nil
 }
 
-func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs.Object) error {
+func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs.Object, empty bool) (retErr error) {
 	if err := d.checkIsAuthorized(ctx, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
@@ -697,76 +697,84 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 	if err != nil {
 		return err
 	}
-
-	// Retrieve commit tree from parent commit. If tree != nil, walk up the branch
-	// until we find a closed commit. Otherwise, require that the immediate parent
-	// of 'commitInfo' is closed, as we use its contents
-	var parentTree hashtree.HashTree
-	parentCommit := commitInfo.ParentCommit
-	for {
-		parentTree, err = d.getTreeForCommit(ctx, parentCommit) // result is empty if parentCommit == nil
-		if err == nil {
-			break // done -- succeeded
+	defer func() {
+		// Delete the scratch space for this commit
+		_, err = d.etcdClient.Delete(ctx, prefix, etcd.WithPrefix())
+		if err != nil && retErr == nil {
+			retErr = err
 		}
-		if tree == nil || err.Error() != "cannot read from an open commit" {
-			return err
-		}
-		parentCommitInfo, err := d.inspectCommit(ctx, parentCommit, false)
-		if err != nil {
-			return err
-		}
-		parentCommit = parentCommitInfo.ParentCommit
-	}
+	}()
 
-	var finishedTree hashtree.HashTree
-	if tree == nil {
-		// Read everything under the scratch space for this commit
-		resp, err := d.etcdClient.Get(ctx, prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend))
-		if err != nil {
-			return err
-		}
-
-		tree := parentTree.Open()
-
-		if err := d.applyWrites(resp, tree); err != nil {
-			return err
+	var parentTree, finishedTree hashtree.HashTree
+	if !empty {
+		// Retrieve commit tree from parent commit. If tree != nil, walk up the branch
+		// until we find a closed commit. Otherwise, require that the immediate parent
+		// of 'commitInfo' is closed, as we use its contents
+		parentCommit := commitInfo.ParentCommit
+		for {
+			parentCommitInfo, err := d.inspectCommit(ctx, parentCommit, false)
+			if err != nil {
+				return err
+			}
+			if parentCommitInfo.Tree != nil {
+				parentTree, err = d.getTreeForCommit(ctx, parentCommit) // result is empty if parentCommit == nil
+				if err != nil {
+					return err
+				}
+				break
+			}
+			parentCommit = parentCommitInfo.ParentCommit
 		}
 
-		finishedTree, err = tree.Finish()
-		if err != nil {
-			return err
-		}
-		// Serialize the tree
-		data, err := hashtree.Serialize(finishedTree)
-		if err != nil {
-			return err
-		}
-
-		if len(data) > 0 {
-			// Put the tree into the blob store
-			obj, _, err := d.pachClient.PutObject(bytes.NewReader(data))
+		if tree == nil {
+			// Read everything under the scratch space for this commit
+			resp, err := d.etcdClient.Get(ctx, prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend))
 			if err != nil {
 				return err
 			}
 
-			commitInfo.Tree = obj
+			tree := parentTree.Open()
+
+			if err := d.applyWrites(resp, tree); err != nil {
+				return err
+			}
+
+			finishedTree, err = tree.Finish()
+			if err != nil {
+				return err
+			}
+			// Serialize the tree
+			data, err := hashtree.Serialize(finishedTree)
+			if err != nil {
+				return err
+			}
+
+			if len(data) > 0 {
+				// Put the tree into the blob store
+				obj, _, err := d.pachClient.PutObject(bytes.NewReader(data))
+				if err != nil {
+					return err
+				}
+
+				commitInfo.Tree = obj
+			}
+		} else {
+			var buf bytes.Buffer
+			if err := d.pachClient.GetObject(tree.Hash, &buf); err != nil {
+				return err
+			}
+			var err error
+			finishedTree, err = hashtree.Deserialize(buf.Bytes())
+			if err != nil {
+				return err
+			}
+			commitInfo.Tree = tree
 		}
-	} else {
-		var buf bytes.Buffer
-		if err := d.pachClient.GetObject(tree.Hash, &buf); err != nil {
-			return err
-		}
-		var err error
-		finishedTree, err = hashtree.Deserialize(buf.Bytes())
-		if err != nil {
-			return err
-		}
-		commitInfo.Tree = tree
+
+		commitInfo.SizeBytes = uint64(finishedTree.FSSize())
 	}
 
-	commitInfo.SizeBytes = uint64(finishedTree.FSSize())
 	commitInfo.Finished = now()
-
 	sizeChange := sizeChange(finishedTree, parentTree)
 	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
@@ -778,24 +786,24 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 		if err := d.openCommits.ReadWrite(stm).Delete(commit.ID); err != nil {
 			return fmt.Errorf("could not confirm that commit %s is open; this is likely a bug. err: %v", commit.ID, err)
 		}
-		// update repo size
-		repoInfo := new(pfs.RepoInfo)
-		if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
-			return err
-		}
+		if sizeChange > 0 {
+			// update repo size
+			repoInfo := new(pfs.RepoInfo)
+			if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
+				return err
+			}
 
-		// Increment the repo sizes by the sizes of the files that have
-		// been added in this commit.
-		repoInfo.SizeBytes += sizeChange
-		repos.Put(commit.Repo.Name, repoInfo)
+			// Increment the repo sizes by the sizes of the files that have
+			// been added in this commit.
+			repoInfo.SizeBytes += sizeChange
+			repos.Put(commit.Repo.Name, repoInfo)
+		}
 		return nil
 	})
 	if err != nil {
 		return err
 	}
 
-	// Delete the scratch space for this commit
-	_, err = d.etcdClient.Delete(ctx, prefix, etcd.WithPrefix())
 	return err
 }
 
@@ -940,6 +948,9 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 }
 
 func sizeChange(tree hashtree.HashTree, parentTree hashtree.HashTree) uint64 {
+	if tree == nil {
+		return 0 // output commit from a failed job -- will be ignored
+	}
 	if parentTree == nil {
 		return uint64(tree.FSSize())
 	}
