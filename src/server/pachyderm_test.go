@@ -108,7 +108,7 @@ func TestPipelineWithParallelism(t *testing.T) {
 	dataRepo := uniqueString("TestPipelineWithParallelism_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	numFiles := 1000
+	numFiles := 10000
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
@@ -470,88 +470,6 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 		false,
 	))
 }
-
-//func TestJob(t *testing.T) {
-//
-//testJob(t, 4)
-//}
-
-//func TestJobNoShard(t *testing.T) {
-//
-//testJob(t, 0)
-//}
-
-//func testJob(t *testing.T, shards int) {
-//if testing.Short() {
-//t.Skip("Skipping integration tests in short mode")
-//}
-//c := getPachClient(t)
-
-//// Create repo, commit, and branch
-//dataRepo := uniqueString("TestJob_data")
-//require.NoError(t, c.CreateRepo(dataRepo))
-//commit, err := c.StartCommit(dataRepo, "master")
-//require.NoError(t, err)
-
-//fileContent := "foo\n"
-//// We want to create lots of files so that each parallel job will be
-//// started with some files
-//numFiles := shards*100 + 100
-//for i := 0; i < numFiles; i++ {
-//fmt.Println("putting ", i)
-//_, err = c.PutFile(dataRepo, commit.ID, fmt.Sprintf("file-%d", i), strings.NewReader(fileContent))
-//require.NoError(t, err)
-//}
-//require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
-//job, err := c.CreateJob(
-//"",
-//[]string{"bash"},
-//[]string{fmt.Sprintf("cp %s %s", "/pfs/input/*", "/pfs/out")},
-//&pps.ParallelismSpec{
-//Constant: uint64(shards),
-//},
-//[]*pps.JobInput{{
-//Name:   "input",
-//Commit: commit,
-//Glob:   "/*",
-//}},
-//0,
-//0,
-//)
-//require.NoError(t, err)
-
-//// Wait for job to finish and then inspect
-//jobInfo, err := c.InspectJob(job.ID, true [> wait for job <])
-//require.NoError(t, err)
-//require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jobInfo.State.String())
-//require.NotNil(t, jobInfo.Started)
-//require.NotNil(t, jobInfo.Finished)
-
-//// Inspect job timestamps
-//tFin, _ := types.TimestampFromProto(jobInfo.Finished)
-//tStart, _ := types.TimestampFromProto(jobInfo.Started)
-//require.True(t, tFin.After(tStart))
-
-//// Inspect job parallelism
-//parellelism, err := pps_server.GetExpectedNumWorkers(getKubeClient(t), jobInfo.ParallelismSpec)
-//require.NoError(t, err)
-//require.True(t, parellelism > 0)
-
-//// Inspect output commit
-//_, err = c.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
-//require.NoError(t, err)
-
-//// Inspect output files
-//for i := 0; i < numFiles; i++ {
-//var buffer bytes.Buffer
-//require.NoError(t, c.GetFile(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID, fmt.Sprintf("file-%d", i), 0, 0, &buffer))
-//require.Equal(t, fileContent, buffer.String())
-//}
-//}
-
-// This test fails if you updated some static assets (such as doc/reference/pipeline_spec.md)
-// that are used in code but forgot to run:
-// $ make assets
 
 func TestPipelineFailure(t *testing.T) {
 	if testing.Short() {
@@ -1021,69 +939,6 @@ func TestProvenance2(t *testing.T) {
 	}
 }
 
-//func TestDirectory(t *testing.T) {
-//if testing.Short() {
-//t.Skip("Skipping integration tests in short mode")
-//}
-//
-
-//c := getPachClient(t)
-
-//ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
-//defer cancel() //cleanup resources
-
-//job1, err := c.PpsAPIClient.CreateJob(context.Background(), &pps.CreateJobRequest{
-//Transform: &pps.Transform{
-//Cmd: []string{"sh"},
-//Stdin: []string{
-//"mkdir /pfs/out/dir",
-//"echo foo >> /pfs/out/dir/file",
-//},
-//},
-//ParallelismSpec: &pps.ParallelismSpec{
-//Constant: 3,
-//},
-//})
-//require.NoError(t, err)
-//inspectJobRequest1 := &pps.InspectJobRequest{
-//Job:        job1,
-//BlockState: true,
-//}
-//jobInfo1, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest1)
-//require.NoError(t, err)
-//require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo1.State)
-
-//var buffer bytes.Buffer
-//require.NoError(t, c.GetFile(jobInfo1.OutputCommit.Repo.Name, jobInfo1.OutputCommit.ID, "dir/file", 0, 0, "", false, nil, &buffer))
-//require.Equal(t, "foo\nfoo\nfoo\n", buffer.String())
-
-//job2, err := c.PpsAPIClient.CreateJob(context.Background(), &pps.CreateJobRequest{
-//Transform: &pps.Transform{
-//Cmd: []string{"sh"},
-//Stdin: []string{
-//"mkdir /pfs/out/dir",
-//"echo bar >> /pfs/out/dir/file",
-//},
-//},
-//ParallelismSpec: &pps.ParallelismSpec{
-//Constant: 3,
-//},
-//ParentJob: job1,
-//})
-//require.NoError(t, err)
-//inspectJobRequest2 := &pps.InspectJobRequest{
-//Job:        job2,
-//BlockState: true,
-//}
-//jobInfo2, err := c.PpsAPIClient.InspectJob(ctx, inspectJobRequest2)
-//require.NoError(t, err)
-//require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo2.State)
-
-//buffer = bytes.Buffer{}
-//require.NoError(t, c.GetFile(jobInfo2.OutputCommit.Repo.Name, jobInfo2.OutputCommit.ID, "dir/file", 0, 0, "", false, nil, &buffer))
-//require.Equal(t, "foo\nfoo\nfoo\nbar\nbar\nbar\n", buffer.String())
-//}
-
 // TestFlushCommit
 func TestFlushCommit(t *testing.T) {
 	if testing.Short() {
@@ -1421,67 +1276,6 @@ func TestPipelineJobCounts(t *testing.T) {
 	require.Equal(t, int32(1), pipelineInfo.JobCounts[int32(pps.JobState_JOB_SUCCESS)])
 }
 
-//func TestJobState(t *testing.T) {
-//if testing.Short() {
-//t.Skip("Skipping integration tests in short mode")
-//}
-
-//
-//c := getPachClient(t)
-
-//// This job uses a nonexistent image; it's supposed to stay in the
-//// "creating" state
-//job, err := c.CreateJob(
-//"nonexistent",
-//[]string{"bash"},
-//nil,
-//&pps.ParallelismSpec{},
-//nil,
-//"",
-//0,
-//0,
-//)
-//require.NoError(t, err)
-//time.Sleep(10 * time.Second)
-//jobInfo, err := c.InspectJob(job.ID, false)
-//require.NoError(t, err)
-//require.Equal(t, pps.JobState_JOB_CREATING, jobInfo.State)
-
-//// This job sleeps for 20 secs
-//job, err = c.CreateJob(
-//"",
-//[]string{"bash"},
-//[]string{"sleep 20"},
-//&pps.ParallelismSpec{},
-//nil,
-//"",
-//0,
-//0,
-//)
-//require.NoError(t, err)
-//time.Sleep(10 * time.Second)
-//jobInfo, err = c.InspectJob(job.ID, false)
-//require.NoError(t, err)
-//require.Equal(t, pps.JobState_JOB_RUNNING, jobInfo.State)
-
-//// Wait for the job to complete
-//jobInfo, err = c.InspectJob(job.ID, true)
-//require.NoError(t, err)
-//require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
-//}
-
-//func TestClusterFunctioningAfterMembershipChange(t *testing.T) {
-//t.Skip("this test is flaky")
-//if testing.Short() {
-//t.Skip("Skipping integration tests in short mode")
-//}
-
-//scalePachd(t, true)
-//testJob(t, 4)
-//scalePachd(t, false)
-//testJob(t, 4)
-//}
-
 // TODO(msteffen): This test breaks the suite when run against cloud providers,
 // because killing the pachd pod breaks the connection with pachctl port-forward
 func TestDeleteAfterMembershipChange(t *testing.T) {
@@ -1550,88 +1344,6 @@ func TestPachdRestartResumesRunningJobs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
-
-//func TestScrubbedErrors(t *testing.T) {
-//if testing.Short() {
-//t.Skip("Skipping integration tests in short mode")
-//}
-
-//
-//c := getPachClient(t)
-
-//_, err := c.InspectPipeline("blah")
-//require.Equal(t, "PipelineInfos blah not found", err.Error())
-
-//err = c.CreatePipeline(
-//"lskdjf$#%^ERTYC",
-//"",
-//[]string{},
-//nil,
-//&pps.ParallelismSpec{
-//Constant: 1,
-//},
-//[]*pps.PipelineInput{{Repo: &pfs.Repo{Name: "test"}}},
-//false,
-//)
-//require.Equal(t, "repo test not found", err.Error())
-
-//_, err = c.CreateJob(
-//"askjdfhgsdflkjh",
-//[]string{},
-//[]string{},
-//&pps.ParallelismSpec{},
-//[]*pps.JobInput{client.NewJobInput("bogusRepo", "bogusCommit", client.DefaultMethod)},
-//"",
-//0,
-//0,
-//)
-//require.Matches(t, "could not create repo job_.*, not all provenance repos exist", err.Error())
-
-//_, err = c.InspectJob("blah", true)
-//require.Equal(t, "JobInfos blah not found", err.Error())
-
-//home := os.Getenv("HOME")
-//f, err := os.Create(filepath.Join(home, "/tmpfile"))
-//defer func() {
-//os.Remove(filepath.Join(home, "/tmpfile"))
-//}()
-//require.NoError(t, err)
-//err = c.GetLogs("bogusJobId", f)
-//require.Equal(t, "job bogusJobId not found", err.Error())
-//}
-
-//func TestLeakingRepo(t *testing.T) {
-//// If CreateJob fails, it should also destroy the output repo it creates
-//// If it doesn't, it can cause flush commit to fail, as a bogus repo will
-//// be listed in the output repo's provenance
-
-//// This test can't be run in parallel, since it requires using the repo counts as controls
-//if testing.Short() {
-//t.Skip("Skipping integration tests in short mode")
-//}
-
-//c := getPachClient(t)
-
-//repoInfos, err := c.ListRepo(nil)
-//require.NoError(t, err)
-//initialCount := len(repoInfos)
-
-//_, err = c.CreateJob(
-//"bogusImage",
-//[]string{},
-//[]string{},
-//&pps.ParallelismSpec{},
-//[]*pps.JobInput{client.NewJobInput("bogusRepo", "bogusCommit", client.DefaultMethod)},
-//"",
-//0,
-//0,
-//)
-//require.Matches(t, "could not create repo job_.*, not all provenance repos exist", err.Error())
-
-//repoInfos, err = c.ListRepo(nil)
-//require.NoError(t, err)
-//require.Equal(t, initialCount, len(repoInfos))
-//}
 
 // TestUpdatePipelineThatHasNoOutput tracks #1637
 func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
@@ -2890,30 +2602,39 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	require.NoError(t, err)
 
 	// Commit data to repo and flush commit
-	commit, err := c.StartCommit(dataRepo, "")
+	commit, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
-	require.NoError(t, c.SetBranch(dataRepo, commit.ID, "master"))
+	require.NoError(t, c.FinishCommit(dataRepo, "master"))
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
 	_, err = commitIter.Next()
 	require.NoError(t, err)
 
 	// Get logs from pipeline, using pipeline
-	iter := c.GetLogs(pipelineName, "", nil, "", false, false)
+	iter := c.GetLogs(pipelineName, "", nil, "", false, false, 0)
 	var numLogs int
 	for iter.Next() {
 		numLogs++
 		require.True(t, iter.Message().Message != "")
 	}
-	require.True(t, numLogs > 0)
+	require.Equal(t, 8, numLogs)
+	require.NoError(t, iter.Err())
+
+	// Get logs from pipeline, using pipeline
+	iter = c.GetLogs(pipelineName, "", nil, "", false, false, 2)
+	numLogs = 0
+	for iter.Next() {
+		numLogs++
+		require.True(t, iter.Message().Message != "")
+	}
+	require.Equal(t, 2, numLogs)
 	require.NoError(t, iter.Err())
 
 	// Get logs from pipeline, using a pipeline that doesn't exist. There should
 	// be an error
-	iter = c.GetLogs("__DOES_NOT_EXIST__", "", nil, "", false, false)
+	iter = c.GetLogs("__DOES_NOT_EXIST__", "", nil, "", false, false, 0)
 	require.False(t, iter.Next())
 	require.YesError(t, iter.Err())
 	require.Matches(t, "could not get", iter.Err().Error())
@@ -2926,7 +2647,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	// (2) Get logs using extracted job ID
 	// wait for logs to be collected
 	time.Sleep(10 * time.Second)
-	iter = c.GetLogs("", jobInfos[0].Job.ID, nil, "", false, false)
+	iter = c.GetLogs("", jobInfos[0].Job.ID, nil, "", false, false, 0)
 	numLogs = 0
 	for iter.Next() {
 		numLogs++
@@ -2938,7 +2659,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 
 	// Get logs from pipeline, using a job that doesn't exist. There should
 	// be an error
-	iter = c.GetLogs("", "__DOES_NOT_EXIST__", nil, "", false, false)
+	iter = c.GetLogs("", "__DOES_NOT_EXIST__", nil, "", false, false, 0)
 	require.False(t, iter.Next())
 	require.YesError(t, iter.Err())
 	require.Matches(t, "could not get", iter.Err().Error())
@@ -2951,15 +2672,15 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	// TODO(msteffen) This code shouldn't be wrapped in a backoff, but for some
 	// reason GetLogs is not yet 100% consistent. This reduces flakes in testing.
 	require.NoError(t, backoff.Retry(func() error {
-		pathLog := c.GetLogs("", jobInfos[0].Job.ID, []string{"/file"}, "", false, false)
+		pathLog := c.GetLogs("", jobInfos[0].Job.ID, []string{"/file"}, "", false, false, 0)
 
 		hexHash := "19fdf57bdf9eb5a9602bfa9c0e6dd7ed3835f8fd431d915003ea82747707be66"
 		require.Equal(t, hexHash, hex.EncodeToString(fileInfo.Hash)) // sanity-check test
-		hexLog := c.GetLogs("", jobInfos[0].Job.ID, []string{hexHash}, "", false, false)
+		hexLog := c.GetLogs("", jobInfos[0].Job.ID, []string{hexHash}, "", false, false, 0)
 
 		base64Hash := "Gf31e9+etalgK/qcDm3X7Tg1+P1DHZFQA+qCdHcHvmY="
 		require.Equal(t, base64Hash, base64.StdEncoding.EncodeToString(fileInfo.Hash))
-		base64Log := c.GetLogs("", jobInfos[0].Job.ID, []string{base64Hash}, "", false, false)
+		base64Log := c.GetLogs("", jobInfos[0].Job.ID, []string{base64Hash}, "", false, false, 0)
 
 		numLogs = 0
 		for {
@@ -2993,8 +2714,29 @@ func testGetLogs(t *testing.T, enableStats bool) {
 
 	// Filter logs based on input (using file that doesn't exist). There should
 	// be no logs
-	iter = c.GetLogs("", jobInfos[0].Job.ID, []string{"__DOES_NOT_EXIST__"}, "", false, false)
+	iter = c.GetLogs("", jobInfos[0].Job.ID, []string{"__DOES_NOT_EXIST__"}, "", false, false, 0)
 	require.False(t, iter.Next())
+	require.NoError(t, iter.Err())
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	iter = c.WithCtx(ctx).GetLogs(pipelineName, "", nil, "", false, false, 0)
+	numLogs = 0
+	for iter.Next() {
+		numLogs++
+		if numLogs == 8 {
+			// Do another commit so there's logs to receive with follow
+			_, err = c.StartCommit(dataRepo, "master")
+			require.NoError(t, err)
+			_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("bar\n"))
+			require.NoError(t, err)
+			require.NoError(t, c.FinishCommit(dataRepo, "master"))
+		}
+		require.True(t, iter.Message().Message != "")
+		if numLogs == 16 {
+			break
+		}
+	}
 	require.NoError(t, iter.Err())
 }
 
