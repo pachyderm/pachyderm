@@ -16,7 +16,7 @@ You will then be able to access the following information for any jobs correspon
 
 The primary and recommended way to view this information is via the Pachyderm Enterprise dashboard, which can be deployed as detailed [here](deployment.html#deploying-the-pachyderm-enterprise-edition-dashboard). However, the same information is available through the `inspect-datum` and `list-datum` `pachctl` commands or through their language client equivalents.  
 
-**Note** - We recommend enabling stats for all of your pipeline and only disabling the feature for very stable, long-running pipelines. In most cases, the debugging/maintainence benefits of the stats data will outweigh any disadvantages of storing the extra data associated with the stats. Also note, none of your data is duplicated in producing the stats.
+**Note** - We recommend enabling stats for all of your pipeline and only disabling the feature for very stable, long-running pipelines. In most cases, the debugging/maintenance benefits of the stats data will outweigh any disadvantages of storing the extra data associated with the stats. Also note, none of your data is duplicated in producing the stats.
 
 ## Enabling stats for a pipeline
 
