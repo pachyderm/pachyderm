@@ -1411,7 +1411,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		return nil, err
 	}
 	var visitErr error
-	var hasGitInput bool
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
 		if input.Cron != nil {
 			if err := pachClient.CreateRepo(input.Cron.Repo); err != nil && !isAlreadyExistsErr(err) {
@@ -1419,7 +1418,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			}
 		}
 		if input.Git != nil {
-			hasGitInput = true
 			if err := pachClient.CreateRepo(input.Git.Name); err != nil && !isAlreadyExistsErr(err) {
 				visitErr = err
 			}
@@ -1440,11 +1438,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		return nil, fmt.Errorf("error getting capability for the user: %v", err)
 	}
 	pipelineInfo.Capability = capabilityResp.Capability // User is authorized -- grant capability token to pipeline
-	if hasGitInput {
-		if err := a.checkOrDeployGithookService(); err != nil {
-			return nil, fmt.Errorf("error provisioning githook service: %v", err)
-		}
-	}
 
 	pipelineName := pipelineInfo.Pipeline.Name
 
