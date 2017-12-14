@@ -1492,7 +1492,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		if err := pachClient.CreateBranch(
 			pipelineName,
 			pipelineInfo.OutputBranch,
-			"",
+			pipelineInfo.OutputBranch,
 			nil,
 		); err != nil && !isNotFoundErr(err) {
 			return nil, fmt.Errorf("could not rename original output branch: %v", err)
