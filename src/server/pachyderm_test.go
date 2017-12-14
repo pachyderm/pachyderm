@@ -2029,7 +2029,6 @@ func TestUpdatePipeline(t *testing.T) {
 	dataRepo := uniqueString("TestUpdatePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	pipelineName := uniqueString("pipeline")
-	fmt.Println("2032: Creating first pipeline: ", pipelineName)
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
 		"",
@@ -2059,7 +2058,6 @@ func TestUpdatePipeline(t *testing.T) {
 
 	// Update the pipeline, this will not create a new pipeline as reprocess
 	// isn't set to true.
-	fmt.Println("2062: updating ", pipelineName, " without --reprocess")
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
 		"",
@@ -2086,7 +2084,6 @@ func TestUpdatePipeline(t *testing.T) {
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
 	require.Equal(t, "bar\n", buffer.String())
 
-	fmt.Println("2089: updating ", pipelineName, " *with* --reprocess")
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
@@ -2110,6 +2107,68 @@ func TestUpdatePipeline(t *testing.T) {
 	buffer.Reset()
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
 	require.Equal(t, "buzz\n", buffer.String())
+}
+
+func TestUpdatePipelineRunningJob(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+	// create repos
+	dataRepo := uniqueString("TestUpdatePipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	pipelineName := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{"sleep 60", "echo bar >/pfs/out/file && cat /pfs/*/* >>/pfs/out/file"},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+
+	_, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("1"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, "master"))
+
+	// Update the pipeline. This will not create a new pipeline as reprocess
+	// isn't set to true.
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{"echo bar >/pfs/out/file && cat /pfs/*/* >>/pfs/out/file"},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/*"),
+		"",
+		true,
+	))
+	buffer.Reset()
+	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
+	require.Equal(t, "bar\n", buffer.String())
+
+	_, err = c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("2"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, "master"))
+	iter, err = c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	collectCommitInfos(t, iter)
+
+	buffer.Reset()
+	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
+	require.Equal(t, "bar\n", buffer.String())
 }
 
 func TestStopPipeline(t *testing.T) {
@@ -6205,6 +6264,40 @@ func TestPipelineWithGitInputAndBranch(t *testing.T) {
 
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
 	require.Equal(t, "c7f697432dc805eb2b92f39d4961a585e8a0b2d5", strings.TrimSpace(buf.String()))
+}
+
+func TestGetFileWithEmptyCommits(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	repoName := uniqueString("TestGetFileWithEmptyCommits")
+	require.NoError(t, c.CreateRepo(repoName))
+
+	// Create a real commit in repoName/master
+	commit, err := c.StartCommit(repoName, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(repoName, commit.ID, "/file", strings.NewReader("data contents"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repoName, commit.ID))
+
+	// Create an empty commit in repoName/master
+	commit, err = c.StartCommit(repoName, "master")
+	c.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+		Commit: commit,
+		Empty:  true,
+	})
+
+	// We get a "file not found" error when we try to get a file from repoName/master
+	buf := bytes.Buffer{}
+	err = c.GetFile(repoName, "master", "/file", 0, 0, &buf)
+	require.YesError(t, err)
+	require.True(t, strings.Contains(err.Error(), "not found"))
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
