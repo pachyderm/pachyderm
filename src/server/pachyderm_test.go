@@ -2124,7 +2124,7 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 		pipelineName,
 		"",
 		[]string{"bash"},
-		[]string{"sleep 60", "echo bar >/pfs/out/file && cat /pfs/*/* >>/pfs/out/file"},
+		[]string{"sleep 60", "cat /pfs/*/* >/pfs/out/file", "echo bar >>/pfs/out/file"},
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
@@ -2139,13 +2139,15 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, "master"))
 
+	time.Sleep(20 * time.Second)
+
 	// Update the pipeline. This will not create a new pipeline as reprocess
 	// isn't set to true.
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
 		"",
 		[]string{"bash"},
-		[]string{"echo bar >/pfs/out/file && cat /pfs/*/* >>/pfs/out/file"},
+		[]string{"cat /pfs/*/* >/pfs/out/file", "echo bar >>/pfs/out/file"},
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
@@ -2153,22 +2155,13 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 		"",
 		true,
 	))
-	var buffer bytes.Buffer
-	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
-	require.Equal(t, "bar\n", buffer.String())
-
-	_, err = c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("2"))
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(dataRepo, "master"))
 	iter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 	collectCommitInfos(t, iter)
 
-	buffer.Reset()
+	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
-	require.Equal(t, "bar\n", buffer.String())
+	require.Equal(t, "1bar\n", buffer.String())
 }
 
 func TestStopPipeline(t *testing.T) {
