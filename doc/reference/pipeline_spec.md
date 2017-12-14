@@ -425,10 +425,11 @@ times from the past or, skip times from the present and only start running
 on matching times in the future. Times should be formatted according to [RFC
 3339](https://www.ietf.org/rfc/rfc3339.txt).
 
-#### Git Input
+#### Git Input (alpha feature)
 
-Git inputs allow you to specify a public git URL that gets triggered on new 
-commits. This only works on cloud deployments, not local clusters.
+Git inputs allow you to pull code from a public git URL and execute that code as part of your pipeline. A pipeline with a Git Input will get triggered (i.e. will see a new input commit and will spawn a job) whenever you commit to your git repository. 
+
+**Note:** This only works on cloud deployments, not local clusters.
 
 `input.git.URL` must be a URL of the form: `https://github.com/foo/bar.git`
 
@@ -437,26 +438,18 @@ those of `input.atom.name`. It is optional.
 
 `input.git.branch` is the name of the git branch to use as input
 
-Git inputs also require a bit more configuration to work. In order for new
-commits on the git repo to correspond to new commits on the Pachyderm repo, we
-need to setup a git webhook. At the moment, only GitHub is supported. (Though
-if you ask nicely, we can add support for GitLab or BitBucket).
+Git inputs also require some additional configuration. In order for new commits on your git repository to correspond to new commits on the Pachyderm Git Input repo, we need to setup a git webhook. At the moment, only GitHub is supported. (Though if you ask nicely, we can add support for GitLab or BitBucket).
 
-To setup the GitHub webhook, navigate to:
+1. Create your Pachyderm pipeline with the Git Input.
+
+2. To get the URL of the webhook to your cluster, do `pachctl inspect-pipeline` on your pipeline. You should see a `Githook URL` field with a URL set. Note - this will only work if you've deployed to a cloud provider (e.g. AWS, GKE). If you see `pending` as the value (and you've deployed on a cloud provider), it's possible that the service is still being provisioned. You can check `kubectl get svc` to make sure you see the `githook` service running.
+
+3. To setup the GitHub webhook, navigate to:
 
 ```
-https://github.com/foo/bar/settings/hooks/new
+https://github.com/<your_org>/<your_repo>/settings/hooks/new
 ```
-
-Where `foo` is your org, and `bar` is your repo. Or navigate to webhooks under
-settings. Then you'll want to specify the 'Payload URL'.
-
-To get the URL of the webhook to your cluster, do `pachctl list-pipeline` on
-your pipeline. You should see a `Githook URL` field with a URL set. Note - this
-will only work if you've deployed to a cloud provider (e.g. AWS, GKE). If you
-see `pending` as the value (and you've deployed on a cloud provider), it's
-possible that the service is still being provisioned. You can check `kubectl
- get svc` to make sure you see the `githook` service running.
+Or navigate to webhooks under settings. Then you'll want to copy the `Githook URL` into the 'Payload URL' field.
 
 ### OutputBranch (optional)
 
