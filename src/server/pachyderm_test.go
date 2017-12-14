@@ -2113,6 +2113,84 @@ func TestUpdatePipeline(t *testing.T) {
 	require.Equal(t, "buzz\n", buffer.String())
 }
 
+func TestUpdatePipelineStats(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+	// create repos
+	dataRepo := uniqueString("TestUpdatePipelineStats_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	pipelineName := uniqueString("TestUpdatePipelineStats_pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{
+			"echo foo",
+			"echo bar",
+			"echo buzz",
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out", dataRepo),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+
+	numFiles := 2000
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	for i := 0; i < numFiles; i++ {
+		_, err = c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i), strings.NewReader(""))
+		require.NoError(t, err)
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, "master"))
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	// Update the pipeline, this will not create a new pipeline as reprocess
+	// isn't set to true.
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{"echo bar >/pfs/out/file"},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/*"),
+		"",
+		true,
+	))
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					"echo foo",
+					"echo bar",
+					"echo buzz",
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out", dataRepo),
+				},
+			},
+			Input:       client.NewAtomInput(dataRepo, "/*"),
+			EnableStats: true,
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Update: true,
+		})
+	require.NoError(t, err)
+}
+
 func TestStopPipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
