@@ -266,7 +266,7 @@ func getGithookService(kubeClient *kube.Clientset, namespace string) (*v1.Servic
 	}
 	if len(serviceList.Items) != 1 {
 		return nil, &errGithookServiceNotFound{
-			fmt.Errorf("githook service not found"),
+			fmt.Errorf("expected 1 githook service but found %v", len(serviceList.Items)),
 		}
 	}
 	return &serviceList.Items[0], nil
