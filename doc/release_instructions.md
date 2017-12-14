@@ -52,7 +52,7 @@ You'll need the following credentials / tools:
 
 7) Run `make point-release` or `make VERSION_ADDITIONAL=<rc/version suffix> release-custom`
 
-8) Commit the changes (the dash compatibility file will have been newly created), e.g:
+8) Commit the changes (the dash compatibility file will have been newly created), e.g.:
 
 ```
 $git status

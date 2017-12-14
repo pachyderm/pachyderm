@@ -28,7 +28,7 @@ This example illustrates the use of GATK in Pachyderm for Germline variant calli
 
 ### Iris flower classification with R, Python, or Julia
 
-The "hello world" of machine learning implemented in Pachyderm.  You can deploy this pipeline using R, Python, or Julia commponents, where the pipeline includes the trianing of a SVM, LDA, Decision Tree, or Random Forest model and the subsequent utilization of that model to perform inferences.
+The "hello world" of machine learning implemented in Pachyderm.  You can deploy this pipeline using R, Python, or Julia components, where the pipeline includes the training of a SVM, LDA, Decision Tree, or Random Forest model and the subsequent utilization of that model to perform inferences.
 
 [R, Python, or Julia - Iris flower classification](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/ml/iris)
 
