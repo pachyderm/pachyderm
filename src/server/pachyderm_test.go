@@ -2153,7 +2153,7 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 		"",
 		true,
 	))
-	buffer.Reset()
+	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
 	require.Equal(t, "bar\n", buffer.String())
 
@@ -2162,7 +2162,7 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("2"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, "master"))
-	iter, err = c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	iter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 	collectCommitInfos(t, iter)
 
