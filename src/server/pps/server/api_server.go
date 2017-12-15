@@ -645,6 +645,7 @@ func (a *apiServer) listDatum(ctx context.Context, job *pps.Job, page, pageSize 
 	}
 	// If there's no stats commit (job not finished), compute datums using jobInfo
 	if jobInfo.StatsCommit == nil {
+		fmt.Printf("no stats commit ... job not finished ... so using job info to generate list of datums\n")
 		start := 0
 		end := df.Len()
 		if pageSize > 0 {
@@ -672,6 +673,7 @@ func (a *apiServer) listDatum(ctx context.Context, job *pps.Job, page, pageSize 
 			}
 			datumInfos = append(datumInfos, datumInfo)
 		}
+		fmt.Printf("heres some datums we listed: %v\n", datumInfos)
 		response.DatumInfos = datumInfos
 		return response, nil
 	}
@@ -731,6 +733,7 @@ func (a *apiServer) listDatum(ctx context.Context, job *pps.Job, page, pageSize 
 	var egGetDatums errgroup.Group
 	limiter := limit.New(200)
 	datumInfos := make([]*pps.DatumInfo, len(datumFileInfos))
+	fmt.Printf("found %v datums in stats commit\n", len(datumInfos))
 	for index, fileInfo := range datumFileInfos {
 		fileInfo := fileInfo
 		index := index
@@ -743,6 +746,7 @@ func (a *apiServer) listDatum(ctx context.Context, job *pps.Job, page, pageSize 
 				return nil
 			}
 			datum, err := a.getDatum(ctx, jobInfo.StatsCommit.Repo.Name, jobInfo.StatsCommit, job.ID, datumHash, df)
+			fmt.Printf("got datum: %v\n", datum)
 			if err != nil {
 				return err
 			}
