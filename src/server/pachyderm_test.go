@@ -2124,7 +2124,7 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 		pipelineName,
 		"",
 		[]string{"bash"},
-		[]string{"sleep 60", "cat /pfs/*/* >/pfs/out/file", "echo bar >>/pfs/out/file"},
+		[]string{"sleep 1000", "cat /pfs/*/* >/pfs/out/file", "echo bar >>/pfs/out/file"},
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
