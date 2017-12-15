@@ -188,6 +188,19 @@ message ResourceSpec {
   int64 gpu = 3;
 }
 
+// EtcdJobInfo is the portion of the JobInfo that gets stored in etcd during
+// job execution. It contains fields which change over the lifetime of the job
+// but aren't used in the execution of the job.
+message EtcdJobInfo {
+  JobState state = 1;
+  string reason = 2;
+  uint64 restart = 3;
+  int64 data_processed = 4;
+  int64 data_skipped = 5;
+  int64 data_total = 6;
+  ProcessStats stats = 7;
+}
+
 message JobInfo {
   reserved 4, 5;
   Job job = 1;
