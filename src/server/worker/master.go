@@ -598,12 +598,20 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 	// so, cancel the current context
 	go func() {
 		backoff.RetryNotify(func() error {
-			currentJobInfo, err := a.pachClient.WithCtx(ctx).InspectJob(jobInfo.Job.ID, true)
+			commitInfo, err := a.pachClient.PfsAPIClient.InspectCommit(ctx,
+				&pfs.InspectCommitRequest{
+					Commit: jobInfo.OutputCommit,
+					Block:  true,
+				})
 			if err != nil {
 				return err
 			}
-			switch currentJobInfo.State {
-			case pps.JobState_JOB_KILLED, pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE:
+			if commitInfo.Tree == nil {
+				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+					return a.updateJobState(stm, jobInfo, pps.JobState_JOB_KILLED, "")
+				}); err != nil {
+					return err
+				}
 				cancel()
 			}
 			return nil
@@ -772,8 +780,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 					return err
 				}
 				jobInfo.Finished = now()
-				// TODO Why is this commented out?
-				// jobInfo.StatsCommit = statsCommit
+				jobInfo.StatsCommit = statsCommit
 				return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE, reason)
 			})
 			// returning nil so we don't retry
