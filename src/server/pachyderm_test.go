@@ -2164,8 +2164,6 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 		return nil
 	}, b))
 
-	time.Sleep(20 * time.Second)
-
 	// Update the pipeline. This will not create a new pipeline as reprocess
 	// isn't set to true.
 	require.NoError(t, c.CreatePipeline(
@@ -2184,6 +2182,9 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 	require.NoError(t, err)
 	collectCommitInfos(t, iter)
 
+	// Currently, commits finish shortly before their respecive JobInfo documents
+	// are updated (the pipeline master receives the commit update and then
+	// updates the JobInfo document). Wait briefly for this to happen
 	time.Sleep(5 * time.Second)
 
 	jobInfos, err := c.ListJob(pipelineName, nil, nil)
