@@ -2139,7 +2139,24 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, "master"))
 
-	time.Sleep(20 * time.Second)
+	b := backoff.NewTestingBackOff()
+	b.MaxElapsedTime = 30 * time.Second
+	require.NoError(t, backoff.Retry(func() error {
+		jobInfos, err := c.ListJob(pipelineName, nil, nil)
+		if err != nil {
+			return err
+		}
+		if len(jobInfos) != 2 {
+			return fmt.Errorf("wrong number of jobs")
+		}
+		if pps.JobState_JOB_RUNNING != jobInfos[0].State {
+			return fmt.Errorf("wrong state: %v for %s", jobInfos[0].State, jobInfos[0].Job.ID)
+		}
+		if pps.JobState_JOB_SUCCESS != jobInfos[1].State {
+			return fmt.Errorf("wrong state: %v for %s", jobInfos[1].State, jobInfos[1].Job.ID)
+		}
+		return nil
+	}, b))
 
 	// Update the pipeline. This will not create a new pipeline as reprocess
 	// isn't set to true.
