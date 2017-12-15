@@ -2139,6 +2139,12 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, "master"))
 
+	_, err = c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("2"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, "master"))
+
 	b := backoff.NewTestingBackOff()
 	b.MaxElapsedTime = 30 * time.Second
 	require.NoError(t, backoff.Retry(func() error {
@@ -2157,6 +2163,8 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 		}
 		return nil
 	}, b))
+
+	time.Sleep(20 * time.Second)
 
 	// Update the pipeline. This will not create a new pipeline as reprocess
 	// isn't set to true.
@@ -2178,7 +2186,7 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
-	require.Equal(t, "1bar\n", buffer.String())
+	require.Equal(t, "2bar\n", buffer.String())
 
 	jobInfos, err := c.ListJob(pipelineName, nil, nil)
 	require.NoError(t, err)
