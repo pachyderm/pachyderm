@@ -1546,24 +1546,12 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				pipelineInfo.Salt = oldPipelineInfo.Salt
 			}
 
-			// Write updated PipelineInfo back to PFS.
+			// Write updated PipelineInfo back to PFS. If the head commit of
+			// SpecBranch is open this will fail which prevents 2
+			// UpdatePipelines from racing.
 			commit, err := pachClient.StartCommit(pipelineName, SpecBranch)
 			if err != nil {
 				return err
-			}
-			// Inspect the new PFS PipelineInfo commit and make sure that its parent
-			// is pointed to by pipelinePtr (from etcd). Checking this within a
-			// transaction prevents concurrent UpdatePipeline calls from racing, as
-			// all calls after the first will have a recent, open commit as the parent
-			commitInfo, err := pachClient.InspectCommit(pipelineName, commit.ID)
-			if commitInfo.ParentCommit.ID != pipelinePtr.SpecCommit.ID {
-				// multiple UpdatePipeline()s have raced. Delete open commit and fail
-				if err := pachClient.DeleteCommit(pipelineName, commit.ID); err != nil {
-					return fmt.Errorf("another UpdatePipeline call is already running, "+
-						"deleting the open commit from this call failed (%v). You may "+
-						"need to delete this commit manually", err)
-				}
-				return fmt.Errorf("another UpdatePipeline call is already running (parent: \"%v\"", commitInfo.ParentCommit)
 			}
 			// Delete the old PipelineInfo, otherwise the new PipelineInfo's bytes
 			// will be appended to the old bytes
