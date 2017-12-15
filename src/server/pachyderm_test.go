@@ -2155,14 +2155,11 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if len(jobInfos) != 2 {
+		if len(jobInfos) != 1 {
 			return fmt.Errorf("wrong number of jobs")
 		}
 		if pps.JobState_JOB_RUNNING != jobInfos[0].State {
 			return fmt.Errorf("wrong state: %v for %s", jobInfos[0].State, jobInfos[0].Job.ID)
-		}
-		if pps.JobState_JOB_SUCCESS != jobInfos[1].State {
-			return fmt.Errorf("wrong state: %v for %s", jobInfos[1].State, jobInfos[1].Job.ID)
 		}
 		return nil
 	}, b))
@@ -2191,10 +2188,9 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 
 	jobInfos, err := c.ListJob(pipelineName, nil, nil)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(jobInfos))
+	require.Equal(t, 2, len(jobInfos))
 	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jobInfos[0].State.String())
 	require.Equal(t, pps.JobState_JOB_KILLED.String(), jobInfos[1].State.String())
-	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jobInfos[2].State.String())
 }
 
 func TestStopPipeline(t *testing.T) {

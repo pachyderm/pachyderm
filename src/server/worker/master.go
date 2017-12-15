@@ -309,6 +309,9 @@ func (a *APIServer) jobSpawner(ctx context.Context) error {
 			if commitInfo.Finished != nil {
 				continue
 			}
+			if len(commitInfo.Provenance) == 1 {
+				continue
+			}
 			// We inspect the commit and check again if it has been finished,
 			// this is because we may receive a commit from subscribeCommit
 			// which was unfinished at the time but has since been finished by
