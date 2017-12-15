@@ -2179,6 +2179,13 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
 	require.Equal(t, "1bar\n", buffer.String())
+
+	jobInfos, err := c.ListJob(pipelineName, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(jobInfos))
+	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jobInfos[0].State.String())
+	require.Equal(t, pps.JobState_JOB_KILLED.String(), jobInfos[1].State.String())
+	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jobInfos[2].State.String())
 }
 
 func TestStopPipeline(t *testing.T) {
