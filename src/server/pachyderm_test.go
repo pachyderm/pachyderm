@@ -2186,7 +2186,7 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
-	require.Equal(t, "2bar\n", buffer.String())
+	require.Equal(t, "12bar\n", buffer.String())
 
 	jobInfos, err := c.ListJob(pipelineName, nil, nil)
 	require.NoError(t, err)

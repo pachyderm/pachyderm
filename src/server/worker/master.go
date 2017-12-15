@@ -309,6 +309,17 @@ func (a *APIServer) jobSpawner(ctx context.Context) error {
 			if commitInfo.Finished != nil {
 				continue
 			}
+			// We inspect the commit and check again if it has been finished,
+			// this is because we may receive a commit from subscribeCommit
+			// which was unfinished at the time but has since been finished by
+			// an update pipeline while we were waiting on the previous job.
+			commitInfo, err = a.pachClient.WithCtx(ctx).InspectCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
+			if err != nil {
+				return err
+			}
+			if commitInfo.Finished != nil {
+				continue
+			}
 			if a.pipelineInfo.ScaleDownThreshold != nil {
 				if err := a.scaleUpWorkers(logger); err != nil {
 					return err
