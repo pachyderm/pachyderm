@@ -17,7 +17,7 @@ curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v1.8.
     sudo mv ./kubectl /usr/local/bin/kubectl
 
 # Install minikube
-curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.23.0/minikube-linux-amd64 && \
+curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.24.1/minikube-linux-amd64 && \
     chmod +x ./minikube && \
     sudo mv ./minikube /usr/local/bin/minikube
 

@@ -291,8 +291,7 @@ func (c APIClient) DeleteBranch(repoName string, branch string) error {
 	return grpcutil.ScrubGRPC(err)
 }
 
-// DeleteCommit deletes a commit.
-// Note it is currently not implemented.
+// DeleteCommit deletes an unfinished commit.
 func (c APIClient) DeleteCommit(repoName string, commitID string) error {
 	_, err := c.PfsAPIClient.DeleteCommit(
 		c.Ctx(),

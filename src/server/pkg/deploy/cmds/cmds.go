@@ -63,6 +63,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var dev bool
 	var dryRun bool
 	var secure bool
+	var isS3V2 bool
 	var etcdNodes int
 	var etcdVolume string
 	var pachdCPURequest string
@@ -164,7 +165,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				}()
 			}
 			manifest := &bytes.Buffer{}
-			err := assets.WriteCustomAssets(manifest, opts, args, objectStoreBackend, persistentDiskBackend, secure)
+			err := assets.WriteCustomAssets(manifest, opts, args, objectStoreBackend, persistentDiskBackend, secure, isS3V2)
 			if err != nil {
 				return err
 			}
@@ -178,6 +179,8 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deployCustom.Flags().StringVar(&objectStoreBackend, "object-store", "s3",
 		"(required) Backend providing an object-storage API to pachyderm. One of: "+
 			"s3, gcs, or azure-blob.")
+	deployCustom.Flags().BoolVar(&isS3V2, "isS3V2", false, "Enable S3V2 client")
+
 	var cloudfrontDistribution string
 	var creds string
 	var iamRole string
