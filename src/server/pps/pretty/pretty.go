@@ -288,7 +288,7 @@ func jobState(jobState ppsclient.JobState) string {
 	case ppsclient.JobState_JOB_SUCCESS:
 		return color.New(color.FgGreen).SprintFunc()("success")
 	case ppsclient.JobState_JOB_KILLED:
-		return color.New(color.FgYellow).SprintFunc()("killed")
+		return color.New(color.FgRed).SprintFunc()("killed")
 	}
 	return "-"
 }
