@@ -2124,26 +2124,29 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 		pipelineName,
 		"",
 		[]string{"bash"},
-		[]string{"sleep 1000", "cat /pfs/*/* >/pfs/out/file", "echo bar >>/pfs/out/file"},
+		[]string{"sleep 1000"},
 		&pps.ParallelismSpec{
-			Constant: 1,
+			Constant: 2,
 		},
 		client.NewAtomInput(dataRepo, "/*"),
 		"",
 		false,
 	))
 
-	_, err := c.StartCommit(dataRepo, "master")
+	numFiles := 50
+	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("1"))
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(dataRepo, "master"))
+	for i := 0; i < numFiles; i++ {
+		_, err = c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file-%d", i), strings.NewReader(""))
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
-	_, err = c.StartCommit(dataRepo, "master")
+	commit2, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("2"))
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(dataRepo, "master"))
+	for i := 0; i < numFiles; i++ {
+		_, err = c.PutFile(dataRepo, commit2.ID, fmt.Sprintf("file-%d", i+numFiles), strings.NewReader(""))
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
 
 	b := backoff.NewTestingBackOff()
 	b.MaxElapsedTime = 30 * time.Second
@@ -2172,9 +2175,9 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 		pipelineName,
 		"",
 		[]string{"bash"},
-		[]string{"cat /pfs/*/* >/pfs/out/file", "echo bar >>/pfs/out/file"},
+		[]string{"true"},
 		&pps.ParallelismSpec{
-			Constant: 1,
+			Constant: 2,
 		},
 		client.NewAtomInput(dataRepo, "/*"),
 		"",
@@ -2184,9 +2187,7 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 	require.NoError(t, err)
 	collectCommitInfos(t, iter)
 
-	var buffer bytes.Buffer
-	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
-	require.Equal(t, "12bar\n", buffer.String())
+	time.Sleep(5 * time.Second)
 
 	jobInfos, err := c.ListJob(pipelineName, nil, nil)
 	require.NoError(t, err)
