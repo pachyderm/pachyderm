@@ -715,6 +715,56 @@ func TestLazyPipeline(t *testing.T) {
 	require.Equal(t, "foo\n", buffer.String())
 }
 
+func TestEmptyFiles(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+	// create repos
+	dataRepo := uniqueString("TestShufflePipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					fmt.Sprintf("if [ -s /pfs/%s/file]; then exit 1; fi", dataRepo),
+					fmt.Sprintf("ln -s /pfs/%s/file /pfs/out/file", dataRepo),
+				},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input: &pps.Input{
+				Atom: &pps.AtomInput{
+					Repo:       dataRepo,
+					Glob:       "/*",
+					EmptyFiles: true,
+				},
+			},
+		})
+	require.NoError(t, err)
+	// Do a commit
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, "master"))
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+	buffer := bytes.Buffer{}
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+}
+
 // There's an issue where if you use cp with certain flags, it might copy
 // special files without reading from them.  In our case, we use named pipes
 // to simulate lazy files, so the pipes themselves might get copied into
