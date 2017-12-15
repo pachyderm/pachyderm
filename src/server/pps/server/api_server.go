@@ -1507,6 +1507,12 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		if err != nil {
 			return nil, fmt.Errorf("couldn't get open commits on '%s': %v", pipelineInfo.OutputBranch, err)
 		}
+		// Notice that we're calling FinishCommit from most recent commit to
+		// least recent. This is important because the least recent commit is
+		// the output of the job currently being run, by finishing it last we
+		// make sure that when the master for that job gets cancelled it won't
+		// create jobs for more recent commits because they've already been
+		// finished.
 		for {
 			ci, err := iter.Recv()
 			if err == io.EOF {
