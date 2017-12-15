@@ -2236,7 +2236,7 @@ func TestSyncPullPush(t *testing.T) {
 	require.NoError(t, err)
 
 	puller := pfssync.NewPuller()
-	require.NoError(t, puller.Pull(client, tmpDir, repo1, commit1.ID, "", false, 2, nil, ""))
+	require.NoError(t, puller.Pull(client, tmpDir, repo1, commit1.ID, "", false, false, 2, nil, ""))
 	_, err = puller.CleanUp()
 	require.NoError(t, err)
 
@@ -2285,7 +2285,7 @@ func TestSyncPullPush(t *testing.T) {
 	require.NoError(t, err)
 
 	puller = pfssync.NewPuller()
-	require.NoError(t, puller.Pull(client, tmpDir2, repo1, "master", "", true, 2, nil, ""))
+	require.NoError(t, puller.Pull(client, tmpDir2, repo1, "master", "", true, false, 2, nil, ""))
 
 	data, err := ioutil.ReadFile(path.Join(tmpDir2, "dir/bar"))
 	require.NoError(t, err)
@@ -2364,7 +2364,7 @@ func TestSyncEmptyDir(t *testing.T) {
 	dir := filepath.Join(tmpDir, "tmp")
 
 	puller := pfssync.NewPuller()
-	require.NoError(t, puller.Pull(client, dir, repo, commit.ID, "", false, 0, nil, ""))
+	require.NoError(t, puller.Pull(client, dir, repo, commit.ID, "", false, false, 0, nil, ""))
 	_, err = os.Stat(dir)
 	require.NoError(t, err)
 	_, err = puller.CleanUp()
