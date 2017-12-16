@@ -24,6 +24,15 @@ $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.6
 
 # For Linux (64 bit):
 $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.6.6/pachctl_1.6.6_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+
+# For Windows10: enable Windows Subsystem for Linux by running this on Win shell & Restart the system.This will
+# enable a Linux-like bash shell in windows which can be triggered with `bash` .Thereafter you can run Linux command 
+# provided above
+
+> Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux
+
+
+
 ```
 
 
