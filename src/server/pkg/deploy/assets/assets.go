@@ -450,7 +450,7 @@ func PachdService() *v1.Service {
 	}
 }
 
-// GithookService returns a pachd service.
+// GithookService returns a k8s service that exposes a public IP
 func GithookService() *v1.Service {
 	name := "githook"
 	return &v1.Service{
