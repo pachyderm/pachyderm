@@ -8,16 +8,8 @@
       "repo": "images"
     }
   },
-  "enable_stats": true,
   "transform": {
-    "cmd": [
-      "/bin/bash"
-    ],
-    "stdin": [
-      "echo 'oh hai'",
-      "sleep $((1 + RANDOM % 100))",
-      "python3 /edges.py"
-    ],
+    "cmd": [ "python3", "/edges.py" ],
     "image": "pachyderm/opencv"
   }
 }
