@@ -125,10 +125,10 @@ message Datum {
 }
 
 enum DatumState {
-    STARTING = 0;
-    FAILED = 1;
-    SUCCESS = 2;
-    SKIPPED = 3;
+    FAILED = 0;
+    SUCCESS = 1;
+    SKIPPED = 2;
+    STARTING = 3;
 }
 
 message DatumInfo {
