@@ -505,7 +505,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 			pipelineInfos, err := client.ListPipeline()
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 			if raw {
 				for _, pipelineInfo := range pipelineInfos {
