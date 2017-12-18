@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"path/filepath"
 
@@ -392,7 +393,9 @@ func (c APIClient) PutObject(_r io.Reader, tags ...string) (object *pfs.Object, 
 	}()
 	buf := grpcutil.GetBuffer()
 	defer grpcutil.PutBuffer(buf)
+	fmt.Printf("going to copy io\n")
 	written, err := io.CopyBuffer(w, r, buf)
+	fmt.Printf("copied io and wrote (%v) w err %v\n", written, err)
 	if err != nil {
 		return nil, 0, grpcutil.ScrubGRPC(err)
 	}

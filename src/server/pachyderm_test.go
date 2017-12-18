@@ -2119,7 +2119,7 @@ func TestUpdatePipelineStats(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	//	defer require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := uniqueString("TestUpdatePipelineStats_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -2142,7 +2142,7 @@ func TestUpdatePipelineStats(t *testing.T) {
 		false,
 	))
 
-	numFiles := 2000
+	numFiles := 100000
 	commit, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
