@@ -618,7 +618,6 @@ func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, lo
 
 							lock.Lock()
 							defer lock.Unlock()
-							atomic.AddUint64(&stats.UploadBytes, fileInfo.SizeBytes)
 							if statsTree != nil {
 								if err := statsTree.PutFile(path.Join(statsRoot, subRelPath), fileInfo.Objects, int64(fileInfo.SizeBytes)); err != nil {
 									return err
