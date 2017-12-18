@@ -116,7 +116,7 @@ please make sure pachd is up (`kubectl get all`) and portforwarding is enabled
 Now we're ready to deploy Pachyderm itself.  This can be done in one command:
 
 ```sh
-$ pachctl deploy google ${BUCKET_NAME} ${STORAGE_SIZE} --dynamic-etcd-nodes=3 --dashboard
+$ pachctl deploy google ${BUCKET_NAME} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --dashboard
 ```
 
 Note, here we are using 3 etcd nodes to manage Pachyderm metadata. The number of etcd nodes can be adjusted as needed.
