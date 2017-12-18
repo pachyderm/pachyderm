@@ -142,7 +142,6 @@ func (a *apiServer) master() {
 					if err := event.Unmarshal(&pipelineName, &pipelinePtr); err != nil {
 						return err
 					}
-					log.Println("pipelineName: ", pipelineName)
 					// TODO fix this function and uncomment this line
 					// a.fixNonDefaultPipelines()
 

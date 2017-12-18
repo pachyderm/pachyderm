@@ -2185,7 +2185,7 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 	// Currently, commits finish shortly before their respecive JobInfo documents
 	// are updated (the pipeline master receives the commit update and then
 	// updates the JobInfo document). Wait briefly for this to happen
-	time.Sleep(5 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	jobInfos, err := c.ListJob(pipelineName, nil, nil)
 	require.NoError(t, err)
