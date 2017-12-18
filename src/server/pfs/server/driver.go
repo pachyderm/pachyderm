@@ -663,6 +663,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, descripti
 	if err := d.checkIsAuthorized(ctx, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
+	fmt.Printf("inspecting commit %v\n", commit)
 	commitInfo, err := d.inspectCommit(ctx, commit)
 	if err != nil {
 		return err
@@ -680,11 +681,13 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, descripti
 	}
 
 	// Read everything under the scratch space for this commit
+	fmt.Printf("reading scratch etcd for commit\n")
 	resp, err := d.etcdClient.Get(ctx, prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend))
 	if err != nil {
 		return err
 	}
 
+	fmt.Printf("getting tree for commit\n")
 	parentTree, err := d.getTreeForCommit(ctx, commitInfo.ParentCommit)
 	if err != nil {
 		return err
@@ -699,6 +702,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, descripti
 	if err != nil {
 		return err
 	}
+	fmt.Printf("finished tree\n")
 	// Serialize the tree
 	data, err := hashtree.Serialize(finishedTree)
 	if err != nil {
@@ -707,7 +711,9 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, descripti
 
 	if len(data) > 0 {
 		// Put the tree into the blob store
+		fmt.Printf("going to put object of size %v\n", len(data))
 		obj, _, err := d.pachClient.PutObject(bytes.NewReader(data))
+		fmt.Printf("put obj w err %v\n", err)
 		if err != nil {
 			return err
 		}
@@ -719,10 +725,12 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, descripti
 	commitInfo.Finished = now()
 
 	sizeChange := sizeChange(finishedTree, parentTree)
+	fmt.Printf("going to update commit/repo infos\n")
 	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
 		repos := d.repos.ReadWrite(stm)
 
+		fmt.Printf("putting commit to etcd\n")
 		commits.Put(commit.ID, commitInfo)
 		if err := d.openCommits.ReadWrite(stm).Delete(commit.ID); err != nil {
 			return fmt.Errorf("could not confirm that commit %s is open; this is likely a bug. err: %v", commit.ID, err)
@@ -742,7 +750,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, descripti
 	if err != nil {
 		return err
 	}
-
+	fmt.Printf("deleting scratch space for commit\n")
 	// Delete the scratch space for this commit
 	_, err = d.etcdClient.Delete(ctx, prefix, etcd.WithPrefix())
 	return err
