@@ -4,11 +4,12 @@ import (
 	"io"
 	"strings"
 
+	"cloud.google.com/go/storage"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/googleapi"
-	"google.golang.org/cloud"
-	"google.golang.org/cloud/storage"
+	"google.golang.org/api/iterator"
+	"google.golang.org/api/option"
 )
 
 type googleClient struct {
@@ -19,8 +20,8 @@ type googleClient struct {
 func newGoogleClient(ctx context.Context, bucket string) (*googleClient, error) {
 	client, err := storage.NewClient(
 		ctx,
-		cloud.WithTokenSource(google.ComputeTokenSource("")),
-		cloud.WithScopes(storage.ScopeFullControl),
+		option.WithTokenSource(google.ComputeTokenSource("")),
+		option.WithScopes(storage.ScopeFullControl),
 	)
 	if err != nil {
 		return nil, err
@@ -38,17 +39,17 @@ func (c *googleClient) Writer(name string) (io.WriteCloser, error) {
 }
 
 func (c *googleClient) Walk(name string, fn func(name string) error) error {
-	query := &storage.Query{Prefix: name}
-	for query != nil {
-		objectList, err := c.bucket.List(c.ctx, query)
+	objectIter := c.bucket.Objects(c.ctx, &storage.Query{Prefix: name})
+	for {
+		objectAttrs, err := objectIter.Next()
 		if err != nil {
+			if err == iterator.Done {
+				break
+			}
 			return err
 		}
-		query = objectList.Next
-		for _, objectAttrs := range objectList.Results {
-			if err := fn(objectAttrs.Name); err != nil {
-				return err
-			}
+		if err := fn(objectAttrs.Name); err != nil {
+			return err
 		}
 	}
 	return nil
