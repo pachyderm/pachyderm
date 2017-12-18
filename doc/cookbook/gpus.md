@@ -77,10 +77,10 @@ An example pipeline definition for a GPU enabled Pachyderm Pipeline is as follow
 **NOTE:** The following has been tested with these versions of k8s/kops:
 
 ```
-$kubectl version
+$ kubectl version
 Client Version: version.Info{Major:"1", Minor:"7", GitVersion:"v1.7.10", GitCommit:"b0b7a323cc5a4a2019b2e9520c21c7830b7f708e", GitTreeState:"clean", BuildDate:"2017-04-03T20:44:38Z", GoVersion:"go1.7.5", Compiler:"gc", Platform:"linux/amd64"}
 Server Version: version.Info{Major:"1", Minor:"6", GitVersion:"v1.7.10", GitCommit:"477efc3cbe6a7effca06bd1452fa356e2201e1ee", GitTreeState:"clean", BuildDate:"2017-04-19T20:22:08Z", GoVersion:"go1.7.5", Compiler:"gc", Platform:"linux/amd64"}
-$kops version
+$ kops version
 Version 1.6.0-beta.1 (git-77f222d)
 ```
 
@@ -94,7 +94,7 @@ To deploy a Pachyderm cluster with GPU support we assume:
 You can create GPU nodes by first using `kops` to create a new instance group:
 
 ```
-$kops create ig gpunodes --name XXXXXX-pachydermcluster.kubernetes.com --state s3://k8scom-state-store-pachyderm-YYYYY --subnet us-west-2c
+$ kops create ig gpunodes --name XXXXXX-pachydermcluster.kubernetes.com --state s3://k8scom-state-store-pachyderm-YYYYY --subnet us-west-2c
 ```
 
 where your specification will look something like:
@@ -119,17 +119,19 @@ In this example we used Amazon's p2.xlarge instance which contains a single GPU 
 
 **Node** -  If you upped your `rootVolumeSize` (and set the `rootVolumeType` in your other instance group), you should do the same here. In the absence of GPU jobs, normal jobs could get scheduled on this node, in which case you'll have the same disk requirements as the rest of your cluster. There is currently no way of setting "disk" resource requests, so we have to use a convention instead.
 
-### Enable GPUs at the k8s level
+### Enable GPUs only on the GPU nodes
 
-Again, you can use `kops` to edit your cluster:
+Again, you can use `kops` to edit your new instance group:
 
 ```
-$kops edit cluster --name XXXXXXX-pachydermcluster.kubernetes.com --state s3://k8scom-state-store-pachyderm-YYYY
+$ kops edit ig gpunodes --name XXXXXXX-pachydermcluster.kubernetes.com --state s3://k8scom-state-store-pachyderm-YYYY
 ```
 
 and add the fields:
 
 ```
+spec:
+...
   hooks:
   - execContainer:
       image: pachyderm/nvidia_driver_install:dcde76f919475a6585c9959b8ec41334b05103bb
@@ -140,16 +142,16 @@ and add the fields:
 
 **Note:** It's YAML and spaces are very important. Also, if you see "fields were not recognized," you likely need to update the version of `kops`.
 
-These lines provide an image that gets run on every node's startup. This image will install the NVIDIA drivers on the host machine, update the host machine to mount the device at startup, and restart the host machine.
+These lines provide an image that gets run on every GPU node's startup. This image will install the NVIDIA drivers on the host machine, update the host machine to mount the device at startup, and restart the host machine.
 
-The feature gate enables k8s GPU detection. That's what gives us the `alpha.kubernetes.io/nvidia-gypu: "1"` resources.
+The feature gate enables k8s GPU detection. That's what gives us the `alpha.kubernetes.io/nvidia-gpu: "1"` resources.
 
 ### Update your cluster
 
 Finally, we "update" our cluster to actually make the above changes:
 
 ```
-$kops update cluster --name XXXXXXX-pachydermcluster.kubernetes.com --state s3://k8scom-state-store-pachyderm-YYYY --yes
+$ kops update cluster --name XXXXXXX-pachydermcluster.kubernetes.com --state s3://k8scom-state-store-pachyderm-YYYY --yes
 ```
 
 This will spin up the new `gpunodes` instance group, and apply the changes to your kops cluster.
@@ -162,7 +164,7 @@ You'll know the cluster is ready to schedule GPU resources when:
 - the node has the `alpha.kubernetes.io/nvidia-gpu: "1"` field set (and the value is 1 not 0)
 
 ```
-$kubectl get nodes/ip-172-20-38-179.us-west-2.compute.internal -o yaml | grep nvidia
+$ kubectl get nodes/ip-172-20-38-179.us-west-2.compute.internal -o yaml | grep nvidia
     alpha.kubernetes.io/nvidia-gpu: "1"
     alpha.kubernetes.io/nvidia-gpu-name: Tesla-K80
     alpha.kubernetes.io/nvidia-gpu: "1"
@@ -176,7 +178,7 @@ If you're not seeing the node, its possible that your resource limits (from your
 If you have checked your resource limits and everything seems ok, its very possible that you're hitting [a known k8s bug](https://github.com/kubernetes/kubernetes/issues/45753).  In this case, you can try to overcome the issue by restarting the k8s api server. To do that, run:
 
 ```
-kubectl --namespace=kube-system get pod | grep kube-apiserver | cut -f 1 -d " " | while read pod; do kubectl --namespace=kube-system delete po/$pod; done
+$ kubectl --namespace=kube-system get pod | grep kube-apiserver | cut -f 1 -d " " | while read pod; do kubectl --namespace=kube-system delete po/$pod; done
 ```
 
 It can take a few minutes for the node to get recognized by the k8s cluster again.
@@ -192,13 +194,13 @@ If you want to test that your pipeline is working on a local cluster (you're Pac
 Install the NVIDIA drivers locally if you haven't already. If you're not sure, run `which nvidia-smi`. If it returns no result, you probably don't have them installed.  To install them, you can run the following command.  Warning! This command will restart your system and will modify your `/etc/rc.local` file, which you may want to backup.
 
 ```
-$sudo /usr/bin/docker run -v /:/rootfs/ -v /var/run/dbus:/var/run/dbus -v /run/systemd:/run/systemd --net=host --privileged pachyderm/nvidia_driver_install:dcde76f919475a6585c9959b8ec41334b05103bb
+$ sudo /usr/bin/docker run -v /:/rootfs/ -v /var/run/dbus:/var/run/dbus -v /run/systemd:/run/systemd --net=host --privileged pachyderm/nvidia_driver_install:dcde76f919475a6585c9959b8ec41334b05103bb
 ```
 
 After the restart, you should see the nvidia devices mounted:
 
 ```
-$ls /dev | grep nvidia
+$ ls /dev | grep nvidia
 nvidia0
 nvidiactl
 nvidia-modeset
@@ -208,10 +210,10 @@ nvidia-uvm
 At this point your local machine should be recognized by kubernetes. To check you'll do something like:
 
 ```
-$kubectl get nodes
+$ kubectl get nodes
 NAME        STATUS    AGE       VERSION
 127.0.0.1   Ready     13d       v1.7.10
-$kubectl get nodes/127.0.0.1 -o yaml | grep nvidia
+$ kubectl get nodes/127.0.0.1 -o yaml | grep nvidia
     alpha.kubernetes.io/nvidia-gpu: "1"
     alpha.kubernetes.io/nvidia-gpu-name: Quadro-M2000M
     alpha.kubernetes.io/nvidia-gpu: "1"
