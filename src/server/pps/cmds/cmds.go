@@ -212,10 +212,7 @@ $ pachctl list-job -p foo bar/YYY
 					i++
 				}
 			}
-			if err := client.RestartDatum(args[0], datumFilter); err != nil {
-				return err
-			}
-			return nil
+			return client.RestartDatum(args[0], datumFilter)
 		}),
 	}
 	var pageSize int64
