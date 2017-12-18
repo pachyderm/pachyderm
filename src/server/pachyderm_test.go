@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"math/rand"
 	"net"
 	"net/http"
@@ -31,6 +32,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfspretty "github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
@@ -52,6 +54,49 @@ const (
 	InCloudEnv = "PACH_TEST_CLOUD"
 )
 
+func TestSimplePipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	dataRepo := uniqueString("TestSimplePipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	pipeline := uniqueString("TestSimplePipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
+	require.Equal(t, "foo", buf.String())
+}
+
 func TestPipelineWithParallelism(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -60,7 +105,7 @@ func TestPipelineWithParallelism(t *testing.T) {
 	c := getPachClient(t)
 	defer require.NoError(t, c.DeleteAll())
 
-	dataRepo := uniqueString("TestPipelineInputDataModification_data")
+	dataRepo := uniqueString("TestPipelineWithParallelism_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	numFiles := 1000
@@ -5477,6 +5522,129 @@ func TestService(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 }
 
+func TestChunkSpec(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	dataRepo := uniqueString("TestChunkSpec_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	numFiles := 101
+	for i := 0; i < numFiles; i++ {
+		_, err = c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file%d", i), strings.NewReader("foo"))
+		require.NoError(t, err)
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	t.Run("number", func(t *testing.T) {
+		pipeline := uniqueString("TestChunkSpec")
+		c.PpsAPIClient.CreatePipeline(context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"bash"},
+					Stdin: []string{
+						fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+					},
+				},
+				Input:     client.NewAtomInput(dataRepo, "/*"),
+				ChunkSpec: &pps.ChunkSpec{Number: 1},
+			})
+
+		commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, []*pfs.Repo{client.NewRepo(pipeline)})
+		require.NoError(t, err)
+		commitInfos := collectCommitInfos(t, commitIter)
+		require.Equal(t, 1, len(commitInfos))
+
+		for i := 0; i < numFiles; i++ {
+			var buf bytes.Buffer
+			require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, fmt.Sprintf("file%d", i), 0, 0, &buf))
+			require.Equal(t, "foo", buf.String())
+		}
+	})
+	t.Run("size", func(t *testing.T) {
+		pipeline := uniqueString("TestChunkSpec")
+		c.PpsAPIClient.CreatePipeline(context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"bash"},
+					Stdin: []string{
+						fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+					},
+				},
+				Input:     client.NewAtomInput(dataRepo, "/*"),
+				ChunkSpec: &pps.ChunkSpec{SizeBytes: 5},
+			})
+
+		commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, []*pfs.Repo{client.NewRepo(pipeline)})
+		require.NoError(t, err)
+		commitInfos := collectCommitInfos(t, commitIter)
+		require.Equal(t, 1, len(commitInfos))
+
+		for i := 0; i < numFiles; i++ {
+			var buf bytes.Buffer
+			require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, fmt.Sprintf("file%d", i), 0, 0, &buf))
+			require.Equal(t, "foo", buf.String())
+		}
+	})
+}
+
+func TestLongDatums(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	dataRepo := uniqueString("TestLongDatums_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	numFiles := 8
+	for i := 0; i < numFiles; i++ {
+		_, err = c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file%d", i), strings.NewReader("foo"))
+		require.NoError(t, err)
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	pipeline := uniqueString("TestLongDatums")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			"sleep 1m",
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		&pps.ParallelismSpec{
+			Constant: 4,
+		},
+		client.NewAtomInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	for i := 0; i < numFiles; i++ {
+		var buf bytes.Buffer
+		require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, fmt.Sprintf("file%d", i), 0, 0, &buf))
+		require.Equal(t, "foo", buf.String())
+	}
+}
+
 func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -5498,12 +5666,12 @@ func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
+			fmt.Sprintf("cat /pfs/test-artifacts/.git/HEAD > /pfs/out/%v", outputFilename),
 		},
 		nil,
 		&pps.Input{
 			Git: &pps.GitInput{
-				URL: "git://github.com/pachyderm/pachyderm.git",
+				URL: "git://github.com/pachyderm/test-artifacts.git",
 			},
 		},
 		"",
@@ -5514,12 +5682,12 @@ func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
+			fmt.Sprintf("cat /pfs/test-artifacts/.git/HEAD > /pfs/out/%v", outputFilename),
 		},
 		nil,
 		&pps.Input{
 			Git: &pps.GitInput{
-				URL: "git@github.com:pachyderm/pachyderm.git",
+				URL: "git@github.com:pachyderm/test-artifacts.git",
 			},
 		},
 		"",
@@ -5530,12 +5698,12 @@ func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
+			fmt.Sprintf("cat /pfs/test-artifacts/.git/HEAD > /pfs/out/%v", outputFilename),
 		},
 		nil,
 		&pps.Input{
 			Git: &pps.GitInput{
-				URL: "https://github.com:pachyderm/pachyderm",
+				URL: "https://github.com:pachyderm/test-artifacts",
 			},
 		},
 		"",
@@ -5625,13 +5793,13 @@ func TestPipelineWithGitInputDuplicateNames(t *testing.T) {
 			Cross: []*pps.Input{
 				&pps.Input{
 					Git: &pps.GitInput{
-						URL:  "https://github.com/pachyderm/pachyderm.git",
+						URL:  "https://github.com/pachyderm/test-artifacts.git",
 						Name: "foo",
 					},
 				},
 				&pps.Input{
 					Git: &pps.GitInput{
-						URL:  "https://github.com/pachyderm/pachyderm.git",
+						URL:  "https://github.com/pachyderm/test-artifacts.git",
 						Name: "foo",
 					},
 				},
@@ -5653,12 +5821,12 @@ func TestPipelineWithGitInputDuplicateNames(t *testing.T) {
 			Cross: []*pps.Input{
 				&pps.Input{
 					Git: &pps.GitInput{
-						URL: "https://github.com/pachyderm/pachyderm.git",
+						URL: "https://github.com/pachyderm/test-artifacts.git",
 					},
 				},
 				&pps.Input{
 					Git: &pps.GitInput{
-						URL: "https://github.com/pachyderm/pachyderm.git",
+						URL: "https://github.com/pachyderm/test-artifacts.git",
 					},
 				},
 			},
@@ -5679,13 +5847,13 @@ func TestPipelineWithGitInputDuplicateNames(t *testing.T) {
 			Cross: []*pps.Input{
 				&pps.Input{
 					Git: &pps.GitInput{
-						URL:  "https://github.com/pachyderm/pachyderm.git",
+						URL:  "https://github.com/pachyderm/test-artifacts.git",
 						Name: "foo",
 					},
 				},
 				&pps.Input{
 					Git: &pps.GitInput{
-						URL: "https://github.com/pachyderm/pachyderm.git",
+						URL: "https://github.com/pachyderm/test-artifacts.git",
 					},
 				},
 			},
@@ -5710,12 +5878,12 @@ func TestPipelineWithGitInput(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
+			fmt.Sprintf("cat /pfs/test-artifacts/.git/HEAD > /pfs/out/%v", outputFilename),
 		},
 		nil,
 		&pps.Input{
 			Git: &pps.GitInput{
-				URL: "https://github.com/pachyderm/pachyderm.git",
+				URL: "https://github.com/pachyderm/test-artifacts.git",
 			},
 		},
 		"",
@@ -5725,14 +5893,15 @@ func TestPipelineWithGitInput(t *testing.T) {
 	repos, err := c.ListRepo(nil)
 	require.NoError(t, err)
 	found := false
+	newRepoName := "test-artifacts"
 	for _, repo := range repos {
-		if repo.Repo.Name == "pachyderm" {
+		if repo.Repo.Name == newRepoName {
 			found = true
 		}
 	}
 	require.Equal(t, true, found)
 
-	commits, err := c.ListCommit("pachyderm", "", "", 0)
+	commits, err := c.ListCommit(newRepoName, "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(commits))
 
@@ -5742,7 +5911,7 @@ func TestPipelineWithGitInput(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// Now there should be a new commit on the pachyderm repo / master branch
-	branches, err := c.ListBranch("pachyderm")
+	branches, err := c.ListBranch(newRepoName)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(branches))
 	require.Equal(t, "master", branches[0].Name)
@@ -5760,7 +5929,7 @@ func TestPipelineWithGitInput(t *testing.T) {
 	var buf bytes.Buffer
 
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
-	require.Equal(t, "c2ea2034f2df0914c837406dbd305726ea271015", strings.TrimSpace(buf.String()))
+	require.Equal(t, "9047fbfc251e7412ef3300868f743f2c24852539", strings.TrimSpace(buf.String()))
 }
 
 func TestPipelineWithGitInputSequentialPushes(t *testing.T) {
@@ -5778,12 +5947,12 @@ func TestPipelineWithGitInputSequentialPushes(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
+			fmt.Sprintf("cat /pfs/test-artifacts/.git/HEAD > /pfs/out/%v", outputFilename),
 		},
 		nil,
 		&pps.Input{
 			Git: &pps.GitInput{
-				URL: "https://github.com/pachyderm/pachyderm.git",
+				URL: "https://github.com/pachyderm/test-artifacts.git",
 			},
 		},
 		"",
@@ -5793,14 +5962,15 @@ func TestPipelineWithGitInputSequentialPushes(t *testing.T) {
 	repos, err := c.ListRepo(nil)
 	require.NoError(t, err)
 	found := false
+	newRepoName := "test-artifacts"
 	for _, repo := range repos {
-		if repo.Repo.Name == "pachyderm" {
+		if repo.Repo.Name == newRepoName {
 			found = true
 		}
 	}
 	require.Equal(t, true, found)
 
-	commits, err := c.ListCommit("pachyderm", "", "", 0)
+	commits, err := c.ListCommit(newRepoName, "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(commits))
 
@@ -5810,7 +5980,7 @@ func TestPipelineWithGitInputSequentialPushes(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// Now there should be a new commit on the pachyderm repo / master branch
-	branches, err := c.ListBranch("pachyderm")
+	branches, err := c.ListBranch(newRepoName)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(branches))
 	require.Equal(t, "master", branches[0].Name)
@@ -5827,7 +5997,7 @@ func TestPipelineWithGitInputSequentialPushes(t *testing.T) {
 	var buf bytes.Buffer
 
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
-	require.Equal(t, "c2ea2034f2df0914c837406dbd305726ea271015", strings.TrimSpace(buf.String()))
+	require.Equal(t, "9047fbfc251e7412ef3300868f743f2c24852539", strings.TrimSpace(buf.String()))
 
 	// To trigger the pipeline, we'll need to simulate the webhook by pushing a POST payload to the githook server
 	simulateGitPush(t, "../../etc/testing/artifacts/githook-payloads/master-2.json")
@@ -5835,7 +6005,7 @@ func TestPipelineWithGitInputSequentialPushes(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// Now there should be a new commit on the pachyderm repo / master branch
-	branches, err = c.ListBranch("pachyderm")
+	branches, err = c.ListBranch(newRepoName)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(branches))
 	require.Equal(t, "master", branches[0].Name)
@@ -5851,7 +6021,7 @@ func TestPipelineWithGitInputSequentialPushes(t *testing.T) {
 
 	buf.Reset()
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
-	require.Equal(t, "6c7da7691d949d2d7442e64911463cd4b88b2709", strings.TrimSpace(buf.String()))
+	require.Equal(t, "162963b4adf00cd378488abdedc085ba08e21674", strings.TrimSpace(buf.String()))
 }
 
 func TestPipelineWithGitInputCustomName(t *testing.T) {
@@ -5875,7 +6045,7 @@ func TestPipelineWithGitInputCustomName(t *testing.T) {
 		nil,
 		&pps.Input{
 			Git: &pps.GitInput{
-				URL:  "https://github.com/pachyderm/pachyderm.git",
+				URL:  "https://github.com/pachyderm/test-artifacts.git",
 				Name: repoName,
 			},
 		},
@@ -5921,7 +6091,7 @@ func TestPipelineWithGitInputCustomName(t *testing.T) {
 	var buf bytes.Buffer
 
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
-	require.Equal(t, "c2ea2034f2df0914c837406dbd305726ea271015", strings.TrimSpace(buf.String()))
+	require.Equal(t, "9047fbfc251e7412ef3300868f743f2c24852539", strings.TrimSpace(buf.String()))
 }
 
 func TestPipelineWithGitInputMultiPipelineSeparateInputs(t *testing.T) {
@@ -5949,7 +6119,7 @@ func TestPipelineWithGitInputMultiPipelineSeparateInputs(t *testing.T) {
 			nil,
 			&pps.Input{
 				Git: &pps.GitInput{
-					URL:  "https://github.com/pachyderm/pachyderm.git",
+					URL:  "https://github.com/pachyderm/test-artifacts.git",
 					Name: repoName,
 				},
 			},
@@ -5997,7 +6167,7 @@ func TestPipelineWithGitInputMultiPipelineSeparateInputs(t *testing.T) {
 		var buf bytes.Buffer
 
 		require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
-		require.Equal(t, "c2ea2034f2df0914c837406dbd305726ea271015", strings.TrimSpace(buf.String()))
+		require.Equal(t, "9047fbfc251e7412ef3300868f743f2c24852539", strings.TrimSpace(buf.String()))
 	}
 }
 
@@ -6010,7 +6180,7 @@ func TestPipelineWithGitInputMultiPipelineSameInput(t *testing.T) {
 	defer require.NoError(t, c.DeleteAll())
 
 	outputFilename := "commitSHA"
-	repos := []string{"pachyderm", "pachyderm"}
+	repos := []string{"test-artifacts", "test-artifacts"}
 	pipelines := []string{
 		uniqueString("github_pipeline_a_"),
 		uniqueString("github_pipeline_b_"),
@@ -6026,7 +6196,7 @@ func TestPipelineWithGitInputMultiPipelineSameInput(t *testing.T) {
 			nil,
 			&pps.Input{
 				Git: &pps.GitInput{
-					URL: "https://github.com/pachyderm/pachyderm.git",
+					URL: "https://github.com/pachyderm/test-artifacts.git",
 				},
 			},
 			"",
@@ -6072,7 +6242,7 @@ func TestPipelineWithGitInputMultiPipelineSameInput(t *testing.T) {
 		commit = commitInfo.Commit
 		var buf bytes.Buffer
 		require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
-		require.Equal(t, "c2ea2034f2df0914c837406dbd305726ea271015", strings.TrimSpace(buf.String()))
+		require.Equal(t, "9047fbfc251e7412ef3300868f743f2c24852539", strings.TrimSpace(buf.String()))
 	}
 }
 
@@ -6084,7 +6254,7 @@ func TestPipelineWithGitInputAndBranch(t *testing.T) {
 	c := getPachClient(t)
 	defer require.NoError(t, c.DeleteAll())
 
-	branchName := "test_artifact_dont_delete"
+	branchName := "foo"
 	outputFilename := "commitSHA"
 	pipeline := uniqueString("github_pipeline")
 	require.NoError(t, c.CreatePipeline(
@@ -6092,12 +6262,12 @@ func TestPipelineWithGitInputAndBranch(t *testing.T) {
 		"",
 		[]string{"bash"},
 		[]string{
-			fmt.Sprintf("cat /pfs/pachyderm/.git/HEAD > /pfs/out/%v", outputFilename),
+			fmt.Sprintf("cat /pfs/test-artifacts/.git/HEAD > /pfs/out/%v", outputFilename),
 		},
 		nil,
 		&pps.Input{
 			Git: &pps.GitInput{
-				URL:    "https://github.com/pachyderm/pachyderm.git",
+				URL:    "https://github.com/pachyderm/test-artifacts.git",
 				Branch: branchName,
 			},
 		},
@@ -6108,14 +6278,15 @@ func TestPipelineWithGitInputAndBranch(t *testing.T) {
 	repos, err := c.ListRepo(nil)
 	require.NoError(t, err)
 	found := false
+	newRepoName := "test-artifacts"
 	for _, repo := range repos {
-		if repo.Repo.Name == "pachyderm" {
+		if repo.Repo.Name == newRepoName {
 			found = true
 		}
 	}
 	require.Equal(t, true, found)
 
-	commits, err := c.ListCommit("pachyderm", "", "", 0)
+	commits, err := c.ListCommit(newRepoName, "", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(commits))
 
@@ -6124,7 +6295,7 @@ func TestPipelineWithGitInputAndBranch(t *testing.T) {
 	// Need to sleep since the webhook http handler is non blocking
 	time.Sleep(5 * time.Second)
 	// Now there should be a new commit on the pachyderm repo / master branch
-	branches, err := c.ListBranch("pachyderm")
+	branches, err := c.ListBranch(newRepoName)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(branches))
 
@@ -6133,7 +6304,7 @@ func TestPipelineWithGitInputAndBranch(t *testing.T) {
 	// Need to sleep since the webhook http handler is non blocking
 	time.Sleep(2 * time.Second)
 	// Now there should be a new commit on the pachyderm repo / master branch
-	branches, err = c.ListBranch("pachyderm")
+	branches, err = c.ListBranch(newRepoName)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(branches))
 	require.Equal(t, branchName, branches[0].Name)
@@ -6151,7 +6322,245 @@ func TestPipelineWithGitInputAndBranch(t *testing.T) {
 	var buf bytes.Buffer
 
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, outputFilename, 0, 0, &buf))
-	require.Equal(t, "c7f697432dc805eb2b92f39d4961a585e8a0b2d5", strings.TrimSpace(buf.String()))
+	require.Equal(t, "81269575dcfc6ac2e2a463ad8016163f79c97f5c", strings.TrimSpace(buf.String()))
+}
+
+func TestPipelineWithDatumTimeout(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	dataRepo := uniqueString("TestPipelineWithDatumTimeout_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "file",
+		strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+	timeout := 20
+	pipeline := uniqueString("pipeline")
+	duration, err := time.ParseDuration(fmt.Sprintf("%vs", timeout))
+	require.NoError(t, err)
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					"while true; do sleep 1; date; done",
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+				},
+			},
+			Input:        client.NewAtomInput(dataRepo, "/*"),
+			EnableStats:  true,
+			DatumTimeout: types.DurationProto(duration),
+		},
+	)
+	require.NoError(t, err)
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	jobs, err := c.ListJob(pipeline, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+	// Block on the job being complete before we call ListDatum
+	jobInfo, err := c.InspectJob(jobs[0].Job.ID, true)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
+
+	// Now validate the datum timed out properly
+	resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(resp.DatumInfos))
+
+	datum, err := c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
+	require.NoError(t, err)
+	require.Equal(t, pps.DatumState_FAILED, datum.State)
+	// ProcessTime looks like "20 seconds"
+	tokens := strings.Split(pretty.Duration(datum.Stats.ProcessTime), " ")
+	require.Equal(t, 2, len(tokens))
+	seconds, err := strconv.Atoi(tokens[0])
+	require.NoError(t, err)
+	require.Equal(t, timeout, seconds)
+}
+
+func TestPipelineWithDatumTimeoutControl(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	dataRepo := uniqueString("TestPipelineWithDatumTimeoutControl_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "file",
+		strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+	timeout := 20
+	pipeline := uniqueString("pipeline")
+	duration, err := time.ParseDuration(fmt.Sprintf("%vs", timeout))
+	require.NoError(t, err)
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					fmt.Sprintf("sleep %v", timeout-10),
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+				},
+			},
+			Input:        client.NewAtomInput(dataRepo, "/*"),
+			DatumTimeout: types.DurationProto(duration),
+		},
+	)
+	require.NoError(t, err)
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	jobs, err := c.ListJob(pipeline, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+	// Block on the job being complete before we call ListDatum
+	jobInfo, err := c.InspectJob(jobs[0].Job.ID, true)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+}
+
+func TestPipelineWithJobTimeout(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	dataRepo := uniqueString("TestPipelineWithDatumTimeout_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	numFiles := 2
+	for i := 0; i < numFiles; i++ {
+		_, err = c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file-%v", i),
+			strings.NewReader("foo"))
+		require.NoError(t, err)
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+	timeout := 20
+	pipeline := uniqueString("pipeline")
+	duration, err := time.ParseDuration(fmt.Sprintf("%vs", timeout))
+	require.NoError(t, err)
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					fmt.Sprintf("sleep %v", timeout), // we have 2 datums, so the total exec time will more than double the timeout value
+					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+				},
+			},
+			Input:       client.NewAtomInput(dataRepo, "/*"),
+			EnableStats: true,
+			JobTimeout:  types.DurationProto(duration),
+		},
+	)
+	require.NoError(t, err)
+
+	// Wait for the job to get scheduled / appear in listjob
+	// A sleep of 15s is insufficient
+	time.Sleep(25 * time.Second)
+	jobs, err := c.ListJob(pipeline, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+
+	// Block on the job being complete before we call ListDatum
+	jobInfo, err := c.InspectJob(jobs[0].Job.ID, true)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
+	durationString := pretty.TimeDifference(jobInfo.Started, jobInfo.Finished)
+	// duration looks like "20 seconds"
+	tokens := strings.Split(durationString, " ")
+	require.Equal(t, 2, len(tokens))
+	seconds, err := strconv.Atoi(tokens[0])
+	require.NoError(t, err)
+	epsilon := math.Abs(float64(seconds - timeout))
+	require.True(t, epsilon <= 1.0)
+}
+
+func TestCommitDescription(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	dataRepo := uniqueString("TestCommitDescription")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	// Test putting a message in StartCommit
+	commit, err := c.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
+		Branch:      "master",
+		Parent:      client.NewCommit(dataRepo, ""),
+		Description: "test commit description in start-commit",
+	})
+	require.NoError(t, err)
+	c.FinishCommit(dataRepo, commit.ID)
+	commitInfo, err := c.InspectCommit(dataRepo, commit.ID)
+	require.NoError(t, err)
+	require.Equal(t, "test commit description in start-commit", commitInfo.Description)
+	require.NoError(t, pfspretty.PrintDetailedCommitInfo(commitInfo))
+
+	// Test putting a message in FinishCommit
+	commit, err = c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	c.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+		Commit:      commit,
+		Description: "test commit description in finish-commit",
+	})
+	commitInfo, err = c.InspectCommit(dataRepo, commit.ID)
+	require.NoError(t, err)
+	require.Equal(t, "test commit description in finish-commit", commitInfo.Description)
+	require.NoError(t, pfspretty.PrintDetailedCommitInfo(commitInfo))
+
+	// Test overwriting a commit message
+	commit, err = c.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
+		Branch:      "master",
+		Parent:      client.NewCommit(dataRepo, ""),
+		Description: "test commit description in start-commit",
+	})
+	require.NoError(t, err)
+	c.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+		Commit:      commit,
+		Description: "test commit description in finish-commit that overwrites",
+	})
+	commitInfo, err = c.InspectCommit(dataRepo, commit.ID)
+	require.NoError(t, err)
+	require.Equal(t, "test commit description in finish-commit that overwrites", commitInfo.Description)
+	require.NoError(t, pfspretty.PrintDetailedCommitInfo(commitInfo))
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {

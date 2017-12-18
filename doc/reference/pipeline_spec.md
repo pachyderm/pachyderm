@@ -40,6 +40,8 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
     "cpu": double,
     "gpu": double
   },
+  "datum_timeout": string,
+  "job_timeout": string,
   "input": {
     <"atom", "cross", "union", or "cron", see below>
   },
@@ -54,7 +56,8 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   "service": {
     "internal_port": int,
     "external_port": int
-  }
+  },
+  "max_queue_size": int
 }
 
 ------------------------------------
@@ -243,6 +246,23 @@ might be killed.
 `resource_limits` describes the upper threshold of allowed resources a given 
 worker can consume. If a worker exceeds this value, it will be evicted.
 
+
+### Datum Timeout (optional)
+
+`datum_timeout` is a string (e.g. `1s`, `5m`, or `15h`) that determines the 
+maximum execution time allowed per datum. So no matter what your parallelism
+or number of datums, no single datum is allowed to exceed this value.
+
+### Job Timeout (optional)
+
+`job_timeout` is a string (e.g. `1s`, `5m`, or `15h`) that determines the 
+maximum execution time allowed for a job. It differs from `datum_timeout`
+in that the limit gets applied across all workers and all datums. That 
+means that you'll need to keep in mind the parallelism, total number of
+datums, and execution time per datum when setting this value. Keep in 
+mind that the number of datums may change over jobs. Some new commits may
+have a bunch of new files (and so new datums). Some may have fewer.
+
 ### Input (required)
 
 `input` specifies repos that will be visible to the jobs during runtime.
@@ -275,11 +295,10 @@ single repo.
 }
 ```
 
-`input.atom.name` is the name of the input.  An input with name `XXX` will be visible
-under the path `/pfs/XXX` when a job runs.  Input names must be unique. If an
-input's name is not specified, it defaults to the name of the repo. Therefore,
-if you have two inputs from the same repo, you'll need to give at least one
-of them a unique name.
+`input.atom.name` is the name of the input.  An input with name `XXX` will be
+visible under the path `/pfs/XXX` when a job runs.  Input names must be unique
+if the inputs are crossed, but they may be duplicated between `AtomInput`s that are unioned.  This is because when `AtomInput`s are unioned, you'll only ever see a datum from one input at a time. Overlapping the names of unioned inputs allows
+you to write simpler code since you no longer need to consider which input directory a particular datum come from.  If an input's name is not specified, it defaults to the name of the repo.  Therefore, if you have two crossed inputs from the same repo, you'll be required to give at least one of them a unique name.
 
 `input.atom.repo` is the `repo` to be used for the input.
 
@@ -428,7 +447,7 @@ Incremental processing is useful for [online
 algorithms](https://en.wikipedia.org/wiki/Online_algorithm), a canonical
 example is summing a set of numbers since the new numbers can be added to the
 old total without having to reconsider the numbers which went into that old
-total. Incremental is design to work nicely with the `--split` flag to
+total. Incremental is designed to work nicely with the `--split` flag to
 `put-file` because it will cause only the new chunks of the file to be
 displayed to each step of the pipeline.
 
@@ -464,6 +483,16 @@ container, `"external_port"` is the port on which it is exposed, via the
 NodePorts functionality of kubernetes services. After a service has been
 created you should be able to access it at
 `http://<kubernetes-host>:<external_port>`.
+
+### Max Queue Size (optional)
+`max_queue_size` specifies that maximum number of elements that a worker should
+hold in its processing queue at a given time. The default value is `1` which
+means workers will only hold onto the value that they're currently processing.
+Increasing this value can improve pipeline performance as it allows workers to
+simultaneously download, process and upload different datums at the same time.
+Setting this value too high can cause problems if you have `lazy` inputs as
+there's a cap of 10,000 `lazy` files per worker and multiple datums that are
+running all count against this limit.
 
 ## The Input Glob Pattern
 
