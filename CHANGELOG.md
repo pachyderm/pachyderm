@@ -1,5 +1,63 @@
 # Changelog
 
+## 1.6.6
+
+- Users can now specify k8s resource limits on a pipeline
+- Users can specify a `datum_timeout` and `job_timeout` on a pipeline
+- Minio S3V2 support
+- New worker model (to eliminate long running grpc calls)
+
+## 1.6.5
+
+- Adds support for Kubernetes 1.8
+- Fixes a bug that caused jobs with small numbers of datums not to use available nodes for processing. #2480.
+
+## 1.6.4
+
+## 1.6.3
+
+- Fixes a bug that corrupted large files ingressed from object stores. #2405
+- Fixes a migration bug that could get pipelines stuck in a crash loop
+- Fixes an issue with pipelines processing old data #2469
+- Fixes a bug that allowed paused pipelines to restart themselves.
+
+## 1.6.2
+
+- Changes default memory settings so that Pachyderm works on Minikube out of the box.
+- Implements streaming versions of `ListFile` and `GlobFile` which prevents crashing on larger datasets.
+- Fixes a race condition with `GetLogs`
+
+## 1.6.1
+
+- Adds support for private registries. (#2360)
+- Fixes a bug that prevent cloud front deployments from working. (#2381)
+- Fixes a failure that code arise while watching k8s resources. (#2382)
+- Uses k8s' Guaranteed QoS for etcd and pachd. (#2368)
+
+## 1.6.0
+
+New Features:
+
+- Cron Inputs
+- Access Control Model
+- Advanced Statistic tracking for jobs
+- Extended UI
+
+## 1.5.3
+
+Bug Fixes:
+
+- Fix an issue that prevented deployment on GCE #2139
+- Fix an issue that could cause jobs to hang due to lockups with bind mounts. #2178
+- FromCommit in pipelines is now exclusive and able to be used with branch names as well as commit ids. #2180
+- Egress was broken for certain object stores, this should be fixed now. #2156
+
+New Features:
+
+- Union inputs can now be given the same name, making union much more ergonomic. #2174
+- PutFile now has an `--overwrite` flag which overwrites the previous version of the file rather than appending. #2142
+- We've introduce a new type of input, `Cron`, which can be used to trigger pipelines based on time. #2150.
+
 ## 1.5.1 / 1.5.2
 
 ### Bug Fixes

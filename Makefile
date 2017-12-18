@@ -183,12 +183,12 @@ push-bench-images: install-bench tag-images push-images
 	docker push pachyderm/bench:`git rev-list HEAD --max-count=1`
 
 tag-images: install
-	docker tag pachyderm_pachd pachyderm/pachd:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
-	docker tag pachyderm_worker pachyderm/worker:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
+	docker tag pachyderm_pachd pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
+	docker tag pachyderm_worker pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
 
 push-images: tag-images
-	docker push pachyderm/pachd:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
-	docker push pachyderm/worker:`$(GOPATH)/bin/pachctl version 2>/dev/null | grep pachctl | awk -v N=2 '{print $$N}'`
+	docker push pachyderm/pachd:`$(GOPATH)/bin/pachctl version --client-only`
+	docker push pachyderm/worker:`$(GOPATH)/bin/pachctl version --client-only`
 
 launch-bench:
 	@# Make launches each process in its own shell process, so we have to structure

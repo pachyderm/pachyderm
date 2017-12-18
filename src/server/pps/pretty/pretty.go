@@ -128,6 +128,7 @@ Duration: {{prettyTimeDifference .Started .Finished}} {{end}}
 State: {{jobState .State}}
 Reason: {{.Reason}}
 Processed: {{.DataProcessed}}
+Failed: {{.DataFailed}}
 Skipped: {{.DataSkipped}}
 Total: {{.DataTotal}}
 Data Downloaded: {{prettySize .Stats.DownloadBytes}}
@@ -135,6 +136,8 @@ Data Uploaded: {{prettySize .Stats.UploadBytes}}
 Download Time: {{prettyDuration .Stats.DownloadTime}}
 Process Time: {{prettyDuration .Stats.ProcessTime}}
 Upload Time: {{prettyDuration .Stats.UploadTime}}
+Datum Timeout: {{.DatumTimeout}}
+Job Timeout: {{.JobTimeout}}
 Worker Status:
 {{workerStatus .}}Restarts: {{.Restart}}
 ParallelismSpec: {{.ParallelismSpec}}
@@ -181,6 +184,8 @@ Parallelism Spec: {{.ParallelismSpec}}
 	CPU: {{ .ResourceLimits.Cpu }}
 	Memory: {{ .ResourceLimits.Memory }}
 	GPU: {{ .ResourceLimits.Gpu }} {{end}}
+Datum Timeout: {{.DatumTimeout}}
+Job Timeout: {{.JobTimeout}}
 Input:
 {{pipelineInput .}}
 Output Branch: {{.OutputBranch}}

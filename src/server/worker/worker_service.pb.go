@@ -9,10 +9,10 @@
 
 	It has these top-level messages:
 		Input
-		ProcessRequest
-		ProcessResponse
 		CancelRequest
 		CancelResponse
+		ChunkState
+		Chunks
 */
 package worker
 
@@ -39,6 +39,32 @@ var _ = math.Inf
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+
+type ChunkState_State int32
+
+const (
+	ChunkState_RUNNING  ChunkState_State = 0
+	ChunkState_COMPLETE ChunkState_State = 1
+	ChunkState_FAILED   ChunkState_State = 3
+)
+
+var ChunkState_State_name = map[int32]string{
+	0: "RUNNING",
+	1: "COMPLETE",
+	3: "FAILED",
+}
+var ChunkState_State_value = map[string]int32{
+	"RUNNING":  0,
+	"COMPLETE": 1,
+	"FAILED":   3,
+}
+
+func (x ChunkState_State) String() string {
+	return proto.EnumName(ChunkState_State_name, int32(x))
+}
+func (ChunkState_State) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptorWorkerService, []int{3, 0}
+}
 
 type Input struct {
 	FileInfo     *pfs.FileInfo `protobuf:"bytes,1,opt,name=file_info,json=fileInfo" json:"file_info,omitempty"`
@@ -104,85 +130,6 @@ func (m *Input) GetEmptyFiles() bool {
 	return false
 }
 
-type ProcessRequest struct {
-	// ID of the job for which we're processing 'data'. This is attached to logs
-	// generated while processing 'data', so that they can be searched.
-	JobID string `protobuf:"bytes,2,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
-	// The datum to process
-	Data []*Input `protobuf:"bytes,1,rep,name=data" json:"data,omitempty"`
-	// The tag corresponding to the previous parent's run of this datum, used for
-	// incremental jobs, may be nil.
-	ParentOutput *pfs.Tag `protobuf:"bytes,3,opt,name=parent_output,json=parentOutput" json:"parent_output,omitempty"`
-	EnableStats  bool     `protobuf:"varint,4,opt,name=enable_stats,json=enableStats,proto3" json:"enable_stats,omitempty"`
-}
-
-func (m *ProcessRequest) Reset()                    { *m = ProcessRequest{} }
-func (m *ProcessRequest) String() string            { return proto.CompactTextString(m) }
-func (*ProcessRequest) ProtoMessage()               {}
-func (*ProcessRequest) Descriptor() ([]byte, []int) { return fileDescriptorWorkerService, []int{1} }
-
-func (m *ProcessRequest) GetJobID() string {
-	if m != nil {
-		return m.JobID
-	}
-	return ""
-}
-
-func (m *ProcessRequest) GetData() []*Input {
-	if m != nil {
-		return m.Data
-	}
-	return nil
-}
-
-func (m *ProcessRequest) GetParentOutput() *pfs.Tag {
-	if m != nil {
-		return m.ParentOutput
-	}
-	return nil
-}
-
-func (m *ProcessRequest) GetEnableStats() bool {
-	if m != nil {
-		return m.EnableStats
-	}
-	return false
-}
-
-// ProcessResponse contains a tag, only if the processing was successful.
-type ProcessResponse struct {
-	Stats *pps.ProcessStats `protobuf:"bytes,4,opt,name=stats" json:"stats,omitempty"`
-	// If true, the user program has errored
-	Failed  bool `protobuf:"varint,2,opt,name=failed,proto3" json:"failed,omitempty"`
-	Skipped bool `protobuf:"varint,5,opt,name=skipped,proto3" json:"skipped,omitempty"`
-}
-
-func (m *ProcessResponse) Reset()                    { *m = ProcessResponse{} }
-func (m *ProcessResponse) String() string            { return proto.CompactTextString(m) }
-func (*ProcessResponse) ProtoMessage()               {}
-func (*ProcessResponse) Descriptor() ([]byte, []int) { return fileDescriptorWorkerService, []int{2} }
-
-func (m *ProcessResponse) GetStats() *pps.ProcessStats {
-	if m != nil {
-		return m.Stats
-	}
-	return nil
-}
-
-func (m *ProcessResponse) GetFailed() bool {
-	if m != nil {
-		return m.Failed
-	}
-	return false
-}
-
-func (m *ProcessResponse) GetSkipped() bool {
-	if m != nil {
-		return m.Skipped
-	}
-	return false
-}
-
 type CancelRequest struct {
 	JobID       string   `protobuf:"bytes,2,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
 	DataFilters []string `protobuf:"bytes,1,rep,name=data_filters,json=dataFilters" json:"data_filters,omitempty"`
@@ -191,7 +138,7 @@ type CancelRequest struct {
 func (m *CancelRequest) Reset()                    { *m = CancelRequest{} }
 func (m *CancelRequest) String() string            { return proto.CompactTextString(m) }
 func (*CancelRequest) ProtoMessage()               {}
-func (*CancelRequest) Descriptor() ([]byte, []int) { return fileDescriptorWorkerService, []int{3} }
+func (*CancelRequest) Descriptor() ([]byte, []int) { return fileDescriptorWorkerService, []int{1} }
 
 func (m *CancelRequest) GetJobID() string {
 	if m != nil {
@@ -214,7 +161,7 @@ type CancelResponse struct {
 func (m *CancelResponse) Reset()                    { *m = CancelResponse{} }
 func (m *CancelResponse) String() string            { return proto.CompactTextString(m) }
 func (*CancelResponse) ProtoMessage()               {}
-func (*CancelResponse) Descriptor() ([]byte, []int) { return fileDescriptorWorkerService, []int{4} }
+func (*CancelResponse) Descriptor() ([]byte, []int) { return fileDescriptorWorkerService, []int{2} }
 
 func (m *CancelResponse) GetSuccess() bool {
 	if m != nil {
@@ -223,12 +170,53 @@ func (m *CancelResponse) GetSuccess() bool {
 	return false
 }
 
+type ChunkState struct {
+	State   ChunkState_State `protobuf:"varint,1,opt,name=state,proto3,enum=worker.ChunkState_State" json:"state,omitempty"`
+	DatumID string           `protobuf:"bytes,2,opt,name=datum_id,json=datumId,proto3" json:"datum_id,omitempty"`
+}
+
+func (m *ChunkState) Reset()                    { *m = ChunkState{} }
+func (m *ChunkState) String() string            { return proto.CompactTextString(m) }
+func (*ChunkState) ProtoMessage()               {}
+func (*ChunkState) Descriptor() ([]byte, []int) { return fileDescriptorWorkerService, []int{3} }
+
+func (m *ChunkState) GetState() ChunkState_State {
+	if m != nil {
+		return m.State
+	}
+	return ChunkState_RUNNING
+}
+
+func (m *ChunkState) GetDatumID() string {
+	if m != nil {
+		return m.DatumID
+	}
+	return ""
+}
+
+type Chunks struct {
+	Chunks []int64 `protobuf:"varint,1,rep,packed,name=chunks" json:"chunks,omitempty"`
+}
+
+func (m *Chunks) Reset()                    { *m = Chunks{} }
+func (m *Chunks) String() string            { return proto.CompactTextString(m) }
+func (*Chunks) ProtoMessage()               {}
+func (*Chunks) Descriptor() ([]byte, []int) { return fileDescriptorWorkerService, []int{4} }
+
+func (m *Chunks) GetChunks() []int64 {
+	if m != nil {
+		return m.Chunks
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*Input)(nil), "worker.Input")
-	proto.RegisterType((*ProcessRequest)(nil), "worker.ProcessRequest")
-	proto.RegisterType((*ProcessResponse)(nil), "worker.ProcessResponse")
 	proto.RegisterType((*CancelRequest)(nil), "worker.CancelRequest")
 	proto.RegisterType((*CancelResponse)(nil), "worker.CancelResponse")
+	proto.RegisterType((*ChunkState)(nil), "worker.ChunkState")
+	proto.RegisterType((*Chunks)(nil), "worker.Chunks")
+	proto.RegisterEnum("worker.ChunkState_State", ChunkState_State_name, ChunkState_State_value)
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -242,7 +230,6 @@ const _ = grpc.SupportPackageIsVersion4
 // Client API for Worker service
 
 type WorkerClient interface {
-	Process(ctx context.Context, in *ProcessRequest, opts ...grpc.CallOption) (*ProcessResponse, error)
 	Status(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*pps.WorkerStatus, error)
 	Cancel(ctx context.Context, in *CancelRequest, opts ...grpc.CallOption) (*CancelResponse, error)
 }
@@ -253,15 +240,6 @@ type workerClient struct {
 
 func NewWorkerClient(cc *grpc.ClientConn) WorkerClient {
 	return &workerClient{cc}
-}
-
-func (c *workerClient) Process(ctx context.Context, in *ProcessRequest, opts ...grpc.CallOption) (*ProcessResponse, error) {
-	out := new(ProcessResponse)
-	err := grpc.Invoke(ctx, "/worker.Worker/Process", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *workerClient) Status(ctx context.Context, in *google_protobuf.Empty, opts ...grpc.CallOption) (*pps.WorkerStatus, error) {
@@ -285,31 +263,12 @@ func (c *workerClient) Cancel(ctx context.Context, in *CancelRequest, opts ...gr
 // Server API for Worker service
 
 type WorkerServer interface {
-	Process(context.Context, *ProcessRequest) (*ProcessResponse, error)
 	Status(context.Context, *google_protobuf.Empty) (*pps.WorkerStatus, error)
 	Cancel(context.Context, *CancelRequest) (*CancelResponse, error)
 }
 
 func RegisterWorkerServer(s *grpc.Server, srv WorkerServer) {
 	s.RegisterService(&_Worker_serviceDesc, srv)
-}
-
-func _Worker_Process_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ProcessRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(WorkerServer).Process(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/worker.Worker/Process",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(WorkerServer).Process(ctx, req.(*ProcessRequest))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _Worker_Status_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -352,10 +311,6 @@ var _Worker_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "worker.Worker",
 	HandlerType: (*WorkerServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "Process",
-			Handler:    _Worker_Process_Handler,
-		},
 		{
 			MethodName: "Status",
 			Handler:    _Worker_Status_Handler,
@@ -445,110 +400,6 @@ func (m *Input) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-func (m *ProcessRequest) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *ProcessRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.Data) > 0 {
-		for _, msg := range m.Data {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintWorkerService(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if len(m.JobID) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintWorkerService(dAtA, i, uint64(len(m.JobID)))
-		i += copy(dAtA[i:], m.JobID)
-	}
-	if m.ParentOutput != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintWorkerService(dAtA, i, uint64(m.ParentOutput.Size()))
-		n3, err := m.ParentOutput.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n3
-	}
-	if m.EnableStats {
-		dAtA[i] = 0x20
-		i++
-		if m.EnableStats {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	return i, nil
-}
-
-func (m *ProcessResponse) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *ProcessResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if m.Failed {
-		dAtA[i] = 0x10
-		i++
-		if m.Failed {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if m.Stats != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintWorkerService(dAtA, i, uint64(m.Stats.Size()))
-		n4, err := m.Stats.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n4
-	}
-	if m.Skipped {
-		dAtA[i] = 0x28
-		i++
-		if m.Skipped {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	return i, nil
-}
-
 func (m *CancelRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -616,6 +467,71 @@ func (m *CancelResponse) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *ChunkState) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ChunkState) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.State != 0 {
+		dAtA[i] = 0x8
+		i++
+		i = encodeVarintWorkerService(dAtA, i, uint64(m.State))
+	}
+	if len(m.DatumID) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintWorkerService(dAtA, i, uint64(len(m.DatumID)))
+		i += copy(dAtA[i:], m.DatumID)
+	}
+	return i, nil
+}
+
+func (m *Chunks) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Chunks) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Chunks) > 0 {
+		dAtA4 := make([]byte, len(m.Chunks)*10)
+		var j3 int
+		for _, num1 := range m.Chunks {
+			num := uint64(num1)
+			for num >= 1<<7 {
+				dAtA4[j3] = uint8(uint64(num)&0x7f | 0x80)
+				num >>= 7
+				j3++
+			}
+			dAtA4[j3] = uint8(num)
+			j3++
+		}
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintWorkerService(dAtA, i, uint64(j3))
+		i += copy(dAtA[i:], dAtA4[:j3])
+	}
+	return i, nil
+}
+
 func encodeVarintWorkerService(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -657,45 +573,6 @@ func (m *Input) Size() (n int) {
 	return n
 }
 
-func (m *ProcessRequest) Size() (n int) {
-	var l int
-	_ = l
-	if len(m.Data) > 0 {
-		for _, e := range m.Data {
-			l = e.Size()
-			n += 1 + l + sovWorkerService(uint64(l))
-		}
-	}
-	l = len(m.JobID)
-	if l > 0 {
-		n += 1 + l + sovWorkerService(uint64(l))
-	}
-	if m.ParentOutput != nil {
-		l = m.ParentOutput.Size()
-		n += 1 + l + sovWorkerService(uint64(l))
-	}
-	if m.EnableStats {
-		n += 2
-	}
-	return n
-}
-
-func (m *ProcessResponse) Size() (n int) {
-	var l int
-	_ = l
-	if m.Failed {
-		n += 2
-	}
-	if m.Stats != nil {
-		l = m.Stats.Size()
-		n += 1 + l + sovWorkerService(uint64(l))
-	}
-	if m.Skipped {
-		n += 2
-	}
-	return n
-}
-
 func (m *CancelRequest) Size() (n int) {
 	var l int
 	_ = l
@@ -717,6 +594,32 @@ func (m *CancelResponse) Size() (n int) {
 	_ = l
 	if m.Success {
 		n += 2
+	}
+	return n
+}
+
+func (m *ChunkState) Size() (n int) {
+	var l int
+	_ = l
+	if m.State != 0 {
+		n += 1 + sovWorkerService(uint64(m.State))
+	}
+	l = len(m.DatumID)
+	if l > 0 {
+		n += 1 + l + sovWorkerService(uint64(l))
+	}
+	return n
+}
+
+func (m *Chunks) Size() (n int) {
+	var l int
+	_ = l
+	if len(m.Chunks) > 0 {
+		l = 0
+		for _, e := range m.Chunks {
+			l += sovWorkerService(uint64(e))
+		}
+		n += 1 + sovWorkerService(uint64(l)) + l
 	}
 	return n
 }
@@ -977,292 +880,6 @@ func (m *Input) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *ProcessRequest) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowWorkerService
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: ProcessRequest: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ProcessRequest: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Data", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowWorkerService
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthWorkerService
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Data = append(m.Data, &Input{})
-			if err := m.Data[len(m.Data)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field JobID", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowWorkerService
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthWorkerService
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.JobID = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ParentOutput", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowWorkerService
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthWorkerService
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.ParentOutput == nil {
-				m.ParentOutput = &pfs.Tag{}
-			}
-			if err := m.ParentOutput.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 4:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field EnableStats", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowWorkerService
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.EnableStats = bool(v != 0)
-		default:
-			iNdEx = preIndex
-			skippy, err := skipWorkerService(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthWorkerService
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *ProcessResponse) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowWorkerService
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: ProcessResponse: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ProcessResponse: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 2:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Failed", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowWorkerService
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.Failed = bool(v != 0)
-		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Stats", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowWorkerService
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthWorkerService
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Stats == nil {
-				m.Stats = &pps.ProcessStats{}
-			}
-			if err := m.Stats.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 5:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Skipped", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowWorkerService
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.Skipped = bool(v != 0)
-		default:
-			iNdEx = preIndex
-			skippy, err := skipWorkerService(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthWorkerService
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
 func (m *CancelRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -1441,6 +1058,216 @@ func (m *CancelResponse) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *ChunkState) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowWorkerService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ChunkState: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ChunkState: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field State", wireType)
+			}
+			m.State = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowWorkerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.State |= (ChunkState_State(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DatumID", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowWorkerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthWorkerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.DatumID = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipWorkerService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthWorkerService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Chunks) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowWorkerService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Chunks: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Chunks: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType == 0 {
+				var v int64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowWorkerService
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					v |= (int64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				m.Chunks = append(m.Chunks, v)
+			} else if wireType == 2 {
+				var packedLen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowWorkerService
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					packedLen |= (int(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if packedLen < 0 {
+					return ErrInvalidLengthWorkerService
+				}
+				postIndex := iNdEx + packedLen
+				if postIndex > l {
+					return io.ErrUnexpectedEOF
+				}
+				for iNdEx < postIndex {
+					var v int64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowWorkerService
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						v |= (int64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					m.Chunks = append(m.Chunks, v)
+				}
+			} else {
+				return fmt.Errorf("proto: wrong wireType = %d for field Chunks", wireType)
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipWorkerService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthWorkerService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func skipWorkerService(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
@@ -1549,42 +1376,40 @@ var (
 func init() { proto.RegisterFile("server/worker/worker_service.proto", fileDescriptorWorkerService) }
 
 var fileDescriptorWorkerService = []byte{
-	// 583 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x52, 0xc1, 0x6e, 0xd3, 0x40,
-	0x10, 0xad, 0x69, 0xe3, 0x38, 0xe3, 0xb6, 0xc0, 0x0a, 0x8a, 0x15, 0xa4, 0x34, 0x35, 0x07, 0xa2,
-	0x4a, 0x38, 0x28, 0x88, 0x03, 0x12, 0xa7, 0x14, 0x8a, 0x82, 0x90, 0x40, 0x4b, 0x2b, 0x8e, 0x96,
-	0xed, 0xac, 0xcd, 0xb6, 0x8e, 0xd7, 0x78, 0xd7, 0xa0, 0xf2, 0x25, 0xfc, 0x01, 0xbf, 0xc0, 0x27,
-	0x70, 0xe4, 0x0b, 0x2a, 0x14, 0x8e, 0xfc, 0x04, 0xda, 0x59, 0x3b, 0x51, 0xe1, 0xc0, 0xc1, 0xf2,
-	0xcc, 0x9b, 0xdd, 0x99, 0xf7, 0xde, 0x0e, 0xf8, 0x92, 0x55, 0x1f, 0x59, 0x35, 0xfe, 0x24, 0xaa,
-	0xf3, 0xd5, 0x2f, 0xd4, 0x20, 0x4f, 0x58, 0x50, 0x56, 0x42, 0x09, 0x62, 0x1b, 0xb4, 0x7f, 0x2b,
-	0xc9, 0x39, 0x2b, 0xd4, 0xb8, 0x4c, 0xa5, 0xfe, 0x4c, 0x75, 0x8d, 0x96, 0x52, 0x7f, 0x2d, 0x9a,
-	0x89, 0x4c, 0x60, 0x38, 0xd6, 0x51, 0x83, 0xde, 0xcd, 0x84, 0xc8, 0x72, 0x36, 0xc6, 0x2c, 0xae,
-	0xd3, 0x31, 0x5b, 0x94, 0xea, 0xc2, 0x14, 0xfd, 0xdf, 0x16, 0x74, 0x66, 0x45, 0x59, 0x2b, 0x72,
-	0x08, 0xbd, 0x94, 0xe7, 0x2c, 0xe4, 0x45, 0x2a, 0x3c, 0x6b, 0x68, 0x8d, 0xdc, 0xc9, 0x4e, 0xa0,
-	0x27, 0x1e, 0xf3, 0x9c, 0xcd, 0x8a, 0x54, 0x50, 0x27, 0x6d, 0x22, 0x42, 0x60, 0xab, 0x88, 0x16,
-	0xcc, 0xbb, 0x36, 0xb4, 0x46, 0x3d, 0x8a, 0xb1, 0xc6, 0xf2, 0xe8, 0xf3, 0x85, 0xb7, 0x39, 0xb4,
-	0x46, 0x0e, 0xc5, 0x98, 0xec, 0x81, 0x1d, 0x57, 0x51, 0x91, 0xbc, 0xf7, 0xb6, 0xf0, 0x64, 0x93,
-	0x91, 0x87, 0xb0, 0x53, 0x46, 0x15, 0x2b, 0x54, 0x98, 0x88, 0xc5, 0x82, 0x2b, 0xaf, 0x83, 0xf3,
-	0x5c, 0x9c, 0x77, 0x84, 0x10, 0xdd, 0x36, 0x27, 0x4c, 0x46, 0xee, 0x41, 0x37, 0xe3, 0x2a, 0xac,
-	0xab, 0xdc, 0xb3, 0x75, 0xab, 0x29, 0x2c, 0x2f, 0xf7, 0xed, 0x17, 0x5c, 0x9d, 0xd2, 0x57, 0xd4,
-	0xce, 0xb8, 0x3a, 0xad, 0x72, 0xb2, 0x0f, 0x2e, 0x6a, 0x0b, 0x35, 0x51, 0xe9, 0x75, 0x91, 0x09,
-	0x20, 0xa4, 0x45, 0x48, 0xff, 0xab, 0x05, 0xbb, 0x6f, 0x2a, 0x91, 0x30, 0x29, 0x29, 0xfb, 0x50,
-	0x33, 0xa9, 0xc8, 0x01, 0x6c, 0xcd, 0x23, 0x15, 0x79, 0xd6, 0x70, 0x13, 0x15, 0x1b, 0xdb, 0x03,
-	0xf4, 0x84, 0x62, 0x89, 0x0c, 0xc1, 0x3e, 0x13, 0x71, 0xc8, 0xe7, 0x46, 0xef, 0xb4, 0xb7, 0xbc,
-	0xdc, 0xef, 0xbc, 0x14, 0xf1, 0xec, 0x19, 0xed, 0x9c, 0x89, 0x78, 0x36, 0x27, 0x0f, 0x56, 0x7a,
-	0x44, 0xad, 0xca, 0x5a, 0xa1, 0x09, 0xee, 0xc4, 0x41, 0x3d, 0x27, 0x51, 0xd6, 0x8a, 0x79, 0x8d,
-	0x55, 0x72, 0x00, 0xdb, 0xac, 0x88, 0xe2, 0x9c, 0x85, 0x52, 0x45, 0x4a, 0xa2, 0x39, 0x0e, 0x75,
-	0x0d, 0xf6, 0x56, 0x43, 0x7e, 0x0e, 0xd7, 0x57, 0x44, 0x65, 0x29, 0x0a, 0xc9, 0xb4, 0x99, 0x69,
-	0xc4, 0x73, 0x66, 0x68, 0x38, 0xb4, 0xc9, 0xc8, 0x7d, 0xe8, 0xac, 0xdb, 0xb8, 0x93, 0x9b, 0x81,
-	0x5e, 0x88, 0xe6, 0x32, 0x36, 0xa3, 0xa6, 0x4e, 0x3c, 0xe8, 0xca, 0x73, 0x5e, 0x96, 0x6c, 0x8e,
-	0x7e, 0x3b, 0xb4, 0x4d, 0xfd, 0x13, 0xd8, 0x39, 0x8a, 0x8a, 0x84, 0xe5, 0x6b, 0x57, 0xb6, 0xb5,
-	0x74, 0x6d, 0xa4, 0x62, 0x95, 0x44, 0x77, 0x7a, 0xd4, 0xd5, 0xd8, 0xb1, 0x81, 0xfe, 0xef, 0x8a,
-	0x7f, 0x08, 0xbb, 0x6d, 0xd7, 0x46, 0x82, 0x66, 0x50, 0x27, 0x9a, 0x18, 0x6e, 0x98, 0x66, 0x60,
-	0xd2, 0xc9, 0x37, 0x0b, 0xec, 0x77, 0x68, 0x3d, 0x79, 0x0a, 0xdd, 0x86, 0x3d, 0xd9, 0x6b, 0x9f,
-	0xe3, 0xea, 0xa3, 0xf5, 0xef, 0xfc, 0x83, 0x9b, 0x01, 0xfe, 0x06, 0x79, 0x0c, 0xb6, 0x16, 0x5d,
-	0xeb, 0xcb, 0x66, 0xf1, 0x83, 0x76, 0xf1, 0x83, 0xe7, 0x7a, 0x13, 0xfa, 0xc6, 0x20, 0x33, 0xcc,
-	0x1c, 0xf5, 0x37, 0xc8, 0x13, 0xb0, 0x0d, 0x57, 0x72, 0xbb, 0xed, 0x7d, 0xc5, 0x91, 0xfe, 0xde,
-	0xdf, 0x70, 0x3b, 0x71, 0x7a, 0xe3, 0xfb, 0x72, 0x60, 0xfd, 0x58, 0x0e, 0xac, 0x9f, 0xcb, 0x81,
-	0xf5, 0xe5, 0xd7, 0x60, 0x23, 0xb6, 0x71, 0xe2, 0xa3, 0x3f, 0x01, 0x00, 0x00, 0xff, 0xff, 0xdf,
-	0x3e, 0xf4, 0xfb, 0xe8, 0x03, 0x00, 0x00,
+	// 557 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x5c, 0x92, 0x4f, 0x6f, 0xd3, 0x30,
+	0x18, 0xc6, 0x1b, 0xba, 0x38, 0xed, 0x9b, 0x6d, 0x2a, 0x16, 0x4c, 0xd1, 0x90, 0xda, 0x10, 0x24,
+	0x54, 0xed, 0x90, 0xa2, 0x21, 0x0e, 0x1c, 0x59, 0xdb, 0x4d, 0x41, 0x63, 0x20, 0xb3, 0x89, 0x63,
+	0x94, 0xa4, 0x4e, 0x96, 0x2d, 0x8d, 0x43, 0xec, 0x80, 0xb6, 0xcf, 0xc1, 0x81, 0x8f, 0xc4, 0x91,
+	0x4f, 0x30, 0xa1, 0x70, 0xe4, 0x4b, 0x20, 0xdb, 0xed, 0x8a, 0x38, 0xb8, 0x7d, 0xde, 0x9f, 0x9f,
+	0xf8, 0xfd, 0x63, 0x83, 0xc7, 0x69, 0xfd, 0x85, 0xd6, 0x93, 0xaf, 0xac, 0xbe, 0xbe, 0xff, 0x0b,
+	0x25, 0xcc, 0x13, 0xea, 0x57, 0x35, 0x13, 0x0c, 0x23, 0x4d, 0xf7, 0x1f, 0x25, 0x45, 0x4e, 0x4b,
+	0x31, 0xa9, 0x52, 0x2e, 0x97, 0xde, 0xdd, 0xd0, 0x8a, 0xcb, 0xb5, 0xa6, 0x19, 0xcb, 0x98, 0x92,
+	0x13, 0xa9, 0x56, 0xf4, 0x49, 0xc6, 0x58, 0x56, 0xd0, 0x89, 0x8a, 0xe2, 0x26, 0x9d, 0xd0, 0x65,
+	0x25, 0x6e, 0xf4, 0xa6, 0xf7, 0xc7, 0x00, 0x33, 0x28, 0xab, 0x46, 0xe0, 0x03, 0xe8, 0xa7, 0x79,
+	0x41, 0xc3, 0xbc, 0x4c, 0x99, 0x63, 0xb8, 0xc6, 0xd8, 0x3e, 0xdc, 0xf1, 0x65, 0xc6, 0xe3, 0xbc,
+	0xa0, 0x41, 0x99, 0x32, 0xd2, 0x4b, 0x57, 0x0a, 0x63, 0xd8, 0x2a, 0xa3, 0x25, 0x75, 0x1e, 0xb8,
+	0xc6, 0xb8, 0x4f, 0x94, 0x96, 0xac, 0x88, 0x6e, 0x6f, 0x9c, 0xae, 0x6b, 0x8c, 0x7b, 0x44, 0x69,
+	0xbc, 0x07, 0x28, 0xae, 0xa3, 0x32, 0xb9, 0x74, 0xb6, 0x94, 0x73, 0x15, 0xe1, 0x17, 0xb0, 0x53,
+	0x45, 0x35, 0x2d, 0x45, 0x98, 0xb0, 0xe5, 0x32, 0x17, 0x8e, 0xa9, 0xf2, 0xd9, 0x2a, 0xdf, 0x54,
+	0x21, 0xb2, 0xad, 0x1d, 0x3a, 0xc2, 0xcf, 0xc0, 0xca, 0x72, 0x11, 0x36, 0x75, 0xe1, 0x20, 0x79,
+	0xd4, 0x11, 0xb4, 0x77, 0x23, 0x74, 0x92, 0x8b, 0x0b, 0x72, 0x4a, 0x50, 0x96, 0x8b, 0x8b, 0xba,
+	0xc0, 0x23, 0xb0, 0x55, 0x6f, 0xa1, 0x2c, 0x94, 0x3b, 0x96, 0xaa, 0x04, 0x14, 0x92, 0x4d, 0x70,
+	0xef, 0x1c, 0x76, 0xa6, 0x51, 0x99, 0xd0, 0x82, 0xd0, 0xcf, 0x0d, 0xe5, 0x02, 0x3f, 0x85, 0xed,
+	0x45, 0x24, 0x22, 0xf9, 0x81, 0xa0, 0x35, 0x77, 0x0c, 0xb7, 0x3b, 0xee, 0x13, 0x5b, 0xb2, 0x63,
+	0x8d, 0xb0, 0x0b, 0xe8, 0x8a, 0xc5, 0x61, 0xbe, 0xd0, 0xdd, 0x1e, 0xf5, 0xdb, 0xbb, 0x91, 0xf9,
+	0x96, 0xc5, 0xc1, 0x8c, 0x98, 0x57, 0x2c, 0x0e, 0x16, 0xde, 0x01, 0xec, 0xae, 0x4f, 0xe5, 0x15,
+	0x2b, 0x39, 0xc5, 0x0e, 0x58, 0xbc, 0x49, 0x12, 0xca, 0xb9, 0x9a, 0x64, 0x8f, 0xac, 0x43, 0xef,
+	0x9b, 0x01, 0x30, 0xbd, 0x6c, 0xca, 0xeb, 0x8f, 0x22, 0x12, 0x14, 0xfb, 0x60, 0x72, 0x29, 0x94,
+	0x6d, 0xf7, 0xd0, 0xf1, 0xf5, 0xad, 0xfb, 0x1b, 0x8b, 0xaf, 0x7e, 0x89, 0xb6, 0xe1, 0xe7, 0xd0,
+	0x5b, 0x44, 0xa2, 0x59, 0x6e, 0xca, 0xb1, 0xdb, 0xbb, 0x91, 0x35, 0x93, 0x2c, 0x98, 0x11, 0x4b,
+	0x6d, 0x06, 0x0b, 0xcf, 0x07, 0x53, 0x27, 0xb0, 0xc1, 0x22, 0x17, 0x67, 0x67, 0xc1, 0xd9, 0xc9,
+	0xa0, 0x83, 0xb7, 0xa1, 0x37, 0x7d, 0xff, 0xee, 0xc3, 0xe9, 0xfc, 0x7c, 0x3e, 0x30, 0x30, 0x00,
+	0x3a, 0x7e, 0x13, 0x9c, 0xce, 0x67, 0x83, 0xae, 0xe7, 0x02, 0x52, 0x29, 0xb9, 0xbc, 0xb2, 0x44,
+	0x29, 0x35, 0x8b, 0x2e, 0x59, 0x45, 0x87, 0xb7, 0x80, 0x3e, 0xa9, 0xda, 0xf0, 0x2b, 0x40, 0xf2,
+	0xec, 0x86, 0xe3, 0x3d, 0x5f, 0x3f, 0x2d, 0x7f, 0xfd, 0xb4, 0xfc, 0xb9, 0x9c, 0xf5, 0xfe, 0x43,
+	0x5f, 0xbe, 0x49, 0x6d, 0xd7, 0x56, 0xaf, 0x83, 0x5f, 0x03, 0xd2, 0x53, 0xc2, 0x8f, 0xef, 0xbb,
+	0xfc, 0xf7, 0x2e, 0xf6, 0xf7, 0xfe, 0xc7, 0x7a, 0x98, 0x5e, 0xe7, 0x68, 0xf0, 0xa3, 0x1d, 0x1a,
+	0x3f, 0xdb, 0xa1, 0xf1, 0xab, 0x1d, 0x1a, 0xdf, 0x7f, 0x0f, 0x3b, 0x31, 0x52, 0x19, 0x5f, 0xfe,
+	0x0d, 0x00, 0x00, 0xff, 0xff, 0xf5, 0xed, 0x0d, 0x77, 0x4a, 0x03, 0x00, 0x00,
 }

@@ -94,9 +94,9 @@ type readWriteCollection struct {
 }
 
 func (c *readWriteCollection) Get(key string, val proto.Unmarshaler) error {
-	valStr := c.stm.Get(c.Path(key))
-	if valStr == "" {
-		return ErrNotFound{c.prefix, key}
+	valStr, err := c.stm.Get(c.Path(key))
+	if err != nil {
+		return err
 	}
 	return val.Unmarshal([]byte(valStr))
 }
@@ -160,7 +160,7 @@ func (c *readWriteCollection) PutTTL(key string, val proto.Marshaler, ttl int64)
 					// Only put the index if it doesn't already exist; otherwise
 					// we might trigger an unnecessary event if someone is
 					// watching the index
-					if c.stm.Get(indexPath) == "" {
+					if _, err := c.stm.Get(indexPath); err != nil && IsErrNotFound(err) {
 						c.stm.Put(indexPath, key, options...)
 					}
 				}
@@ -190,7 +190,7 @@ func (c *readWriteCollection) PutTTL(key string, val proto.Marshaler, ttl int64)
 				// Only put the index if it doesn't already exist; otherwise
 				// we might trigger an unnecessary event if someone is
 				// watching the index
-				if c.stm.Get(indexPath) == "" {
+				if _, err := c.stm.Get(indexPath); err != nil && IsErrNotFound(err) {
 					c.stm.Put(indexPath, key, options...)
 				}
 			}
@@ -203,8 +203,11 @@ func (c *readWriteCollection) PutTTL(key string, val proto.Marshaler, ttl int64)
 
 func (c *readWriteCollection) Create(key string, val proto.Marshaler) error {
 	fullKey := c.Path(key)
-	valStr := c.stm.Get(fullKey)
-	if valStr != "" {
+	_, err := c.stm.Get(fullKey)
+	if err != nil && !IsErrNotFound(err) {
+		return err
+	}
+	if err == nil {
 		return ErrExists{c.prefix, key}
 	}
 	c.Put(key, val)
@@ -213,8 +216,8 @@ func (c *readWriteCollection) Create(key string, val proto.Marshaler) error {
 
 func (c *readWriteCollection) Delete(key string) error {
 	fullKey := c.Path(key)
-	if c.stm.Get(fullKey) == "" {
-		return ErrNotFound{c.prefix, key}
+	if _, err := c.stm.Get(fullKey); err != nil {
+		return err
 	}
 	if c.indexes != nil && c.template != nil {
 		val := proto.Clone(c.template)
@@ -253,8 +256,11 @@ type readWriteIntCollection struct {
 
 func (c *readWriteIntCollection) Create(key string, val int) error {
 	fullKey := c.Path(key)
-	valStr := c.stm.Get(fullKey)
-	if valStr != "" {
+	_, err := c.stm.Get(fullKey)
+	if err != nil && !IsErrNotFound(err) {
+		return err
+	}
+	if err == nil {
 		return ErrExists{c.prefix, key}
 	}
 	c.stm.Put(fullKey, strconv.Itoa(val))
@@ -262,9 +268,9 @@ func (c *readWriteIntCollection) Create(key string, val int) error {
 }
 
 func (c *readWriteIntCollection) Get(key string) (int, error) {
-	valStr := c.stm.Get(c.Path(key))
-	if valStr == "" {
-		return 0, ErrNotFound{c.prefix, key}
+	valStr, err := c.stm.Get(c.Path(key))
+	if err != nil {
+		return 0, err
 	}
 	return strconv.Atoi(valStr)
 }
@@ -275,9 +281,9 @@ func (c *readWriteIntCollection) Increment(key string) error {
 
 func (c *readWriteIntCollection) IncrementBy(key string, n int) error {
 	fullKey := c.Path(key)
-	valStr := c.stm.Get(fullKey)
-	if valStr == "" {
-		return ErrNotFound{c.prefix, key}
+	valStr, err := c.stm.Get(fullKey)
+	if err != nil {
+		return err
 	}
 	val, err := strconv.Atoi(valStr)
 	if err != nil {
@@ -293,9 +299,9 @@ func (c *readWriteIntCollection) Decrement(key string) error {
 
 func (c *readWriteIntCollection) DecrementBy(key string, n int) error {
 	fullKey := c.Path(key)
-	valStr := c.stm.Get(fullKey)
-	if valStr == "" {
-		return ErrNotFound{c.prefix, key}
+	valStr, err := c.stm.Get(fullKey)
+	if err != nil {
+		return err
 	}
 	val, err := strconv.Atoi(valStr)
 	if err != nil {
@@ -307,8 +313,8 @@ func (c *readWriteIntCollection) DecrementBy(key string, n int) error {
 
 func (c *readWriteIntCollection) Delete(key string) error {
 	fullKey := c.Path(key)
-	if c.stm.Get(fullKey) == "" {
-		return ErrNotFound{c.prefix, key}
+	if _, err := c.stm.Get(fullKey); err != nil {
+		return err
 	}
 	c.stm.Del(fullKey)
 	return nil
@@ -374,6 +380,21 @@ func (c *readonlyCollection) GetByIndex(index Index, val interface{}) (Iterator,
 		resp: resp,
 		col:  c,
 	}, nil
+}
+
+func (c *readonlyCollection) GetBlock(key string, val proto.Unmarshaler) error {
+	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.Path(key))
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+	for {
+		e := <-watcher.Watch()
+		if e.Err != nil {
+			return e.Err
+		}
+		return e.Unmarshal(&key, val)
+	}
 }
 
 // List returns an iteraor that can be used to iterate over the collection.

@@ -77,7 +77,7 @@ func ActivateCmd() *cobra.Command {
 	}
 	activate.PersistentFlags().StringVarP(&username, "user", "u", "", "GitHub "+
 		"username of the user activating auth. If set, the GitHub authorization "+
-		"code will be used to verify posession of this account. If unset, the "+
+		"code will be used to verify possession of this account. If unset, the "+
 		"username will be inferred from the GitHub authorization code")
 	return activate
 }
@@ -144,7 +144,7 @@ func LoginCmd() *cobra.Command {
 	}
 	login.PersistentFlags().StringVarP(&username, "user", "u", "", "GitHub "+
 		"username of the user logging in.  If set, the GitHub authorization code "+
-		"will be used to verify posession of this account.If unset, the username "+
+		"will be used to verify possession of this account.If unset, the username "+
 		"will be inferred from the github authorization code")
 	return login
 }

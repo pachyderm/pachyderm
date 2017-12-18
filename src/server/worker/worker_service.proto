@@ -16,29 +16,6 @@ message Input {
   bool empty_files = 7;
 }
 
-message ProcessRequest {
-  // ID of the job for which we're processing 'data'. This is attached to logs
-  // generated while processing 'data', so that they can be searched.
-  string job_id = 2 [(gogoproto.customname) = "JobID"];
-
-  // The datum to process
-  repeated Input data = 1;
-
-  // The tag corresponding to the previous parent's run of this datum, used for
-  // incremental jobs, may be nil.
-  pfs.Tag parent_output = 3;
-
-  bool enable_stats = 4;
-}
-
-// ProcessResponse contains a tag, only if the processing was successful.
-message ProcessResponse {
-  pps.ProcessStats stats = 4;
-  // If true, the user program has errored
-  bool failed = 2;
-  bool skipped = 5;
-}
-
 message CancelRequest {
   string job_id = 2 [(gogoproto.customname) = "JobID"];
   repeated string data_filters = 1;
@@ -49,7 +26,20 @@ message CancelResponse {
 }
 
 service Worker {
-  rpc Process(ProcessRequest) returns (ProcessResponse) {}
   rpc Status(google.protobuf.Empty) returns (pps.WorkerStatus) {}
   rpc Cancel(CancelRequest) returns (CancelResponse) {}
+}
+
+message ChunkState {
+  enum State {
+    RUNNING = 0;
+    COMPLETE = 1;
+    FAILED = 3;
+  }
+  State state = 1;
+  string datum_id = 2 [(gogoproto.customname) = "DatumID"];
+}
+
+message Chunks {
+  repeated int64 chunks = 1;
 }
