@@ -1380,6 +1380,52 @@ func branchProvenance(input *pps.Input) []*pfs.Branch {
 	return result
 }
 
+// hardStopPipeline does essentially the same thing as StopPipeline (deletes the
+// pipeline's branch provenance, deletes any open commits, deletes any k8s
+// workers), but does it immediately. This is to avoid races between operations
+// that will do subsequent work (e.g. UpdatePipeline and DeletePipeline) and the
+// PPS master
+func (a *apiServer) hardStopPipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) error {
+	// Remove the output branch's provenance so that no new jobs can be created
+	if err := pachClient.CreateBranch(
+		pipelineInfo.Pipeline.Name,
+		pipelineInfo.OutputBranch,
+		pipelineInfo.OutputBranch,
+		nil,
+	); err != nil && !isNotFoundErr(err) {
+		return fmt.Errorf("could not rename original output branch: %v", err)
+	}
+
+	// Now that new commits won't be created on the master branch, enumerate
+	// existing commits and close any open ones.
+	iter, err := pachClient.ListCommitStream(pachClient.Ctx(), &pfs.ListCommitRequest{
+		Repo: client.NewRepo(pipelineInfo.Pipeline.Name),
+		To:   client.NewCommit(pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch),
+	})
+	if err != nil {
+		return fmt.Errorf("couldn't get open commits on '%s': %v", pipelineInfo.OutputBranch, err)
+	}
+	// Finish all open commits, most recent first (so that we finish the
+	// current job's output commit--the oldest--last, and unblock the master
+	// only after all other commits are also finished, preventing any new jobs)
+	for {
+		ci, err := iter.Recv()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return err
+		}
+		if ci.Finished == nil {
+			// Finish the commit and don't pass a tree
+			pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(), &pfs.FinishCommitRequest{
+				Commit: ci.Commit,
+				Empty:  true,
+			})
+		}
+	}
+	return nil
+}
+
 // finishPipelineInfoCommit is a helper for CreatePipeline that finishes a
 // commit with a PipelineInfo in PFS. It's called in both the case where a user
 // is updating a pipeline and the case where a user is creating a new pipeline
@@ -1484,47 +1530,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				pipelineName, SpecBranch, pipelineName, SpecBranch)
 		}
 
-		// TODO(msteffen): removing the old branch's provenance, closing any open commits,
-		// creating the new branch, and creating a new pipeline commit, needs to be done transactionally. If an
-		// upstream commit arrives between now and the bottom of this function, it
-		// will be dropped and no job will run
-		// - Remove the master branch's provenance
-		if err := pachClient.CreateBranch(
-			pipelineName,
-			pipelineInfo.OutputBranch,
-			pipelineInfo.OutputBranch,
-			nil,
-		); err != nil && !isNotFoundErr(err) {
-			return nil, fmt.Errorf("could not rename original output branch: %v", err)
-		}
-
-		// Now that new commits won't be created on the master branch, enumerate
-		// existing commits and close any open ones.
-		iter, err := pachClient.ListCommitStream(ctx, &pfs.ListCommitRequest{
-			Repo: client.NewRepo(pipelineName),
-			To:   client.NewCommit(pipelineName, pipelineInfo.OutputBranch),
-		})
-		if err != nil {
-			return nil, fmt.Errorf("couldn't get open commits on '%s': %v", pipelineInfo.OutputBranch, err)
-		}
-		// Finish all open commits, most recent first (so that we finish the
-		// current job's output commit--the oldest--last, and unblock the master
-		// only after all other commits are also finished, preventing any new jobs)
-		for {
-			ci, err := iter.Recv()
-			if err == io.EOF {
-				break
-			} else if err != nil {
-				return nil, err
-			}
-			if ci.Finished == nil {
-				// Finish the commit and don't pass a tree
-				pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
-					Commit: ci.Commit,
-					Empty:  true,
-				})
-			}
-		}
+		a.hardStopPipeline(pachClient, pipelineInfo)
 
 		// Look up pipelineInfo and update it. Do this inside an etcd transaction
 		// as PFS doesn't support transactions and this prevents concurrent
@@ -1801,10 +1807,9 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		return nil, err
 	}
 
-	// Stop the pipeline so that no new jobs can be created
-	if _, err = a.StopPipeline(ctx, &pps.StopPipelineRequest{Pipeline: request.Pipeline}); err != nil {
-		return nil, fmt.Errorf("could not stop pipeline before deleting it: %v", err)
-	}
+	// Stop this pipeline (inline, so we can't break the PPS master by deleting
+	// the pipeline's output repo, which we do below)
+	a.hardStopPipeline(pachClient, pipelineInfo)
 
 	// Revoke the pipeline's capability
 	if pipelineInfo.Capability != "" {
@@ -1907,9 +1912,15 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 		return nil, err
 	}
 
-	// Remove branch provenance (pass branch twice so that it continues to point
-	// at the same commit, but also pass empty provenance slice)
-	if err := a.pachClient.WithCtx(auth.In2Out(ctx)).CreateBranch(request.Pipeline.Name, pipelineInfo.OutputBranch, pipelineInfo.OutputBranch, branchProvenance(pipelineInfo.Input)); err != nil {
+	// Replace missing branch provenance (removed by StopPipeline)
+	provenance := append(branchProvenance(pipelineInfo.Input),
+		client.NewBranch(pipelineInfo.Pipeline.Name, SpecBranch))
+	if err := pachClient.CreateBranch(
+		request.Pipeline.Name,
+		pipelineInfo.OutputBranch,
+		pipelineInfo.OutputBranch,
+		provenance,
+	); err != nil {
 		return nil, err
 	}
 

@@ -606,8 +606,8 @@ func (a *APIServer) blockInputs(ctx context.Context, jobInfo *pps.JobInfo) error
 func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *taggedLogger) error {
 	ctx, cancel := context.WithCancel(ctx)
 
-	// Watch the job to see if it's terminated (KILLED, FAILED, or SUCCESS) and if
-	// so, cancel the current context
+	// Watch the output commit to see if it's terminated (KILLED, FAILED, or
+	// SUCCESS) and if so, cancel the current context
 	go func() {
 		backoff.RetryNotify(func() error {
 			commitInfo, err := a.pachClient.PfsAPIClient.InspectCommit(ctx,
