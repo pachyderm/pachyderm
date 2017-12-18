@@ -938,7 +938,7 @@ func (a *APIServer) worker() {
 			if err := e.Unmarshal(&jobID, jobInfo); err != nil {
 				return fmt.Errorf("error unmarshalling: %v", err)
 			}
-			if jobInfo.State == pps.JobState_JOB_KILLED {
+			if jobInfo.State == pps.JobState_JOB_FAILURE || jobInfo.State == pps.JobState_JOB_SUCCESS || jobInfo.State == pps.JobState_JOB_KILLED {
 				// This is odd.
 				// We see a JOB_KILLED event come in on the watcher ... ONLY if the cancel()
 				// statement a few lines below (in the goro that blocks on the job / cancels
@@ -1009,6 +1009,7 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 	var failedDatumID string
 	var eg errgroup.Group
 	var skipped int64
+	var failed int64
 	for i := low; i < high; i++ {
 		i := i
 		eg.Go(func() (retErr error) {
@@ -1234,6 +1235,7 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 				return nil
 			}); err != nil {
 				failedDatumID = a.DatumID(data)
+				failed++
 				return nil
 			}
 			statsMu.Lock()
@@ -1256,6 +1258,7 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 		}
 		jobInfo.DataProcessed += high - low - skipped
 		jobInfo.DataSkipped += skipped
+		jobInfo.DataFailed += failed
 		if jobInfo.Stats == nil {
 			jobInfo.Stats = &pps.ProcessStats{}
 		}

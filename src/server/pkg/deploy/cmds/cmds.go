@@ -179,7 +179,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deployCustom.Flags().StringVar(&objectStoreBackend, "object-store", "s3",
 		"(required) Backend providing an object-storage API to pachyderm. One of: "+
 			"s3, gcs, or azure-blob.")
-	deployCustom.Flags().BoolVarP(&isS3V2, "isS3V2", "v", false, "Enable S3V2 client")
+	deployCustom.Flags().BoolVar(&isS3V2, "isS3V2", false, "Enable S3V2 client")
 
 	var cloudfrontDistribution string
 	var creds string
