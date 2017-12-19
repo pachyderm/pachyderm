@@ -62,7 +62,7 @@ To deploy Pachyderm we will need to:
 
 #### Set up the Storage Resources
 
-Pachyderm needs a [GCS bucket](https://cloud.google.com/storage/docs/) and a [persistent disk](https://cloud.google.com/compute/docs/disks/) to function correctly.  We can specify the size of the peristent disk, the bucket name, and create the bucket as follows:
+Pachyderm needs a [GCS bucket](https://cloud.google.com/storage/docs/) and a [persistent disk](https://cloud.google.com/compute/docs/disks/) to function correctly.  We can specify the size of the persistent disk, the bucket name, and create the bucket as follows:
 
 ```shell
 # For a demo you should only need 10 GB. This stores PFS metadata. For reference, 1GB
