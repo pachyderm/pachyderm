@@ -1,4 +1,4 @@
-# AWS Cloudfront
+# AWS CloudFront
 
 To deploy a production ready AWS cluster with CloudFront:
 

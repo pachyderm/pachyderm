@@ -10,7 +10,7 @@
 
 Pachyderm is a tool for production data pipelines. If you need to chain
 together data scraping, ingestion, cleaning, munging, wrangling, processing,
-modelling, and analysis in a sane way, then Pachyderm is for you. If you have an
+modeling, and analysis in a sane way, then Pachyderm is for you. If you have an
 existing set of scripts which do this in an ad-hoc fashion and you're looking
 for a way to "productionize" them, Pachyderm can make this easy for you.
 

@@ -5,7 +5,7 @@ Run a pipeline once.
 ### Synopsis
 
 
-Run a pipeline once, optionally overriding some pipeline options by providing a [pipeline spec](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html).  For example run a web scraper pipelien without any explicit input.
+Run a pipeline once, optionally overriding some pipeline options by providing a [pipeline spec](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html).  For example run a web scraper pipeline without any explicit input.
 
 ```
 ./pachctl run-pipeline pipeline-name [-f job.json]
