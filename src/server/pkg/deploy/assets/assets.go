@@ -1029,9 +1029,10 @@ func AmazonSecret(bucket string, distribution string, id string, secret string, 
 }
 
 // GoogleSecret creates a google secret with a bucket name.
-func GoogleSecret(bucket string) map[string][]byte {
+func GoogleSecret(bucket string, cred string) map[string][]byte {
 	return map[string][]byte{
 		"google-bucket": []byte(bucket),
+		"google-cred":   []byte(cred),
 	}
 }
 
@@ -1184,11 +1185,11 @@ func WriteAmazonAssets(w io.Writer, opts *AssetOpts, bucket string, id string, s
 }
 
 // WriteGoogleAssets writes assets to a google backend.
-func WriteGoogleAssets(w io.Writer, opts *AssetOpts, bucket string, volumeSize int) error {
+func WriteGoogleAssets(w io.Writer, opts *AssetOpts, bucket string, cred string, volumeSize int) error {
 	if err := WriteAssets(w, opts, googleBackend, googleBackend, volumeSize, ""); err != nil {
 		return err
 	}
-	WriteSecret(w, GoogleSecret(bucket))
+	WriteSecret(w, GoogleSecret(bucket, cred))
 	return nil
 }
 
