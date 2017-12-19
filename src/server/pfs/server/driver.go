@@ -545,15 +545,15 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 	return nil
 }
 
-func (d *driver) startCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit) (*pfs.Commit, error) {
-	return d.makeCommit(ctx, parent, branch, provenance, nil)
+func (d *driver) startCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit, description string) (*pfs.Commit, error) {
+	return d.makeCommit(ctx, parent, branch, provenance, nil, description)
 }
 
 func (d *driver) buildCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit, tree *pfs.Object) (*pfs.Commit, error) {
-	return d.makeCommit(ctx, parent, branch, provenance, tree)
+	return d.makeCommit(ctx, parent, branch, provenance, tree, "")
 }
 
-func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit, treeRef *pfs.Object) (*pfs.Commit, error) {
+func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit, treeRef *pfs.Object, description string) (*pfs.Commit, error) {
 	if err := d.checkIsAuthorized(ctx, parent.Repo, auth.Scope_WRITER); err != nil {
 		return nil, err
 	}
@@ -588,8 +588,9 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 		}
 
 		commitInfo := &pfs.CommitInfo{
-			Commit:  commit,
-			Started: now(),
+			Commit:      commit,
+			Started:     now(),
+			Description: description,
 		}
 
 		// Use a map to de-dup provenance
@@ -681,7 +682,7 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 	return commit, nil
 }
 
-func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs.Object, empty bool) (retErr error) {
+func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs.Object, empty bool, description string) (retErr error) {
 	if err := d.checkIsAuthorized(ctx, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
@@ -691,6 +692,9 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 	}
 	if commitInfo.Finished != nil {
 		return fmt.Errorf("commit %s has already been finished", commit.FullID())
+	}
+	if description != "" {
+		commitInfo.Description = description
 	}
 
 	prefix, err := d.scratchCommitPrefix(ctx, commit)
@@ -707,9 +711,10 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 
 	var parentTree, finishedTree hashtree.HashTree
 	if !empty {
-		// Retrieve commit tree from parent commit. If tree != nil, walk up the branch
-		// until we find a closed commit. Otherwise, require that the immediate parent
-		// of 'commitInfo' is closed, as we use its contents
+		// Retrieve commit tree from parent commit (to apply writes from etcd or just
+		// compute the size change). If parentCommit.Tree == nil, walk up the branch
+		// until we find a successful commit. Otherwise, require that the immediate
+		// parent of 'commitInfo' is closed, as we use its contents
 		parentCommit := commitInfo.ParentCommit
 		for parentCommit != nil {
 			parentCommitInfo, err := d.inspectCommit(ctx, parentCommit, false)

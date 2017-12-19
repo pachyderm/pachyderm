@@ -290,6 +290,8 @@ $ pachctl list-job -p foo bar/YYY
 		datumID     string
 		commaInputs string // comma-separated list of input files of interest
 		master      bool
+		follow      bool
+		tail        int64
 	)
 	getLogs := &cobra.Command{
 		Use:   "get-logs [--pipeline=<pipeline>|--job=<job id>] [--datum=<datum id>]",
@@ -328,7 +330,7 @@ $ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
 
 			// Issue RPC
 			marshaler := &jsonpb.Marshaler{}
-			iter := client.GetLogs(pipelineName, jobID, data, datumID, master)
+			iter := client.GetLogs(pipelineName, jobID, data, datumID, master, follow, tail)
 			for iter.Next() {
 				var messageStr string
 				if raw {
@@ -358,6 +360,8 @@ $ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
 		"generated while processing these files (accepts PFS paths or file hashes)")
 	getLogs.Flags().BoolVar(&master, "master", false, "Return log messages from the master process (pipeline must be set).")
 	getLogs.Flags().BoolVar(&raw, "raw", false, "Return log messages verbatim from server.")
+	getLogs.Flags().BoolVarP(&follow, "follow", "f", false, "Follow logs as more are created.")
+	getLogs.Flags().Int64VarP(&tail, "tail", "t", 0, "Lines of recent logs to display.")
 
 	pipeline := &cobra.Command{
 		Use:   "pipeline",
@@ -505,7 +509,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 			pipelineInfos, err := client.ListPipeline()
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 			if raw {
 				for _, pipelineInfo := range pipelineInfos {

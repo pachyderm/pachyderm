@@ -336,6 +336,8 @@ func (a *APIServer) jobSpawner(ctx context.Context) error {
 				Batch:           a.pipelineInfo.Batch,
 				Service:         a.pipelineInfo.Service,
 				ChunkSpec:       a.pipelineInfo.ChunkSpec,
+				DatumTimeout:    a.pipelineInfo.DatumTimeout,
+				JobTimeout:      a.pipelineInfo.JobTimeout,
 			})
 			if err != nil {
 				return err
@@ -388,6 +390,8 @@ func (a *APIServer) serviceSpawner(ctx context.Context) error {
 			Batch:           a.pipelineInfo.Batch,
 			Service:         a.pipelineInfo.Service,
 			ChunkSpec:       a.pipelineInfo.ChunkSpec,
+			DatumTimeout:    a.pipelineInfo.DatumTimeout,
+			JobTimeout:      a.pipelineInfo.JobTimeout,
 		})
 		if err != nil {
 			return err
@@ -821,6 +825,31 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		logger.Logf("error in waitJob %v, retrying in %v", err, d)
 		select {
 		case <-ctx.Done():
+			if err := ctx.Err(); err != nil {
+				if err == context.DeadlineExceeded {
+					reason := fmt.Sprintf("job exceeded timeout (%v)", jobInfo.JobTimeout)
+					// Mark the job as failed.
+					// Workers subscribe to etcd for this state change to cancel their work
+					_, err := col.NewSTM(context.Background(), a.etcdClient, func(stm col.STM) error {
+						jobs := a.jobs.ReadWrite(stm)
+						jobID := jobInfo.Job.ID
+						jobInfo := &pps.JobInfo{}
+						if err := jobs.Get(jobID, jobInfo); err != nil {
+							return err
+						}
+						jobInfo.Finished = now()
+						err = a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE, reason)
+						if err != nil {
+							return nil
+						}
+						return nil
+					})
+					if err != nil {
+						return err
+					}
+				}
+				return err
+			}
 			return err
 		default:
 		}
@@ -879,7 +908,7 @@ func (a *APIServer) egress(ctx context.Context, logger *taggedLogger, jobInfo *p
 
 func (a *APIServer) runService(ctx context.Context, logger *taggedLogger) error {
 	return backoff.RetryNotify(func() error {
-		return a.runUserCode(ctx, logger, nil, &pps.ProcessStats{})
+		return a.runUserCode(ctx, logger, nil, &pps.ProcessStats{}, nil)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		select {
 		case <-ctx.Done():

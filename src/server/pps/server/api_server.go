@@ -21,7 +21,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
@@ -379,6 +378,8 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			PipelineVersion:  request.PipelineVersion,
 			Batch:            request.Batch,
 			ChunkSpec:        request.ChunkSpec,
+			DatumTimeout:     request.DatumTimeout,
+			JobTimeout:       request.JobTimeout,
 		}
 		if request.Pipeline != nil {
 			pipelinePtr := pps.EtcdPipelineInfo{}
@@ -943,8 +944,6 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	// No deadline in request, but we create one here, since we do expect the call
-	// to finish reasonably quickly
 	ctx := auth.In2Out(apiGetLogsServer.Context())
 	pachClient, err := a.getPachClient()
 	if err != nil {
@@ -1013,24 +1012,26 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	// and channels are read into the output server in a stable order.
 	// (sort the pods to make sure that the order of log lines is stable)
 	sort.Sort(podSlice(pods))
-	logChs := make([]chan *pps.LogMessage, len(pods))
-	errCh := make(chan error, 1)
-	done := make(chan struct{})
-	defer close(done)
-	for i := 0; i < len(pods); i++ {
-		logChs[i] = make(chan *pps.LogMessage)
-	}
-	for i, pod := range pods {
-		i, pod := i, pod
-		go func() {
-			defer close(logChs[i]) // Main thread reads from here, so must close
-			// Get full set of logs from pod i
-			err := backoff.Retry(func() error {
-				result := a.kubeClient.CoreV1().Pods(a.namespace).GetLogs(
+	logCh := make(chan *pps.LogMessage)
+	var eg errgroup.Group
+	var mu sync.Mutex
+	eg.Go(func() error {
+		for _, pod := range pods {
+			pod := pod
+			if !request.Follow {
+				mu.Lock()
+			}
+			eg.Go(func() (retErr error) {
+				if !request.Follow {
+					defer mu.Unlock()
+				}
+				// Get full set of logs from pod i
+				stream, err := a.kubeClient.CoreV1().Pods(a.namespace).GetLogs(
 					pod.ObjectMeta.Name, &v1.PodLogOptions{
 						Container: containerName,
-					}).Timeout(10 * time.Second).Do()
-				fullLogs, err := result.Raw()
+						Follow:    request.Follow,
+						TailLines: &request.Tail,
+					}).Timeout(10 * time.Second).Stream()
 				if err != nil {
 					if apiStatus, ok := err.(errors.APIStatus); ok &&
 						strings.Contains(apiStatus.Status().Message, "PodInitializing") {
@@ -1038,17 +1039,14 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 					}
 					return err
 				}
-				// Occasionally, fullLogs is truncated and contains the string
-				// 'unexpected stream type ""' at the end. I believe this is a recent
-				// bug in k8s (https://github.com/kubernetes/kubernetes/issues/47800)
-				// so we're adding a special handler for this corner case.
-				// TODO(msteffen) remove this handling once the issue is fixed
-				if bytes.HasSuffix(fullLogs, []byte("unexpected stream type \"\"")) {
-					return fmt.Errorf("interrupted log stream due to kubernetes/kubernetes/issues/47800")
-				}
+				defer func() {
+					if err := stream.Close(); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
 
 				// Parse pods' log lines, and filter out irrelevant ones
-				scanner := bufio.NewScanner(bytes.NewReader(fullLogs))
+				scanner := bufio.NewScanner(stream)
 				for scanner.Scan() {
 					msg := new(pps.LogMessage)
 					if containerName == "pachd" {
@@ -1079,43 +1077,28 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 
 					// Log message passes all filters -- return it
 					select {
-					case logChs[i] <- msg:
-					case <-done:
+					case logCh <- msg:
+					case <-ctx.Done():
 						return nil
 					}
 				}
 				return nil
-			}, backoff.New10sBackOff())
+			})
+		}
+		return nil
+	})
+	var egErr error
+	go func() {
+		egErr = eg.Wait()
+		close(logCh)
+	}()
 
-			// Used up all retries -- no logs from worker
-			if err != nil {
-				select {
-				case errCh <- err:
-				case <-done:
-				default:
-				}
-			}
-		}()
-	}
-
-nextLogCh:
-	for _, logCh := range logChs {
-		for {
-			msg, ok := <-logCh
-			if !ok {
-				continue nextLogCh
-			}
-			if err := apiGetLogsServer.Send(msg); err != nil {
-				return err
-			}
+	for msg := range logCh {
+		if err := apiGetLogsServer.Send(msg); err != nil {
+			return err
 		}
 	}
-	select {
-	case err := <-errCh:
-		return err
-	default:
-	}
-	return nil
+	return egErr
 }
 
 func (a *apiServer) getLogsFromStats(ctx context.Context, request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer, statsCommit *pfs.Commit) error {
@@ -1246,6 +1229,18 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 				}
 				provMap[key(provBranch.Repo.Name, provBranch.Name)] = true
 			}
+		}
+	}
+	if pipelineInfo.JobTimeout != nil {
+		_, err := types.DurationFromProto(pipelineInfo.JobTimeout)
+		if err != nil {
+			return err
+		}
+	}
+	if pipelineInfo.DatumTimeout != nil {
+		_, err := types.DurationFromProto(pipelineInfo.DatumTimeout)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
@@ -1476,6 +1471,8 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		MaxQueueSize:       request.MaxQueueSize,
 		Service:            request.Service,
 		ChunkSpec:          request.ChunkSpec,
+		DatumTimeout:       request.DatumTimeout,
+		JobTimeout:         request.JobTimeout,
 	}
 	setPipelineDefaults(pipelineInfo)
 

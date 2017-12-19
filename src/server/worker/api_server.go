@@ -11,7 +11,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"os/exec"
 	"os/user"
 	"path"
 	"path/filepath"
@@ -45,6 +44,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/exec"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
@@ -437,7 +437,8 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 }
 
 // Run user code and return the combined output of stdout and stderr.
-func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string, stats *pps.ProcessStats) (retErr error) {
+func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string, stats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
+
 	defer func(start time.Time) {
 		stats.ProcessTime = types.DurationProto(time.Since(start))
 	}(time.Now())
@@ -445,6 +446,16 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	defer func(start time.Time) {
 		logger.Logf("finished running user code - took (%v) - with error (%v)", time.Since(start), retErr)
 	}(time.Now())
+	if rawDatumTimeout != nil {
+		datumTimeout, err := types.DurationFromProto(rawDatumTimeout)
+		if err != nil {
+			return err
+		}
+		datumTimeoutCtx, cancel := context.WithTimeout(ctx, datumTimeout)
+		defer cancel()
+		ctx = datumTimeoutCtx
+	}
+
 	// Run user code
 	cmd := exec.CommandContext(ctx, a.pipelineInfo.Transform.Cmd[0], a.pipelineInfo.Transform.Cmd[1:]...)
 	cmd.Stdin = strings.NewReader(strings.Join(a.pipelineInfo.Transform.Stdin, "\n") + "\n")
@@ -458,23 +469,44 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 		},
 	}
 	cmd.Dir = a.workingDir
-	err := cmd.Run()
-
-	// Return result
-	if err == nil {
-		return nil
+	err := cmd.Start()
+	if err != nil {
+		return err
 	}
-	// (if err is an acceptable return code, don't return err)
-	if exiterr, ok := err.(*exec.ExitError); ok {
-		if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-			for _, returnCode := range a.pipelineInfo.Transform.AcceptReturnCode {
-				if int(returnCode) == status.ExitStatus() {
-					return nil
+	// A context w a deadline will successfully cancel/kill
+	// the running process (minus zombies)
+	state, err := cmd.Process.Wait()
+	if err != nil {
+		return err
+	}
+	select {
+	case <-ctx.Done():
+		if err = ctx.Err(); err != nil {
+			return err
+		}
+	default:
+	}
+
+	// Because of this issue: https://github.com/golang/go/issues/18874
+	// We forked os/exec so that we can call just the part of cmd.Wait() that
+	// happens after blocking on the process. Unfortunately calling
+	// cmd.Process.Wait() then cmd.Wait() will produce an error. So instead we
+	// close the IO using this helper
+	err = cmd.WaitIO(state, err)
+	if err != nil {
+		// (if err is an acceptable return code, don't return err)
+		if exiterr, ok := err.(*exec.ExitError); ok {
+			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+				for _, returnCode := range a.pipelineInfo.Transform.AcceptReturnCode {
+					if int(returnCode) == status.ExitStatus() {
+						return nil
+					}
 				}
 			}
 		}
+		return err
 	}
-	return err
+	return nil
 }
 
 func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, logger *taggedLogger, inputs []*Input, stats *pps.ProcessStats, statsTree hashtree.OpenHashTree, statsRoot string) error {
@@ -587,7 +619,6 @@ func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, lo
 
 							lock.Lock()
 							defer lock.Unlock()
-							atomic.AddUint64(&stats.UploadBytes, fileInfo.SizeBytes)
 							if statsTree != nil {
 								if err := statsTree.PutFile(path.Join(statsRoot, subRelPath), fileInfo.Objects, int64(fileInfo.SizeBytes)); err != nil {
 									return err
@@ -941,6 +972,7 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 	var failedDatumID string
 	var eg errgroup.Group
 	var skipped int64
+	var failed int64
 	for i := low; i < high; i++ {
 		i := i
 		eg.Go(func() (retErr error) {
@@ -1067,6 +1099,12 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 			var dir string
 			var retries int
 			if err := backoff.RetryNotify(func() error {
+				// If the context is already cancelled (timeout, cancelled job), don't run datum
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				default:
+				}
 				// Download input data
 				puller := filesync.NewPuller()
 				// TODO parent tag shouldn't be nil
@@ -1117,7 +1155,7 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 						retErr = err
 					}
 				}()
-				if err := a.runUserCode(ctx, logger, env, subStats); err != nil {
+				if err := a.runUserCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
 					return err
 				}
 				// CleanUp is idempotent so we can call it however many times we want.
@@ -1134,6 +1172,13 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 				atomic.AddUint64(&subStats.DownloadBytes, uint64(downSize))
 				return a.uploadOutput(ctx, dir, tag, logger, data, subStats, statsTree, path.Join(statsPath, "pfs", "out"))
 			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
+				// If the context is already cancelled (timeout, cancelled job),
+				// err out and don't retry
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				default:
+				}
 				retries++
 				if retries >= maxRetries {
 					logger.Logf("failed to process datum with error: %+v", err)
@@ -1153,6 +1198,7 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 				return nil
 			}); err != nil {
 				failedDatumID = a.DatumID(data)
+				failed++
 				return nil
 			}
 			statsMu.Lock()
@@ -1175,6 +1221,7 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 		}
 		jobInfo.DataProcessed += high - low - skipped
 		jobInfo.DataSkipped += skipped
+		jobInfo.DataFailed += failed
 		if jobInfo.Stats == nil {
 			jobInfo.Stats = &pps.ProcessStats{}
 		}

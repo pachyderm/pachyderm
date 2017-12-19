@@ -109,7 +109,11 @@ func NewMicrosoftClientFromSecret(container string) (Client, error) {
 //   id     - AWS access key id
 //   secret - AWS secret access key
 //   secure - Set to true if connection is secure.
-func NewMinioClient(endpoint, bucket, id, secret string, secure bool) (Client, error) {
+//   isS3V2 - Set to true if client follows S3V2
+func NewMinioClient(endpoint, bucket, id, secret string, secure, isS3V2 bool) (Client, error) {
+	if isS3V2 {
+		return newMinioClientV2(endpoint, bucket, id, secret, secure)
+	}
 	return newMinioClient(endpoint, bucket, id, secret, secure)
 }
 
@@ -152,7 +156,11 @@ func NewMinioClientFromSecret(bucket string) (Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewMinioClient(endpoint, bucket, id, secret, secure == "1")
+	isS3V2, err := readSecretFile("/minio-signature")
+	if err != nil {
+		return nil, err
+	}
+	return NewMinioClient(endpoint, bucket, id, secret, secure == "1", isS3V2 == "1")
 }
 
 // NewAmazonClientFromSecret constructs an amazon client by reading credentials

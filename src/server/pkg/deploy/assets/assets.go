@@ -967,17 +967,23 @@ func DashService() *v1.Service {
 //   secret - S3 secret access key
 //   endpoint  - S3 compatible endpoint
 //   secure - set to true for a secure connection.
-func MinioSecret(bucket string, id string, secret string, endpoint string, secure bool) map[string][]byte {
+//   isS3V2 - Set to true if client follows S3V2
+func MinioSecret(bucket string, id string, secret string, endpoint string, secure, isS3V2 bool) map[string][]byte {
 	secureV := "0"
 	if secure {
 		secureV = "1"
 	}
+	s3V2 := "0"
+	if isS3V2 {
+		s3V2 = "1"
+	}
 	return map[string][]byte{
-		"minio-bucket":   []byte(bucket),
-		"minio-id":       []byte(id),
-		"minio-secret":   []byte(secret),
-		"minio-endpoint": []byte(endpoint),
-		"minio-secure":   []byte(secureV),
+		"minio-bucket":    []byte(bucket),
+		"minio-id":        []byte(id),
+		"minio-secret":    []byte(secret),
+		"minio-endpoint":  []byte(endpoint),
+		"minio-secure":    []byte(secureV),
+		"minio-signature": []byte(s3V2),
 	}
 }
 
@@ -1134,7 +1140,7 @@ func WriteLocalAssets(w io.Writer, opts *AssetOpts, hostPath string) error {
 
 // WriteCustomAssets writes assets to a custom combination of object-store and persistent disk.
 func WriteCustomAssets(w io.Writer, opts *AssetOpts, args []string, objectStoreBackend string,
-	persistentDiskBackend string, secure bool) error {
+	persistentDiskBackend string, secure, isS3V2 bool) error {
 	switch objectStoreBackend {
 	case "s3":
 		if len(args) != s3CustomArgs {
@@ -1160,7 +1166,7 @@ func WriteCustomAssets(w io.Writer, opts *AssetOpts, args []string, objectStoreB
 		default:
 			return fmt.Errorf("Did not recognize the choice of persistent-disk")
 		}
-		WriteSecret(w, MinioSecret(args[2], args[3], args[4], args[5], secure))
+		WriteSecret(w, MinioSecret(args[2], args[3], args[4], args[5], secure, isS3V2))
 		return nil
 	default:
 		return fmt.Errorf("Did not recognize the choice of object-store")

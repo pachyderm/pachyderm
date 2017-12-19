@@ -21,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/facebookgo/pidfile"
+	"github.com/fatih/color"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
@@ -95,11 +96,16 @@ Environment variables:
 		rootCmd.AddCommand(cmd)
 	}
 
+	var clientOnly bool
 	versionCmd := &cobra.Command{
 		Use:   "version",
 		Short: "Return version information.",
 		Long:  "Return version information.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+			if clientOnly {
+				fmt.Println(version.PrettyPrintVersion(version.Version))
+				return nil
+			}
 			if !noMetrics {
 				start := time.Now()
 				startMetricsWait := metrics.StartReportAndFlushUserAction("Version", start)
@@ -139,6 +145,10 @@ Environment variables:
 			return writer.Flush()
 		}),
 	}
+	versionCmd.Flags().BoolVar(&clientOnly, "client-only", false, "If set, "+
+		"only print pachctl's version, but don't make any RPCs to pachd. Useful "+
+		"if pachd is unavailable")
+
 	deleteAll := &cobra.Command{
 		Use:   "delete-all",
 		Short: "Delete everything.",
@@ -149,7 +159,25 @@ This resets the cluster to its initial state.`,
 			if err != nil {
 				return err
 			}
+			red := color.New(color.FgRed).SprintFunc()
+			var repos, pipelines []string
+			repoInfos, err := client.ListRepo(nil)
+			if err != nil {
+				return err
+			}
+			for _, ri := range repoInfos {
+				repos = append(repos, red(ri.Repo.Name))
+			}
+			pipelineInfos, err := client.ListPipeline()
+			if err != nil {
+				return err
+			}
+			for _, pi := range pipelineInfos {
+				pipelines = append(pipelines, red(pi.Pipeline.Name))
+			}
 			fmt.Printf("Are you sure you want to delete all ACLs, repos, commits, files, pipelines and jobs? yN\n")
+			fmt.Printf("Repos to delete: %s\n", strings.Join(repos, ", "))
+			fmt.Printf("Pipelines to delete: %s\n", strings.Join(pipelines, ", "))
 			r := bufio.NewReader(os.Stdin)
 			bytes, err := r.ReadBytes('\n')
 			if err != nil {
@@ -239,7 +267,7 @@ kubectl %v port-forward "$pod" %d:8081
 
 When a file/commit/repo is deleted, the data is not immediately removed from the underlying storage system (e.g. S3) for performance and architectural reasons.  This is similar to how when you delete a file on your computer, the file is not necessarily wiped from disk immediately.
 
-To actually remove the data, you will need to manually invoke garbage collection.  The easiest way to do it is through "pachctl garbage-collecth".
+To actually remove the data, you will need to manually invoke garbage collection.  The easiest way to do it is through "pachctl garbage-collect".
 
 Currently "pachctl garbage-collect" can only be started when there are no active jobs running.  You also need to ensure that there's no ongoing "put-file".  Garbage collection puts the cluster into a readonly mode where no new jobs can be created and no data can be added.
 `,

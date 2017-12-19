@@ -224,6 +224,7 @@ message JobInfo {
   uint64 restart = 20;
   int64 data_processed = 22;
   int64 data_skipped = 30;
+  int64 data_failed = 40;
   int64 data_total = 23;
   ProcessStats stats = 31;
   repeated WorkerStatus worker_status = 24;
@@ -237,6 +238,8 @@ message JobInfo {
   string salt = 33;
   bool batch = 34;
   ChunkSpec chunk_spec = 37;
+  google.protobuf.Duration datum_timeout = 38;
+  google.protobuf.Duration job_timeout = 39;
 }
 
 enum WorkerState {
@@ -334,6 +337,8 @@ message PipelineInfo {
   int64 max_queue_size = 29;
   Service service = 30;
   ChunkSpec chunk_spec = 32;
+  google.protobuf.Duration datum_timeout = 33;
+  google.protobuf.Duration job_timeout = 34;
 }
 
 message PipelineInfos {
@@ -351,7 +356,7 @@ message CreateJobRequest {
   // by using a k8s RC and Service instead of a k8s Job
   Service service = 8;
   pfs.Repo output_repo = 12;
-  pfs.Commit output_commit = 23;
+  pfs.Commit output_commit = 25;
   string output_branch = 11;
   Job parent_job = 13;
   ResourceSpec resource_requests = 14;
@@ -363,6 +368,8 @@ message CreateJobRequest {
   string salt = 19;
   bool batch = 20;
   ChunkSpec chunk_spec = 22;
+  google.protobuf.Duration datum_timeout = 23;
+  google.protobuf.Duration job_timeout = 24;
 }
 
 message InspectJobRequest {
@@ -404,6 +411,14 @@ message GetLogsRequest {
 
   // If true get logs from the master process
   bool master = 5;
+
+  // Continue to follow new logs as they become available.
+  bool follow = 7;
+
+  // If nonzero, the number of lines from the end of the logs to return.  Note:
+  // tail applies per container, so you will get tail * <number of pods> total
+  // lines back.
+  int64 tail = 8;
 }
 
 // LogMessage is a log line from a PPS worker, annotated with metadata
@@ -496,6 +511,8 @@ message CreatePipelineRequest {
   int64 max_queue_size = 20;
   Service service = 21;
   ChunkSpec chunk_spec = 23;
+  google.protobuf.Duration datum_timeout = 24;
+  google.protobuf.Duration job_timeout = 25;
 }
 
 message InspectPipelineRequest {
