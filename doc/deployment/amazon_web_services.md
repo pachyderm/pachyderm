@@ -81,9 +81,6 @@ $ BUCKET_NAME=[The name of the S3 bucket where your data will be stored]
 $ STORAGE_SIZE=[the size of the EBS volume that you are going to create, in GBs. e.g. "10"]
 
 $ AWS_REGION=[the AWS region of your Kubernetes cluster. e.g. "us-west-2" (not us-west-2a)]
-
-$ AWS_AVAILABILITY_ZONE=[the AWS availability zone of your Kubernetes cluster. e.g. "us-west-2a"]
-
 ```
 
 Then to actually create the resources, you can run:
