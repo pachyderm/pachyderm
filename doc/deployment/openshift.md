@@ -94,7 +94,7 @@ or manually edit rc `oc edit rc <RC_PIPELINE> -o json`:
 
 3) Replace `hostPath` with `emptyDir`.
 
-Again, please note that `emptyDir` does not persit your data. You need to configure persistent volume or hostPath to persist.
+Again, please note that `emptyDir` does not persist your data. You need to configure persistent volume or hostPath to persist.
 
 4) Redeploy the updated Pods.
 

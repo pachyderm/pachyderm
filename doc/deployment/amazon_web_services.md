@@ -22,7 +22,7 @@ In addition, we recommend setting up AWS CloudFront for production deployments. 
 
 ### Deploy Kubernetes
 
-The easiest way to install Kubernetes on AWS is with kops. Kubenetes has provided a [step by step guide](https://github.com/kubernetes/kops/blob/master/docs/aws.md) for the deploy.  Please follow [this guide](https://github.com/kubernetes/kops/blob/master/docs/aws.md) to deploy Kubernetes on AWS.
+The easiest way to install Kubernetes on AWS is with kops. Kubernetes has provided a [step by step guide](https://github.com/kubernetes/kops/blob/master/docs/aws.md) for the deploy.  Please follow [this guide](https://github.com/kubernetes/kops/blob/master/docs/aws.md) to deploy Kubernetes on AWS.
 
 Once, you have a Kubernetes cluster up and running in AWS, you should be able to see the following output from `kubectl`:
 
@@ -81,9 +81,6 @@ $ BUCKET_NAME=[The name of the S3 bucket where your data will be stored]
 $ STORAGE_SIZE=[the size of the EBS volume that you are going to create, in GBs. e.g. "10"]
 
 $ AWS_REGION=[the AWS region of your Kubernetes cluster. e.g. "us-west-2" (not us-west-2a)]
-
-$ AWS_AVAILABILITY_ZONE=[the AWS availability zone of your Kubernetes cluster. e.g. "us-west-2a"]
-
 ```
 
 Then to actually create the resources, you can run:
@@ -116,7 +113,7 @@ $ AWS_SECRET_ACCESS_KEY=[secret access key]
 Run the following command to deploy your Pachyderm cluster:
 
 ```shell
-$ pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3 --credentials "${AWS_ACCESS_KEY_ID},${AWS_SECRET_ACCESS_KEY},"
+$ pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --credentials "${AWS_ACCESS_KEY_ID},${AWS_SECRET_ACCESS_KEY},"
 ```
 
 (Note, the `,` at the end of the `credentials` flag in the deploy command is for an optional temporary AWS token, if you are just experimenting with a deploy.  Such a token should NOT be used for a production deploy).  It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub.
@@ -126,7 +123,7 @@ $ pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-e
 Run the following command to deploy your Pachyderm cluster:
 
 ```shell
-$ pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=3 --iam-role <your-iam-role>
+$ pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --iam-role <your-iam-role>
 ```
 
 Note that for this to work, the following need to be true:
