@@ -680,22 +680,56 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, descripti
 		return err
 	}
 
-	// Read everything under the scratch space for this commit
-	fmt.Printf("reading scratch etcd for commit\n")
-	resp, err := d.etcdClient.Get(ctx, prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend))
-	if err != nil {
-		return err
-	}
-
 	fmt.Printf("getting tree for commit\n")
 	parentTree, err := d.getTreeForCommit(ctx, commitInfo.ParentCommit)
 	if err != nil {
 		return err
 	}
 	tree := parentTree.Open()
-
+	// Read everything under the scratch space for this commit
+	recordLimit := int64(100) // By trial and error, 100k will cause a grpc max msg size, but 10k is ok
+	opts := []etcd.OpOption{
+		etcd.WithPrefix(),
+		etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend),
+		etcd.WithLimit(recordLimit),
+	}
+	fmt.Printf("reading scratch etcd for commit for the first time\n")
+	start := time.Now()
+	resp, err := d.etcdClient.Get(ctx, prefix, opts...)
+	fmt.Printf("took %v to get %v records from etcd first time\n", time.Since(start), len(resp.Kvs))
+	start = time.Now()
 	if err := d.applyWrites(resp, tree); err != nil {
 		return err
+	}
+	fmt.Printf("took %v to apply writes to tree for the first time\n", time.Since(start))
+	lastKey := string(resp.Kvs[len(resp.Kvs)-1].Value)
+	fmt.Printf("lastkey: %v\n", lastKey)
+	if err != nil {
+		return err
+	}
+	opts = append(opts, etcd.WithFromKey())
+	for {
+		fmt.Printf("reading scratch etcd for commit\n")
+		start = time.Now()
+		resp, err := d.etcdClient.Get(ctx, fmt.Sprintf("%v/%v", prefix, lastKey), opts...)
+		fmt.Printf("took %v to get %v records from etcd\n", time.Since(start), len(resp.Kvs))
+		lastKey = string(resp.Kvs[len(resp.Kvs)-1].Value)
+		fmt.Printf("lastkey: %v\n", lastKey)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("applying writes to resp of len: %v\n", resp.Count)
+		resp.Kvs = resp.Kvs[1:len(resp.Kvs)] // first one will be repeat from previous call
+		start = time.Now()
+		if err := d.applyWrites(resp, tree); err != nil {
+			return err
+		}
+		fmt.Printf("took %v to apply writes to tree\n", time.Since(start))
+
+		if !resp.More {
+			fmt.Printf("no more results ... exit the loop")
+			break
+		}
 	}
 
 	finishedTree, err := tree.Finish()
@@ -1418,7 +1452,9 @@ func (d *driver) scratchFilePrefix(ctx context.Context, file *pfs.File) (string,
 func (d *driver) filePathFromEtcdPath(etcdPath string) string {
 	trimmed := strings.TrimPrefix(etcdPath, d.scratchPrefix())
 	// trimmed looks like /repo/commit/path/to/file
+	fmt.Printf("trimmed (%v)\n", trimmed)
 	split := strings.Split(trimmed, "/")
+	fmt.Printf("split (%v)\n", split)
 	// we only want /path/to/file so we use index 3 (note that there's an "" at
 	// the beginning of the slice because of the lead /)
 	return path.Join(split[3:]...)
