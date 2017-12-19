@@ -105,7 +105,7 @@ func (c *microsoftClient) IsNotExist(err error) bool {
 	if !ok {
 		return false
 	}
-	return microsoftErr.StatusCode == 404
+	return microsoftErr.StatusCode == 400 || microsoftErr.StatusCode == 404
 }
 
 func (c *microsoftClient) IsIgnorable(err error) bool {
