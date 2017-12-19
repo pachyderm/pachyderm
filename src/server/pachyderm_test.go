@@ -108,7 +108,7 @@ func TestPipelineWithParallelism(t *testing.T) {
 	dataRepo := uniqueString("TestPipelineWithParallelism_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	numFiles := 10000
+	numFiles := 1000
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
