@@ -19,7 +19,6 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	pachdclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
@@ -134,7 +133,7 @@ $ pachctl list-job -p foo bar/YYY
 
 			jobInfos, err := client.ListJob(pipelineName, commits, outputCommit)
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 
 			// Display newest jobs first
@@ -213,10 +212,7 @@ $ pachctl list-job -p foo bar/YYY
 					i++
 				}
 			}
-			if err := client.RestartDatum(args[0], datumFilter); err != nil {
-				return grpcutil.ScrubGRPC(err)
-			}
-			return nil
+			return client.RestartDatum(args[0], datumFilter)
 		}),
 	}
 	var pageSize int64
@@ -415,7 +411,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					client.Ctx(),
 					request,
 				); err != nil {
-					return grpcutil.ScrubGRPC(err)
+					return err
 				}
 			}
 			return nil
@@ -461,7 +457,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					client.Ctx(),
 					request,
 				); err != nil {
-					return grpcutil.ScrubGRPC(err)
+					return err
 				}
 			}
 			return nil
@@ -485,7 +481,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 			pipelineInfo, err := client.InspectPipeline(args[0])
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 			if pipelineInfo == nil {
 				return fmt.Errorf("pipeline %s not found", args[0])
@@ -652,7 +648,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				request,
 			)
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 			fmt.Println(job.ID)
 			return nil
