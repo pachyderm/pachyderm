@@ -2142,7 +2142,7 @@ func TestUpdatePipelineStats(t *testing.T) {
 		false,
 	))
 
-	numFiles := 100000
+	numFiles := 1000
 	commit, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
