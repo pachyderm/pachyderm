@@ -693,7 +693,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, descripti
 		etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend),
 		etcd.WithLimit(recordLimit),
 	}
-	fmt.Printf("reading scratch etcd for commit for the first time\n")
+	fmt.Printf("reading scratch etcd for commit for the first time w prefix %v\n", prefix)
 	start := time.Now()
 	resp, err := d.etcdClient.Get(ctx, prefix, opts...)
 	fmt.Printf("took %v to get %v records from etcd first time\n", time.Since(start), len(resp.Kvs))
@@ -711,7 +711,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, descripti
 	for {
 		fmt.Printf("reading scratch etcd for commit\n")
 		start = time.Now()
-		resp, err := d.etcdClient.Get(ctx, fmt.Sprintf("%v/%v", prefix, lastKey), opts...)
+		resp, err := d.etcdClient.Get(ctx, lastKey, opts...)
 		fmt.Printf("took %v to get %v records from etcd\n", time.Since(start), len(resp.Kvs))
 		lastKey = string(resp.Kvs[len(resp.Kvs)-1].Value)
 		fmt.Printf("lastkey: %v\n", lastKey)
