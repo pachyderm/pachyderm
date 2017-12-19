@@ -237,7 +237,7 @@ $ pachctl start-commit test patch -p master
 $ pachctl start-commit test -p XXX
 ` + codeend,
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, "user")
+			cli, err := client.NewOnUserMachine(metrics, "user")
 			if err != nil {
 				return err
 			}
@@ -245,7 +245,12 @@ $ pachctl start-commit test -p XXX
 			if len(args) == 2 {
 				branch = args[1]
 			}
-			commit, err := client.StartCommitParent(args[0], branch, parent)
+			commit, err := cli.PfsAPIClient.StartCommit(cli.Ctx(),
+				&pfsclient.StartCommitRequest{
+					Branch:      branch,
+					Parent:      client.NewCommit(args[0], parent),
+					Description: description,
+				})
 			if err != nil {
 				return err
 			}
@@ -254,19 +259,31 @@ $ pachctl start-commit test -p XXX
 		}),
 	}
 	startCommit.Flags().StringVarP(&parent, "parent", "p", "", "The parent of the new commit, unneeded if branch is specified and you want to use the previous head of the branch as the parent.")
+	startCommit.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents")
+	startCommit.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
 
 	finishCommit := &cobra.Command{
 		Use:   "finish-commit repo-name commit-id",
 		Short: "Finish a started commit.",
 		Long:  "Finish a started commit. Commit-id must be a writeable commit.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, "user")
+			cli, err := client.NewOnUserMachine(metrics, "user")
 			if err != nil {
 				return err
 			}
-			return client.FinishCommit(args[0], args[1])
+			if description != "" {
+				_, err := cli.PfsAPIClient.FinishCommit(cli.Ctx(),
+					&pfsclient.FinishCommitRequest{
+						Commit:      client.NewCommit(args[0], args[1]),
+						Description: description,
+					})
+				return err
+			}
+			return cli.FinishCommit(args[0], args[1])
 		}),
 	}
+	finishCommit.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents (overwrites any existing commit description)")
+	finishCommit.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
 
 	inspectCommit := &cobra.Command{
 		Use:   "inspect-commit repo-name commit-id",
@@ -639,7 +656,7 @@ negligible, but if you are putting a large number of small files, you might
 want to consider using commit IDs directly.
 `,
 		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
-			client, err := client.NewOnUserMachineWithConcurrency(metrics, "user", parallelism)
+			cli, err := client.NewOnUserMachineWithConcurrency(metrics, "user", parallelism)
 			if err != nil {
 				return err
 			}
@@ -650,14 +667,23 @@ want to consider using commit IDs directly.
 				path = args[2]
 			}
 			if putFileCommit {
-				if _, err := client.StartCommit(repoName, branch); err != nil {
+				commit, err := cli.PfsAPIClient.StartCommit(cli.Ctx(),
+					&pfsclient.StartCommitRequest{
+						Parent:      client.NewCommit(repoName, ""),
+						Branch:      branch,
+						Description: description,
+					})
+				if err != nil {
 					return err
 				}
+				branch = commit.ID // use commit we just started, in case another commit starts concurrently
 				defer func() {
-					if err := client.FinishCommit(repoName, branch); err != nil && retErr == nil {
+					if err := cli.FinishCommit(repoName, branch); err != nil && retErr == nil {
 						retErr = err
 					}
 				}()
+			} else if description != "" {
+				return fmt.Errorf("cannot set --message (-m) or --description without --commit (-c)")
 			}
 
 			limiter := limit.New(int(parallelism))
@@ -708,19 +734,19 @@ want to consider using commit IDs directly.
 						return fmt.Errorf("no filename specified")
 					}
 					eg.Go(func() error {
-						return putFileHelper(client, repoName, branch, joinPaths("", source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes)
+						return putFileHelper(cli, repoName, branch, joinPaths("", source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes)
 					})
 				} else if len(sources) == 1 && len(args) == 3 {
 					// We have a single source and the user has specified a path,
 					// we use the path and ignore source (in terms of naming the file).
 					eg.Go(func() error {
-						return putFileHelper(client, repoName, branch, path, source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes)
+						return putFileHelper(cli, repoName, branch, path, source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes)
 					})
 				} else if len(sources) > 1 && len(args) == 3 {
 					// We have multiple sources and the user has specified a path,
 					// we use that path as a prefix for the filepaths.
 					eg.Go(func() error {
-						return putFileHelper(client, repoName, branch, joinPaths(path, source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes)
+						return putFileHelper(cli, repoName, branch, joinPaths(path, source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes)
 					})
 				}
 			}
@@ -736,6 +762,8 @@ want to consider using commit IDs directly.
 	putFile.Flags().UintVar(&targetFileBytes, "target-file-bytes", 0, "The target upper bound of the number of bytes that each file contains; needs to be used with --split.")
 	putFile.Flags().BoolVarP(&putFileCommit, "commit", "c", false, "Put file(s) in a new commit.")
 	putFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to put-file within this commit.")
+	putFile.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents (only allowed with -c)")
+	putFile.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
 
 	copyFile := &cobra.Command{
 		Use:   "copy-file src-repo src-commit src-path dst-repo dst-commit dst-path",

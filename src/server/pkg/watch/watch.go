@@ -134,7 +134,7 @@ func newWatcher(ctx context.Context, client *etcd.Client, prefix string, withPre
 		prefixBytes := []byte(prefix)
 		for _, etcdKv := range resp.Kvs {
 			eventCh <- &Event{
-				Key:   bytes.TrimPrefix(etcdKv.Key,prefixBytes)
+				Key:   bytes.TrimPrefix(etcdKv.Key, prefixBytes),
 				Value: etcdKv.Value,
 				Type:  EventPut,
 				Rev:   etcdKv.ModRevision,

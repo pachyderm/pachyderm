@@ -86,6 +86,8 @@ message Commit {
 // CommitInfo is the main data structure representing a commit in etcd
 message CommitInfo {
   Commit commit = 1;
+  // description is a user-provided script describing this commit
+  string description = 8;
   Commit parent_commit = 2;
   google.protobuf.Timestamp started = 3;
   google.protobuf.Timestamp finished = 4;
@@ -95,9 +97,9 @@ message CommitInfo {
   // branch_provenance[i] (a branch name, and one of the branches on which this
   // commit's branch is provenant)
   repeated Commit provenance = 6;
-  repeated Branch branch_provenance = 9;
+  repeated Branch branch_provenance = 10;
 
-  repeated Commit subvenance = 8;
+  repeated Commit subvenance = 9;
   // this is the block that stores the serialized form of a tree that
   // represents the entire file system hierarchy of the repo at this commit
   // If this is nil, then the commit is either open (in which case 'finished'
@@ -169,6 +171,8 @@ message StartCommitRequest {
   // Parent.ID may be empty in which case the commit that Branch points to will be used as the parent.
   // If branch is empty, or if branch does not exist, the commit will have no parent.
   Commit parent = 1;
+  // description is a user-provided string describing this commit
+  string description = 4;
   string branch = 3;
   repeated Commit provenance = 2;
 }
@@ -182,10 +186,14 @@ message BuildCommitRequest {
 
 message FinishCommitRequest {
   Commit commit = 1;
-  Object tree = 2;
+  // description is a user-provided string describing this commit. Setting this
+  // will overwrite the description set in StartCommit
+  string description = 2;
+
+  Object tree = 3;
   // If set, 'commit' will be closed (its 'finished' field will be set to the
   // current time) but its 'tree' will be left nil.
-  bool empty = 3;
+  bool empty = 4;
 }
 
 message InspectCommitRequest {
