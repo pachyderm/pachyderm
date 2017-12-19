@@ -84,17 +84,17 @@ func (s byModRev) Less(i, j int) bool {
 }
 
 // NewWatcher watches a given etcd prefix for events.
-func NewWatcher(ctx context.Context, client *etcd.Client, prefix string) (Watcher, error) {
-	return newWatcher(ctx, client, prefix, false)
+func NewWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix string) (Watcher, error) {
+	return newWatcher(ctx, client, []byte(trimPrefix), prefix, false)
 }
 
 // NewWatcherWithPrev is like NewWatcher, except that the returned events
 // include the previous version of the values.
-func NewWatcherWithPrev(ctx context.Context, client *etcd.Client, prefix string) (Watcher, error) {
-	return newWatcher(ctx, client, prefix, true)
+func NewWatcherWithPrev(ctx context.Context, client *etcd.Client, trimPrefix, prefix string) (Watcher, error) {
+	return newWatcher(ctx, client, []byte(trimPrefix), prefix, true)
 }
 
-func newWatcher(ctx context.Context, client *etcd.Client, prefix string, withPrev bool) (Watcher, error) {
+func newWatcher(ctx context.Context, client *etcd.Client, trimPrefix []byte, prefix string, withPrev bool) (Watcher, error) {
 	eventCh := make(chan *Event)
 	done := make(chan struct{})
 	// First list the collection to get the current items
@@ -131,10 +131,9 @@ func newWatcher(ctx context.Context, client *etcd.Client, prefix string, withPre
 			close(eventCh)
 			etcdWatcher.Close()
 		}()
-		prefixBytes := []byte(prefix)
 		for _, etcdKv := range resp.Kvs {
 			eventCh <- &Event{
-				Key:   bytes.TrimPrefix(etcdKv.Key, prefixBytes),
+				Key:   bytes.TrimPrefix(etcdKv.Key, trimPrefix),
 				Value: etcdKv.Value,
 				Type:  EventPut,
 				Rev:   etcdKv.ModRevision,
@@ -161,12 +160,12 @@ func newWatcher(ctx context.Context, client *etcd.Client, prefix string, withPre
 			}
 			for _, etcdEv := range resp.Events {
 				ev := &Event{
-					Key:   bytes.TrimPrefix(etcdEv.Kv.Key, prefixBytes),
+					Key:   bytes.TrimPrefix(etcdEv.Kv.Key, trimPrefix),
 					Value: etcdEv.Kv.Value,
 					Rev:   etcdEv.Kv.ModRevision,
 				}
 				if etcdEv.PrevKv != nil {
-					ev.PrevKey = bytes.TrimPrefix(etcdEv.PrevKv.Key, prefixBytes)
+					ev.PrevKey = bytes.TrimPrefix(etcdEv.PrevKv.Key, trimPrefix)
 					ev.PrevValue = etcdEv.PrevKv.Value
 				}
 				if etcdEv.Type == etcd.EventTypePut {

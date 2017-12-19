@@ -1281,7 +1281,7 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 			// means we'll get back `master-v1` if we're looking for
 			// `master` once this is changed we should remove the
 			// comparison between branchName and branch.
-			if path.Base(branchName) == branch && (!(seen[branchInfo.Head.ID] || (from != nil && from.ID == branchInfo.Head.ID))) {
+			if branchName == branch && (!(seen[branchInfo.Head.ID] || (from != nil && from.ID == branchInfo.Head.ID))) {
 				commitInfo, err := d.inspectCommit(ctx, branchInfo.Head, false)
 				if err != nil {
 					return err
