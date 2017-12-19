@@ -22,7 +22,7 @@ In addition, we recommend setting up AWS CloudFront for production deployments. 
 
 ### Deploy Kubernetes
 
-The easiest way to install Kubernetes on AWS is with kops. Kubenetes has provided a [step by step guide](https://github.com/kubernetes/kops/blob/master/docs/aws.md) for the deploy.  Please follow [this guide](https://github.com/kubernetes/kops/blob/master/docs/aws.md) to deploy Kubernetes on AWS. **Note** - We recommend using `r4.xlarge` instances. This can be set using the `kops` flag `--node-size`.
+The easiest way to install Kubernetes on AWS is with kops. Kubernetes has provided a [step by step guide](https://github.com/kubernetes/kops/blob/master/docs/aws.md) for the deploy.  Please follow [this guide](https://github.com/kubernetes/kops/blob/master/docs/aws.md) to deploy Kubernetes on AWS.
 
 Once, you have a Kubernetes cluster up and running in AWS, you should be able to see the following output from `kubectl`:
 

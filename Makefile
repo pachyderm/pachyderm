@@ -256,7 +256,7 @@ launch-dev: check-kubectl check-kubectl-connection install
 	pachctl deploy local --no-guaranteed -d --dry-run | kubectl $(KUBECTLFLAGS) create -f -
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
-	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"	
+	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 clean-launch: check-kubectl install
 	yes | pachctl undeploy
@@ -496,6 +496,9 @@ lint:
 
 vet:
 	@etc/testing/vet.sh
+
+spellcheck:
+	@mdspell doc/*.md doc/**/*.md *.md --en-us --ignore-numbers --ignore-acronyms --report --no-suggestions
 
 goxc-generate-local:
 	@if [ -z $$GITHUB_OAUTH_TOKEN ]; then \

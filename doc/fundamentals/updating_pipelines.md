@@ -23,7 +23,7 @@ take a URL if your JSON manifest is hosted on GitHub or elsewhere.
 ## Updating the code used in a pipeline
 
 You can also use `update-pipeline` to update the code you are using in one or
-more of your piplines.  To update the code in your pipeline:
+more of your pipelines.  To update the code in your pipeline:
 
 1. Make the code changes.
 2. Re-build your Docker image.

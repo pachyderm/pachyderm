@@ -1,6 +1,6 @@
 # Getting Your Data into Pachyderm
 
-Data that you put (or "commit") into Pachyderm ultimately lives in an object store of your choice (S3, Minio, GCS, etc.).  This data is content-addressed by Pachyderm to buid our version control semantics and are therefore is not "human-readable" directly in the object store.  That being said, Pachyderm allows you and your pipeline stages to interact with versioned files like you would in a normal file system.   
+Data that you put (or "commit") into Pachyderm ultimately lives in an object store of your choice (S3, Minio, GCS, etc.).  This data is content-addressed by Pachyderm to build our version control semantics and are therefore is not "human-readable" directly in the object store.  That being said, Pachyderm allows you and your pipeline stages to interact with versioned files like you would in a normal file system.   
 
 ## Jargon associated with putting data in Pachyderm
 
@@ -10,14 +10,14 @@ Versioned data in Pachyderm lives in repositories (again think about something s
 
 ### "Commits"
 
-Regardless of the method you use to get data into Pachyderm, the mechanism that is used to get data into Pachyderm is a "commit" of data into a data repository. In order to put data into Pachyderm a commit must be "started" (aka an "open commit").  Then the data put into Pachyderm in that open commit will only be available once the commit is "finished" (aka a "closed commit"). Although you have to do this opening, putting, and closing for all data that is committed into Pachyderm, we provide some convient ways to do that with our CLI tool and clients (see below). 
+Regardless of the method you use to get data into Pachyderm, the mechanism that is used to get data into Pachyderm is a "commit" of data into a data repository. In order to put data into Pachyderm a commit must be "started" (aka an "open commit").  Then the data put into Pachyderm in that open commit will only be available once the commit is "finished" (aka a "closed commit"). Although you have to do this opening, putting, and closing for all data that is committed into Pachyderm, we provide some convenient ways to do that with our CLI tool and clients (see below). 
 
 ## How to get data into Pachyderm
 
 In terms of actually getting data into Pachyderm via "commits," there are a couple of options:
 
 - The `pachctl` CLI tool: This is the great option for testing and for users who prefer to input data scripting.
-- One of the Pachyderm language clients: This option is ideal for Go, Python, or Scala users who want to push data to Pachyderm from services or applications writtern in those languages. Actually, even if you don't use Go, Python, or Scala, Pachyderm uses a protobuf API which supports many other languages, we just haven’t built the full clients yet.
+- One of the Pachyderm language clients: This option is ideal for Go, Python, or Scala users who want to push data to Pachyderm from services or applications written in those languages. Actually, even if you don't use Go, Python, or Scala, Pachyderm uses a protobuf API which supports many other languages, we just haven’t built the full clients yet.
 
 ### `pachctl`
 

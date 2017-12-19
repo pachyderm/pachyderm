@@ -5,7 +5,7 @@ Return all repos.
 ### Synopsis
 
 
-Reutrn all repos.
+Return all repos.
 
 ```
 ./pachctl list-repo
