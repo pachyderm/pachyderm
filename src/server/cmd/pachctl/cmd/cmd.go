@@ -21,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/facebookgo/pidfile"
+	"github.com/fatih/color"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
@@ -158,7 +159,25 @@ This resets the cluster to its initial state.`,
 			if err != nil {
 				return err
 			}
+			red := color.New(color.FgRed).SprintFunc()
+			var repos, pipelines []string
+			repoInfos, err := client.ListRepo(nil)
+			if err != nil {
+				return err
+			}
+			for _, ri := range repoInfos {
+				repos = append(repos, red(ri.Repo.Name))
+			}
+			pipelineInfos, err := client.ListPipeline()
+			if err != nil {
+				return err
+			}
+			for _, pi := range pipelineInfos {
+				pipelines = append(pipelines, red(pi.Pipeline.Name))
+			}
 			fmt.Printf("Are you sure you want to delete all ACLs, repos, commits, files, pipelines and jobs? yN\n")
+			fmt.Printf("Repos to delete: %s\n", strings.Join(repos, ", "))
+			fmt.Printf("Pipelines to delete: %s\n", strings.Join(pipelines, ", "))
 			r := bufio.NewReader(os.Stdin)
 			bytes, err := r.ReadBytes('\n')
 			if err != nil {
