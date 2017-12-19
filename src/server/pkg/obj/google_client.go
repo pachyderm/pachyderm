@@ -17,7 +17,7 @@ type googleClient struct {
 	bucket *storage.BucketHandle
 }
 
-func newGoogleClient(ctx context.Context, bucket string) (*googleClient, error) {
+func newGoogleClient(ctx context.Context, bucket string, credFile string) (*googleClient, error) {
 	client, err := storage.NewClient(
 		ctx,
 		option.WithTokenSource(google.ComputeTokenSource("")),
