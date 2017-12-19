@@ -646,22 +646,14 @@ want to consider using commit IDs directly.
 				path = args[2]
 			}
 			if putFileCommit {
-				var commit *pfsclient.Commit
-				var err error
-				if description != "" {
-					commit, err = cli.PfsAPIClient.StartCommit(cli.Ctx(),
-						&pfsclient.StartCommitRequest{
-							Parent:      client.NewCommit(repoName, ""),
-							Branch:      branch,
-							Description: description,
-						})
-					if err != nil {
-						return err
-					}
-				} else {
-					if commit, err = cli.StartCommit(repoName, branch); err != nil {
-						return err
-					}
+				commit, err := cli.PfsAPIClient.StartCommit(cli.Ctx(),
+					&pfsclient.StartCommitRequest{
+						Parent:      client.NewCommit(repoName, ""),
+						Branch:      branch,
+						Description: description,
+					})
+				if err != nil {
+					return err
 				}
 				branch = commit.ID // use commit we just started, in case another commit starts concurrently
 				defer func() {
@@ -670,7 +662,7 @@ want to consider using commit IDs directly.
 					}
 				}()
 			} else if description != "" {
-				return fmt.Errorf("cannot set --message or --description without --commit (-c)")
+				return fmt.Errorf("cannot set --message (-m) or --description without --commit (-c)")
 			}
 
 			limiter := limit.New(int(parallelism))

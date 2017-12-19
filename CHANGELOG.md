@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.6.6
+
+- Users can now specify k8s resource limits on a pipeline
+- Users can specify a `datum_timeout` and `job_timeout` on a pipeline
+- Minio S3V2 support
+- New worker model (to eliminate long running grpc calls)
+
 ## 1.6.5
 
 - Adds support for Kubernetes 1.8
