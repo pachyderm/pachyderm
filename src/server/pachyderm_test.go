@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"math/rand"
 	"net"
 	"net/http"
@@ -151,7 +152,7 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 	c := getPachClient(t)
 	defer require.NoError(t, c.DeleteAll())
 
-	dataRepo := uniqueString("TestPipelineInputDataModification_data")
+	dataRepo := uniqueString("TestPipelineWithLargeFiles_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	r := rand.New(rand.NewSource(99))

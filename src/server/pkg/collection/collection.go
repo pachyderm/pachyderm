@@ -403,7 +403,7 @@ func (c *readonlyCollection) GetByIndex(index Index, val interface{}) (Iterator,
 }
 
 func (c *readonlyCollection) GetBlock(key string, val proto.Unmarshaler) error {
-	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.Path(key))
+	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.Path(key))
 	if err != nil {
 		return err
 	}
@@ -461,18 +461,18 @@ func (i *iterator) Next(key *string, val proto.Unmarshaler) (ok bool, retErr err
 // Watch a collection, returning the current content of the collection as
 // well as any future additions.
 func (c *readonlyCollection) Watch() (watch.Watcher, error) {
-	return watch.NewWatcher(c.ctx, c.etcdClient, c.prefix)
+	return watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.prefix)
 }
 
 func (c *readonlyCollection) WatchWithPrev() (watch.Watcher, error) {
-	return watch.NewWatcherWithPrev(c.ctx, c.etcdClient, c.prefix)
+	return watch.NewWatcherWithPrev(c.ctx, c.etcdClient, c.prefix, c.prefix)
 }
 
 // WatchByIndex watches items in a collection that match a particular index
 func (c *readonlyCollection) WatchByIndex(index Index, val interface{}) (watch.Watcher, error) {
 	eventCh := make(chan *watch.Event)
 	done := make(chan struct{})
-	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.indexDir(index, fmt.Sprintf("%s", val)))
+	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.indexDir(index, fmt.Sprintf("%s", val)))
 	if err != nil {
 		return nil, err
 	}
@@ -536,5 +536,5 @@ func (c *readonlyCollection) WatchByIndex(index Index, val interface{}) (watch.W
 // WatchOne watches a given item.  The first value returned from the watch
 // will be the current value of the item.
 func (c *readonlyCollection) WatchOne(key string) (watch.Watcher, error) {
-	return watch.NewWatcher(c.ctx, c.etcdClient, c.Path(key))
+	return watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.Path(key))
 }
