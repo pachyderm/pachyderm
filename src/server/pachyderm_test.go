@@ -652,11 +652,9 @@ func TestLazyPipelinePropagation(t *testing.T) {
 	defer require.NoError(t, c.DeleteAll())
 
 	dataRepo := uniqueString("TestLazyPipelinePropagation_data")
-	fmt.Printf("Creating input repo %s\n", dataRepo)
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	pipelineA := uniqueString("pipeline-A")
-	fmt.Printf("Creating pipeline %s\n", pipelineA)
 	require.NoError(t, c.CreatePipeline(
 		pipelineA,
 		"",
@@ -670,7 +668,6 @@ func TestLazyPipelinePropagation(t *testing.T) {
 		false,
 	))
 	pipelineB := uniqueString("pipeline-B")
-	fmt.Printf("Creating pipeline %s\n", pipelineB)
 	require.NoError(t, c.CreatePipeline(
 		pipelineB,
 		"",
@@ -684,26 +681,21 @@ func TestLazyPipelinePropagation(t *testing.T) {
 		false,
 	))
 
-	fmt.Printf("Starting commit in %s/master\n", dataRepo)
 	commit1, err := c.StartCommit(dataRepo, "master")
-	fmt.Printf("Commit ID: %s\n", commit1.ID)
 	require.NoError(t, err)
 	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
-	fmt.Printf("Calling flushCommit %s/%s\n", dataRepo, commit1.ID)
 	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit1.ID)}, nil)
 	require.NoError(t, err)
 	collectCommitInfos(t, commitIter)
 
-	fmt.Printf("Calling ListJob(%s)\n", pipelineA)
 	jobInfos, err := c.ListJob(pipelineA, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
 	require.NotNil(t, jobInfos[0].Input.Atom)
 	require.Equal(t, true, jobInfos[0].Input.Atom.Lazy)
-	fmt.Printf("Calling ListJob(%s)\n", pipelineB)
 	jobInfos, err = c.ListJob(pipelineB, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
