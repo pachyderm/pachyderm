@@ -1428,7 +1428,7 @@ func (d *driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
 	}
 
 	for _, branchInfo := range branchInfos {
-		if branchInfo.Head.ID == commitInfo.Commit.ID {
+		if branchInfo.Head != nil && branchInfo.Head.ID == commitInfo.Commit.ID {
 			if commitInfo.ParentCommit != nil {
 				if err := d.createBranch(ctx, branchInfo.Branch, commitInfo.ParentCommit, nil); err != nil {
 					return err
