@@ -5539,19 +5539,15 @@ func TestPipelineWithGitInputPrivateGHRepo(t *testing.T) {
 	}
 	require.Equal(t, true, found)
 
-	commits, err := c.ListCommit(repoName, "master", "", 0)
-	require.NoError(t, err)
-	require.Equal(t, 0, len(commits))
-
 	// To trigger the pipeline, we'll need to simulate the webhook by pushing a POST payload to the githook server
 	simulateGitPush(t, "../../etc/testing/artifacts/githook-payloads/private.json")
 	// Need to sleep since the webhook http handler is non blocking
 	time.Sleep(2 * time.Second)
 
 	// Now there should NOT be a new commit on the pachyderm repo
-	branches, err := c.ListBranch(repoName)
+	commits, err := c.ListCommit(repoName, "master", "", 0)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(branches))
+	require.Equal(t, 0, len(commits))
 
 	// We should see that the pipeline has failed
 	pipelineInfo, err := c.InspectPipeline(pipeline)
