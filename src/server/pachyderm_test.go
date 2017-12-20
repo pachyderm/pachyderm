@@ -700,14 +700,13 @@ func TestLazyPipelinePropagation(t *testing.T) {
 	fmt.Printf("Calling ListJob(%s)\n", pipelineA)
 	jobInfos, err := c.ListJob(pipelineA, nil, nil)
 	require.NoError(t, err)
-	// Two jobs -- one from creating the pipeline, one from the commit
-	require.Equal(t, 2, len(jobInfos))
+	require.Equal(t, 1, len(jobInfos))
 	require.NotNil(t, jobInfos[0].Input.Atom)
 	require.Equal(t, true, jobInfos[0].Input.Atom.Lazy)
 	fmt.Printf("Calling ListJob(%s)\n", pipelineB)
 	jobInfos, err = c.ListJob(pipelineB, nil, nil)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(jobInfos))
+	require.Equal(t, 1, len(jobInfos))
 	require.NotNil(t, jobInfos[0].Input.Atom)
 	require.Equal(t, true, jobInfos[0].Input.Atom.Lazy)
 }
