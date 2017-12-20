@@ -88,5 +88,5 @@ $ pachctl put-file <repo> <branch> -c -r <dir>
 
 ### Pachyderm language clients
 
-There are a number of Pachyderm language clients.  These can be used to programmatically put data into Pachyderm, and much more.  You can find out more about these clients [here](../reference/clients.html).
+There are a number of Pachyderm language clients.  These can be used to programmatically put data into Pachyderm, and much more.  You can find out more about these clients [here](../reference/clients.md).
 
