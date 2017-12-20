@@ -303,7 +303,6 @@ func (a *APIServer) jobSpawner(ctx context.Context) error {
 			// loop will spawn new scale-down goroutine whether we start the job or not,
 			// so cancel channel to avoid leaking the current goroutine
 			close(cancel)
-			log.Printf("new commit:\n%+10v", commitInfo)
 			if err != nil {
 				return err
 			}
@@ -313,7 +312,6 @@ func (a *APIServer) jobSpawner(ctx context.Context) error {
 			// Inspect the commit and check again if it has been finished (it may have
 			// been closed since it was queued, e.g. by StopPipeline or StopJob)
 			commitInfo, err = a.pachClient.WithCtx(ctx).InspectCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
-			log.Printf("updated:\n%+10v", commitInfo)
 			if err != nil {
 				return err
 			}
@@ -338,7 +336,6 @@ func (a *APIServer) jobSpawner(ctx context.Context) error {
 				DatumTimeout:    a.pipelineInfo.DatumTimeout,
 				JobTimeout:      a.pipelineInfo.JobTimeout,
 			})
-			log.Printf("Creating job:\n%+10v", job)
 			if err != nil {
 				return err
 			}

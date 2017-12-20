@@ -871,8 +871,6 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 		branch: branch,
 		commit: commit,
 	}
-	fmt.Println("Creating downstream commits...")
-	fmt.Printf("branchInfos: %+v\n", branchInfos)
 	for _, branchInfo := range branchInfos {
 		branch := branchInfo.Branch
 		repo := branch.Repo
@@ -883,7 +881,6 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 			Repo: repo,
 			ID:   uuid.NewWithoutDashes(),
 		}
-		fmt.Printf("branchInfo.Provenance: %+v\n", branchInfo.Provenance)
 
 		// 'commit' (new downstream commit) must have correct provenance. One member
 		// of it's provenance will be the top-level commit that we're propagating,
@@ -917,20 +914,15 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 				branchProvenance = append(branchProvenance, branchToCommit[branchKey(provBranch)].branch)
 			}
 		}
-		fmt.Printf("commit: %+v\n", commit)
-		fmt.Printf("provenance: %+v\n", provenance)
-		fmt.Printf("branchProvenance: %+v\n", branchProvenance)
 		// If the only branches in branchProvenance are 'spec' branches, this output
 		// commit would create a confusing "dummy" job with no input data--skip it
 		allSpec := true
 		for _, branch := range branchProvenance {
-			fmt.Printf("   branch: %+v\n", branch)
 			if branch.Name != "spec" {
 				allSpec = false
 				break
 			}
 		}
-		fmt.Printf("allSpec: %+v\n", allSpec)
 		if allSpec {
 			continue
 		}
@@ -1262,7 +1254,6 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 		// order, so we reverse the order.
 		for i := range commitInfos {
 			commitInfo := commitInfos[len(commitInfos)-i-1]
-			fmt.Printf("--- (ListCommit) yielded: %+v\n", commitInfo)
 			select {
 			case stream <- CommitEvent{
 				Value: commitInfo,
@@ -1299,11 +1290,6 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 			if branchInfo.Head == nil {
 				continue // put event == new branch was created. No commits yet though
 			}
-			fmt.Printf("--- branchInfo: %+v\n", branchInfo)
-			fmt.Printf("    (seen: %v)\n", seen)
-			fmt.Printf("    (from: %v)\n", from)
-			fmt.Printf("    (branch: %v)\n", branch)
-			fmt.Printf("    (branchName: %v)\n", branchName)
 
 			// We don't want to include the `from` commit itself
 
@@ -1314,7 +1300,6 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 			// comparison between branchName and branch.
 			if branchName == branch && (!(seen[branchInfo.Head.ID] || (from != nil && from.ID == branchInfo.Head.ID))) {
 				commitInfo, err := d.inspectCommit(ctx, branchInfo.Head, false)
-				fmt.Printf("--- yielded: %+v\n", commitInfo)
 				if err != nil {
 					return err
 				}
@@ -1378,7 +1363,6 @@ func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 				continue
 			}
 		}
-		fmt.Printf("waiting for %s/%s to finish...\n", commitToWatch.Repo.Name, commitToWatch.ID)
 		finishedCommitInfo, err := d.inspectCommit(ctx, commitToWatch, true)
 		if err != nil {
 			if _, ok := err.(pfsserver.ErrCommitNotFound); ok {
