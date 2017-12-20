@@ -64,7 +64,6 @@ func getPipelineInfo(etcdClient *etcd.Client, pachClient *client.APIClient, appE
 	if len(resp.Kvs) != 1 {
 		return nil, fmt.Errorf("expected to find 1 pipeline (%s), got %d: %v", appEnv.PPSPipelineName, len(resp.Kvs), resp)
 	}
-	log.Printf("successfully read %s\n", appEnv.PPSPipelineName)
 	var pipelinePtr pps.EtcdPipelineInfo
 	if err := pipelinePtr.Unmarshal(resp.Kvs[0].Value); err != nil {
 		return nil, err
