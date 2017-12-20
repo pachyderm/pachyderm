@@ -124,11 +124,12 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCa
 	}
 
 	d := &driver{
-		address:       address,
-		etcdClient:    etcdClient,
-		prefix:        etcdPrefix,
-		repos:         pfsdb.Repos(etcdClient, etcdPrefix),
-		repoRefCounts: pfsdb.RepoRefCounts(etcdClient, etcdPrefix),
+		address:        address,
+		etcdClient:     etcdClient,
+		prefix:         etcdPrefix,
+		repos:          pfsdb.Repos(etcdClient, etcdPrefix),
+		repoRefCounts:  pfsdb.RepoRefCounts(etcdClient, etcdPrefix),
+		putFileRecords: pfsdb.PutFileRecords(etcdClient, etcdPrefix),
 		commits: func(repo string) col.Collection {
 			return pfsdb.Commits(etcdClient, etcdPrefix, repo)
 		},
@@ -683,51 +684,72 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, descripti
 		return err
 	}
 	tree := parentTree.Open()
-	// Read everything under the scratch space for this commit
-	recordLimit := int64(100) // By trial and error, 100k will cause a grpc max msg size, but 10k is ok
-	opts := []etcd.OpOption{
-		etcd.WithPrefix(),
-		etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend),
-		etcd.WithLimit(recordLimit),
-	}
-	fmt.Printf("reading scratch etcd for commit for the first time w prefix %v\n", prefix)
-	start := time.Now()
-	resp, err := d.etcdClient.Get(ctx, prefix, opts...)
-	fmt.Printf("took %v to get %v records from etcd first time\n", time.Since(start), len(resp.Kvs))
-	start = time.Now()
+
+	/*
+		var putFileRecords pfs.PutFileRecords
+		_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+			recordsCol := d.putFileRecords.ReadWrite(stm)
+			err := recordsCol.Get(prefix, &putFileRecords)
+			fmt.Printf("got records w err (%v) %v\n", err, putFileRecords)
+			return err
+		})
+		if err != nil {
+			return err
+		}*/
+
+	/*
+		// Read everything under the scratch space for this commit
+		recordLimit := int64(100) // By trial and error, 100k will cause a grpc max msg size, but 10k is ok
+		baseOpts := []etcd.OpOption{
+			etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend),
+			etcd.WithLimit(recordLimit),
+		}
+		fmt.Printf("reading scratch etcd for commit for the first time w prefix %v\n", prefix)
+		start := time.Now()
+	*/
+	resp, err := d.etcdClient.Get(ctx, filepath.Join("pachyderm_pfs/putFileRecords", prefix), etcd.WithPrefix())
+	/*
+		fmt.Printf("took %v to get %v records from etcd first time\n", time.Since(start), len(resp.Kvs))
+		start = time.Now()
+	*/
 	if err := d.applyWrites(resp, tree); err != nil {
 		return err
 	}
-	fmt.Printf("took %v to apply writes to tree for the first time\n", time.Since(start))
-	lastKey := string(resp.Kvs[len(resp.Kvs)-1].Value)
-	fmt.Printf("lastkey: %v\n", lastKey)
-	if err != nil {
-		return err
-	}
-	opts = append(opts, etcd.WithFromKey())
-	for {
-		fmt.Printf("reading scratch etcd for commit\n")
-		start = time.Now()
-		resp, err := d.etcdClient.Get(ctx, lastKey, opts...)
-		fmt.Printf("took %v to get %v records from etcd\n", time.Since(start), len(resp.Kvs))
-		lastKey = string(resp.Kvs[len(resp.Kvs)-1].Value)
+	/*
+		if int64(len(resp.Kvs)) < recordLimit {
+			fmt.Printf("got %v keys: %v\n", len(resp.Kvs), resp.Kvs)
+			// No need to paginate, we've received all the results
+			return nil
+		}
+		fmt.Printf("took %v to apply writes to tree for the first time\n", time.Since(start))
+		lastKey := string(resp.Kvs[len(resp.Kvs)-1].Value)
 		fmt.Printf("lastkey: %v\n", lastKey)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("applying writes to resp of len: %v\n", resp.Count)
-		resp.Kvs = resp.Kvs[1:len(resp.Kvs)] // first one will be repeat from previous call
-		start = time.Now()
-		if err := d.applyWrites(resp, tree); err != nil {
-			return err
-		}
-		fmt.Printf("took %v to apply writes to tree\n", time.Since(start))
+		for {
+			fmt.Printf("reading scratch etcd for commit\n")
+			start = time.Now()
+			resp, err := d.etcdClient.Get(ctx, lastKey, append(baseOpts, etcd.WithFromKey())...)
+			fmt.Printf("took %v to get %v records from etcd\n", time.Since(start), len(resp.Kvs))
+			lastKey = string(resp.Kvs[len(resp.Kvs)-1].Value)
+			fmt.Printf("lastkey: %v\n", lastKey)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("applying writes to resp of len: %v\n", resp.Count)
+			resp.Kvs = resp.Kvs[1:len(resp.Kvs)] // first one will be repeat from previous call
+			start = time.Now()
+			if err := d.applyWrites(resp, tree); err != nil {
+				return err
+			}
+			fmt.Printf("took %v to apply writes to tree\n", time.Since(start))
 
-		if !resp.More {
-			fmt.Printf("no more results ... exit the loop")
-			break
-		}
-	}
+			if !resp.More {
+				fmt.Printf("no more results ... exit the loop")
+				break
+			}
+		}*/
 
 	finishedTree, err := tree.Finish()
 	if err != nil {
@@ -1454,7 +1476,8 @@ func (d *driver) filePathFromEtcdPath(etcdPath string) string {
 	fmt.Printf("split (%v)\n", split)
 	// we only want /path/to/file so we use index 3 (note that there's an "" at
 	// the beginning of the slice because of the lead /)
-	return path.Join(split[3:]...)
+	//	return path.Join(split[3:]...)
+	return path.Join(split[6:]...)
 }
 
 // checkPath checks if a file path is legal
@@ -1475,6 +1498,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	// and is open.
 	// Since we use UUIDv4 for commit IDs, the 13th character would be 4 if
 	// this is a commit ID.
+	fmt.Printf("inspecting commit\n")
 	if len(file.Commit.ID) != uuid.UUIDWithoutDashesLength || file.Commit.ID[12] != '4' {
 		commitInfo, err := d.inspectCommit(ctx, file.Commit)
 		if err != nil {
@@ -1483,6 +1507,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		file.Commit = commitInfo.Commit
 	}
 
+	fmt.Printf("overwrite index present? %v, may be deleting file\n", overwriteIndex)
 	if overwriteIndex != nil && overwriteIndex.Index == 0 {
 		if err := d.deleteFile(ctx, file); err != nil {
 			return err
@@ -1491,11 +1516,14 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 
 	records := &pfs.PutFileRecords{}
 	if err := checkPath(file.Path); err != nil {
+		fmt.Printf("error checking path: %v\n", err)
 		return err
 	}
 
+	fmt.Printf("delimiter %v is none %v ?\n", delimiter, pfs.Delimiter_NONE)
 	if delimiter == pfs.Delimiter_NONE {
 		objects, size, err := d.pachClient.PutObjectSplit(reader)
+		fmt.Printf("error putting object %v\n", err)
 		if err != nil {
 			return err
 		}
@@ -1522,6 +1550,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			records.Records = append(records.Records, record)
 		}
 
+		fmt.Printf("upserting file records of len %v\n", len(records.Records))
 		return d.upsertPutFileRecords(ctx, file, records)
 	}
 	buffer := &bytes.Buffer{}
@@ -1593,6 +1622,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		records.Records = append(records.Records, indexToRecord[i])
 	}
 
+	fmt.Printf("upserting non-none delimited records of len %v\n", len(records.Records))
 	return d.upsertPutFileRecords(ctx, file, records)
 }
 
@@ -2003,7 +2033,8 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 		var existingRecords pfs.PutFileRecords
 		var upsertRecords *pfs.PutFileRecords
 		err := recordsCol.Get(prefix, &existingRecords)
-		if err != nil {
+		if err != nil && !col.IsErrNotFound(err) {
+			fmt.Printf("get couldn't find %v w err %v\n", prefix, err)
 			return err
 		}
 		if newRecords.Tombstone {
@@ -2014,9 +2045,11 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 			upsertRecords.Records = append(upsertRecords.Records, newRecords.Records...)
 		}
 		// Now put the new data
+		fmt.Printf("putting new records (%v) to prefix %v\n", upsertRecords, prefix)
 		recordsCol.Put(prefix, upsertRecords)
 		return nil
 	})
+	fmt.Printf("error NewSTM: %v\n", err)
 
 	return err
 }
@@ -2027,10 +2060,15 @@ func (d *driver) applyWrites(resp *etcd.GetResponse, tree hashtree.OpenHashTree)
 	for _, kv := range resp.Kvs {
 		// fileStr is going to look like "some/path/UUID"
 		fileStr := d.filePathFromEtcdPath(string(kv.Key))
+		fmt.Printf("got file str(%v) from etcd path (%v)\n", fileStr, string(kv.Key))
 		// the last element of `parts` is going to be UUID
 		parts := strings.Split(fileStr, "/")
+		fmt.Printf("got parts: (%v)\n", parts)
 		// filePath should look like "some/path"
-		filePath := strings.Join(parts[:len(parts)-1], "/")
+		//		filePath := strings.Join(parts[:len(parts)-1], "/")
+		filePath := strings.Join(parts[:len(parts)], "/")
+		fmt.Printf("got filepath: %v\n", filePath)
+		filePath = filepath.Join("/", filePath)
 		records := &pfs.PutFileRecords{}
 		if err := records.Unmarshal(kv.Value); err != nil {
 			return err
