@@ -872,6 +872,7 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 		commit: commit,
 	}
 	fmt.Println("Creating downstream commits...")
+	fmt.Printf("branchInfos: %+v\n", branchInfos)
 	for _, branchInfo := range branchInfos {
 		branch := branchInfo.Branch
 		repo := branch.Repo
@@ -882,6 +883,7 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 			Repo: repo,
 			ID:   uuid.NewWithoutDashes(),
 		}
+		fmt.Printf("branchInfo.Provenance: %+v\n", branchInfo.Provenance)
 
 		// 'commit' (new downstream commit) must have correct provenance. One member
 		// of it's provenance will be the top-level commit that we're propagating,
