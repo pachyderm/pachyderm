@@ -913,7 +913,7 @@ func TestProvenance(t *testing.T) {
 
 	commitInfos, err = c.ListCommit(cPipeline, "master", "", 0)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 }
 
 // TestProvenance2 tests the following DAG:
