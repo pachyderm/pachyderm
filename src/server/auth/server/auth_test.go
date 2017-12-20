@@ -1715,13 +1715,13 @@ func TestGetLogs(t *testing.T) {
 	})
 
 	// bob cannot call GetLogs
-	iter := bobClient.GetLogs(pipeline, "", nil, "", false)
+	iter := bobClient.GetLogs(pipeline, "", nil, "", false, false, 0)
 	require.False(t, iter.Next())
 	require.YesError(t, iter.Err())
 	require.True(t, auth.IsNotAuthorizedError(iter.Err()), iter.Err().Error())
 
 	// bob also can't call GetLogs for the master process
-	iter = bobClient.GetLogs(pipeline, "", nil, "", true)
+	iter = bobClient.GetLogs(pipeline, "", nil, "", true, false, 0)
 	require.False(t, iter.Next())
 	require.YesError(t, iter.Err())
 	require.True(t, auth.IsNotAuthorizedError(iter.Err()), iter.Err().Error())
@@ -1732,7 +1732,7 @@ func TestGetLogs(t *testing.T) {
 		Scope:    auth.Scope_READER,
 		Repo:     repo,
 	})
-	iter = bobClient.GetLogs(pipeline, "", nil, "", false)
+	iter = bobClient.GetLogs(pipeline, "", nil, "", false, false, 0)
 	require.False(t, iter.Next())
 	require.YesError(t, iter.Err())
 	require.True(t, auth.IsNotAuthorizedError(iter.Err()), iter.Err().Error())
@@ -1749,7 +1749,7 @@ func TestGetLogs(t *testing.T) {
 		Scope:    auth.Scope_READER,
 		Repo:     pipeline,
 	})
-	iter = bobClient.GetLogs(pipeline, "", nil, "", false)
+	iter = bobClient.GetLogs(pipeline, "", nil, "", false, false, 0)
 	require.False(t, iter.Next())
 	require.YesError(t, iter.Err())
 	require.True(t, auth.IsNotAuthorizedError(iter.Err()), iter.Err().Error())
@@ -1760,12 +1760,12 @@ func TestGetLogs(t *testing.T) {
 		Scope:    auth.Scope_READER,
 		Repo:     repo,
 	})
-	iter = bobClient.GetLogs(pipeline, "", nil, "", false)
+	iter = bobClient.GetLogs(pipeline, "", nil, "", false, false, 0)
 	iter.Next()
 	require.NoError(t, iter.Err())
 
 	// bob can also call GetLogs for the master process
-	iter = bobClient.GetLogs(pipeline, "", nil, "", true)
+	iter = bobClient.GetLogs(pipeline, "", nil, "", true, false, 0)
 	iter.Next()
 	require.NoError(t, iter.Err())
 }
@@ -1819,11 +1819,11 @@ func TestGetLogsFromStats(t *testing.T) {
 	require.Equal(t, 1, len(jobs))
 	jobID := jobs[0].Job.ID
 
-	iter := aliceClient.GetLogs("", jobID, nil, "", false)
+	iter := aliceClient.GetLogs("", jobID, nil, "", false, false, 0)
 	require.True(t, iter.Next())
 	require.NoError(t, iter.Err())
 
-	iter = aliceClient.GetLogs("", jobID, nil, "", true)
+	iter = aliceClient.GetLogs("", jobID, nil, "", true, false, 0)
 	iter.Next()
 	require.NoError(t, iter.Err())
 }

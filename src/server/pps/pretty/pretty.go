@@ -128,6 +128,7 @@ Duration: {{prettyTimeDifference .Started .Finished}} {{end}}
 State: {{jobState .State}}
 Reason: {{.Reason}}
 Processed: {{.DataProcessed}}
+Failed: {{.DataFailed}}
 Skipped: {{.DataSkipped}}
 Total: {{.DataTotal}}
 Data Downloaded: {{prettySize .Stats.DownloadBytes}}
