@@ -1582,36 +1582,35 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 						break
 					}
 				}
-				if allSpec {
-					// head commit is only provenant on "spec" commits. Creating this
-					// would create a confusing "dummy" job with no data--skip it.
-					return nil
-				}
-				commit := &pfs.Commit{
-					Repo: branch.Repo,
-					ID:   uuid.NewWithoutDashes(),
-				}
-				commitInfo := &pfs.CommitInfo{
-					Commit:  commit,
-					Started: now(),
-				}
-				branchInfo.Head = commitInfo.Commit
-				for _, provCommit := range commitProvMap {
-					commitInfo.Provenance = append(commitInfo.Provenance, provCommit.commit)
-					commitInfo.BranchProvenance = append(commitInfo.BranchProvenance, provCommit.branch)
-					provCommitInfo := &pfs.CommitInfo{}
-					if err := d.commits(provCommit.commit.Repo.Name).ReadWrite(stm).Upsert(provCommit.commit.ID, provCommitInfo, func() error {
-						provCommitInfo.Subvenance = append(provCommitInfo.Subvenance, commit)
-						return nil
-					}); err != nil {
+				// if head commit is only provenant on "spec" commits. Creating this
+				// would create a confusing "dummy" job with no data--skip it.
+				if !allSpec {
+					commit := &pfs.Commit{
+						Repo: branch.Repo,
+						ID:   uuid.NewWithoutDashes(),
+					}
+					commitInfo := &pfs.CommitInfo{
+						Commit:  commit,
+						Started: now(),
+					}
+					branchInfo.Head = commitInfo.Commit
+					for _, provCommit := range commitProvMap {
+						commitInfo.Provenance = append(commitInfo.Provenance, provCommit.commit)
+						commitInfo.BranchProvenance = append(commitInfo.BranchProvenance, provCommit.branch)
+						provCommitInfo := &pfs.CommitInfo{}
+						if err := d.commits(provCommit.commit.Repo.Name).ReadWrite(stm).Upsert(provCommit.commit.ID, provCommitInfo, func() error {
+							provCommitInfo.Subvenance = append(provCommitInfo.Subvenance, commit)
+							return nil
+						}); err != nil {
+							return err
+						}
+					}
+					if err := d.commits(commit.Repo.Name).ReadWrite(stm).Create(commit.ID, commitInfo); err != nil {
 						return err
 					}
-				}
-				if err := d.commits(commit.Repo.Name).ReadWrite(stm).Create(commit.ID, commitInfo); err != nil {
-					return err
-				}
-				if err := d.openCommits.ReadWrite(stm).Put(commit.ID, commit); err != nil {
-					return err
+					if err := d.openCommits.ReadWrite(stm).Put(commit.ID, commit); err != nil {
+						return err
+					}
 				}
 			}
 		}
