@@ -18,11 +18,13 @@ type googleClient struct {
 }
 
 func newGoogleClient(ctx context.Context, bucket string, credFile string) (*googleClient, error) {
-	client, err := storage.NewClient(
-		ctx,
-		option.WithTokenSource(google.ComputeTokenSource("")),
-		option.WithScopes(storage.ScopeFullControl),
-	)
+	opts := []option.ClientOption{option.WithScopes(storage.ScopeFullControl)}
+	if credFile == "" {
+		opts = append(opts, option.WithTokenSource(google.ComputeTokenSource("")))
+	} else {
+		opts = append(opts, option.WithCredentialsFile(credFile))
+	}
+	client, err := storage.NewClient(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}
