@@ -19,7 +19,6 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	pachdclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
@@ -134,7 +133,7 @@ $ pachctl list-job -p foo bar/YYY
 
 			jobInfos, err := client.ListJob(pipelineName, commits, outputCommit)
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 
 			// Display newest jobs first
@@ -213,10 +212,7 @@ $ pachctl list-job -p foo bar/YYY
 					i++
 				}
 			}
-			if err := client.RestartDatum(args[0], datumFilter); err != nil {
-				return grpcutil.ScrubGRPC(err)
-			}
-			return nil
+			return client.RestartDatum(args[0], datumFilter)
 		}),
 	}
 	var pageSize int64
@@ -290,6 +286,8 @@ $ pachctl list-job -p foo bar/YYY
 		datumID     string
 		commaInputs string // comma-separated list of input files of interest
 		master      bool
+		follow      bool
+		tail        int64
 	)
 	getLogs := &cobra.Command{
 		Use:   "get-logs [--pipeline=<pipeline>|--job=<job id>] [--datum=<datum id>]",
@@ -328,7 +326,7 @@ $ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
 
 			// Issue RPC
 			marshaler := &jsonpb.Marshaler{}
-			iter := client.GetLogs(pipelineName, jobID, data, datumID, master)
+			iter := client.GetLogs(pipelineName, jobID, data, datumID, master, follow, tail)
 			for iter.Next() {
 				var messageStr string
 				if raw {
@@ -358,6 +356,8 @@ $ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
 		"generated while processing these files (accepts PFS paths or file hashes)")
 	getLogs.Flags().BoolVar(&master, "master", false, "Return log messages from the master process (pipeline must be set).")
 	getLogs.Flags().BoolVar(&raw, "raw", false, "Return log messages verbatim from server.")
+	getLogs.Flags().BoolVarP(&follow, "follow", "f", false, "Follow logs as more are created.")
+	getLogs.Flags().Int64VarP(&tail, "tail", "t", 0, "Lines of recent logs to display.")
 
 	pipeline := &cobra.Command{
 		Use:   "pipeline",
@@ -411,7 +411,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					client.Ctx(),
 					request,
 				); err != nil {
-					return grpcutil.ScrubGRPC(err)
+					return err
 				}
 			}
 			return nil
@@ -457,7 +457,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					client.Ctx(),
 					request,
 				); err != nil {
-					return grpcutil.ScrubGRPC(err)
+					return err
 				}
 			}
 			return nil
@@ -481,7 +481,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 			pipelineInfo, err := client.InspectPipeline(args[0])
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 			if pipelineInfo == nil {
 				return fmt.Errorf("pipeline %s not found", args[0])
@@ -505,7 +505,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 			pipelineInfos, err := client.ListPipeline()
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 			if raw {
 				for _, pipelineInfo := range pipelineInfos {
@@ -648,7 +648,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				request,
 			)
 			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+				return err
 			}
 			fmt.Println(job.ID)
 			return nil
