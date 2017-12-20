@@ -1369,7 +1369,7 @@ func branchProvenance(input *pps.Input) []*pfs.Branch {
 			result = append(result, client.NewBranch(input.Cron.Repo, "master"))
 		}
 		if input.Git != nil {
-			result = append(result, client.NewBranch(input.Git.Name, "master"))
+			result = append(result, client.NewBranch(input.Git.Name, input.Git.Branch))
 		}
 	})
 	return result
