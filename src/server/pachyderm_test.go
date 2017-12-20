@@ -6248,15 +6248,12 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 	// Block on the job being complete before we call ListDatum
 	jobInfo, err := c.InspectJob(jobs[0].Job.ID, true)
 	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
-	durationString := pretty.TimeDifference(jobInfo.Started, jobInfo.Finished)
-	// duration looks like "20 seconds"
-	tokens := strings.Split(durationString, " ")
-	require.Equal(t, 2, len(tokens))
-	seconds, err := strconv.Atoi(tokens[0])
+	require.Equal(t, pps.JobState_JOB_KILLED.String(), jobInfo.State.String())
+	started, err := types.TimestampFromProto(jobInfo.Started)
 	require.NoError(t, err)
-	epsilon := math.Abs(float64(seconds - timeout))
-	require.True(t, epsilon <= 1.0)
+	finished, err := types.TimestampFromProto(jobInfo.Finished)
+	require.NoError(t, err)
+	require.True(t, math.Abs((finished.Sub(started)-(time.Second*20)).Seconds()) <= 1.0)
 }
 
 func TestCommitDescription(t *testing.T) {
