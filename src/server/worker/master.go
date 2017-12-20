@@ -323,6 +323,7 @@ func (a *APIServer) jobSpawner(ctx context.Context) error {
 					return err
 				}
 			}
+			// TODO check if there's already a job for this output commit.
 			job, err := a.pachClient.PpsAPIClient.CreateJob(ctx, &pps.CreateJobRequest{
 				Pipeline:        a.pipelineInfo.Pipeline,
 				OutputCommit:    commitInfo.Commit,
@@ -621,6 +622,16 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 			}
 			if commitInfo.Tree == nil {
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+					// Read an up to date version of the jobInfo so that we
+					// don't overwrite changes that have happened since this
+					// function started.
+					jobs := a.jobs.ReadWrite(stm)
+					jobID := jobInfo.Job.ID
+					jobInfo := &pps.JobInfo{}
+					if err := jobs.Get(jobID, jobInfo); err != nil {
+						return err
+					}
+					jobInfo.Finished = now()
 					return a.updateJobState(stm, jobInfo, pps.JobState_JOB_KILLED, "")
 				}); err != nil {
 					return err
@@ -637,6 +648,28 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 			return nil
 		})
 	}()
+	if jobInfo.JobTimeout != nil {
+		startTime, err := types.TimestampFromProto(jobInfo.Started)
+		if err != nil {
+			return err
+		}
+		timeout, err := types.DurationFromProto(jobInfo.JobTimeout)
+		if err != nil {
+			return err
+		}
+		afterTime := startTime.Add(timeout).Sub(time.Now())
+		logger.Logf("afterTime: %+v", afterTime)
+		timer := time.AfterFunc(afterTime, func() {
+			if _, err := a.pachClient.PfsAPIClient.FinishCommit(ctx,
+				&pfs.FinishCommitRequest{
+					Commit: jobInfo.OutputCommit,
+					Empty:  true,
+				}); err != nil {
+				logger.Logf("error from FinishCommit while timing out job: %+v", err)
+			}
+		})
+		defer timer.Stop()
+	}
 
 	backoff.RetryNotify(func() (retErr error) {
 		// block until job inputs are ready
