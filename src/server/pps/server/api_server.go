@@ -978,7 +978,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			pipelineInfo, err = a.inspectPipeline(ctx, pachClient, jobInfo.Pipeline.Name)
 		}
 		if err != nil {
-			return fmt.Errorf("could not get pipeline information for %s: %v", pipelineInfo.Pipeline.Name, err)
+			return fmt.Errorf("could not get pipeline information for %s: %v", request.Pipeline.Name, err)
 		}
 
 		// 2) Check whether the caller is authorized to get logs from this pipeline/job

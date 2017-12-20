@@ -857,6 +857,11 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 	}
 	sort.Slice(branchInfos, func(i, j int) bool { return len(branchInfos[i].Provenance) < len(branchInfos[j].Provenance) })
 
+	// C is provenant on B
+	// B is a 'spec branch' in some formal sense
+	// the commit that we would create in C would have only 'commit' in its provenance
+	// don't create that commit, or any commits downstream of C.
+
 	// Iterate through downstream branches, and create a new HEAD commit in all of
 	// them.
 	// branchToCommit contains the commit we're using for each branch (branchInfos
@@ -866,6 +871,7 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 		branch: branch,
 		commit: commit,
 	}
+	fmt.Println("Creating downstream commits...")
 	for _, branchInfo := range branchInfos {
 		branch := branchInfo.Branch
 		repo := branch.Repo
@@ -875,10 +881,6 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 		commit := &pfs.Commit{
 			Repo: repo,
 			ID:   uuid.NewWithoutDashes(),
-		}
-		branchToCommit[branchKey(branch)] = &branchCommit{
-			branch: branch, // downstream branch
-			commit: commit, // new downstream commit
 		}
 
 		// 'commit' (new downstream commit) must have correct provenance. One member
@@ -912,6 +914,27 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 				provenance = append(provenance, branchToCommit[branchKey(provBranch)].commit)
 				branchProvenance = append(branchProvenance, branchToCommit[branchKey(provBranch)].branch)
 			}
+		}
+		fmt.Printf("commit: %+v\n", commit)
+		fmt.Printf("provenance: %+v\n", provenance)
+		fmt.Printf("branchProvenance: %+v\n", branchProvenance)
+		// If the only branches in branchProvenance are 'spec' branches, this output
+		// commit would create a confusing "dummy" job with no input data--skip it
+		allSpec := true
+		for _, branch := range branchProvenance {
+			fmt.Printf("   branch: %+v\n", branch)
+			if branch.Name != "spec" {
+				allSpec = false
+				break
+			}
+		}
+		fmt.Printf("allSpec: %+v\n", allSpec)
+		if allSpec {
+			continue
+		}
+		branchToCommit[branchKey(branch)] = &branchCommit{
+			branch: branch, // downstream branch
+			commit: commit, // new downstream commit
 		}
 		commitInfo := &pfs.CommitInfo{ // metadata for 'commit'
 			Commit:           commit,
@@ -1237,6 +1260,7 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 		// order, so we reverse the order.
 		for i := range commitInfos {
 			commitInfo := commitInfos[len(commitInfos)-i-1]
+			fmt.Printf("--- (ListCommit) yielded: %+v\n", commitInfo)
 			select {
 			case stream <- CommitEvent{
 				Value: commitInfo,
@@ -1273,6 +1297,11 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 			if branchInfo.Head == nil {
 				continue // put event == new branch was created. No commits yet though
 			}
+			fmt.Printf("--- branchInfo: %+v\n", branchInfo)
+			fmt.Printf("    (seen: %v)\n", seen)
+			fmt.Printf("    (from: %v)\n", from)
+			fmt.Printf("    (branch: %v)\n", branch)
+			fmt.Printf("    (branchName: %v)\n", branchName)
 
 			// We don't want to include the `from` commit itself
 
@@ -1283,6 +1312,7 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 			// comparison between branchName and branch.
 			if branchName == branch && (!(seen[branchInfo.Head.ID] || (from != nil && from.ID == branchInfo.Head.ID))) {
 				commitInfo, err := d.inspectCommit(ctx, branchInfo.Head, false)
+				fmt.Printf("--- yielded: %+v\n", commitInfo)
 				if err != nil {
 					return err
 				}
@@ -1529,10 +1559,8 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 				}
 			}
 			if len(commitProvMap) > 0 {
-				// Special case: provenance was removed because the pipeline writing to
-				// this branch was stopped, and then the pipeline was restarted and
-				// provenance was re-added to the branch, but we may have no new commits
-				// to process
+				// we're updating the branch, but new HEAD commit has exact same
+				// provenance as existing head commit--skip it
 				if commitInfo != nil {
 					headIsSubset := true
 					for _, c := range commitInfo.Provenance {
@@ -1544,6 +1572,18 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 					if len(commitInfo.Provenance) == len(commitProvMap) && headIsSubset {
 						return nil // existing head commit is the same as the one we want to create--nothing new to do
 					}
+				}
+				allSpec := true
+				for _, b := range commitProvMap {
+					if b.branch.Name != "spec" {
+						allSpec = false
+						break
+					}
+				}
+				if allSpec {
+					// head commit is only provenant on "spec" commits. Creating this
+					// would create a confusing "dummy" job with no data--skip it.
+					return nil
 				}
 				commit := &pfs.Commit{
 					Repo: branch.Repo,
