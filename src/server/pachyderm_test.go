@@ -5676,18 +5676,10 @@ func TestPipelineWithGitInput(t *testing.T) {
 		false,
 	))
 	// There should be a pachyderm repo created w no commits:
-	repos, err := c.ListRepo(nil)
+	_, err := c.InspectRepo("test-artifacts")
 	require.NoError(t, err)
-	found := false
-	newRepoName := "test-artifacts"
-	for _, repo := range repos {
-		if repo.Repo.Name == newRepoName {
-			found = true
-		}
-	}
-	require.Equal(t, true, found)
 
-	commits, err := c.ListCommit(newRepoName, "master", "", 0)
+	commits, err := c.ListCommit("test-artifacts", "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(commits))
 
@@ -5697,7 +5689,7 @@ func TestPipelineWithGitInput(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// Now there should be a new commit on the pachyderm repo / master branch
-	branches, err := c.ListBranch(newRepoName)
+	branches, err := c.ListBranch("test-artifacts")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(branches))
 	require.Equal(t, "master", branches[0].Name)
@@ -5745,18 +5737,10 @@ func TestPipelineWithGitInputSequentialPushes(t *testing.T) {
 		false,
 	))
 	// There should be a pachyderm repo created w no commits:
-	repos, err := c.ListRepo(nil)
+	_, err := c.InspectRepo("test-artifacts")
 	require.NoError(t, err)
-	found := false
-	newRepoName := "test-artifacts"
-	for _, repo := range repos {
-		if repo.Repo.Name == newRepoName {
-			found = true
-		}
-	}
-	require.Equal(t, true, found)
 
-	commits, err := c.ListCommit(newRepoName, "master", "", 0)
+	commits, err := c.ListCommit("test-artifacts", "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(commits))
 
@@ -5766,7 +5750,7 @@ func TestPipelineWithGitInputSequentialPushes(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// Now there should be a new commit on the pachyderm repo / master branch
-	branches, err := c.ListBranch(newRepoName)
+	branches, err := c.ListBranch("test-artifacts")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(branches))
 	require.Equal(t, "master", branches[0].Name)
@@ -5791,7 +5775,7 @@ func TestPipelineWithGitInputSequentialPushes(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// Now there should be a new commit on the pachyderm repo / master branch
-	branches, err = c.ListBranch(newRepoName)
+	branches, err = c.ListBranch("test-artifacts")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(branches))
 	require.Equal(t, "master", branches[0].Name)
@@ -5839,15 +5823,8 @@ func TestPipelineWithGitInputCustomName(t *testing.T) {
 		false,
 	))
 	// There should be a pachyderm repo created w no commits:
-	repos, err := c.ListRepo(nil)
+	_, err := c.InspectRepo(repoName)
 	require.NoError(t, err)
-	found := false
-	for _, repo := range repos {
-		if repo.Repo.Name == repoName {
-			found = true
-		}
-	}
-	require.Equal(t, true, found)
 
 	commits, err := c.ListCommit(repoName, "", "", 0)
 	require.NoError(t, err)
@@ -6061,40 +6038,28 @@ func TestPipelineWithGitInputAndBranch(t *testing.T) {
 		false,
 	))
 	// There should be a pachyderm repo created w no commits:
-	repos, err := c.ListRepo(nil)
+	_, err := c.InspectRepo("test-artifacts")
 	require.NoError(t, err)
-	found := false
-	newRepoName := "test-artifacts"
-	for _, repo := range repos {
-		if repo.Repo.Name == newRepoName {
-			found = true
-		}
-	}
-	require.Equal(t, true, found)
-
-	commits, err := c.ListCommit(newRepoName, "master", "", 0)
-	require.NoError(t, err)
-	require.Equal(t, 0, len(commits))
 
 	// Make sure a push to master does NOT trigger this pipeline
 	simulateGitPush(t, "../../etc/testing/artifacts/githook-payloads/master.json")
 	// Need to sleep since the webhook http handler is non blocking
 	time.Sleep(5 * time.Second)
 	// Now there should be a new commit on the pachyderm repo / master branch
-	branches, err := c.ListBranch(newRepoName)
-	require.NoError(t, err)
-	require.Equal(t, 0, len(branches))
+	_, err = c.InspectBranch("test-artifacts", "master")
+	require.YesError(t, err)
 
 	// To trigger the pipeline, we'll need to simulate the webhook by pushing a POST payload to the githook server
 	simulateGitPush(t, "../../etc/testing/artifacts/githook-payloads/branch.json")
 	// Need to sleep since the webhook http handler is non blocking
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 	// Now there should be a new commit on the pachyderm repo / master branch
-	branches, err = c.ListBranch(newRepoName)
+	branches, err := c.ListBranch("test-artifacts")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(branches))
 	require.Equal(t, branchName, branches[0].Name)
 	commit := branches[0].Head
+	require.NotNil(t, commit)
 
 	// Now wait for the pipeline complete as normal
 	outputRepo := &pfs.Repo{Name: pipeline}
