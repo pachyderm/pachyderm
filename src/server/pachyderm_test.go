@@ -909,7 +909,7 @@ func TestProvenance(t *testing.T) {
 	// one from the CreatePipeline call that created each repo)
 	commitInfos, err = c.ListCommit(bPipeline, "master", "", 0)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 
 	commitInfos, err = c.ListCommit(cPipeline, "master", "", 0)
 	require.NoError(t, err)
