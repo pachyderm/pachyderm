@@ -91,19 +91,16 @@ type driver struct {
 	prefix     string
 
 	// collections
-	repos         col.Collection
-	repoRefCounts col.Collection
-	commits       collectionFactory
-	branches      collectionFactory
-	openCommits   col.Collection
+	repos          col.Collection
+	repoRefCounts  col.Collection
+	putFileRecords col.Collection
+	commits        collectionFactory
+	branches       collectionFactory
+	openCommits    col.Collection
 
 	// a cache for hashtrees
 	treeCache *lru.Cache
 }
-
-const (
-	tombstone = "delete"
-)
 
 const (
 	defaultTreeCacheSize = 128
@@ -1496,32 +1493,6 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	if err := checkPath(file.Path); err != nil {
 		return err
 	}
-	prefix, err := d.scratchFilePrefix(ctx, file)
-	if err != nil {
-		return err
-	}
-
-	// Put the tree into the blob store
-	// Only write the records to etcd if the commit does exist and is open.
-	// To check that a key exists in etcd, we assert that its CreateRevision
-	// is greater than zero.
-	putRecords := func() error {
-		marshalledRecords, err := records.Marshal()
-		if err != nil {
-			return err
-		}
-		kvc := etcd.NewKV(d.etcdClient)
-
-		txnResp, err := kvc.Txn(ctx).
-			If(etcd.Compare(etcd.CreateRevision(d.openCommits.Path(file.Commit.ID)), ">", 0)).Then(etcd.OpPut(path.Join(prefix, uuid.NewWithoutDashes()), string(marshalledRecords))).Commit()
-		if err != nil {
-			return err
-		}
-		if !txnResp.Succeeded {
-			return fmt.Errorf("commit %v is not open", file.Commit.ID)
-		}
-		return nil
-	}
 
 	if delimiter == pfs.Delimiter_NONE {
 		objects, size, err := d.pachClient.PutObjectSplit(reader)
@@ -1551,7 +1522,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			records.Records = append(records.Records, record)
 		}
 
-		return putRecords()
+		return d.upsertPutFileRecords(ctx, file, records)
 	}
 	buffer := &bytes.Buffer{}
 	var datumsWritten int64
@@ -1622,7 +1593,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		records.Records = append(records.Records, indexToRecord[i])
 	}
 
-	return putRecords()
+	return d.upsertPutFileRecords(ctx, file, records)
 }
 
 func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, overwrite bool) error {
@@ -1994,12 +1965,8 @@ func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
 		return pfsserver.ErrCommitFinished{file.Commit}
 	}
 
-	prefix, err := d.scratchFilePrefix(ctx, file)
-	if err != nil {
-		return err
-	}
-
-	_, err = d.etcdClient.Put(ctx, path.Join(prefix, uuid.NewWithoutDashes()), tombstone)
+	err = d.upsertPutFileRecords(ctx, file, &pfs.PutFileRecords{Tombstone: true})
+	//_, err = d.etcdClient.Put(ctx, path.Join(prefix, uuid.NewWithoutDashes()), tombstone)
 	return err
 }
 
@@ -2016,6 +1983,44 @@ func (d *driver) deleteAll(ctx context.Context) error {
 	return nil
 }
 
+// Put the tree into the blob store
+// Only write the records to etcd if the commit does exist and is open.
+// To check that a key exists in etcd, we assert that its CreateRevision
+// is greater than zero.
+func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRecords *pfs.PutFileRecords) error {
+	prefix, err := d.scratchFilePrefix(ctx, file)
+	if err != nil {
+		return err
+	}
+
+	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		revision := stm.Rev(d.openCommits.Path(file.Commit.ID))
+		if revision == 0 {
+			return fmt.Errorf("commit %v is not open", file.Commit.ID)
+		}
+		recordsCol := d.putFileRecords.ReadWrite(stm)
+
+		var existingRecords pfs.PutFileRecords
+		var upsertRecords *pfs.PutFileRecords
+		err := recordsCol.Get(prefix, &existingRecords)
+		if err != nil {
+			return err
+		}
+		if newRecords.Tombstone {
+			// Zero out the old data in existing.Records
+			upsertRecords = newRecords
+		} else {
+			upsertRecords = &existingRecords
+			upsertRecords.Records = append(upsertRecords.Records, newRecords.Records...)
+		}
+		// Now put the new data
+		recordsCol.Put(prefix, upsertRecords)
+		return nil
+	})
+
+	return err
+}
+
 func (d *driver) applyWrites(resp *etcd.GetResponse, tree hashtree.OpenHashTree) error {
 	// a map that keeps track of the sizes of objects
 	sizeMap := make(map[string]int64)
@@ -2026,8 +2031,12 @@ func (d *driver) applyWrites(resp *etcd.GetResponse, tree hashtree.OpenHashTree)
 		parts := strings.Split(fileStr, "/")
 		// filePath should look like "some/path"
 		filePath := strings.Join(parts[:len(parts)-1], "/")
+		records := &pfs.PutFileRecords{}
+		if err := records.Unmarshal(kv.Value); err != nil {
+			return err
+		}
 
-		if string(kv.Value) == tombstone {
+		if records.Tombstone {
 			if err := tree.DeleteFile(filePath); err != nil {
 				// Deleting a non-existent file in an open commit should
 				// be a no-op
@@ -2036,10 +2045,6 @@ func (d *driver) applyWrites(resp *etcd.GetResponse, tree hashtree.OpenHashTree)
 				}
 			}
 		} else {
-			records := &pfs.PutFileRecords{}
-			if err := records.Unmarshal(kv.Value); err != nil {
-				return err
-			}
 			if !records.Split {
 				if len(records.Records) == 0 {
 					return fmt.Errorf("unexpect %d length pfs.PutFileRecord (this is likely a bug)", len(records.Records))
