@@ -809,8 +809,8 @@ func TestLazyPipelineCPPipes(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if len(jobInfos) != 2 {
-			return fmt.Errorf("len(jobInfos) should be 2 (an empty job from creating the pipeline and a real job from committing to the input repo)")
+		if len(jobInfos) != 1 {
+			return fmt.Errorf("len(jobInfos) should be 1")
 		}
 		jobID = jobInfos[0].Job.ID
 		jobInfo, err := c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
@@ -1336,10 +1336,7 @@ func TestPipelineJobCounts(t *testing.T) {
 	collectCommitInfos(t, commitIter)
 	jobInfos, err := c.ListJob(pipeline, nil, nil)
 	require.NoError(t, err)
-	// There are two jobs even though we only made one commit: an empty one
-	// corresponding to the commit triggered by the new pipeline, and a real one,
-	// corresponding to the commit triggered by our input commit above
-	require.Equal(t, 2, len(jobInfos))
+	require.Equal(t, 1, len(jobInfos))
 	inspectJobRequest := &pps.InspectJobRequest{
 		Job:        jobInfos[0].Job,
 		BlockState: true,
@@ -1352,7 +1349,7 @@ func TestPipelineJobCounts(t *testing.T) {
 	// check that the job has been accounted for
 	pipelineInfo, err := c.InspectPipeline(pipeline)
 	require.NoError(t, err)
-	require.Equal(t, int32(2), pipelineInfo.JobCounts[int32(pps.JobState_JOB_SUCCESS)])
+	require.Equal(t, int32(1), pipelineInfo.JobCounts[int32(pps.JobState_JOB_SUCCESS)])
 }
 
 // TODO(msteffen): This test breaks the suite when run against cloud providers,
@@ -2658,8 +2655,7 @@ func TestPipelineJobDeletion(t *testing.T) {
 	// Now delete the corresponding job
 	jobInfos, err := c.ListJob(pipelineName, nil, nil)
 	require.NoError(t, err)
-	// One empty job from the pipeline creation, and one real job
-	require.Equal(t, 2, len(jobInfos))
+	require.Equal(t, 1, len(jobInfos))
 	err = c.DeleteJob(jobInfos[0].Job.ID)
 	require.NoError(t, err)
 }
