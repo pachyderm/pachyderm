@@ -1984,6 +1984,7 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 	if err != nil {
 		return err
 	}
+	fmt.Printf("upserting records (%v) to prefix (%v)\n", newRecords, prefix)
 
 	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		revision := stm.Rev(d.openCommits.Path(file.Commit.ID))
@@ -2041,55 +2042,56 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 				return err
 			}
 		}
-	} else {
-		if !records.Split {
-			if len(records.Records) == 0 {
-				return fmt.Errorf("unexpect %d length pfs.PutFileRecord (this is likely a bug)", len(records.Records))
-			}
-			for _, record := range records.Records {
-				sizeMap[record.ObjectHash] = record.SizeBytes
-				if record.OverwriteIndex != nil {
-					// Computing size delta
-					delta := record.SizeBytes
-					fileNode, err := tree.Get(filePath)
-					if err == nil {
-						// If we can't find the file, that's fine.
-						for i := record.OverwriteIndex.Index; int(i) < len(fileNode.FileNode.Objects); i++ {
-							delta -= sizeMap[fileNode.FileNode.Objects[i].Hash]
-						}
+	} // else {
+	if !records.Split {
+		if len(records.Records) == 0 {
+			return nil
+			//			return fmt.Errorf("unexpect %d length pfs.PutFileRecord (this is likely a bug)", len(records.Records))
+		}
+		for _, record := range records.Records {
+			sizeMap[record.ObjectHash] = record.SizeBytes
+			if record.OverwriteIndex != nil {
+				// Computing size delta
+				delta := record.SizeBytes
+				fileNode, err := tree.Get(filePath)
+				if err == nil {
+					// If we can't find the file, that's fine.
+					for i := record.OverwriteIndex.Index; int(i) < len(fileNode.FileNode.Objects); i++ {
+						delta -= sizeMap[fileNode.FileNode.Objects[i].Hash]
 					}
+				}
 
-					if err := tree.PutFileOverwrite(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.OverwriteIndex, delta); err != nil {
-						return err
-					}
-				} else {
-					if err := tree.PutFile(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
-						return err
-					}
+				if err := tree.PutFileOverwrite(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.OverwriteIndex, delta); err != nil {
+					return err
 				}
-			}
-		} else {
-			nodes, err := tree.List(filePath)
-			if err != nil && hashtree.Code(err) != hashtree.PathNotFound {
-				return err
-			}
-			var indexOffset int64
-			if len(nodes) > 0 {
-				indexOffset, err = strconv.ParseInt(path.Base(nodes[len(nodes)-1].Name), splitSuffixBase, splitSuffixWidth)
-				if err != nil {
-					return fmt.Errorf("error parsing filename %s as int, this likely means you're "+
-						"using split on a directory which contains other data that wasn't put with split",
-						path.Base(nodes[len(nodes)-1].Name))
-				}
-				indexOffset++ // start writing to the file after the last file
-			}
-			for i, record := range records.Records {
-				if err := tree.PutFile(path.Join(filePath, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+			} else {
+				if err := tree.PutFile(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
 					return err
 				}
 			}
 		}
+	} else {
+		nodes, err := tree.List(filePath)
+		if err != nil && hashtree.Code(err) != hashtree.PathNotFound {
+			return err
+		}
+		var indexOffset int64
+		if len(nodes) > 0 {
+			indexOffset, err = strconv.ParseInt(path.Base(nodes[len(nodes)-1].Name), splitSuffixBase, splitSuffixWidth)
+			if err != nil {
+				return fmt.Errorf("error parsing filename %s as int, this likely means you're "+
+					"using split on a directory which contains other data that wasn't put with split",
+					path.Base(nodes[len(nodes)-1].Name))
+			}
+			indexOffset++ // start writing to the file after the last file
+		}
+		for i, record := range records.Records {
+			if err := tree.PutFile(path.Join(filePath, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+				return err
+			}
+		}
 	}
+	//}
 	//}
 	return nil
 }
