@@ -10,7 +10,7 @@ Here are some common issues by symptom related to certain deploys.  They are org
 
 ## AWS Deployment
 
-- [Can't connec to to the Pachyderm cluster after a rolling update](#cant-connect-to-the-Pachyderm-cluster-after-a-rolling-update)
+- [Can't connect to to the Pachyderm cluster after a rolling update](#cant-connect-to-the-Pachyderm-cluster-after-a-rolling-update)
 - [The one shot deploy script, `aws.sh`, never completes](#one-shot-script-never-completes)
 - [VPC limit exceeded](#vpc-limit-exceeded)
 - [GPU node never appears](#gpu-node-never-appears)

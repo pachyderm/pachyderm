@@ -614,7 +614,7 @@ $ pachctl set-branch foo test master` + codeend,
 	var putFileCommit bool
 	var overwrite bool
 	putFile := &cobra.Command{
-		Use:   "put-file repo-name branch path/to/file/in/pfs",
+		Use:   "put-file repo-name branch [path/to/file/in/pfs]",
 		Short: "Put a file into the filesystem.",
 		Long: `Put-file supports a number of ways to insert data into pfs:
 ` + codestart + `# Put data from stdin as repo/branch/path:

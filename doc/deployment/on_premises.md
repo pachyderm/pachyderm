@@ -13,7 +13,7 @@ The Kubernetes docs have instructions for [deploying Kubernetes in a variety of 
 
 ## Object Store
 
-Once you have Kubernetes up and running, deploying Pachyderm is a matter of supplying Kubernetes with a JSON/yaml manifest to create the Pachyderm resources.  This includes providing information that Pachyderm will use to connect to a backing object store.
+Once you have Kubernetes up and running, deploying Pachyderm is a matter of supplying Kubernetes with a JSON/YAML manifest to create the Pachyderm resources.  This includes providing information that Pachyderm will use to connect to a backing object store.
 
 For on premise deployments, we recommend using [Minio](https://minio.io/) as a backing object store.  However, at this point, you could utilize any backing object store that has an S3 compatible API.  To create a manifest template for your on premise deployment, run:
 

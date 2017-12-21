@@ -17,6 +17,7 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 var (
@@ -442,7 +443,35 @@ func PachdService() *v1.Service {
 				{
 					Port:     githook.GitHookPort,
 					Name:     "api-git-port",
-					NodePort: 30000 + githook.GitHookPort,
+					NodePort: githook.NodePort(),
+				},
+			},
+		},
+	}
+}
+
+// GithookService returns a k8s service that exposes a public IP
+func GithookService() *v1.Service {
+	name := "githook"
+	return &v1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   name,
+			Labels: labels(name),
+		},
+		Spec: v1.ServiceSpec{
+			Type: v1.ServiceTypeLoadBalancer,
+			Selector: map[string]string{
+				"app": pachdName,
+			},
+			Ports: []v1.ServicePort{
+				{
+					TargetPort: intstr.FromInt(githook.GitHookPort),
+					Name:       "api-git-port",
+					Port:       githook.ExternalPort(),
 				},
 			},
 		},
