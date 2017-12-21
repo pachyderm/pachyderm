@@ -303,6 +303,7 @@ message PipelineInfo {
   ChunkSpec chunk_spec = 32;
   google.protobuf.Duration datum_timeout = 33;
   google.protobuf.Duration job_timeout = 34;
+  string githook_url = 35 [(gogoproto.customname) = "GithookURL"];
 }
 
 message PipelineInfos {
