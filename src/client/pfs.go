@@ -301,7 +301,6 @@ func (c APIClient) ListBranch(repoName string) ([]*pfs.BranchInfo, error) {
 	return branchInfos.BranchInfo, nil
 }
 
-
 // SetBranch sets a commit and its ancestors as a branch.
 // SetBranch is deprecated in favor of CommitBranch.
 func (c APIClient) SetBranch(repoName string, commit string, branch string) error {

@@ -91,7 +91,8 @@ func (a *APIServer) master() {
 	// to restart.
 	b.InitialInterval = 10 * time.Second
 	backoff.RetryNotify(func() error {
-		ctx, cancel := context.WithCancel(context.Background())
+		// We use pachClient.Ctx here because it contains auth information.
+		ctx, cancel := context.WithCancel(a.pachClient.Ctx())
 		defer cancel() // make sure that everything this loop might spawn gets cleaned up
 		ctx, err := masterLock.Lock(a.pachClient.AddMetadata(ctx))
 		if err != nil {
@@ -134,7 +135,8 @@ func (a *APIServer) serviceMaster() {
 	logger := a.getMasterLogger()
 	b := backoff.NewInfiniteBackOff()
 	backoff.RetryNotify(func() error {
-		ctx, cancel := context.WithCancel(context.Background())
+		// We use pachClient.Ctx here because it contains auth information.
+		ctx, cancel := context.WithCancel(a.pachClient.Ctx())
 		defer cancel() // make sure that everything this loop might spawn gets cleaned up
 		ctx, err := masterLock.Lock(a.pachClient.AddMetadata(ctx))
 		if err != nil {

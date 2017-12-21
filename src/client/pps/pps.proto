@@ -297,10 +297,11 @@ message EtcdPipelineInfo {
   string reason = 4;
   pfs.Commit spec_commit = 2;
   map<int32, int32> job_counts = 3;
+  string capability = 5;
 }
 
 message PipelineInfo {
-  reserved 3, 4;
+  reserved 3, 4, 26;
   string id = 17 [(gogoproto.customname) = "ID"];
   Pipeline pipeline = 1;
   uint64 version = 11;
@@ -329,7 +330,6 @@ message PipelineInfo {
   string cache_size = 23;
   bool enable_stats = 24;
   string salt = 25;
-  string capability = 26;
   bool batch = 27;
 
   // reason includes any error messages associated with a failed pipeline
