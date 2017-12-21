@@ -683,79 +683,46 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, descripti
 	if err != nil {
 		return err
 	}
-	tree := parentTree.Open()
 
-	/*
-		var putFileRecords pfs.PutFileRecords
-		_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-			recordsCol := d.putFileRecords.ReadWrite(stm)
-			err := recordsCol.Get(prefix, &putFileRecords)
-			fmt.Printf("got records w err (%v) %v\n", err, putFileRecords)
-			return err
-		})
-		if err != nil {
-			return err
-		}*/
+	var putFileRecords pfs.PutFileRecords
+	var finishedTree hashtree.HashTree
+	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		tree := parentTree.Open()
 
-	/*
-		// Read everything under the scratch space for this commit
-		recordLimit := int64(100) // By trial and error, 100k will cause a grpc max msg size, but 10k is ok
-		baseOpts := []etcd.OpOption{
-			etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend),
-			etcd.WithLimit(recordLimit),
-		}
-		fmt.Printf("reading scratch etcd for commit for the first time w prefix %v\n", prefix)
-		start := time.Now()
-	*/
-	resp, err := d.etcdClient.Get(ctx, filepath.Join("pachyderm_pfs/putFileRecords", prefix), etcd.WithPrefix())
-	/*
-		fmt.Printf("took %v to get %v records from etcd first time\n", time.Since(start), len(resp.Kvs))
-		start = time.Now()
-	*/
-	if err := d.applyWrites(resp, tree); err != nil {
-		return err
-	}
-	/*
-		if int64(len(resp.Kvs)) < recordLimit {
-			fmt.Printf("got %v keys: %v\n", len(resp.Kvs), resp.Kvs)
-			// No need to paginate, we've received all the results
-			return nil
-		}
-		fmt.Printf("took %v to apply writes to tree for the first time\n", time.Since(start))
-		lastKey := string(resp.Kvs[len(resp.Kvs)-1].Value)
-		fmt.Printf("lastkey: %v\n", lastKey)
+		recordsCol := d.putFileRecords.ReadOnly(ctx)
+		iter, err := recordsCol.ListPrefix(prefix)
+		fmt.Printf("got records w err (%v) %v\n", err, putFileRecords)
 		if err != nil {
 			return err
 		}
 		for {
-			fmt.Printf("reading scratch etcd for commit\n")
-			start = time.Now()
-			resp, err := d.etcdClient.Get(ctx, lastKey, append(baseOpts, etcd.WithFromKey())...)
-			fmt.Printf("took %v to get %v records from etcd\n", time.Since(start), len(resp.Kvs))
-			lastKey = string(resp.Kvs[len(resp.Kvs)-1].Value)
-			fmt.Printf("lastkey: %v\n", lastKey)
+			putFileRecords := &pfs.PutFileRecords{}
+			var key string
+			ok, err := iter.Next(&key, putFileRecords)
+			if !ok {
+				fmt.Printf("iter returned not ok, breaking\n")
+				break
+			}
 			if err != nil {
 				return err
 			}
-			fmt.Printf("applying writes to resp of len: %v\n", resp.Count)
-			resp.Kvs = resp.Kvs[1:len(resp.Kvs)] // first one will be repeat from previous call
-			start = time.Now()
-			if err := d.applyWrites(resp, tree); err != nil {
+			fmt.Printf("applying write to key %v\n", key)
+			err = d.applyWrite(key, putFileRecords, tree)
+			if err != nil {
 				return err
 			}
-			fmt.Printf("took %v to apply writes to tree\n", time.Since(start))
-
-			if !resp.More {
-				fmt.Printf("no more results ... exit the loop")
-				break
-			}
-		}*/
-
-	finishedTree, err := tree.Finish()
+		}
+		finishedTree, err = tree.Finish()
+		if err != nil {
+			return err
+		}
+		fmt.Printf("finished tree\n")
+		return nil
+	})
 	if err != nil {
 		return err
 	}
-	fmt.Printf("finished tree\n")
+
 	// Serialize the tree
 	data, err := hashtree.Serialize(finishedTree)
 	if err != nil {
@@ -2054,84 +2021,96 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 	return err
 }
 
+// TODO: Eliminate this helper ... any calls to this should be replaced w the new collection
+// access method as in FinishCommit
 func (d *driver) applyWrites(resp *etcd.GetResponse, tree hashtree.OpenHashTree) error {
-	// a map that keeps track of the sizes of objects
-	sizeMap := make(map[string]int64)
 	for _, kv := range resp.Kvs {
-		// fileStr is going to look like "some/path/UUID"
-		fileStr := d.filePathFromEtcdPath(string(kv.Key))
-		fmt.Printf("got file str(%v) from etcd path (%v)\n", fileStr, string(kv.Key))
-		// the last element of `parts` is going to be UUID
-		parts := strings.Split(fileStr, "/")
-		fmt.Printf("got parts: (%v)\n", parts)
-		// filePath should look like "some/path"
-		//		filePath := strings.Join(parts[:len(parts)-1], "/")
-		filePath := strings.Join(parts[:len(parts)], "/")
-		fmt.Printf("got filepath: %v\n", filePath)
-		filePath = filepath.Join("/", filePath)
 		records := &pfs.PutFileRecords{}
 		if err := records.Unmarshal(kv.Value); err != nil {
 			return err
 		}
+		if err := d.applyWrite(string(kv.Key), records, tree); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
-		if records.Tombstone {
-			if err := tree.DeleteFile(filePath); err != nil {
-				// Deleting a non-existent file in an open commit should
-				// be a no-op
-				if hashtree.Code(err) != hashtree.PathNotFound {
-					return err
-				}
+func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtree.OpenHashTree) error {
+	// a map that keeps track of the sizes of objects
+	sizeMap := make(map[string]int64)
+	//	for _, kv := range resp.Kvs {
+	// fileStr is going to look like "some/path/UUID"
+	//fileStr := d.filePathFromEtcdPath(key)
+	fileStr := key
+	fmt.Printf("got file str(%v) from etcd path (%v)\n", fileStr, key)
+	// the last element of `parts` is going to be UUID
+	parts := strings.Split(fileStr, "/")
+	fmt.Printf("got parts: (%v)\n", parts)
+	// filePath should look like "some/path"
+	//		filePath := strings.Join(parts[:len(parts)-1], "/")
+	filePath := strings.Join(parts[:len(parts)], "/")
+	fmt.Printf("got filepath: %v\n", filePath)
+	filePath = filepath.Join("/", filePath)
+
+	if records.Tombstone {
+		if err := tree.DeleteFile(filePath); err != nil {
+			// Deleting a non-existent file in an open commit should
+			// be a no-op
+			if hashtree.Code(err) != hashtree.PathNotFound {
+				return err
 			}
-		} else {
-			if !records.Split {
-				if len(records.Records) == 0 {
-					return fmt.Errorf("unexpect %d length pfs.PutFileRecord (this is likely a bug)", len(records.Records))
-				}
-				for _, record := range records.Records {
-					sizeMap[record.ObjectHash] = record.SizeBytes
-					if record.OverwriteIndex != nil {
-						// Computing size delta
-						delta := record.SizeBytes
-						fileNode, err := tree.Get(filePath)
-						if err == nil {
-							// If we can't find the file, that's fine.
-							for i := record.OverwriteIndex.Index; int(i) < len(fileNode.FileNode.Objects); i++ {
-								delta -= sizeMap[fileNode.FileNode.Objects[i].Hash]
-							}
+		}
+	} else {
+		if !records.Split {
+			if len(records.Records) == 0 {
+				return fmt.Errorf("unexpect %d length pfs.PutFileRecord (this is likely a bug)", len(records.Records))
+			}
+			for _, record := range records.Records {
+				sizeMap[record.ObjectHash] = record.SizeBytes
+				if record.OverwriteIndex != nil {
+					// Computing size delta
+					delta := record.SizeBytes
+					fileNode, err := tree.Get(filePath)
+					if err == nil {
+						// If we can't find the file, that's fine.
+						for i := record.OverwriteIndex.Index; int(i) < len(fileNode.FileNode.Objects); i++ {
+							delta -= sizeMap[fileNode.FileNode.Objects[i].Hash]
 						}
+					}
 
-						if err := tree.PutFileOverwrite(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.OverwriteIndex, delta); err != nil {
-							return err
-						}
-					} else {
-						if err := tree.PutFile(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
-							return err
-						}
+					if err := tree.PutFileOverwrite(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.OverwriteIndex, delta); err != nil {
+						return err
 					}
-				}
-			} else {
-				nodes, err := tree.List(filePath)
-				if err != nil && hashtree.Code(err) != hashtree.PathNotFound {
-					return err
-				}
-				var indexOffset int64
-				if len(nodes) > 0 {
-					indexOffset, err = strconv.ParseInt(path.Base(nodes[len(nodes)-1].Name), splitSuffixBase, splitSuffixWidth)
-					if err != nil {
-						return fmt.Errorf("error parsing filename %s as int, this likely means you're "+
-							"using split on a directory which contains other data that wasn't put with split",
-							path.Base(nodes[len(nodes)-1].Name))
-					}
-					indexOffset++ // start writing to the file after the last file
-				}
-				for i, record := range records.Records {
-					if err := tree.PutFile(path.Join(filePath, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+				} else {
+					if err := tree.PutFile(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
 						return err
 					}
 				}
 			}
+		} else {
+			nodes, err := tree.List(filePath)
+			if err != nil && hashtree.Code(err) != hashtree.PathNotFound {
+				return err
+			}
+			var indexOffset int64
+			if len(nodes) > 0 {
+				indexOffset, err = strconv.ParseInt(path.Base(nodes[len(nodes)-1].Name), splitSuffixBase, splitSuffixWidth)
+				if err != nil {
+					return fmt.Errorf("error parsing filename %s as int, this likely means you're "+
+						"using split on a directory which contains other data that wasn't put with split",
+						path.Base(nodes[len(nodes)-1].Name))
+				}
+				indexOffset++ // start writing to the file after the last file
+			}
+			for i, record := range records.Records {
+				if err := tree.PutFile(path.Join(filePath, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+					return err
+				}
+			}
 		}
 	}
+	//}
 	return nil
 }
 
