@@ -679,46 +679,12 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, descripti
 	}
 
 	fmt.Printf("getting tree for commit\n")
+
 	parentTree, err := d.getTreeForCommit(ctx, commitInfo.ParentCommit)
 	if err != nil {
 		return err
 	}
-
-	var putFileRecords pfs.PutFileRecords
-	var finishedTree hashtree.HashTree
-	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		tree := parentTree.Open()
-
-		recordsCol := d.putFileRecords.ReadOnly(ctx)
-		iter, err := recordsCol.ListPrefix(prefix)
-		fmt.Printf("got records w err (%v) %v\n", err, putFileRecords)
-		if err != nil {
-			return err
-		}
-		for {
-			putFileRecords := &pfs.PutFileRecords{}
-			var key string
-			ok, err := iter.Next(&key, putFileRecords)
-			if !ok {
-				fmt.Printf("iter returned not ok, breaking\n")
-				break
-			}
-			if err != nil {
-				return err
-			}
-			fmt.Printf("applying write to key %v\n", key)
-			err = d.applyWrite(key, putFileRecords, tree)
-			if err != nil {
-				return err
-			}
-		}
-		finishedTree, err = tree.Finish()
-		if err != nil {
-			return err
-		}
-		fmt.Printf("finished tree\n")
-		return nil
-	})
+	finishedTree, err := d.constructTreeFromPrefix(ctx, prefix, parentTree)
 	if err != nil {
 		return err
 	}
@@ -1759,25 +1725,54 @@ func (d *driver) getTreeForFile(ctx context.Context, file *pfs.File) (hashtree.H
 	if err != nil {
 		return nil, err
 	}
-	// Read everything under the scratch space for this commit
-	resp, err := d.etcdClient.Get(ctx, prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend))
-	if err != nil {
-		return nil, err
-	}
-
 	parentTree, err := d.getTreeForCommit(ctx, commitInfo.ParentCommit)
 	if err != nil {
 		return nil, err
 	}
-	openTree := parentTree.Open()
-	if err := d.applyWrites(resp, openTree); err != nil {
-		return nil, err
-	}
-	tree, err := openTree.Finish()
+	return d.constructTreeFromPrefix(ctx, prefix, parentTree)
+}
+
+func (d *driver) constructTreeFromPrefix(ctx context.Context, prefix string, parentTree hashtree.HashTree) (hashtree.HashTree, error) {
+	var putFileRecords pfs.PutFileRecords
+	var finishedTree hashtree.HashTree
+
+	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		tree := parentTree.Open()
+
+		recordsCol := d.putFileRecords.ReadOnly(ctx)
+		iter, err := recordsCol.ListPrefix(prefix)
+		fmt.Printf("got records w err (%v) %v\n", err, putFileRecords)
+		if err != nil {
+			return err
+		}
+		for {
+			putFileRecords := &pfs.PutFileRecords{}
+			var key string
+			ok, err := iter.Next(&key, putFileRecords)
+			if !ok {
+				fmt.Printf("iter returned not ok, breaking\n")
+				break
+			}
+			if err != nil {
+				return err
+			}
+			fmt.Printf("applying write to key %v\n", key)
+			err = d.applyWrite(key, putFileRecords, tree)
+			if err != nil {
+				return err
+			}
+		}
+		finishedTree, err = tree.Finish()
+		if err != nil {
+			return err
+		}
+		fmt.Printf("finished tree\n")
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	return tree, nil
+	return finishedTree, nil
 }
 
 func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size int64) (io.Reader, error) {
@@ -2019,21 +2014,6 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 	fmt.Printf("error NewSTM: %v\n", err)
 
 	return err
-}
-
-// TODO: Eliminate this helper ... any calls to this should be replaced w the new collection
-// access method as in FinishCommit
-func (d *driver) applyWrites(resp *etcd.GetResponse, tree hashtree.OpenHashTree) error {
-	for _, kv := range resp.Kvs {
-		records := &pfs.PutFileRecords{}
-		if err := records.Unmarshal(kv.Value); err != nil {
-			return err
-		}
-		if err := d.applyWrite(string(kv.Key), records, tree); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtree.OpenHashTree) error {
