@@ -1748,7 +1748,7 @@ func (d *driver) constructTreeFromPrefix(ctx context.Context, prefix string, par
 		for {
 			putFileRecords := &pfs.PutFileRecords{}
 			var key string
-			ok, err := iter.Next(&key, putFileRecords)
+			ok, err := iter.NextFullyQualified(&key, putFileRecords)
 			if !ok {
 				fmt.Printf("iter returned not ok, breaking\n")
 				break
@@ -2021,8 +2021,8 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 	sizeMap := make(map[string]int64)
 	//	for _, kv := range resp.Kvs {
 	// fileStr is going to look like "some/path/UUID"
-	//fileStr := d.filePathFromEtcdPath(key)
-	fileStr := key
+	fileStr := d.filePathFromEtcdPath(key)
+	//fileStr := key
 	fmt.Printf("got file str(%v) from etcd path (%v)\n", fileStr, key)
 	// the last element of `parts` is going to be UUID
 	parts := strings.Split(fileStr, "/")

@@ -347,6 +347,30 @@ type indirectIterator struct {
 	col   *readonlyCollection
 }
 
+func (i *indirectIterator) NextFullyQualified(key *string, val proto.Unmarshaler) (ok bool, retErr error) {
+	for {
+		if i.index < len(i.resp.Kvs) {
+			kv := i.resp.Kvs[i.index]
+			i.index++
+
+			baseKey := path.Base(string(kv.Key))
+			*key = string(kv.Key)
+			if err := i.col.Get(baseKey, val); err != nil {
+				if IsErrNotFound(err) {
+					// In cases where we changed how certain objects are
+					// indexed, we could end up in a situation where the
+					// object is deleted but the old indexes still exist.
+					continue
+				} else {
+					return false, err
+				}
+			}
+
+			return true, nil
+		}
+		return false, nil
+	}
+}
 func (i *indirectIterator) Next(key *string, val proto.Unmarshaler) (ok bool, retErr error) {
 	for {
 		if i.index < len(i.resp.Kvs) {
@@ -441,6 +465,21 @@ func (i *iterator) Next(key *string, val proto.Unmarshaler) (ok bool, retErr err
 		i.index++
 
 		*key = path.Base(string(kv.Key))
+		if err := val.Unmarshal(kv.Value); err != nil {
+			return false, err
+		}
+
+		return true, nil
+	}
+	return false, nil
+}
+
+func (i *iterator) NextFullyQualified(key *string, val proto.Unmarshaler) (ok bool, retErr error) {
+	if i.index < len(i.resp.Kvs) {
+		kv := i.resp.Kvs[i.index]
+		i.index++
+
+		*key = string(kv.Key)
 		if err := val.Unmarshal(kv.Value); err != nil {
 			return false, err
 		}
