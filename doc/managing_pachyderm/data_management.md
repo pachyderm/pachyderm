@@ -36,7 +36,7 @@ To actually remove the data, you may need to manually invoke garbage collection.
 
 ## Setting a root volume size
 
-When planning and configuring your Pachyderm deploy, you need to make sure that each node's root volume is big enough to accomodate your total processing bandwidth. Specifically, you should calculate the bandwidth for your expected running jobs as follows:
+When planning and configuring your Pachyderm deploy, you need to make sure that each node's root volume is big enough to accommodate your total processing bandwidth. Specifically, you should calculate the bandwidth for your expected running jobs as follows:
 
 ```
 (storage needed per datum) x (number of datums being processed simultaneously) / (number of nodes)

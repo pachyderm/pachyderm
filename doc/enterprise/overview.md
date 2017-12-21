@@ -14,13 +14,13 @@ Pachdyerm Enterprise Edition can be deployed easily on top of an existing or new
 
 ![alt tag](dashboard.png)
 
-Pachyderm Enterprise Edition includes a full UI for visualizing pipelines and exploring data.  Pachyderm Enterprise will automatically infer the structure of data scientists' DAG pipelines and display them visually.  Data scientists and cluster admins can even click on individual segments of the pipelines to see what data is being processed, how many jobs have run, what images and commands are being run, and much more!  Data scientists can also explore the versioned data in Pachyderm data respositories and see how the state of data has changed over time.  
+Pachyderm Enterprise Edition includes a full UI for visualizing pipelines and exploring data.  Pachyderm Enterprise will automatically infer the structure of data scientists' DAG pipelines and display them visually.  Data scientists and cluster admins can even click on individual segments of the pipelines to see what data is being processed, how many jobs have run, what images and commands are being run, and much more!  Data scientists can also explore the versioned data in Pachyderm data repositories and see how the state of data has changed over time.  
 
 ## Access Controls
 
 ![alt tag](auth_dash5.png)
 
-Enterprise-scale deployments require access controls and multitenancy.  Pachyderm Enterprise Edition gives teams the ability to control access to production pipelines, data, and configuration.  Administrators can silo data, prevent unintended modficiations to production pipelines, and support multiple data scientists or even mutliple data science groups.
+Enterprise-scale deployments require access controls and multitenancy.  Pachyderm Enterprise Edition gives teams the ability to control access to production pipelines, data, and configuration.  Administrators can silo data, prevent unintended modifications to production pipelines, and support multiple data scientists or even multiple data science groups.
 
 ## Advanced Statistics 
 

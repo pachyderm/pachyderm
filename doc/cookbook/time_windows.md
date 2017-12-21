@@ -119,9 +119,9 @@ and is maintained over time as new data is committed:
 
 Your second pipeline can then process these bins in parallel, via a glob pattern of `/*`, or in any other relevant way as discussed further in the ["Fixed time windows" section](#fixed-time-window-directory-structures).  Both your first and second pipelines can be easily parallelized.
 
-**Note** - When looking at the above directory structure, it may seem like there is an uneccessary duplication of the data.  However, under the hood Pachyderm deduplicates all of these files and maintains a space efficient representation of your data.  The binning of the data is merely a structural re-arrangement to allow you to process these types of rolling time windows.  
+**Note** - When looking at the above directory structure, it may seem like there is an unnecessary duplication of the data.  However, under the hood Pachyderm deduplicates all of these files and maintains a space efficient representation of your data.  The binning of the data is merely a structural re-arrangement to allow you to process these types of rolling time windows.  
 
-**Note** - It might also seem as if there is unecessary data transfers over the network to perform the above binning.  Pachyderm can ensure that performing these types of "shuffles" doesn't actually require transferring data over the network. Read more about that [here](../managing_pachyderm/data_management.html#shuffling-files). 
+**Note** - It might also seem as if there is unnecessary data transfers over the network to perform the above binning.  Pachyderm can ensure that performing these types of "shuffles" doesn't actually require transferring data over the network. Read more about that [here](../managing_pachyderm/data_management.html#shuffling-files). 
 
 ### Maintaining a single time-windowed data set
 
@@ -152,7 +152,7 @@ last_three_days
 └── 01-04-17.json
 ```
 
-Think of this as a "shuffle" step.  Then, when the January 5th file, `01-05-17.json`, is commited,  
+Think of this as a "shuffle" step.  Then, when the January 5th file, `01-05-17.json`, is committed,  
 
 ```
 sales

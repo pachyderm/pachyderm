@@ -62,7 +62,7 @@ To deploy Pachyderm we will need to:
 
 #### Set up the Storage Resources
 
-Pachyderm needs a [GCS bucket](https://cloud.google.com/storage/docs/) and a [persistent disk](https://cloud.google.com/compute/docs/disks/) to function correctly.  We can specify the size of the peristent disk, the bucket name, and create the bucket as follows:
+Pachyderm needs a [GCS bucket](https://cloud.google.com/storage/docs/) and a [persistent disk](https://cloud.google.com/compute/docs/disks/) to function correctly.  We can specify the size of the persistent disk, the bucket name, and create the bucket as follows:
 
 ```shell
 # For a demo you should only need 10 GB. This stores PFS metadata. For reference, 1GB
@@ -116,7 +116,7 @@ please make sure pachd is up (`kubectl get all`) and portforwarding is enabled
 Now we're ready to deploy Pachyderm itself.  This can be done in one command:
 
 ```sh
-$ pachctl deploy google ${BUCKET_NAME} ${STORAGE_SIZE} --dynamic-etcd-nodes=3 --dashboard
+$ pachctl deploy google ${BUCKET_NAME} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --dashboard
 ```
 
 Note, here we are using 3 etcd nodes to manage Pachyderm metadata. The number of etcd nodes can be adjusted as needed.

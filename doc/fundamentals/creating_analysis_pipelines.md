@@ -19,7 +19,7 @@ For the writing files part (saving results, etc.), your code simply needs to wri
 
 ## 2. Building a Docker Image
 
-When you create a Pachyderm pipeline (which will be discussed next), you need to specify a Docker image including the code or binary you want to run.  Please refer to the [official documentation](https://docs.docker.com/engine/tutorials/dockerimages/) to learn how to build a Docker images.  Note, your Docker image should NOT specifiy a `CMD`.  Rather, you specify what commands are to be run in the container when you create your pipeline.
+When you create a Pachyderm pipeline (which will be discussed next), you need to specify a Docker image including the code or binary you want to run.  Please refer to the [official documentation](https://docs.docker.com/engine/tutorials/dockerimages/) to learn how to build a Docker images.  Note, your Docker image should NOT specify a `CMD`.  Rather, you specify what commands are to be run in the container when you create your pipeline.
 
 Unless Pachyderm is running on the same host that you used to build your image, you'll need to use a public or private registry to get your image into the Pachyderm cluster.  One (free) option is to use Docker's DockerHub registry.  You can refer to the [official documentation](https://docs.docker.com/engine/tutorials/dockerimages/#/push-an-image-to-docker-hub) to learn how to push your images to DockerHub. That being said, you are more than welcome to use any other public or private Docker registry.
 
