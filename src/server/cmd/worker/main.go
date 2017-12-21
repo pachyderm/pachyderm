@@ -54,6 +54,8 @@ func main() {
 
 // getPipelineInfo gets the PipelineInfo proto describing the pipeline that this
 // worker is part of
+// getPipelineInfo has the side effect of adding auth to the passed pachClient
+// which is necessary to get the PipelineInfo from pfs.
 func getPipelineInfo(etcdClient *etcd.Client, pachClient *client.APIClient, appEnv *appEnv) (*pps.PipelineInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -68,6 +70,7 @@ func getPipelineInfo(etcdClient *etcd.Client, pachClient *client.APIClient, appE
 	if err := pipelinePtr.Unmarshal(resp.Kvs[0].Value); err != nil {
 		return nil, err
 	}
+	pachClient.SetAuthToken(pipelinePtr.Capability)
 	return ppsutil.GetPipelineInfo(pachClient, appEnv.PPSPipelineName, &pipelinePtr)
 }
 
@@ -97,9 +100,6 @@ func do(appEnvObj interface{}) error {
 	if err != nil {
 		return fmt.Errorf("error getting pipelineInfo: %v", err)
 	}
-
-	// Set the auth token that will be used for this client
-	pachClient.SetAuthToken(pipelineInfo.Capability)
 
 	// Construct worker API server.
 	workerRcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
@@ -134,7 +134,7 @@ func do(appEnvObj interface{}) error {
 
 	// Prepare to write "key" into etcd by creating lease -- if worker dies, our
 	// IP will be removed from etcd
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(pachClient.Ctx(), 10*time.Second)
 	defer cancel()
 	resp, err := etcdClient.Grant(ctx, 10 /* seconds */)
 	if err != nil {
