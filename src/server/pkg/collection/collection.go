@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -397,17 +398,28 @@ func (c *readonlyCollection) GetBlock(key string, val proto.Unmarshaler) error {
 	}
 }
 
-// List returns an iteraor that can be used to iterate over the collection.
-// The objects are sorted by revision time in descending order, i.e. newer
-// objects are returned first.
-func (c *readonlyCollection) List() (Iterator, error) {
-	resp, err := c.etcdClient.Get(c.ctx, c.prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend))
+func (c *readonlyCollection) ListPrefix(prefix string) (Iterator, error) {
+	fmt.Printf("listing at prefix (%v)\n", filepath.Join(c.prefix, prefix))
+	queryPrefix := c.prefix
+	if prefix != "" {
+		// If we always call join, we'll get rid of the trailing slash we need
+		// on the root c.prefix
+		queryPrefix = filepath.Join(c.prefix, prefix)
+	}
+	resp, err := c.etcdClient.Get(c.ctx, queryPrefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend))
 	if err != nil {
 		return nil, err
 	}
 	return &iterator{
 		resp: resp,
 	}, nil
+}
+
+// List returns an iteraor that can be used to iterate over the collection.
+// The objects are sorted by revision time in descending order, i.e. newer
+// objects are returned first.
+func (c *readonlyCollection) List() (Iterator, error) {
+	return c.ListPrefix("")
 }
 
 type iterator struct {
