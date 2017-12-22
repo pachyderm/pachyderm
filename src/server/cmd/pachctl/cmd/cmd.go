@@ -243,8 +243,8 @@ kubectl %v port-forward "$pod" %d:8080
 					if err := cmdutil.RunIO(cmdutil.IO{
 						Stdin: stdin,
 					}, "sh"); err != nil {
-						userOutput <- "Could not forward dash websocket port. Deploy the dashboard with \"pachctl deploy local --dashboard-only.\""
-						return fmt.Errorf("Could not forward dash websocket port. Deploy the dashboard with \"pachctl deploy local --dashboard-only.\"")
+						userOutput <- "Could not forward dash websocket port. Deploy the dashboard with \"pachctl deploy local --dashboard-only\""
+						return fmt.Errorf("Could not forward dash websocket port. Deploy the dashboard with \"pachctl deploy local --dashboard-only\"")
 					}
 					return nil
 				})
@@ -258,7 +258,7 @@ kubectl %v port-forward "$pod" %d:8081
 					if err := cmdutil.RunIO(cmdutil.IO{
 						Stdin: stdin,
 					}, "sh"); err != nil {
-						userOutput <- "Could not forward dash UI port. Deploy the dashboard with \"pachctl deploy local --dashboard-only.\""
+						userOutput <- "Could not forward dash UI port. Deploy the dashboard with \"pachctl deploy local --dashboard-only\""
 						return fmt.Errorf("Could not forward dash UI port. Deploy the dashboard with \"pachctl local deploy --dashboard-only\"")
 					}
 					return nil
