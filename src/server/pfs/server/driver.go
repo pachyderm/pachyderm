@@ -1994,22 +1994,17 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 		recordsCol := d.putFileRecords.ReadWrite(stm)
 
 		var existingRecords pfs.PutFileRecords
-		var upsertRecords *pfs.PutFileRecords
 		err := recordsCol.Get(prefix, &existingRecords)
 		if err != nil && !col.IsErrNotFound(err) {
 			fmt.Printf("get couldn't find %v w err %v\n", prefix, err)
 			return err
 		}
-		if newRecords.Tombstone {
-			// Zero out the old data in existing.Records
-			upsertRecords = newRecords
-		} else {
-			upsertRecords = &existingRecords
-			upsertRecords.Records = append(upsertRecords.Records, newRecords.Records...)
+		if !newRecords.Tombstone {
+			newRecords.Records = append(existingRecords.Records, newRecords.Records...)
 		}
 		// Now put the new data
-		fmt.Printf("putting new records (%v) to prefix %v\n", upsertRecords, prefix)
-		recordsCol.Put(prefix, upsertRecords)
+		fmt.Printf("putting new records (%v) to prefix %v\n", newRecords, prefix)
+		recordsCol.Put(prefix, newRecords)
 		return nil
 	})
 	fmt.Printf("error NewSTM: %v\n", err)
