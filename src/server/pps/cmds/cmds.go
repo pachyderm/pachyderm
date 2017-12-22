@@ -602,60 +602,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		}),
 	}
 
-	var specPath string
-	runPipeline := &cobra.Command{
-		Use:   "run-pipeline pipeline-name [-f job.json]",
-		Short: "Run a pipeline once.",
-		Long:  "Run a pipeline once, optionally overriding some pipeline options by providing a [pipeline spec](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html).  For example run a web scraper pipelien without any explicit input.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
-			if err != nil {
-				return err
-			}
-
-			request := &ppsclient.CreateJobRequest{
-				Pipeline: &ppsclient.Pipeline{
-					Name: args[0],
-				},
-			}
-
-			var buf bytes.Buffer
-			var specReader io.Reader
-			if specPath == "-" {
-				specReader = io.TeeReader(os.Stdin, &buf)
-				fmt.Print("Reading from stdin.\n")
-			} else if specPath != "" {
-				specFile, err := os.Open(specPath)
-				if err != nil {
-					return err
-				}
-
-				defer func() {
-					if err := specFile.Close(); err != nil && retErr == nil {
-						retErr = err
-					}
-				}()
-
-				specReader = io.TeeReader(specFile, &buf)
-				decoder := json.NewDecoder(specReader)
-				if err := jsonpb.UnmarshalNext(decoder, request); err != nil {
-					return err
-				}
-			}
-
-			job, err := client.PpsAPIClient.CreateJob(
-				client.Ctx(),
-				request,
-			)
-			if err != nil {
-				return err
-			}
-			fmt.Println(job.ID)
-			return nil
-		}),
-	}
-	runPipeline.Flags().StringVarP(&specPath, "file", "f", "", "The file containing the run-pipeline spec, - reads from stdin.")
-
 	var result []*cobra.Command
 	result = append(result, job)
 	result = append(result, inspectJob)
@@ -674,7 +620,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	result = append(result, deletePipeline)
 	result = append(result, startPipeline)
 	result = append(result, stopPipeline)
-	result = append(result, runPipeline)
 	return result, nil
 }
 

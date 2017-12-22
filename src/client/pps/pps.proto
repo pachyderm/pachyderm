@@ -192,17 +192,26 @@ message ResourceSpec {
 // job execution. It contains fields which change over the lifetime of the job
 // but aren't used in the execution of the job.
 message EtcdJobInfo {
-  pfs.Commit output_commit = 1;
+  Job job = 1;
+  Pipeline pipeline = 2;
+  pfs.Commit output_commit = 3;
   // Job restart count (e.g. due to datum failure)
-  uint64 restart = 2;
+  uint64 restart = 4;
 
   // Counts of how many times we processed or skipped a datum
-  int64 data_processed = 3;
-  int64 data_skipped = 4;
-  int64 data_total = 5;
+  int64 data_processed = 5;
+  int64 data_skipped = 6;
+  int64 data_total = 7;
+  int64 data_failed = 8;
 
   // Download/process/upload time and download/upload bytes
-  ProcessStats stats = 6;
+  ProcessStats stats = 9;
+
+  pfs.Commit stats_commit = 10;
+
+  JobState state = 11;
+
+  string reason = 12;
 }
 
 message JobInfo {
@@ -348,7 +357,8 @@ message PipelineInfos {
 }
 
 message CreateJobRequest {
-  reserved 3, 4, 1, 2, 10, 7, 9, 8, 12, 11, 13, 14, 21, 15, 16, 17, 18, 19, 20, 22, 23, 24;
+  reserved 3, 4, 1, 10, 7, 9, 8, 12, 11, 13, 14, 21, 15, 16, 17, 18, 19, 20, 22, 23, 24;
+  Pipeline pipeline = 2;
   pfs.Commit output_commit = 25;
 }
 

@@ -326,19 +326,7 @@ func (a *APIServer) jobSpawner(ctx context.Context) error {
 				}
 			}
 			// TODO check if there's already a job for this output commit.
-			job, err := a.pachClient.PpsAPIClient.CreateJob(ctx, &pps.CreateJobRequest{
-				Pipeline:        a.pipelineInfo.Pipeline,
-				OutputCommit:    commitInfo.Commit,
-				Input:           a.jobInput(commitInfo),
-				Salt:            a.pipelineInfo.Salt,
-				PipelineVersion: a.pipelineInfo.Version,
-				EnableStats:     a.pipelineInfo.EnableStats,
-				Batch:           a.pipelineInfo.Batch,
-				Service:         a.pipelineInfo.Service,
-				ChunkSpec:       a.pipelineInfo.ChunkSpec,
-				DatumTimeout:    a.pipelineInfo.DatumTimeout,
-				JobTimeout:      a.pipelineInfo.JobTimeout,
-			})
+			job, err := a.pachClient.WithCtx(ctx).CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
 			if err != nil {
 				return err
 			}
@@ -381,18 +369,7 @@ func (a *APIServer) serviceSpawner(ctx context.Context) error {
 
 		// Create a job document matching the service's output commit
 		jobInput := a.jobInput(commitInfo)
-		job, err := a.pachClient.PpsAPIClient.CreateJob(ctx, &pps.CreateJobRequest{
-			Pipeline:        a.pipelineInfo.Pipeline,
-			Input:           jobInput,
-			Salt:            a.pipelineInfo.Salt,
-			PipelineVersion: a.pipelineInfo.Version,
-			EnableStats:     a.pipelineInfo.EnableStats,
-			Batch:           a.pipelineInfo.Batch,
-			Service:         a.pipelineInfo.Service,
-			ChunkSpec:       a.pipelineInfo.ChunkSpec,
-			DatumTimeout:    a.pipelineInfo.DatumTimeout,
-			JobTimeout:      a.pipelineInfo.JobTimeout,
-		})
+		job, err := a.pachClient.WithCtx(ctx).CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
 		if err != nil {
 			return err
 		}
@@ -428,12 +405,11 @@ func (a *APIServer) serviceSpawner(ctx context.Context) error {
 			serviceCtx := serviceCtx
 			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 				jobs := a.jobs.ReadWrite(stm)
-				jobInfo := &pps.JobInfo{}
-				if err := jobs.Get(job.ID, jobInfo); err != nil {
+				jobPtr := &pps.EtcdJobInfo{}
+				if err := jobs.Get(job.ID, jobPtr); err != nil {
 					return err
 				}
-				jobInfo.State = pps.JobState_JOB_RUNNING
-				return jobs.Put(jobInfo.Job.ID, jobInfo)
+				return a.updateJobState(stm, jobPtr, pps.JobState_JOB_RUNNING, "")
 			}); err != nil {
 				logger.Logf("error updating job state: %+v", err)
 			}
@@ -445,12 +421,11 @@ func (a *APIServer) serviceSpawner(ctx context.Context) error {
 			case <-serviceCtx.Done():
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 					jobs := a.jobs.ReadWrite(stm)
-					jobInfo := &pps.JobInfo{}
-					if err := jobs.Get(job.ID, jobInfo); err != nil {
+					jobPtr := &pps.EtcdJobInfo{}
+					if err := jobs.Get(job.ID, jobPtr); err != nil {
 						return err
 					}
-					jobInfo.State = pps.JobState_JOB_SUCCESS
-					return jobs.Put(jobInfo.Job.ID, jobInfo)
+					return a.updateJobState(stm, jobPtr, pps.JobState_JOB_SUCCESS, "")
 				}); err != nil {
 					logger.Logf("error updating job progress: %+v", err)
 				}
@@ -629,12 +604,11 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 					// function started.
 					jobs := a.jobs.ReadWrite(stm)
 					jobID := jobInfo.Job.ID
-					jobInfo := &pps.JobInfo{}
-					if err := jobs.Get(jobID, jobInfo); err != nil {
+					jobPtr := &pps.EtcdJobInfo{}
+					if err := jobs.Get(jobID, jobPtr); err != nil {
 						return err
 					}
-					jobInfo.Finished = now()
-					return a.updateJobState(stm, jobInfo, pps.JobState_JOB_KILLED, "")
+					return a.updateJobState(stm, jobPtr, pps.JobState_JOB_KILLED, "")
 				}); err != nil {
 					return err
 				}
@@ -697,15 +671,15 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			jobs := a.jobs.ReadWrite(stm)
 			jobID := jobInfo.Job.ID
-			jobInfo := &pps.JobInfo{}
-			if err := jobs.Get(jobID, jobInfo); err != nil {
+			jobPtr := &pps.EtcdJobInfo{}
+			if err := jobs.Get(jobID, jobPtr); err != nil {
 				return err
 			}
-			if jobInfo.State == pps.JobState_JOB_KILLED {
+			if jobPtr.State == pps.JobState_JOB_KILLED {
 				return nil
 			}
-			jobInfo.DataTotal = int64(df.Len())
-			if err := a.updateJobState(stm, jobInfo, pps.JobState_JOB_RUNNING, ""); err != nil {
+			jobPtr.DataTotal = int64(df.Len())
+			if err := a.updateJobState(stm, jobPtr, pps.JobState_JOB_RUNNING, ""); err != nil {
 				return err
 			}
 			chunksCol := a.chunks.ReadWrite(stm)
@@ -823,13 +797,12 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 			_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 				jobs := a.jobs.ReadWrite(stm)
 				jobID := jobInfo.Job.ID
-				jobInfo := &pps.JobInfo{}
-				if err := jobs.Get(jobID, jobInfo); err != nil {
+				jobPtr := &pps.EtcdJobInfo{}
+				if err := jobs.Get(jobID, jobPtr); err != nil {
 					return err
 				}
-				jobInfo.Finished = now()
-				jobInfo.StatsCommit = statsCommit
-				return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE, reason)
+				jobPtr.StatsCommit = statsCommit
+				return a.updateJobState(stm, jobPtr, pps.JobState_JOB_FAILURE, reason)
 			})
 			// returning nil so we don't retry
 			logger.Logf("possibly a bug -- returning \"%v\"", err)
@@ -841,16 +814,16 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			jobs := a.jobs.ReadWrite(stm)
 			jobID := jobInfo.Job.ID
-			jobInfo := &pps.JobInfo{}
+			jobPtr := &pps.EtcdJobInfo{}
 			if err := jobs.Get(jobID, jobInfo); err != nil {
 				return err
 			}
 			jobInfo.Finished = now()
 			jobInfo.StatsCommit = statsCommit
 			if failedDatumID != "" {
-				return a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE, fmt.Sprintf("failed to process datum: %v", failedDatumID))
+				return a.updateJobState(stm, jobPtr, pps.JobState_JOB_FAILURE, fmt.Sprintf("failed to process datum: %v", failedDatumID))
 			}
-			return a.updateJobState(stm, jobInfo, pps.JobState_JOB_SUCCESS, "")
+			return a.updateJobState(stm, jobPtr, pps.JobState_JOB_SUCCESS, "")
 		})
 		return nil
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
@@ -865,12 +838,11 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 					_, err := col.NewSTM(context.Background(), a.etcdClient, func(stm col.STM) error {
 						jobs := a.jobs.ReadWrite(stm)
 						jobID := jobInfo.Job.ID
-						jobInfo := &pps.JobInfo{}
-						if err := jobs.Get(jobID, jobInfo); err != nil {
+						jobPtr := &pps.EtcdJobInfo{}
+						if err := jobs.Get(jobID, jobPtr); err != nil {
 							return err
 						}
-						jobInfo.Finished = now()
-						err = a.updateJobState(stm, jobInfo, pps.JobState_JOB_FAILURE, reason)
+						err = a.updateJobState(stm, jobPtr, pps.JobState_JOB_FAILURE, reason)
 						if err != nil {
 							return nil
 						}
@@ -889,12 +861,12 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			jobs := a.jobs.ReadWrite(stm)
 			jobID := jobInfo.Job.ID
-			jobInfo := &pps.JobInfo{}
-			if err := jobs.Get(jobID, jobInfo); err != nil {
+			jobPtr := &pps.EtcdJobInfo{}
+			if err := jobs.Get(jobID, jobPtr); err != nil {
 				return err
 			}
-			jobInfo.Restart++
-			return jobs.Put(jobID, jobInfo)
+			jobPtr.Restart++
+			return jobs.Put(jobID, jobPtr)
 		})
 		if err != nil {
 			logger.Logf("error incrementing job %s's restart count", jobInfo.Job.ID)

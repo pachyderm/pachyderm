@@ -357,65 +357,13 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	}
 	pachClient = pachClient.WithCtx(ctx)
 
-	job := &pps.Job{uuid.NewWithoutUnderscores()}
-	pps.SortInput(request.Input)
+	job := &pps.Job{uuid.NewWithoutDashes()}
 	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		jobInfo := &pps.JobInfo{
-			Job:              job,
-			Transform:        request.Transform,
-			Pipeline:         request.Pipeline,
-			ParallelismSpec:  request.ParallelismSpec,
-			Input:            request.Input,
-			OutputRepo:       request.OutputRepo,
-			OutputCommit:     request.OutputCommit,
-			OutputBranch:     request.OutputBranch,
-			Started:          now(),
-			Finished:         nil,
-			Service:          request.Service,
-			ParentJob:        request.ParentJob,
-			ResourceRequests: request.ResourceRequests,
-			ResourceLimits:   request.ResourceLimits,
-			NewBranch:        request.NewBranch,
-			Incremental:      request.Incremental,
-			Stats:            &pps.ProcessStats{},
-			EnableStats:      request.EnableStats,
-			Salt:             request.Salt,
-			PipelineVersion:  request.PipelineVersion,
-			Batch:            request.Batch,
-			ChunkSpec:        request.ChunkSpec,
-			DatumTimeout:     request.DatumTimeout,
-			JobTimeout:       request.JobTimeout,
+		jobPtr := &pps.EtcdJobInfo{
+			Job:          job,
+			OutputCommit: request.OutputCommit,
 		}
-		if request.Pipeline != nil {
-			pipelinePtr := pps.EtcdPipelineInfo{}
-			if err := a.pipelines.ReadWrite(stm).Get(request.Pipeline.Name, &pipelinePtr); err != nil {
-				return err
-			}
-			pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, request.Pipeline.Name, &pipelinePtr)
-			if err != nil {
-				return err
-			}
-			if jobInfo.Salt != pipelineInfo.Salt || jobInfo.PipelineVersion != pipelineInfo.Version {
-				return fmt.Errorf("job is made from an outdated version of the pipeline")
-			}
-			jobInfo.Transform = pipelineInfo.Transform
-			jobInfo.ParallelismSpec = pipelineInfo.ParallelismSpec
-			jobInfo.OutputRepo = &pfs.Repo{pipelineInfo.Pipeline.Name}
-			jobInfo.OutputBranch = pipelineInfo.OutputBranch
-			jobInfo.Egress = pipelineInfo.Egress
-			jobInfo.ResourceRequests = pipelineInfo.ResourceRequests
-			jobInfo.ResourceLimits = pipelineInfo.ResourceLimits
-			jobInfo.Incremental = pipelineInfo.Incremental
-			jobInfo.EnableStats = pipelineInfo.EnableStats
-		} else {
-			if jobInfo.OutputRepo == nil {
-				jobInfo.OutputRepo = &pfs.Repo{job.ID}
-			}
-		}
-		if err := a.validateJob(ctx, jobInfo); err != nil {
-			return err
-		}
-		return a.updateJobState(stm, jobInfo, pps.JobState_JOB_STARTING)
+		return a.updateJobState(stm, jobPtr, pps.JobState_JOB_STARTING)
 	})
 	if err != nil {
 		return nil, err
@@ -581,11 +529,11 @@ func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (r
 
 	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		jobs := a.jobs.ReadWrite(stm)
-		jobInfo := new(pps.JobInfo)
-		if err := jobs.Get(request.Job.ID, jobInfo); err != nil {
+		jobPtr := &pps.EtcdJobInfo{}
+		if err := jobs.Get(request.Job.ID, jobPtr); err != nil {
 			return err
 		}
-		return a.updateJobState(stm, jobInfo, pps.JobState_JOB_KILLED)
+		return a.updateJobState(stm, jobPtr, pps.JobState_JOB_KILLED)
 	})
 	if err != nil {
 		return nil, err
@@ -2331,26 +2279,23 @@ func (a *apiServer) updatePipelineState(ctx context.Context, pipelineName string
 	return err
 }
 
-func (a *apiServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.JobState) error {
-	// Update job counts
-	if jobInfo.Pipeline != nil {
-		pipelines := a.pipelines.ReadWrite(stm)
-		pipelinePtr := &pps.EtcdPipelineInfo{}
-		if err := pipelines.Get(jobInfo.Pipeline.Name, pipelinePtr); err != nil {
-			return err
-		}
-		if pipelinePtr.JobCounts == nil {
-			pipelinePtr.JobCounts = make(map[int32]int32)
-		}
-		if pipelinePtr.JobCounts[int32(jobInfo.State)] != 0 {
-			pipelinePtr.JobCounts[int32(jobInfo.State)]--
-		}
-		pipelinePtr.JobCounts[int32(state)]++
-		pipelines.Put(jobInfo.Pipeline.Name, pipelinePtr)
+func (a *apiServer) updateJobState(stm col.STM, jobPtr *pps.EtcdJobInfo, state pps.JobState) error {
+	pipelines := a.pipelines.ReadWrite(stm)
+	pipelinePtr := &pps.EtcdPipelineInfo{}
+	if err := pipelines.Get(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
+		return err
 	}
-	jobInfo.State = state
+	if pipelinePtr.JobCounts == nil {
+		pipelinePtr.JobCounts = make(map[int32]int32)
+	}
+	if pipelinePtr.JobCounts[int32(jobPtr.State)] != 0 {
+		pipelinePtr.JobCounts[int32(jobPtr.State)]--
+	}
+	pipelinePtr.JobCounts[int32(state)]++
+	pipelines.Put(jobPtr.Pipeline.Name, pipelinePtr)
+	jobPtr.State = state
 	jobs := a.jobs.ReadWrite(stm)
-	jobs.Put(jobInfo.Job.ID, jobInfo)
+	jobs.Put(jobPtr.Job.ID, jobPtr)
 	return nil
 }
 
