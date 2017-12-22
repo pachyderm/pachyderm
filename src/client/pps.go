@@ -3,7 +3,6 @@ package client
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"io"
 	"time"
 
@@ -148,53 +147,14 @@ func NewPipelineInput(repoName string, glob string) *pps.PipelineInput {
 }
 
 // CreateJob creates and runs a job in PPS.
-// image is the Docker image to run the job in.
-// cmd is the command passed to the Docker run invocation.
-// NOTE as with Docker cmd is not run inside a shell that means that things
-// like wildcard globbing (*), pipes (|) and file redirects (> and >>) will not
-// work. To get that behavior you should have your command be a shell of your
-// choice and pass a shell script to stdin.
-// stdin is a slice of lines that are sent to your command on stdin. Lines need
-// not end in newline characters.
-// parallelism is how many copies of your container should run in parallel. You
-// may pass 0 for parallelism in which case PPS will set the parallelism based
-// on available resources.
-// input specifies a set of Commits that will be visible to the job during runtime.
-// parentJobID specifies the a job to use as a parent, it may be left empty in
-// which case there is no parent job. If not left empty your job will use the
-// parent Job's output commit as the parent of its output commit.
-func (c APIClient) CreateJob(
-	image string,
-	cmd []string,
-	stdin []string,
-	parallelismSpec *pps.ParallelismSpec,
-	input *pps.Input,
-	internalPort int32,
-	externalPort int32,
-) (*pps.Job, error) {
-	var service *pps.Service
-	if internalPort != 0 {
-		service = &pps.Service{
-			InternalPort: internalPort,
-		}
-	}
-	if externalPort != 0 {
-		if internalPort == 0 {
-			return nil, fmt.Errorf("external port specified without internal port")
-		}
-		service.ExternalPort = externalPort
-	}
+// This function is mostly useful internally, users should generally run work
+// by creating pipelines as well.
+func (c APIClient) CreateJob(pipeline string, outputCommit *pfs.Commit) (*pps.Job, error) {
 	job, err := c.PpsAPIClient.CreateJob(
 		c.Ctx(),
 		&pps.CreateJobRequest{
-			Transform: &pps.Transform{
-				Image: image,
-				Cmd:   cmd,
-				Stdin: stdin,
-			},
-			ParallelismSpec: parallelismSpec,
-			Input:           input,
-			Service:         service,
+			Pipeline:     NewPipeline(pipeline),
+			OutputCommit: outputCommit,
 		},
 	)
 	return job, grpcutil.ScrubGRPC(err)

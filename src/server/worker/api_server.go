@@ -806,27 +806,24 @@ func (a *APIServer) userCodeEnv(jobID string, data []*Input) []string {
 	return result
 }
 
-func (a *APIServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.JobState, reason string) error {
-	// Update job counts
-	if jobInfo.Pipeline != nil {
-		pipelines := a.pipelines.ReadWrite(stm)
-		pipelinePtr := &pps.EtcdPipelineInfo{}
-		if err := pipelines.Get(jobInfo.Pipeline.Name, pipelinePtr); err != nil {
-			return err
-		}
-		if pipelinePtr.JobCounts == nil {
-			pipelinePtr.JobCounts = make(map[int32]int32)
-		}
-		if pipelinePtr.JobCounts[int32(jobInfo.State)] != 0 {
-			pipelinePtr.JobCounts[int32(jobInfo.State)]--
-		}
-		pipelinePtr.JobCounts[int32(state)]++
-		pipelines.Put(jobInfo.Pipeline.Name, pipelinePtr)
+func (a *APIServer) updateJobState(stm col.STM, jobPtr *pps.EtcdJobInfo, state pps.JobState, reason string) error {
+	pipelines := a.pipelines.ReadWrite(stm)
+	pipelinePtr := &pps.EtcdPipelineInfo{}
+	if err := pipelines.Get(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
+		return err
 	}
-	jobInfo.State = state
-	jobInfo.Reason = reason
+	if pipelinePtr.JobCounts == nil {
+		pipelinePtr.JobCounts = make(map[int32]int32)
+	}
+	if pipelinePtr.JobCounts[int32(jobPtr.State)] != 0 {
+		pipelinePtr.JobCounts[int32(jobPtr.State)]--
+	}
+	pipelinePtr.JobCounts[int32(state)]++
+	pipelines.Put(jobPtr.Pipeline.Name, pipelinePtr)
+	jobPtr.State = state
+	jobPtr.Reason = reason
 	jobs := a.jobs.ReadWrite(stm)
-	jobs.Put(jobInfo.Job.ID, jobInfo)
+	jobs.Put(jobPtr.Job.ID, jobPtr)
 	return nil
 }
 
@@ -943,9 +940,13 @@ func (a *APIServer) worker() {
 		defer watcher.Close()
 		for e := range watcher.Watch() {
 			var jobID string
-			jobInfo := &pps.JobInfo{}
-			if err := e.Unmarshal(&jobID, jobInfo); err != nil {
+			jobPtr := &pps.EtcdJobInfo{}
+			if err := e.Unmarshal(&jobID, jobPtr); err != nil {
 				return fmt.Errorf("error unmarshalling: %v", err)
+			}
+			jobInfo, err := a.pachClient.InspectJob(jobPtr.Job.ID, false)
+			if err != nil {
+				return fmt.Errorf("error from InspectJob: %+v", err)
 			}
 			chunks := &Chunks{}
 			if err := a.chunks.ReadOnly(ctx).GetBlock(jobInfo.Job.ID, chunks); err != nil {
@@ -1224,20 +1225,20 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		jobs := a.jobs.ReadWrite(stm)
 		jobID := jobInfo.Job.ID
-		jobInfo := &pps.JobInfo{}
-		if err := jobs.Get(jobID, jobInfo); err != nil {
+		jobPtr := &pps.EtcdJobInfo{}
+		if err := jobs.Get(jobID, jobPtr); err != nil {
 			return err
 		}
-		jobInfo.DataProcessed += high - low - skipped
-		jobInfo.DataSkipped += skipped
-		jobInfo.DataFailed += failed
-		if jobInfo.Stats == nil {
-			jobInfo.Stats = &pps.ProcessStats{}
+		jobPtr.DataProcessed += high - low - skipped
+		jobPtr.DataSkipped += skipped
+		jobPtr.DataFailed += failed
+		if jobPtr.Stats == nil {
+			jobPtr.Stats = &pps.ProcessStats{}
 		}
-		if err := mergeStats(jobInfo.Stats, stats); err != nil {
+		if err := mergeStats(jobPtr.Stats, stats); err != nil {
 			logger.Logf("failed to merge Stats: %v", err)
 		}
-		return jobs.Put(jobID, jobInfo)
+		return jobs.Put(jobID, jobPtr)
 	}); err != nil {
 		return "", err
 	}
