@@ -430,6 +430,7 @@ func (c *readonlyCollection) ListPrefix(prefix string) (Iterator, error) {
 		// on the root c.prefix
 		queryPrefix = filepath.Join(c.prefix, prefix)
 	}
+	fmt.Printf("issuing get to etcd w full prefix (%v)\n", queryPrefix)
 	resp, err := c.etcdClient.Get(c.ctx, queryPrefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend))
 	if err != nil {
 		return nil, err

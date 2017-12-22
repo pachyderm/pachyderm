@@ -1735,7 +1735,7 @@ func (d *driver) getTreeForFile(ctx context.Context, file *pfs.File) (hashtree.H
 func (d *driver) constructTreeFromPrefix(ctx context.Context, prefix string, parentTree hashtree.HashTree) (hashtree.HashTree, error) {
 	var putFileRecords pfs.PutFileRecords
 	var finishedTree hashtree.HashTree
-
+	fmt.Printf("contstructing tree from prefix (%v)\n", prefix)
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		tree := parentTree.Open()
 
@@ -1756,6 +1756,7 @@ func (d *driver) constructTreeFromPrefix(ctx context.Context, prefix string, par
 			if err != nil {
 				return err
 			}
+			fmt.Printf("read records (%v)\n", putFileRecords)
 			fmt.Printf("applying write to key %v\n", key)
 			err = d.applyWrite(key, putFileRecords, tree)
 			if err != nil {
@@ -1957,6 +1958,7 @@ func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
 		return pfsserver.ErrCommitFinished{file.Commit}
 	}
 
+	fmt.Printf("delete file ... upserting record w tombstone\n")
 	err = d.upsertPutFileRecords(ctx, file, &pfs.PutFileRecords{Tombstone: true})
 	//_, err = d.etcdClient.Put(ctx, path.Join(prefix, uuid.NewWithoutDashes()), tombstone)
 	return err
@@ -1999,12 +2001,19 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 			fmt.Printf("get couldn't find %v w err %v\n", prefix, err)
 			return err
 		}
-		if !newRecords.Tombstone {
-			newRecords.Records = append(existingRecords.Records, newRecords.Records...)
+		// We need the old record's Tombstone
+		// We need the old record's Split flag
+		// We need to append records if the new record tombstone is not set
+		// if the new records tombstone is set ... we need to clear the existing records
+		if newRecords.Tombstone {
+			existingRecords.Tombstone = true
+			existingRecords.Records = nil
+		} else {
+			existingRecords.Records = append(existingRecords.Records, newRecords.Records...)
 		}
 		// Now put the new data
-		fmt.Printf("putting new records (%v) to prefix %v\n", newRecords, prefix)
-		recordsCol.Put(prefix, newRecords)
+		fmt.Printf("putting new records (%v) to prefix %v\n", existingRecords, prefix)
+		recordsCol.Put(prefix, &existingRecords)
 		return nil
 	})
 	fmt.Printf("error NewSTM: %v\n", err)
@@ -2029,7 +2038,11 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 	fmt.Printf("got filepath: %v\n", filePath)
 	filePath = filepath.Join("/", filePath)
 
+	fmt.Printf("applying write to tree w records: %v\n", records)
+	val, _ := tree.GetOpen(filePath)
+	fmt.Printf("initial file (%v) is currently (%v)\n", filePath, val)
 	if records.Tombstone {
+		fmt.Printf("see tombstone, gonna delete %v\n", filePath)
 		if err := tree.DeleteFile(filePath); err != nil {
 			// Deleting a non-existent file in an open commit should
 			// be a no-op
@@ -2037,6 +2050,8 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 				return err
 			}
 		}
+		val, _ := tree.GetOpen(filePath)
+		fmt.Printf("file (%v) is currently (%v)\n", filePath, val)
 	} // else {
 	if !records.Split {
 		if len(records.Records) == 0 {
@@ -2088,6 +2103,8 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 	}
 	//}
 	//}
+	val, _ = tree.GetOpen(filePath)
+	fmt.Printf("at return file (%v) is currently (%v)\n", filePath, val)
 	return nil
 }
 
