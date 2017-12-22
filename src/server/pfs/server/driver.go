@@ -2009,6 +2009,7 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 			existingRecords.Tombstone = true
 			existingRecords.Records = nil
 		} else {
+			existingRecords.Split = newRecords.Split
 			existingRecords.Records = append(existingRecords.Records, newRecords.Records...)
 		}
 		// Now put the new data
