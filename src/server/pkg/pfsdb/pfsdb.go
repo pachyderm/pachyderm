@@ -49,7 +49,6 @@ func RepoRefCounts(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 
 // PutFileRecords returns a collection of putFileRecords
 func PutFileRecords(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
-	fmt.Printf("creating putFileRecords collection at %v/%v\n", etcdPrefix, putFileRecordsPrefix)
 	return col.NewCollection(
 		etcdClient,
 		path.Join(etcdPrefix, putFileRecordsPrefix),
