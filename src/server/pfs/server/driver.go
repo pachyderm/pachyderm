@@ -661,7 +661,6 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, descripti
 	if err := d.checkIsAuthorized(ctx, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	fmt.Printf("inspecting commit %v\n", commit)
 	commitInfo, err := d.inspectCommit(ctx, commit)
 	if err != nil {
 		return err
@@ -677,8 +676,6 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, descripti
 	if err != nil {
 		return err
 	}
-
-	fmt.Printf("getting tree for commit\n")
 
 	parentTree, err := d.getTreeForCommit(ctx, commitInfo.ParentCommit)
 	if err != nil {
@@ -697,9 +694,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, descripti
 
 	if len(data) > 0 {
 		// Put the tree into the blob store
-		fmt.Printf("going to put object of size %v\n", len(data))
 		obj, _, err := d.pachClient.PutObject(bytes.NewReader(data))
-		fmt.Printf("put obj w err %v\n", err)
 		if err != nil {
 			return err
 		}
@@ -711,12 +706,10 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, descripti
 	commitInfo.Finished = now()
 
 	sizeChange := sizeChange(finishedTree, parentTree)
-	fmt.Printf("going to update commit/repo infos\n")
 	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
 		repos := d.repos.ReadWrite(stm)
 
-		fmt.Printf("putting commit to etcd\n")
 		commits.Put(commit.ID, commitInfo)
 		if err := d.openCommits.ReadWrite(stm).Delete(commit.ID); err != nil {
 			return fmt.Errorf("could not confirm that commit %s is open; this is likely a bug. err: %v", commit.ID, err)
@@ -736,7 +729,6 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, descripti
 	if err != nil {
 		return err
 	}
-	fmt.Printf("deleting scratch space for commit\n")
 	// Delete the scratch space for this commit
 	_, err = d.etcdClient.Delete(ctx, prefix, etcd.WithPrefix())
 	return err
@@ -1404,12 +1396,9 @@ func (d *driver) scratchFilePrefix(ctx context.Context, file *pfs.File) (string,
 func (d *driver) filePathFromEtcdPath(etcdPath string) string {
 	trimmed := strings.TrimPrefix(etcdPath, d.scratchPrefix())
 	// trimmed looks like /repo/commit/path/to/file
-	fmt.Printf("trimmed (%v)\n", trimmed)
 	split := strings.Split(trimmed, "/")
-	fmt.Printf("split (%v)\n", split)
 	// we only want /path/to/file so we use index 3 (note that there's an "" at
 	// the beginning of the slice because of the lead /)
-	//	return path.Join(split[3:]...)
 	return path.Join(split[6:]...)
 }
 
@@ -1431,7 +1420,6 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	// and is open.
 	// Since we use UUIDv4 for commit IDs, the 13th character would be 4 if
 	// this is a commit ID.
-	fmt.Printf("inspecting commit\n")
 	if len(file.Commit.ID) != uuid.UUIDWithoutDashesLength || file.Commit.ID[12] != '4' {
 		commitInfo, err := d.inspectCommit(ctx, file.Commit)
 		if err != nil {
@@ -1440,7 +1428,6 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		file.Commit = commitInfo.Commit
 	}
 
-	fmt.Printf("overwrite index present? %v, may be deleting file\n", overwriteIndex)
 	if overwriteIndex != nil && overwriteIndex.Index == 0 {
 		if err := d.deleteFile(ctx, file); err != nil {
 			return err
@@ -1449,14 +1436,11 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 
 	records := &pfs.PutFileRecords{}
 	if err := checkPath(file.Path); err != nil {
-		fmt.Printf("error checking path: %v\n", err)
 		return err
 	}
 
-	fmt.Printf("delimiter %v is none %v ?\n", delimiter, pfs.Delimiter_NONE)
 	if delimiter == pfs.Delimiter_NONE {
 		objects, size, err := d.pachClient.PutObjectSplit(reader)
-		fmt.Printf("error putting object %v\n", err)
 		if err != nil {
 			return err
 		}
@@ -1483,7 +1467,6 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			records.Records = append(records.Records, record)
 		}
 
-		fmt.Printf("upserting file records of len %v\n", len(records.Records))
 		return d.upsertPutFileRecords(ctx, file, records)
 	}
 	buffer := &bytes.Buffer{}
@@ -1555,7 +1538,6 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		records.Records = append(records.Records, indexToRecord[i])
 	}
 
-	fmt.Printf("upserting non-none delimited records of len %v\n", len(records.Records))
 	return d.upsertPutFileRecords(ctx, file, records)
 }
 
@@ -1735,13 +1717,11 @@ func (d *driver) getTreeForFile(ctx context.Context, file *pfs.File) (hashtree.H
 func (d *driver) constructTreeFromPrefix(ctx context.Context, prefix string, parentTree hashtree.HashTree) (hashtree.HashTree, error) {
 	var putFileRecords pfs.PutFileRecords
 	var finishedTree hashtree.HashTree
-	fmt.Printf("contstructing tree from prefix (%v)\n", prefix)
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		tree := parentTree.Open()
 
 		recordsCol := d.putFileRecords.ReadOnly(ctx)
 		iter, err := recordsCol.ListPrefix(prefix)
-		fmt.Printf("got records w err (%v) %v\n", err, putFileRecords)
 		if err != nil {
 			return err
 		}
@@ -1750,14 +1730,11 @@ func (d *driver) constructTreeFromPrefix(ctx context.Context, prefix string, par
 			var key string
 			ok, err := iter.NextFullyQualified(&key, putFileRecords)
 			if !ok {
-				fmt.Printf("iter returned not ok, breaking\n")
 				break
 			}
 			if err != nil {
 				return err
 			}
-			fmt.Printf("read records (%v)\n", putFileRecords)
-			fmt.Printf("applying write to key %v\n", key)
 			err = d.applyWrite(key, putFileRecords, tree)
 			if err != nil {
 				return err
@@ -1767,7 +1744,6 @@ func (d *driver) constructTreeFromPrefix(ctx context.Context, prefix string, par
 		if err != nil {
 			return err
 		}
-		fmt.Printf("finished tree\n")
 		return nil
 	})
 	if err != nil {
@@ -1958,9 +1934,7 @@ func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
 		return pfsserver.ErrCommitFinished{file.Commit}
 	}
 
-	fmt.Printf("delete file ... upserting record w tombstone\n")
 	err = d.upsertPutFileRecords(ctx, file, &pfs.PutFileRecords{Tombstone: true})
-	//_, err = d.etcdClient.Put(ctx, path.Join(prefix, uuid.NewWithoutDashes()), tombstone)
 	return err
 }
 
@@ -1986,7 +1960,6 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 	if err != nil {
 		return err
 	}
-	fmt.Printf("upserting records (%v) to prefix (%v)\n", newRecords, prefix)
 
 	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		revision := stm.Rev(d.openCommits.Path(file.Commit.ID))
@@ -1998,13 +1971,8 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 		var existingRecords pfs.PutFileRecords
 		err := recordsCol.Get(prefix, &existingRecords)
 		if err != nil && !col.IsErrNotFound(err) {
-			fmt.Printf("get couldn't find %v w err %v\n", prefix, err)
 			return err
 		}
-		// We need the old record's Tombstone
-		// We need the old record's Split flag
-		// We need to append records if the new record tombstone is not set
-		// if the new records tombstone is set ... we need to clear the existing records
 		if newRecords.Tombstone {
 			existingRecords.Tombstone = true
 			existingRecords.Records = nil
@@ -2013,37 +1981,25 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 			existingRecords.Records = append(existingRecords.Records, newRecords.Records...)
 		}
 		// Now put the new data
-		fmt.Printf("putting new records (%v) to prefix %v\n", existingRecords, prefix)
 		recordsCol.Put(prefix, &existingRecords)
 		return nil
 	})
-	fmt.Printf("error NewSTM: %v\n", err)
-
 	return err
 }
 
 func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtree.OpenHashTree) error {
 	// a map that keeps track of the sizes of objects
 	sizeMap := make(map[string]int64)
-	//	for _, kv := range resp.Kvs {
 	// fileStr is going to look like "some/path/UUID"
 	fileStr := d.filePathFromEtcdPath(key)
-	//fileStr := key
-	fmt.Printf("got file str(%v) from etcd path (%v)\n", fileStr, key)
 	// the last element of `parts` is going to be UUID
 	parts := strings.Split(fileStr, "/")
-	fmt.Printf("got parts: (%v)\n", parts)
 	// filePath should look like "some/path"
-	//		filePath := strings.Join(parts[:len(parts)-1], "/")
 	filePath := strings.Join(parts[:len(parts)], "/")
-	fmt.Printf("got filepath: %v\n", filePath)
 	filePath = filepath.Join("/", filePath)
 
-	fmt.Printf("applying write to tree w records: %v\n", records)
 	val, _ := tree.GetOpen(filePath)
-	fmt.Printf("initial file (%v) is currently (%v)\n", filePath, val)
 	if records.Tombstone {
-		fmt.Printf("see tombstone, gonna delete %v\n", filePath)
 		if err := tree.DeleteFile(filePath); err != nil {
 			// Deleting a non-existent file in an open commit should
 			// be a no-op
@@ -2052,12 +2008,10 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			}
 		}
 		val, _ := tree.GetOpen(filePath)
-		fmt.Printf("file (%v) is currently (%v)\n", filePath, val)
-	} // else {
+	}
 	if !records.Split {
 		if len(records.Records) == 0 {
 			return nil
-			//			return fmt.Errorf("unexpect %d length pfs.PutFileRecord (this is likely a bug)", len(records.Records))
 		}
 		for _, record := range records.Records {
 			sizeMap[record.ObjectHash] = record.SizeBytes
@@ -2102,10 +2056,6 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			}
 		}
 	}
-	//}
-	//}
-	val, _ = tree.GetOpen(filePath)
-	fmt.Printf("at return file (%v) is currently (%v)\n", filePath, val)
 	return nil
 }
 

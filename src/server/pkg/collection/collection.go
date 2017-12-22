@@ -423,14 +423,12 @@ func (c *readonlyCollection) GetBlock(key string, val proto.Unmarshaler) error {
 }
 
 func (c *readonlyCollection) ListPrefix(prefix string) (Iterator, error) {
-	fmt.Printf("listing at prefix (%v)\n", filepath.Join(c.prefix, prefix))
 	queryPrefix := c.prefix
 	if prefix != "" {
 		// If we always call join, we'll get rid of the trailing slash we need
 		// on the root c.prefix
 		queryPrefix = filepath.Join(c.prefix, prefix)
 	}
-	fmt.Printf("issuing get to etcd w full prefix (%v)\n", queryPrefix)
 	resp, err := c.etcdClient.Get(c.ctx, queryPrefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend))
 	if err != nil {
 		return nil, err
