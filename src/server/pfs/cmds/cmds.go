@@ -129,7 +129,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 	listRepo := &cobra.Command{
 		Use:   "list-repo",
 		Short: "Return all repos.",
-		Long:  "Reutrn all repos.",
+		Long:  "Return all repos.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := client.NewOnUserMachine(metrics, "user")
 			if err != nil {
