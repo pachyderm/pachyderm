@@ -85,22 +85,17 @@ func (a *apiServer) master() {
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		pachClient, err := a.getPachClient()
-		if err != nil {
-			return err
-		}
-		ctx, err = masterLock.Lock(ctx)
+		// TODO(msteffen): This breaks as soon as auth is activated. The PPS master
+		// must be able to read pipelineInfos from PFS, but it has no credentials
+		// for doing so
+		pachClient := a.getPachClient().WithCtx(ctx)
+		ctx, err := masterLock.Lock(ctx)
 		if err != nil {
 			return err
 		}
 		defer masterLock.Unlock(ctx)
 
 		log.Infof("Launching PPS master process")
-
-		// TODO(msteffen): This breaks as soon as auth is activated. The PPS master
-		// must be able to read pipelines from PFS, but it has no credentials for
-		// doing so
-		pachClient = pachClient.WithCtx(ctx)
 
 		pipelineWatcher, err := a.pipelines.ReadOnly(ctx).WatchWithPrev()
 		if err != nil {

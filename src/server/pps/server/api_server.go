@@ -173,12 +173,7 @@ func validateNames(names map[string]bool, input *pps.Input) error {
 }
 
 func (a *apiServer) validateInput(ctx context.Context, pipelineName string, input *pps.Input, job bool) error {
-	pachClient, err := a.getPachClient()
-	if err != nil {
-		return err
-	}
-	pachClient = pachClient.WithCtx(ctx) // pachClient will propagate auth info
-
+	pachClient := a.getPachClient().WithCtx(ctx)
 	if err := validateNames(make(map[string]bool), input); err != nil {
 		return err
 	}
@@ -210,7 +205,7 @@ func (a *apiServer) validateInput(ctx context.Context, pipelineName string, inpu
 					}
 				} else {
 					// for pipelines we only check that the repo exists
-					if _, err = pachClient.InspectRepo(input.Atom.Repo); err != nil {
+					if _, err := pachClient.InspectRepo(input.Atom.Repo); err != nil {
 						return err
 					}
 				}
@@ -350,16 +345,12 @@ func (a *apiServer) validateKube() {
 func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	ctx = auth.In2Out(ctx)
-	pachClient, err := a.getPachClient()
-	if err != nil {
-		return nil, fmt.Errorf("could not get pachd client: %v", err)
-	}
-	pachClient = pachClient.WithCtx(ctx)
+	pachClient := a.getPachClient().WithCtx(ctx)
+	ctx = pachClient.Ctx() // pachClient will propagate auth info
 
 	job := &pps.Job{uuid.NewWithoutUnderscores()}
 	pps.SortInput(request.Input)
-	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		jobInfo := &pps.JobInfo{
 			Job:              job,
 			Transform:        request.Transform,
@@ -572,14 +563,9 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	ctx = auth.In2Out(ctx)
-	pachClient, err := a.getPachClient()
-	if err != nil {
-		return nil, fmt.Errorf("could not get pachd client: %v", err)
-	}
-	pachClient = pachClient.WithCtx(ctx)
-
-	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	pachClient := a.getPachClient().WithCtx(ctx)
+	ctx = pachClient.Ctx() // pachClient will propagate auth info
+	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		jobs := a.jobs.ReadWrite(stm)
 		jobInfo := new(pps.JobInfo)
 		if err := jobs.Get(request.Job.ID, jobInfo); err != nil {
@@ -615,6 +601,10 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 // be inlined into ListDatumStream
 func (a *apiServer) listDatum(ctx context.Context, job *pps.Job, page, pageSize int64) (response *pps.ListDatumResponse, retErr error) {
 	response = &pps.ListDatumResponse{}
+	// get clients
+	pachClient := a.getPachClient().WithCtx(ctx)
+	ctx = pachClient.Ctx() // pachClient will propagate auth info
+	pfsClient := pachClient.PfsAPIClient
 
 	// get information about 'job'
 	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
@@ -634,13 +624,6 @@ func (a *apiServer) listDatum(ctx context.Context, job *pps.Job, page, pageSize 
 	); err != nil {
 		return nil, err
 	}
-
-	// get clients
-	pachClient, err := a.getPachClient()
-	if err != nil {
-		return nil, err
-	}
-	pfsClient := pachClient.PfsAPIClient
 
 	// helper functions for pagination
 	getTotalPages := func(totalSize int) int64 {
@@ -705,7 +688,7 @@ func (a *apiServer) listDatum(ctx context.Context, job *pps.Job, page, pageSize 
 	}
 
 	var datumFileInfos []*pfs.FileInfo
-	fs, err := pfsClient.ListFileStream(auth.In2Out(ctx), &pfs.ListFileRequest{file, true})
+	fs, err := pfsClient.ListFileStream(ctx, &pfs.ListFileRequest{file, true})
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
@@ -793,6 +776,8 @@ func (a *apiServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 			a.Log(request, response, retErr, time.Since(start))
 		}
 	}(time.Now())
+	pachClient := a.getPachClient().WithCtx(ctx)
+	ctx = pachClient.Ctx() // pachClient will propagate auth info
 	return a.listDatum(ctx, request.Job, request.Page, request.PageSize)
 }
 
@@ -802,7 +787,8 @@ func (a *apiServer) ListDatumStream(req *pps.ListDatumRequest, resp pps.API_List
 	defer func(start time.Time) {
 		a.Log(req, fmt.Sprintf("stream containing %d DatumInfos", sent), retErr, time.Since(start))
 	}(time.Now())
-	ctx := auth.In2Out(resp.Context())
+	pachClient := a.getPachClient().WithCtx(resp.Context())
+	ctx := pachClient.Ctx() // pachClient will propagate auth info
 	ldr, err := a.listDatum(ctx, req.Job, req.Page, req.PageSize)
 	if err != nil {
 		return err
@@ -845,14 +831,11 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 		State: pps.DatumState_SUCCESS,
 	}
 
-	pachClient, err := a.getPachClient()
-	if err != nil {
-		return nil, err
-	}
+	pachClient := a.getPachClient().WithCtx(ctx)
 	pfsClient := pachClient.PfsAPIClient
 
 	// Check if skipped
-	fileInfos, err := pachClient.WithCtx(ctx).GlobFile(commit.Repo.Name, commit.ID, fmt.Sprintf("/%v/job:*", datumID))
+	fileInfos, err := pachClient.GlobFile(commit.Repo.Name, commit.ID, fmt.Sprintf("/%v/job:*", datumID))
 	if err != nil {
 		return nil, err
 	}
@@ -877,7 +860,7 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 
 	// Populate stats
 	var buffer bytes.Buffer
-	if err := pachClient.WithCtx(ctx).GetFile(commit.Repo.Name, commit.ID, fmt.Sprintf("/%v/stats", datumID), 0, 0, &buffer); err != nil {
+	if err := pachClient.GetFile(commit.Repo.Name, commit.ID, fmt.Sprintf("/%v/stats", datumID), 0, 0, &buffer); err != nil {
 		return nil, err
 	}
 	stats := &pps.ProcessStats{}
@@ -887,7 +870,7 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 	}
 	datumInfo.Stats = stats
 	buffer.Reset()
-	if err := pachClient.WithCtx(ctx).GetFile(commit.Repo.Name, commit.ID, fmt.Sprintf("/%v/index", datumID), 0, 0, &buffer); err != nil {
+	if err := pachClient.GetFile(commit.Repo.Name, commit.ID, fmt.Sprintf("/%v/index", datumID), 0, 0, &buffer); err != nil {
 		return nil, err
 	}
 	i, err := strconv.Atoi(buffer.String())
@@ -912,6 +895,8 @@ func (a *apiServer) getDatum(ctx context.Context, repo string, commit *pfs.Commi
 func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumRequest) (response *pps.DatumInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	pachClient := a.getPachClient().WithCtx(ctx)
+	ctx = pachClient.Ctx() // pachClient will propagate auth info
 	jobInfo, err := a.InspectJob(ctx, &pps.InspectJobRequest{
 		Job: &pps.Job{
 			ID: request.Datum.Job.ID,
@@ -927,12 +912,7 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 	if jobInfo.StatsCommit == nil {
 		return nil, fmt.Errorf("job not finished, no stats output yet")
 	}
-	pachClient, err := a.getPachClient()
-	if err != nil {
-		return nil, err
-	}
-	pfsClient := pachClient.PfsAPIClient
-	df, err := workerpkg.NewDatumFactory(ctx, pfsClient, jobInfo.Input)
+	df, err := workerpkg.NewDatumFactory(ctx, pachClient.PfsAPIClient, jobInfo.Input)
 	if err != nil {
 		return nil, err
 	}
@@ -949,12 +929,8 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	ctx := auth.In2Out(apiGetLogsServer.Context())
-	pachClient, err := a.getPachClient()
-	if err != nil {
-		return fmt.Errorf("could not get pachd client: %v", err)
-	}
-	pachClient = pachClient.WithCtx(ctx)
+	pachClient := a.getPachClient().WithCtx(apiGetLogsServer.Context())
+	ctx := pachClient.Ctx() // pachClient will propagate auth info
 
 	// Authorize request and get list of pods containing logs we're interested in
 	// (based on pipeline and job filters)
@@ -969,18 +945,19 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		// RC name
 		var pipelineInfo *pps.PipelineInfo
 		var statsCommit *pfs.Commit
+		var err error
 		if request.Pipeline != nil {
-			pipelineInfo, err = a.inspectPipeline(ctx, pachClient, request.Pipeline.Name)
+			pipelineInfo, err = a.inspectPipeline(pachClient, request.Pipeline.Name)
 		} else if request.Job != nil {
 			// If user provides a job, lookup the pipeline from the job info, and then
 			// get the pipeline RC
 			var jobInfo pps.JobInfo
-			err := a.jobs.ReadOnly(ctx).Get(request.Job.ID, &jobInfo)
+			err = a.jobs.ReadOnly(ctx).Get(request.Job.ID, &jobInfo)
 			if err != nil {
-				return fmt.Errorf("could not get job information for \"%s\": %s", request.Job.ID, err.Error())
+				return fmt.Errorf("could not get job information for \"%s\": %v", request.Job.ID, err)
 			}
 			statsCommit = jobInfo.StatsCommit
-			pipelineInfo, err = a.inspectPipeline(ctx, pachClient, jobInfo.Pipeline.Name)
+			pipelineInfo, err = a.inspectPipeline(pachClient, jobInfo.Pipeline.Name)
 		}
 		if err != nil {
 			return fmt.Errorf("could not get pipeline information for %s: %v", request.Pipeline.Name, err)
@@ -1107,13 +1084,9 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 }
 
 func (a *apiServer) getLogsFromStats(ctx context.Context, request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer, statsCommit *pfs.Commit) error {
-	pachClient, err := a.getPachClient()
-	if err != nil {
-		return err
-	}
+	pachClient := a.getPachClient().WithCtx(ctx)
 	pfsClient := pachClient.PfsAPIClient
-
-	fs, err := pfsClient.GlobFileStream(auth.In2Out(ctx), &pfs.GlobFileRequest{
+	fs, err := pfsClient.GlobFileStream(ctx, &pfs.GlobFileRequest{
 		Commit:  statsCommit,
 		Pattern: "*/logs", // this is the path where logs reside
 	})
@@ -1136,7 +1109,7 @@ func (a *apiServer) getLogsFromStats(ctx context.Context, request *pps.GetLogsRe
 			limiter.Acquire()
 			defer limiter.Release()
 			var buf bytes.Buffer
-			if err := pachClient.WithCtx(ctx).GetFile(fileInfo.File.Commit.Repo.Name, fileInfo.File.Commit.ID, fileInfo.File.Path, 0, 0, &buf); err != nil {
+			if err := pachClient.GetFile(fileInfo.File.Commit.Repo.Name, fileInfo.File.Commit.ID, fileInfo.File.Path, 0, 0, &buf); err != nil {
 				return err
 			}
 			// Parse pods' log lines, and filter out irrelevant ones
@@ -1177,6 +1150,9 @@ func (a *apiServer) getLogsFromStats(ctx context.Context, request *pps.GetLogsRe
 }
 
 func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
+	pachClient := a.getPachClient().WithCtx(ctx)
+	pfsClient := pachClient.PfsAPIClient
+
 	if err := a.validateInput(ctx, pipelineInfo.Pipeline.Name, pipelineInfo.Input, false); err != nil {
 		return err
 	}
@@ -1206,11 +1182,6 @@ func (a *apiServer) validatePipeline(ctx context.Context, pipelineInfo *pps.Pipe
 		return fmt.Errorf("could not parse cacheSize '%s': %v", pipelineInfo.CacheSize, err)
 	}
 	if pipelineInfo.Incremental {
-		pachClient, err := a.getPachClient()
-		if err != nil {
-			return err
-		}
-		pfsClient := pachClient.PfsAPIClient
 		// for incremental jobs we can't have shared provenance
 		key := path.Join
 		provMap := make(map[string]bool)
@@ -1271,11 +1242,8 @@ const (
 // authorizePipelineOp checks if the user indicated by 'ctx' is authorized
 // to perform 'operation' on the pipeline in 'info'
 func (a *apiServer) authorizePipelineOp(ctx context.Context, operation pipelineOperation, input *pps.Input, output string) error {
-	pachClient, err := a.getPachClient()
-	if err != nil {
-		return err
-	}
-	if _, err = pachClient.WhoAmI(auth.In2Out(ctx), &auth.WhoAmIRequest{}); err != nil {
+	pachClient := a.getPachClient().WithCtx(ctx)
+	if _, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{}); err != nil {
 		if auth.IsNotActivatedError(err) {
 			return nil // Auth isn't activated, user may proceed
 		}
@@ -1297,7 +1265,7 @@ func (a *apiServer) authorizePipelineOp(ctx context.Context, operation pipelineO
 		}
 		done[in.Atom.Repo] = struct{}{}
 		eg.Go(func() error {
-			resp, err := pachClient.Authorize(auth.In2Out(ctx), &auth.AuthorizeRequest{
+			resp, err := pachClient.Authorize(ctx, &auth.AuthorizeRequest{
 				Repo:  repo,
 				Scope: auth.Scope_READER,
 			})
@@ -1328,11 +1296,7 @@ func (a *apiServer) authorizePipelineOp(ctx context.Context, operation pipelineO
 	case pipelineOpListDatum:
 		return nil // READER access to inputs is sufficient (it's just datum names)
 	case pipelineOpCreate:
-		_, err := pachClient.PfsAPIClient.InspectRepo(auth.In2Out(ctx),
-			&pfs.InspectRepoRequest{
-				Repo: &pfs.Repo{Name: output},
-			})
-		if err == nil {
+		if _, err := pachClient.InspectRepo(output); err == nil {
 			return fmt.Errorf("cannot overwrite repo \"%s\" with new output repo", output)
 		} else if !isNotFoundErr(err) {
 			return err
@@ -1347,7 +1311,7 @@ func (a *apiServer) authorizePipelineOp(ctx context.Context, operation pipelineO
 		return fmt.Errorf("internal error, unrecognized operation %v", operation)
 	}
 	if required != auth.Scope_NONE {
-		resp, err := pachClient.Authorize(auth.In2Out(ctx), &auth.AuthorizeRequest{
+		resp, err := pachClient.Authorize(ctx, &auth.AuthorizeRequest{
 			Repo:  output,
 			Scope: required,
 		})
@@ -1447,12 +1411,8 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
-	ctx = auth.In2Out(ctx)
-	pachClient, err := a.getPachClient()
-	if err != nil {
-		return nil, err
-	}
-	pachClient = pachClient.WithCtx(ctx)
+	pachClient := a.getPachClient().WithCtx(ctx)
+	ctx = pachClient.Ctx() // pachClient will propagate auth info
 	pfsClient := pachClient.PfsAPIClient
 
 	pipelineInfo := &pps.PipelineInfo{
@@ -1692,21 +1652,18 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPipelineRequest) (response *pps.PipelineInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	ctx = auth.In2Out(ctx)
-	pachClient, err := a.getPachClient()
-	if err != nil {
-		return nil, fmt.Errorf("could not get pachd client: %v", err)
-	}
-	pachClient = pachClient.WithCtx(ctx)
-	return a.inspectPipeline(ctx, pachClient, request.Pipeline.Name)
+	pachClient := a.getPachClient().WithCtx(ctx)
+	ctx = pachClient.Ctx() // pachClient will propagate auth info
+
+	return a.inspectPipeline(pachClient, request.Pipeline.Name)
 }
 
 // inspectPipeline contains the functional implementation of InspectPipeline.
 // Many functions (GetLogs, ListPipeline, CreateJob) need to inspect a pipeline,
 // so they call this instead of making an RPC
-func (a *apiServer) inspectPipeline(ctx context.Context, pachClient *client.APIClient, name string) (*pps.PipelineInfo, error) {
+func (a *apiServer) inspectPipeline(pachClient *client.APIClient, name string) (*pps.PipelineInfo, error) {
 	pipelinePtr := pps.EtcdPipelineInfo{}
-	if err := a.pipelines.ReadOnly(ctx).Get(name, &pipelinePtr); err != nil {
+	if err := a.pipelines.ReadOnly(pachClient.Ctx()).Get(name, &pipelinePtr); err != nil {
 		return nil, err
 	}
 	pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, name, &pipelinePtr)
@@ -1755,12 +1712,8 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 			a.Log(request, response, retErr, time.Since(start))
 		}
 	}(time.Now())
-	ctx = auth.In2Out(ctx)
-	pachClient, err := a.getPachClient()
-	if err != nil {
-		return nil, fmt.Errorf("could not get pachd client: %v", err)
-	}
-	pachClient = pachClient.WithCtx(ctx)
+	pachClient := a.getPachClient().WithCtx(ctx)
+	ctx = pachClient.Ctx() // pachClient will propagate auth info
 
 	pipelineIter, err := a.pipelines.ReadOnly(ctx).List()
 	if err != nil {
@@ -1827,15 +1780,11 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 }
 
 func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) (response *types.Empty, retErr error) {
-	ctx = auth.In2Out(ctx)
-	pachClient, err := a.getPachClient()
-	if err != nil {
-		return nil, err
-	}
-	pachClient = pachClient.WithCtx(ctx) // pachClient will propagate auth info
+	pachClient := a.getPachClient().WithCtx(ctx)
+	ctx = pachClient.Ctx() // pachClient will propagate auth info
 
 	// Fetch the pipeline's PipelineInfo
-	pipelineInfo, err := a.inspectPipeline(ctx, pachClient, request.Pipeline.Name)
+	pipelineInfo, err := a.inspectPipeline(pachClient, request.Pipeline.Name)
 	if err != nil {
 		return nil, fmt.Errorf("pipeline %v was not found: %v", request.Pipeline.Name, err)
 	}
@@ -1919,7 +1868,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	// Delete output repo (which deletes the "spec" branch with all PipelineInfos)
 	var eg errgroup.Group
 	eg.Go(func() error {
-		return pachClient.WithCtx(ctx).DeleteRepo(request.Pipeline.Name, true)
+		return pachClient.DeleteRepo(request.Pipeline.Name, true)
 	})
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
 		if input.Cron != nil {
@@ -1937,15 +1886,11 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	ctx = auth.In2Out(ctx)
-	pachClient, err := a.getPachClient()
-	if err != nil {
-		return nil, err
-	}
-	pachClient = pachClient.WithCtx(ctx) // pachClient will propagate auth info
+	pachClient := a.getPachClient().WithCtx(ctx)
+	ctx = pachClient.Ctx() // pachClient will propagate auth info
 
 	// Get request.Pipeline's info
-	pipelineInfo, err := a.inspectPipeline(ctx, pachClient, request.Pipeline.Name)
+	pipelineInfo, err := a.inspectPipeline(pachClient, request.Pipeline.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -1976,15 +1921,11 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	ctx = auth.In2Out(ctx)
-	pachClient, err := a.getPachClient()
-	if err != nil {
-		return nil, err
-	}
-	pachClient = pachClient.WithCtx(ctx) // pachClient will propagate auth info
+	pachClient := a.getPachClient().WithCtx(ctx)
+	ctx = pachClient.Ctx() // pachClient will propagate auth info
 
 	// Get request.Pipeline's info
-	pipelineInfo, err := a.inspectPipeline(ctx, pachClient, request.Pipeline.Name)
+	pipelineInfo, err := a.inspectPipeline(pachClient, request.Pipeline.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -2006,7 +1947,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 	}
 
 	// Update PipelineInfo with new state
-	if err := a.updatePipelineState(auth.In2Out(ctx), request.Pipeline.Name, pps.PipelineState_PIPELINE_PAUSED); err != nil {
+	if err := a.updatePipelineState(ctx, request.Pipeline.Name, pps.PipelineState_PIPELINE_PAUSED); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -2022,12 +1963,10 @@ func (a *apiServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelin
 func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	pachClient := a.getPachClient().WithCtx(ctx)
+	ctx = pachClient.Ctx() // pachClient will propagate auth info
 
-	pachClient, err := a.getPachClient()
-	if err != nil {
-		return nil, err
-	}
-	if me, err := pachClient.WhoAmI(auth.In2Out(ctx), &auth.WhoAmIRequest{}); err == nil {
+	if me, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{}); err == nil {
 		if !me.IsAdmin {
 			return nil, fmt.Errorf("not authorized to delete all cluster data, must " +
 				"be a cluster admin")
@@ -2066,11 +2005,8 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageCollectRequest) (response *pps.GarbageCollectResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-
-	pachClient, err := a.getPachClient()
-	if err != nil {
-		return nil, err
-	}
+	pachClient := a.getPachClient().WithCtx(ctx)
+	ctx = pachClient.Ctx() // pachClient will propagate auth info
 	pfsClient := pachClient.PfsAPIClient
 	objClient := pachClient.ObjectAPIClient
 
@@ -2371,17 +2307,15 @@ func jobStateToStopped(state pps.JobState) bool {
 	}
 }
 
-func (a *apiServer) getPachClient() (*client.APIClient, error) {
-	if a.pachClient == nil {
-		var onceErr error
-		a.pachClientOnce.Do(func() {
-			a.pachClient, onceErr = client.NewFromAddress(a.address)
-		})
-		if onceErr != nil {
-			return nil, onceErr
+func (a *apiServer) getPachClient() *client.APIClient {
+	a.pachClientOnce.Do(func() {
+		var err error
+		a.pachClient, err = client.NewFromAddress(a.address)
+		if err != nil {
+			panic(fmt.Sprintf("pps failed to initialize pach client: %v", err))
 		}
-	}
-	return a.pachClient, nil
+	})
+	return a.pachClient
 }
 
 // RepoNameToEnvString is a helper which uppercases a repo name for
