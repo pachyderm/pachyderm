@@ -25,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
@@ -55,10 +56,6 @@ const (
 	// DefaultUserImage is the image used for jobs when the user does not specify
 	// an image.
 	DefaultUserImage = "ubuntu:16.04"
-
-	// SpecBranch is a branch in every pipeline's output repo that contains the
-	// pipeline's PipelineInfo
-	SpecBranch = "spec"
 )
 
 var (
@@ -1389,7 +1386,7 @@ func (a *apiServer) finishPipelineInfoCommit(pachClient *client.APIClient, pipel
 	if err != nil {
 		return fmt.Errorf("could not marshal PipelineInfo: %v", err)
 	}
-	if _, err := pachClient.PutFile(pipelineName, commit.ID, ppsutil.SpecFile, bytes.NewReader(data)); err != nil {
+	if _, err := pachClient.PutFile(pipelineName, commit.ID, ppsconsts.SpecFile, bytes.NewReader(data)); err != nil {
 		return err
 	}
 	return pachClient.FinishCommit(pipelineName, commit.ID)
@@ -1469,7 +1466,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	pps.SortInput(pipelineInfo.Input) // Makes datum hashes comparable
 	if request.Update {
 		// Help user fix inconsistency if previous UpdatePipeline call failed
-		if ci, err := pachClient.InspectCommit(pipelineName, SpecBranch); err != nil {
+		if ci, err := pachClient.InspectCommit(pipelineName, ppsconsts.SpecBranch); err != nil {
 			return nil, err
 		} else if ci.Finished == nil {
 			return nil, fmt.Errorf("the HEAD commit of this pipeline's Pipeline "+
@@ -1478,7 +1475,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				"CreatePipeline commands are running, you can delete the open commit "+
 				"with 'pachctl delete-commit %s %s', which will allow future "+
 				"CreatePipeline calls to succeed",
-				pipelineName, SpecBranch, pipelineName, SpecBranch)
+				pipelineName, ppsconsts.SpecBranch, pipelineName, ppsconsts.SpecBranch)
 		}
 
 		a.hardStopPipeline(pachClient, pipelineInfo)
@@ -1508,15 +1505,15 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			}
 
 			// Write updated PipelineInfo back to PFS. If the head commit of
-			// SpecBranch is open this will fail which prevents 2
+			// ppsconsts.SpecBranch is open this will fail which prevents 2
 			// UpdatePipelines from racing.
-			commit, err := pachClient.StartCommit(pipelineName, SpecBranch)
+			commit, err := pachClient.StartCommit(pipelineName, ppsconsts.SpecBranch)
 			if err != nil {
 				return err
 			}
 			// Delete the old PipelineInfo, otherwise the new PipelineInfo's bytes
 			// will be appended to the old bytes
-			pachClient.DeleteFile(pipelineName, commit.ID, ppsutil.SpecFile)
+			pachClient.DeleteFile(pipelineName, commit.ID, ppsconsts.SpecFile)
 			if err := a.finishPipelineInfoCommit(pachClient, pipelineInfo, commit); err != nil {
 				return err
 			}
@@ -1548,7 +1545,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		// pipeline pointer in etcd. By doing this inside of an etcd transaction,
 		// we can prevent concurrent calls to CreatePipeline from racing
 		_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-			commit, err := pachClient.StartCommit(pipelineName, SpecBranch)
+			commit, err := pachClient.StartCommit(pipelineName, ppsconsts.SpecBranch)
 			if err != nil {
 				return err
 			}
@@ -1573,7 +1570,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 	// Create a branch for the pipeline's output data (provenant on the spec branch)
 	provenance := append(branchProvenance(pipelineInfo.Input),
-		client.NewBranch(pipelineName, SpecBranch))
+		client.NewBranch(pipelineName, ppsconsts.SpecBranch))
 	if _, err := pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
 		Branch:     client.NewBranch(pipelineName, pipelineInfo.OutputBranch),
 		Provenance: provenance,
@@ -1886,7 +1883,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 
 	// Replace missing branch provenance (removed by StopPipeline)
 	provenance := append(branchProvenance(pipelineInfo.Input),
-		client.NewBranch(pipelineInfo.Pipeline.Name, SpecBranch))
+		client.NewBranch(pipelineInfo.Pipeline.Name, ppsconsts.SpecBranch))
 	if err := pachClient.CreateBranch(
 		request.Pipeline.Name,
 		pipelineInfo.OutputBranch,
