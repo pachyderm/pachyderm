@@ -24,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	log "github.com/sirupsen/logrus"
@@ -138,14 +139,11 @@ func GetExpectedNumWorkers(kubeClient *kube.Clientset, spec *ppsclient.Paralleli
 	return 0, fmt.Errorf("Unable to interpret ParallelismSpec %+v", spec)
 }
 
-// SpecFile is the file in SpecBranch containing the pipeline's PipelineInfo
-const SpecFile = "spec"
-
 // GetPipelineInfo retrieves and returns a valid PipelineInfo from PFS. It does
 // the PFS read/unmarshalling of bytes as well as filling in missing fields
 func GetPipelineInfo(pachClient *client.APIClient, name string, ptr *pps.EtcdPipelineInfo) (*pps.PipelineInfo, error) {
 	buf := bytes.Buffer{}
-	if err := pachClient.GetFile(name, ptr.SpecCommit.ID, SpecFile, 0, 0, &buf); err != nil {
+	if err := pachClient.GetFile(name, ptr.SpecCommit.ID, ppsconsts.SpecFile, 0, 0, &buf); err != nil {
 		return nil, fmt.Errorf("could not read existing PipelineInfo from PFS: %v", err)
 	}
 	result := &pps.PipelineInfo{}
