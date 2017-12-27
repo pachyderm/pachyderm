@@ -35,11 +35,6 @@ import (
 	kube "k8s.io/client-go/kubernetes"
 )
 
-// JobRepo creates a pfs repo for a given job.
-func JobRepo(job *ppsclient.Job) *pfs.Repo {
-	return &pfs.Repo{Name: fmt.Sprintf("job_%s", job.ID)}
-}
-
 // PipelineRepo creates a pfs repo for a given pipeline.
 func PipelineRepo(pipeline *ppsclient.Pipeline) *pfs.Repo {
 	return &pfs.Repo{Name: pipeline.Name}
@@ -143,7 +138,7 @@ func GetExpectedNumWorkers(kubeClient *kube.Clientset, spec *ppsclient.Paralleli
 // the PFS read/unmarshalling of bytes as well as filling in missing fields
 func GetPipelineInfo(pachClient *client.APIClient, name string, ptr *pps.EtcdPipelineInfo) (*pps.PipelineInfo, error) {
 	buf := bytes.Buffer{}
-	if err := pachClient.GetFile(name, ptr.SpecCommit.ID, ppsconsts.SpecFile, 0, 0, &buf); err != nil {
+	if err := pachClient.GetFile(ppsconsts.SpecRepo, ptr.SpecCommit.ID, ppsconsts.SpecFile, 0, 0, &buf); err != nil {
 		return nil, fmt.Errorf("could not read existing PipelineInfo from PFS: %v", err)
 	}
 	result := &pps.PipelineInfo{}
