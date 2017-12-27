@@ -28,6 +28,7 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pfsdb"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -470,6 +471,12 @@ nextRepo:
 }
 
 func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) error {
+	// TODO(msteffen): Fix d.deleteAll() so that it doesn't need to delete and
+	// recreate the PPS spec repo, then uncomment this block to prevent users from
+	// deleting it and breaking their cluster
+	// if repo.Name == ppsconsts.SpecRepo {
+	// 	return fmt.Errorf("cannot delete the special PPS repo %s", ppsconsts.SpecRepo)
+	// }
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		repos := d.repos.ReadWrite(stm)
 		repoRefCounts := d.repoRefCounts.ReadWriteInt(stm)
@@ -516,13 +523,6 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 				return err
 			}
 		}
-
-		// TODO(msteffen):
-		// Check if this repo has a 'spec' branch, with a 'spec' file at the top.
-		// PPS uses this branch to store pipeline infos, and if it's deleted, PPS
-		// commands affecting this pipeline will no longer work (including
-		// DeletePipeline, forcing the repo into a permanent, broken state).
-
 		if err := repos.Delete(repo.Name); err != nil {
 			return err
 		}
@@ -914,11 +914,12 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 				branchProvenance = append(branchProvenance, branchToCommit[branchKey(provBranch)].branch)
 			}
 		}
-		// If the only branches in branchProvenance are 'spec' branches, this output
-		// commit would create a confusing "dummy" job with no input data--skip it
+		// If the only branches in branchProvenance are in the 'spec' repo, this
+		// output commit would create a confusing "dummy" job with no input
+		// data--skip it
 		allSpec := true
 		for _, branch := range branchProvenance {
-			if branch.Name != "spec" {
+			if branch.Repo.Name != ppsconsts.SpecRepo {
 				allSpec = false
 				break
 			}
@@ -1429,15 +1430,8 @@ func (d *driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
 
 	for _, branchInfo := range branchInfos {
 		if branchInfo.Head != nil && branchInfo.Head.ID == commitInfo.Commit.ID {
-			if commitInfo.ParentCommit != nil {
-				if err := d.createBranch(ctx, branchInfo.Branch, commitInfo.ParentCommit, nil); err != nil {
-					return err
-				}
-			} else {
-				// If this commit doesn't have a parent, delete the branch
-				if err := d.deleteBranch(ctx, branchInfo.Branch); err != nil {
-					return err
-				}
+			if err := d.createBranch(ctx, branchInfo.Branch, commitInfo.ParentCommit, nil); err != nil {
+				return err
 			}
 		}
 	}
@@ -1559,15 +1553,16 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 						return nil // existing head commit is the same as the one we want to create--nothing new to do
 					}
 				}
+				// If the only branches in the output commit's provenance are in the
+				// 'spec' repo, this output commit would create a confusing "dummy" job
+				// with no input data--skip it
 				allSpec := true
 				for _, b := range commitProvMap {
-					if b.branch.Name != "spec" {
+					if b.branch.Repo.Name != ppsconsts.SpecRepo {
 						allSpec = false
 						break
 					}
 				}
-				// if head commit is only provenant on "spec" commits. Creating this
-				// would create a confusing "dummy" job with no data--skip it.
 				if !allSpec {
 					commit := &pfs.Commit{
 						Repo: branch.Repo,
@@ -2228,11 +2223,28 @@ func (d *driver) deleteAll(ctx context.Context) error {
 		return err
 	}
 	for _, repoInfo := range repoInfos.RepoInfo {
+		// Hack to keep 'DeleteAll()' from breaking a cluster by deleting the
+		// pipeline spec repo. It would be nice if this didn't need to exist.
+		if repoInfo.Repo.Name == ppsconsts.SpecRepo {
+			continue
+		}
 		if err := d.deleteRepo(ctx, repoInfo.Repo, true); err != nil && !auth.IsNotAuthorizedError(err) {
 			return err
 		}
 	}
-	return nil
+
+	// Second hack: Normally PPS would delete all commits in the spec repo, but
+	// DeleteCommit() can't yet delete commits that have been finished. Instead,
+	// PFS Deletes the spec repo at the end of DeleteAll() and recreates it
+	// (which PPS can't do, as it doesn't know when PFS.DeleteAll() will run)
+	// TODO(msteffen): Delete this, and either hide PFS.DeleteAll() from users and
+	// put this block in PPS.DeleteAll, or implement PFS.DeleteCommit() for
+	// finished commits and have PPS.DeleteAll() delete all commits in the spec
+	// repo.
+	if err := d.deleteRepo(ctx, client.NewRepo(ppsconsts.SpecRepo), true); err != nil {
+		return err
+	}
+	return d.createRepo(ctx, client.NewRepo(ppsconsts.SpecRepo), nil, "", false)
 }
 
 func (d *driver) applyWrites(resp *etcd.GetResponse, tree hashtree.OpenHashTree) error {
