@@ -1715,7 +1715,6 @@ func (d *driver) getTreeForFile(ctx context.Context, file *pfs.File) (hashtree.H
 }
 
 func (d *driver) constructTreeFromPrefix(ctx context.Context, prefix string, parentTree hashtree.HashTree) (hashtree.HashTree, error) {
-	var putFileRecords pfs.PutFileRecords
 	var finishedTree hashtree.HashTree
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		tree := parentTree.Open()
@@ -1998,7 +1997,6 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 	filePath := strings.Join(parts[:len(parts)], "/")
 	filePath = filepath.Join("/", filePath)
 
-	val, _ := tree.GetOpen(filePath)
 	if records.Tombstone {
 		if err := tree.DeleteFile(filePath); err != nil {
 			// Deleting a non-existent file in an open commit should
@@ -2007,7 +2005,6 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 				return err
 			}
 		}
-		val, _ := tree.GetOpen(filePath)
 	}
 	if !records.Split {
 		if len(records.Records) == 0 {
