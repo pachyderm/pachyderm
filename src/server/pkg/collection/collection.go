@@ -15,6 +15,8 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
+const queryPaginationLimit = 10000
+
 type collection struct {
 	etcdClient *etcd.Client
 	prefix     string
@@ -431,11 +433,12 @@ func (c *readonlyCollection) ListPrefix(prefix string) (Iterator, error) {
 	}
 	//	resp, err := c.etcdClient.Get(c.ctx, queryPrefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend))
 	// omit sort so that we get results lexigraphically ordered, so that we can paginate properly
-	resp, err := c.etcdClient.Get(c.ctx, queryPrefix, etcd.WithPrefix(), etcd.WithLimit(1000))
+	resp, err := c.etcdClient.Get(c.ctx, queryPrefix, etcd.WithPrefix(), etcd.WithLimit(queryPaginationLimit))
 	if err != nil {
 		return nil, err
 	}
 	return &iterator{
+		prefix:     prefix,
 		resp:       resp,
 		etcdClient: c.etcdClient,
 		ctx:        c.ctx,
@@ -451,6 +454,7 @@ func (c *readonlyCollection) List() (Iterator, error) {
 
 type iterator struct {
 	index      int
+	prefix     string
 	resp       *etcd.GetResponse
 	etcdClient *etcd.Client
 	ctx        context.Context
@@ -481,34 +485,32 @@ func (i *iterator) Next(key *string, val proto.Unmarshaler) (ok bool, retErr err
 
 func (i *iterator) NextFullyQualified(key *string, val proto.Unmarshaler) (ok bool, retErr error) {
 	if i.index < len(i.resp.Kvs) {
-		fmt.Printf("serving key %v\n", i.index)
 		kv := i.resp.Kvs[i.index]
 		i.index++
 
 		*key = string(kv.Key)
+		// Validate the results still match the original prefix
+		if !strings.Contains(*key, i.prefix) {
+			return false, nil
+		}
 		if err := val.Unmarshal(kv.Value); err != nil {
 			return false, err
 		}
 
 		return true, nil
 	}
-	fmt.Printf("reached the end of the kvs, going to fetch new page\n")
 	// Reached end of resp, try for another page
 	lastKey := string(i.resp.Kvs[len(i.resp.Kvs)-1].Key)
-	fmt.Printf("using from key (%v) in next query\n", lastKey)
-	resp, err := i.etcdClient.Get(i.ctx, lastKey, etcd.WithFromKey())
-	fmt.Printf("got resp (%v) err (%v)\n", resp, err)
+	resp, err := i.etcdClient.Get(i.ctx, lastKey, etcd.WithFromKey(), etcd.WithLimit(queryPaginationLimit))
 	if err != nil {
 		return false, err
 	}
 	if len(resp.Kvs) == 1 {
-		fmt.Printf("only got the from key, no more documents, returning\n")
 		// Only got the from key, there are no more kvs to fetch from etcd
 		return false, nil
 	}
 	i.index = 1 // Move past the from key
 	i.resp = resp
-	fmt.Printf("updated iterator, returning fresh key ...\n")
 	return i.NextFullyQualified(key, val)
 }
 
