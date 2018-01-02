@@ -9,6 +9,8 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
+	"runtime/pprof"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -27,21 +29,24 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
+	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
 
 const (
-	servers = 2
+	servers = 1
 
 	ALPHABET = "abcdefghijklmnopqrstuvwxyz"
 )
 
 var (
 	port int32 = 30653
+	KB   int64 = 1024
 )
 
 var testDBs []string
@@ -2380,7 +2385,7 @@ func generateRandomString(n int) string {
 	return string(b)
 }
 
-func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
+func runServers(t testing.TB, port int32, apiServer pfs.APIServer,
 	blockAPIServer BlockAPIServer) {
 	ready := make(chan bool)
 	go func() {
@@ -2404,7 +2409,7 @@ func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
 
 var etcdOnce sync.Once
 
-func getClient(t *testing.T) *pclient.APIClient {
+func getClient(t testing.TB) *pclient.APIClient {
 	// src/server/pfs/server/driver.go expects an etcd server at "localhost:32379"
 	// Try to establish a connection before proceeding with the test (which will
 	// fail if the connection can't be established)
@@ -3150,6 +3155,35 @@ func TestBuildCommit(t *testing.T) {
 	commitInfo, err = c.InspectCommit(repo, "master")
 	require.NoError(t, err)
 	require.Equal(t, uint64(fooSize+barSize), commitInfo.SizeBytes)
+}
+
+func BenchmarkPutFile(b *testing.B) {
+	log.SetLevel(log.ErrorLevel)
+	numFiles := 1000
+	client := getClient(b)
+
+	repo := "test"
+	require.NoError(b, client.CreateRepo(repo))
+
+	rand := rand.New(rand.NewSource(time.Now().UnixNano()))
+	for i := 0; i < b.N; i++ {
+		_, err := client.StartCommit(repo, "master")
+		require.NoError(b, err)
+		for j := 0; j < numFiles; j++ {
+			_, err = client.PutFile(repo, "master", "foo", workload.NewReader(rand, 200*KB))
+			require.NoError(b, err)
+			dumpProfile(b, fmt.Sprintf("profile-%d", i))
+		}
+		require.NoError(b, client.FinishCommit(repo, "master"))
+	}
+}
+
+func dumpProfile(t testing.TB, name string) {
+	f, err := os.Create(name)
+	require.NoError(t, err)
+	runtime.GC() // get up-to-date statistics
+	require.NoError(t, pprof.WriteHeapProfile(f))
+	require.NoError(t, f.Close())
 }
 
 func uniqueString(prefix string) string {
