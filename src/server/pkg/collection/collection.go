@@ -424,6 +424,11 @@ func (c *readonlyCollection) GetBlock(key string, val proto.Unmarshaler) error {
 	}
 }
 
+func endKeyFromPrefix(prefix string) string {
+	// Lexigraphically increment the last character
+	return prefix[0:len(prefix)-1] + string(byte(prefix[len(prefix)-1])+1)
+}
+
 func (c *readonlyCollection) ListPrefix(prefix string) (Iterator, error) {
 	queryPrefix := c.prefix
 	if prefix != "" {
@@ -438,7 +443,7 @@ func (c *readonlyCollection) ListPrefix(prefix string) (Iterator, error) {
 		return nil, err
 	}
 	return &iterator{
-		prefix:     prefix,
+		endKey:     endKeyFromPrefix(queryPrefix),
 		resp:       resp,
 		etcdClient: c.etcdClient,
 		ctx:        c.ctx,
@@ -454,7 +459,7 @@ func (c *readonlyCollection) List() (Iterator, error) {
 
 type iterator struct {
 	index      int
-	prefix     string
+	endKey     string
 	resp       *etcd.GetResponse
 	etcdClient *etcd.Client
 	ctx        context.Context
@@ -489,10 +494,6 @@ func (i *iterator) NextFullyQualified(key *string, val proto.Unmarshaler) (ok bo
 		i.index++
 
 		*key = string(kv.Key)
-		// Validate the results still match the original prefix
-		if !strings.Contains(*key, i.prefix) {
-			return false, nil
-		}
 		if err := val.Unmarshal(kv.Value); err != nil {
 			return false, err
 		}
@@ -500,8 +501,8 @@ func (i *iterator) NextFullyQualified(key *string, val proto.Unmarshaler) (ok bo
 		return true, nil
 	}
 	// Reached end of resp, try for another page
-	lastKey := string(i.resp.Kvs[len(i.resp.Kvs)-1].Key)
-	resp, err := i.etcdClient.Get(i.ctx, lastKey, etcd.WithFromKey(), etcd.WithLimit(queryPaginationLimit))
+	fromKey := string(i.resp.Kvs[len(i.resp.Kvs)-1].Key)
+	resp, err := i.etcdClient.Get(i.ctx, fromKey, etcd.WithRange(i.endKey), etcd.WithLimit(queryPaginationLimit))
 	if err != nil {
 		return false, err
 	}
