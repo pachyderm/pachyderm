@@ -41,7 +41,6 @@ const (
 	repo     float64 = .02 // Create a repo
 	commit           = .1  // Start or finish a commit
 	file             = .9  // Put a file
-	job              = .98 // Start a job, or wait for a job to finish
 	pipeline         = 1.0 // Create a pipeline
 )
 
@@ -92,8 +91,6 @@ func (w *worker) work(c *client.APIClient) error {
 		return w.advanceCommit(c)
 	case opt < file:
 		return w.putFile(c)
-	case opt < job:
-		return w.advanceJob(c)
 	case opt < pipeline:
 		return w.createPipeline(c)
 	}
@@ -162,75 +159,6 @@ func (w *worker) putFile(c *client.APIClient) error {
 	commit := w.started[w.rand.Intn(len(w.started))]
 	if _, err := c.PutFile(commit.Repo.Name, commit.ID, w.randString(10), w.reader()); err != nil {
 		return err
-	}
-	return nil
-}
-
-// advanceJob either waits for the first job in 'startedJobs' to finish (if its
-// job queue is full) or starts a new job
-func (w *worker) advanceJob(c *client.APIClient) error {
-	if len(w.startedJobs) >= maxStartedJobs {
-		// Wait for the first job in 'w.startedJobs' to finish.
-
-		// Pull first job off of 'startedJobs'
-		job := w.startedJobs[0]
-		copy(w.startedJobs, w.startedJobs[1:])
-		w.startedJobs = w.startedJobs[:len(w.startedJobs)-1]
-
-		// Wait for first started job to finish. Crash if the job failed
-		jobInfo, err := c.InspectJob(job.ID, true /* block until job finishes */)
-		if err != nil {
-			return err
-		}
-		if jobInfo.State != pps.JobState_JOB_SUCCESS {
-			return fmt.Errorf("job %s failed", job.ID)
-		}
-		w.startedJobs = append(w.startedJobs, job)
-	} else {
-		// Start a new job
-
-		// If there are no finished commits, there will be nothing for the new job
-		// to process. Just exit.
-		if len(w.finished) == 0 {
-			return nil
-		}
-
-		// Pick up to 5 finished commits from distinct repos: those are the job
-		// inputs. Store the repo names in 'inputs' to generate the 'grep' command
-		// that the job will run.
-		inputs := [5]string{}
-		var input []*pps.Input
-		repoSet := make(map[string]bool)
-		for i := range inputs {
-			commit := w.finished[w.rand.Intn(len(w.finished))]
-			if _, ok := repoSet[commit.Repo.Name]; ok {
-				// skip commit if we already have one from this repo (job will have
-				// one fewer inputs)
-				continue
-			}
-			repoSet[commit.Repo.Name] = true
-			inputs[i] = commit.Repo.Name
-			input = append(input, client.NewAtomInputOpts("", commit.Repo.Name, commit.ID, "*", false))
-		}
-		outFilename := w.randString(10)
-
-		// Create a job to grep for a random string in the input files, and write
-		// the results to an output file
-		job, err := c.CreateJob(
-			"", // Image (use default)
-			[]string{"bash"},
-			w.grepCmd(inputs, outFilename),
-			&pps.ParallelismSpec{
-				Constant: 1,
-			},
-			client.NewCrossInput(input...),
-			0, // internal port
-			0, // external port
-		)
-		if err != nil {
-			return err
-		}
-		w.startedJobs = append(w.startedJobs, job)
 	}
 	return nil
 }
