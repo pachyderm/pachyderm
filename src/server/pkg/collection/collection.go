@@ -500,6 +500,10 @@ func (i *iterator) NextFullyQualified(key *string, val proto.Unmarshaler) (ok bo
 
 		return true, nil
 	}
+	if len(i.resp.Kvs) == 0 {
+		//empty response
+		return false, nil
+	}
 	// Reached end of resp, try for another page
 	fromKey := string(i.resp.Kvs[len(i.resp.Kvs)-1].Key)
 	resp, err := i.etcdClient.Get(i.ctx, fromKey, etcd.WithRange(i.endKey), etcd.WithLimit(queryPaginationLimit))
