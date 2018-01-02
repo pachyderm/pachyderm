@@ -2132,6 +2132,9 @@ func TestManyFilesSingleCommit(t *testing.T) {
 		require.NoError(t, err)
 	}
 	require.NoError(t, c.FinishCommit(dataRepo, "master"))
+	fileInfos, err := c.ListFile(dataRepo, "master", "")
+	require.NoError(t, err)
+	require.Equal(t, numFiles, len(fileInfos))
 }
 
 func TestStopPipeline(t *testing.T) {
