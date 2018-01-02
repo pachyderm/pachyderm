@@ -362,6 +362,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 		jobPtr := &pps.EtcdJobInfo{
 			Job:          job,
 			OutputCommit: request.OutputCommit,
+			Pipeline:     request.Pipeline,
 		}
 		return a.updateJobState(stm, jobPtr, pps.JobState_JOB_STARTING)
 	})
