@@ -15,6 +15,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/jsonpb"
 	pachdclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
