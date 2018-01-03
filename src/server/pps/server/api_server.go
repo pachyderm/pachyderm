@@ -397,12 +397,12 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 				return nil, fmt.Errorf("job %s was deleted", request.Job.ID)
 			case watch.EventPut:
 				var jobID string
-				var jobInfo pps.JobInfo
-				if err := ev.Unmarshal(&jobID, &jobInfo); err != nil {
+				jobPtr := &pps.EtcdJobInfo{}
+				if err := ev.Unmarshal(&jobID, jobPtr); err != nil {
 					return nil, err
 				}
-				if jobStateToStopped(jobInfo.State) {
-					return &jobInfo, nil
+				if jobStateToStopped(jobPtr.State) {
+					return a.jobInfoFromPtr(ctx, jobPtr)
 				}
 			}
 		}
