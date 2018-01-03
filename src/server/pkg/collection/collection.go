@@ -88,12 +88,25 @@ func (c *collection) indexPath(index Index, indexVal string, key string) string 
 	return path.Join(c.indexDir(index, indexVal), key)
 }
 
+func (c *collection) checkType(val interface{}) error {
+	if c.template != nil {
+		valType, templateType := reflect.TypeOf(val), reflect.TypeOf(c.template)
+		if valType != templateType {
+			return fmt.Errorf("invalid type, got: %s, expected: %s", valType, templateType)
+		}
+	}
+	return nil
+}
+
 type readWriteCollection struct {
 	*collection
 	stm STM
 }
 
 func (c *readWriteCollection) Get(key string, val proto.Unmarshaler) error {
+	if err := c.checkType(val); err != nil {
+		return err
+	}
 	valStr, err := c.stm.Get(c.Path(key))
 	if err != nil {
 		return err
@@ -135,11 +148,8 @@ func (c *readWriteCollection) Put(key string, val proto.Marshaler) error {
 }
 
 func (c *readWriteCollection) PutTTL(key string, val proto.Marshaler, ttl int64) error {
-	if c.template != nil {
-		valType, templateType := reflect.TypeOf(val), reflect.TypeOf(c.template)
-		if valType != templateType {
-			return fmt.Errorf("PUT with invalid type, got: %s, expected: %s", valType, templateType)
-		}
+	if err := c.checkType(val); err != nil {
+		return err
 	}
 	var options []etcd.OpOption
 	if ttl > 0 {
@@ -208,6 +218,9 @@ func (c *readWriteCollection) PutTTL(key string, val proto.Marshaler, ttl int64)
 }
 
 func (c *readWriteCollection) Update(key string, val Value, f func() error) error {
+	if err := c.checkType(val); err != nil {
+		return err
+	}
 	if err := c.Get(key, val); err != nil {
 		return err
 	}
@@ -218,6 +231,9 @@ func (c *readWriteCollection) Update(key string, val Value, f func() error) erro
 }
 
 func (c *readWriteCollection) Upsert(key string, val Value, f func() error) error {
+	if err := c.checkType(val); err != nil {
+		return err
+	}
 	if err := c.Get(key, val); err != nil && !IsErrNotFound(err) {
 		return err
 	}
@@ -228,6 +244,9 @@ func (c *readWriteCollection) Upsert(key string, val Value, f func() error) erro
 }
 
 func (c *readWriteCollection) Create(key string, val proto.Marshaler) error {
+	if err := c.checkType(val); err != nil {
+		return err
+	}
 	fullKey := c.Path(key)
 	_, err := c.stm.Get(fullKey)
 	if err != nil && !IsErrNotFound(err) {
@@ -352,6 +371,9 @@ type readonlyCollection struct {
 }
 
 func (c *readonlyCollection) Get(key string, val proto.Unmarshaler) error {
+	if err := c.checkType(val); err != nil {
+		return err
+	}
 	resp, err := c.etcdClient.Get(c.ctx, c.Path(key))
 	if err != nil {
 		return err
@@ -373,6 +395,9 @@ type indirectIterator struct {
 }
 
 func (i *indirectIterator) Next(key *string, val proto.Unmarshaler) (ok bool, retErr error) {
+	if err := i.col.checkType(val); err != nil {
+		return false, err
+	}
 	for {
 		if i.index < len(i.resp.Kvs) {
 			kv := i.resp.Kvs[i.index]
@@ -409,6 +434,9 @@ func (c *readonlyCollection) GetByIndex(index Index, val interface{}) (Iterator,
 }
 
 func (c *readonlyCollection) GetBlock(key string, val proto.Unmarshaler) error {
+	if err := c.checkType(val); err != nil {
+		return err
+	}
 	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.Path(key))
 	if err != nil {
 		return err
@@ -433,12 +461,14 @@ func (c *readonlyCollection) List() (Iterator, error) {
 	}
 	return &iterator{
 		resp: resp,
+		col:  c,
 	}, nil
 }
 
 type iterator struct {
 	index int
 	resp  *etcd.GetResponse
+	col   *readonlyCollection
 }
 
 func (c *readonlyCollection) Count() (int64, error) {
@@ -450,6 +480,9 @@ func (c *readonlyCollection) Count() (int64, error) {
 }
 
 func (i *iterator) Next(key *string, val proto.Unmarshaler) (ok bool, retErr error) {
+	if err := i.col.checkType(val); err != nil {
+		return false, err
+	}
 	if i.index < len(i.resp.Kvs) {
 		kv := i.resp.Kvs[i.index]
 		i.index++

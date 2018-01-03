@@ -1887,8 +1887,8 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	}
 	for {
 		var jobID string
-		var jobInfo pps.JobInfo
-		ok, err := iter.Next(&jobID, &jobInfo)
+		var jobPtr pps.EtcdJobInfo
+		ok, err := iter.Next(&jobID, &jobPtr)
 		if err != nil {
 			return nil, err
 		}
@@ -1900,7 +1900,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 				return nil, err
 			}
 		} else {
-			if !jobStateToStopped(jobInfo.State) {
+			if !jobStateToStopped(jobPtr.State) {
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 					jobs := a.jobs.ReadWrite(stm)
 					var jobInfo pps.JobInfo
@@ -1925,7 +1925,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		return a.pipelines.ReadWrite(stm).Delete(request.Pipeline.Name)
 	}); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("collection.Delete: %v", err)
 	}
 
 	// Delete pipeline's workers
