@@ -1141,7 +1141,7 @@ func TestRecreatePipeline(t *testing.T) {
 	// Do it twice.  We expect jobs to be created on both runs.
 	createPipeline()
 	time.Sleep(5 * time.Second)
-	require.NoError(t, c.DeletePipeline(pipeline, true))
+	require.NoError(t, c.DeletePipeline(pipeline))
 	time.Sleep(5 * time.Second)
 	createPipeline()
 }
@@ -1190,7 +1190,7 @@ func TestDeletePipeline(t *testing.T) {
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
-	require.NoError(t, c.DeletePipeline(pipeline, true))
+	require.NoError(t, c.DeletePipeline(pipeline))
 	time.Sleep(5 * time.Second)
 	// Wait for the pipeline to disappear
 	require.NoError(t, backoff.Retry(func() error {
@@ -1205,36 +1205,6 @@ func TestDeletePipeline(t *testing.T) {
 	jobs, err := c.ListJob(pipeline, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, len(jobs), 0)
-
-	createPipeline()
-	// Wait for the pipeline to start running
-	time.Sleep(10 * time.Second)
-	require.NoError(t, backoff.Retry(func() error {
-		pipelineInfo, err := c.InspectPipeline(pipeline)
-		if err != nil {
-			return err
-		}
-		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
-			return fmt.Errorf("no running pipeline")
-		}
-		return nil
-	}, backoff.NewTestingBackOff()))
-	require.NoError(t, c.DeletePipeline(pipeline, false))
-	// Wait for the pipeline to disappear
-	time.Sleep(5 * time.Second)
-	require.NoError(t, backoff.Retry(func() error {
-		_, err := c.InspectPipeline(pipeline)
-		if err == nil {
-			return fmt.Errorf("expected pipeline to be missing, but it's still present")
-		}
-		return nil
-	}, backoff.NewTestingBackOff()))
-
-	// The job should still be there, and its state should be "KILLED"
-	jobs, err = c.ListJob(pipeline, nil, nil)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(jobs))
-	require.Equal(t, pps.JobState_JOB_KILLED, jobs[0].State)
 }
 
 func TestPipelineState(t *testing.T) {
@@ -4091,7 +4061,7 @@ func TestGarbageCollection(t *testing.T) {
 	tagsBefore = tagsAfter
 
 	// Now delete the pipeline and GC
-	require.NoError(t, c.DeletePipeline(pipeline, false))
+	require.NoError(t, c.DeletePipeline(pipeline))
 	require.NoError(t, c.GarbageCollect())
 
 	// We should've deleted one tag since the pipeline has only processed

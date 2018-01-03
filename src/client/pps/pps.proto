@@ -513,9 +513,8 @@ message ListPipelineRequest {
 }
 
 message DeletePipelineRequest {
+  reserved 2, 3;
   Pipeline pipeline = 1;
-  bool delete_jobs = 2;
-  bool delete_repo = 3;
   bool all = 4;
 }
 
