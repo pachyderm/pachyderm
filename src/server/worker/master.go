@@ -431,7 +431,7 @@ func plusDuration(x *types.Duration, y *types.Duration) (*types.Duration, error)
 }
 
 func (a *APIServer) locks(jobID string) col.Collection {
-	return col.NewCollection(a.etcdClient, path.Join(a.etcdPrefix, lockPrefix, jobID), nil, &types.Empty{}, nil)
+	return col.NewCollection(a.etcdClient, path.Join(a.etcdPrefix, lockPrefix, jobID), nil, &ChunkState{}, nil)
 }
 
 // collectDatum collects the output and stats output from a datum, and merges
