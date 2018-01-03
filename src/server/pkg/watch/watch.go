@@ -6,6 +6,8 @@ package watch
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"reflect"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
@@ -32,10 +34,14 @@ type Event struct {
 	Type      EventType
 	Rev       int64
 	Err       error
+	Template  proto.Message
 }
 
 // Unmarshal unmarshals the item in an event into a protobuf message.
 func (e *Event) Unmarshal(key *string, val proto.Unmarshaler) error {
+	if err := CheckType(e.Template, val); err != nil {
+		return err
+	}
 	*key = string(e.Key)
 	return val.Unmarshal(e.Value)
 }
@@ -43,6 +49,9 @@ func (e *Event) Unmarshal(key *string, val proto.Unmarshaler) error {
 // UnmarshalPrev unmarshals the prev item in an event into a protobuf
 // message.
 func (e *Event) UnmarshalPrev(key *string, val proto.Unmarshaler) error {
+	if err := CheckType(e.Template, val); err != nil {
+		return err
+	}
 	*key = string(e.PrevKey)
 	return val.Unmarshal(e.PrevValue)
 }
@@ -84,17 +93,17 @@ func (s byModRev) Less(i, j int) bool {
 }
 
 // NewWatcher watches a given etcd prefix for events.
-func NewWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix string) (Watcher, error) {
-	return newWatcher(ctx, client, []byte(trimPrefix), prefix, false)
+func NewWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix string, template proto.Message) (Watcher, error) {
+	return newWatcher(ctx, client, []byte(trimPrefix), prefix, false, template)
 }
 
 // NewWatcherWithPrev is like NewWatcher, except that the returned events
 // include the previous version of the values.
-func NewWatcherWithPrev(ctx context.Context, client *etcd.Client, trimPrefix, prefix string) (Watcher, error) {
-	return newWatcher(ctx, client, []byte(trimPrefix), prefix, true)
+func NewWatcherWithPrev(ctx context.Context, client *etcd.Client, trimPrefix, prefix string, template proto.Message) (Watcher, error) {
+	return newWatcher(ctx, client, []byte(trimPrefix), prefix, true, template)
 }
 
-func newWatcher(ctx context.Context, client *etcd.Client, trimPrefix []byte, prefix string, withPrev bool) (Watcher, error) {
+func newWatcher(ctx context.Context, client *etcd.Client, trimPrefix []byte, prefix string, withPrev bool, template proto.Message) (Watcher, error) {
 	eventCh := make(chan *Event)
 	done := make(chan struct{})
 	// First list the collection to get the current items
@@ -133,10 +142,11 @@ func newWatcher(ctx context.Context, client *etcd.Client, trimPrefix []byte, pre
 		}()
 		for _, etcdKv := range resp.Kvs {
 			eventCh <- &Event{
-				Key:   bytes.TrimPrefix(etcdKv.Key, trimPrefix),
-				Value: etcdKv.Value,
-				Type:  EventPut,
-				Rev:   etcdKv.ModRevision,
+				Key:      bytes.TrimPrefix(etcdKv.Key, trimPrefix),
+				Value:    etcdKv.Value,
+				Type:     EventPut,
+				Rev:      etcdKv.ModRevision,
+				Template: template,
 			}
 		}
 		for {
@@ -160,9 +170,10 @@ func newWatcher(ctx context.Context, client *etcd.Client, trimPrefix []byte, pre
 			}
 			for _, etcdEv := range resp.Events {
 				ev := &Event{
-					Key:   bytes.TrimPrefix(etcdEv.Kv.Key, trimPrefix),
-					Value: etcdEv.Kv.Value,
-					Rev:   etcdEv.Kv.ModRevision,
+					Key:      bytes.TrimPrefix(etcdEv.Kv.Key, trimPrefix),
+					Value:    etcdEv.Kv.Value,
+					Rev:      etcdEv.Kv.ModRevision,
+					Template: template,
 				}
 				if etcdEv.PrevKv != nil {
 					ev.PrevKey = bytes.TrimPrefix(etcdEv.PrevKv.Key, trimPrefix)
@@ -196,4 +207,16 @@ func MakeWatcher(eventCh chan *Event, done chan struct{}) Watcher {
 		eventCh: eventCh,
 		done:    done,
 	}
+}
+
+// CheckType checks to make sure val has the same type as template, unless
+// template is nil in which case it always returns nil.
+func CheckType(template proto.Message, val interface{}) error {
+	if template != nil {
+		valType, templateType := reflect.TypeOf(val), reflect.TypeOf(template)
+		if valType != templateType {
+			return fmt.Errorf("invalid type, got: %s, expected: %s", valType, templateType)
+		}
+	}
+	return nil
 }
