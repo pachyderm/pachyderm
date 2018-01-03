@@ -786,17 +786,16 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 			jobs := a.jobs.ReadWrite(stm)
 			jobID := jobInfo.Job.ID
 			jobPtr := &pps.EtcdJobInfo{}
-			if err := jobs.Get(jobID, jobInfo); err != nil {
+			if err := jobs.Get(jobID, jobPtr); err != nil {
 				return err
 			}
-			jobInfo.Finished = now()
-			jobInfo.StatsCommit = statsCommit
+			jobPtr.StatsCommit = statsCommit
 			if failedDatumID != "" {
 				return a.updateJobState(stm, jobPtr, pps.JobState_JOB_FAILURE, fmt.Sprintf("failed to process datum: %v", failedDatumID))
 			}
 			return a.updateJobState(stm, jobPtr, pps.JobState_JOB_SUCCESS, "")
 		})
-		return nil
+		return err
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		logger.Logf("error in waitJob %v, retrying in %v", err, d)
 		select {
