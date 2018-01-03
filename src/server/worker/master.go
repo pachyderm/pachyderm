@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/montanaflynn/stats"
 	"github.com/robfig/cron"
@@ -172,34 +171,6 @@ func (a *APIServer) serviceMaster() {
 		logger.Logf("master: error running the master process: %v; retrying in %v", err, d)
 		return nil
 	})
-}
-
-func (a *APIServer) jobInput(commitInfo *pfs.CommitInfo) *pps.Input {
-	// branchToCommit maps strings of the form "<repo>/<branch>" to PFS commits
-	branchToCommit := make(map[string]*pfs.Commit)
-	key := path.Join
-	for i, provCommit := range commitInfo.Provenance {
-		branchToCommit[key(provCommit.Repo.Name, commitInfo.BranchProvenance[i].Name)] = provCommit
-	}
-	jobInput := proto.Clone(a.pipelineInfo.Input).(*pps.Input)
-	pps.VisitInput(jobInput, func(input *pps.Input) {
-		if input.Atom != nil {
-			if commit, ok := branchToCommit[key(input.Atom.Repo, input.Atom.Branch)]; ok {
-				input.Atom.Commit = commit.ID
-			}
-		}
-		if input.Cron != nil {
-			if commit, ok := branchToCommit[key(input.Cron.Repo, "master")]; ok {
-				input.Cron.Commit = commit.ID
-			}
-		}
-		if input.Git != nil {
-			if commit, ok := branchToCommit[key(input.Git.Name, input.Git.Branch)]; ok {
-				input.Git.Commit = commit.ID
-			}
-		}
-	})
-	return jobInput
 }
 
 // spawnScaleDownGoroutine is a helper function for jobSpawner. It spawns a
@@ -368,7 +339,7 @@ func (a *APIServer) serviceSpawner(ctx context.Context) error {
 		}
 
 		// Create a job document matching the service's output commit
-		jobInput := a.jobInput(commitInfo)
+		jobInput := ppsutil.JobInput(a.pipelineInfo, commitInfo)
 		job, err := a.pachClient.WithCtx(ctx).CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
 		if err != nil {
 			return err
