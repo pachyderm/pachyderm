@@ -1895,29 +1895,8 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 		if !ok {
 			break
 		}
-		if request.DeleteJobs {
-			if _, err := a.DeleteJob(ctx, &pps.DeleteJobRequest{&pps.Job{jobID}}); err != nil {
-				return nil, err
-			}
-		} else {
-			if !jobStateToStopped(jobPtr.State) {
-				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-					jobs := a.jobs.ReadWrite(stm)
-					var jobInfo pps.JobInfo
-					if err := jobs.Get(jobID, &jobInfo); err != nil {
-						return err
-					}
-					// We need to check again here because the job's state
-					// might've changed since we first retrieved it
-					if !jobStateToStopped(jobInfo.State) {
-						jobInfo.State = pps.JobState_JOB_KILLED
-					}
-					jobs.Put(jobID, &jobInfo)
-					return nil
-				}); err != nil {
-					return nil, err
-				}
-			}
+		if _, err := a.DeleteJob(ctx, &pps.DeleteJobRequest{&pps.Job{jobID}}); err != nil {
+			return nil, err
 		}
 	}
 
