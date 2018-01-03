@@ -2096,6 +2096,8 @@ func TestATonOfPuts(t *testing.T) {
 	wg.Wait()
 	putFileFinished := time.Now()
 
+	fmt.Printf("completed putting the files\n")
+	return
 	finishCommitStarted := time.Now()
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 	finishCommitFinished := time.Now()
