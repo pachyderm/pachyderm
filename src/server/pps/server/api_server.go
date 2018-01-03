@@ -408,8 +408,12 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 		}
 	}
 
-	jobInfo := new(pps.JobInfo)
-	if err := jobs.Get(request.Job.ID, jobInfo); err != nil {
+	jobPtr := &pps.EtcdJobInfo{}
+	if err := jobs.Get(request.Job.ID, jobPtr); err != nil {
+		return nil, err
+	}
+	jobInfo, err := a.jobInfoFromPtr(ctx, jobPtr)
+	if err != nil {
 		return nil, err
 	}
 	// If the job is running we fill in WorkerStatus field, otherwise we just
@@ -455,17 +459,81 @@ func (a *apiServer) listJob(ctx context.Context, pipeline *pps.Pipeline, outputC
 	var jobInfos []*pps.JobInfo
 	for {
 		var jobID string
-		var jobInfo pps.JobInfo
-		ok, err := iter.Next(&jobID, &jobInfo)
+		var jobPtr pps.EtcdJobInfo
+		ok, err := iter.Next(&jobID, &jobPtr)
 		if err != nil {
 			return nil, err
 		}
 		if !ok {
 			break
 		}
-		jobInfos = append(jobInfos, &jobInfo)
+		jobInfo, err := a.jobInfoFromPtr(ctx, &jobPtr)
+		if err != nil {
+			return nil, err
+		}
+		jobInfos = append(jobInfos, jobInfo)
 	}
 	return jobInfos, nil
+}
+
+func (a *apiServer) jobInfoFromPtr(ctx context.Context, jobPtr *pps.EtcdJobInfo) (*pps.JobInfo, error) {
+	result := &pps.JobInfo{
+		Job:           jobPtr.Job,
+		Pipeline:      jobPtr.Pipeline,
+		OutputCommit:  jobPtr.OutputCommit,
+		Restart:       jobPtr.Restart,
+		DataProcessed: jobPtr.DataProcessed,
+		DataSkipped:   jobPtr.DataSkipped,
+		DataTotal:     jobPtr.DataTotal,
+		DataFailed:    jobPtr.DataFailed,
+		Stats:         jobPtr.Stats,
+		StatsCommit:   jobPtr.StatsCommit,
+		State:         jobPtr.State,
+		Reason:        jobPtr.Reason,
+	}
+	commitInfo, err := a.pachClient.WithCtx(ctx).InspectCommit(jobPtr.OutputCommit.Repo.Name, jobPtr.OutputCommit.ID)
+	if err != nil {
+		return nil, err
+	}
+	result.Started = commitInfo.Started
+	result.Finished = commitInfo.Finished
+	var specCommit *pfs.Commit
+	for i, provCommit := range commitInfo.Provenance {
+		provBranch := commitInfo.BranchProvenance[i]
+		if provBranch.Name == SpecBranch {
+			specCommit = provCommit
+			break
+		}
+	}
+	if specCommit == nil {
+		return nil, fmt.Errorf("couldn't find spec commit for job %s, (this is likely a bug)", jobPtr.Job.ID)
+	}
+	pipelinePtr := &pps.EtcdPipelineInfo{}
+	if err := a.pipelines.ReadOnly(ctx).Get(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
+		return nil, err
+	}
+	pipelineInfo, err := ppsutil.GetPipelineInfo(a.pachClient, jobPtr.Pipeline.Name, pipelinePtr)
+	if err != nil {
+		return nil, err
+	}
+	result.Transform = pipelineInfo.Transform
+	result.PipelineVersion = pipelineInfo.Version
+	result.ParallelismSpec = pipelineInfo.ParallelismSpec
+	result.Egress = pipelineInfo.Egress
+	result.Service = pipelineInfo.Service
+	result.OutputRepo = &pfs.Repo{Name: jobPtr.Pipeline.Name}
+	result.OutputBranch = pipelineInfo.OutputBranch
+	result.ResourceRequests = pipelineInfo.ResourceRequests
+	result.ResourceLimits = pipelineInfo.ResourceLimits
+	result.Input = ppsutil.JobInput(pipelineInfo, commitInfo)
+	result.Incremental = pipelineInfo.Incremental
+	result.EnableStats = pipelineInfo.EnableStats
+	result.Salt = pipelineInfo.Salt
+	result.Batch = pipelineInfo.Batch
+	result.ChunkSpec = pipelineInfo.ChunkSpec
+	result.DatumTimeout = pipelineInfo.DatumTimeout
+	result.JobTimeout = pipelineInfo.JobTimeout
+	return result, nil
 }
 
 func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (response *pps.JobInfos, retErr error) {

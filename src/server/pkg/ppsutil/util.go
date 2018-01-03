@@ -17,8 +17,10 @@ import (
 	"bytes"
 	"fmt"
 	"math"
+	"path"
 	"strings"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -172,4 +174,33 @@ func FailPipeline(ctx context.Context, etcdClient *etcd.Client, pipelinesCollect
 		return nil
 	})
 	return err
+}
+
+// JobInput fills in the commits for a JobInfo
+func JobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) *pps.Input {
+	// branchToCommit maps strings of the form "<repo>/<branch>" to PFS commits
+	branchToCommit := make(map[string]*pfs.Commit)
+	key := path.Join
+	for i, provCommit := range outputCommitInfo.Provenance {
+		branchToCommit[key(provCommit.Repo.Name, outputCommitInfo.BranchProvenance[i].Name)] = provCommit
+	}
+	jobInput := proto.Clone(pipelineInfo.Input).(*pps.Input)
+	pps.VisitInput(jobInput, func(input *pps.Input) {
+		if input.Atom != nil {
+			if commit, ok := branchToCommit[key(input.Atom.Repo, input.Atom.Branch)]; ok {
+				input.Atom.Commit = commit.ID
+			}
+		}
+		if input.Cron != nil {
+			if commit, ok := branchToCommit[key(input.Cron.Repo, "master")]; ok {
+				input.Cron.Commit = commit.ID
+			}
+		}
+		if input.Git != nil {
+			if commit, ok := branchToCommit[key(input.Git.Name, input.Git.Branch)]; ok {
+				input.Git.Commit = commit.ID
+			}
+		}
+	})
+	return jobInput
 }
