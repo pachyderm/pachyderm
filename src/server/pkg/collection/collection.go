@@ -135,6 +135,12 @@ func (c *readWriteCollection) Put(key string, val proto.Marshaler) error {
 }
 
 func (c *readWriteCollection) PutTTL(key string, val proto.Marshaler, ttl int64) error {
+	if c.template != nil {
+		valType, templateType := reflect.TypeOf(val), reflect.TypeOf(c.template)
+		if valType != templateType {
+			return fmt.Errorf("PUT with invalid type, got: %s, expected: %s", valType, templateType)
+		}
+	}
 	var options []etcd.OpOption
 	if ttl > 0 {
 		lease, err := c.collection.etcdClient.Grant(context.Background(), ttl)

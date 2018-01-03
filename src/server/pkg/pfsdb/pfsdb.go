@@ -63,7 +63,7 @@ func Branches(etcdClient *etcd.Client, etcdPrefix string, repo string) col.Colle
 		etcdClient,
 		path.Join(etcdPrefix, branchesPrefix, repo),
 		nil,
-		&pfs.Commit{},
+		&pfs.BranchInfo{},
 		func(key string) error {
 			if len(key) == uuid.UUIDWithoutDashesLength {
 				return fmt.Errorf("branch name cannot be of the same length as commit IDs")
