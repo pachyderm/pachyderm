@@ -296,17 +296,31 @@ func (a *APIServer) jobSpawner(ctx context.Context) error {
 					return err
 				}
 			}
-			// TODO check if there's already a job for this output commit.
-			job, err := a.pachClient.WithCtx(ctx).CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
+			var jobInfo *pps.JobInfo
+			jobInfos, err := a.pachClient.WithCtx(ctx).ListJob("", nil, commitInfo.Commit)
 			if err != nil {
 				return err
 			}
-
-			jobInfo, err := a.pachClient.PpsAPIClient.InspectJob(ctx, &pps.InspectJobRequest{
-				Job: job,
-			})
-			if err != nil {
-				return err
+			if len(jobInfos) > 0 {
+				if len(jobInfos) > 1 {
+					return fmt.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
+				}
+				jobInfo = jobInfos[0]
+			} else {
+				job, err := a.pachClient.WithCtx(ctx).CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
+				if err != nil {
+					return err
+				}
+				jobInfo, err = a.pachClient.PpsAPIClient.InspectJob(ctx, &pps.InspectJobRequest{
+					Job: job,
+				})
+				if err != nil {
+					return err
+				}
+			}
+			switch jobInfo.State {
+			case pps.JobState_JOB_SUCCESS, pps.JobState_JOB_KILLED, pps.JobState_JOB_FAILURE:
+				continue
 			}
 
 			// Now that the jobInfo is persisted, wait until all input commits are
