@@ -948,6 +948,11 @@ func (a *APIServer) worker() {
 			if err != nil {
 				return fmt.Errorf("error from InspectJob: %+v", err)
 			}
+			if jobInfo.PipelineVersion != a.pipelineInfo.Version {
+				return fmt.Errorf("job's version (%d) doesn't match pipeline's "+
+					"version (%d), this should automatically resolve when the worker "+
+					"is updated", jobInfo.PipelineVersion, a.pipelineInfo.Version)
+			}
 			chunks := &Chunks{}
 			if err := a.chunks.ReadOnly(ctx).GetBlock(jobInfo.Job.ID, chunks); err != nil {
 				return err
