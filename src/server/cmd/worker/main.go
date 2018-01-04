@@ -41,6 +41,9 @@ type appEnv struct {
 	// The name of the pipeline that this worker belongs to
 	PPSPipelineName string `env:"PPS_PIPELINE_NAME,required"`
 
+	// The ID of the commit that contains the pipeline spec.
+	PPSSpecCommitID string `env:"PPS_SPEC_COMMIT,required"`
+
 	// The name of this pod
 	PodName string `env:"PPS_POD_NAME,required"`
 
@@ -71,6 +74,11 @@ func getPipelineInfo(etcdClient *etcd.Client, pachClient *client.APIClient, appE
 		return nil, err
 	}
 	pachClient.SetAuthToken(pipelinePtr.Capability)
+	// Notice we use the SpecCommitID from our env, not from etcd. This is
+	// because the value in etcd might get updated while the worker pod is
+	// being created and we don't want to run the transform of one version of
+	// the pipeline in the image of a different verison.
+	pipelinePtr.SpecCommit.ID = appEnv.PPSSpecCommitID
 	return ppsutil.GetPipelineInfo(pachClient, appEnv.PPSPipelineName, &pipelinePtr)
 }
 

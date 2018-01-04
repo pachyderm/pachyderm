@@ -24,11 +24,11 @@ type workerOptions struct {
 	annotations      map[string]string // k8s annotations attached to the RC and workers
 	parallelism      int32             // Number of replicas the RC maintains
 	cacheSize        string            // Size of cache that sidecar uses
-	resourceRequests *v1.ResourceList // Resources requested by pipeline/job pods
-	resourceLimits   *v1.ResourceList // Resources requested by pipeline/job pods
-	workerEnv        []v1.EnvVar      // Environment vars set in the user container
-	volumes          []v1.Volume      // Volumes that we expose to the user container
-	volumeMounts     []v1.VolumeMount // Paths where we mount each volume in 'volumes'
+	resourceRequests *v1.ResourceList  // Resources requested by pipeline/job pods
+	resourceLimits   *v1.ResourceList  // Resources requested by pipeline/job pods
+	workerEnv        []v1.EnvVar       // Environment vars set in the user container
+	volumes          []v1.Volume       // Volumes that we expose to the user container
+	volumeMounts     []v1.VolumeMount  // Paths where we mount each volume in 'volumes'
 
 	// Secrets that we mount in the worker container (e.g. for reading/writing to
 	// s3)
@@ -176,7 +176,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 
 func (a *apiServer) getWorkerOptions(pipelineName string, rcName string,
 	parallelism int32, resourceRequests *v1.ResourceList, resourceLimits *v1.ResourceList, transform *pps.Transform,
-	cacheSize string, service *pps.Service) *workerOptions {
+	cacheSize string, service *pps.Service, specCommitID string) *workerOptions {
 	labels := labels(rcName)
 	userImage := transform.Image
 	if userImage == "" {
@@ -223,6 +223,10 @@ func (a *apiServer) getWorkerOptions(pipelineName string, rcName string,
 	workerEnv = append(workerEnv, v1.EnvVar{
 		Name:  client.PPSNamespaceEnv,
 		Value: a.namespace,
+	})
+	workerEnv = append(workerEnv, v1.EnvVar{
+		Name:  client.PPSSpecCommitEnv,
+		Value: specCommitID,
 	})
 
 	var volumes []v1.Volume

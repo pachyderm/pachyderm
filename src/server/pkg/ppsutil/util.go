@@ -157,6 +157,7 @@ func GetPipelineInfo(pachClient *client.APIClient, name string, ptr *pps.EtcdPip
 	result.State = ptr.State
 	result.Reason = ptr.Reason
 	result.JobCounts = ptr.JobCounts
+	result.SpecCommit = ptr.SpecCommit
 	return result, nil
 }
 
