@@ -2800,8 +2800,8 @@ func testGetLogs(t *testing.T, enableStats bool) {
 		require.True(t, iter.Message().Message != "")
 	}
 	// Make sure that we've seen some logs
-	require.True(t, numLogs > 0)
 	require.NoError(t, iter.Err())
+	require.True(t, numLogs > 0)
 
 	// Get logs from pipeline, using a job that doesn't exist. There should
 	// be an error
