@@ -363,6 +363,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			Job:          job,
 			OutputCommit: request.OutputCommit,
 			Pipeline:     request.Pipeline,
+			Stats:        &pps.ProcessStats{},
 		}
 		return a.updateJobState(stm, jobPtr, pps.JobState_JOB_STARTING)
 	})
@@ -477,6 +478,10 @@ func (a *apiServer) listJob(ctx context.Context, pipeline *pps.Pipeline, outputC
 }
 
 func (a *apiServer) jobInfoFromPtr(ctx context.Context, jobPtr *pps.EtcdJobInfo) (*pps.JobInfo, error) {
+	pachClient, err := a.getPachClient()
+	if err != nil {
+		return nil, err
+	}
 	result := &pps.JobInfo{
 		Job:           jobPtr.Job,
 		Pipeline:      jobPtr.Pipeline,
@@ -491,7 +496,7 @@ func (a *apiServer) jobInfoFromPtr(ctx context.Context, jobPtr *pps.EtcdJobInfo)
 		State:         jobPtr.State,
 		Reason:        jobPtr.Reason,
 	}
-	commitInfo, err := a.pachClient.WithCtx(ctx).InspectCommit(jobPtr.OutputCommit.Repo.Name, jobPtr.OutputCommit.ID)
+	commitInfo, err := pachClient.WithCtx(ctx).InspectCommit(jobPtr.OutputCommit.Repo.Name, jobPtr.OutputCommit.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -512,7 +517,7 @@ func (a *apiServer) jobInfoFromPtr(ctx context.Context, jobPtr *pps.EtcdJobInfo)
 	if err := a.pipelines.ReadOnly(ctx).Get(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
 		return nil, err
 	}
-	pipelineInfo, err := ppsutil.GetPipelineInfo(a.pachClient, jobPtr.Pipeline.Name, pipelinePtr)
+	pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, jobPtr.Pipeline.Name, pipelinePtr)
 	if err != nil {
 		return nil, err
 	}
