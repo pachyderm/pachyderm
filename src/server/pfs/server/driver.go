@@ -441,6 +441,9 @@ nextRepo:
 		if !ok {
 			break
 		}
+		if repoName == ppsconsts.SpecRepo {
+			continue nextRepo
+		}
 		// A repo needs to have *all* the given repos as provenance
 		// in order to be included in the result.
 		for _, reqProv := range provenance {
