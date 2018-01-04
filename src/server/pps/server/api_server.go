@@ -996,13 +996,13 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 		} else if request.Job != nil {
 			// If user provides a job, lookup the pipeline from the job info, and then
 			// get the pipeline RC
-			var jobInfo pps.JobInfo
-			err := a.jobs.ReadOnly(ctx).Get(request.Job.ID, &jobInfo)
+			var jobPtr pps.EtcdJobInfo
+			err := a.jobs.ReadOnly(ctx).Get(request.Job.ID, &jobPtr)
 			if err != nil {
 				return fmt.Errorf("could not get job information for \"%s\": %s", request.Job.ID, err.Error())
 			}
-			statsCommit = jobInfo.StatsCommit
-			pipelineInfo, err = a.inspectPipeline(ctx, pachClient, jobInfo.Pipeline.Name)
+			statsCommit = jobPtr.StatsCommit
+			pipelineInfo, err = a.inspectPipeline(ctx, pachClient, jobPtr.Pipeline.Name)
 		}
 		if err != nil {
 			return fmt.Errorf("could not get pipeline information for %s: %v", request.Pipeline.Name, err)
