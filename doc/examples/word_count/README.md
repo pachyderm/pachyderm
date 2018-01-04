@@ -12,7 +12,7 @@ In this example, we will have three processing stages defined by three pipeline 
 
 ![alt text](pachyderm_word_count.png)
 
-Our first pipeline, `scraper`, is a web scraper that just pulls content from the internet. Our second pipeline, `map`, tokenizes the words from the scraped pages in parallel over all pages and appends counts of words to files corresponding to those words. Our final pipeline, `reduce`, aggreates the the total counts for each word. 
+Our first pipeline, `scraper`, is a web scraper that just pulls content from the internet. Our second pipeline, `map`, tokenizes the words from the scraped pages in parallel over all pages and appends counts of words to files corresponding to those words. Our final pipeline, `reduce`, aggregates the total counts for each word. 
 
 All three pipelines, including `reduce`, can be run in a distributed fashion to maximize performance. 
 
@@ -149,6 +149,6 @@ $ pachctl finish-commit urls master
 ```
 Your scraper should automatically get started pulling these new sites (it won't rescrape Wikipedia). That will then automatically trigger the `map` and `reduce` pipelines to process the new data and update the word counts for all the sites combined.
 
-If you add a bunch more data and your pipeline starts to run slowly, you can crank up the parallism. By default, pipelines spin up one worker for each node in your cluster, but you can set that manually with the [parallelism spec](http://docs.pachyderm.io/en/latest/fundamentals/distributed_computing.html#controlling-the-number-of-workers-parallelism) field in the pipeline specification. Further, the pipelines are already configured to spread computation across the various workers with `"glob": "/*". Check out our [spreading data across workers docs](http://docs.pachyderm.io/en/latest/fundamentals/distributed_computing.html#spreading-data-across-workers-glob-patterns) to learn more about that. 
+If you add a bunch more data and your pipeline starts to run slowly, you can crank up the parallelism. By default, pipelines spin up one worker for each node in your cluster, but you can set that manually with the [parallelism spec](http://docs.pachyderm.io/en/latest/fundamentals/distributed_computing.html#controlling-the-number-of-workers-parallelism) field in the pipeline specification. Further, the pipelines are already configured to spread computation across the various workers with `"glob": "/*". Check out our [spreading data across workers docs](http://docs.pachyderm.io/en/latest/fundamentals/distributed_computing.html#spreading-data-across-workers-glob-patterns) to learn more about that. 
 
 
