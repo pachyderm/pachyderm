@@ -1048,7 +1048,7 @@ func TestDeletePipeline(t *testing.T) {
 		entries(alice, "owner"), GetACL(t, aliceClient, pipeline)))
 
 	// alice deletes the pipeline (owner of the input and output repos can delete)
-	require.NoError(t, aliceClient.DeletePipeline(pipeline, true))
+	require.NoError(t, aliceClient.DeletePipeline(pipeline))
 
 	// Make sure the remaining input and output repos *still* have non-empty ACLs
 	require.NoError(t, ElementsEqual(
@@ -1084,7 +1084,7 @@ func TestDeletePipeline(t *testing.T) {
 	))
 
 	// bob can't delete alice's pipeline
-	err := bobClient.DeletePipeline(pipeline, true)
+	err := bobClient.DeletePipeline(pipeline)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -1099,7 +1099,7 @@ func TestDeletePipeline(t *testing.T) {
 		entries(alice, "owner", bob, "reader"), GetACL(t, aliceClient, repo)))
 
 	// bob still can't delete alice's pipeline
-	err = bobClient.DeletePipeline(pipeline, true)
+	err = bobClient.DeletePipeline(pipeline)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -1124,7 +1124,7 @@ func TestDeletePipeline(t *testing.T) {
 		entries(alice, "owner", bob, "writer"), GetACL(t, aliceClient, pipeline)))
 
 	// bob still can't delete alice's pipeline
-	err = bobClient.DeletePipeline(pipeline, true)
+	err = bobClient.DeletePipeline(pipeline)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -1139,7 +1139,7 @@ func TestDeletePipeline(t *testing.T) {
 		entries(alice, "owner", bob, "reader"), GetACL(t, aliceClient, repo)))
 
 	// bob still can't delete alice's pipeline
-	err = bobClient.DeletePipeline(pipeline, true)
+	err = bobClient.DeletePipeline(pipeline)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -1154,7 +1154,7 @@ func TestDeletePipeline(t *testing.T) {
 		entries(alice, "owner", bob, "owner"), GetACL(t, aliceClient, pipeline)))
 
 	// finally bob can delete alice's pipeline
-	require.NoError(t, bobClient.DeletePipeline(pipeline, true))
+	require.NoError(t, bobClient.DeletePipeline(pipeline))
 }
 
 // Test ListRepo checks that the auth information returned by ListRepo and
