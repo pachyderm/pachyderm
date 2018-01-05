@@ -202,23 +202,11 @@ func ClusterRole() *rbacv1.ClusterRole {
 		Rules: []rbacv1.PolicyRule{{
 			APIGroups: []string{""},
 			Verbs:     []string{"get", "list", "watch"},
-			Resources: []string{"nodes"},
-		}, {
-			APIGroups: []string{""},
-			Verbs:     []string{"get", "list", "watch"},
-			Resources: []string{"pods"},
+			Resources: []string{"nodes", "pods", "pods/log", "endpoints"},
 		}, {
 			APIGroups: []string{""},
 			Verbs:     []string{"get", "list", "watch", "create", "update", "delete"},
-			Resources: []string{"replicationcontrollers"},
-		}, {
-			APIGroups: []string{""},
-			Verbs:     []string{"get", "list", "watch", "create", "update", "delete"},
-			Resources: []string{"services"},
-		}, {
-			APIGroups: []string{""},
-			Verbs:     []string{"get", "list", "watch"},
-			Resources: []string{"endpoints"},
+			Resources: []string{"replicationcontrollers", "services"},
 		}, {
 			APIGroups:     []string{""},
 			Verbs:         []string{"get", "list", "watch", "create", "update", "delete"},
