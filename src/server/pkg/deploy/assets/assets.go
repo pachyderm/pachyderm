@@ -209,16 +209,21 @@ func ClusterRole() *rbacv1.ClusterRole {
 			Resources: []string{"pods"},
 		}, {
 			APIGroups: []string{""},
-			Verbs:     []string{"get", "list", "watch", "create", "delete"},
+			Verbs:     []string{"get", "list", "watch", "create", "update", "delete"},
 			Resources: []string{"replicationcontrollers"},
 		}, {
 			APIGroups: []string{""},
-			Verbs:     []string{"get", "list", "watch", "create", "delete"},
+			Verbs:     []string{"get", "list", "watch", "create", "update", "delete"},
 			Resources: []string{"services"},
 		}, {
 			APIGroups: []string{""},
 			Verbs:     []string{"get", "list", "watch"},
 			Resources: []string{"endpoints"},
+		}, {
+			APIGroups:     []string{""},
+			Verbs:         []string{"get", "list", "watch", "create", "update", "delete"},
+			Resources:     []string{"secrets"},
+			ResourceNames: []string{client.StorageSecretName},
 		}},
 	}
 }
