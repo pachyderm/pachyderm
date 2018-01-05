@@ -489,6 +489,8 @@ Are you sure you want to proceed? yN
 				"serviceaccount",
 				"secret",
 				"statefulset",
+				"clusterrole",
+				"clusterrolebinding",
 			}
 			if all {
 				assets = append(assets, []string{

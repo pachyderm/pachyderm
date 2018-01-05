@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	apps "k8s.io/api/apps/v1beta1"
 	"k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -35,6 +36,8 @@ var (
 	dashImage      = "pachyderm/dash"
 
 	serviceAccountName      = "pachyderm"
+	clusterRoleName         = "pachyderm"
+	clusterRoleBindingName  = "pachyderm"
 	etcdHeadlessServiceName = "etcd-headless"
 	etcdName                = "etcd"
 	etcdVolumeName          = "etcd-volume"
@@ -181,6 +184,65 @@ func ServiceAccount() *v1.ServiceAccount {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   serviceAccountName,
 			Labels: labels(""),
+		},
+	}
+}
+
+// ClusterRole returns a ClusterRole that should be bound to the Pachyderm service account.
+func ClusterRole() *rbacv1.ClusterRole {
+	return &rbacv1.ClusterRole{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ClusterRole",
+			APIVersion: "rbac.authorization.k8s.io/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   clusterRoleName,
+			Labels: labels(""),
+		},
+		Rules: []rbacv1.PolicyRule{{
+			APIGroups: []string{""},
+			Verbs:     []string{"get", "list", "watch"},
+			Resources: []string{"nodes"},
+		}, {
+			APIGroups: []string{""},
+			Verbs:     []string{"get", "list", "watch"},
+			Resources: []string{"pods"},
+		}, {
+			APIGroups: []string{""},
+			Verbs:     []string{"get", "list", "watch", "create", "delete"},
+			Resources: []string{"replicationcontrollers"},
+		}, {
+			APIGroups: []string{""},
+			Verbs:     []string{"get", "list", "watch", "create", "delete"},
+			Resources: []string{"services"},
+		}, {
+			APIGroups: []string{""},
+			Verbs:     []string{"get", "list", "watch"},
+			Resources: []string{"endpoints"},
+		}},
+	}
+}
+
+// ClusterRoleBinding returns a ClusterRoleBinding that binds Pachyderm's
+// ClusterRole to its ServiceAccount.
+func ClusterRoleBinding() *rbacv1.ClusterRoleBinding {
+	return &rbacv1.ClusterRoleBinding{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ClusterRoleBinding",
+			APIVersion: "rbac.authorization.k8s.io/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   clusterRoleBindingName,
+			Labels: labels(""),
+		},
+		Subjects: []rbacv1.Subject{{
+			Kind:      "ServiceAccount",
+			Name:      serviceAccountName,
+			Namespace: "default",
+		}},
+		RoleRef: rbacv1.RoleRef{
+			Kind: "ClusterRole",
+			Name: clusterRoleName,
 		},
 	}
 }
@@ -1105,6 +1167,10 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 	encoder := json.NewEncoder(w)
 
 	encoder.Encode(ServiceAccount())
+	fmt.Fprintf(w, "\n")
+	encoder.Encode(ClusterRole())
+	fmt.Fprintf(w, "\n")
+	encoder.Encode(ClusterRoleBinding())
 	fmt.Fprintf(w, "\n")
 
 	if opts.EtcdNodes > 0 && opts.EtcdVolume != "" {
