@@ -24,11 +24,11 @@ type workerOptions struct {
 	annotations      map[string]string // k8s annotations attached to the RC and workers
 	parallelism      int32             // Number of replicas the RC maintains
 	cacheSize        string            // Size of cache that sidecar uses
-	resourceRequests *v1.ResourceList // Resources requested by pipeline/job pods
-	resourceLimits   *v1.ResourceList // Resources requested by pipeline/job pods
-	workerEnv        []v1.EnvVar      // Environment vars set in the user container
-	volumes          []v1.Volume      // Volumes that we expose to the user container
-	volumeMounts     []v1.VolumeMount // Paths where we mount each volume in 'volumes'
+	resourceRequests *v1.ResourceList  // Resources requested by pipeline/job pods
+	resourceLimits   *v1.ResourceList  // Resources requested by pipeline/job pods
+	workerEnv        []v1.EnvVar       // Environment vars set in the user container
+	volumes          []v1.Volume       // Volumes that we expose to the user container
+	volumeMounts     []v1.VolumeMount  // Paths where we mount each volume in 'volumes'
 
 	// Secrets that we mount in the worker container (e.g. for reading/writing to
 	// s3)
@@ -162,6 +162,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		ImagePullSecrets:              options.imagePullSecrets,
 		TerminationGracePeriodSeconds: &zeroVal,
 		SecurityContext:               &v1.PodSecurityContext{RunAsUser: &zeroVal},
+		ServiceAccountName:            assets.ServiceAccountName,
 	}
 	resourceRequirements := v1.ResourceRequirements{}
 	if options.resourceRequests != nil {

@@ -35,7 +35,7 @@ var (
 	pauseImage     = "gcr.io/google_containers/pause-amd64:3.0"
 	dashImage      = "pachyderm/dash"
 
-	serviceAccountName      = "pachyderm"
+	ServiceAccountName      = "pachyderm"
 	clusterRoleName         = "pachyderm"
 	clusterRoleBindingName  = "pachyderm"
 	etcdHeadlessServiceName = "etcd-headless"
@@ -182,7 +182,7 @@ func ServiceAccount() *v1.ServiceAccount {
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   serviceAccountName,
+			Name:   ServiceAccountName,
 			Labels: labels(""),
 		},
 	}
@@ -230,7 +230,7 @@ func ClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 		},
 		Subjects: []rbacv1.Subject{{
 			Kind:      "ServiceAccount",
-			Name:      serviceAccountName,
+			Name:      ServiceAccountName,
 			Namespace: "default",
 		}},
 		RoleRef: rbacv1.RoleRef{
@@ -454,7 +454,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 							Resources:       resourceRequirements,
 						},
 					},
-					ServiceAccountName: serviceAccountName,
+					ServiceAccountName: ServiceAccountName,
 					Volumes:            volumes,
 					ImagePullSecrets:   imagePullSecrets(opts),
 				},
