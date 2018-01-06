@@ -1500,7 +1500,7 @@ func TestAcceptReturnCode(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 
-	pipelineName := uniqueString("TestAcceptReturnCode")
+	pipelineName := uniqueString("pipeline")
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
