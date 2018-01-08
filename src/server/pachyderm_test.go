@@ -2118,7 +2118,7 @@ func TestManyFilesSingleCommit(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c := getPachClient(t)
-	//defer require.NoError(t, c.DeleteAll())
+	defer require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := uniqueString("TestManyFilesSingleCommit_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
