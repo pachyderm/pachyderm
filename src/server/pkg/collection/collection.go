@@ -252,6 +252,10 @@ func (c *readWriteCollection) DeleteAll() {
 	c.stm.DelAll(c.prefix)
 }
 
+func (c *readWriteCollection) DeleteAllWithPrefix(prefix string) {
+	c.stm.DelAll(path.Join(c.prefix, prefix) + "/")
+}
+
 type readWriteIntCollection struct {
 	*collection
 	stm STM
