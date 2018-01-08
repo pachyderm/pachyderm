@@ -1727,7 +1727,7 @@ func (d *driver) constructTreeFromPrefix(ctx context.Context, prefix string, par
 		for {
 			putFileRecords := &pfs.PutFileRecords{}
 			var key string
-			ok, err := iter.NextFullyQualified(&key, putFileRecords)
+			ok, err := iter.Next(&key, putFileRecords)
 			if !ok {
 				break
 			}
