@@ -1946,7 +1946,6 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 		return err
 	}
 
-	start := time.Now()
 	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		revision := stm.Rev(d.openCommits.Path(file.Commit.ID))
 		if revision == 0 {
@@ -1966,7 +1965,6 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 			existingRecords.Split = newRecords.Split
 			existingRecords.Records = append(existingRecords.Records, newRecords.Records...)
 		}
-		// Now put the new data
 		recordsCol.Put(prefix, &existingRecords)
 		return nil
 	})
@@ -1987,7 +1985,6 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 		})
 	}
 
-	fmt.Printf("took %v to commit STM\n", time.Since(start))
 	return err
 }
 
