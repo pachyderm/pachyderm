@@ -464,7 +464,7 @@ func (c *readonlyCollection) List() (Iterator, error) {
 	}
 	return &iterator{
 		resp: resp,
-	}, err
+	}, nil
 }
 
 type iterator struct {
