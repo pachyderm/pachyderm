@@ -1589,7 +1589,6 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 			}
 			records := &pfs.PutFileRecords{}
 			file := client.NewFile(dst.Commit.Repo.Name, dst.Commit.ID, path.Clean(path.Join(dst.Path, relPath)))
-			prefix, err := d.scratchFilePrefix(ctx, file)
 			if err != nil {
 				return err
 			}
@@ -1603,20 +1602,7 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 					ObjectHash: object.Hash,
 				})
 			}
-			marshalledRecords, err := records.Marshal()
-			if err != nil {
-				return err
-			}
-			kvc := etcd.NewKV(d.etcdClient)
-			txnResp, err := kvc.Txn(ctx).
-				If(etcd.Compare(etcd.CreateRevision(d.openCommits.Path(file.Commit.ID)), ">", 0)).Then(etcd.OpPut(path.Join(prefix, uuid.NewWithoutDashes()), string(marshalledRecords))).Commit()
-			if err != nil {
-				return err
-			}
-			if !txnResp.Succeeded {
-				return fmt.Errorf("commit %v is not open", file.Commit.ID)
-			}
-			return nil
+			return d.upsertPutFileRecords(ctx, file, records)
 		})
 		return nil
 	}); err != nil {
