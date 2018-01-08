@@ -409,14 +409,15 @@ func endKeyFromPrefix(prefix string) string {
 	return prefix[0:len(prefix)-1] + string(byte(prefix[len(prefix)-1])+1)
 }
 
-func (c *readonlyCollection) ListPrefix(prefix string) (Iterator, error) {
+// ListWithPrefix returns lexigraphically sorted (not sorted by create time)
+// results and returns an iterator that is paginated
+func (c *readonlyCollection) ListWithPrefix(prefix string) (Iterator, error) {
 	queryPrefix := c.prefix
 	if prefix != "" {
 		// If we always call join, we'll get rid of the trailing slash we need
 		// on the root c.prefix
 		queryPrefix = filepath.Join(c.prefix, prefix)
 	}
-	//	resp, err := c.etcdClient.Get(c.ctx, queryPrefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend))
 	// omit sort so that we get results lexigraphically ordered, so that we can paginate properly
 	resp, err := c.etcdClient.Get(c.ctx, queryPrefix, etcd.WithPrefix(), etcd.WithLimit(queryPaginationLimit))
 	if err != nil {

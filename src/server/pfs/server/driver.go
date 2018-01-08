@@ -1706,7 +1706,7 @@ func (d *driver) constructTreeFromPrefix(ctx context.Context, prefix string, par
 		tree := parentTree.Open()
 
 		recordsCol := d.putFileRecords.ReadOnly(ctx)
-		iter, err := recordsCol.ListPrefix(prefix)
+		iter, err := recordsCol.ListWithPrefix(prefix)
 		if err != nil {
 			return err
 		}
