@@ -442,7 +442,7 @@ func (c *readonlyCollection) ListPrefix(prefix string) (Iterator, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &iterator{
+	return &paginatedIterator{
 		endKey:     endKeyFromPrefix(queryPrefix),
 		resp:       resp,
 		etcdClient: c.etcdClient,
@@ -454,10 +454,21 @@ func (c *readonlyCollection) ListPrefix(prefix string) (Iterator, error) {
 // The objects are sorted by revision time in descending order, i.e. newer
 // objects are returned first.
 func (c *readonlyCollection) List() (Iterator, error) {
-	return c.ListPrefix("")
+	resp, err := c.etcdClient.Get(c.ctx, c.prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend))
+	if err != nil {
+		return nil, err
+	}
+	return &iterator{
+		resp: resp,
+	}, err
 }
 
 type iterator struct {
+	index int
+	resp  *etcd.GetResponse
+}
+
+type paginatedIterator struct {
 	index      int
 	endKey     string
 	resp       *etcd.GetResponse
@@ -488,7 +499,8 @@ func (i *iterator) Next(key *string, val proto.Unmarshaler) (ok bool, retErr err
 	return false, nil
 }
 
-func (i *iterator) NextFullyQualified(key *string, val proto.Unmarshaler) (ok bool, retErr error) {
+// Next() writes a fully qualified key (including the path) to the key value
+func (i *paginatedIterator) Next(key *string, val proto.Unmarshaler) (ok bool, retErr error) {
 	if i.index < len(i.resp.Kvs) {
 		kv := i.resp.Kvs[i.index]
 		i.index++
@@ -516,7 +528,7 @@ func (i *iterator) NextFullyQualified(key *string, val proto.Unmarshaler) (ok bo
 	}
 	i.index = 1 // Move past the from key
 	i.resp = resp
-	return i.NextFullyQualified(key, val)
+	return i.Next(key, val)
 }
 
 // Watch a collection, returning the current content of the collection as

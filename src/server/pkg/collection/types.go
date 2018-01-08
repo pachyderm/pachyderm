@@ -106,5 +106,4 @@ type Iterator interface {
 	// ok is true if the serialization was successful.  It's false if the
 	// collection has been exhausted.
 	Next(key *string, val proto.Unmarshaler) (ok bool, retErr error)
-	NextFullyQualified(key *string, val proto.Unmarshaler) (ok bool, retErr error)
 }
