@@ -69,6 +69,7 @@ type ReadWriteCollection interface {
 	Create(key string, val proto.Marshaler) error
 	Delete(key string) error
 	DeleteAll()
+	DeleteAllWithPrefix(prefix string)
 }
 
 // ReadWriteIntCollection is a ReadonlyCollection interface specifically for ints.

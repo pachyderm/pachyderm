@@ -1970,6 +1970,23 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 		recordsCol.Put(prefix, &existingRecords)
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+	// If there is a tombstone, remove any records for children under this directory
+	// This allows us to support deleting dirs / adding children properly, e.g. `TestDeleteDir`
+	if newRecords.Tombstone {
+		_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+			revision := stm.Rev(d.openCommits.Path(file.Commit.ID))
+			if revision == 0 {
+				return fmt.Errorf("commit %v is not open", file.Commit.ID)
+			}
+			recordsCol := d.putFileRecords.ReadWrite(stm)
+			recordsCol.DeleteAllWithPrefix(prefix)
+			return nil
+		})
+	}
+
 	fmt.Printf("took %v to commit STM\n", time.Since(start))
 	return err
 }
