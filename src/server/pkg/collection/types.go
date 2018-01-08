@@ -90,7 +90,7 @@ type ReadonlyCollection interface {
 	// GetBlock is like Get but waits for the key to exist if it doesn't already.
 	GetBlock(key string, val proto.Unmarshaler) error
 	List() (Iterator, error)
-	ListPrefix(prefix string) (Iterator, error)
+	ListWithPrefix(prefix string) (Iterator, error)
 	Count() (int64, error)
 	Watch() (watch.Watcher, error)
 	// WatchWithPrev is like Watch, but the events will include the previous
