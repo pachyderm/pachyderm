@@ -2053,11 +2053,10 @@ func TestGetFileInvalidCommit(t *testing.T) {
 	require.YesError(t, err)
 }
 
-func TestATonOfPuts(t *testing.T) {
+func TestManyPutsSingleFileSingleCommit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping long tests in short mode")
 	}
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "test"
@@ -2073,11 +2072,10 @@ func TestATonOfPuts(t *testing.T) {
 		},
 		"timing":[1,3,34,6,7]
 	}`
-	numObjs := 5000
-	numGoros := 100
+	numObjs := 500
+	numGoros := 10
 	var expectedOutput []byte
 	var wg sync.WaitGroup
-	putFileStarted := time.Now()
 	for j := 0; j < numGoros; j++ {
 		wg.Add(1)
 		go func() {
@@ -2094,19 +2092,11 @@ func TestATonOfPuts(t *testing.T) {
 		expectedOutput = append(expectedOutput, []byte(rawMessage)...)
 	}
 	wg.Wait()
-	putFileFinished := time.Now()
-
-	fmt.Printf("completed putting the files\n")
-	return
-	finishCommitStarted := time.Now()
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
-	finishCommitFinished := time.Now()
 
 	var buffer bytes.Buffer
 	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, &buffer))
 	require.Equal(t, string(expectedOutput), buffer.String())
-	fmt.Printf("PutFile took: %s\n", putFileFinished.Sub(putFileStarted))
-	fmt.Printf("FinishCommit took: %s\n", finishCommitFinished.Sub(finishCommitStarted))
 }
 
 func TestPutFileNullCharacter(t *testing.T) {
