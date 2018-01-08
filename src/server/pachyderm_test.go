@@ -95,7 +95,6 @@ func TestSimplePipeline(t *testing.T) {
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
 	require.Equal(t, "foo", buf.String())
-	fmt.Printf("completed the test??\n")
 }
 
 func TestPipelineWithParallelism(t *testing.T) {
