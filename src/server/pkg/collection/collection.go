@@ -15,7 +15,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
-const queryPaginationLimit = 10000
+//QueryPaginationLimit defines the maximum number of results returned in an
+// etcd query using a paginated iterator
+const QueryPaginationLimit = 10000
 
 type collection struct {
 	etcdClient *etcd.Client
@@ -419,7 +421,7 @@ func (c *readonlyCollection) ListWithPrefix(prefix string) (Iterator, error) {
 		queryPrefix = filepath.Join(c.prefix, prefix)
 	}
 	// omit sort so that we get results lexigraphically ordered, so that we can paginate properly
-	resp, err := c.etcdClient.Get(c.ctx, queryPrefix, etcd.WithPrefix(), etcd.WithLimit(queryPaginationLimit))
+	resp, err := c.etcdClient.Get(c.ctx, queryPrefix, etcd.WithPrefix(), etcd.WithLimit(QueryPaginationLimit))
 	if err != nil {
 		return nil, err
 	}
@@ -499,7 +501,7 @@ func (i *paginatedIterator) Next(key *string, val proto.Unmarshaler) (ok bool, r
 	}
 	// Reached end of resp, try for another page
 	fromKey := string(i.resp.Kvs[len(i.resp.Kvs)-1].Key)
-	resp, err := i.etcdClient.Get(i.ctx, fromKey, etcd.WithRange(i.endKey), etcd.WithLimit(queryPaginationLimit))
+	resp, err := i.etcdClient.Get(i.ctx, fromKey, etcd.WithRange(i.endKey), etcd.WithLimit(QueryPaginationLimit))
 	if err != nil {
 		return false, err
 	}
