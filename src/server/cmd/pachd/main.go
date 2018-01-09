@@ -5,9 +5,12 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"path"
 	"strconv"
 	"strings"
+	"time"
 
+	etcd "github.com/coreos/etcd/clientv3"
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client"
 	authclient "github.com/pachyderm/pachyderm/src/client/auth"
@@ -32,11 +35,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/migration"
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
+	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	v1 "k8s.io/api/core/v1"
@@ -109,9 +114,9 @@ func doSidecarMode(appEnvObj interface{}) error {
 	}
 
 	etcdAddress := fmt.Sprintf("http://%s:2379", appEnv.EtcdAddress)
-	etcdClient := getEtcdClient(etcdAddress)
+	etcdClientV2 := getEtcdClient(etcdAddress)
 
-	clusterID, err := getClusterID(etcdClient)
+	clusterID, err := getClusterID(etcdClientV2)
 	if err != nil {
 		return err
 	}
@@ -211,7 +216,13 @@ func doFullMode(appEnvObj interface{}) error {
 		log.SetLevel(log.InfoLevel)
 	}
 	etcdAddress := fmt.Sprintf("http://%s:2379", appEnv.EtcdAddress)
-	etcdClient := getEtcdClient(etcdAddress)
+	etcdClientV2 := getEtcdClient(etcdAddress)
+	etcdClientV3, err := etcd.New(etcd.Config{
+		Endpoints:   []string{etcdAddress},
+		DialOptions: append(client.EtcdDialOptions(), grpc.WithTimeout(5*time.Minute)),
+	})
+
+	// Check if Pachd pods are ready
 	if readinessCheck {
 		c, err := client.NewFromAddress("127.0.0.1:650")
 		if err != nil {
@@ -235,7 +246,7 @@ func doFullMode(appEnvObj interface{}) error {
 		return nil
 	}
 
-	clusterID, err := getClusterID(etcdClient)
+	clusterID, err := getClusterID(etcdClientV2)
 	if err != nil {
 		return err
 	}
@@ -253,7 +264,7 @@ func doFullMode(appEnvObj interface{}) error {
 	}
 	address = fmt.Sprintf("%s:%d", address, appEnv.Port)
 	sharder := shard.NewSharder(
-		etcdClient,
+		etcdClientV2,
 		appEnv.NumShards,
 		appEnv.Namespace,
 	)
@@ -320,6 +331,20 @@ func doFullMode(appEnvObj interface{}) error {
 	authAPIServer, err := authserver.NewAuthServer(address, etcdAddress, appEnv.AuthEtcdPrefix)
 	if err != nil {
 		return err
+	}
+	// Get the PPS token and put it in etcd.
+	// This might emit an error, if the token has already been created or auth
+	// has already been activated (in which case the token should also have
+	// already been created). But in either  case we want to ignore the error and
+	// re-use the existing token
+	capabilityResp, err := authAPIServer.GetCapability(context.Background(), &authclient.GetCapabilityRequest{})
+	if err == nil {
+		_, err := etcdClientV3.Put(context.Background(),
+			path.Join(appEnv.PPSEtcdPrefix, ppsconsts.PPSTokenKey),
+			capabilityResp.Capability)
+		if err != nil {
+			return err
+		}
 	}
 	enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(etcdAddress, appEnv.EnterpriseEtcdPrefix)
 	if err != nil {
