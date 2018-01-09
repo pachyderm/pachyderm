@@ -466,10 +466,9 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 }
 
 func (a *apiServer) jobInfoFromPtr(ctx context.Context, jobPtr *pps.EtcdJobInfo) (*pps.JobInfo, error) {
-	pachClient, err := a.getPachClient()
-	if err != nil {
-		return nil, err
-	}
+	// TODO accept pachClient argument
+	pachClient := a.getPachClient().WithCtx(ctx)
+	ctx = pachClient.Ctx()
 	result := &pps.JobInfo{
 		Job:           jobPtr.Job,
 		Pipeline:      jobPtr.Pipeline,
@@ -484,7 +483,7 @@ func (a *apiServer) jobInfoFromPtr(ctx context.Context, jobPtr *pps.EtcdJobInfo)
 		State:         jobPtr.State,
 		Reason:        jobPtr.Reason,
 	}
-	commitInfo, err := pachClient.WithCtx(ctx).InspectCommit(jobPtr.OutputCommit.Repo.Name, jobPtr.OutputCommit.ID)
+	commitInfo, err := pachClient.InspectCommit(jobPtr.OutputCommit.Repo.Name, jobPtr.OutputCommit.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -493,7 +492,7 @@ func (a *apiServer) jobInfoFromPtr(ctx context.Context, jobPtr *pps.EtcdJobInfo)
 	var specCommit *pfs.Commit
 	for i, provCommit := range commitInfo.Provenance {
 		provBranch := commitInfo.BranchProvenance[i]
-		if provBranch.Name == SpecBranch {
+		if provBranch.Repo.Name == ppsconsts.SpecRepo {
 			specCommit = provCommit
 			break
 		}
@@ -1843,7 +1842,7 @@ func (a *apiServer) deletePipelineBranch(pachClient *client.APIClient, pipeline 
 	// copy pachClient, so we can overwrite the auth token
 	pachClientCopy := *pachClient
 	pachClient = &pachClientCopy
-	
+
 	// Set the pach client's auth token to the master token. At this point, no
 	// parameters to any pachClient requests should be unvalidated user input, as
 	// the pachClient has admin-level authority
@@ -1938,8 +1937,9 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			return a.pipelines.ReadWrite(stm).Delete(request.Pipeline.Name)
 		}); err != nil {
-			return nil, fmt.Errorf("collection.Delete: %v", err)
+			return fmt.Errorf("collection.Delete: %v", err)
 		}
+		return nil
 	})
 	// Delete output repo
 	eg.Go(func() error {
