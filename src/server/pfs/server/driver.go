@@ -685,7 +685,6 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, descripti
 	if err != nil {
 		return err
 	}
-
 	// Serialize the tree
 	data, err := hashtree.Serialize(finishedTree)
 	if err != nil {
