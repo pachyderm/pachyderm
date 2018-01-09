@@ -1,15 +1,18 @@
 // Package ppsconsts constains constants relevant to PPS that are used across
-// Pachyderm. In particular, the pipeline spec branch is handled specially by
-// PFS, and PFS needs to refer to its name without depending on any other part
-// of PPS. This package contains that and related constants as a minimal
-// dependency for PFS.
+// Pachyderm. In particular, the pipeline spec repo is handled specially by PFS
+// and Auth, and those implementations need to refer to its name without
+// depending on any other part of PPS. This package contains that and related
+// constants as a minimal dependency for PFS and auth
 package ppsconsts
 
 const (
-	// SpecBranch is a branch in every pipeline's output repo that contains the
-	// pipeline's PipelineInfo
-	SpecBranch = "spec"
+	// SpecRepo contains every pipeline's PipelineInfo (in its own branch)
+	SpecRepo = "spec"
 
-	// SpecFile is the file in every SpecBranch commit containing the PipelineInfo
+	// SpecFile is the file in every SpecRepo commit containing the PipelineInfo
 	SpecFile = "spec"
+
+	// PPSTokenKey is a key (in etcd) that maps to PPS's auth token.
+	// This is the token that PPS uses to authorize spec writes.
+	PPSTokenKey = "master_token"
 )

@@ -1470,7 +1470,7 @@ func TestAcceptReturnCode(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 
-	pipelineName := uniqueString("TestAcceptReturnCode")
+	pipelineName := uniqueString("pipeline")
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
@@ -1847,6 +1847,8 @@ func TestUpdatePipeline(t *testing.T) {
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
 	require.Equal(t, "bar\n", buffer.String())
 
+	// Update the pipeline again, this time with Reprocess: true set. Now we
+	// should see a different output file
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
