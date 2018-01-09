@@ -426,9 +426,7 @@ func benchmarkPutManyFilesSingleCommitFinishCommit(numFiles int, b *testing.B) {
 		}
 		// We're actually benchmarking the finish commit
 		b.StartTimer()
-		start := time.Now()
 		require.NoError(b, c.FinishCommit(dataRepo, "master"))
-		fmt.Printf("took %v to finish commit w %v files (b.N = %v)\n", time.Since(start), numFiles, b.N)
 	}
 }
 
@@ -457,11 +455,9 @@ func benchmarkPutManyFilesSingleCommit(numFiles int, b *testing.B) {
 		_, err := c.StartCommit(dataRepo, "master")
 		require.NoError(b, err)
 		b.StartTimer()
-		start := time.Now()
 		for i := 0; i < numFiles; i++ {
 			_, err = c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i), strings.NewReader(""))
 			require.NoError(b, err)
 		}
-		fmt.Printf("took %v to finish commit w %v files (b.N = %v)\n", time.Since(start), numFiles, b.N)
 	}
 }
