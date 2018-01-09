@@ -208,7 +208,9 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 	if err := ValidateRepoName(repo.Name); err != nil {
 		return err
 	}
-	d.initializePachConn()
+	if err := d.initializePachConn(); err != nil {
+		return err
+	}
 	if update {
 		return d.updateRepo(ctx, repo, provenance, description)
 	}

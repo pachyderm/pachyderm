@@ -745,7 +745,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		entries(alice, "owner"), GetACL(t, aliceClient, dataRepo2)))
 
 	// alice can create a cross-pipeline with both inputs
-	aliceCrossPipeline := tu.UniqueString("alice-pipeline-cross")
+	aliceCrossPipeline := tu.UniqueString("alice-cross")
 	require.NoError(t, createPipeline(createArgs{
 		client: aliceClient,
 		name:   aliceCrossPipeline,
@@ -760,7 +760,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 		entries(alice, "owner"), GetACL(t, aliceClient, aliceCrossPipeline)))
 
 	// alice can create a union-pipeline with both inputs
-	aliceUnionPipeline := tu.UniqueString("alice-pipeline-union")
+	aliceUnionPipeline := tu.UniqueString("alice-union")
 	require.NoError(t, createPipeline(createArgs{
 		client: aliceClient,
 		name:   aliceUnionPipeline,
@@ -783,7 +783,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	require.NoError(t, err)
 
 	// bob cannot create a cross-pipeline with both inputs
-	bobCrossPipeline := tu.UniqueString("bob-pipeline-cross")
+	bobCrossPipeline := tu.UniqueString("bob-cross")
 	err = createPipeline(createArgs{
 		client: bobClient,
 		name:   bobCrossPipeline,
@@ -797,7 +797,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	require.NoneEquals(t, bobCrossPipeline, PipelineNames(t, aliceClient))
 
 	// bob cannot create a union-pipeline with both inputs
-	bobUnionPipeline := tu.UniqueString("bob-pipeline-union")
+	bobUnionPipeline := tu.UniqueString("bob-union")
 	err = createPipeline(createArgs{
 		client: bobClient,
 		name:   bobUnionPipeline,
@@ -932,6 +932,16 @@ func TestPipelineRevoke(t *testing.T) {
 	))
 	require.NoError(t, ElementsEqual(
 		entries(bob, "owner"), GetACL(t, bobClient, pipeline)))
+	// bob adds alice as a reader of the pipeline's output repo, so alice can
+	// flush input commits (which requires her to inspect commits in the output)
+	_, err = bobClient.SetScope(bobClient.Ctx(), &auth.SetScopeRequest{
+		Repo:     pipeline,
+		Username: alice,
+		Scope:    auth.Scope_READER,
+	})
+	require.NoError(t, err)
+	require.NoError(t, ElementsEqual(
+		entries(bob, "owner", alice, "reader"), GetACL(t, bobClient, pipeline)))
 
 	// alice commits to the input repo, and the pipeline runs successfully
 	commit, err := aliceClient.StartCommit(repo, "master")
@@ -1015,7 +1025,7 @@ func TestPipelineRevoke(t *testing.T) {
 	})
 }
 
-func TestDeletePipeline(t *testing.T) {
+func TestStopAndDeletePipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1047,8 +1057,8 @@ func TestDeletePipeline(t *testing.T) {
 	require.NoError(t, ElementsEqual(
 		entries(alice, "owner"), GetACL(t, aliceClient, pipeline)))
 
-	// alice deletes the pipeline (owner of the input and output repos can delete)
-	require.NoError(t, aliceClient.DeletePipeline(pipeline, true))
+	// alice stops the pipeline (owner of the input and output repos can stop)
+	require.NoError(t, aliceClient.StopPipeline(pipeline))
 
 	// Make sure the remaining input and output repos *still* have non-empty ACLs
 	require.NoError(t, ElementsEqual(
@@ -1056,8 +1066,8 @@ func TestDeletePipeline(t *testing.T) {
 	require.NoError(t, ElementsEqual(
 		entries(alice, "owner"), GetACL(t, aliceClient, pipeline)))
 
-	// alice deletes the output repo (make sure the output repo's ACL is gone)
-	require.NoError(t, aliceClient.DeleteRepo(pipeline, false))
+	// alice deletes the pipeline (owner of the input and output repos can delete)
+	require.NoError(t, aliceClient.DeletePipeline(pipeline, true))
 	require.NoError(t, ElementsEqual(entries(), GetACL(t, aliceClient, pipeline)))
 
 	// alice deletes the input repo (make sure the input repo's ACL is gone)
@@ -1083,8 +1093,11 @@ func TestDeletePipeline(t *testing.T) {
 		false,
 	))
 
-	// bob can't delete alice's pipeline
-	err := bobClient.DeletePipeline(pipeline, true)
+	// bob can't stop or delete alice's pipeline
+	err := bobClient.StopPipeline(pipeline)
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+	err = bobClient.DeletePipeline(pipeline, true)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -1098,7 +1111,10 @@ func TestDeletePipeline(t *testing.T) {
 	require.NoError(t, ElementsEqual(
 		entries(alice, "owner", bob, "reader"), GetACL(t, aliceClient, repo)))
 
-	// bob still can't delete alice's pipeline
+	// bob still can't stop or delete alice's pipeline
+	err = bobClient.StopPipeline(pipeline)
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
 	err = bobClient.DeletePipeline(pipeline, true)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
@@ -1123,7 +1139,10 @@ func TestDeletePipeline(t *testing.T) {
 	require.NoError(t, ElementsEqual(
 		entries(alice, "owner", bob, "writer"), GetACL(t, aliceClient, pipeline)))
 
-	// bob still can't delete alice's pipeline
+	// bob still can't stop or delete alice's pipeline
+	err = bobClient.StopPipeline(pipeline)
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
 	err = bobClient.DeletePipeline(pipeline, true)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
@@ -1138,7 +1157,11 @@ func TestDeletePipeline(t *testing.T) {
 	require.NoError(t, ElementsEqual(
 		entries(alice, "owner", bob, "reader"), GetACL(t, aliceClient, repo)))
 
-	// bob still can't delete alice's pipeline
+	// bob can stop (and start) but not delete alice's pipeline
+	err = bobClient.StopPipeline(pipeline)
+	require.NoError(t, err)
+	err = bobClient.StartPipeline(pipeline)
+	require.NoError(t, err)
 	err = bobClient.DeletePipeline(pipeline, true)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
@@ -1153,8 +1176,11 @@ func TestDeletePipeline(t *testing.T) {
 	require.NoError(t, ElementsEqual(
 		entries(alice, "owner", bob, "owner"), GetACL(t, aliceClient, pipeline)))
 
-	// finally bob can delete alice's pipeline
-	require.NoError(t, bobClient.DeletePipeline(pipeline, true))
+	// finally bob can stop and delete alice's pipeline
+	err = bobClient.StopPipeline(pipeline)
+	require.NoError(t, err)
+	err = bobClient.DeletePipeline(pipeline, true)
+	require.NoError(t, err)
 }
 
 // Test ListRepo checks that the auth information returned by ListRepo and
@@ -1550,7 +1576,7 @@ func TestListDatum(t *testing.T) {
 	})
 	jobs, err := bobClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jobs))
+	require.Equal(t, 2, len(jobs))
 	jobID := jobs[0].Job.ID
 
 	// bob cannot call ListDatum

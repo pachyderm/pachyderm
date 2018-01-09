@@ -1377,12 +1377,60 @@ func (a *apiServer) hardStopPipeline(pachClient *client.APIClient, pipelineInfo 
 	return nil
 }
 
+// ppsToken is the cached auth token used by PPS to write to the spec repo.
+// ppsTokenOnce ensures that ppsToken is only read from etcd once. These are
+// read/written by getPPSToken()
+var (
+	ppsToken     string
+	ppsTokenOnce sync.Once
+)
+
+// getPPSToken returns the auth token used by PPS to write to the spec repo.
+// Using this token grants any PPS request admin-level authority, so its use is
+// restricted to makePipelineInfoCommit(), deletePipelineInfo(), and master()
+func (a *apiServer) getPPSToken() string {
+	// Get PPS auth token
+	ppsTokenOnce.Do(func() {
+		resp, err := a.etcdClient.Get(context.Background(),
+			path.Join(a.etcdPrefix, ppsconsts.PPSTokenKey))
+		if err != nil {
+			panic(fmt.Sprintf("could not read PPS token: %v", err))
+		}
+		if resp.Count != 1 {
+			panic(fmt.Sprintf("got an unexpected number of PPS tokens: %d", resp.Count))
+		}
+		ppsToken = string(resp.Kvs[0].Value)
+	})
+	return ppsToken
+}
+
 // makePipelineInfoComit is a helper for CreatePipeline that creates a commit
 // with 'pipelineInfo' in SpecRepo (in PFS). It's called in both the case where
 // a user is updating a pipeline and the case where a user is creating a new
 // pipeline
-func (a *apiServer) makePipelineInfoComit(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) (*pfs.Commit, error) {
+func (a *apiServer) makePipelineInfoComit(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, update bool) (*pfs.Commit, error) {
+	// copy pachClient, so we can overwrite the auth token
+	pachClientCopy := *pachClient
+	pachClient = &pachClientCopy
+	// Get Pipeline name
 	pipelineName := pipelineInfo.Pipeline.Name
+
+	// Set the pach client's auth token to the master token. At this point, no
+	// parameters to any pachClient requests should be unvalidated user input, as
+	// the pachClient has admin-level authority
+	pachClient.SetAuthToken(a.getPPSToken())
+
+	// If we're creating a new pipeline, create the pipeline branch
+	if !update {
+		// Create pipeline branch in spec repo and write PipelineInfo there
+		if _, err := pachClient.InspectBranch(ppsconsts.SpecRepo, pipelineName); err == nil {
+			return nil, fmt.Errorf("pipeline spec branch for \"%s\" already exists: delete it with DeletePipeline", pipelineName, ppsconsts.SpecRepo)
+		}
+		if err := pachClient.CreateBranch(ppsconsts.SpecRepo, pipelineName, "", nil); err != nil {
+			return nil, fmt.Errorf("could not create pipeline spec branch for \"%s\" in %s: %v", pipelineName, ppsconsts.SpecRepo, err)
+		}
+	}
+
 	commit, err := pachClient.StartCommit(ppsconsts.SpecRepo, pipelineName)
 	if err != nil {
 		return nil, err
@@ -1520,7 +1568,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			}
 
 			// Write updated PipelineInfo back to PFS.
-			commit, err := a.makePipelineInfoComit(pachClient, pipelineInfo)
+			commit, err := a.makePipelineInfoComit(pachClient, pipelineInfo, request.Update)
 			if err != nil {
 				return err
 			}
@@ -1548,14 +1596,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		}); err != nil && !isAlreadyExistsErr(err) {
 			return nil, err
 		}
-		// Create pipeline branch in spec repo and write PipelineInfo there
-		if _, err := pachClient.InspectBranch(ppsconsts.SpecRepo, pipelineName); err == nil {
-			return nil, fmt.Errorf("pipeline spec branch for \"%s\" already exists: delete it with DeletePipeline", pipelineName, ppsconsts.SpecRepo)
-		}
-		if err := pachClient.CreateBranch(ppsconsts.SpecRepo, pipelineName, "", nil); err != nil {
-			return nil, fmt.Errorf("could not create pipeline spec branch for \"%s\" in %s: %v", pipelineName, ppsconsts.SpecRepo, err)
-		}
-		commit, err := a.makePipelineInfoComit(pachClient, pipelineInfo)
+		commit, err := a.makePipelineInfoComit(pachClient, pipelineInfo, request.Update)
 		if err != nil {
 			return nil, err
 		}
@@ -1774,6 +1815,20 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	return a.deletePipeline(pachClient, request)
 }
 
+// deletePipelineBranch is a helper for DeletePipeline that deletes a pipeline
+// branch in SpecRepo (in PFS)
+func (a *apiServer) deletePipelineBranch(pachClient *client.APIClient, pipeline string) error {
+	// copy pachClient, so we can overwrite the auth token
+	pachClientCopy := *pachClient
+	pachClient = &pachClientCopy
+	
+	// Set the pach client's auth token to the master token. At this point, no
+	// parameters to any pachClient requests should be unvalidated user input, as
+	// the pachClient has admin-level authority
+	pachClient.SetAuthToken(a.getPPSToken())
+	return pachClient.DeleteBranch(ppsconsts.SpecRepo, pipeline)
+}
+
 func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.DeletePipelineRequest) (response *types.Empty, retErr error) {
 	ctx := pachClient.Ctx() // pachClient will propagate auth info
 
@@ -1787,7 +1842,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 			// the spec branch and return
 			specBranchInfo, err := pachClient.InspectBranch(ppsconsts.SpecRepo, request.Pipeline.Name)
 			if err == nil && specBranchInfo.Head == nil {
-				if err := pachClient.DeleteBranch(ppsconsts.SpecRepo, request.Pipeline.Name); err != nil {
+				if err := a.deletePipelineBranch(pachClient, request.Pipeline.Name); err != nil {
 					return nil, err
 				}
 				return &types.Empty{}, nil
@@ -1875,7 +1930,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	// Delete pipeline branch in SpecRepo (leave commits, to preserve downstream
 	// commits)
 	eg.Go(func() error {
-		return pachClient.DeleteBranch(ppsconsts.SpecRepo, request.Pipeline.Name)
+		return a.deletePipelineBranch(pachClient, request.Pipeline.Name)
 	})
 	// Delete EtcdPipelineInfo
 	eg.Go(func() error {
@@ -2013,23 +2068,6 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 			return nil, err
 		}
 	}
-
-	// TODO: implement DeleteCommit for finished commits, then remove the section
-	// of PFS.DeleteCommit that deletes and re-recreates the spec repo, then
-	// uncomment this code
-	// commitInfos, err := pachClient.ListCommit(ppsconsts.SpecRepo, "", "", 0)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// if len(commitInfos) == 0 {
-	// 	return nil, fmt.Errorf("no commits in spec repo")
-	// }
-	// for _, commitInfo := range commitInfos {
-	// 	if err := pachClient.DeleteCommit(ppsconsts.SpecRepo, commitInfo.Commit.ID); err != nil {
-	// 		return nil, err
-	// 	}
-	// }
-
 	return &types.Empty{}, err
 }
 

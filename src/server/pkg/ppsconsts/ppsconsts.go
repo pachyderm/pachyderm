@@ -11,4 +11,8 @@ const (
 
 	// SpecFile is the file in every SpecRepo commit containing the PipelineInfo
 	SpecFile = "spec"
+
+	// PPSTokenKey is a key (in etcd) that maps to PPS's auth token.
+	// This is the token that PPS uses to authorize spec writes.
+	PPSTokenKey = "master_token"
 )

@@ -85,10 +85,11 @@ func (a *apiServer) master() {
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		// TODO(msteffen): This breaks as soon as auth is activated. The PPS master
-		// must be able to read pipelineInfos from PFS, but it has no credentials
-		// for doing so
+		// Use the PPS token to authenticate requests. Note that all requests
+		// performed in this function are performed as a cluster admin, so do not
+		// pass any unvalidated user input to any requests
 		pachClient := a.getPachClient().WithCtx(ctx)
+		pachClient.SetAuthToken(a.getPPSToken())
 		ctx, err := masterLock.Lock(ctx)
 		if err != nil {
 			return err
