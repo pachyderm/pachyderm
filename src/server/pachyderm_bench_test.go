@@ -392,6 +392,9 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 
 var numFiles = int(col.QueryPaginationLimit / 10)
 
+// These benchmarks can take a while, so I recommend running like:
+// $go test -v ./src/server/ -bench=BenchmarkPutManyFiles -run=BenchmarkPutManyFilesSingleCommit -timeout=3000s -benchtime 100ms
+
 func BenchmarkPutManyFilesSingleCommitFinishCommit1(b *testing.B) {
 	benchmarkPutManyFilesSingleCommitFinishCommit(numFiles, b)
 }
@@ -425,6 +428,40 @@ func benchmarkPutManyFilesSingleCommitFinishCommit(numFiles int, b *testing.B) {
 		b.StartTimer()
 		start := time.Now()
 		require.NoError(b, c.FinishCommit(dataRepo, "master"))
+		fmt.Printf("took %v to finish commit w %v files (b.N = %v)\n", time.Since(start), numFiles, b.N)
+	}
+}
+
+func BenchmarkPutManyFilesSingleCommit1(b *testing.B) {
+	benchmarkPutManyFilesSingleCommit(numFiles, b)
+}
+func BenchmarkPutManyFilesSingleCommit10(b *testing.B) {
+	benchmarkPutManyFilesSingleCommit(numFiles*10, b)
+}
+func BenchmarkPutManyFilesSingleCommit100(b *testing.B) {
+	benchmarkPutManyFilesSingleCommit(numFiles*100, b)
+}
+func benchmarkPutManyFilesSingleCommit(numFiles int, b *testing.B) {
+	// Issue #2575
+	// At first we couldn't support this at all (correctness), but this has been fixed
+	// This bench is to see how fast we can handle this
+
+	c := getPachClient(b)
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		require.NoError(b, c.DeleteAll())
+		// create repos
+		dataRepo := uniqueString("TestManyFilesSingleCommit_data")
+		require.NoError(b, c.CreateRepo(dataRepo))
+
+		_, err := c.StartCommit(dataRepo, "master")
+		require.NoError(b, err)
+		b.StartTimer()
+		start := time.Now()
+		for i := 0; i < numFiles; i++ {
+			_, err = c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i), strings.NewReader(""))
+			require.NoError(b, err)
+		}
 		fmt.Printf("took %v to finish commit w %v files (b.N = %v)\n", time.Since(start), numFiles, b.N)
 	}
 }
