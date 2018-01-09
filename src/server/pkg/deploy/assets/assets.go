@@ -35,6 +35,9 @@ var (
 	pauseImage     = "gcr.io/google_containers/pause-amd64:3.0"
 	dashImage      = "pachyderm/dash"
 
+	// ServiceAccountName is the name of Pachyderm's service account.
+	// It's public because it's needed by pps.APIServer to create the RCs for
+	// workers.
 	ServiceAccountName      = "pachyderm"
 	clusterRoleName         = "pachyderm"
 	clusterRoleBindingName  = "pachyderm"
