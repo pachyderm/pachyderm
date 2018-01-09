@@ -1106,12 +1106,6 @@
 			"revisionTime": "2014-08-04T02:12:11Z"
 		},
 		{
-			"checksumSHA1": "jENVbOfuDJ08NXhgqLaaGTGVV/Y=",
-			"path": "go.pedge.io/pkg/cobra",
-			"revision": "15a92f04224710098b562f3c5e20a200b6490609",
-			"revisionTime": "2016-03-28T15:38:20Z"
-		},
-		{
 			"checksumSHA1": "VkEkGu35DN26D3OvUKxgmCtVKAY=",
 			"path": "go.pedge.io/proto/rpclog",
 			"revision": "7cc6be1aa9efff236599f317cf0e7374c2996cf9",
