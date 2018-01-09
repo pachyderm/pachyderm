@@ -645,10 +645,13 @@ func TestDeleteCommit(t *testing.T) {
 
 	require.NoError(t, client.DeleteCommit(repo, "master"))
 
-	// Check that the branch has been deleted
+	// The branch has not been deleted, though it has no commits
 	branches, err = client.ListBranch(repo)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(branches))
+	require.Equal(t, 1, len(branches))
+	commits, err := client.ListCommit(repo, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commits))
 
 	// Check that repo size is back to 0
 	repoInfo, err := client.InspectRepo(repo)

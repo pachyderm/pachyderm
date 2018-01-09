@@ -84,7 +84,7 @@ func getPipelineInfo(etcdClient *etcd.Client, pachClient *client.APIClient, appE
 
 func do(appEnvObj interface{}) error {
 	go func() {
-		log.Println(http.ListenAndServe(":652", nil))
+		log.Println(http.ListenAndServe(":651", nil))
 	}()
 
 	appEnv := appEnvObj.(*appEnv)

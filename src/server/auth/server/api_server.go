@@ -29,6 +29,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 )
 
@@ -38,9 +39,10 @@ const (
 	// pachyderm token for any username in the AuthenticateRequest.GithubToken field
 	DisableAuthenticationEnvVar = "PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING"
 
-	tokensPrefix = "/tokens"
-	aclsPrefix   = "/acls"
-	adminsPrefix = "/admins"
+	tokensPrefix         = "/tokens"
+	pipelineTokensPrefix = "/pipeline-tokens"
+	aclsPrefix           = "/acls"
+	adminsPrefix         = "/admins"
 
 	defaultTokenTTLSecs = 14 * 24 * 60 * 60 // two weeks
 
@@ -73,8 +75,12 @@ type apiServer struct {
 	adminCache map[string]struct{} // cache of current cluster admins
 	adminMu    sync.Mutex          // synchronize ontrol access to adminCache
 
-	// tokens is a collection of hashedToken -> User mappings.
+	// tokens is a collection of hashedToken -> User mappings. These tokens are
+	// returned to users by Authenticate()
 	tokens col.Collection
+	// tokens is a collection of hashedToken -> User mappings. These tokens are
+	// returned by GetCapability() and stored with pipelines
+	pipelineTokens col.Collection
 	// acls is a collection of repoName -> ACL mappings.
 	acls col.Collection
 	// admins is a collection of username -> Empty mappings (keys indicate which
@@ -133,6 +139,13 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (
 		tokens: col.NewCollection(
 			etcdClient,
 			path.Join(etcdPrefix, tokensPrefix),
+			nil,
+			&authclient.User{},
+			nil,
+		),
+		pipelineTokens: col.NewCollection(
+			etcdClient,
+			path.Join(etcdPrefix, pipelineTokensPrefix),
 			nil,
 			&authclient.User{},
 			nil,
@@ -517,6 +530,14 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 	// admins are always authorized
 	if a.isAdmin(user.Username) {
 		return &authclient.AuthorizeResponse{Authorized: true}, nil
+	}
+
+	if req.Repo == ppsconsts.SpecRepo {
+		// All users are authorized to read from the spec repo, but only admins are
+		// authorized to write to it (writing to it may break your cluster)
+		return &authclient.AuthorizeResponse{
+			Authorized: req.Scope == authclient.Scope_READER,
+		}, nil
 	}
 
 	// If the cluster's enterprise token is expired, only admins and pipelines may
@@ -906,9 +927,9 @@ func (a *apiServer) GetCapability(ctx context.Context, req *authclient.GetCapabi
 
 	capability := uuid.NewWithoutDashes()
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		tokens := a.tokens.ReadWrite(stm)
+		pipelineTokens := a.pipelineTokens.ReadWrite(stm)
 		// Capabilities are forever; they don't expire.
-		return tokens.Put(hashToken(capability), user)
+		return pipelineTokens.Put(hashToken(capability), user)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error storing capability for user \"%s\": %v", user.Username, err)
@@ -933,15 +954,15 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeA
 	}
 
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		tokens := a.tokens.ReadWrite(stm)
+		pipelineTokens := a.pipelineTokens.ReadWrite(stm)
 		user := authclient.User{}
-		if err := tokens.Get(hashToken(req.Token), &user); err != nil && !col.IsErrNotFound(err) {
+		if err := pipelineTokens.Get(hashToken(req.Token), &user); err != nil {
+			if col.IsErrNotFound(err) {
+				return nil
+			}
 			return err
 		}
-		if user.Type != authclient.User_PIPELINE {
-			return fmt.Errorf("cannot revoke a non-pipeline auth token")
-		}
-		return tokens.Delete(hashToken(req.Token))
+		return pipelineTokens.Delete(hashToken(req.Token))
 	}); err != nil {
 		return nil, err
 	}
@@ -969,16 +990,34 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.User,
 	}
 	token := md[authclient.ContextTokenKey][0]
 
-	var user authclient.User
-	if err := a.tokens.ReadOnly(ctx).Get(hashToken(token), &user); err != nil {
-		if col.IsErrNotFound(err) {
-			// This error message string is matched in the UI. If edited,
-			// it also needs to be updated in the UI code
-			return nil, fmt.Errorf("provided auth token is corrupted or has expired (try logging in again)")
+	// Lookup the token in both a.tokens and a.pipelineTokens
+	var tokensResult, pipelineTokensResult authclient.User
+	eg := &errgroup.Group{}
+	eg.Go(func() error {
+		if err := a.tokens.ReadOnly(ctx).Get(hashToken(token), &tokensResult); err != nil && !col.IsErrNotFound(err) {
+			return err
 		}
+		return nil
+	})
+	eg.Go(func() error {
+		if err := a.pipelineTokens.ReadOnly(ctx).Get(hashToken(token), &pipelineTokensResult); err != nil && !col.IsErrNotFound(err) {
+			return err
+		}
+		return nil
+	})
+	if err := eg.Wait(); err != nil {
 		return nil, fmt.Errorf("error getting token: %v", err)
 	}
-	return &user, nil
+	switch {
+	case tokensResult.Username != "":
+		return &tokensResult, nil
+	case pipelineTokensResult.Username != "":
+		return &pipelineTokensResult, nil
+	default:
+		// Not found. This error message string is matched in the UI. If edited,
+		// it also needs to be updated in the UI code
+		return nil, fmt.Errorf("provided auth token is corrupted or has expired (try logging in again)")
+	}
 }
 
 // canonicalizeGitHubUsername corrects 'username' for case errors by looking
