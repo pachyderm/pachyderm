@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/src/server/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -98,7 +99,7 @@ func (c *readWriteCollection) Get(key string, val proto.Unmarshaler) error {
 	if err != nil {
 		return err
 	}
-	return val.Unmarshal([]byte(valStr))
+	return pbutil.Unmarshal(val, []byte(valStr))
 }
 
 func cloneProtoMsg(original proto.Marshaler) proto.Unmarshaler {
@@ -196,7 +197,10 @@ func (c *readWriteCollection) PutTTL(key string, val proto.Marshaler, ttl int64)
 			}
 		}
 	}
-	bytes, _ := val.Marshal()
+	bytes, err := pbutil.Marshal(val)
+	if err != nil {
+		return err
+	}
 	c.stm.Put(c.Path(key), string(bytes), options...)
 	return nil
 }
@@ -335,7 +339,7 @@ func (c *readonlyCollection) Get(key string, val proto.Unmarshaler) error {
 		return ErrNotFound{c.prefix, key}
 	}
 
-	return val.Unmarshal(resp.Kvs[0].Value)
+	return pbutil.Unmarshal(val, resp.Kvs[0].Value)
 }
 
 // an indirect iterator goes through a list of keys and retrieve those

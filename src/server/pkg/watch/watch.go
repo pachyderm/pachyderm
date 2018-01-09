@@ -8,6 +8,7 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
+	"github.com/pachyderm/pachyderm/src/server/pkg/pbutil"
 )
 
 // EventType is the type of event
@@ -36,14 +37,14 @@ type Event struct {
 // Unmarshal unmarshals the item in an event into a protobuf message.
 func (e *Event) Unmarshal(key *string, val proto.Unmarshaler) error {
 	*key = string(e.Key)
-	return val.Unmarshal(e.Value)
+	return pbutil.Unmarshal(val, e.Value)
 }
 
 // UnmarshalPrev unmarshals the prev item in an event into a protobuf
 // message.
 func (e *Event) UnmarshalPrev(key *string, val proto.Unmarshaler) error {
 	*key = string(e.PrevKey)
-	return val.Unmarshal(e.PrevValue)
+	return pbutil.Unmarshal(val, e.PrevValue)
 }
 
 // Watcher ...
