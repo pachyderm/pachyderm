@@ -90,10 +90,11 @@ func (a *APIServer) master() {
 	// to restart.
 	b.InitialInterval = 10 * time.Second
 	backoff.RetryNotify(func() error {
-		// We use pachClient.Ctx here because it contains auth information.
+		// We use a.pachClient.Ctx here because it contains auth information.
 		ctx, cancel := context.WithCancel(a.pachClient.Ctx())
 		defer cancel() // make sure that everything this loop might spawn gets cleaned up
-		ctx, err := masterLock.Lock(a.pachClient.AddMetadata(ctx))
+		ctx, err := masterLock.Lock(ctx)
+		pachClient := a.pachClient.WithCtx(ctx)
 		if err != nil {
 			return err
 		}
@@ -122,7 +123,7 @@ func (a *APIServer) master() {
 		if paused {
 			return fmt.Errorf("can't run master for a paused pipeline")
 		}
-		return a.jobSpawner(ctx)
+		return a.jobSpawner(pachClient)
 	}, b, func(err error, d time.Duration) error {
 		logger.Logf("master: error running the master process: %v; retrying in %v", err, d)
 		return nil
@@ -137,7 +138,8 @@ func (a *APIServer) serviceMaster() {
 		// We use pachClient.Ctx here because it contains auth information.
 		ctx, cancel := context.WithCancel(a.pachClient.Ctx())
 		defer cancel() // make sure that everything this loop might spawn gets cleaned up
-		ctx, err := masterLock.Lock(a.pachClient.AddMetadata(ctx))
+		ctx, err := masterLock.Lock(ctx)
+		pachClient := a.pachClient.WithCtx(ctx)
 		if err != nil {
 			return err
 		}
@@ -166,7 +168,7 @@ func (a *APIServer) serviceMaster() {
 		if paused {
 			return fmt.Errorf("can't run master for a paused pipeline")
 		}
-		return a.serviceSpawner(ctx)
+		return a.serviceSpawner(pachClient)
 	}, b, func(err error, d time.Duration) error {
 		logger.Logf("master: error running the master process: %v; retrying in %v", err, d)
 		return nil
@@ -200,15 +202,15 @@ func (a *APIServer) spawnScaleDownGoroutine() (cancel chan struct{}) {
 }
 
 // makeCronCommits makes commits to a single cron input's repo. It's
-// a helper function called by makeCronCommits
-func (a *APIServer) makeCronCommits(ctx context.Context, in *pps.Input) error {
+// a helper function called by jobSpawner
+func (a *APIServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input) error {
 	schedule, err := cron.Parse(in.Cron.Spec)
 	if err != nil {
 		return err // Shouldn't happen, as the input is validated in CreatePipeline
 	}
 	var tstamp *types.Timestamp
 	var buffer bytes.Buffer
-	if err := a.pachClient.GetFile(in.Cron.Repo, "master", "time", 0, 0, &buffer); err != nil && !isNilBranchErr(err) {
+	if err := pachClient.GetFile(in.Cron.Repo, "master", "time", 0, 0, &buffer); err != nil && !isNilBranchErr(err) {
 		return err
 	} else if err != nil {
 		// File not found, this happens the first time the pipeline is run
@@ -225,7 +227,7 @@ func (a *APIServer) makeCronCommits(ctx context.Context, in *pps.Input) error {
 	for {
 		t = schedule.Next(t)
 		time.Sleep(time.Until(t))
-		if _, err := a.pachClient.StartCommit(in.Cron.Repo, "master"); err != nil {
+		if _, err := pachClient.StartCommit(in.Cron.Repo, "master"); err != nil {
 			return err
 		}
 		timestamp, err := types.TimestampProto(t)
@@ -236,19 +238,19 @@ func (a *APIServer) makeCronCommits(ctx context.Context, in *pps.Input) error {
 		if err != nil {
 			return err
 		}
-		if err := a.pachClient.DeleteFile(in.Cron.Repo, "master", "time"); err != nil {
+		if err := pachClient.DeleteFile(in.Cron.Repo, "master", "time"); err != nil {
 			return err
 		}
-		if _, err := a.pachClient.PutFile(in.Cron.Repo, "master", "time", strings.NewReader(timeString)); err != nil {
+		if _, err := pachClient.PutFile(in.Cron.Repo, "master", "time", strings.NewReader(timeString)); err != nil {
 			return err
 		}
-		if err := a.pachClient.FinishCommit(in.Cron.Repo, "master"); err != nil {
+		if err := pachClient.FinishCommit(in.Cron.Repo, "master"); err != nil {
 			return err
 		}
 	}
 }
 
-func (a *APIServer) jobSpawner(ctx context.Context) error {
+func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 	logger := a.getMasterLogger()
 	var eg errgroup.Group
 
@@ -257,7 +259,7 @@ func (a *APIServer) jobSpawner(ctx context.Context) error {
 	pps.VisitInput(a.pipelineInfo.Input, func(in *pps.Input) {
 		if in.Cron != nil {
 			eg.Go(func() error {
-				return a.makeCronCommits(ctx, in)
+				return a.makeCronCommits(pachClient, in)
 			})
 		}
 	})
@@ -265,7 +267,7 @@ func (a *APIServer) jobSpawner(ctx context.Context) error {
 	// Spawn a goroutine to listen for new commits, and create jobs when they
 	// arrive
 	eg.Go(func() error {
-		commitIter, err := a.pachClient.WithCtx(ctx).SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "")
+		commitIter, err := pachClient.SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "")
 		if err != nil {
 			return err
 		}
@@ -284,7 +286,7 @@ func (a *APIServer) jobSpawner(ctx context.Context) error {
 			}
 			// Inspect the commit and check again if it has been finished (it may have
 			// been closed since it was queued, e.g. by StopPipeline or StopJob)
-			commitInfo, err = a.pachClient.WithCtx(ctx).InspectCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
+			commitInfo, err = pachClient.InspectCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
 			if err != nil {
 				return err
 			}
@@ -297,7 +299,7 @@ func (a *APIServer) jobSpawner(ctx context.Context) error {
 				}
 			}
 			var jobInfo *pps.JobInfo
-			jobInfos, err := a.pachClient.WithCtx(ctx).ListJob("", nil, commitInfo.Commit)
+			jobInfos, err := a.pachClient.ListJob("", nil, commitInfo.Commit)
 			if err != nil {
 				return err
 			}
@@ -307,7 +309,7 @@ func (a *APIServer) jobSpawner(ctx context.Context) error {
 				}
 				jobInfo = jobInfos[0]
 			} else {
-				job, err := a.pachClient.WithCtx(ctx).CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
+				job, err := a.pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
 				if err != nil {
 					return err
 				}
@@ -326,7 +328,7 @@ func (a *APIServer) jobSpawner(ctx context.Context) error {
 			// Now that the jobInfo is persisted, wait until all input commits are
 			// ready, split the input datums into chunks and merge the results of
 			// chunks as they're processed
-			if err := a.waitJob(ctx, jobInfo, logger); err != nil {
+			if err := a.waitJob(pachClient, jobInfo, logger); err != nil {
 				return err
 			}
 		}
@@ -335,8 +337,9 @@ func (a *APIServer) jobSpawner(ctx context.Context) error {
 	return eg.Wait() // if anything goes wrong, retry in master()
 }
 
-func (a *APIServer) serviceSpawner(ctx context.Context) error {
-	commitIter, err := a.pachClient.WithCtx(ctx).SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "")
+func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
+	ctx := pachClient.Ctx()
+	commitIter, err := pachClient.SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "")
 	if err != nil {
 		return err
 	}
@@ -354,11 +357,11 @@ func (a *APIServer) serviceSpawner(ctx context.Context) error {
 
 		// Create a job document matching the service's output commit
 		jobInput := ppsutil.JobInput(a.pipelineInfo, commitInfo)
-		job, err := a.pachClient.WithCtx(ctx).CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
+		job, err := a.pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
 		if err != nil {
 			return err
 		}
-		df, err := NewDatumFactory(ctx, a.pachClient.PfsAPIClient, jobInput)
+		df, err := NewDatumFactory(pachClient, jobInput)
 		if err != nil {
 			return err
 		}
@@ -366,9 +369,9 @@ func (a *APIServer) serviceSpawner(ctx context.Context) error {
 			return fmt.Errorf("services must have a single datum")
 		}
 		data := df.Datum(0)
-		logger, err := a.getTaggedLogger(ctx, job.ID, data, false)
+		logger, err := a.getTaggedLogger(pachClient, job.ID, data, false)
 		puller := filesync.NewPuller()
-		dir, err := a.downloadData(logger, data, puller, nil, &pps.ProcessStats{}, nil, "")
+		dir, err := a.downloadData(pachClient, logger, data, puller, nil, &pps.ProcessStats{}, nil, "")
 		if err != nil {
 			return err
 		}
@@ -385,7 +388,7 @@ func (a *APIServer) serviceSpawner(ctx context.Context) error {
 			serviceCancel()
 		}
 		serviceCtx, serviceCancel = context.WithCancel(ctx)
-		defer serviceCancel()
+		defer serviceCancel() // make go vet happy: infinite loop obviates 'defer'
 		go func() {
 			serviceCtx := serviceCtx
 			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
@@ -414,9 +417,7 @@ func (a *APIServer) serviceSpawner(ctx context.Context) error {
 				}); err != nil {
 					logger.Logf("error updating job progress: %+v", err)
 				}
-				if _, err := a.pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
-					Commit: commitInfo.Commit,
-				}); err != nil {
+				if err := pachClient.FinishCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID); err != nil {
 					logger.Logf("could not finish output commit: %v", err)
 				}
 			default:
@@ -451,7 +452,7 @@ func (a *APIServer) locks(jobID string) col.Collection {
 // collectDatum collects the output and stats output from a datum, and merges
 // it into the passed trees. It errors if it can't find the tree object for
 // this datum, unless failed is true in which case it tolerates missing trees.
-func (a *APIServer) collectDatum(ctx context.Context, index int, files []*Input, logger *taggedLogger,
+func (a *APIServer) collectDatum(pachClient *client.APIClient, index int, files []*Input, logger *taggedLogger,
 	tree hashtree.OpenHashTree, statsTree hashtree.OpenHashTree, treeMu *sync.Mutex, failed bool) error {
 	datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
 	datumID := a.DatumID(files)
@@ -463,7 +464,7 @@ func (a *APIServer) collectDatum(ctx context.Context, index int, files []*Input,
 	var statsSubtree hashtree.HashTree
 	eg.Go(func() error {
 		var err error
-		subTree, err = a.getTreeFromTag(ctx, tag)
+		subTree, err = a.getTreeFromTag(pachClient, tag)
 		if err != nil && !failed {
 			return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
 		}
@@ -472,11 +473,11 @@ func (a *APIServer) collectDatum(ctx context.Context, index int, files []*Input,
 	if a.pipelineInfo.EnableStats {
 		eg.Go(func() error {
 			var err error
-			if statsSubtree, err = a.getTreeFromTag(ctx, statsTag); err != nil {
+			if statsSubtree, err = a.getTreeFromTag(pachClient, statsTag); err != nil {
 				logger.Logf("failed to read stats tree, this is non-fatal but will result in some missing stats")
 				return nil
 			}
-			indexObject, length, err := a.pachClient.WithCtx(ctx).PutObject(strings.NewReader(fmt.Sprint(index)))
+			indexObject, length, err := pachClient.PutObject(strings.NewReader(fmt.Sprint(index)))
 			if err != nil {
 				logger.Logf("failed to write stats tree, this is non-fatal but will result in some missing stats")
 				return nil
@@ -567,14 +568,15 @@ func (a *APIServer) blockInputs(ctx context.Context, jobInfo *pps.JobInfo) error
 // waitJob waits for the job in 'jobInfo' to finish, and then it collects the
 // output from the job's workers and merges it into a commit (and may merge
 // stats into a commit in the stats branch as well)
-func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *taggedLogger) error {
-	ctx, cancel := context.WithCancel(ctx)
+func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, logger *taggedLogger) error {
+	ctx, cancel := context.WithCancel(pachClient.Ctx())
+	pachClient = pachClient.WithCtx(ctx)
 
 	// Watch the output commit to see if it's terminated (KILLED, FAILED, or
 	// SUCCESS) and if so, cancel the current context
 	go func() {
 		backoff.RetryNotify(func() error {
-			commitInfo, err := a.pachClient.PfsAPIClient.InspectCommit(ctx,
+			commitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
 				&pfs.InspectCommitRequest{
 					Commit: jobInfo.OutputCommit,
 					Block:  true,
@@ -621,7 +623,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		afterTime := startTime.Add(timeout).Sub(time.Now())
 		logger.Logf("afterTime: %+v", afterTime)
 		timer := time.AfterFunc(afterTime, func() {
-			if _, err := a.pachClient.PfsAPIClient.FinishCommit(ctx,
+			if _, err := pachClient.PfsAPIClient.FinishCommit(ctx,
 				&pfs.FinishCommitRequest{
 					Commit: jobInfo.OutputCommit,
 					Empty:  true,
@@ -640,7 +642,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 
 		// Create a datum factory pointing at the job's inputs and split up the
 		// input data into chunks
-		df, err := NewDatumFactory(ctx, a.pachClient.PfsAPIClient, jobInfo.Input)
+		df, err := NewDatumFactory(pachClient, jobInfo.Input)
 		if err != nil {
 			return err
 		}
@@ -722,7 +724,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 									eg.Go(func() error {
 										defer limiter.Release()
 										files := df.Datum(int(i))
-										return a.collectDatum(ctx, int(i), files, logger, tree, statsTree, &treeMu, chunkState.State == ChunkState_FAILED)
+										return a.collectDatum(pachClient, int(i), files, logger, tree, statsTree, &treeMu, chunkState.State == ChunkState_FAILED)
 									})
 								}
 								return nil
@@ -747,7 +749,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 			return err
 		}
 		// Finish the job's output commit
-		_, err = a.pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+		_, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
 			Commit: jobInfo.OutputCommit,
 			Tree:   object,
 		})
@@ -764,20 +766,14 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 			if err != nil {
 				return err
 			}
-			statsCommit, err = a.pachClient.PfsAPIClient.BuildCommit(ctx, &pfs.BuildCommitRequest{
-				Parent: &pfs.Commit{
-					Repo: jobInfo.OutputRepo,
-				},
-				Branch: "stats",
-				Tree:   statsObject,
-			})
+			statsCommit, err = pachClient.BuildCommit(jobInfo.OutputRepo.Name, "stats", "", statsObject.Hash)
 			if err != nil {
 				return err
 			}
 		}
 
 		// Handle egress
-		if err := a.egress(ctx, logger, jobInfo); err != nil {
+		if err := a.egress(pachClient, logger, jobInfo); err != nil {
 			reason := fmt.Sprintf("egress error: %v", err)
 			_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 				jobs := a.jobs.ReadWrite(stm)
@@ -860,7 +856,11 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 	return nil
 }
 
-func (a *APIServer) egress(ctx context.Context, logger *taggedLogger, jobInfo *pps.JobInfo) error {
+func (a *APIServer) egress(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo) error {
+	// copy the pach client (preserving auth info) so we can set a different
+	// number of concurrent streams
+	pachClient = pachClient.WithCtx(pachClient.Ctx())
+	pachClient.SetMaxConcurrentStreams(100)
 	var egressFailureCount int
 	return backoff.RetryNotify(func() (retErr error) {
 		if jobInfo.Egress != nil {
@@ -870,15 +870,11 @@ func (a *APIServer) egress(ctx context.Context, logger *taggedLogger, jobInfo *p
 			if err != nil {
 				return err
 			}
-			objClient, err := obj.NewClientFromURLAndSecret(ctx, url)
+			objClient, err := obj.NewClientFromURLAndSecret(pachClient.Ctx(), url)
 			if err != nil {
 				return err
 			}
-			client := client.APIClient{
-				PfsAPIClient: a.pachClient.PfsAPIClient,
-			}
-			client.SetMaxConcurrentStreams(100)
-			if err := pfs_sync.PushObj(client, jobInfo.OutputCommit, objClient, url.Object); err != nil {
+			if err := pfs_sync.PushObj(pachClient, jobInfo.OutputCommit, objClient, url.Object); err != nil {
 				return err
 			}
 			logger.Logf("Completed egress upload for job (%v), duration (%v)", jobInfo, time.Since(start))
@@ -990,9 +986,9 @@ func (a *APIServer) aggregate(datums []float64) (*pps.Aggregate, error) {
 	}, nil
 }
 
-func (a *APIServer) getTreeFromTag(ctx context.Context, tag *pfs.Tag) (hashtree.HashTree, error) {
+func (a *APIServer) getTreeFromTag(pachClient *client.APIClient, tag *pfs.Tag) (hashtree.HashTree, error) {
 	var buffer bytes.Buffer
-	if err := a.pachClient.WithCtx(ctx).GetTag(tag.Name, &buffer); err != nil {
+	if err := pachClient.GetTag(tag.Name, &buffer); err != nil {
 		return nil, err
 	}
 	return hashtree.Deserialize(buffer.Bytes())
