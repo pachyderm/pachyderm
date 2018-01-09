@@ -299,7 +299,7 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 				}
 			}
 			var jobInfo *pps.JobInfo
-			jobInfos, err := a.pachClient.ListJob("", nil, commitInfo.Commit)
+			jobInfos, err := pachClient.ListJob("", nil, commitInfo.Commit)
 			if err != nil {
 				return err
 			}
@@ -309,13 +309,11 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 				}
 				jobInfo = jobInfos[0]
 			} else {
-				job, err := a.pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
+				job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
 				if err != nil {
 					return err
 				}
-				jobInfo, err = a.pachClient.PpsAPIClient.InspectJob(ctx, &pps.InspectJobRequest{
-					Job: job,
-				})
+				jobInfo, err = pachClient.InspectJob(job.ID, false)
 				if err != nil {
 					return err
 				}
@@ -357,7 +355,7 @@ func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 
 		// Create a job document matching the service's output commit
 		jobInput := ppsutil.JobInput(a.pipelineInfo, commitInfo)
-		job, err := a.pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
+		job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
 		if err != nil {
 			return err
 		}
