@@ -115,6 +115,9 @@ type AssetOpts struct {
 	// various deployments so that their images can be pulled from a private
 	// registry.
 	ImagePullSecret string
+
+	// NoRBAC, if true, will disable creation of RBAC assets.
+	NoRBAC bool
 }
 
 // replicas lets us create a pointer to a non-zero int32 in-line. This is
@@ -1161,10 +1164,12 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 
 	encoder.Encode(ServiceAccount())
 	fmt.Fprintf(w, "\n")
-	encoder.Encode(ClusterRole())
-	fmt.Fprintf(w, "\n")
-	encoder.Encode(ClusterRoleBinding())
-	fmt.Fprintf(w, "\n")
+	if !opts.NoRBAC {
+		encoder.Encode(ClusterRole())
+		fmt.Fprintf(w, "\n")
+		encoder.Encode(ClusterRoleBinding())
+		fmt.Fprintf(w, "\n")
+	}
 
 	if opts.EtcdNodes > 0 && opts.EtcdVolume != "" {
 		return fmt.Errorf("only one of --dynamic-etcd-nodes and --static-etcd-volume should be given, but not both")
