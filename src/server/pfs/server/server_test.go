@@ -155,6 +155,26 @@ func TestCreateRepoDeleteRepoRace(t *testing.T) {
 	}
 }
 
+func TestBranch(t *testing.T) {
+	c := getClient(t)
+
+	repo := "repo"
+	require.NoError(t, c.CreateRepo(repo))
+	_, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, "master"))
+	commitInfo, err := c.InspectCommit(repo, "master")
+	require.NoError(t, err)
+	require.Nil(t, commitInfo.ParentCommit)
+
+	_, err = c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, "master"))
+	commitInfo, err = c.InspectCommit(repo, "master")
+	require.NoError(t, err)
+	require.NotNil(t, commitInfo.ParentCommit)
+}
+
 func TestCreateAndInspectRepo(t *testing.T) {
 	client := getClient(t)
 
