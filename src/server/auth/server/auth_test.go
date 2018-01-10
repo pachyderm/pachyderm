@@ -1574,13 +1574,16 @@ func TestListDatum(t *testing.T) {
 		_, err := iter.Next()
 		return err
 	})
-	jobs, err := bobClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/)
+	jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 	jobID := jobs[0].Job.ID
 
-	// bob cannot call ListDatum
-	resp, err := bobClient.ListDatum(jobID, 0 /*pageSize*/, 0 /*page*/)
+	// bob cannot call ListJob or ListDatum
+	_, err = bobClient.ListDatum(jobID, 0 /*pageSize*/, 0 /*page*/)
+	require.YesError(t, err)
+	require.True(t, auth.IsNotAuthorizedError(err), err.Error())
+	_, err = bobClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/)
 	require.YesError(t, err)
 	require.True(t, auth.IsNotAuthorizedError(err), err.Error())
 
@@ -1620,8 +1623,18 @@ func TestListDatum(t *testing.T) {
 		Repo:     repoA,
 	})
 	require.NoError(t, err)
-	resp, err = bobClient.ListDatum(jobID, 0 /*pageSize*/, 0 /*page*/)
+	_, err = bobClient.ListDatum(jobID, 0 /*pageSize*/, 0 /*page*/)
+	require.YesError(t, err)
+	require.True(t, auth.IsNotAuthorizedError(err), err.Error())
+
+	// Finally, alice adds bob to the output repo, and now bob can call ListDatum
+	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
+		Username: bob,
+		Scope:    auth.Scope_READER,
+		Repo:     pipeline,
+	})
 	require.NoError(t, err)
+	resp, err := bobClient.ListDatum(jobID, 0 /*pageSize*/, 0 /*page*/)
 	files := make(map[string]struct{})
 	for _, di := range resp.DatumInfos {
 		for _, f := range di.Data {
