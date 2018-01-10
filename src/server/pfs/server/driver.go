@@ -1945,14 +1945,21 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 	}
 
 	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		revision := stm.Rev(d.openCommits.Path(file.Commit.ID))
-		if revision == 0 {
+		commitsCol := d.openCommits.ReadOnly(ctx)
+		var commit pfs.Commit
+		err := commitsCol.Get(file.Commit.ID, &commit)
+		if err != nil {
+			return err
+		}
+		// Dumb check to make sure the unmarshalled value exists (and matches the current ID)
+		// to denote that the current commit is indeed open
+		if commit.ID != file.Commit.ID {
 			return fmt.Errorf("commit %v is not open", file.Commit.ID)
 		}
 		recordsCol := d.putFileRecords.ReadWrite(stm)
 
 		var existingRecords pfs.PutFileRecords
-		err := recordsCol.Get(prefix, &existingRecords)
+		err = recordsCol.Get(prefix, &existingRecords)
 		if err != nil && !col.IsErrNotFound(err) {
 			return err
 		}
