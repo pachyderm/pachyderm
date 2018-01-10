@@ -818,49 +818,19 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 }
 
 func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit *pfs.Commit, stm col.STM) error {
-	// TODO This iterates through all branches in PFS and checks whether each one
-	// has 'branch' in its provenance (adding it to branchInfos if so. Rewrite to
-	// use 'branch' subvenance
-	repos := d.repos.ReadOnly(ctx)
-	iterator, err := repos.List()
-	if err != nil {
+	var subvBranchInfos []*pfs.BranchInfo
+	branchInfo := &pfs.BranchInfo{}
+	if err := d.branches(branch.Repo.Name).ReadWrite(stm).Get(branch.Name, branchInfo); err != nil {
 		return err
 	}
-	var branchInfos []*pfs.BranchInfo
-	for {
-		var repoName string
-		var repoInfo pfs.RepoInfo
-		ok, err := iterator.Next(&repoName, &repoInfo)
-		if err != nil {
+	for _, subvBranch := range branchInfo.Subvenance {
+		subvBranchInfo := &pfs.BranchInfo{}
+		if err := d.branches(subvBranch.Repo.Name).ReadWrite(stm).Get(subvBranch.Name, subvBranchInfo); err != nil {
 			return err
 		}
-		if !ok {
-			break
-		}
-		branches := d.branches(repoInfo.Repo.Name).ReadOnly(ctx)
-		brIterator, err := branches.List()
-		if err != nil {
-			return err
-		}
-		for {
-			var branchName string
-			var branchInfo pfs.BranchInfo
-			ok, err = brIterator.Next(&branchName, &branchInfo)
-			if err != nil {
-				return err
-			}
-			if !ok {
-				break
-			}
-			for _, provBranch := range branchInfo.Provenance {
-				if provBranch.Repo.Name == branch.Repo.Name && provBranch.Name == branch.Name {
-					branchInfos = append(branchInfos, &branchInfo)
-					break
-				}
-			}
-		}
+		subvBranchInfos = append(subvBranchInfos, subvBranchInfo)
 	}
-	sort.Slice(branchInfos, func(i, j int) bool { return len(branchInfos[i].Provenance) < len(branchInfos[j].Provenance) })
+	sort.Slice(subvBranchInfos, func(i, j int) bool { return len(subvBranchInfos[i].Provenance) < len(subvBranchInfos[j].Provenance) })
 
 	// C is provenant on B
 	// B is a 'spec branch' in some formal sense
@@ -876,8 +846,8 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 		branch: branch,
 		commit: commit,
 	}
-	for _, branchInfo := range branchInfos {
-		branch := branchInfo.Branch
+	for _, subvBranchInfo := range subvBranchInfos {
+		branch := subvBranchInfo.Branch
 		repo := branch.Repo
 		branches := d.branches(repo.Name).ReadWrite(stm)
 		commits := d.commits(repo.Name).ReadWrite(stm)
@@ -893,7 +863,7 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 		// too. Look those up and fill them into 'commit's provenance
 		var provenance []*pfs.Commit
 		var branchProvenance []*pfs.Branch
-		for _, provBranch := range branchInfo.Provenance {
+		for _, provBranch := range subvBranchInfo.Provenance {
 			// TODO we store retrieved values in branchToCommit, but d.branches is
 			// is already cached. Remove branchToCommit and just read from d.branches
 			// in every iteration (simplifying this code)
