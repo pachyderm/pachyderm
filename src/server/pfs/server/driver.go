@@ -1705,7 +1705,7 @@ func (d *driver) getTreeForPrefix(ctx context.Context, prefix string, parentTree
 		tree := parentTree.Open()
 
 		recordsCol := d.putFileRecords.ReadOnly(ctx)
-		iter, err := recordsCol.ListWithPrefix(prefix)
+		iter, err := recordsCol.ListPrefix(prefix)
 		if err != nil {
 			return err
 		}
@@ -1979,7 +1979,7 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 				return fmt.Errorf("commit %v is not open", file.Commit.ID)
 			}
 			recordsCol := d.putFileRecords.ReadWrite(stm)
-			recordsCol.DeleteAllWithPrefix(prefix)
+			recordsCol.DeleteAllPrefix(prefix)
 			return nil
 		})
 	}

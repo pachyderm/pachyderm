@@ -254,7 +254,7 @@ func (c *readWriteCollection) DeleteAll() {
 	c.stm.DelAll(c.prefix)
 }
 
-func (c *readWriteCollection) DeleteAllWithPrefix(prefix string) {
+func (c *readWriteCollection) DeleteAllPrefix(prefix string) {
 	c.stm.DelAll(path.Join(c.prefix, prefix) + "/")
 }
 
@@ -411,9 +411,9 @@ func endKeyFromPrefix(prefix string) string {
 	return prefix[0:len(prefix)-1] + string(byte(prefix[len(prefix)-1])+1)
 }
 
-// ListWithPrefix returns lexigraphically sorted (not sorted by create time)
+// ListPrefix returns lexigraphically sorted (not sorted by create time)
 // results and returns an iterator that is paginated
-func (c *readonlyCollection) ListWithPrefix(prefix string) (Iterator, error) {
+func (c *readonlyCollection) ListPrefix(prefix string) (Iterator, error) {
 	queryPrefix := c.prefix
 	if prefix != "" {
 		// If we always call join, we'll get rid of the trailing slash we need
