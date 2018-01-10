@@ -53,7 +53,7 @@ func PutFileRecords(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 		etcdClient,
 		path.Join(etcdPrefix, putFileRecordsPrefix),
 		nil,
-		nil,
+		&pfs.PutFileRecords{},
 		nil,
 	)
 }
