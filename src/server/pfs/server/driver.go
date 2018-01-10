@@ -681,7 +681,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, descripti
 	if err != nil {
 		return err
 	}
-	finishedTree, err := d.constructTreeFromPrefix(ctx, prefix, parentTree)
+	finishedTree, err := d.getTreeForPrefix(ctx, prefix, parentTree)
 	if err != nil {
 		return err
 	}
@@ -1696,10 +1696,10 @@ func (d *driver) getTreeForFile(ctx context.Context, file *pfs.File) (hashtree.H
 	if err != nil {
 		return nil, err
 	}
-	return d.constructTreeFromPrefix(ctx, prefix, parentTree)
+	return d.getTreeForPrefix(ctx, prefix, parentTree)
 }
 
-func (d *driver) constructTreeFromPrefix(ctx context.Context, prefix string, parentTree hashtree.HashTree) (hashtree.HashTree, error) {
+func (d *driver) getTreeForPrefix(ctx context.Context, prefix string, parentTree hashtree.HashTree) (hashtree.HashTree, error) {
 	var finishedTree hashtree.HashTree
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		tree := parentTree.Open()
