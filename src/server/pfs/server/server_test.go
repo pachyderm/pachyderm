@@ -3120,6 +3120,39 @@ func TestBackfillBranch(t *testing.T) {
 	require.Equal(t, 1, len(commits))
 }
 
+// TestUpdateBranch tests the following DAG:
+//
+// A--->B--->C
+//
+// Then updates it to:
+//
+// A--->B--->C
+//      ^
+// D----+
+//
+func TestUpdateBranch(t *testing.T) {
+	c := getClient(t)
+	require.NoError(t, c.CreateRepo("A"))
+	require.NoError(t, c.CreateRepo("B"))
+	require.NoError(t, c.CreateRepo("C"))
+	require.NoError(t, c.CreateRepo("D"))
+	require.NoError(t, c.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
+	require.NoError(t, c.CreateBranch("C", "master", "", []*pfs.Branch{pclient.NewBranch("B", "master")}))
+	_, err := c.StartCommit("A", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("A", "master"))
+	require.NoError(t, c.FinishCommit("B", "master"))
+	require.NoError(t, c.FinishCommit("C", "master"))
+
+	_, err = c.StartCommit("D", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("D", "master"))
+
+	require.NoError(t, c.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master"), pclient.NewBranch("D", "master")}))
+	require.NoError(t, c.FinishCommit("B", "master"))
+	require.NoError(t, c.FinishCommit("C", "master"))
+}
+
 func uniqueString(prefix string) string {
 	return prefix + "-" + uuid.NewWithoutDashes()[0:12]
 }
