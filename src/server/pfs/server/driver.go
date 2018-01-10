@@ -597,6 +597,25 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 			Started:     now(),
 			Description: description,
 		}
+		if branch != "" {
+			// If we don't have an explicit parent we use the previous head of
+			// branch as the parent, if it exists.
+			branchInfo := new(pfs.BranchInfo)
+			if err := branches.Get(branch, branchInfo); err != nil {
+				if _, ok := err.(col.ErrNotFound); !ok {
+					return err
+				}
+			} else if parent.ID == "" && branchInfo.Head != nil {
+				parent.ID = branchInfo.Head.ID
+			}
+			branchInfo.Name = branch
+			branchInfo.Head = commit
+			branchInfo.Branch = client.NewBranch(commit.Repo.Name, branch)
+			// Make commit the new head of the branch
+			if err := branches.Put(branch, branchInfo); err != nil {
+				return err
+			}
+		}
 		if parent.ID != "" {
 			parentCommitInfo, err := d.inspectCommit(ctx, parent, false)
 			if err != nil {
@@ -627,7 +646,6 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 		for _, provCommit := range provenance {
 			provenanceMap[provCommit.ID] = provCommit
 		}
-
 		for _, provCommit := range provenanceMap {
 			commitInfo.Provenance = append(commitInfo.Provenance, provCommit)
 			provCommitInfo := &pfs.CommitInfo{}
@@ -635,26 +653,6 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 				appendSubvenance(provCommitInfo, commitInfo)
 				return nil
 			}); err != nil {
-				return err
-			}
-		}
-
-		if branch != "" {
-			// If we don't have an explicit parent we use the previous head of
-			// branch as the parent, if it exists.
-			branchInfo := new(pfs.BranchInfo)
-			if err := branches.Get(branch, branchInfo); err != nil {
-				if _, ok := err.(col.ErrNotFound); !ok {
-					return err
-				}
-			} else if parent.ID == "" && branchInfo.Head != nil {
-				parent.ID = branchInfo.Head.ID
-			}
-			branchInfo.Name = branch
-			branchInfo.Head = commit
-			branchInfo.Branch = client.NewBranch(commit.Repo.Name, branch)
-			// Make commit the new head of the branch
-			if err := branches.Put(branch, branchInfo); err != nil {
 				return err
 			}
 		}
