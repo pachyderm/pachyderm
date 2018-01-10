@@ -597,6 +597,17 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 			Started:     now(),
 			Description: description,
 		}
+		if parent.ID != "" {
+			parentCommitInfo, err := d.inspectCommit(ctx, parent, false)
+			if err != nil {
+				return err
+			}
+			// fail if the parent commit has not been finished
+			if parentCommitInfo.Finished == nil {
+				return fmt.Errorf("parent commit %s has not been finished", parent.ID)
+			}
+			commitInfo.ParentCommit = parent
+		}
 
 		// Use a map to de-dup provenance
 		provenanceMap := make(map[string]*pfs.Commit)
@@ -621,7 +632,7 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 			commitInfo.Provenance = append(commitInfo.Provenance, provCommit)
 			provCommitInfo := &pfs.CommitInfo{}
 			if err := d.commits(provCommit.Repo.Name).ReadWrite(stm).Update(provCommit.ID, provCommitInfo, func() error {
-				provCommitInfo.Subvenance = append(provCommitInfo.Subvenance, commit)
+				appendSubvenance(provCommitInfo, commitInfo)
 				return nil
 			}); err != nil {
 				return err
@@ -646,17 +657,6 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 			if err := branches.Put(branch, branchInfo); err != nil {
 				return err
 			}
-		}
-		if parent.ID != "" {
-			parentCommitInfo, err := d.inspectCommit(ctx, parent, false)
-			if err != nil {
-				return err
-			}
-			// fail if the parent commit has not been finished
-			if parentCommitInfo.Finished == nil {
-				return fmt.Errorf("parent commit %s has not been finished", parent.ID)
-			}
-			commitInfo.ParentCommit = parent
 		}
 		parentTree, err := d.getTreeForCommit(ctx, parent)
 		if err != nil {
@@ -965,7 +965,7 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 		for _, provCommit := range commitInfo.Provenance {
 			provCommitInfo := &pfs.CommitInfo{}
 			if err := d.commits(provCommit.Repo.Name).ReadWrite(stm).Update(provCommit.ID, provCommitInfo, func() error {
-				provCommitInfo.Subvenance = append(provCommitInfo.Subvenance, commit)
+				appendSubvenance(provCommitInfo, commitInfo)
 				return nil
 			}); err != nil {
 				return err
@@ -1345,13 +1345,13 @@ func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 		}
 		if i == 0 {
 			for _, subvCommit := range commitInfo.Subvenance {
-				commitsToWatch[commitKey(subvCommit)] = subvCommit
+				commitsToWatch[commitKey(subvCommit.Upper)] = subvCommit.Upper
 			}
 		} else {
 			newCommitsToWatch := make(map[string]*pfs.Commit)
 			for _, subvCommit := range commitInfo.Subvenance {
-				if _, ok := commitsToWatch[commitKey(subvCommit)]; ok {
-					newCommitsToWatch[commitKey(subvCommit)] = subvCommit
+				if _, ok := commitsToWatch[commitKey(subvCommit.Upper)]; ok {
+					newCommitsToWatch[commitKey(subvCommit.Upper)] = subvCommit.Upper
 				}
 			}
 			commitsToWatch = newCommitsToWatch
@@ -1583,7 +1583,7 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 						commitInfo.BranchProvenance = append(commitInfo.BranchProvenance, provCommit.branch)
 						provCommitInfo := &pfs.CommitInfo{}
 						if err := d.commits(provCommit.commit.Repo.Name).ReadWrite(stm).Upsert(provCommit.commit.ID, provCommitInfo, func() error {
-							provCommitInfo.Subvenance = append(provCommitInfo.Subvenance, commit)
+							appendSubvenance(provCommitInfo, commitInfo)
 							return nil
 						}); err != nil {
 							return err
@@ -2343,4 +2343,19 @@ func branchKey(branch *pfs.Branch) string {
 type branchCommit struct {
 	commit *pfs.Commit
 	branch *pfs.Branch
+}
+
+func appendSubvenance(commitInfo *pfs.CommitInfo, subvCommitInfo *pfs.CommitInfo) {
+	if subvCommitInfo.ParentCommit != nil {
+		for _, subvCommitRange := range commitInfo.Subvenance {
+			if subvCommitRange.Upper.ID == subvCommitInfo.ParentCommit.ID {
+				subvCommitRange.Upper = subvCommitInfo.Commit
+				return
+			}
+		}
+	}
+	commitInfo.Subvenance = append(commitInfo.Subvenance, &pfs.CommitRange{
+		Lower: subvCommitInfo.Commit,
+		Upper: subvCommitInfo.Commit,
+	})
 }
