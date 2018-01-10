@@ -1,6 +1,6 @@
 # RBAC
 
-Pachyderm has support for Kubernetes Role Based Access Control (RBAC) feature.
+Pachyderm has support for Kubernetes Role-Based Access Controls (RBAC).
 This support is a default part of all Pachyderm deployments, there's nothing
 special for you to do as a user. You can see the ClusterRole which is created
 for Pachyderm's service account by doing:
