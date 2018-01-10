@@ -1918,8 +1918,7 @@ func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
 		return pfsserver.ErrCommitFinished{file.Commit}
 	}
 
-	err = d.upsertPutFileRecords(ctx, file, &pfs.PutFileRecords{Tombstone: true})
-	return err
+	return d.upsertPutFileRecords(ctx, file, &pfs.PutFileRecords{Tombstone: true})
 }
 
 func (d *driver) deleteAll(ctx context.Context) error {
