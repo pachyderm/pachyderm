@@ -81,6 +81,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var registry string
 	var imagePullSecret string
 	var noGuaranteed bool
+	var noRBAC bool
 
 	deployLocal := &cobra.Command{
 		Use:   "local",
@@ -391,6 +392,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 				DashImage:               dashImage,
 				Registry:                registry,
 				NoGuaranteed:            noGuaranteed,
+				NoRBAC:                  noRBAC,
 			}
 			return nil
 		}),
@@ -406,6 +408,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 	deploy.PersistentFlags().StringVar(&imagePullSecret, "image-pull-secret", "", "A secret in Kubernetes that's needed to pull from your private registry.")
 	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", "", "Image URL for pachyderm dashboard")
 	deploy.PersistentFlags().BoolVar(&noGuaranteed, "no-guaranteed", false, "Don't use guaranteed QoS for etcd and pachd deployments. Turning this on (turning guaranteed QoS off) can lead to more stable local clusters (such as a on Minikube), it should normally be used for production clusters.")
+	deploy.PersistentFlags().BoolVar(&noRBAC, "no-rbac", false, "Don't deploy RBAC roles for Pachyderm.")
 
 	deploy.AddCommand(
 		deployLocal,
@@ -489,6 +492,8 @@ Are you sure you want to proceed? yN
 				"serviceaccount",
 				"secret",
 				"statefulset",
+				"clusterrole",
+				"clusterrolebinding",
 			}
 			if all {
 				assets = append(assets, []string{
