@@ -6317,6 +6317,87 @@ func TestGetFileWithEmptyCommits(t *testing.T) {
 	require.True(t, strings.Contains(err.Error(), "not found"))
 }
 
+// TestDeleteCommitPropagation deletes an input commit and makes sure all
+// downstream commits are also deleted.
+// DAG in this test: repo -> pipeline[0] -> pipeline[1]
+func TestDeleteCommitPropagation(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	// Create an input repo
+	repo := uniqueString("TestDeleteCommitPropagation")
+	require.NoError(t, c.CreateRepo(repo))
+
+	pipeline := make([]string, 2)
+	for i := 0; i < 2; i++ {
+		pipeline[i] = uniqueString(fmt.Sprintf("pipeline%d_", i))
+		input := []string{repo, pipeline[0]}[i]
+		require.NoError(t, c.CreatePipeline(
+			pipeline[i],
+			"",
+			[]string{"bash"},
+			[]string{"cp /pfs/*/* /pfs/out/"},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewAtomInput(input, "/*"),
+			"",
+			false,
+		))
+	}
+
+	commit := make([]*pfs.Commit, 2)
+	var err error
+	for i := 0; i < 2; i++ {
+		commit[i], err = c.StartCommit(repo, "master")
+		require.NoError(t, err)
+		_, err = c.PutFile(repo, commit[i].ID, "file", strings.NewReader("foo"))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit[i].ID))
+		commitIter, err := c.FlushCommit([]*pfs.Commit{commit[i]}, nil)
+		require.NoError(t, err)
+		commitInfos := collectCommitInfos(t, commitIter)
+		require.Equal(t, 2, len(commitInfos))
+	}
+
+	// Delete the first commit in the input repo (not master, but its parent)
+	// Make sure that 'repo' and all downstream repos only have one commit now
+	commits, err := c.ListCommit(repo, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commits))
+	require.NoError(t, c.DeleteCommit(repo, commit[0].ID))
+	for _, r := range []string{repo, pipeline[0], pipeline[1]} {
+		commits, err := c.ListCommit(r, "master", "", 0)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(commits))
+	}
+
+	// Delete the second commit in the input repo (master)
+	// Make sure that 'repo' and all downstream repos have no commits
+	require.NoError(t, c.DeleteCommit(repo, "master"))
+	for _, r := range []string{repo, pipeline[0], pipeline[1]} {
+		commits, err := c.ListCommit(r, "master", "", 0)
+		require.NoError(t, err)
+		require.Equal(t, 0, len(commits))
+	}
+
+	// Make one more input commit, to be sure that the branches are still
+	// connected properly
+	finalCommit, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, finalCommit.ID, "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, finalCommit.ID))
+	commitIter, err := c.FlushCommit([]*pfs.Commit{finalCommit}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 2, len(commitInfos))
+}
+
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
 	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
 	require.NoError(t, err)

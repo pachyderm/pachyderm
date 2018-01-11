@@ -652,9 +652,12 @@ func TestDeleteCommit(t *testing.T) {
 	branches, err := client.ListBranch(repo)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(branches))
+}
 
-	// Now start a new repo
-	repo = "test2"
+func TestDeleteCommitOnlyCommitInBranch(t *testing.T) {
+	client := getClient(t)
+
+	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
 	commit1, err = client.StartCommit(repo, "master")
@@ -663,6 +666,35 @@ func TestDeleteCommit(t *testing.T) {
 	fileContent = "foo\n"
 	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader(fileContent))
 	require.NoError(t, err)
+
+	require.NoError(t, client.DeleteCommit(repo, "master"))
+
+	// The branch has not been deleted, though it has no commits
+	branches, err = client.ListBranch(repo)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(branches))
+	commits, err := client.ListCommit(repo, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commits))
+
+	// Check that repo size is back to 0
+	repoInfo, err := client.InspectRepo(repo)
+	require.Equal(t, 0, int(repoInfo.SizeBytes))
+}
+
+func TestDeleteCommitFinished(t *testing.T) {
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit1, err = client.StartCommit(repo, "master")
+	require.NoError(t, err)
+
+	fileContent = "foo\n"
+	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader(fileContent))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
 	require.NoError(t, client.DeleteCommit(repo, "master"))
 

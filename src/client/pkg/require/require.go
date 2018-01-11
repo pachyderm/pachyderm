@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
+	"runtime/debug"
 	"testing"
 	"time"
 
@@ -261,6 +262,7 @@ func fatal(tb testing.TB, userMsgAndArgs []interface{}, msgFmt string, msgArgs .
 	tb.Helper()
 	logMessage(tb, userMsgAndArgs)
 	_, file, line, ok := runtime.Caller(2)
+	debug.PrintStack()
 	if ok {
 		tb.Logf("%s:%d", file, line)
 	}
