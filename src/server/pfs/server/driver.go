@@ -830,6 +830,7 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 		}
 		subvBranchInfos = append(subvBranchInfos, subvBranchInfo)
 	}
+	// Sort subvBranchInfos so that upstream branches are processed before their descendants
 	sort.Slice(subvBranchInfos, func(i, j int) bool { return len(subvBranchInfos[i].Provenance) < len(subvBranchInfos[j].Provenance) })
 
 	// C is provenant on B
@@ -839,7 +840,7 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 
 	// Iterate through downstream branches, and create a new HEAD commit in all of
 	// them.
-	// branchToCommit contains the commit we're using for each branch (branchInfos
+	// 'branchToCommit' contains the commit we're using for each branch (subvBranchInfos
 	// may have repeats)
 	branchToCommit := make(map[string]*branchCommit)
 	branchToCommit[branchKey(branch)] = &branchCommit{
@@ -857,10 +858,10 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 			ID:   uuid.NewWithoutDashes(),
 		}
 
-		// 'commit' (new downstream commit) must have correct provenance. One member
-		// of it's provenance will be the top-level commit that we're propagating,
+		// Compute provenance of 'commit' (new downstream commit). One member
+		// of its provenance will be the top-level commit that we're propagating,
 		// but the head commit of other upstream branches will be in its provenance
-		// too. Look those up and fill them into 'commit's provenance
+		// too. Also look those up and add them.
 		var provenance []*pfs.Commit
 		var branchProvenance []*pfs.Branch
 		for _, provBranch := range subvBranchInfo.Provenance {
