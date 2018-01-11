@@ -1382,23 +1382,22 @@ func (d *driver) scratchCommitPrefix(ctx context.Context, commit *pfs.Commit) (s
 	if _, err := d.inspectCommit(ctx, commit); err != nil {
 		return "", err
 	}
-	return path.Join(d.scratchPrefix(), commit.Repo.Name, commit.ID), nil
+	return path.Join(commit.Repo.Name, commit.ID), nil
 }
 
 // scratchFilePrefix returns an etcd prefix that's used to temporarily
 // store the state of a file in an open commit.  Once the commit is finished,
 // the scratch space is removed.
 func (d *driver) scratchFilePrefix(ctx context.Context, file *pfs.File) (string, error) {
-	return path.Join(d.scratchPrefix(), file.Commit.Repo.Name, file.Commit.ID, file.Path), nil
+	return path.Join(file.Commit.Repo.Name, file.Commit.ID, file.Path), nil
 }
 
 func (d *driver) filePathFromEtcdPath(etcdPath string) string {
-	trimmed := strings.TrimPrefix(etcdPath, d.scratchPrefix())
-	// trimmed looks like /repo/commit/path/to/file
-	split := strings.Split(trimmed, "/")
-	// we only want /path/to/file so we use index 3 (note that there's an "" at
+	// etcdPath looks like /pachyderm_pfs/putFileRecords/repo/commit/path/to/file
+	split := strings.Split(etcdPath, "/")
+	// we only want /path/to/file so we use index 4 (note that there's an "" at
 	// the beginning of the slice because of the lead /)
-	return path.Join(split[6:]...)
+	return path.Join(split[4:]...)
 }
 
 // checkPath checks if a file path is legal
