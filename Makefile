@@ -104,7 +104,11 @@ release-pachctl:
 	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachctl
 
 docker-build-compile:
+	date
+	docker pull ubuntu:14.04
+	date
 	docker build -t pachyderm_compile .
+	date
 
 docker-clean-worker:
 	docker stop worker_compile || true
