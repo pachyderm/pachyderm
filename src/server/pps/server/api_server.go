@@ -2096,7 +2096,15 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 			return nil, err
 		}
 	}
-	return &types.Empty{}, err
+
+	// PFS doesn't delete the spec repo, so do it here
+	if err := pachClient.DeleteRepo(ppsconsts.SpecRepo, true); err != nil {
+		return nil, err
+	}
+	if err := pachClient.CreateRepo(ppsconsts.SpecRepo); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
 }
 
 func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageCollectRequest) (response *pps.GarbageCollectResponse, retErr error) {

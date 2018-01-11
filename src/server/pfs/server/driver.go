@@ -989,16 +989,17 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, block bo
 		return nil, err
 	}
 
+	// Traverse commits' parents until you've reached the right ancestor
 	var commitInfo *pfs.CommitInfo
 	nextCommit := &pfs.Commit{
 		Repo: commit.Repo,
 		ID:   commit.ID,
 	}
+	commits := d.commits(commit.Repo.Name).ReadOnly(ctx)
 	for i := 0; i <= ancestryLength; i++ {
 		if nextCommit == nil {
 			return nil, pfsserver.ErrCommitNotFound{commit}
 		}
-		commits := d.commits(commit.Repo.Name).ReadOnly(ctx)
 		commitInfo = new(pfs.CommitInfo)
 		if err := commits.Get(nextCommit.ID, commitInfo); err != nil {
 			return nil, pfsserver.ErrCommitNotFound{nextCommit}
@@ -1009,7 +1010,6 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, block bo
 	commit.ID = commitInfo.Commit.ID
 	if block {
 		// Watch the CommitInfo until the commit has been finished
-		commits := d.commits(commit.Repo.Name).ReadOnly(ctx)
 		if err := func() error {
 			commitInfoWatcher, err := commits.WatchOne(commit.ID)
 			if err != nil {
@@ -1390,12 +1390,12 @@ func (d *driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
 	if err := d.checkIsAuthorized(ctx, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-
-	// Delete the commit itself and subtract the size of the commit
-	// from repo size.
-	// TODO updated branches inside this txn, by storing a repo's branches in its
+	// Main txn: Delete all downstream commits, and update subvenance of upstream commits
+	// TODO update branches inside this txn, by storing a repo's branches in its
 	// RepoInfo or its HEAD commit
-	commitInfo := &pfs.CommitInfo{} // used to updated branches
+	deleted := make(map[string]*pfs.CommitInfo, len(commitInfo.Subvenance)) // deleted commits
+	affectedRepos := make(map[string]unit) // repos containing deleted commits
+	deleteScratch := false                                                  // only delete scratch if txn succeeds
 	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		var (
 			repos   = d.repos.ReadWrite(stm)
@@ -1408,68 +1408,146 @@ func (d *driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
 		if err := commits.Get(commit.ID, commitInfo); err != nil {
 			return err
 		}
-		if commitInfo.Finished != nil {
-			return fmt.Errorf("cannot delete finished commit")
-		}
+		deleteScratch = commitInfo.Finished == nil
 
-		// Update the repo's size
-		repoInfo := &pfs.RepoInfo{}
-		if err := repos.Update(commit.Repo.Name, repoInfo, func() error {
+		// Helper for deleting commits
+		deleteCommit := func(commits col.ReadWriteCollection, commit *pfs.Commit) error {
+			// Store commitInfo in 'deleted' and remove commit from etcd
+			commitInfo := &pfs.CommitInfo{}
+			if err := commits.Get(commit.ID, commitInfo); err != nil {
+				return err
+			}
+			deleted[commit.ID] = commitInfo
+			affectedRepos[commit.Repo.Name] = unit
+			if err := commits.Delete(commit.ID); err != nil {
+				return err
+			}
+
+			// Update repo size
+			// TODO this is basically wrong. Other commits could share data with the
+			// commit being removed, in which case we're subtracting too much
+			repoInfo := &pfs.RepoInfo{}
+			if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
+				return err
+			}
 			repoInfo.SizeBytes -= commitInfo.SizeBytes
-			return nil
-		}); err != nil {
-			return err
+			return repos.Put(commit.Repo.Name, repoInfo)
 		}
 
-		// remove 'commit' from the parent commit's children
-		if commitInfo.ParentCommit != nil {
-			parentCommitInfo := &pfs.CommitInfo{}
-			if err := commits.Update(commitInfo.ParentCommit.ID, parentCommitInfo, func() error {
-				for i, childCommit := range parentCommitInfo.ChildCommits {
-					if childCommit.ID == commit.ID {
-						// remove element i from ChildCommits
-						l := len(parentCommitInfo.ChildCommits)
-						copy(parentCommitInfo.ChildCommits[i:], parentCommitInfo.ChildCommits[i+1:])
-						parentCommitInfo.ChildCommits = parentCommitInfo.ChildCommits[:l-1]
-						return nil
-					}
+		// Delete the commit itself and subtract the size of the commit
+		// from repo size.
+		deleteCommit(commits, commit)
+
+		// Copy the subvenance of 'commit' to a map (deleted) and delete all of
+		// those commits
+		for _, subvCommit := range commitInfo.Subvenance {
+			downstreamRepo := d.commits(subvCommit.Repo.Name).ReadWrite(stm)
+			deleteCommit(downstreamRepo, subvCommit)
+		}
+
+		// Remove the commits in 'deleted' from all upstream commits' subvenance
+		// TODO This is not done yet.
+		for _, provCommit := range commitInfo.Provenance {
+			provCI := &pfs.CommitInfo{}
+			upstreamRepo := d.commits(provCommit.Repo.Name).ReadWrite(stm)
+			if err := upstreamRepo.Get(provCommit.ID, provCI); err != nil {
+				return err
+			}
+			// Remove deleted commits from provCI.Subvenance (copy 'from' -> 'to')
+			to := 0
+			for from, c := range provCI.Subvenance {
+				if _, ok := deleted[c.ID]; ok {
+					continue
 				}
-				return fmt.Errorf("expected to find %s in the children of %s, but did not", commit.ID, commitInfo.ParentCommit.ID)
-			}); err != nil {
+				provCI.Subvenance[to] = provCI.Subvenance[from]
+				to++
+			}
+			provCI.Subvenance = provCI.Subvenance[:to]
+			// Write updated commitInfo back to etcd
+			if err := upstreamRepo.Put(provCommit.ID, provCI); err != nil {
 				return err
 			}
 		}
-
-		return commits.Delete(commit.ID)
+		return nil
 	}); err != nil {
 		return err
 	}
 
-	// If this commit is the head of a branch, make the commit's parent
-	// the head instead.
-	branchInfos, err := d.listBranch(ctx, commit.Repo)
-	if err != nil {
-		return err
-	}
-	for _, branchInfo := range branchInfos {
-		if branchInfo.Head != nil && branchInfo.Head.ID == commitInfo.Commit.ID {
-			var provenance []*pfs.Branch
-			for _, provBranch := range branchInfo.DirectProvenance {
-				provenance = append(provenance, provBranch)
-			}
-			if err := d.createBranch(ctx, branchInfo.Branch, commitInfo.ParentCommit, provenance); err != nil {
-				return err
-			}
+	if deleteScratch {
+		// Delete the scratch space for this commit
+		// TODO put scratch spaces in a collection and do this in the txn above
+		prefix, err := d.scratchCommitPrefix(ctx, commit)
+		if err != nil {
+			return err
+		}
+		if _, err = d.etcdClient.Delete(ctx, prefix, etcd.WithPrefix()); err != nil {
+			return err
 		}
 	}
 
-	// Delete the scratch space for this commit
-	_, err = d.etcdClient.Delete(ctx, d.scratchCommitPrefix(ctx, commit), etcd.WithPrefix())
-	if err != nil {
-		return err
-	}
+	// Traverse affected repos and rewrite all commits and branches so that:
+	// - No commit's parent is a deleted commit.
+	// - No branch points to a deleted commit
+	// TODO this should happen in the txn as well, but can't because we have to
+	// list branches and commits in 'modifiedRepos', and you can't list in a txn
+	for _, repo := range affectedRepos {
+		// Fix branches in 'repo'
+		branchInfos, err := d.listBranch(ctx, client.NewRepo(repo))
+		if err != nil {
+			return err
+		}
+		for _, branchInfo := range branchInfos {
+			// Traverse and rewrite HEAD commit until we find a non-deleted parent or nil
+			for {
+				if branchInfo.Head == nil {
+					break
+				}
+				headCommitInfo, headIsDeleted := deleted[branchInfo.Head.ID]
+				if !headIsDeleted {
+					break
+				}
+				branchInfo.Head = headCommitInfo.ParentCommit
+			}
+			// Update branch in etcd
+			if err := d.createBranch(ctx, branchInfo.Branch, branchInfo.Head, branchInfo.DirectProvenance); err != nil {
+				return err
+			}
+		}
 
-	return err
+		// Fix parent commits in repo
+		commits := d.commits(repo).ReadOnly(ctx)
+		itr, err := commits.List()
+		if err != nil {
+			return err
+		}
+		for { // iterate commits in 'repo'
+			var id string
+			var commitInfo pfs.CommitInfo
+			ok, err := itr.Next(&id, &commitInfo)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				break
+			}
+			// Traverse and rewrite parent commits until we find a non-deleted parent or nil
+			for {
+				if commitInfo.ParentCommit == nil {
+					break
+				}
+				parentCommitInfo, parentIsDeleted := deleted[commitInfo.ParentCommit.ID]
+				if !parentIsDeleted {
+					break
+				}
+				commitInfo.ParentCommit = parentCommitInfo.ParentCommit
+			}
+			// updated commit in etcd
+			col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+				return d.commits(repo).ReadWrite(stm).Put(commitInfo.Commit.ID, &commitInfo)
+			})
+		}
+	}
+	return nil
 }
 
 func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *pfs.Commit, provenance []*pfs.Branch) error {
@@ -2292,33 +2370,18 @@ func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
 }
 
 func (d *driver) deleteAll(ctx context.Context) error {
+	// Note: d.listRepo() doesn't return the 'spec' repo, so it doesn't get
+	// deleted here. Instead, PPS is responsible for deleting and re-creating it
 	repoInfos, err := d.listRepo(ctx, nil, !includeAuth)
 	if err != nil {
 		return err
 	}
 	for _, repoInfo := range repoInfos.RepoInfo {
-		// Hack to keep 'DeleteAll()' from breaking a cluster by deleting the
-		// pipeline spec repo. It would be nice if this didn't need to exist.
-		if repoInfo.Repo.Name == ppsconsts.SpecRepo {
-			continue
-		}
 		if err := d.deleteRepo(ctx, repoInfo.Repo, true); err != nil && !auth.IsNotAuthorizedError(err) {
 			return err
 		}
 	}
-
-	// Second hack: Normally PPS would delete all commits in the spec repo, but
-	// DeleteCommit() can't yet delete commits that have been finished. Instead,
-	// PFS Deletes the spec repo at the end of DeleteAll() and recreates it
-	// (which PPS can't do, as it doesn't know when PFS.DeleteAll() will run)
-	// TODO(msteffen): Delete this, and either hide PFS.DeleteAll() from users and
-	// put this block in PPS.DeleteAll, or implement PFS.DeleteCommit() for
-	// finished commits and have PPS.DeleteAll() delete all commits in the spec
-	// repo.
-	if err := d.deleteRepo(ctx, client.NewRepo(ppsconsts.SpecRepo), true); err != nil {
-		return err
-	}
-	return d.createRepo(ctx, client.NewRepo(ppsconsts.SpecRepo), nil, "", false)
+	return nil
 }
 
 // Put the tree into the blob store
