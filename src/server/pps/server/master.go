@@ -140,18 +140,14 @@ func (a *apiServer) master() {
 					}
 					// TODO fix this function and uncomment this line
 					// a.fixNonDefaultPipelines()
-
-					log.Println("getting pipelineInfo for ", pipelineName)
 					pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, pipelineName, &pipelinePtr)
 					if err != nil {
 						return err
 					}
-					log.Printf("pipelineInfo: %v", pipelineInfo)
 
 					var prevPipelinePtr pps.EtcdPipelineInfo
 					var prevPipelineInfo *pps.PipelineInfo
 					if event.PrevKey != nil {
-						log.Println("getting prev pipelineInfo for ", pipelineName)
 						if err := event.UnmarshalPrev(&pipelineName, &prevPipelinePtr); err != nil {
 							return err
 						}
@@ -159,7 +155,6 @@ func (a *apiServer) master() {
 						if err != nil {
 							return err
 						}
-						log.Printf("prevPipelineInfo: %v", prevPipelineInfo)
 					}
 
 					// If the pipeline has been stopped, delete workers

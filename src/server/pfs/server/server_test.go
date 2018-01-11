@@ -643,29 +643,52 @@ func TestDeleteCommit(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, commit1.ID, commitInfo.Commit.ID)
 
-	// Should error because the first commit has been finished
-	require.YesError(t, client.DeleteCommit(repo, "master"))
-
 	// Check that the branch still exists
 	branches, err := client.ListBranch(repo)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(branches))
+}
 
-	// Now start a new repo
-	repo = "test2"
+func TestDeleteCommitOnlyCommitInBranch(t *testing.T) {
+	client := getClient(t)
+
+	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
-	commit1, err = client.StartCommit(repo, "master")
+	commit, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-
-	fileContent = "foo\n"
-	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader(fileContent))
+	_, err = client.PutFile(repo, commit.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
-
 	require.NoError(t, client.DeleteCommit(repo, "master"))
 
 	// The branch has not been deleted, though it has no commits
-	branches, err = client.ListBranch(repo)
+	branches, err := client.ListBranch(repo)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(branches))
+	commits, err := client.ListCommit(repo, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commits))
+
+	// Check that repo size is back to 0
+	repoInfo, err := client.InspectRepo(repo)
+	require.Equal(t, 0, int(repoInfo.SizeBytes))
+}
+
+func TestDeleteCommitFinished(t *testing.T) {
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit.ID, "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+	require.NoError(t, client.DeleteCommit(repo, "master"))
+
+	// The branch has not been deleted, though it has no commits
+	branches, err := client.ListBranch(repo)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(branches))
 	commits, err := client.ListCommit(repo, "master", "", 0)
@@ -3358,12 +3381,12 @@ func TestChildCommits(t *testing.T) {
 	// Inspect commit 1 and 2
 	commit1Info, commit2Info := inspect("A", commit1.ID), inspect("A", commit2.ID)
 	require.Equal(t, commit1.ID, commit2Info.ParentCommit.ID)
-	require.Equal(t, len(commit1Info.ChildCommits), 1)
-	require.Equal(t, commit2.ID, commit1Info.ChildCommits[0].ID)
+	require.ElementsEqualUnderFn(t, []string{commit2.ID}, commit1Info.ChildCommits, CommitToID)
 
 	// Delete commit 2 and make sure it's removed from commit1.ChildCommits
 	require.NoError(t, c.DeleteCommit("A", commit2.ID))
-	require.Equal(t, len(inspect("A", commit1.ID).ChildCommits), 0)
+	commit1Info = inspect("A", commit1.ID)
+	require.ElementsEqualUnderFn(t, nil, commit1Info.ChildCommits, CommitToID)
 
 	// Re-create commit2, and create a third commit also extending from commit1.
 	// Make sure both appear in commit1.children
@@ -3375,15 +3398,12 @@ func TestChildCommits(t *testing.T) {
 	})
 	require.NoError(t, err)
 	commit1Info = inspect("A", commit1.ID)
-	require.Equal(t, len(commit1Info.ChildCommits), 2)
-	require.OneOfEquals(t, commit2, commit1Info.ChildCommits)
-	require.OneOfEquals(t, commit3, commit1Info.ChildCommits)
+	require.ElementsEqualUnderFn(t, []string{commit2.ID, commit3.ID}, commit1Info.ChildCommits, CommitToID)
 
 	// Delete commit3 and make sure commit1 has the right children
 	require.NoError(t, c.DeleteCommit("A", commit3.ID))
 	commit1Info = inspect("A", commit1.ID)
-	require.Equal(t, len(commit1Info.ChildCommits), 1)
-	require.Equal(t, commit2.ID, commit1Info.ChildCommits[0].ID)
+	require.ElementsEqualUnderFn(t, []string{commit2.ID}, commit1Info.ChildCommits, CommitToID)
 
 	// Create a downstream branch in the same repo, then commit to "A" and make
 	// sure the new HEAD commit is in the parent's children (i.e. test
@@ -3398,8 +3418,7 @@ func TestChildCommits(t *testing.T) {
 	// Re-inspect outCommit1, which has been updated by StartCommit
 	outCommit1, outCommit2 := inspect("A", outCommit1ID), inspect("A", "out")
 	require.Equal(t, outCommit1.Commit.ID, outCommit2.ParentCommit.ID)
-	require.Equal(t, 1, len(outCommit1.ChildCommits))
-	require.Equal(t, outCommit2.Commit.ID, outCommit1.ChildCommits[0].ID)
+	require.ElementsEqualUnderFn(t, []string{outCommit2.Commit.ID}, outCommit1.ChildCommits, CommitToID)
 
 	// create a new branch in a different repo and do the same test again
 	require.NoError(t, c.CreateRepo("B"))
@@ -3413,8 +3432,7 @@ func TestChildCommits(t *testing.T) {
 	// Re-inspect bCommit1, which has been updated by StartCommit
 	bCommit1, bCommit2 := inspect("B", bCommit1ID), inspect("B", "master")
 	require.Equal(t, bCommit1.Commit.ID, bCommit2.ParentCommit.ID)
-	require.Equal(t, 1, len(bCommit1.ChildCommits))
-	require.Equal(t, bCommit2.Commit.ID, bCommit1.ChildCommits[0].ID)
+	require.ElementsEqualUnderFn(t, []string{bCommit2.Commit.ID}, bCommit1.ChildCommits, CommitToID)
 
 	// create a new branch in a different repo, then update it so that two commits
 	// are generated. Make sure the second commit is in the parent's children
@@ -3430,8 +3448,7 @@ func TestChildCommits(t *testing.T) {
 	// Re-inspect cCommit1, which has been updated by CreateBranch
 	cCommit1, cCommit2 := inspect("C", cCommit1ID), inspect("C", "master")
 	require.Equal(t, cCommit1.Commit.ID, cCommit2.ParentCommit.ID)
-	require.Equal(t, 1, len(cCommit1.ChildCommits))
-	require.Equal(t, cCommit2.Commit.ID, cCommit1.ChildCommits[0].ID)
+	require.ElementsEqualUnderFn(t, []string{cCommit2.Commit.ID}, cCommit1.ChildCommits, CommitToID)
 }
 
 func TestStartCommitFork(t *testing.T) {
@@ -3449,14 +3466,8 @@ func TestStartCommitFork(t *testing.T) {
 	require.NoError(t, c.FinishCommit("A", commit2.ID))
 
 	commits, err := c.ListCommit("A", "master2", "", 0)
-	require.Equal(t, 2, len(commits))
-	ids := map[string]bool{
-		commits[0].Commit.ID: true,
-		commits[1].Commit.ID: true,
-	}
 	require.NoError(t, err)
-	require.True(t, ids[commit.ID])
-	require.True(t, ids[commit2.ID])
+	require.ElementsEqualUnderFn(t, []string{commit.ID, commit2.ID}, commits, CommitInfoToID)
 }
 
 // TestUpdateBranchNewOutputCommit tests the following corner case:
@@ -3498,6 +3509,615 @@ func TestUpdateBranchNewOutputCommit(t *testing.T) {
 	commits, err = c.ListCommit("C", "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commits))
+}
+
+// TestDeleteCommitBigSubvenance deletes a commit that is upstream of a large
+// stack of pipeline outputs and makes sure that parenthood and such are handled
+// correctly. There are four cases tested here, in this order (for convenience
+// of setup):
+// 1. Fix broken commit parent -> rewritten to point to a live commit
+// 2. Fix broken branch        -> rewritten to point to a live commit
+// 3. Fix broken branch        -> rewritten to point to nil
+// 4. Fix broken commit parent -> rewritten to point to nil
+func TestDeleteCommitBigSubvenance(t *testing.T) {
+	c := getClient(t)
+
+	// two input repos, one with many commits (logs), and one with few (schema)
+	require.NoError(t, c.CreateRepo("logs"))
+	require.NoError(t, c.CreateRepo("schema"))
+
+	// Commit to logs and schema (so that "pipeline" has an initial output commit,
+	// and we can check that it updates this initial commit's child appropriately)
+	for _, repo := range []string{"schema", "logs"} {
+		commit, err := c.StartCommit(repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+	}
+
+	// Create an output branch, in "pipeline"
+	require.NoError(t, c.CreateRepo("pipeline"))
+	require.NoError(t, c.CreateBranch("pipeline", "master", "", []*pfs.Branch{
+		pclient.NewBranch("schema", "master"),
+		pclient.NewBranch("logs", "master"),
+	}))
+	commits, err := c.ListCommit("pipeline", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commits))
+
+	// Case 1
+	// - Commit to "schema", creating a second output commit in 'pipeline'
+	// - Commit to "logs" 10 times, so that the commit to "schema" has 10 commits
+	//   in its subvenance
+	// - Delete bigSubvCommit
+	// - Now there are 2 output commits in 'pipeline', and the parent of the first
+	// commit is the second commit (makes sure that the first commit's parent is
+	// rewritten back to the last live commit)
+	bigSubvCommit, err := c.StartCommit("schema", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("schema", bigSubvCommit.ID))
+	for i := 0; i < 10; i++ {
+		commit, err := c.StartCommit("logs", "master")
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit("logs", commit.ID))
+	}
+	commit, err := c.StartCommit("schema", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("schema", commit.ID))
+
+	// Make sure there are 13 output commits in 'pipeline' to start (one from
+	// creation, one from the second 'schema' commit, 10 from the 'logs' commits,
+	// and one more from the third 'schema' commit)
+	commits, err = c.ListCommit("pipeline", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 13, len(commits))
+
+	require.NoError(t, c.DeleteCommit("schema", bigSubvCommit.ID))
+	commits, err = c.ListCommit("pipeline", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commits))
+	require.Equal(t, commits[1].Commit.ID, commits[0].ParentCommit.ID)
+	require.Equal(t, commits[1].ChildCommits[0].ID, commits[0].Commit.ID)
+
+	// Case 2
+	// - reset bigSubvCommit to be the head commit of 'schema/master'
+	// - commit to 'logs' 10 more times
+	// - delete bigSubvCommit
+	// - Now there should be one commit in 'pipeline', and it's the head of
+	// 'master' (makes sure that the branch pipeline/master is rewritten back to
+	// the last live commit)
+	commits, err = c.ListCommit("schema", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commits))
+	bigSubvCommitInfo, err := c.InspectCommit("schema", "master")
+	require.NoError(t, err)
+	bigSubvCommit = bigSubvCommitInfo.Commit
+	for i := 0; i < 10; i++ {
+		commit, err = c.StartCommit("logs", "master")
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit("logs", commit.ID))
+	}
+	require.NoError(t, c.DeleteCommit("schema", bigSubvCommit.ID))
+	commits, err = c.ListCommit("pipeline", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commits))
+	pipelineMaster, err := c.InspectCommit("pipeline", "master")
+	require.NoError(t, err)
+	require.Equal(t, pipelineMaster.Commit.ID, commits[0].Commit.ID)
+
+	// Case 3
+	// - reset bigSubvCommit to be the head commit of 'schema/master'
+	// - commit to 'logs' 10 more times
+	// - delete bigSubvCommit
+	// - Now there should be zero commits in 'pipeline'
+	// (makes sure that the branch pipeline/master is rewritten back to nil)
+	commits, err = c.ListCommit("schema", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commits))
+	bigSubvCommit = commits[0].Commit
+	// bigSubvCommitInfo, err = c.InspectCommit(schema, "master")
+	// require.NoError(t, err)
+	// bigSubvCommit = bigSubvCommitInfo.Commit
+	for i := 0; i < 10; i++ {
+		commit, err = c.StartCommit("logs", "master")
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit("logs", commit.ID))
+	}
+	require.NoError(t, c.DeleteCommit("schema", bigSubvCommit.ID))
+	commits, err = c.ListCommit("pipeline", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commits))
+	pipelineMaster, err = c.InspectCommit("pipeline", "master")
+	require.YesError(t, err)
+	require.Matches(t, "is nil", err.Error())
+
+	// Case 4
+	// - commit to 'schema' and reset bigSubvCommit to be the head
+	// bigSubvCommit is now the last commit of 'schema/master'
+	// - Commit to 'logs' 10 more times
+	// - Commit to schema again
+	// - Delete bigSubvCommit
+	// - Now there should be one commit in 'pipeline', and its parent is nil
+	// (makes sure that the the commit is rewritten back to 'nil'
+	bigSubvCommit, err = c.StartCommit("schema", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("schema", bigSubvCommit.ID))
+
+	for i := 0; i < 10; i++ {
+		commit, err = c.StartCommit("logs", "master")
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit("logs", commit.ID))
+	}
+
+	commit, err = c.StartCommit("schema", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("schema", commit.ID))
+
+	require.NoError(t, c.DeleteCommit("schema", bigSubvCommit.ID))
+	commits, err = c.ListCommit("pipeline", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commits))
+	pipelineMaster, err = c.InspectCommit("pipeline", "master")
+	require.NoError(t, err)
+	require.Nil(t, pipelineMaster.ParentCommit)
+}
+
+// TestDeleteCommitMultipleChildrenSingleCommit tests that when you have the
+// following commit graph in a repo:
+// c   d
+//  ↘ ↙
+//   b
+//   ↓
+//   a
+//
+// and you delete commit 'b', what you end up with is:
+//
+// c   d
+//  ↘ ↙
+//   a
+func TestDeleteCommitMultipleChildrenSingleCommit(t *testing.T) {
+	cli := getClient(t)
+	require.NoError(t, cli.CreateRepo("repo"))
+	require.NoError(t, cli.CreateBranch("repo", "master", "", nil))
+
+	// Create commits 'a' and 'b'
+	a, err := cli.StartCommit("repo", "master")
+	require.NoError(t, err)
+	require.NoError(t, cli.FinishCommit("repo", a.ID))
+	b, err := cli.StartCommit("repo", "master")
+	require.NoError(t, err)
+	require.NoError(t, cli.FinishCommit("repo", b.ID))
+
+	// Create second branch
+	require.NoError(t, cli.CreateBranch("repo", "master2", "master", nil))
+
+	// Create commits 'c' and 'd'
+	c, err := cli.StartCommit("repo", "master")
+	require.NoError(t, err)
+	require.NoError(t, cli.FinishCommit("repo", c.ID))
+	d, err := cli.StartCommit("repo", "master2")
+	require.NoError(t, err)
+	require.NoError(t, cli.FinishCommit("repo", d.ID))
+
+	// Collect info re: a, b, c, and d, and make sure that the parent/child
+	// relationships are all correct
+	aInfo, err := cli.InspectCommit("repo", a.ID)
+	bInfo, err := cli.InspectCommit("repo", b.ID)
+	cInfo, err := cli.InspectCommit("repo", c.ID)
+	dInfo, err := cli.InspectCommit("repo", d.ID)
+
+	require.Nil(t, aInfo.ParentCommit)
+	require.ElementsEqualUnderFn(t, []string{b.ID}, aInfo.ChildCommits, CommitToID)
+
+	require.Equal(t, a.ID, bInfo.ParentCommit.ID)
+	require.ElementsEqualUnderFn(t, []string{c.ID, d.ID}, bInfo.ChildCommits, CommitToID)
+
+	require.Equal(t, b.ID, cInfo.ParentCommit.ID)
+	require.Equal(t, 0, len(cInfo.ChildCommits))
+
+	require.Equal(t, b.ID, dInfo.ParentCommit.ID)
+	require.Equal(t, 0, len(dInfo.ChildCommits))
+
+	// Delete commit 'b'
+	cli.DeleteCommit("repo", b.ID)
+
+	// Collect info re: a, c, and d, and make sure that the parent/child
+	// relationships are still correct
+	aInfo, err = cli.InspectCommit("repo", a.ID)
+	cInfo, err = cli.InspectCommit("repo", c.ID)
+	dInfo, err = cli.InspectCommit("repo", d.ID)
+
+	require.Nil(t, aInfo.ParentCommit)
+	require.ElementsEqualUnderFn(t, []string{c.ID, d.ID}, aInfo.ChildCommits, CommitToID)
+
+	require.Equal(t, a.ID, cInfo.ParentCommit.ID)
+	require.Equal(t, 0, len(cInfo.ChildCommits))
+
+	require.Equal(t, a.ID, dInfo.ParentCommit.ID)
+	require.Equal(t, 0, len(dInfo.ChildCommits))
+}
+
+// TestDeleteCommitMultiLevelChildrenNilParent tests that when you have the
+// following commit graph in a repo:
+//
+//    ↙f
+//   c
+//   ↓↙e
+//   b
+//   ↓↙d
+//   a
+//
+// and you delete commits 'a', 'b' and 'c' (in a single call), what you end up
+// with is:
+//
+// d e f
+//  ↘↓↙
+//  nil
+func TestDeleteCommitMultiLevelChildrenNilParent(t *testing.T) {
+	cli := getClient(t)
+	require.NoError(t, cli.CreateRepo("upstream1"))
+	require.NoError(t, cli.CreateRepo("upstream2"))
+	// (commit to both inputs--no output commit until all inputs have commits)
+	_, err := cli.StartCommit("upstream1", "master")
+	require.NoError(t, err)
+	require.NoError(t, cli.FinishCommit("upstream1", "master"))
+	deleteMeCommit, err := cli.StartCommit("upstream2", "master")
+	require.NoError(t, err)
+	require.NoError(t, cli.FinishCommit("upstream2", "master"))
+
+	// Create main repo (will have the commit graphs above
+	require.NoError(t, cli.CreateRepo("repo"))
+	require.NoError(t, cli.CreateBranch("repo", "master", "", []*pfs.Branch{
+		pclient.NewBranch("upstream1", "master"),
+		pclient.NewBranch("upstream2", "master"),
+	}))
+
+	// Create commit 'a'
+	aInfo, err := cli.InspectCommit("repo", "master")
+	require.NoError(t, err)
+	a := aInfo.Commit
+	require.NoError(t, cli.FinishCommit("repo", a.ID))
+
+	// Create 'd'
+	resp, err := cli.PfsAPIClient.StartCommit(cli.Ctx(), &pfs.StartCommitRequest{
+		Parent: pclient.NewCommit("repo", a.ID),
+	})
+	require.NoError(t, err)
+	d := pclient.NewCommit("repo", resp.ID)
+	require.NoError(t, cli.FinishCommit("repo", resp.ID))
+
+	// Create 'b'
+	// (commit to upstream1, so that a & b have same prov commit in upstream2)
+	_, err = cli.StartCommit("upstream1", "master")
+	require.NoError(t, err)
+	require.NoError(t, cli.FinishCommit("upstream1", "master"))
+	bInfo, err := cli.InspectCommit("repo", "master")
+	require.NoError(t, err)
+	b := bInfo.Commit
+	require.NoError(t, cli.FinishCommit("repo", b.ID))
+
+	// Create 'e'
+	resp, err = cli.PfsAPIClient.StartCommit(cli.Ctx(), &pfs.StartCommitRequest{
+		Parent: pclient.NewCommit("repo", b.ID),
+	})
+	require.NoError(t, err)
+	e := pclient.NewCommit("repo", resp.ID)
+	require.NoError(t, cli.FinishCommit("repo", resp.ID))
+
+	// Create 'c'
+	// (commit to upstream1, so that a, b & c have same prov commit in upstream2)
+	_, err = cli.StartCommit("upstream1", "master")
+	require.NoError(t, err)
+	require.NoError(t, cli.FinishCommit("upstream1", "master"))
+	cInfo, err := cli.InspectCommit("repo", "master")
+	require.NoError(t, err)
+	c := cInfo.Commit
+	require.NoError(t, cli.FinishCommit("repo", c.ID))
+
+	// Create 'f'
+	resp, err = cli.PfsAPIClient.StartCommit(cli.Ctx(), &pfs.StartCommitRequest{
+		Parent: pclient.NewCommit("repo", c.ID),
+	})
+	require.NoError(t, err)
+	f := pclient.NewCommit("repo", resp.ID)
+	require.NoError(t, cli.FinishCommit("repo", resp.ID))
+
+	// Make sure child/parent relationships are as shown in first diagram
+	commits, err := cli.ListCommit("repo", "", "", 0)
+	require.Equal(t, 6, len(commits))
+	aInfo, err = cli.InspectCommit("repo", a.ID)
+	require.NoError(t, err)
+	bInfo, err = cli.InspectCommit("repo", b.ID)
+	require.NoError(t, err)
+	cInfo, err = cli.InspectCommit("repo", c.ID)
+	require.NoError(t, err)
+	dInfo, err := cli.InspectCommit("repo", d.ID)
+	require.NoError(t, err)
+	eInfo, err := cli.InspectCommit("repo", e.ID)
+	require.NoError(t, err)
+	fInfo, err := cli.InspectCommit("repo", f.ID)
+	require.NoError(t, err)
+
+	require.Nil(t, aInfo.ParentCommit)
+	require.Equal(t, a.ID, bInfo.ParentCommit.ID)
+	require.Equal(t, a.ID, dInfo.ParentCommit.ID)
+	require.Equal(t, b.ID, cInfo.ParentCommit.ID)
+	require.Equal(t, b.ID, eInfo.ParentCommit.ID)
+	require.Equal(t, c.ID, fInfo.ParentCommit.ID)
+	require.ElementsEqualUnderFn(t, []string{b.ID, d.ID}, aInfo.ChildCommits, CommitToID)
+	require.ElementsEqualUnderFn(t, []string{c.ID, e.ID}, bInfo.ChildCommits, CommitToID)
+	require.ElementsEqualUnderFn(t, []string{f.ID}, cInfo.ChildCommits, CommitToID)
+	require.Nil(t, dInfo.ChildCommits)
+	require.Nil(t, eInfo.ChildCommits)
+	require.Nil(t, fInfo.ChildCommits)
+
+	// Delete commit in upstream2, which deletes b & c
+	require.NoError(t, cli.DeleteCommit("upstream2", deleteMeCommit.ID))
+
+	// Re-read commit info to get new parents/children
+	dInfo, err = cli.InspectCommit("repo", d.ID)
+	require.NoError(t, err)
+	eInfo, err = cli.InspectCommit("repo", e.ID)
+	require.NoError(t, err)
+	fInfo, err = cli.InspectCommit("repo", f.ID)
+	require.NoError(t, err)
+
+	// Make sure child/parent relationships are as shown in second diagram
+	commits, err = cli.ListCommit("repo", "", "", 0)
+	require.Equal(t, 3, len(commits))
+	require.Nil(t, eInfo.ParentCommit)
+	require.Nil(t, fInfo.ParentCommit)
+	require.Nil(t, dInfo.ChildCommits)
+	require.Nil(t, eInfo.ChildCommits)
+	require.Nil(t, fInfo.ChildCommits)
+}
+
+// Tests that when you have the following commit graph in a *downstream* repo:
+//
+//    ↙f
+//   c
+//   ↓↙e
+//   b
+//   ↓↙d
+//   a
+//
+// and you delete commits 'b' and 'c' (in a single call), what you end up with
+// is:
+//
+// d e f
+//  ↘↓↙
+//   a
+// This makes sure that multiple live children are re-pointed at a live parent
+// if appropriate
+func TestDeleteCommitMultiLevelChildren(t *testing.T) {
+	cli := getClient(t)
+	require.NoError(t, cli.CreateRepo("upstream1"))
+	require.NoError(t, cli.CreateRepo("upstream2"))
+	// (commit to both inputs--no output commit until all inputs have commits)
+	_, err := cli.StartCommit("upstream1", "master")
+	require.NoError(t, err)
+	require.NoError(t, cli.FinishCommit("upstream1", "master"))
+	_, err = cli.StartCommit("upstream2", "master")
+	require.NoError(t, err)
+	require.NoError(t, cli.FinishCommit("upstream2", "master"))
+
+	// Create main repo (will have the commit graphs above
+	require.NoError(t, cli.CreateRepo("repo"))
+	require.NoError(t, cli.CreateBranch("repo", "master", "", []*pfs.Branch{
+		pclient.NewBranch("upstream1", "master"),
+		pclient.NewBranch("upstream2", "master"),
+	}))
+
+	// Create commit 'a'
+	aInfo, err := cli.InspectCommit("repo", "master")
+	require.NoError(t, err)
+	a := aInfo.Commit
+	require.NoError(t, cli.FinishCommit("repo", a.ID))
+
+	// Create 'd'
+	resp, err := cli.PfsAPIClient.StartCommit(cli.Ctx(), &pfs.StartCommitRequest{
+		Parent: pclient.NewCommit("repo", a.ID),
+	})
+	require.NoError(t, err)
+	d := pclient.NewCommit("repo", resp.ID)
+	require.NoError(t, cli.FinishCommit("repo", resp.ID))
+
+	// Create 'b'
+	// (a & b have same prov commit in upstream2, so this is the commit that will
+	// be deleted, as both b and c are provenant on it)
+	deleteMeCommit, err := cli.StartCommit("upstream1", "master")
+	require.NoError(t, err)
+	require.NoError(t, cli.FinishCommit("upstream1", "master"))
+	bInfo, err := cli.InspectCommit("repo", "master")
+	require.NoError(t, err)
+	b := bInfo.Commit
+	require.NoError(t, cli.FinishCommit("repo", b.ID))
+
+	// Create 'e'
+	resp, err = cli.PfsAPIClient.StartCommit(cli.Ctx(), &pfs.StartCommitRequest{
+		Parent: pclient.NewCommit("repo", b.ID),
+	})
+	require.NoError(t, err)
+	e := pclient.NewCommit("repo", resp.ID)
+	require.NoError(t, cli.FinishCommit("repo", resp.ID))
+
+	// Create 'c'
+	// (commit to upstream2, so that b & c have same prov commit in upstream1)
+	_, err = cli.StartCommit("upstream2", "master")
+	require.NoError(t, err)
+	require.NoError(t, cli.FinishCommit("upstream2", "master"))
+	cInfo, err := cli.InspectCommit("repo", "master")
+	require.NoError(t, err)
+	c := cInfo.Commit
+	require.NoError(t, cli.FinishCommit("repo", c.ID))
+
+	// Create 'f'
+	resp, err = cli.PfsAPIClient.StartCommit(cli.Ctx(), &pfs.StartCommitRequest{
+		Parent: pclient.NewCommit("repo", c.ID),
+	})
+	require.NoError(t, err)
+	f := pclient.NewCommit("repo", resp.ID)
+	require.NoError(t, cli.FinishCommit("repo", resp.ID))
+
+	// Make sure child/parent relationships are as shown in first diagram
+	commits, err := cli.ListCommit("repo", "", "", 0)
+	require.Equal(t, 6, len(commits))
+	aInfo, err = cli.InspectCommit("repo", a.ID)
+	require.NoError(t, err)
+	bInfo, err = cli.InspectCommit("repo", b.ID)
+	require.NoError(t, err)
+	cInfo, err = cli.InspectCommit("repo", c.ID)
+	require.NoError(t, err)
+	dInfo, err := cli.InspectCommit("repo", d.ID)
+	require.NoError(t, err)
+	eInfo, err := cli.InspectCommit("repo", e.ID)
+	require.NoError(t, err)
+	fInfo, err := cli.InspectCommit("repo", f.ID)
+	require.NoError(t, err)
+
+	require.Nil(t, aInfo.ParentCommit)
+	require.Equal(t, a.ID, bInfo.ParentCommit.ID)
+	require.Equal(t, a.ID, dInfo.ParentCommit.ID)
+	require.Equal(t, b.ID, cInfo.ParentCommit.ID)
+	require.Equal(t, b.ID, eInfo.ParentCommit.ID)
+	require.Equal(t, c.ID, fInfo.ParentCommit.ID)
+	require.ElementsEqualUnderFn(t, []string{b.ID, d.ID}, aInfo.ChildCommits, CommitToID)
+	require.ElementsEqualUnderFn(t, []string{c.ID, e.ID}, bInfo.ChildCommits, CommitToID)
+	require.ElementsEqualUnderFn(t, []string{f.ID}, cInfo.ChildCommits, CommitToID)
+	require.Nil(t, dInfo.ChildCommits)
+	require.Nil(t, eInfo.ChildCommits)
+	require.Nil(t, fInfo.ChildCommits)
+
+	// Delete second commit in upstream2, which deletes b & c
+	require.NoError(t, cli.DeleteCommit("upstream1", deleteMeCommit.ID))
+
+	// Re-read commit info to get new parents/children
+	aInfo, err = cli.InspectCommit("repo", a.ID)
+	require.NoError(t, err)
+	dInfo, err = cli.InspectCommit("repo", d.ID)
+	require.NoError(t, err)
+	eInfo, err = cli.InspectCommit("repo", e.ID)
+	require.NoError(t, err)
+	fInfo, err = cli.InspectCommit("repo", f.ID)
+	require.NoError(t, err)
+
+	// Make sure child/parent relationships are as shown in second diagram
+	commits, err = cli.ListCommit("repo", "", "", 0)
+	t.Logf("commits:")
+	name := map[string]string{
+		a.ID: "a",
+		b.ID: "b",
+		c.ID: "c",
+		d.ID: "d",
+		e.ID: "e",
+		f.ID: "f",
+	}
+	for _, ci := range commits {
+		t.Logf("  %v", name[ci.Commit.ID])
+	}
+	require.Equal(t, 4, len(commits))
+	require.Nil(t, aInfo.ParentCommit)
+	require.Equal(t, a.ID, dInfo.ParentCommit.ID)
+	require.Equal(t, a.ID, eInfo.ParentCommit.ID)
+	require.Equal(t, a.ID, fInfo.ParentCommit.ID)
+	require.ElementsEqualUnderFn(t, []string{d.ID, e.ID, f.ID}, aInfo.ChildCommits, CommitToID)
+	require.Nil(t, dInfo.ChildCommits)
+	require.Nil(t, eInfo.ChildCommits)
+	require.Nil(t, fInfo.ChildCommits)
+}
+
+// TestDeleteCommitShrinkSubvRange is like TestDeleteCommitBigSubvenance, but
+// instead of deleting commits from "schema", this test deletes them from
+// "logs", to make sure that the subvenance of "schema" commits is rewritten
+// correctly. As before, there are four cases:
+// 1. Subvenance "Lower" is increased
+// 2. Subvenance "Upper" is decreased
+// 3. Subvenance is not affected, because the deleted commit is between "Lower" and "Upper"
+// 4. The entire subvenance range is deleted
+func TestDeleteCommitShrinkSubvRange(t *testing.T) {
+	c := getClient(t)
+
+	// two input repos, one with many commits (logs), and one with few (schema)
+	require.NoError(t, c.CreateRepo("logs"))
+	require.NoError(t, c.CreateRepo("schema"))
+
+	// Commit to logs and schema
+	logsCommit := make([]*pfs.Commit, 10)
+	var err error
+	logsCommit[0], err = c.StartCommit("logs", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("logs", logsCommit[0].ID))
+	schemaCommit, err := c.StartCommit("schema", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("schema", schemaCommit.ID))
+
+	// Create an output branch, in "pipeline"
+	require.NoError(t, c.CreateRepo("pipeline"))
+	require.NoError(t, c.CreateBranch("pipeline", "master", "", []*pfs.Branch{
+		pclient.NewBranch("schema", "master"),
+		pclient.NewBranch("logs", "master"),
+	}))
+	commits, err := c.ListCommit("pipeline", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commits))
+
+	// Commit to "logs" 9 more times, so that the commit to "schema" has 10
+	// commits in its subvenance
+	for i := 1; i < 10; i++ {
+		logsCommit[i], err = c.StartCommit("logs", "master")
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit("logs", logsCommit[i].ID))
+	}
+	pipelineCommitInfos, err := c.ListCommit("pipeline", "master", "", 0)
+	require.Equal(t, 10, len(pipelineCommitInfos))
+	pipelineCommit := make([]string, 10)
+	for i := range pipelineCommitInfos {
+		// ListCommit sorts from newest to oldest, but we want the reverse (0 is
+		// oldest, like how logsCommit[0] is the oldest)
+		pipelineCommit[9-i] = pipelineCommitInfos[i].Commit.ID
+	}
+	require.NoError(t, err)
+	// Make sure the subvenance of the one commit in "schema" includes all commits
+	// in "pipeline"
+	schemaCommitInfo, err := c.InspectCommit("schema", schemaCommit.ID)
+	require.Equal(t, 1, len(schemaCommitInfo.Subvenance))
+	require.Equal(t, pipelineCommit[0], schemaCommitInfo.Subvenance[0].Lower.ID)
+	require.Equal(t, pipelineCommit[9], schemaCommitInfo.Subvenance[0].Upper.ID)
+
+	// Case 1
+	// - Delete the first commit in "logs" and make sure that the subvenance of
+	//   the single commit in "schema" has increased its Lower value
+	require.NoError(t, c.DeleteCommit("logs", logsCommit[0].ID))
+	schemaCommitInfo, err = c.InspectCommit("schema", schemaCommit.ID)
+	require.Equal(t, 1, len(schemaCommitInfo.Subvenance))
+	require.Equal(t, pipelineCommit[1], schemaCommitInfo.Subvenance[0].Lower.ID)
+	require.Equal(t, pipelineCommit[9], schemaCommitInfo.Subvenance[0].Upper.ID)
+
+	// Case 2
+	// - Delete the last commit in "logs" and make sure that the subvenance of
+	//   the single commit in "schema" has decreased its Upper value
+	require.NoError(t, c.DeleteCommit("logs", logsCommit[9].ID))
+	schemaCommitInfo, err = c.InspectCommit("schema", schemaCommit.ID)
+	require.Equal(t, 1, len(schemaCommitInfo.Subvenance))
+	require.Equal(t, pipelineCommit[1], schemaCommitInfo.Subvenance[0].Lower.ID)
+	require.Equal(t, pipelineCommit[8], schemaCommitInfo.Subvenance[0].Upper.ID)
+
+	// Case 3
+	// - Delete the middle commit in "logs" and make sure that the subvenance of
+	//   the single commit in "schema" hasn't changed
+	require.NoError(t, c.DeleteCommit("logs", logsCommit[5].ID))
+	schemaCommitInfo, err = c.InspectCommit("schema", schemaCommit.ID)
+	require.Equal(t, 1, len(schemaCommitInfo.Subvenance))
+	require.Equal(t, pipelineCommit[1], schemaCommitInfo.Subvenance[0].Lower.ID)
+	require.Equal(t, pipelineCommit[8], schemaCommitInfo.Subvenance[0].Upper.ID)
+
+	// Case 4
+	// - Delete the remaining commits in "logs" and make sure that the subvenance
+	//   of the single commit in "schema" is empty
+	for _, i := range []int{1, 2, 3, 4, 6, 7, 8} {
+		require.NoError(t, c.DeleteCommit("logs", logsCommit[i].ID))
+	}
+	schemaCommitInfo, err = c.InspectCommit("schema", schemaCommit.ID)
+	require.Equal(t, 0, len(schemaCommitInfo.Subvenance))
 }
 
 func uniqueString(prefix string) string {
