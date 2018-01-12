@@ -3151,6 +3151,9 @@ func TestUpdateBranch(t *testing.T) {
 	require.NoError(t, c.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master"), pclient.NewBranch("D", "master")}))
 	require.NoError(t, c.FinishCommit("B", "master"))
 	require.NoError(t, c.FinishCommit("C", "master"))
+	cCommitInfo, err := c.InspectCommit("C", "master")
+	require.NoError(t, err)
+	require.Equal(t, 3, len(cCommitInfo.Provenance))
 }
 
 func uniqueString(prefix string) string {
