@@ -86,7 +86,7 @@ func NewEnterpriseServer(etcdAddress string, etcdPrefix string) (ec.APIServer, e
 			etcdClient,
 			etcdPrefix, // only one collection--no extra prefix needed
 			nil,
-			&types.Timestamp{},
+			&ec.EnterpriseRecord{},
 			nil,
 		),
 	}
@@ -233,11 +233,10 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		e := a.enterpriseToken.ReadWrite(stm)
 		// blind write
-		e.Put(enterpriseTokenKey, &ec.EnterpriseRecord{
+		return e.Put(enterpriseTokenKey, &ec.EnterpriseRecord{
 			ActivationCode: req.ActivationCode,
 			Expires:        expirationProto,
 		})
-		return nil
 	}); err != nil {
 		return nil, err
 	}
