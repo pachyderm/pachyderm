@@ -677,7 +677,7 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 		// We propagate the branch last so propagateCommit can write to the
 		// now-existing commit's subvenance
 		if branch != "" {
-			return d.propagateCommit(ctx, client.NewBranch(commit.Repo.Name, branch), commit, stm)
+			return d.propagateCommit(ctx, client.NewBranch(commit.Repo.Name, branch), commitInfo, stm)
 		}
 		return nil
 	}); err != nil {
@@ -817,7 +817,8 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 	return err
 }
 
-func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit *pfs.Commit, stm col.STM) error {
+func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commitInfo *pfs.CommitInfo, stm col.STM) error {
+	commit := commitInfo.Commit
 	// TODO This iterates through all branches in PFS and checks whether each one
 	// has 'branch' in its provenance (adding it to branchInfos if so. Rewrite to
 	// use 'branch' subvenance
@@ -875,6 +876,13 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 	branchToCommit[branchKey(branch)] = &branchCommit{
 		branch: branch,
 		commit: commit,
+	}
+	for i, provCommit := range commitInfo.Provenance {
+		provBranch := commitInfo.BranchProvenance[i]
+		branchToCommit[branchKey(provBranch)] = &branchCommit{
+			branch: provBranch,
+			commit: provCommit,
+		}
 	}
 	for _, branchInfo := range branchInfos {
 		branch := branchInfo.Branch
@@ -1500,10 +1508,17 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 			Branch: branch,
 			Name:   branch.Name,
 		}
+		// Get the previous version of this branch if there is one, we do this
+		// so that we don't lose pre existing subvenance.
+		if err := d.branches(branch.Repo.Name).ReadWrite(stm).Get(branch.Name, branchInfo); err != nil && !col.IsErrNotFound(err) {
+			return err
+		}
 		if commitInfo != nil {
 			branchInfo.Head = commitInfo.Commit
 		}
 
+		// We set Provenance to nil here so that createBranch can change provenance.
+		branchInfo.Provenance = nil
 		if len(provMap) > 0 {
 			commitProvMap := make(map[string]*branchCommit)
 			// Update branches to have this new branch as subvenance, and possibly
@@ -1593,6 +1608,9 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 						return err
 					}
 					if err := d.openCommits.ReadWrite(stm).Put(commit.ID, commit); err != nil {
+						return err
+					}
+					if err := d.propagateCommit(ctx, branch, commitInfo, stm); err != nil {
 						return err
 					}
 				}
