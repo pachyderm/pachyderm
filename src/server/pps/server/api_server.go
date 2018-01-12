@@ -1301,15 +1301,13 @@ func (a *apiServer) authorizePipelineOp(pachClient *client.APIClient, operation 
 	// to it, and this is simpler)
 	var required auth.Scope
 	switch operation {
-	case pipelineOpListDatum:
-		return nil // READER access to inputs is sufficient (it's just datum names)
 	case pipelineOpCreate:
 		if _, err := pachClient.InspectRepo(output); err == nil {
 			return fmt.Errorf("cannot overwrite repo \"%s\" with new output repo", output)
 		} else if !isNotFoundErr(err) {
 			return err
 		}
-	case pipelineOpGetLogs:
+	case pipelineOpListDatum, pipelineOpGetLogs:
 		required = auth.Scope_READER
 	case pipelineOpUpdate:
 		required = auth.Scope_WRITER
