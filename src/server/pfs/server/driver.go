@@ -597,37 +597,6 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 			Started:     now(),
 			Description: description,
 		}
-
-		// Use a map to de-dup provenance
-		provenanceMap := make(map[string]*pfs.Commit)
-		// Build the full provenance; my provenance's provenance is
-		// my provenance
-		for _, provCommit := range provenance {
-			provCommits := d.commits(provCommit.Repo.Name).ReadWrite(stm)
-			provCommitInfo := &pfs.CommitInfo{}
-			if err := provCommits.Get(provCommit.ID, provCommitInfo); err != nil {
-				return err
-			}
-			for _, c := range provCommitInfo.Provenance {
-				provenanceMap[c.ID] = c
-			}
-		}
-		// finally include the given provenance
-		for _, provCommit := range provenance {
-			provenanceMap[provCommit.ID] = provCommit
-		}
-
-		for _, provCommit := range provenanceMap {
-			commitInfo.Provenance = append(commitInfo.Provenance, provCommit)
-			provCommitInfo := &pfs.CommitInfo{}
-			if err := d.commits(provCommit.Repo.Name).ReadWrite(stm).Update(provCommit.ID, provCommitInfo, func() error {
-				provCommitInfo.Subvenance = append(provCommitInfo.Subvenance, commit)
-				return nil
-			}); err != nil {
-				return err
-			}
-		}
-
 		if branch != "" {
 			// If we don't have an explicit parent we use the previous head of
 			// branch as the parent, if it exists.
@@ -657,6 +626,35 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 				return fmt.Errorf("parent commit %s has not been finished", parent.ID)
 			}
 			commitInfo.ParentCommit = parent
+		}
+
+		// Use a map to de-dup provenance
+		provenanceMap := make(map[string]*pfs.Commit)
+		// Build the full provenance; my provenance's provenance is
+		// my provenance
+		for _, provCommit := range provenance {
+			provCommits := d.commits(provCommit.Repo.Name).ReadWrite(stm)
+			provCommitInfo := &pfs.CommitInfo{}
+			if err := provCommits.Get(provCommit.ID, provCommitInfo); err != nil {
+				return err
+			}
+			for _, c := range provCommitInfo.Provenance {
+				provenanceMap[c.ID] = c
+			}
+		}
+		// finally include the given provenance
+		for _, provCommit := range provenance {
+			provenanceMap[provCommit.ID] = provCommit
+		}
+		for _, provCommit := range provenanceMap {
+			commitInfo.Provenance = append(commitInfo.Provenance, provCommit)
+			provCommitInfo := &pfs.CommitInfo{}
+			if err := d.commits(provCommit.Repo.Name).ReadWrite(stm).Update(provCommit.ID, provCommitInfo, func() error {
+				appendSubvenance(provCommitInfo, commitInfo)
+				return nil
+			}); err != nil {
+				return err
+			}
 		}
 		parentTree, err := d.getTreeForCommit(ctx, parent)
 		if err != nil {
@@ -819,49 +817,20 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 
 func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commitInfo *pfs.CommitInfo, stm col.STM) error {
 	commit := commitInfo.Commit
-	// TODO This iterates through all branches in PFS and checks whether each one
-	// has 'branch' in its provenance (adding it to branchInfos if so. Rewrite to
-	// use 'branch' subvenance
-	repos := d.repos.ReadOnly(ctx)
-	iterator, err := repos.List()
-	if err != nil {
+	var subvBranchInfos []*pfs.BranchInfo
+	branchInfo := &pfs.BranchInfo{}
+	if err := d.branches(branch.Repo.Name).ReadWrite(stm).Get(branch.Name, branchInfo); err != nil {
 		return err
 	}
-	var branchInfos []*pfs.BranchInfo
-	for {
-		var repoName string
-		var repoInfo pfs.RepoInfo
-		ok, err := iterator.Next(&repoName, &repoInfo)
-		if err != nil {
+	for _, subvBranch := range branchInfo.Subvenance {
+		subvBranchInfo := &pfs.BranchInfo{}
+		if err := d.branches(subvBranch.Repo.Name).ReadWrite(stm).Get(subvBranch.Name, subvBranchInfo); err != nil {
 			return err
 		}
-		if !ok {
-			break
-		}
-		branches := d.branches(repoInfo.Repo.Name).ReadOnly(ctx)
-		brIterator, err := branches.List()
-		if err != nil {
-			return err
-		}
-		for {
-			var branchName string
-			var branchInfo pfs.BranchInfo
-			ok, err = brIterator.Next(&branchName, &branchInfo)
-			if err != nil {
-				return err
-			}
-			if !ok {
-				break
-			}
-			for _, provBranch := range branchInfo.Provenance {
-				if provBranch.Repo.Name == branch.Repo.Name && provBranch.Name == branch.Name {
-					branchInfos = append(branchInfos, &branchInfo)
-					break
-				}
-			}
-		}
+		subvBranchInfos = append(subvBranchInfos, subvBranchInfo)
 	}
-	sort.Slice(branchInfos, func(i, j int) bool { return len(branchInfos[i].Provenance) < len(branchInfos[j].Provenance) })
+	// Sort subvBranchInfos so that upstream branches are processed before their descendants
+	sort.Slice(subvBranchInfos, func(i, j int) bool { return len(subvBranchInfos[i].Provenance) < len(subvBranchInfos[j].Provenance) })
 
 	// C is provenant on B
 	// B is a 'spec branch' in some formal sense
@@ -870,7 +839,7 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 
 	// Iterate through downstream branches, and create a new HEAD commit in all of
 	// them.
-	// branchToCommit contains the commit we're using for each branch (branchInfos
+	// 'branchToCommit' contains the commit we're using for each branch (subvBranchInfos
 	// may have repeats)
 	branchToCommit := make(map[string]*branchCommit)
 	branchToCommit[branchKey(branch)] = &branchCommit{
@@ -884,8 +853,8 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 			commit: provCommit,
 		}
 	}
-	for _, branchInfo := range branchInfos {
-		branch := branchInfo.Branch
+	for _, subvBranchInfo := range subvBranchInfos {
+		branch := subvBranchInfo.Branch
 		repo := branch.Repo
 		branches := d.branches(repo.Name).ReadWrite(stm)
 		commits := d.commits(repo.Name).ReadWrite(stm)
@@ -895,13 +864,13 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 			ID:   uuid.NewWithoutDashes(),
 		}
 
-		// 'commit' (new downstream commit) must have correct provenance. One member
-		// of it's provenance will be the top-level commit that we're propagating,
+		// Compute provenance of 'commit' (new downstream commit). One member
+		// of its provenance will be the top-level commit that we're propagating,
 		// but the head commit of other upstream branches will be in its provenance
-		// too. Look those up and fill them into 'commit's provenance
+		// too. Also look those up and add them.
 		var provenance []*pfs.Commit
 		var branchProvenance []*pfs.Branch
-		for _, provBranch := range branchInfo.Provenance {
+		for _, provBranch := range subvBranchInfo.Provenance {
 			// TODO we store retrieved values in branchToCommit, but d.branches is
 			// is already cached. Remove branchToCommit and just read from d.branches
 			// in every iteration (simplifying this code)
@@ -973,7 +942,7 @@ func (d *driver) propagateCommit(ctx context.Context, branch *pfs.Branch, commit
 		for _, provCommit := range commitInfo.Provenance {
 			provCommitInfo := &pfs.CommitInfo{}
 			if err := d.commits(provCommit.Repo.Name).ReadWrite(stm).Update(provCommit.ID, provCommitInfo, func() error {
-				provCommitInfo.Subvenance = append(provCommitInfo.Subvenance, commit)
+				appendSubvenance(provCommitInfo, commitInfo)
 				return nil
 			}); err != nil {
 				return err
@@ -1353,13 +1322,13 @@ func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 		}
 		if i == 0 {
 			for _, subvCommit := range commitInfo.Subvenance {
-				commitsToWatch[commitKey(subvCommit)] = subvCommit
+				commitsToWatch[commitKey(subvCommit.Upper)] = subvCommit.Upper
 			}
 		} else {
 			newCommitsToWatch := make(map[string]*pfs.Commit)
 			for _, subvCommit := range commitInfo.Subvenance {
-				if _, ok := commitsToWatch[commitKey(subvCommit)]; ok {
-					newCommitsToWatch[commitKey(subvCommit)] = subvCommit
+				if _, ok := commitsToWatch[commitKey(subvCommit.Upper)]; ok {
+					newCommitsToWatch[commitKey(subvCommit.Upper)] = subvCommit.Upper
 				}
 			}
 			commitsToWatch = newCommitsToWatch
@@ -1598,7 +1567,7 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 						commitInfo.BranchProvenance = append(commitInfo.BranchProvenance, provCommit.branch)
 						provCommitInfo := &pfs.CommitInfo{}
 						if err := d.commits(provCommit.commit.Repo.Name).ReadWrite(stm).Upsert(provCommit.commit.ID, provCommitInfo, func() error {
-							provCommitInfo.Subvenance = append(provCommitInfo.Subvenance, commit)
+							appendSubvenance(provCommitInfo, commitInfo)
 							return nil
 						}); err != nil {
 							return err
@@ -2361,4 +2330,19 @@ func branchKey(branch *pfs.Branch) string {
 type branchCommit struct {
 	commit *pfs.Commit
 	branch *pfs.Branch
+}
+
+func appendSubvenance(commitInfo *pfs.CommitInfo, subvCommitInfo *pfs.CommitInfo) {
+	if subvCommitInfo.ParentCommit != nil {
+		for _, subvCommitRange := range commitInfo.Subvenance {
+			if subvCommitRange.Upper.ID == subvCommitInfo.ParentCommit.ID {
+				subvCommitRange.Upper = subvCommitInfo.Commit
+				return
+			}
+		}
+	}
+	commitInfo.Subvenance = append(commitInfo.Subvenance, &pfs.CommitRange{
+		Lower: subvCommitInfo.Commit,
+		Upper: subvCommitInfo.Commit,
+	})
 }
