@@ -125,7 +125,10 @@ docker-clean-pachd:
 	docker rm pachd_compile || true
 
 docker-build-pachd: docker-clean-pachd docker-build-compile
-	docker run --name pachd_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd "$(LD_FLAGS)"
+	docker run  \
+		-v $$HOME/go/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
+		-v $$HOME/.cache/go-build:/home/root/.cache/go-build \
+		--name pachd_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh pachd "$(LD_FLAGS)"
 
 docker-clean-test:
 	docker stop test_compile || true
