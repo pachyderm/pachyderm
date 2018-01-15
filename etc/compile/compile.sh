@@ -3,7 +3,10 @@
 set -Ee
 
 DIR="$(cd "$(dirname "${0}")/../.." && pwd)"
+echo "cd'ing to $DIR"
 cd "${DIR}"
+echo 'whoami?'
+whoami
 
 BINARY="${1}"
 LD_FLAGS="${2}"
