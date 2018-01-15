@@ -2,9 +2,12 @@ dist: trusty
 sudo: required
 services:
 - docker
+cache:
+  directories:
+    - /home/travis/.cache/go-build
 language: go
 go:
-- 1.9
+- 1.10beta1
 branches:
   except:
     - /^v[0-9]/
