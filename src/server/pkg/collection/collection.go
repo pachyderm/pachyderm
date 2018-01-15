@@ -80,7 +80,7 @@ func (c *collection) indexDir(index Index, indexVal string) string {
 	indexDir := c.prefix
 	// remove trailing slash
 	indexDir = strings.TrimRight(indexDir, "/")
-	return fmt.Sprintf("%s__index_%s/%s", indexDir, index, indexVal)
+	return fmt.Sprintf("%s__index_%v/%s", indexDir, index, indexVal)
 }
 
 // See the documentation for `Index` for details.
