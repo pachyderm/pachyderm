@@ -86,7 +86,7 @@ type APIClient struct {
 	ctx context.Context
 }
 
-// GetAddress returns the pachd host:post with which 'c' is communicating. If
+// GetAddress returns the pachd host:port with which 'c' is communicating. If
 // 'c' was created using NewInCluster or NewOnUserMachine then this is how the
 // address may be retrieved from the environment.
 func (c *APIClient) GetAddress() string {
