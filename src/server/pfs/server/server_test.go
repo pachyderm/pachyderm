@@ -3176,6 +3176,34 @@ func TestUpdateBranch(t *testing.T) {
 	require.Equal(t, 3, len(cCommitInfo.Provenance))
 }
 
+func TestBranchProvenance(t *testing.T) {
+	c := getClient(t)
+	require.NoError(t, c.CreateRepo("A"))
+	require.NoError(t, c.CreateRepo("B"))
+	require.NoError(t, c.CreateRepo("C"))
+
+	require.NoError(t, c.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
+	require.NoError(t, c.CreateBranch("C", "master", "", []*pfs.Branch{pclient.NewBranch("B", "master")}))
+
+	aMaster, err := c.InspectBranch("A", "master")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(aMaster.Subvenance))
+
+	cMaster, err := c.InspectBranch("C", "master")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(cMaster.Provenance))
+
+	require.NoError(t, c.CreateBranch("B", "master", "", nil))
+
+	aMaster, err = c.InspectBranch("A", "master")
+	require.NoError(t, err)
+	require.Equal(t, 0, len(aMaster.Subvenance))
+
+	cMaster, err = c.InspectBranch("C", "master")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(cMaster.Provenance))
+}
+
 func uniqueString(prefix string) string {
 	return prefix + "-" + uuid.NewWithoutDashes()[0:12]
 }
