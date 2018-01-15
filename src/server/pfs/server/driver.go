@@ -44,8 +44,8 @@ const (
 	includeAuth = true
 )
 
-// ValidateRepoName determines if a repo name is valid
-func ValidateRepoName(name string) error {
+// validateRepoName determines if a repo name is valid
+func validateRepoName(name string) error {
 	match, _ := regexp.MatchString("^[a-zA-Z0-9_-]+$", name)
 
 	if !match {
@@ -201,7 +201,7 @@ func absent(key string) etcd.Cmp {
 }
 
 func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*pfs.Repo, description string, update bool) error {
-	if err := ValidateRepoName(repo.Name); err != nil {
+	if err := validateRepoName(repo.Name); err != nil {
 		return err
 	}
 	d.initializePachConn()
@@ -1400,11 +1400,14 @@ func (d *driver) filePathFromEtcdPath(etcdPath string) string {
 	return path.Join(split[4:]...)
 }
 
-// checkPath checks if a file path is legal
-func checkPath(path string) error {
-	if strings.Contains(path, "\x00") {
-		return fmt.Errorf("filename cannot contain null character: %s", path)
+// validatePath checks if a file path is legal
+func validatePath(path string) error {
+	match, _ := regexp.MatchString("^[ -~]+$", path)
+
+	if !match {
+		return fmt.Errorf("path (%v) invalid: only printable ASCII characters allowed", path)
 	}
+
 	return nil
 }
 
@@ -1433,7 +1436,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	}
 
 	records := &pfs.PutFileRecords{}
-	if err := checkPath(file.Path); err != nil {
+	if err := validatePath(file.Path); err != nil {
 		return err
 	}
 
@@ -1546,7 +1549,7 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 	if err := d.checkIsAuthorized(ctx, dst.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	if err := checkPath(dst.Path); err != nil {
+	if err := validatePath(dst.Path); err != nil {
 		return err
 	}
 	// Check if the commit ID is a branch name.  If so, we have to
