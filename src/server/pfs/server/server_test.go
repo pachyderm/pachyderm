@@ -3181,27 +3181,37 @@ func TestBranchProvenance(t *testing.T) {
 	require.NoError(t, c.CreateRepo("A"))
 	require.NoError(t, c.CreateRepo("B"))
 	require.NoError(t, c.CreateRepo("C"))
+	require.NoError(t, c.CreateRepo("D"))
 
 	require.NoError(t, c.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
 	require.NoError(t, c.CreateBranch("C", "master", "", []*pfs.Branch{pclient.NewBranch("B", "master")}))
+	require.NoError(t, c.CreateBranch("D", "master", "", []*pfs.Branch{pclient.NewBranch("C", "master"), pclient.NewBranch("A", "master")}))
 
 	aMaster, err := c.InspectBranch("A", "master")
 	require.NoError(t, err)
-	require.Equal(t, 2, len(aMaster.Subvenance))
+	require.Equal(t, 3, len(aMaster.Subvenance))
 
 	cMaster, err := c.InspectBranch("C", "master")
 	require.NoError(t, err)
 	require.Equal(t, 2, len(cMaster.Provenance))
 
+	dMaster, err := c.InspectBranch("D", "master")
+	require.NoError(t, err)
+	require.Equal(t, 3, len(dMaster.Provenance))
+
 	require.NoError(t, c.CreateBranch("B", "master", "", nil))
 
 	aMaster, err = c.InspectBranch("A", "master")
 	require.NoError(t, err)
-	require.Equal(t, 0, len(aMaster.Subvenance))
+	require.Equal(t, 1, len(aMaster.Subvenance))
 
 	cMaster, err = c.InspectBranch("C", "master")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(cMaster.Provenance))
+
+	dMaster, err = c.InspectBranch("D", "master")
+	require.NoError(t, err)
+	require.Equal(t, 3, len(dMaster.Provenance))
 }
 
 func uniqueString(prefix string) string {
