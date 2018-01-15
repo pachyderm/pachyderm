@@ -1412,7 +1412,11 @@ func (d *driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
 
 	for _, branchInfo := range branchInfos {
 		if branchInfo.Head != nil && branchInfo.Head.ID == commitInfo.Commit.ID {
-			if err := d.createBranch(ctx, branchInfo.Branch, commitInfo.ParentCommit, nil); err != nil {
+			var provenance []*pfs.Branch
+			for _, provBranch := range branchInfo.DirectProvenance {
+				provenance = append(provenance, provBranch)
+			}
+			if err := d.createBranch(ctx, branchInfo.Branch, commitInfo.ParentCommit, provenance); err != nil {
 				return err
 			}
 		}
@@ -1464,9 +1468,7 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 		if err := d.branches(branch.Repo.Name).ReadWrite(stm).Get(branch.Name, branchInfo); err != nil && !col.IsErrNotFound(err) {
 			return err
 		}
-		if commitInfo != nil {
-			branchInfo.Head = commitInfo.Commit
-		}
+		branchInfo.Head = commit
 		branchInfo.DirectProvenance = make(map[string]*pfs.Branch)
 		for _, provBranch := range provenance {
 			addBranch(branchInfo.DirectProvenance, provBranch)
