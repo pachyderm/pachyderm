@@ -244,7 +244,7 @@ func (c *readWriteCollection) DeleteAll() {
 		// Delete indexes
 		indexDir := c.prefix
 		indexDir = strings.TrimRight(indexDir, "/")
-		c.stm.DelAll(fmt.Sprintf("%s__index_%s/", indexDir, index))
+		c.stm.DelAll(fmt.Sprintf("%s__index_%v/", indexDir, index))
 	}
 	c.stm.DelAll(c.prefix)
 }
