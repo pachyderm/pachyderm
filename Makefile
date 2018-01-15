@@ -115,7 +115,10 @@ docker-clean-worker:
 	docker rm worker_compile || true
 
 docker-build-worker: docker-clean-worker docker-build-compile
-	docker run --name worker_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh worker "$(LD_FLAGS)"
+	docker run \
+		-v $$HOME/go/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
+		-v $$HOME/.cache/go-build:/home/root/.cache/go-build \
+		--name worker_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh worker "$(LD_FLAGS)"
 
 docker-wait-worker:
 	etc/compile/wait.sh worker_compile
@@ -135,7 +138,10 @@ docker-clean-test:
 	docker rm test_compile || true
 
 docker-build-test: docker-clean-test docker-build-compile
-	docker run --name test_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile_test.sh
+	docker run \
+		-v $$HOME/go/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
+		-v $$HOME/.cache/go-build:/home/root/.cache/go-build \
+		--name test_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh /go/src/github.com/pachyderm/pachyderm/etc/compile/compile_test.sh
 	etc/compile/wait.sh test_compile
 	docker tag pachyderm_test:latest pachyderm/test:`git rev-list HEAD --max-count=1`
 
