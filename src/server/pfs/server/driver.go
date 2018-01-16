@@ -1454,7 +1454,7 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 				// possible that branch exists but has no head commit. This is fine, but
 				// branchInfo.Head must also be nil
 				if _, ok := err.(pfsserver.ErrNoHead); !ok {
-					return err
+					return fmt.Errorf("inspectCommit: %v", err)
 				}
 			}
 		}
@@ -1468,7 +1468,11 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 		if err := d.branches(branch.Repo.Name).ReadWrite(stm).Get(branch.Name, branchInfo); err != nil && !col.IsErrNotFound(err) {
 			return err
 		}
-		branchInfo.Head = commit
+		// We only set head if commitInfo != nil because that means
+		// inspectCommit succeeded and this is a valid Head.
+		if commitInfo != nil {
+			branchInfo.Head = commitInfo.Commit
+		}
 		branchInfo.DirectProvenance = make(map[string]*pfs.Branch)
 		for _, provBranch := range provenance {
 			addBranch(branchInfo.DirectProvenance, provBranch)
