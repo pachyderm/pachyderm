@@ -3,10 +3,7 @@
 set -Ee
 
 DIR="$(cd "$(dirname "${0}")/../.." && pwd)"
-echo "cd'ing to $DIR"
 cd "${DIR}"
-echo 'whoami?'
-whoami
 
 BINARY="${1}"
 LD_FLAGS="${2}"
@@ -14,7 +11,6 @@ PROFILE="${3}"
 
 mkdir -p _tmp
 CGO_ENABLED=0 GOOS=linux go build \
-  -a \
   -installsuffix netgo \
   -tags netgo \
   -o _tmp/${BINARY} \
@@ -38,5 +34,3 @@ else
     cd _tmp
     tar cf - ${BINARY}
 fi
-
-
