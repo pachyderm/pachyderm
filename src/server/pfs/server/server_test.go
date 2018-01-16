@@ -663,6 +663,7 @@ func TestDeleteCommit(t *testing.T) {
 	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader(fileContent))
 	require.NoError(t, err)
 
+	fmt.Printf("delete commit: %s\n", commit1.ID)
 	require.NoError(t, client.DeleteCommit(repo, "master"))
 
 	// The branch has not been deleted, though it has no commits
