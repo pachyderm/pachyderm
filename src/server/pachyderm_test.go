@@ -6519,8 +6519,10 @@ func TestDeleteCommitPropagation(t *testing.T) {
 	repo := uniqueString("TestDeleteCommitPropagation")
 	require.NoError(t, c.CreateRepo(repo))
 
-	pipeline := make([]string, 2)
-	for i := 0; i < 2; i++ {
+	// Create two copy pipelines
+	numPipelines, numCommits := 2, 2
+	pipeline := make([]string, numPipelines)
+	for i := 0; i < numPipelines; i++ {
 		pipeline[i] = uniqueString(fmt.Sprintf("pipeline%d_", i))
 		input := []string{repo, pipeline[0]}[i]
 		require.NoError(t, c.CreatePipeline(
@@ -6537,9 +6539,10 @@ func TestDeleteCommitPropagation(t *testing.T) {
 		))
 	}
 
-	commit := make([]*pfs.Commit, 2)
+	// Commit twice to the input repo, creating 4 jobs and 4 output commits
+	commit := make([]*pfs.Commit, numCommits)
 	var err error
-	for i := 0; i < 2; i++ {
+	for i := 0; i < numCommits; i++ {
 		commit[i], err = c.StartCommit(repo, "master")
 		require.NoError(t, err)
 		_, err = c.PutFile(repo, commit[i].ID, "file", strings.NewReader("foo"))
@@ -6552,7 +6555,8 @@ func TestDeleteCommitPropagation(t *testing.T) {
 	}
 
 	// Delete the first commit in the input repo (not master, but its parent)
-	// Make sure that 'repo' and all downstream repos only have one commit now
+	// Make sure that 'repo' and all downstream repos only have one commit now.
+	// This ensures that commits' parents are updated
 	commits, err := c.ListCommit(repo, "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commits))
@@ -6561,10 +6565,12 @@ func TestDeleteCommitPropagation(t *testing.T) {
 		commits, err := c.ListCommit(r, "master", "", 0)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(commits))
+		require.Nil(t, commits[0].ParentCommit)
 	}
 
 	// Delete the second commit in the input repo (master)
-	// Make sure that 'repo' and all downstream repos have no commits
+	// Make sure that 'repo' and all downstream repos have no commits. This
+	// ensures that branches are updated.
 	require.NoError(t, c.DeleteCommit(repo, "master"))
 	for _, r := range []string{repo, pipeline[0], pipeline[1]} {
 		commits, err := c.ListCommit(r, "master", "", 0)
@@ -6583,6 +6589,206 @@ func TestDeleteCommitPropagation(t *testing.T) {
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
+}
+
+// TestDeleteCommitBigSubvenance deletes a commit that is upstream of a large
+// stack of pipeline outputs and makes sure that parenthood and such are handled
+// correctly. There are four cases tested here, in this order (for convenience
+// of setup):
+// 1. Commit parent rewritten back to a live commit
+// 3. Branch        rewritten back to a live commit
+// 4. Branch        rewritten back to nil
+// 2. Commit parent rewritten back to nil
+func TestDeleteCommitBigSubvenance(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	// Create two input repos, one with many commits (logs), and one with three
+	// commits (schema). The second commit in 'schema' will have the large
+	// subvenance
+	logs := uniqueString("DeleteBigSubvenance_Logs_")
+	schema := uniqueString("DeleteBigSubvenance_Schema_")
+	require.NoError(t, c.CreateRepo(logs))
+	require.NoError(t, c.CreateRepo(schema))
+
+	// Commit to logs and schema
+	var commit *pfs.Commit // save commit so we can flush after creating pipeline
+	var err error
+	for _, repo := range []string{schema, logs} {
+		commit, err = c.StartCommit(repo, "master")
+		require.NoError(t, err)
+		_, err = c.PutFile(repo, commit.ID, "file", strings.NewReader("foo"))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+	}
+
+	// Create copy pipeline
+	pipeline := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{"cp /pfs/*/* /pfs/out/"},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewCrossInput(
+			client.NewAtomInput(logs, "/*"),
+			client.NewAtomInput(schema, "/"),
+		),
+		"",
+		false,
+	))
+
+	// Ensure that there is an output commit in 'pipeline'
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	// Commit to schema again
+	bigSubvCommit, err := c.StartCommit(schema, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(schema, bigSubvCommit.ID, "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(schema, bigSubvCommit.ID))
+
+	// Commit to logs 10 times
+	for i := 0; i < 10; i++ {
+		commit, err = c.StartCommit(logs, "master")
+		require.NoError(t, err)
+		_, err = c.PutFile(logs, commit.ID, "file", strings.NewReader("foo"))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(logs, commit.ID))
+	}
+
+	// Make final commit to schema
+	commit, err = c.StartCommit(schema, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(schema, commit.ID, "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(schema, commit.ID))
+
+	// Make sure there are 13 output commits in 'pipeline' to start (1 from
+	// creation, 1 from the 'schema' commit, 10 from the 'logs' commits, and 1
+	// more from the 'schema' commit)
+	commits, err := c.ListCommit(pipeline, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 13, len(commits))
+
+	// Case 1
+	// - Delete bigSubvCommit
+	// - Now there are 2 output commits in 'pipeline', and the parent of the first
+	// commit is the second commit (makes sure that the first commit's parent is
+	// rewritten back to the last live commit)
+	commits, err = c.ListCommit(schema, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(commits))
+	require.NoError(t, c.DeleteCommit(schema, bigSubvCommit.ID))
+	commits, err = c.ListCommit(pipeline, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commits))
+	if commits[0].ParentCommit != nil {
+		require.Equal(t, commits[1].Commit.ID, commits[0].ParentCommit.ID)
+	} else {
+		require.Equal(t, commits[0].Commit.ID, commits[1].ParentCommit.ID)
+	}
+
+	// Case 2
+	// - reset bigSubvCommit to be the head commit of 'schema/master'
+	// - commit to 'logs' 10 more times
+	// - delete bigSubvCommit
+	// - Now there should be one commit in 'pipeline', and it's the head of
+	// 'master' (makes sure that the branch pipeline/master is rewritten back to
+	// the last live commit)
+	commits, err = c.ListCommit(schema, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commits))
+	bigSubvCommitInfo, err := c.InspectCommit(schema, "master")
+	require.NoError(t, err)
+	bigSubvCommit = bigSubvCommitInfo.Commit
+	for i := 0; i < 10; i++ {
+		commit, err = c.StartCommit(logs, "master")
+		require.NoError(t, err)
+		_, err = c.PutFile(logs, commit.ID, "file", strings.NewReader("foo"))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(logs, commit.ID))
+	}
+	require.NoError(t, c.DeleteCommit(schema, bigSubvCommit.ID))
+	commits, err = c.ListCommit(pipeline, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commits))
+	pipelineMaster, err := c.InspectCommit(pipeline, "master")
+	require.NoError(t, err)
+	require.Equal(t, pipelineMaster.Commit.ID, commits[0].Commit.ID)
+
+	// Case 3
+	// - reset bigSubvCommit to be the head commit of 'schema/master'
+	// - commit to 'logs' 10 more times
+	// - delete bigSubvCommit
+	// - Now there should be zero commits in 'pipeline'
+	// (makes sure that the branch pipeline/master is rewritten back to nil)
+	commits, err = c.ListCommit(schema, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commits))
+	bigSubvCommit = commits[0].Commit
+	// bigSubvCommitInfo, err = c.InspectCommit(schema, "master")
+	// require.NoError(t, err)
+	// bigSubvCommit = bigSubvCommitInfo.Commit
+	for i := 0; i < 10; i++ {
+		commit, err = c.StartCommit(logs, "master")
+		require.NoError(t, err)
+		_, err = c.PutFile(logs, commit.ID, "file", strings.NewReader("foo"))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(logs, commit.ID))
+	}
+	require.NoError(t, c.DeleteCommit(schema, bigSubvCommit.ID))
+	commits, err = c.ListCommit(pipeline, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commits))
+	pipelineMaster, err = c.InspectCommit(pipeline, "master")
+	require.YesError(t, err)
+	require.Matches(t, "is nil", err.Error())
+
+	// Case 4
+	// - commit to 'schema' and reset bigSubvCommit to be the head
+	// bigSubvCommit is now the last commit of 'schema/master'
+	// - Commit to 'logs' 10 more times
+	// - Commit to schema again
+	// - Delete bigSubvCommit
+	// - Now there should be one commit in 'pipeline', and its parent is nil
+	// (makes sure that the the commit is rewritten back to 'nil'
+	bigSubvCommit, err = c.StartCommit(schema, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(schema, bigSubvCommit.ID, "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(schema, bigSubvCommit.ID))
+
+	for i := 0; i < 10; i++ {
+		commit, err = c.StartCommit(logs, "master")
+		require.NoError(t, err)
+		_, err = c.PutFile(logs, commit.ID, "file", strings.NewReader("foo"))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(logs, commit.ID))
+	}
+
+	commit, err = c.StartCommit(schema, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(schema, commit.ID, "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(schema, commit.ID))
+
+	require.NoError(t, c.DeleteCommit(schema, bigSubvCommit.ID))
+	commits, err = c.ListCommit(pipeline, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commits))
+	pipelineMaster, err = c.InspectCommit(pipeline, "master")
+	require.NoError(t, err)
+	require.Nil(t, pipelineMaster.ParentCommit)
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {

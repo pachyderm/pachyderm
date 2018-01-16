@@ -1434,19 +1434,18 @@ func (d *driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
 			return repos.Put(commit.Repo.Name, repoInfo)
 		}
 
-		// Delete the commit itself and subtract the size of the commit
-		// from repo size.
+		// Delete the commit itself and subtract the size of the commit from repo
+		// size.
 		deleteCommit(commits, commit)
 
-		// Copy the subvenance of 'commit' to a map (deleted) and delete all of
-		// those commits
+		// Delete all of the downstream commits of 'commit'
 		for _, subvCommit := range commitInfo.Subvenance {
 			downstreamRepo := d.commits(subvCommit.Repo.Name).ReadWrite(stm)
 			deleteCommit(downstreamRepo, subvCommit)
 		}
 
 		// Remove the commits in 'deleted' from all upstream commits' subvenance
-		// TODO This is not done yet.
+		// TODO This is not done yet -- subvenance ranges aren't modified correctly
 		for _, provCommit := range commitInfo.Provenance {
 			provCI := &pfs.CommitInfo{}
 			upstreamRepo := d.commits(provCommit.Repo.Name).ReadWrite(stm)
@@ -1496,21 +1495,37 @@ func (d *driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
 		if err != nil {
 			return err
 		}
-		for _, branchInfo := range branchInfos {
-			// Traverse and rewrite HEAD commit until we find a non-deleted parent or nil
-			for {
-				if branchInfo.Head == nil {
-					break
+		for i := range branchInfos {
+			// extract branch repo/id, but re-read branchInfo inside txn, in case it
+			// changes
+			brokenBranch := branchInfos[i].Branch
+			// Traverse HEAD commit until we find a non-deleted parent or nil; rewrite
+			// branch
+			if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+				branches := d.branches(brokenBranch.Repo.Name).ReadWrite(stm)
+				var branchInfo pfs.BranchInfo // re-read branchInfo
+				if err := branches.Get(brokenBranch.Name, &branchInfo); err != nil {
+					if col.IsErrNotFound(err) {
+						// branch is in downstream provenance but doesn't exist yet--nothing
+						// to update
+						return nil
+					}
+					return err
 				}
-				headCommitInfo, headIsDeleted := deleted[branchInfo.Head.ID]
-				if !headIsDeleted {
-					break
+				for {
+					if branchInfo.Head == nil {
+						break
+					}
+					headCommitInfo, headIsDeleted := deleted[branchInfo.Head.ID]
+					if !headIsDeleted {
+						break
+					}
+					branchInfo.Head = headCommitInfo.ParentCommit
 				}
-				branchInfo.Head = headCommitInfo.ParentCommit
-			}
-			// Update branch in etcd
-			if err := d.createBranch(ctx, branchInfo.Branch, branchInfo.Head, branchInfo.DirectProvenance); err != nil {
-				return err
+				return branches.Put(brokenBranch.Name, &branchInfo)
+			}); err != nil {
+				return fmt.Errorf("could not update branch %s/%s: %v",
+					brokenBranch.Repo.Name, brokenBranch.Name, err)
 			}
 		}
 
@@ -1542,9 +1557,11 @@ func (d *driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
 				commitInfo.ParentCommit = parentCommitInfo.ParentCommit
 			}
 			// updated commit in etcd
-			col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+			if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 				return d.commits(repo).ReadWrite(stm).Put(commitInfo.Commit.ID, &commitInfo)
-			})
+			}); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
