@@ -1463,9 +1463,8 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 			}
 		}
 		branchInfo := &pfs.BranchInfo{
-			Branch:     branch,
-			Name:       branch.Name,
-			Subvenance: make(map[string]*pfs.Branch),
+			Branch: branch,
+			Name:   branch.Name,
 		}
 		// Get the previous version of this branch if there is one, we do this
 		// so that we don't lose pre existing subvenance.
@@ -1473,9 +1472,9 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 			return err
 		}
 		branchInfo.Head = commit
-		branchInfo.DirectProvenance = make(map[string]*pfs.Branch)
+		branchInfo.DirectProvenance = nil
 		for _, provBranch := range provenance {
-			addBranch(branchInfo.DirectProvenance, provBranch)
+			(*branchSet)(&branchInfo.DirectProvenance).add(provBranch)
 		}
 		// We don't just need to update (or create) branch's Provenance but
 		// also the Provenance of all our Subvenance (in the case of an update)
@@ -1494,7 +1493,7 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 		sort.Slice(toUpdate, func(i, j int) bool { return len(toUpdate[i].Provenance) < len(toUpdate[j].Provenance) })
 		for _, branchInfo := range toUpdate {
 			oldProvenance := branchInfo.Provenance
-			branchInfo.Provenance = make(map[string]*pfs.Branch)
+			branchInfo.Provenance = nil
 			for _, provBranch := range branchInfo.DirectProvenance {
 				if err := d.addBranchProvenance(branchInfo, provBranch, stm); err != nil {
 					return err
@@ -1513,11 +1512,11 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 				return err
 			}
 			for _, oldProvBranch := range oldProvenance {
-				if branchInfo.Provenance[branchKey(oldProvBranch)] == nil {
+				if !(*branchSet)(&branchInfo.Provenance).has(oldProvBranch) {
 					// Provenance was deleted, so we delete ourselves from their subvenance
 					oldProvBranchInfo := &pfs.BranchInfo{}
 					if err := d.branches(oldProvBranch.Repo.Name).ReadWrite(stm).Upsert(oldProvBranch.Name, oldProvBranchInfo, func() error {
-						delete(oldProvBranchInfo.Subvenance, branchKey(branchInfo.Branch))
+						(*branchSet)(&oldProvBranchInfo.Subvenance).del(branchInfo.Branch)
 						return nil
 					}); err != nil {
 						return err
@@ -2360,15 +2359,12 @@ func addBranch(m map[string]*pfs.Branch, branch *pfs.Branch) {
 }
 
 func (d *driver) addBranchProvenance(branchInfo *pfs.BranchInfo, provBranch *pfs.Branch, stm col.STM) error {
-	addBranch(branchInfo.Provenance, provBranch)
+	(*branchSet)(&branchInfo.Provenance).add(provBranch)
 	provBranchInfo := &pfs.BranchInfo{}
 	return d.branches(provBranch.Repo.Name).ReadWrite(stm).Upsert(provBranch.Name, provBranchInfo, func() error {
 		// Set provBranch, we may be creating this branch for the first time
 		provBranchInfo.Branch = provBranch
-		if provBranchInfo.Subvenance == nil {
-			provBranchInfo.Subvenance = make(map[string]*pfs.Branch)
-		}
-		addBranch(provBranchInfo.Subvenance, branchInfo.Branch)
+		(*branchSet)(&provBranchInfo.Subvenance).add(branchInfo.Branch)
 		return nil
 	})
 }
@@ -2391,4 +2387,40 @@ func appendSubvenance(commitInfo *pfs.CommitInfo, subvCommitInfo *pfs.CommitInfo
 		Lower: subvCommitInfo.Commit,
 		Upper: subvCommitInfo.Commit,
 	})
+}
+
+type branchSet []*pfs.Branch
+
+func (b *branchSet) search(branch *pfs.Branch) (int, bool) {
+	key := branchKey(branch)
+	i := sort.Search(len(*b), func(i int) bool {
+		return branchKey((*b)[i]) >= key
+	})
+	if i == len(*b) {
+		return i, false
+	}
+	return i, branchKey((*b)[i]) == branchKey(branch)
+}
+
+func (b *branchSet) add(branch *pfs.Branch) {
+	i, ok := b.search(branch)
+	if !ok {
+		*b = append(*b, nil)
+		copy((*b)[i+1:], (*b)[i:])
+		(*b)[i] = branch
+	}
+}
+
+func (b *branchSet) del(branch *pfs.Branch) {
+	i, ok := b.search(branch)
+	if ok {
+		copy((*b)[i:], (*b)[i+1:])
+		(*b)[len((*b))-1] = nil
+		*b = (*b)[:len((*b))-1]
+	}
+}
+
+func (b *branchSet) has(branch *pfs.Branch) bool {
+	_, ok := b.search(branch)
+	return ok
 }

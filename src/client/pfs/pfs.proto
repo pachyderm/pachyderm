@@ -23,9 +23,9 @@ message Branch {
 message BranchInfo {
   Branch branch = 4;
   Commit head = 2;
-  map<string, Branch> provenance = 3;
-  map<string, Branch> subvenance = 5;
-  map<string, Branch> direct_provenance = 6;
+  repeated Branch provenance = 3;
+  repeated Branch subvenance = 5;
+  repeated Branch direct_provenance = 6;
 
   // Deprecated field left for backward compatibility.
   string name = 1;
