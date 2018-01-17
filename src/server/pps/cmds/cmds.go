@@ -606,7 +606,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	runPipeline := &cobra.Command{
 		Use:   "run-pipeline pipeline-name [-f job.json]",
 		Short: "Run a pipeline once.",
-		Long:  "Run a pipeline once, optionally overriding some pipeline options by providing a [pipeline spec](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html).  For example run a web scraper pipelien without any explicit input.",
+		Long:  "Run a pipeline once, optionally overriding some pipeline options by providing a [pipeline spec](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html).  For example run a web scraper pipeline without any explicit input.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			client, err := pachdclient.NewOnUserMachine(metrics, "user")
 			if err != nil {
