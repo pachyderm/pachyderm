@@ -1455,9 +1455,8 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 				// branchInfo.Head must also be nil
 				if _, ok := err.(pfsserver.ErrNoHead); !ok {
 					return fmt.Errorf("inspectCommit: %v", err)
-				} else {
-					commit = nil
 				}
+				commit = nil
 			} else {
 				commit = commitInfo.Commit
 			}
