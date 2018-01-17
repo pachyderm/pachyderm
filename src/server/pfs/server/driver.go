@@ -1386,8 +1386,8 @@ func (d *driver) flushRepo(ctx context.Context, repo *pfs.Repo) ([]*pfs.RepoInfo
 	}
 }
 
-func (d *driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
-	if err := d.checkIsAuthorized(ctx, commit.Repo, auth.Scope_WRITER); err != nil {
+func (d *driver) deleteCommit(ctx context.Context, userCommit *pfs.Commit) error {
+	if err := d.checkIsAuthorized(ctx, userCommit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
 	// Main txn: Delete all downstream commits, and update subvenance of upstream commits
@@ -1402,6 +1402,48 @@ func (d *driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
 			commits = d.commits(commit.Repo.Name).ReadWrite(stm)
 		)
 
+		// 1) Define helper for deleting commits. 'lower' corresponds to
+		// pfs.CommitRange.Lower, and is an ancestor of 'upper'
+		deleteCommit := func(commits col.ReadWriteCollection, lower, upper *pfs.Commit) error {
+			// Validate arguments
+			if lower.Repo.Name != upper.Repo.Name {
+				return fmt.Errorf("cannot delete commit range with mismatched repos \"%s\" and \"%s\"", lower.Repo.Name, upper.Repo.Name)
+			}
+
+			// delete commits on path lower -> ... -> upper
+			commit := upper
+			for {
+				if commit == nil {
+					return fmt.Errorf("encountered nil parent commit in %s/%s...%s", lower.Repo.Name, lower.ID, upper.ID)
+				}
+				// Store commitInfo in 'deleted' and remove commit from etcd
+				commitInfo := &pfs.CommitInfo{}
+				if err := commits.Get(commit.ID, commitInfo); err != nil {
+					return err
+				}
+				deleted[commit.ID] = commitInfo
+				affectedRepos[commit.Repo.Name] = unit
+				if err := commits.Delete(commit.ID); err != nil {
+					return err
+				}
+				// Update repo size
+				// TODO this is basically wrong. Other commits could share data with the
+				// commit being removed, in which case we're subtracting too much
+				repoInfo := &pfs.RepoInfo{}
+				if err := repos.Update(commit.Repo.Name, repoInfo, func() error {
+					repoInfo.SizeBytes -= commitInfo.SizeBytes
+					return nil
+				}); err != nil {
+					return err
+				}
+				if commit == lower {
+					break // check after deletion so we delete 'lower' (inclusive range)
+				}
+				commit = commitInfo.ParentCommit
+			}
+			return nil
+		}
+		// 2) re-read CommitInfo inside txn
 		if err := d.resolveCommit(stm, commit); err != nil {
 			return err
 		}
@@ -1410,60 +1452,49 @@ func (d *driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
 		}
 		deleteScratch = commitInfo.Finished == nil
 
-		// Helper for deleting commits
-		deleteCommit := func(commits col.ReadWriteCollection, commit *pfs.Commit) error {
-			// Store commitInfo in 'deleted' and remove commit from etcd
-			commitInfo := &pfs.CommitInfo{}
-			if err := commits.Get(commit.ID, commitInfo); err != nil {
-				return err
-			}
-			deleted[commit.ID] = commitInfo
-			affectedRepos[commit.Repo.Name] = unit
-			if err := commits.Delete(commit.ID); err != nil {
-				return err
-			}
 
-			// Update repo size
-			// TODO this is basically wrong. Other commits could share data with the
-			// commit being removed, in which case we're subtracting too much
-			repoInfo := &pfs.RepoInfo{}
-			if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
-				return err
-			}
-			repoInfo.SizeBytes -= commitInfo.SizeBytes
-			return repos.Put(commit.Repo.Name, repoInfo)
+		// 3) Validate the commit (check that it has no provenance) and delete it
+		if len(commitInfo.Provenance) > 0 {
+			return fmt.Errorf("cannot delete the commit \"%s/%s\" because it has non-empty provenance", userCommit.Repo.Name, userCommit.ID)
+		}
+		deleteCommit(commits, commitInfo.Commit, commitInfo.Commit)
+
+		// 4) Delete all of the downstream commits of 'commit'
+		for _, subvRange := range commitInfo.Subvenance {
+			downstreamCommits := d.commits(subvRange.Lower.Repo.Name).ReadWrite(stm)
+			deleteCommit(downstreamCommits, subvRange.Lower, subvRange.Upper)
 		}
 
-		// Delete the commit itself and subtract the size of the commit from repo
-		// size.
-		deleteCommit(commits, commit)
-
-		// Delete all of the downstream commits of 'commit'
-		for _, subvCommit := range commitInfo.Subvenance {
-			downstreamRepo := d.commits(subvCommit.Repo.Name).ReadWrite(stm)
-			deleteCommit(downstreamRepo, subvCommit)
-		}
-
-		// Remove the commits in 'deleted' from all upstream commits' subvenance
-		// TODO This is not done yet -- subvenance ranges aren't modified correctly
-		for _, provCommit := range commitInfo.Provenance {
-			provCI := &pfs.CommitInfo{}
-			upstreamRepo := d.commits(provCommit.Repo.Name).ReadWrite(stm)
-			if err := upstreamRepo.Get(provCommit.ID, provCI); err != nil {
-				return err
-			}
-			// Remove deleted commits from provCI.Subvenance (copy 'from' -> 'to')
-			to := 0
-			for from, c := range provCI.Subvenance {
-				if _, ok := deleted[c.ID]; ok {
+		// 5) Remove the commits in 'deleted' from all upstream commits' subvenance
+		// While 'commit' is required to be an input commit (no provenance),
+		// downstream commits from 'commit' may have multiple inputs, and those
+		// other inputs must have their subvenance updated
+		visited := make(map[string]bool) // visitied upstream (provenant) commits
+		for deletedID, deletedInfo := range deleted {
+			for _, provCommit := range commitInfo.Provenance {
+				if deleted[provCommit.ID] || visited[provCommit.ID] {
 					continue
 				}
-				provCI.Subvenance[to] = provCI.Subvenance[from]
-				to++
-			}
-			provCI.Subvenance = provCI.Subvenance[:to]
-			// Write updated commitInfo back to etcd
-			if err := upstreamRepo.Put(provCommit.ID, provCI); err != nil {
+				visited[provCommit.ID] = true
+				
+				provCI := &pfs.CommitInfo{}
+				upstreamCommits := d.commits(provCommit.Repo.Name).ReadWrite(stm)
+				if err := upstreamRepo.Get(provCommit.ID, provCI, func() error {
+					return err
+				}
+				// Remove deleted commits from provCI.Subvenance (copy 'from' -> 'to')
+				// TODO this is totally wrong. Subvenance is now a range, so I need to mess with the boundaries of the range
+				to := 0
+				for from, c := range provCI.Subvenance {
+					if _, ok := deleted[c.ID]; ok {
+						continue
+					}
+					provCI.Subvenance[to] = provCI.Subvenance[from]
+					to++
+				}
+				provCI.Subvenance = provCI.Subvenance[:to]
+				return nil
+			}); err != nil {
 				return err
 			}
 		}
@@ -1475,7 +1506,7 @@ func (d *driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
 	if deleteScratch {
 		// Delete the scratch space for this commit
 		// TODO put scratch spaces in a collection and do this in the txn above
-		prefix, err := d.scratchCommitPrefix(ctx, commit)
+		prefix, err := d.scratchCommitPrefix(ctx, userCommit)
 		if err != nil {
 			return err
 		}

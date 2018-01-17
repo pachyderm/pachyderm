@@ -6686,10 +6686,12 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 	// commit is the second commit (makes sure that the first commit's parent is
 	// rewritten back to the last live commit)
 	commits, err = c.ListCommit(schema, "master", "", 0)
+	t.Logf("%s/master:\n%+v", schema, commits)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commits))
 	require.NoError(t, c.DeleteCommit(schema, bigSubvCommit.ID))
 	commits, err = c.ListCommit(pipeline, "master", "", 0)
+	t.Logf("%s/master:\n%+v", pipeline, commits)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commits))
 	if commits[0].ParentCommit != nil {
