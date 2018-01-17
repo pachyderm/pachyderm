@@ -115,6 +115,10 @@ docker-clean-worker:
 	docker rm worker_compile || true
 
 docker-build-worker: docker-clean-worker docker-build-compile
+	echo "pwd:"
+	pwd
+	echo "GOPATH=$$GOPATH"
+	echo "GOROOT=$$GOROOT"
 	docker run \
 		-v $$HOME/go/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
