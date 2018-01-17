@@ -118,7 +118,7 @@ docker-build-worker: docker-clean-worker docker-build-compile
 	docker run \
 		-v $$HOME/go/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
-		--name worker_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh -- ls / && echo '1---' && ls /go/src/github.com/pachyderm/pachyderm && ls '2---' && ls /go/src/github.com/pachyderm/pachyderm/etc/compile
+		--name worker_compile $(COMPILE_RUN_ARGS) pachyderm_compile /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh worker "$(LD_FLAGS)"
 	sleep 2
 	docker inspect worker_compile
 	docker logs worker_compile
@@ -134,8 +134,7 @@ docker-build-pachd: docker-clean-pachd docker-build-compile
 	docker run  \
 		-v $$HOME/go/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
-		--name pachd_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh -- ls / && echo '1---' && ls /go/src/github.com/pachyderm/pachyderm && ls '2---' && ls /go/src/github.com/pachyderm/pachyderm/etc/compile
-	#		--name pachd_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh /etc/compile/compile.sh pachd "$(LD_FLAGS)"
+		--name pachd_compile $(COMPILE_RUN_ARGS) pachyderm_compile /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh pachd "$(LD_FLAGS)"
 	sleep 2
 	docker inspect pachd_compile
 	docker logs pachd_compile
