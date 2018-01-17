@@ -2354,10 +2354,6 @@ func branchKey(branch *pfs.Branch) string {
 	return fmt.Sprintf("%s/%s", branch.Repo.Name, branch.Name)
 }
 
-func addBranch(m map[string]*pfs.Branch, branch *pfs.Branch) {
-	m[branchKey(branch)] = branch
-}
-
 func (d *driver) addBranchProvenance(branchInfo *pfs.BranchInfo, provBranch *pfs.Branch, stm col.STM) error {
 	(*branchSet)(&branchInfo.Provenance).add(provBranch)
 	provBranchInfo := &pfs.BranchInfo{}
