@@ -132,6 +132,8 @@ docker-build-pachd: docker-clean-pachd docker-build-compile
 		-v $$HOME/go/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
 		--name pachd_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh pachd "$(LD_FLAGS)"
+	sleep 2
+	docker inspect pachd_compile
 
 docker-clean-test:
 	docker stop test_compile || true
