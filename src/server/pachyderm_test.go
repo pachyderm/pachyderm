@@ -32,6 +32,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfspretty "github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
@@ -1823,6 +1824,30 @@ func TestUpdatePipeline(t *testing.T) {
 	buffer.Reset()
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
 	require.Equal(t, "buzz\n", buffer.String())
+}
+
+func TestManyFilesSingleCommit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+	// create repos
+	dataRepo := uniqueString("TestManyFilesSingleCommit_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	// Request enough to require more than one page of results
+	numFiles := col.QueryPaginationLimit * 2
+	_, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	for i := 0; i < numFiles; i++ {
+		_, err = c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i), strings.NewReader(""))
+		require.NoError(t, err)
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, "master"))
+	fileInfos, err := c.ListFile(dataRepo, "master", "")
+	require.NoError(t, err)
+	require.Equal(t, numFiles, len(fileInfos))
 }
 
 func TestStopPipeline(t *testing.T) {
