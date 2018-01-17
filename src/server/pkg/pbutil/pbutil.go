@@ -15,7 +15,7 @@ func Marshal(val proto.Marshaler) ([]byte, error) {
 	uncompressedLen := len(bytes)
 	bytes = snappy.Encode(nil, bytes)
 	compressedLen := len(bytes)
-	fmt.Printf("Uncompressed: %d, Compressed: %d (%d%)\n", uncompressedLen, compressedLen, float64(uncompressedLen-compressedLen)*100.0/float64(uncompressedLen))
+	fmt.Printf("Uncompressed: %d, Compressed: %d (%f%)\n", uncompressedLen, compressedLen, float64(uncompressedLen-compressedLen)*100.0/float64(uncompressedLen))
 	return bytes, nil
 }
 

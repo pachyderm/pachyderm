@@ -433,7 +433,7 @@ func (i *iterator) Next(key *string, val proto.Unmarshaler) (ok bool, retErr err
 		i.index++
 
 		*key = path.Base(string(kv.Key))
-		if err := val.Unmarshal(kv.Value); err != nil {
+		if err := pbutil.Unmarshal(val, kv.Value); err != nil {
 			return false, err
 		}
 
