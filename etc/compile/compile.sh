@@ -3,15 +3,7 @@
 set -Ee
 
 DIR="$(cd "$(dirname "${0}")/../.." && pwd)"
-echo "cd'ing to $DIR"
 cd "${DIR}"
-ls
-echo "ls'ing etc path"
-ls /go/src/github.com/pachyderm/pachyderm
-echo "2-----"
-ls /go/src/github.com/pachyderm/pachyderm/etc
-echo "3-----"
-ls /go/src/github.com/pachyderm/pachyderm/etc/compile
 
 BINARY="${1}"
 LD_FLAGS="${2}"
