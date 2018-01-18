@@ -37,14 +37,20 @@ type Event struct {
 // Unmarshal unmarshals the item in an event into a protobuf message.
 func (e *Event) Unmarshal(key *string, val proto.Unmarshaler) error {
 	*key = string(e.Key)
-	return pbutil.Unmarshal(val, e.Value)
+	if len(e.Value) > 0 {
+		return pbutil.Unmarshal(val, e.Value)
+	}
+	return nil
 }
 
 // UnmarshalPrev unmarshals the prev item in an event into a protobuf
 // message.
 func (e *Event) UnmarshalPrev(key *string, val proto.Unmarshaler) error {
 	*key = string(e.PrevKey)
-	return pbutil.Unmarshal(val, e.PrevValue)
+	if len(e.PrevValue) > 0 {
+		return pbutil.Unmarshal(val, e.PrevValue)
+	}
+	return nil
 }
 
 // Watcher ...
