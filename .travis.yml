@@ -5,6 +5,7 @@ services:
 cache:
   directories:
     - /home/travis/.cache/go-build
+    - /var/lib/docker
 language: go
 go:
 - 1.10beta1
