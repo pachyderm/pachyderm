@@ -7,6 +7,7 @@ import (
 	"github.com/golang/snappy"
 )
 
+// Marshal marshals val, and compresses the serialized data.
 func Marshal(val proto.Marshaler) ([]byte, error) {
 	bytes, err := val.Marshal()
 	if err != nil {
@@ -19,6 +20,7 @@ func Marshal(val proto.Marshaler) ([]byte, error) {
 	return bytes, nil
 }
 
+// Unmarshal decompresses bytes and unmarshals it into val.
 func Unmarshal(val proto.Unmarshaler, bytes []byte) error {
 	bytes, err := snappy.Decode(nil, bytes)
 	if err != nil {
