@@ -2099,7 +2099,7 @@ func TestManyPutsSingleFileSingleCommit(t *testing.T) {
 	require.Equal(t, string(expectedOutput), buffer.String())
 }
 
-func TestPutFileNullCharacter(t *testing.T) {
+func TestPutFileValidCharacters(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -2112,6 +2112,24 @@ func TestPutFileNullCharacter(t *testing.T) {
 	_, err = client.PutFile(repo, commit.ID, "foo\x00bar", strings.NewReader("foobar\n"))
 	// null characters error because when you `ls` files with null characters
 	// they truncate things after the null character leading to strange results
+	require.YesError(t, err)
+
+	// Boundary tests for valid character range
+	_, err = client.PutFile(repo, commit.ID, "\x1ffoobar", strings.NewReader("foobar\n"))
+	require.YesError(t, err)
+	_, err = client.PutFile(repo, commit.ID, "foo\x20bar", strings.NewReader("foobar\n"))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit.ID, "foobar\x7e", strings.NewReader("foobar\n"))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit.ID, "foo\x7fbar", strings.NewReader("foobar\n"))
+	require.YesError(t, err)
+
+	// Random character tests outside and inside valid character range
+	_, err = client.PutFile(repo, commit.ID, "foobar\x0b", strings.NewReader("foobar\n"))
+	require.YesError(t, err)
+	_, err = client.PutFile(repo, commit.ID, "\x41foobar", strings.NewReader("foobar\n"))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit.ID, "foo\x90bar", strings.NewReader("foobar\n"))
 	require.YesError(t, err)
 }
 
