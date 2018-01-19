@@ -1454,7 +1454,7 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 				// possible that branch exists but has no head commit. This is fine, but
 				// branchInfo.Head must also be nil
 				if _, ok := err.(pfsserver.ErrNoHead); !ok {
-					return fmt.Errorf("inspectCommit: %v", err)
+					return fmt.Errorf("unable to inspect %s/%s: %v", err, commit.Repo.Name, commit.ID)
 				}
 				commit = nil
 			} else {
