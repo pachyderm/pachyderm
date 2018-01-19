@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -3179,40 +3180,141 @@ func TestUpdateBranch(t *testing.T) {
 
 func TestBranchProvenance(t *testing.T) {
 	c := getClient(t)
-	require.NoError(t, c.CreateRepo("A"))
-	require.NoError(t, c.CreateRepo("B"))
-	require.NoError(t, c.CreateRepo("C"))
-	require.NoError(t, c.CreateRepo("D"))
+	tests := [][]struct {
+		name       string
+		directProv []string
+		expectProv map[string][]string
+		expectSubv map[string][]string
+	}{{
+		{name: "A"},
+		{name: "B", directProv: []string{"A"}},
+		{name: "C", directProv: []string{"B"}},
+		{name: "D", directProv: []string{"C", "A"},
+			expectProv: map[string][]string{"A": nil, "B": {"A"}, "C": {"B", "A"}, "D": {"A", "B", "C"}},
+			expectSubv: map[string][]string{"A": {"B", "C", "D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
+		// A -> B -> C -> D
+		// + ------------ ^
+		{name: "B",
+			expectProv: map[string][]string{"A": {}, "B": {}, "C": {"B"}, "D": {"A", "B", "C"}},
+			expectSubv: map[string][]string{"A": {"D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
+		// A    B -> C -> D
+		// + ------------ ^
+	}, {
+		{name: "A"},
+		{name: "B", directProv: []string{"A"}},
+		{name: "C", directProv: []string{"A", "B"}},
+		{name: "D", directProv: []string{"C"},
+			expectProv: map[string][]string{"A": {}, "B": {"A"}, "C": {"A", "B"}, "D": {"A", "B", "C"}},
+			expectSubv: map[string][]string{"A": {"B", "C", "D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
+		// A -> B -> C -> D
+		// + ------- ^
+		{name: "C", directProv: []string{"B"},
+			expectProv: map[string][]string{"A": {}, "B": {"A"}, "C": {"A", "B"}, "D": {"A", "B", "C"}},
+			expectSubv: map[string][]string{"A": {"B", "C", "D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
+		// A -> B -> C -> D
+	}, {
+		{name: "A"},
+		{name: "B"},
+		{name: "C", directProv: []string{"A", "B"}},
+		{name: "D", directProv: []string{"C"}},
+		{name: "E", directProv: []string{"A", "D"},
+			expectProv: map[string][]string{"A": {}, "B": {}, "C": {"A", "B"}, "D": {"A", "B", "C"}, "E": {"A", "B", "C", "D"}},
+			expectSubv: map[string][]string{"A": {"C", "D", "E"}, "B": {"C", "D", "E"}, "C": {"D", "E"}, "D": {"E"}, "E": {}}},
+		// A    B -> C -> D -> E
+		// + ------- ^         ^
+		// + ----------------- +
+		{name: "C", directProv: []string{"B"},
+			expectProv: map[string][]string{"A": {}, "B": {}, "C": {"B"}, "D": {"B", "C"}, "E": {"A", "B", "C", "D"}},
+			expectSubv: map[string][]string{"A": {"E"}, "B": {"C", "D", "E"}, "C": {"D", "E"}, "D": {"E"}, "E": {}}},
+		// A    B -> C -> D -> E
+		// + ----------------- ^
+	},
+	}
+	for i, test := range tests {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			repo := uniqueString("repo")
+			require.NoError(t, c.CreateRepo(repo))
+			for _, step := range test {
+				var provenance []*pfs.Branch
+				for _, branch := range step.directProv {
+					provenance = append(provenance, pclient.NewBranch(repo, branch))
+				}
+				require.NoError(t, c.CreateBranch(repo, step.name, "", provenance))
+				for branch, expectedProv := range step.expectProv {
+					bi, err := c.InspectBranch(repo, branch)
+					require.NoError(t, err)
+					sort.Strings(expectedProv)
+					require.Equal(t, len(expectedProv), len(bi.Provenance))
+					for _, b := range bi.Provenance {
+						i := sort.SearchStrings(expectedProv, b.Name)
+						if i >= len(expectedProv) || expectedProv[i] != b.Name {
+							t.Fatalf("provenance for %s contains: %s, but should only contain: %v", branch, b.Name, expectedProv)
+						}
+					}
+				}
+				for branch, expectedSubv := range step.expectSubv {
+					bi, err := c.InspectBranch(repo, branch)
+					require.NoError(t, err)
+					sort.Strings(expectedSubv)
+					require.Equal(t, len(expectedSubv), len(bi.Subvenance))
+					for _, b := range bi.Subvenance {
+						i := sort.SearchStrings(expectedSubv, b.Name)
+						if i >= len(expectedSubv) || expectedSubv[i] != b.Name {
+							t.Fatalf("subvenance for %s contains: %s, but should only contain: %v", branch, b.Name, expectedSubv)
+						}
+					}
+				}
+			}
+		})
+	}
+	// t.Run("1", func(t *testing.T) {
+	// 	c := getClient(t)
+	// 	require.NoError(t, c.CreateRepo("A"))
+	// 	require.NoError(t, c.CreateRepo("B"))
+	// 	require.NoError(t, c.CreateRepo("C"))
+	// 	require.NoError(t, c.CreateRepo("D"))
 
-	require.NoError(t, c.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
-	require.NoError(t, c.CreateBranch("C", "master", "", []*pfs.Branch{pclient.NewBranch("B", "master")}))
-	require.NoError(t, c.CreateBranch("D", "master", "", []*pfs.Branch{pclient.NewBranch("C", "master"), pclient.NewBranch("A", "master")}))
+	// 	require.NoError(t, c.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
+	// 	require.NoError(t, c.CreateBranch("C", "master", "", []*pfs.Branch{pclient.NewBranch("B", "master")}))
+	// 	require.NoError(t, c.CreateBranch("D", "master", "", []*pfs.Branch{pclient.NewBranch("C", "master"), pclient.NewBranch("A", "master")}))
 
-	aMaster, err := c.InspectBranch("A", "master")
-	require.NoError(t, err)
-	require.Equal(t, 3, len(aMaster.Subvenance))
+	// 	aMaster, err := c.InspectBranch("A", "master")
+	// 	require.NoError(t, err)
+	// 	require.Equal(t, 3, len(aMaster.Subvenance))
 
-	cMaster, err := c.InspectBranch("C", "master")
-	require.NoError(t, err)
-	require.Equal(t, 2, len(cMaster.Provenance))
+	// 	cMaster, err := c.InspectBranch("C", "master")
+	// 	require.NoError(t, err)
+	// 	require.Equal(t, 2, len(cMaster.Provenance))
 
-	dMaster, err := c.InspectBranch("D", "master")
-	require.NoError(t, err)
-	require.Equal(t, 3, len(dMaster.Provenance))
+	// 	dMaster, err := c.InspectBranch("D", "master")
+	// 	require.NoError(t, err)
+	// 	require.Equal(t, 3, len(dMaster.Provenance))
 
-	require.NoError(t, c.CreateBranch("B", "master", "", nil))
+	// 	require.NoError(t, c.CreateBranch("B", "master", "", nil))
 
-	aMaster, err = c.InspectBranch("A", "master")
-	require.NoError(t, err)
-	require.Equal(t, 1, len(aMaster.Subvenance))
+	// 	aMaster, err = c.InspectBranch("A", "master")
+	// 	require.NoError(t, err)
+	// 	require.Equal(t, 1, len(aMaster.Subvenance))
 
-	cMaster, err = c.InspectBranch("C", "master")
-	require.NoError(t, err)
-	require.Equal(t, 1, len(cMaster.Provenance))
+	// 	cMaster, err = c.InspectBranch("C", "master")
+	// 	require.NoError(t, err)
+	// 	require.Equal(t, 1, len(cMaster.Provenance))
 
-	dMaster, err = c.InspectBranch("D", "master")
-	require.NoError(t, err)
-	require.Equal(t, 3, len(dMaster.Provenance))
+	// 	dMaster, err = c.InspectBranch("D", "master")
+	// 	require.NoError(t, err)
+	// 	require.Equal(t, 3, len(dMaster.Provenance))
+	// })
+	// t.Run("2", func(t *testing.T) {
+	// 	c := getClient(t)
+	// 	require.NoError(t, c.CreateRepo("A"))
+	// 	require.NoError(t, c.CreateRepo("B"))
+	// 	require.NoError(t, c.CreateRepo("C"))
+	// 	require.NoError(t, c.CreateRepo("D"))
+
+	// 	require.NoError(t, c.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
+	// 	require.NoError(t, c.CreateBranch("C", "master", "", []*pfs.Branch{pclient.NewBranch("B", "master"), pclient.NewBranch("A", "master")}))
+	// 	require.NoError(t, c.CreateBranch("D", "master", "", []*pfs.Branch{pclient.NewBranch("C", "master")}))
+	// })
 }
 
 func uniqueString(prefix string) string {
