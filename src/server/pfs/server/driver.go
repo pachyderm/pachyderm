@@ -2354,6 +2354,9 @@ func branchKey(branch *pfs.Branch) string {
 }
 
 func (d *driver) addBranchProvenance(branchInfo *pfs.BranchInfo, provBranch *pfs.Branch, stm col.STM) error {
+	if provBranch.Repo.Name == branchInfo.Branch.Repo.Name && provBranch.Name == branchInfo.Branch.Name {
+		return fmt.Errorf("provenance loop, branch %s/%s cannot be provenance for itself", provBranch.Repo.Name, provBranch.Name)
+	}
 	(*branchSet)(&branchInfo.Provenance).add(provBranch)
 	provBranchInfo := &pfs.BranchInfo{}
 	return d.branches(provBranch.Repo.Name).ReadWrite(stm).Upsert(provBranch.Name, provBranchInfo, func() error {
