@@ -1,8 +1,6 @@
 package pbutil
 
 import (
-	"fmt"
-
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/snappy"
 )
@@ -13,10 +11,7 @@ func Marshal(val proto.Marshaler) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	uncompressedLen := len(bytes)
 	bytes = snappy.Encode(nil, bytes)
-	compressedLen := len(bytes)
-	fmt.Printf("Uncompressed: %d, Compressed: %d (%f%)\n", uncompressedLen, compressedLen, float64(uncompressedLen-compressedLen)*100.0/float64(uncompressedLen))
 	return bytes, nil
 }
 
