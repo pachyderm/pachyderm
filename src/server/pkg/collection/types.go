@@ -66,7 +66,11 @@ type ReadWriteCollection interface {
 	// can result in inconsistency, as the indices are removed at roughly
 	// but not exactly the same time as the documents.
 	PutTTL(key string, val proto.Message, ttl int64) error
+	// Update reads the current value associated with 'key', calls 'f' to update
+	// the value, and writes the new value back to the collection. 'key' must be
+	// present in the collection, or a 'Not Found' error is returned
 	Update(key string, val proto.Message, f func() error) error
+	// Upsert is like Update but 'key' is not required to be present
 	Upsert(key string, val proto.Message, f func() error) error
 	Create(key string, val proto.Message) error
 	Delete(key string) error

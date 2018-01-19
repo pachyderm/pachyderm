@@ -579,7 +579,7 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 		Description: description,
 	}
 
-	// If the caller passed a tree reference with the commit contents (i.e. in
+	// If the caller passed a tree reference with the commit contents (e.g. in
 	// BuildCommit) then retrieve the full tree so we can compute its size
 	var tree hashtree.HashTree
 	if treeRef != nil {
@@ -627,7 +627,8 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 			}
 		}
 
-		// Set newCommit.ParentCommit (if 'parent' and/or 'branch' was set)
+		// Set newCommit.ParentCommit (if 'parent' and/or 'branch' was set) and
+		// parent's ChildCommits
 		if parent.ID != "" {
 			// Resolve parent.ID if it's a branch that isn't 'branch' (which can
 			// happen if 'branch' is new and diverges from the existing branch in
@@ -639,6 +640,15 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 			// fail if the parent commit has not been finished
 			if parentCommitInfo.Finished == nil {
 				return fmt.Errorf("parent commit %s has not been finished", parent.ID)
+			}
+			if err := commits.Update(parent.ID, parentCommitInfo, func() error {
+				newCommitInfo.ParentCommit = parent
+				parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, newCommit)
+				return nil
+			}); err != nil {
+				// Note: error is emitted if parent.ID is a missing/invalid branch OR a
+				// missing/invalid commit ID
+				return fmt.Errorf("could not resolve parent commit \"%s\": %v", parent.ID, err)
 			}
 			newCommitInfo.ParentCommit = parent
 		}
@@ -845,16 +855,12 @@ func (d *driver) propagateCommit(stm col.STM, branch *pfs.Branch) error {
 		}
 		subvBranchInfos = append(subvBranchInfos, subvBranchInfo)
 	}
-
-	// Topologically sort subvBranchInfos before processing them: if branch B is
-	// provenant on branch A, we'll create a new commit in A before creating a new
-	// commit in B, so that the new commit in B is provenant on the (new) HEAD of
-	// A.
+	// Sort subvBranchInfos so that upstream branches are processed before their descendants
 	sort.Slice(subvBranchInfos, func(i, j int) bool { return len(subvBranchInfos[i].Provenance) < len(subvBranchInfos[j].Provenance) })
 
-	// Iterate through downstream branches, determine which need a new commit.
+	// Iterate through downstream branches and determine which need a new commit.
 	// Because subvBranchInfos is topologically sorted, the 'propagateCommit'
-	// invariant always holds for 'branchInfo'
+	// invariant (in the function comments) always holds for 'branchInfo'
 nextSubvBranch:
 	for _, branchInfo := range subvBranchInfos {
 		branch := branchInfo.Branch
@@ -951,8 +957,17 @@ nextSubvBranch:
 			}
 		}
 
-		// Set 'branch's HEAD and set 'commit's parent commit
+		// Set 'newCommit's ParentCommit, 'branch.Head's ChildCommits and 'branch.Head'
 		newCommitInfo.ParentCommit = branchInfo.Head
+		if branchInfo.Head != nil {
+			parentCommitInfo := &pfs.CommitInfo{}
+			if err := commits.Update(newCommitInfo.ParentCommit.ID, parentCommitInfo, func() error {
+				parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, commit)
+				return nil
+			}); err != nil {
+				return err
+			}
+		}
 		branchInfo.Head = newCommit
 		// set in case 'branch' is new
 		branchInfo.Name = branch.Name
@@ -1423,18 +1438,52 @@ func (d *driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
 	if err := d.checkIsAuthorized(ctx, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	commitInfo, err := d.inspectCommit(ctx, commit, false)
-	if err != nil {
-		return err
-	}
 
-	if commitInfo.Finished != nil {
-		return fmt.Errorf("cannot delete finished commit")
-	}
+	// Delete 'commit' and all subvenant commits. Rewrite parent and child
+	// pointers, and subtract the size of deleted commits from their repo sizes
+	// TODO update branches inside this txn by storing a repo's branches in its
+	// RepoInfo or its HEAD commit
+	commitInfo := &pfs.CommitInfo{} // used to updated branches
+	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		var (
+			repos   = d.repos.ReadWrite(stm)
+			commits = d.commits(commit.Repo.Name).ReadWrite(stm)
+		)
+		commitInfo, err := d.resolveCommit(stm, commit)
+		if err != nil {
+			return err
+		}
+		if commitInfo.Finished != nil {
+			return fmt.Errorf("cannot delete finished commit")
+		}
 
-	// Delete the scratch space for this commit
-	_, err = d.etcdClient.Delete(ctx, d.scratchCommitPrefix(commit), etcd.WithPrefix())
-	if err != nil {
+		repoInfo := &pfs.RepoInfo{}
+		if err := repos.Update(commit.Repo.Name, repoInfo, func() error {
+			repoInfo.SizeBytes -= commitInfo.SizeBytes
+			return nil
+		}); err != nil {
+			return err
+		}
+
+		// remove 'commit' from the parent commit's children
+		parentCommitInfo := &pfs.CommitInfo{}
+		if err := commits.Update(commitInfo.ParentCommit.ID, parentCommitInfo, func() error {
+			for i, childCommit := range parentCommitInfo.ChildCommits {
+				if childCommit.ID == commit.ID {
+					// remove element i from ChildCommits
+					l := len(parentCommitInfo.ChildCommits)
+					copy(parentCommitInfo.ChildCommits[i:], parentCommitInfo.ChildCommits[i+1:])
+					parentCommitInfo.ChildCommits = parentCommitInfo.ChildCommits[:l-1]
+					return nil
+				}
+			}
+			return fmt.Errorf("expected to find %s in the children of %s, but did not", commit.ID, commitInfo.ParentCommit.ID)
+		}); err != nil {
+			return err
+		}
+
+		return commits.Delete(commit.ID)
+	}); err != nil {
 		return err
 	}
 
@@ -1444,7 +1493,6 @@ func (d *driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
 	if err != nil {
 		return err
 	}
-
 	for _, branchInfo := range branchInfos {
 		if branchInfo.Head != nil && branchInfo.Head.ID == commitInfo.Commit.ID {
 			var provenance []*pfs.Branch
@@ -1457,24 +1505,22 @@ func (d *driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
 		}
 	}
 
-	// Delete the commit itself and subtract the size of the commit
-	// from repo size.
-	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		repos := d.repos.ReadWrite(stm)
-		repoInfo := new(pfs.RepoInfo)
-		if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
-			return err
-		}
-		repoInfo.SizeBytes -= commitInfo.SizeBytes
-		repos.Put(commit.Repo.Name, repoInfo)
-
-		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
-		return commits.Delete(commit.ID)
-	})
+	// Delete the scratch space for this commit
+	_, err = d.etcdClient.Delete(ctx, d.scratchCommitPrefix(ctx, commit), etcd.WithPrefix())
+	if err != nil {
+		return err
+	}
 
 	return err
 }
 
+// createBranch creates a new branch or updates an existing branch (must be one
+// or the other). Most importantly, it sets 'branch.DirectProvenance' to
+// 'provenance' and then for all (downstream) branches, restores the invariant:
+//   ∀ b . b.Provenance = ∪ b'.Provenance (where b' ∈ b.DirectProvenance)
+//
+// This invariant is assumed to hold for all branches upstream of 'branch', but not
+// for 'branch' itself once 'b.Provenance' has been set.
 func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *pfs.Commit, provenance []*pfs.Branch) error {
 	if err := d.checkIsAuthorized(ctx, branch.Repo, auth.Scope_WRITER); err != nil {
 		return err
@@ -1493,7 +1539,6 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		// if 'commit' is a branch, resolve it
-		// targetCommitInfo is the CommitInfo for 'commit', the new target of 'branch'
 		var err error
 		if commit != nil {
 			_, err = d.resolveCommit(stm, commit) // if 'commit' is a branch, resolve it
