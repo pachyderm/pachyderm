@@ -352,7 +352,8 @@ test-pfs:
 	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
 
 test-pps:
-	go test -v ./src/server -parallel 1 -timeout $(TIMEOUT)
+	# Use the count flag to disable test caching for this test suite.
+	go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT)
 	go test ./src/server/pps/cmds -timeout $(TIMEOUT)
 
 test-client:
