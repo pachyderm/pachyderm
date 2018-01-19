@@ -3183,6 +3183,7 @@ func TestBranchProvenance(t *testing.T) {
 	tests := [][]struct {
 		name       string
 		directProv []string
+		err        bool
 		expectProv map[string][]string
 		expectSubv map[string][]string
 	}{{
@@ -3228,18 +3229,29 @@ func TestBranchProvenance(t *testing.T) {
 			expectSubv: map[string][]string{"A": {"E"}, "B": {"C", "D", "E"}, "C": {"D", "E"}, "D": {"E"}, "E": {}}},
 		// A    B -> C -> D -> E
 		// + ----------------- ^
+	}, {
+		{name: "A", directProv: []string{"A"}, err: true},
+		{name: "A"},
+		{name: "A", directProv: []string{"A"}, err: true},
+		{name: "B", directProv: []string{"A"}},
+		{name: "A", directProv: []string{"B"}, err: true},
 	},
 	}
 	for i, test := range tests {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			repo := uniqueString("repo")
 			require.NoError(t, c.CreateRepo(repo))
-			for _, step := range test {
+			for iStep, step := range test {
 				var provenance []*pfs.Branch
 				for _, branch := range step.directProv {
 					provenance = append(provenance, pclient.NewBranch(repo, branch))
 				}
-				require.NoError(t, c.CreateBranch(repo, step.name, "", provenance))
+				err := c.CreateBranch(repo, step.name, "", provenance)
+				if step.err {
+					require.YesError(t, err, "%d> CreateBranch(\"%s\", %v)", iStep, step.name, step.directProv)
+				} else {
+					require.NoError(t, err, "%d> CreateBranch(\"%s\", %v)", iStep, step.name, step.directProv)
+				}
 				for branch, expectedProv := range step.expectProv {
 					bi, err := c.InspectBranch(repo, branch)
 					require.NoError(t, err)
