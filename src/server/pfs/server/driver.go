@@ -1473,7 +1473,7 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 		branchInfo.Head = commit
 		branchInfo.DirectProvenance = nil
 		for _, provBranch := range provenance {
-			(*branchSet)(&branchInfo.DirectProvenance).add(provBranch)
+			add(&branchInfo.DirectProvenance, provBranch)
 		}
 		// We don't just need to update (or create) branch's Provenance but
 		// also the Provenance of all our Subvenance (in the case of an update)
@@ -1511,11 +1511,11 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 				return err
 			}
 			for _, oldProvBranch := range oldProvenance {
-				if !(*branchSet)(&branchInfo.Provenance).has(oldProvBranch) {
+				if !has(&branchInfo.Provenance, oldProvBranch) {
 					// Provenance was deleted, so we delete ourselves from their subvenance
 					oldProvBranchInfo := &pfs.BranchInfo{}
 					if err := d.branches(oldProvBranch.Repo.Name).ReadWrite(stm).Upsert(oldProvBranch.Name, oldProvBranchInfo, func() error {
-						(*branchSet)(&oldProvBranchInfo.Subvenance).del(branchInfo.Branch)
+						del(&oldProvBranchInfo.Subvenance, branchInfo.Branch)
 						return nil
 					}); err != nil {
 						return err
@@ -2357,12 +2357,12 @@ func (d *driver) addBranchProvenance(branchInfo *pfs.BranchInfo, provBranch *pfs
 	if provBranch.Repo.Name == branchInfo.Branch.Repo.Name && provBranch.Name == branchInfo.Branch.Name {
 		return fmt.Errorf("provenance loop, branch %s/%s cannot be provenance for itself", provBranch.Repo.Name, provBranch.Name)
 	}
-	(*branchSet)(&branchInfo.Provenance).add(provBranch)
+	add(&branchInfo.Provenance, provBranch)
 	provBranchInfo := &pfs.BranchInfo{}
 	return d.branches(provBranch.Repo.Name).ReadWrite(stm).Upsert(provBranch.Name, provBranchInfo, func() error {
 		// Set provBranch, we may be creating this branch for the first time
 		provBranchInfo.Branch = provBranch
-		(*branchSet)(&provBranchInfo.Subvenance).add(branchInfo.Branch)
+		add(&provBranchInfo.Subvenance, branchInfo.Branch)
 		return nil
 	})
 }
@@ -2400,6 +2400,10 @@ func (b *branchSet) search(branch *pfs.Branch) (int, bool) {
 	return i, branchKey((*b)[i]) == branchKey(branch)
 }
 
+func search(bs *[]*pfs.Branch, branch *pfs.Branch) (int, bool) {
+	return (*branchSet)(bs).search(branch)
+}
+
 func (b *branchSet) add(branch *pfs.Branch) {
 	i, ok := b.search(branch)
 	if !ok {
@@ -2407,6 +2411,10 @@ func (b *branchSet) add(branch *pfs.Branch) {
 		copy((*b)[i+1:], (*b)[i:])
 		(*b)[i] = branch
 	}
+}
+
+func add(bs *[]*pfs.Branch, branch *pfs.Branch) {
+	(*branchSet)(bs).add(branch)
 }
 
 func (b *branchSet) del(branch *pfs.Branch) {
@@ -2418,7 +2426,15 @@ func (b *branchSet) del(branch *pfs.Branch) {
 	}
 }
 
+func del(bs *[]*pfs.Branch, branch *pfs.Branch) {
+	(*branchSet)(bs).del(branch)
+}
+
 func (b *branchSet) has(branch *pfs.Branch) bool {
 	_, ok := b.search(branch)
 	return ok
+}
+
+func has(bs *[]*pfs.Branch, branch *pfs.Branch) bool {
+	return (*branchSet)(bs).has(branch)
 }
