@@ -25,6 +25,7 @@ message BranchInfo {
   Commit head = 2;
   repeated Branch provenance = 3;
   repeated Branch subvenance = 5;
+  repeated Branch direct_provenance = 6;
 
   // Deprecated field left for backward compatibility.
   string name = 1;
