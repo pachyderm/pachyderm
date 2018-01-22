@@ -693,6 +693,12 @@
 			"revisionTime": "2017-11-13T18:07:20Z"
 		},
 		{
+			"checksumSHA1": "p/8vSviYF91gFflhrt5vkyksroo=",
+			"path": "github.com/golang/snappy",
+			"revision": "553a641470496b2327abcac10b36396bd98e45c9",
+			"revisionTime": "2017-02-15T23:32:05Z"
+		},
+		{
 			"checksumSHA1": "kHrNY4ktruLxWd+qxbMw90KfO1Y=",
 			"path": "github.com/google/btree",
 			"revision": "316fb6d3f031ae8f4d457c6c5186b9e3ded70435",

@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/worker"
 	"google.golang.org/grpc"
@@ -57,16 +58,9 @@ func main() {
 func getPipelineInfo(etcdClient *etcd.Client, appEnv *appEnv) (*pps.PipelineInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	resp, err := etcdClient.Get(ctx, path.Join(appEnv.PPSPrefix, "pipelines", appEnv.PPSPipelineName))
-	if err != nil {
-		return nil, err
-	}
-	if len(resp.Kvs) != 1 {
-		return nil, fmt.Errorf("expected to find 1 pipeline, got %d: %v", len(resp.Kvs), resp)
-	}
-	pipelineInfo := new(pps.PipelineInfo)
-
-	if err := pipelineInfo.Unmarshal(resp.Kvs[0].Value); err != nil {
+	pipelines := ppsdb.Pipelines(etcdClient, appEnv.PPSPrefix)
+	pipelineInfo := &pps.PipelineInfo{}
+	if err := pipelines.ReadOnly(ctx).Get(appEnv.PPSPipelineName, pipelineInfo); err != nil {
 		return nil, err
 	}
 	return pipelineInfo, nil
