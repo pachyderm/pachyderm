@@ -6,7 +6,7 @@ cache:
   directories:
     - /home/travis/.cache/go-build
     - $HOME/docker
-# bump to test cache
+# bump to test cache. Bump again!!!
 language: go
 go:
 - 1.10beta1
