@@ -5,7 +5,7 @@ services:
 cache:
   directories:
     - /home/travis/.cache/go-build
-    - /var/lib/docker
+    - $HOME/docker
 # bump to test cache
 language: go
 go:
@@ -13,7 +13,12 @@ go:
 branches:
   except:
     - /^v[0-9]/
+before_cache:
+# Pack up the docker builds and put em in the cached dir
+-  mkdir -p $HOME/docker && docker images -a --filter='dangling=false' --format '{{.Repository}}:{{.Tag}} {{.ID}}' | xargs -n 2 -t sh -c 'test -e $HOME/docker/$1.tar.gz || docker save $0 | gzip -2 > $HOME/docker/$1.tar.gz'
 before_install:
+# Reload cached docker images
+- if [[ -d $HOME/docker ]]; then ls $HOME/docker/*.tar.gz | xargs -I {file} sh -c "zcat {file} | docker load"; fi
 - sudo etc/testing/ci/before_install.sh
 before_script:
 - make launch-kube
