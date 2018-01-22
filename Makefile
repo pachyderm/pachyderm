@@ -508,9 +508,6 @@ lint:
 		fi; \
 	done;
 
-vet:
-	@etc/testing/vet.sh
-
 spellcheck:
 	@mdspell doc/*.md doc/**/*.md *.md --en-us --ignore-numbers --ignore-acronyms --report --no-suggestions
 
