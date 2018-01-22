@@ -135,7 +135,7 @@ docker-clean-test:
 
 docker-build-test: docker-clean-test docker-build-compile
 	docker run \
-		-v $$HOME/go/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
+		-v $$GOPATH/go/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
 		--name test_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh /etc/compile/compile_test.sh
 	etc/compile/wait.sh test_compile
