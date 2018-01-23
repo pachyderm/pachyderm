@@ -556,6 +556,9 @@ func (d *driver) buildCommit(ctx context.Context, parent *pfs.Commit, branch str
 	return d.makeCommit(ctx, parent, branch, provenance, tree, "")
 }
 
+// make commit makes a new commit in 'branch', with the parent 'parent' (if
+// 'branch' is set, leave 'parent.ID' unset) and the direct provenance
+// 'provenance'.
 func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit, treeRef *pfs.Object, description string) (*pfs.Commit, error) {
 	// Check that caller is authorized and validate arguments
 	if err := d.checkIsAuthorized(ctx, parent.Repo, auth.Scope_WRITER); err != nil {
@@ -579,8 +582,8 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 		Description: description,
 	}
 
-	// If the caller passed a tree reference with the commit contents (e.g. in
-	// BuildCommit) then retrieve the full tree so we can compute its size
+	//  BuildCommit case: if the caller passed a tree reference with the commit
+	// contents then retrieve the full tree so we can compute its size
 	var tree hashtree.HashTree
 	if treeRef != nil {
 		var buf bytes.Buffer
@@ -597,7 +600,7 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 		newCommitInfo.Finished = now()
 	}
 
-	// Create the actual commit in etcd (and update the branch, in one txn)
+	// Txn: create the actual commit in etcd and update the branch + parent/child
 	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		repos := d.repos.ReadWrite(stm)
 		commits := d.commits(parent.Repo.Name).ReadWrite(stm)
@@ -650,7 +653,19 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 				// missing/invalid commit ID
 				return fmt.Errorf("could not resolve parent commit \"%s\": %v", parent.ID, err)
 			}
-			newCommitInfo.ParentCommit = parent
+		}
+		
+		// BuildCommit case: Now that 'parent' is resolved, read the parent commit's
+		// tree (inside txn) and update the repo size
+		if treeRef != nil {
+			parentTree, err := d.getTreeForCommit(ctx, parent)
+			if err != nil {
+				return err
+			}
+			repoInfo.SizeBytes += sizeChange(tree, parentTree)
+			repos.Put(parent.Repo.Name, repoInfo)
+		} else {
+			d.openCommits.ReadWrite(stm).Put(newCommit.ID, newCommit)
 		}
 
 		// 'newCommitProv' holds newCommit's provenance (use map for deduping).
@@ -661,15 +676,16 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 		// explore full graph)
 		for _, provCommit := range provenance {
 			newCommitProv[provCommit.ID] = provCommit
-			provCommitCol := d.commits(provCommit.Repo.Name).ReadWrite(stm)
 			provCommitInfo := &pfs.CommitInfo{}
-			if err := provCommitCol.Get(provCommit.ID, provCommitInfo); err != nil {
+			if err := d.commits(provCommit.Repo.Name).ReadWrite(stm).Get(provCommit.ID, provCommitInfo); err != nil {
 				return err
 			}
 			for _, c := range provCommitInfo.Provenance {
 				newCommitProv[c.ID] = c
 			}
 		}
+
+		// Copy newCommitProv into newCommitInfo.Provenance, and update upstream subv
 		for _, provCommit := range newCommitProv {
 			newCommitInfo.Provenance = append(newCommitInfo.Provenance, provCommit)
 			provCommitInfo := &pfs.CommitInfo{}
@@ -679,19 +695,6 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 			}); err != nil {
 				return err
 			}
-		}
-
-		// BuildCommit case: read the parent commit's tree (inside txn) and update
-		// the repo size
-		if treeRef != nil {
-			parentTree, err := d.getTreeForCommit(ctx, parent)
-			if err != nil {
-				return err
-			}
-			repoInfo.SizeBytes += sizeChange(tree, parentTree)
-			repos.Put(parent.Repo.Name, repoInfo)
-		} else {
-			d.openCommits.ReadWrite(stm).Put(newCommit.ID, newCommit)
 		}
 
 		// Finally, create the commit
@@ -817,10 +820,6 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 		}
 		return nil
 	})
-	if err != nil {
-		return err
-	}
-
 	return err
 }
 
@@ -830,7 +829,9 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 //   B.Head is provenant on A.Head <=>
 //   branch B is provenant on branch A and A.Head != nil
 // The implementation assumes that the invariant already holds for all branches
-// upstream of 'branch', but not necessarily for 'branch' itself.
+// upstream of 'branch', but not necessarily for 'branch' itself. Despite the
+// name, 'branch' does not need a HEAD commit to propagate, though one may be
+// created.
 //
 // In other words, propagateCommit scans all branches b_downstream that are
 // equal to or downstream of 'branch', and if the HEAD of b_downstream isn't
@@ -855,12 +856,14 @@ func (d *driver) propagateCommit(stm col.STM, branch *pfs.Branch) error {
 		}
 		subvBranchInfos = append(subvBranchInfos, subvBranchInfo)
 	}
-	// Sort subvBranchInfos so that upstream branches are processed before their descendants
+
+	// Sort subvBranchInfos so that upstream branches are processed before their
+	// descendants. This guarantees that if branch B is provenant on branch A, we
+	// create a new commit in A before creating a new commit in B provenant on the
+	// (new) HEAD of A.
 	sort.Slice(subvBranchInfos, func(i, j int) bool { return len(subvBranchInfos[i].Provenance) < len(subvBranchInfos[j].Provenance) })
 
 	// Iterate through downstream branches and determine which need a new commit.
-	// Because subvBranchInfos is topologically sorted, the 'propagateCommit'
-	// invariant (in the function comments) always holds for 'branchInfo'
 nextSubvBranch:
 	for _, branchInfo := range subvBranchInfos {
 		branch := branchInfo.Branch
@@ -941,7 +944,7 @@ nextSubvBranch:
 			Started: now(),
 		}
 
-		// Set provenance and subvenance
+		// Set provenance and upstream subvenance
 		for _, prov := range commitProvMap {
 			// set provenance of 'newCommit'
 			newCommitInfo.Provenance = append(newCommitInfo.Provenance, prov.commit)
@@ -969,14 +972,13 @@ nextSubvBranch:
 			}
 		}
 		branchInfo.Head = newCommit
-		// set in case 'branch' is new
-		branchInfo.Name = branch.Name
-		branchInfo.Branch = branch
+		branchInfo.Name = branch.Name // set in case 'branch' is new
+		branchInfo.Branch = branch    // set in case 'branch' is new
 		if err := branches.Put(branch.Name, branchInfo); err != nil {
 			return err
 		}
 
-		// finally start 'commit' and modify upstream subvenance
+		// finally create open 'commit'
 		if err := commits.Create(newCommit.ID, newCommitInfo); err != nil {
 			return err
 		}
@@ -1457,6 +1459,7 @@ func (d *driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
 			return fmt.Errorf("cannot delete finished commit")
 		}
 
+		// Update the repo's size
 		repoInfo := &pfs.RepoInfo{}
 		if err := repos.Update(commit.Repo.Name, repoInfo, func() error {
 			repoInfo.SizeBytes -= commitInfo.SizeBytes
@@ -1466,20 +1469,22 @@ func (d *driver) deleteCommit(ctx context.Context, commit *pfs.Commit) error {
 		}
 
 		// remove 'commit' from the parent commit's children
-		parentCommitInfo := &pfs.CommitInfo{}
-		if err := commits.Update(commitInfo.ParentCommit.ID, parentCommitInfo, func() error {
-			for i, childCommit := range parentCommitInfo.ChildCommits {
-				if childCommit.ID == commit.ID {
-					// remove element i from ChildCommits
-					l := len(parentCommitInfo.ChildCommits)
-					copy(parentCommitInfo.ChildCommits[i:], parentCommitInfo.ChildCommits[i+1:])
-					parentCommitInfo.ChildCommits = parentCommitInfo.ChildCommits[:l-1]
-					return nil
+		if commitInfo.ParentCommit != nil {
+			parentCommitInfo := &pfs.CommitInfo{}
+			if err := commits.Update(commitInfo.ParentCommit.ID, parentCommitInfo, func() error {
+				for i, childCommit := range parentCommitInfo.ChildCommits {
+					if childCommit.ID == commit.ID {
+						// remove element i from ChildCommits
+						l := len(parentCommitInfo.ChildCommits)
+						copy(parentCommitInfo.ChildCommits[i:], parentCommitInfo.ChildCommits[i+1:])
+						parentCommitInfo.ChildCommits = parentCommitInfo.ChildCommits[:l-1]
+						return nil
+					}
 				}
+				return fmt.Errorf("expected to find %s in the children of %s, but did not", commit.ID, commitInfo.ParentCommit.ID)
+			}); err != nil {
+				return err
 			}
-			return fmt.Errorf("expected to find %s in the children of %s, but did not", commit.ID, commitInfo.ParentCommit.ID)
-		}); err != nil {
-			return err
 		}
 
 		return commits.Delete(commit.ID)
