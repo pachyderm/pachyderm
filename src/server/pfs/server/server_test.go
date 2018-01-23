@@ -3434,6 +3434,10 @@ func TestChildCommits(t *testing.T) {
 	require.Equal(t, cCommit2.Commit.ID, cCommit1.ChildCommits[0].ID)
 }
 
+// TODO: make sure provenance works correctly. Specifically:
+// - I don't think the new branchInfo is being updated correctly in createBranch. I don't think its provenance is ever set
+// - I also don't think its provenance is ever re-read when deciding whether to create a new ouput commit
+
 func uniqueString(prefix string) string {
 	return prefix + "-" + uuid.NewWithoutDashes()[0:12]
 }
