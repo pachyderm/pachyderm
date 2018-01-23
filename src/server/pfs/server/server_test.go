@@ -3386,7 +3386,7 @@ func TestChildCommits(t *testing.T) {
 	require.Equal(t, commit2.ID, commit1Info.ChildCommits[0].ID)
 
 	// Create a downstream branch in the same repo, then commit to "A" and make
-	// sure the new HEAD commit is in teh parent's children (i.e. test
+	// sure the new HEAD commit is in the parent's children (i.e. test
 	// propagateCommit)
 	require.NoError(t, c.CreateBranch("A", "out", "", []*pfs.Branch{
 		pclient.NewBranch("A", "master"),
@@ -3432,6 +3432,72 @@ func TestChildCommits(t *testing.T) {
 	require.Equal(t, cCommit1.Commit.ID, cCommit2.ParentCommit.ID)
 	require.Equal(t, 1, len(cCommit1.ChildCommits))
 	require.Equal(t, cCommit2.Commit.ID, cCommit1.ChildCommits[0].ID)
+}
+
+func TestStartCommitFork(t *testing.T) {
+	c := getClient(t)
+	require.NoError(t, c.CreateRepo("A"))
+	require.NoError(t, c.CreateBranch("A", "master", "", nil))
+	commit, err := c.StartCommit("A", "master")
+	require.NoError(t, err)
+	c.FinishCommit("A", commit.ID)
+	commit2, err := c.PfsAPIClient.StartCommit(c.Ctx(), &pfs.StartCommitRequest{
+		Branch: "master2",
+		Parent: pclient.NewCommit("A", "master"),
+	})
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("A", commit2.ID))
+
+	commits, err := c.ListCommit("A", "master2", "", 0)
+	require.Equal(t, 2, len(commits))
+	ids := map[string]bool{
+		commits[0].Commit.ID: true,
+		commits[1].Commit.ID: true,
+	}
+	require.NoError(t, err)
+	require.True(t, ids[commit.ID])
+	require.True(t, ids[commit2.ID])
+}
+
+// TestUpdateBranchNewOutputCommit tests the following corner case:
+// A ───> C
+// B
+//
+// Becomes:
+//
+// A  ┌─> C
+// B ─┘
+//
+// C should create a new output commit to process its unprocessed inputs in B
+func TestUpdateBranchNewOutputCommit(t *testing.T) {
+	c := getClient(t)
+	require.NoError(t, c.CreateRepo("A"))
+	require.NoError(t, c.CreateRepo("B"))
+	require.NoError(t, c.CreateRepo("C"))
+	require.NoError(t, c.CreateBranch("A", "master", "", nil))
+	require.NoError(t, c.CreateBranch("B", "master", "", nil))
+	require.NoError(t, c.CreateBranch("C", "master", "",
+		[]*pfs.Branch{pclient.NewBranch("A", "master")}))
+
+	// Create commits in A and B
+	commit, err := c.StartCommit("A", "master")
+	require.NoError(t, err)
+	c.FinishCommit("A", commit.ID)
+	commit, err = c.StartCommit("B", "master")
+	require.NoError(t, err)
+	c.FinishCommit("A", commit.ID)
+
+	// Check for first output commit in C
+	commits, err := c.ListCommit("C", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commits))
+
+	// Update the provenance of C/master and make sure it creates a new commit
+	require.NoError(t, c.CreateBranch("C", "master", "master",
+		[]*pfs.Branch{pclient.NewBranch("B", "master")}))
+	commits, err = c.ListCommit("C", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commits))
 }
 
 func uniqueString(prefix string) string {
