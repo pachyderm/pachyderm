@@ -3143,13 +3143,13 @@ func TestBackfillBranch(t *testing.T) {
 
 // TestUpdateBranch tests the following DAG:
 //
-// A--->B--->C
+// A───>B───>C
 //
 // Then updates it to:
 //
-// A--->B--->C
+// A───>B───>C
 //      ^
-// D----+
+// D────┘
 //
 func TestUpdateBranch(t *testing.T) {
 	c := getClient(t)
@@ -3192,13 +3192,13 @@ func TestBranchProvenance(t *testing.T) {
 		{name: "D", directProv: []string{"C", "A"},
 			expectProv: map[string][]string{"A": nil, "B": {"A"}, "C": {"B", "A"}, "D": {"A", "B", "C"}},
 			expectSubv: map[string][]string{"A": {"B", "C", "D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
-		// A -> B -> C -> D
-		// + ------------ ^
+		// A ─> B ─> C ─> D
+		// └──────────────⬏
 		{name: "B",
 			expectProv: map[string][]string{"A": {}, "B": {}, "C": {"B"}, "D": {"A", "B", "C"}},
 			expectSubv: map[string][]string{"A": {"D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
-		// A    B -> C -> D
-		// + ------------ ^
+		// A    B ─> C ─> D
+		// └──────────────⬏
 	}, {
 		{name: "A"},
 		{name: "B", directProv: []string{"A"}},
@@ -3206,8 +3206,8 @@ func TestBranchProvenance(t *testing.T) {
 		{name: "D", directProv: []string{"C"},
 			expectProv: map[string][]string{"A": {}, "B": {"A"}, "C": {"A", "B"}, "D": {"A", "B", "C"}},
 			expectSubv: map[string][]string{"A": {"B", "C", "D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
-		// A -> B -> C -> D
-		// + ------- ^
+		// A ─> B ─> C ─> D
+		// └─────────⬏
 		{name: "C", directProv: []string{"B"},
 			expectProv: map[string][]string{"A": {}, "B": {"A"}, "C": {"A", "B"}, "D": {"A", "B", "C"}},
 			expectSubv: map[string][]string{"A": {"B", "C", "D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
@@ -3220,14 +3220,14 @@ func TestBranchProvenance(t *testing.T) {
 		{name: "E", directProv: []string{"A", "D"},
 			expectProv: map[string][]string{"A": {}, "B": {}, "C": {"A", "B"}, "D": {"A", "B", "C"}, "E": {"A", "B", "C", "D"}},
 			expectSubv: map[string][]string{"A": {"C", "D", "E"}, "B": {"C", "D", "E"}, "C": {"D", "E"}, "D": {"E"}, "E": {}}},
-		// A    B -> C -> D -> E
-		// + ------- ^         ^
-		// + ----------------- +
+		// A    B ─> C ─> D ─> E
+		// └─────────⬏         ^
+		// └───────────────────┘
 		{name: "C", directProv: []string{"B"},
 			expectProv: map[string][]string{"A": {}, "B": {}, "C": {"B"}, "D": {"B", "C"}, "E": {"A", "B", "C", "D"}},
 			expectSubv: map[string][]string{"A": {"E"}, "B": {"C", "D", "E"}, "C": {"D", "E"}, "D": {"E"}, "E": {}}},
-		// A    B -> C -> D -> E
-		// + ----------------- ^
+		// A    B ─> C ─> D ─> E
+		// └───────────────────⬏
 	}, {
 		{name: "A", directProv: []string{"A"}, err: true},
 		{name: "A"},
@@ -3380,7 +3380,7 @@ func TestChildCommits(t *testing.T) {
 	require.Equal(t, commit2.ID, commit1Info.ChildCommits[0].ID)
 
 	// Create a downstream branch in the same repo, then commit to "A" and make
-	// sure the new HEAD commit is in teh parent's children (i.e. test
+	// sure the new HEAD commit is in the parent's children (i.e. test
 	// propagateCommit)
 	require.NoError(t, c.CreateBranch("A", "out", "", []*pfs.Branch{
 		pclient.NewBranch("A", "master"),
@@ -3428,9 +3428,71 @@ func TestChildCommits(t *testing.T) {
 	require.Equal(t, cCommit2.Commit.ID, cCommit1.ChildCommits[0].ID)
 }
 
-// TODO: make sure provenance works correctly. Specifically:
-// - I don't think the new branchInfo is being updated correctly in createBranch. I don't think its provenance is ever set
-// - I also don't think its provenance is ever re-read when deciding whether to create a new ouput commit
+func TestStartCommitFork(t *testing.T) {
+	c := getClient(t)
+	require.NoError(t, c.CreateRepo("A"))
+	require.NoError(t, c.CreateBranch("A", "master", "", nil))
+	commit, err := c.StartCommit("A", "master")
+	require.NoError(t, err)
+	c.FinishCommit("A", commit.ID)
+	commit2, err := c.PfsAPIClient.StartCommit(c.Ctx(), &pfs.StartCommitRequest{
+		Branch: "master2",
+		Parent: pclient.NewCommit("A", "master"),
+	})
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("A", commit2.ID))
+
+	commits, err := c.ListCommit("A", "master2", "", 0)
+	require.Equal(t, 2, len(commits))
+	ids := map[string]bool{
+		commits[0].Commit.ID: true,
+		commits[1].Commit.ID: true,
+	}
+	require.NoError(t, err)
+	require.True(t, ids[commit.ID])
+	require.True(t, ids[commit2.ID])
+}
+
+// TestUpdateBranchNewOutputCommit tests the following corner case:
+// A ───> C
+// B
+//
+// Becomes:
+//
+// A  ┌─> C
+// B ─┘
+//
+// C should create a new output commit to process its unprocessed inputs in B
+func TestUpdateBranchNewOutputCommit(t *testing.T) {
+	c := getClient(t)
+	require.NoError(t, c.CreateRepo("A"))
+	require.NoError(t, c.CreateRepo("B"))
+	require.NoError(t, c.CreateRepo("C"))
+	require.NoError(t, c.CreateBranch("A", "master", "", nil))
+	require.NoError(t, c.CreateBranch("B", "master", "", nil))
+	require.NoError(t, c.CreateBranch("C", "master", "",
+		[]*pfs.Branch{pclient.NewBranch("A", "master")}))
+
+	// Create commits in A and B
+	commit, err := c.StartCommit("A", "master")
+	require.NoError(t, err)
+	c.FinishCommit("A", commit.ID)
+	commit, err = c.StartCommit("B", "master")
+	require.NoError(t, err)
+	c.FinishCommit("A", commit.ID)
+
+	// Check for first output commit in C
+	commits, err := c.ListCommit("C", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commits))
+
+	// Update the provenance of C/master and make sure it creates a new commit
+	require.NoError(t, c.CreateBranch("C", "master", "master",
+		[]*pfs.Branch{pclient.NewBranch("B", "master")}))
+	commits, err = c.ListCommit("C", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commits))
+}
 
 func uniqueString(prefix string) string {
 	return prefix + "-" + uuid.NewWithoutDashes()[0:12]

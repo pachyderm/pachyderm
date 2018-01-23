@@ -581,7 +581,7 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 		Description: description,
 	}
 
-	// If the caller passed a tree reference with the commit contents (e.g. in
+	// If the caller passed a tree reference with the commit contents (i.e. in
 	// BuildCommit) then retrieve the full tree so we can compute its size
 	var tree hashtree.HashTree
 	if treeRef != nil {
@@ -611,9 +611,8 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 			return err
 		}
 
-		// If the caller passed a branch,
-		// 1) use it to set this commit's parent and branch.HEAD's children
-		// 2) update the branch (or create it if it doesn't exist)
+		// If the caller passed a branch, create/update it (and set parent.ID if none
+		// was passed)
 		if branch != "" {
 			branchInfo := &pfs.BranchInfo{}
 			if err := branches.Upsert(branch, branchInfo, func() error {
@@ -621,7 +620,7 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 					parent.ID = branchInfo.Head.ID
 				}
 				// Point 'branch' at the new commit
-				branchInfo.Name = branch // in case 'branch' is new
+				branchInfo.Name = branch // set in case 'branch' is new
 				branchInfo.Head = newCommit
 				branchInfo.Branch = client.NewBranch(newCommit.Repo.Name, branch)
 				return nil
@@ -632,8 +631,9 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 
 		// Set newCommit.ParentCommit, and add newCommit to parentCommit.ChildCommits
 		if parent.ID != "" {
-			// Resolve parent commit ID if it's a branch ('parent.ID' != 'branch' can
-			// happen if 'branch' is new and diverges from 'parent.ID' which exists)
+			// Resolve parent.ID if it's a branch that isn't 'branch' (which can
+			// happen if 'branch' is new and diverges from the existing branch in
+			// 'parent.ID')
 			if err := d.resolveCommit(stm, parent); err != nil {
 				return err
 			}
@@ -1487,9 +1487,9 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 	if err := d.checkIsAuthorized(ctx, branch.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	// Validate request. Either
-	// 1) We're updating 'branch' (commit is nil OR commit == branch)
-	// 2) We're re-pointing 'branch' at a new commit
+	// Validate request. The request must do exactly one of:
+	// 1) updating 'branch's provenance (commit is nil OR commit == branch)
+	// 2) re-pointing 'branch' at a new commit
 	if commit != nil {
 		// Determine if this is a provenance update
 		sameTarget := branch.Repo.Name == commit.Repo.Name && branch.Name == commit.ID
