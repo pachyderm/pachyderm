@@ -1057,8 +1057,8 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, block bo
 
 // resolveCommit is like inspectCommit in that it converts 'commit' (which may
 // be either a commit ID or branch reference) to a repo + commit ID. It accepts
-// an STM so that it can be used in a transaction, and avoids the need for
-// inconsistent calls to d.inspectCommit() inside a transaction
+// an STM so that it can be used in a transaction and avoids an inconsistent
+// call to d.inspectCommit()
 func (d *driver) resolveCommit(stm col.STM, commit *pfs.Commit) error {
 	if len(commit.ID) == uuid.UUIDWithoutDashesLength {
 		return nil // already a commit ID
@@ -1583,7 +1583,7 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 				}
 			}
 		}
-		
+
 		// Finally, we may create a new HEAD (output) commit in 'branch'. If 'branch'
 		// is the output of a pipeline and has unprocessed provenance, the new HEAD
 		// commit will spawn a job to process it.
