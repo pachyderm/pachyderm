@@ -1,0 +1,188 @@
+syntax = "proto3";
+package auth;
+
+import "gogoproto/gogo.proto";
+
+//// Activation API
+
+// ActivateRequest mirrors AuthenticateRequest. The caller is authenticated via
+// GitHub OAuth, and then promoted to the cluster's first Admin. Afterwards, the
+// caller can promote other users to Admin and remove themselves
+message ActivateRequest {
+  // If set, Pachyderm will compare this username to the GitHub account that
+  // issued the access token 'github_token'. For now, this is not required
+  // (if unset, your GitHub username will be looked up using 'github_token')
+  string github_username = 2;
+
+  // This is the token returned by GitHub and used to authenticate the caller.
+  // In dev mode, the caller may set "github_username" without setting this to
+  // simulate logins
+  string github_token = 1;
+}
+
+message ActivateResponse {
+  // pach_token authenticates the caller with Pachyderm (if you want to perform
+  // Pachyderm operations after auth has been activated as themselves, you must
+  // present this token along with your regular request)
+  string pach_token = 1;
+}
+
+message DeactivateRequest {}
+message DeactivateResponse {}
+
+// Get the current list of cluster admins
+message GetAdminsRequest{}
+message GetAdminsResponse{
+  repeated string admins = 1;
+}
+
+// Add or remove cluster admins
+message ModifyAdminsRequest {
+  repeated string add = 1;
+  repeated string remove = 2;
+}
+message ModifyAdminsResponse {}
+
+//// Authentication data structures
+
+// User is the 'value' of an auth token 'key' in the 'tokens' collection
+message User {
+  string username = 1;
+
+  enum UserType {
+    INVALID = 0;
+    GITHUB = 1;
+    PIPELINE = 2;
+  }
+  UserType type = 2;
+}
+
+//// Authentication API
+
+message AuthenticateRequest {
+  // If set, Pachyderm will compare this username to the GitHub account that
+  // issued the access token 'github_token'. For now, this is not required
+  // (if unset, your GitHub username will be looked up using 'github_token')
+  string github_username = 2;
+
+  // This is the token returned by GitHub and used to authenticate the caller.
+  // In dev mode, the caller may set "github_username" without setting this to
+  // simulate logins
+  string github_token = 1;
+}
+
+message AuthenticateResponse {
+  // pach_token authenticates the caller with Pachyderm (if you want to perform
+  // Pachyderm operations after auth has been activated as themselves, you must
+  // present this token along with your regular request)
+  string pach_token = 1;
+}
+
+message WhoAmIRequest {}
+
+message WhoAmIResponse {
+  string username = 1;
+  bool is_admin = 2;
+}
+
+//// Authorization data structures
+
+enum Scope {
+  // To remove a user's scope from a repo, set their scope to NONE
+  NONE = 0;
+  READER = 1;
+  WRITER = 2;
+  OWNER = 3;
+}
+
+message ACL {
+  // username -> scope
+  map<string, Scope> entries = 1;
+}
+
+//// Authorization API
+
+message AuthorizeRequest {
+  string repo = 1;
+  Scope scope = 2;
+}
+
+message AuthorizeResponse {
+  bool authorized = 1;
+}
+
+message GetScopeRequest {
+  string username = 1;
+  repeated string repos = 2;
+}
+
+message GetScopeResponse {
+  repeated Scope scopes = 1;
+}
+
+message SetScopeRequest {
+  string username = 1;
+  string repo = 2;
+  Scope scope = 3;
+}
+
+message SetScopeResponse {}
+
+message GetACLRequest {
+  string repo = 1;
+}
+
+message ACLEntry {
+  string username = 1;
+  Scope scope = 2;
+}
+
+message GetACLResponse {
+  repeated ACLEntry entries = 1;
+}
+
+message SetACLRequest {
+  string repo = 1;
+  repeated ACLEntry entries = 2;
+}
+
+message SetACLResponse {}
+
+//// Capability-token API (very limited -- for pipelines)
+
+message GetCapabilityRequest {}
+
+message GetCapabilityResponse {
+  string capability = 1;
+}
+
+message RevokeAuthTokenRequest {
+  string token = 1;
+}
+
+message RevokeAuthTokenResponse {}
+
+service API {
+  // Activate/Deactivate the auth API. 'Activate' sets an initial set of admins
+  // for the Pachyderm cluster, and 'Deactivate' removes all ACLs, tokens, and
+  // admins from the Pachyderm cluster, making all data publicly accessable
+  rpc Activate(ActivateRequest) returns (ActivateResponse) {}
+  rpc Deactivate(DeactivateRequest) returns (DeactivateResponse) {}
+
+  // GetAdmins returns the current list of cluster admins
+  rpc GetAdmins(GetAdminsRequest) returns (GetAdminsResponse) {}
+  // ModifyAdmins adds or removes admins from the cluster
+  rpc ModifyAdmins(ModifyAdminsRequest) returns (ModifyAdminsResponse) {}
+
+  rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {}
+  rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse) {}
+  rpc WhoAmI(WhoAmIRequest) returns (WhoAmIResponse) {}
+
+  rpc GetScope(GetScopeRequest) returns (GetScopeResponse) {}
+  rpc SetScope(SetScopeRequest) returns (SetScopeResponse) {}
+  rpc GetACL(GetACLRequest) returns (GetACLResponse) {}
+  rpc SetACL(SetACLRequest) returns (SetACLResponse) {}
+
+  rpc GetCapability(GetCapabilityRequest) returns (GetCapabilityResponse) {}
+  rpc RevokeAuthToken(RevokeAuthTokenRequest) returns (RevokeAuthTokenResponse) {}
+}

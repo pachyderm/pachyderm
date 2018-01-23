@@ -1,0 +1,95 @@
+syntax = "proto3";
+
+package shard;
+
+message ServerState {
+    string address = 1;
+    int64 version = 2;
+}
+
+message FrontendState {
+	string address = 1;
+    int64 version = 2;
+}
+
+message ServerRole {
+    string address = 1;
+    int64 version = 2;
+    map<uint64, bool> shards = 3;
+}
+
+message Addresses {
+    int64 version = 1;
+    map<uint64, string> addresses = 2;
+}
+
+message StartRegister {
+  string address = 1;
+}
+
+message FinishRegister {
+  string address = 1;
+  string error = 2;
+}
+
+message Version {
+  int64 result = 1;
+  string error = 2;
+}
+
+message StartAssignRoles {
+}
+
+message FinishAssignRoles {
+  string error = 1;
+}
+
+message FailedToAssignRoles {
+  map<string, ServerState> server_states = 1;
+  uint64 num_shards = 2;
+  uint64 num_replicas = 3;
+}
+
+message SetServerState {
+  ServerState serverState = 1;
+}
+
+message SetFrontendState {
+  FrontendState frontendState = 1;
+}
+
+message AddServerRole {
+  ServerRole serverRole = 1;
+  string error = 2;
+}
+
+message RemoveServerRole {
+  ServerRole serverRole = 1;
+  string error = 2;
+}
+
+message SetServerRole {
+  ServerRole serverRole = 2;
+}
+
+message DeleteServerRole {
+  ServerRole serverRole = 2;
+}
+
+message SetAddresses {
+  Addresses addresses = 1;
+}
+
+message GetAddress {
+  uint64 shard = 1;
+  int64 version = 2; 
+  string result = 3;
+  bool ok = 4;
+  string error = 5;
+}
+
+message GetShardToAddress {
+  int64 version = 1; 
+  map<uint64, string> result = 2;
+  string error = 3;
+}
