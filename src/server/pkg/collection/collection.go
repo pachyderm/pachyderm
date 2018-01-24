@@ -217,6 +217,9 @@ func (c *readWriteCollection) PutTTL(key string, val proto.Marshaler, ttl int64)
 	return nil
 }
 
+// Update reads the current value associated with 'key', calls 'f' to update
+// the value, and writes the new value back to the collection. 'key' must be
+// present in the collection, or a 'Not Found' error is returned
 func (c *readWriteCollection) Update(key string, val Value, f func() error) error {
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
@@ -230,6 +233,7 @@ func (c *readWriteCollection) Update(key string, val Value, f func() error) erro
 	return c.Put(key, val)
 }
 
+// Upsert is like Update but 'key' is not required to be present
 func (c *readWriteCollection) Upsert(key string, val Value, f func() error) error {
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
