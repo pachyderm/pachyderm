@@ -661,7 +661,7 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 			// commitInfo to make adding our provenant commits' provenance concise
 			visited = make(map[string]*pfs.CommitInfo)
 
-			// addProv is a helper: adds 'provCommit' to 'provenanceMap' and puts
+			// addProv is a helper: adds 'provCommit' to 'visited' and puts
 			// 'newCommit' in 'provCommit's subvenance (in etcd)
 			addProv = func(provCommit *pfs.Commit) error {
 				if _, ok := visited[provCommit.ID]; ok {
@@ -2449,6 +2449,7 @@ func (d *driver) addBranchProvenance(branchInfo *pfs.BranchInfo, provBranch *pfs
 	provBranchInfo := &pfs.BranchInfo{}
 	return d.branches(provBranch.Repo.Name).ReadWrite(stm).Upsert(provBranch.Name, provBranchInfo, func() error {
 		// Set provBranch, we may be creating this branch for the first time
+		provBranchInfo.Name = provBranch.Name
 		provBranchInfo.Branch = provBranch
 		add(&provBranchInfo.Subvenance, branchInfo.Branch)
 		return nil
