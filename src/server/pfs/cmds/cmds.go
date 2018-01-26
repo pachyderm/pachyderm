@@ -129,7 +129,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 	listRepo := &cobra.Command{
 		Use:   "list-repo",
 		Short: "Return all repos.",
-		Long:  "Reutrn all repos.",
+		Long:  "Return all repos.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := client.NewOnUserMachine(metrics, "user")
 			if err != nil {
@@ -505,7 +505,7 @@ $ pachctl subscribe-commit test master --new
 	}
 
 	listBranch := &cobra.Command{
-		Use:   "list-branch <repo-name>",
+		Use:   "list-branch repo-name",
 		Short: "Return all branches on a repo.",
 		Long:  "Return all branches on a repo.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
@@ -536,7 +536,7 @@ $ pachctl subscribe-commit test master --new
 	rawFlag(listBranch)
 
 	setBranch := &cobra.Command{
-		Use:   "set-branch <repo-name> <commit-id/branch-name> <new-branch-name>",
+		Use:   "set-branch repo-name commit-id/branch-name new-branch-name",
 		Short: "Set a commit and its ancestors to a branch",
 		Long: `Set a commit and its ancestors to a branch.
 
@@ -559,7 +559,7 @@ $ pachctl set-branch foo test master` + codeend,
 	}
 
 	deleteBranch := &cobra.Command{
-		Use:   "delete-branch <repo-name> <branch-name>",
+		Use:   "delete-branch repo-name branch-name",
 		Short: "Delete a branch",
 		Long:  "Delete a branch, while leaving the commits intact",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
@@ -593,7 +593,7 @@ $ pachctl set-branch foo test master` + codeend,
 	var putFileCommit bool
 	var overwrite bool
 	putFile := &cobra.Command{
-		Use:   "put-file repo-name branch path/to/file/in/pfs",
+		Use:   "put-file repo-name branch [path/to/file/in/pfs]",
 		Short: "Put a file into the filesystem.",
 		Long: `Put-file supports a number of ways to insert data into pfs:
 ` + codestart + `# Put data from stdin as repo/branch/path:
@@ -646,22 +646,14 @@ want to consider using commit IDs directly.
 				path = args[2]
 			}
 			if putFileCommit {
-				var commit *pfsclient.Commit
-				var err error
-				if description != "" {
-					commit, err = cli.PfsAPIClient.StartCommit(cli.Ctx(),
-						&pfsclient.StartCommitRequest{
-							Parent:      client.NewCommit(repoName, ""),
-							Branch:      branch,
-							Description: description,
-						})
-					if err != nil {
-						return err
-					}
-				} else {
-					if commit, err = cli.StartCommit(repoName, branch); err != nil {
-						return err
-					}
+				commit, err := cli.PfsAPIClient.StartCommit(cli.Ctx(),
+					&pfsclient.StartCommitRequest{
+						Parent:      client.NewCommit(repoName, ""),
+						Branch:      branch,
+						Description: description,
+					})
+				if err != nil {
+					return err
 				}
 				branch = commit.ID // use commit we just started, in case another commit starts concurrently
 				defer func() {
@@ -670,7 +662,7 @@ want to consider using commit IDs directly.
 					}
 				}()
 			} else if description != "" {
-				return fmt.Errorf("cannot set --message or --description without --commit (-c)")
+				return fmt.Errorf("cannot set --message (-m) or --description without --commit (-c)")
 			}
 
 			limiter := limit.New(int(parallelism))

@@ -618,7 +618,6 @@ func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, lo
 
 							lock.Lock()
 							defer lock.Unlock()
-							atomic.AddUint64(&stats.UploadBytes, fileInfo.SizeBytes)
 							if statsTree != nil {
 								if err := statsTree.PutFile(path.Join(statsRoot, subRelPath), fileInfo.Objects, int64(fileInfo.SizeBytes)); err != nil {
 									return err
@@ -1009,6 +1008,7 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 	var failedDatumID string
 	var eg errgroup.Group
 	var skipped int64
+	var failed int64
 	for i := low; i < high; i++ {
 		i := i
 		eg.Go(func() (retErr error) {
@@ -1234,6 +1234,7 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 				return nil
 			}); err != nil {
 				failedDatumID = a.DatumID(data)
+				failed++
 				return nil
 			}
 			statsMu.Lock()
@@ -1256,6 +1257,7 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 		}
 		jobInfo.DataProcessed += high - low - skipped
 		jobInfo.DataSkipped += skipped
+		jobInfo.DataFailed += failed
 		if jobInfo.Stats == nil {
 			jobInfo.Stats = &pps.ProcessStats{}
 		}

@@ -21,7 +21,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
@@ -29,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
+	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	workerpkg "github.com/pachyderm/pachyderm/src/server/worker"
 	"github.com/robfig/cron"
 
@@ -82,6 +82,10 @@ func newErrEmptyInput(commitID string) *errEmptyInput {
 	return &errEmptyInput{
 		error: fmt.Errorf("job was not started due to empty input at commit %v", commitID),
 	}
+}
+
+type errGithookServiceNotFound struct {
+	error
 }
 
 func newErrParentInputsMismatch(parent string) error {
@@ -937,8 +941,6 @@ func (a *apiServer) lookupRcNameForPipeline(ctx context.Context, pipeline *pps.P
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	// No deadline in request, but we create one here, since we do expect the call
-	// to finish reasonably quickly
 	ctx := apiGetLogsServer.Context()
 
 	// Authorize request and get list of pods containing logs we're interested in
@@ -979,7 +981,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 
 		// If the job had stats enabled, we use the logs from the stats
 		// commit since that's likely to yield better results.
-		if statsCommit != nil {
+		if statsCommit != nil && !request.Follow {
 			return a.getLogsFromStats(ctx, request, apiGetLogsServer, statsCommit)
 		}
 
@@ -1004,24 +1006,26 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	// and channels are read into the output server in a stable order.
 	// (sort the pods to make sure that the order of log lines is stable)
 	sort.Sort(podSlice(pods))
-	logChs := make([]chan *pps.LogMessage, len(pods))
-	errCh := make(chan error, 1)
-	done := make(chan struct{})
-	defer close(done)
-	for i := 0; i < len(pods); i++ {
-		logChs[i] = make(chan *pps.LogMessage)
-	}
-	for i, pod := range pods {
-		i, pod := i, pod
-		go func() {
-			defer close(logChs[i]) // Main thread reads from here, so must close
-			// Get full set of logs from pod i
-			err := backoff.Retry(func() error {
-				result := a.kubeClient.CoreV1().Pods(a.namespace).GetLogs(
+	logCh := make(chan *pps.LogMessage)
+	var eg errgroup.Group
+	var mu sync.Mutex
+	eg.Go(func() error {
+		for _, pod := range pods {
+			pod := pod
+			if !request.Follow {
+				mu.Lock()
+			}
+			eg.Go(func() (retErr error) {
+				if !request.Follow {
+					defer mu.Unlock()
+				}
+				// Get full set of logs from pod i
+				stream, err := a.kubeClient.CoreV1().Pods(a.namespace).GetLogs(
 					pod.ObjectMeta.Name, &v1.PodLogOptions{
 						Container: containerName,
-					}).Timeout(10 * time.Second).Do()
-				fullLogs, err := result.Raw()
+						Follow:    request.Follow,
+						TailLines: &request.Tail,
+					}).Timeout(10 * time.Second).Stream()
 				if err != nil {
 					if apiStatus, ok := err.(errors.APIStatus); ok &&
 						strings.Contains(apiStatus.Status().Message, "PodInitializing") {
@@ -1029,17 +1033,14 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 					}
 					return err
 				}
-				// Occasionally, fullLogs is truncated and contains the string
-				// 'unexpected stream type ""' at the end. I believe this is a recent
-				// bug in k8s (https://github.com/kubernetes/kubernetes/issues/47800)
-				// so we're adding a special handler for this corner case.
-				// TODO(msteffen) remove this handling once the issue is fixed
-				if bytes.HasSuffix(fullLogs, []byte("unexpected stream type \"\"")) {
-					return fmt.Errorf("interrupted log stream due to kubernetes/kubernetes/issues/47800")
-				}
+				defer func() {
+					if err := stream.Close(); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
 
 				// Parse pods' log lines, and filter out irrelevant ones
-				scanner := bufio.NewScanner(bytes.NewReader(fullLogs))
+				scanner := bufio.NewScanner(stream)
 				for scanner.Scan() {
 					msg := new(pps.LogMessage)
 					if containerName == "pachd" {
@@ -1070,43 +1071,28 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 
 					// Log message passes all filters -- return it
 					select {
-					case logChs[i] <- msg:
-					case <-done:
+					case logCh <- msg:
+					case <-ctx.Done():
 						return nil
 					}
 				}
 				return nil
-			}, backoff.New10sBackOff())
+			})
+		}
+		return nil
+	})
+	var egErr error
+	go func() {
+		egErr = eg.Wait()
+		close(logCh)
+	}()
 
-			// Used up all retries -- no logs from worker
-			if err != nil {
-				select {
-				case errCh <- err:
-				case <-done:
-				default:
-				}
-			}
-		}()
-	}
-
-nextLogCh:
-	for _, logCh := range logChs {
-		for {
-			msg, ok := <-logCh
-			if !ok {
-				continue nextLogCh
-			}
-			if err := apiGetLogsServer.Send(msg); err != nil {
-				return err
-			}
+	for msg := range logCh {
+		if err := apiGetLogsServer.Send(msg); err != nil {
+			return err
 		}
 	}
-	select {
-	case err := <-errCh:
-		return err
-	default:
-	}
-	return nil
+	return egErr
 }
 
 func (a *apiServer) getLogsFromStats(ctx context.Context, request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer, statsCommit *pfs.Commit) error {
@@ -1637,6 +1623,35 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 	pipelineInfo := new(pps.PipelineInfo)
 	if err := a.pipelines.ReadOnly(ctx).Get(request.Pipeline.Name, pipelineInfo); err != nil {
 		return nil, err
+	}
+	var hasGitInput bool
+	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+		if input.Git != nil {
+			hasGitInput = true
+		}
+	})
+	if hasGitInput {
+		pipelineInfo.GithookURL = "pending"
+		svc, err := getGithookService(a.kubeClient, a.namespace)
+		if err != nil {
+			return pipelineInfo, nil
+		}
+		numIPs := len(svc.Status.LoadBalancer.Ingress)
+		if numIPs == 0 {
+			// When running locally, no external IP is set
+			return pipelineInfo, nil
+		}
+		if numIPs != 1 {
+			return nil, fmt.Errorf("unexpected number of external IPs set for githook service")
+		}
+		ingress := svc.Status.LoadBalancer.Ingress[0]
+		if ingress.IP != "" {
+			// GKE load balancing
+			pipelineInfo.GithookURL = githook.URLFromDomain(ingress.IP)
+		} else if ingress.Hostname != "" {
+			// AWS load balancing
+			pipelineInfo.GithookURL = githook.URLFromDomain(ingress.Hostname)
+		}
 	}
 	return pipelineInfo, nil
 }
