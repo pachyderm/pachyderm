@@ -595,7 +595,7 @@ func (a *APIServer) collectDatum(ctx context.Context, index int, files []*Input,
 	return nil
 }
 
-func chunks(df DatumFactory, spec *pps.ChunkSpec, parallelism int) *Chunks {
+func makeChunks(df DatumFactory, spec *pps.ChunkSpec, parallelism int) *Chunks {
 	if spec == nil {
 		spec = &pps.ChunkSpec{}
 	}
@@ -664,7 +664,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 		if err != nil {
 			return fmt.Errorf("error from GetExpectedNumWorkers: %v")
 		}
-		chunks := chunks(df, jobInfo.ChunkSpec, parallelism)
+		chunks := &Chunks{}
 		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			jobs := a.jobs.ReadWrite(stm)
 			jobID := jobInfo.Job.ID
@@ -683,6 +683,7 @@ func (a *APIServer) waitJob(ctx context.Context, jobInfo *pps.JobInfo, logger *t
 			if err := chunksCol.Get(jobID, chunks); err == nil {
 				return nil
 			}
+			chunks = makeChunks(df, jobInfo.ChunkSpec, parallelism)
 			return chunksCol.Put(jobID, chunks)
 		}); err != nil {
 			return err
