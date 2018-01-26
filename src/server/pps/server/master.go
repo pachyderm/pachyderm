@@ -10,12 +10,14 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube_watch "k8s.io/apimachinery/pkg/watch"
+	kube "k8s.io/client-go/kubernetes"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
 	"github.com/pachyderm/pachyderm/src/server/pkg/util"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
@@ -130,8 +132,20 @@ func (a *apiServer) master() {
 						}
 					}
 
+					var hasGitInput bool
+					pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+						if input.Git != nil {
+							hasGitInput = true
+						}
+					})
+
 					// If the pipeline has been restarted, create workers
 					if !pipelineStateToStopped(pipelineInfo.State) && event.PrevKey != nil && pipelineStateToStopped(prevPipelineInfo.State) {
+						if hasGitInput {
+							if err := a.checkOrDeployGithookService(); err != nil {
+								return err
+							}
+						}
 						if err := a.upsertWorkersForPipeline(&pipelineInfo); err != nil {
 							if err := a.setPipelineFailure(ctx, pipelineInfo.Pipeline.Name, fmt.Sprintf("failed to create workers: %s", err.Error())); err != nil {
 								return err
@@ -145,6 +159,11 @@ func (a *apiServer) master() {
 						log.Infof("master: creating/updating workers for pipeline %s", pipelineInfo.Pipeline.Name)
 						if event.PrevKey != nil {
 							if err := a.deleteWorkersForPipeline(&prevPipelineInfo); err != nil {
+								return err
+							}
+						}
+						if hasGitInput {
+							if err := a.checkOrDeployGithookService(); err != nil {
 								return err
 							}
 						}
@@ -214,6 +233,43 @@ func (a *apiServer) master() {
 
 func (a *apiServer) setPipelineFailure(ctx context.Context, pipelineName string, reason string) error {
 	return util.FailPipeline(ctx, a.etcdClient, a.pipelines, pipelineName, reason)
+}
+
+func (a *apiServer) checkOrDeployGithookService() error {
+	_, err := getGithookService(a.kubeClient, a.namespace)
+	if err != nil {
+		if _, ok := err.(*errGithookServiceNotFound); ok {
+			svc := assets.GithookService()
+			_, err = a.kubeClient.CoreV1().Services(a.namespace).Create(svc)
+			return err
+		}
+		return err
+	}
+	// service already exists
+	return nil
+}
+
+func getGithookService(kubeClient *kube.Clientset, namespace string) (*v1.Service, error) {
+	labels := map[string]string{
+		"app":   "githook",
+		"suite": suite,
+	}
+	serviceList, err := kubeClient.CoreV1().Services(namespace).List(metav1.ListOptions{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ListOptions",
+			APIVersion: "v1",
+		},
+		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(labels)),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(serviceList.Items) != 1 {
+		return nil, &errGithookServiceNotFound{
+			fmt.Errorf("expected 1 githook service but found %v", len(serviceList.Items)),
+		}
+	}
+	return &serviceList.Items[0], nil
 }
 
 func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {

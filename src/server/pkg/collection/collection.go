@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -13,6 +14,10 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
 )
+
+//QueryPaginationLimit defines the maximum number of results returned in an
+// etcd query using a paginated iterator
+const QueryPaginationLimit = 10000
 
 type collection struct {
 	etcdClient *etcd.Client
@@ -249,6 +254,10 @@ func (c *readWriteCollection) DeleteAll() {
 	c.stm.DelAll(c.prefix)
 }
 
+func (c *readWriteCollection) DeleteAllPrefix(prefix string) {
+	c.stm.DelAll(path.Join(c.prefix, prefix) + "/")
+}
+
 type readWriteIntCollection struct {
 	*collection
 	stm STM
@@ -397,6 +406,33 @@ func (c *readonlyCollection) GetBlock(key string, val proto.Unmarshaler) error {
 	}
 }
 
+func endKeyFromPrefix(prefix string) string {
+	// Lexigraphically increment the last character
+	return prefix[0:len(prefix)-1] + string(byte(prefix[len(prefix)-1])+1)
+}
+
+// ListPrefix returns lexigraphically sorted (not sorted by create time)
+// results and returns an iterator that is paginated
+func (c *readonlyCollection) ListPrefix(prefix string) (Iterator, error) {
+	queryPrefix := c.prefix
+	if prefix != "" {
+		// If we always call join, we'll get rid of the trailing slash we need
+		// on the root c.prefix
+		queryPrefix = filepath.Join(c.prefix, prefix)
+	}
+	// omit sort so that we get results lexigraphically ordered, so that we can paginate properly
+	resp, err := c.etcdClient.Get(c.ctx, queryPrefix, etcd.WithPrefix(), etcd.WithLimit(QueryPaginationLimit))
+	if err != nil {
+		return nil, err
+	}
+	return &paginatedIterator{
+		endKey:     endKeyFromPrefix(queryPrefix),
+		resp:       resp,
+		etcdClient: c.etcdClient,
+		ctx:        c.ctx,
+	}, nil
+}
+
 // List returns an iteraor that can be used to iterate over the collection.
 // The objects are sorted by revision time in descending order, i.e. newer
 // objects are returned first.
@@ -413,6 +449,14 @@ func (c *readonlyCollection) List() (Iterator, error) {
 type iterator struct {
 	index int
 	resp  *etcd.GetResponse
+}
+
+type paginatedIterator struct {
+	index      int
+	endKey     string
+	resp       *etcd.GetResponse
+	etcdClient *etcd.Client
+	ctx        context.Context
 }
 
 func (c *readonlyCollection) Count() (int64, error) {
@@ -436,6 +480,38 @@ func (i *iterator) Next(key *string, val proto.Unmarshaler) (ok bool, retErr err
 		return true, nil
 	}
 	return false, nil
+}
+
+// Next() writes a fully qualified key (including the path) to the key value
+func (i *paginatedIterator) Next(key *string, val proto.Unmarshaler) (ok bool, retErr error) {
+	if i.index < len(i.resp.Kvs) {
+		kv := i.resp.Kvs[i.index]
+		i.index++
+
+		*key = string(kv.Key)
+		if err := val.Unmarshal(kv.Value); err != nil {
+			return false, err
+		}
+
+		return true, nil
+	}
+	if len(i.resp.Kvs) == 0 {
+		//empty response
+		return false, nil
+	}
+	// Reached end of resp, try for another page
+	fromKey := string(i.resp.Kvs[len(i.resp.Kvs)-1].Key)
+	resp, err := i.etcdClient.Get(i.ctx, fromKey, etcd.WithRange(i.endKey), etcd.WithLimit(QueryPaginationLimit))
+	if err != nil {
+		return false, err
+	}
+	if len(resp.Kvs) == 1 {
+		// Only got the from key, there are no more kvs to fetch from etcd
+		return false, nil
+	}
+	i.index = 1 // Move past the from key
+	i.resp = resp
+	return i.Next(key, val)
 }
 
 // Watch a collection, returning the current content of the collection as

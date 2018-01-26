@@ -101,7 +101,7 @@ func (c APIClient) DeleteRepo(repoName string, force bool) error {
 			Force: force,
 		},
 	)
-	return err
+	return grpcutil.ScrubGRPC(err)
 }
 
 // StartCommit begins the process of committing data to a Repo. Once started
@@ -446,7 +446,7 @@ func (c APIClient) GetObject(hash string, writer io.Writer) error {
 func (c APIClient) ReadObject(hash string) ([]byte, error) {
 	var buffer bytes.Buffer
 	if err := c.GetObject(hash, &buffer); err != nil {
-		return nil, err
+		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return buffer.Bytes(), nil
 }
@@ -591,7 +591,7 @@ func (c APIClient) PutFileOverwrite(repoName string, commitID string, path strin
 		}
 	}()
 	written, err := io.Copy(writer, reader)
-	return int(written), err
+	return int(written), grpcutil.ScrubGRPC(err)
 }
 
 //PutFileSplit writes a file to PFS from a reader
@@ -607,7 +607,7 @@ func (c APIClient) PutFileSplit(repoName string, commitID string, path string, d
 		}
 	}()
 	written, err := io.Copy(writer, reader)
-	return int(written), err
+	return int(written), grpcutil.ScrubGRPC(err)
 }
 
 // PutFileURL puts a file using the content found at a URL.
@@ -838,7 +838,7 @@ type putFileWriteCloser struct {
 func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwriteIndex *pfs.OverwriteIndex) (*putFileWriteCloser, error) {
 	putFileClient, err := c.PfsAPIClient.PutFile(c.Ctx())
 	if err != nil {
-		return nil, err
+		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return &putFileWriteCloser{
 		request: &pfs.PutFileRequest{

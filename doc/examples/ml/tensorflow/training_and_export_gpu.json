@@ -6,11 +6,16 @@
     "image": "dwhitena/pix2pix",
     "cmd": [ "/bin/bash" ],
     "stdin": [
-	"python pix2pix.py --mode train --output_dir /pfs/out --max_epochs 5 --input_dir /pfs/training --which_direction BtoA",
+	"python pix2pix.py --mode train --output_dir /pfs/out --max_epochs 1 --input_dir /pfs/training --which_direction BtoA",
 	"sed -i 's/out/checkpoint/g' /pfs/out/checkpoint"
-    ]
+    ],
+    "env": {
+      "LD_LIBRARY_PATH": "/usr/lib/nvidia:/usr/local/cuda/lib64:/rootfs/usr/lib/x86_64-linux-gnu"
+    }
   },
-  "resource_spec": {
+  "resource_limits": {
+    "memory": "4.0G",
+    "cpu": 2,
     "gpu": 1
   },
   "parallelism_spec": {

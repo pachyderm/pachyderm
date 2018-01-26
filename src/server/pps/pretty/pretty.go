@@ -128,6 +128,7 @@ Duration: {{prettyTimeDifference .Started .Finished}} {{end}}
 State: {{jobState .State}}
 Reason: {{.Reason}}
 Processed: {{.DataProcessed}}
+Failed: {{.DataFailed}}
 Skipped: {{.DataSkipped}}
 Total: {{.DataTotal}}
 Data Downloaded: {{prettySize .Stats.DownloadBytes}}
@@ -187,6 +188,7 @@ Datum Timeout: {{.DatumTimeout}}
 Job Timeout: {{.JobTimeout}}
 Input:
 {{pipelineInput .}}
+{{ if .GithookURL }}Githook URL: {{.GithookURL}} {{end}}
 Output Branch: {{.OutputBranch}}
 Transform:
 {{prettyTransform .Transform}}

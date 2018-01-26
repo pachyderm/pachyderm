@@ -208,6 +208,7 @@ message JobInfo {
   uint64 restart = 20;
   int64 data_processed = 22;
   int64 data_skipped = 30;
+  int64 data_failed = 40;
   int64 data_total = 23;
   ProcessStats stats = 31;
   repeated WorkerStatus worker_status = 24;
@@ -302,6 +303,7 @@ message PipelineInfo {
   ChunkSpec chunk_spec = 32;
   google.protobuf.Duration datum_timeout = 33;
   google.protobuf.Duration job_timeout = 34;
+  string githook_url = 35 [(gogoproto.customname) = "GithookURL"];
 }
 
 message PipelineInfos {
@@ -373,6 +375,14 @@ message GetLogsRequest {
 
   // If true get logs from the master process
   bool master = 5;
+
+  // Continue to follow new logs as they become available.
+  bool follow = 7;
+
+  // If nonzero, the number of lines from the end of the logs to return.  Note:
+  // tail applies per container, so you will get tail * <number of pods> total
+  // lines back.
+  int64 tail = 8;
 }
 
 // LogMessage is a log line from a PPS worker, annotated with metadata
