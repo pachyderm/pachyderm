@@ -477,7 +477,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 // listJob is the internal implementation of ListJob shared between ListJob and
 // ListJobStream. When ListJob is removed, this should be inlined into
 // ListJobStream.
-func (a *apiServer) listJob(ctx context.Context, pipeline *pps.Pipeline, outputCommit *pfs.Commit) ([]*pps.JobInfo, error) {
+func (a *apiServer) listJob(ctx context.Context, pipeline *pps.Pipeline, outputCommit *pfs.Commit, inputCommits []*pfs.Commit) ([]*pps.JobInfo, error) {
 	jobs := a.jobs.ReadOnly(ctx)
 	var iter col.Iterator
 	var err error
@@ -493,6 +493,7 @@ func (a *apiServer) listJob(ctx context.Context, pipeline *pps.Pipeline, outputC
 	}
 
 	var jobInfos []*pps.JobInfo
+JobsLoop:
 	for {
 		var jobID string
 		var jobInfo pps.JobInfo
@@ -502,6 +503,23 @@ func (a *apiServer) listJob(ctx context.Context, pipeline *pps.Pipeline, outputC
 		}
 		if !ok {
 			break
+		}
+		if len(inputCommits) > 0 {
+			found := make([]bool, len(inputCommits))
+			pps.VisitInput(jobInfo.Input, func(in *pps.Input) {
+				if in.Atom != nil {
+					for i, inputCommit := range inputCommits {
+						if in.Atom.Commit == inputCommit.ID {
+							found[i] = true
+						}
+					}
+				}
+			})
+			for _, found := range found {
+				if !found {
+					continue JobsLoop
+				}
+			}
 		}
 		jobInfos = append(jobInfos, &jobInfo)
 	}
@@ -518,7 +536,7 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 			a.Log(request, response, retErr, time.Since(start))
 		}
 	}(time.Now())
-	jobInfos, err := a.listJob(ctx, request.Pipeline, request.OutputCommit)
+	jobInfos, err := a.listJob(ctx, request.Pipeline, request.OutputCommit, request.InputCommit)
 	if err != nil {
 		return nil, err
 	}
@@ -532,7 +550,7 @@ func (a *apiServer) ListJobStream(request *pps.ListJobRequest, resp pps.API_List
 		a.Log(request, fmt.Sprintf("stream containing %d JobInfos", sent), retErr, time.Since(start))
 	}(time.Now())
 	ctx := auth.In2Out(resp.Context())
-	jobInfos, err := a.listJob(ctx, request.Pipeline, request.OutputCommit)
+	jobInfos, err := a.listJob(ctx, request.Pipeline, request.OutputCommit, request.InputCommit)
 	if err != nil {
 		return err
 	}
