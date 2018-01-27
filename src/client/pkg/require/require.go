@@ -428,7 +428,7 @@ func logMessage(tb testing.TB, msgAndArgs []interface{}) {
 
 func fatal(tb testing.TB, userMsgAndArgs []interface{}, msgFmt string, msgArgs ...interface{}) {
 	tb.Helper()
-	tb.Logf("current stack:\n%s", string(debug.Stack()))
 	logMessage(tb, userMsgAndArgs)
-	tb.Fatalf(msgFmt, msgArgs...)
+	tb.Logf(msgFmt, msgArgs...)
+	tb.Fatalf("current stack:\n%s", string(debug.Stack()))
 }
