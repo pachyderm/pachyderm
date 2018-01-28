@@ -279,7 +279,7 @@ func ElementsEqual(tb testing.TB, expecteds interface{}, actuals interface{}, ms
 func oneOfEquals(sliceName string, slice interface{}, elem interface{}) (bool, error) {
 	e := reflect.ValueOf(elem)
 	sl := reflect.ValueOf(slice)
-	if sl.IsNil() {
+	if slice == nil || sl.IsNil() {
 		sl = reflect.MakeSlice(reflect.SliceOf(e.Type()), 0, 0)
 	}
 	if sl.Kind() != reflect.Slice {
@@ -313,8 +313,8 @@ func EqualOneOf(tb testing.TB, expecteds interface{}, actual interface{}, msgAnd
 		fatal(
 			tb,
 			msgAndArgs,
-			"Not equal 1 of: %#v (expecteds)\n"+
-				"        != %#v (actual)", expecteds, actual)
+			"None of : %#v (expecteds)\n"+
+				"              == %#v (actual)", expecteds, actual)
 	}
 }
 
@@ -343,7 +343,7 @@ func NoneEquals(tb testing.TB, expected interface{}, actuals interface{}, msgAnd
 	}
 	if equal {
 		fatal(tb, msgAndArgs,
-			"Equal : %#v (expected)\n one of == %#v (actuals)", expected, actuals)
+			"Equal : %#v (expected)\n == one of %#v (actuals)", expected, actuals)
 	}
 }
 
