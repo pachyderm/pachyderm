@@ -103,7 +103,7 @@ type driver struct {
 }
 
 const (
-	defaultTreeCacheSize = 128
+	defaultTreeCacheSize = 8
 )
 
 // newDriver is used to create a new Driver instance

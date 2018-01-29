@@ -58,6 +58,10 @@ message AtomInput {
   string glob = 5;
   bool lazy = 6;
   string from_commit = 7;
+  // EmptyFiles, if true, will cause files from this atom to be presented as
+  // empty files. This is useful in shuffle pipelines where you want to read
+  // the names of files and reorganize them using symlinks.
+  bool empty_files = 8;
 }
 
 message CronInput {

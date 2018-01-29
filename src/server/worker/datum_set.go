@@ -42,10 +42,11 @@ func newAtomDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pp
 			return nil, err
 		}
 		result.inputs = append(result.inputs, &Input{
-			FileInfo: fileInfo,
-			Name:     input.Name,
-			Lazy:     input.Lazy,
-			Branch:   input.Branch,
+			FileInfo:   fileInfo,
+			Name:       input.Name,
+			Lazy:       input.Lazy,
+			Branch:     input.Branch,
+			EmptyFiles: input.EmptyFiles,
 		})
 	}
 	// We sort the inputs so that the order is deterministic. Note that it's
