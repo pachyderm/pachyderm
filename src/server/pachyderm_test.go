@@ -4909,6 +4909,13 @@ func TestListJobOutput(t *testing.T) {
 		if len(jobInfos) != 1 {
 			return fmt.Errorf("expected 1 job")
 		}
+		jobInfos, err = c.ListJob("", nil, client.NewCommit(pipeline, "master"))
+		if err != nil {
+			return err
+		}
+		if len(jobInfos) != 1 {
+			return fmt.Errorf("expected 1 job")
+		}
 		return nil
 	}, backoff.NewTestingBackOff()))
 }
@@ -6377,6 +6384,10 @@ func TestListJobInputCommits(t *testing.T) {
 	require.Equal(t, 1, len(jobInfos))
 
 	jobInfos, err = c.ListJob("", []*pfs.Commit{commita2, commitb2}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+
+	jobInfos, err = c.ListJob("", []*pfs.Commit{client.NewCommit(aRepo, "master"), client.NewCommit(bRepo, "master")}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
 }
