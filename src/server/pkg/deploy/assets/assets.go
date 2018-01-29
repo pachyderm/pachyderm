@@ -15,8 +15,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	apps "k8s.io/api/apps/v1beta1"
 	"k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 var (
@@ -33,7 +35,12 @@ var (
 	pauseImage     = "gcr.io/google_containers/pause-amd64:3.0"
 	dashImage      = "pachyderm/dash"
 
-	serviceAccountName      = "pachyderm"
+	// ServiceAccountName is the name of Pachyderm's service account.
+	// It's public because it's needed by pps.APIServer to create the RCs for
+	// workers.
+	ServiceAccountName      = "pachyderm"
+	clusterRoleName         = "pachyderm"
+	clusterRoleBindingName  = "pachyderm"
 	etcdHeadlessServiceName = "etcd-headless"
 	etcdName                = "etcd"
 	etcdVolumeName          = "etcd-volume"
@@ -111,6 +118,9 @@ type AssetOpts struct {
 	// various deployments so that their images can be pulled from a private
 	// registry.
 	ImagePullSecret string
+
+	// NoRBAC, if true, will disable creation of RBAC assets.
+	NoRBAC bool
 }
 
 // replicas lets us create a pointer to a non-zero int32 in-line. This is
@@ -178,8 +188,60 @@ func ServiceAccount() *v1.ServiceAccount {
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   serviceAccountName,
+			Name:   ServiceAccountName,
 			Labels: labels(""),
+		},
+	}
+}
+
+// ClusterRole returns a ClusterRole that should be bound to the Pachyderm service account.
+func ClusterRole() *rbacv1.ClusterRole {
+	return &rbacv1.ClusterRole{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ClusterRole",
+			APIVersion: "rbac.authorization.k8s.io/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   clusterRoleName,
+			Labels: labels(""),
+		},
+		Rules: []rbacv1.PolicyRule{{
+			APIGroups: []string{""},
+			Verbs:     []string{"get", "list", "watch"},
+			Resources: []string{"nodes", "pods", "pods/log", "endpoints"},
+		}, {
+			APIGroups: []string{""},
+			Verbs:     []string{"get", "list", "watch", "create", "update", "delete"},
+			Resources: []string{"replicationcontrollers", "services"},
+		}, {
+			APIGroups:     []string{""},
+			Verbs:         []string{"get", "list", "watch", "create", "update", "delete"},
+			Resources:     []string{"secrets"},
+			ResourceNames: []string{client.StorageSecretName},
+		}},
+	}
+}
+
+// ClusterRoleBinding returns a ClusterRoleBinding that binds Pachyderm's
+// ClusterRole to its ServiceAccount.
+func ClusterRoleBinding() *rbacv1.ClusterRoleBinding {
+	return &rbacv1.ClusterRoleBinding{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ClusterRoleBinding",
+			APIVersion: "rbac.authorization.k8s.io/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   clusterRoleBindingName,
+			Labels: labels(""),
+		},
+		Subjects: []rbacv1.Subject{{
+			Kind:      "ServiceAccount",
+			Name:      ServiceAccountName,
+			Namespace: "default",
+		}},
+		RoleRef: rbacv1.RoleRef{
+			Kind: "ClusterRole",
+			Name: clusterRoleName,
 		},
 	}
 }
@@ -398,7 +460,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 							Resources:       resourceRequirements,
 						},
 					},
-					ServiceAccountName: serviceAccountName,
+					ServiceAccountName: ServiceAccountName,
 					Volumes:            volumes,
 					ImagePullSecrets:   imagePullSecrets(opts),
 				},
@@ -442,7 +504,35 @@ func PachdService() *v1.Service {
 				{
 					Port:     githook.GitHookPort,
 					Name:     "api-git-port",
-					NodePort: 30000 + githook.GitHookPort,
+					NodePort: githook.NodePort(),
+				},
+			},
+		},
+	}
+}
+
+// GithookService returns a k8s service that exposes a public IP
+func GithookService() *v1.Service {
+	name := "githook"
+	return &v1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   name,
+			Labels: labels(name),
+		},
+		Spec: v1.ServiceSpec{
+			Type: v1.ServiceTypeLoadBalancer,
+			Selector: map[string]string{
+				"app": pachdName,
+			},
+			Ports: []v1.ServicePort{
+				{
+					TargetPort: intstr.FromInt(githook.GitHookPort),
+					Name:       "api-git-port",
+					Port:       githook.ExternalPort(),
 				},
 			},
 		},
@@ -1029,9 +1119,10 @@ func AmazonSecret(bucket string, distribution string, id string, secret string, 
 }
 
 // GoogleSecret creates a google secret with a bucket name.
-func GoogleSecret(bucket string) map[string][]byte {
+func GoogleSecret(bucket string, cred string) map[string][]byte {
 	return map[string][]byte{
 		"google-bucket": []byte(bucket),
+		"google-cred":   []byte(cred),
 	}
 }
 
@@ -1077,6 +1168,12 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 
 	encoder.Encode(ServiceAccount())
 	fmt.Fprintf(w, "\n")
+	if !opts.NoRBAC {
+		encoder.Encode(ClusterRole())
+		fmt.Fprintf(w, "\n")
+		encoder.Encode(ClusterRoleBinding())
+		fmt.Fprintf(w, "\n")
+	}
 
 	if opts.EtcdNodes > 0 && opts.EtcdVolume != "" {
 		return fmt.Errorf("only one of --dynamic-etcd-nodes and --static-etcd-volume should be given, but not both")
@@ -1184,11 +1281,11 @@ func WriteAmazonAssets(w io.Writer, opts *AssetOpts, bucket string, id string, s
 }
 
 // WriteGoogleAssets writes assets to a google backend.
-func WriteGoogleAssets(w io.Writer, opts *AssetOpts, bucket string, volumeSize int) error {
+func WriteGoogleAssets(w io.Writer, opts *AssetOpts, bucket string, cred string, volumeSize int) error {
 	if err := WriteAssets(w, opts, googleBackend, googleBackend, volumeSize, ""); err != nil {
 		return err
 	}
-	WriteSecret(w, GoogleSecret(bucket))
+	WriteSecret(w, GoogleSecret(bucket, cred))
 	return nil
 }
 

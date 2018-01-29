@@ -1,6 +1,6 @@
 # Access Controls
 
-The access control features of Pachyderm Enterprise let you create and manage various users that interact with your Pachyderm cluster.  You can restrict access to individual data repositories on a per user basis and, as a result, restrict the subscription of pipelines to those data respositories.  
+The access control features of Pachyderm Enterprise let you create and manage various users that interact with your Pachyderm cluster.  You can restrict access to individual data repositories on a per user basis and, as a result, restrict the subscription of pipelines to those data repositories.  
 
 These docs will guide you through:
 
@@ -35,7 +35,7 @@ $ pachctl enterprise get-state
 ACTIVE
 ```
 
-Next, we need to activate the Enterprise access control features. This can be done [in the dashboard](#activating-access-controls-with-the-dashboard) or with [pachctl auth activate](#activating-access-controls-with-pachctl).  However, before executing that command, we should decide on at least one user that will have admin priviledges on the cluster. Pachyderm admins will be able to modify the scope of access for any non-admin users on the cluster.  All users in Pachyderm are identified by their GitHub usernames.  
+Next, we need to activate the Enterprise access control features. This can be done [in the dashboard](#activating-access-controls-with-the-dashboard) or with [pachctl auth activate](#activating-access-controls-with-pachctl).  However, before executing that command, we should decide on at least one user that will have admin privileges on the cluster. Pachyderm admins will be able to modify the scope of access for any non-admin users on the cluster.  All users in Pachyderm are identified by their GitHub usernames.  
 
 ### Activating access controls with the dashboard
 
@@ -108,7 +108,7 @@ $ pachctl auth get dwhitena test`
 OWNER
 ```
 
-An OWNER of `test` or a cluster admin can then set other user's scope of access to the repo.  This can be done via the `pachctl auth set ...` command or via the dasboard.  For example, to give the GitHub users `JoeyZwicker` and `msteffen` READER (but not WRITER or OWNER) access to `test` and `jdoliner` WRITER (but not OWNER) access, we can click on `Modify access controls` under the repo details in the dashboard.  This will allow us to easily add the users one by one:
+An OWNER of `test` or a cluster admin can then set other user's scope of access to the repo.  This can be done via the `pachctl auth set ...` command or via the dashboard.  For example, to give the GitHub users `JoeyZwicker` and `msteffen` READER (but not WRITER or OWNER) access to `test` and `jdoliner` WRITER (but not OWNER) access, we can click on `Modify access controls` under the repo details in the dashboard.  This will allow us to easily add the users one by one:
 
 ![alt tag](auth_dash5.png)
 

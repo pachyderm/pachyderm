@@ -47,12 +47,16 @@ type Client interface {
 }
 
 // NewGoogleClient creates a google client with the given bucket name.
-func NewGoogleClient(ctx context.Context, bucket string) (Client, error) {
-	return newGoogleClient(ctx, bucket)
+func NewGoogleClient(ctx context.Context, bucket string, credFile string) (Client, error) {
+	return newGoogleClient(ctx, bucket, credFile)
+}
+
+func secretFile(name string) string {
+	return filepath.Join("/", client.StorageSecretName, name)
 }
 
 func readSecretFile(name string) (string, error) {
-	bytes, err := ioutil.ReadFile(filepath.Join("/", client.StorageSecretName, name))
+	bytes, err := ioutil.ReadFile(secretFile(name))
 	if err != nil {
 		return "", err
 	}
@@ -70,7 +74,15 @@ func NewGoogleClientFromSecret(ctx context.Context, bucket string) (Client, erro
 			return nil, fmt.Errorf("google-bucket not found")
 		}
 	}
-	return NewGoogleClient(ctx, bucket)
+	cred, err := readSecretFile("/google-cred")
+	if err != nil {
+		return nil, fmt.Errorf("google-cred not found")
+	}
+	var credFile string
+	if cred != "" {
+		credFile = secretFile("/google-cred")
+	}
+	return NewGoogleClient(ctx, bucket, credFile)
 }
 
 // NewMicrosoftClient creates a microsoft client:

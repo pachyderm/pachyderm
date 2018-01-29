@@ -2053,11 +2053,10 @@ func TestGetFileInvalidCommit(t *testing.T) {
 	require.YesError(t, err)
 }
 
-func TestATonOfPuts(t *testing.T) {
+func TestManyPutsSingleFileSingleCommit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping long tests in short mode")
 	}
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "test"
@@ -2073,11 +2072,10 @@ func TestATonOfPuts(t *testing.T) {
 		},
 		"timing":[1,3,34,6,7]
 	}`
-	numObjs := 5000
-	numGoros := 100
+	numObjs := 500
+	numGoros := 10
 	var expectedOutput []byte
 	var wg sync.WaitGroup
-	putFileStarted := time.Now()
 	for j := 0; j < numGoros; j++ {
 		wg.Add(1)
 		go func() {
@@ -2094,20 +2092,14 @@ func TestATonOfPuts(t *testing.T) {
 		expectedOutput = append(expectedOutput, []byte(rawMessage)...)
 	}
 	wg.Wait()
-	putFileFinished := time.Now()
-
-	finishCommitStarted := time.Now()
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
-	finishCommitFinished := time.Now()
 
 	var buffer bytes.Buffer
 	require.NoError(t, client.GetFile(repo, commit1.ID, "foo", 0, 0, &buffer))
 	require.Equal(t, string(expectedOutput), buffer.String())
-	fmt.Printf("PutFile took: %s\n", putFileFinished.Sub(putFileStarted))
-	fmt.Printf("FinishCommit took: %s\n", finishCommitFinished.Sub(finishCommitStarted))
 }
 
-func TestPutFileNullCharacter(t *testing.T) {
+func TestPutFileValidCharacters(t *testing.T) {
 	t.Parallel()
 	client := getClient(t)
 
@@ -2120,6 +2112,24 @@ func TestPutFileNullCharacter(t *testing.T) {
 	_, err = client.PutFile(repo, commit.ID, "foo\x00bar", strings.NewReader("foobar\n"))
 	// null characters error because when you `ls` files with null characters
 	// they truncate things after the null character leading to strange results
+	require.YesError(t, err)
+
+	// Boundary tests for valid character range
+	_, err = client.PutFile(repo, commit.ID, "\x1ffoobar", strings.NewReader("foobar\n"))
+	require.YesError(t, err)
+	_, err = client.PutFile(repo, commit.ID, "foo\x20bar", strings.NewReader("foobar\n"))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit.ID, "foobar\x7e", strings.NewReader("foobar\n"))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit.ID, "foo\x7fbar", strings.NewReader("foobar\n"))
+	require.YesError(t, err)
+
+	// Random character tests outside and inside valid character range
+	_, err = client.PutFile(repo, commit.ID, "foobar\x0b", strings.NewReader("foobar\n"))
+	require.YesError(t, err)
+	_, err = client.PutFile(repo, commit.ID, "\x41foobar", strings.NewReader("foobar\n"))
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit.ID, "foo\x90bar", strings.NewReader("foobar\n"))
 	require.YesError(t, err)
 }
 
