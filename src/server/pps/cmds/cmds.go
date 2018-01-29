@@ -90,8 +90,9 @@ The increase the throughput of a job increase the Shard paremeter.
 
 	var pipelineName string
 	var outputCommitStr string
+	var inputCommitStrs []string
 	listJob := &cobra.Command{
-		Use:   "list-job [-p pipeline-name] [commits]",
+		Use:   "list-job [commits]",
 		Short: "Return info about jobs.",
 		Long: `Return info about jobs.
 
@@ -115,7 +116,7 @@ $ pachctl list-job -p foo bar/YYY
 				return err
 			}
 
-			commits, err := cmdutil.ParseCommits(args)
+			commits, err := cmdutil.ParseCommits(inputCommitStrs)
 			if err != nil {
 				return err
 			}
@@ -158,6 +159,7 @@ $ pachctl list-job -p foo bar/YYY
 	}
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
 	listJob.Flags().StringVarP(&outputCommitStr, "output", "o", "", "List jobs with a specific output commit.")
+	listJob.Flags().StringSliceVarP(&inputCommitStrs, "input", "i", []string{}, "List jobs with a specific set of input commits.")
 	rawFlag(listJob)
 
 	deleteJob := &cobra.Command{
