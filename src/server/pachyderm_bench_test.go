@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"path"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -16,6 +17,7 @@ import (
 	pfs "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	pps "github.com/pachyderm/pachyderm/src/client/pps"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 	"golang.org/x/sync/errgroup"
 )
@@ -384,6 +386,78 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 			collectCommitInfos(b, commitIter)
 		}) {
 			return
+		}
+	}
+}
+
+var numFiles = int(col.QueryPaginationLimit / 10)
+
+// These benchmarks can take a while, so I recommend running like:
+// $go test -v ./src/server/ -bench=BenchmarkPutManyFiles -run=BenchmarkPutManyFilesSingleCommit -timeout=3000s -benchtime 100ms
+
+func BenchmarkPutManyFilesSingleCommitFinishCommit1(b *testing.B) {
+	benchmarkPutManyFilesSingleCommitFinishCommit(numFiles, b)
+}
+func BenchmarkPutManyFilesSingleCommitFinishCommit10(b *testing.B) {
+	benchmarkPutManyFilesSingleCommitFinishCommit(numFiles*10, b)
+}
+func BenchmarkPutManyFilesSingleCommitFinishCommit100(b *testing.B) {
+	benchmarkPutManyFilesSingleCommitFinishCommit(numFiles*100, b)
+}
+
+func benchmarkPutManyFilesSingleCommitFinishCommit(numFiles int, b *testing.B) {
+	// Issue #2575
+	// At first we couldn't support this at all (correctness), but this has been fixed
+	// This bench is to see how fast we can handle this
+
+	c := getPachClient(b)
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		require.NoError(b, c.DeleteAll())
+		// create repos
+		dataRepo := uniqueString("TestManyFilesSingleCommit_data")
+		require.NoError(b, c.CreateRepo(dataRepo))
+
+		_, err := c.StartCommit(dataRepo, "master")
+		require.NoError(b, err)
+		for i := 0; i < numFiles; i++ {
+			_, err = c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i), strings.NewReader(""))
+			require.NoError(b, err)
+		}
+		// We're actually benchmarking the finish commit
+		b.StartTimer()
+		require.NoError(b, c.FinishCommit(dataRepo, "master"))
+	}
+}
+
+func BenchmarkPutManyFilesSingleCommit1(b *testing.B) {
+	benchmarkPutManyFilesSingleCommit(numFiles, b)
+}
+func BenchmarkPutManyFilesSingleCommit10(b *testing.B) {
+	benchmarkPutManyFilesSingleCommit(numFiles*10, b)
+}
+func BenchmarkPutManyFilesSingleCommit100(b *testing.B) {
+	benchmarkPutManyFilesSingleCommit(numFiles*100, b)
+}
+func benchmarkPutManyFilesSingleCommit(numFiles int, b *testing.B) {
+	// Issue #2575
+	// At first we couldn't support this at all (correctness), but this has been fixed
+	// This bench is to see how fast we can handle this
+
+	c := getPachClient(b)
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		require.NoError(b, c.DeleteAll())
+		// create repos
+		dataRepo := uniqueString("TestManyFilesSingleCommit_data")
+		require.NoError(b, c.CreateRepo(dataRepo))
+
+		_, err := c.StartCommit(dataRepo, "master")
+		require.NoError(b, err)
+		b.StartTimer()
+		for i := 0; i < numFiles; i++ {
+			_, err = c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i), strings.NewReader(""))
+			require.NoError(b, err)
 		}
 	}
 }

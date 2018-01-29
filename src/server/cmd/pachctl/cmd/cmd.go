@@ -46,6 +46,97 @@ import (
 
 const (
 	bashCompletionPath = "/etc/bash_completion.d/pachctl"
+	bashCompletionFunc = `
+__pachctl_get_object() {	
+	if [[ ${#nouns[@]} -ne $1 ]]; then
+		return
+	fi
+
+	local pachctl_output out
+	if pachctl_output=$(eval pachctl $2 2>/dev/null); then
+		out=($(echo "${pachctl_output}" | awk -v c=$3 'NR > 1 {print $c}'))
+		COMPREPLY+=($(compgen -W "${out[*]}" -- "$cur"))
+	fi
+}
+
+__pachctl_get_repo() {
+	__pachctl_get_object $1 "list-repo" 1
+}
+
+__pachctl_get_commit() {
+	__pachctl_get_object $1 "list-commit $2" 2
+}
+
+__pachctl_get_path() {	
+	__pachctl_get_object $1 "glob-file $2 $3 \"${words[${#words[@]}-1]}**\"" 1
+}
+
+__pachctl_get_branch() {
+	__pachctl_get_object $1 "list-branch $2" 1
+}
+
+__pachctl_get_job() {
+	__pachctl_get_object $1 "list-job" 1
+}
+
+__pachctl_get_pipeline() {
+	__pachctl_get_object $1 "list-pipeline" 1
+}
+
+__pachctl_get_datum() {
+	__pachctl_get_object $1 "list-datum $2" 1
+}
+
+__custom_func() { 
+	case ${last_command} in
+		pachctl_update-repo | pachctl_inspect-repo | pachctl_delete-repo | pachctl_list-commit | pachctl_list-branch)
+			__pachctl_get_repo 0
+			;;
+		pachctl_start-commit | pachctl_subscribe-commit | pachctl_delete-branch)
+			__pachctl_get_repo 0
+			__pachctl_get_branch 1 ${nouns[0]}
+			;;
+		pachctl_finish-commit | pachctl_inspect-commit | pachctl_delete-commit | pachctl_glob-file)
+			__pachctl_get_repo 0
+			__pachctl_get_commit 1 ${nouns[0]}
+			;;
+		pachctl_set-branch)
+			__pachctl_get_repo 0
+			__pachctl_get_commit 1 ${nouns[0]}
+			__pachctl_get_branch 1 ${nouns[0]}
+			;;
+		pachctl_put-file)
+			__pachctl_get_repo 0
+			__pachctl_get_branch 1 ${nouns[0]}
+			__pachctl_get_path 2 ${nouns[0]} ${nouns[1]}
+			;;
+		pachctl_copy-file | pachctl_diff-file)
+			__pachctl_get_repo 0
+			__pachctl_get_commit 1 ${nouns[0]}
+			__pachctl_get_path 2 ${nouns[0]} ${nouns[1]}
+			__pachctl_get_repo 3
+			__pachctl_get_commit 4 ${nouns[3]}
+			__pachctl_get_path 5 ${nouns[3]} ${nouns[4]}
+			;;
+		pachctl_get-file | pachctl_inspect-file | pachctl_list-file | pachctl_delete-file)
+			__pachctl_get_repo 0
+			__pachctl_get_commit 1 ${nouns[0]}
+			__pachctl_get_path 2 ${nouns[0]} ${nouns[1]}
+			;;
+		pachctl_inspect-job | pachctl_delete-job | pachctl_stop-job | pachctl_list-datum)
+			__pachctl_get_job 0
+			;;
+		pachctl_inspect-datum)
+			__pachctl_get_job 0
+			__pachctl_get_datum 1 ${nouns[0]}
+			;;
+		pachctl_inspect-pipeline | pachctl_delete-pipeline | pachctl_start-pipeline | pachctl_stop-pipeline | pachctl_run-pipeline)
+			__pachctl_get_pipeline 0
+			;;
+		*)
+			;;
+	esac
+}`
 )
 
 // PachctlCmd creates a cobra.Command which can deploy pachyderm clusters and
@@ -68,6 +159,7 @@ Environment variables:
 				grpclog.SetLogger(l)
 			}
 		},
+		BashCompletionFunction: bashCompletionFunc,
 	}
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Output verbose logs")
 	rootCmd.PersistentFlags().BoolVarP(&noMetrics, "no-metrics", "", false, "Don't report user metrics for this command")

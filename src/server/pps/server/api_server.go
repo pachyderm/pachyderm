@@ -28,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
+	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	workerpkg "github.com/pachyderm/pachyderm/src/server/worker"
 	"github.com/robfig/cron"
 
@@ -81,6 +82,10 @@ func newErrEmptyInput(commitID string) *errEmptyInput {
 	return &errEmptyInput{
 		error: fmt.Errorf("job was not started due to empty input at commit %v", commitID),
 	}
+}
+
+type errGithookServiceNotFound struct {
+	error
 }
 
 func newErrParentInputsMismatch(parent string) error {
@@ -1618,6 +1623,35 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 	pipelineInfo := new(pps.PipelineInfo)
 	if err := a.pipelines.ReadOnly(ctx).Get(request.Pipeline.Name, pipelineInfo); err != nil {
 		return nil, err
+	}
+	var hasGitInput bool
+	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+		if input.Git != nil {
+			hasGitInput = true
+		}
+	})
+	if hasGitInput {
+		pipelineInfo.GithookURL = "pending"
+		svc, err := getGithookService(a.kubeClient, a.namespace)
+		if err != nil {
+			return pipelineInfo, nil
+		}
+		numIPs := len(svc.Status.LoadBalancer.Ingress)
+		if numIPs == 0 {
+			// When running locally, no external IP is set
+			return pipelineInfo, nil
+		}
+		if numIPs != 1 {
+			return nil, fmt.Errorf("unexpected number of external IPs set for githook service")
+		}
+		ingress := svc.Status.LoadBalancer.Ingress[0]
+		if ingress.IP != "" {
+			// GKE load balancing
+			pipelineInfo.GithookURL = githook.URLFromDomain(ingress.IP)
+		} else if ingress.Hostname != "" {
+			// AWS load balancing
+			pipelineInfo.GithookURL = githook.URLFromDomain(ingress.Hostname)
+		}
 	}
 	return pipelineInfo, nil
 }

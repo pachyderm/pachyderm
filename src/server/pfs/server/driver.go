@@ -44,8 +44,8 @@ const (
 	includeAuth = true
 )
 
-// ValidateRepoName determines if a repo name is valid
-func ValidateRepoName(name string) error {
+// validateRepoName determines if a repo name is valid
+func validateRepoName(name string) error {
 	match, _ := regexp.MatchString("^[a-zA-Z0-9_-]+$", name)
 
 	if !match {
@@ -91,19 +91,16 @@ type driver struct {
 	prefix     string
 
 	// collections
-	repos         col.Collection
-	repoRefCounts col.Collection
-	commits       collectionFactory
-	branches      collectionFactory
-	openCommits   col.Collection
+	repos          col.Collection
+	repoRefCounts  col.Collection
+	putFileRecords col.Collection
+	commits        collectionFactory
+	branches       collectionFactory
+	openCommits    col.Collection
 
 	// a cache for hashtrees
 	treeCache *lru.Cache
 }
-
-const (
-	tombstone = "delete"
-)
 
 const (
 	defaultTreeCacheSize = 128
@@ -127,11 +124,12 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCa
 	}
 
 	d := &driver{
-		address:       address,
-		etcdClient:    etcdClient,
-		prefix:        etcdPrefix,
-		repos:         pfsdb.Repos(etcdClient, etcdPrefix),
-		repoRefCounts: pfsdb.RepoRefCounts(etcdClient, etcdPrefix),
+		address:        address,
+		etcdClient:     etcdClient,
+		prefix:         etcdPrefix,
+		repos:          pfsdb.Repos(etcdClient, etcdPrefix),
+		repoRefCounts:  pfsdb.RepoRefCounts(etcdClient, etcdPrefix),
+		putFileRecords: pfsdb.PutFileRecords(etcdClient, etcdPrefix),
 		commits: func(repo string) col.Collection {
 			return pfsdb.Commits(etcdClient, etcdPrefix, repo)
 		},
@@ -203,7 +201,7 @@ func absent(key string) etcd.Cmp {
 }
 
 func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*pfs.Repo, description string, update bool) error {
-	if err := ValidateRepoName(repo.Name); err != nil {
+	if err := validateRepoName(repo.Name); err != nil {
 		return err
 	}
 	d.initializePachConn()
@@ -679,23 +677,11 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, descripti
 		return err
 	}
 
-	// Read everything under the scratch space for this commit
-	resp, err := d.etcdClient.Get(ctx, prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend))
-	if err != nil {
-		return err
-	}
-
 	parentTree, err := d.getTreeForCommit(ctx, commitInfo.ParentCommit)
 	if err != nil {
 		return err
 	}
-	tree := parentTree.Open()
-
-	if err := d.applyWrites(resp, tree); err != nil {
-		return err
-	}
-
-	finishedTree, err := tree.Finish()
+	finishedTree, err := d.getTreeForPrefix(ctx, prefix, parentTree)
 	if err != nil {
 		return err
 	}
@@ -742,7 +728,6 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, descripti
 	if err != nil {
 		return err
 	}
-
 	// Delete the scratch space for this commit
 	_, err = d.etcdClient.Delete(ctx, prefix, etcd.WithPrefix())
 	return err
@@ -1397,30 +1382,32 @@ func (d *driver) scratchCommitPrefix(ctx context.Context, commit *pfs.Commit) (s
 	if _, err := d.inspectCommit(ctx, commit); err != nil {
 		return "", err
 	}
-	return path.Join(d.scratchPrefix(), commit.Repo.Name, commit.ID), nil
+	return path.Join(commit.Repo.Name, commit.ID), nil
 }
 
 // scratchFilePrefix returns an etcd prefix that's used to temporarily
 // store the state of a file in an open commit.  Once the commit is finished,
 // the scratch space is removed.
 func (d *driver) scratchFilePrefix(ctx context.Context, file *pfs.File) (string, error) {
-	return path.Join(d.scratchPrefix(), file.Commit.Repo.Name, file.Commit.ID, file.Path), nil
+	return path.Join(file.Commit.Repo.Name, file.Commit.ID, file.Path), nil
 }
 
 func (d *driver) filePathFromEtcdPath(etcdPath string) string {
-	trimmed := strings.TrimPrefix(etcdPath, d.scratchPrefix())
-	// trimmed looks like /repo/commit/path/to/file
-	split := strings.Split(trimmed, "/")
-	// we only want /path/to/file so we use index 3 (note that there's an "" at
+	// etcdPath looks like /pachyderm_pfs/putFileRecords/repo/commit/path/to/file
+	split := strings.Split(etcdPath, "/")
+	// we only want /path/to/file so we use index 4 (note that there's an "" at
 	// the beginning of the slice because of the lead /)
-	return path.Join(split[3:]...)
+	return path.Join(split[4:]...)
 }
 
-// checkPath checks if a file path is legal
-func checkPath(path string) error {
-	if strings.Contains(path, "\x00") {
-		return fmt.Errorf("filename cannot contain null character: %s", path)
+// validatePath checks if a file path is legal
+func validatePath(path string) error {
+	match, _ := regexp.MatchString("^[ -~]+$", path)
+
+	if !match {
+		return fmt.Errorf("path (%v) invalid: only printable ASCII characters allowed", path)
 	}
+
 	return nil
 }
 
@@ -1449,34 +1436,8 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	}
 
 	records := &pfs.PutFileRecords{}
-	if err := checkPath(file.Path); err != nil {
+	if err := validatePath(file.Path); err != nil {
 		return err
-	}
-	prefix, err := d.scratchFilePrefix(ctx, file)
-	if err != nil {
-		return err
-	}
-
-	// Put the tree into the blob store
-	// Only write the records to etcd if the commit does exist and is open.
-	// To check that a key exists in etcd, we assert that its CreateRevision
-	// is greater than zero.
-	putRecords := func() error {
-		marshalledRecords, err := records.Marshal()
-		if err != nil {
-			return err
-		}
-		kvc := etcd.NewKV(d.etcdClient)
-
-		txnResp, err := kvc.Txn(ctx).
-			If(etcd.Compare(etcd.CreateRevision(d.openCommits.Path(file.Commit.ID)), ">", 0)).Then(etcd.OpPut(path.Join(prefix, uuid.NewWithoutDashes()), string(marshalledRecords))).Commit()
-		if err != nil {
-			return err
-		}
-		if !txnResp.Succeeded {
-			return fmt.Errorf("commit %v is not open", file.Commit.ID)
-		}
-		return nil
 	}
 
 	if delimiter == pfs.Delimiter_NONE {
@@ -1507,7 +1468,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			records.Records = append(records.Records, record)
 		}
 
-		return putRecords()
+		return d.upsertPutFileRecords(ctx, file, records)
 	}
 	buffer := &bytes.Buffer{}
 	var datumsWritten int64
@@ -1578,7 +1539,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		records.Records = append(records.Records, indexToRecord[i])
 	}
 
-	return putRecords()
+	return d.upsertPutFileRecords(ctx, file, records)
 }
 
 func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, overwrite bool) error {
@@ -1588,7 +1549,7 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 	if err := d.checkIsAuthorized(ctx, dst.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	if err := checkPath(dst.Path); err != nil {
+	if err := validatePath(dst.Path); err != nil {
 		return err
 	}
 	// Check if the commit ID is a branch name.  If so, we have to
@@ -1629,7 +1590,6 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 			}
 			records := &pfs.PutFileRecords{}
 			file := client.NewFile(dst.Commit.Repo.Name, dst.Commit.ID, path.Clean(path.Join(dst.Path, relPath)))
-			prefix, err := d.scratchFilePrefix(ctx, file)
 			if err != nil {
 				return err
 			}
@@ -1643,20 +1603,7 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 					ObjectHash: object.Hash,
 				})
 			}
-			marshalledRecords, err := records.Marshal()
-			if err != nil {
-				return err
-			}
-			kvc := etcd.NewKV(d.etcdClient)
-			txnResp, err := kvc.Txn(ctx).
-				If(etcd.Compare(etcd.CreateRevision(d.openCommits.Path(file.Commit.ID)), ">", 0)).Then(etcd.OpPut(path.Join(prefix, uuid.NewWithoutDashes()), string(marshalledRecords))).Commit()
-			if err != nil {
-				return err
-			}
-			if !txnResp.Succeeded {
-				return fmt.Errorf("commit %v is not open", file.Commit.ID)
-			}
-			return nil
+			return d.upsertPutFileRecords(ctx, file, records)
 		})
 		return nil
 	}); err != nil {
@@ -1747,25 +1694,48 @@ func (d *driver) getTreeForFile(ctx context.Context, file *pfs.File) (hashtree.H
 	if err != nil {
 		return nil, err
 	}
-	// Read everything under the scratch space for this commit
-	resp, err := d.etcdClient.Get(ctx, prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend))
-	if err != nil {
-		return nil, err
-	}
-
 	parentTree, err := d.getTreeForCommit(ctx, commitInfo.ParentCommit)
 	if err != nil {
 		return nil, err
 	}
-	openTree := parentTree.Open()
-	if err := d.applyWrites(resp, openTree); err != nil {
-		return nil, err
-	}
-	tree, err := openTree.Finish()
+	return d.getTreeForPrefix(ctx, prefix, parentTree)
+}
+
+func (d *driver) getTreeForPrefix(ctx context.Context, prefix string, parentTree hashtree.HashTree) (hashtree.HashTree, error) {
+	var finishedTree hashtree.HashTree
+	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		tree := parentTree.Open()
+
+		recordsCol := d.putFileRecords.ReadOnly(ctx)
+		iter, err := recordsCol.ListPrefix(prefix)
+		if err != nil {
+			return err
+		}
+		for {
+			putFileRecords := &pfs.PutFileRecords{}
+			var key string
+			ok, err := iter.Next(&key, putFileRecords)
+			if !ok {
+				break
+			}
+			if err != nil {
+				return err
+			}
+			err = d.applyWrite(key, putFileRecords, tree)
+			if err != nil {
+				return err
+			}
+		}
+		finishedTree, err = tree.Finish()
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	return tree, nil
+	return finishedTree, nil
 }
 
 func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size int64) (io.Reader, error) {
@@ -1950,13 +1920,7 @@ func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
 		return pfsserver.ErrCommitFinished{file.Commit}
 	}
 
-	prefix, err := d.scratchFilePrefix(ctx, file)
-	if err != nil {
-		return err
-	}
-
-	_, err = d.etcdClient.Put(ctx, path.Join(prefix, uuid.NewWithoutDashes()), tombstone)
-	return err
+	return d.upsertPutFileRecords(ctx, file, &pfs.PutFileRecords{Tombstone: true})
 }
 
 func (d *driver) deleteAll(ctx context.Context) error {
@@ -1972,76 +1936,129 @@ func (d *driver) deleteAll(ctx context.Context) error {
 	return nil
 }
 
-func (d *driver) applyWrites(resp *etcd.GetResponse, tree hashtree.OpenHashTree) error {
+// Put the tree into the blob store
+// Only write the records to etcd if the commit does exist and is open.
+// To check that a key exists in etcd, we assert that its CreateRevision
+// is greater than zero.
+func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRecords *pfs.PutFileRecords) error {
+	prefix, err := d.scratchFilePrefix(ctx, file)
+	if err != nil {
+		return err
+	}
+
+	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		commitsCol := d.openCommits.ReadOnly(ctx)
+		var commit pfs.Commit
+		err := commitsCol.Get(file.Commit.ID, &commit)
+		if err != nil {
+			return err
+		}
+		// Dumb check to make sure the unmarshalled value exists (and matches the current ID)
+		// to denote that the current commit is indeed open
+		if commit.ID != file.Commit.ID {
+			return fmt.Errorf("commit %v is not open", file.Commit.ID)
+		}
+		recordsCol := d.putFileRecords.ReadWrite(stm)
+
+		var existingRecords pfs.PutFileRecords
+		err = recordsCol.Get(prefix, &existingRecords)
+		if err != nil && !col.IsErrNotFound(err) {
+			return err
+		}
+		if newRecords.Tombstone {
+			existingRecords.Tombstone = true
+			existingRecords.Records = nil
+		} else {
+			existingRecords.Split = newRecords.Split
+			existingRecords.Records = append(existingRecords.Records, newRecords.Records...)
+		}
+		recordsCol.Put(prefix, &existingRecords)
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	// If there is a tombstone, remove any records for children under this directory
+	// This allows us to support deleting dirs / adding children properly, e.g. `TestDeleteDir`
+	if newRecords.Tombstone {
+		_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+			revision := stm.Rev(d.openCommits.Path(file.Commit.ID))
+			if revision == 0 {
+				return fmt.Errorf("commit %v is not open", file.Commit.ID)
+			}
+			recordsCol := d.putFileRecords.ReadWrite(stm)
+			recordsCol.DeleteAllPrefix(prefix)
+			return nil
+		})
+	}
+
+	return err
+}
+
+func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtree.OpenHashTree) error {
 	// a map that keeps track of the sizes of objects
 	sizeMap := make(map[string]int64)
-	for _, kv := range resp.Kvs {
-		// fileStr is going to look like "some/path/UUID"
-		fileStr := d.filePathFromEtcdPath(string(kv.Key))
-		// the last element of `parts` is going to be UUID
-		parts := strings.Split(fileStr, "/")
-		// filePath should look like "some/path"
-		filePath := strings.Join(parts[:len(parts)-1], "/")
+	// fileStr is going to look like "some/path/UUID"
+	fileStr := d.filePathFromEtcdPath(key)
+	// the last element of `parts` is going to be UUID
+	parts := strings.Split(fileStr, "/")
+	// filePath should look like "some/path"
+	filePath := strings.Join(parts[:len(parts)], "/")
+	filePath = filepath.Join("/", filePath)
 
-		if string(kv.Value) == tombstone {
-			if err := tree.DeleteFile(filePath); err != nil {
-				// Deleting a non-existent file in an open commit should
-				// be a no-op
-				if hashtree.Code(err) != hashtree.PathNotFound {
-					return err
-				}
-			}
-		} else {
-			records := &pfs.PutFileRecords{}
-			if err := records.Unmarshal(kv.Value); err != nil {
+	if records.Tombstone {
+		if err := tree.DeleteFile(filePath); err != nil {
+			// Deleting a non-existent file in an open commit should
+			// be a no-op
+			if hashtree.Code(err) != hashtree.PathNotFound {
 				return err
 			}
-			if !records.Split {
-				if len(records.Records) == 0 {
-					return fmt.Errorf("unexpect %d length pfs.PutFileRecord (this is likely a bug)", len(records.Records))
-				}
-				for _, record := range records.Records {
-					sizeMap[record.ObjectHash] = record.SizeBytes
-					if record.OverwriteIndex != nil {
-						// Computing size delta
-						delta := record.SizeBytes
-						fileNode, err := tree.Get(filePath)
-						if err == nil {
-							// If we can't find the file, that's fine.
-							for i := record.OverwriteIndex.Index; int(i) < len(fileNode.FileNode.Objects); i++ {
-								delta -= sizeMap[fileNode.FileNode.Objects[i].Hash]
-							}
-						}
-
-						if err := tree.PutFileOverwrite(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.OverwriteIndex, delta); err != nil {
-							return err
-						}
-					} else {
-						if err := tree.PutFile(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
-							return err
-						}
+		}
+	}
+	if !records.Split {
+		if len(records.Records) == 0 {
+			return nil
+		}
+		for _, record := range records.Records {
+			sizeMap[record.ObjectHash] = record.SizeBytes
+			if record.OverwriteIndex != nil {
+				// Computing size delta
+				delta := record.SizeBytes
+				fileNode, err := tree.Get(filePath)
+				if err == nil {
+					// If we can't find the file, that's fine.
+					for i := record.OverwriteIndex.Index; int(i) < len(fileNode.FileNode.Objects); i++ {
+						delta -= sizeMap[fileNode.FileNode.Objects[i].Hash]
 					}
 				}
-			} else {
-				nodes, err := tree.List(filePath)
-				if err != nil && hashtree.Code(err) != hashtree.PathNotFound {
+
+				if err := tree.PutFileOverwrite(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.OverwriteIndex, delta); err != nil {
 					return err
 				}
-				var indexOffset int64
-				if len(nodes) > 0 {
-					indexOffset, err = strconv.ParseInt(path.Base(nodes[len(nodes)-1].Name), splitSuffixBase, splitSuffixWidth)
-					if err != nil {
-						return fmt.Errorf("error parsing filename %s as int, this likely means you're "+
-							"using split on a directory which contains other data that wasn't put with split",
-							path.Base(nodes[len(nodes)-1].Name))
-					}
-					indexOffset++ // start writing to the file after the last file
+			} else {
+				if err := tree.PutFile(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+					return err
 				}
-				for i, record := range records.Records {
-					if err := tree.PutFile(path.Join(filePath, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
-						return err
-					}
-				}
+			}
+		}
+	} else {
+		nodes, err := tree.List(filePath)
+		if err != nil && hashtree.Code(err) != hashtree.PathNotFound {
+			return err
+		}
+		var indexOffset int64
+		if len(nodes) > 0 {
+			indexOffset, err = strconv.ParseInt(path.Base(nodes[len(nodes)-1].Name), splitSuffixBase, splitSuffixWidth)
+			if err != nil {
+				return fmt.Errorf("error parsing filename %s as int, this likely means you're "+
+					"using split on a directory which contains other data that wasn't put with split",
+					path.Base(nodes[len(nodes)-1].Name))
+			}
+			indexOffset++ // start writing to the file after the last file
+		}
+		for i, record := range records.Records {
+			if err := tree.PutFile(path.Join(filePath, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+				return err
 			}
 		}
 	}
