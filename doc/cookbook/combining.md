@@ -43,9 +43,9 @@ The first pipeline takes a union of `A` and `B` as inputs, each with glob patter
 
 Note, that when performing this grouping:
 
-- You should use `"lazy": true` to avoid unecessary downloads of data.
+- You should use `"lazy": true` to avoid unnecessary downloads of data.
 
-- You should use sym-links to avoid unecessary uploads of data and unecessary duplication of data (see more information on "copy elision" [here](http://pachyderm.readthedocs.io/en/latest/managing_pachyderm/data_management.html)).
+- You should use sym-links to avoid unnecessary uploads of data and unnecessary duplication of data (see more information on "copy elision" [here](http://pachyderm.readthedocs.io/en/latest/managing_pachyderm/data_management.html)).
 
 
 ## 2. Processing the grouped records
