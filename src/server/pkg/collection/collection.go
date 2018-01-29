@@ -98,20 +98,20 @@ type readWriteCollection struct {
 	stm STM
 }
 
-func (c *readWriteCollection) Get(key string, val proto.Unmarshaler) error {
+func (c *readWriteCollection) Get(key string, val proto.Message) error {
 	valStr, err := c.stm.Get(c.Path(key))
 	if err != nil {
 		return err
 	}
-	return val.Unmarshal([]byte(valStr))
+	return proto.Unmarshal([]byte(valStr), val)
 }
 
-func cloneProtoMsg(original proto.Marshaler) proto.Unmarshaler {
+func cloneProtoMsg(original proto.Marshaler) proto.Message {
 	val := reflect.ValueOf(original)
 	if val.Kind() == reflect.Ptr {
 		val = reflect.Indirect(val)
 	}
-	return reflect.New(val.Type()).Interface().(proto.Unmarshaler)
+	return reflect.New(val.Type()).Interface().(proto.Message)
 }
 
 // Giving a value, an index, and the key of the item, return the path
@@ -227,7 +227,7 @@ func (c *readWriteCollection) Delete(key string) error {
 	if c.indexes != nil && c.template != nil {
 		val := proto.Clone(c.template)
 		for _, index := range c.indexes {
-			if err := c.Get(key, val.(proto.Unmarshaler)); err == nil {
+			if err := c.Get(key, val.(proto.Message)); err == nil {
 				if index.Multi {
 					indexPaths := c.getMultiIndexPaths(val, index, key)
 					for _, indexPath := range indexPaths {
@@ -334,7 +334,7 @@ type readonlyCollection struct {
 	ctx context.Context
 }
 
-func (c *readonlyCollection) Get(key string, val proto.Unmarshaler) error {
+func (c *readonlyCollection) Get(key string, val proto.Message) error {
 	resp, err := c.etcdClient.Get(c.ctx, c.Path(key))
 	if err != nil {
 		return err
@@ -344,7 +344,7 @@ func (c *readonlyCollection) Get(key string, val proto.Unmarshaler) error {
 		return ErrNotFound{c.prefix, key}
 	}
 
-	return val.Unmarshal(resp.Kvs[0].Value)
+	return proto.Unmarshal(resp.Kvs[0].Value, val)
 }
 
 // an indirect iterator goes through a list of keys and retrieve those
@@ -355,7 +355,7 @@ type indirectIterator struct {
 	col   *readonlyCollection
 }
 
-func (i *indirectIterator) Next(key *string, val proto.Unmarshaler) (ok bool, retErr error) {
+func (i *indirectIterator) Next(key *string, val proto.Message) (ok bool, retErr error) {
 	for {
 		if i.index < len(i.resp.Kvs) {
 			kv := i.resp.Kvs[i.index]
@@ -391,7 +391,7 @@ func (c *readonlyCollection) GetByIndex(index Index, val interface{}) (Iterator,
 	}, nil
 }
 
-func (c *readonlyCollection) GetBlock(key string, val proto.Unmarshaler) error {
+func (c *readonlyCollection) GetBlock(key string, val proto.Message) error {
 	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.Path(key))
 	if err != nil {
 		return err
@@ -467,13 +467,13 @@ func (c *readonlyCollection) Count() (int64, error) {
 	return resp.Count, err
 }
 
-func (i *iterator) Next(key *string, val proto.Unmarshaler) (ok bool, retErr error) {
+func (i *iterator) Next(key *string, val proto.Message) (ok bool, retErr error) {
 	if i.index < len(i.resp.Kvs) {
 		kv := i.resp.Kvs[i.index]
 		i.index++
 
 		*key = path.Base(string(kv.Key))
-		if err := val.Unmarshal(kv.Value); err != nil {
+		if err := proto.Unmarshal(kv.Value, val); err != nil {
 			return false, err
 		}
 
@@ -483,13 +483,13 @@ func (i *iterator) Next(key *string, val proto.Unmarshaler) (ok bool, retErr err
 }
 
 // Next() writes a fully qualified key (including the path) to the key value
-func (i *paginatedIterator) Next(key *string, val proto.Unmarshaler) (ok bool, retErr error) {
+func (i *paginatedIterator) Next(key *string, val proto.Message) (ok bool, retErr error) {
 	if i.index < len(i.resp.Kvs) {
 		kv := i.resp.Kvs[i.index]
 		i.index++
 
 		*key = string(kv.Key)
-		if err := val.Unmarshal(kv.Value); err != nil {
+		if err := proto.Unmarshal(kv.Value, val); err != nil {
 			return false, err
 		}
 
