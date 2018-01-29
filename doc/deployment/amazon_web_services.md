@@ -290,3 +290,10 @@ pachctl             1.6.0
 pachd               1.6.0
 ```
 
+### Remove
+
+```sh
+$ kops delete cluster
+```
+
+In addition, there is the entry in `/etc/hosts` pointing to the cluster that will need to be manually removed.
