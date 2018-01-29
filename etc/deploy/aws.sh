@@ -127,7 +127,7 @@ deploy_k8s_on_aws() {
         --node-size=${NODE_SIZE} \
         --master-size=${MASTER_SIZE} \
         --name=${NAME} \
-        --kubernetes-version=1.7.10 \
+        --kubernetes-version=1.8.0 \
         --yes
     kops update cluster ${NAME} --yes --state=${STATE_BUCKET}
 
@@ -239,10 +239,10 @@ get_k8s_master_domain() {
 check_kops_version() {
   which kops
   KOPS_VERSION="$( kops version | awk '{print $2}' )"
-  echo "${KOPS_VERSION#1.} >= 7.1" | bc
-  if [[ "$( echo "${KOPS_VERSION#1.} >= 7.1" | bc )" -ne 1 ]]; then
+  echo "${KOPS_VERSION#1.} >= 8.0" | bc
+  if [[ "$( echo "${KOPS_VERSION#1.} >= 8.0" | bc )" -ne 1 ]]; then
     set +x
-    echo "Your kops version is too old--must have at least 1.7.1"
+    echo "Your kops version is too old--must have at least 1.8.0"
     exit 1
   fi
 }

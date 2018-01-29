@@ -272,7 +272,7 @@ We create this next pipeline as before, with ``pachctl``:
 
 .. code-block:: shell
 
-  $ pachctl create-pipeline -f montage.json
+  $ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/doc/examples/opencv/montage.json
 
 This will automatically trigger jobs that generate montages for all of the commits to our input repo:
 
