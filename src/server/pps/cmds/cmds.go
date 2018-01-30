@@ -496,6 +496,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	}
 	rawFlag(inspectPipeline)
 
+	var spec bool
 	listPipeline := &cobra.Command{
 		Use:   "list-pipeline",
 		Short: "Return info about all pipelines.",
@@ -517,6 +518,14 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				}
 				return nil
 			}
+			if spec {
+				for _, pipelineInfo := range pipelineInfos {
+					if err := marshaller.Marshal(os.Stdout, pipelineReqFromInfo(pipelineInfo)); err != nil {
+						return err
+					}
+				}
+				return nil
+			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			pretty.PrintPipelineHeader(writer)
 			for _, pipelineInfo := range pipelineInfos {
@@ -526,6 +535,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		}),
 	}
 	rawFlag(listPipeline)
+	listPipeline.Flags().BoolVarP(&spec, "spec", "s", false, "Output create-pipeline compatibility specs.")
 
 	var all bool
 	var deleteJobs bool
@@ -836,4 +846,29 @@ func pushImage(registry string, username string, password string, image string) 
 		return "", err
 	}
 	return fmt.Sprintf("%s:%s", pushRepo, pushTag), nil
+}
+
+func pipelineReqFromInfo(pipelineInfo *ppsclient.PipelineInfo) *ppsclient.CreatePipelineRequest {
+	return &ppsclient.CreatePipelineRequest{
+		Pipeline:           pipelineInfo.Pipeline,
+		Transform:          pipelineInfo.Transform,
+		ParallelismSpec:    pipelineInfo.ParallelismSpec,
+		Egress:             pipelineInfo.Egress,
+		OutputBranch:       pipelineInfo.OutputBranch,
+		ScaleDownThreshold: pipelineInfo.ScaleDownThreshold,
+		ResourceRequests:   pipelineInfo.ResourceRequests,
+		ResourceLimits:     pipelineInfo.ResourceLimits,
+		Input:              pipelineInfo.Input,
+		Description:        pipelineInfo.Description,
+		Incremental:        pipelineInfo.Incremental,
+		CacheSize:          pipelineInfo.CacheSize,
+		EnableStats:        pipelineInfo.EnableStats,
+		Batch:              pipelineInfo.Batch,
+		MaxQueueSize:       pipelineInfo.MaxQueueSize,
+		Service:            pipelineInfo.Service,
+		ChunkSpec:          pipelineInfo.ChunkSpec,
+		DatumTimeout:       pipelineInfo.DatumTimeout,
+		JobTimeout:         pipelineInfo.JobTimeout,
+		Salt:               pipelineInfo.Salt,
+	}
 }
