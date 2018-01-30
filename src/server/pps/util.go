@@ -65,3 +65,29 @@ func GetExpectedNumWorkers(kubeClient *kube.Clientset, spec *ppsclient.Paralleli
 	}
 	return 0, fmt.Errorf("Unable to interpret ParallelismSpec %+v", spec)
 }
+
+// PipelineReqFromInfo converts a PipelineInfo into a CreatePipelineRequest.
+func PipelineReqFromInfo(pipelineInfo *ppsclient.PipelineInfo) *ppsclient.CreatePipelineRequest {
+	return &ppsclient.CreatePipelineRequest{
+		Pipeline:           pipelineInfo.Pipeline,
+		Transform:          pipelineInfo.Transform,
+		ParallelismSpec:    pipelineInfo.ParallelismSpec,
+		Egress:             pipelineInfo.Egress,
+		OutputBranch:       pipelineInfo.OutputBranch,
+		ScaleDownThreshold: pipelineInfo.ScaleDownThreshold,
+		ResourceRequests:   pipelineInfo.ResourceRequests,
+		ResourceLimits:     pipelineInfo.ResourceLimits,
+		Input:              pipelineInfo.Input,
+		Description:        pipelineInfo.Description,
+		Incremental:        pipelineInfo.Incremental,
+		CacheSize:          pipelineInfo.CacheSize,
+		EnableStats:        pipelineInfo.EnableStats,
+		Batch:              pipelineInfo.Batch,
+		MaxQueueSize:       pipelineInfo.MaxQueueSize,
+		Service:            pipelineInfo.Service,
+		ChunkSpec:          pipelineInfo.ChunkSpec,
+		DatumTimeout:       pipelineInfo.DatumTimeout,
+		JobTimeout:         pipelineInfo.JobTimeout,
+		Salt:               pipelineInfo.Salt,
+	}
+}
