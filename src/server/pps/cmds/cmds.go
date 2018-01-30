@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	"github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
@@ -520,7 +521,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 			if spec {
 				for _, pipelineInfo := range pipelineInfos {
-					if err := marshaller.Marshal(os.Stdout, pipelineReqFromInfo(pipelineInfo)); err != nil {
+					if err := marshaller.Marshal(os.Stdout, pps.PipelineReqFromInfo(pipelineInfo)); err != nil {
 						return err
 					}
 				}
@@ -846,29 +847,4 @@ func pushImage(registry string, username string, password string, image string) 
 		return "", err
 	}
 	return fmt.Sprintf("%s:%s", pushRepo, pushTag), nil
-}
-
-func pipelineReqFromInfo(pipelineInfo *ppsclient.PipelineInfo) *ppsclient.CreatePipelineRequest {
-	return &ppsclient.CreatePipelineRequest{
-		Pipeline:           pipelineInfo.Pipeline,
-		Transform:          pipelineInfo.Transform,
-		ParallelismSpec:    pipelineInfo.ParallelismSpec,
-		Egress:             pipelineInfo.Egress,
-		OutputBranch:       pipelineInfo.OutputBranch,
-		ScaleDownThreshold: pipelineInfo.ScaleDownThreshold,
-		ResourceRequests:   pipelineInfo.ResourceRequests,
-		ResourceLimits:     pipelineInfo.ResourceLimits,
-		Input:              pipelineInfo.Input,
-		Description:        pipelineInfo.Description,
-		Incremental:        pipelineInfo.Incremental,
-		CacheSize:          pipelineInfo.CacheSize,
-		EnableStats:        pipelineInfo.EnableStats,
-		Batch:              pipelineInfo.Batch,
-		MaxQueueSize:       pipelineInfo.MaxQueueSize,
-		Service:            pipelineInfo.Service,
-		ChunkSpec:          pipelineInfo.ChunkSpec,
-		DatumTimeout:       pipelineInfo.DatumTimeout,
-		JobTimeout:         pipelineInfo.JobTimeout,
-		Salt:               pipelineInfo.Salt,
-	}
 }
