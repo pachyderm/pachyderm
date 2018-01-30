@@ -1393,7 +1393,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		return nil, err
 	}
 	pfsClient := pachClient.PfsAPIClient
-
+	if request.Salt == "" {
+		request.Salt = uuid.NewWithoutDashes()
+	}
 	pipelineInfo := &pps.PipelineInfo{
 		Pipeline:           request.Pipeline,
 		Version:            1,
@@ -1410,7 +1412,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Incremental:        request.Incremental,
 		CacheSize:          request.CacheSize,
 		EnableStats:        request.EnableStats,
-		Salt:               uuid.NewWithoutDashes(),
+		Salt:               request.Salt,
 		Batch:              request.Batch,
 		MaxQueueSize:       request.MaxQueueSize,
 		Service:            request.Service,
