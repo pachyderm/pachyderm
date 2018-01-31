@@ -3,12 +3,8 @@ package cmds
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"net/http"
-	"net/url"
 	"os"
 	"os/user"
 	"sort"
@@ -388,7 +384,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Create a new pipeline.",
 		Long:  fmt.Sprintf("Create a new pipeline from a %s", pipelineSpec),
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			cfgReader, err := newPipelineManifestReader(pipelinePath)
+			cfgReader, err := pps.NewPipelineManifestReader(pipelinePath)
 			if err != nil {
 				return err
 			}
@@ -397,7 +393,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
 			for {
-				request, err := cfgReader.nextCreatePipelineRequest()
+				request, err := cfgReader.NextCreatePipelineRequest()
 				if err == io.EOF {
 					break
 				} else if err != nil {
@@ -432,7 +428,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Update an existing Pachyderm pipeline.",
 		Long:  fmt.Sprintf("Update a Pachyderm pipeline with a new %s", pipelineSpec),
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			cfgReader, err := newPipelineManifestReader(pipelinePath)
+			cfgReader, err := pps.NewPipelineManifestReader(pipelinePath)
 			if err != nil {
 				return err
 			}
@@ -441,7 +437,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
 			for {
-				request, err := cfgReader.nextCreatePipelineRequest()
+				request, err := cfgReader.NextCreatePipelineRequest()
 				if err == io.EOF {
 					break
 				} else if err != nil {
@@ -711,85 +707,6 @@ func (arr ByCreationTime) Less(i, j int) bool {
 	}
 
 	return false
-}
-
-// pipelineManifestReader helps with unmarshalling pipeline configs from JSON. It's used by
-// create-pipeline and update-pipeline
-type pipelineManifestReader struct {
-	buf     bytes.Buffer
-	decoder *json.Decoder
-}
-
-func newPipelineManifestReader(path string) (result *pipelineManifestReader, retErr error) {
-	result = new(pipelineManifestReader)
-	var pipelineReader io.Reader
-	if path == "-" {
-		pipelineReader = io.TeeReader(os.Stdin, &result.buf)
-		fmt.Print("Reading from stdin.\n")
-	} else if url, err := url.Parse(path); err == nil && url.Scheme != "" {
-		resp, err := http.Get(url.String())
-		if err != nil {
-			return nil, err
-		}
-		defer func() {
-			if err := resp.Body.Close(); err != nil && retErr == nil {
-				retErr = err
-			}
-		}()
-		rawBytes, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-		pipelineReader = io.TeeReader(strings.NewReader(string(rawBytes)), &result.buf)
-	} else {
-		rawBytes, err := ioutil.ReadFile(path)
-		if err != nil {
-			return nil, err
-		}
-
-		pipelineReader = io.TeeReader(strings.NewReader(string(rawBytes)), &result.buf)
-	}
-	result.decoder = json.NewDecoder(pipelineReader)
-	return result, nil
-}
-
-func (r *pipelineManifestReader) nextCreatePipelineRequest() (*ppsclient.CreatePipelineRequest, error) {
-	var result ppsclient.CreatePipelineRequest
-	if err := jsonpb.UnmarshalNext(r.decoder, &result); err != nil {
-		if err == io.EOF {
-			return nil, err
-		}
-		return nil, fmt.Errorf("malformed pipeline spec: %s", err)
-	}
-	return &result, nil
-}
-
-func describeSyntaxError(originalErr error, parsedBuffer bytes.Buffer) error {
-
-	sErr, ok := originalErr.(*json.SyntaxError)
-	if !ok {
-		return originalErr
-	}
-
-	buffer := make([]byte, sErr.Offset)
-	parsedBuffer.Read(buffer)
-
-	lineOffset := strings.LastIndex(string(buffer[:len(buffer)-1]), "\n")
-	if lineOffset == -1 {
-		lineOffset = 0
-	}
-
-	lines := strings.Split(string(buffer[:len(buffer)-1]), "\n")
-	lineNumber := len(lines)
-
-	descriptiveErrorString := fmt.Sprintf("Syntax Error on line %v:\n%v\n%v^\n%v\n",
-		lineNumber,
-		string(buffer[lineOffset:]),
-		strings.Repeat(" ", int(sErr.Offset)-2-lineOffset),
-		originalErr,
-	)
-
-	return errors.New(descriptiveErrorString)
 }
 
 // pushImage pushes an image as registry/user/image. Registry and user can be

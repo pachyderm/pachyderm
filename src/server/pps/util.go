@@ -1,13 +1,22 @@
 package pps
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"math"
+	"net/http"
+	"net/url"
+	"os"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube "k8s.io/client-go/kubernetes"
 
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 )
@@ -90,4 +99,86 @@ func PipelineReqFromInfo(pipelineInfo *ppsclient.PipelineInfo) *ppsclient.Create
 		JobTimeout:         pipelineInfo.JobTimeout,
 		Salt:               pipelineInfo.Salt,
 	}
+}
+
+// PipelineManifestReader helps with unmarshalling pipeline configs from JSON. It's used by
+// create-pipeline and update-pipeline
+type PipelineManifestReader struct {
+	buf     bytes.Buffer
+	decoder *json.Decoder
+}
+
+// NewPipelineManifestReader creates a new manifest reader from a path.
+func NewPipelineManifestReader(path string) (result *PipelineManifestReader, retErr error) {
+	result = &PipelineManifestReader{}
+	var pipelineReader io.Reader
+	if path == "-" {
+		pipelineReader = io.TeeReader(os.Stdin, &result.buf)
+		fmt.Print("Reading from stdin.\n")
+	} else if url, err := url.Parse(path); err == nil && url.Scheme != "" {
+		resp, err := http.Get(url.String())
+		if err != nil {
+			return nil, err
+		}
+		defer func() {
+			if err := resp.Body.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		rawBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		pipelineReader = io.TeeReader(strings.NewReader(string(rawBytes)), &result.buf)
+	} else {
+		rawBytes, err := ioutil.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
+
+		pipelineReader = io.TeeReader(strings.NewReader(string(rawBytes)), &result.buf)
+	}
+	result.decoder = json.NewDecoder(pipelineReader)
+	return result, nil
+}
+
+// NextCreatePipelineRequest gets the next request from the manifest reader.
+func (r *PipelineManifestReader) NextCreatePipelineRequest() (*ppsclient.CreatePipelineRequest, error) {
+	var result ppsclient.CreatePipelineRequest
+	if err := jsonpb.UnmarshalNext(r.decoder, &result); err != nil {
+		if err == io.EOF {
+			return nil, err
+		}
+		return nil, fmt.Errorf("malformed pipeline spec: %s", err)
+	}
+	return &result, nil
+}
+
+// DescribeSyntaxError describes a syntax error encountered parsing json.
+func DescribeSyntaxError(originalErr error, parsedBuffer bytes.Buffer) error {
+
+	sErr, ok := originalErr.(*json.SyntaxError)
+	if !ok {
+		return originalErr
+	}
+
+	buffer := make([]byte, sErr.Offset)
+	parsedBuffer.Read(buffer)
+
+	lineOffset := strings.LastIndex(string(buffer[:len(buffer)-1]), "\n")
+	if lineOffset == -1 {
+		lineOffset = 0
+	}
+
+	lines := strings.Split(string(buffer[:len(buffer)-1]), "\n")
+	lineNumber := len(lines)
+
+	descriptiveErrorString := fmt.Sprintf("Syntax Error on line %v:\n%v\n%v^\n%v\n",
+		lineNumber,
+		string(buffer[lineOffset:]),
+		strings.Repeat(" ", int(sErr.Offset)-2-lineOffset),
+		originalErr,
+	)
+
+	return errors.New(descriptiveErrorString)
 }
