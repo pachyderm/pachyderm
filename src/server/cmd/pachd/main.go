@@ -201,6 +201,10 @@ func doFullMode(appEnvObj interface{}) error {
 		return nil
 	}
 
+	if err := migration.OneSixToOneSeven(appEnv.EtcdAddress, appEnv.PFSEtcdPrefix, appEnv.PPSEtcdPrefix); err != nil {
+		return err
+	}
+
 	go func() {
 		log.Println(http.ListenAndServe(":651", nil))
 	}()
