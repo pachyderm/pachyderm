@@ -81,6 +81,13 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 				if err != nil {
 					return err
 				}
+				version, err := c.Version()
+				if err != nil {
+					return err
+				}
+				if version != "1.7.0" {
+					return fmt.Errorf("Pachyderm %s is still up.", version)
+				}
 				return nil
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 				fmt.Printf("Error connecting to 1.7 cluster: %v, retry in: %v.\n", err, d)
