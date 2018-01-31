@@ -1,0 +1,13 @@
+syntax = "proto3";
+package admin;
+
+import "client/pfs/pfs.proto";
+import "client/pps/pps.proto";
+
+message Op {
+  pfs.CreateRepoRequest repo = 1;
+  pfs.StartCommitRequest start_commit = 2;
+  pfs.FinishCommitRequest finish_commit = 3;
+  pfs.PutFileRequest file = 4;
+  pps.CreatePipelineRequest pipeline = 5;
+}
