@@ -12,7 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/pbutil"
 )
 
-func oneSixToOneSeven(etcdAddress string, etcdPrefix string) error {
+func OneSixToOneSeven(etcdAddress, pfsEtcdPrefix, ppsEtcdPrefix string) error {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   []string{fmt.Sprintf("%s:2379", etcdAddress)},
 		DialOptions: client.EtcdDialOptions(),
@@ -21,39 +21,29 @@ func oneSixToOneSeven(etcdAddress string, etcdPrefix string) error {
 		return err
 	}
 	ctx := context.Background()
-	c16 := one_six.NewClient(etcdClient, etcdPrefix)
-	c17 := one_seven.NewClient(etcdClient, etcdPrefix)
+	c16 := one_six.NewClient(etcdClient, pfsEtcdPrefix, ppsEtcdPrefix)
+	c17 := one_seven.NewClient(etcdClient, pfsEtcdPrefix, ppsEtcdPrefix)
 	if err := c16.Migrate(ctx,
-		nil, // Repos are unchanged
+		func(repoInfo *one_six.RepoInfo, stm col.STM) error {
+			newRepoInfo := &one_seven.RepoInfo{}
+			if err := pbutil.Convert(repoInfo, newRepoInfo); err != nil {
+				return err
+			}
+			return c17.Repos.ReadWrite(stm).Put(repoInfo.Repo.Name, newRepoInfo)
+		},
 		func(commitInfo *one_six.CommitInfo, stm col.STM) error {
-			commit := &one_seven.Commit{}
-			if err := pbutil.Convert(commitInfo.Commit, commit); err != nil {
+			newCommitInfo := &one_seven.CommitInfo{}
+			if err := pbutil.Convert(commitInfo, newCommitInfo); err != nil {
 				return err
 			}
-			var provenance []*one_seven.Commit
-			for _, provCommit := range commitInfo.Provenance {
-				newProvCommit := &one_seven.Commit{}
-				if err := pbutil.Convert(provCommit, newProvCommit); err != nil {
-					return err
-				}
-				provenance = append(provenance, newProvCommit)
-			}
-			tree := &one_seven.Object{}
-			if err := pbutil.Convert(commitInfo.Tree, tree); err != nil {
+			return c17.Commits(commitInfo.Commit.Repo.Name).ReadWrite(stm).Put(commitInfo.Commit.ID, newCommitInfo)
+		},
+		func(branchInfo *one_six.BranchInfo, stm col.STM) error {
+			newBranchInfo := &one_seven.BranchInfo{}
+			if err := pbutil.Convert(branchInfo, newBranchInfo); err != nil {
 				return err
 			}
-			if err := c17.Commits(commitInfo.Commit.Repo.Name).ReadWrite(stm).Put(commitInfo.Commit.ID, &one_seven.CommitInfo{
-				Commit:      commit,
-				Description: commitInfo.Description,
-				Started:     commitInfo.Started,
-				Finished:    commitInfo.Finished,
-				SizeBytes:   commitInfo.SizeBytes,
-				Provenance:  provenance,
-				Tree:        tree,
-			}); err != nil {
-				return err
-			}
-			return nil
+			return c17.Branches(branchInfo.Head.Repo.Name).ReadWrite(stm).Put(branchInfo.Name, newBranchInfo)
 		},
 		func(pipelineInfo *one_six.PipelineInfo, stm col.STM) error {
 			return nil

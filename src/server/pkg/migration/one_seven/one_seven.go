@@ -15,17 +15,19 @@ type Client struct {
 	etcdClient *etcd.Client
 	Repos      col.Collection
 	Commits    func(string) col.Collection
+	Branches   func(string) col.Collection
 	Pipelines  col.Collection
 	Jobs       col.Collection
 }
 
-func NewClient(etcdClient *etcd.Client, etcdPrefix string) *Client {
+func NewClient(etcdClient *etcd.Client, pfsEtcdPrefix, ppsEtcdPrefix string) *Client {
 	return &Client{
 		etcdClient: etcdClient,
-		Repos:      pfsdb.Repos(etcdClient, etcdPrefix),
-		Commits:    func(repo string) col.Collection { return pfsdb.Commits(etcdClient, etcdPrefix, repo) },
-		Pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
-		Jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
+		Repos:      pfsdb.Repos(etcdClient, pfsEtcdPrefix),
+		Commits:    func(repo string) col.Collection { return pfsdb.Commits(etcdClient, pfsEtcdPrefix, repo) },
+		Branches:   func(repo string) col.Collection { return pfsdb.Branches(etcdClient, pfsEtcdPrefix, repo) },
+		Pipelines:  ppsdb.Pipelines(etcdClient, ppsEtcdPrefix),
+		Jobs:       ppsdb.Jobs(etcdClient, ppsEtcdPrefix),
 	}
 }
 
@@ -33,6 +35,7 @@ type Repo = pfs.Repo
 type RepoInfo = pfs.RepoInfo
 type Commit = pfs.Commit
 type CommitInfo = pfs.CommitInfo
+type BranchInfo = pfs.BranchInfo
 type PipelineInfo = pps.PipelineInfo
 type JobInfo = pps.JobInfo
 type Object = pfs.Object
@@ -40,7 +43,7 @@ type Object = pfs.Object
 // Migrate extracts pachyderm structures and calls the callback function with
 // each one.
 func (c *Client) Migrate(ctx context.Context,
-	repoF func(*RepoInfo, col.STM) error, commitF func(*CommitInfo, col.STM) error,
+	repoF func(*RepoInfo, col.STM) error, commitF func(*CommitInfo, col.STM) error, branchF func(*BranchInfo, col.STM) error,
 	pipelineF func(*PipelineInfo, col.STM) error, jobF func(*JobInfo, col.STM) error) error {
 	rIt, err := c.Repos.ReadOnly(ctx).List()
 	if err != nil {
@@ -85,6 +88,31 @@ func (c *Client) Migrate(ctx context.Context,
 						return err
 					}
 					return commitF(commitInfo, stm)
+				}); err != nil {
+					return err
+				}
+			}
+		}
+		if branchF != nil {
+			branches := c.Branches(repoName)
+			bIt, err := branches.ReadOnly(ctx).List()
+			if err != nil {
+				return err
+			}
+			for {
+				branchName, branchInfo := "", &BranchInfo{}
+				ok, err := bIt.Next(&branchName, branchInfo)
+				if err != nil {
+					return err
+				}
+				if !ok {
+					break
+				}
+				if _, err := col.NewSTM(ctx, c.etcdClient, func(stm col.STM) error {
+					if err := branches.ReadWrite(stm).Delete(branchName); err != nil {
+						return err
+					}
+					return branchF(branchInfo, stm)
 				}); err != nil {
 					return err
 				}
