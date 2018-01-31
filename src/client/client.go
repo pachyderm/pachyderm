@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 )
 
 const (
@@ -47,6 +48,8 @@ type AuthAPIClient auth.APIClient
 // DeployAPIClient is an alias of auth.APIClient
 type DeployAPIClient deploy.APIClient
 
+type VersionAPIClient versionpb.APIClient
+
 // An APIClient is a wrapper around pfs, pps and block APIClients.
 type APIClient struct {
 	PfsAPIClient
@@ -54,6 +57,7 @@ type APIClient struct {
 	ObjectAPIClient
 	AuthAPIClient
 	DeployAPIClient
+	VersionAPIClient
 	Enterprise enterprise.APIClient // not embedded--method name conflicts with AuthAPIClient
 
 	// addr is a "host:port" string pointing at a pachd endpoint
@@ -261,6 +265,7 @@ func (c *APIClient) connect() error {
 	c.AuthAPIClient = auth.NewAPIClient(clientConn)
 	c.Enterprise = enterprise.NewAPIClient(clientConn)
 	c.DeployAPIClient = deploy.NewAPIClient(clientConn)
+	c.VersionAPIClient = versionpb.NewAPIClient(clientConn)
 	c.clientConn = clientConn
 	c.healthClient = health.NewHealthClient(clientConn)
 	return nil
