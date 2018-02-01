@@ -5,6 +5,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/admin"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 )
 
@@ -16,6 +17,22 @@ type apiServer struct {
 }
 
 func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.API_ExtractServer) error {
+	pachClient, err := a.getPachClient()
+	if err != nil {
+		return err
+	}
+	repos, err := pachClient.ListRepo(nil)
+	for _, repoInfo := range repos {
+		if err := extractServer.Send(&admin.Op{
+			Repo: &pfs.CreateRepoRequest{
+				Repo:        repoInfo.Repo,
+				Provenance:  repoInfo.Provenance,
+				Description: repoInfo.Description,
+			},
+		}); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
