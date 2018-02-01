@@ -1,6 +1,8 @@
 syntax = "proto3";
 package admin;
 
+import "google/protobuf/empty.proto";
+
 import "client/pfs/pfs.proto";
 import "client/pps/pps.proto";
 
@@ -10,4 +12,14 @@ message Op {
   pfs.FinishCommitRequest finish_commit = 3;
   pfs.PutFileRequest file = 4;
   pps.CreatePipelineRequest pipeline = 5;
+}
+
+message ExtractRequest {}
+message RestoreRequest {
+    Op op = 1;
+}
+
+service API {
+  rpc Extract(ExtractRequest) returns (stream Op) {}
+  rpc Restore(stream RestoreRequest) returns (google.protobuf.Empty) {}
 }
