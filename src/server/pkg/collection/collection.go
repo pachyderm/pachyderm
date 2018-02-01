@@ -594,6 +594,7 @@ func (c *readonlyCollection) WatchWithPrev() (watch.Watcher, error) {
 func (c *readonlyCollection) WatchByIndex(index Index, val interface{}) (watch.Watcher, error) {
 	eventCh := make(chan *watch.Event)
 	done := make(chan struct{})
+	fmt.Printf(">>> watchByIndex(%v, %v) is about to call NewWatcher\n", index.Field, val)
 	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.indexDir(index, fmt.Sprintf("%s", val)), c.template)
 	if err != nil {
 		return nil, err

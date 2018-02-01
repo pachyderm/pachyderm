@@ -610,15 +610,18 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		jobs := a.jobs.ReadWrite(stm)
-		jobPtr := &pps.EtcdJobInfo{}
-		if err := jobs.Get(request.Job.ID, jobPtr); err != nil {
-			return err
-		}
-		return a.updateJobState(stm, jobPtr, pps.JobState_JOB_KILLED)
-	})
-	if err != nil {
+	pachClient := a.getPachClient().WithCtx(ctx)
+	jobPtr := &pps.EtcdJobInfo{}
+	if err := a.jobs.ReadOnly(ctx).Get(request.Job.ID, jobPtr); err != nil {
+		return nil, err
+	}
+	// Finish the job's output commit without a tree -- worker/master will mark
+	// the job 'killed'
+	if _, err := pachClient.PfsAPIClient.FinishCommit(ctx,
+		&pfs.FinishCommitRequest{
+			Commit: jobPtr.OutputCommit,
+			Empty:  true,
+		}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
