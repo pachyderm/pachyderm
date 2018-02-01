@@ -1,7 +1,6 @@
 package server
 
 import (
-	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/admin"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 )
@@ -12,9 +11,9 @@ type APIServer interface {
 }
 
 // NewAPIServer returns a new admin.APIServer
-func NewAPIServer(pachClient *client.APIClient) APIServer {
+func NewAPIServer(address string) APIServer {
 	return &apiServer{
-		Logger:     log.NewLogger("admin.API"),
-		pachClient: pachClient,
+		Logger:  log.NewLogger("admin.API"),
+		address: address,
 	}
 }
