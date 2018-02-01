@@ -1,11 +1,14 @@
 package server
 
 import (
+	"io"
 	"sync"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/admin"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 )
 
@@ -21,51 +24,135 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 	if err != nil {
 		return err
 	}
-	repos, err := pachClient.ListRepo(nil)
+	ris, err := pachClient.ListRepo(nil)
 	if err != nil {
 		return err
 	}
-	for _, repoInfo := range repos {
+	for _, ri := range ris {
+		if len(ri.Provenance) > 0 {
+			continue
+		}
 		if err := extractServer.Send(&admin.Op{
 			Repo: &pfs.CreateRepoRequest{
-				Repo:        repoInfo.Repo,
-				Provenance:  repoInfo.Provenance,
-				Description: repoInfo.Description,
+				Repo:        ri.Repo,
+				Provenance:  ri.Provenance,
+				Description: ri.Description,
 			},
 		}); err != nil {
 			return err
 		}
-		branches, err := pachClient.ListBranch(repoInfo.Repo.Name)
+		cis, err := pachClient.ListCommit(ri.Repo.Name, "", "", 0)
 		if err != nil {
 			return err
 		}
-		var reqs []*pfs.BuildCommitRequest
-		for _, branchInfo := range branches {
-			commit := branchInfo.Head
-			for commit != nil {
-				commitInfo, err := pachClient.InspectCommit(commit.Repo.Name, commit.ID)
-				if err != nil {
-					return err
-				}
-				reqs = append(reqs, &pfs.BuildCommitRequest{
-					Parent: &pfs.Commit{Repo: repoInfo.Repo},
-					Branch: branchInfo.Name,
-					Tree:   commitInfo.Tree,
-				})
-				commit = commitInfo.ParentCommit
-			}
-		}
-		for i := range reqs {
-			req := reqs[len(reqs)-1-i]
-			if err := extractServer.Send(&admin.Op{Commit: req}); err != nil {
+		for _, ci := range cis {
+			if err := extractServer.Send(&admin.Op{
+				Commit: &pfs.BuildCommitRequest{
+					Parent: ci.ParentCommit,
+					Tree:   ci.Tree,
+					ID:     ci.Commit.ID,
+				},
+			}); err != nil {
 				return err
 			}
+		}
+		bis, err := pachClient.ListBranch(ri.Repo.Name)
+		if err != nil {
+			return err
+		}
+		for _, bi := range bis {
+			if err := extractServer.Send(&admin.Op{
+				Branch: &pfs.SetBranchRequest{
+					Commit: bi.Head,
+					Branch: bi.Name,
+				},
+			},
+			); err != nil {
+				return err
+			}
+		}
+	}
+	pis, err := pachClient.ListPipeline()
+	if err != nil {
+		return err
+	}
+	for _, pi := range pis {
+		if err := extractServer.Send(&admin.Op{
+			Pipeline: &pps.CreatePipelineRequest{
+				Pipeline:           pi.Pipeline,
+				Transform:          pi.Transform,
+				ParallelismSpec:    pi.ParallelismSpec,
+				Egress:             pi.Egress,
+				OutputBranch:       pi.OutputBranch,
+				ScaleDownThreshold: pi.ScaleDownThreshold,
+				ResourceRequests:   pi.ResourceRequests,
+				ResourceLimits:     pi.ResourceLimits,
+				Input:              pi.Input,
+				Description:        pi.Description,
+				Incremental:        pi.Incremental,
+				CacheSize:          pi.CacheSize,
+				EnableStats:        pi.EnableStats,
+				Batch:              pi.Batch,
+				MaxQueueSize:       pi.MaxQueueSize,
+				Service:            pi.Service,
+				ChunkSpec:          pi.ChunkSpec,
+				DatumTimeout:       pi.DatumTimeout,
+				JobTimeout:         pi.JobTimeout,
+				Salt:               pi.Salt,
+			},
+		}); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) error {
+func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error) {
+	ctx := restoreServer.Context()
+	pachClient, err := a.getPachClient()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		for {
+			_, err := restoreServer.Recv()
+			if err != nil {
+				break
+			}
+		}
+		if err := restoreServer.SendAndClose(&types.Empty{}); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	for {
+		req, err := restoreServer.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		op := req.Op
+		switch {
+		case op.Object != nil:
+		case op.Repo != nil:
+			if _, err := pachClient.PfsAPIClient.CreateRepo(ctx, op.Repo); err != nil {
+				return err
+			}
+		case op.Commit != nil:
+			if _, err := pachClient.PfsAPIClient.BuildCommit(ctx, op.Commit); err != nil {
+				return err
+			}
+		case op.Branch != nil:
+			if _, err := pachClient.PfsAPIClient.SetBranch(ctx, op.Branch); err != nil {
+				return err
+			}
+		case op.Pipeline != nil:
+			if _, err := pachClient.PpsAPIClient.CreatePipeline(ctx, op.Pipeline); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 

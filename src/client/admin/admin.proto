@@ -10,7 +10,8 @@ message Op {
   pfs.PutObjectRequest object = 1;
   pfs.CreateRepoRequest repo = 2;
   pfs.BuildCommitRequest commit = 3;
-  pps.CreatePipelineRequest pipeline = 4;
+  pfs.SetBranchRequest branch = 4;
+  pps.CreatePipelineRequest pipeline = 5;
 }
 
 message ExtractRequest {}
