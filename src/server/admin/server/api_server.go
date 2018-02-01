@@ -22,6 +22,9 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		return err
 	}
 	repos, err := pachClient.ListRepo(nil)
+	if err != nil {
+		return err
+	}
 	for _, repoInfo := range repos {
 		if err := extractServer.Send(&admin.Op{
 			Repo: &pfs.CreateRepoRequest{
@@ -31,6 +34,32 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			},
 		}); err != nil {
 			return err
+		}
+		branches, err := pachClient.ListBranch(repoInfo.Repo.Name)
+		if err != nil {
+			return err
+		}
+		var reqs []*pfs.BuildCommitRequest
+		for _, branchInfo := range branches {
+			commit := branchInfo.Head
+			for commit != nil {
+				commitInfo, err := pachClient.InspectCommit(commit.Repo.Name, commit.ID)
+				if err != nil {
+					return err
+				}
+				reqs = append(reqs, &pfs.BuildCommitRequest{
+					Parent: &pfs.Commit{Repo: repoInfo.Repo},
+					Branch: branchInfo.Name,
+					Tree:   commitInfo.Tree,
+				})
+				commit = commitInfo.ParentCommit
+			}
+		}
+		for i := range reqs {
+			req := reqs[len(reqs)-1-i]
+			if err := extractServer.Send(&admin.Op{Commit: req}); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

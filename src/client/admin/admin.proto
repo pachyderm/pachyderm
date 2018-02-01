@@ -9,10 +9,8 @@ import "client/pps/pps.proto";
 message Op {
   pfs.PutObjectRequest object = 1;
   pfs.CreateRepoRequest repo = 2;
-  pfs.StartCommitRequest start_commit = 3;
-  pfs.FinishCommitRequest finish_commit = 4;
-  pfs.PutFileRequest file = 5;
-  pps.CreatePipelineRequest pipeline = 6;
+  pfs.BuildCommitRequest commit = 3;
+  pps.CreatePipelineRequest pipeline = 4;
 }
 
 message ExtractRequest {}
