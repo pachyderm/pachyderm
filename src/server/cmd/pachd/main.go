@@ -167,7 +167,6 @@ func doSidecarMode(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	adminAPIServer := adminserver.NewAPIServer(address)
 	return grpcutil.Serve(
 		func(s *grpc.Server) {
 			pfsclient.RegisterAPIServer(s, pfsAPIServer)
@@ -176,7 +175,6 @@ func doSidecarMode(appEnvObj interface{}) error {
 			healthclient.RegisterHealthServer(s, healthServer)
 			authclient.RegisterAPIServer(s, authAPIServer)
 			eprsclient.RegisterAPIServer(s, enterpriseAPIServer)
-			adminclient.RegisterAPIServer(s, adminAPIServer)
 		},
 		grpcutil.ServeOptions{
 			Version:    version.Version,
@@ -331,6 +329,7 @@ func doFullMode(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
+	adminAPIServer := adminserver.NewAPIServer(address)
 
 	healthServer := health.NewHealthServer()
 
@@ -358,6 +357,7 @@ func doFullMode(appEnvObj interface{}) error {
 				authclient.RegisterAPIServer(s, authAPIServer)
 				eprsclient.RegisterAPIServer(s, enterpriseAPIServer)
 				deployclient.RegisterAPIServer(s, deployServer)
+				adminclient.RegisterAPIServer(s, adminAPIServer)
 			},
 			grpcutil.ServeOptions{
 				Version:    version.Version,
