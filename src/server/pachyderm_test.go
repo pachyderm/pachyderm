@@ -6808,7 +6808,6 @@ func TestCancelJob(t *testing.T) {
 	})
 
 	// stop the job
-	fmt.Printf("stopping job %s\n", jobInfo.Job.ID)
 	require.NoError(t, c.StopJob(jobInfo.Job.ID))
 
 	// Wait until the job is cancelled
@@ -6819,10 +6818,8 @@ func TestCancelJob(t *testing.T) {
 			// rather than inspecting the input in the test
 			updatedJobInfo, err := c.InspectJob(jobInfo.Job.ID, false)
 			if err != nil {
-				fmt.Printf("inspect job err %v\n", err)
 				return err
 			}
-			fmt.Printf("updatedJobInfo.State = %v\n", updatedJobInfo.State.String())
 			if updatedJobInfo.State != pps.JobState_JOB_KILLED {
 				return fmt.Errorf("job %s is still running, but should be KILLED", jobInfo.Job.ID)
 			}
@@ -6832,7 +6829,6 @@ func TestCancelJob(t *testing.T) {
 
 	// Create one more commit to make sure the pipeline can still process input
 	// commits
-	fmt.Printf("Create one more commit\n")
 	commit2, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.DeleteFile(repo, commit2.ID, "/time"))
@@ -6844,7 +6840,6 @@ func TestCancelJob(t *testing.T) {
 	require.NoError(t, c.FinishCommit(repo, commit2.ID))
 
 	// Flush commit2, and make sure the output is as expected
-	fmt.Printf("Flush commit2\n")
 	iter, err := c.FlushCommit([]*pfs.Commit{commit2}, []*pfs.Repo{client.NewRepo(pipeline)})
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, iter)

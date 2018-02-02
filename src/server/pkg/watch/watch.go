@@ -104,7 +104,6 @@ func NewWatcherWithPrev(ctx context.Context, client *etcd.Client, trimPrefix, pr
 }
 
 func newWatcher(ctx context.Context, client *etcd.Client, trimPrefix []byte, prefix string, withPrev bool, template proto.Message) (Watcher, error) {
-	fmt.Printf(">>> newWatcher(ctx, client, trimPrefix = %v, prefix = %v, withPref = %v, template) just called\n", string(trimPrefix), prefix, withPrev)
 	eventCh := make(chan *Event)
 	done := make(chan struct{})
 	// First list the collection to get the current items

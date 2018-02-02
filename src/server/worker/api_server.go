@@ -398,9 +398,7 @@ func (a *APIServer) downloadGitData(pachClient *client.APIClient, dir string, in
 }
 
 func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag, stats *pps.ProcessStats, statsTree hashtree.OpenHashTree, statsPath string) (string, error) {
-	fmt.Printf(">>> worker/api_server starting to download data\n")
 	defer func(start time.Time) {
-		fmt.Printf(">>> worker/api_server done downloading data\n")
 		stats.DownloadTime = types.DurationProto(time.Since(start))
 	}(time.Now())
 	logger.Logf("input has not been processed, downloading data")
@@ -843,8 +841,6 @@ func (a *APIServer) updateJobState(stm col.STM, jobPtr *pps.EtcdJobInfo, state p
 type acquireDatumsFunc func(low, high int64) (failedDatumID string, _ error)
 
 func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chunks, logger *taggedLogger, process acquireDatumsFunc) error {
-	fmt.Printf(">>> worker/api_server.acquireDatums starting acquireDaturms(ctx, jobID = %s, chunks = %v, logger, process)\n", jobID, chunks)
-	defer fmt.Printf(">>> worker/api_server.acquireDatums finishing acquireDaturms(ctx, jobID = %s, chunks = %v, logger, process)\n", jobID, chunks)
 	complete := false
 	for !complete {
 		// func to defer cancel in
@@ -952,10 +948,8 @@ func isDone(ctx context.Context) bool {
 //  - claims those chunks with acquireDatums
 //  - processes the chunks with processDatums
 func (a *APIServer) worker() {
-	fmt.Printf(">>> worker/api_server.worker starting worker()\n")
-	defer fmt.Printf(">>> worker/api_server.worker exiting worker()\n")
 	var (
-		logger = a.getWorkerLogger() // this workers formatting logger
+		logger = a.getWorkerLogger() // this worker's formatting logger
 
 		// jobMu is a mutex forcing this worker to do one job at a time. This must
 		// be declared outside the backoff.Retry() block below, so that e.g. an etcd
@@ -981,10 +975,8 @@ func (a *APIServer) worker() {
 		for {
 			select {
 			case e := <-watcher.Watch():
-				fmt.Printf(">>> worker/api_server.worker New job event\n")
 				switch e.Type {
 				case watch.EventPut:
-					fmt.Printf(">>> worker/api_server.worker EventPut\n")
 					var jobID string
 					jobPtr := &pps.EtcdJobInfo{}
 					if err := e.Unmarshal(&jobID, jobPtr); err != nil {
@@ -1006,11 +998,7 @@ func (a *APIServer) worker() {
 					// FAILED, cancel the jobCtx so we kill any user processes ('watcher'
 					// above can't detect job state changes, as it's watching an index)
 					go func() {
-						fmt.Printf(">>> worker/api_server.worker starting job %s state change goroutine\n", jobID)
-						defer fmt.Printf(">>> worker/api_server.worker finishing job %s state change goroutine\n", jobID)
 						backoff.RetryNotify(func() error {
-							fmt.Printf(">>> worker/api_server.worker starting job %s state change backoff loop\n", jobID)
-							defer fmt.Printf(">>> worker/api_server.worker finishing job %s state change backoff loop\n", jobID)
 							if isDone(jobCtx) {
 								// job was cancelled earlier (e.g. previous backoff call). Watcher
 								// would error immediately if we used this ctx
@@ -1027,27 +1015,21 @@ func (a *APIServer) worker() {
 								return fmt.Errorf("worker: could not create state watcher for job %s, err is %v", jobID, err)
 							}
 
-							fmt.Printf(">>> worker/api_server.worker starting to watch for new job %s state changes\n", jobID)
 							for {
 								select {
 								case e := <-watcher.Watch():
-									fmt.Printf(">>> worker/api_server.worker job %s state change (more below)\n", jobID)
 									switch e.Type {
 									case watch.EventPut:
-										fmt.Printf(">>> worker/api_server.worker state change EventPut\n")
 										var jobID string
 										jobPtr := &pps.EtcdJobInfo{}
 										if err := e.Unmarshal(&jobID, jobPtr); err != nil {
 											return fmt.Errorf("error unmarshalling: %v", err)
 										} else if ppsutil.IsDone(jobPtr.State) {
-											fmt.Printf(">>> worker/api_server.worker job state is KILLED or FAILURE\n")
 											jobCancel() // cancel the job
 										}
 									case watch.EventDelete:
-										fmt.Printf(">>> worker/api_server.worker state change EventDelete jobID = (%v)\n", jobID)
 										jobCancel() // cancel the job
 									case watch.EventError:
-										fmt.Printf(">>> worker/api_server.worker state change EventError: %v\n", e.Err)
 										return fmt.Errorf("job state watch error: %v", e.Err)
 									}
 								case <-jobCtx.Done():
@@ -1063,8 +1045,6 @@ func (a *APIServer) worker() {
 
 					// acquire and process datums from the job in a goroutine
 					go func() {
-						fmt.Printf(">>> worker/api_server.worker starting job %s processing goroutine\n", jobID)
-						defer fmt.Printf(">>> worker/api_server.worker finishing job %s processing goroutine\n", jobID)
 						// collect error from acquiring/processing the datum here, then
 						// send it through errCh at the end
 						if err := func() (retErr error) {
@@ -1094,7 +1074,6 @@ func (a *APIServer) worker() {
 							}
 
 							// Read the chunks laid out by the master and create the datum factory
-							fmt.Printf(">>> worker/api_server.worker reading chunks laid out by master\n  jobID = %v\n  jobPtr = %v\n", jobID, jobPtr)
 							chunks := &Chunks{}
 							if err := a.chunks.ReadOnly(jobCtx).GetBlock(jobInfo.Job.ID, chunks); err != nil {
 								return err
@@ -1134,12 +1113,9 @@ func (a *APIServer) worker() {
 						}
 					}()
 				case watch.EventError:
-					fmt.Printf(">>> worker/api_server.worker EventError: %v\n", e.Err)
 					return fmt.Errorf("worker watch error: %v", e.Err)
 				}
-				fmt.Printf(">>> worker/api_server.worker finished processing event, waiting for next event\n")
 			case err := <-errCh:
-				fmt.Printf(">>> worker/api_server.worker errCh err: %v\n", err)
 				return err // acquire/process datums exited with err
 			case <-retryCtx.Done():
 				break // retry ctx cancelled for some reason
@@ -1300,16 +1276,6 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				// We run these cleanup functions no matter what, so that if
 				// downloadData partially succeeded, we still clean up the resources.
 				defer func() {
-					/* >>> */ dirFile, err := os.Open(dir)
-					fmt.Printf(">>> worker/api_server open(dir) -> (%v, %v)\n", dirFile, err)
-					/* >>> */ dirContents, err := dirFile.Readdir(0)
-					/* >>> */ names := []string{}
-					/* >>> */ for _, f := range dirContents {
-						/* >>> */ names = append(names, f.Name())
-						/* >>> */
-					}
-					fmt.Printf(">>> worker/api_server ls(dir) -> (%v, %v)\n", names, err)
-					fmt.Printf(">>> worker/api_server deleting data\n")
 					if err := os.RemoveAll(dir); err != nil && retErr == nil {
 						retErr = err
 					}
