@@ -537,14 +537,14 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 }
 
 func (d *driver) startCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit, description string) (*pfs.Commit, error) {
-	return d.makeCommit(ctx, parent, branch, provenance, nil, description)
+	return d.makeCommit(ctx, "", parent, branch, provenance, nil, description)
 }
 
-func (d *driver) buildCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit, tree *pfs.Object) (*pfs.Commit, error) {
-	return d.makeCommit(ctx, parent, branch, provenance, tree, "")
+func (d *driver) buildCommit(ctx context.Context, ID string, parent *pfs.Commit, branch string, provenance []*pfs.Commit, tree *pfs.Object) (*pfs.Commit, error) {
+	return d.makeCommit(ctx, ID, parent, branch, provenance, tree, "")
 }
 
-func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit, treeRef *pfs.Object, description string) (*pfs.Commit, error) {
+func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, branch string, provenance []*pfs.Commit, treeRef *pfs.Object, description string) (*pfs.Commit, error) {
 	if err := d.checkIsAuthorized(ctx, parent.Repo, auth.Scope_WRITER); err != nil {
 		return nil, err
 	}
@@ -553,7 +553,10 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 	}
 	commit := &pfs.Commit{
 		Repo: parent.Repo,
-		ID:   uuid.NewWithoutDashes(),
+		ID:   ID,
+	}
+	if commit.ID == "" {
+		commit.ID = uuid.NewWithoutDashes()
 	}
 	var tree hashtree.HashTree
 	if treeRef != nil {
@@ -628,7 +631,7 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 		if parent.ID != "" {
 			parentCommitInfo, err := d.inspectCommit(ctx, parent)
 			if err != nil {
-				return err
+				return fmt.Errorf("parent commit not found: %v", err)
 			}
 			// fail if the parent commit has not been finished
 			if parentCommitInfo.Finished == nil {
