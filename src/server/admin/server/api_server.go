@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"io"
 	"sync"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/admin"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 )
@@ -45,7 +47,12 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		if err != nil {
 			return err
 		}
-		for _, ci := range cis {
+		for _, ci := range sortCommitInfos(cis) {
+			// Even without a parent, ParentCommit is used to indicate which
+			// repo to make the commit in.
+			if ci.ParentCommit == nil {
+				ci.ParentCommit = client.NewCommit(ri.Repo.Name, "")
+			}
 			if err := extractServer.Send(&admin.Op{
 				Commit: &pfs.BuildCommitRequest{
 					Parent: ci.ParentCommit,
@@ -107,6 +114,33 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 	return nil
 }
 
+func sortCommitInfos(cis []*pfs.CommitInfo) []*pfs.CommitInfo {
+	commitMap := make(map[string]*pfs.CommitInfo)
+	for _, ci := range cis {
+		commitMap[ci.Commit.ID] = ci
+	}
+	var result []*pfs.CommitInfo
+	for _, ci := range cis {
+		if commitMap[ci.Commit.ID] == nil {
+			continue
+		}
+		var localResult []*pfs.CommitInfo
+		for ci != nil {
+			localResult = append(localResult, ci)
+			delete(commitMap, ci.Commit.ID)
+			if ci.ParentCommit != nil {
+				ci = commitMap[ci.ParentCommit.ID]
+			} else {
+				ci = nil
+			}
+		}
+		for i := range localResult {
+			result = append(result, localResult[len(localResult)-i-1])
+		}
+	}
+	return result
+}
+
 func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error) {
 	ctx := restoreServer.Context()
 	pachClient, err := a.getPachClient()
@@ -137,19 +171,19 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 		case op.Object != nil:
 		case op.Repo != nil:
 			if _, err := pachClient.PfsAPIClient.CreateRepo(ctx, op.Repo); err != nil {
-				return err
+				return fmt.Errorf("error creating repo: %v", grpcutil.ScrubGRPC(err))
 			}
 		case op.Commit != nil:
 			if _, err := pachClient.PfsAPIClient.BuildCommit(ctx, op.Commit); err != nil {
-				return err
+				return fmt.Errorf("error creating commit: %v", grpcutil.ScrubGRPC(err))
 			}
 		case op.Branch != nil:
 			if _, err := pachClient.PfsAPIClient.SetBranch(ctx, op.Branch); err != nil {
-				return err
+				return fmt.Errorf("error creating branch: %v", grpcutil.ScrubGRPC(err))
 			}
 		case op.Pipeline != nil:
 			if _, err := pachClient.PpsAPIClient.CreatePipeline(ctx, op.Pipeline); err != nil {
-				return err
+				return fmt.Errorf("error creating pipeline: %v", grpcutil.ScrubGRPC(err))
 			}
 		}
 	}
