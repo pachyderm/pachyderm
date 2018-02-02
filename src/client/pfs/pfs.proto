@@ -97,6 +97,7 @@ message CommitInfo {
   // description is a user-provided script describing this commit
   string description = 8;
   Commit parent_commit = 2;
+  repeated Commit child_commits = 11;
   google.protobuf.Timestamp started = 3;
   google.protobuf.Timestamp finished = 4;
   uint64 size_bytes = 5;
