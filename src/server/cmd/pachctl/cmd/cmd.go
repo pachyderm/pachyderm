@@ -327,7 +327,7 @@ kubectl %v port-forward "$pod" %d:8080
 				if err := cmdutil.RunIO(cmdutil.IO{
 					Stdin: stdin,
 				}, "sh"); err != nil {
-					return fmt.Errorf("UI not enabled, deploy with --dashboard")
+					return fmt.Errorf("UI not enabled, deploy with --dashboard-only")
 				}
 				return nil
 			})
