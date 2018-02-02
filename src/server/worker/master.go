@@ -277,7 +277,6 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 		for {
 			cancel := a.spawnScaleDownGoroutine()
 			commitInfo, err := commitIter.Next()
-			fmt.Printf(">>> worker/master.jobSpawner subscribeCommit returned %s/%s\n", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
 			// loop will spawn new scale-down goroutine whether we start the job or not,
 			// so cancel channel to avoid leaking the current goroutine
 			close(cancel)
@@ -293,9 +292,8 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 			if err != nil {
 				return err
 			}
-			fmt.Printf(">>> worker/master.jobSpawner inspectCommit returned\n  commitInfo: %v\n  err: %v\n", commitInfo, err)
 			if commitInfo.Finished != nil {
-				continue
+				continue // commit finished after queueing
 			}
 			if a.pipelineInfo.ScaleDownThreshold != nil {
 				if err := a.scaleUpWorkers(logger); err != nil {
@@ -313,13 +311,11 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 				}
 				jobInfo = jobInfos[0]
 			} else {
-				fmt.Printf(">>> worker/master.jobSpawner about to create job for %s/%s\n", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
 				job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
 				if err != nil {
 					return err
 				}
 				jobInfo, err = pachClient.InspectJob(job.ID, false)
-				fmt.Printf(">>> worker/master.jobSpawner inspectJob returned (%v, %v)\n", jobInfo, err)
 				if err != nil {
 					return err
 				}
@@ -332,12 +328,9 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 			// Now that the jobInfo is persisted, wait until all input commits are
 			// ready, split the input datums into chunks and merge the results of
 			// chunks as they're processed
-			fmt.Printf(">>> worker/master.jobSpawner calling waitJob(pachClient, %v, logger)\n", jobInfo)
 			if err := a.waitJob(pachClient, jobInfo, logger); err != nil {
-				fmt.Printf(">>> worker/master.jobSpawner waitJob returned with: %v\n", err)
 				return err
 			}
-			fmt.Printf(">>> worker/master.jobSpawner waitJob returned nil\n")
 		}
 	})
 
@@ -576,8 +569,6 @@ func (a *APIServer) blockInputs(ctx context.Context, jobInfo *pps.JobInfo) error
 // output from the job's workers and merges it into a commit (and may merge
 // stats into a commit in the stats branch as well)
 func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, logger *taggedLogger) error {
-	fmt.Printf(">>> worker/master.waitJob starting waitJob\n")
-	defer fmt.Printf(">>> worker/master.waitJob leaving waitJob\n")
 	ctx, cancel := context.WithCancel(pachClient.Ctx())
 	pachClient = pachClient.WithCtx(ctx)
 
@@ -585,19 +576,15 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 	// SUCCESS) and if so, cancel the current context
 	go func() {
 		backoff.RetryNotify(func() error {
-			fmt.Printf(">>> worker/master.waitJob calling InspectCommit(%s/%s)\n", jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
 			commitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
 				&pfs.InspectCommitRequest{
 					Commit: jobInfo.OutputCommit,
 					Block:  true,
 				})
-			fmt.Printf(">>> worker/master.waitJob InspectCommit has returned: (%v, %v)\n", commitInfo, err)
 			if err != nil {
-				fmt.Printf(">>> worker/master.waitJob InspectCommit error: %v\n", err)
 				if isCommitDeletedErr(err) {
 					defer cancel() // whether we return error or nil, job is done
 					// Output commit was deleted. Delete job as well
-					fmt.Printf(">>> worker/master.waitJob deleting job: %v\n", jobInfo)
 					if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 						// Delete the job--no other worker has deleted it yet
 						jobPtr := &pps.EtcdJobInfo{}
@@ -682,7 +669,6 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		// Read the job document, and either resume (if we're recovering from a
 		// crash) or mark it running. Also write the input chunks calculated above
 		// into chunksCol
-		fmt.Printf(">>> worker/master.waitJob read the job document\n")
 		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			jobs := a.jobs.ReadWrite(stm)
 			jobID := jobInfo.Job.ID
@@ -703,13 +689,10 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			}
 			return chunksCol.Put(jobID, chunks)
 		}); err != nil {
-			fmt.Printf(">>> worker/master.waitJob reading the job document returned %v\n", err)
 			return err
 		}
-		fmt.Printf(">>> worker/master.waitJob reading the job document returned nil\n")
 
 		// Watch the chunk locks in order, and merge chunk outputs into commit tree
-		fmt.Printf(">>> worker/master.waitJob watch the chunk locks in order and merge chunk outputs: %v\n", jobInfo)
 		locks := a.locks(jobInfo.Job.ID).ReadOnly(ctx)
 		tree := hashtree.NewHashTree()
 		var statsTree hashtree.OpenHashTree
