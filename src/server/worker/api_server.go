@@ -1043,7 +1043,6 @@ func (a *APIServer) worker() {
 									break
 								}
 							}
-							return nil
 						}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 							logger.Logf("worker: error running the worker process: %v; retrying in %v", err, d)
 							return nil
@@ -1128,7 +1127,6 @@ func (a *APIServer) worker() {
 				break // retry ctx cancelled for some reason
 			}
 		}
-		return nil
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		logger.Logf("worker: error running the worker process: %v; retrying in %v", err, d)
 		return nil
