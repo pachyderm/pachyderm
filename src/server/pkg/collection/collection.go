@@ -119,7 +119,7 @@ func (c *readWriteCollection) Get(key string, val proto.Message) error {
 	return proto.Unmarshal([]byte(valStr), val)
 }
 
-func cloneProtoMsg(original proto.Marshaler) proto.Message {
+func cloneProtoMsg(original proto.Message) proto.Message {
 	val := reflect.ValueOf(original)
 	if val.Kind() == reflect.Ptr {
 		val = reflect.Indirect(val)
@@ -148,11 +148,11 @@ func (c *readWriteCollection) getMultiIndexPaths(val interface{}, index Index, k
 	return indexPaths
 }
 
-func (c *readWriteCollection) Put(key string, val proto.Marshaler) error {
+func (c *readWriteCollection) Put(key string, val proto.Message) error {
 	return c.PutTTL(key, val, 0)
 }
 
-func (c *readWriteCollection) PutTTL(key string, val proto.Marshaler, ttl int64) error {
+func (c *readWriteCollection) PutTTL(key string, val proto.Message, ttl int64) error {
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
@@ -217,12 +217,15 @@ func (c *readWriteCollection) PutTTL(key string, val proto.Marshaler, ttl int64)
 			}
 		}
 	}
-	bytes, _ := val.Marshal()
+	bytes, err := proto.Marshal(val)
+	if err != nil {
+		return err
+	}
 	c.stm.Put(c.Path(key), string(bytes), options...)
 	return nil
 }
 
-func (c *readWriteCollection) Update(key string, val Value, f func() error) error {
+func (c *readWriteCollection) Update(key string, val proto.Message, f func() error) error {
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
@@ -235,7 +238,7 @@ func (c *readWriteCollection) Update(key string, val Value, f func() error) erro
 	return c.Put(key, val)
 }
 
-func (c *readWriteCollection) Upsert(key string, val Value, f func() error) error {
+func (c *readWriteCollection) Upsert(key string, val proto.Message, f func() error) error {
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
@@ -248,7 +251,7 @@ func (c *readWriteCollection) Upsert(key string, val Value, f func() error) erro
 	return c.Put(key, val)
 }
 
-func (c *readWriteCollection) Create(key string, val proto.Marshaler) error {
+func (c *readWriteCollection) Create(key string, val proto.Message) error {
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}

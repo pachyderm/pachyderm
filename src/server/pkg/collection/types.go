@@ -55,27 +55,20 @@ type Index struct {
 	Multi bool
 }
 
-// Value must be implemented by any data types that you want to store in a
-// Collection
-type Value interface {
-	proto.Unmarshaler
-	proto.Marshaler
-}
-
 // ReadWriteCollection is a collection interface that supports read,write and delete
 // operations.
 type ReadWriteCollection interface {
 	Get(key string, val proto.Message) error
-	Put(key string, val proto.Marshaler) error
+	Put(key string, val proto.Message) error
 	// PutTTL is the same as Put except that the object is removed after
 	// TTL seconds.
 	// WARNING: using PutTTL with a collection that has secondary indices
 	// can result in inconsistency, as the indices are removed at roughly
 	// but not exactly the same time as the documents.
-	PutTTL(key string, val proto.Marshaler, ttl int64) error
-	Update(key string, val Value, f func() error) error
-	Upsert(key string, val Value, f func() error) error
-	Create(key string, val proto.Marshaler) error
+	PutTTL(key string, val proto.Message, ttl int64) error
+	Update(key string, val proto.Message, f func() error) error
+	Upsert(key string, val proto.Message, f func() error) error
+	Create(key string, val proto.Message) error
 	Delete(key string) error
 	DeleteAll()
 	DeleteAllPrefix(prefix string)
