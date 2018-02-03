@@ -1,0 +1,25 @@
+syntax = "proto3";
+package admin;
+
+import "google/protobuf/empty.proto";
+
+import "client/pfs/pfs.proto";
+import "client/pps/pps.proto";
+
+message Op {
+  pfs.PutObjectRequest object = 1;
+  pfs.CreateRepoRequest repo = 2;
+  pfs.BuildCommitRequest commit = 3;
+  pfs.CreateBranchRequest branch = 4;
+  pps.CreatePipelineRequest pipeline = 5;
+}
+
+message ExtractRequest {}
+message RestoreRequest {
+    Op op = 1;
+}
+
+service API {
+  rpc Extract(ExtractRequest) returns (stream Op) {}
+  rpc Restore(stream RestoreRequest) returns (google.protobuf.Empty) {}
+}
