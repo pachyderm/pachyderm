@@ -226,9 +226,10 @@ message CommitInfos {
 }
 
 message CreateBranchRequest {
-  Branch branch = 1;
-  Commit head = 2;
-  repeated Branch provenance = 3;
+  Commit head = 1;
+  string s_branch = 2; // for compatibility with SetBranchRequest
+  Branch branch = 3;
+  repeated Branch provenance = 4;
 }
 
 message InspectBranchRequest {
