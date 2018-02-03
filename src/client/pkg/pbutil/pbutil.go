@@ -31,11 +31,11 @@ type readWriter struct {
 
 // Read reads val from r.
 func (r *readWriter) Read(val proto.Message) error {
-	var l int
+	var l int64
 	if err := binary.Read(r.r, binary.LittleEndian, &l); err != nil {
 		return err
 	}
-	if r.buf == nil || len(r.buf) < l {
+	if r.buf == nil || len(r.buf) < int(l) {
 		r.buf = make([]byte, l)
 	}
 	buf := r.buf[0 : l-1]
@@ -54,7 +54,7 @@ func (r *readWriter) Write(val proto.Message) error {
 	if err != nil {
 		return err
 	}
-	if err := binary.Write(r.w, binary.LittleEndian, len(bytes)); err != nil {
+	if err := binary.Write(r.w, binary.LittleEndian, int64(len(bytes))); err != nil {
 		return err
 	}
 	_, err = r.w.Write(bytes)
