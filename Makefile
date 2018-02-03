@@ -245,7 +245,7 @@ delete-all-launch-bench:
 bench: clean-launch-bench build-bench-images push-bench-images launch-bench run-bench clean-launch-bench
 
 launch-kube: check-kubectl
-	etc/kube/start-minikube.sh
+	etc/kube/start-minikube.sh -r
 
 clean-launch-kube:
 	sudo minikube delete
@@ -259,7 +259,7 @@ launch: install check-kubectl
 
 launch-dev: check-kubectl check-kubectl-connection install
 	$(eval STARTTIME := $(shell date +%s))
-	pachctl deploy local --no-guaranteed -d --dry-run | kubectl $(KUBECTLFLAGS) create -f -
+	pachctl deploy local --no-guaranteed -d --dry-run $(LAUNCH_DEV_ARGS) | kubectl $(KUBECTLFLAGS) create -f -
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
@@ -374,7 +374,7 @@ test-kube-17:
 	@# Delete existing minikube, but test should still pass if minikube hasn't been started
 	@make clean-launch-kube || true
 	./etc/kube/start-minikube.sh -v 1.7.5
-	@make launch-dev
+	@LAUNCH_DEV_ARGS="--no-rbac" make launch-dev
 	@# If we can deploy a pipeline, 1.7 probably works
 	go test -v ./src/server -run TestPipelineWithParallelism
 

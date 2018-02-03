@@ -12,11 +12,12 @@ import (
 )
 
 const (
-	reposPrefix         = "/repos"
-	repoRefCountsPrefix = "/repoRefCounts"
-	commitsPrefix       = "/commits"
-	branchesPrefix      = "/branches"
-	openCommitsPrefix   = "/openCommits"
+	reposPrefix          = "/repos"
+	repoRefCountsPrefix  = "/repoRefCounts"
+	putFileRecordsPrefix = "/putFileRecords"
+	commitsPrefix        = "/commits"
+	branchesPrefix       = "/branches"
+	openCommitsPrefix    = "/openCommits"
 )
 
 var (
@@ -42,6 +43,17 @@ func RepoRefCounts(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 		path.Join(etcdPrefix, repoRefCountsPrefix),
 		nil,
 		nil,
+		nil,
+	)
+}
+
+// PutFileRecords returns a collection of putFileRecords
+func PutFileRecords(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
+	return col.NewCollection(
+		etcdClient,
+		path.Join(etcdPrefix, putFileRecordsPrefix),
+		nil,
+		&pfs.PutFileRecords{},
 		nil,
 	)
 }

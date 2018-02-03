@@ -38,22 +38,22 @@ type Event struct {
 }
 
 // Unmarshal unmarshals the item in an event into a protobuf message.
-func (e *Event) Unmarshal(key *string, val proto.Unmarshaler) error {
+func (e *Event) Unmarshal(key *string, val proto.Message) error {
 	if err := CheckType(e.Template, val); err != nil {
 		return err
 	}
 	*key = string(e.Key)
-	return val.Unmarshal(e.Value)
+	return proto.Unmarshal(e.Value, val)
 }
 
 // UnmarshalPrev unmarshals the prev item in an event into a protobuf
 // message.
-func (e *Event) UnmarshalPrev(key *string, val proto.Unmarshaler) error {
+func (e *Event) UnmarshalPrev(key *string, val proto.Message) error {
 	if err := CheckType(e.Template, val); err != nil {
 		return err
 	}
 	*key = string(e.PrevKey)
-	return val.Unmarshal(e.PrevValue)
+	return proto.Unmarshal(e.PrevValue, val)
 }
 
 // Watcher ...

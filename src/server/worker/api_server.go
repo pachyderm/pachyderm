@@ -419,11 +419,11 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 			if err := puller.PullDiff(pachClient, root,
 				file.Commit.Repo.Name, file.Commit.ID, file.Path,
 				input.ParentCommit.Repo.Name, input.ParentCommit.ID, file.Path,
-				true, input.Lazy, concurrency, statsTree, treeRoot); err != nil {
+				true, input.Lazy, input.EmptyFiles, concurrency, statsTree, treeRoot); err != nil {
 				return "", err
 			}
 		} else {
-			if err := puller.Pull(pachClient, root, file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, concurrency, statsTree, treeRoot); err != nil {
+			if err := puller.Pull(pachClient, root, file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, input.EmptyFiles, concurrency, statsTree, treeRoot); err != nil {
 				return "", err
 			}
 		}
@@ -517,13 +517,13 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	return nil
 }
 
-func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag string, logger *taggedLogger, inputs []*Input, stats *pps.ProcessStats, statsTree hashtree.OpenHashTree, statsRoot string) error {
+func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag string, logger *taggedLogger, inputs []*Input, stats *pps.ProcessStats, statsTree hashtree.OpenHashTree, statsRoot string) (retErr error) {
 	defer func(start time.Time) {
 		stats.UploadTime = types.DurationProto(time.Since(start))
 	}(time.Now())
 	logger.Logf("starting to upload output")
 	defer func(start time.Time) {
-		logger.Logf("finished uploading output - took %v", time.Since(start))
+		logger.Logf("finished uploading output - took %v - with error (%v)", time.Since(start), retErr)
 	}(time.Now())
 	// hashtree is not thread-safe--guard with 'lock'
 	var lock sync.Mutex

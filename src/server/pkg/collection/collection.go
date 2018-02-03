@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -13,6 +14,10 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
 )
+
+//QueryPaginationLimit defines the maximum number of results returned in an
+// etcd query using a paginated iterator
+const QueryPaginationLimit = 10000
 
 type collection struct {
 	etcdClient *etcd.Client
@@ -103,7 +108,7 @@ type readWriteCollection struct {
 	stm STM
 }
 
-func (c *readWriteCollection) Get(key string, val proto.Unmarshaler) error {
+func (c *readWriteCollection) Get(key string, val proto.Message) error {
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
@@ -111,15 +116,15 @@ func (c *readWriteCollection) Get(key string, val proto.Unmarshaler) error {
 	if err != nil {
 		return err
 	}
-	return val.Unmarshal([]byte(valStr))
+	return proto.Unmarshal([]byte(valStr), val)
 }
 
-func cloneProtoMsg(original proto.Marshaler) proto.Unmarshaler {
+func cloneProtoMsg(original proto.Marshaler) proto.Message {
 	val := reflect.ValueOf(original)
 	if val.Kind() == reflect.Ptr {
 		val = reflect.Indirect(val)
 	}
-	return reflect.New(val.Type()).Interface().(proto.Unmarshaler)
+	return reflect.New(val.Type()).Interface().(proto.Message)
 }
 
 // Giving a value, an index, and the key of the item, return the path
@@ -267,7 +272,7 @@ func (c *readWriteCollection) Delete(key string) error {
 	if c.indexes != nil && c.template != nil {
 		val := proto.Clone(c.template)
 		for _, index := range c.indexes {
-			if err := c.Get(key, val.(proto.Unmarshaler)); err == nil {
+			if err := c.Get(key, val.(proto.Message)); err == nil {
 				if index.Multi {
 					indexPaths := c.getMultiIndexPaths(val, index, key)
 					for _, indexPath := range indexPaths {
@@ -292,6 +297,10 @@ func (c *readWriteCollection) DeleteAll() {
 		c.stm.DelAll(fmt.Sprintf("%s__index_%s/", indexDir, index))
 	}
 	c.stm.DelAll(c.prefix)
+}
+
+func (c *readWriteCollection) DeleteAllPrefix(prefix string) {
+	c.stm.DelAll(path.Join(c.prefix, prefix) + "/")
 }
 
 type readWriteIntCollection struct {
@@ -370,7 +379,7 @@ type readonlyCollection struct {
 	ctx context.Context
 }
 
-func (c *readonlyCollection) Get(key string, val proto.Unmarshaler) error {
+func (c *readonlyCollection) Get(key string, val proto.Message) error {
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
@@ -383,7 +392,7 @@ func (c *readonlyCollection) Get(key string, val proto.Unmarshaler) error {
 		return ErrNotFound{c.prefix, key}
 	}
 
-	return val.Unmarshal(resp.Kvs[0].Value)
+	return proto.Unmarshal(resp.Kvs[0].Value, val)
 }
 
 // an indirect iterator goes through a list of keys and retrieve those
@@ -394,7 +403,7 @@ type indirectIterator struct {
 	col   *readonlyCollection
 }
 
-func (i *indirectIterator) Next(key *string, val proto.Unmarshaler) (ok bool, retErr error) {
+func (i *indirectIterator) Next(key *string, val proto.Message) (ok bool, retErr error) {
 	if err := watch.CheckType(i.col.template, val); err != nil {
 		return false, err
 	}
@@ -433,7 +442,7 @@ func (c *readonlyCollection) GetByIndex(index Index, val interface{}) (Iterator,
 	}, nil
 }
 
-func (c *readonlyCollection) GetBlock(key string, val proto.Unmarshaler) error {
+func (c *readonlyCollection) GetBlock(key string, val proto.Message) error {
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
@@ -449,6 +458,33 @@ func (c *readonlyCollection) GetBlock(key string, val proto.Unmarshaler) error {
 		}
 		return e.Unmarshal(&key, val)
 	}
+}
+
+func endKeyFromPrefix(prefix string) string {
+	// Lexigraphically increment the last character
+	return prefix[0:len(prefix)-1] + string(byte(prefix[len(prefix)-1])+1)
+}
+
+// ListPrefix returns lexigraphically sorted (not sorted by create time)
+// results and returns an iterator that is paginated
+func (c *readonlyCollection) ListPrefix(prefix string) (Iterator, error) {
+	queryPrefix := c.prefix
+	if prefix != "" {
+		// If we always call join, we'll get rid of the trailing slash we need
+		// on the root c.prefix
+		queryPrefix = filepath.Join(c.prefix, prefix)
+	}
+	// omit sort so that we get results lexigraphically ordered, so that we can paginate properly
+	resp, err := c.etcdClient.Get(c.ctx, queryPrefix, etcd.WithPrefix(), etcd.WithLimit(QueryPaginationLimit))
+	if err != nil {
+		return nil, err
+	}
+	return &paginatedIterator{
+		endKey:     endKeyFromPrefix(queryPrefix),
+		resp:       resp,
+		etcdClient: c.etcdClient,
+		ctx:        c.ctx,
+	}, nil
 }
 
 // List returns an iteraor that can be used to iterate over the collection.
@@ -471,6 +507,14 @@ type iterator struct {
 	col   *readonlyCollection
 }
 
+type paginatedIterator struct {
+	index      int
+	endKey     string
+	resp       *etcd.GetResponse
+	etcdClient *etcd.Client
+	ctx        context.Context
+}
+
 func (c *readonlyCollection) Count() (int64, error) {
 	resp, err := c.etcdClient.Get(c.ctx, c.prefix, etcd.WithPrefix(), etcd.WithCountOnly())
 	if err != nil {
@@ -479,7 +523,7 @@ func (c *readonlyCollection) Count() (int64, error) {
 	return resp.Count, err
 }
 
-func (i *iterator) Next(key *string, val proto.Unmarshaler) (ok bool, retErr error) {
+func (i *iterator) Next(key *string, val proto.Message) (ok bool, retErr error) {
 	if err := watch.CheckType(i.col.template, val); err != nil {
 		return false, err
 	}
@@ -488,13 +532,45 @@ func (i *iterator) Next(key *string, val proto.Unmarshaler) (ok bool, retErr err
 		i.index++
 
 		*key = path.Base(string(kv.Key))
-		if err := val.Unmarshal(kv.Value); err != nil {
+		if err := proto.Unmarshal(kv.Value, val); err != nil {
 			return false, err
 		}
 
 		return true, nil
 	}
 	return false, nil
+}
+
+// Next() writes a fully qualified key (including the path) to the key value
+func (i *paginatedIterator) Next(key *string, val proto.Message) (ok bool, retErr error) {
+	if i.index < len(i.resp.Kvs) {
+		kv := i.resp.Kvs[i.index]
+		i.index++
+
+		*key = string(kv.Key)
+		if err := proto.Unmarshal(kv.Value, val); err != nil {
+			return false, err
+		}
+
+		return true, nil
+	}
+	if len(i.resp.Kvs) == 0 {
+		//empty response
+		return false, nil
+	}
+	// Reached end of resp, try for another page
+	fromKey := string(i.resp.Kvs[len(i.resp.Kvs)-1].Key)
+	resp, err := i.etcdClient.Get(i.ctx, fromKey, etcd.WithRange(i.endKey), etcd.WithLimit(QueryPaginationLimit))
+	if err != nil {
+		return false, err
+	}
+	if len(resp.Kvs) == 1 {
+		// Only got the from key, there are no more kvs to fetch from etcd
+		return false, nil
+	}
+	i.index = 1 // Move past the from key
+	i.resp = resp
+	return i.Next(key, val)
 }
 
 // Watch a collection, returning the current content of the collection as

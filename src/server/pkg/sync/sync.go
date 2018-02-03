@@ -139,10 +139,12 @@ func (p *Puller) makeFile(path string, f func(io.Writer) error) (retErr error) {
 // fileInfo is the file/dir we are puuling.
 // pipes causes the function to create named pipes in place of files, thus
 // lazily downloading the data as it's needed.
+// emptyFiles causes the function to create empty files with no content, it's
+// mutually exclusive with pipes.
 // tree is a hashtree to mirror the pulled content into (it may be left nil)
 // treeRoot is the root the data is mirrored to within tree
 func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, file string,
-	pipes bool, concurrency int, tree hashtree.OpenHashTree, treeRoot string) error {
+	pipes bool, emptyFiles bool, concurrency int, tree hashtree.OpenHashTree, treeRoot string) error {
 	limiter := limit.New(concurrency)
 	var eg errgroup.Group
 	if err := client.Walk(repo, commit, file, func(fileInfo *pfs.FileInfo) error {
@@ -171,6 +173,9 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 				return client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, w)
 			})
 		}
+		if emptyFiles {
+			return p.makeFile(path, func(w io.Writer) error { return nil })
+		}
 		eg.Go(func() (retErr error) {
 			limiter.Acquire()
 			defer limiter.Release()
@@ -190,7 +195,7 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 // will be downloaded and they will be downloaded under root. Otherwise new and
 // old files will be downloaded under root/new and root/old respectively.
 func (p *Puller) PullDiff(client *pachclient.APIClient, root string, newRepo, newCommit, newPath, oldRepo, oldCommit, oldPath string,
-	newOnly bool, pipes bool, concurrency int, tree hashtree.OpenHashTree, treeRoot string) error {
+	newOnly bool, pipes bool, emptyFiles bool, concurrency int, tree hashtree.OpenHashTree, treeRoot string) error {
 	limiter := limit.New(concurrency)
 	var eg errgroup.Group
 	newFiles, oldFiles, err := client.DiffFile(newRepo, newCommit, newPath, oldRepo, oldCommit, oldPath, false)
@@ -219,6 +224,10 @@ func (p *Puller) PullDiff(client *pachclient.APIClient, root string, newRepo, ne
 			if err := p.makePipe(path, func(w io.Writer) error {
 				return client.GetFile(newFile.File.Commit.Repo.Name, newFile.File.Commit.ID, newFile.File.Path, 0, 0, w)
 			}); err != nil {
+				return err
+			}
+		} else if emptyFiles {
+			if err := p.makeFile(path, func(w io.Writer) error { return nil }); err != nil {
 				return err
 			}
 		} else {

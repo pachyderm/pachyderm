@@ -65,7 +65,7 @@ type Value interface {
 // ReadWriteCollection is a collection interface that supports read,write and delete
 // operations.
 type ReadWriteCollection interface {
-	Get(key string, val proto.Unmarshaler) error
+	Get(key string, val proto.Message) error
 	Put(key string, val proto.Marshaler) error
 	// PutTTL is the same as Put except that the object is removed after
 	// TTL seconds.
@@ -78,6 +78,7 @@ type ReadWriteCollection interface {
 	Create(key string, val proto.Marshaler) error
 	Delete(key string) error
 	DeleteAll()
+	DeleteAllPrefix(prefix string)
 }
 
 // ReadWriteIntCollection is a ReadonlyCollection interface specifically for ints.
@@ -93,11 +94,12 @@ type ReadWriteIntCollection interface {
 
 // ReadonlyCollection is a collection interface that only supports read ops.
 type ReadonlyCollection interface {
-	Get(key string, val proto.Unmarshaler) error
+	Get(key string, val proto.Message) error
 	GetByIndex(index Index, val interface{}) (Iterator, error)
 	// GetBlock is like Get but waits for the key to exist if it doesn't already.
-	GetBlock(key string, val proto.Unmarshaler) error
+	GetBlock(key string, val proto.Message) error
 	List() (Iterator, error)
+	ListPrefix(prefix string) (Iterator, error)
 	Count() (int64, error)
 	Watch() (watch.Watcher, error)
 	// WatchWithPrev is like Watch, but the events will include the previous
@@ -113,5 +115,5 @@ type Iterator interface {
 	// of the next object in a collection.
 	// ok is true if the serialization was successful.  It's false if the
 	// collection has been exhausted.
-	Next(key *string, val proto.Unmarshaler) (ok bool, retErr error)
+	Next(key *string, val proto.Message) (ok bool, retErr error)
 }

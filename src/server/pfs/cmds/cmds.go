@@ -129,7 +129,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 	listRepo := &cobra.Command{
 		Use:   "list-repo",
 		Short: "Return all repos.",
-		Long:  "Reutrn all repos.",
+		Long:  "Return all repos.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := client.NewOnUserMachine(metrics, "user")
 			if err != nil {
@@ -526,7 +526,7 @@ $ pachctl subscribe-commit test master --new
 	createBranch.Flags().StringVarP(&head, "head", "", "", "The head of the newly created branch.")
 
 	listBranch := &cobra.Command{
-		Use:   "list-branch <repo-name>",
+		Use:   "list-branch repo-name",
 		Short: "Return all branches on a repo.",
 		Long:  "Return all branches on a repo.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
@@ -557,7 +557,7 @@ $ pachctl subscribe-commit test master --new
 	rawFlag(listBranch)
 
 	setBranch := &cobra.Command{
-		Use:   "set-branch <repo-name> <commit-id/branch-name> <new-branch-name>",
+		Use:   "set-branch repo-name commit-id/branch-name new-branch-name",
 		Short: "Set a commit and its ancestors to a branch",
 		Long: `Set a commit and its ancestors to a branch.
 
@@ -580,7 +580,7 @@ $ pachctl set-branch foo test master` + codeend,
 	}
 
 	deleteBranch := &cobra.Command{
-		Use:   "delete-branch <repo-name> <branch-name>",
+		Use:   "delete-branch repo-name branch-name",
 		Short: "Delete a branch",
 		Long:  "Delete a branch, while leaving the commits intact",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
@@ -805,7 +805,7 @@ $ pachctl get-file foo master^2 XXX
 					return fmt.Errorf("an output path needs to be specified when using the --recursive flag")
 				}
 				puller := sync.NewPuller()
-				return puller.Pull(client, outputPath, args[0], args[1], args[2], false, int(parallelism), nil, "")
+				return puller.Pull(client, outputPath, args[0], args[1], args[2], false, false, int(parallelism), nil, "")
 			}
 			var w io.Writer
 			// If an output path is given, print the output to stdout
