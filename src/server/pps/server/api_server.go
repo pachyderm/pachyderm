@@ -490,7 +490,7 @@ JobsLoop:
 				}
 			}
 		}
-		jobInfos = append(jobInfos, &jobInfo)
+		jobInfos = append(jobInfos, jobInfo)
 	}
 	return jobInfos, nil
 }
@@ -1513,7 +1513,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	pachClient := a.getPachClient().WithCtx(ctx)
 	ctx = pachClient.Ctx() // pachClient will propagate auth info
 	pfsClient := pachClient.PfsAPIClient
-
+	if request.Salt == "" {
+		request.Salt = uuid.NewWithoutDashes()
+	}
 	pipelineInfo := &pps.PipelineInfo{
 		Pipeline:           request.Pipeline,
 		Version:            1,
@@ -1530,7 +1532,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Incremental:        request.Incremental,
 		CacheSize:          request.CacheSize,
 		EnableStats:        request.EnableStats,
-		Salt:               uuid.NewWithoutDashes(),
+		Salt:               request.Salt,
 		Batch:              request.Batch,
 		MaxQueueSize:       request.MaxQueueSize,
 		Service:            request.Service,
@@ -2441,10 +2443,7 @@ func (a *apiServer) rcPods(rcName string) ([]v1.Pod, error) {
 }
 
 func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs.Commit, error) {
-	pachClient, err := a.getPachClient()
-	if err != nil {
-		return nil, err
-	}
+	pachClient := a.getPachClient()
 	ci, err := pachClient.InspectCommit(commit.Repo.Name, commit.ID)
 	if err != nil {
 		return nil, err
