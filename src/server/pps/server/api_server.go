@@ -429,11 +429,23 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 // listJob is the internal implementation of ListJob shared between ListJob and
 // ListJobStream. When ListJob is removed, this should be inlined into
 // ListJobStream.
-func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline, outputCommit *pfs.Commit) ([]*pps.JobInfo, error) {
+func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline, outputCommit *pfs.Commit, inputCommits []*pfs.Commit) ([]*pps.JobInfo, error) {
 	ctx := pachClient.Ctx()
+	var err error
+	if outputCommit != nil {
+		outputCommit, err = a.resolveCommit(ctx, outputCommit)
+		if err != nil {
+			return nil, err
+		}
+	}
+	for i, inputCommit := range inputCommits {
+		inputCommits[i], err = a.resolveCommit(ctx, inputCommit)
+		if err != nil {
+			return nil, err
+		}
+	}
 	jobs := a.jobs.ReadOnly(ctx)
 	var iter col.Iterator
-	var err error
 	if pipeline != nil {
 		iter, err = jobs.GetByIndex(ppsdb.JobsPipelineIndex, pipeline)
 	} else if outputCommit != nil {
@@ -446,6 +458,7 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 	}
 
 	var jobInfos []*pps.JobInfo
+JobsLoop:
 	for {
 		var jobID string
 		var jobPtr pps.EtcdJobInfo
@@ -460,7 +473,24 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 		if err != nil {
 			return nil, err
 		}
-		jobInfos = append(jobInfos, jobInfo)
+		if len(inputCommits) > 0 {
+			found := make([]bool, len(inputCommits))
+			pps.VisitInput(jobInfo.Input, func(in *pps.Input) {
+				if in.Atom != nil {
+					for i, inputCommit := range inputCommits {
+						if in.Atom.Commit == inputCommit.ID {
+							found[i] = true
+						}
+					}
+				}
+			})
+			for _, found := range found {
+				if !found {
+					continue JobsLoop
+				}
+			}
+		}
+		jobInfos = append(jobInfos, &jobInfo)
 	}
 	return jobInfos, nil
 }
@@ -539,7 +569,7 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 		}
 	}(time.Now())
 	pachClient := a.getPachClient().WithCtx(ctx)
-	jobInfos, err := a.listJob(pachClient, request.Pipeline, request.OutputCommit)
+	jobInfos, err := a.listJob(pachClient, request.Pipeline, request.OutputCommit, request.InputCommit)
 	if err != nil {
 		return nil, err
 	}
@@ -553,7 +583,7 @@ func (a *apiServer) ListJobStream(request *pps.ListJobRequest, resp pps.API_List
 		a.Log(request, fmt.Sprintf("stream containing %d JobInfos", sent), retErr, time.Since(start))
 	}(time.Now())
 	pachClient := a.getPachClient().WithCtx(resp.Context())
-	jobInfos, err := a.listJob(pachClient, request.Pipeline, request.OutputCommit)
+	jobInfos, err := a.listJob(pachClient, request.Pipeline, request.OutputCommit, request.InputCommit)
 	if err != nil {
 		return err
 	}
@@ -2408,6 +2438,18 @@ func (a *apiServer) rcPods(rcName string) ([]v1.Pod, error) {
 		return nil, err
 	}
 	return podList.Items, nil
+}
+
+func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs.Commit, error) {
+	pachClient, err := a.getPachClient()
+	if err != nil {
+		return nil, err
+	}
+	ci, err := pachClient.InspectCommit(commit.Repo.Name, commit.ID)
+	if err != nil {
+		return nil, err
+	}
+	return ci.Commit, nil
 }
 
 func labels(app string) map[string]string {

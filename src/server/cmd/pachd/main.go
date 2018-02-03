@@ -6,6 +6,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"path"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -97,6 +98,7 @@ func main() {
 }
 
 func doSidecarMode(appEnvObj interface{}) error {
+	debug.SetGCPercent(50)
 	go func() {
 		log.Println(http.ListenAndServe(":651", nil))
 	}()

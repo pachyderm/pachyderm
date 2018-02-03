@@ -158,6 +158,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		ImagePullSecrets:              options.imagePullSecrets,
 		TerminationGracePeriodSeconds: &zeroVal,
 		SecurityContext:               &v1.PodSecurityContext{RunAsUser: &zeroVal},
+		ServiceAccountName:            assets.ServiceAccountName,
 	}
 	resourceRequirements := v1.ResourceRequirements{}
 	if options.resourceRequests != nil {

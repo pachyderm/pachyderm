@@ -26,7 +26,6 @@ import (
 	_metrics "github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 
 	"github.com/spf13/cobra"
-	"go.pedge.io/pkg/cobra"
 )
 
 var defaultDashImage = "pachyderm/dash:0.5.13"
@@ -81,6 +80,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var registry string
 	var imagePullSecret string
 	var noGuaranteed bool
+	var noRBAC bool
 
 	deployLocal := &cobra.Command{
 		Use:   "local",
@@ -118,14 +118,15 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deployLocal.Flags().BoolVarP(&dev, "dev", "d", false, "Deploy pachd built locally, disable metrics, and use insecure authentication")
 
 	deployGoogle := &cobra.Command{
-		Use:   "google <GCS bucket> <size of disk(s) (in GB)>",
+		Use:   "google <GCS bucket> <size of disk(s) (in GB)> [<service account creds file>]",
 		Short: "Deploy a Pachyderm cluster running on GCP.",
 		Long: "Deploy a Pachyderm cluster running on GCP.\n" +
 			"Arguments are:\n" +
 			"  <GCS bucket>: A GCS bucket where Pachyderm will store PFS data.\n" +
 			"  <GCE persistent disks>: A comma-separated list of GCE persistent disks, one per etcd node (see --etcd-nodes).\n" +
-			"  <size of disks>: Size of GCE persistent disks in GB (assumed to all be the same).\n",
-		Run: cmdutil.RunFixedArgs(2, func(args []string) (retErr error) {
+			"  <size of disks>: Size of GCE persistent disks in GB (assumed to all be the same).\n" +
+			"  <service account creds file>: a file contain a private key for a service account (downloaded from GCE).\n",
+		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
 			if metrics && !dev {
 				start := time.Now()
 				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
@@ -141,7 +142,15 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			}
 			manifest := &bytes.Buffer{}
 			opts.BlockCacheSize = "0G" // GCS is fast so we want to disable the block cache. See issue #1650
-			if err = assets.WriteGoogleAssets(manifest, opts, args[0], volumeSize); err != nil {
+			var cred string
+			if len(args) == 3 {
+				credBytes, err := ioutil.ReadFile(args[2])
+				if err != nil {
+					return fmt.Errorf("error reading creds file %s: %v", args[2], err)
+				}
+				cred = string(credBytes)
+			}
+			if err = assets.WriteGoogleAssets(manifest, opts, args[0], cred, volumeSize); err != nil {
 				return err
 			}
 			return maybeKcCreate(dryRun, manifest, opts, metrics)
@@ -154,7 +163,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		Long: "(in progress) Deploy a custom Pachyderm cluster configuration.\n" +
 			"If <object store backend> is \"s3\", then the arguments are:\n" +
 			"    <volumes> <size of volumes (in GB)> <bucket> <id> <secret> <endpoint>\n",
-		Run: pkgcobra.RunBoundedArgs(pkgcobra.Bounds{Min: 4, Max: 7}, func(args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(4, 7, func(args []string) (retErr error) {
 			if metrics && !dev {
 				start := time.Now()
 				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
@@ -285,10 +294,10 @@ particular backend, run "pachctl deploy storage <backend>"`,
 		Run: cmdutil.RunBoundedArgs(1, 5, func(args []string) (retErr error) {
 			var data map[string][]byte
 			switch args[0] {
-			case "aws":
+			case "amazon", "aws":
 				// Need at least 4 arguments: backend, bucket, id, secret
 				if len(args) < 4 {
-					return fmt.Errorf("Usage: pachctl deploy storage aws <region> <id> <secret> <token>\n\n<token> is optional")
+					return fmt.Errorf("Usage: pachctl deploy storage amazon <region> <id> <secret> <token>\n\n<token> is optional")
 				}
 				var token string
 				if len(args) == 5 {
@@ -296,7 +305,14 @@ particular backend, run "pachctl deploy storage <backend>"`,
 				}
 				data = assets.AmazonSecret("", "", args[2], args[3], token, args[1])
 			case "google":
-				return fmt.Errorf("deploying credentials for GCS storage is not currently supported")
+				if len(args) < 2 {
+					return fmt.Errorf("Usage: pachctl deploy storage google <service account creds file>")
+				}
+				credBytes, err := ioutil.ReadFile(args[1])
+				if err != nil {
+					return fmt.Errorf("error reading creds file %s: %v", args[2], err)
+				}
+				data = assets.GoogleSecret("", string(credBytes))
 			case "azure":
 				// Need 3 arguments: backend, account name, account key
 				if len(args) != 3 {
@@ -391,6 +407,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 				DashImage:               dashImage,
 				Registry:                registry,
 				NoGuaranteed:            noGuaranteed,
+				NoRBAC:                  noRBAC,
 			}
 			return nil
 		}),
@@ -406,6 +423,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 	deploy.PersistentFlags().StringVar(&imagePullSecret, "image-pull-secret", "", "A secret in Kubernetes that's needed to pull from your private registry.")
 	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", "", "Image URL for pachyderm dashboard")
 	deploy.PersistentFlags().BoolVar(&noGuaranteed, "no-guaranteed", false, "Don't use guaranteed QoS for etcd and pachd deployments. Turning this on (turning guaranteed QoS off) can lead to more stable local clusters (such as a on Minikube), it should normally be used for production clusters.")
+	deploy.PersistentFlags().BoolVar(&noRBAC, "no-rbac", false, "Don't deploy RBAC roles for Pachyderm.")
 
 	deploy.AddCommand(
 		deployLocal,
@@ -489,6 +507,8 @@ Are you sure you want to proceed? yN
 				"serviceaccount",
 				"secret",
 				"statefulset",
+				"clusterrole",
+				"clusterrolebinding",
 			}
 			if all {
 				assets = append(assets, []string{

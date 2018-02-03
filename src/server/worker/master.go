@@ -507,7 +507,7 @@ func (a *APIServer) collectDatum(pachClient *client.APIClient, index int, files 
 	return nil
 }
 
-func chunks(df DatumFactory, spec *pps.ChunkSpec, parallelism int) *Chunks {
+func makeChunks(df DatumFactory, spec *pps.ChunkSpec, parallelism int) *Chunks {
 	if spec == nil {
 		spec = &pps.ChunkSpec{}
 	}
@@ -648,7 +648,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		if err != nil {
 			return fmt.Errorf("error from GetExpectedNumWorkers: %v")
 		}
-		chunks := chunks(df, jobInfo.ChunkSpec, parallelism)
+		chunks := &Chunks{}
 
 		// Read the job document, and either resume (if we're recovering from a
 		// crash) or mark it running. Also write the input chunks calculated above
@@ -671,6 +671,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			if err := chunksCol.Get(jobID, chunks); err == nil {
 				return nil
 			}
+			chunks = makeChunks(df, jobInfo.ChunkSpec, parallelism)
 			return chunksCol.Put(jobID, chunks)
 		}); err != nil {
 			return err

@@ -308,6 +308,7 @@ message PutFileRecord {
 message PutFileRecords {
   bool split = 1;
   repeated PutFileRecord records = 2;
+  bool tombstone = 3;
 }
 
 message CopyFileRequest {
