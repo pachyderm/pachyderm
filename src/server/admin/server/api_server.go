@@ -178,7 +178,7 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 				return fmt.Errorf("error creating commit: %v", grpcutil.ScrubGRPC(err))
 			}
 		case op.Branch != nil:
-			if op.Branch == nil {
+			if op.Branch.Branch == nil {
 				op.Branch.Branch = client.NewBranch(op.Branch.Head.Repo.Name, op.Branch.SBranch)
 			}
 			if _, err := pachClient.PfsAPIClient.CreateBranch(ctx, op.Branch); err != nil {
