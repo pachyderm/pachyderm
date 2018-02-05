@@ -10,10 +10,11 @@ import "client/version/versionpb/version.proto";
 message Op {
   versionpb.Version version = 1;
   pfs.PutObjectRequest object = 2;
-  pfs.CreateRepoRequest repo = 3;
-  pfs.BuildCommitRequest commit = 4;
-  pfs.SetBranchRequest branch = 5;
-  pps.CreatePipelineRequest pipeline = 6;
+  pfs.TagObjectRequest tag = 3;
+  pfs.CreateRepoRequest repo = 4;
+  pfs.BuildCommitRequest commit = 5;
+  pfs.SetBranchRequest branch = 6;
+  pps.CreatePipelineRequest pipeline = 7;
 }
 
 message ExtractRequest {}
