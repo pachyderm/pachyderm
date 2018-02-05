@@ -26,6 +26,16 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 	if err != nil {
 		return err
 	}
+	pachClient = pachClient.WithCtx(extractServer.Context())
+	v, err := pachClient.VersionAPIClient.GetVersion(pachClient.Ctx(), &types.Empty{})
+	if err != nil {
+		return err
+	}
+	if err := extractServer.Send(&admin.Op{
+		Version: v,
+	}); err != nil {
+		return err
+	}
 	ris, err := pachClient.ListRepo(nil)
 	if err != nil {
 		return err
@@ -168,6 +178,7 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 		}
 		op := req.Op
 		switch {
+		case op.Version != nil:
 		case op.Object != nil:
 		case op.Repo != nil:
 			if _, err := pachClient.PfsAPIClient.CreateRepo(ctx, op.Repo); err != nil {
