@@ -490,7 +490,7 @@ JobsLoop:
 				}
 			}
 		}
-		jobInfos = append(jobInfos, &jobInfo)
+		jobInfos = append(jobInfos, jobInfo)
 	}
 	return jobInfos, nil
 }
@@ -2441,10 +2441,7 @@ func (a *apiServer) rcPods(rcName string) ([]v1.Pod, error) {
 }
 
 func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs.Commit, error) {
-	pachClient, err := a.getPachClient()
-	if err != nil {
-		return nil, err
-	}
+	pachClient := a.getPachClient()
 	ci, err := pachClient.InspectCommit(commit.Repo.Name, commit.ID)
 	if err != nil {
 		return nil, err
