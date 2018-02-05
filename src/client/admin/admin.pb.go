@@ -20,7 +20,7 @@ import math "math"
 import google_protobuf "github.com/gogo/protobuf/types"
 import pfs "github.com/pachyderm/pachyderm/src/client/pfs"
 import pps "github.com/pachyderm/pachyderm/src/client/pps"
-import versionpb "client/version/versionpb"
+import versionpb "github.com/pachyderm/pachyderm/src/client/version/versionpb"
 
 import context "golang.org/x/net/context"
 import grpc "google.golang.org/grpc"
