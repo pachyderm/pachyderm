@@ -419,7 +419,7 @@ message ListObjectsRequest {}
 
 message ListTagsRequest {
   string prefix = 1;
-  bool includeObject = 2;
+  bool include_object = 2;
 }
 
 message ListTagsResponse {
