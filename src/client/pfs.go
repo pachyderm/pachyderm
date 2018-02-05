@@ -502,6 +502,26 @@ func (c APIClient) TagObject(hash string, tags ...string) error {
 	return nil
 }
 
+// ListObject lists objects stored in pfs.
+func (c APIClient) ListObject(f func(*pfs.Object) error) error {
+	listObjectClient, err := c.ObjectAPIClient.ListObjects(c.Ctx(), &pfs.ListObjectsRequest{})
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	for {
+		object, err := listObjectClient.Recv()
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return grpcutil.ScrubGRPC(err)
+		}
+		if err := f(object); err != nil {
+			return err
+		}
+	}
+}
+
 // InspectObject returns info about an Object.
 func (c APIClient) InspectObject(hash string) (*pfs.ObjectInfo, error) {
 	value, err := c.ObjectAPIClient.InspectObject(
@@ -536,6 +556,26 @@ func (c APIClient) ReadTag(tag string) ([]byte, error) {
 		return nil, err
 	}
 	return buffer.Bytes(), nil
+}
+
+// List tags stored in pfs.
+func (c APIClient) ListTag(f func(*pfs.ListTagsResponse) error) error {
+	listTagClient, err := c.ObjectAPIClient.ListTags(c.Ctx(), &pfs.ListTagsRequest{IncludeObject: true})
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	for {
+		listTagResponse, err := listTagClient.Recv()
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return grpcutil.ScrubGRPC(err)
+		}
+		if err := f(listTagResponse); err != nil {
+			return err
+		}
+	}
 }
 
 // Compact forces compaction of objects.
