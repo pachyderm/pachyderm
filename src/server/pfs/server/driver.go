@@ -736,7 +736,8 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 		}
 
 		if tree == nil {
-			finishedTree, err := d.getTreeForPrefix(ctx, prefix, parentTree)
+			var err error
+			finishedTree, err = d.getTreeForPrefix(ctx, prefix, parentTree)
 			if err != nil {
 				return err
 			}
