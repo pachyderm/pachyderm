@@ -38,7 +38,7 @@ func (r *readWriter) Read(val proto.Message) error {
 	if r.buf == nil || len(r.buf) < int(l) {
 		r.buf = make([]byte, l)
 	}
-	buf := r.buf[0 : l-1]
+	buf := r.buf[0:l]
 	if _, err := io.ReadFull(r.r, buf); err != nil {
 		if err == io.EOF {
 			return io.ErrUnexpectedEOF
