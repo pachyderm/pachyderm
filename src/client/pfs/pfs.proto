@@ -423,7 +423,7 @@ message ListTagsRequest {
 }
 
 message ListTagsResponse {
-  string tag = 1;
+  Tag tag = 1;
   Object object = 2;
 }
 
@@ -434,7 +434,7 @@ message DeleteObjectsRequest {
 message DeleteObjectsResponse {}
 
 message DeleteTagsRequest {
-  repeated string tags = 1;
+  repeated Tag tags = 1;
 }
 
 message DeleteTagsResponse {}

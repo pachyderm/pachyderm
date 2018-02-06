@@ -36,6 +36,25 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 	}); err != nil {
 		return err
 	}
+	if err := pachClient.ListObject(func(object *pfs.Object) error {
+		bytes, err := pachClient.ReadObject(object.Hash)
+		if err != nil {
+			return err
+		}
+		return extractServer.Send(&admin.Op{Object: &pfs.PutObjectRequest{Value: bytes}})
+	}); err != nil {
+		return err
+	}
+	if err := pachClient.ListTag(func(resp *pfs.ListTagsResponse) error {
+		return extractServer.Send(&admin.Op{
+			Tag: &pfs.TagObjectRequest{
+				Object: resp.Object,
+				Tags:   []*pfs.Tag{resp.Tag},
+			},
+		})
+	}); err != nil {
+		return err
+	}
 	ris, err := pachClient.ListRepo(nil)
 	if err != nil {
 		return err
@@ -180,6 +199,7 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 		switch {
 		case op.Version != nil:
 		case op.Object != nil:
+		case op.Tag != nil:
 		case op.Repo != nil:
 			if _, err := pachClient.PfsAPIClient.CreateRepo(ctx, op.Repo); err != nil {
 				return fmt.Errorf("error creating repo: %v", grpcutil.ScrubGRPC(err))
