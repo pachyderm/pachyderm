@@ -17,9 +17,23 @@ message Op {
   pps.CreatePipelineRequest pipeline = 7;
 }
 
-message ExtractRequest {}
+message ExtractRequest {
+  // URL is an object storage URL, if it's not "" data will be extracted to
+  // this URL rather than returned.
+  string URL = 1;
+  // NoObjects, if true, will cause extract to omit objects (and tags)
+  bool no_objects = 2;
+  // NoRepos, if true, will cause extract to omit repos, commits and branches.
+  bool no_repos = 3;
+  // NoPipelines, if true, will cause extract to omit pipelines.
+  bool no_pipelines = 4;
+}
+
 message RestoreRequest {
     Op op = 1;
+    // URL is an object storage URL, if it's not "" data will be restored from
+    // this URL.
+    string URL = 2;
 }
 
 service API {
