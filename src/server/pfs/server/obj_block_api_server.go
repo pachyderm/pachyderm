@@ -486,17 +486,22 @@ func (s *objBlockAPIServer) ListTags(request *pfsclient.ListTagsRequest, server 
 					return err
 				}
 				for _, object := range tagObjectIndex.Tags {
-					server.Send(&pfsclient.ListTagsResponse{
+					if err := server.Send(&pfsclient.ListTagsResponse{
 						Tag:    &pfsclient.Tag{Name: tag},
 						Object: object,
-					})
+					}); err != nil {
+						return err
+					}
 				}
 				return nil
 			})
+		} else {
+			if err := server.Send(&pfsclient.ListTagsResponse{
+				Tag: &pfsclient.Tag{Name: tag},
+			}); err != nil {
+				return err
+			}
 		}
-		server.Send(&pfsclient.ListTagsResponse{
-			Tag: &pfsclient.Tag{Name: tag},
-		})
 		return nil
 	})
 	return eg.Wait()
