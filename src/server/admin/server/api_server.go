@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"sync"
@@ -199,7 +200,13 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 		switch {
 		case op.Version != nil:
 		case op.Object != nil:
+			if _, _, err := pachClient.PutObject(bytes.NewBuffer(op.Object.Value)); err != nil {
+				return fmt.Errorf("error putting object: %v", err)
+			}
 		case op.Tag != nil:
+			if _, err := pachClient.ObjectAPIClient.TagObject(ctx, op.Tag); err != nil {
+				return fmt.Errorf("error tagging object: %v", grpcutil.ScrubGRPC(err))
+			}
 		case op.Repo != nil:
 			if _, err := pachClient.PfsAPIClient.CreateRepo(ctx, op.Repo); err != nil {
 				return fmt.Errorf("error creating repo: %v", grpcutil.ScrubGRPC(err))
