@@ -458,6 +458,13 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 							},
 							ImagePullPolicy: "IfNotPresent",
 							Resources:       resourceRequirements,
+							ReadinessProbe: &v1.Probe{
+								Handler: v1.Handler{
+									TCPSocket: &v1.TCPSocketAction{
+										Port: intstr.FromInt(650),
+									},
+								},
+							},
 						},
 					},
 					ServiceAccountName: ServiceAccountName,
