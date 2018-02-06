@@ -6,6 +6,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 
+	"github.com/golang/snappy"
 	"github.com/spf13/cobra"
 )
 
@@ -17,12 +18,18 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 		Use:   "extract",
 		Short: "Extract Pachyderm state to stdout.",
 		Long:  "Extract Pachyderm state to stdout.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			c, err := client.NewOnUserMachine(metrics, "user")
 			if err != nil {
 				return err
 			}
-			return c.ExtractWriter(os.Stdout)
+			w := snappy.NewBufferedWriter(os.Stdout)
+			defer func() {
+				if err := w.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			return c.ExtractWriter(w)
 		}),
 	}
 	restore := &cobra.Command{
@@ -34,7 +41,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 			if err != nil {
 				return err
 			}
-			return c.RestoreReader(os.Stdin)
+			return c.RestoreReader(snappy.NewReader(os.Stdin))
 		}),
 	}
 	return []*cobra.Command{extract, restore}

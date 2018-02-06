@@ -2211,7 +2211,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 			if err != nil {
 				return nil, err
 			}
-			activeTags[resp.Tag] = true
+			activeTags[resp.Tag.Name] = true
 			limiter.Acquire()
 			eg.Go(func() error {
 				defer limiter.Release()
@@ -2262,7 +2262,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 	if err != nil {
 		return nil, err
 	}
-	var tagsToDelete []string
+	var tagsToDelete []*pfs.Tag
 	deleteTagsIfMoreThan := func(n int) error {
 		if len(tagsToDelete) > n {
 			if _, err := objClient.DeleteTags(ctx, &pfs.DeleteTagsRequest{
@@ -2270,7 +2270,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 			}); err != nil {
 				return fmt.Errorf("error deleting tags: %v", err)
 			}
-			tagsToDelete = []string{}
+			tagsToDelete = []*pfs.Tag{}
 		}
 		return nil
 	}
@@ -2278,7 +2278,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 		if err != nil {
 			return nil, fmt.Errorf("error receiving tags from ListTags: %v", err)
 		}
-		if !activeTags[resp.Tag] {
+		if !activeTags[resp.Tag.Name] {
 			tagsToDelete = append(tagsToDelete, resp.Tag)
 		}
 		if err := deleteTagsIfMoreThan(100); err != nil {

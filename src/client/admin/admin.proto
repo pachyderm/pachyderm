@@ -5,18 +5,35 @@ import "google/protobuf/empty.proto";
 
 import "client/pfs/pfs.proto";
 import "client/pps/pps.proto";
+import "client/version/versionpb/version.proto";
 
 message Op {
-  pfs.PutObjectRequest object = 1;
-  pfs.CreateRepoRequest repo = 2;
-  pfs.BuildCommitRequest commit = 3;
-  pfs.CreateBranchRequest branch = 4;
-  pps.CreatePipelineRequest pipeline = 5;
+  versionpb.Version version = 1;
+  pfs.PutObjectRequest object = 2;
+  pfs.TagObjectRequest tag = 3;
+  pfs.CreateRepoRequest repo = 4;
+  pfs.BuildCommitRequest commit = 5;
+  pfs.CreateBranchRequest branch = 6;
+  pps.CreatePipelineRequest pipeline = 7;
 }
 
-message ExtractRequest {}
+message ExtractRequest {
+  // URL is an object storage URL, if it's not "" data will be extracted to
+  // this URL rather than returned.
+  string URL = 1;
+  // NoObjects, if true, will cause extract to omit objects (and tags)
+  bool no_objects = 2;
+  // NoRepos, if true, will cause extract to omit repos, commits and branches.
+  bool no_repos = 3;
+  // NoPipelines, if true, will cause extract to omit pipelines.
+  bool no_pipelines = 4;
+}
+
 message RestoreRequest {
     Op op = 1;
+    // URL is an object storage URL, if it's not "" data will be restored from
+    // this URL.
+    string URL = 2;
 }
 
 service API {
