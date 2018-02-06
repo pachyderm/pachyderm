@@ -487,7 +487,7 @@ func (s *objBlockAPIServer) ListTags(request *pfsclient.ListTagsRequest, server 
 				}
 				for _, object := range tagObjectIndex.Tags {
 					server.Send(&pfsclient.ListTagsResponse{
-						Tag:    tag,
+						Tag:    &pfsclient.Tag{Name: tag},
 						Object: object,
 					})
 				}
@@ -495,7 +495,7 @@ func (s *objBlockAPIServer) ListTags(request *pfsclient.ListTagsRequest, server 
 			})
 		}
 		server.Send(&pfsclient.ListTagsResponse{
-			Tag: tag,
+			Tag: &pfsclient.Tag{Name: tag},
 		})
 		return nil
 	})
@@ -513,7 +513,7 @@ func (s *objBlockAPIServer) DeleteTags(ctx context.Context, request *pfsclient.D
 		limiter.Acquire()
 		eg.Go(func() error {
 			defer limiter.Release()
-			tagPath := s.tagPath(&pfsclient.Tag{tag})
+			tagPath := s.tagPath(tag)
 			if err := s.objClient.Delete(tagPath); err != nil && !s.isNotFoundErr(err) {
 				return err
 			}
