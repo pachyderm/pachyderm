@@ -6573,7 +6573,7 @@ func getAllTags(t testing.TB, c *client.APIClient) []string {
 	var tags []string
 	for resp, err := tagsClient.Recv(); err != io.EOF; resp, err = tagsClient.Recv() {
 		require.NoError(t, err)
-		tags = append(tags, resp.Tag)
+		tags = append(tags, resp.Tag.Name)
 	}
 	return tags
 }
