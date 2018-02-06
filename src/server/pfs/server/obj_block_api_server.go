@@ -757,31 +757,32 @@ func (s *objBlockAPIServer) readProto(path string, pb proto.Unmarshaler) (retErr
 }
 
 func (s *objBlockAPIServer) writeProto(path string, pb proto.Marshaler) (retErr error) {
-	var data []byte
+	data, err := pb.Marshal()
+	if err != nil {
+		return err
+	}
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = 30 * time.Second
+	b.MaxInterval = 10 * time.Second
+	return backoff.RetryNotify(func() error {
+		return s.writeInternal(path, data)
+	}, b, func(err error, duration time.Duration) error {
+		logrus.Errorf("coult not write proto: %v, retrying in %v", err, duration)
+		return nil
+	})
+}
+
+// writeInternal contains the essential implementation of writeProto, but does
+// not retry
+func (s *objBlockAPIServer) writeInternal(path string, data []byte) (retErr error) {
 	defer func() {
 		if retErr != nil {
 			return
 		}
 		retErr = func() (retErr error) {
-			r, err := s.objClient.Reader(path, 0, 0)
-			if err != nil {
-				return err
-			}
-			defer func() {
-				if err := r.Close(); err != nil && retErr == nil {
-					retErr = err
-				}
-			}()
-			rData, err := ioutil.ReadAll(r)
-			if err != nil {
-				return err
-			}
-			if !bytes.Equal(data, rData) {
-				logrus.Errorf("can't read %s after write", path)
-				if err := s.objClient.Delete(path); err != nil {
-					logrus.Errorf("failed to delete: %s", path)
-				}
-				return fmt.Errorf("can't read %s after write", path)
+			if !s.objClient.Exists(path) {
+				logrus.Errorf("%s doesn't exist after write", path)
+				return fmt.Errorf("%s doesn't exist after write", path)
 			}
 			return nil
 		}()
@@ -795,10 +796,6 @@ func (s *objBlockAPIServer) writeProto(path string, pb proto.Marshaler) (retErr 
 			retErr = err
 		}
 	}()
-	data, err = pb.Marshal()
-	if err != nil {
-		return err
-	}
 	_, err = w.Write(data)
 	return err
 }
