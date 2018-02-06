@@ -27,8 +27,8 @@ func obj(s ...string) []*pfs.Object {
 
 // Convenience function to convert a list of strings to []interface{} for
 // EqualOneOf
-func i(ss ...string) []interface{} {
-	result := make([]interface{}, len(ss))
+func i(ss ...string) []string {
+	result := make([]string, len(ss))
 	for i, v := range ss {
 		result[i] = v
 	}
