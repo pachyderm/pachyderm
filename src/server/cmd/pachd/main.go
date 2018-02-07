@@ -52,9 +52,11 @@ import (
 )
 
 var mode string
+var readiness bool
 
 func init() {
 	flag.StringVar(&mode, "mode", "full", "Pachd currently supports two modes: full and sidecar.  The former includes everything you need in a full pachd node.  The later runs only PFS, the Auth service, and a stripped-down version of PPS.")
+	flag.BoolVar(&readiness, "readiness", false, "Run readiness check.")
 	flag.Parse()
 }
 
@@ -85,14 +87,29 @@ type appEnv struct {
 }
 
 func main() {
-	switch mode {
-	case "full":
+	switch {
+	case readiness:
+		cmdutil.Main(doReadinessCheck, &appEnv{})
+	case mode == "full":
 		cmdutil.Main(doFullMode, &appEnv{})
-	case "sidecar":
+	case mode == "sidecar":
 		cmdutil.Main(doSidecarMode, &appEnv{})
 	default:
 		fmt.Printf("unrecognized mode: %s\n", mode)
 	}
+}
+
+func doReadinessCheck(appEnvObj interface{}) error {
+	appEnv := appEnvObj.(*appEnv)
+	address, err := netutil.ExternalIP()
+	if err != nil {
+		return err
+	}
+	pachClient, err := client.NewFromAddress(fmt.Sprintf("%s:%d", address, appEnv.Port))
+	if err != nil {
+		return err
+	}
+	return pachClient.Health()
 }
 
 func doSidecarMode(appEnvObj interface{}) error {
@@ -325,9 +342,6 @@ func doFullMode(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	if err := migrate(pfsAPIServer, blockAPIServer, ppsAPIServer, adminAPIServer); err != nil {
-		return err
-	}
 	var eg errgroup.Group
 	eg.Go(func() error {
 		return http.ListenAndServe(fmt.Sprintf(":%v", pfs_server.HTTPPort), httpServer)
@@ -357,37 +371,19 @@ func doFullMode(appEnvObj interface{}) error {
 			},
 		)
 	})
+	if err := migrate(address); err != nil {
+		return err
+	}
+	healthServer.Ready()
 	return eg.Wait()
 }
 
-func migrate(pfsAPIServer pfs_server.APIServer, blockAPIServer pfs_server.BlockAPIServer, ppsAPIServer ppsclient.APIServer, adminAPIServer adminserver.APIServer) error {
-	cancelCh := make(chan struct{})
-	go func() {
-		if err := grpcutil.Serve(
-			func(s *grpc.Server) {
-				pfsclient.RegisterAPIServer(s, pfsAPIServer)
-				pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
-				ppsclient.RegisterAPIServer(s, ppsAPIServer)
-				adminclient.RegisterAPIServer(s, adminAPIServer)
-			},
-			grpcutil.ServeOptions{
-				Version:    version.Version,
-				MaxMsgSize: grpcutil.MaxMsgSize,
-				Cancel:     cancelCh,
-			},
-			grpcutil.ServeEnv{
-				GRPCPort: 660,
-			},
-		); err != nil {
-			fmt.Printf("grpcutil.Serve: %v\n", err)
-		}
-	}()
-	defer close(cancelCh)
+func migrate(address string) error {
 	externalPachClient, err := client.NewInCluster()
 	if err != nil {
 		return err
 	}
-	internalPachClient, err := client.NewFromAddress("localhost:660")
+	internalPachClient, err := client.NewFromAddress(address)
 	if err != nil {
 		return err
 	}

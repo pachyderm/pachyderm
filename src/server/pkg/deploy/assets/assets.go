@@ -420,8 +420,8 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 							Resources:       resourceRequirements,
 							ReadinessProbe: &v1.Probe{
 								Handler: v1.Handler{
-									TCPSocket: &v1.TCPSocketAction{
-										Port: intstr.FromInt(650),
+									Exec: &v1.ExecAction{
+										Command: []string{"/pachd", "--readiness"},
 									},
 								},
 							},
