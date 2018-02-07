@@ -36,7 +36,6 @@ import (
 	cache_server "github.com/pachyderm/pachyderm/src/server/pkg/cache/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
-	"github.com/pachyderm/pachyderm/src/server/pkg/migration"
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
@@ -53,13 +52,9 @@ import (
 )
 
 var mode string
-var readinessCheck bool
-var migrate string
 
 func init() {
 	flag.StringVar(&mode, "mode", "full", "Pachd currently supports two modes: full and sidecar.  The former includes everything you need in a full pachd node.  The later runs only PFS, the Auth service, and a stripped-down version of PPS.")
-	flag.BoolVar(&readinessCheck, "readiness-check", false, "Set to true when checking if local pod is ready")
-	flag.StringVar(&migrate, "migrate", "", "Use the format FROM_VERSION-TO_VERSION; e.g. 1.4.8-1.5.0")
 	flag.Parse()
 }
 
@@ -194,17 +189,6 @@ func doSidecarMode(appEnvObj interface{}) error {
 
 func doFullMode(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
-	if migrate != "" {
-		parts := strings.Split(migrate, "-")
-		if len(parts) != 2 {
-			return fmt.Errorf("the migration flag needs to be of the format FROM_VERSION-TO_VERSION; e.g. 1.4.8-1.5.0")
-		}
-
-		if err := migration.Run(appEnv.EtcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix), parts[0], parts[1]); err != nil {
-			return fmt.Errorf("error from migration: %v", err)
-		}
-		return nil
-	}
 
 	go func() {
 		log.Println(http.ListenAndServe(":651", nil))
@@ -226,30 +210,6 @@ func doFullMode(appEnvObj interface{}) error {
 		Endpoints:   []string{etcdAddress},
 		DialOptions: append(client.EtcdDialOptions(), grpc.WithTimeout(5*time.Minute)),
 	})
-
-	// Check if Pachd pods are ready
-	if readinessCheck {
-		c, err := client.NewFromAddress("127.0.0.1:650")
-		if err != nil {
-			return err
-		}
-
-		// We want to use a PPS API instead of a PFS API because PFS APIs
-		// typically talk to every node, but the point of the readiness probe
-		// is that it checks to see if this particular node is functioning,
-		// and removing it from the service if it's not.  So if we use a PFS
-		// API such as ListRepo for readiness probe, then the failure of any
-		// node will result in the failures of all readiness probes, causing
-		// all nodes to be removed from the pachd service.
-		_, err = c.ListPipeline()
-		if err != nil {
-			return err
-		}
-
-		os.Exit(0)
-
-		return nil
-	}
 
 	clusterID, err := getClusterID(etcdClientV2)
 	if err != nil {
