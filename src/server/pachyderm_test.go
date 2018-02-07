@@ -6473,19 +6473,19 @@ func TestListJobInputCommits(t *testing.T) {
 
 	jobInfos, err := c.ListJob("", []*pfs.Commit{commita1}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
+	require.Equal(t, 2, len(jobInfos)) // a1 + nil and a1 + b1
 
 	jobInfos, err = c.ListJob("", []*pfs.Commit{commitb1}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(jobInfos))
+	require.Equal(t, 2, len(jobInfos)) // a1 + b1 and a2 + b1
 
 	jobInfos, err = c.ListJob("", []*pfs.Commit{commita2}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(jobInfos))
+	require.Equal(t, 2, len(jobInfos)) // a2 + b1 and a2 + b2
 
 	jobInfos, err = c.ListJob("", []*pfs.Commit{commitb2}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(jobInfos))
+	require.Equal(t, 1, len(jobInfos)) // a2 + b2
 
 	jobInfos, err = c.ListJob("", []*pfs.Commit{commita1, commitb1}, nil)
 	require.NoError(t, err)
