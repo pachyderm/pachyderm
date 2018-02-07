@@ -325,6 +325,9 @@ func doFullMode(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
+	if err := migrate(pfsAPIServer, blockAPIServer, ppsAPIServer, adminAPIServer); err != nil {
+		return err
+	}
 	var eg errgroup.Group
 	eg.Go(func() error {
 		return http.ListenAndServe(fmt.Sprintf(":%v", pfs_server.HTTPPort), httpServer)
@@ -355,6 +358,40 @@ func doFullMode(appEnvObj interface{}) error {
 		)
 	})
 	return eg.Wait()
+}
+
+func migrate(pfsAPIServer pfs_server.APIServer, blockAPIServer pfs_server.BlockAPIServer, ppsAPIServer ppsclient.APIServer, adminAPIServer adminserver.APIServer) error {
+	cancelCh := make(chan struct{})
+	go func() {
+		if err := grpcutil.Serve(
+			func(s *grpc.Server) {
+				pfsclient.RegisterAPIServer(s, pfsAPIServer)
+				pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
+				ppsclient.RegisterAPIServer(s, ppsAPIServer)
+				adminclient.RegisterAPIServer(s, adminAPIServer)
+			},
+			grpcutil.ServeOptions{
+				Version:    version.Version,
+				MaxMsgSize: grpcutil.MaxMsgSize,
+				Cancel:     cancelCh,
+			},
+			grpcutil.ServeEnv{
+				GRPCPort: 660,
+			},
+		); err != nil {
+			fmt.Printf("grpcutil.Serve: %v\n", err)
+		}
+	}()
+	defer close(cancelCh)
+	externalPachClient, err := client.NewInCluster()
+	if err != nil {
+		return err
+	}
+	internalPachClient, err := client.NewFromAddress("localhost:660")
+	if err != nil {
+		return err
+	}
+	return internalPachClient.RestoreFrom(externalPachClient)
 }
 
 func getEtcdClient(etcdAddress string) discovery.Client {
