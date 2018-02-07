@@ -1679,7 +1679,8 @@ func (d *driver) filePathFromEtcdPath(etcdPath string) string {
 	split := strings.Split(etcdPath, "/")
 	// we only want /path/to/file so we use index 4 (note that there's an "" at
 	// the beginning of the slice because of the lead /)
-	return path.Join(split[4:]...)
+	fmt.Printf("len(strings.Split(d.prefix)): %d\n", len(strings.Split(d.prefix, "/")))
+	return path.Join(split[6:]...)
 }
 
 // validatePath checks if a file path is legal

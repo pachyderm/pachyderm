@@ -29,6 +29,7 @@ type workerOptions struct {
 	workerEnv        []v1.EnvVar       // Environment vars set in the user container
 	volumes          []v1.Volume       // Volumes that we expose to the user container
 	volumeMounts     []v1.VolumeMount  // Paths where we mount each volume in 'volumes'
+	etcdPrefix       string            // the prefix in etcd to use
 
 	// Secrets that we mount in the worker container (e.g. for reading/writing to
 	// s3)

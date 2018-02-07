@@ -69,6 +69,7 @@ type appEnv struct {
 	StorageRoot           string `env:"PACH_ROOT,default=/pach"`
 	StorageBackend        string `env:"STORAGE_BACKEND,default="`
 	StorageHostPath       string `env:"STORAGE_HOST_PATH,default="`
+	EtcdPrefix            string `env:"ETCD_PREFIX,default=pachyderm/1.7.0"`
 	PPSEtcdPrefix         string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
 	PFSEtcdPrefix         string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
 	AuthEtcdPrefix        string `env:"PACHYDERM_AUTH_ETCD_PREFIX,default=pachyderm_auth"`
@@ -141,13 +142,13 @@ func doSidecarMode(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, int64(pfsCacheSize))
+	pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), int64(pfsCacheSize))
 	if err != nil {
 		return err
 	}
 	ppsAPIServer, err := pps_server.NewSidecarAPIServer(
 		etcdAddress,
-		appEnv.PPSEtcdPrefix,
+		path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix),
 		address,
 		appEnv.IAMRole,
 		reporter,
@@ -164,11 +165,11 @@ func doSidecarMode(appEnvObj interface{}) error {
 		return err
 	}
 	healthServer := health.NewHealthServer()
-	authAPIServer, err := authserver.NewAuthServer(address, etcdAddress, appEnv.AuthEtcdPrefix)
+	authAPIServer, err := authserver.NewAuthServer(address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.AuthEtcdPrefix))
 	if err != nil {
 		return err
 	}
-	enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(etcdAddress, appEnv.EnterpriseEtcdPrefix)
+	enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.EnterpriseEtcdPrefix))
 	if err != nil {
 		return err
 	}
@@ -199,7 +200,7 @@ func doFullMode(appEnvObj interface{}) error {
 			return fmt.Errorf("the migration flag needs to be of the format FROM_VERSION-TO_VERSION; e.g. 1.4.8-1.5.0")
 		}
 
-		if err := migration.Run(appEnv.EtcdAddress, appEnv.PFSEtcdPrefix, appEnv.PPSEtcdPrefix, parts[0], parts[1]); err != nil {
+		if err := migration.Run(appEnv.EtcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix), parts[0], parts[1]); err != nil {
 			return fmt.Errorf("error from migration: %v", err)
 		}
 		return nil
@@ -289,14 +290,14 @@ func doFullMode(appEnvObj interface{}) error {
 		address,
 	)
 	cacheServer := cache_server.NewCacheServer(router, appEnv.NumShards)
-	pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, int64(pfsCacheSize))
+	pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), int64(pfsCacheSize))
 	if err != nil {
 		return err
 	}
 	kubeNamespace := getNamespace()
 	ppsAPIServer, err := pps_server.NewAPIServer(
 		etcdAddress,
-		appEnv.PPSEtcdPrefix,
+		path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix),
 		address,
 		kubeClient,
 		kubeNamespace,
@@ -332,7 +333,7 @@ func doFullMode(appEnvObj interface{}) error {
 		return err
 	}
 
-	authAPIServer, err := authserver.NewAuthServer(address, etcdAddress, appEnv.AuthEtcdPrefix)
+	authAPIServer, err := authserver.NewAuthServer(address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.AuthEtcdPrefix))
 	if err != nil {
 		return err
 	}
@@ -344,13 +345,13 @@ func doFullMode(appEnvObj interface{}) error {
 	capabilityResp, err := authAPIServer.GetCapability(context.Background(), &authclient.GetCapabilityRequest{})
 	if err == nil {
 		_, err := etcdClientV3.Put(context.Background(),
-			path.Join(appEnv.PPSEtcdPrefix, ppsconsts.PPSTokenKey),
+			path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix, ppsconsts.PPSTokenKey),
 			capabilityResp.Capability)
 		if err != nil {
 			return err
 		}
 	}
-	enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(etcdAddress, appEnv.EnterpriseEtcdPrefix)
+	enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.EnterpriseEtcdPrefix))
 	if err != nil {
 		return err
 	}
@@ -360,7 +361,7 @@ func doFullMode(appEnvObj interface{}) error {
 
 	deployServer := deployserver.NewDeployServer(kubeClient, kubeNamespace)
 
-	httpServer, err := pfs_server.NewHTTPServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, blockCacheBytes)
+	httpServer, err := pfs_server.NewHTTPServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), blockCacheBytes)
 	if err != nil {
 		return err
 	}
@@ -369,7 +370,7 @@ func doFullMode(appEnvObj interface{}) error {
 		return http.ListenAndServe(fmt.Sprintf(":%v", pfs_server.HTTPPort), httpServer)
 	})
 	eg.Go(func() error {
-		return githook.RunGitHookServer(address, etcdAddress, appEnv.PPSEtcdPrefix)
+		return githook.RunGitHookServer(address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix))
 	})
 	eg.Go(func() error {
 		return grpcutil.Serve(
