@@ -95,3 +95,19 @@ func (c APIClient) RestoreReader(r io.Reader) (retErr error) {
 	}
 	return nil
 }
+
+// RestoreFrom restores state from another cluster which can be access through otherC.
+func (c APIClient) RestoreFrom(otherC *APIClient) (retErr error) {
+	restoreClient, err := c.AdminAPIClient.Restore(c.Ctx())
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	defer func() {
+		if _, err := restoreClient.CloseAndRecv(); err != nil && retErr == nil {
+			retErr = grpcutil.ScrubGRPC(err)
+		}
+	}()
+	return otherC.Extract(func(op *admin.Op) error {
+		return restoreClient.Send(&admin.RestoreRequest{Op: op})
+	})
+}
