@@ -6,6 +6,7 @@ import (
 	client "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 
 	v1 "k8s.io/api/core/v1"
@@ -176,6 +177,7 @@ func (a *apiServer) getWorkerOptions(pipelineName string, rcName string,
 	parallelism int32, resourceRequests *v1.ResourceList, resourceLimits *v1.ResourceList, transform *pps.Transform,
 	cacheSize string, service *pps.Service, specCommitID string) *workerOptions {
 	labels := labels(rcName)
+	labels["version"] = version.VersionString()
 	userImage := transform.Image
 	if userImage == "" {
 		userImage = DefaultUserImage
