@@ -14,6 +14,7 @@ import (
 func Cmds(noMetrics *bool) []*cobra.Command {
 	metrics := !*noMetrics
 
+	var noObjects bool
 	extract := &cobra.Command{
 		Use:   "extract",
 		Short: "Extract Pachyderm state to stdout.",
@@ -29,9 +30,10 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 					retErr = err
 				}
 			}()
-			return c.ExtractWriter(w)
+			return c.ExtractWriter(!noObjects, w)
 		}),
 	}
+	extract.Flags().BoolVar(&noObjects, "no-objects", false, "don't extract from object storage, only extract data from etcd")
 	restore := &cobra.Command{
 		Use:   "restore",
 		Short: "Restore Pachyderm state from stdin.",
