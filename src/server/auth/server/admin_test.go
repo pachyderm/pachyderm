@@ -412,10 +412,12 @@ func TestPreActivationPipelinesRunAsAdmin(t *testing.T) {
 
 	// re-authenticate, as old tokens were deleted
 	require.NoError(t, backoff.Retry(func() error {
-		for i, client := range []*client.APIClient{adminClient, aliceClient} {
+		for i := 0; i < 2; i++ {
+			client := []*client.APIClient{adminClient, aliceClient}[i]
+			username := []string{"admin", alice}[i]
 			resp, err := client.Authenticate(context.Background(),
 				&auth.AuthenticateRequest{
-					GithubUsername: []string{"admin", alice}[i],
+					GithubUsername: username,
 				})
 			if err != nil {
 				return err
