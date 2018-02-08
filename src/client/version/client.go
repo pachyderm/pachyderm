@@ -39,6 +39,10 @@ func PrettyPrintVersion(version *pb.Version) string {
 	return result
 }
 
+func VersionString() string {
+	return PrettyPrintVersion(Version)
+}
+
 // PrettyPrintVersionNoAdditional returns a version string without
 // version.Additional.
 func PrettyPrintVersionNoAdditional(version *pb.Version) string {
