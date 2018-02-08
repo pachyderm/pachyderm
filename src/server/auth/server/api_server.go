@@ -985,7 +985,9 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.User,
 	if !ok {
 		return nil, fmt.Errorf("no authentication metadata found in context")
 	}
-	if len(md[authclient.ContextTokenKey]) != 1 {
+	if len(md[authclient.ContextTokenKey]) > 1 {
+		return nil, fmt.Errorf("multiple authentication token keys found in context")
+	} else if len(md[authclient.ContextTokenKey]) == 0 {
 		return nil, authclient.NotSignedInError{}
 	}
 	token := md[authclient.ContextTokenKey][0]
