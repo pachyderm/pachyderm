@@ -387,7 +387,7 @@ func migrate(address string) error {
 	if err != nil {
 		return err
 	}
-	return internalPachClient.RestoreFrom(externalPachClient)
+	return internalPachClient.RestoreFrom(false, externalPachClient)
 }
 
 func getEtcdClient(etcdAddress string) discovery.Client {

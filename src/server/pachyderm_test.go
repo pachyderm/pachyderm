@@ -6545,7 +6545,7 @@ func TestExtractRestore(t *testing.T) {
 	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 1, len(commitInfos))
 
-	ops, err := c.ExtractAll()
+	ops, err := c.ExtractAll(false)
 	require.NoError(t, err)
 	require.NoError(t, c.DeleteAll())
 	require.NoError(t, c.Restore(ops))
