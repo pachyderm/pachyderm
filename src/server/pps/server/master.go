@@ -310,7 +310,7 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 			}
 		}
 		// rc was made by a previous version of pachyderm so we delete it
-		if workerRc.ObjectMeta.Labels["version"] != version.VersionString() {
+		if workerRc.ObjectMeta.Labels["version"] != version.PrettyVersion() {
 			if err := a.deleteWorkersForPipeline(pipelineInfo); err != nil {
 				return err
 			}
