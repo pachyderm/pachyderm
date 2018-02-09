@@ -39,7 +39,8 @@ func PrettyPrintVersion(version *pb.Version) string {
 	return result
 }
 
-func VersionString() string {
+// PrettyVersion calls PrettyPrintVersion on Version and returns the result.
+func PrettyVersion() string {
 	return PrettyPrintVersion(Version)
 }
 

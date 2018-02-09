@@ -588,7 +588,7 @@ func (c APIClient) ReadTag(tag string) ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-// List tags stored in pfs.
+// ListTag lists tags stored in pfs.
 func (c APIClient) ListTag(f func(*pfs.ListTagsResponse) error) error {
 	listTagClient, err := c.ObjectAPIClient.ListTags(c.Ctx(), &pfs.ListTagsRequest{IncludeObject: true})
 	if err != nil {

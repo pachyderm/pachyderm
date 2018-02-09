@@ -38,12 +38,13 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		return err
 	}
 	if !request.NoObjects {
+		w := &extractObjectWriter{extractServer}
 		if err := pachClient.ListObject(func(object *pfs.Object) error {
-			bytes, err := pachClient.ReadObject(object.Hash)
-			if err != nil {
+			if err := pachClient.GetObject(object.Hash, w); err != nil {
 				return err
 			}
-			return extractServer.Send(&admin.Op{Object: &pfs.PutObjectRequest{Value: bytes}})
+			// empty PutObjectRequest to indicate EOF
+			return extractServer.Send(&admin.Op{Object: &pfs.PutObjectRequest{}})
 		}); err != nil {
 			return err
 		}
@@ -206,7 +207,9 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 		switch {
 		case op.Version != nil:
 		case op.Object != nil:
-			if _, _, err := pachClient.PutObject(bytes.NewBuffer(op.Object.Value)); err != nil {
+			r := &extractObjectReader{adminAPI_RestoreServer: restoreServer}
+			r.buf.Write(op.Object.Value)
+			if _, _, err := pachClient.PutObject(r); err != nil {
 				return fmt.Errorf("error putting object: %v", err)
 			}
 		case op.Tag != nil:
@@ -248,4 +251,50 @@ func (a *apiServer) getPachClient() (*client.APIClient, error) {
 		}
 	}
 	return a.pachClient, nil
+}
+
+type extractObjectWriter struct {
+	admin.API_ExtractServer
+}
+
+func (w *extractObjectWriter) Write(p []byte) (int, error) {
+	chunkSize := grpcutil.MaxMsgSize / 2
+	var n int
+	for i := 0; i*(chunkSize) < len(p); i++ {
+		value := p[i*chunkSize:]
+		if len(value) > chunkSize {
+			value = value[:chunkSize]
+		}
+		if err := w.Send(&admin.Op{Object: &pfs.PutObjectRequest{Value: value}}); err != nil {
+			return n, err
+		}
+		n += len(value)
+	}
+	return n, nil
+}
+
+type adminAPI_RestoreServer = admin.API_RestoreServer
+
+type extractObjectReader struct {
+	adminAPI_RestoreServer
+	buf bytes.Buffer
+	eof bool
+}
+
+func (r *extractObjectReader) Read(p []byte) (int, error) {
+	for len(p) > r.buf.Len() && !r.eof {
+		request, err := r.Recv()
+		if err != nil {
+			return 0, grpcutil.ScrubGRPC(err)
+		}
+		op := request.Op
+		if op.Object == nil {
+			return 0, fmt.Errorf("expected an object, but got: %v", op)
+		}
+		r.buf.Write(op.Object.Value)
+		if len(op.Object.Value) == 0 {
+			r.eof = true
+		}
+	}
+	return r.buf.Read(p)
 }

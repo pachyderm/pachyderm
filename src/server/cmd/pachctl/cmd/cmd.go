@@ -35,7 +35,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
-	migrationcmds "github.com/pachyderm/pachyderm/src/server/pkg/migration/cmds"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
 
 	log "github.com/sirupsen/logrus"
@@ -187,10 +186,6 @@ Environment variables:
 	}
 	enterpriseCmds := enterprisecmds.Cmds()
 	for _, cmd := range enterpriseCmds {
-		rootCmd.AddCommand(cmd)
-	}
-	migrationCmds := migrationcmds.Cmds(&noMetrics)
-	for _, cmd := range migrationCmds {
 		rootCmd.AddCommand(cmd)
 	}
 	adminCmds := admincmds.Cmds(&noMetrics)
