@@ -298,6 +298,7 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 					return err
 				}
 			}
+			// Check if a job was previously created for this commit. If not, make one
 			var jobInfo *pps.JobInfo
 			jobInfos, err := pachClient.ListJob("", nil, commitInfo.Commit)
 			if err != nil {
@@ -318,8 +319,8 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 					return err
 				}
 			}
-			switch jobInfo.State {
-			case pps.JobState_JOB_SUCCESS, pps.JobState_JOB_KILLED, pps.JobState_JOB_FAILURE:
+			if ppsutil.IsDone(jobInfo.State) {
+				// previously-created job has finished, but commit has not been closed yet
 				continue
 			}
 
