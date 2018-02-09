@@ -363,6 +363,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobRequest) (response *pps.JobInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	pachClient := a.getPachClient().WithCtx(ctx)
 
 	jobs := a.jobs.ReadOnly(ctx)
 
@@ -390,7 +391,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 					return nil, err
 				}
 				if jobStateToStopped(jobPtr.State) {
-					return a.jobInfoFromPtr(ctx, jobPtr)
+					return a.jobInfoFromPtr(pachClient, jobPtr)
 				}
 			}
 		}
@@ -400,7 +401,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	if err := jobs.Get(request.Job.ID, jobPtr); err != nil {
 		return nil, err
 	}
-	jobInfo, err := a.jobInfoFromPtr(ctx, jobPtr)
+	jobInfo, err := a.jobInfoFromPtr(pachClient, jobPtr)
 	if err != nil {
 		return nil, err
 	}
@@ -430,21 +431,20 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 // ListJobStream. When ListJob is removed, this should be inlined into
 // ListJobStream.
 func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline, outputCommit *pfs.Commit, inputCommits []*pfs.Commit) ([]*pps.JobInfo, error) {
-	ctx := pachClient.Ctx()
 	var err error
 	if outputCommit != nil {
-		outputCommit, err = a.resolveCommit(ctx, outputCommit)
+		outputCommit, err = a.resolveCommit(pachClient, outputCommit)
 		if err != nil {
 			return nil, err
 		}
 	}
 	for i, inputCommit := range inputCommits {
-		inputCommits[i], err = a.resolveCommit(ctx, inputCommit)
+		inputCommits[i], err = a.resolveCommit(pachClient, inputCommit)
 		if err != nil {
 			return nil, err
 		}
 	}
-	jobs := a.jobs.ReadOnly(ctx)
+	jobs := a.jobs.ReadOnly(pachClient.Ctx())
 	var iter col.Iterator
 	if pipeline != nil {
 		iter, err = jobs.GetByIndex(ppsdb.JobsPipelineIndex, pipeline)
@@ -469,7 +469,7 @@ JobsLoop:
 		if !ok {
 			break
 		}
-		jobInfo, err := a.jobInfoFromPtr(ctx, &jobPtr)
+		jobInfo, err := a.jobInfoFromPtr(pachClient, &jobPtr)
 		if err != nil {
 			return nil, err
 		}
@@ -495,10 +495,8 @@ JobsLoop:
 	return jobInfos, nil
 }
 
-func (a *apiServer) jobInfoFromPtr(ctx context.Context, jobPtr *pps.EtcdJobInfo) (*pps.JobInfo, error) {
+func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.EtcdJobInfo) (*pps.JobInfo, error) {
 	// TODO accept pachClient argument
-	pachClient := a.getPachClient().WithCtx(ctx)
-	ctx = pachClient.Ctx()
 	result := &pps.JobInfo{
 		Job:           jobPtr.Job,
 		Pipeline:      jobPtr.Pipeline,
@@ -531,7 +529,7 @@ func (a *apiServer) jobInfoFromPtr(ctx context.Context, jobPtr *pps.EtcdJobInfo)
 		return nil, fmt.Errorf("couldn't find spec commit for job %s, (this is likely a bug)", jobPtr.Job.ID)
 	}
 	pipelinePtr := &pps.EtcdPipelineInfo{}
-	if err := a.pipelines.ReadOnly(ctx).Get(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
+	if err := a.pipelines.ReadOnly(pachClient.Ctx()).Get(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
 		return nil, err
 	}
 	pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, jobPtr.Pipeline.Name, pipelinePtr)
@@ -2442,8 +2440,7 @@ func (a *apiServer) rcPods(rcName string) ([]v1.Pod, error) {
 	return podList.Items, nil
 }
 
-func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs.Commit, error) {
-	pachClient := a.getPachClient()
+func (a *apiServer) resolveCommit(pachClient *client.APIClient, commit *pfs.Commit) (*pfs.Commit, error) {
 	ci, err := pachClient.InspectCommit(commit.Repo.Name, commit.ID)
 	if err != nil {
 		return nil, err

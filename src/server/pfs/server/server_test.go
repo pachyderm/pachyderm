@@ -1132,16 +1132,14 @@ func TestPutSameFileInParallel(t *testing.T) {
 
 	commit, err := client.StartCommit(repo, "")
 	require.NoError(t, err)
-	var wg sync.WaitGroup
+	var eg errgroup.Group
 	for i := 0; i < 3; i++ {
-		wg.Add(1)
-		go func() {
+		eg.Go(func() error {
 			_, err = client.PutFile(repo, commit.ID, "foo", strings.NewReader("foo\n"))
-			require.NoError(t, err)
-			wg.Done()
-		}()
+			return err
+		})
 	}
-	wg.Wait()
+	require.NoError(t, eg.Wait())
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
 
 	var buffer bytes.Buffer
