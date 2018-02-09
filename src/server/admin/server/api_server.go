@@ -6,13 +6,17 @@ import (
 	"io"
 	"sync"
 
+	"github.com/golang/snappy"
+
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/admin"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
 
 type apiServer struct {
@@ -22,17 +26,40 @@ type apiServer struct {
 	pachClientOnce sync.Once
 }
 
-func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.API_ExtractServer) error {
+func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.API_ExtractServer) (retErr error) {
 	pachClient, err := a.getPachClient()
 	if err != nil {
 		return err
 	}
 	pachClient = pachClient.WithCtx(extractServer.Context())
+	handleOp := extractServer.Send
+	if request.URL != "" {
+		url, err := obj.ParseURL(request.URL)
+		if err != nil {
+			return fmt.Errorf("error parsing url %v: %v", request.URL, err)
+		}
+		objClient, err := obj.NewClientFromURLAndSecret(extractServer.Context(), url)
+		if err != nil {
+			return err
+		}
+		objW, err := objClient.Writer(url.Object)
+		if err != nil {
+			return err
+		}
+		snappyW := snappy.NewBufferedWriter(objW)
+		defer func() {
+			if err := snappyW.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		w := pbutil.NewWriter(snappyW)
+		handleOp = func(op *admin.Op) error { return w.Write(op) }
+	}
 	v, err := pachClient.VersionAPIClient.GetVersion(pachClient.Ctx(), &types.Empty{})
 	if err != nil {
 		return err
 	}
-	if err := extractServer.Send(&admin.Op{
+	if err := handleOp(&admin.Op{
 		Version: v,
 	}); err != nil {
 		return err
@@ -44,12 +71,12 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 				return err
 			}
 			// empty PutObjectRequest to indicate EOF
-			return extractServer.Send(&admin.Op{Object: &pfs.PutObjectRequest{}})
+			return handleOp(&admin.Op{Object: &pfs.PutObjectRequest{}})
 		}); err != nil {
 			return err
 		}
 		if err := pachClient.ListTag(func(resp *pfs.ListTagsResponse) error {
-			return extractServer.Send(&admin.Op{
+			return handleOp(&admin.Op{
 				Tag: &pfs.TagObjectRequest{
 					Object: resp.Object,
 					Tags:   []*pfs.Tag{resp.Tag},
@@ -68,7 +95,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			if len(ri.Provenance) > 0 {
 				continue
 			}
-			if err := extractServer.Send(&admin.Op{
+			if err := handleOp(&admin.Op{
 				Repo: &pfs.CreateRepoRequest{
 					Repo:        ri.Repo,
 					Provenance:  ri.Provenance,
@@ -87,7 +114,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 				if ci.ParentCommit == nil {
 					ci.ParentCommit = client.NewCommit(ri.Repo.Name, "")
 				}
-				if err := extractServer.Send(&admin.Op{
+				if err := handleOp(&admin.Op{
 					Commit: &pfs.BuildCommitRequest{
 						Parent: ci.ParentCommit,
 						Tree:   ci.Tree,
@@ -102,7 +129,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 				return err
 			}
 			for _, bi := range bis {
-				if err := extractServer.Send(&admin.Op{
+				if err := handleOp(&admin.Op{
 					Branch: &pfs.SetBranchRequest{
 						Commit: bi.Head,
 						Branch: bi.Name,
@@ -120,7 +147,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			return err
 		}
 		for _, pi := range pis {
-			if err := extractServer.Send(&admin.Op{
+			if err := handleOp(&admin.Op{
 				Pipeline: &pps.CreatePipelineRequest{
 					Pipeline:           pi.Pipeline,
 					Transform:          pi.Transform,
@@ -195,15 +222,45 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 			retErr = err
 		}
 	}()
+	var r pbutil.Reader
 	for {
-		req, err := restoreServer.Recv()
-		if err == io.EOF {
-			break
+		var op *admin.Op
+		if r == nil {
+			req, err := restoreServer.Recv()
+			if err != nil {
+				if err == io.EOF {
+					return nil
+				}
+				return err
+			}
+			if req.URL != "" {
+				url, err := obj.ParseURL(req.URL)
+				if err != nil {
+					return fmt.Errorf("error parsing url %v: %v", req.URL, err)
+				}
+				objClient, err := obj.NewClientFromURLAndSecret(restoreServer.Context(), url)
+				if err != nil {
+					return err
+				}
+				objR, err := objClient.Reader(url.Object, 0, 0)
+				if err != nil {
+					return err
+				}
+				snappyR := snappy.NewReader(objR)
+				r = pbutil.NewReader(snappyR)
+				continue
+			} else {
+				op = req.Op
+			}
+		} else {
+			op = &admin.Op{}
+			if err := r.Read(op); err != nil {
+				if err == io.EOF {
+					return nil
+				}
+				return err
+			}
 		}
-		if err != nil {
-			return err
-		}
-		op := req.Op
 		switch {
 		case op.Version != nil:
 		case op.Object != nil:
@@ -234,7 +291,6 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 			}
 		}
 	}
-	return nil
 }
 
 func (a *apiServer) getPachClient() (*client.APIClient, error) {
@@ -270,7 +326,7 @@ func (w *extractObjectWriter) Write(p []byte) (int, error) {
 	return n, nil
 }
 
-type adminAPIRestoreServer = admin.API_RestoreServer
+type adminAPIRestoreServer admin.API_RestoreServer
 
 type extractObjectReader struct {
 	adminAPIRestoreServer
