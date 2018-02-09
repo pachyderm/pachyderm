@@ -14,6 +14,7 @@ import (
 func Cmds(noMetrics *bool) []*cobra.Command {
 	metrics := !*noMetrics
 
+	var url string
 	extract := &cobra.Command{
 		Use:   "extract",
 		Short: "Extract Pachyderm state to stdout.",
@@ -22,6 +23,9 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 			c, err := client.NewOnUserMachine(metrics, "user")
 			if err != nil {
 				return err
+			}
+			if url != "" {
+				return c.ExtractURL(url)
 			}
 			w := snappy.NewBufferedWriter(os.Stdout)
 			defer func() {
@@ -32,6 +36,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 			return c.ExtractWriter(w)
 		}),
 	}
+	extract.Flags().StringVarP(&url, "url", "u", "", "An object storage url (i.e. s3://...) to extract to.")
 	restore := &cobra.Command{
 		Use:   "restore",
 		Short: "Restore Pachyderm state from stdin.",
@@ -41,8 +46,12 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 			if err != nil {
 				return err
 			}
+			if url != "" {
+				return c.RestoreURL(url)
+			}
 			return c.RestoreReader(snappy.NewReader(os.Stdin))
 		}),
 	}
+	restore.Flags().StringVarP(&url, "url", "u", "", "An object storage url (i.e. s3://...) to restore from.")
 	return []*cobra.Command{extract, restore}
 }
