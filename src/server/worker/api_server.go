@@ -942,6 +942,11 @@ func (a *APIServer) worker() {
 			if err := e.Unmarshal(&jobID, jobPtr); err != nil {
 				return fmt.Errorf("error unmarshalling: %v", err)
 			}
+			if ppsutil.IsDone(jobPtr.State) {
+				// previously-created job has finished
+				logger.Logf("skipping job %v as it is already in state %v", jobID, jobPtr.State)
+				continue
+			}
 			jobInfo, err := a.pachClient.InspectJob(jobPtr.Job.ID, false)
 			if err != nil {
 				return fmt.Errorf("error from InspectJob: %+v", err)
