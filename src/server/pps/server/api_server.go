@@ -594,6 +594,32 @@ func (a *apiServer) ListJobStream(request *pps.ListJobRequest, resp pps.API_List
 	return nil
 }
 
+func (a *apiServer) FlushJob(request *pps.FlushJobRequest, resp pps.API_FlushJobServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	sent := 0
+	defer func(start time.Time) {
+		a.Log(request, fmt.Sprintf("stream containing %d JobInfos", sent), retErr, time.Since(start))
+	}(time.Now())
+	pachClient := a.getPachClient().WithCtx(resp.Context())
+	var toRepos []*pfs.Repo
+	for _, pipeline := range request.ToPipelines {
+		toRepos = append(toRepos, client.NewRepo(pipeline.Name))
+	}
+	return pachClient.FlushCommitF(request.Commits, toRepos, func(ci *pfs.CommitInfo) error {
+		jis, err := a.listJob(pachClient, nil, ci.Commit, nil)
+		if err != nil {
+			return err
+		}
+		if len(jis) == 0 {
+			return fmt.Errorf("didn't find a job for output commit: %s/%s", ci.Commit.Repo.Name, ci.Commit.ID)
+		}
+		if len(jis) > 1 {
+			return fmt.Errorf("didn't find too many jobs (%d) for output commit: %s/%s", len(jis), ci.Commit.Repo.Name, ci.Commit.ID)
+		}
+		return resp.Send(jis[0])
+	})
+}
+
 func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
