@@ -208,6 +208,48 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outpu
 	return result, nil
 }
 
+// FlushJob calls f with all the jobs which were triggered by commits.
+// If toPipelines is non-nil then only the jobs between commits and those
+// pipelines in the DAG will be returned.
+func (c APIClient) FlushJob(commits []*pfs.Commit, toPipelines []string, f func(*pps.JobInfo) error) error {
+	req := &pps.FlushJobRequest{
+		Commits: commits,
+	}
+	for _, pipeline := range toPipelines {
+		req.ToPipelines = append(req.ToPipelines, NewPipeline(pipeline))
+	}
+	client, err := c.PpsAPIClient.FlushJob(c.Ctx(), req)
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	for {
+		jobInfo, err := client.Recv()
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return grpcutil.ScrubGRPC(err)
+		}
+		if err := f(jobInfo); err != nil {
+			return err
+		}
+	}
+}
+
+// FlushJob returns all the jobs which were triggered by commits.
+// If toPipelines is non-nil then only the jobs between commits and those
+// pipelines in the DAG will be returned.
+func (c APIClient) FlushJobAll(commits []*pfs.Commit, toPipelines []string) ([]*pps.JobInfo, error) {
+	var result []*pps.JobInfo
+	if err := c.FlushJob(commits, toPipelines, func(ji *pps.JobInfo) error {
+		result = append(result, ji)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 // DeleteJob deletes a job.
 func (c APIClient) DeleteJob(jobID string) error {
 	_, err := c.PpsAPIClient.DeleteJob(
