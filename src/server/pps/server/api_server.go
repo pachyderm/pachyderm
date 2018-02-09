@@ -256,9 +256,6 @@ func (a *apiServer) validateInput(ctx context.Context, pipelineName string, inpu
 }
 
 func validateTransform(transform *pps.Transform) error {
-	if len(transform.Cmd) == 0 {
-		return fmt.Errorf("no cmd set")
-	}
 	return nil
 }
 
