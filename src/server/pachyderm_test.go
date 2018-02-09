@@ -1113,6 +1113,9 @@ func TestFlushCommit(t *testing.T) {
 		require.NoError(t, err)
 		commitInfos := collectCommitInfos(t, commitIter)
 		require.Equal(t, numStages, len(commitInfos))
+		jobInfos, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(sourceRepo, commit.ID)}, nil)
+		require.NoError(t, err)
+		require.Equal(t, numStages, len(jobInfos))
 	}
 }
 
