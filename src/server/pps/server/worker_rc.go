@@ -177,7 +177,7 @@ func (a *apiServer) getWorkerOptions(pipelineName string, rcName string,
 	parallelism int32, resourceRequests *v1.ResourceList, resourceLimits *v1.ResourceList, transform *pps.Transform,
 	cacheSize string, service *pps.Service, specCommitID string) *workerOptions {
 	labels := labels(rcName)
-	labels["version"] = version.VersionString()
+	labels["version"] = version.PrettyVersion()
 	userImage := transform.Image
 	if userImage == "" {
 		userImage = DefaultUserImage

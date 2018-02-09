@@ -6515,11 +6515,13 @@ func TestExtractRestore(t *testing.T) {
 	dataRepo := uniqueString("TestExtractRestore_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	nCommits := 20
+	nCommits := 5
+	r := rand.New(rand.NewSource(45))
+	fileContent := workload.RandString(r, 40*MB)
 	for i := 0; i < nCommits; i++ {
 		_, err := c.StartCommit(dataRepo, "master")
 		require.NoError(t, err)
-		_, err = c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i), strings.NewReader("foo"))
+		_, err = c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i), strings.NewReader(fileContent))
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit(dataRepo, "master"))
 	}
