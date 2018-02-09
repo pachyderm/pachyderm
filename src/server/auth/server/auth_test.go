@@ -1019,7 +1019,12 @@ func TestPipelineRevoke(t *testing.T) {
 		[]*pfs.Repo{{Name: pipeline}},
 	)
 	require.NoError(t, err)
+	// FlushCommit will return two commits--the second output from bob's pipeline
+	// and the first output from alice's
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
+		if _, err := iter.Next(); err != nil {
+			return err
+		}
 		_, err := iter.Next()
 		return err
 	})
