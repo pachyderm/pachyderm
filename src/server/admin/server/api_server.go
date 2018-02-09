@@ -207,7 +207,7 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 		switch {
 		case op.Version != nil:
 		case op.Object != nil:
-			r := &extractObjectReader{adminAPI_RestoreServer: restoreServer}
+			r := &extractObjectReader{adminAPIRestoreServer: restoreServer}
 			r.buf.Write(op.Object.Value)
 			if _, _, err := pachClient.PutObject(r); err != nil {
 				return fmt.Errorf("error putting object: %v", err)
@@ -273,10 +273,10 @@ func (w *extractObjectWriter) Write(p []byte) (int, error) {
 	return n, nil
 }
 
-type adminAPI_RestoreServer = admin.API_RestoreServer
+type adminAPIRestoreServer = admin.API_RestoreServer
 
 type extractObjectReader struct {
-	adminAPI_RestoreServer
+	adminAPIRestoreServer
 	buf bytes.Buffer
 	eof bool
 }
