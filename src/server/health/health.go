@@ -8,13 +8,14 @@ import (
 	"golang.org/x/net/context"
 )
 
-type HealthServer interface {
+// Server adds the Ready method to health.HealthServer.
+type Server interface {
 	health.HealthServer
 	Ready()
 }
 
 // NewHealthServer returns a new health server
-func NewHealthServer() HealthServer {
+func NewHealthServer() Server {
 	return &healthServer{}
 }
 
@@ -22,6 +23,7 @@ type healthServer struct {
 	ready bool
 }
 
+// Health implements the Health method for healthServer.
 func (h *healthServer) Health(context.Context, *types.Empty) (*types.Empty, error) {
 	if !h.ready {
 		return nil, fmt.Errorf("server not ready")
@@ -29,6 +31,8 @@ func (h *healthServer) Health(context.Context, *types.Empty) (*types.Empty, erro
 	return &types.Empty{}, nil
 }
 
+// Ready tells pachd to start responding positively to Health requests. This
+// will cause the node to pass its k8s readiness check.
 func (h *healthServer) Ready() {
 	h.ready = true
 }
