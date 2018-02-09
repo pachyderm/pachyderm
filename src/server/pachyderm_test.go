@@ -6337,6 +6337,33 @@ func TestCommitDescription(t *testing.T) {
 	require.NoError(t, pfspretty.PrintDetailedCommitInfo(commitInfo))
 }
 
+func TestPipelineDescription(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	dataRepo := uniqueString("TestPipelineDescription_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	description := "pipeline description"
+	pipeline := uniqueString("TestPipelineDescription")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline:    client.NewPipeline(pipeline),
+			Transform:   &pps.Transform{Cmd: []string{"true"}},
+			Description: description,
+			Input:       client.NewAtomInput(dataRepo, "/"),
+		})
+	require.NoError(t, err)
+	pi, err := c.InspectPipeline(pipeline)
+	require.NoError(t, err)
+	require.Equal(t, description, pi.Description)
+}
+
 func TestListJobInputCommits(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
