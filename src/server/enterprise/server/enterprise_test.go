@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"os"
 	"sync"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
@@ -53,25 +55,51 @@ func TestGetState(t *testing.T) {
 	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
 	_, err := client.Enterprise.Activate(context.Background(),
 		&enterprise.ActivateRequest{ActivationCode: testutil.GetTestEnterpriseCode()})
-	resp, err := client.Enterprise.GetState(context.Background(),
-		&enterprise.GetStateRequest{})
 	require.NoError(t, err)
-	require.Equal(t, resp.State, enterprise.State_ACTIVE)
-	expires, err := types.TimestampFromProto(resp.Info.Expires)
-	require.NoError(t, err)
-	require.True(t, expires.Sub(time.Now()) > year)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := client.Enterprise.GetState(context.Background(),
+			&enterprise.GetStateRequest{})
+		if err != nil {
+			return err
+		}
+		if resp.State != enterprise.State_ACTIVE {
+			return fmt.Errorf("expected enterprise state to be ACTIVE but was %v", resp.State)
+		}
+		expires, err := types.TimestampFromProto(resp.Info.Expires)
+		if err != nil {
+			return err
+		}
+		if expires.Sub(time.Now()) <= year {
+			return fmt.Errorf("Expected test token to expire >1yr in the future, but expires at %v (congratulations on making it to 2026!)", expires)
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 
 	// Make current enterprise token expire
-	expiresProto, err := types.TimestampProto(time.Now().Add(-30 * time.Second))
+	expires := time.Now().Add(-30 * time.Second)
+	expiresProto, err := types.TimestampProto(expires)
 	require.NoError(t, err)
 	_, err = client.Enterprise.Activate(context.Background(),
 		&enterprise.ActivateRequest{
 			ActivationCode: testutil.GetTestEnterpriseCode(),
 			Expires:        expiresProto,
 		})
-	resp, err = client.Enterprise.GetState(context.Background(),
-		&enterprise.GetStateRequest{})
-	require.NoError(t, err)
-	require.Equal(t, enterprise.State_EXPIRED, resp.State)
-	require.Equal(t, expiresProto, resp.Info.Expires)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := client.Enterprise.GetState(context.Background(),
+			&enterprise.GetStateRequest{})
+		if err != nil {
+			return err
+		}
+		if resp.State != enterprise.State_EXPIRED {
+			return fmt.Errorf("expected enterprise state to be EXPIRED but was %v", resp.State)
+		}
+		respExpires, err := types.TimestampFromProto(resp.Info.Expires)
+		if err != nil {
+			return err
+		}
+		if expires.Unix() != respExpires.Unix() {
+			return fmt.Errorf("expected enterprise expiration to be %v, but was %v", expires, respExpires)
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 }
