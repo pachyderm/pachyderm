@@ -45,6 +45,22 @@ var (
 	port int32 = 30653
 )
 
+func CommitToID(commit interface{}) interface{} {
+	return commit.(*pfs.Commit).ID
+}
+
+func CommitInfoToID(commit interface{}) interface{} {
+	return commit.(*pfs.CommitInfo).Commit.ID
+}
+
+func RepoInfoToName(repoInfo interface{}) interface{} {
+	return repoInfo.(*pfs.RepoInfo).Repo.Name
+}
+
+func RepoToName(repo interface{}) interface{} {
+	return repo.(*pfs.Repo).Name
+}
+
 var testDBs []string
 
 func TestInvalidRepo(t *testing.T) {
@@ -261,12 +277,7 @@ func TestListRepo(t *testing.T) {
 
 	repoInfos, err := client.ListRepo(nil)
 	require.NoError(t, err)
-
-	for i, repoInfo := range repoInfos {
-		require.Equal(t, repoNames[len(repoNames)-i-1], repoInfo.Repo.Name)
-	}
-
-	require.Equal(t, len(repoInfos), numRepos)
+	require.ElementsEqualUnderFn(t, repoNames, repoInfos, RepoInfoToName)
 }
 
 // Make sure that commits of deleted repos do not resurface
@@ -366,26 +377,15 @@ func TestUpdateProvenance(t *testing.T) {
 	// Check that the downstream repos have the correct provenance
 	repoInfo, err := client.InspectRepo(repo)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(repoInfo.Provenance))
-	expectedProvs := []interface{}{&pfs.Repo{prov2}, &pfs.Repo{prov3}}
-	require.EqualOneOf(t, expectedProvs, repoInfo.Provenance[0])
-	require.EqualOneOf(t, expectedProvs, repoInfo.Provenance[1])
+	require.ElementsEqualUnderFn(t, []string{prov2, prov3}, repoInfo.Provenance, RepoToName)
 
 	repoInfo, err = client.InspectRepo(downstream1)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(repoInfo.Provenance))
-	expectedProvs = []interface{}{&pfs.Repo{prov2}, &pfs.Repo{prov3}, &pfs.Repo{repo}}
-	require.EqualOneOf(t, expectedProvs, repoInfo.Provenance[0])
-	require.EqualOneOf(t, expectedProvs, repoInfo.Provenance[1])
-	require.EqualOneOf(t, expectedProvs, repoInfo.Provenance[2])
+	require.ElementsEqualUnderFn(t, []string{prov2, prov3, repo}, repoInfo.Provenance, RepoToName)
 
 	repoInfo, err = client.InspectRepo(downstream2)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(repoInfo.Provenance))
-	expectedProvs = []interface{}{&pfs.Repo{prov2}, &pfs.Repo{prov3}, &pfs.Repo{repo}}
-	require.EqualOneOf(t, expectedProvs, repoInfo.Provenance[0])
-	require.EqualOneOf(t, expectedProvs, repoInfo.Provenance[1])
-	require.EqualOneOf(t, expectedProvs, repoInfo.Provenance[2])
+	require.ElementsEqualUnderFn(t, []string{prov2, prov3, repo}, repoInfo.Provenance, RepoToName)
 
 	// We should be able to delete prov1 since it's no longer the provenance
 	// of other repos.
@@ -458,13 +458,11 @@ func TestListRepoWithProvenance(t *testing.T) {
 
 	repoInfos, err := client.ListRepo([]string{"prov1"})
 	require.NoError(t, err)
-	require.Equal(t, 1, len(repoInfos))
-	require.Equal(t, "repo", repoInfos[0].Repo.Name)
+	require.ElementsEqualUnderFn(t, []string{"repo"}, repoInfos, RepoInfoToName)
 
 	repoInfos, err = client.ListRepo([]string{"prov1", "prov2"})
 	require.NoError(t, err)
-	require.Equal(t, 1, len(repoInfos))
-	require.Equal(t, "repo", repoInfos[0].Repo.Name)
+	require.ElementsEqualUnderFn(t, []string{"repo"}, repoInfos, RepoInfoToName)
 
 	repoInfos, err = client.ListRepo([]string{"prov3"})
 	require.NoError(t, err)
@@ -3151,13 +3149,13 @@ func TestBackfillBranch(t *testing.T) {
 
 // TestUpdateBranch tests the following DAG:
 //
-// A--->B--->C
+// A───>B───>C
 //
 // Then updates it to:
 //
-// A--->B--->C
+// A───>B───>C
 //      ^
-// D----+
+// D────┘
 //
 func TestUpdateBranch(t *testing.T) {
 	c := getClient(t)
@@ -3200,13 +3198,13 @@ func TestBranchProvenance(t *testing.T) {
 		{name: "D", directProv: []string{"C", "A"},
 			expectProv: map[string][]string{"A": nil, "B": {"A"}, "C": {"B", "A"}, "D": {"A", "B", "C"}},
 			expectSubv: map[string][]string{"A": {"B", "C", "D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
-		// A -> B -> C -> D
-		// + ------------ ^
+		// A ─> B ─> C ─> D
+		// └──────────────⬏
 		{name: "B",
 			expectProv: map[string][]string{"A": {}, "B": {}, "C": {"B"}, "D": {"A", "B", "C"}},
 			expectSubv: map[string][]string{"A": {"D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
-		// A    B -> C -> D
-		// + ------------ ^
+		// A    B ─> C ─> D
+		// └──────────────⬏
 	}, {
 		{name: "A"},
 		{name: "B", directProv: []string{"A"}},
@@ -3214,8 +3212,8 @@ func TestBranchProvenance(t *testing.T) {
 		{name: "D", directProv: []string{"C"},
 			expectProv: map[string][]string{"A": {}, "B": {"A"}, "C": {"A", "B"}, "D": {"A", "B", "C"}},
 			expectSubv: map[string][]string{"A": {"B", "C", "D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
-		// A -> B -> C -> D
-		// + ------- ^
+		// A ─> B ─> C ─> D
+		// └─────────⬏
 		{name: "C", directProv: []string{"B"},
 			expectProv: map[string][]string{"A": {}, "B": {"A"}, "C": {"A", "B"}, "D": {"A", "B", "C"}},
 			expectSubv: map[string][]string{"A": {"B", "C", "D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
@@ -3228,14 +3226,14 @@ func TestBranchProvenance(t *testing.T) {
 		{name: "E", directProv: []string{"A", "D"},
 			expectProv: map[string][]string{"A": {}, "B": {}, "C": {"A", "B"}, "D": {"A", "B", "C"}, "E": {"A", "B", "C", "D"}},
 			expectSubv: map[string][]string{"A": {"C", "D", "E"}, "B": {"C", "D", "E"}, "C": {"D", "E"}, "D": {"E"}, "E": {}}},
-		// A    B -> C -> D -> E
-		// + ------- ^         ^
-		// + ----------------- +
+		// A    B ─> C ─> D ─> E
+		// └─────────⬏         ^
+		// └───────────────────┘
 		{name: "C", directProv: []string{"B"},
 			expectProv: map[string][]string{"A": {}, "B": {}, "C": {"B"}, "D": {"B", "C"}, "E": {"A", "B", "C", "D"}},
 			expectSubv: map[string][]string{"A": {"E"}, "B": {"C", "D", "E"}, "C": {"D", "E"}, "D": {"E"}, "E": {}}},
-		// A    B -> C -> D -> E
-		// + ----------------- ^
+		// A    B ─> C ─> D ─> E
+		// └───────────────────⬏
 	}, {
 		{name: "A", directProv: []string{"A"}, err: true},
 		{name: "A"},
