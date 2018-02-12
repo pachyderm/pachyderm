@@ -390,7 +390,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 				if err := ev.Unmarshal(&jobID, jobPtr); err != nil {
 					return nil, err
 				}
-				if jobStateToStopped(jobPtr.State) {
+				if ppsutil.IsDone(jobPtr.State) {
 					return a.jobInfoFromPtr(pachClient, jobPtr)
 				}
 			}
@@ -2384,23 +2384,6 @@ func (a *apiServer) updateJobState(stm col.STM, jobPtr *pps.EtcdJobInfo, state p
 	jobs := a.jobs.ReadWrite(stm)
 	jobs.Put(jobPtr.Job.ID, jobPtr)
 	return nil
-}
-
-func jobStateToStopped(state pps.JobState) bool {
-	switch state {
-	case pps.JobState_JOB_STARTING:
-		return false
-	case pps.JobState_JOB_RUNNING:
-		return false
-	case pps.JobState_JOB_SUCCESS:
-		return true
-	case pps.JobState_JOB_FAILURE:
-		return true
-	case pps.JobState_JOB_KILLED:
-		return true
-	default:
-		panic(fmt.Sprintf("unrecognized job state: %s", state))
-	}
 }
 
 func (a *apiServer) getPachClient() *client.APIClient {

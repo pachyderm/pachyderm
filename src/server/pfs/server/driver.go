@@ -1325,6 +1325,7 @@ func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 			commitsToWatch = newCommitsToWatch
 		}
 	}
+
 	// Compute a map of repos we're flushing to.
 	toRepoMap := make(map[string]*pfs.Repo)
 	for _, toRepo := range toRepos {

@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -25,84 +24,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
-
-// ElementsEqual returns nil if the elements of the slice "expecteds" are
-// exactly the elements of the slice "actuals", ignoring order (i.e.
-// setwise-equal), and an error otherwise.
-func ElementsEqual(expecteds interface{}, actuals interface{}) error {
-	es := reflect.ValueOf(expecteds)
-	as := reflect.ValueOf(actuals)
-	if es.Kind() != reflect.Slice {
-		return fmt.Errorf("ElementsEqual must be called with a slice, but \"expected\" was %s", es.Type().String())
-	}
-	if as.Kind() != reflect.Slice {
-		return fmt.Errorf("ElementsEqual must be called with a slice, but \"actual\" was %s", as.Type().String())
-	}
-
-	// Make sure expecteds and actuals are slices of the same type, modulo
-	// pointers (*T ~= T in this function)
-	esArePtrs := es.Type().Elem().Kind() == reflect.Ptr
-	asArePtrs := as.Type().Elem().Kind() == reflect.Ptr
-	esElemType, asElemType := es.Type().Elem(), as.Type().Elem()
-	if esArePtrs {
-		esElemType = es.Type().Elem().Elem()
-	}
-	if asArePtrs {
-		asElemType = as.Type().Elem().Elem()
-	}
-	if esElemType != asElemType {
-		return fmt.Errorf("Expected []%s but got []%s", es.Type().Elem(), as.Type().Elem())
-	}
-
-	// Count up elements of expecteds
-	intType := reflect.TypeOf(int(0))
-	expectedCt := reflect.MakeMap(reflect.MapOf(esElemType, intType))
-	for i := 0; i < es.Len(); i++ {
-		v := es.Index(i)
-		if esArePtrs {
-			v = v.Elem()
-		}
-		if !expectedCt.MapIndex(v).IsValid() {
-			expectedCt.SetMapIndex(v, reflect.ValueOf(1))
-		} else {
-			newCt := expectedCt.MapIndex(v).Int() + 1
-			expectedCt.SetMapIndex(v, reflect.ValueOf(newCt))
-		}
-	}
-
-	// Count up elements of actuals
-	actualCt := reflect.MakeMap(reflect.MapOf(asElemType, intType))
-	for i := 0; i < as.Len(); i++ {
-		v := as.Index(i)
-		if asArePtrs {
-			v = v.Elem()
-		}
-		if !actualCt.MapIndex(v).IsValid() {
-			actualCt.SetMapIndex(v, reflect.ValueOf(1))
-		} else {
-			newCt := actualCt.MapIndex(v).Int() + 1
-			actualCt.SetMapIndex(v, reflect.ValueOf(newCt))
-		}
-	}
-	if expectedCt.Len() != actualCt.Len() {
-		return fmt.Errorf("expected %d distinct elements, but got %d", expectedCt.Len(), actualCt.Len())
-	}
-	for _, key := range expectedCt.MapKeys() {
-		ec := expectedCt.MapIndex(key)
-		ac := actualCt.MapIndex(key)
-		if !ec.IsValid() || !ac.IsValid() || ec.Int() != ac.Int() {
-			ecInt, acInt := int64(0), int64(0)
-			if ec.IsValid() {
-				ecInt = ec.Int()
-			}
-			if ac.IsValid() {
-				acInt = ac.Int()
-			}
-			return fmt.Errorf("expected %d copies of %s, but got %d copies", ecInt, key.String(), acInt)
-		}
-	}
-	return nil
-}
 
 func TSProtoOrDie(t *testing.T, ts time.Time) *types.Timestamp {
 	proto, err := types.TimestampProto(ts)
@@ -123,7 +44,7 @@ func TestAdminRWO(t *testing.T) {
 	// The initial set of admins is just the user "admin"
 	resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
 	require.NoError(t, err)
-	require.NoError(t, ElementsEqual([]string{"admin"}, resp.Admins))
+	require.ElementsEqual(t, []string{"admin"}, resp.Admins)
 
 	// alice creates a repo (that only she owns) and puts a file
 	repo := tu.UniqueString("TestAdminRWO")
@@ -169,7 +90,7 @@ func TestAdminRWO(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		return ElementsEqual([]string{"admin", bob}, resp.Admins)
+		return require.ElementsEqualOrErr([]string{"admin", bob}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
 
 	// now bob can read from the repo
@@ -191,8 +112,8 @@ func TestAdminRWO(t *testing.T) {
 	})
 	require.NoError(t, err)
 	// check that ACL was updated
-	require.NoError(t, ElementsEqual(
-		entries(alice, "owner", "carol", "reader"), GetACL(t, aliceClient, repo)))
+	require.ElementsEqual(t,
+		entries(alice, "owner", "carol", "reader"), GetACL(t, aliceClient, repo))
 
 	// 'admin' revokes bob's admin status
 	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
@@ -203,7 +124,7 @@ func TestAdminRWO(t *testing.T) {
 	backoff.Retry(func() error {
 		resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		return ElementsEqual([]string{"admin"}, resp.Admins)
+		return require.ElementsEqualOrErr([]string{"admin"}, resp.Admins)
 	}, backoff.NewTestingBackOff())
 
 	// bob can no longer read from the repo
@@ -227,8 +148,8 @@ func TestAdminRWO(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated
-	require.NoError(t, ElementsEqual(
-		entries(alice, "owner", "carol", "reader"), GetACL(t, aliceClient, repo)))
+	require.ElementsEqual(t,
+		entries(alice, "owner", "carol", "reader"), GetACL(t, aliceClient, repo))
 }
 
 func TestAdminFixBrokenRepo(t *testing.T) {
@@ -291,7 +212,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	// Check that the initial set of admins is just "admin"
 	resp, err := adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
 	require.NoError(t, err)
-	require.NoError(t, ElementsEqual([]string{"admin"}, resp.Admins))
+	require.ElementsEqual(t, []string{"admin"}, resp.Admins)
 
 	// admin cannot remove themselves from the list of cluster admins (otherwise
 	// there would be no admins)
@@ -301,7 +222,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		return ElementsEqual([]string{"admin"}, resp.Admins)
+		return require.ElementsEqualOrErr([]string{"admin"}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
 
 	// admin can make alice a cluster administrator
@@ -313,7 +234,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		return ElementsEqual([]string{"admin", alice}, resp.Admins)
+		return require.ElementsEqualOrErr([]string{"admin", alice}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
 
 	// Now admin can remove themselves as a cluster admin
@@ -323,7 +244,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		return ElementsEqual([]string{alice}, resp.Admins)
+		return require.ElementsEqualOrErr([]string{alice}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
 
 	// now alice is the only admin, and she cannot remove herself as a cluster
@@ -334,7 +255,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		return ElementsEqual([]string{alice}, resp.Admins)
+		return require.ElementsEqualOrErr([]string{alice}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
 
 	// alice *can* swap herself and "admin"
@@ -347,7 +268,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		return ElementsEqual([]string{"admin"}, resp.Admins)
+		return require.ElementsEqualOrErr([]string{"admin"}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
 }
 
@@ -540,8 +461,8 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	})
 	require.NoError(t, err)
 	// check that ACL was updated
-	require.NoError(t, ElementsEqual(
-		entries(alice, "owner", "carol", "reader"), GetACL(t, adminClient, repo)))
+	require.ElementsEqual(t,
+		entries(alice, "owner", "carol", "reader"), GetACL(t, adminClient, repo))
 
 	// admin can re-authenticate
 	resp, err := adminClient.Authenticate(context.Background(),
@@ -597,8 +518,8 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	})
 	require.NoError(t, err)
 	// check that ACL was updated
-	require.NoError(t, ElementsEqual(
-		entries(alice, "owner", "carol", "writer"), GetACL(t, adminClient, repo)))
+	require.ElementsEqual(t,
+		entries(alice, "owner", "carol", "writer"), GetACL(t, adminClient, repo))
 }
 
 func TestPipelinesRunAfterExpiration(t *testing.T) {
@@ -766,16 +687,16 @@ func TestGetSetScopeAndAclWithExpiredToken(t *testing.T) {
 		Scope:    auth.Scope_READER,
 	})
 	require.NoError(t, err)
-	require.NoError(t, ElementsEqual(
-		entries(alice, "owner", "carol", "reader"), GetACL(t, adminClient, repo)))
+	require.ElementsEqual(t,
+		entries(alice, "owner", "carol", "reader"), GetACL(t, adminClient, repo))
 
 	// admin can call GetAcl on repo
 	aclResp, err := adminClient.GetACL(adminClient.Ctx(), &auth.GetACLRequest{
 		Repo: repo,
 	})
 	require.NoError(t, err)
-	require.NoError(t, ElementsEqual(
-		entries(alice, "owner", "carol", "reader"), aclResp.Entries))
+	require.ElementsEqual(t,
+		entries(alice, "owner", "carol", "reader"), aclResp.Entries)
 
 	// admin can call SetAcl on repo
 	_, err = adminClient.SetACL(adminClient.Ctx(), &auth.SetACLRequest{
@@ -786,8 +707,8 @@ func TestGetSetScopeAndAclWithExpiredToken(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	require.NoError(t, ElementsEqual(
-		entries(alice, "owner", "carol", "writer"), GetACL(t, adminClient, repo)))
+	require.ElementsEqual(t,
+		entries(alice, "owner", "carol", "writer"), GetACL(t, adminClient, repo))
 }
 
 // TestAdminWhoAmI tests that when an admin calls WhoAmI(), the IsAdmin field
