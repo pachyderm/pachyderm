@@ -390,7 +390,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 				if err := ev.Unmarshal(&jobID, jobPtr); err != nil {
 					return nil, err
 				}
-				if ppsutil.IsDone(jobPtr.State) {
+				if ppsutil.IsTerminal(jobPtr.State) {
 					return a.jobInfoFromPtr(pachClient, jobPtr)
 				}
 			}

@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"regexp"
 	"strings"
 	"sync"
 	"syscall"
@@ -23,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
@@ -291,7 +293,7 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 				return err
 			}
 			if commitInfo.Finished != nil {
-				continue
+				continue // commit finished after queueing
 			}
 			if a.pipelineInfo.ScaleDownThreshold != nil {
 				if err := a.scaleUpWorkers(logger); err != nil {
@@ -319,7 +321,7 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 					return err
 				}
 			}
-			if ppsutil.IsDone(jobInfo.State) {
+			if ppsutil.IsTerminal(jobInfo.State) {
 				// previously-created job has finished, but commit has not been closed yet
 				continue
 			}
@@ -581,33 +583,47 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 					Block:  true,
 				})
 			if err != nil {
+				if isCommitDeletedErr(err) {
+					defer cancel() // whether we return error or nil, job is done
+					// Output commit was deleted. Delete job as well
+					if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+						// Delete the job if no other worker has deleted it yet
+						jobPtr := &pps.EtcdJobInfo{}
+						if err := a.jobs.ReadWrite(stm).Get(jobInfo.Job.ID, jobPtr); err != nil {
+							return err
+						}
+						return a.deleteJob(stm, jobPtr)
+					}); err != nil && !col.IsErrNotFound(err) {
+						return err
+					}
+					return nil
+				}
 				return err
 			}
 			if commitInfo.Tree == nil {
+				defer cancel() // whether job state update succeeds or not, job is done
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 					// Read an up to date version of the jobInfo so that we
 					// don't overwrite changes that have happened since this
 					// function started.
-					jobs := a.jobs.ReadWrite(stm)
-					jobID := jobInfo.Job.ID
 					jobPtr := &pps.EtcdJobInfo{}
-					if err := jobs.Get(jobID, jobPtr); err != nil {
+					if err := a.jobs.ReadWrite(stm).Get(jobInfo.Job.ID, jobPtr); err != nil {
 						return err
 					}
-					return a.updateJobState(stm, jobPtr, pps.JobState_JOB_KILLED, "")
+					if !ppsutil.IsTerminal(jobPtr.State) {
+						return a.updateJobState(stm, jobPtr, pps.JobState_JOB_KILLED, "")
+					}
+					return nil
 				}); err != nil {
 					return err
 				}
-				cancel()
 			}
 			return nil
 		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-			select {
-			case <-ctx.Done():
-				return err
-			default:
+			if isDone(ctx) {
+				return err // exit retry loop
 			}
-			return nil
+			return nil // retry again
 		})
 	}()
 	if jobInfo.JobTimeout != nil {
@@ -754,6 +770,13 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			Tree:   object,
 		})
 		if err != nil {
+			if isCommitDeletedErr(err) {
+				// output commit was deleted during e.g. FinishCommit, which means this job
+				// should be deleted. Goro from top of waitJob() will observe the deletion,
+				// delete the jobPtr and call cancel()--wait for that.
+				<-ctx.Done() // wait for cancel()
+				return nil
+			}
 			return err
 		}
 
@@ -1092,4 +1115,17 @@ func now() *types.Timestamp {
 		panic(err)
 	}
 	return t
+}
+
+var commitNotFoundRe = regexp.MustCompile("commit [^ ]+ not found in repo [^ ]+")
+var commitDeletedRe = regexp.MustCompile("commit [^ ]+/[^ ]+ was deleted")
+
+// isCommitDeletedErr detects if 'error' (returned by InsepctCommit,
+// FinishCommit, or SubscribeCommit) indicates that the commit inspected or
+// subscribed has been deleted. This may happen if a user calls DeleteCommit on
+// a job's input commit (thus deleting the job's output commit) before the job
+// has finished
+func isCommitDeletedErr(err error) bool {
+	errStr := grpcutil.ScrubGRPC(err).Error()
+	return commitNotFoundRe.MatchString(errStr) || commitDeletedRe.MatchString(errStr)
 }
