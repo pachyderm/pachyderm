@@ -359,7 +359,7 @@ func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo) (Comm
 	return &commitInfoIterator{stream, cancel}, nil
 }
 
-// FlushCommit calls f with commits that have the specified `commits` as
+// FlushCommitF calls f with commits that have the specified `commits` as
 // provenance. Note that it can block if jobs have not successfully
 // completed. This in effect waits for all of the jobs that are triggered by a
 // set of commits to complete.

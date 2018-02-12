@@ -236,7 +236,7 @@ func (c APIClient) FlushJob(commits []*pfs.Commit, toPipelines []string, f func(
 	}
 }
 
-// FlushJob returns all the jobs which were triggered by commits.
+// FlushJobAll returns all the jobs which were triggered by commits.
 // If toPipelines is non-nil then only the jobs between commits and those
 // pipelines in the DAG will be returned.
 func (c APIClient) FlushJobAll(commits []*pfs.Commit, toPipelines []string) ([]*pps.JobInfo, error) {
