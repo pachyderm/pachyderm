@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"path"
-	"regexp"
 	"strings"
 	"sync"
 	"syscall"
@@ -24,8 +23,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
@@ -583,7 +582,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 					Block:  true,
 				})
 			if err != nil {
-				if isCommitDeletedErr(err) {
+				if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
 					defer cancel() // whether we return error or nil, job is done
 					// Output commit was deleted. Delete job as well
 					if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
@@ -770,7 +769,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			Tree:   object,
 		})
 		if err != nil {
-			if isCommitDeletedErr(err) {
+			if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
 				// output commit was deleted during e.g. FinishCommit, which means this job
 				// should be deleted. Goro from top of waitJob() will observe the deletion,
 				// delete the jobPtr and call cancel()--wait for that.
@@ -1115,17 +1114,4 @@ func now() *types.Timestamp {
 		panic(err)
 	}
 	return t
-}
-
-var commitNotFoundRe = regexp.MustCompile("commit [^ ]+ not found in repo [^ ]+")
-var commitDeletedRe = regexp.MustCompile("commit [^ ]+/[^ ]+ was deleted")
-
-// isCommitDeletedErr detects if 'error' (returned by InsepctCommit,
-// FinishCommit, or SubscribeCommit) indicates that the commit inspected or
-// subscribed has been deleted. This may happen if a user calls DeleteCommit on
-// a job's input commit (thus deleting the job's output commit) before the job
-// has finished
-func isCommitDeletedErr(err error) bool {
-	errStr := grpcutil.ScrubGRPC(err).Error()
-	return commitNotFoundRe.MatchString(errStr) || commitDeletedRe.MatchString(errStr)
 }
