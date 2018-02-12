@@ -614,7 +614,7 @@ func (a *apiServer) FlushJob(request *pps.FlushJobRequest, resp pps.API_FlushJob
 			return fmt.Errorf("didn't find a job for output commit: %s/%s", ci.Commit.Repo.Name, ci.Commit.ID)
 		}
 		if len(jis) > 1 {
-			return fmt.Errorf("didn't find too many jobs (%d) for output commit: %s/%s", len(jis), ci.Commit.Repo.Name, ci.Commit.ID)
+			return fmt.Errorf("found too many jobs (%d) for output commit: %s/%s", len(jis), ci.Commit.Repo.Name, ci.Commit.ID)
 		}
 		return resp.Send(jis[0])
 	})
