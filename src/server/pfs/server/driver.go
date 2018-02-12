@@ -1032,10 +1032,7 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, block bo
 						return fmt.Errorf("Unmarshal: %v", err)
 					}
 				case watch.EventDelete:
-					// Note: this error is detected explicity in
-					// src/server/worker/master.go. If this error text is changed, that
-					// file should be changed too
-					return fmt.Errorf("commit %s deleted", commit.ID)
+					return pfsserver.ErrCommitDeleted{commit}
 				}
 				if _commitInfo.Finished != nil {
 					commitInfo = _commitInfo
@@ -1676,8 +1673,12 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	if _, err := d.inspectCommit(ctx, file.Commit, false); err != nil {
+	commitInfo, err := d.inspectCommit(ctx, file.Commit, false)
+	if err != nil {
 		return err
+	}
+	if commitInfo.Finished != nil {
+		return pfsserver.ErrCommitFinished{file.Commit}
 	}
 
 	if overwriteIndex != nil && overwriteIndex.Index == 0 {
@@ -2157,7 +2158,6 @@ func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
 	if err != nil {
 		return err
 	}
-
 	if commitInfo.Finished != nil {
 		return pfsserver.ErrCommitFinished{file.Commit}
 	}
