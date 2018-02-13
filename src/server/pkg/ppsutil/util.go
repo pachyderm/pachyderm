@@ -199,10 +199,10 @@ func JobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) 
 	return jobInput
 }
 
-// IsDone returns 'true' if 'state' indicates that the job is done (i.e. the
-// state will not change later: SUCCESS, FAILURE, KILLED) and 'false'
+// IsTerminal returns 'true' if 'state' indicates that the job is done (i.e.
+// the state will not change later: SUCCESS, FAILURE, KILLED) and 'false'
 // otherwise.
-func IsDone(state pps.JobState) bool {
+func IsTerminal(state pps.JobState) bool {
 	switch state {
 	case pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE, pps.JobState_JOB_KILLED:
 		return true

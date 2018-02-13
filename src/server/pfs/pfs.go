@@ -2,8 +2,10 @@ package pfs
 
 import (
 	"fmt"
+	"regexp"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 )
 
 // ErrFileNotFound represents a file-not-found error.
@@ -93,4 +95,26 @@ func (e ErrParentCommitNotFound) Error() string {
 // ByteRangeSize returns byteRange.Upper - byteRange.Lower.
 func ByteRangeSize(byteRange *pfs.ByteRange) uint64 {
 	return byteRange.Upper - byteRange.Lower
+}
+
+var commitNotFoundRe = regexp.MustCompile("commit [^ ]+ not found in repo [^ ]+")
+
+// IsCommitNotFoundErr returns true if 'err' has an error message that matches
+// ErrCommitNotFound
+func IsCommitNotFoundErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return commitNotFoundRe.MatchString(grpcutil.ScrubGRPC(err).Error())
+}
+
+var commitDeletedRe = regexp.MustCompile("commit [^ ]+/[^ ]+ was deleted")
+
+// IsCommitDeletedErr returns true if 'err' has an error message that matches
+// ErrCommitDeleted
+func IsCommitDeletedErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return commitDeletedRe.MatchString(grpcutil.ScrubGRPC(err).Error())
 }
