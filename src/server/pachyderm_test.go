@@ -2838,11 +2838,13 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	// Get logs from pipeline, using pipeline
 	iter := c.GetLogs(pipelineName, "", nil, "", false, false, 0)
 	var numLogs int
+	var logsData bytes.Buffer
 	for iter.Next() {
 		numLogs++
 		require.True(t, iter.Message().Message != "")
+		logsData.WriteString(iter.Message().Message)
 	}
-	require.Equal(t, 8, numLogs)
+	require.Equal(t, 8, numLogs, logsData)
 	require.NoError(t, iter.Err())
 
 	// Get logs from pipeline, using pipeline

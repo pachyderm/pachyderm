@@ -37,8 +37,15 @@ type ErrCommitExists struct {
 	Commit *pfs.Commit
 }
 
-// ErrCommitFinished represents an error where the commit has been finished.
+// ErrCommitFinished represents an error where the commit has been finished
+// (e.g from PutFile or DeleteFile)
 type ErrCommitFinished struct {
+	Commit *pfs.Commit
+}
+
+// ErrCommitDeleted represents an error where the commit has been deleted (e.g.
+// from InspectCommit)
+type ErrCommitDeleted struct {
 	Commit *pfs.Commit
 }
 
@@ -73,6 +80,10 @@ func (e ErrCommitExists) Error() string {
 
 func (e ErrCommitFinished) Error() string {
 	return fmt.Sprintf("commit %v in repo %v has already finished", e.Commit.ID, e.Commit.Repo.Name)
+}
+
+func (e ErrCommitDeleted) Error() string {
+	return fmt.Sprintf("commit %v/%v was deleted", e.Commit.Repo.Name, e.Commit.ID)
 }
 
 func (e ErrParentCommitNotFound) Error() string {
