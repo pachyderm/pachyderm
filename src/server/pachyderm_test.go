@@ -1119,6 +1119,74 @@ func TestFlushCommit(t *testing.T) {
 	}
 }
 
+func TestFlushCommitFailures(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+	dataRepo := uniqueString("TestFlushCommitFailures")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	prefix := uniqueString("TestFlushCommitFailures")
+	pipelineName := func(i int) string { return prefix + fmt.Sprintf("%d", i) }
+
+	require.NoError(t, c.CreatePipeline(
+		pipelineName(0),
+		"",
+		[]string{"sh"},
+		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo)},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+	require.NoError(t, c.CreatePipeline(
+		pipelineName(1),
+		"",
+		[]string{"sh"},
+		[]string{
+			fmt.Sprintf("if [ -f /pfs/%s/file1 ]; then exit 1; fi", pipelineName(0)),
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", pipelineName(0)),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(pipelineName(0), "/*"),
+		"",
+		false,
+	))
+	require.NoError(t, c.CreatePipeline(
+		pipelineName(2),
+		"",
+		[]string{"sh"},
+		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", pipelineName(1))},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(pipelineName(1), "/*"),
+		"",
+		false,
+	))
+
+	for i := 0; i < 2; i++ {
+		commit, err := c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		_, err = c.PutFile(dataRepo, commit.ID, fmt.Sprintf("file%d", i), strings.NewReader("foo\n"))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
+		require.NoError(t, err)
+		commitInfos := collectCommitInfos(t, commitIter)
+		require.Equal(t, 3, len(commitInfos))
+		jobInfos, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(jobInfos))
+	}
+}
+
 func TestFlushCommitAfterCreatePipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
