@@ -988,6 +988,9 @@ func (a *APIServer) cancelCtxIfJobFails(jobCtx context.Context, jobCancel func()
 			}
 		}
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		if jobCtx.Err() == context.Canceled {
+			return err // worker is done, nothing else to do
+		}
 		logger.Logf("worker: error watching job %s (%v); retrying in %v", jobID, err, d)
 		return nil
 	})

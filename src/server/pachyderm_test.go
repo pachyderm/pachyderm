@@ -2813,7 +2813,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 				Stdin: []string{
 					fmt.Sprintf("cp /pfs/%s/file /pfs/out/file", dataRepo),
 					"echo foo",
-					"echo foo",
+					"echo bar",
 				},
 			},
 			Input:       client.NewAtomInput(dataRepo, "/*"),
@@ -2838,13 +2838,13 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	// Get logs from pipeline, using pipeline
 	iter := c.GetLogs(pipelineName, "", nil, "", false, false, 0)
 	var numLogs int
-	var logsData bytes.Buffer
+	var loglines []string
 	for iter.Next() {
 		numLogs++
 		require.True(t, iter.Message().Message != "")
-		logsData.WriteString(iter.Message().Message)
+		loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
 	}
-	require.Equal(t, 8, numLogs, logsData.String())
+	require.Equal(t, 8, numLogs, "logs:\n%s", strings.Join(loglines, "\n"))
 	require.NoError(t, iter.Err())
 
 	// Get logs from pipeline, using pipeline
@@ -6504,6 +6504,186 @@ func TestListJobInputCommits(t *testing.T) {
 	jobInfos, err = c.ListJob("", []*pfs.Commit{client.NewCommit(aRepo, "master"), client.NewCommit(bRepo, "master")}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
+}
+
+// TestCancelJob creates a long-running job and then kills it, testing that the
+// user process is killed.
+func TestCancelJob(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	// Create an input repo
+	repo := uniqueString("TestCancelJob")
+	require.NoError(t, c.CreateRepo(repo))
+
+	// Create an input commit
+	commit, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, commit.ID, "/time", strings.NewReader("600"))
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, commit.ID, "/data", strings.NewReader("commit data"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, commit.ID))
+
+	// Create sleep + copy pipeline
+	pipeline := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			"sleep `cat /pfs/*/time`",
+			"cp /pfs/*/data /pfs/out/",
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(repo, "/"),
+		"",
+		false,
+	))
+
+	// Wait until PPS has started processing commit
+	var jobInfo *pps.JobInfo
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		return backoff.Retry(func() error {
+			jobInfos, err := c.ListJob(pipeline, []*pfs.Commit{commit}, nil)
+			if err != nil {
+				return err
+			}
+			if len(jobInfos) != 1 {
+				return fmt.Errorf("Expected one job, but got %d: %v", len(jobInfos), jobInfos)
+			}
+			jobInfo = jobInfos[0]
+			return nil
+		}, backoff.NewTestingBackOff())
+	})
+
+	// stop the job
+	require.NoError(t, c.StopJob(jobInfo.Job.ID))
+
+	// Wait until the job is cancelled
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		return backoff.Retry(func() error {
+			updatedJobInfo, err := c.InspectJob(jobInfo.Job.ID, false)
+			if err != nil {
+				return err
+			}
+			if updatedJobInfo.State != pps.JobState_JOB_KILLED {
+				return fmt.Errorf("job %s is still running, but should be KILLED", jobInfo.Job.ID)
+			}
+			return nil
+		}, backoff.NewTestingBackOff())
+	})
+
+	// Create one more commit to make sure the pipeline can still process input
+	// commits
+	commit2, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.DeleteFile(repo, commit2.ID, "/time"))
+	_, err = c.PutFile(repo, commit2.ID, "/time", strings.NewReader("1"))
+	require.NoError(t, err)
+	require.NoError(t, c.DeleteFile(repo, commit2.ID, "/data"))
+	_, err = c.PutFile(repo, commit2.ID, "/data", strings.NewReader("commit 2 data"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, commit2.ID))
+
+	// Flush commit2, and make sure the output is as expected
+	iter, err := c.FlushCommit([]*pfs.Commit{commit2}, []*pfs.Repo{client.NewRepo(pipeline)})
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, iter)
+	require.Equal(t, 1, len(commitInfos))
+
+	buf := bytes.Buffer{}
+	err = c.GetFile(pipeline, commitInfos[0].Commit.ID, "/data", 0, 0, &buf)
+	require.NoError(t, err)
+	require.Equal(t, "commit 2 data", buf.String())
+}
+
+// TestCancelManyJobs creates many jobs to test that the handling of many
+// incoming job events is correct. Each job comes up (which tests that that
+// cancelling job 'a' does not cancel subsequent job 'b'), must be the only job
+// running (which tests that only one job can run at a time), and then is
+// cancelled.
+func TestCancelManyJobs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	// Create an input repo
+	repo := uniqueString("TestCancelManyJobs")
+	require.NoError(t, c.CreateRepo(repo))
+
+	// Create sleep pipeline
+	pipeline := uniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"sleep", "600"},
+		nil,
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(repo, "/"),
+		"",
+		false,
+	))
+
+	// Create 10 input commits, to spawn 10 jobs
+	var commits [10]*pfs.Commit
+	var err error
+	for i := 0; i < 10; i++ {
+		commits[i], err = c.StartCommit(repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commits[i].ID))
+	}
+
+	// For each expected job: watch to make sure the input job comes up, make
+	// sure that it's the only job running, then cancel it
+	for _, commit := range commits {
+		// Wait until PPS has started processing commit
+		var jobInfo *pps.JobInfo
+		require.NoErrorWithinT(t, 30*time.Second, func() error {
+			return backoff.Retry(func() error {
+				jobInfos, err := c.ListJob(pipeline, []*pfs.Commit{commit}, nil)
+				if err != nil {
+					return err
+				}
+				if len(jobInfos) != 1 {
+					return fmt.Errorf("Expected one job, but got %d: %v", len(jobInfos), jobInfos)
+				}
+				jobInfo = jobInfos[0]
+				return nil
+			}, backoff.NewTestingBackOff())
+		})
+
+		// Stop the job
+		require.NoError(t, c.StopJob(jobInfo.Job.ID))
+
+		// Check that the job is now killed
+		require.NoErrorWithinT(t, 30*time.Second, func() error {
+			return backoff.Retry(func() error {
+				// TODO(msteffen): once github.com/pachyderm/pachyderm/pull/2642 is
+				// submitted, change ListJob here to filter on commit1 as the input commit,
+				// rather than inspecting the input in the test
+				updatedJobInfo, err := c.InspectJob(jobInfo.Job.ID, false)
+				if err != nil {
+					return err
+				}
+				if updatedJobInfo.State != pps.JobState_JOB_KILLED {
+					return fmt.Errorf("job %s is still running, but should be KILLED", jobInfo.Job.ID)
+				}
+				return nil
+			}, backoff.NewTestingBackOff())
+		})
+	}
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
