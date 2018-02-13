@@ -2844,7 +2844,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 		require.True(t, iter.Message().Message != "")
 		logsData.WriteString(iter.Message().Message)
 	}
-	require.Equal(t, 8, numLogs, logsData)
+	require.Equal(t, 8, numLogs, logsData.String())
 	require.NoError(t, iter.Err())
 
 	// Get logs from pipeline, using pipeline
