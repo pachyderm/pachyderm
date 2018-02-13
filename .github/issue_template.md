@@ -15,15 +15,15 @@ Slack: http://slack.pachyderm.io/
 > feature
 
 
-**What happened**:
+**What happened?**:
 
-**What you expected to happen**:
+**What you expected to happen?**:
 
-**How to reproduce it (as minimally and precisely as possible)**:
+**How to reproduce it (as minimally and precisely as possible)?**:
 
 **Anything else we need to know?**:
 
-**Environment**:
+**Environment?**:
 - Kubernetes version (use `kubectl version`):
 - Pachyderm CLI version (use `pachctl version`):
 - Cloud provider (e.g. aws, azure, gke) or local deployment (e.g. minikube vs dockerized k8s):
