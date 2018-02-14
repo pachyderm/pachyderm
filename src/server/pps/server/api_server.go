@@ -616,7 +616,13 @@ func (a *apiServer) FlushJob(request *pps.FlushJobRequest, resp pps.API_FlushJob
 		if len(jis) > 1 {
 			return fmt.Errorf("found too many jobs (%d) for output commit: %s/%s", len(jis), ci.Commit.Repo.Name, ci.Commit.ID)
 		}
-		return resp.Send(jis[0])
+		// Even though the commit has been finished the job isn't necessarily
+		// finished yet, so we block on its state as well.
+		ji, err := a.InspectJob(resp.Context(), &pps.InspectJobRequest{Job: jis[0].Job, BlockState: true})
+		if err != nil {
+			return err
+		}
+		return resp.Send(ji)
 	})
 }
 
