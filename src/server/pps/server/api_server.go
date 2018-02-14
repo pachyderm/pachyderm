@@ -390,7 +390,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 				if err := ev.Unmarshal(&jobID, jobPtr); err != nil {
 					return nil, err
 				}
-				if jobStateToStopped(jobPtr.State) {
+				if ppsutil.IsTerminal(jobPtr.State) {
 					return a.jobInfoFromPtr(pachClient, jobPtr)
 				}
 			}
@@ -642,15 +642,18 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 func (a *apiServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		jobs := a.jobs.ReadWrite(stm)
-		jobPtr := &pps.EtcdJobInfo{}
-		if err := jobs.Get(request.Job.ID, jobPtr); err != nil {
-			return err
-		}
-		return a.updateJobState(stm, jobPtr, pps.JobState_JOB_KILLED)
-	})
-	if err != nil {
+	pachClient := a.getPachClient().WithCtx(ctx)
+	jobPtr := &pps.EtcdJobInfo{}
+	if err := a.jobs.ReadOnly(ctx).Get(request.Job.ID, jobPtr); err != nil {
+		return nil, err
+	}
+	// Finish the job's output commit without a tree -- worker/master will mark
+	// the job 'killed'
+	if _, err := pachClient.PfsAPIClient.FinishCommit(ctx,
+		&pfs.FinishCommitRequest{
+			Commit: jobPtr.OutputCommit,
+			Empty:  true,
+		}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -2128,7 +2131,15 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 			return nil, err
 		}
 	}
-	return &types.Empty{}, err
+
+	// PFS doesn't delete the spec repo, so do it here
+	if err := pachClient.DeleteRepo(ppsconsts.SpecRepo, true); err != nil {
+		return nil, err
+	}
+	if err := pachClient.CreateRepo(ppsconsts.SpecRepo); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
 }
 
 func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageCollectRequest) (response *pps.GarbageCollectResponse, retErr error) {
@@ -2414,23 +2425,6 @@ func (a *apiServer) updateJobState(stm col.STM, jobPtr *pps.EtcdJobInfo, state p
 	jobs := a.jobs.ReadWrite(stm)
 	jobs.Put(jobPtr.Job.ID, jobPtr)
 	return nil
-}
-
-func jobStateToStopped(state pps.JobState) bool {
-	switch state {
-	case pps.JobState_JOB_STARTING:
-		return false
-	case pps.JobState_JOB_RUNNING:
-		return false
-	case pps.JobState_JOB_SUCCESS:
-		return true
-	case pps.JobState_JOB_FAILURE:
-		return true
-	case pps.JobState_JOB_KILLED:
-		return true
-	default:
-		panic(fmt.Sprintf("unrecognized job state: %s", state))
-	}
 }
 
 func (a *apiServer) getPachClient() *client.APIClient {

@@ -24,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
@@ -291,13 +292,14 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 				return err
 			}
 			if commitInfo.Finished != nil {
-				continue
+				continue // commit finished after queueing
 			}
 			if a.pipelineInfo.ScaleDownThreshold != nil {
 				if err := a.scaleUpWorkers(logger); err != nil {
 					return err
 				}
 			}
+			// Check if a job was previously created for this commit. If not, make one
 			var jobInfo *pps.JobInfo
 			jobInfos, err := pachClient.ListJob("", nil, commitInfo.Commit)
 			if err != nil {
@@ -318,8 +320,8 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 					return err
 				}
 			}
-			switch jobInfo.State {
-			case pps.JobState_JOB_SUCCESS, pps.JobState_JOB_KILLED, pps.JobState_JOB_FAILURE:
+			if ppsutil.IsTerminal(jobInfo.State) {
+				// previously-created job has finished, but commit has not been closed yet
 				continue
 			}
 
@@ -585,36 +587,47 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 					Block:  true,
 				})
 			if err != nil {
+				if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
+					defer cancel() // whether we return error or nil, job is done
+					// Output commit was deleted. Delete job as well
+					if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+						// Delete the job if no other worker has deleted it yet
+						jobPtr := &pps.EtcdJobInfo{}
+						if err := a.jobs.ReadWrite(stm).Get(jobInfo.Job.ID, jobPtr); err != nil {
+							return err
+						}
+						return a.deleteJob(stm, jobPtr)
+					}); err != nil && !col.IsErrNotFound(err) {
+						return err
+					}
+					return nil
+				}
 				return err
 			}
 			if commitInfo.Tree == nil {
+				defer cancel() // whether job state update succeeds or not, job is done
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 					// Read an up to date version of the jobInfo so that we
 					// don't overwrite changes that have happened since this
 					// function started.
-					jobs := a.jobs.ReadWrite(stm)
-					jobID := jobInfo.Job.ID
 					jobPtr := &pps.EtcdJobInfo{}
-					if err := jobs.Get(jobID, jobPtr); err != nil {
+					if err := a.jobs.ReadWrite(stm).Get(jobInfo.Job.ID, jobPtr); err != nil {
 						return err
 					}
-					if jobPtr.State == pps.JobState_JOB_RUNNING {
+					if !ppsutil.IsTerminal(jobPtr.State) {
 						return a.updateJobState(stm, jobPtr, pps.JobState_JOB_KILLED, "")
 					}
 					return nil
 				}); err != nil {
 					return err
 				}
-				cancel()
 			}
 			return nil
 		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-			select {
-			case <-ctx.Done():
-				return err
-			default:
+			if isDone(ctx) {
+				return err // exit retry loop
 			}
-			return nil
+			return nil // retry again
 		})
 	}()
 	if jobInfo.JobTimeout != nil {
@@ -797,6 +810,13 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				Tree:   object,
 			})
 			if err != nil {
+				if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
+					// output commit was deleted during e.g. FinishCommit, which means this job
+					// should be deleted. Goro from top of waitJob() will observe the deletion,
+					// delete the jobPtr and call cancel()--wait for that.
+					<-ctx.Done() // wait for cancel()
+					return nil
+				}
 				return err
 			}
 
