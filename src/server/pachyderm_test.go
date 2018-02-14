@@ -1177,13 +1177,20 @@ func TestFlushCommitFailures(t *testing.T) {
 		_, err = c.PutFile(dataRepo, commit.ID, fmt.Sprintf("file%d", i), strings.NewReader("foo\n"))
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
-		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
-		require.NoError(t, err)
-		commitInfos := collectCommitInfos(t, commitIter)
-		require.Equal(t, 3, len(commitInfos))
 		jobInfos, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, commit.ID)}, nil)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(jobInfos))
+		if i == 0 {
+			for _, ji := range jobInfos {
+				require.Equal(t, pps.JobState_JOB_SUCCESS.String(), ji.State.String())
+			}
+		} else {
+			for _, ji := range jobInfos {
+				if ji.Pipeline.Name != pipelineName(0) {
+					require.Equal(t, pps.JobState_JOB_FAILURE.String(), ji.State.String())
+				}
+			}
+		}
 	}
 }
 
