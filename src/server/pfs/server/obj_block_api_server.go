@@ -777,8 +777,8 @@ func (s *objBlockAPIServer) writeProto(path string, pb proto.Marshaler) (retErr 
 	})
 }
 
-// writeInternal contains the essential implementation of writeProto, but does
-// not retry
+// writeInternal contains the essential implementation of writeProto ('data' is
+// a serialized proto), but does not retry
 func (s *objBlockAPIServer) writeInternal(path string, data []byte) (retErr error) {
 	defer func() {
 		if retErr != nil {
