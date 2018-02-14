@@ -48,6 +48,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
+	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 )
 
 const (
@@ -487,12 +488,10 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	if err != nil {
 		return err
 	}
-	select {
-	case <-ctx.Done():
+	if isDone(ctx) {
 		if err = ctx.Err(); err != nil {
 			return err
 		}
-	default:
 	}
 
 	// Because of this issue: https://github.com/golang/go/issues/18874
@@ -801,6 +800,25 @@ func (a *APIServer) userCodeEnv(jobID string, data []*Input) []string {
 	return result
 }
 
+// deleteJob is identical to updateJobState, except that jobPtr points to a job
+// that should be deleted rather than marked failed. Jobs may be deleted if
+// their output commit is deleted.
+func (a *APIServer) deleteJob(stm col.STM, jobPtr *pps.EtcdJobInfo) error {
+	pipelinePtr := &pps.EtcdPipelineInfo{}
+	if err := a.pipelines.ReadWrite(stm).Update(jobPtr.Pipeline.Name, pipelinePtr, func() error {
+		if pipelinePtr.JobCounts == nil {
+			pipelinePtr.JobCounts = make(map[int32]int32)
+		}
+		if pipelinePtr.JobCounts[int32(jobPtr.State)] != 0 {
+			pipelinePtr.JobCounts[int32(jobPtr.State)]--
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	return a.jobs.ReadWrite(stm).Delete(jobPtr.Job.ID)
+}
+
 type acquireDatumsFunc func(low, high int64) (failedDatumID string, _ error)
 
 func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chunks, logger *taggedLogger, process acquireDatumsFunc) error {
@@ -896,61 +914,170 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 	return nil
 }
 
+func isDone(ctx context.Context) bool {
+	select {
+	case <-ctx.Done():
+		return true
+	default:
+		return false
+	}
+}
+
+// cancelCtxIfJobFails watches jobID's JobPtr, and if its state is changed to a
+// terminal state (KILLED, FAILED, or SUCCESS) cancel the jobCtx so we kill any
+// user processes
+func (a *APIServer) cancelCtxIfJobFails(jobCtx context.Context, jobCancel func(), jobID string) {
+	logger := a.getWorkerLogger() // this worker's formatting logger
+
+	backoff.RetryNotify(func() error {
+		// Check if job was cancelled while backoff was sleeping
+		if isDone(jobCtx) {
+			return nil
+		}
+
+		// Start watching for job state changes
+		watcher, err := a.jobs.ReadOnly(jobCtx).WatchOne(jobID)
+		if err != nil {
+			if col.IsErrNotFound(err) {
+				jobCancel() // job deleted before we started--cancel the job ctx
+				return nil
+			}
+			return fmt.Errorf("worker: could not create state watcher for job %s, err is %v", jobID, err)
+		}
+
+		// If any job events indicate that the job is done, cancel jobCtx
+		for {
+			select {
+			case e := <-watcher.Watch():
+				switch e.Type {
+				case watch.EventPut:
+					var jobID string
+					jobPtr := &pps.EtcdJobInfo{}
+					if err := e.Unmarshal(&jobID, jobPtr); err != nil {
+						return fmt.Errorf("worker: error unmarshalling while watching job state (%v)", err)
+					}
+					if ppsutil.IsTerminal(jobPtr.State) {
+						jobCancel() // cancel the job
+					}
+				case watch.EventDelete:
+					jobCancel() // cancel the job
+				case watch.EventError:
+					return fmt.Errorf("job state watch error: %v", e.Err)
+				}
+			case <-jobCtx.Done():
+				break
+			}
+		}
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		if jobCtx.Err() == context.Canceled {
+			return err // worker is done, nothing else to do
+		}
+		logger.Logf("worker: error watching job %s (%v); retrying in %v", jobID, err, d)
+		return nil
+	})
+}
+
 // worker does the following:
 //  - watches for new jobs (jobInfos in the jobs collection)
 //  - claims chunks from the chunk layout it finds in the chunks collection
 //  - claims those chunks with acquireDatums
 //  - processes the chunks with processDatums
 func (a *APIServer) worker() {
-	logger := a.getWorkerLogger()
-	backoff.RetryNotify(func() error {
-		ctx, cancel := context.WithCancel(a.pachClient.Ctx())
-		defer cancel()
-		// downstream pachd requests in this retry loop will be cancelled together
-		pachClient := a.pachClient.WithCtx(ctx)
+	logger := a.getWorkerLogger() // this worker's formatting logger
 
-		jobs := a.jobs.ReadOnly(ctx)
-		watcher, err := jobs.WatchByIndex(ppsdb.JobsPipelineIndex, a.pipelineInfo.Pipeline)
+	// Process incoming jobs
+	backoff.RetryNotify(func() error {
+		retryCtx, retryCancel := context.WithCancel(a.pachClient.Ctx())
+		defer retryCancel()
+		watcher, err := a.jobs.ReadOnly(retryCtx).WatchByIndex(ppsdb.JobsPipelineIndex, a.pipelineInfo.Pipeline)
 		if err != nil {
 			return fmt.Errorf("error creating watch: %v", err)
 		}
 		defer watcher.Close()
+	NextJob:
 		for e := range watcher.Watch() {
+			if e.Type == watch.EventError {
+				return fmt.Errorf("worker watch error: %v", e.Err)
+			} else if e.Type == watch.EventDelete {
+				// Job was deleted, e.g. because input commit was deleted. This is
+				// handled by cancelCtxIfJobFails goro, which was spawned when job was
+				// created. Nothing to do here
+				continue
+			}
+
+			// 'e' is a Put event -- new job
 			var jobID string
 			jobPtr := &pps.EtcdJobInfo{}
 			if err := e.Unmarshal(&jobID, jobPtr); err != nil {
 				return fmt.Errorf("error unmarshalling: %v", err)
 			}
-			jobInfo, err := a.pachClient.InspectJob(jobPtr.Job.ID, false)
+			if ppsutil.IsTerminal(jobPtr.State) {
+				// previously-created job has finished, or job was finished during backoff
+				// or in the 'watcher' queue
+				logger.Logf("skipping job %v as it is already in state %v", jobID, jobPtr.State)
+				continue NextJob
+			}
+
+			// create new ctx for this job, and don't use retryCtx as the
+			// parent. Just because another job's etcd write failed doesn't
+			// mean this job shouldn't run
+			jobCtx, jobCancel := context.WithCancel(a.pachClient.Ctx())
+			defer jobCancel() // cancel the job ctx
+			pachClient := a.pachClient.WithCtx(jobCtx)
+
+			//  Watch for any changes to EtcdJobInfo corresponding to jobID; if
+			// the EtcdJobInfo is marked 'FAILED', call jobCancel().
+			// ('watcher' above can't detect job state changes--it's watching
+			// an index and so only emits when jobs are created or deleted).
+			go a.cancelCtxIfJobFails(jobCtx, jobCancel, jobID)
+
+			// Inspect the job and make sure it's relevant, as this worker may be old
+			jobInfo, err := pachClient.InspectJob(jobID, false)
 			if err != nil {
-				return fmt.Errorf("error from InspectJob: %+v", err)
+				if !col.IsErrNotFound(err) {
+					continue NextJob // job was deleted--no sense retrying
+				}
+				return fmt.Errorf("error from InspectJob(%v): %+v", jobID, err)
 			}
 			if jobInfo.PipelineVersion != a.pipelineInfo.Version {
 				return fmt.Errorf("job's version (%d) doesn't match pipeline's "+
 					"version (%d), this should automatically resolve when the worker "+
 					"is updated", jobInfo.PipelineVersion, a.pipelineInfo.Version)
 			}
+
+			// Read the chunks laid out by the master and create the datum factory
 			chunks := &Chunks{}
-			if err := a.chunks.ReadOnly(ctx).GetBlock(jobInfo.Job.ID, chunks); err != nil {
+			if err := a.chunks.ReadOnly(jobCtx).GetBlock(jobInfo.Job.ID, chunks); err != nil {
 				return err
 			}
 			df, err := NewDatumFactory(pachClient, jobInfo.Input)
 			if err != nil {
 				return fmt.Errorf("error from NewDatumFactory: %v", err)
 			}
-			if err := a.acquireDatums(ctx, jobInfo.Job.ID, chunks, logger, func(low, high int64) (string, error) {
-				failedDatumID, err := a.processDatums(pachClient, logger, jobInfo, df, low, high)
-				if err != nil {
-					return "", err
+
+			// If a datum fails, acquireDatums updates the relevant lock in
+			// etcd, which causes the master to fail the job (which is
+			// handled above in the JOB_FAILURE case). There's no need to
+			// handle failed datums here, just failed etcd writes.
+			if err := a.acquireDatums(
+				jobCtx, jobID, chunks, logger,
+				func(low, high int64) (string, error) {
+					failedDatumID, err := a.processDatums(pachClient, logger, jobInfo, df, low, high)
+					if err != nil {
+						return "", err
+					}
+					return failedDatumID, nil
+				},
+			); err != nil {
+				if jobCtx.Err() == context.Canceled {
+					continue NextJob // job cancelled--don't restart, just wait for next job
 				}
-				return failedDatumID, nil
-			}); err != nil {
-				return fmt.Errorf("error from acquireDatums: %v", err)
+				return fmt.Errorf("acquire/process datums for job %s exited with err: %v", jobID, err)
 			}
 		}
-		return nil
+		return fmt.Errorf("worker: jobs.WatchByIndex(pipeline = %s) closed unexpectedly", a.pipelineInfo.Pipeline.Name)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		logger.Logf("worker: error running the worker process: %v; retrying in %v", err, d)
+		logger.Logf("worker: watch closed or error running the worker process: %v; retrying in %v", err, d)
 		return nil
 	})
 }
@@ -1092,11 +1219,8 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 			var dir string
 			var retries int
 			if err := backoff.RetryNotify(func() error {
-				// If the context is already cancelled (timeout, cancelled job), don't run datum
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				default:
+				if isDone(ctx) {
+					return ctx.Err() // timeout or cancelled job--don't run datum
 				}
 				// Download input data
 				puller := filesync.NewPuller()
@@ -1167,12 +1291,8 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				atomic.AddUint64(&subStats.DownloadBytes, uint64(downSize))
 				return a.uploadOutput(pachClient, dir, tag, logger, data, subStats, statsTree, path.Join(statsPath, "pfs", "out"))
 			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
-				// If the context is already cancelled (timeout, cancelled job),
-				// err out and don't retry
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				default:
+				if isDone(ctx) {
+					return ctx.Err() // timeout or cancelled job, err out and don't retry
 				}
 				retries++
 				if retries >= maxRetries {

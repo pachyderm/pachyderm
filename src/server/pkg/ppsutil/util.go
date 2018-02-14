@@ -198,3 +198,17 @@ func JobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) 
 	})
 	return jobInput
 }
+
+// IsTerminal returns 'true' if 'state' indicates that the job is done (i.e.
+// the state will not change later: SUCCESS, FAILURE, KILLED) and 'false'
+// otherwise.
+func IsTerminal(state pps.JobState) bool {
+	switch state {
+	case pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE, pps.JobState_JOB_KILLED:
+		return true
+	case pps.JobState_JOB_STARTING, pps.JobState_JOB_RUNNING:
+		return false
+	default:
+		panic(fmt.Sprintf("unrecognized job state: %s", state))
+	}
+}
