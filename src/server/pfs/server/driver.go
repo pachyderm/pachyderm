@@ -44,6 +44,9 @@ const (
 
 	// Makes calls to ListRepo and InspectRepo more legible
 	includeAuth = true
+
+	// maxInt is the maximum value for 'int' (system-dependent). Not in 'math'!
+	maxInt = int(^uint(0) >> 1)
 )
 
 // validateRepoName determines if a repo name is valid
@@ -654,7 +657,7 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 				return fmt.Errorf("could not resolve parent commit \"%s\": %v", parent.ID, err)
 			}
 		}
-		
+
 		// BuildCommit case: Now that 'parent' is resolved, read the parent commit's
 		// tree (inside txn) and update the repo size
 		if treeRef != nil {
@@ -841,6 +844,10 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 // commits arrive on 'branch', when 'branch's HEAD is deleted, or when 'branch'
 // is newly created (i.e. in CreatePipeline).
 func (d *driver) propagateCommit(stm col.STM, branch *pfs.Branch) error {
+	if branch == nil {
+		return fmt.Errorf("cannot propagate nil branch")
+	}
+
 	// 'subvBranchInfos' is the collection of downstream branches that may get a
 	// new commit. Populate subvBranchInfo
 	var subvBranchInfos []*pfs.BranchInfo
@@ -965,7 +972,7 @@ nextSubvBranch:
 		if branchInfo.Head != nil {
 			parentCommitInfo := &pfs.CommitInfo{}
 			if err := commits.Update(newCommitInfo.ParentCommit.ID, parentCommitInfo, func() error {
-				parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, commit)
+				parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, newCommit)
 				return nil
 			}); err != nil {
 				return err
@@ -1447,26 +1454,22 @@ func (d *driver) deleteCommit(ctx context.Context, userCommit *pfs.Commit) error
 	affectedRepos := make(map[string]struct{})  // repos containing deleted commits
 	deleteScratch := false                      // only delete scratch if txn succeeds
 	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		var (
-			repos   = d.repos.ReadWrite(stm)
-			commits = d.commits(userCommit.Repo.Name).ReadWrite(stm)
-		)
-
 		// 1) re-read CommitInfo inside txn
 		userCommitInfo, err := d.resolveCommit(stm, userCommit)
 		if err != nil {
 			return err
 		}
-		deleteScratch = commitInfo.Finished == nil
+		deleteScratch = userCommitInfo.Finished == nil
 
 		// 2) Define helper for deleting commits. 'lower' corresponds to
 		// pfs.CommitRange.Lower, and is an ancestor of 'upper'
-		deleteCommit := func(commits col.ReadWriteCollection, lower, upper *pfs.Commit) error {
+		deleteCommit := func(lower, upper *pfs.Commit) error {
 			// Validate arguments
 			if lower.Repo.Name != upper.Repo.Name {
 				return fmt.Errorf("cannot delete commit range with mismatched repos \"%s\" and \"%s\"", lower.Repo.Name, upper.Repo.Name)
 			}
 			affectedRepos[lower.Repo.Name] = struct{}{}
+			commits := d.commits(lower.Repo.Name).ReadWrite(stm)
 
 			// delete commits on path upper -> ... -> lower (traverse ParentCommits)
 			commit := upper
@@ -1491,7 +1494,7 @@ func (d *driver) deleteCommit(ctx context.Context, userCommit *pfs.Commit) error
 				// commitInfo.SizeBytes stores incremental size (which could cause
 				// commits to have negative sizes)
 				repoInfo := &pfs.RepoInfo{}
-				if err := repos.Update(commit.Repo.Name, repoInfo, func() error {
+				if err := d.repos.ReadWrite(stm).Update(commit.Repo.Name, repoInfo, func() error {
 					repoInfo.SizeBytes -= commitInfo.SizeBytes
 					return nil
 				}); err != nil {
@@ -1505,17 +1508,15 @@ func (d *driver) deleteCommit(ctx context.Context, userCommit *pfs.Commit) error
 			return nil
 		}
 
-
 		// 3) Validate the commit (check that it has no provenance) and delete it
-		if len(commitInfo.Provenance) > 0 {
+		if len(userCommitInfo.Provenance) > 0 {
 			return fmt.Errorf("cannot delete the commit \"%s/%s\" because it has non-empty provenance", userCommit.Repo.Name, userCommit.ID)
 		}
-		deleteCommit(commits, commitInfo.Commit, commitInfo.Commit)
+		deleteCommit(userCommitInfo.Commit, userCommitInfo.Commit)
 
 		// 4) Delete all of the downstream commits of 'commit'
-		for _, subv := range commitInfo.Subvenance {
-			downstreamCommits := d.commits(subv.Lower.Repo.Name).ReadWrite(stm)
-			deleteCommit(downstreamCommits, subv.Lower, subv.Upper)
+		for _, subv := range userCommitInfo.Subvenance {
+			deleteCommit(subv.Lower, subv.Upper)
 		}
 
 		// 5) Remove the commits in 'deleted' from all remaining upstream commits'
@@ -1667,71 +1668,63 @@ func (d *driver) deleteCommit(ctx context.Context, userCommit *pfs.Commit) error
 				}
 			}
 		}
-		return nil
+
+		// 7) Traverse affected repos and rewrite all branches so that no branch
+		// points to a deleted commit
+		// TODO Instead of ListBranch (which is not transactional), store a list of
+		// branches in each repo or a list of inbound branches in each commit
+		var shortestBranch *pfs.Branch
+		var shortestBranchLen = maxInt
+		for repo := range affectedRepos {
+			branchInfos, err := d.listBranch(ctx, client.NewRepo(repo))
+			if err != nil {
+				return err
+			}
+			for i := range branchInfos {
+				brokenBranch := branchInfos[i].Branch
+				// Traverse HEAD commit until we find a non-deleted parent or nil;
+				// rewrite branch
+				var branchInfo pfs.BranchInfo
+				if err := d.branches(brokenBranch.Repo.Name).ReadWrite(stm).Update(brokenBranch.Name, &branchInfo, func() error {
+					if len(branchInfo.Provenance) < shortestBranchLen {
+						shortestBranchLen = len(branchInfo.Provenance)
+						shortestBranch = branchInfo.Branch
+					}
+					for {
+						if branchInfo.Head == nil {
+							return nil // no commits left in branch
+						}
+						headCommitInfo, headIsDeleted := deleted[branchInfo.Head.ID]
+						if !headIsDeleted {
+							break
+						}
+						branchInfo.Head = headCommitInfo.ParentCommit
+					}
+					return err
+				}); err != nil && !col.IsErrNotFound(err) {
+					// If err is NotFound, branch is in downstream provenance but
+					// doesn't exist yet--nothing to update
+					return fmt.Errorf("error updating branch %v/%v: %v", brokenBranch.Repo.Name, brokenBranch.Name, err)
+				}
+			}
+		}
+
+		// 8) propagate the changes to 'branch' and its subvenance. This may start
+		// new HEAD commits downstream, if the new branch heads haven't been
+		// processed yet
+		return d.propagateCommit(stm, shortestBranch)
 	}); err != nil {
 		return fmt.Errorf("error rewriting commit graph: %v", err)
 	}
 
+	// Delete the scratch space for this commit
+	// TODO put scratch spaces in a collection and do this in the txn above
 	if deleteScratch {
-		// Delete the scratch space for this commit
-		// TODO put scratch spaces in a collection and do this in the txn above
-		prefix, err := d.scratchCommitPrefix(ctx, userCommit)
-		if err != nil {
-			return err
-		}
-		if _, err = d.etcdClient.Delete(ctx, prefix, etcd.WithPrefix()); err != nil {
+		if _, err := d.etcdClient.Delete(ctx, d.scratchCommitPrefix(userCommit), etcd.WithPrefix()); err != nil {
 			return err
 		}
 	}
-
-	// 7) Traverse affected repos and rewrite all branches so that no branch
-	// points to a deleted commit
-	// TODO this should happen in the txn as well, but can't because we have to
-	// list branches and commits in 'modifiedRepos', and you can't list in a txn
-	affectedBranchInfos := make([]*pfs.BranchInfo, 0, (len(affectedRepos)*3)/2)
-	for repo := range affectedRepos {
-		repoBranchInfos, err := d.listBranch(ctx, client.NewRepo(repo))
-		if err != nil {
-			return err
-		}
-		for i := range branchInfos {
-			// extract branch repo/id, but re-read branchInfo inside txn, in case it
-			// changes
-			brokenBranch := branchInfos[i].Branch
-			// Traverse HEAD commit until we find a non-deleted parent or nil; rewrite
-			// branch
-			if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-				branches := d.branches(brokenBranch.Repo.Name).ReadWrite(stm)
-				var branchInfo pfs.BranchInfo // re-read branchInfo
-				if err := branches.Get(brokenBranch.Name, &branchInfo); err != nil {
-					if col.IsErrNotFound(err) {
-						// branch is in downstream provenance but doesn't exist yet--nothing
-						// to update
-						return nil
-					}
-					return err
-				}
-				for {
-					if branchInfo.Head == nil {
-						break
-					}
-					headCommitInfo, headIsDeleted := deleted[branchInfo.Head.ID]
-					if !headIsDeleted {
-						break
-					}
-					branchInfo.Head = headCommitInfo.ParentCommit
-				}
-				return branches.Put(brokenBranch.Name, &branchInfo)
-			}); err != nil {
-				return fmt.Errorf("could not update branch %s/%s: %v",
-					brokenBranch.Repo.Name, brokenBranch.Name, err)
-			}
-		}
-	}
-
-	// propagate the changes to 'branch' and its subvenance. This may start new
-	// HEAD commits downstream, if the new branch heads haven't been processed yet
-	return d.propagateCommit(stm, branch)
+	return nil
 }
 
 // createBranch creates a new branch or updates an existing branch (must be one
