@@ -659,7 +659,11 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			}); err != nil {
 				return err
 			}
-			return nil
+			_, err := pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+				Commit: jobInfo.OutputCommit,
+				Empty:  true,
+			})
+			return err
 		}
 
 		// Create a datum factory pointing at the job's inputs and split up the
