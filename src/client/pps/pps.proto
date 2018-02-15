@@ -378,6 +378,11 @@ message ListJobRequest {
   pfs.Commit output_commit = 3;
 }
 
+message FlushJobRequest {
+  repeated pfs.Commit commits = 1;
+  repeated Pipeline to_pipelines = 2;
+}
+
 message DeleteJobRequest {
   Job job = 1;
 }
@@ -548,6 +553,7 @@ service API {
   rpc ListJob(ListJobRequest) returns (JobInfos) {}
   // ListJobStream returns information about current and past Pachyderm jobs.
   rpc ListJobStream(ListJobRequest) returns (stream JobInfo) {}
+  rpc FlushJob(FlushJobRequest) returns (stream JobInfo) {}
   rpc DeleteJob(DeleteJobRequest) returns (google.protobuf.Empty) {}
   rpc StopJob(StopJobRequest) returns (google.protobuf.Empty) {}
   rpc InspectDatum(InspectDatumRequest) returns (DatumInfo) {}
