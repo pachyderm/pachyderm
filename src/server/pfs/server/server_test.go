@@ -3137,13 +3137,13 @@ func TestPropagateCommit(t *testing.T) {
 
 // TestBackfillBranch implements the following DAG:
 //
-// A---->C
-//  \   ^
-//   \ /
-//    X
-//   / \
-//  /   v
-// B---->D
+// A ──▶ C
+//  ╲   ◀
+//   ╲ ╱
+//    ╳
+//   ╱ ╲
+// 	╱   ◀
+// B ──▶ D
 func TestBackfillBranch(t *testing.T) {
 	c := getClient(t)
 	require.NoError(t, c.CreateRepo("A"))
@@ -3172,13 +3172,13 @@ func TestBackfillBranch(t *testing.T) {
 
 // TestUpdateBranch tests the following DAG:
 //
-// A───>B───>C
+// A ─▶ B ─▶ C
 //
 // Then updates it to:
 //
-// A───>B───>C
-//      ^
-// D────┘
+// A ─▶ B ─▶ C
+//      ▲
+// D ───╯
 //
 func TestUpdateBranch(t *testing.T) {
 	c := getClient(t)
@@ -3221,13 +3221,13 @@ func TestBranchProvenance(t *testing.T) {
 		{name: "D", directProv: []string{"C", "A"},
 			expectProv: map[string][]string{"A": nil, "B": {"A"}, "C": {"B", "A"}, "D": {"A", "B", "C"}},
 			expectSubv: map[string][]string{"A": {"B", "C", "D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
-		// A ─> B ─> C ─> D
-		// └──────────────⬏
+		// A ─▶ B ─▶ C ─▶ D
+		// ╰─────────────⬏
 		{name: "B",
 			expectProv: map[string][]string{"A": {}, "B": {}, "C": {"B"}, "D": {"A", "B", "C"}},
 			expectSubv: map[string][]string{"A": {"D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
-		// A    B ─> C ─> D
-		// └──────────────⬏
+		// A    B ─▶ C ─▶ D
+		// ╰─────────────⬏
 	}, {
 		{name: "A"},
 		{name: "B", directProv: []string{"A"}},
@@ -3235,12 +3235,12 @@ func TestBranchProvenance(t *testing.T) {
 		{name: "D", directProv: []string{"C"},
 			expectProv: map[string][]string{"A": {}, "B": {"A"}, "C": {"A", "B"}, "D": {"A", "B", "C"}},
 			expectSubv: map[string][]string{"A": {"B", "C", "D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
-		// A ─> B ─> C ─> D
-		// └─────────⬏
+		// A ─▶ B ─▶ C ─▶ D
+		// ╰────────⬏
 		{name: "C", directProv: []string{"B"},
 			expectProv: map[string][]string{"A": {}, "B": {"A"}, "C": {"A", "B"}, "D": {"A", "B", "C"}},
 			expectSubv: map[string][]string{"A": {"B", "C", "D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
-		// A -> B -> C -> D
+		// A ─▶ B ─▶ C ─▶ D
 	}, {
 		{name: "A"},
 		{name: "B"},
@@ -3249,14 +3249,14 @@ func TestBranchProvenance(t *testing.T) {
 		{name: "E", directProv: []string{"A", "D"},
 			expectProv: map[string][]string{"A": {}, "B": {}, "C": {"A", "B"}, "D": {"A", "B", "C"}, "E": {"A", "B", "C", "D"}},
 			expectSubv: map[string][]string{"A": {"C", "D", "E"}, "B": {"C", "D", "E"}, "C": {"D", "E"}, "D": {"E"}, "E": {}}},
-		// A    B ─> C ─> D ─> E
-		// └─────────⬏         ^
-		// └───────────────────┘
+		// A    B ─▶ C ─▶ D ─▶ E
+		// ├────────⬏          ▲
+		// ╰───────────────────╯
 		{name: "C", directProv: []string{"B"},
 			expectProv: map[string][]string{"A": {}, "B": {}, "C": {"B"}, "D": {"B", "C"}, "E": {"A", "B", "C", "D"}},
 			expectSubv: map[string][]string{"A": {"E"}, "B": {"C", "D", "E"}, "C": {"D", "E"}, "D": {"E"}, "E": {}}},
-		// A    B ─> C ─> D ─> E
-		// └───────────────────⬏
+		// A    B ─▶ C ─▶ D ─▶ E
+		// ╰──────────────────⬏
 	}, {
 		{name: "A", directProv: []string{"A"}, err: true},
 		{name: "A"},
@@ -3471,13 +3471,13 @@ func TestStartCommitFork(t *testing.T) {
 }
 
 // TestUpdateBranchNewOutputCommit tests the following corner case:
-// A ───> C
+// A ──▶ C
 // B
 //
 // Becomes:
 //
-// A  ┌─> C
-// B ─┘
+// A  ╭▶ C
+// B ─╯
 //
 // C should create a new output commit to process its unprocessed inputs in B
 func TestUpdateBranchNewOutputCommit(t *testing.T) {
@@ -3511,14 +3511,75 @@ func TestUpdateBranchNewOutputCommit(t *testing.T) {
 	require.Equal(t, 2, len(commits))
 }
 
+// TestBigSubvenance creates this DAG and makes sure schema/master has
+// only one subvenance range, containing all commits in 'pipelines'
+// DAG (dots are commits):
+//  schema:
+//   .     ─────╮
+//              │  pipeline:
+//  logs:       ├─▶ .............
+//   .......... ╯
+func TestBigSubvenance(t *testing.T) {
+	cli := getClient(t)
+
+	// two input repos, one with many commits (logs), and one with few (schema)
+	require.NoError(t, cli.CreateRepo("logs"))
+	require.NoError(t, cli.CreateRepo("schema"))
+
+	// Commit to logs and schema (so that "pipeline" has an initial output commit,
+	// and we can check that it updates this initial commit's child appropriately)
+	for _, repo := range []string{"schema", "logs"} {
+		commit, err := cli.StartCommit(repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, cli.FinishCommit(repo, commit.ID))
+	}
+
+	// Create an output branch, in "pipeline"
+	require.NoError(t, cli.CreateRepo("pipeline"))
+	require.NoError(t, cli.CreateBranch("pipeline", "master", "", []*pfs.Branch{
+		pclient.NewBranch("schema", "master"),
+		pclient.NewBranch("logs", "master"),
+	}))
+	commits, err := cli.ListCommit("pipeline", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commits))
+
+	// Commit to logs 10 times, and make sure that 'schema/master' has a single
+	// subvenance range that grows, rather than adding new subvenance ranges
+	// unnecessarily
+	for i := 0; i < 10; i++ {
+		commit, err := cli.StartCommit("logs", "master")
+		require.NoError(t, err)
+		require.NoError(t, cli.FinishCommit("logs", commit.ID))
+	}
+	// Collect all output commits in 'pipeline/master'
+	pipelineCommits, err := cli.ListCommit("pipeline", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 11, len(pipelineCommits))
+
+	schemaMaster, err := cli.InspectCommit("schema", "master")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(schemaMaster.Subvenance))
+	subv := schemaMaster.Subvenance[0]
+	require.Equal(t, pipelineCommits[0].Commit.ID, subv.Upper.ID)
+	require.Equal(t, pipelineCommits[10].Commit.ID, subv.Lower.ID)
+}
+
 // TestDeleteCommitBigSubvenance deletes a commit that is upstream of a large
 // stack of pipeline outputs and makes sure that parenthood and such are handled
-// correctly. There are four cases tested here, in this order (for convenience
-// of setup):
-// 1. Fix broken commit parent -> rewritten to point to a live commit
-// 2. Fix broken branch        -> rewritten to point to a live commit
-// 3. Fix broken branch        -> rewritten to point to nil
-// 4. Fix broken commit parent -> rewritten to point to nil
+// correctly.
+// DAG (dots are commits):
+//  schema:
+//   ...   ─────╮
+//              │  pipeline:
+//  logs:       ├─▶ .............
+//   .......... ╯
+// Tests:
+//   there are four cases tested here, in this order (b/c easy setup)
+// 1. Delete parent commit -> child rewritten to point to a live commit
+// 2. Delete branch HEAD   -> output branch rewritten to point to a live commit
+// 3. Delete branch HEAD   -> output branch rewritten to point to nil
+// 4. Delete parent commit -> child rewritten to point to nil
 func TestDeleteCommitBigSubvenance(t *testing.T) {
 	c := getClient(t)
 
@@ -3545,13 +3606,15 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 	require.Equal(t, 1, len(commits))
 
 	// Case 1
-	// - Commit to "schema", creating a second output commit in 'pipeline'
-	// - Commit to "logs" 10 times, so that the commit to "schema" has 10 commits
-	//   in its subvenance
+	// - Commit to "schema", creating a second output commit in 'pipeline' (this
+	//   is bigSubvCommit)
+	// - Commit to "logs" 10 more times, so that the commit to "schema" has 11
+	//   commits in its subvenance
+	// - Commit to "schema" again creating a 12th commit in 'pipeline'
 	// - Delete bigSubvCommit
 	// - Now there are 2 output commits in 'pipeline', and the parent of the first
-	// commit is the second commit (makes sure that the first commit's parent is
-	// rewritten back to the last live commit)
+	//   commit is the second commit (makes sure that the first commit's parent is
+	//   rewritten back to the last live commit)
 	bigSubvCommit, err := c.StartCommit("schema", "master")
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit("schema", bigSubvCommit.ID))
@@ -3572,6 +3635,7 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 	require.Equal(t, 13, len(commits))
 
 	require.NoError(t, c.DeleteCommit("schema", bigSubvCommit.ID))
+
 	commits, err = c.ListCommit("pipeline", "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commits))
@@ -3582,9 +3646,15 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 	// - reset bigSubvCommit to be the head commit of 'schema/master'
 	// - commit to 'logs' 10 more times
 	// - delete bigSubvCommit
-	// - Now there should be one commit in 'pipeline', and it's the head of
-	// 'master' (makes sure that the branch pipeline/master is rewritten back to
-	// the last live commit)
+	// - Now there should be two commits in 'pipeline':
+	//   - One started by DeleteCommit (with provenance schema/master and
+	//     logs/masterand
+	//   - The oldest commit in 'pipeline', from the setup
+	// - The second commit is the parent of the first
+	//
+	// This makes sure that the branch pipeline/master is rewritten back to
+	// the last live commit, and that it creates a new output commit when branches
+	// have unprocesed HEAD commits
 	commits, err = c.ListCommit("schema", "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commits))
@@ -3596,20 +3666,26 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit("logs", commit.ID))
 	}
+
 	require.NoError(t, c.DeleteCommit("schema", bigSubvCommit.ID))
+
 	commits, err = c.ListCommit("pipeline", "master", "", 0)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(commits))
+	require.Equal(t, 2, len(commits))
 	pipelineMaster, err := c.InspectCommit("pipeline", "master")
 	require.NoError(t, err)
 	require.Equal(t, pipelineMaster.Commit.ID, commits[0].Commit.ID)
+	require.Equal(t, pipelineMaster.ParentCommit.ID, commits[1].Commit.ID)
 
 	// Case 3
-	// - reset bigSubvCommit to be the head commit of 'schema/master'
+	// - reset bigSubvCommit to be the head of 'schema/master' (the only commit)
 	// - commit to 'logs' 10 more times
 	// - delete bigSubvCommit
-	// - Now there should be zero commits in 'pipeline'
-	// (makes sure that the branch pipeline/master is rewritten back to nil)
+	// - Now there should be one commit in 'pipeline' (started by DeleteCommit, to
+	//   process 'logs/master' alone) and its parent should be nil
+	//   (makes sure that the branch pipeline/master is rewritten back to nil)
+	// - Further test: delete all commits in schema and logs, and make sure that
+	//   'pipeline/master' actually points to nil, as there are no input commits
 	commits, err = c.ListCommit("schema", "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commits))
@@ -3622,7 +3698,29 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit("logs", commit.ID))
 	}
+
 	require.NoError(t, c.DeleteCommit("schema", bigSubvCommit.ID))
+
+	commits, err = c.ListCommit("pipeline", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commits))
+	pipelineMaster, err = c.InspectCommit("pipeline", "master")
+	require.NoError(t, err)
+	require.Equal(t, pipelineMaster.Commit.ID, commits[0].Commit.ID)
+	require.Nil(t, pipelineMaster.ParentCommit)
+
+	// Delete all input commits--DeleteCommit should reset 'pipeline/master' to
+	// nil, and should not create a new output commit this time
+	commits, err = c.ListCommit("schema", "master", "", 0)
+	require.NoError(t, err)
+	for _, commitInfo := range commits {
+		require.NoError(t, c.DeleteCommit("schema", commitInfo.Commit.ID))
+	}
+	commits, err = c.ListCommit("logs", "master", "", 0)
+	require.NoError(t, err)
+	for _, commitInfo := range commits {
+		require.NoError(t, c.DeleteCommit("logs", commitInfo.Commit.ID))
+	}
 	commits, err = c.ListCommit("pipeline", "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(commits))
@@ -3632,27 +3730,30 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 
 	// Case 4
 	// - commit to 'schema' and reset bigSubvCommit to be the head
-	// bigSubvCommit is now the last commit of 'schema/master'
+	//   (bigSubvCommit is now the only commit in 'schema/master')
 	// - Commit to 'logs' 10 more times
 	// - Commit to schema again
 	// - Delete bigSubvCommit
 	// - Now there should be one commit in 'pipeline', and its parent is nil
 	// (makes sure that the the commit is rewritten back to 'nil'
+	// schema, logs, and pipeline are now all completely empty again
+	commits, err = c.ListCommit("schema", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commits))
 	bigSubvCommit, err = c.StartCommit("schema", "master")
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit("schema", bigSubvCommit.ID))
-
 	for i := 0; i < 10; i++ {
 		commit, err = c.StartCommit("logs", "master")
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit("logs", commit.ID))
 	}
-
 	commit, err = c.StartCommit("schema", "master")
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit("schema", commit.ID))
 
 	require.NoError(t, c.DeleteCommit("schema", bigSubvCommit.ID))
+
 	commits, err = c.ListCommit("pipeline", "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commits))
@@ -4002,18 +4103,6 @@ func TestDeleteCommitMultiLevelChildren(t *testing.T) {
 
 	// Make sure child/parent relationships are as shown in second diagram
 	commits, err = cli.ListCommit("repo", "", "", 0)
-	t.Logf("commits:")
-	name := map[string]string{
-		a.ID: "a",
-		b.ID: "b",
-		c.ID: "c",
-		d.ID: "d",
-		e.ID: "e",
-		f.ID: "f",
-	}
-	for _, ci := range commits {
-		t.Logf("  %v", name[ci.Commit.ID])
-	}
 	require.Equal(t, 4, len(commits))
 	require.Nil(t, aInfo.ParentCommit)
 	require.Equal(t, a.ID, dInfo.ParentCommit.ID)
