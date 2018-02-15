@@ -819,25 +819,6 @@ func (a *APIServer) deleteJob(stm col.STM, jobPtr *pps.EtcdJobInfo) error {
 	return a.jobs.ReadWrite(stm).Delete(jobPtr.Job.ID)
 }
 
-func (a *APIServer) updateJobState(stm col.STM, jobPtr *pps.EtcdJobInfo, state pps.JobState, reason string) error {
-	pipelinePtr := &pps.EtcdPipelineInfo{}
-	if err := a.pipelines.ReadWrite(stm).Update(jobPtr.Pipeline.Name, pipelinePtr, func() error {
-		if pipelinePtr.JobCounts == nil {
-			pipelinePtr.JobCounts = make(map[int32]int32)
-		}
-		if pipelinePtr.JobCounts[int32(jobPtr.State)] != 0 {
-			pipelinePtr.JobCounts[int32(jobPtr.State)]--
-		}
-		pipelinePtr.JobCounts[int32(state)]++
-		return nil
-	}); err != nil {
-		return err
-	}
-	jobPtr.State = state
-	jobPtr.Reason = reason
-	return a.jobs.ReadWrite(stm).Put(jobPtr.Job.ID, jobPtr)
-}
-
 type acquireDatumsFunc func(low, high int64) (failedDatumID string, _ error)
 
 func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chunks, logger *taggedLogger, process acquireDatumsFunc) error {
