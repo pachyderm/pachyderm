@@ -559,19 +559,26 @@ func (d *driver) buildCommit(ctx context.Context, parent *pfs.Commit, branch str
 	return d.makeCommit(ctx, parent, branch, provenance, tree, "")
 }
 
-// make commit makes a new commit in 'branch', with the parent 'parent' (if
-// 'branch' is set, leave 'parent.ID' unset) and the direct provenance
-// 'provenance'.
+// make commit makes a new commit in 'branch', with the parent 'parent' and the
+// direct provenance 'provenance'. Note that
+// - 'parent' must not be nil, but the only required field is 'parent.Repo'.
+// - 'parent.ID' may be set to "", in which case the parent commit is inferred
+//   from 'parent.Repo' and 'branch'.
+// - If 'parent.ID' is set, it overrides 'branch', but 'branch' is still moved
+//   to the new commit
 func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit, treeRef *pfs.Object, description string) (*pfs.Commit, error) {
-	// Check that caller is authorized and validate arguments
+	// Check that caller is authorized
 	if err := d.checkIsAuthorized(ctx, parent.Repo, auth.Scope_WRITER); err != nil {
 		return nil, err
 	}
-	if parent == nil {
-		// 'parent' must exist, though the only required field is 'parent.Repo'
-		// ('parent.ID' may be set to ""--in this case, the parent commit is
-		// inferred from 'parent.Repo' and 'branch').
+
+	// Validate arguments:
+	switch {
+	case parent == nil:
 		return nil, fmt.Errorf("parent cannot be nil")
+	case parent.ID == "" && branch == "":
+		return nil, fmt.Errorf("branch must be set if parent.ID is unset")
+	default: // do nothing
 	}
 
 	// New commit and commitInfo
@@ -951,22 +958,6 @@ nextSubvBranch:
 			Started: now(),
 		}
 
-		// Set provenance and upstream subvenance
-		for _, prov := range commitProvMap {
-			// set provenance of 'newCommit'
-			newCommitInfo.Provenance = append(newCommitInfo.Provenance, prov.commit)
-			newCommitInfo.BranchProvenance = append(newCommitInfo.BranchProvenance, prov.branch)
-
-			// update subvenance of 'prov.commit'
-			provCommitInfo := &pfs.CommitInfo{}
-			if err := d.commits(prov.commit.Repo.Name).ReadWrite(stm).Update(prov.commit.ID, provCommitInfo, func() error {
-				appendSubvenance(provCommitInfo, newCommitInfo)
-				return nil
-			}); err != nil {
-				return err
-			}
-		}
-
 		// Set 'newCommit's ParentCommit, 'branch.Head's ChildCommits and 'branch.Head'
 		newCommitInfo.ParentCommit = branchInfo.Head
 		if branchInfo.Head != nil {
@@ -983,6 +974,23 @@ nextSubvBranch:
 		branchInfo.Branch = branch    // set in case 'branch' is new
 		if err := branches.Put(branch.Name, branchInfo); err != nil {
 			return err
+		}
+
+		// Set provenance and upstream subvenance (appendSubvenance needs
+		// newCommitInfo.ParentCommit to extend the correct subvenance range)
+		for _, prov := range commitProvMap {
+			// set provenance of 'newCommit'
+			newCommitInfo.Provenance = append(newCommitInfo.Provenance, prov.commit)
+			newCommitInfo.BranchProvenance = append(newCommitInfo.BranchProvenance, prov.branch)
+
+			// update subvenance of 'prov.commit'
+			provCommitInfo := &pfs.CommitInfo{}
+			if err := d.commits(prov.commit.Repo.Name).ReadWrite(stm).Update(prov.commit.ID, provCommitInfo, func() error {
+				appendSubvenance(provCommitInfo, newCommitInfo)
+				return nil
+			}); err != nil {
+				return err
+			}
 		}
 
 		// finally create open 'commit'
