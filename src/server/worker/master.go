@@ -551,6 +551,7 @@ func (a *APIServer) blockInputs(ctx context.Context, jobInfo *pps.JobInfo) ([]st
 		if err != nil && vistErr == nil {
 			vistErr = fmt.Errorf("error blocking on commit %s/%s: %v",
 				commit.Repo.Name, commit.ID, err)
+			return
 		}
 		if ci.Tree == nil {
 			failedInputs = append(failedInputs, name)
@@ -574,6 +575,7 @@ func (a *APIServer) blockInputs(ctx context.Context, jobInfo *pps.JobInfo) ([]st
 // output from the job's workers and merges it into a commit (and may merge
 // stats into a commit in the stats branch as well)
 func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, logger *taggedLogger) error {
+	logger.Logf("waitJob: %s", jobInfo.Job.ID)
 	ctx, cancel := context.WithCancel(pachClient.Ctx())
 	pachClient = pachClient.WithCtx(ctx)
 
