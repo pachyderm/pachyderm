@@ -248,9 +248,6 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 }
 
 func validateTransform(transform *pps.Transform) error {
-	if len(transform.Cmd) == 0 {
-		return fmt.Errorf("no cmd set")
-	}
 	return nil
 }
 
