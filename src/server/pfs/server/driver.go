@@ -564,21 +564,20 @@ func (d *driver) buildCommit(ctx context.Context, parent *pfs.Commit, branch str
 // - 'parent' must not be nil, but the only required field is 'parent.Repo'.
 // - 'parent.ID' may be set to "", in which case the parent commit is inferred
 //   from 'parent.Repo' and 'branch'.
-// - If 'parent.ID' is set, it overrides 'branch', but 'branch' is still moved
+// - If both 'parent.ID' and 'branch' are set, 'parent.ID' determines the parent
+//   commit, but 'branch' is still moved to point at the new commit
 //   to the new commit
+// - If neither 'parent.ID' nor 'branch' are set, the new commit will have no
+//   parent
 func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit, treeRef *pfs.Object, description string) (*pfs.Commit, error) {
+	// Validate arguments:
+	if parent == nil {
+		return nil, fmt.Errorf("parent cannot be nil")
+	}
+
 	// Check that caller is authorized
 	if err := d.checkIsAuthorized(ctx, parent.Repo, auth.Scope_WRITER); err != nil {
 		return nil, err
-	}
-
-	// Validate arguments:
-	switch {
-	case parent == nil:
-		return nil, fmt.Errorf("parent cannot be nil")
-	case parent.ID == "" && branch == "":
-		return nil, fmt.Errorf("branch must be set if parent.ID is unset")
-	default: // do nothing
 	}
 
 	// New commit and commitInfo
@@ -640,8 +639,8 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 			}
 		}
 
-		// Set newCommit.ParentCommit (if 'parent' and/or 'branch' was set) and
-		// parent's ChildCommits
+		// Set newCommit.ParentCommit (if 'parent' and/or 'branch' was set) and add
+		// newCommit to parent's ChildCommits
 		if parent.ID != "" {
 			// Resolve parent.ID if it's a branch that isn't 'branch' (which can
 			// happen if 'branch' is new and diverges from the existing branch in
