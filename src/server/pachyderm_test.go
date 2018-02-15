@@ -6914,7 +6914,7 @@ func TestDeleteCommitRunsJob(t *testing.T) {
 	require.Equal(t, 1, len(commitInfos))
 
 	buf.Reset()
-	err = c.GetFile(repo, commitInfos[0].Commit.ID, "/data", 0, 0, &buf)
+	err = c.GetFile(pipeline, commitInfos[0].Commit.ID, "/data", 0, 0, &buf)
 	require.NoError(t, err)
 	require.Equal(t, "commit 3 data", buf.String())
 }
