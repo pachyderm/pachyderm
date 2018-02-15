@@ -3511,60 +3511,6 @@ func TestUpdateBranchNewOutputCommit(t *testing.T) {
 	require.Equal(t, 2, len(commits))
 }
 
-// TestBigSubvenance creates this DAG and makes sure schema/master has
-// only one subvenance range, containing all commits in 'pipelines'
-// DAG (dots are commits):
-//  schema:
-//   .     ─────╮
-//              │  pipeline:
-//  logs:       ├─▶ .............
-//   .......... ╯
-func TestBigSubvenance(t *testing.T) {
-	cli := getClient(t)
-
-	// two input repos, one with many commits (logs), and one with few (schema)
-	require.NoError(t, cli.CreateRepo("logs"))
-	require.NoError(t, cli.CreateRepo("schema"))
-
-	// Commit to logs and schema (so that "pipeline" has an initial output commit,
-	// and we can check that it updates this initial commit's child appropriately)
-	for _, repo := range []string{"schema", "logs"} {
-		commit, err := cli.StartCommit(repo, "master")
-		require.NoError(t, err)
-		require.NoError(t, cli.FinishCommit(repo, commit.ID))
-	}
-
-	// Create an output branch, in "pipeline"
-	require.NoError(t, cli.CreateRepo("pipeline"))
-	require.NoError(t, cli.CreateBranch("pipeline", "master", "", []*pfs.Branch{
-		pclient.NewBranch("schema", "master"),
-		pclient.NewBranch("logs", "master"),
-	}))
-	commits, err := cli.ListCommit("pipeline", "master", "", 0)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(commits))
-
-	// Commit to logs 10 times, and make sure that 'schema/master' has a single
-	// subvenance range that grows, rather than adding new subvenance ranges
-	// unnecessarily
-	for i := 0; i < 10; i++ {
-		commit, err := cli.StartCommit("logs", "master")
-		require.NoError(t, err)
-		require.NoError(t, cli.FinishCommit("logs", commit.ID))
-	}
-	// Collect all output commits in 'pipeline/master'
-	pipelineCommits, err := cli.ListCommit("pipeline", "master", "", 0)
-	require.NoError(t, err)
-	require.Equal(t, 11, len(pipelineCommits))
-
-	schemaMaster, err := cli.InspectCommit("schema", "master")
-	require.NoError(t, err)
-	require.Equal(t, 1, len(schemaMaster.Subvenance))
-	subv := schemaMaster.Subvenance[0]
-	require.Equal(t, pipelineCommits[0].Commit.ID, subv.Upper.ID)
-	require.Equal(t, pipelineCommits[10].Commit.ID, subv.Lower.ID)
-}
-
 // TestDeleteCommitBigSubvenance deletes a commit that is upstream of a large
 // stack of pipeline outputs and makes sure that parenthood and such are handled
 // correctly.
@@ -3857,7 +3803,7 @@ func TestDeleteCommitMultiLevelChildrenNilParent(t *testing.T) {
 	cli := getClient(t)
 	require.NoError(t, cli.CreateRepo("upstream1"))
 	require.NoError(t, cli.CreateRepo("upstream2"))
-	// (commit to both inputs--no output commit until all inputs have commits)
+	// commit to both inputs
 	_, err := cli.StartCommit("upstream1", "master")
 	require.NoError(t, err)
 	require.NoError(t, cli.FinishCommit("upstream1", "master"))
@@ -3964,7 +3910,8 @@ func TestDeleteCommitMultiLevelChildrenNilParent(t *testing.T) {
 
 	// Make sure child/parent relationships are as shown in second diagram
 	commits, err = cli.ListCommit("repo", "", "", 0)
-	require.Equal(t, 3, len(commits))
+	// Delete commit does start an additional output commit, but we're ignoring it
+	require.Equal(t, 4, len(commits))
 	require.Nil(t, eInfo.ParentCommit)
 	require.Nil(t, fInfo.ParentCommit)
 	require.Nil(t, dInfo.ChildCommits)
@@ -3993,7 +3940,7 @@ func TestDeleteCommitMultiLevelChildren(t *testing.T) {
 	cli := getClient(t)
 	require.NoError(t, cli.CreateRepo("upstream1"))
 	require.NoError(t, cli.CreateRepo("upstream2"))
-	// (commit to both inputs--no output commit until all inputs have commits)
+	// commit to both inputs
 	_, err := cli.StartCommit("upstream1", "master")
 	require.NoError(t, err)
 	require.NoError(t, cli.FinishCommit("upstream1", "master"))
@@ -4101,14 +4048,24 @@ func TestDeleteCommitMultiLevelChildren(t *testing.T) {
 	fInfo, err = cli.InspectCommit("repo", f.ID)
 	require.NoError(t, err)
 
-	// Make sure child/parent relationships are as shown in second diagram
+	// Make sure child/parent relationships are as shown in second diagram. Note
+	// that after 'b' and 'c' are deleted, DeleteCommit creates a new commit:
+	// - 'repo/master' points to 'a'
+	// - DeleteCommit starts a new output commit to process 'upstream1/master'
+	//   and 'upstream2/master'
+	// - The new output commit is started in 'repo/master' and is also a child of
+	//   'a'
 	commits, err = cli.ListCommit("repo", "", "", 0)
-	require.Equal(t, 4, len(commits))
+	require.Equal(t, 5, len(commits))
 	require.Nil(t, aInfo.ParentCommit)
 	require.Equal(t, a.ID, dInfo.ParentCommit.ID)
 	require.Equal(t, a.ID, eInfo.ParentCommit.ID)
 	require.Equal(t, a.ID, fInfo.ParentCommit.ID)
-	require.ElementsEqualUnderFn(t, []string{d.ID, e.ID, f.ID}, aInfo.ChildCommits, CommitToID)
+	newCommitInfo, err := cli.InspectCommit("repo", "master")
+	require.NoError(t, err)
+	require.ElementsEqualUnderFn(t,
+		[]string{d.ID, e.ID, f.ID, newCommitInfo.Commit.ID},
+		aInfo.ChildCommits, CommitToID)
 	require.Nil(t, dInfo.ChildCommits)
 	require.Nil(t, eInfo.ChildCommits)
 	require.Nil(t, fInfo.ChildCommits)
@@ -4201,12 +4158,19 @@ func TestDeleteCommitShrinkSubvRange(t *testing.T) {
 
 	// Case 4
 	// - Delete the remaining commits in "logs" and make sure that the subvenance
-	//   of the single commit in "schema" is empty
+	//   of the single commit in "schema" has a single, new commit (started by
+	//   DeleteCommit), which is only provenant on the commit in "schema"
 	for _, i := range []int{1, 2, 3, 4, 6, 7, 8} {
 		require.NoError(t, c.DeleteCommit("logs", logsCommit[i].ID))
 	}
 	schemaCommitInfo, err = c.InspectCommit("schema", schemaCommit.ID)
-	require.Equal(t, 0, len(schemaCommitInfo.Subvenance))
+	require.Equal(t, 1, len(schemaCommitInfo.Subvenance))
+	require.Equal(t, schemaCommitInfo.Subvenance[0].Lower.ID,
+		schemaCommitInfo.Subvenance[0].Upper.ID)
+	outputCommitInfo, err := c.InspectCommit("pipeline", "master")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(outputCommitInfo.Provenance))
+	require.Equal(t, schemaCommit.ID, outputCommitInfo.Provenance[0].ID)
 }
 
 func uniqueString(prefix string) string {
