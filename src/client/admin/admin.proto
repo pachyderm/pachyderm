@@ -5,16 +5,18 @@ import "google/protobuf/empty.proto";
 
 import "client/pfs/pfs.proto";
 import "client/pps/pps.proto";
-import "client/version/versionpb/version.proto";
 
-message Op {
-  versionpb.Version version = 1;
+message Op17 {
   pfs.PutObjectRequest object = 2;
   pfs.TagObjectRequest tag = 3;
   pfs.CreateRepoRequest repo = 4;
   pfs.BuildCommitRequest commit = 5;
   pfs.SetBranchRequest branch = 6;
   pps.CreatePipelineRequest pipeline = 7;
+}
+
+message Op {
+  Op17 op17 = 1;
 }
 
 message ExtractRequest {
