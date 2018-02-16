@@ -1,6 +1,7 @@
 package client
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/pachyderm/pachyderm/src/client/admin"
@@ -47,6 +48,22 @@ func (c APIClient) ExtractWriter(objects bool, w io.Writer) error {
 	return c.Extract(objects, func(op *admin.Op) error {
 		return writer.Write(op)
 	})
+}
+
+// ExtractURL extracts all cluster state and marshalls it to object storage.
+func (c APIClient) ExtractURL(url string) error {
+	extractClient, err := c.AdminAPIClient.Extract(c.Ctx(), &admin.ExtractRequest{URL: url})
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	_, err = extractClient.Recv()
+	if err == nil {
+		return fmt.Errorf("unexpected response from extract")
+	}
+	if err != io.EOF {
+		return err
+	}
+	return nil
 }
 
 // Restore cluster state from an extract series of operations.
@@ -110,4 +127,18 @@ func (c APIClient) RestoreFrom(objects bool, otherC *APIClient) (retErr error) {
 	return otherC.Extract(objects, func(op *admin.Op) error {
 		return restoreClient.Send(&admin.RestoreRequest{Op: op})
 	})
+}
+
+// RestoreURL restures cluster state from object storage.
+func (c APIClient) RestoreURL(url string) (retErr error) {
+	restoreClient, err := c.AdminAPIClient.Restore(c.Ctx())
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	defer func() {
+		if _, err := restoreClient.CloseAndRecv(); err != nil && retErr == nil {
+			retErr = grpcutil.ScrubGRPC(err)
+		}
+	}()
+	return grpcutil.ScrubGRPC(restoreClient.Send(&admin.RestoreRequest{URL: url}))
 }
