@@ -27,10 +27,7 @@ type apiServer struct {
 }
 
 func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.API_ExtractServer) (retErr error) {
-	pachClient, err := a.getPachClient()
-	if err != nil {
-		return err
-	}
+	pachClient := a.getPachClient()
 	pachClient = pachClient.WithCtx(extractServer.Context())
 	handleOp := extractServer.Send
 	if request.URL != "" {
@@ -207,10 +204,7 @@ func sortCommitInfos(cis []*pfs.CommitInfo) []*pfs.CommitInfo {
 
 func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error) {
 	ctx := restoreServer.Context()
-	pachClient, err := a.getPachClient()
-	if err != nil {
-		return err
-	}
+	pachClient := a.getPachClient()
 	defer func() {
 		for {
 			_, err := restoreServer.Recv()
@@ -293,17 +287,15 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 	}
 }
 
-func (a *apiServer) getPachClient() (*client.APIClient, error) {
-	if a.pachClient == nil {
-		var onceErr error
-		a.pachClientOnce.Do(func() {
-			a.pachClient, onceErr = client.NewFromAddress(a.address)
-		})
-		if onceErr != nil {
-			return nil, onceErr
+func (a *apiServer) getPachClient() *client.APIClient {
+	a.pachClientOnce.Do(func() {
+		var err error
+		a.pachClient, err = client.NewFromAddress(a.address)
+		if err != nil {
+			panic(fmt.Sprintf("pps failed to initialize pach client: %v", err))
 		}
-	}
-	return a.pachClient, nil
+	})
+	return a.pachClient
 }
 
 type extractObjectWriter struct {
