@@ -157,6 +157,56 @@ $ pachctl list-job -p foo bar/YYY
 	listJob.Flags().StringSliceVarP(&inputCommitStrs, "input", "i", []string{}, "List jobs with a specific set of input commits.")
 	rawFlag(listJob)
 
+	var pipelines cmdutil.RepeatedStringArg
+	flushJob := &cobra.Command{
+		Use:   "flush-job commit [commit ...]",
+		Short: "Wait for all jobs caused by the specified commits to finish and return them.",
+		Long: `Wait for all jobs caused by the specified commits to finish and return them.
+
+Examples:
+
+` + codestart + `# return jobs caused by foo/XXX and bar/YYY
+$ pachctl flush-job foo/XXX bar/YYY
+
+# return jobs caused by foo/XXX leading to pipelines bar and baz
+$ pachctl flush-job foo/XXX -p bar -p baz
+` + codeend,
+		Run: cmdutil.Run(func(args []string) error {
+			commits, err := cmdutil.ParseCommits(args)
+			if err != nil {
+				return err
+			}
+
+			c, err := pachdclient.NewOnUserMachine(metrics, "user")
+			if err != nil {
+				return err
+			}
+
+			jobInfos, err := c.FlushJobAll(commits, pipelines)
+			if err != nil {
+				return err
+			}
+
+			if raw {
+				for _, jobInfo := range jobInfos {
+					if err := marshaller.Marshal(os.Stdout, jobInfo); err != nil {
+						return err
+					}
+				}
+				return nil
+			}
+			writer := tabwriter.NewWriter(os.Stdout, 0, 1, 1, ' ', 0)
+			pretty.PrintJobHeader(writer)
+			for _, jobInfo := range jobInfos {
+				pretty.PrintJobInfo(writer, jobInfo)
+			}
+
+			return writer.Flush()
+		}),
+	}
+	flushJob.Flags().VarP(&pipelines, "pipeline", "p", "Wait only for jobs leading to a specific set of pipelines")
+	rawFlag(flushJob)
+
 	deleteJob := &cobra.Command{
 		Use:   "delete-job job-id",
 		Short: "Delete a job.",
@@ -605,6 +655,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	result = append(result, job)
 	result = append(result, inspectJob)
 	result = append(result, listJob)
+	result = append(result, flushJob)
 	result = append(result, deleteJob)
 	result = append(result, stopJob)
 	result = append(result, restartDatum)
