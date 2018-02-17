@@ -47,6 +47,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -371,14 +372,25 @@ func doFullMode(appEnvObj interface{}) error {
 			},
 		)
 	})
-	if err := migrate(address); err != nil {
+	if err := migrate(address, kubeClient); err != nil {
 		return err
 	}
 	healthServer.Ready()
 	return eg.Wait()
 }
 
-func migrate(address string) error {
+func migrate(address string, kubeClient *kube.Clientset) error {
+	endpoints, err := kubeClient.CoreV1().Endpoints(getNamespace()).Get("pachd", metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if len(endpoints.Subsets) != 1 {
+		return fmt.Errorf("unexpected number of subsets: %d", len(endpoints.Subsets))
+	}
+	if len(endpoints.Subsets[0].Addresses) == 0 {
+		// bail if there's no ready addresses
+		return nil
+	}
 	externalPachClient, err := client.NewInCluster()
 	if err != nil {
 		return err
