@@ -6,7 +6,7 @@ import "google/protobuf/empty.proto";
 import "client/pfs/pfs.proto";
 import "client/pps/pps.proto";
 
-message Op17 {
+message Op1_7 {
   pfs.PutObjectRequest object = 2;
   pfs.TagObjectRequest tag = 3;
   pfs.CreateRepoRequest repo = 4;
@@ -16,7 +16,7 @@ message Op17 {
 }
 
 message Op {
-  Op17 op17 = 1;
+  Op1_7 op1_7 = 1;
 }
 
 message ExtractRequest {
