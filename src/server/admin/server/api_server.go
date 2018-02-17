@@ -59,12 +59,12 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 				return err
 			}
 			// empty PutObjectRequest to indicate EOF
-			return handleOp(&admin.Op{Op17: &admin.Op17{Object: &pfs.PutObjectRequest{}}})
+			return handleOp(&admin.Op{Op1_7: &admin.Op1_7{Object: &pfs.PutObjectRequest{}}})
 		}); err != nil {
 			return err
 		}
 		if err := pachClient.ListTag(func(resp *pfs.ListTagsResponse) error {
-			return handleOp(&admin.Op{Op17: &admin.Op17{
+			return handleOp(&admin.Op{Op1_7: &admin.Op1_7{
 				Tag: &pfs.TagObjectRequest{
 					Object: resp.Object,
 					Tags:   []*pfs.Tag{resp.Tag},
@@ -83,7 +83,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			if len(ri.Provenance) > 0 {
 				continue
 			}
-			if err := handleOp(&admin.Op{Op17: &admin.Op17{
+			if err := handleOp(&admin.Op{Op1_7: &admin.Op1_7{
 				Repo: &pfs.CreateRepoRequest{
 					Repo:        ri.Repo,
 					Provenance:  ri.Provenance,
@@ -102,7 +102,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 				if ci.ParentCommit == nil {
 					ci.ParentCommit = client.NewCommit(ri.Repo.Name, "")
 				}
-				if err := handleOp(&admin.Op{Op17: &admin.Op17{
+				if err := handleOp(&admin.Op{Op1_7: &admin.Op1_7{
 					Commit: &pfs.BuildCommitRequest{
 						Parent: ci.ParentCommit,
 						Tree:   ci.Tree,
@@ -117,7 +117,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 				return err
 			}
 			for _, bi := range bis {
-				if err := handleOp(&admin.Op{Op17: &admin.Op17{
+				if err := handleOp(&admin.Op{Op1_7: &admin.Op1_7{
 					Branch: &pfs.SetBranchRequest{
 						Commit: bi.Head,
 						Branch: bi.Name,
@@ -134,7 +134,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			return err
 		}
 		for _, pi := range pis {
-			if err := handleOp(&admin.Op{Op17: &admin.Op17{
+			if err := handleOp(&admin.Op{Op1_7: &admin.Op1_7{
 				Pipeline: &pps.CreatePipelineRequest{
 					Pipeline:           pi.Pipeline,
 					Transform:          pi.Transform,
@@ -245,30 +245,30 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 			}
 		}
 		switch {
-		case op.Op17 != nil && op.Op17.Object != nil:
+		case op.Op1_7 != nil && op.Op1_7.Object != nil:
 			r := &extractObjectReader{adminAPIRestoreServer: restoreServer}
-			r.buf.Write(op.Op17.Object.Value)
+			r.buf.Write(op.Op1_7.Object.Value)
 			if _, _, err := pachClient.PutObject(r); err != nil {
 				return fmt.Errorf("error putting object: %v", err)
 			}
-		case op.Op17 != nil && op.Op17.Tag != nil:
-			if _, err := pachClient.ObjectAPIClient.TagObject(ctx, op.Op17.Tag); err != nil {
+		case op.Op1_7 != nil && op.Op1_7.Tag != nil:
+			if _, err := pachClient.ObjectAPIClient.TagObject(ctx, op.Op1_7.Tag); err != nil {
 				return fmt.Errorf("error tagging object: %v", grpcutil.ScrubGRPC(err))
 			}
-		case op.Op17 != nil && op.Op17.Repo != nil:
-			if _, err := pachClient.PfsAPIClient.CreateRepo(ctx, op.Op17.Repo); err != nil {
+		case op.Op1_7 != nil && op.Op1_7.Repo != nil:
+			if _, err := pachClient.PfsAPIClient.CreateRepo(ctx, op.Op1_7.Repo); err != nil {
 				return fmt.Errorf("error creating repo: %v", grpcutil.ScrubGRPC(err))
 			}
-		case op.Op17 != nil && op.Op17.Commit != nil:
-			if _, err := pachClient.PfsAPIClient.BuildCommit(ctx, op.Op17.Commit); err != nil {
+		case op.Op1_7 != nil && op.Op1_7.Commit != nil:
+			if _, err := pachClient.PfsAPIClient.BuildCommit(ctx, op.Op1_7.Commit); err != nil {
 				return fmt.Errorf("error creating commit: %v", grpcutil.ScrubGRPC(err))
 			}
-		case op.Op17 != nil && op.Op17.Branch != nil:
-			if _, err := pachClient.PfsAPIClient.SetBranch(ctx, op.Op17.Branch); err != nil {
+		case op.Op1_7 != nil && op.Op1_7.Branch != nil:
+			if _, err := pachClient.PfsAPIClient.SetBranch(ctx, op.Op1_7.Branch); err != nil {
 				return fmt.Errorf("error creating branch: %v", grpcutil.ScrubGRPC(err))
 			}
-		case op.Op17 != nil && op.Op17.Pipeline != nil:
-			if _, err := pachClient.PpsAPIClient.CreatePipeline(ctx, op.Op17.Pipeline); err != nil {
+		case op.Op1_7 != nil && op.Op1_7.Pipeline != nil:
+			if _, err := pachClient.PpsAPIClient.CreatePipeline(ctx, op.Op1_7.Pipeline); err != nil {
 				return fmt.Errorf("error creating pipeline: %v", grpcutil.ScrubGRPC(err))
 			}
 		}
@@ -298,7 +298,7 @@ func (w *extractObjectWriter) Write(p []byte) (int, error) {
 		if len(value) > chunkSize {
 			value = value[:chunkSize]
 		}
-		if err := w.Send(&admin.Op{Op17: &admin.Op17{Object: &pfs.PutObjectRequest{Value: value}}}); err != nil {
+		if err := w.Send(&admin.Op{Op1_7: &admin.Op1_7{Object: &pfs.PutObjectRequest{Value: value}}}); err != nil {
 			return n, err
 		}
 		n += len(value)
@@ -321,11 +321,11 @@ func (r *extractObjectReader) Read(p []byte) (int, error) {
 			return 0, grpcutil.ScrubGRPC(err)
 		}
 		op := request.Op
-		if op.Op17.Object == nil {
+		if op.Op1_7.Object == nil {
 			return 0, fmt.Errorf("expected an object, but got: %v", op)
 		}
-		r.buf.Write(op.Op17.Object.Value)
-		if len(op.Op17.Object.Value) == 0 {
+		r.buf.Write(op.Op1_7.Object.Value)
+		if len(op.Op1_7.Object.Value) == 0 {
 			r.eof = true
 		}
 	}
