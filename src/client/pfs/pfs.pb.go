@@ -754,8 +754,7 @@ type BuildCommitRequest struct {
 	Branch     string    `protobuf:"bytes,4,opt,name=branch,proto3" json:"branch,omitempty"`
 	Provenance []*Commit `protobuf:"bytes,2,rep,name=provenance" json:"provenance,omitempty"`
 	Tree       *Object   `protobuf:"bytes,3,opt,name=tree" json:"tree,omitempty"`
-	// ID sets the ID of the created commit. It also allows you to BuildCommits
-	// with parents that don't exist.
+	// ID sets the ID of the created commit.
 	ID string `protobuf:"bytes,5,opt,name=ID,proto3" json:"ID,omitempty"`
 }
 
