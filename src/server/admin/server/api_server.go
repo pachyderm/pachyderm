@@ -74,6 +74,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			return err
 		}
 	}
+	var repos []*pfs.Repo
 	if !request.NoRepos {
 		ris, err := pachClient.ListRepo(nil)
 		if err != nil {
@@ -92,40 +93,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			}); err != nil {
 				return err
 			}
-			cis, err := pachClient.ListCommit(ri.Repo.Name, "", "", 0)
-			if err != nil {
-				return err
-			}
-			for _, ci := range sortCommitInfos(cis) {
-				// Even without a parent, ParentCommit is used to indicate which
-				// repo to make the commit in.
-				if ci.ParentCommit == nil {
-					ci.ParentCommit = client.NewCommit(ri.Repo.Name, "")
-				}
-				if err := handleOp(&admin.Op{Op1_7: &admin.Op1_7{
-					Commit: &pfs.BuildCommitRequest{
-						Parent: ci.ParentCommit,
-						Tree:   ci.Tree,
-						ID:     ci.Commit.ID,
-					},
-				}}); err != nil {
-					return err
-				}
-			}
-			bis, err := pachClient.ListBranch(ri.Repo.Name)
-			if err != nil {
-				return err
-			}
-			for _, bi := range bis {
-				if err := handleOp(&admin.Op{Op1_7: &admin.Op1_7{
-					Branch: &pfs.CreateBranchRequest{
-						Head:   bi.Head,
-						Branch: bi.Branch,
-					},
-				}}); err != nil {
-					return err
-				}
-			}
+			repos = append(repos, ri.Repo)
 		}
 	}
 	if !request.NoPipelines {
@@ -161,7 +129,64 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			}
 		}
 	}
+	// We send the actual commits last, that way pipelines will have already
+	// been created and will recreate output commits for historical outputs.
+	for _, repo := range repos {
+		cis, err := pachClient.ListCommit(repo.Name, "", "", 0)
+		if err != nil {
+			return err
+		}
+		bis, err := pachClient.ListBranch(repo.Name)
+		if err != nil {
+			return err
+		}
+		for _, bcr := range buildCommitRequests(cis, bis) {
+			if err := handleOp(&admin.Op{Op1_7: &admin.Op1_7{Commit: bcr}}); err != nil {
+				return err
+			}
+		}
+		for _, bi := range bis {
+			if err := handleOp(&admin.Op{Op1_7: &admin.Op1_7{
+				Branch: &pfs.CreateBranchRequest{
+					Head:   bi.Head,
+					Branch: client.NewBranch(bi.Head.Repo.Name, bi.Name),
+				},
+			}}); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
+}
+
+func buildCommitRequests(cis []*pfs.CommitInfo, bis []*pfs.BranchInfo) []*pfs.BuildCommitRequest {
+	cis = sortCommitInfos(cis)
+	result := make([]*pfs.BuildCommitRequest, len(cis))
+	commitToBranch := make(map[string]string)
+	for _, bi := range bis {
+		if _, ok := commitToBranch[bi.Head.ID]; !ok || bi.Name == "master" {
+			commitToBranch[bi.Head.ID] = bi.Name
+		}
+	}
+	for i := range cis {
+		ci := cis[len(cis)-i-1]
+		branch := commitToBranch[ci.Commit.ID]
+		// Even without a parent, ParentCommit is used to indicate which
+		// repo to make the commit in.
+		if ci.ParentCommit == nil {
+			ci.ParentCommit = client.NewCommit(ci.Commit.Repo.Name, "")
+		}
+		result[len(cis)-i-1] = &pfs.BuildCommitRequest{
+			Parent: ci.ParentCommit,
+			Tree:   ci.Tree,
+			ID:     ci.Commit.ID,
+			Branch: branch,
+		}
+		if _, ok := commitToBranch[ci.ParentCommit.ID]; !ok || branch == "master" {
+			commitToBranch[ci.ParentCommit.ID] = branch
+		}
+	}
+	return result
 }
 
 func sortCommitInfos(cis []*pfs.CommitInfo) []*pfs.CommitInfo {

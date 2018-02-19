@@ -191,8 +191,7 @@ message BuildCommitRequest {
   string branch = 4;
   repeated Commit provenance = 2;
   Object tree = 3;
-  // ID sets the ID of the created commit. It also allows you to BuildCommits
-  // with parents that don't exist.
+  // ID sets the ID of the created commit.
   string ID = 5;
 }
 
