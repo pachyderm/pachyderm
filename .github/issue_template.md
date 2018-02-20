@@ -7,13 +7,27 @@ Slack: http://slack.pachyderm.io/
 
 -->
 
-**Is this a BUG REPORT or FEATURE REQUEST?**:
+<!-- If this is a feature request, fill this section out -->
 
-> Uncomment only one, leave it on its own line: 
->
-> bug
-> feature
+**What is the ask?**
 
+I need ...
+
+**What is the goal / desired outcome?**
+
+So that I can accomplish my goal ...
+
+**If there is a way to accomplish this today via workaround, what does that require?**
+
+<!-- If the ask is specific to a version of k8s, cloud provider, etc, please provide these details -->
+**Environment?**:
+- Kubernetes version (use `kubectl version`):
+- Pachyderm CLI version (use `pachctl version`):
+- Cloud provider (e.g. aws, azure, gke) or local deployment (e.g. minikube vs dockerized k8s):
+- OS (e.g. from /etc/os-release):
+- Others:
+
+<!-- If this is a bug, fill this section out -->
 
 **What happened?**:
 
