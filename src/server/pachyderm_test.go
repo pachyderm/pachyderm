@@ -2928,11 +2928,13 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	// Get logs from pipeline, using pipeline
 	iter = c.GetLogs(pipelineName, "", nil, "", false, false, 2)
 	numLogs = 0
+	loglines = []string{}
 	for iter.Next() {
 		numLogs++
 		require.True(t, iter.Message().Message != "")
+		loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
 	}
-	require.Equal(t, 2, numLogs)
+	require.Equal(t, 2, numLogs, "logs:\n%s", strings.Join(loglines, "\n"))
 	require.NoError(t, iter.Err())
 
 	// Get logs from pipeline, using a pipeline that doesn't exist. There should
