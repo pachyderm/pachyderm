@@ -1919,12 +1919,12 @@ func (d *driver) scratchFilePrefix(ctx context.Context, file *pfs.File) (string,
 }
 
 func (d *driver) filePathFromEtcdPath(etcdPath string) string {
-	// etcdPath looks like /pachyderm_pfs/putFileRecords/repo/commit/path/to/file
+	etcdPath = strings.TrimPrefix(etcdPath, d.prefix)
+	// etcdPath looks like /putFileRecords/repo/commit/path/to/file
 	split := strings.Split(etcdPath, "/")
 	// we only want /path/to/file so we use index 4 (note that there's an "" at
 	// the beginning of the slice because of the lead /)
-	fmt.Printf("len(strings.Split(d.prefix)): %d\n", len(strings.Split(d.prefix, "/")))
-	return path.Join(split[6:]...)
+	return path.Join(split[4:]...)
 }
 
 // validatePath checks if a file path is legal
