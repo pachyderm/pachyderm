@@ -303,7 +303,7 @@ Let's now imagine that we want to update our model from random forest to decisio
 Once you modify the spec, you can update the pipeline by running:
 
 ```
-$ pachctl update-pipeline -f <julia, python, rstats>_train.json
+$ pachctl update-pipeline -f <julia, python, rstats>_train.json --reprocess
 ```
 
 Pachyderm will then automatically kick off a new job to retrain our model with the new model:
