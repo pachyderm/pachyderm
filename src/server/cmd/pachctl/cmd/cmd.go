@@ -306,7 +306,7 @@ This resets the cluster to its initial state.`,
 				return err
 			}
 
-			forward := func() error {
+			if err := func() error {
 
 				var eg errgroup.Group
 
@@ -360,11 +360,10 @@ kubectl %v port-forward "$pod" %d:8081
 					return err
 				}
 				return nil
-			}
-
-			if err := forward(); err != nil {
+			}(); err != nil {
 				return err
 			}
+
 			return nil
 		}),
 	}
