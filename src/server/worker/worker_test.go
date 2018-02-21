@@ -119,7 +119,3 @@ func newTestAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etc
 		chunks:    col.NewCollection(etcdClient, path.Join(etcdPrefix, chunksPrefix), []col.Index{}, &Chunks{}, nil),
 	}
 }
-
-func uniqueString(prefix string) string {
-	return prefix + "-" + uuid.NewWithoutDashes()[0:12]
-}
