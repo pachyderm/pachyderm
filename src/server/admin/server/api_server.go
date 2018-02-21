@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/golang/snappy"
 
@@ -27,6 +28,8 @@ type apiServer struct {
 }
 
 func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.API_ExtractServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.getPachClient()
 	pachClient = pachClient.WithCtx(extractServer.Context())
 	handleOp := extractServer.Send
@@ -53,8 +56,9 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		handleOp = func(op *admin.Op) error { return w.Write(op) }
 	}
 	if !request.NoObjects {
-		w := &extractObjectWriter{extractServer}
+		w := extractObjectWriter(handleOp)
 		if err := pachClient.ListObject(func(object *pfs.Object) error {
+			fmt.Printf("Extract object: %s\n", object.Hash)
 			if err := pachClient.GetObject(object.Hash, w); err != nil {
 				return err
 			}
@@ -224,6 +228,8 @@ func sortCommitInfos(cis []*pfs.CommitInfo) []*pfs.CommitInfo {
 }
 
 func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error) {
+	func() { a.Log(nil, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
 	ctx := restoreServer.Context()
 	pachClient := a.getPachClient()
 	defer func() {
@@ -321,11 +327,9 @@ func (a *apiServer) getPachClient() *client.APIClient {
 	return a.pachClient
 }
 
-type extractObjectWriter struct {
-	admin.API_ExtractServer
-}
+type extractObjectWriter func(*admin.Op) error
 
-func (w *extractObjectWriter) Write(p []byte) (int, error) {
+func (w extractObjectWriter) Write(p []byte) (int, error) {
 	chunkSize := grpcutil.MaxMsgSize / 2
 	var n int
 	for i := 0; i*(chunkSize) < len(p); i++ {
@@ -333,7 +337,7 @@ func (w *extractObjectWriter) Write(p []byte) (int, error) {
 		if len(value) > chunkSize {
 			value = value[:chunkSize]
 		}
-		if err := w.Send(&admin.Op{Op1_7: &admin.Op1_7{Object: &pfs.PutObjectRequest{Value: value}}}); err != nil {
+		if err := w(&admin.Op{Op1_7: &admin.Op1_7{Object: &pfs.PutObjectRequest{Value: value}}}); err != nil {
 			return n, err
 		}
 		n += len(value)
