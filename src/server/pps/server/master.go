@@ -18,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
+	"github.com/pachyderm/pachyderm/src/server/pkg/pachrpc"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 )
@@ -33,52 +34,6 @@ var (
 	}
 )
 
-//// TODO this doesn't actually work right now, but it should be fixed and re-added
-// // fixNonDefaultPipelines implements a hack that covers for migrations bugs
-// // where a field is set by setPipelineDefaults in a newer version of the server
-// // but a PipelineInfo which was created with an older version of the server
-// // doesn't have that field set because setPipelineDefaults was different when
-// // it was created.
-// func (a *apiServer) fixNonDefaultPipelines(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
-// 	if pipelineInfo.Salt == "" || pipelineInfo.CacheSize == "" {
-// 		// Stop the pipeline (so that updating the "spec" branch doesn't create a
-// 		// new commit in the pipeline's output branch
-// 		if err := a.StopPipeline(ctx, &pps.StopPipelineRequest{Pipeline: pipeline}); err != nil {
-// 			return err
-// 		}
-//
-// 		// Update the pipeline's PipelineInfo
-// 		// TODO this doesn't actually work right now
-// 		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-// 			pipelines := a.pipelines.ReadWrite(stm)
-//
-//
-//      // pipelines don't come from etcd anymore
-// 			newPipelineInfo := new(pps.PipelineInfo)
-// 			if err := pipelines.Get(pipelineInfo.Pipeline.Name, newPipelineInfo); err != nil {
-// 				return fmt.Errorf("error getting pipeline %s: %+v", pipelineName, err)
-// 			}
-//
-//
-//
-// 			if newPipelineInfo.Salt == "" {
-// 				newPipelineInfo.Salt = uuid.NewWithoutDashes()
-// 			}
-// 			setPipelineDefaults(newPipelineInfo)
-// 			pipelines.Put(pipelineInfo.Pipeline.Name, newPipelineInfo)
-// 			pipelineInfo = *newPipelineInfo
-// 			return nil
-// 		}); err != nil {
-// 			return err
-// 		}
-//
-// 		// Restart the pipeline
-// 		if err := a.StartPipeline(ctx, &pps.StartPipelineRequest{Pipeline: pipeline}); err != nil {
-// 			return err
-// 		}
-// 	}
-// }
-
 // The master process is responsible for creating/deleting workers as
 // pipelines are created/removed.
 func (a *apiServer) master() {
@@ -86,10 +41,10 @@ func (a *apiServer) master() {
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
+		pachClient := pachrpc.GetPachClient(ctx)
 		// Use the PPS token to authenticate requests. Note that all requests
 		// performed in this function are performed as a cluster admin, so do not
 		// pass any unvalidated user input to any requests
-		pachClient := a.getPachClient().WithCtx(ctx)
 		ctx, err := masterLock.Lock(ctx)
 		if err != nil {
 			return err
@@ -138,9 +93,6 @@ func (a *apiServer) master() {
 					if err := event.Unmarshal(&pipelineName, &pipelinePtr); err != nil {
 						return err
 					}
-					// TODO fix this function and uncomment this line
-					// a.fixNonDefaultPipelines()
-
 					// Retrieve pipelineInfo (and prev pipeline's pipelineInfo) from the
 					// spec repo
 					var prevPipelinePtr pps.EtcdPipelineInfo

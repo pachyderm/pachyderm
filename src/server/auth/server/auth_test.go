@@ -102,13 +102,7 @@ func getPachClient(t testing.TB, subject string) *client.APIClient {
 
 	// Check if seed client exists -- if not, create it
 	if seedClient == nil {
-		var err error
-		if _, ok := os.LookupEnv("PACHD_PORT_650_TCP_ADDR"); ok {
-			seedClient, err = client.NewInCluster()
-		} else {
-			seedClient, err = client.NewOnUserMachine(false, "user")
-		}
-		require.NoError(t, err)
+		seeClient := tu.GetPachClient(t)
 		// discard any credentials from the user's machine (seedClient is
 		// anonymous)
 		seedClient = seedClient.WithCtx(context.Background())

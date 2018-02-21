@@ -1252,7 +1252,7 @@ func objectMeta(name string, labels, annotations map[string]string, namespace st
 	}
 }
 
-// AddRegistry switchs the registry that an image is targetting.
+// AddRegistry switches the registry that an image is targetting.
 func AddRegistry(registry string, imageName string) string {
 	parts := strings.Split(imageName, "/")
 	if len(parts) == 3 {

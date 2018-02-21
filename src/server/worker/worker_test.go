@@ -15,11 +15,12 @@ import (
 	pclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
 var (
@@ -27,7 +28,7 @@ var (
 )
 
 // func TestAcquireDatums(t *testing.T) {
-// 	c := getPachClient(t)
+// 	c := tu.GetPachClient(t)
 // 	etcdClient := getEtcdClient(t)
 //
 // 	chunks := col.NewCollection(etcdClient, path.Join("", chunksPrefix), []col.Index{}, &Chunks{}, nil)
@@ -72,12 +73,11 @@ func getEtcdClient(t *testing.T) *etcd.Client {
 	// src/server/pfs/server/driver.go expects an etcd server at "localhost:32379"
 	// Try to establish a connection before proceeding with the test (which will
 	// fail if the connection can't be established)
-	etcdAddress := "localhost:32379"
 	etcdOnce.Do(func() {
 		require.NoError(t, backoff.Retry(func() error {
 			var err error
 			etcdClient, err = etcd.New(etcd.Config{
-				Endpoints:   []string{etcdAddress},
+				Endpoints:   []string{tu.GetEtcdAddress()},
 				DialOptions: pclient.EtcdDialOptions(),
 			})
 			if err != nil {
@@ -87,22 +87,6 @@ func getEtcdClient(t *testing.T) *etcd.Client {
 		}, backoff.NewTestingBackOff()))
 	})
 	return etcdClient
-}
-
-var pachClient *client.APIClient
-var getPachClientOnce sync.Once
-
-func getPachClient(t testing.TB) *client.APIClient {
-	getPachClientOnce.Do(func() {
-		var err error
-		if addr := os.Getenv("PACHD_PORT_650_TCP_ADDR"); addr != "" {
-			pachClient, err = client.NewInCluster()
-		} else {
-			pachClient, err = client.NewOnUserMachine(false, "user")
-		}
-		require.NoError(t, err)
-	})
-	return pachClient
 }
 
 func newTestAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string, t *testing.T) *APIServer {
