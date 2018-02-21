@@ -26,7 +26,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 	pipelineName := uniqueString("pipeline")
 	cmd := []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"}
 
-	// Create pipeline named "out"
+	// Create pipeline with input named "out"
 	err := c.CreatePipeline(
 		pipelineName,
 		"",
@@ -57,22 +57,6 @@ func TestInvalidCreatePipeline(t *testing.T) {
 	)
 	require.YesError(t, err)
 	require.Matches(t, "glob", err.Error())
-
-	// Create a pipeline with no cmd
-	err = c.CreatePipeline(
-		pipelineName,
-		"",
-		nil,
-		nil,
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewAtomInputOpts("input", dataRepo, "", "/*", false, ""),
-		"master",
-		false,
-	)
-	require.YesError(t, err)
-	require.Matches(t, "cmd", err.Error())
 }
 
 // Make sure that pipeline validation checks that all inputs exist

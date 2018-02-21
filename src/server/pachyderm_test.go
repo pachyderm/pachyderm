@@ -679,6 +679,56 @@ func TestLazyPipeline(t *testing.T) {
 	require.Equal(t, "foo\n", buffer.String())
 }
 
+func TestEmptyFiles(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+	// create repos
+	dataRepo := uniqueString("TestShufflePipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	// create pipeline
+	pipelineName := uniqueString("pipeline")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					fmt.Sprintf("if [ -s /pfs/%s/file]; then exit 1; fi", dataRepo),
+					fmt.Sprintf("ln -s /pfs/%s/file /pfs/out/file", dataRepo),
+				},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input: &pps.Input{
+				Atom: &pps.AtomInput{
+					Repo:       dataRepo,
+					Glob:       "/*",
+					EmptyFiles: true,
+				},
+			},
+		})
+	require.NoError(t, err)
+	// Do a commit
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, "master"))
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+	buffer := bytes.Buffer{}
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
+}
+
 // There's an issue where if you use cp with certain flags, it might copy
 // special files without reading from them.  In our case, we use named pipes
 // to simulate lazy files, so the pipes themselves might get copied into
@@ -4909,6 +4959,13 @@ func TestListJobOutput(t *testing.T) {
 		if len(jobInfos) != 1 {
 			return fmt.Errorf("expected 1 job")
 		}
+		jobInfos, err = c.ListJob("", nil, client.NewCommit(pipeline, "master"))
+		if err != nil {
+			return err
+		}
+		if len(jobInfos) != 1 {
+			return fmt.Errorf("expected 1 job")
+		}
 		return nil
 	}, backoff.NewTestingBackOff()))
 }
@@ -6278,6 +6335,185 @@ func TestCommitDescription(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "test commit description in finish-commit that overwrites", commitInfo.Description)
 	require.NoError(t, pfspretty.PrintDetailedCommitInfo(commitInfo))
+}
+
+func TestPipelineDescription(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	dataRepo := uniqueString("TestPipelineDescription_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	description := "pipeline description"
+	pipeline := uniqueString("TestPipelineDescription")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline:    client.NewPipeline(pipeline),
+			Transform:   &pps.Transform{Cmd: []string{"true"}},
+			Description: description,
+			Input:       client.NewAtomInput(dataRepo, "/"),
+		})
+	require.NoError(t, err)
+	pi, err := c.InspectPipeline(pipeline)
+	require.NoError(t, err)
+	require.Equal(t, description, pi.Description)
+}
+
+func TestListJobInputCommits(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	aRepo := uniqueString("TestListJobInputCommits_data_a")
+	require.NoError(t, c.CreateRepo(aRepo))
+	bRepo := uniqueString("TestListJobInputCommits_data_b")
+	require.NoError(t, c.CreateRepo(bRepo))
+
+	pipeline := uniqueString("TestSimplePipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", aRepo),
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", bRepo),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewCrossInput(
+			client.NewAtomInput(aRepo, "/*"),
+			client.NewAtomInput(bRepo, "/*"),
+		),
+		"",
+		false,
+	))
+
+	commita1, err := c.StartCommit(aRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(aRepo, "master", "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(aRepo, "master"))
+
+	commitb1, err := c.StartCommit(bRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(bRepo, "master", "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(bRepo, "master"))
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commita1, commitb1}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	commita2, err := c.StartCommit(aRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(aRepo, "master", "file", strings.NewReader("bar"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(aRepo, "master"))
+
+	commitIter, err = c.FlushCommit([]*pfs.Commit{commita2, commitb1}, nil)
+	require.NoError(t, err)
+	commitInfos = collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	commitb2, err := c.StartCommit(bRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(bRepo, "master", "file", strings.NewReader("bar"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(bRepo, "master"))
+
+	commitIter, err = c.FlushCommit([]*pfs.Commit{commita2, commitb2}, nil)
+	require.NoError(t, err)
+	commitInfos = collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	jobInfos, err := c.ListJob("", []*pfs.Commit{commita1}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+
+	jobInfos, err = c.ListJob("", []*pfs.Commit{commitb1}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(jobInfos))
+
+	jobInfos, err = c.ListJob("", []*pfs.Commit{commita2}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(jobInfos))
+
+	jobInfos, err = c.ListJob("", []*pfs.Commit{commitb2}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+
+	jobInfos, err = c.ListJob("", []*pfs.Commit{commita1, commitb1}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+
+	jobInfos, err = c.ListJob("", []*pfs.Commit{commita2, commitb1}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+
+	jobInfos, err = c.ListJob("", []*pfs.Commit{commita2, commitb2}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+
+	jobInfos, err = c.ListJob("", []*pfs.Commit{client.NewCommit(aRepo, "master"), client.NewCommit(bRepo, "master")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+}
+
+func TestEntryPoint(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	dataRepo := uniqueString("TestEntryPoint_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	pipeline := uniqueString("TestSimplePipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"pachyderm_entrypoint",
+		nil,
+		nil,
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		&pps.Input{
+			Atom: &pps.AtomInput{
+				Name: "in",
+				Repo: dataRepo,
+				Glob: "/*",
+			},
+		},
+		"",
+		false,
+	))
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
+	require.Equal(t, "foo", buf.String())
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
