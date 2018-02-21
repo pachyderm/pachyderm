@@ -320,11 +320,11 @@ func doFullMode(appEnvObj interface{}) error {
 	// has already been activated (in which case the token should also have
 	// already been created). But in either  case we want to ignore the error and
 	// re-use the existing token
-	capabilityResp, err := authAPIServer.GetCapability(context.Background(), &authclient.GetCapabilityRequest{})
+	tokenResp, err := authAPIServer.GetAuthToken(context.Background(), &authclient.GetAuthTokenRequest{})
 	if err == nil {
 		_, err := etcdClientV3.Put(context.Background(),
 			path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix, ppsconsts.PPSTokenKey),
-			capabilityResp.Capability)
+			tokenResp.Token)
 		if err != nil {
 			return err
 		}

@@ -3,6 +3,20 @@ package auth;
 
 import "gogoproto/gogo.proto";
 
+/* A note on users
+ *
+ * Internally, in Pachyderm, usernames are structured strings. This makes both
+ * our API and our data model more flexible (at the loss of some type safety).
+ * Basically, anywhere that Pachyderm stores or returns a username, that
+ * username will have some structured prefix. The current user formats are:
+ *
+ * 1) GitHub usernames:
+ *      "github:MyGitHubUsername"
+ * 2) Pachyderm robot users:
+ *      "robot:robot_user_1"
+ */
+
+
 //// Activation API
 
 // ActivateRequest mirrors AuthenticateRequest. The caller is authenticated via
@@ -45,16 +59,16 @@ message ModifyAdminsResponse {}
 
 //// Authentication data structures
 
-// User is the 'value' of an auth token 'key' in the 'tokens' collection
-message User {
-  string username = 1;
+// TokenInfo is the 'value' of an auth token 'key' in the 'tokens' collection
+message TokenInfo {
+  string user = 1;
 
-  enum UserType {
+  enum TokenSource {
     INVALID = 0;
-    GITHUB = 1;
-    PIPELINE = 2;
+    AUTHENTICATE = 1; // returned by Authenticate()--non-revokeable
+    GET_TOKEN = 2;  // returned by GetToken()--revokeable.
   }
-  UserType type = 2;
+  TokenSource source = 2;
 }
 
 //// Authentication API
@@ -148,12 +162,16 @@ message SetACLRequest {
 
 message SetACLResponse {}
 
-//// Capability-token API (very limited -- for pipelines)
+//// Token API (very limited -- for pipelines)
 
-message GetCapabilityRequest {}
+message GetAuthTokenRequest {
+  // The returned token (if any) will allow the caller to access resources as
+  // this user
+  string user = 1;
+}
 
-message GetCapabilityResponse {
-  string capability = 1;
+message GetAuthTokenResponse {
+  string token = 1;
 }
 
 message RevokeAuthTokenRequest {
@@ -183,6 +201,6 @@ service API {
   rpc GetACL(GetACLRequest) returns (GetACLResponse) {}
   rpc SetACL(SetACLRequest) returns (SetACLResponse) {}
 
-  rpc GetCapability(GetCapabilityRequest) returns (GetCapabilityResponse) {}
+  rpc GetAuthToken(GetAuthTokenRequest) returns (GetAuthTokenResponse) {}
   rpc RevokeAuthToken(RevokeAuthTokenRequest) returns (RevokeAuthTokenResponse) {}
 }
