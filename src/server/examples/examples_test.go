@@ -11,13 +11,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
-
-func getPachClient(t testing.TB) *client.APIClient {
-	client, err := client.NewFromAddress("0.0.0.0:30650")
-	require.NoError(t, err)
-	return client
-}
 
 func toRepoNames(pfsRepos []*pfsclient.RepoInfo) []interface{} {
 	repoNames := make([]interface{}, len(pfsRepos))
@@ -33,7 +28,7 @@ func TestWordCount(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
-	c := getPachClient(t)
+	c := tu.GetPachClient(t)
 
 	exampleDir := "../../../doc/examples/word_count"
 	newURL := "https://news.ycombinator.com/newsfaq.html"

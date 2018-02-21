@@ -30,6 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
+	"github.com/pachyderm/pachyderm/src/server/pkg/pachrpc"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
@@ -73,10 +74,6 @@ type apiServer struct {
 	pachLogger log.Logger
 	etcdClient *etcd.Client
 
-	address        string            // address of a Pachd server
-	pachClient     *client.APIClient // pachd client
-	pachClientOnce sync.Once         // used to initialize pachClient
-
 	adminCache map[string]struct{} // cache of current cluster admins
 	adminMu    sync.Mutex          // synchronize ontrol access to adminCache
 
@@ -117,17 +114,6 @@ func (a *apiServer) LogResp(request interface{}, response interface{}, err error
 	}
 }
 
-func (a *apiServer) getPachClient() *client.APIClient {
-	a.pachClientOnce.Do(func() {
-		var err error
-		a.pachClient, err = client.NewFromAddress(a.address)
-		if err != nil {
-			panic(err)
-		}
-	})
-	return a.pachClient
-}
-
 // NewAuthServer returns an implementation of authclient.APIServer.
 func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (authclient.APIServer, error) {
 	etcdClient, err := etcd.New(etcd.Config{
@@ -141,7 +127,6 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (
 	s := &apiServer{
 		pachLogger: log.NewLogger("authclient.API"),
 		etcdClient: etcdClient,
-		address:    pachdAddress,
 		adminCache: make(map[string]struct{}),
 		tokens: col.NewCollection(
 			etcdClient,
@@ -165,7 +150,7 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (
 			nil,
 		),
 	}
-	go s.getPachClient() // initialize connection to Pachd
+	go pachrpc.InitPachRPC(pachdAddress)
 	go s.watchAdmins(path.Join(etcdPrefix, adminsPrefix))
 	go s.retrieveOrGeneratePPSToken()
 	return s, nil
@@ -255,8 +240,7 @@ func (a *apiServer) watchAdmins(fullAdminPrefix string) {
 	})
 }
 
-func (a *apiServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
-	pachClient := a.getPachClient()
+func (a *apiServer) getEnterpriseTokenState(pachClient *client.APIClient) (enterpriseclient.State, error) {
 	resp, err := pachClient.Enterprise.GetState(context.Background(),
 		&enterpriseclient.GetStateRequest{})
 	if err != nil {
@@ -266,14 +250,14 @@ func (a *apiServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
 }
 
 func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateRequest) (resp *authclient.ActivateResponse, retErr error) {
-	pachClient := a.getPachClient().WithCtx(ctx)
-	ctx = a.pachClient.Ctx()
 	// We don't want to actually log the request/response since they contain
 	// credentials.
 	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
+	pachClient := pachrpc.GetPachClient(ctx)
+
 	// If the cluster's Pachyderm Enterprise token isn't active, the auth system
 	// cannot be activated
-	state, err := a.getEnterpriseTokenState()
+	state, err := a.getEnterpriseTokenState(pachClient)
 	if err != nil {
 		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
@@ -310,7 +294,7 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	}
 
 	// Determine caller's Pachyderm/GitHub username
-	username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
+	username, err := GitHubTokenToUsername(pachClient, req.GitHubToken)
 	if err != nil {
 		return nil, err
 	}
@@ -412,7 +396,8 @@ func (a *apiServer) isActivated() bool {
 // it discover the username of the user who obtained the code (or verify that
 // the code belongs to githubUsername). This is how Pachyderm currently
 // implements authorization in a production cluster
-func GitHubTokenToUsername(ctx context.Context, oauthToken string) (string, error) {
+func GitHubTokenToUsername(pachClient *client.APIClient, oauthToken string) (string, error) {
+	ctx := pachClient.Ctx()
 	if !githubTokenRegex.MatchString(oauthToken) && os.Getenv(DisableAuthenticationEnvVar) == "true" {
 		logrus.Warnf("Pachyderm is deployed in DEV mode. The provided auth token "+
 			"will NOT be verified with GitHub; the caller is automatically "+
@@ -587,15 +572,16 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 	if !a.isActivated() {
 		return nil, authclient.ErrNotActivated
 	}
+	pachClient := pachrpc.GetPachClient(ctx)
 
 	// Determine caller's Pachyderm/GitHub username
-	username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
+	username, err := GitHubTokenToUsername(pachClient, req.GitHubToken)
 	if err != nil {
 		return nil, err
 	}
 
 	// If the cluster's enterprise token is expired, only admins may log in
-	state, err := a.getEnterpriseTokenState()
+	state, err := a.getEnterpriseTokenState(pachClient)
 	if err != nil {
 		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
@@ -631,6 +617,7 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 	if !a.isActivated() {
 		return nil, authclient.ErrNotActivated
 	}
+	pachClient := pachrpc.GetPachClient(ctx)
 
 	tokenInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
@@ -652,7 +639,7 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 
 	// If the cluster's enterprise token is expired, only admins and pipelines may
 	// authorize (and admins are already handled)
-	state, err := a.getEnterpriseTokenState()
+	state, err := a.getEnterpriseTokenState(pachClient)
 	if err != nil {
 		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
@@ -719,7 +706,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 	if !a.isActivated() {
 		return nil, authclient.ErrNotActivated
 	}
-	pachClient := a.getPachClient().WithCtx(ctx)
+	pachClient := pachrpc.GetPachClient(ctx)
 
 	// validate request & authenticate user
 	if err := validateSetScopeRequest(ctx, req); err != nil {
@@ -758,7 +745,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 			}
 
 			// Check if the cluster's enterprise token is expired (fail if so)
-			state, err := a.getEnterpriseTokenState()
+			state, err := a.getEnterpriseTokenState(pachClient)
 			if err != nil {
 				return false, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 			}
@@ -812,6 +799,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 	if !a.isActivated() {
 		return nil, authclient.ErrNotActivated
 	}
+	pachClient := pachrpc.GetPachClient(ctx)
 
 	tokenInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
@@ -819,7 +807,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 	}
 
 	// Check if the cluster's enterprise token is expired (fail if so)
-	state, err := a.getEnterpriseTokenState()
+	state, err := a.getEnterpriseTokenState(pachClient)
 	if err != nil {
 		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
@@ -871,6 +859,7 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	if !a.isActivated() {
 		return nil, authclient.ErrNotActivated
 	}
+	pachClient := pachrpc.GetPachClient(ctx)
 
 	// Validate request
 	if req.Repo == "" {
@@ -884,7 +873,7 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	}
 
 	// Check if the cluster's enterprise token is expired (fail if so)
-	state, err := a.getEnterpriseTokenState()
+	state, err := a.getEnterpriseTokenState(pachClient)
 	if err != nil {
 		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
@@ -918,6 +907,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 	if !a.isActivated() {
 		return nil, authclient.ErrNotActivated
 	}
+	pachClient := pachrpc.GetPachClient(ctx)
 
 	// Validate request
 	if req.Repo == "" {
@@ -968,7 +958,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 			}
 
 			// Check if the cluster's enterprise token is expired (fail if so)
-			state, err := a.getEnterpriseTokenState()
+			state, err := a.getEnterpriseTokenState(pachClient)
 			if err != nil {
 				return false, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 			}
@@ -992,7 +982,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 			}
 
 			// No ACL -- check if the repo being modified exists
-			_, err = a.getPachClient().WithCtx(ctx).InspectRepo(req.Repo)
+			_, err = pachClient.InspectRepo(req.Repo)
 			err = grpcutil.ScrubGRPC(err)
 			if err == nil {
 				// Repo exists -- user isn't authorized
