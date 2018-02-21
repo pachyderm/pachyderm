@@ -768,25 +768,9 @@ func (s *objBlockAPIServer) writeProto(path string, pb proto.Marshaler) (retErr 
 			return
 		}
 		retErr = func() (retErr error) {
-			r, err := s.objClient.Reader(path, 0, 0)
-			if err != nil {
-				return err
-			}
-			defer func() {
-				if err := r.Close(); err != nil && retErr == nil {
-					retErr = err
-				}
-			}()
-			rData, err := ioutil.ReadAll(r)
-			if err != nil {
-				return err
-			}
-			if !bytes.Equal(data, rData) {
-				logrus.Errorf("can't read %s after write", path)
-				if err := s.objClient.Delete(path); err != nil {
-					logrus.Errorf("failed to delete: %s", path)
-				}
-				return fmt.Errorf("can't read %s after write", path)
+			if !s.objClient.Exists(path) {
+				logrus.Errorf("%s doesn't exist after write", path)
+				return fmt.Errorf("%s doesn't exist after write", path)
 			}
 			return nil
 		}()
