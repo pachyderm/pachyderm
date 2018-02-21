@@ -30,6 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
+	"github.com/pachyderm/pachyderm/src/server/pkg/pachrpc"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
@@ -73,10 +74,6 @@ type apiServer struct {
 	pachLogger log.Logger
 	etcdClient *etcd.Client
 
-	address        string            // address of a Pachd server
-	pachClient     *client.APIClient // pachd client
-	pachClientOnce sync.Once         // used to initialize pachClient
-
 	adminCache map[string]struct{} // cache of current cluster admins
 	adminMu    sync.Mutex          // synchronize ontrol access to adminCache
 
@@ -117,17 +114,6 @@ func (a *apiServer) LogResp(request interface{}, response interface{}, err error
 	}
 }
 
-func (a *apiServer) getPachClient() *client.APIClient {
-	a.pachClientOnce.Do(func() {
-		var err error
-		a.pachClient, err = client.NewFromAddress(a.address)
-		if err != nil {
-			panic(err)
-		}
-	})
-	return a.pachClient
-}
-
 // NewAuthServer returns an implementation of authclient.APIServer.
 func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (authclient.APIServer, error) {
 	etcdClient, err := etcd.New(etcd.Config{
@@ -141,7 +127,6 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (
 	s := &apiServer{
 		pachLogger: log.NewLogger("authclient.API"),
 		etcdClient: etcdClient,
-		address:    pachdAddress,
 		adminCache: make(map[string]struct{}),
 		tokens: col.NewCollection(
 			etcdClient,
@@ -168,7 +153,7 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (
 			nil,
 		),
 	}
-	go s.getPachClient() // initialize connection to Pachd
+	go pachrpc.InitPachRPC(pachdAddress)
 	go s.watchAdmins(path.Join(etcdPrefix, adminsPrefix))
 	go s.retrieveOrGeneratePPSToken()
 	return s, nil
@@ -285,8 +270,7 @@ func (a *apiServer) watchAdmins(fullAdminPrefix string) {
 	})
 }
 
-func (a *apiServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
-	pachClient := a.getPachClient()
+func (a *apiServer) getEnterpriseTokenState(pachClient *client.APIClient) (enterpriseclient.State, error) {
 	resp, err := pachClient.Enterprise.GetState(context.Background(),
 		&enterpriseclient.GetStateRequest{})
 	if err != nil {
@@ -296,14 +280,14 @@ func (a *apiServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
 }
 
 func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateRequest) (resp *authclient.ActivateResponse, retErr error) {
-	pachClient := a.getPachClient().WithCtx(ctx)
-	ctx = a.pachClient.Ctx()
 	// We don't want to actually log the request/response since they contain
 	// credentials.
 	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
+	pachClient := pachrpc.GetPachClient(ctx)
+
 	// If the cluster's Pachyderm Enterprise token isn't active, the auth system
 	// cannot be activated
-	state, err := a.getEnterpriseTokenState()
+	state, err := a.getEnterpriseTokenState(pachClient)
 	if err != nil {
 		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
@@ -323,7 +307,7 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	// Authenticate the caller (or generate a new auth token if req.Subject is a
 	// robot user)
 	if req.Subject != "" {
-		req.Subject, err = lenientCanonicalizeSubject(ctx, req.Subject)
+		req.Subject, err = lenientCanonicalizeSubject(pachClient, req.Subject)
 		if err != nil {
 			return nil, err
 		}
@@ -332,7 +316,7 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	case req.Subject == "":
 		fallthrough
 	case strings.HasPrefix(req.Subject, authclient.GitHubPrefix):
-		username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
+		username, err := GitHubTokenToUsername(pachClient, req.GitHubToken)
 		if err != nil {
 			return nil, err
 		}
@@ -488,7 +472,8 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 // it discover the username of the user who obtained the code (or verify that
 // the code belongs to githubUsername). This is how Pachyderm currently
 // implements authorization in a production cluster
-func GitHubTokenToUsername(ctx context.Context, oauthToken string) (string, error) {
+func GitHubTokenToUsername(pachClient *client.APIClient, oauthToken string) (string, error) {
+	ctx := pachClient.Ctx()
 	if !githubTokenRegex.MatchString(oauthToken) && os.Getenv(DisableAuthenticationEnvVar) == "true" {
 		logrus.Warnf("Pachyderm is deployed in DEV mode. The provided auth token "+
 			"will NOT be verified with GitHub; the caller is automatically "+
@@ -590,6 +575,7 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 	case partial:
 		return nil, authclient.ErrPartiallyActivated
 	}
+	pachClient := pachrpc.GetPachClient(ctx)
 
 	// Get calling user. The user must be an admin to change the list of admins
 	callerInfo, err := a.getAuthenticatedUser(ctx)
@@ -611,7 +597,7 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 	for i, user := range req.Add {
 		i, user := i, user
 		eg.Go(func() error {
-			user, err = lenientCanonicalizeSubject(ctx, user)
+			user, err = lenientCanonicalizeSubject(pachClient, user)
 			if err != nil {
 				return err
 			}
@@ -623,7 +609,7 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 	for i, user := range req.Remove {
 		i, user := i, user
 		eg.Go(func() error {
-			user, err = lenientCanonicalizeSubject(ctx, user)
+			user, err = lenientCanonicalizeSubject(pachClient, user)
 			if err != nil {
 				return err
 			}
@@ -674,15 +660,16 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 	// We don't want to actually log the request/response since they contain
 	// credentials.
 	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
+	pachClient := pachrpc.GetPachClient(ctx)
 
 	// Determine caller's Pachyderm/GitHub username
-	username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
+	username, err := GitHubTokenToUsername(pachClient, req.GitHubToken)
 	if err != nil {
 		return nil, err
 	}
 
 	// If the cluster's enterprise token is expired, only admins may log in
-	state, err := a.getEnterpriseTokenState()
+	state, err := a.getEnterpriseTokenState(pachClient)
 	if err != nil {
 		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
@@ -718,6 +705,7 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 	if a.activationState() == none {
 		return nil, authclient.ErrNotActivated
 	}
+	pachClient := pachrpc.GetPachClient(ctx)
 
 	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
@@ -739,7 +727,7 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 
 	// If the cluster's enterprise token is expired, only admins and pipelines may
 	// authorize (and admins are already handled)
-	state, err := a.getEnterpriseTokenState()
+	state, err := a.getEnterpriseTokenState(pachClient)
 	if err != nil {
 		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
@@ -804,7 +792,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 	if a.activationState() == none {
 		return nil, authclient.ErrNotActivated
 	}
-	pachClient := a.getPachClient().WithCtx(ctx)
+	pachClient := pachrpc.GetPachClient(ctx)
 
 	// validate request & authenticate user
 	if err := validateSetScopeRequest(ctx, req); err != nil {
@@ -843,7 +831,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 			}
 
 			// Check if the cluster's enterprise token is expired (fail if so)
-			state, err := a.getEnterpriseTokenState()
+			state, err := a.getEnterpriseTokenState(pachClient)
 			if err != nil {
 				return false, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 			}
@@ -870,7 +858,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 		}
 
 		// Scope change is authorized. Make the change
-		principal, err := lenientCanonicalizeSubject(ctx, req.Username)
+		principal, err := lenientCanonicalizeSubject(pachClient, req.Username)
 		if err != nil {
 			return err
 		}
@@ -897,6 +885,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 	if a.activationState() == none {
 		return nil, authclient.ErrNotActivated
 	}
+	pachClient := pachrpc.GetPachClient(ctx)
 
 	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
@@ -904,7 +893,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 	}
 
 	// Check if the cluster's enterprise token is expired (fail if so)
-	state, err := a.getEnterpriseTokenState()
+	state, err := a.getEnterpriseTokenState(pachClient)
 	if err != nil {
 		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
@@ -940,7 +929,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 					Required: authclient.Scope_READER,
 				}
 			}
-			principal, err := lenientCanonicalizeSubject(ctx, req.Username)
+			principal, err := lenientCanonicalizeSubject(pachClient, req.Username)
 			if err != nil {
 				return nil, err
 			}
@@ -956,6 +945,7 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	if a.activationState() == none {
 		return nil, authclient.ErrNotActivated
 	}
+	pachClient := pachrpc.GetPachClient(ctx)
 
 	// Validate request
 	if req.Repo == "" {
@@ -969,7 +959,7 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	}
 
 	// Check if the cluster's enterprise token is expired (fail if so)
-	state, err := a.getEnterpriseTokenState()
+	state, err := a.getEnterpriseTokenState(pachClient)
 	if err != nil {
 		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
@@ -1003,6 +993,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 	if a.activationState() == none {
 		return nil, authclient.ErrNotActivated
 	}
+	pachClient := pachrpc.GetPachClient(ctx)
 
 	// Validate request
 	if req.Repo == "" {
@@ -1027,7 +1018,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 	for _, entry := range req.Entries {
 		user, scope := entry.Username, entry.Scope
 		eg.Go(func() error {
-			principal, err := lenientCanonicalizeSubject(ctx, user)
+			principal, err := lenientCanonicalizeSubject(pachClient, user)
 			if err != nil {
 				return err
 			}
@@ -1053,7 +1044,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 			}
 
 			// Check if the cluster's enterprise token is expired (fail if so)
-			state, err := a.getEnterpriseTokenState()
+			state, err := a.getEnterpriseTokenState(pachClient)
 			if err != nil {
 				return false, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 			}
@@ -1077,7 +1068,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 			}
 
 			// No ACL -- check if the repo being modified exists
-			_, err = a.getPachClient().WithCtx(ctx).InspectRepo(req.Repo)
+			_, err = pachClient.InspectRepo(req.Repo)
 			err = grpcutil.ScrubGRPC(err)
 			if err == nil {
 				// Repo exists -- user isn't authorized
@@ -1129,6 +1120,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 	if req.Subject == magicUser {
 		return nil, fmt.Errorf("GetAuthTokenRequest.Subject is invalid")
 	}
+	pachClient := pachrpc.GetPachClient(ctx)
 
 	// Authorize caller
 	callerInfo, err := a.getAuthenticatedUser(ctx)
@@ -1141,7 +1133,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 			AdminOp: "GetAuthToken on behalf of another user",
 		}
 	}
-	subject, err := lenientCanonicalizeSubject(ctx, req.Subject)
+	subject, err := lenientCanonicalizeSubject(pachClient, req.Subject)
 	if err != nil {
 		return nil, err
 	}
@@ -1306,24 +1298,24 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.Token
 
 // lenientCanonicalizeSubject is like 'canonicalizeUsername', except that if
 // 'subject' has no prefix, they are assumed to be a GitHub user.
-func lenientCanonicalizeSubject(ctx context.Context, subject string) (string, error) {
+func lenientCanonicalizeSubject(pachClient *client.APIClient, subject string) (string, error) {
 	if strings.Index(subject, ":") < 0 {
 		// assume default 'github:' prefix (then canonicalize the GitHub username in
 		// canonicalizeSubject)
 		subject = authclient.GitHubPrefix + subject
 	}
-	return canonicalizeSubject(ctx, subject)
+	return canonicalizeSubject(pachClient, subject)
 }
 
 // canonicalizeSubject establishes the type of 'subject' by looking for one of
 // pachyderm's subject prefixes, and then canonicalizes the subject based on
 // that.
-func canonicalizeSubject(ctx context.Context, subject string) (string, error) {
+func canonicalizeSubject(pachClient *client.APIClient, subject string) (string, error) {
 	colonIdx := strings.Index(subject, ":")
 	switch {
 	case strings.HasPrefix(subject, authclient.GitHubPrefix):
 		var err error
-		subject, err = canonicalizeGitHubUsername(ctx, subject[len(authclient.GitHubPrefix):])
+		subject, err = canonicalizeGitHubUsername(pachClient, subject[len(authclient.GitHubPrefix):])
 		if err != nil {
 			return "", err
 		}
@@ -1343,7 +1335,7 @@ func canonicalizeSubject(ctx context.Context, subject string) (string, error) {
 // up the corresponding user's GitHub profile and extracting their login ID
 // from that. 'user' should not have any subject prefixes (as they are required
 // to be a GitHub user).
-func canonicalizeGitHubUsername(ctx context.Context, user string) (string, error) {
+func canonicalizeGitHubUsername(pachClient *client.APIClient, user string) (string, error) {
 	if strings.Index(user, ":") >= 0 {
 		return "", fmt.Errorf("invalid username has multiple prefixes: %s%s", authclient.GitHubPrefix, user)
 	}
@@ -1352,7 +1344,7 @@ func canonicalizeGitHubUsername(ctx context.Context, user string) (string, error
 		return authclient.GitHubPrefix + user, nil
 	}
 	gclient := github.NewClient(http.DefaultClient)
-	u, _, err := gclient.Users.Get(ctx, strings.ToLower(user))
+	u, _, err := gclient.Users.Get(pachClient.Ctx(), strings.ToLower(user))
 	if err != nil {
 		return "", fmt.Errorf("error canonicalizing \"%s\": %v", user, err)
 	}

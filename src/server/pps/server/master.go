@@ -27,6 +27,7 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
+	"github.com/pachyderm/pachyderm/src/server/pkg/pachrpc"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 )
@@ -49,10 +50,10 @@ func (a *apiServer) master() {
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
+		pachClient := pachrpc.GetPachClient(ctx)
 		// Use the PPS token to authenticate requests. Note that all requests
 		// performed in this function are performed as a cluster admin, so do not
 		// pass any unvalidated user input to any requests
-		pachClient := a.getPachClient().WithCtx(ctx)
 		ctx, err := masterLock.Lock(ctx)
 		if err != nil {
 			return err
@@ -169,7 +170,7 @@ func (a *apiServer) master() {
 							}
 						}
 						log.Infof("PPS master: creating/updating workers for pipeline %s", pipelineName)
-						if err := a.upsertWorkersForPipeline(pipelineInfo); err != nil {
+						if err := a.upsertWorkersForPipeline(pachClient, pipelineInfo); err != nil {
 							if err := a.setPipelineFailure(ctx, pipelineName, fmt.Sprintf("failed to create workers: %s", err.Error())); err != nil {
 								return err
 							}
@@ -275,7 +276,7 @@ func getGithookService(kubeClient *kube.Clientset, namespace string) (*v1.Servic
 	return &serviceList.Items[0], nil
 }
 
-func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
+func (a *apiServer) upsertWorkersForPipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) error {
 	var errCount int
 	if err := backoff.RetryNotify(func() error {
 		var resourceRequests *v1.ResourceList
@@ -339,9 +340,9 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		return err
 	}
 	if _, ok := a.monitorCancels[pipelineInfo.Pipeline.Name]; !ok {
-		ctx, cancel := context.WithCancel(a.pachClient.Ctx())
+		ctx, cancel := context.WithCancel(pachClient.Ctx())
 		a.monitorCancels[pipelineInfo.Pipeline.Name] = cancel
-		pachClient := a.pachClient.WithCtx(ctx)
+		pachClient := pachClient.WithCtx(ctx)
 
 		go a.sudo(pachClient, func(superUserClient *client.APIClient) error {
 			a.monitorPipeline(superUserClient, pipelineInfo)

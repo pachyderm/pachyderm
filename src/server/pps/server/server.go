@@ -1,17 +1,37 @@
 package server
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
+	"github.com/pachyderm/pachyderm/src/server/pkg/pachrpc"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	kube "k8s.io/client-go/kubernetes"
 )
+
+// connectAndInitSpecRepo initialize the GRPC connection to pachd, and then
+// uses that connection to create the 'spec' repo that PPS needs to exist on
+// startup
+func (a *apiServer) connectAndInitSpecRepo(address string) {
+	pachrpc.InitPachRPC(address)
+	pachClient := pachrpc.GetPachClient(context.Background()) // no creds on startup
+	// Initialize spec repo
+	if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+		if err := superUserClient.CreateRepo(ppsconsts.SpecRepo); err != nil && !isAlreadyExistsErr(err) {
+			return err
+		}
+		return nil
+	}); err != nil {
+		panic(fmt.Sprintf("could not create pipeline spec repo: %v", err))
+	}
+}
 
 // NewAPIServer creates an APIServer.
 func NewAPIServer(
@@ -41,7 +61,6 @@ func NewAPIServer(
 	apiServer := &apiServer{
 		Logger:                log.NewLogger("pps.API"),
 		etcdPrefix:            etcdPrefix,
-		address:               address,
 		etcdClient:            etcdClient,
 		kubeClient:            kubeClient,
 		namespace:             namespace,
@@ -59,7 +78,8 @@ func NewAPIServer(
 		monitorCancels:        make(map[string]func()),
 	}
 	apiServer.validateKube()
-	go apiServer.master() // calls a.getPachClient(), which initializes spec repo
+	go apiServer.connectAndInitSpecRepo(address)
+	go apiServer.master()
 	return apiServer, nil
 }
 
@@ -83,7 +103,6 @@ func NewSidecarAPIServer(
 
 	apiServer := &apiServer{
 		Logger:     log.NewLogger("pps.API"),
-		address:    address,
 		etcdPrefix: etcdPrefix,
 		etcdClient: etcdClient,
 		iamRole:    iamRole,
@@ -91,6 +110,6 @@ func NewSidecarAPIServer(
 		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
 		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
 	}
-	go apiServer.getPachClient() // connects back to pachd and inits spec repo
+	go apiServer.connectAndInitSpecRepo(address)
 	return apiServer, nil
 }

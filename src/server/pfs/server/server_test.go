@@ -52,8 +52,6 @@ func RepoToName(repo interface{}) interface{} {
 	return repo.(*pfs.Repo).Name
 }
 
-var testDBs []string
-
 func TestInvalidRepo(t *testing.T) {
 	client := getClient(t)
 	require.YesError(t, client.CreateRepo("/repo"))
@@ -2306,17 +2304,17 @@ const (
 var (
 	port int32 = 30653 // Initial port on which pachd server processes will serve
 
-	startPFSServersOnce sync.Once // ensure pachd servers are only started once
+	checkEtcdOnce sync.Once // ensure we only test the etcd connection once
 )
 
-// src/server/pfs/server/driver.go expects an etcd server at "localhost:32379"
-// Try to establish a connection before proceeding with the test (which will
-// fail if the connection can't be established)
-func startPFSServers(t *testing.T) {
-	startPFSServersOnce.Do(func() {
+func getClient(t *testing.T) *pclient.APIClient {
+	// src/server/pfs/server/driver.go expects an etcd server at "localhost:32379"
+	// Try to establish a connection before proceeding with the test (which will
+	// fail if the connection can't be established)
+	checkEtcdOnce.Do(func() {
 		require.NoError(t, backoff.Retry(func() error {
 			_, err := etcd.New(etcd.Config{
-				Endpoints:   []string{etcdAddress},
+				Endpoints:   []string{tu.GetEtcdAddress()},
 				DialOptions: pclient.EtcdDialOptions(),
 			})
 			if err != nil {
@@ -2325,12 +2323,6 @@ func startPFSServers(t *testing.T) {
 			return nil
 		}, backoff.NewTestingBackOff()))
 	})
-}
-
-func getClient(t *testing.T) *pclient.APIClient {
-	startPFSServers(t)
-	dbName := "pachyderm_test_" + uuid.NewWithoutDashes()[0:12]
-	testDBs = append(testDBs, dbName)
 
 	root := tu.UniqueString("/tmp/pach_test/run")
 	t.Logf("root %s", root)
@@ -2345,9 +2337,9 @@ func getClient(t *testing.T) *pclient.APIClient {
 	prefix := generateRandomString(32)
 	for i, port := range ports {
 		address := addresses[i]
-		blockAPIServer, err := newLocalBlockAPIServer(root, 256*1024*1024, etcdAddress)
+		blockAPIServer, err := newLocalBlockAPIServer(root, 256*1024*1024, tu.GetEtcdAddress())
 		require.NoError(t, err)
-		apiServer, err := newLocalAPIServer(address, prefix)
+		apiServer, err := newAPIServer(address, []string{tu.GetEtcdAddress()}, prefix, -1)
 		require.NoError(t, err)
 		runServers(t, port, apiServer, blockAPIServer)
 	}
