@@ -50,6 +50,12 @@ func (c *localClient) Delete(path string) error {
 
 func (c *localClient) Walk(dir string, walkFn func(name string) error) error {
 	return filepath.Walk(filepath.Join(c.root, dir), func(path string, fileInfo os.FileInfo, err error) error {
+		if err != nil {
+			if c.IsNotExist(err) {
+				return nil
+			}
+			return err
+		}
 		if fileInfo.IsDir() {
 			return nil
 		}

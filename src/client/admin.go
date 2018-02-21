@@ -56,9 +56,9 @@ func (c APIClient) ExtractURL(url string) error {
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
-	_, err = extractClient.Recv()
+	resp, err := extractClient.Recv()
 	if err == nil {
-		return fmt.Errorf("unexpected response from extract")
+		return fmt.Errorf("unexpected response from extract: %v", resp)
 	}
 	if err != io.EOF {
 		return err

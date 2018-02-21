@@ -231,6 +231,8 @@ func NewClientFromURLAndSecret(ctx context.Context, url *ObjectStoreURL) (Client
 	case "wasb":
 		// In Azure, the first part of the path is the container name.
 		return NewMicrosoftClientFromSecret(url.Bucket)
+	case "local":
+		return NewLocalClient("/" + url.Bucket)
 	}
 	return nil, fmt.Errorf("unrecognized object store: %s", url.Bucket)
 }
@@ -252,7 +254,7 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 		return nil, fmt.Errorf("error parsing url %v: %v", urlStr, err)
 	}
 	switch url.Scheme {
-	case "s3", "gcs", "gs":
+	case "s3", "gcs", "gs", "local":
 		return &ObjectStoreURL{
 			Store:  url.Scheme,
 			Bucket: url.Host,
