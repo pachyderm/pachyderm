@@ -7,6 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
 // Make sure that pipeline validation requires:
@@ -20,10 +21,10 @@ func TestInvalidCreatePipeline(t *testing.T) {
 	c := getPachClient(t)
 
 	// Set up repo
-	dataRepo := uniqueString("TestDuplicatedJob_data")
+	dataRepo := tu.UniqueString("TestDuplicatedJob_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	pipelineName := uniqueString("pipeline")
+	pipelineName := tu.UniqueString("pipeline")
 	cmd := []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"}
 
 	// Create pipeline with input named "out"
@@ -66,7 +67,7 @@ func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 	}
 	t.Parallel()
 	c := getPachClient(t)
-	pipelineName := uniqueString("pipeline")
+	pipelineName := tu.UniqueString("pipeline")
 	require.YesError(t, c.CreatePipeline(
 		pipelineName,
 		"",
@@ -89,11 +90,11 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 	t.Parallel()
 	c := getPachClient(t)
 
-	dataRepo := uniqueString("TestPipelineNamesThatContainUnderscoresAndHyphens")
+	dataRepo := tu.UniqueString("TestPipelineNamesThatContainUnderscoresAndHyphens")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	require.NoError(t, c.CreatePipeline(
-		uniqueString("pipeline-hyphen"),
+		tu.UniqueString("pipeline-hyphen"),
 		"",
 		[]string{"bash"},
 		[]string{""},
@@ -106,7 +107,7 @@ func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 	))
 
 	require.NoError(t, c.CreatePipeline(
-		uniqueString("pipeline_underscore"),
+		tu.UniqueString("pipeline_underscore"),
 		"",
 		[]string{"bash"},
 		[]string{""},
@@ -127,7 +128,7 @@ func TestPipelineInvalidParallelism(t *testing.T) {
 	c := getPachClient(t)
 
 	// Set up repo
-	dataRepo := uniqueString("TestPipelineInvalidParallelism")
+	dataRepo := tu.UniqueString("TestPipelineInvalidParallelism")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	// Create pipeline named "out"
