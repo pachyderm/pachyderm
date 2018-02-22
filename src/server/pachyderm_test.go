@@ -2918,11 +2918,14 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	var numLogs int
 	var loglines []string
 	for iter.Next() {
+		if !iter.Message().User {
+			continue
+		}
 		numLogs++
 		require.True(t, iter.Message().Message != "")
 		loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
 	}
-	require.Equal(t, 8, numLogs, "logs:\n%s", strings.Join(loglines, "\n"))
+	require.Equal(t, 2, numLogs, "logs:\n%s", strings.Join(loglines, "\n"))
 	require.NoError(t, iter.Err())
 
 	// Get logs from pipeline, using pipeline
