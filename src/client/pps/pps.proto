@@ -481,6 +481,7 @@ message CreatePipelineRequest {
   ChunkSpec chunk_spec = 23;
   google.protobuf.Duration datum_timeout = 24;
   google.protobuf.Duration job_timeout = 25;
+  string salt = 26;
 }
 
 message InspectPipelineRequest {

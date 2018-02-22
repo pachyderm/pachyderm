@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
@@ -306,6 +307,12 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 				parallelism = 1
 				resourceRequests = nil
 				resourceLimits = nil
+			}
+		}
+		// rc was made by a previous version of pachyderm so we delete it
+		if workerRc.ObjectMeta.Labels["version"] != version.PrettyVersion() {
+			if err := a.deleteWorkersForPipeline(pipelineInfo); err != nil {
+				return err
 			}
 		}
 

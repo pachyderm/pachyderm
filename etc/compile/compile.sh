@@ -11,7 +11,6 @@ PROFILE="${3}"
 
 mkdir -p _tmp
 CGO_ENABLED=0 GOOS=linux go build \
-  -a \
   -installsuffix netgo \
   -tags netgo \
   -o _tmp/${BINARY} \
@@ -35,5 +34,3 @@ else
     cd _tmp
     tar cf - ${BINARY}
 fi
-
-
