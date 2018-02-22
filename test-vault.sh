@@ -25,7 +25,7 @@ vault write sys/plugins/catalog/$PLUGIN_NAME sha_256="$SHASUM" command="$PLUGIN_
 vault auth enable -path=$PLUGIN_PATH -plugin-name=$PLUGIN_NAME plugin
 
 # Test login before admin token is set
-vault write auth/$PLUGIN_PATH/login username=tweetybird
+vault write auth/$PLUGIN_PATH/login username=tweetybird || true
 
 # Set the admin token vault will use to create user creds
 export ADMIN_TOKEN=$(cat ~/.pachyderm/config.json | jq -r .v1.session_token)
@@ -34,5 +34,5 @@ vault write auth/$PLUGIN_PATH/config \
     admin_token="${ADMIN_TOKEN}"
 
 # Test login (failure/success):
-vault write auth/$PLUGIN_PATH/login username=bogusgithubusername
+vault write auth/$PLUGIN_PATH/login username=bogusgithubusername || true
 vault write auth/$PLUGIN_PATH/login username=daffyduck

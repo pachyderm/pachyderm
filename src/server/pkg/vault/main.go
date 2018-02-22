@@ -75,7 +75,7 @@ func Backend(c *logical.BackendConfig) (*backend, error) {
 				&framework.Path{
 					Pattern: "login",
 					Fields: map[string]*framework.FieldSchema{
-						"password": &framework.FieldSchema{
+						"username": &framework.FieldSchema{
 							Type: framework.TypeString,
 						},
 					},
