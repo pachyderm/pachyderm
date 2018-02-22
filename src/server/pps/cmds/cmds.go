@@ -319,11 +319,8 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 			if raw {
 				return marshaller.Marshal(os.Stdout, datumInfo)
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 10, 1, 3, ' ', 0)
-			pretty.PrintDetailedDatumInfo(writer, datumInfo)
-			pretty.PrintDatumPfsStateHeader(writer)
-			pretty.PrintDatumPfsState(writer, datumInfo)
-			return writer.Flush()
+			pretty.PrintDetailedDatumInfo(os.Stdout, datumInfo)
+			return nil
 		}),
 	}
 	rawFlag(inspectDatum)
