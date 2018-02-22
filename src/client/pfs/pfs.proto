@@ -162,6 +162,8 @@ message BuildCommitRequest {
   string branch = 4;
   repeated Commit provenance = 2;
   Object tree = 3;
+  // ID sets the ID of the created commit.
+  string ID = 5;
 }
 
 message FinishCommitRequest {
@@ -416,11 +418,11 @@ message ListObjectsRequest {}
 
 message ListTagsRequest {
   string prefix = 1;
-  bool includeObject = 2;
+  bool include_object = 2;
 }
 
 message ListTagsResponse {
-  string tag = 1;
+  Tag tag = 1;
   Object object = 2;
 }
 
@@ -431,7 +433,7 @@ message DeleteObjectsRequest {
 message DeleteObjectsResponse {}
 
 message DeleteTagsRequest {
-  repeated string tags = 1;
+  repeated Tag tags = 1;
 }
 
 message DeleteTagsResponse {}

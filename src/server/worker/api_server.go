@@ -1058,7 +1058,7 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 				}
 				if _, err := a.pachClient.ObjectAPIClient.DeleteTags(auth.In2Out(ctx),
 					&pfs.DeleteTagsRequest{
-						Tags: []string{tag15},
+						Tags: []*pfs.Tag{{Name: tag15}},
 					}); err != nil {
 					return err
 				}

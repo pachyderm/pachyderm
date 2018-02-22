@@ -6377,7 +6377,7 @@ func TestListJobInputCommits(t *testing.T) {
 	bRepo := uniqueString("TestListJobInputCommits_data_b")
 	require.NoError(t, c.CreateRepo(bRepo))
 
-	pipeline := uniqueString("TestSimplePipeline")
+	pipeline := uniqueString("TestListJobInputCommits")
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
 		"",
@@ -6469,6 +6469,60 @@ func TestListJobInputCommits(t *testing.T) {
 	require.Equal(t, 1, len(jobInfos))
 }
 
+func TestExtractRestore(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	dataRepo := uniqueString("TestExtractRestore_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	nCommits := 5
+	r := rand.New(rand.NewSource(45))
+	fileContent := workload.RandString(r, 40*MB)
+	for i := 0; i < nCommits; i++ {
+		_, err := c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		_, err = c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i), strings.NewReader(fileContent))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(dataRepo, "master"))
+	}
+
+	pipeline := uniqueString("TestExtractRestore")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	ops, err := c.ExtractAll()
+	require.NoError(t, err)
+	require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.Restore(ops))
+
+	commitIter, err = c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	commitInfos = collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+}
+
 func TestEntryPoint(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -6533,7 +6587,7 @@ func getAllTags(t testing.TB, c *client.APIClient) []string {
 	var tags []string
 	for resp, err := tagsClient.Recv(); err != io.EOF; resp, err = tagsClient.Recv() {
 		require.NoError(t, err)
-		tags = append(tags, resp.Tag)
+		tags = append(tags, resp.Tag.Name)
 	}
 	return tags
 }
