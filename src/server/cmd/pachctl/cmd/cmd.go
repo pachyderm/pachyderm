@@ -306,65 +306,55 @@ This resets the cluster to its initial state.`,
 				return err
 			}
 
-			if err := func() error {
+			var eg errgroup.Group
 
-				var eg errgroup.Group
-
-				eg.Go(func() error {
-					fmt.Println("Forwarding the pachd (Pachyderm daemon) port...")
-					stdin := strings.NewReader(fmt.Sprintf(`
+			eg.Go(func() error {
+				fmt.Println("Forwarding the pachd (Pachyderm daemon) port...")
+				stdin := strings.NewReader(fmt.Sprintf(`
 pod=$(kubectl %v get pod -l app=pachd | awk '{if (NR!=1) { print $1; exit 0 }}')
 kubectl %v port-forward "$pod" %d:650
 `, kubeCtlFlags, kubeCtlFlags, port))
-					if err := cmdutil.RunIO(cmdutil.IO{
-						Stdin:  stdin,
-						Stderr: os.Stderr,
-					}, "sh"); err != nil {
-						fmt.Println("Could not forward Pachd port")
-						return fmt.Errorf("Could not forward Pachd port")
-					}
-					return nil
-				})
+				if err := cmdutil.RunIO(cmdutil.IO{
+					Stdin:  stdin,
+					Stderr: os.Stderr,
+				}, "sh"); err != nil {
+					fmt.Println("Could not forward Pachd port")
+					return fmt.Errorf("Could not forward Pachd port")
+				}
+				return nil
+			})
 
-				eg.Go(func() error {
-					stdin := strings.NewReader(fmt.Sprintf(`
+			eg.Go(func() error {
+				stdin := strings.NewReader(fmt.Sprintf(`
 pod=$(kubectl %v get pod -l app=dash | awk '{if (NR!=1) { print $1; exit 0 }}')
 kubectl %v port-forward "$pod" %d:8080
 `, kubeCtlFlags, kubeCtlFlags, uiPort))
-					if err := cmdutil.RunIO(cmdutil.IO{
-						Stdin: stdin,
-					}, "sh"); err != nil {
-						return fmt.Errorf("Could not forward dash websocket port.")
-					}
-					return nil
-				})
+				if err := cmdutil.RunIO(cmdutil.IO{
+					Stdin: stdin,
+				}, "sh"); err != nil {
+					return fmt.Errorf("Could not forward dash websocket port")
+				}
+				return nil
+			})
 
-				eg.Go(func() error {
-					fmt.Printf("Forwarding the dash (Pachyderm dashboard) UI port to http://localhost:%v ...\n", uiPort)
-					stdin := strings.NewReader(fmt.Sprintf(`
+			eg.Go(func() error {
+				fmt.Printf("Forwarding the dash (Pachyderm dashboard) UI port to http://localhost:%v ...\n", uiPort)
+				stdin := strings.NewReader(fmt.Sprintf(`
 pod=$(kubectl %v get pod -l app=dash | awk '{if (NR!=1) { print $1; exit 0 }}')
 kubectl %v port-forward "$pod" %d:8081
 `, kubeCtlFlags, kubeCtlFlags, uiWebsocketPort))
-					if err := cmdutil.RunIO(cmdutil.IO{
-						Stdin: stdin,
-					}, "sh"); err != nil {
-						fmt.Printf("Is the dashboard deployed? If not, deploy with \"pachctl deploy local --dashboard-only\"")
-						return fmt.Errorf("Could not forward dash UI port.")
-					}
-					return nil
-				})
-
-				fmt.Println("CTRL-C to exit")
-
-				if err := eg.Wait(); err != nil {
-					return err
+				if err := cmdutil.RunIO(cmdutil.IO{
+					Stdin: stdin,
+				}, "sh"); err != nil {
+					fmt.Printf("Is the dashboard deployed? If not, deploy with \"pachctl deploy local --dashboard-only\"")
+					return fmt.Errorf("Could not forward dash UI port")
 				}
 				return nil
-			}(); err != nil {
-				return err
-			}
+			})
 
-			return nil
+			fmt.Println("CTRL-C to exit")
+
+			return eg.Wait()
 		}),
 	}
 	portForward.Flags().IntVarP(&port, "port", "p", 30650, "The local port to bind to.")
