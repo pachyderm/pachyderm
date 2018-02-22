@@ -13,16 +13,13 @@ import (
 	kube "k8s.io/client-go/kubernetes"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
-	"github.com/pachyderm/pachyderm/src/server/pkg/util"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
-	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 )
 
 const (
@@ -36,6 +33,52 @@ var (
 	}
 )
 
+//// TODO this doesn't actually work right now, but it should be fixed and re-added
+// // fixNonDefaultPipelines implements a hack that covers for migrations bugs
+// // where a field is set by setPipelineDefaults in a newer version of the server
+// // but a PipelineInfo which was created with an older version of the server
+// // doesn't have that field set because setPipelineDefaults was different when
+// // it was created.
+// func (a *apiServer) fixNonDefaultPipelines(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
+// 	if pipelineInfo.Salt == "" || pipelineInfo.CacheSize == "" {
+// 		// Stop the pipeline (so that updating the "spec" branch doesn't create a
+// 		// new commit in the pipeline's output branch
+// 		if err := a.StopPipeline(ctx, &pps.StopPipelineRequest{Pipeline: pipeline}); err != nil {
+// 			return err
+// 		}
+//
+// 		// Update the pipeline's PipelineInfo
+// 		// TODO this doesn't actually work right now
+// 		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+// 			pipelines := a.pipelines.ReadWrite(stm)
+//
+//
+//      // pipelines don't come from etcd anymore
+// 			newPipelineInfo := new(pps.PipelineInfo)
+// 			if err := pipelines.Get(pipelineInfo.Pipeline.Name, newPipelineInfo); err != nil {
+// 				return fmt.Errorf("error getting pipeline %s: %+v", pipelineName, err)
+// 			}
+//
+//
+//
+// 			if newPipelineInfo.Salt == "" {
+// 				newPipelineInfo.Salt = uuid.NewWithoutDashes()
+// 			}
+// 			setPipelineDefaults(newPipelineInfo)
+// 			pipelines.Put(pipelineInfo.Pipeline.Name, newPipelineInfo)
+// 			pipelineInfo = *newPipelineInfo
+// 			return nil
+// 		}); err != nil {
+// 			return err
+// 		}
+//
+// 		// Restart the pipeline
+// 		if err := a.StartPipeline(ctx, &pps.StartPipelineRequest{Pipeline: pipeline}); err != nil {
+// 			return err
+// 		}
+// 	}
+// }
+
 // The master process is responsible for creating/deleting workers as
 // pipelines are created/removed.
 func (a *apiServer) master() {
@@ -43,7 +86,11 @@ func (a *apiServer) master() {
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-
+		// Use the PPS token to authenticate requests. Note that all requests
+		// performed in this function are performed as a cluster admin, so do not
+		// pass any unvalidated user input to any requests
+		pachClient := a.getPachClient().WithCtx(ctx)
+		pachClient.SetAuthToken(a.getPPSToken())
 		ctx, err := masterLock.Lock(ctx)
 		if err != nil {
 			return err
@@ -88,47 +135,33 @@ func (a *apiServer) master() {
 				switch event.Type {
 				case watch.EventPut:
 					var pipelineName string
-					var pipelineInfo pps.PipelineInfo
-					if err := event.Unmarshal(&pipelineName, &pipelineInfo); err != nil {
+					var pipelinePtr pps.EtcdPipelineInfo
+					if err := event.Unmarshal(&pipelineName, &pipelinePtr); err != nil {
+						return err
+					}
+					// TODO fix this function and uncomment this line
+					// a.fixNonDefaultPipelines()
+					pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, pipelineName, &pipelinePtr)
+					if err != nil {
 						return err
 					}
 
-					// This is a bit of a hack that covers for migrations bugs
-					// where a field is set by setPipelineDefaults in a newer
-					// version of the server but a PipelineInfo which was
-					// created with an older version of the server doesn't have
-					// that field set because setPipelineDefaults was different
-					// when it was created.
-					if pipelineInfo.Salt == "" || pipelineInfo.CacheSize == "" {
-						if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-							pipelines := a.pipelines.ReadWrite(stm)
-							newPipelineInfo := new(pps.PipelineInfo)
-							if err := pipelines.Get(pipelineInfo.Pipeline.Name, newPipelineInfo); err != nil {
-								return fmt.Errorf("error getting pipeline %s: %+v", pipelineName, err)
-							}
-							if newPipelineInfo.Salt == "" {
-								newPipelineInfo.Salt = uuid.NewWithoutDashes()
-							}
-							setPipelineDefaults(newPipelineInfo)
-							pipelines.Put(pipelineInfo.Pipeline.Name, newPipelineInfo)
-							pipelineInfo = *newPipelineInfo
-							return nil
-						}); err != nil {
+					var prevPipelinePtr pps.EtcdPipelineInfo
+					var prevPipelineInfo *pps.PipelineInfo
+					if event.PrevKey != nil {
+						if err := event.UnmarshalPrev(&pipelineName, &prevPipelinePtr); err != nil {
 							return err
 						}
-					}
-
-					var prevPipelineInfo pps.PipelineInfo
-					if event.PrevKey != nil {
-						if err := event.UnmarshalPrev(&pipelineName, &prevPipelineInfo); err != nil {
+						prevPipelineInfo, err = ppsutil.GetPipelineInfo(pachClient, pipelineName, &prevPipelinePtr)
+						if err != nil {
 							return err
 						}
 					}
 
 					// If the pipeline has been stopped, delete workers
-					if pipelineStateToStopped(pipelineInfo.State) {
-						log.Infof("master: deleting workers for pipeline %s", pipelineInfo.Pipeline.Name)
-						if err := a.deleteWorkersForPipeline(&pipelineInfo); err != nil {
+					if pipelineStateToStopped(pipelinePtr.State) {
+						log.Infof("PPS master: deleting workers for pipeline %s (%s)", pipelineName, pipelinePtr.State.String())
+						if err := a.deleteWorkersForPipeline(pipelineInfo); err != nil {
 							return err
 						}
 					}
@@ -141,25 +174,28 @@ func (a *apiServer) master() {
 					})
 
 					// If the pipeline has been restarted, create workers
-					if !pipelineStateToStopped(pipelineInfo.State) && event.PrevKey != nil && pipelineStateToStopped(prevPipelineInfo.State) {
+					if !pipelineStateToStopped(pipelinePtr.State) && event.PrevKey != nil && pipelineStateToStopped(prevPipelinePtr.State) {
 						if hasGitInput {
 							if err := a.checkOrDeployGithookService(); err != nil {
 								return err
 							}
 						}
-						if err := a.upsertWorkersForPipeline(&pipelineInfo); err != nil {
-							if err := a.setPipelineFailure(ctx, pipelineInfo.Pipeline.Name, fmt.Sprintf("failed to create workers: %s", err.Error())); err != nil {
+						log.Infof("PPS master: creating/updating workers for restarted pipeline %s", pipelineName)
+						if err := a.upsertWorkersForPipeline(pipelineInfo); err != nil {
+							if err := a.setPipelineFailure(ctx, pipelineName, fmt.Sprintf("failed to create workers: %s", err.Error())); err != nil {
 								return err
 							}
 							continue
 						}
 					}
 
-					// If the pipeline has been updated, create new workers
-					if pipelineInfo.Version > prevPipelineInfo.Version && !pipelineStateToStopped(pipelineInfo.State) {
-						log.Infof("master: creating/updating workers for pipeline %s", pipelineInfo.Pipeline.Name)
+					// If the pipeline has been created or updated, create new workers
+					pipelineUpserted := prevPipelinePtr.SpecCommit == nil ||
+						pipelinePtr.SpecCommit.ID != prevPipelinePtr.SpecCommit.ID
+					if pipelineUpserted && !pipelineStateToStopped(pipelinePtr.State) {
+						log.Infof("PPS master: creating/updating workers for new/updated pipeline %s", pipelineName)
 						if event.PrevKey != nil {
-							if err := a.deleteWorkersForPipeline(&prevPipelineInfo); err != nil {
+							if err := a.deleteWorkersForPipeline(prevPipelineInfo); err != nil {
 								return err
 							}
 						}
@@ -168,21 +204,12 @@ func (a *apiServer) master() {
 								return err
 							}
 						}
-						if err := a.upsertWorkersForPipeline(&pipelineInfo); err != nil {
-							if err := a.setPipelineFailure(ctx, pipelineInfo.Pipeline.Name, fmt.Sprintf("failed to create workers: %s", err.Error())); err != nil {
+						if err := a.upsertWorkersForPipeline(pipelineInfo); err != nil {
+							if err := a.setPipelineFailure(ctx, pipelineName, fmt.Sprintf("failed to create workers: %s", err.Error())); err != nil {
 								return err
 							}
 							continue
 						}
-					}
-				case watch.EventDelete:
-					var pipelineName string
-					var pipelineInfo pps.PipelineInfo
-					if err := event.UnmarshalPrev(&pipelineName, &pipelineInfo); err != nil {
-						return err
-					}
-					if err := a.deleteWorkersForPipeline(&pipelineInfo); err != nil {
-						return err
 					}
 				}
 			case event := <-watchChan:
@@ -233,7 +260,7 @@ func (a *apiServer) master() {
 }
 
 func (a *apiServer) setPipelineFailure(ctx context.Context, pipelineName string, reason string) error {
-	return util.FailPipeline(ctx, a.etcdClient, a.pipelines, pipelineName, reason)
+	return ppsutil.FailPipeline(ctx, a.etcdClient, a.pipelines, pipelineName, reason)
 }
 
 func (a *apiServer) checkOrDeployGithookService() error {
@@ -276,7 +303,7 @@ func getGithookService(kubeClient *kube.Clientset, namespace string) (*v1.Servic
 func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
 	var errCount int
 	return backoff.RetryNotify(func() error {
-		parallelism, err := ppsserver.GetExpectedNumWorkers(a.kubeClient, pipelineInfo.ParallelismSpec)
+		parallelism, err := ppsutil.GetExpectedNumWorkers(a.kubeClient, pipelineInfo.ParallelismSpec)
 		if err != nil {
 			log.Errorf("error getting number of workers, default to 1 worker: %v", err)
 			parallelism = 1
@@ -284,13 +311,13 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		var resourceRequests *v1.ResourceList
 		var resourceLimits *v1.ResourceList
 		if pipelineInfo.ResourceRequests != nil {
-			resourceRequests, err = util.GetRequestsResourceListFromPipeline(pipelineInfo)
+			resourceRequests, err = ppsutil.GetRequestsResourceListFromPipeline(pipelineInfo)
 			if err != nil {
 				return err
 			}
 		}
 		if pipelineInfo.ResourceLimits != nil {
-			resourceLimits, err = util.GetLimitsResourceListFromPipeline(pipelineInfo)
+			resourceLimits, err = ppsutil.GetLimitsResourceListFromPipeline(pipelineInfo)
 			if err != nil {
 				return err
 			}
@@ -300,7 +327,7 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		// we want to ensure that it remains scaled down.
 		rc := a.kubeClient.CoreV1().ReplicationControllers(a.namespace)
 		workerRc, err := rc.Get(
-			ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
+			ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 			metav1.GetOptions{})
 		if err == nil {
 			if (workerRc.Spec.Template.Spec.Containers[0].Resources.Requests == nil) && *workerRc.Spec.Replicas == 1 {
@@ -318,13 +345,14 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 
 		options := a.getWorkerOptions(
 			pipelineInfo.Pipeline.Name,
-			ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
+			ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 			int32(parallelism),
 			resourceRequests,
 			resourceLimits,
 			pipelineInfo.Transform,
 			pipelineInfo.CacheSize,
-			pipelineInfo.Service)
+			pipelineInfo.Service,
+			pipelineInfo.SpecCommit.ID)
 		// Set the pipeline name env
 		options.workerEnv = append(options.workerEnv, v1.EnvVar{
 			Name:  client.PPSPipelineNameEnv,
@@ -342,7 +370,7 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 }
 
 func (a *apiServer) deleteWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
-	rcName := ppsserver.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	if err := a.kubeClient.CoreV1().Services(a.namespace).Delete(
 		rcName, &metav1.DeleteOptions{},
 	); err != nil {

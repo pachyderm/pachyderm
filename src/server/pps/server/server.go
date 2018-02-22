@@ -1,6 +1,8 @@
 package server
 
 import (
+	"fmt"
+
 	"github.com/pachyderm/pachyderm/src/client"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
@@ -33,7 +35,7 @@ func NewAPIServer(
 		DialOptions: client.EtcdDialOptions(),
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not create etcd client: %v", err)
 	}
 
 	apiServer := &apiServer{
@@ -56,7 +58,7 @@ func NewAPIServer(
 		jobs:                  ppsdb.Jobs(etcdClient, etcdPrefix),
 	}
 	apiServer.validateKube()
-	go apiServer.master()
+	go apiServer.master() // calls a.getPachClient(), which initializes spec repo
 	return apiServer, nil
 }
 
@@ -88,5 +90,6 @@ func NewSidecarAPIServer(
 		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
 		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
 	}
+	go apiServer.getPachClient() // connects back to pachd and inits spec repo
 	return apiServer, nil
 }

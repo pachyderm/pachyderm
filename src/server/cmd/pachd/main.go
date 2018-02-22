@@ -5,10 +5,13 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"path"
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"time"
 
+	etcd "github.com/coreos/etcd/clientv3"
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client"
 	adminclient "github.com/pachyderm/pachyderm/src/client/admin"
@@ -33,28 +36,28 @@ import (
 	cache_server "github.com/pachyderm/pachyderm/src/server/pkg/cache/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
-	"github.com/pachyderm/pachyderm/src/server/pkg/migration"
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
+	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
 var mode string
-var readinessCheck bool
-var migrate string
+var readiness bool
 
 func init() {
 	flag.StringVar(&mode, "mode", "full", "Pachd currently supports two modes: full and sidecar.  The former includes everything you need in a full pachd node.  The later runs only PFS, the Auth service, and a stripped-down version of PPS.")
-	flag.BoolVar(&readinessCheck, "readiness-check", false, "Set to true when checking if local pod is ready")
-	flag.StringVar(&migrate, "migrate", "", "Use the format FROM_VERSION-TO_VERSION; e.g. 1.4.8-1.5.0")
+	flag.BoolVar(&readiness, "readiness", false, "Run readiness check.")
 	flag.Parse()
 }
 
@@ -64,6 +67,7 @@ type appEnv struct {
 	StorageRoot           string `env:"PACH_ROOT,default=/pach"`
 	StorageBackend        string `env:"STORAGE_BACKEND,default="`
 	StorageHostPath       string `env:"STORAGE_HOST_PATH,default="`
+	EtcdPrefix            string `env:"ETCD_PREFIX,default=pachyderm/1.7.0"`
 	PPSEtcdPrefix         string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
 	PFSEtcdPrefix         string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
 	AuthEtcdPrefix        string `env:"PACHYDERM_AUTH_ETCD_PREFIX,default=pachyderm_auth"`
@@ -84,14 +88,29 @@ type appEnv struct {
 }
 
 func main() {
-	switch mode {
-	case "full":
+	switch {
+	case readiness:
+		cmdutil.Main(doReadinessCheck, &appEnv{})
+	case mode == "full":
 		cmdutil.Main(doFullMode, &appEnv{})
-	case "sidecar":
+	case mode == "sidecar":
 		cmdutil.Main(doSidecarMode, &appEnv{})
 	default:
 		fmt.Printf("unrecognized mode: %s\n", mode)
 	}
+}
+
+func doReadinessCheck(appEnvObj interface{}) error {
+	appEnv := appEnvObj.(*appEnv)
+	address, err := netutil.ExternalIP()
+	if err != nil {
+		return err
+	}
+	pachClient, err := client.NewFromAddress(fmt.Sprintf("%s:%d", address, appEnv.Port))
+	if err != nil {
+		return err
+	}
+	return pachClient.Health()
 }
 
 func doSidecarMode(appEnvObj interface{}) error {
@@ -113,9 +132,9 @@ func doSidecarMode(appEnvObj interface{}) error {
 	}
 
 	etcdAddress := fmt.Sprintf("http://%s:2379", appEnv.EtcdAddress)
-	etcdClient := getEtcdClient(etcdAddress)
+	etcdClientV2 := getEtcdClient(etcdAddress)
 
-	clusterID, err := getClusterID(etcdClient)
+	clusterID, err := getClusterID(etcdClientV2)
 	if err != nil {
 		return err
 	}
@@ -136,13 +155,13 @@ func doSidecarMode(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, int64(pfsCacheSize))
+	pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), int64(pfsCacheSize))
 	if err != nil {
 		return err
 	}
 	ppsAPIServer, err := pps_server.NewSidecarAPIServer(
 		etcdAddress,
-		appEnv.PPSEtcdPrefix,
+		path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix),
 		address,
 		appEnv.IAMRole,
 		reporter,
@@ -159,11 +178,11 @@ func doSidecarMode(appEnvObj interface{}) error {
 		return err
 	}
 	healthServer := health.NewHealthServer()
-	authAPIServer, err := authserver.NewAuthServer(address, etcdAddress, appEnv.AuthEtcdPrefix)
+	authAPIServer, err := authserver.NewAuthServer(address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.AuthEtcdPrefix))
 	if err != nil {
 		return err
 	}
-	enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(etcdAddress, appEnv.EnterpriseEtcdPrefix)
+	enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.EnterpriseEtcdPrefix))
 	if err != nil {
 		return err
 	}
@@ -188,17 +207,6 @@ func doSidecarMode(appEnvObj interface{}) error {
 
 func doFullMode(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
-	if migrate != "" {
-		parts := strings.Split(migrate, "-")
-		if len(parts) != 2 {
-			return fmt.Errorf("the migration flag needs to be of the format FROM_VERSION-TO_VERSION; e.g. 1.4.8-1.5.0")
-		}
-
-		if err := migration.Run(appEnv.EtcdAddress, appEnv.PFSEtcdPrefix, appEnv.PPSEtcdPrefix, parts[0], parts[1]); err != nil {
-			return fmt.Errorf("error from migration: %v", err)
-		}
-		return nil
-	}
 
 	go func() {
 		log.Println(http.ListenAndServe(":651", nil))
@@ -215,31 +223,13 @@ func doFullMode(appEnvObj interface{}) error {
 		log.SetLevel(log.InfoLevel)
 	}
 	etcdAddress := fmt.Sprintf("http://%s:2379", appEnv.EtcdAddress)
-	etcdClient := getEtcdClient(etcdAddress)
-	if readinessCheck {
-		c, err := client.NewFromAddress("127.0.0.1:650")
-		if err != nil {
-			return err
-		}
+	etcdClientV2 := getEtcdClient(etcdAddress)
+	etcdClientV3, err := etcd.New(etcd.Config{
+		Endpoints:   []string{etcdAddress},
+		DialOptions: append(client.EtcdDialOptions(), grpc.WithTimeout(5*time.Minute)),
+	})
 
-		// We want to use a PPS API instead of a PFS API because PFS APIs
-		// typically talk to every node, but the point of the readiness probe
-		// is that it checks to see if this particular node is functioning,
-		// and removing it from the service if it's not.  So if we use a PFS
-		// API such as ListRepo for readiness probe, then the failure of any
-		// node will result in the failures of all readiness probes, causing
-		// all nodes to be removed from the pachd service.
-		_, err = c.ListPipeline()
-		if err != nil {
-			return err
-		}
-
-		os.Exit(0)
-
-		return nil
-	}
-
-	clusterID, err := getClusterID(etcdClient)
+	clusterID, err := getClusterID(etcdClientV2)
 	if err != nil {
 		return err
 	}
@@ -257,7 +247,7 @@ func doFullMode(appEnvObj interface{}) error {
 	}
 	address = fmt.Sprintf("%s:%d", address, appEnv.Port)
 	sharder := shard.NewSharder(
-		etcdClient,
+		etcdClientV2,
 		appEnv.NumShards,
 		appEnv.Namespace,
 	)
@@ -278,14 +268,14 @@ func doFullMode(appEnvObj interface{}) error {
 		address,
 	)
 	cacheServer := cache_server.NewCacheServer(router, appEnv.NumShards)
-	pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, int64(pfsCacheSize))
+	pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), int64(pfsCacheSize))
 	if err != nil {
 		return err
 	}
 	kubeNamespace := getNamespace()
 	ppsAPIServer, err := pps_server.NewAPIServer(
 		etcdAddress,
-		appEnv.PPSEtcdPrefix,
+		path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix),
 		address,
 		kubeClient,
 		kubeNamespace,
@@ -321,11 +311,25 @@ func doFullMode(appEnvObj interface{}) error {
 		return err
 	}
 
-	authAPIServer, err := authserver.NewAuthServer(address, etcdAddress, appEnv.AuthEtcdPrefix)
+	authAPIServer, err := authserver.NewAuthServer(address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.AuthEtcdPrefix))
 	if err != nil {
 		return err
 	}
-	enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(etcdAddress, appEnv.EnterpriseEtcdPrefix)
+	// Get the PPS token and put it in etcd.
+	// This might emit an error, if the token has already been created or auth
+	// has already been activated (in which case the token should also have
+	// already been created). But in either  case we want to ignore the error and
+	// re-use the existing token
+	capabilityResp, err := authAPIServer.GetCapability(context.Background(), &authclient.GetCapabilityRequest{})
+	if err == nil {
+		_, err := etcdClientV3.Put(context.Background(),
+			path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix, ppsconsts.PPSTokenKey),
+			capabilityResp.Capability)
+		if err != nil {
+			return err
+		}
+	}
+	enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.EnterpriseEtcdPrefix))
 	if err != nil {
 		return err
 	}
@@ -335,7 +339,7 @@ func doFullMode(appEnvObj interface{}) error {
 
 	deployServer := deployserver.NewDeployServer(kubeClient, kubeNamespace)
 
-	httpServer, err := pfs_server.NewHTTPServer(address, []string{etcdAddress}, appEnv.PFSEtcdPrefix, blockCacheBytes)
+	httpServer, err := pfs_server.NewHTTPServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), blockCacheBytes)
 	if err != nil {
 		return err
 	}
@@ -344,7 +348,7 @@ func doFullMode(appEnvObj interface{}) error {
 		return http.ListenAndServe(fmt.Sprintf(":%v", pfs_server.HTTPPort), httpServer)
 	})
 	eg.Go(func() error {
-		return githook.RunGitHookServer(address, etcdAddress, appEnv.PPSEtcdPrefix)
+		return githook.RunGitHookServer(address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix))
 	})
 	eg.Go(func() error {
 		return grpcutil.Serve(
@@ -368,7 +372,34 @@ func doFullMode(appEnvObj interface{}) error {
 			},
 		)
 	})
+	if err := migrate(address, kubeClient); err != nil {
+		return err
+	}
+	healthServer.Ready()
 	return eg.Wait()
+}
+
+func migrate(address string, kubeClient *kube.Clientset) error {
+	endpoints, err := kubeClient.CoreV1().Endpoints(getNamespace()).Get("pachd", metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if len(endpoints.Subsets) != 1 {
+		return fmt.Errorf("unexpected number of subsets: %d", len(endpoints.Subsets))
+	}
+	if len(endpoints.Subsets[0].Addresses) == 0 {
+		// bail if there's no ready addresses
+		return nil
+	}
+	externalPachClient, err := client.NewInCluster()
+	if err != nil {
+		return err
+	}
+	internalPachClient, err := client.NewFromAddress(address)
+	if err != nil {
+		return err
+	}
+	return internalPachClient.RestoreFrom(false, externalPachClient)
 }
 
 func getEtcdClient(etcdAddress string) discovery.Client {

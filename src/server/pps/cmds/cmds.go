@@ -1,8 +1,6 @@
 package cmds
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -18,7 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
-	"github.com/pachyderm/pachyderm/src/server/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
@@ -158,6 +156,56 @@ $ pachctl list-job -p foo bar/YYY
 	listJob.Flags().StringVarP(&outputCommitStr, "output", "o", "", "List jobs with a specific output commit.")
 	listJob.Flags().StringSliceVarP(&inputCommitStrs, "input", "i", []string{}, "List jobs with a specific set of input commits.")
 	rawFlag(listJob)
+
+	var pipelines cmdutil.RepeatedStringArg
+	flushJob := &cobra.Command{
+		Use:   "flush-job commit [commit ...]",
+		Short: "Wait for all jobs caused by the specified commits to finish and return them.",
+		Long: `Wait for all jobs caused by the specified commits to finish and return them.
+
+Examples:
+
+` + codestart + `# return jobs caused by foo/XXX and bar/YYY
+$ pachctl flush-job foo/XXX bar/YYY
+
+# return jobs caused by foo/XXX leading to pipelines bar and baz
+$ pachctl flush-job foo/XXX -p bar -p baz
+` + codeend,
+		Run: cmdutil.Run(func(args []string) error {
+			commits, err := cmdutil.ParseCommits(args)
+			if err != nil {
+				return err
+			}
+
+			c, err := pachdclient.NewOnUserMachine(metrics, "user")
+			if err != nil {
+				return err
+			}
+
+			jobInfos, err := c.FlushJobAll(commits, pipelines)
+			if err != nil {
+				return err
+			}
+
+			if raw {
+				for _, jobInfo := range jobInfos {
+					if err := marshaller.Marshal(os.Stdout, jobInfo); err != nil {
+						return err
+					}
+				}
+				return nil
+			}
+			writer := tabwriter.NewWriter(os.Stdout, 0, 1, 1, ' ', 0)
+			pretty.PrintJobHeader(writer)
+			for _, jobInfo := range jobInfos {
+				pretty.PrintJobInfo(writer, jobInfo)
+			}
+
+			return writer.Flush()
+		}),
+	}
+	flushJob.Flags().VarP(&pipelines, "pipeline", "p", "Wait only for jobs leading to a specific set of pipelines")
+	rawFlag(flushJob)
 
 	deleteJob := &cobra.Command{
 		Use:   "delete-job job-id",
@@ -384,7 +432,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Create a new pipeline.",
 		Long:  fmt.Sprintf("Create a new pipeline from a %s", pipelineSpec),
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			cfgReader, err := pps.NewPipelineManifestReader(pipelinePath)
+			cfgReader, err := ppsutil.NewPipelineManifestReader(pipelinePath)
 			if err != nil {
 				return err
 			}
@@ -428,7 +476,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Update an existing Pachyderm pipeline.",
 		Long:  fmt.Sprintf("Update a Pachyderm pipeline with a new %s", pipelineSpec),
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			cfgReader, err := pps.NewPipelineManifestReader(pipelinePath)
+			cfgReader, err := ppsutil.NewPipelineManifestReader(pipelinePath)
 			if err != nil {
 				return err
 			}
@@ -517,7 +565,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 			if spec {
 				for _, pipelineInfo := range pipelineInfos {
-					if err := marshaller.Marshal(os.Stdout, pps.PipelineReqFromInfo(pipelineInfo)); err != nil {
+					if err := marshaller.Marshal(os.Stdout, ppsutil.PipelineReqFromInfo(pipelineInfo)); err != nil {
 						return err
 					}
 				}
@@ -535,8 +583,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	listPipeline.Flags().BoolVarP(&spec, "spec", "s", false, "Output create-pipeline compatibility specs.")
 
 	var all bool
-	var deleteJobs bool
-	var deleteRepo bool
 	deletePipeline := &cobra.Command{
 		Use:   "delete-pipeline pipeline-name",
 		Short: "Delete a pipeline.",
@@ -556,17 +602,13 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				_, err = client.PpsAPIClient.DeletePipeline(
 					client.Ctx(),
 					&ppsclient.DeletePipelineRequest{
-						All:        all,
-						DeleteJobs: deleteJobs,
-						DeleteRepo: deleteRepo,
+						All: all,
 					})
 			} else {
 				_, err = client.PpsAPIClient.DeletePipeline(
 					client.Ctx(),
 					&ppsclient.DeletePipelineRequest{
-						Pipeline:   &ppsclient.Pipeline{args[0]},
-						DeleteJobs: deleteJobs,
-						DeleteRepo: deleteRepo,
+						Pipeline: &ppsclient.Pipeline{args[0]},
 					})
 			}
 			if err != nil {
@@ -576,8 +618,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		}),
 	}
 	deletePipeline.Flags().BoolVar(&all, "all", false, "delete all pipelines")
-	deletePipeline.Flags().BoolVar(&deleteJobs, "delete-jobs", false, "delete the jobs in this pipeline as well")
-	deletePipeline.Flags().BoolVar(&deleteRepo, "delete-repo", false, "delete the output repo of the pipeline as well")
 
 	startPipeline := &cobra.Command{
 		Use:   "start-pipeline pipeline-name",
@@ -611,64 +651,11 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		}),
 	}
 
-	var specPath string
-	runPipeline := &cobra.Command{
-		Use:   "run-pipeline pipeline-name [-f job.json]",
-		Short: "Run a pipeline once.",
-		Long:  "Run a pipeline once, optionally overriding some pipeline options by providing a [pipeline spec](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html).  For example run a web scraper pipeline without any explicit input.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
-			if err != nil {
-				return err
-			}
-
-			request := &ppsclient.CreateJobRequest{
-				Pipeline: &ppsclient.Pipeline{
-					Name: args[0],
-				},
-			}
-
-			var buf bytes.Buffer
-			var specReader io.Reader
-			if specPath == "-" {
-				specReader = io.TeeReader(os.Stdin, &buf)
-				fmt.Print("Reading from stdin.\n")
-			} else if specPath != "" {
-				specFile, err := os.Open(specPath)
-				if err != nil {
-					return err
-				}
-
-				defer func() {
-					if err := specFile.Close(); err != nil && retErr == nil {
-						retErr = err
-					}
-				}()
-
-				specReader = io.TeeReader(specFile, &buf)
-				decoder := json.NewDecoder(specReader)
-				if err := jsonpb.UnmarshalNext(decoder, request); err != nil {
-					return err
-				}
-			}
-
-			job, err := client.PpsAPIClient.CreateJob(
-				client.Ctx(),
-				request,
-			)
-			if err != nil {
-				return err
-			}
-			fmt.Println(job.ID)
-			return nil
-		}),
-	}
-	runPipeline.Flags().StringVarP(&specPath, "file", "f", "", "The file containing the run-pipeline spec, - reads from stdin.")
-
 	var result []*cobra.Command
 	result = append(result, job)
 	result = append(result, inspectJob)
 	result = append(result, listJob)
+	result = append(result, flushJob)
 	result = append(result, deleteJob)
 	result = append(result, stopJob)
 	result = append(result, restartDatum)
@@ -683,7 +670,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	result = append(result, deletePipeline)
 	result = append(result, startPipeline)
 	result = append(result, stopPipeline)
-	result = append(result, runPipeline)
 	return result, nil
 }
 

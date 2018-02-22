@@ -14,11 +14,12 @@ import (
 func Cmds(noMetrics *bool) []*cobra.Command {
 	metrics := !*noMetrics
 
+	var noObjects bool
 	var url string
 	extract := &cobra.Command{
 		Use:   "extract",
-		Short: "Extract Pachyderm state to stdout.",
-		Long:  "Extract Pachyderm state to stdout.",
+		Short: "Extract Pachyderm state to stdout or an s3 bucket.",
+		Long:  "Extract Pachyderm state to stdout or an s3 bucket.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			c, err := client.NewOnUserMachine(metrics, "user")
 			if err != nil {
@@ -33,14 +34,15 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 					retErr = err
 				}
 			}()
-			return c.ExtractWriter(w)
+			return c.ExtractWriter(!noObjects, w)
 		}),
 	}
+	extract.Flags().BoolVar(&noObjects, "no-objects", false, "don't extract from object storage, only extract data from etcd")
 	extract.Flags().StringVarP(&url, "url", "u", "", "An object storage url (i.e. s3://...) to extract to.")
 	restore := &cobra.Command{
 		Use:   "restore",
-		Short: "Restore Pachyderm state from stdin.",
-		Long:  "Restore Pachyderm state from stdin.",
+		Short: "Restore Pachyderm state from stdin or an s3 bucket.",
+		Long:  "Restore Pachyderm state from stdin or an s3 bucket.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := client.NewOnUserMachine(metrics, "user")
 			if err != nil {

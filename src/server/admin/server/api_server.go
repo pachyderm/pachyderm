@@ -84,9 +84,16 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		if err != nil {
 			return err
 		}
+	repos:
 		for _, ri := range ris {
-			if len(ri.Provenance) > 0 {
-				continue
+			bis, err := pachClient.ListBranch(ri.Repo.Name)
+			if err != nil {
+				return err
+			}
+			for _, bi := range bis {
+				if len(bi.Provenance) > 0 {
+					continue repos
+				}
 			}
 			if err := handleOp(&admin.Op{Op1_7: &admin.Op1_7{
 				Repo: &pfs.CreateRepoRequest{
@@ -151,9 +158,9 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		}
 		for _, bi := range bis {
 			if err := handleOp(&admin.Op{Op1_7: &admin.Op1_7{
-				Branch: &pfs.SetBranchRequest{
-					Commit: bi.Head,
-					Branch: bi.Name,
+				Branch: &pfs.CreateBranchRequest{
+					Head:   bi.Head,
+					Branch: client.NewBranch(bi.Head.Repo.Name, bi.Name),
 				},
 			}}); err != nil {
 				return err
@@ -295,7 +302,10 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 				return fmt.Errorf("error creating commit: %v", grpcutil.ScrubGRPC(err))
 			}
 		case op.Op1_7 != nil && op.Op1_7.Branch != nil:
-			if _, err := pachClient.PfsAPIClient.SetBranch(ctx, op.Op1_7.Branch); err != nil {
+			if op.Op1_7.Branch.Branch == nil {
+				op.Op1_7.Branch.Branch = client.NewBranch(op.Op1_7.Branch.Head.Repo.Name, op.Op1_7.Branch.SBranch)
+			}
+			if _, err := pachClient.PfsAPIClient.CreateBranch(ctx, op.Op1_7.Branch); err != nil {
 				return fmt.Errorf("error creating branch: %v", grpcutil.ScrubGRPC(err))
 			}
 		case op.Op1_7 != nil && op.Op1_7.Pipeline != nil:

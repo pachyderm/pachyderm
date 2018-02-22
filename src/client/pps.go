@@ -3,7 +3,6 @@ package client
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"io"
 	"time"
 
@@ -40,6 +39,8 @@ const (
 	// workers are running (if the workers belong to an orphan job, rather than a
 	// pipeline).
 	PPSJobIDEnv = "PPS_JOB_ID"
+	// PPSSpecCommitEnv is the namespace in which pachyderm is deployed
+	PPSSpecCommitEnv = "PPS_SPEC_COMMIT"
 	// PPSInputPrefix is the prefix of the path where datums are downloaded
 	// to.  A datum of an input named `XXX` is downloaded to `/pfs/XXX/`.
 	PPSInputPrefix = "/pfs"
@@ -84,15 +85,14 @@ func NewAtomInput(repo string, glob string) *pps.Input {
 }
 
 // NewAtomInputOpts returns a new atom input. It includes all options.
-func NewAtomInputOpts(name string, repo string, branch string, glob string, lazy bool, fromCommit string) *pps.Input {
+func NewAtomInputOpts(name string, repo string, branch string, glob string, lazy bool) *pps.Input {
 	return &pps.Input{
 		Atom: &pps.AtomInput{
-			Name:       name,
-			Repo:       repo,
-			Branch:     branch,
-			Glob:       glob,
-			Lazy:       lazy,
-			FromCommit: fromCommit,
+			Name:   name,
+			Repo:   repo,
+			Branch: branch,
+			Glob:   glob,
+			Lazy:   lazy,
 		},
 	}
 }
@@ -149,53 +149,14 @@ func NewPipelineInput(repoName string, glob string) *pps.PipelineInput {
 }
 
 // CreateJob creates and runs a job in PPS.
-// image is the Docker image to run the job in.
-// cmd is the command passed to the Docker run invocation.
-// NOTE as with Docker cmd is not run inside a shell that means that things
-// like wildcard globbing (*), pipes (|) and file redirects (> and >>) will not
-// work. To get that behavior you should have your command be a shell of your
-// choice and pass a shell script to stdin.
-// stdin is a slice of lines that are sent to your command on stdin. Lines need
-// not end in newline characters.
-// parallelism is how many copies of your container should run in parallel. You
-// may pass 0 for parallelism in which case PPS will set the parallelism based
-// on available resources.
-// input specifies a set of Commits that will be visible to the job during runtime.
-// parentJobID specifies the a job to use as a parent, it may be left empty in
-// which case there is no parent job. If not left empty your job will use the
-// parent Job's output commit as the parent of its output commit.
-func (c APIClient) CreateJob(
-	image string,
-	cmd []string,
-	stdin []string,
-	parallelismSpec *pps.ParallelismSpec,
-	input *pps.Input,
-	internalPort int32,
-	externalPort int32,
-) (*pps.Job, error) {
-	var service *pps.Service
-	if internalPort != 0 {
-		service = &pps.Service{
-			InternalPort: internalPort,
-		}
-	}
-	if externalPort != 0 {
-		if internalPort == 0 {
-			return nil, fmt.Errorf("external port specified without internal port")
-		}
-		service.ExternalPort = externalPort
-	}
+// This function is mostly useful internally, users should generally run work
+// by creating pipelines as well.
+func (c APIClient) CreateJob(pipeline string, outputCommit *pfs.Commit) (*pps.Job, error) {
 	job, err := c.PpsAPIClient.CreateJob(
 		c.Ctx(),
 		&pps.CreateJobRequest{
-			Transform: &pps.Transform{
-				Image: image,
-				Cmd:   cmd,
-				Stdin: stdin,
-			},
-			ParallelismSpec: parallelismSpec,
-			Input:           input,
-			Service:         service,
+			Pipeline:     NewPipeline(pipeline),
+			OutputCommit: outputCommit,
 		},
 	)
 	return job, grpcutil.ScrubGRPC(err)
@@ -243,6 +204,48 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outpu
 			return nil, grpcutil.ScrubGRPC(err)
 		}
 		result = append(result, ji)
+	}
+	return result, nil
+}
+
+// FlushJob calls f with all the jobs which were triggered by commits.
+// If toPipelines is non-nil then only the jobs between commits and those
+// pipelines in the DAG will be returned.
+func (c APIClient) FlushJob(commits []*pfs.Commit, toPipelines []string, f func(*pps.JobInfo) error) error {
+	req := &pps.FlushJobRequest{
+		Commits: commits,
+	}
+	for _, pipeline := range toPipelines {
+		req.ToPipelines = append(req.ToPipelines, NewPipeline(pipeline))
+	}
+	client, err := c.PpsAPIClient.FlushJob(c.Ctx(), req)
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	for {
+		jobInfo, err := client.Recv()
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return grpcutil.ScrubGRPC(err)
+		}
+		if err := f(jobInfo); err != nil {
+			return err
+		}
+	}
+}
+
+// FlushJobAll returns all the jobs which were triggered by commits.
+// If toPipelines is non-nil then only the jobs between commits and those
+// pipelines in the DAG will be returned.
+func (c APIClient) FlushJobAll(commits []*pfs.Commit, toPipelines []string) ([]*pps.JobInfo, error) {
+	var result []*pps.JobInfo
+	if err := c.FlushJob(commits, toPipelines, func(ji *pps.JobInfo) error {
+		result = append(result, ji)
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 	return result, nil
 }
@@ -476,12 +479,11 @@ func (c APIClient) ListPipeline() ([]*pps.PipelineInfo, error) {
 }
 
 // DeletePipeline deletes a pipeline along with its output Repo.
-func (c APIClient) DeletePipeline(name string, deleteJobs bool) error {
+func (c APIClient) DeletePipeline(name string) error {
 	_, err := c.PpsAPIClient.DeletePipeline(
 		c.Ctx(),
 		&pps.DeletePipelineRequest{
-			Pipeline:   NewPipeline(name),
-			DeleteJobs: deleteJobs,
+			Pipeline: NewPipeline(name),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
