@@ -75,7 +75,7 @@ func Backend(c *logical.BackendConfig) (*backend, error) {
 				&framework.Path{
 					Pattern: "login",
 					Fields: map[string]*framework.FieldSchema{
-						"password": &framework.FieldSchema{
+						"username": &framework.FieldSchema{
 							Type: framework.TypeString,
 						},
 					},
@@ -120,8 +120,12 @@ func (b *backend) generateUserCredentials(ctx context.Context, username string, 
 	// This is where we'd make the actual pachyderm calls to create the user
 	// token using the admin token. For now, we just do an action that only an
 	// admin could do
-	b.PachydermClient.SetAuthToken(adminToken)
-	_, err := b.PachydermClient.AuthAPIClient.ModifyAdmins(ctx, &auth.ModifyAdminsRequest{
+
+	// Setup a single use client w the given auth token
+	pachClient := b.PachydermClient.WithCtx(ctx)
+	pachClient.SetAuthToken(adminToken)
+
+	_, err := b.PachydermClient.AuthAPIClient.ModifyAdmins(pachClient.Ctx(), &auth.ModifyAdminsRequest{
 		Add: []string{username},
 	})
 
