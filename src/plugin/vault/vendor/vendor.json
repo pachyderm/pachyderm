@@ -27,6 +27,12 @@
 			"revisionTime": "2018-01-04T20:38:59Z"
 		},
 		{
+			"checksumSHA1": "eiRzLoenl7oEVCuoT+Ju/zWBlKg=",
+			"path": "github.com/armon/go-metrics",
+			"revision": "783273d703149aaeb9897cf58613d5af48861c25",
+			"revisionTime": "2018-02-21T18:27:44Z"
+		},
+		{
 			"checksumSHA1": "GCTVJ1J/SGZstNZauuLAnTFOhGA=",
 			"path": "github.com/armon/go-radix",
 			"revision": "1fca145dffbcaa8fe914309b1ec0cfc67500fe61",
@@ -91,6 +97,12 @@
 			"path": "github.com/hashicorp/go-hclog",
 			"revision": "5bcb0f17e36442247290887cc914a6e507afa5c4",
 			"revisionTime": "2018-01-22T23:24:01Z"
+		},
+		{
+			"checksumSHA1": "y+AeKVZoX0gB+DZW4Arzkb3tTVc=",
+			"path": "github.com/hashicorp/go-immutable-radix",
+			"revision": "7f3cd4390caab3250a57f30efdb2a65dd7649ecf",
+			"revisionTime": "2018-01-29T17:09:00Z"
 		},
 		{
 			"checksumSHA1": "g7uHECbzuaWwdxvwoyxBwgeERPk=",
@@ -193,6 +205,12 @@
 			"path": "github.com/hashicorp/vault/api",
 			"revision": "cfa758c80bc3ae421db6e0f9ca943c7a330d39cc",
 			"revisionTime": "2018-02-21T22:36:53Z"
+		},
+		{
+			"checksumSHA1": "7m4asflU2DO6A7QDzWQMIPuXNGE=",
+			"path": "github.com/hashicorp/vault/builtin/logical/database/dbplugin",
+			"revision": "44a58df73843cd94d2b71241a0aa93bb064483a1",
+			"revisionTime": "2018-02-22T20:27:33Z"
 		},
 		{
 			"checksumSHA1": "d2YAb6pyvsVfQsKslammJJX1PVI=",
@@ -313,6 +331,12 @@
 			"path": "github.com/hashicorp/vault/physical/inmem",
 			"revision": "cfa758c80bc3ae421db6e0f9ca943c7a330d39cc",
 			"revisionTime": "2018-02-21T22:36:53Z"
+		},
+		{
+			"checksumSHA1": "ELt3efdO5jr8doeyfHdgV3/r71U=",
+			"path": "github.com/hashicorp/vault/plugins",
+			"revision": "44a58df73843cd94d2b71241a0aa93bb064483a1",
+			"revisionTime": "2018-02-22T20:27:33Z"
 		},
 		{
 			"checksumSHA1": "W8hU9Rg0K11N9Sg2vBH/VyvQY6Q=",
