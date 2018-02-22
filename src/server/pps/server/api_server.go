@@ -975,6 +975,9 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	// (based on pipeline and job filters)
 	var rcName, containerName string
 	if request.Pipeline == nil && request.Job == nil {
+		if len(request.DataFilters) > 0 || request.Datum != nil {
+			return fmt.Errorf("must specify the Job or Pipeline that the datum is from to get logs for it")
+		}
 		// no authorization is done to get logs from master
 		containerName, rcName = "pachd", "pachd"
 	} else {
@@ -2254,9 +2257,8 @@ func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs
 
 func labels(app string) map[string]string {
 	return map[string]string{
-		"app":       app,
-		"suite":     suite,
-		"component": "worker",
+		"app":   app,
+		"suite": suite,
 	}
 }
 
