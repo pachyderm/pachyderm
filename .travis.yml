@@ -2,9 +2,12 @@ dist: trusty
 sudo: required
 services:
 - docker
+cache:
+  directories:
+    - /home/travis/.cache/go-build
 language: go
 go:
-- 1.9
+- 1.10beta1
 branches:
   except:
     - /^v[0-9]/
@@ -16,7 +19,7 @@ before_script:
 # Install any deps used by our "batch test" cron
 - etc/testing/ci/travis_install_batch_deps.sh
 script:
-- make -j2 lint vet
+- make lint
 - etc/testing/travis.sh
 after_failure:
 - kubectl version
