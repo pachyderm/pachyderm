@@ -2652,6 +2652,10 @@ func testGetLogs(t *testing.T, enableStats bool) {
 
 	c := getPachClient(t)
 	defer require.NoError(t, c.DeleteAll())
+	iter := c.GetLogs("", "", nil, "", false, false, 0)
+	for iter.Next() {
+	}
+	require.NoError(t, iter.Err())
 	// create repos
 	dataRepo := uniqueString("data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -2688,7 +2692,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	require.NoError(t, err)
 
 	// Get logs from pipeline, using pipeline
-	iter := c.GetLogs(pipelineName, "", nil, "", false, false, 0)
+	iter = c.GetLogs(pipelineName, "", nil, "", false, false, 0)
 	var numLogs int
 	for iter.Next() {
 		numLogs++
