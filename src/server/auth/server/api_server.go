@@ -329,8 +329,8 @@ func GitHubTokenToUsername(ctx context.Context, githubUsername string, token str
 	}
 	verifiedUsername := user.GetLogin()
 	if githubUsername != "" && githubUsername != verifiedUsername {
-		return "", fmt.Errorf("attempted to authenticate as %s, but Github " +
-			"token did not originate from that account")
+		return "", fmt.Errorf("attempted to authenticate as %s, but Github "+
+			"token did not originate from that account", githubUsername)
 	}
 	return githubPrefix + verifiedUsername, nil
 }
