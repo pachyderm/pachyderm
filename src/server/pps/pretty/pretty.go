@@ -14,6 +14,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
+	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 )
@@ -259,16 +260,27 @@ func PrintDetailedDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 	fmt.Fprintf(w, "Upload Time\t%s\n", uploadTime)
 
 	fmt.Fprintf(w, "PFS State:\n")
+	tw := tabwriter.NewWriter(w, 10, 1, 3, ' ', 0)
+	PrintFileHeader(tw)
+	PrintFile(tw, datumInfo.PfsState)
+	tw.Flush()
+	fmt.Fprintf(w, "Inputs:\n")
+	tw = tabwriter.NewWriter(w, 10, 1, 3, ' ', 0)
+	PrintFileHeader(tw)
+	for _, d := range datumInfo.Data {
+		PrintFile(tw, d.File)
+	}
+	tw.Flush()
 }
 
 // PrintDatumPfsStateHeader prints the header for the PfsState field
-func PrintDatumPfsStateHeader(w io.Writer) {
+func PrintFileHeader(w io.Writer) {
 	fmt.Fprintf(w, "  REPO\tCOMMIT\tPATH\t\n")
 }
 
 // PrintDatumPfsState prints the values of the PfsState field
-func PrintDatumPfsState(w io.Writer, datumInfo *ppsclient.DatumInfo) {
-	fmt.Fprintf(w, "  %s\t%s\t%s\t\n", datumInfo.PfsState.Commit.Repo.Name, datumInfo.PfsState.Commit.ID, datumInfo.PfsState.Path)
+func PrintFile(w io.Writer, file *pfsclient.File) {
+	fmt.Fprintf(w, "  %s\t%s\t%s\t\n", file.Commit.Repo.Name, file.Commit.ID, file.Path)
 }
 
 func datumState(datumState ppsclient.DatumState) string {
