@@ -2235,7 +2235,7 @@ func (a *apiServer) rcPods(rcName string) ([]v1.Pod, error) {
 			Kind:       "ListOptions",
 			APIVersion: "v1",
 		},
-		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(labels(rcName))),
+		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(map[string]string{"app": rcName})),
 	})
 	if err != nil {
 		return nil, err
@@ -2257,8 +2257,9 @@ func (a *apiServer) resolveCommit(ctx context.Context, commit *pfs.Commit) (*pfs
 
 func labels(app string) map[string]string {
 	return map[string]string{
-		"app":   app,
-		"suite": suite,
+		"app":       app,
+		"suite":     suite,
+		"component": "worker",
 	}
 }
 
