@@ -11,6 +11,7 @@ import (
 
 	units "github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client"
+	adminclient "github.com/pachyderm/pachyderm/src/client/admin"
 	authclient "github.com/pachyderm/pachyderm/src/client/auth"
 	deployclient "github.com/pachyderm/pachyderm/src/client/deploy"
 	eprsclient "github.com/pachyderm/pachyderm/src/client/enterprise"
@@ -22,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
+	adminserver "github.com/pachyderm/pachyderm/src/server/admin/server"
 	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
 	deployserver "github.com/pachyderm/pachyderm/src/server/deploy"
 	eprsserver "github.com/pachyderm/pachyderm/src/server/enterprise/server"
@@ -327,6 +329,7 @@ func doFullMode(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
+	adminAPIServer := adminserver.NewAPIServer(address)
 
 	healthServer := health.NewHealthServer()
 
@@ -354,6 +357,7 @@ func doFullMode(appEnvObj interface{}) error {
 				authclient.RegisterAPIServer(s, authAPIServer)
 				eprsclient.RegisterAPIServer(s, enterpriseAPIServer)
 				deployclient.RegisterAPIServer(s, deployServer)
+				adminclient.RegisterAPIServer(s, adminAPIServer)
 			},
 			grpcutil.ServeOptions{
 				Version:    version.Version,
