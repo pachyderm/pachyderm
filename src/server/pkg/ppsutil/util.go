@@ -15,11 +15,19 @@ package ppsutil
 
 import (
 	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"math"
+	"net/http"
+	"net/url"
+	"os"
 	"path"
 	"strings"
 
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -197,6 +205,114 @@ func JobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) 
 		}
 	})
 	return jobInput
+}
+
+// PipelineReqFromInfo converts a PipelineInfo into a CreatePipelineRequest.
+func PipelineReqFromInfo(pipelineInfo *ppsclient.PipelineInfo) *ppsclient.CreatePipelineRequest {
+	return &ppsclient.CreatePipelineRequest{
+		Pipeline:           pipelineInfo.Pipeline,
+		Transform:          pipelineInfo.Transform,
+		ParallelismSpec:    pipelineInfo.ParallelismSpec,
+		Egress:             pipelineInfo.Egress,
+		OutputBranch:       pipelineInfo.OutputBranch,
+		ScaleDownThreshold: pipelineInfo.ScaleDownThreshold,
+		ResourceRequests:   pipelineInfo.ResourceRequests,
+		ResourceLimits:     pipelineInfo.ResourceLimits,
+		Input:              pipelineInfo.Input,
+		Description:        pipelineInfo.Description,
+		Incremental:        pipelineInfo.Incremental,
+		CacheSize:          pipelineInfo.CacheSize,
+		EnableStats:        pipelineInfo.EnableStats,
+		Batch:              pipelineInfo.Batch,
+		MaxQueueSize:       pipelineInfo.MaxQueueSize,
+		Service:            pipelineInfo.Service,
+		ChunkSpec:          pipelineInfo.ChunkSpec,
+		DatumTimeout:       pipelineInfo.DatumTimeout,
+		JobTimeout:         pipelineInfo.JobTimeout,
+		Salt:               pipelineInfo.Salt,
+	}
+}
+
+// PipelineManifestReader helps with unmarshalling pipeline configs from JSON. It's used by
+// create-pipeline and update-pipeline
+type PipelineManifestReader struct {
+	buf     bytes.Buffer
+	decoder *json.Decoder
+}
+
+// NewPipelineManifestReader creates a new manifest reader from a path.
+func NewPipelineManifestReader(path string) (result *PipelineManifestReader, retErr error) {
+	result = &PipelineManifestReader{}
+	var pipelineReader io.Reader
+	if path == "-" {
+		pipelineReader = io.TeeReader(os.Stdin, &result.buf)
+		fmt.Print("Reading from stdin.\n")
+	} else if url, err := url.Parse(path); err == nil && url.Scheme != "" {
+		resp, err := http.Get(url.String())
+		if err != nil {
+			return nil, err
+		}
+		defer func() {
+			if err := resp.Body.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		rawBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		pipelineReader = io.TeeReader(strings.NewReader(string(rawBytes)), &result.buf)
+	} else {
+		rawBytes, err := ioutil.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
+
+		pipelineReader = io.TeeReader(strings.NewReader(string(rawBytes)), &result.buf)
+	}
+	result.decoder = json.NewDecoder(pipelineReader)
+	return result, nil
+}
+
+// NextCreatePipelineRequest gets the next request from the manifest reader.
+func (r *PipelineManifestReader) NextCreatePipelineRequest() (*ppsclient.CreatePipelineRequest, error) {
+	var result ppsclient.CreatePipelineRequest
+	if err := jsonpb.UnmarshalNext(r.decoder, &result); err != nil {
+		if err == io.EOF {
+			return nil, err
+		}
+		return nil, fmt.Errorf("malformed pipeline spec: %s", err)
+	}
+	return &result, nil
+}
+
+// DescribeSyntaxError describes a syntax error encountered parsing json.
+func DescribeSyntaxError(originalErr error, parsedBuffer bytes.Buffer) error {
+
+	sErr, ok := originalErr.(*json.SyntaxError)
+	if !ok {
+		return originalErr
+	}
+
+	buffer := make([]byte, sErr.Offset)
+	parsedBuffer.Read(buffer)
+
+	lineOffset := strings.LastIndex(string(buffer[:len(buffer)-1]), "\n")
+	if lineOffset == -1 {
+		lineOffset = 0
+	}
+
+	lines := strings.Split(string(buffer[:len(buffer)-1]), "\n")
+	lineNumber := len(lines)
+
+	descriptiveErrorString := fmt.Sprintf("Syntax Error on line %v:\n%v\n%v^\n%v\n",
+		lineNumber,
+		string(buffer[lineOffset:]),
+		strings.Repeat(" ", int(sErr.Offset)-2-lineOffset),
+		originalErr,
+	)
+
+	return errors.New(descriptiveErrorString)
 }
 
 // IsTerminal returns 'true' if 'state' indicates that the job is done (i.e.

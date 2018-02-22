@@ -6,6 +6,7 @@ import (
 	client "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 
 	v1 "k8s.io/api/core/v1"
@@ -29,6 +30,7 @@ type workerOptions struct {
 	workerEnv        []v1.EnvVar       // Environment vars set in the user container
 	volumes          []v1.Volume       // Volumes that we expose to the user container
 	volumeMounts     []v1.VolumeMount  // Paths where we mount each volume in 'volumes'
+	etcdPrefix       string            // the prefix in etcd to use
 
 	// Secrets that we mount in the worker container (e.g. for reading/writing to
 	// s3)
@@ -175,6 +177,7 @@ func (a *apiServer) getWorkerOptions(pipelineName string, rcName string,
 	parallelism int32, resourceRequests *v1.ResourceList, resourceLimits *v1.ResourceList, transform *pps.Transform,
 	cacheSize string, service *pps.Service, specCommitID string) *workerOptions {
 	labels := labels(rcName)
+	labels["version"] = version.PrettyVersion()
 	userImage := transform.Image
 	if userImage == "" {
 		userImage = DefaultUserImage

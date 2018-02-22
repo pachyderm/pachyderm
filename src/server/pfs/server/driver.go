@@ -552,11 +552,11 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 }
 
 func (d *driver) startCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit, description string) (*pfs.Commit, error) {
-	return d.makeCommit(ctx, parent, branch, provenance, nil, description)
+	return d.makeCommit(ctx, "", parent, branch, provenance, nil, description)
 }
 
-func (d *driver) buildCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit, tree *pfs.Object) (*pfs.Commit, error) {
-	return d.makeCommit(ctx, parent, branch, provenance, tree, "")
+func (d *driver) buildCommit(ctx context.Context, ID string, parent *pfs.Commit, branch string, provenance []*pfs.Commit, tree *pfs.Object) (*pfs.Commit, error) {
+	return d.makeCommit(ctx, ID, parent, branch, provenance, tree, "")
 }
 
 // make commit makes a new commit in 'branch', with the parent 'parent' and the
@@ -569,7 +569,7 @@ func (d *driver) buildCommit(ctx context.Context, parent *pfs.Commit, branch str
 //   to the new commit
 // - If neither 'parent.ID' nor 'branch' are set, the new commit will have no
 //   parent
-func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit, treeRef *pfs.Object, description string) (*pfs.Commit, error) {
+func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, branch string, provenance []*pfs.Commit, treeRef *pfs.Object, description string) (*pfs.Commit, error) {
 	// Validate arguments:
 	if parent == nil {
 		return nil, fmt.Errorf("parent cannot be nil")
@@ -583,7 +583,10 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 	// New commit and commitInfo
 	newCommit := &pfs.Commit{
 		Repo: parent.Repo,
-		ID:   uuid.NewWithoutDashes(),
+		ID:   ID,
+	}
+	if newCommit.ID == "" {
+		newCommit.ID = uuid.NewWithoutDashes()
 	}
 	newCommitInfo := &pfs.CommitInfo{
 		Commit:      newCommit,
@@ -647,7 +650,7 @@ func (d *driver) makeCommit(ctx context.Context, parent *pfs.Commit, branch stri
 			// 'parent.ID')
 			parentCommitInfo, err := d.resolveCommit(stm, parent)
 			if err != nil {
-				return err
+				return fmt.Errorf("parent commit not found: %v", err)
 			}
 			// fail if the parent commit has not been finished
 			if parentCommitInfo.Finished == nil {
@@ -1916,7 +1919,8 @@ func (d *driver) scratchFilePrefix(ctx context.Context, file *pfs.File) (string,
 }
 
 func (d *driver) filePathFromEtcdPath(etcdPath string) string {
-	// etcdPath looks like /pachyderm_pfs/putFileRecords/repo/commit/path/to/file
+	etcdPath = strings.TrimPrefix(etcdPath, d.prefix)
+	// etcdPath looks like /putFileRecords/repo/commit/path/to/file
 	split := strings.Split(etcdPath, "/")
 	// we only want /path/to/file so we use index 4 (note that there's an "" at
 	// the beginning of the slice because of the lead /)

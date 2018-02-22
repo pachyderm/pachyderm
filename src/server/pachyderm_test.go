@@ -2918,21 +2918,26 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	var numLogs int
 	var loglines []string
 	for iter.Next() {
+		if !iter.Message().User {
+			continue
+		}
 		numLogs++
 		require.True(t, iter.Message().Message != "")
 		loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
 	}
-	require.Equal(t, 8, numLogs, "logs:\n%s", strings.Join(loglines, "\n"))
+	require.Equal(t, 2, numLogs, "logs:\n%s", strings.Join(loglines, "\n"))
 	require.NoError(t, iter.Err())
 
 	// Get logs from pipeline, using pipeline
 	iter = c.GetLogs(pipelineName, "", nil, "", false, false, 2)
 	numLogs = 0
+	loglines = []string{}
 	for iter.Next() {
 		numLogs++
 		require.True(t, iter.Message().Message != "")
+		loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
 	}
-	require.Equal(t, 2, numLogs)
+	require.Equal(t, 2, numLogs, "logs:\n%s", strings.Join(loglines, "\n"))
 	require.NoError(t, iter.Err())
 
 	// Get logs from pipeline, using a pipeline that doesn't exist. There should
@@ -6519,7 +6524,7 @@ func TestListJobInputCommits(t *testing.T) {
 	bRepo := uniqueString("TestListJobInputCommits_data_b")
 	require.NoError(t, c.CreateRepo(bRepo))
 
-	pipeline := uniqueString("TestSimplePipeline")
+	pipeline := uniqueString("TestListJobInputCommits")
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
 		"",
@@ -6609,6 +6614,60 @@ func TestListJobInputCommits(t *testing.T) {
 	jobInfos, err = c.ListJob("", []*pfs.Commit{client.NewCommit(aRepo, "master"), client.NewCommit(bRepo, "master")}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
+}
+
+func TestExtractRestore(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	dataRepo := uniqueString("TestExtractRestore_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	nCommits := 5
+	r := rand.New(rand.NewSource(45))
+	fileContent := workload.RandString(r, 40*MB)
+	for i := 0; i < nCommits; i++ {
+		_, err := c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		_, err = c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i), strings.NewReader(fileContent))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(dataRepo, "master"))
+	}
+
+	pipeline := uniqueString("TestExtractRestore")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	ops, err := c.ExtractAll(false)
+	require.NoError(t, err)
+	require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.Restore(ops))
+
+	commitIter, err = c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	commitInfos = collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
 }
 
 // TestCancelJob creates a long-running job and then kills it, testing that the
@@ -7088,7 +7147,7 @@ func getAllTags(t testing.TB, c *client.APIClient) []string {
 	var tags []string
 	for resp, err := tagsClient.Recv(); err != io.EOF; resp, err = tagsClient.Recv() {
 		require.NoError(t, err)
-		tags = append(tags, resp.Tag)
+		tags = append(tags, resp.Tag.Name)
 	}
 	return tags
 }
