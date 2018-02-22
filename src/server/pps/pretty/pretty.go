@@ -58,7 +58,7 @@ func PrintPipelineHeader(w io.Writer) {
 // PrintPipelineInfo pretty-prints pipeline info.
 func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo) {
 	fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
-	fmt.Fprintf(w, "%s\t", shorthandInput(pipelineInfo.Input))
+	fmt.Fprintf(w, "%s\t", ShorthandInput(pipelineInfo.Input))
 	fmt.Fprintf(w, "%s/%s\t", pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch)
 	fmt.Fprintf(w, "%s\t", pretty.Ago(pipelineInfo.CreatedAt))
 	fmt.Fprintf(w, "%s\t\n", pipelineState(pipelineInfo.State))
@@ -294,7 +294,7 @@ func jobState(jobState ppsclient.JobState) string {
 	case ppsclient.JobState_JOB_SUCCESS:
 		return color.New(color.FgGreen).SprintFunc()("success")
 	case ppsclient.JobState_JOB_KILLED:
-		return color.New(color.FgYellow).SprintFunc()("killed")
+		return color.New(color.FgRed).SprintFunc()("killed")
 	}
 	return "-"
 }
@@ -365,20 +365,21 @@ func prettyTransform(transform *ppsclient.Transform) (string, error) {
 	return pretty.UnescapeHTML(string(result)), nil
 }
 
-func shorthandInput(input *ppsclient.Input) string {
+// ShorthandInput renders a pps.Input as a short, readable string
+func ShorthandInput(input *ppsclient.Input) string {
 	switch {
 	case input.Atom != nil:
 		return fmt.Sprintf("%s:%s", input.Atom.Repo, input.Atom.Glob)
 	case input.Cross != nil:
 		var subInput []string
 		for _, input := range input.Cross {
-			subInput = append(subInput, shorthandInput(input))
+			subInput = append(subInput, ShorthandInput(input))
 		}
 		return "(" + strings.Join(subInput, " ⨯ ") + ")"
 	case input.Union != nil:
 		var subInput []string
 		for _, input := range input.Union {
-			subInput = append(subInput, shorthandInput(input))
+			subInput = append(subInput, ShorthandInput(input))
 		}
 		return "(" + strings.Join(subInput, " ∪ ") + ")"
 	case input.Cron != nil:

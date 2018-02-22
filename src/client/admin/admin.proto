@@ -11,7 +11,7 @@ message Op1_7 {
   pfs.TagObjectRequest tag = 3;
   pfs.CreateRepoRequest repo = 4;
   pfs.BuildCommitRequest commit = 5;
-  pfs.SetBranchRequest branch = 6;
+  pfs.CreateBranchRequest branch = 6;
   pps.CreatePipelineRequest pipeline = 7;
 }
 

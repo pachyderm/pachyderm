@@ -30,6 +30,7 @@ type workerOptions struct {
 	workerEnv        []v1.EnvVar       // Environment vars set in the user container
 	volumes          []v1.Volume       // Volumes that we expose to the user container
 	volumeMounts     []v1.VolumeMount  // Paths where we mount each volume in 'volumes'
+	etcdPrefix       string            // the prefix in etcd to use
 
 	// Secrets that we mount in the worker container (e.g. for reading/writing to
 	// s3)
@@ -103,11 +104,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	})
 	zeroVal := int64(0)
 	workerImage := a.workerImage
-	pachClient, err := a.getPachClient()
-	if err != nil {
-		return v1.PodSpec{}, err
-	}
-	resp, err := pachClient.Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
+	resp, err := a.getPachClient().Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
 	if err != nil {
 		return v1.PodSpec{}, err
 	}
@@ -178,7 +175,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 
 func (a *apiServer) getWorkerOptions(pipelineName string, rcName string,
 	parallelism int32, resourceRequests *v1.ResourceList, resourceLimits *v1.ResourceList, transform *pps.Transform,
-	cacheSize string, service *pps.Service) *workerOptions {
+	cacheSize string, service *pps.Service, specCommitID string) *workerOptions {
 	labels := labels(rcName)
 	labels["version"] = version.PrettyVersion()
 	userImage := transform.Image
@@ -226,6 +223,10 @@ func (a *apiServer) getWorkerOptions(pipelineName string, rcName string,
 	workerEnv = append(workerEnv, v1.EnvVar{
 		Name:  client.PPSNamespaceEnv,
 		Value: a.namespace,
+	})
+	workerEnv = append(workerEnv, v1.EnvVar{
+		Name:  client.PPSSpecCommitEnv,
+		Value: specCommitID,
 	})
 
 	var volumes []v1.Volume

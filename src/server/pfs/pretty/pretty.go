@@ -61,9 +61,13 @@ func PrintBranchHeader(w io.Writer) {
 }
 
 // PrintBranch pretty-prints a Branch.
-func PrintBranch(w io.Writer, branch *pfs.BranchInfo) {
-	fmt.Fprintf(w, "%s\t", branch.Name)
-	fmt.Fprintf(w, "%s\t\n", branch.Head.ID)
+func PrintBranch(w io.Writer, branchInfo *pfs.BranchInfo) {
+	fmt.Fprintf(w, "%s\t", branchInfo.Branch.Name)
+	if branchInfo.Head != nil {
+		fmt.Fprintf(w, "%s\t\n", branchInfo.Head.ID)
+	} else {
+		fmt.Fprintf(w, "-\t\n")
+	}
 }
 
 // PrintCommitInfoHeader prints a commit info header.

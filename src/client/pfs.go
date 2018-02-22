@@ -16,6 +16,14 @@ func NewRepo(repoName string) *pfs.Repo {
 	return &pfs.Repo{Name: repoName}
 }
 
+// NewBranch creates a pfs.Branch
+func NewBranch(repoName string, branchName string) *pfs.Branch {
+	return &pfs.Branch{
+		Repo: NewRepo(repoName),
+		Name: branchName,
+	}
+}
+
 // NewCommit creates a pfs.Commit.
 func NewCommit(repoName string, commitID string) *pfs.Commit {
 	return &pfs.Commit{
@@ -251,6 +259,34 @@ func (c APIClient) ListCommitByRepo(repoName string) ([]*pfs.CommitInfo, error) 
 	return c.ListCommit(repoName, "", "", 0)
 }
 
+// CreateBranch creates a new branch
+func (c APIClient) CreateBranch(repoName string, branch string, commit string, provenance []*pfs.Branch) error {
+	var head *pfs.Commit
+	if commit != "" {
+		head = NewCommit(repoName, commit)
+	}
+	_, err := c.PfsAPIClient.CreateBranch(
+		c.Ctx(),
+		&pfs.CreateBranchRequest{
+			Branch:     NewBranch(repoName, branch),
+			Head:       head,
+			Provenance: provenance,
+		},
+	)
+	return grpcutil.ScrubGRPC(err)
+}
+
+// InspectBranch returns information on a specific PFS branch
+func (c APIClient) InspectBranch(repoName string, branch string) (*pfs.BranchInfo, error) {
+	branchInfo, err := c.PfsAPIClient.InspectBranch(
+		c.Ctx(),
+		&pfs.InspectBranchRequest{
+			Branch: NewBranch(repoName, branch),
+		},
+	)
+	return branchInfo, grpcutil.ScrubGRPC(err)
+}
+
 // ListBranch lists the active branches on a Repo.
 func (c APIClient) ListBranch(repoName string) ([]*pfs.BranchInfo, error) {
 	branchInfos, err := c.PfsAPIClient.ListBranch(
@@ -265,16 +301,10 @@ func (c APIClient) ListBranch(repoName string) ([]*pfs.BranchInfo, error) {
 	return branchInfos.BranchInfo, nil
 }
 
-// SetBranch sets a commit and its ancestors as a branch
+// SetBranch sets a commit and its ancestors as a branch.
+// SetBranch is deprecated in favor of CommitBranch.
 func (c APIClient) SetBranch(repoName string, commit string, branch string) error {
-	_, err := c.PfsAPIClient.SetBranch(
-		c.Ctx(),
-		&pfs.SetBranchRequest{
-			Commit: NewCommit(repoName, commit),
-			Branch: branch,
-		},
-	)
-	return grpcutil.ScrubGRPC(err)
+	return c.CreateBranch(repoName, branch, commit, nil)
 }
 
 // DeleteBranch deletes a branch, but leaves the commits themselves intact.
@@ -284,14 +314,14 @@ func (c APIClient) DeleteBranch(repoName string, branch string) error {
 	_, err := c.PfsAPIClient.DeleteBranch(
 		c.Ctx(),
 		&pfs.DeleteBranchRequest{
-			Repo:   NewRepo(repoName),
-			Branch: branch,
+			Branch: NewBranch(repoName, branch),
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
 }
 
-// DeleteCommit deletes an unfinished commit.
+// DeleteCommit deletes a commit.
+// Note it is currently not implemented.
 func (c APIClient) DeleteCommit(repoName string, commitID string) error {
 	_, err := c.PfsAPIClient.DeleteCommit(
 		c.Ctx(),
@@ -327,6 +357,42 @@ func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo) (Comm
 		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return &commitInfoIterator{stream, cancel}, nil
+}
+
+// FlushCommitF calls f with commits that have the specified `commits` as
+// provenance. Note that it can block if jobs have not successfully
+// completed. This in effect waits for all of the jobs that are triggered by a
+// set of commits to complete.
+//
+// If toRepos is not nil then only the commits up to and including those repos
+// will be considered, otherwise all repos are considered.
+//
+// Note that it's never necessary to call FlushCommit to run jobs, they'll run
+// no matter what, FlushCommit just allows you to wait for them to complete and
+// see their output once they do.
+func (c APIClient) FlushCommitF(commits []*pfs.Commit, toRepos []*pfs.Repo, f func(*pfs.CommitInfo) error) error {
+	stream, err := c.PfsAPIClient.FlushCommit(
+		c.Ctx(),
+		&pfs.FlushCommitRequest{
+			Commits: commits,
+			ToRepos: toRepos,
+		},
+	)
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	for {
+		ci, err := stream.Recv()
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return grpcutil.ScrubGRPC(err)
+		}
+		if err := f(ci); err != nil {
+			return err
+		}
+	}
 }
 
 // CommitInfoIterator wraps a stream of commits and makes them easy to iterate.

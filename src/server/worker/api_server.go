@@ -11,6 +11,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/user"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -35,7 +36,6 @@ import (
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
@@ -46,9 +46,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/exec"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
-	"github.com/pachyderm/pachyderm/src/server/pkg/util"
-	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 )
 
 const (
@@ -152,7 +152,7 @@ func (a *APIServer) DatumID(data []*Input) string {
 	return hex.EncodeToString(hash.Sum(nil))
 }
 
-func (a *APIServer) getTaggedLogger(ctx context.Context, jobID string, data []*Input, enableStats bool) (*taggedLogger, error) {
+func (a *APIServer) getTaggedLogger(pachClient *client.APIClient, jobID string, data []*Input, enableStats bool) (*taggedLogger, error) {
 	result := &taggedLogger{
 		template:  a.logMsgTemplate, // Copy struct
 		stderrLog: log.Logger{},
@@ -176,7 +176,7 @@ func (a *APIServer) getTaggedLogger(ctx context.Context, jobID string, data []*I
 	// the statsTree
 	result.template.DatumID = a.DatumID(data)
 	if enableStats {
-		putObjClient, err := a.pachClient.ObjectAPIClient.PutObject(auth.In2Out(ctx))
+		putObjClient, err := pachClient.ObjectAPIClient.PutObject(pachClient.Ctx())
 		if err != nil {
 			return nil, err
 		}
@@ -304,11 +304,11 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		chunks:     col.NewCollection(etcdClient, path.Join(etcdPrefix, chunksPrefix), []col.Index{}, &Chunks{}, nil),
 		datumCache: datumCache,
 	}
-	logger, err := server.getTaggedLogger(context.Background(), "", nil, false)
+	logger, err := server.getTaggedLogger(pachClient, "", nil, false)
 	if err != nil {
 		return nil, err
 	}
-	numWorkers, err := ppsserver.GetExpectedNumWorkers(kubeClient, pipelineInfo.ParallelismSpec)
+	numWorkers, err := ppsutil.GetExpectedNumWorkers(kubeClient, pipelineInfo.ParallelismSpec)
 	if err != nil {
 		logger.Logf("error getting number of workers, default to 1 worker: %v", err)
 		numWorkers = 1
@@ -327,7 +327,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		// means they default to a value of 0 which means we run the code as
 		// root which is the only sane default.
 		if image.Config.User != "" {
-			user, err := util.LookupUser(image.Config.User)
+			user, err := lookupUser(image.Config.User)
 			if err != nil && !os.IsNotExist(err) {
 				return nil, err
 			}
@@ -358,7 +358,46 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	return server, nil
 }
 
-func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag, stats *pps.ProcessStats, statsTree hashtree.OpenHashTree, statsPath string) (string, error) {
+func (a *APIServer) downloadGitData(pachClient *client.APIClient, dir string, input *Input) error {
+	file := input.FileInfo.File
+	pachydermRepoName := input.Name
+	var rawJSON bytes.Buffer
+	err := pachClient.GetFile(pachydermRepoName, file.Commit.ID, "commit.json", 0, 0, &rawJSON)
+	if err != nil {
+		return err
+	}
+	var payload github.PushPayload
+	err = json.Unmarshal(rawJSON.Bytes(), &payload)
+	if err != nil {
+		return err
+	}
+	sha := payload.After
+	// Clone checks out a reference, not a SHA
+	r, err := git.PlainClone(
+		filepath.Join(dir, pachydermRepoName),
+		false,
+		&git.CloneOptions{
+			URL:           payload.Repository.CloneURL,
+			SingleBranch:  true,
+			ReferenceName: gitPlumbing.ReferenceName(payload.Ref),
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("error cloning repo %v at SHA %v from URL %v: %v", pachydermRepoName, sha, input.GitURL, err)
+	}
+	hash := gitPlumbing.NewHash(sha)
+	wt, err := r.Worktree()
+	if err != nil {
+		return err
+	}
+	err = wt.Checkout(&git.CheckoutOptions{Hash: hash})
+	if err != nil {
+		return fmt.Errorf("error checking out SHA %v from repo %v: %v", sha, pachydermRepoName, err)
+	}
+	return nil
+}
+
+func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag, stats *pps.ProcessStats, statsTree hashtree.OpenHashTree, statsPath string) (string, error) {
 	defer func(start time.Time) {
 		stats.DownloadTime = types.DurationProto(time.Since(start))
 	}(time.Now())
@@ -368,67 +407,38 @@ func (a *APIServer) downloadData(logger *taggedLogger, inputs []*Input, puller *
 	}(time.Now())
 	dir := filepath.Join(client.PPSScratchSpace, uuid.NewWithoutDashes())
 	for _, input := range inputs {
+		if input.GitURL != "" {
+			if err := a.downloadGitData(pachClient, dir, input); err != nil {
+				return "", err
+			}
+			continue
+		}
 		file := input.FileInfo.File
 		root := filepath.Join(dir, input.Name, file.Path)
 		treeRoot := path.Join(statsPath, input.Name, file.Path)
 		if a.pipelineInfo.Incremental && input.ParentCommit != nil {
-			if err := puller.PullDiff(a.pachClient, root,
+			if err := puller.PullDiff(pachClient, root,
 				file.Commit.Repo.Name, file.Commit.ID, file.Path,
 				input.ParentCommit.Repo.Name, input.ParentCommit.ID, file.Path,
 				true, input.Lazy, input.EmptyFiles, concurrency, statsTree, treeRoot); err != nil {
 				return "", err
 			}
-		} else if input.GitURL != "" {
-			pachydermRepoName := input.Name
-			var rawJSON bytes.Buffer
-			err := a.pachClient.GetFile(pachydermRepoName, file.Commit.ID, "commit.json", 0, 0, &rawJSON)
-			if err != nil {
-				return "", err
-			}
-			var payload github.PushPayload
-			err = json.Unmarshal(rawJSON.Bytes(), &payload)
-			if err != nil {
-				return "", err
-			}
-			sha := payload.After
-			// Clone checks out a reference, not a SHA
-			r, err := git.PlainClone(
-				filepath.Join(dir, pachydermRepoName),
-				false,
-				&git.CloneOptions{
-					URL:           payload.Repository.CloneURL,
-					SingleBranch:  true,
-					ReferenceName: gitPlumbing.ReferenceName(payload.Ref),
-				},
-			)
-			if err != nil {
-				return "", fmt.Errorf("error cloning repo %v at SHA %v from URL %v: %v", pachydermRepoName, sha, input.GitURL, err)
-			}
-			hash := gitPlumbing.NewHash(sha)
-			wt, err := r.Worktree()
-			if err != nil {
-				return "", err
-			}
-			err = wt.Checkout(&git.CheckoutOptions{Hash: hash})
-			if err != nil {
-				return "", fmt.Errorf("error checking out SHA %v from repo %v: %v", sha, pachydermRepoName, err)
-			}
 		} else {
-			if err := puller.Pull(a.pachClient, root, file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, input.EmptyFiles, concurrency, statsTree, treeRoot); err != nil {
+			if err := puller.Pull(pachClient, root, file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, input.EmptyFiles, concurrency, statsTree, treeRoot); err != nil {
 				return "", err
 			}
 		}
 	}
 	if parentTag != nil {
 		var buffer bytes.Buffer
-		if err := a.pachClient.GetTag(parentTag.Name, &buffer); err != nil {
+		if err := pachClient.GetTag(parentTag.Name, &buffer); err != nil {
 			return "", fmt.Errorf("error getting parent for datum %v: %v", inputs, err)
 		}
 		tree, err := hashtree.Deserialize(buffer.Bytes())
 		if err != nil {
 			return "", fmt.Errorf("failed to deserialize parent hashtree: %v", err)
 		}
-		if err := puller.PullTree(a.pachClient, path.Join(dir, "out"), tree, false, concurrency); err != nil {
+		if err := puller.PullTree(pachClient, path.Join(dir, "out"), tree, false, concurrency); err != nil {
 			return "", fmt.Errorf("error pulling output tree: %+v", err)
 		}
 	}
@@ -478,12 +488,10 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	if err != nil {
 		return err
 	}
-	select {
-	case <-ctx.Done():
+	if isDone(ctx) {
 		if err = ctx.Err(); err != nil {
 			return err
 		}
-	default:
 	}
 
 	// Because of this issue: https://github.com/golang/go/issues/18874
@@ -508,7 +516,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	return nil
 }
 
-func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, logger *taggedLogger, inputs []*Input, stats *pps.ProcessStats, statsTree hashtree.OpenHashTree, statsRoot string) (retErr error) {
+func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag string, logger *taggedLogger, inputs []*Input, stats *pps.ProcessStats, statsTree hashtree.OpenHashTree, statsRoot string) (retErr error) {
 	defer func(start time.Time) {
 		stats.UploadTime = types.DurationProto(time.Since(start))
 	}(time.Now())
@@ -606,12 +614,8 @@ func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, lo
 								return nil
 							}
 
-							fileInfo, err := a.pachClient.PfsAPIClient.InspectFile(auth.In2Out(ctx), &pfs.InspectFileRequest{
-								File: &pfs.File{
-									Commit: input.FileInfo.File.Commit,
-									Path:   pfsPath,
-								},
-							})
+							fc := input.FileInfo.File.Commit
+							fileInfo, err := pachClient.InspectFile(fc.Repo.Name, fc.ID, pfsPath)
 							if err != nil {
 								return err
 							}
@@ -639,7 +643,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, lo
 				}
 			}()
 
-			putObjClient, err := a.pachClient.ObjectAPIClient.PutObject(auth.In2Out(ctx))
+			putObjClient, err := pachClient.ObjectAPIClient.PutObject(pachClient.Ctx())
 			if err != nil {
 				return err
 			}
@@ -685,7 +689,7 @@ func (a *APIServer) uploadOutput(ctx context.Context, dir string, tag string, lo
 		return err
 	}
 
-	if _, _, err := a.pachClient.PutObject(bytes.NewReader(treeBytes), tag); err != nil {
+	if _, _, err := pachClient.PutObject(bytes.NewReader(treeBytes), tag); err != nil {
 		return err
 	}
 
@@ -796,28 +800,23 @@ func (a *APIServer) userCodeEnv(jobID string, data []*Input) []string {
 	return result
 }
 
-func (a *APIServer) updateJobState(stm col.STM, jobInfo *pps.JobInfo, state pps.JobState, reason string) error {
-	// Update job counts
-	if jobInfo.Pipeline != nil {
-		pipelines := a.pipelines.ReadWrite(stm)
-		pipelineInfo := new(pps.PipelineInfo)
-		if err := pipelines.Get(jobInfo.Pipeline.Name, pipelineInfo); err != nil {
-			return err
+// deleteJob is identical to updateJobState, except that jobPtr points to a job
+// that should be deleted rather than marked failed. Jobs may be deleted if
+// their output commit is deleted.
+func (a *APIServer) deleteJob(stm col.STM, jobPtr *pps.EtcdJobInfo) error {
+	pipelinePtr := &pps.EtcdPipelineInfo{}
+	if err := a.pipelines.ReadWrite(stm).Update(jobPtr.Pipeline.Name, pipelinePtr, func() error {
+		if pipelinePtr.JobCounts == nil {
+			pipelinePtr.JobCounts = make(map[int32]int32)
 		}
-		if pipelineInfo.JobCounts == nil {
-			pipelineInfo.JobCounts = make(map[int32]int32)
+		if pipelinePtr.JobCounts[int32(jobPtr.State)] != 0 {
+			pipelinePtr.JobCounts[int32(jobPtr.State)]--
 		}
-		if pipelineInfo.JobCounts[int32(jobInfo.State)] != 0 {
-			pipelineInfo.JobCounts[int32(jobInfo.State)]--
-		}
-		pipelineInfo.JobCounts[int32(state)]++
-		pipelines.Put(pipelineInfo.Pipeline.Name, pipelineInfo)
+		return nil
+	}); err != nil {
+		return err
 	}
-	jobInfo.State = state
-	jobInfo.Reason = reason
-	jobs := a.jobs.ReadWrite(stm)
-	jobs.Put(jobInfo.Job.ID, jobInfo)
-	return nil
+	return a.jobs.ReadWrite(stm).Delete(jobPtr.Job.ID)
 }
 
 type acquireDatumsFunc func(low, high int64) (failedDatumID string, _ error)
@@ -915,86 +914,170 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 	return nil
 }
 
+func isDone(ctx context.Context) bool {
+	select {
+	case <-ctx.Done():
+		return true
+	default:
+		return false
+	}
+}
+
+// cancelCtxIfJobFails watches jobID's JobPtr, and if its state is changed to a
+// terminal state (KILLED, FAILED, or SUCCESS) cancel the jobCtx so we kill any
+// user processes
+func (a *APIServer) cancelCtxIfJobFails(jobCtx context.Context, jobCancel func(), jobID string) {
+	logger := a.getWorkerLogger() // this worker's formatting logger
+
+	backoff.RetryNotify(func() error {
+		// Check if job was cancelled while backoff was sleeping
+		if isDone(jobCtx) {
+			return nil
+		}
+
+		// Start watching for job state changes
+		watcher, err := a.jobs.ReadOnly(jobCtx).WatchOne(jobID)
+		if err != nil {
+			if col.IsErrNotFound(err) {
+				jobCancel() // job deleted before we started--cancel the job ctx
+				return nil
+			}
+			return fmt.Errorf("worker: could not create state watcher for job %s, err is %v", jobID, err)
+		}
+
+		// If any job events indicate that the job is done, cancel jobCtx
+		for {
+			select {
+			case e := <-watcher.Watch():
+				switch e.Type {
+				case watch.EventPut:
+					var jobID string
+					jobPtr := &pps.EtcdJobInfo{}
+					if err := e.Unmarshal(&jobID, jobPtr); err != nil {
+						return fmt.Errorf("worker: error unmarshalling while watching job state (%v)", err)
+					}
+					if ppsutil.IsTerminal(jobPtr.State) {
+						jobCancel() // cancel the job
+					}
+				case watch.EventDelete:
+					jobCancel() // cancel the job
+				case watch.EventError:
+					return fmt.Errorf("job state watch error: %v", e.Err)
+				}
+			case <-jobCtx.Done():
+				break
+			}
+		}
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		if jobCtx.Err() == context.Canceled {
+			return err // worker is done, nothing else to do
+		}
+		logger.Logf("worker: error watching job %s (%v); retrying in %v", jobID, err, d)
+		return nil
+	})
+}
+
 // worker does the following:
 //  - watches for new jobs (jobInfos in the jobs collection)
 //  - claims chunks from the chunk layout it finds in the chunks collection
 //  - claims those chunks with acquireDatums
 //  - processes the chunks with processDatums
 func (a *APIServer) worker() {
-	logger := a.getWorkerLogger()
+	logger := a.getWorkerLogger() // this worker's formatting logger
+
+	// Process incoming jobs
 	backoff.RetryNotify(func() error {
-		ctx, cancel := context.WithCancel(a.pachClient.AddMetadata(context.Background()))
-		defer cancel()
-		jobs := a.jobs.ReadOnly(ctx)
-		watcher, err := jobs.WatchByIndex(ppsdb.JobsPipelineIndex, a.pipelineInfo.Pipeline)
+		retryCtx, retryCancel := context.WithCancel(a.pachClient.Ctx())
+		defer retryCancel()
+		watcher, err := a.jobs.ReadOnly(retryCtx).WatchByIndex(ppsdb.JobsPipelineIndex, a.pipelineInfo.Pipeline)
 		if err != nil {
 			return fmt.Errorf("error creating watch: %v", err)
 		}
 		defer watcher.Close()
+	NextJob:
 		for e := range watcher.Watch() {
-			var jobID string
-			jobInfo := &pps.JobInfo{}
-			if err := e.Unmarshal(&jobID, jobInfo); err != nil {
-				return fmt.Errorf("error unmarshalling: %v", err)
-			}
-			if jobInfo.State == pps.JobState_JOB_FAILURE || jobInfo.State == pps.JobState_JOB_SUCCESS || jobInfo.State == pps.JobState_JOB_KILLED {
-				// This is odd.
-				// We see a JOB_KILLED event come in on the watcher ... ONLY if the cancel()
-				// statement a few lines below (in the goro that blocks on the job / cancels
-				// if killed) is called.
-				//
-				// On master (before this PR [1] was merged), we never seem to see the
-				// JOB_KILLED event. Since this code is changing, we'll leave this here for
-				// now. We cannot account for this difference, which is a concern.
-				//
-				// [1] https://github.com/pachyderm/pachyderm/pull/2542
+			if e.Type == watch.EventError {
+				return fmt.Errorf("worker watch error: %v", e.Err)
+			} else if e.Type == watch.EventDelete {
+				// Job was deleted, e.g. because input commit was deleted. This is
+				// handled by cancelCtxIfJobFails goro, which was spawned when job was
+				// created. Nothing to do here
 				continue
 			}
-			df, err := NewDatumFactory(ctx, a.pachClient.PfsAPIClient, jobInfo.Input)
+
+			// 'e' is a Put event -- new job
+			var jobID string
+			jobPtr := &pps.EtcdJobInfo{}
+			if err := e.Unmarshal(&jobID, jobPtr); err != nil {
+				return fmt.Errorf("error unmarshalling: %v", err)
+			}
+			if ppsutil.IsTerminal(jobPtr.State) {
+				// previously-created job has finished, or job was finished during backoff
+				// or in the 'watcher' queue
+				logger.Logf("skipping job %v as it is already in state %v", jobID, jobPtr.State)
+				continue NextJob
+			}
+
+			// create new ctx for this job, and don't use retryCtx as the
+			// parent. Just because another job's etcd write failed doesn't
+			// mean this job shouldn't run
+			jobCtx, jobCancel := context.WithCancel(a.pachClient.Ctx())
+			defer jobCancel() // cancel the job ctx
+			pachClient := a.pachClient.WithCtx(jobCtx)
+
+			//  Watch for any changes to EtcdJobInfo corresponding to jobID; if
+			// the EtcdJobInfo is marked 'FAILED', call jobCancel().
+			// ('watcher' above can't detect job state changes--it's watching
+			// an index and so only emits when jobs are created or deleted).
+			go a.cancelCtxIfJobFails(jobCtx, jobCancel, jobID)
+
+			// Inspect the job and make sure it's relevant, as this worker may be old
+			jobInfo, err := pachClient.InspectJob(jobID, false)
+			if err != nil {
+				if !col.IsErrNotFound(err) {
+					continue NextJob // job was deleted--no sense retrying
+				}
+				return fmt.Errorf("error from InspectJob(%v): %+v", jobID, err)
+			}
+			if jobInfo.PipelineVersion != a.pipelineInfo.Version {
+				return fmt.Errorf("job's version (%d) doesn't match pipeline's "+
+					"version (%d), this should automatically resolve when the worker "+
+					"is updated", jobInfo.PipelineVersion, a.pipelineInfo.Version)
+			}
+
+			// Read the chunks laid out by the master and create the datum factory
+			chunks := &Chunks{}
+			if err := a.chunks.ReadOnly(jobCtx).GetBlock(jobInfo.Job.ID, chunks); err != nil {
+				return err
+			}
+			df, err := NewDatumFactory(pachClient, jobInfo.Input)
 			if err != nil {
 				return fmt.Errorf("error from NewDatumFactory: %v", err)
 			}
-			chunks := &Chunks{}
-			if err := a.chunks.ReadOnly(ctx).GetBlock(jobInfo.Job.ID, chunks); err != nil {
-				return err
-			}
-			ctx, cancel := context.WithCancel(ctx)
-			// Each worker needs to subscribe to etcd for state changes on this job.
-			// The master may cancel the job (e.g. job timeout), and the workers
-			// need to detect this change, and cancel their work
-			go func() {
-				backoff.RetryNotify(func() error {
-					currentJobInfo, err := a.pachClient.WithCtx(context.Background()).InspectJob(jobID, true)
+
+			// If a datum fails, acquireDatums updates the relevant lock in
+			// etcd, which causes the master to fail the job (which is
+			// handled above in the JOB_FAILURE case). There's no need to
+			// handle failed datums here, just failed etcd writes.
+			if err := a.acquireDatums(
+				jobCtx, jobID, chunks, logger,
+				func(low, high int64) (string, error) {
+					failedDatumID, err := a.processDatums(pachClient, logger, jobInfo, df, low, high)
 					if err != nil {
-						return err
+						return "", err
 					}
-					switch currentJobInfo.State {
-					case pps.JobState_JOB_KILLED, pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE:
-						cancel()
-					}
-					return nil
-				}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-					select {
-					case <-ctx.Done():
-						return err
-					default:
-					}
-					return nil
-				})
-			}()
-			if err := a.acquireDatums(ctx, jobInfo.Job.ID, chunks, logger, func(low, high int64) (string, error) {
-				failedDatumID, err := a.processDatums(ctx, logger, jobInfo, df, low, high)
-				if err != nil {
-					return "", err
+					return failedDatumID, nil
+				},
+			); err != nil {
+				if jobCtx.Err() == context.Canceled {
+					continue NextJob // job cancelled--don't restart, just wait for next job
 				}
-				return failedDatumID, nil
-			}); err != nil {
-				return fmt.Errorf("error from acquireDatums: %v", err)
+				return fmt.Errorf("acquire/process datums for job %s exited with err: %v", jobID, err)
 			}
 		}
-		return nil
+		return fmt.Errorf("worker: jobs.WatchByIndex(pipeline = %s) closed unexpectedly", a.pipelineInfo.Pipeline.Name)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		logger.Logf("worker: error running the worker process: %v; retrying in %v", err, d)
+		logger.Logf("worker: watch closed or error running the worker process: %v; retrying in %v", err, d)
 		return nil
 	})
 }
@@ -1002,7 +1085,8 @@ func (a *APIServer) worker() {
 // processDatums processes datums from low to high in df, if a datum fails it
 // returns the id of the failed datum it also may return a variety of errors
 // such as network errors.
-func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, jobInfo *pps.JobInfo, df DatumFactory, low, high int64) (string, error) {
+func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo, df DatumFactory, low, high int64) (string, error) {
+	ctx := pachClient.Ctx()
 	stats := &pps.ProcessStats{}
 	var statsMu sync.Mutex
 	var failedDatumID string
@@ -1013,7 +1097,7 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 		i := i
 		eg.Go(func() (retErr error) {
 			data := df.Datum(int(i))
-			logger, err := a.getTaggedLogger(ctx, jobInfo.Job.ID, data, a.pipelineInfo.EnableStats)
+			logger, err := a.getTaggedLogger(pachClient, jobInfo.Job.ID, data, a.pipelineInfo.EnableStats)
 			if err != nil {
 				return err
 			}
@@ -1029,13 +1113,13 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 			var object *pfs.Object
 			var eg errgroup.Group
 			eg.Go(func() error {
-				if _, err := a.pachClient.InspectTag(auth.In2Out(ctx), &pfs.Tag{tag}); err == nil {
+				if _, err := pachClient.InspectTag(ctx, &pfs.Tag{tag}); err == nil {
 					foundTag = true
 				}
 				return nil
 			})
 			eg.Go(func() error {
-				if objectInfo, err := a.pachClient.InspectTag(auth.In2Out(ctx), &pfs.Tag{tag15}); err == nil {
+				if objectInfo, err := pachClient.InspectTag(ctx, &pfs.Tag{tag15}); err == nil {
 					foundTag15 = true
 					object = objectInfo.Object
 				}
@@ -1049,14 +1133,14 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 				statsTag = &pfs.Tag{tag + statsTagSuffix}
 			}
 			if foundTag15 && !foundTag {
-				if _, err := a.pachClient.ObjectAPIClient.TagObject(auth.In2Out(ctx),
+				if _, err := pachClient.ObjectAPIClient.TagObject(ctx,
 					&pfs.TagObjectRequest{
 						Object: object,
 						Tags:   []*pfs.Tag{&pfs.Tag{tag}},
 					}); err != nil {
 					return err
 				}
-				if _, err := a.pachClient.ObjectAPIClient.DeleteTags(auth.In2Out(ctx),
+				if _, err := pachClient.DeleteTags(ctx,
 					&pfs.DeleteTagsRequest{
 						Tags: []*pfs.Tag{{Name: tag15}},
 					}); err != nil {
@@ -1089,7 +1173,7 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 						retErr = err
 						return
 					}
-					if _, _, err := a.pachClient.PutObject(bytes.NewReader(statsTreeBytes), statsTag.Name); err != nil {
+					if _, _, err := pachClient.PutObject(bytes.NewReader(statsTreeBytes), statsTag.Name); err != nil {
 						retErr = err
 						return
 					}
@@ -1114,7 +1198,7 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 						logger.stderrLog.Printf("could not serialize stats: %s\n", err)
 						return
 					}
-					object, size, err := a.pachClient.PutObject(strings.NewReader(statsString))
+					object, size, err := pachClient.PutObject(strings.NewReader(statsString))
 					if err != nil {
 						logger.stderrLog.Printf("could not put stats object: %s\n", err)
 						return
@@ -1125,7 +1209,7 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 					}
 				}()
 			}
-			parentTag, err := a.parentTag(ctx, jobInfo, data)
+			parentTag, err := a.parentTag(pachClient, jobInfo, data)
 			if err != nil {
 				return err
 			}
@@ -1135,17 +1219,14 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 			var dir string
 			var retries int
 			if err := backoff.RetryNotify(func() error {
-				// If the context is already cancelled (timeout, cancelled job), don't run datum
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				default:
+				if isDone(ctx) {
+					return ctx.Err() // timeout or cancelled job--don't run datum
 				}
 				// Download input data
 				puller := filesync.NewPuller()
 				// TODO parent tag shouldn't be nil
 				var err error
-				dir, err = a.downloadData(logger, data, puller, parentTag, subStats, statsTree, path.Join(statsPath, "pfs"))
+				dir, err = a.downloadData(pachClient, logger, data, puller, parentTag, subStats, statsTree, path.Join(statsPath, "pfs"))
 				// We run these cleanup functions no matter what, so that if
 				// downloadData partially succeeded, we still clean up the resources.
 				defer func() {
@@ -1166,7 +1247,9 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 				}
 				a.runMu.Lock()
 				defer a.runMu.Unlock()
+				// shadow ctx and pachClient for the context of processing this one datum
 				ctx, cancel := context.WithCancel(ctx)
+				pachClient := pachClient.WithCtx(ctx)
 				func() {
 					a.statusMu.Lock()
 					defer a.statusMu.Unlock()
@@ -1206,20 +1289,16 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 					return err
 				}
 				atomic.AddUint64(&subStats.DownloadBytes, uint64(downSize))
-				return a.uploadOutput(ctx, dir, tag, logger, data, subStats, statsTree, path.Join(statsPath, "pfs", "out"))
+				return a.uploadOutput(pachClient, dir, tag, logger, data, subStats, statsTree, path.Join(statsPath, "pfs", "out"))
 			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
-				// If the context is already cancelled (timeout, cancelled job),
-				// err out and don't retry
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				default:
+				if isDone(ctx) {
+					return ctx.Err() // timeout or cancelled job, err out and don't retry
 				}
 				retries++
 				if retries >= maxRetries {
 					logger.Logf("failed to process datum with error: %+v", err)
 					if statsTree != nil {
-						object, size, err := a.pachClient.PutObject(strings.NewReader(err.Error()))
+						object, size, err := pachClient.PutObject(strings.NewReader(err.Error()))
 						if err != nil {
 							logger.stderrLog.Printf("could not put error object: %s\n", err)
 						} else {
@@ -1251,61 +1330,91 @@ func (a *APIServer) processDatums(ctx context.Context, logger *taggedLogger, job
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		jobs := a.jobs.ReadWrite(stm)
 		jobID := jobInfo.Job.ID
-		jobInfo := &pps.JobInfo{}
-		if err := jobs.Get(jobID, jobInfo); err != nil {
+		jobPtr := &pps.EtcdJobInfo{}
+		if err := jobs.Get(jobID, jobPtr); err != nil {
 			return err
 		}
-		jobInfo.DataProcessed += high - low - skipped
-		jobInfo.DataSkipped += skipped
-		jobInfo.DataFailed += failed
-		if jobInfo.Stats == nil {
-			jobInfo.Stats = &pps.ProcessStats{}
+		jobPtr.DataProcessed += high - low - skipped
+		jobPtr.DataSkipped += skipped
+		jobPtr.DataFailed += failed
+		if jobPtr.Stats == nil {
+			jobPtr.Stats = &pps.ProcessStats{}
 		}
-		if err := mergeStats(jobInfo.Stats, stats); err != nil {
+		if err := mergeStats(jobPtr.Stats, stats); err != nil {
 			logger.Logf("failed to merge Stats: %v", err)
 		}
-		return jobs.Put(jobID, jobInfo)
+		return jobs.Put(jobID, jobPtr)
 	}); err != nil {
 		return "", err
 	}
 	return failedDatumID, nil
 }
 
-func (a *APIServer) parentTag(ctx context.Context, jobInfo *pps.JobInfo, files []*Input) (*pfs.Tag, error) {
-	var newBranchParentCommit *pfs.Commit
-	// If this is an incremental job we need to find the parent
-	// commit of the new branch.
-	if jobInfo.Incremental && jobInfo.NewBranch != nil {
-		commit := jobInfo.NewBranch.Head
-		newBranchCommitInfo, err := a.pachClient.WithCtx(ctx).InspectCommit(commit.Repo.Name, commit.ID)
-		if err != nil {
-			return nil, err
-		}
-		newBranchParentCommit = newBranchCommitInfo.ParentCommit
+func (a *APIServer) parentTag(pachClient *client.APIClient, jobInfo *pps.JobInfo, files []*Input) (*pfs.Tag, error) {
+	if !jobInfo.Incremental {
+		return nil, nil // don't bother downloading the parent for non-incremental jobs
 	}
-	if newBranchParentCommit != nil {
-		var parentFiles []*Input
-		for _, file := range files {
-			parentFile := proto.Clone(file).(*Input)
-			if file.FileInfo.File.Commit.Repo.Name == jobInfo.NewBranch.Head.Repo.Name && file.Branch == jobInfo.NewBranch.Name {
-				parentFileInfo, err := a.pachClient.WithCtx(ctx).InspectFile(parentFile.FileInfo.File.Commit.Repo.Name, newBranchParentCommit.ID, parentFile.FileInfo.File.Path)
-				if err != nil {
-					if !isNotFoundErr(err) {
-						return nil, err
-					}
-					// we didn't find a match for this file,
-					// so we know there's no matching datum
-					break
-				}
-				file.ParentCommit = parentFileInfo.File.Commit
-				parentFile.FileInfo = parentFileInfo
+	ci, err := pachClient.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
+	if err != nil {
+		return nil, fmt.Errorf("could not get output commit's commitInfo: %v", err)
+	}
+	if ci.ParentCommit == nil {
+		return nil, nil
+	}
+	parentCi, err := pachClient.InspectCommit(ci.ParentCommit.Repo.Name, ci.ParentCommit.ID)
+	if err != nil {
+		return nil, fmt.Errorf("could not get output commit's parent's commitInfo: %v", err)
+	}
+
+	// compare provenance of ci and parentCi to figure out which commit is new
+	key := path.Join
+	parentProv := make(map[string]*pfs.Commit)
+	for i, commit := range parentCi.Provenance {
+		parentProv[key(commit.Repo.Name, parentCi.BranchProvenance[i].Name)] = commit
+	}
+	var newInputCommit, newInputCommitParent *pfs.Commit
+	for i, c := range ci.Provenance {
+		pc, ok := parentProv[key(c.Repo.Name, ci.BranchProvenance[i].Name)]
+		if !ok {
+			return nil, nil // 'c' has no parent, so there's no parent tag
+		}
+		if pc.ID != c.ID {
+			if newInputCommit != nil {
+				// Multiple new commits have arrived since last run. Process everything
+				// from scratch
+				return nil, nil
 			}
-			parentFiles = append(parentFiles, parentFile)
+			newInputCommit = c
+			newInputCommitParent = pc
 		}
-		if len(parentFiles) == len(files) {
-			_parentOutputTag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, parentFiles)
-			return &pfs.Tag{Name: _parentOutputTag}, nil
+	}
+	var parentFiles []*Input // the equivalent datum to 'files', which the parent job processed
+	for _, file := range files {
+		parentFile := proto.Clone(file).(*Input)
+		if file.FileInfo.File.Commit.Repo.Name == newInputCommit.Repo.Name && file.FileInfo.File.Commit.ID == newInputCommit.ID {
+			// 'file' from datumFactory is in the new input commit
+			parentFileInfo, err := pachClient.InspectFile(
+				newInputCommitParent.Repo.Name, newInputCommitParent.ID, file.FileInfo.File.Path)
+			if err != nil {
+				if !isNotFoundErr(err) {
+					return nil, err
+				}
+				// we didn't find a match for this file,
+				// so we know there's no matching datum
+				break
+			}
+			parentFile.FileInfo = parentFileInfo
+			// also tell downloadData to make a diff for 'file'
+			// side effect of the main work (derive _parentOutputTag)
+			file.ParentCommit = newInputCommitParent
 		}
+		parentFiles = append(parentFiles, parentFile)
+	}
+
+	// We have derived what files the parent saw -- compute the tag
+	if len(parentFiles) == len(files) {
+		_parentOutputTag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, parentFiles)
+		return &pfs.Tag{Name: _parentOutputTag}, nil
 	}
 	return nil, nil
 }
@@ -1325,4 +1434,34 @@ func mergeStats(x, y *pps.ProcessStats) error {
 	x.DownloadBytes += y.DownloadBytes
 	x.UploadBytes += y.UploadBytes
 	return nil
+}
+
+// lookupUser is a reimplementation of user.Lookup that doesn't require cgo.
+func lookupUser(name string) (_ *user.User, retErr error) {
+	passwd, err := os.Open("/etc/passwd")
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := passwd.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	scanner := bufio.NewScanner(passwd)
+	for scanner.Scan() {
+		parts := strings.Split(scanner.Text(), ":")
+		if parts[0] == name {
+			return &user.User{
+				Username: parts[0],
+				Uid:      parts[2],
+				Gid:      parts[3],
+				Name:     parts[4],
+				HomeDir:  parts[5],
+			}, nil
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+	return nil, fmt.Errorf("user %s not found", name)
 }
