@@ -113,7 +113,7 @@ func (a *apiServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitReq
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	commit, err := a.driver.buildCommit(ctx, request.Parent, request.Branch, request.Provenance, request.Tree)
+	commit, err := a.driver.buildCommit(ctx, request.ID, request.Parent, request.Branch, request.Provenance, request.Tree)
 	if err != nil {
 		return nil, err
 	}
