@@ -31,7 +31,8 @@ vault write $PLUGIN_PATH/login username=tweetybird || true
 export ADMIN_TOKEN=$(cat ~/.pachyderm/config.json | jq -r .v1.session_token)
 echo $ADMIN_TOKEN
 vault write $PLUGIN_PATH/config \
-    admin_token="${ADMIN_TOKEN}"
+    admin_token="${ADMIN_TOKEN}" \
+	pachd_address="127.0.0.1:30650"
 
 # Test login (failure/success):
 vault write $PLUGIN_PATH/login username=bogusgithubusername || true

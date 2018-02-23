@@ -12,7 +12,8 @@ import (
 
 type config struct {
 	// AdminToken is pachyderm admin token used to generate credentials
-	AdminToken string `json:"admin_token" structs:"-"`
+	AdminToken   string `json:"admin_token" structs:"-"`
+	PachdAddress string `json:"pachd_address" structs:"-"`
 }
 
 func (b *backend) configPath() *framework.Path {
@@ -35,6 +36,10 @@ For more information and examples, please see the online documentation.
 			"admin_token": &framework.FieldSchema{
 				Type:        framework.TypeString,
 				Description: "Pachyderm admin token used to generate user credentials",
+			},
+			"pachd_address": &framework.FieldSchema{
+				Type:        framework.TypeString,
+				Description: "Pachyderm cluster address, e.g. 127.0.0.1:30650",
 			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
@@ -64,15 +69,19 @@ func (b *backend) pathConfigWrite(ctx context.Context, req *logical.Request, dat
 		return nil, logical.CodedError(422, err.Error())
 	}
 
-	// Get the admin token
 	adminToken := data.Get("admin_token").(string)
 	if adminToken == "" {
 		return errMissingField("admin_token"), nil
 	}
+	pachdAddress := data.Get("pachd_address").(string)
+	if pachdAddress == "" {
+		return errMissingField("pachd_address"), nil
+	}
 
 	// Built the entry
 	entry, err := logical.StorageEntryJSON("config", &config{
-		AdminToken: adminToken,
+		AdminToken:   adminToken,
+		PachdAddress: pachdAddress,
 	})
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("%v: failed to generate storage entry", err))

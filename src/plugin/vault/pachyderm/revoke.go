@@ -6,6 +6,7 @@ import (
 
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
+	pclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 )
 
@@ -37,8 +38,11 @@ func (b *backend) pathRevoke(ctx context.Context, req *logical.Request, d *frame
 	if len(config.AdminToken) == 0 {
 		return nil, errors.New("plugin is missing admin token")
 	}
+	if len(config.PachdAddress) == 0 {
+		return nil, errors.New("plugin is missing pachd_address")
+	}
 
-	err = b.revokeUserCredentials(ctx, userToken, config.AdminToken)
+	err = b.revokeUserCredentials(ctx, config.PachdAddress, userToken, config.AdminToken)
 	if err != nil {
 		return nil, err
 	}
@@ -50,16 +54,20 @@ func (b *backend) pathRevoke(ctx context.Context, req *logical.Request, d *frame
 	}, nil
 }
 
-func (b *backend) revokeUserCredentials(ctx context.Context, userToken string, adminToken string) error {
+func (b *backend) revokeUserCredentials(ctx context.Context, pachdAddress string, userToken string, adminToken string) error {
 	// This is where we'd make the actual pachyderm calls to create the user
 	// token using the admin token. For now, for testing purposes, we just do an action that only an
 	// admin could do
 
-	// Setup a single use client w the given auth token
-	pachClient := b.PachydermClient.WithCtx(ctx)
-	pachClient.SetAuthToken(adminToken)
+	// Setup a single use client w the given admin token / address
+	client, err := pclient.NewFromAddress(pachdAddress)
+	if err != nil {
+		return err
+	}
+	client = client.WithCtx(ctx)
+	client.SetAuthToken(adminToken)
 
-	_, err := b.PachydermClient.AuthAPIClient.ModifyAdmins(pachClient.Ctx(), &auth.ModifyAdminsRequest{
+	_, err = client.AuthAPIClient.ModifyAdmins(client.Ctx(), &auth.ModifyAdminsRequest{
 		Remove: []string{"tweetybird"},
 	})
 
