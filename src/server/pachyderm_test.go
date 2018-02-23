@@ -2736,6 +2736,18 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	require.True(t, numLogs > 0)
 	require.NoError(t, iter.Err())
 
+	// Get logs for datums but don't specify pipeline or job. These should error
+	iter = c.GetLogs("", "", []string{"/foo"}, "", false, false, 0)
+	require.False(t, iter.Next())
+	require.YesError(t, iter.Err())
+
+	resp, err := c.ListDatum(jobInfos[0].Job.ID, 0, 0)
+	require.NoError(t, err)
+	require.True(t, len(resp.DatumInfos) > 0)
+	iter = c.GetLogs("", "", nil, resp.DatumInfos[0].Datum.ID, false, false, 0)
+	require.False(t, iter.Next())
+	require.YesError(t, iter.Err())
+
 	// Get logs from pipeline, using a job that doesn't exist. There should
 	// be an error
 	iter = c.GetLogs("", "__DOES_NOT_EXIST__", nil, "", false, false, 0)
