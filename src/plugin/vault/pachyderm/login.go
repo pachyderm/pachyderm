@@ -3,6 +3,7 @@ package pachyderm
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
@@ -18,6 +19,12 @@ func (b *backend) loginPath() *framework.Path {
 			"username": &framework.FieldSchema{
 				Type: framework.TypeString,
 			},
+			"ttl": &framework.FieldSchema{
+				Type: framework.TypeString,
+			},
+			"max_ttl": &framework.FieldSchema{
+				Type: framework.TypeString,
+			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
 			logical.UpdateOperation: b.pathAuthLogin,
@@ -29,6 +36,14 @@ func (b *backend) pathAuthLogin(ctx context.Context, req *logical.Request, d *fr
 	username := d.Get("username").(string)
 	if len(username) == 0 {
 		return nil, logical.ErrInvalidRequest
+	}
+	ttlString := d.Get("ttl").(string)
+	if len(ttlString) == 0 {
+		ttlString = "45s"
+	}
+	maxTtlString := d.Get("max_ttl").(string)
+	if len(maxTtlString) == 0 {
+		maxTtlString = "2h"
 	}
 
 	config, err := b.Config(ctx, req.Storage)
@@ -42,12 +57,12 @@ func (b *backend) pathAuthLogin(ctx context.Context, req *logical.Request, d *fr
 		return nil, errors.New("plugin is missing pachd_address")
 	}
 
-	userToken, err := b.generateUserCredentials(ctx, config.PachdAddress, username, config.AdminToken)
+	ttl, _, err := b.SanitizeTTLStr(ttlString, maxTtlString)
 	if err != nil {
 		return nil, err
 	}
 
-	ttl, _, err := b.SanitizeTTLStr("30s", "1h")
+	userToken, err := b.generateUserCredentials(ctx, config.PachdAddress, config.AdminToken, username, ttl)
 	if err != nil {
 		return nil, err
 	}
@@ -57,6 +72,8 @@ func (b *backend) pathAuthLogin(ctx context.Context, req *logical.Request, d *fr
 		Auth: &logical.Auth{
 			InternalData: map[string]interface{}{
 				"user_token": userToken,
+				"ttl":        ttlString,
+				"max_ttl":    maxTtlString,
 			},
 			Metadata: map[string]string{
 				"user_token": userToken,
@@ -69,7 +86,7 @@ func (b *backend) pathAuthLogin(ctx context.Context, req *logical.Request, d *fr
 	}, nil
 }
 
-func (b *backend) generateUserCredentials(ctx context.Context, pachdAddress string, username string, adminToken string) (string, error) {
+func (b *backend) generateUserCredentials(ctx context.Context, pachdAddress string, adminToken string, username string, ttl time.Duration) (string, error) {
 	// This is where we'd make the actual pachyderm calls to create the user
 	// token using the admin token. For now, for testing purposes, we just do an action that only an
 	// admin could do
