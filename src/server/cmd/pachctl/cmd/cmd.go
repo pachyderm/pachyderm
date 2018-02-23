@@ -246,42 +246,6 @@ Environment variables:
 		"only print pachctl's version, but don't make any RPCs to pachd. Useful "+
 		"if pachd is unavailable")
 
-	clusterIDCmd := &cobra.Command{
-		Use:   "cluster-info",
-		Short: "Return cluster information.",
-		Long:  "Return cluster information.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			if !noMetrics {
-				start := time.Now()
-				startMetricsWait := metrics.StartReportAndFlushUserAction("ClusterInfo", start)
-				defer startMetricsWait()
-				defer func() {
-					finishMetricsWait := metrics.FinishReportAndFlushUserAction("ClusterInfo", retErr, start)
-					finishMetricsWait()
-				}()
-			}
-
-			cfg, err := config.Read()
-			if err != nil {
-				log.Warningf("error loading user config from ~/.pachderm/config: %v", err)
-			}
-			pachdAddress := client.GetAddressFromUserMachine(cfg)
-			versionClient, err := getVersionAPIClient(pachdAddress)
-			if err != nil {
-				return err
-			}
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-			defer cancel()
-			clusterInfo, err := versionClient.GetClusterInfo(ctx, &types.Empty{})
-
-			if err != nil {
-				return err
-			}
-			fmt.Println(clusterInfo.ID)
-
-			return nil
-		}),
-	}
 	deleteAll := &cobra.Command{
 		Use:   "delete-all",
 		Short: "Delete everything.",
@@ -542,7 +506,6 @@ $ pachctl migrate --from 1.4.8 --to 1.5.0
 	}
 
 	rootCmd.AddCommand(versionCmd)
-	rootCmd.AddCommand(clusterIDCmd)
 	rootCmd.AddCommand(deleteAll)
 	rootCmd.AddCommand(portForward)
 	rootCmd.AddCommand(garbageCollect)
