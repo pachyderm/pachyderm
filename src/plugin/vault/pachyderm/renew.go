@@ -3,6 +3,7 @@ package pachyderm
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
@@ -36,23 +37,40 @@ func (b *backend) pathAuthRenew(ctx context.Context, req *logical.Request, d *fr
 		return nil, errors.New("stored user token is not a string")
 	}
 
+	ttlRaw, ok := req.Auth.InternalData["ttl"]
+	if !ok {
+		return nil, errors.New("no internal ttl found in the store")
+	}
+	ttlString, ok := ttlRaw.(string)
+	if !ok {
+		return nil, errors.New("stored ttl is not a string")
+	}
+
+	maxTtlRaw, ok := req.Auth.InternalData["max_ttl"]
+	if !ok {
+		return nil, errors.New("no internal max_ttl found in the store")
+	}
+	maxTtlString, ok := maxTtlRaw.(string)
+	if !ok {
+		return nil, errors.New("stored max_ttl is not a string")
+	}
+
+	ttl, maxTtl, err := b.SanitizeTTLStr(ttlString, maxTtlString)
+	if err != nil {
+		return nil, err
+	}
 	// Use the admin token to perform an action
 	// for testing, hardcoding username to something else so that I can validate
 	// renew has an effect:
-	err = b.renewUserCredentials(ctx, config.PachdAddress, userToken, config.AdminToken)
+	err = b.renewUserCredentials(ctx, config.PachdAddress, config.AdminToken, userToken, ttl)
 	if err != nil {
 		return nil, err
 	}
 
-	ttl, maxTTL, err := b.SanitizeTTLStr("30s", "1h")
-	if err != nil {
-		return nil, err
-	}
-
-	return framework.LeaseExtend(ttl, maxTTL, b.System())(ctx, req, d)
+	return framework.LeaseExtend(ttl, maxTtl, b.System())(ctx, req, d)
 }
 
-func (b *backend) renewUserCredentials(ctx context.Context, pachdAddress string, userToken string, adminToken string) error {
+func (b *backend) renewUserCredentials(ctx context.Context, pachdAddress string, adminToken string, userToken string, ttl time.Duration) error {
 	// This is where we'd make the actual pachyderm calls to create the user
 	// token using the admin token. For now, for testing purposes, we just do an action that only an
 	// admin could do
