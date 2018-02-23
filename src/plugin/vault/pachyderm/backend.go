@@ -20,13 +20,14 @@ func Backend(c *logical.BackendConfig) (*backend, error) {
 	b = backend{
 		Backend: &framework.Backend{
 			BackendType: logical.TypeLogical,
-			//			AuthRenew:   b.pathAuthRenew,
+			AuthRenew:   b.pathAuthRenew,
 			PathsSpecial: &logical.Paths{
 				Unauthenticated: []string{"login"},
 			},
 			Paths: []*framework.Path{
-				b.loginPath(),
 				b.configPath(),
+				b.loginPath(),
+				b.revokePath(),
 			},
 		},
 		PachydermClient: client,
