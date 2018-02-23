@@ -36,4 +36,4 @@ vault write $PLUGIN_PATH/config \
 
 # Test login (failure/success):
 vault write $PLUGIN_PATH/login username=bogusgithubusername || true
-vault write $PLUGIN_PATH/login username=daffyduck
+vault write $PLUGIN_PATH/login username=daffyduck ttl=125s
