@@ -11,16 +11,21 @@ import (
 )
 
 type apiServer struct {
-	version *pb.Version
-	options APIServerOptions
+	version     *pb.Version
+	clusterInfo *pb.ClusterInfo
+	options     APIServerOptions
 }
 
-func newAPIServer(version *pb.Version, options APIServerOptions) *apiServer {
-	return &apiServer{version, options}
+func newAPIServer(version *pb.Version, clusterInfo *pb.ClusterInfo, options APIServerOptions) *apiServer {
+	return &apiServer{version, clusterInfo, options}
 }
 
 func (a *apiServer) GetVersion(ctx context.Context, request *types.Empty) (response *pb.Version, err error) {
 	return a.version, nil
+}
+
+func (a *apiServer) GetClusterInfo(ctx context.Context, request *types.Empty) (response *pb.ClusterInfo, err error) {
+	return a.clusterInfo, nil
 }
 
 // APIServerOptions are options when creating a new APIServer.
@@ -29,8 +34,8 @@ type APIServerOptions struct {
 }
 
 // NewAPIServer creates a new APIServer for the given Version.
-func NewAPIServer(version *pb.Version, options APIServerOptions) pb.APIServer {
-	return newAPIServer(version, options)
+func NewAPIServer(version *pb.Version, clusterInfo *pb.ClusterInfo, options APIServerOptions) pb.APIServer {
+	return newAPIServer(version, clusterInfo, options)
 }
 
 // GetServerVersion gets the server *Version given the *grpc.ClientConn.

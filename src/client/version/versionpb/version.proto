@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 import "google/protobuf/empty.proto";
+import "gogoproto/gogo.proto";
 
 package versionpb;
 
@@ -11,6 +12,11 @@ message Version {
   string additional = 4;
 }
 
+message ClusterInfo {
+  string id = 1 [(gogoproto.customname) = "ID"];
+}
+
 service API {
   rpc GetVersion(google.protobuf.Empty) returns (Version) {}
+  rpc GetClusterInfo(google.protobuf.Empty) returns (ClusterInfo) {}
 }
