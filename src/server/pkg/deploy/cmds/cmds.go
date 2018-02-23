@@ -41,7 +41,7 @@ func maybeKcCreate(dryRun bool, manifest *bytes.Buffer, opts *assets.AssetOpts, 
 		Stderr: os.Stderr,
 	}
 	// we set --validate=false due to https://github.com/kubernetes/kubernetes/issues/53309
-	if err := cmdutil.RunIO(io, "kubectl", "create", "-f", "-", "--validate=false"); err != nil {
+	if err := cmdutil.RunIO(io, "kubectl", "apply", "-f", "-", "--validate=false"); err != nil {
 		return err
 	}
 	if !dryRun {

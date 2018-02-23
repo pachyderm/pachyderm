@@ -59,14 +59,20 @@ type Index struct {
 // operations.
 type ReadWriteCollection interface {
 	Get(key string, val proto.Message) error
-	Put(key string, val proto.Marshaler) error
+	Put(key string, val proto.Message) error
 	// PutTTL is the same as Put except that the object is removed after
 	// TTL seconds.
 	// WARNING: using PutTTL with a collection that has secondary indices
 	// can result in inconsistency, as the indices are removed at roughly
 	// but not exactly the same time as the documents.
-	PutTTL(key string, val proto.Marshaler, ttl int64) error
-	Create(key string, val proto.Marshaler) error
+	PutTTL(key string, val proto.Message, ttl int64) error
+	// Update reads the current value associated with 'key', calls 'f' to update
+	// the value, and writes the new value back to the collection. 'key' must be
+	// present in the collection, or a 'Not Found' error is returned
+	Update(key string, val proto.Message, f func() error) error
+	// Upsert is like Update but 'key' is not required to be present
+	Upsert(key string, val proto.Message, f func() error) error
+	Create(key string, val proto.Message) error
 	Delete(key string) error
 	DeleteAll()
 	DeleteAllPrefix(prefix string)

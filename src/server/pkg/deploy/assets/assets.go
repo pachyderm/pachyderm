@@ -76,6 +76,7 @@ type AssetOpts struct {
 	NoDash		bool
 	DashImage   string
 	Registry    string
+	EtcdPrefix  string
 
 	// NoGuaranteed will not generate assets that have both resource limits and
 	// resource requests set which causes kubernetes to give the pods
@@ -365,22 +366,21 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 							Name:  pachdName,
 							Image: image,
 							Env: []v1.EnvVar{
-								{
-									Name:  "PACH_ROOT",
-									Value: "/pach",
-								},
-								{
-									Name:  "NUM_SHARDS",
-									Value: fmt.Sprintf("%d", opts.PachdShards),
-								},
-								{
-									Name:  "STORAGE_BACKEND",
-									Value: backendEnvVar,
-								},
-								{
-									Name:  "STORAGE_HOST_PATH",
-									Value: storageHostPath,
-								},
+								{Name: "PACH_ROOT", Value: "/pach"},
+								{Name: "ETCD_PREFIX", Value: opts.EtcdPrefix},
+								{Name: "NUM_SHARDS", Value: fmt.Sprintf("%d", opts.PachdShards)},
+								{Name: "STORAGE_BACKEND", Value: backendEnvVar},
+								{Name: "STORAGE_HOST_PATH", Value: storageHostPath},
+								{Name: "WORKER_IMAGE", Value: AddRegistry(opts.Registry, versionedWorkerImage(opts))},
+								{Name: "IMAGE_PULL_SECRET", Value: opts.ImagePullSecret},
+								{Name: "WORKER_SIDECAR_IMAGE", Value: image},
+								{Name: "WORKER_IMAGE_PULL_POLICY", Value: "IfNotPresent"},
+								{Name: "PACHD_VERSION", Value: opts.Version},
+								{Name: "METRICS", Value: strconv.FormatBool(opts.Metrics)},
+								{Name: "LOG_LEVEL", Value: opts.LogLevel},
+								{Name: "BLOCK_CACHE_BYTES", Value: opts.BlockCacheSize},
+								{Name: "IAM_ROLE", Value: opts.IAMRole},
+								{Name: auth.DisableAuthenticationEnvVar, Value: strconv.FormatBool(opts.DisableAuthentication)},
 								{
 									Name: "PACHD_POD_NAMESPACE",
 									ValueFrom: &v1.EnvVarSource{
@@ -389,46 +389,6 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 											FieldPath:  "metadata.namespace",
 										},
 									},
-								},
-								{
-									Name:  "WORKER_IMAGE",
-									Value: AddRegistry(opts.Registry, versionedWorkerImage(opts)),
-								},
-								{
-									Name:  "IMAGE_PULL_SECRET",
-									Value: opts.ImagePullSecret,
-								},
-								{
-									Name:  "WORKER_SIDECAR_IMAGE",
-									Value: image,
-								},
-								{
-									Name:  "WORKER_IMAGE_PULL_POLICY",
-									Value: "IfNotPresent",
-								},
-								{
-									Name:  "PACHD_VERSION",
-									Value: opts.Version,
-								},
-								{
-									Name:  "METRICS",
-									Value: strconv.FormatBool(opts.Metrics),
-								},
-								{
-									Name:  "LOG_LEVEL",
-									Value: opts.LogLevel,
-								},
-								{
-									Name:  "BLOCK_CACHE_BYTES",
-									Value: opts.BlockCacheSize,
-								},
-								{
-									Name:  "IAM_ROLE",
-									Value: opts.IAMRole,
-								},
-								{
-									Name:  auth.DisableAuthenticationEnvVar,
-									Value: strconv.FormatBool(opts.DisableAuthentication),
 								},
 							},
 							Ports: []v1.ContainerPort{
@@ -458,6 +418,13 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 							},
 							ImagePullPolicy: "IfNotPresent",
 							Resources:       resourceRequirements,
+							ReadinessProbe: &v1.Probe{
+								Handler: v1.Handler{
+									Exec: &v1.ExecAction{
+										Command: []string{"/pachd", "--readiness"},
+									},
+								},
+							},
 						},
 					},
 					ServiceAccountName: ServiceAccountName,

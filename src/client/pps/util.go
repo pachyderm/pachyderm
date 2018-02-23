@@ -57,26 +57,26 @@ func SortInput(input *Input) {
 	})
 }
 
-// InputCommits returns the commits in an Input.
-func InputCommits(input *Input) []*pfs.Commit {
-	var result []*pfs.Commit
+// InputBranches returns the branches in an Input.
+func InputBranches(input *Input) []*pfs.Branch {
+	var result []*pfs.Branch
 	VisitInput(input, func(input *Input) {
 		if input.Atom != nil {
-			result = append(result, &pfs.Commit{
+			result = append(result, &pfs.Branch{
 				Repo: &pfs.Repo{input.Atom.Repo},
-				ID:   input.Atom.Commit,
+				Name: input.Atom.Branch,
 			})
 		}
 		if input.Cron != nil {
-			result = append(result, &pfs.Commit{
+			result = append(result, &pfs.Branch{
 				Repo: &pfs.Repo{input.Cron.Repo},
-				ID:   input.Cron.Commit,
+				Name: "master",
 			})
 		}
 		if input.Git != nil {
-			result = append(result, &pfs.Commit{
+			result = append(result, &pfs.Branch{
 				Repo: &pfs.Repo{input.Git.Name},
-				ID:   input.Git.Commit,
+				Name: input.Atom.Branch,
 			})
 		}
 	})
