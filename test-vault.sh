@@ -16,23 +16,23 @@ go build -o /tmp/vault-plugins/$PLUGIN_NAME src/plugin/vault/main.go
 echo 'root' | vault login -
 
 # Clean up from last run
-vault auth disable $PLUGIN_PATH 
+vault secrets disable $PLUGIN_PATH 
 
 # Enable the plugin
 export SHASUM=$(shasum -a 256 "/tmp/vault-plugins/$PLUGIN_NAME" | cut -d " " -f1)
 echo $SHASUM
 vault write sys/plugins/catalog/$PLUGIN_NAME sha_256="$SHASUM" command="$PLUGIN_NAME"
-vault auth enable -path=$PLUGIN_PATH -plugin-name=$PLUGIN_NAME plugin
+vault secrets enable -path=$PLUGIN_PATH -plugin-name=$PLUGIN_NAME plugin
 
 # Test login before admin token is set
-vault write auth/$PLUGIN_PATH/login username=tweetybird || true
+vault write $PLUGIN_PATH/login username=tweetybird || true
 
 # Set the admin token vault will use to create user creds
 export ADMIN_TOKEN=$(cat ~/.pachyderm/config.json | jq -r .v1.session_token)
 echo $ADMIN_TOKEN
-vault write auth/$PLUGIN_PATH/config \
+vault write $PLUGIN_PATH/config \
     admin_token="${ADMIN_TOKEN}"
 
 # Test login (failure/success):
-vault write auth/$PLUGIN_PATH/login username=bogusgithubusername || true
-vault write auth/$PLUGIN_PATH/login username=daffyduck
+vault write $PLUGIN_PATH/login username=bogusgithubusername || true
+vault write $PLUGIN_PATH/login username=daffyduck
