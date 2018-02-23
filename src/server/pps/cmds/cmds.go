@@ -339,11 +339,11 @@ $ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
 					}
 					fmt.Println(messageStr)
 				} else if iter.Message().User {
-					fmt.Print(iter.Message().Message)
+					fmt.Println(iter.Message().Message)
 				} else if iter.Message().Master && master {
 					fmt.Println(iter.Message().Message)
 				} else if pipelineName == "" && jobID == "" {
-					fmt.Print(iter.Message().Message)
+					fmt.Println(iter.Message().Message)
 				}
 			}
 			return iter.Err()
