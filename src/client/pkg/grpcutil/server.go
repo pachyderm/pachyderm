@@ -21,9 +21,10 @@ var (
 
 // ServeOptions represent optional fields for serving.
 type ServeOptions struct {
-	Version    *versionpb.Version
-	MaxMsgSize int
-	Cancel     chan struct{}
+	Version     *versionpb.Version
+	ClusterInfo *versionpb.ClusterInfo
+	MaxMsgSize  int
+	Cancel      chan struct{}
 }
 
 // ServeEnv are environment variables for serving.
@@ -55,7 +56,7 @@ func Serve(
 	)
 	registerFunc(grpcServer)
 	if options.Version != nil {
-		versionpb.RegisterAPIServer(grpcServer, version.NewAPIServer(options.Version, version.APIServerOptions{}))
+		versionpb.RegisterAPIServer(grpcServer, version.NewAPIServer(options.Version, options.ClusterInfo, version.APIServerOptions{}))
 	}
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", serveEnv.GRPCPort))
 	if err != nil {
