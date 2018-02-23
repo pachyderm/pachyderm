@@ -14,6 +14,7 @@ import (
 	types "github.com/gogo/protobuf/types"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/pachyderm/pachyderm/src/client/admin"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/deploy"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
@@ -22,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 )
 
 const (
@@ -47,6 +49,12 @@ type AuthAPIClient auth.APIClient
 // DeployAPIClient is an alias of auth.APIClient
 type DeployAPIClient deploy.APIClient
 
+// VersionAPIClient is an alias of versionpb.APIClient
+type VersionAPIClient versionpb.APIClient
+
+// AdminAPIClient is an alias of admin.APIClient
+type AdminAPIClient admin.APIClient
+
 // An APIClient is a wrapper around pfs, pps and block APIClients.
 type APIClient struct {
 	PfsAPIClient
@@ -54,6 +62,8 @@ type APIClient struct {
 	ObjectAPIClient
 	AuthAPIClient
 	DeployAPIClient
+	VersionAPIClient
+	AdminAPIClient
 	Enterprise enterprise.APIClient // not embedded--method name conflicts with AuthAPIClient
 
 	// addr is a "host:port" string pointing at a pachd endpoint
@@ -261,6 +271,8 @@ func (c *APIClient) connect() error {
 	c.AuthAPIClient = auth.NewAPIClient(clientConn)
 	c.Enterprise = enterprise.NewAPIClient(clientConn)
 	c.DeployAPIClient = deploy.NewAPIClient(clientConn)
+	c.VersionAPIClient = versionpb.NewAPIClient(clientConn)
+	c.AdminAPIClient = admin.NewAPIClient(clientConn)
 	c.clientConn = clientConn
 	c.healthClient = health.NewHealthClient(clientConn)
 	return nil

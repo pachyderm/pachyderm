@@ -28,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
+	admincmds "github.com/pachyderm/pachyderm/src/server/admin/cmds"
 	authcmds "github.com/pachyderm/pachyderm/src/server/auth/cmds"
 	enterprisecmds "github.com/pachyderm/pachyderm/src/server/enterprise/cmds"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
@@ -185,6 +186,10 @@ Environment variables:
 	}
 	enterpriseCmds := enterprisecmds.Cmds()
 	for _, cmd := range enterpriseCmds {
+		rootCmd.AddCommand(cmd)
+	}
+	adminCmds := admincmds.Cmds(&noMetrics)
+	for _, cmd := range adminCmds {
 		rootCmd.AddCommand(cmd)
 	}
 

@@ -23,11 +23,6 @@ var (
 	// commit. This is how we know if we need to start a job.
 	JobsInputIndex = col.Index{"Input", false}
 
-	// JobsInputsIndex maps 1.4.5 and earlier style job inputs (repos +
-	// pipeline version) to output commit. This is how we know if we need
-	// to start a job Needed for legacy compatibility.
-	JobsInputsIndex = col.Index{"Inputs", false}
-
 	// JobsOutputIndex maps job outputs to the job that create them.
 	JobsOutputIndex = col.Index{"OutputCommit", false}
 )
@@ -38,7 +33,7 @@ func Pipelines(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 		etcdClient,
 		path.Join(etcdPrefix, pipelinesPrefix),
 		[]col.Index{},
-		&pps.PipelineInfo{},
+		&pps.EtcdPipelineInfo{},
 		nil,
 	)
 }
@@ -48,8 +43,8 @@ func Jobs(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 	return col.NewCollection(
 		etcdClient,
 		path.Join(etcdPrefix, jobsPrefix),
-		[]col.Index{JobsPipelineIndex, JobsInputIndex, JobsOutputIndex},
-		&pps.JobInfo{},
+		[]col.Index{JobsPipelineIndex, JobsOutputIndex},
+		&pps.EtcdJobInfo{},
 		nil,
 	)
 }

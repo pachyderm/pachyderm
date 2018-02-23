@@ -113,7 +113,7 @@ func (a *apiServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitReq
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	commit, err := a.driver.buildCommit(ctx, request.Parent, request.Branch, request.Provenance, request.Tree)
+	commit, err := a.driver.buildCommit(ctx, request.ID, request.Parent, request.Branch, request.Provenance, request.Tree)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.driver.finishCommit(ctx, request.Commit, request.Description); err != nil {
+	if err := a.driver.finishCommit(ctx, request.Commit, request.Tree, request.Empty, request.Description); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -134,7 +134,7 @@ func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommi
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	return a.driver.inspectCommit(ctx, request.Commit)
+	return a.driver.inspectCommit(ctx, request.Commit, request.Block)
 }
 
 func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitRequest) (response *pfs.CommitInfos, retErr error) {
@@ -171,6 +171,22 @@ func (a *apiServer) ListCommitStream(req *pfs.ListCommitRequest, respServer pfs.
 	return nil
 }
 
+func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+
+	if err := a.driver.createBranch(ctx, request.Branch, request.Head, request.Provenance); err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
+func (a *apiServer) InspectBranch(ctx context.Context, request *pfs.InspectBranchRequest) (response *pfs.BranchInfo, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	return a.driver.inspectBranch(ctx, request.Branch)
+}
+
 func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.BranchInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -182,21 +198,11 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 	return &pfs.BranchInfos{BranchInfo: branches}, nil
 }
 
-func (a *apiServer) SetBranch(ctx context.Context, request *pfs.SetBranchRequest) (response *types.Empty, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-
-	if err := a.driver.setBranch(ctx, request.Commit, request.Branch); err != nil {
-		return nil, err
-	}
-	return &types.Empty{}, nil
-}
-
 func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.driver.deleteBranch(ctx, request.Repo, request.Branch); err != nil {
+	if err := a.driver.deleteBranch(ctx, request.Branch); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -217,26 +223,7 @@ func (a *apiServer) FlushCommit(request *pfs.FlushCommitRequest, stream pfs.API_
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 
-	commitStream, err := a.driver.flushCommit(ctx, request.Commits, request.ToRepos)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		commitStream.Close()
-	}()
-
-	for {
-		ev, ok := <-commitStream.Stream()
-		if !ok {
-			return nil
-		}
-		if ev.Err != nil {
-			return ev.Err
-		}
-		if err := stream.Send(ev.Value); err != nil {
-			return err
-		}
-	}
+	return a.driver.flushCommit(ctx, request.Commits, request.ToRepos, stream.Send)
 }
 
 func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream pfs.API_SubscribeCommitServer) (retErr error) {
