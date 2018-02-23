@@ -3,10 +3,10 @@ package pachyderm
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
+	"github.com/pachyderm/pachyderm/src/client/auth"
 )
 
 func (b *backend) pathAuthRenew(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
@@ -14,35 +14,31 @@ func (b *backend) pathAuthRenew(ctx context.Context, req *logical.Request, d *fr
 		return nil, errors.New("request auth was nil")
 	}
 
-	// Grab the token
-	adminTokenRaw, ok := req.Auth.InternalData["pachyderm_admin_token"]
-	if !ok {
-		return nil, errors.New("no internal token found in the store")
+	config, err := b.Config(ctx, req.Storage)
+	if err != nil {
+		return nil, err
 	}
-	adminToken, ok := adminTokenRaw.(string)
-	if !ok {
-		return nil, errors.New("stored admin token is not a string")
+	if len(config.AdminToken) == 0 {
+		return nil, errors.New("plugin is missing admin token")
 	}
 
-	// Grab the token
-	usernameRaw, ok := req.Auth.InternalData["username"]
+	// Grab the user token
+	userTokenRaw, ok := req.Auth.InternalData["user_token"]
 	if !ok {
-		return nil, errors.New("no internal token found in the store")
+		return nil, errors.New("no internal user token found in the store")
 	}
-	username, ok := usernameRaw.(string)
+	userToken, ok := userTokenRaw.(string)
 	if !ok {
-		return nil, errors.New("stored admin token is not a string")
+		return nil, errors.New("stored user token is not a string")
 	}
 
 	// Use the admin token to perform an action
 	// for testing, hardcoding username to something else so that I can validate
 	// renew has an effect:
-	username = "tweetybird"
-	userToken, err := b.generateUserCredentials(ctx, username, adminToken)
+	err = b.renewUserCredentials(ctx, userToken, config.AdminToken)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("generated new user token for (%v): %v\n", username, userToken)
 
 	ttl, maxTTL, err := b.SanitizeTTLStr("30s", "1h")
 	if err != nil {
@@ -50,4 +46,24 @@ func (b *backend) pathAuthRenew(ctx context.Context, req *logical.Request, d *fr
 	}
 
 	return framework.LeaseExtend(ttl, maxTTL, b.System())(ctx, req, d)
+}
+
+func (b *backend) renewUserCredentials(ctx context.Context, userToken string, adminToken string) error {
+	// This is where we'd make the actual pachyderm calls to create the user
+	// token using the admin token. For now, for testing purposes, we just do an action that only an
+	// admin could do
+
+	// Setup a single use client w the given auth token
+	pachClient := b.PachydermClient.WithCtx(ctx)
+	pachClient.SetAuthToken(adminToken)
+
+	_, err := b.PachydermClient.AuthAPIClient.ModifyAdmins(pachClient.Ctx(), &auth.ModifyAdminsRequest{
+		Add: []string{"tweetybird"},
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
