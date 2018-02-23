@@ -1075,7 +1075,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				for scanner.Scan() {
 					msg := new(pps.LogMessage)
 					if containerName == "pachd" {
-						msg.Message = scanner.Text() + "\n"
+						msg.Message = scanner.Text()
 					} else {
 						logBytes := scanner.Bytes()
 						if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
@@ -1099,6 +1099,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 							continue
 						}
 					}
+					msg.Message = strings.TrimSuffix(msg.Message, "\n")
 
 					// Log message passes all filters -- return it
 					select {
