@@ -26,7 +26,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
-	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	adminserver "github.com/pachyderm/pachyderm/src/server/admin/server"
 	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
 	deployserver "github.com/pachyderm/pachyderm/src/server/deploy"
@@ -197,10 +196,7 @@ func doSidecarMode(appEnvObj interface{}) error {
 			eprsclient.RegisterAPIServer(s, enterpriseAPIServer)
 		},
 		grpcutil.ServeOptions{
-			Version: version.Version,
-			ClusterInfo: &versionpb.ClusterInfo{
-				ID: clusterID,
-			},
+			Version:    version.Version,
 			MaxMsgSize: grpcutil.MaxMsgSize,
 		},
 		grpcutil.ServeEnv{
@@ -337,7 +333,7 @@ func doFullMode(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	adminAPIServer := adminserver.NewAPIServer(address)
+	adminAPIServer := adminserver.NewAPIServer(address, &adminclient.ClusterInfo{clusterID})
 
 	healthServer := health.NewHealthServer()
 
@@ -368,10 +364,7 @@ func doFullMode(appEnvObj interface{}) error {
 				adminclient.RegisterAPIServer(s, adminAPIServer)
 			},
 			grpcutil.ServeOptions{
-				Version: version.Version,
-				ClusterInfo: &versionpb.ClusterInfo{
-					ID: clusterID,
-				},
+				Version:    version.Version,
 				MaxMsgSize: grpcutil.MaxMsgSize,
 			},
 			grpcutil.ServeEnv{
