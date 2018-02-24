@@ -2878,6 +2878,10 @@ func testGetLogs(t *testing.T, enableStats bool) {
 
 	c := getPachClient(t)
 	defer require.NoError(t, c.DeleteAll())
+	iter := c.GetLogs("", "", nil, "", false, false, 0)
+	for iter.Next() {
+	}
+	require.NoError(t, iter.Err())
 	// create repos
 	dataRepo := uniqueString("data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -2914,7 +2918,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	require.Equal(t, 1, len(commitInfos))
 
 	// Get logs from pipeline, using pipeline
-	iter := c.GetLogs(pipelineName, "", nil, "", false, false, 0)
+	iter = c.GetLogs(pipelineName, "", nil, "", false, false, 0)
 	var numLogs int
 	var loglines []string
 	for iter.Next() {
@@ -2964,6 +2968,18 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	// Make sure that we've seen some logs
 	require.NoError(t, iter.Err())
 	require.True(t, numLogs > 0)
+
+	// Get logs for datums but don't specify pipeline or job. These should error
+	iter = c.GetLogs("", "", []string{"/foo"}, "", false, false, 0)
+	require.False(t, iter.Next())
+	require.YesError(t, iter.Err())
+
+	resp, err := c.ListDatum(jobInfos[0].Job.ID, 0, 0)
+	require.NoError(t, err)
+	require.True(t, len(resp.DatumInfos) > 0)
+	iter = c.GetLogs("", "", nil, resp.DatumInfos[0].Datum.ID, false, false, 0)
+	require.False(t, iter.Next())
+	require.YesError(t, iter.Err())
 
 	// Get logs from pipeline, using a job that doesn't exist. There should
 	// be an error
