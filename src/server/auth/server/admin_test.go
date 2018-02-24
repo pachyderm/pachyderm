@@ -202,6 +202,41 @@ func TestAdminFixBrokenRepo(t *testing.T) {
 	require.Equal(t, 1, CommitCnt(t, adminClient, repo)) // check that a new commit was created
 }
 
+func TestModifyAdminsErrorMissingAdmin(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	alice := tu.UniqueString("alice")
+	adminClient := getPachClient(t, "admin")
+
+	// Check that the initial set of admins is just "admin"
+	resp, err := adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
+	require.NoError(t, err)
+	require.ElementsEqual(t, []string{"admin"}, resp.Admins)
+
+	// make alice a cluster administrator
+	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
+		&auth.ModifyAdminsRequest{
+			Add: []string{alice},
+		})
+	require.NoError(t, err)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
+		require.NoError(t, err)
+		return require.ElementsEqualOrErr([]string{"admin", alice}, resp.Admins)
+	}, backoff.NewTestingBackOff()))
+
+	// Try to remove alice and FakeUser
+	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
+		&auth.ModifyAdminsRequest{Remove: []string{alice, "FakeUser"}})
+	require.YesError(t, err)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
+		require.NoError(t, err)
+		return require.ElementsEqualOrErr([]string{"admin"}, resp.Admins)
+	}, backoff.NewTestingBackOff()))
+}
+
 func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
