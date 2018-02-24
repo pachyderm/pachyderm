@@ -18,8 +18,11 @@ const (
 var (
 	// AdditionalVersion is the string provided at release time
 	// The value is passed to the linker at build time
-	// DO NOT set the value of this variable here
-	AdditionalVersion = "rc1"
+	//
+	// DO NOT set the value of this variable here. For some reason, if
+	// AdditionalVersion is set here, the go linker will not overwrite it.
+	AdditionalVersion string
+
 	// Version is the current version for pachyderm.
 	Version = &pb.Version{
 		Major:      MajorVersion,
