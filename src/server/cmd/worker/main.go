@@ -56,7 +56,7 @@ func main() {
 }
 
 // getPipelineInfo gets the PipelineInfo proto describing the pipeline that this
-// worker is part of
+// worker is part of.
 // getPipelineInfo has the side effect of adding auth to the passed pachClient
 // which is necessary to get the PipelineInfo from pfs.
 func getPipelineInfo(etcdClient *etcd.Client, pachClient *client.APIClient, appEnv *appEnv) (*pps.PipelineInfo, error) {

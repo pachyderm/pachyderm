@@ -52,11 +52,14 @@ const (
 	// and random to avoid collisions with real usernames
 	magicUser = `GZD4jKDGcirJyWQt6HtK4hhRD6faOofP1mng34xNZsI`
 
-	// githubPrefix is a prefix we prepend to Users in the 'tokens' collection
-	// and ACL Entries (i.e. all usernames that have been verified with GitHub)
-	// to indicate that they're GitHub usernames. Right now, all users are GitHub
-	// usernames, but someday they may be groups or LDAP users
+	// githubPrefix is a prefix we prepend to subjects in the 'tokens' collection
+	// and principals in ACL Entries (i.e. all usernames that have been verified
+	// with GitHub) to indicate that they're GitHub usernames.
 	githubPrefix = "github:"
+
+	// robotPrefix is a prefix we prepend to subjects in the 'tokens' collection
+	// and principals in ACL Entries to indicate that they're robot users.
+	robotPrefix = "robot:"
 )
 
 // epsilon is small, nonempty protobuf to use as an etcd value (the etcd client
@@ -71,7 +74,6 @@ type apiServer struct {
 	address        string            // address of a Pachd server
 	pachClient     *client.APIClient // pachd client
 	pachClientOnce sync.Once         // used to initialize pachClient
-	clientErr      error             // set if initializing pachClient fails
 
 	adminCache map[string]struct{} // cache of current cluster admins
 	adminMu    sync.Mutex          // synchronize ontrol access to adminCache
@@ -112,14 +114,15 @@ func (a *apiServer) LogResp(request interface{}, response interface{}, err error
 	}
 }
 
-func (a *apiServer) getPachClient() (*client.APIClient, error) {
+func (a *apiServer) getPachClient() *client.APIClient {
 	a.pachClientOnce.Do(func() {
-		a.pachClient, a.clientErr = client.NewFromAddress(a.address)
+		var err error
+		a.pachClient, err = client.NewFromAddress(a.address)
+		if err != nil {
+			panic(err)
+		}
 	})
-	if a.clientErr != nil {
-		return nil, a.clientErr
-	}
-	return a.pachClient, nil
+	return a.pachClient
 }
 
 // NewAuthServer returns an implementation of authclient.APIServer.
@@ -219,10 +222,7 @@ func (a *apiServer) watchAdmins(fullAdminPrefix string) {
 }
 
 func (a *apiServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
-	pachClient, err := a.getPachClient()
-	if err != nil {
-		return 0, fmt.Errorf("could not get Pachd client to determine Enterprise status: %s", err)
-	}
+	pachClient := a.getPachClient()
 	resp, err := pachClient.Enterprise.GetState(context.Background(),
 		&enterpriseclient.GetStateRequest{})
 	if err != nil {
@@ -275,8 +275,8 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 		return tokens.PutTTL(
 			hashToken(pachToken),
 			&authclient.TokenInfo{
-				User:   username,
-				Source: authclient.TokenInfo_AUTHENTICATE,
+				Subject: username,
+				Source:  authclient.TokenInfo_AUTHENTICATE,
 			},
 			defaultTokenTTLSecs,
 		)
@@ -300,7 +300,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 	if err != nil {
 		return nil, err
 	}
-	if !a.isAdmin(tokenInfo.User) {
+	if !a.isAdmin(tokenInfo.Subject) {
 		return nil, errors.New("not authorized to deactivate auth, must be a cluster admin")
 	}
 	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
@@ -414,7 +414,7 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 	if err != nil {
 		return nil, err
 	}
-	if !a.isAdmin(tokenInfo.User) {
+	if !a.isAdmin(tokenInfo.Subject) {
 		return nil, errors.New("not authorized to modify cluster admins, must be a cluster admin")
 	}
 
@@ -424,27 +424,41 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 	eg := &errgroup.Group{}
 	canonicalizedToAdd := make([]string, len(req.Add))
 	for i, user := range req.Add {
-		i, user := i, user
-		eg.Go(func() error {
-			u, err := canonicalizeGitHubUsername(ctx, user)
-			if err != nil {
-				return err
-			}
-			canonicalizedToAdd[i] = u
-			return nil
-		})
+		switch {
+		case strings.HasPrefix(user, robotPrefix):
+			canonicalizedToAdd[i] = user
+		case strings.Index(user, ":") < 0:
+			i, user := i, user
+			eg.Go(func() error {
+				principal, err := canonicalizeGitHubUsername(ctx, user)
+				if err != nil {
+					return err
+				}
+				canonicalizedToAdd[i] = principal
+				return nil
+			})
+		default:
+			return nil, &authclient.InvalidPrincipalError{user}
+		}
 	}
 	canonicalizedToRemove := make([]string, len(req.Remove))
 	for i, user := range req.Remove {
-		i, user := i, user
-		eg.Go(func() error {
-			u, err := canonicalizeGitHubUsername(ctx, user)
-			if err != nil {
-				return err
-			}
-			canonicalizedToRemove[i] = u
-			return nil
-		})
+		switch {
+		case strings.HasPrefix(user, robotPrefix):
+			canonicalizedToRemove[i] = user
+		case strings.Index(user, ":") < 0:
+			i, user := i, user
+			eg.Go(func() error {
+				principal, err := canonicalizeGitHubUsername(ctx, user)
+				if err != nil {
+					return err
+				}
+				canonicalizedToRemove[i] = principal
+				return nil
+			})
+		default:
+			return nil, &authclient.InvalidPrincipalError{user}
+		}
 	}
 	if err := eg.Wait(); err != nil {
 		return nil, err
@@ -509,8 +523,8 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 		tokens := a.tokens.ReadWrite(stm)
 		return tokens.PutTTL(hashToken(pachToken),
 			&authclient.TokenInfo{
-				User:   username,
-				Source: authclient.TokenInfo_AUTHENTICATE,
+				Subject: username,
+				Source:  authclient.TokenInfo_AUTHENTICATE,
 			},
 			defaultTokenTTLSecs)
 	})
@@ -536,7 +550,7 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 	}
 
 	// admins are always authorized
-	if a.isAdmin(tokenInfo.User) {
+	if a.isAdmin(tokenInfo.Subject) {
 		return &authclient.AuthorizeResponse{Authorized: true}, nil
 	}
 
@@ -566,7 +580,7 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 	}
 
 	return &authclient.AuthorizeResponse{
-		Authorized: req.Scope <= acl.Entries[tokenInfo.User],
+		Authorized: req.Scope <= acl.Entries[tokenInfo.Subject],
 	}, nil
 }
 
@@ -582,8 +596,8 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *authclient.WhoAmIRequest) (
 		return nil, err
 	}
 	return &authclient.WhoAmIResponse{
-		Username: strings.TrimPrefix(tokenInfo.User, githubPrefix),
-		IsAdmin:  a.isAdmin(tokenInfo.User),
+		Username: strings.TrimPrefix(tokenInfo.Subject, githubPrefix),
+		IsAdmin:  a.isAdmin(tokenInfo.Subject),
 	}, nil
 }
 
@@ -613,6 +627,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 	if !a.isActivated() {
 		return nil, authclient.NotActivatedError{}
 	}
+	pachClient := a.getPachClient().WithCtx(ctx)
 
 	if err := validateSetScopeRequest(ctx, req); err != nil {
 		return nil, err
@@ -629,11 +644,22 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 			if !col.IsErrNotFound(err) {
 				return err
 			}
-			// TODO(msteffen): ACL not found; check that the repo exists?
+			// ACL not found. Check that repo exists (return error if not). Note that
+			// this is not consistent with the rest of the transaction, but users
+			// should not be able to send a SetScope request that races with
+			// CreateRepo
+			_, err := pachClient.InspectRepo(req.Repo)
+			if err != nil {
+				return err
+			}
+
+			// Repo exists, but has no ACL. Create default (empty) ACL
 			acl.Entries = make(map[string]authclient.Scope)
 		}
+
+		// Check if the caller is authorized
 		authorized, err := func() (bool, error) {
-			if a.isAdmin(tokenInfo.User) {
+			if a.isAdmin(tokenInfo.Subject) {
 				// admins are automatically authorized
 				return true, nil
 			}
@@ -649,7 +675,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 			}
 
 			// Check if the user is on the ACL directly
-			if acl.Entries[tokenInfo.User] == authclient.Scope_OWNER {
+			if acl.Entries[tokenInfo.Subject] == authclient.Scope_OWNER {
 				return true, nil
 			}
 			return false, nil
@@ -665,14 +691,22 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 		}
 
 		// Scope change is authorized. Make the change
-		u, err := canonicalizeGitHubUsername(ctx, req.Username)
-		if err != nil {
-			return err
+		var principal string
+		switch {
+		case strings.HasPrefix(req.Username, robotPrefix):
+			principal = req.Username
+		case strings.Index(req.Username, ":") < 0:
+			principal, err = canonicalizeGitHubUsername(ctx, req.Username)
+			if err != nil {
+				return err
+			}
+		default:
+			return &authclient.InvalidPrincipalError{req.Username}
 		}
 		if req.Scope != authclient.Scope_NONE {
-			acl.Entries[u] = req.Scope
+			acl.Entries[principal] = req.Scope
 		} else {
-			delete(acl.Entries, u)
+			delete(acl.Entries, principal)
 		}
 		if len(acl.Entries) == 0 {
 			return acls.Delete(req.Repo)
@@ -703,7 +737,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 	if err != nil {
 		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
-	if state != enterpriseclient.State_ACTIVE && !a.isAdmin(tokenInfo.User) {
+	if state != enterpriseclient.State_ACTIVE && !a.isAdmin(tokenInfo.Subject) {
 		return nil, fmt.Errorf("Pachyderm Enterprise is not active in this " +
 			"cluster (only a cluster admin can perform any operations)")
 	}
@@ -721,20 +755,32 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 		if err := acls.Get(repo, &acl); err != nil && !col.IsErrNotFound(err) {
 			return nil, err
 		}
+
+		// ACL read is authorized
 		if req.Username == "" {
-			resp.Scopes = append(resp.Scopes, acl.Entries[tokenInfo.User])
+			resp.Scopes = append(resp.Scopes, acl.Entries[tokenInfo.Subject])
 		} else {
-			if !a.isAdmin(tokenInfo.User) && acl.Entries[tokenInfo.User] < authclient.Scope_READER {
+			// Caller is getting another user's scopes. Check if the caller is
+			// authorized to view this repo's ACL
+			if !a.isAdmin(tokenInfo.Subject) && acl.Entries[tokenInfo.Subject] < authclient.Scope_READER {
 				return nil, &authclient.NotAuthorizedError{
 					Repo:     repo,
 					Required: authclient.Scope_READER,
 				}
 			}
-			u, err := canonicalizeGitHubUsername(ctx, req.Username)
-			if err != nil {
-				return nil, err
+			var principal string
+			switch {
+			case strings.HasPrefix(req.Username, robotPrefix):
+				principal = req.Username
+			case strings.Index(req.Username, ":") < 0:
+				principal, err = canonicalizeGitHubUsername(ctx, req.Username)
+				if err != nil {
+					return nil, err
+				}
+			default:
+				return nil, &authclient.InvalidPrincipalError{req.Username}
 			}
-			resp.Scopes = append(resp.Scopes, acl.Entries[u])
+			resp.Scopes = append(resp.Scopes, acl.Entries[principal])
 		}
 	}
 	return resp, nil
@@ -763,7 +809,7 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	if err != nil {
 		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
-	if state != enterpriseclient.State_ACTIVE && !a.isAdmin(tokenInfo.User) {
+	if state != enterpriseclient.State_ACTIVE && !a.isAdmin(tokenInfo.Subject) {
 		return nil, fmt.Errorf("Pachyderm Enterprise is not active in this " +
 			"cluster (only a cluster admin can perform any operations)")
 	}
@@ -774,13 +820,24 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 		return nil, err
 	}
 	resp = &authclient.GetACLResponse{
-		Entries: make([]*authclient.ACLEntry, 0),
+		Entries:      make([]*authclient.ACLEntry, 0),
+		RobotEntries: make([]*authclient.ACLEntry, 0),
 	}
-	for user, scope := range acl.Entries {
-		resp.Entries = append(resp.Entries, &authclient.ACLEntry{
-			Username: strings.TrimPrefix(user, githubPrefix),
-			Scope:    scope,
-		})
+	for principal, scope := range acl.Entries {
+		switch {
+		case strings.HasPrefix(principal, githubPrefix):
+			resp.Entries = append(resp.Entries, &authclient.ACLEntry{
+				Username: strings.TrimPrefix(principal, githubPrefix),
+				Scope:    scope,
+			})
+		case strings.HasPrefix(principal, robotPrefix):
+			resp.RobotEntries = append(resp.RobotEntries, &authclient.ACLEntry{
+				Username: strings.TrimPrefix(principal, robotPrefix),
+				Scope:    scope,
+			})
+		default:
+			return nil, fmt.Errorf("invalid ACL entry \"%s\" (this is likely a bug--you may need to delete and recreate the ACL)", principal)
+		}
 	}
 	// For now, no access is require to read a repo's ACL
 	// https://github.com/pachyderm/pachyderm/issues/2353
@@ -806,7 +863,8 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 	}
 
 	// Canonicalize entries in the request (must have canonical request before we
-	// can authorize, as we inspect the ACL contents in authorization)
+	// can authorize, as we inspect the ACL contents during authorization in the
+	// case where we're creating a new repo)
 	eg := &errgroup.Group{}
 	var aclMu sync.Mutex
 	newACL := new(authclient.ACL)
@@ -814,18 +872,26 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 		newACL.Entries = make(map[string]authclient.Scope)
 	}
 	for _, entry := range req.Entries {
-		user, scope := entry.Username, entry.Scope
-		eg.Go(func() error {
-			user, scope := user, scope
-			u, err := canonicalizeGitHubUsername(ctx, user)
-			if err != nil {
-				return err
-			}
+		switch {
+		case strings.HasPrefix(entry.Username, robotPrefix):
 			aclMu.Lock()
-			defer aclMu.Unlock()
-			newACL.Entries[u] = scope
-			return nil
-		})
+			newACL.Entries[entry.Username] = entry.Scope
+			aclMu.Unlock()
+		case strings.Index(entry.Username, ":") < 0:
+			user, scope := entry.Username, entry.Scope
+			eg.Go(func() error {
+				principal, err := canonicalizeGitHubUsername(ctx, user)
+				if err != nil {
+					return err
+				}
+				aclMu.Lock()
+				defer aclMu.Unlock()
+				newACL.Entries[principal] = scope
+				return nil
+			})
+		default:
+			return nil, &authclient.InvalidPrincipalError{entry.Username}
+		}
 	}
 	if err := eg.Wait(); err != nil {
 		return nil, err
@@ -837,7 +903,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 
 		// determine if the caller is authorized to set this repo's ACL
 		authorized, err := func() (bool, error) {
-			if a.isAdmin(tokenInfo.User) {
+			if a.isAdmin(tokenInfo.Subject) {
 				// admins are automatically authorized
 				return true, nil
 			}
@@ -860,18 +926,14 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 			}
 			if len(acl.Entries) > 0 {
 				// ACL is present; caller must be authorized directly
-				if acl.Entries[tokenInfo.User] == authclient.Scope_OWNER {
+				if acl.Entries[tokenInfo.Subject] == authclient.Scope_OWNER {
 					return true, nil
 				}
 				return false, nil
 			}
 
 			// No ACL -- check if the repo being modified exists
-			pachClient, err := a.getPachClient()
-			if err != nil {
-				return false, fmt.Errorf("could not check if repo \"%s\" exists: %v", req.Repo, err)
-			}
-			_, err = pachClient.InspectRepo(req.Repo)
+			_, err = a.getPachClient().WithCtx(ctx).InspectRepo(req.Repo)
 			err = grpcutil.ScrubGRPC(err)
 			if err == nil {
 				// Repo exists -- user isn't authorized
@@ -880,7 +942,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 				// Unclear if repo exists -- return error
 				return false, fmt.Errorf("could not inspect \"%s\": %v", req.Repo, err)
 			} else if len(newACL.Entries) == 1 &&
-				newACL.Entries[tokenInfo.User] == authclient.Scope_OWNER {
+				newACL.Entries[tokenInfo.Subject] == authclient.Scope_OWNER {
 				// Special case: Repo doesn't exist, but user is creating a new Repo, and
 				// making themself the owner, e.g. for CreateRepo or CreatePipeline, then
 				// the request is authorized
@@ -922,8 +984,8 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 		// it with a token that would allow it to access any repo after the auth
 		// service has been activated.
 		tokenInfo = &authclient.TokenInfo{
-			User:   magicUser,
-			Source: authclient.TokenInfo_GET_TOKEN,
+			Subject: magicUser,
+			Source:  authclient.TokenInfo_GET_TOKEN,
 		}
 	} else {
 		var err error
@@ -942,8 +1004,8 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 		return pipelineTokens.Put(hashToken(token), tokenInfo)
 	})
 	if err != nil {
-		if tokenInfo.User != magicUser {
-			return nil, fmt.Errorf("error storing token for user \"%s\": %v", tokenInfo.User, err)
+		if tokenInfo.Subject != magicUser {
+			return nil, fmt.Errorf("error storing token for user \"%s\": %v", tokenInfo.Subject, err)
 		}
 		return nil, fmt.Errorf("error storing token for default pipeline user: %v", err)
 	}
@@ -1022,9 +1084,9 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.Token
 		return nil, fmt.Errorf("error getting token: %v", err)
 	}
 	switch {
-	case tokensResult.User != "":
+	case tokensResult.Subject != "":
 		return &tokensResult, nil
-	case pipelineTokensResult.User != "":
+	case pipelineTokensResult.Subject != "":
 		return &pipelineTokensResult, nil
 	default:
 		// Not found. This error message string is matched in the UI. If edited,

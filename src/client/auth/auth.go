@@ -107,3 +107,13 @@ func IsNotSignedInError(err error) bool {
 	// structured errors across GRPC boundaries. Fix
 	return strings.Contains(err.Error(), isNotSignedInErrMsg)
 }
+
+// InvalidPrincipalError indicates that a an argument to e.g. GetScope,
+// SetScope, or SetACL is invalid
+type InvalidPrincipalError struct {
+	Principal string
+}
+
+func (e *InvalidPrincipalError) Error() string {
+	return fmt.Sprintf("invalid principal \"%s\"; must start with \"robot:\" or have no \":\"", e.Principal)
+}
