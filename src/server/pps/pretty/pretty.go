@@ -273,12 +273,12 @@ func PrintDetailedDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 	tw.Flush()
 }
 
-// PrintDatumPfsStateHeader prints the header for the PfsState field
+// PrintFileHeader prints the header for a pfs file.
 func PrintFileHeader(w io.Writer) {
 	fmt.Fprintf(w, "  REPO\tCOMMIT\tPATH\t\n")
 }
 
-// PrintDatumPfsState prints the values of the PfsState field
+// PrintFile values for a pfs file.
 func PrintFile(w io.Writer, file *pfsclient.File) {
 	fmt.Fprintf(w, "  %s\t%s\t%s\t\n", file.Commit.Repo.Name, file.Commit.ID, file.Path)
 }
