@@ -267,7 +267,7 @@ func (a *apiServer) checkOrDeployGithookService() error {
 	_, err := getGithookService(a.kubeClient, a.namespace)
 	if err != nil {
 		if _, ok := err.(*errGithookServiceNotFound); ok {
-			svc := assets.GithookService()
+			svc := assets.GithookService(a.namespace)
 			_, err = a.kubeClient.CoreV1().Services(a.namespace).Create(svc)
 			return err
 		}
