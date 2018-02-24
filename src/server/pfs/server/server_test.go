@@ -2385,7 +2385,7 @@ func generateRandomString(n int) string {
 	rand.Seed(time.Now().UnixNano())
 	b := make([]byte, n)
 	for i := range b {
-		b[i] = rune('a' + rand.Intn(26))
+		b[i] = byte('a' + rand.Intn(26))
 	}
 	return string(b)
 }
@@ -2426,7 +2426,7 @@ var (
 // src/server/pfs/server/driver.go expects an etcd server at "localhost:32379"
 // Try to establish a connection before proceeding with the test (which will
 // fail if the connection can't be established)
-func startPFSServers() {
+func startPFSServers(t *testing.T) {
 	startPFSServersOnce.Do(func() {
 		require.NoError(t, backoff.Retry(func() error {
 			_, err := etcd.New(etcd.Config{
@@ -2442,7 +2442,7 @@ func startPFSServers() {
 }
 
 func getClient(t *testing.T) *pclient.APIClient {
-	startPFSServers()
+	startPFSServers(t)
 	dbName := "pachyderm_test_" + uuid.NewWithoutDashes()[0:12]
 	testDBs = append(testDBs, dbName)
 
