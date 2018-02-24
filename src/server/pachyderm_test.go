@@ -7146,6 +7146,31 @@ func TestEntryPoint(t *testing.T) {
 	require.Equal(t, "foo", buf.String())
 }
 
+func TestDeleteSpecRepo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	dataRepo := uniqueString("TestDeleteSpecRepo_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	pipeline := uniqueString("TestSimplePipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"pachyderm_entrypoint",
+		[]string{"echo", "foo"},
+		nil,
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/"),
+		"",
+		false,
+	))
+	require.YesError(t, c.DeleteRepo("spec", false))
+}
+
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
 	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
 	require.NoError(t, err)
