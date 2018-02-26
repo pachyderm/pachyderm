@@ -197,6 +197,8 @@ if your docker command exits with one of the codes in this array, it will
 be considered a successful run for the purpose of setting job status.  `0`
 is always considered a successful exit code.
 
+`transform.debug` turns on added debug logging for the pipeline.
+
 ### Parallelism Spec (optional)
 
 `parallelism_spec` describes how Pachyderm should parallelize your pipeline.
