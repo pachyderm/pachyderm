@@ -72,8 +72,8 @@ type AssetOpts struct {
 	Dynamic     bool
 	EtcdNodes   int
 	EtcdVolume  string
-	EnableDash  bool
 	DashOnly    bool
+	NoDash		bool
 	DashImage   string
 	Registry    string
 	EtcdPrefix  string
@@ -1187,7 +1187,7 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 	fmt.Fprintf(w, "\n")
 	encoder.Encode(PachdDeployment(opts, objectStoreBackend, hostPath))
 	fmt.Fprintf(w, "\n")
-	if opts.EnableDash {
+	if !opts.NoDash {
 		WriteDashboardAssets(w, opts)
 	}
 	return nil

@@ -2,17 +2,17 @@
 
 To deploy Pachyderm's Enterprise Edition, you simply need to:
 
-1. [Deploy the Pachyderm dashboard](#deploying-the-pachyderm-enterprise-edition-dashboard)
-2. [Activate the Enterprise Edition](#activating-pachyderm-enterprise-edition)
+1. [Activate the Enterprise Edition](#activating-pachyderm-enterprise-edition)
+
+**Note** - Pachyderm dashboard is now deployed by default. If you wish to deploy without the dashboard please use `pachctl deploy [command] --no-dashboard`
 
 **Note** - You can get a FREE evaluation token for the enterprise edition on the landing page of the Enterprise dashboard.
 
 ## Deploying the Pachyderm Enterprise Edition Dashboard
 
-The Pachyderm Enterprise dashboard can be deployed on top of an existing Pachyderm cluster or along with the deployment of a new cluster:
+The Pachyderm Enterprise dashboard can be deployed on top of an existing Pachyderm cluster or along with the deployment of a new cluster (enabled by default):
 
 - [Deploying the dashboard on top of an existing Pachyderm deployment](#deploying-on-top-of-an-existing-pachyderm-deployment)
-- [Deploying the dashboard with a new Pachyderm deployment](#deploying-with-a-new-pachyderm-deployment)
 
 ### Deploying on top of an existing Pachyderm deployment
 
@@ -88,31 +88,6 @@ $ pachctl port-forward &
 ```
 
 Now you can visit the Pachyderm dashboard at `localhost:30080`! 
-
-### Deploying with a new Pachyderm deployment
-
-You can deploy the Pachyderm Enterprise Edition dashboard with any new Pachyderm deployment by adding the `--dashboard` flag to the respective deploy command:
-
-```
-# AWS
-pachctl deploy amazon ... --dashboard
-
-# Google
-pachctl deploy google ... --dashboard
-
-# Azure
-pachctl deploy azure ... --dashboard
-
-# Local
-pachctl deploy local --dashboard
-
-# Custom
-pachctl deploy custom ... --dashboard
-```
-
-Each of these deploys are further detailed [here](http://pachyderm.readthedocs.io/en/latest/deployment/deploy_intro.html).  
-
-After deploying with those commands, you should see the `dash-xxxxxxxxx` pod running in Kubernetes, and you should be able to access the dashboard at `localhost:30080`, as discussed further [above](#deploying-on-top-of-an-existing-pachyderm-deployment).
 
 ## Activating Pachyderm Enterprise Edition
 
