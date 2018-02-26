@@ -15,7 +15,7 @@
   },
   "input": {
     "atom": {
-      "repo": "raw-data",
+      "repo": "raw_data",
       "glob": "/"
     }
   }

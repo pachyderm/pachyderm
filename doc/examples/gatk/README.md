@@ -105,7 +105,7 @@ The last step is to joint call all your GVCF files using the GATK tool GenotypeG
 To run the joint genotyping:
 
 ```sh
-$ pachctl create-pipeline -f joint-call.json
+$ pachctl create-pipeline -f joint_call.json
 ```
 
 This will automatically trigger a job and produce our final output:
@@ -113,9 +113,9 @@ This will automatically trigger a job and produce our final output:
 ```sh
 $ pachctl list-job
 ID                                   OUTPUT COMMIT                                STARTED        DURATION   RESTART PROGRESS  DL       UL       STATE
-67135f10-4121-4f29-a30b-1eaf6ffe2194 joint-call/c4ebd6dd0c764a97a8d7f3a71f6bb9ce  38 minutes ago 5 seconds  0       1 + 0 / 1 88.35MiB 113.9KiB success
+67135f10-4121-4f29-a30b-1eaf6ffe2194 joint_call/c4ebd6dd0c764a97a8d7f3a71f6bb9ce  38 minutes ago 5 seconds  0       1 + 0 / 1 88.35MiB 113.9KiB success
 c61c71d1-6544-48ad-8361-b4ad155ba1a0 likelihoods/992393004c5a45c0a35995cf0179f1cb 43 minutes ago 18 seconds 0       1 + 0 / 1 107.5MiB 4.667MiB success
-$ pachctl list-file joint-call master
+$ pachctl list-file joint_call master
 NAME                TYPE                SIZE
 joint.vcf           file                103.7KiB
 joint.vcf.idx       file                10.21KiB
@@ -147,11 +147,11 @@ This will trigger new jobs to process the new samples:
 ```sh
 pachctl list-job
 ID                                   OUTPUT COMMIT                                STARTED            DURATION   RESTART PROGRESS  DL       UL       STATE
-73222c06-c444-4dff-b370-6c7dea83258d joint-call/32d3615a036e4c0eadd3ed49435ee7db  About a minute ago 6 seconds  0       1 + 0 / 1 97.64MiB 188.6KiB success
+73222c06-c444-4dff-b370-6c7dea83258d joint_call/32d3615a036e4c0eadd3ed49435ee7db  About a minute ago 6 seconds  0       1 + 0 / 1 97.64MiB 188.6KiB success
 47652b28-a1ba-454e-a74c-7b43740a72f0 likelihoods/a7e160f8418a4bd5a46233bd6b1d84ce 2 minutes ago      16 seconds 0       1 + 2 / 3 93.26MiB 4.729MiB success
-55b17b8c-b305-4d4c-b822-f861578dadd8 joint-call/4eb7c19600134af5b9595bf5d9f71edc  2 minutes ago      5 seconds  0       1 + 0 / 1 92.92MiB 166.3KiB success
+55b17b8c-b305-4d4c-b822-f861578dadd8 joint_call/4eb7c19600134af5b9595bf5d9f71edc  2 minutes ago      5 seconds  0       1 + 0 / 1 92.92MiB 166.3KiB success
 a350a349-5ddb-4e19-bdda-66d7edbf9447 likelihoods/e783989ca367428ea2df6406a23bea6c 2 minutes ago      19 seconds 0       1 + 1 / 2 93.35MiB 4.564MiB success
-67135f10-4121-4f29-a30b-1eaf6ffe2194 joint-call/c4ebd6dd0c764a97a8d7f3a71f6bb9ce  About an hour ago  5 seconds  0       1 + 0 / 1 88.35MiB 113.9KiB success
+67135f10-4121-4f29-a30b-1eaf6ffe2194 joint_call/c4ebd6dd0c764a97a8d7f3a71f6bb9ce  About an hour ago  5 seconds  0       1 + 0 / 1 88.35MiB 113.9KiB success
 c61c71d1-6544-48ad-8361-b4ad155ba1a0 likelihoods/992393004c5a45c0a35995cf0179f1cb About an hour ago  18 seconds 0       1 + 0 / 1 107.5MiB 4.667MiB success
 ```
 
