@@ -472,6 +472,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 func Cmds(noMetrics *bool) []*cobra.Command {
 	deploy := DeployCmd(noMetrics)
 	var all bool
+	var namespace string
 	undeploy := &cobra.Command{
 		Use:   "undeploy",
 		Short: "Tear down a deployed Pachyderm cluster.",
@@ -521,7 +522,7 @@ Are you sure you want to proceed? yN
 				}...)
 			}
 			for _, asset := range assets {
-				if err := cmdutil.RunIO(io, "kubectl", "delete", asset, "-l", "suite=pachyderm"); err != nil {
+				if err := cmdutil.RunIO(io, "kubectl", "delete", asset, "-l", "suite=pachyderm", "--namespace", namespace); err != nil {
 					return err
 				}
 			}
@@ -536,6 +537,7 @@ removed, making metadata such repos, commits, pipelines, and jobs
 unrecoverable. If your persistent volume was manually provisioned (i.e. if
 you used the "--static-etcd-volume" flag), the underlying volume will not be
 removed.`)
+	undeploy.Flags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace to undeploy Pachyderm from.")
 
 	var updateDashDryRun bool
 	updateDash := &cobra.Command{
