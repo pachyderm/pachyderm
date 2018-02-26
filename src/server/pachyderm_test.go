@@ -6930,6 +6930,10 @@ func TestDeleteCommitPropagation(t *testing.T) {
 		require.Nil(t, commits[0].ParentCommit)
 	}
 
+	jis, err := c.ListJob(pipeline[0], nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jis))
+
 	// Delete the second commit in the input repo (master)
 	// Make sure that 'repo' and all downstream repos have no commits. This
 	// ensures that branches are updated.
