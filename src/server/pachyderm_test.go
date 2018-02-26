@@ -7152,10 +7152,10 @@ func TestDeleteSpecRepo(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	dataRepo := uniqueString("TestDeleteSpecRepo_data")
+	dataRepo := tu.UniqueString("TestDeleteSpecRepo_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	pipeline := uniqueString("TestSimplePipeline")
+	pipeline := tu.UniqueString("TestSimplePipeline")
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
 		"pachyderm_entrypoint",
