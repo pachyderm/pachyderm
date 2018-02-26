@@ -46,7 +46,7 @@ func maybeKcCreate(dryRun bool, manifest *bytes.Buffer, opts *assets.AssetOpts, 
 	}
 	if !dryRun {
 		fmt.Println("\nPachyderm is launching. Check its status with \"kubectl get all\"")
-		if opts.DashOnly || opts.EnableDash {
+		if opts.DashOnly || !opts.NoDash {
 			fmt.Println("Once launched, access the dashboard by running \"pachctl port-forward\"")
 		}
 		fmt.Println("")
@@ -74,8 +74,8 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var persistentDiskBackend string
 	var objectStoreBackend string
 	var opts *assets.AssetOpts
-	var enableDash bool
 	var dashOnly bool
+	var noDash bool
 	var dashImage string
 	var registry string
 	var imagePullSecret string
@@ -402,8 +402,8 @@ particular backend, run "pachctl deploy storage <backend>"`,
 				EtcdMemRequest:          etcdMemRequest,
 				EtcdNodes:               etcdNodes,
 				EtcdVolume:              etcdVolume,
-				EnableDash:              enableDash,
 				DashOnly:                dashOnly,
+				NoDash:					 noDash,
 				DashImage:               dashImage,
 				Registry:                registry,
 				NoGuaranteed:            noGuaranteed,
@@ -417,8 +417,8 @@ particular backend, run "pachctl deploy storage <backend>"`,
 	deploy.PersistentFlags().StringVar(&etcdVolume, "static-etcd-volume", "", "Deploy etcd as a ReplicationController with one pod.  The pod uses the given persistent volume.")
 	deploy.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
 	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
-	deploy.PersistentFlags().BoolVar(&enableDash, "dashboard", false, "Deploy the Pachyderm UI along with Pachyderm (experimental). After deployment, run \"pachctl port-forward\" to connect")
 	deploy.PersistentFlags().BoolVar(&dashOnly, "dashboard-only", false, "Only deploy the Pachyderm UI (experimental), without the rest of pachyderm. This is for launching the UI adjacent to an existing Pachyderm cluster. After deployment, run \"pachctl port-forward\" to connect")
+	deploy.PersistentFlags().BoolVar(&noDash, "no-dashboard", false, "Don't deploy the Pachyderm UI alongside Pachyderm (experimental).")
 	deploy.PersistentFlags().StringVar(&registry, "registry", "", "The registry to pull images from.")
 	deploy.PersistentFlags().StringVar(&imagePullSecret, "image-pull-secret", "", "A secret in Kubernetes that's needed to pull from your private registry.")
 	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", "", "Image URL for pachyderm dashboard")
