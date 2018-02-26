@@ -227,13 +227,13 @@ message SetACLResponse {}
 //// Token API (very limited -- for pipelines)
 
 message GetAuthTokenRequest {
-  // User is actually a subject, and the returned token (if any) will allow
-	// the caller to access resources as this subject
-  string user = 1;
+  // The returned token will allow the caller to access resources as this
+  // subject
+  string subject = 1;
 }
 
 message GetAuthTokenResponse {
-  // A new auth token for the user in 'GetAuthTokenRequest.User' token
+  // A new auth token for the user in 'GetAuthTokenRequest.Subject' token
   string token = 1;
 }
 

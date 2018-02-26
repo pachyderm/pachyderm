@@ -955,7 +955,16 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 		if err != nil {
 			return nil, err
 		}
-		tokenInfo.Source = authclient.TokenInfo_GET_TOKEN
+		if req.Subject != "" {
+			if !a.isAdmin(tokenInfo.Subject) {
+				return nil, fmt.Errorf("must be an admin to mint tokens on behalf of another user")
+			}
+			subject, err := lenientCanonicalizeSubject(ctx, req.Subject)
+			if err != nil {
+				return nil, err
+			}
+			tokenInfo = &authclient.TokenInfo{Subject: subject}
+		}
 	}
 
 	// generate new token, and write to etcd

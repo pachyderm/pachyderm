@@ -29,9 +29,9 @@ var (
 
 // getPachClient creates a seed client with a grpc connection to a pachyderm
 // cluster, and then enable the auth service in that cluster
-func getPachClient(t testing.TB, user string) *client.APIClient {
+func getPachClient(t testing.TB, subject string) *client.APIClient {
 	t.Helper()
-	// Check if 'user' already has a client -- if not create one
+	// Check if 'subject' already has a client -- if not create one
 	func() {
 		// Client creation is wrapped in an anonymous function to make locking and
 		// releasing clientMapMut easier, and keep concurrent tests from racing with
@@ -75,9 +75,10 @@ func getPachClient(t testing.TB, user string) *client.APIClient {
 		require.NoError(t, backoff.Retry(func() error {
 			if _, err := seedClient.GetAdmins(context.Background(),
 				&auth.GetAdminsRequest{},
-			); err == nil {
+			); err == nil || auth.IsNotSignedInError(err) {
 				return nil // auth already active
 			}
+
 			// Auth not active -- clear existing cached clients (as their auth tokens
 			// are no longer valid)
 			clientMap = map[string]*client.APIClient{"": clientMap[""]}
@@ -100,23 +101,23 @@ func getPachClient(t testing.TB, user string) *client.APIClient {
 		}, backoff.NewTestingBackOff()))
 
 		// Re-use old client for 'u', or create a new one if none exists
-		if _, ok := clientMap[user]; !ok {
-			userClient := *clientMap[""]
-			resp, err := userClient.Authenticate(context.Background(),
+		if _, ok := clientMap[subject]; !ok {
+			subjectClient := *clientMap[""]
+			resp, err := subjectClient.Authenticate(context.Background(),
 				&auth.AuthenticateRequest{
-					GithubUsername: strings.TrimPrefix(user, GithubPrefix),
+					GithubUsername: strings.TrimPrefix(subject, GithubPrefix),
 				})
 			require.NoError(t, err)
-			userClient.SetAuthToken(resp.PachToken)
-			clientMap[user] = &userClient
+			subjectClient.SetAuthToken(resp.PachToken)
+			clientMap[subject] = &subjectClient
 		}
 	}()
-	return clientMap[user]
+	return clientMap[subject]
 }
 
 // entries constructs an auth.ACL struct from a list of the form
-// [ user_1, scope_1, user_2, scope_2, ... ]. All users are assumed to be github
-// users
+// [ principal_1, scope_1, principal_2, scope_2, ... ]. All unlabelled
+// principals are assumed to be GitHub users
 func entries(items ...string) []auth.ACLEntry {
 	if len(items)%2 != 0 {
 		panic("cannot create an ACL from an odd number of items")
@@ -130,11 +131,11 @@ func entries(items ...string) []auth.ACLEntry {
 		if err != nil {
 			panic(fmt.Sprintf("could not parse scope: %v", err))
 		}
-		username := items[i]
-		if strings.Index(username, ":") < 0 {
-			username = GithubPrefix + username
+		principal := items[i]
+		if strings.Index(principal, ":") < 0 {
+			principal = GithubPrefix + principal
 		}
-		result = append(result, auth.ACLEntry{Username: username, Scope: scope})
+		result = append(result, auth.ACLEntry{Username: principal, Scope: scope})
 	}
 	return result
 }
@@ -223,7 +224,7 @@ func TestActivate(t *testing.T) {
 	who, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.True(t, who.IsAdmin)
-	require.Equal(t, "admin", who.Username)
+	require.Equal(t, admin, who.Username)
 }
 
 // TestGetSetBasic creates two users, alice and bob, and gives bob gradually
