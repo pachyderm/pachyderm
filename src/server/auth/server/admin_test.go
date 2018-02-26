@@ -31,6 +31,15 @@ func TSProtoOrDie(t *testing.T, ts time.Time) *types.Timestamp {
 	return proto
 }
 
+const admin = GithubPrefix + "admin"
+const carol = GithubPrefix + "carol"
+
+// helper function that prepends GithubPrefix to 'user'--useful for validating
+// responses
+func gh(user string) string {
+	return GithubPrefix + user
+}
+
 // TestAdminRWO tests adding and removing cluster admins, as well as admins
 // reading, writing, and moderating (owning) all repos in the cluster.
 func TestAdminRWO(t *testing.T) {
@@ -39,12 +48,12 @@ func TestAdminRWO(t *testing.T) {
 	}
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
-	adminClient := getPachClient(t, "admin")
+	adminClient := getPachClient(t, admin)
 
 	// The initial set of admins is just the user "admin"
 	resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
 	require.NoError(t, err)
-	require.ElementsEqual(t, []string{"admin"}, resp.Admins)
+	require.ElementsEqual(t, []string{admin}, resp.Admins)
 
 	// alice creates a repo (that only she owns) and puts a file
 	repo := tu.UniqueString("TestAdminRWO")
@@ -90,7 +99,9 @@ func TestAdminRWO(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		return require.ElementsEqualOrErr([]string{"admin", bob}, resp.Admins)
+		return require.ElementsEqualOrErr(
+			[]string{admin, gh(bob)}, resp.Admins,
+		)
 	}, backoff.NewTestingBackOff()))
 
 	// now bob can read from the repo
@@ -247,7 +258,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	// Check that the initial set of admins is just "admin"
 	resp, err := adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
 	require.NoError(t, err)
-	require.ElementsEqual(t, []string{"admin"}, resp.Admins)
+	require.ElementsEqual(t, []string{admin}, resp.Admins)
 
 	// admin cannot remove themselves from the list of cluster admins (otherwise
 	// there would be no admins)
@@ -759,7 +770,7 @@ func TestAdminWhoAmI(t *testing.T) {
 	// WhoAmI indicates that they're not
 	resp, err := aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.Equal(t, alice, resp.Username)
+	require.Equal(t, gh(alice), resp.Username)
 	require.False(t, resp.IsAdmin)
 	resp, err = adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
@@ -796,4 +807,90 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 	for _, info := range infos {
 		require.Equal(t, auth.Scope_OWNER, info.AuthInfo.AccessLevel)
 	}
+}
+
+// TestGetAuthToken tests that an admin can manufacture auth credentials for
+// arbitrary other users
+func TestGetAuthToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	adminClient := getPachClient(t, admin)
+
+	// Generate two auth credentials, and give them to two separate clients
+	robotUser := RobotPrefix + tu.UniqueString("optimus_prime")
+	resp, err := adminClient.GetAuthToken(adminClient.Ctx(),
+		&auth.GetAuthTokenRequest{robotUser})
+	require.NoError(t, err)
+	// copy client & use resp token
+	user1 := adminClient.WithCtx(context.Background())
+	user1.SetAuthToken(resp.Token)
+
+	token1 := resp.Token
+	resp, err = adminClient.GetAuthToken(adminClient.Ctx(),
+		&auth.GetAuthTokenRequest{robotUser})
+	require.NoError(t, err)
+	require.NotEqual(t, token1, resp.Token)
+	// copy client & use resp token
+	user2 := adminClient.WithCtx(context.Background())
+	user2.SetAuthToken(resp.Token)
+
+	// user1 creates a repo
+	repo := tu.UniqueString("TestPipelinesRunAfterExpiration")
+	require.NoError(t, user1.CreateRepo(repo))
+	require.Equal(t, entries(robotUser, "owner"), GetACL(t, user1, repo))
+
+	// user1 creates a pipeline
+	pipeline := tu.UniqueString("optimus-prime-line")
+	require.NoError(t, user1.CreatePipeline(
+		pipeline,
+		"", // default image: ubuntu:14.04
+		[]string{"bash"},
+		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewAtomInput(repo, "/*"),
+		"",    // default output branch: master
+		false, // no update
+	))
+	require.OneOfEquals(t, pipeline, PipelineNames(t, user1))
+	require.Equal(t, entries(robotUser, "owner"), GetACL(t, user1, pipeline)) // check that robotUser owns the output repo
+
+	// Make sure that user2 can commit to the input repo and the pipeline runs
+	// successfully
+	commit, err := user2.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = user2.PutFile(repo, commit.ID, tu.UniqueString("/file1"),
+		strings.NewReader("test data"))
+	require.NoError(t, err)
+	require.NoError(t, user2.FinishCommit(repo, commit.ID))
+	iter, err := user2.FlushCommit(
+		[]*pfs.Commit{commit},
+		[]*pfs.Repo{{Name: pipeline}},
+	)
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, 60*time.Second, func() error {
+		_, err := iter.Next()
+		return err
+	})
+
+	// Make sure user2 can update the pipeline, and it still runs successfully
+	require.NoError(t, user1.CreatePipeline(
+		pipeline,
+		"", // default image: ubuntu:14.04
+		[]string{"bash"},
+		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewAtomInput(repo, "/*"),
+		"",   // default output branch: master
+		true, // update
+	))
+	iter, err = user2.FlushCommit(
+		[]*pfs.Commit{commit},
+		[]*pfs.Repo{{Name: pipeline}},
+	)
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, 60*time.Second, func() error {
+		_, err := iter.Next()
+		return err
+	})
 }
