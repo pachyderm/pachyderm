@@ -1,6 +1,6 @@
 {
   "pipeline": {
-    "name": "joint-call"
+    "name": "joint_call"
   },
   "transform": {
     "image": "broadinstitute/gatk3:3.8-0",
