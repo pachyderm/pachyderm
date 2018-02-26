@@ -306,7 +306,7 @@ When you deployed Pachyderm locally, the Pachyderm Enterprise dashboard was also
 
 .. image:: dashboard1.png
 
-Enter you email address if you would like to obtain a free trail token for the dashboard. Upon entering this trial token, you will be able to see your pipeline structure and interactively explore the various pieces of your pipeline as pictured below:
+Enter your email address if you would like to obtain a free trail token for the dashboard. Upon entering this trial token, you will be able to see your pipeline structure and interactively explore the various pieces of your pipeline as pictured below:
 
 .. image:: dashboard2.png
 
