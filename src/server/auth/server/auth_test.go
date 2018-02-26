@@ -29,9 +29,9 @@ var (
 
 // getPachClient creates a seed client with a grpc connection to a pachyderm
 // cluster, and then enable the auth service in that cluster
-func getPachClient(t testing.TB, u string) *client.APIClient {
+func getPachClient(t testing.TB, user string) *client.APIClient {
 	t.Helper()
-	// Check if "u" already has a client -- if not create one
+	// Check if 'user' already has a client -- if not create one
 	func() {
 		// Client creation is wrapped in an anonymous function to make locking and
 		// releasing clientMapMut easier, and keep concurrent tests from racing with
@@ -100,20 +100,23 @@ func getPachClient(t testing.TB, u string) *client.APIClient {
 		}, backoff.NewTestingBackOff()))
 
 		// Re-use old client for 'u', or create a new one if none exists
-		if _, ok := clientMap[u]; !ok {
+		if _, ok := clientMap[user]; !ok {
 			userClient := *clientMap[""]
 			resp, err := userClient.Authenticate(context.Background(),
-				&auth.AuthenticateRequest{GithubUsername: string(u)})
+				&auth.AuthenticateRequest{
+					GithubUsername: strings.TrimPrefix(user, GithubPrefix),
+				})
 			require.NoError(t, err)
 			userClient.SetAuthToken(resp.PachToken)
-			clientMap[u] = &userClient
+			clientMap[user] = &userClient
 		}
 	}()
-	return clientMap[u]
+	return clientMap[user]
 }
 
 // entries constructs an auth.ACL struct from a list of the form
-// [ user_1, scope_1, user_2, scope_2, ... ]
+// [ user_1, scope_1, user_2, scope_2, ... ]. All users are assumed to be github
+// users
 func entries(items ...string) []auth.ACLEntry {
 	if len(items)%2 != 0 {
 		panic("cannot create an ACL from an odd number of items")
@@ -127,7 +130,11 @@ func entries(items ...string) []auth.ACLEntry {
 		if err != nil {
 			panic(fmt.Sprintf("could not parse scope: %v", err))
 		}
-		result = append(result, auth.ACLEntry{Username: items[i], Scope: scope})
+		username := items[i]
+		if strings.Index(username, ":") < 0 {
+			username = GithubPrefix + username
+		}
+		result = append(result, auth.ACLEntry{Username: username, Scope: scope})
 	}
 	return result
 }

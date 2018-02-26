@@ -50,16 +50,22 @@ const (
 	// possible to log in as magicUser, but pipelines with no owner are run as
 	// magicUser when auth is activated. This string is not secret, but is long
 	// and random to avoid collisions with real usernames
-	magicUser = `GZD4jKDGcirJyWQt6HtK4hhRD6faOofP1mng34xNZsI`
+	magicUser = `magic:GZD4jKDGcirJyWQt6HtK4hhRD6faOofP1mng34xNZsI`
 
-	// githubPrefix is a prefix we prepend to subjects in the 'tokens' collection
-	// and principals in ACL Entries (i.e. all usernames that have been verified
-	// with GitHub) to indicate that they're GitHub usernames.
-	githubPrefix = "github:"
+	// The following constants are Subject prefixes. These are prepended to
+	// Subjects in the 'tokens' collection, and Principals in 'admins' and on ACLs
+	// to indicate what type of Subject or Principal they are (every Pachyderm
+	// Subject has a logical Principal with the same name).
 
-	// robotPrefix is a prefix we prepend to subjects in the 'tokens' collection
-	// and principals in ACL Entries to indicate that they're robot users.
-	robotPrefix = "robot:"
+	// GithubPrefix indicates that this Subject is a GitHub user (because users
+	// can authenticate via GitHub, and Pachyderm doesn't have a users table,
+	// every GitHub user is also a logical Pachyderm user (but most won't be on
+	// any ACLs)
+	GithubPrefix = "github:"
+
+	// RobotPrefix indicates that this Subject is a Pachyderm robot user. Any
+	// string (with this prefix) is a logical Pachyderm robot user.
+	RobotPrefix = "robot:"
 )
 
 // epsilon is small, nonempty protobuf to use as an etcd value (the etcd client
@@ -235,6 +241,9 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	// We don't want to actually log the request/response since they contain
 	// credentials.
 	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
+	if strings.HasPrefix(req.GithubUsername, GithubPrefix) || strings.HasPrefix(req.GithubUsername, RobotPrefix) {
+		return nil, fmt.Errorf("GithubUsername should not have a user type prefix; it must be a GitHub user")
+	}
 	if req.GithubUsername == magicUser {
 		return nil, fmt.Errorf("invalid user")
 	}
@@ -328,7 +337,7 @@ func (a *apiServer) isActivated() bool {
 func GitHubTokenToUsername(ctx context.Context, githubUsername string, token string) (string, error) {
 	if os.Getenv(DisableAuthenticationEnvVar) == "true" && githubUsername != "" {
 		// Test mode--the caller automatically authenticates as whoever is requested
-		return githubPrefix + githubUsername, nil
+		return GithubPrefix + githubUsername, nil
 	}
 
 	ts := oauth2.StaticTokenSource(
@@ -349,7 +358,7 @@ func GitHubTokenToUsername(ctx context.Context, githubUsername string, token str
 		return "", fmt.Errorf("attempted to authenticate as %s, but Github "+
 			"token did not originate from that account", githubUsername)
 	}
-	return githubPrefix + verifiedUsername, nil
+	return GithubPrefix + verifiedUsername, nil
 }
 
 func (a *apiServer) GetAdmins(ctx context.Context, req *authclient.GetAdminsRequest) (resp *authclient.GetAdminsResponse, retErr error) {
@@ -374,7 +383,7 @@ func (a *apiServer) GetAdmins(ctx context.Context, req *authclient.GetAdminsRequ
 		Admins: make([]string, 0, len(a.adminCache)),
 	}
 	for admin := range a.adminCache {
-		resp.Admins = append(resp.Admins, strings.TrimPrefix(admin, githubPrefix))
+		resp.Admins = append(resp.Admins, admin)
 	}
 	return resp, nil
 }
@@ -424,41 +433,27 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 	eg := &errgroup.Group{}
 	canonicalizedToAdd := make([]string, len(req.Add))
 	for i, user := range req.Add {
-		switch {
-		case strings.HasPrefix(user, robotPrefix):
+		i, user := i, user
+		eg.Go(func() error {
+			user, err = lenientCanonicalizeSubject(ctx, user)
+			if err != nil {
+				return err
+			}
 			canonicalizedToAdd[i] = user
-		case strings.Index(user, ":") < 0:
-			i, user := i, user
-			eg.Go(func() error {
-				principal, err := canonicalizeGitHubUsername(ctx, user)
-				if err != nil {
-					return err
-				}
-				canonicalizedToAdd[i] = principal
-				return nil
-			})
-		default:
-			return nil, &authclient.InvalidPrincipalError{user}
-		}
+			return nil
+		})
 	}
 	canonicalizedToRemove := make([]string, len(req.Remove))
 	for i, user := range req.Remove {
-		switch {
-		case strings.HasPrefix(user, robotPrefix):
+		i, user := i, user
+		eg.Go(func() error {
+			user, err = lenientCanonicalizeSubject(ctx, user)
+			if err != nil {
+				return err
+			}
 			canonicalizedToRemove[i] = user
-		case strings.Index(user, ":") < 0:
-			i, user := i, user
-			eg.Go(func() error {
-				principal, err := canonicalizeGitHubUsername(ctx, user)
-				if err != nil {
-					return err
-				}
-				canonicalizedToRemove[i] = principal
-				return nil
-			})
-		default:
-			return nil, &authclient.InvalidPrincipalError{user}
-		}
+			return nil
+		})
 	}
 	if err := eg.Wait(); err != nil {
 		return nil, err
@@ -495,6 +490,9 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
 	if !a.isActivated() {
 		return nil, authclient.NotActivatedError{}
+	}
+	if strings.HasPrefix(req.GithubUsername, GithubPrefix) || strings.HasPrefix(req.GithubUsername, RobotPrefix) {
+		return nil, fmt.Errorf("GithubUsername should not have a user type prefix; it must be a GitHub user")
 	}
 	if req.GithubUsername == magicUser {
 		return nil, fmt.Errorf("invalid user")
@@ -596,7 +594,7 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *authclient.WhoAmIRequest) (
 		return nil, err
 	}
 	return &authclient.WhoAmIResponse{
-		Username: strings.TrimPrefix(tokenInfo.Subject, githubPrefix),
+		Username: tokenInfo.Subject,
 		IsAdmin:  a.isAdmin(tokenInfo.Subject),
 	}, nil
 }
@@ -691,17 +689,9 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 		}
 
 		// Scope change is authorized. Make the change
-		var principal string
-		switch {
-		case strings.HasPrefix(req.Username, robotPrefix):
-			principal = req.Username
-		case strings.Index(req.Username, ":") < 0:
-			principal, err = canonicalizeGitHubUsername(ctx, req.Username)
-			if err != nil {
-				return err
-			}
-		default:
-			return &authclient.InvalidPrincipalError{req.Username}
+		principal, err := lenientCanonicalizeSubject(ctx, req.Username)
+		if err != nil {
+			return err
 		}
 		if req.Scope != authclient.Scope_NONE {
 			acl.Entries[principal] = req.Scope
@@ -768,17 +758,9 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 					Required: authclient.Scope_READER,
 				}
 			}
-			var principal string
-			switch {
-			case strings.HasPrefix(req.Username, robotPrefix):
-				principal = req.Username
-			case strings.Index(req.Username, ":") < 0:
-				principal, err = canonicalizeGitHubUsername(ctx, req.Username)
-				if err != nil {
-					return nil, err
-				}
-			default:
-				return nil, &authclient.InvalidPrincipalError{req.Username}
+			principal, err := lenientCanonicalizeSubject(ctx, req.Username)
+			if err != nil {
+				return nil, err
 			}
 			resp.Scopes = append(resp.Scopes, acl.Entries[principal])
 		}
@@ -820,24 +802,13 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 		return nil, err
 	}
 	resp = &authclient.GetACLResponse{
-		Entries:      make([]*authclient.ACLEntry, 0),
-		RobotEntries: make([]*authclient.ACLEntry, 0),
+		Entries: make([]*authclient.ACLEntry, 0),
 	}
-	for principal, scope := range acl.Entries {
-		switch {
-		case strings.HasPrefix(principal, githubPrefix):
-			resp.Entries = append(resp.Entries, &authclient.ACLEntry{
-				Username: strings.TrimPrefix(principal, githubPrefix),
-				Scope:    scope,
-			})
-		case strings.HasPrefix(principal, robotPrefix):
-			resp.RobotEntries = append(resp.RobotEntries, &authclient.ACLEntry{
-				Username: strings.TrimPrefix(principal, robotPrefix),
-				Scope:    scope,
-			})
-		default:
-			return nil, fmt.Errorf("invalid ACL entry \"%s\" (this is likely a bug--you may need to delete and recreate the ACL)", principal)
-		}
+	for user, scope := range acl.Entries {
+		resp.Entries = append(resp.Entries, &authclient.ACLEntry{
+			Username: user,
+			Scope:    scope,
+		})
 	}
 	// For now, no access is require to read a repo's ACL
 	// https://github.com/pachyderm/pachyderm/issues/2353
@@ -872,26 +843,17 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 		newACL.Entries = make(map[string]authclient.Scope)
 	}
 	for _, entry := range req.Entries {
-		switch {
-		case strings.HasPrefix(entry.Username, robotPrefix):
+		user, scope := entry.Username, entry.Scope
+		eg.Go(func() error {
+			principal, err := lenientCanonicalizeSubject(ctx, user)
+			if err != nil {
+				return err
+			}
 			aclMu.Lock()
-			newACL.Entries[entry.Username] = entry.Scope
-			aclMu.Unlock()
-		case strings.Index(entry.Username, ":") < 0:
-			user, scope := entry.Username, entry.Scope
-			eg.Go(func() error {
-				principal, err := canonicalizeGitHubUsername(ctx, user)
-				if err != nil {
-					return err
-				}
-				aclMu.Lock()
-				defer aclMu.Unlock()
-				newACL.Entries[principal] = scope
-				return nil
-			})
-		default:
-			return nil, &authclient.InvalidPrincipalError{entry.Username}
-		}
+			defer aclMu.Unlock()
+			newACL.Entries[principal] = scope
+			return nil
+		})
 	}
 	if err := eg.Wait(); err != nil {
 		return nil, err
@@ -1095,18 +1057,50 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.Token
 	}
 }
 
-// canonicalizeGitHubUsername corrects 'username' for case errors by looking
+// lenientCanonicalizeSubject is like 'canonicalizeUsername', except that if
+// 'subject' has no prefix, they are assumed to be a GitHub user.
+func lenientCanonicalizeSubject(ctx context.Context, subject string) (string, error) {
+	if strings.Index(subject, ":") < 0 {
+		subject = GithubPrefix + subject
+	}
+	return canonicalizeSubject(ctx, subject)
+}
+
+// canonicalizeSubject establishes the type of 'subject' by looking for one of
+// pachyderm's subject prefixes, and then canonicalizes the subject based on
+// that.
+func canonicalizeSubject(ctx context.Context, subject string) (string, error) {
+	switch {
+	case strings.HasPrefix(subject, GithubPrefix):
+		var err error
+		subject, err = canonicalizeGitHubUsername(ctx, subject[len(GithubPrefix):])
+		if err != nil {
+			return "", err
+		}
+	case strings.HasPrefix(subject, RobotPrefix):
+		break
+	default:
+		return "", fmt.Errorf("subjects must have one of the prefixes \"github:\" or \"pachyderm_robot:\"")
+	}
+	return subject, nil
+}
+
+// canonicalizeGitHubUsername corrects 'user' for case errors by looking
 // up the corresponding user's GitHub profile and extracting their login ID
-// from that
-func canonicalizeGitHubUsername(ctx context.Context, username string) (string, error) {
+// from that. 'user' should not have any subject prefixes (as they are required
+// to be a GitHub user).
+func canonicalizeGitHubUsername(ctx context.Context, user string) (string, error) {
+	if strings.HasPrefix(user, GithubPrefix) || strings.HasPrefix(user, RobotPrefix) {
+		return "", fmt.Errorf("invalid username has multiple prefixes: %s%s", GithubPrefix, user)
+	}
 	if os.Getenv(DisableAuthenticationEnvVar) == "true" {
-		// authentication is off -- username might not even be real
-		return githubPrefix + username, nil
+		// authentication is off -- user might not even be real
+		return GithubPrefix + user, nil
 	}
 	gclient := github.NewClient(http.DefaultClient)
-	u, _, err := gclient.Users.Get(ctx, strings.ToLower(username))
+	u, _, err := gclient.Users.Get(ctx, strings.ToLower(user))
 	if err != nil {
-		return "", fmt.Errorf("error canonicalizing \"%s\": %v", username, err)
+		return "", fmt.Errorf("error canonicalizing \"%s\": %v", user, err)
 	}
-	return githubPrefix + u.GetLogin(), nil
+	return GithubPrefix + u.GetLogin(), nil
 }
