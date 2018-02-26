@@ -319,11 +319,8 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 			if raw {
 				return marshaller.Marshal(os.Stdout, datumInfo)
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 10, 1, 3, ' ', 0)
-			pretty.PrintDetailedDatumInfo(writer, datumInfo)
-			pretty.PrintDatumPfsStateHeader(writer)
-			pretty.PrintDatumPfsState(writer, datumInfo)
-			return writer.Flush()
+			pretty.PrintDetailedDatumInfo(os.Stdout, datumInfo)
+			return nil
 		}),
 	}
 	rawFlag(inspectDatum)
@@ -384,7 +381,7 @@ $ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
 					}
 					fmt.Println(messageStr)
 				} else if iter.Message().User {
-					fmt.Print(iter.Message().Message)
+					fmt.Println(iter.Message().Message)
 				} else if iter.Message().Master && master {
 					fmt.Println(iter.Message().Message)
 				} else if pipelineName == "" && jobID == "" {

@@ -509,6 +509,9 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 
 		// Check if this repo is the provenance of some other repos
 		if !force {
+			if repo.Name == ppsconsts.SpecRepo {
+				return fmt.Errorf("cannot delete the spec repo")
+			}
 			refCount, err := repoRefCounts.Get(repo.Name)
 			if err != nil {
 				return err

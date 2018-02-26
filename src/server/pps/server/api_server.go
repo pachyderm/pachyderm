@@ -1008,6 +1008,9 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 	// (based on pipeline and job filters)
 	var rcName, containerName string
 	if request.Pipeline == nil && request.Job == nil {
+		if len(request.DataFilters) > 0 || request.Datum != nil {
+			return fmt.Errorf("must specify the Job or Pipeline that the datum is from to get logs for it")
+		}
 		// no authorization is done to get logs from master
 		containerName, rcName = "pachd", "pachd"
 	} else {
@@ -1104,7 +1107,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				for scanner.Scan() {
 					msg := new(pps.LogMessage)
 					if containerName == "pachd" {
-						msg.Message = scanner.Text() + "\n"
+						msg.Message = scanner.Text()
 					} else {
 						logBytes := scanner.Bytes()
 						if err := jsonpb.Unmarshal(bytes.NewReader(logBytes), msg); err != nil {
@@ -1128,6 +1131,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 							continue
 						}
 					}
+					msg.Message = strings.TrimSuffix(msg.Message, "\n")
 
 					// Log message passes all filters -- return it
 					select {
@@ -2455,7 +2459,7 @@ func (a *apiServer) rcPods(rcName string) ([]v1.Pod, error) {
 			Kind:       "ListOptions",
 			APIVersion: "v1",
 		},
-		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(labels(rcName))),
+		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(map[string]string{"app": rcName})),
 	})
 	if err != nil {
 		return nil, err
