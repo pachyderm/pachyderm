@@ -104,7 +104,7 @@ You can deploy Pachyderm on AWS using:
 Run the following command to deploy your Pachyderm cluster:
 
 ```shell
-$ pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --iam-role <your-iam-role> --dashboard
+$ pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --iam-role <your-iam-role>
 ```
 
 Note that for this to work, the following need to be true:
@@ -194,7 +194,7 @@ $ AWS_SECRET_ACCESS_KEY=<secret access key>
 Run the following command to deploy your Pachyderm cluster:
 
 ```shell
-$ pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --credentials "${AWS_ACCESS_KEY_ID},${AWS_SECRET_ACCESS_KEY}," --dashboard
+$ pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --credentials "${AWS_ACCESS_KEY_ID},${AWS_SECRET_ACCESS_KEY},"
 ```
 
 Note, the `,` at the end of the `credentials` flag in the deploy command is for an optional temporary AWS token. You might utilize this sort of temporary token if you are just experimenting with a deploy. However, such a token should NOT be used for a production deploy. 

@@ -299,11 +299,25 @@ And you can view the generated montage image via:
 
 .. image:: montage-screenshot.png
 
-Next Steps
-^^^^^^^^^^
-We've now got Pachyderm running locally with data and a pipeline! If you want to keep playing with Pachyderm locally, you can  use what you've learned to build on or change this pipeline. You can also start learning some of the more advanced topics to develop analysis in Pachyderm:
+Exporing your DAG in the Pachyderm dashboard
+--------------------------------------------
 
-- :doc:`../deployment/deploy_intro` 
+When you deployed Pachyderm locally, the Pachyderm Enterprise dashboard was also deployed by default. This dashboard will let you interactively explore your pipeline, visualize the structure of the pipeline, explore you data, debug jobs, etc. To access the dashboard visit ``localhost:30080`` in an Internet browser (e.g., Google Chrome). You will see something similar to this:
+
+.. image:: dashboard1.png
+
+Enter your email address if you would like to obtain a free trail token for the dashboard. Upon entering this trial token, you will be able to see your pipeline structure and interactively explore the various pieces of your pipeline as pictured below:
+
+.. image:: dashboard2.png
+
+.. image:: dashboard3.png
+
+Next Steps
+----------
+
+We've now got Pachyderm running locally with data and a pipeline! If you want to keep playing with Pachyderm locally, you can  use what you've learned to build on or change this pipeline. You can also dig in and learn more details about:
+
+- `Deploying Pachyderm to the cloud or on prem <http://pachyderm.readthedocs.io/en/latest/deployment/deploy_intro.html>`_
 - :doc:`../fundamentals/getting_data_into_pachyderm`
 - :doc:`../fundamentals/creating_analysis_pipelines`
 
