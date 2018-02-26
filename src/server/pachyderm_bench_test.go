@@ -18,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	pps "github.com/pachyderm/pachyderm/src/client/pps"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 	"golang.org/x/sync/errgroup"
 )
@@ -68,7 +69,7 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 	scalePachd(b)
 	r := getRand()
 
-	repo := uniqueString("BenchmarkPachydermFiles")
+	repo := tu.UniqueString("BenchmarkPachydermFiles")
 	c := getPachClient(b)
 	require.NoError(b, c.CreateRepo(repo))
 
@@ -121,7 +122,7 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 
 	if !b.Run(fmt.Sprintf("PipelineCopy%dFiles", fileNum), func(b *testing.B) {
 		b.N = 1
-		pipeline := uniqueString("BenchmarkFilesPipeline")
+		pipeline := tu.UniqueString("BenchmarkFilesPipeline")
 		require.NoError(b, c.CreatePipeline(
 			pipeline,
 			"",
@@ -152,7 +153,7 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 
 // TODO(msteffen): Run this only in S3
 // func BenchmarkDailyPutLargeFileViaS3(b *testing.B) {
-// 	repo := uniqueString("BenchmarkDailyPutLargeFileViaS3")
+// 	repo := tu.UniqueString("BenchmarkDailyPutLargeFileViaS3")
 // 	c, err := client.NewInCluster()
 // 	require.NoError(b, err)
 // 	require.NoError(b, c.CreateRepo(repo))
@@ -192,7 +193,7 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 	r := getRand()
 
 	numTotalFiles := numTarballs * numFilesPerTarball
-	dataRepo := uniqueString("BenchmarkDataShuffle")
+	dataRepo := tu.UniqueString("BenchmarkDataShuffle")
 	c := getPachClient(b)
 	require.NoError(b, c.CreateRepo(dataRepo))
 
@@ -279,7 +280,7 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 		return
 	}
 
-	pipelineOne := uniqueString("BenchmarkDataShuffleStageOne")
+	pipelineOne := tu.UniqueString("BenchmarkDataShuffleStageOne")
 	if !b.Run(fmt.Sprintf("Extract%dTarballsInto%dFiles", numTarballs, numTotalFiles), func(b *testing.B) {
 		b.N = 1
 		require.NoError(b, c.CreatePipeline(
@@ -309,7 +310,7 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 		return
 	}
 
-	pipelineTwo := uniqueString("BenchmarkDataShuffleStageTwo")
+	pipelineTwo := tu.UniqueString("BenchmarkDataShuffleStageTwo")
 	if !b.Run(fmt.Sprintf("Processing%dFiles", numTotalFiles), func(b *testing.B) {
 		b.N = 1
 		require.NoError(b, c.CreatePipeline(
@@ -345,7 +346,7 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 		return
 	}
 
-	pipelineThree := uniqueString("BenchmarkDataShuffleStageThree")
+	pipelineThree := tu.UniqueString("BenchmarkDataShuffleStageThree")
 	if !b.Run(fmt.Sprintf("Compressing26DirectoriesWith%dFilesInto26Tarballs", numTotalFiles), func(b *testing.B) {
 		b.N = 1
 		require.NoError(b, c.CreatePipeline(
@@ -415,7 +416,7 @@ func benchmarkPutManyFilesSingleCommitFinishCommit(numFiles int, b *testing.B) {
 		b.StopTimer()
 		require.NoError(b, c.DeleteAll())
 		// create repos
-		dataRepo := uniqueString("TestManyFilesSingleCommit_data")
+		dataRepo := tu.UniqueString("TestManyFilesSingleCommit_data")
 		require.NoError(b, c.CreateRepo(dataRepo))
 
 		_, err := c.StartCommit(dataRepo, "master")
@@ -449,7 +450,7 @@ func benchmarkPutManyFilesSingleCommit(numFiles int, b *testing.B) {
 		b.StopTimer()
 		require.NoError(b, c.DeleteAll())
 		// create repos
-		dataRepo := uniqueString("TestManyFilesSingleCommit_data")
+		dataRepo := tu.UniqueString("TestManyFilesSingleCommit_data")
 		require.NoError(b, c.CreateRepo(dataRepo))
 
 		_, err := c.StartCommit(dataRepo, "master")
