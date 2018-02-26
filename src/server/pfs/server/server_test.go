@@ -28,21 +28,12 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
+	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
-)
-
-const (
-	servers = 2
-
-	ALPHABET = "abcdefghijklmnopqrstuvwxyz"
-)
-
-var (
-	port int32 = 30653
 )
 
 func CommitToID(commit interface{}) interface{} {
@@ -869,9 +860,9 @@ func TestAncestrySyntax(t *testing.T) {
 }
 
 // TestProvenance implements the following DAG
-//  A -> B -> C -> D
-//           /
-//  E - - - /
+//  A ─▶ B ─▶ C ─▶ D
+//            ▲
+//  E ────────╯
 
 func TestProvenance(t *testing.T) {
 	client := getClient(t)
@@ -2394,7 +2385,7 @@ func generateRandomString(n int) string {
 	rand.Seed(time.Now().UnixNano())
 	b := make([]byte, n)
 	for i := range b {
-		b[i] = ALPHABET[rand.Intn(len(ALPHABET))]
+		b[i] = byte('a' + rand.Intn(26))
 	}
 	return string(b)
 }
@@ -2421,14 +2412,22 @@ func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
 	<-ready
 }
 
-var etcdOnce sync.Once
+const (
+	servers     = 2                 // Number of pachd server processes to run
+	etcdAddress = "localhost:32379" // etcd must already be serving at this address
+)
 
-func getClient(t *testing.T) *pclient.APIClient {
-	// src/server/pfs/server/driver.go expects an etcd server at "localhost:32379"
-	// Try to establish a connection before proceeding with the test (which will
-	// fail if the connection can't be established)
-	etcdAddress := "localhost:32379"
-	etcdOnce.Do(func() {
+var (
+	port int32 = 30653 // Initial port on which pachd server processes will serve
+
+	startPFSServersOnce sync.Once // ensure pachd servers are only started once
+)
+
+// src/server/pfs/server/driver.go expects an etcd server at "localhost:32379"
+// Try to establish a connection before proceeding with the test (which will
+// fail if the connection can't be established)
+func startPFSServers(t *testing.T) {
+	startPFSServersOnce.Do(func() {
 		require.NoError(t, backoff.Retry(func() error {
 			_, err := etcd.New(etcd.Config{
 				Endpoints:   []string{etcdAddress},
@@ -2440,10 +2439,14 @@ func getClient(t *testing.T) *pclient.APIClient {
 			return nil
 		}, backoff.NewTestingBackOff()))
 	})
+}
+
+func getClient(t *testing.T) *pclient.APIClient {
+	startPFSServers(t)
 	dbName := "pachyderm_test_" + uuid.NewWithoutDashes()[0:12]
 	testDBs = append(testDBs, dbName)
 
-	root := uniqueString("/tmp/pach_test/run")
+	root := tu.UniqueString("/tmp/pach_test/run")
 	t.Logf("root %s", root)
 	var ports []int32
 	for i := 0; i < servers; i++ {
@@ -2498,7 +2501,7 @@ func TestFlush(t *testing.T) {
 }
 
 // TestFlush2 implements the following DAG:
-// A -> B -> C -> D
+// A ─▶ B ─▶ C ─▶ D
 func TestFlush2(t *testing.T) {
 	client := getClient(t)
 	require.NoError(t, client.CreateRepo("A"))
@@ -2537,9 +2540,11 @@ func TestFlush2(t *testing.T) {
 }
 
 // A
-//  \
-//   C
-//  /
+//  ╲
+//   ◀
+//    C
+//   ◀
+//  ╱
 // B
 func TestFlush3(t *testing.T) {
 	client := getClient(t)
@@ -2641,7 +2646,7 @@ func TestPutFileSplit(t *testing.T) {
 
 	c := getClient(t)
 	// create repos
-	repo := uniqueString("TestPutFileSplit")
+	repo := tu.UniqueString("TestPutFileSplit")
 	require.NoError(t, c.CreateRepo(repo))
 	commit, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
@@ -2747,7 +2752,7 @@ func TestPutFileSplitDelete(t *testing.T) {
 
 	c := getClient(t)
 	// create repos
-	repo := uniqueString("TestPutFileSplitDelete")
+	repo := tu.UniqueString("TestPutFileSplitDelete")
 	require.NoError(t, c.CreateRepo(repo))
 	commit, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
@@ -2784,7 +2789,7 @@ func TestPutFileSplitBig(t *testing.T) {
 
 	c := getClient(t)
 	// create repos
-	repo := uniqueString("TestPutFileSplitBig")
+	repo := tu.UniqueString("TestPutFileSplitBig")
 	require.NoError(t, c.CreateRepo(repo))
 	commit, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
@@ -2810,7 +2815,7 @@ func TestDiff(t *testing.T) {
 	}
 
 	c := getClient(t)
-	repo := uniqueString("TestDiff")
+	repo := tu.UniqueString("TestDiff")
 	require.NoError(t, c.CreateRepo(repo))
 
 	// Write foo
@@ -2944,7 +2949,7 @@ func TestGlob(t *testing.T) {
 	}
 
 	c := getClient(t)
-	repo := uniqueString("TestGlob")
+	repo := tu.UniqueString("TestGlob")
 	require.NoError(t, c.CreateRepo(repo))
 
 	// Write foo
@@ -3001,7 +3006,7 @@ func TestOverwrite(t *testing.T) {
 	}
 
 	c := getClient(t)
-	repo := uniqueString("TestGlob")
+	repo := tu.UniqueString("TestGlob")
 	require.NoError(t, c.CreateRepo(repo))
 
 	// Write foo
@@ -3044,7 +3049,7 @@ func TestCopyFile(t *testing.T) {
 	}
 
 	c := getClient(t)
-	repo := uniqueString("TestCopyFile")
+	repo := tu.UniqueString("TestCopyFile")
 	require.NoError(t, c.CreateRepo(repo))
 	_, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
@@ -3081,7 +3086,7 @@ func TestBuildCommit(t *testing.T) {
 	}
 
 	c := getClient(t)
-	repo := uniqueString("TestBuildCommit")
+	repo := tu.UniqueString("TestBuildCommit")
 	require.NoError(t, c.CreateRepo(repo))
 
 	tree1 := hashtree.NewHashTree()
@@ -3122,9 +3127,9 @@ func TestBuildCommit(t *testing.T) {
 
 func TestPropagateCommit(t *testing.T) {
 	c := getClient(t)
-	repo1 := uniqueString("TestPropagateCommit1")
+	repo1 := tu.UniqueString("TestPropagateCommit1")
 	require.NoError(t, c.CreateRepo(repo1))
-	repo2 := uniqueString("TestPropagateCommit2")
+	repo2 := tu.UniqueString("TestPropagateCommit2")
 	require.NoError(t, c.CreateRepo(repo2))
 	require.NoError(t, c.CreateBranch(repo2, "master", "", []*pfs.Branch{pclient.NewBranch(repo1, "master")}))
 	commit, err := c.StartCommit(repo1, "master")
@@ -3267,7 +3272,7 @@ func TestBranchProvenance(t *testing.T) {
 	}
 	for i, test := range tests {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			repo := uniqueString("repo")
+			repo := tu.UniqueString("repo")
 			require.NoError(t, c.CreateRepo(repo))
 			for iStep, step := range test {
 				var provenance []*pfs.Branch
@@ -4171,8 +4176,4 @@ func TestDeleteCommitShrinkSubvRange(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(outputCommitInfo.Provenance))
 	require.Equal(t, schemaCommit.ID, outputCommitInfo.Provenance[0].ID)
-}
-
-func uniqueString(prefix string) string {
-	return prefix + "-" + uuid.NewWithoutDashes()[0:12]
 }
