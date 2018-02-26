@@ -24,7 +24,8 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
         "mount_path": string
     } ],
     "image_pull_secrets": [ string ],
-    "accept_return_code": [ int ]
+    "accept_return_code": [ int ],
+    "debug": bool
   },
   "parallelism_spec": {
     // Set at most one of the following:
@@ -70,7 +71,7 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   "branch": string,
   "glob": string,
   "lazy" bool,
-  "from_commit": string
+  "empty_files": bool
 }
 
 ------------------------------------
@@ -85,7 +86,7 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
       "branch": string,
       "glob": string,
       "lazy" bool,
-      "from_commit": string
+      "empty_files": bool
     }
   },
   {
@@ -95,7 +96,7 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
       "branch": string,
       "glob": string,
       "lazy" bool,
-      "from_commit": string
+      "empty_files": bool
     }
   }
   etc...
@@ -109,7 +110,7 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
     "name": string,
     "spec": string,
     "repo": string,
-    "start": time,
+    "start": time
 }
 
 ------------------------------------
@@ -119,7 +120,7 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
 "git": {
   "URL": string,
   "name": string,
-  "branch": string,
+  "branch": string
 }
 
 ```
@@ -301,7 +302,7 @@ single repo.
     "branch": string,
     "glob": string,
     "lazy" bool,
-    "from_commit": string
+    "empty_files": bool
 }
 ```
 
@@ -314,10 +315,6 @@ you to write simpler code since you no longer need to consider which input direc
 
 `input.atom.branch` is the `branch` to watch for commits on, it may be left blank in
 which case `"master"` will be used.
-
-`input.atom.commit` is the `repo` and `branch` (specified as `id`) to be used for the
-input, `repo` is required but `id` may be left blank in which case `"master"`
-will be used.
 
 `input.atom.glob` is a glob pattern that's used to determine how the input data
 is partitioned.  It's explained in detail in the next section.
@@ -334,10 +331,9 @@ be especially notable if the job only reads a subset of the files that are
 available to it.  Note that `lazy` currently doesn't support datums that
 contain more than 10000 files.
 
-`input.atom.from_commit` specifies the starting point of the input branch.  If
-`from_commit` is not specified, then the entire input branch will be
-processed.  Otherwise, only commits since the `from_commit` (not including
-the commit itself) will be processed.
+`input.atom.empty_files` controls how files are exposed to jobs. If true, it will 
+cause files from this atom to be presented as empty files. This is useful in shuffle 
+pipelines where you want to read the names of files and reorganize them using symlinks.
 
 #### Union Input
 
