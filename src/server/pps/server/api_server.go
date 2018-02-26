@@ -468,6 +468,9 @@ JobsLoop:
 		}
 		jobInfo, err := a.jobInfoFromPtr(pachClient, &jobPtr)
 		if err != nil {
+			if isNotFoundErr(err) {
+				continue
+			}
 			return nil, err
 		}
 		if len(inputCommits) > 0 {
@@ -493,7 +496,6 @@ JobsLoop:
 }
 
 func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.EtcdJobInfo) (*pps.JobInfo, error) {
-	// TODO accept pachClient argument
 	result := &pps.JobInfo{
 		Job:           jobPtr.Job,
 		Pipeline:      jobPtr.Pipeline,
@@ -510,6 +512,12 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 	}
 	commitInfo, err := pachClient.InspectCommit(jobPtr.OutputCommit.Repo.Name, jobPtr.OutputCommit.ID)
 	if err != nil {
+		if isNotFoundErr(err) {
+			if _, err := a.DeleteJob(pachClient.Ctx(), &pps.DeleteJobRequest{Job: jobPtr.Job}); err != nil {
+				return nil, err
+			}
+			return nil, fmt.Errorf("job %s not found", jobPtr.Job.ID)
+		}
 		return nil, err
 	}
 	result.Started = commitInfo.Started
