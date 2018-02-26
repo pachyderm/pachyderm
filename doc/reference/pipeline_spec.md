@@ -1,7 +1,7 @@
 # Pipeline Specification
 
 This document discusses each of the fields present in a pipeline specification.
-To see how to use a pipeline spec, refer to the [pachctl
+To see how to use a pipeline spec to create a pipeline, refer to the [pachctl
 create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
 
 ## JSON Manifest Format
@@ -58,7 +58,11 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
     "internal_port": int,
     "external_port": int
   },
-  "max_queue_size": int
+  "max_queue_size": int,
+  "chunk_spec": {
+    "number": int,
+    "size_bytes": int
+  }
 }
 
 ------------------------------------
@@ -449,7 +453,7 @@ https://github.com/<your_org>/<your_repo>/settings/hooks/new
 ```
 Or navigate to webhooks under settings. Then you'll want to copy the `Githook URL` into the 'Payload URL' field.
 
-### OutputBranch (optional)
+### Output Branch (optional)
 
 This is the branch where the pipeline outputs new commits.  By default,
 it's "master".
@@ -506,7 +510,7 @@ that snapshots of the `/pfs` directory, which are generally the largest thing
 stored, don't actually require extra storage because the data is already stored
 in the input repos.
 
-### Service (optional)
+### Service (alpha feature, optional)
 
 `service` specifies that the pipeline should be treated as a long running
 service rather than a data transformation. This means that `transform.cmd` is
@@ -527,6 +531,18 @@ simultaneously download, process and upload different datums at the same time.
 Setting this value too high can cause problems if you have `lazy` inputs as
 there's a cap of 10,000 `lazy` files per worker and multiple datums that are
 running all count against this limit.
+
+### Chunk Spec (optional)
+`chunk_spec` specifies how a pipeline should chunk its datums. 
+
+`chunk_spec.number` if nonzero, specifies that each chunk should contain `number`
+ datums. Chunks may contain fewer if the total number of datums don't
+ divide evenly.
+
+`chunk_spec.size_bytes` , if nonzero, specifies a target size for each chunk of datums.
+ Chunks may be larger or smaller than `size_bytes`, but will usually be
+ pretty close to `size_bytes` in size.
+
 
 ## The Input Glob Pattern
 
