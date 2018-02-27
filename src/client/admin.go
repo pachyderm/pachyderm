@@ -9,6 +9,15 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 )
 
+// InspectCluster retrieves cluster state
+func (c APIClient) InspectCluster() (*admin.ClusterInfo, error) {
+	clusterInfo, err := c.AdminAPIClient.InspectCluster(c.Ctx(), nil)
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return clusterInfo, nil
+}
+
 // Extract all cluster state, call f with each operation.
 func (c APIClient) Extract(objects bool, f func(op *admin.Op) error) error {
 	extractClient, err := c.AdminAPIClient.Extract(c.Ctx(), &admin.ExtractRequest{NoObjects: !objects})
