@@ -76,7 +76,8 @@ func (b *backend) pathAuthLogin(ctx context.Context, req *logical.Request, d *fr
 				"max_ttl":    maxTtlString,
 			},
 			Metadata: map[string]string{
-				"user_token": userToken,
+				"user_token":    userToken,
+				"pachd_address": config.PachdAddress,
 			},
 			LeaseOptions: logical.LeaseOptions{
 				TTL:       ttl,
