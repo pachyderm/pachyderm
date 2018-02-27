@@ -420,8 +420,8 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 	eg := &errgroup.Group{}
 	canonicalizedToAdd := make([]string, len(req.Add))
 	for i, user := range req.Add {
+		i, user := i, user
 		eg.Go(func() error {
-			i, user := i, user
 			u, err := canonicalizeGitHubUsername(ctx, user)
 			if err != nil {
 				return err
@@ -432,8 +432,8 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 	}
 	canonicalizedToRemove := make([]string, len(req.Remove))
 	for i, user := range req.Remove {
+		i, user := i, user
 		eg.Go(func() error {
-			i, user := i, user
 			u, err := canonicalizeGitHubUsername(ctx, user)
 			if err != nil {
 				return err
@@ -450,19 +450,23 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 		return nil, err
 	}
 
-	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		admins := a.admins.ReadWrite(stm)
-		// Update "admins" list (watchAdmins() will update admins cache)
-		for _, user := range canonicalizedToAdd {
-			admins.Put(user, epsilon)
+	// Update "admins" list (watchAdmins() will update admins cache)
+	for _, user := range canonicalizedToAdd {
+		if _, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			return a.admins.ReadWrite(stm).Put(user, epsilon)
+		}); err != nil && retErr == nil {
+			retErr = err
 		}
-		for _, user := range canonicalizedToRemove {
-			admins.Delete(user)
+	}
+	for _, user := range canonicalizedToRemove {
+		if _, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			return a.admins.ReadWrite(stm).Delete(user)
+		}); err != nil && retErr == nil {
+			retErr = err
 		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
+	}
+	if retErr != nil {
+		return nil, retErr
 	}
 	return &authclient.ModifyAdminsResponse{}, nil
 }
