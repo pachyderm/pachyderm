@@ -9,7 +9,6 @@ import (
 
 	"github.com/golang/snappy"
 	"github.com/spf13/cobra"
-	"golang.org/x/net/context"
 )
 
 // Cmds returns a slice containing admin commands.
@@ -66,7 +65,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 			if err != nil {
 				return err
 			}
-			ci, err := c.InspectCluster(context.Background(), nil)
+			ci, err := c.InspectCluster()
 			if err != nil {
 				return err
 			}
