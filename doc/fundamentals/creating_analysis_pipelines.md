@@ -56,7 +56,7 @@ $ pachctl create-pipeline -f your_pipeline.json
 
 (`-f` can also take a URL if your JSON manifest is hosted on GitHub or elsewhere. Keeping pipeline specifications under version control is a great idea so you can track changes and seamlessly view or deploy older pipelines if needed.)
 
-Creating a pipeline tells Pachyderm to run the `cmd` (i.e., your code) in your `image` on the data in *every* finished commit on the input repo(s) as well as *all future commits* to the input repo(s). You can think of this pipeline as being "subscribed" to any new commits that are made on any of its input repos. It will automatically process the new data as it comes in. 
+Creating a pipeline tells Pachyderm to run the `cmd` (i.e., your code) in your `image` on the data in the HEAD (most recent) commit of the input repo(s) as well as *all future commits* to the input repo(s). You can think of this pipeline as being "subscribed" to any new commits that are made on any of its input repos. It will automatically process the new data as it comes in. 
 
-**Note** - In Pachyderm 1.4+, as soon as you create your pipeline, Pachyderm will launch worker pods on Kubernetes, such that they are ready to process any data committed to their input repos.
+As soon as you create your pipeline, Pachyderm will launch worker pods on Kubernetes. These worker pods will remain up and running, such that they are ready to process any data committed to their input repos. If you need to sping down these worker pods when they are not in use, you can utilize the `scale_down_threshold` field in the pipeline spec.
 

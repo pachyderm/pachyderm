@@ -129,12 +129,12 @@ Now that we have our pipelines running, out final results will be automatically 
 $ cd data/bams/
 $ pachctl start-commit samples master
 dc963cc9bdc2486798b92d20eead5058
-$ for f in $(ls father.*); do pachctl put-file samples dc963cc9bdc2486798b92d20eead5058 father/$f -f $f; done
-$ pachctl finish-commit samples dc963cc9bdc2486798b92d20eead5058
+$ for f in $(ls father.*); do pachctl put-file samples master father/$f -f $f; done
+$ pachctl finish-commit samples master
 $ pachctl start-commit samples master
 84e6615de64f43d8815909fa978bd4bc
-$ for f in $(ls son.*); do pachctl put-file samples 84e6615de64f43d8815909fa978bd4bc son/$f -f $f; done
-$ pachctl finish-commit samples 84e6615de64f43d8815909fa978bd4bc
+$ for f in $(ls son.*); do pachctl put-file samples master son/$f -f $f; done
+$ pachctl finish-commit samples master
 $ pachctl list-file samples master
 NAME                TYPE                SIZE
 father              dir                 9.662MiB

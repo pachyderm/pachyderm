@@ -112,7 +112,7 @@ You can then run `pachctl version --client-only` to check that the installation 
 
 ```sh
 $ pachctl version --client-only
-1.6.8
+1.7.0
 ```
 
 #### Deploy Pachyderm on the k8s cluster
@@ -162,6 +162,6 @@ And you're done! You can test to make sure the cluster is working by trying `pac
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.6.8
-pachd               1.6.8
+pachctl             1.7.0
+pachd               1.7.0
 ```
