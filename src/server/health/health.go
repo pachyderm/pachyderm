@@ -1,18 +1,38 @@
 package health
 
 import (
+	"fmt"
+
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client/health"
 	"golang.org/x/net/context"
 )
 
+// Server adds the Ready method to health.HealthServer.
+type Server interface {
+	health.HealthServer
+	Ready()
+}
+
 // NewHealthServer returns a new health server
-func NewHealthServer() health.HealthServer {
+func NewHealthServer() Server {
 	return &healthServer{}
 }
 
-type healthServer struct{}
+type healthServer struct {
+	ready bool
+}
 
-func (*healthServer) Health(context.Context, *types.Empty) (*types.Empty, error) {
+// Health implements the Health method for healthServer.
+func (h *healthServer) Health(context.Context, *types.Empty) (*types.Empty, error) {
+	if !h.ready {
+		return nil, fmt.Errorf("server not ready")
+	}
 	return &types.Empty{}, nil
+}
+
+// Ready tells pachd to start responding positively to Health requests. This
+// will cause the node to pass its k8s readiness check.
+func (h *healthServer) Ready() {
+	h.ready = true
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
+	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 )
@@ -58,7 +59,7 @@ func PrintPipelineHeader(w io.Writer) {
 // PrintPipelineInfo pretty-prints pipeline info.
 func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo) {
 	fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
-	fmt.Fprintf(w, "%s\t", shorthandInput(pipelineInfo.Input))
+	fmt.Fprintf(w, "%s\t", ShorthandInput(pipelineInfo.Input))
 	fmt.Fprintf(w, "%s/%s\t", pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch)
 	fmt.Fprintf(w, "%s\t", pretty.Ago(pipelineInfo.CreatedAt))
 	fmt.Fprintf(w, "%s\t\n", pipelineState(pipelineInfo.State))
@@ -259,16 +260,27 @@ func PrintDetailedDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 	fmt.Fprintf(w, "Upload Time\t%s\n", uploadTime)
 
 	fmt.Fprintf(w, "PFS State:\n")
+	tw := tabwriter.NewWriter(w, 10, 1, 3, ' ', 0)
+	PrintFileHeader(tw)
+	PrintFile(tw, datumInfo.PfsState)
+	tw.Flush()
+	fmt.Fprintf(w, "Inputs:\n")
+	tw = tabwriter.NewWriter(w, 10, 1, 3, ' ', 0)
+	PrintFileHeader(tw)
+	for _, d := range datumInfo.Data {
+		PrintFile(tw, d.File)
+	}
+	tw.Flush()
 }
 
-// PrintDatumPfsStateHeader prints the header for the PfsState field
-func PrintDatumPfsStateHeader(w io.Writer) {
+// PrintFileHeader prints the header for a pfs file.
+func PrintFileHeader(w io.Writer) {
 	fmt.Fprintf(w, "  REPO\tCOMMIT\tPATH\t\n")
 }
 
-// PrintDatumPfsState prints the values of the PfsState field
-func PrintDatumPfsState(w io.Writer, datumInfo *ppsclient.DatumInfo) {
-	fmt.Fprintf(w, "  %s\t%s\t%s\t\n", datumInfo.PfsState.Commit.Repo.Name, datumInfo.PfsState.Commit.ID, datumInfo.PfsState.Path)
+// PrintFile values for a pfs file.
+func PrintFile(w io.Writer, file *pfsclient.File) {
+	fmt.Fprintf(w, "  %s\t%s\t%s\t\n", file.Commit.Repo.Name, file.Commit.ID, file.Path)
 }
 
 func datumState(datumState ppsclient.DatumState) string {
@@ -294,7 +306,7 @@ func jobState(jobState ppsclient.JobState) string {
 	case ppsclient.JobState_JOB_SUCCESS:
 		return color.New(color.FgGreen).SprintFunc()("success")
 	case ppsclient.JobState_JOB_KILLED:
-		return color.New(color.FgYellow).SprintFunc()("killed")
+		return color.New(color.FgRed).SprintFunc()("killed")
 	}
 	return "-"
 }
@@ -365,20 +377,21 @@ func prettyTransform(transform *ppsclient.Transform) (string, error) {
 	return pretty.UnescapeHTML(string(result)), nil
 }
 
-func shorthandInput(input *ppsclient.Input) string {
+// ShorthandInput renders a pps.Input as a short, readable string
+func ShorthandInput(input *ppsclient.Input) string {
 	switch {
 	case input.Atom != nil:
 		return fmt.Sprintf("%s:%s", input.Atom.Repo, input.Atom.Glob)
 	case input.Cross != nil:
 		var subInput []string
 		for _, input := range input.Cross {
-			subInput = append(subInput, shorthandInput(input))
+			subInput = append(subInput, ShorthandInput(input))
 		}
 		return "(" + strings.Join(subInput, " ⨯ ") + ")"
 	case input.Union != nil:
 		var subInput []string
 		for _, input := range input.Union {
-			subInput = append(subInput, shorthandInput(input))
+			subInput = append(subInput, ShorthandInput(input))
 		}
 		return "(" + strings.Join(subInput, " ∪ ") + ")"
 	case input.Cron != nil:

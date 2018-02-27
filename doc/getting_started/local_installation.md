@@ -23,10 +23,10 @@ Note: Any time you want to stop and restart Pachyderm, you should start fresh wi
 
 ```shell
 # For OSX:
-$ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.6
+$ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.7
 
 # For Linux (64 bit) or Window 10+ on WSL:
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.6.8/pachctl_1.6.8_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.7.0rc1/pachctl_1.7.0rc1_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 
@@ -40,29 +40,17 @@ Now that you have Minikube running, it's incredibly easy to deploy Pachyderm.
 ```sh
 $ pachctl deploy local
 ```
-This generates a Pachyderm manifest and deploys Pachyderm on Kubernetes. It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub. You can see the cluster status by using `kubectl get all`:
+This generates a Pachyderm manifest and deploys Pachyderm on Kubernetes. It may take a few minutes for the Pachyderm pods to be in a `Running` state, because the containers have to be pulled from DockerHub. You can see the status of the Pachyderm pods using `kubectl get pods`. When Pachyderm is ready for use, this should return something similar to:
 
 ```sh
-$ kubectl get all
-NAME                       READY     STATUS    RESTARTS   AGE
-po/etcd-2142892294-l25tj   1/1       Running   0          10m
-po/pachd-915907039-z0hl2   1/1       Running   0          10m
-
-NAME             CLUSTER-IP   EXTERNAL-IP   PORT(S)                                     AGE
-svc/etcd         10.0.0.25    <nodes>       2379:32379/TCP                              10m
-svc/kubernetes   10.0.0.1     <none>        443/TCP                                     11m
-svc/pachd        10.0.0.60    <nodes>       650:30650/TCP,651:30651/TCP,652:30652/TCP   10m
-
-NAME           DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-deploy/etcd    1         1         1            1           10m
-deploy/pachd   1         1         1            1           10m
-
-NAME                 DESIRED   CURRENT   READY     AGE
-rs/etcd-2142892294   1         1         1         10m
-rs/pachd-915907039   1         1         1         10m
+$ kubectl get pods
+NAME                     READY     STATUS    RESTARTS   AGE
+dash-6c9dc97d9c-vb972    2/2       Running   0          6m
+etcd-7dbb489f44-9v5jj    1/1       Running   0          6m
+pachd-6c878bbc4c-f2h2c   1/1       Running   0          6m
 ```
 
-Note: If you see a few restarts on the pachd nodes, that's ok. That simply means that Kubernetes tried to bring up those containers before etcd was ready so it restarted them.
+**Note**: If you see a few restarts on the `pachd` nodes, that's ok. That simply means that Kubernetes tried to bring up those pods before `etcd` was ready so it restarted them.
 
 ### Port Forwarding
 
@@ -77,8 +65,8 @@ Once port forwarding is complete, pachctl should automatically be connected. Try
 ```shell
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.6.0
-pachd               1.6.0
+pachctl             1.6.8
+pachd               1.6.8
 ```
 We're good to go!
 
@@ -92,7 +80,9 @@ $ export ADDRESS=192.168.99.100:30650
 
 ## Next Steps
 
-Now that you have everything installed and working, check out our [Beginner Tutorial](./beginner_tutorial.html) to learn the basics of Pachyderm such as adding data and building analysis pipelines.
+Now that you have everything installed and working, check out our [Beginner Tutorial](./beginner_tutorial.html) to learn the basics of Pachyderm such as adding data and building pipelines for analysis.
+
+The Pachyderm Enterprise dashboard is deployed by default with Pachyderm. You can get a FREE trial token and experiment with this interface to Pachyderm by visiting `localhost:30080` in your Internet browser (e.g., Google Chrome).  
 
 
 

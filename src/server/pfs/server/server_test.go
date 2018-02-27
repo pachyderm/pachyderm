@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -27,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
+	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"golang.org/x/net/context"
@@ -34,20 +36,25 @@ import (
 	"google.golang.org/grpc"
 )
 
-const (
-	servers = 2
+func CommitToID(commit interface{}) interface{} {
+	return commit.(*pfs.Commit).ID
+}
 
-	ALPHABET = "abcdefghijklmnopqrstuvwxyz"
-)
+func CommitInfoToID(commit interface{}) interface{} {
+	return commit.(*pfs.CommitInfo).Commit.ID
+}
 
-var (
-	port int32 = 30653
-)
+func RepoInfoToName(repoInfo interface{}) interface{} {
+	return repoInfo.(*pfs.RepoInfo).Repo.Name
+}
+
+func RepoToName(repo interface{}) interface{} {
+	return repo.(*pfs.Repo).Name
+}
 
 var testDBs []string
 
 func TestInvalidRepo(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 	require.YesError(t, client.CreateRepo("/repo"))
 
@@ -156,8 +163,27 @@ func TestCreateRepoDeleteRepoRace(t *testing.T) {
 	}
 }
 
+func TestBranch(t *testing.T) {
+	c := getClient(t)
+
+	repo := "repo"
+	require.NoError(t, c.CreateRepo(repo))
+	_, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, "master"))
+	commitInfo, err := c.InspectCommit(repo, "master")
+	require.NoError(t, err)
+	require.Nil(t, commitInfo.ParentCommit)
+
+	_, err = c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, "master"))
+	commitInfo, err = c.InspectCommit(repo, "master")
+	require.NoError(t, err)
+	require.NotNil(t, commitInfo.ParentCommit)
+}
+
 func TestCreateAndInspectRepo(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "repo"
@@ -191,7 +217,6 @@ func TestCreateAndInspectRepo(t *testing.T) {
 }
 
 func TestRepoSize(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "repo"
@@ -231,7 +256,6 @@ func TestRepoSize(t *testing.T) {
 }
 
 func TestListRepo(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	numRepos := 10
@@ -244,17 +268,11 @@ func TestListRepo(t *testing.T) {
 
 	repoInfos, err := client.ListRepo(nil)
 	require.NoError(t, err)
-
-	for i, repoInfo := range repoInfos {
-		require.Equal(t, repoNames[len(repoNames)-i-1], repoInfo.Repo.Name)
-	}
-
-	require.Equal(t, len(repoInfos), numRepos)
+	require.ElementsEqualUnderFn(t, repoNames, repoInfos, RepoInfoToName)
 }
 
 // Make sure that commits of deleted repos do not resurface
 func TestCreateDeletedRepo(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "repo"
@@ -293,7 +311,6 @@ func TestCreateDeletedRepo(t *testing.T) {
 //   /    \
 // d1      d2
 func TestUpdateProvenance(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	prov1 := "prov1"
@@ -351,26 +368,15 @@ func TestUpdateProvenance(t *testing.T) {
 	// Check that the downstream repos have the correct provenance
 	repoInfo, err := client.InspectRepo(repo)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(repoInfo.Provenance))
-	expectedProvs := []interface{}{&pfs.Repo{prov2}, &pfs.Repo{prov3}}
-	require.EqualOneOf(t, expectedProvs, repoInfo.Provenance[0])
-	require.EqualOneOf(t, expectedProvs, repoInfo.Provenance[1])
+	require.ElementsEqualUnderFn(t, []string{prov2, prov3}, repoInfo.Provenance, RepoToName)
 
 	repoInfo, err = client.InspectRepo(downstream1)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(repoInfo.Provenance))
-	expectedProvs = []interface{}{&pfs.Repo{prov2}, &pfs.Repo{prov3}, &pfs.Repo{repo}}
-	require.EqualOneOf(t, expectedProvs, repoInfo.Provenance[0])
-	require.EqualOneOf(t, expectedProvs, repoInfo.Provenance[1])
-	require.EqualOneOf(t, expectedProvs, repoInfo.Provenance[2])
+	require.ElementsEqualUnderFn(t, []string{prov2, prov3, repo}, repoInfo.Provenance, RepoToName)
 
 	repoInfo, err = client.InspectRepo(downstream2)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(repoInfo.Provenance))
-	expectedProvs = []interface{}{&pfs.Repo{prov2}, &pfs.Repo{prov3}, &pfs.Repo{repo}}
-	require.EqualOneOf(t, expectedProvs, repoInfo.Provenance[0])
-	require.EqualOneOf(t, expectedProvs, repoInfo.Provenance[1])
-	require.EqualOneOf(t, expectedProvs, repoInfo.Provenance[2])
+	require.ElementsEqualUnderFn(t, []string{prov2, prov3, repo}, repoInfo.Provenance, RepoToName)
 
 	// We should be able to delete prov1 since it's no longer the provenance
 	// of other repos.
@@ -382,7 +388,6 @@ func TestUpdateProvenance(t *testing.T) {
 }
 
 func TestPutFileIntoOpenCommit(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "test"
@@ -415,7 +420,7 @@ func TestPutFileIntoOpenCommit(t *testing.T) {
 }
 
 func TestCreateInvalidBranchName(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 
 	repo := "test"
@@ -427,7 +432,6 @@ func TestCreateInvalidBranchName(t *testing.T) {
 }
 
 func TestListRepoWithProvenance(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	require.NoError(t, client.CreateRepo("prov1"))
@@ -445,13 +449,11 @@ func TestListRepoWithProvenance(t *testing.T) {
 
 	repoInfos, err := client.ListRepo([]string{"prov1"})
 	require.NoError(t, err)
-	require.Equal(t, 1, len(repoInfos))
-	require.Equal(t, "repo", repoInfos[0].Repo.Name)
+	require.ElementsEqualUnderFn(t, []string{"repo"}, repoInfos, RepoInfoToName)
 
 	repoInfos, err = client.ListRepo([]string{"prov1", "prov2"})
 	require.NoError(t, err)
-	require.Equal(t, 1, len(repoInfos))
-	require.Equal(t, "repo", repoInfos[0].Repo.Name)
+	require.ElementsEqualUnderFn(t, []string{"repo"}, repoInfos, RepoInfoToName)
 
 	repoInfos, err = client.ListRepo([]string{"prov3"})
 	require.NoError(t, err)
@@ -462,7 +464,6 @@ func TestListRepoWithProvenance(t *testing.T) {
 }
 
 func TestDeleteRepo(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	numRepos := 10
@@ -494,7 +495,6 @@ func TestDeleteRepo(t *testing.T) {
 }
 
 func TestDeleteProvenanceRepo(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	// Create two repos, one as another's provenance
@@ -539,7 +539,6 @@ func TestDeleteProvenanceRepo(t *testing.T) {
 }
 
 func TestInspectCommit(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "test"
@@ -585,8 +584,29 @@ func TestInspectCommit(t *testing.T) {
 	require.True(t, finished.After(tFinished))
 }
 
+func TestInspectCommitBlock(t *testing.T) {
+	client := getClient(t)
+
+	repo := "TestInspectCommitBlock"
+	require.NoError(t, client.CreateRepo(repo))
+	commit, err := client.StartCommit(repo, "")
+	require.NoError(t, err)
+
+	go func() {
+		time.Sleep(2 * time.Second)
+		require.NoError(t, client.FinishCommit(repo, commit.ID))
+	}()
+
+	commitInfo, err := client.PfsAPIClient.InspectCommit(context.Background(),
+		&pfs.InspectCommitRequest{
+			Commit: commit,
+			Block:  true,
+		})
+	require.NoError(t, err)
+	require.NotNil(t, commitInfo.Finished)
+}
+
 func TestDeleteCommit(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "test"
@@ -614,31 +634,57 @@ func TestDeleteCommit(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, commit1.ID, commitInfo.Commit.ID)
 
-	// Should error because the first commit has been finished
-	require.YesError(t, client.DeleteCommit(repo, "master"))
-
 	// Check that the branch still exists
 	branches, err := client.ListBranch(repo)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(branches))
+}
 
-	// Now start a new repo
-	repo = "test2"
+func TestDeleteCommitOnlyCommitInBranch(t *testing.T) {
+	client := getClient(t)
+
+	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
-	commit1, err = client.StartCommit(repo, "master")
+	commit, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-
-	fileContent = "foo\n"
-	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader(fileContent))
+	_, err = client.PutFile(repo, commit.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
-
 	require.NoError(t, client.DeleteCommit(repo, "master"))
 
-	// Check that the branch has been deleted
-	branches, err = client.ListBranch(repo)
+	// The branch has not been deleted, though it has no commits
+	branches, err := client.ListBranch(repo)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(branches))
+	require.Equal(t, 1, len(branches))
+	commits, err := client.ListCommit(repo, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commits))
+
+	// Check that repo size is back to 0
+	repoInfo, err := client.InspectRepo(repo)
+	require.Equal(t, 0, int(repoInfo.SizeBytes))
+}
+
+func TestDeleteCommitFinished(t *testing.T) {
+	client := getClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	commit, err := client.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = client.PutFile(repo, commit.ID, "foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
+	require.NoError(t, client.DeleteCommit(repo, "master"))
+
+	// The branch has not been deleted, though it has no commits
+	branches, err := client.ListBranch(repo)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(branches))
+	commits, err := client.ListCommit(repo, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commits))
 
 	// Check that repo size is back to 0
 	repoInfo, err := client.InspectRepo(repo)
@@ -646,7 +692,6 @@ func TestDeleteCommit(t *testing.T) {
 }
 
 func TestCleanPath(t *testing.T) {
-	t.Parallel()
 	c := getClient(t)
 	repo := "TestCleanPath"
 	require.NoError(t, c.CreateRepo(repo))
@@ -660,7 +705,6 @@ func TestCleanPath(t *testing.T) {
 }
 
 func TestBasicFile(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "repo"
@@ -685,7 +729,6 @@ func TestBasicFile(t *testing.T) {
 }
 
 func TestSimpleFile(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "test"
@@ -726,7 +769,6 @@ func TestSimpleFile(t *testing.T) {
 }
 
 func TestStartCommitWithUnfinishedParent(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "test"
@@ -744,7 +786,6 @@ func TestStartCommitWithUnfinishedParent(t *testing.T) {
 }
 
 func TestAncestrySyntax(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "test"
@@ -818,74 +859,55 @@ func TestAncestrySyntax(t *testing.T) {
 	}
 }
 
-func TestProvenance2(t *testing.T) {
-	t.Parallel()
-	client := getClient(t)
-	require.NoError(t, client.CreateRepo("A"))
-	require.NoError(t, client.CreateRepo("E"))
-	_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
-		Repo:       pclient.NewRepo("B"),
-		Provenance: []*pfs.Repo{pclient.NewRepo("A")},
-	})
-	require.NoError(t, err)
-	_, err = client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
-		Repo:       pclient.NewRepo("C"),
-		Provenance: []*pfs.Repo{pclient.NewRepo("B"), pclient.NewRepo("E")},
-	})
-	_, err = client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
-		Repo:       pclient.NewRepo("D"),
-		Provenance: []*pfs.Repo{pclient.NewRepo("C")},
-	})
+// TestProvenance implements the following DAG
+//  A ─▶ B ─▶ C ─▶ D
+//            ▲
+//  E ────────╯
 
-	ACommit, err := client.StartCommit("A", "")
+func TestProvenance(t *testing.T) {
+	client := getClient(t)
+
+	require.NoError(t, client.CreateRepo("A"))
+	require.NoError(t, client.CreateRepo("B"))
+	require.NoError(t, client.CreateRepo("C"))
+	require.NoError(t, client.CreateRepo("D"))
+	require.NoError(t, client.CreateRepo("E"))
+
+	require.NoError(t, client.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
+	require.NoError(t, client.CreateBranch("C", "master", "", []*pfs.Branch{pclient.NewBranch("B", "master"), pclient.NewBranch("E", "master")}))
+	require.NoError(t, client.CreateBranch("D", "master", "", []*pfs.Branch{pclient.NewBranch("C", "master")}))
+
+	branchInfo, err := client.InspectBranch("B", "master")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(branchInfo.Provenance))
+	branchInfo, err = client.InspectBranch("C", "master")
+	require.NoError(t, err)
+	require.Equal(t, 3, len(branchInfo.Provenance))
+	branchInfo, err = client.InspectBranch("D", "master")
+	require.NoError(t, err)
+	require.Equal(t, 4, len(branchInfo.Provenance))
+
+	ACommit, err := client.StartCommit("A", "master")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit("A", ACommit.ID))
-	ECommit, err := client.StartCommit("E", "")
+	ECommit, err := client.StartCommit("E", "master")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit("E", ECommit.ID))
-	BCommit, err := client.PfsAPIClient.StartCommit(
-		context.Background(),
-		&pfs.StartCommitRequest{
-			Parent:     pclient.NewCommit("B", ""),
-			Provenance: []*pfs.Commit{ACommit},
-		},
-	)
-	require.NoError(t, err)
-	require.NoError(t, client.FinishCommit("B", BCommit.ID))
-	commitInfo, err := client.InspectCommit("B", BCommit.ID)
-	require.NoError(t, err)
 
-	CCommit, err := client.PfsAPIClient.StartCommit(
-		context.Background(),
-		&pfs.StartCommitRequest{
-			Parent:     pclient.NewCommit("C", ""),
-			Provenance: []*pfs.Commit{BCommit, ECommit},
-		},
-	)
+	commitInfo, err := client.InspectCommit("B", "master")
 	require.NoError(t, err)
-	require.NoError(t, client.FinishCommit("C", CCommit.ID))
-	commitInfo, err = client.InspectCommit("C", CCommit.ID)
-	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfo.Provenance))
 
-	DCommit, err := client.PfsAPIClient.StartCommit(
-		context.Background(),
-		&pfs.StartCommitRequest{
-			Parent:     pclient.NewCommit("D", ""),
-			Provenance: []*pfs.Commit{CCommit},
-		},
-	)
+	commitInfo, err = client.InspectCommit("C", "master")
 	require.NoError(t, err)
-	require.NoError(t, client.FinishCommit("D", DCommit.ID))
+	require.Equal(t, 3, len(commitInfo.Provenance))
 
-	commitInfo, err = client.InspectCommit("D", DCommit.ID)
+	commitInfo, err = client.InspectCommit("D", "master")
 	require.NoError(t, err)
-	for _, commit := range commitInfo.Provenance {
-		require.EqualOneOf(t, []interface{}{ACommit, ECommit, BCommit, CCommit}, commit)
-	}
+	require.Equal(t, 4, len(commitInfo.Provenance))
 }
 
 func TestSimple(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "test"
@@ -916,10 +938,9 @@ func TestSimple(t *testing.T) {
 }
 
 func TestBranch1(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
-	repo := "test"
 
+	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 	commit, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
@@ -958,7 +979,6 @@ func TestBranch1(t *testing.T) {
 }
 
 func TestPutFileBig(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "test"
@@ -985,7 +1005,6 @@ func TestPutFileBig(t *testing.T) {
 }
 
 func TestPutFile(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "test"
@@ -1047,8 +1066,8 @@ func TestPutFile(t *testing.T) {
 }
 
 func TestPutFile2(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
+
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 	commit1, err := client.StartCommit(repo, "master")
@@ -1100,7 +1119,6 @@ func TestPutFile2(t *testing.T) {
 }
 
 func TestPutFileLongName(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "test"
@@ -1119,7 +1137,6 @@ func TestPutFileLongName(t *testing.T) {
 }
 
 func TestPutSameFileInParallel(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "test"
@@ -1127,16 +1144,14 @@ func TestPutSameFileInParallel(t *testing.T) {
 
 	commit, err := client.StartCommit(repo, "")
 	require.NoError(t, err)
-	var wg sync.WaitGroup
+	var eg errgroup.Group
 	for i := 0; i < 3; i++ {
-		wg.Add(1)
-		go func() {
+		eg.Go(func() error {
 			_, err = client.PutFile(repo, commit.ID, "foo", strings.NewReader("foo\n"))
-			require.NoError(t, err)
-			wg.Done()
-		}()
+			return err
+		})
 	}
-	wg.Wait()
+	require.NoError(t, eg.Wait())
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
 
 	var buffer bytes.Buffer
@@ -1145,7 +1160,6 @@ func TestPutSameFileInParallel(t *testing.T) {
 }
 
 func TestInspectFile(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "test"
@@ -1205,8 +1219,8 @@ func TestInspectFile(t *testing.T) {
 }
 
 func TestInspectFile2(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
+
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -1250,7 +1264,6 @@ func TestInspectFile2(t *testing.T) {
 }
 
 func TestInspectDir(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "test"
@@ -1287,8 +1300,8 @@ func TestInspectDir(t *testing.T) {
 }
 
 func TestInspectDir2(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
+
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -1341,7 +1354,6 @@ func TestInspectDir2(t *testing.T) {
 }
 
 func TestListFileTwoCommits(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "test"
@@ -1387,7 +1399,6 @@ func TestListFileTwoCommits(t *testing.T) {
 }
 
 func TestListFile(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "test"
@@ -1423,8 +1434,8 @@ func TestListFile(t *testing.T) {
 }
 
 func TestListFile2(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
+
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -1469,8 +1480,8 @@ func TestListFile2(t *testing.T) {
 }
 
 func TestListFile3(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
+
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -1524,8 +1535,8 @@ func TestListFile3(t *testing.T) {
 }
 
 func TestPutFileTypeConflict(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
+
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -1545,8 +1556,8 @@ func TestPutFileTypeConflict(t *testing.T) {
 }
 
 func TestRootDirectory(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
+
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -1569,7 +1580,6 @@ func TestRootDirectory(t *testing.T) {
 }
 
 func TestDeleteFile(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "test"
@@ -1650,7 +1660,6 @@ func TestDeleteFile(t *testing.T) {
 }
 
 func TestDeleteDir(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "test"
@@ -1735,8 +1744,8 @@ func TestDeleteDir(t *testing.T) {
 }
 
 func TestDeleteFile2(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
+
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -1777,6 +1786,7 @@ func TestDeleteFile2(t *testing.T) {
 
 func TestListCommit(t *testing.T) {
 	client := getClient(t)
+
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
@@ -1835,8 +1845,8 @@ func TestListCommit(t *testing.T) {
 }
 
 func TestOffsetRead(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
+
 	repo := "TestOffsetRead"
 	require.NoError(t, client.CreateRepo(repo))
 	commit, err := client.StartCommit(repo, "")
@@ -1952,7 +1962,6 @@ func TestSubscribeCommit(t *testing.T) {
 }
 
 func TestInspectRepoSimple(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "test"
@@ -1978,7 +1987,6 @@ func TestInspectRepoSimple(t *testing.T) {
 }
 
 func TestInspectRepoComplex(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "test"
@@ -2019,7 +2027,6 @@ func TestInspectRepoComplex(t *testing.T) {
 }
 
 func TestCreate(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "test"
@@ -2035,7 +2042,6 @@ func TestCreate(t *testing.T) {
 }
 
 func TestGetFileInvalidCommit(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "test"
@@ -2100,7 +2106,6 @@ func TestManyPutsSingleFileSingleCommit(t *testing.T) {
 }
 
 func TestPutFileValidCharacters(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "test"
@@ -2137,8 +2142,9 @@ func TestPutFileURL(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
+
 	c := getClient(t)
+
 	repo := "TestPutFileURL"
 	require.NoError(t, c.CreateRepo(repo))
 	commit, err := c.StartCommit(repo, "master")
@@ -2151,7 +2157,6 @@ func TestPutFileURL(t *testing.T) {
 }
 
 func TestBigListFile(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "TestBigListFile"
@@ -2179,7 +2184,6 @@ func TestBigListFile(t *testing.T) {
 }
 
 func TestStartCommitLatestOnBranch(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "test"
@@ -2203,7 +2207,6 @@ func TestStartCommitLatestOnBranch(t *testing.T) {
 }
 
 func TestSetBranchTwice(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "test"
@@ -2228,7 +2231,6 @@ func TestSetBranchTwice(t *testing.T) {
 }
 
 func TestSyncPullPush(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo1 := "repo1"
@@ -2306,7 +2308,6 @@ func TestSyncPullPush(t *testing.T) {
 }
 
 func TestSyncFile(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "repo"
@@ -2356,7 +2357,6 @@ func TestSyncFile(t *testing.T) {
 }
 
 func TestSyncEmptyDir(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 
 	repo := "repo"
@@ -2385,7 +2385,7 @@ func generateRandomString(n int) string {
 	rand.Seed(time.Now().UnixNano())
 	b := make([]byte, n)
 	for i := range b {
-		b[i] = ALPHABET[rand.Intn(len(ALPHABET))]
+		b[i] = byte('a' + rand.Intn(26))
 	}
 	return string(b)
 }
@@ -2412,14 +2412,22 @@ func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
 	<-ready
 }
 
-var etcdOnce sync.Once
+const (
+	servers     = 2                 // Number of pachd server processes to run
+	etcdAddress = "localhost:32379" // etcd must already be serving at this address
+)
 
-func getClient(t *testing.T) *pclient.APIClient {
-	// src/server/pfs/server/driver.go expects an etcd server at "localhost:32379"
-	// Try to establish a connection before proceeding with the test (which will
-	// fail if the connection can't be established)
-	etcdAddress := "localhost:32379"
-	etcdOnce.Do(func() {
+var (
+	port int32 = 30653 // Initial port on which pachd server processes will serve
+
+	startPFSServersOnce sync.Once // ensure pachd servers are only started once
+)
+
+// src/server/pfs/server/driver.go expects an etcd server at "localhost:32379"
+// Try to establish a connection before proceeding with the test (which will
+// fail if the connection can't be established)
+func startPFSServers(t *testing.T) {
+	startPFSServersOnce.Do(func() {
 		require.NoError(t, backoff.Retry(func() error {
 			_, err := etcd.New(etcd.Config{
 				Endpoints:   []string{etcdAddress},
@@ -2431,10 +2439,14 @@ func getClient(t *testing.T) *pclient.APIClient {
 			return nil
 		}, backoff.NewTestingBackOff()))
 	})
+}
+
+func getClient(t *testing.T) *pclient.APIClient {
+	startPFSServers(t)
 	dbName := "pachyderm_test_" + uuid.NewWithoutDashes()[0:12]
 	testDBs = append(testDBs, dbName)
 
-	root := uniqueString("/tmp/pach_test/run")
+	root := tu.UniqueString("/tmp/pach_test/run")
 	t.Logf("root %s", root)
 	var ports []int32
 	for i := 0; i < servers; i++ {
@@ -2473,57 +2485,41 @@ func collectCommitInfos(commitInfoIter pclient.CommitInfoIterator) ([]*pfs.Commi
 }
 
 func TestFlush(t *testing.T) {
-	t.Parallel()
 	client := getClient(t)
 	require.NoError(t, client.CreateRepo("A"))
-	_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
-		Repo:       pclient.NewRepo("B"),
-		Provenance: []*pfs.Repo{pclient.NewRepo("A")},
-	})
+	require.NoError(t, client.CreateRepo("B"))
+	require.NoError(t, client.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
+	ACommit, err := client.StartCommit("A", "master")
 	require.NoError(t, err)
-	_, err = client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
-		Repo:       pclient.NewRepo("C"),
-		Provenance: []*pfs.Repo{pclient.NewRepo("B")},
-	})
+	require.NoError(t, client.FinishCommit("A", "master"))
+	require.NoError(t, client.FinishCommit("B", "master"))
+	commitInfoIter, err := client.FlushCommit([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID)}, nil)
 	require.NoError(t, err)
-	_, err = client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
-		Repo:       pclient.NewRepo("D"),
-		Provenance: []*pfs.Repo{pclient.NewRepo("B")},
-	})
+	commitInfos, err := collectCommitInfos(commitInfoIter)
 	require.NoError(t, err)
-	ACommit, err := client.StartCommit("A", "")
+	require.Equal(t, 1, len(commitInfos))
+}
+
+// TestFlush2 implements the following DAG:
+// A ─▶ B ─▶ C ─▶ D
+func TestFlush2(t *testing.T) {
+	client := getClient(t)
+	require.NoError(t, client.CreateRepo("A"))
+	require.NoError(t, client.CreateRepo("B"))
+	require.NoError(t, client.CreateRepo("C"))
+	require.NoError(t, client.CreateRepo("D"))
+	require.NoError(t, client.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
+	require.NoError(t, client.CreateBranch("C", "master", "", []*pfs.Branch{pclient.NewBranch("B", "master")}))
+	require.NoError(t, client.CreateBranch("D", "master", "", []*pfs.Branch{pclient.NewBranch("C", "master")}))
+	ACommit, err := client.StartCommit("A", "master")
 	require.NoError(t, err)
-	require.NoError(t, client.FinishCommit("A", ACommit.ID))
+	require.NoError(t, client.FinishCommit("A", "master"))
 
 	// do the other commits in a goro so we can block for them
 	go func() {
-		BCommit, err := client.PfsAPIClient.StartCommit(
-			context.Background(),
-			&pfs.StartCommitRequest{
-				Parent:     pclient.NewCommit("B", ""),
-				Provenance: []*pfs.Commit{ACommit},
-			},
-		)
-		require.NoError(t, err)
-		require.NoError(t, client.FinishCommit("B", BCommit.ID))
-		CCommit, err := client.PfsAPIClient.StartCommit(
-			context.Background(),
-			&pfs.StartCommitRequest{
-				Parent:     pclient.NewCommit("C", ""),
-				Provenance: []*pfs.Commit{BCommit},
-			},
-		)
-		require.NoError(t, err)
-		require.NoError(t, client.FinishCommit("C", CCommit.ID))
-		DCommit, err := client.PfsAPIClient.StartCommit(
-			context.Background(),
-			&pfs.StartCommitRequest{
-				Parent:     pclient.NewCommit("D", ""),
-				Provenance: []*pfs.Commit{BCommit},
-			},
-		)
-		require.NoError(t, err)
-		require.NoError(t, client.FinishCommit("D", DCommit.ID))
+		require.NoError(t, client.FinishCommit("B", "master"))
+		require.NoError(t, client.FinishCommit("C", "master"))
+		require.NoError(t, client.FinishCommit("D", "master"))
 	}()
 
 	// Flush ACommit
@@ -2543,47 +2539,34 @@ func TestFlush(t *testing.T) {
 	require.Equal(t, 1, len(commitInfos))
 }
 
-func TestFlush2(t *testing.T) {
-	t.Parallel()
+// A
+//  ╲
+//   ◀
+//    C
+//   ◀
+//  ╱
+// B
+func TestFlush3(t *testing.T) {
 	client := getClient(t)
 	require.NoError(t, client.CreateRepo("A"))
 	require.NoError(t, client.CreateRepo("B"))
-	_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
-		Repo:       pclient.NewRepo("C"),
-		Provenance: []*pfs.Repo{pclient.NewRepo("A"), pclient.NewRepo("B")},
-	})
-	require.NoError(t, err)
+	require.NoError(t, client.CreateRepo("C"))
+
+	require.NoError(t, client.CreateBranch("C", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master"), pclient.NewBranch("B", "master")}))
 
 	ACommit, err := client.StartCommit("A", "master")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit("A", ACommit.ID))
+	require.NoError(t, client.FinishCommit("C", "master"))
 	BCommit, err := client.StartCommit("B", "master")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit("B", BCommit.ID))
-	CCommit, err := client.PfsAPIClient.StartCommit(
-		context.Background(),
-		&pfs.StartCommitRequest{
-			Parent:     pclient.NewCommit("C", ""),
-			Branch:     "master",
-			Provenance: []*pfs.Commit{ACommit, BCommit},
-		},
-	)
-	require.NoError(t, err)
-	require.NoError(t, client.FinishCommit("C", CCommit.ID))
+	require.NoError(t, client.FinishCommit("C", "master"))
 
 	BCommit, err = client.StartCommit("B", "master")
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit("B", BCommit.ID))
-	CCommit, err = client.PfsAPIClient.StartCommit(
-		context.Background(),
-		&pfs.StartCommitRequest{
-			Parent:     pclient.NewCommit("C", ""),
-			Branch:     "master",
-			Provenance: []*pfs.Commit{ACommit, BCommit},
-		},
-	)
-	require.NoError(t, err)
-	require.NoError(t, client.FinishCommit("C", CCommit.ID))
+	require.NoError(t, client.FinishCommit("C", "master"))
 
 	commitIter, err := client.FlushCommit([]*pfs.Commit{pclient.NewCommit("B", BCommit.ID), pclient.NewCommit("A", ACommit.ID)}, nil)
 	require.NoError(t, err)
@@ -2592,11 +2575,9 @@ func TestFlush2(t *testing.T) {
 	require.Equal(t, 1, len(commitInfos))
 
 	require.Equal(t, commitInfos[0].Commit.Repo.Name, "C")
-	require.Equal(t, commitInfos[0].Commit.ID, CCommit.ID)
 }
 
 func TestFlushCommitWithNoDownstreamRepos(t *testing.T) {
-	t.Parallel()
 	c := getClient(t)
 	repo := "test"
 	require.NoError(t, c.CreateRepo(repo))
@@ -2611,29 +2592,19 @@ func TestFlushCommitWithNoDownstreamRepos(t *testing.T) {
 }
 
 func TestFlushOpenCommit(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 	require.NoError(t, client.CreateRepo("A"))
-	_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
-		Repo:       pclient.NewRepo("B"),
-		Provenance: []*pfs.Repo{pclient.NewRepo("A")},
-	})
-	ACommit, err := client.StartCommit("A", "")
+	require.NoError(t, client.CreateRepo("B"))
+	require.NoError(t, client.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
+	ACommit, err := client.StartCommit("A", "master")
 	require.NoError(t, err)
 
 	// do the other commits in a goro so we can block for them
 	go func() {
 		time.Sleep(5 * time.Second)
-		require.NoError(t, client.FinishCommit("A", ACommit.ID))
-		BCommit, err := client.PfsAPIClient.StartCommit(
-			context.Background(),
-			&pfs.StartCommitRequest{
-				Parent:     pclient.NewCommit("B", ""),
-				Provenance: []*pfs.Commit{ACommit},
-			},
-		)
-		require.NoError(t, err)
-		require.NoError(t, client.FinishCommit("B", BCommit.ID))
+		require.NoError(t, client.FinishCommit("A", "master"))
+		require.NoError(t, client.FinishCommit("B", "master"))
 	}()
 
 	// Flush ACommit
@@ -2645,7 +2616,7 @@ func TestFlushOpenCommit(t *testing.T) {
 }
 
 func TestEmptyFlush(t *testing.T) {
-	t.Parallel()
+
 	client := getClient(t)
 	commitIter, err := client.FlushCommit(nil, nil)
 	require.NoError(t, err)
@@ -2654,7 +2625,7 @@ func TestEmptyFlush(t *testing.T) {
 }
 
 func TestFlushNonExistentCommit(t *testing.T) {
-	t.Parallel()
+
 	c := getClient(t)
 	iter, err := c.FlushCommit([]*pfs.Commit{pclient.NewCommit("fake-repo", "fake-commit")}, nil)
 	require.NoError(t, err)
@@ -2672,11 +2643,10 @@ func TestPutFileSplit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 
 	c := getClient(t)
 	// create repos
-	repo := uniqueString("TestPutFileSplit")
+	repo := tu.UniqueString("TestPutFileSplit")
 	require.NoError(t, c.CreateRepo(repo))
 	commit, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
@@ -2779,11 +2749,10 @@ func TestPutFileSplitDelete(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 
 	c := getClient(t)
 	// create repos
-	repo := uniqueString("TestPutFileSplitDelete")
+	repo := tu.UniqueString("TestPutFileSplitDelete")
 	require.NoError(t, c.CreateRepo(repo))
 	commit, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
@@ -2817,11 +2786,10 @@ func TestPutFileSplitBig(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 
 	c := getClient(t)
 	// create repos
-	repo := uniqueString("TestPutFileSplitBig")
+	repo := tu.UniqueString("TestPutFileSplitBig")
 	require.NoError(t, c.CreateRepo(repo))
 	commit, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
@@ -2845,10 +2813,9 @@ func TestDiff(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 
 	c := getClient(t)
-	repo := uniqueString("TestDiff")
+	repo := tu.UniqueString("TestDiff")
 	require.NoError(t, c.CreateRepo(repo))
 
 	// Write foo
@@ -2980,10 +2947,9 @@ func TestGlob(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 
 	c := getClient(t)
-	repo := uniqueString("TestGlob")
+	repo := tu.UniqueString("TestGlob")
 	require.NoError(t, c.CreateRepo(repo))
 
 	// Write foo
@@ -3038,10 +3004,9 @@ func TestOverwrite(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 
 	c := getClient(t)
-	repo := uniqueString("TestGlob")
+	repo := tu.UniqueString("TestGlob")
 	require.NoError(t, c.CreateRepo(repo))
 
 	// Write foo
@@ -3082,10 +3047,9 @@ func TestCopyFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 
 	c := getClient(t)
-	repo := uniqueString("TestCopyFile")
+	repo := tu.UniqueString("TestCopyFile")
 	require.NoError(t, c.CreateRepo(repo))
 	_, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
@@ -3120,10 +3084,9 @@ func TestBuildCommit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	t.Parallel()
 
 	c := getClient(t)
-	repo := uniqueString("TestBuildCommit")
+	repo := tu.UniqueString("TestBuildCommit")
 	require.NoError(t, c.CreateRepo(repo))
 
 	tree1 := hashtree.NewHashTree()
@@ -3162,6 +3125,1055 @@ func TestBuildCommit(t *testing.T) {
 	require.Equal(t, uint64(fooSize+barSize), commitInfo.SizeBytes)
 }
 
-func uniqueString(prefix string) string {
-	return prefix + "-" + uuid.NewWithoutDashes()[0:12]
+func TestPropagateCommit(t *testing.T) {
+	c := getClient(t)
+	repo1 := tu.UniqueString("TestPropagateCommit1")
+	require.NoError(t, c.CreateRepo(repo1))
+	repo2 := tu.UniqueString("TestPropagateCommit2")
+	require.NoError(t, c.CreateRepo(repo2))
+	require.NoError(t, c.CreateBranch(repo2, "master", "", []*pfs.Branch{pclient.NewBranch(repo1, "master")}))
+	commit, err := c.StartCommit(repo1, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo1, commit.ID))
+	commits, err := c.ListCommitByRepo(repo2)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commits))
+}
+
+// TestBackfillBranch implements the following DAG:
+//
+// A ──▶ C
+//  ╲   ◀
+//   ╲ ╱
+//    ╳
+//   ╱ ╲
+// 	╱   ◀
+// B ──▶ D
+func TestBackfillBranch(t *testing.T) {
+	c := getClient(t)
+	require.NoError(t, c.CreateRepo("A"))
+	require.NoError(t, c.CreateRepo("B"))
+	require.NoError(t, c.CreateRepo("C"))
+	require.NoError(t, c.CreateRepo("D"))
+	require.NoError(t, c.CreateBranch("C", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master"), pclient.NewBranch("B", "master")}))
+	_, err := c.StartCommit("A", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("A", "master"))
+	require.NoError(t, c.FinishCommit("C", "master"))
+	_, err = c.StartCommit("B", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("B", "master"))
+	require.NoError(t, c.FinishCommit("C", "master"))
+	commits, err := c.ListCommitByRepo("C")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commits))
+
+	// Create a branch in D, it should receive a single commit for the heads of `A` and `B`.
+	require.NoError(t, c.CreateBranch("D", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master"), pclient.NewBranch("B", "master")}))
+	commits, err = c.ListCommitByRepo("D")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commits))
+}
+
+// TestUpdateBranch tests the following DAG:
+//
+// A ─▶ B ─▶ C
+//
+// Then updates it to:
+//
+// A ─▶ B ─▶ C
+//      ▲
+// D ───╯
+//
+func TestUpdateBranch(t *testing.T) {
+	c := getClient(t)
+	require.NoError(t, c.CreateRepo("A"))
+	require.NoError(t, c.CreateRepo("B"))
+	require.NoError(t, c.CreateRepo("C"))
+	require.NoError(t, c.CreateRepo("D"))
+	require.NoError(t, c.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
+	require.NoError(t, c.CreateBranch("C", "master", "", []*pfs.Branch{pclient.NewBranch("B", "master")}))
+	_, err := c.StartCommit("A", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("A", "master"))
+	require.NoError(t, c.FinishCommit("B", "master"))
+	require.NoError(t, c.FinishCommit("C", "master"))
+
+	_, err = c.StartCommit("D", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("D", "master"))
+
+	require.NoError(t, c.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master"), pclient.NewBranch("D", "master")}))
+	require.NoError(t, c.FinishCommit("B", "master"))
+	require.NoError(t, c.FinishCommit("C", "master"))
+	cCommitInfo, err := c.InspectCommit("C", "master")
+	require.NoError(t, err)
+	require.Equal(t, 3, len(cCommitInfo.Provenance))
+}
+
+func TestBranchProvenance(t *testing.T) {
+	c := getClient(t)
+	tests := [][]struct {
+		name       string
+		directProv []string
+		err        bool
+		expectProv map[string][]string
+		expectSubv map[string][]string
+	}{{
+		{name: "A"},
+		{name: "B", directProv: []string{"A"}},
+		{name: "C", directProv: []string{"B"}},
+		{name: "D", directProv: []string{"C", "A"},
+			expectProv: map[string][]string{"A": nil, "B": {"A"}, "C": {"B", "A"}, "D": {"A", "B", "C"}},
+			expectSubv: map[string][]string{"A": {"B", "C", "D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
+		// A ─▶ B ─▶ C ─▶ D
+		// ╰─────────────⬏
+		{name: "B",
+			expectProv: map[string][]string{"A": {}, "B": {}, "C": {"B"}, "D": {"A", "B", "C"}},
+			expectSubv: map[string][]string{"A": {"D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
+		// A    B ─▶ C ─▶ D
+		// ╰─────────────⬏
+	}, {
+		{name: "A"},
+		{name: "B", directProv: []string{"A"}},
+		{name: "C", directProv: []string{"A", "B"}},
+		{name: "D", directProv: []string{"C"},
+			expectProv: map[string][]string{"A": {}, "B": {"A"}, "C": {"A", "B"}, "D": {"A", "B", "C"}},
+			expectSubv: map[string][]string{"A": {"B", "C", "D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
+		// A ─▶ B ─▶ C ─▶ D
+		// ╰────────⬏
+		{name: "C", directProv: []string{"B"},
+			expectProv: map[string][]string{"A": {}, "B": {"A"}, "C": {"A", "B"}, "D": {"A", "B", "C"}},
+			expectSubv: map[string][]string{"A": {"B", "C", "D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
+		// A ─▶ B ─▶ C ─▶ D
+	}, {
+		{name: "A"},
+		{name: "B"},
+		{name: "C", directProv: []string{"A", "B"}},
+		{name: "D", directProv: []string{"C"}},
+		{name: "E", directProv: []string{"A", "D"},
+			expectProv: map[string][]string{"A": {}, "B": {}, "C": {"A", "B"}, "D": {"A", "B", "C"}, "E": {"A", "B", "C", "D"}},
+			expectSubv: map[string][]string{"A": {"C", "D", "E"}, "B": {"C", "D", "E"}, "C": {"D", "E"}, "D": {"E"}, "E": {}}},
+		// A    B ─▶ C ─▶ D ─▶ E
+		// ├────────⬏          ▲
+		// ╰───────────────────╯
+		{name: "C", directProv: []string{"B"},
+			expectProv: map[string][]string{"A": {}, "B": {}, "C": {"B"}, "D": {"B", "C"}, "E": {"A", "B", "C", "D"}},
+			expectSubv: map[string][]string{"A": {"E"}, "B": {"C", "D", "E"}, "C": {"D", "E"}, "D": {"E"}, "E": {}}},
+		// A    B ─▶ C ─▶ D ─▶ E
+		// ╰──────────────────⬏
+	}, {
+		{name: "A", directProv: []string{"A"}, err: true},
+		{name: "A"},
+		{name: "A", directProv: []string{"A"}, err: true},
+		{name: "B", directProv: []string{"A"}},
+		{name: "A", directProv: []string{"B"}, err: true},
+	},
+	}
+	for i, test := range tests {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			repo := tu.UniqueString("repo")
+			require.NoError(t, c.CreateRepo(repo))
+			for iStep, step := range test {
+				var provenance []*pfs.Branch
+				for _, branch := range step.directProv {
+					provenance = append(provenance, pclient.NewBranch(repo, branch))
+				}
+				err := c.CreateBranch(repo, step.name, "", provenance)
+				if step.err {
+					require.YesError(t, err, "%d> CreateBranch(\"%s\", %v)", iStep, step.name, step.directProv)
+				} else {
+					require.NoError(t, err, "%d> CreateBranch(\"%s\", %v)", iStep, step.name, step.directProv)
+				}
+				for branch, expectedProv := range step.expectProv {
+					bi, err := c.InspectBranch(repo, branch)
+					require.NoError(t, err)
+					sort.Strings(expectedProv)
+					require.Equal(t, len(expectedProv), len(bi.Provenance))
+					for _, b := range bi.Provenance {
+						i := sort.SearchStrings(expectedProv, b.Name)
+						if i >= len(expectedProv) || expectedProv[i] != b.Name {
+							t.Fatalf("provenance for %s contains: %s, but should only contain: %v", branch, b.Name, expectedProv)
+						}
+					}
+				}
+				for branch, expectedSubv := range step.expectSubv {
+					bi, err := c.InspectBranch(repo, branch)
+					require.NoError(t, err)
+					sort.Strings(expectedSubv)
+					require.Equal(t, len(expectedSubv), len(bi.Subvenance))
+					for _, b := range bi.Subvenance {
+						i := sort.SearchStrings(expectedSubv, b.Name)
+						if i >= len(expectedSubv) || expectedSubv[i] != b.Name {
+							t.Fatalf("subvenance for %s contains: %s, but should only contain: %v", branch, b.Name, expectedSubv)
+						}
+					}
+				}
+			}
+		})
+	}
+	// t.Run("1", func(t *testing.T) {
+	// 	c := getClient(t)
+	// 	require.NoError(t, c.CreateRepo("A"))
+	// 	require.NoError(t, c.CreateRepo("B"))
+	// 	require.NoError(t, c.CreateRepo("C"))
+	// 	require.NoError(t, c.CreateRepo("D"))
+
+	// 	require.NoError(t, c.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
+	// 	require.NoError(t, c.CreateBranch("C", "master", "", []*pfs.Branch{pclient.NewBranch("B", "master")}))
+	// 	require.NoError(t, c.CreateBranch("D", "master", "", []*pfs.Branch{pclient.NewBranch("C", "master"), pclient.NewBranch("A", "master")}))
+
+	// 	aMaster, err := c.InspectBranch("A", "master")
+	// 	require.NoError(t, err)
+	// 	require.Equal(t, 3, len(aMaster.Subvenance))
+
+	// 	cMaster, err := c.InspectBranch("C", "master")
+	// 	require.NoError(t, err)
+	// 	require.Equal(t, 2, len(cMaster.Provenance))
+
+	// 	dMaster, err := c.InspectBranch("D", "master")
+	// 	require.NoError(t, err)
+	// 	require.Equal(t, 3, len(dMaster.Provenance))
+
+	// 	require.NoError(t, c.CreateBranch("B", "master", "", nil))
+
+	// 	aMaster, err = c.InspectBranch("A", "master")
+	// 	require.NoError(t, err)
+	// 	require.Equal(t, 1, len(aMaster.Subvenance))
+
+	// 	cMaster, err = c.InspectBranch("C", "master")
+	// 	require.NoError(t, err)
+	// 	require.Equal(t, 1, len(cMaster.Provenance))
+
+	// 	dMaster, err = c.InspectBranch("D", "master")
+	// 	require.NoError(t, err)
+	// 	require.Equal(t, 3, len(dMaster.Provenance))
+	// })
+	// t.Run("2", func(t *testing.T) {
+	// 	c := getClient(t)
+	// 	require.NoError(t, c.CreateRepo("A"))
+	// 	require.NoError(t, c.CreateRepo("B"))
+	// 	require.NoError(t, c.CreateRepo("C"))
+	// 	require.NoError(t, c.CreateRepo("D"))
+
+	// 	require.NoError(t, c.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
+	// 	require.NoError(t, c.CreateBranch("C", "master", "", []*pfs.Branch{pclient.NewBranch("B", "master"), pclient.NewBranch("A", "master")}))
+	// 	require.NoError(t, c.CreateBranch("D", "master", "", []*pfs.Branch{pclient.NewBranch("C", "master")}))
+	// })
+}
+
+func TestChildCommits(t *testing.T) {
+	c := getClient(t)
+	require.NoError(t, c.CreateRepo("A"))
+	require.NoError(t, c.CreateBranch("A", "master", "", nil))
+
+	// Small helper function wrapping c.InspectCommit, because it's called a lot
+	inspect := func(repo, commit string) *pfs.CommitInfo {
+		commitInfo, err := c.InspectCommit(repo, commit)
+		require.NoError(t, err)
+		return commitInfo
+	}
+
+	commit1, err := c.StartCommit("A", "master")
+	require.NoError(t, err)
+	commits, err := c.ListCommit("A", "master", "", 0)
+	t.Logf("%v", commits)
+	require.NoError(t, c.FinishCommit("A", "master"))
+
+	commit2, err := c.StartCommit("A", "master")
+	require.NoError(t, err)
+
+	// Inspect commit 1 and 2
+	commit1Info, commit2Info := inspect("A", commit1.ID), inspect("A", commit2.ID)
+	require.Equal(t, commit1.ID, commit2Info.ParentCommit.ID)
+	require.ElementsEqualUnderFn(t, []string{commit2.ID}, commit1Info.ChildCommits, CommitToID)
+
+	// Delete commit 2 and make sure it's removed from commit1.ChildCommits
+	require.NoError(t, c.DeleteCommit("A", commit2.ID))
+	commit1Info = inspect("A", commit1.ID)
+	require.ElementsEqualUnderFn(t, nil, commit1Info.ChildCommits, CommitToID)
+
+	// Re-create commit2, and create a third commit also extending from commit1.
+	// Make sure both appear in commit1.children
+	commit2, err = c.StartCommit("A", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("A", commit2.ID))
+	commit3, err := c.PfsAPIClient.StartCommit(c.Ctx(), &pfs.StartCommitRequest{
+		Parent: pclient.NewCommit("A", commit1.ID),
+	})
+	require.NoError(t, err)
+	commit1Info = inspect("A", commit1.ID)
+	require.ElementsEqualUnderFn(t, []string{commit2.ID, commit3.ID}, commit1Info.ChildCommits, CommitToID)
+
+	// Delete commit3 and make sure commit1 has the right children
+	require.NoError(t, c.DeleteCommit("A", commit3.ID))
+	commit1Info = inspect("A", commit1.ID)
+	require.ElementsEqualUnderFn(t, []string{commit2.ID}, commit1Info.ChildCommits, CommitToID)
+
+	// Create a downstream branch in the same repo, then commit to "A" and make
+	// sure the new HEAD commit is in the parent's children (i.e. test
+	// propagateCommit)
+	require.NoError(t, c.CreateBranch("A", "out", "", []*pfs.Branch{
+		pclient.NewBranch("A", "master"),
+	}))
+	outCommit1ID := inspect("A", "out").Commit.ID
+	commit3, err = c.StartCommit("A", "master")
+	require.NoError(t, err)
+	c.FinishCommit("A", commit3.ID)
+	// Re-inspect outCommit1, which has been updated by StartCommit
+	outCommit1, outCommit2 := inspect("A", outCommit1ID), inspect("A", "out")
+	require.Equal(t, outCommit1.Commit.ID, outCommit2.ParentCommit.ID)
+	require.ElementsEqualUnderFn(t, []string{outCommit2.Commit.ID}, outCommit1.ChildCommits, CommitToID)
+
+	// create a new branch in a different repo and do the same test again
+	require.NoError(t, c.CreateRepo("B"))
+	require.NoError(t, c.CreateBranch("B", "master", "", []*pfs.Branch{
+		pclient.NewBranch("A", "master"),
+	}))
+	bCommit1ID := inspect("B", "master").Commit.ID
+	commit3, err = c.StartCommit("A", "master")
+	require.NoError(t, err)
+	c.FinishCommit("A", commit3.ID)
+	// Re-inspect bCommit1, which has been updated by StartCommit
+	bCommit1, bCommit2 := inspect("B", bCommit1ID), inspect("B", "master")
+	require.Equal(t, bCommit1.Commit.ID, bCommit2.ParentCommit.ID)
+	require.ElementsEqualUnderFn(t, []string{bCommit2.Commit.ID}, bCommit1.ChildCommits, CommitToID)
+
+	// create a new branch in a different repo, then update it so that two commits
+	// are generated. Make sure the second commit is in the parent's children
+	require.NoError(t, c.CreateRepo("C"))
+	require.NoError(t, c.CreateBranch("C", "master", "", []*pfs.Branch{
+		pclient.NewBranch("A", "master"),
+	}))
+	cCommit1ID := inspect("C", "master").Commit.ID // Get new commit's ID
+	require.NoError(t, c.CreateBranch("C", "master", "master", []*pfs.Branch{
+		pclient.NewBranch("A", "master"),
+		pclient.NewBranch("B", "master"),
+	}))
+	// Re-inspect cCommit1, which has been updated by CreateBranch
+	cCommit1, cCommit2 := inspect("C", cCommit1ID), inspect("C", "master")
+	require.Equal(t, cCommit1.Commit.ID, cCommit2.ParentCommit.ID)
+	require.ElementsEqualUnderFn(t, []string{cCommit2.Commit.ID}, cCommit1.ChildCommits, CommitToID)
+}
+
+func TestStartCommitFork(t *testing.T) {
+	c := getClient(t)
+	require.NoError(t, c.CreateRepo("A"))
+	require.NoError(t, c.CreateBranch("A", "master", "", nil))
+	commit, err := c.StartCommit("A", "master")
+	require.NoError(t, err)
+	c.FinishCommit("A", commit.ID)
+	commit2, err := c.PfsAPIClient.StartCommit(c.Ctx(), &pfs.StartCommitRequest{
+		Branch: "master2",
+		Parent: pclient.NewCommit("A", "master"),
+	})
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("A", commit2.ID))
+
+	commits, err := c.ListCommit("A", "master2", "", 0)
+	require.NoError(t, err)
+	require.ElementsEqualUnderFn(t, []string{commit.ID, commit2.ID}, commits, CommitInfoToID)
+}
+
+// TestUpdateBranchNewOutputCommit tests the following corner case:
+// A ──▶ C
+// B
+//
+// Becomes:
+//
+// A  ╭▶ C
+// B ─╯
+//
+// C should create a new output commit to process its unprocessed inputs in B
+func TestUpdateBranchNewOutputCommit(t *testing.T) {
+	c := getClient(t)
+	require.NoError(t, c.CreateRepo("A"))
+	require.NoError(t, c.CreateRepo("B"))
+	require.NoError(t, c.CreateRepo("C"))
+	require.NoError(t, c.CreateBranch("A", "master", "", nil))
+	require.NoError(t, c.CreateBranch("B", "master", "", nil))
+	require.NoError(t, c.CreateBranch("C", "master", "",
+		[]*pfs.Branch{pclient.NewBranch("A", "master")}))
+
+	// Create commits in A and B
+	commit, err := c.StartCommit("A", "master")
+	require.NoError(t, err)
+	c.FinishCommit("A", commit.ID)
+	commit, err = c.StartCommit("B", "master")
+	require.NoError(t, err)
+	c.FinishCommit("A", commit.ID)
+
+	// Check for first output commit in C
+	commits, err := c.ListCommit("C", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commits))
+
+	// Update the provenance of C/master and make sure it creates a new commit
+	require.NoError(t, c.CreateBranch("C", "master", "master",
+		[]*pfs.Branch{pclient.NewBranch("B", "master")}))
+	commits, err = c.ListCommit("C", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commits))
+}
+
+// TestDeleteCommitBigSubvenance deletes a commit that is upstream of a large
+// stack of pipeline outputs and makes sure that parenthood and such are handled
+// correctly.
+// DAG (dots are commits):
+//  schema:
+//   ...   ─────╮
+//              │  pipeline:
+//  logs:       ├─▶ .............
+//   .......... ╯
+// Tests:
+//   there are four cases tested here, in this order (b/c easy setup)
+// 1. Delete parent commit -> child rewritten to point to a live commit
+// 2. Delete branch HEAD   -> output branch rewritten to point to a live commit
+// 3. Delete branch HEAD   -> output branch rewritten to point to nil
+// 4. Delete parent commit -> child rewritten to point to nil
+func TestDeleteCommitBigSubvenance(t *testing.T) {
+	c := getClient(t)
+
+	// two input repos, one with many commits (logs), and one with few (schema)
+	require.NoError(t, c.CreateRepo("logs"))
+	require.NoError(t, c.CreateRepo("schema"))
+
+	// Commit to logs and schema (so that "pipeline" has an initial output commit,
+	// and we can check that it updates this initial commit's child appropriately)
+	for _, repo := range []string{"schema", "logs"} {
+		commit, err := c.StartCommit(repo, "master")
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+	}
+
+	// Create an output branch, in "pipeline"
+	require.NoError(t, c.CreateRepo("pipeline"))
+	require.NoError(t, c.CreateBranch("pipeline", "master", "", []*pfs.Branch{
+		pclient.NewBranch("schema", "master"),
+		pclient.NewBranch("logs", "master"),
+	}))
+	commits, err := c.ListCommit("pipeline", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commits))
+
+	// Case 1
+	// - Commit to "schema", creating a second output commit in 'pipeline' (this
+	//   is bigSubvCommit)
+	// - Commit to "logs" 10 more times, so that the commit to "schema" has 11
+	//   commits in its subvenance
+	// - Commit to "schema" again creating a 12th commit in 'pipeline'
+	// - Delete bigSubvCommit
+	// - Now there are 2 output commits in 'pipeline', and the parent of the first
+	//   commit is the second commit (makes sure that the first commit's parent is
+	//   rewritten back to the last live commit)
+	bigSubvCommit, err := c.StartCommit("schema", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("schema", bigSubvCommit.ID))
+	for i := 0; i < 10; i++ {
+		commit, err := c.StartCommit("logs", "master")
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit("logs", commit.ID))
+	}
+	commit, err := c.StartCommit("schema", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("schema", commit.ID))
+
+	// Make sure there are 13 output commits in 'pipeline' to start (one from
+	// creation, one from the second 'schema' commit, 10 from the 'logs' commits,
+	// and one more from the third 'schema' commit)
+	commits, err = c.ListCommit("pipeline", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 13, len(commits))
+
+	require.NoError(t, c.DeleteCommit("schema", bigSubvCommit.ID))
+
+	commits, err = c.ListCommit("pipeline", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commits))
+	require.Equal(t, commits[1].Commit.ID, commits[0].ParentCommit.ID)
+	require.Equal(t, commits[1].ChildCommits[0].ID, commits[0].Commit.ID)
+
+	// Case 2
+	// - reset bigSubvCommit to be the head commit of 'schema/master'
+	// - commit to 'logs' 10 more times
+	// - delete bigSubvCommit
+	// - Now there should be two commits in 'pipeline':
+	//   - One started by DeleteCommit (with provenance schema/master and
+	//     logs/masterand
+	//   - The oldest commit in 'pipeline', from the setup
+	// - The second commit is the parent of the first
+	//
+	// This makes sure that the branch pipeline/master is rewritten back to
+	// the last live commit, and that it creates a new output commit when branches
+	// have unprocesed HEAD commits
+	commits, err = c.ListCommit("schema", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commits))
+	bigSubvCommitInfo, err := c.InspectCommit("schema", "master")
+	require.NoError(t, err)
+	bigSubvCommit = bigSubvCommitInfo.Commit
+	for i := 0; i < 10; i++ {
+		commit, err = c.StartCommit("logs", "master")
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit("logs", commit.ID))
+	}
+
+	require.NoError(t, c.DeleteCommit("schema", bigSubvCommit.ID))
+
+	commits, err = c.ListCommit("pipeline", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commits))
+	pipelineMaster, err := c.InspectCommit("pipeline", "master")
+	require.NoError(t, err)
+	require.Equal(t, pipelineMaster.Commit.ID, commits[0].Commit.ID)
+	require.Equal(t, pipelineMaster.ParentCommit.ID, commits[1].Commit.ID)
+
+	// Case 3
+	// - reset bigSubvCommit to be the head of 'schema/master' (the only commit)
+	// - commit to 'logs' 10 more times
+	// - delete bigSubvCommit
+	// - Now there should be one commit in 'pipeline' (started by DeleteCommit, to
+	//   process 'logs/master' alone) and its parent should be nil
+	//   (makes sure that the branch pipeline/master is rewritten back to nil)
+	// - Further test: delete all commits in schema and logs, and make sure that
+	//   'pipeline/master' actually points to nil, as there are no input commits
+	commits, err = c.ListCommit("schema", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commits))
+	bigSubvCommit = commits[0].Commit
+	// bigSubvCommitInfo, err = c.InspectCommit(schema, "master")
+	// require.NoError(t, err)
+	// bigSubvCommit = bigSubvCommitInfo.Commit
+	for i := 0; i < 10; i++ {
+		commit, err = c.StartCommit("logs", "master")
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit("logs", commit.ID))
+	}
+
+	require.NoError(t, c.DeleteCommit("schema", bigSubvCommit.ID))
+
+	commits, err = c.ListCommit("pipeline", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commits))
+	pipelineMaster, err = c.InspectCommit("pipeline", "master")
+	require.NoError(t, err)
+	require.Equal(t, pipelineMaster.Commit.ID, commits[0].Commit.ID)
+	require.Nil(t, pipelineMaster.ParentCommit)
+
+	// Delete all input commits--DeleteCommit should reset 'pipeline/master' to
+	// nil, and should not create a new output commit this time
+	commits, err = c.ListCommit("schema", "master", "", 0)
+	require.NoError(t, err)
+	for _, commitInfo := range commits {
+		require.NoError(t, c.DeleteCommit("schema", commitInfo.Commit.ID))
+	}
+	commits, err = c.ListCommit("logs", "master", "", 0)
+	require.NoError(t, err)
+	for _, commitInfo := range commits {
+		require.NoError(t, c.DeleteCommit("logs", commitInfo.Commit.ID))
+	}
+	commits, err = c.ListCommit("pipeline", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commits))
+	pipelineMaster, err = c.InspectCommit("pipeline", "master")
+	require.YesError(t, err)
+	require.Matches(t, "is nil", err.Error())
+
+	// Case 4
+	// - commit to 'schema' and reset bigSubvCommit to be the head
+	//   (bigSubvCommit is now the only commit in 'schema/master')
+	// - Commit to 'logs' 10 more times
+	// - Commit to schema again
+	// - Delete bigSubvCommit
+	// - Now there should be one commit in 'pipeline', and its parent is nil
+	// (makes sure that the the commit is rewritten back to 'nil'
+	// schema, logs, and pipeline are now all completely empty again
+	commits, err = c.ListCommit("schema", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commits))
+	bigSubvCommit, err = c.StartCommit("schema", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("schema", bigSubvCommit.ID))
+	for i := 0; i < 10; i++ {
+		commit, err = c.StartCommit("logs", "master")
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit("logs", commit.ID))
+	}
+	commit, err = c.StartCommit("schema", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("schema", commit.ID))
+
+	require.NoError(t, c.DeleteCommit("schema", bigSubvCommit.ID))
+
+	commits, err = c.ListCommit("pipeline", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commits))
+	pipelineMaster, err = c.InspectCommit("pipeline", "master")
+	require.NoError(t, err)
+	require.Nil(t, pipelineMaster.ParentCommit)
+}
+
+// TestDeleteCommitMultipleChildrenSingleCommit tests that when you have the
+// following commit graph in a repo:
+// c   d
+//  ↘ ↙
+//   b
+//   ↓
+//   a
+//
+// and you delete commit 'b', what you end up with is:
+//
+// c   d
+//  ↘ ↙
+//   a
+func TestDeleteCommitMultipleChildrenSingleCommit(t *testing.T) {
+	cli := getClient(t)
+	require.NoError(t, cli.CreateRepo("repo"))
+	require.NoError(t, cli.CreateBranch("repo", "master", "", nil))
+
+	// Create commits 'a' and 'b'
+	a, err := cli.StartCommit("repo", "master")
+	require.NoError(t, err)
+	require.NoError(t, cli.FinishCommit("repo", a.ID))
+	b, err := cli.StartCommit("repo", "master")
+	require.NoError(t, err)
+	require.NoError(t, cli.FinishCommit("repo", b.ID))
+
+	// Create second branch
+	require.NoError(t, cli.CreateBranch("repo", "master2", "master", nil))
+
+	// Create commits 'c' and 'd'
+	c, err := cli.StartCommit("repo", "master")
+	require.NoError(t, err)
+	require.NoError(t, cli.FinishCommit("repo", c.ID))
+	d, err := cli.StartCommit("repo", "master2")
+	require.NoError(t, err)
+	require.NoError(t, cli.FinishCommit("repo", d.ID))
+
+	// Collect info re: a, b, c, and d, and make sure that the parent/child
+	// relationships are all correct
+	aInfo, err := cli.InspectCommit("repo", a.ID)
+	bInfo, err := cli.InspectCommit("repo", b.ID)
+	cInfo, err := cli.InspectCommit("repo", c.ID)
+	dInfo, err := cli.InspectCommit("repo", d.ID)
+
+	require.Nil(t, aInfo.ParentCommit)
+	require.ElementsEqualUnderFn(t, []string{b.ID}, aInfo.ChildCommits, CommitToID)
+
+	require.Equal(t, a.ID, bInfo.ParentCommit.ID)
+	require.ElementsEqualUnderFn(t, []string{c.ID, d.ID}, bInfo.ChildCommits, CommitToID)
+
+	require.Equal(t, b.ID, cInfo.ParentCommit.ID)
+	require.Equal(t, 0, len(cInfo.ChildCommits))
+
+	require.Equal(t, b.ID, dInfo.ParentCommit.ID)
+	require.Equal(t, 0, len(dInfo.ChildCommits))
+
+	// Delete commit 'b'
+	cli.DeleteCommit("repo", b.ID)
+
+	// Collect info re: a, c, and d, and make sure that the parent/child
+	// relationships are still correct
+	aInfo, err = cli.InspectCommit("repo", a.ID)
+	cInfo, err = cli.InspectCommit("repo", c.ID)
+	dInfo, err = cli.InspectCommit("repo", d.ID)
+
+	require.Nil(t, aInfo.ParentCommit)
+	require.ElementsEqualUnderFn(t, []string{c.ID, d.ID}, aInfo.ChildCommits, CommitToID)
+
+	require.Equal(t, a.ID, cInfo.ParentCommit.ID)
+	require.Equal(t, 0, len(cInfo.ChildCommits))
+
+	require.Equal(t, a.ID, dInfo.ParentCommit.ID)
+	require.Equal(t, 0, len(dInfo.ChildCommits))
+}
+
+// TestDeleteCommitMultiLevelChildrenNilParent tests that when you have the
+// following commit graph in a repo:
+//
+//    ↙f
+//   c
+//   ↓↙e
+//   b
+//   ↓↙d
+//   a
+//
+// and you delete commits 'a', 'b' and 'c' (in a single call), what you end up
+// with is:
+//
+// d e f
+//  ↘↓↙
+//  nil
+func TestDeleteCommitMultiLevelChildrenNilParent(t *testing.T) {
+	cli := getClient(t)
+	require.NoError(t, cli.CreateRepo("upstream1"))
+	require.NoError(t, cli.CreateRepo("upstream2"))
+	// commit to both inputs
+	_, err := cli.StartCommit("upstream1", "master")
+	require.NoError(t, err)
+	require.NoError(t, cli.FinishCommit("upstream1", "master"))
+	deleteMeCommit, err := cli.StartCommit("upstream2", "master")
+	require.NoError(t, err)
+	require.NoError(t, cli.FinishCommit("upstream2", "master"))
+
+	// Create main repo (will have the commit graphs above
+	require.NoError(t, cli.CreateRepo("repo"))
+	require.NoError(t, cli.CreateBranch("repo", "master", "", []*pfs.Branch{
+		pclient.NewBranch("upstream1", "master"),
+		pclient.NewBranch("upstream2", "master"),
+	}))
+
+	// Create commit 'a'
+	aInfo, err := cli.InspectCommit("repo", "master")
+	require.NoError(t, err)
+	a := aInfo.Commit
+	require.NoError(t, cli.FinishCommit("repo", a.ID))
+
+	// Create 'd'
+	resp, err := cli.PfsAPIClient.StartCommit(cli.Ctx(), &pfs.StartCommitRequest{
+		Parent: pclient.NewCommit("repo", a.ID),
+	})
+	require.NoError(t, err)
+	d := pclient.NewCommit("repo", resp.ID)
+	require.NoError(t, cli.FinishCommit("repo", resp.ID))
+
+	// Create 'b'
+	// (commit to upstream1, so that a & b have same prov commit in upstream2)
+	_, err = cli.StartCommit("upstream1", "master")
+	require.NoError(t, err)
+	require.NoError(t, cli.FinishCommit("upstream1", "master"))
+	bInfo, err := cli.InspectCommit("repo", "master")
+	require.NoError(t, err)
+	b := bInfo.Commit
+	require.NoError(t, cli.FinishCommit("repo", b.ID))
+
+	// Create 'e'
+	resp, err = cli.PfsAPIClient.StartCommit(cli.Ctx(), &pfs.StartCommitRequest{
+		Parent: pclient.NewCommit("repo", b.ID),
+	})
+	require.NoError(t, err)
+	e := pclient.NewCommit("repo", resp.ID)
+	require.NoError(t, cli.FinishCommit("repo", resp.ID))
+
+	// Create 'c'
+	// (commit to upstream1, so that a, b & c have same prov commit in upstream2)
+	_, err = cli.StartCommit("upstream1", "master")
+	require.NoError(t, err)
+	require.NoError(t, cli.FinishCommit("upstream1", "master"))
+	cInfo, err := cli.InspectCommit("repo", "master")
+	require.NoError(t, err)
+	c := cInfo.Commit
+	require.NoError(t, cli.FinishCommit("repo", c.ID))
+
+	// Create 'f'
+	resp, err = cli.PfsAPIClient.StartCommit(cli.Ctx(), &pfs.StartCommitRequest{
+		Parent: pclient.NewCommit("repo", c.ID),
+	})
+	require.NoError(t, err)
+	f := pclient.NewCommit("repo", resp.ID)
+	require.NoError(t, cli.FinishCommit("repo", resp.ID))
+
+	// Make sure child/parent relationships are as shown in first diagram
+	commits, err := cli.ListCommit("repo", "", "", 0)
+	require.Equal(t, 6, len(commits))
+	aInfo, err = cli.InspectCommit("repo", a.ID)
+	require.NoError(t, err)
+	bInfo, err = cli.InspectCommit("repo", b.ID)
+	require.NoError(t, err)
+	cInfo, err = cli.InspectCommit("repo", c.ID)
+	require.NoError(t, err)
+	dInfo, err := cli.InspectCommit("repo", d.ID)
+	require.NoError(t, err)
+	eInfo, err := cli.InspectCommit("repo", e.ID)
+	require.NoError(t, err)
+	fInfo, err := cli.InspectCommit("repo", f.ID)
+	require.NoError(t, err)
+
+	require.Nil(t, aInfo.ParentCommit)
+	require.Equal(t, a.ID, bInfo.ParentCommit.ID)
+	require.Equal(t, a.ID, dInfo.ParentCommit.ID)
+	require.Equal(t, b.ID, cInfo.ParentCommit.ID)
+	require.Equal(t, b.ID, eInfo.ParentCommit.ID)
+	require.Equal(t, c.ID, fInfo.ParentCommit.ID)
+	require.ElementsEqualUnderFn(t, []string{b.ID, d.ID}, aInfo.ChildCommits, CommitToID)
+	require.ElementsEqualUnderFn(t, []string{c.ID, e.ID}, bInfo.ChildCommits, CommitToID)
+	require.ElementsEqualUnderFn(t, []string{f.ID}, cInfo.ChildCommits, CommitToID)
+	require.Nil(t, dInfo.ChildCommits)
+	require.Nil(t, eInfo.ChildCommits)
+	require.Nil(t, fInfo.ChildCommits)
+
+	// Delete commit in upstream2, which deletes b & c
+	require.NoError(t, cli.DeleteCommit("upstream2", deleteMeCommit.ID))
+
+	// Re-read commit info to get new parents/children
+	dInfo, err = cli.InspectCommit("repo", d.ID)
+	require.NoError(t, err)
+	eInfo, err = cli.InspectCommit("repo", e.ID)
+	require.NoError(t, err)
+	fInfo, err = cli.InspectCommit("repo", f.ID)
+	require.NoError(t, err)
+
+	// Make sure child/parent relationships are as shown in second diagram
+	commits, err = cli.ListCommit("repo", "", "", 0)
+	// Delete commit does start an additional output commit, but we're ignoring it
+	require.Equal(t, 4, len(commits))
+	require.Nil(t, eInfo.ParentCommit)
+	require.Nil(t, fInfo.ParentCommit)
+	require.Nil(t, dInfo.ChildCommits)
+	require.Nil(t, eInfo.ChildCommits)
+	require.Nil(t, fInfo.ChildCommits)
+}
+
+// Tests that when you have the following commit graph in a *downstream* repo:
+//
+//    ↙f
+//   c
+//   ↓↙e
+//   b
+//   ↓↙d
+//   a
+//
+// and you delete commits 'b' and 'c' (in a single call), what you end up with
+// is:
+//
+// d e f
+//  ↘↓↙
+//   a
+// This makes sure that multiple live children are re-pointed at a live parent
+// if appropriate
+func TestDeleteCommitMultiLevelChildren(t *testing.T) {
+	cli := getClient(t)
+	require.NoError(t, cli.CreateRepo("upstream1"))
+	require.NoError(t, cli.CreateRepo("upstream2"))
+	// commit to both inputs
+	_, err := cli.StartCommit("upstream1", "master")
+	require.NoError(t, err)
+	require.NoError(t, cli.FinishCommit("upstream1", "master"))
+	_, err = cli.StartCommit("upstream2", "master")
+	require.NoError(t, err)
+	require.NoError(t, cli.FinishCommit("upstream2", "master"))
+
+	// Create main repo (will have the commit graphs above
+	require.NoError(t, cli.CreateRepo("repo"))
+	require.NoError(t, cli.CreateBranch("repo", "master", "", []*pfs.Branch{
+		pclient.NewBranch("upstream1", "master"),
+		pclient.NewBranch("upstream2", "master"),
+	}))
+
+	// Create commit 'a'
+	aInfo, err := cli.InspectCommit("repo", "master")
+	require.NoError(t, err)
+	a := aInfo.Commit
+	require.NoError(t, cli.FinishCommit("repo", a.ID))
+
+	// Create 'd'
+	resp, err := cli.PfsAPIClient.StartCommit(cli.Ctx(), &pfs.StartCommitRequest{
+		Parent: pclient.NewCommit("repo", a.ID),
+	})
+	require.NoError(t, err)
+	d := pclient.NewCommit("repo", resp.ID)
+	require.NoError(t, cli.FinishCommit("repo", resp.ID))
+
+	// Create 'b'
+	// (a & b have same prov commit in upstream2, so this is the commit that will
+	// be deleted, as both b and c are provenant on it)
+	deleteMeCommit, err := cli.StartCommit("upstream1", "master")
+	require.NoError(t, err)
+	require.NoError(t, cli.FinishCommit("upstream1", "master"))
+	bInfo, err := cli.InspectCommit("repo", "master")
+	require.NoError(t, err)
+	b := bInfo.Commit
+	require.NoError(t, cli.FinishCommit("repo", b.ID))
+
+	// Create 'e'
+	resp, err = cli.PfsAPIClient.StartCommit(cli.Ctx(), &pfs.StartCommitRequest{
+		Parent: pclient.NewCommit("repo", b.ID),
+	})
+	require.NoError(t, err)
+	e := pclient.NewCommit("repo", resp.ID)
+	require.NoError(t, cli.FinishCommit("repo", resp.ID))
+
+	// Create 'c'
+	// (commit to upstream2, so that b & c have same prov commit in upstream1)
+	_, err = cli.StartCommit("upstream2", "master")
+	require.NoError(t, err)
+	require.NoError(t, cli.FinishCommit("upstream2", "master"))
+	cInfo, err := cli.InspectCommit("repo", "master")
+	require.NoError(t, err)
+	c := cInfo.Commit
+	require.NoError(t, cli.FinishCommit("repo", c.ID))
+
+	// Create 'f'
+	resp, err = cli.PfsAPIClient.StartCommit(cli.Ctx(), &pfs.StartCommitRequest{
+		Parent: pclient.NewCommit("repo", c.ID),
+	})
+	require.NoError(t, err)
+	f := pclient.NewCommit("repo", resp.ID)
+	require.NoError(t, cli.FinishCommit("repo", resp.ID))
+
+	// Make sure child/parent relationships are as shown in first diagram
+	commits, err := cli.ListCommit("repo", "", "", 0)
+	require.Equal(t, 6, len(commits))
+	aInfo, err = cli.InspectCommit("repo", a.ID)
+	require.NoError(t, err)
+	bInfo, err = cli.InspectCommit("repo", b.ID)
+	require.NoError(t, err)
+	cInfo, err = cli.InspectCommit("repo", c.ID)
+	require.NoError(t, err)
+	dInfo, err := cli.InspectCommit("repo", d.ID)
+	require.NoError(t, err)
+	eInfo, err := cli.InspectCommit("repo", e.ID)
+	require.NoError(t, err)
+	fInfo, err := cli.InspectCommit("repo", f.ID)
+	require.NoError(t, err)
+
+	require.Nil(t, aInfo.ParentCommit)
+	require.Equal(t, a.ID, bInfo.ParentCommit.ID)
+	require.Equal(t, a.ID, dInfo.ParentCommit.ID)
+	require.Equal(t, b.ID, cInfo.ParentCommit.ID)
+	require.Equal(t, b.ID, eInfo.ParentCommit.ID)
+	require.Equal(t, c.ID, fInfo.ParentCommit.ID)
+	require.ElementsEqualUnderFn(t, []string{b.ID, d.ID}, aInfo.ChildCommits, CommitToID)
+	require.ElementsEqualUnderFn(t, []string{c.ID, e.ID}, bInfo.ChildCommits, CommitToID)
+	require.ElementsEqualUnderFn(t, []string{f.ID}, cInfo.ChildCommits, CommitToID)
+	require.Nil(t, dInfo.ChildCommits)
+	require.Nil(t, eInfo.ChildCommits)
+	require.Nil(t, fInfo.ChildCommits)
+
+	// Delete second commit in upstream2, which deletes b & c
+	require.NoError(t, cli.DeleteCommit("upstream1", deleteMeCommit.ID))
+
+	// Re-read commit info to get new parents/children
+	aInfo, err = cli.InspectCommit("repo", a.ID)
+	require.NoError(t, err)
+	dInfo, err = cli.InspectCommit("repo", d.ID)
+	require.NoError(t, err)
+	eInfo, err = cli.InspectCommit("repo", e.ID)
+	require.NoError(t, err)
+	fInfo, err = cli.InspectCommit("repo", f.ID)
+	require.NoError(t, err)
+
+	// Make sure child/parent relationships are as shown in second diagram. Note
+	// that after 'b' and 'c' are deleted, DeleteCommit creates a new commit:
+	// - 'repo/master' points to 'a'
+	// - DeleteCommit starts a new output commit to process 'upstream1/master'
+	//   and 'upstream2/master'
+	// - The new output commit is started in 'repo/master' and is also a child of
+	//   'a'
+	commits, err = cli.ListCommit("repo", "", "", 0)
+	require.Equal(t, 5, len(commits))
+	require.Nil(t, aInfo.ParentCommit)
+	require.Equal(t, a.ID, dInfo.ParentCommit.ID)
+	require.Equal(t, a.ID, eInfo.ParentCommit.ID)
+	require.Equal(t, a.ID, fInfo.ParentCommit.ID)
+	newCommitInfo, err := cli.InspectCommit("repo", "master")
+	require.NoError(t, err)
+	require.ElementsEqualUnderFn(t,
+		[]string{d.ID, e.ID, f.ID, newCommitInfo.Commit.ID},
+		aInfo.ChildCommits, CommitToID)
+	require.Nil(t, dInfo.ChildCommits)
+	require.Nil(t, eInfo.ChildCommits)
+	require.Nil(t, fInfo.ChildCommits)
+}
+
+// TestDeleteCommitShrinkSubvRange is like TestDeleteCommitBigSubvenance, but
+// instead of deleting commits from "schema", this test deletes them from
+// "logs", to make sure that the subvenance of "schema" commits is rewritten
+// correctly. As before, there are four cases:
+// 1. Subvenance "Lower" is increased
+// 2. Subvenance "Upper" is decreased
+// 3. Subvenance is not affected, because the deleted commit is between "Lower" and "Upper"
+// 4. The entire subvenance range is deleted
+func TestDeleteCommitShrinkSubvRange(t *testing.T) {
+	c := getClient(t)
+
+	// two input repos, one with many commits (logs), and one with few (schema)
+	require.NoError(t, c.CreateRepo("logs"))
+	require.NoError(t, c.CreateRepo("schema"))
+
+	// Commit to logs and schema
+	logsCommit := make([]*pfs.Commit, 10)
+	var err error
+	logsCommit[0], err = c.StartCommit("logs", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("logs", logsCommit[0].ID))
+	schemaCommit, err := c.StartCommit("schema", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("schema", schemaCommit.ID))
+
+	// Create an output branch, in "pipeline"
+	require.NoError(t, c.CreateRepo("pipeline"))
+	require.NoError(t, c.CreateBranch("pipeline", "master", "", []*pfs.Branch{
+		pclient.NewBranch("schema", "master"),
+		pclient.NewBranch("logs", "master"),
+	}))
+	commits, err := c.ListCommit("pipeline", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commits))
+
+	// Commit to "logs" 9 more times, so that the commit to "schema" has 10
+	// commits in its subvenance
+	for i := 1; i < 10; i++ {
+		logsCommit[i], err = c.StartCommit("logs", "master")
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit("logs", logsCommit[i].ID))
+	}
+	pipelineCommitInfos, err := c.ListCommit("pipeline", "master", "", 0)
+	require.Equal(t, 10, len(pipelineCommitInfos))
+	pipelineCommit := make([]string, 10)
+	for i := range pipelineCommitInfos {
+		// ListCommit sorts from newest to oldest, but we want the reverse (0 is
+		// oldest, like how logsCommit[0] is the oldest)
+		pipelineCommit[9-i] = pipelineCommitInfos[i].Commit.ID
+	}
+	require.NoError(t, err)
+	// Make sure the subvenance of the one commit in "schema" includes all commits
+	// in "pipeline"
+	schemaCommitInfo, err := c.InspectCommit("schema", schemaCommit.ID)
+	require.Equal(t, 1, len(schemaCommitInfo.Subvenance))
+	require.Equal(t, pipelineCommit[0], schemaCommitInfo.Subvenance[0].Lower.ID)
+	require.Equal(t, pipelineCommit[9], schemaCommitInfo.Subvenance[0].Upper.ID)
+
+	// Case 1
+	// - Delete the first commit in "logs" and make sure that the subvenance of
+	//   the single commit in "schema" has increased its Lower value
+	require.NoError(t, c.DeleteCommit("logs", logsCommit[0].ID))
+	schemaCommitInfo, err = c.InspectCommit("schema", schemaCommit.ID)
+	require.Equal(t, 1, len(schemaCommitInfo.Subvenance))
+	require.Equal(t, pipelineCommit[1], schemaCommitInfo.Subvenance[0].Lower.ID)
+	require.Equal(t, pipelineCommit[9], schemaCommitInfo.Subvenance[0].Upper.ID)
+
+	// Case 2
+	// - Delete the last commit in "logs" and make sure that the subvenance of
+	//   the single commit in "schema" has decreased its Upper value
+	require.NoError(t, c.DeleteCommit("logs", logsCommit[9].ID))
+	schemaCommitInfo, err = c.InspectCommit("schema", schemaCommit.ID)
+	require.Equal(t, 1, len(schemaCommitInfo.Subvenance))
+	require.Equal(t, pipelineCommit[1], schemaCommitInfo.Subvenance[0].Lower.ID)
+	require.Equal(t, pipelineCommit[8], schemaCommitInfo.Subvenance[0].Upper.ID)
+
+	// Case 3
+	// - Delete the middle commit in "logs" and make sure that the subvenance of
+	//   the single commit in "schema" hasn't changed
+	require.NoError(t, c.DeleteCommit("logs", logsCommit[5].ID))
+	schemaCommitInfo, err = c.InspectCommit("schema", schemaCommit.ID)
+	require.Equal(t, 1, len(schemaCommitInfo.Subvenance))
+	require.Equal(t, pipelineCommit[1], schemaCommitInfo.Subvenance[0].Lower.ID)
+	require.Equal(t, pipelineCommit[8], schemaCommitInfo.Subvenance[0].Upper.ID)
+
+	// Case 4
+	// - Delete the remaining commits in "logs" and make sure that the subvenance
+	//   of the single commit in "schema" has a single, new commit (started by
+	//   DeleteCommit), which is only provenant on the commit in "schema"
+	for _, i := range []int{1, 2, 3, 4, 6, 7, 8} {
+		require.NoError(t, c.DeleteCommit("logs", logsCommit[i].ID))
+	}
+	schemaCommitInfo, err = c.InspectCommit("schema", schemaCommit.ID)
+	require.Equal(t, 1, len(schemaCommitInfo.Subvenance))
+	require.Equal(t, schemaCommitInfo.Subvenance[0].Lower.ID,
+		schemaCommitInfo.Subvenance[0].Upper.ID)
+	outputCommitInfo, err := c.InspectCommit("pipeline", "master")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(outputCommitInfo.Provenance))
+	require.Equal(t, schemaCommit.ID, outputCommitInfo.Provenance[0].ID)
 }

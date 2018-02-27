@@ -93,12 +93,25 @@ func (c *collection) indexPath(index Index, indexVal string, key string) string 
 	return path.Join(c.indexDir(index, indexVal), key)
 }
 
+func (c *collection) checkType(val interface{}) error {
+	if c.template != nil {
+		valType, templateType := reflect.TypeOf(val), reflect.TypeOf(c.template)
+		if valType != templateType {
+			return fmt.Errorf("invalid type, got: %s, expected: %s", valType, templateType)
+		}
+	}
+	return nil
+}
+
 type readWriteCollection struct {
 	*collection
 	stm STM
 }
 
 func (c *readWriteCollection) Get(key string, val proto.Message) error {
+	if err := watch.CheckType(c.template, val); err != nil {
+		return err
+	}
 	valStr, err := c.stm.Get(c.Path(key))
 	if err != nil {
 		return err
@@ -106,7 +119,7 @@ func (c *readWriteCollection) Get(key string, val proto.Message) error {
 	return proto.Unmarshal([]byte(valStr), val)
 }
 
-func cloneProtoMsg(original proto.Marshaler) proto.Message {
+func cloneProtoMsg(original proto.Message) proto.Message {
 	val := reflect.ValueOf(original)
 	if val.Kind() == reflect.Ptr {
 		val = reflect.Indirect(val)
@@ -135,11 +148,14 @@ func (c *readWriteCollection) getMultiIndexPaths(val interface{}, index Index, k
 	return indexPaths
 }
 
-func (c *readWriteCollection) Put(key string, val proto.Marshaler) error {
+func (c *readWriteCollection) Put(key string, val proto.Message) error {
 	return c.PutTTL(key, val, 0)
 }
 
-func (c *readWriteCollection) PutTTL(key string, val proto.Marshaler, ttl int64) error {
+func (c *readWriteCollection) PutTTL(key string, val proto.Message, ttl int64) error {
+	if err := watch.CheckType(c.template, val); err != nil {
+		return err
+	}
 	var options []etcd.OpOption
 	if ttl > 0 {
 		lease, err := c.collection.etcdClient.Grant(context.Background(), ttl)
@@ -201,12 +217,48 @@ func (c *readWriteCollection) PutTTL(key string, val proto.Marshaler, ttl int64)
 			}
 		}
 	}
-	bytes, _ := val.Marshal()
+	bytes, err := proto.Marshal(val)
+	if err != nil {
+		return err
+	}
 	c.stm.Put(c.Path(key), string(bytes), options...)
 	return nil
 }
 
-func (c *readWriteCollection) Create(key string, val proto.Marshaler) error {
+// Update reads the current value associated with 'key', calls 'f' to update
+// the value, and writes the new value back to the collection. 'key' must be
+// present in the collection, or a 'Not Found' error is returned
+func (c *readWriteCollection) Update(key string, val proto.Message, f func() error) error {
+	if err := watch.CheckType(c.template, val); err != nil {
+		return err
+	}
+	if err := c.Get(key, val); err != nil {
+		return err
+	}
+	if err := f(); err != nil {
+		return err
+	}
+	return c.Put(key, val)
+}
+
+// Upsert is like Update but 'key' is not required to be present
+func (c *readWriteCollection) Upsert(key string, val proto.Message, f func() error) error {
+	if err := watch.CheckType(c.template, val); err != nil {
+		return err
+	}
+	if err := c.Get(key, val); err != nil && !IsErrNotFound(err) {
+		return err
+	}
+	if err := f(); err != nil {
+		return err
+	}
+	return c.Put(key, val)
+}
+
+func (c *readWriteCollection) Create(key string, val proto.Message) error {
+	if err := watch.CheckType(c.template, val); err != nil {
+		return err
+	}
 	fullKey := c.Path(key)
 	_, err := c.stm.Get(fullKey)
 	if err != nil && !IsErrNotFound(err) {
@@ -335,6 +387,9 @@ type readonlyCollection struct {
 }
 
 func (c *readonlyCollection) Get(key string, val proto.Message) error {
+	if err := watch.CheckType(c.template, val); err != nil {
+		return err
+	}
 	resp, err := c.etcdClient.Get(c.ctx, c.Path(key))
 	if err != nil {
 		return err
@@ -356,6 +411,9 @@ type indirectIterator struct {
 }
 
 func (i *indirectIterator) Next(key *string, val proto.Message) (ok bool, retErr error) {
+	if err := watch.CheckType(i.col.template, val); err != nil {
+		return false, err
+	}
 	for {
 		if i.index < len(i.resp.Kvs) {
 			kv := i.resp.Kvs[i.index]
@@ -392,7 +450,10 @@ func (c *readonlyCollection) GetByIndex(index Index, val interface{}) (Iterator,
 }
 
 func (c *readonlyCollection) GetBlock(key string, val proto.Message) error {
-	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.Path(key))
+	if err := watch.CheckType(c.template, val); err != nil {
+		return err
+	}
+	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.Path(key), c.template)
 	if err != nil {
 		return err
 	}
@@ -452,6 +513,7 @@ func (c *readonlyCollection) List() (Iterator, error) {
 type iterator struct {
 	index int
 	resp  *etcd.GetResponse
+	col   *readonlyCollection
 }
 
 type paginatedIterator struct {
@@ -471,6 +533,9 @@ func (c *readonlyCollection) Count() (int64, error) {
 }
 
 func (i *iterator) Next(key *string, val proto.Message) (ok bool, retErr error) {
+	if err := watch.CheckType(i.col.template, val); err != nil {
+		return false, err
+	}
 	if i.index < len(i.resp.Kvs) {
 		kv := i.resp.Kvs[i.index]
 		i.index++
@@ -520,18 +585,18 @@ func (i *paginatedIterator) Next(key *string, val proto.Message) (ok bool, retEr
 // Watch a collection, returning the current content of the collection as
 // well as any future additions.
 func (c *readonlyCollection) Watch() (watch.Watcher, error) {
-	return watch.NewWatcher(c.ctx, c.etcdClient, c.prefix)
+	return watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.prefix, c.template)
 }
 
 func (c *readonlyCollection) WatchWithPrev() (watch.Watcher, error) {
-	return watch.NewWatcherWithPrev(c.ctx, c.etcdClient, c.prefix)
+	return watch.NewWatcherWithPrev(c.ctx, c.etcdClient, c.prefix, c.prefix, c.template)
 }
 
 // WatchByIndex watches items in a collection that match a particular index
 func (c *readonlyCollection) WatchByIndex(index Index, val interface{}) (watch.Watcher, error) {
 	eventCh := make(chan *watch.Event)
 	done := make(chan struct{})
-	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.indexDir(index, fmt.Sprintf("%s", val)))
+	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.indexDir(index, fmt.Sprintf("%s", val)), c.template)
 	if err != nil {
 		return nil, err
 	}
@@ -576,14 +641,16 @@ func (c *readonlyCollection) WatchByIndex(index Index, val interface{}) (watch.W
 					continue
 				}
 				directEv = &watch.Event{
-					Key:   []byte(path.Base(string(ev.Key))),
-					Value: resp.Kvs[0].Value,
-					Type:  ev.Type,
+					Key:      []byte(path.Base(string(ev.Key))),
+					Value:    resp.Kvs[0].Value,
+					Type:     ev.Type,
+					Template: c.template,
 				}
 			case watch.EventDelete:
 				directEv = &watch.Event{
-					Key:  []byte(path.Base(string(ev.Key))),
-					Type: ev.Type,
+					Key:      []byte(path.Base(string(ev.Key))),
+					Type:     ev.Type,
+					Template: c.template,
 				}
 			}
 			eventCh <- directEv
@@ -595,5 +662,5 @@ func (c *readonlyCollection) WatchByIndex(index Index, val interface{}) (watch.W
 // WatchOne watches a given item.  The first value returned from the watch
 // will be the current value of the item.
 func (c *readonlyCollection) WatchOne(key string) (watch.Watcher, error) {
-	return watch.NewWatcher(c.ctx, c.etcdClient, c.Path(key))
+	return watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.Path(key), c.template)
 }
