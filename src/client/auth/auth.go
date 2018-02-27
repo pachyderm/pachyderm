@@ -54,10 +54,13 @@ func (e NotActivatedError) Error() string {
 }
 
 // IsNotActivatedError checks if an error is a NotActivatedError
-func IsNotActivatedError(e error) bool {
+func IsNotActivatedError(err error) bool {
+	if err == nil {
+		return false
+	}
 	// TODO(msteffen) This is unstructured because we have no way to propagate
 	// structured errors across GRPC boundaries. Fix
-	return strings.Contains(e.Error(), notActivatedErrorMsg)
+	return strings.Contains(err.Error(), notActivatedErrorMsg)
 }
 
 // NotAuthorizedError is returned if the user is not authorized to perform
@@ -84,28 +87,31 @@ func (e *NotAuthorizedError) Error() string {
 }
 
 // IsNotAuthorizedError checks if an error is a NotAuthorizedError
-func IsNotAuthorizedError(e error) bool {
+func IsNotAuthorizedError(err error) bool {
+	if err == nil {
+		return false
+	}
 	// TODO(msteffen) This is unstructured because we have no way to propagate
 	// structured errors across GRPC boundaries. Fix
-	return strings.HasPrefix(e.Error(), notAuthorizedErrorMsg)
+	return strings.HasPrefix(err.Error(), notAuthorizedErrorMsg)
 }
 
 // This error message string is matched in the UI. If edited,
 // it also needs to be updated in the UI code
-const isNotSignedInErrMsg = "auth token not found in context (user may not be signed in)"
+const notSignedInErrMsg = "auth token not found in context (user may not be signed in)"
 
 // NotSignedInError indicates that the caller isn't signed in
 type NotSignedInError struct{}
 
 func (e NotSignedInError) Error() string {
-	return isNotSignedInErrMsg
+	return notSignedInErrMsg
 }
 
 // IsNotSignedInError returns true if 'err' is a NotSignedInError
 func IsNotSignedInError(err error) bool {
 	// TODO(msteffen) This is unstructured because we have no way to propagate
 	// structured errors across GRPC boundaries. Fix
-	return strings.Contains(err.Error(), isNotSignedInErrMsg)
+	return strings.Contains(err.Error(), notSignedInErrMsg)
 }
 
 // InvalidPrincipalError indicates that a an argument to e.g. GetScope,
@@ -116,4 +122,31 @@ type InvalidPrincipalError struct {
 
 func (e *InvalidPrincipalError) Error() string {
 	return fmt.Sprintf("invalid principal \"%s\"; must start with \"robot:\" or have no \":\"", e.Principal)
+}
+
+// IsInvalidPrincipalError returns true if 'err' is an InvalidPrincipalError
+func IsInvalidPrincipalError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.HasPrefix(err.Error(), "invalid principal \"") &&
+		strings.HasSuffix(err.Error(), "\"; must start with \"robot:\" or have no \":\"")
+}
+
+const badTokenErrorMsg = "provided auth token is corrupted or has expired (try logging in again)"
+
+// BadTokenError is returned by the Auth API if the caller's token is corruped
+// or has expired.
+type BadTokenError struct{}
+
+func (e BadTokenError) Error() string {
+	return badTokenErrorMsg
+}
+
+// IsBadTokenError returns true if 'err' is a BadTokenError
+func IsBadTokenError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), badTokenErrorMsg)
 }

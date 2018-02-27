@@ -334,15 +334,18 @@ func (a *apiServer) isActivated() bool {
 // it discover the username of the user who obtained the code (or verify that
 // the code belongs to githubUsername). This is how Pachyderm currently
 // implements authorization in a production cluster
-func GitHubTokenToUsername(ctx context.Context, githubUsername string, token string) (string, error) {
-	if os.Getenv(DisableAuthenticationEnvVar) == "true" && githubUsername != "" {
+func GitHubTokenToUsername(ctx context.Context, githubUsername string, oauthToken string) (string, error) {
+	if githubUsername == "" {
+		return "", fmt.Errorf("cannot validate GitHub credentials for anonymous user")
+	}
+	if os.Getenv(DisableAuthenticationEnvVar) == "true" {
 		// Test mode--the caller automatically authenticates as whoever is requested
 		return GithubPrefix + githubUsername, nil
 	}
 
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{
-			AccessToken: token,
+			AccessToken: oauthToken,
 		},
 	)
 	tc := oauth2.NewClient(ctx, ts)
@@ -354,7 +357,7 @@ func GitHubTokenToUsername(ctx context.Context, githubUsername string, token str
 		return "", fmt.Errorf("error getting the authenticated user: %v", err)
 	}
 	verifiedUsername := user.GetLogin()
-	if githubUsername != "" && githubUsername != verifiedUsername {
+	if githubUsername != verifiedUsername {
 		return "", fmt.Errorf("attempted to authenticate as %s, but Github "+
 			"token did not originate from that account", githubUsername)
 	}
@@ -567,8 +570,12 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
 	if state != enterpriseclient.State_ACTIVE && tokenInfo.Source != authclient.TokenInfo_GET_TOKEN {
-		return nil, fmt.Errorf("Pachyderm Enterprise is not active in this " +
-			"cluster (only a cluster admin can authorize)")
+		// currently, GetAuthToken is only called by CreatePipeline. This only checks
+		// the token source so that we return this error to humans but not pipelines
+		// TODO: Make pipelines their own Subjects, and check that instead
+		return nil, errors.New("Pachyderm Enterprise is not active in this " +
+			"cluster (until Pachyderm Enterprise is re-activated or Pachyderm " +
+			"auth is deactivated, only cluster admins can perform any operations)")
 	}
 
 	// Get ACL to check
@@ -966,6 +973,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 			tokenInfo = &authclient.TokenInfo{Subject: subject}
 		}
 	}
+	tokenInfo.Source = authclient.TokenInfo_GET_TOKEN
 
 	// generate new token, and write to etcd
 	token := uuid.NewWithoutDashes()
@@ -1062,7 +1070,7 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.Token
 	default:
 		// Not found. This error message string is matched in the UI. If edited,
 		// it also needs to be updated in the UI code
-		return nil, fmt.Errorf("provided auth token is corrupted or has expired (try logging in again)")
+		return nil, authclient.BadTokenError{}
 	}
 }
 
