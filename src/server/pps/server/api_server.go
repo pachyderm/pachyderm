@@ -501,7 +501,7 @@ func (a *apiServer) listJob(ctx context.Context, pipeline *pps.Pipeline, outputC
 		iter, err = jobs.List()
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error listing jobs: %v", err)
 	}
 
 	var jobInfos []*pps.JobInfo
@@ -511,7 +511,7 @@ JobsLoop:
 		var jobInfo pps.JobInfo
 		ok, err := iter.Next(&jobID, &jobInfo)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error iterating jobs: %v", err)
 		}
 		if !ok {
 			break
