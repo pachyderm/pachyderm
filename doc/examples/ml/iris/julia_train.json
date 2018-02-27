@@ -3,7 +3,7 @@
     "name": "model"
   },
   "transform": {
-    "image": "pachyderm/iris-train:julia-forest",
+    "image": "pachyderm/iris-train:julia-tree",
     "cmd": [
 	"julia",
 	"/train.jl",
