@@ -37,3 +37,6 @@ vault write $PLUGIN_PATH/config \
 # Test login (failure/success):
 vault write $PLUGIN_PATH/login username=bogusgithubusername || true
 vault write $PLUGIN_PATH/login username=daffyduck ttl=125s
+
+# To renew, use the 'token' field
+# vault token renew ee9ab3ef-e398-3437-d382-b7aaf02f32e1
