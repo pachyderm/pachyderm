@@ -8,7 +8,6 @@ import (
 	"path"
 	"runtime/debug"
 	"strconv"
-	"strings"
 	"time"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -132,9 +131,15 @@ func doSidecarMode(appEnvObj interface{}) error {
 	}
 
 	etcdAddress := fmt.Sprintf("http://%s:2379", appEnv.EtcdAddress)
-	etcdClientV2 := getEtcdClient(etcdAddress)
+	etcdClientV3, err := etcd.New(etcd.Config{
+		Endpoints:   []string{etcdAddress},
+		DialOptions: client.EtcdDialOptions(),
+	})
+	if err != nil {
+		return err
+	}
 
-	clusterID, err := getClusterID(etcdClientV2)
+	clusterID, err := getClusterID(etcdClientV3)
 	if err != nil {
 		return err
 	}
@@ -229,7 +234,7 @@ func doFullMode(appEnvObj interface{}) error {
 		DialOptions: append(client.EtcdDialOptions(), grpc.WithTimeout(5*time.Minute)),
 	})
 
-	clusterID, err := getClusterID(etcdClientV2)
+	clusterID, err := getClusterID(etcdClientV3)
 	if err != nil {
 		return err
 	}
@@ -408,19 +413,27 @@ func getEtcdClient(etcdAddress string) discovery.Client {
 
 const clusterIDKey = "cluster-id"
 
-func getClusterID(client discovery.Client) (string, error) {
-	id, err := client.Get(clusterIDKey)
+func getClusterID(client *etcd.Client) (string, error) {
+	resp, err := client.Get(context.Background(),
+		clusterIDKey)
+
 	// if it's a key not found error then we create the key
-	if err != nil && strings.Contains(err.Error(), "not found") {
+	if resp.Count == 0 {
 		// This might error if it races with another pachd trying to set the
 		// cluster id so we ignore the error.
-		client.Set(clusterIDKey, uuid.NewWithoutDashes(), 0)
+		client.Put(context.Background(), clusterIDKey, uuid.NewWithoutDashes())
 	} else if err != nil {
 		return "", err
 	} else {
+		if resp.Count != 1 {
+			return "", fmt.Errorf("got an unexpected number of PPS tokens: %d", resp.Count)
+		}
+
+		id := string(resp.Kvs[0].Value)
 		return id, nil
 	}
-	return client.Get(clusterIDKey)
+
+	return getClusterID(client)
 }
 
 func getKubeClient(env *appEnv) (*kube.Clientset, error) {
