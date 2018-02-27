@@ -448,7 +448,7 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 	} else if outputCommit != nil {
 		iter, err = jobs.GetByIndex(ppsdb.JobsOutputIndex, outputCommit)
 	} else {
-		iter, err = jobs.List()
+		iter, err = jobs.ListPaginated()
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error listing jobs: %v", err)
