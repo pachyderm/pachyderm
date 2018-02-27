@@ -22,97 +22,194 @@ import (
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
+const (
+	// admin is the sole cluster admin after getPachClient is called in each test
+	admin = GithubPrefix + "admin"
+	carol = GithubPrefix + "carol"
+)
+
 var (
 	clientMapMut sync.Mutex
 	clientMap    = make(map[string]*client.APIClient)
 )
 
+func isAuthActive(t testing.TB) bool {
+	seedClient := clientMap[""]
+	_, err := seedClient.GetAdmins(context.Background(),
+		&auth.GetAdminsRequest{})
+	switch {
+	case auth.IsNotSignedInError(err):
+		return true
+	case auth.IsNotActivatedError(err):
+		return false
+	default:
+		panic(fmt.Sprintf("could not determine if auth is activated: %v", err))
+	}
+}
+
+// getPachClientInternal is a helper function called by getPachClient. It
+// returns (or creates) a pach client authenticated as 'subject', but doesn't
+// do any any checks to confirm that auth is activated and the cluster is
+// configured correctly (those are done by getPachClient). If subject has no
+// prefix, they are assumed to be a GitHub user.
+func getPachClientInternal(t testing.TB, subject string) *client.APIClient {
+	if strings.Index(subject, ":") < 0 {
+		subject = GithubPrefix + subject
+	}
+	if _, ok := clientMap[subject]; !ok {
+		subjectClient := *clientMap[""]
+		resp, err := subjectClient.Authenticate(context.Background(),
+			&auth.AuthenticateRequest{
+				GithubUsername: strings.TrimPrefix(subject, GithubPrefix),
+			})
+		require.NoError(t, err)
+		subjectClient.SetAuthToken(resp.PachToken)
+		clientMap[subject] = &subjectClient
+	}
+	return clientMap[subject]
+}
+
+// activateAuth activates the auth service in the test cluster
+func activateAuth(t testing.TB) {
+	seedClient := clientMap[""]
+	if _, err := seedClient.AuthAPIClient.Activate(context.Background(),
+		&auth.ActivateRequest{GithubUsername: "admin"},
+	); err != nil && !strings.HasSuffix(err.Error(), "already activated") {
+		t.Fatalf("could not activate auth service: %v", err.Error())
+	}
+
+	// Wait for the Pachyderm Auth system to activate
+	require.NoError(t, backoff.Retry(func() error {
+		if isAuthActive(t) {
+			return nil
+		}
+		return fmt.Errorf("auth not active yet")
+	}, backoff.NewTestingBackOff()))
+}
+
 // getPachClient creates a seed client with a grpc connection to a pachyderm
 // cluster, and then enable the auth service in that cluster
 func getPachClient(t testing.TB, subject string) *client.APIClient {
 	t.Helper()
-	// Check if 'subject' already has a client -- if not create one
-	func() {
-		// Client creation is wrapped in an anonymous function to make locking and
-		// releasing clientMapMut easier, and keep concurrent tests from racing with
-		// initialization
-		clientMapMut.Lock()
-		defer clientMapMut.Unlock()
+	clientMapMut.Lock()
+	defer clientMapMut.Unlock()
 
-		// Check if seed client exists -- if not, create it
-		seedClient, ok := clientMap[""]
-		if !ok {
-			var err error
-			if _, ok := os.LookupEnv("PACHD_PORT_650_TCP_ADDR"); ok {
-				seedClient, err = client.NewInCluster()
-			} else {
-				seedClient, err = client.NewOnUserMachine(false, "user")
-			}
-			require.NoError(t, err)
-			seedClient.SetAuthToken("") // anonymous client
-			clientMap[""] = seedClient
+	// Check if seed client exists -- if not, create it
+	seedClient, ok := clientMap[""]
+	if !ok {
+		var err error
+		if _, ok := os.LookupEnv("PACHD_PORT_650_TCP_ADDR"); ok {
+			seedClient, err = client.NewInCluster()
+		} else {
+			seedClient, err = client.NewOnUserMachine(false, "user")
 		}
+		require.NoError(t, err)
+		seedClient.SetAuthToken("") // anonymous client
+		clientMap[""] = seedClient
+	}
+	if subject == "" {
+		return seedClient // anonymous client
+	}
 
-		// Activate Pachyderm Enterprise (if it's not already active)
-		require.NoError(t, backoff.Retry(func() error {
-			resp, err := seedClient.Enterprise.GetState(context.Background(),
-				&enterprise.GetStateRequest{})
-			if err != nil {
-				return err
-			}
-			if resp.State == enterprise.State_ACTIVE {
-				return nil
-			}
-			_, err = seedClient.Enterprise.Activate(context.Background(),
-				&enterprise.ActivateRequest{
-					ActivationCode: tu.GetTestEnterpriseCode(),
-				})
-
+	// Activate Pachyderm Enterprise (if it's not already active)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := seedClient.Enterprise.GetState(context.Background(),
+			&enterprise.GetStateRequest{})
+		if err != nil {
 			return err
-		}, backoff.NewTestingBackOff()))
-
-		// Activate Pachyderm auth (if it's not already active)
-		require.NoError(t, backoff.Retry(func() error {
-			if _, err := seedClient.GetAdmins(context.Background(),
-				&auth.GetAdminsRequest{},
-			); err == nil || auth.IsNotSignedInError(err) {
-				return nil // auth already active
-			}
-
-			// Auth not active -- clear existing cached clients (as their auth tokens
-			// are no longer valid)
-			clientMap = map[string]*client.APIClient{"": clientMap[""]}
-			if _, err := seedClient.AuthAPIClient.Activate(context.Background(),
-				&auth.ActivateRequest{GithubUsername: "admin"},
-			); err != nil && !strings.HasSuffix(err.Error(), "already activated") {
-				return fmt.Errorf("could not activate auth service: %s", err.Error())
-			}
-			return nil
-		}, backoff.NewTestingBackOff()))
-
-		// Wait for the Pachyderm Auth system to activate
-		require.NoError(t, backoff.Retry(func() error {
-			if _, err := seedClient.AuthAPIClient.WhoAmI(seedClient.Ctx(),
-				&auth.WhoAmIRequest{},
-			); err != nil && auth.IsNotActivatedError(err) {
-				return err
-			}
-			return nil
-		}, backoff.NewTestingBackOff()))
-
-		// Re-use old client for 'u', or create a new one if none exists
-		if _, ok := clientMap[subject]; !ok {
-			subjectClient := *clientMap[""]
-			resp, err := subjectClient.Authenticate(context.Background(),
-				&auth.AuthenticateRequest{
-					GithubUsername: strings.TrimPrefix(subject, GithubPrefix),
-				})
-			require.NoError(t, err)
-			subjectClient.SetAuthToken(resp.PachToken)
-			clientMap[subject] = &subjectClient
 		}
-	}()
-	return clientMap[subject]
+		if resp.State == enterprise.State_ACTIVE {
+			return nil
+		}
+		_, err = seedClient.Enterprise.Activate(context.Background(),
+			&enterprise.ActivateRequest{
+				ActivationCode: tu.GetTestEnterpriseCode(),
+			})
+
+		return err
+	}, backoff.NewTestingBackOff()))
+
+	// Cluster may be in one of four states:
+	// 1) Auth is off (=> Activate auth)
+	// 2) Auth is on, but client tokens have been invalidated (=> Deactivate +
+	//    Reactivate auth)
+	// 3) Auth is on and client tokens are valid, but the admin isn't "admin"
+	//    (=> reset cluster admins to "admin")
+	// 4) Auth is on, client tokens are valid, and the only admin is "admin" (do
+	//    nothing)
+	if !isAuthActive(t) {
+		// Case 1: auth is off. Activate auth & return a new client
+		clientMap = map[string]*client.APIClient{"": clientMap[""]}
+		activateAuth(t)
+		return getPachClientInternal(t, subject)
+	}
+
+	adminClient := getPachClientInternal(t, admin)
+	getAdminsResp, err := adminClient.GetAdmins(adminClient.Ctx(),
+		&auth.GetAdminsRequest{})
+
+	// Detect case 2: auth was deactivated during previous test. De/Reactivate
+	// TODO it may may sense to do this between every test, though it would mean
+	// that we can't run tests in parallel. Currently, only the first test that
+	// needs to reset auth will run this block
+	if err != nil && auth.IsBadTokenError(err) {
+		// Don't know which tokens are valid, so clear clientMap
+		clientMap = map[string]*client.APIClient{"": clientMap[""]}
+		adminClient := getPachClientInternal(t, admin)
+
+		// "admin" may no longer be an admin, so get a list of admins, authorize as
+		// the first admin, and deactivate auth
+		getAdminsResp, err := adminClient.GetAdmins(adminClient.Ctx(),
+			&auth.GetAdminsRequest{})
+		require.NoError(t, err)
+		if len(getAdminsResp.Admins) == 0 {
+			panic("it should not be possible to leave a cluster with no admins")
+		}
+		adminClient = getPachClientInternal(t, getAdminsResp.Admins[0])
+		_, err = adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
+		require.NoError(t, err)
+
+		// Just deactivated. *All* tokens are now invalid, so clear the map again
+		clientMap = map[string]*client.APIClient{"": clientMap[""]}
+		activateAuth(t)
+		return getPachClientInternal(t, subject)
+	}
+
+	// Detect case 3: previous change shuffled admins. Reset list to just "admin"
+	if len(getAdminsResp.Admins) == 0 {
+		panic("it should not be possible to leave a cluster with no admins")
+	}
+	hasExpectedAdmin := len(getAdminsResp.Admins) == 1 && getAdminsResp.Admins[0] == admin
+	curAdmins := getAdminsResp.Admins
+	if !hasExpectedAdmin {
+		curAdminClient := getPachClientInternal(t, curAdmins[0])
+		modifyRequest := &auth.ModifyAdminsRequest{
+			Add: []string{admin},
+		}
+		for _, a := range curAdmins {
+			if a == admin {
+				// nothing to add, just don't remove "admin"
+				modifyRequest.Add = nil
+				continue
+			}
+			modifyRequest.Remove = append(modifyRequest.Remove, a)
+		}
+		_, err := curAdminClient.ModifyAdmins(curAdminClient.Ctx(), modifyRequest)
+		require.NoError(t, err)
+
+		// Wait for admin change to take effect
+		require.NoError(t, backoff.Retry(func() error {
+			getAdminsResp, err = adminClient.GetAdmins(adminClient.Ctx(),
+				&auth.GetAdminsRequest{})
+			hasExpectedAdmin := len(getAdminsResp.Admins) == 1 && getAdminsResp.Admins[0] == admin
+			if !hasExpectedAdmin {
+				return fmt.Errorf("cluster admins haven't yet updated")
+			}
+			return nil
+		}, backoff.NewTestingBackOff()))
+	}
+
+	return getPachClientInternal(t, subject)
 }
 
 // entries constructs an auth.ACL struct from a list of the form

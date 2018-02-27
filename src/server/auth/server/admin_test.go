@@ -31,9 +31,6 @@ func TSProtoOrDie(t *testing.T, ts time.Time) *types.Timestamp {
 	return proto
 }
 
-const admin = GithubPrefix + "admin"
-const carol = GithubPrefix + "carol"
-
 // helper function that prepends GithubPrefix to 'user'--useful for validating
 // responses
 func gh(user string) string {
@@ -135,7 +132,7 @@ func TestAdminRWO(t *testing.T) {
 	backoff.Retry(func() error {
 		resp, err := aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		return require.ElementsEqualOrErr([]string{"admin"}, resp.Admins)
+		return require.ElementsEqualOrErr([]string{admin}, resp.Admins)
 	}, backoff.NewTestingBackOff())
 
 	// bob can no longer read from the repo
@@ -268,7 +265,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		return require.ElementsEqualOrErr([]string{"admin"}, resp.Admins)
+		return require.ElementsEqualOrErr([]string{admin}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
 
 	// admin can make alice a cluster administrator
@@ -280,7 +277,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		return require.ElementsEqualOrErr([]string{"admin", alice}, resp.Admins)
+		return require.ElementsEqualOrErr([]string{admin, gh(alice)}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
 
 	// Now admin can remove themselves as a cluster admin
@@ -290,7 +287,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		return require.ElementsEqualOrErr([]string{alice}, resp.Admins)
+		return require.ElementsEqualOrErr([]string{gh(alice)}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
 
 	// now alice is the only admin, and she cannot remove herself as a cluster
@@ -301,7 +298,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = aliceClient.GetAdmins(aliceClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		return require.ElementsEqualOrErr([]string{alice}, resp.Admins)
+		return require.ElementsEqualOrErr([]string{gh(alice)}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
 
 	// alice *can* swap herself and "admin"
@@ -314,7 +311,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		return require.ElementsEqualOrErr([]string{"admin"}, resp.Admins)
+		return require.ElementsEqualOrErr([]string{admin}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
 }
 
@@ -572,6 +569,8 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	adminClient := getPachClient(t, "admin")
+	require.NoError(t, adminClient.DeleteAll())
 	alice := tu.UniqueString("alice")
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, "admin")
 
@@ -774,7 +773,7 @@ func TestAdminWhoAmI(t *testing.T) {
 	require.False(t, resp.IsAdmin)
 	resp, err = adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
-	require.Equal(t, "admin", resp.Username)
+	require.Equal(t, admin, resp.Username)
 	require.True(t, resp.IsAdmin)
 }
 
