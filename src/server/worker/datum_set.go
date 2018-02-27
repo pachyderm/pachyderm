@@ -6,11 +6,8 @@ import (
 	"sort"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
-
-	"golang.org/x/net/context"
 )
 
 // DatumFactory is an interface which allows you to iterate through the datums
@@ -22,12 +19,16 @@ type DatumFactory interface {
 
 type atomDatumFactory struct {
 	inputs []*Input
-	index  int
 }
 
-func newAtomDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.AtomInput) (DatumFactory, error) {
+func newAtomDatumFactory(pachClient *client.APIClient, input *pps.AtomInput) (DatumFactory, error) {
 	result := &atomDatumFactory{}
-	fs, err := pfsClient.GlobFileStream(auth.In2Out(ctx), &pfs.GlobFileRequest{
+	if input.Commit == "" {
+		// this can happen if a pipeline with multiple inputs has been triggered
+		// before all commits have inputs
+		return result, nil
+	}
+	fs, err := pachClient.GlobFileStream(pachClient.Ctx(), &pfs.GlobFileRequest{
 		Commit:  client.NewCommit(input.Repo, input.Commit),
 		Pattern: input.Glob,
 	})
@@ -75,10 +76,10 @@ type unionDatumFactory struct {
 	inputs []DatumFactory
 }
 
-func newUnionDatumFactory(ctx context.Context, pfsClient pfs.APIClient, union []*pps.Input) (DatumFactory, error) {
+func newUnionDatumFactory(pachClient *client.APIClient, union []*pps.Input) (DatumFactory, error) {
 	result := &unionDatumFactory{}
 	for _, input := range union {
-		datumFactory, err := NewDatumFactory(ctx, pfsClient, input)
+		datumFactory, err := NewDatumFactory(pachClient, input)
 		if err != nil {
 			return nil, err
 		}
@@ -134,25 +135,16 @@ func (d *crossDatumFactory) Datum(i int) []*Input {
 
 type gitDatumFactory struct {
 	inputs []*Input
-	index  int
 }
 
-func newGitDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.GitInput) (DatumFactory, error) {
+func newGitDatumFactory(pachClient *client.APIClient, input *pps.GitInput) (DatumFactory, error) {
 	result := &gitDatumFactory{}
-	fileInfo, err := pfsClient.InspectFile(
-		auth.In2Out(ctx),
-		&pfs.InspectFileRequest{
-			File: &pfs.File{
-				Commit: &pfs.Commit{
-					Repo: &pfs.Repo{
-						Name: input.Name,
-					},
-					ID: input.Commit,
-				},
-				Path: "/commit.json",
-			},
-		},
-	)
+	if input.Commit == "" {
+		// this can happen if a pipeline with multiple inputs has been triggered
+		// before all commits have inputs
+		return result, nil
+	}
+	fileInfo, err := pachClient.InspectFile(input.Name, input.Commit, "/commit.json")
 	if err != nil {
 		return nil, err
 	}
@@ -176,10 +168,10 @@ func (d *gitDatumFactory) Datum(i int) []*Input {
 	return []*Input{d.inputs[i]}
 }
 
-func newCrossDatumFactory(ctx context.Context, pfsClient pfs.APIClient, cross []*pps.Input) (DatumFactory, error) {
+func newCrossDatumFactory(pachClient *client.APIClient, cross []*pps.Input) (DatumFactory, error) {
 	result := &crossDatumFactory{}
 	for _, input := range cross {
-		datumFactory, err := NewDatumFactory(ctx, pfsClient, input)
+		datumFactory, err := NewDatumFactory(pachClient, input)
 		if err != nil {
 			return nil, err
 		}
@@ -188,8 +180,8 @@ func newCrossDatumFactory(ctx context.Context, pfsClient pfs.APIClient, cross []
 	return result, nil
 }
 
-func newCronDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.CronInput) (DatumFactory, error) {
-	return newAtomDatumFactory(ctx, pfsClient, &pps.AtomInput{
+func newCronDatumFactory(pachClient *client.APIClient, input *pps.CronInput) (DatumFactory, error) {
+	return newAtomDatumFactory(pachClient, &pps.AtomInput{
 		Name:   input.Name,
 		Repo:   input.Repo,
 		Branch: "master",
@@ -199,18 +191,18 @@ func newCronDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pp
 }
 
 // NewDatumFactory creates a datumFactory for an input.
-func NewDatumFactory(ctx context.Context, pfsClient pfs.APIClient, input *pps.Input) (DatumFactory, error) {
+func NewDatumFactory(pachClient *client.APIClient, input *pps.Input) (DatumFactory, error) {
 	switch {
 	case input.Atom != nil:
-		return newAtomDatumFactory(ctx, pfsClient, input.Atom)
+		return newAtomDatumFactory(pachClient, input.Atom)
 	case input.Union != nil:
-		return newUnionDatumFactory(ctx, pfsClient, input.Union)
+		return newUnionDatumFactory(pachClient, input.Union)
 	case input.Cross != nil:
-		return newCrossDatumFactory(ctx, pfsClient, input.Cross)
+		return newCrossDatumFactory(pachClient, input.Cross)
 	case input.Cron != nil:
-		return newCronDatumFactory(ctx, pfsClient, input.Cron)
+		return newCronDatumFactory(pachClient, input.Cron)
 	case input.Git != nil:
-		return newGitDatumFactory(ctx, pfsClient, input.Git)
+		return newGitDatumFactory(pachClient, input.Git)
 	}
 	return nil, fmt.Errorf("unrecognized input type")
 }

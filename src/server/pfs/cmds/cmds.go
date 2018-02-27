@@ -504,6 +504,27 @@ $ pachctl subscribe-commit test master --new
 		}),
 	}
 
+	var branchProvenance cmdutil.RepeatedStringArg
+	var head string
+	createBranch := &cobra.Command{
+		Use:   "create-branch <repo-name> <branch-name> [flags]",
+		Short: "Create a new branch on a repo",
+		Long:  "Create a new branch on a repo, starting a commit on the branch will also create it, so there's often no need to call this.",
+		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
+			client, err := client.NewOnUserMachine(metrics, "user")
+			if err != nil {
+				return err
+			}
+			provenance, err := cmdutil.ParseBranches(branchProvenance)
+			if err != nil {
+				return err
+			}
+			return client.CreateBranch(args[0], args[1], head, provenance)
+		}),
+	}
+	createBranch.Flags().VarP(&branchProvenance, "provenance", "p", "The provenance for the branch.")
+	createBranch.Flags().StringVarP(&head, "head", "", "", "The head of the newly created branch.")
+
 	listBranch := &cobra.Command{
 		Use:   "list-branch repo-name",
 		Short: "Return all branches on a repo.",
@@ -1116,6 +1137,7 @@ $ pachctl diff-file foo master path1 bar master path2
 	result = append(result, flushCommit)
 	result = append(result, subscribeCommit)
 	result = append(result, deleteCommit)
+	result = append(result, createBranch)
 	result = append(result, listBranch)
 	result = append(result, setBranch)
 	result = append(result, deleteBranch)

@@ -32,7 +32,7 @@ Finally, in a `select` stage we will determine which of the evaluate metrics in 
 The two input data repositories for this example are `raw-data` containing the raw iris data set and `parameters` containing all of our *C* and *Gamma* parameters.  First let's create these repositories:
 
 ```sh
-$ pachctl create-repo raw-data
+$ pachctl create-repo raw_data
 $ pachctl create-repo parameters
 $ pachctl list-repo
 NAME                CREATED             SIZE                
@@ -44,8 +44,8 @@ Then, we can put our iris data set into `raw-data`.  We are going to use a versi
 
 ```sh
 $ cd data 
-$ pachctl put-file raw-data master iris.csv -c -f noisy_iris.csv 
-$ pachctl list-file raw-data master
+$ pachctl put-file raw_data master iris.csv -c -f noisy_iris.csv 
+$ pachctl list-file raw_data master
 NAME                TYPE                SIZE                
 iris.csv            file                10.29KiB
 ```

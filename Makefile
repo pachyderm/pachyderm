@@ -63,6 +63,12 @@ build:
 	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/client/... | grep -v '/src/client$$')
 	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server$$')
 
+pachd:
+	go build ./src/server/cmd/pachd
+
+worker:
+	go build ./src/server/cmd/worker
+
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
 	GO15VENDOREXPERIMENT=1 go install -ldflags "$(LD_FLAGS)" ./src/server/cmd/pachctl
@@ -111,7 +117,10 @@ docker-clean-worker:
 	docker rm worker_compile || true
 
 docker-build-worker: docker-clean-worker docker-build-compile
-	docker run --name worker_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh worker "$(LD_FLAGS)"
+	docker run \
+		-v $$GOPATH/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
+		-v $$HOME/.cache/go-build:/root/.cache/go-build \
+		--name worker_compile $(COMPILE_RUN_ARGS) pachyderm_compile /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh worker "$(LD_FLAGS)"
 
 docker-wait-worker:
 	etc/compile/wait.sh worker_compile
@@ -121,14 +130,20 @@ docker-clean-pachd:
 	docker rm pachd_compile || true
 
 docker-build-pachd: docker-clean-pachd docker-build-compile
-	docker run --name pachd_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile.sh pachd "$(LD_FLAGS)"
+	docker run  \
+		-v $$GOPATH/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
+		-v $$HOME/.cache/go-build:/root/.cache/go-build \
+		--name pachd_compile $(COMPILE_RUN_ARGS) pachyderm_compile /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh pachd "$(LD_FLAGS)"
 
 docker-clean-test:
 	docker stop test_compile || true
 	docker rm test_compile || true
 
 docker-build-test: docker-clean-test docker-build-compile
-	docker run --name test_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh etc/compile/compile_test.sh
+	docker run \
+		-v $$GOPATH/go/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
+		-v $$HOME/.cache/go-build:/root/.cache/go-build \
+		--name test_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh /etc/compile/compile_test.sh
 	etc/compile/wait.sh test_compile
 	docker tag pachyderm_test:latest pachyderm/test:`git rev-list HEAD --max-count=1`
 
@@ -161,6 +176,9 @@ docker-push-gpu-dev:
 docker-gpu: docker-build-gpu docker-push-gpu
 
 docker-gpu-dev: docker-build-gpu docker-push-gpu-dev
+
+docker-build-test-entrypoint:
+	docker build -t pachyderm_entrypoint etc/testing/entrypoint
 
 check-kubectl:
 	# check that kubectl is installed
@@ -246,14 +264,14 @@ clean-launch-kube:
 
 launch: install check-kubectl
 	$(eval STARTTIME := $(shell date +%s))
-	pachctl deploy local --dry-run | kubectl $(KUBECTLFLAGS) create -f -
+	pachctl deploy local --dry-run | kubectl $(KUBECTLFLAGS) apply -f -
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 launch-dev: check-kubectl check-kubectl-connection install
 	$(eval STARTTIME := $(shell date +%s))
-	pachctl deploy local --no-guaranteed -d --dry-run $(LAUNCH_DEV_ARGS) | kubectl $(KUBECTLFLAGS) create -f -
+	pachctl deploy local --no-guaranteed -d --dry-run $(LAUNCH_DEV_ARGS) | kubectl $(KUBECTLFLAGS) apply -f -
 	# wait for the pachyderm to come up
 	until timeout 1s ./etc/kube/check_ready.sh app=pachd; do sleep 1; done
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
@@ -320,7 +338,7 @@ pretest:
 
 local-test: docker-build launch-dev test-pfs clean-launch-dev
 
-test: enterprise-code-checkin-test docker-build clean-launch-dev launch-dev test-pfs test-pps test-auth test-enterprise test-kube-17
+test: enterprise-code-checkin-test docker-build docker-build-test-entrypoint clean-launch-dev launch-dev test-pfs test-pps test-auth test-enterprise test-kube-17
 
 enterprise-code-checkin-test:
 	# Check if our test activation code is anywhere in the repo
@@ -335,11 +353,12 @@ test-pfs:
 	@# don't run this in verbose mode, as it produces a huge amount of logs
 	go test ./src/server/pfs/server -timeout $(TIMEOUT)
 	go test ./src/server/pfs/cmds -timeout $(TIMEOUT)
-	go test ./src/server/pkg/collection -timeout $(TIMEOUT)
+	go test ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
 	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
 
 test-pps:
-	go test -v ./src/server -parallel 1 -timeout $(TIMEOUT)
+	# Use the count flag to disable test caching for this test suite.
+	go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT)
 	go test ./src/server/pps/cmds -timeout $(TIMEOUT)
 
 test-client:
@@ -493,9 +512,6 @@ lint:
 			echo "golint errors!" && echo && exit 1; \
 		fi; \
 	done;
-
-vet:
-	@etc/testing/vet.sh
 
 spellcheck:
 	@mdspell doc/*.md doc/**/*.md *.md --en-us --ignore-numbers --ignore-acronyms --report --no-suggestions
