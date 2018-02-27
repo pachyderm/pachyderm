@@ -1,21 +1,20 @@
-## ./pachctl mount
+## ./pachctl restore
 
-Mount pfs locally. This command blocks.
+Restore Pachyderm state from stdin.
 
 ### Synopsis
 
 
-Mount pfs locally. This command blocks.
+Restore Pachyderm state from stdin.
 
 ```
-./pachctl mount path/to/mount/point
+./pachctl restore
 ```
 
 ### Options
 
 ```
-  -a, --all-commits   Show archived and cancelled commits.
-  -d, --debug         Turn on debug messages.
+  -u, --url string   An object storage url (i.e. s3://...) to restore from.
 ```
 
 ### Options inherited from parent commands
