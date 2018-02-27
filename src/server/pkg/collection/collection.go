@@ -437,12 +437,15 @@ func (c *readonlyCollection) ListPrefix(prefix string) (Iterator, error) {
 // The objects are sorted by revision time in descending order, i.e. newer
 // objects are returned first.
 func (c *readonlyCollection) List() (Iterator, error) {
-	resp, err := c.etcdClient.Get(c.ctx, c.prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend))
+	resp, err := c.etcdClient.Get(c.ctx, c.prefix, etcd.WithPrefix(), etcd.WithLimit(QueryPaginationLimit))
 	if err != nil {
 		return nil, err
 	}
-	return &iterator{
-		resp: resp,
+	return &paginatedIterator{
+		endKey:     endKeyFromPrefix(c.prefix),
+		resp:       resp,
+		etcdClient: c.etcdClient,
+		ctx:        c.ctx,
 	}, nil
 }
 
