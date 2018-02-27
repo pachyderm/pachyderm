@@ -6442,6 +6442,50 @@ func TestListJobInputCommits(t *testing.T) {
 	require.Equal(t, 1, len(jobInfos))
 }
 
+func TestManyJobs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	dataRepo := uniqueString("TestManyJobs_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	numPipelines := 10
+	for i := 0; i < numPipelines; i++ {
+		pipeline := uniqueString("TestManyJobs")
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"true"},
+			[]string{strings.Repeat("words ", 30), strings.Repeat("words ", 30), strings.Repeat("words ", 30), strings.Repeat("words ", 30), strings.Repeat("words ", 30), strings.Repeat("words ", 30)},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewAtomInput(dataRepo, "/*"),
+			"",
+			false,
+		))
+	}
+
+	numCommits := 5000
+	for i := 0; i < numCommits; i++ {
+		_, err := c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(dataRepo, "master"))
+	}
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	_, err = c.ListJob("", nil, nil)
+	require.NoError(t, err)
+}
+
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
 	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
 	require.NoError(t, err)
