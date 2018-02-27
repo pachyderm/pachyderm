@@ -122,6 +122,9 @@ type AssetOpts struct {
 
 	// NoRBAC, if true, will disable creation of RBAC assets.
 	NoRBAC bool
+
+	// Namespace is the kubernetes namespace to deploy to.
+	Namespace string
 }
 
 // replicas lets us create a pointer to a non-zero int32 in-line. This is
@@ -182,30 +185,24 @@ func fillDefaultResourceRequests(opts *AssetOpts, persistentDiskBackend backend)
 }
 
 // ServiceAccount returns a kubernetes service account for use with Pachyderm.
-func ServiceAccount() *v1.ServiceAccount {
+func ServiceAccount(opts *AssetOpts) *v1.ServiceAccount {
 	return &v1.ServiceAccount{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ServiceAccount",
 			APIVersion: "v1",
 		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   ServiceAccountName,
-			Labels: labels(""),
-		},
+		ObjectMeta: objectMeta(ServiceAccountName, labels(""), nil, opts.Namespace),
 	}
 }
 
 // ClusterRole returns a ClusterRole that should be bound to the Pachyderm service account.
-func ClusterRole() *rbacv1.ClusterRole {
+func ClusterRole(opts *AssetOpts) *rbacv1.ClusterRole {
 	return &rbacv1.ClusterRole{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ClusterRole",
 			APIVersion: "rbac.authorization.k8s.io/v1",
 		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   clusterRoleName,
-			Labels: labels(""),
-		},
+		ObjectMeta: objectMeta(clusterRoleName, labels(""), nil, opts.Namespace),
 		Rules: []rbacv1.PolicyRule{{
 			APIGroups: []string{""},
 			Verbs:     []string{"get", "list", "watch"},
@@ -225,16 +222,13 @@ func ClusterRole() *rbacv1.ClusterRole {
 
 // ClusterRoleBinding returns a ClusterRoleBinding that binds Pachyderm's
 // ClusterRole to its ServiceAccount.
-func ClusterRoleBinding() *rbacv1.ClusterRoleBinding {
+func ClusterRoleBinding(opts *AssetOpts) *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ClusterRoleBinding",
 			APIVersion: "rbac.authorization.k8s.io/v1",
 		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   clusterRoleBindingName,
-			Labels: labels(""),
-		},
+		ObjectMeta: objectMeta(clusterRoleBindingName, labels(""), nil, opts.Namespace),
 		Subjects: []rbacv1.Subject{{
 			Kind:      "ServiceAccount",
 			Name:      ServiceAccountName,
@@ -343,23 +337,15 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 			Kind:       "Deployment",
 			APIVersion: "apps/v1beta1",
 		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   pachdName,
-			Labels: labels(pachdName),
-		},
+		ObjectMeta: objectMeta(pachdName, labels(pachdName), nil, opts.Namespace),
 		Spec: apps.DeploymentSpec{
 			Replicas: replicas(1),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels(pachdName),
 			},
 			Template: v1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   pachdName,
-					Labels: labels(pachdName),
-					Annotations: map[string]string{
-						"iam.amazonaws.com/role": opts.IAMRole,
-					},
-				},
+				ObjectMeta: objectMeta(pachdName, labels(pachdName),
+					map[string]string{"iam.amazonaws.com/role": opts.IAMRole}, opts.Namespace),
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
@@ -437,16 +423,13 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 }
 
 // PachdService returns a pachd service.
-func PachdService() *v1.Service {
+func PachdService(opts *AssetOpts) *v1.Service {
 	return &v1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   pachdName,
-			Labels: labels(pachdName),
-		},
+		ObjectMeta: objectMeta(pachdName, labels(pachdName), nil, opts.Namespace),
 		Spec: v1.ServiceSpec{
 			Type: v1.ServiceTypeNodePort,
 			Selector: map[string]string{
@@ -479,17 +462,14 @@ func PachdService() *v1.Service {
 }
 
 // GithookService returns a k8s service that exposes a public IP
-func GithookService() *v1.Service {
+func GithookService(namespace string) *v1.Service {
 	name := "githook"
 	return &v1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   name,
-			Labels: labels(name),
-		},
+		ObjectMeta: objectMeta(name, labels(name), nil, namespace),
 		Spec: v1.ServiceSpec{
 			Type: v1.ServiceTypeLoadBalancer,
 			Selector: map[string]string{
@@ -551,20 +531,14 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 			Kind:       "Deployment",
 			APIVersion: "apps/v1beta1",
 		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   etcdName,
-			Labels: labels(etcdName),
-		},
+		ObjectMeta: objectMeta(etcdName, labels(etcdName), nil, opts.Namespace),
 		Spec: apps.DeploymentSpec{
 			Replicas: replicas(1),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels(etcdName),
 			},
 			Template: v1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   etcdName,
-					Labels: labels(etcdName),
-				},
+				ObjectMeta: objectMeta(etcdName, labels(etcdName), nil, opts.Namespace),
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
@@ -643,10 +617,7 @@ func EtcdVolume(persistentDiskBackend backend, opts *AssetOpts,
 			Kind:       "PersistentVolume",
 			APIVersion: "v1",
 		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   etcdVolumeName,
-			Labels: labels(etcdName),
-		},
+		ObjectMeta: objectMeta(etcdVolumeName, labels(etcdName), nil, opts.Namespace),
 		Spec: v1.PersistentVolumeSpec{
 			Capacity: map[v1.ResourceName]resource.Quantity{
 				"storage": resource.MustParse(fmt.Sprintf("%vGi", size)),
@@ -700,16 +671,13 @@ func EtcdVolume(persistentDiskBackend backend, opts *AssetOpts,
 //
 // Note that if you're controlling Etcd with a Stateful Set, this is
 // unnecessary (the stateful set controller will create PVCs automatically).
-func EtcdVolumeClaim(size int) *v1.PersistentVolumeClaim {
+func EtcdVolumeClaim(size int, opts *AssetOpts) *v1.PersistentVolumeClaim {
 	return &v1.PersistentVolumeClaim{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PersistentVolumeClaim",
 			APIVersion: "v1",
 		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   etcdVolumeClaimName,
-			Labels: labels(etcdName),
-		},
+		ObjectMeta: objectMeta(etcdVolumeClaimName, labels(etcdName), nil, opts.Namespace),
 		Spec: v1.PersistentVolumeClaimSpec{
 			Resources: v1.ResourceRequirements{
 				Requests: map[v1.ResourceName]resource.Quantity{
@@ -724,7 +692,7 @@ func EtcdVolumeClaim(size int) *v1.PersistentVolumeClaim {
 
 // EtcdNodePortService returns a NodePort etcd service. This will let non-etcd
 // pods talk to etcd
-func EtcdNodePortService(local bool) *v1.Service {
+func EtcdNodePortService(local bool, opts *AssetOpts) *v1.Service {
 	var clientNodePort int32
 	if local {
 		clientNodePort = 32379
@@ -734,10 +702,7 @@ func EtcdNodePortService(local bool) *v1.Service {
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   etcdName,
-			Labels: labels(etcdName),
-		},
+		ObjectMeta: objectMeta(etcdName, labels(etcdName), nil, opts.Namespace),
 		Spec: v1.ServiceSpec{
 			Type: v1.ServiceTypeNodePort,
 			Selector: map[string]string{
@@ -756,16 +721,13 @@ func EtcdNodePortService(local bool) *v1.Service {
 
 // EtcdHeadlessService returns a headless etcd service, which is only for DNS
 // resolution.
-func EtcdHeadlessService() *v1.Service {
+func EtcdHeadlessService(opts *AssetOpts) *v1.Service {
 	return &v1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   etcdHeadlessServiceName,
-			Labels: labels(etcdName),
-		},
+		ObjectMeta: objectMeta(etcdHeadlessServiceName, labels(etcdName), nil, opts.Namespace),
 		Spec: v1.ServiceSpec{
 			Selector: map[string]string{
 				"app": etcdName,
@@ -943,19 +905,13 @@ func DashDeployment(opts *AssetOpts) *apps.Deployment {
 			Kind:       "Deployment",
 			APIVersion: "apps/v1beta1",
 		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   dashName,
-			Labels: labels(dashName),
-		},
+		ObjectMeta: objectMeta(dashName, labels(dashName), nil, opts.Namespace),
 		Spec: apps.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels(dashName),
 			},
 			Template: v1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   dashName,
-					Labels: labels(dashName),
-				},
+				ObjectMeta: objectMeta(dashName, labels(dashName), nil, opts.Namespace),
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
@@ -989,16 +945,13 @@ func DashDeployment(opts *AssetOpts) *apps.Deployment {
 }
 
 // DashService creates a Service for the pachyderm dashboard.
-func DashService() *v1.Service {
+func DashService(opts *AssetOpts) *v1.Service {
 	return &v1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   dashName,
-			Labels: labels(dashName),
-		},
+		ObjectMeta: objectMeta(dashName, labels(dashName), nil, opts.Namespace),
 		Spec: v1.ServiceSpec{
 			Type:     v1.ServiceTypeNodePort,
 			Selector: labels(dashName),
@@ -1046,17 +999,14 @@ func MinioSecret(bucket string, id string, secret string, endpoint string, secur
 
 // WriteSecret writes a JSON-encoded k8s secret to the given writer.
 // The secret uses the given map as data.
-func WriteSecret(w io.Writer, data map[string][]byte) {
+func WriteSecret(w io.Writer, data map[string][]byte, opts *AssetOpts) {
 	secret := &v1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
 			APIVersion: "v1",
 		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   client.StorageSecretName,
-			Labels: labels(client.StorageSecretName),
-		},
-		Data: data,
+		ObjectMeta: objectMeta(client.StorageSecretName, labels(client.StorageSecretName), nil, opts.Namespace),
+		Data:       data,
 	}
 	encoder := json.NewEncoder(w)
 	encoder.Encode(secret)
@@ -1109,7 +1059,7 @@ func MicrosoftSecret(container string, id string, secret string) map[string][]by
 // dashboard to 'w'
 func WriteDashboardAssets(w io.Writer, opts *AssetOpts) {
 	encoder := json.NewEncoder(w)
-	encoder.Encode(DashService())
+	encoder.Encode(DashService(opts))
 	fmt.Fprintf(w, "\n")
 	encoder.Encode(DashDeployment(opts))
 	fmt.Fprintf(w, "\n")
@@ -1133,12 +1083,12 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 	}
 	encoder := json.NewEncoder(w)
 
-	encoder.Encode(ServiceAccount())
+	encoder.Encode(ServiceAccount(opts))
 	fmt.Fprintf(w, "\n")
 	if !opts.NoRBAC {
-		encoder.Encode(ClusterRole())
+		encoder.Encode(ClusterRole(opts))
 		fmt.Fprintf(w, "\n")
-		encoder.Encode(ClusterRoleBinding())
+		encoder.Encode(ClusterRoleBinding(opts))
 		fmt.Fprintf(w, "\n")
 	}
 
@@ -1162,7 +1112,7 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 			encoder.Encode(sc)
 			fmt.Fprintf(w, "\n")
 		}
-		encoder.Encode(EtcdHeadlessService())
+		encoder.Encode(EtcdHeadlessService(opts))
 		fmt.Fprintf(w, "\n")
 		encoder.Encode(EtcdStatefulSet(opts, persistentDiskBackend, volumeSize))
 		fmt.Fprintf(w, "\n")
@@ -1173,17 +1123,17 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 		}
 		encoder.Encode(volume)
 		fmt.Fprintf(w, "\n")
-		encoder.Encode(EtcdVolumeClaim(volumeSize))
+		encoder.Encode(EtcdVolumeClaim(volumeSize, opts))
 		fmt.Fprintf(w, "\n")
 		encoder.Encode(EtcdDeployment(opts, ""))
 		fmt.Fprintf(w, "\n")
 	} else {
 		return fmt.Errorf("unless deploying locally, either --dynamic-etcd-nodes or --static-etcd-volume needs to be provided")
 	}
-	encoder.Encode(EtcdNodePortService(objectStoreBackend == localBackend))
+	encoder.Encode(EtcdNodePortService(objectStoreBackend == localBackend, opts))
 	fmt.Fprintf(w, "\n")
 
-	encoder.Encode(PachdService())
+	encoder.Encode(PachdService(opts))
 	fmt.Fprintf(w, "\n")
 	encoder.Encode(PachdDeployment(opts, objectStoreBackend, hostPath))
 	fmt.Fprintf(w, "\n")
@@ -1198,7 +1148,7 @@ func WriteLocalAssets(w io.Writer, opts *AssetOpts, hostPath string) error {
 	if err := WriteAssets(w, opts, localBackend, localBackend, 1 /* = volume size (gb) */, hostPath); err != nil {
 		return err
 	}
-	WriteSecret(w, LocalSecret())
+	WriteSecret(w, LocalSecret(), opts)
 	return nil
 }
 
@@ -1230,7 +1180,7 @@ func WriteCustomAssets(w io.Writer, opts *AssetOpts, args []string, objectStoreB
 		default:
 			return fmt.Errorf("Did not recognize the choice of persistent-disk")
 		}
-		WriteSecret(w, MinioSecret(args[2], args[3], args[4], args[5], secure, isS3V2))
+		WriteSecret(w, MinioSecret(args[2], args[3], args[4], args[5], secure, isS3V2), opts)
 		return nil
 	default:
 		return fmt.Errorf("Did not recognize the choice of object-store")
@@ -1243,7 +1193,7 @@ func WriteAmazonAssets(w io.Writer, opts *AssetOpts, bucket string, id string, s
 	if err := WriteAssets(w, opts, amazonBackend, amazonBackend, volumeSize, ""); err != nil {
 		return err
 	}
-	WriteSecret(w, AmazonSecret(bucket, distribution, id, secret, token, region))
+	WriteSecret(w, AmazonSecret(bucket, distribution, id, secret, token, region), opts)
 	return nil
 }
 
@@ -1252,7 +1202,7 @@ func WriteGoogleAssets(w io.Writer, opts *AssetOpts, bucket string, cred string,
 	if err := WriteAssets(w, opts, googleBackend, googleBackend, volumeSize, ""); err != nil {
 		return err
 	}
-	WriteSecret(w, GoogleSecret(bucket, cred))
+	WriteSecret(w, GoogleSecret(bucket, cred), opts)
 	return nil
 }
 
@@ -1261,7 +1211,7 @@ func WriteMicrosoftAssets(w io.Writer, opts *AssetOpts, container string, id str
 	if err := WriteAssets(w, opts, microsoftBackend, microsoftBackend, volumeSize, ""); err != nil {
 		return err
 	}
-	WriteSecret(w, MicrosoftSecret(container, id, secret))
+	WriteSecret(w, MicrosoftSecret(container, id, secret), opts)
 	return nil
 }
 
@@ -1281,6 +1231,15 @@ func labels(name string) map[string]string {
 	return map[string]string{
 		"app":   name,
 		"suite": suite,
+	}
+}
+
+func objectMeta(name string, labels, annotations map[string]string, namespace string) metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Name:        name,
+		Labels:      labels,
+		Annotations: annotations,
+		Namespace:   namespace,
 	}
 }
 

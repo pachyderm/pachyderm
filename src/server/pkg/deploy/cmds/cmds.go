@@ -81,6 +81,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var imagePullSecret string
 	var noGuaranteed bool
 	var noRBAC bool
+	var namespace string
 
 	deployLocal := &cobra.Command{
 		Use:   "local",
@@ -408,6 +409,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 				Registry:                registry,
 				NoGuaranteed:            noGuaranteed,
 				NoRBAC:                  noRBAC,
+				Namespace:               namespace,
 			}
 			return nil
 		}),
@@ -424,6 +426,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", "", "Image URL for pachyderm dashboard")
 	deploy.PersistentFlags().BoolVar(&noGuaranteed, "no-guaranteed", false, "Don't use guaranteed QoS for etcd and pachd deployments. Turning this on (turning guaranteed QoS off) can lead to more stable local clusters (such as a on Minikube), it should normally be used for production clusters.")
 	deploy.PersistentFlags().BoolVar(&noRBAC, "no-rbac", false, "Don't deploy RBAC roles for Pachyderm.")
+	deploy.PersistentFlags().StringVar(&namespace, "namespace", "", "Kubernetes namespace to deploy Pachyderm to.")
 
 	deploy.AddCommand(
 		deployLocal,
@@ -469,6 +472,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 func Cmds(noMetrics *bool) []*cobra.Command {
 	deploy := DeployCmd(noMetrics)
 	var all bool
+	var namespace string
 	undeploy := &cobra.Command{
 		Use:   "undeploy",
 		Short: "Tear down a deployed Pachyderm cluster.",
@@ -518,7 +522,7 @@ Are you sure you want to proceed? yN
 				}...)
 			}
 			for _, asset := range assets {
-				if err := cmdutil.RunIO(io, "kubectl", "delete", asset, "-l", "suite=pachyderm"); err != nil {
+				if err := cmdutil.RunIO(io, "kubectl", "delete", asset, "-l", "suite=pachyderm", "--namespace", namespace); err != nil {
 					return err
 				}
 			}
@@ -533,6 +537,7 @@ removed, making metadata such repos, commits, pipelines, and jobs
 unrecoverable. If your persistent volume was manually provisioned (i.e. if
 you used the "--static-etcd-volume" flag), the underlying volume will not be
 removed.`)
+	undeploy.Flags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace to undeploy Pachyderm from.")
 
 	var updateDashDryRun bool
 	updateDash := &cobra.Command{
