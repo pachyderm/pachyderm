@@ -933,6 +933,7 @@ $ pachctl glob-file foo master "data/*"
 						return err
 					}
 				}
+				return nil
 			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			pretty.PrintFileInfoHeader(writer)
