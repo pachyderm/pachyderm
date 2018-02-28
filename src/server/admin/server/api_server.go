@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/golang/snappy"
+	"golang.org/x/net/context"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
@@ -25,6 +26,11 @@ type apiServer struct {
 	address        string
 	pachClient     *client.APIClient
 	pachClientOnce sync.Once
+	clusterInfo    *admin.ClusterInfo
+}
+
+func (a *apiServer) InspectCluster(ctx context.Context, request *types.Empty) (*admin.ClusterInfo, error) {
+	return a.clusterInfo, nil
 }
 
 func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.API_ExtractServer) (retErr error) {
