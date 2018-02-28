@@ -1,45 +1,56 @@
 # Pachyderm Migrations
 
-Occasionally, Pachyderm introduces changes that are backward-incompatible: repos/commits/files created on an old version of Pachyderm may be unusable on a new version of Pachyderm. When that happens, we try our best to write a migration script that "upgrades" your data so it’s usable by the new version of Pachyderm.
+New versions of Pachyderm often require a migration for some or all of the
+on disk objects which persist Pachyderm's metadata for commits, jobs, etc.
+This document describes how Pachyderm migration works and the best
+practices surrounding it.
 
-## Migrate to 1.4.x
+## How To Migrate
 
-To migrate to 1.4.x, look under the directory named `migration/X-Y`. For instance, to upgrade from 1.3.12 to 1.4.0, look under `migration/1.3.12-1.4.0`.
+As of 1.7, Pachyderm's migration works by extracting objects into a stream of
+API requests, and replaying those requests onto the newer version of pachd.
+This process happens automatically using Kubernetes' "rolling update"
+functionality. All you need to do is deploy Pachyderm (with `pachctl
+deploy`) as you would if you were deploying for the first time.
+Specifically your steps will be:
 
-**Note** - If you are migrating from Pachyderm <= 1.3 to 1.4+, you should read [this guide](https://github.com/pachyderm/pachyderm/tree/master/migration/1.3.x-1.4.x). In this particular case, a migration script is NOT provided due to significant changes in our processing and metadata structures. 
+1. Have version 1.6.9 or later of `pachd` up and running in Kubernetes.
+2. Optional, but recommended: Create a backup of your cluster state with
+   `pachctl extract` (see [below](#backups)).
+3. Upgrade `pachctl`.
+4. Run `pachctl deploy ...` with whatever arguments you used to deploy
+   previously.
 
-## Migrate to 1.5.x
+While migration is running, you will see 2 pachd pods running, the one that was
+already running, and the new one. During this time while both `pachd` pods are
+running the original pod (deployed with the previous version of Pachyderm) will
+still respond to requests, however write operations will race with the
+migration and may not make it to the new cluster. Thus you should make sure
+that all processes that write data to repos (i.e., call put-file) or create new
+pipelines are turned down before migration begins. You don't need to worry
+about pipelines running during the migration process.
 
-To migrate from 1.4.x to 1.5.x, use the `pachctl migrate` command.  See `pachctl migrate --help` for detailed instructions.
+## Backups
 
-As an example, to migrate from 1.4.8 to 1.5.0, use the following command:
+It is highly recommended that you backup your cluster before you perform
+a migration. This is accomplished with the `pachctl extract` command. Runnings
+this command will generate a stream of API requests, similar to the stream used
+by migration above. This stream can then be used to reconstruct your cluster by
+running `pachctl restore`. See the docs for [`pachctl
+extract`](http://docs.pachyderm.io/en/latest/pachctl/pachctl_extract.html) and
+[`pachctl
+restore`](http://docs.pachyderm.io/en/latest/pachctl/pachctl_restore.html) for
+further usage.
 
-```
-$ pachctl migrate --from 1.4.8 --to 1.5.0
-```
 
-Note that the `pachctl migrate` command can be run either before or after you've redeployed your cluster with the new version (e.g. via `pachctl deploy`).
+## Before You Migrate.
 
-Most importantly, you need to ensure that your cluster is "at rest" when you run `pachctl migrate`.  That is, there shouldn't be any ongoing activities that are changing the state of the cluster.  Examples would be running jobs or ongoing `put-file` requests.
-
-*Note: For v1.4 pipelines that specify environment variables in their pipeline specs, you will unfortunately need to reprocess all data for those pipelines as part of the v1.5 migration. This will automatically happen as part of the first job that spawns after the migration. Sorry for inconvenience.* 
-
-## Backup
-
-It’s paramount that you backup your data before running a migration.  While we’ve tested the migration code extensively, it’s still possible that they contain bugs, or that you accidentally use them in a wrong way.
-
-In general, there are two data storage systems that you might consider backing up: the metadata storage and the data storage. Not all migration scripts touch both systems, so you might only need to back up one of them. Look at the README for a particular migration script for details.
-
-### Backup the metadata store
-
-Assuming you’ve deployed Pachyderm on a public cloud, your metadata is probably stored on a persistent volume. See the respective [Deploying Pachyderm](http://pachyderm.readthedocs.io/en/stable/deployment/deploy_intro.html) guide for details.
-
-Here are official guides on backing up persistent volumes for each cloud provider:
-
-- [GCE Persistent Volume](https://cloud.google.com/compute/docs/disks/create-snapshots)
-- [Elastic Block Store (EBS)](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-creating-snapshot.html)
-
-### Backup the object store 
-
-We don’t currently have migration scripts that affect the object store.
-
+1.7 is the first Pachyderm version to support `extract` and `restore` which are
+necessary for migration. To bridge the gap to previous Pachyderm versions,
+we've made a final 1.6 release, 1.6.9 which backports the `extract` and
+`restore` functionality to the 1.6 series of releases. 1.6.9 requires no
+migration from 1.6.8. You can simply `pachctl undeploy` and then `pachctl
+deploy` after upgrading `pachctl` to version 1.6.9. After 1.6.9 is deployed you
+should make a backup using `pachctl extract` and then upgrade `pachctl` again,
+to 1.7.0. Finally you can `pachctl deploy ... ` with `pachctl` 1.7.0 to trigger
+the migration.
