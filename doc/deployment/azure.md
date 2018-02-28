@@ -76,13 +76,12 @@ $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.7
 $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.7.0rc2/pachctl_1.7.0rc2_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
-You can try running `pachctl version` to check that this worked correctly, but Pachyderm itself isn't deployed yet so you won't get a `pachd` version.
+You can try running `pachctl version` to check that this worked correctly:
 
 ```sh
-$ pachctl version
+$ pachctl version --client-only
 COMPONENT           VERSION
-pachctl             1.6.3
-pachd               (version unknown) : error connecting to pachd server at address (0.0.0.0:30650): context deadline exceeded.
+pachctl             1.7.0
 ```
 
 ### Deploy Pachyderm
@@ -134,7 +133,7 @@ And you're done! You can test to make sure the cluster is working by trying `pac
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.6.3
-pachd               1.6.3
+pachctl             1.7.0
+pachd               1.7.0
 ```
 

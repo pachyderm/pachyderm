@@ -57,7 +57,7 @@ You can try running `pachctl version --client-only` to verify that `pachctl` has
 
 ```sh
 $ pachctl version --client-only
-1.6.8
+1.7.0
 ```
 
 #### Set up the Storage Resources
@@ -177,8 +177,8 @@ And you're done! You can verify that the cluster is working by executing `pachct
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.6.8
-pachd               1.6.8
+pachctl             1.7.0
+pachd               1.7.0
 ```
 
 ##### Deploying with static credentials
@@ -220,8 +220,8 @@ And you're done! You can verify that the cluster is working by running `pachctl 
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.6.8
-pachd               1.6.8
+pachctl             1.7.0
+pachd               1.7.0
 ```
 
 ## One Shot Script
@@ -271,8 +271,8 @@ And you're done! You can verify that the cluster is working by executing `pachct
 ```sh
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.6.8
-pachd               1.6.8
+pachctl             1.7.0
+pachd               1.7.0
 ```
 
 ### Remove

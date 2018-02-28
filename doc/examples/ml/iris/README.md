@@ -33,8 +33,8 @@ You should be able to connect to your Pachyderm cluster via the `pachctl` CLI.  
 ```
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.4.8
-pachd               1.4.8
+pachctl             1.7.0
+pachd               1.7.0
 ```
 
 ## 2. Create the input data repositories
@@ -80,7 +80,7 @@ iris.csv            file                4.444 KiB
 
 ## 4. Create the training pipeline
 
-Next, we can create the `model` pipeline stage to process the data in the training repository. To do this, we just need to provide Pachyderm with a JSON pipeline specification that tells Pachyderm how to process the data. This `model` pipeline can be generated to train a model with R, Python, or Julia and with a variety of types of models.  The following Docker images are available for the training:
+Next, we can create the `model` pipeline stage to process the data in the training repository. To do this, we just need to provide Pachyderm with a JSON pipeline specification that tells Pachyderm how to process the data. This `model` pipeline can be specified to train a model with R, Python, or Julia and with a variety of types of models.  The following Docker images are available for the training:
 
 - `pachyderm/iris-train:python-svm` - Python-based SVM implemented in [python/iris-train-python-svm/pytrain.py](python/iris-train-python-svm/pytrain.py)
 - `pachyderm/iris-train:python-lda` - Python-based LDA implemented in [python/iris-train-python-lda/pytrain.py](python/iris-train-python-lda/pytrain.py)
@@ -108,16 +108,16 @@ Immediately you will notice that Pachyderm has kicked off a job to perform the m
 
 ```
 $ pachctl list-job
-ID                                   OUTPUT COMMIT STARTED        DURATION RESTART PROGRESS STATE
-a0d78926-ce2a-491a-b926-90043bce7371 model/-       12 seconds ago -        0       0 / 1    running
+ID                               OUTPUT COMMIT                          STARTED        DURATION RESTART PROGRESS  DL UL STATE
+1a8225537992422f87c8468a16d0718b model/6e7cf823910b4ae68c8d337614654564 41 seconds ago -        0       0 + 0 / 1 0B 0B running
 ```
 
-This job should run for about 1-2 minutes (it actually runs faster after this, but we have to pull the Docker image on the first run).  After your model has successfully been trained, you should see:
+This job should run for about a minute (it will actually run much faster after this, but we have to pull the Docker image on the first run).  After your model has successfully been trained, you should see:
 
 ```
 $ pachctl list-job
-ID                                   OUTPUT COMMIT                          STARTED       DURATION       RESTART PROGRESS STATE
-a0d78926-ce2a-491a-b926-90043bce7371 model/98e55f3bccc6444a888b1adbed4bba8b 2 minutes ago About a minute 0       1 / 1    success
+ID                               OUTPUT COMMIT                          STARTED       DURATION       RESTART PROGRESS  DL       UL       STATE
+1a8225537992422f87c8468a16d0718b model/6e7cf823910b4ae68c8d337614654564 2 minutes ago About a minute 0       1 + 0 / 1 4.444KiB 49.86KiB success
 $ pachctl list-repo
 NAME                CREATED             SIZE
 model               2 minutes ago       43.67 KiB
@@ -128,12 +128,14 @@ NAME                TYPE                SIZE
 model.jld           file                43.67 KiB
 ```
 
+(This is the output for the Julia code. Python and R will have similar output, but the file types will be different.)
+
 ## 5. Commit input attributes
 
 Great! We now have a trained model that will infer the species of iris flowers.  Let's commit some iris attributes into Pachyderm that we would like to run through the inference.  We have a couple examples under [test](data/test).  Feel free to use these, find your own, or even create your own.  To commit our samples (assuming you have cloned this repo on the remote machine), you can run:
 
 ```
-$ cd /home/pachrat/julia-workshop/data/test/
+$ cd data/test/
 $ pachctl put-file attributes master -c -r -f .
 ```
 
@@ -165,13 +167,13 @@ where `<julia, python, rstats>` is replaced by the language you are using.  This
 
 ```
 $ pachctl list-job
-ID                                   OUTPUT COMMIT                          STARTED        DURATION       RESTART PROGRESS STATE
-21552ae0-b0a9-4089-bfa5-d74a4a9befd7 inference/-                            33 seconds ago -              0       0 / 2    running
-a0d78926-ce2a-491a-b926-90043bce7371 model/98e55f3bccc6444a888b1adbed4bba8b 7 minutes ago  About a minute 0       1 / 1    success
+ID                               OUTPUT COMMIT                              STARTED       DURATION       RESTART PROGRESS  DL       UL       STATE
+a139434b1b554443aceaf1424f119242 inference/15ef7bfe8e7d4df18a77f35b0019e119 8 seconds ago -              0       0 + 0 / 2 0B       0B       running
+1a8225537992422f87c8468a16d0718b model/6e7cf823910b4ae68c8d337614654564     6 minutes ago About a minute 0       1 + 0 / 1 4.444KiB 49.86KiB success
 $ pachctl list-job
-ID                                   OUTPUT COMMIT                              STARTED            DURATION       RESTART PROGRESS STATE
-21552ae0-b0a9-4089-bfa5-d74a4a9befd7 inference/c4f6b269ad0349469effee39cc9ee8fb About a minute ago About a minute 0       2 / 2    success
-a0d78926-ce2a-491a-b926-90043bce7371 model/98e55f3bccc6444a888b1adbed4bba8b     8 minutes ago      About a minute 0       1 / 1    success
+ID                               OUTPUT COMMIT                              STARTED       DURATION       RESTART PROGRESS  DL       UL       STATE
+a139434b1b554443aceaf1424f119242 inference/15ef7bfe8e7d4df18a77f35b0019e119 2 minutes ago 2 minutes      0       2 + 0 / 2 99.83KiB 100B     success
+1a8225537992422f87c8468a16d0718b model/6e7cf823910b4ae68c8d337614654564     9 minutes ago About a minute 0       1 + 0 / 1 4.444KiB 49.86KiB success
 $ pachctl list-repo
 NAME                CREATED              SIZE
 inference           About a minute ago   100 B
@@ -212,84 +214,35 @@ This actually doesn't require any change to our code.  We can simply change our 
 
 ```
   "parallelism_spec": {
-    "constant": "10"
+    "constant": "5"
   },
 ```
 
-Pachyderm will then spin up 10 inference workers, each running our same script, to perform inference in parallel.  This can be confirmed by updating our pipeline and then examining the cluster:
+Pachyderm will then spin up 5 inference workers, each running our same script, to perform inference in parallel.  This can be confirmed by updating our pipeline and then examining the cluster:
 
 ```
 $ vim infer.json
-$ pachctl update-pipeline -f julia_infer.json
-$ kubectl get all
-NAME                             READY     STATUS        RESTARTS   AGE
-po/etcd-4197107720-906b7         1/1       Running       0          52m
-po/pachd-3548222380-cm1ts        1/1       Running       0          52m
-po/pipeline-inference-v1-vsq8x   2/2       Terminating   0          6m
-po/pipeline-inference-v2-0w438   0/2       Init:0/1      0          5s
-po/pipeline-inference-v2-1tdm7   0/2       Pending       0          5s
-po/pipeline-inference-v2-2tqtl   0/2       Init:0/1      0          5s
-po/pipeline-inference-v2-6x917   0/2       Init:0/1      0          5s
-po/pipeline-inference-v2-cc5jz   0/2       Init:0/1      0          5s
-po/pipeline-inference-v2-cphcd   0/2       Init:0/1      0          5s
-po/pipeline-inference-v2-d5rc0   0/2       Init:0/1      0          5s
-po/pipeline-inference-v2-lhpcv   0/2       Init:0/1      0          5s
-po/pipeline-inference-v2-mpzwf   0/2       Pending       0          5s
-po/pipeline-inference-v2-p753f   0/2       Init:0/1      0          5s
-po/pipeline-model-v1-1gqv2       2/2       Running       0          13m
-
-NAME                       DESIRED   CURRENT   READY     AGE
-rc/pipeline-inference-v2   10        10        0         5s
-rc/pipeline-model-v1       1         1         1         13m
-
-NAME                        CLUSTER-IP       EXTERNAL-IP   PORT(S)                       AGE
-svc/etcd                    10.97.253.64     <nodes>       2379:32379/TCP                52m
-svc/kubernetes              10.96.0.1        <none>        443/TCP                       53m
-svc/pachd                   10.108.55.75     <nodes>       650:30650/TCP,651:30651/TCP   52m
-svc/pipeline-inference-v2   10.99.47.41      <none>        80/TCP                        5s
-svc/pipeline-model-v1       10.109.198.229   <none>        80/TCP                        13m
-
-NAME           DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-deploy/etcd    1         1         1            1           52m
-deploy/pachd   1         1         1            1           52m
-
-NAME                  DESIRED   CURRENT   READY     AGE
-rs/etcd-4197107720    1         1         1         52m
-rs/pachd-3548222380   1         1         1         52m
-$ kubectl get all
-NAME                             READY     STATUS    RESTARTS   AGE
-po/etcd-4197107720-906b7         1/1       Running   0          53m
-po/pachd-3548222380-cm1ts        1/1       Running   0          53m
-po/pipeline-inference-v2-0w438   2/2       Running   0          40s
-po/pipeline-inference-v2-1tdm7   2/2       Running   0          40s
-po/pipeline-inference-v2-2tqtl   2/2       Running   0          40s
-po/pipeline-inference-v2-6x917   2/2       Running   0          40s
-po/pipeline-inference-v2-cc5jz   2/2       Running   0          40s
-po/pipeline-inference-v2-cphcd   2/2       Running   0          40s
-po/pipeline-inference-v2-d5rc0   2/2       Running   0          40s
-po/pipeline-inference-v2-lhpcv   2/2       Running   0          40s
-po/pipeline-inference-v2-mpzwf   2/2       Running   0          40s
-po/pipeline-inference-v2-p753f   2/2       Running   0          40s
-po/pipeline-model-v1-1gqv2       2/2       Running   0          14m
-
-NAME                       DESIRED   CURRENT   READY     AGE
-rc/pipeline-inference-v2   10        10        10        40s
-rc/pipeline-model-v1       1         1         1         14m
-
-NAME                        CLUSTER-IP       EXTERNAL-IP   PORT(S)                       AGE
-svc/etcd                    10.97.253.64     <nodes>       2379:32379/TCP                53m
-svc/kubernetes              10.96.0.1        <none>        443/TCP                       54m
-svc/pachd                   10.108.55.75     <nodes>       650:30650/TCP,651:30651/TCP   53m
-svc/pipeline-inference-v2   10.99.47.41      <none>        80/TCP                        40s
-svc/pipeline-model-v1       10.109.198.229   <none>        80/TCP                        14m
-
-NAME           DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-deploy/etcd    1         1         1            1           53m
-deploy/pachd   1         1         1            1           53m
-
-NAME                  DESIRED   CURRENT   READY     AGE
-rs/etcd-4197107720    1         1         1         53m
-rs/pachd-3548222380   1         1         1         53m
+$ pachctl update-pipeline -f <python, julia, rstats>_infer.json
+$ kubectl get pods
+NAME                          READY     STATUS            RESTARTS   AGE
+etcd-7dbb489f44-pcdww         1/1       Running           0          3h
+pachd-6c878bbc4c-ggxs7        1/1       Running           0          3h
+pipeline-inference-v3-2qxgf   0/2       PodInitializing   0          6s
+pipeline-inference-v3-7pc9n   0/2       Init:0/1          0          6s
+pipeline-inference-v3-dhzjg   0/2       PodInitializing   0          6s
+pipeline-inference-v3-gvb7z   0/2       Init:0/1          0          6s
+pipeline-inference-v3-k5xbj   0/2       Init:0/1          0          6s
+pipeline-model-v1-bck99       2/2       Running           0          12m
+$ kubectl get pods
+NAME                          READY     STATUS    RESTARTS   AGE
+etcd-7dbb489f44-pcdww         1/1       Running   0          3h
+pachd-6c878bbc4c-ggxs7        1/1       Running   0          3h
+pipeline-inference-v3-2qxgf   2/2       Running   0          1m
+pipeline-inference-v3-7pc9n   2/2       Running   0          1m
+pipeline-inference-v3-dhzjg   2/2       Running   0          1m
+pipeline-inference-v3-gvb7z   2/2       Running   0          1m
+pipeline-inference-v3-k5xbj   2/2       Running   0          1m
+pipeline-model-v1-bck99       2/2       Running   0          13m
 ```
 
 ### 9. Update the model training
@@ -300,46 +253,35 @@ Let's now imagine that we want to update our model from random forest to decisio
 "image": "pachyderm/iris-train:julia-tree",
 ```
 
-Once you modify the spec, you can update the pipeline by running:
+Once you modify the spec, you can update the pipeline by running `pachctl update-pipeline ...`. By default, Pachyderm will then utilize this updated model on any new versions of our training data. However, let's say that we want to update the model and reprocess the training data that is already in the `training` repo. To do this we will run the update with the `--reprocess` flag:
 
 ```
-$ pachctl update-pipeline -f <julia, python, rstats>_train.json
+$ pachctl update-pipeline -f <julia, python, rstats>_train.json --reprocess
 ```
 
-Pachyderm will then automatically kick off a new job to retrain our model with the new model:
-
-```
-$ pachctl list-job
-ID                                   OUTPUT COMMIT                              STARTED        DURATION       RESTART PROGRESS STATE
-7d913835-2c0a-42a3-bfa2-c8a5941ceaa5 model/-                                    3 seconds ago  -              0       0 / 1    running
-21552ae0-b0a9-4089-bfa5-d74a4a9befd7 inference/c4f6b269ad0349469effee39cc9ee8fb 11 minutes ago About a minute 0       2 / 2    success
-a0d78926-ce2a-491a-b926-90043bce7371 model/98e55f3bccc6444a888b1adbed4bba8b     19 minutes ago About a minute 0       1 / 1    success
-```
-
-Not only that, once the model is retrained, Pachyderm see the new model and updates our inferences with the latest version of the model:
+Pachyderm will then automatically kick off new jobs to retrain our model with the new model code and update our inferences:
 
 ```
 $ pachctl list-job
-ID                                   OUTPUT COMMIT                              STARTED            DURATION       RESTART PROGRESS STATE
-0477e755-79b4-4b14-ac04-5416d9a80cf3 inference/5dec44a330d24a1cb3822610c886489b 53 seconds ago     44 seconds     0       2 / 2    success
-7d913835-2c0a-42a3-bfa2-c8a5941ceaa5 model/444b5950bcb642cfba5b087286640898     About a minute ago 56 seconds     0       1 / 1    success
-21552ae0-b0a9-4089-bfa5-d74a4a9befd7 inference/c4f6b269ad0349469effee39cc9ee8fb 13 minutes ago     About a minute 0       2 / 2    success
-a0d78926-ce2a-491a-b926-90043bce7371 model/98e55f3bccc6444a888b1adbed4bba8b     20 minutes ago     About a minute 0       1 / 1    success
+ID                               OUTPUT COMMIT                              STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE
+95ffe60f94914522bccfff52e9f8d064 inference/be361c6b2c294aaea72ed18cbcfda644 6 seconds ago  -                  0       0 + 0 / 0 0B       0B       starting
+81cd82538e584c3d9edb901ab62e8f60 model/adb293f8a4604ed7b081c1ff030c0480     6 seconds ago  -                  0       0 + 0 / 1 0B       0B       running
+aee1e950a22547d8bfaea397fc6bd60a inference/2e9d4707aadc4a9f82ef688ec11505c4 6 seconds ago  Less than a second 0       0 + 2 / 2 0B       0B       success
+cffd4d2cbd494662814edf4c80eb1524 inference/ef0904d302ae4116aa8e44e73fa2b541 4 minutes ago  17 seconds         0       0 + 2 / 2 0B       0B       success
+5f672837be1844f58900b9cb5b984af8 inference/5bbf6da576694d2480add9bede69a0af 4 minutes ago  17 seconds         0       0 + 2 / 2 0B       0B       success
+a139434b1b554443aceaf1424f119242 inference/15ef7bfe8e7d4df18a77f35b0019e119 9 minutes ago  2 minutes          0       2 + 0 / 2 99.83KiB 100B     success
+1a8225537992422f87c8468a16d0718b model/6e7cf823910b4ae68c8d337614654564     16 minutes ago About a minute     0       1 + 0 / 1 4.444KiB 49.86KiB success
 ```
 
 ### 10. Update the training data set
 
-Let's say that one or more observations in our training data set were corrupt or unwanted.  Thus, we want to update our training data set.  To simulate this, go ahead and open up `iris.csv` (e.g., with `vim`) and remove a couple of the rows (non-header rows).  Then, let's replace our training set:
+Let's say that one or more observations in our training data set were corrupt or unwanted.  Thus, we want to update our training data set.  To simulate this, go ahead and open up `iris.csv` (e.g., with `vim`) and remove a couple of the rows (non-header rows).  Then, let's replace our training set (`-o` tells Pachyderm to overwrite the file):
 
 ```
-$ pachctl start-commit training master
-9cc070dadc344150ac4ceef2f0758509
-$ pachctl delete-file training 9cc070dadc344150ac4ceef2f0758509 iris.csv
-$ pachctl put-file training 9cc070dadc344150ac4ceef2f0758509 -f iris.csv
-$ pachctl finish-commit training 9cc070dadc344150ac4ceef2f0758509
+$ pachctl put-file training master -c -o -f iris.csv
 ```
 
-Immediately, Pachyderm "knows" that the data has been updated, and it starts a new jobs to update the model and inferences:
+Immediately, Pachyderm "knows" that the data has been updated, and it starts new jobs to update the model and inferences.
 
 ### 11. Examine pipeline provenance
 
@@ -349,31 +291,31 @@ Suppose we have run the following jobs:
 
 ```
 $ pachctl list-job
-ID                                   OUTPUT COMMIT                              STARTED        DURATION       RESTART PROGRESS STATE
-0477e755-79b4-4b14-ac04-5416d9a80cf3 inference/5dec44a330d24a1cb3822610c886489b 6 minutes ago  44 seconds     0       2 / 2    success
-7d913835-2c0a-42a3-bfa2-c8a5941ceaa5 model/444b5950bcb642cfba5b087286640898     7 minutes ago  56 seconds     0       1 / 1    success
-2560f096-0515-4d68-be66-35e3b4f3e730 inference/db9e675de0274ce9a73d3fc9dd50fd51 13 minutes ago About a minute 1       2 / 2    success
-21552ae0-b0a9-4089-bfa5-d74a4a9befd7 inference/c4f6b269ad0349469effee39cc9ee8fb 19 minutes ago About a minute 0       2 / 2    success
-a0d78926-ce2a-491a-b926-90043bce7371 model/98e55f3bccc6444a888b1adbed4bba8b     26 minutes ago About a minute 0       1 / 1    success
+95ffe60f94914522bccfff52e9f8d064 inference/be361c6b2c294aaea72ed18cbcfda644 3 minutes ago  3 minutes          0       2 + 0 / 2 72.61KiB 100B     success
+81cd82538e584c3d9edb901ab62e8f60 model/adb293f8a4604ed7b081c1ff030c0480     3 minutes ago  About a minute     0       1 + 0 / 1 4.444KiB 36.25KiB success
+aee1e950a22547d8bfaea397fc6bd60a inference/2e9d4707aadc4a9f82ef688ec11505c4 3 minutes ago  Less than a second 0       0 + 2 / 2 0B       0B       success
+cffd4d2cbd494662814edf4c80eb1524 inference/ef0904d302ae4116aa8e44e73fa2b541 7 minutes ago  17 seconds         0       0 + 2 / 2 0B       0B       success
+5f672837be1844f58900b9cb5b984af8 inference/5bbf6da576694d2480add9bede69a0af 7 minutes ago  17 seconds         0       0 + 2 / 2 0B       0B       success
+a139434b1b554443aceaf1424f119242 inference/15ef7bfe8e7d4df18a77f35b0019e119 12 minutes ago 2 minutes          0       2 + 0 / 2 99.83KiB 100B     success
+1a8225537992422f87c8468a16d0718b model/6e7cf823910b4ae68c8d337614654564     19 minutes ago About a minute     0       1 + 0 / 1 4.444KiB 49.86KiB success
 ```
 
-If we want to know which model and training data set was used for the latest inference, commit id `5dec44a330d24a1cb3822610c886489b`, we just need to inspect the particular commit:
+If we want to know which model and training data set was used for the latest inference, commit id `be361c6b2c294aaea72ed18cbcfda644`, we just need to inspect the particular commit:
 
 ```
-$ pachctl inspect-commit inference 5dec44a330d24a1cb3822610c886489b
-$ pachctl inspect-commit inference 5dec44a330d24a1cb3822610c886489b
-Commit: inference/5dec44a330d24a1cb3822610c886489b
-Parent: db9e675de0274ce9a73d3fc9dd50fd51
-Started: 6 minutes ago
-Finished: 6 minutes ago
-Size: 100 B
-Provenance:  training/9881a078c14c47e9b71fcc626a86499f  attributes/f62907bda09d48cfa817476fd3e4f07f  model/444b5950bcb642cfba5b087286640898
+$ pachctl inspect-commit inference be361c6b2c294aaea72ed18cbcfda644
+Commit: inference/be361c6b2c294aaea72ed18cbcfda644
+Parent: 2e9d4707aadc4a9f82ef688ec11505c4
+Started: 3 minutes ago
+Finished: 39 seconds ago
+Size: 100B
+Provenance:  attributes/2757a902762e456a89852821069a33aa  model/adb293f8a4604ed7b081c1ff030c0480  spec/d64feabfc97d41db849a50e8613816b5  spec/91e0832aec7141a4b20e832553afdffb  training/76e4250d5e584f1f9c2505ffd763e64a
 ```
 
-The `Provenance` tells us exactly which model and training set was used (along with which commit to attributes triggered the inference).  For example, if we wanted to see the exact model used, we would just need to reference commit `444b5950bcb642cfba5b087286640898` to the `model` repo:
+The `Provenance` tells us exactly which model and training set was used (along with which commit to attributes triggered the inference).  For example, if we wanted to see the exact model used, we would just need to reference commit `adb293f8a4604ed7b081c1ff030c0480` to the `model` repo:
 
 ```
-$ pachctl list-file model 444b5950bcb642cfba5b087286640898
+$ pachctl list-file model adb293f8a4604ed7b081c1ff030c0480
 NAME                TYPE                SIZE
 model.jld           file                70.34 KiB
 ```
