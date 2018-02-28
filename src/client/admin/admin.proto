@@ -2,6 +2,7 @@ syntax = "proto3";
 package admin;
 
 import "google/protobuf/empty.proto";
+import "gogoproto/gogo.proto";
 
 import "client/pfs/pfs.proto";
 import "client/pps/pps.proto";
@@ -38,7 +39,12 @@ message RestoreRequest {
     string URL = 2;
 }
 
+message ClusterInfo {
+  string id = 1 [(gogoproto.customname) = "ID"];
+}
+
 service API {
   rpc Extract(ExtractRequest) returns (stream Op) {}
   rpc Restore(stream RestoreRequest) returns (google.protobuf.Empty) {}
+  rpc InspectCluster(google.protobuf.Empty) returns (ClusterInfo) {}
 }

@@ -1,6 +1,7 @@
 package cmds
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -70,5 +71,22 @@ pachctl restore -u s3://bucket/backup` + codeend,
 		}),
 	}
 	restore.Flags().StringVarP(&url, "url", "u", "", "An object storage url (i.e. s3://...) to restore from.")
-	return []*cobra.Command{extract, restore}
+	inspectCluster := &cobra.Command{
+		Use:   "inspect-cluster",
+		Short: "Returns info about the pachyderm cluster",
+		Long:  "Returns info about the pachyderm cluster",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			c, err := client.NewOnUserMachine(metrics, "user")
+			if err != nil {
+				return err
+			}
+			ci, err := c.InspectCluster()
+			if err != nil {
+				return err
+			}
+			fmt.Println(ci.ID)
+			return nil
+		}),
+	}
+	return []*cobra.Command{extract, restore, inspectCluster}
 }
