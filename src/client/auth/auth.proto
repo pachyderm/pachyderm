@@ -31,12 +31,12 @@ message ActivateRequest {
   // If set, Pachyderm will compare this username to the GitHub account that
   // issued the access token 'github_token'. For now, this is not required
   // (if unset, your GitHub username will be looked up using 'github_token')
-  string github_username = 2;
+  string github_username = 2 [(gogoproto.customname) = "GitHubUsername"];
 
   // This is the token returned by GitHub and used to authenticate the caller.
   // In dev mode, the caller may set "github_username" without setting this to
   // simulate logins
-  string github_token = 1;
+  string github_token = 1 [(gogoproto.customname) = "GitHubToken"];
 }
 
 message ActivateResponse {
@@ -52,7 +52,7 @@ message DeactivateResponse {}
 // Get the current list of cluster admins
 message GetAdminsRequest{}
 message GetAdminsResponse{
-  // admins contains the list of Github user admins
+  // admins contains the list of cluster admins
   repeated string admins = 1;
 }
 
@@ -86,12 +86,12 @@ message AuthenticateRequest {
   // If set, Pachyderm will compare this username to the GitHub account that
   // issued the access token 'github_token'. For now, this is not required
   // (if unset, your GitHub username will be looked up using 'github_token')
-  string github_username = 2;
+  string github_username = 2 [(gogoproto.customname) = "GitHubUsername"];
 
   // This is the token returned by GitHub and used to authenticate the caller.
   // In dev mode, the caller may set "github_username" without setting this to
   // simulate logins
-  string github_token = 1;
+  string github_token = 1 [(gogoproto.customname) = "GitHubToken"];
 }
 
 message AuthenticateResponse {
@@ -122,9 +122,9 @@ enum Scope {
 
 message ACL {
   // principal -> scope. All principals are the default principal of a Pachyderm
-  // subject. I.e. all keys in this map are strings prefixed with either
-  // "github:" or "robot:", followed by the name of a GitHub user (all of whom
-  // are Pachyderm subjects) or a Pachyderm robot user
+  // subject (i.e. all keys in this map are strings prefixed with either
+  // "github:" or "robot:", followed by the name of a GitHub user, all of whom
+  // are Pachyderm subjects, or a Pachyderm robot user)
   map<string, Scope> entries = 1;
 }
 

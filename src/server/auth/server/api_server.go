@@ -36,7 +36,7 @@ import (
 const (
 	// DisableAuthenticationEnvVar specifies an environment variable that, if set, causes
 	// Pachyderm authentication to ignore github and authmatically generate a
-	// pachyderm token for any username in the AuthenticateRequest.GithubToken field
+	// pachyderm token for any username in the AuthenticateRequest.GitHubToken field
 	DisableAuthenticationEnvVar = "PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING"
 
 	tokensPrefix         = "/tokens"
@@ -57,11 +57,11 @@ const (
 	// to indicate what type of Subject or Principal they are (every Pachyderm
 	// Subject has a logical Principal with the same name).
 
-	// GithubPrefix indicates that this Subject is a GitHub user (because users
+	// GitHubPrefix indicates that this Subject is a GitHub user (because users
 	// can authenticate via GitHub, and Pachyderm doesn't have a users table,
 	// every GitHub user is also a logical Pachyderm user (but most won't be on
 	// any ACLs)
-	GithubPrefix = "github:"
+	GitHubPrefix = "github:"
 
 	// RobotPrefix indicates that this Subject is a Pachyderm robot user. Any
 	// string (with this prefix) is a logical Pachyderm robot user.
@@ -241,10 +241,10 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	// We don't want to actually log the request/response since they contain
 	// credentials.
 	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
-	if strings.HasPrefix(req.GithubUsername, GithubPrefix) || strings.HasPrefix(req.GithubUsername, RobotPrefix) {
-		return nil, fmt.Errorf("GithubUsername should not have a user type prefix; it must be a GitHub user")
+	if strings.HasPrefix(req.GitHubUsername, GitHubPrefix) || strings.HasPrefix(req.GitHubUsername, RobotPrefix) {
+		return nil, fmt.Errorf("GitHubUsername should not have a user type prefix; it must be a GitHub user")
 	}
-	if req.GithubUsername == magicUser {
+	if req.GitHubUsername == magicUser {
 		return nil, fmt.Errorf("invalid user")
 	}
 
@@ -267,7 +267,7 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	}
 
 	// Determine caller's Pachyderm/GitHub username
-	username, err := GitHubTokenToUsername(ctx, req.GithubUsername, req.GithubToken)
+	username, err := GitHubTokenToUsername(ctx, req.GitHubUsername, req.GitHubToken)
 	if err != nil {
 		return nil, err
 	}
@@ -340,7 +340,7 @@ func GitHubTokenToUsername(ctx context.Context, githubUsername string, oauthToke
 	}
 	if os.Getenv(DisableAuthenticationEnvVar) == "true" {
 		// Test mode--the caller automatically authenticates as whoever is requested
-		return GithubPrefix + githubUsername, nil
+		return GitHubPrefix + githubUsername, nil
 	}
 
 	ts := oauth2.StaticTokenSource(
@@ -358,10 +358,10 @@ func GitHubTokenToUsername(ctx context.Context, githubUsername string, oauthToke
 	}
 	verifiedUsername := user.GetLogin()
 	if githubUsername != verifiedUsername {
-		return "", fmt.Errorf("attempted to authenticate as %s, but Github "+
+		return "", fmt.Errorf("attempted to authenticate as %s, but GitHub "+
 			"token did not originate from that account", githubUsername)
 	}
-	return GithubPrefix + verifiedUsername, nil
+	return GitHubPrefix + verifiedUsername, nil
 }
 
 func (a *apiServer) GetAdmins(ctx context.Context, req *authclient.GetAdminsRequest) (resp *authclient.GetAdminsResponse, retErr error) {
@@ -494,15 +494,15 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 	if !a.isActivated() {
 		return nil, authclient.NotActivatedError{}
 	}
-	if strings.HasPrefix(req.GithubUsername, GithubPrefix) || strings.HasPrefix(req.GithubUsername, RobotPrefix) {
-		return nil, fmt.Errorf("GithubUsername should not have a user type prefix; it must be a GitHub user")
+	if strings.HasPrefix(req.GitHubUsername, GitHubPrefix) || strings.HasPrefix(req.GitHubUsername, RobotPrefix) {
+		return nil, fmt.Errorf("GitHubUsername should not have a user type prefix; it must be a GitHub user")
 	}
-	if req.GithubUsername == magicUser {
+	if req.GitHubUsername == magicUser {
 		return nil, fmt.Errorf("invalid user")
 	}
 
 	// Determine caller's Pachyderm/GitHub username
-	username, err := GitHubTokenToUsername(ctx, req.GithubUsername, req.GithubToken)
+	username, err := GitHubTokenToUsername(ctx, req.GitHubUsername, req.GitHubToken)
 	if err != nil {
 		return nil, err
 	}
@@ -1078,7 +1078,7 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.Token
 // 'subject' has no prefix, they are assumed to be a GitHub user.
 func lenientCanonicalizeSubject(ctx context.Context, subject string) (string, error) {
 	if strings.Index(subject, ":") < 0 {
-		subject = GithubPrefix + subject
+		subject = GitHubPrefix + subject
 	}
 	return canonicalizeSubject(ctx, subject)
 }
@@ -1088,9 +1088,9 @@ func lenientCanonicalizeSubject(ctx context.Context, subject string) (string, er
 // that.
 func canonicalizeSubject(ctx context.Context, subject string) (string, error) {
 	switch {
-	case strings.HasPrefix(subject, GithubPrefix):
+	case strings.HasPrefix(subject, GitHubPrefix):
 		var err error
-		subject, err = canonicalizeGitHubUsername(ctx, subject[len(GithubPrefix):])
+		subject, err = canonicalizeGitHubUsername(ctx, subject[len(GitHubPrefix):])
 		if err != nil {
 			return "", err
 		}
@@ -1107,17 +1107,17 @@ func canonicalizeSubject(ctx context.Context, subject string) (string, error) {
 // from that. 'user' should not have any subject prefixes (as they are required
 // to be a GitHub user).
 func canonicalizeGitHubUsername(ctx context.Context, user string) (string, error) {
-	if strings.HasPrefix(user, GithubPrefix) || strings.HasPrefix(user, RobotPrefix) {
-		return "", fmt.Errorf("invalid username has multiple prefixes: %s%s", GithubPrefix, user)
+	if strings.HasPrefix(user, GitHubPrefix) || strings.HasPrefix(user, RobotPrefix) {
+		return "", fmt.Errorf("invalid username has multiple prefixes: %s%s", GitHubPrefix, user)
 	}
 	if os.Getenv(DisableAuthenticationEnvVar) == "true" {
 		// authentication is off -- user might not even be real
-		return GithubPrefix + user, nil
+		return GitHubPrefix + user, nil
 	}
 	gclient := github.NewClient(http.DefaultClient)
 	u, _, err := gclient.Users.Get(ctx, strings.ToLower(user))
 	if err != nil {
 		return "", fmt.Errorf("error canonicalizing \"%s\": %v", user, err)
 	}
-	return GithubPrefix + u.GetLogin(), nil
+	return GitHubPrefix + u.GetLogin(), nil
 }

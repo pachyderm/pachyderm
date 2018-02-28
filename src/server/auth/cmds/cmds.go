@@ -22,7 +22,7 @@ func githubLogin() (string, error) {
 	fmt.Println("(1) Please paste this link into a browser:\n\n" +
 		githubAuthLink + "\n\n" +
 		"(You will be directed to GitHub and asked to authorize Pachyderm's " +
-		"login app on Github. If you accept, you will be given a token to " +
+		"login app on GitHub. If you accept, you will be given a token to " +
 		"paste here, which will give you an externally verified account in " +
 		"this Pachyderm cluster)\n\n(2) Please paste the token you receive " +
 		"from GitHub here:")
@@ -67,7 +67,7 @@ func ActivateCmd() *cobra.Command {
 			}
 			resp, err := c.Activate(
 				c.Ctx(),
-				&auth.ActivateRequest{GithubUsername: username, GithubToken: token})
+				&auth.ActivateRequest{GitHubUsername: username, GitHubToken: token})
 			if err != nil {
 				return fmt.Errorf("error activating Pachyderm auth: %v",
 					grpcutil.ScrubGRPC(err))
@@ -134,7 +134,7 @@ func LoginCmd() *cobra.Command {
 			}
 			resp, err := c.Authenticate(
 				c.Ctx(),
-				&auth.AuthenticateRequest{GithubUsername: username, GithubToken: token})
+				&auth.AuthenticateRequest{GitHubUsername: username, GitHubToken: token})
 			if err != nil {
 				return fmt.Errorf("error authenticating with Pachyderm cluster: %v",
 					grpcutil.ScrubGRPC(err))
