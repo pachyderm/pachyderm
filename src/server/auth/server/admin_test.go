@@ -220,7 +220,7 @@ func TestModifyAdminsErrorMissingAdmin(t *testing.T) {
 	// Check that the initial set of admins is just "admin"
 	resp, err := adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
 	require.NoError(t, err)
-	require.ElementsEqual(t, []string{"admin"}, resp.Admins)
+	require.ElementsEqual(t, []string{admin}, resp.Admins)
 
 	// make alice a cluster administrator
 	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
@@ -231,7 +231,7 @@ func TestModifyAdminsErrorMissingAdmin(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		return require.ElementsEqualOrErr([]string{"admin", alice}, resp.Admins)
+		return require.ElementsEqualOrErr([]string{admin, gh(alice)}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
 
 	// Try to remove alice and FakeUser
@@ -241,7 +241,7 @@ func TestModifyAdminsErrorMissingAdmin(t *testing.T) {
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
 		require.NoError(t, err)
-		return require.ElementsEqualOrErr([]string{"admin"}, resp.Admins)
+		return require.ElementsEqualOrErr([]string{admin}, resp.Admins)
 	}, backoff.NewTestingBackOff()))
 }
 
