@@ -162,7 +162,7 @@ You can view the job with:
   ID                               OUTPUT COMMIT                          STARTED       DURATION   RESTART PROGRESS  DL       UL       STATE
   490a28be32de491e942372018cd42460 edges/bc2d20d0c23740f397622a62b0978c57 2 minutes ago 35 seconds 0       1 + 0 / 1 57.27KiB 22.22KiB success
 
-Yay! Our pipeline suceeded! Notice, that there is an ``OUTPUT COMMIT`` column specified above. Pachyderm creates a corresponding output repo for every pipeline. This output repo will have the same name as the pipeline, and all the results of that pipeline will be versioned in this output repo. In our example, the "edges" pipeline created a repo called "edges" to store the results. 
+Yay! Our pipeline succeeded! Notice, that there is an ``OUTPUT COMMIT`` column specified above. Pachyderm creates a corresponding output repo for every pipeline. This output repo will have the same name as the pipeline, and all the results of that pipeline will be versioned in this output repo. In our example, the "edges" pipeline created a repo called "edges" to store the results. 
 
 .. code-block:: shell
 
