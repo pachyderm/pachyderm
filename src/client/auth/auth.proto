@@ -3,6 +3,25 @@ package auth;
 
 import "gogoproto/gogo.proto";
 
+/* A note on users
+ *
+ * Internally, in Pachyderm, usernames are structured strings. This makes both
+ * our API and our data model more flexible (at the loss of some type safety).
+ * Basically, anywhere that Pachyderm internally stores a subject (i.e.
+ * TokenInfo) or principal (ACL, the 'admins' collection), that username will
+ * have some structured prefix.
+ *
+ * Note that externally-facing principals ({Get,Set}{Scope,ACL}, ModifyAdmins,
+ * ListAdmins) will have their own conventions
+ *
+ * The current user formats are:
+ * 1) GitHub usernames:
+ *      "github:MyGitHubUsername"
+ * 2) Pachyderm robot users:
+ *      "robot:robot_user_1"
+ */
+
+
 //// Activation API
 
 // ActivateRequest mirrors AuthenticateRequest. The caller is authenticated via
@@ -12,12 +31,12 @@ message ActivateRequest {
   // If set, Pachyderm will compare this username to the GitHub account that
   // issued the access token 'github_token'. For now, this is not required
   // (if unset, your GitHub username will be looked up using 'github_token')
-  string github_username = 2;
+  string github_username = 2 [(gogoproto.customname) = "GitHubUsername"];
 
   // This is the token returned by GitHub and used to authenticate the caller.
   // In dev mode, the caller may set "github_username" without setting this to
   // simulate logins
-  string github_token = 1;
+  string github_token = 1 [(gogoproto.customname) = "GitHubToken"];
 }
 
 message ActivateResponse {
@@ -33,6 +52,7 @@ message DeactivateResponse {}
 // Get the current list of cluster admins
 message GetAdminsRequest{}
 message GetAdminsResponse{
+  // admins contains the list of cluster admins
   repeated string admins = 1;
 }
 
@@ -45,16 +65,19 @@ message ModifyAdminsResponse {}
 
 //// Authentication data structures
 
-// User is the 'value' of an auth token 'key' in the 'tokens' collection
-message User {
-  string username = 1;
+// TokenInfo is the 'value' of an auth token 'key' in the 'tokens' collection
+message TokenInfo {
+  // Subject (i.e. Pachyderm account) that a given token authorizes. Prefixed
+  // with "github:" or "robot:" to distinguish the two classes of
+	// Subject in Pachyderm
+  string subject = 1;
 
-  enum UserType {
+  enum TokenSource {
     INVALID = 0;
-    GITHUB = 1;
-    PIPELINE = 2;
+    AUTHENTICATE = 1; // returned by Authenticate()--non-revokeable
+    GET_TOKEN = 2;  // returned by GetToken()--revokeable.
   }
-  UserType type = 2;
+  TokenSource source = 2;
 }
 
 //// Authentication API
@@ -63,12 +86,12 @@ message AuthenticateRequest {
   // If set, Pachyderm will compare this username to the GitHub account that
   // issued the access token 'github_token'. For now, this is not required
   // (if unset, your GitHub username will be looked up using 'github_token')
-  string github_username = 2;
+  string github_username = 2 [(gogoproto.customname) = "GitHubUsername"];
 
   // This is the token returned by GitHub and used to authenticate the caller.
   // In dev mode, the caller may set "github_username" without setting this to
   // simulate logins
-  string github_token = 1;
+  string github_token = 1 [(gogoproto.customname) = "GitHubToken"];
 }
 
 message AuthenticateResponse {
@@ -87,6 +110,8 @@ message WhoAmIResponse {
 
 //// Authorization data structures
 
+// Scope (actually a "role" in canonical security nomenclature) represents a
+// rough level of access that a principal has to a repo
 enum Scope {
   // To remove a user's scope from a repo, set their scope to NONE
   NONE = 0;
@@ -96,33 +121,64 @@ enum Scope {
 }
 
 message ACL {
-  // username -> scope
+  // principal -> scope. All principals are the default principal of a Pachyderm
+  // subject (i.e. all keys in this map are strings prefixed with either
+  // "github:" or "robot:", followed by the name of a GitHub user, all of whom
+  // are Pachyderm subjects, or a Pachyderm robot user)
   map<string, Scope> entries = 1;
 }
 
 //// Authorization API
 
 message AuthorizeRequest {
+  // repo is the object that the caller wants to access
   string repo = 1;
+
+  // scope is the access level that the caller needs to perform an action
   Scope scope = 2;
 }
 
 message AuthorizeResponse {
+  // authorized is true if the caller has at least
+  // 'AuthorizeRequest.scope'-level access to 'AuthorizeRequest.repo', and false
+  // otherwise
   bool authorized = 1;
 }
 
 message GetScopeRequest {
+  // username is the principal (some of which belong to robots rather than
+  // users, but the name is preserved for now to provide compatibility with the
+  // pachyderm dash) whose access level is queried. To query the access level
+  // of a robot user, the caller must prefix username with "robot:". If
+  // 'username' has no prefix (i.e. no ":"), then it's assumed to be a github
+  // user's principal.
   string username = 1;
+
+  // repos are the objects to which 'username's access level is being queried
   repeated string repos = 2;
 }
 
 message GetScopeResponse {
+  // scopes (actually a "role"--see "Scope") are the access level that
+  // 'GetScopeRequest.username' has to each repo in 'GetScopeRequest.repos', in
+  // the same order that repos appeared in 'repos'.
   repeated Scope scopes = 1;
 }
 
 message SetScopeRequest {
+  // username is the principal (some of which belong to robots rather than
+  // users, but the name is preserved for now to provide compatibility with the
+  // pachyderm dash) whose access is being granted/revoked. As with
+  // GetScopeRequest, to set the access level of a robot user, the caller must
+  // prefix username with "robot:". If 'username' has no prefix (i.e. no ":"),
+  // then it's assumed to be a github user's principal.
   string username = 1;
+
+  // repo is the object to which access is being granted/revoked
   string repo = 2;
+
+  // scope (actually a "role"--see "Scope") is the access level that the owner
+  // of 'principal' will now have
   Scope scope = 3;
 }
 
@@ -133,12 +189,32 @@ message GetACLRequest {
 }
 
 message ACLEntry {
+  // username is the principal posessing this level of access to this ACL's
+  // repo (despite the name, this principal may be for a human github user or a
+  // pachyderm robot)
   string username = 1;
+
+  // scope is the level of access that the owner of 'principal' has to this
+  // ACL's repo (actually a role in typical security terminology)
   Scope scope = 2;
 }
 
+// GetACLReponse contains the list of entries on a Pachyderm ACL.
+//
+// To avoid migration pain with the Pachyderm dash the list of user principal
+// entries and robot principal entries are separate. This way, no prefix or
+// other disambiguating device is needed in 'entries' to separate user
+// principals from robot principals (which would confuse the dash). Instead,
+// the dash can simply ignore robot principals.
 message GetACLResponse {
+  // entries contains all [user principal] -> [role] mappings. This is separate
+  // from robot_entries to avoid migration pain the Pachyderm dashboard
   repeated ACLEntry entries = 1;
+
+  // robot_entries contains all [robot principal] -> [role] mappings. This is
+  // separate from entries to be unambiguous (all keys are robot principals, but
+  // have no prefixes) while avoiding migration pain in the Pachyderm dashboard.
+  repeated ACLEntry robot_entries = 2;
 }
 
 message SetACLRequest {
@@ -148,12 +224,17 @@ message SetACLRequest {
 
 message SetACLResponse {}
 
-//// Capability-token API (very limited -- for pipelines)
+//// Token API (very limited -- for pipelines)
 
-message GetCapabilityRequest {}
+message GetAuthTokenRequest {
+  // The returned token will allow the caller to access resources as this
+  // subject
+  string subject = 1;
+}
 
-message GetCapabilityResponse {
-  string capability = 1;
+message GetAuthTokenResponse {
+  // A new auth token for the user in 'GetAuthTokenRequest.Subject' token
+  string token = 1;
 }
 
 message RevokeAuthTokenRequest {
@@ -183,6 +264,6 @@ service API {
   rpc GetACL(GetACLRequest) returns (GetACLResponse) {}
   rpc SetACL(SetACLRequest) returns (SetACLResponse) {}
 
-  rpc GetCapability(GetCapabilityRequest) returns (GetCapabilityResponse) {}
+  rpc GetAuthToken(GetAuthTokenRequest) returns (GetAuthTokenResponse) {}
   rpc RevokeAuthToken(RevokeAuthTokenRequest) returns (RevokeAuthTokenResponse) {}
 }
