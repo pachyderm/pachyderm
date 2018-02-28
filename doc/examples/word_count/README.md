@@ -31,12 +31,10 @@ $ pachctl put-file urls master -c -f Wikipedia
 Then to actually scrape this site and save the data, we create the first pipeline based on the [scraper.json](scraper.json) pipeline specification:
 
 ```
-# We assume you're running this from the root of this example:
 $ pachctl create-pipeline -f scraper.json
 ```
 
 This first pipeline, `scraper`, uses `wget` to download web pages from Wikipedia which will be used as the input for the next pipeline. It'll take a minute or two because it needs to `apt-get` a few dependencies (this can be avoided by creating a custom Docker container with the dependencies already downloaded).
-
 
 When you create the `scraper` pipeline, you should be able to see a job running and a new repo called `scraper` that contains the output of our scrape:
 
@@ -68,7 +66,6 @@ In this case, you don't have to build a custom Docker image yourself with this c
 Let's create the `map` pipeline: 
 
 ```
-# Again, we assume you're running this from the root of this example:
 $ pachctl create-pipeline -f map.json
 ```
 
@@ -91,10 +88,9 @@ The final pipeline, `reduce` goes through every file and adds up the numbers in 
 find /pfs/map -name '*' | while read count; do cat $count | awk '{ sum+=$1} END {print sum}' >/tmp/count; mv /tmp/count /pfs/out/`basename $count`; done
 ```
 
-Which we bake into [reduce.json](reduce.json).  Again, creating the pipeline is as simple as:
+We have baked this into [reduce.json](reduce.json).  Again, creating the pipeline is as simple as:
 
 ```
-# We assume you're running this from the root of this repo:
 $ pachctl create-pipeline -f reduce.json
 ```
 
@@ -149,6 +145,6 @@ $ pachctl finish-commit urls master
 ```
 Your scraper should automatically get started pulling these new sites (it won't rescrape Wikipedia). That will then automatically trigger the `map` and `reduce` pipelines to process the new data and update the word counts for all the sites combined.
 
-If you add a bunch more data and your pipeline starts to run slowly, you can crank up the parallelism. By default, pipelines spin up one worker for each node in your cluster, but you can set that manually with the [parallelism spec](http://docs.pachyderm.io/en/latest/fundamentals/distributed_computing.html#controlling-the-number-of-workers-parallelism) field in the pipeline specification. Further, the pipelines are already configured to spread computation across the various workers with `"glob": "/*". Check out our [spreading data across workers docs](http://docs.pachyderm.io/en/latest/fundamentals/distributed_computing.html#spreading-data-across-workers-glob-patterns) to learn more about that. 
+If you add a bunch more data and your pipeline starts to run slowly, you can crank up the parallelism. By default, pipelines spin up one worker for each node in your cluster, but you can set that manually with the [parallelism spec](http://docs.pachyderm.io/en/latest/fundamentals/distributed_computing.html#controlling-the-number-of-workers-parallelism) field in the pipeline specification. Further, the pipelines are already configured to spread computation across the various workers with `"glob": "/*"`. Check out our [spreading data across workers docs](http://docs.pachyderm.io/en/latest/fundamentals/distributed_computing.html#spreading-data-across-workers-glob-patterns) to learn more about that. 
 
 

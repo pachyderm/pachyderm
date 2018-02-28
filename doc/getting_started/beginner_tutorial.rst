@@ -5,7 +5,7 @@ Welcome to the beginner tutorial for Pachyderm! If you've already got Pachyderm 
 Image processing with OpenCV
 ----------------------------
 
-In this guide we're going to create a Pachyderm pipeline to do some simple `edge detection <https://en.wikipedia.org/wiki/Edge_detection>`_ on a few images. Thanks to Pachyderm's processing system, we'll be able to run the pipeline in a distributed, streaming fashion. As new data is added, the pipeline will automatically process it and output the results.
+This guide will walk you through the deployment of a Pachyderm pipeline to do some simple `edge detection <https://en.wikipedia.org/wiki/Edge_detection>`_ on a few images. Thanks to Pachyderm's built in processing primatives, we'll be able to keep our code simple but still run the pipeline in a distributed, streaming fashion. Moreover, as new data is added, the pipeline will automatically process it and output the results.
 
 If you hit any errors not covered in this guide, get help in our `public commity Slack <http://slack.pachyderm.io>`_, submit an issue on `GitHub <https://github.com/pachyderm/pachyderm>`_, or email us at `support@pachyderm.io <mailto:support@pachyderm.io>`_. We are more than happy to help!
 
@@ -137,7 +137,7 @@ The glob pattern defines how the input data can be broken up if we wanted to dis
 
 Our python code is really straight forward. We're simply walking over all the images in ``/pfs/images``, do our edge detection and write to ``/pfs/out``. 
 
-``/pfs/images`` and ``/pfs/out`` are special local directories that Pachyderm creates within the container for you. All the input data for a pipeline will be found in ``/pfs/[input_repo_name]`` and your code should always write to ``/pfs/out``.
+``/pfs/images`` and ``/pfs/out`` are special local directories that Pachyderm creates within the container for you. All the input data for a pipeline will be found in ``/pfs/<input_repo_name>`` and your code should always write out to ``/pfs/out``. Pachyderm will automatically gather everything you write to ``/pfs/out`` and version it as this pipeline's output.
 
 Now let's create the pipeline in Pachyderm:
 
@@ -150,19 +150,19 @@ Now let's create the pipeline in Pachyderm:
 What Happens When You Create a Pipeline
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Creating a pipeline tells Pachyderm to run your code on **every** finished commit in a repo as well as **all future commits** that happen after the pipeline is created. Our repo already had a commit, so Pachyderm automatically launched a ``job`` to process that data. 
+Creating a pipeline tells Pachyderm to run your code on the data currently in your input repo (the HEAD commit) as well as **all future commits** that happen after the pipeline is created. Our repo already had a commit, so Pachyderm automatically launched a ``job`` to process that data. 
 
-This first time it runs a pipeline it needs to download the image from DockerHub so this might take a minute. Every subsequent run will be much faster. 
+This first time Pachyderm runs a pipeline job, it needs to download the Docker image (specified in the pipeline spec) from the specified Docker registry (DockerHub in this case). As such, this first run this might take a minute or so, depending on your Internet connection. Subsequent runs will be much faster. 
 
 You can view the job with:
 
 .. code-block:: shell
 
   $ pachctl list-job
-  ID                                     OUTPUT COMMIT                            STARTED             DURATION            STATE
-  a6c70aa5-9f0c-4e36-b30a-4387fac54eac   edges/1a9c76a2cd154e6e90f200fb80c46d2f   2 minutes ago      About a minute      success
+  ID                               OUTPUT COMMIT                          STARTED       DURATION   RESTART PROGRESS  DL       UL       STATE
+  490a28be32de491e942372018cd42460 edges/bc2d20d0c23740f397622a62b0978c57 2 minutes ago 35 seconds 0       1 + 0 / 1 57.27KiB 22.22KiB success
 
-Every pipeline creates a corresponding repo with the same name where it stores its output results. In our example, the "edges" pipeline created a repo called "edges" to store the results. 
+Yay! Our pipeline succeeded! Notice, that there is an ``OUTPUT COMMIT`` column specified above. Pachyderm creates a corresponding output repo for every pipeline. This output repo will have the same name as the pipeline, and all the results of that pipeline will be versioned in this output repo. In our example, the "edges" pipeline created a repo called "edges" to store the results. 
 
 .. code-block:: shell
 
@@ -208,10 +208,10 @@ Adding a new commit of data will automatically trigger the pipeline to run on th
 
   # view the jobs that were kicked off
   $ pachctl list-job
-  ID                                     OUTPUT COMMIT                            STARTED             DURATION             STATE
-  7395c7c9-df0e-4ea8-8202-ec846970b982   edges/8848e11056c04518a8d128b6939d9985   2 minutes ago      Less than a second   success
-  b90afeb1-c12b-4ca5-a4f4-50c50efb20bb   edges/da51395708cb4812bc8695bb151b69e3   2 minutes ago      1 seconds            success
-  9182d65e-ea36-4b98-bb07-ebf40fefcce5   edges/4dd2459531414d80936814b13b1a3442   5 minutes ago      3 seconds            success
+  ID                               OUTPUT COMMIT                          STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE
+  81ae47a802f14038b95f8f248cddbed2 edges/146a5e398f3f40a09f5151559fd4a6cb 7 seconds ago  Less than a second 0       1 + 2 / 3 102.4KiB 74.21KiB success
+  ce448c12d0dd4410b3a5ae0c0f07e1f9 edges/c5d7ded9ba214d9aa4aa2c044625198c 16 seconds ago Less than a second 0       1 + 1 / 2 78.7KiB  37.15KiB success
+  490a28be32de491e942372018cd42460 edges/bc2d20d0c23740f397622a62b0978c57 9 minutes ago  35 seconds         0       1 + 0 / 1 57.27KiB 22.22KiB success
 
 .. code-block:: shell
 
@@ -274,18 +274,16 @@ We create this next pipeline as before, with ``pachctl``:
 
   $ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/doc/examples/opencv/montage.json
 
-This will automatically trigger jobs that generate montages for all of the commits to our input repo:
+This will automatically trigger a job that generates a montage for all the current HEAD commits of the input repos:
 
 .. code-block:: shell
 
   $ pachctl list-job
-  ID                                   OUTPUT COMMIT                            STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE            
-  3bddeb20-1b49-4980-85ab-8423ab902322 montage/bff0999b4cd84f0d96a923f92f933c1e 2 seconds ago  1 second           0       1 + 0 / 1 371.9KiB 1.284MiB success 
-  246377b0-0710-437b-ad9f-9dafd326efed montage/8956fa782b894ef68ef9ae0a3213334d 3 seconds ago  Less than a second 0       1 + 0 / 1 195.3KiB 809.2KiB success 
-  3c03465c-3d96-4d57-ac18-40b761f943cd montage/6cdb6ca9455341d193555cd9e523bc5b 3 seconds ago  Less than a second 0       1 + 0 / 1 79.49KiB 378.6KiB success 
-  80651695-98ef-44dd-a382-f476b9bc75ea edges/8fa0be775d66479daadb71af82d6ed49   38 seconds ago Less than a second 0       1 + 2 / 3 102.4KiB 74.21KiB success 
-  d97bdaad-e651-4ee5-a3c4-5b6c7697ccb6 edges/e3e40dee57174bacbd359575f2e4a87f   44 seconds ago Less than a second 0       1 + 1 / 2 78.7KiB  37.15KiB success 
-  28d0be41-69cf-46d3-b3e0-ebe2a66540d1 edges/61f5e8fbf4b444219805e49584a42d5c   51 seconds ago Less than a second 0       1 + 0 / 1 57.27KiB 22.22KiB success
+  ID                               OUTPUT COMMIT                            STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE
+  92cecc40c3144fd5b4e07603bb24b104 montage/1af4657db2404fcfba1c6cee6c71ae16 45 seconds ago 6 seconds          0       1 + 0 / 1 371.9KiB 1.284MiB success
+  81ae47a802f14038b95f8f248cddbed2 edges/146a5e398f3f40a09f5151559fd4a6cb   2 minutes ago  Less than a second 0       1 + 2 / 3 102.4KiB 74.21KiB success
+  ce448c12d0dd4410b3a5ae0c0f07e1f9 edges/c5d7ded9ba214d9aa4aa2c044625198c   2 minutes ago  Less than a second 0       1 + 1 / 2 78.7KiB  37.15KiB success
+  490a28be32de491e942372018cd42460 edges/bc2d20d0c23740f397622a62b0978c57   11 minutes ago 35 seconds         0       1 + 0 / 1 57.27KiB 22.22KiB success
 
 And you can view the generated montage image via:
 

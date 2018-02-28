@@ -58,7 +58,8 @@ previous code due to code erroring will be processed with the new code.
 `update-pipeline` (without flags) is designed for the situation where your code needs to be
 fixed because it encountered an unexpected new form of data.
 
-If you'd like to update your pipeline and reprocess everything from scratch, you
-should use the `--reprocess` flag. This will reprocess all previously processed
-data and all new data with the new code. Previous results will still be
-available in pfs.
+If you'd like to update your pipeline and have that updated pipeline reprocess all the data 
+that is currently in the HEAD commit of your input repos, you
+should use the `--reprocess` flag. This type of update will automatically trigger a job that reprocesses all of the input data in its current state (i.e., the HEAD commits)
+with the updated pipeline. Then from that point on, the updated pipeline will continue to be used to process any new input data. Previous results will still be
+available in via their corresponding commit IDs.

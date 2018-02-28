@@ -13,7 +13,7 @@ This machine learning pipeline integrates Nervana Neon training and inference in
 
 See the [Pachyderm docs](http://docs.pachyderm.io/en/latest/) for details. Note, this demo requires `pachctl` 1.4.0+.  
 
-## Deploying the pipeline
+## Deploying training and inference
 
 1. Create the necessary data "repositories":
 
@@ -25,7 +25,8 @@ See the [Pachyderm docs](http://docs.pachyderm.io/en/latest/) for details. Note,
 2. Create the pipeline:
 
     ```sh
-    $ pachctl create-pipeline -f pipeline.json
+    $ pachctl create-pipeline -f train.json
+    $ pachctl create-pipeline -f infer.json
     ```
 
 ## Running model training
