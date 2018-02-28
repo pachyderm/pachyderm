@@ -31,10 +31,10 @@ func TSProtoOrDie(t *testing.T, ts time.Time) *types.Timestamp {
 	return proto
 }
 
-// helper function that prepends GithubPrefix to 'user'--useful for validating
+// helper function that prepends GitHubPrefix to 'user'--useful for validating
 // responses
 func gh(user string) string {
-	return GithubPrefix + user
+	return GitHubPrefix + user
 }
 
 // TestAdminRWO tests adding and removing cluster admins, as well as admins
@@ -370,7 +370,7 @@ func TestPreActivationPipelinesRunAsAdmin(t *testing.T) {
 
 	// activate auth
 	_, err = adminClient.Activate(adminClient.Ctx(), &auth.ActivateRequest{
-		GithubUsername: "admin",
+		GitHubUsername: "admin",
 	})
 	require.NoError(t, err)
 
@@ -381,7 +381,7 @@ func TestPreActivationPipelinesRunAsAdmin(t *testing.T) {
 			username := []string{"admin", alice}[i]
 			resp, err := client.Authenticate(context.Background(),
 				&auth.AuthenticateRequest{
-					GithubUsername: username,
+					GitHubUsername: username,
 				})
 			if err != nil {
 				return err
@@ -480,7 +480,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 
 	// alice also can't re-authenticate
 	_, err = aliceClient.Authenticate(context.Background(),
-		&auth.AuthenticateRequest{GithubUsername: alice})
+		&auth.AuthenticateRequest{GitHubUsername: alice})
 	require.YesError(t, err)
 	require.Matches(t, "not active", err.Error())
 
@@ -509,7 +509,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 
 	// admin can re-authenticate
 	resp, err := adminClient.Authenticate(context.Background(),
-		&auth.AuthenticateRequest{GithubUsername: "admin"})
+		&auth.AuthenticateRequest{GitHubUsername: "admin"})
 	require.NoError(t, err)
 	adminClient.SetAuthToken(resp.PachToken)
 
@@ -536,7 +536,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 
 	// alice can now re-authenticate
 	resp, err = aliceClient.Authenticate(context.Background(),
-		&auth.AuthenticateRequest{GithubUsername: alice})
+		&auth.AuthenticateRequest{GitHubUsername: alice})
 	require.NoError(t, err)
 	aliceClient.SetAuthToken(resp.PachToken)
 

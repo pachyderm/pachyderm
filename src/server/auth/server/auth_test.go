@@ -24,8 +24,8 @@ import (
 
 const (
 	// admin is the sole cluster admin after getPachClient is called in each test
-	admin = GithubPrefix + "admin"
-	carol = GithubPrefix + "carol"
+	admin = GitHubPrefix + "admin"
+	carol = GitHubPrefix + "carol"
 )
 
 var (
@@ -54,13 +54,13 @@ func isAuthActive(t testing.TB) bool {
 // prefix, they are assumed to be a GitHub user.
 func getPachClientInternal(t testing.TB, subject string) *client.APIClient {
 	if strings.Index(subject, ":") < 0 {
-		subject = GithubPrefix + subject
+		subject = GitHubPrefix + subject
 	}
 	if _, ok := clientMap[subject]; !ok {
 		subjectClient := *clientMap[""]
 		resp, err := subjectClient.Authenticate(context.Background(),
 			&auth.AuthenticateRequest{
-				GithubUsername: strings.TrimPrefix(subject, GithubPrefix),
+				GitHubUsername: strings.TrimPrefix(subject, GitHubPrefix),
 			})
 		require.NoError(t, err)
 		subjectClient.SetAuthToken(resp.PachToken)
@@ -73,7 +73,7 @@ func getPachClientInternal(t testing.TB, subject string) *client.APIClient {
 func activateAuth(t testing.TB) {
 	seedClient := clientMap[""]
 	if _, err := seedClient.AuthAPIClient.Activate(context.Background(),
-		&auth.ActivateRequest{GithubUsername: "admin"},
+		&auth.ActivateRequest{GitHubUsername: "admin"},
 	); err != nil && !strings.HasSuffix(err.Error(), "already activated") {
 		t.Fatalf("could not activate auth service: %v", err.Error())
 	}
@@ -230,7 +230,7 @@ func entries(items ...string) []auth.ACLEntry {
 		}
 		principal := items[i]
 		if strings.Index(principal, ":") < 0 {
-			principal = GithubPrefix + principal
+			principal = GitHubPrefix + principal
 		}
 		result = append(result, auth.ACLEntry{Username: principal, Scope: scope})
 	}
@@ -297,7 +297,7 @@ func TestActivate(t *testing.T) {
 		*adminClient = *c
 		resp, err := adminClient.Authenticate(adminClient.Ctx(),
 			&auth.AuthenticateRequest{
-				GithubUsername: "admin",
+				GitHubUsername: "admin",
 			})
 		if err != nil {
 			if auth.IsNotActivatedError(err) {
@@ -312,7 +312,7 @@ func TestActivate(t *testing.T) {
 
 	// Activate auth
 	resp, err := c.Activate(c.Ctx(), &auth.ActivateRequest{
-		GithubUsername: "admin",
+		GitHubUsername: "admin",
 	})
 	require.NoError(t, err)
 	c.SetAuthToken(resp.PachToken)
