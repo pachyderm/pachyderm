@@ -135,8 +135,8 @@ func TestAdmins(t *testing.T) {
 
 		# as 'admin' is a substr of 'admin2', use '^admin$' regex...
 		pachctl auth list-admins \
-			| match -v "^admin$" \
-			| match "^admin2$"
+			| match -v "^github:admin$" \
+			| match "^github:admin2$"
 		`).Run())
 
 	// Now 'admin2' is the only admin. Login as admin2, and swap 'admin' back in
