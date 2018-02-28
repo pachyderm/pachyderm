@@ -426,7 +426,7 @@ func getClusterID(client *etcd.Client) (string, error) {
 		return "", err
 	} else {
 		if resp.Count != 1 {
-			return "", fmt.Errorf("got an unexpected number of PPS tokens: %d", resp.Count)
+			return "", fmt.Errorf("got an unexpected number of cluster IDs: %d", resp.Count)
 		}
 
 		id := string(resp.Kvs[0].Value)
