@@ -425,10 +425,7 @@ func getClusterID(client *etcd.Client) (string, error) {
 	} else if err != nil {
 		return "", err
 	} else {
-		if resp.Count != 1 {
-			return "", fmt.Errorf("got an unexpected number of cluster IDs: %d", resp.Count)
-		}
-
+		// We expect there to only be one value for this key
 		id := string(resp.Kvs[0].Value)
 		return id, nil
 	}
