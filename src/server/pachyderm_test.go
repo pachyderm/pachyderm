@@ -6633,6 +6633,7 @@ func TestListJobInputCommits(t *testing.T) {
 }
 
 func TestManyJobs(t *testing.T) {
+	t.Skip("This test is too long to be run as part of CI")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
