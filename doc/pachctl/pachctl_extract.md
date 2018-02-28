@@ -1,21 +1,21 @@
-## ./pachctl mount
+## ./pachctl extract
 
-Mount pfs locally. This command blocks.
+Extract Pachyderm state to stdout or an s3 bucket.
 
 ### Synopsis
 
 
-Mount pfs locally. This command blocks.
+Extract Pachyderm state to stdout or an s3 bucket.
 
 ```
-./pachctl mount path/to/mount/point
+./pachctl extract
 ```
 
 ### Options
 
 ```
-  -a, --all-commits   Show archived and cancelled commits.
-  -d, --debug         Turn on debug messages.
+      --no-objects   don't extract from object storage, only extract data from etcd
+  -u, --url string   An object storage url (i.e. s3://...) to extract to.
 ```
 
 ### Options inherited from parent commands
