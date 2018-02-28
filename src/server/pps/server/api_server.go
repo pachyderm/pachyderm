@@ -1613,10 +1613,10 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if err := a.authorizePipelineOp(pachClient, operation, pipelineInfo.Input, pipelineInfo.Pipeline.Name); err != nil {
 		return nil, err
 	}
-	// User is authorized -- get capability token (copy to pipeline in STM below)
-	capabilityResp, err := pachClient.GetCapability(ctx, &auth.GetCapabilityRequest{})
+	// User is authorized -- get authentication token (copy to pipeline in STM below)
+	tokenResp, err := pachClient.GetAuthToken(ctx, &auth.GetAuthTokenRequest{})
 	if err != nil {
-		return nil, fmt.Errorf("error getting capability for the user: %v", err)
+		return nil, fmt.Errorf("error getting auth token for the user: %v", err)
 	}
 
 	pipelineName := pipelineInfo.Pipeline.Name
@@ -1639,7 +1639,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		// PFS in a new commit. Do this inside an etcd transaction as PFS doesn't
 		// support transactions and this prevents concurrent UpdatePipeline calls
 		// from racing
-		var oldCapability string
+		var oldAuthToken string
 		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			pipelines := a.pipelines.ReadWrite(stm)
 			// Read existing PipelineInfo from PFS output repo
@@ -1648,7 +1648,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			if err := pipelines.Get(pipelineName, &pipelinePtr); err != nil {
 				return err
 			}
-			oldCapability = pipelinePtr.Capability
+			oldAuthToken = pipelinePtr.AuthToken
 			oldPipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, pipelineName, &pipelinePtr)
 			if err != nil {
 				return err
@@ -1667,18 +1667,18 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			}
 			// Write updated pointer back to etcd
 			pipelinePtr.SpecCommit = commit
-			pipelinePtr.Capability = capabilityResp.Capability
+			pipelinePtr.AuthToken = tokenResp.Token
 			return pipelines.Put(pipelineName, &pipelinePtr)
 		}); err != nil {
 			return nil, err
 		}
 
-		// Update has succeeded, Revoke the old capability retrieved from pipelineInfo
-		if oldCapability != "" {
+		// Update has succeeded, Revoke the old auth token retrieved from pipelineInfo
+		if oldAuthToken != "" {
 			if _, err := pachClient.RevokeAuthToken(ctx, &auth.RevokeAuthTokenRequest{
-				Token: oldCapability,
+				Token: oldAuthToken,
 			}); err != nil && !auth.IsNotActivatedError(err) {
-				return nil, fmt.Errorf("error revoking old capability: %v", err)
+				return nil, fmt.Errorf("error revoking old auth token: %v", err)
 			}
 		}
 	} else {
@@ -1698,7 +1698,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			err = a.pipelines.ReadWrite(stm).Create(pipelineName, &pps.EtcdPipelineInfo{
 				SpecCommit: commit,
 				State:      pps.PipelineState_PIPELINE_STARTING,
-				Capability: capabilityResp.Capability,
+				AuthToken:  tokenResp.Token,
 			})
 			if isAlreadyExistsErr(err) {
 				pachClient.DeleteCommit(pipelineName, commit.ID)
@@ -1969,12 +1969,12 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 		return nil, err
 	}
 
-	// Revoke the pipeline's capability
-	if pipelinePtr.Capability != "" {
+	// Revoke the pipeline's auth token
+	if pipelinePtr.AuthToken != "" {
 		if _, err := pachClient.RevokeAuthToken(ctx, &auth.RevokeAuthTokenRequest{
-			Token: pipelinePtr.Capability,
+			Token: pipelinePtr.AuthToken,
 		}); err != nil && !auth.IsNotActivatedError(err) {
-			return nil, fmt.Errorf("error revoking old capability: %v", err)
+			return nil, fmt.Errorf("error revoking old auth token: %v", err)
 		}
 	}
 

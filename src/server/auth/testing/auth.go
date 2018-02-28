@@ -67,8 +67,8 @@ func (a *InactiveAPIServer) SetACL(ctx context.Context, req *auth.SetACLRequest)
 	return nil, auth.NotActivatedError{}
 }
 
-// GetCapability implements the GetCapability RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) GetCapability(ctx context.Context, req *auth.GetCapabilityRequest) (resp *auth.GetCapabilityResponse, retErr error) {
+// GetAuthToken implements the GetAuthToken RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetAuthToken(ctx context.Context, req *auth.GetAuthTokenRequest) (resp *auth.GetAuthTokenResponse, retErr error) {
 	return nil, auth.NotActivatedError{}
 }
 
