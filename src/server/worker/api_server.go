@@ -1262,10 +1262,14 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				if err := os.MkdirAll(client.PPSInputPrefix, 0666); err != nil {
 					return err
 				}
+				// Overide deafult umask (022) so that non root users can write to /pfs/out
+				existingMask := syscall.Umask(000)
 				// Create output directory (currently /pfs/out) and run user code
 				if err := os.MkdirAll(filepath.Join(dir, "out"), 0666); err != nil {
 					return err
 				}
+				// Reset the umask so that other directories have default permissions
+				syscall.Umask(existingMask)
 				if err := syscall.Mount(dir, client.PPSInputPrefix, "", syscall.MS_BIND, ""); err != nil {
 					return err
 				}
