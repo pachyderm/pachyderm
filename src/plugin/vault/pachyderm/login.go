@@ -100,13 +100,12 @@ func (b *backend) generateUserCredentials(ctx context.Context, pachdAddress stri
 	client = client.WithCtx(ctx)
 	client.SetAuthToken(adminToken)
 
-	_, err = client.AuthAPIClient.ModifyAdmins(client.Ctx(), &auth.ModifyAdminsRequest{
-		Add: []string{username},
+	resp, err := client.AuthAPIClient.GetAuthToken(client.Ctx(), &auth.GetAuthTokenRequest{
+		Subject: username,
 	})
-
 	if err != nil {
 		return "", err
 	}
 
-	return "ARealLiveTemporaryAccessToken", nil
+	return resp.Token, nil
 }
