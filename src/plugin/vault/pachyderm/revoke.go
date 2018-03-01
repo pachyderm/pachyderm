@@ -55,10 +55,6 @@ func (b *backend) pathRevoke(ctx context.Context, req *logical.Request, d *frame
 }
 
 func (b *backend) revokeUserCredentials(ctx context.Context, pachdAddress string, userToken string, adminToken string) error {
-	// This is where we'd make the actual pachyderm calls to create the user
-	// token using the admin token. For now, for testing purposes, we just do an action that only an
-	// admin could do
-
 	// Setup a single use client w the given admin token / address
 	client, err := pclient.NewFromAddress(pachdAddress)
 	if err != nil {
@@ -66,14 +62,8 @@ func (b *backend) revokeUserCredentials(ctx context.Context, pachdAddress string
 	}
 	client = client.WithCtx(ctx)
 	client.SetAuthToken(adminToken)
-
-	_, err = client.AuthAPIClient.ModifyAdmins(client.Ctx(), &auth.ModifyAdminsRequest{
-		Remove: []string{"tweetybird"},
+	_, err = client.AuthAPIClient.RevokeAuthToken(client.Ctx(), &auth.RevokeAuthTokenRequest{
+		Token: userToken,
 	})
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
