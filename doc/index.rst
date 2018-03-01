@@ -28,10 +28,11 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
 
     fundamentals/getting_data_into_pachyderm
     fundamentals/creating_analysis_pipelines
+    fundamentals/getting_data_out_of_pachyderm
+    fundamentals/removing_data_from_pachyderm
+    fundamentals/updating_pipelines
     fundamentals/distributed_computing
     fundamentals/incrementality
-    fundamentals/getting_data_out_of_pachyderm
-    fundamentals/updating_pipelines
 
 .. toctree::
     :maxdepth: 1
