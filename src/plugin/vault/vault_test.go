@@ -41,6 +41,18 @@ func TestLogin(t *testing.T) {
 	configurePlugin(t, v)
 
 	// Now hit login endpoint w invalid vault token, expect err
+	config := make(map[string]interface{})
+	config["username"] = "daffyduck"
+	vl := v.Logical()
+	secret, err := vl.Write(
+		fmt.Sprintf("/%v/login", pluginName),
+		config,
+	)
+
+	fmt.Printf("config secret: %v\n", secret)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
 
 	// Hit login w valid vault token, expect user token
 	// Use client w that address / user token to list repos
