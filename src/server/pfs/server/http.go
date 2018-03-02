@@ -5,9 +5,10 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
 
 	"github.com/julienschmidt/httprouter"
 	"golang.org/x/net/context"
@@ -36,7 +37,9 @@ func (fw *flushWriter) Write(p []byte) (n int, err error) {
 type HTTPServer struct {
 	driver *driver
 	*httprouter.Router
-	loginPath string
+	loginPath      string
+	pachClient     *client.APIClient
+	pachClientOnce sync.Once
 }
 
 func newHTTPServer(address string, etcdAddresses []string, etcdPrefix string, cacheSize int64) (*HTTPServer, error) {
@@ -61,15 +64,6 @@ func newHTTPServer(address string, etcdAddresses []string, etcdPrefix string, ca
 }
 
 func (s *HTTPServer) getFileHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	pfsFile := &pfs.File{
-		Commit: &pfs.Commit{
-			ID: ps.ByName("commitID"),
-			Repo: &pfs.Repo{
-				Name: ps.ByName("repoName"),
-			},
-		},
-		Path: ps.ByName("filePath"),
-	}
 	filePaths := strings.Split(ps.ByName("filePath"), "/")
 	fileName := filePaths[len(filePaths)-1]
 	ctx := context.Background()
@@ -81,32 +75,22 @@ func (s *HTTPServer) getFileHandler(w http.ResponseWriter, r *http.Request, ps h
 			)
 		}
 	}
-	// Since we can't seek, open a separate reader to sniff mimetype
-	mimeReader, err := s.driver.getFile(ctx, pfsFile, 0, 0)
-	if err != nil {
-		panic(err)
-	}
-	buffer := make([]byte, 512)
-	_, err = mimeReader.Read(buffer)
-	if err != nil && err != io.EOF {
-		panic(err)
-	}
-	contentType := http.DetectContentType(buffer)
-
-	file, err := s.driver.getFile(ctx, pfsFile, 0, 0)
-	if err != nil {
-		panic(err)
-	}
 	w.Header().Add("Content-Type", contentType)
 	downloadValues := r.URL.Query()["download"]
 	if len(downloadValues) == 1 && downloadValues[0] == "true" {
 		w.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=\"%v\"", fileName))
 	}
-	fw := flushWriter{w: w}
-	if f, ok := w.(http.Flusher); ok {
-		fw.f = f
+	c := s.getPachClient()
+	commitInfo, err := c.InspectCommit(ps.ByName("repoName"), ps.ByName("commitID"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
-	io.Copy(&fw, file)
+	content, err := c.GetFileReadSeeker(ps.ByName("repoName"), ps.ByName("commitID"), ps.ByName("filePath"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+	http.ServeContent(w, r, fileName, commitInfo.Finished, content)
+	return
 }
 
 type loginRequestPayload struct {
@@ -150,4 +134,15 @@ func (s *HTTPServer) loginForm(w http.ResponseWriter, r *http.Request, ps httpro
 </html>
 	`, s.loginPath)
 	io.Copy(w, strings.NewReader(content))
+}
+
+func (s *HTTPServer) getPachClient() *client.APIClient {
+	s.pachClientOnce.Do(func() {
+		var err error
+		s.pachClient, err = client.NewFromAddress(a.address)
+		if err != nil {
+			panic(fmt.Sprintf("http server failed to initialize pach client: %v", err))
+		}
+	})
+	return s.pachClient
 }
