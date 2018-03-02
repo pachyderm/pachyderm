@@ -1,22 +1,41 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
 	vault "github.com/hashicorp/vault/api"
+
+	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/auth"
 )
 
 const (
 	vaultAddress = "http://127.0.0.1:8200"
+	pachdAddress = "127.0.0.1:30650"
 	pluginName   = "pachyderm"
 )
 
 func configurePlugin(t *testing.T, v *vault.Client) {
+
+	c, err := client.NewFromAddress(pachdAddress)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+	resp, err := c.Authenticate(
+		context.Background(),
+		&auth.AuthenticateRequest{GitHubUsername: "admin", GitHubToken: "y"})
+
+	fmt.Printf("login response: (%v)\n", resp)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
 	vl := v.Logical()
 	config := make(map[string]interface{})
-	config["admin_token"] = "foo"
-	config["pachd_address"] = "127.0.0.1:30650"
+	config["admin_token"] = resp.PachToken
+	config["pachd_address"] = pachdAddress
 	secret, err := vl.Write(
 		fmt.Sprintf("/%v/config", pluginName),
 		config,

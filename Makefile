@@ -400,7 +400,7 @@ test-vault:
 	echo $$! > vaultpid
 	./src/plugin/vault/etc/setup-vault.sh
 	go test ./src/plugin/vault -timeout $(TIMEOUT)
-	git checkout src/server/vendor/github.com/pachyderm/src/client
+	git checkout src/server/vendor/github.com/pachyderm/src/client || true
 
 test-fuse:
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
