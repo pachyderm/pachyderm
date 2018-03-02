@@ -2,14 +2,15 @@ package server
 
 import (
 	"fmt"
-	"io"
 	"net/http"
+	"path"
 	"strings"
 	"sync"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/julienschmidt/httprouter"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
@@ -19,46 +20,40 @@ import (
 const HTTPPort = 652
 const apiVersion = "v1"
 
-type flushWriter struct {
-	f http.Flusher
-	w io.Writer
+func versionPath(p string) string {
+	return path.Join("/", apiVersion, p)
 }
 
-func (fw *flushWriter) Write(p []byte) (n int, err error) {
-	n, err = fw.w.Write(p)
-	if fw.f != nil {
-		fw.f.Flush()
-	}
-	return
-}
+var (
+	getFilePath = versionPath("pfs/repos/:repoName/commits/:commitID/files/*filePath")
+	loginPath   = versionPath("auth/login")
+	logoutPath  = versionPath("auth/logout")
+)
+
+type router = *httprouter.Router
 
 // HTTPServer serves GetFile requests over HTTP
 // e.g. http://localhost:30652/v1/pfs/repos/foo/commits/b7a1923be56744f6a3f1525ec222dc3b/files/ttt.log
 type HTTPServer struct {
-	driver *driver
-	*httprouter.Router
-	loginPath      string
+	router
+	address        string
 	pachClient     *client.APIClient
 	pachClientOnce sync.Once
 }
 
-func newHTTPServer(address string, etcdAddresses []string, etcdPrefix string, cacheSize int64) (*HTTPServer, error) {
-	d, err := newDriver(address, etcdAddresses, etcdPrefix, cacheSize)
-	if err != nil {
-		return nil, err
-	}
+// NewHTTPServer returns a Pachyderm HTTP server.
+func NewHTTPServer(address string) (http.Handler, error) {
 	router := httprouter.New()
 	s := &HTTPServer{
-		d,
-		router,
-		fmt.Sprintf("/%v/auth/login", apiVersion),
+		router:  router,
+		address: address,
 	}
 
-	router.GET(fmt.Sprintf("/%v/pfs/repos/:repoName/commits/:commitID/files/*filePath", apiVersion), s.getFileHandler)
-	router.POST(s.loginPath, s.authLoginHandler)
-	router.POST(fmt.Sprintf("/%v/auth/logout", apiVersion), s.authLogoutHandler)
+	router.GET(getFilePath, s.getFileHandler)
+	router.POST(loginPath, s.authLoginHandler)
+	router.POST(logoutPath, s.authLogoutHandler)
 	// Debug method (to check login cookies):
-	router.GET(s.loginPath, s.loginForm)
+	router.GET(loginPath, s.loginForm)
 	router.NotFound = http.HandlerFunc(notFound)
 	return s, nil
 }
@@ -75,7 +70,6 @@ func (s *HTTPServer) getFileHandler(w http.ResponseWriter, r *http.Request, ps h
 			)
 		}
 	}
-	w.Header().Add("Content-Type", contentType)
 	downloadValues := r.URL.Query()["download"]
 	if len(downloadValues) == 1 && downloadValues[0] == "true" {
 		w.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=\"%v\"", fileName))
@@ -89,7 +83,8 @@ func (s *HTTPServer) getFileHandler(w http.ResponseWriter, r *http.Request, ps h
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
-	http.ServeContent(w, r, fileName, commitInfo.Finished, content)
+	modtime, err := types.TimestampFromProto(commitInfo.Finished)
+	http.ServeContent(w, r, fileName, modtime, content)
 	return
 }
 
@@ -122,8 +117,7 @@ func notFound(w http.ResponseWriter, r *http.Request) {
 }
 func (s *HTTPServer) loginForm(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	w.Header().Add("Content-Type", "text/html; charset=utf-8")
-	content := fmt.Sprintf(`
-<!DOCTYPE html>
+	if _, err := w.Write([]byte(fmt.Sprintf(`<!DOCTYPE html>
 <html>
 <body>
 <form action="%v" method="post">
@@ -132,14 +126,15 @@ func (s *HTTPServer) loginForm(w http.ResponseWriter, r *http.Request, ps httpro
 </form>
 </body>
 </html>
-	`, s.loginPath)
-	io.Copy(w, strings.NewReader(content))
+`, loginPath))); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func (s *HTTPServer) getPachClient() *client.APIClient {
 	s.pachClientOnce.Do(func() {
 		var err error
-		s.pachClient, err = client.NewFromAddress(a.address)
+		s.pachClient, err = client.NewFromAddress(s.address)
 		if err != nil {
 			panic(fmt.Sprintf("http server failed to initialize pach client: %v", err))
 		}
