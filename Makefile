@@ -362,7 +362,7 @@ pretest:
 
 local-test: docker-build launch-dev test-pfs clean-launch-dev
 
-test: enterprise-code-checkin-test docker-build docker-build-test-entrypoint clean-launch-dev launch-dev test-pfs test-pps test-auth test-enterprise test-kube-17
+test: enterprise-code-checkin-test docker-build docker-build-test-entrypoint clean-launch-dev launch-dev test-pfs test-pps test-auth test-enterprise test-vault test-kube-17
 
 enterprise-code-checkin-test:
 	# Check if our test activation code is anywhere in the repo
@@ -392,6 +392,15 @@ test-client:
 	GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/client/... | grep -v vendor)
 	rm -rf src/client/vendor
 	git checkout src/server/vendor/github.com/pachyderm
+
+test-vault:
+	rm -rf src/server/vendor/github.com/pachyderm/src/client
+	kill $$(cat vaultpid) || true
+	./src/plugin/vault/etc/start-vault.sh &
+	echo $$! > vaultpid
+	./src/plugin/vault/etc/setup-vault.sh
+	go test ./src/plugin/vault -timeout $(TIMEOUT)
+	git checkout src/server/vendor/github.com/pachyderm/src/client
 
 test-fuse:
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
