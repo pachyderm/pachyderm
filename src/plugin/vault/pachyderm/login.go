@@ -3,6 +3,7 @@ package pachyderm
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/hashicorp/vault/logical"
@@ -97,6 +98,7 @@ func (b *backend) generateUserCredentials(ctx context.Context, pachdAddress stri
 	}
 	client = client.WithCtx(ctx)
 	client.SetAuthToken(adminToken)
+	fmt.Printf("login using auth token (%v)\n", adminToken)
 
 	resp, err := client.AuthAPIClient.GetAuthToken(client.Ctx(), &auth.GetAuthTokenRequest{
 		Subject: username,
