@@ -339,7 +339,7 @@ func doFullMode(appEnvObj interface{}) error {
 
 	deployServer := deployserver.NewDeployServer(kubeClient, kubeNamespace)
 
-	httpServer, err := pfs_server.NewHTTPServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), blockCacheBytes)
+	httpServer, err := pfs_server.NewHTTPServer(address)
 	if err != nil {
 		return err
 	}
