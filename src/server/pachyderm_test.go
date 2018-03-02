@@ -2895,7 +2895,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 				Stdin: []string{
 					fmt.Sprintf("cp /pfs/%s/file /pfs/out/file", dataRepo),
 					"echo foo",
-					"echo bar",
+					"echo %s", // %s tests a formatting bug we had (#2729)
 				},
 			},
 			Input:       client.NewAtomInput(dataRepo, "/*"),
@@ -2928,6 +2928,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 		numLogs++
 		require.True(t, iter.Message().Message != "")
 		loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
+		require.False(t, strings.Contains(iter.Message().Message, "MISSING"), iter.Message().Message)
 	}
 	require.Equal(t, 2, numLogs, "logs:\n%s", strings.Join(loglines, "\n"))
 	require.NoError(t, iter.Err())
