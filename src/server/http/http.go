@@ -3,6 +3,8 @@ package http
 import (
 	"fmt"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"path"
 	"strings"
 	"sync"
@@ -26,6 +28,7 @@ func versionPath(p string) string {
 
 var (
 	getFilePath = versionPath("pfs/repos/:repoName/commits/:commitID/files/*filePath")
+	servicePath = versionPath("pps/services/:serviceName/*path")
 	loginPath   = versionPath("auth/login")
 	logoutPath  = versionPath("auth/logout")
 )
@@ -39,19 +42,23 @@ type HTTPServer struct {
 	address        string
 	pachClient     *client.APIClient
 	pachClientOnce sync.Once
+	httpClient     *http.Client
 }
 
 // NewHTTPServer returns a Pachyderm HTTP server.
 func NewHTTPServer(address string) (http.Handler, error) {
 	router := httprouter.New()
 	s := &HTTPServer{
-		router:  router,
-		address: address,
+		router:     router,
+		address:    address,
+		httpClient: &http.Client{},
 	}
 
 	router.GET(getFilePath, s.getFileHandler)
 	router.POST(loginPath, s.authLoginHandler)
 	router.POST(logoutPath, s.authLogoutHandler)
+	router.GET(servicePath, s.serviceHandler)
+	router.POST(servicePath, s.serviceHandler)
 	// Debug method (to check login cookies):
 	router.GET(loginPath, s.loginForm)
 	router.NotFound = http.HandlerFunc(notFound)
@@ -78,14 +85,38 @@ func (s *HTTPServer) getFileHandler(w http.ResponseWriter, r *http.Request, ps h
 	commitInfo, err := c.InspectCommit(ps.ByName("repoName"), ps.ByName("commitID"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 	content, err := c.GetFileReadSeeker(ps.ByName("repoName"), ps.ByName("commitID"), ps.ByName("filePath"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 	modtime, err := types.TimestampFromProto(commitInfo.Finished)
 	http.ServeContent(w, r, fileName, modtime, content)
 	return
+}
+
+func (s *HTTPServer) serviceHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	c := s.getPachClient()
+	pipelineInfo, err := c.InspectPipeline(ps.ByName("serviceName"))
+	if err != nil {
+		// TODO this could be a NotFound which should 404, not 500
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	URL, err := url.Parse(fmt.Sprintf("http://%s", pipelineInfo.Service.IP))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	proxy := httputil.NewSingleHostReverseProxy(URL)
+	director := proxy.Director
+	proxy.Director = func(req *http.Request) {
+		director(req)
+		req.URL.Path = strings.TrimPrefix(req.URL.Path, path.Dir(servicePath))
+	}
+	proxy.ServeHTTP(w, r)
 }
 
 type loginRequestPayload struct {
