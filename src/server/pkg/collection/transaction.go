@@ -18,7 +18,10 @@ package collection
 // not have the DelAll method, which we need.
 
 import (
+	"fmt"
+
 	v3 "github.com/coreos/etcd/clientv3"
+	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
 	"golang.org/x/net/context"
 )
 
@@ -154,8 +157,17 @@ func (s *stm) Rev(key string) int64 {
 }
 
 func (s *stm) commit() *v3.TxnResponse {
-	txnresp, err := s.client.Txn(s.ctx).If(s.cmps()...).Then(s.puts()...).Commit()
-	if err != nil {
+	cmps := s.cmps()
+	puts := s.puts()
+	txnresp, err := s.client.Txn(s.ctx).If(cmps...).Then(puts...).Commit()
+	if err == rpctypes.ErrTooManyOps {
+		panic(stmError{
+			fmt.Errorf(
+				"%v (%d comparisons, %d puts: hint: set --max-txn-ops on the "+
+					"ETCD cluster to at least the largest of those values)",
+				err, len(cmps), len(puts)),
+		})
+	} else if err != nil {
 		panic(stmError{err})
 	}
 	if txnresp.Succeeded {
@@ -241,10 +253,19 @@ func (s *stmSerializable) gets() ([]string, []v3.Op) {
 
 func (s *stmSerializable) commit() *v3.TxnResponse {
 	keys, getops := s.gets()
-	txn := s.client.Txn(s.ctx).If(s.cmps()...).Then(s.puts()...)
+	cmps := s.cmps()
+	puts := s.puts()
+	txn := s.client.Txn(s.ctx).If(cmps...).Then(puts...)
 	// use Else to prefetch keys in case of conflict to save a round trip
 	txnresp, err := txn.Else(getops...).Commit()
-	if err != nil {
+	if err == rpctypes.ErrTooManyOps {
+		panic(stmError{
+			fmt.Errorf(
+				"%v (%d comparisons, %d puts: hint: set --max-txn-ops on the "+
+					"ETCD cluster to at least the largest of those values)",
+				err, len(cmps), len(puts)),
+		})
+	} else if err != nil {
 		panic(stmError{err})
 	}
 	if txnresp.Succeeded {
