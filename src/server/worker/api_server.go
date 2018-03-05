@@ -215,8 +215,7 @@ func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
 		logger.stderrLog.Printf("could not marshal %v for logging: %s\n", &logger.template, err)
 		return
 	}
-	bytes += "\n"
-	fmt.Printf(bytes)
+	fmt.Println(bytes)
 	if logger.putObjClient != nil {
 		logger.msgCh <- bytes
 	}
@@ -238,7 +237,11 @@ func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
 			// the only error bufio.Reader can return when using a buffer.
 			return 0, err
 		}
-		logger.Logf(message)
+		// We don't want to make this call as:
+		// logger.Logf(message)
+		// because if the message has format characters like %s in it those
+		// will result in errors being logged.
+		logger.Logf("%s", message)
 	}
 }
 
