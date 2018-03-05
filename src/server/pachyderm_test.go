@@ -2895,7 +2895,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 				Stdin: []string{
 					fmt.Sprintf("cp /pfs/%s/file /pfs/out/file", dataRepo),
 					"echo foo",
-					"echo bar",
+					"echo %s", // %s tests a formatting bug we had (#2729)
 				},
 			},
 			Input:       client.NewAtomInput(dataRepo, "/*"),
@@ -2928,6 +2928,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 		numLogs++
 		require.True(t, iter.Message().Message != "")
 		loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
+		require.False(t, strings.Contains(iter.Message().Message, "MISSING"), iter.Message().Message)
 	}
 	require.Equal(t, 2, numLogs, "logs:\n%s", strings.Join(loglines, "\n"))
 	require.NoError(t, iter.Err())
@@ -6630,6 +6631,51 @@ func TestListJobInputCommits(t *testing.T) {
 	jobInfos, err = c.ListJob("", []*pfs.Commit{client.NewCommit(aRepo, "master"), client.NewCommit(bRepo, "master")}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
+}
+
+func TestManyJobs(t *testing.T) {
+	t.Skip("This test is too long to be run as part of CI")
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestManyJobs_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	numPipelines := 10
+	for i := 0; i < numPipelines; i++ {
+		pipeline := tu.UniqueString("TestManyJobs")
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"true"},
+			[]string{strings.Repeat("words ", 30), strings.Repeat("words ", 30), strings.Repeat("words ", 30), strings.Repeat("words ", 30), strings.Repeat("words ", 30), strings.Repeat("words ", 30)},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewAtomInput(dataRepo, "/*"),
+			"",
+			false,
+		))
+	}
+
+	numCommits := 5000
+	for i := 0; i < numCommits; i++ {
+		_, err := c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(dataRepo, "master"))
+	}
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	_, err = c.ListJob("", nil, nil)
+	require.NoError(t, err)
 }
 
 func TestExtractRestore(t *testing.T) {

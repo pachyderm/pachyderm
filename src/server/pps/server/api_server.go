@@ -448,10 +448,10 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 	} else if outputCommit != nil {
 		iter, err = jobs.GetByIndex(ppsdb.JobsOutputIndex, outputCommit)
 	} else {
-		iter, err = jobs.List()
+		iter, err = jobs.ListPaginated()
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error listing jobs: %v", err)
 	}
 
 	var jobInfos []*pps.JobInfo
@@ -461,7 +461,7 @@ JobsLoop:
 		var jobPtr pps.EtcdJobInfo
 		ok, err := iter.Next(&jobID, &jobPtr)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error iterating jobs: %v", err)
 		}
 		if !ok {
 			break
