@@ -105,7 +105,7 @@ func (s *HTTPServer) serviceHandler(w http.ResponseWriter, r *http.Request, ps h
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	URL, err := url.Parse(fmt.Sprintf("http://%s", pipelineInfo.Service.IP))
+	URL, err := url.Parse(fmt.Sprintf("http://%s:%d", pipelineInfo.Service.IP, pipelineInfo.Service.ExternalPort))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -114,7 +114,7 @@ func (s *HTTPServer) serviceHandler(w http.ResponseWriter, r *http.Request, ps h
 	director := proxy.Director
 	proxy.Director = func(req *http.Request) {
 		director(req)
-		req.URL.Path = strings.TrimPrefix(req.URL.Path, path.Dir(servicePath))
+		req.URL.Path = strings.TrimPrefix(req.URL.Path, path.Join(path.Dir(path.Dir(servicePath)), pipelineInfo.Pipeline.Name))
 	}
 	proxy.ServeHTTP(w, r)
 }
