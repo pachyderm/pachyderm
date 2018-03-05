@@ -2,12 +2,14 @@ package server
 
 import (
 	"context"
+	"strconv"
 
 	client "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -173,11 +175,15 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	return podSpec, nil
 }
 
-func (a *apiServer) getWorkerOptions(pipelineName string, rcName string,
-	parallelism int32, resourceRequests *v1.ResourceList, resourceLimits *v1.ResourceList, transform *pps.Transform,
-	cacheSize string, service *pps.Service, specCommitID string) *workerOptions {
+func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64,
+	parallelism int32, resourceRequests *v1.ResourceList, resourceLimits *v1.ResourceList,
+	transform *pps.Transform, cacheSize string,
+	service *pps.Service, specCommitID string) *workerOptions {
+	rcName := ppsutil.PipelineRcName(pipelineName, pipelineVersion)
 	labels := labels(rcName)
 	labels["version"] = version.PrettyVersion()
+	labels["pipelineName"] = pipelineName
+	labels["pipelineVersion"] = strconv.FormatUint(pipelineVersion, 10)
 	userImage := transform.Image
 	if userImage == "" {
 		userImage = DefaultUserImage
