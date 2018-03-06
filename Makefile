@@ -395,11 +395,11 @@ test-client:
 
 test-vault:
 	rm -rf src/server/vendor/github.com/pachyderm/src/client
-	kill $$(cat vaultpid) || true
-	./src/plugin/vault/etc/start-vault.sh &
-	echo $$! > vaultpid
+	kill $$(cat vault.pid) || true
+	./src/plugin/vault/etc/start-vault.sh
 	./src/plugin/vault/etc/setup-vault.sh
-	go test ./src/plugin/vault -timeout $(TIMEOUT)
+	@# Use count flag to disable test caching
+	go test -v -count 1 ./src/plugin/vault -timeout $(TIMEOUT)
 	git checkout src/server/vendor/github.com/pachyderm/src/client || true
 
 test-fuse:
