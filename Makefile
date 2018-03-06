@@ -87,12 +87,26 @@ check-docker-version:
 		test \( "$${docker_major}" -gt 1 \) -o \( "$${docker_minor}" -ge 24 \)
 
 point-release:
-	@make VERSION_ADDITIONAL= release-custom
-
-# Run via 'make VERSION_ADDITIONAL=RC release-custom' to specify a version string
-release-custom: check-docker-version release-version release-pachd release-worker release-pachctl doc-custom
+	@make VERSION_ADDITIONAL= release-helper
+	@# Run pachctl release script w deploy branch name
+	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachctl master
+	@make doc
 	@rm VERSION
 	@echo "Release completed"
+
+# Run via 'make VERSION_ADDITIONAL=RC release-custom' to specify a version string
+release-custom: 
+	@make release-helper
+	@# Run pachctl release script w deploy branch name
+	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachctl $$VERSION
+	@make doc-custom
+	@rm VERSION
+	@echo "Release completed"
+
+release-custom-sha:
+	@make VERSION_ADDITIONAL=$$(git log --pretty=format:%H | head -n 1) release-custom
+
+release-helper: check-docker-version release-version release-pachd release-worker
 
 release-version:
 	@# Need to blow away pachctl binary if its already there
@@ -105,9 +119,6 @@ release-pachd:
 
 release-worker:
 	@VERSION="$(shell cat VERSION)" ./etc/build/release_worker
-
-release-pachctl:
-	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachctl
 
 docker-build-compile:
 	docker build -t pachyderm_compile .
