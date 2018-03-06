@@ -99,9 +99,9 @@ release-custom:
 	@make release-helper
 	@# Run pachctl release script w deploy branch name
 	cat VERSION
-	echo "catting VERSION $$(shell cat VERSION)"
-	@VERSION="$$(shell cat VERSION)" echo "version is $$VERSION"
-	@VERSION="$$(shell cat VERSION)" ./etc/build/release_pachctl $$VERSION
+	echo "catting VERSION $$(cat VERSION)"
+	@VERSION="$$(cat VERSION)" echo "version is $$VERSION"
+	@VERSION="$$(cat VERSION)" ./etc/build/release_pachctl $$(cat VERSION)
 	@make doc-custom
 	@rm VERSION
 	@echo "Release completed"
