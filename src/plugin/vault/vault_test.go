@@ -27,7 +27,6 @@ func configurePlugin(t *testing.T, v *vault.Client) {
 		context.Background(),
 		&auth.AuthenticateRequest{GitHubUsername: "admin", GitHubToken: "y"})
 
-	fmt.Printf("login response: (%v)\n", resp)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -36,21 +35,32 @@ func configurePlugin(t *testing.T, v *vault.Client) {
 	config := make(map[string]interface{})
 	config["admin_token"] = resp.PachToken
 	config["pachd_address"] = pachdAddress
-	secret, err := vl.Write(
+	_, err = vl.Write(
 		fmt.Sprintf("/%v/config", pluginName),
 		config,
 	)
 
-	fmt.Printf("config secret: %v\n", secret)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
 }
 
 func TestLogin(t *testing.T) {
-	c := vault.DefaultConfig()
-	c.Address = vaultAddress
-	v, err := vault.NewClient(c)
+	// Negative control:
+	//     Before we have a valid pach token, we should not
+	// be able to list admins
+	c, err := client.NewFromAddress(pachdAddress)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+	_, err = c.AuthAPIClient.GetAdmins(context.Background(), &auth.GetAdminsRequest{})
+	if err == nil {
+		t.Errorf("client could list admins before using auth token. this is likely a bug")
+	}
+
+	vaultClientConfig := vault.DefaultConfig()
+	vaultClientConfig.Address = vaultAddress
+	v, err := vault.NewClient(vaultClientConfig)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -68,13 +78,31 @@ func TestLogin(t *testing.T) {
 		config,
 	)
 
-	fmt.Printf("config secret: %v\n", secret)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
 
-	// Hit login w valid vault token, expect user token
-	// Use client w that address / user token to list repos
+	pachToken, ok := secret.Auth.Metadata["user_token"]
+	if !ok {
+		t.Errorf("vault login response did not contain user token")
+	}
+	reportedPachdAddress, ok := secret.Auth.Metadata["pachd_address"]
+	if !ok {
+		t.Errorf("vault login response did not contain pachd address")
+	}
+
+	// Now do the actual test:
+	// Try and list admins w a client w a valid pach token
+	c, err = client.NewFromAddress(reportedPachdAddress)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+	c.SetAuthToken(pachToken)
+
+	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+	if err != nil {
+		t.Errorf(err.Error())
+	}
 }
 
 func TestLoginTTL(t *testing.T) {

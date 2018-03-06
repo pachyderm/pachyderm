@@ -17,6 +17,7 @@ fi
 
 echo 'root' | vault login -
 
+rm /tmp/vault-plugins/$PLUGIN_NAME
 go build -o /tmp/vault-plugins/$PLUGIN_NAME src/plugin/vault/main.go 
 
 # Clean up from last run
