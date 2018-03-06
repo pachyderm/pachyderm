@@ -98,6 +98,7 @@ point-release:
 release-custom: 
 	@make release-helper
 	@# Run pachctl release script w deploy branch name
+	@VERSION="$(shell cat VERSION)" echo "version is $$VERSION"
 	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachctl $$VERSION
 	@make doc-custom
 	@rm VERSION
