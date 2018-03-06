@@ -2,34 +2,23 @@ package uuid
 
 import (
 	"testing"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
 func TestIsUUIDWithoutDashes(t *testing.T) {
-	if len(NewWithoutDashes()) != 32 {
-		t.Error()
-	}
-
-	if !IsUUIDWithoutDashes("09abcd098faa4fd98643023485739adb") {
-		t.Error()
-	}
+	require.Equal(t, 32, len(NewWithoutDashes()))
+	require.True(t, IsUUIDWithoutDashes("09abcd098faa4fd98643023485739adb"))
 
 	// 13 character is 4
-	if IsUUIDWithoutDashes("09abcd098faaefd98643023485739adb") {
-		t.Fail()
-	}
+	require.False(t, IsUUIDWithoutDashes("09abcd098faaefd98643023485739adb"))
 
 	// Length 32
-	if IsUUIDWithoutDashes("09abcd098faaefd98643023485739adbabc") {
-		t.Fail()
-	}
+	require.False(t, IsUUIDWithoutDashes("09abcd098faaefd98643023485739adbabc"))
 
 	// Hexadecimal
-	if IsUUIDWithoutDashes("09abcd098faa4fd98643023485739xyz") {
-		t.Fail()
-	}
+	require.False(t, IsUUIDWithoutDashes("09abcd098faa4fd98643023485739xyz"))
 
 	// Generated
-	if !IsUUIDWithoutDashes(NewWithoutDashes()) {
-		t.Fail()
-	}
+	require.True(t, IsUUIDWithoutDashes(NewWithoutDashes()))
 }
