@@ -6,13 +6,12 @@ import (
 	"github.com/hashicorp/vault/logical"
 )
 
-type factory struct {
-	*logical.Factory
-}
-
-//type Factory func(context.Context, *BackendConfig) (Backend, error)
+// Factory is the function that the Pachyderm Vault plugin exports to let Vault
+// create/refresh/revoke Pachyderm tokens. It must have the type:
+// logical.Factory =
+//   func(context.Context, *logical.BackendConfig) (logical.Backend, error)
 func Factory(ctx context.Context, c *logical.BackendConfig) (logical.Backend, error) {
-	b, err := Backend(c)
+	b, err := newBackend(c)
 	if err != nil {
 		return nil, err
 	}

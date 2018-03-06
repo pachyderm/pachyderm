@@ -46,16 +46,16 @@ func (b *backend) pathAuthRenew(ctx context.Context, req *logical.Request, d *fr
 		return nil, errors.New("stored ttl is not a string")
 	}
 
-	maxTtlRaw, ok := req.Auth.InternalData["max_ttl"]
+	maxTTLRaw, ok := req.Auth.InternalData["max_ttl"]
 	if !ok {
 		return nil, errors.New("no internal max_ttl found in the store")
 	}
-	maxTtlString, ok := maxTtlRaw.(string)
+	maxTTLString, ok := maxTTLRaw.(string)
 	if !ok {
 		return nil, errors.New("stored max_ttl is not a string")
 	}
 
-	ttl, maxTtl, err := b.SanitizeTTLStr(ttlString, maxTtlString)
+	ttl, maxTTL, err := b.SanitizeTTLStr(ttlString, maxTTLString)
 	if err != nil {
 		return nil, err
 	}
@@ -67,9 +67,13 @@ func (b *backend) pathAuthRenew(ctx context.Context, req *logical.Request, d *fr
 		return nil, err
 	}
 
-	return framework.LeaseExtend(ttl, maxTtl, b.System())(ctx, req, d)
+	return framework.LeaseExtend(ttl, maxTTL, b.System())(ctx, req, d)
 }
 
+// renewUserCredentials extends the TTL of the Pachyderm authentication token
+// 'userToken', using the vault plugin's Admin credentials. 'userToken' belongs
+// to the user who is calling vault, and would like to extend their Pachyderm
+// session.
 func (b *backend) renewUserCredentials(ctx context.Context, pachdAddress string, adminToken string, userToken string, ttl time.Duration) error {
 	// This is where we'd make the actual pachyderm calls to create the user
 	// token using the admin token. For now, for testing purposes, we just do an action that only an

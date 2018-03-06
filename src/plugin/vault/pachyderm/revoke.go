@@ -54,6 +54,11 @@ func (b *backend) pathRevoke(ctx context.Context, req *logical.Request, d *frame
 	}, nil
 }
 
+// revokeUserCredentials revokes the Pachyderm authentication token 'userToken'
+// using the vault plugin's Admin credentials. This gets called if the vault
+// lease associated with 'userToken' has expired, or if a vault user has
+// exercised vault's Break Glass feature and wants to shut down access to all
+// parts of their system.
 func (b *backend) revokeUserCredentials(ctx context.Context, pachdAddress string, userToken string, adminToken string) error {
 	// Setup a single use client w the given admin token / address
 	client, err := pclient.NewFromAddress(pachdAddress)

@@ -35,7 +35,7 @@ func validateFields(req *logical.Request, data *framework.FieldData) error {
 func (b *backend) Config(ctx context.Context, s logical.Storage) (*config, error) {
 	entry, err := s.Get(ctx, "config")
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("%v: failed to get config from storage", err))
+		return nil, fmt.Errorf("%v: failed to get config from storage", err)
 	}
 	if entry == nil || len(entry.Value) == 0 {
 		return nil, errors.New("no configuration in storage")
@@ -43,7 +43,7 @@ func (b *backend) Config(ctx context.Context, s logical.Storage) (*config, error
 
 	var result config
 	if err := entry.DecodeJSON(&result); err != nil {
-		return nil, errors.New(fmt.Sprintf("%v: failed to decode configuration", err))
+		return nil, fmt.Errorf("%v: failed to decode configuration", err)
 	}
 
 	return &result, nil

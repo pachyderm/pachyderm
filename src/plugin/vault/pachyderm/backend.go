@@ -9,7 +9,7 @@ type backend struct {
 	*framework.Backend
 }
 
-func Backend(c *logical.BackendConfig) (*backend, error) {
+func newBackend(c *logical.BackendConfig) (*backend, error) {
 	var b backend
 	b = backend{
 		Backend: &framework.Backend{

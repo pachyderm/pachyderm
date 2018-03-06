@@ -2,7 +2,6 @@ package pachyderm
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/fatih/structs"
@@ -12,12 +11,13 @@ import (
 
 type config struct {
 	// AdminToken is pachyderm admin token used to generate credentials
-	AdminToken   string `json:"admin_token" structs:"-"`
+	AdminToken string `json:"admin_token" structs:"-"`
+
+	// PachdAddress is the hostport at which the client can reach Pachyderm
 	PachdAddress string `json:"pachd_address" structs:"-"`
 }
 
 func (b *backend) configPath() *framework.Path {
-
 	return &framework.Path{
 		Pattern:      "config",
 		HelpSynopsis: "Configure the admin token",
@@ -53,7 +53,7 @@ For more information and examples, please see the online documentation.
 func (b *backend) pathConfigRead(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	config, err := b.Config(ctx, req.Storage)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("%v: failed to get configuration from storage", err))
+		return nil, fmt.Errorf("%v: failed to get configuration from storage", err)
 	}
 
 	resp := &logical.Response{
@@ -84,11 +84,11 @@ func (b *backend) pathConfigWrite(ctx context.Context, req *logical.Request, dat
 		PachdAddress: pachdAddress,
 	})
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("%v: failed to generate storage entry", err))
+		return nil, fmt.Errorf("%v: failed to generate storage entry", err)
 	}
 
 	if err := req.Storage.Put(ctx, entry); err != nil {
-		return nil, errors.New(fmt.Sprintf("%v: failed to write configuration to storage", err))
+		return nil, fmt.Errorf("%v: failed to write configuration to storage", err)
 	}
 	return nil, nil
 }
