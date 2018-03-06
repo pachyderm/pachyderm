@@ -12,7 +12,6 @@ import (
 )
 
 func (b *backend) loginPath() *framework.Path {
-
 	return &framework.Path{
 		Pattern: "login",
 		Fields: map[string]*framework.FieldSchema{
@@ -41,9 +40,9 @@ func (b *backend) pathAuthLogin(ctx context.Context, req *logical.Request, d *fr
 	if len(ttlString) == 0 {
 		ttlString = "45s"
 	}
-	maxTtlString := d.Get("max_ttl").(string)
-	if len(maxTtlString) == 0 {
-		maxTtlString = "2h"
+	maxTTLString := d.Get("max_ttl").(string)
+	if len(maxTTLString) == 0 {
+		maxTTLString = "2h"
 	}
 
 	config, err := b.Config(ctx, req.Storage)
@@ -57,7 +56,7 @@ func (b *backend) pathAuthLogin(ctx context.Context, req *logical.Request, d *fr
 		return nil, errors.New("plugin is missing pachd_address")
 	}
 
-	ttl, _, err := b.SanitizeTTLStr(ttlString, maxTtlString)
+	ttl, _, err := b.SanitizeTTLStr(ttlString, maxTTLString)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +72,7 @@ func (b *backend) pathAuthLogin(ctx context.Context, req *logical.Request, d *fr
 			InternalData: map[string]interface{}{
 				"user_token": userToken,
 				"ttl":        ttlString,
-				"max_ttl":    maxTtlString,
+				"max_ttl":    maxTTLString,
 			},
 			Metadata: map[string]string{
 				"user_token":    userToken,
@@ -87,11 +86,10 @@ func (b *backend) pathAuthLogin(ctx context.Context, req *logical.Request, d *fr
 	}, nil
 }
 
+// generateUserCredentials uses the vault plugin's Admin credentials to generate
+// a new Pachyderm authentication token for 'username' (i.e. the user who is
+// currently requesting a Pachyderm token from Vault).
 func (b *backend) generateUserCredentials(ctx context.Context, pachdAddress string, adminToken string, username string, ttl time.Duration) (string, error) {
-	// This is where we'd make the actual pachyderm calls to create the user
-	// token using the admin token. For now, for testing purposes, we just do an action that only an
-	// admin could do
-
 	// Setup a single use client w the given admin token / address
 	client, err := pclient.NewFromAddress(pachdAddress)
 	if err != nil {
