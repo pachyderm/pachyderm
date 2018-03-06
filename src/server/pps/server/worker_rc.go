@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"strconv"
 
 	client "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
@@ -183,7 +182,6 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 	labels := labels(rcName)
 	labels["version"] = version.PrettyVersion()
 	labels["pipelineName"] = pipelineName
-	labels["pipelineVersion"] = strconv.FormatUint(pipelineVersion, 10)
 	userImage := transform.Image
 	if userImage == "" {
 		userImage = DefaultUserImage
