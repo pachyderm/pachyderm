@@ -104,7 +104,7 @@ release-custom:
 	@echo "Release completed"
 
 release-custom-sha:
-	@make VERSION_ADDITIONAL=$$(git log --pretty=format:%H | head -n 1) release-custom
+	@make VERSION_ADDITIONAL=-$$(git log --pretty=format:%H | head -n 1) release-custom
 
 release-helper: check-docker-version release-version release-pachd release-worker
 
