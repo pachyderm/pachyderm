@@ -59,7 +59,7 @@ cd homebrew-tap
     VERSION=$VERSION ./update-formula.sh
     git add pachctl@$MAJOR_MINOR.rb
     git commit -a -m "[Automated] Update formula to release version $VERSION"
-    git pull origin $BRANCH
+    git pull origin $BRANCH || true
     git push origin $BRANCH
 cd ..
 rm -rf homebrew-tap
