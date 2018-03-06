@@ -345,7 +345,7 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 
 		options := a.getWorkerOptions(
 			pipelineInfo.Pipeline.Name,
-			ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
+			pipelineInfo.Version,
 			int32(parallelism),
 			resourceRequests,
 			resourceLimits,
