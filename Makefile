@@ -89,7 +89,7 @@ check-docker-version:
 point-release:
 	@make VERSION_ADDITIONAL= release-helper
 	@# Run pachctl release script w deploy branch name
-	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachctl master
+	@VERSION="$$(shell cat VERSION)" ./etc/build/release_pachctl master
 	@make doc
 	@rm VERSION
 	@echo "Release completed"
@@ -98,8 +98,10 @@ point-release:
 release-custom: 
 	@make release-helper
 	@# Run pachctl release script w deploy branch name
-	@VERSION="$(shell cat VERSION)" echo "version is $$VERSION"
-	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachctl $$VERSION
+	cat VERSION
+	echo "catting VERSION $$(shell cat VERSION)"
+	@VERSION="$$(shell cat VERSION)" echo "version is $$VERSION"
+	@VERSION="$$(shell cat VERSION)" ./etc/build/release_pachctl $$VERSION
 	@make doc-custom
 	@rm VERSION
 	@echo "Release completed"
