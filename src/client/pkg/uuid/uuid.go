@@ -1,21 +1,11 @@
 package uuid
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/satori/go.uuid"
 )
-
-var (
-	// UUIDWithoutDashesLength is the length of the UUIDs returned
-	// by NewWithoutDashes.  It's also the length of commit IDs in
-	// Pachyderm.
-	UUIDWithoutDashesLength int
-)
-
-func init() {
-	UUIDWithoutDashesLength = len(NewWithoutDashes())
-}
 
 // New returns a new uuid.
 func New() string {
@@ -31,3 +21,13 @@ func NewWithoutDashes() string {
 func NewWithoutUnderscores() string {
 	return strings.Replace(New(), "_", "", -1)
 }
+
+// IsUUIDWithoutDashes checks whether a string is a UUID without dashes
+func IsUUIDWithoutDashes(s string) bool {
+	return uuidWithoutDashesRegexp.MatchString(s)
+}
+
+// Because we use UUIDv4, the 13th character is a '4'.
+// Moreover, a UUID can only contain "hexadecimal" characters,
+// lowercase here.
+var uuidWithoutDashesRegexp = regexp.MustCompile("[0-9a-f]{12}4[0-9a-f]{19}")
