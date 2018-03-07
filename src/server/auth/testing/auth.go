@@ -72,6 +72,11 @@ func (a *InactiveAPIServer) GetAuthToken(ctx context.Context, req *auth.GetAuthT
 	return nil, auth.NotActivatedError{}
 }
 
+// GetAuthToken implements the ExtendAuthToken RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) ExtendAuthToken(ctx context.Context, req *auth.ExtendAuthTokenRequest) (resp *auth.ExtendAuthTokenResponse, retErr error) {
+	return nil, auth.NotActivatedError{}
+}
+
 // RevokeAuthToken implements the RevokeAuthToken RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTokenRequest) (resp *auth.RevokeAuthTokenResponse, retErr error) {
 	return nil, auth.NotActivatedError{}
