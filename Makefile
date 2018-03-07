@@ -88,27 +88,35 @@ check-docker-version:
 
 point-release:
 	@make VERSION_ADDITIONAL= release-helper
-	@# Run pachctl release script w deploy branch name
-	@VERSION="$$(shell cat VERSION)" ./etc/build/release_pachctl master
+	@make release-pachctl
 	@make doc
-	@rm VERSION
 	@echo "Release completed"
 
 # Run via 'make VERSION_ADDITIONAL=RC release-custom' to specify a version string
 release-candidate:
 	@make release-helper
-	@# Run pachctl release script w deploy branch name
-	@VERSION="$$(cat VERSION)" ./etc/build/release_pachctl $$(cat VERSION)
-	@make doc-custom
-	@rm VERSION
+	@make release-pachctl-custom
+	@make doc
 	@echo "Release completed"
 
 release-custom:
 	@make VERSION_ADDITIONAL=-$$(git log --pretty=format:%H | head -n 1) release-helper
+	@make release-pachctl-custom
+	@echo 'For brew install, do:'
+	@echo '\$ brew install https://raw.githubusercontent.com/pachyderm/homebrew-tap/$$(cat VERSION)-$$(git log --pretty=format:%H | head -n 1)/pachctl@$$(cat VERSION | cut -f -2 -d\.).rb'
+	@echo 'For linux install, do:'
+	@echo '\$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v$$(cat VERSION)/pachctl_$$(cat VERSION)_amd64.deb && sudo dpkg -i /tmp/pachctl.deb'
+	@echo "Release completed"
+
+release-pachctl-custom:
 	@# Run pachctl release script w deploy branch name
 	@VERSION="$$(cat VERSION)" ./etc/build/release_pachctl $$(cat VERSION)
 	@rm VERSION
-	@echo "Release completed"
+
+release-pachctl:
+	@# Run pachctl release script w deploy branch name
+	@VERSION="$$(shell cat VERSION)" ./etc/build/release_pachctl master
+	@rm VERSION
 
 release-helper: check-docker-version release-version release-pachd release-worker
 
