@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
@@ -64,7 +65,6 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 	if !request.NoObjects {
 		w := extractObjectWriter(handleOp)
 		if err := pachClient.ListObject(func(object *pfs.Object) error {
-			fmt.Printf("Extract object: %s\n", object.Hash)
 			if err := pachClient.GetObject(object.Hash, w); err != nil {
 				return err
 			}
@@ -300,22 +300,22 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 				return fmt.Errorf("error tagging object: %v", grpcutil.ScrubGRPC(err))
 			}
 		case op.Op1_7 != nil && op.Op1_7.Repo != nil:
-			if _, err := pachClient.PfsAPIClient.CreateRepo(ctx, op.Op1_7.Repo); err != nil {
+			if _, err := pachClient.PfsAPIClient.CreateRepo(ctx, op.Op1_7.Repo); err != nil && !errutil.IsAlreadyExistError(err) {
 				return fmt.Errorf("error creating repo: %v", grpcutil.ScrubGRPC(err))
 			}
 		case op.Op1_7 != nil && op.Op1_7.Commit != nil:
-			if _, err := pachClient.PfsAPIClient.BuildCommit(ctx, op.Op1_7.Commit); err != nil {
+			if _, err := pachClient.PfsAPIClient.BuildCommit(ctx, op.Op1_7.Commit); err != nil && !errutil.IsAlreadyExistError(err) {
 				return fmt.Errorf("error creating commit: %v", grpcutil.ScrubGRPC(err))
 			}
 		case op.Op1_7 != nil && op.Op1_7.Branch != nil:
 			if op.Op1_7.Branch.Branch == nil {
 				op.Op1_7.Branch.Branch = client.NewBranch(op.Op1_7.Branch.Head.Repo.Name, op.Op1_7.Branch.SBranch)
 			}
-			if _, err := pachClient.PfsAPIClient.CreateBranch(ctx, op.Op1_7.Branch); err != nil {
+			if _, err := pachClient.PfsAPIClient.CreateBranch(ctx, op.Op1_7.Branch); err != nil && !errutil.IsAlreadyExistError(err) {
 				return fmt.Errorf("error creating branch: %v", grpcutil.ScrubGRPC(err))
 			}
 		case op.Op1_7 != nil && op.Op1_7.Pipeline != nil:
-			if _, err := pachClient.PpsAPIClient.CreatePipeline(ctx, op.Op1_7.Pipeline); err != nil {
+			if _, err := pachClient.PpsAPIClient.CreatePipeline(ctx, op.Op1_7.Pipeline); err != nil && !errutil.IsAlreadyExistError(err) {
 				return fmt.Errorf("error creating pipeline: %v", grpcutil.ScrubGRPC(err))
 			}
 		}
