@@ -35,9 +35,7 @@ var (
 
 type router = *httprouter.Router
 
-// HTTPServer serves GetFile requests over HTTP
-// e.g. http://localhost:30652/v1/pfs/repos/foo/commits/b7a1923be56744f6a3f1525ec222dc3b/files/ttt.log
-type HTTPServer struct {
+type server struct {
 	router
 	address        string
 	pachClient     *client.APIClient
@@ -48,7 +46,7 @@ type HTTPServer struct {
 // NewHTTPServer returns a Pachyderm HTTP server.
 func NewHTTPServer(address string) (http.Handler, error) {
 	router := httprouter.New()
-	s := &HTTPServer{
+	s := &server{
 		router:     router,
 		address:    address,
 		httpClient: &http.Client{},
@@ -65,7 +63,7 @@ func NewHTTPServer(address string) (http.Handler, error) {
 	return s, nil
 }
 
-func (s *HTTPServer) getFileHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func (s *server) getFileHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	filePaths := strings.Split(ps.ByName("filePath"), "/")
 	fileName := filePaths[len(filePaths)-1]
 	ctx := context.Background()
@@ -97,7 +95,7 @@ func (s *HTTPServer) getFileHandler(w http.ResponseWriter, r *http.Request, ps h
 	return
 }
 
-func (s *HTTPServer) serviceHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func (s *server) serviceHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	c := s.getPachClient()
 	pipelineInfo, err := c.InspectPipeline(ps.ByName("serviceName"))
 	if err != nil {
@@ -123,7 +121,7 @@ type loginRequestPayload struct {
 	Token string
 }
 
-func (s *HTTPServer) authLoginHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func (s *server) authLoginHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	token := r.FormValue("Token")
 	if token == "" {
 		// Return 500
@@ -136,7 +134,7 @@ func (s *HTTPServer) authLoginHandler(w http.ResponseWriter, r *http.Request, ps
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *HTTPServer) authLogoutHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func (s *server) authLogoutHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	w.Header().Add("Set-Cookie", fmt.Sprintf("%v=;path=/", auth.ContextTokenKey))
 	w.Header().Add("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(http.StatusOK)
@@ -146,7 +144,7 @@ func notFound(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "text/html; charset=utf-8")
 	http.Error(w, "route not found", http.StatusNotFound)
 }
-func (s *HTTPServer) loginForm(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func (s *server) loginForm(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	w.Header().Add("Content-Type", "text/html; charset=utf-8")
 	if _, err := w.Write([]byte(fmt.Sprintf(`<!DOCTYPE html>
 <html>
@@ -162,7 +160,7 @@ func (s *HTTPServer) loginForm(w http.ResponseWriter, r *http.Request, ps httpro
 	}
 }
 
-func (s *HTTPServer) getPachClient() *client.APIClient {
+func (s *server) getPachClient() *client.APIClient {
 	s.pachClientOnce.Do(func() {
 		var err error
 		s.pachClient, err = client.NewFromAddress(s.address)
