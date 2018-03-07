@@ -1,7 +1,9 @@
 package collection
 
 import (
+	"bytes"
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/gogo/protobuf/types"
 )
 
 var (
@@ -27,8 +30,7 @@ var (
 )
 
 func TestIndex(t *testing.T) {
-	etcdClient, err := getEtcdClient()
-	require.NoError(t, err)
+	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
 	jobInfos := NewCollection(etcdClient, uuidPrefix, []Index{pipelineIndex}, &pps.JobInfo{}, nil)
@@ -45,7 +47,7 @@ func TestIndex(t *testing.T) {
 		Job:      &pps.Job{"j3"},
 		Pipeline: &pps.Pipeline{"p2"},
 	}
-	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
+	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
 		jobInfos := jobInfos.ReadWrite(stm)
 		jobInfos.Put(j1.Job.ID, j1)
 		jobInfos.Put(j2.Job.ID, j2)
@@ -87,8 +89,7 @@ func TestIndex(t *testing.T) {
 }
 
 func TestIndexWatch(t *testing.T) {
-	etcdClient, err := getEtcdClient()
-	require.NoError(t, err)
+	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
 	jobInfos := NewCollection(etcdClient, uuidPrefix, []Index{pipelineIndex}, &pps.JobInfo{}, nil)
@@ -97,7 +98,7 @@ func TestIndexWatch(t *testing.T) {
 		Job:      &pps.Job{"j1"},
 		Pipeline: &pps.Pipeline{"p1"},
 	}
-	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
+	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
 		jobInfos := jobInfos.ReadWrite(stm)
 		jobInfos.Put(j1.Job.ID, j1)
 		return nil
@@ -106,7 +107,7 @@ func TestIndexWatch(t *testing.T) {
 
 	jobInfosReadonly := jobInfos.ReadOnly(context.Background())
 
-	watcher, err := jobInfosReadonly.WatchByIndex(pipelineIndex, j1.Pipeline.String())
+	watcher, err := jobInfosReadonly.WatchByIndex(pipelineIndex, j1.Pipeline)
 	eventCh := watcher.Watch()
 	require.NoError(t, err)
 	var ID string
@@ -183,8 +184,7 @@ func TestIndexWatch(t *testing.T) {
 }
 
 func TestMultiIndex(t *testing.T) {
-	etcdClient, err := getEtcdClient()
-	require.NoError(t, err)
+	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
 	repoInfos := NewCollection(etcdClient, uuidPrefix, []Index{repoMultiIndex}, &pfs.RepoInfo{}, nil)
@@ -205,7 +205,7 @@ func TestMultiIndex(t *testing.T) {
 			{"input3"},
 		},
 	}
-	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
+	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
 		repoInfos := repoInfos.ReadWrite(stm)
 		repoInfos.Put(r1.Repo.Name, r1)
 		repoInfos.Put(r2.Repo.Name, r2)
@@ -295,13 +295,132 @@ func TestMultiIndex(t *testing.T) {
 	require.Equal(t, r2, repo)
 }
 
-func getEtcdClient() (*etcd.Client, error) {
-	etcdClient, err := etcd.New(etcd.Config{
-		Endpoints:   []string{"localhost:32379"},
-		DialOptions: client.EtcdDialOptions(),
-	})
-	if err != nil {
-		return nil, err
+func TestBoolIndex(t *testing.T) {
+	etcdClient := getEtcdClient()
+	uuidPrefix := uuid.NewWithoutDashes()
+	boolValues := NewCollection(etcdClient, uuidPrefix, []Index{{
+		Field: "Value",
+		Multi: false,
+	}}, &types.BoolValue{}, nil)
+
+	r1 := &types.BoolValue{
+		Value: true,
 	}
-	return etcdClient, nil
+	r2 := &types.BoolValue{
+		Value: false,
+	}
+	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
+		boolValues := boolValues.ReadWrite(stm)
+		boolValues.Put("true", r1)
+		boolValues.Put("false", r2)
+		return nil
+	})
+	require.NoError(t, err)
+
+	// Test that we don't format the index string incorrectly
+	resp, err := etcdClient.Get(context.Background(), uuidPrefix, etcd.WithPrefix())
+	require.NoError(t, err)
+	for _, kv := range resp.Kvs {
+		if !bytes.Contains(kv.Key, []byte("__index_")) {
+			continue // not an index record
+		}
+		require.True(t,
+			bytes.Contains(kv.Key, []byte("__index_Value/true")) ||
+				bytes.Contains(kv.Key, []byte("__index_Value/false")), string(kv.Key))
+	}
+}
+
+var epsilon = &types.BoolValue{Value: true}
+
+func TestTTL(t *testing.T) {
+	etcdClient := getEtcdClient()
+	uuidPrefix := uuid.NewWithoutDashes()
+
+	clxn := NewCollection(etcdClient, uuidPrefix, nil, &types.BoolValue{}, nil)
+	const TTL = 5
+	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
+		return clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL)
+	})
+	require.NoError(t, err)
+
+	var actualTTL int64
+	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
+		var err error
+		actualTTL, err = clxn.ReadWrite(stm).TTL("key")
+		return err
+	})
+	require.NoError(t, err)
+	require.True(t, actualTTL > 0 && actualTTL < TTL, "actualTTL was %v", actualTTL)
+}
+
+func TestTTLExpire(t *testing.T) {
+	etcdClient := getEtcdClient()
+	uuidPrefix := uuid.NewWithoutDashes()
+
+	clxn := NewCollection(etcdClient, uuidPrefix, nil, &types.BoolValue{}, nil)
+	const TTL = 5
+	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
+		return clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL)
+	})
+	require.NoError(t, err)
+
+	time.Sleep((TTL + 1) * time.Second)
+	value := &types.BoolValue{}
+	err = clxn.ReadOnly(context.Background()).Get("key", value)
+	require.NotNil(t, err)
+	require.Matches(t, "not found", err.Error())
+}
+
+func TestTTLExtend(t *testing.T) {
+	etcdClient := getEtcdClient()
+	uuidPrefix := uuid.NewWithoutDashes()
+
+	// Put value with short TLL & check that it was set
+	clxn := NewCollection(etcdClient, uuidPrefix, nil, &types.BoolValue{}, nil)
+	const TTL = 5
+	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
+		return clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL)
+	})
+	require.NoError(t, err)
+
+	var actualTTL int64
+	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
+		var err error
+		actualTTL, err = clxn.ReadWrite(stm).TTL("key")
+		return err
+	})
+	require.NoError(t, err)
+	require.True(t, actualTTL > 0 && actualTTL < TTL, "actualTTL was %v", actualTTL)
+
+	// Put value with new, longer TLL and check that it was set
+	const LongerTTL = 15
+	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
+		return clxn.ReadWrite(stm).PutTTL("key", epsilon, LongerTTL)
+	})
+	require.NoError(t, err)
+
+	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
+		var err error
+		actualTTL, err = clxn.ReadWrite(stm).TTL("key")
+		return err
+	})
+	require.NoError(t, err)
+	require.True(t, actualTTL > TTL && actualTTL < LongerTTL, "actualTTL was %v", actualTTL)
+}
+
+var etcdClient *etcd.Client
+var etcdClientOnce sync.Once
+
+func getEtcdClient() *etcd.Client {
+	etcdClientOnce.Do(func() {
+		var err error
+		etcdClient, err = etcd.New(etcd.Config{
+			Endpoints:   []string{"localhost:32379"},
+			DialOptions: client.EtcdDialOptions(),
+		})
+		if err != nil {
+			panic(err)
+		}
+	})
+	return etcdClient
 }
