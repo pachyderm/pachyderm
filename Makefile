@@ -95,7 +95,7 @@ point-release:
 	@echo "Release completed"
 
 # Run via 'make VERSION_ADDITIONAL=RC release-custom' to specify a version string
-release-custom: 
+release-candidate:
 	@make release-helper
 	@# Run pachctl release script w deploy branch name
 	@VERSION="$$(cat VERSION)" ./etc/build/release_pachctl $$(cat VERSION)
@@ -103,8 +103,12 @@ release-custom:
 	@rm VERSION
 	@echo "Release completed"
 
-release-custom-sha:
-	@make VERSION_ADDITIONAL=-$$(git log --pretty=format:%H | head -n 1) release-custom
+release-custom:
+	@make VERSION_ADDITIONAL=-$$(git log --pretty=format:%H | head -n 1) release-helper
+	@# Run pachctl release script w deploy branch name
+	@VERSION="$$(cat VERSION)" ./etc/build/release_pachctl $$(cat VERSION)
+	@rm VERSION
+	@echo "Release completed"
 
 release-helper: check-docker-version release-version release-pachd release-worker
 
