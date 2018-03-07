@@ -105,6 +105,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		if err != nil {
 			return err
 		}
+		pis = sortPipelineInfos(pis)
 		for _, pi := range pis {
 			if err := handleOp(&admin.Op{Op1_7: &admin.Op1_7{
 				Pipeline: &pps.CreatePipelineRequest{
@@ -216,6 +217,29 @@ func sortCommitInfos(cis []*pfs.CommitInfo) []*pfs.CommitInfo {
 		for i := range localResult {
 			result = append(result, localResult[len(localResult)-i-1])
 		}
+	}
+	return result
+}
+
+func sortPipelineInfos(pis []*pps.PipelineInfo) []*pps.PipelineInfo {
+	piMap := make(map[string]*pps.PipelineInfo)
+	for _, pi := range pis {
+		piMap[pi.Pipeline.Name] = pi
+	}
+	var result []*pps.PipelineInfo
+	add := func(name string) {
+		if pi, ok := piMap[name]; ok {
+			result = append(result, pi)
+			delete(piMap, name)
+		}
+	}
+	for _, pi := range pis {
+		pps.VisitInput(pi.Input, func(input *pps.Input) {
+			if input.Atom != nil {
+				add(input.Atom.Repo)
+			}
+		})
+		add(pi.Pipeline.Name)
 	}
 	return result
 }
