@@ -88,7 +88,7 @@ type apiServer struct {
 	// returned to users by Authenticate()
 	tokens col.Collection
 	// tokens is a collection of hashedToken -> User mappings. These tokens are
-	// returned by GetCapability() and stored with pipelines
+	// returned by GetAuthToken() and stored with pipelines
 	pipelineTokens col.Collection
 	// acls is a collection of repoName -> ACL mappings.
 	acls col.Collection
@@ -979,8 +979,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 	token := uuid.NewWithoutDashes()
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		pipelineTokens := a.pipelineTokens.ReadWrite(stm)
-		// Capabilities are forever; they don't expire.
-		return pipelineTokens.Put(hashToken(token), tokenInfo)
+		return pipelineTokens.PutTTL(hashToken(token), tokenInfo, req.TTL)
 	})
 	if err != nil {
 		if tokenInfo.Subject != magicUser {
@@ -989,7 +988,92 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 		return nil, fmt.Errorf("error storing token for default pipeline user: %v", err)
 	}
 
-	return &authclient.GetAuthTokenResponse{token}, nil
+	return &authclient.GetAuthTokenResponse{
+		Token: token,
+		TTL:   req.TTL,
+	}, nil
+}
+
+func (a *apiServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendAuthTokenRequest) (resp *authclient.ExtendAuthTokenResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	if !a.isActivated() {
+		return nil, authclient.NotActivatedError{}
+	}
+	if req.TTL == 0 {
+		return nil, fmt.Errorf("invalid request: ExtendAuthTokenRequest.TTL must be > 0")
+	}
+
+	// Only admins can extend auth tokens (for now)
+	tokenInfo, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !a.isAdmin(tokenInfo.Subject) {
+		return nil, fmt.Errorf("must be an admin to extend an auth token")
+	}
+
+	// Only let people extend tokens by up to two weeks (the equivalent of logging
+	// in again)
+	if req.TTL > defaultTokenTTLSecs {
+		return nil, fmt.Errorf("can only extend tokens by at most %d seconds", defaultTokenTTLSecs)
+	}
+
+	// The token must already exist. If a token has been revoked, it can't be
+	// extended
+	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		var (
+			// The collections in which the request token might exist
+			tokens, pipelineTokens = a.tokens.ReadWrite(stm), a.pipelineTokens.ReadWrite(stm)
+			tokenInfo              = &authclient.TokenInfo{} // if token is from Authenticate
+			pipelineTokenInfo      = &authclient.TokenInfo{} // if token is from GetAuthToken
+
+			// Actually look up the request token in the relevant collections
+			tokenError         = tokens.Get(hashToken(req.Token), tokenInfo)
+			pipelineTokenError = pipelineTokens.Get(hashToken(req.Token), pipelineTokenInfo)
+
+			// The TTL of the request token
+			ttl int64
+			err error
+		)
+
+		// Get the request token's TTL
+		switch {
+		case tokenError == nil:
+			ttl, err = tokens.TTL(hashToken(req.Token))
+		case pipelineTokenError == nil:
+			ttl, err = pipelineTokens.TTL(hashToken(req.Token))
+		default:
+			return authclient.BadTokenError{}
+		}
+		if err != nil {
+			if tokenError == nil {
+				return fmt.Errorf("Error looking up TTL for tokens.Get(%s) → %s: %v", req.Token, tokenInfo, err)
+			}
+			return fmt.Errorf("Error looking up TTL for pipelineTokens.Get(%s) → %s: %v", req.Token, pipelineTokenInfo, err)
+		}
+
+		// Can extend a token's TTL, or add a TTL to a non-expiring token
+		if req.TTL < ttl {
+			return authclient.TooShortTTLError{
+				RequestTTL:  req.TTL,
+				ExistingTTL: ttl,
+			}
+		}
+
+		// Write the request Token's TokenInfo back to etcd with the new TokenInfo
+		switch {
+		case tokenError == nil:
+			return tokens.PutTTL(hashToken(req.Token), tokenInfo, req.TTL)
+		case pipelineTokenError == nil:
+			return pipelineTokens.PutTTL(hashToken(req.Token), pipelineTokenInfo, req.TTL)
+		default:
+			return fmt.Errorf("cannot figure out where to write tokens; this is a bug")
+		}
+	}); err != nil {
+		return nil, err
+	}
+	return &authclient.ExtendAuthTokenResponse{}, nil
 }
 
 func (a *apiServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeAuthTokenRequest) (resp *authclient.RevokeAuthTokenResponse, retErr error) {
