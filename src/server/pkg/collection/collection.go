@@ -491,10 +491,11 @@ func (c *readonlyCollection) ListPrefix(prefix string) (Iterator, error) {
 		resp:       resp,
 		etcdClient: c.etcdClient,
 		ctx:        c.ctx,
+		col:        c,
 	}, nil
 }
 
-// List returns an iteraor that can be used to iterate over the collection.
+// List returns an iterator that can be used to iterate over the collection.
 // The objects are sorted by revision time in descending order, i.e. newer
 // objects are returned first.
 func (c *readonlyCollection) List() (Iterator, error) {
@@ -505,6 +506,22 @@ func (c *readonlyCollection) List() (Iterator, error) {
 	return &iterator{
 		resp: resp,
 		col:  c,
+	}, nil
+}
+
+// ListPaginated returns an iterator that can be used to iterate over the collection.
+// The objects are not sorted, but are paginated.
+func (c *readonlyCollection) ListPaginated() (Iterator, error) {
+	resp, err := c.etcdClient.Get(c.ctx, c.prefix, etcd.WithPrefix(), etcd.WithLimit(QueryPaginationLimit))
+	if err != nil {
+		return nil, err
+	}
+	return &paginatedIterator{
+		endKey:     endKeyFromPrefix(c.prefix),
+		resp:       resp,
+		etcdClient: c.etcdClient,
+		ctx:        c.ctx,
+		col:        c,
 	}, nil
 }
 
@@ -520,6 +537,7 @@ type paginatedIterator struct {
 	resp       *etcd.GetResponse
 	etcdClient *etcd.Client
 	ctx        context.Context
+	col        *readonlyCollection
 }
 
 func (c *readonlyCollection) Count() (int64, error) {
@@ -550,6 +568,9 @@ func (i *iterator) Next(key *string, val proto.Message) (ok bool, retErr error) 
 
 // Next() writes a fully qualified key (including the path) to the key value
 func (i *paginatedIterator) Next(key *string, val proto.Message) (ok bool, retErr error) {
+	if err := watch.CheckType(i.col.template, val); err != nil {
+		return false, err
+	}
 	if i.index < len(i.resp.Kvs) {
 		kv := i.resp.Kvs[i.index]
 		i.index++
