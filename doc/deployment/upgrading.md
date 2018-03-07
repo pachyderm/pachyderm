@@ -2,7 +2,7 @@
 
 Pachyderm releases new major versions (1.4, 1.5, 1.6, etc.) roughly every 2-3 months and releases minor versions as needed/warranted. Upgrading the version of your Pachyderm cluster should be relatively painless, and you should try to upgrade to make sure that you benefit from the latest features, bug fixes, etc. This guide will walk you through that upgrading process.
 
-**Note** - Occasionally, Pachyderm introduces changes that are backward-incompatible. For example, repos/commits/files created on an old version of Pachyderm may be unusable on a new version of Pachyderm. When that happens (which isn't very often), we try our best to make this transparent (in blog posts, changelogs, etc.), and we write a migration script that "upgrades" your data so it’s usable by the new version of Pachyderm. More details on Pachyderm migrations can be found [here](migrations.html).
+**Note** - Occasionally, Pachyderm introduces changes that are backward-incompatible. For example, repos/commits/files created on an old version of Pachyderm may be unusable on a new version of Pachyderm. When that happens (which isn't very often), migrations of Pachyderm metadata will happen automatically upon upgrading. We try our best to make these type of changes transparent (in blog posts, changelogs, etc.), and you can read more about the migration process and best practices [here](migrations.html). 
 
 ## Before Upgrading
 
@@ -11,7 +11,9 @@ Pachyderm's state (the data you have/are processing and metadata associated with
 - [Creating snapshots of GCE persistent volumes](https://cloud.google.com/compute/docs/disks/create-snapshots)
 - [Creating snapshots of Elastic Block Store (EBS) volumes](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-creating-snapshot.html)
 
-That being said, the upgrading steps detailed below should not effect these storage resources, and it's perfectly fine to re-deploy the new version of Pachyderm with the same storage resources.
+In addition or alternatively, you can utilize `pachctl extract` and `pachctl restore` to extract the state of a Pachyderm cluster and restore a Pachyderm cluster to an extracted state. This process is further described [here](migrations.html#backups).
+
+That being said, the upgrading steps detailed below should not effect these storage resources, and it's perfectly fine to upgrade to the new version of Pachyderm with the same storage resources.
 
 It's also good idea to version or otherwise save the Pachyderm deploy commands (`pachctl deploy ...`) that you utilize when deploying, because you can re-use those exact same commands when re-deploying, as further detailed below.
 
@@ -19,57 +21,20 @@ It's also good idea to version or otherwise save the Pachyderm deploy commands (
 
 Upgrading your Pachyderm version is as easy as:
 
-1. [Undeploying Pachyderm](#undeploying-pachyderm)
-2. [Upgrading `pachctl`](#upgrading-pachctl)
-3. [Re-deploying Pachyderm](#re-deploying-pachyderm)
-
-### Undeploying Pachyderm
-
-Let's suppose that I have a 1.6.3 Pachyderm cluster deployed, which can be confirmed as follows:
-
-```sh
-$ pachctl version
-COMPONENT           VERSION
-pachctl             1.6.3
-pachd               1.6.3
-```
-
-To undeploy this Pachyderm cluster, run:
-
-```sh
-$ pachctl undeploy
-No resources found
-service "etcd" deleted
-service "pachd" deleted
-No resources found
-deployment "etcd" deleted
-deployment "pachd" deletedserviceaccount "pachyderm" deleted
-secret "pachyderm-storage-secret" deleted
-No resources found
-```
-
-You will see output indicating the Kubernetes services and resources that are being removed, and you may see some `No resources found` statements depending on how you have Pachyderm deployed. After a few minutes, you should see that your Kubernetes cluster has returned to it's pre-Pachyderm state:
-
-```sh
-$ kubectl get all
-NAME             CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
-svc/kubernetes   10.96.0.1    <none>        443/TCP   39m
-```
+1. [Upgrading `pachctl`](#upgrading-pachctl)
+2. [Re-deploying Pachyderm](#re-deploying-pachyderm)
 
 ### Upgrading `pachctl`
 
-Now, to deploy an upgraded Pachyderm, we need to retrieve the latest version of `pachctl`. Details on installing the latest version can be found [here](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html#pachctl). You should be able to upgrade via `brew` or `apt` depending on your environment.
+To deploy an upgraded Pachyderm, we need to retrieve the latest version of `pachctl`. Details on installing the latest version can be found [here](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html#pachctl). You should be able to upgrade via `brew` or `apt` depending on your environment.
 
-Once you install the new version of `pachctl` (e.g., 1.6.4 in our example), you can confirm this via:
+Once you install the new version of `pachctl` (e.g., 1.7.0 in our example), you can confirm this via:
 
 ```sh
-$ pachctl version
+$ pachctl version --client-only
 COMPONENT           VERSION
-pachctl             1.6.4
-context deadline exceeded
+pachctl             1.7.0
 ```
-
-You will see `context deadline exceeded` here because Pachyderm isn't yet running on our cluster.
 
 ### Re-deploying Pachyderm
 
@@ -78,35 +43,28 @@ You can now re-deploy Pachyderm with the **same** deploy command that you origin
 ```sh
 $ pachctl deploy <args>
 serviceaccount "pachyderm" created
-deployment "etcd" created
+storageclass "etcd-storage-class" created
+service "etcd-headless" created
+statefulset "etcd" created
 service "etcd" created
 service "pachd" created
 deployment "pachd" created
+service "dash" created
+deployment "dash" created
 secret "pachyderm-storage-secret" created
 
-Pachyderm is launching. Check it's status with "kubectl get all"
+Pachyderm is launching. Check its status with "kubectl get all"
+Once launched, access the dashboard by running "pachctl port-forward"
 ```
 
 After a few minutes, you should then see a healthy Pachyderm cluster running in Kubernetes:
 
 ```sh
-kubectl get all
-NAME                        READY     STATUS    RESTARTS   AGE
-po/etcd-1490304484-rm57h    1/1       Running   0          1m
-po/pachd-3081814520-15sj5   1/1       Running   0          1m
-
-NAME             CLUSTER-IP      EXTERNAL-IP   PORT(S)                                                   AGE
-svc/etcd         10.105.75.160   <nodes>       2379:32379/TCP                                            1m
-svc/kubernetes   10.96.0.1       <none>        443/TCP                                                   53m
-svc/pachd        10.103.202.58   <nodes>       650:30650/TCP,651:30651/TCP,652:30652/TCP,999:30999/TCP   1m
-
-NAME           DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-deploy/etcd    1         1         1            1           1m
-deploy/pachd   1         1         1            1           1m
-
-NAME                  DESIRED   CURRENT   READY     AGE
-rs/etcd-1490304484    1         1         1         1m
-rs/pachd-3081814520   1         1         1         1m
+$ kubectl get pods
+NAME                     READY     STATUS    RESTARTS   AGE
+dash-482120938-np8cc     2/2       Running   0          4m
+etcd-0                   1/1       Running   0          4m
+pachd-3677268306-9sqm0   1/1       Running   0          4m
 ```
 
 And you can confirm the new version of Pachyderm as follows:
@@ -114,8 +72,8 @@ And you can confirm the new version of Pachyderm as follows:
 ```sh
 pachctl version
 COMPONENT           VERSION
-pachctl             1.6.4
-pachd               1.6.4
+pachctl             1.7.0
+pachd               1.7.0
 ```
 
 ## Common Issues, Questions

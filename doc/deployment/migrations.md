@@ -10,30 +10,29 @@ practices surrounding it.
 As of 1.7, Pachyderm's migration works by extracting objects into a stream of
 API requests, and replaying those requests onto the newer version of pachd.
 This process happens automatically using Kubernetes' "rolling update"
-functionality. All you need to do is deploy Pachyderm (with `pachctl
-deploy`) as you would if you were deploying for the first time.
-Specifically your steps will be:
+functionality. All you need to do is upgrade Pachyderm (with `pachctl
+deploy`) as further described [here](upgrading.html).
+Generally, you will need to:
 
-1. Have version 1.6.9 or later of `pachd` up and running in Kubernetes.
-2. Optional, but recommended: Create a backup of your cluster state with
+1. Have version 1.6.9 or later of Pachyderm up and running in Kubernetes.
+2. (Optional, but recommended) Create a backup of your cluster state with
    `pachctl extract` (see [below](#backups)).
-3. Upgrade `pachctl`.
-4. Run `pachctl deploy ...` with whatever arguments you used to deploy
+3. Upgrade `pachctl` (see [here](upgrading.html) for more details).
+4. Run `pachctl deploy ...` with whatever arguments you used to deploy Pachyderm
    previously.
 
-While migration is running, you will see 2 pachd pods running, the one that was
-already running, and the new one. During this time while both `pachd` pods are
-running the original pod (deployed with the previous version of Pachyderm) will
-still respond to requests, however write operations will race with the
-migration and may not make it to the new cluster. Thus you should make sure
-that all processes that write data to repos (i.e., call put-file) or create new
-pipelines are turned down before migration begins. You don't need to worry
+While the migration is running, you will see 2 `pachd` pods running, the one that was
+already running and the new one. The original `pachd` pod (deployed with the previous version of Pachyderm) will
+still respond to requests. However, write operations will race with the
+migration and may not make it to the new cluster. Thus, **you should make sure
+that all external processes that write data to repos (i.e., calls to `put-file`) or create new
+pipelines are turned down before migration begins**. You don't need to worry
 about pipelines running during the migration process.
 
 ## Backups
 
 It is highly recommended that you backup your cluster before you perform
-a migration. This is accomplished with the `pachctl extract` command. Runnings
+a migration. This is accomplished with the `pachctl extract` command. Running
 this command will generate a stream of API requests, similar to the stream used
 by migration above. This stream can then be used to reconstruct your cluster by
 running `pachctl restore`. See the docs for [`pachctl
@@ -43,7 +42,7 @@ restore`](http://docs.pachyderm.io/en/latest/pachctl/pachctl_restore.html) for
 further usage.
 
 
-## Before You Migrate.
+## Before You Migrate 1.6.x to 1.7.x+
 
 1.7 is the first Pachyderm version to support `extract` and `restore` which are
 necessary for migration. To bridge the gap to previous Pachyderm versions,
