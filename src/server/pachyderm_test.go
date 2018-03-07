@@ -6491,9 +6491,9 @@ func TestExtractRestore(t *testing.T) {
 		require.NoError(t, c.FinishCommit(dataRepo, "master"))
 	}
 
-	pipeline := uniqueString("TestExtractRestore")
+	pipeline1 := uniqueString("TestExtractRestore1")
 	require.NoError(t, c.CreatePipeline(
-		pipeline,
+		pipeline1,
 		"",
 		[]string{"bash"},
 		[]string{
@@ -6503,6 +6503,21 @@ func TestExtractRestore(t *testing.T) {
 			Constant: 1,
 		},
 		client.NewAtomInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+	pipeline2 := uniqueString("TestExtractRestore2")
+	require.NoError(t, c.CreatePipeline(
+		pipeline2,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(pipeline1, "/*"),
 		"",
 		false,
 	))
