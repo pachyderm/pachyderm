@@ -6725,6 +6725,8 @@ func TestExtractRestore(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.DeleteAll())
 	require.NoError(t, c.Restore(ops))
+	// Do the restore twice to make sure that it's idempotent
+	require.NoError(t, c.Restore(ops))
 
 	commitIter, err = c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
