@@ -46,7 +46,7 @@ func configurePlugin(t *testing.T, v *vault.Client) {
 	}
 }
 
-func TestConfig(t *testing.T) {
+func TestMinimalConfig(t *testing.T) {
 	vaultClientConfig := vault.DefaultConfig()
 	vaultClientConfig.Address = vaultAddress
 	v, err := vault.NewClient(vaultClientConfig)
