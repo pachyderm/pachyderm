@@ -408,7 +408,22 @@ func (a *apiServer) validateModifyAdminsRequest(add []string, remove []string) e
 	for _, u := range remove {
 		delete(m, u)
 	}
-	if len(m) == 0 {
+
+	// Confirm that there will be at least one GitHub user admin.
+	//
+	// This is required so that a person can get the cluster out of any broken
+	// state that it may enter. If all admins are robot users or pipelines, and
+	// the only way to authenticate as a non-human user is for another admin to
+	// call GetAuthToken, then there will be no way to authenticate as an admin
+	// and fix a broken cluster.
+	hasHumanAdmin := false
+	for user := range m {
+		if strings.HasPrefix(user, GitHubPrefix) {
+			hasHumanAdmin = true
+			break
+		}
+	}
+	if !hasHumanAdmin {
 		return fmt.Errorf("invalid request: cannot remove all cluster administrators while auth is active, to avoid unfixable cluster states")
 	}
 	return nil
@@ -1025,51 +1040,75 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendA
 		var (
 			// The collections in which the request token might exist
 			tokens, pipelineTokens = a.tokens.ReadWrite(stm), a.pipelineTokens.ReadWrite(stm)
-			tokenInfo              = &authclient.TokenInfo{} // if token is from Authenticate
-			pipelineTokenInfo      = &authclient.TokenInfo{} // if token is from GetAuthToken
 
-			// Actually look up the request token in the relevant collections
-			tokenError         = tokens.Get(hashToken(req.Token), tokenInfo)
-			pipelineTokenError = pipelineTokens.Get(hashToken(req.Token), pipelineTokenInfo)
+			// errgroup for looking up req.Token in parallel
+			eg errgroup.Group
 
-			// The TTL of the request token
-			ttl int64
-			err error
+			// True if the token was found in either 'tokens' or 'pipelineTokens'
+			tokenFound   bool
+			tokenFoundMu sync.Mutex
 		)
 
-		// Get the request token's TTL
-		switch {
-		case tokenError == nil:
-			ttl, err = tokens.TTL(hashToken(req.Token))
-		case pipelineTokenError == nil:
-			ttl, err = pipelineTokens.TTL(hashToken(req.Token))
-		default:
+		// Actually look up the request token in the relevant collections
+		eg.Go(func() error {
+			var tokenInfo authclient.TokenInfo
+			if err := tokens.Get(hashToken(req.Token), &tokenInfo); err != nil && !col.IsErrNotFound(err) {
+				return err
+			}
+			if tokenInfo.Subject == "" {
+				return nil // no token in 'tokens'--quit early
+			}
+			ttl, err := tokens.TTL(hashToken(req.Token))
+			if err != nil {
+				return fmt.Errorf("Error looking up TTL for token: %v", err)
+			}
+			tokenFoundMu.Lock()
+			defer tokenFoundMu.Unlock()
+			if tokenFound {
+				return fmt.Errorf("token present in both tokens and pipelineTokens")
+			}
+			tokenFound = true
+			if req.TTL < ttl {
+				return authclient.TooShortTTLError{
+					RequestTTL:  req.TTL,
+					ExistingTTL: ttl,
+				}
+			}
+			return tokens.PutTTL(hashToken(req.Token), &tokenInfo, req.TTL)
+		})
+		eg.Go(func() error {
+			var tokenInfo authclient.TokenInfo
+			if err := pipelineTokens.Get(hashToken(req.Token), &tokenInfo); err != nil && !col.IsErrNotFound(err) {
+				return err
+			}
+			if tokenInfo.Subject == "" {
+				return nil // no token in 'tokens'--quit early
+			}
+			ttl, err := pipelineTokens.TTL(hashToken(req.Token))
+			if err != nil {
+				return fmt.Errorf("Error looking up TTL for pipelineToken: %v", err)
+			}
+			tokenFoundMu.Lock()
+			defer tokenFoundMu.Unlock()
+			if tokenFound {
+				return fmt.Errorf("token present in both tokens and pipelineTokens")
+			}
+			tokenFound = true
+			if req.TTL < ttl {
+				return authclient.TooShortTTLError{
+					RequestTTL:  req.TTL,
+					ExistingTTL: ttl,
+				}
+			}
+			return pipelineTokens.PutTTL(hashToken(req.Token), &tokenInfo, req.TTL)
+		})
+		if err := eg.Wait(); err != nil {
+			return fmt.Errorf("error getting TokenInfo: %v", err)
+		}
+		if !tokenFound {
 			return authclient.BadTokenError{}
 		}
-		if err != nil {
-			if tokenError == nil {
-				return fmt.Errorf("Error looking up TTL for tokens.Get(%s) → %s: %v", req.Token, tokenInfo, err)
-			}
-			return fmt.Errorf("Error looking up TTL for pipelineTokens.Get(%s) → %s: %v", req.Token, pipelineTokenInfo, err)
-		}
-
-		// Can extend a token's TTL, or add a TTL to a non-expiring token
-		if req.TTL < ttl {
-			return authclient.TooShortTTLError{
-				RequestTTL:  req.TTL,
-				ExistingTTL: ttl,
-			}
-		}
-
-		// Write the request Token's TokenInfo back to etcd with the new TokenInfo
-		switch {
-		case tokenError == nil:
-			return tokens.PutTTL(hashToken(req.Token), tokenInfo, req.TTL)
-		case pipelineTokenError == nil:
-			return pipelineTokens.PutTTL(hashToken(req.Token), pipelineTokenInfo, req.TTL)
-		default:
-			return fmt.Errorf("cannot figure out where to write tokens; this is a bug")
-		}
+		return nil
 	}); err != nil {
 		return nil, err
 	}
