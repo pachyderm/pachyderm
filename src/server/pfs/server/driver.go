@@ -1247,139 +1247,85 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 	return commitInfos, nil
 }
 
-type commitStream struct {
-	stream chan CommitEvent
-	done   chan struct{}
-}
-
-func (c *commitStream) Stream() <-chan CommitEvent {
-	return c.stream
-}
-
-func (c *commitStream) Close() {
-	close(c.done)
-}
-
-func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch string, from *pfs.Commit) (CommitStream, error) {
+func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch string, from *pfs.Commit, f func(*pfs.CommitInfo) error) error {
 	d.initializePachConn()
 	if from != nil && from.Repo.Name != repo.Name {
-		return nil, fmt.Errorf("the `from` commit needs to be from repo %s", repo.Name)
+		return fmt.Errorf("the `from` commit needs to be from repo %s", repo.Name)
 	}
 
-	// We need to watch for new commits before we start listing commits,
-	// because otherwise we might miss some commits in between when we
-	// finish listing and when we start watching.
 	branches := d.branches(repo.Name).ReadOnly(ctx)
 	newCommitWatcher, err := branches.WatchOne(branch)
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	stream := make(chan CommitEvent)
-	done := make(chan struct{})
-
-	go func() (retErr error) {
-		defer newCommitWatcher.Close()
-		defer func() {
-			if retErr != nil {
-				select {
-				case stream <- CommitEvent{
-					Err: retErr,
-				}:
-				case <-done:
-				}
+	defer newCommitWatcher.Close()
+	// keep track of the commits that have been sent
+	seen := make(map[string]bool)
+	// include all commits that are currently on the given branch,
+	// but only the ones that have been finished
+	commitInfos, err := d.listCommit(ctx, repo, client.NewCommit(repo.Name, branch), from, 0)
+	if err != nil {
+		// We skip NotFound error because it's ok if the branch
+		// doesn't exist yet, in which case ListCommit returns
+		// a NotFound error.
+		if !isNotFoundErr(err) {
+			return err
+		}
+	}
+	// ListCommit returns commits in newest-first order,
+	// but SubscribeCommit should return commit in oldest-first
+	// order, so we reverse the order.
+	for i := range commitInfos {
+		commitInfo := commitInfos[len(commitInfos)-i-1]
+		if err := f(commitInfo); err != nil {
+			return err
+		}
+		seen[commitInfo.Commit.ID] = true
+	}
+	for {
+		var branchName string
+		branchInfo := &pfs.BranchInfo{}
+		var event *watch.Event
+		var ok bool
+		event, ok = <-newCommitWatcher.Watch()
+		if !ok {
+			return nil
+		}
+		switch event.Type {
+		case watch.EventError:
+			return event.Err
+		case watch.EventPut:
+			if err := event.Unmarshal(&branchName, branchInfo); err != nil {
+				return fmt.Errorf("Unmarshal: %v", err)
 			}
-			close(stream)
-		}()
-		// keep track of the commits that have been sent
-		seen := make(map[string]bool)
-		// include all commits that are currently on the given branch,
-		// but only the ones that have been finished
-		commitInfos, err := d.listCommit(ctx, repo, &pfs.Commit{
-			Repo: repo,
-			ID:   branch,
-		}, from, 0)
-		if err != nil {
-			// We skip NotFound error because it's ok if the branch
-			// doesn't exist yet, in which case ListCommit returns
-			// a NotFound error.
-			if !isNotFoundErr(err) {
+		case watch.EventDelete:
+			continue
+		}
+		if branchInfo.Head == nil {
+			continue // put event == new branch was created. No commits yet though
+		}
+
+		// TODO we check the branchName because right now WatchOne, like all
+		// collection watch commands, returns all events matching a given prefix,
+		// which means we'll get back events associated with `master-v1` if we're
+		// watching `master`.  Once this is changed we should remove the
+		// comparison between branchName and branch.
+
+		// We don't want to include the `from` commit itself
+		if branchName == branch && (!(seen[branchInfo.Head.ID] || (from != nil && from.ID == branchInfo.Head.ID))) {
+			commitInfo, err := d.inspectCommit(ctx, branchInfo.Head, false)
+			if err != nil {
 				return err
 			}
+			if err := f(commitInfo); err != nil {
+				return err
+			}
+			seen[commitInfo.Commit.ID] = true
 		}
-		// ListCommit returns commits in newest-first order,
-		// but SubscribeCommit should return commit in oldest-first
-		// order, so we reverse the order.
-		for i := range commitInfos {
-			commitInfo := commitInfos[len(commitInfos)-i-1]
-			select {
-			case stream <- CommitEvent{
-				Value: commitInfo,
-			}:
-				seen[commitInfo.Commit.ID] = true
-			case <-done:
-				return nil
-			}
-		}
-
-		for {
-			var branchName string
-			branchInfo := &pfs.BranchInfo{}
-			var event *watch.Event
-			var ok bool
-			select {
-			case event, ok = <-newCommitWatcher.Watch():
-			case <-done:
-				return nil
-			}
-			if !ok {
-				return nil
-			}
-			switch event.Type {
-			case watch.EventError:
-				return event.Err
-			case watch.EventPut:
-				if err := event.Unmarshal(&branchName, branchInfo); err != nil {
-					return fmt.Errorf("Unmarshal: %v", err)
-				}
-			case watch.EventDelete:
-				continue
-			}
-			if branchInfo.Head == nil {
-				continue // put event == new branch was created. No commits yet though
-			}
-
-			// We don't want to include the `from` commit itself
-
-			// TODO check the branchName because right now WatchOne, like all
-			// collection watch commands, returns all events matching a given prefix,
-			// which means we'll get back events associated with `master-v1` if we're
-			// watching `master`.  Once this is changed we should remove the
-			// comparison between branchName and branch.
-			if branchName == branch && (!(seen[branchInfo.Head.ID] || (from != nil && from.ID == branchInfo.Head.ID))) {
-				commitInfo, err := d.inspectCommit(ctx, branchInfo.Head, false)
-				if err != nil {
-					return err
-				}
-				select {
-				case stream <- CommitEvent{
-					Value: commitInfo,
-				}:
-					seen[commitInfo.Commit.ID] = true
-				case <-done:
-					return nil
-				}
-			}
-		}
-	}()
-
-	return &commitStream{
-		stream: stream,
-		done:   done,
-	}, nil
+	}
 }
 
-func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo, f func(commitInfo *pfs.CommitInfo) error) error {
+func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo, f func(*pfs.CommitInfo) error) error {
 	if len(fromCommits) == 0 {
 		return fmt.Errorf("fromCommits cannot be empty")
 	}

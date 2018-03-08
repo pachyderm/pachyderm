@@ -231,30 +231,7 @@ func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream 
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 
-	commitStream, err := a.driver.subscribeCommit(ctx, request.Repo, request.Branch, request.From)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		commitStream.Close()
-	}()
-
-	for {
-		select {
-		case <-stream.Context().Done():
-			return nil
-		case ev, ok := <-commitStream.Stream():
-			if !ok {
-				return nil
-			}
-			if ev.Err != nil {
-				return ev.Err
-			}
-			if err := stream.Send(ev.Value); err != nil {
-				return err
-			}
-		}
-	}
+	return a.driver.subscribeCommit(ctx, request.Repo, request.Branch, request.From, stream.Send)
 }
 
 func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
