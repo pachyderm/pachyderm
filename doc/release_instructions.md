@@ -1,5 +1,15 @@
 # Release procedure
 
+Types of Releases
+
+|ReleaseType|Example Version|Built off master|Can build off any branch| Updates docs| Can host multiple install versions |
+|---|---|---|---|---|---|
+|Point Release| v1.7.2| Y | N | Y | N |
+|Release Candidate| v1.8.0rc1 | Y | N | Y | N |
+|Custom Release | v1.8.1-aeeff234982735987affee | N | Y | N | Y |
+
+## Requirements:
+
 NOTE! At the moment, we require the release script to be run on an ubuntu machine.
 
 This is because of a dependency on CGO via [this bug](https://github.com/opencontainers/runc/issues/841)
@@ -7,8 +17,6 @@ This is because of a dependency on CGO via [this bug](https://github.com/opencon
 (We don't want to enable CGO in part because it doesn't play nice w OSX for us)
 
 If you're doing a custom release (off a branch that isn't master), [skip to the section at the bottom](#custom-release)
-
-## Requirements:
 
 You'll need the following credentials / tools:
 
@@ -50,7 +58,7 @@ You'll need the following credentials / tools:
 
 6) Run `docker login` (as the release script pushes new versions of the pachd and job-shim binaries to dockerhub)
 
-7) Run `make point-release` or `make VERSION_ADDITIONAL=<rc/version suffix> release-custom`
+7) Run `make point-release` or `make VERSION_ADDITIONAL=rc1 release-candidate`
 
 8) Commit the changes (the dash compatibility file will have been newly created), e.g.:
 
@@ -111,7 +119,28 @@ All of these can be accomplished by:
 
 Occasionally we have a need for a custom release off a non master branch. This is usually because some features we need to supply to users that are incompatible w features on master, but the features on master we need to keep longer term.
 
-Follow the instructions above, just run the make script off of your branch.
+Often times we can simply cut custom pachd/worker images for a customer. To do that, just run `make custom-images`. Otherwise, if the user needs a custom version of `pachctl`, do the following:
+
+1) Run `docker login` (as the release script pushes new versions of the pachd and job-shim binaries to dockerhub)
+
+2) Run `make custom-release`
+
+Which will create a release like `v1.2.3-2342345aefda9879e87ad`
+
+Which can be installed like:
+
+```
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.7.0-5a590ad9d8e9a09d4029f0f7379462620cf589ee/pachctl_1.7.0-5a590ad9d8e9a09d4029f0f7379462620cf589ee_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+```
+
+Or for mac/brew:
+
+```
+# Where 1.7 is the major.minor version of the release you just did,
+# and you use the right commit SHA as well in the URL
+$ brew install https://raw.githubusercontent.com/pachyderm/homebrew-tap/1.7.0-5a590ad9d8e9a09d4029f0f7379462620cf589ee/pachctl@1.7.rb
+```
+
 
 Then _after a successful release_:
 
