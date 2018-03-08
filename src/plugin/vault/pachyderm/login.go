@@ -19,12 +19,6 @@ func (b *backend) loginPath() *framework.Path {
 			"username": &framework.FieldSchema{
 				Type: framework.TypeString,
 			},
-			"ttl": &framework.FieldSchema{
-				Type: framework.TypeString,
-			},
-			"max_ttl": &framework.FieldSchema{
-				Type: framework.TypeString,
-			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
 			logical.UpdateOperation: b.pathAuthLogin,
@@ -37,14 +31,6 @@ func (b *backend) pathAuthLogin(ctx context.Context, req *logical.Request, d *fr
 	if len(username) == 0 {
 		return nil, logical.ErrInvalidRequest
 	}
-	ttlString := d.Get("ttl").(string)
-	if len(ttlString) == 0 {
-		ttlString = "45s"
-	}
-	maxTTLString := d.Get("max_ttl").(string)
-	if len(maxTTLString) == 0 {
-		maxTTLString = "2h"
-	}
 
 	config, err := b.Config(ctx, req.Storage)
 	if err != nil {
@@ -56,8 +42,11 @@ func (b *backend) pathAuthLogin(ctx context.Context, req *logical.Request, d *fr
 	if len(config.PachdAddress) == 0 {
 		return nil, errors.New("plugin is missing pachd_address")
 	}
+	if len(config.TTL) == 0 {
+		return nil, errors.New("plugin is missing ttl")
+	}
 
-	ttl, _, err := b.SanitizeTTLStr(ttlString, maxTTLString)
+	ttl, _, err := b.SanitizeTTLStr(config.TTL, defaultTTL)
 	if err != nil {
 		return nil, err
 	}
@@ -72,8 +61,6 @@ func (b *backend) pathAuthLogin(ctx context.Context, req *logical.Request, d *fr
 		Auth: &logical.Auth{
 			InternalData: map[string]interface{}{
 				"user_token": userToken,
-				"ttl":        ttlString,
-				"max_ttl":    maxTTLString,
 			},
 			Metadata: map[string]string{
 				"user_token":    userToken,
