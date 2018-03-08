@@ -97,6 +97,7 @@ func (b *backend) pathConfigWrite(ctx context.Context, req *logical.Request, dat
 		return nil, fmt.Errorf("error parsing duration (%v): %v", data.Get("ttl"), err)
 	}
 	ttl := defaultTTL
+	fmt.Printf("input ttl string: (%v)\n", ttlDuration.String())
 	if ttlDuration.String() != "" {
 		ttl = ttlDuration.String()
 	}
