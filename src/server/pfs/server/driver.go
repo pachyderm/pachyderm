@@ -1262,7 +1262,6 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 	// keep track of the commits that have been sent
 	seen := make(map[string]bool)
 	// include all commits that are currently on the given branch,
-	// but only the ones that have been finished
 	commitInfos, err := d.listCommit(ctx, repo, client.NewCommit(repo.Name, branch), from, 0)
 	if err != nil {
 		// We skip NotFound error because it's ok if the branch
