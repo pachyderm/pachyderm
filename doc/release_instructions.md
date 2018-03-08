@@ -5,7 +5,7 @@ Types of Releases
 |ReleaseType|Example Version|Built off master|Can build off any branch| Updates docs| Can host multiple install versions |
 |---|---|---|---|---|---|
 |Point Release| v1.7.2| Y | N | Y | N |
-|Release Candidate| v1.8.0-RC1 | Y | N | Y | N |
+|Release Candidate| v1.8.0rc1 | Y | N | Y | N |
 |Custom Release | v1.8.1-aeeff234982735987affee | N | Y | N | Y |
 
 ## Requirements:
@@ -58,7 +58,7 @@ You'll need the following credentials / tools:
 
 6) Run `docker login` (as the release script pushes new versions of the pachd and job-shim binaries to dockerhub)
 
-7) Run `make point-release` or `make VERSION_ADDITIONAL=RC1 release-candidate`
+7) Run `make point-release` or `make VERSION_ADDITIONAL=rc1 release-candidate`
 
 8) Commit the changes (the dash compatibility file will have been newly created), e.g.:
 

@@ -93,7 +93,7 @@ point-release:
 	@rm VERSION
 	@echo "Release completed"
 
-# Run via 'make VERSION_ADDITIONAL=RC release-custom' to specify a version string
+# Run via 'make VERSION_ADDITIONAL=rc2 release-custom' to specify a version string
 release-candidate:
 	@make release-helper
 	@make release-pachctl-custom
