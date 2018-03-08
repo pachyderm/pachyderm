@@ -339,12 +339,11 @@ func (s *stm) fetchTTL(iface STM, key string) (int64, error) {
 	}
 
 	// Read kv and lease ID, and cache new TTL
-	getResp := iface.fetch(key) // *** call correct implementation of fetch()
+	getResp := iface.fetch(key) // call correct implementation of fetch()
 	if len(getResp.Kvs) == 0 {
-		panic("err not found: " + key)
 		return 0, ErrNotFound{Key: key}
 	}
-	leaseID := v3.LeaseID(getResp.Kvs[0].Lease) // type(kv.Lease) != v3.LeaseID?
+	leaseID := v3.LeaseID(getResp.Kvs[0].Lease)
 	if leaseID == 0 {
 		s.ttlset[key] = 0 // 0 is default value, but now 'ok' will be true on check
 		return 0, nil

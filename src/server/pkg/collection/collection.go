@@ -195,7 +195,7 @@ func (c *readWriteCollection) PutTTL(key string, val proto.Message, ttl int64) e
 					// watching the index
 					if _, err := c.stm.Get(indexPath); err != nil && IsErrNotFound(err) {
 						if err := c.stm.Put(indexPath, key, ttl); err != nil {
-							return err // TODO should we unwind the txn somehow?
+							return err
 						}
 					}
 				}
