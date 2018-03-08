@@ -6700,38 +6700,41 @@ func TestExtractRestore(t *testing.T) {
 		require.NoError(t, c.FinishCommit(dataRepo, "master"))
 	}
 
-	pipeline := tu.UniqueString("TestExtractRestore")
-	require.NoError(t, c.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{
-			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewAtomInput(dataRepo, "/*"),
-		"",
-		false,
-	))
+	numPipelines := 10
+	input := dataRepo
+	for i := 0; i < numPipelines; i++ {
+		pipeline := tu.UniqueString(fmt.Sprintf("TestExtractRestore%d", i))
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{
+				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+			},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewAtomInput(input, "/*"),
+			"",
+			false,
+		))
+		input = pipeline
+	}
 
 	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, numPipelines, len(commitInfos))
 
 	ops, err := c.ExtractAll(false)
 	require.NoError(t, err)
 	require.NoError(t, c.DeleteAll())
 	require.NoError(t, c.Restore(ops))
-	// Do the restore twice to make sure that it's idempotent
-	require.NoError(t, c.Restore(ops))
 
 	commitIter, err = c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 	commitInfos = collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, numPipelines, len(commitInfos))
 }
 
 // TestCancelJob creates a long-running job and then kills it, testing that the
