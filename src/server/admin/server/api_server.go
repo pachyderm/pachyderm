@@ -227,18 +227,19 @@ func sortPipelineInfos(pis []*pps.PipelineInfo) []*pps.PipelineInfo {
 		piMap[pi.Pipeline.Name] = pi
 	}
 	var result []*pps.PipelineInfo
-	add := func(name string) {
+	var add func(string)
+	add = func(name string) {
 		if pi, ok := piMap[name]; ok {
+			pps.VisitInput(pi.Input, func(input *pps.Input) {
+				if input.Atom != nil {
+					add(input.Atom.Repo)
+				}
+			})
 			result = append(result, pi)
 			delete(piMap, name)
 		}
 	}
 	for _, pi := range pis {
-		pps.VisitInput(pi.Input, func(input *pps.Input) {
-			if input.Atom != nil {
-				add(input.Atom.Repo)
-			}
-		})
 		add(pi.Pipeline.Name)
 	}
 	return result
