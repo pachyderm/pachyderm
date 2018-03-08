@@ -73,7 +73,7 @@ type AssetOpts struct {
 	EtcdNodes   int
 	EtcdVolume  string
 	DashOnly    bool
-	NoDash		bool
+	NoDash      bool
 	DashImage   string
 	Registry    string
 	EtcdPrefix  string
@@ -583,13 +583,14 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 // EtcdStorageClass creates a storage class used for dynamic volume
 // provisioning.  Currently dynamic volume provisioning only works
 // on AWS and GCE.
-func EtcdStorageClass(backend backend) (interface{}, error) {
+func EtcdStorageClass(opts *AssetOpts, backend backend) (interface{}, error) {
 	sc := map[string]interface{}{
 		"apiVersion": "storage.k8s.io/v1beta1",
 		"kind":       "StorageClass",
 		"metadata": map[string]interface{}{
-			"name":   etcdStorageClassName,
-			"labels": labels(etcdName),
+			"name":      etcdStorageClassName,
+			"labels":    labels(etcdName),
+			"namespace": opts.Namespace,
 		},
 	}
 	switch backend {
@@ -781,6 +782,7 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 					"annotations": map[string]string{
 						"volume.beta.kubernetes.io/storage-class": etcdStorageClassName,
 					},
+					"namespace": opts.Namespace,
 				},
 				"spec": map[string]interface{}{
 					"resources": map[string]interface{}{
@@ -796,8 +798,9 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 		pvcTemplates = []interface{}{
 			map[string]interface{}{
 				"metadata": map[string]interface{}{
-					"name":   etcdVolumeClaimName,
-					"labels": labels(etcdName),
+					"name":      etcdVolumeClaimName,
+					"labels":    labels(etcdName),
+					"namespace": opts.Namespace,
 				},
 				"spec": map[string]interface{}{
 					"resources": map[string]interface{}{
@@ -822,8 +825,9 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 		"apiVersion": "apps/v1beta1",
 		"kind":       "StatefulSet",
 		"metadata": map[string]interface{}{
-			"name":   etcdName,
-			"labels": labels(etcdName),
+			"name":      etcdName,
+			"labels":    labels(etcdName),
+			"namespace": opts.Namespace,
 		},
 		"spec": map[string]interface{}{
 			// Effectively configures a RC
@@ -836,8 +840,9 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 			// pod template
 			"template": map[string]interface{}{
 				"metadata": map[string]interface{}{
-					"name":   etcdName,
-					"labels": labels(etcdName),
+					"name":      etcdName,
+					"labels":    labels(etcdName),
+					"namespace": opts.Namespace,
 				},
 				"spec": map[string]interface{}{
 					"containers": []interface{}{
@@ -1104,7 +1109,7 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 		encoder.Encode(EtcdDeployment(opts, hostPath))
 		fmt.Fprintf(w, "\n")
 	} else if opts.EtcdNodes > 0 {
-		sc, err := EtcdStorageClass(persistentDiskBackend)
+		sc, err := EtcdStorageClass(opts, persistentDiskBackend)
 		if err != nil {
 			return err
 		}
