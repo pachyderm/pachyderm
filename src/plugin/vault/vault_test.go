@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	vault "github.com/hashicorp/vault/api"
 
@@ -45,7 +46,37 @@ func configurePlugin(t *testing.T, v *vault.Client) {
 	}
 }
 
-func loginHelper(t *testing.T) *client.APIClient {
+func TestConfig(t *testing.T) {
+	vaultClientConfig := vault.DefaultConfig()
+	vaultClientConfig.Address = vaultAddress
+	v, err := vault.NewClient(vaultClientConfig)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+	v.SetToken("root")
+
+	configurePlugin(t, v)
+
+	vl := v.Logical()
+	secret, err := vl.Read(
+		fmt.Sprintf("/%v/config", pluginName),
+	)
+	fmt.Printf("config response: %v\n", secret)
+	// We'll see an error if the admin token / pachd address are not set
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	if secret.Data["pachd_address"] != pachdAddress {
+		t.Errorf("pachd_address configured incorrectly")
+	}
+	if secret.Data["ttl"] == "0s" {
+		t.Errorf("ttl configured incorrectly")
+	}
+
+}
+
+func loginHelper(t *testing.T) (*client.APIClient, *vault.Secret) {
 	vaultClientConfig := vault.DefaultConfig()
 	vaultClientConfig.Address = vaultAddress
 	v, err := vault.NewClient(vaultClientConfig)
@@ -57,12 +88,12 @@ func loginHelper(t *testing.T) *client.APIClient {
 	configurePlugin(t, v)
 
 	// Now hit login endpoint w invalid vault token, expect err
-	config := make(map[string]interface{})
-	config["username"] = "daffyduck"
+	params := make(map[string]interface{})
+	params["username"] = "daffyduck"
 	vl := v.Logical()
 	secret, err := vl.Write(
 		fmt.Sprintf("/%v/login", pluginName),
-		config,
+		params,
 	)
 
 	if err != nil {
@@ -86,7 +117,7 @@ func loginHelper(t *testing.T) *client.APIClient {
 	}
 	c.SetAuthToken(pachToken)
 
-	return c
+	return c, secret
 }
 
 func TestLogin(t *testing.T) {
@@ -102,16 +133,21 @@ func TestLogin(t *testing.T) {
 		t.Errorf("client could list admins before using auth token. this is likely a bug")
 	}
 
-	c = loginHelper(t)
+	c, secret := loginHelper(t)
 
 	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err != nil {
 		t.Errorf(err.Error())
 	}
-}
 
-func TestLoginTTL(t *testing.T) {
-	// Same as above, validate that pach token expires after given TTL
+	fmt.Printf("sleeping for %vs\n", secret.LeaseDuration)
+	time.Sleep(time.Duration(secret.LeaseDuration) * time.Second)
+	// Just a bit extra to make sure we pass the expiry
+	time.Sleep(time.Second)
+	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+	if err == nil {
+		t.Errorf("API call should fail, but token did not expire")
+	}
 }
 
 func TestRenewBeforeTTLExpires(t *testing.T) {

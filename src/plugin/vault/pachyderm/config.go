@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/fatih/structs"
 	"github.com/hashicorp/vault/helper/parseutil"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
@@ -33,7 +32,9 @@ func (b *backend) configPath() *framework.Path {
 Read or writer configuration to Vault's storage backend to specify the Pachyderm admin token. For example:
 
     $ vault write auth/pachyderm/config \
-        admin_token="xxx"
+        admin_token="xxx" \
+		pachd_address="127.0.0.1:30650" \
+		ttl="20m"
 
 For more information and examples, please see the online documentation.
 
@@ -66,9 +67,12 @@ func (b *backend) pathConfigRead(ctx context.Context, req *logical.Request, data
 	if err != nil {
 		return nil, fmt.Errorf("%v: failed to get configuration from storage", err)
 	}
-
+	respData := make(map[string]interface{})
+	respData["admin_token"] = config.AdminToken
+	respData["pachd_address"] = config.PachdAddress
+	respData["ttl"] = config.TTL
 	resp := &logical.Response{
-		Data: structs.New(config).Map(),
+		Data: respData,
 	}
 	return resp, nil
 }
