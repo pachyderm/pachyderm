@@ -11,6 +11,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/julienschmidt/httprouter"
@@ -53,12 +54,12 @@ func NewHTTPServer(address string) (http.Handler, error) {
 	}
 
 	router.GET(getFilePath, s.getFileHandler)
+	router.GET(servicePath, s.serviceHandler)
+
 	router.POST(loginPath, s.authLoginHandler)
 	router.POST(logoutPath, s.authLogoutHandler)
-	router.GET(servicePath, s.serviceHandler)
 	router.POST(servicePath, s.serviceHandler)
-	// Debug method (to check login cookies):
-	router.GET(loginPath, s.loginForm)
+
 	router.NotFound = http.HandlerFunc(notFound)
 	return s, nil
 }
@@ -82,12 +83,12 @@ func (s *server) getFileHandler(w http.ResponseWriter, r *http.Request, ps httpr
 	c := s.getPachClient()
 	commitInfo, err := c.InspectCommit(ps.ByName("repoName"), ps.ByName("commitID"))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		httpError(w, err)
 		return
 	}
 	content, err := c.GetFileReadSeeker(ps.ByName("repoName"), ps.ByName("commitID"), ps.ByName("filePath"))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		httpError(w, err)
 		return
 	}
 	modtime, err := types.TimestampFromProto(commitInfo.Finished)
@@ -97,10 +98,10 @@ func (s *server) getFileHandler(w http.ResponseWriter, r *http.Request, ps httpr
 
 func (s *server) serviceHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	c := s.getPachClient()
-	pipelineInfo, err := c.InspectPipeline(ps.ByName("serviceName"))
+	serviceName := ps.ByName("serviceName")
+	pipelineInfo, err := c.InspectPipeline(serviceName)
 	if err != nil {
-		// TODO this could be a NotFound which should 404, not 500
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		httpError(w, err)
 		return
 	}
 	URL, err := url.Parse(fmt.Sprintf("http://%s:%d", pipelineInfo.Service.IP, pipelineInfo.Service.ExternalPort))
@@ -112,7 +113,7 @@ func (s *server) serviceHandler(w http.ResponseWriter, r *http.Request, ps httpr
 	director := proxy.Director
 	proxy.Director = func(req *http.Request) {
 		director(req)
-		req.URL.Path = strings.TrimPrefix(req.URL.Path, path.Join(path.Dir(path.Dir(servicePath)), pipelineInfo.Pipeline.Name))
+		req.URL.Path = strings.TrimPrefix(req.URL.Path, path.Join(path.Dir(path.Dir(servicePath)), serviceName))
 	}
 	proxy.ServeHTTP(w, r)
 }
@@ -124,7 +125,6 @@ type loginRequestPayload struct {
 func (s *server) authLoginHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	token := r.FormValue("Token")
 	if token == "" {
-		// Return 500
 		http.Error(w, "empty token provided", http.StatusInternalServerError)
 		return
 	}
@@ -141,21 +141,13 @@ func (s *server) authLogoutHandler(w http.ResponseWriter, r *http.Request, ps ht
 }
 
 func notFound(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Content-Type", "text/html; charset=utf-8")
 	http.Error(w, "route not found", http.StatusNotFound)
 }
-func (s *server) loginForm(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	w.Header().Add("Content-Type", "text/html; charset=utf-8")
-	if _, err := w.Write([]byte(fmt.Sprintf(`<!DOCTYPE html>
-<html>
-<body>
-<form action="%v" method="post">
-<input name="Token">
-<input type="submit">
-</form>
-</body>
-</html>
-`, loginPath))); err != nil {
+
+func httpError(w http.ResponseWriter, err error) {
+	if errutil.IsNotFoundError(err) {
+		http.Error(w, err.Error(), http.StatusNotFound)
+	} else {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
