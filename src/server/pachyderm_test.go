@@ -6491,26 +6491,31 @@ func TestExtractRestore(t *testing.T) {
 		require.NoError(t, c.FinishCommit(dataRepo, "master"))
 	}
 
-	pipeline := uniqueString("TestExtractRestore")
-	require.NoError(t, c.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{
-			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewAtomInput(dataRepo, "/*"),
-		"",
-		false,
-	))
+	numPipelines := 10
+	input := dataRepo
+	for i := 0; i < numPipelines; i++ {
+		pipeline := uniqueString(fmt.Sprintf("TestExtractRestore%d", i))
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{
+				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+			},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewAtomInput(input, "/*"),
+			"",
+			false,
+		))
+		input = pipeline
+	}
 
 	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, numPipelines, len(commitInfos))
 
 	ops, err := c.ExtractAll()
 	require.NoError(t, err)
@@ -6520,7 +6525,7 @@ func TestExtractRestore(t *testing.T) {
 	commitIter, err = c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 	commitInfos = collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, numPipelines, len(commitInfos))
 }
 
 func TestEntryPoint(t *testing.T) {

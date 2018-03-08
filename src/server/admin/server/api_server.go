@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
@@ -58,7 +59,6 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 	if !request.NoObjects {
 		w := extractObjectWriter(handleOp)
 		if err := pachClient.ListObject(func(object *pfs.Object) error {
-			fmt.Printf("Extract object: %s\n", object.Hash)
 			if err := pachClient.GetObject(object.Hash, w); err != nil {
 				return err
 			}
@@ -105,6 +105,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		if err != nil {
 			return err
 		}
+		pis = sortPipelineInfos(pis)
 		for _, pi := range pis {
 			if err := handleOp(&admin.Op{Op1_7: &admin.Op1_7{
 				Pipeline: &pps.CreatePipelineRequest{
@@ -220,6 +221,30 @@ func sortCommitInfos(cis []*pfs.CommitInfo) []*pfs.CommitInfo {
 	return result
 }
 
+func sortPipelineInfos(pis []*pps.PipelineInfo) []*pps.PipelineInfo {
+	piMap := make(map[string]*pps.PipelineInfo)
+	for _, pi := range pis {
+		piMap[pi.Pipeline.Name] = pi
+	}
+	var result []*pps.PipelineInfo
+	var add func(string)
+	add = func(name string) {
+		if pi, ok := piMap[name]; ok {
+			pps.VisitInput(pi.Input, func(input *pps.Input) {
+				if input.Atom != nil {
+					add(input.Atom.Repo)
+				}
+			})
+			result = append(result, pi)
+			delete(piMap, name)
+		}
+	}
+	for _, pi := range pis {
+		add(pi.Pipeline.Name)
+	}
+	return result
+}
+
 func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error) {
 	func() { a.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
@@ -287,19 +312,19 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 				return fmt.Errorf("error tagging object: %v", grpcutil.ScrubGRPC(err))
 			}
 		case op.Op1_7 != nil && op.Op1_7.Repo != nil:
-			if _, err := pachClient.PfsAPIClient.CreateRepo(ctx, op.Op1_7.Repo); err != nil {
+			if _, err := pachClient.PfsAPIClient.CreateRepo(ctx, op.Op1_7.Repo); err != nil && !errutil.IsAlreadyExistError(err) {
 				return fmt.Errorf("error creating repo: %v", grpcutil.ScrubGRPC(err))
 			}
 		case op.Op1_7 != nil && op.Op1_7.Commit != nil:
-			if _, err := pachClient.PfsAPIClient.BuildCommit(ctx, op.Op1_7.Commit); err != nil {
+			if _, err := pachClient.PfsAPIClient.BuildCommit(ctx, op.Op1_7.Commit); err != nil && !errutil.IsAlreadyExistError(err) {
 				return fmt.Errorf("error creating commit: %v", grpcutil.ScrubGRPC(err))
 			}
 		case op.Op1_7 != nil && op.Op1_7.Branch != nil:
-			if _, err := pachClient.PfsAPIClient.SetBranch(ctx, op.Op1_7.Branch); err != nil {
+			if _, err := pachClient.PfsAPIClient.SetBranch(ctx, op.Op1_7.Branch); err != nil && !errutil.IsAlreadyExistError(err) {
 				return fmt.Errorf("error creating branch: %v", grpcutil.ScrubGRPC(err))
 			}
 		case op.Op1_7 != nil && op.Op1_7.Pipeline != nil:
-			if _, err := pachClient.PpsAPIClient.CreatePipeline(ctx, op.Op1_7.Pipeline); err != nil {
+			if _, err := pachClient.PpsAPIClient.CreatePipeline(ctx, op.Op1_7.Pipeline); err != nil && !errutil.IsAlreadyExistError(err) {
 				return fmt.Errorf("error creating pipeline: %v", grpcutil.ScrubGRPC(err))
 			}
 		}
