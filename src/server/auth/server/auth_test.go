@@ -91,6 +91,7 @@ func activateAuth(t testing.TB) {
 // cluster, and then enable the auth service in that cluster
 func getPachClient(t testing.TB, subject string) *client.APIClient {
 	t.Helper()
+	fmt.Printf("subject: %s\n", subject)
 	clientMapMut.Lock()
 	defer clientMapMut.Unlock()
 

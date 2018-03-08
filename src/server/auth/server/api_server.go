@@ -495,7 +495,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 		return nil, authclient.NotActivatedError{}
 	}
 	if strings.HasPrefix(req.GitHubUsername, GitHubPrefix) || strings.HasPrefix(req.GitHubUsername, RobotPrefix) {
-		return nil, fmt.Errorf("GitHubUsername should not have a user type prefix; it must be a GitHub user")
+		return nil, fmt.Errorf("GitHubUsername should not have a user type prefix, but was \"%s\"; it must be a GitHub user", req.GitHubUsername)
 	}
 	if req.GitHubUsername == magicUser {
 		return nil, fmt.Errorf("invalid user")
