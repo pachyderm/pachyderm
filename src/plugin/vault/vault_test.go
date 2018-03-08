@@ -45,19 +45,7 @@ func configurePlugin(t *testing.T, v *vault.Client) {
 	}
 }
 
-func TestLogin(t *testing.T) {
-	// Negative control:
-	//     Before we have a valid pach token, we should not
-	// be able to list admins
-	c, err := client.NewFromAddress(pachdAddress)
-	if err != nil {
-		t.Errorf(err.Error())
-	}
-	_, err = c.AuthAPIClient.GetAdmins(context.Background(), &auth.GetAdminsRequest{})
-	if err == nil {
-		t.Errorf("client could list admins before using auth token. this is likely a bug")
-	}
-
+func loginHelper(t *testing.T) *client.APIClient {
 	vaultClientConfig := vault.DefaultConfig()
 	vaultClientConfig.Address = vaultAddress
 	v, err := vault.NewClient(vaultClientConfig)
@@ -65,7 +53,6 @@ func TestLogin(t *testing.T) {
 		t.Errorf(err.Error())
 	}
 	v.SetToken("root")
-	// Hit login before admin token is set, expect err
 
 	configurePlugin(t, v)
 
@@ -93,11 +80,29 @@ func TestLogin(t *testing.T) {
 
 	// Now do the actual test:
 	// Try and list admins w a client w a valid pach token
-	c, err = client.NewFromAddress(reportedPachdAddress)
+	c, err := client.NewFromAddress(reportedPachdAddress)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
 	c.SetAuthToken(pachToken)
+
+	return c
+}
+
+func TestLogin(t *testing.T) {
+	// Negative control:
+	//     Before we have a valid pach token, we should not
+	// be able to list admins
+	c, err := client.NewFromAddress(pachdAddress)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+	_, err = c.AuthAPIClient.GetAdmins(context.Background(), &auth.GetAdminsRequest{})
+	if err == nil {
+		t.Errorf("client could list admins before using auth token. this is likely a bug")
+	}
+
+	c = loginHelper(t)
 
 	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err != nil {
@@ -109,10 +114,8 @@ func TestLoginTTL(t *testing.T) {
 	// Same as above, validate that pach token expires after given TTL
 }
 
-func TestRenew(t *testing.T) {
-	// Does login, issues renew request before TTL expires
+func TestRenewBeforeTTLExpires(t *testing.T) {
 
-	// Does login, issues renew request after TTL expires (expect err)
 }
 
 func TestRevoke(t *testing.T) {

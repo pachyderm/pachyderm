@@ -5,9 +5,12 @@ import (
 	"fmt"
 
 	"github.com/fatih/structs"
+	"github.com/hashicorp/vault/helper/parseutil"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 )
+
+const defaultTTL = "5m"
 
 type config struct {
 	// AdminToken is pachyderm admin token used to generate credentials
@@ -15,6 +18,10 @@ type config struct {
 
 	// PachdAddress is the hostport at which the client can reach Pachyderm
 	PachdAddress string `json:"pachd_address" structs:"-"`
+
+	// TTL defines the time to live for any tokens that will be provided
+	// It is a duration string, e.g. "23s", "5m", "4h"
+	TTL string `json:"ttl" structs:"-"`
 }
 
 func (b *backend) configPath() *framework.Path {
@@ -40,6 +47,10 @@ For more information and examples, please see the online documentation.
 			"pachd_address": &framework.FieldSchema{
 				Type:        framework.TypeString,
 				Description: "Pachyderm cluster address, e.g. 127.0.0.1:30650",
+			},
+			"ttl": &framework.FieldSchema{
+				Type:        framework.TypeDurationSecond,
+				Description: "Max TTL for any tokens issued",
 			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
@@ -77,11 +88,19 @@ func (b *backend) pathConfigWrite(ctx context.Context, req *logical.Request, dat
 	if pachdAddress == "" {
 		return errMissingField("pachd_address"), nil
 	}
-
+	ttlDuration, err := parseutil.ParseDurationSecond(data.Get("ttl"))
+	if err != nil {
+		return nil, fmt.Errorf("error parsing duration (%v): %v", data.Get("ttl"), err)
+	}
+	ttl := defaultTTL
+	if ttlDuration.String() != "" {
+		ttl = ttlDuration.String()
+	}
 	// Built the entry
 	entry, err := logical.StorageEntryJSON("config", &config{
 		AdminToken:   adminToken,
 		PachdAddress: pachdAddress,
+		TTL:          ttl,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("%v: failed to generate storage entry", err)
