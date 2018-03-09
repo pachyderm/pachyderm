@@ -13,6 +13,7 @@ import (
 	kube "k8s.io/client-go/kubernetes"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -32,52 +33,6 @@ var (
 		"ErrImagePull":     true,
 	}
 )
-
-//// TODO this doesn't actually work right now, but it should be fixed and re-added
-// // fixNonDefaultPipelines implements a hack that covers for migrations bugs
-// // where a field is set by setPipelineDefaults in a newer version of the server
-// // but a PipelineInfo which was created with an older version of the server
-// // doesn't have that field set because setPipelineDefaults was different when
-// // it was created.
-// func (a *apiServer) fixNonDefaultPipelines(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
-// 	if pipelineInfo.Salt == "" || pipelineInfo.CacheSize == "" {
-// 		// Stop the pipeline (so that updating the "spec" branch doesn't create a
-// 		// new commit in the pipeline's output branch
-// 		if err := a.StopPipeline(ctx, &pps.StopPipelineRequest{Pipeline: pipeline}); err != nil {
-// 			return err
-// 		}
-//
-// 		// Update the pipeline's PipelineInfo
-// 		// TODO this doesn't actually work right now
-// 		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-// 			pipelines := a.pipelines.ReadWrite(stm)
-//
-//
-//      // pipelines don't come from etcd anymore
-// 			newPipelineInfo := new(pps.PipelineInfo)
-// 			if err := pipelines.Get(pipelineInfo.Pipeline.Name, newPipelineInfo); err != nil {
-// 				return fmt.Errorf("error getting pipeline %s: %+v", pipelineName, err)
-// 			}
-//
-//
-//
-// 			if newPipelineInfo.Salt == "" {
-// 				newPipelineInfo.Salt = uuid.NewWithoutDashes()
-// 			}
-// 			setPipelineDefaults(newPipelineInfo)
-// 			pipelines.Put(pipelineInfo.Pipeline.Name, newPipelineInfo)
-// 			pipelineInfo = *newPipelineInfo
-// 			return nil
-// 		}); err != nil {
-// 			return err
-// 		}
-//
-// 		// Restart the pipeline
-// 		if err := a.StartPipeline(ctx, &pps.StartPipelineRequest{Pipeline: pipeline}); err != nil {
-// 			return err
-// 		}
-// 	}
-// }
 
 // The master process is responsible for creating/deleting workers as
 // pipelines are created/removed.
@@ -139,8 +94,6 @@ func (a *apiServer) master() {
 					if err := event.Unmarshal(&pipelineName, &pipelinePtr); err != nil {
 						return err
 					}
-					// TODO fix this function and uncomment this line
-					// a.fixNonDefaultPipelines()
 					pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, pipelineName, &pipelinePtr)
 					if err != nil {
 						return err
@@ -396,5 +349,43 @@ func (a *apiServer) deleteWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 			return err
 		}
 	}
+	return nil
+}
+
+func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) error {
+	backoff.RetryNotify(func() error {
+		ciChan := make(chan *pfs.CommitInfo)
+		go func() {
+			if err := pachClient.SubscribeCommitF(pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch, "", func(ci *pfs.CommitInfo) error {
+				ciChan <- ci
+				return nil
+			}); err != nil {
+				fmt.Printf("error from SubscribeCommit in monitorPipeline: %v\n", err)
+			}
+		}()
+		for {
+			select {
+			case ci := <-ciChan:
+				// scale up
+				if _, err := pachClient.BlockCommit(ci.Commit.Repo.Name, ci.Commit.ID); err != nil {
+					return err
+				}
+				if _, err := pachClient.InspectJobOutputCommit(ci.Commit.Repo.Name, ci.Commit.ID, true); err != nil {
+					return err
+				}
+			default:
+				// scale down
+			}
+		}
+		return nil
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		select {
+		case <-pachClient.Ctx().Done():
+			return context.DeadlineExceeded
+		default:
+			fmt.Printf("error in monitorPipeline: %v: retrying in: %v\n", err, d)
+		}
+		return nil
+	})
 	return nil
 }
