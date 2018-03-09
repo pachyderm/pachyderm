@@ -334,11 +334,9 @@ func (a *apiServer) isActivated() bool {
 // it discover the username of the user who obtained the code (or verify that
 // the code belongs to githubUsername). This is how Pachyderm currently
 // implements authorization in a production cluster
-func GitHubTokenToUsername(ctx context.Context, githubUsername string, oauthToken string) (string, error) {
-	if githubUsername == "" {
-		return "", fmt.Errorf("cannot validate GitHub credentials for anonymous user")
-	}
-	if os.Getenv(DisableAuthenticationEnvVar) == "true" {
+func GitHubTokenToUsername(ctx context.Context, githubUsername string, token string) (string, error) {
+	if os.Getenv(DisableAuthenticationEnvVar) == "true" && githubUsername != "" {
+		// TODO(msteffen): githubUsername should be required, so that intercepted tokens aren't useful
 		// Test mode--the caller automatically authenticates as whoever is requested
 		return GitHubPrefix + githubUsername, nil
 	}
@@ -357,8 +355,8 @@ func GitHubTokenToUsername(ctx context.Context, githubUsername string, oauthToke
 		return "", fmt.Errorf("error getting the authenticated user: %v", err)
 	}
 	verifiedUsername := user.GetLogin()
-	if githubUsername != verifiedUsername {
-		return "", fmt.Errorf("attempted to authenticate as %s, but GitHub "+
+	if githubUsername != "" && githubUsername != verifiedUsername {
+		return "", fmt.Errorf("attempted to authenticate as %s, but Github "+
 			"token did not originate from that account", githubUsername)
 	}
 	return GitHubPrefix + verifiedUsername, nil
