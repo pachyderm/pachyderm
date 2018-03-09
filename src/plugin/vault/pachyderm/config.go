@@ -9,7 +9,8 @@ import (
 	"github.com/hashicorp/vault/logical/framework"
 )
 
-const defaultTTL = "5m"
+// DefaultTTL defines the default if none is specified
+const DefaultTTL = "5m"
 
 type config struct {
 	// AdminToken is pachyderm admin token used to generate credentials
@@ -96,9 +97,9 @@ func (b *backend) pathConfigWrite(ctx context.Context, req *logical.Request, dat
 	if err != nil {
 		return nil, fmt.Errorf("error parsing duration (%v): %v", data.Get("ttl"), err)
 	}
-	ttl := defaultTTL
-	fmt.Printf("input ttl string: (%v)\n", ttlDuration.String())
-	if ttlDuration.String() != "" {
+	ttl := DefaultTTL
+	// An empty input param results in a "0s" duration
+	if ttlDuration.Seconds() > 0 {
 		ttl = ttlDuration.String()
 	}
 	// Built the entry

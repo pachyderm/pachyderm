@@ -46,7 +46,7 @@ func (b *backend) pathAuthLogin(ctx context.Context, req *logical.Request, d *fr
 		return nil, errors.New("plugin is missing ttl")
 	}
 
-	ttl, _, err := b.SanitizeTTLStr(config.TTL, defaultTTL)
+	ttl, _, err := b.SanitizeTTLStr(config.TTL, DefaultTTL)
 	if err != nil {
 		return nil, err
 	}
