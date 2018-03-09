@@ -45,7 +45,7 @@ func configurePluginHelper(v *vault.Client, testPachToken string, testPachdAddre
 	if ttl != "" {
 		config["ttl"] = ttl
 	}
-	secret, err := vl.Write(
+	_, err := vl.Write(
 		fmt.Sprintf("/%v/config", pluginName),
 		config,
 	)
@@ -78,15 +78,15 @@ func TestBadConfig(t *testing.T) {
 	}
 
 	err = configurePluginHelper(v, "", pachdAddress, "")
-	if err != nil {
+	if err == nil {
 		t.Errorf("expected missing token in config to error")
 	}
 	err = configurePluginHelper(v, resp.PachToken, "", "")
-	if err != nil {
+	if err == nil {
 		t.Errorf("expected missing address in config to error")
 	}
 	err = configurePluginHelper(v, resp.PachToken, pachdAddress, "234....^^^")
-	if err != nil {
+	if err == nil {
 		t.Errorf("expected bad ttl in config to error")
 	}
 
