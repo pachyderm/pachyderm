@@ -363,6 +363,19 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	pachClient := a.getPachClient().WithCtx(ctx)
 
 	jobs := a.jobs.ReadOnly(ctx)
+	if request.OutputCommit != nil {
+		if request.Job != nil {
+			return nil, fmt.Errorf("can't set both Job and OutputCommit")
+		}
+		jis, err := a.listJob(pachClient, nil, request.OutputCommit, nil)
+		if err != nil {
+			return nil, err
+		}
+		if len(jis) != 1 {
+			return nil, fmt.Errorf("internal error, %d Jobs have output commit: %v (this is likely a bug)", len(jis), request.OutputCommit)
+		}
+		request.Job = jis[0].Job
+	}
 
 	if request.BlockState {
 		watcher, err := jobs.WatchOne(request.Job.ID)
