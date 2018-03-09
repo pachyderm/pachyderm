@@ -283,7 +283,7 @@ func TestRenewAfterTTLExpires(t *testing.T) {
 
 func TestRevoke(t *testing.T) {
 	ttl := 2
-	c, v, _ := loginHelper(t, fmt.Sprintf("%vs", ttl))
+	c, v, secret := loginHelper(t, fmt.Sprintf("%vs", ttl))
 
 	_, err := c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err != nil {
@@ -291,7 +291,7 @@ func TestRevoke(t *testing.T) {
 	}
 
 	params := make(map[string]interface{})
-	params["user_token"] = c.GetAuthToken()
+	params["user_token"] = secret.Auth.Metadata["user_token"]
 	vl := v.Logical()
 	_, err = vl.Write(
 		fmt.Sprintf("/%v/revoke", pluginName),
