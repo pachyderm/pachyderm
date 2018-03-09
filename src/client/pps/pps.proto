@@ -301,6 +301,8 @@ enum PipelineState {
   PIPELINE_FAILURE = 3;
   // The pipeline has been explicitly paused by the user.
   PIPELINE_PAUSED = 4;
+  // The pipeline is fully functional, but there are no commits to process.
+  PIPELINE_STANDBY = 5;
 }
 
 // EtcdPipelineInfo is proto that Pachd stores in etcd for each pipeline. It
