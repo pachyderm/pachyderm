@@ -91,6 +91,7 @@ func activateAuth(t testing.TB) {
 // cluster, and then enable the auth service in that cluster
 func getPachClient(t testing.TB, subject string) *client.APIClient {
 	t.Helper()
+	fmt.Printf("subject: %s\n", subject)
 	clientMapMut.Lock()
 	defer clientMapMut.Unlock()
 
@@ -180,13 +181,15 @@ func getPachClient(t testing.TB, subject string) *client.APIClient {
 		panic("it should not be possible to leave a cluster with no admins")
 	}
 	hasExpectedAdmin := len(getAdminsResp.Admins) == 1 && getAdminsResp.Admins[0] == admin
-	curAdmins := getAdminsResp.Admins
 	if !hasExpectedAdmin {
-		curAdminClient := getPachClientInternal(t, curAdmins[0])
+		var curAdminClient *client.APIClient
 		modifyRequest := &auth.ModifyAdminsRequest{
 			Add: []string{admin},
 		}
-		for _, a := range curAdmins {
+		for _, a := range getAdminsResp.Admins {
+			if strings.HasPrefix(a, GitHubPrefix) {
+				curAdminClient = getPachClientInternal(t, a) // use first GH admin
+			}
 			if a == admin {
 				// nothing to add, just don't remove "admin"
 				modifyRequest.Add = nil

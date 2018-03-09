@@ -150,3 +150,26 @@ func IsBadTokenError(err error) bool {
 	}
 	return strings.Contains(err.Error(), badTokenErrorMsg)
 }
+
+// TooShortTTLError is returned by the ExtendAuthToken if request.Token already
+// has a TTL longer than request.TTL.
+type TooShortTTLError struct {
+	RequestTTL, ExistingTTL int64
+}
+
+const tooShortTTLErrorMsg = "provided TTL (%s) is shorter than token's existing TTL (%s)"
+
+func (e TooShortTTLError) Error() string {
+	return fmt.Sprintf(tooShortTTLErrorMsg, e.RequestTTL, e.ExistingTTL)
+}
+
+// IsTooShortTTLError returns true if 'err' is a TooShortTTLError
+func IsTooShortTTLError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errMsg := err.Error()
+	return strings.HasPrefix(errMsg, "provided TTL (") &&
+		strings.Contains(errMsg, ") is shorter than token's existing TTL (") &&
+		strings.HasSuffix(errMsg, ")")
+}

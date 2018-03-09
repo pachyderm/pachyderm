@@ -2118,7 +2118,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 				"be a cluster admin")
 		}
 	} else if !auth.IsNotActivatedError(err) {
-		return nil, fmt.Errorf("could not verify that caller is admin: %v", err)
+		return nil, fmt.Errorf("DeleteAll(): could not verify that caller is admin: %v", err)
 	}
 
 	pipelineInfos, err := a.ListPipeline(ctx, &pps.ListPipelineRequest{})
