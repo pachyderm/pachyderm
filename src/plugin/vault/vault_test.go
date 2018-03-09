@@ -229,28 +229,19 @@ func TestRenewBeforeTTLExpires(t *testing.T) {
 		t.Errorf(err.Error())
 	}
 
-	fmt.Printf("going to sleep for %vs\n", ttl/2)
 	time.Sleep(time.Duration(ttl/2) * time.Second)
-	fmt.Printf("done sleeping ... trying to renew\n")
 	go renewer.Renew()
 	defer renewer.Stop()
 
-	for {
-		select {
-		case err := <-renewer.DoneCh():
-			fmt.Printf("got renewal error %v\n", err)
-			if err != nil {
-				t.Fatalf(err.Error())
-			}
-
-			// Renewal is now over
-		case renewal := <-renewer.RenewCh():
-			fmt.Printf("got renewal: %v\n", renewal)
-			break
+	select {
+	case err := <-renewer.DoneCh():
+		fmt.Printf("got renewal error %v\n", err)
+		if err != nil {
+			t.Fatalf(err.Error())
 		}
+	case <-renewer.RenewCh():
 	}
 
-	fmt.Printf("trying renewed token\n")
 	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err != nil {
 		t.Errorf(err.Error())
