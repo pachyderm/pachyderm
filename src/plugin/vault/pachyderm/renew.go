@@ -57,10 +57,6 @@ func (b *backend) pathAuthRenew(ctx context.Context, req *logical.Request, d *fr
 // to the user who is calling vault, and would like to extend their Pachyderm
 // session.
 func (b *backend) renewUserCredentials(ctx context.Context, pachdAddress string, adminToken string, userToken string, ttl time.Duration) error {
-	// This is where we'd make the actual pachyderm calls to create the user
-	// token using the admin token. For now, for testing purposes, we just do an action that only an
-	// admin could do
-
 	// Setup a single use client w the given admin token / address
 	client, err := pclient.NewFromAddress(pachdAddress)
 	if err != nil {
@@ -69,8 +65,9 @@ func (b *backend) renewUserCredentials(ctx context.Context, pachdAddress string,
 	client = client.WithCtx(ctx)
 	client.SetAuthToken(adminToken)
 
-	_, err = client.AuthAPIClient.ModifyAdmins(client.Ctx(), &auth.ModifyAdminsRequest{
-		Add: []string{"tweetybird"},
+	_, err = client.AuthAPIClient.ExtendAuthToken(client.Ctx(), &auth.ExtendAuthTokenRequest{
+		Token: userToken,
+		TTL:   int64(ttl.Seconds()),
 	})
 
 	if err != nil {
