@@ -32,7 +32,7 @@ $ gcloud config set container/cluster ${CLUSTER_NAME}
 $ MACHINE_TYPE=<machine type for the k8s nodes, we recommend "n1-standard-4" or larger>
 
 # By default the following command spins up a 3-node cluster. You can change the default with `--num-nodes VAL`.
-$ gcloud container clusters create ${CLUSTER_NAME} --scopes storage-rw --machine-type ${MACHINE_TYPE} --cluster-version 1.8.7-gke.0
+$ gcloud container clusters create ${CLUSTER_NAME} --scopes storage-rw --machine-type ${MACHINE_TYPE} 
 ```
 Note that you must create the Kubernetes cluster via the gcloud command-line tool rather than the Google Cloud Console, as it's currently only possible to grant the `storage-rw` scope via the command-line tool. Also note, you should deploy a 1.8.x cluster if possible to take full advantage of Pachyderm's latest features.
 
