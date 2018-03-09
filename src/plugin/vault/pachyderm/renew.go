@@ -37,25 +37,7 @@ func (b *backend) pathAuthRenew(ctx context.Context, req *logical.Request, d *fr
 		return nil, errors.New("stored user token is not a string")
 	}
 
-	ttlRaw, ok := req.Auth.InternalData["ttl"]
-	if !ok {
-		return nil, errors.New("no internal ttl found in the store")
-	}
-	ttlString, ok := ttlRaw.(string)
-	if !ok {
-		return nil, errors.New("stored ttl is not a string")
-	}
-
-	maxTTLRaw, ok := req.Auth.InternalData["max_ttl"]
-	if !ok {
-		return nil, errors.New("no internal max_ttl found in the store")
-	}
-	maxTTLString, ok := maxTTLRaw.(string)
-	if !ok {
-		return nil, errors.New("stored max_ttl is not a string")
-	}
-
-	ttl, maxTTL, err := b.SanitizeTTLStr(ttlString, maxTTLString)
+	ttl, maxTTL, err := b.SanitizeTTLStr(config.TTL, DefaultTTL)
 	if err != nil {
 		return nil, err
 	}
