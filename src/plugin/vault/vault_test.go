@@ -248,6 +248,42 @@ func TestRenewBeforeTTLExpires(t *testing.T) {
 	}
 }
 
+func TestRenewAfterTTLExpires(t *testing.T) {
+	ttl := 2
+	c, vaultClient, secret := loginHelper(t, fmt.Sprintf("%vs", ttl))
+
+	_, err := c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	renewer, err := vaultClient.NewRenewer(&vault.RenewerInput{
+		Secret:    secret,
+		Increment: ttl,
+	})
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	time.Sleep(time.Duration(ttl+1) * time.Second)
+	go renewer.Renew()
+	defer renewer.Stop()
+
+	select {
+	case err := <-renewer.DoneCh():
+		if err == nil {
+			t.Fatalf("Expected an error renewing but got none\n")
+		}
+	case <-renewer.RenewCh():
+		t.Fatal("Expected failed renewal, but got successful renewal\n")
+	}
+
+	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+	if err == nil {
+		t.Errorf("Expected error using pach token after expiry, but got no error\n")
+	}
+}
+
 func TestRevoke(t *testing.T) {
 	// Do normal login
 	// Use user token to connect
