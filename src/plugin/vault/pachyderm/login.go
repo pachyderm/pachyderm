@@ -55,7 +55,6 @@ func (b *backend) pathAuthLogin(ctx context.Context, req *logical.Request, d *fr
 		return nil, err
 	}
 
-	// Compose the response
 	return &logical.Response{
 		Auth: &logical.Auth{
 			InternalData: map[string]interface{}{

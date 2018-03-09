@@ -102,6 +102,7 @@ func TestMinimalConfig(t *testing.T) {
 	v.SetToken("root")
 
 	// Test using just defaults
+	// We'll see an error if the admin token / pachd address are not set
 	err = configurePlugin(v, "")
 	if err != nil {
 		t.Errorf(err.Error())
@@ -112,7 +113,6 @@ func TestMinimalConfig(t *testing.T) {
 		fmt.Sprintf("/%v/config", pluginName),
 	)
 
-	// We'll see an error if the admin token / pachd address are not set
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -143,9 +143,8 @@ func loginHelper(t *testing.T, ttl string) (*client.APIClient, *vault.Client, *v
 		t.Errorf(err.Error())
 	}
 
-	// Now hit login endpoint w invalid vault token, expect err
 	params := make(map[string]interface{})
-	params["username"] = "daffyduck"
+	params["username"] = "bogusgithubusername"
 	vl := v.Logical()
 	secret, err := vl.Write(
 		fmt.Sprintf("/%v/login", pluginName),
@@ -165,8 +164,6 @@ func loginHelper(t *testing.T, ttl string) (*client.APIClient, *vault.Client, *v
 		t.Errorf("vault login response did not contain pachd address")
 	}
 
-	// Now do the actual test:
-	// Try and list admins w a client w a valid pach token
 	c, err := client.NewFromAddress(reportedPachdAddress)
 	if err != nil {
 		t.Errorf(err.Error())
@@ -177,8 +174,7 @@ func loginHelper(t *testing.T, ttl string) (*client.APIClient, *vault.Client, *v
 }
 
 func TestLogin(t *testing.T) {
-	// Negative control:
-	//     Before we have a valid pach token, we should not
+	// Negative control: before we have a valid pach token, we should not
 	// be able to list admins
 	c, err := client.NewFromAddress(pachdAddress)
 	if err != nil {
@@ -191,6 +187,7 @@ func TestLogin(t *testing.T) {
 
 	c, _, _ = loginHelper(t, "")
 
+	// Now do the actual test: try and list admins w a client w a valid pach token
 	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err != nil {
 		t.Errorf(err.Error())
@@ -235,7 +232,6 @@ func TestRenewBeforeTTLExpires(t *testing.T) {
 
 	select {
 	case err := <-renewer.DoneCh():
-		fmt.Printf("got renewal error %v\n", err)
 		if err != nil {
 			t.Fatalf(err.Error())
 		}
@@ -286,10 +282,6 @@ func TestRenewAfterTTLExpires(t *testing.T) {
 }
 
 func TestRevoke(t *testing.T) {
-	// Do normal login
-	// Use user token to connect
-	// Issue revoke
-	// Now renewal should fail ... but that token should still work? AFAICT
 	ttl := 2
 	c, v, _ := loginHelper(t, fmt.Sprintf("%vs", ttl))
 
@@ -298,7 +290,6 @@ func TestRevoke(t *testing.T) {
 		t.Errorf(err.Error())
 	}
 
-	// Now hit login endpoint w invalid vault token, expect err
 	params := make(map[string]interface{})
 	params["user_token"] = c.GetAuthToken()
 	vl := v.Logical()
@@ -311,10 +302,8 @@ func TestRevoke(t *testing.T) {
 		t.Errorf(err.Error())
 	}
 
-	// Now we expect the pach token to be revoked
 	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err == nil {
 		t.Errorf("expected error with revoked pach token, got none\n")
 	}
-
 }
