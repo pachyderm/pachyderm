@@ -310,7 +310,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 		return nil, err
 	}
 	if !a.isAdmin(tokenInfo.Subject) {
-		return nil, errors.New("not authorized to deactivate auth, must be a cluster admin")
+		return nil, &authclient.NotAuthorizedError{AdminOp: "DeactivateAuth"}
 	}
 	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		a.acls.ReadWrite(stm).DeleteAll()
@@ -442,7 +442,7 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 		return nil, err
 	}
 	if !a.isAdmin(tokenInfo.Subject) {
-		return nil, errors.New("not authorized to modify cluster admins, must be a cluster admin")
+		return nil, &authclient.NotAuthorizedError{AdminOp: "ModifyAdmins"}
 	}
 
 	// Canonicalize GitHub usernames in request (must canonicalize before we can
@@ -979,7 +979,9 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 		}
 		if req.Subject != "" {
 			if !a.isAdmin(tokenInfo.Subject) {
-				return nil, fmt.Errorf("must be an admin to mint tokens on behalf of another user")
+				return nil, &authclient.NotAuthorizedError{
+					AdminOp: "GetAuthToken on behalf of another user",
+				}
 			}
 			subject, err := lenientCanonicalizeSubject(ctx, req.Subject)
 			if err != nil {
@@ -1025,7 +1027,9 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendA
 		return nil, err
 	}
 	if !a.isAdmin(tokenInfo.Subject) {
-		return nil, fmt.Errorf("must be an admin to extend an auth token")
+		return nil, &authclient.NotAuthorizedError{
+			AdminOp: "ExtendAuthToken",
+		}
 	}
 
 	// Only let people extend tokens by up to two weeks (the equivalent of logging
