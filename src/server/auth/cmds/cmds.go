@@ -48,7 +48,6 @@ func writePachTokenToCfg(token string) error {
 
 // ActivateCmd returns a cobra.Command to activate Pachyderm's auth system
 func ActivateCmd() *cobra.Command {
-	var username string
 	activate := &cobra.Command{
 		Use:   "activate",
 		Short: "Activate Pachyderm's auth system",
@@ -67,7 +66,7 @@ func ActivateCmd() *cobra.Command {
 			}
 			resp, err := c.Activate(
 				c.Ctx(),
-				&auth.ActivateRequest{GitHubUsername: username, GitHubToken: token})
+				&auth.ActivateRequest{GitHubToken: token})
 			if err != nil {
 				return fmt.Errorf("error activating Pachyderm auth: %v",
 					grpcutil.ScrubGRPC(err))
@@ -75,10 +74,6 @@ func ActivateCmd() *cobra.Command {
 			return writePachTokenToCfg(resp.PachToken)
 		}),
 	}
-	activate.PersistentFlags().StringVarP(&username, "user", "u", "", "GitHub "+
-		"username of the user activating auth. If set, the GitHub authorization "+
-		"code will be used to verify possession of this account. If unset, the "+
-		"username will be inferred from the GitHub authorization code")
 	return activate
 }
 
@@ -113,7 +108,6 @@ func DeactivateCmd() *cobra.Command {
 // GitHub account. Any resources that have been restricted to the email address
 // registered with your GitHub account will subsequently be accessible.
 func LoginCmd() *cobra.Command {
-	var username string
 	login := &cobra.Command{
 		Use:   "login",
 		Short: "Login to Pachyderm with your GitHub account",
@@ -134,7 +128,7 @@ func LoginCmd() *cobra.Command {
 			}
 			resp, err := c.Authenticate(
 				c.Ctx(),
-				&auth.AuthenticateRequest{GitHubUsername: username, GitHubToken: token})
+				&auth.AuthenticateRequest{GitHubToken: token})
 			if err != nil {
 				return fmt.Errorf("error authenticating with Pachyderm cluster: %v",
 					grpcutil.ScrubGRPC(err))
@@ -142,10 +136,6 @@ func LoginCmd() *cobra.Command {
 			return writePachTokenToCfg(resp.PachToken)
 		}),
 	}
-	login.PersistentFlags().StringVarP(&username, "user", "u", "", "GitHub "+
-		"username of the user logging in.  If set, the GitHub authorization code "+
-		"will be used to verify possession of this account.If unset, the username "+
-		"will be inferred from the github authorization code")
 	return login
 }
 

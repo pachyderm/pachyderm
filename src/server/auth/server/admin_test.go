@@ -385,7 +385,7 @@ func TestPreActivationPipelinesRunAsAdmin(t *testing.T) {
 
 	// activate auth
 	_, err = adminClient.Activate(adminClient.Ctx(), &auth.ActivateRequest{
-		GitHubUsername: "admin",
+		GitHubToken: "admin",
 	})
 	require.NoError(t, err)
 
@@ -396,7 +396,7 @@ func TestPreActivationPipelinesRunAsAdmin(t *testing.T) {
 			username := []string{"admin", alice}[i]
 			resp, err := client.Authenticate(context.Background(),
 				&auth.AuthenticateRequest{
-					GitHubUsername: username,
+					GitHubToken: username,
 				})
 			if err != nil {
 				return err
@@ -496,7 +496,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 
 	// alice also can't re-authenticate
 	_, err = aliceClient.Authenticate(context.Background(),
-		&auth.AuthenticateRequest{GitHubUsername: alice})
+		&auth.AuthenticateRequest{GitHubToken: alice})
 	require.YesError(t, err)
 	require.Matches(t, "not active", err.Error())
 
@@ -525,7 +525,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 
 	// admin can re-authenticate
 	resp, err := adminClient.Authenticate(context.Background(),
-		&auth.AuthenticateRequest{GitHubUsername: "admin"})
+		&auth.AuthenticateRequest{GitHubToken: "admin"})
 	require.NoError(t, err)
 	adminClient.SetAuthToken(resp.PachToken)
 
@@ -552,7 +552,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 
 	// alice can now re-authenticate
 	resp, err = aliceClient.Authenticate(context.Background(),
-		&auth.AuthenticateRequest{GitHubUsername: alice})
+		&auth.AuthenticateRequest{GitHubToken: alice})
 	require.NoError(t, err)
 	aliceClient.SetAuthToken(resp.PachToken)
 
