@@ -129,7 +129,7 @@ func TestMinimalConfig(t *testing.T) {
 
 }
 
-func loginHelper(t *testing.T, ttl string) (*client.APIClient, *vault.SecretAuth) {
+func loginHelper(t *testing.T, ttl string) (*client.APIClient, *vault.Client, *vault.Secret) {
 	vaultClientConfig := vault.DefaultConfig()
 	vaultClientConfig.Address = vaultAddress
 	v, err := vault.NewClient(vaultClientConfig)
@@ -173,9 +173,7 @@ func loginHelper(t *testing.T, ttl string) (*client.APIClient, *vault.SecretAuth
 	}
 	c.SetAuthToken(pachToken)
 
-	fmt.Printf("secret: %v\n", secret)
-	fmt.Printf("secret: %v\n", secret.Auth)
-	return c, secret.Auth
+	return c, v, secret
 }
 
 func TestLogin(t *testing.T) {
@@ -191,7 +189,7 @@ func TestLogin(t *testing.T) {
 		t.Errorf("client could list admins before using auth token. this is likely a bug")
 	}
 
-	c, _ = loginHelper(t, "")
+	c, _, _ = loginHelper(t, "")
 
 	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err != nil {
@@ -200,15 +198,14 @@ func TestLogin(t *testing.T) {
 }
 
 func TestLoginExpires(t *testing.T) {
-	c, secretAuth := loginHelper(t, "2s")
+	c, _, secret := loginHelper(t, "2s")
 
 	_, err := c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err != nil {
 		t.Errorf(err.Error())
 	}
 
-	fmt.Printf("sleeping for %vs\n", secretAuth.LeaseDuration)
-	time.Sleep(time.Duration(secretAuth.LeaseDuration+1) * time.Second)
+	time.Sleep(time.Duration(secret.Auth.LeaseDuration+1) * time.Second)
 	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err == nil {
 		t.Errorf("API call should fail, but token did not expire")
@@ -216,7 +213,48 @@ func TestLoginExpires(t *testing.T) {
 }
 
 func TestRenewBeforeTTLExpires(t *testing.T) {
+	ttl := 10
+	c, vaultClient, secret := loginHelper(t, fmt.Sprintf("%vs", ttl))
 
+	_, err := c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	renewer, err := vaultClient.NewRenewer(&vault.RenewerInput{
+		Secret:    secret,
+		Increment: ttl,
+	})
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	fmt.Printf("going to sleep for %vs\n", ttl/2)
+	time.Sleep(time.Duration(ttl/2) * time.Second)
+	fmt.Printf("done sleeping ... trying to renew\n")
+	go renewer.Renew()
+	defer renewer.Stop()
+
+	for {
+		select {
+		case err := <-renewer.DoneCh():
+			fmt.Printf("got renewal error %v\n", err)
+			if err != nil {
+				t.Fatalf(err.Error())
+			}
+
+			// Renewal is now over
+		case renewal := <-renewer.RenewCh():
+			fmt.Printf("got renewal: %v\n", renewal)
+			break
+		}
+	}
+
+	fmt.Printf("trying renewed token\n")
+	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+	if err != nil {
+		t.Errorf(err.Error())
+	}
 }
 
 func TestRevoke(t *testing.T) {
