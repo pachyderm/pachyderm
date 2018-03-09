@@ -19,7 +19,7 @@ const (
 	pluginName   = "pachyderm"
 )
 
-func configurePlugin(v *vault.Client) error {
+func configurePlugin(v *vault.Client, ttl string) error {
 
 	c, err := client.NewFromAddress(pachdAddress)
 	if err != nil {
@@ -33,7 +33,7 @@ func configurePlugin(v *vault.Client) error {
 		return err
 	}
 
-	return configurePluginHelper(v, resp.PachToken, pachdAddress, "")
+	return configurePluginHelper(v, resp.PachToken, pachdAddress, ttl)
 }
 
 func configurePluginHelper(v *vault.Client, testPachToken string, testPachdAddress string, ttl string) error {
@@ -101,7 +101,8 @@ func TestMinimalConfig(t *testing.T) {
 	}
 	v.SetToken("root")
 
-	err = configurePlugin(v)
+	// Test using just defaults
+	err = configurePlugin(v, "")
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -128,7 +129,7 @@ func TestMinimalConfig(t *testing.T) {
 
 }
 
-func loginHelper(t *testing.T) (*client.APIClient, *vault.Secret) {
+func loginHelper(t *testing.T, ttl string) (*client.APIClient, *vault.SecretAuth) {
 	vaultClientConfig := vault.DefaultConfig()
 	vaultClientConfig.Address = vaultAddress
 	v, err := vault.NewClient(vaultClientConfig)
@@ -137,7 +138,7 @@ func loginHelper(t *testing.T) (*client.APIClient, *vault.Secret) {
 	}
 	v.SetToken("root")
 
-	err = configurePlugin(v)
+	err = configurePlugin(v, ttl)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -172,7 +173,9 @@ func loginHelper(t *testing.T) (*client.APIClient, *vault.Secret) {
 	}
 	c.SetAuthToken(pachToken)
 
-	return c, secret
+	fmt.Printf("secret: %v\n", secret)
+	fmt.Printf("secret: %v\n", secret.Auth)
+	return c, secret.Auth
 }
 
 func TestLogin(t *testing.T) {
@@ -188,17 +191,24 @@ func TestLogin(t *testing.T) {
 		t.Errorf("client could list admins before using auth token. this is likely a bug")
 	}
 
-	c, secret := loginHelper(t)
+	c, _ = loginHelper(t, "")
 
 	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err != nil {
 		t.Errorf(err.Error())
 	}
+}
 
-	fmt.Printf("sleeping for %vs\n", secret.LeaseDuration)
-	time.Sleep(time.Duration(secret.LeaseDuration) * time.Second)
-	// Just a bit extra to make sure we pass the expiry
-	time.Sleep(time.Second)
+func TestLoginExpires(t *testing.T) {
+	c, secretAuth := loginHelper(t, "5s")
+
+	_, err := c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	fmt.Printf("sleeping for %vs\n", secretAuth.LeaseDuration)
+	time.Sleep(time.Duration(secretAuth.LeaseDuration+2) * time.Second)
 	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err == nil {
 		t.Errorf("API call should fail, but token did not expire")
