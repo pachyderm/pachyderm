@@ -205,10 +205,21 @@ func (c APIClient) FinishCommit(repoName string, commitID string) error {
 
 // InspectCommit returns info about a specific Commit.
 func (c APIClient) InspectCommit(repoName string, commitID string) (*pfs.CommitInfo, error) {
+	return c.inspectCommit(repoName, commitID, false)
+}
+
+// BlockCommit returns info about a specific Commit, but blocks until that
+// commit has been finished.
+func (c APIClient) BlockCommit(repoName string, commitID string) (*pfs.CommitInfo, error) {
+	return c.inspectCommit(repoName, commitID, true)
+}
+
+func (c APIClient) inspectCommit(repoName string, commitID string, block bool) (*pfs.CommitInfo, error) {
 	commitInfo, err := c.PfsAPIClient.InspectCommit(
 		c.Ctx(),
 		&pfs.InspectCommitRequest{
 			Commit: NewCommit(repoName, commitID),
+			Block:  block,
 		},
 	)
 	if err != nil {
@@ -439,6 +450,31 @@ func (c APIClient) SubscribeCommit(repo string, branch string, from string) (Com
 		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return &commitInfoIterator{stream, cancel}, nil
+}
+
+// SubscribeCommitF is like ListCommit but it calls a callback function with
+// the results rather than returning an iterator.
+func (c APIClient) SubscribeCommitF(repo, branch, from string, f func(*pfs.CommitInfo) error) error {
+	req := &pfs.SubscribeCommitRequest{
+		Repo:   NewRepo(repo),
+		Branch: branch,
+	}
+	if from != "" {
+		req.From = NewCommit(repo, from)
+	}
+	stream, err := c.PfsAPIClient.SubscribeCommit(c.Ctx(), req)
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	for {
+		ci, err := stream.Recv()
+		if err != nil {
+			return grpcutil.ScrubGRPC(err)
+		}
+		if err := f(ci); err != nil {
+			return grpcutil.ScrubGRPC(err)
+		}
+	}
 }
 
 // PutObject puts a value into the object store and tags it with 0 or more tags.
