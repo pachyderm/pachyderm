@@ -289,4 +289,31 @@ func TestRevoke(t *testing.T) {
 	// Use user token to connect
 	// Issue revoke
 	// Now renewal should fail ... but that token should still work? AFAICT
+	ttl := 2
+	c, v, _ := loginHelper(t, fmt.Sprintf("%vs", ttl))
+
+	_, err := c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	// Now hit login endpoint w invalid vault token, expect err
+	params := make(map[string]interface{})
+	params["user_token"] = c.GetAuthToken()
+	vl := v.Logical()
+	_, err = vl.Write(
+		fmt.Sprintf("/%v/revoke", pluginName),
+		params,
+	)
+
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	// Now we expect the pach token to be revoked
+	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+	if err == nil {
+		t.Errorf("expected error with revoked pach token, got none\n")
+	}
+
 }

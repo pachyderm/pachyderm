@@ -39,7 +39,7 @@ func (b *backend) pathRevoke(ctx context.Context, req *logical.Request, d *frame
 		return nil, errors.New("plugin is missing admin token")
 	}
 	if len(config.PachdAddress) == 0 {
-		return nil, errors.New("plugin is missing pachd_address")
+		return nil, errors.New("plugin is missing pachd address")
 	}
 
 	err = b.revokeUserCredentials(ctx, config.PachdAddress, userToken, config.AdminToken)
@@ -49,9 +49,7 @@ func (b *backend) pathRevoke(ctx context.Context, req *logical.Request, d *frame
 
 	// Compose the response
 	// TODO: Not sure if this is the right way to return a successful response
-	return &logical.Response{
-		Auth: &logical.Auth{},
-	}, nil
+	return &logical.Response{}, nil
 }
 
 // revokeUserCredentials revokes the Pachyderm authentication token 'userToken'

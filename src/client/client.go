@@ -336,3 +336,9 @@ func (c *APIClient) WithCtx(ctx context.Context) *APIClient {
 func (c *APIClient) SetAuthToken(token string) {
 	c.authenticationToken = token
 }
+
+// GetAuthToken gets the authentication token that will be used for all
+// API calls for this client.
+func (c *APIClient) GetAuthToken() string {
+	return c.authenticationToken
+}
