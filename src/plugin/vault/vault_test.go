@@ -200,7 +200,7 @@ func TestLogin(t *testing.T) {
 }
 
 func TestLoginExpires(t *testing.T) {
-	c, secretAuth := loginHelper(t, "5s")
+	c, secretAuth := loginHelper(t, "2s")
 
 	_, err := c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err != nil {
@@ -208,7 +208,7 @@ func TestLoginExpires(t *testing.T) {
 	}
 
 	fmt.Printf("sleeping for %vs\n", secretAuth.LeaseDuration)
-	time.Sleep(time.Duration(secretAuth.LeaseDuration+2) * time.Second)
+	time.Sleep(time.Duration(secretAuth.LeaseDuration+1) * time.Second)
 	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err == nil {
 		t.Errorf("API call should fail, but token did not expire")

@@ -89,6 +89,7 @@ func (b *backend) generateUserCredentials(ctx context.Context, pachdAddress stri
 
 	resp, err := client.AuthAPIClient.GetAuthToken(client.Ctx(), &auth.GetAuthTokenRequest{
 		Subject: username,
+		TTL:     int64(ttl.Seconds()),
 	})
 	if err != nil {
 		return "", err
