@@ -45,7 +45,7 @@ func configurePluginHelper(v *vault.Client, testPachToken string, testPachdAddre
 	if ttl != "" {
 		config["ttl"] = ttl
 	}
-	_, err := vl.Write(
+	secret, err := vl.Write(
 		fmt.Sprintf("/%v/config", pluginName),
 		config,
 	)
