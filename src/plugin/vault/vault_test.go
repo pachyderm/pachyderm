@@ -10,6 +10,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	vault_plugin "github.com/pachyderm/pachyderm/src/plugin/vault/pachyderm"
 )
 
 const (
@@ -18,8 +19,52 @@ const (
 	pluginName   = "pachyderm"
 )
 
-func configurePlugin(t *testing.T, v *vault.Client) {
+func configurePlugin(v *vault.Client) error {
 
+	c, err := client.NewFromAddress(pachdAddress)
+	if err != nil {
+		return err
+	}
+	resp, err := c.Authenticate(
+		context.Background(),
+		&auth.AuthenticateRequest{GitHubUsername: "admin", GitHubToken: "y"})
+
+	if err != nil {
+		return err
+	}
+
+	return configurePluginHelper(v, resp.PachToken, pachdAddress, "")
+}
+
+func configurePluginHelper(v *vault.Client, testPachToken string, testPachdAddress string, ttl string) error {
+
+	vl := v.Logical()
+	config := make(map[string]interface{})
+	config["admin_token"] = testPachToken
+	config["pachd_address"] = testPachdAddress
+	if ttl != "" {
+		config["ttl"] = ttl
+	}
+	_, err := vl.Write(
+		fmt.Sprintf("/%v/config", pluginName),
+		config,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func TestBadConfig(t *testing.T) {
+	vaultClientConfig := vault.DefaultConfig()
+	vaultClientConfig.Address = vaultAddress
+	v, err := vault.NewClient(vaultClientConfig)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+	v.SetToken("root")
 	c, err := client.NewFromAddress(pachdAddress)
 	if err != nil {
 		t.Errorf(err.Error())
@@ -32,18 +77,19 @@ func configurePlugin(t *testing.T, v *vault.Client) {
 		t.Errorf(err.Error())
 	}
 
-	vl := v.Logical()
-	config := make(map[string]interface{})
-	config["admin_token"] = resp.PachToken
-	config["pachd_address"] = pachdAddress
-	_, err = vl.Write(
-		fmt.Sprintf("/%v/config", pluginName),
-		config,
-	)
-
+	err = configurePluginHelper(v, "", pachdAddress, "")
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Errorf("expected missing token in config to error")
 	}
+	err = configurePluginHelper(v, resp.PachToken, "", "")
+	if err != nil {
+		t.Errorf("expected missing address in config to error")
+	}
+	err = configurePluginHelper(v, resp.PachToken, pachdAddress, "234....^^^")
+	if err != nil {
+		t.Errorf("expected bad ttl in config to error")
+	}
+
 }
 
 func TestMinimalConfig(t *testing.T) {
@@ -55,13 +101,16 @@ func TestMinimalConfig(t *testing.T) {
 	}
 	v.SetToken("root")
 
-	configurePlugin(t, v)
+	err = configurePlugin(v)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
 
 	vl := v.Logical()
 	secret, err := vl.Read(
 		fmt.Sprintf("/%v/config", pluginName),
 	)
-	fmt.Printf("config response: %v\n", secret)
+
 	// We'll see an error if the admin token / pachd address are not set
 	if err != nil {
 		t.Errorf(err.Error())
@@ -72,6 +121,9 @@ func TestMinimalConfig(t *testing.T) {
 	}
 	if secret.Data["ttl"] == "0s" {
 		t.Errorf("ttl configured incorrectly")
+	}
+	if secret.Data["ttl"] != vault_plugin.DefaultTTL {
+		t.Errorf("ttl configured incorrectly, should be default (%v) but is actually (%v)", vault_plugin.DefaultTTL, secret.Data["ttl"])
 	}
 
 }
@@ -85,7 +137,10 @@ func loginHelper(t *testing.T) (*client.APIClient, *vault.Secret) {
 	}
 	v.SetToken("root")
 
-	configurePlugin(t, v)
+	err = configurePlugin(v)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
 
 	// Now hit login endpoint w invalid vault token, expect err
 	params := make(map[string]interface{})
