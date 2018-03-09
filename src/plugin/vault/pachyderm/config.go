@@ -87,6 +87,7 @@ func (b *backend) pathConfigWrite(ctx context.Context, req *logical.Request, dat
 
 	adminToken := data.Get("admin_token").(string)
 	if adminToken == "" {
+		panic("wooo")
 		return errMissingField("admin_token"), nil
 	}
 	pachdAddress := data.Get("pachd_address").(string)
