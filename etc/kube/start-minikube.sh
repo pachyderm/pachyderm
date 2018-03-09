@@ -25,7 +25,8 @@ done
 while true; do
   sudo CHANGE_MINIKUBE_NONE_USER=true minikube start --vm-driver=none --kubernetes-version="${VERSION}" "${RBAC}"
   HEALTHY=false
-  for i in $(seq 6); do
+  # Try to connect for one minute
+  for i in $(seq 12); do
     if kubectl version 2>/dev/null >/dev/null; then
       HEALTHY=true
       break
@@ -33,7 +34,10 @@ while true; do
     sleep 5
   done
   if [ "${HEALTHY}" = "true" ]; then break; fi
-  minikube delete # try again
+
+  # Give up--kubernetes isn't coming up
+  minikube delete
+  sleep 10 # Wait for minikube to go completely down
 done
 
 # Apply some manual changes to fix DNS.
