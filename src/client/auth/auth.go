@@ -64,11 +64,20 @@ func IsNotActivatedError(err error) bool {
 }
 
 // NotAuthorizedError is returned if the user is not authorized to perform
-// a certain operation on the repo 'Repo' (to do so, they would need to have the
-// authorization scope in 'Required').
+// a certain operation. Either
+// 1) the operation is a user operation, in which case 'Repo' and/or 'Required'
+// 		should be set (indicating that the user needs 'Required'-level access to
+// 		'Repo').
+// 2) the operation is an admin-only operation (e.g. DeleteAll), in which case
+//    AdminOp should be set
 type NotAuthorizedError struct {
-	Repo     string
-	Required Scope
+	Repo     string // Repo that the user is attempting to access
+	Required Scope  // Caller needs 'Required'-level access to 'Repo'
+
+	// Group 2:
+	// AdminOp indicates an operation that the caller couldn't perform because
+	// they're not an admin
+	AdminOp string
 }
 
 // This error message string is matched in the UI. If edited,
@@ -82,6 +91,9 @@ func (e *NotAuthorizedError) Error() string {
 	}
 	if e.Required != Scope_NONE {
 		msg += ", must have at least " + e.Required.String() + " access"
+	}
+	if e.AdminOp != "" {
+		msg += "; must be an admin to call " + e.AdminOp
 	}
 	return msg
 }
