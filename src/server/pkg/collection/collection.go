@@ -3,6 +3,7 @@ package collection
 import (
 	"context"
 	"fmt"
+	"log"
 	"path"
 	"path/filepath"
 	"reflect"
@@ -80,16 +81,33 @@ func (c *collection) Path(key string) string {
 	return path.Join(c.prefix, key)
 }
 
-// See the documentation for `Index` for details.
-func (c *collection) indexDir(index Index, indexVal string) string {
-	indexDir := c.prefix
-	// remove trailing slash
-	indexDir = strings.TrimRight(indexDir, "/")
-	return fmt.Sprintf("%s__index_%s/%s", indexDir, index, indexVal)
+func (c *collection) indexRoot(index Index) string {
+	// remove trailing slash from c.prefix
+	return fmt.Sprintf("%s__index_%s/",
+		strings.TrimRight(c.prefix, "/"), index.Field)
 }
 
 // See the documentation for `Index` for details.
-func (c *collection) indexPath(index Index, indexVal string, key string) string {
+func (c *collection) indexDir(index Index, indexVal interface{}) string {
+	var indexValStr string
+	if marshaller, ok := indexVal.(proto.Marshaler); ok {
+		if indexValBytes, err := marshaller.Marshal(); err == nil {
+			// use marshalled proto as index. This way we can rename fields without
+			// breaking our index.
+			indexValStr = string(indexValBytes)
+		} else {
+			// log error but keep going (this used to be the only codepath)
+			log.Printf("ERROR trying to marshal index value: %v", err)
+			indexValStr = fmt.Sprintf("%v", indexVal)
+		}
+	} else {
+		indexValStr = fmt.Sprintf("%v", indexVal)
+	}
+	return path.Join(c.indexRoot(index), indexValStr)
+}
+
+// See the documentation for `Index` for details.
+func (c *collection) indexPath(index Index, indexVal interface{}, key string) string {
 	return path.Join(c.indexDir(index, indexVal), key)
 }
 
@@ -130,20 +148,18 @@ func cloneProtoMsg(original proto.Message) proto.Message {
 // Giving a value, an index, and the key of the item, return the path
 // under which the new index item should be stored.
 func (c *readWriteCollection) getIndexPath(val interface{}, index Index, key string) string {
-	r := reflect.ValueOf(val)
-	f := reflect.Indirect(r).FieldByName(index.Field).Interface()
-	indexKey := fmt.Sprintf("%s", f)
-	return c.indexPath(index, indexKey, key)
+	reflVal := reflect.ValueOf(val)
+	field := reflect.Indirect(reflVal).FieldByName(index.Field).Interface()
+	return c.indexPath(index, field, key)
 }
 
 // Giving a value, a multi-index, and the key of the item, return the
 // paths under which the multi-index items should be stored.
 func (c *readWriteCollection) getMultiIndexPaths(val interface{}, index Index, key string) []string {
 	var indexPaths []string
-	f := reflect.Indirect(reflect.ValueOf(val)).FieldByName(index.Field)
-	for i := 0; i < f.Len(); i++ {
-		indexKey := fmt.Sprintf("%s", f.Index(i).Interface())
-		indexPaths = append(indexPaths, c.indexPath(index, indexKey, key))
+	field := reflect.Indirect(reflect.ValueOf(val)).FieldByName(index.Field)
+	for i := 0; i < field.Len(); i++ {
+		indexPaths = append(indexPaths, c.indexPath(index, field.Index(i).Interface(), key))
 	}
 	return indexPaths
 }
@@ -152,17 +168,13 @@ func (c *readWriteCollection) Put(key string, val proto.Message) error {
 	return c.PutTTL(key, val, 0)
 }
 
+func (c *readWriteCollection) TTL(key string) (int64, error) {
+	return c.stm.TTL(c.Path(key))
+}
+
 func (c *readWriteCollection) PutTTL(key string, val proto.Message, ttl int64) error {
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
-	}
-	var options []etcd.OpOption
-	if ttl > 0 {
-		lease, err := c.collection.etcdClient.Grant(context.Background(), ttl)
-		if err != nil {
-			return fmt.Errorf("error granting lease: %v", err)
-		}
-		options = append(options, etcd.WithLease(lease.ID))
 	}
 
 	if c.collection.keyCheck != nil {
@@ -182,7 +194,9 @@ func (c *readWriteCollection) PutTTL(key string, val proto.Message, ttl int64) e
 					// we might trigger an unnecessary event if someone is
 					// watching the index
 					if _, err := c.stm.Get(indexPath); err != nil && IsErrNotFound(err) {
-						c.stm.Put(indexPath, key, options...)
+						if err := c.stm.Put(indexPath, key, ttl); err != nil {
+							return err
+						}
 					}
 				}
 				// If we can get the original value, we remove the original indexes
@@ -212,7 +226,9 @@ func (c *readWriteCollection) PutTTL(key string, val proto.Message, ttl int64) e
 				// we might trigger an unnecessary event if someone is
 				// watching the index
 				if _, err := c.stm.Get(indexPath); err != nil && IsErrNotFound(err) {
-					c.stm.Put(indexPath, key, options...)
+					if err := c.stm.Put(indexPath, key, ttl); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -221,8 +237,7 @@ func (c *readWriteCollection) PutTTL(key string, val proto.Message, ttl int64) e
 	if err != nil {
 		return err
 	}
-	c.stm.Put(c.Path(key), string(bytes), options...)
-	return nil
+	return c.stm.Put(c.Path(key), string(bytes), ttl)
 }
 
 // Update reads the current value associated with 'key', calls 'f' to update
@@ -297,11 +312,9 @@ func (c *readWriteCollection) Delete(key string) error {
 }
 
 func (c *readWriteCollection) DeleteAll() {
+	// Delete indexes
 	for _, index := range c.indexes {
-		// Delete indexes
-		indexDir := c.prefix
-		indexDir = strings.TrimRight(indexDir, "/")
-		c.stm.DelAll(fmt.Sprintf("%s__index_%s/", indexDir, index))
+		c.stm.DelAll(c.indexRoot(index))
 	}
 	c.stm.DelAll(c.prefix)
 }
@@ -324,8 +337,7 @@ func (c *readWriteIntCollection) Create(key string, val int) error {
 	if err == nil {
 		return ErrExists{c.prefix, key}
 	}
-	c.stm.Put(fullKey, strconv.Itoa(val))
-	return nil
+	return c.stm.Put(fullKey, strconv.Itoa(val), 0)
 }
 
 func (c *readWriteIntCollection) Get(key string) (int, error) {
@@ -350,8 +362,7 @@ func (c *readWriteIntCollection) IncrementBy(key string, n int) error {
 	if err != nil {
 		return ErrMalformedValue{c.prefix, key, valStr}
 	}
-	c.stm.Put(fullKey, strconv.Itoa(val+n))
-	return nil
+	return c.stm.Put(fullKey, strconv.Itoa(val+n), 0)
 }
 
 func (c *readWriteIntCollection) Decrement(key string) error {
@@ -368,8 +379,7 @@ func (c *readWriteIntCollection) DecrementBy(key string, n int) error {
 	if err != nil {
 		return ErrMalformedValue{c.prefix, key, valStr}
 	}
-	c.stm.Put(fullKey, strconv.Itoa(val-n))
-	return nil
+	return c.stm.Put(fullKey, strconv.Itoa(val-n), 0)
 }
 
 func (c *readWriteIntCollection) Delete(key string) error {
@@ -438,8 +448,7 @@ func (i *indirectIterator) Next(key *string, val proto.Message) (ok bool, retErr
 }
 
 func (c *readonlyCollection) GetByIndex(index Index, val interface{}) (Iterator, error) {
-	valStr := fmt.Sprintf("%s", val)
-	resp, err := c.etcdClient.Get(c.ctx, c.indexDir(index, valStr), etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend))
+	resp, err := c.etcdClient.Get(c.ctx, c.indexDir(index, val), etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend))
 	if err != nil {
 		return nil, err
 	}
@@ -615,7 +624,7 @@ func (c *readonlyCollection) WatchWithPrev() (watch.Watcher, error) {
 func (c *readonlyCollection) WatchByIndex(index Index, val interface{}) (watch.Watcher, error) {
 	eventCh := make(chan *watch.Event)
 	done := make(chan struct{})
-	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.indexDir(index, fmt.Sprintf("%s", val)), c.template)
+	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.indexDir(index, val), c.template)
 	if err != nil {
 		return nil, err
 	}
