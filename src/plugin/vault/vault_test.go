@@ -241,6 +241,7 @@ func TestRenewBeforeTTLExpires(t *testing.T) {
 		}
 	case <-renewer.RenewCh():
 	}
+	time.Sleep(time.Duration(ttl/2+1) * time.Second)
 
 	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err != nil {
