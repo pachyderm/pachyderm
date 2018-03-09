@@ -27,7 +27,6 @@ func (b *backend) pathAuthRenew(ctx context.Context, req *logical.Request, d *fr
 		return nil, errors.New("plugin is missing pachd_address")
 	}
 
-	// Grab the user token
 	userTokenRaw, ok := req.Auth.InternalData["user_token"]
 	if !ok {
 		return nil, errors.New("no internal user token found in the store")
@@ -41,9 +40,6 @@ func (b *backend) pathAuthRenew(ctx context.Context, req *logical.Request, d *fr
 	if err != nil {
 		return nil, err
 	}
-	// Use the admin token to perform an action
-	// for testing, hardcoding username to something else so that I can validate
-	// renew has an effect:
 	err = b.renewUserCredentials(ctx, config.PachdAddress, config.AdminToken, userToken, ttl)
 	if err != nil {
 		return nil, err

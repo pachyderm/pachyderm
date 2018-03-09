@@ -62,7 +62,6 @@ For more information and examples, please see the online documentation.
 	}
 }
 
-// pathConfigRead corresponds to READ auth/pachyderm/config.
 func (b *backend) pathConfigRead(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	config, err := b.Config(ctx, req.Storage)
 	if err != nil {
@@ -78,7 +77,6 @@ func (b *backend) pathConfigRead(ctx context.Context, req *logical.Request, data
 	return resp, nil
 }
 
-// pathConfigRead corresponds to POST auth/pachyderm/config.
 func (b *backend) pathConfigWrite(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	// Validate we didn't get extraneous fields
 	if err := validateFields(req, data); err != nil {
