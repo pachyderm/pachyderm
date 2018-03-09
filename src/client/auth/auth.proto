@@ -28,14 +28,11 @@ import "gogoproto/gogo.proto";
 // GitHub OAuth, and then promoted to the cluster's first Admin. Afterwards, the
 // caller can promote other users to Admin and remove themselves
 message ActivateRequest {
-  // If set, Pachyderm will compare this username to the GitHub account that
-  // issued the access token 'github_token'. For now, this is not required
-  // (if unset, your GitHub username will be looked up using 'github_token')
-  string github_username = 2 [(gogoproto.customname) = "GitHubUsername"];
-
   // This is the token returned by GitHub and used to authenticate the caller.
-  // In dev mode, the caller may set "github_username" without setting this to
-  // simulate logins
+  // When Pachyderm is deployed locally, setting this value to a given string
+  // will automatically authenticate the caller as a GitHub user whose username
+  // is that string (unless this "looks like" a GitHub access code, in which
+  // case Pachyderm does retrieve the corresponding GitHub username)
   string github_token = 1 [(gogoproto.customname) = "GitHubToken"];
 }
 
@@ -83,14 +80,11 @@ message TokenInfo {
 //// Authentication API
 
 message AuthenticateRequest {
-  // If set, Pachyderm will compare this username to the GitHub account that
-  // issued the access token 'github_token'. For now, this is not required
-  // (if unset, your GitHub username will be looked up using 'github_token')
-  string github_username = 2 [(gogoproto.customname) = "GitHubUsername"];
-
   // This is the token returned by GitHub and used to authenticate the caller.
-  // In dev mode, the caller may set "github_username" without setting this to
-  // simulate logins
+  // When Pachyderm is deployed locally, setting this value to a given string
+  // will automatically authenticate the caller as a GitHub user whose username
+  // is that string (unless this "looks like" a GitHub access code, in which
+  // case Pachyderm does retrieve the corresponding GitHub username)
   string github_token = 1 [(gogoproto.customname) = "GitHubToken"];
 }
 

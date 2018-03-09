@@ -60,7 +60,10 @@ func getPachClientInternal(t testing.TB, subject string) *client.APIClient {
 		subjectClient := *clientMap[""]
 		resp, err := subjectClient.Authenticate(context.Background(),
 			&auth.AuthenticateRequest{
-				GitHubUsername: strings.TrimPrefix(subject, GitHubPrefix),
+				// When Pachyderm is deployed locally, GitHubToken automatically
+				// authenicates the caller as a GitHub user whose name is equal to the
+				// provided token
+				GitHubToken: strings.TrimPrefix(subject, GitHubPrefix),
 			})
 		require.NoError(t, err)
 		subjectClient.SetAuthToken(resp.PachToken)
@@ -73,7 +76,7 @@ func getPachClientInternal(t testing.TB, subject string) *client.APIClient {
 func activateAuth(t testing.TB) {
 	seedClient := clientMap[""]
 	if _, err := seedClient.AuthAPIClient.Activate(context.Background(),
-		&auth.ActivateRequest{GitHubUsername: "admin"},
+		&auth.ActivateRequest{GitHubToken: "admin"},
 	); err != nil && !strings.HasSuffix(err.Error(), "already activated") {
 		t.Fatalf("could not activate auth service: %v", err.Error())
 	}
@@ -298,9 +301,7 @@ func TestActivate(t *testing.T) {
 		adminClient := &client.APIClient{}
 		*adminClient = *c
 		resp, err := adminClient.Authenticate(adminClient.Ctx(),
-			&auth.AuthenticateRequest{
-				GitHubUsername: "admin",
-			})
+			&auth.AuthenticateRequest{GitHubToken: "admin"})
 		if err != nil {
 			if auth.IsNotActivatedError(err) {
 				return nil
@@ -313,9 +314,7 @@ func TestActivate(t *testing.T) {
 	}())
 
 	// Activate auth
-	resp, err := c.Activate(c.Ctx(), &auth.ActivateRequest{
-		GitHubUsername: "admin",
-	})
+	resp, err := c.Activate(c.Ctx(), &auth.ActivateRequest{GitHubToken: "admin"})
 	require.NoError(t, err)
 	c.SetAuthToken(resp.PachToken)
 

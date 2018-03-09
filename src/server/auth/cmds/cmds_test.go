@@ -7,6 +7,7 @@ package cmds
 import (
 	"errors"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -30,12 +31,17 @@ func activateAuth(t *testing.T) {
 	require.NoError(t, err)
 	if string(out) != "ACTIVE" {
 		cmd = tu.Cmd("pachctl", "enterprise", "activate", tu.GetTestEnterpriseCode())
-		require.NoError(t, cmd.Run())
+		// run cmd in retry loop--sometimes s3 reads flake
+		require.NoError(t, backoff.Retry(func() error {
+			return cmd.Run()
+		}, backoff.NewTestingBackOff()))
 	}
 
 	// Logout (to clear any expired tokens) and activate Pachyderm auth
 	require.NoError(t, tu.Cmd("pachctl", "auth", "logout").Run())
-	require.NoError(t, tu.Cmd("pachctl", "auth", "activate", "--user=admin").Run())
+	cmd = tu.Cmd("pachctl", "auth", "activate")
+	cmd.Stdin = strings.NewReader("admin\n")
+	require.NoError(t, cmd.Run())
 }
 
 func deactivateAuth(t *testing.T) {
@@ -44,7 +50,7 @@ func deactivateAuth(t *testing.T) {
 	defer activateMut.Unlock()
 
 	// Check if Pachyderm Auth is active -- if so, deactivate it
-	if err := tu.Cmd("pachctl", "auth", "login", "-u", "admin").Run(); err == nil {
+	if err := tu.BashCmd("echo admin | pachctl auth login").Run(); err == nil {
 		require.NoError(t, tu.BashCmd("yes | pachctl auth deactivate").Run())
 	}
 }
@@ -56,7 +62,7 @@ func TestAuthBasic(t *testing.T) {
 	activateAuth(t)
 	defer deactivateAuth(t)
 	require.NoError(t, tu.BashCmd(`
-		echo "\n" | pachctl auth login -u {{.alice}}
+		echo "{{.alice}}" | pachctl auth login
 		pachctl create-repo {{.repo}}
 		pachctl list-repo \
 			| match {{.repo}}
@@ -74,7 +80,7 @@ func TestWhoAmI(t *testing.T) {
 	activateAuth(t)
 	defer deactivateAuth(t)
 	require.NoError(t, tu.BashCmd(`
-		pachctl auth login -u {{.alice}}
+		echo "{{.alice}}" | pachctl auth login
 		pachctl auth whoami | match {{.alice}}
 		`,
 		"alice", tu.UniqueString("alice"),
@@ -89,7 +95,7 @@ func TestCheckGetSet(t *testing.T) {
 	defer deactivateAuth(t)
 	// Test both forms of the 'pachctl auth get' command, as well as 'pachctl auth check'
 	require.NoError(t, tu.BashCmd(`
-		pachctl auth login -u {{.alice}}
+		echo "{{.alice}}" | pachctl auth login
 		pachctl create-repo {{.repo}}
 		pachctl auth check owner {{.repo}}
 		pachctl auth get {{.repo}} \
@@ -104,7 +110,7 @@ func TestCheckGetSet(t *testing.T) {
 
 	// Test 'pachctl auth set'
 	require.NoError(t, tu.BashCmd(`
-		pachctl auth login -u {{.alice}}
+		echo "{{.alice}}" | pachctl auth login
 		pachctl create-repo {{.repo}}
 		pachctl auth set {{.bob}} reader {{.repo}}
 		pachctl auth get {{.bob}} {{.repo}} \
@@ -124,7 +130,7 @@ func TestAdmins(t *testing.T) {
 	defer deactivateAuth(t)
 
 	// Modify the list of admins to replace 'admin' with 'admin2'
-	require.NoError(t, tu.Cmd("pachctl", "auth", "login", "-u", "admin").Run())
+	require.NoError(t, tu.BashCmd("echo admin | pachctl auth login").Run())
 	require.NoError(t, tu.BashCmd(`
 		pachctl auth list-admins \
 			| match "admin"
@@ -142,7 +148,7 @@ func TestAdmins(t *testing.T) {
 	// Now 'admin2' is the only admin. Login as admin2, and swap 'admin' back in
 	// (so that deactivateAuth() runs), and call 'list-admin' (to make sure it
 	// works for non-admins)
-	require.NoError(t, tu.Cmd("pachctl", "auth", "login", "-u", "admin2").Run())
+	require.NoError(t, tu.BashCmd("echo admin2 | pachctl auth login").Run())
 	require.NoError(t, tu.BashCmd(`
 		pachctl auth modify-admins --add admin --remove admin2
 		pachctl auth list-admins \
@@ -160,7 +166,7 @@ func TestModifyAdminsPropagateError(t *testing.T) {
 
 	// Add admin2, and then try to remove it along with a fake admin. Make sure we
 	// get an error
-	require.NoError(t, tu.Cmd("pachctl", "auth", "login", "-u", "admin").Run())
+	require.NoError(t, tu.BashCmd("echo admin | pachctl auth login").Run())
 	require.NoError(t, tu.BashCmd(`
 		pachctl auth list-admins \
 			| match "admin"
@@ -175,14 +181,15 @@ func TestModifyAdminsPropagateError(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	// Preemptively deactivate Pachyderm auth (to avoid errors in early tests)
-	if err := tu.BashCmd("pachctl auth login -u admin").Run(); err == nil {
+	if err := tu.BashCmd("echo 'admin' | pachctl auth login").Run(); err == nil {
 		if err := tu.BashCmd("yes | pachctl auth deactivate").Run(); err != nil {
 			panic(err.Error())
 		}
 	}
 	time.Sleep(5 * time.Second)
 	backoff.Retry(func() error {
-		cmd := tu.Cmd("pachctl", "auth", "login", "-u", "admin")
+		cmd := tu.Cmd("pachctl", "auth", "login")
+		cmd.Stdin = strings.NewReader("admin\n")
 		if cmd.Run() != nil {
 			return nil // success -- auth is deactivated
 		}
