@@ -30,11 +30,9 @@ func activateAuth(t *testing.T) {
 	out, err := cmd.Output()
 	require.NoError(t, err)
 	if string(out) != "ACTIVE" {
-		cmd = tu.Cmd("pachctl", "enterprise", "activate", tu.GetTestEnterpriseCode())
-		// run cmd in retry loop--sometimes s3 reads flake
-		require.NoError(t, backoff.Retry(func() error {
-			return cmd.Run()
-		}, backoff.NewTestingBackOff()))
+		// Enterprise not active in the cluster. Activate it
+		require.NoError(t,
+			tu.Cmd("pachctl", "enterprise", "activate", tu.GetTestEnterpriseCode()).Run())
 	}
 
 	// Logout (to clear any expired tokens) and activate Pachyderm auth
