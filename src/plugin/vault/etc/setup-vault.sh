@@ -19,11 +19,14 @@ if ! pachctl auth list-admins; then
   yes | pachctl auth activate -u admin
 fi
 
+echo "going to login to vault"
 echo 'root' | vault login -
+echo "logged into vault"
 
 set +o pipefail
 rm /tmp/vault-plugins/$PLUGIN_NAME || true
 set -o pipefail
+
 go build -o /tmp/vault-plugins/$PLUGIN_NAME src/plugin/vault/main.go 
 
 # Clean up from last run
