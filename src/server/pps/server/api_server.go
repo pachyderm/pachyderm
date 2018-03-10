@@ -118,6 +118,7 @@ type apiServer struct {
 	iamRole               string
 	imagePullSecret       string
 	reporter              *metrics.Reporter
+	monitorCancels        map[string]func()
 	// collections
 	pipelines col.Collection
 	jobs      col.Collection

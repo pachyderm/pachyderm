@@ -100,30 +100,7 @@ func (a *APIServer) master() {
 			return err
 		}
 		defer masterLock.Unlock(ctx)
-
 		logger.Logf("Launching worker master process")
-
-		paused := false
-		// Set pipeline state to running
-		if _, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-			pipelineName := a.pipelineInfo.Pipeline.Name
-			pipelines := a.pipelines.ReadWrite(stm)
-			pipelinePtr := &pps.EtcdPipelineInfo{}
-			if err := pipelines.Get(pipelineName, pipelinePtr); err != nil {
-				return err
-			}
-			if pipelinePtr.State == pps.PipelineState_PIPELINE_PAUSED {
-				paused = true
-				return nil
-			}
-			pipelinePtr.State = pps.PipelineState_PIPELINE_RUNNING
-			return pipelines.Put(pipelineName, pipelinePtr)
-		}); err != nil {
-			return err
-		}
-		if paused {
-			return fmt.Errorf("can't run master for a paused pipeline")
-		}
 		return a.jobSpawner(pachClient)
 	}, b, func(err error, d time.Duration) error {
 		logger.Logf("master: error running the master process: %v; retrying in %v", err, d)
