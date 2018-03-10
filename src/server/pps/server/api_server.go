@@ -2114,11 +2114,10 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 
 	if me, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{}); err == nil {
 		if !me.IsAdmin {
-			return nil, fmt.Errorf("not authorized to delete all cluster data, must " +
-				"be a cluster admin")
+			return nil, &auth.NotAuthorizedError{AdminOp: "DeleteAll"}
 		}
 	} else if !auth.IsNotActivatedError(err) {
-		return nil, fmt.Errorf("DeleteAll(): could not verify that caller is admin: %v", err)
+		return nil, fmt.Errorf("Error during authorization check: %v", err)
 	}
 
 	pipelineInfos, err := a.ListPipeline(ctx, &pps.ListPipelineRequest{})
