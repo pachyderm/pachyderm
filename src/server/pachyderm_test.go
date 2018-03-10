@@ -5453,7 +5453,6 @@ func TestService(t *testing.T) {
 	}
 	httpAPIAddr := net.JoinHostPort(host, port)
 	url := fmt.Sprintf("http://%s/v1/pps/services/%s/%s/file1", httpAPIAddr, pipeline, dataRepo)
-	fmt.Println(url)
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := http.Get(url)
 		if err != nil {
