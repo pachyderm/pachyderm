@@ -165,6 +165,16 @@ func (a *apiServer) master() {
 							continue
 						}
 					}
+					if pipelineInfo.State == pps.PipelineState_PIPELINE_RUNNING {
+						if err := a.scaleUpWorkersForPipeline(pipelineInfo); err != nil {
+							return err
+						}
+					}
+					if pipelineInfo.State == pps.PipelineState_PIPELINE_STANDBY {
+						if err := a.scaleDownWorkersForPipeline(pipelineInfo); err != nil {
+							return err
+						}
+					}
 				}
 			case event := <-watchChan:
 				// if we get an error we restart the watch, k8s watches seem to
@@ -256,21 +266,18 @@ func getGithookService(kubeClient *kube.Clientset, namespace string) (*v1.Servic
 
 func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
 	var errCount int
-	return backoff.RetryNotify(func() error {
-		parallelism, err := ppsutil.GetExpectedNumWorkers(a.kubeClient, pipelineInfo.ParallelismSpec)
-		if err != nil {
-			log.Errorf("error getting number of workers, default to 1 worker: %v", err)
-			parallelism = 1
-		}
+	if err := backoff.RetryNotify(func() error {
 		var resourceRequests *v1.ResourceList
 		var resourceLimits *v1.ResourceList
 		if pipelineInfo.ResourceRequests != nil {
+			var err error
 			resourceRequests, err = ppsutil.GetRequestsResourceListFromPipeline(pipelineInfo)
 			if err != nil {
 				return err
 			}
 		}
 		if pipelineInfo.ResourceLimits != nil {
+			var err error
 			resourceLimits, err = ppsutil.GetLimitsResourceListFromPipeline(pipelineInfo)
 			if err != nil {
 				return err
@@ -283,13 +290,10 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		workerRc, err := rc.Get(
 			ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 			metav1.GetOptions{})
-		if err == nil {
-			if (workerRc.Spec.Template.Spec.Containers[0].Resources.Requests == nil) && *workerRc.Spec.Replicas == 1 {
-				parallelism = 1
-				resourceRequests = nil
-				resourceLimits = nil
-			}
+		if err != nil {
+			log.Errorf("error from rc.Get: %v", err)
 		}
+		// TODO figure out why the statement below runs even if there's an error
 		// rc was made by a previous version of pachyderm so we delete it
 		if workerRc.ObjectMeta.Labels["version"] != version.PrettyVersion() {
 			if err := a.deleteWorkersForPipeline(pipelineInfo); err != nil {
@@ -300,7 +304,7 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		options := a.getWorkerOptions(
 			pipelineInfo.Pipeline.Name,
 			ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
-			int32(parallelism),
+			0,
 			resourceRequests,
 			resourceLimits,
 			pipelineInfo.Transform,
@@ -320,10 +324,24 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		}
 		log.Errorf("error creating workers for pipeline %v: %v; retrying in %v", pipelineInfo.Pipeline.Name, err, d)
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	if _, ok := a.monitorCancels[pipelineInfo.Pipeline.Name]; !ok {
+		ctx, cancel := context.WithCancel(a.pachClient.Ctx())
+		a.monitorCancels[pipelineInfo.Pipeline.Name] = cancel
+		pachClient := a.pachClient.WithCtx(ctx)
+		go a.monitorPipeline(pachClient, pipelineInfo)
+	}
+	return nil
 }
 
 func (a *apiServer) deleteWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
+	cancel, ok := a.monitorCancels[pipelineInfo.Pipeline.Name]
+	if ok {
+		cancel()
+		delete(a.monitorCancels, pipelineInfo.Pipeline.Name)
+	}
 	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	if err := a.kubeClient.CoreV1().Services(a.namespace).Delete(
 		rcName, &metav1.DeleteOptions{},
@@ -353,7 +371,38 @@ func (a *apiServer) deleteWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 	return nil
 }
 
-func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) error {
+func (a *apiServer) scaleDownWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
+	rc := a.kubeClient.CoreV1().ReplicationControllers(a.namespace)
+	workerRc, err := rc.Get(
+		ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
+		metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	*workerRc.Spec.Replicas = 0
+	_, err = rc.Update(workerRc)
+	return err
+}
+
+func (a *apiServer) scaleUpWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
+	rc := a.kubeClient.CoreV1().ReplicationControllers(a.namespace)
+	workerRc, err := rc.Get(
+		ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
+		metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	parallelism, err := ppsutil.GetExpectedNumWorkers(a.kubeClient, pipelineInfo.ParallelismSpec)
+	if err != nil {
+		log.Errorf("error getting number of workers, default to 1 worker: %v", err)
+		parallelism = 1
+	}
+	*workerRc.Spec.Replicas = int32(parallelism)
+	_, err = rc.Update(workerRc)
+	return err
+}
+
+func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) {
 	backoff.RetryNotify(func() error {
 		ciChan := make(chan *pfs.CommitInfo)
 		go func() {
@@ -438,5 +487,4 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 		}
 		return nil
 	})
-	return nil
 }
