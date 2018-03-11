@@ -297,6 +297,19 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	if err != nil {
 		return nil, err
 	}
+
+	// wait until watchAdmins has activated auth, so that Activate() is less
+	// likely to race with subsequent calls that expect auth to be activated.
+	// TODO this is a bit hacky (checking repeatedly in a spin loop) but
+	// Activate() is rarely called, and it helps avoid races due to other pachd
+	// pods being out of date.
+	for {
+		if a.isActivated() {
+			time.Sleep(time.Second) // give other pachd nodes time to update their cache
+			break
+		}
+		time.Sleep(time.Second)
+	}
 	return &authclient.ActivateResponse{PachToken: pachToken}, nil
 }
 
@@ -324,6 +337,19 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	// wait until watchAdmins has deactivated auth, so that Deactivate() is less
+	// likely to race with subsequent calls that expect auth to be deactivated.
+	// TODO this is a bit hacky (checking repeatedly in a spin loop) but
+	// Deactivate() is rarely called, and it helps avoid races due to other pachd
+	// pods being out of date.
+	for {
+		if !a.isActivated() {
+			time.Sleep(time.Second) // give other pachd nodes time to update their cache
+			break
+		}
+		time.Sleep(time.Second)
 	}
 	return &authclient.DeactivateResponse{}, nil
 }
