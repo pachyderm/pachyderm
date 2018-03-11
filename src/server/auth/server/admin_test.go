@@ -41,10 +41,46 @@ func gh(user string) string {
 	return GitHubPrefix + user
 }
 
-func deleteAll(tb testing.TB) {
-	tb.Helper()
-	adminClient := getPachClient(tb, "admin")
-	require.Nil(tb, adminClient.DeleteAll(), "initial DeleteAll()")
+// TestActivate tests the Activate API (in particular, verifying
+// that Activate() also authenticates). Even though GetClient also activates
+// auth, this makes sure the code path is exercised (as auth may already be
+// active when the test starts)
+func TestActivate(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	// Get anonymous client (this will activate auth, which is about to be
+	// deactivated, but it also activates Pacyderm enterprise, which is needed for
+	// this test to pass)
+	c := getPachClient(t, "")
+
+	// Deactivate auth (if it's activated)
+	require.NoError(t, func() error {
+		adminClient := &client.APIClient{}
+		*adminClient = *c
+		resp, err := adminClient.Authenticate(adminClient.Ctx(),
+			&auth.AuthenticateRequest{GitHubToken: "admin"})
+		if err != nil {
+			if auth.IsNotActivatedError(err) {
+				return nil
+			}
+			return err
+		}
+		adminClient.SetAuthToken(resp.PachToken)
+		_, err = adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
+		return err
+	}())
+
+	// Activate auth
+	resp, err := c.AuthAPIClient.Activate(c.Ctx(), &auth.ActivateRequest{GitHubToken: "admin"})
+	require.NoError(t, err)
+	c.SetAuthToken(resp.PachToken)
+
+	// Check that the token 'c' received from PachD authenticates them as "admin"
+	who, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.True(t, who.IsAdmin)
+	require.Equal(t, admin, who.Username)
 }
 
 // TestAdminRWO tests adding and removing cluster admins, as well as admins
@@ -385,7 +421,7 @@ func TestPreActivationPipelinesRunAsAdmin(t *testing.T) {
 
 	// activate auth
 	_, err = adminClient.Activate(adminClient.Ctx(), &auth.ActivateRequest{
-		GitHubUsername: "admin",
+		GitHubToken: "admin",
 	})
 	require.NoError(t, err)
 
@@ -396,7 +432,7 @@ func TestPreActivationPipelinesRunAsAdmin(t *testing.T) {
 			username := []string{"admin", alice}[i]
 			resp, err := client.Authenticate(context.Background(),
 				&auth.AuthenticateRequest{
-					GitHubUsername: username,
+					GitHubToken: username,
 				})
 			if err != nil {
 				return err
@@ -496,7 +532,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 
 	// alice also can't re-authenticate
 	_, err = aliceClient.Authenticate(context.Background(),
-		&auth.AuthenticateRequest{GitHubUsername: alice})
+		&auth.AuthenticateRequest{GitHubToken: alice})
 	require.YesError(t, err)
 	require.Matches(t, "not active", err.Error())
 
@@ -525,7 +561,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 
 	// admin can re-authenticate
 	resp, err := adminClient.Authenticate(context.Background(),
-		&auth.AuthenticateRequest{GitHubUsername: "admin"})
+		&auth.AuthenticateRequest{GitHubToken: "admin"})
 	require.NoError(t, err)
 	adminClient.SetAuthToken(resp.PachToken)
 
@@ -552,7 +588,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 
 	// alice can now re-authenticate
 	resp, err = aliceClient.Authenticate(context.Background(),
-		&auth.AuthenticateRequest{GitHubUsername: alice})
+		&auth.AuthenticateRequest{GitHubToken: alice})
 	require.NoError(t, err)
 	aliceClient.SetAuthToken(resp.PachToken)
 
@@ -1019,9 +1055,12 @@ func TestRobotUserAdmin(t *testing.T) {
 		Add: []string{robotUser},
 	})
 	require.NoError(t, err)
-	getAdminsResp, err := adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
-	require.NoError(t, err)
-	require.ElementsEqual(t, []string{admin, robotUser}, getAdminsResp.Admins)
+	// wait until robotUser shows up in admin list
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
+		require.NoError(t, err)
+		return require.ElementsEqualOrErr([]string{admin, robotUser}, resp.Admins)
+	}, backoff.NewTestingBackOff()))
 
 	// robotUser mints a token for robotUser2
 	robotUser2 := RobotPrefix + tu.UniqueString("robocop")

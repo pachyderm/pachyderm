@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -67,6 +68,16 @@ const (
 	// string (with this prefix) is a logical Pachyderm robot user.
 	RobotPrefix = "robot:"
 )
+
+// githubTokenRegex is used when pachd is deployed in "dev mode" (i.e. when
+// pachd is deployed with "pachctl deploy local") to guess whether a call to
+// Authenticate or Authorize contains a real GitHub access token.
+//
+// If the field GitHubToken matches this regex, it's assumed to be a GitHub
+// token and pachd retrieves the corresponding user's GitHub username. If not,
+// pachd automatically authenticates the the caller as the GitHub user whose
+// username is the string in "GitHubToken".
+var githubTokenRegex = regexp.MustCompile("^[0-9a-f]{40}$")
 
 // epsilon is small, nonempty protobuf to use as an etcd value (the etcd client
 // library can't distinguish between empty values and missing values, even
@@ -241,13 +252,6 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	// We don't want to actually log the request/response since they contain
 	// credentials.
 	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
-	if strings.HasPrefix(req.GitHubUsername, GitHubPrefix) || strings.HasPrefix(req.GitHubUsername, RobotPrefix) {
-		return nil, fmt.Errorf("GitHubUsername should not have a user type prefix; it must be a GitHub user")
-	}
-	if req.GitHubUsername == magicUser {
-		return nil, fmt.Errorf("invalid user")
-	}
-
 	// If the cluster's Pachyderm Enterprise token isn't active, the auth system
 	// cannot be activated
 	state, err := a.getEnterpriseTokenState()
@@ -267,7 +271,7 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	}
 
 	// Determine caller's Pachyderm/GitHub username
-	username, err := GitHubTokenToUsername(ctx, req.GitHubUsername, req.GitHubToken)
+	username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
 	if err != nil {
 		return nil, err
 	}
@@ -292,6 +296,19 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	// wait until watchAdmins has activated auth, so that Activate() is less
+	// likely to race with subsequent calls that expect auth to be activated.
+	// TODO this is a bit hacky (checking repeatedly in a spin loop) but
+	// Activate() is rarely called, and it helps avoid races due to other pachd
+	// pods being out of date.
+	for {
+		if a.isActivated() {
+			time.Sleep(time.Second) // give other pachd nodes time to update their cache
+			break
+		}
+		time.Sleep(time.Second)
 	}
 	return &authclient.ActivateResponse{PachToken: pachToken}, nil
 }
@@ -321,6 +338,19 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 	if err != nil {
 		return nil, err
 	}
+
+	// wait until watchAdmins has deactivated auth, so that Deactivate() is less
+	// likely to race with subsequent calls that expect auth to be deactivated.
+	// TODO this is a bit hacky (checking repeatedly in a spin loop) but
+	// Deactivate() is rarely called, and it helps avoid races due to other pachd
+	// pods being out of date.
+	for {
+		if !a.isActivated() {
+			time.Sleep(time.Second) // give other pachd nodes time to update their cache
+			break
+		}
+		time.Sleep(time.Second)
+	}
 	return &authclient.DeactivateResponse{}, nil
 }
 
@@ -334,15 +364,15 @@ func (a *apiServer) isActivated() bool {
 // it discover the username of the user who obtained the code (or verify that
 // the code belongs to githubUsername). This is how Pachyderm currently
 // implements authorization in a production cluster
-func GitHubTokenToUsername(ctx context.Context, githubUsername string, oauthToken string) (string, error) {
-	if githubUsername == "" {
-		return "", fmt.Errorf("cannot validate GitHub credentials for anonymous user")
-	}
-	if os.Getenv(DisableAuthenticationEnvVar) == "true" {
-		// Test mode--the caller automatically authenticates as whoever is requested
-		return GitHubPrefix + githubUsername, nil
+func GitHubTokenToUsername(ctx context.Context, oauthToken string) (string, error) {
+	if !githubTokenRegex.MatchString(oauthToken) && os.Getenv(DisableAuthenticationEnvVar) == "true" {
+		logrus.Warnf("Pachyderm is deployed in DEV mode. Rather than verifying "+
+			"the provided token, pachd repurposes this field and automatically "+
+			"authenticates the caller as the GitHub user \"%s\"", oauthToken)
+		return GitHubPrefix + oauthToken, nil
 	}
 
+	// Initialize GitHub client with 'oauthToken'
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{
 			AccessToken: oauthToken,
@@ -351,16 +381,13 @@ func GitHubTokenToUsername(ctx context.Context, githubUsername string, oauthToke
 	tc := oauth2.NewClient(ctx, ts)
 	gclient := github.NewClient(tc)
 
-	// Passing the empty string gets us the authenticated user
+	// Retrieve the caller's GitHub Username (the empty string gets us the
+	// authenticated user)
 	user, _, err := gclient.Users.Get(ctx, "")
 	if err != nil {
 		return "", fmt.Errorf("error getting the authenticated user: %v", err)
 	}
 	verifiedUsername := user.GetLogin()
-	if githubUsername != verifiedUsername {
-		return "", fmt.Errorf("attempted to authenticate as %s, but GitHub "+
-			"token did not originate from that account", githubUsername)
-	}
 	return GitHubPrefix + verifiedUsername, nil
 }
 
@@ -509,15 +536,9 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 	if !a.isActivated() {
 		return nil, authclient.NotActivatedError{}
 	}
-	if strings.HasPrefix(req.GitHubUsername, GitHubPrefix) || strings.HasPrefix(req.GitHubUsername, RobotPrefix) {
-		return nil, fmt.Errorf("GitHubUsername should not have a user type prefix, but was \"%s\"; it must be a GitHub user", req.GitHubUsername)
-	}
-	if req.GitHubUsername == magicUser {
-		return nil, fmt.Errorf("invalid user")
-	}
 
 	// Determine caller's Pachyderm/GitHub username
-	username, err := GitHubTokenToUsername(ctx, req.GitHubUsername, req.GitHubToken)
+	username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
 	if err != nil {
 		return nil, err
 	}
@@ -1007,7 +1028,6 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 
 	return &authclient.GetAuthTokenResponse{
 		Token: token,
-		TTL:   req.TTL,
 	}, nil
 }
 
