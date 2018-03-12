@@ -4962,8 +4962,11 @@ func TestCronPipeline(t *testing.T) {
 		req := &pps.CreatePipelineRequest{
 			Pipeline: &pps.Pipeline{Name: pipeline},
 			Transform: &pps.Transform{
-				Cmd:   []string{"bash"},
-				Stdin: []string{"cat /pfs/time/time >> /pfs/out/time"},
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					"cat /pfs/time/time >> /pfs/out/time",
+					"echo \"\" >> /pfs/out/time",
+				},
 			},
 			Input:       client.NewCronInput("time", "@every 10s"),
 			Incremental: true,
@@ -4979,9 +4982,11 @@ func TestCronPipeline(t *testing.T) {
 		for i := 0; i < 5; i++ {
 			commitInfo, err := iter.Next()
 			require.NoError(t, err)
+			_, err = c.BlockCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
+			require.NoError(t, err)
 			var buf bytes.Buffer
 			require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "time", 0, 0, &buf))
-			require.Equal(t, i+1, strings.Split(buf.String(), "\n"))
+			require.Equal(t, i+2, len(strings.Split(buf.String(), "\n")))
 		}
 	})
 }
