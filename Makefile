@@ -394,13 +394,11 @@ test-client:
 	git checkout src/server/vendor/github.com/pachyderm
 
 test-vault:
-	rm -rf src/server/vendor/github.com/pachyderm/src/client
 	kill $$(cat vault.pid) || true
 	./src/plugin/vault/etc/start-vault.sh
 	./src/plugin/vault/etc/setup-vault.sh
 	@# Use count flag to disable test caching
 	go test -v -count 1 ./src/plugin/vault -timeout $(TIMEOUT)
-	git checkout src/server/vendor/github.com/pachyderm/src/client || true
 
 test-fuse:
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
