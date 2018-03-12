@@ -84,6 +84,7 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     cookbook/gpus
     cookbook/cron
     cookbook/ingressing_from_diff_cloud
+    cookbook/vault
  
 .. toctree::
     :maxdepth: 2
