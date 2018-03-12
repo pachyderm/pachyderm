@@ -27,7 +27,7 @@ func configurePlugin(v *vault.Client, ttl string) error {
 	}
 	resp, err := c.Authenticate(
 		context.Background(),
-		&auth.AuthenticateRequest{GitHubUsername: "admin", GitHubToken: "y"})
+		&auth.AuthenticateRequest{GitHubToken: "admin"})
 
 	if err != nil {
 		return err
@@ -71,7 +71,7 @@ func TestBadConfig(t *testing.T) {
 	}
 	resp, err := c.Authenticate(
 		context.Background(),
-		&auth.AuthenticateRequest{GitHubUsername: "admin", GitHubToken: "y"})
+		&auth.AuthenticateRequest{GitHubToken: "admin"})
 
 	if err != nil {
 		t.Errorf(err.Error())
