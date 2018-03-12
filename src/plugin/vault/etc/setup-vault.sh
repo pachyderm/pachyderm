@@ -16,7 +16,7 @@ if [[ "$(pachctl enterprise get-state)" = "No Pachyderm Enterprise token was fou
   set -x
 fi
 if ! pachctl auth list-admins; then
-  yes | pachctl auth activate -u admin
+  echo 'admin' | pachctl auth activate
 fi
 
 echo "going to login to vault"
