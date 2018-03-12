@@ -7,9 +7,7 @@ import (
 )
 
 // Factory is the function that the Pachyderm Vault plugin exports to let Vault
-// create/refresh/revoke Pachyderm tokens. It must have the type:
-// logical.Factory =
-//   func(context.Context, *logical.BackendConfig) (logical.Backend, error)
+// create/refresh/revoke Pachyderm tokens
 func Factory(ctx context.Context, c *logical.BackendConfig) (logical.Backend, error) {
 	b, err := newBackend(c)
 	if err != nil {
