@@ -90,7 +90,6 @@ func (a *apiServer) master() {
 		// performed in this function are performed as a cluster admin, so do not
 		// pass any unvalidated user input to any requests
 		pachClient := a.getPachClient().WithCtx(ctx)
-		pachClient.SetAuthToken(a.getPPSToken(pachClient))
 		ctx, err := masterLock.Lock(ctx)
 		if err != nil {
 			return err
@@ -141,22 +140,29 @@ func (a *apiServer) master() {
 					}
 					// TODO fix this function and uncomment this line
 					// a.fixNonDefaultPipelines()
-					pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, pipelineName, &pipelinePtr)
-					if err != nil {
-						return err
-					}
 
+					// Retrieve pipelineInfo (and prev pipeline's pipelineInfo) from the
+					// spec repo
 					var prevPipelinePtr pps.EtcdPipelineInfo
-					var prevPipelineInfo *pps.PipelineInfo
-					if event.PrevKey != nil {
-						if err := event.UnmarshalPrev(&pipelineName, &prevPipelinePtr); err != nil {
-							return err
-						}
-						prevPipelineInfo, err = ppsutil.GetPipelineInfo(pachClient, pipelineName, &prevPipelinePtr)
+					var pipelineInfo, prevPipelineInfo *pps.PipelineInfo
+					a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+						var err error
+						pipelineInfo, err = ppsutil.GetPipelineInfo(superUserClient, &pipelinePtr)
 						if err != nil {
 							return err
 						}
-					}
+
+						if event.PrevKey != nil {
+							if err := event.UnmarshalPrev(&pipelineName, &prevPipelinePtr); err != nil {
+								return err
+							}
+							prevPipelineInfo, err = ppsutil.GetPipelineInfo(superUserClient, &prevPipelinePtr)
+							if err != nil {
+								return err
+							}
+						}
+						return nil
+					})
 
 					// If the pipeline has been stopped, delete workers
 					if pipelineStateToStopped(pipelinePtr.State) {

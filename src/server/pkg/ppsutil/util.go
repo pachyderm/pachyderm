@@ -146,7 +146,7 @@ func GetExpectedNumWorkers(kubeClient *kube.Clientset, spec *ppsclient.Paralleli
 
 // GetPipelineInfo retrieves and returns a valid PipelineInfo from PFS. It does
 // the PFS read/unmarshalling of bytes as well as filling in missing fields
-func GetPipelineInfo(pachClient *client.APIClient, name string, ptr *pps.EtcdPipelineInfo) (*pps.PipelineInfo, error) {
+func GetPipelineInfo(pachClient *client.APIClient, ptr *pps.EtcdPipelineInfo) (*pps.PipelineInfo, error) {
 	buf := bytes.Buffer{}
 	if err := pachClient.GetFile(ppsconsts.SpecRepo, ptr.SpecCommit.ID, ppsconsts.SpecFile, 0, 0, &buf); err != nil {
 		return nil, fmt.Errorf("could not read existing PipelineInfo from PFS: %v", err)
