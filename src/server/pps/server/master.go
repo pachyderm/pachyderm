@@ -90,7 +90,7 @@ func (a *apiServer) master() {
 		// performed in this function are performed as a cluster admin, so do not
 		// pass any unvalidated user input to any requests
 		pachClient := a.getPachClient().WithCtx(ctx)
-		pachClient.SetAuthToken(a.getPPSToken())
+		pachClient.SetAuthToken(a.getPPSToken(pachClient))
 		ctx, err := masterLock.Lock(ctx)
 		if err != nil {
 			return err

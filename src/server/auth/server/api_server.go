@@ -106,6 +106,10 @@ type apiServer struct {
 	// admins is a collection of username -> Empty mappings (keys indicate which
 	// github users are cluster admins)
 	admins col.Collection
+
+	// This is a cache of the PPS master token. It's set once on startup and then
+	// never updated
+	ppsToken string
 }
 
 // LogReq is like log.Logger.Log(), but it assumes that it's being called from
@@ -188,6 +192,33 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (
 	}
 	go s.getPachClient() // initialize connection to Pachd
 	go s.watchAdmins(path.Join(etcdPrefix, adminsPrefix))
+
+	// Retrieve the PPS master token, or generate it and put it in etcd.
+	// TODO This is a hack. It avoids the need to return superuser tokens from
+	// GetAuthToken (essentially, PPS and Auth communicate through etcd instead of
+	// an API) but we should define an internal API and use that instead.
+	var tokenProto types.StringValue // will contain PPS token
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	if _, err = col.NewSTM(ctx, etcdClient, func(stm col.STM) error {
+		superUserTokenCol := col.NewCollection(etcdClient, ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil).ReadWrite(stm)
+		err := superUserTokenCol.Get("", &tokenProto)
+		if err == nil {
+			return nil
+		}
+		if col.IsErrNotFound(err) {
+			// no existing token yet -- generate token
+			token := uuid.NewWithoutDashes()
+			tokenProto.Value = token
+			if err := superUserTokenCol.Create("", &tokenProto); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	s.ppsToken = tokenProto.Value
 	return s, nil
 }
 
@@ -1190,6 +1221,15 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.Token
 		return nil, authclient.NotSignedInError{}
 	}
 	token := md[authclient.ContextTokenKey][0]
+	if token == a.ppsToken {
+		// TODO(msteffen): This is a hack. The idea is that there is a logical user
+		// entry mapping ppsToken to magicUser. Soon, magicUser will go away and
+		// this check should happen in authorize
+		return &authclient.TokenInfo{
+			Subject: magicUser,
+			Source:  authclient.TokenInfo_GET_TOKEN,
+		}, nil
+	}
 
 	// Lookup the token in both a.tokens and a.pipelineTokens
 	var tokensResult, pipelineTokensResult authclient.TokenInfo

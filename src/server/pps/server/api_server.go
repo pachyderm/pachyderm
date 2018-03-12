@@ -21,6 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
@@ -1479,18 +1480,23 @@ var (
 // getPPSToken returns the auth token used by PPS to write to the spec repo.
 // Using this token grants any PPS request admin-level authority, so its use is
 // restricted to makePipelineInfoCommit(), deletePipelineInfo(), and master()
-func (a *apiServer) getPPSToken() string {
+func (a *apiServer) getPPSToken(pachClient *client.APIClient) string {
 	// Get PPS auth token
 	ppsTokenOnce.Do(func() {
-		resp, err := a.etcdClient.Get(context.Background(),
-			path.Join(a.etcdPrefix, ppsconsts.PPSTokenKey))
-		if err != nil {
-			panic(fmt.Sprintf("could not read PPS token: %v", err))
+		b := backoff.NewExponentialBackOff()
+		b.MaxElapsedTime = 60 * time.Second
+		b.MaxInterval = 5 * time.Second
+		if err := backoff.Retry(func() error {
+			superUserTokenCol := col.NewCollection(a.etcdClient, ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil).ReadOnly(pachClient.Ctx())
+			var result types.StringValue
+			if err := superUserTokenCol.Get("", &result); err != nil {
+				return fmt.Errorf("couldn't get PPS superuser token on startup")
+			}
+			ppsToken = result.Value
+			return nil
+		}, b); err != nil {
+			panic("couldn't get PPS superuser token within 60s of starting up")
 		}
-		if resp.Count != 1 {
-			panic(fmt.Sprintf("got an unexpected number of PPS tokens: %d", resp.Count))
-		}
-		ppsToken = string(resp.Kvs[0].Value)
 	})
 	return ppsToken
 }
@@ -1509,7 +1515,7 @@ func (a *apiServer) makePipelineInfoComit(pachClient *client.APIClient, pipeline
 	// Set the pach client's auth token to the master token. At this point, no
 	// parameters to any pachClient requests should be unvalidated user input, as
 	// the pachClient has admin-level authority
-	pachClient.SetAuthToken(a.getPPSToken())
+	pachClient.SetAuthToken(a.getPPSToken(pachClient))
 
 	// If we're creating a new pipeline, create the pipeline branch
 	if !update {
@@ -1918,7 +1924,7 @@ func (a *apiServer) deletePipelineBranch(pachClient *client.APIClient, pipeline 
 	// Set the pach client's auth token to the master token. At this point, no
 	// parameters to any pachClient requests should be unvalidated user input, as
 	// the pachClient has admin-level authority
-	pachClient.SetAuthToken(a.getPPSToken())
+	pachClient.SetAuthToken(a.getPPSToken(pachClient))
 	return pachClient.DeleteBranch(ppsconsts.SpecRepo, pipeline)
 }
 
