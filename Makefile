@@ -394,7 +394,7 @@ test-client:
 	git checkout src/server/vendor/github.com/pachyderm
 
 test-vault:
-	kill $$(cat vault.pid) || true
+	kill $$(cat /tmp/vault.pid) || true
 	./src/plugin/vault/etc/start-vault.sh
 	./src/plugin/vault/etc/setup-vault.sh
 	@# Use count flag to disable test caching
