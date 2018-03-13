@@ -1815,6 +1815,17 @@ func (a *apiServer) inspectPipeline(pachClient *client.APIClient, name string) (
 	if err != nil {
 		return nil, err
 	}
+	if pipelineInfo.Service != nil {
+		rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+		if err != nil {
+			return nil, err
+		}
+		service, err := a.kubeClient.CoreV1().Services(a.namespace).Get(fmt.Sprintf("%s-user", rcName), metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		pipelineInfo.Service.IP = service.Spec.ClusterIP
+	}
 	var hasGitInput bool
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
 		if input.Git != nil {
