@@ -12,6 +12,26 @@ const (
 	// ContextTokenKey is the key of the auth token in an
 	// authenticated context
 	ContextTokenKey = "authn-token"
+
+	// The following constants are Subject prefixes. These are prepended to
+	// Subjects in the 'tokens' collection, and Principals in 'admins' and on ACLs
+	// to indicate what type of Subject or Principal they are (every Pachyderm
+	// Subject has a logical Principal with the same name).
+
+	// GitHubPrefix indicates that this Subject is a GitHub user (because users
+	// can authenticate via GitHub, and Pachyderm doesn't have a users table,
+	// every GitHub user is also a logical Pachyderm user (but most won't be on
+	// any ACLs)
+	GitHubPrefix = "github:"
+
+	// RobotPrefix indicates that this Subject is a Pachyderm robot user. Any
+	// string (with this prefix) is a logical Pachyderm robot user.
+	RobotPrefix = "robot:"
+
+	// PipelinePrefix indicates that this Subject is a PPS pipeline. Any string
+	// (with this prefix) is a logical PPS pipeline (even though the pipeline may
+	// not exist).
+	PipelinePrefix = "pipeline:"
 )
 
 // ParseScope parses the string 's' to a scope (for example, parsing a command-

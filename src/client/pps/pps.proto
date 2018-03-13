@@ -547,6 +547,9 @@ message RerunPipelineRequest {
 message GarbageCollectRequest {}
 message GarbageCollectResponse {}
 
+message PPSActivateAuthRequest {}
+message PPSActivateAuthResponse {}
+
 service API {
   rpc CreateJob(CreateJobRequest) returns (Job) {}
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
@@ -580,4 +583,8 @@ service API {
 
   // Garbage collection
   rpc GarbageCollect(GarbageCollectRequest) returns (GarbageCollectResponse) {}
+
+  // An internal call that causes PPS to put itself into an auth-enabled state
+  // (all pipeline have tokens, correct permissions, etcd)
+  rpc ActivateAuth(PPSActivateAuthRequest) returns (PPSActivateAuthResponse) {}
 }
