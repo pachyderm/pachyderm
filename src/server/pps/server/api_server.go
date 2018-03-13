@@ -1520,7 +1520,7 @@ func (a *apiServer) sudo(pachClient *client.APIClient, f func(*client.APIClient)
 func (a *apiServer) makePipelineInfoCommit(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, update bool) (*pfs.Commit, error) {
 	pipelineName := pipelineInfo.Pipeline.Name
 	var commit *pfs.Commit
-	a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+	if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
 		// If we're creating a new pipeline, create the pipeline branch
 		if !update {
 			// Create pipeline branch in spec repo and write PipelineInfo there
@@ -1553,7 +1553,9 @@ func (a *apiServer) makePipelineInfoCommit(pachClient *client.APIClient, pipelin
 			return err
 		}
 		return superUserClient.FinishCommit(ppsconsts.SpecRepo, commit.ID)
-	})
+	}); err != nil {
+		return nil, err
+	}
 	return commit, nil
 }
 
@@ -1711,7 +1713,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				AuthToken:  tokenResp.Token,
 			})
 			if isAlreadyExistsErr(err) {
-				pachClient.DeleteCommit(pipelineName, commit.ID)
+				if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+					return superUserClient.DeleteCommit(pipelineName, commit.ID)
+				}); err != nil {
+					return fmt.Errorf("couldn't clean up orphaned spec commit: %v", err)
+				}
 				return newErrPipelineExists(pipelineName)
 			}
 			return err
