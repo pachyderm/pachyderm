@@ -408,9 +408,9 @@ func (a *apiServer) isActivated() bool {
 // implements authorization in a production cluster
 func GitHubTokenToUsername(ctx context.Context, oauthToken string) (string, error) {
 	if !githubTokenRegex.MatchString(oauthToken) && os.Getenv(DisableAuthenticationEnvVar) == "true" {
-		logrus.Warnf("Pachyderm is deployed in DEV mode. Rather than verifying "+
-			"the provided token, pachd repurposes this field and automatically "+
-			"authenticates the caller as the GitHub user \"%s\"", oauthToken)
+		logrus.Warnf("Pachyderm is deployed in DEV mode. The provided auth token " +
+		"will NOT be verified with GitHub; the caller is automatically " +
+		"authenticated as the GitHub user \"%s\"", oauthToken)
 		return GitHubPrefix + oauthToken, nil
 	}
 
