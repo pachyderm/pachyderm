@@ -5359,6 +5359,7 @@ func TestService(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestService_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -5428,6 +5429,32 @@ func TestService(t *testing.T) {
 
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := http.Get(fmt.Sprintf("http://%s/%s/file1", serviceAddr, dataRepo))
+		if err != nil {
+			return err
+		}
+		if resp.StatusCode != 200 {
+			return fmt.Errorf("GET returned %d", resp.StatusCode)
+		}
+		content, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		if string(content) != "foo" {
+			return fmt.Errorf("wrong content for file1: expected foo, got %s", string(content))
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+
+	clientAddr := c.GetAddress()
+	host, _, err := net.SplitHostPort(clientAddr)
+	port, ok := os.LookupEnv("PACHD_SERVICE_PORT_API_HTTP_PORT")
+	if !ok {
+		port = "30652" // default NodePort port for Pachd's HTTP API
+	}
+	httpAPIAddr := net.JoinHostPort(host, port)
+	url := fmt.Sprintf("http://%s/v1/pps/services/%s/%s/file1", httpAPIAddr, pipeline, dataRepo)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := http.Get(url)
 		if err != nil {
 			return err
 		}

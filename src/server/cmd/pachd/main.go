@@ -30,6 +30,7 @@ import (
 	deployserver "github.com/pachyderm/pachyderm/src/server/deploy"
 	eprsserver "github.com/pachyderm/pachyderm/src/server/enterprise/server"
 	"github.com/pachyderm/pachyderm/src/server/health"
+	pach_http "github.com/pachyderm/pachyderm/src/server/http"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	cache_pb "github.com/pachyderm/pachyderm/src/server/pkg/cache/groupcachepb"
 	cache_server "github.com/pachyderm/pachyderm/src/server/pkg/cache/server"
@@ -329,13 +330,13 @@ func doFullMode(appEnvObj interface{}) error {
 
 	deployServer := deployserver.NewDeployServer(kubeClient, kubeNamespace)
 
-	httpServer, err := pfs_server.NewHTTPServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), blockCacheBytes)
+	httpServer, err := pach_http.NewHTTPServer(address)
 	if err != nil {
 		return err
 	}
 	var eg errgroup.Group
 	eg.Go(func() error {
-		return http.ListenAndServe(fmt.Sprintf(":%v", pfs_server.HTTPPort), httpServer)
+		return http.ListenAndServe(fmt.Sprintf(":%v", pach_http.HTTPPort), httpServer)
 	})
 	eg.Go(func() error {
 		return githook.RunGitHookServer(address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix))

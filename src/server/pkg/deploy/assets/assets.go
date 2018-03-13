@@ -11,6 +11,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	auth "github.com/pachyderm/pachyderm/src/server/auth/server"
+	"github.com/pachyderm/pachyderm/src/server/http"
 	pfs "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	apps "k8s.io/api/apps/v1beta1"
@@ -388,7 +389,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 									Name:          "trace-port",
 								},
 								{
-									ContainerPort: pfs.HTTPPort,
+									ContainerPort: http.HTTPPort,
 									Protocol:      "TCP",
 									Name:          "api-http-port",
 								},
@@ -447,9 +448,9 @@ func PachdService(opts *AssetOpts) *v1.Service {
 					NodePort: 30651,
 				},
 				{
-					Port:     pfs.HTTPPort,
+					Port:     http.HTTPPort,
 					Name:     "api-http-port",
-					NodePort: 30000 + pfs.HTTPPort,
+					NodePort: 30000 + http.HTTPPort,
 				},
 				{
 					Port:     githook.GitHookPort,

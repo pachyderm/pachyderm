@@ -791,6 +791,26 @@ func (c APIClient) GetFileReader(repoName string, commitID string, path string, 
 	return grpcutil.NewStreamingBytesReader(apiGetFileClient), nil
 }
 
+// GetFileReadSeeker returns a reader for the contents of a file at a specific
+// Commit that permits Seeking to different points in the file.
+func (c APIClient) GetFileReadSeeker(repoName string, commitID string, path string) (io.ReadSeeker, error) {
+	fileInfo, err := c.InspectFile(repoName, commitID, path)
+	if err != nil {
+		return nil, err
+	}
+	reader, err := c.GetFileReader(repoName, commitID, path, 0, 0)
+	if err != nil {
+		return nil, err
+	}
+	return &getFileReadSeeker{
+		reader: reader,
+		file:   NewFile(repoName, commitID, path),
+		offset: 0,
+		size:   int64(fileInfo.SizeBytes),
+		c:      c,
+	}, nil
+}
+
 func (c APIClient) getFile(repoName string, commitID string, path string, offset int64,
 	size int64) (pfs.API_GetFileClient, error) {
 	return c.PfsAPIClient.GetFile(
@@ -1066,4 +1086,44 @@ func (w *putObjectSplitWriteCloser) Close() error {
 	}
 	w.objects = objects.Objects
 	return nil
+}
+
+type reader = io.Reader
+
+type getFileReadSeeker struct {
+	reader
+	file   *pfs.File
+	offset int64
+	size   int64
+	c      APIClient
+}
+
+func (r *getFileReadSeeker) Seek(offset int64, whence int) (int64, error) {
+	getFileReader := func(offset int64) (io.Reader, error) {
+		return r.c.GetFileReader(r.file.Commit.Repo.Name, r.file.Commit.ID, r.file.Path, offset, 0)
+	}
+	switch whence {
+	case io.SeekStart:
+		reader, err := getFileReader(offset)
+		if err != nil {
+			return r.offset, err
+		}
+		r.offset = offset
+		r.reader = reader
+	case io.SeekCurrent:
+		reader, err := getFileReader(r.offset + offset)
+		if err != nil {
+			return r.offset, err
+		}
+		r.offset += offset
+		r.reader = reader
+	case io.SeekEnd:
+		reader, err := getFileReader(r.size - offset)
+		if err != nil {
+			return r.offset, err
+		}
+		r.offset = r.size - offset
+		r.reader = reader
+	}
+	return r.offset, nil
 }
