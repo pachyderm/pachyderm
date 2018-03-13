@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
-	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/version"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 
 	"github.com/segmentio/analytics-go"
 	log "github.com/sirupsen/logrus"
