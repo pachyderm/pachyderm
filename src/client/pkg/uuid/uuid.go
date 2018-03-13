@@ -1,6 +1,7 @@
 package uuid
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -9,7 +10,13 @@ import (
 
 // New returns a new uuid.
 func New() string {
-	return uuid.NewV4().String()
+	for {
+		uuid, err := uuid.NewV4()
+		if err == nil {
+			return uuid.String()
+		}
+		fmt.Printf("error uuid.NewV4: %v", err)
+	}
 }
 
 // NewWithoutDashes returns a new uuid without no "-".
