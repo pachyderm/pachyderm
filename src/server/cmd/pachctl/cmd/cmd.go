@@ -315,7 +315,6 @@ This resets the cluster to its initial state.`,
 pod=$(kubectl %s get pod -l app=pachd  --output='jsonpath={.items[0].metadata.name}')
 kubectl %s port-forward "$pod" %d:650
 `, kubeCtlFlags, kubeCtlFlags, port))
-				fmt.Println(stdin)
 				if err := cmdutil.RunIO(cmdutil.IO{
 					Stdin:  stdin,
 					Stderr: os.Stderr,
@@ -331,7 +330,6 @@ kubectl %s port-forward "$pod" %d:650
 pod=$(kubectl %s get pod -l app=dash --output='jsonpath={.items[0].metadata.name}')
 kubectl %s port-forward "$pod" %d:8080
 `, kubeCtlFlags, kubeCtlFlags, uiPort))
-				fmt.Println(stdin)
 				if err := cmdutil.RunIO(cmdutil.IO{
 					Stdin: stdin,
 				}, "sh"); err != nil {
@@ -346,7 +344,6 @@ kubectl %s port-forward "$pod" %d:8080
 pod=$(kubectl %v get pod -l app=dash --output='jsonpath={.items[0].metadata.name}')
 kubectl %v port-forward "$pod" %d:8081
 `, kubeCtlFlags, kubeCtlFlags, uiWebsocketPort))
-				fmt.Println(stdin)
 				if err := cmdutil.RunIO(cmdutil.IO{
 					Stdin: stdin,
 				}, "sh"); err != nil {
