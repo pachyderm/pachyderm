@@ -145,7 +145,7 @@ func (a *apiServer) master() {
 					// spec repo
 					var prevPipelinePtr pps.EtcdPipelineInfo
 					var pipelineInfo, prevPipelineInfo *pps.PipelineInfo
-					a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+					if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
 						var err error
 						pipelineInfo, err = ppsutil.GetPipelineInfo(superUserClient, &pipelinePtr)
 						if err != nil {
@@ -162,7 +162,9 @@ func (a *apiServer) master() {
 							}
 						}
 						return nil
-					})
+					}); err != nil {
+						return fmt.Errorf("watch event had no pipelineInfo: %v", err)
+					}
 
 					// If the pipeline has been stopped, delete workers
 					if pipelineStateToStopped(pipelinePtr.State) {
