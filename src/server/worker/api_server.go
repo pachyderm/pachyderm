@@ -409,6 +409,30 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 		logger.Logf("input data download took (%v)", time.Since(start))
 	}(time.Now())
 	dir := filepath.Join(client.PPSScratchSpace, uuid.NewWithoutDashes())
+	var incremental bool
+	if parentTag != nil {
+		if err := func() error {
+			var buffer bytes.Buffer
+			if err := pachClient.GetTag(parentTag.Name, &buffer); err != nil {
+				// This likely means that the parent job errored in some way,
+				// this doesn't prevent us from running the job, it just means
+				// we have to run it in an un-incremental fashion, as if this
+				// were the first input commit.
+				return nil
+			}
+			incremental = true
+			tree, err := hashtree.Deserialize(buffer.Bytes())
+			if err != nil {
+				return fmt.Errorf("failed to deserialize parent hashtree: %v", err)
+			}
+			if err := puller.PullTree(pachClient, path.Join(dir, "out"), tree, false, concurrency); err != nil {
+				return fmt.Errorf("error pulling output tree: %+v", err)
+			}
+			return nil
+		}(); err != nil {
+			return "", err
+		}
+	}
 	for _, input := range inputs {
 		if input.GitURL != "" {
 			if err := a.downloadGitData(pachClient, dir, input); err != nil {
@@ -419,7 +443,7 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 		file := input.FileInfo.File
 		root := filepath.Join(dir, input.Name, file.Path)
 		treeRoot := path.Join(statsPath, input.Name, file.Path)
-		if a.pipelineInfo.Incremental && input.ParentCommit != nil {
+		if incremental && input.ParentCommit != nil {
 			if err := puller.PullDiff(pachClient, root,
 				file.Commit.Repo.Name, file.Commit.ID, file.Path,
 				input.ParentCommit.Repo.Name, input.ParentCommit.ID, file.Path,
@@ -430,19 +454,6 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 			if err := puller.Pull(pachClient, root, file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, input.EmptyFiles, concurrency, statsTree, treeRoot); err != nil {
 				return "", err
 			}
-		}
-	}
-	if parentTag != nil {
-		var buffer bytes.Buffer
-		if err := pachClient.GetTag(parentTag.Name, &buffer); err != nil {
-			return "", fmt.Errorf("error getting parent for datum %v: %v", inputs, err)
-		}
-		tree, err := hashtree.Deserialize(buffer.Bytes())
-		if err != nil {
-			return "", fmt.Errorf("failed to deserialize parent hashtree: %v", err)
-		}
-		if err := puller.PullTree(pachClient, path.Join(dir, "out"), tree, false, concurrency); err != nil {
-			return "", fmt.Errorf("error pulling output tree: %+v", err)
 		}
 	}
 	return dir, nil
