@@ -1625,12 +1625,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if err := a.authorizePipelineOp(pachClient, operation, pipelineInfo.Input, pipelineInfo.Pipeline.Name); err != nil {
 		return nil, err
 	}
-	// User is authorized -- get authentication token (copy to pipeline in STM below)
-	tokenResp, err := pachClient.GetAuthToken(ctx, &auth.GetAuthTokenRequest{})
-	if err != nil {
-		return nil, fmt.Errorf("error getting auth token for the user: %v", err)
-	}
-
 	pipelineName := pipelineInfo.Pipeline.Name
 	pps.SortInput(pipelineInfo.Input) // Makes datum hashes comparable
 	if request.Update {
@@ -1651,7 +1645,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		// PFS in a new commit. Do this inside an etcd transaction as PFS doesn't
 		// support transactions and this prevents concurrent UpdatePipeline calls
 		// from racing
-		var oldAuthToken string
 		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			pipelines := a.pipelines.ReadWrite(stm)
 			// Read existing PipelineInfo from PFS output repo
@@ -1660,7 +1653,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			if err := pipelines.Get(pipelineName, &pipelinePtr); err != nil {
 				return err
 			}
-			oldAuthToken = pipelinePtr.AuthToken
 			oldPipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, &pipelinePtr)
 			if err != nil {
 				return err
@@ -1679,19 +1671,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			}
 			// Write updated pointer back to etcd
 			pipelinePtr.SpecCommit = commit
-			pipelinePtr.AuthToken = tokenResp.Token
 			return pipelines.Put(pipelineName, &pipelinePtr)
 		}); err != nil {
 			return nil, err
-		}
-
-		// Update has succeeded, Revoke the old auth token retrieved from pipelineInfo
-		if oldAuthToken != "" {
-			if _, err := pachClient.RevokeAuthToken(ctx, &auth.RevokeAuthTokenRequest{
-				Token: oldAuthToken,
-			}); err != nil && !auth.IsNotActivatedError(err) {
-				return nil, fmt.Errorf("error revoking old auth token: %v", err)
-			}
 		}
 	} else {
 		// Create output repo, where we'll store the pipeline spec, future pipeline
@@ -1705,13 +1687,69 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		if err != nil {
 			return nil, err
 		}
+
+		// pipelinePtr will be written to etcd, pointing at 'commit'. May include an
+		// auth token
+		pipelinePtr := &pps.EtcdPipelineInfo{
+			SpecCommit: commit,
+			State:      pps.PipelineState_PIPELINE_STARTING,
+		}
+
+		// Generate pipeline's auth token & add pipeline to the ACLs of input/output
+		// repos
+		if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+			tokenResp, err := superUserClient.GetAuthToken(ctx, &auth.GetAuthTokenRequest{})
+			if err != nil {
+				if auth.IsNotActivatedError(err) {
+					return nil // no auth work to do
+				}
+				return fmt.Errorf("error getting auth token for the user: %v", err)
+			}
+			pipelinePtr.AuthToken = tokenResp.Token
+			return nil
+		}); err != nil {
+			return nil, err
+		}
+
+		if pipelinePtr.AuthToken != "" {
+			var eg errgroup.Group
+			pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+				eg.Go(func() error {
+					return a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+						var repo string
+						switch {
+						case input.Atom != nil:
+							repo = input.Atom.Repo
+						case input.Cron != nil:
+							repo = input.Cron.Repo
+						}
+						_, err := superUserClient.SetScope(ctx, &auth.SetScopeRequest{
+							Repo:     repo,
+							Username: auth.PipelinePrefix + pipelineInfo.Pipeline.Name,
+							Scope:    auth.Scope_READER,
+						})
+						return err
+					})
+				})
+				eg.Go(func() error {
+					return a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+						_, err := superUserClient.SetScope(ctx, &auth.SetScopeRequest{
+							Repo:     pipelineInfo.Pipeline.Name,
+							Username: auth.PipelinePrefix + pipelineInfo.Pipeline.Name,
+							Scope:    auth.Scope_READER,
+						})
+						return err
+					})
+				})
+			})
+			if err := eg.Wait(); err != nil {
+				return nil, err
+			}
+		}
+
 		// Put a pointer to the new PipelineInfo commit into etcd
 		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-			err = a.pipelines.ReadWrite(stm).Create(pipelineName, &pps.EtcdPipelineInfo{
-				SpecCommit: commit,
-				State:      pps.PipelineState_PIPELINE_STARTING,
-				AuthToken:  tokenResp.Token,
-			})
+			err = a.pipelines.ReadWrite(stm).Create(pipelineName, pipelinePtr)
 			if isAlreadyExistsErr(err) {
 				if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
 					return superUserClient.DeleteCommit(pipelineName, commit.ID)
@@ -1722,9 +1760,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			}
 			return err
 		})
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	// Create a branch for the pipeline's output data (provenant on the spec branch)
@@ -1984,12 +2019,36 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 		return nil, err
 	}
 
-	// Revoke the pipeline's auth token
+	// Revoke the pipeline's auth token and remove it from its inputs' ACLs
 	if pipelinePtr.AuthToken != "" {
 		if _, err := pachClient.RevokeAuthToken(ctx, &auth.RevokeAuthTokenRequest{
 			Token: pipelinePtr.AuthToken,
 		}); err != nil && !auth.IsNotActivatedError(err) {
 			return nil, fmt.Errorf("error revoking old auth token: %v", err)
+		} else if err == nil {
+			var eg errgroup.Group
+			pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+				eg.Go(func() error {
+					return a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+						var repo string
+						switch {
+						case input.Atom != nil:
+							repo = input.Atom.Repo
+						case input.Cron != nil:
+							repo = input.Cron.Repo
+						}
+						_, err := superUserClient.SetScope(ctx, &auth.SetScopeRequest{
+							Repo:     repo,
+							Username: auth.PipelinePrefix + pipelineInfo.Pipeline.Name,
+							Scope:    auth.Scope_READER,
+						})
+						return err
+					})
+				})
+			})
+			if err := eg.Wait(); err != nil {
+				return nil, fmt.Errorf("could not remove \"%s\" from inputs' ACLs: %v", pipelineInfo.Pipeline.Name, err)
+			}
 		}
 	}
 
@@ -2360,6 +2419,96 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 	}
 
 	return &pps.GarbageCollectResponse{}, nil
+}
+
+func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.PPSActivateAuthRequest) (resp *pps.PPSActivateAuthResponse, retErr error) {
+	func() { a.Log(req, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+	pachClient := a.getPachClient().WithCtx(ctx)
+	ctx = pachClient.Ctx() // pachClient will propagate auth info
+
+	// TODO: block creating of pipelines until this is done, so that ListPipelines
+	// is exhaustive
+	var pipelines []*pps.PipelineInfo
+	if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+		var err error
+		pipelines, err = superUserClient.ListPipeline()
+		if err != nil {
+			return fmt.Errorf("cannot get list of pipelines to update: %v", err)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	var eg errgroup.Group
+	for _, pipeline := range pipelines {
+		pipeline := pipeline
+		name := pipeline.Pipeline.Name
+		// 1) Create a new auth token for 'pipeline' and attach it, so that the
+		// pipeline can authenticate as itself when it needs to read input data
+		eg.Go(func() error {
+			return a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+				tokenResp, err := superUserClient.GetAuthToken(ctx, &auth.GetAuthTokenRequest{
+					Subject: auth.PipelinePrefix + name,
+				})
+				if err != nil {
+					return fmt.Errorf("could not generate pipeline auth token: %v", err)
+				}
+				_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+					var pipelinePtr pps.EtcdPipelineInfo
+					if err := a.pipelines.ReadWrite(stm).Update(name, &pipelinePtr, func() error {
+						pipelinePtr.AuthToken = tokenResp.Token
+						return nil
+					}); err != nil {
+						return fmt.Errorf("could not update \"%s\" with new auth token: %v", name, err)
+					}
+					return nil
+				})
+				return err
+			})
+		})
+
+		// 2) Add the pipeline to every input's ACL (as a READER)
+		pps.VisitInput(pipeline.Input, func(input *pps.Input) {
+			if input.Atom == nil && input.Cron == nil {
+				return
+			}
+			eg.Go(func() error {
+				return a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+					var repo string
+					switch {
+					case input.Atom != nil:
+						repo = input.Atom.Repo
+					case input.Cron != nil:
+						repo = input.Cron.Repo
+					}
+					_, err := superUserClient.SetScope(ctx, &auth.SetScopeRequest{
+						Repo:     repo,
+						Username: auth.PipelinePrefix + name,
+						Scope:    auth.Scope_READER,
+					})
+					return err
+				})
+			})
+		})
+
+		// 3) Add the pipeline to the output repo's ACL (as a WRITER)
+		eg.Go(func() error {
+			return a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+				_, err := superUserClient.SetScope(ctx, &auth.SetScopeRequest{
+					Repo:     name,
+					Username: auth.PipelinePrefix + name,
+					Scope:    auth.Scope_WRITER,
+				})
+				return err
+			})
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+	return &pps.PPSActivateAuthResponse{}, nil
 }
 
 // incrementGCGeneration increments the GC generation number in etcd
