@@ -24,8 +24,8 @@ import (
 
 const (
 	// admin is the sole cluster admin after getPachClient is called in each test
-	admin = GitHubPrefix + "admin"
-	carol = GitHubPrefix + "carol"
+	admin = auth.GitHubPrefix + "admin"
+	carol = auth.GitHubPrefix + "carol"
 )
 
 var (
@@ -59,7 +59,7 @@ func getPachClientInternal(t testing.TB, subject string) *client.APIClient {
 		return resultClient // anonymous client
 	}
 	if strings.Index(subject, ":") < 0 {
-		subject = GitHubPrefix + subject
+		subject = auth.GitHubPrefix + subject
 	}
 	if _, ok := tokenMap[subject]; !ok {
 		resp, err := seedClient.Authenticate(context.Background(),
@@ -67,7 +67,7 @@ func getPachClientInternal(t testing.TB, subject string) *client.APIClient {
 				// When Pachyderm is deployed locally, GitHubToken automatically
 				// authenicates the caller as a GitHub user whose name is equal to the
 				// provided token
-				GitHubToken: strings.TrimPrefix(subject, GitHubPrefix),
+				GitHubToken: strings.TrimPrefix(subject, auth.GitHubPrefix),
 			})
 		require.NoError(t, err)
 		tokenMap[subject] = resp.PachToken
@@ -189,7 +189,7 @@ func getPachClient(t testing.TB, subject string) *client.APIClient {
 			Add: []string{admin},
 		}
 		for _, a := range getAdminsResp.Admins {
-			if strings.HasPrefix(a, GitHubPrefix) {
+			if strings.HasPrefix(a, auth.GitHubPrefix) {
 				curAdminClient = getPachClientInternal(t, a) // use first GH admin
 			}
 			if a == admin {
@@ -241,7 +241,7 @@ func entries(items ...string) []auth.ACLEntry {
 		}
 		principal := items[i]
 		if strings.Index(principal, ":") < 0 {
-			principal = GitHubPrefix + principal
+			principal = auth.GitHubPrefix + principal
 		}
 		result = append(result, auth.ACLEntry{Username: principal, Scope: scope})
 	}
