@@ -1698,6 +1698,13 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		// Generate pipeline's auth token & add pipeline to the ACLs of input/output
 		// repos
 		if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+			// TODO (once auth returns NotActivatedError from GetAuthToken (currently
+			// GetAuthToken() always returns a value) get rid of WhoAmI
+			_, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
+			if auth.IsNotActivatedError(err) {
+				return nil
+			}
+
 			tokenResp, err := superUserClient.GetAuthToken(ctx, &auth.GetAuthTokenRequest{})
 			if err != nil {
 				if auth.IsNotActivatedError(err) {
