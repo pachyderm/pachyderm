@@ -1270,6 +1270,7 @@ func lenientCanonicalizeSubject(ctx context.Context, subject string) (string, er
 // pachyderm's subject prefixes, and then canonicalizes the subject based on
 // that.
 func canonicalizeSubject(ctx context.Context, subject string) (string, error) {
+	colonIdx := strings.Index(subject, ":")
 	switch {
 	case strings.HasPrefix(subject, authclient.GitHubPrefix):
 		var err error
@@ -1277,10 +1278,14 @@ func canonicalizeSubject(ctx context.Context, subject string) (string, error) {
 		if err != nil {
 			return "", err
 		}
+	case strings.HasPrefix(subject, authclient.PipelinePrefix):
+		fallthrough
 	case strings.HasPrefix(subject, authclient.RobotPrefix):
 		break
+	case colonIdx > 0:
+		return "", fmt.Errorf("subject has unrecognized prefix: %s", subject[:colonIdx+1])
 	default:
-		return "", fmt.Errorf("subjects must have one of the prefixes \"github:\" or \"pachyderm_robot:\"")
+		return "", fmt.Errorf("subject must have one of the prefixes \"github:\" or \"pachyderm_robot:\"")
 	}
 	return subject, nil
 }

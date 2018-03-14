@@ -35,10 +35,10 @@ func TSProtoOrDie(t *testing.T, ts time.Time) *types.Timestamp {
 	return proto
 }
 
-// helper function that prepends GitHubPrefix to 'user'--useful for validating
+// helper function that prepends auth.GitHubPrefix to 'user'--useful for validating
 // responses
 func gh(user string) string {
-	return GitHubPrefix + user
+	return auth.GitHubPrefix + user
 }
 
 // TestActivate tests the Activate API (in particular, verifying
@@ -871,7 +871,7 @@ func TestGetAuthToken(t *testing.T) {
 	adminClient := getPachClient(t, admin)
 
 	// Generate two auth credentials, and give them to two separate clients
-	robotUser := RobotPrefix + tu.UniqueString("optimus_prime")
+	robotUser := auth.RobotPrefix + tu.UniqueString("optimus_prime")
 	resp, err := adminClient.GetAuthToken(adminClient.Ctx(),
 		&auth.GetAuthTokenRequest{Subject: robotUser})
 	require.NoError(t, err)
@@ -960,7 +960,7 @@ func TestRobotUserWhoAmI(t *testing.T) {
 	adminClient := getPachClient(t, admin)
 
 	// Generate a robot user auth credential, and create a client for that user
-	robotUser := RobotPrefix + tu.UniqueString("r2d2")
+	robotUser := auth.RobotPrefix + tu.UniqueString("r2d2")
 	resp, err := adminClient.GetAuthToken(adminClient.Ctx(),
 		&auth.GetAuthTokenRequest{Subject: robotUser})
 	require.NoError(t, err)
@@ -971,7 +971,7 @@ func TestRobotUserWhoAmI(t *testing.T) {
 	whoAmIResp, err := robotClient.WhoAmI(robotClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, robotUser, whoAmIResp.Username)
-	require.True(t, strings.HasPrefix(whoAmIResp.Username, RobotPrefix))
+	require.True(t, strings.HasPrefix(whoAmIResp.Username, auth.RobotPrefix))
 	require.False(t, whoAmIResp.IsAdmin)
 }
 
@@ -985,7 +985,7 @@ func TestRobotUserACL(t *testing.T) {
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
 	// Generate a robot user auth credential, and create a client for that user
-	robotUser := RobotPrefix + tu.UniqueString("voltron")
+	robotUser := auth.RobotPrefix + tu.UniqueString("voltron")
 	resp, err := adminClient.GetAuthToken(adminClient.Ctx(),
 		&auth.GetAuthTokenRequest{Subject: robotUser})
 	require.NoError(t, err)
@@ -1000,7 +1000,7 @@ func TestRobotUserACL(t *testing.T) {
 	robotClient.SetScope(robotClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     repo,
 		Scope:    auth.Scope_WRITER,
-		Username: GitHubPrefix + alice,
+		Username: auth.GitHubPrefix + alice,
 	})
 	require.ElementsEqual(t,
 		entries(alice, "writer", robotUser, "owner"), GetACL(t, robotClient, repo))
@@ -1042,7 +1042,7 @@ func TestRobotUserAdmin(t *testing.T) {
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
 	// Generate a robot user auth credential, and create a client for that user
-	robotUser := RobotPrefix + tu.UniqueString("bender")
+	robotUser := auth.RobotPrefix + tu.UniqueString("bender")
 	resp, err := adminClient.GetAuthToken(adminClient.Ctx(),
 		&auth.GetAuthTokenRequest{Subject: robotUser})
 	require.NoError(t, err)
@@ -1063,7 +1063,7 @@ func TestRobotUserAdmin(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// robotUser mints a token for robotUser2
-	robotUser2 := RobotPrefix + tu.UniqueString("robocop")
+	robotUser2 := auth.RobotPrefix + tu.UniqueString("robocop")
 	resp, err = robotClient.GetAuthToken(robotClient.Ctx(), &auth.GetAuthTokenRequest{
 		Subject: robotUser2,
 	})
@@ -1244,7 +1244,7 @@ func TestGetAuthTokenErrorNonAdminUser(t *testing.T) {
 	alice := tu.UniqueString("alice")
 	aliceClient := getPachClient(t, alice)
 	resp, err := aliceClient.GetAuthToken(aliceClient.Ctx(), &auth.GetAuthTokenRequest{
-		Subject: RobotPrefix + tu.UniqueString("terminator"),
+		Subject: auth.RobotPrefix + tu.UniqueString("terminator"),
 	})
 	require.Nil(t, resp)
 	require.YesError(t, err)
