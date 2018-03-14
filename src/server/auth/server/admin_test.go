@@ -41,6 +41,10 @@ func gh(user string) string {
 	return auth.GitHubPrefix + user
 }
 
+func pl(pipeline string) string {
+	return auth.PipelinePrefix + pipeline
+}
+
 // TestActivate tests the Activate API (in particular, verifying
 // that Activate() also authenticates). Even though GetClient also activates
 // auth, this makes sure the code path is exercised (as auth may already be
@@ -643,7 +647,9 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 		false, // no update
 	))
 	require.OneOfEquals(t, pipeline, PipelineNames(t, aliceClient))
-	require.Equal(t, entries(alice, "owner"), GetACL(t, aliceClient, pipeline)) // check that alice owns the output repo too
+	// check that alice owns the output repo too,
+	require.Equal(t,
+		entries(alice, "owner", pl(pipeline), "reader"), GetACL(t, aliceClient, pipeline))
 
 	// Make sure alice's pipeline runs successfully
 	commit, err := aliceClient.StartCommit(repo, "master")
@@ -907,7 +913,8 @@ func TestGetAuthToken(t *testing.T) {
 	))
 	require.OneOfEquals(t, pipeline, PipelineNames(t, robotClient1))
 	// check that robotUser owns the output repo
-	require.Equal(t, entries(robotUser, "owner"), GetACL(t, robotClient1, pipeline))
+	require.Equal(t,
+		entries(robotUser, "owner", pl(pipeline), "reader"), GetACL(t, robotClient1, pipeline))
 
 	// Make sure that robotClient2 can commit to the input repo and flush their
 	// input commit
