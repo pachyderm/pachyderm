@@ -635,6 +635,9 @@ $ pachctl put-file -r repo branch path -f dir
 # Put the contents of a directory as repo/branch/dir/file:
 $ pachctl put-file -r repo branch -f dir
 
+# Put the contents of a directory as repo/branch/file, i.e. put files at the top level:
+$ pachctl put-file -r repo branch / -f dir
+
 # Put the data from a URL as repo/branch/path:
 $ pachctl put-file repo branch path -f http://host/path
 
