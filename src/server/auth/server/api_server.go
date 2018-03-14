@@ -26,6 +26,7 @@ import (
 	authclient "github.com/pachyderm/pachyderm/src/client/auth"
 	enterpriseclient "github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
@@ -276,6 +277,8 @@ func (a *apiServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
 }
 
 func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateRequest) (resp *authclient.ActivateResponse, retErr error) {
+	pachClient := a.getPachClient().WithCtx(ctx)
+	ctx = a.pachClient.Ctx()
 	// We don't want to actually log the request/response since they contain
 	// credentials.
 	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
@@ -292,9 +295,29 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 
 	// Activating an already activated auth service should fail, because
 	// otherwise anyone can just activate the service again and set
-	// themselves as an admin.
-	if a.isActivated() {
+	// themselves as an admin. If activation failed in PFS, calling auth.Activate
+	// again should work (in this state, the only admin will be 'magicUser')
+	if fullyActivated := func() bool {
+		a.adminMu.Lock()
+		defer a.adminMu.Unlock()
+		_, magicUserIsAdmin := a.adminCache[magicUser]
+		return len(a.adminCache) > 0 && !magicUserIsAdmin
+	}(); fullyActivated {
 		return nil, fmt.Errorf("already activated")
+	}
+
+	// Hack: set the cluster admins to just {magicUser}. This ensures that no
+	// pipelines can be created while PPS is granting all existing pipelines auth
+	// tokens and adjusting the ACLs of input/output repos
+	if _, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		return a.admins.ReadWrite(stm).Put(magicUser, epsilon)
+	}); err != nil {
+		return nil, err
+	}
+
+	// Call PPS.ActivateAuth to set up all affected pipelines and repos
+	if _, err := pachClient.ActivateAuth(ctx, &pps.ActivateAuthRequest{}); err != nil {
+		return nil, err
 	}
 
 	// Determine caller's Pachyderm/GitHub username
@@ -306,9 +329,12 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	// Generate a new Pachyderm token (as the caller is authenticating) and
 	// initialize admins (watchAdmins() above will see the write)
 	pachToken := uuid.NewWithoutDashes()
-	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	if _, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		admins := a.admins.ReadWrite(stm)
 		tokens := a.tokens.ReadWrite(stm)
+		if err := admins.Delete(magicUser); err != nil {
+			return err
+		}
 		if err := admins.Put(username, epsilon); err != nil {
 			return err
 		}
@@ -320,8 +346,7 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 			},
 			defaultTokenTTLSecs,
 		)
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 

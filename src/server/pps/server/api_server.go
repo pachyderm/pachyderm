@@ -2428,7 +2428,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 	return &pps.GarbageCollectResponse{}, nil
 }
 
-func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.PPSActivateAuthRequest) (resp *pps.PPSActivateAuthResponse, retErr error) {
+func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthRequest) (resp *pps.ActivateAuthResponse, retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.getPachClient().WithCtx(ctx)
@@ -2456,7 +2456,7 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.PPSActivateAuthRe
 		// pipeline can authenticate as itself when it needs to read input data
 		eg.Go(func() error {
 			return a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-				tokenResp, err := superUserClient.GetAuthToken(ctx, &auth.GetAuthTokenRequest{
+				tokenResp, err := superUserClient.GetAuthToken(superUserClient.Ctx(), &auth.GetAuthTokenRequest{
 					Subject: auth.PipelinePrefix + name,
 				})
 				if err != nil {
@@ -2490,7 +2490,7 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.PPSActivateAuthRe
 					case input.Cron != nil:
 						repo = input.Cron.Repo
 					}
-					_, err := superUserClient.SetScope(ctx, &auth.SetScopeRequest{
+					_, err := superUserClient.SetScope(superUserClient.Ctx(), &auth.SetScopeRequest{
 						Repo:     repo,
 						Username: auth.PipelinePrefix + name,
 						Scope:    auth.Scope_READER,
@@ -2503,7 +2503,7 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.PPSActivateAuthRe
 		// 3) Add the pipeline to the output repo's ACL (as a WRITER)
 		eg.Go(func() error {
 			return a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-				_, err := superUserClient.SetScope(ctx, &auth.SetScopeRequest{
+				_, err := superUserClient.SetScope(superUserClient.Ctx(), &auth.SetScopeRequest{
 					Repo:     name,
 					Username: auth.PipelinePrefix + name,
 					Scope:    auth.Scope_WRITER,
@@ -2515,7 +2515,7 @@ func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.PPSActivateAuthRe
 	if err := eg.Wait(); err != nil {
 		return nil, err
 	}
-	return &pps.PPSActivateAuthResponse{}, nil
+	return &pps.ActivateAuthResponse{}, nil
 }
 
 // incrementGCGeneration increments the GC generation number in etcd

@@ -181,37 +181,34 @@ func (a *apiServer) master() {
 						}
 					})
 
-					// If the pipeline has been restarted, create workers
-					if !pipelineStateToStopped(pipelinePtr.State) && event.PrevKey != nil && pipelineStateToStopped(prevPipelinePtr.State) {
-						if hasGitInput {
-							if err := a.checkOrDeployGithookService(); err != nil {
-								return err
-							}
+					// True if the pipeline has been restarted (regardless of any change
+					// to the pipeline spec)
+					pipelineRestarted := !pipelineStateToStopped(pipelinePtr.State) &&
+						event.PrevKey != nil && pipelineStateToStopped(prevPipelinePtr.State)
+					// True if auth has been activated or deactivated
+					authActivationChanged := (pipelinePtr.AuthToken == "") !=
+						(prevPipelinePtr.AuthToken == "")
+					// True if the pipeline has been created or updated
+					pipelineUpserted := func() bool {
+						var prevSpecCommit string
+						if prevPipelinePtr.SpecCommit != nil {
+							prevSpecCommit = prevPipelinePtr.SpecCommit.ID
 						}
-						log.Infof("PPS master: creating/updating workers for restarted pipeline %s", pipelineName)
-						if err := a.upsertWorkersForPipeline(pipelineInfo); err != nil {
-							if err := a.setPipelineFailure(ctx, pipelineName, fmt.Sprintf("failed to create workers: %s", err.Error())); err != nil {
-								return err
-							}
-							continue
-						}
-					}
-
-					// If the pipeline has been created or updated, create new workers
-					pipelineUpserted := prevPipelinePtr.SpecCommit == nil ||
-						pipelinePtr.SpecCommit.ID != prevPipelinePtr.SpecCommit.ID
-					if pipelineUpserted && !pipelineStateToStopped(pipelinePtr.State) {
-						log.Infof("PPS master: creating/updating workers for new/updated pipeline %s", pipelineName)
-						if event.PrevKey != nil {
+						return pipelinePtr.SpecCommit.ID != prevSpecCommit &&
+							!pipelineStateToStopped(pipelinePtr.State)
+					}()
+					if pipelineRestarted || authActivationChanged || pipelineUpserted {
+						if (pipelineUpserted && event.PrevKey != nil) || authActivationChanged {
 							if err := a.deleteWorkersForPipeline(prevPipelineInfo); err != nil {
 								return err
 							}
 						}
-						if hasGitInput {
+						if (pipelineUpserted || pipelineRestarted) && hasGitInput {
 							if err := a.checkOrDeployGithookService(); err != nil {
 								return err
 							}
 						}
+						log.Infof("PPS master: creating/updating workers for pipeline %s", pipelineName)
 						if err := a.upsertWorkersForPipeline(pipelineInfo); err != nil {
 							if err := a.setPipelineFailure(ctx, pipelineName, fmt.Sprintf("failed to create workers: %s", err.Error())); err != nil {
 								return err
