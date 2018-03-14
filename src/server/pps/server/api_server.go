@@ -538,7 +538,7 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 	if err := a.pipelines.ReadOnly(pachClient.Ctx()).Get(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
 		return nil, err
 	}
-	pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, jobPtr.Pipeline.Name, pipelinePtr)
+	pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, pipelinePtr)
 	if err != nil {
 		return nil, err
 	}
@@ -1469,20 +1469,27 @@ func (a *apiServer) hardStopPipeline(pachClient *client.APIClient, pipelineInfo 
 	return nil
 }
 
-// ppsToken is the cached auth token used by PPS to write to the spec repo.
-// ppsTokenOnce ensures that ppsToken is only read from etcd once. These are
-// read/written by getPPSToken()
 var (
-	ppsToken     string
-	ppsTokenOnce sync.Once
+	// superUserToken is the cached auth token used by PPS to write to the spec
+	// repo, create pipeline subjects, and
+	superUserToken string
+
+	// superUserTokenOnce ensures that ppsToken is only read from etcd once. These are
+	// read/written by apiServer#sudo()
+	superUserTokenOnce sync.Once
 )
 
-// getPPSToken returns the auth token used by PPS to write to the spec repo.
-// Using this token grants any PPS request admin-level authority, so its use is
-// restricted to makePipelineInfoCommit(), deletePipelineInfo(), and master()
-func (a *apiServer) getPPSToken(pachClient *client.APIClient) string {
+// sudo is a helper function that copies 'pachClient' grants it PPS's superuser
+// token, and calls 'f' with the superuser client. This helps isolate PPS's use
+// of its superuser token so that it's not widely copied and is unlikely to
+// leak authority to parts of the code that aren't supposed to have it.
+//
+// Note that because the argument to 'f' is a superuser client, it should not
+// be used to make any calls with unvalidated user input. Any such use could be
+// exploited to make PPS a confused deputy
+func (a *apiServer) sudo(pachClient *client.APIClient, f func(*client.APIClient) error) error {
 	// Get PPS auth token
-	ppsTokenOnce.Do(func() {
+	superUserTokenOnce.Do(func() {
 		b := backoff.NewExponentialBackOff()
 		b.MaxElapsedTime = 60 * time.Second
 		b.MaxInterval = 5 * time.Second
@@ -1492,62 +1499,61 @@ func (a *apiServer) getPPSToken(pachClient *client.APIClient) string {
 			if err := superUserTokenCol.Get("", &result); err != nil {
 				return fmt.Errorf("couldn't get PPS superuser token on startup")
 			}
-			ppsToken = result.Value
+			superUserToken = result.Value
 			return nil
 		}, b); err != nil {
 			panic("couldn't get PPS superuser token within 60s of starting up")
 		}
 	})
-	return ppsToken
+
+	// Copy pach client, but keep ctx (to propagate cancellation). Replace token
+	// with superUserToken
+	superUserClient := pachClient.WithCtx(pachClient.Ctx())
+	superUserClient.SetAuthToken(superUserToken)
+	return f(superUserClient)
 }
 
-// makePipelineInfoComit is a helper for CreatePipeline that creates a commit
+// makePipelineInfoCommit is a helper for CreatePipeline that creates a commit
 // with 'pipelineInfo' in SpecRepo (in PFS). It's called in both the case where
 // a user is updating a pipeline and the case where a user is creating a new
-// pipeline
-func (a *apiServer) makePipelineInfoComit(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, update bool) (*pfs.Commit, error) {
-	// copy pachClient, so we can overwrite the auth token
-	pachClientCopy := *pachClient
-	pachClient = &pachClientCopy
-	// Get Pipeline name
+// pipeline.
+func (a *apiServer) makePipelineInfoCommit(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, update bool) (*pfs.Commit, error) {
 	pipelineName := pipelineInfo.Pipeline.Name
-
-	// Set the pach client's auth token to the master token. At this point, no
-	// parameters to any pachClient requests should be unvalidated user input, as
-	// the pachClient has admin-level authority
-	pachClient.SetAuthToken(a.getPPSToken(pachClient))
-
-	// If we're creating a new pipeline, create the pipeline branch
-	if !update {
-		// Create pipeline branch in spec repo and write PipelineInfo there
-		if _, err := pachClient.InspectBranch(ppsconsts.SpecRepo, pipelineName); err == nil {
-			return nil, fmt.Errorf("pipeline \"%s\" already exists: update it with update-pipeline, delete it with delete-pipeline", pipelineName)
+	var commit *pfs.Commit
+	if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+		// If we're creating a new pipeline, create the pipeline branch
+		if !update {
+			// Create pipeline branch in spec repo and write PipelineInfo there
+			if _, err := superUserClient.InspectBranch(ppsconsts.SpecRepo, pipelineName); err == nil {
+				return fmt.Errorf("pipeline \"%s\" already exists: update it with update-pipeline, delete it with delete-pipeline", pipelineName)
+			}
+			if err := superUserClient.CreateBranch(ppsconsts.SpecRepo, pipelineName, "", nil); err != nil {
+				return fmt.Errorf("could not create pipeline spec branch for \"%s\" in %s: %v", pipelineName, ppsconsts.SpecRepo, err)
+			}
 		}
-		if err := pachClient.CreateBranch(ppsconsts.SpecRepo, pipelineName, "", nil); err != nil {
-			return nil, fmt.Errorf("could not create pipeline spec branch for \"%s\" in %s: %v", pipelineName, ppsconsts.SpecRepo, err)
+
+		var err error
+		commit, err = superUserClient.StartCommit(ppsconsts.SpecRepo, pipelineName)
+		if err != nil {
+			return err
 		}
-	}
+		// Delete the old PipelineInfo (if it exists), otherwise the new
+		// PipelineInfo's bytes will be appended to the old bytes
+		if err := superUserClient.DeleteFile(
+			ppsconsts.SpecRepo, commit.ID, ppsconsts.SpecFile,
+		); err != nil && !strings.Contains(err.Error(), "not found") {
+			return err
+		}
 
-	commit, err := pachClient.StartCommit(ppsconsts.SpecRepo, pipelineName)
-	if err != nil {
-		return nil, err
-	}
-	// Delete the old PipelineInfo (if it exists), otherwise the new
-	// PipelineInfo's bytes will be appended to the old bytes
-	if err := pachClient.DeleteFile(
-		ppsconsts.SpecRepo, commit.ID, ppsconsts.SpecFile,
-	); err != nil && !strings.Contains(err.Error(), "not found") {
-		return nil, err
-	}
-
-	data, err := pipelineInfo.Marshal()
-	if err != nil {
-		return nil, fmt.Errorf("could not marshal PipelineInfo: %v", err)
-	}
-	if _, err := pachClient.PutFile(ppsconsts.SpecRepo, commit.ID, ppsconsts.SpecFile, bytes.NewReader(data)); err != nil {
-		return nil, err
-	}
-	if err := pachClient.FinishCommit(ppsconsts.SpecRepo, commit.ID); err != nil {
+		data, err := pipelineInfo.Marshal()
+		if err != nil {
+			return fmt.Errorf("could not marshal PipelineInfo: %v", err)
+		}
+		if _, err := superUserClient.PutFile(ppsconsts.SpecRepo, commit.ID, ppsconsts.SpecFile, bytes.NewReader(data)); err != nil {
+			return err
+		}
+		return superUserClient.FinishCommit(ppsconsts.SpecRepo, commit.ID)
+	}); err != nil {
 		return nil, err
 	}
 	return commit, nil
@@ -1655,7 +1661,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				return err
 			}
 			oldAuthToken = pipelinePtr.AuthToken
-			oldPipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, pipelineName, &pipelinePtr)
+			oldPipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, &pipelinePtr)
 			if err != nil {
 				return err
 			}
@@ -1667,7 +1673,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			}
 
 			// Write updated PipelineInfo back to PFS.
-			commit, err := a.makePipelineInfoComit(pachClient, pipelineInfo, request.Update)
+			commit, err := a.makePipelineInfoCommit(pachClient, pipelineInfo, request.Update)
 			if err != nil {
 				return err
 			}
@@ -1695,7 +1701,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		}); err != nil && !isAlreadyExistsErr(err) {
 			return nil, err
 		}
-		commit, err := a.makePipelineInfoComit(pachClient, pipelineInfo, request.Update)
+		commit, err := a.makePipelineInfoCommit(pachClient, pipelineInfo, request.Update)
 		if err != nil {
 			return nil, err
 		}
@@ -1707,7 +1713,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				AuthToken:  tokenResp.Token,
 			})
 			if isAlreadyExistsErr(err) {
-				pachClient.DeleteCommit(pipelineName, commit.ID)
+				if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+					return superUserClient.DeleteCommit(pipelineName, commit.ID)
+				}); err != nil {
+					return fmt.Errorf("couldn't clean up orphaned spec commit: %v", err)
+				}
 				return newErrPipelineExists(pipelineName)
 			}
 			return err
@@ -1801,9 +1811,20 @@ func (a *apiServer) inspectPipeline(pachClient *client.APIClient, name string) (
 		}
 		return nil, err
 	}
-	pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, name, &pipelinePtr)
+	pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, &pipelinePtr)
 	if err != nil {
 		return nil, err
+	}
+	if pipelineInfo.Service != nil {
+		rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+		if err != nil {
+			return nil, err
+		}
+		service, err := a.kubeClient.CoreV1().Services(a.namespace).Get(fmt.Sprintf("%s-user", rcName), metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		pipelineInfo.Service.IP = service.Spec.ClusterIP
 	}
 	var hasGitInput bool
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
@@ -1869,7 +1890,7 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 		// Read existing PipelineInfo from PFS output repo
 		// TODO this won't work with auth, as a user now can't call InspectPipeline
 		// unless they have READER access to the pipeline's output repo
-		pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, pipelineName, &pipelinePtr)
+		pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, &pipelinePtr)
 		if err != nil {
 			return nil, err
 		}
@@ -1914,20 +1935,6 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	return a.deletePipeline(pachClient, request)
 }
 
-// deletePipelineBranch is a helper for DeletePipeline that deletes a pipeline
-// branch in SpecRepo (in PFS)
-func (a *apiServer) deletePipelineBranch(pachClient *client.APIClient, pipeline string) error {
-	// copy pachClient, so we can overwrite the auth token
-	pachClientCopy := *pachClient
-	pachClient = &pachClientCopy
-
-	// Set the pach client's auth token to the master token. At this point, no
-	// parameters to any pachClient requests should be unvalidated user input, as
-	// the pachClient has admin-level authority
-	pachClient.SetAuthToken(a.getPPSToken(pachClient))
-	return pachClient.DeleteBranch(ppsconsts.SpecRepo, pipeline)
-}
-
 func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.DeletePipelineRequest) (response *types.Empty, retErr error) {
 	ctx := pachClient.Ctx() // pachClient will propagate auth info
 
@@ -1941,7 +1948,9 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 			// the spec branch and return
 			specBranchInfo, err := pachClient.InspectBranch(ppsconsts.SpecRepo, request.Pipeline.Name)
 			if err == nil && specBranchInfo.Head == nil {
-				if err := a.deletePipelineBranch(pachClient, request.Pipeline.Name); err != nil {
+				if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+					return superUserClient.DeleteBranch(ppsconsts.SpecRepo, request.Pipeline.Name)
+				}); err != nil {
 					return nil, err
 				}
 				return &types.Empty{}, nil
@@ -2008,7 +2017,9 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	// Delete pipeline branch in SpecRepo (leave commits, to preserve downstream
 	// commits)
 	eg.Go(func() error {
-		return a.deletePipelineBranch(pachClient, request.Pipeline.Name)
+		return a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+			return superUserClient.DeleteBranch(ppsconsts.SpecRepo, request.Pipeline.Name)
+		})
 	})
 	// Delete EtcdPipelineInfo
 	eg.Go(func() error {
