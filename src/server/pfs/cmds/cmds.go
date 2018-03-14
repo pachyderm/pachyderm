@@ -11,6 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	gosync "sync"
 	"syscall"
 	"text/tabwriter"
 
@@ -729,6 +730,7 @@ want to consider using commit IDs directly.
 				sources = filePaths
 			}
 			var eg errgroup.Group
+			filesPut := &gosync.Map{}
 			for _, source := range sources {
 				source := source
 				if len(args) == 2 {
@@ -737,19 +739,19 @@ want to consider using commit IDs directly.
 						return fmt.Errorf("no filename specified")
 					}
 					eg.Go(func() error {
-						return putFileHelper(cli, repoName, branch, joinPaths("", source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes)
+						return putFileHelper(cli, repoName, branch, joinPaths("", source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, filesPut)
 					})
 				} else if len(sources) == 1 && len(args) == 3 {
 					// We have a single source and the user has specified a path,
 					// we use the path and ignore source (in terms of naming the file).
 					eg.Go(func() error {
-						return putFileHelper(cli, repoName, branch, path, source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes)
+						return putFileHelper(cli, repoName, branch, path, source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, filesPut)
 					})
 				} else if len(sources) > 1 && len(args) == 3 {
 					// We have multiple sources and the user has specified a path,
 					// we use that path as a prefix for the filepaths.
 					eg.Go(func() error {
-						return putFileHelper(cli, repoName, branch, joinPaths(path, source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes)
+						return putFileHelper(cli, repoName, branch, joinPaths(path, source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, filesPut)
 					})
 				}
 			}
@@ -1180,7 +1182,12 @@ func parseCommitMounts(args []string) []*fuse.CommitMount {
 
 func putFileHelper(client *client.APIClient, repo, commit, path, source string,
 	recursive bool, overwrite bool, limiter limit.ConcurrencyLimiter, split string,
-	targetFileDatums uint, targetFileBytes uint) (retErr error) {
+	targetFileDatums uint, targetFileBytes uint, filesPut *gosync.Map) (retErr error) {
+	if _, ok := filesPut.LoadOrStore(path, nil); ok {
+		return fmt.Errorf("multiple files put with the path %s, aborting, "+
+			"some files may already have been put and should be cleaned up with "+
+			"delete-file or delete-commit", path)
+	}
 	putFile := func(reader io.ReadSeeker) error {
 		if split == "" {
 			if overwrite {
@@ -1232,7 +1239,7 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string,
 				return nil
 			}
 			eg.Go(func() error {
-				return putFileHelper(client, repo, commit, filepath.Join(path, strings.TrimPrefix(filePath, source)), filePath, false, overwrite, limiter, split, targetFileDatums, targetFileBytes)
+				return putFileHelper(client, repo, commit, filepath.Join(path, strings.TrimPrefix(filePath, source)), filePath, false, overwrite, limiter, split, targetFileDatums, targetFileBytes, filesPut)
 			})
 			return nil
 		}); err != nil {
