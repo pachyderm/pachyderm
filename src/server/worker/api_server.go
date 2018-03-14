@@ -400,13 +400,17 @@ func (a *APIServer) downloadGitData(pachClient *client.APIClient, dir string, in
 	return nil
 }
 
-func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag, stats *pps.ProcessStats, statsTree hashtree.OpenHashTree, statsPath string) (string, error) {
+func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag, stats *pps.ProcessStats, statsTree hashtree.OpenHashTree, statsPath string) (_ string, retErr error) {
 	defer func(start time.Time) {
 		stats.DownloadTime = types.DurationProto(time.Since(start))
 	}(time.Now())
-	logger.Logf("input has not been processed, downloading data")
+	logger.Logf("starting to downloading data")
 	defer func(start time.Time) {
-		logger.Logf("input data download took (%v)", time.Since(start))
+		if retErr != nil {
+			logger.Logf("errored downloading data after %v: %v", time.Since(start), retErr)
+		} else {
+			logger.Logf("finished downloading data after %v", time.Since(start))
+		}
 	}(time.Now())
 	dir := filepath.Join(client.PPSScratchSpace, uuid.NewWithoutDashes())
 	for _, input := range inputs {
@@ -456,7 +460,11 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	}(time.Now())
 	logger.Logf("beginning to run user code")
 	defer func(start time.Time) {
-		logger.Logf("finished running user code - took (%v) - with error (%v)", time.Since(start), retErr)
+		if retErr != nil {
+			logger.Logf("errored running user code after %v: %v", time.Since(start), retErr)
+		} else {
+			logger.Logf("finished running user code after %v", time.Since(start))
+		}
 	}(time.Now())
 	if rawDatumTimeout != nil {
 		datumTimeout, err := types.DurationFromProto(rawDatumTimeout)
@@ -525,7 +533,11 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 	}(time.Now())
 	logger.Logf("starting to upload output")
 	defer func(start time.Time) {
-		logger.Logf("finished uploading output - took %v - with error (%v)", time.Since(start), retErr)
+		if retErr != nil {
+			logger.Logf("errored uploading output after %v: %v", time.Since(start), retErr)
+		} else {
+			logger.Logf("finished uploading output after %v", time.Since(start))
+		}
 	}(time.Now())
 	// hashtree is not thread-safe--guard with 'lock'
 	var lock sync.Mutex
