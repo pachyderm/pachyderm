@@ -43,6 +43,8 @@ Client Version: version.Info{Major:"1", Minor:"9", GitVersion:"v1.9.3", GitCommi
 Server Version: version.Info{Major:"1", Minor:"7", GitVersion:"v1.7.9", GitCommit:"19fe91923d584c30bd6db5c5a21e9f0d5f742de8", GitTreeState:"clean", BuildDate:"2017-10-19T16:55:06Z", GoVersion:"go1.8.3", Compiler:"gc", Platform:"linux/amd64"}
 ```
 
+**Note** - Azure AKS is still a relatively new managed service. As such, we have had some issues consistently deploying AKS clusters in certain availability zones. If you get timeouts or issues when provisioning an AKS cluster, we recommend trying in a fresh resource group and possibly trying a different zone.
+
 ## Deploy Pachyderm
 
 To deploy Pachyderm we will need to:
