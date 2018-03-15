@@ -41,10 +41,9 @@ const (
 	// pachyderm token for any username in the AuthenticateRequest.GitHubToken field
 	DisableAuthenticationEnvVar = "PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING"
 
-	tokensPrefix         = "/tokens"
-	pipelineTokensPrefix = "/pipeline-tokens"
-	aclsPrefix           = "/acls"
-	adminsPrefix         = "/admins"
+	tokensPrefix = "/tokens"
+	aclsPrefix   = "/acls"
+	adminsPrefix = "/admins"
 
 	defaultTokenTTLSecs = 14 * 24 * 60 * 60 // two weeks
 
@@ -84,9 +83,6 @@ type apiServer struct {
 	// tokens is a collection of hashedToken -> User mappings. These tokens are
 	// returned to users by Authenticate()
 	tokens col.Collection
-	// tokens is a collection of hashedToken -> User mappings. These tokens are
-	// returned by GetAuthToken() and stored with pipelines
-	pipelineTokens col.Collection
 	// acls is a collection of repoName -> ACL mappings.
 	acls col.Collection
 	// admins is a collection of username -> Empty mappings (keys indicate which
@@ -150,13 +146,6 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (
 		tokens: col.NewCollection(
 			etcdClient,
 			path.Join(etcdPrefix, tokensPrefix),
-			nil,
-			&authclient.TokenInfo{},
-			nil,
-		),
-		pipelineTokens: col.NewCollection(
-			etcdClient,
-			path.Join(etcdPrefix, pipelineTokensPrefix),
 			nil,
 			&authclient.TokenInfo{},
 			nil,
@@ -1067,8 +1056,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 	// generate new token, and write to etcd
 	token := uuid.NewWithoutDashes()
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		pipelineTokens := a.pipelineTokens.ReadWrite(stm)
-		return pipelineTokens.PutTTL(hashToken(token), tokenInfo, req.TTL)
+		return a.tokens.ReadWrite(stm).PutTTL(hashToken(token), tokenInfo, req.TTL)
 	})
 	if err != nil {
 		if tokenInfo.Subject != magicUser {
@@ -1112,78 +1100,28 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendA
 	// The token must already exist. If a token has been revoked, it can't be
 	// extended
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		var (
-			// The collections in which the request token might exist
-			tokens, pipelineTokens = a.tokens.ReadWrite(stm), a.pipelineTokens.ReadWrite(stm)
-
-			// errgroup for looking up req.Token in parallel
-			eg errgroup.Group
-
-			// True if the token was found in either 'tokens' or 'pipelineTokens'
-			tokenFound   bool
-			tokenFoundMu sync.Mutex
-		)
+		tokens := a.tokens.ReadWrite(stm)
 
 		// Actually look up the request token in the relevant collections
-		eg.Go(func() error {
-			var tokenInfo authclient.TokenInfo
-			if err := tokens.Get(hashToken(req.Token), &tokenInfo); err != nil && !col.IsErrNotFound(err) {
-				return err
-			}
-			if tokenInfo.Subject == "" {
-				return nil // no token in 'tokens'--quit early
-			}
-			ttl, err := tokens.TTL(hashToken(req.Token))
-			if err != nil {
-				return fmt.Errorf("Error looking up TTL for token: %v", err)
-			}
-			tokenFoundMu.Lock()
-			defer tokenFoundMu.Unlock()
-			if tokenFound {
-				return fmt.Errorf("token present in both tokens and pipelineTokens")
-			}
-			tokenFound = true
-			if req.TTL < ttl {
-				return authclient.TooShortTTLError{
-					RequestTTL:  req.TTL,
-					ExistingTTL: ttl,
-				}
-			}
-			return tokens.PutTTL(hashToken(req.Token), &tokenInfo, req.TTL)
-		})
-		eg.Go(func() error {
-			var tokenInfo authclient.TokenInfo
-			if err := pipelineTokens.Get(hashToken(req.Token), &tokenInfo); err != nil && !col.IsErrNotFound(err) {
-				return err
-			}
-			if tokenInfo.Subject == "" {
-				return nil // no token in 'tokens'--quit early
-			}
-			ttl, err := pipelineTokens.TTL(hashToken(req.Token))
-			if err != nil {
-				return fmt.Errorf("Error looking up TTL for pipelineToken: %v", err)
-			}
-			tokenFoundMu.Lock()
-			defer tokenFoundMu.Unlock()
-			if tokenFound {
-				return fmt.Errorf("token present in both tokens and pipelineTokens")
-			}
-			tokenFound = true
-			if req.TTL < ttl {
-				return authclient.TooShortTTLError{
-					RequestTTL:  req.TTL,
-					ExistingTTL: ttl,
-				}
-			}
-			return pipelineTokens.PutTTL(hashToken(req.Token), &tokenInfo, req.TTL)
-		})
-		if err := eg.Wait(); err != nil {
-			return fmt.Errorf("error getting TokenInfo: %v", err)
+		var tokenInfo authclient.TokenInfo
+		if err := tokens.Get(hashToken(req.Token), &tokenInfo); err != nil && !col.IsErrNotFound(err) {
+			return err
 		}
-		if !tokenFound {
+		if tokenInfo.Subject == "" {
 			return authclient.BadTokenError{}
 		}
-		return nil
+
+		ttl, err := tokens.TTL(hashToken(req.Token))
+		if err != nil {
+			return fmt.Errorf("Error looking up TTL for token: %v", err)
+		}
+		if req.TTL < ttl {
+			return authclient.TooShortTTLError{
+				RequestTTL:  req.TTL,
+				ExistingTTL: ttl,
+			}
+		}
+		return tokens.PutTTL(hashToken(req.Token), &tokenInfo, req.TTL)
 	}); err != nil {
 		return nil, err
 	}
@@ -1197,22 +1135,28 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeA
 		return nil, authclient.NotActivatedError{}
 	}
 
-	// Even though anyone can revoke anyone's auth token, we still want
-	// the user to be authenticated.
-	if _, err := a.getAuthenticatedUser(ctx); err != nil {
+	// Get the caller. Users can revoke their own tokens, and admins can revoke
+	// any user's token
+	callerInfo, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
 		return nil, err
 	}
 
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		pipelineTokens := a.pipelineTokens.ReadWrite(stm)
-		tokenInfo := authclient.TokenInfo{}
-		if err := pipelineTokens.Get(hashToken(req.Token), &tokenInfo); err != nil {
+		tokens := a.tokens.ReadWrite(stm)
+		var tokenInfo authclient.TokenInfo
+		if err := tokens.Get(hashToken(req.Token), &tokenInfo); err != nil {
 			if col.IsErrNotFound(err) {
 				return nil
 			}
 			return err
 		}
-		return pipelineTokens.Delete(hashToken(req.Token))
+		if !a.isAdmin(tokenInfo.Subject) && tokenInfo.Subject != callerInfo.Subject {
+			return &authclient.NotAuthorizedError{
+				AdminOp: "RevokeAuthToken on another user's token",
+			}
+		}
+		return tokens.Delete(hashToken(req.Token))
 	}); err != nil {
 		return nil, err
 	}
@@ -1233,7 +1177,7 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.Token
 	// token -> username entry twice.
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return nil, fmt.Errorf("no authentication metadata found in context")
+		return nil, authclient.NoTokenError{}
 	}
 	if len(md[authclient.ContextTokenKey]) > 1 {
 		return nil, fmt.Errorf("multiple authentication token keys found in context")
@@ -1251,34 +1195,15 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.Token
 		}, nil
 	}
 
-	// Lookup the token in both a.tokens and a.pipelineTokens
-	var tokensResult, pipelineTokensResult authclient.TokenInfo
-	eg := &errgroup.Group{}
-	eg.Go(func() error {
-		if err := a.tokens.ReadOnly(ctx).Get(hashToken(token), &tokensResult); err != nil && !col.IsErrNotFound(err) {
-			return err
+	// Lookup the token
+	var tokenInfo authclient.TokenInfo
+	if err := a.tokens.ReadOnly(ctx).Get(hashToken(token), &tokenInfo); err != nil {
+		if col.IsErrNotFound(err) {
+			return nil, authclient.BadTokenError{}
 		}
-		return nil
-	})
-	eg.Go(func() error {
-		if err := a.pipelineTokens.ReadOnly(ctx).Get(hashToken(token), &pipelineTokensResult); err != nil && !col.IsErrNotFound(err) {
-			return err
-		}
-		return nil
-	})
-	if err := eg.Wait(); err != nil {
-		return nil, fmt.Errorf("error getting token: %v", err)
+		return nil, err
 	}
-	switch {
-	case tokensResult.Subject != "":
-		return &tokensResult, nil
-	case pipelineTokensResult.Subject != "":
-		return &pipelineTokensResult, nil
-	default:
-		// Not found. This error message string is matched in the UI. If edited,
-		// it also needs to be updated in the UI code
-		return nil, authclient.BadTokenError{}
-	}
+	return &tokenInfo, nil
 }
 
 // lenientCanonicalizeSubject is like 'canonicalizeUsername', except that if
