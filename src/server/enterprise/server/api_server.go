@@ -240,6 +240,14 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 	}); err != nil {
 		return nil, err
 	}
+
+	// Wait until watcher observes the write
+	for {
+		time.Sleep(time.Second) // give other pachd nodes time to observe the write
+		if t := a.enterpriseExpiration.Load().(time.Time); !t.IsZero() {
+			break
+		}
+	}
 	return &ec.ActivateResponse{
 		Info: &ec.TokenInfo{
 			Expires: expirationProto,

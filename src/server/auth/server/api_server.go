@@ -356,11 +356,10 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	// Activate() is rarely called, and it helps avoid races due to other pachd
 	// pods being out of date.
 	for {
+		time.Sleep(time.Second) // give other pachd nodes time to update their cache
 		if a.isActivated() {
-			time.Sleep(time.Second) // give other pachd nodes time to update their cache
 			break
 		}
-		time.Sleep(time.Second)
 	}
 	return &authclient.ActivateResponse{PachToken: pachToken}, nil
 }
@@ -397,11 +396,10 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 	// Deactivate() is rarely called, and it helps avoid races due to other pachd
 	// pods being out of date.
 	for {
+		time.Sleep(time.Second) // give other pachd nodes time to update their cache
 		if !a.isActivated() {
-			time.Sleep(time.Second) // give other pachd nodes time to update their cache
 			break
 		}
-		time.Sleep(time.Second)
 	}
 	return &authclient.DeactivateResponse{}, nil
 }
@@ -722,6 +720,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 	}
 	pachClient := a.getPachClient().WithCtx(ctx)
 
+	// validate request & authenticate user
 	if err := validateSetScopeRequest(ctx, req); err != nil {
 		return nil, err
 	}

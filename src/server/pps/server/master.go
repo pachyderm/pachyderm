@@ -198,7 +198,7 @@ func (a *apiServer) master() {
 							!pipelineStateToStopped(pipelinePtr.State)
 					}()
 					if pipelineRestarted || authActivationChanged || pipelineUpserted {
-						if (pipelineUpserted && event.PrevKey != nil) || authActivationChanged {
+						if (pipelineUpserted || authActivationChanged) && event.PrevKey != nil {
 							if err := a.deleteWorkersForPipeline(prevPipelineInfo); err != nil {
 								return err
 							}
