@@ -614,7 +614,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	require.OneOfEquals(t, pipelineName, PipelineNames(t, aliceClient))
 	// check that alice owns the output repo too)
 	require.ElementsEqual(t,
-		entries(alice, "owner"), GetACL(t, aliceClient, pipelineName))
+		entries(alice, "owner", pl(pipelineName), "writer"), GetACL(t, aliceClient, pipelineName))
 
 	// Make sure alice's pipeline runs successfully
 	commit, err := aliceClient.StartCommit(dataRepo, "master")
@@ -822,7 +822,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	require.OneOfEquals(t, aliceCrossPipeline, PipelineNames(t, aliceClient))
 	// check that alice owns the output repo too)
 	require.ElementsEqual(t,
-		entries(alice, "owner"), GetACL(t, aliceClient, aliceCrossPipeline))
+		entries(alice, "owner", pl(aliceCrossPipeline), "writer"), GetACL(t, aliceClient, aliceCrossPipeline))
 
 	// alice can create a union-pipeline with both inputs
 	aliceUnionPipeline := tu.UniqueString("alice-union")
@@ -837,7 +837,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	require.OneOfEquals(t, aliceUnionPipeline, PipelineNames(t, aliceClient))
 	// check that alice owns the output repo too)
 	require.ElementsEqual(t,
-		entries(alice, "owner"), GetACL(t, aliceClient, aliceUnionPipeline))
+		entries(alice, "owner", pl(aliceUnionPipeline), "writer"), GetACL(t, aliceClient, aliceUnionPipeline))
 
 	// alice adds bob as a reader of one of the input repos, but not the other
 	_, err := aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
@@ -1121,7 +1121,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	// Make sure the input and output repos have non-empty ACLs
 	require.ElementsEqual(t, entries(alice, "owner"), GetACL(t, aliceClient, repo))
 	require.ElementsEqual(t,
-		entries(alice, "owner"), GetACL(t, aliceClient, pipeline))
+		entries(alice, "owner", pl(pipeline), "writer"), GetACL(t, aliceClient, pipeline))
 
 	// alice stops the pipeline (owner of the input and output repos can stop)
 	require.NoError(t, aliceClient.StopPipeline(pipeline))
