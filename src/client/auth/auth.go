@@ -165,6 +165,25 @@ func IsInvalidPrincipalError(err error) bool {
 		strings.HasSuffix(err.Error(), "\"; must start with \"robot:\" or have no \":\"")
 }
 
+const noTokenErrMsg = "no authentication metadata found in context"
+
+// NoTokenError is returned by the Auth API if the caller sent a request
+// containing no auth token.
+type NoTokenError struct{}
+
+func (e NoTokenError) Error() string {
+	return noTokenErrMsg
+}
+
+// IsNoTokenError returns true if 'err' is a NoTokenError (uses string
+// comparison to work across RPC boundaries)
+func IsNoTokenError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return err.Error() == noTokenErrMsg
+}
+
 const badTokenErrorMsg = "provided auth token is corrupted or has expired (try logging in again)"
 
 // BadTokenError is returned by the Auth API if the caller's token is corruped

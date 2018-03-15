@@ -1562,7 +1562,6 @@ func (a *apiServer) makePipelineInfoCommit(pachClient *client.APIClient, pipelin
 func (a *apiServer) addPipelineToRepoACLs(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, prevPipelineInfo *pps.PipelineInfo) error {
 	add := make(map[string]struct{})
 	remove := make(map[string]struct{})
-
 	// Figure out which repos 'pipeline' might no longer be using
 	if prevPipelineInfo != nil {
 		pps.VisitInput(prevPipelineInfo.Input, func(input *pps.Input) {
@@ -1578,8 +1577,8 @@ func (a *apiServer) addPipelineToRepoACLs(pachClient *client.APIClient, pipeline
 	}
 
 	// Figure out which repos 'pipeline' is using
-	if prevPipelineInfo != nil {
-		pps.VisitInput(prevPipelineInfo.Input, func(input *pps.Input) {
+	if pipelineInfo != nil {
+		pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
 			switch {
 			case input.Atom != nil:
 				delete(remove, input.Atom.Repo)
