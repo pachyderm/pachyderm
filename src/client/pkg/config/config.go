@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/satori/uuid"
+	"github.com/satori/go.uuid"
 )
 
 var configDirPath = filepath.Join(os.Getenv("HOME"), ".pachyderm")
