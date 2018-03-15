@@ -1006,6 +1006,9 @@ func MinioSecret(bucket string, id string, secret string, endpoint string, secur
 // WriteSecret writes a JSON-encoded k8s secret to the given writer.
 // The secret uses the given map as data.
 func WriteSecret(w io.Writer, data map[string][]byte, opts *AssetOpts) {
+	if opts.DashOnly {
+		return
+	}
 	secret := &v1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
