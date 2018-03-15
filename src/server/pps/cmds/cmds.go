@@ -3,6 +3,7 @@ package cmds
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/user"
 	"sort"
@@ -538,6 +539,76 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	}
 	rawFlag(inspectPipeline)
 
+	extractPipeline := &cobra.Command{
+		Use:   "extract-pipeline pipeline-name",
+		Short: "Return the manifest used to create a pipeline.",
+		Long:  "Return the manifest used to create a pipeline.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			if err != nil {
+				return err
+			}
+			createPipelineRequest, err := client.ExtractPipeline(args[0])
+			if err != nil {
+				return err
+			}
+			return marshaller.Marshal(os.Stdout, createPipelineRequest)
+		}),
+	}
+
+	editPipeline := &cobra.Command{
+		Use:   "edit-pipeline pipeline-name",
+		Short: "Edit the manifest for a pipeline in your text editor.",
+		Long:  "Edit the manifest for a pipeline in your text editor.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			if err != nil {
+				return err
+			}
+			createPipelineRequest, err := client.ExtractPipeline(args[0])
+			if err != nil {
+				return err
+			}
+			f, err := ioutil.TempFile("", args[0])
+			if err != nil {
+				return err
+			}
+			if err := marshaller.Marshal(f, createPipelineRequest); err != nil {
+				return err
+			}
+			defer func() {
+				if err := f.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			if err := cmdutil.RunIO(cmdutil.IO{
+				Stdin:  os.Stdin,
+				Stdout: os.Stdout,
+				Stderr: os.Stderr,
+			}, "vim", f.Name()); err != nil {
+				return err
+			}
+			cfgReader, err := ppsutil.NewPipelineManifestReader(f.Name())
+			if err != nil {
+				return err
+			}
+			request, err := cfgReader.NextCreatePipelineRequest()
+			if err != nil {
+				return err
+			}
+			request.Update = true
+			request.Reprocess = reprocess
+			if _, err := client.PpsAPIClient.CreatePipeline(
+				client.Ctx(),
+				request,
+			); err != nil {
+				return err
+			}
+			return nil
+		}),
+	}
+	editPipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
+
 	var spec bool
 	listPipeline := &cobra.Command{
 		Use:   "list-pipeline",
@@ -663,6 +734,8 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	result = append(result, createPipeline)
 	result = append(result, updatePipeline)
 	result = append(result, inspectPipeline)
+	result = append(result, extractPipeline)
+	result = append(result, editPipeline)
 	result = append(result, listPipeline)
 	result = append(result, deletePipeline)
 	result = append(result, startPipeline)
