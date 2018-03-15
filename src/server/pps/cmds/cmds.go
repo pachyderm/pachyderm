@@ -556,6 +556,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		}),
 	}
 
+	var editor string
 	editPipeline := &cobra.Command{
 		Use:   "edit-pipeline pipeline-name",
 		Short: "Edit the manifest for a pipeline in your text editor.",
@@ -581,11 +582,17 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					retErr = err
 				}
 			}()
+			if editor == "" {
+				editor = os.Getenv("EDITOR")
+			}
+			if editor == "" {
+				editor = "vim"
+			}
 			if err := cmdutil.RunIO(cmdutil.IO{
 				Stdin:  os.Stdin,
 				Stdout: os.Stdout,
 				Stderr: os.Stderr,
-			}, "vim", f.Name()); err != nil {
+			}, editor, f.Name()); err != nil {
 				return err
 			}
 			cfgReader, err := ppsutil.NewPipelineManifestReader(f.Name())
@@ -608,6 +615,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		}),
 	}
 	editPipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
+	editPipeline.Flags().StringVar(&editor, "editor", "", "Editor to use for modifying the manifest.")
 
 	var spec bool
 	listPipeline := &cobra.Command{
