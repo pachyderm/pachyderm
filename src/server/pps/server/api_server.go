@@ -2410,6 +2410,8 @@ func pipelineStateToStopped(state pps.PipelineState) bool {
 		return true
 	case pps.PipelineState_PIPELINE_FAILURE:
 		return true
+	case pps.PipelineState_PIPELINE_STANDBY:
+		return false
 	default:
 		panic(fmt.Sprintf("unrecognized pipeline state: %s", state))
 	}
