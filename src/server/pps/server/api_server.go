@@ -224,8 +224,8 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 					return fmt.Errorf("multiple input types set")
 				}
 				set = true
-				if _, err := cron.Parse(input.Cron.Spec); err != nil {
-					return err
+				if _, err := cron.ParseStandard(input.Cron.Spec); err != nil {
+					return fmt.Errorf("error parsing cron-spec: %v", err)
 				}
 			}
 			if input.Git != nil {
