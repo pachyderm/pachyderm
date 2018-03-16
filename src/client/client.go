@@ -200,7 +200,7 @@ func (c APIClient) DeleteAll() error {
 	if _, err := c.AuthAPIClient.Deactivate(
 		c.Ctx(),
 		&auth.DeactivateRequest{},
-	); err != nil && !auth.IsNotActivatedError(err) {
+	); err != nil && !auth.IsErrNotActivated(err) {
 		return grpcutil.ScrubGRPC(err)
 	}
 	if _, err := c.PpsAPIClient.DeleteAll(

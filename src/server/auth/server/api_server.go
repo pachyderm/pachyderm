@@ -110,7 +110,7 @@ func (a *apiServer) LogReq(request interface{}) {
 func (a *apiServer) LogResp(request interface{}, response interface{}, err error, duration time.Duration) {
 	if err == nil {
 		a.pachLogger.LogAtLevelFromDepth(request, response, err, duration, logrus.InfoLevel, 4)
-	} else if authclient.IsNotActivatedError(err) {
+	} else if authclient.IsErrNotActivated(err) {
 		a.pachLogger.LogAtLevelFromDepth(request, response, err, duration, logrus.DebugLevel, 4)
 	} else {
 		a.pachLogger.LogAtLevelFromDepth(request, response, err, duration, logrus.ErrorLevel, 4)
@@ -344,12 +344,15 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	// TODO this is a bit hacky (checking repeatedly in a spin loop) but
 	// Activate() is rarely called, and it helps avoid races due to other pachd
 	// pods being out of date.
-	for {
-		time.Sleep(time.Second) // give other pachd nodes time to update their cache
-		if a.isActivated() {
-			break
+	if err := backoff.Retry(func() error {
+		if !a.isActivated() {
+			return authclient.ErrNotActivated
 		}
+		return nil
+	}, backoff.RetryEvery(time.Second)); err != nil {
+		return nil, err
 	}
+	time.Sleep(time.Second) // give other pachd nodes time to update their cache
 	return &authclient.ActivateResponse{PachToken: pachToken}, nil
 }
 
@@ -357,7 +360,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if !a.isActivated() {
-		return nil, authclient.NotActivatedError{}
+		return nil, authclient.ErrNotActivated
 	}
 
 	// Get calling user. The user must be a cluster admin to disable auth for the
@@ -367,7 +370,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 		return nil, err
 	}
 	if !a.isAdmin(tokenInfo.Subject) {
-		return nil, &authclient.NotAuthorizedError{
+		return nil, &authclient.ErrNotAuthorized{
 			Subject: tokenInfo.Subject,
 			AdminOp: "DeactivateAuth",
 		}
@@ -387,12 +390,15 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 	// TODO this is a bit hacky (checking repeatedly in a spin loop) but
 	// Deactivate() is rarely called, and it helps avoid races due to other pachd
 	// pods being out of date.
-	for {
-		time.Sleep(time.Second) // give other pachd nodes time to update their cache
-		if !a.isActivated() {
-			break
+	if err := backoff.Retry(func() error {
+		if a.isActivated() {
+			return fmt.Errorf("auth still activated")
 		}
+		return nil
+	}, backoff.RetryEvery(time.Second)); err != nil {
+		return nil, err
 	}
+	time.Sleep(time.Second) // give other pachd nodes time to update their cache
 	return &authclient.DeactivateResponse{}, nil
 }
 
@@ -437,7 +443,7 @@ func (a *apiServer) GetAdmins(ctx context.Context, req *authclient.GetAdminsRequ
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if !a.isActivated() {
-		return nil, authclient.NotActivatedError{}
+		return nil, authclient.ErrNotActivated
 	}
 
 	// Get calling user. There is no auth check to see the list of cluster admins,
@@ -502,7 +508,7 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if !a.isActivated() {
-		return nil, authclient.NotActivatedError{}
+		return nil, authclient.ErrNotActivated
 	}
 
 	// Get calling user. The user must be an admin to change the list of admins
@@ -511,7 +517,7 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 		return nil, err
 	}
 	if !a.isAdmin(tokenInfo.Subject) {
-		return nil, &authclient.NotAuthorizedError{
+		return nil, &authclient.ErrNotAuthorized{
 			Subject: tokenInfo.Subject,
 			AdminOp: "ModifyAdmins",
 		}
@@ -579,7 +585,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 	// credentials.
 	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
 	if !a.isActivated() {
-		return nil, authclient.NotActivatedError{}
+		return nil, authclient.ErrNotActivated
 	}
 
 	// Determine caller's Pachyderm/GitHub username
@@ -623,7 +629,7 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if !a.isActivated() {
-		return nil, authclient.NotActivatedError{}
+		return nil, authclient.ErrNotActivated
 	}
 
 	tokenInfo, err := a.getAuthenticatedUser(ctx)
@@ -674,7 +680,7 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *authclient.WhoAmIRequest) (
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if !a.isActivated() {
-		return nil, authclient.NotActivatedError{}
+		return nil, authclient.ErrNotActivated
 	}
 
 	tokenInfo, err := a.getAuthenticatedUser(ctx)
@@ -711,7 +717,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if !a.isActivated() {
-		return nil, authclient.NotActivatedError{}
+		return nil, authclient.ErrNotActivated
 	}
 	pachClient := a.getPachClient().WithCtx(ctx)
 
@@ -771,7 +777,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 			return err
 		}
 		if !authorized {
-			return &authclient.NotAuthorizedError{
+			return &authclient.ErrNotAuthorized{
 				Subject:  tokenInfo.Subject,
 				Repo:     req.Repo,
 				Required: authclient.Scope_OWNER,
@@ -804,7 +810,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if !a.isActivated() {
-		return nil, authclient.NotActivatedError{}
+		return nil, authclient.ErrNotActivated
 	}
 
 	tokenInfo, err := a.getAuthenticatedUser(ctx)
@@ -843,7 +849,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 			// Caller is getting another user's scopes. Check if the caller is
 			// authorized to view this repo's ACL
 			if !a.isAdmin(tokenInfo.Subject) && acl.Entries[tokenInfo.Subject] < authclient.Scope_READER {
-				return nil, &authclient.NotAuthorizedError{
+				return nil, &authclient.ErrNotAuthorized{
 					Subject:  tokenInfo.Subject,
 					Repo:     repo,
 					Required: authclient.Scope_READER,
@@ -863,7 +869,7 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if !a.isActivated() {
-		return nil, authclient.NotActivatedError{}
+		return nil, authclient.ErrNotActivated
 	}
 
 	// Validate request
@@ -910,7 +916,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if !a.isActivated() {
-		return nil, authclient.NotActivatedError{}
+		return nil, authclient.ErrNotActivated
 	}
 
 	// Validate request
@@ -1007,7 +1013,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 			return err
 		}
 		if !authorized {
-			return &authclient.NotAuthorizedError{
+			return &authclient.ErrNotAuthorized{
 				Subject:  tokenInfo.Subject,
 				Repo:     req.Repo,
 				Required: authclient.Scope_OWNER,
@@ -1030,7 +1036,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if !a.isActivated() {
-		return nil, authclient.NotActivatedError{}
+		return nil, authclient.ErrNotActivated
 	}
 	if req.Subject == "" {
 		return nil, fmt.Errorf("must set GetAuthTokenRequest.Subject")
@@ -1042,7 +1048,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 		return nil, err
 	}
 	if req.Subject != callerInfo.Subject && !a.isAdmin(callerInfo.Subject) {
-		return nil, &authclient.NotAuthorizedError{
+		return nil, &authclient.ErrNotAuthorized{
 			Subject: callerInfo.Subject,
 			AdminOp: "GetAuthToken on behalf of another user",
 		}
@@ -1075,7 +1081,7 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendA
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if !a.isActivated() {
-		return nil, authclient.NotActivatedError{}
+		return nil, authclient.ErrNotActivated
 	}
 	if req.TTL == 0 {
 		return nil, fmt.Errorf("invalid request: ExtendAuthTokenRequest.TTL must be > 0")
@@ -1087,7 +1093,7 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendA
 		return nil, err
 	}
 	if !a.isAdmin(tokenInfo.Subject) {
-		return nil, &authclient.NotAuthorizedError{
+		return nil, &authclient.ErrNotAuthorized{
 			Subject: tokenInfo.Subject,
 			AdminOp: "ExtendAuthToken",
 		}
@@ -1110,7 +1116,7 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendA
 			return err
 		}
 		if tokenInfo.Subject == "" {
-			return authclient.BadTokenError{}
+			return authclient.ErrBadToken
 		}
 
 		ttl, err := tokens.TTL(hashToken(req.Token))
@@ -1118,7 +1124,7 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendA
 			return fmt.Errorf("Error looking up TTL for token: %v", err)
 		}
 		if req.TTL < ttl {
-			return authclient.TooShortTTLError{
+			return authclient.ErrTooShortTTL{
 				RequestTTL:  req.TTL,
 				ExistingTTL: ttl,
 			}
@@ -1134,7 +1140,7 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeA
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if !a.isActivated() {
-		return nil, authclient.NotActivatedError{}
+		return nil, authclient.ErrNotActivated
 	}
 
 	// Get the caller. Users can revoke their own tokens, and admins can revoke
@@ -1154,7 +1160,7 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeA
 			return err
 		}
 		if !a.isAdmin(callerInfo.Subject) && tokenInfo.Subject != callerInfo.Subject {
-			return &authclient.NotAuthorizedError{
+			return &authclient.ErrNotAuthorized{
 				Subject: tokenInfo.Subject,
 				AdminOp: "RevokeAuthToken on another user's token",
 			}
@@ -1180,12 +1186,12 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.Token
 	// token -> username entry twice.
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return nil, authclient.NoTokenError{}
+		return nil, authclient.ErrNoToken
 	}
 	if len(md[authclient.ContextTokenKey]) > 1 {
 		return nil, fmt.Errorf("multiple authentication token keys found in context")
 	} else if len(md[authclient.ContextTokenKey]) == 0 {
-		return nil, authclient.NotSignedInError{}
+		return nil, authclient.ErrNotSignedIn
 	}
 	token := md[authclient.ContextTokenKey][0]
 	if token == a.ppsToken {
@@ -1202,7 +1208,7 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.Token
 	var tokenInfo authclient.TokenInfo
 	if err := a.tokens.ReadOnly(ctx).Get(hashToken(token), &tokenInfo); err != nil {
 		if col.IsErrNotFound(err) {
-			return nil, authclient.BadTokenError{}
+			return nil, authclient.ErrBadToken
 		}
 		return nil, err
 	}

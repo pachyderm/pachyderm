@@ -65,7 +65,7 @@ func TestActivate(t *testing.T) {
 		resp, err := adminClient.Authenticate(adminClient.Ctx(),
 			&auth.AuthenticateRequest{GitHubToken: "admin"})
 		if err != nil {
-			if auth.IsNotActivatedError(err) {
+			if auth.IsErrNotActivated(err) {
 				return nil
 			}
 			return err
@@ -384,7 +384,7 @@ func TestPreActivationPipelinesRunAsAdmin(t *testing.T) {
 	// Wait for auth to be deactivated
 	require.NoError(t, backoff.Retry(func() error {
 		_, err := aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
-		if err != nil && auth.IsNotActivatedError(err) {
+		if err != nil && auth.IsErrNotActivated(err) {
 			return nil // WhoAmI should fail when auth is deactivated
 		}
 		return errors.New("auth is not yet deactivated")
@@ -1134,7 +1134,7 @@ func TestTokenTTL(t *testing.T) {
 		if err == nil {
 			return errors.New("alice still has access to ListRepo")
 		}
-		require.True(t, auth.IsBadTokenError(err), err.Error())
+		require.True(t, auth.IsErrBadToken(err), err.Error())
 		require.Equal(t, 0, len(repos))
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -1168,7 +1168,7 @@ func TestTokenTTLExtend(t *testing.T) {
 	require.ElementsEqualUnderFn(t, []string{repo}, repos, RepoInfoToName)
 	time.Sleep(10 * time.Second)
 	repos, err = aliceClient.ListRepo(nil)
-	require.True(t, auth.IsBadTokenError(err), err.Error())
+	require.True(t, auth.IsErrBadToken(err), err.Error())
 	require.Equal(t, 0, len(repos))
 
 	// admin gives alice another token but extends it. Now it doesn't expire after
@@ -1199,7 +1199,7 @@ func TestTokenTTLExtend(t *testing.T) {
 	// wait longer, now token is expired
 	time.Sleep(10 * time.Second)
 	repos, err = aliceClient.ListRepo(nil)
-	require.True(t, auth.IsBadTokenError(err), err.Error())
+	require.True(t, auth.IsErrBadToken(err), err.Error())
 	require.Equal(t, 0, len(repos))
 }
 
@@ -1236,7 +1236,7 @@ func TestTokenRevoke(t *testing.T) {
 
 	// alice's token is no longer valid
 	repos, err = aliceClient.ListRepo(nil)
-	require.True(t, auth.IsBadTokenError(err), err.Error())
+	require.True(t, auth.IsErrBadToken(err), err.Error())
 	require.Equal(t, 0, len(repos))
 }
 

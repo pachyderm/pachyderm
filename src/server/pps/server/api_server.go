@@ -1325,7 +1325,7 @@ const (
 func (a *apiServer) authorizePipelineOp(pachClient *client.APIClient, operation pipelineOperation, input *pps.Input, output string) error {
 	ctx := pachClient.Ctx()
 	me, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
-	if auth.IsNotActivatedError(err) {
+	if auth.IsErrNotActivated(err) {
 		return nil // Auth isn't activated, user may proceed
 	} else if err != nil {
 		return err
@@ -1354,7 +1354,7 @@ func (a *apiServer) authorizePipelineOp(pachClient *client.APIClient, operation 
 				return err
 			}
 			if !resp.Authorized {
-				return &auth.NotAuthorizedError{
+				return &auth.ErrNotAuthorized{
 					Subject:  me.Username,
 					Repo:     repo,
 					Required: auth.Scope_READER,
@@ -1399,7 +1399,7 @@ func (a *apiServer) authorizePipelineOp(pachClient *client.APIClient, operation 
 			return err
 		}
 		if !resp.Authorized {
-			return &auth.NotAuthorizedError{
+			return &auth.ErrNotAuthorized{
 				Subject:  me.Username,
 				Repo:     output,
 				Required: required,
@@ -1818,7 +1818,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				Subject: auth.PipelinePrefix + request.Pipeline.Name,
 			})
 			if err != nil {
-				if auth.IsNotActivatedError(err) {
+				if auth.IsErrNotActivated(err) {
 					return nil // no auth work to do
 				}
 				return grpcutil.ScrubGRPC(err)
@@ -2112,7 +2112,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	if pipelinePtr.AuthToken != "" {
 		if _, err := pachClient.RevokeAuthToken(ctx, &auth.RevokeAuthTokenRequest{
 			Token: pipelinePtr.AuthToken,
-		}); err != nil && !auth.IsNotActivatedError(err) {
+		}); err != nil && !auth.IsErrNotActivated(err) {
 			return nil, fmt.Errorf("error revoking old auth token: %v", err)
 		} else if err == nil {
 			if err := a.addPipelineToRepoACLs(pachClient, nil, pipelineInfo); err != nil {
@@ -2259,12 +2259,12 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 
 	if me, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{}); err == nil {
 		if !me.IsAdmin {
-			return nil, &auth.NotAuthorizedError{
+			return nil, &auth.ErrNotAuthorized{
 				Subject: me.Username,
 				AdminOp: "DeleteAll",
 			}
 		}
-	} else if !auth.IsNotActivatedError(err) {
+	} else if !auth.IsErrNotActivated(err) {
 		return nil, fmt.Errorf("Error during authorization check: %v", err)
 	}
 
