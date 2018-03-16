@@ -205,21 +205,21 @@ func (c APIClient) FinishCommit(repoName string, commitID string) error {
 
 // InspectCommit returns info about a specific Commit.
 func (c APIClient) InspectCommit(repoName string, commitID string) (*pfs.CommitInfo, error) {
-	return c.inspectCommit(repoName, commitID, false)
+	return c.inspectCommit(repoName, commitID, pfs.CommitState_STARTED)
 }
 
 // BlockCommit returns info about a specific Commit, but blocks until that
 // commit has been finished.
 func (c APIClient) BlockCommit(repoName string, commitID string) (*pfs.CommitInfo, error) {
-	return c.inspectCommit(repoName, commitID, true)
+	return c.inspectCommit(repoName, commitID, pfs.CommitState_FINISHED)
 }
 
-func (c APIClient) inspectCommit(repoName string, commitID string, block bool) (*pfs.CommitInfo, error) {
+func (c APIClient) inspectCommit(repoName string, commitID string, blockState pfs.CommitState) (*pfs.CommitInfo, error) {
 	commitInfo, err := c.PfsAPIClient.InspectCommit(
 		c.Ctx(),
 		&pfs.InspectCommitRequest{
-			Commit: NewCommit(repoName, commitID),
-			Block:  block,
+			Commit:     NewCommit(repoName, commitID),
+			BlockState: blockState,
 		},
 	)
 	if err != nil {

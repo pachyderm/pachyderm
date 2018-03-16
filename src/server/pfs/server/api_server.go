@@ -134,7 +134,7 @@ func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommi
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	return a.driver.inspectCommit(ctx, request.Commit, request.Block)
+	return a.driver.inspectCommit(ctx, request.Commit, request.BlockState)
 }
 
 func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitRequest) (response *pfs.CommitInfos, retErr error) {
@@ -231,7 +231,7 @@ func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream 
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 
-	return a.driver.subscribeCommit(ctx, request.Repo, request.Branch, request.From, stream.Send)
+	return a.driver.subscribeCommit(ctx, request.Repo, request.Branch, request.From, request.State, stream.Send)
 }
 
 func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
