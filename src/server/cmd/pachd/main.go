@@ -30,13 +30,13 @@ import (
 	deployserver "github.com/pachyderm/pachyderm/src/server/deploy"
 	eprsserver "github.com/pachyderm/pachyderm/src/server/enterprise/server"
 	"github.com/pachyderm/pachyderm/src/server/health"
+	pach_http "github.com/pachyderm/pachyderm/src/server/http"
 	pfs_server "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	cache_pb "github.com/pachyderm/pachyderm/src/server/pkg/cache/groupcachepb"
 	cache_server "github.com/pachyderm/pachyderm/src/server/pkg/cache/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 
@@ -320,20 +320,6 @@ func doFullMode(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	// Get the PPS token and put it in etcd.
-	// This might emit an error, if the token has already been created or auth
-	// has already been activated (in which case the token should also have
-	// already been created). But in either  case we want to ignore the error and
-	// re-use the existing token
-	tokenResp, err := authAPIServer.GetAuthToken(context.Background(), &authclient.GetAuthTokenRequest{})
-	if err == nil {
-		_, err := etcdClientV3.Put(context.Background(),
-			path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix, ppsconsts.PPSTokenKey),
-			tokenResp.Token)
-		if err != nil {
-			return err
-		}
-	}
 	enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.EnterpriseEtcdPrefix))
 	if err != nil {
 		return err
@@ -344,13 +330,13 @@ func doFullMode(appEnvObj interface{}) error {
 
 	deployServer := deployserver.NewDeployServer(kubeClient, kubeNamespace)
 
-	httpServer, err := pfs_server.NewHTTPServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), blockCacheBytes)
+	httpServer, err := pach_http.NewHTTPServer(address)
 	if err != nil {
 		return err
 	}
 	var eg errgroup.Group
 	eg.Go(func() error {
-		return http.ListenAndServe(fmt.Sprintf(":%v", pfs_server.HTTPPort), httpServer)
+		return http.ListenAndServe(fmt.Sprintf(":%v", pach_http.HTTPPort), httpServer)
 	})
 	eg.Go(func() error {
 		return githook.RunGitHookServer(address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix))

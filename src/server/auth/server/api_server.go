@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -68,6 +69,16 @@ const (
 	RobotPrefix = "robot:"
 )
 
+// githubTokenRegex is used when pachd is deployed in "dev mode" (i.e. when
+// pachd is deployed with "pachctl deploy local") to guess whether a call to
+// Authenticate or Authorize contains a real GitHub access token.
+//
+// If the field GitHubToken matches this regex, it's assumed to be a GitHub
+// token and pachd retrieves the corresponding user's GitHub username. If not,
+// pachd automatically authenticates the the caller as the GitHub user whose
+// username is the string in "GitHubToken".
+var githubTokenRegex = regexp.MustCompile("^[0-9a-f]{40}$")
+
 // epsilon is small, nonempty protobuf to use as an etcd value (the etcd client
 // library can't distinguish between empty values and missing values, even
 // though empty values are still stored in etcd)
@@ -88,13 +99,17 @@ type apiServer struct {
 	// returned to users by Authenticate()
 	tokens col.Collection
 	// tokens is a collection of hashedToken -> User mappings. These tokens are
-	// returned by GetCapability() and stored with pipelines
+	// returned by GetAuthToken() and stored with pipelines
 	pipelineTokens col.Collection
 	// acls is a collection of repoName -> ACL mappings.
 	acls col.Collection
 	// admins is a collection of username -> Empty mappings (keys indicate which
 	// github users are cluster admins)
 	admins col.Collection
+
+	// This is a cache of the PPS master token. It's set once on startup and then
+	// never updated
+	ppsToken string
 }
 
 // LogReq is like log.Logger.Log(), but it assumes that it's being called from
@@ -177,7 +192,45 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (
 	}
 	go s.getPachClient() // initialize connection to Pachd
 	go s.watchAdmins(path.Join(etcdPrefix, adminsPrefix))
+	go s.retrieveOrGeneratePPSToken()
 	return s, nil
+}
+
+// Retrieve the PPS master token, or generate it and put it in etcd.
+// TODO This is a hack. It avoids the need to return superuser tokens from
+// GetAuthToken (essentially, PPS and Auth communicate through etcd instead of
+// an API) but we should define an internal API and use that instead.
+func (a *apiServer) retrieveOrGeneratePPSToken() {
+	var tokenProto types.StringValue // will contain PPS token
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = 60 * time.Second
+	b.MaxInterval = 5 * time.Second
+	if err := backoff.Retry(func() error {
+		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			superUserTokenCol := col.NewCollection(a.etcdClient, ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil).ReadWrite(stm)
+			err := superUserTokenCol.Get("", &tokenProto)
+			if err == nil {
+				return nil
+			}
+			if col.IsErrNotFound(err) {
+				// no existing token yet -- generate token
+				token := uuid.NewWithoutDashes()
+				tokenProto.Value = token
+				if err := superUserTokenCol.Create("", &tokenProto); err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+		a.ppsToken = tokenProto.Value
+		return nil
+	}, b); err != nil {
+		panic(fmt.Sprintf("couldn't create/retrieve PPS superuser token within 60s of starting up: %v", err))
+	}
 }
 
 func (a *apiServer) watchAdmins(fullAdminPrefix string) {
@@ -241,13 +294,6 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	// We don't want to actually log the request/response since they contain
 	// credentials.
 	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
-	if strings.HasPrefix(req.GitHubUsername, GitHubPrefix) || strings.HasPrefix(req.GitHubUsername, RobotPrefix) {
-		return nil, fmt.Errorf("GitHubUsername should not have a user type prefix; it must be a GitHub user")
-	}
-	if req.GitHubUsername == magicUser {
-		return nil, fmt.Errorf("invalid user")
-	}
-
 	// If the cluster's Pachyderm Enterprise token isn't active, the auth system
 	// cannot be activated
 	state, err := a.getEnterpriseTokenState()
@@ -267,7 +313,7 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	}
 
 	// Determine caller's Pachyderm/GitHub username
-	username, err := GitHubTokenToUsername(ctx, req.GitHubUsername, req.GitHubToken)
+	username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
 	if err != nil {
 		return nil, err
 	}
@@ -293,6 +339,19 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	if err != nil {
 		return nil, err
 	}
+
+	// wait until watchAdmins has activated auth, so that Activate() is less
+	// likely to race with subsequent calls that expect auth to be activated.
+	// TODO this is a bit hacky (checking repeatedly in a spin loop) but
+	// Activate() is rarely called, and it helps avoid races due to other pachd
+	// pods being out of date.
+	for {
+		if a.isActivated() {
+			time.Sleep(time.Second) // give other pachd nodes time to update their cache
+			break
+		}
+		time.Sleep(time.Second)
+	}
 	return &authclient.ActivateResponse{PachToken: pachToken}, nil
 }
 
@@ -310,7 +369,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 		return nil, err
 	}
 	if !a.isAdmin(tokenInfo.Subject) {
-		return nil, errors.New("not authorized to deactivate auth, must be a cluster admin")
+		return nil, &authclient.NotAuthorizedError{AdminOp: "DeactivateAuth"}
 	}
 	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		a.acls.ReadWrite(stm).DeleteAll()
@@ -320,6 +379,19 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	// wait until watchAdmins has deactivated auth, so that Deactivate() is less
+	// likely to race with subsequent calls that expect auth to be deactivated.
+	// TODO this is a bit hacky (checking repeatedly in a spin loop) but
+	// Deactivate() is rarely called, and it helps avoid races due to other pachd
+	// pods being out of date.
+	for {
+		if !a.isActivated() {
+			time.Sleep(time.Second) // give other pachd nodes time to update their cache
+			break
+		}
+		time.Sleep(time.Second)
 	}
 	return &authclient.DeactivateResponse{}, nil
 }
@@ -334,15 +406,15 @@ func (a *apiServer) isActivated() bool {
 // it discover the username of the user who obtained the code (or verify that
 // the code belongs to githubUsername). This is how Pachyderm currently
 // implements authorization in a production cluster
-func GitHubTokenToUsername(ctx context.Context, githubUsername string, oauthToken string) (string, error) {
-	if githubUsername == "" {
-		return "", fmt.Errorf("cannot validate GitHub credentials for anonymous user")
-	}
-	if os.Getenv(DisableAuthenticationEnvVar) == "true" {
-		// Test mode--the caller automatically authenticates as whoever is requested
-		return GitHubPrefix + githubUsername, nil
+func GitHubTokenToUsername(ctx context.Context, oauthToken string) (string, error) {
+	if !githubTokenRegex.MatchString(oauthToken) && os.Getenv(DisableAuthenticationEnvVar) == "true" {
+		logrus.Warnf("Pachyderm is deployed in DEV mode. The provided auth token " +
+		"will NOT be verified with GitHub; the caller is automatically " +
+		"authenticated as the GitHub user \"%s\"", oauthToken)
+		return GitHubPrefix + oauthToken, nil
 	}
 
+	// Initialize GitHub client with 'oauthToken'
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{
 			AccessToken: oauthToken,
@@ -351,16 +423,13 @@ func GitHubTokenToUsername(ctx context.Context, githubUsername string, oauthToke
 	tc := oauth2.NewClient(ctx, ts)
 	gclient := github.NewClient(tc)
 
-	// Passing the empty string gets us the authenticated user
+	// Retrieve the caller's GitHub Username (the empty string gets us the
+	// authenticated user)
 	user, _, err := gclient.Users.Get(ctx, "")
 	if err != nil {
 		return "", fmt.Errorf("error getting the authenticated user: %v", err)
 	}
 	verifiedUsername := user.GetLogin()
-	if githubUsername != verifiedUsername {
-		return "", fmt.Errorf("attempted to authenticate as %s, but GitHub "+
-			"token did not originate from that account", githubUsername)
-	}
 	return GitHubPrefix + verifiedUsername, nil
 }
 
@@ -408,7 +477,22 @@ func (a *apiServer) validateModifyAdminsRequest(add []string, remove []string) e
 	for _, u := range remove {
 		delete(m, u)
 	}
-	if len(m) == 0 {
+
+	// Confirm that there will be at least one GitHub user admin.
+	//
+	// This is required so that a person can get the cluster out of any broken
+	// state that it may enter. If all admins are robot users or pipelines, and
+	// the only way to authenticate as a non-human user is for another admin to
+	// call GetAuthToken, then there will be no way to authenticate as an admin
+	// and fix a broken cluster.
+	hasHumanAdmin := false
+	for user := range m {
+		if strings.HasPrefix(user, GitHubPrefix) {
+			hasHumanAdmin = true
+			break
+		}
+	}
+	if !hasHumanAdmin {
 		return fmt.Errorf("invalid request: cannot remove all cluster administrators while auth is active, to avoid unfixable cluster states")
 	}
 	return nil
@@ -427,7 +511,7 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 		return nil, err
 	}
 	if !a.isAdmin(tokenInfo.Subject) {
-		return nil, errors.New("not authorized to modify cluster admins, must be a cluster admin")
+		return nil, &authclient.NotAuthorizedError{AdminOp: "ModifyAdmins"}
 	}
 
 	// Canonicalize GitHub usernames in request (must canonicalize before we can
@@ -494,15 +578,9 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 	if !a.isActivated() {
 		return nil, authclient.NotActivatedError{}
 	}
-	if strings.HasPrefix(req.GitHubUsername, GitHubPrefix) || strings.HasPrefix(req.GitHubUsername, RobotPrefix) {
-		return nil, fmt.Errorf("GitHubUsername should not have a user type prefix; it must be a GitHub user")
-	}
-	if req.GitHubUsername == magicUser {
-		return nil, fmt.Errorf("invalid user")
-	}
 
 	// Determine caller's Pachyderm/GitHub username
-	username, err := GitHubTokenToUsername(ctx, req.GitHubUsername, req.GitHubToken)
+	username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
 	if err != nil {
 		return nil, err
 	}
@@ -964,7 +1042,9 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 		}
 		if req.Subject != "" {
 			if !a.isAdmin(tokenInfo.Subject) {
-				return nil, fmt.Errorf("must be an admin to mint tokens on behalf of another user")
+				return nil, &authclient.NotAuthorizedError{
+					AdminOp: "GetAuthToken on behalf of another user",
+				}
 			}
 			subject, err := lenientCanonicalizeSubject(ctx, req.Subject)
 			if err != nil {
@@ -979,8 +1059,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 	token := uuid.NewWithoutDashes()
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		pipelineTokens := a.pipelineTokens.ReadWrite(stm)
-		// Capabilities are forever; they don't expire.
-		return pipelineTokens.Put(hashToken(token), tokenInfo)
+		return pipelineTokens.PutTTL(hashToken(token), tokenInfo, req.TTL)
 	})
 	if err != nil {
 		if tokenInfo.Subject != magicUser {
@@ -989,7 +1068,117 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 		return nil, fmt.Errorf("error storing token for default pipeline user: %v", err)
 	}
 
-	return &authclient.GetAuthTokenResponse{token}, nil
+	return &authclient.GetAuthTokenResponse{
+		Token: token,
+	}, nil
+}
+
+func (a *apiServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendAuthTokenRequest) (resp *authclient.ExtendAuthTokenResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	if !a.isActivated() {
+		return nil, authclient.NotActivatedError{}
+	}
+	if req.TTL == 0 {
+		return nil, fmt.Errorf("invalid request: ExtendAuthTokenRequest.TTL must be > 0")
+	}
+
+	// Only admins can extend auth tokens (for now)
+	tokenInfo, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !a.isAdmin(tokenInfo.Subject) {
+		return nil, &authclient.NotAuthorizedError{
+			AdminOp: "ExtendAuthToken",
+		}
+	}
+
+	// Only let people extend tokens by up to two weeks (the equivalent of logging
+	// in again)
+	if req.TTL > defaultTokenTTLSecs {
+		return nil, fmt.Errorf("can only extend tokens by at most %d seconds", defaultTokenTTLSecs)
+	}
+
+	// The token must already exist. If a token has been revoked, it can't be
+	// extended
+	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		var (
+			// The collections in which the request token might exist
+			tokens, pipelineTokens = a.tokens.ReadWrite(stm), a.pipelineTokens.ReadWrite(stm)
+
+			// errgroup for looking up req.Token in parallel
+			eg errgroup.Group
+
+			// True if the token was found in either 'tokens' or 'pipelineTokens'
+			tokenFound   bool
+			tokenFoundMu sync.Mutex
+		)
+
+		// Actually look up the request token in the relevant collections
+		eg.Go(func() error {
+			var tokenInfo authclient.TokenInfo
+			if err := tokens.Get(hashToken(req.Token), &tokenInfo); err != nil && !col.IsErrNotFound(err) {
+				return err
+			}
+			if tokenInfo.Subject == "" {
+				return nil // no token in 'tokens'--quit early
+			}
+			ttl, err := tokens.TTL(hashToken(req.Token))
+			if err != nil {
+				return fmt.Errorf("Error looking up TTL for token: %v", err)
+			}
+			tokenFoundMu.Lock()
+			defer tokenFoundMu.Unlock()
+			if tokenFound {
+				return fmt.Errorf("token present in both tokens and pipelineTokens")
+			}
+			tokenFound = true
+			if req.TTL < ttl {
+				return authclient.TooShortTTLError{
+					RequestTTL:  req.TTL,
+					ExistingTTL: ttl,
+				}
+			}
+			return tokens.PutTTL(hashToken(req.Token), &tokenInfo, req.TTL)
+		})
+		eg.Go(func() error {
+			var tokenInfo authclient.TokenInfo
+			if err := pipelineTokens.Get(hashToken(req.Token), &tokenInfo); err != nil && !col.IsErrNotFound(err) {
+				return err
+			}
+			if tokenInfo.Subject == "" {
+				return nil // no token in 'tokens'--quit early
+			}
+			ttl, err := pipelineTokens.TTL(hashToken(req.Token))
+			if err != nil {
+				return fmt.Errorf("Error looking up TTL for pipelineToken: %v", err)
+			}
+			tokenFoundMu.Lock()
+			defer tokenFoundMu.Unlock()
+			if tokenFound {
+				return fmt.Errorf("token present in both tokens and pipelineTokens")
+			}
+			tokenFound = true
+			if req.TTL < ttl {
+				return authclient.TooShortTTLError{
+					RequestTTL:  req.TTL,
+					ExistingTTL: ttl,
+				}
+			}
+			return pipelineTokens.PutTTL(hashToken(req.Token), &tokenInfo, req.TTL)
+		})
+		if err := eg.Wait(); err != nil {
+			return fmt.Errorf("error getting TokenInfo: %v", err)
+		}
+		if !tokenFound {
+			return authclient.BadTokenError{}
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return &authclient.ExtendAuthTokenResponse{}, nil
 }
 
 func (a *apiServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeAuthTokenRequest) (resp *authclient.RevokeAuthTokenResponse, retErr error) {
@@ -1043,6 +1232,15 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.Token
 		return nil, authclient.NotSignedInError{}
 	}
 	token := md[authclient.ContextTokenKey][0]
+	if token == a.ppsToken {
+		// TODO(msteffen): This is a hack. The idea is that there is a logical user
+		// entry mapping ppsToken to magicUser. Soon, magicUser will go away and
+		// this check should happen in authorize
+		return &authclient.TokenInfo{
+			Subject: magicUser,
+			Source:  authclient.TokenInfo_GET_TOKEN,
+		}, nil
+	}
 
 	// Lookup the token in both a.tokens and a.pipelineTokens
 	var tokensResult, pipelineTokensResult authclient.TokenInfo

@@ -1097,10 +1097,8 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (resultCommi
 	var ancestryLength int
 	commit.ID, ancestryLength = parseCommitID(commit.ID)
 
-	// Check if commit.ID is already a commit ID (i.e. a UUID). Because we use
-	// UUIDv4, the 13th character is a '4'
-	isUUID := len(commit.ID) == uuid.UUIDWithoutDashesLength && commit.ID[12] == '4'
-	if !isUUID {
+	// Check if commit.ID is already a commit ID (i.e. a UUID).
+	if !uuid.IsUUIDWithoutDashes(commit.ID) {
 		branches := d.branches(commit.Repo.Name).ReadWrite(stm)
 		branchInfo := &pfs.BranchInfo{}
 		// See if we are given a branch

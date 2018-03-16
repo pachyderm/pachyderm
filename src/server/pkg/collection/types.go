@@ -60,6 +60,9 @@ type Index struct {
 type ReadWriteCollection interface {
 	Get(key string, val proto.Message) error
 	Put(key string, val proto.Message) error
+	// TTL returns the amount of time that 'key' will continue to exist in the
+	// collection, or '0' if 'key' will remain in the collection indefinitely
+	TTL(key string) (int64, error)
 	// PutTTL is the same as Put except that the object is removed after
 	// TTL seconds.
 	// WARNING: using PutTTL with a collection that has secondary indices

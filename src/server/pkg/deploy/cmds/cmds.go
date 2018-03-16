@@ -28,7 +28,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var defaultDashImage = "pachyderm/dash:1.7-preview-4"
+var defaultDashImage = "pachyderm/dash:1.7-preview-5"
 
 func maybeKcCreate(dryRun bool, manifest *bytes.Buffer, opts *assets.AssetOpts, metrics bool) error {
 	if dryRun {

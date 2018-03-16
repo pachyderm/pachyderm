@@ -2930,10 +2930,10 @@ func testGetLogs(t *testing.T, enableStats bool) {
 		loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
 		require.False(t, strings.Contains(iter.Message().Message, "MISSING"), iter.Message().Message)
 	}
-	require.Equal(t, 2, numLogs, "logs:\n%s", strings.Join(loglines, "\n"))
+	require.True(t, numLogs >= 2, "logs:\n%s", strings.Join(loglines, "\n"))
 	require.NoError(t, iter.Err())
 
-	// Get logs from pipeline, using pipeline
+	// Get logs from pipeline, using pipeline (tailing the last two log lines)
 	iter = c.GetLogs(pipelineName, "", nil, "", false, false, 2)
 	numLogs = 0
 	loglines = []string{}
@@ -2942,7 +2942,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 		require.True(t, iter.Message().Message != "")
 		loglines = append(loglines, strings.TrimSuffix(iter.Message().Message, "\n"))
 	}
-	require.Equal(t, 2, numLogs, "logs:\n%s", strings.Join(loglines, "\n"))
+	require.True(t, numLogs >= 2, "logs:\n%s", strings.Join(loglines, "\n"))
 	require.NoError(t, iter.Err())
 
 	// Get logs from pipeline, using a pipeline that doesn't exist. There should
@@ -5359,6 +5359,7 @@ func TestService(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestService_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -5428,6 +5429,32 @@ func TestService(t *testing.T) {
 
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := http.Get(fmt.Sprintf("http://%s/%s/file1", serviceAddr, dataRepo))
+		if err != nil {
+			return err
+		}
+		if resp.StatusCode != 200 {
+			return fmt.Errorf("GET returned %d", resp.StatusCode)
+		}
+		content, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		if string(content) != "foo" {
+			return fmt.Errorf("wrong content for file1: expected foo, got %s", string(content))
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+
+	clientAddr := c.GetAddress()
+	host, _, err := net.SplitHostPort(clientAddr)
+	port, ok := os.LookupEnv("PACHD_SERVICE_PORT_API_HTTP_PORT")
+	if !ok {
+		port = "30652" // default NodePort port for Pachd's HTTP API
+	}
+	httpAPIAddr := net.JoinHostPort(host, port)
+	url := fmt.Sprintf("http://%s/v1/pps/services/%s/%s/file1", httpAPIAddr, pipeline, dataRepo)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := http.Get(url)
 		if err != nil {
 			return err
 		}
@@ -6700,26 +6727,31 @@ func TestExtractRestore(t *testing.T) {
 		require.NoError(t, c.FinishCommit(dataRepo, "master"))
 	}
 
-	pipeline := tu.UniqueString("TestExtractRestore")
-	require.NoError(t, c.CreatePipeline(
-		pipeline,
-		"",
-		[]string{"bash"},
-		[]string{
-			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-		},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewAtomInput(dataRepo, "/*"),
-		"",
-		false,
-	))
+	numPipelines := 10
+	input := dataRepo
+	for i := 0; i < numPipelines; i++ {
+		pipeline := tu.UniqueString(fmt.Sprintf("TestExtractRestore%d", i))
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{
+				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+			},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewAtomInput(input, "/*"),
+			"",
+			false,
+		))
+		input = pipeline
+	}
 
 	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, numPipelines, len(commitInfos))
 
 	ops, err := c.ExtractAll(false)
 	require.NoError(t, err)
@@ -6729,7 +6761,7 @@ func TestExtractRestore(t *testing.T) {
 	commitIter, err = c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 	commitInfos = collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, numPipelines, len(commitInfos))
 }
 
 // TestCancelJob creates a long-running job and then kills it, testing that the

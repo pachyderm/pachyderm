@@ -18,7 +18,10 @@ package collection
 // not have the DelAll method, which we need.
 
 import (
+	"fmt"
+
 	v3 "github.com/coreos/etcd/clientv3"
+	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
 	"golang.org/x/net/context"
 )
 
@@ -28,11 +31,13 @@ type STM interface {
 	// If Get fails, it aborts the transaction with an error, never returning.
 	Get(key string) (string, error)
 	// Put adds a value for a key to the write set.
-	Put(key, val string, opts ...v3.OpOption)
+	Put(key, val string, ttl int64) error
 	// Rev returns the revision of a key in the read set.
 	Rev(key string) int64
 	// Del deletes a key.
 	Del(key string)
+	// TTL returns the remaining time to live for 'key', or 0 if 'key' has no TTL
+	TTL(key string) (int64, error)
 	// DelAll deletes all keys with the given prefix
 	// Note that the current implementation of DelAll is incomplete.
 	// To use DelAll safely, do not issue any Get/Put operations after
@@ -43,6 +48,7 @@ type STM interface {
 	// commit attempts to apply the txn's changes to the server.
 	commit() *v3.TxnResponse
 	reset()
+	fetch(key string) *v3.GetResponse
 }
 
 // stmError safely passes STM errors through panic to the STM error channel.
@@ -118,12 +124,24 @@ type stm struct {
 	rset map[string]*v3.GetResponse
 	// wset holds overwritten keys and their values
 	wset map[string]stmPut
-	// getOpts are the opts used for gets
+	// getOpts are the opts used for gets. Includes revision of first read for
+	// stmSerializable
 	getOpts []v3.OpOption
+	// ttlset is a cache from key to lease TTL. It's similar to rset in that it
+	// caches leases that have already been read, but each may contain keys not in
+	// the other (ttlset in particular caches the TTL of all keys associated with
+	// a lease after reading that lease, even if the other keys haven't been read)
+	ttlset map[string]int64
+	// newLeases is a map from TTL to lease ID; it caches new leases used for this
+	// write. We de-dupe leases by TTL (values written with the same TTL get the
+	// same lease) so that kvs in a collection and its indexes all share a lease.
+	// It's similar to wset for TTLs.
+	newLeases map[int64]v3.LeaseID
 }
 
 type stmPut struct {
 	val string
+	ttl int64
 	op  v3.Op
 }
 
@@ -138,13 +156,28 @@ func (s *stm) Get(key string) (string, error) {
 	return respToValue(key, s.fetch(key))
 }
 
-func (s *stm) Put(key, val string, opts ...v3.OpOption) {
-	s.wset[key] = stmPut{val, v3.OpPut(key, val, opts...)}
+func (s *stm) Put(key, val string, ttl int64) error {
+	var options []v3.OpOption
+	if ttl > 0 {
+		lease, ok := s.newLeases[ttl]
+		if !ok {
+			leaseResp, err := s.client.Grant(context.Background(), ttl)
+			if err != nil {
+				return fmt.Errorf("error granting lease: %v", err)
+			}
+			lease = leaseResp.ID
+			s.newLeases[ttl] = lease
+			s.ttlset[key] = ttl // cache key->ttl, in case it's read later
+		}
+		options = append(options, v3.WithLease(lease))
+	}
+	s.wset[key] = stmPut{val, ttl, v3.OpPut(key, val, options...)}
+	return nil
 }
 
-func (s *stm) Del(key string) { s.wset[key] = stmPut{"", v3.OpDelete(key)} }
+func (s *stm) Del(key string) { s.wset[key] = stmPut{"", 0, v3.OpDelete(key)} }
 
-func (s *stm) DelAll(key string) { s.wset[key] = stmPut{"", v3.OpDelete(key, v3.WithPrefix())} }
+func (s *stm) DelAll(key string) { s.wset[key] = stmPut{"", 0, v3.OpDelete(key, v3.WithPrefix())} }
 
 func (s *stm) Rev(key string) int64 {
 	if resp := s.fetch(key); resp != nil && len(resp.Kvs) != 0 {
@@ -154,8 +187,17 @@ func (s *stm) Rev(key string) int64 {
 }
 
 func (s *stm) commit() *v3.TxnResponse {
-	txnresp, err := s.client.Txn(s.ctx).If(s.cmps()...).Then(s.puts()...).Commit()
-	if err != nil {
+	cmps := s.cmps()
+	puts := s.puts()
+	txnresp, err := s.client.Txn(s.ctx).If(cmps...).Then(puts...).Commit()
+	if err == rpctypes.ErrTooManyOps {
+		panic(stmError{
+			fmt.Errorf(
+				"%v (%d comparisons, %d puts: hint: set --max-txn-ops on the "+
+					"ETCD cluster to at least the largest of those values)",
+				err, len(cmps), len(puts)),
+		})
+	} else if err != nil {
 		panic(stmError{err})
 	}
 	if txnresp.Succeeded {
@@ -197,6 +239,8 @@ func (s *stm) puts() []v3.Op {
 func (s *stm) reset() {
 	s.rset = make(map[string]*v3.GetResponse)
 	s.wset = make(map[string]stmPut)
+	s.ttlset = make(map[string]int64)
+	s.newLeases = make(map[int64]v3.LeaseID)
 }
 
 type stmSerializable struct {
@@ -208,6 +252,10 @@ func (s *stmSerializable) Get(key string) (string, error) {
 	if wv, ok := s.wset[key]; ok {
 		return wv.val, nil
 	}
+	return respToValue(key, s.fetch(key))
+}
+
+func (s *stmSerializable) fetch(key string) *v3.GetResponse {
 	firstRead := len(s.rset) == 0
 	if resp, ok := s.prefetch[key]; ok {
 		delete(s.prefetch, key)
@@ -221,7 +269,7 @@ func (s *stmSerializable) Get(key string) (string, error) {
 			v3.WithSerializable(),
 		}
 	}
-	return respToValue(key, resp)
+	return resp
 }
 
 func (s *stmSerializable) Rev(key string) int64 {
@@ -241,10 +289,19 @@ func (s *stmSerializable) gets() ([]string, []v3.Op) {
 
 func (s *stmSerializable) commit() *v3.TxnResponse {
 	keys, getops := s.gets()
-	txn := s.client.Txn(s.ctx).If(s.cmps()...).Then(s.puts()...)
+	cmps := s.cmps()
+	puts := s.puts()
+	txn := s.client.Txn(s.ctx).If(cmps...).Then(puts...)
 	// use Else to prefetch keys in case of conflict to save a round trip
 	txnresp, err := txn.Else(getops...).Commit()
-	if err != nil {
+	if err == rpctypes.ErrTooManyOps {
+		panic(stmError{
+			fmt.Errorf(
+				"%v (%d comparisons, %d puts: hint: set --max-txn-ops on the "+
+					"ETCD cluster to at least the largest of those values)",
+				err, len(cmps), len(puts)),
+		})
+	} else if err != nil {
 		panic(stmError{err})
 	}
 	if txnresp.Succeeded {
@@ -280,4 +337,51 @@ func respToValue(key string, resp *v3.GetResponse) (string, error) {
 		return "", ErrNotFound{Key: key}
 	}
 	return string(resp.Kvs[0].Value), nil
+}
+
+// fetchTTL contains the essential implementation of TTL().
+//
+// Note that 'iface' should either be the receiver 's' or a containing
+// 'stmSerializeable'--the only reason 'iface' is passed as a separate argument
+// is because fetchTTL calls iface.fetch(), and the implementation of 'fetch' is
+// different for stm and stmSerializeable. Passing the interface ensures the
+// correct version of fetch() is called
+func (s *stm) fetchTTL(iface STM, key string) (int64, error) {
+	// check wset cache
+	if wv, ok := s.wset[key]; ok {
+		return wv.ttl, nil
+	}
+
+	// Read ttl through s.ttlset cache
+	if ttl, ok := s.ttlset[key]; ok {
+		return ttl, nil
+	}
+
+	// Read kv and lease ID, and cache new TTL
+	getResp := iface.fetch(key) // call correct implementation of fetch()
+	if len(getResp.Kvs) == 0 {
+		return 0, ErrNotFound{Key: key}
+	}
+	leaseID := v3.LeaseID(getResp.Kvs[0].Lease)
+	if leaseID == 0 {
+		s.ttlset[key] = 0 // 0 is default value, but now 'ok' will be true on check
+		return 0, nil
+	}
+	leaseResp, err := s.client.TimeToLive(s.ctx, leaseID)
+	if err != nil {
+		panic(stmError{err})
+	}
+	s.ttlset[key] = leaseResp.TTL
+	for _, key := range leaseResp.Keys {
+		s.ttlset[string(key)] = leaseResp.TTL
+	}
+	return leaseResp.TTL, nil
+}
+
+func (s *stm) TTL(key string) (int64, error) {
+	return s.fetchTTL(s, key)
+}
+
+func (s *stmSerializable) TTL(key string) (int64, error) {
+	return s.fetchTTL(s, key)
 }
