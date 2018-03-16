@@ -38,9 +38,9 @@ func isAuthActive(t testing.TB) bool {
 	_, err := seedClient.GetAdmins(context.Background(),
 		&auth.GetAdminsRequest{})
 	switch {
-	case auth.IsNotSignedInError(err):
+	case auth.IsErrNotSignedIn(err):
 		return true
-	case auth.IsNotActivatedError(err):
+	case auth.IsErrNotActivated(err):
 		return false
 	default:
 		panic(fmt.Sprintf("could not determine if auth is activated: %v", err))
@@ -155,7 +155,7 @@ func getPachClient(t testing.TB, subject string) *client.APIClient {
 	// TODO it may may sense to do this between every test, though it would mean
 	// that we can't run tests in parallel. Currently, only the first test that
 	// needs to reset auth will run this block
-	if err != nil && auth.IsBadTokenError(err) {
+	if err != nil && auth.IsErrBadToken(err) {
 		// Don't know which tokens are valid, so clear tokenMap
 		tokenMap = make(map[string]string)
 		adminClient := getPachClientInternal(t, admin)
@@ -1431,7 +1431,7 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 	// Wait for auth to be deactivated
 	require.NoError(t, backoff.Retry(func() error {
 		_, err := aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
-		if err != nil && auth.IsNotActivatedError(err) {
+		if err != nil && auth.IsErrNotActivated(err) {
 			return nil // WhoAmI should fail when auth is deactivated
 		}
 		return errors.New("auth is not yet deactivated")
@@ -1541,7 +1541,7 @@ func TestAuthorizedNoneRole(t *testing.T) {
 	// Wait for auth to be deactivated
 	require.NoError(t, backoff.Retry(func() error {
 		_, err = adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
-		if err != nil && auth.IsNotActivatedError(err) {
+		if err != nil && auth.IsErrNotActivated(err) {
 			return nil // WhoAmI should fail when auth is deactivated
 		}
 		return errors.New("auth is not yet deactivated")
@@ -1649,10 +1649,10 @@ func TestListDatum(t *testing.T) {
 	// bob cannot call ListJob or ListDatum
 	_, err = bobClient.ListDatum(jobID, 0 /*pageSize*/, 0 /*page*/)
 	require.YesError(t, err)
-	require.True(t, auth.IsNotAuthorizedError(err), err.Error())
+	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 	_, err = bobClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/)
 	require.YesError(t, err)
-	require.True(t, auth.IsNotAuthorizedError(err), err.Error())
+	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
 	// alice adds bob to repoA, but bob still can't call GetLogs
 	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
@@ -1663,7 +1663,7 @@ func TestListDatum(t *testing.T) {
 	require.NoError(t, err)
 	_, err = bobClient.ListDatum(jobID, 0 /*pageSize*/, 0 /*page*/)
 	require.YesError(t, err)
-	require.True(t, auth.IsNotAuthorizedError(err), err.Error())
+	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
 	// alice removes bob from repoA and adds bob to repoB, but bob still can't
 	// call ListDatum
@@ -1681,7 +1681,7 @@ func TestListDatum(t *testing.T) {
 	require.NoError(t, err)
 	_, err = bobClient.ListDatum(jobID, 0 /*pageSize*/, 0 /*page*/)
 	require.YesError(t, err)
-	require.True(t, auth.IsNotAuthorizedError(err), err.Error())
+	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
 	// alice adds bob to repoA, and now bob can call ListDatum
 	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
@@ -1692,7 +1692,7 @@ func TestListDatum(t *testing.T) {
 	require.NoError(t, err)
 	_, err = bobClient.ListDatum(jobID, 0 /*pageSize*/, 0 /*page*/)
 	require.YesError(t, err)
-	require.True(t, auth.IsNotAuthorizedError(err), err.Error())
+	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
 	// Finally, alice adds bob to the output repo, and now bob can call ListDatum
 	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
@@ -1826,13 +1826,13 @@ func TestGetLogs(t *testing.T) {
 	iter := bobClient.GetLogs(pipeline, "", nil, "", false, false, 0)
 	require.False(t, iter.Next())
 	require.YesError(t, iter.Err())
-	require.True(t, auth.IsNotAuthorizedError(iter.Err()), iter.Err().Error())
+	require.True(t, auth.IsErrNotAuthorized(iter.Err()), iter.Err().Error())
 
 	// bob also can't call GetLogs for the master process
 	iter = bobClient.GetLogs(pipeline, "", nil, "", true, false, 0)
 	require.False(t, iter.Next())
 	require.YesError(t, iter.Err())
-	require.True(t, auth.IsNotAuthorizedError(iter.Err()), iter.Err().Error())
+	require.True(t, auth.IsErrNotAuthorized(iter.Err()), iter.Err().Error())
 
 	// alice adds bob to the input repo, but bob still can't call GetLogs
 	aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
@@ -1843,7 +1843,7 @@ func TestGetLogs(t *testing.T) {
 	iter = bobClient.GetLogs(pipeline, "", nil, "", false, false, 0)
 	require.False(t, iter.Next())
 	require.YesError(t, iter.Err())
-	require.True(t, auth.IsNotAuthorizedError(iter.Err()), iter.Err().Error())
+	require.True(t, auth.IsErrNotAuthorized(iter.Err()), iter.Err().Error())
 
 	// alice removes bob from the input repo and adds bob to the output repo, but
 	// bob still can't call GetLogs
@@ -1860,7 +1860,7 @@ func TestGetLogs(t *testing.T) {
 	iter = bobClient.GetLogs(pipeline, "", nil, "", false, false, 0)
 	require.False(t, iter.Next())
 	require.YesError(t, iter.Err())
-	require.True(t, auth.IsNotAuthorizedError(iter.Err()), iter.Err().Error())
+	require.True(t, auth.IsErrNotAuthorized(iter.Err()), iter.Err().Error())
 
 	// alice adds bob to the output repo, and now bob can call GetLogs
 	aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
