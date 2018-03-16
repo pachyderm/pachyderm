@@ -77,8 +77,8 @@ func Branches(etcdClient *etcd.Client, etcdPrefix string, repo string) col.Colle
 		nil,
 		&pfs.BranchInfo{},
 		func(key string) error {
-			if len(key) == uuid.UUIDWithoutDashesLength {
-				return fmt.Errorf("branch name cannot be of the same length as commit IDs")
+			if uuid.IsUUIDWithoutDashes(key) {
+				return fmt.Errorf("branch name cannot be a UUID V4")
 			}
 			return nil
 		},

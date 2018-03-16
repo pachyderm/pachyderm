@@ -182,7 +182,7 @@ func (a *APIServer) spawnScaleDownGoroutine() (cancel chan struct{}) {
 // makeCronCommits makes commits to a single cron input's repo. It's
 // a helper function called by jobSpawner
 func (a *APIServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input) error {
-	schedule, err := cron.Parse(in.Cron.Spec)
+	schedule, err := cron.ParseStandard(in.Cron.Spec)
 	if err != nil {
 		return err // Shouldn't happen, as the input is validated in CreatePipeline
 	}

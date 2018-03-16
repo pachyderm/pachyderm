@@ -48,6 +48,7 @@ enum JobState {
 message Service {
   int32 internal_port = 1;
   int32 external_port = 2;
+  string ip = 3 [(gogoproto.customname) = "IP"];
 }
 
 message AtomInput {

@@ -21,3 +21,9 @@ curl -Lo minikube https://storage.googleapis.com/minikube/releases/v0.24.1/minik
     chmod +x ./minikube && \
     sudo mv ./minikube /usr/local/bin/minikube
     
+# Install vault
+curl -Lo vault.zip https://releases.hashicorp.com/vault/0.9.5/vault_0.9.5_linux_amd64.zip && \
+    unzip vault.zip && \
+    sudo mv ./vault /usr/local/bin/vault
+
+which vault

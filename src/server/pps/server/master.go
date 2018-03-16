@@ -46,7 +46,6 @@ func (a *apiServer) master() {
 		// performed in this function are performed as a cluster admin, so do not
 		// pass any unvalidated user input to any requests
 		pachClient := a.getPachClient().WithCtx(ctx)
-		pachClient.SetAuthToken(a.getPPSToken())
 		ctx, err := masterLock.Lock(ctx)
 		if err != nil {
 			return err
@@ -95,21 +94,29 @@ func (a *apiServer) master() {
 					if err := event.Unmarshal(&pipelineName, &pipelinePtr); err != nil {
 						return err
 					}
-					pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, pipelineName, &pipelinePtr)
-					if err != nil {
-						return err
-					}
-
+					// Retrieve pipelineInfo (and prev pipeline's pipelineInfo) from the
+					// spec repo
 					var prevPipelinePtr pps.EtcdPipelineInfo
-					var prevPipelineInfo *pps.PipelineInfo
-					if event.PrevKey != nil {
-						if err := event.UnmarshalPrev(&pipelineName, &prevPipelinePtr); err != nil {
-							return err
-						}
-						prevPipelineInfo, err = ppsutil.GetPipelineInfo(pachClient, pipelineName, &prevPipelinePtr)
+					var pipelineInfo, prevPipelineInfo *pps.PipelineInfo
+					if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+						var err error
+						pipelineInfo, err = ppsutil.GetPipelineInfo(superUserClient, &pipelinePtr)
 						if err != nil {
 							return err
 						}
+
+						if event.PrevKey != nil {
+							if err := event.UnmarshalPrev(&pipelineName, &prevPipelinePtr); err != nil {
+								return err
+							}
+							prevPipelineInfo, err = ppsutil.GetPipelineInfo(superUserClient, &prevPipelinePtr)
+							if err != nil {
+								return err
+							}
+						}
+						return nil
+					}); err != nil {
+						return fmt.Errorf("watch event had no pipelineInfo: %v", err)
 					}
 
 					// If the pipeline has been stopped, delete workers
@@ -303,7 +310,7 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 
 		options := a.getWorkerOptions(
 			pipelineInfo.Pipeline.Name,
-			ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
+			pipelineInfo.Version,
 			0,
 			resourceRequests,
 			resourceLimits,

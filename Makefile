@@ -87,12 +87,39 @@ check-docker-version:
 		test \( "$${docker_major}" -gt 1 \) -o \( "$${docker_minor}" -ge 24 \)
 
 point-release:
-	@make VERSION_ADDITIONAL= release-custom
-
-# Run via 'make VERSION_ADDITIONAL=RC release-custom' to specify a version string
-release-custom: check-docker-version release-version release-pachd release-worker release-pachctl doc-custom
+	@make VERSION_ADDITIONAL= release-helper
+	@make release-pachctl
+	@make doc
 	@rm VERSION
 	@echo "Release completed"
+
+# Run via 'make VERSION_ADDITIONAL=rc2 release-custom' to specify a version string
+release-candidate:
+	@make release-helper
+	@make release-pachctl-custom
+	@make doc
+	@rm VERSION
+	@echo "Release completed"
+
+custom-release:
+	@make VERSION_ADDITIONAL=-$$(git log --pretty=format:%H | head -n 1) release-helper
+	@make release-pachctl-custom
+	@echo 'For brew install, do:'
+	@echo "$$ brew install https://raw.githubusercontent.com/pachyderm/homebrew-tap/$$(cat VERSION)-$$(git log --pretty=format:%H | head -n 1)/pachctl@$$(cat VERSION | cut -f -2 -d\.).rb"
+	@echo 'For linux install, do:'
+	@echo "$$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v$$(cat VERSION)/pachctl_$$(cat VERSION)_amd64.deb && sudo dpkg -i /tmp/pachctl.deb"
+	@rm VERSION
+	@echo "Release completed"
+
+release-pachctl-custom:
+	@# Run pachctl release script w deploy branch name
+	@VERSION="$$(cat VERSION)" ./etc/build/release_pachctl $$(cat VERSION)
+
+release-pachctl:
+	@# Run pachctl release script w deploy branch name
+	@VERSION="$$(shell cat VERSION)" ./etc/build/release_pachctl master
+
+release-helper: check-docker-version release-version release-pachd release-worker
 
 release-version:
 	@# Need to blow away pachctl binary if its already there
@@ -105,9 +132,6 @@ release-pachd:
 
 release-worker:
 	@VERSION="$(shell cat VERSION)" ./etc/build/release_worker
-
-release-pachctl:
-	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachctl
 
 docker-build-compile:
 	docker build -t pachyderm_compile .
@@ -338,7 +362,7 @@ pretest:
 
 local-test: docker-build launch-dev test-pfs clean-launch-dev
 
-test: enterprise-code-checkin-test docker-build docker-build-test-entrypoint clean-launch-dev launch-dev test-pfs test-pps test-auth test-enterprise test-kube-17
+test: enterprise-code-checkin-test docker-build docker-build-test-entrypoint clean-launch-dev launch-dev test-pfs test-pps test-vault test-auth test-enterprise test-kube-17
 
 enterprise-code-checkin-test:
 	# Check if our test activation code is anywhere in the repo
@@ -368,6 +392,13 @@ test-client:
 	GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/client/... | grep -v vendor)
 	rm -rf src/client/vendor
 	git checkout src/server/vendor/github.com/pachyderm
+
+test-vault:
+	kill $$(cat /tmp/vault.pid) || true
+	./src/plugin/vault/etc/start-vault.sh
+	./src/plugin/vault/etc/setup-vault.sh
+	@# Use count flag to disable test caching
+	go test -v -count 1 ./src/plugin/vault -timeout $(TIMEOUT)
 
 test-fuse:
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
