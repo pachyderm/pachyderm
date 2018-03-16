@@ -522,8 +522,8 @@ func (a *APIServer) blockInputs(ctx context.Context, jobInfo *pps.JobInfo) ([]st
 	blockCommit := func(name string, commit *pfs.Commit) {
 		ci, err := a.pachClient.PfsAPIClient.InspectCommit(ctx,
 			&pfs.InspectCommitRequest{
-				Commit: commit,
-				Block:  true,
+				Commit:     commit,
+				BlockState: pfs.CommitState_FINISHED,
 			})
 		if err != nil && vistErr == nil {
 			vistErr = fmt.Errorf("error blocking on commit %s/%s: %v",
@@ -562,8 +562,8 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		backoff.RetryNotify(func() error {
 			commitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
 				&pfs.InspectCommitRequest{
-					Commit: jobInfo.OutputCommit,
-					Block:  true,
+					Commit:     jobInfo.OutputCommit,
+					BlockState: pfs.CommitState_FINISHED,
 				})
 			if err != nil {
 				if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
