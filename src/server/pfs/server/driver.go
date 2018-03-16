@@ -643,6 +643,9 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 			}); err != nil {
 				return err
 			}
+			if len(branchInfo.Provenance) > 0 && treeRef == nil {
+				return fmt.Errorf("cannot start a commit on an output branch")
+			}
 		}
 
 		// Set newCommit.ParentCommit (if 'parent' and/or 'branch' was set) and add
