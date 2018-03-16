@@ -648,8 +648,8 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	))
 	require.OneOfEquals(t, pipeline, PipelineNames(t, aliceClient))
 	// check that alice owns the output repo too,
-	require.Equal(t,
-		entries(alice, "owner", pl(pipeline), "reader"), GetACL(t, aliceClient, pipeline))
+	require.ElementsEqual(t,
+		entries(alice, "owner", pl(pipeline), "writer"), GetACL(t, aliceClient, pipeline))
 
 	// Make sure alice's pipeline runs successfully
 	commit, err := aliceClient.StartCommit(repo, "master")
@@ -913,8 +913,8 @@ func TestGetAuthToken(t *testing.T) {
 	))
 	require.OneOfEquals(t, pipeline, PipelineNames(t, robotClient1))
 	// check that robotUser owns the output repo
-	require.Equal(t,
-		entries(robotUser, "owner", pl(pipeline), "reader"), GetACL(t, robotClient1, pipeline))
+	require.ElementsEqual(t,
+		entries(robotUser, "owner", pl(pipeline), "writer"), GetACL(t, robotClient1, pipeline))
 
 	// Make sure that robotClient2 can commit to the input repo and flush their
 	// input commit

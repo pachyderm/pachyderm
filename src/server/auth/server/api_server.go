@@ -367,7 +367,10 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 		return nil, err
 	}
 	if !a.isAdmin(tokenInfo.Subject) {
-		return nil, &authclient.NotAuthorizedError{AdminOp: "DeactivateAuth"}
+		return nil, &authclient.NotAuthorizedError{
+			Subject: tokenInfo.Subject,
+			AdminOp: "DeactivateAuth",
+		}
 	}
 	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		a.acls.ReadWrite(stm).DeleteAll()
@@ -508,7 +511,10 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 		return nil, err
 	}
 	if !a.isAdmin(tokenInfo.Subject) {
-		return nil, &authclient.NotAuthorizedError{AdminOp: "ModifyAdmins"}
+		return nil, &authclient.NotAuthorizedError{
+			Subject: tokenInfo.Subject,
+			AdminOp: "ModifyAdmins",
+		}
 	}
 
 	// Canonicalize GitHub usernames in request (must canonicalize before we can
@@ -766,6 +772,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 		}
 		if !authorized {
 			return &authclient.NotAuthorizedError{
+				Subject:  tokenInfo.Subject,
 				Repo:     req.Repo,
 				Required: authclient.Scope_OWNER,
 			}
@@ -837,6 +844,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 			// authorized to view this repo's ACL
 			if !a.isAdmin(tokenInfo.Subject) && acl.Entries[tokenInfo.Subject] < authclient.Scope_READER {
 				return nil, &authclient.NotAuthorizedError{
+					Subject:  tokenInfo.Subject,
 					Repo:     repo,
 					Required: authclient.Scope_READER,
 				}
@@ -1000,6 +1008,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 		}
 		if !authorized {
 			return &authclient.NotAuthorizedError{
+				Subject:  tokenInfo.Subject,
 				Repo:     req.Repo,
 				Required: authclient.Scope_OWNER,
 			}
@@ -1020,51 +1029,43 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTokenRequest) (resp *authclient.GetAuthTokenResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-
-	// Generate TokenInfo that the new token will point to
-	var tokenInfo *authclient.TokenInfo
 	if !a.isActivated() {
-		// If auth service is not activated, we want to return a token that's able
-		// to access any repo.  That way, when we create a pipeline, we can assign
-		// it with a token that would allow it to access any repo after the auth
-		// service has been activated.
-		tokenInfo = &authclient.TokenInfo{
-			Subject: magicUser,
-			Source:  authclient.TokenInfo_GET_TOKEN,
-		}
-	} else {
-		var err error
-		tokenInfo, err = a.getAuthenticatedUser(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if req.Subject != "" {
-			if !a.isAdmin(tokenInfo.Subject) {
-				return nil, &authclient.NotAuthorizedError{
-					AdminOp: "GetAuthToken on behalf of another user",
-				}
-			}
-			subject, err := lenientCanonicalizeSubject(ctx, req.Subject)
-			if err != nil {
-				return nil, err
-			}
-			tokenInfo = &authclient.TokenInfo{Subject: subject}
+		return nil, authclient.NotActivatedError{}
+	}
+	if req.Subject == "" {
+		return nil, fmt.Errorf("must set GetAuthTokenRequest.Subject")
+	}
+
+	// Authorize caller
+	callerInfo, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if req.Subject != callerInfo.Subject && !a.isAdmin(callerInfo.Subject) {
+		return nil, &authclient.NotAuthorizedError{
+			Subject: callerInfo.Subject,
+			AdminOp: "GetAuthToken on behalf of another user",
 		}
 	}
-	tokenInfo.Source = authclient.TokenInfo_GET_TOKEN
+	subject, err := lenientCanonicalizeSubject(ctx, req.Subject)
+	if err != nil {
+		return nil, err
+	}
+	tokenInfo := authclient.TokenInfo{
+		Source:  authclient.TokenInfo_GET_TOKEN,
+		Subject: subject,
+	}
 
 	// generate new token, and write to etcd
 	token := uuid.NewWithoutDashes()
-	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		return a.tokens.ReadWrite(stm).PutTTL(hashToken(token), tokenInfo, req.TTL)
-	})
-	if err != nil {
+	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		return a.tokens.ReadWrite(stm).PutTTL(hashToken(token), &tokenInfo, req.TTL)
+	}); err != nil {
 		if tokenInfo.Subject != magicUser {
 			return nil, fmt.Errorf("error storing token for user \"%s\": %v", tokenInfo.Subject, err)
 		}
-		return nil, fmt.Errorf("error storing token for default pipeline user: %v", err)
+		return nil, fmt.Errorf("error storing token: %v", err)
 	}
-
 	return &authclient.GetAuthTokenResponse{
 		Token: token,
 	}, nil
@@ -1087,6 +1088,7 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendA
 	}
 	if !a.isAdmin(tokenInfo.Subject) {
 		return nil, &authclient.NotAuthorizedError{
+			Subject: tokenInfo.Subject,
 			AdminOp: "ExtendAuthToken",
 		}
 	}
@@ -1151,8 +1153,9 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeA
 			}
 			return err
 		}
-		if !a.isAdmin(tokenInfo.Subject) && tokenInfo.Subject != callerInfo.Subject {
+		if !a.isAdmin(callerInfo.Subject) && tokenInfo.Subject != callerInfo.Subject {
 			return &authclient.NotAuthorizedError{
+				Subject: tokenInfo.Subject,
 				AdminOp: "RevokeAuthToken on another user's token",
 			}
 		}

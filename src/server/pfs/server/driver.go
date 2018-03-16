@@ -176,15 +176,20 @@ func (d *driver) initializePachConn() error {
 // authorization scope 's' for repo 'r'
 func (d *driver) checkIsAuthorized(ctx context.Context, r *pfs.Repo, s auth.Scope) error {
 	d.initializePachConn()
+	me, err := d.pachClient.WhoAmI(auth.In2Out(ctx), &auth.WhoAmIRequest{})
+	if auth.IsNotActivatedError(err) {
+		return nil
+	}
 	resp, err := d.pachClient.AuthAPIClient.Authorize(auth.In2Out(ctx), &auth.AuthorizeRequest{
 		Repo:  r.Name,
 		Scope: s,
 	})
-	if err == nil && !resp.Authorized {
-		return &auth.NotAuthorizedError{Repo: r.Name, Required: s}
-	} else if err != nil && !auth.IsNotActivatedError(err) {
+	if err != nil {
 		return fmt.Errorf("error during authorization check for operation on \"%s\": %v",
 			r.Name, grpcutil.ScrubGRPC(err))
+	}
+	if !resp.Authorized {
+		return &auth.NotAuthorizedError{Subject: me.Username, Repo: r.Name, Required: s}
 	}
 	return nil
 }

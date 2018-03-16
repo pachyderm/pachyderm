@@ -662,7 +662,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	require.OneOfEquals(t, goodPipeline, PipelineNames(t, aliceClient))
 	// check that bob owns the output repo too)
 	require.ElementsEqual(t,
-		entries(bob, "owner"), GetACL(t, bobClient, goodPipeline))
+		entries(bob, "owner", pl(goodPipeline), "writer"), GetACL(t, bobClient, goodPipeline))
 
 	// Make sure bob's pipeline runs successfully
 	commit, err = aliceClient.StartCommit(dataRepo, "master")
@@ -705,7 +705,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.ElementsEqual(t,
-		entries(alice, "owner", bob, "writer"),
+		entries(alice, "owner", bob, "writer", pl(pipelineName), "writer"),
 		GetACL(t, aliceClient, pipelineName))
 
 	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
@@ -715,7 +715,8 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.ElementsEqual(t,
-		entries(alice, "owner"), GetACL(t, aliceClient, dataRepo))
+		entries(alice, "owner", pl(pipelineName), "reader", pl(goodPipeline), "reader"),
+		GetACL(t, aliceClient, dataRepo))
 
 	// bob still can't update alice's pipeline
 	infoBefore, err = aliceClient.InspectPipeline(pipelineName)
@@ -740,7 +741,8 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.ElementsEqual(t,
-		entries(alice, "owner", bob, "reader"), GetACL(t, aliceClient, dataRepo))
+		entries(alice, "owner", bob, "reader", pl(pipelineName), "reader", pl(goodPipeline), "reader"),
+		GetACL(t, aliceClient, dataRepo))
 
 	// now bob can update alice's pipeline
 	infoBefore, err = aliceClient.InspectPipeline(pipelineName)
@@ -995,7 +997,8 @@ func TestPipelineRevoke(t *testing.T) {
 		"", // default output branch: master
 		false,
 	))
-	require.ElementsEqual(t, entries(bob, "owner"), GetACL(t, bobClient, pipeline))
+	require.ElementsEqual(t,
+		entries(bob, "owner", pl(pipeline), "writer"), GetACL(t, bobClient, pipeline))
 	// bob adds alice as a reader of the pipeline's output repo, so alice can
 	// flush input commits (which requires her to inspect commits in the output)
 	_, err = bobClient.SetScope(bobClient.Ctx(), &auth.SetScopeRequest{
@@ -1005,7 +1008,8 @@ func TestPipelineRevoke(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.ElementsEqual(t,
-		entries(bob, "owner", alice, "reader"), GetACL(t, bobClient, pipeline))
+		entries(bob, "owner", alice, "reader", pl(pipeline), "writer"),
+		GetACL(t, bobClient, pipeline))
 
 	// alice commits to the input repo, and the pipeline runs successfully
 	commit, err := aliceClient.StartCommit(repo, "master")
@@ -1030,7 +1034,8 @@ func TestPipelineRevoke(t *testing.T) {
 		Scope:    auth.Scope_NONE,
 	})
 	require.NoError(t, err)
-	require.ElementsEqual(t, entries(alice, "owner"), GetACL(t, aliceClient, repo))
+	require.ElementsEqual(t,
+		entries(alice, "owner", pl(pipeline), "reader"), GetACL(t, aliceClient, repo))
 
 	// alice commits to the input repo, and bob's pipeline does not run
 	commit, err = aliceClient.StartCommit(repo, "master")
@@ -1039,22 +1044,16 @@ func TestPipelineRevoke(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.ID))
 
-	doneCh := make(chan struct{})
-	go func() {
-		iter, err = aliceClient.FlushCommit(
-			[]*pfs.Commit{commit},
-			[]*pfs.Repo{{Name: pipeline}},
-		)
-		require.NoError(t, err)
-		_, err = iter.Next()
-		require.NoError(t, err)
-		close(doneCh)
-	}()
-	select {
-	case <-doneCh:
-		t.Fatal("pipeline should not be able to finish with no access")
-	case <-time.After(30 * time.Second):
-	}
+	// Pipeline finishes successfully, even though bob doesn't have access
+	iter, err = aliceClient.FlushCommit(
+		[]*pfs.Commit{commit},
+		[]*pfs.Repo{{Name: pipeline}},
+	)
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, 60*time.Second, func() error {
+		_, err := iter.Next()
+		return err
+	})
 
 	// alice updates bob's pipline, and now it runs
 	_, err = bobClient.SetScope(bobClient.Ctx(), &auth.SetScopeRequest{
@@ -1064,7 +1063,7 @@ func TestPipelineRevoke(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.ElementsEqual(t,
-		entries(bob, "owner", alice, "writer"), GetACL(t, bobClient, pipeline))
+		entries(bob, "owner", alice, "writer", pl(pipeline), "writer"), GetACL(t, bobClient, pipeline))
 	require.NoError(t, aliceClient.CreatePipeline(
 		pipeline,
 		"", // default image: ubuntu:16.04
@@ -1076,7 +1075,7 @@ func TestPipelineRevoke(t *testing.T) {
 		true,
 	))
 
-	// Pipeline now finishes successfully
+	// Pipeline still finishes successfully
 	iter, err = aliceClient.FlushCommit(
 		[]*pfs.Commit{commit},
 		[]*pfs.Repo{{Name: pipeline}},
@@ -1119,7 +1118,8 @@ func TestStopAndDeletePipeline(t *testing.T) {
 		false,
 	))
 	// Make sure the input and output repos have non-empty ACLs
-	require.ElementsEqual(t, entries(alice, "owner"), GetACL(t, aliceClient, repo))
+	require.ElementsEqual(t,
+		entries(alice, "owner", pl(pipeline), "reader"), GetACL(t, aliceClient, repo))
 	require.ElementsEqual(t,
 		entries(alice, "owner", pl(pipeline), "writer"), GetACL(t, aliceClient, pipeline))
 
@@ -1127,9 +1127,10 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	require.NoError(t, aliceClient.StopPipeline(pipeline))
 
 	// Make sure the remaining input and output repos *still* have non-empty ACLs
-	require.ElementsEqual(t, entries(alice, "owner"), GetACL(t, aliceClient, repo))
 	require.ElementsEqual(t,
-		entries(alice, "owner"), GetACL(t, aliceClient, pipeline))
+		entries(alice, "owner", pl(pipeline), "reader"), GetACL(t, aliceClient, repo))
+	require.ElementsEqual(t,
+		entries(alice, "owner", pl(pipeline), "writer"), GetACL(t, aliceClient, pipeline))
 
 	// alice deletes the pipeline (owner of the input and output repos can delete)
 	require.NoError(t, aliceClient.DeletePipeline(pipeline))
@@ -1173,7 +1174,8 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.ElementsEqual(t,
-		entries(alice, "owner", bob, "reader"), GetACL(t, aliceClient, repo))
+		entries(alice, "owner", bob, "reader", pl(pipeline), "reader"),
+		GetACL(t, aliceClient, repo))
 
 	// bob still can't stop or delete alice's pipeline
 	err = bobClient.StopPipeline(pipeline)
@@ -1933,4 +1935,98 @@ func TestGetLogsFromStats(t *testing.T) {
 	iter = aliceClient.GetLogs("", jobID, nil, "", true, false, 0)
 	iter.Next()
 	require.NoError(t, iter.Err())
+}
+
+func TestPipelineNewInput(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	alice := tu.UniqueString("alice")
+	aliceClient := getPachClient(t, alice)
+
+	// alice creates three repos and commits to them
+	var repo []string
+	for i := 0; i < 3; i++ {
+		repo = append(repo, tu.UniqueString(fmt.Sprint("TestPipelineNewInput-", i, "-")))
+		require.NoError(t, aliceClient.CreateRepo(repo[i]))
+		require.ElementsEqual(t, entries(alice, "owner"), GetACL(t, aliceClient, repo[i]))
+
+		// Commit to repo
+		commit, err := aliceClient.StartCommit(repo[i], "master")
+		require.NoError(t, err)
+		_, err = aliceClient.PutFile(
+			repo[i], commit.ID, "/"+repo[i], strings.NewReader(repo[i]))
+		require.NoError(t, err)
+		require.NoError(t, aliceClient.FinishCommit(repo[i], commit.ID))
+	}
+
+	// alice creates a pipeline
+	pipeline := tu.UniqueString("alice-pipeline")
+	require.NoError(t, aliceClient.CreatePipeline(
+		pipeline,
+		"", // default image: ubuntu:16.04
+		[]string{"bash"},
+		[]string{"cp /pfs/*/* /pfs/out/"},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewUnionInput(
+			client.NewAtomInput(repo[0], "/*"),
+			client.NewAtomInput(repo[1], "/*"),
+		),
+		"", // default output branch: master
+		false,
+	))
+	// Make sure the input and output repos have appropriate ACLs
+	require.ElementsEqual(t,
+		entries(alice, "owner", pl(pipeline), "reader"), GetACL(t, aliceClient, repo[0]))
+	require.ElementsEqual(t,
+		entries(alice, "owner", pl(pipeline), "reader"), GetACL(t, aliceClient, repo[1]))
+	require.ElementsEqual(t,
+		entries(alice, "owner", pl(pipeline), "writer"), GetACL(t, aliceClient, pipeline))
+	// repo[2] is not on pipeline -- doesn't include 'pipeline'
+	require.ElementsEqual(t,
+		entries(alice, "owner"), GetACL(t, aliceClient, repo[2]))
+
+	// make sure the pipeline runs
+	iter, err := aliceClient.FlushCommit(
+		[]*pfs.Commit{client.NewCommit(repo[0], "master")}, nil)
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, time.Minute, func() error {
+		_, err := iter.Next()
+		return err
+	})
+
+	// alice updates the pipeline to replace repo[0] with repo[2]
+	require.NoError(t, aliceClient.CreatePipeline(
+		pipeline,
+		"", // default image: ubuntu:16.04
+		[]string{"bash"},
+		[]string{"cp /pfs/*/* /pfs/out/"},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewUnionInput(
+			client.NewAtomInput(repo[1], "/*"),
+			client.NewAtomInput(repo[2], "/*"),
+		),
+		"", // default output branch: master
+		true,
+	))
+	// Make sure the input and output repos have appropriate ACLs
+	require.ElementsEqual(t,
+		entries(alice, "owner", pl(pipeline), "reader"), GetACL(t, aliceClient, repo[1]))
+	require.ElementsEqual(t,
+		entries(alice, "owner", pl(pipeline), "reader"), GetACL(t, aliceClient, repo[2]))
+	require.ElementsEqual(t,
+		entries(alice, "owner", pl(pipeline), "writer"), GetACL(t, aliceClient, pipeline))
+	// repo[0] is not on pipeline -- doesn't include 'pipeline'
+	require.ElementsEqual(t,
+		entries(alice, "owner"), GetACL(t, aliceClient, repo[0]))
+
+	// make sure the pipeline still runs
+	iter, err = aliceClient.FlushCommit(
+		[]*pfs.Commit{client.NewCommit(repo[2], "master")}, nil)
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, time.Minute, func() error {
+		_, err := iter.Next()
+		return err
+	})
 }
