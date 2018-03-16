@@ -76,6 +76,7 @@ func (c APIClient) ExtractURL(url string) error {
 	return nil
 }
 
+// ExtractPipeline extracts a single pipeline.
 func (c APIClient) ExtractPipeline(pipelineName string) (*pps.CreatePipelineRequest, error) {
 	op, err := c.AdminAPIClient.ExtractPipeline(c.Ctx(), &admin.ExtractPipelineRequest{Pipeline: NewPipeline(pipelineName)})
 	if err != nil {
