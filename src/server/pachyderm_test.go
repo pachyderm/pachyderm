@@ -24,6 +24,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -2170,76 +2172,56 @@ func TestPipelineAutoScaledown(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
-	// create repos
-	dataRepo := tu.UniqueString("TestPipelineAutoScaleDown")
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestManyJobs_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	// create pipeline
-	pipelineName := tu.UniqueString("pipeline-auto-scaledown")
-	parallelism := 4
-	scaleDownThreshold := time.Duration(10 * time.Second)
-	_, err := c.PpsAPIClient.CreatePipeline(
-		context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipelineName),
-			Transform: &pps.Transform{
-				Cmd: []string{"sh"},
-				Stdin: []string{
-					"echo success",
-				},
-			},
-			ParallelismSpec: &pps.ParallelismSpec{
-				Constant: uint64(parallelism),
-			},
-			ResourceRequests: &pps.ResourceSpec{
-				Memory: "100M",
-			},
-			Input:              client.NewAtomInput(dataRepo, "/"),
-			ScaleDownThreshold: types.DurationProto(scaleDownThreshold),
-		})
-	require.NoError(t, err)
 
-	pipelineInfo, err := c.InspectPipeline(pipelineName)
-	require.NoError(t, err)
+	numPipelines := 10
+	for i := 0; i < numPipelines; i++ {
+		pipeline := tu.UniqueString("TestManyJobs")
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"true"},
+			nil,
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewAtomInput(dataRepo, "/*"),
+			"",
+			false,
+		))
+	}
 
-	// Wait for the pipeline to scale down
-	time.Sleep(10 * time.Second)
-	b := backoff.NewTestingBackOff()
-	b.MaxElapsedTime = scaleDownThreshold + 30*time.Second
-	checkScaleDown := func() error {
-		rc, err := pipelineRc(t, pipelineInfo)
-		if err != nil {
-			return err
-		}
-		if *rc.Spec.Replicas != 1 {
-			return fmt.Errorf("rc.Spec.Replicas should be 1")
-		}
-		if !rc.Spec.Template.Spec.Containers[0].Resources.Requests.Memory().IsZero() {
-			return fmt.Errorf("resource requests should be zero when the pipeline is in scale-down mode")
+	_, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, "master"))
+
+	var eg errgroup.Group
+	var finished bool
+	eg.Go(func() error {
+		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+		require.NoError(t, err)
+		collectCommitInfos(t, commitIter)
+		finished = true
+		return nil
+	})
+	eg.Go(func() error {
+		for !finished {
+			pis, err := c.ListPipeline()
+			require.NoError(t, err)
+			var active int
+			for _, pi := range pis {
+				if pi.State != pps.PipelineState_PIPELINE_STANDBY {
+					active++
+				}
+			}
+			require.True(t, active <= 1)
 		}
 		return nil
-	}
-	require.NoError(t, backoff.Retry(checkScaleDown, b))
-
-	// Trigger a job
-	commit, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
-	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
-	rc, err := pipelineRc(t, pipelineInfo)
-	require.NoError(t, err)
-	require.Equal(t, int32(parallelism), int32(*rc.Spec.Replicas))
-	// Check that the resource requests have been reset
-	require.Equal(t, "100M", rc.Spec.Template.Spec.Containers[0].Resources.Requests.Memory().String())
-
-	// Once the job finishes, the pipeline will scale down again
-	b.Reset()
-	require.NoError(t, backoff.Retry(checkScaleDown, b))
+	})
+	eg.Wait()
 }
 
 func TestPipelineEnv(t *testing.T) {
