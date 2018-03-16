@@ -108,6 +108,11 @@ message CommitInfo {
   repeated Commit provenance = 6;
   repeated Branch branch_provenance = 10;
 
+  // ReadyProvenance is the number of provenant commits which have been
+  // finished, if ReadyProvenance == len(Provenance) then the commit is ready
+  // to be processed by pps.
+  int64 ready_provenance = 12;
+
   repeated CommitRange subvenance = 9;
   // this is the block that stores the serialized form of a tree that
   // represents the entire file system hierarchy of the repo at this commit
@@ -176,6 +181,14 @@ message DeleteRepoRequest {
   bool all = 3;
 }
 
+// CommitState describes the states a commit can be in.
+// The states are increasingly specific, i.e. a commit that is FINISHED also counts as STARTED.
+enum CommitState {
+  STARTED = 0; // The commit has been started, all commits satisfy this state.
+  READY = 1; // The commit has been started, and all of its provenant commits have been finished.
+  FINISHED = 2; // The commit has been finished.
+}
+
 message StartCommitRequest {
   // Parent.ID may be empty in which case the commit that Branch points to will be used as the parent.
   // If branch is empty, or if branch does not exist, the commit will have no parent.
@@ -209,9 +222,8 @@ message FinishCommitRequest {
 
 message InspectCommitRequest {
   Commit commit = 1;
-  // Block, if true, causes InspectCommit to block until the commit has been
-  // finished.
-  bool block = 2;
+  // BlockState causes inspect commit to block until the commit is in the desired state.
+  CommitState block_state = 2;
 }
 
 message ListCommitRequest {
@@ -256,11 +268,14 @@ message FlushCommitRequest {
   repeated Repo to_repos = 2;
 }
 
+
 message SubscribeCommitRequest {
   Repo repo = 1;
   string branch = 2;
   // only commits created since this commit are returned
   Commit from = 3;
+  // Don't return commits until they're in (at least) the desired state.
+  CommitState state = 4;
 }
 
 message GetFileRequest {
