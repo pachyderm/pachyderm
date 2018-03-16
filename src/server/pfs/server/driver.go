@@ -1049,7 +1049,13 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, blockSta
 	}
 
 	commits := d.commits(commit.Repo.Name).ReadOnly(ctx)
-	if blockState > pfs.CommitState_STARTED {
+	if blockState == pfs.CommitState_READY {
+		// Wait for each provenant commit to be finished
+		for _, commit := range commitInfo.Provenance {
+			d.inspectCommit(ctx, commit, pfs.CommitState_FINISHED)
+		}
+	}
+	if blockState == pfs.CommitState_FINISHED {
 		// Watch the CommitInfo until the commit has been finished
 		if err := func() error {
 			commitInfoWatcher, err := commits.WatchOne(commit.ID)
@@ -1071,8 +1077,7 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, blockSta
 				case watch.EventDelete:
 					return pfsserver.ErrCommitDeleted{commit}
 				}
-				if blockState == pfs.CommitState_READY && int(_commitInfo.ReadyProvenance) == len(commitInfo.Provenance) ||
-					blockState == pfs.CommitState_FINISHED && _commitInfo.Finished != nil {
+				if _commitInfo.Finished != nil {
 					commitInfo = _commitInfo
 					break
 				}
