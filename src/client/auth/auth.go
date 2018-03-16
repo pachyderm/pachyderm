@@ -91,6 +91,8 @@ func IsNotActivatedError(err error) bool {
 // 2) the operation is an admin-only operation (e.g. DeleteAll), in which case
 //    AdminOp should be set
 type NotAuthorizedError struct {
+	Subject string // subject trying to perform blocked operation -- always set
+
 	Repo     string // Repo that the user is attempting to access
 	Required Scope  // Caller needs 'Required'-level access to 'Repo'
 
@@ -105,7 +107,11 @@ type NotAuthorizedError struct {
 const notAuthorizedErrorMsg = "not authorized to perform this operation"
 
 func (e *NotAuthorizedError) Error() string {
-	msg := notAuthorizedErrorMsg
+	var msg string
+	if e.Subject != "" {
+		msg += e.Subject + " is "
+	}
+	msg += notAuthorizedErrorMsg
 	if e.Repo != "" {
 		msg += " on the repo " + e.Repo
 	}
