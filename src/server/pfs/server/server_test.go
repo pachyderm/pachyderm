@@ -4177,3 +4177,13 @@ func TestDeleteCommitShrinkSubvRange(t *testing.T) {
 	require.Equal(t, 1, len(outputCommitInfo.Provenance))
 	require.Equal(t, schemaCommit.ID, outputCommitInfo.Provenance[0].ID)
 }
+
+func TestStartCommitOutputBranch(t *testing.T) {
+	c := getClient(t)
+
+	require.NoError(t, c.CreateRepo("in"))
+	require.NoError(t, c.CreateRepo("out"))
+	require.NoError(t, c.CreateBranch("out", "master", "", []*pfs.Branch{pclient.NewBranch("in", "master")}))
+	_, err := c.StartCommit("out", "master")
+	require.YesError(t, err)
+}
