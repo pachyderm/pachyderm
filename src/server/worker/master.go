@@ -245,7 +245,7 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 	// Spawn a goroutine to listen for new commits, and create jobs when they
 	// arrive
 	eg.Go(func() error {
-		commitIter, err := pachClient.SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "")
+		commitIter, err := pachClient.SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "", pfs.CommitState_READY)
 		if err != nil {
 			return err
 		}
@@ -316,7 +316,7 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 
 func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 	ctx := pachClient.Ctx()
-	commitIter, err := pachClient.SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "")
+	commitIter, err := pachClient.SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "", pfs.CommitState_READY)
 	if err != nil {
 		return err
 	}
@@ -516,7 +516,7 @@ func makeChunks(df DatumFactory, spec *pps.ChunkSpec, parallelism int) *Chunks {
 	return chunks
 }
 
-func (a *APIServer) blockInputs(ctx context.Context, jobInfo *pps.JobInfo) ([]string, error) {
+func (a *APIServer) failedInputs(ctx context.Context, jobInfo *pps.JobInfo) ([]string, error) {
 	var failedInputs []string
 	var vistErr error
 	blockCommit := func(name string, commit *pfs.Commit) {
@@ -634,7 +634,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 
 	backoff.RetryNotify(func() (retErr error) {
 		// block until job inputs are ready
-		failedInputs, err := a.blockInputs(ctx, jobInfo)
+		failedInputs, err := a.failedInputs(ctx, jobInfo)
 		if err != nil {
 			return err
 		}
