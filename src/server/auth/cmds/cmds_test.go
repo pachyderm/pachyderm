@@ -51,6 +51,17 @@ func deactivateAuth(t *testing.T) {
 	if err := tu.BashCmd("echo admin | pachctl auth login").Run(); err == nil {
 		require.NoError(t, tu.BashCmd("yes | pachctl auth deactivate").Run())
 	}
+
+	// Wait for auth to finish deactivating
+	time.Sleep(time.Second)
+	backoff.Retry(func() error {
+		cmd := tu.Cmd("pachctl", "auth", "login")
+		cmd.Stdin = strings.NewReader("admin\n")
+		if cmd.Run() != nil {
+			return nil // cmd errored -- auth is deactivated
+		}
+		return errors.New("auth not deactivated yet")
+	}, backoff.RetryEvery(time.Second))
 }
 
 func TestAuthBasic(t *testing.T) {
@@ -184,14 +195,14 @@ func TestMain(m *testing.M) {
 			panic(err.Error())
 		}
 	}
-	time.Sleep(5 * time.Second)
+	time.Sleep(time.Second)
 	backoff.Retry(func() error {
 		cmd := tu.Cmd("pachctl", "auth", "login")
 		cmd.Stdin = strings.NewReader("admin\n")
 		if cmd.Run() != nil {
-			return nil // success -- auth is deactivated
+			return nil // cmd errored -- auth is deactivated
 		}
 		return errors.New("auth not deactivated yet")
-	}, backoff.NewTestingBackOff())
+	}, backoff.RetryEvery(time.Second))
 	os.Exit(m.Run())
 }
