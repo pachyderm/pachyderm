@@ -2217,7 +2217,7 @@ func TestPipelineAutoScaledown(t *testing.T) {
 					active++
 				}
 			}
-			require.True(t, active <= 1)
+			require.True(t, active <= 1, "active: %d", active)
 		}
 		return nil
 	})
@@ -4886,7 +4886,7 @@ func TestCronPipeline(t *testing.T) {
 	repo := fmt.Sprintf("%s_%s", pipeline1, "time")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 	defer cancel() //cleanup resources
-	iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", "")
+	iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED)
 	require.NoError(t, err)
 	commitInfo, err := iter.Next()
 	require.NoError(t, err)
@@ -4925,7 +4925,7 @@ func TestCronPipeline(t *testing.T) {
 	repo = fmt.Sprintf("%s_%s", pipeline3, "time")
 	ctx, cancel = context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel() //cleanup resources
-	iter, err = c.WithCtx(ctx).SubscribeCommit(repo, "master", "")
+	iter, err = c.WithCtx(ctx).SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED)
 	require.NoError(t, err)
 	commitInfo, err = iter.Next()
 	require.NoError(t, err)

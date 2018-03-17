@@ -413,7 +413,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 	backoff.RetryNotify(func() error {
 		ciChan := make(chan *pfs.CommitInfo)
 		go func() {
-			if err := pachClient.SubscribeCommitF(pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch, "", func(ci *pfs.CommitInfo) error {
+			if err := pachClient.SubscribeCommitF(pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch, "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
 				ciChan <- ci
 				return nil
 			}); err != nil {
