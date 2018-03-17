@@ -2067,11 +2067,12 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	pipelinePtr := pps.EtcdPipelineInfo{}
 	if err := a.pipelines.ReadOnly(ctx).Get(request.Pipeline.Name, &pipelinePtr); err != nil {
 		if col.IsErrNotFound(err) {
-			// Check if there's an pipeline branch in the Spec repo.
-			// If the spec branch is empty, PFS is in an invalid state: just delete
-			// the spec branch and return
+			// There's no etcd pointer. Check if there's an pipeline branch in the
+			// Spec repo (i.e. pipeline creation failed & left pps in invalid state).
 			specBranchInfo, err := pachClient.InspectBranch(ppsconsts.SpecRepo, request.Pipeline.Name)
 			if err == nil && specBranchInfo.Head == nil {
+				// branch exists but head is nil => pipeline creation never finished/
+				// pps state is invalid. Delete nil branch
 				if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
 					return superUserClient.DeleteBranch(ppsconsts.SpecRepo, request.Pipeline.Name)
 				}); err != nil {
@@ -2079,7 +2080,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 				}
 				return &types.Empty{}, nil
 			}
-			// No spec branch and no etcd pointer == the pipeline doesn't exist
+			// No spec branch (and no etcd pointer) => the pipeline doesn't exist
 			return nil, fmt.Errorf("pipeline %v was not found: %v", request.Pipeline.Name, err)
 		}
 		return nil, err
@@ -2110,14 +2111,18 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 
 	// Revoke the pipeline's auth token and remove it from its inputs' ACLs
 	if pipelinePtr.AuthToken != "" {
-		if _, err := pachClient.RevokeAuthToken(ctx, &auth.RevokeAuthTokenRequest{
-			Token: pipelinePtr.AuthToken,
+		if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+			// pipelineInfo = nil -> remove pipeline from all inputs in pipelineInfo
+			if err := a.addPipelineToRepoACLs(superUserClient, nil, pipelineInfo); err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			_, err := superUserClient.RevokeAuthToken(superUserClient.Ctx(),
+				&auth.RevokeAuthTokenRequest{
+					Token: pipelinePtr.AuthToken,
+				})
+			return grpcutil.ScrubGRPC(err)
 		}); err != nil && !auth.IsErrNotActivated(err) {
 			return nil, fmt.Errorf("error revoking old auth token: %v", err)
-		} else if err == nil {
-			if err := a.addPipelineToRepoACLs(pachClient, nil, pipelineInfo); err != nil {
-				return nil, err
-			}
 		}
 	}
 

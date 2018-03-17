@@ -1195,7 +1195,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	require.NoError(t, err)
 
 	require.ElementsEqual(t,
-		entries(alice, "owner"), GetACL(t, aliceClient, repo))
+		entries(alice, "owner", pl(pipeline), "reader"), GetACL(t, aliceClient, repo))
 	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     pipeline,
 		Username: bob,
@@ -1203,7 +1203,8 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.ElementsEqual(t,
-		entries(alice, "owner", bob, "writer"), GetACL(t, aliceClient, pipeline))
+		entries(alice, "owner", bob, "writer", pl(pipeline), "writer"),
+		GetACL(t, aliceClient, pipeline))
 
 	// bob still can't stop or delete alice's pipeline
 	err = bobClient.StopPipeline(pipeline)
@@ -1221,7 +1222,8 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.ElementsEqual(t,
-		entries(alice, "owner", bob, "reader"), GetACL(t, aliceClient, repo))
+		entries(alice, "owner", bob, "reader", pl(pipeline), "reader"),
+		GetACL(t, aliceClient, repo))
 
 	// bob can stop (and start) but not delete alice's pipeline
 	err = bobClient.StopPipeline(pipeline)
@@ -1240,7 +1242,8 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.ElementsEqual(t,
-		entries(alice, "owner", bob, "owner"), GetACL(t, aliceClient, pipeline))
+		entries(alice, "owner", bob, "owner", pl(pipeline), "writer"),
+		GetACL(t, aliceClient, pipeline))
 
 	// finally bob can stop and delete alice's pipeline
 	err = bobClient.StopPipeline(pipeline)
