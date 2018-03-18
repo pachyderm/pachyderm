@@ -1041,6 +1041,9 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 	if req.Subject == "" {
 		return nil, fmt.Errorf("must set GetAuthTokenRequest.Subject")
 	}
+	if req.Subject == magicUser {
+		return nil, fmt.Errorf("GetAuthTokenRequest.Subject is invalid")
+	}
 
 	// Authorize caller
 	callerInfo, err := a.getAuthenticatedUser(ctx)
