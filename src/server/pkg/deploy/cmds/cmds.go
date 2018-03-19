@@ -579,7 +579,7 @@ func getDefaultOrLatestDashImage(dashImage string, dryRun bool) string {
 	version := version.PrettyPrintVersion(version.Version)
 	defer func() {
 		if err != nil && !dryRun {
-			fmt.Printf("Error retrieving latest dash image for pachctl %v: %v Falling back to dash image %v\n", version, err, defaultDashImage)
+			fmt.Printf("No updated dash image found for pachctl %v: %v Falling back to dash image %v\n", version, err, defaultDashImage)
 		}
 	}()
 	if dashImage != "" {
