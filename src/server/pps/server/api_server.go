@@ -1527,7 +1527,7 @@ func (a *apiServer) makePipelineInfoCommit(pachClient *client.APIClient, pipelin
 		if !update {
 			// Create pipeline branch in spec repo and write PipelineInfo there
 			if _, err := superUserClient.InspectBranch(ppsconsts.SpecRepo, pipelineName); err == nil {
-				return fmt.Errorf("pipeline spec branch for \"%s\" already exists: delete it with DeletePipeline", pipelineName, ppsconsts.SpecRepo)
+				return fmt.Errorf("pipeline \"%s\" already exists: update it with update-pipeline, delete it with delete-pipeline", pipelineName)
 			}
 			if err := superUserClient.CreateBranch(ppsconsts.SpecRepo, pipelineName, "", nil); err != nil {
 				return fmt.Errorf("could not create pipeline spec branch for \"%s\" in %s: %v",
