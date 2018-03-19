@@ -404,7 +404,7 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 	defer func(start time.Time) {
 		stats.DownloadTime = types.DurationProto(time.Since(start))
 	}(time.Now())
-	logger.Logf("starting to downloading data")
+	logger.Logf("starting to download data")
 	defer func(start time.Time) {
 		if retErr != nil {
 			logger.Logf("errored downloading data after %v: %v", time.Since(start), retErr)
