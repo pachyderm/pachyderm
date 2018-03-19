@@ -130,7 +130,7 @@ Which will create a release like `v1.2.3-2342345aefda9879e87ad`
 Which can be installed like:
 
 ```
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.7.0-5a590ad9d8e9a09d4029f0f7379462620cf589ee/pachctl_1.7.0-5a590ad9d8e9a09d4029f0f7379462620cf589ee_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.7.0rc3/pachctl_1.7.0rc3_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 Or for mac/brew:
