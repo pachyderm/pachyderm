@@ -1,21 +1,14 @@
-## ./pachctl inspect-job
+## ./pachctl inspect-cluster
 
-Return info about a job.
+Returns info about the pachyderm cluster
 
 ### Synopsis
 
 
-Return info about a job.
+Returns info about the pachyderm cluster
 
 ```
-./pachctl inspect-job job-id
-```
-
-### Options
-
-```
-  -b, --block   block until the job has either succeeded or failed
-      --raw     disable pretty printing, print raw json
+./pachctl inspect-cluster
 ```
 
 ### Options inherited from parent commands
