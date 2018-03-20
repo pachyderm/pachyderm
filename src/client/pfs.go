@@ -459,6 +459,7 @@ func (c APIClient) SubscribeCommitF(repo, branch, from string, state pfs.CommitS
 	req := &pfs.SubscribeCommitRequest{
 		Repo:   NewRepo(repo),
 		Branch: branch,
+		State:  state,
 	}
 	if from != "" {
 		req.From = NewCommit(repo, from)
