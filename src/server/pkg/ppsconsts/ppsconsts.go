@@ -7,7 +7,7 @@ package ppsconsts
 
 const (
 	// SpecRepo contains every pipeline's PipelineInfo (in its own branch)
-	SpecRepo = "spec"
+	SpecRepo = "__spec__"
 
 	// SpecFile is the file in every SpecRepo commit containing the PipelineInfo
 	SpecFile = "spec"
