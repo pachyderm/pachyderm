@@ -1931,7 +1931,7 @@ func TestSubscribeCommit(t *testing.T) {
 		commits = append(commits, commit)
 	}
 
-	commitIter, err := client.SubscribeCommit(repo, "master", "")
+	commitIter, err := client.SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED)
 	require.NoError(t, err)
 	for i := 0; i < numCommits; i++ {
 		commitInfo, err := commitIter.Next()
@@ -4217,4 +4217,52 @@ func TestCommitState(t *testing.T) {
 		BlockState: pfs.CommitState_READY,
 	})
 	require.NoError(t, err)
+}
+
+func TestSubscribeStates(t *testing.T) {
+	c := getClient(t)
+
+	require.NoError(t, c.CreateRepo("A"))
+	require.NoError(t, c.CreateRepo("B"))
+	require.NoError(t, c.CreateRepo("C"))
+
+	require.NoError(t, c.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
+	require.NoError(t, c.CreateBranch("C", "master", "", []*pfs.Branch{pclient.NewBranch("B", "master")}))
+
+	ctx, cancel := context.WithCancel(c.Ctx())
+	defer cancel()
+	c = c.WithCtx(ctx)
+
+	var readyCommits int64
+	go func() {
+		c.SubscribeCommitF("B", "master", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+			atomic.AddInt64(&readyCommits, 1)
+			return nil
+		})
+	}()
+	go func() {
+		c.SubscribeCommitF("C", "master", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+			atomic.AddInt64(&readyCommits, 1)
+			return nil
+		})
+	}()
+	_, err := c.StartCommit("A", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("A", "master"))
+
+	require.NoErrorWithinTRetry(t, time.Second*10, func() error {
+		if atomic.LoadInt64(&readyCommits) != 1 {
+			return fmt.Errorf("wrong number of ready commits")
+		}
+		return nil
+	})
+
+	require.NoError(t, c.FinishCommit("B", "master"))
+
+	require.NoErrorWithinTRetry(t, time.Second*10, func() error {
+		if atomic.LoadInt64(&readyCommits) != 2 {
+			return fmt.Errorf("wrong number of ready commits")
+		}
+		return nil
+	})
 }

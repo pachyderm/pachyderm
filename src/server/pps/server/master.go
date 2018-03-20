@@ -414,6 +414,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 		ciChan := make(chan *pfs.CommitInfo)
 		go func() {
 			if err := pachClient.SubscribeCommitF(pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch, "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+				fmt.Printf("got ci for %s\n", pipelineInfo.Pipeline.Name)
 				ciChan <- ci
 				return nil
 			}); err != nil {

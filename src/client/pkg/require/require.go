@@ -357,6 +357,26 @@ func NoErrorWithinT(tb testing.TB, t time.Duration, f func() error, msgAndArgs .
 	}
 }
 
+// NoErrorWithinTRetry checks that 'f' finishes within time 't' and does not
+// emit an error. Unlike NoErrorWithinT if f does error, it will retry it.
+func NoErrorWithinTRetry(tb testing.TB, t time.Duration, f func() error, msgAndArgs ...interface{}) {
+	tb.Helper()
+	doneCh := make(chan struct{})
+	go func() {
+		for {
+			if err := f(); err == nil {
+				close(doneCh)
+				break
+			}
+		}
+	}()
+	select {
+	case <-doneCh:
+	case <-time.After(t):
+		fatal(tb, msgAndArgs, "operation did not finish within %s", t.String())
+	}
+}
+
 // YesError checks for an error.
 func YesError(tb testing.TB, err error, msgAndArgs ...interface{}) {
 	tb.Helper()

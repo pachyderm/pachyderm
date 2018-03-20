@@ -2166,7 +2166,7 @@ func TestStopPipeline(t *testing.T) {
 	require.Equal(t, "foo\n", buffer.String())
 }
 
-func TestPipelineAutoScaledown(t *testing.T) {
+func TestStandby(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2174,25 +2174,47 @@ func TestPipelineAutoScaledown(t *testing.T) {
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
-	dataRepo := tu.UniqueString("TestManyJobs_data")
+	dataRepo := tu.UniqueString("TestStandby_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	numPipelines := 10
+	pipelines := make([]string, numPipelines)
 	for i := 0; i < numPipelines; i++ {
-		pipeline := tu.UniqueString("TestManyJobs")
+		pipelines[i] = tu.UniqueString("TestStandby")
+		input := dataRepo
+		if i > 0 {
+			input = pipelines[i-1]
+		}
 		require.NoError(t, c.CreatePipeline(
-			pipeline,
+			pipelines[i],
 			"",
 			[]string{"true"},
 			nil,
 			&pps.ParallelismSpec{
 				Constant: 1,
 			},
-			client.NewAtomInput(dataRepo, "/*"),
+			client.NewAtomInput(input, "/*"),
 			"",
 			false,
 		))
 	}
+
+	require.NoErrorWithinT(t, time.Second*30, func() error {
+		return backoff.Retry(func() error {
+			pis, err := c.ListPipeline()
+			require.NoError(t, err)
+			var standby int
+			for _, pi := range pis {
+				if pi.State == pps.PipelineState_PIPELINE_STANDBY {
+					standby++
+				}
+			}
+			if standby != numPipelines {
+				return fmt.Errorf("should have %d pipelines in standby, not %d", numPipelines, standby)
+			}
+			return nil
+		}, backoff.NewTestingBackOff())
+	})
 
 	_, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
@@ -2217,7 +2239,9 @@ func TestPipelineAutoScaledown(t *testing.T) {
 					active++
 				}
 			}
-			require.True(t, active <= 1, "active: %d", active)
+			// We tolerate having 2 pipelines out of standby because there's
+			// latency associated with entering and exiting standby.
+			require.True(t, active <= 2, "active: %d", active)
 		}
 		return nil
 	})
