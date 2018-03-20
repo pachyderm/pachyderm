@@ -1666,6 +1666,7 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 			}
 		}
 
+		var oldDirectProvenance []*pfs.Repo
 		// Retrieve (and create, if necessary) the current version of this branch
 		branches := d.branches(branch.Repo.Name).ReadWrite(stm)
 		branchInfo := &pfs.BranchInfo{}
@@ -1680,6 +1681,17 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 			return nil
 		}); err != nil {
 			return err
+		}
+		repoRefCounts := d.repoRefCounts.ReadWriteInt(stm)
+		for _, repo := range oldDirectProvenance {
+			if err := repoRefCounts.Decrement(repo.Name); err != nil {
+				return err
+			}
+		}
+		for _, repo := range branchInfo.DirectProvenance {
+			if err := repoRefCounts.Increment(repo.Name); err != nil {
+				return err
+			}
 		}
 
 		// Update (or create)
