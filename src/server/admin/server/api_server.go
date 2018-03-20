@@ -86,7 +86,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 	}
 	var repos []*pfs.Repo
 	if !request.NoRepos {
-		ris, err := pachClient.ListRepo(nil)
+		ris, err := pachClient.ListRepo()
 		if err != nil {
 			return err
 		}
@@ -104,7 +104,6 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			if err := handleOp(&admin.Op{Op1_7: &admin.Op1_7{
 				Repo: &pfs.CreateRepoRequest{
 					Repo:        ri.Repo,
-					Provenance:  ri.Provenance,
 					Description: ri.Description,
 				}},
 			}); err != nil {

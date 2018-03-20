@@ -251,7 +251,7 @@ This resets the cluster to its initial state.`,
 			}
 			red := color.New(color.FgRed).SprintFunc()
 			var repos, pipelines []string
-			repoInfos, err := client.ListRepo(nil)
+			repoInfos, err := client.ListRepo()
 			if err != nil {
 				return err
 			}
@@ -265,9 +265,13 @@ This resets the cluster to its initial state.`,
 			for _, pi := range pipelineInfos {
 				pipelines = append(pipelines, red(pi.Pipeline.Name))
 			}
-			fmt.Printf("Are you sure you want to delete all ACLs, repos, commits, files, pipelines and jobs? yN\n")
-			fmt.Printf("Repos to delete: %s\n", strings.Join(repos, ", "))
-			fmt.Printf("Pipelines to delete: %s\n", strings.Join(pipelines, ", "))
+			fmt.Printf("Are you sure you want to delete all ACLs, repos, commits, files, pipelines and jobs?\nyN\n")
+			if len(repos) > 0 {
+				fmt.Printf("Repos to delete: %s\n", strings.Join(repos, ", "))
+			}
+			if len(pipelines) > 0 {
+				fmt.Printf("Pipelines to delete: %s\n", strings.Join(pipelines, ", "))
+			}
 			r := bufio.NewReader(os.Stdin)
 			bytes, err := r.ReadBytes('\n')
 			if err != nil {

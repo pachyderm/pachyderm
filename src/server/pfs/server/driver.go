@@ -210,7 +210,7 @@ func absent(key string) etcd.Cmp {
 	return etcd.Compare(etcd.CreateRevision(key), "=", 0)
 }
 
-func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*pfs.Repo, description string, update bool) error {
+func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, description string, update bool) error {
 	if err := validateRepoName(repo.Name); err != nil {
 		return err
 	}
@@ -218,7 +218,7 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 		return err
 	}
 	if update {
-		return d.updateRepo(ctx, repo, provenance, description)
+		return d.updateRepo(ctx, repo, description)
 	}
 
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
@@ -260,34 +260,12 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 			}
 		}
 
-		// compute the full provenance of this repo
-		fullProv := make(map[string]bool)
-		for _, prov := range provenance {
-			fullProv[prov.Name] = true
-			provRepo := new(pfs.RepoInfo)
-			if err := repos.Get(prov.Name, provRepo); err != nil {
-				return err
-			}
-			// the provenance of my provenance is my provenance
-			for _, prov := range provRepo.Provenance {
-				fullProv[prov.Name] = true
-			}
-		}
-
-		var fullProvRepos []*pfs.Repo
-		for prov := range fullProv {
-			fullProvRepos = append(fullProvRepos, &pfs.Repo{prov})
-			if err := repoRefCounts.Increment(prov); err != nil {
-				return err
-			}
-		}
 		if err := repoRefCounts.Create(repo.Name, 0); err != nil {
 			return err
 		}
 		repoInfo := &pfs.RepoInfo{
 			Repo:        repo,
 			Created:     now(),
-			Provenance:  fullProvRepos,
 			Description: description,
 		}
 		return repos.Create(repo.Name, repoInfo)
@@ -295,12 +273,10 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 	return err
 }
 
-func (d *driver) updateRepo(ctx context.Context, repo *pfs.Repo, provenance []*pfs.Repo, description string) error {
+func (d *driver) updateRepo(ctx context.Context, repo *pfs.Repo, description string) error {
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		repos := d.repos.ReadWrite(stm)
-		repoRefCounts := d.repoRefCounts.ReadWriteInt(stm)
-
-		repoInfo := new(pfs.RepoInfo)
+		repoInfo := &pfs.RepoInfo{}
 		if err := repos.Get(repo.Name, repoInfo); err != nil {
 			return fmt.Errorf("error updating repo: %v", err)
 		}
@@ -309,74 +285,7 @@ func (d *driver) updateRepo(ctx context.Context, repo *pfs.Repo, provenance []*p
 		if err := d.checkIsAuthorized(ctx, repo, auth.Scope_WRITER); err != nil {
 			return err
 		}
-
-		provToAdd := make(map[string]bool)
-		provToRemove := make(map[string]bool)
-		for _, newProv := range provenance {
-			provToAdd[newProv.Name] = true
-		}
-		for _, oldProv := range repoInfo.Provenance {
-			delete(provToAdd, oldProv.Name)
-			provToRemove[oldProv.Name] = true
-		}
-		for _, newProv := range provenance {
-			delete(provToRemove, newProv.Name)
-		}
-
-		// For each new provenance repo, we increase its ref count
-		// by N where N is this repo's ref count.
-		// For each old provenance repo we do the opposite.
-		myRefCount, err := repoRefCounts.Get(repo.Name)
-		if err != nil {
-			return err
-		}
-		// +1 because we need to include ourselves.
-		myRefCount++
-
-		for newProv := range provToAdd {
-			if err := repoRefCounts.IncrementBy(newProv, myRefCount); err != nil {
-				return err
-			}
-		}
-
-		for oldProv := range provToRemove {
-			if err := repoRefCounts.DecrementBy(oldProv, myRefCount); err != nil {
-				return err
-			}
-		}
-
-		// We also add the new provenance repos to the provenance
-		// of all downstream repos, and remove the old provenance
-		// repos from their provenance.
-		downstreamRepos, err := d.listRepo(ctx, []*pfs.Repo{repo}, !includeAuth)
-		if err != nil {
-			return err
-		}
-
-		for _, repoInfo := range downstreamRepos.RepoInfo {
-		nextNewProv:
-			for newProv := range provToAdd {
-				for _, prov := range repoInfo.Provenance {
-					if newProv == prov.Name {
-						continue nextNewProv
-					}
-				}
-				repoInfo.Provenance = append(repoInfo.Provenance, &pfs.Repo{newProv})
-			}
-		nextOldProv:
-			for oldProv := range provToRemove {
-				for i, prov := range repoInfo.Provenance {
-					if oldProv == prov.Name {
-						repoInfo.Provenance = append(repoInfo.Provenance[:i], repoInfo.Provenance[i+1:]...)
-						continue nextOldProv
-					}
-				}
-			}
-			repos.Put(repoInfo.Repo.Name, repoInfo)
-		}
-
 		repoInfo.Description = description
-		repoInfo.Provenance = provenance
 		repos.Put(repo.Name, repoInfo)
 		return nil
 	})
@@ -423,15 +332,8 @@ func (d *driver) getAccessLevel(ctx context.Context, repo *pfs.Repo) (auth.Scope
 	return resp.Scopes[0], nil
 }
 
-func (d *driver) listRepo(ctx context.Context, provenance []*pfs.Repo, includeAuth bool) (*pfs.ListRepoResponse, error) {
+func (d *driver) listRepo(ctx context.Context, includeAuth bool) (*pfs.ListRepoResponse, error) {
 	repos := d.repos.ReadOnly(ctx)
-	// Ensure that all provenance repos exist
-	for _, prov := range provenance {
-		repoInfo := &pfs.RepoInfo{}
-		if err := repos.Get(prov.Name, repoInfo); err != nil {
-			return nil, err
-		}
-	}
 
 	iterator, err := repos.List()
 	if err != nil {
@@ -451,19 +353,6 @@ nextRepo:
 		}
 		if repoName == ppsconsts.SpecRepo {
 			continue nextRepo
-		}
-		// A repo needs to have *all* the given repos as provenance
-		// in order to be included in the result.
-		for _, reqProv := range provenance {
-			var matched bool
-			for _, prov := range repoInfo.Provenance {
-				if reqProv.Name == prov.Name {
-					matched = true
-				}
-			}
-			if !matched {
-				continue nextRepo
-			}
 		}
 		if includeAuth && authSeemsActive {
 			accessLevel, err := d.getAccessLevel(ctx, repoInfo.Repo)
@@ -529,13 +418,6 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 		repoInfo := new(pfs.RepoInfo)
 		if err := repos.Get(repo.Name, repoInfo); err != nil {
 			return err
-		}
-		for _, prov := range repoInfo.Provenance {
-			if err := repoRefCounts.Decrement(prov.Name); err != nil && !col.IsErrNotFound(err) {
-				// Skip NotFound error, because it's possible that the
-				// provenance repo has been deleted via --force.
-				return err
-			}
 		}
 		if err := repos.Delete(repo.Name); err != nil {
 			return err
@@ -2443,7 +2325,7 @@ func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
 func (d *driver) deleteAll(ctx context.Context) error {
 	// Note: d.listRepo() doesn't return the 'spec' repo, so it doesn't get
 	// deleted here. Instead, PPS is responsible for deleting and re-creating it
-	repoInfos, err := d.listRepo(ctx, nil, !includeAuth)
+	repoInfos, err := d.listRepo(ctx, !includeAuth)
 	if err != nil {
 		return err
 	}
