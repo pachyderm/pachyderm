@@ -1816,7 +1816,7 @@ func TestDeleteAll(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(collectCommitInfos(t, commitIter)))
 	require.NoError(t, c.DeleteAll())
-	repoInfos, err := c.ListRepo(nil)
+	repoInfos, err := c.ListRepo()
 	require.NoError(t, err)
 	require.Equal(t, 0, len(repoInfos))
 	pipelineInfos, err := c.ListPipeline()
@@ -5829,7 +5829,7 @@ func TestPipelineWithGitInputPrivateGHRepo(t *testing.T) {
 		false,
 	))
 	// There should be a pachyderm repo created w no commits:
-	repos, err := c.ListRepo(nil)
+	repos, err := c.ListRepo()
 	require.NoError(t, err)
 	found := false
 	for _, repo := range repos {
@@ -6190,7 +6190,7 @@ func TestPipelineWithGitInputMultiPipelineSeparateInputs(t *testing.T) {
 			false,
 		))
 		// There should be a pachyderm repo created w no commits:
-		repos, err := c.ListRepo(nil)
+		repos, err := c.ListRepo()
 		require.NoError(t, err)
 		found := false
 		for _, repo := range repos {
@@ -6266,7 +6266,7 @@ func TestPipelineWithGitInputMultiPipelineSameInput(t *testing.T) {
 			false,
 		))
 		// There should be a pachyderm repo created w no commits:
-		repos, err := c.ListRepo(nil)
+		repos, err := c.ListRepo()
 		require.NoError(t, err)
 		found := false
 		for _, repo := range repos {
