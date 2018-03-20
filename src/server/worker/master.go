@@ -17,8 +17,6 @@ import (
 	"github.com/montanaflynn/stats"
 	"github.com/robfig/cron"
 	"golang.org/x/sync/errgroup"
-	"k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
@@ -153,32 +151,6 @@ func (a *APIServer) serviceMaster() {
 	})
 }
 
-// spawnScaleDownGoroutine is a helper function for jobSpawner. It spawns a
-// goroutine that waits until this pipeline's ScaleDownThreshold is reached and
-// then scales down the pipeline's RC. 'cancel' is a channel that, when closed
-// cancels the spawned goroutine.
-func (a *APIServer) spawnScaleDownGoroutine() (cancel chan struct{}) {
-	logger := a.getMasterLogger()
-	cancel = make(chan struct{})
-	if a.pipelineInfo.ScaleDownThreshold != nil {
-		go func() {
-			scaleDownThreshold, err := types.DurationFromProto(a.pipelineInfo.ScaleDownThreshold)
-			if err != nil {
-				logger.Logf("invalid ScaleDownThreshold: \"%v\"", err)
-				return
-			}
-			select {
-			case <-time.After(scaleDownThreshold):
-				if err := a.scaleDownWorkers(); err != nil {
-					logger.Logf("could not scale down workers: \"%v\"", err)
-				}
-			case <-cancel:
-			}
-		}()
-	}
-	return cancel
-}
-
 // makeCronCommits makes commits to a single cron input's repo. It's
 // a helper function called by jobSpawner
 func (a *APIServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input) error {
@@ -251,11 +223,7 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 		}
 		defer commitIter.Close()
 		for {
-			cancel := a.spawnScaleDownGoroutine()
 			commitInfo, err := commitIter.Next()
-			// loop will spawn new scale-down goroutine whether we start the job or not,
-			// so cancel channel to avoid leaking the current goroutine
-			close(cancel)
 			if err != nil {
 				return err
 			}
@@ -270,11 +238,6 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 			}
 			if commitInfo.Finished != nil {
 				continue // commit finished after queueing
-			}
-			if a.pipelineInfo.ScaleDownThreshold != nil {
-				if err := a.scaleUpWorkers(logger); err != nil {
-					return err
-				}
 			}
 			// Check if a job was previously created for this commit. If not, make one
 			var jobInfo *pps.JobInfo
@@ -1068,62 +1031,6 @@ func (a *APIServer) putTree(ctx context.Context, tree hashtree.OpenHashTree) (*p
 	}
 	object, _, err := a.pachClient.WithCtx(ctx).PutObject(bytes.NewReader(data))
 	return object, err
-}
-
-func (a *APIServer) scaleDownWorkers() error {
-	rc := a.kubeClient.CoreV1().ReplicationControllers(a.namespace)
-	workerRc, err := rc.Get(
-		ppsutil.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version),
-		metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	*workerRc.Spec.Replicas = 1
-	// When we scale down the workers, we also remove the resource
-	// requirements so that the remaining master pod does not take up
-	// the resource it doesn't need, since by definition when a pipeline
-	// is in scale-down mode, it doesn't process any work.
-	if a.pipelineInfo.ResourceRequests != nil {
-		workerRc.Spec.Template.Spec.Containers[0].Resources = v1.ResourceRequirements{}
-	}
-	_, err = rc.Update(workerRc)
-	return err
-}
-
-func (a *APIServer) scaleUpWorkers(logger *taggedLogger) error {
-	rc := a.kubeClient.CoreV1().ReplicationControllers(a.namespace)
-	workerRc, err := rc.Get(ppsutil.PipelineRcName(
-		a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version), metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	parallelism, err := ppsutil.GetExpectedNumWorkers(a.kubeClient, a.pipelineInfo.ParallelismSpec)
-	if err != nil {
-		logger.Logf("error getting number of workers, default to 1 worker: %v", err)
-		parallelism = 1
-	}
-	if *workerRc.Spec.Replicas != int32(parallelism) {
-		*workerRc.Spec.Replicas = int32(parallelism)
-	}
-	// Reset the resource requirements for the RC since the pipeline
-	// is in scale-down mode and probably has removed its resource
-	// requirements.
-	if a.pipelineInfo.ResourceRequests != nil {
-		requestsResourceList, err := ppsutil.GetRequestsResourceListFromPipeline(a.pipelineInfo)
-		if err != nil {
-			return fmt.Errorf("error parsing resource spec; this is likely a bug: %v", err)
-		}
-		limitsResourceList, err := ppsutil.GetRequestsResourceListFromPipeline(a.pipelineInfo)
-		if err != nil {
-			return fmt.Errorf("error parsing resource spec; this is likely a bug: %v", err)
-		}
-		workerRc.Spec.Template.Spec.Containers[0].Resources = v1.ResourceRequirements{
-			Requests: *requestsResourceList,
-			Limits:   *limitsResourceList,
-		}
-	}
-	_, err = rc.Update(workerRc)
-	return err
 }
 
 // getCachedDatum returns whether the given datum (identified by its hash)
