@@ -60,7 +60,7 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.driver.createRepo(ctx, request.Repo, request.Provenance, request.Description, request.Update); err != nil {
+	if err := a.driver.createRepo(ctx, request.Repo, request.Description, request.Update); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -77,7 +77,7 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) 
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	repoInfos, err := a.driver.listRepo(ctx, request.Provenance, true)
+	repoInfos, err := a.driver.listRepo(ctx, true)
 	return repoInfos, err
 }
 
