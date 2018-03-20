@@ -187,7 +187,7 @@ func doSidecarMode(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.EnterpriseEtcdPrefix))
+	enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.EnterpriseEtcdPrefix))
 	if err != nil {
 		return err
 	}
@@ -320,7 +320,7 @@ func doFullMode(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.EnterpriseEtcdPrefix))
+	enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.EnterpriseEtcdPrefix))
 	if err != nil {
 		return err
 	}

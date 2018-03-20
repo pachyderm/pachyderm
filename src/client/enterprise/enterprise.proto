@@ -51,10 +51,22 @@ message GetStateResponse {
   TokenInfo info = 2;
 }
 
+message DeactivateRequest{}
+message DeactivateResponse{}
+
 service API {
   // Provide a Pachyderm enterprise token, enabling Pachyderm enterprise
   // features, such as the Pachyderm Dashboard and Auth system
   rpc Activate(ActivateRequest) returns (ActivateResponse) {}
   rpc GetState(GetStateRequest) returns (GetStateResponse) {}
+
+  // Deactivate is a testing API. It removes a cluster's enterprise activation
+  // token and sets its enterprise state to NONE (normally, once a cluster has
+  // been activated, the only reachable state is EXPIRED).
+  //
+  // NOTE: This endpoint also calls DeleteAll (and deletes all Pachyderm data in
+  // its cluster). This is to avoid dealing with invalid, intermediate states
+  // (e.g. auth is activated but enterprise state is NONE)
+  rpc Deactivate(DeactivateRequest) returns (DeactivateResponse) {}
 }
 
