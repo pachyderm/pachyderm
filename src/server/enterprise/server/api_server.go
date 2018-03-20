@@ -76,7 +76,7 @@ func (a *apiServer) getPachClient() *client.APIClient {
 		var err error
 		a.pachClient, err = client.NewFromAddress(a.pachdAddress)
 		if err != nil {
-			panic(fmt.Sprintf("pps failed to initialize pach client: %v", err))
+			panic(fmt.Sprintf("enterprise API failed to initialize pach client: %v", err))
 		}
 	})
 	return a.pachClient
