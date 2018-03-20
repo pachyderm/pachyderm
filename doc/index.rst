@@ -62,6 +62,7 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     deployment/custom_object_stores
     deployment/upgrading
     deployment/migrations
+    deployment/namespaces
     deployment/rbac
 
 .. toctree::
