@@ -2510,8 +2510,8 @@ func (d *driver) addBranchProvenance(branchInfo *pfs.BranchInfo, provBranch *pfs
 		return err
 	}
 	repoInfo := &pfs.RepoInfo{}
-	return d.repos.ReadWrite(stm).Upsert(provBranch.Repo.Name, repoInfo, func() error {
-		add(&repoInfo.Branches, branchInfo.Branch)
+	return d.repos.ReadWrite(stm).Update(provBranch.Repo.Name, repoInfo, func() error {
+		add(&repoInfo.Branches, provBranch)
 		return nil
 	})
 }
