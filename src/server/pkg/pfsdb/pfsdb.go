@@ -30,7 +30,7 @@ func Repos(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 	return col.NewCollection(
 		etcdClient,
 		path.Join(etcdPrefix, reposPrefix),
-		[]col.Index{ProvenanceIndex},
+		nil,
 		&pfs.RepoInfo{},
 		nil,
 	)
