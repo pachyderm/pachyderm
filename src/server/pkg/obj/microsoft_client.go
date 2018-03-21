@@ -166,7 +166,7 @@ func (w *microsoftWriter) Write(b []byte) (int, error) {
 		data := chunk[:n]
 		err = w.blobClient.PutBlock(w.container, w.blob, blockID, data)
 		if err != nil {
-			return 0, err
+			return 0, fmt.Errorf("BlobStorageClient.PutBlock: %v", err)
 		}
 		// add current uncommitted block to temporary block list
 		amendList = append(amendList, storage.Block{blockID, storage.BlockStatusUncommitted})
@@ -176,7 +176,7 @@ func (w *microsoftWriter) Write(b []byte) (int, error) {
 	// update block list to blob committed block list.
 	err = w.blobClient.PutBlockList(w.container, w.blob, amendList)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("BlobStorageClient.PutBlockList: %v", err)
 	}
 	return len(b), nil
 }
