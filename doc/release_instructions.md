@@ -28,7 +28,7 @@ You'll need the following credentials / tools:
 - sha256sum (if you're on mac ... `brew install coreutils`)
 - access to `homebrew-tap` and `www` repositories
 - S3 credentials
-- A dockerhub account, with write access to https://hub.docker.com/u/pachyderm/
+- A dockerhub account, with write access to https://hub.docker.com/u/pachyderm/ (run `docker login`)
 
 ## Releasing:
 
