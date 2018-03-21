@@ -122,7 +122,7 @@ func TestCreateDifferentRepoInParallel(t *testing.T) {
 func TestCreateRepoDeleteRepoRace(t *testing.T) {
 	client := getClient(t)
 
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 100; i++ {
 		require.NoError(t, client.CreateRepo("foo"))
 		require.NoError(t, client.CreateRepo("bar"))
 		errCh := make(chan error)
