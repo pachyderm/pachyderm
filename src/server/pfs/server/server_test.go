@@ -138,8 +138,8 @@ func TestCreateRepoDeleteRepoRace(t *testing.T) {
 		// both succeed, leaving us with a repo bar that has a nonexistent
 		// provenance foo
 		require.True(t, err1 != nil || err2 != nil)
-		client.DeleteRepo("bar", false)
-		client.DeleteRepo("foo", false)
+		require.NoError(t, client.DeleteRepo("bar", false))
+		require.NoError(t, client.DeleteRepo("foo", false))
 	}
 }
 

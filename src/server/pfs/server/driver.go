@@ -381,7 +381,6 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 		repos := d.repos.ReadWrite(stm)
 		repoRefCounts := d.repoRefCounts.ReadWriteInt(stm)
 		commits := d.commits(repo.Name).ReadWrite(stm)
-		branches := d.branches(repo.Name).ReadWrite(stm)
 
 		// check if 'repo' is already gone. If so, return that error. Otherwise,
 		// proceed with auth check (avoids awkward "access denied" error when calling
@@ -401,20 +400,6 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 			return err
 		}
 
-		// Check if this repo is the provenance of some other repos
-		if !force {
-			if repo.Name == ppsconsts.SpecRepo {
-				return fmt.Errorf("cannot delete the spec repo")
-			}
-			refCount, err := repoRefCounts.Get(repo.Name)
-			if err != nil {
-				return err
-			}
-			if refCount != 0 {
-				return fmt.Errorf("cannot delete the provenance of other repos")
-			}
-		}
-
 		repoInfo := new(pfs.RepoInfo)
 		if err := repos.Get(repo.Name, repoInfo); err != nil {
 			return err
@@ -426,7 +411,11 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 			return err
 		}
 		commits.DeleteAll()
-		branches.DeleteAll()
+		for _, branch := range repoInfo.Branches {
+			if err := d.deleteBranchSTM(stm, branch, force); err != nil {
+				return err
+			}
+		}
 		return nil
 	})
 	if err != nil {
@@ -515,7 +504,7 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 		}
 
 		// create/update 'branch' (if it was set) and set parent.ID (if, in addition,
-		// 'parent' was not set)
+		// 'parent' was not seta{}
 		if branch != "" {
 			branchInfo := &pfs.BranchInfo{}
 			if err := branches.Upsert(branch, branchInfo, func() error {
@@ -526,6 +515,13 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 				branchInfo.Name = branch // set in case 'branch' is new
 				branchInfo.Head = newCommit
 				branchInfo.Branch = client.NewBranch(newCommit.Repo.Name, branch)
+				return nil
+			}); err != nil {
+				return err
+			}
+			repoInfo := &pfs.RepoInfo{}
+			if err := repos.Upsert(parent.Repo.Name, repoInfo, func() error {
+				add(&repoInfo.Branches, branchInfo.Branch)
 				return nil
 			}); err != nil {
 				return err
@@ -1666,7 +1662,7 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 			}
 		}
 
-		var oldDirectProvenance []*pfs.Repo
+		var oldDirectProvenance []*pfs.Branch
 		// Retrieve (and create, if necessary) the current version of this branch
 		branches := d.branches(branch.Repo.Name).ReadWrite(stm)
 		branchInfo := &pfs.BranchInfo{}
@@ -1674,6 +1670,7 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 			branchInfo.Name = branch.Name // set in case 'branch' is new
 			branchInfo.Branch = branch
 			branchInfo.Head = commit
+			oldDirectProvenance = branchInfo.DirectProvenance
 			branchInfo.DirectProvenance = nil
 			for _, provBranch := range provenance {
 				add(&branchInfo.DirectProvenance, provBranch)
@@ -1682,16 +1679,13 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 		}); err != nil {
 			return err
 		}
-		repoRefCounts := d.repoRefCounts.ReadWriteInt(stm)
-		for _, repo := range oldDirectProvenance {
-			if err := repoRefCounts.Decrement(repo.Name); err != nil {
-				return err
-			}
-		}
-		for _, repo := range branchInfo.DirectProvenance {
-			if err := repoRefCounts.Increment(repo.Name); err != nil {
-				return err
-			}
+		repos := d.repos.ReadWrite(stm)
+		repoInfo := &pfs.RepoInfo{}
+		if err := repos.Upsert(branch.Repo.Name, repoInfo, func() error {
+			add(&repoInfo.Branches, branch)
+			return nil
+		}); err != nil {
+			return err
 		}
 
 		// Update (or create)
@@ -1789,15 +1783,35 @@ func (d *driver) listBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.BranchI
 	return res, nil
 }
 
-func (d *driver) deleteBranch(ctx context.Context, branch *pfs.Branch) error {
+func (d *driver) deleteBranch(ctx context.Context, branch *pfs.Branch, force bool) error {
 	if err := d.checkIsAuthorized(ctx, branch.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		branches := d.branches(branch.Repo.Name).ReadWrite(stm)
-		return branches.Delete(branch.Name)
+		return d.deleteBranchSTM(stm, branch, force)
 	})
 	return err
+}
+
+func (d *driver) deleteBranchSTM(stm col.STM, branch *pfs.Branch, force bool) error {
+	branches := d.branches(branch.Repo.Name).ReadWrite(stm)
+	branchInfo := &pfs.BranchInfo{}
+	if err := branches.Get(branch.Name, branchInfo); err != nil {
+		return err
+	}
+	if !force {
+		if len(branchInfo.Subvenance) > 0 {
+			return fmt.Errorf("branch %s has %v as subvenance, deleting it would break those branches", branch.Name, branchInfo.Subvenance)
+		}
+	}
+	if err := branches.Delete(branch.Name); err != nil {
+		return err
+	}
+	repoInfo := &pfs.RepoInfo{}
+	return d.repos.ReadWrite(stm).Upsert(branch.Repo.Name, repoInfo, func() error {
+		del(&repoInfo.Branches, branch)
+		return nil
+	})
 }
 
 func (d *driver) scratchPrefix() string {
@@ -2496,11 +2510,18 @@ func (d *driver) addBranchProvenance(branchInfo *pfs.BranchInfo, provBranch *pfs
 	}
 	add(&branchInfo.Provenance, provBranch)
 	provBranchInfo := &pfs.BranchInfo{}
-	return d.branches(provBranch.Repo.Name).ReadWrite(stm).Upsert(provBranch.Name, provBranchInfo, func() error {
+	if err := d.branches(provBranch.Repo.Name).ReadWrite(stm).Upsert(provBranch.Name, provBranchInfo, func() error {
 		// Set provBranch, we may be creating this branch for the first time
 		provBranchInfo.Name = provBranch.Name
 		provBranchInfo.Branch = provBranch
 		add(&provBranchInfo.Subvenance, branchInfo.Branch)
+		return nil
+	}); err != nil {
+		return err
+	}
+	repoInfo := &pfs.RepoInfo{}
+	return d.repos.ReadWrite(stm).Upsert(provBranch.Repo.Name, repoInfo, func() error {
+		add(&repoInfo.Branches, branchInfo.Branch)
 		return nil
 	})
 }

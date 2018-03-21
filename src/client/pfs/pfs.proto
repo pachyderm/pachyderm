@@ -59,6 +59,7 @@ message RepoInfo {
   google.protobuf.Timestamp created = 2;
   uint64 size_bytes = 3;
   string description = 5;
+  repeated Branch branches = 7;
 
   // Set by ListRepo and InspectRepo if Pachyderm's auth system is active, but
   // not stored in etcd. To set a user's auth scope for a repo, use the
@@ -245,6 +246,7 @@ message ListBranchRequest {
 
 message DeleteBranchRequest {
   Branch branch = 1;
+  bool force = 2;
 }
 
 message DeleteCommitRequest {

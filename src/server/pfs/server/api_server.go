@@ -202,7 +202,7 @@ func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.driver.deleteBranch(ctx, request.Branch); err != nil {
+	if err := a.driver.deleteBranch(ctx, request.Branch, request.Force); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
