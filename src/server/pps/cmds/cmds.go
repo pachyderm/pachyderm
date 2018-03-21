@@ -12,6 +12,7 @@ import (
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 	pachdclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
@@ -602,6 +603,10 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			request, err := cfgReader.NextCreatePipelineRequest()
 			if err != nil {
 				return err
+			}
+			if proto.Equal(createPipelineRequest, request) {
+				fmt.Println("Pipeline unchanged, no update will be performed.")
+				return nil
 			}
 			request.Update = true
 			request.Reprocess = reprocess
