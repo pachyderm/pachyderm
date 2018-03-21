@@ -402,7 +402,7 @@ func TestDeleteProvenanceRepo(t *testing.T) {
 	// Create two repos, one as another's provenance
 	require.NoError(t, client.CreateRepo("A"))
 	require.NoError(t, client.CreateRepo("B"))
-	require.NoError(t, client.CreateBranch("A", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
+	require.NoError(t, client.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
 
 	// Delete the provenance repo; that should fail.
 	require.YesError(t, client.DeleteRepo("A", false))
@@ -418,7 +418,7 @@ func TestDeleteProvenanceRepo(t *testing.T) {
 	// Create two repos again
 	require.NoError(t, client.CreateRepo("A"))
 	require.NoError(t, client.CreateRepo("B"))
-	require.NoError(t, client.CreateBranch("A", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
+	require.NoError(t, client.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
 
 	// Force delete should succeed
 	require.NoError(t, client.DeleteRepo("A", true))

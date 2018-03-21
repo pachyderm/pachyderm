@@ -397,16 +397,13 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 		if err := repos.Get(repo.Name, repoInfo); err != nil {
 			return err
 		}
-		if err := repos.Delete(repo.Name); err != nil {
-			return err
-		}
 		commits.DeleteAll()
 		for _, branch := range repoInfo.Branches {
 			if err := d.deleteBranchSTM(stm, branch, force); err != nil {
 				return err
 			}
 		}
-		return nil
+		return repos.Delete(repo.Name)
 	})
 	if err != nil {
 		return err
@@ -1797,8 +1794,17 @@ func (d *driver) deleteBranchSTM(stm col.STM, branch *pfs.Branch, force bool) er
 	if err := branches.Delete(branch.Name); err != nil {
 		return err
 	}
+	for _, provBranch := range branchInfo.Provenance {
+		provBranchInfo := &pfs.BranchInfo{}
+		if err := d.branches(provBranch.Repo.Name).ReadWrite(stm).Update(provBranch.Name, provBranchInfo, func() error {
+			del(&provBranchInfo.Subvenance, branch)
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
 	repoInfo := &pfs.RepoInfo{}
-	return d.repos.ReadWrite(stm).Upsert(branch.Repo.Name, repoInfo, func() error {
+	return d.repos.ReadWrite(stm).Update(branch.Repo.Name, repoInfo, func() error {
 		del(&repoInfo.Branches, branch)
 		return nil
 	})
