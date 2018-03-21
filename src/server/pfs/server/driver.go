@@ -97,7 +97,6 @@ type driver struct {
 
 	// collections
 	repos          col.Collection
-	repoRefCounts  col.Collection
 	putFileRecords col.Collection
 	commits        collectionFactory
 	branches       collectionFactory
@@ -133,7 +132,6 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCa
 		etcdClient:     etcdClient,
 		prefix:         etcdPrefix,
 		repos:          pfsdb.Repos(etcdClient, etcdPrefix),
-		repoRefCounts:  pfsdb.RepoRefCounts(etcdClient, etcdPrefix),
 		putFileRecords: pfsdb.PutFileRecords(etcdClient, etcdPrefix),
 		commits: func(repo string) col.Collection {
 			return pfsdb.Commits(etcdClient, etcdPrefix, repo)
@@ -223,7 +221,6 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, description str
 
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		repos := d.repos.ReadWrite(stm)
-		repoRefCounts := d.repoRefCounts.ReadWriteInt(stm)
 
 		// check if 'repo' already exists. If so, return that error. Otherwise,
 		// proceed with ACL creation (avoids awkward "access denied" error when
@@ -260,9 +257,6 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, description str
 			}
 		}
 
-		if err := repoRefCounts.Create(repo.Name, 0); err != nil {
-			return err
-		}
 		repoInfo := &pfs.RepoInfo{
 			Repo:        repo,
 			Created:     now(),
@@ -379,7 +373,6 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 	// }
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		repos := d.repos.ReadWrite(stm)
-		repoRefCounts := d.repoRefCounts.ReadWriteInt(stm)
 		commits := d.commits(repo.Name).ReadWrite(stm)
 
 		// check if 'repo' is already gone. If so, return that error. Otherwise,
@@ -405,9 +398,6 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 			return err
 		}
 		if err := repos.Delete(repo.Name); err != nil {
-			return err
-		}
-		if err := repoRefCounts.Delete(repo.Name); err != nil {
 			return err
 		}
 		commits.DeleteAll()
