@@ -1555,17 +1555,14 @@ func (d *driver) deleteCommit(ctx context.Context, userCommit *pfs.Commit) error
 
 		// 7) Traverse affected repos and rewrite all branches so that no branch
 		// points to a deleted commit
-		// TODO Instead of ListBranch (which is not transactional), store a list of
-		// branches in each repo or a list of inbound branches in each commit
 		var shortestBranch *pfs.Branch
 		var shortestBranchLen = maxInt
 		for repo := range affectedRepos {
-			branchInfos, err := d.listBranch(ctx, client.NewRepo(repo))
-			if err != nil {
+			repoInfo := &pfs.RepoInfo{}
+			if err := d.repos.ReadWrite(stm).Get(repo, repoInfo); err != nil {
 				return err
 			}
-			for i := range branchInfos {
-				brokenBranch := branchInfos[i].Branch
+			for _, brokenBranch := range repoInfo.Branches {
 				// Traverse HEAD commit until we find a non-deleted parent or nil;
 				// rewrite branch
 				var branchInfo pfs.BranchInfo
