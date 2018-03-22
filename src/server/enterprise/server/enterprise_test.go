@@ -103,3 +103,43 @@ func TestGetState(t *testing.T) {
 		return nil
 	}, backoff.NewTestingBackOff()))
 }
+
+func TestDeactivate(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	client := getPachClient(t)
+
+	// Activate Pachyderm Enterprise and make sure the state is ACTIVE
+	_, err := client.Enterprise.Activate(context.Background(),
+		&enterprise.ActivateRequest{ActivationCode: testutil.GetTestEnterpriseCode()})
+	require.NoError(t, err)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := client.Enterprise.GetState(context.Background(),
+			&enterprise.GetStateRequest{})
+		if err != nil {
+			return err
+		}
+		if resp.State != enterprise.State_ACTIVE {
+			return fmt.Errorf("expected enterprise state to be ACTIVE but was %v", resp.State)
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+
+	// Deactivate cluster and make sure its state is NONE
+	_, err = client.Enterprise.Deactivate(context.Background(),
+		&enterprise.DeactivateRequest{})
+	require.NoError(t, err)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := client.Enterprise.GetState(context.Background(),
+			&enterprise.GetStateRequest{})
+		if err != nil {
+			return err
+		}
+		if resp.State != enterprise.State_NONE {
+			return fmt.Errorf("expected enterprise state to be NONE but was %v", resp.State)
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+
+}
