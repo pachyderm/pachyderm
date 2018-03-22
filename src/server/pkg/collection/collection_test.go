@@ -23,7 +23,7 @@ var (
 		Field: "Pipeline",
 		Multi: false,
 	}
-	repoMultiIndex Index = Index{
+	commitMultiIndex Index = Index{
 		Field: "Provenance",
 		Multi: true,
 	}
@@ -187,112 +187,112 @@ func TestMultiIndex(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	repoInfos := NewCollection(etcdClient, uuidPrefix, []Index{repoMultiIndex}, &pfs.RepoInfo{}, nil)
+	cis := NewCollection(etcdClient, uuidPrefix, []Index{commitMultiIndex}, &pfs.CommitInfo{}, nil)
 
-	r1 := &pfs.RepoInfo{
-		Repo: &pfs.Repo{"r1"},
-		Provenance: []*pfs.Repo{
-			{"input1"},
-			{"input2"},
-			{"input3"},
+	c1 := &pfs.CommitInfo{
+		Commit: client.NewCommit("repo", "c1"),
+		Provenance: []*pfs.Commit{
+			client.NewCommit("in", "c1"),
+			client.NewCommit("in", "c2"),
+			client.NewCommit("in", "c3"),
 		},
 	}
-	r2 := &pfs.RepoInfo{
-		Repo: &pfs.Repo{"r2"},
-		Provenance: []*pfs.Repo{
-			{"input1"},
-			{"input2"},
-			{"input3"},
+	c2 := &pfs.CommitInfo{
+		Commit: client.NewCommit("repo", "c2"),
+		Provenance: []*pfs.Commit{
+			client.NewCommit("in", "c1"),
+			client.NewCommit("in", "c2"),
+			client.NewCommit("in", "c3"),
 		},
 	}
 	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
-		repoInfos := repoInfos.ReadWrite(stm)
-		repoInfos.Put(r1.Repo.Name, r1)
-		repoInfos.Put(r2.Repo.Name, r2)
+		cis := cis.ReadWrite(stm)
+		cis.Put(c1.Commit.ID, c1)
+		cis.Put(c2.Commit.ID, c2)
 		return nil
 	})
 	require.NoError(t, err)
 
-	repoInfosReadonly := repoInfos.ReadOnly(context.Background())
+	cisReadonly := cis.ReadOnly(context.Background())
 
 	// Test that the first key retrieves both r1 and r2
-	iter, err := repoInfosReadonly.GetByIndex(repoMultiIndex, &pfs.Repo{"input1"})
+	iter, err := cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c1"))
 	require.NoError(t, err)
-	var Name string
-	repo := new(pfs.RepoInfo)
-	ok, err := iter.Next(&Name, repo)
-	require.NoError(t, err)
-	require.True(t, ok)
-	require.Equal(t, r1.Repo.Name, Name)
-	require.Equal(t, r1, repo)
-	repo = new(pfs.RepoInfo)
-	ok, err = iter.Next(&Name, repo)
+	var ID string
+	ci := &pfs.CommitInfo{}
+	ok, err := iter.Next(&ID, ci)
 	require.NoError(t, err)
 	require.True(t, ok)
-	require.Equal(t, r2.Repo.Name, Name)
-	require.Equal(t, r2, repo)
+	require.Equal(t, c1.Commit.ID, ID)
+	require.Equal(t, c1, ci)
+	ci = &pfs.CommitInfo{}
+	ok, err = iter.Next(&ID, ci)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, c2.Commit.ID, ID)
+	require.Equal(t, c2, ci)
 
-	// Test that the *second* key retrieves both r1 and r2
-	iter, err = repoInfosReadonly.GetByIndex(repoMultiIndex, &pfs.Repo{"input2"})
+	// Test that the second key retrieves both r1 and r2
+	iter, err = cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c2"))
 	require.NoError(t, err)
-	repo = new(pfs.RepoInfo)
-	ok, err = iter.Next(&Name, repo)
-	require.NoError(t, err)
-	require.True(t, ok)
-	require.Equal(t, r1.Repo.Name, Name)
-	require.Equal(t, r1, repo)
-	repo = new(pfs.RepoInfo)
-	ok, err = iter.Next(&Name, repo)
+	ci = &pfs.CommitInfo{}
+	ok, err = iter.Next(&ID, ci)
 	require.NoError(t, err)
 	require.True(t, ok)
-	require.Equal(t, r2.Repo.Name, Name)
-	require.Equal(t, r2, repo)
+	require.Equal(t, c1.Commit.ID, ID)
+	require.Equal(t, c1, ci)
+	ci = &pfs.CommitInfo{}
+	ok, err = iter.Next(&ID, ci)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, c2.Commit.ID, ID)
+	require.Equal(t, c2, ci)
 
-	// replace "input3" in the provenance of r1 with "input4"
-	r1.Provenance[2] = &pfs.Repo{"input4"}
+	// replace "c3" in the provenance of c1 with "c4"
+	c1.Provenance[2].ID = "c4"
 	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
-		repoInfos := repoInfos.ReadWrite(stm)
-		repoInfos.Put(r1.Repo.Name, r1)
+		cis := cis.ReadWrite(stm)
+		cis.Put(c1.Commit.ID, c1)
 		return nil
 	})
 	require.NoError(t, err)
 
-	// Now "input3" only retrieves r2 (indexes are updated)
-	iter, err = repoInfosReadonly.GetByIndex(repoMultiIndex, &pfs.Repo{"input3"})
+	// Now "c3" only retrieves c2 (indexes are updated)
+	iter, err = cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c3"))
 	require.NoError(t, err)
-	repo = new(pfs.RepoInfo)
-	ok, err = iter.Next(&Name, repo)
-	require.NoError(t, err)
-	require.True(t, ok)
-	require.Equal(t, r2.Repo.Name, Name)
-	require.Equal(t, r2, repo)
-
-	// As well, "input4" only retrieves r1 (indexes are updated)
-	iter, err = repoInfosReadonly.GetByIndex(repoMultiIndex, &pfs.Repo{"input4"})
-	require.NoError(t, err)
-	repo = new(pfs.RepoInfo)
-	ok, err = iter.Next(&Name, repo)
+	ci = &pfs.CommitInfo{}
+	ok, err = iter.Next(&ID, ci)
 	require.NoError(t, err)
 	require.True(t, ok)
-	require.Equal(t, r1.Repo.Name, Name)
-	require.Equal(t, r1, repo)
+	require.Equal(t, c2.Commit.ID, ID)
+	require.Equal(t, c2, ci)
 
-	// Delete r1 from etcd completely
+	// And "C4" only retrieves r1 (indexes are updated)
+	iter, err = cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c4"))
+	require.NoError(t, err)
+	ci = &pfs.CommitInfo{}
+	ok, err = iter.Next(&ID, ci)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, c1.Commit.ID, ID)
+	require.Equal(t, c1, ci)
+
+	// Delete c1 from etcd completely
 	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
-		repoInfos := repoInfos.ReadWrite(stm)
-		repoInfos.Delete(r1.Repo.Name)
+		cis := cis.ReadWrite(stm)
+		cis.Delete(c1.Commit.ID)
 		return nil
 	})
 
-	// Now "input1" only retrieves r2
-	iter, err = repoInfosReadonly.GetByIndex(repoMultiIndex, &pfs.Repo{"input1"})
+	// Now "c1" only retrieves c2
+	iter, err = cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c1"))
 	require.NoError(t, err)
-	repo = new(pfs.RepoInfo)
-	ok, err = iter.Next(&Name, repo)
+	ci = &pfs.CommitInfo{}
+	ok, err = iter.Next(&ID, ci)
 	require.NoError(t, err)
 	require.True(t, ok)
-	require.Equal(t, r2.Repo.Name, Name)
-	require.Equal(t, r2, repo)
+	require.Equal(t, c2.Commit.ID, ID)
+	require.Equal(t, c2, ci)
 }
 
 func TestBoolIndex(t *testing.T) {

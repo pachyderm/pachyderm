@@ -41,8 +41,7 @@ func PrintDetailedRepoInfo(repoInfo *pfs.RepoInfo) error {
 		`Name: {{.Repo.Name}}{{if .Description}}
 Description: {{.Description}}{{end}}
 Created: {{prettyAgo .Created}}
-Size: {{prettySize .SizeBytes}}{{if .Provenance}}
-Provenance: {{range .Provenance}} {{.Name}} {{end}}{{end}}{{if .AuthInfo}}
+Size: {{prettySize .SizeBytes}}{{if .AuthInfo}}
 Access level: {{ .AuthInfo.AccessLevel.String }}{{end}}
 `)
 	if err != nil {
