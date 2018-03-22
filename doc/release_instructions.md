@@ -28,7 +28,7 @@ You'll need the following credentials / tools:
 - sha256sum (if you're on mac ... `brew install coreutils`)
 - access to `homebrew-tap` and `www` repositories
 - S3 credentials
-- A dockerhub account, with write access to https://hub.docker.com/u/pachyderm/
+- A dockerhub account, with write access to https://hub.docker.com/u/pachyderm/ (run `docker login`)
 
 ## Releasing:
 
@@ -130,7 +130,7 @@ Which will create a release like `v1.2.3-2342345aefda9879e87ad`
 Which can be installed like:
 
 ```
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.7.0rc3/pachctl_1.7.0rc3_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.7.0/pachctl_1.7.0_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 Or for mac/brew:
