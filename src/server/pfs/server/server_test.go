@@ -69,20 +69,6 @@ func TestInvalidRepo(t *testing.T) {
 	require.YesError(t, client.CreateRepo("lenny#"))
 }
 
-func TestCreateRepoNonexistantProvenance(t *testing.T) {
-	client := getClient(t)
-	var provenance []*pfs.Repo
-	provenance = append(provenance, pclient.NewRepo("bogusABC"))
-	_, err := client.PfsAPIClient.CreateRepo(
-		context.Background(),
-		&pfs.CreateRepoRequest{
-			Repo:       pclient.NewRepo("foo"),
-			Provenance: provenance,
-		},
-	)
-	require.YesError(t, err)
-}
-
 func TestCreateSameRepoInParallel(t *testing.T) {
 	client := getClient(t)
 
@@ -136,21 +122,15 @@ func TestCreateDifferentRepoInParallel(t *testing.T) {
 func TestCreateRepoDeleteRepoRace(t *testing.T) {
 	client := getClient(t)
 
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 100; i++ {
 		require.NoError(t, client.CreateRepo("foo"))
+		require.NoError(t, client.CreateRepo("bar"))
 		errCh := make(chan error)
 		go func() {
 			errCh <- client.DeleteRepo("foo", false)
 		}()
 		go func() {
-			_, err := client.PfsAPIClient.CreateRepo(
-				context.Background(),
-				&pfs.CreateRepoRequest{
-					Repo:       pclient.NewRepo("bar"),
-					Provenance: []*pfs.Repo{pclient.NewRepo("foo")},
-				},
-			)
-			errCh <- err
+			errCh <- client.CreateBranch("bar", "master", "", []*pfs.Branch{pclient.NewBranch("foo", "master")})
 		}()
 		err1 := <-errCh
 		err2 := <-errCh
@@ -158,8 +138,8 @@ func TestCreateRepoDeleteRepoRace(t *testing.T) {
 		// both succeed, leaving us with a repo bar that has a nonexistent
 		// provenance foo
 		require.True(t, err1 != nil || err2 != nil)
-		client.DeleteRepo("bar", false)
-		client.DeleteRepo("foo", false)
+		client.DeleteRepo("bar", true)
+		client.DeleteRepo("foo", true)
 	}
 }
 
@@ -201,19 +181,8 @@ func TestCreateAndInspectRepo(t *testing.T) {
 
 	_, err = client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
 		Repo: pclient.NewRepo("somerepo1"),
-		Provenance: []*pfs.Repo{
-			pclient.NewRepo(repo),
-		},
 	})
 	require.NoError(t, err)
-
-	_, err = client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
-		Repo: pclient.NewRepo("somerepo2"),
-		Provenance: []*pfs.Repo{
-			pclient.NewRepo("nonexistent"),
-		},
-	})
-	require.YesError(t, err)
 }
 
 func TestRepoSize(t *testing.T) {
@@ -266,7 +235,7 @@ func TestListRepo(t *testing.T) {
 		repoNames = append(repoNames, repo)
 	}
 
-	repoInfos, err := client.ListRepo(nil)
+	repoInfos, err := client.ListRepo()
 	require.NoError(t, err)
 	require.ElementsEqualUnderFn(t, repoNames, repoInfos, RepoInfoToName)
 }
@@ -319,64 +288,29 @@ func TestUpdateProvenance(t *testing.T) {
 	require.NoError(t, client.CreateRepo(prov2))
 	prov3 := "prov3"
 	require.NoError(t, client.CreateRepo(prov3))
+
 	repo := "repo"
-	_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
-		Repo: pclient.NewRepo("repo"),
-		Provenance: []*pfs.Repo{
-			pclient.NewRepo(prov1),
-			pclient.NewRepo(prov2),
-		},
-	})
-	require.NoError(t, err)
+	require.NoError(t, client.CreateRepo(repo))
+	require.NoError(t, client.CreateBranch(repo, "master", "", []*pfs.Branch{pclient.NewBranch(prov1, "master"), pclient.NewBranch(prov2, "master")}))
+
 	downstream1 := "downstream1"
-	_, err = client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
-		Repo: pclient.NewRepo(downstream1),
-		Provenance: []*pfs.Repo{
-			pclient.NewRepo(repo),
-		},
-	})
-	require.NoError(t, err)
+	require.NoError(t, client.CreateRepo(downstream1))
+	require.NoError(t, client.CreateBranch(downstream1, "master", "", []*pfs.Branch{pclient.NewBranch(repo, "master")}))
+
 	downstream2 := "downstream2"
-	_, err = client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
-		Repo: pclient.NewRepo(downstream2),
-		Provenance: []*pfs.Repo{
-			pclient.NewRepo(repo),
-		},
-	})
-	require.NoError(t, err)
+	require.NoError(t, client.CreateRepo(downstream2))
+	require.NoError(t, client.CreateBranch(downstream2, "master", "", []*pfs.Branch{pclient.NewBranch(repo, "master")}))
 
 	// Without the Update flag it should fail
-	_, err = client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
-		Repo: pclient.NewRepo(repo),
-		Provenance: []*pfs.Repo{
-			pclient.NewRepo(prov2),
-			pclient.NewRepo(prov3),
-		},
-	})
-	require.YesError(t, err)
+	require.YesError(t, client.CreateRepo(repo))
 
-	_, err = client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
-		Repo: pclient.NewRepo(repo),
-		Provenance: []*pfs.Repo{
-			pclient.NewRepo(prov2),
-			pclient.NewRepo(prov3),
-		},
+	_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
+		Repo:   pclient.NewRepo(repo),
 		Update: true,
 	})
 	require.NoError(t, err)
 
-	// Check that the downstream repos have the correct provenance
-	repoInfo, err := client.InspectRepo(repo)
-	require.NoError(t, err)
-	require.ElementsEqualUnderFn(t, []string{prov2, prov3}, repoInfo.Provenance, RepoToName)
-
-	repoInfo, err = client.InspectRepo(downstream1)
-	require.NoError(t, err)
-	require.ElementsEqualUnderFn(t, []string{prov2, prov3, repo}, repoInfo.Provenance, RepoToName)
-
-	repoInfo, err = client.InspectRepo(downstream2)
-	require.NoError(t, err)
-	require.ElementsEqualUnderFn(t, []string{prov2, prov3, repo}, repoInfo.Provenance, RepoToName)
+	require.NoError(t, client.CreateBranch(repo, "master", "", []*pfs.Branch{pclient.NewBranch(prov2, "master"), pclient.NewBranch(prov3, "master")}))
 
 	// We should be able to delete prov1 since it's no longer the provenance
 	// of other repos.
@@ -431,38 +365,6 @@ func TestCreateInvalidBranchName(t *testing.T) {
 	require.YesError(t, err)
 }
 
-func TestListRepoWithProvenance(t *testing.T) {
-	client := getClient(t)
-
-	require.NoError(t, client.CreateRepo("prov1"))
-	require.NoError(t, client.CreateRepo("prov2"))
-	require.NoError(t, client.CreateRepo("prov3"))
-
-	_, err := client.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
-		Repo: pclient.NewRepo("repo"),
-		Provenance: []*pfs.Repo{
-			pclient.NewRepo("prov1"),
-			pclient.NewRepo("prov2"),
-		},
-	})
-	require.NoError(t, err)
-
-	repoInfos, err := client.ListRepo([]string{"prov1"})
-	require.NoError(t, err)
-	require.ElementsEqualUnderFn(t, []string{"repo"}, repoInfos, RepoInfoToName)
-
-	repoInfos, err = client.ListRepo([]string{"prov1", "prov2"})
-	require.NoError(t, err)
-	require.ElementsEqualUnderFn(t, []string{"repo"}, repoInfos, RepoInfoToName)
-
-	repoInfos, err = client.ListRepo([]string{"prov3"})
-	require.NoError(t, err)
-	require.Equal(t, 0, len(repoInfos))
-
-	_, err = client.ListRepo([]string{"nonexistent"})
-	require.YesError(t, err)
-}
-
 func TestDeleteRepo(t *testing.T) {
 	client := getClient(t)
 
@@ -484,7 +386,7 @@ func TestDeleteRepo(t *testing.T) {
 		}
 	}
 
-	repoInfos, err := client.ListRepo(nil)
+	repoInfos, err := client.ListRepo()
 	require.NoError(t, err)
 
 	for _, repoInfo := range repoInfos {
@@ -499,14 +401,8 @@ func TestDeleteProvenanceRepo(t *testing.T) {
 
 	// Create two repos, one as another's provenance
 	require.NoError(t, client.CreateRepo("A"))
-	_, err := client.PfsAPIClient.CreateRepo(
-		context.Background(),
-		&pfs.CreateRepoRequest{
-			Repo:       pclient.NewRepo("B"),
-			Provenance: []*pfs.Repo{pclient.NewRepo("A")},
-		},
-	)
-	require.NoError(t, err)
+	require.NoError(t, client.CreateRepo("B"))
+	require.NoError(t, client.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
 
 	// Delete the provenance repo; that should fail.
 	require.YesError(t, client.DeleteRepo("A", false))
@@ -515,25 +411,19 @@ func TestDeleteProvenanceRepo(t *testing.T) {
 	require.NoError(t, client.DeleteRepo("B", false))
 	require.NoError(t, client.DeleteRepo("A", false))
 
-	repoInfos, err := client.ListRepo(nil)
+	repoInfos, err := client.ListRepo()
 	require.NoError(t, err)
 	require.Equal(t, 0, len(repoInfos))
 
 	// Create two repos again
 	require.NoError(t, client.CreateRepo("A"))
-	_, err = client.PfsAPIClient.CreateRepo(
-		context.Background(),
-		&pfs.CreateRepoRequest{
-			Repo:       pclient.NewRepo("B"),
-			Provenance: []*pfs.Repo{pclient.NewRepo("A")},
-		},
-	)
-	require.NoError(t, err)
+	require.NoError(t, client.CreateRepo("B"))
+	require.NoError(t, client.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
 
 	// Force delete should succeed
 	require.NoError(t, client.DeleteRepo("A", true))
 
-	repoInfos, err = client.ListRepo(nil)
+	repoInfos, err = client.ListRepo()
 	require.NoError(t, err)
 	require.Equal(t, 1, len(repoInfos))
 }
@@ -2018,7 +1908,7 @@ func TestInspectRepoComplex(t *testing.T) {
 
 	require.Equal(t, int(info.SizeBytes), totalSize)
 
-	infos, err := client.ListRepo(nil)
+	infos, err := client.ListRepo()
 	require.NoError(t, err)
 	require.Equal(t, 1, len(infos))
 	info = infos[0]

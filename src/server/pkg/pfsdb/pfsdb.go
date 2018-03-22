@@ -13,7 +13,6 @@ import (
 
 const (
 	reposPrefix          = "/repos"
-	repoRefCountsPrefix  = "/repoRefCounts"
 	putFileRecordsPrefix = "/putFileRecords"
 	commitsPrefix        = "/commits"
 	branchesPrefix       = "/branches"
@@ -30,19 +29,8 @@ func Repos(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 	return col.NewCollection(
 		etcdClient,
 		path.Join(etcdPrefix, reposPrefix),
-		[]col.Index{ProvenanceIndex},
+		nil,
 		&pfs.RepoInfo{},
-		nil,
-	)
-}
-
-// RepoRefCounts returns a collection of repo ref counts
-func RepoRefCounts(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
-	return col.NewCollection(
-		etcdClient,
-		path.Join(etcdPrefix, repoRefCountsPrefix),
-		nil,
-		nil,
 		nil,
 	)
 }
