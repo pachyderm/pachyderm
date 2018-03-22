@@ -1421,7 +1421,7 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 	require.NoError(t, aliceClient.CreateRepo(repoWriter))
 
 	// bob calls ListRepo, but has NONE access to all repos
-	infos, err := bobClient.ListRepo([]string{})
+	infos, err := bobClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
 		require.Equal(t, auth.Scope_NONE, info.AuthInfo.AccessLevel)
@@ -1441,7 +1441,7 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// bob calls ListRepo, now AuthInfo isn't set anywhere
-	infos, err = bobClient.ListRepo([]string{})
+	infos, err = bobClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
 		require.Nil(t, info.AuthInfo)

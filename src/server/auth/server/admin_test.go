@@ -853,14 +853,14 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 	require.NoError(t, aliceClient.CreateRepo(repoWriter))
 
 	// bob calls ListRepo, but has NONE access to all repos
-	infos, err := bobClient.ListRepo([]string{})
+	infos, err := bobClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
 		require.Equal(t, auth.Scope_NONE, info.AuthInfo.AccessLevel)
 	}
 
 	// admin calls ListRepo, and has OWNER access to all repos
-	infos, err = adminClient.ListRepo([]string{})
+	infos, err = adminClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
 		require.Equal(t, auth.Scope_OWNER, info.AuthInfo.AccessLevel)
@@ -1126,11 +1126,11 @@ func TestTokenTTL(t *testing.T) {
 	aliceClient.SetAuthToken(resp.Token)
 
 	// alice's token is valid, but expires quickly
-	repos, err := aliceClient.ListRepo(nil)
+	repos, err := aliceClient.ListRepo()
 	require.NoError(t, err)
 	require.ElementsEqualUnderFn(t, []string{repo}, repos, RepoInfoToName)
 	require.NoError(t, backoff.Retry(func() error {
-		repos, err = aliceClient.ListRepo(nil)
+		repos, err = aliceClient.ListRepo()
 		if err == nil {
 			return errors.New("alice still has access to ListRepo")
 		}
@@ -1163,11 +1163,11 @@ func TestTokenTTLExtend(t *testing.T) {
 	aliceClient.SetAuthToken(resp.Token)
 
 	// alice's token is valid, but expires quickly
-	repos, err := aliceClient.ListRepo(nil)
+	repos, err := aliceClient.ListRepo()
 	require.NoError(t, err)
 	require.ElementsEqualUnderFn(t, []string{repo}, repos, RepoInfoToName)
 	time.Sleep(10 * time.Second)
-	repos, err = aliceClient.ListRepo(nil)
+	repos, err = aliceClient.ListRepo()
 	require.True(t, auth.IsErrBadToken(err), err.Error())
 	require.Equal(t, 0, len(repos))
 
@@ -1180,7 +1180,7 @@ func TestTokenTTLExtend(t *testing.T) {
 	require.NoError(t, err)
 	aliceClient.SetAuthToken(resp.Token)
 	// token is valid
-	repos, err = aliceClient.ListRepo(nil)
+	repos, err = aliceClient.ListRepo()
 	require.NoError(t, err)
 	require.ElementsEqualUnderFn(t, []string{repo}, repos, RepoInfoToName)
 	// admin extends token
@@ -1193,12 +1193,12 @@ func TestTokenTTLExtend(t *testing.T) {
 	// token is still valid after 10 seconds
 	time.Sleep(10 * time.Second)
 	time.Sleep(time.Second)
-	repos, err = aliceClient.ListRepo(nil)
+	repos, err = aliceClient.ListRepo()
 	require.NoError(t, err)
 	require.ElementsEqualUnderFn(t, []string{repo}, repos, RepoInfoToName)
 	// wait longer, now token is expired
 	time.Sleep(10 * time.Second)
-	repos, err = aliceClient.ListRepo(nil)
+	repos, err = aliceClient.ListRepo()
 	require.True(t, auth.IsErrBadToken(err), err.Error())
 	require.Equal(t, 0, len(repos))
 }
@@ -1224,7 +1224,7 @@ func TestTokenRevoke(t *testing.T) {
 	aliceClient.SetAuthToken(resp.Token)
 
 	// alice's token is valid
-	repos, err := aliceClient.ListRepo(nil)
+	repos, err := aliceClient.ListRepo()
 	require.NoError(t, err)
 	require.ElementsEqualUnderFn(t, []string{repo}, repos, RepoInfoToName)
 
@@ -1235,7 +1235,7 @@ func TestTokenRevoke(t *testing.T) {
 	require.NoError(t, err)
 
 	// alice's token is no longer valid
-	repos, err = aliceClient.ListRepo(nil)
+	repos, err = aliceClient.ListRepo()
 	require.True(t, auth.IsErrBadToken(err), err.Error())
 	require.Equal(t, 0, len(repos))
 }
