@@ -32,6 +32,10 @@ message ExtractRequest {
   bool no_pipelines = 4;
 }
 
+message ExtractPipelineRequest {
+  pps.Pipeline pipeline = 1;
+}
+
 message RestoreRequest {
     Op op = 1;
     // URL is an object storage URL, if it's not "" data will be restored from
@@ -45,6 +49,7 @@ message ClusterInfo {
 
 service API {
   rpc Extract(ExtractRequest) returns (stream Op) {}
+  rpc ExtractPipeline(ExtractPipelineRequest) returns (Op) {}
   rpc Restore(stream RestoreRequest) returns (google.protobuf.Empty) {}
   rpc InspectCluster(google.protobuf.Empty) returns (ClusterInfo) {}
 }
