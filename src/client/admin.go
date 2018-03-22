@@ -7,6 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/admin"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
+	"github.com/pachyderm/pachyderm/src/client/pps"
 )
 
 // InspectCluster retrieves cluster state
@@ -73,6 +74,18 @@ func (c APIClient) ExtractURL(url string) error {
 		return err
 	}
 	return nil
+}
+
+// ExtractPipeline extracts a single pipeline.
+func (c APIClient) ExtractPipeline(pipelineName string) (*pps.CreatePipelineRequest, error) {
+	op, err := c.AdminAPIClient.ExtractPipeline(c.Ctx(), &admin.ExtractPipelineRequest{Pipeline: NewPipeline(pipelineName)})
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	if op.Op1_7 == nil || op.Op1_7.Pipeline == nil {
+		return nil, fmt.Errorf("malformed response is missing pipeline")
+	}
+	return op.Op1_7.Pipeline, nil
 }
 
 // Restore cluster state from an extract series of operations.
