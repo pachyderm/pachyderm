@@ -3,22 +3,15 @@ package cmd
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
-	"os/exec"
 	"path"
 	"strings"
 	"syscall"
 	"text/tabwriter"
 	"time"
-
-	batch "k8s.io/api/batch/v1"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/facebookgo/pidfile"
 	"github.com/fatih/color"
@@ -48,7 +41,7 @@ import (
 const (
 	bashCompletionPath = "/etc/bash_completion.d/pachctl"
 	bashCompletionFunc = `
-__pachctl_get_object() {	
+__pachctl_get_object() {
 	if [[ ${#nouns[@]} -ne $1 ]]; then
 		return
 	fi
@@ -68,7 +61,7 @@ __pachctl_get_commit() {
 	__pachctl_get_object $1 "list-commit $2" 2
 }
 
-__pachctl_get_path() {	
+__pachctl_get_path() {
 	__pachctl_get_object $1 "glob-file $2 $3 \"${words[${#words[@]}-1]}**\"" 1
 }
 
@@ -88,7 +81,7 @@ __pachctl_get_datum() {
 	__pachctl_get_object $1 "list-datum $2" 1
 }
 
-__custom_func() { 
+__custom_func() {
 	case ${last_command} in
 		pachctl_update-repo | pachctl_inspect-repo | pachctl_delete-repo | pachctl_list-commit | pachctl_list-branch)
 			__pachctl_get_repo 0
@@ -258,7 +251,7 @@ This resets the cluster to its initial state.`,
 			}
 			red := color.New(color.FgRed).SprintFunc()
 			var repos, pipelines []string
-			repoInfos, err := client.ListRepo(nil)
+			repoInfos, err := client.ListRepo()
 			if err != nil {
 				return err
 			}
@@ -272,9 +265,13 @@ This resets the cluster to its initial state.`,
 			for _, pi := range pipelineInfos {
 				pipelines = append(pipelines, red(pi.Pipeline.Name))
 			}
-			fmt.Printf("Are you sure you want to delete all ACLs, repos, commits, files, pipelines and jobs? yN\n")
-			fmt.Printf("Repos to delete: %s\n", strings.Join(repos, ", "))
-			fmt.Printf("Pipelines to delete: %s\n", strings.Join(pipelines, ", "))
+			fmt.Printf("Are you sure you want to delete all ACLs, repos, commits, files, pipelines and jobs?\nyN\n")
+			if len(repos) > 0 {
+				fmt.Printf("Repos to delete: %s\n", strings.Join(repos, ", "))
+			}
+			if len(pipelines) > 0 {
+				fmt.Printf("Pipelines to delete: %s\n", strings.Join(pipelines, ", "))
+			}
 			r := bufio.NewReader(os.Stdin)
 			bytes, err := r.ReadBytes('\n')
 			if err != nil {
@@ -290,6 +287,7 @@ This resets the cluster to its initial state.`,
 	var uiPort int
 	var uiWebsocketPort int
 	var kubeCtlFlags string
+	var namespace string
 	portForward := &cobra.Command{
 		Use:   "port-forward",
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
@@ -311,13 +309,15 @@ This resets the cluster to its initial state.`,
 				return err
 			}
 
+			kubeCtlFlags += fmt.Sprintf(" --namespace=%s", namespace)
+
 			var eg errgroup.Group
 
 			eg.Go(func() error {
 				fmt.Println("Forwarding the pachd (Pachyderm daemon) port...")
 				stdin := strings.NewReader(fmt.Sprintf(`
-pod=$(kubectl %v get pod -l app=pachd | awk '{if (NR!=1) { print $1; exit 0 }}')
-kubectl %v port-forward "$pod" %d:650
+pod=$(kubectl %s get pod -l app=pachd  --output='jsonpath={.items[0].metadata.name}')
+kubectl %s port-forward "$pod" %d:650
 `, kubeCtlFlags, kubeCtlFlags, port))
 				if err := cmdutil.RunIO(cmdutil.IO{
 					Stdin:  stdin,
@@ -331,8 +331,8 @@ kubectl %v port-forward "$pod" %d:650
 
 			eg.Go(func() error {
 				stdin := strings.NewReader(fmt.Sprintf(`
-pod=$(kubectl %v get pod -l app=dash | awk '{if (NR!=1) { print $1; exit 0 }}')
-kubectl %v port-forward "$pod" %d:8080
+pod=$(kubectl %s get pod -l app=dash --output='jsonpath={.items[0].metadata.name}')
+kubectl %s port-forward "$pod" %d:8080
 `, kubeCtlFlags, kubeCtlFlags, uiPort))
 				if err := cmdutil.RunIO(cmdutil.IO{
 					Stdin: stdin,
@@ -345,7 +345,7 @@ kubectl %v port-forward "$pod" %d:8080
 			eg.Go(func() error {
 				fmt.Printf("Forwarding the dash (Pachyderm dashboard) UI port to http://localhost:%v ...\n", uiPort)
 				stdin := strings.NewReader(fmt.Sprintf(`
-pod=$(kubectl %v get pod -l app=dash | awk '{if (NR!=1) { print $1; exit 0 }}')
+pod=$(kubectl %v get pod -l app=dash --output='jsonpath={.items[0].metadata.name}')
 kubectl %v port-forward "$pod" %d:8081
 `, kubeCtlFlags, kubeCtlFlags, uiWebsocketPort))
 				if err := cmdutil.RunIO(cmdutil.IO{
@@ -366,6 +366,7 @@ kubectl %v port-forward "$pod" %d:8081
 	portForward.Flags().IntVarP(&uiPort, "ui-port", "u", 30080, "The local port to bind to.")
 	portForward.Flags().IntVarP(&uiWebsocketPort, "proxy-port", "x", 30081, "The local port to bind to.")
 	portForward.Flags().StringVarP(&kubeCtlFlags, "kubectlflags", "k", "", "Any kubectl flags to proxy, e.g. --kubectlflags='--kubeconfig /some/path/kubeconfig'")
+	portForward.Flags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace Pachyderm is deployed in.")
 
 	garbageCollect := &cobra.Command{
 		Use:   "garbage-collect",
@@ -387,108 +388,6 @@ Currently "pachctl garbage-collect" can only be started when there are no active
 			return client.GarbageCollect()
 		}),
 	}
-
-	var from, to, namespace string
-	migrate := &cobra.Command{
-		Use:   "migrate",
-		Short: "Migrate the internal state of Pachyderm from one version to another.",
-		Long: `Migrate the internal state of Pachyderm from one version to
-another.  Note that most of the time updating Pachyderm doesn't
-require a migration.  Refer to the docs for your specific version
-to find out if it requires a migration.
-
-It's highly recommended that you only run migrations when there are no
-activities in your cluster, e.g. no jobs should be running.
-
-The migration command takes the general form:
-
-$ pachctl migrate --from <FROM_VERSION> --to <TO_VERSION>
-
-If "--from" is not provided, pachctl will attempt to discover the current
-version of the cluster.  If "--to" is not provided, pachctl will use the
-version of pachctl itself.
-
-Example:
-
-# Migrate Pachyderm from 1.4.8 to 1.5.0
-$ pachctl migrate --from 1.4.8 --to 1.5.0
-`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			// If `from` is not provided, we use the cluster version.
-			if from == "" {
-				cfg, err := config.Read()
-				if err != nil {
-					log.Warningf("error loading user config from ~/.pachderm/config: %v", err)
-				}
-				pachdAddress := client.GetAddressFromUserMachine(cfg)
-				versionClient, err := getVersionAPIClient(pachdAddress)
-				if err != nil {
-					return err
-				}
-				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-				defer cancel()
-				clusterVersion, err := versionClient.GetVersion(ctx, &types.Empty{})
-				if err != nil {
-					return fmt.Errorf("unable to discover cluster version; please provide the --from flag.  Error: %v", err)
-				}
-				from = version.PrettyPrintVersionNoAdditional(clusterVersion)
-			}
-
-			// if `to` is not provided, we use the version of pachctl itself.
-			if to == "" {
-				to = version.PrettyPrintVersionNoAdditional(version.Version)
-			}
-
-			jobSpec := batch.Job{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "Job",
-					APIVersion: "batch/v1",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "pach-migration",
-					Labels: map[string]string{
-						"suite": "pachyderm",
-					},
-				},
-				Spec: batch.JobSpec{
-					Template: v1.PodTemplateSpec{
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
-								{
-									Name:    "migration",
-									Image:   fmt.Sprintf("pachyderm/pachd:%v", version.PrettyPrintVersion(version.Version)),
-									Command: []string{"/pachd", fmt.Sprintf("--migrate=%v-%v", from, to)},
-								},
-							},
-							RestartPolicy: "OnFailure",
-						},
-					},
-				},
-			}
-
-			tmpFile, err := ioutil.TempFile("", "")
-			if err != nil {
-				return err
-			}
-			defer os.Remove(tmpFile.Name())
-
-			encoder := json.NewEncoder(tmpFile)
-			encoder.Encode(jobSpec)
-			tmpFile.Close()
-
-			cmd := exec.Command("kubectl", "create", "--validate=false", "-f", tmpFile.Name())
-			out, err := cmd.CombinedOutput()
-			fmt.Println(string(out))
-			if err != nil {
-				return err
-			}
-			fmt.Println("Successfully launched migration.  To see the progress, use `kubectl logs job/pach-migration`")
-			return nil
-		}),
-	}
-	migrate.Flags().StringVar(&from, "from", "", "The current version of the cluster.  If not specified, pachctl will attempt to discover the version of the cluster.")
-	migrate.Flags().StringVar(&to, "to", "", "The version of Pachyderm to migrate to.  If not specified, pachctl will use its own version.")
-	migrate.Flags().StringVar(&namespace, "namespace", "default", "The kubernetes namespace under which Pachyderm is deployed.")
 
 	completion := &cobra.Command{
 		Use:   "completion",
@@ -519,7 +418,6 @@ $ pachctl migrate --from 1.4.8 --to 1.5.0
 	rootCmd.AddCommand(deleteAll)
 	rootCmd.AddCommand(portForward)
 	rootCmd.AddCommand(garbageCollect)
-	rootCmd.AddCommand(migrate)
 	rootCmd.AddCommand(completion)
 	return rootCmd, nil
 }

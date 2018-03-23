@@ -30,7 +30,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfspretty "github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -38,6 +37,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
@@ -1818,7 +1818,7 @@ func TestDeleteAll(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(collectCommitInfos(t, commitIter)))
 	require.NoError(t, c.DeleteAll())
-	repoInfos, err := c.ListRepo(nil)
+	repoInfos, err := c.ListRepo()
 	require.NoError(t, err)
 	require.Equal(t, 0, len(repoInfos))
 	pipelineInfos, err := c.ListPipeline()
@@ -4162,6 +4162,55 @@ func TestIncrementalOneFile(t *testing.T) {
 	require.Equal(t, "foo\nbar\n", buf.String())
 }
 
+func TestIncrementalFailure(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestIncrementalFailure_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	pipeline := tu.UniqueString("TestIncrementalFailure")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					fmt.Sprintf("cp /pfs/%s/file /pfs/out/file", dataRepo),
+				},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input:       client.NewAtomInput(dataRepo, "/"),
+			Incremental: true,
+		})
+	require.NoError(t, err)
+	_, err = c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, "master"))
+	require.NoError(t, err)
+
+	_, err = c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, "master", "/file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, "master"))
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(pipeline, "master", "file", 0, 0, &buf))
+	require.Equal(t, "foo\n", buf.String())
+}
+
 func TestGarbageCollection(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -4883,81 +4932,149 @@ func TestCronPipeline(t *testing.T) {
 
 	c := getPachClient(t)
 	defer require.NoError(t, c.DeleteAll())
-	pipeline1 := tu.UniqueString("cron1-")
-	require.NoError(t, c.CreatePipeline(
-		pipeline1,
-		"",
-		[]string{"cp", "/pfs/time/time", "/pfs/out/time"},
-		nil,
-		nil,
-		client.NewCronInput("time", "@every 20s"),
-		"",
-		false,
-	))
-	pipeline2 := tu.UniqueString("cron2-")
-	require.NoError(t, c.CreatePipeline(
-		pipeline2,
-		"",
-		[]string{"cp", fmt.Sprintf("/pfs/%s/time", pipeline1), "/pfs/out/time"},
-		nil,
-		nil,
-		client.NewAtomInput(pipeline1, "/*"),
-		"",
-		false,
-	))
+	t.Run("SimpleCron", func(t *testing.T) {
+		pipeline1 := tu.UniqueString("cron1-")
+		require.NoError(t, c.CreatePipeline(
+			pipeline1,
+			"",
+			[]string{"cp", "/pfs/time/time", "/pfs/out/time"},
+			nil,
+			nil,
+			client.NewCronInput("time", "@every 20s"),
+			"",
+			false,
+		))
+		pipeline2 := tu.UniqueString("cron2-")
+		require.NoError(t, c.CreatePipeline(
+			pipeline2,
+			"",
+			[]string{"cp", fmt.Sprintf("/pfs/%s/time", pipeline1), "/pfs/out/time"},
+			nil,
+			nil,
+			client.NewAtomInput(pipeline1, "/*"),
+			"",
+			false,
+		))
 
-	// subscribe to the pipeline1 cron repo and wait for inputs
-	repo := fmt.Sprintf("%s_%s", pipeline1, "time")
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
-	defer cancel() //cleanup resources
-	iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED)
-	require.NoError(t, err)
-	commitInfo, err := iter.Next()
-	require.NoError(t, err)
+		// subscribe to the pipeline1 cron repo and wait for inputs
+		repo := fmt.Sprintf("%s_%s", pipeline1, "time")
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
+		defer cancel() //cleanup resources
+		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED)
+		require.NoError(t, err)
+		commitInfo, err := iter.Next()
+		require.NoError(t, err)
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commitInfo.Commit}, nil)
-	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 2, len(commitInfos))
+		commitIter, err := c.FlushCommit([]*pfs.Commit{commitInfo.Commit}, nil)
+		require.NoError(t, err)
+		commitInfos := collectCommitInfos(t, commitIter)
+		require.Equal(t, 2, len(commitInfos))
+	})
 
 	// Create a non-cron input repo, and test a pipeline with a cross of cron and
 	// non-cron inputs
-	dataRepo := tu.UniqueString("TestCronPipeline_data")
-	require.NoError(t, c.CreateRepo(dataRepo))
-	pipeline3 := tu.UniqueString("cron3-")
-	require.NoError(t, c.CreatePipeline(
-		pipeline3,
-		"",
-		[]string{"bash"},
-		[]string{
-			"cp /pfs/time/time /pfs/out/time",
-			fmt.Sprintf("cp /pfs/%s/file /pfs/out/file", dataRepo),
-		},
-		nil,
-		client.NewCrossInput(
-			client.NewCronInput("time", "@every 20s"),
-			client.NewAtomInput(dataRepo, "/"),
-		),
-		"",
-		false,
-	))
-	dataCommit, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("file"))
-	require.NoError(t, c.FinishCommit(dataRepo, "master"))
+	t.Run("CronAtomCross", func(t *testing.T) {
+		dataRepo := tu.UniqueString("TestCronPipeline_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
+		pipeline3 := tu.UniqueString("cron3-")
+		require.NoError(t, c.CreatePipeline(
+			pipeline3,
+			"",
+			[]string{"bash"},
+			[]string{
+				"cp /pfs/time/time /pfs/out/time",
+				fmt.Sprintf("cp /pfs/%s/file /pfs/out/file", dataRepo),
+			},
+			nil,
+			client.NewCrossInput(
+				client.NewCronInput("time", "@every 20s"),
+				client.NewAtomInput(dataRepo, "/"),
+			),
+			"",
+			false,
+		))
+		dataCommit, err := c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("file"))
+		require.NoError(t, c.FinishCommit(dataRepo, "master"))
 
-	repo = fmt.Sprintf("%s_%s", pipeline3, "time")
-	ctx, cancel = context.WithTimeout(context.Background(), time.Second*30)
-	defer cancel() //cleanup resources
-	iter, err = c.WithCtx(ctx).SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED)
-	require.NoError(t, err)
-	commitInfo, err = iter.Next()
-	require.NoError(t, err)
+		repo := fmt.Sprintf("%s_%s", pipeline3, "time")
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+		defer cancel() //cleanup resources
+		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED)
+		require.NoError(t, err)
+		commitInfo, err := iter.Next()
+		require.NoError(t, err)
 
-	commitIter, err = c.FlushCommit([]*pfs.Commit{dataCommit, commitInfo.Commit}, nil)
-	require.NoError(t, err)
-	commitInfos = collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
+		commitIter, err := c.FlushCommit([]*pfs.Commit{dataCommit, commitInfo.Commit}, nil)
+		require.NoError(t, err)
+		commitInfos := collectCommitInfos(t, commitIter)
+		require.Equal(t, 1, len(commitInfos))
+	})
+
+	t.Run("CronIncremental", func(t *testing.T) {
+		pipeline := tu.UniqueString("CronIncremental-")
+		req := &pps.CreatePipelineRequest{
+			Pipeline: &pps.Pipeline{Name: pipeline},
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					"cat /pfs/time/time >> /pfs/out/time",
+					"echo \"\" >> /pfs/out/time",
+				},
+			},
+			Input:       client.NewCronInput("time", "@every 10s"),
+			Incremental: true,
+		}
+		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
+		require.NoError(t, err)
+
+		// subscribe to the pipeline1 cron repo and wait for inputs
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
+		defer cancel() //cleanup resources
+		iter, err := c.WithCtx(ctx).SubscribeCommit(pipeline, "master", "")
+		require.NoError(t, err)
+		for i := 0; i < 5; i++ {
+			commitInfo, err := iter.Next()
+			require.NoError(t, err)
+			_, err = c.BlockCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
+			require.NoError(t, err)
+			var buf bytes.Buffer
+			require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "time", 0, 0, &buf))
+			require.Equal(t, i+2, len(strings.Split(buf.String(), "\n")))
+		}
+	})
+
+	t.Run("CronIncrementalFailures", func(t *testing.T) {
+		pipeline := tu.UniqueString("CronIncremental-")
+		req := &pps.CreatePipelineRequest{
+			Pipeline: &pps.Pipeline{Name: pipeline},
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					"FLIP=$(($(($RANDOM%10))%2))",
+					"if [ $FLIP -eq 0 ]; then exit 1; fi",
+					"cat /pfs/time/time >> /pfs/out/time",
+					"echo \"\" >> /pfs/out/time",
+				},
+			},
+			Input:       client.NewCronInput("time", "@every 10s"),
+			Incremental: true,
+		}
+		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
+		require.NoError(t, err)
+
+		// subscribe to the pipeline1 cron repo and wait for inputs
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
+		defer cancel() //cleanup resources
+		iter, err := c.WithCtx(ctx).SubscribeCommit(pipeline, "master", "")
+		require.NoError(t, err)
+		for i := 0; i < 5; i++ {
+			commitInfo, err := iter.Next()
+			require.NoError(t, err)
+			_, err = c.BlockCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
+		}
+	})
 }
 
 func TestSelfReferentialPipeline(t *testing.T) {
@@ -5718,7 +5835,7 @@ func TestPipelineWithGitInputPrivateGHRepo(t *testing.T) {
 		false,
 	))
 	// There should be a pachyderm repo created w no commits:
-	repos, err := c.ListRepo(nil)
+	repos, err := c.ListRepo()
 	require.NoError(t, err)
 	found := false
 	for _, repo := range repos {
@@ -6079,7 +6196,7 @@ func TestPipelineWithGitInputMultiPipelineSeparateInputs(t *testing.T) {
 			false,
 		))
 		// There should be a pachyderm repo created w no commits:
-		repos, err := c.ListRepo(nil)
+		repos, err := c.ListRepo()
 		require.NoError(t, err)
 		found := false
 		for _, repo := range repos {
@@ -6155,7 +6272,7 @@ func TestPipelineWithGitInputMultiPipelineSameInput(t *testing.T) {
 			false,
 		))
 		// There should be a pachyderm repo created w no commits:
-		repos, err := c.ListRepo(nil)
+		repos, err := c.ListRepo()
 		require.NoError(t, err)
 		found := false
 		for _, repo := range repos {

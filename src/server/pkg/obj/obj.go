@@ -14,7 +14,7 @@ import (
 
 	"github.com/cenkalti/backoff"
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )

@@ -86,7 +86,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 	}
 	var repos []*pfs.Repo
 	if !request.NoRepos {
-		ris, err := pachClient.ListRepo(nil)
+		ris, err := pachClient.ListRepo()
 		if err != nil {
 			return err
 		}
@@ -104,7 +104,6 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			if err := handleOp(&admin.Op{Op1_7: &admin.Op1_7{
 				Repo: &pfs.CreateRepoRequest{
 					Repo:        ri.Repo,
-					Provenance:  ri.Provenance,
 					Description: ri.Description,
 				}},
 			}); err != nil {
@@ -120,29 +119,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		}
 		pis = sortPipelineInfos(pis)
 		for _, pi := range pis {
-			if err := handleOp(&admin.Op{Op1_7: &admin.Op1_7{
-				Pipeline: &pps.CreatePipelineRequest{
-					Pipeline:           pi.Pipeline,
-					Transform:          pi.Transform,
-					ParallelismSpec:    pi.ParallelismSpec,
-					Egress:             pi.Egress,
-					OutputBranch:       pi.OutputBranch,
-					ScaleDownThreshold: pi.ScaleDownThreshold,
-					ResourceRequests:   pi.ResourceRequests,
-					ResourceLimits:     pi.ResourceLimits,
-					Input:              pi.Input,
-					Description:        pi.Description,
-					Incremental:        pi.Incremental,
-					CacheSize:          pi.CacheSize,
-					EnableStats:        pi.EnableStats,
-					Batch:              pi.Batch,
-					MaxQueueSize:       pi.MaxQueueSize,
-					Service:            pi.Service,
-					ChunkSpec:          pi.ChunkSpec,
-					DatumTimeout:       pi.DatumTimeout,
-					JobTimeout:         pi.JobTimeout,
-					Salt:               pi.Salt,
-				}}}); err != nil {
+			if err := handleOp(&admin.Op{Op1_7: &admin.Op1_7{Pipeline: pipelineInfoToRequest(pi)}}); err != nil {
 				return err
 			}
 		}
@@ -175,6 +152,18 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		}
 	}
 	return nil
+}
+
+func (a *apiServer) ExtractPipeline(ctx context.Context, request *admin.ExtractPipelineRequest) (response *admin.Op, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	pachClient := a.getPachClient()
+	pachClient = pachClient.WithCtx(ctx)
+	pi, err := pachClient.InspectPipeline(request.Pipeline.Name)
+	if err != nil {
+		return nil, err
+	}
+	return &admin.Op{Op1_7: &admin.Op1_7{Pipeline: pipelineInfoToRequest(pi)}}, nil
 }
 
 func buildCommitRequests(cis []*pfs.CommitInfo, bis []*pfs.BranchInfo) []*pfs.BuildCommitRequest {
@@ -256,6 +245,31 @@ func sortPipelineInfos(pis []*pps.PipelineInfo) []*pps.PipelineInfo {
 		add(pi.Pipeline.Name)
 	}
 	return result
+}
+
+func pipelineInfoToRequest(pi *pps.PipelineInfo) *pps.CreatePipelineRequest {
+	return &pps.CreatePipelineRequest{
+		Pipeline:           pi.Pipeline,
+		Transform:          pi.Transform,
+		ParallelismSpec:    pi.ParallelismSpec,
+		Egress:             pi.Egress,
+		OutputBranch:       pi.OutputBranch,
+		ScaleDownThreshold: pi.ScaleDownThreshold,
+		ResourceRequests:   pi.ResourceRequests,
+		ResourceLimits:     pi.ResourceLimits,
+		Input:              pi.Input,
+		Description:        pi.Description,
+		Incremental:        pi.Incremental,
+		CacheSize:          pi.CacheSize,
+		EnableStats:        pi.EnableStats,
+		Batch:              pi.Batch,
+		MaxQueueSize:       pi.MaxQueueSize,
+		Service:            pi.Service,
+		ChunkSpec:          pi.ChunkSpec,
+		DatumTimeout:       pi.DatumTimeout,
+		JobTimeout:         pi.JobTimeout,
+		Salt:               pi.Salt,
+	}
 }
 
 func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error) {

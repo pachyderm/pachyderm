@@ -166,6 +166,7 @@ func (a *APIServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 		// File not found, this happens the first time the pipeline is run
 		tstamp = in.Cron.Start
 	} else {
+		tstamp = &types.Timestamp{}
 		if err := jsonpb.UnmarshalString(buffer.String(), tstamp); err != nil {
 			return err
 		}

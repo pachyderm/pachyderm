@@ -1,15 +1,30 @@
 package uuid
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/satori/go.uuid"
 )
 
 // New returns a new uuid.
 func New() string {
-	return uuid.NewV4().String()
+	var result string
+	backoff.RetryNotify(func() error {
+		uuid, err := uuid.NewV4()
+		if err != nil {
+			return err
+		}
+		result = uuid.String()
+		return nil
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		fmt.Printf("error from uuid.NewV4: %v", err)
+		return nil
+	})
+	return result
 }
 
 // NewWithoutDashes returns a new uuid without no "-".

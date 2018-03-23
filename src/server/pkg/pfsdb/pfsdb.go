@@ -7,13 +7,12 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/uuid"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
 const (
 	reposPrefix          = "/repos"
-	repoRefCountsPrefix  = "/repoRefCounts"
 	putFileRecordsPrefix = "/putFileRecords"
 	commitsPrefix        = "/commits"
 	branchesPrefix       = "/branches"
@@ -30,19 +29,8 @@ func Repos(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 	return col.NewCollection(
 		etcdClient,
 		path.Join(etcdPrefix, reposPrefix),
-		[]col.Index{ProvenanceIndex},
+		nil,
 		&pfs.RepoInfo{},
-		nil,
-	)
-}
-
-// RepoRefCounts returns a collection of repo ref counts
-func RepoRefCounts(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
-	return col.NewCollection(
-		etcdClient,
-		path.Join(etcdPrefix, repoRefCountsPrefix),
-		nil,
-		nil,
 		nil,
 	)
 }

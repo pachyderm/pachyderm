@@ -35,10 +35,14 @@ func TSProtoOrDie(t *testing.T, ts time.Time) *types.Timestamp {
 	return proto
 }
 
-// helper function that prepends GitHubPrefix to 'user'--useful for validating
+// helper function that prepends auth.GitHubPrefix to 'user'--useful for validating
 // responses
 func gh(user string) string {
-	return GitHubPrefix + user
+	return auth.GitHubPrefix + user
+}
+
+func pl(pipeline string) string {
+	return auth.PipelinePrefix + pipeline
 }
 
 // TestActivate tests the Activate API (in particular, verifying
@@ -61,7 +65,7 @@ func TestActivate(t *testing.T) {
 		resp, err := adminClient.Authenticate(adminClient.Ctx(),
 			&auth.AuthenticateRequest{GitHubToken: "admin"})
 		if err != nil {
-			if auth.IsNotActivatedError(err) {
+			if auth.IsErrNotActivated(err) {
 				return nil
 			}
 			return err
@@ -380,7 +384,7 @@ func TestPreActivationPipelinesRunAsAdmin(t *testing.T) {
 	// Wait for auth to be deactivated
 	require.NoError(t, backoff.Retry(func() error {
 		_, err := aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
-		if err != nil && auth.IsNotActivatedError(err) {
+		if err != nil && auth.IsErrNotActivated(err) {
 			return nil // WhoAmI should fail when auth is deactivated
 		}
 		return errors.New("auth is not yet deactivated")
@@ -643,7 +647,9 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 		false, // no update
 	))
 	require.OneOfEquals(t, pipeline, PipelineNames(t, aliceClient))
-	require.Equal(t, entries(alice, "owner"), GetACL(t, aliceClient, pipeline)) // check that alice owns the output repo too
+	// check that alice owns the output repo too,
+	require.ElementsEqual(t,
+		entries(alice, "owner", pl(pipeline), "writer"), GetACL(t, aliceClient, pipeline))
 
 	// Make sure alice's pipeline runs successfully
 	commit, err := aliceClient.StartCommit(repo, "master")
@@ -847,14 +853,14 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 	require.NoError(t, aliceClient.CreateRepo(repoWriter))
 
 	// bob calls ListRepo, but has NONE access to all repos
-	infos, err := bobClient.ListRepo([]string{})
+	infos, err := bobClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
 		require.Equal(t, auth.Scope_NONE, info.AuthInfo.AccessLevel)
 	}
 
 	// admin calls ListRepo, and has OWNER access to all repos
-	infos, err = adminClient.ListRepo([]string{})
+	infos, err = adminClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
 		require.Equal(t, auth.Scope_OWNER, info.AuthInfo.AccessLevel)
@@ -871,7 +877,7 @@ func TestGetAuthToken(t *testing.T) {
 	adminClient := getPachClient(t, admin)
 
 	// Generate two auth credentials, and give them to two separate clients
-	robotUser := RobotPrefix + tu.UniqueString("optimus_prime")
+	robotUser := auth.RobotPrefix + tu.UniqueString("optimus_prime")
 	resp, err := adminClient.GetAuthToken(adminClient.Ctx(),
 		&auth.GetAuthTokenRequest{Subject: robotUser})
 	require.NoError(t, err)
@@ -907,7 +913,8 @@ func TestGetAuthToken(t *testing.T) {
 	))
 	require.OneOfEquals(t, pipeline, PipelineNames(t, robotClient1))
 	// check that robotUser owns the output repo
-	require.Equal(t, entries(robotUser, "owner"), GetACL(t, robotClient1, pipeline))
+	require.ElementsEqual(t,
+		entries(robotUser, "owner", pl(pipeline), "writer"), GetACL(t, robotClient1, pipeline))
 
 	// Make sure that robotClient2 can commit to the input repo and flush their
 	// input commit
@@ -960,7 +967,7 @@ func TestRobotUserWhoAmI(t *testing.T) {
 	adminClient := getPachClient(t, admin)
 
 	// Generate a robot user auth credential, and create a client for that user
-	robotUser := RobotPrefix + tu.UniqueString("r2d2")
+	robotUser := auth.RobotPrefix + tu.UniqueString("r2d2")
 	resp, err := adminClient.GetAuthToken(adminClient.Ctx(),
 		&auth.GetAuthTokenRequest{Subject: robotUser})
 	require.NoError(t, err)
@@ -971,7 +978,7 @@ func TestRobotUserWhoAmI(t *testing.T) {
 	whoAmIResp, err := robotClient.WhoAmI(robotClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, robotUser, whoAmIResp.Username)
-	require.True(t, strings.HasPrefix(whoAmIResp.Username, RobotPrefix))
+	require.True(t, strings.HasPrefix(whoAmIResp.Username, auth.RobotPrefix))
 	require.False(t, whoAmIResp.IsAdmin)
 }
 
@@ -985,7 +992,7 @@ func TestRobotUserACL(t *testing.T) {
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
 	// Generate a robot user auth credential, and create a client for that user
-	robotUser := RobotPrefix + tu.UniqueString("voltron")
+	robotUser := auth.RobotPrefix + tu.UniqueString("voltron")
 	resp, err := adminClient.GetAuthToken(adminClient.Ctx(),
 		&auth.GetAuthTokenRequest{Subject: robotUser})
 	require.NoError(t, err)
@@ -1000,7 +1007,7 @@ func TestRobotUserACL(t *testing.T) {
 	robotClient.SetScope(robotClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     repo,
 		Scope:    auth.Scope_WRITER,
-		Username: GitHubPrefix + alice,
+		Username: auth.GitHubPrefix + alice,
 	})
 	require.ElementsEqual(t,
 		entries(alice, "writer", robotUser, "owner"), GetACL(t, robotClient, repo))
@@ -1042,7 +1049,7 @@ func TestRobotUserAdmin(t *testing.T) {
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
 
 	// Generate a robot user auth credential, and create a client for that user
-	robotUser := RobotPrefix + tu.UniqueString("bender")
+	robotUser := auth.RobotPrefix + tu.UniqueString("bender")
 	resp, err := adminClient.GetAuthToken(adminClient.Ctx(),
 		&auth.GetAuthTokenRequest{Subject: robotUser})
 	require.NoError(t, err)
@@ -1063,7 +1070,7 @@ func TestRobotUserAdmin(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// robotUser mints a token for robotUser2
-	robotUser2 := RobotPrefix + tu.UniqueString("robocop")
+	robotUser2 := auth.RobotPrefix + tu.UniqueString("robocop")
 	resp, err = robotClient.GetAuthToken(robotClient.Ctx(), &auth.GetAuthTokenRequest{
 		Subject: robotUser2,
 	})
@@ -1119,15 +1126,15 @@ func TestTokenTTL(t *testing.T) {
 	aliceClient.SetAuthToken(resp.Token)
 
 	// alice's token is valid, but expires quickly
-	repos, err := aliceClient.ListRepo(nil)
+	repos, err := aliceClient.ListRepo()
 	require.NoError(t, err)
 	require.ElementsEqualUnderFn(t, []string{repo}, repos, RepoInfoToName)
 	require.NoError(t, backoff.Retry(func() error {
-		repos, err = aliceClient.ListRepo(nil)
+		repos, err = aliceClient.ListRepo()
 		if err == nil {
 			return errors.New("alice still has access to ListRepo")
 		}
-		require.True(t, auth.IsBadTokenError(err), err.Error())
+		require.True(t, auth.IsErrBadToken(err), err.Error())
 		require.Equal(t, 0, len(repos))
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -1156,12 +1163,12 @@ func TestTokenTTLExtend(t *testing.T) {
 	aliceClient.SetAuthToken(resp.Token)
 
 	// alice's token is valid, but expires quickly
-	repos, err := aliceClient.ListRepo(nil)
+	repos, err := aliceClient.ListRepo()
 	require.NoError(t, err)
 	require.ElementsEqualUnderFn(t, []string{repo}, repos, RepoInfoToName)
 	time.Sleep(10 * time.Second)
-	repos, err = aliceClient.ListRepo(nil)
-	require.True(t, auth.IsBadTokenError(err), err.Error())
+	repos, err = aliceClient.ListRepo()
+	require.True(t, auth.IsErrBadToken(err), err.Error())
 	require.Equal(t, 0, len(repos))
 
 	// admin gives alice another token but extends it. Now it doesn't expire after
@@ -1173,7 +1180,7 @@ func TestTokenTTLExtend(t *testing.T) {
 	require.NoError(t, err)
 	aliceClient.SetAuthToken(resp.Token)
 	// token is valid
-	repos, err = aliceClient.ListRepo(nil)
+	repos, err = aliceClient.ListRepo()
 	require.NoError(t, err)
 	require.ElementsEqualUnderFn(t, []string{repo}, repos, RepoInfoToName)
 	// admin extends token
@@ -1186,13 +1193,13 @@ func TestTokenTTLExtend(t *testing.T) {
 	// token is still valid after 10 seconds
 	time.Sleep(10 * time.Second)
 	time.Sleep(time.Second)
-	repos, err = aliceClient.ListRepo(nil)
+	repos, err = aliceClient.ListRepo()
 	require.NoError(t, err)
 	require.ElementsEqualUnderFn(t, []string{repo}, repos, RepoInfoToName)
 	// wait longer, now token is expired
 	time.Sleep(10 * time.Second)
-	repos, err = aliceClient.ListRepo(nil)
-	require.True(t, auth.IsBadTokenError(err), err.Error())
+	repos, err = aliceClient.ListRepo()
+	require.True(t, auth.IsErrBadToken(err), err.Error())
 	require.Equal(t, 0, len(repos))
 }
 
@@ -1217,7 +1224,7 @@ func TestTokenRevoke(t *testing.T) {
 	aliceClient.SetAuthToken(resp.Token)
 
 	// alice's token is valid
-	repos, err := aliceClient.ListRepo(nil)
+	repos, err := aliceClient.ListRepo()
 	require.NoError(t, err)
 	require.ElementsEqualUnderFn(t, []string{repo}, repos, RepoInfoToName)
 
@@ -1228,8 +1235,8 @@ func TestTokenRevoke(t *testing.T) {
 	require.NoError(t, err)
 
 	// alice's token is no longer valid
-	repos, err = aliceClient.ListRepo(nil)
-	require.True(t, auth.IsBadTokenError(err), err.Error())
+	repos, err = aliceClient.ListRepo()
+	require.True(t, auth.IsErrBadToken(err), err.Error())
 	require.Equal(t, 0, len(repos))
 }
 
@@ -1244,7 +1251,7 @@ func TestGetAuthTokenErrorNonAdminUser(t *testing.T) {
 	alice := tu.UniqueString("alice")
 	aliceClient := getPachClient(t, alice)
 	resp, err := aliceClient.GetAuthToken(aliceClient.Ctx(), &auth.GetAuthTokenRequest{
-		Subject: RobotPrefix + tu.UniqueString("terminator"),
+		Subject: auth.RobotPrefix + tu.UniqueString("terminator"),
 	})
 	require.Nil(t, resp)
 	require.YesError(t, err)

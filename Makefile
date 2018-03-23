@@ -117,7 +117,7 @@ release-pachctl-custom:
 
 release-pachctl:
 	@# Run pachctl release script w deploy branch name
-	@VERSION="$$(shell cat VERSION)" ./etc/build/release_pachctl master
+	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachctl master
 
 release-helper: check-docker-version release-version release-pachd release-worker
 

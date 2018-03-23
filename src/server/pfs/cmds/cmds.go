@@ -126,7 +126,6 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 	}
 	rawFlag(inspectRepo)
 
-	var listRepoProvenance cmdutil.RepeatedStringArg
 	listRepo := &cobra.Command{
 		Use:   "list-repo",
 		Short: "Return all repos.",
@@ -136,7 +135,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 			if err != nil {
 				return err
 			}
-			repoInfos, err := c.ListRepo(listRepoProvenance)
+			repoInfos, err := c.ListRepo()
 			if err != nil {
 				return err
 			}
@@ -158,7 +157,6 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 			return writer.Flush()
 		}),
 	}
-	listRepo.Flags().VarP(&listRepoProvenance, "provenance", "p", "list only repos with the specified repos provenance")
 	rawFlag(listRepo)
 
 	var force bool
