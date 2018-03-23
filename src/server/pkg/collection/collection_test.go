@@ -3,6 +3,7 @@ package collection
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -406,6 +407,36 @@ func TestTTLExtend(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.True(t, actualTTL > TTL && actualTTL < LongerTTL, "actualTTL was %v", actualTTL)
+}
+
+func TestPagination(t *testing.T) {
+	etcdClient := getEtcdClient()
+	uuidPrefix := uuid.NewWithoutDashes()
+	col := NewCollection(etcdClient, uuidPrefix, nil, &types.Empty{}, nil)
+	numVals := 1000
+	for i := 0; i < numVals; i++ {
+		_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
+			for j := 0; j < 7; j++ {
+				i++
+				if i >= numVals {
+					break
+				}
+				if err := col.ReadWrite(stm).Put(fmt.Sprintf("%d", i), &types.Empty{}); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		require.NoError(t, err)
+	}
+	ro := col.ReadOnly(context.Background())
+	val := &types.Empty{}
+	i := numVals - 1
+	require.NoError(t, ro.ListF(val, func(key string) error {
+		require.Equal(t, fmt.Sprintf("%d", i), key)
+		i--
+		return nil
+	}))
 }
 
 var etcdClient *etcd.Client

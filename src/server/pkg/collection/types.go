@@ -99,6 +99,7 @@ type ReadonlyCollection interface {
 	// GetBlock is like Get but waits for the key to exist if it doesn't already.
 	GetBlock(key string, val proto.Message) error
 	List() (Iterator, error)
+	ListF(val proto.Message, f func(key string) error) error
 	ListPaginated() (Iterator, error)
 	ListPrefix(prefix string) (Iterator, error)
 	Count() (int64, error)
