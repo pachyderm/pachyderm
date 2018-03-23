@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"path"
 	"strings"
 	"sync"
@@ -102,7 +101,7 @@ func getPachClient(t testing.TB, subject string) *client.APIClient {
 
 	// Check if seed client exists -- if not, create it
 	if seedClient == nil {
-		seeClient := tu.GetPachClient(t)
+		seedClient = tu.GetPachClient(t)
 		// discard any credentials from the user's machine (seedClient is
 		// anonymous)
 		seedClient = seedClient.WithCtx(context.Background())

@@ -1,6 +1,8 @@
 package testutil
 
 import (
+	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -47,13 +49,12 @@ func GetPachClient(tb testing.TB) *client.APIClient {
 // variables, caches it, and then returns it in this and subsequent calls
 func GetEtcdAddress() string {
 	etcdAddressOnce.Do(func() {
-		var err error
 		if val, ok := os.LookupEnv("ETCD_PORT_2379_TCP_ADDR"); ok {
 			etcdAddress = val + ":2379"
 		} else if val, ok := os.LookupEnv("ADDRESS"); ok {
 			idx := strings.LastIndex(val, ":")
 			if idx < 0 {
-				panic("ADDRESS does not contain \":\": %s", val)
+				panic(fmt.Sprintf("ADDRESS does not contain \":\": %s", val))
 			}
 			etcdAddress = val[:idx] + ":32379"
 		} else {
