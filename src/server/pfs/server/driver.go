@@ -1599,7 +1599,6 @@ func (d *driver) createBranch(pachClient *client.APIClient, branch *pfs.Branch, 
 			}
 		}
 
-		var oldDirectProvenance []*pfs.Branch
 		// Retrieve (and create, if necessary) the current version of this branch
 		branches := d.branches(branch.Repo.Name).ReadWrite(stm)
 		branchInfo := &pfs.BranchInfo{}
@@ -1607,7 +1606,6 @@ func (d *driver) createBranch(pachClient *client.APIClient, branch *pfs.Branch, 
 			branchInfo.Name = branch.Name // set in case 'branch' is new
 			branchInfo.Branch = branch
 			branchInfo.Head = commit
-			oldDirectProvenance = branchInfo.DirectProvenance
 			branchInfo.DirectProvenance = nil
 			for _, provBranch := range provenance {
 				add(&branchInfo.DirectProvenance, provBranch)
