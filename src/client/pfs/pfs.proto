@@ -54,11 +54,12 @@ message Tag {
 
 // RepoInfo is the main data structure representing a Repo in etcd
 message RepoInfo {
+  reserved 4;
   Repo repo = 1;
   google.protobuf.Timestamp created = 2;
   uint64 size_bytes = 3;
-  repeated Repo provenance = 4;
   string description = 5;
+  repeated Branch branches = 7;
 
   // Set by ListRepo and InspectRepo if Pachyderm's auth system is active, but
   // not stored in etcd. To set a user's auth scope for a repo, use the
@@ -157,8 +158,8 @@ message ObjectInfo {
 // PFS API
 
 message CreateRepoRequest {
+  reserved 2;
   Repo repo = 1;
-  repeated Repo provenance = 2;
   string description = 3;
   bool update = 4;
 }
@@ -168,7 +169,7 @@ message InspectRepoRequest {
 }
 
 message ListRepoRequest {
-  repeated Repo provenance = 1;
+  reserved 1;
 }
 
 message ListRepoResponse {
@@ -257,6 +258,7 @@ message ListBranchRequest {
 
 message DeleteBranchRequest {
   Branch branch = 1;
+  bool force = 2;
 }
 
 message DeleteCommitRequest {

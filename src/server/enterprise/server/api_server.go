@@ -10,6 +10,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -63,6 +64,22 @@ type apiServer struct {
 	// enterpriseToken is a collection containing at most one Pachyderm enterprise
 	// token
 	enterpriseToken col.Collection
+
+	// pachyderm client (calls DeleteAll() in Deactivate()
+	pachdAddress   string
+	pachClient     *client.APIClient
+	pachClientOnce sync.Once // protects initialization
+}
+
+func (a *apiServer) getPachClient() *client.APIClient {
+	a.pachClientOnce.Do(func() {
+		var err error
+		a.pachClient, err = client.NewFromAddress(a.pachdAddress)
+		if err != nil {
+			panic(fmt.Sprintf("enterprise API failed to initialize pach client: %v", err))
+		}
+	})
+	return a.pachClient
 }
 
 func (a *apiServer) LogReq(request interface{}) {
@@ -70,7 +87,7 @@ func (a *apiServer) LogReq(request interface{}) {
 }
 
 // NewEnterpriseServer returns an implementation of ec.APIServer.
-func NewEnterpriseServer(etcdAddress string, etcdPrefix string) (ec.APIServer, error) {
+func NewEnterpriseServer(pachdAddress, etcdAddress string, etcdPrefix string) (ec.APIServer, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   []string{etcdAddress},
 		DialOptions: client.EtcdDialOptions(),
@@ -80,8 +97,9 @@ func NewEnterpriseServer(etcdAddress string, etcdPrefix string) (ec.APIServer, e
 	}
 
 	s := &apiServer{
-		pachLogger: log.NewLogger("enterprise.API"),
-		etcdClient: etcdClient,
+		pachLogger:   log.NewLogger("enterprise.API"),
+		etcdClient:   etcdClient,
+		pachdAddress: pachdAddress,
 		enterpriseToken: col.NewCollection(
 			etcdClient,
 			etcdPrefix, // only one collection--no extra prefix needed
@@ -240,6 +258,18 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 	}); err != nil {
 		return nil, err
 	}
+
+	// Wait until watcher observes the write
+	if err := backoff.Retry(func() error {
+		if t := a.enterpriseExpiration.Load().(time.Time); t.IsZero() {
+			return fmt.Errorf("enterprise not activated")
+		}
+		return nil
+	}, backoff.RetryEvery(time.Second)); err != nil {
+		return nil, err
+	}
+	time.Sleep(time.Second) // give other pachd nodes time to observe the write
+
 	return &ec.ActivateResponse{
 		Info: &ec.TokenInfo{
 			Expires: expirationProto,
@@ -274,4 +304,38 @@ func (a *apiServer) GetState(ctx context.Context, req *ec.GetStateRequest) (resp
 		resp.State = ec.State_ACTIVE
 	}
 	return resp, nil
+}
+
+// Deactivate deletes the current cluster's enterprise token, and puts the
+// cluster in the "NONE" enterprise state. It also deletes all data in the
+// cluster, to avoid invalid cluster states. This call only makes sense for
+// testing
+func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (resp *ec.DeactivateResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	pachClient := a.getPachClient().WithCtx(ctx)
+	if err := pachClient.DeleteAll(); err != nil {
+		return nil, fmt.Errorf("could not delete all pachyderm data: %v", err)
+	}
+
+	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		// blind delete
+		return a.enterpriseToken.ReadWrite(stm).Delete(enterpriseTokenKey)
+	}); err != nil {
+		return nil, err
+	}
+
+	// Wait until watcher observes the write
+	if err := backoff.Retry(func() error {
+		if t := a.enterpriseExpiration.Load().(time.Time); !t.IsZero() {
+			return fmt.Errorf("enterprise still activated")
+		}
+		return nil
+	}, backoff.RetryEvery(time.Second)); err != nil {
+		return nil, err
+	}
+	time.Sleep(time.Second) // give other pachd nodes time to observe the write
+
+	return &ec.DeactivateResponse{}, nil
 }

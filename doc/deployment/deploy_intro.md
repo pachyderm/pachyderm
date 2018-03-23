@@ -1,6 +1,6 @@
 # Overview
 
-Pachyderm runs on [Kubernetes](http://kubernetes.io/) and is backed by an object store of your choice.  As such, Pachyderm can run on any platform that supports Kubernetes and an object store. These docs cover the following commonly used deployments:
+Pachyderm runs on [Kubernetes](http://kubernetes.io/) and is backed by an object store of your choice.  As such, Pachyderm can run on any platform that supports Kubernetes and an object store. These following docs cover common deployments and related topics:
 
 * [Google Cloud Platform](http://pachyderm.readthedocs.io/en/stable/deployment/google_cloud_platform.html)
 * [Amazon Web Services](http://pachyderm.readthedocs.io/en/stable/deployment/amazon_web_services.html)
@@ -9,6 +9,9 @@ Pachyderm runs on [Kubernetes](http://kubernetes.io/) and is backed by an object
 * [On Premises](http://pachyderm.readthedocs.io/en/stable/deployment/on_premises.html)
 * [Custom Object Stores](http://pachyderm.readthedocs.io/en/stable/deployment/custom_object_stores.html)
 * [Migrations](http://pachyderm.readthedocs.io/en/stable/deployment/migrations.html)
+* [Upgrading Pachyderm Versions](upgrading.html)
+* [Non-Default Namespaces](namespaces.html)
+* [RBAC](rbac.html)
 
 ## Usage Metrics
 
