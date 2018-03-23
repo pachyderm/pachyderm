@@ -1,15 +1,14 @@
-## ./pachctl delete-all
+## ./pachctl extract-pipeline
 
-Delete everything.
+Return the manifest used to create a pipeline.
 
 ### Synopsis
 
 
-Delete all repos, commits, files, pipelines and jobs.
-This resets the cluster to its initial state.
+Return the manifest used to create a pipeline.
 
 ```
-./pachctl delete-all
+./pachctl extract-pipeline pipeline-name
 ```
 
 ### Options inherited from parent commands
