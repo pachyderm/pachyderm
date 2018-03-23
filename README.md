@@ -20,7 +20,7 @@ for a way to "productionize" them, Pachyderm can make this easy for you.
   languages or libraries your pipeline needs, they can run on Pachyderm which
   can easily be deployed on any cloud provider or on prem.
 - Version Control: Pachyderm version controls your data as it's processed. You
-  can always ask the system how data has change, see a diff, and, if something
+  can always ask the system how data has changed, see a diff, and, if something
   doesn't look right, revert.
 - Provenance (aka data lineage): Pachyderm tracks where data comes from. Pachyderm keeps track of all the code and  data that created a result.
 - Parallelization: Pachyderm can efficiently schedule massively parallel
