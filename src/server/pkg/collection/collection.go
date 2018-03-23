@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -516,6 +517,40 @@ func (c *readonlyCollection) List() (Iterator, error) {
 		resp: resp,
 		col:  c,
 	}, nil
+}
+
+// ListF returns objects sorted by CreateRevision, i.e. the order in which they
+// were created. f will be called with each key, val will contain the
+// corresponding value. Val is not an argument to f because that would require
+// f to perform a cast before it could be used. You can break out of iteration by return errutil.ErrBreak.
+func (c *readonlyCollection) ListF(val proto.Message, f func(string) error) error {
+	if err := watch.CheckType(c.template, val); err != nil {
+		return err
+	}
+	resp, err := c.etcdClient.Get(c.ctx, c.prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByCreateRevision, etcd.SortDescend), etcd.WithLimit(10))
+	if err != nil {
+		return err
+	}
+	for {
+		for _, kv := range resp.Kvs {
+			if err := proto.Unmarshal(kv.Value, val); err != nil {
+				return err
+			}
+			if err := f(strings.TrimPrefix(string(kv.Key), c.prefix)); err != nil {
+				if err == errutil.ErrBreak {
+					return nil
+				}
+				return err
+			}
+		}
+		resp, err = c.etcdClient.Get(c.ctx, c.prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByCreateRevision, etcd.SortDescend), etcd.WithLimit(10), etcd.WithMaxCreateRev(resp.Kvs[len(resp.Kvs)-1].CreateRevision-1))
+		if err != nil {
+			return err
+		}
+		if len(resp.Kvs) == 0 {
+			return nil
+		}
+	}
 }
 
 // ListPaginated returns an iterator that can be used to iterate over the collection.
