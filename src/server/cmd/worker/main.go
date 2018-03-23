@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/pachrpc"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/worker"
 	"google.golang.org/grpc"
@@ -27,9 +28,6 @@ import (
 type appEnv struct {
 	// Address of etcd, so that worker can write its own IP there for discoverh
 	EtcdAddress string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
-
-	// Address for connecting to pachd (so this can download input data)
-	PachdAddress string `env:"PACHD_PORT_650_TCP_ADDR,required"`
 
 	// Prefix in etcd for all pachd-related records
 	PPSPrefix string `env:"PPS_ETCD_PREFIX,required"`
@@ -86,14 +84,11 @@ func do(appEnvObj interface{}) error {
 	go func() {
 		log.Println(http.ListenAndServe(":651", nil))
 	}()
-
 	appEnv := appEnvObj.(*appEnv)
 
 	// Construct a client that connects to the sidecar.
-	pachClient, err := client.NewFromAddress("localhost:650")
-	if err != nil {
-		return fmt.Errorf("error constructing pachClient: %v", err)
-	}
+	pachrpc.InitPachRPC("localhost:650")
+	pachClient := pachrpc.GetPachClient(context.Background())
 
 	// Get etcd client, so we can register our IP (so pachd can discover us)
 	etcdClient, err := etcd.New(etcd.Config{
