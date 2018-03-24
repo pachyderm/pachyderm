@@ -5032,7 +5032,7 @@ func TestCronPipeline(t *testing.T) {
 		// subscribe to the pipeline1 cron repo and wait for inputs
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 		defer cancel() //cleanup resources
-		iter, err := c.WithCtx(ctx).SubscribeCommit(pipeline, "master", "")
+		iter, err := c.WithCtx(ctx).SubscribeCommit(pipeline, "master", "", pfs.CommitState_STARTED)
 		require.NoError(t, err)
 		for i := 0; i < 5; i++ {
 			commitInfo, err := iter.Next()
@@ -5067,7 +5067,7 @@ func TestCronPipeline(t *testing.T) {
 		// subscribe to the pipeline1 cron repo and wait for inputs
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 		defer cancel() //cleanup resources
-		iter, err := c.WithCtx(ctx).SubscribeCommit(pipeline, "master", "")
+		iter, err := c.WithCtx(ctx).SubscribeCommit(pipeline, "master", "", pfs.CommitState_STARTED)
 		require.NoError(t, err)
 		for i := 0; i < 5; i++ {
 			commitInfo, err := iter.Next()
