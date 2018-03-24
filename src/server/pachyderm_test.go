@@ -1368,8 +1368,8 @@ func TestPipelineState(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
-			return fmt.Errorf("no running pipeline")
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_STANDBY {
+			return fmt.Errorf("pipeline should be in standby, not: %s", pipelineInfo.State.String())
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -1383,7 +1383,7 @@ func TestPipelineState(t *testing.T) {
 			return err
 		}
 		if pipelineInfo.State != pps.PipelineState_PIPELINE_PAUSED {
-			return fmt.Errorf("pipeline never paused, even though StopPipeline() was called")
+			return fmt.Errorf("pipeline never paused, even though StopPipeline() was called, state: %s", pipelineInfo.State.String())
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -1396,8 +1396,8 @@ func TestPipelineState(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
-			return fmt.Errorf("pipeline never started, even though StartPipeline() was called")
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_STANDBY {
+			return fmt.Errorf("pipeline never restarted, even though StartPipeline() was called, state: %s", pipelineInfo.State.String())
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
