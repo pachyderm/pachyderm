@@ -5,16 +5,16 @@
 - Implements a new algorithm for triggering jobs in response to new commits.
 - Pachyderm now tracks subvenance, the inverse of provenance.
 - Branches now track provenance and subvenance.
-- Restrictions on delete-commit have been removed, you can now delete any commit and the DAG will repair itself appropriately.
+- Restrictions on delete-commit have been removed, you can now delete any input commit and the DAG will repair itself appropriately.
 - Pachyderm workers no longer use long running grpc requests to schedule work, they use an etcd based queue instead. This solves a number of bugs we had with larger jobs.
-- You can now backup and restore you cluster with extract and restore.
+- You can now backup and restore your cluster with extract and restore.
 - Pipelines now support timeouts, both for the job as a whole or for individual datums.
 - You can now follow jobs logs with -f.
 - Support for Kubernetes RBAC.
 - Docker images with entrypoints can now be run, you do this by not specifying a cmd.
 - Pachctl now has bash completion, including for values stored within it. (pachctl completion to install it)
 - pachctl deploy now has a --namespace flag to deploy to a specific namespace.
-- You can non longer commit directly to output repos, this would cause a number of problems with the internal model that were tough to recover from.
+- You can no longer commit directly to output repos, this would cause a number of problems with the internal model that were tough to recover from.
 
 ## 1.6.10
 
