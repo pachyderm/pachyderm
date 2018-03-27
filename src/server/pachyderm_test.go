@@ -2909,6 +2909,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: 4,
 			},
+			NoStandby: true,
 		})
 	require.NoError(t, err)
 
