@@ -120,7 +120,7 @@ $ pachctl version --client-only
 Now we're ready to deploy Pachyderm itself.  This can be done in one command:
 
 ```sh
-$ pachctl deploy google ${BUCKET_NAME} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --no-rbac
+$ pachctl deploy google ${BUCKET_NAME} ${STORAGE_SIZE} --dynamic-etcd-nodes=1
 serviceaccount "pachyderm" created
 storageclass "etcd-storage-class" created
 service "etcd-headless" created
