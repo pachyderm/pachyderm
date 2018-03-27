@@ -358,6 +358,7 @@ message PipelineInfo {
   google.protobuf.Duration job_timeout = 34;
   string githook_url = 35 [(gogoproto.customname) = "GithookURL"];
   pfs.Commit spec_commit = 36;
+  bool no_standby = 37;
 }
 
 message PipelineInfos {
@@ -519,6 +520,7 @@ message CreatePipelineRequest {
   google.protobuf.Duration datum_timeout = 24;
   google.protobuf.Duration job_timeout = 25;
   string salt = 26;
+  bool no_standby = 27;
 }
 
 message InspectPipelineRequest {
