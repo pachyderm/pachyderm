@@ -3409,6 +3409,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 					Glob:   "/*",
 				},
 			},
+			NoStandby: true,
 		})
 	require.NoError(t, err)
 
@@ -3480,6 +3481,7 @@ func TestPipelineResourceLimit(t *testing.T) {
 					Glob:   "/*",
 				},
 			},
+			NoStandby: true,
 		})
 	require.NoError(t, err)
 
@@ -3547,6 +3549,7 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 					Glob:   "/*",
 				},
 			},
+			NoStandby: true,
 		})
 	require.NoError(t, err)
 
@@ -3607,6 +3610,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 					Glob:   "/*",
 				},
 			},
+			NoStandby: true,
 		})
 	require.NoError(t, err)
 	_, err = c.PpsAPIClient.CreatePipeline(
@@ -3626,6 +3630,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 					Glob:   "/*",
 				},
 			},
+			NoStandby: true,
 		})
 	require.NoError(t, err)
 	_, err = c.PpsAPIClient.CreatePipeline(
@@ -3643,6 +3648,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 					Glob:   "/*",
 				},
 			},
+			NoStandby: true,
 		})
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
