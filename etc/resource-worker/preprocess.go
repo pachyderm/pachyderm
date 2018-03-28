@@ -50,12 +50,12 @@ func main() {
 
 	// Parse the command line arguments.
 	args := os.Args
-	if len(args) != 3 {
-		log.Fatalf("Expected two arguments, input and output yaml file, got %d", len(args)-1)
+	if len(args) != 4 {
+		log.Fatalf("Expected two arguments, input/output yaml file & pfs dir, got %d", len(args)-1)
 	}
 
 	// Pre-process the provided manifest.
-	tfJob, err := preprocessManifest(args[1])
+	tfJob, err := preprocessManifest(args)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -68,12 +68,12 @@ func main() {
 }
 
 // preprocessManifest pre-processing an input YAML manifest.
-func preprocessManifest(filename string) (*TFJob, error) {
+func preprocessManifest(args []string) (*TFJob, error) {
 
 	// Decode the YAML file.
 	var tfJob TFJob
 
-	f, err := ioutil.ReadFile(filename)
+	f, err := ioutil.ReadFile(args[1])
 	if err != nil {
 		return nil, err
 	}
@@ -82,10 +82,13 @@ func preprocessManifest(filename string) (*TFJob, error) {
 		return nil, err
 	}
 
+	// Output the job name to stdout.
+	fmt.Printf("%s", tfJob.Metadata.Name)
+
 	// TODO further mod the manifest (sidecars, etc.)
 
 	// Add input repos as environmental vars.
-	if err := addInputRepos(&tfJob); err != nil {
+	if err := addInputRepos(&tfJob, args[3]); err != nil {
 		return nil, err
 	}
 
@@ -94,20 +97,19 @@ func preprocessManifest(filename string) (*TFJob, error) {
 
 // addInputRepos adds the PFS input repos to the TFJob manifest
 // as environmental variables.
-func addInputRepos(tfJob *TFJob) error {
+func addInputRepos(tfJob *TFJob, pfsDir string) error {
 
 	// Collect input repo names.
 	var repos []string
 
 	// Walk over the repos in PFS.
-	if err := filepath.Walk("/pfs", func(path string, info os.FileInfo, err error) error {
-		fmt.Println(info.Name())
+	if err := filepath.Walk(pfsDir, func(path string, info os.FileInfo, err error) error {
 
 		// Process any directory under /pfs.
 		if info.IsDir() {
 
 			// Skip if it's the output repo.
-			if info.Name() == "out" {
+			if info.Name() == "out" || info.Name() == "pfs" {
 				return nil
 			}
 
@@ -131,9 +133,9 @@ func addInputRepos(tfJob *TFJob) error {
 		Name:  reposEnvVar,
 		Value: reposJoined,
 	}
-	for _, replica := range tfJob.Spec.ReplicaSpecs {
-		for _, container := range replica.Template.Spec.Containers {
-			container.Envs = append(container.Envs, reposJoinedEnv)
+	for repID, replica := range tfJob.Spec.ReplicaSpecs {
+		for conID, container := range replica.Template.Spec.Containers {
+			tfJob.Spec.ReplicaSpecs[repID].Template.Spec.Containers[conID].Envs = append(container.Envs, reposJoinedEnv)
 		}
 	}
 
