@@ -233,7 +233,7 @@ func ClusterRoleBinding(opts *AssetOpts) *rbacv1.ClusterRoleBinding {
 		Subjects: []rbacv1.Subject{{
 			Kind:      "ServiceAccount",
 			Name:      ServiceAccountName,
-			Namespace: "default",
+			Namespace: opts.Namespace,
 		}},
 		RoleRef: rbacv1.RoleRef{
 			Kind: "ClusterRole",
