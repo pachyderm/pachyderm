@@ -48,7 +48,7 @@ fi
 
 set -e
 echo "--- Cross compiling pachctl for linux/mac and uploading binaries to github"
-make VERSION=$VERSION goxc-release
+make VERSION=$VERSION VERSION_ADDITIONAL=$VERSION_ADDITIONAL goxc-release
 
 echo "--- Updating homebrew formula to use binaries at version $VERSION"
 
