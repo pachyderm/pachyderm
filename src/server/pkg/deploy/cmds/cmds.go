@@ -404,7 +404,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 				EtcdNodes:               etcdNodes,
 				EtcdVolume:              etcdVolume,
 				DashOnly:                dashOnly,
-				NoDash:					 noDash,
+				NoDash:                  noDash,
 				DashImage:               dashImage,
 				Registry:                registry,
 				NoGuaranteed:            noGuaranteed,
@@ -426,7 +426,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", "", "Image URL for pachyderm dashboard")
 	deploy.PersistentFlags().BoolVar(&noGuaranteed, "no-guaranteed", false, "Don't use guaranteed QoS for etcd and pachd deployments. Turning this on (turning guaranteed QoS off) can lead to more stable local clusters (such as a on Minikube), it should normally be used for production clusters.")
 	deploy.PersistentFlags().BoolVar(&noRBAC, "no-rbac", false, "Don't deploy RBAC roles for Pachyderm.")
-	deploy.PersistentFlags().StringVar(&namespace, "namespace", "", "Kubernetes namespace to deploy Pachyderm to.")
+	deploy.PersistentFlags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace to deploy Pachyderm to.")
 
 	deploy.AddCommand(
 		deployLocal,
