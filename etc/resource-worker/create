@@ -1,0 +1,41 @@
+#!/bin/ash
+
+# output manifest file
+OUTPUT_MANIFEST=/pfs/out/tfjob_deployed.yaml
+
+# command line arguments
+POSITIONAL=()
+while [[ $# -gt 0 ]]
+do
+key="$1"
+
+case $key in
+    -f|--file)
+    INPUT_MANIFEST="$2"
+    shift # past argument
+    shift # past value
+    ;;
+esac
+done
+set -- "${POSITIONAL[@]}" 
+
+# proxy kubernetes API
+kubectl proxy &
+sleep 1
+
+# pre-process the input manifest
+JOBNAME=$(./preprocess $INPUT_MANIFEST $OUTPUT_MANIFEST)
+
+# launch TFJob
+kubectl create -f $OUTPUT_MANIFEST --server=http://127.0.0.1:8001
+
+# monitor the TFJob until it finishes
+until [ "$( kubectl get jobs --selector job_type=MASTER,tf_job_name=$JOBNAME --field-selector status.successful=0 --server=http://127.0.0.1:8001 2>&1)" == "No resources found." ];
+do
+	echo "Waiting for TFJob to finish..."
+        sleep 60
+done 
+
+# clean up
+kubectl delete tfjob $JOBNAME --server=http://127.0.0.1:8001
+kill %1
