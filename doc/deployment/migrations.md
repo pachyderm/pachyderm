@@ -14,7 +14,7 @@ functionality. All you need to do is upgrade Pachyderm (with `pachctl
 deploy`) as further described [here](upgrading.html).
 Generally, you will need to:
 
-1. Have version 1.6.9 or later of Pachyderm up and running in Kubernetes.
+1. Have version 1.6.10 or later of Pachyderm up and running in Kubernetes.
 2. (Optional, but recommended) Create a backup of your cluster state with
    `pachctl extract` (see [below](#backups)).
 3. Upgrade `pachctl` (see [here](upgrading.html) for more details).
@@ -46,10 +46,10 @@ further usage.
 
 1.7 is the first Pachyderm version to support `extract` and `restore` which are
 necessary for migration. To bridge the gap to previous Pachyderm versions,
-we've made a final 1.6 release, 1.6.9 which backports the `extract` and
-`restore` functionality to the 1.6 series of releases. 1.6.9 requires no
-migration from 1.6.8. You can simply `pachctl undeploy` and then `pachctl
-deploy` after upgrading `pachctl` to version 1.6.9. After 1.6.9 is deployed you
+we've made a final 1.6 release, 1.6.10, which backports the `extract` and
+`restore` functionality to the 1.6 series of releases. 1.6.10 requires no
+migration from other 1.6.x versions. You can simply `pachctl undeploy` and then `pachctl
+deploy` after upgrading `pachctl` to version 1.6.10. After 1.6.10 is deployed you
 should make a backup using `pachctl extract` and then upgrade `pachctl` again,
 to 1.7.0. Finally you can `pachctl deploy ... ` with `pachctl` 1.7.0 to trigger
 the migration.

@@ -88,7 +88,7 @@ check-docker-version:
 
 point-release:
 	@make VERSION_ADDITIONAL= release-helper
-	@make release-pachctl
+	@make VERSION_ADDITIONAL= release-pachctl
 	@make doc
 	@rm VERSION
 	@echo "Release completed"
