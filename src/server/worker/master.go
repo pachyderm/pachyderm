@@ -15,7 +15,6 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/montanaflynn/stats"
-	"github.com/robfig/cron"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -151,131 +150,64 @@ func (a *APIServer) serviceMaster() {
 	})
 }
 
-// makeCronCommits makes commits to a single cron input's repo. It's
-// a helper function called by jobSpawner
-func (a *APIServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input) error {
-	schedule, err := cron.ParseStandard(in.Cron.Spec)
-	if err != nil {
-		return err // Shouldn't happen, as the input is validated in CreatePipeline
-	}
-	var tstamp *types.Timestamp
-	var buffer bytes.Buffer
-	if err := pachClient.GetFile(in.Cron.Repo, "master", "time", 0, 0, &buffer); err != nil && !isNilBranchErr(err) {
-		return err
-	} else if err != nil {
-		// File not found, this happens the first time the pipeline is run
-		tstamp = in.Cron.Start
-	} else {
-		tstamp = &types.Timestamp{}
-		if err := jsonpb.UnmarshalString(buffer.String(), tstamp); err != nil {
-			return err
-		}
-	}
-	t, err := types.TimestampFromProto(tstamp)
-	if err != nil {
-		return err
-	}
-	for {
-		t = schedule.Next(t)
-		time.Sleep(time.Until(t))
-		if _, err := pachClient.StartCommit(in.Cron.Repo, "master"); err != nil {
-			return err
-		}
-		timestamp, err := types.TimestampProto(t)
-		if err != nil {
-			return err
-		}
-		timeString, err := (&jsonpb.Marshaler{}).MarshalToString(timestamp)
-		if err != nil {
-			return err
-		}
-		if err := pachClient.DeleteFile(in.Cron.Repo, "master", "time"); err != nil {
-			return err
-		}
-		if _, err := pachClient.PutFile(in.Cron.Repo, "master", "time", strings.NewReader(timeString)); err != nil {
-			return err
-		}
-		if err := pachClient.FinishCommit(in.Cron.Repo, "master"); err != nil {
-			return err
-		}
-	}
-}
-
 func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 	logger := a.getMasterLogger()
-	var eg errgroup.Group
-
-	// Spawn one goroutine per cron input, each of which commits to its cron repo
-	// per its spec
-	pps.VisitInput(a.pipelineInfo.Input, func(in *pps.Input) {
-		if in.Cron != nil {
-			eg.Go(func() error {
-				return a.makeCronCommits(pachClient, in)
-			})
-		}
-	})
-
-	// Spawn a goroutine to listen for new commits, and create jobs when they
-	// arrive
-	eg.Go(func() error {
-		commitIter, err := pachClient.SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "", pfs.CommitState_READY)
+	// Listen for new commits, and create jobs when they arrive
+	commitIter, err := pachClient.SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "", pfs.CommitState_READY)
+	if err != nil {
+		return err
+	}
+	defer commitIter.Close()
+	for {
+		commitInfo, err := commitIter.Next()
 		if err != nil {
 			return err
 		}
-		defer commitIter.Close()
-		for {
-			commitInfo, err := commitIter.Next()
+		if commitInfo.Finished != nil {
+			continue
+		}
+		// Inspect the commit and check again if it has been finished (it may have
+		// been closed since it was queued, e.g. by StopPipeline or StopJob)
+		commitInfo, err = pachClient.InspectCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
+		if err != nil {
+			return err
+		}
+		if commitInfo.Finished != nil {
+			continue // commit finished after queueing
+		}
+		// Check if a job was previously created for this commit. If not, make one
+		var jobInfo *pps.JobInfo
+		jobInfos, err := pachClient.ListJob("", nil, commitInfo.Commit)
+		if err != nil {
+			return err
+		}
+		if len(jobInfos) > 0 {
+			if len(jobInfos) > 1 {
+				return fmt.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
+			}
+			jobInfo = jobInfos[0]
+		} else {
+			job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
 			if err != nil {
 				return err
 			}
-			if commitInfo.Finished != nil {
-				continue
-			}
-			// Inspect the commit and check again if it has been finished (it may have
-			// been closed since it was queued, e.g. by StopPipeline or StopJob)
-			commitInfo, err = pachClient.InspectCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
+			jobInfo, err = pachClient.InspectJob(job.ID, false)
 			if err != nil {
-				return err
-			}
-			if commitInfo.Finished != nil {
-				continue // commit finished after queueing
-			}
-			// Check if a job was previously created for this commit. If not, make one
-			var jobInfo *pps.JobInfo
-			jobInfos, err := pachClient.ListJob("", nil, commitInfo.Commit)
-			if err != nil {
-				return err
-			}
-			if len(jobInfos) > 0 {
-				if len(jobInfos) > 1 {
-					return fmt.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
-				}
-				jobInfo = jobInfos[0]
-			} else {
-				job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
-				if err != nil {
-					return err
-				}
-				jobInfo, err = pachClient.InspectJob(job.ID, false)
-				if err != nil {
-					return err
-				}
-			}
-			if ppsutil.IsTerminal(jobInfo.State) {
-				// previously-created job has finished, but commit has not been closed yet
-				continue
-			}
-
-			// Now that the jobInfo is persisted, wait until all input commits are
-			// ready, split the input datums into chunks and merge the results of
-			// chunks as they're processed
-			if err := a.waitJob(pachClient, jobInfo, logger); err != nil {
 				return err
 			}
 		}
-	})
+		if ppsutil.IsTerminal(jobInfo.State) {
+			// previously-created job has finished, but commit has not been closed yet
+			continue
+		}
 
-	return eg.Wait() // if anything goes wrong, retry in master()
+		// Now that the jobInfo is persisted, wait until all input commits are
+		// ready, split the input datums into chunks and merge the results of
+		// chunks as they're processed
+		if err := a.waitJob(pachClient, jobInfo, logger); err != nil {
+			return err
+		}
+	}
 }
 
 func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
@@ -1048,12 +980,6 @@ func (a *APIServer) setCachedDatum(hash string) {
 
 func isNotFoundErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "not found")
-}
-
-func isNilBranchErr(err error) bool {
-	return err != nil &&
-		strings.HasPrefix(err.Error(), "the branch \"") &&
-		strings.HasSuffix(err.Error(), "\" is nil")
 }
 
 func now() *types.Timestamp {
