@@ -104,7 +104,7 @@ func get(fs map[string]*NodeProto, path string) (*NodeProto, error) {
 
 	node, ok := fs[path]
 	if !ok {
-		return nil, errorf(PathNotFound, "no node at \"%s\"", path)
+		return nil, errorf(PathNotFound, "file \"%s\" not found", path)
 	}
 	return node, nil
 }
@@ -190,7 +190,7 @@ func walk(fs map[string]*NodeProto, path string, f func(string, *NodeProto) erro
 	if node, ok := fs[path]; ok && node.FileNode != nil {
 		return f(path, node)
 	} else if !ok {
-		return errorf(PathNotFound, "no node at \"%s\"", path)
+		return errorf(PathNotFound, "file \"%s\" not found", path)
 	}
 	for rangePath, node := range fs {
 		if rangePath == "" {
@@ -359,7 +359,7 @@ func (h *hashtree) canonicalize(path string) error {
 	}
 	n, ok := h.fs[path]
 	if !ok {
-		return errorf(Internal, "no node at \"%s\"; cannot canonicalize", path)
+		return errorf(Internal, "file \"%s\" not found; cannot canonicalize", path)
 	}
 
 	// Compute hash of 'n'
@@ -620,7 +620,7 @@ func (h *hashtree) GetOpen(path string) (*OpenNode, error) {
 	path = clean(path)
 	np, ok := h.fs[path]
 	if !ok {
-		return nil, errorf(PathNotFound, "no node at \"%s\"", path)
+		return nil, errorf(PathNotFound, "file \"%s\" not found", path)
 	}
 	return &OpenNode{
 		Name:     np.Name,
