@@ -149,6 +149,7 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (
 			nil,
 			&authclient.TokenInfo{},
 			nil,
+			nil,
 		),
 		acls: col.NewCollection(
 			etcdClient,
@@ -156,12 +157,14 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (
 			nil,
 			&authclient.ACL{},
 			nil,
+			nil,
 		),
 		admins: col.NewCollection(
 			etcdClient,
 			path.Join(etcdPrefix, adminsPrefix),
 			nil,
 			&types.BoolValue{}, // smallest value that etcd actually stores
+			nil,
 			nil,
 		),
 	}
@@ -184,7 +187,7 @@ func (a *apiServer) retrieveOrGeneratePPSToken() {
 	b.MaxInterval = 5 * time.Second
 	if err := backoff.Retry(func() error {
 		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-			superUserTokenCol := col.NewCollection(a.etcdClient, ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil).ReadWrite(stm)
+			superUserTokenCol := col.NewCollection(a.etcdClient, ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil, nil).ReadWrite(stm)
 			err := superUserTokenCol.Get("", &tokenProto)
 			if err == nil {
 				return nil
