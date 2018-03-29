@@ -427,15 +427,6 @@ func notifyCtx(ctx context.Context, name string) func(error, time.Duration) erro
 
 func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) {
 	var eg errgroup.Group
-	ciChan := make(chan *pfs.CommitInfo)
-	eg.Go(func() error {
-		return backoff.RetryNotify(func() error {
-			return pachClient.SubscribeCommitF(pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch, "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
-				ciChan <- ci
-				return nil
-			})
-		}, backoff.NewInfiniteBackOff(), notifyCtx(pachClient.Ctx(), "SubscribeCommit"))
-	})
 	pps.VisitInput(pipelineInfo.Input, func(in *pps.Input) {
 		if in.Cron != nil {
 			eg.Go(func() error {
@@ -445,91 +436,119 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 			})
 		}
 	})
-	eg.Go(func() error {
-		return backoff.RetryNotify(func() error {
-			// standbyChan is used in the select below to figure out if we should
-			// go into standby. If standby is enabled it starts closed, which means
-			// that `case <-standbyChan:` is equivalent to `default:` When we go
-			// into standby it gets set to nil which means `case <-standbyChan` is
-			// equivalent to not having that case When we exit standby we reset it
-			// to a closed channel so that it again behaves like `default:`
-			// If standby is not enabled, it's always nil, so we never go into standby.
-			var standbyChan chan struct{}
-			closedChan := make(chan struct{})
-			close(closedChan)
-			if !pipelineInfo.NoStandby {
+	if pipelineInfo.NoStandby {
+		// NoStandby so simply put it in RUNNING and leave it there.
+		// This is only done with eg.Go so that we can all the errors in the
+		// same way below, it should be a very quick operation so there's no
+		// good reason to do it concurrently.
+		eg.Go(func() error {
+			return backoff.RetryNotify(func() error {
+				_, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
+					pipelines := a.pipelines.ReadWrite(stm)
+					pipelinePtr := &pps.EtcdPipelineInfo{}
+					return pipelines.Update(pipelineInfo.Pipeline.Name, pipelinePtr, func() error {
+						if pipelinePtr.State == pps.PipelineState_PIPELINE_PAUSED {
+							return nil
+						}
+						pipelinePtr.State = pps.PipelineState_PIPELINE_RUNNING
+						return nil
+					})
+				})
+				return err
+			}, backoff.NewInfiniteBackOff(), notifyCtx(pachClient.Ctx(), "set running (NoStandby)"))
+		})
+	} else {
+		ciChan := make(chan *pfs.CommitInfo)
+		eg.Go(func() error {
+			return backoff.RetryNotify(func() error {
+				return pachClient.SubscribeCommitF(pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch, "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+					ciChan <- ci
+					return nil
+				})
+			}, backoff.NewInfiniteBackOff(), notifyCtx(pachClient.Ctx(), "SubscribeCommit"))
+		})
+		eg.Go(func() error {
+			return backoff.RetryNotify(func() error {
+				// standbyChan is used in the select below to figure out if we should
+				// go into standby. If standby is enabled it starts closed, which means
+				// that `case <-standbyChan:` is equivalent to `default:` When we go
+				// into standby it gets set to nil which means `case <-standbyChan` is
+				// equivalent to not having that case When we exit standby we reset it
+				// to a closed channel so that it again behaves like `default:`
+				// If standby is not enabled, it's always nil, so we never go into standby.
+				var standbyChan chan struct{}
+				closedChan := make(chan struct{})
+				close(closedChan)
 				standbyChan = closedChan
-			}
-			for {
-				select {
-				case ci := <-ciChan:
-					if ci.Finished != nil {
-						// The commit has been finished which means the job is
-						// likely complete, however we must check that explicitly
-						// because there's a gap between when the commit gets
-						// finished and the job completes. This gap is normally
-						// small but can be large in the case of eggress.
-						jobInfo, err := pachClient.InspectJobOutputCommit(ci.Commit.Repo.Name, ci.Commit.ID, false)
-						if err != nil {
+				for {
+					select {
+					case ci := <-ciChan:
+						if ci.Finished != nil {
+							// The commit has been finished which means the job is
+							// likely complete, however we must check that explicitly
+							// because there's a gap between when the commit gets
+							// finished and the job completes. This gap is normally
+							// small but can be large in the case of eggress.
+							jobInfo, err := pachClient.InspectJobOutputCommit(ci.Commit.Repo.Name, ci.Commit.ID, false)
+							if err != nil {
+								return err
+							}
+							if ppsutil.IsTerminal(jobInfo.State) {
+								continue
+							}
+						}
+						if _, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
+							pipelines := a.pipelines.ReadWrite(stm)
+							pipelinePtr := &pps.EtcdPipelineInfo{}
+							return pipelines.Update(pipelineInfo.Pipeline.Name, pipelinePtr, func() error {
+								if pipelinePtr.State == pps.PipelineState_PIPELINE_PAUSED {
+									return nil
+								}
+								pipelinePtr.State = pps.PipelineState_PIPELINE_RUNNING
+								return nil
+							})
+						}); err != nil {
 							return err
 						}
-						if ppsutil.IsTerminal(jobInfo.State) {
-							continue
-						}
-					}
-					if _, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
-						pipelines := a.pipelines.ReadWrite(stm)
-						pipelinePtr := &pps.EtcdPipelineInfo{}
-						return pipelines.Update(pipelineInfo.Pipeline.Name, pipelinePtr, func() error {
-							if pipelinePtr.State == pps.PipelineState_PIPELINE_PAUSED {
-								return nil
-							}
-							pipelinePtr.State = pps.PipelineState_PIPELINE_RUNNING
-							return nil
-						})
-					}); err != nil {
-						return err
-					}
-					if !pipelineInfo.NoStandby {
 						standbyChan = closedChan
-					}
-					// Wait for the commit to be finished before blocking on the
-					// job because the job may not exist yet.
-					if _, err := pachClient.BlockCommit(ci.Commit.Repo.Name, ci.Commit.ID); err != nil {
-						return err
-					}
-					if _, err := pachClient.InspectJobOutputCommit(ci.Commit.Repo.Name, ci.Commit.ID, true); err != nil {
-						return err
-					}
-				case <-standbyChan:
-					if _, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
-						pipelines := a.pipelines.ReadWrite(stm)
-						pipelinePtr := &pps.EtcdPipelineInfo{}
-						return pipelines.Update(pipelineInfo.Pipeline.Name, pipelinePtr, func() error {
-							if pipelinePtr.State == pps.PipelineState_PIPELINE_PAUSED {
+						// Wait for the commit to be finished before blocking on the
+						// job because the job may not exist yet.
+						if _, err := pachClient.BlockCommit(ci.Commit.Repo.Name, ci.Commit.ID); err != nil {
+							return err
+						}
+						if _, err := pachClient.InspectJobOutputCommit(ci.Commit.Repo.Name, ci.Commit.ID, true); err != nil {
+							return err
+						}
+					case <-standbyChan:
+						if _, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
+							pipelines := a.pipelines.ReadWrite(stm)
+							pipelinePtr := &pps.EtcdPipelineInfo{}
+							return pipelines.Update(pipelineInfo.Pipeline.Name, pipelinePtr, func() error {
+								if pipelinePtr.State == pps.PipelineState_PIPELINE_PAUSED {
+									return nil
+								}
+								pipelinePtr.State = pps.PipelineState_PIPELINE_STANDBY
 								return nil
-							}
-							pipelinePtr.State = pps.PipelineState_PIPELINE_STANDBY
-							return nil
-						})
-					}); err != nil {
-						return err
+							})
+						}); err != nil {
+							return err
+						}
+						// set standbyChan to nil so we won't enter this case until it's reset
+						standbyChan = nil
 					}
-					// set standbyChan to nil so we won't enter this case until it's reset
-					standbyChan = nil
 				}
-			}
-			return nil
-		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-			select {
-			case <-pachClient.Ctx().Done():
-				return context.DeadlineExceeded
-			default:
-				fmt.Printf("error in monitorPipeline: %v: retrying in: %v\n", err, d)
-			}
-			return nil
+				return nil
+			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+				select {
+				case <-pachClient.Ctx().Done():
+					return context.DeadlineExceeded
+				default:
+					fmt.Printf("error in monitorPipeline: %v: retrying in: %v\n", err, d)
+				}
+				return nil
+			})
 		})
-	})
+	}
 	if err := eg.Wait(); err != nil {
 		fmt.Printf("error in monitorPipeline: %v", err)
 	}
