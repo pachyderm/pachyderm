@@ -507,7 +507,7 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 				return err
 			}
 			repoInfo := &pfs.RepoInfo{}
-			if err := repos.Upsert(parent.Repo.Name, repoInfo, func() error {
+			if err := repos.Update(parent.Repo.Name, repoInfo, func() error {
 				add(&repoInfo.Branches, branchInfo.Branch)
 				return nil
 			}); err != nil {
@@ -1620,7 +1620,7 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 		}
 		repos := d.repos.ReadWrite(stm)
 		repoInfo := &pfs.RepoInfo{}
-		if err := repos.Upsert(branch.Repo.Name, repoInfo, func() error {
+		if err := repos.Update(branch.Repo.Name, repoInfo, func() error {
 			add(&repoInfo.Branches, branch)
 			return nil
 		}); err != nil {
@@ -1670,7 +1670,7 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 				if !has(&branchInfo.Provenance, oldProvBranch) {
 					// Provenance was deleted, so we delete ourselves from their subvenance
 					oldProvBranchInfo := &pfs.BranchInfo{}
-					if err := d.branches(oldProvBranch.Repo.Name).ReadWrite(stm).Upsert(oldProvBranch.Name, oldProvBranchInfo, func() error {
+					if err := d.branches(oldProvBranch.Repo.Name).ReadWrite(stm).Update(oldProvBranch.Name, oldProvBranchInfo, func() error {
 						del(&oldProvBranchInfo.Subvenance, branchInfo.Branch)
 						return nil
 					}); err != nil {
