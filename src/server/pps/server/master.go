@@ -480,7 +480,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 					if _, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
 						pipelines := a.pipelines.ReadWrite(stm)
 						pipelinePtr := &pps.EtcdPipelineInfo{}
-						return pipelines.Upsert(pipelineInfo.Pipeline.Name, pipelinePtr, func() error {
+						return pipelines.Update(pipelineInfo.Pipeline.Name, pipelinePtr, func() error {
 							if pipelinePtr.State == pps.PipelineState_PIPELINE_PAUSED {
 								return nil
 							}
@@ -505,7 +505,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 					if _, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
 						pipelines := a.pipelines.ReadWrite(stm)
 						pipelinePtr := &pps.EtcdPipelineInfo{}
-						return pipelines.Upsert(pipelineInfo.Pipeline.Name, pipelinePtr, func() error {
+						return pipelines.Update(pipelineInfo.Pipeline.Name, pipelinePtr, func() error {
 							if pipelinePtr.State == pps.PipelineState_PIPELINE_PAUSED {
 								return nil
 							}
