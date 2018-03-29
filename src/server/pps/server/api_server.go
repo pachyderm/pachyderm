@@ -1510,7 +1510,7 @@ func (a *apiServer) sudo(pachClient *client.APIClient, f func(*client.APIClient)
 		b.MaxElapsedTime = 60 * time.Second
 		b.MaxInterval = 5 * time.Second
 		if err := backoff.Retry(func() error {
-			superUserTokenCol := col.NewCollection(a.etcdClient, ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil).ReadOnly(pachClient.Ctx())
+			superUserTokenCol := col.NewCollection(a.etcdClient, ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil, nil).ReadOnly(pachClient.Ctx())
 			var result types.StringValue
 			if err := superUserTokenCol.Get("", &result); err != nil {
 				return fmt.Errorf("couldn't get PPS superuser token on startup")
@@ -1533,7 +1533,7 @@ func (a *apiServer) sudo(pachClient *client.APIClient, f func(*client.APIClient)
 // with 'pipelineInfo' in SpecRepo (in PFS). It's called in both the case where
 // a user is updating a pipeline and the case where a user is creating a new
 // pipeline.
-func (a *apiServer) makePipelineInfoCommit(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, update bool) (*pfs.Commit, error) {
+func (a *apiServer) makePipelineInfoCommit(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, update bool) (result *pfs.Commit, retErr error) {
 	pipelineName := pipelineInfo.Pipeline.Name
 	var commit *pfs.Commit
 	if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
@@ -2636,8 +2636,7 @@ func (a *apiServer) updatePipelineState(pachClient *client.APIClient, pipelineNa
 			return err
 		}
 		pipelinePtr.State = state
-		pipelines.Put(pipelineName, pipelinePtr)
-		return nil
+		return pipelines.Put(pipelineName, pipelinePtr)
 	})
 	if isNotFoundErr(err) {
 		return newErrPipelineNotFound(pipelineName)
@@ -2661,8 +2660,7 @@ func (a *apiServer) updateJobState(stm col.STM, jobPtr *pps.EtcdJobInfo, state p
 	pipelines.Put(jobPtr.Pipeline.Name, pipelinePtr)
 	jobPtr.State = state
 	jobs := a.jobs.ReadWrite(stm)
-	jobs.Put(jobPtr.Job.ID, jobPtr)
-	return nil
+	return jobs.Put(jobPtr.Job.ID, jobPtr)
 }
 
 func (a *apiServer) getPachClient() *client.APIClient {
