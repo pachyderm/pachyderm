@@ -782,7 +782,7 @@ func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStat
 		WorkerID:  a.workerName,
 		Started:   started,
 		Data:      a.datum(),
-		QueueSize: a.queueSize,
+		QueueSize: atomic.LoadInt64(&a.queueSize),
 	}
 	return result, nil
 }
@@ -1119,15 +1119,21 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 	var eg errgroup.Group
 	var skipped int64
 	var failed int64
+	limiter := limit.New(int(a.pipelineInfo.MaxQueueSize))
 	for i := low; i < high; i++ {
 		i := i
+
+		limiter.Acquire()
+		atomic.AddInt64(&a.queueSize, 1)
 		eg.Go(func() (retErr error) {
+			defer limiter.Release()
+			defer atomic.AddInt64(&a.queueSize, -1)
+
 			data := df.Datum(int(i))
 			logger, err := a.getTaggedLogger(pachClient, jobInfo.Job.ID, data, a.pipelineInfo.EnableStats)
 			if err != nil {
 				return err
 			}
-			atomic.AddInt64(&a.queueSize, 1)
 			// Hash inputs
 			tag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, data)
 			tag15, err := HashDatum15(a.pipelineInfo, data)
@@ -1241,7 +1247,6 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 			}
 
 			env := a.userCodeEnv(jobInfo.Job.ID, data)
-			atomic.AddInt64(&a.queueSize, -1)
 			var dir string
 			var retries int
 			if err := backoff.RetryNotify(func() error {
