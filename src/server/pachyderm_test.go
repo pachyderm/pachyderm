@@ -5368,7 +5368,7 @@ func TestMaxQueueSize(t *testing.T) {
 
 		for _, status := range jobInfo.WorkerStatus {
 			if status.QueueSize > 1 {
-				t.Errorf("queue size too big: %d", status.QueueSize)
+				t.Fatalf("queue size too big: %d", status.QueueSize)
 			}
 		}
 
