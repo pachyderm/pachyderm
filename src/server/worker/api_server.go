@@ -858,6 +858,8 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 			var high int64
 			var found bool
 			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				// Reinitialize closed upon variables.
+				low, high = 0, 0
 				found = false
 				locks := a.locks(jobID).ReadWrite(stm)
 				// we set complete to true and then unset it if we find an incomplete chunk
