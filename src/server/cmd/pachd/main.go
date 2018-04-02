@@ -36,6 +36,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
@@ -130,7 +131,14 @@ func doSidecarMode(appEnvObj interface{}) error {
 		log.SetLevel(log.InfoLevel)
 	}
 
+	// connect directly to this node, not the pachyderm service
+	pachIP, err := netutil.ExternalIP()
+	if err != nil {
+		return err
+	}
 	etcdAddress := fmt.Sprintf("http://%s:2379", appEnv.EtcdAddress)
+	pachAddress = fmt.Sprintf("%s:%d", pachIP, appEnv.Port)
+
 	etcdClientV3, err := etcd.New(etcd.Config{
 		Endpoints:   []string{etcdAddress},
 		DialOptions: client.EtcdDialOptions(),
@@ -138,6 +146,7 @@ func doSidecarMode(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
+	env := serviceenv.InitServiceEnv(pachAddress, etcdAddress)
 
 	clusterID, err := getClusterID(etcdClientV3)
 	if err != nil {
@@ -151,23 +160,17 @@ func doSidecarMode(appEnvObj interface{}) error {
 	if appEnv.Metrics {
 		reporter = metrics.NewReporter(clusterID, kubeClient)
 	}
-	address, err := netutil.ExternalIP()
-	if err != nil {
-		return err
-	}
-	address = fmt.Sprintf("%s:%d", address, appEnv.Port)
 	pfsCacheSize, err := strconv.Atoi(appEnv.PFSCacheSize)
 	if err != nil {
 		return err
 	}
-	pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), int64(pfsCacheSize))
+	pfsAPIServer, err := pfs_server.NewAPIServer(env, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), int64(pfsCacheSize))
 	if err != nil {
 		return err
 	}
 	ppsAPIServer, err := pps_server.NewSidecarAPIServer(
-		etcdAddress,
+		env,
 		path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix),
-		address,
 		appEnv.IAMRole,
 		reporter,
 	)
@@ -178,16 +181,16 @@ func doSidecarMode(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	blockAPIServer, err := pfs_server.NewBlockAPIServer(appEnv.StorageRoot, blockCacheBytes, appEnv.StorageBackend, etcdAddress)
+	blockAPIServer, err := pfs_server.NewBlockAPIServer(env, appEnv.StorageRoot, blockCacheBytes, appEnv.StorageBackend)
 	if err != nil {
 		return err
 	}
 	healthServer := health.NewHealthServer()
-	authAPIServer, err := authserver.NewAuthServer(address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.AuthEtcdPrefix))
+	authAPIServer, err := authserver.NewAuthServer(env, path.Join(appEnv.EtcdPrefix, appEnv.AuthEtcdPrefix))
 	if err != nil {
 		return err
 	}
-	enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.EnterpriseEtcdPrefix))
+	enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(env, path.Join(appEnv.EtcdPrefix, appEnv.EnterpriseEtcdPrefix))
 	if err != nil {
 		return err
 	}
@@ -227,7 +230,15 @@ func doFullMode(appEnvObj interface{}) error {
 		log.Errorf("Unrecognized log level %s, falling back to default of \"info\"", appEnv.LogLevel)
 		log.SetLevel(log.InfoLevel)
 	}
+
+	// connect directly to this node, not the pachyderm service
+	address, err := netutil.ExternalIP()
+	if err != nil {
+		return err
+	}
+	address = fmt.Sprintf("%s:%d", address, appEnv.Port)
 	etcdAddress := fmt.Sprintf("http://%s:2379", appEnv.EtcdAddress)
+
 	etcdClientV2 := getEtcdClient(etcdAddress)
 	etcdClientV3, err := etcd.New(etcd.Config{
 		Endpoints:   []string{etcdAddress},
@@ -249,11 +260,6 @@ func doFullMode(appEnvObj interface{}) error {
 	if appEnv.Metrics {
 		reporter = metrics.NewReporter(clusterID, kubeClient)
 	}
-	address, err := netutil.ExternalIP()
-	if err != nil {
-		return err
-	}
-	address = fmt.Sprintf("%s:%d", address, appEnv.Port)
 	sharder := shard.NewSharder(
 		etcdClientV2,
 		appEnv.NumShards,
@@ -276,15 +282,15 @@ func doFullMode(appEnvObj interface{}) error {
 		address,
 	)
 	cacheServer := cache_server.NewCacheServer(router, appEnv.NumShards)
-	pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), int64(pfsCacheSize))
+
+	pfsAPIServer, err := pfs_server.NewAPIServer(env, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), int64(pfsCacheSize))
 	if err != nil {
 		return err
 	}
 	kubeNamespace := getNamespace()
 	ppsAPIServer, err := pps_server.NewAPIServer(
-		etcdAddress,
+		env,
 		path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix),
-		address,
 		kubeClient,
 		kubeNamespace,
 		appEnv.WorkerImage,
@@ -319,21 +325,21 @@ func doFullMode(appEnvObj interface{}) error {
 		return err
 	}
 
-	authAPIServer, err := authserver.NewAuthServer(address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.AuthEtcdPrefix))
+	authAPIServer, err := authserver.NewAuthServer(env, path.Join(appEnv.EtcdPrefix, appEnv.AuthEtcdPrefix))
 	if err != nil {
 		return err
 	}
-	enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.EnterpriseEtcdPrefix))
+	enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(env, path.Join(appEnv.EtcdPrefix, appEnv.EnterpriseEtcdPrefix))
 	if err != nil {
 		return err
 	}
-	adminAPIServer := adminserver.NewAPIServer(address, &adminclient.ClusterInfo{clusterID})
+	adminAPIServer := adminserver.NewAPIServer(env, &adminclient.ClusterInfo{clusterID})
 
 	healthServer := health.NewHealthServer()
 
 	deployServer := deployserver.NewDeployServer(kubeClient, kubeNamespace)
 
-	httpServer, err := pach_http.NewHTTPServer(address)
+	httpServer, err := pach_http.NewHTTPServer(env)
 	if err != nil {
 		return err
 	}
@@ -342,7 +348,7 @@ func doFullMode(appEnvObj interface{}) error {
 		return http.ListenAndServe(fmt.Sprintf(":%v", pach_http.HTTPPort), httpServer)
 	})
 	eg.Go(func() error {
-		return githook.RunGitHookServer(address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix))
+		return githook.RunGitHookServer(env, path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix))
 	})
 	eg.Go(func() error {
 		return grpcutil.Serve(
@@ -366,14 +372,14 @@ func doFullMode(appEnvObj interface{}) error {
 			},
 		)
 	})
-	if err := migrate(address, kubeClient); err != nil {
+	if err := migrate(env, kubeClient); err != nil {
 		return err
 	}
 	healthServer.Ready()
 	return eg.Wait()
 }
 
-func migrate(address string, kubeClient *kube.Clientset) error {
+func migrate(env *serviceenv.ServiceEnv, kubeClient *kube.Clientset) error {
 	endpoints, err := kubeClient.CoreV1().Endpoints(getNamespace()).Get("pachd", metav1.GetOptions{})
 	if err != nil {
 		return err
@@ -389,7 +395,7 @@ func migrate(address string, kubeClient *kube.Clientset) error {
 	if err != nil {
 		return err
 	}
-	internalPachClient, err := client.NewFromAddress(address)
+	internalPachClient := env.GetPachClient(context.Background())
 	if err != nil {
 		return err
 	}

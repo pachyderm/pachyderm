@@ -27,6 +27,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pfsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
@@ -78,9 +79,11 @@ type CommitStream interface {
 type collectionFactory func(string) col.Collection
 
 type driver struct {
-	// etcdClient and prefix write repo and other metadata to etcd
-	etcdClient *etcd.Client
-	prefix     string
+	// env contains connections to other services in the cluster
+	env *serviceenv.ServiceEnv
+
+	// prefix determines where repo and other metadata is written to etcd
+	prefix string
 
 	// collections
 	repos          col.Collection
@@ -98,11 +101,7 @@ const (
 )
 
 // newDriver is used to create a new Driver instance
-func newDriver(etcdAddresses []string, etcdPrefix string, treeCacheSize int64) (*driver, error) {
-	etcdClient, err := etcd.New(etcd.Config{
-		Endpoints:   etcdAddresses,
-		DialOptions: client.EtcdDialOptions(),
-	})
+func newDriver(env *serviceenv.ServiceEnv, etcdPrefix string, treeCacheSize int64) (*driver, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to etcd: %v", err)
 	}
@@ -115,17 +114,17 @@ func newDriver(etcdAddresses []string, etcdPrefix string, treeCacheSize int64) (
 	}
 
 	d := &driver{
-		etcdClient:     etcdClient,
+		etcdClient:     env.GetEtcdClient(),
 		prefix:         etcdPrefix,
-		repos:          pfsdb.Repos(etcdClient, etcdPrefix),
-		putFileRecords: pfsdb.PutFileRecords(etcdClient, etcdPrefix),
+		repos:          pfsdb.Repos(env.GetEtcdClient(), etcdPrefix),
+		putFileRecords: pfsdb.PutFileRecords(env.GetEtcdClient(), etcdPrefix),
 		commits: func(repo string) col.Collection {
-			return pfsdb.Commits(etcdClient, etcdPrefix, repo)
+			return pfsdb.Commits(env.GetEtcdClient(), etcdPrefix, repo)
 		},
 		branches: func(repo string) col.Collection {
-			return pfsdb.Branches(etcdClient, etcdPrefix, repo)
+			return pfsdb.Branches(env.GetEtcdClient(), etcdPrefix, repo)
 		},
-		openCommits: pfsdb.OpenCommits(etcdClient, etcdPrefix),
+		openCommits: pfsdb.OpenCommits(env.GetEtcdClient(), etcdPrefix),
 		treeCache:   treeCache,
 	}
 	return d, nil
