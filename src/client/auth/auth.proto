@@ -19,6 +19,8 @@ import "gogoproto/gogo.proto";
  *      "github:MyGitHubUsername"
  * 2) Pachyderm robot users:
  *      "robot:robot_user_1"
+ * 3) Pachyderm pipelines:
+ *      "pipeline:terasort"
  */
 
 
