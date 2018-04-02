@@ -44,13 +44,13 @@ func maybeKcCreate(dryRun bool, manifest *bytes.Buffer, opts *assets.AssetOpts, 
 	if err := cmdutil.RunIO(io, "kubectl", "apply", "-f", "-", "--validate=false"); err != nil {
 		return err
 	}
-	if !dryRun {
-		fmt.Println("\nPachyderm is launching. Check its status with \"kubectl get all\"")
-		if opts.DashOnly || !opts.NoDash {
-			fmt.Println("Once launched, access the dashboard by running \"pachctl port-forward\"")
-		}
-		fmt.Println("")
+
+	fmt.Println("\nPachyderm is launching. Check its status with \"kubectl get all\"")
+	if opts.DashOnly || !opts.NoDash {
+		fmt.Println("Once launched, access the dashboard by running \"pachctl port-forward\"")
 	}
+	fmt.Println("")
+
 	return nil
 }
 
