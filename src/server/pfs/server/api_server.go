@@ -17,7 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
-	"github.com/pachyderm/pachyderm/src/server/pkg/pachrpc"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
@@ -34,9 +34,8 @@ type apiServer struct {
 	driver *driver
 }
 
-func newAPIServer(address string, etcdAddresses []string, etcdPrefix string, cacheSize int64) (*apiServer, error) {
-	go pachrpc.InitPachRPC(address) // Init GRPC connection
-	d, err := newDriver(etcdAddresses, etcdPrefix, cacheSize)
+func newAPIServer(env *serviceenv.ServiceEnv, etcdPrefix string, cacheSize int64) (*apiServer, error) {
+	d, err := newDriver(env, etcdPrefix, cacheSize)
 	if err != nil {
 		return nil, err
 	}
