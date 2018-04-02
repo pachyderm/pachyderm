@@ -524,7 +524,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 							pipelines := a.pipelines.ReadWrite(stm)
 							pipelinePtr := &pps.EtcdPipelineInfo{}
 							return pipelines.Update(pipelineInfo.Pipeline.Name, pipelinePtr, func() error {
-								if pipelinePtr.State == pps.PipelineState_PIPELINE_PAUSED {
+								if pipelinePtr.State == pps.PipelineState_PIPELINE_PAUSED || pipelinePtr.State == pps.PipelineState_PIPELINE_FAILURE {
 									return nil
 								}
 								pipelinePtr.State = pps.PipelineState_PIPELINE_STANDBY
