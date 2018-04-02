@@ -2,6 +2,7 @@
 
 # Argument Defaults
 METRICS_FLAG="true"  # By default, aws.sh enables metric reporting
+DEPLOY_PACHD="true"  # By default, aws.sh deploys pachyderm in its k8s cluster
 USE_CLOUDFRONT="false"
 
 # Other defaults
@@ -37,6 +38,10 @@ parse_flags() {
             ;;
           --no-metrics)
             METRICS_FLAG="false" # default is true, see top of file
+            shift
+            ;;
+          --no-pachyderm)
+            DEPLOY_PACHD="false" # default is true, see top of file
             shift
             ;;
           --use-cloudfront)
@@ -287,7 +292,9 @@ which pachctl
 check_kops_version
 
 deploy_k8s_on_aws
-deploy_pachyderm_on_aws
+if [[ "${DEPLOY_PACHD}" == "true" ]]; then
+  deploy_pachyderm_on_aws
+fi
 
 if [[ "${USE_CLOUDFRONT}" == "true" ]]; then
   echo "To upgrade cloudfront to use security credentials, e.g.:"

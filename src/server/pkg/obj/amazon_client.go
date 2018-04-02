@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"crypto/x509"
 	"encoding/pem"
+	"flag"
 	"fmt"
 	"io"
 	"net/http"
+	"path"
 	"strings"
 	"time"
 
@@ -20,6 +22,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/storagegateway"
 	"github.com/cenkalti/backoff"
 	log "github.com/sirupsen/logrus"
+
+	vault "github.com/hashicorp/vault/api"
 )
 
 var (
@@ -27,6 +31,14 @@ var (
 	// uploader, and not the owner of the bucket.  We want to ensure that
 	// the owner of the bucket can access the buckets as well.
 	uploadACL = "bucket-owner-full-control"
+
+	vaultAddress = flag.String("vault_address", "", "If set, AWS will get "+
+		"credentials from a vault server at this address, rather than reading "+
+		"credentials from a kubernetes secret or the AWS metadata API")
+
+	vaultAWSRole = flag.String("vault_aws_role", "", "If set, AWS will get "+
+		"credentials from a vault server against this AWS role (vault_address "+
+		"must also be set)")
 )
 
 type amazonClient struct {
@@ -37,16 +49,95 @@ type amazonClient struct {
 	uploader               *s3manager.Uploader
 }
 
+type vaultCredentialsProvider struct {
+	vaultAddress string        // hostport at which vault is serving
+	vaultClient  *vault.Client // client used to retrieve S3 creds from vault
+
+	// prevExpiration is the time at which the most recently retrieved AWS creds
+	// will expire (used by vaultCredentialsProvider.IsExpired())
+	prevExpiration time.Time
+}
+
+// Retrieve returns nil if it successfully retrieved the value.  Error is
+// returned if the value were not obtainable, or empty.
+func (v *vaultCredentialsProvider) Retrieve() (credentials.Value, error) {
+	var emptyCreds, result credentials.Value // result
+
+	// retrieve AWS creds from vault
+	vaultSecret, err := v.vaultClient.Logical().Read(path.Join("aws", "creds", *vaultAWSRole))
+	if err != nil {
+		return emptyCreds, fmt.Errorf("could not retrieve creds from vault: %v", err)
+	}
+	accessKeyIface, accessKeyOk := vaultSecret.Data["access_key"]
+	awsSecretIface, awsSecretOk := vaultSecret.Data["secret_key"]
+	if !accessKeyOk || !awsSecretOk {
+		return emptyCreds, fmt.Errorf("aws creds not present in vault response")
+	}
+
+	// Convert access key & secret in response to strings
+	result.AccessKeyID, accessKeyOk = accessKeyIface.(string)
+	result.SecretAccessKey, awsSecretOk = awsSecretIface.(string)
+	if !accessKeyOk || !awsSecretOk {
+		return emptyCreds, fmt.Errorf("aws creds in vault response were not both strings (%T and %T)", accessKeyIface, awsSecretIface)
+	}
+
+	// Extract duration from response; don't set 'prevExpiration' for IsExpired()
+	// until this returns.
+	duration, err := vaultSecret.TokenTTL()
+	if err != nil {
+		return emptyCreds, fmt.Errorf("error parsing creds TTL from vault (this is likely a vault bug): %v", err)
+	}
+	expiration := time.Now().Add(duration)
+
+	// per https://www.vaultproject.io/docs/secrets/aws/index.html, need to wait
+	// for creds to be valid
+	time.Sleep(10 * time.Second)
+	v.prevExpiration = expiration
+	return result, nil
+}
+
+// IsExpired returns if the credentials are no longer valid, and need to be
+// retrieved.
+func (v *vaultCredentialsProvider) IsExpired() bool {
+	return time.Now().After(v.prevExpiration)
+}
+
 func newAmazonClient(bucket string, cloudfrontDistribution string, id string, secret string, token string, region string) (*amazonClient, error) {
-	config := &aws.Config{
+	// set up aws config, including credentials
+	awsConfig := &aws.Config{
 		Region: aws.String(region),
 	}
 	if id != "" {
-		config.Credentials = credentials.NewStaticCredentials(id, secret, token)
+		awsConfig.Credentials = credentials.NewStaticCredentials(id, secret, token)
+	} else if *vaultAddress != "" {
+		vaultClient, err := vault.NewClient(&vault.Config{
+			Address: *vaultAddress,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("error creating vault client: %v", err)
+		}
+		vaultToken, err := readSecretFile("/vaultToken")
+		if err != nil {
+			return nil, fmt.Errorf("no vault token present in %s", secretFile("/vaultToken"))
+		}
+		vaultClient.SetToken(vaultToken)
+		awsConfig.Credentials = credentials.NewCredentials(&vaultCredentialsProvider{
+			vaultAddress: *vaultAddress,
+			vaultClient:  vaultClient,
+		})
 	}
-	session := session.New(config)
-	var signer *sign.URLSigner
-	cloudfrontDistribution = strings.TrimSpace(cloudfrontDistribution)
+
+	// Create new session using awsConfig
+	session := session.New(awsConfig)
+	awsClient := &amazonClient{
+		bucket:   bucket,
+		s3:       s3.New(session),
+		uploader: s3manager.NewUploader(session),
+	}
+
+	// Set awsClient.cloudfrontURLSigner and cloudfrontDistribution (if Pachd is
+	// using cloudfront)
+	awsClient.cloudfrontDistribution = strings.TrimSpace(cloudfrontDistribution)
 	if cloudfrontDistribution != "" {
 		rawCloudfrontPrivateKey, err := readSecretFile("/cloudfrontPrivateKey")
 		if err != nil {
@@ -64,16 +155,10 @@ func newAmazonClient(bucket string, cloudfrontDistribution string, id string, se
 		if err != nil {
 			return nil, err
 		}
-		signer = sign.NewURLSigner(cloudfrontKeyPairID, cloudfrontPrivateKey)
+		awsClient.cloudfrontURLSigner = sign.NewURLSigner(cloudfrontKeyPairID, cloudfrontPrivateKey)
 		log.Infof("Using cloudfront security credentials - keypair ID (%v) - to sign cloudfront URLs", string(cloudfrontKeyPairID))
 	}
-	return &amazonClient{
-		bucket:                 bucket,
-		cloudfrontDistribution: cloudfrontDistribution,
-		cloudfrontURLSigner:    signer,
-		s3:                     s3.New(session),
-		uploader:               s3manager.NewUploader(session),
-	}, nil
+	return awsClient, nil
 }
 
 func (c *amazonClient) Writer(name string) (io.WriteCloser, error) {
