@@ -1018,6 +1018,7 @@ func WriteSecret(w io.Writer, data map[string][]byte, opts *AssetOpts) {
 		Data:       data,
 	}
 	encoder := json.NewEncoder(w)
+	encoder.SetIndent("", "\t")
 	encoder.Encode(secret)
 	fmt.Fprintf(w, "\n")
 }
@@ -1068,6 +1069,7 @@ func MicrosoftSecret(container string, id string, secret string) map[string][]by
 // dashboard to 'w'
 func WriteDashboardAssets(w io.Writer, opts *AssetOpts) {
 	encoder := json.NewEncoder(w)
+	encoder.SetIndent("", "\t")
 	encoder.Encode(DashService(opts))
 	fmt.Fprintf(w, "\n")
 	encoder.Encode(DashDeployment(opts))
@@ -1090,8 +1092,9 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 		WriteDashboardAssets(w, opts)
 		return nil
 	}
-	encoder := json.NewEncoder(w)
 
+	encoder := json.NewEncoder(w)
+	encoder.SetIndent("", "\t")
 	encoder.Encode(ServiceAccount(opts))
 	fmt.Fprintf(w, "\n")
 	if !opts.NoRBAC {
