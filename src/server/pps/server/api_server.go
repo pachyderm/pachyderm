@@ -1960,9 +1960,12 @@ func (a *apiServer) inspectPipeline(pachClient *client.APIClient, name string) (
 		}
 		service, err := a.kubeClient.CoreV1().Services(a.namespace).Get(fmt.Sprintf("%s-user", rcName), metav1.GetOptions{})
 		if err != nil {
-			return nil, err
+			if !isNotFoundErr(err) {
+				return nil, err
+			}
+		} else {
+			pipelineInfo.Service.IP = service.Spec.ClusterIP
 		}
-		pipelineInfo.Service.IP = service.Spec.ClusterIP
 	}
 	var hasGitInput bool
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
@@ -2104,7 +2107,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	// branch HEAD)
 	pipelineInfo, err := a.inspectPipeline(pachClient, request.Pipeline.Name)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error inspecting pipeline: %v", err)
 	}
 
 	// Check if the caller is authorized to delete this pipeline. This must be
@@ -2120,7 +2123,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 
 	// Delete pipeline's workers
 	if err := a.deleteWorkersForPipeline(pipelineInfo); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error deleting workers: %v", err)
 	}
 
 	// Revoke the pipeline's auth token and remove it from its inputs' ACLs
