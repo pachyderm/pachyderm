@@ -2172,80 +2172,123 @@ func TestStandby(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	require.NoError(t, c.DeleteAll())
+	t.Run("ChainOf10", func(t *testing.T) {
+		require.NoError(t, c.DeleteAll())
 
-	dataRepo := tu.UniqueString("TestStandby_data")
-	require.NoError(t, c.CreateRepo(dataRepo))
+		dataRepo := tu.UniqueString("TestStandby_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
 
-	numPipelines := 10
-	pipelines := make([]string, numPipelines)
-	for i := 0; i < numPipelines; i++ {
-		pipelines[i] = tu.UniqueString("TestStandby")
-		input := dataRepo
-		if i > 0 {
-			input = pipelines[i-1]
+		numPipelines := 10
+		pipelines := make([]string, numPipelines)
+		for i := 0; i < numPipelines; i++ {
+			pipelines[i] = tu.UniqueString("TestStandby")
+			input := dataRepo
+			if i > 0 {
+				input = pipelines[i-1]
+			}
+			require.NoError(t, c.CreatePipeline(
+				pipelines[i],
+				"",
+				[]string{"true"},
+				nil,
+				&pps.ParallelismSpec{
+					Constant: 1,
+				},
+				client.NewAtomInput(input, "/*"),
+				"",
+				false,
+			))
 		}
+
+		require.NoErrorWithinT(t, time.Second*30, func() error {
+			return backoff.Retry(func() error {
+				pis, err := c.ListPipeline()
+				require.NoError(t, err)
+				var standby int
+				for _, pi := range pis {
+					if pi.State == pps.PipelineState_PIPELINE_STANDBY {
+						standby++
+					}
+				}
+				if standby != numPipelines {
+					return fmt.Errorf("should have %d pipelines in standby, not %d", numPipelines, standby)
+				}
+				return nil
+			}, backoff.NewTestingBackOff())
+		})
+
+		_, err := c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(dataRepo, "master"))
+
+		var eg errgroup.Group
+		var finished bool
+		eg.Go(func() error {
+			commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+			require.NoError(t, err)
+			collectCommitInfos(t, commitIter)
+			finished = true
+			return nil
+		})
+		eg.Go(func() error {
+			for !finished {
+				pis, err := c.ListPipeline()
+				require.NoError(t, err)
+				var active int
+				for _, pi := range pis {
+					if pi.State != pps.PipelineState_PIPELINE_STANDBY {
+						active++
+					}
+				}
+				// We tolerate having 2 pipelines out of standby because there's
+				// latency associated with entering and exiting standby.
+				require.True(t, active <= 2, "active: %d", active)
+			}
+			return nil
+		})
+		eg.Wait()
+	})
+	t.Run("ManyCommits", func(t *testing.T) {
+		require.NoError(t, c.DeleteAll())
+
+		dataRepo := tu.UniqueString("TestStandby_data")
+		pipeline := tu.UniqueString("TestStandby")
+		require.NoError(t, c.CreateRepo(dataRepo))
 		require.NoError(t, c.CreatePipeline(
-			pipelines[i],
+			pipeline,
 			"",
-			[]string{"true"},
-			nil,
+			[]string{"sh"},
+			[]string{"echo $PPS_POD_NAME >/pfs/out/pod"},
 			&pps.ParallelismSpec{
 				Constant: 1,
 			},
-			client.NewAtomInput(input, "/*"),
+			client.NewAtomInput(dataRepo, "/"),
 			"",
 			false,
 		))
-	}
-
-	require.NoErrorWithinT(t, time.Second*30, func() error {
-		return backoff.Retry(func() error {
-			pis, err := c.ListPipeline()
+		numCommits := 100
+		for i := 0; i < numCommits; i++ {
+			_, err := c.StartCommit(dataRepo, "master")
 			require.NoError(t, err)
-			var standby int
-			for _, pi := range pis {
-				if pi.State == pps.PipelineState_PIPELINE_STANDBY {
-					standby++
-				}
-			}
-			if standby != numPipelines {
-				return fmt.Errorf("should have %d pipelines in standby, not %d", numPipelines, standby)
-			}
-			return nil
-		}, backoff.NewTestingBackOff())
-	})
-
-	_, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(dataRepo, "master"))
-
-	var eg errgroup.Group
-	var finished bool
-	eg.Go(func() error {
+			require.NoError(t, c.FinishCommit(dataRepo, "master"))
+		}
 		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 		require.NoError(t, err)
-		collectCommitInfos(t, commitIter)
-		finished = true
-		return nil
-	})
-	eg.Go(func() error {
-		for !finished {
-			pis, err := c.ListPipeline()
-			require.NoError(t, err)
-			var active int
-			for _, pi := range pis {
-				if pi.State != pps.PipelineState_PIPELINE_STANDBY {
-					active++
-				}
+		commitInfos := collectCommitInfos(t, commitIter)
+		require.Equal(t, 1, len(commitInfos))
+		pod := ""
+		cis, err := c.ListCommit(pipeline, "master", "", 0)
+		require.NoError(t, err)
+		for _, ci := range cis {
+			var buffer bytes.Buffer
+			require.NoError(t, c.GetFile(pipeline, ci.Commit.ID, "pod", 0, 0, &buffer))
+			if pod == "" {
+				pod = buffer.String()
+			} else {
+				require.True(t, pod == buffer.String(), "multiple pods were used to process commits")
 			}
-			// We tolerate having 2 pipelines out of standby because there's
-			// latency associated with entering and exiting standby.
-			require.True(t, active <= 2, "active: %d", active)
 		}
-		return nil
 	})
-	eg.Wait()
 }
 
 func TestPipelineEnv(t *testing.T) {
