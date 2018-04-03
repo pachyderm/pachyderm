@@ -2288,6 +2288,9 @@ func TestStandby(t *testing.T) {
 				require.True(t, pod == buffer.String(), "multiple pods were used to process commits")
 			}
 		}
+		pi, err := c.InspectPipeline(pipeline)
+		require.NoError(t, err)
+		require.Equal(t, pps.PipelineState_PIPELINE_STANDBY.String(), pi.State.String())
 	})
 }
 
