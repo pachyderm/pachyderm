@@ -342,7 +342,11 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		ctx, cancel := context.WithCancel(a.pachClient.Ctx())
 		a.monitorCancels[pipelineInfo.Pipeline.Name] = cancel
 		pachClient := a.pachClient.WithCtx(ctx)
-		go a.monitorPipeline(pachClient, pipelineInfo)
+
+		go a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+			a.monitorPipeline(superUserClient, pipelineInfo)
+			return nil
+		})
 	}
 	return nil
 }
@@ -437,8 +441,8 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 		}
 	})
 	if pipelineInfo.NoStandby {
-		// NoStandby so simply put it in RUNNING and leave it there.
-		// This is only done with eg.Go so that we can all the errors in the
+		// NoStandby so simply put it in RUNNING and leave it there.  This is
+		// only done with eg.Go so that we can handle all the errors in the
 		// same way below, it should be a very quick operation so there's no
 		// good reason to do it concurrently.
 		eg.Go(func() error {
