@@ -474,11 +474,43 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 			}, backoff.NewInfiniteBackOff(), notifyCtx(pachClient.Ctx(), "SubscribeCommit"))
 		})
 		eg.Go(func() error {
+			setPipelineState := func(state pps.PipelineState) error {
+				log.Infof("moving pipeline %s to %s", pipelineInfo.Pipeline.Name, state.String())
+				_, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
+					pipelines := a.pipelines.ReadWrite(stm)
+					pipelinePtr := &pps.EtcdPipelineInfo{}
+					return pipelines.Update(pipelineInfo.Pipeline.Name, pipelinePtr, func() error {
+						if pipelinePtr.State == pps.PipelineState_PIPELINE_PAUSED || pipelinePtr.State == pps.PipelineState_PIPELINE_FAILURE {
+							return nil
+						}
+						pipelinePtr.State = state
+						return nil
+					})
+				})
+				return err
+			}
 			return backoff.RetryNotify(func() error {
 				standby := false
+				if pipelineInfo.NoStandby {
+					if err := setPipelineState(pps.PipelineState_PIPELINE_RUNNING); err != nil {
+						return err
+					}
+				} else {
+					if err := setPipelineState(pps.PipelineState_PIPELINE_STANDBY); err != nil {
+						return err
+					}
+					standby = true
+				}
 				for {
 					var ci *pfs.CommitInfo
-					if standby {
+					if pipelineInfo.NoStandby {
+						// Standy is disabled, just block for a commit.
+						select {
+						case ci = <-ciChan:
+						case <-pachClient.Ctx().Done():
+							return context.DeadlineExceeded
+						}
+					} else if standby {
 						// Pipelines is already in standby, so we wait for a
 						// new commit, or for our context deadline to be
 						// exceeded.
@@ -487,18 +519,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 							if ci.Finished != nil {
 								continue
 							}
-							log.Infof("moving pipeline %s to RUNNING", pipelineInfo.Pipeline.Name)
-							if _, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
-								pipelines := a.pipelines.ReadWrite(stm)
-								pipelinePtr := &pps.EtcdPipelineInfo{}
-								return pipelines.Update(pipelineInfo.Pipeline.Name, pipelinePtr, func() error {
-									if pipelinePtr.State == pps.PipelineState_PIPELINE_PAUSED || pipelinePtr.State == pps.PipelineState_PIPELINE_FAILURE {
-										return nil
-									}
-									pipelinePtr.State = pps.PipelineState_PIPELINE_RUNNING
-									return nil
-								})
-							}); err != nil {
+							if err := setPipelineState(pps.PipelineState_PIPELINE_RUNNING); err != nil {
 								return err
 							}
 							standby = false
@@ -512,19 +533,10 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 						// standby.
 						select {
 						case ci = <-ciChan:
+						case <-pachClient.Ctx().Done():
+							return context.DeadlineExceeded
 						default:
-							log.Infof("moving pipeline %s to STANDBY", pipelineInfo.Pipeline.Name)
-							if _, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
-								pipelines := a.pipelines.ReadWrite(stm)
-								pipelinePtr := &pps.EtcdPipelineInfo{}
-								return pipelines.Update(pipelineInfo.Pipeline.Name, pipelinePtr, func() error {
-									if pipelinePtr.State == pps.PipelineState_PIPELINE_PAUSED || pipelinePtr.State == pps.PipelineState_PIPELINE_FAILURE {
-										return nil
-									}
-									pipelinePtr.State = pps.PipelineState_PIPELINE_STANDBY
-									return nil
-								})
-							}); err != nil {
+							if err := setPipelineState(pps.PipelineState_PIPELINE_STANDBY); err != nil {
 								return err
 							}
 							standby = true
