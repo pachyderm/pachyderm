@@ -297,12 +297,6 @@
 			"revisionTime": "2017-09-21T17:44:04Z"
 		},
 		{
-			"checksumSHA1": "CMMtGyX7f2qVvYLn9B5zCWMJ7YM=",
-			"path": "github.com/cenkalti/backoff",
-			"revision": "a6030178a585d5972d4d33ce61f4a1fa40eaaed0",
-			"revisionTime": "2016-05-26T20:49:34Z"
-		},
-		{
 			"checksumSHA1": "r1CX8/M/ipvntOfH0rT9jOQ6fdM=",
 			"path": "github.com/cloudfoundry-incubator/candiedyaml",
 			"revision": "99c3df83b51532e3615f851d8c2dbb638f5313bf",
