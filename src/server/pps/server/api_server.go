@@ -1717,7 +1717,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		ChunkSpec:        request.ChunkSpec,
 		DatumTimeout:     request.DatumTimeout,
 		JobTimeout:       request.JobTimeout,
-		NoStandby:        request.NoStandby,
+		Standby:          request.Standby,
 	}
 	setPipelineDefaults(pipelineInfo)
 
