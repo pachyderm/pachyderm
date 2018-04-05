@@ -215,8 +215,8 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 					finishMetricsWait()
 				}()
 			}
-			if creds == "" && iamRole == "" {
-				return fmt.Errorf("Either the --credentials or the --iam-role flag needs to be provided")
+			if creds == "" && iamRole == "" && vaultAddress == "" {
+				return fmt.Errorf("One of --credentials, --iam-role, or --vault-address needs to be provided")
 			}
 			var id, secret, token string
 			if creds != "" {

@@ -22,7 +22,7 @@ parse_flags() {
   local USE_EXISTING_STATE_BUCKET='false'
 
   # Parse flags
-  eval "set -- $( getopt -l "state:,region:,zone:,no-metrics,use-cloudfront" "--" "${0}" "${@:-}" )"
+  eval "set -- $( getopt -l "state:,region:,zone:,no-metrics,use-cloudfront,no-pachyderm" "--" "${0}" "${@:-}" )"
   while true; do
       case "${1}" in
           --state)
@@ -257,6 +257,7 @@ check_kops_version() {
 ##################################
 
 deploy_pachyderm_on_aws() {
+    echo "deploying pachyderm on AWS"
     # shared with k8s deploy script:
     export STORAGE_SIZE=100
     export BUCKET_NAME=${RANDOM}-pachyderm-store
