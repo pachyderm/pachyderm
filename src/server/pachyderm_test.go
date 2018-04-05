@@ -6892,7 +6892,7 @@ func TestExtractRestore(t *testing.T) {
 	dataRepo := tu.UniqueString("TestExtractRestore_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	nCommits := 5
+	nCommits := 2
 	r := rand.New(rand.NewSource(45))
 	fileContent := workload.RandString(r, 40*MB)
 	for i := 0; i < nCommits; i++ {
@@ -6903,7 +6903,7 @@ func TestExtractRestore(t *testing.T) {
 		require.NoError(t, c.FinishCommit(dataRepo, "master"))
 	}
 
-	numPipelines := 10
+	numPipelines := 3
 	input := dataRepo
 	for i := 0; i < numPipelines; i++ {
 		pipeline := tu.UniqueString(fmt.Sprintf("TestExtractRestore%d", i))
