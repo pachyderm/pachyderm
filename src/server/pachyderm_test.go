@@ -1368,7 +1368,7 @@ func TestPipelineState(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if pipelineInfo.State != pps.PipelineState_PIPELINE_STANDBY {
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
 			return fmt.Errorf("pipeline should be in standby, not: %s", pipelineInfo.State.String())
 		}
 		return nil
@@ -1396,7 +1396,7 @@ func TestPipelineState(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if pipelineInfo.State != pps.PipelineState_PIPELINE_STANDBY {
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
 			return fmt.Errorf("pipeline never restarted, even though StartPipeline() was called, state: %s", pipelineInfo.State.String())
 		}
 		return nil
@@ -2186,18 +2186,17 @@ func TestStandby(t *testing.T) {
 			if i > 0 {
 				input = pipelines[i-1]
 			}
-			require.NoError(t, c.CreatePipeline(
-				pipelines[i],
-				"",
-				[]string{"true"},
-				nil,
-				&pps.ParallelismSpec{
-					Constant: 1,
+			_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+				&pps.CreatePipelineRequest{
+					Pipeline: client.NewPipeline(pipelines[i]),
+					Transform: &pps.Transform{
+						Cmd: []string{"true"},
+					},
+					Input:   client.NewAtomInput(input, "/*"),
+					Standby: true,
 				},
-				client.NewAtomInput(input, "/*"),
-				"",
-				false,
-			))
+			)
+			require.NoError(t, err)
 		}
 
 		require.NoErrorWithinT(t, time.Second*30, func() error {
@@ -2254,18 +2253,18 @@ func TestStandby(t *testing.T) {
 		dataRepo := tu.UniqueString("TestStandby_data")
 		pipeline := tu.UniqueString("TestStandby")
 		require.NoError(t, c.CreateRepo(dataRepo))
-		require.NoError(t, c.CreatePipeline(
-			pipeline,
-			"",
-			[]string{"sh"},
-			[]string{"echo $PPS_POD_NAME >/pfs/out/pod"},
-			&pps.ParallelismSpec{
-				Constant: 1,
+		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd:   []string{"sh"},
+					Stdin: []string{"echo $PPS_POD_NAME >/pfs/out/pod"},
+				},
+				Input:   client.NewAtomInput(dataRepo, "/"),
+				Standby: true,
 			},
-			client.NewAtomInput(dataRepo, "/"),
-			"",
-			false,
-		))
+		)
+		require.NoError(t, err)
 		numCommits := 100
 		for i := 0; i < numCommits; i++ {
 			_, err := c.StartCommit(dataRepo, "master")
