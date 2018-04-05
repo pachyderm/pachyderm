@@ -232,6 +232,9 @@ message GetAuthTokenRequest {
 }
 
 message GetAuthTokenResponse {
+  // A canonicalized version of the subject in the request
+  string subject = 2;
+
   // A new auth token for the user in 'GetAuthTokenRequest.Subject' token
   string token = 1;
 }
