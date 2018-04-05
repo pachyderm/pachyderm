@@ -596,7 +596,7 @@ func (h *hashtree) DeleteFile(path string) error {
 		return errorf(Internal, "delete discovered orphaned file \"%s\"", path)
 	}
 	if node.DirNode == nil {
-		return errorf(Internal, "file at \"%s\" is a regular-file, but \"%s\" exists "+
+		return errorf(Internal, "file at \"%s\" is a regular-file, but \"%s\" already exists "+
 			"under it (likely an uncaught PathConflict in prior PutFile or Merge)", path, node.DirNode)
 	}
 	if !removeStr(&node.DirNode.Children, child) {
