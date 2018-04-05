@@ -430,6 +430,21 @@ func notifyCtx(ctx context.Context, name string) func(error, time.Duration) erro
 }
 
 func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) {
+	setPipelineState := func(state pps.PipelineState) error {
+		log.Infof("moving pipeline %s to %s", pipelineInfo.Pipeline.Name, state.String())
+		_, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
+			pipelines := a.pipelines.ReadWrite(stm)
+			pipelinePtr := &pps.EtcdPipelineInfo{}
+			return pipelines.Update(pipelineInfo.Pipeline.Name, pipelinePtr, func() error {
+				if pipelinePtr.State == pps.PipelineState_PIPELINE_PAUSED || pipelinePtr.State == pps.PipelineState_PIPELINE_FAILURE {
+					return nil
+				}
+				pipelinePtr.State = state
+				return nil
+			})
+		})
+		return err
+	}
 	var eg errgroup.Group
 	pps.VisitInput(pipelineInfo.Input, func(in *pps.Input) {
 		if in.Cron != nil {
@@ -440,26 +455,15 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 			})
 		}
 	})
-	if pipelineInfo.NoStandby {
-		// NoStandby so simply put it in RUNNING and leave it there.  This is
+	if !pipelineInfo.Standby {
+		// Standby is false so simply put it in RUNNING and leave it there.  This is
 		// only done with eg.Go so that we can handle all the errors in the
 		// same way below, it should be a very quick operation so there's no
 		// good reason to do it concurrently.
 		eg.Go(func() error {
 			return backoff.RetryNotify(func() error {
-				_, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
-					pipelines := a.pipelines.ReadWrite(stm)
-					pipelinePtr := &pps.EtcdPipelineInfo{}
-					return pipelines.Update(pipelineInfo.Pipeline.Name, pipelinePtr, func() error {
-						if pipelinePtr.State == pps.PipelineState_PIPELINE_PAUSED {
-							return nil
-						}
-						pipelinePtr.State = pps.PipelineState_PIPELINE_RUNNING
-						return nil
-					})
-				})
-				return err
-			}, backoff.NewInfiniteBackOff(), notifyCtx(pachClient.Ctx(), "set running (NoStandby)"))
+				return setPipelineState(pps.PipelineState_PIPELINE_RUNNING)
+			}, backoff.NewInfiniteBackOff(), notifyCtx(pachClient.Ctx(), "set running (Standby = false)"))
 		})
 	} else {
 		// Capacity 1 gives us a bit of buffer so we don't needlessly go into
@@ -474,43 +478,14 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 			}, backoff.NewInfiniteBackOff(), notifyCtx(pachClient.Ctx(), "SubscribeCommit"))
 		})
 		eg.Go(func() error {
-			setPipelineState := func(state pps.PipelineState) error {
-				log.Infof("moving pipeline %s to %s", pipelineInfo.Pipeline.Name, state.String())
-				_, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
-					pipelines := a.pipelines.ReadWrite(stm)
-					pipelinePtr := &pps.EtcdPipelineInfo{}
-					return pipelines.Update(pipelineInfo.Pipeline.Name, pipelinePtr, func() error {
-						if pipelinePtr.State == pps.PipelineState_PIPELINE_PAUSED || pipelinePtr.State == pps.PipelineState_PIPELINE_FAILURE {
-							return nil
-						}
-						pipelinePtr.State = state
-						return nil
-					})
-				})
-				return err
-			}
 			return backoff.RetryNotify(func() error {
-				standby := false
-				if pipelineInfo.NoStandby {
-					if err := setPipelineState(pps.PipelineState_PIPELINE_RUNNING); err != nil {
-						return err
-					}
-				} else {
-					if err := setPipelineState(pps.PipelineState_PIPELINE_STANDBY); err != nil {
-						return err
-					}
-					standby = true
+				if err := setPipelineState(pps.PipelineState_PIPELINE_STANDBY); err != nil {
+					return err
 				}
+				standby := true
 				for {
 					var ci *pfs.CommitInfo
-					if pipelineInfo.NoStandby {
-						// Standy is disabled, just block for a commit.
-						select {
-						case ci = <-ciChan:
-						case <-pachClient.Ctx().Done():
-							return context.DeadlineExceeded
-						}
-					} else if standby {
+					if standby {
 						// Pipelines is already in standby, so we wait for a
 						// new commit, or for our context deadline to be
 						// exceeded.
