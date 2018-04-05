@@ -1076,7 +1076,8 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 		return nil, fmt.Errorf("error storing token: %v", err)
 	}
 	return &authclient.GetAuthTokenResponse{
-		Token: token,
+		Subject: subject,
+		Token:   token,
 	}, nil
 }
 

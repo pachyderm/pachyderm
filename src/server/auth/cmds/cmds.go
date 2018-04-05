@@ -385,7 +385,7 @@ func GetAuthTokenCmd() *cobra.Command {
 			if quiet {
 				fmt.Println(resp.Token)
 			} else {
-				fmt.Printf("New credentials:\n  Token: %s\n", resp.Token)
+				fmt.Printf("New credentials:\n  Subject: %s\n  Token: %s\n", resp.Subject, resp.Token)
 			}
 			return nil
 		}),
