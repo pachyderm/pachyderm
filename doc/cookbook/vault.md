@@ -36,7 +36,8 @@ You'll need to provide the plugin with a few fields for it to work:
 ```
 vault write pachyderm/config \
     admin_token="${ADMIN_TOKEN}" \
-	pachd_address="${ADDRESS:-127.0.0.1}:30650"
+    pachd_address="${ADDRESS:-127.0.0.1}:30650" \
+    ttl=5m # optional
 ```
 
 To get a machine user `admin_token` from pachyderm:
