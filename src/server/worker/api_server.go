@@ -235,7 +235,7 @@ func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
 			}
 			// this shouldn't technically be possible to hit io.EOF should be
 			// the only error bufio.Reader can return when using a buffer.
-			return 0, err
+			return 0, fmt.Errorf("error ReadString: %v", err)
 		}
 		// We don't want to make this call as:
 		// logger.Logf(message)
@@ -502,13 +502,13 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	cmd.Dir = a.workingDir
 	err := cmd.Start()
 	if err != nil {
-		return err
+		return fmt.Errorf("error cmd.Start: %v", err)
 	}
 	// A context w a deadline will successfully cancel/kill
 	// the running process (minus zombies)
 	state, err := cmd.Process.Wait()
 	if err != nil {
-		return err
+		return fmt.Errorf("error cmd.Wait: %v", err)
 	}
 	if isDone(ctx) {
 		if err = ctx.Err(); err != nil {
@@ -533,7 +533,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 				}
 			}
 		}
-		return err
+		return fmt.Errorf("error cmd.WaitIO: %v", err)
 	}
 	return nil
 }
@@ -1274,7 +1274,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 					}
 				}()
 				if err != nil {
-					return err
+					return fmt.Errorf("error downloadData: %v", err)
 				}
 				a.runMu.Lock()
 				defer a.runMu.Unlock()
@@ -1306,7 +1306,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 					}
 				}()
 				if err := a.runUserCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
-					return err
+					return fmt.Errorf("error runUserCode: %v", err)
 				}
 				// CleanUp is idempotent so we can call it however many times we want.
 				// The reason we are calling it here is that the puller could've
