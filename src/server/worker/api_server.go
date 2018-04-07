@@ -524,7 +524,11 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	// cmd.Process.Wait() then cmd.Wait() will produce an error. So instead we
 	// close the IO using this helper
 	err = cmd.WaitIO(state, err)
-	if err != nil {
+	// We ignore broken pipe errors, these occur very occasionally if a user
+	// specifies Stdin but their process doesn't actually read everything from
+	// Stdin. This is a failure common thing to do, bash by default ignores
+	// broken pipe errors.
+	if err != nil && !strings.Contains(err.Error(), "broken pipe") {
 		// (if err is an acceptable return code, don't return err)
 		if exiterr, ok := err.(*exec.ExitError); ok {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
