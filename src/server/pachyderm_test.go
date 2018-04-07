@@ -7379,6 +7379,40 @@ func TestDeleteSpecRepo(t *testing.T) {
 	require.YesError(t, c.DeleteRepo("spec", false))
 }
 
+func TestDontReadStdin(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	dataRepo := tu.UniqueString("TestDontReadStdin_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	pipeline := tu.UniqueString("TestDontReadStdin")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"true"},
+		[]string{"stdin that will never be read"},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/"),
+		"",
+		false,
+	))
+	numCommits := 20
+	for i := 0; i < numCommits; i++ {
+		commit, err := c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(dataRepo, "master"))
+		jobInfos, err := c.FlushJobAll([]*pfs.Commit{commit}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(jobInfos))
+		require.Equal(t, jobInfos[0].State.String(), pps.JobState_JOB_SUCCESS.String())
+	}
+}
+
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
 	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
 	require.NoError(t, err)
