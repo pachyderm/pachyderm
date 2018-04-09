@@ -62,9 +62,6 @@ $vault write pachyderm/revoke user_token=xxx
 
 ```
 
-TODO: The above needs to be implemented. It's unclear how the sidechannel/etc works for the revocation step.
-
-
 ## Usage
 
 When your application needs to access pachyderm, you will first do the following:
