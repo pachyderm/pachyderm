@@ -118,6 +118,7 @@ type apiServer struct {
 	storageHostPath       string
 	iamRole               string
 	imagePullSecret       string
+	noExposeDockerSocket  bool
 	reporter              *metrics.Reporter
 	// collections
 	pipelines col.Collection

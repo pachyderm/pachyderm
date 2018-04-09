@@ -28,6 +28,7 @@ func NewAPIServer(
 	storageHostPath string,
 	iamRole string,
 	imagePullSecret string,
+	noExposeDockerSocket bool,
 	reporter *metrics.Reporter,
 ) (ppsclient.APIServer, error) {
 	etcdClient, err := etcd.New(etcd.Config{
@@ -53,6 +54,7 @@ func NewAPIServer(
 		storageHostPath:       storageHostPath,
 		iamRole:               iamRole,
 		imagePullSecret:       imagePullSecret,
+		noExposeDockerSocket:  noExposeDockerSocket,
 		reporter:              reporter,
 		pipelines:             ppsdb.Pipelines(etcdClient, etcdPrefix),
 		jobs:                  ppsdb.Jobs(etcdClient, etcdPrefix),
