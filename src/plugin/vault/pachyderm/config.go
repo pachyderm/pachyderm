@@ -3,14 +3,11 @@ package pachyderm
 import (
 	"context"
 	"fmt"
+	"time"
 
-	"github.com/hashicorp/vault/helper/parseutil"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 )
-
-// DefaultTTL defines the default if none is specified
-const DefaultTTL = "5m"
 
 type config struct {
 	// AdminToken is pachyderm admin token used to generate credentials
@@ -29,18 +26,15 @@ func (b *backend) configPath() *framework.Path {
 		Pattern:      "config",
 		HelpSynopsis: "Configure the admin token",
 		HelpDescription: `
-
-Read or writer configuration to Vault's storage backend to specify the Pachyderm admin token. For example:
+Read or write configuration to Vault's storage backend to specify the Pachyderm admin token. For example:
 
     $ vault write auth/pachyderm/config \
         admin_token="xxx" \
-		pachd_address="127.0.0.1:30650" \
-		ttl="20m"
+        pachd_address="127.0.0.1:30650" \
+        ttl="20m" # ttl is optional
 
 For more information and examples, please see the online documentation.
-
 `,
-
 		Fields: map[string]*framework.FieldSchema{
 			"admin_token": &framework.FieldSchema{
 				Type:        framework.TypeString,
@@ -62,8 +56,13 @@ For more information and examples, please see the online documentation.
 	}
 }
 
-func (b *backend) pathConfigRead(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	config, err := b.Config(ctx, req.Storage)
+func (b *backend) pathConfigRead(ctx context.Context, req *logical.Request, data *framework.FieldData) (resp *logical.Response, retErr error) {
+	b.Logger().Debug(fmt.Sprintf("(%s) %s received at %s", req.ID, req.Operation, req.Path))
+	defer func() {
+		b.Logger().Debug(fmt.Sprintf("(%s) %s finished at %s (success=%t)", req.ID, req.Operation, req.Path, retErr == nil && !resp.IsError()))
+	}()
+
+	config, err := getConfig(ctx, req.Storage)
 	if err != nil {
 		return nil, fmt.Errorf("%v: failed to get configuration from storage", err)
 	}
@@ -71,47 +70,74 @@ func (b *backend) pathConfigRead(ctx context.Context, req *logical.Request, data
 	respData["admin_token"] = config.AdminToken
 	respData["pachd_address"] = config.PachdAddress
 	respData["ttl"] = config.TTL
-	resp := &logical.Response{
+	return &logical.Response{
 		Data: respData,
-	}
-	return resp, nil
+	}, nil
 }
 
-func (b *backend) pathConfigWrite(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) pathConfigWrite(ctx context.Context, req *logical.Request, data *framework.FieldData) (resp *logical.Response, retErr error) {
+	b.Logger().Debug(fmt.Sprintf("(%s) %s received at %s", req.ID, req.Operation, req.Path))
+	defer func() {
+		b.Logger().Debug(fmt.Sprintf("(%s) %s finished at %s (success=%t)", req.ID, req.Operation, req.Path, retErr == nil && !resp.IsError()))
+	}()
+
 	// Validate we didn't get extraneous fields
 	if err := validateFields(req, data); err != nil {
 		return nil, logical.CodedError(422, err.Error())
 	}
 
-	adminToken := data.Get("admin_token").(string)
+	// Extract relevant fields from the request
+	adminToken, errResp := getStringField(data, "admin_token")
+	if errResp != nil {
+		return errResp, nil
+	}
 	if adminToken == "" {
-		return errMissingField("admin_token"), nil
+		return logical.ErrorResponse("invalid admin_token: empty string"), nil
 	}
-	pachdAddress := data.Get("pachd_address").(string)
+	pachdAddress, errResp := getStringField(data, "pachd_address")
+	if errResp != nil {
+		return errResp, nil
+	}
 	if pachdAddress == "" {
-		return errMissingField("pachd_address"), nil
-	}
-	ttlDuration, err := parseutil.ParseDurationSecond(data.Get("ttl"))
-	if err != nil {
-		return nil, fmt.Errorf("error parsing duration (%v): %v", data.Get("ttl"), err)
-	}
-	ttl := DefaultTTL
-	// An empty input param results in a "0s" duration
-	if ttlDuration.Seconds() > 0 {
-		ttl = ttlDuration.String()
-	}
-	// Built the entry
-	entry, err := logical.StorageEntryJSON("config", &config{
-		AdminToken:   adminToken,
-		PachdAddress: pachdAddress,
-		TTL:          ttl,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("%v: failed to generate storage entry", err)
+		return logical.ErrorResponse("invalid pachd_address: empty string"), nil
 	}
 
-	if err := req.Storage.Put(ctx, entry); err != nil {
-		return nil, fmt.Errorf("%v: failed to write configuration to storage", err)
+	// Try to extract TTL from request
+	ttl := b.System().DefaultLeaseTTL()
+	if errResp = func() *logical.Response {
+		ttlIface, ok, err := data.GetOkErr("ttl")
+		if err != nil {
+			return logical.ErrorResponse(fmt.Sprintf("%v: could not extract 'ttl' from request", err))
+		}
+		if !ok {
+			return nil // ttl is unset -- no error, just use default
+		}
+
+		// try to parse TTL as an int (
+		ttlSeconds, ok := ttlIface.(int)
+		if !ok {
+			return logical.ErrorResponse(fmt.Sprintf("invalid type for param 'ttl' (expected int but got %T)", ttlIface))
+		}
+		if ttlSeconds <= 0 {
+			return logical.ErrorResponse("invalid TTL duration (must be > 0s)")
+		}
+		ttl = time.Duration(ttlSeconds) * time.Second
+		// clamp TTL to vault's max lease
+		if ttl > b.System().MaxLeaseTTL() {
+			ttl = b.System().MaxLeaseTTL()
+		}
+		return nil
+	}(); errResp != nil {
+		return errResp, nil
 	}
-	return nil, nil
+
+	// Build the entry and write it to vault storage
+	if err := putConfig(ctx, req.Storage, &config{
+		AdminToken:   adminToken,
+		PachdAddress: pachdAddress,
+		TTL:          ttl.String(),
+	}); err != nil {
+		return logical.ErrorResponse(fmt.Sprintf("%v: could not put config", err)), nil
+	}
+	return &logical.Response{}, nil
 }
