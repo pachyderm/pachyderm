@@ -22,7 +22,7 @@ On your vault server:
 export SHASUM=$(shasum -a 256 "/tmp/vault-plugins/pachyderm" | cut -d " " -f1)
 echo $SHASUM
 vault write sys/plugins/catalog/pachyderm sha_256="$SHASUM" command="pachyderm"
-vault secrets enable -path=$PLUGIN_PATH -plugin-name=pachyderm plugin
+vault secrets enable -path=pachyderm -plugin-name=pachyderm plugin
 ```
 
 3) Configure the plugin
