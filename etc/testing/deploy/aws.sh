@@ -14,11 +14,12 @@ ZONE="${ZONE:-us-west-1b}"
 STATE_STORE=s3://pachyderm-travis-state-store-v1
 OP=-
 CLOUDFRONT=
+DEPLOY_PACHD="true"  # By default, aws.sh deploys pachyderm in its k8s cluster
 len_zone_minus_one="$(( ${#ZONE} - 1 ))"
 REGION=${ZONE:0:${len_zone_minus_one}}
 
 # Process args
-new_opt="$( getopt --long="create,delete,delete-all,list,zone:,use-cloudfront" -- ${0} "${@}" )"
+new_opt="$( getopt --long="create,delete,delete-all,list,zone:,use-cloudfront,no-pachyderm" -- ${0} "${@}" )"
 [[ "$?" -eq 0 ]] || exit 1
 eval "set -- ${new_opt}"
 
@@ -49,6 +50,10 @@ while true; do
       CLOUDFRONT="--use-cloudfront"
       shift
       ;;
+    --no-pachyderm)
+      DEPLOY_PACHD="false" # default is true, see top of file
+      shift
+      ;;
     --)
       shift
       break
@@ -66,6 +71,9 @@ case "${OP}" in
     aws_sh="$(dirname "${0}")/../../deploy/aws.sh"
     aws_sh="$(realpath "${aws_sh}")"
     cmd=("${aws_sh}" --zone=${ZONE} --state=${STATE_STORE} --no-metrics)
+    if [[ "${DEPLOY_PACHD}" == "false" ]]; then
+      cmd+=("--no-pachyderm")
+    fi
     if [[ -n "${CLOUDFRONT}" ]]; then
       cmd+=("${CLOUDFRONT}")
     fi
