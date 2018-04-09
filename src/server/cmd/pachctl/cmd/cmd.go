@@ -15,6 +15,7 @@ import (
 
 	"github.com/facebookgo/pidfile"
 	"github.com/fatih/color"
+	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
@@ -138,6 +139,12 @@ __custom_func() {
 func PachctlCmd() (*cobra.Command, error) {
 	var verbose bool
 	var noMetrics bool
+	raw := false
+	rawFlag := func(cmd *cobra.Command) {
+		cmd.Flags().BoolVar(&raw, "raw", false, "disable pretty printing, print raw json")
+	}
+	marshaller := &jsonpb.Marshaler{Indent: "  "}
+
 	rootCmd := &cobra.Command{
 		Use: os.Args[0],
 		Long: `Access the Pachyderm API.
@@ -193,7 +200,13 @@ Environment variables:
 		Long:  "Return version information.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			if clientOnly {
-				fmt.Println(version.PrettyPrintVersion(version.Version))
+				if raw {
+					if err := marshaller.Marshal(os.Stdout, version.Version); err != nil {
+						return err
+					}
+				} else {
+					fmt.Println(version.PrettyPrintVersion(version.Version))
+				}
 				return nil
 			}
 			if !noMetrics {
@@ -206,9 +219,17 @@ Environment variables:
 				}()
 			}
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			printVersionHeader(writer)
-			printVersion(writer, "pachctl", version.Version)
-			writer.Flush()
+			if raw {
+				if err := marshaller.Marshal(os.Stdout, version.Version); err != nil {
+					return err
+				}
+			} else {
+				printVersionHeader(writer)
+				printVersion(writer, "pachctl", version.Version)
+				if err := writer.Flush(); err != nil {
+					return err
+				}
+			}
 
 			cfg, err := config.Read()
 			if err != nil {
@@ -231,13 +252,23 @@ Environment variables:
 				return errors.New(buf.String())
 			}
 
-			printVersion(writer, "pachd", version)
-			return writer.Flush()
+			if raw {
+				if err := marshaller.Marshal(os.Stdout, version); err != nil {
+					return err
+				}
+			} else {
+				printVersion(writer, "pachd", version)
+				if err := writer.Flush(); err != nil {
+					return err
+				}
+			}
+			return nil
 		}),
 	}
 	versionCmd.Flags().BoolVar(&clientOnly, "client-only", false, "If set, "+
 		"only print pachctl's version, but don't make any RPCs to pachd. Useful "+
 		"if pachd is unavailable")
+	rawFlag(versionCmd)
 
 	deleteAll := &cobra.Command{
 		Use:   "delete-all",
