@@ -82,6 +82,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var noGuaranteed bool
 	var noRBAC bool
 	var namespace string
+	var noExposeDockerSocket bool
 
 	deployLocal := &cobra.Command{
 		Use:   "local",
@@ -410,6 +411,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 				NoGuaranteed:            noGuaranteed,
 				NoRBAC:                  noRBAC,
 				Namespace:               namespace,
+				NoExposeDockerSocket:    noExposeDockerSocket,
 			}
 			return nil
 		}),
@@ -427,6 +429,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 	deploy.PersistentFlags().BoolVar(&noGuaranteed, "no-guaranteed", false, "Don't use guaranteed QoS for etcd and pachd deployments. Turning this on (turning guaranteed QoS off) can lead to more stable local clusters (such as a on Minikube), it should normally be used for production clusters.")
 	deploy.PersistentFlags().BoolVar(&noRBAC, "no-rbac", false, "Don't deploy RBAC roles for Pachyderm. (for k8s versions prior to 1.8)")
 	deploy.PersistentFlags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace to deploy Pachyderm to.")
+	deploy.PersistentFlags().BoolVar(&noExposeDockerSocket, "no-expose-docker-socket", false, "Don't expose the Docker socket to worker containers. This limits the privileges of workers which prevents them from automatically setting the container's working dir and user.")
 
 	deploy.AddCommand(
 		deployLocal,

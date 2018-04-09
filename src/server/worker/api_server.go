@@ -317,7 +317,11 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		numWorkers = 1
 	}
 	server.numWorkers = numWorkers
-	if pipelineInfo.Transform.Image != "" {
+	var noDocker bool
+	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
+		noDocker = true
+	}
+	if pipelineInfo.Transform.Image != "" && !noDocker {
 		docker, err := docker.NewClientFromEnv()
 		if err != nil {
 			return nil, err
