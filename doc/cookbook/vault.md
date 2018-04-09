@@ -31,7 +31,7 @@ You'll need to provide the plugin with a few fields for it to work:
 
 - `admin_token` : is the (machine user) pachyderm token the plugin will use to cut new credentials on behalf of users
 - `pachd_address` : is the URL where the pachyderm cluster can be accessed
-- `ttl` : is the max TTL a token can be issued (TODO)
+- `ttl` : is the max TTL a token can be issued
 
 ```
 vault write pachyderm/config \
