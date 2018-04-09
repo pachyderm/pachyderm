@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -18,9 +20,14 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/storagegateway"
-	"github.com/cenkalti/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	log "github.com/sirupsen/logrus"
+
+	vault "github.com/hashicorp/vault/api"
 )
+
+const oneDayInSeconds = 60 * 60 * 24
+const twoDaysInSeconds = 60 * 60 * 48
 
 var (
 	// By default, objects uploaded to a bucket are only accessible to the
@@ -37,16 +44,149 @@ type amazonClient struct {
 	uploader               *s3manager.Uploader
 }
 
-func newAmazonClient(bucket string, cloudfrontDistribution string, id string, secret string, token string, region string) (*amazonClient, error) {
-	config := &aws.Config{
+type vaultCredentialsProvider struct {
+	vaultClient *vault.Client // client used to retrieve S3 creds from vault
+	vaultRole   string        // get vault creds from: /aws/creds/<vaultRole>
+
+	// ID, duration, and last renew time of the vault lease that governs the most
+	// recent AWS secret issued to this pachd instance (and a mutex protecting
+	// them)
+	leaseMu        sync.Mutex
+	leaseID        string
+	leaseLastRenew time.Time
+	leaseDuration  time.Duration
+}
+
+// updateLease extracts the duration of the lease governing 'secret' (an AWS
+// secret). IIUC, because the AWS backend issues dynamic secrets, there is no
+// tokens associated with them, and vaultSecret.TokenTTL can be ignored
+func (v *vaultCredentialsProvider) updateLease(secret *vault.Secret) {
+	v.leaseMu.Lock()
+	defer v.leaseMu.Unlock()
+	v.leaseID = secret.LeaseID
+	v.leaseLastRenew = time.Now()
+	v.leaseDuration = time.Duration(secret.LeaseDuration) * time.Second
+}
+
+func (v *vaultCredentialsProvider) getLeaseDuration() time.Duration {
+	v.leaseMu.Lock()
+	defer v.leaseMu.Unlock()
+	return v.leaseDuration
+}
+
+// Retrieve returns nil if it successfully retrieved the value.  Error is
+// returned if the value were not obtainable, or empty.
+func (v *vaultCredentialsProvider) Retrieve() (credentials.Value, error) {
+	var emptyCreds, result credentials.Value // result
+
+	// retrieve AWS creds from vault
+	vaultSecret, err := v.vaultClient.Logical().Read(path.Join("aws", "creds", v.vaultRole))
+	if err != nil {
+		return emptyCreds, fmt.Errorf("could not retrieve creds from vault: %v", err)
+	}
+	accessKeyIface, accessKeyOk := vaultSecret.Data["access_key"]
+	awsSecretIface, awsSecretOk := vaultSecret.Data["secret_key"]
+	if !accessKeyOk || !awsSecretOk {
+		return emptyCreds, fmt.Errorf("aws creds not present in vault response")
+	}
+
+	// Convert access key & secret in response to strings
+	result.AccessKeyID, accessKeyOk = accessKeyIface.(string)
+	result.SecretAccessKey, awsSecretOk = awsSecretIface.(string)
+	if !accessKeyOk || !awsSecretOk {
+		return emptyCreds, fmt.Errorf("aws creds in vault response were not both strings (%T and %T)", accessKeyIface, awsSecretIface)
+	}
+
+	// update the lease values in 'v', and spawn a goroutine to renew the lease
+	v.updateLease(vaultSecret)
+	go func() {
+		for {
+			// renew at half the lease duration or one day, whichever is greater
+			// (lease must expire eventually)
+			renewInterval := v.getLeaseDuration()
+			if renewInterval.Seconds() < oneDayInSeconds {
+				renewInterval = oneDayInSeconds * time.Second
+			}
+
+			// Wait until 'renewInterval' has elapsed, then renew the lease
+			time.Sleep(renewInterval)
+			backoff.RetryNotify(func() error {
+				// every two days, renew the lease for this node's AWS credentials
+				vaultSecret, err := v.vaultClient.Sys().Renew(v.leaseID, twoDaysInSeconds)
+				if err != nil {
+					return err
+				}
+				v.updateLease(vaultSecret)
+				return nil
+			}, backoff.NewExponentialBackOff(), func(err error, _ time.Duration) error {
+				log.Errorf("couuld not renew vault lease: %v", err)
+				return nil
+			})
+		}
+	}()
+
+	// Per https://www.vaultproject.io/docs/secrets/aws/index.html#usage, wait
+	// until token is usable
+	time.Sleep(10 * time.Second)
+	return result, nil
+}
+
+// IsExpired returns if the credentials are no longer valid, and need to be
+// retrieved.
+func (v *vaultCredentialsProvider) IsExpired() bool {
+	v.leaseMu.Lock()
+	defer v.leaseMu.Unlock()
+	return time.Now().After(v.leaseLastRenew.Add(v.leaseDuration))
+}
+
+// AmazonCreds are options that are applicable specifically to Pachd's
+// credentials in an AWS deployment
+type AmazonCreds struct {
+	// Direct credentials. Only applicable if Pachyderm is given its own permanent
+	// AWS credentials
+	ID     string // Access Key ID
+	Secret string // Secret Access Key
+	Token  string // Access token (if using temporary security credentials
+
+	// Vault options (if getting AWS credentials from Vault)
+	VaultAddress string // normally addresses come from env, but don't have vault service name
+	VaultRole    string
+	VaultToken   string
+}
+
+func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistribution string) (*amazonClient, error) {
+	// set up aws config, including credentials (if neither creds.ID nor
+	// creds.VaultAddress are set, then this will use the EC2 metadata service
+	awsConfig := &aws.Config{
 		Region: aws.String(region),
 	}
-	if id != "" {
-		config.Credentials = credentials.NewStaticCredentials(id, secret, token)
+	if creds.ID != "" {
+		awsConfig.Credentials = credentials.NewStaticCredentials(creds.ID, creds.Secret, creds.Token)
+	} else if creds.VaultAddress != "" {
+		vaultClient, err := vault.NewClient(&vault.Config{
+			Address: creds.VaultAddress,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("error creating vault client: %v", err)
+		}
+		vaultClient.SetToken(creds.VaultToken)
+		awsConfig.Credentials = credentials.NewCredentials(&vaultCredentialsProvider{
+			vaultClient: vaultClient,
+			vaultRole:   creds.VaultRole,
+		})
 	}
-	session := session.New(config)
-	var signer *sign.URLSigner
-	cloudfrontDistribution = strings.TrimSpace(cloudfrontDistribution)
+
+	// Create new session using awsConfig
+	session := session.New(awsConfig)
+	awsClient := &amazonClient{
+		bucket:   bucket,
+		s3:       s3.New(session),
+		uploader: s3manager.NewUploader(session),
+	}
+
+	// Set awsClient.cloudfrontURLSigner and cloudfrontDistribution (if Pachd is
+	// using cloudfront)
+	awsClient.cloudfrontDistribution = strings.TrimSpace(cloudfrontDistribution)
 	if cloudfrontDistribution != "" {
 		rawCloudfrontPrivateKey, err := readSecretFile("/cloudfrontPrivateKey")
 		if err != nil {
@@ -64,16 +204,10 @@ func newAmazonClient(bucket string, cloudfrontDistribution string, id string, se
 		if err != nil {
 			return nil, err
 		}
-		signer = sign.NewURLSigner(cloudfrontKeyPairID, cloudfrontPrivateKey)
+		awsClient.cloudfrontURLSigner = sign.NewURLSigner(cloudfrontKeyPairID, cloudfrontPrivateKey)
 		log.Infof("Using cloudfront security credentials - keypair ID (%v) - to sign cloudfront URLs", string(cloudfrontKeyPairID))
 	}
-	return &amazonClient{
-		bucket:                 bucket,
-		cloudfrontDistribution: cloudfrontDistribution,
-		cloudfrontURLSigner:    signer,
-		s3:                     s3.New(session),
-		uploader:               s3manager.NewUploader(session),
-	}, nil
+	return awsClient, nil
 }
 
 func (c *amazonClient) Writer(name string) (io.WriteCloser, error) {
@@ -132,8 +266,9 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 				return connErr
 			}
 			return nil
-		}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) {
+		}, backoff.NewExponentialBackOff(), func(err error, d time.Duration) error {
 			log.Infof("Error connecting to (%v); retrying in %s: %#v", url, d, err)
+			return nil
 		})
 		if connErr != nil {
 			return nil, connErr

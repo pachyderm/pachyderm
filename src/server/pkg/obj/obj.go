@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cenkalti/backoff"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
@@ -136,9 +136,8 @@ func NewMinioClient(endpoint, bucket, id, secret string, secure, isS3V2 bool) (C
 //   secret - AWS secret access key
 //   token  - AWS access token
 //   region - AWS region
-func NewAmazonClient(bucket string, distribution string, id string, secret string, token string,
-	region string) (Client, error) {
-	return newAmazonClient(bucket, distribution, id, secret, token, region)
+func NewAmazonClient(region, bucket string, creds *AmazonCreds, distribution string) (Client, error) {
+	return newAmazonClient(region, bucket, creds, distribution)
 }
 
 // NewMinioClientFromSecret constructs an s3 compatible client by reading
@@ -179,41 +178,56 @@ func NewMinioClientFromSecret(bucket string) (Client, error) {
 // from a mounted AmazonSecret. You may pass "" for bucket in which case it
 // will read the bucket from the secret.
 func NewAmazonClientFromSecret(bucket string) (Client, error) {
-	var distribution string
-	var err error
+	// Get AWS region (required for constructing an AWS client)
+	region, err := readSecretFile("/amazon-region")
+	if err != nil {
+		return nil, fmt.Errorf("amazon-region not found")
+	}
+
+	// Use or retrieve S3 bucket
 	if bucket == "" {
 		bucket, err = readSecretFile("/amazon-bucket")
 		if err != nil {
 			return nil, err
 		}
-		distribution, err = readSecretFile("/amazon-distribution")
-		if err != nil {
-			// Distribution is not required, but we can log a warning
-			log.Warnln("AWS deployed without cloudfront distribution\n")
-		} else {
-			log.Infof("AWS deployed with cloudfront distribution at %v\n", string(distribution))
-		}
 	}
-	// It's ok if we can't find static credentials; we will use IAM roles
-	// in that case.
-	id, err := readSecretFile("/amazon-id")
+
+	// Retrieve either static or vault credentials; if neither are found, we will
+	// use IAM roles (i.e. the EC2 metadata service)
+	var creds AmazonCreds
+	creds.ID, err = readSecretFile("/amazon-id")
 	if err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
-	secret, err := readSecretFile("/amazon-secret")
+	creds.Secret, err = readSecretFile("/amazon-secret")
 	if err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
-	token, err := readSecretFile("/amazon-token")
+	creds.Token, err = readSecretFile("/amazon-token")
 	if err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
-	// region is required for constructing an AWS client
-	region, err := readSecretFile("/amazon-region")
+	creds.VaultAddress, err = readSecretFile("/amazon-vault-addr")
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+	creds.VaultRole, err = readSecretFile("/amazon-vault-role")
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+	creds.VaultToken, err = readSecretFile("/amazon-vault-token")
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+
+	// Get Cloudfront distribution (not required, though we can log a warning)
+	distribution, err := readSecretFile("/amazon-distribution")
 	if err != nil {
-		return nil, fmt.Errorf("amazon-region not found")
+		log.Warnln("AWS deployed without cloudfront distribution\n")
+	} else {
+		log.Infof("AWS deployed with cloudfront distribution at %v\n", string(distribution))
 	}
-	return NewAmazonClient(bucket, distribution, id, secret, token, region)
+	return NewAmazonClient(region, bucket, &creds, distribution)
 }
 
 // NewClientFromURLAndSecret constructs a client by parsing `URL` and then
@@ -319,12 +333,13 @@ func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 			return err
 		}
 		return nil
-	}, b.backoffConfig, func(err error, d time.Duration) {
+	}, b.backoffConfig, func(err error, d time.Duration) error {
 		log.Infof("Error reading; retrying in %s: %#v", d, RetryError{
 			Err:               err.Error(),
 			TimeTillNextRetry: d.String(),
 			BytesProcessed:    bytesRead,
 		})
+		return nil
 	})
 	return bytesRead, err
 }
@@ -360,12 +375,13 @@ func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 			return err
 		}
 		return nil
-	}, b.backoffConfig, func(err error, d time.Duration) {
+	}, b.backoffConfig, func(err error, d time.Duration) error {
 		log.Infof("Error writing; retrying in %s: %#v", d, RetryError{
 			Err:               err.Error(),
 			TimeTillNextRetry: d.String(),
 			BytesProcessed:    bytesWritten,
 		})
+		return nil
 	})
 	return bytesWritten, err
 }
