@@ -3,6 +3,7 @@ package pachyderm
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/hashicorp/vault/logical"
@@ -25,13 +26,18 @@ func (b *backend) loginPath() *framework.Path {
 	}
 }
 
-func (b *backend) pathAuthLogin(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+func (b *backend) pathAuthLogin(ctx context.Context, req *logical.Request, d *framework.FieldData) (resp *logical.Response, retErr error) {
+	b.Logger().Debug(fmt.Sprintf("(%s) %s received at %s", req.ID, req.Operation, req.Path))
+	defer func() {
+		b.Logger().Debug(fmt.Sprintf("(%s) %s finished at %s (success=%t)", req.ID, req.Operation, req.Path, retErr == nil && !resp.IsError()))
+	}()
+
 	username := d.Get("username").(string)
 	if len(username) == 0 {
 		return nil, logical.ErrInvalidRequest
 	}
 
-	config, err := b.Config(ctx, req.Storage)
+	config, err := getConfig(ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	}
@@ -45,12 +51,12 @@ func (b *backend) pathAuthLogin(ctx context.Context, req *logical.Request, d *fr
 		return nil, errors.New("plugin is missing ttl")
 	}
 
-	ttl, _, err := b.SanitizeTTLStr(config.TTL, DefaultTTL)
+	ttl, _, err := b.SanitizeTTLStr(config.TTL, b.System().MaxLeaseTTL().String())
 	if err != nil {
 		return nil, err
 	}
 
-	userToken, err := b.generateUserCredentials(ctx, config.PachdAddress, config.AdminToken, username, ttl)
+	userToken, err := generateUserCredentials(ctx, config.PachdAddress, config.AdminToken, username, ttl)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +81,7 @@ func (b *backend) pathAuthLogin(ctx context.Context, req *logical.Request, d *fr
 // generateUserCredentials uses the vault plugin's Admin credentials to generate
 // a new Pachyderm authentication token for 'username' (i.e. the user who is
 // currently requesting a Pachyderm token from Vault).
-func (b *backend) generateUserCredentials(ctx context.Context, pachdAddress string, adminToken string, username string, ttl time.Duration) (string, error) {
+func generateUserCredentials(ctx context.Context, pachdAddress string, adminToken string, username string, ttl time.Duration) (string, error) {
 	// Setup a single use client w the given admin token / address
 	client, err := pclient.NewFromAddress(pachdAddress)
 	if err != nil {
