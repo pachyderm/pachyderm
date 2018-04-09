@@ -68,6 +68,12 @@ func (v *vaultCredentialsProvider) updateLease(secret *vault.Secret) {
 	v.leaseDuration = time.Duration(secret.LeaseDuration) * time.Second
 }
 
+func (v *vaultCredentialsProvider) getLeaseDuration() time.Duration {
+	v.leaseMu.Lock()
+	defer v.leaseMu.Unlock()
+	return v.leaseDuration
+}
+
 // Retrieve returns nil if it successfully retrieved the value.  Error is
 // returned if the value were not obtainable, or empty.
 func (v *vaultCredentialsProvider) Retrieve() (credentials.Value, error) {
@@ -97,7 +103,7 @@ func (v *vaultCredentialsProvider) Retrieve() (credentials.Value, error) {
 		for {
 			// renew at half the lease duration or one day, whichever is greater
 			// (lease must expire eventually)
-			renewInterval := v.leaseDuration
+			renewInterval := v.getLeaseDuration()
 			if renewInterval.Seconds() < oneDayInSeconds {
 				renewInterval = oneDayInSeconds * time.Second
 			}
