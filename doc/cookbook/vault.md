@@ -43,8 +43,7 @@ vault write pachyderm/config \
 To get a machine user `admin_token` from pachyderm:
 
 ```
-$ yes | pachctl auth activate -u admin
-$ pachctl auth login admin
+$ pachctl auth activate # or 'pachctl auth login' if auth is already active
 $ cat ~/.pachyderm/config.json | jq -r '.v1.session_token'
 f7d120ee5084466b984376f34f3f06f6
 ```
