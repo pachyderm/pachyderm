@@ -33,25 +33,32 @@ You'll need to provide the plugin with a few fields for it to work:
 - `pachd_address` : is the URL where the pachyderm cluster can be accessed
 - `ttl` : is the max TTL a token can be issued
 
-```
-vault write pachyderm/config \
-    admin_token="${ADMIN_TOKEN}" \
-    pachd_address="${ADDRESS:-127.0.0.1}:30650" \
-    ttl=5m # optional
-```
 
 To get a machine user `admin_token` from pachyderm:
 
 ```
 $ pachctl auth activate # or 'pachctl auth login' if auth is already active
-$ cat ~/.pachyderm/config.json | jq -r '.v1.session_token'
+$ ADMIN_TOKEN="$(cat ~/.pachyderm/config.json | jq -r '.v1.session_token')"
+$ echo "${ADMIN_TOKEN}"
 f7d120ee5084466b984376f34f3f06f6
 ```
 
-4) Manage user tokens with `revoke`
+```
+vault write pachyderm/config \
+    admin_token="${ADMIN_TOKEN}" \
+    pachd_address="${ADDRESS:-127.0.0.1:30650}" \
+    ttl=5m # optional
+```
+4) Test the plugin
 
 ```
-$vault token revoke d2f1f95c-2445-65ab-6a8b-546825e4997a
+vault write pachyderm/login username=robot:testuser
+```
+
+5) Manage user tokens with `revoke`
+
+```
+$ vault token revoke d2f1f95c-2445-65ab-6a8b-546825e4997a
 Success! Revoked token (if it existed)
 ```
 
