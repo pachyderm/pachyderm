@@ -17,7 +17,6 @@ import (
 const (
 	vaultAddress = "http://127.0.0.1:8200"
 	pluginName   = "pachyderm"
-	vaultMaxTTL  = "768h0m0s"
 )
 
 var pachClient *client.APIClient
