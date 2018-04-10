@@ -81,3 +81,28 @@ func (a *InactiveAPIServer) ExtendAuthToken(ctx context.Context, req *auth.Exten
 func (a *InactiveAPIServer) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTokenRequest) (resp *auth.RevokeAuthTokenResponse, retErr error) {
 	return nil, auth.ErrNotActivated
 }
+
+// SetGroupsForUser implements the SetGroupsForUser RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) SetGroupsForUser(ctx context.Context, req *auth.SetGroupsForUserRequest) (resp *auth.SetGroupsForUserResponse, retErr error) {
+	return nil, auth.ErrNotActivated
+}
+
+// AddUserToGroup implements the AddUserToGroup RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) AddUserToGroup(ctx context.Context, req *auth.AddUserToGroupRequest) (resp *auth.AddUserToGroupResponse, retErr error) {
+	return nil, auth.ErrNotActivated
+}
+
+// RemoveUserFromGroup implements the RemoveUserFromGroup RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) RemoveUserFromGroup(ctx context.Context, req *auth.RemoveUserFromGroupRequest) (resp *auth.RemoveUserFromGroupResponse, retErr error) {
+	return nil, auth.ErrNotActivated
+}
+
+// GetGroupsForUser implements the GetGroupsForUser RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetGroupsForUser(ctx context.Context, req *auth.GetGroupsForUserRequest) (resp *auth.GetGroupsForUserResponse, retErr error) {
+	return nil, auth.ErrNotActivated
+}
+
+// GetUsersForGroup implements the GetUsersForGroup RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetUsersForGroup(ctx context.Context, req *auth.GetUsersForGroupRequest) (resp *auth.GetUsersForGroupResponse, retErr error) {
+	return nil, auth.ErrNotActivated
+}
