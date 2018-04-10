@@ -1300,26 +1300,29 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 					a.cancel = cancel
 					a.stats = stats
 				}()
-				if err := os.MkdirAll(client.PPSInputPrefix, 0666); err != nil {
+				if err := os.MkdirAll(client.PPSInputPrefix, 0777); err != nil {
 					return err
 				}
 				// Create output directory (currently /pfs/out) and run user code
-				if err := os.MkdirAll(filepath.Join(dir, "out"), 0666); err != nil {
+				if err := os.MkdirAll(filepath.Join(dir, "out"), 0777); err != nil {
 					return err
 				}
 				if err := syscall.Mount(dir, client.PPSInputPrefix, "", syscall.MS_BIND, ""); err != nil {
 					return err
-				}
-				if a.pipelineInfo.Transform.User != "" {
-					if err := os.Chown("/pfs/out", int(a.uid), int(a.gid)); err != nil {
-						return err
-					}
 				}
 				defer func() {
 					if err := syscall.Unmount(client.PPSInputPrefix, syscall.MNT_DETACH); err != nil && retErr == nil {
 						retErr = err
 					}
 				}()
+				if a.pipelineInfo.Transform.User != "" {
+					filepath.Walk("/pfs", func(name string, info os.FileInfo, err error) error {
+						if err == nil {
+							err = os.Chown(name, int(a.uid), int(a.gid))
+						}
+						return err
+					})
+				}
 				if err := a.runUserCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
 					return err
 				}
