@@ -122,6 +122,14 @@ message ACL {
   map<string, Scope> entries = 1;
 }
 
+message Users {
+  map<string, bool> usernames = 1;
+}
+
+message Groups {
+  map<string, bool> groups = 1;
+}
+
 //// Authorization API
 
 message AuthorizeRequest {
@@ -250,6 +258,43 @@ message RevokeAuthTokenRequest {
 
 message RevokeAuthTokenResponse {}
 
+message SetGroupsForUserRequest {
+  string username = 1;
+  repeated string groups = 2;
+}
+
+message SetGroupsForUserResponse {}
+
+message AddUserToGroupRequest {
+  string username = 1;
+  string group = 2;
+}
+
+message AddUserToGroupResponse {}
+
+message RemoveUserFromGroupRequest {
+  string username = 1;
+  string group = 2;
+}
+
+message RemoveUserFromGroupResponse {}
+
+message GetGroupsForUserRequest {
+  string username = 1;
+}
+
+message GetGroupsForUserResponse {
+  repeated string groups = 1;
+}
+
+message GetUsersForGroupRequest {
+  string group = 1;
+}
+
+message GetUsersForGroupResponse {
+  repeated string usernames = 1;
+}
+
 service API {
   // Activate/Deactivate the auth API. 'Activate' sets an initial set of admins
   // for the Pachyderm cluster, and 'Deactivate' removes all ACLs, tokens, and
@@ -274,4 +319,10 @@ service API {
   rpc GetAuthToken(GetAuthTokenRequest) returns (GetAuthTokenResponse) {}
   rpc ExtendAuthToken(ExtendAuthTokenRequest) returns (ExtendAuthTokenResponse) {}
   rpc RevokeAuthToken(RevokeAuthTokenRequest) returns (RevokeAuthTokenResponse) {}
+
+  rpc SetGroupsForUser(SetGroupsForUserRequest) returns (SetGroupsForUserResponse) {}
+  rpc AddUserToGroup(AddUserToGroupRequest) returns (AddUserToGroupResponse) {}
+  rpc RemoveUserFromGroup(RemoveUserFromGroupRequest) returns (RemoveUserFromGroupResponse) {}
+  rpc GetGroupsForUser(GetGroupsForUserRequest) returns (GetGroupsForUserResponse) {}
+  rpc GetUsersForGroup(GetUsersForGroupRequest) returns (GetUsersForGroupResponse) {}
 }
