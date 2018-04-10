@@ -526,7 +526,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	err = cmd.WaitIO(state, err)
 	// We ignore broken pipe errors, these occur very occasionally if a user
 	// specifies Stdin but their process doesn't actually read everything from
-	// Stdin. This is a failure common thing to do, bash by default ignores
+	// Stdin. This is a fairly common thing to do, bash by default ignores
 	// broken pipe errors.
 	if err != nil && !strings.Contains(err.Error(), "broken pipe") {
 		// (if err is an acceptable return code, don't return err)
