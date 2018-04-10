@@ -27,6 +27,8 @@ message Transform {
   repeated string stdin = 5;
   repeated int64 accept_return_code = 6;
   bool debug = 7;
+  string user = 10;
+  string working_dir = 11;
 }
 
 message Egress {
