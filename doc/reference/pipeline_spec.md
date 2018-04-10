@@ -25,7 +25,9 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
     } ],
     "image_pull_secrets": [ string ],
     "accept_return_code": [ int ],
-    "debug": bool
+    "debug": bool,
+    "user": string,
+    "working_dir": string,
   },
   "parallelism_spec": {
     // Set at most one of the following:
@@ -202,6 +204,12 @@ be considered a successful run for the purpose of setting job status.  `0`
 is always considered a successful exit code.
 
 `transform.debug` turns on added debug logging for the pipeline.
+
+`transform.user` sets the user that your code runs as, this can also be
+accomplished with a `USER` directive in your Dockerfile.
+
+`transform.working_dir` sets the directory that your command will be run from,
+this can also be accomplished with a `WORKDIR` directive in your Dockerfile.
 
 ### Parallelism Spec (optional)
 
