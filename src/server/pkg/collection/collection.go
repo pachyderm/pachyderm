@@ -531,12 +531,38 @@ func (c *readonlyCollection) ListF(val proto.Message, f func(string) error) erro
 	if err != nil {
 		return err
 	}
-	for {
+	send := func(k, v []byte) error {
+		if err := proto.Unmarshal(v, val); err != nil {
+			return err
+		}
+		return f(strings.TrimPrefix(string(k), c.prefix))
+	}
+	var rev int64
+	keysInRev := make(map[string]bool)
+	for i := 0; ; i++ {
 		for _, kv := range resp.Kvs {
-			if err := proto.Unmarshal(kv.Value, val); err != nil {
+			if err := send(kv.Key, kv.Value); err != nil {
+				if err == errutil.ErrBreak {
+					return nil
+				}
 				return err
 			}
-			if err := f(strings.TrimPrefix(string(kv.Key), c.prefix)); err != nil {
+			if kv.CreateRevision != rev {
+				keysInRev = make(map[string]bool)
+				rev = kv.CreateRevision
+			}
+			keysInRev[string(kv.Key)] = true
+		}
+		// There may be additional keys within this create rev, we make sure we've got all of them in this block.
+		resp, err = c.etcdClient.Get(c.ctx, c.prefix, etcd.WithPrefix(), etcd.WithMaxCreateRev(rev), etcd.WithMinCreateRev(rev))
+		if err != nil {
+			return err
+		}
+		for _, kv := range resp.Kvs {
+			if keysInRev[string(kv.Key)] {
+				continue
+			}
+			if err := send(kv.Key, kv.Value); err != nil {
 				if err == errutil.ErrBreak {
 					return nil
 				}
