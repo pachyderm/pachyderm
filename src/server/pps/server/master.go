@@ -482,49 +482,42 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 				if err := setPipelineState(pps.PipelineState_PIPELINE_STANDBY); err != nil {
 					return err
 				}
-				standby := true
 				for {
 					var ci *pfs.CommitInfo
-					if standby {
-						// Pipelines is already in standby, so we wait for a
-						// new commit, or for our context deadline to be
-						// exceeded.
-						select {
-						case ci = <-ciChan:
-							if ci.Finished != nil {
-								continue
-							}
-							if err := setPipelineState(pps.PipelineState_PIPELINE_RUNNING); err != nil {
-								return err
-							}
-							standby = false
-						case <-pachClient.Ctx().Done():
-							return context.DeadlineExceeded
-						}
-					} else {
-						// Pipeline is running, if we get a new commit we can
-						// proceed to processing it immediately. If we don't
-						// well talk the default branch and put the pipeline in
-						// standby.
-						select {
-						case ci = <-ciChan:
-						case <-pachClient.Ctx().Done():
-							return context.DeadlineExceeded
-						default:
-							if err := setPipelineState(pps.PipelineState_PIPELINE_STANDBY); err != nil {
-								return err
-							}
-							standby = true
+					select {
+					case ci = <-ciChan:
+						if ci.Finished != nil {
 							continue
 						}
-					}
-					// Wait for the commit to be finished before blocking on the
-					// job because the job may not exist yet.
-					if _, err := pachClient.BlockCommit(ci.Commit.Repo.Name, ci.Commit.ID); err != nil {
-						return err
-					}
-					if _, err := pachClient.InspectJobOutputCommit(ci.Commit.Repo.Name, ci.Commit.ID, true); err != nil {
-						return err
+
+						if err := setPipelineState(pps.PipelineState_PIPELINE_RUNNING); err != nil {
+							return err
+						}
+
+						// Stay running while commits are available
+					running:
+						for {
+							// Wait for the commit to be finished before blocking on the
+							// job because the job may not exist yet.
+							if _, err := pachClient.BlockCommit(ci.Commit.Repo.Name, ci.Commit.ID); err != nil {
+								return err
+							}
+							if _, err := pachClient.InspectJobOutputCommit(ci.Commit.Repo.Name, ci.Commit.ID, true); err != nil {
+								return err
+							}
+
+							select {
+							case ci = <-ciChan:
+							default:
+								break running
+							}
+						}
+
+						if err := setPipelineState(pps.PipelineState_PIPELINE_STANDBY); err != nil {
+							return err
+						}
+					case <-pachClient.Ctx().Done():
+						return context.DeadlineExceeded
 					}
 				}
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
