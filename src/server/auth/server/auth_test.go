@@ -2151,7 +2151,7 @@ func TestModifyMembers(t *testing.T) {
 					Group: group,
 				})
 				require.NoError(t, err)
-				require.OneOfEquals(t, username, users.Usernames)
+				require.OneOfMatches(t, username, users.Usernames)
 			}
 		}
 	}
@@ -2186,7 +2186,7 @@ func TestSetGroupsForUser(t *testing.T) {
 			Group: group,
 		})
 		require.NoError(t, err)
-		require.OneOfEquals(t, alice, users.Usernames)
+		require.OneOfMatches(t, alice, users.Usernames)
 	}
 
 	groups = append(groups, security)
@@ -2205,7 +2205,7 @@ func TestSetGroupsForUser(t *testing.T) {
 			Group: group,
 		})
 		require.NoError(t, err)
-		require.OneOfEquals(t, alice, users.Usernames)
+		require.OneOfMatches(t, alice, users.Usernames)
 	}
 
 	groups = groups[:1]
@@ -2224,7 +2224,7 @@ func TestSetGroupsForUser(t *testing.T) {
 			Group: group,
 		})
 		require.NoError(t, err)
-		require.OneOfEquals(t, alice, users.Usernames)
+		require.OneOfMatches(t, alice, users.Usernames)
 	}
 
 	groups = []string{}
@@ -2243,6 +2243,6 @@ func TestSetGroupsForUser(t *testing.T) {
 			Group: group,
 		})
 		require.NoError(t, err)
-		require.OneOfEquals(t, alice, users.Usernames)
+		require.OneOfMatches(t, alice, users.Usernames)
 	}
 }
