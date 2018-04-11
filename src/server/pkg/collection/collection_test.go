@@ -411,32 +411,51 @@ func TestTTLExtend(t *testing.T) {
 
 func TestPagination(t *testing.T) {
 	etcdClient := getEtcdClient()
-	uuidPrefix := uuid.NewWithoutDashes()
-	col := NewCollection(etcdClient, uuidPrefix, nil, &types.Empty{}, nil)
-	numVals := 1000
-	for i := 0; i < numVals; i++ {
-		_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
-			for j := 0; j < 7; j++ {
-				i++
-				if i >= numVals {
-					break
-				}
-				if err := col.ReadWrite(stm).Put(fmt.Sprintf("%d", i), &types.Empty{}); err != nil {
-					return err
-				}
-			}
+	t.Run("one-val-per-txn", func(t *testing.T) {
+		uuidPrefix := uuid.NewWithoutDashes()
+		col := NewCollection(etcdClient, uuidPrefix, nil, &types.Empty{}, nil)
+		numVals := 1000
+		for i := 0; i < numVals; i++ {
+			_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
+				return col.ReadWrite(stm).Put(fmt.Sprintf("%d", i), &types.Empty{})
+			})
+			require.NoError(t, err)
+		}
+		ro := col.ReadOnly(context.Background())
+		val := &types.Empty{}
+		i := numVals - 1
+		require.NoError(t, ro.ListF(val, func(key string) error {
+			require.Equal(t, fmt.Sprintf("%d", i), key)
+			i--
 			return nil
-		})
-		require.NoError(t, err)
-	}
-	ro := col.ReadOnly(context.Background())
-	val := &types.Empty{}
-	i := numVals - 1
-	require.NoError(t, ro.ListF(val, func(key string) error {
-		require.Equal(t, fmt.Sprintf("%d", i), key)
-		i--
-		return nil
-	}))
+		}))
+	})
+	t.Run("many-vals-per-txn", func(t *testing.T) {
+		uuidPrefix := uuid.NewWithoutDashes()
+		col := NewCollection(etcdClient, uuidPrefix, nil, &types.Empty{}, nil)
+		numBatches := 10
+		valsPerBatch := 7
+		for i := 0; i < numBatches; i++ {
+			_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
+				for j := 0; j < valsPerBatch; j++ {
+					if err := col.ReadWrite(stm).Put(fmt.Sprintf("%d", i*valsPerBatch+j), &types.Empty{}); err != nil {
+						return err
+					}
+				}
+				return nil
+			})
+			require.NoError(t, err)
+		}
+		vals := make(map[string]bool)
+		ro := col.ReadOnly(context.Background())
+		val := &types.Empty{}
+		require.NoError(t, ro.ListF(val, func(key string) error {
+			require.False(t, vals[key], "saw value %s twice", key)
+			vals[key] = true
+			return nil
+		}))
+		require.Equal(t, numBatches*valsPerBatch, len(vals), "didn't receive every value")
+	})
 }
 
 var etcdClient *etcd.Client
