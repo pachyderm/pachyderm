@@ -2034,89 +2034,127 @@ func TestPipelineNewInput(t *testing.T) {
 	})
 }
 
-func TestAddRemoveUsersInGroups(t *testing.T) {
+func TestModifyMembers(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
 
 	alice := tu.UniqueString("alice")
+	bob := tu.UniqueString("bob")
 	organization := tu.UniqueString("organization")
 	engineering := tu.UniqueString("engineering")
 	security := tu.UniqueString("security")
 
 	adminClient := getPachClient(t, admin)
 
-	aliceGroups := []string{organization, engineering, security}
-	aliceGroupsExpected := []string{}
-
-	for _, group := range aliceGroups {
-		_, err := adminClient.AddUserToGroup(adminClient.Ctx(), &auth.AddUserToGroupRequest{
-			Username: alice,
-			Group:    group,
-		})
-		require.NoError(t, err)
-		aliceGroupsExpected = append(aliceGroupsExpected, group)
-
-		groupsActual, err := adminClient.GetGroupsForUser(adminClient.Ctx(), &auth.GetGroupsForUserRequest{
-			Username: alice,
-		})
-		require.NoError(t, err)
-		require.ElementsEqual(t, aliceGroupsExpected, groupsActual.Groups)
-
-		users, err := adminClient.GetUsersForGroup(adminClient.Ctx(), &auth.GetUsersForGroupRequest{
-			Group: group,
-		})
-		require.NoError(t, err)
-		require.OneOfEquals(t, alice, users.Usernames)
+	// This is a sequence dependent list of tests
+	tests := []struct {
+		Requests []*auth.ModifyMembersRequest
+		Expected map[string][]string
+	}{
+		{
+			[]*auth.ModifyMembersRequest{
+				&auth.ModifyMembersRequest{
+					Add:   []string{alice},
+					Group: organization,
+				},
+				&auth.ModifyMembersRequest{
+					Add:   []string{alice},
+					Group: organization,
+				},
+			},
+			map[string][]string{
+				alice: []string{organization},
+			},
+		},
+		{
+			[]*auth.ModifyMembersRequest{
+				&auth.ModifyMembersRequest{
+					Add:   []string{bob},
+					Group: organization,
+				},
+				&auth.ModifyMembersRequest{
+					Add:   []string{alice, bob},
+					Group: engineering,
+				},
+				&auth.ModifyMembersRequest{
+					Add:   []string{bob},
+					Group: security,
+				},
+			},
+			map[string][]string{
+				alice: []string{organization, engineering},
+				bob:   []string{organization, engineering, security},
+			},
+		},
+		{
+			[]*auth.ModifyMembersRequest{
+				&auth.ModifyMembersRequest{
+					Add:    []string{alice},
+					Remove: []string{bob},
+					Group:  security,
+				},
+				&auth.ModifyMembersRequest{
+					Remove: []string{bob},
+					Group:  engineering,
+				},
+			},
+			map[string][]string{
+				alice: []string{organization, engineering, security},
+				bob:   []string{organization},
+			},
+		},
+		{
+			[]*auth.ModifyMembersRequest{
+				&auth.ModifyMembersRequest{
+					Remove: []string{alice, bob},
+					Group:  organization,
+				},
+				&auth.ModifyMembersRequest{
+					Remove: []string{alice, bob},
+					Group:  security,
+				},
+				&auth.ModifyMembersRequest{
+					Add:    []string{alice},
+					Remove: []string{alice},
+					Group:  organization,
+				},
+				&auth.ModifyMembersRequest{
+					Add:    []string{},
+					Remove: []string{},
+					Group:  organization,
+				},
+			},
+			map[string][]string{
+				alice: []string{engineering},
+				bob:   []string{},
+			},
+		},
 	}
 
-	bob := tu.UniqueString("bob")
-	bobGroups := []string{organization, engineering}
-	bobGroupsExpected := []string{}
+	for _, test := range tests {
+		for _, req := range test.Requests {
+			_, err := adminClient.ModifyMembers(adminClient.Ctx(), req)
+			require.NoError(t, err)
+		}
 
-	for _, group := range bobGroups {
-		_, err := adminClient.AddUserToGroup(adminClient.Ctx(), &auth.AddUserToGroupRequest{
-			Username: bob,
-			Group:    group,
-		})
-		require.NoError(t, err)
-		bobGroupsExpected = append(bobGroupsExpected, group)
+		for username, groups := range test.Expected {
+			groupsActual, err := adminClient.GetGroupsForUser(adminClient.Ctx(), &auth.GetGroupsForUserRequest{
+				Username: username,
+			})
+			require.NoError(t, err)
+			require.ElementsEqual(t, groups, groupsActual.Groups)
 
-		groupsActual, err := adminClient.GetGroupsForUser(adminClient.Ctx(), &auth.GetGroupsForUserRequest{
-			Username: bob,
-		})
-		require.NoError(t, err)
-		require.ElementsEqual(t, bobGroupsExpected, groupsActual.Groups)
-
-		users, err := adminClient.GetUsersForGroup(adminClient.Ctx(), &auth.GetUsersForGroupRequest{
-			Group: group,
-		})
-		require.NoError(t, err)
-		require.OneOfEquals(t, bob, users.Usernames)
+			for _, group := range groups {
+				users, err := adminClient.GetUsersForGroup(adminClient.Ctx(), &auth.GetUsersForGroupRequest{
+					Group: group,
+				})
+				require.NoError(t, err)
+				require.OneOfEquals(t, username, users.Usernames)
+			}
+		}
 	}
-
-	for _, group := range aliceGroups {
-		_, err := adminClient.RemoveUserFromGroup(adminClient.Ctx(), &auth.RemoveUserFromGroupRequest{
-			Username: alice,
-			Group:    group,
-		})
-		require.NoError(t, err)
-		aliceGroupsExpected = aliceGroupsExpected[1:]
-
-		groupsActual, err := adminClient.GetGroupsForUser(adminClient.Ctx(), &auth.GetGroupsForUserRequest{
-			Username: alice,
-		})
-		require.NoError(t, err)
-		require.ElementsEqual(t, aliceGroupsExpected, groupsActual.Groups)
-
-		users, err := adminClient.GetUsersForGroup(adminClient.Ctx(), &auth.GetUsersForGroupRequest{
-			Group: group,
-		})
-		require.NoError(t, err)
-		require.NoneEquals(t, alice, users.Usernames)
-	}
-
 }
 
 func TestSetGroupsForUser(t *testing.T) {
