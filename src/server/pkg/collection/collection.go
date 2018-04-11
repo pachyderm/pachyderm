@@ -527,21 +527,25 @@ func (c *readonlyCollection) ListF(val proto.Message, f func(string) error) erro
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
-	resp, err := c.etcdClient.Get(c.ctx, c.prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByCreateRevision, etcd.SortDescend), etcd.WithLimit(10))
-	if err != nil {
-		return err
-	}
-	send := func(k, v []byte) error {
-		if err := proto.Unmarshal(v, val); err != nil {
+	rev := int64(-1)
+	keysInRev := make(map[string]bool)
+	for {
+		opts := []etcd.OpOption{etcd.WithPrefix(), etcd.WithSort(etcd.SortByCreateRevision, etcd.SortDescend), etcd.WithLimit(10)}
+		if rev != -1 {
+			opts = append(opts, etcd.WithMaxCreateRev(rev))
+		}
+		resp, err := c.etcdClient.Get(c.ctx, c.prefix, opts...)
+		if err != nil {
 			return err
 		}
-		return f(strings.TrimPrefix(string(k), c.prefix))
-	}
-	var rev int64
-	keysInRev := make(map[string]bool)
-	for i := 0; ; i++ {
 		for _, kv := range resp.Kvs {
-			if err := send(kv.Key, kv.Value); err != nil {
+			if keysInRev[string(kv.Key)] {
+				continue
+			}
+			if err := proto.Unmarshal(kv.Value, val); err != nil {
+				return err
+			}
+			if err := f(strings.TrimPrefix(string(kv.Key), c.prefix)); err != nil {
 				if err == errutil.ErrBreak {
 					return nil
 				}
@@ -553,27 +557,7 @@ func (c *readonlyCollection) ListF(val proto.Message, f func(string) error) erro
 			}
 			keysInRev[string(kv.Key)] = true
 		}
-		// There may be additional keys within this create rev, we make sure we've got all of them in this block.
-		resp, err = c.etcdClient.Get(c.ctx, c.prefix, etcd.WithPrefix(), etcd.WithMaxCreateRev(rev), etcd.WithMinCreateRev(rev))
-		if err != nil {
-			return err
-		}
-		for _, kv := range resp.Kvs {
-			if keysInRev[string(kv.Key)] {
-				continue
-			}
-			if err := send(kv.Key, kv.Value); err != nil {
-				if err == errutil.ErrBreak {
-					return nil
-				}
-				return err
-			}
-		}
-		resp, err = c.etcdClient.Get(c.ctx, c.prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByCreateRevision, etcd.SortDescend), etcd.WithLimit(10), etcd.WithMaxCreateRev(resp.Kvs[len(resp.Kvs)-1].CreateRevision-1))
-		if err != nil {
-			return err
-		}
-		if len(resp.Kvs) == 0 {
+		if len(resp.Kvs) < 10 {
 			return nil
 		}
 	}
