@@ -479,7 +479,9 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 		})
 		eg.Go(func() error {
 			return backoff.RetryNotify(func() error {
-				standby := false
+				if err := setPipelineState(pps.PipelineState_PIPELINE_STANDBY); err != nil {
+					return err
+				}
 				for {
 					var ci *pfs.CommitInfo
 					select {
@@ -488,30 +490,34 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 							continue
 						}
 
-						if standby {
-							if err := setPipelineState(pps.PipelineState_PIPELINE_RUNNING); err != nil {
-								return err
-							}
-							standby = false
-						}
-
-						// Wait for the commit to be finished before blocking on the
-						// job because the job may not exist yet.
-						if _, err := pachClient.BlockCommit(ci.Commit.Repo.Name, ci.Commit.ID); err != nil {
+						if err := setPipelineState(pps.PipelineState_PIPELINE_RUNNING); err != nil {
 							return err
 						}
-						if _, err := pachClient.InspectJobOutputCommit(ci.Commit.Repo.Name, ci.Commit.ID, true); err != nil {
+
+						// Stay running while commits are available
+					running:
+						for {
+							// Wait for the commit to be finished before blocking on the
+							// job because the job may not exist yet.
+							if _, err := pachClient.BlockCommit(ci.Commit.Repo.Name, ci.Commit.ID); err != nil {
+								return err
+							}
+							if _, err := pachClient.InspectJobOutputCommit(ci.Commit.Repo.Name, ci.Commit.ID, true); err != nil {
+								return err
+							}
+
+							select {
+							case ci = <-ciChan:
+							default:
+								break running
+							}
+						}
+
+						if err := setPipelineState(pps.PipelineState_PIPELINE_STANDBY); err != nil {
 							return err
 						}
 					case <-pachClient.Ctx().Done():
 						return context.DeadlineExceeded
-					default:
-						if !standby {
-							if err := setPipelineState(pps.PipelineState_PIPELINE_STANDBY); err != nil {
-								return err
-							}
-							standby = true
-						}
 					}
 				}
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
