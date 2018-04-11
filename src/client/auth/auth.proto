@@ -265,19 +265,14 @@ message SetGroupsForUserRequest {
 
 message SetGroupsForUserResponse {}
 
-message AddUserToGroupRequest {
-  string username = 1;
-  string group = 2;
+message ModifyMembersRequest {
+  string group = 1;
+  repeated string add = 2;
+  repeated string remove = 3;
+  
 }
 
-message AddUserToGroupResponse {}
-
-message RemoveUserFromGroupRequest {
-  string username = 1;
-  string group = 2;
-}
-
-message RemoveUserFromGroupResponse {}
+message ModifyMembersResponse {}
 
 message GetGroupsForUserRequest {
   string username = 1;
@@ -321,8 +316,7 @@ service API {
   rpc RevokeAuthToken(RevokeAuthTokenRequest) returns (RevokeAuthTokenResponse) {}
 
   rpc SetGroupsForUser(SetGroupsForUserRequest) returns (SetGroupsForUserResponse) {}
-  rpc AddUserToGroup(AddUserToGroupRequest) returns (AddUserToGroupResponse) {}
-  rpc RemoveUserFromGroup(RemoveUserFromGroupRequest) returns (RemoveUserFromGroupResponse) {}
+  rpc ModifyMembers(ModifyMembersRequest) returns (ModifyMembersResponse) {}
   rpc GetGroupsForUser(GetGroupsForUserRequest) returns (GetGroupsForUserResponse) {}
   rpc GetUsersForGroup(GetUsersForGroupRequest) returns (GetUsersForGroupResponse) {}
 }

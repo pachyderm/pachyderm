@@ -41,11 +41,11 @@ const (
 	// pachyderm token for any username in the AuthenticateRequest.GitHubToken field
 	DisableAuthenticationEnvVar = "PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING"
 
-	tokensPrefix = "/tokens"
-	aclsPrefix   = "/acls"
-	adminsPrefix = "/admins"
-	usersPrefix  = "/users"
-	groupsPrefix = "/groups"
+	tokensPrefix  = "/tokens"
+	aclsPrefix    = "/acls"
+	adminsPrefix  = "/admins"
+	membersPrefix = "/members"
+	groupsPrefix  = "/groups"
 
 	defaultTokenTTLSecs = 14 * 24 * 60 * 60 // two weeks
 
@@ -90,8 +90,8 @@ type apiServer struct {
 	// admins is a collection of username -> Empty mappings (keys indicate which
 	// github users are cluster admins)
 	admins col.Collection
-	// users is a collection of username -> groups mappings.
-	users col.Collection
+	// members is a collection of username -> groups mappings.
+	members col.Collection
 	// groups is a collection of group -> usernames mappings.
 	groups col.Collection
 
@@ -170,9 +170,9 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (
 			&types.BoolValue{}, // smallest value that etcd actually stores
 			nil,
 		),
-		users: col.NewCollection(
+		members: col.NewCollection(
 			etcdClient,
-			path.Join(etcdPrefix, usersPrefix),
+			path.Join(etcdPrefix, membersPrefix),
 			nil,
 			&authclient.Groups{},
 			nil,
@@ -1215,12 +1215,12 @@ func (a *apiServer) SetGroupsForUser(ctx context.Context, req *authclient.SetGro
 	}
 
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		users := a.users.ReadWrite(stm)
+		members := a.members.ReadWrite(stm)
 
 		// Get groups to remove/add user from/to
 		var removeGroups authclient.Groups
 		addGroups := addToSet(nil, req.Groups...)
-		if err := users.Get(req.Username, &removeGroups); err == nil {
+		if err := members.Get(req.Username, &removeGroups); err == nil {
 			for _, group := range req.Groups {
 				if _, ok := removeGroups.Groups[group]; ok {
 					removeGroups.Groups = removeFromSet(removeGroups.Groups, group)
@@ -1230,7 +1230,7 @@ func (a *apiServer) SetGroupsForUser(ctx context.Context, req *authclient.SetGro
 		}
 
 		// Set groups for user
-		if err := users.Put(req.Username, &authclient.Groups{
+		if err := members.Put(req.Username, &authclient.Groups{
 			Groups: addToSet(nil, req.Groups...),
 		}); err != nil {
 			return err
@@ -1238,10 +1238,10 @@ func (a *apiServer) SetGroupsForUser(ctx context.Context, req *authclient.SetGro
 
 		// Remove user from previous groups
 		groups := a.groups.ReadWrite(stm)
-		var usersProto authclient.Users
+		var membersProto authclient.Users
 		for group := range removeGroups.Groups {
-			if err := groups.Upsert(group, &usersProto, func() error {
-				usersProto.Usernames = removeFromSet(usersProto.Usernames, req.Username)
+			if err := groups.Upsert(group, &membersProto, func() error {
+				membersProto.Usernames = removeFromSet(membersProto.Usernames, req.Username)
 				return nil
 			}); err != nil {
 				return err
@@ -1250,8 +1250,8 @@ func (a *apiServer) SetGroupsForUser(ctx context.Context, req *authclient.SetGro
 
 		// Add user to new groups
 		for group := range addGroups {
-			if err := groups.Upsert(group, &usersProto, func() error {
-				usersProto.Usernames = addToSet(usersProto.Usernames, req.Username)
+			if err := groups.Upsert(group, &membersProto, func() error {
+				membersProto.Usernames = addToSet(membersProto.Usernames, req.Username)
 				return nil
 			}); err != nil {
 				return err
@@ -1266,7 +1266,7 @@ func (a *apiServer) SetGroupsForUser(ctx context.Context, req *authclient.SetGro
 	return &authclient.SetGroupsForUserResponse{}, nil
 }
 
-func (a *apiServer) AddUserToGroup(ctx context.Context, req *authclient.AddUserToGroupRequest) (resp *authclient.AddUserToGroupResponse, retErr error) {
+func (a *apiServer) ModifyMembers(ctx context.Context, req *authclient.ModifyMembersRequest) (resp *authclient.ModifyMembersResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if !a.isActivated() {
@@ -1281,24 +1281,35 @@ func (a *apiServer) AddUserToGroup(ctx context.Context, req *authclient.AddUserT
 	if !a.isAdmin(callerInfo.Subject) {
 		return nil, &authclient.ErrNotAuthorized{
 			Subject: callerInfo.Subject,
-			AdminOp: "AddUserToGroup",
+			AdminOp: "ModifyMembers",
 		}
 	}
 
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		users := a.users.ReadWrite(stm)
+		members := a.members.ReadWrite(stm)
 		var groupsProto authclient.Groups
-		if err := users.Upsert(req.Username, &groupsProto, func() error {
-			groupsProto.Groups = addToSet(groupsProto.Groups, req.Group)
-			return nil
-		}); err != nil {
-			return err
+		for _, username := range req.Add {
+			if err := members.Upsert(username, &groupsProto, func() error {
+				groupsProto.Groups = addToSet(groupsProto.Groups, req.Group)
+				return nil
+			}); err != nil {
+				return err
+			}
+		}
+		for _, username := range req.Remove {
+			if err := members.Upsert(username, &groupsProto, func() error {
+				groupsProto.Groups = removeFromSet(groupsProto.Groups, req.Group)
+				return nil
+			}); err != nil {
+				return err
+			}
 		}
 
 		groups := a.groups.ReadWrite(stm)
-		var usersProto authclient.Users
-		if err := groups.Upsert(req.Group, &usersProto, func() error {
-			usersProto.Usernames = addToSet(usersProto.Usernames, req.Username)
+		var membersProto authclient.Users
+		if err := groups.Upsert(req.Group, &membersProto, func() error {
+			membersProto.Usernames = addToSet(membersProto.Usernames, req.Add...)
+			membersProto.Usernames = removeFromSet(membersProto.Usernames, req.Remove...)
 			return nil
 		}); err != nil {
 			return err
@@ -1309,53 +1320,7 @@ func (a *apiServer) AddUserToGroup(ctx context.Context, req *authclient.AddUserT
 		return nil, err
 	}
 
-	return &authclient.AddUserToGroupResponse{}, nil
-}
-
-func (a *apiServer) RemoveUserFromGroup(ctx context.Context, req *authclient.RemoveUserFromGroupRequest) (resp *authclient.RemoveUserFromGroupResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.isActivated() {
-		return nil, authclient.ErrNotActivated
-	}
-
-	callerInfo, err := a.getAuthenticatedUser(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	if !a.isAdmin(callerInfo.Subject) {
-		return nil, &authclient.ErrNotAuthorized{
-			Subject: callerInfo.Subject,
-			AdminOp: "RemoveUserFromGroup",
-		}
-	}
-
-	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		users := a.users.ReadWrite(stm)
-		var groupsProto authclient.Groups
-		if err := users.Upsert(req.Username, &groupsProto, func() error {
-			groupsProto.Groups = removeFromSet(groupsProto.Groups, req.Group)
-			return nil
-		}); err != nil {
-			return err
-		}
-
-		groups := a.groups.ReadWrite(stm)
-		var usersProto authclient.Users
-		if err := groups.Upsert(req.Group, &usersProto, func() error {
-			usersProto.Usernames = removeFromSet(usersProto.Usernames, req.Username)
-			return nil
-		}); err != nil {
-			return err
-		}
-
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-
-	return &authclient.RemoveUserFromGroupResponse{}, nil
+	return &authclient.ModifyMembersResponse{}, nil
 }
 
 func addToSet(set map[string]bool, elems ...string) map[string]bool {
@@ -1400,8 +1365,8 @@ func (a *apiServer) GetGroupsForUser(ctx context.Context, req *authclient.GetGro
 
 	var groupsProto authclient.Groups
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		users := a.users.ReadWrite(stm)
-		if err := users.Get(req.Username, &groupsProto); err != nil {
+		members := a.members.ReadWrite(stm)
+		if err := members.Get(req.Username, &groupsProto); err != nil {
 			return err
 		}
 		return nil
@@ -1431,10 +1396,10 @@ func (a *apiServer) GetUsersForGroup(ctx context.Context, req *authclient.GetUse
 		}
 	}
 
-	var usersProto authclient.Users
+	var membersProto authclient.Users
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		groups := a.groups.ReadWrite(stm)
-		if err := groups.Get(req.Group, &usersProto); err != nil {
+		if err := groups.Get(req.Group, &membersProto); err != nil {
 			return err
 		}
 		return nil
@@ -1442,7 +1407,7 @@ func (a *apiServer) GetUsersForGroup(ctx context.Context, req *authclient.GetUse
 		return nil, err
 	}
 
-	return &authclient.GetUsersForGroupResponse{Usernames: setToList(usersProto.Usernames)}, nil
+	return &authclient.GetUsersForGroupResponse{Usernames: setToList(membersProto.Usernames)}, nil
 }
 
 func setToList(set map[string]bool) []string {

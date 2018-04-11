@@ -87,13 +87,8 @@ func (a *InactiveAPIServer) SetGroupsForUser(ctx context.Context, req *auth.SetG
 	return nil, auth.ErrNotActivated
 }
 
-// AddUserToGroup implements the AddUserToGroup RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) AddUserToGroup(ctx context.Context, req *auth.AddUserToGroupRequest) (resp *auth.AddUserToGroupResponse, retErr error) {
-	return nil, auth.ErrNotActivated
-}
-
-// RemoveUserFromGroup implements the RemoveUserFromGroup RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) RemoveUserFromGroup(ctx context.Context, req *auth.RemoveUserFromGroupRequest) (resp *auth.RemoveUserFromGroupResponse, retErr error) {
+// ModifyMembers implements the ModifyMembers RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRequest) (resp *auth.ModifyMembersResponse, retErr error) {
 	return nil, auth.ErrNotActivated
 }
 
