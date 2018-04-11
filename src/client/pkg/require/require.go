@@ -21,6 +21,22 @@ func Matches(tb testing.TB, expectedMatch string, actual string, msgAndArgs ...i
 	}
 }
 
+// OneOfMatches checks whether one element of a slice matches a regular-expression.
+func OneOfMatches(tb testing.TB, expectedMatch string, actuals []string, msgAndArgs ...interface{}) {
+	tb.Helper()
+	r, err := regexp.Compile(expectedMatch)
+	if err != nil {
+		fatal(tb, msgAndArgs, "Match string provided (%v) is invalid", expectedMatch)
+	}
+	for _, actual := range actuals {
+		if r.MatchString(actual) {
+			return
+		}
+	}
+	fatal(tb, msgAndArgs, "None of actual strings (%v) match pattern (%v)", actuals, expectedMatch)
+
+}
+
 // Equal checks equality of two values.
 func Equal(tb testing.TB, expected interface{}, actual interface{}, msgAndArgs ...interface{}) {
 	tb.Helper()

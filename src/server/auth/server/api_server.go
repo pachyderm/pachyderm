@@ -1214,13 +1214,18 @@ func (a *apiServer) SetGroupsForUser(ctx context.Context, req *authclient.SetGro
 		}
 	}
 
+	username, err := lenientCanonicalizeSubject(ctx, req.Username)
+	if err != nil {
+		return nil, err
+	}
+
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		members := a.members.ReadWrite(stm)
 
 		// Get groups to remove/add user from/to
 		var removeGroups authclient.Groups
 		addGroups := addToSet(nil, req.Groups...)
-		if err := members.Get(req.Username, &removeGroups); err == nil {
+		if err := members.Get(username, &removeGroups); err == nil {
 			for _, group := range req.Groups {
 				if _, ok := removeGroups.Groups[group]; ok {
 					removeGroups.Groups = removeFromSet(removeGroups.Groups, group)
@@ -1230,7 +1235,7 @@ func (a *apiServer) SetGroupsForUser(ctx context.Context, req *authclient.SetGro
 		}
 
 		// Set groups for user
-		if err := members.Put(req.Username, &authclient.Groups{
+		if err := members.Put(username, &authclient.Groups{
 			Groups: addToSet(nil, req.Groups...),
 		}); err != nil {
 			return err
@@ -1241,7 +1246,7 @@ func (a *apiServer) SetGroupsForUser(ctx context.Context, req *authclient.SetGro
 		var membersProto authclient.Users
 		for group := range removeGroups.Groups {
 			if err := groups.Upsert(group, &membersProto, func() error {
-				membersProto.Usernames = removeFromSet(membersProto.Usernames, req.Username)
+				membersProto.Usernames = removeFromSet(membersProto.Usernames, username)
 				return nil
 			}); err != nil {
 				return err
@@ -1251,7 +1256,7 @@ func (a *apiServer) SetGroupsForUser(ctx context.Context, req *authclient.SetGro
 		// Add user to new groups
 		for group := range addGroups {
 			if err := groups.Upsert(group, &membersProto, func() error {
-				membersProto.Usernames = addToSet(membersProto.Usernames, req.Username)
+				membersProto.Usernames = addToSet(membersProto.Usernames, username)
 				return nil
 			}); err != nil {
 				return err
@@ -1285,10 +1290,19 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *authclient.ModifyMem
 		}
 	}
 
+	add, err := lenientCanonicalizeSubjects(ctx, req.Add)
+	if err != nil {
+		return nil, err
+	}
+	remove, err := lenientCanonicalizeSubjects(ctx, req.Remove)
+	if err != nil {
+		return nil, err
+	}
+
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		members := a.members.ReadWrite(stm)
 		var groupsProto authclient.Groups
-		for _, username := range req.Add {
+		for _, username := range add {
 			if err := members.Upsert(username, &groupsProto, func() error {
 				groupsProto.Groups = addToSet(groupsProto.Groups, req.Group)
 				return nil
@@ -1296,7 +1310,7 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *authclient.ModifyMem
 				return err
 			}
 		}
-		for _, username := range req.Remove {
+		for _, username := range remove {
 			if err := members.Upsert(username, &groupsProto, func() error {
 				groupsProto.Groups = removeFromSet(groupsProto.Groups, req.Group)
 				return nil
@@ -1308,8 +1322,8 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *authclient.ModifyMem
 		groups := a.groups.ReadWrite(stm)
 		var membersProto authclient.Users
 		if err := groups.Upsert(req.Group, &membersProto, func() error {
-			membersProto.Usernames = addToSet(membersProto.Usernames, req.Add...)
-			membersProto.Usernames = removeFromSet(membersProto.Usernames, req.Remove...)
+			membersProto.Usernames = addToSet(membersProto.Usernames, add...)
+			membersProto.Usernames = removeFromSet(membersProto.Usernames, remove...)
 			return nil
 		}); err != nil {
 			return err
@@ -1363,10 +1377,15 @@ func (a *apiServer) GetGroupsForUser(ctx context.Context, req *authclient.GetGro
 		}
 	}
 
+	username, err := lenientCanonicalizeSubject(ctx, req.Username)
+	if err != nil {
+		return nil, err
+	}
+
 	var groupsProto authclient.Groups
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		members := a.members.ReadWrite(stm)
-		if err := members.Get(req.Username, &groupsProto); err != nil {
+		if err := members.Get(username, &groupsProto); err != nil {
 			return err
 		}
 		return nil
@@ -1465,7 +1484,33 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.Token
 	return &tokenInfo, nil
 }
 
-// lenientCanonicalizeSubject is like 'canonicalizeUsername', except that if
+// lenientCanonicalizeSubjects applies lenientCanonicalizeSubject to a list
+func lenientCanonicalizeSubjects(ctx context.Context, subjects []string) ([]string, error) {
+	if subjects == nil {
+		return []string{}, nil
+	}
+
+	eg := &errgroup.Group{}
+	canonicalizedSubjects := make([]string, len(subjects))
+	for i, subject := range subjects {
+		i, subject := i, subject
+		eg.Go(func() error {
+			subject, err := lenientCanonicalizeSubject(ctx, subject)
+			if err != nil {
+				return err
+			}
+			canonicalizedSubjects[i] = subject
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+
+	return canonicalizedSubjects, nil
+}
+
+// lenientCanonicalizeSubject is like 'canonicalizeSubject', except that if
 // 'subject' has no prefix, they are assumed to be a GitHub user.
 func lenientCanonicalizeSubject(ctx context.Context, subject string) (string, error) {
 	if strings.Index(subject, ":") < 0 {
