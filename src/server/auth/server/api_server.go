@@ -295,6 +295,32 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 		return nil, fmt.Errorf("already activated")
 	}
 
+	// Determine caller's subject string
+	if req.Subject != "" {
+		req.Subject, err = lenientCanonicalizeSubject(ctx, req.Subject)
+		if err != nil {
+			return nil, err
+		}
+	}
+	switch {
+	case req.Subject == "":
+		fallthrough
+	case strings.HasPrefix(req.Subject, authclient.GitHubPrefix):
+		username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
+		if err != nil {
+			return nil, err
+		}
+		if req.Subject != "" && req.Subject != username {
+			return nil, fmt.Errorf("asserted subject \"%s\" did not match owner of GitHub token \"%s\"", req.Subject, username)
+		}
+		req.Subject = username
+	case strings.HasPrefix(req.Subject, authclient.RobotPrefix):
+		// pass - req.Subject will be used verbatim, and the resulting code will
+		// authenticate the holder as the robot account therein
+	default:
+		return nil, fmt.Errorf("invalid subject in request (must be a GitHub user or robot): \"%s\"", req.Subject)
+	}
+
 	// Hack: set the cluster admins to just {magicUser}. This ensures that no
 	// pipelines can be created while PPS is granting all existing pipelines auth
 	// tokens and adjusting the ACLs of input/output repos
@@ -309,12 +335,6 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 		return nil, err
 	}
 
-	// Determine caller's Pachyderm/GitHub username
-	username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
-	if err != nil {
-		return nil, err
-	}
-
 	// Generate a new Pachyderm token (as the caller is authenticating) and
 	// initialize admins (watchAdmins() above will see the write)
 	pachToken := uuid.NewWithoutDashes()
@@ -324,13 +344,13 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 		if err := admins.Delete(magicUser); err != nil {
 			return err
 		}
-		if err := admins.Put(username, epsilon); err != nil {
+		if err := admins.Put(req.Subject, epsilon); err != nil {
 			return err
 		}
 		return tokens.PutTTL(
 			hashToken(pachToken),
 			&authclient.TokenInfo{
-				Subject: username,
+				Subject: req.Subject,
 				Source:  authclient.TokenInfo_AUTHENTICATE,
 			},
 			defaultTokenTTLSecs,
@@ -1221,6 +1241,8 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.Token
 // 'subject' has no prefix, they are assumed to be a GitHub user.
 func lenientCanonicalizeSubject(ctx context.Context, subject string) (string, error) {
 	if strings.Index(subject, ":") < 0 {
+		// assume default 'github:' prefix (then canonicalize the GitHub username in
+		// canonicalizeSubject)
 		subject = authclient.GitHubPrefix + subject
 	}
 	return canonicalizeSubject(ctx, subject)

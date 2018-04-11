@@ -209,6 +209,15 @@ func absent(key string) etcd.Cmp {
 }
 
 func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, description string, update bool) error {
+	// Check that the user is logged in (user doesn't need any access level to
+	// create a repo, but they must be authenticated if auth is active)
+	whoAmI, err := d.pachClient.AuthAPIClient.WhoAmI(auth.In2Out(ctx),
+		&auth.WhoAmIRequest{})
+	authIsActivated := !auth.IsErrNotActivated(err)
+	if authIsActivated && err != nil {
+		return fmt.Errorf("error authenticating (must log in to create a repo): %v",
+			grpcutil.ScrubGRPC(err))
+	}
 	if err := validateRepoName(repo.Name); err != nil {
 		return err
 	}
@@ -219,7 +228,7 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, description str
 		return d.updateRepo(ctx, repo, description)
 	}
 
-	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		repos := d.repos.ReadWrite(stm)
 
 		// check if 'repo' already exists. If so, return that error. Otherwise,
@@ -235,12 +244,7 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, description str
 		}
 
 		// Create ACL for new repo
-		whoAmI, err := d.pachClient.AuthAPIClient.WhoAmI(auth.In2Out(ctx),
-			&auth.WhoAmIRequest{})
-		if err != nil && !auth.IsErrNotActivated(err) {
-			return fmt.Errorf("error while creating repo \"%s\": %v",
-				repo.Name, grpcutil.ScrubGRPC(err))
-		} else if err == nil {
+		if authIsActivated {
 			// auth is active, and user is logged in. Make user an owner of the new
 			// repo (and clear any existing ACL under this name that might have been
 			// created by accident)
