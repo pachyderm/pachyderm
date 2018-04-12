@@ -66,6 +66,8 @@ const (
 )
 
 var (
+	// The port prometheus metrics are exposed on
+	PrometheusPort = int32(9090)
 	errSpecialFile = errors.New("cannot upload special file")
 	statsTagSuffix = "_stats"
 
@@ -490,8 +492,10 @@ func initPrometheus() {
 	prometheus.MustRegister(gauge_datum_runtimes)
 	prometheus.MustRegister(hist_datum_runtimes)
 	http.Handle("/metrics", promhttp.Handler())
-	//	log.Fatal(http.ListenAndServe(":8889", nil))
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	go func() {
+		log.Fatal(http.ListenAndServe(":9090", nil))
+	}()
+	//log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
 func report(duration time.Duration, jobID string, datumID string) {
