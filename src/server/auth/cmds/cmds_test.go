@@ -230,7 +230,7 @@ func TestActivateAsRobotUser(t *testing.T) {
 	pachctl auth logout
 	pachctl auth activate --initial-admin=robot:hal9000
 	pachctl auth whoami \
-		match 'robot:hal9000'
+		| match 'robot:hal9000'
 	`).Run())
 
 	// Make "admin" a cluster admins, so that deactivateAuth works

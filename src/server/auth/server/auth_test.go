@@ -220,7 +220,7 @@ func getPachClient(t testing.TB, subject string) *client.APIClient {
 func deleteAll(tb testing.TB) {
 	tb.Helper()
 	adminClient := getPachClient(tb, "admin")
-	require.Nil(tb, adminClient.DeleteAll(), "initial DeleteAll()")
+	require.NoError(tb, adminClient.DeleteAll(), "initial DeleteAll()")
 }
 
 // entries constructs an auth.ACL struct from a list of the form
