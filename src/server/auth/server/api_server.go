@@ -1227,7 +1227,7 @@ func (a *apiServer) SetGroupsForUser(ctx context.Context, req *authclient.SetGro
 		addGroups := addToSet(nil, req.Groups...)
 		if err := members.Get(username, &removeGroups); err == nil {
 			for _, group := range req.Groups {
-				if _, ok := removeGroups.Groups[group]; ok {
+				if removeGroups.Groups[group] {
 					removeGroups.Groups = removeFromSet(removeGroups.Groups, group)
 					addGroups = removeFromSet(addGroups, group)
 				}
@@ -1294,6 +1294,7 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *authclient.ModifyMem
 	if err != nil {
 		return nil, err
 	}
+	// TODO(bryce) Skip canonicalization if the users can be found.
 	remove, err := lenientCanonicalizeSubjects(ctx, req.Remove)
 	if err != nil {
 		return nil, err

@@ -2133,27 +2133,29 @@ func TestModifyMembers(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
-		for _, req := range test.Requests {
-			_, err := adminClient.ModifyMembers(adminClient.Ctx(), req)
-			require.NoError(t, err)
-		}
+	for i, test := range tests {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			for _, req := range test.Requests {
+				_, err := adminClient.ModifyMembers(adminClient.Ctx(), req)
+				require.NoError(t, err)
+			}
 
-		for username, groups := range test.Expected {
-			groupsActual, err := adminClient.GetGroupsForUser(adminClient.Ctx(), &auth.GetGroupsForUserRequest{
-				Username: username,
-			})
-			require.NoError(t, err)
-			require.ElementsEqual(t, groups, groupsActual.Groups)
-
-			for _, group := range groups {
-				users, err := adminClient.GetUsersForGroup(adminClient.Ctx(), &auth.GetUsersForGroupRequest{
-					Group: group,
+			for username, groups := range test.Expected {
+				groupsActual, err := adminClient.GetGroupsForUser(adminClient.Ctx(), &auth.GetGroupsForUserRequest{
+					Username: username,
 				})
 				require.NoError(t, err)
-				require.OneOfMatches(t, username, users.Usernames)
+				require.ElementsEqual(t, groups, groupsActual.Groups)
+
+				for _, group := range groups {
+					users, err := adminClient.GetUsersForGroup(adminClient.Ctx(), &auth.GetUsersForGroupRequest{
+						Group: group,
+					})
+					require.NoError(t, err)
+					require.OneOfEquals(t, gh(username), users.Usernames)
+				}
 			}
-		}
+		})
 	}
 }
 
@@ -2186,7 +2188,7 @@ func TestSetGroupsForUser(t *testing.T) {
 			Group: group,
 		})
 		require.NoError(t, err)
-		require.OneOfMatches(t, alice, users.Usernames)
+		require.OneOfEquals(t, gh(alice), users.Usernames)
 	}
 
 	groups = append(groups, security)
@@ -2205,7 +2207,7 @@ func TestSetGroupsForUser(t *testing.T) {
 			Group: group,
 		})
 		require.NoError(t, err)
-		require.OneOfMatches(t, alice, users.Usernames)
+		require.OneOfEquals(t, gh(alice), users.Usernames)
 	}
 
 	groups = groups[:1]
@@ -2224,7 +2226,7 @@ func TestSetGroupsForUser(t *testing.T) {
 			Group: group,
 		})
 		require.NoError(t, err)
-		require.OneOfMatches(t, alice, users.Usernames)
+		require.OneOfEquals(t, gh(alice), users.Usernames)
 	}
 
 	groups = []string{}
@@ -2243,6 +2245,6 @@ func TestSetGroupsForUser(t *testing.T) {
 			Group: group,
 		})
 		require.NoError(t, err)
-		require.OneOfMatches(t, alice, users.Usernames)
+		require.OneOfEquals(t, gh(alice), users.Usernames)
 	}
 }
