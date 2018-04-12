@@ -1369,7 +1369,7 @@ func TestPipelineState(t *testing.T) {
 			return err
 		}
 		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
-			return fmt.Errorf("pipeline should be in standby, not: %s", pipelineInfo.State.String())
+			return fmt.Errorf("pipeline should be in state running, not: %s", pipelineInfo.State.String())
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
