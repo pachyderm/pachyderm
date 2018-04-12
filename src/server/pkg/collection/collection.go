@@ -529,14 +529,27 @@ func (c *readonlyCollection) ListF(val proto.Message, f func(string) error) erro
 	}
 	rev := int64(-1)
 	keysInRev := make(map[string]bool)
+	batchSize := int64(256)
 	for {
-		opts := []etcd.OpOption{etcd.WithPrefix(), etcd.WithSort(etcd.SortByCreateRevision, etcd.SortDescend), etcd.WithLimit(10)}
+		opts := []etcd.OpOption{etcd.WithPrefix(), etcd.WithSort(etcd.SortByCreateRevision, etcd.SortDescend)}
 		if rev != -1 {
 			opts = append(opts, etcd.WithMaxCreateRev(rev))
 		}
-		resp, err := c.etcdClient.Get(c.ctx, c.prefix, opts...)
-		if err != nil {
-			return err
+		var resp *etcd.GetResponse
+		for {
+			var err error
+			resp, err = c.etcdClient.Get(c.ctx, c.prefix, append(opts, etcd.WithLimit(batchSize))...)
+			if err != nil {
+				if strings.Contains(err.Error(), "received message larger than max") {
+					batchSize /= 2
+					continue
+				}
+				return err
+			}
+			break
+		}
+		if resp.Kvs[0].CreateRevision == resp.Kvs[len(resp.Kvs)-1].CreateRevision && len(resp.Kvs) == int(batchSize) {
+			return fmt.Errorf("revision contains too many objects to fit in one batch (this is likely a bug)")
 		}
 		for _, kv := range resp.Kvs {
 			if keysInRev[string(kv.Key)] {
@@ -557,7 +570,7 @@ func (c *readonlyCollection) ListF(val proto.Message, f func(string) error) erro
 			}
 			keysInRev[string(kv.Key)] = true
 		}
-		if len(resp.Kvs) < 10 {
+		if len(resp.Kvs) < int(batchSize) {
 			return nil
 		}
 	}

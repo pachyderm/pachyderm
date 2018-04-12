@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -455,6 +456,30 @@ func TestPagination(t *testing.T) {
 			return nil
 		}))
 		require.Equal(t, numBatches*valsPerBatch, len(vals), "didn't receive every value")
+	})
+	t.Run("large-vals", func(t *testing.T) {
+		uuidPrefix := uuid.NewWithoutDashes()
+		col := NewCollection(etcdClient, uuidPrefix, nil, &pfs.Repo{}, nil)
+		numVals := 100
+		longString := strings.Repeat("foo\n", 1024*256) // 1 MB worth of foo
+		for i := 0; i < numVals; i++ {
+			_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
+				if err := col.ReadWrite(stm).Put(fmt.Sprintf("%d", i), &pfs.Repo{Name: longString}); err != nil {
+					return err
+				}
+				return nil
+			})
+			require.NoError(t, err)
+		}
+		vals := make(map[string]bool)
+		ro := col.ReadOnly(context.Background())
+		val := &pfs.Repo{}
+		require.NoError(t, ro.ListF(val, func(key string) error {
+			require.False(t, vals[key], "saw value %s twice", key)
+			vals[key] = true
+			return nil
+		}))
+		require.Equal(t, numVals, len(vals), "didn't receive every value")
 	})
 }
 
