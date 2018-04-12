@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
@@ -20,11 +21,15 @@ import (
 //QueryPaginationLimit defines the maximum number of results returned in an
 // etcd query using a paginated iterator
 const QueryPaginationLimit = 10000
+const defaultLimit = 1024
 
 type collection struct {
 	etcdClient *etcd.Client
 	prefix     string
 	indexes    []Index
+	// The limit used when listing the collection. This gets automatically
+	// tuned when requests fail so it's stored per collection.
+	limit int64
 	// We need this to figure out the concrete type of the objects
 	// that this collection is storing. It's pretty retarded, but
 	// not sure what else we can do since types in Go are not first-class
@@ -51,6 +56,7 @@ func NewCollection(etcdClient *etcd.Client, prefix string, indexes []Index, temp
 		prefix:     prefix,
 		etcdClient: etcdClient,
 		indexes:    indexes,
+		limit:      defaultLimit,
 		template:   template,
 		keyCheck:   keyCheck,
 	}
@@ -529,26 +535,27 @@ func (c *readonlyCollection) ListF(val proto.Message, f func(string) error) erro
 	}
 	rev := int64(-1)
 	keysInRev := make(map[string]bool)
-	batchSize := int64(256)
 	for {
 		opts := []etcd.OpOption{etcd.WithPrefix(), etcd.WithSort(etcd.SortByCreateRevision, etcd.SortDescend)}
 		if rev != -1 {
 			opts = append(opts, etcd.WithMaxCreateRev(rev))
 		}
 		var resp *etcd.GetResponse
+		var limit int64
 		for {
+			limit = atomic.LoadInt64(&c.limit)
 			var err error
-			resp, err = c.etcdClient.Get(c.ctx, c.prefix, append(opts, etcd.WithLimit(batchSize))...)
+			resp, err = c.etcdClient.Get(c.ctx, c.prefix, append(opts, etcd.WithLimit(limit))...)
 			if err != nil {
 				if strings.Contains(err.Error(), "received message larger than max") {
-					batchSize /= 2
+					atomic.CompareAndSwapInt64(&c.limit, limit, limit/2)
 					continue
 				}
 				return err
 			}
 			break
 		}
-		if resp.Kvs[0].CreateRevision == resp.Kvs[len(resp.Kvs)-1].CreateRevision && len(resp.Kvs) == int(batchSize) {
+		if resp.Kvs[0].CreateRevision == resp.Kvs[len(resp.Kvs)-1].CreateRevision && len(resp.Kvs) == int(limit) {
 			return fmt.Errorf("revision contains too many objects to fit in one batch (this is likely a bug)")
 		}
 		for _, kv := range resp.Kvs {
@@ -570,7 +577,7 @@ func (c *readonlyCollection) ListF(val proto.Message, f func(string) error) erro
 			}
 			keysInRev[string(kv.Key)] = true
 		}
-		if len(resp.Kvs) < int(batchSize) {
+		if len(resp.Kvs) < int(limit) {
 			return nil
 		}
 	}
