@@ -1178,29 +1178,29 @@ func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch str
 			if err := event.Unmarshal(&branchName, branchInfo); err != nil {
 				return fmt.Errorf("Unmarshal: %v", err)
 			}
+			if branchInfo.Head == nil {
+				continue // put event == new branch was created. No commits yet though
+			}
+
+			// TODO we check the branchName because right now WatchOne, like all
+			// collection watch commands, returns all events matching a given prefix,
+			// which means we'll get back events associated with `master-v1` if we're
+			// watching `master`.  Once this is changed we should remove the
+			// comparison between branchName and branch.
+
+			// We don't want to include the `from` commit itself
+			if branchName == branch && (!(seen[branchInfo.Head.ID] || (from != nil && from.ID == branchInfo.Head.ID))) {
+				commitInfo, err := d.inspectCommit(ctx, branchInfo.Head, state)
+				if err != nil {
+					return err
+				}
+				if err := f(commitInfo); err != nil {
+					return err
+				}
+				seen[commitInfo.Commit.ID] = true
+			}
 		case watch.EventDelete:
 			continue
-		}
-		if branchInfo.Head == nil {
-			continue // put event == new branch was created. No commits yet though
-		}
-
-		// TODO we check the branchName because right now WatchOne, like all
-		// collection watch commands, returns all events matching a given prefix,
-		// which means we'll get back events associated with `master-v1` if we're
-		// watching `master`.  Once this is changed we should remove the
-		// comparison between branchName and branch.
-
-		// We don't want to include the `from` commit itself
-		if branchName == branch && (!(seen[branchInfo.Head.ID] || (from != nil && from.ID == branchInfo.Head.ID))) {
-			commitInfo, err := d.inspectCommit(ctx, branchInfo.Head, state)
-			if err != nil {
-				return err
-			}
-			if err := f(commitInfo); err != nil {
-				return err
-			}
-			seen[commitInfo.Commit.ID] = true
 		}
 	}
 }
