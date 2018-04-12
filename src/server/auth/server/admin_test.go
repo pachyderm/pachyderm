@@ -1257,3 +1257,44 @@ func TestGetAuthTokenErrorNonAdminUser(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "must be an admin", err.Error())
 }
+
+// TestActivateAsRobotUser tests that Pachyderm can be activated such that the
+// initial admin is a robot user (i.e. without any human intervention
+func TestActivateAsRobotUser(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+
+	client := seedClient.WithCtx(context.Background())
+	resp, err := client.Activate(client.Ctx(), &auth.ActivateRequest{
+		Subject: "robot:deckard",
+	})
+	require.NoError(t, err)
+	client.SetAuthToken(resp.PachToken)
+	whoAmI, err := client.WhoAmI(client.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, "robot:deckard", whoAmI.Username)
+
+	// Make "admin" an admin, so that auth can be deactivated
+	client.ModifyAdmins(client.Ctx(), &auth.ModifyAdminsRequest{
+		Add:    []string{"admin"},
+		Remove: []string{"robot:deckard"},
+	})
+}
+
+func TestActivateMismatchedUsernames(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+
+	client := seedClient.WithCtx(context.Background())
+	_, err := client.Activate(client.Ctx(), &auth.ActivateRequest{
+		Subject:     "alice",
+		GitHubToken: "bob",
+	})
+	require.YesError(t, err)
+	require.Matches(t, "github:alice", err.Error())
+	require.Matches(t, "github:bob", err.Error())
+}
