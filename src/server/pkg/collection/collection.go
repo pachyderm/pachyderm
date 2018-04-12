@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/coreos/etcd/mvcc/mvccpb"
 	"github.com/gogo/protobuf/proto"
 )
 
@@ -533,6 +534,15 @@ func (c *readonlyCollection) ListF(val proto.Message, f func(string) error) erro
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
+	return c.listF(c.prefix, &c.limit, func(kv *mvccpb.KeyValue) error {
+		if err := proto.Unmarshal(kv.Value, val); err != nil {
+			return err
+		}
+		return f(strings.TrimPrefix(string(kv.Key), c.prefix))
+	})
+}
+
+func (c *readonlyCollection) listF(prefix string, limitPtr *int64, f func(*mvccpb.KeyValue) error) error {
 	rev := int64(-1)
 	keysInRev := make(map[string]bool)
 	for {
@@ -543,12 +553,12 @@ func (c *readonlyCollection) ListF(val proto.Message, f func(string) error) erro
 		var resp *etcd.GetResponse
 		var limit int64
 		for {
-			limit = atomic.LoadInt64(&c.limit)
+			limit = atomic.LoadInt64(limitPtr)
 			var err error
-			resp, err = c.etcdClient.Get(c.ctx, c.prefix, append(opts, etcd.WithLimit(limit))...)
+			resp, err = c.etcdClient.Get(c.ctx, prefix, append(opts, etcd.WithLimit(limit))...)
 			if err != nil {
 				if strings.Contains(err.Error(), "received message larger than max") {
-					atomic.CompareAndSwapInt64(&c.limit, limit, limit/2)
+					atomic.CompareAndSwapInt64(limitPtr, limit, limit/2)
 					continue
 				}
 				return err
@@ -562,10 +572,7 @@ func (c *readonlyCollection) ListF(val proto.Message, f func(string) error) erro
 			if keysInRev[string(kv.Key)] {
 				continue
 			}
-			if err := proto.Unmarshal(kv.Value, val); err != nil {
-				return err
-			}
-			if err := f(strings.TrimPrefix(string(kv.Key), c.prefix)); err != nil {
+			if err := f(kv); err != nil {
 				if err == errutil.ErrBreak {
 					return nil
 				}
