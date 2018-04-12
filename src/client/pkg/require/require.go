@@ -312,8 +312,9 @@ func NoErrorWithinT(tb testing.TB, t time.Duration, f func() error, msgAndArgs .
 func NoErrorWithinTRetry(tb testing.TB, t time.Duration, f func() error, msgAndArgs ...interface{}) {
 	tb.Helper()
 	doneCh := make(chan struct{})
+	timeout := false
 	go func() {
-		for {
+		for !timeout {
 			if err := f(); err == nil {
 				close(doneCh)
 				break
@@ -323,6 +324,7 @@ func NoErrorWithinTRetry(tb testing.TB, t time.Duration, f func() error, msgAndA
 	select {
 	case <-doneCh:
 	case <-time.After(t):
+		timeout = true
 		fatal(tb, msgAndArgs, "operation did not finish within %s", t.String())
 	}
 }

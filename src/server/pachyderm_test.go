@@ -2199,21 +2199,19 @@ func TestStandby(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		require.NoErrorWithinT(t, time.Second*30, func() error {
-			return backoff.Retry(func() error {
-				pis, err := c.ListPipeline()
-				require.NoError(t, err)
-				var standby int
-				for _, pi := range pis {
-					if pi.State == pps.PipelineState_PIPELINE_STANDBY {
-						standby++
-					}
+		require.NoErrorWithinTRetry(t, time.Second*30, func() error {
+			pis, err := c.ListPipeline()
+			require.NoError(t, err)
+			var standby int
+			for _, pi := range pis {
+				if pi.State == pps.PipelineState_PIPELINE_STANDBY {
+					standby++
 				}
-				if standby != numPipelines {
-					return fmt.Errorf("should have %d pipelines in standby, not %d", numPipelines, standby)
-				}
-				return nil
-			}, backoff.NewTestingBackOff())
+			}
+			if standby != numPipelines {
+				return fmt.Errorf("should have %d pipelines in standby, not %d", numPipelines, standby)
+			}
+			return nil
 		})
 
 		_, err := c.StartCommit(dataRepo, "master")
