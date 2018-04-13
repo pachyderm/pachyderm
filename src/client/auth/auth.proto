@@ -274,19 +274,19 @@ message ModifyMembersRequest {
 
 message ModifyMembersResponse {}
 
-message GetGroupsForUserRequest {
+message GetGroupsRequest {
   string username = 1;
 }
 
-message GetGroupsForUserResponse {
+message GetGroupsResponse {
   repeated string groups = 1;
 }
 
-message GetUsersForGroupRequest {
+message GetUsersRequest {
   string group = 1;
 }
 
-message GetUsersForGroupResponse {
+message GetUsersResponse {
   repeated string usernames = 1;
 }
 
@@ -317,6 +317,6 @@ service API {
 
   rpc SetGroupsForUser(SetGroupsForUserRequest) returns (SetGroupsForUserResponse) {}
   rpc ModifyMembers(ModifyMembersRequest) returns (ModifyMembersResponse) {}
-  rpc GetGroupsForUser(GetGroupsForUserRequest) returns (GetGroupsForUserResponse) {}
-  rpc GetUsersForGroup(GetUsersForGroupRequest) returns (GetUsersForGroupResponse) {}
+  rpc GetGroups(GetGroupsRequest) returns (GetGroupsResponse) {}
+  rpc GetUsers(GetUsersRequest) returns (GetUsersResponse) {}
 }

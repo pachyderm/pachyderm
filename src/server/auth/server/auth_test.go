@@ -2141,14 +2141,14 @@ func TestModifyMembers(t *testing.T) {
 			}
 
 			for username, groups := range test.Expected {
-				groupsActual, err := adminClient.GetGroupsForUser(adminClient.Ctx(), &auth.GetGroupsForUserRequest{
+				groupsActual, err := adminClient.GetGroups(adminClient.Ctx(), &auth.GetGroupsRequest{
 					Username: username,
 				})
 				require.NoError(t, err)
 				require.ElementsEqual(t, groups, groupsActual.Groups)
 
 				for _, group := range groups {
-					users, err := adminClient.GetUsersForGroup(adminClient.Ctx(), &auth.GetUsersForGroupRequest{
+					users, err := adminClient.GetUsers(adminClient.Ctx(), &auth.GetUsersRequest{
 						Group: group,
 					})
 					require.NoError(t, err)
@@ -2178,13 +2178,13 @@ func TestSetGroupsForUser(t *testing.T) {
 		Groups:   groups,
 	})
 	require.NoError(t, err)
-	groupsActual, err := adminClient.GetGroupsForUser(adminClient.Ctx(), &auth.GetGroupsForUserRequest{
+	groupsActual, err := adminClient.GetGroups(adminClient.Ctx(), &auth.GetGroupsRequest{
 		Username: alice,
 	})
 	require.NoError(t, err)
 	require.ElementsEqual(t, groups, groupsActual.Groups)
 	for _, group := range groups {
-		users, err := adminClient.GetUsersForGroup(adminClient.Ctx(), &auth.GetUsersForGroupRequest{
+		users, err := adminClient.GetUsers(adminClient.Ctx(), &auth.GetUsersRequest{
 			Group: group,
 		})
 		require.NoError(t, err)
@@ -2197,13 +2197,13 @@ func TestSetGroupsForUser(t *testing.T) {
 		Groups:   groups,
 	})
 	require.NoError(t, err)
-	groupsActual, err = adminClient.GetGroupsForUser(adminClient.Ctx(), &auth.GetGroupsForUserRequest{
+	groupsActual, err = adminClient.GetGroups(adminClient.Ctx(), &auth.GetGroupsRequest{
 		Username: alice,
 	})
 	require.NoError(t, err)
 	require.ElementsEqual(t, groups, groupsActual.Groups)
 	for _, group := range groups {
-		users, err := adminClient.GetUsersForGroup(adminClient.Ctx(), &auth.GetUsersForGroupRequest{
+		users, err := adminClient.GetUsers(adminClient.Ctx(), &auth.GetUsersRequest{
 			Group: group,
 		})
 		require.NoError(t, err)
@@ -2216,13 +2216,13 @@ func TestSetGroupsForUser(t *testing.T) {
 		Groups:   groups,
 	})
 	require.NoError(t, err)
-	groupsActual, err = adminClient.GetGroupsForUser(adminClient.Ctx(), &auth.GetGroupsForUserRequest{
+	groupsActual, err = adminClient.GetGroups(adminClient.Ctx(), &auth.GetGroupsRequest{
 		Username: alice,
 	})
 	require.NoError(t, err)
 	require.ElementsEqual(t, groups, groupsActual.Groups)
 	for _, group := range groups {
-		users, err := adminClient.GetUsersForGroup(adminClient.Ctx(), &auth.GetUsersForGroupRequest{
+		users, err := adminClient.GetUsers(adminClient.Ctx(), &auth.GetUsersRequest{
 			Group: group,
 		})
 		require.NoError(t, err)
@@ -2235,16 +2235,56 @@ func TestSetGroupsForUser(t *testing.T) {
 		Groups:   groups,
 	})
 	require.NoError(t, err)
-	groupsActual, err = adminClient.GetGroupsForUser(adminClient.Ctx(), &auth.GetGroupsForUserRequest{
+	groupsActual, err = adminClient.GetGroups(adminClient.Ctx(), &auth.GetGroupsRequest{
 		Username: alice,
 	})
 	require.NoError(t, err)
 	require.ElementsEqual(t, groups, groupsActual.Groups)
 	for _, group := range groups {
-		users, err := adminClient.GetUsersForGroup(adminClient.Ctx(), &auth.GetUsersForGroupRequest{
+		users, err := adminClient.GetUsers(adminClient.Ctx(), &auth.GetUsersRequest{
 			Group: group,
 		})
 		require.NoError(t, err)
 		require.OneOfEquals(t, gh(alice), users.Usernames)
 	}
+}
+
+func TestGetAllGroupsAndGetAllUsers(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+
+	alice := tu.UniqueString("alice")
+	bob := tu.UniqueString("bob")
+	john := tu.UniqueString("john")
+	organization := tu.UniqueString("organization")
+	engineering := tu.UniqueString("engineering")
+	security := tu.UniqueString("security")
+
+	adminClient := getPachClient(t, admin)
+
+	_, err := adminClient.SetGroupsForUser(adminClient.Ctx(), &auth.SetGroupsForUserRequest{
+		Username: alice,
+		Groups:   []string{organization, engineering, security},
+	})
+	require.NoError(t, err)
+	_, err = adminClient.SetGroupsForUser(adminClient.Ctx(), &auth.SetGroupsForUserRequest{
+		Username: bob,
+		Groups:   []string{engineering},
+	})
+	require.NoError(t, err)
+	_, err = adminClient.ModifyMembers(adminClient.Ctx(), &auth.ModifyMembersRequest{
+		Group: organization,
+		Add:   []string{bob, john},
+	})
+	require.NoError(t, err)
+
+	users, err := adminClient.GetUsers(adminClient.Ctx(), &auth.GetUsersRequest{})
+	require.NoError(t, err)
+	require.ElementsEqual(t, []string{gh(alice), gh(bob), gh(john)}, users.Usernames)
+
+	groups, err := adminClient.GetGroups(adminClient.Ctx(), &auth.GetGroupsRequest{})
+	require.NoError(t, err)
+	require.ElementsEqual(t, []string{organization, engineering, security}, groups.Groups)
 }
