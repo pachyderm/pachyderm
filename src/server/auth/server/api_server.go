@@ -399,6 +399,8 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 		a.acls.ReadWrite(stm).DeleteAll()
 		a.tokens.ReadWrite(stm).DeleteAll()
 		a.admins.ReadWrite(stm).DeleteAll() // watchAdmins() will see the write
+		a.members.ReadWrite(stm).DeleteAll()
+		a.groups.ReadWrite(stm).DeleteAll()
 		return nil
 	})
 	if err != nil {
@@ -1359,7 +1361,7 @@ func removeFromSet(set map[string]bool, elems ...string) map[string]bool {
 	return set
 }
 
-func (a *apiServer) GetGroupsForUser(ctx context.Context, req *authclient.GetGroupsForUserRequest) (resp *authclient.GetGroupsForUserResponse, retErr error) {
+func (a *apiServer) GetGroups(ctx context.Context, req *authclient.GetGroupsRequest) (resp *authclient.GetGroupsResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if !a.isActivated() {
@@ -1374,30 +1376,54 @@ func (a *apiServer) GetGroupsForUser(ctx context.Context, req *authclient.GetGro
 	if !a.isAdmin(callerInfo.Subject) {
 		return nil, &authclient.ErrNotAuthorized{
 			Subject: callerInfo.Subject,
-			AdminOp: "GetGroupsForUser",
+			AdminOp: "GetGroups",
 		}
 	}
 
-	username, err := lenientCanonicalizeSubject(ctx, req.Username)
-	if err != nil {
-		return nil, err
-	}
-
-	var groupsProto authclient.Groups
-	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		members := a.members.ReadWrite(stm)
-		if err := members.Get(username, &groupsProto); err != nil {
-			return err
+	// Filter by username
+	if req.Username != "" {
+		username, err := lenientCanonicalizeSubject(ctx, req.Username)
+		if err != nil {
+			return nil, err
 		}
-		return nil
-	}); err != nil {
+
+		var groupsProto authclient.Groups
+		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			members := a.members.ReadWrite(stm)
+			if err := members.Get(username, &groupsProto); err != nil {
+				return err
+			}
+			return nil
+		}); err != nil {
+			return nil, err
+		}
+
+		return &authclient.GetGroupsResponse{Groups: setToList(groupsProto.Groups)}, nil
+	}
+
+	groupsCol := a.groups.ReadOnly(ctx)
+	var iter col.Iterator
+	if iter, err = groupsCol.List(); err != nil {
 		return nil, err
 	}
 
-	return &authclient.GetGroupsForUserResponse{Groups: setToList(groupsProto.Groups)}, nil
+	var group string
+	var users authclient.Users
+	var groups []string
+	ok, err := iter.Next(&group, &users)
+	for ok {
+		if err != nil {
+			return nil, err
+		}
+
+		groups = append(groups, group)
+		ok, err = iter.Next(&group, &users)
+	}
+
+	return &authclient.GetGroupsResponse{Groups: groups}, nil
 }
 
-func (a *apiServer) GetUsersForGroup(ctx context.Context, req *authclient.GetUsersForGroupRequest) (resp *authclient.GetUsersForGroupResponse, retErr error) {
+func (a *apiServer) GetUsers(ctx context.Context, req *authclient.GetUsersRequest) (resp *authclient.GetUsersResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if !a.isActivated() {
@@ -1412,22 +1438,46 @@ func (a *apiServer) GetUsersForGroup(ctx context.Context, req *authclient.GetUse
 	if !a.isAdmin(callerInfo.Subject) {
 		return nil, &authclient.ErrNotAuthorized{
 			Subject: callerInfo.Subject,
-			AdminOp: "GetUsersForGroup",
+			AdminOp: "GetUsers",
 		}
 	}
 
-	var membersProto authclient.Users
-	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		groups := a.groups.ReadWrite(stm)
-		if err := groups.Get(req.Group, &membersProto); err != nil {
-			return err
+	// Filter by group
+	if req.Group != "" {
+		var membersProto authclient.Users
+		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			groups := a.groups.ReadWrite(stm)
+			if err := groups.Get(req.Group, &membersProto); err != nil {
+				return err
+			}
+			return nil
+		}); err != nil {
+			return nil, err
 		}
-		return nil
-	}); err != nil {
+
+		return &authclient.GetUsersResponse{Usernames: setToList(membersProto.Usernames)}, nil
+	}
+
+	membersCol := a.members.ReadOnly(ctx)
+	var iter col.Iterator
+	if iter, err = membersCol.List(); err != nil {
 		return nil, err
 	}
 
-	return &authclient.GetUsersForGroupResponse{Usernames: setToList(membersProto.Usernames)}, nil
+	var user string
+	var groups authclient.Groups
+	var users []string
+	ok, err := iter.Next(&user, &groups)
+	for ok {
+		if err != nil {
+			return nil, err
+		}
+
+		users = append(users, user)
+		ok, err = iter.Next(&user, &groups)
+	}
+
+	return &authclient.GetUsersResponse{Usernames: users}, nil
 }
 
 func setToList(set map[string]bool) []string {
