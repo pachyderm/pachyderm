@@ -2662,10 +2662,15 @@ func (a *apiServer) getPachClient() *client.APIClient {
 			panic(fmt.Sprintf("pps failed to initialize pach client: %v", err))
 		}
 		// Initialize spec repo
-		if err := a.pachClient.CreateRepo(ppsconsts.SpecRepo); err != nil {
-			if !isAlreadyExistsErr(err) {
-				panic(fmt.Sprintf("could not create pipeline spec repo: %v", err))
+		if err := a.sudo(a.pachClient, func(superUserClient *client.APIClient) error {
+			if err := superUserClient.CreateRepo(ppsconsts.SpecRepo); err != nil {
+				if !isAlreadyExistsErr(err) {
+					return err
+				}
 			}
+			return nil
+		}); err != nil {
+			panic(fmt.Sprintf("could not create pipeline spec repo: %v", err))
 		}
 	})
 	return a.pachClient
