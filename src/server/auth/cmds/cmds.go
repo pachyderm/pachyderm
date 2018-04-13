@@ -159,6 +159,11 @@ func LoginCmd() *cobra.Command {
 				c.Ctx(),
 				&auth.AuthenticateRequest{GitHubToken: token})
 			if err != nil {
+				if auth.IsErrPartiallyActivated(err) {
+					return fmt.Errorf("%v: if pachyderm is stuck in this state, you "+
+						"can revert by running 'pachctl auth deactivate' or retry by "+
+						"running 'pachctl auth activate' again", err)
+				}
 				return fmt.Errorf("error authenticating with Pachyderm cluster: %v",
 					grpcutil.ScrubGRPC(err))
 			}
@@ -380,6 +385,11 @@ func ModifyAdminsCmd() *cobra.Command {
 				Add:    add,
 				Remove: remove,
 			})
+			if auth.IsErrPartiallyActivated(err) {
+				return fmt.Errorf("%v: if pachyderm is stuck in this state, you "+
+					"can revert by running 'pachctl auth deactivate' or retry by "+
+					"running 'pachctl auth activate' again", err)
+			}
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
