@@ -179,7 +179,7 @@ const (
 	full
 )
 
-// activationState returns 'none' if auth is totally inactivate, 'partial' if
+// activationState returns 'none' if auth is totally inactive, 'partial' if
 // auth.Activate has been called, but hasn't finished or failed, and full
 // if auth.Activate has been called and succeeded.
 //

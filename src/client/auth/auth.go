@@ -112,6 +112,9 @@ func IsErrPartiallyActivated(err error) bool {
 
 // IsErrNotSignedIn returns true if 'err' is a ErrNotSignedIn
 func IsErrNotSignedIn(err error) bool {
+	if err == nil {
+		return false
+	}
 	// TODO(msteffen) This is unstructured because we have no way to propagate
 	// structured errors across GRPC boundaries. Fix
 	return strings.Contains(err.Error(), ErrNotSignedIn.Error())
