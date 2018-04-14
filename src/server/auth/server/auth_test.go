@@ -1391,10 +1391,10 @@ func TestListRepoNotLoggedInError(t *testing.T) {
 	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
 
 	// alice creates a repo
-	repoWriter := tu.UniqueString("TestListRepo")
-	require.NoError(t, aliceClient.CreateRepo(repoWriter))
+	repo := tu.UniqueString("TestListRepo")
+	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.ElementsEqual(t,
-		entries(alice, "owner"), GetACL(t, aliceClient, repoWriter))
+		entries(alice, "owner"), GetACL(t, aliceClient, repo))
 
 	// Anon (non-logged-in user) calls ListRepo, and must receive an error
 	_, err := anonClient.PfsAPIClient.ListRepo(anonClient.Ctx(),
@@ -1417,8 +1417,8 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 	adminClient := getPachClient(t, "admin")
 
 	// alice creates a repo
-	repoWriter := tu.UniqueString("TestListRepo")
-	require.NoError(t, aliceClient.CreateRepo(repoWriter))
+	repo := tu.UniqueString("TestListRepo")
+	require.NoError(t, aliceClient.CreateRepo(repo))
 
 	// bob calls ListRepo, but has NONE access to all repos
 	infos, err := bobClient.ListRepo()
@@ -1468,6 +1468,22 @@ func TestCreateRepoAlreadyExistsError(t *testing.T) {
 	err := bobClient.CreateRepo(repo)
 	require.YesError(t, err)
 	require.Matches(t, "already exists", err.Error())
+}
+
+// TestCreateRepoNotLoggedInError makes sure that if a user isn't logged in, and
+// they call CreateRepo(), they get an error.
+func TestCreateRepoNotLoggedInError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	anonClient := getPachClient(t, "")
+
+	// anonClient tries and fails to create a repo
+	repo := tu.UniqueString("TestCreateRepo")
+	err := anonClient.CreateRepo(repo)
+	require.YesError(t, err)
+	require.Matches(t, "auth token not found in context", err.Error())
 }
 
 // TestDeleteRepoDoesntExistError tests that if a client calls DeleteRepo on a
