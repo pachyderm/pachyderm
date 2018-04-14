@@ -1259,7 +1259,7 @@ func TestGetAuthTokenErrorNonAdminUser(t *testing.T) {
 }
 
 // TestActivateAsRobotUser tests that Pachyderm can be activated such that the
-// initial admin is a robot user (i.e. without any human intervention
+// initial admin is a robot user (i.e. without any human intervention)
 func TestActivateAsRobotUser(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")

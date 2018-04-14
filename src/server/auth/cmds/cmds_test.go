@@ -21,13 +21,9 @@ import (
 
 var activateMut sync.Mutex
 
-func activateAuth(t *testing.T) {
-	t.Helper()
-	activateMut.Lock()
-	defer activateMut.Unlock()
-	// TODO(msteffen): Make sure client & server have the same version
-
-	// Check if Pachyderm Enterprise is active -- if not, activate it
+// activateEnterprise checks if Pachyderm Enterprise is active and if not,
+// activates it
+func activateEnterprise(t *testing.T) {
 	cmd := tu.Cmd("pachctl", "enterprise", "get-state")
 	out, err := cmd.Output()
 	require.NoError(t, err)
@@ -37,9 +33,17 @@ func activateAuth(t *testing.T) {
 			tu.Cmd("pachctl", "enterprise", "activate", tu.GetTestEnterpriseCode()).Run())
 	}
 
+}
+
+func activateAuth(t *testing.T) {
+	t.Helper()
+	activateMut.Lock()
+	defer activateMut.Unlock()
+	activateEnterprise(t)
+	// TODO(msteffen): Make sure client & server have the same version
 	// Logout (to clear any expired tokens) and activate Pachyderm auth
 	require.NoError(t, tu.Cmd("pachctl", "auth", "logout").Run())
-	cmd = tu.Cmd("pachctl", "auth", "activate")
+	cmd := tu.Cmd("pachctl", "auth", "activate")
 	cmd.Stdin = strings.NewReader("admin\n")
 	require.NoError(t, cmd.Run())
 }
@@ -218,13 +222,7 @@ func TestActivateAsRobotUser(t *testing.T) {
 	defer deactivateAuth(t) // unwind "activate" command before deactivating
 	activateMut.Lock()
 	defer activateMut.Unlock()
-	cmd := tu.Cmd("pachctl", "enterprise", "get-state")
-	out, err := cmd.Output()
-	require.NoError(t, err)
-	if string(out) != "ACTIVE" {
-		require.NoError(t, // Enterprise not active in the cluster. Activate it
-			tu.Cmd("pachctl", "enterprise", "activate", tu.GetTestEnterpriseCode()).Run())
-	}
+	activateEnterprise(t)
 	// Logout (to clear any expired tokens) and activate Pachyderm auth
 	require.NoError(t, tu.BashCmd(`
 	pachctl auth logout
@@ -246,15 +244,10 @@ func TestActivateMismatchedUsernames(t *testing.T) {
 	// actual call
 	activateMut.Lock()
 	defer activateMut.Unlock()
-	cmd := tu.Cmd("pachctl", "enterprise", "get-state")
-	out, err := cmd.Output()
-	require.NoError(t, err)
-	if string(out) != "ACTIVE" {
-		require.NoError(t, // Enterprise not active in the cluster. Activate it
-			tu.Cmd("pachctl", "enterprise", "activate", tu.GetTestEnterpriseCode()).Run())
-	}
+	activateEnterprise(t)
 	// Logout (to clear any expired tokens) and activate Pachyderm auth
 	activate := tu.BashCmd(`
+		pachctl auth logout
 		echo alice | pachctl auth activate --initial-admin=bob
 	`)
 	var errorMsg bytes.Buffer
