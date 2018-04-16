@@ -535,7 +535,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 }
 
 // makeCronCommits makes commits to a single cron input's repo. It's
-// a helper function called by jobSpawner
+// a helper function called by monitorPipeline.
 func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input) error {
 	schedule, err := cron.ParseStandard(in.Cron.Spec)
 	if err != nil {
