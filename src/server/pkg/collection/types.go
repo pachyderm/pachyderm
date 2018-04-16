@@ -53,7 +53,7 @@ type Collection interface {
 type Index struct {
 	Field string
 	Multi bool
-	limit int64
+	limit *int64
 }
 
 // ReadWriteCollection is a collection interface that supports read,write and delete
