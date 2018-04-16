@@ -53,6 +53,7 @@ type Collection interface {
 type Index struct {
 	Field string
 	Multi bool
+	limit int64
 }
 
 // ReadWriteCollection is a collection interface that supports read,write and delete
@@ -95,7 +96,8 @@ type ReadWriteIntCollection interface {
 // ReadonlyCollection is a collection interface that only supports read ops.
 type ReadonlyCollection interface {
 	Get(key string, val proto.Message) error
-	GetByIndex(index Index, val interface{}) (Iterator, error)
+	GetByIndex(index Index, indexVal interface{}) (Iterator, error)
+	GetByIndexF(index Index, indexVal interface{}, val proto.Message, f func(key string) error) error
 	// GetBlock is like Get but waits for the key to exist if it doesn't already.
 	GetBlock(key string, val proto.Message) error
 	List() (Iterator, error)

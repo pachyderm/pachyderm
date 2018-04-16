@@ -466,6 +466,23 @@ func (c *readonlyCollection) GetByIndex(index Index, val interface{}) (Iterator,
 	}, nil
 }
 
+func (c *readonlyCollection) GetByIndexF(index Index, indexVal interface{}, val proto.Message, f func(key string) error) error {
+	return c.listF(c.indexDir(index, val), &index.limit, func(kv *mvccpb.KeyValue) error {
+		key := path.Base(string(kv.Key))
+		if err := c.Get(key, val); err != nil {
+			if IsErrNotFound(err) {
+				// In cases where we changed how certain objects are
+				// indexed, we could end up in a situation where the
+				// object is deleted but the old indexes still exist.
+				return nil
+			} else {
+				return err
+			}
+		}
+		return f(key)
+	})
+}
+
 func (c *readonlyCollection) GetBlock(key string, val proto.Message) error {
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
