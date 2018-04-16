@@ -22,7 +22,7 @@ const (
 
 var (
 	// ProvenanceIndex is a secondary index on provenance
-	ProvenanceIndex = col.Index{"Provenance", true}
+	ProvenanceIndex = col.Index{Field: "Provenance", Multi: true}
 )
 
 // Repos returns a collection of repos
