@@ -302,7 +302,9 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 			ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 			metav1.GetOptions{})
 		if err != nil {
-			return err
+			if !isNotFoundErr(err) {
+				return err
+			}
 		}
 		if workerRc.ObjectMeta.Labels["version"] != version.PrettyVersion() {
 			if err := a.deleteWorkersForPipeline(pipelineInfo); err != nil {
