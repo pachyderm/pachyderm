@@ -302,10 +302,8 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 			ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 			metav1.GetOptions{})
 		if err != nil {
-			log.Errorf("error from rc.Get: %v", err)
+			return err
 		}
-		// TODO figure out why the statement below runs even if there's an error
-		// rc was made by a previous version of pachyderm so we delete it
 		if workerRc.ObjectMeta.Labels["version"] != version.PrettyVersion() {
 			if err := a.deleteWorkersForPipeline(pipelineInfo); err != nil {
 				return err
