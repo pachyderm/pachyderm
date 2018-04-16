@@ -270,7 +270,6 @@ message FlushCommitRequest {
   repeated Repo to_repos = 2;
 }
 
-
 message SubscribeCommitRequest {
   Repo repo = 1;
   string branch = 2;
