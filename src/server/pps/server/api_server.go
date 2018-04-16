@@ -428,51 +428,29 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 // listJob is the internal implementation of ListJob shared between ListJob and
 // ListJobStream. When ListJob is removed, this should be inlined into
 // ListJobStream.
-func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline, outputCommit *pfs.Commit, inputCommits []*pfs.Commit) ([]*pps.JobInfo, error) {
+func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline, outputCommit *pfs.Commit, inputCommits []*pfs.Commit, f func(*pps.JobInfo) error) error {
 	var err error
 	if outputCommit != nil {
 		outputCommit, err = a.resolveCommit(pachClient, outputCommit)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 	for i, inputCommit := range inputCommits {
 		inputCommits[i], err = a.resolveCommit(pachClient, inputCommit)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 	jobs := a.jobs.ReadOnly(pachClient.Ctx())
-	var iter col.Iterator
-	if pipeline != nil {
-		iter, err = jobs.GetByIndex(ppsdb.JobsPipelineIndex, pipeline)
-	} else if outputCommit != nil {
-		iter, err = jobs.GetByIndex(ppsdb.JobsOutputIndex, outputCommit)
-	} else {
-		iter, err = jobs.ListPaginated()
-	}
-	if err != nil {
-		return nil, fmt.Errorf("error listing jobs: %v", err)
-	}
-
-	var jobInfos []*pps.JobInfo
-JobsLoop:
-	for {
-		var jobID string
-		var jobPtr pps.EtcdJobInfo
-		ok, err := iter.Next(&jobID, &jobPtr)
-		if err != nil {
-			return nil, fmt.Errorf("error iterating jobs: %v", err)
-		}
-		if !ok {
-			break
-		}
-		jobInfo, err := a.jobInfoFromPtr(pachClient, &jobPtr)
+	jobPtr := &pps.EtcdJobInfo{}
+	_f := func(key string) error {
+		jobInfo, err := a.jobInfoFromPtr(pachClient, jobPtr)
 		if err != nil {
 			if isNotFoundErr(err) {
-				continue
+				return nil
 			}
-			return nil, err
+			return err
 		}
 		if len(inputCommits) > 0 {
 			found := make([]bool, len(inputCommits))
@@ -487,13 +465,19 @@ JobsLoop:
 			})
 			for _, found := range found {
 				if !found {
-					continue JobsLoop
+					return nil
 				}
 			}
 		}
-		jobInfos = append(jobInfos, jobInfo)
+		return f(jobInfo)
 	}
-	return jobInfos, nil
+	if pipeline != nil {
+		return jobs.GetByIndexF(ppsdb.JobsPipelineIndex, pipeline, jobPtr, _f)
+	} else if outputCommit != nil {
+		return jobs.GetByIndexF(ppsdb.JobsOutputIndex, outputCommit, jobPtr, _f)
+	} else {
+		return jobs.ListF(jobPtr, _f)
+	}
 }
 
 func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.EtcdJobInfo) (*pps.JobInfo, error) {
@@ -573,8 +557,11 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 		}
 	}(time.Now())
 	pachClient := a.getPachClient().WithCtx(ctx)
-	jobInfos, err := a.listJob(pachClient, request.Pipeline, request.OutputCommit, request.InputCommit)
-	if err != nil {
+	var jobInfos []*pps.JobInfo
+	if err := a.listJob(pachClient, request.Pipeline, request.OutputCommit, request.InputCommit, func(ji *pps.JobInfo) error {
+		jobInfos = append(jobInfos, ji)
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 	return &pps.JobInfos{jobInfos}, nil
@@ -587,17 +574,13 @@ func (a *apiServer) ListJobStream(request *pps.ListJobRequest, resp pps.API_List
 		a.Log(request, fmt.Sprintf("stream containing %d JobInfos", sent), retErr, time.Since(start))
 	}(time.Now())
 	pachClient := a.getPachClient().WithCtx(resp.Context())
-	jobInfos, err := a.listJob(pachClient, request.Pipeline, request.OutputCommit, request.InputCommit)
-	if err != nil {
-		return err
-	}
-	for _, ji := range jobInfos {
+	return a.listJob(pachClient, request.Pipeline, request.OutputCommit, request.InputCommit, func(ji *pps.JobInfo) error {
 		if err := resp.Send(ji); err != nil {
 			return err
 		}
 		sent++
-	}
-	return nil
+		return nil
+	})
 }
 
 func (a *apiServer) FlushJob(request *pps.FlushJobRequest, resp pps.API_FlushJobServer) (retErr error) {
@@ -612,8 +595,11 @@ func (a *apiServer) FlushJob(request *pps.FlushJobRequest, resp pps.API_FlushJob
 		toRepos = append(toRepos, client.NewRepo(pipeline.Name))
 	}
 	return pachClient.FlushCommitF(request.Commits, toRepos, func(ci *pfs.CommitInfo) error {
-		jis, err := a.listJob(pachClient, nil, ci.Commit, nil)
-		if err != nil {
+		var jis []*pps.JobInfo
+		if err := a.listJob(pachClient, nil, ci.Commit, nil, func(ji *pps.JobInfo) error {
+			jis = append(jis, ji)
+			return nil
+		}); err != nil {
 			return err
 		}
 		if len(jis) == 0 {
