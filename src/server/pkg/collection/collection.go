@@ -22,7 +22,7 @@ import (
 //QueryPaginationLimit defines the maximum number of results returned in an
 // etcd query using a paginated iterator
 const QueryPaginationLimit = 10000
-const defaultLimit = 1024
+const defaultLimit int64 = 1024
 
 type collection struct {
 	etcdClient *etcd.Client
@@ -467,7 +467,11 @@ func (c *readonlyCollection) GetByIndex(index Index, val interface{}) (Iterator,
 }
 
 func (c *readonlyCollection) GetByIndexF(index Index, indexVal interface{}, val proto.Message, f func(key string) error) error {
-	return c.listF(c.indexDir(index, val), &index.limit, func(kv *mvccpb.KeyValue) error {
+	if index.limit == nil {
+		limit := defaultLimit
+		index.limit = &limit
+	}
+	return c.listF(c.indexDir(index, val), index.limit, func(kv *mvccpb.KeyValue) error {
 		key := path.Base(string(kv.Key))
 		if err := c.Get(key, val); err != nil {
 			if IsErrNotFound(err) {
@@ -582,7 +586,7 @@ func (c *readonlyCollection) listF(prefix string, limitPtr *int64, f func(*mvccp
 			}
 			break
 		}
-		if resp.Kvs[0].CreateRevision == resp.Kvs[len(resp.Kvs)-1].CreateRevision && len(resp.Kvs) == int(limit) {
+		if len(resp.Kvs) == int(limit) && resp.Kvs[0].CreateRevision == resp.Kvs[len(resp.Kvs)-1].CreateRevision {
 			return fmt.Errorf("revision contains too many objects to fit in one batch (this is likely a bug)")
 		}
 		for _, kv := range resp.Kvs {
