@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"os"
 	"os/user"
 	"path"
@@ -50,8 +49,6 @@ import (
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 const (
@@ -66,57 +63,8 @@ const (
 )
 
 var (
-	// The port prometheus metrics are exposed on
-	PrometheusPort = int32(9090)
 	errSpecialFile = errors.New("cannot upload special file")
 	statsTagSuffix = "_stats"
-	bucketFactor   = 2.0
-	bucketCount    = 20 // In seconds, makes the max bucket 2^20 seconds or ~12 days in size
-	datums         = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Namespace: "pachyderm",
-			Subsystem: "user",
-			Name:      "datums",
-			Help:      "Number of datums counted by pipeline and state",
-			Buckets:   prometheus.ExponentialBuckets(1.0, bucketFactor, bucketCount),
-		},
-		[]string{
-			"pipeline",
-			"state",
-		},
-	)
-
-	datum_counts = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Namespace: "pachyderm",
-			Subsystem: "user",
-			Name:      "datum_counts",
-			Help:      "Number of datums counted by pipeline and state",
-		},
-		[]string{
-			"pipeline",
-			"state",
-		},
-	)
-
-	hist_datum_runtimes = prometheus.NewSummaryVec(prometheus.SummaryOpts{
-		Name: "hist_datum_runtimes",
-		Help: "The temperature of the frog pond.", // Sorry, we can't measure how badly it smells.
-	}, []string{"job", "datum"})
-	gauge_datum_runtimes = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Namespace: "our_company",
-			Subsystem: "blob_storage",
-			Name:      "datum_runtimes",
-			Help:      "Number of blob storage operations waiting to be processed, partitioned by user and type.",
-		},
-		[]string{
-			// Which user has requested the operation?
-			"job",
-			// Of what type is the operation?
-			"datum",
-		},
-	)
 )
 
 // APIServer implements the worker API
@@ -516,35 +464,19 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 	return dir, nil
 }
 
-func initPrometheus() {
-	prometheus.MustRegister(gauge_datum_runtimes)
-	prometheus.MustRegister(hist_datum_runtimes)
-	prometheus.MustRegister(datum_counts)
-	prometheus.MustRegister(datums)
-	http.Handle("/metrics", promhttp.Handler())
-	go func() {
-		log.Fatal(http.ListenAndServe(":9090", nil))
-	}()
-	//log.Fatal(http.ListenAndServe(":8080", nil))
-}
-
-func report(duration time.Duration, jobID string, datumID string) {
-	// Can provide multiple labels for splitting across different dimensions
-	fmt.Printf("Reporting job (%v) datum (%v) w duration (%v)\n", jobID, datumID, duration.Seconds())
-	hist_datum_runtimes.WithLabelValues(jobID, datumID).Observe(duration.Seconds())
-	gauge_datum_runtimes.WithLabelValues(jobID, datumID).Add(duration.Seconds())
-}
-
 // Run user code and return the combined output of stdout and stderr.
 func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string, stats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
 
-	datum_counts.WithLabelValues(a.pipelineInfo.ID, "started").Add(1)
+	datumCount.WithLabelValues(a.pipelineInfo.ID, "started").Add(1)
 	defer func(start time.Time) {
 		duration := time.Since(start)
 		stats.ProcessTime = types.DurationProto(duration)
-		report(duration, a.jobID, a.DatumID(a.data))
-		datum_counts.WithLabelValues(a.pipelineInfo.ID, "finished").Add(1)
-		datums.WithLabelValues(a.pipelineInfo.ID, "finished").Observe(duration.Seconds())
+		state := "errored"
+		if retErr == nil {
+			state = "finished"
+		}
+		datumCount.WithLabelValues(a.pipelineInfo.ID, state).Add(1)
+		datumProcTime.WithLabelValues(a.pipelineInfo.ID, state).Observe(duration.Seconds())
 	}(time.Now())
 	logger.Logf("beginning to run user code")
 	defer func(start time.Time) {
