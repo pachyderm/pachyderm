@@ -210,14 +210,14 @@ func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
 		logger.stderrLog.Printf("could not generate logging timestamp: %s\n", err)
 		return
 	}
-	bytes, err := logger.marshaler.MarshalToString(&logger.template)
+	msg, err := logger.marshaler.MarshalToString(&logger.template)
 	if err != nil {
 		logger.stderrLog.Printf("could not marshal %v for logging: %s\n", &logger.template, err)
 		return
 	}
-	fmt.Println(bytes)
+	fmt.Println(msg)
 	if logger.putObjClient != nil {
-		logger.msgCh <- bytes
+		logger.msgCh <- msg + "\n"
 	}
 }
 
@@ -228,7 +228,6 @@ func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
 	for {
 		message, err := r.ReadString('\n')
 		if err != nil {
-			message = strings.TrimSuffix(message, "\n") // remove delimiter
 			if err == io.EOF {
 				logger.buffer.Write([]byte(message))
 				return len(p), nil
@@ -241,7 +240,7 @@ func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
 		// logger.Logf(message)
 		// because if the message has format characters like %s in it those
 		// will result in errors being logged.
-		logger.Logf("%s", message)
+		logger.Logf("%s", strings.TrimSuffix(message, "\n"))
 	}
 }
 
