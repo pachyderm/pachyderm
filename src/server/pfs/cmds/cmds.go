@@ -478,7 +478,7 @@ $ pachctl subscribe-commit test master --new
 				from = branch
 			}
 
-			commitIter, err := c.SubscribeCommit(repo, branch, from)
+			commitIter, err := c.SubscribeCommit(repo, branch, from, pfsclient.CommitState_STARTED)
 			if err != nil {
 				return err
 			}

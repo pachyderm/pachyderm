@@ -119,6 +119,7 @@ type apiServer struct {
 	iamRole               string
 	imagePullSecret       string
 	reporter              *metrics.Reporter
+	monitorCancels        map[string]func()
 	// collections
 	pipelines col.Collection
 	jobs      col.Collection
@@ -364,6 +365,19 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	pachClient := a.getPachClient().WithCtx(ctx)
 
 	jobs := a.jobs.ReadOnly(ctx)
+	if request.OutputCommit != nil {
+		if request.Job != nil {
+			return nil, fmt.Errorf("can't set both Job and OutputCommit")
+		}
+		jis, err := a.listJob(pachClient, nil, request.OutputCommit, nil)
+		if err != nil {
+			return nil, err
+		}
+		if len(jis) != 1 {
+			return nil, fmt.Errorf("internal error, %d Jobs have output commit: %v (this is likely a bug)", len(jis), request.OutputCommit)
+		}
+		request.Job = jis[0].Job
+	}
 
 	if request.BlockState {
 		watcher, err := jobs.WatchOne(request.Job.ID)
@@ -1496,7 +1510,7 @@ func (a *apiServer) sudo(pachClient *client.APIClient, f func(*client.APIClient)
 		b.MaxElapsedTime = 60 * time.Second
 		b.MaxInterval = 5 * time.Second
 		if err := backoff.Retry(func() error {
-			superUserTokenCol := col.NewCollection(a.etcdClient, ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil).ReadOnly(pachClient.Ctx())
+			superUserTokenCol := col.NewCollection(a.etcdClient, ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil, nil).ReadOnly(pachClient.Ctx())
 			var result types.StringValue
 			if err := superUserTokenCol.Get("", &result); err != nil {
 				return fmt.Errorf("couldn't get PPS superuser token on startup")
@@ -1519,7 +1533,7 @@ func (a *apiServer) sudo(pachClient *client.APIClient, f func(*client.APIClient)
 // with 'pipelineInfo' in SpecRepo (in PFS). It's called in both the case where
 // a user is updating a pipeline and the case where a user is creating a new
 // pipeline.
-func (a *apiServer) makePipelineInfoCommit(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, update bool) (*pfs.Commit, error) {
+func (a *apiServer) makePipelineInfoCommit(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, update bool) (result *pfs.Commit, retErr error) {
 	pipelineName := pipelineInfo.Pipeline.Name
 	var commit *pfs.Commit
 	if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
@@ -1682,28 +1696,28 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		request.Salt = uuid.NewWithoutDashes()
 	}
 	pipelineInfo := &pps.PipelineInfo{
-		Pipeline:           request.Pipeline,
-		Version:            1,
-		Transform:          request.Transform,
-		ParallelismSpec:    request.ParallelismSpec,
-		Input:              request.Input,
-		OutputBranch:       request.OutputBranch,
-		Egress:             request.Egress,
-		CreatedAt:          now(),
-		ScaleDownThreshold: request.ScaleDownThreshold,
-		ResourceRequests:   request.ResourceRequests,
-		ResourceLimits:     request.ResourceLimits,
-		Description:        request.Description,
-		Incremental:        request.Incremental,
-		CacheSize:          request.CacheSize,
-		EnableStats:        request.EnableStats,
-		Salt:               request.Salt,
-		Batch:              request.Batch,
-		MaxQueueSize:       request.MaxQueueSize,
-		Service:            request.Service,
-		ChunkSpec:          request.ChunkSpec,
-		DatumTimeout:       request.DatumTimeout,
-		JobTimeout:         request.JobTimeout,
+		Pipeline:         request.Pipeline,
+		Version:          1,
+		Transform:        request.Transform,
+		ParallelismSpec:  request.ParallelismSpec,
+		Input:            request.Input,
+		OutputBranch:     request.OutputBranch,
+		Egress:           request.Egress,
+		CreatedAt:        now(),
+		ResourceRequests: request.ResourceRequests,
+		ResourceLimits:   request.ResourceLimits,
+		Description:      request.Description,
+		Incremental:      request.Incremental,
+		CacheSize:        request.CacheSize,
+		EnableStats:      request.EnableStats,
+		Salt:             request.Salt,
+		Batch:            request.Batch,
+		MaxQueueSize:     request.MaxQueueSize,
+		Service:          request.Service,
+		ChunkSpec:        request.ChunkSpec,
+		DatumTimeout:     request.DatumTimeout,
+		JobTimeout:       request.JobTimeout,
+		Standby:          request.Standby,
 	}
 	setPipelineDefaults(pipelineInfo)
 
@@ -1951,9 +1965,12 @@ func (a *apiServer) inspectPipeline(pachClient *client.APIClient, name string) (
 		}
 		service, err := a.kubeClient.CoreV1().Services(a.namespace).Get(fmt.Sprintf("%s-user", rcName), metav1.GetOptions{})
 		if err != nil {
-			return nil, err
+			if !isNotFoundErr(err) {
+				return nil, err
+			}
+		} else {
+			pipelineInfo.Service.IP = service.Spec.ClusterIP
 		}
-		pipelineInfo.Service.IP = service.Spec.ClusterIP
 	}
 	var hasGitInput bool
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
@@ -2095,7 +2112,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	// branch HEAD)
 	pipelineInfo, err := a.inspectPipeline(pachClient, request.Pipeline.Name)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error inspecting pipeline: %v", err)
 	}
 
 	// Check if the caller is authorized to delete this pipeline. This must be
@@ -2111,7 +2128,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 
 	// Delete pipeline's workers
 	if err := a.deleteWorkersForPipeline(pipelineInfo); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error deleting workers: %v", err)
 	}
 
 	// Revoke the pipeline's auth token and remove it from its inputs' ACLs
@@ -2612,6 +2629,8 @@ func pipelineStateToStopped(state pps.PipelineState) bool {
 		return true
 	case pps.PipelineState_PIPELINE_FAILURE:
 		return true
+	case pps.PipelineState_PIPELINE_STANDBY:
+		return false
 	default:
 		panic(fmt.Sprintf("unrecognized pipeline state: %s", state))
 	}
@@ -2625,8 +2644,7 @@ func (a *apiServer) updatePipelineState(pachClient *client.APIClient, pipelineNa
 			return err
 		}
 		pipelinePtr.State = state
-		pipelines.Put(pipelineName, pipelinePtr)
-		return nil
+		return pipelines.Put(pipelineName, pipelinePtr)
 	})
 	if isNotFoundErr(err) {
 		return newErrPipelineNotFound(pipelineName)
@@ -2650,8 +2668,7 @@ func (a *apiServer) updateJobState(stm col.STM, jobPtr *pps.EtcdJobInfo, state p
 	pipelines.Put(jobPtr.Pipeline.Name, pipelinePtr)
 	jobPtr.State = state
 	jobs := a.jobs.ReadWrite(stm)
-	jobs.Put(jobPtr.Job.ID, jobPtr)
-	return nil
+	return jobs.Put(jobPtr.Job.ID, jobPtr)
 }
 
 func (a *apiServer) getPachClient() *client.APIClient {
