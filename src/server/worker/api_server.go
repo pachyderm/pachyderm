@@ -403,7 +403,9 @@ func (a *APIServer) downloadGitData(pachClient *client.APIClient, dir string, in
 
 func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag, stats *pps.ProcessStats, statsTree hashtree.OpenHashTree, statsPath string) (_ string, retErr error) {
 	defer func(start time.Time) {
-		stats.DownloadTime = types.DurationProto(time.Since(start))
+		duration := time.Since(start)
+		stats.DownloadTime = types.DurationProto(duration)
+		datumDownloadTime.WithLabelValues(a.pipelineInfo.ID).Observe(duration.Seconds())
 	}(time.Now())
 	logger.Logf("starting to download data")
 	defer func(start time.Time) {
@@ -549,7 +551,10 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 
 func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag string, logger *taggedLogger, inputs []*Input, stats *pps.ProcessStats, statsTree hashtree.OpenHashTree, statsRoot string) (retErr error) {
 	defer func(start time.Time) {
-		stats.UploadTime = types.DurationProto(time.Since(start))
+		duration := time.Since(start)
+		stats.UploadTime = types.DurationProto(duration)
+		datumUploadTime.WithLabelValues(a.pipelineInfo.ID).Observe(duration.Seconds())
+		datumUploadSize.WithLabelValues(a.pipelineInfo.ID).Observe(float64(stats.UploadBytes))
 	}(time.Now())
 	logger.Logf("starting to upload output")
 	defer func(start time.Time) {
@@ -1329,6 +1334,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 					return err
 				}
 				atomic.AddUint64(&subStats.DownloadBytes, uint64(downSize))
+				datumDownloadSize.WithLabelValues(a.pipelineInfo.ID).Observe(float64(downSize))
 				return a.uploadOutput(pachClient, dir, tag, logger, data, subStats, statsTree, path.Join(statsPath, "pfs", "out"))
 			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
 				if isDone(ctx) {
