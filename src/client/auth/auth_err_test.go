@@ -14,26 +14,37 @@ func grpcify(err error) error {
 }
 
 func TestIsErrNotActivated(t *testing.T) {
+	require.False(t, IsErrNotActivated(nil))
 	require.True(t, IsErrNotActivated(ErrNotActivated))
 	require.True(t, IsErrNotActivated(grpcify(ErrNotActivated)))
 }
 
+func TestIsErrPartiallyActivated(t *testing.T) {
+	require.False(t, IsErrPartiallyActivated(nil))
+	require.True(t, IsErrPartiallyActivated(ErrPartiallyActivated))
+	require.True(t, IsErrPartiallyActivated(grpcify(ErrPartiallyActivated)))
+}
+
 func TestIsErrNotSignedIn(t *testing.T) {
+	require.False(t, IsErrNotSignedIn(nil))
 	require.True(t, IsErrNotSignedIn(ErrNotSignedIn))
 	require.True(t, IsErrNotSignedIn(grpcify(ErrNotSignedIn)))
 }
 
 func TestIsErrNoToken(t *testing.T) {
+	require.False(t, IsErrNoToken(nil))
 	require.True(t, IsErrNoToken(ErrNoToken))
 	require.True(t, IsErrNoToken(grpcify(ErrNoToken)))
 }
 
 func TestIsErrBadToken(t *testing.T) {
+	require.False(t, IsErrBadToken(nil))
 	require.True(t, IsErrBadToken(ErrBadToken))
 	require.True(t, IsErrBadToken(grpcify(ErrBadToken)))
 }
 
 func TestIsErrNotAuthorized(t *testing.T) {
+	require.False(t, IsErrNotAuthorized(nil))
 	require.True(t, IsErrNotAuthorized(&ErrNotAuthorized{
 		Subject:  "alice",
 		Repo:     "data",
@@ -55,6 +66,7 @@ func TestIsErrNotAuthorized(t *testing.T) {
 }
 
 func TestIsErrInvalidPrincipal(t *testing.T) {
+	require.False(t, IsErrInvalidPrincipal(nil))
 	require.True(t, IsErrInvalidPrincipal(&ErrInvalidPrincipal{
 		Principal: "alice",
 	}))
@@ -64,6 +76,7 @@ func TestIsErrInvalidPrincipal(t *testing.T) {
 }
 
 func TestIsErrTooShortTTL(t *testing.T) {
+	require.False(t, IsErrTooShortTTL(nil))
 	require.True(t, IsErrTooShortTTL(ErrTooShortTTL{
 		RequestTTL:  1234,
 		ExistingTTL: 2345,
