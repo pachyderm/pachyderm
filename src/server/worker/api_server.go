@@ -405,7 +405,7 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 	defer func(start time.Time) {
 		duration := time.Since(start)
 		stats.DownloadTime = types.DurationProto(duration)
-		datumDownloadTime.WithLabelValues(a.pipelineInfo.ID).Observe(duration.Seconds())
+		datumDownloadTime.WithLabelValues(a.pipelineInfo.ID, a.jobID).Observe(duration.Seconds())
 	}(time.Now())
 	logger.Logf("starting to download data")
 	defer func(start time.Time) {
@@ -469,7 +469,7 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 // Run user code and return the combined output of stdout and stderr.
 func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string, stats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
 
-	datumCount.WithLabelValues(a.pipelineInfo.ID, "started").Add(1)
+	datumCount.WithLabelValues(a.pipelineInfo.ID, a.jobID, "started").Add(1)
 	defer func(start time.Time) {
 		duration := time.Since(start)
 		stats.ProcessTime = types.DurationProto(duration)
@@ -477,8 +477,8 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 		if retErr == nil {
 			state = "finished"
 		}
-		datumCount.WithLabelValues(a.pipelineInfo.ID, state).Add(1)
-		datumProcTime.WithLabelValues(a.pipelineInfo.ID, state).Observe(duration.Seconds())
+		datumCount.WithLabelValues(a.pipelineInfo.ID, a.jobID, state).Add(1)
+		datumProcTime.WithLabelValues(a.pipelineInfo.ID, a.jobID, state).Observe(duration.Seconds())
 	}(time.Now())
 	logger.Logf("beginning to run user code")
 	defer func(start time.Time) {
@@ -553,8 +553,8 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 	defer func(start time.Time) {
 		duration := time.Since(start)
 		stats.UploadTime = types.DurationProto(duration)
-		datumUploadTime.WithLabelValues(a.pipelineInfo.ID).Observe(duration.Seconds())
-		datumUploadSize.WithLabelValues(a.pipelineInfo.ID).Observe(float64(stats.UploadBytes))
+		datumUploadTime.WithLabelValues(a.pipelineInfo.ID, a.jobID).Observe(duration.Seconds())
+		datumUploadSize.WithLabelValues(a.pipelineInfo.ID, a.jobID).Observe(float64(stats.UploadBytes))
 	}(time.Now())
 	logger.Logf("starting to upload output")
 	defer func(start time.Time) {
@@ -1334,7 +1334,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 					return err
 				}
 				atomic.AddUint64(&subStats.DownloadBytes, uint64(downSize))
-				datumDownloadSize.WithLabelValues(a.pipelineInfo.ID).Observe(float64(downSize))
+				datumDownloadSize.WithLabelValues(a.pipelineInfo.ID, a.jobID).Observe(float64(downSize))
 				return a.uploadOutput(pachClient, dir, tag, logger, data, subStats, statsTree, path.Join(statsPath, "pfs", "out"))
 			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
 				if isDone(ctx) {
