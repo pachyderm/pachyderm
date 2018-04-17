@@ -7413,6 +7413,64 @@ func TestDontReadStdin(t *testing.T) {
 	}
 }
 
+func TestStatsDeleteAll(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestPipelineWithStats_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
+	pipeline := tu.UniqueString("pipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"cp", fmt.Sprintf("/pfs/%s/file", dataRepo), "/pfs/out"},
+			},
+			Input:       client.NewAtomInput(dataRepo, "/"),
+			EnableStats: true,
+		})
+
+	jis, err := c.FlushJobAll([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jis))
+	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jis[0].State.String())
+	require.NoError(t, c.DeleteAll())
+
+	require.NoError(t, c.CreateRepo(dataRepo))
+	commit, err = c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"cp", fmt.Sprintf("/pfs/%s/file", dataRepo), "/pfs/out"},
+			},
+			Input:       client.NewAtomInput(dataRepo, "/*"),
+			EnableStats: true,
+		})
+
+	jis, err = c.FlushJobAll([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jis))
+	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jis[0].State.String())
+	require.NoError(t, c.DeleteAll())
+}
+
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
 	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
 	require.NoError(t, err)
