@@ -369,7 +369,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 }
 
-func TestPreActivationPipelinesRunAsAdmin(t *testing.T) {
+func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -391,7 +391,7 @@ func TestPreActivationPipelinesRunAsAdmin(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// alice creates a pipeline
-	repo := tu.UniqueString("TestPreActivationPipelinesRunAsAdmin")
+	repo := tu.UniqueString("TestPreActivationPipelinesKeepRunningAfterActivation")
 	pipeline := tu.UniqueString("alice-pipeline")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.NoError(t, aliceClient.CreatePipeline(
@@ -460,7 +460,7 @@ func TestPreActivationPipelinesRunAsAdmin(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, adminClient.FinishCommit(repo, commit.ID))
 
-	// make sure the pipeline runs (i.e. it's not running as alice)
+	// make sure the pipeline still runs (i.e. it's not running as alice)
 	iter, err = adminClient.FlushCommit(
 		[]*pfs.Commit{commit},
 		[]*pfs.Repo{{Name: pipeline}},
