@@ -304,7 +304,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		namespace:  namespace,
 		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
 		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
-		chunks:     col.NewCollection(etcdClient, path.Join(etcdPrefix, chunksPrefix), []col.Index{}, &Chunks{}, nil),
+		chunks:     col.NewCollection(etcdClient, path.Join(etcdPrefix, chunksPrefix), []col.Index{}, &Chunks{}, nil, nil),
 		datumCache: datumCache,
 	}
 	logger, err := server.getTaggedLogger(pachClient, "", nil, false)
@@ -864,6 +864,8 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 			var high int64
 			var found bool
 			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				// Reinitialize closed upon variables.
+				low, high = 0, 0
 				found = false
 				locks := a.locks(jobID).ReadWrite(stm)
 				// we set complete to true and then unset it if we find an incomplete chunk
@@ -1142,52 +1144,14 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 			}
 			// Hash inputs
 			tag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, data)
-			tag15, err := HashDatum15(a.pipelineInfo, data)
-			if err != nil {
-				return err
-			}
-			foundTag := false
-			foundTag15 := false
-			var object *pfs.Object
-			var eg errgroup.Group
-			eg.Go(func() error {
-				if _, err := pachClient.InspectTag(ctx, &pfs.Tag{tag}); err == nil {
-					foundTag = true
-				}
+			if _, err := pachClient.InspectTag(ctx, &pfs.Tag{tag}); err == nil {
+				skipped++
+				logger.Logf("skipping datum")
 				return nil
-			})
-			eg.Go(func() error {
-				if objectInfo, err := pachClient.InspectTag(ctx, &pfs.Tag{tag15}); err == nil {
-					foundTag15 = true
-					object = objectInfo.Object
-				}
-				return nil
-			})
-			if err := eg.Wait(); err != nil {
-				return err
 			}
 			var statsTag *pfs.Tag
 			if a.pipelineInfo.EnableStats {
 				statsTag = &pfs.Tag{tag + statsTagSuffix}
-			}
-			if foundTag15 && !foundTag {
-				if _, err := pachClient.ObjectAPIClient.TagObject(ctx,
-					&pfs.TagObjectRequest{
-						Object: object,
-						Tags:   []*pfs.Tag{&pfs.Tag{tag}},
-					}); err != nil {
-					return err
-				}
-				if _, err := pachClient.DeleteTags(ctx,
-					&pfs.DeleteTagsRequest{
-						Tags: []*pfs.Tag{{Name: tag15}},
-					}); err != nil {
-					return err
-				}
-			}
-			if foundTag15 || foundTag {
-				skipped++
-				return nil
 			}
 			subStats := &pps.ProcessStats{}
 			statsPath := path.Join("/", logger.template.DatumID)
