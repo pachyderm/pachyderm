@@ -2961,10 +2961,8 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, "master"))
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	_, err = c.FlushJobAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
 
 	// Get logs from pipeline, using pipeline
 	iter = c.GetLogs(pipelineName, "", nil, "", false, false, 0)
