@@ -179,12 +179,14 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (
 			nil,
 			&authclient.Groups{},
 			nil,
+			nil,
 		),
 		groups: col.NewCollection(
 			etcdClient,
 			path.Join(etcdPrefix, groupsPrefix),
 			nil,
 			&authclient.Users{},
+			nil,
 			nil,
 		),
 	}
@@ -1286,7 +1288,7 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeA
 func (a *apiServer) SetGroupsForUser(ctx context.Context, req *authclient.SetGroupsForUserRequest) (resp *authclient.SetGroupsForUserResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.isActivated() {
+	if a.activationState() != full {
 		return nil, authclient.ErrNotActivated
 	}
 
@@ -1362,7 +1364,7 @@ func (a *apiServer) SetGroupsForUser(ctx context.Context, req *authclient.SetGro
 func (a *apiServer) ModifyMembers(ctx context.Context, req *authclient.ModifyMembersRequest) (resp *authclient.ModifyMembersResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.isActivated() {
+	if a.activationState() != full {
 		return nil, authclient.ErrNotActivated
 	}
 
@@ -1450,7 +1452,7 @@ func removeFromSet(set map[string]bool, elems ...string) map[string]bool {
 func (a *apiServer) GetGroups(ctx context.Context, req *authclient.GetGroupsRequest) (resp *authclient.GetGroupsResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.isActivated() {
+	if a.activationState() != full {
 		return nil, authclient.ErrNotActivated
 	}
 
@@ -1512,7 +1514,7 @@ func (a *apiServer) GetGroups(ctx context.Context, req *authclient.GetGroupsRequ
 func (a *apiServer) GetUsers(ctx context.Context, req *authclient.GetUsersRequest) (resp *authclient.GetUsersResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.isActivated() {
+	if a.activationState() != full {
 		return nil, authclient.ErrNotActivated
 	}
 
