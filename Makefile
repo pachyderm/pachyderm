@@ -25,6 +25,9 @@ CLUSTER_SIZE?=4
 
 BENCH_CLOUD_PROVIDER=aws
 
+MINIKUBE_MEM=8192 # MB of memory allocated to minikube
+MINIKUBE_CPU=4 # Number of CPUs allocated to minikube
+
 ifdef TRAVIS_BUILD_NUMBER
 	# Upper bound for travis test timeout
 	TIMEOUT = 3600s
@@ -295,18 +298,19 @@ launch-dev-vm: check-kubectl
 	  exit 1; \
 	fi
 	@# Make sure minikube isn't still up from a previous run
-	@minikube ip >/dev/null && { \
+	@if minikube ip 2>/dev/null || sudo minikube ip 2>/dev/null; \
+	then \
 		echo "minikube is still up. Run 'make clean-launch-kube'"; \
 		exit 1; \
-	} || true
-	etc/kube/start-minikube-vm.sh
+	fi
+	etc/kube/start-minikube-vm.sh --cpus=$(MINIKUBE_CPU) --memory=$(MINIKUBE_MEM)
 
 clean-launch-kube:
 	@# clean up both of the following cases:
 	@# make launch-dev-vm - minikube config is owned by $USER
 	@# make launch-kube - minikube config is owned by root
-	minikube ip >/dev/null && minikube delete || true
-	sudo minikube ip >/dev/null && sudo minikube delete || true
+	minikube ip 2>/dev/null && minikube delete || true
+	sudo minikube ip 2>/dev/null && sudo minikube delete || true
 
 launch: install check-kubectl
 	$(eval STARTTIME := $(shell date +%s))
