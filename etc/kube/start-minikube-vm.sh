@@ -4,17 +4,6 @@ set -x
 
 cd ${GOPATH}/src/github.com/pachyderm/pachyderm
 
-# push_to_minikube pushes dockers images to the minikube vm
-function push_to_minikube {
-  if [[ $# -ne 1 ]]; then
-    echo "error: need the name of the docker image to push"
-  fi
-  docker save "${1}" | pv | (
-    eval $(minikube docker-env)
-    docker load
-  )
-}
-
 # get_images builds or download pachd and worker images
 function get_images {
   if [[ "${PACH_VERSION}" = local ]]; then
@@ -52,9 +41,9 @@ minikube start
 EOF
 
 # Push pachyderm images (and etcd) to minikube VM
-push_to_minikube pachyderm/pachd:${PACH_VERSION}
-push_to_minikube pachyderm/worker:${PACH_VERSION}
-push_to_minikube pachyderm/etcd:v3.2.7
+etc/kube/push-to-minikube.sh pachyderm/pachd:${PACH_VERSION}
+etc/kube/push-to-minikube.sh pachyderm/worker:${PACH_VERSION}
+etc/kube/push-to-minikube.sh pachyderm/etcd:v3.2.7
 
 # Deploy Pachyderm
 export ADDRESS=$(minikube ip):30650
