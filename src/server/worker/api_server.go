@@ -235,7 +235,7 @@ func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
 			}
 			// this shouldn't technically be possible to hit io.EOF should be
 			// the only error bufio.Reader can return when using a buffer.
-			return 0, err
+			return 0, fmt.Errorf("error ReadString: %v", err)
 		}
 		// We don't want to make this call as:
 		// logger.Logf(message)
@@ -489,7 +489,9 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 
 	// Run user code
 	cmd := exec.CommandContext(ctx, a.pipelineInfo.Transform.Cmd[0], a.pipelineInfo.Transform.Cmd[1:]...)
-	cmd.Stdin = strings.NewReader(strings.Join(a.pipelineInfo.Transform.Stdin, "\n") + "\n")
+	if a.pipelineInfo.Transform.Stdin != nil {
+		cmd.Stdin = strings.NewReader(strings.Join(a.pipelineInfo.Transform.Stdin, "\n") + "\n")
+	}
 	cmd.Stdout = logger.userLogger()
 	cmd.Stderr = logger.userLogger()
 	cmd.Env = environ
@@ -502,13 +504,13 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	cmd.Dir = a.workingDir
 	err := cmd.Start()
 	if err != nil {
-		return err
+		return fmt.Errorf("error cmd.Start: %v", err)
 	}
 	// A context w a deadline will successfully cancel/kill
 	// the running process (minus zombies)
 	state, err := cmd.Process.Wait()
 	if err != nil {
-		return err
+		return fmt.Errorf("error cmd.Wait: %v", err)
 	}
 	if isDone(ctx) {
 		if err = ctx.Err(); err != nil {
@@ -522,7 +524,11 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	// cmd.Process.Wait() then cmd.Wait() will produce an error. So instead we
 	// close the IO using this helper
 	err = cmd.WaitIO(state, err)
-	if err != nil {
+	// We ignore broken pipe errors, these occur very occasionally if a user
+	// specifies Stdin but their process doesn't actually read everything from
+	// Stdin. This is a fairly common thing to do, bash by default ignores
+	// broken pipe errors.
+	if err != nil && !strings.Contains(err.Error(), "broken pipe") {
 		// (if err is an acceptable return code, don't return err)
 		if exiterr, ok := err.(*exec.ExitError); ok {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
@@ -533,7 +539,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 				}
 			}
 		}
-		return err
+		return fmt.Errorf("error cmd.WaitIO: %v", err)
 	}
 	return nil
 }
@@ -782,7 +788,7 @@ func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStat
 		WorkerID:  a.workerName,
 		Started:   started,
 		Data:      a.datum(),
-		QueueSize: a.queueSize,
+		QueueSize: atomic.LoadInt64(&a.queueSize),
 	}
 	return result, nil
 }
@@ -1119,15 +1125,21 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 	var eg errgroup.Group
 	var skipped int64
 	var failed int64
+	limiter := limit.New(int(a.pipelineInfo.MaxQueueSize))
 	for i := low; i < high; i++ {
 		i := i
+
+		limiter.Acquire()
+		atomic.AddInt64(&a.queueSize, 1)
 		eg.Go(func() (retErr error) {
+			defer limiter.Release()
+			defer atomic.AddInt64(&a.queueSize, -1)
+
 			data := df.Datum(int(i))
 			logger, err := a.getTaggedLogger(pachClient, jobInfo.Job.ID, data, a.pipelineInfo.EnableStats)
 			if err != nil {
 				return err
 			}
-			atomic.AddInt64(&a.queueSize, 1)
 			// Hash inputs
 			tag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, data)
 			tag15, err := HashDatum15(a.pipelineInfo, data)
@@ -1241,7 +1253,6 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 			}
 
 			env := a.userCodeEnv(jobInfo.Job.ID, data)
-			atomic.AddInt64(&a.queueSize, -1)
 			var dir string
 			var retries int
 			if err := backoff.RetryNotify(func() error {
@@ -1269,7 +1280,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 					}
 				}()
 				if err != nil {
-					return err
+					return fmt.Errorf("error downloadData: %v", err)
 				}
 				a.runMu.Lock()
 				defer a.runMu.Unlock()
@@ -1301,7 +1312,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 					}
 				}()
 				if err := a.runUserCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
-					return err
+					return fmt.Errorf("error runUserCode: %v", err)
 				}
 				// CleanUp is idempotent so we can call it however many times we want.
 				// The reason we are calling it here is that the puller could've

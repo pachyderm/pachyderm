@@ -361,6 +361,63 @@ func ModifyAdminsCmd() *cobra.Command {
 	return modifyAdmins
 }
 
+// GetAuthTokenCmd returns a cobra command that lets a user get a pachyderm
+// token on behalf of themselves or another user
+func GetAuthTokenCmd() *cobra.Command {
+	var quiet bool
+	getAuthToken := &cobra.Command{
+		Use:   "get-auth-token username",
+		Short: "Get an auth token that authenticates the holder as \"username\"",
+		Long: "Get an auth token that authenticates the holder as \"username\"; " +
+			"this can only be called by cluster admins",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			subject := args[0]
+			c, err := client.NewOnUserMachine(true, "user")
+			if err != nil {
+				return fmt.Errorf("could not connect: %v", err)
+			}
+			resp, err := c.GetAuthToken(c.Ctx(), &auth.GetAuthTokenRequest{
+				Subject: subject,
+			})
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			if quiet {
+				fmt.Println(resp.Token)
+			} else {
+				fmt.Printf("New credentials:\n  Subject: %s\n  Token: %s\n", resp.Subject, resp.Token)
+			}
+			return nil
+		}),
+	}
+	getAuthToken.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "if "+
+		"set, only print the resulting token (if successful). This is useful for "+
+		"scripting, as the output can be piped to use-auth-token")
+	return getAuthToken
+}
+
+// UseAuthTokenCmd returns a cobra command that lets a user get a pachyderm
+// token on behalf of themselves or another user
+func UseAuthTokenCmd() *cobra.Command {
+	setScope := &cobra.Command{
+		Use: "use-auth-token",
+		Short: "Read a Pachyderm auth token from stdin, and write it to the " +
+			"current user's Pachyderm config file",
+		Long: "Read a Pachyderm auth token from stdin, and write it to the " +
+			"current user's Pachyderm config file",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			fmt.Println("Please paste your Pachyderm auth token:")
+			token, err := bufio.NewReader(os.Stdin).ReadString('\n')
+			if err != nil {
+				return fmt.Errorf("error reading token: %v", err)
+			}
+			writePachTokenToCfg(strings.TrimSpace(token)) // drop trailing newline
+			return nil
+		}),
+	}
+	return setScope
+}
+
 // Cmds returns a list of cobra commands for authenticating and authorizing
 // users in an auth-enabled Pachyderm cluster.
 func Cmds() []*cobra.Command {
@@ -379,5 +436,7 @@ func Cmds() []*cobra.Command {
 	auth.AddCommand(GetCmd())
 	auth.AddCommand(ListAdminsCmd())
 	auth.AddCommand(ModifyAdminsCmd())
+	auth.AddCommand(GetAuthTokenCmd())
+	auth.AddCommand(UseAuthTokenCmd())
 	return []*cobra.Command{auth}
 }

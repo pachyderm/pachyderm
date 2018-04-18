@@ -1,12 +1,18 @@
 #!/bin/bash
 
 set -euxo pipefail
+
+# Make sure Pachyderm is running
+which pachctl
+pachctl version
+
 export VAULT_ADDR='http://127.0.0.1:8200'
 export PLUGIN_NAME='pachyderm'
 
-# Make sure ent auth is enabled
+# Make sure vault binary is present
+which vault
 
-pachctl version
+# Make sure enterprise and auth are enabled
 which aws || pip install awscli --upgrade --user
 if [[ "$(pachctl enterprise get-state)" = "No Pachyderm Enterprise token was found" ]]; then
   # Don't print token to stdout
@@ -23,16 +29,19 @@ echo "going to login to vault"
 echo 'root' | vault login -
 echo "logged into vault"
 
+# Remove the old plugin binary
 set +o pipefail
 rm /tmp/vault-plugins/$PLUGIN_NAME || true
 set -o pipefail
 
-go build -o /tmp/vault-plugins/$PLUGIN_NAME src/plugin/vault/main.go 
+# Build the plugin binary
+SCRIPT_DIR=$(dirname "${0}")
+go build -o /tmp/vault-plugins/$PLUGIN_NAME ${SCRIPT_DIR}/..
 
-# Clean up from last run
+# Disable the existing plugin (i.e. kill the plugin process)
 vault secrets disable $PLUGIN_NAME
 
-# Enable the plugin
+# Re-enable the plugin (i.e. start the new plugin process)
 export SHASUM=$(shasum -a 256 "/tmp/vault-plugins/$PLUGIN_NAME" | cut -d " " -f1)
 echo $SHASUM
 vault write sys/plugins/catalog/$PLUGIN_NAME sha_256="$SHASUM" command="$PLUGIN_NAME"

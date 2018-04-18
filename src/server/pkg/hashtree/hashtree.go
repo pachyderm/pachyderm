@@ -104,7 +104,7 @@ func get(fs map[string]*NodeProto, path string) (*NodeProto, error) {
 
 	node, ok := fs[path]
 	if !ok {
-		return nil, errorf(PathNotFound, "no node at \"%s\"", path)
+		return nil, errorf(PathNotFound, "file \"%s\" not found", path)
 	}
 	return node, nil
 }
@@ -131,7 +131,7 @@ func list(fs map[string]*NodeProto, path string) ([]*NodeProto, error) {
 	for i, child := range d.Children {
 		result[i], ok = fs[join(path, child)]
 		if !ok {
-			return nil, errorf(Internal, "could not find node for the child \"%s\" "+
+			return nil, errorf(Internal, "could not find file for the child \"%s\" "+
 				"while listing \"%s\"", join(path, child), path)
 		}
 	}
@@ -190,7 +190,7 @@ func walk(fs map[string]*NodeProto, path string, f func(string, *NodeProto) erro
 	if node, ok := fs[path]; ok && node.FileNode != nil {
 		return f(path, node)
 	} else if !ok {
-		return errorf(PathNotFound, "no node at \"%s\"", path)
+		return errorf(PathNotFound, "file \"%s\" not found", path)
 	}
 	for rangePath, node := range fs {
 		if rangePath == "" {
@@ -359,7 +359,7 @@ func (h *hashtree) canonicalize(path string) error {
 	}
 	n, ok := h.fs[path]
 	if !ok {
-		return errorf(Internal, "no node at \"%s\"; cannot canonicalize", path)
+		return errorf(Internal, "file \"%s\" not found; cannot canonicalize", path)
 	}
 
 	// Compute hash of 'n'
@@ -376,7 +376,7 @@ func (h *hashtree) canonicalize(path string) error {
 			}
 			childnode, ok := h.fs[childpath]
 			if !ok {
-				return errorf(Internal, "could not find node for \"%s\" while "+
+				return errorf(Internal, "could not find file for \"%s\" while "+
 					"updating hash of \"%s\"", join(path, child), path)
 			}
 			// append child.Name and child.Hash to b
@@ -389,7 +389,7 @@ func (h *hashtree) canonicalize(path string) error {
 		}
 	default:
 		return errorf(Internal,
-			"malformed node at \"%s\" is neither a file nor a directory", path)
+			"malformed file at \"%s\" is neither a file nor a directory", path)
 	}
 
 	// Update hash of 'n'
@@ -463,7 +463,7 @@ func (h *hashtree) removeFromMap(path string) error {
 		delete(h.fs, path)
 	case unrecognized:
 		return errorf(Internal,
-			"malformed node at \"%s\": it's neither a file nor a directory", path)
+			"malformed file at \"%s\": it's neither a regular-file nor a directory", path)
 	}
 	return nil
 }
@@ -510,7 +510,7 @@ func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *p
 		}
 		h.fs[path] = node
 	} else if node.nodetype() != file {
-		return errorf(PathConflict, "could not put file at \"%s\"; a node of "+
+		return errorf(PathConflict, "could not put file at \"%s\"; a file of "+
 			"type %s is already there", path, node.nodetype().tostring())
 	}
 
@@ -596,7 +596,7 @@ func (h *hashtree) DeleteFile(path string) error {
 		return errorf(Internal, "delete discovered orphaned file \"%s\"", path)
 	}
 	if node.DirNode == nil {
-		return errorf(Internal, "node at \"%s\" is a file, but \"%s\" exists "+
+		return errorf(Internal, "file at \"%s\" is a regular-file, but \"%s\" already exists "+
 			"under it (likely an uncaught PathConflict in prior PutFile or Merge)", path, node.DirNode)
 	}
 	if !removeStr(&node.DirNode.Children, child) {
@@ -620,7 +620,7 @@ func (h *hashtree) GetOpen(path string) (*OpenNode, error) {
 	path = clean(path)
 	np, ok := h.fs[path]
 	if !ok {
-		return nil, errorf(PathNotFound, "no node at \"%s\"", path)
+		return nil, errorf(PathNotFound, "file \"%s\" not found", path)
 	}
 	return &OpenNode{
 		Name:     np.Name,
@@ -645,8 +645,8 @@ func (h *hashtree) mergeNode(path string, srcs []HashTree) (int64, error) {
 		}
 		h.fs[path] = destNode
 	} else if destNode.nodetype() == unrecognized {
-		return 0, errorf(Internal, "malformed node at \"%s\" in destination "+
-			"hashtree is neither a file nor a directory", path)
+		return 0, errorf(Internal, "malformed file at \"%s\" in destination "+
+			"hashtree is neither a regular-file nor a directory", path)
 	}
 	sizeDelta := int64(0) // We return this to propagate file additions upwards
 
@@ -685,13 +685,13 @@ func (h *hashtree) mergeNode(path string, srcs []HashTree) (int64, error) {
 			} else if n.nodetype() == file {
 				destNode.FileNode = &FileNodeProto{}
 			} else {
-				return 0, errorf(Internal, "could not merge unrecognized node type at "+
+				return 0, errorf(Internal, "could not merge unrecognized file type at "+
 					"\"%s\", which is neither a file nore a directory", path)
 			}
 			pathtype = n.nodetype()
 		} else if pathtype != n.nodetype() {
 			return sizeDelta, errorf(PathConflict, "could not merge path \"%s\" "+
-				"which is a file in some hashtrees and a directory in others", path)
+				"which is a regular-file in some hashtrees and a directory in others", path)
 		}
 		switch n.nodetype() {
 		case directory:
@@ -706,8 +706,8 @@ func (h *hashtree) mergeNode(path string, srcs []HashTree) (int64, error) {
 				n.FileNode.Objects...)
 			sizeDelta += n.SubtreeSize
 		default:
-			return sizeDelta, errorf(Internal, "malformed node at \"%s\" in source "+
-				"hashtree is neither a file nor a directory", path)
+			return sizeDelta, errorf(Internal, "malformed file at \"%s\" in source "+
+				"hashtree is neither a regular-file nor a directory", path)
 		}
 	}
 

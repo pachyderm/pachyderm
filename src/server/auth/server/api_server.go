@@ -385,13 +385,13 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 
 	// Get calling user. The user must be a cluster admin to disable auth for the
 	// cluster
-	tokenInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if !a.isAdmin(tokenInfo.Subject) {
+	if !a.isAdmin(callerInfo.Subject) {
 		return nil, &authclient.ErrNotAuthorized{
-			Subject: tokenInfo.Subject,
+			Subject: callerInfo.Subject,
 			AdminOp: "DeactivateAuth",
 		}
 	}
@@ -534,13 +534,13 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 	}
 
 	// Get calling user. The user must be an admin to change the list of admins
-	tokenInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if !a.isAdmin(tokenInfo.Subject) {
+	if !a.isAdmin(callerInfo.Subject) {
 		return nil, &authclient.ErrNotAuthorized{
-			Subject: tokenInfo.Subject,
+			Subject: callerInfo.Subject,
 			AdminOp: "ModifyAdmins",
 		}
 	}
@@ -654,13 +654,13 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 		return nil, authclient.ErrNotActivated
 	}
 
-	tokenInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	// admins are always authorized
-	if a.isAdmin(tokenInfo.Subject) {
+	if a.isAdmin(callerInfo.Subject) {
 		return &authclient.AuthorizeResponse{Authorized: true}, nil
 	}
 
@@ -678,10 +678,8 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 	if err != nil {
 		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
-	if state != enterpriseclient.State_ACTIVE && tokenInfo.Source != authclient.TokenInfo_GET_TOKEN {
-		// currently, GetAuthToken is only called by CreatePipeline. This only checks
-		// the token source so that we return this error to humans but not pipelines
-		// TODO: Make pipelines their own Subjects, and check that instead
+	if state != enterpriseclient.State_ACTIVE &&
+		!strings.HasPrefix(callerInfo.Subject, authclient.PipelinePrefix) {
 		return nil, errors.New("Pachyderm Enterprise is not active in this " +
 			"cluster (until Pachyderm Enterprise is re-activated or Pachyderm " +
 			"auth is deactivated, only cluster admins can perform any operations)")
@@ -694,7 +692,7 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 	}
 
 	return &authclient.AuthorizeResponse{
-		Authorized: req.Scope <= acl.Entries[tokenInfo.Subject],
+		Authorized: req.Scope <= acl.Entries[callerInfo.Subject],
 	}, nil
 }
 
@@ -705,13 +703,13 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *authclient.WhoAmIRequest) (
 		return nil, authclient.ErrNotActivated
 	}
 
-	tokenInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return &authclient.WhoAmIResponse{
-		Username: tokenInfo.Subject,
-		IsAdmin:  a.isAdmin(tokenInfo.Subject),
+		Username: callerInfo.Subject,
+		IsAdmin:  a.isAdmin(callerInfo.Subject),
 	}, nil
 }
 
@@ -747,7 +745,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 	if err := validateSetScopeRequest(ctx, req); err != nil {
 		return nil, err
 	}
-	tokenInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -774,7 +772,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 
 		// Check if the caller is authorized
 		authorized, err := func() (bool, error) {
-			if a.isAdmin(tokenInfo.Subject) {
+			if a.isAdmin(callerInfo.Subject) {
 				// admins are automatically authorized
 				return true, nil
 			}
@@ -790,7 +788,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 			}
 
 			// Check if the user is on the ACL directly
-			if acl.Entries[tokenInfo.Subject] == authclient.Scope_OWNER {
+			if acl.Entries[callerInfo.Subject] == authclient.Scope_OWNER {
 				return true, nil
 			}
 			return false, nil
@@ -800,7 +798,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 		}
 		if !authorized {
 			return &authclient.ErrNotAuthorized{
-				Subject:  tokenInfo.Subject,
+				Subject:  callerInfo.Subject,
 				Repo:     req.Repo,
 				Required: authclient.Scope_OWNER,
 			}
@@ -835,7 +833,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 		return nil, authclient.ErrNotActivated
 	}
 
-	tokenInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -845,7 +843,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 	if err != nil {
 		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
-	if state != enterpriseclient.State_ACTIVE && !a.isAdmin(tokenInfo.Subject) {
+	if state != enterpriseclient.State_ACTIVE && !a.isAdmin(callerInfo.Subject) {
 		return nil, fmt.Errorf("Pachyderm Enterprise is not active in this " +
 			"cluster (only a cluster admin can perform any operations)")
 	}
@@ -866,13 +864,13 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 
 		// ACL read is authorized
 		if req.Username == "" {
-			resp.Scopes = append(resp.Scopes, acl.Entries[tokenInfo.Subject])
+			resp.Scopes = append(resp.Scopes, acl.Entries[callerInfo.Subject])
 		} else {
 			// Caller is getting another user's scopes. Check if the caller is
 			// authorized to view this repo's ACL
-			if !a.isAdmin(tokenInfo.Subject) && acl.Entries[tokenInfo.Subject] < authclient.Scope_READER {
+			if !a.isAdmin(callerInfo.Subject) && acl.Entries[callerInfo.Subject] < authclient.Scope_READER {
 				return nil, &authclient.ErrNotAuthorized{
-					Subject:  tokenInfo.Subject,
+					Subject:  callerInfo.Subject,
 					Repo:     repo,
 					Required: authclient.Scope_READER,
 				}
@@ -900,7 +898,7 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	}
 
 	// Get calling user
-	tokenInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -910,7 +908,7 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	if err != nil {
 		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
-	if state != enterpriseclient.State_ACTIVE && !a.isAdmin(tokenInfo.Subject) {
+	if state != enterpriseclient.State_ACTIVE && !a.isAdmin(callerInfo.Subject) {
 		return nil, fmt.Errorf("Pachyderm Enterprise is not active in this " +
 			"cluster (only a cluster admin can perform any operations)")
 	}
@@ -947,7 +945,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 	}
 
 	// Get calling user
-	tokenInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -984,7 +982,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 
 		// determine if the caller is authorized to set this repo's ACL
 		authorized, err := func() (bool, error) {
-			if a.isAdmin(tokenInfo.Subject) {
+			if a.isAdmin(callerInfo.Subject) {
 				// admins are automatically authorized
 				return true, nil
 			}
@@ -1007,7 +1005,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 			}
 			if len(acl.Entries) > 0 {
 				// ACL is present; caller must be authorized directly
-				if acl.Entries[tokenInfo.Subject] == authclient.Scope_OWNER {
+				if acl.Entries[callerInfo.Subject] == authclient.Scope_OWNER {
 					return true, nil
 				}
 				return false, nil
@@ -1023,7 +1021,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 				// Unclear if repo exists -- return error
 				return false, fmt.Errorf("could not inspect \"%s\": %v", req.Repo, err)
 			} else if len(newACL.Entries) == 1 &&
-				newACL.Entries[tokenInfo.Subject] == authclient.Scope_OWNER {
+				newACL.Entries[callerInfo.Subject] == authclient.Scope_OWNER {
 				// Special case: Repo doesn't exist, but user is creating a new Repo, and
 				// making themself the owner, e.g. for CreateRepo or CreatePipeline, then
 				// the request is authorized
@@ -1036,7 +1034,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 		}
 		if !authorized {
 			return &authclient.ErrNotAuthorized{
-				Subject:  tokenInfo.Subject,
+				Subject:  callerInfo.Subject,
 				Repo:     req.Repo,
 				Required: authclient.Scope_OWNER,
 			}
@@ -1098,7 +1096,8 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 		return nil, fmt.Errorf("error storing token: %v", err)
 	}
 	return &authclient.GetAuthTokenResponse{
-		Token: token,
+		Subject: subject,
+		Token:   token,
 	}, nil
 }
 
@@ -1113,13 +1112,13 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendA
 	}
 
 	// Only admins can extend auth tokens (for now)
-	tokenInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if !a.isAdmin(tokenInfo.Subject) {
+	if !a.isAdmin(callerInfo.Subject) {
 		return nil, &authclient.ErrNotAuthorized{
-			Subject: tokenInfo.Subject,
+			Subject: callerInfo.Subject,
 			AdminOp: "ExtendAuthToken",
 		}
 	}
@@ -1186,7 +1185,7 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeA
 		}
 		if !a.isAdmin(callerInfo.Subject) && tokenInfo.Subject != callerInfo.Subject {
 			return &authclient.ErrNotAuthorized{
-				Subject: tokenInfo.Subject,
+				Subject: callerInfo.Subject,
 				AdminOp: "RevokeAuthToken on another user's token",
 			}
 		}

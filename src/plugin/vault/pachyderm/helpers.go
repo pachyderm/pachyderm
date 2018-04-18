@@ -12,7 +12,7 @@ import (
 // errMissingField returns a logical response error that prints a consistent
 // error message for when a required field is missing.
 func errMissingField(field string) *logical.Response {
-	return logical.ErrorResponse(fmt.Sprintf("Missing required field '%s'", field))
+	return logical.ErrorResponse(fmt.Sprintf("missing required field '%s'", field))
 }
 
 // validateFields verifies that no bad arguments were given to the request.
@@ -31,8 +31,20 @@ func validateFields(req *logical.Request, data *framework.FieldData) error {
 	return nil
 }
 
-// Config parses and returns the configuration data from the storage backend.
-func (b *backend) Config(ctx context.Context, s logical.Storage) (*config, error) {
+// putConfig parses and returns the configuration data from the storage backend.
+func putConfig(ctx context.Context, s logical.Storage, cfg *config) error {
+	entry, err := logical.StorageEntryJSON("config", cfg)
+	if err != nil {
+		return fmt.Errorf("%v: failed to generate storage entry", err)
+	}
+	if err := s.Put(ctx, entry); err != nil {
+		return fmt.Errorf("%v: failed to write configuration to storage", err)
+	}
+	return nil
+}
+
+// getConfig parses and returns the configuration data from the storage backend.
+func getConfig(ctx context.Context, s logical.Storage) (*config, error) {
 	entry, err := s.Get(ctx, "config")
 	if err != nil {
 		return nil, fmt.Errorf("%v: failed to get config from storage", err)
@@ -47,4 +59,24 @@ func (b *backend) Config(ctx context.Context, s logical.Storage) (*config, error
 	}
 
 	return &result, nil
+}
+
+// getStringField extracts 'key' from 'req', and either returns the value as a
+// string or an error response (vault path handlers seem to return
+// ErrorResponse rather than actual errors for malformed requests)
+func getStringField(data *framework.FieldData, key string) (string, *logical.Response) {
+	valueIface, ok, err := data.GetOkErr(key)
+	if err != nil {
+		return "", logical.ErrorResponse(fmt.Sprintf("%v: could not extract '%s' from request", err, key))
+	}
+	// the convention (in e.g. https://github.com/hashicorp/vault/blob/8142b42d951119a73ce46daa3331921b5e21cdee/builtin/logical/aws/path_config_lease.go
+	// seems to be to return logical.ErrorResponse for invalid requests, and error for internal errors)
+	if !ok {
+		return "", errMissingField(key)
+	}
+	value, ok := valueIface.(string)
+	if !ok {
+		return "", logical.ErrorResponse(fmt.Sprintf("invalid type for param '%s' (expected string but got %T)", key, valueIface))
+	}
+	return value, nil
 }
