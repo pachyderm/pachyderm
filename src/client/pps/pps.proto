@@ -304,6 +304,8 @@ enum PipelineState {
   PIPELINE_FAILURE = 3;
   // The pipeline has been explicitly paused by the user.
   PIPELINE_PAUSED = 4;
+  // The pipeline is fully functional, but there are no commits to process.
+  PIPELINE_STANDBY = 5;
 }
 
 // EtcdPipelineInfo is proto that Pachd stores in etcd for each pipeline. It
@@ -358,6 +360,7 @@ message PipelineInfo {
   google.protobuf.Duration job_timeout = 34;
   string githook_url = 35 [(gogoproto.customname) = "GithookURL"];
   pfs.Commit spec_commit = 36;
+  bool standby = 37;
 }
 
 message PipelineInfos {
@@ -371,7 +374,9 @@ message CreateJobRequest {
 }
 
 message InspectJobRequest {
+  // Callers should set either Job or OutputCommit, not both.
   Job job = 1;
+  pfs.Commit output_commit = 3;
   bool block_state = 2; // block until state is either JOB_STATE_FAILURE or JOB_STATE_SUCCESS
 }
 
@@ -517,6 +522,7 @@ message CreatePipelineRequest {
   google.protobuf.Duration datum_timeout = 24;
   google.protobuf.Duration job_timeout = 25;
   string salt = 26;
+  bool standby = 27;
 }
 
 message InspectPipelineRequest {

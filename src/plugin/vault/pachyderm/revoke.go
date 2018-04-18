@@ -3,6 +3,7 @@ package pachyderm
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
@@ -11,7 +12,6 @@ import (
 )
 
 func (b *backend) revokePath() *framework.Path {
-
 	return &framework.Path{
 		Pattern: "revoke",
 		Fields: map[string]*framework.FieldSchema{
@@ -25,13 +25,18 @@ func (b *backend) revokePath() *framework.Path {
 	}
 }
 
-func (b *backend) pathRevoke(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
-	userToken := d.Get("user_token").(string)
-	if len(userToken) == 0 {
-		return nil, logical.ErrInvalidRequest
+func (b *backend) pathRevoke(ctx context.Context, req *logical.Request, data *framework.FieldData) (resp *logical.Response, retErr error) {
+	b.Logger().Debug(fmt.Sprintf("(%s) %s received at %s", req.ID, req.Operation, req.Path))
+	defer func() {
+		b.Logger().Debug(fmt.Sprintf("(%s) %s finished at %s with result (success=%t)", req.ID, req.Operation, req.Path, retErr == nil && !resp.IsError()))
+	}()
+
+	userToken, errResp := getStringField(data, "user_token")
+	if errResp != nil {
+		return errResp, nil
 	}
 
-	config, err := b.Config(ctx, req.Storage)
+	config, err := getConfig(ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +47,7 @@ func (b *backend) pathRevoke(ctx context.Context, req *logical.Request, d *frame
 		return nil, errors.New("plugin is missing pachd address")
 	}
 
-	err = b.revokeUserCredentials(ctx, config.PachdAddress, userToken, config.AdminToken)
+	err = revokeUserCredentials(ctx, config.PachdAddress, userToken, config.AdminToken)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +57,7 @@ func (b *backend) pathRevoke(ctx context.Context, req *logical.Request, d *frame
 
 // revokeUserCredentials revokes the Pachyderm authentication token 'userToken'
 // using the vault plugin's Admin credentials.
-func (b *backend) revokeUserCredentials(ctx context.Context, pachdAddress string, userToken string, adminToken string) error {
+func revokeUserCredentials(ctx context.Context, pachdAddress string, userToken string, adminToken string) error {
 	// Setup a single use client w the given admin token / address
 	client, err := pclient.NewFromAddress(pachdAddress)
 	if err != nil {

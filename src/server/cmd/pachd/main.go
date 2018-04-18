@@ -234,6 +234,9 @@ func doFullMode(appEnvObj interface{}) error {
 		Endpoints:   []string{etcdAddress},
 		DialOptions: append(client.EtcdDialOptions(), grpc.WithTimeout(5*time.Minute)),
 	})
+	if err != nil {
+		return err
+	}
 
 	clusterID, err := getClusterID(etcdClientV3)
 	if err != nil {

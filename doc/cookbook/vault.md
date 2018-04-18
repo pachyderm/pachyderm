@@ -25,6 +25,13 @@ vault write sys/plugins/catalog/pachyderm sha_256="$SHASUM" command="pachyderm"
 vault secrets enable -path=pachyderm -plugin-name=pachyderm plugin
 ```
 
+**Note**: You may need to enable memory locking on the pachyderm plugin (see
+[https://www.vaultproject.io/docs/configuration/#disable_mlock]). That will look
+like:
+```
+sudo setcap cap_ipc_lock=+ep $(readlink -f /tmp/vault-plugins/pachyderm)
+```
+
 3) Configure the plugin
 
 You'll need to provide the plugin with a few fields for it to work:
@@ -89,7 +96,7 @@ Depending on your language / deployment this can vary. [see the vault documentat
 Again, your client could be in any language. But as an example using the vault CLI:
 
 ```
-$ vault write pachyderm/login username=bogusgithubusername
+$ vault write pachyderm/login username=aspiring_pachyderm_user
 Key                         Value
 ---                         -----
 token                       365686aa-d4e5-6b64-d557-aeb196ebd596
@@ -124,7 +131,7 @@ $ADDRESS=127.0.0.1:30650 pachctl list-repo
 You should issue a `renew` request once the halfway mark of the TTL has elapsed. The only argument for renewal is the tokens UUID which you receive from the `login` endpoint.
 
 ```
-$vault token renew 681f1d67-6865-aee0-994d-f119f7f118a0
+$vault token renew 365686aa-d4e5-6b64-d557-aeb196ebd596
 Key                         Value
 ---                         -----
 token                       681f1d67-6865-aee0-994d-f119f7f118a0

@@ -112,8 +112,11 @@ type AssetOpts struct {
 	// empty, assets.go will choose a default size.
 	EtcdMemRequest string
 
-	// IAMRole is the IAM role that the Pachyderm deployment should
-	// assume when talking to AWS services.
+	// IAM role that the Pachyderm deployment should assume when talking to AWS
+	// services (if using kube2iam + metadata service + IAM role to delegate
+	// permissions to pachd via its instance).
+	// This is in AssetOpts rather than AmazonCreds because it must be passed
+	// as an annotation on the pachd pod rather than as a k8s secret
 	IAMRole string
 
 	// ImagePullSecret specifies an image pull secret that gets attached to the
@@ -1033,12 +1036,13 @@ func LocalSecret() map[string][]byte {
 }
 
 // AmazonSecret creates an amazon secret with the following parameters:
-//   bucket - S3 bucket name
-//   id     - AWS access key id
-//   secret - AWS secret access key
-//   token  - AWS access token
-//   region - AWS region
-func AmazonSecret(bucket string, distribution string, id string, secret string, token string, region string) map[string][]byte {
+//   bucket       - S3 bucket name
+//   distribution - cloudfront distribution
+//   id           - AWS access key id
+//   secret       - AWS secret access key
+//   token        - AWS access token
+//   region       - AWS region
+func AmazonSecret(region, bucket, id, secret, token, distribution string) map[string][]byte {
 	return map[string][]byte{
 		"amazon-bucket":       []byte(bucket),
 		"amazon-distribution": []byte(distribution),
@@ -1046,6 +1050,23 @@ func AmazonSecret(bucket string, distribution string, id string, secret string, 
 		"amazon-secret":       []byte(secret),
 		"amazon-token":        []byte(token),
 		"amazon-region":       []byte(region),
+	}
+}
+
+// AmazonVaultSecret creates an amazon secret with the following parameters:
+//   bucket       - S3 bucket name
+//   region       - AWS region
+//   distribution - cloudfront distribution
+//   vault-role   - pachd's role in vault
+//   vault-token  - pachd's vault token
+func AmazonVaultSecret(region, bucket, vaultAddress, vaultRole, vaultToken, distribution string) map[string][]byte {
+	return map[string][]byte{
+		"amazon-bucket":       []byte(bucket),
+		"amazon-region":       []byte(region),
+		"amazon-distribution": []byte(distribution),
+		"amazon-vault-addr":   []byte(vaultAddress),
+		"amazon-vault-role":   []byte(vaultRole),
+		"amazon-vault-token":  []byte(vaultToken),
 	}
 }
 
@@ -1203,13 +1224,33 @@ func WriteCustomAssets(w io.Writer, opts *AssetOpts, args []string, objectStoreB
 	}
 }
 
+// AmazonCreds are options that are applicable specifically to Pachd's
+// credentials in an AWS deployment
+type AmazonCreds struct {
+	// Direct credentials. Only applicable if Pachyderm is given its own permanent
+	// AWS credentials
+	ID     string // Access Key ID
+	Secret string // Secret Access Key
+	Token  string // Access token (if using temporary security credentials
+
+	// Vault options (if getting AWS credentials from Vault)
+	VaultAddress string // normally addresses come from env, but don't have vault service name
+	VaultRole    string
+	VaultToken   string
+}
+
 // WriteAmazonAssets writes assets to an amazon backend.
-func WriteAmazonAssets(w io.Writer, opts *AssetOpts, bucket string, id string, secret string,
-	token string, region string, volumeSize int, distribution string) error {
+func WriteAmazonAssets(w io.Writer, opts *AssetOpts, region string, bucket string, volumeSize int, creds *AmazonCreds, cloudfrontDistro string) error {
 	if err := WriteAssets(w, opts, amazonBackend, amazonBackend, volumeSize, ""); err != nil {
 		return err
 	}
-	WriteSecret(w, AmazonSecret(bucket, distribution, id, secret, token, region), opts)
+	var secret map[string][]byte
+	if creds.ID != "" && creds.Secret != "" {
+		secret = AmazonSecret(region, bucket, creds.ID, creds.Secret, creds.Token, cloudfrontDistro)
+	} else if creds.VaultRole != "" && creds.VaultToken != "" {
+		secret = AmazonVaultSecret(region, bucket, creds.VaultAddress, creds.VaultRole, creds.VaultToken, cloudfrontDistro)
+	}
+	WriteSecret(w, secret, opts)
 	return nil
 }
 
