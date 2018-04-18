@@ -441,10 +441,10 @@ doc:
 
 
 clean-launch-stats:
-	kubectl delete --filename https://raw.githubusercontent.com/giantswarm/kubernetes-prometheus/master/manifests-all.yaml
+	kubectl delete --filename https://raw.githubusercontent.com/giantswarm/kubernetes-prometheus/f7d1e34c9e8065554921f80fc6166b1d23b524f7/manifests-all.yaml
 
 launch-stats:
-	kubectl apply --filename https://raw.githubusercontent.com/giantswarm/kubernetes-prometheus/master/manifests-all.yaml
+	kubectl apply --filename https://raw.githubusercontent.com/giantswarm/kubernetes-prometheus/f7d1e34c9e8065554921f80fc6166b1d23b524f7/manifests-all.yaml
 
 clean-launch-monitoring:
 	kubectl delete --ignore-not-found -f ./etc/plugin/monitoring
