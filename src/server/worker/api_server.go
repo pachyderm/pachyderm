@@ -338,13 +338,11 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 			server.pipelineInfo.Transform.Cmd = image.Config.Entrypoint
 		}
 	}
-	fmt.Printf("user: %s\n", pipelineInfo.Transform.User)
 	if pipelineInfo.Transform.User != "" {
 		user, err := lookupUser(pipelineInfo.Transform.User)
 		if err != nil && !os.IsNotExist(err) {
 			return nil, err
 		}
-		fmt.Printf("user: %v, err: %v\n", user, err)
 		// if User == "" then uid, and gid don't get set which
 		// means they default to a value of 0 which means we run the code as
 		// root which is the only sane default.
