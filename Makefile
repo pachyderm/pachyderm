@@ -286,7 +286,7 @@ bench: clean-launch-bench build-bench-images push-bench-images launch-bench run-
 launch-kube: check-kubectl
 	etc/kube/start-minikube.sh -r
 
-launch-kube-vm: check-kubectl
+launch-dev-vm: check-kubectl
 	@# Make sure the caller sets address to avoid confusion later
 	@if [ -z "${ADDRESS}" ]; then \
 	  echo "Must set ADDRESS"; \
@@ -303,7 +303,7 @@ launch-kube-vm: check-kubectl
 
 clean-launch-kube:
 	@# clean up both of the following cases:
-	@# make launch-kube-vm - minikube config is owned by $USER
+	@# make launch-dev-vm - minikube config is owned by $USER
 	@# make launch-kube - minikube config is owned by root
 	minikube ip >/dev/null && minikube delete || true
 	sudo minikube ip >/dev/null && sudo minikube delete || true
