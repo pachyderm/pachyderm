@@ -43,19 +43,30 @@ func writePachTokenToCfg(token string) error {
 		cfg.V1 = &config.ConfigV1{}
 	}
 	cfg.V1.SessionToken = token
-	return cfg.Write()
+	if err := cfg.Write(); err != nil {
+		return fmt.Errorf("error writing pachyderm config: %v", err)
+	}
+	return nil
 }
 
 // ActivateCmd returns a cobra.Command to activate Pachyderm's auth system
 func ActivateCmd() *cobra.Command {
+	var initialAdmin string
 	activate := &cobra.Command{
 		Use:   "activate",
 		Short: "Activate Pachyderm's auth system",
-		Long:  "Activate Pachyderm's auth system, and restrict access to existing data to cluster admins",
+		Long: `
+Activate Pachyderm's auth system, and restrict access to existing data to the
+user running the command (or the argument to --initial-admin), who will be the
+first cluster admin`[1:],
 		Run: cmdutil.Run(func(args []string) error {
-			token, err := githubLogin()
-			if err != nil {
-				return err
+			var token string
+			var err error
+			if !strings.HasPrefix(initialAdmin, auth.RobotPrefix) {
+				token, err = githubLogin()
+				if err != nil {
+					return err
+				}
 			}
 			fmt.Println("Retrieving Pachyderm token...")
 
@@ -64,16 +75,34 @@ func ActivateCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
-			resp, err := c.Activate(
-				c.Ctx(),
-				&auth.ActivateRequest{GitHubToken: token})
+			resp, err := c.Activate(c.Ctx(),
+				&auth.ActivateRequest{
+					GitHubToken: token,
+					Subject:     initialAdmin,
+				})
 			if err != nil {
 				return fmt.Errorf("error activating Pachyderm auth: %v",
 					grpcutil.ScrubGRPC(err))
 			}
-			return writePachTokenToCfg(resp.PachToken)
+			if err := writePachTokenToCfg(resp.PachToken); err != nil {
+				return err
+			}
+			if strings.HasPrefix(initialAdmin, auth.RobotPrefix) {
+				fmt.Println("WARNING: DO NOT LOSE THE ROBOT TOKEN BELOW WITHOUT " +
+					"ADDING OTHER ADMINS.\nIF YOU DO, YOU WILL BE PERMANENTLY LOCKED OUT " +
+					"OF YOUR CLUSTER!")
+				fmt.Printf("Pachyderm token for \"%s\":\n%s\n", initialAdmin, resp.PachToken)
+			}
+			return nil
 		}),
 	}
+	activate.PersistentFlags().StringVar(&initialAdmin, "initial-admin", "", `
+The subject (robot user or github user) who
+will be the first cluster admin; the user running 'activate' will identify as
+this user once auth is active.  If you set 'initial-admin' to a robot
+user, pachctl will print that robot user's Pachyderm token; this token is
+effectively a root token, and if it's lost you will be locked out of your
+cluster`[1:])
 	return activate
 }
 
@@ -130,6 +159,11 @@ func LoginCmd() *cobra.Command {
 				c.Ctx(),
 				&auth.AuthenticateRequest{GitHubToken: token})
 			if err != nil {
+				if auth.IsErrPartiallyActivated(err) {
+					return fmt.Errorf("%v: if pachyderm is stuck in this state, you "+
+						"can revert by running 'pachctl auth deactivate' or retry by "+
+						"running 'pachctl auth activate' again", err)
+				}
 				return fmt.Errorf("error authenticating with Pachyderm cluster: %v",
 					grpcutil.ScrubGRPC(err))
 			}
@@ -351,6 +385,11 @@ func ModifyAdminsCmd() *cobra.Command {
 				Add:    add,
 				Remove: remove,
 			})
+			if auth.IsErrPartiallyActivated(err) {
+				return fmt.Errorf("%v: if pachyderm is stuck in this state, you "+
+					"can revert by running 'pachctl auth deactivate' or retry by "+
+					"running 'pachctl auth activate' again", err)
+			}
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
