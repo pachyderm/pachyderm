@@ -372,7 +372,7 @@ func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 		data := df.Datum(0)
 		logger, err := a.getTaggedLogger(pachClient, job.ID, data, false)
 		puller := filesync.NewPuller()
-		dir, err := a.downloadData(pachClient, logger, data, puller, nil, &pps.ProcessStats{}, nil, "")
+		dir, err := a.downloadData(pachClient, logger, data, puller, nil, &pps.ProcessStats{}, nil, "", a.isEnterpriseEnabled(logger))
 		if err != nil {
 			return err
 		}
@@ -957,7 +957,9 @@ func (a *APIServer) egress(pachClient *client.APIClient, logger *taggedLogger, j
 
 func (a *APIServer) runService(ctx context.Context, logger *taggedLogger) error {
 	return backoff.RetryNotify(func() error {
-		return a.runUserCode(ctx, logger, nil, &pps.ProcessStats{}, nil)
+		// Reporting stats for a service is a bit odd, but things like
+		// counts of job starts could be useful to measure service restarts
+		return a.runUserCode(ctx, logger, nil, &pps.ProcessStats{}, nil, a.isEnterpriseEnabled(logger))
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		select {
 		case <-ctx.Done():
