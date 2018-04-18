@@ -106,6 +106,7 @@ func NewEnterpriseServer(pachdAddress, etcdAddress string, etcdPrefix string) (e
 			nil,
 			&ec.EnterpriseRecord{},
 			nil,
+			nil,
 		),
 	}
 	s.enterpriseExpiration.Store(time.Time{})

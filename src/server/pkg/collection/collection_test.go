@@ -33,7 +33,7 @@ func TestIndex(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	jobInfos := NewCollection(etcdClient, uuidPrefix, []Index{pipelineIndex}, &pps.JobInfo{}, nil)
+	jobInfos := NewCollection(etcdClient, uuidPrefix, []Index{pipelineIndex}, &pps.JobInfo{}, nil, nil)
 
 	j1 := &pps.JobInfo{
 		Job:      &pps.Job{"j1"},
@@ -92,7 +92,7 @@ func TestIndexWatch(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	jobInfos := NewCollection(etcdClient, uuidPrefix, []Index{pipelineIndex}, &pps.JobInfo{}, nil)
+	jobInfos := NewCollection(etcdClient, uuidPrefix, []Index{pipelineIndex}, &pps.JobInfo{}, nil, nil)
 
 	j1 := &pps.JobInfo{
 		Job:      &pps.Job{"j1"},
@@ -187,7 +187,7 @@ func TestMultiIndex(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	cis := NewCollection(etcdClient, uuidPrefix, []Index{commitMultiIndex}, &pfs.CommitInfo{}, nil)
+	cis := NewCollection(etcdClient, uuidPrefix, []Index{commitMultiIndex}, &pfs.CommitInfo{}, nil, nil)
 
 	c1 := &pfs.CommitInfo{
 		Commit: client.NewCommit("repo", "c1"),
@@ -301,7 +301,7 @@ func TestBoolIndex(t *testing.T) {
 	boolValues := NewCollection(etcdClient, uuidPrefix, []Index{{
 		Field: "Value",
 		Multi: false,
-	}}, &types.BoolValue{}, nil)
+	}}, &types.BoolValue{}, nil, nil)
 
 	r1 := &types.BoolValue{
 		Value: true,
@@ -336,7 +336,7 @@ func TestTTL(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	clxn := NewCollection(etcdClient, uuidPrefix, nil, &types.BoolValue{}, nil)
+	clxn := NewCollection(etcdClient, uuidPrefix, nil, &types.BoolValue{}, nil, nil)
 	const TTL = 5
 	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
 		return clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL)
@@ -357,7 +357,7 @@ func TestTTLExpire(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	clxn := NewCollection(etcdClient, uuidPrefix, nil, &types.BoolValue{}, nil)
+	clxn := NewCollection(etcdClient, uuidPrefix, nil, &types.BoolValue{}, nil, nil)
 	const TTL = 5
 	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
 		return clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL)
@@ -376,7 +376,7 @@ func TestTTLExtend(t *testing.T) {
 	uuidPrefix := uuid.NewWithoutDashes()
 
 	// Put value with short TLL & check that it was set
-	clxn := NewCollection(etcdClient, uuidPrefix, nil, &types.BoolValue{}, nil)
+	clxn := NewCollection(etcdClient, uuidPrefix, nil, &types.BoolValue{}, nil, nil)
 	const TTL = 5
 	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
 		return clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL)
