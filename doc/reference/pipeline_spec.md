@@ -50,7 +50,7 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   "egress": {
     "URL": "s3://bucket/dir"
   },
-  "scale_down_threshold": string,
+  "standby": bool,
   "incremental": bool,
   "cache_size": string,
   "enable_stats": bool,
@@ -465,13 +465,13 @@ store such as s3, Google Cloud Storage or Azure Storage. Data will be pushed
 after the user code has finished running but before the job is marked as
 successful.
 
-### Scale-down threshold (optional)
+### Standby (optional)
 
-`scale_down_threshold` specifies when the worker pods of a pipeline should be terminated.
+`standby` indicates that the pipeline should be put into "standby" when there's
+no data for it to process.  A pipeline in standby will have no pods running and
+thus will consume no resources, it's state will be displayed as "standby".
 
-by default, a pipeline’s worker pods are always running.  when `scale_down_threshold` is set, all but one worker pods are terminated after the pipeline has not seen a new job for the given duration (we still need one worker pod to subscribe to new input commits).  when a new input commit comes in, the worker pods are then re-created.
-
-`scale_down_threshold` is a string that needs to be sequence of decimal numbers with a unit suffix, such as “300ms”, “1.5h” or “2h45m”. valid time units are “s”, “m”, “h”.
+Standby replaces `scale_down_threshold` from releases prior to 1.7.1.
 
 ### Incremental (optional)
 
