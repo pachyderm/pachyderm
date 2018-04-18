@@ -44,13 +44,13 @@ func maybeKcCreate(dryRun bool, manifest *bytes.Buffer, opts *assets.AssetOpts, 
 	if err := cmdutil.RunIO(io, "kubectl", "apply", "-f", "-", "--validate=false"); err != nil {
 		return err
 	}
-	if !dryRun {
-		fmt.Println("\nPachyderm is launching. Check its status with \"kubectl get all\"")
-		if opts.DashOnly || !opts.NoDash {
-			fmt.Println("Once launched, access the dashboard by running \"pachctl port-forward\"")
-		}
-		fmt.Println("")
+
+	fmt.Println("\nPachyderm is launching. Check its status with \"kubectl get all\"")
+	if opts.DashOnly || !opts.NoDash {
+		fmt.Println("Once launched, access the dashboard by running \"pachctl port-forward\"")
 	}
+	fmt.Println("")
+
 	return nil
 }
 
@@ -193,6 +193,9 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 
 	var cloudfrontDistribution string
 	var creds string
+	var vaultAddress string
+	var vaultRole string
+	var vaultToken string
 	var iamRole string
 	deployAmazon := &cobra.Command{
 		Use:   "amazon <S3 bucket> <region> <size of volumes (in GB)>",
@@ -212,8 +215,8 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 					finishMetricsWait()
 				}()
 			}
-			if creds == "" && iamRole == "" {
-				return fmt.Errorf("Either the --credentials or the --iam-role flag needs to be provided")
+			if creds == "" && iamRole == "" && vaultAddress == "" {
+				return fmt.Errorf("One of --credentials, --iam-role, or --vault-address needs to be provided")
 			}
 			var id, secret, token string
 			if creds != "" {
@@ -233,7 +236,15 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 					"an alpha feature. No security restrictions have been applied to cloudfront, making all data public (obscured but not secured)\n")
 			}
 			manifest := &bytes.Buffer{}
-			if err = assets.WriteAmazonAssets(manifest, opts, args[0], id, secret, token, args[1], volumeSize, cloudfrontDistribution); err != nil {
+
+			if err = assets.WriteAmazonAssets(manifest, opts, args[1], args[0], volumeSize, &assets.AmazonCreds{
+				ID:           id,
+				Secret:       secret,
+				Token:        token,
+				VaultAddress: vaultAddress,
+				VaultRole:    vaultRole,
+				VaultToken:   vaultToken,
+			}, cloudfrontDistribution); err != nil {
 				return err
 			}
 			return maybeKcCreate(dryRun, manifest, opts, metrics)
@@ -245,6 +256,9 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			"applied to cloudfront, making all data public (obscured but not secured)")
 	deployAmazon.Flags().StringVar(&creds, "credentials", "", "Use the format '--credentials=<id>,<secret>,<token>'\n<id>, <secret>, and <token> are session token details, used for authorization. You can get these by running 'aws sts get-session-token'")
 	deployAmazon.Flags().StringVar(&iamRole, "iam-role", "", "Use the given IAM role for authorization, as opposed to using static credentials.  The nodes on which Pachyderm is deployed needs to have the given IAM role.")
+	deployAmazon.Flags().StringVar(&vaultAddress, "vault-address", "", "The address/hostport at which a Hashicorp Vault server can be reached, where pachd can read AWS credentials")
+	deployAmazon.Flags().StringVar(&vaultRole, "vault-role", "", "The role that has been configured in the vault s3 secret engine for pachd (determines the vault path at which pachd reads AWS creds)")
+	deployAmazon.Flags().StringVar(&vaultToken, "vault-token", "", "The token that pachd should use when requesting AWS credentials from vault")
 
 	deployMicrosoft := &cobra.Command{
 		Use:   "microsoft <container> <storage account name> <storage account key> <size of volumes (in GB)>",
@@ -404,7 +418,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 				EtcdNodes:               etcdNodes,
 				EtcdVolume:              etcdVolume,
 				DashOnly:                dashOnly,
-				NoDash:					 noDash,
+				NoDash:                  noDash,
 				DashImage:               dashImage,
 				Registry:                registry,
 				NoGuaranteed:            noGuaranteed,
@@ -425,8 +439,8 @@ particular backend, run "pachctl deploy storage <backend>"`,
 	deploy.PersistentFlags().StringVar(&imagePullSecret, "image-pull-secret", "", "A secret in Kubernetes that's needed to pull from your private registry.")
 	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", "", "Image URL for pachyderm dashboard")
 	deploy.PersistentFlags().BoolVar(&noGuaranteed, "no-guaranteed", false, "Don't use guaranteed QoS for etcd and pachd deployments. Turning this on (turning guaranteed QoS off) can lead to more stable local clusters (such as a on Minikube), it should normally be used for production clusters.")
-	deploy.PersistentFlags().BoolVar(&noRBAC, "no-rbac", false, "Don't deploy RBAC roles for Pachyderm.")
-	deploy.PersistentFlags().StringVar(&namespace, "namespace", "", "Kubernetes namespace to deploy Pachyderm to.")
+	deploy.PersistentFlags().BoolVar(&noRBAC, "no-rbac", false, "Don't deploy RBAC roles for Pachyderm. (for k8s versions prior to 1.8)")
+	deploy.PersistentFlags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace to deploy Pachyderm to.")
 
 	deploy.AddCommand(
 		deployLocal,

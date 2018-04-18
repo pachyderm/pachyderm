@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -10,21 +12,33 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
-	vault_plugin "github.com/pachyderm/pachyderm/src/plugin/vault/pachyderm"
 )
 
 const (
 	vaultAddress = "http://127.0.0.1:8200"
-	pachdAddress = "127.0.0.1:30650"
 	pluginName   = "pachyderm"
 )
 
-func configurePlugin(v *vault.Client, ttl string) error {
+var pachClient *client.APIClient
+var getPachClientOnce sync.Once
 
-	c, err := client.NewFromAddress(pachdAddress)
-	if err != nil {
-		return err
-	}
+func getPachClient(t testing.TB) *client.APIClient {
+	getPachClientOnce.Do(func() {
+		var err error
+		if addr := os.Getenv("PACHD_PORT_650_TCP_ADDR"); addr != "" {
+			pachClient, err = client.NewInCluster()
+		} else {
+			pachClient, err = client.NewOnUserMachine(false, "user")
+		}
+		if err != nil {
+			t.Fatalf(err.Error())
+		}
+	})
+	return pachClient
+}
+
+func configurePlugin(t *testing.T, v *vault.Client, ttl string) error {
+	c := getPachClient(t)
 	resp, err := c.Authenticate(
 		context.Background(),
 		&auth.AuthenticateRequest{GitHubToken: "admin"})
@@ -33,11 +47,10 @@ func configurePlugin(v *vault.Client, ttl string) error {
 		return err
 	}
 
-	return configurePluginHelper(v, resp.PachToken, pachdAddress, ttl)
+	return configurePluginHelper(c, v, resp.PachToken, c.GetAddress(), ttl)
 }
 
-func configurePluginHelper(v *vault.Client, testPachToken string, testPachdAddress string, ttl string) error {
-
+func configurePluginHelper(pachClient *client.APIClient, v *vault.Client, testPachToken string, testPachdAddress string, ttl string) error {
 	vl := v.Logical()
 	config := make(map[string]interface{})
 	config["admin_token"] = testPachToken
@@ -45,15 +58,16 @@ func configurePluginHelper(v *vault.Client, testPachToken string, testPachdAddre
 	if ttl != "" {
 		config["ttl"] = ttl
 	}
-	_, err := vl.Write(
+	resp, err := vl.Write(
 		fmt.Sprintf("/%v/config", pluginName),
 		config,
 	)
-
 	if err != nil {
 		return err
 	}
-
+	if respErr, ok := resp.Data["error"]; ok {
+		return fmt.Errorf("error in response: %v (%T)", respErr, respErr)
+	}
 	return nil
 }
 
@@ -62,50 +76,58 @@ func TestBadConfig(t *testing.T) {
 	vaultClientConfig.Address = vaultAddress
 	v, err := vault.NewClient(vaultClientConfig)
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Fatalf(err.Error())
 	}
 	v.SetToken("root")
-	c, err := client.NewFromAddress(pachdAddress)
-	if err != nil {
-		t.Errorf(err.Error())
-	}
+	c := getPachClient(t)
 	resp, err := c.Authenticate(
 		context.Background(),
 		&auth.AuthenticateRequest{GitHubToken: "admin"})
 
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Fatalf(err.Error())
 	}
 
-	err = configurePluginHelper(v, "", pachdAddress, "")
+	// make sure we get an error for missing admin_token
+	err = configurePluginHelper(c, v, "", "", "")
 	if err == nil {
-		t.Errorf("expected missing token in config to error")
-	}
-	err = configurePluginHelper(v, resp.PachToken, "", "")
-	if err == nil {
-		t.Errorf("expected missing address in config to error")
-	}
-	err = configurePluginHelper(v, resp.PachToken, pachdAddress, "234....^^^")
-	if err == nil {
-		t.Errorf("expected bad ttl in config to error")
+		t.Fatalf("expected error: missing token in config (but got none)")
 	}
 
+	// make sure we get an error for missing pachd_address (not set in configurePluginHelper)
+	err = configurePluginHelper(c, v, resp.PachToken, "", "")
+	if err == nil {
+		t.Fatalf("expected missing address in config to error")
+	}
+
+	// make sure that missing TTL is OK
+	err = configurePluginHelper(c, v, resp.PachToken, c.GetAddress(), "")
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	// make sure that malformed TTL is not OK
+	err = configurePluginHelper(c, v, resp.PachToken, c.GetAddress(), "234....^^^")
+	if err == nil {
+		t.Fatalf("expected bad ttl in config to error")
+	}
 }
 
 func TestMinimalConfig(t *testing.T) {
+	c := getPachClient(t)
 	vaultClientConfig := vault.DefaultConfig()
 	vaultClientConfig.Address = vaultAddress
 	v, err := vault.NewClient(vaultClientConfig)
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Fatalf(err.Error())
 	}
 	v.SetToken("root")
 
 	// Test using just defaults
 	// We'll see an error if the admin token / pachd address are not set
-	err = configurePlugin(v, "")
+	err = configurePlugin(t, v, "")
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Fatalf(err.Error())
 	}
 
 	vl := v.Logical()
@@ -114,17 +136,29 @@ func TestMinimalConfig(t *testing.T) {
 	)
 
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Fatalf(err.Error())
 	}
 
-	if secret.Data["pachd_address"] != pachdAddress {
-		t.Errorf("pachd_address configured incorrectly")
+	if secret.Data["pachd_address"] != c.GetAddress() {
+		t.Fatalf("pachd_address configured incorrectly")
 	}
 	if secret.Data["ttl"] == "0s" {
-		t.Errorf("ttl configured incorrectly")
+		t.Fatalf("ttl configured incorrectly")
 	}
-	if secret.Data["ttl"] != vault_plugin.DefaultTTL {
-		t.Errorf("ttl configured incorrectly, should be default (%v) but is actually (%v)", vault_plugin.DefaultTTL, secret.Data["ttl"])
+	ttlIface, ok := secret.Data["ttl"]
+	if !ok {
+		t.Fatalf("ttl wasn't set in config, but it should always have a default value")
+	}
+	ttlStr, ok := ttlIface.(string)
+	if !ok {
+		t.Fatalf("ttl has the wrong type (should be string but was %T)", ttlIface)
+	}
+	ttl, err := time.ParseDuration(ttlStr)
+	if err != nil {
+		t.Fatalf("could not parse duration (%s) from config: %v", ttlStr, err)
+	}
+	if ttl < (30 * time.Second) {
+		t.Fatalf("ttl configured incorrectly; should take default vaule but is actually (%v)", secret.Data["ttl"])
 	}
 
 }
@@ -134,13 +168,13 @@ func loginHelper(t *testing.T, ttl string) (*client.APIClient, *vault.Client, *v
 	vaultClientConfig.Address = vaultAddress
 	v, err := vault.NewClient(vaultClientConfig)
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Fatalf(err.Error())
 	}
 	v.SetToken("root")
 
-	err = configurePlugin(v, ttl)
+	err = configurePlugin(t, v, ttl)
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Fatalf(err.Error())
 	}
 
 	params := make(map[string]interface{})
@@ -152,21 +186,21 @@ func loginHelper(t *testing.T, ttl string) (*client.APIClient, *vault.Client, *v
 	)
 
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Fatalf(err.Error())
 	}
 
 	pachToken, ok := secret.Auth.Metadata["user_token"]
 	if !ok {
-		t.Errorf("vault login response did not contain user token")
+		t.Fatalf("vault login response did not contain user token")
 	}
 	reportedPachdAddress, ok := secret.Auth.Metadata["pachd_address"]
 	if !ok {
-		t.Errorf("vault login response did not contain pachd address")
+		t.Fatalf("vault login response did not contain pachd address")
 	}
 
 	c, err := client.NewFromAddress(reportedPachdAddress)
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Fatalf(err.Error())
 	}
 	c.SetAuthToken(pachToken)
 
@@ -176,13 +210,10 @@ func loginHelper(t *testing.T, ttl string) (*client.APIClient, *vault.Client, *v
 func TestLogin(t *testing.T) {
 	// Negative control: before we have a valid pach token, we should not
 	// be able to list admins
-	c, err := client.NewFromAddress(pachdAddress)
-	if err != nil {
-		t.Errorf(err.Error())
-	}
-	_, err = c.AuthAPIClient.GetAdmins(context.Background(), &auth.GetAdminsRequest{})
+	c := getPachClient(t)
+	_, err := c.AuthAPIClient.GetAdmins(context.Background(), &auth.GetAdminsRequest{})
 	if err == nil {
-		t.Errorf("client could list admins before using auth token. this is likely a bug")
+		t.Fatalf("client could list admins before using auth token. this is likely a bug")
 	}
 
 	c, _, _ = loginHelper(t, "")
@@ -190,7 +221,7 @@ func TestLogin(t *testing.T) {
 	// Now do the actual test: try and list admins w a client w a valid pach token
 	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Fatalf(err.Error())
 	}
 }
 
@@ -199,13 +230,13 @@ func TestLoginExpires(t *testing.T) {
 
 	_, err := c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Fatalf(err.Error())
 	}
 
 	time.Sleep(time.Duration(secret.Auth.LeaseDuration+1) * time.Second)
 	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err == nil {
-		t.Errorf("API call should fail, but token did not expire")
+		t.Fatalf("API call should fail, but token did not expire")
 	}
 }
 
@@ -215,7 +246,7 @@ func TestRenewBeforeTTLExpires(t *testing.T) {
 
 	_, err := c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Fatalf(err.Error())
 	}
 
 	renewer, err := vaultClient.NewRenewer(&vault.RenewerInput{
@@ -223,7 +254,7 @@ func TestRenewBeforeTTLExpires(t *testing.T) {
 		Increment: ttl,
 	})
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Fatalf(err.Error())
 	}
 
 	time.Sleep(time.Duration(ttl/2) * time.Second)
@@ -241,7 +272,7 @@ func TestRenewBeforeTTLExpires(t *testing.T) {
 
 	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Fatalf(err.Error())
 	}
 }
 
@@ -251,7 +282,7 @@ func TestRenewAfterTTLExpires(t *testing.T) {
 
 	_, err := c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Fatalf(err.Error())
 	}
 
 	renewer, err := vaultClient.NewRenewer(&vault.RenewerInput{
@@ -259,7 +290,7 @@ func TestRenewAfterTTLExpires(t *testing.T) {
 		Increment: ttl,
 	})
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Fatalf(err.Error())
 	}
 
 	time.Sleep(time.Duration(ttl+1) * time.Second)
@@ -277,7 +308,7 @@ func TestRenewAfterTTLExpires(t *testing.T) {
 
 	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err == nil {
-		t.Errorf("Expected error using pach token after expiry, but got no error\n")
+		t.Fatalf("Expected error using pach token after expiry, but got no error\n")
 	}
 }
 
@@ -287,7 +318,7 @@ func TestRevoke(t *testing.T) {
 
 	_, err := c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Fatalf(err.Error())
 	}
 
 	params := make(map[string]interface{})
@@ -299,11 +330,11 @@ func TestRevoke(t *testing.T) {
 	)
 
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Fatalf(err.Error())
 	}
 
 	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err == nil {
-		t.Errorf("expected error with revoked pach token, got none\n")
+		t.Fatalf("expected error with revoked pach token, got none\n")
 	}
 }

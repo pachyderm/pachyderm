@@ -5306,13 +5306,13 @@ func TestPipelineEnvVarAlias(t *testing.T) {
 }
 
 func TestMaxQueueSize(t *testing.T) {
-	t.Skip("flaky")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
 
-	dataRepo := tu.UniqueString("TestMaxQueueSize_data")
+	dataRepo := tu.UniqueString("TestMaxQueueSize_input")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	commit1, err := c.StartCommit(dataRepo, "master")
@@ -5323,7 +5323,7 @@ func TestMaxQueueSize(t *testing.T) {
 	}
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
-	pipeline := tu.UniqueString("pipeline")
+	pipeline := tu.UniqueString("TestMaxQueueSize_output")
 	// This pipeline sleeps for 10 secs per datum
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
@@ -5332,7 +5332,7 @@ func TestMaxQueueSize(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
-					"sleep 10",
+					"sleep 5",
 				},
 			},
 			Input: client.NewAtomInput(dataRepo, "/*"),
@@ -5340,31 +5340,40 @@ func TestMaxQueueSize(t *testing.T) {
 				Constant: 2,
 			},
 			MaxQueueSize: 1,
+			ChunkSpec: &pps.ChunkSpec{
+				Number: 10,
+			},
 		})
 	require.NoError(t, err)
-	// Get job info 2x/sec for 20s until we confirm two workers for the current job
-	require.NoError(t, backoff.Retry(func() error {
-		jobs, err := c.ListJob(pipeline, nil, nil)
-		if err != nil {
-			return fmt.Errorf("could not list job: %s", err.Error())
-		}
-		if len(jobs) == 0 {
-			return fmt.Errorf("failed to find job")
-		}
-		jobInfo, err := c.InspectJob(jobs[0].Job.ID, false)
-		if err != nil {
-			return fmt.Errorf("could not inspect job: %s", err.Error())
-		}
-		if len(jobInfo.WorkerStatus) != 2 {
-			return fmt.Errorf("incorrect number of statuses: %v", len(jobInfo.WorkerStatus))
-		}
+
+	var jobInfo *pps.JobInfo
+	for i := 0; i < 10; i++ {
+		require.NoError(t, backoff.Retry(func() error {
+			jobs, err := c.ListJob(pipeline, nil, nil)
+			if err != nil {
+				return fmt.Errorf("could not list job: %s", err.Error())
+			}
+			if len(jobs) == 0 {
+				return fmt.Errorf("failed to find job")
+			}
+			jobInfo, err = c.InspectJob(jobs[0].Job.ID, false)
+			if err != nil {
+				return fmt.Errorf("could not inspect job: %s", err.Error())
+			}
+			if len(jobInfo.WorkerStatus) != 2 {
+				return fmt.Errorf("incorrect number of statuses: %v", len(jobInfo.WorkerStatus))
+			}
+			return nil
+		}, backoff.RetryEvery(500*time.Millisecond).For(60*time.Second)))
+
 		for _, status := range jobInfo.WorkerStatus {
 			if status.QueueSize > 1 {
-				return fmt.Errorf("queue size too big")
+				t.Fatalf("queue size too big: %d", status.QueueSize)
 			}
 		}
-		return nil
-	}, backoff.RetryEvery(500*time.Millisecond).For(20*time.Second)))
+
+		time.Sleep(500 * time.Millisecond)
+	}
 }
 
 func TestHTTPAuth(t *testing.T) {
@@ -7368,6 +7377,40 @@ func TestDeleteSpecRepo(t *testing.T) {
 		false,
 	))
 	require.YesError(t, c.DeleteRepo("spec", false))
+}
+
+func TestDontReadStdin(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	dataRepo := tu.UniqueString("TestDontReadStdin_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	pipeline := tu.UniqueString("TestDontReadStdin")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"true"},
+		[]string{"stdin that will never be read"},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/"),
+		"",
+		false,
+	))
+	numCommits := 20
+	for i := 0; i < numCommits; i++ {
+		commit, err := c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(dataRepo, "master"))
+		jobInfos, err := c.FlushJobAll([]*pfs.Commit{commit}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(jobInfos))
+		require.Equal(t, jobInfos[0].State.String(), pps.JobState_JOB_SUCCESS.String())
+	}
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
