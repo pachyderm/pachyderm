@@ -28,7 +28,7 @@ var (
 	)
 
 	bucketFactor  = 2.0
-	bucketCount   = 20 // In seconds, makes the max bucket 2^20 seconds or ~12 days in size
+	bucketCount   = 20 // Which makes the max bucket 2^20 seconds or ~12 days in size
 	datumProcTime = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "pachyderm",
