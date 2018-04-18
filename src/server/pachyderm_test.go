@@ -24,6 +24,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -1367,7 +1369,7 @@ func TestPipelineState(t *testing.T) {
 			return err
 		}
 		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
-			return fmt.Errorf("no running pipeline")
+			return fmt.Errorf("pipeline should be in state running, not: %s", pipelineInfo.State.String())
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -1381,7 +1383,7 @@ func TestPipelineState(t *testing.T) {
 			return err
 		}
 		if pipelineInfo.State != pps.PipelineState_PIPELINE_PAUSED {
-			return fmt.Errorf("pipeline never paused, even though StopPipeline() was called")
+			return fmt.Errorf("pipeline never paused, even though StopPipeline() was called, state: %s", pipelineInfo.State.String())
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -1395,7 +1397,7 @@ func TestPipelineState(t *testing.T) {
 			return err
 		}
 		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
-			return fmt.Errorf("pipeline never started, even though StartPipeline() was called")
+			return fmt.Errorf("pipeline never restarted, even though StartPipeline() was called, state: %s", pipelineInfo.State.String())
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -2164,82 +2166,129 @@ func TestStopPipeline(t *testing.T) {
 	require.Equal(t, "foo\n", buffer.String())
 }
 
-func TestPipelineAutoScaledown(t *testing.T) {
+func TestStandby(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
-	// create repos
-	dataRepo := tu.UniqueString("TestPipelineAutoScaleDown")
-	require.NoError(t, c.CreateRepo(dataRepo))
-	// create pipeline
-	pipelineName := tu.UniqueString("pipeline-auto-scaledown")
-	parallelism := 4
-	scaleDownThreshold := time.Duration(10 * time.Second)
-	_, err := c.PpsAPIClient.CreatePipeline(
-		context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipelineName),
-			Transform: &pps.Transform{
-				Cmd: []string{"sh"},
-				Stdin: []string{
-					"echo success",
+	t.Run("ChainOf10", func(t *testing.T) {
+		require.NoError(t, c.DeleteAll())
+
+		dataRepo := tu.UniqueString("TestStandby_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
+
+		numPipelines := 10
+		pipelines := make([]string, numPipelines)
+		for i := 0; i < numPipelines; i++ {
+			pipelines[i] = tu.UniqueString("TestStandby")
+			input := dataRepo
+			if i > 0 {
+				input = pipelines[i-1]
+			}
+			_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+				&pps.CreatePipelineRequest{
+					Pipeline: client.NewPipeline(pipelines[i]),
+					Transform: &pps.Transform{
+						Cmd: []string{"true"},
+					},
+					Input:   client.NewAtomInput(input, "/*"),
+					Standby: true,
 				},
-			},
-			ParallelismSpec: &pps.ParallelismSpec{
-				Constant: uint64(parallelism),
-			},
-			ResourceRequests: &pps.ResourceSpec{
-				Memory: "100M",
-			},
-			Input:              client.NewAtomInput(dataRepo, "/"),
-			ScaleDownThreshold: types.DurationProto(scaleDownThreshold),
+			)
+			require.NoError(t, err)
+		}
+
+		require.NoErrorWithinTRetry(t, time.Second*30, func() error {
+			pis, err := c.ListPipeline()
+			require.NoError(t, err)
+			var standby int
+			for _, pi := range pis {
+				if pi.State == pps.PipelineState_PIPELINE_STANDBY {
+					standby++
+				}
+			}
+			if standby != numPipelines {
+				return fmt.Errorf("should have %d pipelines in standby, not %d", numPipelines, standby)
+			}
+			return nil
 		})
-	require.NoError(t, err)
 
-	pipelineInfo, err := c.InspectPipeline(pipelineName)
-	require.NoError(t, err)
+		_, err := c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(dataRepo, "master"))
 
-	// Wait for the pipeline to scale down
-	time.Sleep(10 * time.Second)
-	b := backoff.NewTestingBackOff()
-	b.MaxElapsedTime = scaleDownThreshold + 30*time.Second
-	checkScaleDown := func() error {
-		rc, err := pipelineRc(t, pipelineInfo)
-		if err != nil {
-			return err
+		var eg errgroup.Group
+		var finished bool
+		eg.Go(func() error {
+			commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+			require.NoError(t, err)
+			collectCommitInfos(t, commitIter)
+			finished = true
+			return nil
+		})
+		eg.Go(func() error {
+			for !finished {
+				pis, err := c.ListPipeline()
+				require.NoError(t, err)
+				var active int
+				for _, pi := range pis {
+					if pi.State != pps.PipelineState_PIPELINE_STANDBY {
+						active++
+					}
+				}
+				// We tolerate having 2 pipelines out of standby because there's
+				// latency associated with entering and exiting standby.
+				require.True(t, active <= 2, "active: %d", active)
+			}
+			return nil
+		})
+		eg.Wait()
+	})
+	t.Run("ManyCommits", func(t *testing.T) {
+		require.NoError(t, c.DeleteAll())
+
+		dataRepo := tu.UniqueString("TestStandby_data")
+		pipeline := tu.UniqueString("TestStandby")
+		require.NoError(t, c.CreateRepo(dataRepo))
+		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd:   []string{"sh"},
+					Stdin: []string{"echo $PPS_POD_NAME >/pfs/out/pod"},
+				},
+				Input:   client.NewAtomInput(dataRepo, "/"),
+				Standby: true,
+			},
+		)
+		require.NoError(t, err)
+		numCommits := 100
+		for i := 0; i < numCommits; i++ {
+			_, err := c.StartCommit(dataRepo, "master")
+			require.NoError(t, err)
+			require.NoError(t, c.FinishCommit(dataRepo, "master"))
 		}
-		if *rc.Spec.Replicas != 1 {
-			return fmt.Errorf("rc.Spec.Replicas should be 1")
+		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+		require.NoError(t, err)
+		commitInfos := collectCommitInfos(t, commitIter)
+		require.Equal(t, 1, len(commitInfos))
+		pod := ""
+		cis, err := c.ListCommit(pipeline, "master", "", 0)
+		require.NoError(t, err)
+		for _, ci := range cis {
+			var buffer bytes.Buffer
+			require.NoError(t, c.GetFile(pipeline, ci.Commit.ID, "pod", 0, 0, &buffer))
+			if pod == "" {
+				pod = buffer.String()
+			} else {
+				require.True(t, pod == buffer.String(), "multiple pods were used to process commits")
+			}
 		}
-		if !rc.Spec.Template.Spec.Containers[0].Resources.Requests.Memory().IsZero() {
-			return fmt.Errorf("resource requests should be zero when the pipeline is in scale-down mode")
-		}
-		return nil
-	}
-	require.NoError(t, backoff.Retry(checkScaleDown, b))
-
-	// Trigger a job
-	commit, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
-	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
-	rc, err := pipelineRc(t, pipelineInfo)
-	require.NoError(t, err)
-	require.Equal(t, int32(parallelism), int32(*rc.Spec.Replicas))
-	// Check that the resource requests have been reset
-	require.Equal(t, "100M", rc.Spec.Template.Spec.Containers[0].Resources.Requests.Memory().String())
-
-	// Once the job finishes, the pipeline will scale down again
-	b.Reset()
-	require.NoError(t, backoff.Retry(checkScaleDown, b))
+		pi, err := c.InspectPipeline(pipeline)
+		require.NoError(t, err)
+		require.Equal(t, pps.PipelineState_PIPELINE_STANDBY.String(), pi.State.String())
+	})
 }
 
 func TestPipelineEnv(t *testing.T) {
@@ -4954,7 +5003,7 @@ func TestCronPipeline(t *testing.T) {
 		repo := fmt.Sprintf("%s_%s", pipeline1, "time")
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 		defer cancel() //cleanup resources
-		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", "")
+		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED)
 		require.NoError(t, err)
 		commitInfo, err := iter.Next()
 		require.NoError(t, err)
@@ -4995,7 +5044,7 @@ func TestCronPipeline(t *testing.T) {
 		repo := fmt.Sprintf("%s_%s", pipeline3, "time")
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 		defer cancel() //cleanup resources
-		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", "")
+		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED)
 		require.NoError(t, err)
 		commitInfo, err := iter.Next()
 		require.NoError(t, err)
@@ -5026,7 +5075,7 @@ func TestCronPipeline(t *testing.T) {
 		// subscribe to the pipeline1 cron repo and wait for inputs
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 		defer cancel() //cleanup resources
-		iter, err := c.WithCtx(ctx).SubscribeCommit(pipeline, "master", "")
+		iter, err := c.WithCtx(ctx).SubscribeCommit(pipeline, "master", "", pfs.CommitState_STARTED)
 		require.NoError(t, err)
 		for i := 0; i < 5; i++ {
 			commitInfo, err := iter.Next()
@@ -5061,7 +5110,7 @@ func TestCronPipeline(t *testing.T) {
 		// subscribe to the pipeline1 cron repo and wait for inputs
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 		defer cancel() //cleanup resources
-		iter, err := c.WithCtx(ctx).SubscribeCommit(pipeline, "master", "")
+		iter, err := c.WithCtx(ctx).SubscribeCommit(pipeline, "master", "", pfs.CommitState_STARTED)
 		require.NoError(t, err)
 		for i := 0; i < 5; i++ {
 			commitInfo, err := iter.Next()
@@ -6842,7 +6891,7 @@ func TestExtractRestore(t *testing.T) {
 	dataRepo := tu.UniqueString("TestExtractRestore_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	nCommits := 5
+	nCommits := 2
 	r := rand.New(rand.NewSource(45))
 	fileContent := workload.RandString(r, 40*MB)
 	for i := 0; i < nCommits; i++ {
@@ -6853,7 +6902,7 @@ func TestExtractRestore(t *testing.T) {
 		require.NoError(t, c.FinishCommit(dataRepo, "master"))
 	}
 
-	numPipelines := 10
+	numPipelines := 3
 	input := dataRepo
 	for i := 0; i < numPipelines; i++ {
 		pipeline := tu.UniqueString(fmt.Sprintf("TestExtractRestore%d", i))

@@ -487,11 +487,7 @@ func TestInspectCommitBlock(t *testing.T) {
 		require.NoError(t, client.FinishCommit(repo, commit.ID))
 	}()
 
-	commitInfo, err := client.PfsAPIClient.InspectCommit(context.Background(),
-		&pfs.InspectCommitRequest{
-			Commit: commit,
-			Block:  true,
-		})
+	commitInfo, err := client.BlockCommit(commit.Repo.Name, commit.ID)
 	require.NoError(t, err)
 	require.NotNil(t, commitInfo.Finished)
 }
@@ -1825,7 +1821,7 @@ func TestSubscribeCommit(t *testing.T) {
 		commits = append(commits, commit)
 	}
 
-	commitIter, err := client.SubscribeCommit(repo, "master", "")
+	commitIter, err := client.SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED)
 	require.NoError(t, err)
 	for i := 0; i < numCommits; i++ {
 		commitInfo, err := commitIter.Next()
@@ -4066,6 +4062,99 @@ func TestDeleteCommitShrinkSubvRange(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(outputCommitInfo.Provenance))
 	require.Equal(t, schemaCommit.ID, outputCommitInfo.Provenance[0].ID)
+}
+
+func TestCommitState(t *testing.T) {
+	c := getClient(t)
+
+	// two input repos, one with many commits (logs), and one with few (schema)
+	require.NoError(t, c.CreateRepo("A"))
+	require.NoError(t, c.CreateRepo("B"))
+
+	require.NoError(t, c.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
+
+	// Start a commit on A/master, this will create a non-ready commit on B/master.
+	_, err := c.StartCommit("A", "master")
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	_, err = c.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+		Commit:     pclient.NewCommit("B", "master"),
+		BlockState: pfs.CommitState_READY,
+	})
+	require.YesError(t, err)
+
+	// Finish the commit on A/master, that will make the B/master ready.
+	require.NoError(t, c.FinishCommit("A", "master"))
+
+	ctx, cancel = context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	_, err = c.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+		Commit:     pclient.NewCommit("B", "master"),
+		BlockState: pfs.CommitState_READY,
+	})
+	require.NoError(t, err)
+
+	// Create a new branch C/master with A/master as provenance. It should start out ready.
+	require.NoError(t, c.CreateRepo("C"))
+	require.NoError(t, c.CreateBranch("C", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
+
+	ctx, cancel = context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	_, err = c.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+		Commit:     pclient.NewCommit("C", "master"),
+		BlockState: pfs.CommitState_READY,
+	})
+	require.NoError(t, err)
+}
+
+func TestSubscribeStates(t *testing.T) {
+	c := getClient(t)
+
+	require.NoError(t, c.CreateRepo("A"))
+	require.NoError(t, c.CreateRepo("B"))
+	require.NoError(t, c.CreateRepo("C"))
+
+	require.NoError(t, c.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
+	require.NoError(t, c.CreateBranch("C", "master", "", []*pfs.Branch{pclient.NewBranch("B", "master")}))
+
+	ctx, cancel := context.WithCancel(c.Ctx())
+	defer cancel()
+	c = c.WithCtx(ctx)
+
+	var readyCommits int64
+	go func() {
+		c.SubscribeCommitF("B", "master", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+			atomic.AddInt64(&readyCommits, 1)
+			return nil
+		})
+	}()
+	go func() {
+		c.SubscribeCommitF("C", "master", "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+			atomic.AddInt64(&readyCommits, 1)
+			return nil
+		})
+	}()
+	_, err := c.StartCommit("A", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("A", "master"))
+
+	require.NoErrorWithinTRetry(t, time.Second*10, func() error {
+		if atomic.LoadInt64(&readyCommits) != 1 {
+			return fmt.Errorf("wrong number of ready commits")
+		}
+		return nil
+	})
+
+	require.NoError(t, c.FinishCommit("B", "master"))
+
+	require.NoErrorWithinTRetry(t, time.Second*10, func() error {
+		if atomic.LoadInt64(&readyCommits) != 2 {
+			return fmt.Errorf("wrong number of ready commits")
+		}
+		return nil
+	})
 }
 
 func TestStartCommitOutputBranch(t *testing.T) {

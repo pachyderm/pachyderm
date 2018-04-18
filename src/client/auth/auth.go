@@ -70,6 +70,11 @@ var (
 	// it also needs to be updated in the UI code
 	ErrNotActivated = errors.New("the auth service is not activated")
 
+	// ErrPartiallyActivated is returned by the auth API to indicated that it's
+	// in an intermediate state (in this state, users can retry Activate() or
+	// revert with Deactivate(), but not much else)
+	ErrPartiallyActivated = errors.New("the auth service is partially activated")
+
 	// ErrNotSignedIn indicates that the caller isn't signed in
 	//
 	// Note: This error message string is matched in the UI. If edited,
@@ -93,6 +98,43 @@ func IsErrNotActivated(err error) bool {
 	// TODO(msteffen) This is unstructured because we have no way to propagate
 	// structured errors across GRPC boundaries. Fix
 	return strings.Contains(err.Error(), ErrNotActivated.Error())
+}
+
+// IsErrPartiallyActivated checks if an error is a ErrPartiallyActivated
+func IsErrPartiallyActivated(err error) bool {
+	if err == nil {
+		return false
+	}
+	// TODO(msteffen) This is unstructured because we have no way to propagate
+	// structured errors across GRPC boundaries. Fix
+	return strings.Contains(err.Error(), ErrPartiallyActivated.Error())
+}
+
+// IsErrNotSignedIn returns true if 'err' is a ErrNotSignedIn
+func IsErrNotSignedIn(err error) bool {
+	if err == nil {
+		return false
+	}
+	// TODO(msteffen) This is unstructured because we have no way to propagate
+	// structured errors across GRPC boundaries. Fix
+	return strings.Contains(err.Error(), ErrNotSignedIn.Error())
+}
+
+// IsErrNoToken returns true if 'err' is a ErrNoToken (uses string
+// comparison to work across RPC boundaries)
+func IsErrNoToken(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), ErrNoToken.Error())
+}
+
+// IsErrBadToken returns true if 'err' is a ErrBadToken
+func IsErrBadToken(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), ErrBadToken.Error())
 }
 
 // ErrNotAuthorized is returned if the user is not authorized to perform
@@ -146,13 +188,6 @@ func IsErrNotAuthorized(err error) bool {
 	return strings.Contains(err.Error(), errNotAuthorizedMsg)
 }
 
-// IsErrNotSignedIn returns true if 'err' is a ErrNotSignedIn
-func IsErrNotSignedIn(err error) bool {
-	// TODO(msteffen) This is unstructured because we have no way to propagate
-	// structured errors across GRPC boundaries. Fix
-	return strings.Contains(err.Error(), ErrNotSignedIn.Error())
-}
-
 // ErrInvalidPrincipal indicates that a an argument to e.g. GetScope,
 // SetScope, or SetACL is invalid
 type ErrInvalidPrincipal struct {
@@ -170,23 +205,6 @@ func IsErrInvalidPrincipal(err error) bool {
 	}
 	return strings.Contains(err.Error(), "invalid principal \"") &&
 		strings.Contains(err.Error(), "\"; must start with one of \"pipeline:\", \"github:\", or \"robot:\", or have no \":\"")
-}
-
-// IsErrNoToken returns true if 'err' is a ErrNoToken (uses string
-// comparison to work across RPC boundaries)
-func IsErrNoToken(err error) bool {
-	if err == nil {
-		return false
-	}
-	return strings.Contains(err.Error(), ErrNoToken.Error())
-}
-
-// IsErrBadToken returns true if 'err' is a ErrBadToken
-func IsErrBadToken(err error) bool {
-	if err == nil {
-		return false
-	}
-	return strings.Contains(err.Error(), ErrBadToken.Error())
 }
 
 // ErrTooShortTTL is returned by the ExtendAuthToken if request.Token already
