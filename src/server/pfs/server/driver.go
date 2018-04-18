@@ -280,8 +280,7 @@ func (d *driver) updateRepo(ctx context.Context, repo *pfs.Repo, description str
 			return err
 		}
 		repoInfo.Description = description
-		repos.Put(repo.Name, repoInfo)
-		return nil
+		return repos.Put(repo.Name, repoInfo)
 	})
 	return err
 }
@@ -546,10 +545,14 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 			}
 			repoInfo.SizeBytes += sizeChange(tree, parentTree)
 		} else {
-			d.openCommits.ReadWrite(stm).Put(newCommit.ID, newCommit)
+			if err := d.openCommits.ReadWrite(stm).Put(newCommit.ID, newCommit); err != nil {
+				return err
+			}
 		}
 
-		repos.Put(parent.Repo.Name, repoInfo)
+		if err := repos.Put(parent.Repo.Name, repoInfo); err != nil {
+			return err
+		}
 
 		// 'newCommitProv' holds newCommit's provenance (use map for deduping).
 		newCommitProv := make(map[string]*pfs.Commit)
@@ -685,7 +688,9 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
 		repos := d.repos.ReadWrite(stm)
-		commits.Put(commit.ID, commitInfo)
+		if err := commits.Put(commit.ID, commitInfo); err != nil {
+			return err
+		}
 		if err := d.openCommits.ReadWrite(stm).Delete(commit.ID); err != nil {
 			return fmt.Errorf("could not confirm that commit %s is open; this is likely a bug. err: %v", commit.ID, err)
 		}
@@ -699,7 +704,9 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 			// Increment the repo sizes by the sizes of the files that have
 			// been added in this commit.
 			repoInfo.SizeBytes += sizeChange
-			repos.Put(commit.Repo.Name, repoInfo)
+			if err := repos.Put(commit.Repo.Name, repoInfo); err != nil {
+				return err
+			}
 		}
 		return nil
 	})
@@ -2387,8 +2394,7 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 			existingRecords.Split = newRecords.Split
 			existingRecords.Records = append(existingRecords.Records, newRecords.Records...)
 		}
-		recordsCol.Put(prefix, &existingRecords)
-		return nil
+		return recordsCol.Put(prefix, &existingRecords)
 	})
 	if err != nil {
 		return err
