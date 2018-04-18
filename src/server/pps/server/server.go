@@ -58,6 +58,7 @@ func NewAPIServer(
 		reporter:              reporter,
 		pipelines:             ppsdb.Pipelines(etcdClient, etcdPrefix),
 		jobs:                  ppsdb.Jobs(etcdClient, etcdPrefix),
+		monitorCancels:        make(map[string]func()),
 	}
 	apiServer.validateKube()
 	go apiServer.master() // calls a.getPachClient(), which initializes spec repo
