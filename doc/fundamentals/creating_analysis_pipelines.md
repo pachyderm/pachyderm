@@ -123,9 +123,9 @@ pipeline to immediately respond to new data when it's committed without having
 to wait for their pods to "spin up". However, this has the downside that pods
 will consume resources even while there's no data to process. You can trade-off
 the other way by setting the `standby` field to true in your pipeline spec.
-With this field set the pipelines will "spin down" when there is no data to
+With this field set, the pipelines will "spin down" when there is no data to
 process, which means they will consume no resources. However, when new data
-does come in the pipeline will need to spin back up, which introduces some
+does come in, the pipeline pods will need to spin back up, which introduces some
 extra latency. Generally speaking, you should default to not setting standby
-until cluster utilization becomes a concern, when it does pipelines that
-run infrequently and are highly parallel are the best candidates.
+until cluster utilization becomes a concern. When it does, pipelines that
+run infrequently and are highly parallel are the best candidates for `standby`.
