@@ -2,6 +2,7 @@ package worker
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -108,7 +109,7 @@ func TestPrometheusStats(t *testing.T) {
 	// Now hit stats endpoint and see some results
 	// get the nodeport of the prometheus deployment
 	// kc --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort
-	port := 31606
+	port := os.Getenv("PROM_PORT")
 	promClient, err := prom_api.NewClient(prom_api.Config{
 		Address: fmt.Sprintf("http://127.0.0.1:%v", port),
 	})
@@ -118,9 +119,9 @@ func TestPrometheusStats(t *testing.T) {
 	// Datum count queries
 
 	// Prometheus scrapes ~ every 15s, but empirically, we miss data unless I
-	// wait 60s
-	// This is also why this is a single giant test, not many tests
-	time.Sleep(60 * time.Second)
+	// wait this long. This is annoying, and also why this is a single giant
+	// test, not many little ones
+	time.Sleep(75 * time.Second)
 	totalRuns := numCommits + 2 // we have numCommits-1 successfully run datums, but 1 job fails which will run 3 times
 	query := fmt.Sprintf("sum(pachyderm_user_datum_count{pipelineName=\"%v\", state=\"started\"})", pipeline)
 	result, err := promAPI.Query(context.Background(), query, time.Now())
