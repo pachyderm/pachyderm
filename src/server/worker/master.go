@@ -690,7 +690,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		}
 		parallelism, err := ppsutil.GetExpectedNumWorkers(a.kubeClient, a.pipelineInfo.ParallelismSpec)
 		if err != nil {
-			return fmt.Errorf("error from GetExpectedNumWorkers: %v")
+			return fmt.Errorf("error from GetExpectedNumWorkers: %v", err)
 		}
 		chunks := &Chunks{}
 
