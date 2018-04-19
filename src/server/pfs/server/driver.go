@@ -511,13 +511,7 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 			}); err != nil {
 				return err
 			}
-			repoInfo := &pfs.RepoInfo{}
-			if err := repos.Update(parent.Repo.Name, repoInfo, func() error {
-				add(&repoInfo.Branches, branchInfo.Branch)
-				return nil
-			}); err != nil {
-				return err
-			}
+			add(&repoInfo.Branches, branchInfo.Branch)
 			if len(branchInfo.Provenance) > 0 && treeRef == nil {
 				return fmt.Errorf("cannot start a commit on an output branch")
 			}
@@ -556,10 +550,11 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 				return err
 			}
 			repoInfo.SizeBytes += sizeChange(tree, parentTree)
-			repos.Put(parent.Repo.Name, repoInfo)
 		} else {
 			d.openCommits.ReadWrite(stm).Put(newCommit.ID, newCommit)
 		}
+
+		repos.Put(parent.Repo.Name, repoInfo)
 
 		// 'newCommitProv' holds newCommit's provenance (use map for deduping).
 		newCommitProv := make(map[string]*pfs.Commit)
