@@ -22,7 +22,6 @@ var (
 		},
 		[]string{
 			"pipeline",
-			"job",
 			"state",
 		},
 	)
@@ -39,7 +38,6 @@ var (
 		},
 		[]string{
 			"pipeline",
-			"job",
 			"state", // Since both finished and errored datums can have proc times
 		},
 	)
@@ -54,7 +52,6 @@ var (
 		},
 		[]string{
 			"pipeline",
-			"job",
 		},
 	)
 
@@ -68,7 +65,6 @@ var (
 		},
 		[]string{
 			"pipeline",
-			"job",
 		},
 	)
 
@@ -82,7 +78,6 @@ var (
 		},
 		[]string{
 			"pipeline",
-			"job",
 		},
 	)
 
@@ -96,7 +91,6 @@ var (
 		},
 		[]string{
 			"pipeline",
-			"job",
 		},
 	)
 )
