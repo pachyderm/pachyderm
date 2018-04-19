@@ -7426,6 +7426,57 @@ func TestDeleteSpecRepo(t *testing.T) {
 	require.YesError(t, c.DeleteRepo("spec", false))
 }
 
+func TestUserWorkingDir(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestUserWorkingDir_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
+	pipeline := tu.UniqueString("TestSimplePipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Image: "pachyderm_entrypoint",
+				Cmd:   []string{"bash"},
+				Stdin: []string{
+					"ls -lh /pfs",
+					"whoami >/pfs/out/whoami",
+					"pwd >/pfs/out/pwd",
+					fmt.Sprintf("cat /pfs/%s/file >/pfs/out/file", dataRepo),
+				},
+				User:       "test",
+				WorkingDir: "/home/test",
+			},
+			Input: client.NewAtomInput(dataRepo, "/"),
+		})
+	require.NoError(t, err)
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "whoami", 0, 0, &buf))
+	require.Equal(t, "test\n", buf.String())
+	buf.Reset()
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "pwd", 0, 0, &buf))
+	require.Equal(t, "/home/test\n", buf.String())
+}
+
 func TestDontReadStdin(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
