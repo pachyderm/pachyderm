@@ -18,6 +18,7 @@ import (
 
 	prom_api "github.com/prometheus/client_golang/api"
 	prom_api_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	prom_model "github.com/prometheus/common/model"
 )
 
 func TestPrometheusStats(t *testing.T) {
@@ -105,13 +106,36 @@ func TestPrometheusStats(t *testing.T) {
 	// Datum count queries
 	//	result, err := prometheusQuery(prometheusPort, "http://127.0.0.1:31606/api/v1/query?query=sum(pachyderm_user_datum_count{pipelineName=%22TestSimplePipeline0fc7523d1d62%22})")
 
+	time.Sleep(30 * time.Second) // Give prometheus time to scrape the stats
+
 	// a little unclear what the time is for
-	result, err := promAPI.Query(context.Background(), "pachyderm_user_datum_count", time.Now())
+	query := fmt.Sprintf("pachyderm_user_datum_count{pipelineName=\"%v\"}", pipeline)
+	//	countQuery = "pachyderm_user_datum_count"
+	result, err := promAPI.Query(context.Background(), query, time.Now())
 	require.NoError(t, err)
 	fmt.Printf("query result: %v\n", result)
-	// example result:
-	// {"status":"success","data":{"resultType":"vector","result":[{"metric":{},"value":[1524096174.6,"4"]}]}}
+	resultVec := result.(prom_model.Vector)
+	require.Equal(t, 2, len(resultVec)) // 2 jobs ran
 
+	query = fmt.Sprintf("sum(pachyderm_user_datum_count{pipelineName=\"%v\", state=\"started\"})", pipeline)
+	result, err = promAPI.Query(context.Background(), query, time.Now())
+	require.NoError(t, err)
+	resultVec = result.(prom_model.Vector)
+	require.Equal(t, 1, len(resultVec))
+	require.Equal(t, float64(2), float64(resultVec[0].Value))
+
+	query = fmt.Sprintf("sum(pachyderm_user_datum_count{pipelineName=\"%v\", state=\"finished\"})", pipeline)
+	result, err = promAPI.Query(context.Background(), query, time.Now())
+	require.NoError(t, err)
+	resultVec = result.(prom_model.Vector)
+	require.Equal(t, 1, len(resultVec))
+	require.Equal(t, float64(2), float64(resultVec[0].Value))
+
+	query = fmt.Sprintf("sum(pachyderm_user_datum_count{pipelineName=\"%v\", state=\"errored\"})", pipeline)
+	result, err = promAPI.Query(context.Background(), query, time.Now())
+	require.NoError(t, err)
+	resultVec = result.(prom_model.Vector)
+	require.Equal(t, 0, len(resultVec))
 	// should check started = 2 finished is 2 and errored is 0
 
 	// Histogram tests
