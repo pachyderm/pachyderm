@@ -858,9 +858,16 @@ func (a *APIServer) deleteJob(stm col.STM, jobPtr *pps.EtcdJobInfo) error {
 	return a.jobs.ReadWrite(stm).Delete(jobPtr.Job.ID)
 }
 
-type acquireDatumsFunc func(low, high int64) (failedDatumID string, _ error)
+type processResult struct {
+	failedDatumID   string
+	datumsProcessed int64
+	datumsSkipped   int64
+	datumsFailed    int64
+}
 
-func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chunks, logger *taggedLogger, process acquireDatumsFunc) error {
+type processFunc func(low, high int64) (*processResult, error)
+
+func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chunks, logger *taggedLogger, process processFunc) error {
 	complete := false
 	for !complete {
 		// func to defer cancel in
@@ -929,17 +936,27 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 					}
 				}()
 				// process the datums in newRange
-				failedDatumID, err := process(low, high)
+				processResult, err := process(low, high)
 				if err != nil {
 					return err
 				}
 
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+					jobs := a.jobs.ReadWrite(stm)
+					jobPtr := &pps.EtcdJobInfo{}
+					if err := jobs.Update(jobID, jobPtr, func() error {
+						jobPtr.DataProcessed += processResult.datumsProcessed
+						jobPtr.DataSkipped += processResult.datumsSkipped
+						jobPtr.DataFailed += processResult.datumsFailed
+						return nil
+					}); err != nil {
+						return err
+					}
 					locks := a.locks(jobID).ReadWrite(stm)
-					if failedDatumID != "" {
+					if processResult.failedDatumID != "" {
 						return locks.Put(fmt.Sprint(high), &ChunkState{
 							State:   ChunkState_FAILED,
-							DatumID: failedDatumID,
+							DatumID: processResult.failedDatumID,
 						})
 					}
 					return locks.Put(fmt.Sprint(high), &ChunkState{State: ChunkState_COMPLETE})
@@ -1102,12 +1119,12 @@ func (a *APIServer) worker() {
 			// handle failed datums here, just failed etcd writes.
 			if err := a.acquireDatums(
 				jobCtx, jobID, chunks, logger,
-				func(low, high int64) (string, error) {
-					failedDatumID, err := a.processDatums(pachClient, logger, jobInfo, df, low, high)
+				func(low, high int64) (*processResult, error) {
+					processResult, err := a.processDatums(pachClient, logger, jobInfo, df, low, high)
 					if err != nil {
-						return "", err
+						return nil, err
 					}
-					return failedDatumID, nil
+					return processResult, nil
 				},
 			); err != nil {
 				if jobCtx.Err() == context.Canceled {
@@ -1126,14 +1143,12 @@ func (a *APIServer) worker() {
 // processDatums processes datums from low to high in df, if a datum fails it
 // returns the id of the failed datum it also may return a variety of errors
 // such as network errors.
-func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo, df DatumFactory, low, high int64) (string, error) {
+func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo, df DatumFactory, low, high int64) (*processResult, error) {
 	ctx := pachClient.Ctx()
 	stats := &pps.ProcessStats{}
 	var statsMu sync.Mutex
-	var failedDatumID string
+	result := &processResult{}
 	var eg errgroup.Group
-	var skipped int64
-	var failed int64
 	limiter := limit.New(int(a.pipelineInfo.MaxQueueSize))
 	for i := low; i < high; i++ {
 		i := i
@@ -1152,7 +1167,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 			// Hash inputs
 			tag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, data)
 			if _, err := pachClient.InspectTag(ctx, &pfs.Tag{tag}); err == nil {
-				skipped++
+				atomic.AddInt64(&result.datumsSkipped, 1)
 				logger.Logf("skipping datum")
 				return nil
 			}
@@ -1328,8 +1343,8 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				logger.Logf("failed processing datum: %v, retrying in %v", err, d)
 				return nil
 			}); err != nil {
-				failedDatumID = a.DatumID(data)
-				failed++
+				result.failedDatumID = a.DatumID(data)
+				atomic.AddInt64(&result.datumsFailed, 1)
 				return nil
 			}
 			statsMu.Lock()
@@ -1341,7 +1356,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 		})
 	}
 	if err := eg.Wait(); err != nil {
-		return "", err
+		return nil, err
 	}
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		jobs := a.jobs.ReadWrite(stm)
@@ -1350,9 +1365,6 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 		if err := jobs.Get(jobID, jobPtr); err != nil {
 			return err
 		}
-		jobPtr.DataProcessed += high - low - skipped
-		jobPtr.DataSkipped += skipped
-		jobPtr.DataFailed += failed
 		if jobPtr.Stats == nil {
 			jobPtr.Stats = &pps.ProcessStats{}
 		}
@@ -1361,9 +1373,10 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 		}
 		return jobs.Put(jobID, jobPtr)
 	}); err != nil {
-		return "", err
+		return nil, err
 	}
-	return failedDatumID, nil
+	result.datumsProcessed = high - low - result.datumsSkipped - result.datumsFailed
+	return result, nil
 }
 
 func (a *APIServer) parentTag(pachClient *client.APIClient, jobInfo *pps.JobInfo, files []*Input) (*pfs.Tag, error) {
