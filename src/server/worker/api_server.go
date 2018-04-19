@@ -117,9 +117,8 @@ type APIServer struct {
 	// have already been processed.
 	datumCache *lru.Cache
 
-	uid        uint32
-	gid        uint32
-	workingDir string
+	uid uint32
+	gid uint32
 }
 
 type putObjectResponse struct {
@@ -316,7 +315,11 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		numWorkers = 1
 	}
 	server.numWorkers = numWorkers
-	if pipelineInfo.Transform.Image != "" {
+	var noDocker bool
+	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
+		noDocker = true
+	}
+	if pipelineInfo.Transform.Image != "" && !noDocker {
 		docker, err := docker.NewClientFromEnv()
 		if err != nil {
 			return nil, err
@@ -325,30 +328,35 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		if err != nil {
 			return nil, fmt.Errorf("error inspecting image %s: %+v", pipelineInfo.Transform.Image, err)
 		}
-		// if image.Config.User == "" then uid, and gid don't get set which
-		// means they default to a value of 0 which means we run the code as
-		// root which is the only sane default.
-		if image.Config.User != "" {
-			user, err := lookupUser(image.Config.User)
-			if err != nil && !os.IsNotExist(err) {
-				return nil, err
-			}
-			if user != nil { // user is nil when os.IsNotExist(err) is true in which case we use root
-				uid, err := strconv.ParseUint(user.Uid, 10, 32)
-				if err != nil {
-					return nil, err
-				}
-				server.uid = uint32(uid)
-				gid, err := strconv.ParseUint(user.Gid, 10, 32)
-				if err != nil {
-					return nil, err
-				}
-				server.gid = uint32(gid)
-			}
+		if pipelineInfo.Transform.User == "" {
+			pipelineInfo.Transform.User = image.Config.User
 		}
-		server.workingDir = image.Config.WorkingDir
+		if pipelineInfo.Transform.WorkingDir == "" {
+			pipelineInfo.Transform.WorkingDir = image.Config.WorkingDir
+		}
 		if server.pipelineInfo.Transform.Cmd == nil {
 			server.pipelineInfo.Transform.Cmd = image.Config.Entrypoint
+		}
+	}
+	if pipelineInfo.Transform.User != "" {
+		user, err := lookupUser(pipelineInfo.Transform.User)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, err
+		}
+		// if User == "" then uid, and gid don't get set which
+		// means they default to a value of 0 which means we run the code as
+		// root which is the only sane default.
+		if user != nil { // user is nil when os.IsNotExist(err) is true in which case we use root
+			uid, err := strconv.ParseUint(user.Uid, 10, 32)
+			if err != nil {
+				return nil, err
+			}
+			server.uid = uint32(uid)
+			gid, err := strconv.ParseUint(user.Gid, 10, 32)
+			if err != nil {
+				return nil, err
+			}
+			server.gid = uint32(gid)
 		}
 	}
 	if pipelineInfo.Service == nil {
@@ -500,7 +508,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 			Gid: a.gid,
 		},
 	}
-	cmd.Dir = a.workingDir
+	cmd.Dir = a.pipelineInfo.Transform.WorkingDir
 	err := cmd.Start()
 	if err != nil {
 		return fmt.Errorf("error cmd.Start: %v", err)
@@ -1259,11 +1267,11 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 					a.cancel = cancel
 					a.stats = stats
 				}()
-				if err := os.MkdirAll(client.PPSInputPrefix, 0666); err != nil {
+				if err := os.MkdirAll(client.PPSInputPrefix, 0777); err != nil {
 					return err
 				}
 				// Create output directory (currently /pfs/out) and run user code
-				if err := os.MkdirAll(filepath.Join(dir, "out"), 0666); err != nil {
+				if err := os.MkdirAll(filepath.Join(dir, "out"), 0777); err != nil {
 					return err
 				}
 				if err := syscall.Mount(dir, client.PPSInputPrefix, "", syscall.MS_BIND, ""); err != nil {
@@ -1274,6 +1282,14 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 						retErr = err
 					}
 				}()
+				if a.pipelineInfo.Transform.User != "" {
+					filepath.Walk("/pfs", func(name string, info os.FileInfo, err error) error {
+						if err == nil {
+							err = os.Chown(name, int(a.uid), int(a.gid))
+						}
+						return err
+					})
+				}
 				if err := a.runUserCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
 					return fmt.Errorf("error runUserCode: %v", err)
 				}

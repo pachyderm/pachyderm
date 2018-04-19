@@ -91,18 +91,20 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	memZeroQuantity := resource.MustParse("0M")
 	memSidecarQuantity := resource.MustParse(options.cacheSize)
 
-	options.volumes = append(options.volumes, v1.Volume{
-		Name: "docker",
-		VolumeSource: v1.VolumeSource{
-			HostPath: &v1.HostPathVolumeSource{
-				Path: "/var/run/docker.sock",
+	if !a.noExposeDockerSocket {
+		options.volumes = append(options.volumes, v1.Volume{
+			Name: "docker",
+			VolumeSource: v1.VolumeSource{
+				HostPath: &v1.HostPathVolumeSource{
+					Path: "/var/run/docker.sock",
+				},
 			},
-		},
-	})
-	userVolumeMounts = append(userVolumeMounts, v1.VolumeMount{
-		Name:      "docker",
-		MountPath: "/var/run/docker.sock",
-	})
+		})
+		userVolumeMounts = append(userVolumeMounts, v1.VolumeMount{
+			Name:      "docker",
+			MountPath: "/var/run/docker.sock",
+		})
+	}
 	zeroVal := int64(0)
 	workerImage := a.workerImage
 	resp, err := a.getPachClient().Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
