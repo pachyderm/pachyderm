@@ -415,7 +415,8 @@ test-enterprise:
 	go test -v ./src/server/enterprise/server -timeout $(TIMEOUT)
 
 test-worker:
-	go test -v ./src/server/worker/ -run=TestPrometheusStats -timeout $(TIMEOUT) -count 1
+	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
+			  go test -v ./src/server/worker/ -run=TestPrometheusStats -timeout $(TIMEOUT) -count 1
 
 test-kube-17:
 	@# Delete existing minikube, but test should still pass if minikube hasn't been started
