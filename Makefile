@@ -414,7 +414,9 @@ test-auth:
 test-enterprise:
 	go test -v ./src/server/enterprise/server -timeout $(TIMEOUT)
 
-test-worker:
+test-worker: launch-stats test-worker-helper
+
+test-worker-helper:
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 			  go test -v ./src/server/worker/ -run=TestPrometheusStats -timeout $(TIMEOUT) -count 1
 
