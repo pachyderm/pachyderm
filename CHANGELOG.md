@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.7.1
+
+- Introduces a new model for scaling up and down pipeline workers. [Read more](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html#standby-optional).
+- It's now possible to run Pachyderm without workers needing access to the docker socket. (#2813)
+- Fixes a bug that caused stats enabled pipelines to get stuck in a restart loop if they were deleted and recreated. (#2816)
+- Fixes a bug that broke logging due to removing newlines between log messages. (#2852)
+- Fixes a bug that caused pachd to segfault when etcd didn't come up properly. (#2840)
+- Fixes a bug that would cause jobs to occasionally fail with a "broken pipe" error. (#2832)
+- `pachctl version` now supports the `--raw` flag like other `pachctl` commands. (#2817)
+- Fixes a bug that caused `max_queue_size` to be ignored in pipelines. (#2818)
+
 ## 1.7.0
 
 - Implements a new algorithm for triggering jobs in response to new commits.
