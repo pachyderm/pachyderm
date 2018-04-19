@@ -41,9 +41,11 @@ const (
 	// pachyderm token for any username in the AuthenticateRequest.GitHubToken field
 	DisableAuthenticationEnvVar = "PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING"
 
-	tokensPrefix = "/tokens"
-	aclsPrefix   = "/acls"
-	adminsPrefix = "/admins"
+	tokensPrefix  = "/tokens"
+	aclsPrefix    = "/acls"
+	adminsPrefix  = "/admins"
+	membersPrefix = "/members"
+	groupsPrefix  = "/groups"
 
 	defaultTokenTTLSecs = 14 * 24 * 60 * 60 // two weeks
 
@@ -88,6 +90,10 @@ type apiServer struct {
 	// admins is a collection of username -> Empty mappings (keys indicate which
 	// github users are cluster admins)
 	admins col.Collection
+	// members is a collection of username -> groups mappings.
+	members col.Collection
+	// groups is a collection of group -> usernames mappings.
+	groups col.Collection
 
 	// This is a cache of the PPS master token. It's set once on startup and then
 	// never updated
@@ -164,6 +170,22 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (
 			path.Join(etcdPrefix, adminsPrefix),
 			nil,
 			&types.BoolValue{}, // smallest value that etcd actually stores
+			nil,
+			nil,
+		),
+		members: col.NewCollection(
+			etcdClient,
+			path.Join(etcdPrefix, membersPrefix),
+			nil,
+			&authclient.Groups{},
+			nil,
+			nil,
+		),
+		groups: col.NewCollection(
+			etcdClient,
+			path.Join(etcdPrefix, groupsPrefix),
+			nil,
+			&authclient.Users{},
 			nil,
 			nil,
 		),
@@ -461,6 +483,8 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 		a.acls.ReadWrite(stm).DeleteAll()
 		a.tokens.ReadWrite(stm).DeleteAll()
 		a.admins.ReadWrite(stm).DeleteAll() // watchAdmins() will see the write
+		a.members.ReadWrite(stm).DeleteAll()
+		a.groups.ReadWrite(stm).DeleteAll()
 		return nil
 	})
 	if err != nil {
@@ -1261,6 +1285,301 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeA
 	return &authclient.RevokeAuthTokenResponse{}, nil
 }
 
+func (a *apiServer) SetGroupsForUser(ctx context.Context, req *authclient.SetGroupsForUserRequest) (resp *authclient.SetGroupsForUserResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	if a.activationState() != full {
+		return nil, authclient.ErrNotActivated
+	}
+
+	callerInfo, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if !a.isAdmin(callerInfo.Subject) {
+		return nil, &authclient.ErrNotAuthorized{
+			Subject: callerInfo.Subject,
+			AdminOp: "SetGroupsForUser",
+		}
+	}
+
+	username, err := lenientCanonicalizeSubject(ctx, req.Username)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		members := a.members.ReadWrite(stm)
+
+		// Get groups to remove/add user from/to
+		var removeGroups authclient.Groups
+		addGroups := addToSet(nil, req.Groups...)
+		if err := members.Get(username, &removeGroups); err == nil {
+			for _, group := range req.Groups {
+				if removeGroups.Groups[group] {
+					removeGroups.Groups = removeFromSet(removeGroups.Groups, group)
+					addGroups = removeFromSet(addGroups, group)
+				}
+			}
+		}
+
+		// Set groups for user
+		if err := members.Put(username, &authclient.Groups{
+			Groups: addToSet(nil, req.Groups...),
+		}); err != nil {
+			return err
+		}
+
+		// Remove user from previous groups
+		groups := a.groups.ReadWrite(stm)
+		var membersProto authclient.Users
+		for group := range removeGroups.Groups {
+			if err := groups.Upsert(group, &membersProto, func() error {
+				membersProto.Usernames = removeFromSet(membersProto.Usernames, username)
+				return nil
+			}); err != nil {
+				return err
+			}
+		}
+
+		// Add user to new groups
+		for group := range addGroups {
+			if err := groups.Upsert(group, &membersProto, func() error {
+				membersProto.Usernames = addToSet(membersProto.Usernames, username)
+				return nil
+			}); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return &authclient.SetGroupsForUserResponse{}, nil
+}
+
+func (a *apiServer) ModifyMembers(ctx context.Context, req *authclient.ModifyMembersRequest) (resp *authclient.ModifyMembersResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	if a.activationState() != full {
+		return nil, authclient.ErrNotActivated
+	}
+
+	callerInfo, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if !a.isAdmin(callerInfo.Subject) {
+		return nil, &authclient.ErrNotAuthorized{
+			Subject: callerInfo.Subject,
+			AdminOp: "ModifyMembers",
+		}
+	}
+
+	add, err := lenientCanonicalizeSubjects(ctx, req.Add)
+	if err != nil {
+		return nil, err
+	}
+	// TODO(bryce) Skip canonicalization if the users can be found.
+	remove, err := lenientCanonicalizeSubjects(ctx, req.Remove)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		members := a.members.ReadWrite(stm)
+		var groupsProto authclient.Groups
+		for _, username := range add {
+			if err := members.Upsert(username, &groupsProto, func() error {
+				groupsProto.Groups = addToSet(groupsProto.Groups, req.Group)
+				return nil
+			}); err != nil {
+				return err
+			}
+		}
+		for _, username := range remove {
+			if err := members.Upsert(username, &groupsProto, func() error {
+				groupsProto.Groups = removeFromSet(groupsProto.Groups, req.Group)
+				return nil
+			}); err != nil {
+				return err
+			}
+		}
+
+		groups := a.groups.ReadWrite(stm)
+		var membersProto authclient.Users
+		if err := groups.Upsert(req.Group, &membersProto, func() error {
+			membersProto.Usernames = addToSet(membersProto.Usernames, add...)
+			membersProto.Usernames = removeFromSet(membersProto.Usernames, remove...)
+			return nil
+		}); err != nil {
+			return err
+		}
+
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return &authclient.ModifyMembersResponse{}, nil
+}
+
+func addToSet(set map[string]bool, elems ...string) map[string]bool {
+	if set == nil {
+		set = map[string]bool{}
+	}
+
+	for _, elem := range elems {
+		set[elem] = true
+	}
+	return set
+}
+
+func removeFromSet(set map[string]bool, elems ...string) map[string]bool {
+	if set != nil {
+		for _, elem := range elems {
+			delete(set, elem)
+		}
+	}
+
+	return set
+}
+
+func (a *apiServer) GetGroups(ctx context.Context, req *authclient.GetGroupsRequest) (resp *authclient.GetGroupsResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	if a.activationState() != full {
+		return nil, authclient.ErrNotActivated
+	}
+
+	callerInfo, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if !a.isAdmin(callerInfo.Subject) {
+		return nil, &authclient.ErrNotAuthorized{
+			Subject: callerInfo.Subject,
+			AdminOp: "GetGroups",
+		}
+	}
+
+	// Filter by username
+	if req.Username != "" {
+		username, err := lenientCanonicalizeSubject(ctx, req.Username)
+		if err != nil {
+			return nil, err
+		}
+
+		var groupsProto authclient.Groups
+		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			members := a.members.ReadWrite(stm)
+			if err := members.Get(username, &groupsProto); err != nil {
+				return err
+			}
+			return nil
+		}); err != nil {
+			return nil, err
+		}
+
+		return &authclient.GetGroupsResponse{Groups: setToList(groupsProto.Groups)}, nil
+	}
+
+	groupsCol := a.groups.ReadOnly(ctx)
+	var iter col.Iterator
+	if iter, err = groupsCol.List(); err != nil {
+		return nil, err
+	}
+
+	var group string
+	var users authclient.Users
+	var groups []string
+	ok, err := iter.Next(&group, &users)
+	for ok {
+		if err != nil {
+			return nil, err
+		}
+
+		groups = append(groups, group)
+		ok, err = iter.Next(&group, &users)
+	}
+
+	return &authclient.GetGroupsResponse{Groups: groups}, nil
+}
+
+func (a *apiServer) GetUsers(ctx context.Context, req *authclient.GetUsersRequest) (resp *authclient.GetUsersResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	if a.activationState() != full {
+		return nil, authclient.ErrNotActivated
+	}
+
+	callerInfo, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if !a.isAdmin(callerInfo.Subject) {
+		return nil, &authclient.ErrNotAuthorized{
+			Subject: callerInfo.Subject,
+			AdminOp: "GetUsers",
+		}
+	}
+
+	// Filter by group
+	if req.Group != "" {
+		var membersProto authclient.Users
+		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			groups := a.groups.ReadWrite(stm)
+			if err := groups.Get(req.Group, &membersProto); err != nil {
+				return err
+			}
+			return nil
+		}); err != nil {
+			return nil, err
+		}
+
+		return &authclient.GetUsersResponse{Usernames: setToList(membersProto.Usernames)}, nil
+	}
+
+	membersCol := a.members.ReadOnly(ctx)
+	var iter col.Iterator
+	if iter, err = membersCol.List(); err != nil {
+		return nil, err
+	}
+
+	var user string
+	var groups authclient.Groups
+	var users []string
+	ok, err := iter.Next(&user, &groups)
+	for ok {
+		if err != nil {
+			return nil, err
+		}
+
+		users = append(users, user)
+		ok, err = iter.Next(&user, &groups)
+	}
+
+	return &authclient.GetUsersResponse{Usernames: users}, nil
+}
+
+func setToList(set map[string]bool) []string {
+	if set == nil {
+		return []string{}
+	}
+
+	list := []string{}
+	for elem := range set {
+		list = append(list, elem)
+	}
+	return list
+}
+
 // hashToken converts a token to a cryptographic hash.
 // We don't want to store tokens verbatim in the database, as then whoever
 // that has access to the database has access to all tokens.
@@ -1304,7 +1623,33 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.Token
 	return &tokenInfo, nil
 }
 
-// lenientCanonicalizeSubject is like 'canonicalizeUsername', except that if
+// lenientCanonicalizeSubjects applies lenientCanonicalizeSubject to a list
+func lenientCanonicalizeSubjects(ctx context.Context, subjects []string) ([]string, error) {
+	if subjects == nil {
+		return []string{}, nil
+	}
+
+	eg := &errgroup.Group{}
+	canonicalizedSubjects := make([]string, len(subjects))
+	for i, subject := range subjects {
+		i, subject := i, subject
+		eg.Go(func() error {
+			subject, err := lenientCanonicalizeSubject(ctx, subject)
+			if err != nil {
+				return err
+			}
+			canonicalizedSubjects[i] = subject
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+
+	return canonicalizedSubjects, nil
+}
+
+// lenientCanonicalizeSubject is like 'canonicalizeSubject', except that if
 // 'subject' has no prefix, they are assumed to be a GitHub user.
 func lenientCanonicalizeSubject(ctx context.Context, subject string) (string, error) {
 	if strings.Index(subject, ":") < 0 {
