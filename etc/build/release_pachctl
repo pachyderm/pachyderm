@@ -10,9 +10,9 @@ then
         exit 1
 fi
 
-if [ -n $1 ]
+if [ -z $1 ]
 then
-    BRANCH=$VERSION
+    BRANCH=$1
 fi
 
 echo "--- Releasing pachctl w version: $VERSION"
