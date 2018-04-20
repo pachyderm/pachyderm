@@ -24,6 +24,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -61,7 +63,7 @@ func TestSimplePipeline(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestSimplePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -104,7 +106,7 @@ func TestPipelineWithParallelism(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineWithParallelism_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -151,7 +153,7 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineWithLargeFiles_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -213,7 +215,7 @@ func TestDatumDedup(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestDatumDedup_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -267,7 +269,7 @@ func TestPipelineInputDataModification(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineInputDataModification_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -346,7 +348,7 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestMultipleInputsFromTheSameBranch_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -428,7 +430,7 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestMultipleInputsFromTheSameRepoDifferentBranches_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -481,7 +483,7 @@ func TestMultipleInputsFromTheSameRepoDifferentBranchesIncremental(t *testing.T)
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestMultipleInputsFromTheSameRepoDifferentBranchesIncremental_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -554,7 +556,7 @@ func TestPipelineFailure(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineFailure_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -602,7 +604,7 @@ func TestEgressFailure(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestEgressFailure_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -650,7 +652,7 @@ func TestLazyPipelinePropagation(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestLazyPipelinePropagation_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -710,7 +712,7 @@ func TestLazyPipeline(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestLazyPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -762,7 +764,7 @@ func TestEmptyFiles(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestShufflePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -819,7 +821,7 @@ func TestLazyPipelineCPPipes(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestLazyPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -892,7 +894,7 @@ func TestProvenance(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	aRepo := tu.UniqueString("A")
 	require.NoError(t, c.CreateRepo(aRepo))
 	bPipeline := tu.UniqueString("B")
@@ -979,7 +981,7 @@ func TestProvenance2(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	aRepo := tu.UniqueString("A")
 	require.NoError(t, c.CreateRepo(aRepo))
 	bPipeline := tu.UniqueString("B")
@@ -1076,7 +1078,7 @@ func TestFlushCommit(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	prefix := tu.UniqueString("repo")
 	makeRepoName := func(i int) string {
 		return fmt.Sprintf("%s-%d", prefix, i)
@@ -1125,7 +1127,7 @@ func TestFlushCommitFailures(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	dataRepo := tu.UniqueString("TestFlushCommitFailures")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	prefix := tu.UniqueString("TestFlushCommitFailures")
@@ -1200,7 +1202,7 @@ func TestFlushCommitAfterCreatePipeline(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	repo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(repo))
 
@@ -1240,7 +1242,7 @@ func TestRecreatePipeline(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	repo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(repo))
 	commit, err := c.StartCommit(repo, "master")
@@ -1281,7 +1283,7 @@ func TestDeletePipeline(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	repo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -1342,7 +1344,7 @@ func TestPipelineState(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	repo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(repo))
 	pipeline := tu.UniqueString("pipeline")
@@ -1367,7 +1369,7 @@ func TestPipelineState(t *testing.T) {
 			return err
 		}
 		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
-			return fmt.Errorf("no running pipeline")
+			return fmt.Errorf("pipeline should be in state running, not: %s", pipelineInfo.State.String())
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -1381,7 +1383,7 @@ func TestPipelineState(t *testing.T) {
 			return err
 		}
 		if pipelineInfo.State != pps.PipelineState_PIPELINE_PAUSED {
-			return fmt.Errorf("pipeline never paused, even though StopPipeline() was called")
+			return fmt.Errorf("pipeline never paused, even though StopPipeline() was called, state: %s", pipelineInfo.State.String())
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -1395,7 +1397,7 @@ func TestPipelineState(t *testing.T) {
 			return err
 		}
 		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
-			return fmt.Errorf("pipeline never started, even though StartPipeline() was called")
+			return fmt.Errorf("pipeline never restarted, even though StartPipeline() was called, state: %s", pipelineInfo.State.String())
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -1407,7 +1409,7 @@ func TestPipelineJobCounts(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	repo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(repo))
 	pipeline := tu.UniqueString("pipeline")
@@ -1459,7 +1461,7 @@ func TestDeleteAfterMembershipChange(t *testing.T) {
 	test := func(up bool) {
 		repo := tu.UniqueString("TestDeleteAfterMembershipChange")
 		c := getPachClient(t)
-		defer require.NoError(t, c.DeleteAll())
+		require.NoError(t, c.DeleteAll())
 		require.NoError(t, c.CreateRepo(repo))
 		_, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
@@ -1478,7 +1480,7 @@ func TestPachdRestartResumesRunningJobs(t *testing.T) {
 	t.Skip("This is causing intermittent CI failures")
 	// this test cannot be run in parallel because it restarts everything which breaks other tests.
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPachdRestartPickUpRunningJobs")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -1527,7 +1529,7 @@ func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestUpdatePipelineThatHasNoOutput")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -1588,7 +1590,7 @@ func TestAcceptReturnCode(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestAcceptReturnCode")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -1634,7 +1636,7 @@ func TestRestartAll(t *testing.T) {
 	t.Skip("This is causing intermittent CI failures")
 	// this test cannot be run in parallel because it restarts everything which breaks other tests.
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestRestartAll_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -1684,7 +1686,7 @@ func TestRestartOne(t *testing.T) {
 	t.Skip("This is causing intermittent CI failures")
 	// this test cannot be run in parallel because it restarts everything which breaks other tests.
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestRestartOne_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -1731,7 +1733,7 @@ func TestPrettyPrinting(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPrettyPrinting_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -1788,7 +1790,7 @@ func TestDeleteAll(t *testing.T) {
 	}
 	// this test cannot be run in parallel because it deletes everything
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestDeleteAll_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -1816,7 +1818,7 @@ func TestDeleteAll(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(collectCommitInfos(t, commitIter)))
 	require.NoError(t, c.DeleteAll())
-	repoInfos, err := c.ListRepo(nil)
+	repoInfos, err := c.ListRepo()
 	require.NoError(t, err)
 	require.Equal(t, 0, len(repoInfos))
 	pipelineInfos, err := c.ListPipeline()
@@ -1833,7 +1835,7 @@ func TestRecursiveCp(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestRecursiveCp_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -1877,7 +1879,7 @@ func TestPipelineUniqueness(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	repo := tu.UniqueString("data")
 	require.NoError(t, c.CreateRepo(repo))
@@ -1916,7 +1918,7 @@ func TestUpdatePipeline(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestUpdatePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -2009,7 +2011,7 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestUpdatePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -2093,7 +2095,7 @@ func TestManyFilesSingleCommit(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestManyFilesSingleCommit_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -2118,7 +2120,7 @@ func TestStopPipeline(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -2164,82 +2166,129 @@ func TestStopPipeline(t *testing.T) {
 	require.Equal(t, "foo\n", buffer.String())
 }
 
-func TestPipelineAutoScaledown(t *testing.T) {
+func TestStandby(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
-	// create repos
-	dataRepo := tu.UniqueString("TestPipelineAutoScaleDown")
-	require.NoError(t, c.CreateRepo(dataRepo))
-	// create pipeline
-	pipelineName := tu.UniqueString("pipeline-auto-scaledown")
-	parallelism := 4
-	scaleDownThreshold := time.Duration(10 * time.Second)
-	_, err := c.PpsAPIClient.CreatePipeline(
-		context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipelineName),
-			Transform: &pps.Transform{
-				Cmd: []string{"sh"},
-				Stdin: []string{
-					"echo success",
+	t.Run("ChainOf10", func(t *testing.T) {
+		require.NoError(t, c.DeleteAll())
+
+		dataRepo := tu.UniqueString("TestStandby_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
+
+		numPipelines := 10
+		pipelines := make([]string, numPipelines)
+		for i := 0; i < numPipelines; i++ {
+			pipelines[i] = tu.UniqueString("TestStandby")
+			input := dataRepo
+			if i > 0 {
+				input = pipelines[i-1]
+			}
+			_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+				&pps.CreatePipelineRequest{
+					Pipeline: client.NewPipeline(pipelines[i]),
+					Transform: &pps.Transform{
+						Cmd: []string{"true"},
+					},
+					Input:   client.NewAtomInput(input, "/*"),
+					Standby: true,
 				},
-			},
-			ParallelismSpec: &pps.ParallelismSpec{
-				Constant: uint64(parallelism),
-			},
-			ResourceRequests: &pps.ResourceSpec{
-				Memory: "100M",
-			},
-			Input:              client.NewAtomInput(dataRepo, "/"),
-			ScaleDownThreshold: types.DurationProto(scaleDownThreshold),
+			)
+			require.NoError(t, err)
+		}
+
+		require.NoErrorWithinTRetry(t, time.Second*30, func() error {
+			pis, err := c.ListPipeline()
+			require.NoError(t, err)
+			var standby int
+			for _, pi := range pis {
+				if pi.State == pps.PipelineState_PIPELINE_STANDBY {
+					standby++
+				}
+			}
+			if standby != numPipelines {
+				return fmt.Errorf("should have %d pipelines in standby, not %d", numPipelines, standby)
+			}
+			return nil
 		})
-	require.NoError(t, err)
 
-	pipelineInfo, err := c.InspectPipeline(pipelineName)
-	require.NoError(t, err)
+		_, err := c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(dataRepo, "master"))
 
-	// Wait for the pipeline to scale down
-	time.Sleep(10 * time.Second)
-	b := backoff.NewTestingBackOff()
-	b.MaxElapsedTime = scaleDownThreshold + 30*time.Second
-	checkScaleDown := func() error {
-		rc, err := pipelineRc(t, pipelineInfo)
-		if err != nil {
-			return err
+		var eg errgroup.Group
+		var finished bool
+		eg.Go(func() error {
+			commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+			require.NoError(t, err)
+			collectCommitInfos(t, commitIter)
+			finished = true
+			return nil
+		})
+		eg.Go(func() error {
+			for !finished {
+				pis, err := c.ListPipeline()
+				require.NoError(t, err)
+				var active int
+				for _, pi := range pis {
+					if pi.State != pps.PipelineState_PIPELINE_STANDBY {
+						active++
+					}
+				}
+				// We tolerate having 2 pipelines out of standby because there's
+				// latency associated with entering and exiting standby.
+				require.True(t, active <= 2, "active: %d", active)
+			}
+			return nil
+		})
+		eg.Wait()
+	})
+	t.Run("ManyCommits", func(t *testing.T) {
+		require.NoError(t, c.DeleteAll())
+
+		dataRepo := tu.UniqueString("TestStandby_data")
+		pipeline := tu.UniqueString("TestStandby")
+		require.NoError(t, c.CreateRepo(dataRepo))
+		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd:   []string{"sh"},
+					Stdin: []string{"echo $PPS_POD_NAME >/pfs/out/pod"},
+				},
+				Input:   client.NewAtomInput(dataRepo, "/"),
+				Standby: true,
+			},
+		)
+		require.NoError(t, err)
+		numCommits := 100
+		for i := 0; i < numCommits; i++ {
+			_, err := c.StartCommit(dataRepo, "master")
+			require.NoError(t, err)
+			require.NoError(t, c.FinishCommit(dataRepo, "master"))
 		}
-		if *rc.Spec.Replicas != 1 {
-			return fmt.Errorf("rc.Spec.Replicas should be 1")
+		commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+		require.NoError(t, err)
+		commitInfos := collectCommitInfos(t, commitIter)
+		require.Equal(t, 1, len(commitInfos))
+		pod := ""
+		cis, err := c.ListCommit(pipeline, "master", "", 0)
+		require.NoError(t, err)
+		for _, ci := range cis {
+			var buffer bytes.Buffer
+			require.NoError(t, c.GetFile(pipeline, ci.Commit.ID, "pod", 0, 0, &buffer))
+			if pod == "" {
+				pod = buffer.String()
+			} else {
+				require.True(t, pod == buffer.String(), "multiple pods were used to process commits")
+			}
 		}
-		if !rc.Spec.Template.Spec.Containers[0].Resources.Requests.Memory().IsZero() {
-			return fmt.Errorf("resource requests should be zero when the pipeline is in scale-down mode")
-		}
-		return nil
-	}
-	require.NoError(t, backoff.Retry(checkScaleDown, b))
-
-	// Trigger a job
-	commit, err := c.StartCommit(dataRepo, "master")
-	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
-	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
-	rc, err := pipelineRc(t, pipelineInfo)
-	require.NoError(t, err)
-	require.Equal(t, int32(parallelism), int32(*rc.Spec.Replicas))
-	// Check that the resource requests have been reset
-	require.Equal(t, "100M", rc.Spec.Template.Spec.Containers[0].Resources.Requests.Memory().String())
-
-	// Once the job finishes, the pipeline will scale down again
-	b.Reset()
-	require.NoError(t, backoff.Retry(checkScaleDown, b))
+		pi, err := c.InspectPipeline(pipeline)
+		require.NoError(t, err)
+		require.Equal(t, pps.PipelineState_PIPELINE_STANDBY.String(), pi.State.String())
+	})
 }
 
 func TestPipelineEnv(t *testing.T) {
@@ -2262,7 +2311,7 @@ func TestPipelineEnv(t *testing.T) {
 	)
 	require.NoError(t, err)
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipelineEnv_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -2323,7 +2372,7 @@ func TestPipelineWithFullObjects(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -2375,7 +2424,7 @@ func TestPipelineWithExistingInputCommits(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -2426,7 +2475,7 @@ func TestPipelineThatSymlinks(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	// create repos
 	dataRepo := tu.UniqueString("TestPipeline_data")
@@ -2512,7 +2561,7 @@ func TestChainedPipelines(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	aRepo := tu.UniqueString("A")
 	require.NoError(t, c.CreateRepo(aRepo))
 
@@ -2590,7 +2639,7 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	aRepo := tu.UniqueString("A")
 	require.NoError(t, c.CreateRepo(aRepo))
 
@@ -2746,7 +2795,7 @@ func TestPipelineJobDeletion(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -2791,7 +2840,7 @@ func TestStopJob(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestStopJob")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -2877,7 +2926,7 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	iter := c.GetLogs("", "", nil, "", false, false, 0)
 	for iter.Next() {
 	}
@@ -2912,10 +2961,8 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, "master"))
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	_, err = c.FlushJobAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
 
 	// Get logs from pipeline, using pipeline
 	iter = c.GetLogs(pipelineName, "", nil, "", false, false, 0)
@@ -3071,7 +3118,7 @@ func TestPfsPutFile(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	// create repos
 	repo1 := tu.UniqueString("TestPfsPutFile1")
 	require.NoError(t, c.CreateRepo(repo1))
@@ -3128,7 +3175,7 @@ func TestAllDatumsAreProcessed(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo1 := tu.UniqueString("TestAllDatumsAreProcessed_data1")
 	require.NoError(t, c.CreateRepo(dataRepo1))
@@ -3184,7 +3231,7 @@ func TestDatumStatusRestart(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestDatumDedup_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -3258,7 +3305,7 @@ func TestUseMultipleWorkers(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestUseMultipleWorkers_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -3375,7 +3422,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipelineResourceRequest")
 	pipelineName := tu.UniqueString("TestPipelineResourceRequest_Pipeline")
@@ -3446,7 +3493,7 @@ func TestPipelineResourceLimit(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipelineResourceLimit")
 	pipelineName := tu.UniqueString("TestPipelineResourceLimit_Pipeline")
@@ -3517,7 +3564,7 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipelineResourceLimit")
 	pipelineName := tu.UniqueString("TestPipelineResourceLimit_Pipeline")
@@ -3576,7 +3623,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipelinePartialResourceRequest")
 	pipelineName := tu.UniqueString("pipeline")
@@ -3656,7 +3703,7 @@ func TestPipelineLargeOutput(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineInputDataModification_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -3697,7 +3744,7 @@ func TestUnionInput(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	var repos []string
 	for i := 0; i < 4; i++ {
@@ -4008,7 +4055,7 @@ func TestIncrementalOverwritePipeline(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestIncrementalOverwritePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -4059,7 +4106,7 @@ func TestIncrementalAppendPipeline(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestIncrementalAppendPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -4112,7 +4159,7 @@ func TestIncrementalOneFile(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestIncrementalOneFile")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -4162,7 +4209,7 @@ func TestIncrementalFailure(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestIncrementalFailure_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -4215,7 +4262,7 @@ func TestGarbageCollection(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	// The objects/tags that are there originally.  We run GC
 	// first so that later GC runs doesn't collect objects created
@@ -4338,7 +4385,7 @@ func TestPipelineWithStats(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineWithStats_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -4417,7 +4464,7 @@ func TestPipelineWithStatsFailedDatums(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineWithStatsFailedDatums_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -4482,7 +4529,7 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineWithStatsPaginated_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -4559,7 +4606,7 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineWithStatsAcrossJobs_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -4654,7 +4701,7 @@ func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineWithStatsSkippedEdgeCase_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -4751,7 +4798,7 @@ func TestIncrementalSharedProvenance(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestIncrementalSharedProvenance_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -4826,7 +4873,7 @@ func TestSkippedDatums(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -4895,7 +4942,7 @@ func TestOpencvDemo(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	require.NoError(t, c.CreateRepo("images"))
 	commit, err := c.StartCommit("images", "master")
 	require.NoError(t, err)
@@ -4925,7 +4972,7 @@ func TestCronPipeline(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	t.Run("SimpleCron", func(t *testing.T) {
 		pipeline1 := tu.UniqueString("cron1-")
 		require.NoError(t, c.CreatePipeline(
@@ -4954,7 +5001,7 @@ func TestCronPipeline(t *testing.T) {
 		repo := fmt.Sprintf("%s_%s", pipeline1, "time")
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 		defer cancel() //cleanup resources
-		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", "")
+		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED)
 		require.NoError(t, err)
 		commitInfo, err := iter.Next()
 		require.NoError(t, err)
@@ -4995,7 +5042,7 @@ func TestCronPipeline(t *testing.T) {
 		repo := fmt.Sprintf("%s_%s", pipeline3, "time")
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 		defer cancel() //cleanup resources
-		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", "")
+		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED)
 		require.NoError(t, err)
 		commitInfo, err := iter.Next()
 		require.NoError(t, err)
@@ -5026,7 +5073,7 @@ func TestCronPipeline(t *testing.T) {
 		// subscribe to the pipeline1 cron repo and wait for inputs
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 		defer cancel() //cleanup resources
-		iter, err := c.WithCtx(ctx).SubscribeCommit(pipeline, "master", "")
+		iter, err := c.WithCtx(ctx).SubscribeCommit(pipeline, "master", "", pfs.CommitState_STARTED)
 		require.NoError(t, err)
 		for i := 0; i < 5; i++ {
 			commitInfo, err := iter.Next()
@@ -5061,7 +5108,7 @@ func TestCronPipeline(t *testing.T) {
 		// subscribe to the pipeline1 cron repo and wait for inputs
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 		defer cancel() //cleanup resources
-		iter, err := c.WithCtx(ctx).SubscribeCommit(pipeline, "master", "")
+		iter, err := c.WithCtx(ctx).SubscribeCommit(pipeline, "master", "", pfs.CommitState_STARTED)
 		require.NoError(t, err)
 		for i := 0; i < 5; i++ {
 			commitInfo, err := iter.Next()
@@ -5077,7 +5124,7 @@ func TestSelfReferentialPipeline(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	pipeline := tu.UniqueString("pipeline")
 	require.YesError(t, c.CreatePipeline(
 		pipeline,
@@ -5097,7 +5144,7 @@ func TestPipelineBadImage(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	pipeline1 := tu.UniqueString("bad_pipeline")
 	require.NoError(t, c.CreatePipeline(
 		pipeline1,
@@ -5141,7 +5188,7 @@ func TestFixPipeline(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestFixPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -5265,7 +5312,7 @@ func TestPipelineEnvVarAlias(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineEnvVarAlias_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -5306,13 +5353,13 @@ func TestPipelineEnvVarAlias(t *testing.T) {
 }
 
 func TestMaxQueueSize(t *testing.T) {
-	t.Skip("flaky")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
 
-	dataRepo := tu.UniqueString("TestMaxQueueSize_data")
+	dataRepo := tu.UniqueString("TestMaxQueueSize_input")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	commit1, err := c.StartCommit(dataRepo, "master")
@@ -5323,7 +5370,7 @@ func TestMaxQueueSize(t *testing.T) {
 	}
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
-	pipeline := tu.UniqueString("pipeline")
+	pipeline := tu.UniqueString("TestMaxQueueSize_output")
 	// This pipeline sleeps for 10 secs per datum
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
@@ -5332,7 +5379,7 @@ func TestMaxQueueSize(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
-					"sleep 10",
+					"sleep 5",
 				},
 			},
 			Input: client.NewAtomInput(dataRepo, "/*"),
@@ -5340,31 +5387,40 @@ func TestMaxQueueSize(t *testing.T) {
 				Constant: 2,
 			},
 			MaxQueueSize: 1,
+			ChunkSpec: &pps.ChunkSpec{
+				Number: 10,
+			},
 		})
 	require.NoError(t, err)
-	// Get job info 2x/sec for 20s until we confirm two workers for the current job
-	require.NoError(t, backoff.Retry(func() error {
-		jobs, err := c.ListJob(pipeline, nil, nil)
-		if err != nil {
-			return fmt.Errorf("could not list job: %s", err.Error())
-		}
-		if len(jobs) == 0 {
-			return fmt.Errorf("failed to find job")
-		}
-		jobInfo, err := c.InspectJob(jobs[0].Job.ID, false)
-		if err != nil {
-			return fmt.Errorf("could not inspect job: %s", err.Error())
-		}
-		if len(jobInfo.WorkerStatus) != 2 {
-			return fmt.Errorf("incorrect number of statuses: %v", len(jobInfo.WorkerStatus))
-		}
+
+	var jobInfo *pps.JobInfo
+	for i := 0; i < 10; i++ {
+		require.NoError(t, backoff.Retry(func() error {
+			jobs, err := c.ListJob(pipeline, nil, nil)
+			if err != nil {
+				return fmt.Errorf("could not list job: %s", err.Error())
+			}
+			if len(jobs) == 0 {
+				return fmt.Errorf("failed to find job")
+			}
+			jobInfo, err = c.InspectJob(jobs[0].Job.ID, false)
+			if err != nil {
+				return fmt.Errorf("could not inspect job: %s", err.Error())
+			}
+			if len(jobInfo.WorkerStatus) != 2 {
+				return fmt.Errorf("incorrect number of statuses: %v", len(jobInfo.WorkerStatus))
+			}
+			return nil
+		}, backoff.RetryEvery(500*time.Millisecond).For(60*time.Second)))
+
 		for _, status := range jobInfo.WorkerStatus {
 			if status.QueueSize > 1 {
-				return fmt.Errorf("queue size too big")
+				t.Fatalf("queue size too big: %d", status.QueueSize)
 			}
 		}
-		return nil
-	}, backoff.RetryEvery(500*time.Millisecond).For(20*time.Second)))
+
+		time.Sleep(500 * time.Millisecond)
+	}
 }
 
 func TestHTTPAuth(t *testing.T) {
@@ -5618,7 +5674,7 @@ func TestChunkSpec(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestChunkSpec_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -5692,7 +5748,7 @@ func TestLongDatums(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestLongDatums_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -5741,7 +5797,7 @@ func TestPipelineWithGitInputInvalidURLs(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	outputFilename := "commitSHA"
 	pipeline := tu.UniqueString("github_pipeline")
@@ -5807,7 +5863,7 @@ func TestPipelineWithGitInputPrivateGHRepo(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	outputFilename := "commitSHA"
 	pipeline := tu.UniqueString("github_pipeline")
@@ -5829,7 +5885,7 @@ func TestPipelineWithGitInputPrivateGHRepo(t *testing.T) {
 		false,
 	))
 	// There should be a pachyderm repo created w no commits:
-	repos, err := c.ListRepo(nil)
+	repos, err := c.ListRepo()
 	require.NoError(t, err)
 	found := false
 	for _, repo := range repos {
@@ -5862,7 +5918,7 @@ func TestPipelineWithGitInputDuplicateNames(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	outputFilename := "commitSHA"
 	pipeline := tu.UniqueString("github_pipeline")
@@ -5955,7 +6011,7 @@ func TestPipelineWithGitInput(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	outputFilename := "commitSHA"
 	pipeline := tu.UniqueString("github_pipeline")
@@ -6016,7 +6072,7 @@ func TestPipelineWithGitInputSequentialPushes(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	outputFilename := "commitSHA"
 	pipeline := tu.UniqueString("github_pipeline")
@@ -6100,7 +6156,7 @@ func TestPipelineWithGitInputCustomName(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	outputFilename := "commitSHA"
 	pipeline := tu.UniqueString("github_pipeline")
@@ -6163,7 +6219,7 @@ func TestPipelineWithGitInputMultiPipelineSeparateInputs(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	outputFilename := "commitSHA"
 	repos := []string{"pachyderm", "foo"}
@@ -6190,7 +6246,7 @@ func TestPipelineWithGitInputMultiPipelineSeparateInputs(t *testing.T) {
 			false,
 		))
 		// There should be a pachyderm repo created w no commits:
-		repos, err := c.ListRepo(nil)
+		repos, err := c.ListRepo()
 		require.NoError(t, err)
 		found := false
 		for _, repo := range repos {
@@ -6240,7 +6296,7 @@ func TestPipelineWithGitInputMultiPipelineSameInput(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	outputFilename := "commitSHA"
 	repos := []string{"test-artifacts", "test-artifacts"}
@@ -6266,7 +6322,7 @@ func TestPipelineWithGitInputMultiPipelineSameInput(t *testing.T) {
 			false,
 		))
 		// There should be a pachyderm repo created w no commits:
-		repos, err := c.ListRepo(nil)
+		repos, err := c.ListRepo()
 		require.NoError(t, err)
 		found := false
 		for _, repo := range repos {
@@ -6315,7 +6371,7 @@ func TestPipelineWithGitInputAndBranch(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	branchName := "foo"
 	outputFilename := "commitSHA"
@@ -6382,7 +6438,7 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineWithDatumTimeout_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -6450,7 +6506,7 @@ func TestPipelineWithDatumTimeoutControl(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineWithDatumTimeoutControl_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -6502,7 +6558,7 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineWithDatumTimeout_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -6562,7 +6618,7 @@ func TestCommitDescription(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -6617,7 +6673,7 @@ func TestGetFileWithEmptyCommits(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -6651,7 +6707,7 @@ func TestPipelineDescription(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestPipelineDescription_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -6678,7 +6734,7 @@ func TestListJobInputCommits(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	aRepo := tu.UniqueString("TestListJobInputCommits_data_a")
 	require.NoError(t, c.CreateRepo(aRepo))
@@ -6784,7 +6840,7 @@ func TestManyJobs(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestManyJobs_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -6828,12 +6884,12 @@ func TestExtractRestore(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestExtractRestore_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	nCommits := 5
+	nCommits := 2
 	r := rand.New(rand.NewSource(45))
 	fileContent := workload.RandString(r, 40*MB)
 	for i := 0; i < nCommits; i++ {
@@ -6844,7 +6900,7 @@ func TestExtractRestore(t *testing.T) {
 		require.NoError(t, c.FinishCommit(dataRepo, "master"))
 	}
 
-	numPipelines := 10
+	numPipelines := 3
 	input := dataRepo
 	for i := 0; i < numPipelines; i++ {
 		pipeline := tu.UniqueString(fmt.Sprintf("TestExtractRestore%d", i))
@@ -6889,7 +6945,7 @@ func TestCancelJob(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	// Create an input repo
 	repo := tu.UniqueString("TestCancelJob")
@@ -6990,7 +7046,7 @@ func TestCancelManyJobs(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	// Create an input repo
 	repo := tu.UniqueString("TestCancelManyJobs")
@@ -7070,7 +7126,7 @@ func TestDeleteCommitPropagation(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	// Create an input repo
 	repo := tu.UniqueString("TestDeleteCommitPropagation")
@@ -7163,7 +7219,7 @@ func TestDeleteCommitRunsJob(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	// Create an input repo
 	repo := tu.UniqueString("TestDeleteCommitRunsJob")
@@ -7304,7 +7360,7 @@ func TestEntryPoint(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll())
 
 	dataRepo := tu.UniqueString("TestEntryPoint_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -7368,6 +7424,149 @@ func TestDeleteSpecRepo(t *testing.T) {
 		false,
 	))
 	require.YesError(t, c.DeleteRepo("spec", false))
+}
+
+func TestUserWorkingDir(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestUserWorkingDir_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
+	pipeline := tu.UniqueString("TestSimplePipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Image: "pachyderm_entrypoint",
+				Cmd:   []string{"bash"},
+				Stdin: []string{
+					"ls -lh /pfs",
+					"whoami >/pfs/out/whoami",
+					"pwd >/pfs/out/pwd",
+					fmt.Sprintf("cat /pfs/%s/file >/pfs/out/file", dataRepo),
+				},
+				User:       "test",
+				WorkingDir: "/home/test",
+			},
+			Input: client.NewAtomInput(dataRepo, "/"),
+		})
+	require.NoError(t, err)
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "whoami", 0, 0, &buf))
+	require.Equal(t, "test\n", buf.String())
+	buf.Reset()
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "pwd", 0, 0, &buf))
+	require.Equal(t, "/home/test\n", buf.String())
+}
+
+func TestDontReadStdin(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	dataRepo := tu.UniqueString("TestDontReadStdin_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	pipeline := tu.UniqueString("TestDontReadStdin")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"true"},
+		[]string{"stdin that will never be read"},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/"),
+		"",
+		false,
+	))
+	numCommits := 20
+	for i := 0; i < numCommits; i++ {
+		commit, err := c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(dataRepo, "master"))
+		jobInfos, err := c.FlushJobAll([]*pfs.Commit{commit}, nil)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(jobInfos))
+		require.Equal(t, jobInfos[0].State.String(), pps.JobState_JOB_SUCCESS.String())
+	}
+}
+
+func TestStatsDeleteAll(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestPipelineWithStats_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
+	pipeline := tu.UniqueString("pipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"cp", fmt.Sprintf("/pfs/%s/file", dataRepo), "/pfs/out"},
+			},
+			Input:       client.NewAtomInput(dataRepo, "/"),
+			EnableStats: true,
+		})
+
+	jis, err := c.FlushJobAll([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jis))
+	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jis[0].State.String())
+	require.NoError(t, c.DeleteAll())
+
+	require.NoError(t, c.CreateRepo(dataRepo))
+	commit, err = c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"cp", fmt.Sprintf("/pfs/%s/file", dataRepo), "/pfs/out"},
+			},
+			Input:       client.NewAtomInput(dataRepo, "/*"),
+			EnableStats: true,
+		})
+
+	jis, err = c.FlushJobAll([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jis))
+	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jis[0].State.String())
+	require.NoError(t, c.DeleteAll())
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {

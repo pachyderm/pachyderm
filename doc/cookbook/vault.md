@@ -22,7 +22,14 @@ On your vault server:
 export SHASUM=$(shasum -a 256 "/tmp/vault-plugins/pachyderm" | cut -d " " -f1)
 echo $SHASUM
 vault write sys/plugins/catalog/pachyderm sha_256="$SHASUM" command="pachyderm"
-vault secrets enable -path=$PLUGIN_PATH -plugin-name=pachyderm plugin
+vault secrets enable -path=pachyderm -plugin-name=pachyderm plugin
+```
+
+**Note**: You may need to enable memory locking on the pachyderm plugin (see
+[https://www.vaultproject.io/docs/configuration/#disable_mlock]). That will look
+like:
+```
+sudo setcap cap_ipc_lock=+ep $(readlink -f /tmp/vault-plugins/pachyderm)
 ```
 
 3) Configure the plugin
@@ -31,27 +38,34 @@ You'll need to provide the plugin with a few fields for it to work:
 
 - `admin_token` : is the (machine user) pachyderm token the plugin will use to cut new credentials on behalf of users
 - `pachd_address` : is the URL where the pachyderm cluster can be accessed
-- `ttl` : is the max TTL a token can be issued (TODO)
+- `ttl` : is the max TTL a token can be issued
 
-```
-vault write pachyderm/config \
-    admin_token="${ADMIN_TOKEN}" \
-	pachd_address="${ADDRESS:-127.0.0.1}:30650"
-```
 
 To get a machine user `admin_token` from pachyderm:
 
 ```
-$ yes | pachctl auth activate -u admin
-$ pachctl auth login admin
-$ cat ~/.pachyderm/config.json | jq -r '.v1.session_token'
+$ pachctl auth activate # or 'pachctl auth login' if auth is already active
+$ ADMIN_TOKEN="$(cat ~/.pachyderm/config.json | jq -r '.v1.session_token')"
+$ echo "${ADMIN_TOKEN}"
 f7d120ee5084466b984376f34f3f06f6
 ```
 
-4) Manage user tokens with `revoke`
+```
+vault write pachyderm/config \
+    admin_token="${ADMIN_TOKEN}" \
+    pachd_address="${ADDRESS:-127.0.0.1:30650}" \
+    ttl=5m # optional
+```
+4) Test the plugin
 
 ```
-$vault token revoke d2f1f95c-2445-65ab-6a8b-546825e4997a
+vault write pachyderm/login username=robot:testuser
+```
+
+5) Manage user tokens with `revoke`
+
+```
+$ vault token revoke d2f1f95c-2445-65ab-6a8b-546825e4997a
 Success! Revoked token (if it existed)
 ```
 
@@ -61,9 +75,6 @@ Which will revoke the vault token. But if you also want to manually revoke a pac
 $vault write pachyderm/revoke user_token=xxx
 
 ```
-
-TODO: The above needs to be implemented. It's unclear how the sidechannel/etc works for the revocation step.
-
 
 ## Usage
 
@@ -85,7 +96,7 @@ Depending on your language / deployment this can vary. [see the vault documentat
 Again, your client could be in any language. But as an example using the vault CLI:
 
 ```
-$ vault write pachyderm/login username=bogusgithubusername
+$ vault write pachyderm/login username=aspiring_pachyderm_user
 Key                         Value
 ---                         -----
 token                       365686aa-d4e5-6b64-d557-aeb196ebd596
@@ -120,7 +131,7 @@ $ADDRESS=127.0.0.1:30650 pachctl list-repo
 You should issue a `renew` request once the halfway mark of the TTL has elapsed. The only argument for renewal is the tokens UUID which you receive from the `login` endpoint.
 
 ```
-$vault token renew 681f1d67-6865-aee0-994d-f119f7f118a0
+$vault token renew 365686aa-d4e5-6b64-d557-aeb196ebd596
 Key                         Value
 ---                         -----
 token                       681f1d67-6865-aee0-994d-f119f7f118a0

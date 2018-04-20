@@ -220,7 +220,7 @@ func getPachClient(t testing.TB, subject string) *client.APIClient {
 func deleteAll(tb testing.TB) {
 	tb.Helper()
 	adminClient := getPachClient(tb, "admin")
-	require.Nil(tb, adminClient.DeleteAll(), "initial DeleteAll()")
+	require.NoError(tb, adminClient.DeleteAll(), "initial DeleteAll()")
 }
 
 // entries constructs an auth.ACL struct from a list of the form
@@ -1391,10 +1391,10 @@ func TestListRepoNotLoggedInError(t *testing.T) {
 	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
 
 	// alice creates a repo
-	repoWriter := tu.UniqueString("TestListRepo")
-	require.NoError(t, aliceClient.CreateRepo(repoWriter))
+	repo := tu.UniqueString("TestListRepo")
+	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.ElementsEqual(t,
-		entries(alice, "owner"), GetACL(t, aliceClient, repoWriter))
+		entries(alice, "owner"), GetACL(t, aliceClient, repo))
 
 	// Anon (non-logged-in user) calls ListRepo, and must receive an error
 	_, err := anonClient.PfsAPIClient.ListRepo(anonClient.Ctx(),
@@ -1417,11 +1417,11 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 	adminClient := getPachClient(t, "admin")
 
 	// alice creates a repo
-	repoWriter := tu.UniqueString("TestListRepo")
-	require.NoError(t, aliceClient.CreateRepo(repoWriter))
+	repo := tu.UniqueString("TestListRepo")
+	require.NoError(t, aliceClient.CreateRepo(repo))
 
 	// bob calls ListRepo, but has NONE access to all repos
-	infos, err := bobClient.ListRepo([]string{})
+	infos, err := bobClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
 		require.Equal(t, auth.Scope_NONE, info.AuthInfo.AccessLevel)
@@ -1441,7 +1441,7 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// bob calls ListRepo, now AuthInfo isn't set anywhere
-	infos, err = bobClient.ListRepo([]string{})
+	infos, err = bobClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
 		require.Nil(t, info.AuthInfo)
@@ -1468,6 +1468,22 @@ func TestCreateRepoAlreadyExistsError(t *testing.T) {
 	err := bobClient.CreateRepo(repo)
 	require.YesError(t, err)
 	require.Matches(t, "already exists", err.Error())
+}
+
+// TestCreateRepoNotLoggedInError makes sure that if a user isn't logged in, and
+// they call CreateRepo(), they get an error.
+func TestCreateRepoNotLoggedInError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	anonClient := getPachClient(t, "")
+
+	// anonClient tries and fails to create a repo
+	repo := tu.UniqueString("TestCreateRepo")
+	err := anonClient.CreateRepo(repo)
+	require.YesError(t, err)
+	require.Matches(t, "auth token not found in context", err.Error())
 }
 
 // TestDeleteRepoDoesntExistError tests that if a client calls DeleteRepo on a

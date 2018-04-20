@@ -149,12 +149,14 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (
 			nil,
 			&authclient.TokenInfo{},
 			nil,
+			nil,
 		),
 		acls: col.NewCollection(
 			etcdClient,
 			path.Join(etcdPrefix, aclsPrefix),
 			nil,
 			&authclient.ACL{},
+			nil,
 			nil,
 		),
 		admins: col.NewCollection(
@@ -163,12 +165,40 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (
 			nil,
 			&types.BoolValue{}, // smallest value that etcd actually stores
 			nil,
+			nil,
 		),
 	}
 	go s.getPachClient() // initialize connection to Pachd
 	go s.watchAdmins(path.Join(etcdPrefix, adminsPrefix))
 	go s.retrieveOrGeneratePPSToken()
 	return s, nil
+}
+
+type activationState int
+
+const (
+	none activationState = iota
+	partial
+	full
+)
+
+// activationState returns 'none' if auth is totally inactive, 'partial' if
+// auth.Activate has been called, but hasn't finished or failed, and full
+// if auth.Activate has been called and succeeded.
+//
+// When the activation state is 'partial' users cannot authenticate; the only
+// functioning auth API calls are Activate() (to retry activation) and
+// Deactivate() (to give up and revert to the 'none' state)
+func (a *apiServer) activationState() activationState {
+	a.adminMu.Lock()
+	defer a.adminMu.Unlock()
+	if len(a.adminCache) == 0 {
+		return none
+	}
+	if _, magicUserIsAdmin := a.adminCache[magicUser]; magicUserIsAdmin {
+		return partial
+	}
+	return full
 }
 
 // Retrieve the PPS master token, or generate it and put it in etcd.
@@ -184,7 +214,7 @@ func (a *apiServer) retrieveOrGeneratePPSToken() {
 	b.MaxInterval = 5 * time.Second
 	if err := backoff.Retry(func() error {
 		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-			superUserTokenCol := col.NewCollection(a.etcdClient, ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil).ReadWrite(stm)
+			superUserTokenCol := col.NewCollection(a.etcdClient, ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil, nil).ReadWrite(stm)
 			err := superUserTokenCol.Get("", &tokenProto)
 			if err == nil {
 				return nil
@@ -286,32 +316,62 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	// otherwise anyone can just activate the service again and set
 	// themselves as an admin. If activation failed in PFS, calling auth.Activate
 	// again should work (in this state, the only admin will be 'magicUser')
-	if fullyActivated := func() bool {
-		a.adminMu.Lock()
-		defer a.adminMu.Unlock()
-		_, magicUserIsAdmin := a.adminCache[magicUser]
-		return len(a.adminCache) > 0 && !magicUserIsAdmin
-	}(); fullyActivated {
+	if a.activationState() == full {
 		return nil, fmt.Errorf("already activated")
 	}
 
-	// Hack: set the cluster admins to just {magicUser}. This ensures that no
-	// pipelines can be created while PPS is granting all existing pipelines auth
-	// tokens and adjusting the ACLs of input/output repos
+	// Authenticate the caller (or generate a new auth token if req.Subject is a
+	// robot user)
+	if req.Subject != "" {
+		req.Subject, err = lenientCanonicalizeSubject(ctx, req.Subject)
+		if err != nil {
+			return nil, err
+		}
+	}
+	switch {
+	case req.Subject == "":
+		fallthrough
+	case strings.HasPrefix(req.Subject, authclient.GitHubPrefix):
+		username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
+		if err != nil {
+			return nil, err
+		}
+		if req.Subject != "" && req.Subject != username {
+			return nil, fmt.Errorf("asserted subject \"%s\" did not match owner of GitHub token \"%s\"", req.Subject, username)
+		}
+		req.Subject = username
+	case strings.HasPrefix(req.Subject, authclient.RobotPrefix):
+		// pass - req.Subject will be used verbatim, and the resulting code will
+		// authenticate the holder as the robot account therein
+	default:
+		return nil, fmt.Errorf("invalid subject in request (must be a GitHub user or robot): \"%s\"", req.Subject)
+	}
+
+	// Hack: set the cluster admins to just {magicUser}. This puts the auth system
+	// in the "partial" activation state. Users cannot authenticate, but auth
+	// checks are now enforced, which means no pipelines or repos can be created
+	// while ACLs are being added to every repo for the existing pipelines
 	if _, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		return a.admins.ReadWrite(stm).Put(magicUser, epsilon)
 	}); err != nil {
 		return nil, err
 	}
+	// wait until watchAdmins has updated the local cache (changing the activation
+	// state)
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = 30 * time.Second
+	if err := backoff.Retry(func() error {
+		if a.activationState() != partial {
+			return fmt.Errorf("auth never entered \"partial\" activation state")
+		}
+		return nil
+	}, b); err != nil {
+		return nil, err
+	}
+	time.Sleep(time.Second) // give other pachd nodes time to update their cache
 
 	// Call PPS.ActivateAuth to set up all affected pipelines and repos
 	if _, err := pachClient.ActivateAuth(ctx, &pps.ActivateAuthRequest{}); err != nil {
-		return nil, err
-	}
-
-	// Determine caller's Pachyderm/GitHub username
-	username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
-	if err != nil {
 		return nil, err
 	}
 
@@ -324,13 +384,13 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 		if err := admins.Delete(magicUser); err != nil {
 			return err
 		}
-		if err := admins.Put(username, epsilon); err != nil {
+		if err := admins.Put(req.Subject, epsilon); err != nil {
 			return err
 		}
 		return tokens.PutTTL(
 			hashToken(pachToken),
 			&authclient.TokenInfo{
-				Subject: username,
+				Subject: req.Subject,
 				Source:  authclient.TokenInfo_AUTHENTICATE,
 			},
 			defaultTokenTTLSecs,
@@ -339,17 +399,18 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 		return nil, err
 	}
 
-	// wait until watchAdmins has activated auth, so that Activate() is less
-	// likely to race with subsequent calls that expect auth to be activated.
+	// wait until watchAdmins has updated the local cache (changing the
+	// activation state), so that Activate() is less likely to race with
+	// subsequent calls that expect auth to be activated.
 	// TODO this is a bit hacky (checking repeatedly in a spin loop) but
 	// Activate() is rarely called, and it helps avoid races due to other pachd
 	// pods being out of date.
 	if err := backoff.Retry(func() error {
-		if !a.isActivated() {
-			return authclient.ErrNotActivated
+		if a.activationState() != full {
+			return fmt.Errorf("auth never entered \"full\" activation state")
 		}
 		return nil
-	}, backoff.RetryEvery(time.Second)); err != nil {
+	}, b); err != nil {
 		return nil, err
 	}
 	time.Sleep(time.Second) // give other pachd nodes time to update their cache
@@ -359,19 +420,40 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRequest) (resp *authclient.DeactivateResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.isActivated() {
+	if a.activationState() == none {
+		// users should be able to call "deactivate" from the "partial" activation
+		// state, in case activation fails and they need to revert to "none"
 		return nil, authclient.ErrNotActivated
+	}
+
+	// Check if the cluster is in a partially-activated state. If so, allow it to
+	// be completely deactivated so that it returns to normal
+	var magicUserIsAdmin bool
+	func() {
+		a.adminMu.Lock()
+		defer a.adminMu.Unlock()
+		_, magicUserIsAdmin = a.adminCache[magicUser]
+	}()
+	if magicUserIsAdmin {
+		_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			a.admins.ReadWrite(stm).DeleteAll() // watchAdmins() will see the write
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		return &authclient.DeactivateResponse{}, nil
 	}
 
 	// Get calling user. The user must be a cluster admin to disable auth for the
 	// cluster
-	tokenInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if !a.isAdmin(tokenInfo.Subject) {
+	if !a.isAdmin(callerInfo.Subject) {
 		return nil, &authclient.ErrNotAuthorized{
-			Subject: tokenInfo.Subject,
+			Subject: callerInfo.Subject,
 			AdminOp: "DeactivateAuth",
 		}
 	}
@@ -391,7 +473,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 	// Deactivate() is rarely called, and it helps avoid races due to other pachd
 	// pods being out of date.
 	if err := backoff.Retry(func() error {
-		if a.isActivated() {
+		if a.activationState() != none {
 			return fmt.Errorf("auth still activated")
 		}
 		return nil
@@ -400,12 +482,6 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 	}
 	time.Sleep(time.Second) // give other pachd nodes time to update their cache
 	return &authclient.DeactivateResponse{}, nil
-}
-
-func (a *apiServer) isActivated() bool {
-	a.adminMu.Lock()
-	defer a.adminMu.Unlock()
-	return len(a.adminCache) > 0
 }
 
 // GitHubTokenToUsername takes a OAuth access token issued by GitHub and uses
@@ -442,17 +518,18 @@ func GitHubTokenToUsername(ctx context.Context, oauthToken string) (string, erro
 func (a *apiServer) GetAdmins(ctx context.Context, req *authclient.GetAdminsRequest) (resp *authclient.GetAdminsResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.isActivated() {
+	switch a.activationState() {
+	case none:
 		return nil, authclient.ErrNotActivated
-	}
-
-	// Get calling user. There is no auth check to see the list of cluster admins,
-	// other than that the user must log in. Otherwise how will users know who to
-	// ask for admin privileges? Requiring the user to be logged in mitigates
-	// phishing
-	_, err := a.getAuthenticatedUser(ctx)
-	if err != nil {
-		return nil, err
+	case full:
+		// Get calling user. There is no auth check to see the list of cluster
+		// admins, other than that the user must log in. Otherwise how will users
+		// know who to ask for admin privileges? Requiring the user to be logged in
+		// mitigates phishing
+		_, err := a.getAuthenticatedUser(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	a.adminMu.Lock()
@@ -507,18 +584,21 @@ func (a *apiServer) validateModifyAdminsRequest(add []string, remove []string) e
 func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdminsRequest) (resp *authclient.ModifyAdminsResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.isActivated() {
+	switch a.activationState() {
+	case none:
 		return nil, authclient.ErrNotActivated
+	case partial:
+		return nil, authclient.ErrPartiallyActivated
 	}
 
 	// Get calling user. The user must be an admin to change the list of admins
-	tokenInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if !a.isAdmin(tokenInfo.Subject) {
+	if !a.isAdmin(callerInfo.Subject) {
 		return nil, &authclient.ErrNotAuthorized{
-			Subject: tokenInfo.Subject,
+			Subject: callerInfo.Subject,
 			AdminOp: "ModifyAdmins",
 		}
 	}
@@ -581,12 +661,19 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 }
 
 func (a *apiServer) Authenticate(ctx context.Context, req *authclient.AuthenticateRequest) (resp *authclient.AuthenticateResponse, retErr error) {
+	switch a.activationState() {
+	case none:
+		// PPS is authenticated by a token read from etcd. It never calls or needs
+		// to call authenticate, even while the cluster is partway through the
+		// activation process
+		return nil, authclient.ErrNotActivated
+	case partial:
+		return nil, authclient.ErrPartiallyActivated
+	}
+
 	// We don't want to actually log the request/response since they contain
 	// credentials.
 	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
-	if !a.isActivated() {
-		return nil, authclient.ErrNotActivated
-	}
 
 	// Determine caller's Pachyderm/GitHub username
 	username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
@@ -628,17 +715,17 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequest) (resp *authclient.AuthorizeResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.isActivated() {
+	if a.activationState() == none {
 		return nil, authclient.ErrNotActivated
 	}
 
-	tokenInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	// admins are always authorized
-	if a.isAdmin(tokenInfo.Subject) {
+	if a.isAdmin(callerInfo.Subject) {
 		return &authclient.AuthorizeResponse{Authorized: true}, nil
 	}
 
@@ -656,10 +743,8 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 	if err != nil {
 		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
-	if state != enterpriseclient.State_ACTIVE && tokenInfo.Source != authclient.TokenInfo_GET_TOKEN {
-		// currently, GetAuthToken is only called by CreatePipeline. This only checks
-		// the token source so that we return this error to humans but not pipelines
-		// TODO: Make pipelines their own Subjects, and check that instead
+	if state != enterpriseclient.State_ACTIVE &&
+		!strings.HasPrefix(callerInfo.Subject, authclient.PipelinePrefix) {
 		return nil, errors.New("Pachyderm Enterprise is not active in this " +
 			"cluster (until Pachyderm Enterprise is re-activated or Pachyderm " +
 			"auth is deactivated, only cluster admins can perform any operations)")
@@ -672,24 +757,24 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 	}
 
 	return &authclient.AuthorizeResponse{
-		Authorized: req.Scope <= acl.Entries[tokenInfo.Subject],
+		Authorized: req.Scope <= acl.Entries[callerInfo.Subject],
 	}, nil
 }
 
 func (a *apiServer) WhoAmI(ctx context.Context, req *authclient.WhoAmIRequest) (resp *authclient.WhoAmIResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.isActivated() {
+	if a.activationState() == none {
 		return nil, authclient.ErrNotActivated
 	}
 
-	tokenInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return &authclient.WhoAmIResponse{
-		Username: tokenInfo.Subject,
-		IsAdmin:  a.isAdmin(tokenInfo.Subject),
+		Username: callerInfo.Subject,
+		IsAdmin:  a.isAdmin(callerInfo.Subject),
 	}, nil
 }
 
@@ -716,7 +801,7 @@ func (a *apiServer) isAdmin(user string) bool {
 func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeRequest) (resp *authclient.SetScopeResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.isActivated() {
+	if a.activationState() == none {
 		return nil, authclient.ErrNotActivated
 	}
 	pachClient := a.getPachClient().WithCtx(ctx)
@@ -725,7 +810,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 	if err := validateSetScopeRequest(ctx, req); err != nil {
 		return nil, err
 	}
-	tokenInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -752,7 +837,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 
 		// Check if the caller is authorized
 		authorized, err := func() (bool, error) {
-			if a.isAdmin(tokenInfo.Subject) {
+			if a.isAdmin(callerInfo.Subject) {
 				// admins are automatically authorized
 				return true, nil
 			}
@@ -768,7 +853,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 			}
 
 			// Check if the user is on the ACL directly
-			if acl.Entries[tokenInfo.Subject] == authclient.Scope_OWNER {
+			if acl.Entries[callerInfo.Subject] == authclient.Scope_OWNER {
 				return true, nil
 			}
 			return false, nil
@@ -778,7 +863,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 		}
 		if !authorized {
 			return &authclient.ErrNotAuthorized{
-				Subject:  tokenInfo.Subject,
+				Subject:  callerInfo.Subject,
 				Repo:     req.Repo,
 				Required: authclient.Scope_OWNER,
 			}
@@ -809,11 +894,11 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeRequest) (resp *authclient.GetScopeResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.isActivated() {
+	if a.activationState() == none {
 		return nil, authclient.ErrNotActivated
 	}
 
-	tokenInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -823,7 +908,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 	if err != nil {
 		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
-	if state != enterpriseclient.State_ACTIVE && !a.isAdmin(tokenInfo.Subject) {
+	if state != enterpriseclient.State_ACTIVE && !a.isAdmin(callerInfo.Subject) {
 		return nil, fmt.Errorf("Pachyderm Enterprise is not active in this " +
 			"cluster (only a cluster admin can perform any operations)")
 	}
@@ -844,13 +929,13 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 
 		// ACL read is authorized
 		if req.Username == "" {
-			resp.Scopes = append(resp.Scopes, acl.Entries[tokenInfo.Subject])
+			resp.Scopes = append(resp.Scopes, acl.Entries[callerInfo.Subject])
 		} else {
 			// Caller is getting another user's scopes. Check if the caller is
 			// authorized to view this repo's ACL
-			if !a.isAdmin(tokenInfo.Subject) && acl.Entries[tokenInfo.Subject] < authclient.Scope_READER {
+			if !a.isAdmin(callerInfo.Subject) && acl.Entries[callerInfo.Subject] < authclient.Scope_READER {
 				return nil, &authclient.ErrNotAuthorized{
-					Subject:  tokenInfo.Subject,
+					Subject:  callerInfo.Subject,
 					Repo:     repo,
 					Required: authclient.Scope_READER,
 				}
@@ -868,7 +953,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (resp *authclient.GetACLResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.isActivated() {
+	if a.activationState() == none {
 		return nil, authclient.ErrNotActivated
 	}
 
@@ -878,7 +963,7 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	}
 
 	// Get calling user
-	tokenInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -888,7 +973,7 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	if err != nil {
 		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
-	if state != enterpriseclient.State_ACTIVE && !a.isAdmin(tokenInfo.Subject) {
+	if state != enterpriseclient.State_ACTIVE && !a.isAdmin(callerInfo.Subject) {
 		return nil, fmt.Errorf("Pachyderm Enterprise is not active in this " +
 			"cluster (only a cluster admin can perform any operations)")
 	}
@@ -915,7 +1000,7 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (resp *authclient.SetACLResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.isActivated() {
+	if a.activationState() == none {
 		return nil, authclient.ErrNotActivated
 	}
 
@@ -925,7 +1010,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 	}
 
 	// Get calling user
-	tokenInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -962,7 +1047,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 
 		// determine if the caller is authorized to set this repo's ACL
 		authorized, err := func() (bool, error) {
-			if a.isAdmin(tokenInfo.Subject) {
+			if a.isAdmin(callerInfo.Subject) {
 				// admins are automatically authorized
 				return true, nil
 			}
@@ -985,7 +1070,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 			}
 			if len(acl.Entries) > 0 {
 				// ACL is present; caller must be authorized directly
-				if acl.Entries[tokenInfo.Subject] == authclient.Scope_OWNER {
+				if acl.Entries[callerInfo.Subject] == authclient.Scope_OWNER {
 					return true, nil
 				}
 				return false, nil
@@ -1001,7 +1086,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 				// Unclear if repo exists -- return error
 				return false, fmt.Errorf("could not inspect \"%s\": %v", req.Repo, err)
 			} else if len(newACL.Entries) == 1 &&
-				newACL.Entries[tokenInfo.Subject] == authclient.Scope_OWNER {
+				newACL.Entries[callerInfo.Subject] == authclient.Scope_OWNER {
 				// Special case: Repo doesn't exist, but user is creating a new Repo, and
 				// making themself the owner, e.g. for CreateRepo or CreatePipeline, then
 				// the request is authorized
@@ -1014,7 +1099,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 		}
 		if !authorized {
 			return &authclient.ErrNotAuthorized{
-				Subject:  tokenInfo.Subject,
+				Subject:  callerInfo.Subject,
 				Repo:     req.Repo,
 				Required: authclient.Scope_OWNER,
 			}
@@ -1035,7 +1120,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTokenRequest) (resp *authclient.GetAuthTokenResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.isActivated() {
+	if a.activationState() == none {
 		return nil, authclient.ErrNotActivated
 	}
 	if req.Subject == "" {
@@ -1076,14 +1161,15 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 		return nil, fmt.Errorf("error storing token: %v", err)
 	}
 	return &authclient.GetAuthTokenResponse{
-		Token: token,
+		Subject: subject,
+		Token:   token,
 	}, nil
 }
 
 func (a *apiServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendAuthTokenRequest) (resp *authclient.ExtendAuthTokenResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.isActivated() {
+	if a.activationState() != full {
 		return nil, authclient.ErrNotActivated
 	}
 	if req.TTL == 0 {
@@ -1091,13 +1177,13 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendA
 	}
 
 	// Only admins can extend auth tokens (for now)
-	tokenInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if !a.isAdmin(tokenInfo.Subject) {
+	if !a.isAdmin(callerInfo.Subject) {
 		return nil, &authclient.ErrNotAuthorized{
-			Subject: tokenInfo.Subject,
+			Subject: callerInfo.Subject,
 			AdminOp: "ExtendAuthToken",
 		}
 	}
@@ -1142,7 +1228,7 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendA
 func (a *apiServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeAuthTokenRequest) (resp *authclient.RevokeAuthTokenResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
-	if !a.isActivated() {
+	if a.activationState() != full {
 		return nil, authclient.ErrNotActivated
 	}
 
@@ -1164,7 +1250,7 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeA
 		}
 		if !a.isAdmin(callerInfo.Subject) && tokenInfo.Subject != callerInfo.Subject {
 			return &authclient.ErrNotAuthorized{
-				Subject: tokenInfo.Subject,
+				Subject: callerInfo.Subject,
 				AdminOp: "RevokeAuthToken on another user's token",
 			}
 		}
@@ -1222,6 +1308,8 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.Token
 // 'subject' has no prefix, they are assumed to be a GitHub user.
 func lenientCanonicalizeSubject(ctx context.Context, subject string) (string, error) {
 	if strings.Index(subject, ":") < 0 {
+		// assume default 'github:' prefix (then canonicalize the GitHub username in
+		// canonicalizeSubject)
 		subject = authclient.GitHubPrefix + subject
 	}
 	return canonicalizeSubject(ctx, subject)

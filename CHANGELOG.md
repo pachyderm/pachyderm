@@ -1,5 +1,56 @@
 # Changelog
 
+## 1.7.1
+
+- Introduces a new model for scaling up and down pipeline workers. [Read more](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html#standby-optional).
+- It's now possible to run Pachyderm without workers needing access to the docker socket. (#2813)
+- Fixes a bug that caused stats enabled pipelines to get stuck in a restart loop if they were deleted and recreated. (#2816)
+- Fixes a bug that broke logging due to removing newlines between log messages. (#2852)
+- Fixes a bug that caused pachd to segfault when etcd didn't come up properly. (#2840)
+- Fixes a bug that would cause jobs to occasionally fail with a "broken pipe" error. (#2832)
+- `pachctl version` now supports the `--raw` flag like other `pachctl` commands. (#2817)
+- Fixes a bug that caused `max_queue_size` to be ignored in pipelines. (#2818)
+
+## 1.7.0
+
+- Implements a new algorithm for triggering jobs in response to new commits.
+- Pachyderm now tracks subvenance, the inverse of provenance.
+- Branches now track provenance and subvenance.
+- Restrictions on delete-commit have been removed, you can now delete any input commit and the DAG will repair itself appropriately.
+- Pachyderm workers no longer use long running grpc requests to schedule work, they use an etcd based queue instead. This solves a number of bugs we had with larger jobs.
+- You can now backup and restore your cluster with extract and restore.
+- Pipelines now support timeouts, both for the job as a whole or for individual datums.
+- You can now follow jobs logs with -f.
+- Support for Kubernetes RBAC.
+- Docker images with entrypoints can now be run, you do this by not specifying a cmd.
+- Pachctl now has bash completion, including for values stored within it. (pachctl completion to install it)
+- pachctl deploy now has a --namespace flag to deploy to a specific namespace.
+- You can no longer commit directly to output repos, this would cause a number of problems with the internal model that were tough to recover from.
+
+## 1.6.10
+
+- Fixes a bug in extract that prevented some migrations from completing.
+
+## 1.6.9
+
+- Adds admin commands extract and restore.
+
+## 1.6.8
+
+- Fixed an issue that could cause output data to get doubled. (#2644)
+- Fix / add filtering of jobs in list-job by input commits. (#2642)
+- Extends bash completion to cover values as well as keywords. (#2617)
+- Adds better validation of file paths. (#2627)
+
+## 1.6.7
+
+- Support for Google Service Accounts
+- RBAC support
+- Follow and tail logs
+- Expose public IP for githook service
+- Handle many 100k+ files in a single commit, which allows users to more easily manage/version millions of files.
+- Fix datum status in the UI
+
 ## 1.6.6
 
 - Users can now specify k8s resource limits on a pipeline

@@ -41,10 +41,13 @@ type collection struct {
 	// keyCheck is a function that checks if a key is valid.  Invalid keys
 	// cannot be created.
 	keyCheck func(string) error
+
+	// valCheck is a function that checks if a value is valid.
+	valCheck func(proto.Message) error
 }
 
 // NewCollection creates a new collection.
-func NewCollection(etcdClient *etcd.Client, prefix string, indexes []Index, template proto.Message, keyCheck func(string) error) Collection {
+func NewCollection(etcdClient *etcd.Client, prefix string, indexes []Index, template proto.Message, keyCheck func(string) error, valCheck func(proto.Message) error) Collection {
 	// We want to ensure that the prefix always ends with a trailing
 	// slash.  Otherwise, when you list the items under a collection
 	// such as `foo`, you might end up listing items under `foobar`
@@ -60,6 +63,7 @@ func NewCollection(etcdClient *etcd.Client, prefix string, indexes []Index, temp
 		limit:      defaultLimit,
 		template:   template,
 		keyCheck:   keyCheck,
+		valCheck:   valCheck,
 	}
 }
 
@@ -187,6 +191,11 @@ func (c *readWriteCollection) PutTTL(key string, val proto.Message, ttl int64) e
 
 	if c.collection.keyCheck != nil {
 		if err := c.collection.keyCheck(key); err != nil {
+			return err
+		}
+	}
+	if c.collection.valCheck != nil {
+		if err := c.collection.valCheck(val); err != nil {
 			return err
 		}
 	}

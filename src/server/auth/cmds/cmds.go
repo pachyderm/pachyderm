@@ -43,19 +43,30 @@ func writePachTokenToCfg(token string) error {
 		cfg.V1 = &config.ConfigV1{}
 	}
 	cfg.V1.SessionToken = token
-	return cfg.Write()
+	if err := cfg.Write(); err != nil {
+		return fmt.Errorf("error writing pachyderm config: %v", err)
+	}
+	return nil
 }
 
 // ActivateCmd returns a cobra.Command to activate Pachyderm's auth system
 func ActivateCmd() *cobra.Command {
+	var initialAdmin string
 	activate := &cobra.Command{
 		Use:   "activate",
 		Short: "Activate Pachyderm's auth system",
-		Long:  "Activate Pachyderm's auth system, and restrict access to existing data to cluster admins",
+		Long: `
+Activate Pachyderm's auth system, and restrict access to existing data to the
+user running the command (or the argument to --initial-admin), who will be the
+first cluster admin`[1:],
 		Run: cmdutil.Run(func(args []string) error {
-			token, err := githubLogin()
-			if err != nil {
-				return err
+			var token string
+			var err error
+			if !strings.HasPrefix(initialAdmin, auth.RobotPrefix) {
+				token, err = githubLogin()
+				if err != nil {
+					return err
+				}
 			}
 			fmt.Println("Retrieving Pachyderm token...")
 
@@ -64,16 +75,34 @@ func ActivateCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
-			resp, err := c.Activate(
-				c.Ctx(),
-				&auth.ActivateRequest{GitHubToken: token})
+			resp, err := c.Activate(c.Ctx(),
+				&auth.ActivateRequest{
+					GitHubToken: token,
+					Subject:     initialAdmin,
+				})
 			if err != nil {
 				return fmt.Errorf("error activating Pachyderm auth: %v",
 					grpcutil.ScrubGRPC(err))
 			}
-			return writePachTokenToCfg(resp.PachToken)
+			if err := writePachTokenToCfg(resp.PachToken); err != nil {
+				return err
+			}
+			if strings.HasPrefix(initialAdmin, auth.RobotPrefix) {
+				fmt.Println("WARNING: DO NOT LOSE THE ROBOT TOKEN BELOW WITHOUT " +
+					"ADDING OTHER ADMINS.\nIF YOU DO, YOU WILL BE PERMANENTLY LOCKED OUT " +
+					"OF YOUR CLUSTER!")
+				fmt.Printf("Pachyderm token for \"%s\":\n%s\n", initialAdmin, resp.PachToken)
+			}
+			return nil
 		}),
 	}
+	activate.PersistentFlags().StringVar(&initialAdmin, "initial-admin", "", `
+The subject (robot user or github user) who
+will be the first cluster admin; the user running 'activate' will identify as
+this user once auth is active.  If you set 'initial-admin' to a robot
+user, pachctl will print that robot user's Pachyderm token; this token is
+effectively a root token, and if it's lost you will be locked out of your
+cluster`[1:])
 	return activate
 }
 
@@ -130,6 +159,11 @@ func LoginCmd() *cobra.Command {
 				c.Ctx(),
 				&auth.AuthenticateRequest{GitHubToken: token})
 			if err != nil {
+				if auth.IsErrPartiallyActivated(err) {
+					return fmt.Errorf("%v: if pachyderm is stuck in this state, you "+
+						"can revert by running 'pachctl auth deactivate' or retry by "+
+						"running 'pachctl auth activate' again", err)
+				}
 				return fmt.Errorf("error authenticating with Pachyderm cluster: %v",
 					grpcutil.ScrubGRPC(err))
 			}
@@ -351,6 +385,11 @@ func ModifyAdminsCmd() *cobra.Command {
 				Add:    add,
 				Remove: remove,
 			})
+			if auth.IsErrPartiallyActivated(err) {
+				return fmt.Errorf("%v: if pachyderm is stuck in this state, you "+
+					"can revert by running 'pachctl auth deactivate' or retry by "+
+					"running 'pachctl auth activate' again", err)
+			}
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
@@ -359,6 +398,63 @@ func ModifyAdminsCmd() *cobra.Command {
 	modifyAdmins.PersistentFlags().StringSliceVar(&remove, "remove", []string{},
 		"Comma-separated list of users revoke admin status")
 	return modifyAdmins
+}
+
+// GetAuthTokenCmd returns a cobra command that lets a user get a pachyderm
+// token on behalf of themselves or another user
+func GetAuthTokenCmd() *cobra.Command {
+	var quiet bool
+	getAuthToken := &cobra.Command{
+		Use:   "get-auth-token username",
+		Short: "Get an auth token that authenticates the holder as \"username\"",
+		Long: "Get an auth token that authenticates the holder as \"username\"; " +
+			"this can only be called by cluster admins",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			subject := args[0]
+			c, err := client.NewOnUserMachine(true, "user")
+			if err != nil {
+				return fmt.Errorf("could not connect: %v", err)
+			}
+			resp, err := c.GetAuthToken(c.Ctx(), &auth.GetAuthTokenRequest{
+				Subject: subject,
+			})
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			if quiet {
+				fmt.Println(resp.Token)
+			} else {
+				fmt.Printf("New credentials:\n  Subject: %s\n  Token: %s\n", resp.Subject, resp.Token)
+			}
+			return nil
+		}),
+	}
+	getAuthToken.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "if "+
+		"set, only print the resulting token (if successful). This is useful for "+
+		"scripting, as the output can be piped to use-auth-token")
+	return getAuthToken
+}
+
+// UseAuthTokenCmd returns a cobra command that lets a user get a pachyderm
+// token on behalf of themselves or another user
+func UseAuthTokenCmd() *cobra.Command {
+	setScope := &cobra.Command{
+		Use: "use-auth-token",
+		Short: "Read a Pachyderm auth token from stdin, and write it to the " +
+			"current user's Pachyderm config file",
+		Long: "Read a Pachyderm auth token from stdin, and write it to the " +
+			"current user's Pachyderm config file",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			fmt.Println("Please paste your Pachyderm auth token:")
+			token, err := bufio.NewReader(os.Stdin).ReadString('\n')
+			if err != nil {
+				return fmt.Errorf("error reading token: %v", err)
+			}
+			writePachTokenToCfg(strings.TrimSpace(token)) // drop trailing newline
+			return nil
+		}),
+	}
+	return setScope
 }
 
 // Cmds returns a list of cobra commands for authenticating and authorizing
@@ -379,5 +475,7 @@ func Cmds() []*cobra.Command {
 	auth.AddCommand(GetCmd())
 	auth.AddCommand(ListAdminsCmd())
 	auth.AddCommand(ModifyAdminsCmd())
+	auth.AddCommand(GetAuthTokenCmd())
+	auth.AddCommand(UseAuthTokenCmd())
 	return []*cobra.Command{auth}
 }

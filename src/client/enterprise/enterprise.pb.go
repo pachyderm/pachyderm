@@ -235,11 +235,9 @@ type APIClient interface {
 	// token and sets its enterprise state to NONE (normally, once a cluster has
 	// been activated, the only reachable state is EXPIRED).
 	//
-	// Note that this must be called immediately after delete-all, otherwise the
-	// cluster can end up in invalid states (and is not guaranteed to behave in a
-	// sane or consistent way).
-	// TODO: make DeleteAll() an admin API endpoint, and make this an internal
-	// endpoint that only DeleteAll() uses.
+	// NOTE: This endpoint also calls DeleteAll (and deletes all Pachyderm data in
+	// its cluster). This is to avoid dealing with invalid, intermediate states
+	// (e.g. auth is activated but enterprise state is NONE)
 	Deactivate(ctx context.Context, in *DeactivateRequest, opts ...grpc.CallOption) (*DeactivateResponse, error)
 }
 
@@ -289,11 +287,9 @@ type APIServer interface {
 	// token and sets its enterprise state to NONE (normally, once a cluster has
 	// been activated, the only reachable state is EXPIRED).
 	//
-	// Note that this must be called immediately after delete-all, otherwise the
-	// cluster can end up in invalid states (and is not guaranteed to behave in a
-	// sane or consistent way).
-	// TODO: make DeleteAll() an admin API endpoint, and make this an internal
-	// endpoint that only DeleteAll() uses.
+	// NOTE: This endpoint also calls DeleteAll (and deletes all Pachyderm data in
+	// its cluster). This is to avoid dealing with invalid, intermediate states
+	// (e.g. auth is activated but enterprise state is NONE)
 	Deactivate(context.Context, *DeactivateRequest) (*DeactivateResponse, error)
 }
 
