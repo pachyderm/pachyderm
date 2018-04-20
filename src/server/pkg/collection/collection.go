@@ -480,7 +480,7 @@ func (c *readonlyCollection) GetByIndexF(index Index, indexVal interface{}, val 
 		limit := defaultLimit
 		index.limit = &limit
 	}
-	return c.listF(c.indexDir(index, val), index.limit, func(kv *mvccpb.KeyValue) error {
+	return c.listF(c.indexDir(index, indexVal), index.limit, func(kv *mvccpb.KeyValue) error {
 		key := path.Base(string(kv.Key))
 		if err := c.Get(key, val); err != nil {
 			if IsErrNotFound(err) {

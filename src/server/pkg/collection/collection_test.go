@@ -60,34 +60,35 @@ func TestIndex(t *testing.T) {
 
 	jobInfosReadonly := jobInfos.ReadOnly(context.Background())
 
-	iter, err := jobInfosReadonly.GetByIndex(pipelineIndex, j1.Pipeline)
-	require.NoError(t, err)
-	var ID string
-	job := new(pps.JobInfo)
-	ok, err := iter.Next(&ID, job)
-	require.NoError(t, err)
-	require.True(t, ok)
-	require.Equal(t, j1.Job.ID, ID)
-	require.Equal(t, j1, job)
-	ok, err = iter.Next(&ID, job)
-	require.NoError(t, err)
-	require.True(t, ok)
-	require.Equal(t, j2.Job.ID, ID)
-	require.Equal(t, j2, job)
-	ok, err = iter.Next(&ID, job)
-	require.NoError(t, err)
-	require.False(t, ok)
+	job := &pps.JobInfo{}
+	i := 1
+	require.NoError(t, jobInfosReadonly.GetByIndexF(pipelineIndex, j1.Pipeline, job, func(ID string) error {
+		switch i {
+		case 1:
+			require.Equal(t, j1.Job.ID, ID)
+			require.Equal(t, j1, job)
+		case 2:
+			require.Equal(t, j2.Job.ID, ID)
+			require.Equal(t, j2, job)
+		case 3:
+			t.Fatal("too many jobs")
+		}
+		i++
+		return nil
+	}))
 
-	iter, err = jobInfosReadonly.GetByIndex(pipelineIndex, j3.Pipeline)
-	require.NoError(t, err)
-	ok, err = iter.Next(&ID, job)
-	require.NoError(t, err)
-	require.True(t, ok)
-	require.Equal(t, j3.Job.ID, ID)
-	require.Equal(t, j3, job)
-	ok, err = iter.Next(&ID, job)
-	require.NoError(t, err)
-	require.False(t, ok)
+	i = 1
+	require.NoError(t, jobInfosReadonly.GetByIndexF(pipelineIndex, j3.Pipeline, job, func(ID string) error {
+		switch i {
+		case 1:
+			require.Equal(t, j3.Job.ID, ID)
+			require.Equal(t, j3, job)
+		case 2:
+			t.Fatal("too many jobs")
+		}
+		i++
+		return nil
+	}))
 }
 
 func TestIndexWatch(t *testing.T) {
@@ -414,7 +415,7 @@ func TestPagination(t *testing.T) {
 	etcdClient := getEtcdClient()
 	t.Run("one-val-per-txn", func(t *testing.T) {
 		uuidPrefix := uuid.NewWithoutDashes()
-		col := NewCollection(etcdClient, uuidPrefix, nil, &types.Empty{}, nil)
+		col := NewCollection(etcdClient, uuidPrefix, nil, &types.Empty{}, nil, nil)
 		numVals := 1000
 		for i := 0; i < numVals; i++ {
 			_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
@@ -433,7 +434,7 @@ func TestPagination(t *testing.T) {
 	})
 	t.Run("many-vals-per-txn", func(t *testing.T) {
 		uuidPrefix := uuid.NewWithoutDashes()
-		col := NewCollection(etcdClient, uuidPrefix, nil, &types.Empty{}, nil)
+		col := NewCollection(etcdClient, uuidPrefix, nil, &types.Empty{}, nil, nil)
 		numBatches := 10
 		valsPerBatch := 7
 		for i := 0; i < numBatches; i++ {
@@ -459,7 +460,7 @@ func TestPagination(t *testing.T) {
 	})
 	t.Run("large-vals", func(t *testing.T) {
 		uuidPrefix := uuid.NewWithoutDashes()
-		col := NewCollection(etcdClient, uuidPrefix, nil, &pfs.Repo{}, nil)
+		col := NewCollection(etcdClient, uuidPrefix, nil, &pfs.Repo{}, nil, nil)
 		numVals := 100
 		longString := strings.Repeat("foo\n", 1024*256) // 1 MB worth of foo
 		for i := 0; i < numVals; i++ {
