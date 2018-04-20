@@ -90,6 +90,10 @@ func TestPrometheusStats(t *testing.T) {
 	// We already did one successful commit, and we'll add a failing commit
 	// below, so we need numCommits-2 more here
 	for i := 0; i < numCommits-2; i++ {
+		// Prometheus scrapes every 10s
+		// We run a new job outside this window so that we see a more organic
+		// time series
+		time.Sleep(15 * time.Second)
 		commit, err = c.StartCommit(dataRepo, "master")
 		require.NoError(t, err)
 		_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("bar"))
@@ -121,7 +125,7 @@ func TestPrometheusStats(t *testing.T) {
 	// Prometheus scrapes ~ every 15s, but empirically, we miss data unless I
 	// wait this long. This is annoying, and also why this is a single giant
 	// test, not many little ones
-	time.Sleep(75 * time.Second)
+	time.Sleep(30 * time.Second)
 	totalRuns := numCommits + 2 // we have numCommits-1 successfully run datums, but 1 job fails which will run 3 times
 	query := fmt.Sprintf("sum(pachyderm_user_datum_count{pipelineName=\"%v\", state=\"started\"})", pipeline)
 	result, err := promAPI.Query(context.Background(), query, time.Now())
