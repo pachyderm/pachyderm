@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	// The port prometheus metrics are exposed on
+	// PrometheusPort is the port the aggregated metrics are served on for scraping
 	PrometheusPort = int32(9090)
 
 	datumCount = prometheus.NewCounterVec(
