@@ -184,8 +184,8 @@ func TestPrometheusStats(t *testing.T) {
 
 	// Avg Datum Time Queries
 	expectedCounts := map[string]int{
-		"download": numCommits + 1, // we expect 5 jobs, plus there's always an extra value w no job label
-		"upload":   numCommits - 1, //Since 1 job failed, there will only be 4 upload times
+		"download": numCommits + 1, // We expect 5 jobs, plus there's always an extra value w no job label
+		"upload":   numCommits - 1, // Since 1 job failed, there will only be 4 upload times
 	}
 	for _, segment := range []string{"download", "upload"} {
 		t.Run(fmt.Sprintf("PerJobDatumTime=%v", segment), func(t *testing.T) {
@@ -204,7 +204,7 @@ func TestPrometheusStats(t *testing.T) {
 	// Avg Datum Size Queries
 	expectedCounts = map[string]int{
 		"download": numCommits - 1, // Download size gets reported after job completion, and one job fails
-		"upload":   numCommits - 1, //Since 1 job failed, there will only be 4 upload times
+		"upload":   numCommits - 1, // Since 1 job failed, there will only be 4 upload times
 	}
 	for _, segment := range []string{"download", "upload"} {
 		t.Run(fmt.Sprintf("PerJobDatumSize=%v", segment), func(t *testing.T) {
