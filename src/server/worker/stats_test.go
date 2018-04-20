@@ -149,9 +149,11 @@ func TestPrometheusStats(t *testing.T) {
 		sum := fmt.Sprintf("rate(pachyderm_user_datum_%v_time_sum{pipelineName=\"%v\"}[5m])", segment, pipeline)
 		count := fmt.Sprintf("rate(pachyderm_user_datum_%v_time_count{pipelineName=\"%v\"}[5m])", segment, pipeline)
 		query = sum + "/" + count // compute the avg over 5m
+		fmt.Printf("query %v\n", query)
 		result, err = promAPI.Query(context.Background(), query, time.Now())
 		require.NoError(t, err)
 		resultVec = result.(prom_model.Vector)
+		fmt.Printf("result:\n%v\n", result)
 		require.Equal(t, 1, len(resultVec)) // sum gets aggregated no matter how many datums ran
 	}
 	segment := "proc"
