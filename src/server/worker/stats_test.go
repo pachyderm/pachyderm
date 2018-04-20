@@ -114,108 +114,124 @@ func TestPrometheusStats(t *testing.T) {
 	require.NoError(t, err)
 	promAPI := prom_api_v1.NewAPI(promClient)
 
-	// Datum count queries
-
 	// Prometheus scrapes ~ every 15s, but empirically, we miss data unless I
 	// wait this long. This is annoying, and also why this is a single giant
 	// test, not many little ones
 	time.Sleep(30 * time.Second)
-	query := fmt.Sprintf("sum(pachyderm_user_datum_count{pipelineName=\"%v\", state=\"started\"})", pipeline)
-	result, err := promAPI.Query(context.Background(), query, time.Now())
-	require.NoError(t, err)
-	resultVec := result.(prom_model.Vector)
-	require.Equal(t, 1, len(resultVec))
-	require.Equal(t, float64((numCommits-1)*numDatums+3), float64(resultVec[0].Value))
 
-	query = fmt.Sprintf("sum(pachyderm_user_datum_count{pipelineName=\"%v\", state=\"finished\"})", pipeline)
-	result, err = promAPI.Query(context.Background(), query, time.Now())
-	require.NoError(t, err)
-	resultVec = result.(prom_model.Vector)
-	require.Equal(t, 1, len(resultVec))
-	require.Equal(t, float64((numCommits-1)*numDatums), float64(resultVec[0].Value))
+	// Datum count queries
+	t.Run("DatumCountStarted", func(t *testing.T) {
+		query := fmt.Sprintf("sum(pachyderm_user_datum_count{pipelineName=\"%v\", state=\"started\"})", pipeline)
+		result, err := promAPI.Query(context.Background(), query, time.Now())
+		require.NoError(t, err)
+		resultVec := result.(prom_model.Vector)
+		require.Equal(t, 1, len(resultVec))
+		require.Equal(t, float64((numCommits-1)*numDatums+3), float64(resultVec[0].Value))
+	})
 
-	query = fmt.Sprintf("sum(pachyderm_user_datum_count{pipelineName=\"%v\", state=\"errored\"})", pipeline)
-	result, err = promAPI.Query(context.Background(), query, time.Now())
-	require.NoError(t, err)
-	resultVec = result.(prom_model.Vector)
-	require.Equal(t, 1, len(resultVec))
-	require.Equal(t, float64(3.0), float64(resultVec[0].Value)) // 3 restarts, one failed job
+	t.Run("DatumCountFinished", func(t *testing.T) {
+		query := fmt.Sprintf("sum(pachyderm_user_datum_count{pipelineName=\"%v\", state=\"finished\"})", pipeline)
+		result, err := promAPI.Query(context.Background(), query, time.Now())
+		require.NoError(t, err)
+		resultVec := result.(prom_model.Vector)
+		require.Equal(t, 1, len(resultVec))
+		require.Equal(t, float64((numCommits-1)*numDatums), float64(resultVec[0].Value))
+	})
+
+	t.Run("DatumCountErrored", func(t *testing.T) {
+		query := fmt.Sprintf("sum(pachyderm_user_datum_count{pipelineName=\"%v\", state=\"errored\"})", pipeline)
+		result, err := promAPI.Query(context.Background(), query, time.Now())
+		require.NoError(t, err)
+		resultVec := result.(prom_model.Vector)
+		require.Equal(t, 1, len(resultVec))
+		require.Equal(t, float64(3.0), float64(resultVec[0].Value)) // 3 restarts, one failed job
+	})
 
 	// Test queries across all jobs
 	filter := "(instance,exported_job)"
+	// instance is an auto recorded label w the IP of the pod ... this will
+	// become helpful when debugging certain workers
 
-	// Moving Avg Datum Time Queries
+	// Avg Datum Time Queries
 	for _, segment := range []string{"download", "upload"} {
-		// instance is an auto recorded label w the IP of the pod ... this will
-		// become helpful when debugging certain workers
-		sum := fmt.Sprintf("sum(pachyderm_user_datum_%v_time_sum{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
-		count := fmt.Sprintf("sum(pachyderm_user_datum_%v_time_count{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
-		query = "(" + sum + ")/(" + count + ")" // compute the avg over 5m
-		result, err = promAPI.Query(context.Background(), query, time.Now())
-		require.NoError(t, err)
-		resultVec = result.(prom_model.Vector)
-		require.Equal(t, 1, len(resultVec)) // sum gets aggregated no matter how many datums ran
+		t.Run(fmt.Sprintf("AcrossJobsDatumTime=%v", segment), func(t *testing.T) {
+			sum := fmt.Sprintf("sum(pachyderm_user_datum_%v_time_sum{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
+			count := fmt.Sprintf("sum(pachyderm_user_datum_%v_time_count{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
+			query := "(" + sum + ")/(" + count + ")" // compute the avg over 5m
+			result, err := promAPI.Query(context.Background(), query, time.Now())
+			require.NoError(t, err)
+			resultVec := result.(prom_model.Vector)
+			require.Equal(t, 1, len(resultVec)) // sum gets aggregated no matter how many datums ran
+		})
 	}
 	segment := "proc"
-	sum := fmt.Sprintf("sum(pachyderm_user_datum_%v_time_sum{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
-	count := fmt.Sprintf("sum(pachyderm_user_datum_%v_time_count{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
-	query = sum + "/" + count // compute the avg over 5m
-	result, err = promAPI.Query(context.Background(), query, time.Now())
-	require.NoError(t, err)
-	resultVec = result.(prom_model.Vector)
-	require.Equal(t, 2, len(resultVec)) // sum gets aggregated no matter how many datums ran, but we get one result for finished datums, and one for errored datums
-
-	// Moving Avg Datum Size Queries
-	for _, segment := range []string{"download", "upload"} {
-		sum := fmt.Sprintf("sum(pachyderm_user_datum_%v_size_sum{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
-		count := fmt.Sprintf("sum(pachyderm_user_datum_%v_size_count{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
-		query = "(" + sum + ")/(" + count + ")" // compute the avg over 5m
-		result, err = promAPI.Query(context.Background(), query, time.Now())
+	t.Run(fmt.Sprintf("AcrossJobsDatumTime=%v", segment), func(t *testing.T) {
+		sum := fmt.Sprintf("sum(pachyderm_user_datum_%v_time_sum{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
+		count := fmt.Sprintf("sum(pachyderm_user_datum_%v_time_count{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
+		query := sum + "/" + count // compute the avg over 5m
+		result, err := promAPI.Query(context.Background(), query, time.Now())
 		require.NoError(t, err)
-		resultVec = result.(prom_model.Vector)
-		require.Equal(t, 1, len(resultVec)) // sum gets aggregated no matter how many datums ran
+		resultVec := result.(prom_model.Vector)
+		require.Equal(t, 2, len(resultVec)) // sum gets aggregated no matter how many datums ran, but we get one result for finished datums, and one for errored datums
+	})
+
+	// Avg Datum Size Queries
+	for _, segment := range []string{"download", "upload"} {
+		t.Run(fmt.Sprintf("AcrossJobsDatumSize=%v", segment), func(t *testing.T) {
+			sum := fmt.Sprintf("sum(pachyderm_user_datum_%v_size_sum{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
+			count := fmt.Sprintf("sum(pachyderm_user_datum_%v_size_count{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
+			query := "(" + sum + ")/(" + count + ")" // compute the avg over 5m
+			result, err := promAPI.Query(context.Background(), query, time.Now())
+			require.NoError(t, err)
+			resultVec := result.(prom_model.Vector)
+			require.Equal(t, 1, len(resultVec)) // sum gets aggregated no matter how many datums ran
+		})
 	}
 
 	// Now test aggregating per job
 	filter = "(instance)"
 
-	// Moving Avg Datum Time Queries
+	// Avg Datum Time Queries
 	expectedCounts := map[string]int{
 		"download": numCommits + 1, // we expect 5 jobs, plus there's always an extra value w no job label
 		"upload":   numCommits - 1, //Since 1 job failed, there will only be 4 upload times
 	}
 	for _, segment := range []string{"download", "upload"} {
-		// instance is an auto recorded label w the IP of the pod ... this will
-		// become helpful when debugging certain workers
-		sum := fmt.Sprintf("sum(pachyderm_user_datum_%v_time_sum{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
-		count := fmt.Sprintf("sum(pachyderm_user_datum_%v_time_count{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
-		query = "(" + sum + ")/(" + count + ")" // compute the avg over 5m
-		result, err = promAPI.Query(context.Background(), query, time.Now())
-		require.NoError(t, err)
-		resultVec = result.(prom_model.Vector)
-		require.Equal(t, expectedCounts[segment], len(resultVec))
+		t.Run(fmt.Sprintf("PerJobDatumTime=%v", segment), func(t *testing.T) {
+			sum := fmt.Sprintf("sum(pachyderm_user_datum_%v_time_sum{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
+			count := fmt.Sprintf("sum(pachyderm_user_datum_%v_time_count{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
+			query := "(" + sum + ")/(" + count + ")" // compute the avg over 5m
+			result, err := promAPI.Query(context.Background(), query, time.Now())
+			require.NoError(t, err)
+			resultVec := result.(prom_model.Vector)
+			require.Equal(t, expectedCounts[segment], len(resultVec))
+		})
 	}
 	segment = "proc"
-	sum = fmt.Sprintf("sum(pachyderm_user_datum_%v_time_sum{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
-	count = fmt.Sprintf("sum(pachyderm_user_datum_%v_time_count{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
-	query = sum + "/" + count // compute the avg over 5m
-	result, err = promAPI.Query(context.Background(), query, time.Now())
-	require.NoError(t, err)
-	resultVec = result.(prom_model.Vector)
-	require.Equal(t, numCommits, len(resultVec))
+	t.Run(fmt.Sprintf("PerJobDatumTime=%v", segment), func(t *testing.T) {
+		sum := fmt.Sprintf("sum(pachyderm_user_datum_%v_time_sum{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
+		count := fmt.Sprintf("sum(pachyderm_user_datum_%v_time_count{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
+		query := sum + "/" + count // compute the avg over 5m
+		result, err := promAPI.Query(context.Background(), query, time.Now())
+		require.NoError(t, err)
+		resultVec := result.(prom_model.Vector)
+		require.Equal(t, numCommits, len(resultVec))
+	})
 
-	// Moving Avg Datum Size Queries
+	// Avg Datum Size Queries
 	expectedCounts = map[string]int{
 		"download": numCommits - 1, // Download size gets reported after job completion, and one job fails
 		"upload":   numCommits - 1, //Since 1 job failed, there will only be 4 upload times
 	}
 	for _, segment := range []string{"download", "upload"} {
-		sum := fmt.Sprintf("sum(pachyderm_user_datum_%v_size_sum{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
-		count := fmt.Sprintf("sum(pachyderm_user_datum_%v_size_count{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
-		query = "(" + sum + ")/(" + count + ")" // compute the avg over 5m
-		result, err = promAPI.Query(context.Background(), query, time.Now())
-		require.NoError(t, err)
-		resultVec = result.(prom_model.Vector)
-		require.Equal(t, expectedCounts[segment], len(resultVec))
+		t.Run(fmt.Sprintf("PerJobDatumSize=%v", segment), func(t *testing.T) {
+			sum := fmt.Sprintf("sum(pachyderm_user_datum_%v_size_sum{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
+			count := fmt.Sprintf("sum(pachyderm_user_datum_%v_size_count{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
+			query := "(" + sum + ")/(" + count + ")" // compute the avg over 5m
+			result, err := promAPI.Query(context.Background(), query, time.Now())
+			require.NoError(t, err)
+			resultVec := result.(prom_model.Vector)
+			require.Equal(t, expectedCounts[segment], len(resultVec))
+		})
 	}
 }
