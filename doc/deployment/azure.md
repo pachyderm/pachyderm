@@ -90,7 +90,7 @@ $ STORAGE_KEY="$(az storage account keys list \
 $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.7
 
 # For Linux (64 bit) or Window 10+ on WSL:
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.7.0/pachctl_1.7.0_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.7.1/pachctl_1.7.1_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 You can try running `pachctl version` to check that this worked correctly:
@@ -106,7 +106,7 @@ pachctl             1.7.0
 Now we're ready to deploy Pachyderm:
 
 ```sh
-$ pachctl deploy microsoft ${CONTAINER_NAME} ${STORAGE_ACCOUNT} ${STORAGE_KEY} ${STORAGE_SIZE} --dynamic-etcd-nodes 1 --no-rbac
+$ pachctl deploy microsoft ${CONTAINER_NAME} ${STORAGE_ACCOUNT} ${STORAGE_KEY} ${STORAGE_SIZE} --dynamic-etcd-nodes 1
 ```
 
 It may take a few minutes for the pachd pods to be running because it's pulling containers from Docker Hub. When Pachyderm is up and running, you should see something similar to the following state:

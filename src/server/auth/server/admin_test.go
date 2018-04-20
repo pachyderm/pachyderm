@@ -369,7 +369,7 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 }
 
-func TestPreActivationPipelinesRunAsAdmin(t *testing.T) {
+func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -391,7 +391,7 @@ func TestPreActivationPipelinesRunAsAdmin(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// alice creates a pipeline
-	repo := tu.UniqueString("TestPreActivationPipelinesRunAsAdmin")
+	repo := tu.UniqueString("TestPreActivationPipelinesKeepRunningAfterActivation")
 	pipeline := tu.UniqueString("alice-pipeline")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.NoError(t, aliceClient.CreatePipeline(
@@ -460,7 +460,7 @@ func TestPreActivationPipelinesRunAsAdmin(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, adminClient.FinishCommit(repo, commit.ID))
 
-	// make sure the pipeline runs (i.e. it's not running as alice)
+	// make sure the pipeline still runs (i.e. it's not running as alice)
 	iter, err = adminClient.FlushCommit(
 		[]*pfs.Commit{commit},
 		[]*pfs.Repo{{Name: pipeline}},
@@ -853,14 +853,14 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 	require.NoError(t, aliceClient.CreateRepo(repoWriter))
 
 	// bob calls ListRepo, but has NONE access to all repos
-	infos, err := bobClient.ListRepo([]string{})
+	infos, err := bobClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
 		require.Equal(t, auth.Scope_NONE, info.AuthInfo.AccessLevel)
 	}
 
 	// admin calls ListRepo, and has OWNER access to all repos
-	infos, err = adminClient.ListRepo([]string{})
+	infos, err = adminClient.ListRepo()
 	require.NoError(t, err)
 	for _, info := range infos {
 		require.Equal(t, auth.Scope_OWNER, info.AuthInfo.AccessLevel)
@@ -1126,11 +1126,11 @@ func TestTokenTTL(t *testing.T) {
 	aliceClient.SetAuthToken(resp.Token)
 
 	// alice's token is valid, but expires quickly
-	repos, err := aliceClient.ListRepo(nil)
+	repos, err := aliceClient.ListRepo()
 	require.NoError(t, err)
 	require.ElementsEqualUnderFn(t, []string{repo}, repos, RepoInfoToName)
 	require.NoError(t, backoff.Retry(func() error {
-		repos, err = aliceClient.ListRepo(nil)
+		repos, err = aliceClient.ListRepo()
 		if err == nil {
 			return errors.New("alice still has access to ListRepo")
 		}
@@ -1163,11 +1163,11 @@ func TestTokenTTLExtend(t *testing.T) {
 	aliceClient.SetAuthToken(resp.Token)
 
 	// alice's token is valid, but expires quickly
-	repos, err := aliceClient.ListRepo(nil)
+	repos, err := aliceClient.ListRepo()
 	require.NoError(t, err)
 	require.ElementsEqualUnderFn(t, []string{repo}, repos, RepoInfoToName)
 	time.Sleep(10 * time.Second)
-	repos, err = aliceClient.ListRepo(nil)
+	repos, err = aliceClient.ListRepo()
 	require.True(t, auth.IsErrBadToken(err), err.Error())
 	require.Equal(t, 0, len(repos))
 
@@ -1180,7 +1180,7 @@ func TestTokenTTLExtend(t *testing.T) {
 	require.NoError(t, err)
 	aliceClient.SetAuthToken(resp.Token)
 	// token is valid
-	repos, err = aliceClient.ListRepo(nil)
+	repos, err = aliceClient.ListRepo()
 	require.NoError(t, err)
 	require.ElementsEqualUnderFn(t, []string{repo}, repos, RepoInfoToName)
 	// admin extends token
@@ -1193,12 +1193,12 @@ func TestTokenTTLExtend(t *testing.T) {
 	// token is still valid after 10 seconds
 	time.Sleep(10 * time.Second)
 	time.Sleep(time.Second)
-	repos, err = aliceClient.ListRepo(nil)
+	repos, err = aliceClient.ListRepo()
 	require.NoError(t, err)
 	require.ElementsEqualUnderFn(t, []string{repo}, repos, RepoInfoToName)
 	// wait longer, now token is expired
 	time.Sleep(10 * time.Second)
-	repos, err = aliceClient.ListRepo(nil)
+	repos, err = aliceClient.ListRepo()
 	require.True(t, auth.IsErrBadToken(err), err.Error())
 	require.Equal(t, 0, len(repos))
 }
@@ -1224,7 +1224,7 @@ func TestTokenRevoke(t *testing.T) {
 	aliceClient.SetAuthToken(resp.Token)
 
 	// alice's token is valid
-	repos, err := aliceClient.ListRepo(nil)
+	repos, err := aliceClient.ListRepo()
 	require.NoError(t, err)
 	require.ElementsEqualUnderFn(t, []string{repo}, repos, RepoInfoToName)
 
@@ -1235,7 +1235,7 @@ func TestTokenRevoke(t *testing.T) {
 	require.NoError(t, err)
 
 	// alice's token is no longer valid
-	repos, err = aliceClient.ListRepo(nil)
+	repos, err = aliceClient.ListRepo()
 	require.True(t, auth.IsErrBadToken(err), err.Error())
 	require.Equal(t, 0, len(repos))
 }
@@ -1256,4 +1256,45 @@ func TestGetAuthTokenErrorNonAdminUser(t *testing.T) {
 	require.Nil(t, resp)
 	require.YesError(t, err)
 	require.Matches(t, "must be an admin", err.Error())
+}
+
+// TestActivateAsRobotUser tests that Pachyderm can be activated such that the
+// initial admin is a robot user (i.e. without any human intervention)
+func TestActivateAsRobotUser(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+
+	client := seedClient.WithCtx(context.Background())
+	resp, err := client.Activate(client.Ctx(), &auth.ActivateRequest{
+		Subject: "robot:deckard",
+	})
+	require.NoError(t, err)
+	client.SetAuthToken(resp.PachToken)
+	whoAmI, err := client.WhoAmI(client.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, "robot:deckard", whoAmI.Username)
+
+	// Make "admin" an admin, so that auth can be deactivated
+	client.ModifyAdmins(client.Ctx(), &auth.ModifyAdminsRequest{
+		Add:    []string{"admin"},
+		Remove: []string{"robot:deckard"},
+	})
+}
+
+func TestActivateMismatchedUsernames(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+
+	client := seedClient.WithCtx(context.Background())
+	_, err := client.Activate(client.Ctx(), &auth.ActivateRequest{
+		Subject:     "alice",
+		GitHubToken: "bob",
+	})
+	require.YesError(t, err)
+	require.Matches(t, "github:alice", err.Error())
+	require.Matches(t, "github:bob", err.Error())
 }

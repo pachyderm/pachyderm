@@ -60,7 +60,7 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.driver.createRepo(ctx, request.Repo, request.Provenance, request.Description, request.Update); err != nil {
+	if err := a.driver.createRepo(ctx, request.Repo, request.Description, request.Update); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -77,7 +77,7 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) 
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	repoInfos, err := a.driver.listRepo(ctx, request.Provenance, true)
+	repoInfos, err := a.driver.listRepo(ctx, true)
 	return repoInfos, err
 }
 
@@ -134,7 +134,7 @@ func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommi
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	return a.driver.inspectCommit(ctx, request.Commit, request.Block)
+	return a.driver.inspectCommit(ctx, request.Commit, request.BlockState)
 }
 
 func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitRequest) (response *pfs.CommitInfos, retErr error) {
@@ -202,7 +202,7 @@ func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.driver.deleteBranch(ctx, request.Branch); err != nil {
+	if err := a.driver.deleteBranch(ctx, request.Branch, request.Force); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -231,30 +231,7 @@ func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream 
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 
-	commitStream, err := a.driver.subscribeCommit(ctx, request.Repo, request.Branch, request.From)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		commitStream.Close()
-	}()
-
-	for {
-		select {
-		case <-stream.Context().Done():
-			return nil
-		case ev, ok := <-commitStream.Stream():
-			if !ok {
-				return nil
-			}
-			if ev.Err != nil {
-				return ev.Err
-			}
-			if err := stream.Send(ev.Value); err != nil {
-				return err
-			}
-		}
-	}
+	return a.driver.subscribeCommit(ctx, request.Repo, request.Branch, request.From, request.State, stream.Send)
 }
 
 func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {

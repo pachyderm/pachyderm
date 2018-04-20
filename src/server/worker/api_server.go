@@ -117,9 +117,8 @@ type APIServer struct {
 	// have already been processed.
 	datumCache *lru.Cache
 
-	uid        uint32
-	gid        uint32
-	workingDir string
+	uid uint32
+	gid uint32
 }
 
 type putObjectResponse struct {
@@ -210,14 +209,14 @@ func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
 		logger.stderrLog.Printf("could not generate logging timestamp: %s\n", err)
 		return
 	}
-	bytes, err := logger.marshaler.MarshalToString(&logger.template)
+	msg, err := logger.marshaler.MarshalToString(&logger.template)
 	if err != nil {
 		logger.stderrLog.Printf("could not marshal %v for logging: %s\n", &logger.template, err)
 		return
 	}
-	fmt.Println(bytes)
+	fmt.Println(msg)
 	if logger.putObjClient != nil {
-		logger.msgCh <- bytes
+		logger.msgCh <- msg + "\n"
 	}
 }
 
@@ -228,20 +227,19 @@ func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
 	for {
 		message, err := r.ReadString('\n')
 		if err != nil {
-			message = strings.TrimSuffix(message, "\n") // remove delimiter
 			if err == io.EOF {
 				logger.buffer.Write([]byte(message))
 				return len(p), nil
 			}
 			// this shouldn't technically be possible to hit io.EOF should be
 			// the only error bufio.Reader can return when using a buffer.
-			return 0, err
+			return 0, fmt.Errorf("error ReadString: %v", err)
 		}
 		// We don't want to make this call as:
 		// logger.Logf(message)
 		// because if the message has format characters like %s in it those
 		// will result in errors being logged.
-		logger.Logf("%s", message)
+		logger.Logf("%s", strings.TrimSuffix(message, "\n"))
 	}
 }
 
@@ -304,7 +302,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		namespace:  namespace,
 		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
 		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
-		chunks:     col.NewCollection(etcdClient, path.Join(etcdPrefix, chunksPrefix), []col.Index{}, &Chunks{}, nil),
+		chunks:     col.NewCollection(etcdClient, path.Join(etcdPrefix, chunksPrefix), []col.Index{}, &Chunks{}, nil, nil),
 		datumCache: datumCache,
 	}
 	logger, err := server.getTaggedLogger(pachClient, "", nil, false)
@@ -317,7 +315,11 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		numWorkers = 1
 	}
 	server.numWorkers = numWorkers
-	if pipelineInfo.Transform.Image != "" {
+	var noDocker bool
+	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
+		noDocker = true
+	}
+	if pipelineInfo.Transform.Image != "" && !noDocker {
 		docker, err := docker.NewClientFromEnv()
 		if err != nil {
 			return nil, err
@@ -326,30 +328,35 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		if err != nil {
 			return nil, fmt.Errorf("error inspecting image %s: %+v", pipelineInfo.Transform.Image, err)
 		}
-		// if image.Config.User == "" then uid, and gid don't get set which
-		// means they default to a value of 0 which means we run the code as
-		// root which is the only sane default.
-		if image.Config.User != "" {
-			user, err := lookupUser(image.Config.User)
-			if err != nil && !os.IsNotExist(err) {
-				return nil, err
-			}
-			if user != nil { // user is nil when os.IsNotExist(err) is true in which case we use root
-				uid, err := strconv.ParseUint(user.Uid, 10, 32)
-				if err != nil {
-					return nil, err
-				}
-				server.uid = uint32(uid)
-				gid, err := strconv.ParseUint(user.Gid, 10, 32)
-				if err != nil {
-					return nil, err
-				}
-				server.gid = uint32(gid)
-			}
+		if pipelineInfo.Transform.User == "" {
+			pipelineInfo.Transform.User = image.Config.User
 		}
-		server.workingDir = image.Config.WorkingDir
+		if pipelineInfo.Transform.WorkingDir == "" {
+			pipelineInfo.Transform.WorkingDir = image.Config.WorkingDir
+		}
 		if server.pipelineInfo.Transform.Cmd == nil {
 			server.pipelineInfo.Transform.Cmd = image.Config.Entrypoint
+		}
+	}
+	if pipelineInfo.Transform.User != "" {
+		user, err := lookupUser(pipelineInfo.Transform.User)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, err
+		}
+		// if User == "" then uid, and gid don't get set which
+		// means they default to a value of 0 which means we run the code as
+		// root which is the only sane default.
+		if user != nil { // user is nil when os.IsNotExist(err) is true in which case we use root
+			uid, err := strconv.ParseUint(user.Uid, 10, 32)
+			if err != nil {
+				return nil, err
+			}
+			server.uid = uint32(uid)
+			gid, err := strconv.ParseUint(user.Gid, 10, 32)
+			if err != nil {
+				return nil, err
+			}
+			server.gid = uint32(gid)
 		}
 	}
 	if pipelineInfo.Service == nil {
@@ -489,7 +496,9 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 
 	// Run user code
 	cmd := exec.CommandContext(ctx, a.pipelineInfo.Transform.Cmd[0], a.pipelineInfo.Transform.Cmd[1:]...)
-	cmd.Stdin = strings.NewReader(strings.Join(a.pipelineInfo.Transform.Stdin, "\n") + "\n")
+	if a.pipelineInfo.Transform.Stdin != nil {
+		cmd.Stdin = strings.NewReader(strings.Join(a.pipelineInfo.Transform.Stdin, "\n") + "\n")
+	}
 	cmd.Stdout = logger.userLogger()
 	cmd.Stderr = logger.userLogger()
 	cmd.Env = environ
@@ -499,16 +508,16 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 			Gid: a.gid,
 		},
 	}
-	cmd.Dir = a.workingDir
+	cmd.Dir = a.pipelineInfo.Transform.WorkingDir
 	err := cmd.Start()
 	if err != nil {
-		return err
+		return fmt.Errorf("error cmd.Start: %v", err)
 	}
 	// A context w a deadline will successfully cancel/kill
 	// the running process (minus zombies)
 	state, err := cmd.Process.Wait()
 	if err != nil {
-		return err
+		return fmt.Errorf("error cmd.Wait: %v", err)
 	}
 	if isDone(ctx) {
 		if err = ctx.Err(); err != nil {
@@ -522,7 +531,11 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	// cmd.Process.Wait() then cmd.Wait() will produce an error. So instead we
 	// close the IO using this helper
 	err = cmd.WaitIO(state, err)
-	if err != nil {
+	// We ignore broken pipe errors, these occur very occasionally if a user
+	// specifies Stdin but their process doesn't actually read everything from
+	// Stdin. This is a fairly common thing to do, bash by default ignores
+	// broken pipe errors.
+	if err != nil && !strings.Contains(err.Error(), "broken pipe") {
 		// (if err is an acceptable return code, don't return err)
 		if exiterr, ok := err.(*exec.ExitError); ok {
 			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
@@ -533,7 +546,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 				}
 			}
 		}
-		return err
+		return fmt.Errorf("error cmd.WaitIO: %v", err)
 	}
 	return nil
 }
@@ -782,7 +795,7 @@ func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStat
 		WorkerID:  a.workerName,
 		Started:   started,
 		Data:      a.datum(),
-		QueueSize: a.queueSize,
+		QueueSize: atomic.LoadInt64(&a.queueSize),
 	}
 	return result, nil
 }
@@ -858,6 +871,8 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 			var high int64
 			var found bool
 			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				// Reinitialize closed upon variables.
+				low, high = 0, 0
 				found = false
 				locks := a.locks(jobID).ReadWrite(stm)
 				// we set complete to true and then unset it if we find an incomplete chunk
@@ -1119,63 +1134,31 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 	var eg errgroup.Group
 	var skipped int64
 	var failed int64
+	limiter := limit.New(int(a.pipelineInfo.MaxQueueSize))
 	for i := low; i < high; i++ {
 		i := i
+
+		limiter.Acquire()
+		atomic.AddInt64(&a.queueSize, 1)
 		eg.Go(func() (retErr error) {
+			defer limiter.Release()
+			defer atomic.AddInt64(&a.queueSize, -1)
+
 			data := df.Datum(int(i))
 			logger, err := a.getTaggedLogger(pachClient, jobInfo.Job.ID, data, a.pipelineInfo.EnableStats)
 			if err != nil {
 				return err
 			}
-			atomic.AddInt64(&a.queueSize, 1)
 			// Hash inputs
 			tag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, data)
-			tag15, err := HashDatum15(a.pipelineInfo, data)
-			if err != nil {
-				return err
-			}
-			foundTag := false
-			foundTag15 := false
-			var object *pfs.Object
-			var eg errgroup.Group
-			eg.Go(func() error {
-				if _, err := pachClient.InspectTag(ctx, &pfs.Tag{tag}); err == nil {
-					foundTag = true
-				}
+			if _, err := pachClient.InspectTag(ctx, &pfs.Tag{tag}); err == nil {
+				skipped++
+				logger.Logf("skipping datum")
 				return nil
-			})
-			eg.Go(func() error {
-				if objectInfo, err := pachClient.InspectTag(ctx, &pfs.Tag{tag15}); err == nil {
-					foundTag15 = true
-					object = objectInfo.Object
-				}
-				return nil
-			})
-			if err := eg.Wait(); err != nil {
-				return err
 			}
 			var statsTag *pfs.Tag
 			if a.pipelineInfo.EnableStats {
 				statsTag = &pfs.Tag{tag + statsTagSuffix}
-			}
-			if foundTag15 && !foundTag {
-				if _, err := pachClient.ObjectAPIClient.TagObject(ctx,
-					&pfs.TagObjectRequest{
-						Object: object,
-						Tags:   []*pfs.Tag{&pfs.Tag{tag}},
-					}); err != nil {
-					return err
-				}
-				if _, err := pachClient.DeleteTags(ctx,
-					&pfs.DeleteTagsRequest{
-						Tags: []*pfs.Tag{{Name: tag15}},
-					}); err != nil {
-					return err
-				}
-			}
-			if foundTag15 || foundTag {
-				skipped++
-				return nil
 			}
 			subStats := &pps.ProcessStats{}
 			statsPath := path.Join("/", logger.template.DatumID)
@@ -1241,7 +1224,6 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 			}
 
 			env := a.userCodeEnv(jobInfo.Job.ID, data)
-			atomic.AddInt64(&a.queueSize, -1)
 			var dir string
 			var retries int
 			if err := backoff.RetryNotify(func() error {
@@ -1269,7 +1251,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 					}
 				}()
 				if err != nil {
-					return err
+					return fmt.Errorf("error downloadData: %v", err)
 				}
 				a.runMu.Lock()
 				defer a.runMu.Unlock()
@@ -1285,11 +1267,11 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 					a.cancel = cancel
 					a.stats = stats
 				}()
-				if err := os.MkdirAll(client.PPSInputPrefix, 0666); err != nil {
+				if err := os.MkdirAll(client.PPSInputPrefix, 0777); err != nil {
 					return err
 				}
 				// Create output directory (currently /pfs/out) and run user code
-				if err := os.MkdirAll(filepath.Join(dir, "out"), 0666); err != nil {
+				if err := os.MkdirAll(filepath.Join(dir, "out"), 0777); err != nil {
 					return err
 				}
 				if err := syscall.Mount(dir, client.PPSInputPrefix, "", syscall.MS_BIND, ""); err != nil {
@@ -1300,8 +1282,16 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 						retErr = err
 					}
 				}()
+				if a.pipelineInfo.Transform.User != "" {
+					filepath.Walk("/pfs", func(name string, info os.FileInfo, err error) error {
+						if err == nil {
+							err = os.Chown(name, int(a.uid), int(a.gid))
+						}
+						return err
+					})
+				}
 				if err := a.runUserCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
-					return err
+					return fmt.Errorf("error runUserCode: %v", err)
 				}
 				// CleanUp is idempotent so we can call it however many times we want.
 				// The reason we are calling it here is that the puller could've

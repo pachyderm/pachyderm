@@ -19,6 +19,8 @@ import "gogoproto/gogo.proto";
  *      "github:MyGitHubUsername"
  * 2) Pachyderm robot users:
  *      "robot:robot_user_1"
+ * 3) Pachyderm pipelines:
+ *      "pipeline:terasort"
  */
 
 
@@ -28,6 +30,15 @@ import "gogoproto/gogo.proto";
 // GitHub OAuth, and then promoted to the cluster's first Admin. Afterwards, the
 // caller can promote other users to Admin and remove themselves
 message ActivateRequest {
+  // If set, Pachyderm will authenticate the caller as this user.
+  // - If set to a github user (i.e. it has a 'github:' prefix or no prefix)
+  //   then Pachyderm will confirm that it matches the user associated with
+  //   'github_token'
+  // - If set to a robot user (i.e. it has a 'robot:' prefix), then Pachyderm
+  //   will generate a new token for the robot user; this token will be the only
+  //   way to administer this cluster until more admins are added.
+  string subject = 2;
+
   // This is the token returned by GitHub and used to authenticate the caller.
   // When Pachyderm is deployed locally, setting this value to a given string
   // will automatically authenticate the caller as a GitHub user whose username
@@ -230,6 +241,9 @@ message GetAuthTokenRequest {
 }
 
 message GetAuthTokenResponse {
+  // A canonicalized version of the subject in the request
+  string subject = 2;
+
   // A new auth token for the user in 'GetAuthTokenRequest.Subject' token
   string token = 1;
 }

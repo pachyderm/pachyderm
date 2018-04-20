@@ -126,7 +126,6 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 	}
 	rawFlag(inspectRepo)
 
-	var listRepoProvenance cmdutil.RepeatedStringArg
 	listRepo := &cobra.Command{
 		Use:   "list-repo",
 		Short: "Return all repos.",
@@ -136,7 +135,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 			if err != nil {
 				return err
 			}
-			repoInfos, err := c.ListRepo(listRepoProvenance)
+			repoInfos, err := c.ListRepo()
 			if err != nil {
 				return err
 			}
@@ -158,7 +157,6 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 			return writer.Flush()
 		}),
 	}
-	listRepo.Flags().VarP(&listRepoProvenance, "provenance", "p", "list only repos with the specified repos provenance")
 	rawFlag(listRepo)
 
 	var force bool
@@ -480,7 +478,7 @@ $ pachctl subscribe-commit test master --new
 				from = branch
 			}
 
-			commitIter, err := c.SubscribeCommit(repo, branch, from)
+			commitIter, err := c.SubscribeCommit(repo, branch, from, pfsclient.CommitState_STARTED)
 			if err != nil {
 				return err
 			}
@@ -494,8 +492,8 @@ $ pachctl subscribe-commit test master --new
 
 	deleteCommit := &cobra.Command{
 		Use:   "delete-commit repo-name commit-id",
-		Short: "Delete an unfinished commit.",
-		Long:  "Delete an unfinished commit.",
+		Short: "Delete an input commit.",
+		Long:  "Delete an input commit. An input is a commit which is not the output of a pipeline.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			client, err := client.NewOnUserMachine(metrics, "user")
 			if err != nil {

@@ -88,7 +88,7 @@ check-docker-version:
 
 point-release:
 	@make VERSION_ADDITIONAL= release-helper
-	@make release-pachctl
+	@make VERSION_ADDITIONAL= release-pachctl
 	@make doc
 	@rm VERSION
 	@echo "Release completed"
@@ -117,7 +117,7 @@ release-pachctl-custom:
 
 release-pachctl:
 	@# Run pachctl release script w deploy branch name
-	@VERSION="$$(shell cat VERSION)" ./etc/build/release_pachctl master
+	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachctl master
 
 release-helper: check-docker-version release-version release-pachd release-worker
 
@@ -205,8 +205,11 @@ docker-build-test-entrypoint:
 	docker build -t pachyderm_entrypoint etc/testing/entrypoint
 
 check-kubectl:
-	# check that kubectl is installed
-	which kubectl
+	@# check that kubectl is installed
+	@which kubectl >/dev/null || { \
+		echo "error: kubectl not found"; \
+		exit 1; \
+	}
 
 check-kubectl-connection:
 	kubectl $(KUBECTLFLAGS) get all > /dev/null
@@ -283,8 +286,27 @@ bench: clean-launch-bench build-bench-images push-bench-images launch-bench run-
 launch-kube: check-kubectl
 	etc/kube/start-minikube.sh -r
 
+launch-dev-vm: check-kubectl
+	@# Make sure the caller sets address to avoid confusion later
+	@if [ -z "${ADDRESS}" ]; then \
+	  echo "Must set ADDRESS"; \
+	  echo "Run"; \
+	  echo "export ADDRESS=192.168.99.100:30650"; \
+	  exit 1; \
+	fi
+	@# Make sure minikube isn't still up from a previous run
+	@minikube ip >/dev/null && { \
+		echo "minikube is still up. Run 'make clean-launch-kube'"; \
+		exit 1; \
+	} || true
+	etc/kube/start-minikube-vm.sh
+
 clean-launch-kube:
-	sudo minikube delete
+	@# clean up both of the following cases:
+	@# make launch-dev-vm - minikube config is owned by $USER
+	@# make launch-kube - minikube config is owned by root
+	minikube ip >/dev/null && minikube delete || true
+	sudo minikube ip >/dev/null && sudo minikube delete || true
 
 launch: install check-kubectl
 	$(eval STARTTIME := $(shell date +%s))

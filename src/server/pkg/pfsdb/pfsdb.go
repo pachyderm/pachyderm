@@ -13,7 +13,6 @@ import (
 
 const (
 	reposPrefix          = "/repos"
-	repoRefCountsPrefix  = "/repoRefCounts"
 	putFileRecordsPrefix = "/putFileRecords"
 	commitsPrefix        = "/commits"
 	branchesPrefix       = "/branches"
@@ -30,18 +29,8 @@ func Repos(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 	return col.NewCollection(
 		etcdClient,
 		path.Join(etcdPrefix, reposPrefix),
-		[]col.Index{ProvenanceIndex},
+		nil,
 		&pfs.RepoInfo{},
-		nil,
-	)
-}
-
-// RepoRefCounts returns a collection of repo ref counts
-func RepoRefCounts(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
-	return col.NewCollection(
-		etcdClient,
-		path.Join(etcdPrefix, repoRefCountsPrefix),
-		nil,
 		nil,
 		nil,
 	)
@@ -55,6 +44,7 @@ func PutFileRecords(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 		nil,
 		&pfs.PutFileRecords{},
 		nil,
+		nil,
 	)
 }
 
@@ -65,6 +55,7 @@ func Commits(etcdClient *etcd.Client, etcdPrefix string, repo string) col.Collec
 		path.Join(etcdPrefix, commitsPrefix, repo),
 		[]col.Index{ProvenanceIndex},
 		&pfs.CommitInfo{},
+		nil,
 		nil,
 	)
 }
@@ -82,6 +73,7 @@ func Branches(etcdClient *etcd.Client, etcdPrefix string, repo string) col.Colle
 			}
 			return nil
 		},
+		nil,
 	)
 }
 
@@ -92,6 +84,7 @@ func OpenCommits(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 		path.Join(etcdPrefix, openCommitsPrefix),
 		nil,
 		&pfs.Commit{},
+		nil,
 		nil,
 	)
 }

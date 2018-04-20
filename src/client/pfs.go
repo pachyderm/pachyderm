@@ -79,11 +79,8 @@ func (c APIClient) InspectRepo(repoName string) (*pfs.RepoInfo, error) {
 // provenance specifies a set of provenance repos, only repos which have ALL of
 // the specified repos as provenance will be returned unless provenance is nil
 // in which case it is ignored.
-func (c APIClient) ListRepo(provenance []string) ([]*pfs.RepoInfo, error) {
+func (c APIClient) ListRepo() ([]*pfs.RepoInfo, error) {
 	request := &pfs.ListRepoRequest{}
-	for _, repoName := range provenance {
-		request.Provenance = append(request.Provenance, NewRepo(repoName))
-	}
 	repoInfos, err := c.PfsAPIClient.ListRepo(
 		c.Ctx(),
 		request,
@@ -205,21 +202,21 @@ func (c APIClient) FinishCommit(repoName string, commitID string) error {
 
 // InspectCommit returns info about a specific Commit.
 func (c APIClient) InspectCommit(repoName string, commitID string) (*pfs.CommitInfo, error) {
-	return c.inspectCommit(repoName, commitID, false)
+	return c.inspectCommit(repoName, commitID, pfs.CommitState_STARTED)
 }
 
 // BlockCommit returns info about a specific Commit, but blocks until that
 // commit has been finished.
 func (c APIClient) BlockCommit(repoName string, commitID string) (*pfs.CommitInfo, error) {
-	return c.inspectCommit(repoName, commitID, true)
+	return c.inspectCommit(repoName, commitID, pfs.CommitState_FINISHED)
 }
 
-func (c APIClient) inspectCommit(repoName string, commitID string, block bool) (*pfs.CommitInfo, error) {
+func (c APIClient) inspectCommit(repoName string, commitID string, blockState pfs.CommitState) (*pfs.CommitInfo, error) {
 	commitInfo, err := c.PfsAPIClient.InspectCommit(
 		c.Ctx(),
 		&pfs.InspectCommitRequest{
-			Commit: NewCommit(repoName, commitID),
-			Block:  block,
+			Commit:     NewCommit(repoName, commitID),
+			BlockState: blockState,
 		},
 	)
 	if err != nil {
@@ -435,11 +432,12 @@ func (c *commitInfoIterator) Close() {
 
 // SubscribeCommit is like ListCommit but it keeps listening for commits as
 // they come in.
-func (c APIClient) SubscribeCommit(repo string, branch string, from string) (CommitInfoIterator, error) {
+func (c APIClient) SubscribeCommit(repo string, branch string, from string, state pfs.CommitState) (CommitInfoIterator, error) {
 	ctx, cancel := context.WithCancel(c.Ctx())
 	req := &pfs.SubscribeCommitRequest{
 		Repo:   NewRepo(repo),
 		Branch: branch,
+		State:  state,
 	}
 	if from != "" {
 		req.From = NewCommit(repo, from)
@@ -454,10 +452,11 @@ func (c APIClient) SubscribeCommit(repo string, branch string, from string) (Com
 
 // SubscribeCommitF is like ListCommit but it calls a callback function with
 // the results rather than returning an iterator.
-func (c APIClient) SubscribeCommitF(repo, branch, from string, f func(*pfs.CommitInfo) error) error {
+func (c APIClient) SubscribeCommitF(repo, branch, from string, state pfs.CommitState, f func(*pfs.CommitInfo) error) error {
 	req := &pfs.SubscribeCommitRequest{
 		Repo:   NewRepo(repo),
 		Branch: branch,
+		State:  state,
 	}
 	if from != "" {
 		req.From = NewCommit(repo, from)
