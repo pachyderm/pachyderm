@@ -30,6 +30,15 @@ import "gogoproto/gogo.proto";
 // GitHub OAuth, and then promoted to the cluster's first Admin. Afterwards, the
 // caller can promote other users to Admin and remove themselves
 message ActivateRequest {
+  // If set, Pachyderm will authenticate the caller as this user.
+  // - If set to a github user (i.e. it has a 'github:' prefix or no prefix)
+  //   then Pachyderm will confirm that it matches the user associated with
+  //   'github_token'
+  // - If set to a robot user (i.e. it has a 'robot:' prefix), then Pachyderm
+  //   will generate a new token for the robot user; this token will be the only
+  //   way to administer this cluster until more admins are added.
+  string subject = 2;
+
   // This is the token returned by GitHub and used to authenticate the caller.
   // When Pachyderm is deployed locally, setting this value to a given string
   // will automatically authenticate the caller as a GitHub user whose username
@@ -122,6 +131,14 @@ message ACL {
   // "github:" or "robot:", followed by the name of a GitHub user, all of whom
   // are Pachyderm subjects, or a Pachyderm robot user)
   map<string, Scope> entries = 1;
+}
+
+message Users {
+  map<string, bool> usernames = 1;
+}
+
+message Groups {
+  map<string, bool> groups = 1;
 }
 
 //// Authorization API
@@ -255,6 +272,38 @@ message RevokeAuthTokenRequest {
 
 message RevokeAuthTokenResponse {}
 
+message SetGroupsForUserRequest {
+  string username = 1;
+  repeated string groups = 2;
+}
+
+message SetGroupsForUserResponse {}
+
+message ModifyMembersRequest {
+  string group = 1;
+  repeated string add = 2;
+  repeated string remove = 3;
+  
+}
+
+message ModifyMembersResponse {}
+
+message GetGroupsRequest {
+  string username = 1;
+}
+
+message GetGroupsResponse {
+  repeated string groups = 1;
+}
+
+message GetUsersRequest {
+  string group = 1;
+}
+
+message GetUsersResponse {
+  repeated string usernames = 1;
+}
+
 service API {
   // Activate/Deactivate the auth API. 'Activate' sets an initial set of admins
   // for the Pachyderm cluster, and 'Deactivate' removes all ACLs, tokens, and
@@ -279,4 +328,9 @@ service API {
   rpc GetAuthToken(GetAuthTokenRequest) returns (GetAuthTokenResponse) {}
   rpc ExtendAuthToken(ExtendAuthTokenRequest) returns (ExtendAuthTokenResponse) {}
   rpc RevokeAuthToken(RevokeAuthTokenRequest) returns (RevokeAuthTokenResponse) {}
+
+  rpc SetGroupsForUser(SetGroupsForUserRequest) returns (SetGroupsForUserResponse) {}
+  rpc ModifyMembers(ModifyMembersRequest) returns (ModifyMembersResponse) {}
+  rpc GetGroups(GetGroupsRequest) returns (GetGroupsResponse) {}
+  rpc GetUsers(GetUsersRequest) returns (GetUsersResponse) {}
 }

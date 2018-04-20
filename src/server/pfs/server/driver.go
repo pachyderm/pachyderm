@@ -209,6 +209,16 @@ func absent(key string) etcd.Cmp {
 }
 
 func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, description string, update bool) error {
+	d.initializePachConn()
+	// Check that the user is logged in (user doesn't need any access level to
+	// create a repo, but they must be authenticated if auth is active)
+	whoAmI, err := d.pachClient.AuthAPIClient.WhoAmI(auth.In2Out(ctx),
+		&auth.WhoAmIRequest{})
+	authIsActivated := !auth.IsErrNotActivated(err)
+	if authIsActivated && err != nil {
+		return fmt.Errorf("error authenticating (must log in to create a repo): %v",
+			grpcutil.ScrubGRPC(err))
+	}
 	if err := validateRepoName(repo.Name); err != nil {
 		return err
 	}
@@ -219,7 +229,7 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, description str
 		return d.updateRepo(ctx, repo, description)
 	}
 
-	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		repos := d.repos.ReadWrite(stm)
 
 		// check if 'repo' already exists. If so, return that error. Otherwise,
@@ -235,12 +245,7 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, description str
 		}
 
 		// Create ACL for new repo
-		whoAmI, err := d.pachClient.AuthAPIClient.WhoAmI(auth.In2Out(ctx),
-			&auth.WhoAmIRequest{})
-		if err != nil && !auth.IsErrNotActivated(err) {
-			return fmt.Errorf("error while creating repo \"%s\": %v",
-				repo.Name, grpcutil.ScrubGRPC(err))
-		} else if err == nil {
+		if authIsActivated {
 			// auth is active, and user is logged in. Make user an owner of the new
 			// repo (and clear any existing ACL under this name that might have been
 			// created by accident)
@@ -506,13 +511,7 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 			}); err != nil {
 				return err
 			}
-			repoInfo := &pfs.RepoInfo{}
-			if err := repos.Upsert(parent.Repo.Name, repoInfo, func() error {
-				add(&repoInfo.Branches, branchInfo.Branch)
-				return nil
-			}); err != nil {
-				return err
-			}
+			add(&repoInfo.Branches, branchInfo.Branch)
 			if len(branchInfo.Provenance) > 0 && treeRef == nil {
 				return fmt.Errorf("cannot start a commit on an output branch")
 			}
@@ -551,10 +550,11 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 				return err
 			}
 			repoInfo.SizeBytes += sizeChange(tree, parentTree)
-			repos.Put(parent.Repo.Name, repoInfo)
 		} else {
 			d.openCommits.ReadWrite(stm).Put(newCommit.ID, newCommit)
 		}
+
+		repos.Put(parent.Repo.Name, repoInfo)
 
 		// 'newCommitProv' holds newCommit's provenance (use map for deduping).
 		newCommitProv := make(map[string]*pfs.Commit)
@@ -605,7 +605,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 	if err := d.checkIsAuthorized(ctx, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	commitInfo, err := d.inspectCommit(ctx, commit, false)
+	commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}
@@ -634,7 +634,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 		// parent of 'commitInfo' is closed, as we use its contents
 		parentCommit := commitInfo.ParentCommit
 		for parentCommit != nil {
-			parentCommitInfo, err := d.inspectCommit(ctx, parentCommit, false)
+			parentCommitInfo, err := d.inspectCommit(ctx, parentCommit, pfs.CommitState_STARTED)
 			if err != nil {
 				return err
 			}
@@ -903,7 +903,7 @@ func sizeChange(tree hashtree.HashTree, parentTree hashtree.HashTree) uint64 {
 //
 // As a side effect, this function also replaces the ID in the given commit
 // with a real commit ID.
-func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, block bool) (*pfs.CommitInfo, error) {
+func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, blockState pfs.CommitState) (*pfs.CommitInfo, error) {
 	if commit == nil {
 		return nil, fmt.Errorf("cannot inspect nil commit")
 	}
@@ -922,7 +922,13 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, block bo
 	}
 
 	commits := d.commits(commit.Repo.Name).ReadOnly(ctx)
-	if block {
+	if blockState == pfs.CommitState_READY {
+		// Wait for each provenant commit to be finished
+		for _, commit := range commitInfo.Provenance {
+			d.inspectCommit(ctx, commit, pfs.CommitState_FINISHED)
+		}
+	}
+	if blockState == pfs.CommitState_FINISHED {
 		// Watch the CommitInfo until the commit has been finished
 		if err := func() error {
 			commitInfoWatcher, err := commits.WatchOne(commit.ID)
@@ -1059,13 +1065,13 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 
 	// Make sure that both from and to are valid commits
 	if from != nil {
-		_, err = d.inspectCommit(ctx, from, false)
+		_, err = d.inspectCommit(ctx, from, pfs.CommitState_STARTED)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if to != nil {
-		_, err = d.inspectCommit(ctx, to, false)
+		_, err = d.inspectCommit(ctx, to, pfs.CommitState_STARTED)
 		if err != nil {
 			if _, ok := err.(pfsserver.ErrNoHead); ok {
 				return nil, nil
@@ -1118,139 +1124,88 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 	return commitInfos, nil
 }
 
-type commitStream struct {
-	stream chan CommitEvent
-	done   chan struct{}
-}
-
-func (c *commitStream) Stream() <-chan CommitEvent {
-	return c.stream
-}
-
-func (c *commitStream) Close() {
-	close(c.done)
-}
-
-func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch string, from *pfs.Commit) (CommitStream, error) {
+func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch string, from *pfs.Commit, state pfs.CommitState, f func(*pfs.CommitInfo) error) error {
 	d.initializePachConn()
 	if from != nil && from.Repo.Name != repo.Name {
-		return nil, fmt.Errorf("the `from` commit needs to be from repo %s", repo.Name)
+		return fmt.Errorf("the `from` commit needs to be from repo %s", repo.Name)
 	}
 
-	// We need to watch for new commits before we start listing commits,
-	// because otherwise we might miss some commits in between when we
-	// finish listing and when we start watching.
 	branches := d.branches(repo.Name).ReadOnly(ctx)
 	newCommitWatcher, err := branches.WatchOne(branch)
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	stream := make(chan CommitEvent)
-	done := make(chan struct{})
-
-	go func() (retErr error) {
-		defer newCommitWatcher.Close()
-		defer func() {
-			if retErr != nil {
-				select {
-				case stream <- CommitEvent{
-					Err: retErr,
-				}:
-				case <-done:
-				}
-			}
-			close(stream)
-		}()
-		// keep track of the commits that have been sent
-		seen := make(map[string]bool)
-		// include all commits that are currently on the given branch,
-		// but only the ones that have been finished
-		commitInfos, err := d.listCommit(ctx, repo, &pfs.Commit{
-			Repo: repo,
-			ID:   branch,
-		}, from, 0)
+	defer newCommitWatcher.Close()
+	// keep track of the commits that have been sent
+	seen := make(map[string]bool)
+	// include all commits that are currently on the given branch,
+	commitInfos, err := d.listCommit(ctx, repo, client.NewCommit(repo.Name, branch), from, 0)
+	if err != nil {
+		// We skip NotFound error because it's ok if the branch
+		// doesn't exist yet, in which case ListCommit returns
+		// a NotFound error.
+		if !isNotFoundErr(err) {
+			return err
+		}
+	}
+	// ListCommit returns commits in newest-first order,
+	// but SubscribeCommit should return commit in oldest-first
+	// order, so we reverse the order.
+	for i := range commitInfos {
+		commitInfo := commitInfos[len(commitInfos)-i-1]
+		commitInfo, err := d.inspectCommit(ctx, commitInfo.Commit, state)
 		if err != nil {
-			// We skip NotFound error because it's ok if the branch
-			// doesn't exist yet, in which case ListCommit returns
-			// a NotFound error.
-			if !isNotFoundErr(err) {
-				return err
-			}
+			return err
 		}
-		// ListCommit returns commits in newest-first order,
-		// but SubscribeCommit should return commit in oldest-first
-		// order, so we reverse the order.
-		for i := range commitInfos {
-			commitInfo := commitInfos[len(commitInfos)-i-1]
-			select {
-			case stream <- CommitEvent{
-				Value: commitInfo,
-			}:
-				seen[commitInfo.Commit.ID] = true
-			case <-done:
-				return nil
-			}
+		if err := f(commitInfo); err != nil {
+			return err
 		}
-
-		for {
-			var branchName string
-			branchInfo := &pfs.BranchInfo{}
-			var event *watch.Event
-			var ok bool
-			select {
-			case event, ok = <-newCommitWatcher.Watch():
-			case <-done:
-				return nil
-			}
-			if !ok {
-				return nil
-			}
-			switch event.Type {
-			case watch.EventError:
-				return event.Err
-			case watch.EventPut:
-				if err := event.Unmarshal(&branchName, branchInfo); err != nil {
-					return fmt.Errorf("Unmarshal: %v", err)
-				}
-			case watch.EventDelete:
-				continue
+		seen[commitInfo.Commit.ID] = true
+	}
+	for {
+		var branchName string
+		branchInfo := &pfs.BranchInfo{}
+		var event *watch.Event
+		var ok bool
+		event, ok = <-newCommitWatcher.Watch()
+		if !ok {
+			return nil
+		}
+		switch event.Type {
+		case watch.EventError:
+			return event.Err
+		case watch.EventPut:
+			if err := event.Unmarshal(&branchName, branchInfo); err != nil {
+				return fmt.Errorf("Unmarshal: %v", err)
 			}
 			if branchInfo.Head == nil {
 				continue // put event == new branch was created. No commits yet though
 			}
 
-			// We don't want to include the `from` commit itself
-
-			// TODO check the branchName because right now WatchOne, like all
+			// TODO we check the branchName because right now WatchOne, like all
 			// collection watch commands, returns all events matching a given prefix,
 			// which means we'll get back events associated with `master-v1` if we're
 			// watching `master`.  Once this is changed we should remove the
 			// comparison between branchName and branch.
+
+			// We don't want to include the `from` commit itself
 			if branchName == branch && (!(seen[branchInfo.Head.ID] || (from != nil && from.ID == branchInfo.Head.ID))) {
-				commitInfo, err := d.inspectCommit(ctx, branchInfo.Head, false)
+				commitInfo, err := d.inspectCommit(ctx, branchInfo.Head, state)
 				if err != nil {
 					return err
 				}
-				select {
-				case stream <- CommitEvent{
-					Value: commitInfo,
-				}:
-					seen[commitInfo.Commit.ID] = true
-				case <-done:
-					return nil
+				if err := f(commitInfo); err != nil {
+					return err
 				}
+				seen[commitInfo.Commit.ID] = true
 			}
+		case watch.EventDelete:
+			continue
 		}
-	}()
-
-	return &commitStream{
-		stream: stream,
-		done:   done,
-	}, nil
+	}
 }
 
-func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo, f func(commitInfo *pfs.CommitInfo) error) error {
+func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toRepos []*pfs.Repo, f func(*pfs.CommitInfo) error) error {
 	if len(fromCommits) == 0 {
 		return fmt.Errorf("fromCommits cannot be empty")
 	}
@@ -1262,7 +1217,7 @@ func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 	// processed so far
 	commitsToWatch := make(map[string]*pfs.Commit)
 	for i, commit := range fromCommits {
-		commitInfo, err := d.inspectCommit(ctx, commit, false)
+		commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_STARTED)
 		if err != nil {
 			return err
 		}
@@ -1293,7 +1248,7 @@ func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 				continue
 			}
 		}
-		finishedCommitInfo, err := d.inspectCommit(ctx, commitToWatch, true)
+		finishedCommitInfo, err := d.inspectCommit(ctx, commitToWatch, pfs.CommitState_FINISHED)
 		if err != nil {
 			if _, ok := err.(pfsserver.ErrCommitNotFound); ok {
 				continue // just skip this
@@ -1665,7 +1620,7 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 		}
 		repos := d.repos.ReadWrite(stm)
 		repoInfo := &pfs.RepoInfo{}
-		if err := repos.Upsert(branch.Repo.Name, repoInfo, func() error {
+		if err := repos.Update(branch.Repo.Name, repoInfo, func() error {
 			add(&repoInfo.Branches, branch)
 			return nil
 		}); err != nil {
@@ -1715,7 +1670,7 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 				if !has(&branchInfo.Provenance, oldProvBranch) {
 					// Provenance was deleted, so we delete ourselves from their subvenance
 					oldProvBranchInfo := &pfs.BranchInfo{}
-					if err := d.branches(oldProvBranch.Repo.Name).ReadWrite(stm).Upsert(oldProvBranch.Name, oldProvBranchInfo, func() error {
+					if err := d.branches(oldProvBranch.Repo.Name).ReadWrite(stm).Update(oldProvBranch.Name, oldProvBranchInfo, func() error {
 						del(&oldProvBranchInfo.Subvenance, branchInfo.Branch)
 						return nil
 					}); err != nil {
@@ -1852,7 +1807,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	commitInfo, err := d.inspectCommit(ctx, file.Commit, false)
+	commitInfo, err := d.inspectCommit(ctx, file.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}
@@ -1983,7 +1938,7 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 	if err := validatePath(dst.Path); err != nil {
 		return err
 	}
-	if _, err := d.inspectCommit(ctx, dst.Commit, false); err != nil {
+	if _, err := d.inspectCommit(ctx, dst.Commit, pfs.CommitState_STARTED); err != nil {
 		return err
 	}
 	if overwrite {
@@ -2049,7 +2004,7 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 		return nil, fmt.Errorf("corrupted cache: expected hashtree.Hashtree, found %v", tree)
 	}
 
-	if _, err := d.inspectCommit(ctx, commit, false); err != nil {
+	if _, err := d.inspectCommit(ctx, commit, pfs.CommitState_STARTED); err != nil {
 		return nil, err
 	}
 
@@ -2098,7 +2053,7 @@ func (d *driver) getTreeForFile(ctx context.Context, file *pfs.File) (hashtree.H
 		}
 		return t, nil
 	}
-	commitInfo, err := d.inspectCommit(ctx, file.Commit, false)
+	commitInfo, err := d.inspectCommit(ctx, file.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return nil, err
 	}
@@ -2294,7 +2249,7 @@ func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.F
 	// if oldFile is new we use the parent of newFile
 	if oldFile == nil {
 		oldFile = &pfs.File{}
-		newCommitInfo, err := d.inspectCommit(ctx, newFile.Commit, false)
+		newCommitInfo, err := d.inspectCommit(ctx, newFile.Commit, pfs.CommitState_STARTED)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -2330,7 +2285,7 @@ func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
 	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	commitInfo, err := d.inspectCommit(ctx, file.Commit, false)
+	commitInfo, err := d.inspectCommit(ctx, file.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}

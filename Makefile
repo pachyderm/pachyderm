@@ -25,6 +25,9 @@ CLUSTER_SIZE?=4
 
 BENCH_CLOUD_PROVIDER=aws
 
+MINIKUBE_MEM=8192 # MB of memory allocated to minikube
+MINIKUBE_CPU=4 # Number of CPUs allocated to minikube
+
 ifdef TRAVIS_BUILD_NUMBER
 	# Upper bound for travis test timeout
 	TIMEOUT = 3600s
@@ -205,8 +208,11 @@ docker-build-test-entrypoint:
 	docker build -t pachyderm_entrypoint etc/testing/entrypoint
 
 check-kubectl:
-	# check that kubectl is installed
-	which kubectl
+	@# check that kubectl is installed
+	@which kubectl >/dev/null || { \
+		echo "error: kubectl not found"; \
+		exit 1; \
+	}
 
 check-kubectl-connection:
 	kubectl $(KUBECTLFLAGS) get all > /dev/null
@@ -283,8 +289,28 @@ bench: clean-launch-bench build-bench-images push-bench-images launch-bench run-
 launch-kube: check-kubectl
 	etc/kube/start-minikube.sh -r
 
+launch-dev-vm: check-kubectl
+	@# Make sure the caller sets address to avoid confusion later
+	@if [ -z "${ADDRESS}" ]; then \
+	  echo "Must set ADDRESS"; \
+	  echo "Run"; \
+	  echo "export ADDRESS=192.168.99.100:30650"; \
+	  exit 1; \
+	fi
+	@# Make sure minikube isn't still up from a previous run
+	@if minikube ip 2>/dev/null || sudo minikube ip 2>/dev/null; \
+	then \
+		echo "minikube is still up. Run 'make clean-launch-kube'"; \
+		exit 1; \
+	fi
+	etc/kube/start-minikube-vm.sh --cpus=$(MINIKUBE_CPU) --memory=$(MINIKUBE_MEM)
+
 clean-launch-kube:
-	sudo minikube delete
+	@# clean up both of the following cases:
+	@# make launch-dev-vm - minikube config is owned by $USER
+	@# make launch-kube - minikube config is owned by root
+	minikube ip 2>/dev/null && minikube delete || true
+	sudo minikube ip 2>/dev/null && sudo minikube delete || true
 
 launch: install check-kubectl
 	$(eval STARTTIME := $(shell date +%s))

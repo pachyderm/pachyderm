@@ -25,7 +25,9 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
     } ],
     "image_pull_secrets": [ string ],
     "accept_return_code": [ int ],
-    "debug": bool
+    "debug": bool,
+    "user": string,
+    "working_dir": string,
   },
   "parallelism_spec": {
     // Set at most one of the following:
@@ -50,7 +52,7 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   "egress": {
     "URL": "s3://bucket/dir"
   },
-  "scale_down_threshold": string,
+  "standby": bool,
   "incremental": bool,
   "cache_size": string,
   "enable_stats": bool,
@@ -202,6 +204,12 @@ be considered a successful run for the purpose of setting job status.  `0`
 is always considered a successful exit code.
 
 `transform.debug` turns on added debug logging for the pipeline.
+
+`transform.user` sets the user that your code runs as, this can also be
+accomplished with a `USER` directive in your Dockerfile.
+
+`transform.working_dir` sets the directory that your command will be run from,
+this can also be accomplished with a `WORKDIR` directive in your Dockerfile.
 
 ### Parallelism Spec (optional)
 
@@ -465,13 +473,13 @@ store such as s3, Google Cloud Storage or Azure Storage. Data will be pushed
 after the user code has finished running but before the job is marked as
 successful.
 
-### Scale-down threshold (optional)
+### Standby (optional)
 
-`scale_down_threshold` specifies when the worker pods of a pipeline should be terminated.
+`standby` indicates that the pipeline should be put into "standby" when there's
+no data for it to process.  A pipeline in standby will have no pods running and
+thus will consume no resources, it's state will be displayed as "standby".
 
-by default, a pipeline’s worker pods are always running.  when `scale_down_threshold` is set, all but one worker pods are terminated after the pipeline has not seen a new job for the given duration (we still need one worker pod to subscribe to new input commits).  when a new input commit comes in, the worker pods are then re-created.
-
-`scale_down_threshold` is a string that needs to be sequence of decimal numbers with a unit suffix, such as “300ms”, “1.5h” or “2h45m”. valid time units are “s”, “m”, “h”.
+Standby replaces `scale_down_threshold` from releases prior to 1.7.1.
 
 ### Incremental (optional)
 
