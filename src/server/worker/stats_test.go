@@ -157,7 +157,7 @@ func TestPrometheusStats(t *testing.T) {
 		t.Run(fmt.Sprintf("AcrossJobsDatumTime=%v", segment), func(t *testing.T) {
 			sum := fmt.Sprintf("sum(pachyderm_user_datum_%v_time_sum{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
 			count := fmt.Sprintf("sum(pachyderm_user_datum_%v_time_count{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
-			query := "(" + sum + ")/(" + count + ")" // compute the avg over 5m
+			query := "(" + sum + ")/(" + count + ")"
 			result, err := promAPI.Query(context.Background(), query, time.Now())
 			require.NoError(t, err)
 			resultVec := result.(prom_model.Vector)
@@ -168,7 +168,7 @@ func TestPrometheusStats(t *testing.T) {
 	t.Run(fmt.Sprintf("AcrossJobsDatumTime=%v", segment), func(t *testing.T) {
 		sum := fmt.Sprintf("sum(pachyderm_user_datum_%v_time_sum{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
 		count := fmt.Sprintf("sum(pachyderm_user_datum_%v_time_count{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
-		query := sum + "/" + count // compute the avg over 5m
+		query := sum + "/" + count
 		result, err := promAPI.Query(context.Background(), query, time.Now())
 		require.NoError(t, err)
 		resultVec := result.(prom_model.Vector)
@@ -180,7 +180,7 @@ func TestPrometheusStats(t *testing.T) {
 		t.Run(fmt.Sprintf("AcrossJobsDatumSize=%v", segment), func(t *testing.T) {
 			sum := fmt.Sprintf("sum(pachyderm_user_datum_%v_size_sum{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
 			count := fmt.Sprintf("sum(pachyderm_user_datum_%v_size_count{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
-			query := "(" + sum + ")/(" + count + ")" // compute the avg over 5m
+			query := "(" + sum + ")/(" + count + ")"
 			result, err := promAPI.Query(context.Background(), query, time.Now())
 			require.NoError(t, err)
 			resultVec := result.(prom_model.Vector)
@@ -200,7 +200,7 @@ func TestPrometheusStats(t *testing.T) {
 		t.Run(fmt.Sprintf("PerJobDatumTime=%v", segment), func(t *testing.T) {
 			sum := fmt.Sprintf("sum(pachyderm_user_datum_%v_time_sum{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
 			count := fmt.Sprintf("sum(pachyderm_user_datum_%v_time_count{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
-			query := "(" + sum + ")/(" + count + ")" // compute the avg over 5m
+			query := "(" + sum + ")/(" + count + ")"
 			result, err := promAPI.Query(context.Background(), query, time.Now())
 			require.NoError(t, err)
 			resultVec := result.(prom_model.Vector)
