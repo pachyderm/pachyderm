@@ -21,6 +21,22 @@ func Matches(tb testing.TB, expectedMatch string, actual string, msgAndArgs ...i
 	}
 }
 
+// OneOfMatches checks whether one element of a slice matches a regular-expression.
+func OneOfMatches(tb testing.TB, expectedMatch string, actuals []string, msgAndArgs ...interface{}) {
+	tb.Helper()
+	r, err := regexp.Compile(expectedMatch)
+	if err != nil {
+		fatal(tb, msgAndArgs, "Match string provided (%v) is invalid", expectedMatch)
+	}
+	for _, actual := range actuals {
+		if r.MatchString(actual) {
+			return
+		}
+	}
+	fatal(tb, msgAndArgs, "None of actual strings (%v) match pattern (%v)", actuals, expectedMatch)
+
+}
+
 // Equal checks equality of two values.
 func Equal(tb testing.TB, expected interface{}, actual interface{}, msgAndArgs ...interface{}) {
 	tb.Helper()
@@ -303,6 +319,28 @@ func NoErrorWithinT(tb testing.TB, t time.Duration, f func() error, msgAndArgs .
 			fatal(tb, msgAndArgs, "No error is expected but got %s", err.Error())
 		}
 	case <-time.After(t):
+		fatal(tb, msgAndArgs, "operation did not finish within %s", t.String())
+	}
+}
+
+// NoErrorWithinTRetry checks that 'f' finishes within time 't' and does not
+// emit an error. Unlike NoErrorWithinT if f does error, it will retry it.
+func NoErrorWithinTRetry(tb testing.TB, t time.Duration, f func() error, msgAndArgs ...interface{}) {
+	tb.Helper()
+	doneCh := make(chan struct{})
+	timeout := false
+	go func() {
+		for !timeout {
+			if err := f(); err == nil {
+				close(doneCh)
+				break
+			}
+		}
+	}()
+	select {
+	case <-doneCh:
+	case <-time.After(t):
+		timeout = true
 		fatal(tb, msgAndArgs, "operation did not finish within %s", t.String())
 	}
 }

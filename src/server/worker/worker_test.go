@@ -28,7 +28,7 @@ var (
 // 	c := getPachClient(t)
 // 	etcdClient := getEtcdClient(t)
 //
-// 	chunks := col.NewCollection(etcdClient, path.Join("", chunksPrefix), []col.Index{}, &Chunks{}, nil)
+// 	chunks := col.NewCollection(etcdClient, path.Join("", chunksPrefix), []col.Index{}, &Chunks{}, nil, nil)
 // 	for nChunks := 1; nChunks < 200; nChunks += 50 {
 // 		for nWorkers := 1; nWorkers < 40; nWorkers += 10 {
 // 			jobInfo := &pps.JobInfo{
@@ -114,6 +114,6 @@ func newTestAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etc
 		},
 		jobs:      ppsdb.Jobs(etcdClient, etcdPrefix),
 		pipelines: ppsdb.Pipelines(etcdClient, etcdPrefix),
-		chunks:    col.NewCollection(etcdClient, path.Join(etcdPrefix, chunksPrefix), []col.Index{}, &Chunks{}, nil),
+		chunks:    col.NewCollection(etcdClient, path.Join(etcdPrefix, chunksPrefix), []col.Index{}, &Chunks{}, nil, nil),
 	}
 }

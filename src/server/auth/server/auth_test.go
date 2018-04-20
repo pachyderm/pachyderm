@@ -220,7 +220,7 @@ func getPachClient(t testing.TB, subject string) *client.APIClient {
 func deleteAll(tb testing.TB) {
 	tb.Helper()
 	adminClient := getPachClient(tb, "admin")
-	require.Nil(tb, adminClient.DeleteAll(), "initial DeleteAll()")
+	require.NoError(tb, adminClient.DeleteAll(), "initial DeleteAll()")
 }
 
 // entries constructs an auth.ACL struct from a list of the form
@@ -1391,10 +1391,10 @@ func TestListRepoNotLoggedInError(t *testing.T) {
 	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
 
 	// alice creates a repo
-	repoWriter := tu.UniqueString("TestListRepo")
-	require.NoError(t, aliceClient.CreateRepo(repoWriter))
+	repo := tu.UniqueString("TestListRepo")
+	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.ElementsEqual(t,
-		entries(alice, "owner"), GetACL(t, aliceClient, repoWriter))
+		entries(alice, "owner"), GetACL(t, aliceClient, repo))
 
 	// Anon (non-logged-in user) calls ListRepo, and must receive an error
 	_, err := anonClient.PfsAPIClient.ListRepo(anonClient.Ctx(),
@@ -1417,8 +1417,8 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 	adminClient := getPachClient(t, "admin")
 
 	// alice creates a repo
-	repoWriter := tu.UniqueString("TestListRepo")
-	require.NoError(t, aliceClient.CreateRepo(repoWriter))
+	repo := tu.UniqueString("TestListRepo")
+	require.NoError(t, aliceClient.CreateRepo(repo))
 
 	// bob calls ListRepo, but has NONE access to all repos
 	infos, err := bobClient.ListRepo()
@@ -1468,6 +1468,22 @@ func TestCreateRepoAlreadyExistsError(t *testing.T) {
 	err := bobClient.CreateRepo(repo)
 	require.YesError(t, err)
 	require.Matches(t, "already exists", err.Error())
+}
+
+// TestCreateRepoNotLoggedInError makes sure that if a user isn't logged in, and
+// they call CreateRepo(), they get an error.
+func TestCreateRepoNotLoggedInError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	anonClient := getPachClient(t, "")
+
+	// anonClient tries and fails to create a repo
+	repo := tu.UniqueString("TestCreateRepo")
+	err := anonClient.CreateRepo(repo)
+	require.YesError(t, err)
+	require.Matches(t, "auth token not found in context", err.Error())
 }
 
 // TestDeleteRepoDoesntExistError tests that if a client calls DeleteRepo on a
@@ -2032,4 +2048,259 @@ func TestPipelineNewInput(t *testing.T) {
 		_, err := iter.Next()
 		return err
 	})
+}
+
+func TestModifyMembers(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+
+	alice := tu.UniqueString("alice")
+	bob := tu.UniqueString("bob")
+	organization := tu.UniqueString("organization")
+	engineering := tu.UniqueString("engineering")
+	security := tu.UniqueString("security")
+
+	adminClient := getPachClient(t, admin)
+
+	// This is a sequence dependent list of tests
+	tests := []struct {
+		Requests []*auth.ModifyMembersRequest
+		Expected map[string][]string
+	}{
+		{
+			[]*auth.ModifyMembersRequest{
+				&auth.ModifyMembersRequest{
+					Add:   []string{alice},
+					Group: organization,
+				},
+				&auth.ModifyMembersRequest{
+					Add:   []string{alice},
+					Group: organization,
+				},
+			},
+			map[string][]string{
+				alice: []string{organization},
+			},
+		},
+		{
+			[]*auth.ModifyMembersRequest{
+				&auth.ModifyMembersRequest{
+					Add:   []string{bob},
+					Group: organization,
+				},
+				&auth.ModifyMembersRequest{
+					Add:   []string{alice, bob},
+					Group: engineering,
+				},
+				&auth.ModifyMembersRequest{
+					Add:   []string{bob},
+					Group: security,
+				},
+			},
+			map[string][]string{
+				alice: []string{organization, engineering},
+				bob:   []string{organization, engineering, security},
+			},
+		},
+		{
+			[]*auth.ModifyMembersRequest{
+				&auth.ModifyMembersRequest{
+					Add:    []string{alice},
+					Remove: []string{bob},
+					Group:  security,
+				},
+				&auth.ModifyMembersRequest{
+					Remove: []string{bob},
+					Group:  engineering,
+				},
+			},
+			map[string][]string{
+				alice: []string{organization, engineering, security},
+				bob:   []string{organization},
+			},
+		},
+		{
+			[]*auth.ModifyMembersRequest{
+				&auth.ModifyMembersRequest{
+					Remove: []string{alice, bob},
+					Group:  organization,
+				},
+				&auth.ModifyMembersRequest{
+					Remove: []string{alice, bob},
+					Group:  security,
+				},
+				&auth.ModifyMembersRequest{
+					Add:    []string{alice},
+					Remove: []string{alice},
+					Group:  organization,
+				},
+				&auth.ModifyMembersRequest{
+					Add:    []string{},
+					Remove: []string{},
+					Group:  organization,
+				},
+			},
+			map[string][]string{
+				alice: []string{engineering},
+				bob:   []string{},
+			},
+		},
+	}
+
+	for i, test := range tests {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			for _, req := range test.Requests {
+				_, err := adminClient.ModifyMembers(adminClient.Ctx(), req)
+				require.NoError(t, err)
+			}
+
+			for username, groups := range test.Expected {
+				groupsActual, err := adminClient.GetGroups(adminClient.Ctx(), &auth.GetGroupsRequest{
+					Username: username,
+				})
+				require.NoError(t, err)
+				require.ElementsEqual(t, groups, groupsActual.Groups)
+
+				for _, group := range groups {
+					users, err := adminClient.GetUsers(adminClient.Ctx(), &auth.GetUsersRequest{
+						Group: group,
+					})
+					require.NoError(t, err)
+					require.OneOfEquals(t, gh(username), users.Usernames)
+				}
+			}
+		})
+	}
+}
+
+func TestSetGroupsForUser(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+
+	alice := tu.UniqueString("alice")
+	organization := tu.UniqueString("organization")
+	engineering := tu.UniqueString("engineering")
+	security := tu.UniqueString("security")
+
+	adminClient := getPachClient(t, admin)
+
+	groups := []string{organization, engineering}
+	_, err := adminClient.SetGroupsForUser(adminClient.Ctx(), &auth.SetGroupsForUserRequest{
+		Username: alice,
+		Groups:   groups,
+	})
+	require.NoError(t, err)
+	groupsActual, err := adminClient.GetGroups(adminClient.Ctx(), &auth.GetGroupsRequest{
+		Username: alice,
+	})
+	require.NoError(t, err)
+	require.ElementsEqual(t, groups, groupsActual.Groups)
+	for _, group := range groups {
+		users, err := adminClient.GetUsers(adminClient.Ctx(), &auth.GetUsersRequest{
+			Group: group,
+		})
+		require.NoError(t, err)
+		require.OneOfEquals(t, gh(alice), users.Usernames)
+	}
+
+	groups = append(groups, security)
+	_, err = adminClient.SetGroupsForUser(adminClient.Ctx(), &auth.SetGroupsForUserRequest{
+		Username: alice,
+		Groups:   groups,
+	})
+	require.NoError(t, err)
+	groupsActual, err = adminClient.GetGroups(adminClient.Ctx(), &auth.GetGroupsRequest{
+		Username: alice,
+	})
+	require.NoError(t, err)
+	require.ElementsEqual(t, groups, groupsActual.Groups)
+	for _, group := range groups {
+		users, err := adminClient.GetUsers(adminClient.Ctx(), &auth.GetUsersRequest{
+			Group: group,
+		})
+		require.NoError(t, err)
+		require.OneOfEquals(t, gh(alice), users.Usernames)
+	}
+
+	groups = groups[:1]
+	_, err = adminClient.SetGroupsForUser(adminClient.Ctx(), &auth.SetGroupsForUserRequest{
+		Username: alice,
+		Groups:   groups,
+	})
+	require.NoError(t, err)
+	groupsActual, err = adminClient.GetGroups(adminClient.Ctx(), &auth.GetGroupsRequest{
+		Username: alice,
+	})
+	require.NoError(t, err)
+	require.ElementsEqual(t, groups, groupsActual.Groups)
+	for _, group := range groups {
+		users, err := adminClient.GetUsers(adminClient.Ctx(), &auth.GetUsersRequest{
+			Group: group,
+		})
+		require.NoError(t, err)
+		require.OneOfEquals(t, gh(alice), users.Usernames)
+	}
+
+	groups = []string{}
+	_, err = adminClient.SetGroupsForUser(adminClient.Ctx(), &auth.SetGroupsForUserRequest{
+		Username: alice,
+		Groups:   groups,
+	})
+	require.NoError(t, err)
+	groupsActual, err = adminClient.GetGroups(adminClient.Ctx(), &auth.GetGroupsRequest{
+		Username: alice,
+	})
+	require.NoError(t, err)
+	require.ElementsEqual(t, groups, groupsActual.Groups)
+	for _, group := range groups {
+		users, err := adminClient.GetUsers(adminClient.Ctx(), &auth.GetUsersRequest{
+			Group: group,
+		})
+		require.NoError(t, err)
+		require.OneOfEquals(t, gh(alice), users.Usernames)
+	}
+}
+
+func TestGetAllGroupsAndGetAllUsers(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+
+	alice := tu.UniqueString("alice")
+	bob := tu.UniqueString("bob")
+	john := tu.UniqueString("john")
+	organization := tu.UniqueString("organization")
+	engineering := tu.UniqueString("engineering")
+	security := tu.UniqueString("security")
+
+	adminClient := getPachClient(t, admin)
+
+	_, err := adminClient.SetGroupsForUser(adminClient.Ctx(), &auth.SetGroupsForUserRequest{
+		Username: alice,
+		Groups:   []string{organization, engineering, security},
+	})
+	require.NoError(t, err)
+	_, err = adminClient.SetGroupsForUser(adminClient.Ctx(), &auth.SetGroupsForUserRequest{
+		Username: bob,
+		Groups:   []string{engineering},
+	})
+	require.NoError(t, err)
+	_, err = adminClient.ModifyMembers(adminClient.Ctx(), &auth.ModifyMembersRequest{
+		Group: organization,
+		Add:   []string{bob, john},
+	})
+	require.NoError(t, err)
+
+	users, err := adminClient.GetUsers(adminClient.Ctx(), &auth.GetUsersRequest{})
+	require.NoError(t, err)
+	require.ElementsEqual(t, []string{gh(alice), gh(bob), gh(john)}, users.Usernames)
+
+	groups, err := adminClient.GetGroups(adminClient.Ctx(), &auth.GetGroupsRequest{})
+	require.NoError(t, err)
+	require.ElementsEqual(t, []string{organization, engineering, security}, groups.Groups)
 }
