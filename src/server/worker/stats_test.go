@@ -107,9 +107,6 @@ func TestPrometheusStats(t *testing.T) {
 	_, err = c.FlushCommit([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
 
-	// Now hit stats endpoint and see some results
-	// get the nodeport of the prometheus deployment
-	// kc --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort
 	port := os.Getenv("PROM_PORT")
 	promClient, err := prom_api.NewClient(prom_api.Config{
 		Address: fmt.Sprintf("http://127.0.0.1:%v", port),
