@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"sync"
 	"time"
 
 	"github.com/golang/snappy"
@@ -20,14 +19,14 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 )
 
 type apiServer struct {
 	log.Logger
-	address        string
-	pachClient     *client.APIClient
-	pachClientOnce sync.Once
-	clusterInfo    *admin.ClusterInfo
+	// env contains connections to other services in the cluster
+	env         *serviceenv.ServiceEnv
+	clusterInfo *admin.ClusterInfo
 }
 
 func (a *apiServer) InspectCluster(ctx context.Context, request *types.Empty) (*admin.ClusterInfo, error) {
@@ -37,8 +36,7 @@ func (a *apiServer) InspectCluster(ctx context.Context, request *types.Empty) (*
 func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.API_ExtractServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	pachClient := a.getPachClient()
-	pachClient = pachClient.WithCtx(extractServer.Context())
+	pachClient := a.env.GetPachClient(extractServer.Context())
 	handleOp := extractServer.Send
 	if request.URL != "" {
 		url, err := obj.ParseURL(request.URL)
@@ -157,8 +155,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 func (a *apiServer) ExtractPipeline(ctx context.Context, request *admin.ExtractPipelineRequest) (response *admin.Op, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	pachClient := a.getPachClient()
-	pachClient = pachClient.WithCtx(ctx)
+	pachClient := a.env.GetPachClient(ctx)
 	pi, err := pachClient.InspectPipeline(request.Pipeline.Name)
 	if err != nil {
 		return nil, err
@@ -276,7 +273,7 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 	func() { a.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
 	ctx := restoreServer.Context()
-	pachClient := a.getPachClient()
+	pachClient := a.env.GetPachClient(restoreServer.Context())
 	defer func() {
 		for {
 			_, err := restoreServer.Recv()
@@ -359,17 +356,6 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 			}
 		}
 	}
-}
-
-func (a *apiServer) getPachClient() *client.APIClient {
-	a.pachClientOnce.Do(func() {
-		var err error
-		a.pachClient, err = client.NewFromAddress(a.address)
-		if err != nil {
-			panic(fmt.Sprintf("pps failed to initialize pach client: %v", err))
-		}
-	})
-	return a.pachClient
 }
 
 type extractObjectWriter func(*admin.Op) error

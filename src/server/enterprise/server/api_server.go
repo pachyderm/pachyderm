@@ -14,7 +14,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/types"
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
@@ -24,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 )
 
@@ -54,7 +54,8 @@ m5MuBYYSa4PH/uIZktTYOkMCAwEAAQ==
 
 type apiServer struct {
 	pachLogger log.Logger
-	etcdClient *etcd.Client
+	// env contains connections to other services in the cluster
+	env *serviceenv.ServiceEnv
 
 	// enterpriseState is a cached timestamp, indicating when the current
 	// Pachyderm Enterprise token will expire (or 0 if there is no Pachyderm
@@ -87,21 +88,12 @@ func (a *apiServer) LogReq(request interface{}) {
 }
 
 // NewEnterpriseServer returns an implementation of ec.APIServer.
-func NewEnterpriseServer(pachdAddress, etcdAddress string, etcdPrefix string) (ec.APIServer, error) {
-	etcdClient, err := etcd.New(etcd.Config{
-		Endpoints:   []string{etcdAddress},
-		DialOptions: client.EtcdDialOptions(),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("error constructing etcdClient: %s", err.Error())
-	}
-
+func NewEnterpriseServer(env *serviceenv.ServiceEnv, etcdPrefix string) (ec.APIServer, error) {
 	s := &apiServer{
-		pachLogger:   log.NewLogger("enterprise.API"),
-		etcdClient:   etcdClient,
-		pachdAddress: pachdAddress,
+		pachLogger: log.NewLogger("enterprise.API"),
+		env:        env,
 		enterpriseToken: col.NewCollection(
-			etcdClient,
+			env.GetEtcdClient(),
 			etcdPrefix, // only one collection--no extra prefix needed
 			nil,
 			&ec.EnterpriseRecord{},
@@ -249,7 +241,7 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 	if err != nil {
 		return nil, fmt.Errorf("could not convert expiration time \"%s\" to proto: %s", expiration.String(), err.Error())
 	}
-	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		e := a.enterpriseToken.ReadWrite(stm)
 		// blind write
 		return e.Put(enterpriseTokenKey, &ec.EnterpriseRecord{
@@ -320,7 +312,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (
 		return nil, fmt.Errorf("could not delete all pachyderm data: %v", err)
 	}
 
-	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		// blind delete
 		return a.enterpriseToken.ReadWrite(stm).Delete(enterpriseTokenKey)
 	}); err != nil {

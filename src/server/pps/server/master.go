@@ -27,7 +27,6 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
-	"github.com/pachyderm/pachyderm/src/server/pkg/pachrpc"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 )
@@ -46,11 +45,11 @@ var (
 // The master process is responsible for creating/deleting workers as
 // pipelines are created/removed.
 func (a *apiServer) master() {
-	masterLock := dlock.NewDLock(a.etcdClient, path.Join(a.etcdPrefix, masterLockPath))
+	masterLock := dlock.NewDLock(a.env.GetEtcdClient(), path.Join(a.etcdPrefix, masterLockPath))
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		pachClient := pachrpc.GetPachClient(ctx)
+		pachClient := a.env.GetPachClient(ctx)
 		// Use the PPS token to authenticate requests. Note that all requests
 		// performed in this function are performed as a cluster admin, so do not
 		// pass any unvalidated user input to any requests
@@ -236,7 +235,7 @@ func (a *apiServer) master() {
 }
 
 func (a *apiServer) setPipelineFailure(ctx context.Context, pipelineName string, reason string) error {
-	return ppsutil.FailPipeline(ctx, a.etcdClient, a.pipelines, pipelineName, reason)
+	return ppsutil.FailPipeline(ctx, a.env.GetEtcdClient(), a.pipelines, pipelineName, reason)
 }
 
 func (a *apiServer) checkOrDeployGithookService() error {
@@ -433,7 +432,7 @@ func notifyCtx(ctx context.Context, name string) func(error, time.Duration) erro
 func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) {
 	setPipelineState := func(state pps.PipelineState) error {
 		log.Infof("moving pipeline %s to %s", pipelineInfo.Pipeline.Name, state.String())
-		_, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
+		_, err := col.NewSTM(pachClient.Ctx(), a.env.GetEtcdClient(), func(stm col.STM) error {
 			pipelines := a.pipelines.ReadWrite(stm)
 			pipelinePtr := &pps.EtcdPipelineInfo{}
 			return pipelines.Update(pipelineInfo.Pipeline.Name, pipelinePtr, func() error {

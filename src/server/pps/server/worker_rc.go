@@ -8,7 +8,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
-	"github.com/pachyderm/pachyderm/src/server/pkg/pachrpc"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 
 	v1 "k8s.io/api/core/v1"
@@ -106,7 +105,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	})
 	zeroVal := int64(0)
 	workerImage := a.workerImage
-	pachClient := pachrpc.GetPachClient(context.Background())
+	pachClient := a.env.GetPachClient(context.Background())
 	resp, err := pachClient.Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
 	if err != nil {
 		return v1.PodSpec{}, err

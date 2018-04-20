@@ -137,7 +137,7 @@ func doSidecarMode(appEnvObj interface{}) error {
 		return err
 	}
 	etcdAddress := fmt.Sprintf("http://%s:2379", appEnv.EtcdAddress)
-	pachAddress = fmt.Sprintf("%s:%d", pachIP, appEnv.Port)
+	pachAddress := fmt.Sprintf("%s:%d", pachIP, appEnv.Port)
 
 	etcdClientV3, err := etcd.New(etcd.Config{
 		Endpoints:   []string{etcdAddress},
@@ -238,6 +238,7 @@ func doFullMode(appEnvObj interface{}) error {
 	}
 	address = fmt.Sprintf("%s:%d", address, appEnv.Port)
 	etcdAddress := fmt.Sprintf("http://%s:2379", appEnv.EtcdAddress)
+	env := serviceenv.InitServiceEnv(address, etcdAddress)
 
 	etcdClientV2 := getEtcdClient(etcdAddress)
 	etcdClientV3, err := etcd.New(etcd.Config{
@@ -320,7 +321,7 @@ func doFullMode(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	blockAPIServer, err := pfs_server.NewBlockAPIServer(appEnv.StorageRoot, blockCacheBytes, appEnv.StorageBackend, etcdAddress)
+	blockAPIServer, err := pfs_server.NewBlockAPIServer(env, appEnv.StorageRoot, blockCacheBytes, appEnv.StorageBackend)
 	if err != nil {
 		return err
 	}
@@ -339,7 +340,7 @@ func doFullMode(appEnvObj interface{}) error {
 
 	deployServer := deployserver.NewDeployServer(kubeClient, kubeNamespace)
 
-	httpServer, err := pach_http.NewHTTPServer(env)
+	httpServer, err := pach_http.NewHTTPServer(address)
 	if err != nil {
 		return err
 	}

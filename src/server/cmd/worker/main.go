@@ -16,8 +16,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/pachrpc"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/worker"
 	"google.golang.org/grpc"
 
@@ -57,10 +57,10 @@ func main() {
 // worker is part of.
 // getPipelineInfo has the side effect of adding auth to the passed pachClient
 // which is necessary to get the PipelineInfo from pfs.
-func getPipelineInfo(etcdClient *etcd.Client, pachClient *client.APIClient, appEnv *appEnv) (*pps.PipelineInfo, error) {
+func getPipelineInfo(env *serviceenv.ServiceEnv, pachClient *client.APIClient, appEnv *appEnv) (*pps.PipelineInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	resp, err := etcdClient.Get(ctx, path.Join(appEnv.PPSPrefix, "pipelines", appEnv.PPSPipelineName))
+	resp, err := env.GetEtcdClient().Get(ctx, path.Join(appEnv.PPSPrefix, "pipelines", appEnv.PPSPipelineName))
 	if err != nil {
 		return nil, err
 	}
@@ -87,26 +87,16 @@ func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
 
 	// Construct a client that connects to the sidecar.
-	pachrpc.InitPachRPC("localhost:650")
-	pachClient := pachrpc.GetPachClient(context.Background())
-
-	// Get etcd client, so we can register our IP (so pachd can discover us)
-	etcdClient, err := etcd.New(etcd.Config{
-		Endpoints:   []string{fmt.Sprintf("%s:2379", appEnv.EtcdAddress)},
-		DialOptions: client.EtcdDialOptions(),
-	})
-	if err != nil {
-		return fmt.Errorf("error constructing etcdClient: %v", err)
-	}
-
-	pipelineInfo, err := getPipelineInfo(etcdClient, pachClient, appEnv)
+	env := serviceenv.InitServiceEnv("localhost:650", fmt.Sprintf("%s:2379", appEnv.EtcdAddress))
+	pachClient := env.GetPachClient(context.Background())
+	pipelineInfo, err := getPipelineInfo(env, pachClient, appEnv)
 	if err != nil {
 		return fmt.Errorf("error getting pipelineInfo: %v", err)
 	}
 
 	// Construct worker API server.
 	workerRcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	apiServer, err := worker.NewAPIServer(pachClient, etcdClient, appEnv.PPSPrefix, pipelineInfo, appEnv.PodName, appEnv.Namespace)
+	apiServer, err := worker.NewAPIServer(env, pachClient, appEnv.PPSPrefix, pipelineInfo, appEnv.PodName, appEnv.Namespace)
 	if err != nil {
 		return err
 	}
@@ -139,20 +129,17 @@ func do(appEnvObj interface{}) error {
 	// IP will be removed from etcd
 	ctx, cancel := context.WithTimeout(pachClient.Ctx(), 10*time.Second)
 	defer cancel()
-	resp, err := etcdClient.Grant(ctx, 10 /* seconds */)
+	resp, err := env.GetEtcdClient().Grant(ctx, 10 /* seconds */)
 	if err != nil {
 		return fmt.Errorf("error granting lease: %v", err)
 	}
-
 	// keepalive forever
-	if _, err := etcdClient.KeepAlive(context.Background(), resp.ID); err != nil {
+	if _, err := env.GetEtcdClient().KeepAlive(context.Background(), resp.ID); err != nil {
 		return fmt.Errorf("error with KeepAlive: %v", err)
 	}
 
 	// Actually write "key" into etcd
-	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second) // new ctx
-	defer cancel()
-	if _, err := etcdClient.Put(ctx, key, "", etcd.WithLease(resp.ID)); err != nil {
+	if _, err := env.GetEtcdClient().Put(ctx, key, "", etcd.WithLease(resp.ID)); err != nil {
 		return fmt.Errorf("error putting IP address: %v", err)
 	}
 

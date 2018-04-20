@@ -2,6 +2,7 @@ package serviceenv
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -25,8 +26,12 @@ type ServiceEnv struct {
 	// etcdClient is an etcd client that's shared by all users of this environment
 	etcdClient *etcd.Client
 
-	// Ready is closed once the clients have been initialized
-	Ready chan struct{}
+	// connectOnce ensures that InitServiceEnv only connects pachClient and
+	// etcdClient once
+	connectOnce sync.Once
+
+	// ready is closed once the clients have been initialized
+	ready chan struct{}
 }
 
 // InitServiceEnv initializes this service environment. This dials a GRPC
@@ -44,49 +49,50 @@ func InitServiceEnv(pachAddress, etcdAddress string) (env *ServiceEnv) {
 	// Create env, initialize it in a separate goroutine, and return the
 	// uninitialized env
 	env = &ServiceEnv{}
-	go env.init()
+	go env.init(pachAddress, etcdAddress)
 	return env // env is not ready yet
 }
 
 // init actually dials all GRPC connections used by clients in ServiceEnv
-func (env *ServiceEnv) init() {
-	var eg errgroup.Group
+func (env *ServiceEnv) init(pachAddress, etcdAddress string) {
+	env.connectOnce.Do(func() {
+		var eg errgroup.Group
 
-	// Initialize etcd
-	eg.Go(func() error {
-		return backoff.Retry(func() error {
-			var err error
-			env.etcdClient, err = etcd.New(etcd.Config{
-				Endpoints:   etcdAddresses,
-				DialOptions: client.EtcdDialOptions(),
-			})
-			if err != nil {
-				return fmt.Errorf("failed to initialize etcd client: %v", err)
-			}
-		}, backoff.RetryEvery(time.Second).For(time.Minute))
-	})
+		// Initialize etcd
+		eg.Go(func() error {
+			return backoff.Retry(func() error {
+				var err error
+				env.etcdClient, err = etcd.New(etcd.Config{
+					Endpoints:   []string{etcdAddress},
+					DialOptions: client.EtcdDialOptions(),
+				})
+				if err != nil {
+					return fmt.Errorf("failed to initialize etcd client: %v", err)
+				}
+				return nil
+			}, backoff.RetryEvery(time.Second).For(time.Minute))
+		})
 
-	// Initialize pachd
-	eg.Go(func() error {
-		return backoff.Retry(func() error {
-			var err error
-			if err != nil {
-				return fmt.Errorf("failed to initialize etcd client: %v", err)
-			}
-		}, backoff.RetryEvery(time.Second).For(time.Minute))
-		env.pachClient, err = client.NewFromAddress(address)
-		if err != nil {
-			return fmt.Errorf("failed to initialize pach client: %v", err)
+		// Initialize pachd
+		eg.Go(func() error {
+			return backoff.Retry(func() error {
+				var err error
+				env.pachClient, err = client.NewFromAddress(pachAddress)
+				if err != nil {
+					return fmt.Errorf("failed to initialize pach client: %v", err)
+				}
+				return nil
+			}, backoff.RetryEvery(time.Second).For(time.Minute))
+		})
+
+		// Wait for connections to dial
+		if err := eg.Wait(); err != nil {
+			// don't bother returning an error. If pachd can't connect to other services in
+			// the cluster, there's no way to recover
+			panic(err)
 		}
+		close(env.ready)
 	})
-
-	// Wait for connections to dial
-	if err := eg.Wait(); err != nil {
-		// don't bother returning an error. If pachd can't connect to other services in
-		// the cluster, there's no way to recover
-		panic(err)
-	}
-	close(env.Ready)
 }
 
 // GetPachClient returns a pachd client with the same authentication
@@ -97,12 +103,12 @@ func (env *ServiceEnv) init() {
 // a Pachyderm client, and internal Pachyderm calls should accept clients
 // returned by this call.
 func (env *ServiceEnv) GetPachClient(ctx context.Context) *client.APIClient {
-	<-env.Ready // wait until InitServiceEnv is finished
-	return pachClient.WithCtx(ctx)
+	<-env.ready // wait until InitServiceEnv is finished
+	return env.pachClient.WithCtx(ctx)
 }
 
 // GetEtcdClient returns the already connected etcd client without modification
-func (env *ServiceEnv) GetEtcdClient(ctx context.Context) *client.APIClient {
-	<-env.Ready // wait until InitServiceEnv is finished
-	return env.etcdClient.Ctx()
+func (env *ServiceEnv) GetEtcdClient() *etcd.Client {
+	<-env.ready // wait until InitServiceEnv is finished
+	return env.etcdClient
 }

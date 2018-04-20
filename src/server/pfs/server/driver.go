@@ -81,7 +81,6 @@ type collectionFactory func(string) col.Collection
 type driver struct {
 	// env contains connections to other services in the cluster
 	env *serviceenv.ServiceEnv
-
 	// prefix determines where repo and other metadata is written to etcd
 	prefix string
 
@@ -102,9 +101,6 @@ const (
 
 // newDriver is used to create a new Driver instance
 func newDriver(env *serviceenv.ServiceEnv, etcdPrefix string, treeCacheSize int64) (*driver, error) {
-	if err != nil {
-		return nil, fmt.Errorf("could not connect to etcd: %v", err)
-	}
 	if treeCacheSize <= 0 {
 		treeCacheSize = defaultTreeCacheSize
 	}
@@ -114,7 +110,7 @@ func newDriver(env *serviceenv.ServiceEnv, etcdPrefix string, treeCacheSize int6
 	}
 
 	d := &driver{
-		etcdClient:     env.GetEtcdClient(),
+		env:            env,
 		prefix:         etcdPrefix,
 		repos:          pfsdb.Repos(env.GetEtcdClient(), etcdPrefix),
 		putFileRecords: pfsdb.PutFileRecords(env.GetEtcdClient(), etcdPrefix),
@@ -184,7 +180,7 @@ func (d *driver) createRepo(pachClient *client.APIClient, repo *pfs.Repo, descri
 		return d.updateRepo(pachClient, repo, description)
 	}
 
-	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+	_, err = col.NewSTM(ctx, d.env.GetEtcdClient(), func(stm col.STM) error {
 		repos := d.repos.ReadWrite(stm)
 
 		// check if 'repo' already exists. If so, return that error. Otherwise,
@@ -228,7 +224,7 @@ func (d *driver) createRepo(pachClient *client.APIClient, repo *pfs.Repo, descri
 }
 
 func (d *driver) updateRepo(pachClient *client.APIClient, repo *pfs.Repo, description string) error {
-	_, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
+	_, err := col.NewSTM(pachClient.Ctx(), d.env.GetEtcdClient(), func(stm col.STM) error {
 		repos := d.repos.ReadWrite(stm)
 		repoInfo := &pfs.RepoInfo{}
 		if err := repos.Get(repo.Name, repoInfo); err != nil {
@@ -325,7 +321,7 @@ nextRepo:
 
 func (d *driver) deleteRepo(pachClient *client.APIClient, repo *pfs.Repo, force bool) error {
 	ctx := pachClient.Ctx()
-	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+	_, err := col.NewSTM(ctx, d.env.GetEtcdClient(), func(stm col.STM) error {
 		repos := d.repos.ReadWrite(stm)
 		commits := d.commits(repo.Name).ReadWrite(stm)
 
@@ -433,7 +429,7 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 	}
 
 	// Txn: create the actual commit in etcd and update the branch + parent/child
-	if _, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
+	if _, err := col.NewSTM(pachClient.Ctx(), d.env.GetEtcdClient(), func(stm col.STM) error {
 		repos := d.repos.ReadWrite(stm)
 		commits := d.commits(parent.Repo.Name).ReadWrite(stm)
 		branches := d.branches(parent.Repo.Name).ReadWrite(stm)
@@ -578,7 +574,7 @@ func (d *driver) finishCommit(pachClient *client.APIClient, commit *pfs.Commit, 
 		}
 		// only delete the scratch space if finishCommit() ran successfully and
 		// won't need to be retried
-		_, retErr = d.etcdClient.Delete(ctx, scratchPrefix, etcd.WithPrefix())
+		_, retErr = d.env.GetEtcdClient().Delete(ctx, scratchPrefix, etcd.WithPrefix())
 	}()
 
 	var parentTree, finishedTree hashtree.HashTree
@@ -642,7 +638,7 @@ func (d *driver) finishCommit(pachClient *client.APIClient, commit *pfs.Commit, 
 
 	commitInfo.Finished = now()
 	sizeChange := sizeChange(finishedTree, parentTree)
-	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+	_, err = col.NewSTM(ctx, d.env.GetEtcdClient(), func(stm col.STM) error {
 		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
 		repos := d.repos.ReadWrite(stm)
 		commits.Put(commit.ID, commitInfo)
@@ -869,7 +865,7 @@ func (d *driver) inspectCommit(pachClient *client.APIClient, commit *pfs.Commit,
 
 	// Check if the commitID is a branch name
 	var commitInfo *pfs.CommitInfo
-	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+	if _, err := col.NewSTM(ctx, d.env.GetEtcdClient(), func(stm col.STM) error {
 		var err error
 		commitInfo, err = d.resolveCommit(stm, commit)
 		return err
@@ -1250,7 +1246,7 @@ func (d *driver) deleteCommit(pachClient *client.APIClient, userCommit *pfs.Comm
 	deleted := make(map[string]*pfs.CommitInfo) // deleted commits
 	affectedRepos := make(map[string]struct{})  // repos containing deleted commits
 	deleteScratch := false                      // only delete scratch if txn succeeds
-	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+	if _, err := col.NewSTM(ctx, d.env.GetEtcdClient(), func(stm col.STM) error {
 		// 1) re-read CommitInfo inside txn
 		userCommitInfo, err := d.resolveCommit(stm, userCommit)
 		if err != nil {
@@ -1514,7 +1510,7 @@ func (d *driver) deleteCommit(pachClient *client.APIClient, userCommit *pfs.Comm
 	// Delete the scratch space for this commit
 	// TODO put scratch spaces in a collection and do this in the txn above
 	if deleteScratch {
-		if _, err := d.etcdClient.Delete(ctx, d.scratchCommitPrefix(userCommit), etcd.WithPrefix()); err != nil {
+		if _, err := d.env.GetEtcdClient().Delete(ctx, d.scratchCommitPrefix(userCommit), etcd.WithPrefix()); err != nil {
 			return err
 		}
 	}
@@ -1544,7 +1540,7 @@ func (d *driver) createBranch(pachClient *client.APIClient, branch *pfs.Branch, 
 		}
 	}
 
-	_, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
+	_, err := col.NewSTM(pachClient.Ctx(), d.env.GetEtcdClient(), func(stm col.STM) error {
 		// if 'commit' is a branch, resolve it
 		var err error
 		if commit != nil {
@@ -1682,7 +1678,7 @@ func (d *driver) deleteBranch(pachClient *client.APIClient, branch *pfs.Branch, 
 	if err := d.checkIsAuthorized(pachClient, branch.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	_, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
+	_, err := col.NewSTM(pachClient.Ctx(), d.env.GetEtcdClient(), func(stm col.STM) error {
 		return d.deleteBranchSTM(stm, branch, force)
 	})
 	return err
@@ -2030,7 +2026,7 @@ func (d *driver) getTreeForFile(pachClient *client.APIClient, file *pfs.File) (h
 func (d *driver) getTreeForOpenCommit(pachClient *client.APIClient, prefix string, parentTree hashtree.HashTree) (hashtree.HashTree, error) {
 	ctx := pachClient.Ctx()
 	var finishedTree hashtree.HashTree
-	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+	_, err := col.NewSTM(ctx, d.env.GetEtcdClient(), func(stm col.STM) error {
 		tree := parentTree.Open()
 
 		recordsCol := d.putFileRecords.ReadOnly(ctx)
@@ -2271,7 +2267,7 @@ func (d *driver) deleteAll(pachClient *client.APIClient) error {
 func (d *driver) upsertPutFileRecords(pachClient *client.APIClient, file *pfs.File, newRecords *pfs.PutFileRecords) error {
 	ctx := pachClient.Ctx()
 	prefix := d.scratchFilePrefix(file)
-	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+	if _, err := col.NewSTM(ctx, d.env.GetEtcdClient(), func(stm col.STM) error {
 		commitsCol := d.openCommits.ReadOnly(ctx)
 		var commit pfs.Commit
 		err := commitsCol.Get(file.Commit.ID, &commit)
@@ -2305,7 +2301,7 @@ func (d *driver) upsertPutFileRecords(pachClient *client.APIClient, file *pfs.Fi
 	// If there is a tombstone, remove any records for children under this directory
 	// This allows us to support deleting dirs / adding children properly, e.g. `TestDeleteDir`
 	if newRecords.Tombstone {
-		if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		if _, err := col.NewSTM(ctx, d.env.GetEtcdClient(), func(stm col.STM) error {
 			revision := stm.Rev(d.openCommits.Path(file.Commit.ID))
 			if revision == 0 {
 				return fmt.Errorf("commit %v is not open", file.Commit.ID)

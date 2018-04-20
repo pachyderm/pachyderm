@@ -21,7 +21,6 @@ import (
 	"syscall"
 	"time"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -46,6 +45,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
@@ -69,9 +69,9 @@ var (
 
 // APIServer implements the worker API
 type APIServer struct {
+	env        *serviceenv.ServiceEnv
 	pachClient *client.APIClient
 	kubeClient *kube.Clientset
-	etcdClient *etcd.Client
 	etcdPrefix string
 
 	// Information needed to process input data and upload output
@@ -277,7 +277,7 @@ func (logger *taggedLogger) userLogger() *taggedLogger {
 }
 
 // NewAPIServer creates an APIServer for a given pipeline
-func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string, pipelineInfo *pps.PipelineInfo, workerName string, namespace string) (*APIServer, error) {
+func NewAPIServer(env *serviceenv.ServiceEnv, pachClient *client.APIClient, etcdPrefix string, pipelineInfo *pps.PipelineInfo, workerName string, namespace string) (*APIServer, error) {
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, err
@@ -291,9 +291,9 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		return nil, fmt.Errorf("error creating datum cache: %v", err)
 	}
 	server := &APIServer{
+		env:          env,
 		pachClient:   pachClient,
 		kubeClient:   kubeClient,
-		etcdClient:   etcdClient,
 		etcdPrefix:   etcdPrefix,
 		pipelineInfo: pipelineInfo,
 		logMsgTemplate: pps.LogMessage{
@@ -302,9 +302,9 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		},
 		workerName: workerName,
 		namespace:  namespace,
-		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
-		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
-		chunks:     col.NewCollection(etcdClient, path.Join(etcdPrefix, chunksPrefix), []col.Index{}, &Chunks{}, nil, nil),
+		jobs:       ppsdb.Jobs(env.GetEtcdClient(), etcdPrefix),
+		pipelines:  ppsdb.Pipelines(env.GetEtcdClient(), etcdPrefix),
+		chunks:     col.NewCollection(env.GetEtcdClient(), path.Join(etcdPrefix, chunksPrefix), []col.Index{}, &Chunks{}, nil, nil),
 		datumCache: datumCache,
 	}
 	logger, err := server.getTaggedLogger(pachClient, "", nil, false)
@@ -353,9 +353,9 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		}
 	}
 	if pipelineInfo.Service == nil {
-		go server.master()
+		go server.master(pachClient)
 	} else {
-		go server.serviceMaster()
+		go server.serviceMaster(pachClient)
 	}
 	go server.worker()
 	return server, nil
@@ -863,7 +863,7 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 			var low int64
 			var high int64
 			var found bool
-			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 				// Reinitialize closed upon variables.
 				low, high = 0, 0
 				found = false
@@ -905,7 +905,7 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 						case <-ctx.Done():
 							break Renew
 						}
-						if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+						if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 							locks := a.locks(jobID).ReadWrite(stm)
 							var chunkState ChunkState
 							if err := locks.Get(fmt.Sprint(high), &chunkState); err != nil {
@@ -927,7 +927,7 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 					return err
 				}
 
-				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 					locks := a.locks(jobID).ReadWrite(stm)
 					if failedDatumID != "" {
 						return locks.Put(fmt.Sprint(high), &ChunkState{
@@ -1021,7 +1021,7 @@ func (a *APIServer) worker() {
 
 	// Process incoming jobs
 	backoff.RetryNotify(func() error {
-		retryCtx, retryCancel := context.WithCancel(a.pachClient.Ctx())
+		retryCtx, retryCancel := context.WithCancel(context.Background())
 		defer retryCancel()
 		watcher, err := a.jobs.ReadOnly(retryCtx).WatchByIndex(ppsdb.JobsPipelineIndex, a.pipelineInfo.Pipeline)
 		if err != nil {
@@ -1055,9 +1055,9 @@ func (a *APIServer) worker() {
 			// create new ctx for this job, and don't use retryCtx as the
 			// parent. Just because another job's etcd write failed doesn't
 			// mean this job shouldn't run
-			jobCtx, jobCancel := context.WithCancel(a.pachClient.Ctx())
+			jobCtx, jobCancel := context.WithCancel(context.Background())
 			defer jobCancel() // cancel the job ctx
-			pachClient := a.pachClient.WithCtx(jobCtx)
+			pachClient := a.env.GetPachClient(jobCtx)
 
 			//  Watch for any changes to EtcdJobInfo corresponding to jobID; if
 			// the EtcdJobInfo is marked 'FAILED', call jobCancel().
@@ -1328,7 +1328,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 	if err := eg.Wait(); err != nil {
 		return "", err
 	}
-	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		jobs := a.jobs.ReadWrite(stm)
 		jobID := jobInfo.Job.ID
 		jobPtr := &pps.EtcdJobInfo{}

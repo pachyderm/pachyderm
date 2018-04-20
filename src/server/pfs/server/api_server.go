@@ -31,6 +31,9 @@ var (
 
 type apiServer struct {
 	log.Logger
+	// env contains connections to other services in the cluster
+	env *serviceenv.ServiceEnv
+
 	driver *driver
 }
 
@@ -41,6 +44,7 @@ func newAPIServer(env *serviceenv.ServiceEnv, etcdPrefix string, cacheSize int64
 	}
 	return &apiServer{
 		Logger: log.NewLogger("pfs.API"),
+		env:    env,
 		driver: d,
 	}, nil
 }
@@ -50,7 +54,7 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
 	if err := a.driver.createRepo(
-		pachrpc.GetPachClient(ctx),
+		a.env.GetPachClient(ctx),
 		request.Repo, request.Description, request.Update,
 	); err != nil {
 		return nil, err
@@ -62,21 +66,21 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	return a.driver.inspectRepo(pachrpc.GetPachClient(ctx), request.Repo, true)
+	return a.driver.inspectRepo(a.env.GetPachClient(ctx), request.Repo, true)
 }
 
 func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) (response *pfs.ListRepoResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	repoInfos, err := a.driver.listRepo(pachrpc.GetPachClient(ctx), true)
+	repoInfos, err := a.driver.listRepo(a.env.GetPachClient(ctx), true)
 	return repoInfos, err
 }
 
 func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	pachClient := pachrpc.GetPachClient(ctx)
+	pachClient := a.env.GetPachClient(ctx)
 
 	if request.All {
 		if err := a.driver.deleteAll(pachClient); err != nil {
@@ -95,7 +99,7 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	commit, err := a.driver.startCommit(pachrpc.GetPachClient(ctx),
+	commit, err := a.driver.startCommit(a.env.GetPachClient(ctx),
 		request.Parent, request.Branch, request.Provenance, request.Description)
 	if err != nil {
 		return nil, err
@@ -107,7 +111,7 @@ func (a *apiServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitReq
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	commit, err := a.driver.buildCommit(pachrpc.GetPachClient(ctx),
+	commit, err := a.driver.buildCommit(a.env.GetPachClient(ctx),
 		request.ID, request.Parent, request.Branch, request.Provenance, request.Tree)
 	if err != nil {
 		return nil, err
@@ -120,7 +124,7 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
 	if err := a.driver.finishCommit(
-		pachrpc.GetPachClient(ctx), request.Commit, request.Tree, request.Empty, request.Description,
+		a.env.GetPachClient(ctx), request.Commit, request.Tree, request.Empty, request.Description,
 	); err != nil {
 		return nil, err
 	}
@@ -131,14 +135,14 @@ func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommi
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	return a.driver.inspectCommit(pachrpc.GetPachClient(ctx), request.Commit, request.BlockState)
+	return a.driver.inspectCommit(a.env.GetPachClient(ctx), request.Commit, request.BlockState)
 }
 
 func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitRequest) (response *pfs.CommitInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	commitInfos, err := a.driver.listCommit(pachrpc.GetPachClient(ctx), request.Repo, request.To, request.From, request.Number)
+	commitInfos, err := a.driver.listCommit(a.env.GetPachClient(ctx), request.Repo, request.To, request.From, request.Number)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +157,7 @@ func (a *apiServer) ListCommitStream(req *pfs.ListCommitRequest, respServer pfs.
 	defer func(start time.Time) {
 		a.Log(req, fmt.Sprintf("stream containing %d commits", sent), retErr, time.Since(start))
 	}(time.Now())
-	pachClient := pachrpc.GetPachClient(respServer.Context())
+	pachClient := a.env.GetPachClient(respServer.Context())
 
 	commitInfos, err := a.driver.listCommit(pachClient, req.Repo, req.To, req.From, req.Number)
 	if err != nil {
@@ -171,7 +175,7 @@ func (a *apiServer) ListCommitStream(req *pfs.ListCommitRequest, respServer pfs.
 func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.driver.createBranch(pachrpc.GetPachClient(ctx), request.Branch, request.Head, request.Provenance); err != nil {
+	if err := a.driver.createBranch(a.env.GetPachClient(ctx), request.Branch, request.Head, request.Provenance); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -180,13 +184,13 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 func (a *apiServer) InspectBranch(ctx context.Context, request *pfs.InspectBranchRequest) (response *pfs.BranchInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	return a.driver.inspectBranch(pachrpc.GetPachClient(ctx), request.Branch)
+	return a.driver.inspectBranch(a.env.GetPachClient(ctx), request.Branch)
 }
 
 func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.BranchInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	branches, err := a.driver.listBranch(pachrpc.GetPachClient(ctx), request.Repo)
+	branches, err := a.driver.listBranch(a.env.GetPachClient(ctx), request.Repo)
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +200,7 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.driver.deleteBranch(pachrpc.GetPachClient(ctx), request.Branch, request.Force); err != nil {
+	if err := a.driver.deleteBranch(a.env.GetPachClient(ctx), request.Branch, request.Force); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -205,7 +209,7 @@ func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.driver.deleteCommit(pachrpc.GetPachClient(ctx), request.Commit); err != nil {
+	if err := a.driver.deleteCommit(a.env.GetPachClient(ctx), request.Commit); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -215,18 +219,18 @@ func (a *apiServer) FlushCommit(request *pfs.FlushCommitRequest, stream pfs.API_
 	ctx := stream.Context()
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	return a.driver.flushCommit(pachrpc.GetPachClient(ctx), request.Commits, request.ToRepos, stream.Send)
+	return a.driver.flushCommit(a.env.GetPachClient(ctx), request.Commits, request.ToRepos, stream.Send)
 }
 
 func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream pfs.API_SubscribeCommitServer) (retErr error) {
 	ctx := stream.Context()
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	return a.driver.subscribeCommit(pachrpc.GetPachClient(ctx), request.Repo, request.Branch, request.From, request.State, stream.Send)
+	return a.driver.subscribeCommit(a.env.GetPachClient(ctx), request.Repo, request.Branch, request.From, request.State, stream.Send)
 }
 
 func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
-	pachClient := pachrpc.GetPachClient(putFileServer.Context())
+	pachClient := a.env.GetPachClient(putFileServer.Context())
 	defer drainFileServer(putFileServer)
 	defer func() {
 		if err := putFileServer.SendAndClose(&types.Empty{}); err != nil && retErr == nil {
@@ -398,7 +402,7 @@ func (a *apiServer) putFileObj(pachClient *client.APIClient, objClient obj.Clien
 func (a *apiServer) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	pachClient := pachrpc.GetPachClient(ctx)
+	pachClient := a.env.GetPachClient(ctx)
 	if err := a.driver.copyFile(pachClient, request.Src, request.Dst, request.Overwrite); err != nil {
 		return nil, err
 	}
@@ -409,7 +413,7 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.AP
 	ctx := apiGetFileServer.Context()
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	pachClient := pachrpc.GetPachClient(ctx)
+	pachClient := a.env.GetPachClient(ctx)
 
 	file, err := a.driver.getFile(pachClient, request.File, request.OffsetBytes, request.SizeBytes)
 	if err != nil {
@@ -421,7 +425,7 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.AP
 func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (response *pfs.FileInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	pachClient := pachrpc.GetPachClient(ctx)
+	pachClient := a.env.GetPachClient(ctx)
 
 	return a.driver.inspectFile(pachClient, request.File)
 }
@@ -437,7 +441,7 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 		}
 	}(time.Now())
 
-	fileInfos, err := a.driver.listFile(pachrpc.GetPachClient(ctx), request.File, request.Full)
+	fileInfos, err := a.driver.listFile(a.env.GetPachClient(ctx), request.File, request.Full)
 	if err != nil {
 		return nil, err
 	}
@@ -452,7 +456,7 @@ func (a *apiServer) ListFileStream(request *pfs.ListFileRequest, respServer pfs.
 	defer func(start time.Time) {
 		a.Log(request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
 	}(time.Now())
-	fileInfos, err := a.driver.listFile(pachrpc.GetPachClient(respServer.Context()), request.File, request.Full)
+	fileInfos, err := a.driver.listFile(a.env.GetPachClient(respServer.Context()), request.File, request.Full)
 	if err != nil {
 		return err
 	}
@@ -476,7 +480,7 @@ func (a *apiServer) GlobFile(ctx context.Context, request *pfs.GlobFileRequest) 
 		}
 	}(time.Now())
 
-	fileInfos, err := a.driver.globFile(pachrpc.GetPachClient(ctx), request.Commit, request.Pattern)
+	fileInfos, err := a.driver.globFile(a.env.GetPachClient(ctx), request.Commit, request.Pattern)
 	if err != nil {
 		return nil, err
 	}
@@ -491,7 +495,7 @@ func (a *apiServer) GlobFileStream(request *pfs.GlobFileRequest, respServer pfs.
 	defer func(start time.Time) {
 		a.Log(request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
 	}(time.Now())
-	fileInfos, err := a.driver.globFile(pachrpc.GetPachClient(respServer.Context()), request.Commit, request.Pattern)
+	fileInfos, err := a.driver.globFile(a.env.GetPachClient(respServer.Context()), request.Commit, request.Pattern)
 	if err != nil {
 		return err
 	}
@@ -518,7 +522,7 @@ func (a *apiServer) DiffFile(ctx context.Context, request *pfs.DiffFileRequest) 
 		}
 	}(time.Now())
 	newFileInfos, oldFileInfos, err := a.driver.diffFile(
-		pachrpc.GetPachClient(ctx), request.NewFile, request.OldFile, request.Shallow)
+		a.env.GetPachClient(ctx), request.NewFile, request.OldFile, request.Shallow)
 	if err != nil {
 		return nil, err
 	}
@@ -532,7 +536,7 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	err := a.driver.deleteFile(pachrpc.GetPachClient(ctx), request.File)
+	err := a.driver.deleteFile(a.env.GetPachClient(ctx), request.File)
 	if err != nil {
 		return nil, err
 	}
@@ -543,7 +547,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.driver.deleteAll(pachrpc.GetPachClient(ctx)); err != nil {
+	if err := a.driver.deleteAll(a.env.GetPachClient(ctx)); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil

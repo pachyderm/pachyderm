@@ -74,8 +74,8 @@ func (logger *taggedLogger) jobLogger(jobID string) *taggedLogger {
 	return result
 }
 
-func (a *APIServer) master() {
-	masterLock := dlock.NewDLock(a.etcdClient, path.Join(a.etcdPrefix, masterLockPath, a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt))
+func (a *APIServer) master(pachClient *client.APIClient) {
+	masterLock := dlock.NewDLock(a.env.GetEtcdClient(), path.Join(a.etcdPrefix, masterLockPath, a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt))
 	logger := a.getMasterLogger()
 	b := backoff.NewInfiniteBackOff()
 	// Setting a high backoff so that when this master fails, the other
@@ -88,11 +88,11 @@ func (a *APIServer) master() {
 	// to restart.
 	b.InitialInterval = 10 * time.Second
 	backoff.RetryNotify(func() error {
-		// We use a.pachClient.Ctx here because it contains auth information.
-		ctx, cancel := context.WithCancel(a.pachClient.Ctx())
+		// We use pachClient.Ctx here because it contains auth information.
+		ctx, cancel := context.WithCancel(pachClient.Ctx())
 		defer cancel() // make sure that everything this loop might spawn gets cleaned up
 		ctx, err := masterLock.Lock(ctx)
-		pachClient := a.pachClient.WithCtx(ctx)
+		pachClient := pachClient.WithCtx(ctx)
 		if err != nil {
 			return err
 		}
@@ -105,16 +105,16 @@ func (a *APIServer) master() {
 	})
 }
 
-func (a *APIServer) serviceMaster() {
-	masterLock := dlock.NewDLock(a.etcdClient, path.Join(a.etcdPrefix, masterLockPath, a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt))
+func (a *APIServer) serviceMaster(pachClient *client.APIClient) {
+	masterLock := dlock.NewDLock(a.env.GetEtcdClient(), path.Join(a.etcdPrefix, masterLockPath, a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt))
 	logger := a.getMasterLogger()
 	b := backoff.NewInfiniteBackOff()
 	backoff.RetryNotify(func() error {
 		// We use pachClient.Ctx here because it contains auth information.
-		ctx, cancel := context.WithCancel(a.pachClient.Ctx())
+		ctx, cancel := context.WithCancel(pachClient.Ctx())
 		defer cancel() // make sure that everything this loop might spawn gets cleaned up
 		ctx, err := masterLock.Lock(ctx)
-		pachClient := a.pachClient.WithCtx(ctx)
+		pachClient := pachClient.WithCtx(ctx)
 		if err != nil {
 			return err
 		}
@@ -124,7 +124,7 @@ func (a *APIServer) serviceMaster() {
 
 		paused := false
 		// Set pipeline state to running
-		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 			pipelineName := a.pipelineInfo.Pipeline.Name
 			pipelines := a.pipelines.ReadWrite(stm)
 			pipelinePtr := &pps.EtcdPipelineInfo{}
@@ -264,7 +264,7 @@ func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 		defer serviceCancel() // make go vet happy: infinite loop obviates 'defer'
 		go func() {
 			serviceCtx := serviceCtx
-			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 				jobs := a.jobs.ReadWrite(stm)
 				jobPtr := &pps.EtcdJobInfo{}
 				if err := jobs.Get(job.ID, jobPtr); err != nil {
@@ -280,7 +280,7 @@ func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 			}
 			select {
 			case <-serviceCtx.Done():
-				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 					jobs := a.jobs.ReadWrite(stm)
 					jobPtr := &pps.EtcdJobInfo{}
 					if err := jobs.Get(job.ID, jobPtr); err != nil {
@@ -319,7 +319,7 @@ func plusDuration(x *types.Duration, y *types.Duration) (*types.Duration, error)
 }
 
 func (a *APIServer) locks(jobID string) col.Collection {
-	return col.NewCollection(a.etcdClient, path.Join(a.etcdPrefix, lockPrefix, jobID), nil, &ChunkState{}, nil, nil)
+	return col.NewCollection(a.env.GetEtcdClient(), path.Join(a.etcdPrefix, lockPrefix, jobID), nil, &ChunkState{}, nil, nil)
 }
 
 // collectDatum collects the output and stats output from a datum, and merges
@@ -412,11 +412,11 @@ func makeChunks(df DatumFactory, spec *pps.ChunkSpec, parallelism int) *Chunks {
 	return chunks
 }
 
-func (a *APIServer) failedInputs(ctx context.Context, jobInfo *pps.JobInfo) ([]string, error) {
+func (a *APIServer) failedInputs(pachClient *client.APIClient, jobInfo *pps.JobInfo) ([]string, error) {
 	var failedInputs []string
 	var vistErr error
 	blockCommit := func(name string, commit *pfs.Commit) {
-		ci, err := a.pachClient.PfsAPIClient.InspectCommit(ctx,
+		ci, err := pachClient.PfsAPIClient.InspectCommit(pachClient.Ctx(),
 			&pfs.InspectCommitRequest{
 				Commit:     commit,
 				BlockState: pfs.CommitState_FINISHED,
@@ -465,7 +465,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
 					defer cancel() // whether we return error or nil, job is done
 					// Output commit was deleted. Delete job as well
-					if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+					if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 						// Delete the job if no other worker has deleted it yet
 						jobPtr := &pps.EtcdJobInfo{}
 						if err := a.jobs.ReadWrite(stm).Get(jobInfo.Job.ID, jobPtr); err != nil {
@@ -481,7 +481,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			}
 			if commitInfo.Tree == nil {
 				defer cancel() // whether job state update succeeds or not, job is done
-				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 					// Read an up to date version of the jobInfo so that we
 					// don't overwrite changes that have happened since this
 					// function started.
@@ -530,13 +530,13 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 
 	backoff.RetryNotify(func() (retErr error) {
 		// block until job inputs are ready
-		failedInputs, err := a.failedInputs(ctx, jobInfo)
+		failedInputs, err := a.failedInputs(pachClient, jobInfo)
 		if err != nil {
 			return err
 		}
 		if len(failedInputs) > 0 {
 			reason := fmt.Sprintf("inputs %s failed", strings.Join(failedInputs, ", "))
-			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 				jobs := a.jobs.ReadWrite(stm)
 				jobID := jobInfo.Job.ID
 				jobPtr := &pps.EtcdJobInfo{}
@@ -569,7 +569,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		// Read the job document, and either resume (if we're recovering from a
 		// crash) or mark it running. Also write the input chunks calculated above
 		// into chunksCol
-		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 			jobs := a.jobs.ReadWrite(stm)
 			jobID := jobInfo.Job.ID
 			jobPtr := &pps.EtcdJobInfo{}
@@ -663,7 +663,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		// the stats commit here
 		var statsCommit *pfs.Commit
 		if jobInfo.EnableStats {
-			statsObject, err := a.putTree(ctx, statsTree)
+			statsObject, err := a.putTree(pachClient, statsTree)
 			if err != nil {
 				return err
 			}
@@ -675,7 +675,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		// We only do this if failedDatumID == "", which is to say that all of the chunks succeeded.
 		if failedDatumID == "" {
 			// put output tree into object store
-			object, err := a.putTree(ctx, tree)
+			object, err := a.putTree(pachClient, tree)
 			if err != nil {
 				return err
 			}
@@ -698,7 +698,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			// Handle egress
 			if err := a.egress(pachClient, logger, jobInfo); err != nil {
 				reason := fmt.Sprintf("egress error: %v", err)
-				_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 					jobs := a.jobs.ReadWrite(stm)
 					jobID := jobInfo.Job.ID
 					jobPtr := &pps.EtcdJobInfo{}
@@ -716,7 +716,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 
 		// Record the job's output commit and 'Finished' timestamp, and mark the job
 		// as a SUCCESS
-		if _, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 			jobs := a.jobs.ReadWrite(stm)
 			jobID := jobInfo.Job.ID
 			jobPtr := &pps.EtcdJobInfo{}
@@ -752,7 +752,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 					reason := fmt.Sprintf("job exceeded timeout (%v)", jobInfo.JobTimeout)
 					// Mark the job as failed.
 					// Workers subscribe to etcd for this state change to cancel their work
-					_, err := col.NewSTM(context.Background(), a.etcdClient, func(stm col.STM) error {
+					_, err := col.NewSTM(context.Background(), a.env.GetEtcdClient(), func(stm col.STM) error {
 						jobs := a.jobs.ReadWrite(stm)
 						jobID := jobInfo.Job.ID
 						jobPtr := &pps.EtcdJobInfo{}
@@ -775,7 +775,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		default:
 		}
 		// Increment the job's restart count
-		_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 			jobs := a.jobs.ReadWrite(stm)
 			jobID := jobInfo.Job.ID
 			jobPtr := &pps.EtcdJobInfo{}
@@ -952,7 +952,7 @@ func (a *APIServer) getTreeFromTag(pachClient *client.APIClient, tag *pfs.Tag) (
 	return hashtree.Deserialize(buffer.Bytes())
 }
 
-func (a *APIServer) putTree(ctx context.Context, tree hashtree.OpenHashTree) (*pfs.Object, error) {
+func (a *APIServer) putTree(pachClient *client.APIClient, tree hashtree.OpenHashTree) (*pfs.Object, error) {
 	finishedTree, err := tree.Finish()
 	if err != nil {
 		return nil, err
@@ -962,7 +962,7 @@ func (a *APIServer) putTree(ctx context.Context, tree hashtree.OpenHashTree) (*p
 	if err != nil {
 		return nil, err
 	}
-	object, _, err := a.pachClient.WithCtx(ctx).PutObject(bytes.NewReader(data))
+	object, _, err := pachClient.PutObject(bytes.NewReader(data))
 	return object, err
 }
 

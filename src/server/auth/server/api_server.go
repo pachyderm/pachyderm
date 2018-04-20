@@ -189,7 +189,7 @@ func (a *apiServer) retrieveOrGeneratePPSToken() {
 	b.MaxInterval = 5 * time.Second
 	if err := backoff.Retry(func() error {
 		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			superUserTokenCol := col.NewCollection(a.env.GetEtcdClient(), ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil).ReadWrite(stm)
+			superUserTokenCol := col.NewCollection(a.env.GetEtcdClient(), ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil, nil).ReadWrite(stm)
 			err := superUserTokenCol.Get("", &tokenProto)
 			if err == nil {
 				return nil
@@ -273,7 +273,7 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	// We don't want to actually log the request/response since they contain
 	// credentials.
 	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
-	pachClient := pachrpc.GetPachClient(ctx)
+	pachClient := a.env.GetPachClient(ctx)
 
 	// If the cluster's Pachyderm Enterprise token isn't active, the auth system
 	// cannot be activated
@@ -325,7 +325,7 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	// in the "partial" activation state. Users cannot authenticate, but auth
 	// checks are now enforced, which means no pipelines or repos can be created
 	// while ACLs are being added to every repo for the existing pipelines
-	if _, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		return a.admins.ReadWrite(stm).Put(magicUser, epsilon)
 	}); err != nil {
 		return nil, err
@@ -352,7 +352,7 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	// Generate a new Pachyderm token (as the caller is authenticating) and
 	// initialize admins (watchAdmins() above will see the write)
 	pachToken := uuid.NewWithoutDashes()
-	if _, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		admins := a.admins.ReadWrite(stm)
 		tokens := a.tokens.ReadWrite(stm)
 		if err := admins.Delete(magicUser); err != nil {
@@ -409,7 +409,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 		_, magicUserIsAdmin = a.adminCache[magicUser]
 	}()
 	if magicUserIsAdmin {
-		_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 			a.admins.ReadWrite(stm).DeleteAll() // watchAdmins() will see the write
 			return nil
 		})
@@ -431,7 +431,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 			AdminOp: "DeactivateAuth",
 		}
 	}
-	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		a.acls.ReadWrite(stm).DeleteAll()
 		a.tokens.ReadWrite(stm).DeleteAll()
 		a.admins.ReadWrite(stm).DeleteAll() // watchAdmins() will see the write
@@ -565,7 +565,7 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 	case partial:
 		return nil, authclient.ErrPartiallyActivated
 	}
-	pachClient := pachrpc.GetPachClient(ctx)
+	pachClient := a.env.GetPachClient(ctx)
 
 	// Get calling user. The user must be an admin to change the list of admins
 	callerInfo, err := a.getAuthenticatedUser(ctx)
@@ -650,7 +650,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 	// We don't want to actually log the request/response since they contain
 	// credentials.
 	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
-	pachClient := pachrpc.GetPachClient(ctx)
+	pachClient := a.env.GetPachClient(ctx)
 
 	// Determine caller's Pachyderm/GitHub username
 	username, err := GitHubTokenToUsername(pachClient, req.GitHubToken)
@@ -695,7 +695,7 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 	if a.activationState() == none {
 		return nil, authclient.ErrNotActivated
 	}
-	pachClient := pachrpc.GetPachClient(ctx)
+	pachClient := a.env.GetPachClient(ctx)
 
 	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
@@ -782,7 +782,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 	if a.activationState() == none {
 		return nil, authclient.ErrNotActivated
 	}
-	pachClient := pachrpc.GetPachClient(ctx)
+	pachClient := a.env.GetPachClient(ctx)
 
 	// validate request & authenticate user
 	if err := validateSetScopeRequest(ctx, req); err != nil {
@@ -875,7 +875,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 	if a.activationState() == none {
 		return nil, authclient.ErrNotActivated
 	}
-	pachClient := pachrpc.GetPachClient(ctx)
+	pachClient := a.env.GetPachClient(ctx)
 
 	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
@@ -935,7 +935,7 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	if a.activationState() == none {
 		return nil, authclient.ErrNotActivated
 	}
-	pachClient := pachrpc.GetPachClient(ctx)
+	pachClient := a.env.GetPachClient(ctx)
 
 	// Validate request
 	if req.Repo == "" {
@@ -983,7 +983,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 	if a.activationState() == none {
 		return nil, authclient.ErrNotActivated
 	}
-	pachClient := pachrpc.GetPachClient(ctx)
+	pachClient := a.env.GetPachClient(ctx)
 
 	// Validate request
 	if req.Repo == "" {
@@ -1110,7 +1110,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 	if req.Subject == magicUser {
 		return nil, fmt.Errorf("GetAuthTokenRequest.Subject is invalid")
 	}
-	pachClient := pachrpc.GetPachClient(ctx)
+	pachClient := a.env.GetPachClient(ctx)
 
 	// Authorize caller
 	callerInfo, err := a.getAuthenticatedUser(ctx)

@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/golang/groupcache"
@@ -27,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 )
@@ -64,7 +64,7 @@ type objBlockAPIServer struct {
 // In test mode, we use unique names for cache groups, since we might want
 // to run multiple block servers locally, which would conflict if groups
 // had the same name.
-func newObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objClient obj.Client, test bool) (*objBlockAPIServer, error) {
+func newObjBlockAPIServer(env *serviceenv.ServiceEnv, dir string, cacheBytes int64, objClient obj.Client, test bool) (*objBlockAPIServer, error) {
 	// defensive mesaure incase IsNotExist checking breaks due to underlying changes
 	if err := obj.TestIsNotExist(objClient); err != nil {
 		return nil, err
@@ -102,23 +102,15 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objC
 			logrus.Infof("objectInfoCache stats: %+v", s.objectInfoCache.Stats)
 		}
 	}()
-	go s.watchGC(etcdAddress)
+	go s.watchGC(env)
 	return s, nil
 }
 
 // watchGC watches for GC runs and invalidate all cache when GC happens.
-func (s *objBlockAPIServer) watchGC(etcdAddress string) {
+func (s *objBlockAPIServer) watchGC(env *serviceenv.ServiceEnv) {
 	b := backoff.NewInfiniteBackOff()
 	backoff.RetryNotify(func() error {
-		etcdClient, err := etcd.New(etcd.Config{
-			Endpoints:   []string{etcdAddress},
-			DialOptions: client.EtcdDialOptions(),
-		})
-		if err != nil {
-			return fmt.Errorf("error instantiating etcd client: %v", err)
-		}
-
-		watcher, err := watch.NewWatcher(context.Background(), etcdClient, "", client.GCGenerationKey, nil)
+		watcher, err := watch.NewWatcher(context.Background(), env.GetEtcdClient(), "", client.GCGenerationKey, nil)
 		if err != nil {
 			return fmt.Errorf("error instantiating watch stream from generation number: %v", err)
 		}
@@ -158,44 +150,44 @@ func (s *objBlockAPIServer) getGeneration() int {
 	return s.generation
 }
 
-func newMinioBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*objBlockAPIServer, error) {
+func newMinioBlockAPIServer(env *serviceenv.ServiceEnv, dir string, cacheBytes int64) (*objBlockAPIServer, error) {
 	objClient, err := obj.NewMinioClientFromSecret("")
 	if err != nil {
 		return nil, err
 	}
-	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient, false)
+	return newObjBlockAPIServer(env, dir, cacheBytes, objClient, false)
 }
 
-func newAmazonBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*objBlockAPIServer, error) {
+func newAmazonBlockAPIServer(env *serviceenv.ServiceEnv, dir string, cacheBytes int64) (*objBlockAPIServer, error) {
 	objClient, err := obj.NewAmazonClientFromSecret("")
 	if err != nil {
 		return nil, err
 	}
-	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient, false)
+	return newObjBlockAPIServer(env, dir, cacheBytes, objClient, false)
 }
 
-func newGoogleBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*objBlockAPIServer, error) {
+func newGoogleBlockAPIServer(env *serviceenv.ServiceEnv, dir string, cacheBytes int64) (*objBlockAPIServer, error) {
 	objClient, err := obj.NewGoogleClientFromSecret(context.Background(), "")
 	if err != nil {
 		return nil, err
 	}
-	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient, false)
+	return newObjBlockAPIServer(env, dir, cacheBytes, objClient, false)
 }
 
-func newMicrosoftBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*objBlockAPIServer, error) {
+func newMicrosoftBlockAPIServer(env *serviceenv.ServiceEnv, dir string, cacheBytes int64) (*objBlockAPIServer, error) {
 	objClient, err := obj.NewMicrosoftClientFromSecret("")
 	if err != nil {
 		return nil, err
 	}
-	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient, false)
+	return newObjBlockAPIServer(env, dir, cacheBytes, objClient, false)
 }
 
-func newLocalBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*objBlockAPIServer, error) {
+func newLocalBlockAPIServer(env *serviceenv.ServiceEnv, dir string, cacheBytes int64) (*objBlockAPIServer, error) {
 	objClient, err := obj.NewLocalClient(dir)
 	if err != nil {
 		return nil, err
 	}
-	return newObjBlockAPIServer(dir, cacheBytes, etcdAddress, objClient, true)
+	return newObjBlockAPIServer(env, dir, cacheBytes, objClient, true)
 }
 
 func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer) (retErr error) {

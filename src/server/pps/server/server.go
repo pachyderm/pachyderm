@@ -8,20 +8,18 @@ import (
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
-	"github.com/pachyderm/pachyderm/src/server/pkg/pachrpc"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	kube "k8s.io/client-go/kubernetes"
 )
 
 // connectAndInitSpecRepo initialize the GRPC connection to pachd, and then
 // uses that connection to create the 'spec' repo that PPS needs to exist on
 // startup
-func (a *apiServer) connectAndInitSpecRepo(address string) {
-	pachrpc.InitPachRPC(address)
-	pachClient := pachrpc.GetPachClient(context.Background()) // no creds on startup
+func (a *apiServer) connectAndInitSpecRepo() {
+	pachClient := a.env.GetPachClient(context.Background()) // no creds on startup
 	// Initialize spec repo
 	if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
 		if err := superUserClient.CreateRepo(ppsconsts.SpecRepo); err != nil && !isAlreadyExistsErr(err) {
@@ -35,9 +33,8 @@ func (a *apiServer) connectAndInitSpecRepo(address string) {
 
 // NewAPIServer creates an APIServer.
 func NewAPIServer(
-	etcdAddress string,
+	env *serviceenv.ServiceEnv,
 	etcdPrefix string,
-	address string,
 	kubeClient *kube.Clientset,
 	namespace string,
 	workerImage string,
@@ -50,18 +47,10 @@ func NewAPIServer(
 	imagePullSecret string,
 	reporter *metrics.Reporter,
 ) (ppsclient.APIServer, error) {
-	etcdClient, err := etcd.New(etcd.Config{
-		Endpoints:   []string{etcdAddress},
-		DialOptions: client.EtcdDialOptions(),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("could not create etcd client: %v", err)
-	}
-
 	apiServer := &apiServer{
 		Logger:                log.NewLogger("pps.API"),
+		env:                   env,
 		etcdPrefix:            etcdPrefix,
-		etcdClient:            etcdClient,
 		kubeClient:            kubeClient,
 		namespace:             namespace,
 		workerImage:           workerImage,
@@ -73,12 +62,12 @@ func NewAPIServer(
 		iamRole:               iamRole,
 		imagePullSecret:       imagePullSecret,
 		reporter:              reporter,
-		pipelines:             ppsdb.Pipelines(etcdClient, etcdPrefix),
-		jobs:                  ppsdb.Jobs(etcdClient, etcdPrefix),
+		pipelines:             ppsdb.Pipelines(env.GetEtcdClient(), etcdPrefix),
+		jobs:                  ppsdb.Jobs(env.GetEtcdClient(), etcdPrefix),
 		monitorCancels:        make(map[string]func()),
 	}
 	apiServer.validateKube()
-	go apiServer.connectAndInitSpecRepo(address)
+	go apiServer.connectAndInitSpecRepo()
 	go apiServer.master()
 	return apiServer, nil
 }
@@ -87,29 +76,20 @@ func NewAPIServer(
 // and is meant to be run as a worker sidecar.  It cannot, for instance,
 // create pipelines.
 func NewSidecarAPIServer(
-	etcdAddress string,
+	env *serviceenv.ServiceEnv,
 	etcdPrefix string,
-	address string,
 	iamRole string,
 	reporter *metrics.Reporter,
 ) (ppsclient.APIServer, error) {
-	etcdClient, err := etcd.New(etcd.Config{
-		Endpoints:   []string{etcdAddress},
-		DialOptions: client.EtcdDialOptions(),
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	apiServer := &apiServer{
 		Logger:     log.NewLogger("pps.API"),
+		env:        env,
 		etcdPrefix: etcdPrefix,
-		etcdClient: etcdClient,
 		iamRole:    iamRole,
 		reporter:   reporter,
-		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
-		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
+		pipelines:  ppsdb.Pipelines(env.GetEtcdClient(), etcdPrefix),
+		jobs:       ppsdb.Jobs(env.GetEtcdClient(), etcdPrefix),
 	}
-	go apiServer.connectAndInitSpecRepo(address)
+	go apiServer.connectAndInitSpecRepo()
 	return apiServer, nil
 }

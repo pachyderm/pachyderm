@@ -26,6 +26,7 @@ import (
 	authtesting "github.com/pachyderm/pachyderm/src/server/auth/testing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
@@ -2337,9 +2338,10 @@ func getClient(t *testing.T) *pclient.APIClient {
 	prefix := generateRandomString(32)
 	for i, port := range ports {
 		address := addresses[i]
-		blockAPIServer, err := newLocalBlockAPIServer(root, 256*1024*1024, tu.GetEtcdAddress())
+		env := serviceenv.InitServiceEnv(address, tu.GetEtcdAddress())
+		blockAPIServer, err := newLocalBlockAPIServer(env, root, 256*1024*1024)
 		require.NoError(t, err)
-		apiServer, err := newAPIServer(address, []string{tu.GetEtcdAddress()}, prefix, -1)
+		apiServer, err := newAPIServer(env, prefix, -1)
 		require.NoError(t, err)
 		runServers(t, port, apiServer, blockAPIServer)
 	}
