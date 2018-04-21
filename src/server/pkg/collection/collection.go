@@ -134,6 +134,7 @@ func (c *readWriteCollection) Get(key string, val proto.Message) error {
 	if err != nil {
 		return err
 	}
+	c.stm.SetSafePutCheck(c.Path(key), reflect.ValueOf(val).Pointer())
 	return proto.Unmarshal([]byte(valStr), val)
 }
 
@@ -182,6 +183,12 @@ func (c *readWriteCollection) PutTTL(key string, val proto.Message, ttl int64) e
 			return err
 		}
 	}
+
+	ptr := reflect.ValueOf(val).Pointer()
+	if !c.stm.IsSafePut(c.Path(key), ptr) {
+		return fmt.Errorf("unsafe put for key %v (passed ptr did not receive updated value)", key)
+	}
+
 	if c.indexes != nil {
 		clone := cloneProtoMsg(val)
 
@@ -194,7 +201,7 @@ func (c *readWriteCollection) PutTTL(key string, val proto.Message, ttl int64) e
 					// we might trigger an unnecessary event if someone is
 					// watching the index
 					if _, err := c.stm.Get(indexPath); err != nil && IsErrNotFound(err) {
-						if err := c.stm.Put(indexPath, key, ttl); err != nil {
+						if err := c.stm.Put(indexPath, key, ttl, 0); err != nil {
 							return err
 						}
 					}
@@ -226,7 +233,7 @@ func (c *readWriteCollection) PutTTL(key string, val proto.Message, ttl int64) e
 				// we might trigger an unnecessary event if someone is
 				// watching the index
 				if _, err := c.stm.Get(indexPath); err != nil && IsErrNotFound(err) {
-					if err := c.stm.Put(indexPath, key, ttl); err != nil {
+					if err := c.stm.Put(indexPath, key, ttl, 0); err != nil {
 						return err
 					}
 				}
@@ -237,7 +244,7 @@ func (c *readWriteCollection) PutTTL(key string, val proto.Message, ttl int64) e
 	if err != nil {
 		return err
 	}
-	return c.stm.Put(c.Path(key), string(bytes), ttl)
+	return c.stm.Put(c.Path(key), string(bytes), ttl, ptr)
 }
 
 // Update reads the current value associated with 'key', calls 'f' to update
@@ -337,7 +344,7 @@ func (c *readWriteIntCollection) Create(key string, val int) error {
 	if err == nil {
 		return ErrExists{c.prefix, key}
 	}
-	return c.stm.Put(fullKey, strconv.Itoa(val), 0)
+	return c.stm.Put(fullKey, strconv.Itoa(val), 0, 0)
 }
 
 func (c *readWriteIntCollection) Get(key string) (int, error) {
@@ -362,7 +369,7 @@ func (c *readWriteIntCollection) IncrementBy(key string, n int) error {
 	if err != nil {
 		return ErrMalformedValue{c.prefix, key, valStr}
 	}
-	return c.stm.Put(fullKey, strconv.Itoa(val+n), 0)
+	return c.stm.Put(fullKey, strconv.Itoa(val+n), 0, 0)
 }
 
 func (c *readWriteIntCollection) Decrement(key string) error {
@@ -379,7 +386,7 @@ func (c *readWriteIntCollection) DecrementBy(key string, n int) error {
 	if err != nil {
 		return ErrMalformedValue{c.prefix, key, valStr}
 	}
-	return c.stm.Put(fullKey, strconv.Itoa(val-n), 0)
+	return c.stm.Put(fullKey, strconv.Itoa(val-n), 0, 0)
 }
 
 func (c *readWriteIntCollection) Delete(key string) error {
