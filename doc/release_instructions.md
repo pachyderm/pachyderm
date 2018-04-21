@@ -36,7 +36,7 @@ You'll need the following credentials / tools:
 
 2) Make sure that you have no uncommitted files in the current branch. Note that `make doc` (next step) will fail if there are any uncommited changes in the current branch
 
-3) Update `src/client/version/client.go` and `doc/conf.py` version values and **commit the change** (locally—you'll push it to GitHub in the next step, but this allows `make doc` to run)
+3) Update `src/client/version/client.go` and `doc/conf.py` version values, and **commit the change** (locally—you'll push it to GitHub in the next step, but this allows `make doc` to run)
 
 4) Run `make doc` or `make VERSION_ADDITIONAL=<rc/version suffix> doc-custom` with the new version values.
 
