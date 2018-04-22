@@ -87,7 +87,7 @@ func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
 
 	// Construct a client that connects to the sidecar.
-	env := serviceenv.InitServiceEnv("localhost:650", fmt.Sprintf("%s:2379", appEnv.EtcdAddress))
+	env := serviceenv.InitWithKube("localhost:650", fmt.Sprintf("%s:2379", appEnv.EtcdAddress))
 	pachClient := env.GetPachClient(context.Background())
 	pipelineInfo, err := getPipelineInfo(env, pachClient, appEnv)
 	if err != nil {

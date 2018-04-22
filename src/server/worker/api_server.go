@@ -30,8 +30,6 @@ import (
 	"gopkg.in/go-playground/webhooks.v3/github"
 	"gopkg.in/src-d/go-git.v4"
 	gitPlumbing "gopkg.in/src-d/go-git.v4/plumbing"
-	kube "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/pachyderm/pachyderm/src/client"
@@ -70,8 +68,6 @@ var (
 // APIServer implements the worker API
 type APIServer struct {
 	env        *serviceenv.ServiceEnv
-	pachClient *client.APIClient
-	kubeClient *kube.Clientset
 	etcdPrefix string
 
 	// Information needed to process input data and upload output
@@ -278,22 +274,12 @@ func (logger *taggedLogger) userLogger() *taggedLogger {
 
 // NewAPIServer creates an APIServer for a given pipeline
 func NewAPIServer(env *serviceenv.ServiceEnv, pachClient *client.APIClient, etcdPrefix string, pipelineInfo *pps.PipelineInfo, workerName string, namespace string) (*APIServer, error) {
-	cfg, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, err
-	}
-	kubeClient, err := kube.NewForConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
 	datumCache, err := lru.New(numCachedDatums)
 	if err != nil {
 		return nil, fmt.Errorf("error creating datum cache: %v", err)
 	}
 	server := &APIServer{
 		env:          env,
-		pachClient:   pachClient,
-		kubeClient:   kubeClient,
 		etcdPrefix:   etcdPrefix,
 		pipelineInfo: pipelineInfo,
 		logMsgTemplate: pps.LogMessage{
@@ -311,7 +297,7 @@ func NewAPIServer(env *serviceenv.ServiceEnv, pachClient *client.APIClient, etcd
 	if err != nil {
 		return nil, err
 	}
-	numWorkers, err := ppsutil.GetExpectedNumWorkers(kubeClient, pipelineInfo.ParallelismSpec)
+	numWorkers, err := ppsutil.GetExpectedNumWorkers(env.GetKubeClient(), pipelineInfo.ParallelismSpec)
 	if err != nil {
 		logger.Logf("error getting number of workers, default to 1 worker: %v", err)
 		numWorkers = 1

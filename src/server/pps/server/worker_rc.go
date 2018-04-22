@@ -359,7 +359,7 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 			},
 		},
 	}
-	if _, err := a.kubeClient.CoreV1().ReplicationControllers(a.namespace).Create(rc); err != nil {
+	if _, err := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace).Create(rc); err != nil {
 		if !isAlreadyExistsErr(err) {
 			return err
 		}
@@ -384,7 +384,7 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 			},
 		},
 	}
-	if _, err := a.kubeClient.CoreV1().Services(a.namespace).Create(service); err != nil {
+	if _, err := a.env.GetKubeClient().CoreV1().Services(a.namespace).Create(service); err != nil {
 		if !isAlreadyExistsErr(err) {
 			return err
 		}
@@ -413,7 +413,7 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 				},
 			},
 		}
-		if _, err := a.kubeClient.CoreV1().Services(a.namespace).Create(service); err != nil {
+		if _, err := a.env.GetKubeClient().CoreV1().Services(a.namespace).Create(service); err != nil {
 			if !isAlreadyExistsErr(err) {
 				return err
 			}

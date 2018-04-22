@@ -47,7 +47,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kube "k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -108,7 +107,6 @@ type apiServer struct {
 
 	etcdPrefix            string
 	hasher                *ppsserver.Hasher
-	kubeClient            *kube.Clientset
 	namespace             string
 	workerImage           string
 	workerSidecarImage    string
@@ -262,12 +260,12 @@ func (a *apiServer) validateJob(pachClient *client.APIClient, jobInfo *pps.JobIn
 
 func (a *apiServer) validateKube() {
 	errors := false
-	_, err := a.kubeClient.CoreV1().Nodes().List(metav1.ListOptions{})
+	_, err := a.env.GetKubeClient().CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {
 		errors = true
 		logrus.Errorf("unable to access kubernetes nodeslist, Pachyderm will continue to work but it will not be possible to use COEFFICIENT parallelism. error: %v", err)
 	}
-	_, err = a.kubeClient.CoreV1().Pods(a.namespace).Watch(metav1.ListOptions{Watch: true})
+	_, err = a.env.GetKubeClient().CoreV1().Pods(a.namespace).Watch(metav1.ListOptions{Watch: true})
 	if err != nil {
 		errors = true
 		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but certain pipeline errors will result in pipelines being stuck indefinitely in \"starting\" state. error: %v", err)
@@ -278,7 +276,7 @@ func (a *apiServer) validateKube() {
 		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but get-logs will not work. error: %v", err)
 	} else {
 		for _, pod := range pods {
-			_, err = a.kubeClient.CoreV1().Pods(a.namespace).GetLogs(
+			_, err = a.env.GetKubeClient().CoreV1().Pods(a.namespace).GetLogs(
 				pod.ObjectMeta.Name, &v1.PodLogOptions{
 					Container: "pachd",
 				}).Timeout(10 * time.Second).Do().Raw()
@@ -320,13 +318,13 @@ func (a *apiServer) validateKube() {
 			},
 		},
 	}
-	if _, err := a.kubeClient.CoreV1().ReplicationControllers(a.namespace).Create(rc); err != nil {
+	if _, err := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace).Create(rc); err != nil {
 		if err != nil {
 			errors = true
 			logrus.Errorf("unable to create kubernetes replication controllers, Pachyderm will not function properly until this is fixed. error: %v", err)
 		}
 	}
-	if err := a.kubeClient.CoreV1().ReplicationControllers(a.namespace).Delete(name, nil); err != nil {
+	if err := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace).Delete(name, nil); err != nil {
 		if err != nil {
 			errors = true
 			logrus.Errorf("unable to delete kubernetes replication controllers, Pachyderm function properly but pipeline cleanup will not work. error: %v", err)
@@ -1106,7 +1104,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 					defer mu.Unlock()
 				}
 				// Get full set of logs from pod i
-				stream, err := a.kubeClient.CoreV1().Pods(a.namespace).GetLogs(
+				stream, err := a.env.GetKubeClient().CoreV1().Pods(a.namespace).GetLogs(
 					pod.ObjectMeta.Name, &v1.PodLogOptions{
 						Container: containerName,
 						Follow:    request.Follow,
@@ -1963,7 +1961,7 @@ func (a *apiServer) inspectPipeline(pachClient *client.APIClient, name string) (
 		if err != nil {
 			return nil, err
 		}
-		service, err := a.kubeClient.CoreV1().Services(a.namespace).Get(fmt.Sprintf("%s-user", rcName), metav1.GetOptions{})
+		service, err := a.env.GetKubeClient().CoreV1().Services(a.namespace).Get(fmt.Sprintf("%s-user", rcName), metav1.GetOptions{})
 		if err != nil {
 			if !isNotFoundErr(err) {
 				return nil, err
@@ -1980,7 +1978,7 @@ func (a *apiServer) inspectPipeline(pachClient *client.APIClient, name string) (
 	})
 	if hasGitInput {
 		pipelineInfo.GithookURL = "pending"
-		svc, err := getGithookService(a.kubeClient, a.namespace)
+		svc, err := getGithookService(a.env.GetKubeClient(), a.namespace)
 		if err != nil {
 			return pipelineInfo, nil
 		}
@@ -2678,7 +2676,7 @@ func RepoNameToEnvString(repoName string) string {
 }
 
 func (a *apiServer) rcPods(rcName string) ([]v1.Pod, error) {
-	podList, err := a.kubeClient.CoreV1().Pods(a.namespace).List(metav1.ListOptions{
+	podList, err := a.env.GetKubeClient().CoreV1().Pods(a.namespace).List(metav1.ListOptions{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ListOptions",
 			APIVersion: "v1",

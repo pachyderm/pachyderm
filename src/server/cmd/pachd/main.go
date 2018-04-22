@@ -8,7 +8,6 @@ import (
 	"path"
 	"runtime/debug"
 	"strconv"
-	"time"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	units "github.com/docker/go-units"
@@ -21,7 +20,6 @@ import (
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	adminserver "github.com/pachyderm/pachyderm/src/server/admin/server"
@@ -37,6 +35,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
+	"github.com/pachyderm/pachyderm/src/server/pkg/shard"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
@@ -48,8 +47,6 @@ import (
 	"google.golang.org/grpc"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kube "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 var mode string
@@ -72,7 +69,6 @@ type appEnv struct {
 	PFSEtcdPrefix         string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
 	AuthEtcdPrefix        string `env:"PACHYDERM_AUTH_ETCD_PREFIX,default=pachyderm_auth"`
 	EnterpriseEtcdPrefix  string `env:"PACHYDERM_ENTERPRISE_ETCD_PREFIX,default=pachyderm_enterprise"`
-	KubeAddress           string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
 	EtcdAddress           string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
 	Namespace             string `env:"NAMESPACE,default=default"`
 	Metrics               bool   `env:"METRICS,default=true"`
@@ -138,27 +134,15 @@ func doSidecarMode(appEnvObj interface{}) error {
 	}
 	etcdAddress := fmt.Sprintf("http://%s:2379", appEnv.EtcdAddress)
 	pachAddress := fmt.Sprintf("%s:%d", pachIP, appEnv.Port)
+	env := serviceenv.InitWithKube(pachAddress, etcdAddress)
 
-	etcdClientV3, err := etcd.New(etcd.Config{
-		Endpoints:   []string{etcdAddress},
-		DialOptions: client.EtcdDialOptions(),
-	})
-	if err != nil {
-		return err
-	}
-	env := serviceenv.InitServiceEnv(pachAddress, etcdAddress)
-
-	clusterID, err := getClusterID(etcdClientV3)
-	if err != nil {
-		return err
-	}
-	kubeClient, err := getKubeClient(appEnv)
+	clusterID, err := getClusterID(env.GetEtcdClient())
 	if err != nil {
 		return err
 	}
 	var reporter *metrics.Reporter
 	if appEnv.Metrics {
-		reporter = metrics.NewReporter(clusterID, kubeClient)
+		reporter = metrics.NewReporter(clusterID, env.GetKubeClient())
 	}
 	pfsCacheSize, err := strconv.Atoi(appEnv.PFSCacheSize)
 	if err != nil {
@@ -238,28 +222,17 @@ func doFullMode(appEnvObj interface{}) error {
 	}
 	address = fmt.Sprintf("%s:%d", address, appEnv.Port)
 	etcdAddress := fmt.Sprintf("http://%s:2379", appEnv.EtcdAddress)
-	env := serviceenv.InitServiceEnv(address, etcdAddress)
+	env := serviceenv.InitWithKube(address, etcdAddress)
 
-	etcdClientV2 := getEtcdClient(etcdAddress)
-	etcdClientV3, err := etcd.New(etcd.Config{
-		Endpoints:   []string{etcdAddress},
-		DialOptions: append(client.EtcdDialOptions(), grpc.WithTimeout(5*time.Minute)),
-	})
+	clusterID, err := getClusterID(env.GetEtcdClient())
 	if err != nil {
 		return err
 	}
 
-	clusterID, err := getClusterID(etcdClientV3)
-	if err != nil {
-		return err
-	}
-	kubeClient, err := getKubeClient(appEnv)
-	if err != nil {
-		return err
-	}
+	etcdClientV2 := getEtcdClient(etcdAddress)
 	var reporter *metrics.Reporter
 	if appEnv.Metrics {
-		reporter = metrics.NewReporter(clusterID, kubeClient)
+		reporter = metrics.NewReporter(clusterID, env.GetKubeClient())
 	}
 	sharder := shard.NewSharder(
 		etcdClientV2,
@@ -292,7 +265,6 @@ func doFullMode(appEnvObj interface{}) error {
 	ppsAPIServer, err := pps_server.NewAPIServer(
 		env,
 		path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix),
-		kubeClient,
 		kubeNamespace,
 		appEnv.WorkerImage,
 		appEnv.WorkerSidecarImage,
@@ -338,7 +310,7 @@ func doFullMode(appEnvObj interface{}) error {
 
 	healthServer := health.NewHealthServer()
 
-	deployServer := deployserver.NewDeployServer(kubeClient, kubeNamespace)
+	deployServer := deployserver.NewDeployServer(env.GetKubeClient(), kubeNamespace)
 
 	httpServer, err := pach_http.NewHTTPServer(address)
 	if err != nil {
@@ -373,15 +345,15 @@ func doFullMode(appEnvObj interface{}) error {
 			},
 		)
 	})
-	if err := migrate(env, kubeClient); err != nil {
+	if err := migrate(env); err != nil {
 		return err
 	}
 	healthServer.Ready()
 	return eg.Wait()
 }
 
-func migrate(env *serviceenv.ServiceEnv, kubeClient *kube.Clientset) error {
-	endpoints, err := kubeClient.CoreV1().Endpoints(getNamespace()).Get("pachd", metav1.GetOptions{})
+func migrate(env *serviceenv.ServiceEnv) error {
+	endpoints, err := env.GetKubeClient().CoreV1().Endpoints(getNamespace()).Get("pachd", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -427,26 +399,6 @@ func getClusterID(client *etcd.Client) (string, error) {
 	}
 
 	return getClusterID(client)
-}
-
-func getKubeClient(env *appEnv) (*kube.Clientset, error) {
-	cfg, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, err
-	}
-	kubeClient, err := kube.NewForConfig(cfg)
-	if err != nil {
-		log.Errorf("falling back to insecure kube client due to error from NewInCluster: %s", grpcutil.ScrubGRPC(err))
-	} else {
-		return kubeClient, err
-	}
-	config := &rest.Config{
-		Host: fmt.Sprintf("%s:443", env.KubeAddress),
-		TLSClientConfig: rest.TLSClientConfig{
-			Insecure: true,
-		},
-	}
-	return kube.NewForConfig(config)
 }
 
 // getNamespace returns the kubernetes namespace that this pachd pod runs in

@@ -11,8 +11,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
-
-	kube "k8s.io/client-go/kubernetes"
 )
 
 // connectAndInitSpecRepo initialize the GRPC connection to pachd, and then
@@ -35,7 +33,6 @@ func (a *apiServer) connectAndInitSpecRepo() {
 func NewAPIServer(
 	env *serviceenv.ServiceEnv,
 	etcdPrefix string,
-	kubeClient *kube.Clientset,
 	namespace string,
 	workerImage string,
 	workerSidecarImage string,
@@ -51,7 +48,6 @@ func NewAPIServer(
 		Logger:                log.NewLogger("pps.API"),
 		env:                   env,
 		etcdPrefix:            etcdPrefix,
-		kubeClient:            kubeClient,
 		namespace:             namespace,
 		workerImage:           workerImage,
 		workerSidecarImage:    workerSidecarImage,

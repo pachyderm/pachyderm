@@ -1,13 +1,17 @@
 package serviceenv
 
 import (
+	"errors"
 	"fmt"
-	"sync"
+	"os"
 	"time"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	log "github.com/sirupsen/logrus"
+	kube "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
@@ -22,77 +26,137 @@ type ServiceEnv struct {
 	// connection and that other clients returned by this library are based on. It
 	// has no ctx and therefore no auth credentials or cancellation
 	pachClient *client.APIClient
+	// pachReady is closed once the pachyderm client has been initialized
+	pachReady chan struct{}
 
 	// etcdClient is an etcd client that's shared by all users of this environment
 	etcdClient *etcd.Client
+	// etcdReady is closed once the etcd client has been initialized
+	etcdReady chan struct{}
 
-	// connectOnce ensures that InitServiceEnv only connects pachClient and
-	// etcdClient once
-	connectOnce sync.Once
-
-	// ready is closed once the clients have been initialized
-	ready chan struct{}
+	// kubeClient is a kubernetes client that, if initialized, is shared by all
+	// users of this environment
+	kubeClient *kube.Clientset
+	// kubeReady is closed once the kubernetes client has been initialized
+	kubeReady chan struct{}
 }
 
 // InitServiceEnv initializes this service environment. This dials a GRPC
-// connection to pachd and etcd, and creates the template pachClient used by
-// future calls to GetPachClient.
-func InitServiceEnv(pachAddress, etcdAddress string) (env *ServiceEnv) {
-	// validate arguments
-	if pachAddress == "" {
-		panic("cannot initialize pach client with empty pach address")
+// connection to pachd and etcd (in a background goroutine), and creates the
+// template pachClient used by future calls to GetPachClient.
+//
+// This call returns immediately, but GetPachClient and GetEtcdClient block
+// until their respective clients are ready
+func InitServiceEnv(pachAddress, etcdAddress string) *ServiceEnv {
+	env := &ServiceEnv{
+		etcdReady: make(chan struct{}),
+		pachReady: make(chan struct{}),
+		kubeReady: make(chan struct{}),
 	}
-	if etcdAddress == "" {
-		panic("cannot initialize etcd client with empty etcd address")
-	}
-
-	// Create env, initialize it in a separate goroutine, and return the
-	// uninitialized env
-	env = &ServiceEnv{}
-	go env.init(pachAddress, etcdAddress)
+	go func() {
+		var eg errgroup.Group
+		eg.Go(env.initPachClient(pachAddress))
+		eg.Go(env.initEtcdClient(etcdAddress))
+		close(env.kubeReady) // close immediately so GetKubeClient doesn't block
+		if err := eg.Wait(); err != nil {
+			panic(err) // If pachd can't connect, there's no way to recover
+		}
+	}()
 	return env // env is not ready yet
 }
 
-// init actually dials all GRPC connections used by clients in ServiceEnv
-func (env *ServiceEnv) init(pachAddress, etcdAddress string) {
-	env.connectOnce.Do(func() {
+// InitWithKube is like InitServiceEnv, but also assumes that it's run inside
+// a kubernetes cluster and tries to connect to the kubernetes API server.
+func InitWithKube(pachAddress, etcdAddress string) *ServiceEnv {
+	env := &ServiceEnv{
+		etcdReady: make(chan struct{}),
+		pachReady: make(chan struct{}),
+		kubeReady: make(chan struct{}),
+	}
+	go func() {
 		var eg errgroup.Group
-
-		// Initialize etcd
-		eg.Go(func() error {
-			return backoff.Retry(func() error {
-				var err error
-				env.etcdClient, err = etcd.New(etcd.Config{
-					Endpoints:   []string{etcdAddress},
-					DialOptions: client.EtcdDialOptions(),
-				})
-				if err != nil {
-					return fmt.Errorf("failed to initialize etcd client: %v", err)
-				}
-				return nil
-			}, backoff.RetryEvery(time.Second).For(time.Minute))
-		})
-
-		// Initialize pachd
-		eg.Go(func() error {
-			return backoff.Retry(func() error {
-				var err error
-				env.pachClient, err = client.NewFromAddress(pachAddress)
-				if err != nil {
-					return fmt.Errorf("failed to initialize pach client: %v", err)
-				}
-				return nil
-			}, backoff.RetryEvery(time.Second).For(time.Minute))
-		})
-
-		// Wait for connections to dial
+		eg.Go(env.initPachClient(pachAddress))
+		eg.Go(env.initEtcdClient(etcdAddress))
+		eg.Go(env.initKubeClient)
 		if err := eg.Wait(); err != nil {
-			// don't bother returning an error. If pachd can't connect to other services in
-			// the cluster, there's no way to recover
-			panic(err)
+			panic(err) // If pachd can't connect, there's no way to recover
 		}
-		close(env.ready)
-	})
+	}()
+	return env // env is not ready yet
+}
+
+func (env *ServiceEnv) initPachClient(pachAddress string) func() error {
+	return func() error {
+		// validate argument
+		if pachAddress == "" {
+			return errors.New("cannot initialize pach client with empty pach address")
+		}
+		// Initialize pach client
+		defer close(env.pachReady)
+		return backoff.Retry(func() error {
+			var err error
+			env.pachClient, err = client.NewFromAddress(pachAddress)
+			if err != nil {
+				return fmt.Errorf("failed to initialize pach client: %v", err)
+			}
+			return nil
+		}, backoff.RetryEvery(time.Second).For(time.Minute))
+	}
+}
+
+func (env *ServiceEnv) initEtcdClient(etcdAddress string) func() error {
+	return func() error {
+		// validate argument
+		if etcdAddress == "" {
+			return errors.New("cannot initialize pach client with empty pach address")
+		}
+		// Initialize etcd
+		defer close(env.etcdReady)
+		return backoff.Retry(func() error {
+			var err error
+			env.etcdClient, err = etcd.New(etcd.Config{
+				Endpoints:   []string{etcdAddress},
+				DialOptions: client.EtcdDialOptions(),
+			})
+			if err != nil {
+				return fmt.Errorf("failed to initialize etcd client: %v", err)
+			}
+			return nil
+		}, backoff.RetryEvery(time.Second).For(time.Minute))
+	}
+}
+
+func (env *ServiceEnv) initKubeClient() error {
+	defer close(env.kubeReady)
+	return backoff.Retry(func() error {
+		// Get secure in-cluster config
+		var kubeAddr string
+		var ok bool
+		cfg, err := rest.InClusterConfig()
+		if err == nil {
+			goto connect
+		}
+
+		// InClusterConfig failed, fall back to insecure config
+		log.Errorf("falling back to insecure kube client due to error from NewInCluster: %s", err)
+		kubeAddr, ok = os.LookupEnv("KUBERNETES_PORT_443_TCP_ADDR")
+		if !ok {
+			return fmt.Errorf("can't fall back to insecure kube client due to missing env var (failed to retrieve in-cluster config: %v)", err)
+		}
+		cfg = &rest.Config{
+			Host: fmt.Sprintf("%s:443", kubeAddr),
+			TLSClientConfig: rest.TLSClientConfig{
+				Insecure: true,
+			},
+		}
+
+	connect:
+		env.kubeClient, err = kube.NewForConfig(cfg)
+		if err != nil {
+			return fmt.Errorf("could initialize kube client: %v", err)
+		}
+		return nil
+	}, backoff.RetryEvery(time.Second).For(time.Minute))
 }
 
 // GetPachClient returns a pachd client with the same authentication
@@ -103,12 +167,22 @@ func (env *ServiceEnv) init(pachAddress, etcdAddress string) {
 // a Pachyderm client, and internal Pachyderm calls should accept clients
 // returned by this call.
 func (env *ServiceEnv) GetPachClient(ctx context.Context) *client.APIClient {
-	<-env.ready // wait until InitServiceEnv is finished
+	<-env.pachReady // wait until pach client is connected
 	return env.pachClient.WithCtx(ctx)
 }
 
 // GetEtcdClient returns the already connected etcd client without modification
 func (env *ServiceEnv) GetEtcdClient() *etcd.Client {
-	<-env.ready // wait until InitServiceEnv is finished
+	<-env.etcdReady // wait until etcd client is connected
 	return env.etcdClient
+}
+
+// GetKubeClient returns the already connected Kubernetes API client without
+// modification
+func (env *ServiceEnv) GetKubeClient() *kube.Clientset {
+	<-env.kubeReady
+	if env.kubeClient == nil {
+		panic("service env never connected to kubernetes")
+	}
+	return env.kubeClient
 }
