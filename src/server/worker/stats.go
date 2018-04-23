@@ -18,7 +18,7 @@ var (
 			Namespace: "pachyderm",
 			Subsystem: "user",
 			Name:      "datum_count",
-			Help:      "Number of datums counted by pipeline and state",
+			Help:      "Number of datums processed by pipeline ID and state (started|errored|finished)",
 		},
 		[]string{
 			"pipeline",
@@ -34,7 +34,7 @@ var (
 			Namespace: "pachyderm",
 			Subsystem: "user",
 			Name:      "datum_proc_time",
-			Help:      "Time processing user code",
+			Help:      "Time running user code",
 			Buckets:   prometheus.ExponentialBuckets(1.0, bucketFactor, bucketCount),
 		},
 		[]string{
