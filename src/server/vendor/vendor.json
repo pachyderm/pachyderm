@@ -1064,12 +1064,6 @@
 			"revisionTime": "2016-06-07T23:01:40Z"
 		},
 		{
-			"checksumSHA1": "lizR/GgmLln6wp50wYjrgFUsPb4=",
-			"path": "github.com/pachyderm/pachyderm/src/client/pkg/shard",
-			"revision": "17aa575b5a3852be491eabc1667d244c171c6e1c",
-			"revisionTime": "2016-06-07T23:01:40Z"
-		},
-		{
 			"checksumSHA1": "0xpI4z2lwjKEofiMwgitCdCySiw=",
 			"path": "github.com/pachyderm/pachyderm/src/client/pps",
 			"revision": "17aa575b5a3852be491eabc1667d244c171c6e1c",
