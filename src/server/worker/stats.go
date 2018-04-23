@@ -42,6 +42,18 @@ var (
 			"state", // Since both finished and errored datums can have proc times
 		},
 	)
+	datumProcSecondsCount = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "pachyderm",
+			Subsystem: "worker",
+			Name:      "datum_proc_seconds_count",
+			Help:      "Cumulative number of seconds spent processing",
+		},
+		[]string{
+			"pipeline",
+			"job",
+		},
+	)
 
 	datumDownloadTime = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
@@ -50,6 +62,18 @@ var (
 			Name:      "datum_download_time",
 			Help:      "Time to download input data",
 			Buckets:   prometheus.ExponentialBuckets(1.0, bucketFactor, bucketCount),
+		},
+		[]string{
+			"pipeline",
+			"job",
+		},
+	)
+	datumDownloadSecondsCount = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "pachyderm",
+			Subsystem: "worker",
+			Name:      "datum_download_seconds_count",
+			Help:      "Cumulative number of seconds spent downloading",
 		},
 		[]string{
 			"pipeline",
@@ -70,6 +94,18 @@ var (
 			"job",
 		},
 	)
+	datumUploadSecondsCount = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "pachyderm",
+			Subsystem: "worker",
+			Name:      "datum_upload_seconds_count",
+			Help:      "Cumulative number of seconds spent uploading",
+		},
+		[]string{
+			"pipeline",
+			"job",
+		},
+	)
 
 	datumDownloadSize = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
@@ -78,6 +114,18 @@ var (
 			Name:      "datum_download_size",
 			Help:      "Size of downloaded input data",
 			Buckets:   prometheus.ExponentialBuckets(1.0, bucketFactor, bucketCount),
+		},
+		[]string{
+			"pipeline",
+			"job",
+		},
+	)
+	datumDownloadBytesCount = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "pachyderm",
+			Subsystem: "worker",
+			Name:      "datum_download_bytes_count",
+			Help:      "Cumulative number of bytes downloaded",
 		},
 		[]string{
 			"pipeline",
@@ -98,16 +146,33 @@ var (
 			"job",
 		},
 	)
+	datumUploadBytesCount = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "pachyderm",
+			Subsystem: "worker",
+			Name:      "datum_upload_bytes_count",
+			Help:      "Cumulative number of bytes uploaded",
+		},
+		[]string{
+			"pipeline",
+			"job",
+		},
+	)
 )
 
 func initPrometheus() {
 	metrics := []prometheus.Collector{
 		datumCount,
 		datumProcTime,
+		datumProcSecondsCount,
 		datumDownloadTime,
+		datumDownloadSecondsCount,
 		datumUploadTime,
+		datumUploadSecondsCount,
 		datumDownloadSize,
+		datumDownloadBytesCount,
 		datumUploadSize,
+		datumUploadBytesCount,
 	}
 	for _, metric := range metrics {
 		if err := prometheus.Register(metric); err != nil {
