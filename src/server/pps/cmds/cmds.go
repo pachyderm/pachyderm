@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"os"
 	"os/user"
-	"sort"
 	"strings"
 	"text/tabwriter"
 
@@ -25,8 +24,9 @@ import (
 )
 
 const (
-	codestart = "```sh"
-	codeend   = "```"
+	codestart  = "```sh"
+	codeend    = "```"
+	termHeight = 24
 )
 
 // Cmds returns a slice containing pps commands.
@@ -129,28 +129,38 @@ $ pachctl list-job -p foo bar/YYY
 				}
 			}
 
-			jobInfos, err := client.ListJob(pipelineName, commits, outputCommit)
-			if err != nil {
-				return err
-			}
-
-			// Display newest jobs first
-			sort.Sort(sort.Reverse(ByCreationTime(jobInfos)))
-
 			if raw {
-				for _, jobInfo := range jobInfos {
-					if err := marshaller.Marshal(os.Stdout, jobInfo); err != nil {
+				if err := client.ListJobF(pipelineName, commits, outputCommit, func(ji *ppsclient.JobInfo) error {
+					if err := marshaller.Marshal(os.Stdout, ji); err != nil {
 						return err
 					}
+					return nil
+					return nil
+				}); err != nil {
+					return err
 				}
 				return nil
 			}
+			lines := 0
 			writer := tabwriter.NewWriter(os.Stdout, 0, 1, 1, ' ', 0)
 			pretty.PrintJobHeader(writer)
-			for _, jobInfo := range jobInfos {
-				pretty.PrintJobInfo(writer, jobInfo)
+			lines++
+			if err := client.ListJobF(pipelineName, commits, outputCommit, func(ji *ppsclient.JobInfo) error {
+				if lines == termHeight {
+					if err := writer.Flush(); err != nil {
+						return err
+					}
+					lines = 0
+					writer = tabwriter.NewWriter(os.Stdout, 0, 1, 1, ' ', 0)
+					pretty.PrintJobHeader(writer)
+					lines++
+				}
+				pretty.PrintJobInfo(writer, ji)
+				lines++
+				return nil
+			}); err != nil {
+				return err
 			}
-
 			return writer.Flush()
 		}),
 	}
