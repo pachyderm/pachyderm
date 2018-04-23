@@ -426,7 +426,11 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 		duration := time.Since(start)
 		stats.DownloadTime = types.DurationProto(duration)
 		if a.exportStats {
-			datumDownloadTime.WithLabelValues(a.pipelineInfo.ID, a.jobID).Observe(duration.Seconds())
+			if hist, err := datumDownloadTime.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID); err != nil {
+				logger.Logf("failed to get histogram w labels: pipeline (%v) job (%v) with error %v", a.pipelineInfo.ID, a.jobID, err)
+			} else {
+				hist.Observe(duration.Seconds())
+			}
 		}
 	}(time.Now())
 	logger.Logf("starting to download data")
@@ -492,7 +496,11 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string, stats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
 
 	if a.exportStats {
-		datumCount.WithLabelValues(a.pipelineInfo.ID, a.jobID, "started").Add(1)
+		if counter, err := datumCount.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID, "started"); err != nil {
+			logger.Logf("failed to get histogram w labels: pipeline (%v) job (%v) with error %v", a.pipelineInfo.ID, a.jobID, err)
+		} else {
+			counter.Add(1)
+		}
 	}
 	defer func(start time.Time) {
 		duration := time.Since(start)
@@ -502,8 +510,17 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 			if retErr == nil {
 				state = "finished"
 			}
-			datumCount.WithLabelValues(a.pipelineInfo.ID, a.jobID, state).Add(1)
-			datumProcTime.WithLabelValues(a.pipelineInfo.ID, a.jobID, state).Observe(duration.Seconds())
+			if counter, err := datumCount.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID, state); err != nil {
+				logger.Logf("failed to get counter w labels: pipeline (%v) job (%v) state (%v) with error %v", a.pipelineInfo.ID, a.jobID, state, err)
+			} else {
+				counter.Add(1)
+			}
+			if hist, err := datumProcTime.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID, state); err != nil {
+				logger.Logf("failed to get counter w labels: pipeline (%v) job (%v) state (%v) with error %v", a.pipelineInfo.ID, a.jobID, state, err)
+
+			} else {
+				hist.Observe(duration.Seconds())
+			}
 		}
 	}(time.Now())
 	logger.Logf("beginning to run user code")
@@ -586,8 +603,16 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 		duration := time.Since(start)
 		stats.UploadTime = types.DurationProto(duration)
 		if a.exportStats {
-			datumUploadTime.WithLabelValues(a.pipelineInfo.ID, a.jobID).Observe(duration.Seconds())
-			datumUploadSize.WithLabelValues(a.pipelineInfo.ID, a.jobID).Observe(float64(stats.UploadBytes))
+			if hist, err := datumUploadTime.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID); err != nil {
+				logger.Logf("failed to get histogram w labels: pipeline (%v) job (%v) with error", a.pipelineInfo.ID, a.jobID, err)
+			} else {
+				hist.Observe(duration.Seconds())
+			}
+			if hist, err := datumUploadSize.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID); err != nil {
+				logger.Logf("failed to get histogram w labels: pipeline (%v) job (%v) with error", a.pipelineInfo.ID, a.jobID, err)
+			} else {
+				hist.Observe(float64(stats.UploadBytes))
+			}
 		}
 	}(time.Now())
 	logger.Logf("starting to upload output")
@@ -1341,7 +1366,11 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				}
 				atomic.AddUint64(&subStats.DownloadBytes, uint64(downSize))
 				if a.exportStats {
-					datumDownloadSize.WithLabelValues(a.pipelineInfo.ID, a.jobID).Observe(float64(downSize))
+					if hist, err := datumDownloadSize.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID); err != nil {
+						logger.Logf("failed to get histogram w labels: pipeline (%v) job (%v) with error %v", a.pipelineInfo.ID, a.jobID, err)
+					} else {
+						hist.Observe(float64(downSize))
+					}
 				}
 				return a.uploadOutput(pachClient, dir, tag, logger, data, subStats, statsTree, path.Join(statsPath, "pfs", "out"))
 			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
