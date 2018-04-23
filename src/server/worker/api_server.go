@@ -1468,10 +1468,7 @@ func (a *APIServer) isEnterpriseEnabled(logger *taggedLogger) bool {
 		logger.Logf("failed to get enterprise state\n")
 		return false
 	}
-	if resp.State == enterprise.State_ACTIVE {
-		return true
-	}
-	return false
+	return resp.State == enterprise.State_ACTIVE
 }
 
 // mergeStats merges y into x
