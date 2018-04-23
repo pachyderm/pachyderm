@@ -97,5 +97,5 @@ set -x
 killall kubectl || true
 
 # Port forward to etcd (for pfs/server/server_test.go)
-export ETCD_POD=$(kubectl describe -l app=etcd pod | awk 'NR == 1 {print $2}')
+export ETCD_POD=$(kubectl get pod -l suite=pachyderm,app=etcd -o jsonpath={.items[].metadata.name})
 kubectl port-forward $ETCD_POD 32379:2379 &
