@@ -311,6 +311,7 @@ clean-launch-kube:
 	@# make launch-kube - minikube config is owned by root
 	minikube ip 2>/dev/null && minikube delete || true
 	sudo minikube ip 2>/dev/null && sudo minikube delete || true
+	killall kubectl || true
 
 launch: install check-kubectl
 	$(eval STARTTIME := $(shell date +%s))
