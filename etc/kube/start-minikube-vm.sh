@@ -95,3 +95,7 @@ set -x
 
 # Kill pachctl port-forward and kubectl proxy
 killall kubectl || true
+
+# Port forward to etcd
+export ETCD_POD=$(kubectl describe -l app=etcd pod | awk 'NR == 1 {print $2}')
+kubectl port-forward $ETCD_POD 32379:2379 &
