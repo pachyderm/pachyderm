@@ -118,6 +118,9 @@ type APIServer struct {
 	// have already been processed.
 	datumCache *lru.Cache
 
+	// We only export application statistics if enterprise is enabled
+	exportStats bool
+
 	uid uint32
 	gid uint32
 }
@@ -290,6 +293,14 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	if err != nil {
 		return nil, fmt.Errorf("error creating datum cache: %v", err)
 	}
+	exportStats := false
+	resp, err := pachClient.Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
+	if err != nil {
+		// No logger yet, we need a server first
+		fmt.Printf("failed to get enterprise state\n")
+	} else {
+		exportStats = resp.State == enterprise.State_ACTIVE
+	}
 	server := &APIServer{
 		pachClient:   pachClient,
 		kubeClient:   kubeClient,
@@ -300,12 +311,13 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 			PipelineName: pipelineInfo.Pipeline.Name,
 			WorkerID:     os.Getenv(client.PPSPodNameEnv),
 		},
-		workerName: workerName,
-		namespace:  namespace,
-		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
-		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
-		chunks:     col.NewCollection(etcdClient, path.Join(etcdPrefix, chunksPrefix), []col.Index{}, &Chunks{}, nil, nil),
-		datumCache: datumCache,
+		workerName:  workerName,
+		namespace:   namespace,
+		jobs:        ppsdb.Jobs(etcdClient, etcdPrefix),
+		pipelines:   ppsdb.Pipelines(etcdClient, etcdPrefix),
+		chunks:      col.NewCollection(etcdClient, path.Join(etcdPrefix, chunksPrefix), []col.Index{}, &Chunks{}, nil, nil),
+		datumCache:  datumCache,
+		exportStats: exportStats,
 	}
 	logger, err := server.getTaggedLogger(pachClient, "", nil, false)
 	if err != nil {
@@ -409,11 +421,11 @@ func (a *APIServer) downloadGitData(pachClient *client.APIClient, dir string, in
 	return nil
 }
 
-func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag, stats *pps.ProcessStats, statsTree hashtree.OpenHashTree, statsPath string, enterpriseEnabled bool) (_ string, retErr error) {
+func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag, stats *pps.ProcessStats, statsTree hashtree.OpenHashTree, statsPath string) (_ string, retErr error) {
 	defer func(start time.Time) {
 		duration := time.Since(start)
 		stats.DownloadTime = types.DurationProto(duration)
-		if enterpriseEnabled {
+		if a.exportStats {
 			datumDownloadTime.WithLabelValues(a.pipelineInfo.ID, a.jobID).Observe(duration.Seconds())
 		}
 	}(time.Now())
@@ -477,15 +489,15 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 }
 
 // Run user code and return the combined output of stdout and stderr.
-func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string, stats *pps.ProcessStats, rawDatumTimeout *types.Duration, enterpriseEnabled bool) (retErr error) {
+func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string, stats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
 
-	if enterpriseEnabled {
+	if a.exportStats {
 		datumCount.WithLabelValues(a.pipelineInfo.ID, a.jobID, "started").Add(1)
 	}
 	defer func(start time.Time) {
 		duration := time.Since(start)
 		stats.ProcessTime = types.DurationProto(duration)
-		if enterpriseEnabled {
+		if a.exportStats {
 			state := "errored"
 			if retErr == nil {
 				state = "finished"
@@ -569,11 +581,11 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	return nil
 }
 
-func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag string, logger *taggedLogger, inputs []*Input, stats *pps.ProcessStats, statsTree hashtree.OpenHashTree, statsRoot string, enterpriseEnabled bool) (retErr error) {
+func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag string, logger *taggedLogger, inputs []*Input, stats *pps.ProcessStats, statsTree hashtree.OpenHashTree, statsRoot string) (retErr error) {
 	defer func(start time.Time) {
 		duration := time.Since(start)
 		stats.UploadTime = types.DurationProto(duration)
-		if enterpriseEnabled {
+		if a.exportStats {
 			datumUploadTime.WithLabelValues(a.pipelineInfo.ID, a.jobID).Observe(duration.Seconds())
 			datumUploadSize.WithLabelValues(a.pipelineInfo.ID, a.jobID).Observe(float64(stats.UploadBytes))
 		}
@@ -1167,7 +1179,6 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 			defer limiter.Release()
 			defer atomic.AddInt64(&a.queueSize, -1)
 
-			entEnabled := a.isEnterpriseEnabled(logger)
 			data := df.Datum(int(i))
 			logger, err := a.getTaggedLogger(pachClient, jobInfo.Job.ID, data, a.pipelineInfo.EnableStats)
 			if err != nil {
@@ -1258,7 +1269,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				puller := filesync.NewPuller()
 				// TODO parent tag shouldn't be nil
 				var err error
-				dir, err = a.downloadData(pachClient, logger, data, puller, parentTag, subStats, statsTree, path.Join(statsPath, "pfs"), entEnabled)
+				dir, err = a.downloadData(pachClient, logger, data, puller, parentTag, subStats, statsTree, path.Join(statsPath, "pfs"))
 				// We run these cleanup functions no matter what, so that if
 				// downloadData partially succeeded, we still clean up the resources.
 				defer func() {
@@ -1314,7 +1325,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 						return err
 					})
 				}
-				if err := a.runUserCode(ctx, logger, env, subStats, jobInfo.DatumTimeout, entEnabled); err != nil {
+				if err := a.runUserCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
 					return fmt.Errorf("error runUserCode: %v", err)
 				}
 				// CleanUp is idempotent so we can call it however many times we want.
@@ -1329,10 +1340,10 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 					return err
 				}
 				atomic.AddUint64(&subStats.DownloadBytes, uint64(downSize))
-				if entEnabled {
+				if a.exportStats {
 					datumDownloadSize.WithLabelValues(a.pipelineInfo.ID, a.jobID).Observe(float64(downSize))
 				}
-				return a.uploadOutput(pachClient, dir, tag, logger, data, subStats, statsTree, path.Join(statsPath, "pfs", "out"), entEnabled)
+				return a.uploadOutput(pachClient, dir, tag, logger, data, subStats, statsTree, path.Join(statsPath, "pfs", "out"))
 			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
 				if isDone(ctx) {
 					return ctx.Err() // timeout or cancelled job, err out and don't retry
@@ -1460,15 +1471,6 @@ func (a *APIServer) parentTag(pachClient *client.APIClient, jobInfo *pps.JobInfo
 		return &pfs.Tag{Name: _parentOutputTag}, nil
 	}
 	return nil, nil
-}
-
-func (a *APIServer) isEnterpriseEnabled(logger *taggedLogger) bool {
-	resp, err := a.pachClient.Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
-	if err != nil {
-		logger.Logf("failed to get enterprise state\n")
-		return false
-	}
-	return resp.State == enterprise.State_ACTIVE
 }
 
 // mergeStats merges y into x
