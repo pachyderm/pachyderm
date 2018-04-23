@@ -2,7 +2,6 @@ package worker
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -16,7 +15,7 @@ var (
 	datumCount = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "pachyderm",
-			Subsystem: "user",
+			Subsystem: "worker",
 			Name:      "datum_count",
 			Help:      "Number of datums processed by pipeline ID and state (started|errored|finished)",
 		},
@@ -32,7 +31,7 @@ var (
 	datumProcTime = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "pachyderm",
-			Subsystem: "user",
+			Subsystem: "worker",
 			Name:      "datum_proc_time",
 			Help:      "Time running user code",
 			Buckets:   prometheus.ExponentialBuckets(1.0, bucketFactor, bucketCount),
@@ -47,7 +46,7 @@ var (
 	datumDownloadTime = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "pachyderm",
-			Subsystem: "user",
+			Subsystem: "worker",
 			Name:      "datum_download_time",
 			Help:      "Time to download input data",
 			Buckets:   prometheus.ExponentialBuckets(1.0, bucketFactor, bucketCount),
@@ -61,7 +60,7 @@ var (
 	datumUploadTime = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "pachyderm",
-			Subsystem: "user",
+			Subsystem: "worker",
 			Name:      "datum_upload_time",
 			Help:      "Time to upload output data",
 			Buckets:   prometheus.ExponentialBuckets(1.0, bucketFactor, bucketCount),
@@ -75,7 +74,7 @@ var (
 	datumDownloadSize = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "pachyderm",
-			Subsystem: "user",
+			Subsystem: "worker",
 			Name:      "datum_download_size",
 			Help:      "Size of downloaded input data",
 			Buckets:   prometheus.ExponentialBuckets(1.0, bucketFactor, bucketCount),
@@ -89,7 +88,7 @@ var (
 	datumUploadSize = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "pachyderm",
-			Subsystem: "user",
+			Subsystem: "worker",
 			Name:      "datum_upload_size",
 			Help:      "Size of uploaded output data",
 			Buckets:   prometheus.ExponentialBuckets(1.0, bucketFactor, bucketCount),
@@ -102,14 +101,23 @@ var (
 )
 
 func initPrometheus() {
-	prometheus.MustRegister(datumCount)
-	prometheus.MustRegister(datumProcTime)
-	prometheus.MustRegister(datumDownloadTime)
-	prometheus.MustRegister(datumUploadTime)
-	prometheus.MustRegister(datumDownloadSize)
-	prometheus.MustRegister(datumUploadSize)
+	metrics := []prometheus.Collector{
+		datumCount,
+		datumProcTime,
+		datumDownloadTime,
+		datumUploadTime,
+		datumDownloadSize,
+		datumUploadSize,
+	}
+	for _, metric := range metrics {
+		if err := prometheus.Register(metric); err != nil {
+			fmt.Printf("error registering prometheus metric: %v\n", err)
+		}
+	}
 	http.Handle("/metrics", promhttp.Handler())
 	go func() {
-		log.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", PrometheusPort), nil))
+		if err := http.ListenAndServe(fmt.Sprintf(":%v", PrometheusPort), nil); err != nil {
+			fmt.Printf("error serving prometheus metrics: %v\n", err)
+		}
 	}()
 }
