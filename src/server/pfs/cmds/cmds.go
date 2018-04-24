@@ -25,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
+	streamtabwriter "github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
 
 	"github.com/spf13/cobra"
 )
@@ -342,25 +343,16 @@ $ pachctl list-commit foo master --from XXX
 			if len(args) == 2 {
 				to = args[1]
 			}
-
-			commitInfos, err := c.ListCommit(args[0], to, from, uint64(number))
-			if err != nil {
-				return err
-			}
-
 			if raw {
-				for _, commitInfo := range commitInfos {
-					if err := marshaller.Marshal(os.Stdout, commitInfo); err != nil {
-						return err
-					}
-				}
+				return c.ListCommitF(args[0], to, from, uint64(number), func(ci *pfsclient.CommitInfo) error {
+					return marshaller.Marshal(os.Stdout, ci)
+				})
+			}
+			writer := streamtabwriter.NewStreamingWriter(tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0), streamtabwriter.TermHeight, pretty.CommitHeader)
+			return c.ListCommitF(args[0], to, from, uint64(number), func(ci *pfsclient.CommitInfo) error {
+				pretty.PrintCommitInfo(writer, ci)
 				return nil
-			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintCommitInfoHeader(writer)
-			for _, commitInfo := range commitInfos {
-				pretty.PrintCommitInfo(writer, commitInfo)
-			}
+			})
 			return writer.Flush()
 		}),
 	}

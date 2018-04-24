@@ -11,6 +11,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 )
 
+const (
+	CommitHeader = "REPO\tID\tPARENT\tSTARTED\tDURATION\tSIZE\t\n"
+)
+
 // PrintRepoHeader prints a repo header.
 func PrintRepoHeader(w io.Writer, printAuth bool) {
 	if printAuth {
@@ -71,7 +75,7 @@ func PrintBranch(w io.Writer, branchInfo *pfs.BranchInfo) {
 
 // PrintCommitInfoHeader prints a commit info header.
 func PrintCommitInfoHeader(w io.Writer) {
-	fmt.Fprint(w, "REPO\tID\tPARENT\tSTARTED\tDURATION\tSIZE\t\n")
+	fmt.Fprint(w, CommitHeader)
 }
 
 // PrintCommitInfo pretty-prints commit info.

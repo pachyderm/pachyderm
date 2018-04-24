@@ -25,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pfsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
@@ -32,6 +33,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/golang-lru"
 	"google.golang.org/grpc"
@@ -1050,33 +1052,44 @@ func parseCommitID(commitID string) (string, int) {
 }
 
 func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit, from *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error) {
-	if err := d.checkIsAuthorized(ctx, repo, auth.Scope_READER); err != nil {
+	var result []*pfs.CommitInfo
+	if err := d.listCommitF(ctx, repo, to, from, number, func(ci *pfs.CommitInfo) error {
+		result = append(result, ci)
+		return nil
+	}); err != nil {
 		return nil, err
 	}
+	return result, nil
+}
+
+func (d *driver) listCommitF(ctx context.Context, repo *pfs.Repo, to *pfs.Commit, from *pfs.Commit, number uint64, f func(*pfs.CommitInfo) error) error {
+	if err := d.checkIsAuthorized(ctx, repo, auth.Scope_READER); err != nil {
+		return err
+	}
 	if from != nil && from.Repo.Name != repo.Name || to != nil && to.Repo.Name != repo.Name {
-		return nil, fmt.Errorf("`from` and `to` commits need to be from repo %s", repo.Name)
+		return fmt.Errorf("`from` and `to` commits need to be from repo %s", repo.Name)
 	}
 
 	// Make sure that the repo exists
 	_, err := d.inspectRepo(ctx, repo, !includeAuth)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Make sure that both from and to are valid commits
 	if from != nil {
 		_, err = d.inspectCommit(ctx, from, pfs.CommitState_STARTED)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 	if to != nil {
 		_, err = d.inspectCommit(ctx, to, pfs.CommitState_STARTED)
 		if err != nil {
 			if _, ok := err.(pfsserver.ErrNoHead); ok {
-				return nil, nil
+				return nil
 			}
-			return nil, err
+			return err
 		}
 	}
 
@@ -1084,44 +1097,41 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 	if number == 0 {
 		number = math.MaxUint64
 	}
-	var commitInfos []*pfs.CommitInfo
 	commits := d.commits(repo.Name).ReadOnly(ctx)
+	ci := &pfs.CommitInfo{}
 
 	if from != nil && to == nil {
-		return nil, fmt.Errorf("cannot use `from` commit without `to` commit")
+		return fmt.Errorf("cannot use `from` commit without `to` commit")
 	} else if from == nil && to == nil {
 		// if neither from and to is given, we list all commits in
 		// the repo, sorted by revision timestamp
-		iterator, err := commits.List()
-		if err != nil {
-			return nil, err
-		}
-		var commitID string
-		for number != 0 {
-			var commitInfo pfs.CommitInfo
-			ok, err := iterator.Next(&commitID, &commitInfo)
-			if err != nil {
-				return nil, err
+		if err := commits.ListF(ci, func(commitID string) error {
+			if number <= 0 {
+				return errutil.ErrBreak
 			}
-			if !ok {
-				break
-			}
-			commitInfos = append(commitInfos, &commitInfo)
 			number--
+			return f(proto.Clone(ci).(*pfs.CommitInfo))
+		}); err != nil {
+			return err
 		}
 	} else {
 		cursor := to
 		for number != 0 && cursor != nil && (from == nil || cursor.ID != from.ID) {
 			var commitInfo pfs.CommitInfo
 			if err := commits.Get(cursor.ID, &commitInfo); err != nil {
-				return nil, err
+				return err
 			}
-			commitInfos = append(commitInfos, &commitInfo)
+			if err := f(&commitInfo); err != nil {
+				if err == errutil.ErrBreak {
+					return nil
+				}
+				return err
+			}
 			cursor = commitInfo.ParentCommit
 			number--
 		}
 	}
-	return commitInfos, nil
+	return nil
 }
 
 func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch string, from *pfs.Commit, state pfs.CommitState, f func(*pfs.CommitInfo) error) error {
