@@ -1,11 +1,18 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"path"
+	"strings"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/types"
+	"github.com/robfig/cron"
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,9 +20,11 @@ import (
 	kube "k8s.io/client-go/kubernetes"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
@@ -32,52 +41,6 @@ var (
 		"ErrImagePull":     true,
 	}
 )
-
-//// TODO this doesn't actually work right now, but it should be fixed and re-added
-// // fixNonDefaultPipelines implements a hack that covers for migrations bugs
-// // where a field is set by setPipelineDefaults in a newer version of the server
-// // but a PipelineInfo which was created with an older version of the server
-// // doesn't have that field set because setPipelineDefaults was different when
-// // it was created.
-// func (a *apiServer) fixNonDefaultPipelines(ctx context.Context, pipelineInfo *pps.PipelineInfo) error {
-// 	if pipelineInfo.Salt == "" || pipelineInfo.CacheSize == "" {
-// 		// Stop the pipeline (so that updating the "spec" branch doesn't create a
-// 		// new commit in the pipeline's output branch
-// 		if err := a.StopPipeline(ctx, &pps.StopPipelineRequest{Pipeline: pipeline}); err != nil {
-// 			return err
-// 		}
-//
-// 		// Update the pipeline's PipelineInfo
-// 		// TODO this doesn't actually work right now
-// 		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-// 			pipelines := a.pipelines.ReadWrite(stm)
-//
-//
-//      // pipelines don't come from etcd anymore
-// 			newPipelineInfo := new(pps.PipelineInfo)
-// 			if err := pipelines.Get(pipelineInfo.Pipeline.Name, newPipelineInfo); err != nil {
-// 				return fmt.Errorf("error getting pipeline %s: %+v", pipelineName, err)
-// 			}
-//
-//
-//
-// 			if newPipelineInfo.Salt == "" {
-// 				newPipelineInfo.Salt = uuid.NewWithoutDashes()
-// 			}
-// 			setPipelineDefaults(newPipelineInfo)
-// 			pipelines.Put(pipelineInfo.Pipeline.Name, newPipelineInfo)
-// 			pipelineInfo = *newPipelineInfo
-// 			return nil
-// 		}); err != nil {
-// 			return err
-// 		}
-//
-// 		// Restart the pipeline
-// 		if err := a.StartPipeline(ctx, &pps.StartPipelineRequest{Pipeline: pipeline}); err != nil {
-// 			return err
-// 		}
-// 	}
-// }
 
 // The master process is responsible for creating/deleting workers as
 // pipelines are created/removed.
@@ -138,9 +101,6 @@ func (a *apiServer) master() {
 					if err := event.Unmarshal(&pipelineName, &pipelinePtr); err != nil {
 						return err
 					}
-					// TODO fix this function and uncomment this line
-					// a.fixNonDefaultPipelines()
-
 					// Retrieve pipelineInfo (and prev pipeline's pipelineInfo) from the
 					// spec repo
 					var prevPipelinePtr pps.EtcdPipelineInfo
@@ -214,6 +174,16 @@ func (a *apiServer) master() {
 								return err
 							}
 							continue
+						}
+					}
+					if pipelineInfo.State == pps.PipelineState_PIPELINE_RUNNING {
+						if err := a.scaleUpWorkersForPipeline(pipelineInfo); err != nil {
+							return err
+						}
+					}
+					if pipelineInfo.State == pps.PipelineState_PIPELINE_STANDBY {
+						if err := a.scaleDownWorkersForPipeline(pipelineInfo); err != nil {
+							return err
 						}
 					}
 				}
@@ -307,21 +277,18 @@ func getGithookService(kubeClient *kube.Clientset, namespace string) (*v1.Servic
 
 func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
 	var errCount int
-	return backoff.RetryNotify(func() error {
-		parallelism, err := ppsutil.GetExpectedNumWorkers(a.kubeClient, pipelineInfo.ParallelismSpec)
-		if err != nil {
-			log.Errorf("error getting number of workers, default to 1 worker: %v", err)
-			parallelism = 1
-		}
+	if err := backoff.RetryNotify(func() error {
 		var resourceRequests *v1.ResourceList
 		var resourceLimits *v1.ResourceList
 		if pipelineInfo.ResourceRequests != nil {
+			var err error
 			resourceRequests, err = ppsutil.GetRequestsResourceListFromPipeline(pipelineInfo)
 			if err != nil {
 				return err
 			}
 		}
 		if pipelineInfo.ResourceLimits != nil {
+			var err error
 			resourceLimits, err = ppsutil.GetLimitsResourceListFromPipeline(pipelineInfo)
 			if err != nil {
 				return err
@@ -334,14 +301,11 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		workerRc, err := rc.Get(
 			ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 			metav1.GetOptions{})
-		if err == nil {
-			if (workerRc.Spec.Template.Spec.Containers[0].Resources.Requests == nil) && *workerRc.Spec.Replicas == 1 {
-				parallelism = 1
-				resourceRequests = nil
-				resourceLimits = nil
+		if err != nil {
+			if !isNotFoundErr(err) {
+				return err
 			}
 		}
-		// rc was made by a previous version of pachyderm so we delete it
 		if workerRc.ObjectMeta.Labels["version"] != version.PrettyVersion() {
 			if err := a.deleteWorkersForPipeline(pipelineInfo); err != nil {
 				return err
@@ -351,7 +315,7 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		options := a.getWorkerOptions(
 			pipelineInfo.Pipeline.Name,
 			pipelineInfo.Version,
-			int32(parallelism),
+			0,
 			resourceRequests,
 			resourceLimits,
 			pipelineInfo.Transform,
@@ -371,10 +335,28 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		}
 		log.Errorf("error creating workers for pipeline %v: %v; retrying in %v", pipelineInfo.Pipeline.Name, err, d)
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	if _, ok := a.monitorCancels[pipelineInfo.Pipeline.Name]; !ok {
+		ctx, cancel := context.WithCancel(a.pachClient.Ctx())
+		a.monitorCancels[pipelineInfo.Pipeline.Name] = cancel
+		pachClient := a.pachClient.WithCtx(ctx)
+
+		go a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+			a.monitorPipeline(superUserClient, pipelineInfo)
+			return nil
+		})
+	}
+	return nil
 }
 
 func (a *apiServer) deleteWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
+	cancel, ok := a.monitorCancels[pipelineInfo.Pipeline.Name]
+	if ok {
+		cancel()
+		delete(a.monitorCancels, pipelineInfo.Pipeline.Name)
+	}
 	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
 	if err := a.kubeClient.CoreV1().Services(a.namespace).Delete(
 		rcName, &metav1.DeleteOptions{},
@@ -402,4 +384,210 @@ func (a *apiServer) deleteWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		}
 	}
 	return nil
+}
+
+func (a *apiServer) scaleDownWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
+	rc := a.kubeClient.CoreV1().ReplicationControllers(a.namespace)
+	workerRc, err := rc.Get(
+		ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
+		metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	*workerRc.Spec.Replicas = 0
+	_, err = rc.Update(workerRc)
+	return err
+}
+
+func (a *apiServer) scaleUpWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
+	rc := a.kubeClient.CoreV1().ReplicationControllers(a.namespace)
+	workerRc, err := rc.Get(
+		ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
+		metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	parallelism, err := ppsutil.GetExpectedNumWorkers(a.kubeClient, pipelineInfo.ParallelismSpec)
+	if err != nil {
+		log.Errorf("error getting number of workers, default to 1 worker: %v", err)
+		parallelism = 1
+	}
+	*workerRc.Spec.Replicas = int32(parallelism)
+	_, err = rc.Update(workerRc)
+	return err
+}
+
+func notifyCtx(ctx context.Context, name string) func(error, time.Duration) error {
+	return func(err error, d time.Duration) error {
+		select {
+		case <-ctx.Done():
+			return context.DeadlineExceeded
+		default:
+			log.Errorf("error in %s: %v: retrying in: %v\n", name, err, d)
+		}
+		return nil
+	}
+}
+
+func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) {
+	setPipelineState := func(state pps.PipelineState) error {
+		log.Infof("moving pipeline %s to %s", pipelineInfo.Pipeline.Name, state.String())
+		_, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
+			pipelines := a.pipelines.ReadWrite(stm)
+			pipelinePtr := &pps.EtcdPipelineInfo{}
+			return pipelines.Update(pipelineInfo.Pipeline.Name, pipelinePtr, func() error {
+				if pipelinePtr.State == pps.PipelineState_PIPELINE_PAUSED || pipelinePtr.State == pps.PipelineState_PIPELINE_FAILURE {
+					return nil
+				}
+				pipelinePtr.State = state
+				return nil
+			})
+		})
+		return err
+	}
+	var eg errgroup.Group
+	pps.VisitInput(pipelineInfo.Input, func(in *pps.Input) {
+		if in.Cron != nil {
+			eg.Go(func() error {
+				return backoff.RetryNotify(func() error {
+					return a.makeCronCommits(pachClient, in)
+				}, backoff.NewInfiniteBackOff(), notifyCtx(pachClient.Ctx(), "cron for "+in.Cron.Name))
+			})
+		}
+	})
+	if !pipelineInfo.Standby {
+		// Standby is false so simply put it in RUNNING and leave it there.  This is
+		// only done with eg.Go so that we can handle all the errors in the
+		// same way below, it should be a very quick operation so there's no
+		// good reason to do it concurrently.
+		eg.Go(func() error {
+			return backoff.RetryNotify(func() error {
+				return setPipelineState(pps.PipelineState_PIPELINE_RUNNING)
+			}, backoff.NewInfiniteBackOff(), notifyCtx(pachClient.Ctx(), "set running (Standby = false)"))
+		})
+	} else {
+		// Capacity 1 gives us a bit of buffer so we don't needlessly go into
+		// standby when SubscribeCommit takes too long to return.
+		ciChan := make(chan *pfs.CommitInfo, 1)
+		eg.Go(func() error {
+			return backoff.RetryNotify(func() error {
+				return pachClient.SubscribeCommitF(pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch, "", pfs.CommitState_READY, func(ci *pfs.CommitInfo) error {
+					ciChan <- ci
+					return nil
+				})
+			}, backoff.NewInfiniteBackOff(), notifyCtx(pachClient.Ctx(), "SubscribeCommit"))
+		})
+		eg.Go(func() error {
+			return backoff.RetryNotify(func() error {
+				if err := setPipelineState(pps.PipelineState_PIPELINE_STANDBY); err != nil {
+					return err
+				}
+				for {
+					var ci *pfs.CommitInfo
+					select {
+					case ci = <-ciChan:
+						if ci.Finished != nil {
+							continue
+						}
+
+						if err := setPipelineState(pps.PipelineState_PIPELINE_RUNNING); err != nil {
+							return err
+						}
+
+						// Stay running while commits are available
+					running:
+						for {
+							// Wait for the commit to be finished before blocking on the
+							// job because the job may not exist yet.
+							if _, err := pachClient.BlockCommit(ci.Commit.Repo.Name, ci.Commit.ID); err != nil {
+								return err
+							}
+							if _, err := pachClient.InspectJobOutputCommit(ci.Commit.Repo.Name, ci.Commit.ID, true); err != nil {
+								return err
+							}
+
+							select {
+							case ci = <-ciChan:
+							default:
+								break running
+							}
+						}
+
+						if err := setPipelineState(pps.PipelineState_PIPELINE_STANDBY); err != nil {
+							return err
+						}
+					case <-pachClient.Ctx().Done():
+						return context.DeadlineExceeded
+					}
+				}
+			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+				select {
+				case <-pachClient.Ctx().Done():
+					return context.DeadlineExceeded
+				default:
+					fmt.Printf("error in monitorPipeline: %v: retrying in: %v\n", err, d)
+				}
+				return nil
+			})
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		fmt.Printf("error in monitorPipeline: %v", err)
+	}
+}
+
+// makeCronCommits makes commits to a single cron input's repo. It's
+// a helper function called by monitorPipeline.
+func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input) error {
+	schedule, err := cron.ParseStandard(in.Cron.Spec)
+	if err != nil {
+		return err // Shouldn't happen, as the input is validated in CreatePipeline
+	}
+	var tstamp *types.Timestamp
+	var buffer bytes.Buffer
+	if err := pachClient.GetFile(in.Cron.Repo, "master", "time", 0, 0, &buffer); err != nil && !isNilBranchErr(err) {
+		return err
+	} else if err != nil {
+		// File not found, this happens the first time the pipeline is run
+		tstamp = in.Cron.Start
+	} else {
+		tstamp = &types.Timestamp{}
+		if err := jsonpb.UnmarshalString(buffer.String(), tstamp); err != nil {
+			return err
+		}
+	}
+	t, err := types.TimestampFromProto(tstamp)
+	if err != nil {
+		return err
+	}
+	for {
+		t = schedule.Next(t)
+		time.Sleep(time.Until(t))
+		if _, err := pachClient.StartCommit(in.Cron.Repo, "master"); err != nil {
+			return err
+		}
+		timestamp, err := types.TimestampProto(t)
+		if err != nil {
+			return err
+		}
+		timeString, err := (&jsonpb.Marshaler{}).MarshalToString(timestamp)
+		if err != nil {
+			return err
+		}
+		if err := pachClient.DeleteFile(in.Cron.Repo, "master", "time"); err != nil {
+			return err
+		}
+		if _, err := pachClient.PutFile(in.Cron.Repo, "master", "time", strings.NewReader(timeString)); err != nil {
+			return err
+		}
+		if err := pachClient.FinishCommit(in.Cron.Repo, "master"); err != nil {
+			return err
+		}
+	}
+}
+
+func isNilBranchErr(err error) bool {
+	return err != nil &&
+		strings.HasPrefix(err.Error(), "the branch \"") &&
+		strings.HasSuffix(err.Error(), "\" is nil")
 }

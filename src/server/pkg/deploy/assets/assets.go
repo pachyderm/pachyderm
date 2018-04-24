@@ -129,6 +129,9 @@ type AssetOpts struct {
 
 	// Namespace is the kubernetes namespace to deploy to.
 	Namespace string
+
+	// NoExposeDockerSocket if true prevents pipelines from accessing the docker socket.
+	NoExposeDockerSocket bool
 }
 
 // replicas lets us create a pointer to a non-zero int32 in-line. This is
@@ -370,6 +373,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 								{Name: "LOG_LEVEL", Value: opts.LogLevel},
 								{Name: "BLOCK_CACHE_BYTES", Value: opts.BlockCacheSize},
 								{Name: "IAM_ROLE", Value: opts.IAMRole},
+								{Name: "NO_EXPOSE_DOCKER_SOCKET", Value: strconv.FormatBool(opts.NoExposeDockerSocket)},
 								{Name: auth.DisableAuthenticationEnvVar, Value: strconv.FormatBool(opts.DisableAuthentication)},
 								{
 									Name: "PACHD_POD_NAMESPACE",

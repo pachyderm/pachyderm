@@ -15,10 +15,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/montanaflynn/stats"
-	"github.com/robfig/cron"
 	"golang.org/x/sync/errgroup"
-	"k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
@@ -100,30 +97,7 @@ func (a *APIServer) master() {
 			return err
 		}
 		defer masterLock.Unlock(ctx)
-
 		logger.Logf("Launching worker master process")
-
-		paused := false
-		// Set pipeline state to running
-		if _, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-			pipelineName := a.pipelineInfo.Pipeline.Name
-			pipelines := a.pipelines.ReadWrite(stm)
-			pipelinePtr := &pps.EtcdPipelineInfo{}
-			if err := pipelines.Get(pipelineName, pipelinePtr); err != nil {
-				return err
-			}
-			if pipelinePtr.State == pps.PipelineState_PIPELINE_PAUSED {
-				paused = true
-				return nil
-			}
-			pipelinePtr.State = pps.PipelineState_PIPELINE_RUNNING
-			return pipelines.Put(pipelineName, pipelinePtr)
-		}); err != nil {
-			return err
-		}
-		if paused {
-			return fmt.Errorf("can't run master for a paused pipeline")
-		}
 		return a.jobSpawner(pachClient)
 	}, b, func(err error, d time.Duration) error {
 		logger.Logf("master: error running the master process: %v; retrying in %v", err, d)
@@ -176,171 +150,69 @@ func (a *APIServer) serviceMaster() {
 	})
 }
 
-// spawnScaleDownGoroutine is a helper function for jobSpawner. It spawns a
-// goroutine that waits until this pipeline's ScaleDownThreshold is reached and
-// then scales down the pipeline's RC. 'cancel' is a channel that, when closed
-// cancels the spawned goroutine.
-func (a *APIServer) spawnScaleDownGoroutine() (cancel chan struct{}) {
-	logger := a.getMasterLogger()
-	cancel = make(chan struct{})
-	if a.pipelineInfo.ScaleDownThreshold != nil {
-		go func() {
-			scaleDownThreshold, err := types.DurationFromProto(a.pipelineInfo.ScaleDownThreshold)
-			if err != nil {
-				logger.Logf("invalid ScaleDownThreshold: \"%v\"", err)
-				return
-			}
-			select {
-			case <-time.After(scaleDownThreshold):
-				if err := a.scaleDownWorkers(); err != nil {
-					logger.Logf("could not scale down workers: \"%v\"", err)
-				}
-			case <-cancel:
-			}
-		}()
-	}
-	return cancel
-}
-
-// makeCronCommits makes commits to a single cron input's repo. It's
-// a helper function called by jobSpawner
-func (a *APIServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input) error {
-	schedule, err := cron.ParseStandard(in.Cron.Spec)
-	if err != nil {
-		return err // Shouldn't happen, as the input is validated in CreatePipeline
-	}
-	var tstamp *types.Timestamp
-	var buffer bytes.Buffer
-	if err := pachClient.GetFile(in.Cron.Repo, "master", "time", 0, 0, &buffer); err != nil && !isNilBranchErr(err) {
-		return err
-	} else if err != nil {
-		// File not found, this happens the first time the pipeline is run
-		tstamp = in.Cron.Start
-	} else {
-		tstamp = &types.Timestamp{}
-		if err := jsonpb.UnmarshalString(buffer.String(), tstamp); err != nil {
-			return err
-		}
-	}
-	t, err := types.TimestampFromProto(tstamp)
-	if err != nil {
-		return err
-	}
-	for {
-		t = schedule.Next(t)
-		time.Sleep(time.Until(t))
-		if _, err := pachClient.StartCommit(in.Cron.Repo, "master"); err != nil {
-			return err
-		}
-		timestamp, err := types.TimestampProto(t)
-		if err != nil {
-			return err
-		}
-		timeString, err := (&jsonpb.Marshaler{}).MarshalToString(timestamp)
-		if err != nil {
-			return err
-		}
-		if err := pachClient.DeleteFile(in.Cron.Repo, "master", "time"); err != nil {
-			return err
-		}
-		if _, err := pachClient.PutFile(in.Cron.Repo, "master", "time", strings.NewReader(timeString)); err != nil {
-			return err
-		}
-		if err := pachClient.FinishCommit(in.Cron.Repo, "master"); err != nil {
-			return err
-		}
-	}
-}
-
 func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 	logger := a.getMasterLogger()
-	var eg errgroup.Group
-
-	// Spawn one goroutine per cron input, each of which commits to its cron repo
-	// per its spec
-	pps.VisitInput(a.pipelineInfo.Input, func(in *pps.Input) {
-		if in.Cron != nil {
-			eg.Go(func() error {
-				return a.makeCronCommits(pachClient, in)
-			})
-		}
-	})
-
-	// Spawn a goroutine to listen for new commits, and create jobs when they
-	// arrive
-	eg.Go(func() error {
-		commitIter, err := pachClient.SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "")
+	// Listen for new commits, and create jobs when they arrive
+	commitIter, err := pachClient.SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "", pfs.CommitState_READY)
+	if err != nil {
+		return err
+	}
+	defer commitIter.Close()
+	for {
+		commitInfo, err := commitIter.Next()
 		if err != nil {
 			return err
 		}
-		defer commitIter.Close()
-		for {
-			cancel := a.spawnScaleDownGoroutine()
-			commitInfo, err := commitIter.Next()
-			// loop will spawn new scale-down goroutine whether we start the job or not,
-			// so cancel channel to avoid leaking the current goroutine
-			close(cancel)
+		if commitInfo.Finished != nil {
+			continue
+		}
+		// Inspect the commit and check again if it has been finished (it may have
+		// been closed since it was queued, e.g. by StopPipeline or StopJob)
+		commitInfo, err = pachClient.InspectCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
+		if err != nil {
+			return err
+		}
+		if commitInfo.Finished != nil {
+			continue // commit finished after queueing
+		}
+		// Check if a job was previously created for this commit. If not, make one
+		var jobInfo *pps.JobInfo
+		jobInfos, err := pachClient.ListJob("", nil, commitInfo.Commit)
+		if err != nil {
+			return err
+		}
+		if len(jobInfos) > 0 {
+			if len(jobInfos) > 1 {
+				return fmt.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
+			}
+			jobInfo = jobInfos[0]
+		} else {
+			job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
 			if err != nil {
 				return err
 			}
-			if commitInfo.Finished != nil {
-				continue
-			}
-			// Inspect the commit and check again if it has been finished (it may have
-			// been closed since it was queued, e.g. by StopPipeline or StopJob)
-			commitInfo, err = pachClient.InspectCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
+			jobInfo, err = pachClient.InspectJob(job.ID, false)
 			if err != nil {
-				return err
-			}
-			if commitInfo.Finished != nil {
-				continue // commit finished after queueing
-			}
-			if a.pipelineInfo.ScaleDownThreshold != nil {
-				if err := a.scaleUpWorkers(logger); err != nil {
-					return err
-				}
-			}
-			// Check if a job was previously created for this commit. If not, make one
-			var jobInfo *pps.JobInfo
-			jobInfos, err := pachClient.ListJob("", nil, commitInfo.Commit)
-			if err != nil {
-				return err
-			}
-			if len(jobInfos) > 0 {
-				if len(jobInfos) > 1 {
-					return fmt.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
-				}
-				jobInfo = jobInfos[0]
-			} else {
-				job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
-				if err != nil {
-					return err
-				}
-				jobInfo, err = pachClient.InspectJob(job.ID, false)
-				if err != nil {
-					return err
-				}
-			}
-			if ppsutil.IsTerminal(jobInfo.State) {
-				// previously-created job has finished, but commit has not been closed yet
-				continue
-			}
-
-			// Now that the jobInfo is persisted, wait until all input commits are
-			// ready, split the input datums into chunks and merge the results of
-			// chunks as they're processed
-			if err := a.waitJob(pachClient, jobInfo, logger); err != nil {
 				return err
 			}
 		}
-	})
+		if ppsutil.IsTerminal(jobInfo.State) {
+			// previously-created job has finished, but commit has not been closed yet
+			continue
+		}
 
-	return eg.Wait() // if anything goes wrong, retry in master()
+		// Now that the jobInfo is persisted, wait until all input commits are
+		// ready, split the input datums into chunks and merge the results of
+		// chunks as they're processed
+		if err := a.waitJob(pachClient, jobInfo, logger); err != nil {
+			return err
+		}
+	}
 }
 
 func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 	ctx := pachClient.Ctx()
-	commitIter, err := pachClient.SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "")
+	commitIter, err := pachClient.SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "", pfs.CommitState_READY)
 	if err != nil {
 		return err
 	}
@@ -447,7 +319,7 @@ func plusDuration(x *types.Duration, y *types.Duration) (*types.Duration, error)
 }
 
 func (a *APIServer) locks(jobID string) col.Collection {
-	return col.NewCollection(a.etcdClient, path.Join(a.etcdPrefix, lockPrefix, jobID), nil, &ChunkState{}, nil)
+	return col.NewCollection(a.etcdClient, path.Join(a.etcdPrefix, lockPrefix, jobID), nil, &ChunkState{}, nil, nil)
 }
 
 // collectDatum collects the output and stats output from a datum, and merges
@@ -540,14 +412,14 @@ func makeChunks(df DatumFactory, spec *pps.ChunkSpec, parallelism int) *Chunks {
 	return chunks
 }
 
-func (a *APIServer) blockInputs(ctx context.Context, jobInfo *pps.JobInfo) ([]string, error) {
+func (a *APIServer) failedInputs(ctx context.Context, jobInfo *pps.JobInfo) ([]string, error) {
 	var failedInputs []string
 	var vistErr error
 	blockCommit := func(name string, commit *pfs.Commit) {
 		ci, err := a.pachClient.PfsAPIClient.InspectCommit(ctx,
 			&pfs.InspectCommitRequest{
-				Commit: commit,
-				Block:  true,
+				Commit:     commit,
+				BlockState: pfs.CommitState_FINISHED,
 			})
 		if err != nil && vistErr == nil {
 			vistErr = fmt.Errorf("error blocking on commit %s/%s: %v",
@@ -586,8 +458,8 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		backoff.RetryNotify(func() error {
 			commitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
 				&pfs.InspectCommitRequest{
-					Commit: jobInfo.OutputCommit,
-					Block:  true,
+					Commit:     jobInfo.OutputCommit,
+					BlockState: pfs.CommitState_FINISHED,
 				})
 			if err != nil {
 				if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
@@ -658,7 +530,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 
 	backoff.RetryNotify(func() (retErr error) {
 		// block until job inputs are ready
-		failedInputs, err := a.blockInputs(ctx, jobInfo)
+		failedInputs, err := a.failedInputs(ctx, jobInfo)
 		if err != nil {
 			return err
 		}
@@ -1094,62 +966,6 @@ func (a *APIServer) putTree(ctx context.Context, tree hashtree.OpenHashTree) (*p
 	return object, err
 }
 
-func (a *APIServer) scaleDownWorkers() error {
-	rc := a.kubeClient.CoreV1().ReplicationControllers(a.namespace)
-	workerRc, err := rc.Get(
-		ppsutil.PipelineRcName(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version),
-		metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	*workerRc.Spec.Replicas = 1
-	// When we scale down the workers, we also remove the resource
-	// requirements so that the remaining master pod does not take up
-	// the resource it doesn't need, since by definition when a pipeline
-	// is in scale-down mode, it doesn't process any work.
-	if a.pipelineInfo.ResourceRequests != nil {
-		workerRc.Spec.Template.Spec.Containers[0].Resources = v1.ResourceRequirements{}
-	}
-	_, err = rc.Update(workerRc)
-	return err
-}
-
-func (a *APIServer) scaleUpWorkers(logger *taggedLogger) error {
-	rc := a.kubeClient.CoreV1().ReplicationControllers(a.namespace)
-	workerRc, err := rc.Get(ppsutil.PipelineRcName(
-		a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Version), metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	parallelism, err := ppsutil.GetExpectedNumWorkers(a.kubeClient, a.pipelineInfo.ParallelismSpec)
-	if err != nil {
-		logger.Logf("error getting number of workers, default to 1 worker: %v", err)
-		parallelism = 1
-	}
-	if *workerRc.Spec.Replicas != int32(parallelism) {
-		*workerRc.Spec.Replicas = int32(parallelism)
-	}
-	// Reset the resource requirements for the RC since the pipeline
-	// is in scale-down mode and probably has removed its resource
-	// requirements.
-	if a.pipelineInfo.ResourceRequests != nil {
-		requestsResourceList, err := ppsutil.GetRequestsResourceListFromPipeline(a.pipelineInfo)
-		if err != nil {
-			return fmt.Errorf("error parsing resource spec; this is likely a bug: %v", err)
-		}
-		limitsResourceList, err := ppsutil.GetRequestsResourceListFromPipeline(a.pipelineInfo)
-		if err != nil {
-			return fmt.Errorf("error parsing resource spec; this is likely a bug: %v", err)
-		}
-		workerRc.Spec.Template.Spec.Containers[0].Resources = v1.ResourceRequirements{
-			Requests: *requestsResourceList,
-			Limits:   *limitsResourceList,
-		}
-	}
-	_, err = rc.Update(workerRc)
-	return err
-}
-
 // getCachedDatum returns whether the given datum (identified by its hash)
 // has been processed.
 func (a *APIServer) getCachedDatum(hash string) bool {
@@ -1164,12 +980,6 @@ func (a *APIServer) setCachedDatum(hash string) {
 
 func isNotFoundErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "not found")
-}
-
-func isNilBranchErr(err error) bool {
-	return err != nil &&
-		strings.HasPrefix(err.Error(), "the branch \"") &&
-		strings.HasSuffix(err.Error(), "\" is nil")
 }
 
 func now() *types.Timestamp {

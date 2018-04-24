@@ -34,10 +34,13 @@ type collection struct {
 	// keyCheck is a function that checks if a key is valid.  Invalid keys
 	// cannot be created.
 	keyCheck func(string) error
+
+	// valCheck is a function that checks if a value is valid.
+	valCheck func(proto.Message) error
 }
 
 // NewCollection creates a new collection.
-func NewCollection(etcdClient *etcd.Client, prefix string, indexes []Index, template proto.Message, keyCheck func(string) error) Collection {
+func NewCollection(etcdClient *etcd.Client, prefix string, indexes []Index, template proto.Message, keyCheck func(string) error, valCheck func(proto.Message) error) Collection {
 	// We want to ensure that the prefix always ends with a trailing
 	// slash.  Otherwise, when you list the items under a collection
 	// such as `foo`, you might end up listing items under `foobar`
@@ -52,6 +55,7 @@ func NewCollection(etcdClient *etcd.Client, prefix string, indexes []Index, temp
 		indexes:    indexes,
 		template:   template,
 		keyCheck:   keyCheck,
+		valCheck:   valCheck,
 	}
 }
 
@@ -184,11 +188,17 @@ func (c *readWriteCollection) PutTTL(key string, val proto.Message, ttl int64) e
 		}
 	}
 
-	ptr := reflect.ValueOf(val).Pointer()
+	if c.collection.valCheck != nil {
+		if err := c.collection.valCheck(val); err != nil {
+			return err
+		}
+	}
+
+  ptr := reflect.ValueOf(val).Pointer()
 	if !c.stm.IsSafePut(c.Path(key), ptr) {
 		return fmt.Errorf("unsafe put for key %v (passed ptr did not receive updated value)", key)
 	}
-
+  
 	if c.indexes != nil {
 		clone := cloneProtoMsg(val)
 
