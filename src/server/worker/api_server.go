@@ -297,7 +297,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	resp, err := pachClient.Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
 	if err != nil {
 		// No logger yet, we need a server first
-		fmt.Printf("failed to get enterprise state\n")
+		fmt.Printf("failed to get enterprise state with error: %v\n", err)
 	} else {
 		exportStats = resp.State == enterprise.State_ACTIVE
 	}
