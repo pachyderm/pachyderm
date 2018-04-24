@@ -17,6 +17,7 @@ import (
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
+	streamtabwriter "github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	"github.com/spf13/cobra"
@@ -141,22 +142,9 @@ $ pachctl list-job -p foo bar/YYY
 				}
 				return nil
 			}
-			lines := 0
-			writer := tabwriter.NewWriter(os.Stdout, 0, 1, 1, ' ', 0)
-			pretty.PrintJobHeader(writer)
-			lines++
+			writer := streamtabwriter.NewStreamingWriter(tabwriter.NewWriter(os.Stdout, 0, 1, 1, ' ', 0), termHeight, pretty.JobHeader)
 			if err := client.ListJobF(pipelineName, commits, outputCommit, func(ji *ppsclient.JobInfo) error {
-				if lines == termHeight {
-					if err := writer.Flush(); err != nil {
-						return err
-					}
-					lines = 0
-					writer = tabwriter.NewWriter(os.Stdout, 0, 1, 1, ' ', 0)
-					pretty.PrintJobHeader(writer)
-					lines++
-				}
 				pretty.PrintJobInfo(writer, ji)
-				lines++
 				return nil
 			}); err != nil {
 				return err

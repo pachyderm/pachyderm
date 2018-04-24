@@ -19,11 +19,16 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 )
 
+const (
+	// JobHeader is the header for job infos
+	JobHeader = "ID\tOUTPUT COMMIT\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
+)
+
 // PrintJobHeader prints a job header.
 func PrintJobHeader(w io.Writer) {
 	// because STATE is a colorful field it has to be at the end of the line,
 	// otherwise the terminal escape characters will trip up the tabwriter
-	fmt.Fprint(w, "ID\tOUTPUT COMMIT\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n")
+	fmt.Fprint(w, JobHeader)
 }
 
 // PrintJobInfo pretty-prints job info.
