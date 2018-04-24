@@ -388,7 +388,7 @@ pretest:
 
 local-test: docker-build launch-dev test-pfs clean-launch-dev
 
-test: enterprise-code-checkin-test docker-build docker-build-test-entrypoint clean-launch-dev launch-dev test-pfs test-pps test-vault test-auth test-enterprise test-worker test-kube-17
+test: enterprise-code-checkin-test docker-build docker-build-test-entrypoint clean-launch-dev launch-dev test-pfs test-pps test-vault test-auth test-enterprise test-worker
 
 enterprise-code-checkin-test:
 	# Check if our test activation code is anywhere in the repo
@@ -445,15 +445,6 @@ test-worker: launch-stats test-worker-helper
 test-worker-helper:
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 			  go test -v ./src/server/worker/ -run=TestPrometheusStats -timeout $(TIMEOUT) -count 1
-
-test-kube-17:
-	@# Delete existing minikube, but test should still pass if minikube hasn't been started
-	@make clean-launch-kube || true
-	./etc/kube/start-minikube.sh -v 1.7.5
-	@LAUNCH_DEV_ARGS="--no-rbac" make launch-dev
-	@# If we can deploy a pipeline, 1.7 probably works
-	go test -v ./src/server -run TestPipelineWithParallelism
-
 
 clean: clean-launch clean-launch-kube
 
