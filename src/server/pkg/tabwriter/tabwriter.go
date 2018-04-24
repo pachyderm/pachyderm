@@ -5,6 +5,10 @@ import (
 	"text/tabwriter"
 )
 
+const (
+	TermHeight = 24
+)
+
 // StreamingTabWriter is like tabwriter except that it's suitable for large
 // numbers of items because it periodically flushes its contents.
 type StreamingTabWriter struct {
