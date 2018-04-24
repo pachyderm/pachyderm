@@ -368,6 +368,10 @@ func doFullMode(appEnvObj interface{}) error {
 			},
 		)
 	})
+	eg.Go(func() error {
+		http.Handle("/metrics", promhttp.Handler())
+		return http.ListenAndServe(fmt.Sprintf(":%v", PrometheusPort), nil)
+	})
 	if err := migrate(address, kubeClient); err != nil {
 		return err
 	}
