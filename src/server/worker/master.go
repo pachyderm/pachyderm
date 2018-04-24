@@ -829,8 +829,6 @@ func (a *APIServer) egress(pachClient *client.APIClient, logger *taggedLogger, j
 
 func (a *APIServer) runService(ctx context.Context, logger *taggedLogger) error {
 	return backoff.RetryNotify(func() error {
-		// Reporting stats for a service is a bit odd, but things like
-		// counts of job starts could be useful to measure service restarts
 		return a.runUserCode(ctx, logger, nil, &pps.ProcessStats{}, nil)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		select {
