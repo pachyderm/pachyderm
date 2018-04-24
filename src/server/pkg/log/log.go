@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/fatih/camelcase"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 )
 
@@ -59,11 +60,11 @@ func (l *logger) ReportMetric(state string, duration time.Duration) {
 	for _, token := range camelcase.Split(method) {
 		tokens = append(tokens, strings.ToLower(token))
 	}
-	rootStatName := string.Join(tokens, "_")
+	rootStatName := strings.Join(tokens, "_")
 
-	bucketFactor = 2.0
-	bucketCount = 20 // Which makes the max bucket 2^20 seconds or ~12 days in size
-	runTime = prometheus.NewHistogramVec(
+	bucketFactor := 2.0
+	bucketCount := 20 // Which makes the max bucket 2^20 seconds or ~12 days in size
+	runTime := prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "pachyderm",
 			Subsystem: "pachd",
@@ -84,7 +85,7 @@ func (l *logger) ReportMetric(state string, duration time.Duration) {
 		hist.Observe(duration.Seconds())
 	}
 
-	secondsCount = prometheus.NewCounter(
+	secondsCount := prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Namespace: "pachyderm",
 			Subsystem: "pachd",
