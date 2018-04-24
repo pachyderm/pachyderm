@@ -25,7 +25,7 @@ import (
 func TestPrometheusStats(t *testing.T) {
 
 	c := getPachClient(t)
-	//	defer require.NoError(t, c.DeleteAll())
+	defer require.NoError(t, c.DeleteAll())
 
 	_, err := c.Enterprise.Activate(context.Background(),
 		&enterprise.ActivateRequest{ActivationCode: tu.GetTestEnterpriseCode()})
