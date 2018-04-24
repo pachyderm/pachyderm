@@ -872,22 +872,16 @@ $ pachctl list-file foo master^2
 			if len(args) == 3 {
 				path = args[2]
 			}
-			fileInfos, err := client.ListFile(args[0], args[1], path)
-			if err != nil {
-				return err
-			}
 			if raw {
-				for _, fileInfo := range fileInfos {
-					if err := marshaller.Marshal(os.Stdout, fileInfo); err != nil {
-						return err
-					}
-				}
+				return client.ListFileF(args[0], args[1], path, func(fi *pfsclient.FileInfo) error {
+					return marshaller.Marshal(os.Stdout, fi)
+				})
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintFileInfoHeader(writer)
-			for _, fileInfo := range fileInfos {
-				pretty.PrintFileInfo(writer, fileInfo)
-			}
+			writer := streamtabwriter.NewStreamingWriter(tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0), streamtabwriter.TermHeight, pretty.FileHeader)
+			return client.ListFileF(args[0], args[1], path, func(fi *pfsclient.FileInfo) error {
+				pretty.PrintFileInfo(writer, fi)
+				return nil
+			})
 			return writer.Flush()
 		}),
 	}

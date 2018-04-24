@@ -899,8 +899,20 @@ func (c APIClient) inspectFile(repoName string, commitID string, path string) (*
 	return fileInfo, nil
 }
 
-// ListFile returns info about all files in a Commit.
+// ListFile returns info about all files in a Commit under path.
 func (c APIClient) ListFile(repoName string, commitID string, path string) ([]*pfs.FileInfo, error) {
+	var result []*pfs.FileInfo
+	if err := c.ListFileF(repoName, commitID, path, func(fi *pfs.FileInfo) error {
+		result = append(result, fi)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// ListFile returns info about all files in a Commit under path, calling f with each FileInfo.
+func (c APIClient) ListFileF(repoName string, commitID string, path string, f func(fi *pfs.FileInfo) error) error {
 	fs, err := c.PfsAPIClient.ListFileStream(
 		c.Ctx(),
 		&pfs.ListFileRequest{
@@ -908,19 +920,22 @@ func (c APIClient) ListFile(repoName string, commitID string, path string) ([]*p
 		},
 	)
 	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
+		return grpcutil.ScrubGRPC(err)
 	}
-	var result []*pfs.FileInfo
 	for {
-		f, err := fs.Recv()
+		fi, err := fs.Recv()
 		if err == io.EOF {
-			break
+			return nil
 		} else if err != nil {
-			return nil, grpcutil.ScrubGRPC(err)
+			return grpcutil.ScrubGRPC(err)
 		}
-		result = append(result, f)
+		if err := f(fi); err != nil {
+			if err == errutil.ErrBreak {
+				return nil
+			}
+			return err
+		}
 	}
-	return result, nil
 }
 
 // GlobFile returns files that match a given glob pattern in a given commit.
