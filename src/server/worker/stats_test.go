@@ -148,11 +148,15 @@ func TestPrometheusStats(t *testing.T) {
 	// Bytes Counters
 	t.Run("DatumDownloadBytes", func(t *testing.T) {
 		query := fmt.Sprintf("sum(pachyderm_worker_datum_download_bytes_count{pipelineName=\"%v\"}) without (instance, exported_job)", pipeline)
-		datumCountQuery(t, query) // Just check query has a result
+		result := datumCountQuery(t, query)
+		// Each run adds 30 bytes to the total
+		require.Equal(t, float64(30.0*(numCommits-1.0)*numCommits/2.0), result)
 	})
 	t.Run("DatumUploadBytes", func(t *testing.T) {
 		query := fmt.Sprintf("sum(pachyderm_worker_datum_upload_bytes_count{pipelineName=\"%v\"}) without (instance, exported_job)", pipeline)
-		datumCountQuery(t, query) // Just check query has a result
+		result := datumCountQuery(t, query)
+		// Each run adds 30 bytes to the total
+		require.Equal(t, float64(30.0*(numCommits-1.0)*numCommits/2.0), result)
 	})
 
 	// Time Counters
