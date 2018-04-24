@@ -32,6 +32,7 @@ func Repos(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 		nil,
 		&pfs.RepoInfo{},
 		nil,
+		nil,
 	)
 }
 
@@ -43,6 +44,7 @@ func PutFileRecords(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 		nil,
 		&pfs.PutFileRecords{},
 		nil,
+		nil,
 	)
 }
 
@@ -53,6 +55,7 @@ func Commits(etcdClient *etcd.Client, etcdPrefix string, repo string) col.Collec
 		path.Join(etcdPrefix, commitsPrefix, repo),
 		[]col.Index{ProvenanceIndex},
 		&pfs.CommitInfo{},
+		nil,
 		nil,
 	)
 }
@@ -70,6 +73,7 @@ func Branches(etcdClient *etcd.Client, etcdPrefix string, repo string) col.Colle
 			}
 			return nil
 		},
+		nil,
 	)
 }
 
@@ -80,6 +84,7 @@ func OpenCommits(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 		path.Join(etcdPrefix, openCommitsPrefix),
 		nil,
 		&pfs.Commit{},
+		nil,
 		nil,
 	)
 }

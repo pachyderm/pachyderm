@@ -84,6 +84,7 @@ type appEnv struct {
 	LogLevel              string `env:"LOG_LEVEL,default=info"`
 	IAMRole               string `env:"IAM_ROLE,default="`
 	ImagePullSecret       string `env:"IMAGE_PULL_SECRET,default="`
+	NoExposeDockerSocket  bool   `env:"NO_EXPOSE_DOCKER_SOCKET,default=false"`
 }
 
 func main() {
@@ -295,6 +296,7 @@ func doFullMode(appEnvObj interface{}) error {
 		appEnv.StorageHostPath,
 		appEnv.IAMRole,
 		appEnv.ImagePullSecret,
+		appEnv.NoExposeDockerSocket,
 		reporter,
 	)
 	if err != nil {

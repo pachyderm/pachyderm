@@ -1,14 +1,14 @@
-## ./pachctl auth logout
+## ./pachctl auth use-auth-token
 
-Log out of Pachyderm by deleting your local credential
+Read a Pachyderm auth token from stdin, and write it to the current user's Pachyderm config file
 
 ### Synopsis
 
 
-Log out of Pachyderm by deleting your local credential. Note that it's not necessary to log out before logging in with another account (simply run 'pachctl auth login' twice) but 'logout' can be useful on shared workstations.
+Read a Pachyderm auth token from stdin, and write it to the current user's Pachyderm config file
 
 ```
-./pachctl auth logout
+./pachctl auth use-auth-token
 ```
 
 ### Options inherited from parent commands

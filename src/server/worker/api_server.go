@@ -117,9 +117,8 @@ type APIServer struct {
 	// have already been processed.
 	datumCache *lru.Cache
 
-	uid        uint32
-	gid        uint32
-	workingDir string
+	uid uint32
+	gid uint32
 }
 
 type putObjectResponse struct {
@@ -210,14 +209,14 @@ func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
 		logger.stderrLog.Printf("could not generate logging timestamp: %s\n", err)
 		return
 	}
-	bytes, err := logger.marshaler.MarshalToString(&logger.template)
+	msg, err := logger.marshaler.MarshalToString(&logger.template)
 	if err != nil {
 		logger.stderrLog.Printf("could not marshal %v for logging: %s\n", &logger.template, err)
 		return
 	}
-	fmt.Println(bytes)
+	fmt.Println(msg)
 	if logger.putObjClient != nil {
-		logger.msgCh <- bytes
+		logger.msgCh <- msg + "\n"
 	}
 }
 
@@ -228,7 +227,6 @@ func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
 	for {
 		message, err := r.ReadString('\n')
 		if err != nil {
-			message = strings.TrimSuffix(message, "\n") // remove delimiter
 			if err == io.EOF {
 				logger.buffer.Write([]byte(message))
 				return len(p), nil
@@ -241,7 +239,7 @@ func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
 		// logger.Logf(message)
 		// because if the message has format characters like %s in it those
 		// will result in errors being logged.
-		logger.Logf("%s", message)
+		logger.Logf("%s", strings.TrimSuffix(message, "\n"))
 	}
 }
 
@@ -304,7 +302,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		namespace:  namespace,
 		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
 		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
-		chunks:     col.NewCollection(etcdClient, path.Join(etcdPrefix, chunksPrefix), []col.Index{}, &Chunks{}, nil),
+		chunks:     col.NewCollection(etcdClient, path.Join(etcdPrefix, chunksPrefix), []col.Index{}, &Chunks{}, nil, nil),
 		datumCache: datumCache,
 	}
 	logger, err := server.getTaggedLogger(pachClient, "", nil, false)
@@ -317,7 +315,11 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		numWorkers = 1
 	}
 	server.numWorkers = numWorkers
-	if pipelineInfo.Transform.Image != "" {
+	var noDocker bool
+	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
+		noDocker = true
+	}
+	if pipelineInfo.Transform.Image != "" && !noDocker {
 		docker, err := docker.NewClientFromEnv()
 		if err != nil {
 			return nil, err
@@ -326,30 +328,35 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		if err != nil {
 			return nil, fmt.Errorf("error inspecting image %s: %+v", pipelineInfo.Transform.Image, err)
 		}
-		// if image.Config.User == "" then uid, and gid don't get set which
-		// means they default to a value of 0 which means we run the code as
-		// root which is the only sane default.
-		if image.Config.User != "" {
-			user, err := lookupUser(image.Config.User)
-			if err != nil && !os.IsNotExist(err) {
-				return nil, err
-			}
-			if user != nil { // user is nil when os.IsNotExist(err) is true in which case we use root
-				uid, err := strconv.ParseUint(user.Uid, 10, 32)
-				if err != nil {
-					return nil, err
-				}
-				server.uid = uint32(uid)
-				gid, err := strconv.ParseUint(user.Gid, 10, 32)
-				if err != nil {
-					return nil, err
-				}
-				server.gid = uint32(gid)
-			}
+		if pipelineInfo.Transform.User == "" {
+			pipelineInfo.Transform.User = image.Config.User
 		}
-		server.workingDir = image.Config.WorkingDir
+		if pipelineInfo.Transform.WorkingDir == "" {
+			pipelineInfo.Transform.WorkingDir = image.Config.WorkingDir
+		}
 		if server.pipelineInfo.Transform.Cmd == nil {
 			server.pipelineInfo.Transform.Cmd = image.Config.Entrypoint
+		}
+	}
+	if pipelineInfo.Transform.User != "" {
+		user, err := lookupUser(pipelineInfo.Transform.User)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, err
+		}
+		// if User == "" then uid, and gid don't get set which
+		// means they default to a value of 0 which means we run the code as
+		// root which is the only sane default.
+		if user != nil { // user is nil when os.IsNotExist(err) is true in which case we use root
+			uid, err := strconv.ParseUint(user.Uid, 10, 32)
+			if err != nil {
+				return nil, err
+			}
+			server.uid = uint32(uid)
+			gid, err := strconv.ParseUint(user.Gid, 10, 32)
+			if err != nil {
+				return nil, err
+			}
+			server.gid = uint32(gid)
 		}
 	}
 	if pipelineInfo.Service == nil {
@@ -501,7 +508,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 			Gid: a.gid,
 		},
 	}
-	cmd.Dir = a.workingDir
+	cmd.Dir = a.pipelineInfo.Transform.WorkingDir
 	err := cmd.Start()
 	if err != nil {
 		return fmt.Errorf("error cmd.Start: %v", err)
@@ -851,9 +858,16 @@ func (a *APIServer) deleteJob(stm col.STM, jobPtr *pps.EtcdJobInfo) error {
 	return a.jobs.ReadWrite(stm).Delete(jobPtr.Job.ID)
 }
 
-type acquireDatumsFunc func(low, high int64) (failedDatumID string, _ error)
+type processResult struct {
+	failedDatumID   string
+	datumsProcessed int64
+	datumsSkipped   int64
+	datumsFailed    int64
+}
 
-func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chunks, logger *taggedLogger, process acquireDatumsFunc) error {
+type processFunc func(low, high int64) (*processResult, error)
+
+func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chunks, logger *taggedLogger, process processFunc) error {
 	complete := false
 	for !complete {
 		// func to defer cancel in
@@ -864,6 +878,8 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 			var high int64
 			var found bool
 			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				// Reinitialize closed upon variables.
+				low, high = 0, 0
 				found = false
 				locks := a.locks(jobID).ReadWrite(stm)
 				// we set complete to true and then unset it if we find an incomplete chunk
@@ -920,17 +936,27 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 					}
 				}()
 				// process the datums in newRange
-				failedDatumID, err := process(low, high)
+				processResult, err := process(low, high)
 				if err != nil {
 					return err
 				}
 
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+					jobs := a.jobs.ReadWrite(stm)
+					jobPtr := &pps.EtcdJobInfo{}
+					if err := jobs.Update(jobID, jobPtr, func() error {
+						jobPtr.DataProcessed += processResult.datumsProcessed
+						jobPtr.DataSkipped += processResult.datumsSkipped
+						jobPtr.DataFailed += processResult.datumsFailed
+						return nil
+					}); err != nil {
+						return err
+					}
 					locks := a.locks(jobID).ReadWrite(stm)
-					if failedDatumID != "" {
+					if processResult.failedDatumID != "" {
 						return locks.Put(fmt.Sprint(high), &ChunkState{
 							State:   ChunkState_FAILED,
-							DatumID: failedDatumID,
+							DatumID: processResult.failedDatumID,
 						})
 					}
 					return locks.Put(fmt.Sprint(high), &ChunkState{State: ChunkState_COMPLETE})
@@ -1093,12 +1119,12 @@ func (a *APIServer) worker() {
 			// handle failed datums here, just failed etcd writes.
 			if err := a.acquireDatums(
 				jobCtx, jobID, chunks, logger,
-				func(low, high int64) (string, error) {
-					failedDatumID, err := a.processDatums(pachClient, logger, jobInfo, df, low, high)
+				func(low, high int64) (*processResult, error) {
+					processResult, err := a.processDatums(pachClient, logger, jobInfo, df, low, high)
 					if err != nil {
-						return "", err
+						return nil, err
 					}
-					return failedDatumID, nil
+					return processResult, nil
 				},
 			); err != nil {
 				if jobCtx.Err() == context.Canceled {
@@ -1117,14 +1143,12 @@ func (a *APIServer) worker() {
 // processDatums processes datums from low to high in df, if a datum fails it
 // returns the id of the failed datum it also may return a variety of errors
 // such as network errors.
-func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo, df DatumFactory, low, high int64) (string, error) {
+func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo, df DatumFactory, low, high int64) (*processResult, error) {
 	ctx := pachClient.Ctx()
 	stats := &pps.ProcessStats{}
 	var statsMu sync.Mutex
-	var failedDatumID string
+	result := &processResult{}
 	var eg errgroup.Group
-	var skipped int64
-	var failed int64
 	limiter := limit.New(int(a.pipelineInfo.MaxQueueSize))
 	for i := low; i < high; i++ {
 		i := i
@@ -1142,52 +1166,14 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 			}
 			// Hash inputs
 			tag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, data)
-			tag15, err := HashDatum15(a.pipelineInfo, data)
-			if err != nil {
-				return err
-			}
-			foundTag := false
-			foundTag15 := false
-			var object *pfs.Object
-			var eg errgroup.Group
-			eg.Go(func() error {
-				if _, err := pachClient.InspectTag(ctx, &pfs.Tag{tag}); err == nil {
-					foundTag = true
-				}
+			if _, err := pachClient.InspectTag(ctx, &pfs.Tag{tag}); err == nil {
+				atomic.AddInt64(&result.datumsSkipped, 1)
+				logger.Logf("skipping datum")
 				return nil
-			})
-			eg.Go(func() error {
-				if objectInfo, err := pachClient.InspectTag(ctx, &pfs.Tag{tag15}); err == nil {
-					foundTag15 = true
-					object = objectInfo.Object
-				}
-				return nil
-			})
-			if err := eg.Wait(); err != nil {
-				return err
 			}
 			var statsTag *pfs.Tag
 			if a.pipelineInfo.EnableStats {
 				statsTag = &pfs.Tag{tag + statsTagSuffix}
-			}
-			if foundTag15 && !foundTag {
-				if _, err := pachClient.ObjectAPIClient.TagObject(ctx,
-					&pfs.TagObjectRequest{
-						Object: object,
-						Tags:   []*pfs.Tag{&pfs.Tag{tag}},
-					}); err != nil {
-					return err
-				}
-				if _, err := pachClient.DeleteTags(ctx,
-					&pfs.DeleteTagsRequest{
-						Tags: []*pfs.Tag{{Name: tag15}},
-					}); err != nil {
-					return err
-				}
-			}
-			if foundTag15 || foundTag {
-				skipped++
-				return nil
 			}
 			subStats := &pps.ProcessStats{}
 			statsPath := path.Join("/", logger.template.DatumID)
@@ -1296,11 +1282,11 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 					a.cancel = cancel
 					a.stats = stats
 				}()
-				if err := os.MkdirAll(client.PPSInputPrefix, 0666); err != nil {
+				if err := os.MkdirAll(client.PPSInputPrefix, 0777); err != nil {
 					return err
 				}
 				// Create output directory (currently /pfs/out) and run user code
-				if err := os.MkdirAll(filepath.Join(dir, "out"), 0666); err != nil {
+				if err := os.MkdirAll(filepath.Join(dir, "out"), 0777); err != nil {
 					return err
 				}
 				if err := syscall.Mount(dir, client.PPSInputPrefix, "", syscall.MS_BIND, ""); err != nil {
@@ -1311,6 +1297,14 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 						retErr = err
 					}
 				}()
+				if a.pipelineInfo.Transform.User != "" {
+					filepath.Walk("/pfs", func(name string, info os.FileInfo, err error) error {
+						if err == nil {
+							err = os.Chown(name, int(a.uid), int(a.gid))
+						}
+						return err
+					})
+				}
 				if err := a.runUserCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
 					return fmt.Errorf("error runUserCode: %v", err)
 				}
@@ -1349,8 +1343,8 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				logger.Logf("failed processing datum: %v, retrying in %v", err, d)
 				return nil
 			}); err != nil {
-				failedDatumID = a.DatumID(data)
-				failed++
+				result.failedDatumID = a.DatumID(data)
+				atomic.AddInt64(&result.datumsFailed, 1)
 				return nil
 			}
 			statsMu.Lock()
@@ -1362,7 +1356,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 		})
 	}
 	if err := eg.Wait(); err != nil {
-		return "", err
+		return nil, err
 	}
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		jobs := a.jobs.ReadWrite(stm)
@@ -1371,9 +1365,6 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 		if err := jobs.Get(jobID, jobPtr); err != nil {
 			return err
 		}
-		jobPtr.DataProcessed += high - low - skipped
-		jobPtr.DataSkipped += skipped
-		jobPtr.DataFailed += failed
 		if jobPtr.Stats == nil {
 			jobPtr.Stats = &pps.ProcessStats{}
 		}
@@ -1382,9 +1373,10 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 		}
 		return jobs.Put(jobID, jobPtr)
 	}); err != nil {
-		return "", err
+		return nil, err
 	}
-	return failedDatumID, nil
+	result.datumsProcessed = high - low - result.datumsSkipped - result.datumsFailed
+	return result, nil
 }
 
 func (a *APIServer) parentTag(pachClient *client.APIClient, jobInfo *pps.JobInfo, files []*Input) (*pfs.Tag, error) {

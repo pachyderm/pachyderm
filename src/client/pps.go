@@ -163,7 +163,6 @@ func (c APIClient) CreateJob(pipeline string, outputCommit *pfs.Commit) (*pps.Jo
 }
 
 // InspectJob returns info about a specific job.
-// blockOutput will cause the call to block until the job has been assigned an output commit.
 // blockState will cause the call to block until the job reaches a terminal state (failure or success).
 func (c APIClient) InspectJob(jobID string, blockState bool) (*pps.JobInfo, error) {
 	jobInfo, err := c.PpsAPIClient.InspectJob(
@@ -171,6 +170,18 @@ func (c APIClient) InspectJob(jobID string, blockState bool) (*pps.JobInfo, erro
 		&pps.InspectJobRequest{
 			Job:        NewJob(jobID),
 			BlockState: blockState,
+		})
+	return jobInfo, grpcutil.ScrubGRPC(err)
+}
+
+// InspectJobOutputCommit returns info about a job that created a commit.
+// blockState will cause the call to block until the job reaches a terminal state (failure or success).
+func (c APIClient) InspectJobOutputCommit(repoName, commitID string, blockState bool) (*pps.JobInfo, error) {
+	jobInfo, err := c.PpsAPIClient.InspectJob(
+		c.Ctx(),
+		&pps.InspectJobRequest{
+			OutputCommit: NewCommit(repoName, commitID),
+			BlockState:   blockState,
 		})
 	return jobInfo, grpcutil.ScrubGRPC(err)
 }

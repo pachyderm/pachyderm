@@ -478,7 +478,7 @@ $ pachctl subscribe-commit test master --new
 				from = branch
 			}
 
-			commitIter, err := c.SubscribeCommit(repo, branch, from)
+			commitIter, err := c.SubscribeCommit(repo, branch, from, pfsclient.CommitState_STARTED)
 			if err != nil {
 				return err
 			}
@@ -492,8 +492,8 @@ $ pachctl subscribe-commit test master --new
 
 	deleteCommit := &cobra.Command{
 		Use:   "delete-commit repo-name commit-id",
-		Short: "Delete an unfinished commit.",
-		Long:  "Delete an unfinished commit.",
+		Short: "Delete an input commit.",
+		Long:  "Delete an input commit. An input is a commit which is not the output of a pipeline.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			client, err := client.NewOnUserMachine(metrics, "user")
 			if err != nil {
