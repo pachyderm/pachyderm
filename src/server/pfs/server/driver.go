@@ -1799,6 +1799,11 @@ func validatePath(path string) error {
 	if !match {
 		return fmt.Errorf("path (%v) invalid: only printable ASCII characters allowed", path)
 	}
+
+	if isGlob(path) {
+		return fmt.Errorf("path (%v) invalid: globbing characters not allowed in path", path)
+	}
+
 	return nil
 }
 
@@ -2216,6 +2221,18 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern strin
 		return nil, err
 	}
 
+	if !isGlob(pattern) {
+		node, err := tree.Get(pattern)
+		// Path not found is a no-op
+		if hashtree.Code(err) == hashtree.PathNotFound {
+			return []*pfs.FileInfo{}, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		return []*pfs.FileInfo{nodeToFileInfo(commit, pattern, node, false)}, nil
+	}
+
 	nodes, err := tree.Glob(pattern)
 	if err != nil {
 		return nil, err
@@ -2293,7 +2310,22 @@ func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
 		return pfsserver.ErrCommitFinished{file.Commit}
 	}
 
-	return d.upsertPutFileRecords(ctx, file, &pfs.PutFileRecords{Tombstone: true})
+	// Delete root means delete all files
+	if file.Path == "/" {
+		file.Path = "/*"
+	}
+
+	fileInfos, err := d.globFile(ctx, file.Commit, file.Path)
+	if err != nil {
+		return err
+	}
+	for _, fileInfo := range fileInfos {
+		if err := d.upsertPutFileRecords(ctx, fileInfo.File, &pfs.PutFileRecords{Tombstone: true}); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (d *driver) deleteAll(ctx context.Context) error {
@@ -2544,4 +2576,10 @@ func (b *branchSet) has(branch *pfs.Branch) bool {
 
 func has(bs *[]*pfs.Branch, branch *pfs.Branch) bool {
 	return (*branchSet)(bs).has(branch)
+}
+
+// isGlob checks if the pattern contains a glob character
+func isGlob(pattern string) bool {
+	matched, _ := regexp.Match(`[*?\[\]\{\}!]`, []byte(pattern))
+	return matched
 }

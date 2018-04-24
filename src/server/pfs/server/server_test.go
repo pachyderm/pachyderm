@@ -1010,7 +1010,7 @@ func TestPutFileLongName(t *testing.T) {
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
-	fileName := `oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)`
+	fileName := `oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)`
 
 	commit, err := client.StartCommit(repo, "")
 	require.NoError(t, err)
@@ -2884,6 +2884,46 @@ func TestGlob(t *testing.T) {
 	fileInfos, err = c.GlobFile(repo, "master", "*/*")
 	require.NoError(t, err)
 	require.Equal(t, numFiles+1, len(fileInfos))
+
+	// Is glob
+	require.True(t, isGlob(`*`))
+	require.True(t, isGlob(`path/to*/file`))
+	require.True(t, isGlob(`path/**/file`))
+	require.True(t, isGlob(`path/to/f?le`))
+	require.True(t, isGlob(`pa!h/to/file`))
+	require.True(t, isGlob(`pa[th]/to/file`))
+	require.True(t, isGlob(`pa{th}/to/file`))
+	require.True(t, isGlob(`*/*`))
+
+	require.False(t, isGlob(`path`))
+	require.False(t, isGlob(`path/to/file1.txt`))
+	require.False(t, isGlob(`path/to_test-a/file.txt`))
+
+	// Delete file glob
+	_, err = c.StartCommit(repo, "master")
+	require.NoError(t, err)
+
+	err = c.DeleteFile(repo, "master", "dir2/dir3/*")
+	require.NoError(t, err)
+	fileInfos, err = c.GlobFile(repo, "master", "**")
+	require.NoError(t, err)
+	require.Equal(t, numFiles*2+3, len(fileInfos))
+	err = c.DeleteFile(repo, "master", "dir?/*")
+	require.NoError(t, err)
+	fileInfos, err = c.GlobFile(repo, "master", "**")
+	require.NoError(t, err)
+	require.Equal(t, numFiles+2, len(fileInfos))
+	err = c.DeleteFile(repo, "master", "/")
+	require.NoError(t, err)
+	fileInfos, err = c.GlobFile(repo, "master", "**")
+	require.NoError(t, err)
+	require.Equal(t, 0, len(fileInfos))
+
+	require.NoError(t, c.FinishCommit(repo, "master"))
+
+	fileInfos, err = c.GlobFile(repo, "master", "**")
+	require.NoError(t, err)
+	require.Equal(t, 0, len(fileInfos))
 }
 
 func TestOverwrite(t *testing.T) {
