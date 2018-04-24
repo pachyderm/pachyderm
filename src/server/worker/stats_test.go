@@ -175,8 +175,12 @@ func TestPrometheusStats(t *testing.T) {
 
 	// Test queries across all jobs
 	filter := "(instance,exported_job)"
-	// instance is an auto recorded label w the IP of the pod ... this will
-	// become helpful when debugging certain workers
+	// 'instance' is an auto recorded label w the IP of the pod ... this will
+	// become helpful when debugging certain workers. For now, we filter it out
+	// to see results across instances
+	// 'exported_job' is just the job ID, but is named as such because 'job' is
+	// a reserved keyword for prometheus labels. We filter it out so we see
+	// results across all jobs
 
 	// Avg Datum Time Queries
 	avgDatumQuery := func(t *testing.T, sumQuery string, countQuery string, expected int) {
