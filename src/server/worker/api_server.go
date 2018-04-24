@@ -293,14 +293,6 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	if err != nil {
 		return nil, fmt.Errorf("error creating datum cache: %v", err)
 	}
-	exportStats := false
-	resp, err := pachClient.Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
-	if err != nil {
-		// No logger yet, we need a server first
-		fmt.Printf("failed to get enterprise state with error: %v\n", err)
-	} else {
-		exportStats = resp.State == enterprise.State_ACTIVE
-	}
 	server := &APIServer{
 		pachClient:   pachClient,
 		kubeClient:   kubeClient,
@@ -311,17 +303,22 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 			PipelineName: pipelineInfo.Pipeline.Name,
 			WorkerID:     os.Getenv(client.PPSPodNameEnv),
 		},
-		workerName:  workerName,
-		namespace:   namespace,
-		jobs:        ppsdb.Jobs(etcdClient, etcdPrefix),
-		pipelines:   ppsdb.Pipelines(etcdClient, etcdPrefix),
-		chunks:      col.NewCollection(etcdClient, path.Join(etcdPrefix, chunksPrefix), []col.Index{}, &Chunks{}, nil, nil),
-		datumCache:  datumCache,
-		exportStats: exportStats,
+		workerName: workerName,
+		namespace:  namespace,
+		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
+		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
+		chunks:     col.NewCollection(etcdClient, path.Join(etcdPrefix, chunksPrefix), []col.Index{}, &Chunks{}, nil, nil),
+		datumCache: datumCache,
 	}
 	logger, err := server.getTaggedLogger(pachClient, "", nil, false)
 	if err != nil {
 		return nil, err
+	}
+	resp, err := pachClient.Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
+	if err != nil {
+		logger.Logf("failed to get enterprise state with error: %v\n", err)
+	} else {
+		server.exportStats = resp.State == enterprise.State_ACTIVE
 	}
 	numWorkers, err := ppsutil.GetExpectedNumWorkers(kubeClient, pipelineInfo.ParallelismSpec)
 	if err != nil {
