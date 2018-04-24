@@ -14,7 +14,7 @@ import (
 
 // Version returns version information about the docker server.
 //
-// See https://goo.gl/ND9R8L for more details.
+// See https://goo.gl/mU7yje for more details.
 func (c *Client) Version() (*Env, error) {
 	resp, err := c.do("GET", "/version", doOptions{})
 	if err != nil {
@@ -68,6 +68,7 @@ type DockerInfo struct {
 	Architecture       string
 	IndexServerAddress string
 	RegistryConfig     *ServiceConfig
+	SecurityOptions    []string
 	NCPU               int
 	MemTotal           int64
 	DockerRootDir      string
@@ -79,6 +80,10 @@ type DockerInfo struct {
 	ServerVersion      string
 	ClusterStore       string
 	ClusterAdvertise   string
+	Isolation          string
+	InitBinary         string
+	DefaultRuntime     string
+	LiveRestoreEnabled bool
 	Swarm              swarm.Info
 }
 
