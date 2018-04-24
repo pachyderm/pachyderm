@@ -13,6 +13,7 @@ import (
 
 const (
 	CommitHeader = "REPO\tID\tPARENT\tSTARTED\tDURATION\tSIZE\t\n"
+	FileHeader   = "NAME\tTYPE\tSIZE\t\n"
 )
 
 // PrintRepoHeader prints a repo header.
@@ -125,7 +126,7 @@ Provenance: {{range .Provenance}} {{.Repo.Name}}/{{.ID}} {{end}} {{end}}
 
 // PrintFileInfoHeader prints a file info header.
 func PrintFileInfoHeader(w io.Writer) {
-	fmt.Fprint(w, "NAME\tTYPE\tSIZE\t\n")
+	fmt.Fprint(w, FileHeader)
 }
 
 // PrintFileInfo pretty-prints file info.
