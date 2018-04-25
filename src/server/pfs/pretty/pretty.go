@@ -12,8 +12,10 @@ import (
 )
 
 const (
+	// CommitHeader is the header for commits.
 	CommitHeader = "REPO\tID\tPARENT\tSTARTED\tDURATION\tSIZE\t\n"
-	FileHeader   = "NAME\tTYPE\tSIZE\t\n"
+	// FileHeader is the header for files.
+	FileHeader = "NAME\tTYPE\tSIZE\t\n"
 )
 
 // PrintRepoHeader prints a repo header.

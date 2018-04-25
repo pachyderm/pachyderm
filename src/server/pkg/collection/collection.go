@@ -488,9 +488,8 @@ func (c *readonlyCollection) GetByIndexF(index Index, indexVal interface{}, val 
 				// indexed, we could end up in a situation where the
 				// object is deleted but the old indexes still exist.
 				return nil
-			} else {
-				return err
 			}
+			return err
 		}
 		return f(key)
 	})
