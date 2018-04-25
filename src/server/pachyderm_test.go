@@ -7584,47 +7584,75 @@ func TestPachdPrometheusStats(t *testing.T) {
 	require.NoError(t, err)
 	promAPI := prom_api_v1.NewAPI(promClient)
 
-	datumCountQuery := func(t *testing.T, query string) float64 {
+	countQuery := func(t *testing.T, query string) float64 {
 		result, err := promAPI.Query(context.Background(), query, time.Now())
 		require.NoError(t, err)
 		resultVec := result.(prom_model.Vector)
 		require.Equal(t, 1, len(resultVec))
 		return float64(resultVec[0].Value)
 	}
-	fmt.Printf("heres a func %v\n", datumCountQuery(t, "balh"))
+	avgQuery := func(t *testing.T, sumQuery string, countQuery string, expected int) {
+		query := "(" + sumQuery + ")/(" + countQuery + ")"
+		result, err := promAPI.Query(context.Background(), query, time.Now())
+		require.NoError(t, err)
+		resultVec := result.(prom_model.Vector)
+		fmt.Printf("query: %v\nresult:\n%v\n", query, result)
+		require.Equal(t, expected, len(resultVec))
+	}
 	// Check stats reported on pachd pod, and sidecar pods
-	/*	podFilters := []string{"app=\"pachd\"", "component=\"worker\""}
-		/*
-			// Both pachd and sidecar should report PFS stats
-			for _, pod := range podFilters {
-				// Check PFS API is reported
-				t.Run("DatumCountStarted", func(t *testing.T) {
-					query := fmt.Sprintf("sum(pachyderm_worker_datum_count{pipelineName=\"%v\", state=\"started\"})", pipeline)
-					result := datumCountQuery(t, query)
-					require.Equal(t, float64((numCommits-1)*numDatums+3), result) // 3 extra for failed datum restarts on the last job
-				})
-			}
-			// Only pachd pod should report non PFS API endpoints
+	podFilters := []string{"app=\"pachd\"", "component=\"worker\""}
+	without := "(instance)"
 
-			// Check PPS API is reported
-			t.Run("DatumCountStarted", func(t *testing.T) {
-				query := fmt.Sprintf("sum(pachyderm_worker_datum_count{pipelineName=\"%v\", state=\"started\"})", pipeline)
-				result := datumCountQuery(t, query)
-				require.Equal(t, float64((numCommits-1)*numDatums+3), result) // 3 extra for failed datum restarts on the last job
-			})
-			// Check Auth API is reported
-			t.Run("DatumCountStarted", func(t *testing.T) {
-				query := fmt.Sprintf("sum(pachyderm_worker_datum_count{pipelineName=\"%v\", state=\"started\"})", pipeline)
-				result := datumCountQuery(t, query)
-				require.Equal(t, float64((numCommits-1)*numDatums+3), result) // 3 extra for failed datum restarts on the last job
-			})
-			// Check Cache Stats are reported
-			t.Run("DatumCountStarted", func(t *testing.T) {
-				query := fmt.Sprintf("sum(pachyderm_worker_datum_count{pipelineName=\"%v\", state=\"started\"})", pipeline)
-				result := datumCountQuery(t, query)
-				require.Equal(t, float64((numCommits-1)*numDatums+3), result) // 3 extra for failed datum restarts on the last job
-			})
-	*/
+	// Both pachd and sidecar should report PFS stats
+	for _, pod := range podFilters {
+		// Check PFS API is reported
+		t.Run("GetFileAvgRuntime", func(t *testing.T) {
+			sum := fmt.Sprintf("sum(pachyderm_pachd_get_file_time_sum{%v}) without %v", pod, without)
+			count := fmt.Sprintf("sum(pachyderm_pachd_get_file_time_count{%v}) without %v", pod, without)
+			avgQuery(t, sum, count, 1)
+		})
+		t.Run("PutFileAvgRuntime", func(t *testing.T) {
+			sum := fmt.Sprintf("sum(pachyderm_pachd_put_file_time_sum{%v}) without %v", pod, without)
+			count := fmt.Sprintf("sum(pachyderm_pachd_put_file_time_count{%v}) without %v", pod, without)
+			avgQuery(t, sum, count, 1)
+		})
+		t.Run("GetFileSeconds", func(t *testing.T) {
+			query := fmt.Sprintf("sum(pachyderm_pachd_get_file_seconds_count{%v}) without %v", pod, without)
+			countQuery(t, query) // Just check query has a result
+		})
+		t.Run("PutFileSeconds", func(t *testing.T) {
+			query := fmt.Sprintf("sum(pachyderm_pachd_put_file_seconds_count{%v}) without %v", pod, without)
+			countQuery(t, query) // Just check query has a result
+		})
+	}
+
+	// Only pachd pod should report non PFS API endpoints
+	pod := podFilters[0]
+
+	// Check PPS API is reported
+	t.Run("ListJobSeconds", func(t *testing.T) {
+		query := fmt.Sprintf("sum(pachyderm_pachd_list_job_seconds_count{%v}) without %v", pod, without)
+		result := countQuery(t, query)
+		require.Equal(t, 1, result)
+	})
+	t.Run("ListJobAvgRuntime", func(t *testing.T) {
+		sum := fmt.Sprintf("sum(pachyderm_pachd_list_job_time_sum{%v}) without %v", pod, without)
+		count := fmt.Sprintf("sum(pachyderm_pachd_list_job_time_count{%v}) without %v", pod, without)
+		avgQuery(t, sum, count, 1)
+	})
+	// Check Auth API is reported
+	t.Run("GetAuthTokenSeconds", func(t *testing.T) {
+		query := fmt.Sprintf("sum(pachyderm_pachd_get_auth_token_seconds_count{%v}) without %v", pod, without)
+		result := countQuery(t, query)
+		require.Equal(t, 1, result)
+	})
+	t.Run("GetAuthTokenAvgRuntime", func(t *testing.T) {
+		sum := fmt.Sprintf("sum(pachyderm_pachd_get_auth_token_time_sum{%v}) without %v", pod, without)
+		count := fmt.Sprintf("sum(pachyderm_pachd_get_auth_token_time_count{%v}) without %v", pod, without)
+		avgQuery(t, sum, count, 1)
+	})
+	// Check Cache Stats are reported
+
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
