@@ -1,9 +1,7 @@
 package assets
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -132,6 +130,13 @@ type AssetOpts struct {
 
 	// NoExposeDockerSocket if true prevents pipelines from accessing the docker socket.
 	NoExposeDockerSocket bool
+}
+
+// Interface for writing out assets. This is assumed to wrap an output writer.
+type Encoder interface {
+	// Encodes the given struct to the wrapped output stream. This also will write out a separator
+	// value, suitable for differentiating multiple objects in the stream.
+	Encode(interface{}) (err error)
 }
 
 // replicas lets us create a pointer to a non-zero int32 in-line. This is
@@ -1012,9 +1017,9 @@ func MinioSecret(bucket string, id string, secret string, endpoint string, secur
 
 // WriteSecret writes a JSON-encoded k8s secret to the given writer.
 // The secret uses the given map as data.
-func WriteSecret(w io.Writer, data map[string][]byte, opts *AssetOpts) {
+func WriteSecret(encoder Encoder, data map[string][]byte, opts *AssetOpts) error {
 	if opts.DashOnly {
-		return
+		return nil
 	}
 	secret := &v1.Secret{
 		TypeMeta: metav1.TypeMeta{
@@ -1024,10 +1029,7 @@ func WriteSecret(w io.Writer, data map[string][]byte, opts *AssetOpts) {
 		ObjectMeta: objectMeta(client.StorageSecretName, labels(client.StorageSecretName), nil, opts.Namespace),
 		Data:       data,
 	}
-	encoder := json.NewEncoder(w)
-	encoder.SetIndent("", "\t")
-	encoder.Encode(secret)
-	fmt.Fprintf(w, "\n")
+	return encoder.Encode(secret)
 }
 
 // LocalSecret creates an empty secret.
@@ -1091,18 +1093,16 @@ func MicrosoftSecret(container string, id string, secret string) map[string][]by
 }
 
 // WriteDashboardAssets writes the k8s config for deploying the Pachyderm
-// dashboard to 'w'
-func WriteDashboardAssets(w io.Writer, opts *AssetOpts) {
-	encoder := json.NewEncoder(w)
-	encoder.SetIndent("", "\t")
-	encoder.Encode(DashService(opts))
-	fmt.Fprintf(w, "\n")
-	encoder.Encode(DashDeployment(opts))
-	fmt.Fprintf(w, "\n")
+// dashboard to 'encoder'
+func WriteDashboardAssets(encoder Encoder, opts *AssetOpts) error {
+	if err := encoder.Encode(DashService(opts)); err != nil {
+		return err
+	}
+	return encoder.Encode(DashDeployment(opts))
 }
 
-// WriteAssets writes the assets to w.
-func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
+// WriteAssets writes the assets to encoder.
+func WriteAssets(encoder Encoder, opts *AssetOpts, objectStoreBackend backend,
 	persistentDiskBackend backend, volumeSize int,
 	hostPath string) error {
 	// If either backend is "local", both must be "local"
@@ -1114,19 +1114,20 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 	}
 	fillDefaultResourceRequests(opts, persistentDiskBackend)
 	if opts.DashOnly {
-		WriteDashboardAssets(w, opts)
+		WriteDashboardAssets(encoder, opts)
 		return nil
 	}
 
-	encoder := json.NewEncoder(w)
-	encoder.SetIndent("", "\t")
-	encoder.Encode(ServiceAccount(opts))
-	fmt.Fprintf(w, "\n")
+	if err := encoder.Encode(ServiceAccount(opts)); err != nil {
+		return err
+	}
 	if !opts.NoRBAC {
-		encoder.Encode(ClusterRole(opts))
-		fmt.Fprintf(w, "\n")
-		encoder.Encode(ClusterRoleBinding(opts))
-		fmt.Fprintf(w, "\n")
+		if err := encoder.Encode(ClusterRole(opts)); err != nil {
+			return err
+		}
+		if err := encoder.Encode(ClusterRoleBinding(opts)); err != nil {
+			return err
+		}
 	}
 
 	if opts.EtcdNodes > 0 && opts.EtcdVolume != "" {
@@ -1138,59 +1139,69 @@ func WriteAssets(w io.Writer, opts *AssetOpts, objectStoreBackend backend,
 	// In the static route, we create a single volume, a single volume
 	// claim, and run etcd as a replication controller with a single node.
 	if objectStoreBackend == localBackend {
-		encoder.Encode(EtcdDeployment(opts, hostPath))
-		fmt.Fprintf(w, "\n")
+		if err := encoder.Encode(EtcdDeployment(opts, hostPath)); err != nil {
+			return err
+		}
 	} else if opts.EtcdNodes > 0 {
 		sc, err := EtcdStorageClass(opts, persistentDiskBackend)
 		if err != nil {
 			return err
 		}
 		if sc != nil {
-			encoder.Encode(sc)
-			fmt.Fprintf(w, "\n")
+			if err = encoder.Encode(sc); err != nil {
+				return err
+			}
 		}
-		encoder.Encode(EtcdHeadlessService(opts))
-		fmt.Fprintf(w, "\n")
-		encoder.Encode(EtcdStatefulSet(opts, persistentDiskBackend, volumeSize))
-		fmt.Fprintf(w, "\n")
+		if err = encoder.Encode(EtcdHeadlessService(opts)); err != nil {
+			return err
+		}
+		if err = encoder.Encode(EtcdStatefulSet(opts, persistentDiskBackend, volumeSize)); err != nil {
+			return err
+		}
 	} else if opts.EtcdVolume != "" || persistentDiskBackend == localBackend {
 		volume, err := EtcdVolume(persistentDiskBackend, opts, hostPath, opts.EtcdVolume, volumeSize)
 		if err != nil {
 			return err
 		}
-		encoder.Encode(volume)
-		fmt.Fprintf(w, "\n")
-		encoder.Encode(EtcdVolumeClaim(volumeSize, opts))
-		fmt.Fprintf(w, "\n")
-		encoder.Encode(EtcdDeployment(opts, ""))
-		fmt.Fprintf(w, "\n")
+		if err = encoder.Encode(volume); err != nil {
+			return err
+		}
+		if err = encoder.Encode(EtcdVolumeClaim(volumeSize, opts)); err != nil {
+			return err
+		}
+		if err = encoder.Encode(EtcdDeployment(opts, "")); err != nil {
+			return err
+		}
 	} else {
 		return fmt.Errorf("unless deploying locally, either --dynamic-etcd-nodes or --static-etcd-volume needs to be provided")
 	}
-	encoder.Encode(EtcdNodePortService(objectStoreBackend == localBackend, opts))
-	fmt.Fprintf(w, "\n")
+	if err := encoder.Encode(EtcdNodePortService(objectStoreBackend == localBackend, opts)); err != nil {
+		return err
+	}
 
-	encoder.Encode(PachdService(opts))
-	fmt.Fprintf(w, "\n")
-	encoder.Encode(PachdDeployment(opts, objectStoreBackend, hostPath))
-	fmt.Fprintf(w, "\n")
+	if err := encoder.Encode(PachdService(opts)); err != nil {
+		return err
+	}
+	if err := encoder.Encode(PachdDeployment(opts, objectStoreBackend, hostPath)); err != nil {
+		return err
+	}
 	if !opts.NoDash {
-		WriteDashboardAssets(w, opts)
+		return WriteDashboardAssets(encoder, opts)
 	}
 	return nil
 }
 
 // WriteLocalAssets writes assets to a local backend.
-func WriteLocalAssets(w io.Writer, opts *AssetOpts, hostPath string) error {
-	if err := WriteAssets(w, opts, localBackend, localBackend, 1 /* = volume size (gb) */, hostPath); err != nil {
+func WriteLocalAssets(encoder Encoder, opts *AssetOpts, hostPath string) error {
+	if err := WriteAssets(encoder, opts, localBackend, localBackend, 1 /* = volume size (gb) */, hostPath); err != nil {
 		return err
 	}
-	WriteSecret(w, LocalSecret(), opts)
+	WriteSecret(encoder, LocalSecret(), opts)
 	return nil
 }
 
 // WriteCustomAssets writes assets to a custom combination of object-store and persistent disk.
-func WriteCustomAssets(w io.Writer, opts *AssetOpts, args []string, objectStoreBackend string,
+func WriteCustomAssets(encoder Encoder, opts *AssetOpts, args []string, objectStoreBackend string,
 	persistentDiskBackend string, secure, isS3V2 bool) error {
 	switch objectStoreBackend {
 	case "s3":
@@ -1203,22 +1214,21 @@ func WriteCustomAssets(w io.Writer, opts *AssetOpts, args []string, objectStoreB
 		}
 		switch persistentDiskBackend {
 		case "aws":
-			if err := WriteAssets(w, opts, minioBackend, amazonBackend, volumeSize, ""); err != nil {
+			if err := WriteAssets(encoder, opts, minioBackend, amazonBackend, volumeSize, ""); err != nil {
 				return err
 			}
 		case "google":
-			if err := WriteAssets(w, opts, minioBackend, googleBackend, volumeSize, ""); err != nil {
+			if err := WriteAssets(encoder, opts, minioBackend, googleBackend, volumeSize, ""); err != nil {
 				return err
 			}
 		case "azure":
-			if err := WriteAssets(w, opts, minioBackend, microsoftBackend, volumeSize, ""); err != nil {
+			if err := WriteAssets(encoder, opts, minioBackend, microsoftBackend, volumeSize, ""); err != nil {
 				return err
 			}
 		default:
 			return fmt.Errorf("Did not recognize the choice of persistent-disk")
 		}
-		WriteSecret(w, MinioSecret(args[2], args[3], args[4], args[5], secure, isS3V2), opts)
-		return nil
+		return WriteSecret(encoder, MinioSecret(args[2], args[3], args[4], args[5], secure, isS3V2), opts)
 	default:
 		return fmt.Errorf("Did not recognize the choice of object-store")
 	}
@@ -1240,8 +1250,8 @@ type AmazonCreds struct {
 }
 
 // WriteAmazonAssets writes assets to an amazon backend.
-func WriteAmazonAssets(w io.Writer, opts *AssetOpts, region string, bucket string, volumeSize int, creds *AmazonCreds, cloudfrontDistro string) error {
-	if err := WriteAssets(w, opts, amazonBackend, amazonBackend, volumeSize, ""); err != nil {
+func WriteAmazonAssets(encoder Encoder, opts *AssetOpts, region string, bucket string, volumeSize int, creds *AmazonCreds, cloudfrontDistro string) error {
+	if err := WriteAssets(encoder, opts, amazonBackend, amazonBackend, volumeSize, ""); err != nil {
 		return err
 	}
 	var secret map[string][]byte
@@ -1250,26 +1260,23 @@ func WriteAmazonAssets(w io.Writer, opts *AssetOpts, region string, bucket strin
 	} else if creds.VaultRole != "" && creds.VaultToken != "" {
 		secret = AmazonVaultSecret(region, bucket, creds.VaultAddress, creds.VaultRole, creds.VaultToken, cloudfrontDistro)
 	}
-	WriteSecret(w, secret, opts)
-	return nil
+	return WriteSecret(encoder, secret, opts)
 }
 
 // WriteGoogleAssets writes assets to a google backend.
-func WriteGoogleAssets(w io.Writer, opts *AssetOpts, bucket string, cred string, volumeSize int) error {
-	if err := WriteAssets(w, opts, googleBackend, googleBackend, volumeSize, ""); err != nil {
+func WriteGoogleAssets(encoder Encoder, opts *AssetOpts, bucket string, cred string, volumeSize int) error {
+	if err := WriteAssets(encoder, opts, googleBackend, googleBackend, volumeSize, ""); err != nil {
 		return err
 	}
-	WriteSecret(w, GoogleSecret(bucket, cred), opts)
-	return nil
+	return WriteSecret(encoder, GoogleSecret(bucket, cred), opts)
 }
 
 // WriteMicrosoftAssets writes assets to a microsoft backend
-func WriteMicrosoftAssets(w io.Writer, opts *AssetOpts, container string, id string, secret string, volumeSize int) error {
-	if err := WriteAssets(w, opts, microsoftBackend, microsoftBackend, volumeSize, ""); err != nil {
+func WriteMicrosoftAssets(encoder Encoder, opts *AssetOpts, container string, id string, secret string, volumeSize int) error {
+	if err := WriteAssets(encoder, opts, microsoftBackend, microsoftBackend, volumeSize, ""); err != nil {
 		return err
 	}
-	WriteSecret(w, MicrosoftSecret(container, id, secret), opts)
-	return nil
+	return WriteSecret(encoder, MicrosoftSecret(container, id, secret), opts)
 }
 
 // Images returns a list of all the images that are used by a pachyderm deployment.
