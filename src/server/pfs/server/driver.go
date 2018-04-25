@@ -2225,7 +2225,7 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern strin
 		node, err := tree.Get(pattern)
 		// Path not found is a no-op
 		if hashtree.Code(err) == hashtree.PathNotFound {
-			return []*pfs.FileInfo{}, nil
+			return nil, nil
 		}
 		if err != nil {
 			return nil, err
@@ -2578,8 +2578,9 @@ func has(bs *[]*pfs.Branch, branch *pfs.Branch) bool {
 	return (*branchSet)(bs).has(branch)
 }
 
+var globRegex = regexp.MustCompile(`[*?\[\]\{\}!]`)
+
 // isGlob checks if the pattern contains a glob character
 func isGlob(pattern string) bool {
-	matched, _ := regexp.Match(`[*?\[\]\{\}!]`, []byte(pattern))
-	return matched
+	return globRegex.Match([]byte(pattern))
 }
