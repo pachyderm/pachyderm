@@ -22,6 +22,8 @@ import (
 const (
 	// JobHeader is the header for job infos
 	JobHeader = "ID\tOUTPUT COMMIT\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
+	// DatumHeader is the header for datum infos
+	DatumHeader = "ID\tSTATUS\tTIME\t\n"
 )
 
 // PrintJobHeader prints a job header.
@@ -215,7 +217,7 @@ Job Counts:
 
 // PrintDatumInfoHeader prints a file info header.
 func PrintDatumInfoHeader(w io.Writer) {
-	fmt.Fprint(w, "ID\tSTATUS\tTIME\t\n")
+	fmt.Fprint(w, DatumHeader)
 }
 
 // PrintDatumInfo pretty-prints file info.
