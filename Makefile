@@ -76,6 +76,11 @@ install:
 	# GOPATH/bin must be on your PATH to access these binaries:
 	GO15VENDOREXPERIMENT=1 go install -ldflags "$(LD_FLAGS)" ./src/server/cmd/pachctl
 
+install-clean:
+	@# Need to blow away pachctl binary if its already there
+	@rm -f $(GOPATH)/bin/pachctl
+	@make install
+
 install-doc:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl-doc
 
@@ -124,10 +129,7 @@ release-pachctl:
 
 release-helper: check-docker-version release-version release-pachd release-worker
 
-release-version:
-	@# Need to blow away pachctl binary if its already there
-	@rm $(GOPATH)/bin/pachctl || true
-	@make install
+release-version: install-clean
 	@./etc/build/release_version
 
 release-pachd:
@@ -607,6 +609,7 @@ goxc-build:
 	build-clean-vendored-client \
 	build \
 	install \
+	install-clean \
 	install-doc \
 	homebrew \
 	release \
