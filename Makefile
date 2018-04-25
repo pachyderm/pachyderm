@@ -389,7 +389,7 @@ pretest:
 
 local-test: docker-build launch-dev test-pfs clean-launch-dev
 
-test: enterprise-code-checkin-test docker-build docker-build-test-entrypoint clean-launch-dev launch-dev test-pfs test-pps test-vault test-auth test-enterprise test-kube-17
+test: enterprise-code-checkin-test docker-build docker-build-test-entrypoint clean-launch-dev launch-dev test-pfs test-pps test-vault test-auth test-enterprise test-worker
 
 enterprise-code-checkin-test:
 	# Check if our test activation code is anywhere in the repo
@@ -441,14 +441,11 @@ test-auth:
 test-enterprise:
 	go test -v ./src/server/enterprise/server -timeout $(TIMEOUT)
 
-test-kube-17:
-	@# Delete existing minikube, but test should still pass if minikube hasn't been started
-	@make clean-launch-kube || true
-	./etc/kube/start-minikube.sh -v 1.7.5
-	@LAUNCH_DEV_ARGS="--no-rbac" make launch-dev
-	@# If we can deploy a pipeline, 1.7 probably works
-	go test -v ./src/server -run TestPipelineWithParallelism
+test-worker: launch-stats test-worker-helper
 
+test-worker-helper:
+	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
+			  go test -v ./src/server/worker/ -run=TestPrometheusStats -timeout $(TIMEOUT) -count 1
 
 clean: clean-launch clean-launch-kube
 
@@ -465,6 +462,13 @@ doc-custom: install-doc release-version
 
 doc:
 	@make VERSION_ADDITIONAL= doc-custom
+
+
+clean-launch-stats:
+	kubectl delete --filename https://raw.githubusercontent.com/giantswarm/kubernetes-prometheus/f7d1e34c9e8065554921f80fc6166b1d23b524f7/manifests-all.yaml
+
+launch-stats:
+	kubectl apply --filename https://raw.githubusercontent.com/giantswarm/kubernetes-prometheus/f7d1e34c9e8065554921f80fc6166b1d23b524f7/manifests-all.yaml
 
 clean-launch-monitoring:
 	kubectl delete --ignore-not-found -f ./etc/plugin/monitoring

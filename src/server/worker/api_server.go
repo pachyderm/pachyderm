@@ -36,6 +36,7 @@ import (
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
@@ -116,6 +117,9 @@ type APIServer struct {
 	// datumCache is used by the master to keep track of the datums that
 	// have already been processed.
 	datumCache *lru.Cache
+
+	// We only export application statistics if enterprise is enabled
+	exportStats bool
 
 	uid uint32
 	gid uint32
@@ -276,6 +280,7 @@ func (logger *taggedLogger) userLogger() *taggedLogger {
 
 // NewAPIServer creates an APIServer for a given pipeline
 func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string, pipelineInfo *pps.PipelineInfo, workerName string, namespace string) (*APIServer, error) {
+	initPrometheus()
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, err
@@ -308,6 +313,12 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	logger, err := server.getTaggedLogger(pachClient, "", nil, false)
 	if err != nil {
 		return nil, err
+	}
+	resp, err := pachClient.Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
+	if err != nil {
+		logger.Logf("failed to get enterprise state with error: %v\n", err)
+	} else {
+		server.exportStats = resp.State == enterprise.State_ACTIVE
 	}
 	numWorkers, err := ppsutil.GetExpectedNumWorkers(kubeClient, pipelineInfo.ParallelismSpec)
 	if err != nil {
@@ -407,10 +418,41 @@ func (a *APIServer) downloadGitData(pachClient *client.APIClient, dir string, in
 	return nil
 }
 
+func (a *APIServer) reportDownloadSizeStats(downSize float64, logger *taggedLogger) {
+
+	if a.exportStats {
+		if hist, err := datumDownloadSize.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID); err != nil {
+			logger.Logf("failed to get histogram w labels: pipeline (%v) job (%v) with error %v", a.pipelineInfo.ID, a.jobID, err)
+		} else {
+			hist.Observe(downSize)
+		}
+		if counter, err := datumDownloadBytesCount.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID); err != nil {
+			logger.Logf("failed to get counter w labels: pipeline (%v) job (%v) with error %v", a.pipelineInfo.ID, a.jobID, err)
+		} else {
+			counter.Add(downSize)
+		}
+	}
+}
+
+func (a *APIServer) reportDownloadTimeStats(start time.Time, stats *pps.ProcessStats, logger *taggedLogger) {
+	duration := time.Since(start)
+	stats.DownloadTime = types.DurationProto(duration)
+	if a.exportStats {
+		if hist, err := datumDownloadTime.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID); err != nil {
+			logger.Logf("failed to get histogram w labels: pipeline (%v) job (%v) with error %v", a.pipelineInfo.ID, a.jobID, err)
+		} else {
+			hist.Observe(duration.Seconds())
+		}
+		if counter, err := datumDownloadSecondsCount.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID); err != nil {
+			logger.Logf("failed to get counter w labels: pipeline (%v) job (%v) with error %v", a.pipelineInfo.ID, a.jobID, err)
+		} else {
+			counter.Add(duration.Seconds())
+		}
+	}
+}
+
 func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag, stats *pps.ProcessStats, statsTree hashtree.OpenHashTree, statsPath string) (_ string, retErr error) {
-	defer func(start time.Time) {
-		stats.DownloadTime = types.DurationProto(time.Since(start))
-	}(time.Now())
+	defer a.reportDownloadTimeStats(time.Now(), stats, logger)
 	logger.Logf("starting to download data")
 	defer func(start time.Time) {
 		if retErr != nil {
@@ -470,12 +512,46 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 	return dir, nil
 }
 
+func (a *APIServer) reportUserCodeStats(logger *taggedLogger) {
+	if a.exportStats {
+		if counter, err := datumCount.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID, "started"); err != nil {
+			logger.Logf("failed to get histogram w labels: pipeline (%v) job (%v) with error %v", a.pipelineInfo.ID, a.jobID, err)
+		} else {
+			counter.Add(1)
+		}
+	}
+}
+
+func (a *APIServer) reportDeferredUserCodeStats(err error, start time.Time, stats *pps.ProcessStats, logger *taggedLogger) {
+	duration := time.Since(start)
+	stats.ProcessTime = types.DurationProto(duration)
+	if a.exportStats {
+		state := "errored"
+		if err == nil {
+			state = "finished"
+		}
+		if counter, err := datumCount.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID, state); err != nil {
+			logger.Logf("failed to get counter w labels: pipeline (%v) job (%v) state (%v) with error %v", a.pipelineInfo.ID, a.jobID, state, err)
+		} else {
+			counter.Add(1)
+		}
+		if hist, err := datumProcTime.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID, state); err != nil {
+			logger.Logf("failed to get counter w labels: pipeline (%v) job (%v) state (%v) with error %v", a.pipelineInfo.ID, a.jobID, state, err)
+		} else {
+			hist.Observe(duration.Seconds())
+		}
+		if counter, err := datumProcSecondsCount.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID); err != nil {
+			logger.Logf("failed to get counter w labels: pipeline (%v) job (%v) with error %v", a.pipelineInfo.ID, a.jobID, err)
+		} else {
+			counter.Add(duration.Seconds())
+		}
+	}
+}
+
 // Run user code and return the combined output of stdout and stderr.
 func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string, stats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
-
-	defer func(start time.Time) {
-		stats.ProcessTime = types.DurationProto(time.Since(start))
-	}(time.Now())
+	a.reportUserCodeStats(logger)
+	defer func(start time.Time) { a.reportDeferredUserCodeStats(retErr, start, stats, logger) }(time.Now())
 	logger.Logf("beginning to run user code")
 	defer func(start time.Time) {
 		if retErr != nil {
@@ -551,10 +627,35 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	return nil
 }
 
+func (a *APIServer) reportUploadStats(start time.Time, stats *pps.ProcessStats, logger *taggedLogger) {
+	duration := time.Since(start)
+	stats.UploadTime = types.DurationProto(duration)
+	if a.exportStats {
+		if hist, err := datumUploadTime.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID); err != nil {
+			logger.Logf("failed to get histogram w labels: pipeline (%v) job (%v) with error %v", a.pipelineInfo.ID, a.jobID, err)
+		} else {
+			hist.Observe(duration.Seconds())
+		}
+		if counter, err := datumUploadSecondsCount.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID); err != nil {
+			logger.Logf("failed to get counter w labels: pipeline (%v) job (%v) with error %v", a.pipelineInfo.ID, a.jobID, err)
+		} else {
+			counter.Add(duration.Seconds())
+		}
+		if hist, err := datumUploadSize.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID); err != nil {
+			logger.Logf("failed to get histogram w labels: pipeline (%v) job (%v) with error %v", a.pipelineInfo.ID, a.jobID, err)
+		} else {
+			hist.Observe(float64(stats.UploadBytes))
+		}
+		if counter, err := datumUploadBytesCount.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID); err != nil {
+			logger.Logf("failed to get counter w labels: pipeline (%v) job (%v) with error %v", a.pipelineInfo.ID, a.jobID, err)
+		} else {
+			counter.Add(float64(stats.UploadBytes))
+		}
+	}
+}
+
 func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag string, logger *taggedLogger, inputs []*Input, stats *pps.ProcessStats, statsTree hashtree.OpenHashTree, statsRoot string) (retErr error) {
-	defer func(start time.Time) {
-		stats.UploadTime = types.DurationProto(time.Since(start))
-	}(time.Now())
+	defer a.reportUploadStats(time.Now(), stats, logger)
 	logger.Logf("starting to upload output")
 	defer func(start time.Time) {
 		if retErr != nil {
@@ -1320,6 +1421,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 					return err
 				}
 				atomic.AddUint64(&subStats.DownloadBytes, uint64(downSize))
+				a.reportDownloadSizeStats(float64(downSize), logger)
 				return a.uploadOutput(pachClient, dir, tag, logger, data, subStats, statsTree, path.Join(statsPath, "pfs", "out"))
 			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
 				if isDone(ctx) {
