@@ -6,6 +6,7 @@ import (
 )
 
 const (
+	// TermHeight is the default height of a terminal.
 	TermHeight = 24
 )
 

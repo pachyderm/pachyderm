@@ -245,7 +245,7 @@ func (c APIClient) ListCommit(repoName string, to string, from string, number ui
 	return result, nil
 }
 
-// ListCommit lists commits, calling f with each commit.
+// ListCommitF lists commits, calling f with each commit.
 // If only `repo` is given, all commits in the repo are returned.
 // If `to` is given, only the ancestors of `to`, including `to` itself,
 // are considered.
@@ -911,7 +911,7 @@ func (c APIClient) ListFile(repoName string, commitID string, path string) ([]*p
 	return result, nil
 }
 
-// ListFile returns info about all files in a Commit under path, calling f with each FileInfo.
+// ListFileF returns info about all files in a Commit under path, calling f with each FileInfo.
 func (c APIClient) ListFileF(repoName string, commitID string, path string, f func(fi *pfs.FileInfo) error) error {
 	fs, err := c.PfsAPIClient.ListFileStream(
 		c.Ctx(),
