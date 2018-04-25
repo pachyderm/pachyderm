@@ -20,6 +20,8 @@ type Logger interface {
 
 type logger struct {
 	*logrus.Entry
+	histogram map[string]*prometheus.HistogramVec
+	counter   map[string]prometheus.Counter
 }
 
 // NewLogger creates a new logger
@@ -28,6 +30,8 @@ func NewLogger(service string) Logger {
 	l.Formatter = new(prettyFormatter)
 	return &logger{
 		l.WithFields(logrus.Fields{"service": service}),
+		make(map[string]*prometheus.HistogramVec),
+		make(map[string]prometheus.Counter),
 	}
 }
 
@@ -63,22 +67,28 @@ func (l *logger) ReportMetric(state string, duration time.Duration) {
 	}
 	rootStatName := strings.Join(tokens, "_")
 
-	bucketFactor := 2.0
-	bucketCount := 20 // Which makes the max bucket 2^20 seconds or ~12 days in size
-	runTime := prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Namespace: "pachyderm",
-			Subsystem: "pachd",
-			Name:      fmt.Sprintf("%v_time", rootStatName),
-			Help:      fmt.Sprintf("Run time of %v", method),
-			Buckets:   prometheus.ExponentialBuckets(1.0, bucketFactor, bucketCount),
-		},
-		[]string{
-			"state", // Since both finished and errored datums can have proc times
-		},
-	)
-	if err := prometheus.Register(runTime); err != nil {
-		l.LogAtLevel(entry, logrus.WarnLevel, "error registering prometheus metric: %v", err)
+	runTimeName := fmt.Sprintf("%v_time", rootStatName)
+	runTime, ok := l.histogram[runTimeName]
+	if !ok {
+		bucketFactor := 2.0
+		bucketCount := 20 // Which makes the max bucket 2^20 seconds or ~12 days in size
+		runTime = prometheus.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Namespace: "pachyderm",
+				Subsystem: "pachd",
+				Name:      runTimeName,
+				Help:      fmt.Sprintf("Run time of %v", method),
+				Buckets:   prometheus.ExponentialBuckets(1.0, bucketFactor, bucketCount),
+			},
+			[]string{
+				"state", // Since both finished and errored datums can have proc times
+			},
+		)
+		if err := prometheus.Register(runTime); err != nil {
+			l.LogAtLevel(entry, logrus.WarnLevel, "error registering prometheus metric: %v", err)
+		} else {
+			l.histogram[runTimeName] = runTime
+		}
 	}
 	if hist, err := runTime.GetMetricWithLabelValues(state); err != nil {
 		l.LogAtLevel(entry, logrus.WarnLevel, "failed to get histogram w labels: state (%v) with error %v", state, err)
@@ -86,16 +96,22 @@ func (l *logger) ReportMetric(state string, duration time.Duration) {
 		hist.Observe(duration.Seconds())
 	}
 
-	secondsCount := prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Namespace: "pachyderm",
-			Subsystem: "pachd",
-			Name:      fmt.Sprintf("%v_seconds_count", rootStatName),
-			Help:      fmt.Sprintf("cumulative number of seconds spent in %v", method),
-		},
-	)
-	if err := prometheus.Register(secondsCount); err != nil {
-		l.LogAtLevel(entry, logrus.WarnLevel, "error registering prometheus metric: %v", err)
+	secondsCountName := fmt.Sprintf("%v_seconds_count", rootStatName)
+	secondsCount, ok := l.counter[secondsCountName]
+	if !ok {
+		secondsCount = prometheus.NewCounter(
+			prometheus.CounterOpts{
+				Namespace: "pachyderm",
+				Subsystem: "pachd",
+				Name:      secondsCountName,
+				Help:      fmt.Sprintf("cumulative number of seconds spent in %v", method),
+			},
+		)
+		if err := prometheus.Register(secondsCount); err != nil {
+			l.LogAtLevel(entry, logrus.WarnLevel, "error registering prometheus metric: %v", err)
+		} else {
+			l.counter[secondsCountName] = secondsCount
+		}
 	}
 	secondsCount.Add(duration.Seconds())
 
