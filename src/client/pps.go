@@ -352,6 +352,35 @@ func (c APIClient) ListDatum(jobID string, pageSize int64, page int64) (*pps.Lis
 	return resp, nil
 }
 
+// ListDatumF returns info about all datums in a Job, calling f with each datum info.
+func (c APIClient) ListDatumF(jobID string, pageSize int64, page int64, f func(di *pps.DatumInfo) error) error {
+	client, err := c.PpsAPIClient.ListDatumStream(
+		c.Ctx(),
+		&pps.ListDatumRequest{
+			Job:      &pps.Job{jobID},
+			PageSize: pageSize,
+			Page:     page,
+		},
+	)
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	for {
+		resp, err := client.Recv()
+		if err == io.EOF {
+			return nil
+		} else if err != nil {
+			return grpcutil.ScrubGRPC(err)
+		}
+		if err := f(resp.DatumInfo); err != nil {
+			if err == errutil.ErrBreak {
+				return nil
+			}
+			return err
+		}
+	}
+}
+
 // InspectDatum returns info about a single datum
 func (c APIClient) InspectDatum(jobID string, datumID string) (*pps.DatumInfo, error) {
 	datumInfo, err := c.PpsAPIClient.InspectDatum(

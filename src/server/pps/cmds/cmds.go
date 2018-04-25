@@ -279,22 +279,19 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 			if page < 0 {
 				return fmt.Errorf("page must be zero or positive")
 			}
-			resp, err := client.ListDatum(args[0], pageSize, page)
-			if err != nil {
-				return err
-			}
 			if raw {
-				for _, datumInfo := range resp.DatumInfos {
-					if err := marshaller.Marshal(os.Stdout, datumInfo); err != nil {
-						return err
-					}
+				if err := client.ListDatumF(args[0], pageSize, page, func(di *ppsclient.DatumInfo) error {
+					return marshaller.Marshal(os.Stdout, di)
+				}); err != nil {
+					return err
 				}
-				return nil
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintDatumInfoHeader(writer)
-			for _, datumInfo := range resp.DatumInfos {
-				pretty.PrintDatumInfo(writer, datumInfo)
+			writer := streamtabwriter.NewStreamingWriter(tabwriter.NewWriter(os.Stdout, 0, 1, 1, ' ', 0), termHeight, pretty.DatumHeader)
+			if err := client.ListDatumF(args[0], pageSize, page, func(di *ppsclient.DatumInfo) error {
+				pretty.PrintDatumInfo(writer, di)
+				return nil
+			}); err != nil {
+				return err
 			}
 			return writer.Flush()
 		}),
