@@ -31,7 +31,7 @@ type STM interface {
 	// If Get fails, it aborts the transaction with an error, never returning.
 	Get(key string) (string, error)
 	// Put adds a value for a key to the write set.
-	Put(key, val string, ttl int64) error
+	Put(key, val string, ttl int64, ptr uintptr) error
 	// Rev returns the revision of a key in the read set.
 	Rev(key string) int64
 	// Del deletes a key.
@@ -44,6 +44,10 @@ type STM interface {
 	// DelAll is called.
 	DelAll(key string)
 	Context() context.Context
+	// SetSafePutCheck sets the bit pattern to check if a put is safe.
+	SetSafePutCheck(key string, ptr uintptr)
+	// IsSafePut checks against the bit pattern for a key to see if it is safe to put.
+	IsSafePut(key string, ptr uintptr) bool
 
 	// commit attempts to apply the txn's changes to the server.
 	commit() *v3.TxnResponse
@@ -140,9 +144,10 @@ type stm struct {
 }
 
 type stmPut struct {
-	val string
-	ttl int64
-	op  v3.Op
+	val        string
+	ttl        int64
+	op         v3.Op
+	safePutPtr uintptr
 }
 
 func (s *stm) Context() context.Context {
@@ -156,7 +161,21 @@ func (s *stm) Get(key string) (string, error) {
 	return respToValue(key, s.fetch(key))
 }
 
-func (s *stm) Put(key, val string, ttl int64) error {
+func (s *stm) SetSafePutCheck(key string, ptr uintptr) {
+	if wv, ok := s.wset[key]; ok {
+		wv.safePutPtr = ptr
+		s.wset[key] = wv
+	}
+}
+
+func (s *stm) IsSafePut(key string, ptr uintptr) bool {
+	if _, ok := s.wset[key]; ok && s.wset[key].safePutPtr != 0 && ptr != s.wset[key].safePutPtr {
+		return false
+	}
+	return true
+}
+
+func (s *stm) Put(key, val string, ttl int64, ptr uintptr) error {
 	var options []v3.OpOption
 	if ttl > 0 {
 		lease, ok := s.newLeases[ttl]
@@ -171,13 +190,13 @@ func (s *stm) Put(key, val string, ttl int64) error {
 		}
 		options = append(options, v3.WithLease(lease))
 	}
-	s.wset[key] = stmPut{val, ttl, v3.OpPut(key, val, options...)}
+	s.wset[key] = stmPut{val, ttl, v3.OpPut(key, val, options...), ptr}
 	return nil
 }
 
-func (s *stm) Del(key string) { s.wset[key] = stmPut{"", 0, v3.OpDelete(key)} }
+func (s *stm) Del(key string) { s.wset[key] = stmPut{"", 0, v3.OpDelete(key), 0} }
 
-func (s *stm) DelAll(key string) { s.wset[key] = stmPut{"", 0, v3.OpDelete(key, v3.WithPrefix())} }
+func (s *stm) DelAll(key string) { s.wset[key] = stmPut{"", 0, v3.OpDelete(key, v3.WithPrefix()), 0} }
 
 func (s *stm) Rev(key string) int64 {
 	if resp := s.fetch(key); resp != nil && len(resp.Kvs) != 0 {
