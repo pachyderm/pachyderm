@@ -34,7 +34,7 @@ ifdef TRAVIS_BUILD_NUMBER
 else
 ifndef TIMEOUT
 	# You should be able to specify your own timeout, but by default we'll use the same bound as travis
-	TIMEOUT = 1000s
+	TIMEOUT = 3600s
 endif
 endif
 
@@ -406,10 +406,11 @@ test-pfs:
 	go test ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
 	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
 
-test-pps:
+test-pps: launch-stats
 	# Use the count flag to disable test caching for this test suite.
-	go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT)
-	go test ./src/server/pps/cmds -timeout $(TIMEOUT)
+	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
+		go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT)  && \
+		go test ./src/server/pps/cmds -timeout $(TIMEOUT)
 
 test-client:
 	rm -rf src/client/vendor
