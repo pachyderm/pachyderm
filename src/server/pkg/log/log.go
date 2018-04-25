@@ -53,6 +53,7 @@ func (l *logger) ReportMetric(state string, duration time.Duration) {
 	runtime.Callers(depth, pc)
 	split := strings.Split(runtime.FuncForPC(pc[0]).Name(), ".")
 	method := split[len(split)-1]
+	entry := l.WithFields(logrus.Fields{"method": method})
 	fmt.Printf("GOING TO REPORT STATS FOR METHOD: %v\n", method)
 	fmt.Printf("state: %v, duration: %v\n", state, duration)
 
@@ -77,10 +78,10 @@ func (l *logger) ReportMetric(state string, duration time.Duration) {
 		},
 	)
 	if err := prometheus.Register(runTime); err != nil {
-		fmt.Printf("error registering prometheus metric: %v\n", err)
+		l.LogAtLevel(entry, logrus.WarnLevel, "error registering prometheus metric: %v", err)
 	}
 	if hist, err := runTime.GetMetricWithLabelValues(state); err != nil {
-		logger.Logf("failed to get histogram w labels: state (%v) with error %v", state, err)
+		l.LogAtLevel(entry, logrus.WarnLevel, "failed to get histogram w labels: state (%v) with error %v", state, err)
 	} else {
 		hist.Observe(duration.Seconds())
 	}
@@ -94,10 +95,27 @@ func (l *logger) ReportMetric(state string, duration time.Duration) {
 		},
 	)
 	if err := prometheus.Register(secondsCount); err != nil {
-		fmt.Printf("error registering prometheus metric: %v\n", err)
+		l.LogAtLevel(entry, logrus.WarnLevel, "error registering prometheus metric: %v", err)
 	}
 	secondsCount.Add(duration.Seconds())
 
+}
+
+func (l *logger) LogAtLevel(entry *logrus.Entry, level logrus.Level, args ...interface{}) {
+	switch level {
+	case logrus.PanicLevel:
+		entry.Panic(args)
+	case logrus.FatalLevel:
+		entry.Fatal(args)
+	case logrus.ErrorLevel:
+		entry.Error(args)
+	case logrus.WarnLevel:
+		entry.Warn(args)
+	case logrus.InfoLevel:
+		entry.Info(args)
+	case logrus.DebugLevel:
+		entry.Debug(args)
+	}
 }
 
 func (l *logger) LogAtLevelFromDepth(request interface{}, response interface{}, err error, duration time.Duration, level logrus.Level, depth int) {
@@ -120,22 +138,7 @@ func (l *logger) LogAtLevelFromDepth(request interface{}, response interface{}, 
 	if duration > 0 {
 		fields["duration"] = duration
 	}
-	entry := l.WithFields(fields)
-
-	switch level {
-	case logrus.PanicLevel:
-		entry.Panic()
-	case logrus.FatalLevel:
-		entry.Fatal()
-	case logrus.ErrorLevel:
-		entry.Error()
-	case logrus.WarnLevel:
-		entry.Warn()
-	case logrus.InfoLevel:
-		entry.Info()
-	case logrus.DebugLevel:
-		entry.Debug()
-	}
+	l.LogAtLevel(l.WithFields(fields), level)
 }
 
 type prettyFormatter struct{}

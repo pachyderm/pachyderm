@@ -34,6 +34,7 @@ import (
 	cache_pb "github.com/pachyderm/pachyderm/src/server/pkg/cache/groupcachepb"
 	cache_server "github.com/pachyderm/pachyderm/src/server/pkg/cache/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
@@ -371,7 +372,7 @@ func doFullMode(appEnvObj interface{}) error {
 	})
 	eg.Go(func() error {
 		http.Handle("/metrics", promhttp.Handler())
-		return http.ListenAndServe(fmt.Sprintf(":%v", PrometheusPort), nil)
+		return http.ListenAndServe(fmt.Sprintf(":%v", assets.PrometheusPort), nil)
 	})
 	if err := migrate(address, kubeClient); err != nil {
 		return err
