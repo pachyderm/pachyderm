@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"strconv"
 
 	client "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
@@ -368,7 +369,7 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 	}
 	serviceAnnotations := map[string]string{
 		"prometheus.io/scrape": "true",
-		"prometheus.io/port":   string(worker.PrometheusPort),
+		"prometheus.io/port":   strconv.Itoa(worker.PrometheusPort),
 	}
 
 	service := &v1.Service{
