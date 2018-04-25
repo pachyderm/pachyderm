@@ -43,6 +43,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 
 	"github.com/gogo/protobuf/types"
+	prom_api "github.com/prometheus/client_golang/api"
+	prom_api_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	prom_model "github.com/prometheus/common/model"
 	apps "k8s.io/api/apps/v1beta2"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -7567,6 +7570,61 @@ func TestStatsDeleteAll(t *testing.T) {
 	require.Equal(t, 1, len(jis))
 	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jis[0].State.String())
 	require.NoError(t, c.DeleteAll())
+}
+
+func TestPachdPrometheusStats(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	port := os.Getenv("PROM_PORT")
+	promClient, err := prom_api.NewClient(prom_api.Config{
+		Address: fmt.Sprintf("http://127.0.0.1:%v", port),
+	})
+	require.NoError(t, err)
+	promAPI := prom_api_v1.NewAPI(promClient)
+
+	datumCountQuery := func(t *testing.T, query string) float64 {
+		result, err := promAPI.Query(context.Background(), query, time.Now())
+		require.NoError(t, err)
+		resultVec := result.(prom_model.Vector)
+		require.Equal(t, 1, len(resultVec))
+		return float64(resultVec[0].Value)
+	}
+	fmt.Printf("heres a func %v\n", datumCountQuery(t, "balh"))
+	// Check stats reported on pachd pod, and sidecar pods
+	/*	podFilters := []string{"app=\"pachd\"", "component=\"worker\""}
+		/*
+			// Both pachd and sidecar should report PFS stats
+			for _, pod := range podFilters {
+				// Check PFS API is reported
+				t.Run("DatumCountStarted", func(t *testing.T) {
+					query := fmt.Sprintf("sum(pachyderm_worker_datum_count{pipelineName=\"%v\", state=\"started\"})", pipeline)
+					result := datumCountQuery(t, query)
+					require.Equal(t, float64((numCommits-1)*numDatums+3), result) // 3 extra for failed datum restarts on the last job
+				})
+			}
+			// Only pachd pod should report non PFS API endpoints
+
+			// Check PPS API is reported
+			t.Run("DatumCountStarted", func(t *testing.T) {
+				query := fmt.Sprintf("sum(pachyderm_worker_datum_count{pipelineName=\"%v\", state=\"started\"})", pipeline)
+				result := datumCountQuery(t, query)
+				require.Equal(t, float64((numCommits-1)*numDatums+3), result) // 3 extra for failed datum restarts on the last job
+			})
+			// Check Auth API is reported
+			t.Run("DatumCountStarted", func(t *testing.T) {
+				query := fmt.Sprintf("sum(pachyderm_worker_datum_count{pipelineName=\"%v\", state=\"started\"})", pipeline)
+				result := datumCountQuery(t, query)
+				require.Equal(t, float64((numCommits-1)*numDatums+3), result) // 3 extra for failed datum restarts on the last job
+			})
+			// Check Cache Stats are reported
+			t.Run("DatumCountStarted", func(t *testing.T) {
+				query := fmt.Sprintf("sum(pachyderm_worker_datum_count{pipelineName=\"%v\", state=\"started\"})", pipeline)
+				result := datumCountQuery(t, query)
+				require.Equal(t, float64((numCommits-1)*numDatums+3), result) // 3 extra for failed datum restarts on the last job
+			})
+	*/
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
