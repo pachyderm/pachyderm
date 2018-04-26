@@ -119,43 +119,42 @@ func TestPrometheusStats(t *testing.T) {
 	// test, not many little ones
 	time.Sleep(45 * time.Second)
 
-	countQuery := func(t *testing.T, query string) float64 {
+	datumCountQuery := func(t *testing.T, query string) float64 {
 		result, err := promAPI.Query(context.Background(), query, time.Now())
 		require.NoError(t, err)
 		resultVec := result.(prom_model.Vector)
 		require.Equal(t, 1, len(resultVec))
-		fmt.Printf("query: %v\nresult:\n%v\n", query, result)
 		return float64(resultVec[0].Value)
 	}
 	// Datum count queries
 	t.Run("DatumCountStarted", func(t *testing.T) {
 		query := fmt.Sprintf("sum(pachyderm_worker_datum_count{pipelineName=\"%v\", state=\"started\"})", pipeline)
-		result := countQuery(t, query)
+		result := datumCountQuery(t, query)
 		require.Equal(t, float64((numCommits-1)*numDatums+3), result) // 3 extra for failed datum restarts on the last job
 	})
 
 	t.Run("DatumCountFinished", func(t *testing.T) {
 		query := fmt.Sprintf("sum(pachyderm_worker_datum_count{pipelineName=\"%v\", state=\"finished\"})", pipeline)
-		result := countQuery(t, query)
+		result := datumCountQuery(t, query)
 		require.Equal(t, float64((numCommits-1)*numDatums), result)
 	})
 
 	t.Run("DatumCountErrored", func(t *testing.T) {
 		query := fmt.Sprintf("sum(pachyderm_worker_datum_count{pipelineName=\"%v\", state=\"errored\"})", pipeline)
-		result := countQuery(t, query)
+		result := datumCountQuery(t, query)
 		require.Equal(t, float64(3.0), result)
 	})
 
 	// Bytes Counters
 	t.Run("DatumDownloadBytes", func(t *testing.T) {
 		query := fmt.Sprintf("sum(pachyderm_worker_datum_download_bytes_count{pipelineName=\"%v\"}) without (instance, exported_job)", pipeline)
-		result := countQuery(t, query)
+		result := datumCountQuery(t, query)
 		// Each run adds 30 bytes to the total
 		require.Equal(t, float64(30.0*(numCommits-1.0)*numCommits/2.0), result)
 	})
 	t.Run("DatumUploadBytes", func(t *testing.T) {
 		query := fmt.Sprintf("sum(pachyderm_worker_datum_upload_bytes_count{pipelineName=\"%v\"}) without (instance, exported_job)", pipeline)
-		result := countQuery(t, query)
+		result := datumCountQuery(t, query)
 		// Each run adds 30 bytes to the total
 		require.Equal(t, float64(30.0*(numCommits-1.0)*numCommits/2.0), result)
 	})
@@ -163,15 +162,15 @@ func TestPrometheusStats(t *testing.T) {
 	// Time Counters
 	t.Run("DatumUploadSeconds", func(t *testing.T) {
 		query := fmt.Sprintf("sum(pachyderm_worker_datum_upload_seconds_count{pipelineName=\"%v\"}) without (instance, exported_job)", pipeline)
-		countQuery(t, query) // Just check query has a result
+		datumCountQuery(t, query) // Just check query has a result
 	})
 	t.Run("DatumProcSeconds", func(t *testing.T) {
 		query := fmt.Sprintf("sum(pachyderm_worker_datum_proc_seconds_count{pipelineName=\"%v\"}) without (instance, exported_job)", pipeline)
-		countQuery(t, query) // Just check query has a result
+		datumCountQuery(t, query) // Just check query has a result
 	})
 	t.Run("DatumDownloadSeconds", func(t *testing.T) {
 		query := fmt.Sprintf("sum(pachyderm_worker_datum_download_seconds_count{pipelineName=\"%v\"}) without (instance, exported_job)", pipeline)
-		countQuery(t, query) // Just check query has a result
+		datumCountQuery(t, query) // Just check query has a result
 	})
 
 	// Test queries across all jobs
@@ -184,19 +183,18 @@ func TestPrometheusStats(t *testing.T) {
 	// results across all jobs
 
 	// Avg Datum Time Queries
-	avgQuery := func(t *testing.T, sumQuery string, countQuery string, expected int) {
+	avgDatumQuery := func(t *testing.T, sumQuery string, countQuery string, expected int) {
 		query := "(" + sumQuery + ")/(" + countQuery + ")"
 		result, err := promAPI.Query(context.Background(), query, time.Now())
 		require.NoError(t, err)
 		resultVec := result.(prom_model.Vector)
-		fmt.Printf("query: %v\nresult:\n%v\n", query, result)
 		require.Equal(t, expected, len(resultVec))
 	}
 	for _, segment := range []string{"download", "upload"} {
 		t.Run(fmt.Sprintf("AcrossJobsDatumTime=%v", segment), func(t *testing.T) {
 			sum := fmt.Sprintf("sum(pachyderm_worker_datum_%v_time_sum{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
 			count := fmt.Sprintf("sum(pachyderm_worker_datum_%v_time_count{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
-			avgQuery(t, sum, count, 1)
+			avgDatumQuery(t, sum, count, 1)
 		})
 	}
 	segment := "proc"
@@ -204,7 +202,7 @@ func TestPrometheusStats(t *testing.T) {
 		sum := fmt.Sprintf("sum(pachyderm_worker_datum_%v_time_sum{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
 		count := fmt.Sprintf("sum(pachyderm_worker_datum_%v_time_count{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
 		// sum gets aggregated no matter how many datums ran, but we get one result for finished datums, and one for errored datums
-		avgQuery(t, sum, count, 2)
+		avgDatumQuery(t, sum, count, 2)
 	})
 
 	// Avg Datum Size Queries
@@ -212,7 +210,7 @@ func TestPrometheusStats(t *testing.T) {
 		t.Run(fmt.Sprintf("AcrossJobsDatumSize=%v", segment), func(t *testing.T) {
 			sum := fmt.Sprintf("sum(pachyderm_worker_datum_%v_size_sum{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
 			count := fmt.Sprintf("sum(pachyderm_worker_datum_%v_size_count{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
-			avgQuery(t, sum, count, 1)
+			avgDatumQuery(t, sum, count, 1)
 		})
 	}
 
@@ -228,14 +226,14 @@ func TestPrometheusStats(t *testing.T) {
 		t.Run(fmt.Sprintf("PerJobDatumTime=%v", segment), func(t *testing.T) {
 			sum := fmt.Sprintf("sum(pachyderm_worker_datum_%v_time_sum{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
 			count := fmt.Sprintf("sum(pachyderm_worker_datum_%v_time_count{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
-			avgQuery(t, sum, count, expectedCounts[segment])
+			avgDatumQuery(t, sum, count, expectedCounts[segment])
 		})
 	}
 	segment = "proc"
 	t.Run(fmt.Sprintf("PerJobDatumTime=%v", segment), func(t *testing.T) {
 		sum := fmt.Sprintf("sum(pachyderm_worker_datum_%v_time_sum{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
 		count := fmt.Sprintf("sum(pachyderm_worker_datum_%v_time_count{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
-		avgQuery(t, sum, count, numCommits)
+		avgDatumQuery(t, sum, count, numCommits)
 	})
 
 	// Avg Datum Size Queries
@@ -247,7 +245,7 @@ func TestPrometheusStats(t *testing.T) {
 		t.Run(fmt.Sprintf("PerJobDatumSize=%v", segment), func(t *testing.T) {
 			sum := fmt.Sprintf("sum(pachyderm_worker_datum_%v_size_sum{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
 			count := fmt.Sprintf("sum(pachyderm_worker_datum_%v_size_count{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
-			avgQuery(t, sum, count, expectedCounts[segment])
+			avgDatumQuery(t, sum, count, expectedCounts[segment])
 		})
 	}
 }
