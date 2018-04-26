@@ -12,8 +12,14 @@ import (
 )
 
 const (
+	// RepoHeader is the header for repos.
+	RepoHeader = "NAME\tCREATED\tSIZE\t\n"
+	// RepoAuthHeader is the header for repos with auth information attached.
+	RepoAuthHeader = "NAME\tCREATED\tSIZE\tACCESS LEVEL\t\n"
 	// CommitHeader is the header for commits.
 	CommitHeader = "REPO\tID\tPARENT\tSTARTED\tDURATION\tSIZE\t\n"
+	// BranchHeader is the header for branches.
+	BranchHeader = "BRANCH\tHEAD\t\n"
 	// FileHeader is the header for files.
 	FileHeader = "NAME\tTYPE\tSIZE\t\n"
 )
@@ -21,10 +27,10 @@ const (
 // PrintRepoHeader prints a repo header.
 func PrintRepoHeader(w io.Writer, printAuth bool) {
 	if printAuth {
-		fmt.Fprint(w, "NAME\tCREATED\tSIZE\tACCESS LEVEL\t\n")
+		fmt.Fprint(w, RepoAuthHeader)
 		return
 	}
-	fmt.Fprint(w, "NAME\tCREATED\tSIZE\t\n")
+	fmt.Fprint(w, RepoHeader)
 }
 
 // PrintRepoInfo pretty-prints repo info.
@@ -63,7 +69,7 @@ Access level: {{ .AuthInfo.AccessLevel.String }}{{end}}
 
 // PrintBranchHeader prints a branch header.
 func PrintBranchHeader(w io.Writer) {
-	fmt.Fprint(w, "BRANCH\tHEAD\t\n")
+	fmt.Fprint(w, BranchHeader)
 }
 
 // PrintBranch pretty-prints a Branch.

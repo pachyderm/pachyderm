@@ -2,46 +2,44 @@ package tabwriter
 
 import (
 	"bytes"
+	"io"
 	"text/tabwriter"
 )
 
 const (
-	// TermHeight is the default height of a terminal.
-	TermHeight = 24
+	// termHeight is the default height of a terminal.
+	termHeight = 50
 )
 
-// StreamingTabWriter is like tabwriter except that it's suitable for large
-// numbers of items because it periodically flushes its contents.
-type StreamingTabWriter struct {
+// Writer is like tabwriter.Writer in the stdlibexcept that it's suitable for
+// large numbers of items because it periodically flushes its contents and
+// reprints a header when it does.
+type Writer struct {
 	w      *tabwriter.Writer
 	lines  int
-	height int
 	header []byte
 }
 
-// NewStreamingWriter returns a new streaming tabwriter, it will flush when
-// it gets height many lines, including the header line.
-// The header line will be reprinted everytime height many lines have been written.
-// NewStreamingTabWriter will panice if it's given a height < 2
-func NewStreamingWriter(w *tabwriter.Writer, height int, header string) *StreamingTabWriter {
-	if height < 2 {
-		panic("cannot create a StreamingTabWriter with height less than 2")
-	}
+// NewWriter returns a new Writer, it will flush when
+// it gets termHeight many lines, including the header line.
+// The header line will be reprinted termHeight many lines have been written.
+// NewStreamingWriter will panic if it's given a header that doesn't end in \n.
+func NewWriter(w io.Writer, header string) *Writer {
 	if header[len(header)-1] != '\n' {
 		panic("header must end in a new line")
 	}
-	w.Write([]byte(header))
-	return &StreamingTabWriter{
-		w:      w,
+	tabwriter := tabwriter.NewWriter(w, 0, 1, 1, ' ', 0)
+	tabwriter.Write([]byte(header))
+	return &Writer{
+		w:      tabwriter,
 		lines:  1, // 1 because we just printed the header
-		height: height,
 		header: []byte(header),
 	}
 }
 
 // Write writes a line to the tabwriter.
-func (w *StreamingTabWriter) Write(buf []byte) (int, error) {
-	if w.lines >= w.height {
+func (w *Writer) Write(buf []byte) (int, error) {
+	if w.lines >= termHeight {
 		if err := w.Flush(); err != nil {
 			return 0, err
 		}
@@ -55,7 +53,7 @@ func (w *StreamingTabWriter) Write(buf []byte) (int, error) {
 }
 
 // Flush flushes the underlying tab writer.
-func (w *StreamingTabWriter) Flush() error {
+func (w *Writer) Flush() error {
 	w.lines = 0
 	return w.w.Flush()
 }

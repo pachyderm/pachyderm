@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/user"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/jsonpb"
@@ -17,7 +16,7 @@ import (
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
-	streamtabwriter "github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
+	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	"github.com/spf13/cobra"
@@ -142,7 +141,7 @@ $ pachctl list-job -p foo bar/YYY
 				}
 				return nil
 			}
-			writer := streamtabwriter.NewStreamingWriter(tabwriter.NewWriter(os.Stdout, 0, 1, 1, ' ', 0), termHeight, pretty.JobHeader)
+			writer := tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
 			if err := client.ListJobF(pipelineName, commits, outputCommit, func(ji *ppsclient.JobInfo) error {
 				pretty.PrintJobInfo(writer, ji)
 				return nil
@@ -195,8 +194,7 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 				}
 				return nil
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 0, 1, 1, ' ', 0)
-			pretty.PrintJobHeader(writer)
+			writer := tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
 			for _, jobInfo := range jobInfos {
 				pretty.PrintJobInfo(writer, jobInfo)
 			}
@@ -286,7 +284,7 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 					return err
 				}
 			}
-			writer := streamtabwriter.NewStreamingWriter(tabwriter.NewWriter(os.Stdout, 0, 1, 1, ' ', 0), termHeight, pretty.DatumHeader)
+			writer := tabwriter.NewWriter(os.Stdout, pretty.DatumHeader)
 			if err := client.ListDatumF(args[0], pageSize, page, func(di *ppsclient.DatumInfo) error {
 				pretty.PrintDatumInfo(writer, di)
 				return nil
@@ -647,7 +645,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				}
 				return nil
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			writer := tabwriter.NewWriter(os.Stdout, pretty.PipelineHeader)
 			pretty.PrintPipelineHeader(writer)
 			for _, pipelineInfo := range pipelineInfos {
 				pretty.PrintPipelineInfo(writer, pipelineInfo)

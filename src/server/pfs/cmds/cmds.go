@@ -13,7 +13,6 @@ import (
 	"strings"
 	gosync "sync"
 	"syscall"
-	"text/tabwriter"
 
 	"golang.org/x/sync/errgroup"
 
@@ -25,7 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
-	streamtabwriter "github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
+	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
 
 	"github.com/spf13/cobra"
 )
@@ -149,9 +148,11 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 				return nil
 			}
 
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			authActive := (len(repoInfos) > 0) && (repoInfos[0].AuthInfo != nil)
-			pretty.PrintRepoHeader(writer, authActive)
+			header := pretty.RepoHeader
+			if (len(repoInfos) > 0) && (repoInfos[0].AuthInfo != nil) {
+				header = pretty.RepoAuthHeader
+			}
+			writer := tabwriter.NewWriter(os.Stdout, header)
 			for _, repoInfo := range repoInfos {
 				pretty.PrintRepoInfo(writer, repoInfo)
 			}
@@ -348,7 +349,7 @@ $ pachctl list-commit foo master --from XXX
 					return marshaller.Marshal(os.Stdout, ci)
 				})
 			}
-			writer := streamtabwriter.NewStreamingWriter(tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0), streamtabwriter.TermHeight, pretty.CommitHeader)
+			writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
 			return c.ListCommitF(args[0], to, from, uint64(number), func(ci *pfsclient.CommitInfo) error {
 				pretty.PrintCommitInfo(writer, ci)
 				return nil
@@ -375,8 +376,7 @@ $ pachctl list-commit foo master --from XXX
 				}
 			}
 		}
-		writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-		pretty.PrintCommitInfoHeader(writer)
+		writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
 		for {
 			commitInfo, err := commitIter.Next()
 			if err == io.EOF {
@@ -534,8 +534,7 @@ $ pachctl subscribe-commit test master --new
 				}
 				return nil
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintBranchHeader(writer)
+			writer := tabwriter.NewWriter(os.Stdout, pretty.BranchHeader)
 			for _, branch := range branches {
 				pretty.PrintBranch(writer, branch)
 			}
@@ -877,7 +876,7 @@ $ pachctl list-file foo master^2
 					return marshaller.Marshal(os.Stdout, fi)
 				})
 			}
-			writer := streamtabwriter.NewStreamingWriter(tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0), streamtabwriter.TermHeight, pretty.FileHeader)
+			writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
 			return client.ListFileF(args[0], args[1], path, func(fi *pfsclient.FileInfo) error {
 				pretty.PrintFileInfo(writer, fi)
 				return nil
@@ -920,8 +919,7 @@ $ pachctl glob-file foo master "data/*"
 					}
 				}
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintFileInfoHeader(writer)
+			writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
 			for _, fileInfo := range fileInfos {
 				pretty.PrintFileInfo(writer, fileInfo)
 			}
@@ -964,8 +962,7 @@ $ pachctl diff-file foo master path1 bar master path2
 			}
 			if len(newFiles) > 0 {
 				fmt.Println("New Files:")
-				writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-				pretty.PrintFileInfoHeader(writer)
+				writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
 				for _, fileInfo := range newFiles {
 					pretty.PrintFileInfo(writer, fileInfo)
 				}
@@ -975,8 +972,7 @@ $ pachctl diff-file foo master path1 bar master path2
 			}
 			if len(oldFiles) > 0 {
 				fmt.Println("Old Files:")
-				writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-				pretty.PrintFileInfoHeader(writer)
+				writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
 				for _, fileInfo := range oldFiles {
 					pretty.PrintFileInfo(writer, fileInfo)
 				}
