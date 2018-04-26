@@ -8,10 +8,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-var (
+const (
 	// PrometheusPort is the port the aggregated metrics are served on for scraping
-	PrometheusPort = int32(9090)
+	PrometheusPort = 9090
+)
 
+var (
 	datumCount = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "pachyderm",
