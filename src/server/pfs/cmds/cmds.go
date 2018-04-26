@@ -350,10 +350,12 @@ $ pachctl list-commit foo master --from XXX
 				})
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
-			return c.ListCommitF(args[0], to, from, uint64(number), func(ci *pfsclient.CommitInfo) error {
+			if err := c.ListCommitF(args[0], to, from, uint64(number), func(ci *pfsclient.CommitInfo) error {
 				pretty.PrintCommitInfo(writer, ci)
 				return nil
-			})
+			}); err != nil {
+				return err
+			}
 			return writer.Flush()
 		}),
 	}
@@ -877,10 +879,12 @@ $ pachctl list-file foo master^2
 				})
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
-			return client.ListFileF(args[0], args[1], path, func(fi *pfsclient.FileInfo) error {
+			if err := client.ListFileF(args[0], args[1], path, func(fi *pfsclient.FileInfo) error {
 				pretty.PrintFileInfo(writer, fi)
 				return nil
-			})
+			}); err != nil {
+				return nil
+			}
 			return writer.Flush()
 		}),
 	}
