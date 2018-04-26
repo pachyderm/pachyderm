@@ -7604,21 +7604,21 @@ func TestPachdPrometheusStats(t *testing.T) {
 	without := "(instance)"
 
 	// Check PFS API is reported
-	t.Run(fmt.Sprintf("GetFileAvgRuntime%v", pod), func(t *testing.T) {
+	t.Run("GetFileAvgRuntime", func(t *testing.T) {
 		sum := fmt.Sprintf("sum(pachyderm_pachd_get_file_time_sum{%v}) without %v", pod, without)
 		count := fmt.Sprintf("sum(pachyderm_pachd_get_file_time_count{%v}) without %v", pod, without)
-		avgQuery(t, sum, count, 1)
+		avgQuery(t, sum, count, 2) // 2 results ... one for finished, one for errored
 	})
-	t.Run(fmt.Sprintf("PutFileAvgRuntime%v", pod), func(t *testing.T) {
+	t.Run("PutFileAvgRuntime", func(t *testing.T) {
 		sum := fmt.Sprintf("sum(pachyderm_pachd_put_file_time_sum{%v}) without %v", pod, without)
 		count := fmt.Sprintf("sum(pachyderm_pachd_put_file_time_count{%v}) without %v", pod, without)
 		avgQuery(t, sum, count, 1)
 	})
-	t.Run(fmt.Sprintf("GetFileSeconds%v", pod), func(t *testing.T) {
+	t.Run("GetFileSeconds", func(t *testing.T) {
 		query := fmt.Sprintf("sum(pachyderm_pachd_get_file_seconds_count{%v}) without %v", pod, without)
 		countQuery(t, query) // Just check query has a result
 	})
-	t.Run(fmt.Sprintf("PutFileSeconds%v", pod), func(t *testing.T) {
+	t.Run("PutFileSeconds", func(t *testing.T) {
 		query := fmt.Sprintf("sum(pachyderm_pachd_put_file_seconds_count{%v}) without %v", pod, without)
 		countQuery(t, query) // Just check query has a result
 	})
