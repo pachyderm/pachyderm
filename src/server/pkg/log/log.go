@@ -90,10 +90,13 @@ func (l *logger) ReportMetric(state string, duration time.Duration) {
 			l.histogram[runTimeName] = runTime
 		}
 	}
-	if hist, err := runTime.GetMetricWithLabelValues(state); err != nil {
-		l.LogAtLevel(entry, logrus.WarnLevel, "failed to get histogram w labels: state (%v) with error %v", state, err)
-	} else {
-		hist.Observe(duration.Seconds())
+	// Recording the distribution of started times is meaningless
+	if state != "started" {
+		if hist, err := runTime.GetMetricWithLabelValues(state); err != nil {
+			l.LogAtLevel(entry, logrus.WarnLevel, "failed to get histogram w labels: state (%v) with error %v", state, err)
+		} else {
+			hist.Observe(duration.Seconds())
+		}
 	}
 
 	secondsCountName := fmt.Sprintf("%v_seconds_count", rootStatName)

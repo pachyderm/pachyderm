@@ -7596,59 +7596,41 @@ func TestPachdPrometheusStats(t *testing.T) {
 		result, err := promAPI.Query(context.Background(), query, time.Now())
 		require.NoError(t, err)
 		resultVec := result.(prom_model.Vector)
-		fmt.Printf("query: %v\nresult:\n%v\n", query, result)
 		require.Equal(t, expected, len(resultVec))
 	}
-	// Check stats reported on pachd pod, and sidecar pods
-	podFilters := []string{"app=\"pachd\"", "component=\"worker\""}
+	// Check stats reported on pachd pod. Sidecar tests are under worker stats
+	// tests
+	pod := "app=\"pachd\""
 	without := "(instance)"
 
-	// Both pachd and sidecar should report PFS stats
-	for _, pod := range podFilters {
-		// Check PFS API is reported
-		t.Run("GetFileAvgRuntime", func(t *testing.T) {
-			sum := fmt.Sprintf("sum(pachyderm_pachd_get_file_time_sum{%v}) without %v", pod, without)
-			count := fmt.Sprintf("sum(pachyderm_pachd_get_file_time_count{%v}) without %v", pod, without)
-			avgQuery(t, sum, count, 1)
-		})
-		t.Run("PutFileAvgRuntime", func(t *testing.T) {
-			sum := fmt.Sprintf("sum(pachyderm_pachd_put_file_time_sum{%v}) without %v", pod, without)
-			count := fmt.Sprintf("sum(pachyderm_pachd_put_file_time_count{%v}) without %v", pod, without)
-			avgQuery(t, sum, count, 1)
-		})
-		t.Run("GetFileSeconds", func(t *testing.T) {
-			query := fmt.Sprintf("sum(pachyderm_pachd_get_file_seconds_count{%v}) without %v", pod, without)
-			countQuery(t, query) // Just check query has a result
-		})
-		t.Run("PutFileSeconds", func(t *testing.T) {
-			query := fmt.Sprintf("sum(pachyderm_pachd_put_file_seconds_count{%v}) without %v", pod, without)
-			countQuery(t, query) // Just check query has a result
-		})
-	}
-
-	// Only pachd pod should report non PFS API endpoints
-	pod := podFilters[0]
+	// Check PFS API is reported
+	t.Run(fmt.Sprintf("GetFileAvgRuntime%v", pod), func(t *testing.T) {
+		sum := fmt.Sprintf("sum(pachyderm_pachd_get_file_time_sum{%v}) without %v", pod, without)
+		count := fmt.Sprintf("sum(pachyderm_pachd_get_file_time_count{%v}) without %v", pod, without)
+		avgQuery(t, sum, count, 1)
+	})
+	t.Run(fmt.Sprintf("PutFileAvgRuntime%v", pod), func(t *testing.T) {
+		sum := fmt.Sprintf("sum(pachyderm_pachd_put_file_time_sum{%v}) without %v", pod, without)
+		count := fmt.Sprintf("sum(pachyderm_pachd_put_file_time_count{%v}) without %v", pod, without)
+		avgQuery(t, sum, count, 1)
+	})
+	t.Run(fmt.Sprintf("GetFileSeconds%v", pod), func(t *testing.T) {
+		query := fmt.Sprintf("sum(pachyderm_pachd_get_file_seconds_count{%v}) without %v", pod, without)
+		countQuery(t, query) // Just check query has a result
+	})
+	t.Run(fmt.Sprintf("PutFileSeconds%v", pod), func(t *testing.T) {
+		query := fmt.Sprintf("sum(pachyderm_pachd_put_file_seconds_count{%v}) without %v", pod, without)
+		countQuery(t, query) // Just check query has a result
+	})
 
 	// Check PPS API is reported
 	t.Run("ListJobSeconds", func(t *testing.T) {
 		query := fmt.Sprintf("sum(pachyderm_pachd_list_job_seconds_count{%v}) without %v", pod, without)
-		result := countQuery(t, query)
-		require.Equal(t, 1, result)
+		countQuery(t, query)
 	})
 	t.Run("ListJobAvgRuntime", func(t *testing.T) {
 		sum := fmt.Sprintf("sum(pachyderm_pachd_list_job_time_sum{%v}) without %v", pod, without)
 		count := fmt.Sprintf("sum(pachyderm_pachd_list_job_time_count{%v}) without %v", pod, without)
-		avgQuery(t, sum, count, 1)
-	})
-	// Check Auth API is reported
-	t.Run("GetAuthTokenSeconds", func(t *testing.T) {
-		query := fmt.Sprintf("sum(pachyderm_pachd_get_auth_token_seconds_count{%v}) without %v", pod, without)
-		result := countQuery(t, query)
-		require.Equal(t, 1, result)
-	})
-	t.Run("GetAuthTokenAvgRuntime", func(t *testing.T) {
-		sum := fmt.Sprintf("sum(pachyderm_pachd_get_auth_token_time_sum{%v}) without %v", pod, without)
-		count := fmt.Sprintf("sum(pachyderm_pachd_get_auth_token_time_count{%v}) without %v", pod, without)
 		avgQuery(t, sum, count, 1)
 	})
 	// Check Cache Stats are reported
