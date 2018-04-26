@@ -65,31 +65,31 @@ func (l *logger) ReportMetric(state string, duration time.Duration) {
 	}
 	rootStatName := strings.Join(tokens, "_")
 
-	runTimeName := fmt.Sprintf("%v_time", rootStatName)
-	runTime, ok := l.histogram[runTimeName]
-	if !ok {
-		bucketFactor := 2.0
-		bucketCount := 20 // Which makes the max bucket 2^20 seconds or ~12 days in size
-		runTime = prometheus.NewHistogramVec(
-			prometheus.HistogramOpts{
-				Namespace: "pachyderm",
-				Subsystem: "pachd",
-				Name:      runTimeName,
-				Help:      fmt.Sprintf("Run time of %v", method),
-				Buckets:   prometheus.ExponentialBuckets(1.0, bucketFactor, bucketCount),
-			},
-			[]string{
-				"state", // Since both finished and errored datums can have proc times
-			},
-		)
-		if err := prometheus.Register(runTime); err != nil {
-			l.LogAtLevel(entry, logrus.WarnLevel, "error registering prometheus metric: %v", err)
-		} else {
-			l.histogram[runTimeName] = runTime
-		}
-	}
 	// Recording the distribution of started times is meaningless
 	if state != "started" {
+		runTimeName := fmt.Sprintf("%v_time", rootStatName)
+		runTime, ok := l.histogram[runTimeName]
+		if !ok {
+			bucketFactor := 2.0
+			bucketCount := 20 // Which makes the max bucket 2^20 seconds or ~12 days in size
+			runTime = prometheus.NewHistogramVec(
+				prometheus.HistogramOpts{
+					Namespace: "pachyderm",
+					Subsystem: "pachd",
+					Name:      runTimeName,
+					Help:      fmt.Sprintf("Run time of %v", method),
+					Buckets:   prometheus.ExponentialBuckets(1.0, bucketFactor, bucketCount),
+				},
+				[]string{
+					"state", // Since both finished and errored API calls can have run times
+				},
+			)
+			if err := prometheus.Register(runTime); err != nil {
+				l.LogAtLevel(entry, logrus.WarnLevel, "error registering prometheus metric: %v", err)
+			} else {
+				l.histogram[runTimeName] = runTime
+			}
+		}
 		if hist, err := runTime.GetMetricWithLabelValues(state); err != nil {
 			l.LogAtLevel(entry, logrus.WarnLevel, "failed to get histogram w labels: state (%v) with error %v", state, err)
 		} else {
