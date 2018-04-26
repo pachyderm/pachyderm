@@ -1314,9 +1314,6 @@ func TestListFile(t *testing.T) {
 	require.Equal(t, 2, len(fileInfos))
 	require.True(t, fileInfos[0].File.Path == "dir/foo" && fileInfos[1].File.Path == "dir/bar" || fileInfos[0].File.Path == "dir/bar" && fileInfos[1].File.Path == "dir/foo")
 	require.True(t, fileInfos[0].SizeBytes == fileInfos[1].SizeBytes && fileInfos[0].SizeBytes == uint64(len(fileContent1)))
-
-	fileInfos, err = client.ListFile(repo, commit.ID, "dir/foo")
-	require.YesError(t, err)
 }
 
 func TestListFile2(t *testing.T) {
@@ -2899,7 +2896,19 @@ func TestGlob(t *testing.T) {
 	require.False(t, isGlob(`path/to/file1.txt`))
 	require.False(t, isGlob(`path/to_test-a/file.txt`))
 
-	// Delete file glob
+	// Test file glob
+	fileInfos, err = c.ListFile(repo, "master", "*")
+	require.NoError(t, err)
+	require.Equal(t, numFiles*2+1, len(fileInfos))
+
+	fileInfos, err = c.ListFile(repo, "master", "dir2/dir3/file1?")
+	require.NoError(t, err)
+	require.Equal(t, 10, len(fileInfos))
+
+	fileInfos, err = c.ListFile(repo, "master", "dir?/*")
+	require.NoError(t, err)
+	require.Equal(t, numFiles*2, len(fileInfos))
+
 	_, err = c.StartCommit(repo, "master")
 	require.NoError(t, err)
 
