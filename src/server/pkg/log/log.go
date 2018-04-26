@@ -58,8 +58,6 @@ func (l *logger) ReportMetric(state string, duration time.Duration) {
 	split := strings.Split(runtime.FuncForPC(pc[0]).Name(), ".")
 	method := split[len(split)-1]
 	entry := l.WithFields(logrus.Fields{"method": method})
-	fmt.Printf("GOING TO REPORT STATS FOR METHOD: %v\n", method)
-	fmt.Printf("state: %v, duration: %v\n", state, duration)
 
 	var tokens []string
 	for _, token := range camelcase.Split(method) {
