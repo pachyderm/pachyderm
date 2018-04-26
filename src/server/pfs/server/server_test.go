@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -2840,11 +2841,11 @@ func TestGlob(t *testing.T) {
 	_, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
-		_, err = c.PutFile(repo, "master", fmt.Sprintf("file%d", i), strings.NewReader(""))
+		_, err = c.PutFile(repo, "master", fmt.Sprintf("file%d", i), strings.NewReader("1"))
 		require.NoError(t, err)
-		_, err = c.PutFile(repo, "master", fmt.Sprintf("dir1/file%d", i), strings.NewReader(""))
+		_, err = c.PutFile(repo, "master", fmt.Sprintf("dir1/file%d", i), strings.NewReader("2"))
 		require.NoError(t, err)
-		_, err = c.PutFile(repo, "master", fmt.Sprintf("dir2/dir3/file%d", i), strings.NewReader(""))
+		_, err = c.PutFile(repo, "master", fmt.Sprintf("dir2/dir3/file%d", i), strings.NewReader("3"))
 		require.NoError(t, err)
 	}
 
@@ -2908,6 +2909,42 @@ func TestGlob(t *testing.T) {
 	fileInfos, err = c.ListFile(repo, "master", "dir?/*")
 	require.NoError(t, err)
 	require.Equal(t, numFiles*2, len(fileInfos))
+
+	var output strings.Builder
+	err = c.GetFile(repo, "master", "*", 0, 0, &output)
+	require.Equal(t, numFiles, len(output.String()))
+
+	output = strings.Builder{}
+	err = c.GetFile(repo, "master", "dir2/dir3/file1?", 0, 0, &output)
+	require.Equal(t, 10, len(output.String()))
+
+	output = strings.Builder{}
+	err = c.GetFile(repo, "master", "**file1?", 0, 0, &output)
+	require.Equal(t, 30, len(output.String()))
+
+	output = strings.Builder{}
+	err = c.GetFile(repo, "master", "**file1", 0, 0, &output)
+	require.True(t, strings.Contains(output.String(), "1"))
+	require.True(t, strings.Contains(output.String(), "2"))
+	require.True(t, strings.Contains(output.String(), "3"))
+
+	output = strings.Builder{}
+	err = c.GetFile(repo, "master", "**file1", 1, 1, &output)
+	match, err := regexp.Match("[123]", []byte(output.String()))
+	require.NoError(t, err)
+	require.True(t, match)
+
+	output = strings.Builder{}
+	err = c.GetFile(repo, "master", "dir?", 0, 0, &output)
+	require.YesError(t, err)
+
+	output = strings.Builder{}
+	err = c.GetFile(repo, "master", "", 0, 0, &output)
+	require.YesError(t, err)
+
+	output = strings.Builder{}
+	err = c.GetFile(repo, "master", "garbage", 0, 0, &output)
+	require.YesError(t, err)
 
 	_, err = c.StartCommit(repo, "master")
 	require.NoError(t, err)
