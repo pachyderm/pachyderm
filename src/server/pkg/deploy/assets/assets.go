@@ -51,7 +51,7 @@ var (
 	pachdName               = "pachd"
 
 	// PrometheusPort hosts the prometheus stats for scraping
-	PrometheusPort = 9090
+	PrometheusPort = 9091
 
 	trueVal = true
 )
