@@ -44,9 +44,9 @@ func (l *logger) Log(request interface{}, response interface{}, err error, durat
 		state = "errored"
 	} else {
 		l.LogAtLevelFromDepth(request, response, err, duration, logrus.InfoLevel, 4)
-	}
-	if duration.Seconds() > 0 {
-		state = "finished"
+		if duration.Seconds() > 0 {
+			state = "finished"
+		}
 	}
 	l.ReportMetric(state, duration)
 }
