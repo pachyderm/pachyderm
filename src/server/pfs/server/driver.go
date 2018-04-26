@@ -2195,20 +2195,35 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool) ([]*pf
 	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
-	tree, err := d.getTreeForFile(ctx, file)
-	if err != nil {
-		return nil, err
-	}
 
-	nodes, err := tree.List(file.Path)
+	rootFileInfos, err := d.globFile(ctx, file.Commit, file.Path)
 	if err != nil {
 		return nil, err
 	}
 
 	var fileInfos []*pfs.FileInfo
-	for _, node := range nodes {
-		fileInfos = append(fileInfos, nodeToFileInfo(file.Commit, path.Join(file.Path, node.Name), node, full))
+	for _, rootFileInfo := range rootFileInfos {
+		file := rootFileInfo.GetFile()
+
+		tree, err := d.getTreeForFile(ctx, file)
+		if err != nil {
+			return nil, err
+		}
+
+		nodes, err := tree.List(file.Path)
+		if err != nil {
+			if hashtree.Code(err) == hashtree.PathConflict {
+				fileInfos = append(fileInfos, rootFileInfo)
+				continue
+			}
+			return nil, err
+		}
+
+		for _, node := range nodes {
+			fileInfos = append(fileInfos, nodeToFileInfo(file.Commit, path.Join(file.Path, node.Name), node, full))
+		}
 	}
+
 	return fileInfos, nil
 }
 
