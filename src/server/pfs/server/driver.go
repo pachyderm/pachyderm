@@ -1801,7 +1801,7 @@ func validatePath(path string) error {
 	}
 
 	if isGlob(path) {
-		return fmt.Errorf("path (%v) invalid: globbing characters not allowed in path", path)
+		return fmt.Errorf("path (%v) invalid: globbing character (%v) not allowed in path", path, globRegex.FindString(path))
 	}
 
 	return nil
@@ -2121,31 +2121,51 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
-	tree, err := d.getTreeForFile(ctx, file)
+
+	fileInfos, err := d.globFile(ctx, file.Commit, file.Path)
 	if err != nil {
 		return nil, err
 	}
 
-	node, err := tree.Get(file.Path)
-	if err != nil {
-		return nil, pfsserver.ErrFileNotFound{file}
+	var objects []*pfs.Object
+	var totalSize int64
+	for _, fileInfo := range fileInfos {
+		file := fileInfo.GetFile()
+
+		tree, err := d.getTreeForFile(ctx, file)
+		if err != nil {
+			return nil, err
+		}
+
+		node, err := tree.Get(file.Path)
+		if err != nil {
+			return nil, pfsserver.ErrFileNotFound{file}
+		}
+
+		if node.FileNode == nil {
+			continue
+		}
+
+		objects = append(objects, node.FileNode.Objects...)
+		totalSize += node.SubtreeSize
 	}
 
-	if node.FileNode == nil {
-		return nil, fmt.Errorf("%s is a directory", file.Path)
+	if objects == nil {
+		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
 	}
 
 	getObjectsClient, err := d.pachClient.ObjectAPIClient.GetObjects(
 		ctx,
 		&pfs.GetObjectsRequest{
-			Objects:     node.FileNode.Objects,
+			Objects:     objects,
 			OffsetBytes: uint64(offset),
 			SizeBytes:   uint64(size),
-			TotalSize:   uint64(node.SubtreeSize),
+			TotalSize:   uint64(totalSize),
 		})
 	if err != nil {
 		return nil, err
 	}
+
 	return grpcutil.NewStreamingBytesReader(getObjectsClient), nil
 }
 
