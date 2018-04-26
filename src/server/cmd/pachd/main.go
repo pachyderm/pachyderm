@@ -194,11 +194,6 @@ func doSidecarMode(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	go func() {
-		if err := http.ListenAndServe(fmt.Sprintf(":%v", assets.PrometheusPort), nil); err != nil {
-			fmt.Printf("error serving prometheus metrics: %v\n", err)
-		}
-	}()
 	return grpcutil.Serve(
 		func(s *grpc.Server) {
 			pfsclient.RegisterAPIServer(s, pfsAPIServer)
