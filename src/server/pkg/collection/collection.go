@@ -541,20 +541,6 @@ func (c *readonlyCollection) ListPrefix(prefix string) (Iterator, error) {
 	}, nil
 }
 
-// List returns an iterator that can be used to iterate over the collection.
-// The objects are sorted by revision time in descending order, i.e. newer
-// objects are returned first.
-func (c *readonlyCollection) List() (Iterator, error) {
-	resp, err := c.etcdClient.Get(c.ctx, c.prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend))
-	if err != nil {
-		return nil, err
-	}
-	return &iterator{
-		resp: resp,
-		col:  c,
-	}, nil
-}
-
 // ListF returns objects sorted by CreateRevision, i.e. the order in which they
 // were created. f will be called with each key, val will contain the
 // corresponding value. Val is not an argument to f because that would require
