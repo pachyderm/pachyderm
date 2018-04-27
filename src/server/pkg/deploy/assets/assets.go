@@ -132,7 +132,7 @@ type AssetOpts struct {
 	NoExposeDockerSocket bool
 }
 
-// Interface for writing out assets. This is assumed to wrap an output writer.
+// Encorder is the interface for writing out assets. This is assumed to wrap an output writer.
 type Encoder interface {
 	// Encodes the given struct to the wrapped output stream. This also will write out a separator
 	// value, suitable for differentiating multiple objects in the stream.
