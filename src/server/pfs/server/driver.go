@@ -335,25 +335,12 @@ func (d *driver) getAccessLevel(ctx context.Context, repo *pfs.Repo) (auth.Scope
 
 func (d *driver) listRepo(ctx context.Context, includeAuth bool) (*pfs.ListRepoResponse, error) {
 	repos := d.repos.ReadOnly(ctx)
-
-	iterator, err := repos.List()
-	if err != nil {
-		return nil, err
-	}
-	result := new(pfs.ListRepoResponse)
+	result := &pfs.ListRepoResponse{}
 	authSeemsActive := true
-nextRepo:
-	for {
-		repoName, repoInfo := "", new(pfs.RepoInfo)
-		ok, err := iterator.Next(&repoName, repoInfo)
-		if err != nil {
-			return nil, err
-		}
-		if !ok {
-			break
-		}
+	repoInfo := &pfs.RepoInfo{}
+	if err := repos.ListF(repoInfo, func(repoName string) error {
 		if repoName == ppsconsts.SpecRepo {
-			continue nextRepo
+			return nil
 		}
 		if includeAuth && authSeemsActive {
 			accessLevel, err := d.getAccessLevel(ctx, repoInfo.Repo)
@@ -362,11 +349,14 @@ nextRepo:
 			} else if auth.IsErrNotActivated(err) {
 				authSeemsActive = false
 			} else {
-				return nil, fmt.Errorf("error getting access level for \"%s\": %v",
+				return fmt.Errorf("error getting access level for \"%s\": %v",
 					repoName, grpcutil.ScrubGRPC(err))
 			}
 		}
-		result.RepoInfo = append(result.RepoInfo, repoInfo)
+		result.RepoInfo = append(result.RepoInfo, proto.Clone(repoInfo).(*pfs.RepoInfo))
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 	return result, nil
 }
