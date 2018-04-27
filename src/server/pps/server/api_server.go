@@ -2003,32 +2003,17 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 		}
 	}(time.Now())
 	pachClient := a.getPachClient().WithCtx(ctx)
-
-	pipelineIter, err := a.pipelines.ReadOnly(pachClient.Ctx()).List()
-	if err != nil {
-		return nil, err
-	}
-
-	pipelineInfos := new(pps.PipelineInfos)
-	for {
-		var pipelineName string
-		pipelinePtr := pps.EtcdPipelineInfo{}
-		ok, err := pipelineIter.Next(&pipelineName, &pipelinePtr)
-		pipelineName = path.Base(pipelineName) // pipelineIter returns etcd keys
+	pipelineInfos := &pps.PipelineInfos{}
+	pipelinePtr := &pps.EtcdPipelineInfo{}
+	if err := a.pipelines.ReadOnly(pachClient.Ctx()).ListF(pipelinePtr, func(string) error {
+		pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, pipelinePtr)
 		if err != nil {
-			return nil, err
-		}
-		if !ok {
-			break
-		}
-		// Read existing PipelineInfo from PFS output repo
-		// TODO this won't work with auth, as a user now can't call InspectPipeline
-		// unless they have READER access to the pipeline's output repo
-		pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, &pipelinePtr)
-		if err != nil {
-			return nil, err
+			return err
 		}
 		pipelineInfos.PipelineInfo = append(pipelineInfos.PipelineInfo, pipelineInfo)
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 	return pipelineInfos, nil
 }
