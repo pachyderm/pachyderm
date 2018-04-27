@@ -7632,7 +7632,6 @@ func TestPachdPrometheusStats(t *testing.T) {
 		count := fmt.Sprintf("sum(pachyderm_pachd_list_job_time_count{%v}) without %v", pod, without)
 		avgQuery(t, sum, count, 1)
 	})
-	// Check Cache Stats are reported
 
 }
 
