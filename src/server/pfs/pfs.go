@@ -73,7 +73,7 @@ func (e ErrCommitNotFound) Error() string {
 }
 
 func (e ErrNoHead) Error() string {
-	return fmt.Sprintf("the branch \"%s\" is nil", e.Branch.Name)
+	return fmt.Sprintf("the branch \"%s\" has no head (create one with start-commit)", e.Branch.Name)
 }
 
 func (e ErrCommitExists) Error() string {
