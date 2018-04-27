@@ -343,13 +343,21 @@ func doFullMode(appEnvObj interface{}) error {
 	}
 	var eg errgroup.Group
 	eg.Go(func() error {
-		return http.ListenAndServe(fmt.Sprintf(":%v", pach_http.HTTPPort), httpServer)
+		err := http.ListenAndServe(fmt.Sprintf(":%v", pach_http.HTTPPort), httpServer)
+		if err != nil {
+			log.Printf("error starting http server %v\n", err)
+		}
+		return err
 	})
 	eg.Go(func() error {
-		return githook.RunGitHookServer(address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix))
+		err := githook.RunGitHookServer(address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix))
+		if err != nil {
+			log.Printf("error starting githook server %v\n", err)
+		}
+		return err
 	})
 	eg.Go(func() error {
-		return grpcutil.Serve(
+		err := grpcutil.Serve(
 			func(s *grpc.Server) {
 				healthclient.RegisterHealthServer(s, healthServer)
 				pfsclient.RegisterAPIServer(s, pfsAPIServer)
@@ -369,10 +377,18 @@ func doFullMode(appEnvObj interface{}) error {
 				GRPCPort: appEnv.Port,
 			},
 		)
+		if err != nil {
+			log.Printf("error starting grpc server %v\n", err)
+		}
+		return err
 	})
 	eg.Go(func() error {
 		http.Handle("/metrics", promhttp.Handler())
-		return http.ListenAndServe(fmt.Sprintf(":%v", assets.PrometheusPort), nil)
+		err := http.ListenAndServe(fmt.Sprintf(":%v", assets.PrometheusPort), nil)
+		if err != nil {
+			log.Printf("error starting prometheus server %v\n", err)
+		}
+		return err
 	})
 	if err := migrate(address, kubeClient); err != nil {
 		return err
