@@ -2026,26 +2026,13 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	// Possibly list pipelines in etcd (skip PFS read--don't need it) and delete them
 	if request.All {
 		request.Pipeline = &pps.Pipeline{}
-		pipelineIter, err := a.pipelines.ReadOnly(ctx).List()
-		if err != nil {
-			return nil, err
-		}
-
-		for {
-			var pipelineName string
-			pipelinePtr := pps.EtcdPipelineInfo{}
-			ok, err := pipelineIter.Next(&pipelineName, &pipelinePtr)
-			pipelineName = path.Base(pipelineName) // pipelineIter returns etcd keys
-			if err != nil {
-				return nil, err
-			}
-			if !ok {
-				break
-			}
+		pipelinePtr := &pps.EtcdPipelineInfo{}
+		if err := a.pipelines.ReadOnly(ctx).ListF(pipelinePtr, func(pipelineName string) error {
 			request.Pipeline.Name = pipelineName
-			if _, err := a.deletePipeline(pachClient, request); err != nil {
-				return nil, err
-			}
+			_, err := a.deletePipeline(pachClient, request)
+			return err
+		}); err != nil {
+			return nil, err
 		}
 		return &types.Empty{}, nil
 	}
