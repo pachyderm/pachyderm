@@ -1700,26 +1700,16 @@ func (d *driver) listBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.BranchI
 	if err := d.checkIsAuthorized(ctx, repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
+	var result []*pfs.BranchInfo
+	branchInfo := &pfs.BranchInfo{}
 	branches := d.branches(repo.Name).ReadOnly(ctx)
-	iterator, err := branches.List()
-	if err != nil {
+	if err := branches.ListF(branchInfo, func(string) error {
+		result = append(result, proto.Clone(branchInfo).(*pfs.BranchInfo))
+		return nil
+	}); err != nil {
 		return nil, err
 	}
-
-	var res []*pfs.BranchInfo
-	for {
-		var branchName string
-		branchInfo := new(pfs.BranchInfo)
-		ok, err := iterator.Next(&branchName, branchInfo)
-		if err != nil {
-			return nil, err
-		}
-		if !ok {
-			break
-		}
-		res = append(res, branchInfo)
-	}
-	return res, nil
+	return result, nil
 }
 
 func (d *driver) deleteBranch(ctx context.Context, branch *pfs.Branch, force bool) error {
