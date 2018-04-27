@@ -7598,8 +7598,7 @@ func TestPachdPrometheusStats(t *testing.T) {
 		resultVec := result.(prom_model.Vector)
 		require.Equal(t, expected, len(resultVec))
 	}
-	// Check stats reported on pachd pod. Sidecar tests are under worker stats
-	// tests
+	// Check stats reported on pachd pod
 	pod := "app=\"pachd\""
 	without := "(instance)"
 
