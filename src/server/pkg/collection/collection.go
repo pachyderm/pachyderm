@@ -520,25 +520,20 @@ func endKeyFromPrefix(prefix string) string {
 
 // ListPrefix returns lexigraphically sorted (not sorted by create time)
 // results and returns an iterator that is paginated
-func (c *readonlyCollection) ListPrefix(prefix string) (Iterator, error) {
+func (c *readonlyCollection) ListPrefix(prefix string, val proto.Message, f func(string) error) error {
 	queryPrefix := c.prefix
 	if prefix != "" {
 		// If we always call join, we'll get rid of the trailing slash we need
 		// on the root c.prefix
 		queryPrefix = filepath.Join(c.prefix, prefix)
 	}
-	// omit sort so that we get results lexigraphically ordered, so that we can paginate properly
-	resp, err := c.etcdClient.Get(c.ctx, queryPrefix, etcd.WithPrefix(), etcd.WithLimit(QueryPaginationLimit))
-	if err != nil {
-		return nil, err
-	}
-	return &paginatedIterator{
-		endKey:     endKeyFromPrefix(queryPrefix),
-		resp:       resp,
-		etcdClient: c.etcdClient,
-		ctx:        c.ctx,
-		col:        c,
-	}, nil
+	return c.listF(queryPrefix, &c.limit, func(kv *mvccpb.KeyValue) error {
+		if err := proto.Unmarshal(kv.Value, val); err != nil {
+			return err
+		}
+		fmt.Printf("Key: %s\n", string(kv.Key))
+		return f(strings.TrimPrefix(string(kv.Key), queryPrefix))
+	})
 }
 
 // ListF returns objects sorted by CreateRevision, i.e. the order in which they

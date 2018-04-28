@@ -642,7 +642,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 
 		if tree == nil {
 			var err error
-			finishedTree, err = d.getTreeForOpenCommit(ctx, scratchPrefix, parentTree)
+			finishedTree, err = d.getTreeForOpenCommit(ctx, client.NewFile(commit.Repo.Name, commit.ID, ""), parentTree)
 			if err != nil {
 				return err
 			}
@@ -2054,52 +2054,30 @@ func (d *driver) getTreeForFile(ctx context.Context, file *pfs.File) (hashtree.H
 		}
 		return tree, nil
 	}
-	scratchPrefix, err := d.scratchFilePrefix(ctx, file)
-	if err != nil {
-		return nil, err
-	}
 	parentTree, err := d.getTreeForCommit(ctx, commitInfo.ParentCommit)
 	if err != nil {
 		return nil, err
 	}
-	return d.getTreeForOpenCommit(ctx, scratchPrefix, parentTree)
+	return d.getTreeForOpenCommit(ctx, file, parentTree)
 }
 
-func (d *driver) getTreeForOpenCommit(ctx context.Context, prefix string, parentTree hashtree.HashTree) (hashtree.HashTree, error) {
-	var finishedTree hashtree.HashTree
-	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		tree := parentTree.Open()
-
-		recordsCol := d.putFileRecords.ReadOnly(ctx)
-		iter, err := recordsCol.ListPrefix(prefix)
-		if err != nil {
-			return err
-		}
-		for {
-			putFileRecords := &pfs.PutFileRecords{}
-			var key string
-			ok, err := iter.Next(&key, putFileRecords)
-			if !ok {
-				break
-			}
-			if err != nil {
-				return err
-			}
-			err = d.applyWrite(key, putFileRecords, tree)
-			if err != nil {
-				return err
-			}
-		}
-		finishedTree, err = tree.Finish()
-		if err != nil {
-			return err
-		}
-		return nil
-	})
+func (d *driver) getTreeForOpenCommit(ctx context.Context, file *pfs.File, parentTree hashtree.HashTree) (hashtree.HashTree, error) {
+	prefix, err := d.scratchFilePrefix(ctx, file)
 	if err != nil {
 		return nil, err
 	}
-	return finishedTree, nil
+	var tree hashtree.OpenHashTree
+	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		tree = parentTree.Open()
+		recordsCol := d.putFileRecords.ReadOnly(ctx)
+		putFileRecords := &pfs.PutFileRecords{}
+		return recordsCol.ListPrefix(prefix, putFileRecords, func(key string) error {
+			return d.applyWrite(path.Join(file.Path, key), putFileRecords, tree)
+		})
+	}); err != nil {
+		return nil, err
+	}
+	return tree.Finish()
 }
 
 func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size int64) (io.Reader, error) {
@@ -2363,16 +2341,9 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtree.OpenHashTree) error {
 	// a map that keeps track of the sizes of objects
 	sizeMap := make(map[string]int64)
-	// fileStr is going to look like "some/path/UUID"
-	fileStr := d.filePathFromEtcdPath(key)
-	// the last element of `parts` is going to be UUID
-	parts := strings.Split(fileStr, "/")
-	// filePath should look like "some/path"
-	filePath := strings.Join(parts[:len(parts)], "/")
-	filePath = filepath.Join("/", filePath)
 
 	if records.Tombstone {
-		if err := tree.DeleteFile(filePath); err != nil {
+		if err := tree.DeleteFile(key); err != nil {
 			// Deleting a non-existent file in an open commit should
 			// be a no-op
 			if hashtree.Code(err) != hashtree.PathNotFound {
@@ -2389,7 +2360,7 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			if record.OverwriteIndex != nil {
 				// Computing size delta
 				delta := record.SizeBytes
-				fileNode, err := tree.Get(filePath)
+				fileNode, err := tree.Get(key)
 				if err == nil {
 					// If we can't find the file, that's fine.
 					for i := record.OverwriteIndex.Index; int(i) < len(fileNode.FileNode.Objects); i++ {
@@ -2397,17 +2368,17 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 					}
 				}
 
-				if err := tree.PutFileOverwrite(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.OverwriteIndex, delta); err != nil {
+				if err := tree.PutFileOverwrite(key, []*pfs.Object{{Hash: record.ObjectHash}}, record.OverwriteIndex, delta); err != nil {
 					return err
 				}
 			} else {
-				if err := tree.PutFile(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+				if err := tree.PutFile(key, []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
 					return err
 				}
 			}
 		}
 	} else {
-		nodes, err := tree.List(filePath)
+		nodes, err := tree.List(key)
 		if err != nil && hashtree.Code(err) != hashtree.PathNotFound {
 			return err
 		}
@@ -2422,7 +2393,7 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			indexOffset++ // start writing to the file after the last file
 		}
 		for i, record := range records.Records {
-			if err := tree.PutFile(path.Join(filePath, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+			if err := tree.PutFile(path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
 				return err
 			}
 		}

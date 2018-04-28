@@ -102,7 +102,7 @@ type ReadonlyCollection interface {
 	GetBlock(key string, val proto.Message) error
 	ListF(val proto.Message, f func(key string) error) error
 	ListPaginated() (Iterator, error)
-	ListPrefix(prefix string) (Iterator, error)
+	ListPrefix(prefix string, val proto.Message, f func(string) error) error
 	Count() (int64, error)
 	Watch() (watch.Watcher, error)
 	// WatchWithPrev is like Watch, but the events will include the previous
