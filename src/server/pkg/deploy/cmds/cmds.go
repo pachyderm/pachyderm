@@ -32,7 +32,7 @@ import (
 
 var defaultDashImage = "pachyderm/dash:1.7-preview-11"
 
-// Encoder with bytes content.
+// BytesEncoder is an Encoder with bytes content.
 type BytesEncoder interface {
 	assets.Encoder
 	// Return the current buffer of the encoder.
