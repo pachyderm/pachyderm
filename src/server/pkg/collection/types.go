@@ -96,12 +96,10 @@ type ReadWriteIntCollection interface {
 // ReadonlyCollection is a collection interface that only supports read ops.
 type ReadonlyCollection interface {
 	Get(key string, val proto.Message) error
-	GetByIndex(index Index, indexVal interface{}) (Iterator, error)
 	GetByIndexF(order Order, index Index, indexVal interface{}, val proto.Message, f func(key string) error) error
 	// GetBlock is like Get but waits for the key to exist if it doesn't already.
 	GetBlock(key string, val proto.Message) error
 	ListF(order Order, val proto.Message, f func(key string) error) error
-	ListPaginated() (Iterator, error)
 	ListPrefix(prefix string, order Order, val proto.Message, f func(string) error) error
 	Count() (int64, error)
 	Watch() (watch.Watcher, error)
