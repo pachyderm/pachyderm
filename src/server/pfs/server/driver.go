@@ -337,7 +337,7 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool) (*pfs.ListRepoR
 	result := &pfs.ListRepoResponse{}
 	authSeemsActive := true
 	repoInfo := &pfs.RepoInfo{}
-	if err := repos.ListF(repoInfo, func(repoName string) error {
+	if err := repos.ListF(col.Descend, repoInfo, func(repoName string) error {
 		if repoName == ppsconsts.SpecRepo {
 			return nil
 		}
@@ -1102,7 +1102,7 @@ func (d *driver) listCommitF(ctx context.Context, repo *pfs.Repo, to *pfs.Commit
 	} else if from == nil && to == nil {
 		// if neither from and to is given, we list all commits in
 		// the repo, sorted by revision timestamp
-		if err := commits.ListF(ci, func(commitID string) error {
+		if err := commits.ListF(col.Descend, ci, func(commitID string) error {
 			if number <= 0 {
 				return errutil.ErrBreak
 			}
@@ -1708,7 +1708,7 @@ func (d *driver) listBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.BranchI
 	var result []*pfs.BranchInfo
 	branchInfo := &pfs.BranchInfo{}
 	branches := d.branches(repo.Name).ReadOnly(ctx)
-	if err := branches.ListF(branchInfo, func(string) error {
+	if err := branches.ListF(col.Descend, branchInfo, func(string) error {
 		result = append(result, proto.Clone(branchInfo).(*pfs.BranchInfo))
 		return nil
 	}); err != nil {
@@ -2076,7 +2076,7 @@ func (d *driver) getTreeForOpenCommit(ctx context.Context, file *pfs.File, paren
 		tree = parentTree.Open()
 		recordsCol := d.putFileRecords.ReadOnly(ctx)
 		putFileRecords := &pfs.PutFileRecords{}
-		return recordsCol.ListPrefix(prefix, putFileRecords, func(key string) error {
+		return recordsCol.ListPrefix(prefix, col.Ascend, putFileRecords, func(key string) error {
 			return d.applyWrite(path.Join(file.Path, key), putFileRecords, tree)
 		})
 	}); err != nil {
@@ -2343,6 +2343,7 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 }
 
 func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtree.OpenHashTree) error {
+	fmt.Printf("applyWrite: key: %s, records:\n %+v\n", key, records)
 	// a map that keeps track of the sizes of objects
 	sizeMap := make(map[string]int64)
 

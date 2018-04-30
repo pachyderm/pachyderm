@@ -24,6 +24,13 @@ import (
 const QueryPaginationLimit = 10000
 const defaultLimit int64 = 1024
 
+type Order int
+
+const (
+	Descend Order = iota
+	Ascend
+)
+
 type collection struct {
 	etcdClient *etcd.Client
 	prefix     string
@@ -483,12 +490,12 @@ func (c *readonlyCollection) GetByIndex(index Index, val interface{}) (Iterator,
 	}, nil
 }
 
-func (c *readonlyCollection) GetByIndexF(index Index, indexVal interface{}, val proto.Message, f func(key string) error) error {
+func (c *readonlyCollection) GetByIndexF(order Order, index Index, indexVal interface{}, val proto.Message, f func(key string) error) error {
 	if index.limit == nil {
 		limit := defaultLimit
 		index.limit = &limit
 	}
-	return c.listF(c.indexDir(index, indexVal), index.limit, func(kv *mvccpb.KeyValue) error {
+	return c.listF(c.indexDir(index, indexVal), index.limit, order, func(kv *mvccpb.KeyValue) error {
 		key := path.Base(string(kv.Key))
 		if err := c.Get(key, val); err != nil {
 			if IsErrNotFound(err) {
@@ -526,16 +533,18 @@ func endKeyFromPrefix(prefix string) string {
 	return prefix[0:len(prefix)-1] + string(byte(prefix[len(prefix)-1])+1)
 }
 
-// ListPrefix returns lexigraphically sorted (not sorted by create time)
+// ListPrefix returns keys (and values) that being with prefix, f will be
+// called with each key, val will contain the value for the key.
 // results and returns an iterator that is paginated
-func (c *readonlyCollection) ListPrefix(prefix string, val proto.Message, f func(string) error) error {
+// Ascend, if true sorts the values from
+func (c *readonlyCollection) ListPrefix(prefix string, order Order, val proto.Message, f func(string) error) error {
 	queryPrefix := c.prefix
 	if prefix != "" {
 		// If we always call join, we'll get rid of the trailing slash we need
 		// on the root c.prefix
 		queryPrefix = filepath.Join(c.prefix, prefix)
 	}
-	return c.listF(queryPrefix, &c.limit, func(kv *mvccpb.KeyValue) error {
+	return c.listF(queryPrefix, &c.limit, order, func(kv *mvccpb.KeyValue) error {
 		if err := proto.Unmarshal(kv.Value, val); err != nil {
 			return err
 		}
@@ -546,12 +555,13 @@ func (c *readonlyCollection) ListPrefix(prefix string, val proto.Message, f func
 // ListF returns objects sorted by CreateRevision, i.e. the order in which they
 // were created. f will be called with each key, val will contain the
 // corresponding value. Val is not an argument to f because that would require
-// f to perform a cast before it could be used. You can break out of iteration by return errutil.ErrBreak.
-func (c *readonlyCollection) ListF(val proto.Message, f func(string) error) error {
+// f to perform a cast before it could be used. You can break out of iteration
+// by returning errutil.ErrBreak.
+func (c *readonlyCollection) ListF(order Order, val proto.Message, f func(string) error) error {
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
-	return c.listF(c.prefix, &c.limit, func(kv *mvccpb.KeyValue) error {
+	return c.listF(c.prefix, &c.limit, order, func(kv *mvccpb.KeyValue) error {
 		if err := proto.Unmarshal(kv.Value, val); err != nil {
 			return err
 		}
@@ -559,7 +569,7 @@ func (c *readonlyCollection) ListF(val proto.Message, f func(string) error) erro
 	})
 }
 
-func (c *readonlyCollection) listF(prefix string, limitPtr *int64, f func(*mvccpb.KeyValue) error) error {
+func (c *readonlyCollection) listF(prefix string, limitPtr *int64, order Order, f func(*mvccpb.KeyValue) error) error {
 	rev := int64(-1)
 	keysInRev := make(map[string]bool)
 	for {
