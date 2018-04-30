@@ -573,9 +573,17 @@ func (c *readonlyCollection) listF(prefix string, limitPtr *int64, order Order, 
 	rev := int64(-1)
 	keysInRev := make(map[string]bool)
 	for {
-		opts := []etcd.OpOption{etcd.WithPrefix(), etcd.WithSort(etcd.SortByCreateRevision, etcd.SortDescend)}
+		sort := etcd.WithSort(etcd.SortByCreateRevision, etcd.SortDescend)
+		if order == Ascend {
+			sort = etcd.WithSort(etcd.SortByCreateRevision, etcd.SortAscend)
+		}
+		opts := []etcd.OpOption{etcd.WithPrefix(), sort}
 		if rev != -1 {
-			opts = append(opts, etcd.WithMaxCreateRev(rev))
+			if order == Descend {
+				opts = append(opts, etcd.WithMaxCreateRev(rev))
+			} else {
+				opts = append(opts, etcd.WithMinCreateRev(rev))
+			}
 		}
 		var resp *etcd.GetResponse
 		var limit int64

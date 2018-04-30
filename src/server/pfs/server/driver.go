@@ -2343,7 +2343,6 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 }
 
 func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtree.OpenHashTree) error {
-	fmt.Printf("applyWrite: key: %s, records:\n %+v\n", key, records)
 	// a map that keeps track of the sizes of objects
 	sizeMap := make(map[string]int64)
 
