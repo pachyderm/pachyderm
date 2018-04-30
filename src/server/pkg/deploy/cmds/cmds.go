@@ -319,7 +319,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 				if len(args) == 5 {
 					token = args[4]
 				}
-				data = assets.AmazonSecret("", "", args[2], args[3], token, args[1])
+				data = assets.AmazonSecret(args[1], "", args[2], args[3], token, "")
 			case "google":
 				if len(args) < 2 {
 					return fmt.Errorf("Usage: pachctl deploy storage google <service account creds file>")

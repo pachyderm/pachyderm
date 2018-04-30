@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"strconv"
 
 	client "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
@@ -9,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
+	"github.com/pachyderm/pachyderm/src/server/worker"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -365,6 +367,10 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 			return err
 		}
 	}
+	serviceAnnotations := map[string]string{
+		"prometheus.io/scrape": "true",
+		"prometheus.io/port":   strconv.Itoa(worker.PrometheusPort),
+	}
 
 	service := &v1.Service{
 		TypeMeta: metav1.TypeMeta{
@@ -372,8 +378,9 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   options.rcName,
-			Labels: options.labels,
+			Name:        options.rcName,
+			Labels:      options.labels,
+			Annotations: serviceAnnotations,
 		},
 		Spec: v1.ServiceSpec{
 			Selector: options.labels,
@@ -381,6 +388,10 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 				{
 					Port: client.PPSWorkerPort,
 					Name: "grpc-port",
+				},
+				{
+					Port: worker.PrometheusPort,
+					Name: "prometheus-metrics",
 				},
 			},
 		},

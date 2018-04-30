@@ -25,6 +25,9 @@ CLUSTER_SIZE?=4
 
 BENCH_CLOUD_PROVIDER=aws
 
+MINIKUBE_MEM=8192 # MB of memory allocated to minikube
+MINIKUBE_CPU=4 # Number of CPUs allocated to minikube
+
 ifdef TRAVIS_BUILD_NUMBER
 	# Upper bound for travis test timeout
 	TIMEOUT = 3600s
@@ -72,6 +75,11 @@ worker:
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
 	GO15VENDOREXPERIMENT=1 go install -ldflags "$(LD_FLAGS)" ./src/server/cmd/pachctl
+
+install-clean:
+	@# Need to blow away pachctl binary if its already there
+	@rm -f $(GOPATH)/bin/pachctl
+	@make install
 
 install-doc:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl-doc
@@ -121,10 +129,7 @@ release-pachctl:
 
 release-helper: check-docker-version release-version release-pachd release-worker
 
-release-version:
-	@# Need to blow away pachctl binary if its already there
-	@rm $(GOPATH)/bin/pachctl || true
-	@make install
+release-version: install-clean
 	@./etc/build/release_version
 
 release-pachd:
@@ -295,18 +300,20 @@ launch-dev-vm: check-kubectl
 	  exit 1; \
 	fi
 	@# Make sure minikube isn't still up from a previous run
-	@minikube ip >/dev/null && { \
+	@if minikube ip 2>/dev/null || sudo minikube ip 2>/dev/null; \
+	then \
 		echo "minikube is still up. Run 'make clean-launch-kube'"; \
 		exit 1; \
-	} || true
-	etc/kube/start-minikube-vm.sh
+	fi
+	etc/kube/start-minikube-vm.sh --cpus=$(MINIKUBE_CPU) --memory=$(MINIKUBE_MEM)
 
 clean-launch-kube:
 	@# clean up both of the following cases:
 	@# make launch-dev-vm - minikube config is owned by $USER
 	@# make launch-kube - minikube config is owned by root
-	minikube ip >/dev/null && minikube delete || true
-	sudo minikube ip >/dev/null && sudo minikube delete || true
+	minikube ip 2>/dev/null && minikube delete || true
+	sudo minikube ip 2>/dev/null && sudo minikube delete || true
+	killall kubectl || true
 
 launch: install check-kubectl
 	$(eval STARTTIME := $(shell date +%s))
@@ -384,7 +391,7 @@ pretest:
 
 local-test: docker-build launch-dev test-pfs clean-launch-dev
 
-test: enterprise-code-checkin-test docker-build docker-build-test-entrypoint clean-launch-dev launch-dev test-pfs test-pps test-vault test-auth test-enterprise test-kube-17
+test: enterprise-code-checkin-test docker-build docker-build-test-entrypoint clean-launch-dev launch-dev test-pfs test-pps test-vault test-auth test-enterprise test-worker
 
 enterprise-code-checkin-test:
 	# Check if our test activation code is anywhere in the repo
@@ -436,14 +443,11 @@ test-auth:
 test-enterprise:
 	go test -v ./src/server/enterprise/server -timeout $(TIMEOUT)
 
-test-kube-17:
-	@# Delete existing minikube, but test should still pass if minikube hasn't been started
-	@make clean-launch-kube || true
-	./etc/kube/start-minikube.sh -v 1.7.5
-	@LAUNCH_DEV_ARGS="--no-rbac" make launch-dev
-	@# If we can deploy a pipeline, 1.7 probably works
-	go test -v ./src/server -run TestPipelineWithParallelism
+test-worker: launch-stats test-worker-helper
 
+test-worker-helper:
+	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
+			  go test -v ./src/server/worker/ -run=TestPrometheusStats -timeout $(TIMEOUT) -count 1
 
 clean: clean-launch clean-launch-kube
 
@@ -460,6 +464,13 @@ doc-custom: install-doc release-version
 
 doc:
 	@make VERSION_ADDITIONAL= doc-custom
+
+
+clean-launch-stats:
+	kubectl delete --filename https://raw.githubusercontent.com/giantswarm/kubernetes-prometheus/f7d1e34c9e8065554921f80fc6166b1d23b524f7/manifests-all.yaml
+
+launch-stats:
+	kubectl apply --filename https://raw.githubusercontent.com/giantswarm/kubernetes-prometheus/f7d1e34c9e8065554921f80fc6166b1d23b524f7/manifests-all.yaml
 
 clean-launch-monitoring:
 	kubectl delete --ignore-not-found -f ./etc/plugin/monitoring
@@ -598,6 +609,7 @@ goxc-build:
 	build-clean-vendored-client \
 	build \
 	install \
+	install-clean \
 	install-doc \
 	homebrew \
 	release \
