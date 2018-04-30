@@ -1269,26 +1269,6 @@ func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 	return nil
 }
 
-func (d *driver) flushRepo(ctx context.Context, repo *pfs.Repo) ([]*pfs.RepoInfo, error) {
-	iter, err := d.repos.ReadOnly(ctx).GetByIndex(pfsdb.ProvenanceIndex, repo)
-	if err != nil {
-		return nil, err
-	}
-	var repoInfos []*pfs.RepoInfo
-	for {
-		var repoName string
-		repoInfo := new(pfs.RepoInfo)
-		ok, err := iter.Next(&repoName, repoInfo)
-		if !ok {
-			return repoInfos, nil
-		}
-		if err != nil {
-			return nil, err
-		}
-		repoInfos = append(repoInfos, repoInfo)
-	}
-}
-
 func (d *driver) deleteCommit(ctx context.Context, userCommit *pfs.Commit) error {
 	if err := d.checkIsAuthorized(ctx, userCommit.Repo, auth.Scope_WRITER); err != nil {
 		return err

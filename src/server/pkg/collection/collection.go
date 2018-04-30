@@ -479,17 +479,6 @@ func (i *indirectIterator) Next(key *string, val proto.Message) (ok bool, retErr
 	}
 }
 
-func (c *readonlyCollection) GetByIndex(index Index, val interface{}) (Iterator, error) {
-	resp, err := c.etcdClient.Get(c.ctx, c.indexDir(index, val), etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend))
-	if err != nil {
-		return nil, err
-	}
-	return &indirectIterator{
-		resp: resp,
-		col:  c,
-	}, nil
-}
-
 func (c *readonlyCollection) GetByIndexF(order Order, index Index, indexVal interface{}, val proto.Message, f func(key string) error) error {
 	if index.limit == nil {
 		limit := defaultLimit
@@ -623,22 +612,6 @@ func (c *readonlyCollection) listF(prefix string, limitPtr *int64, order Order, 
 			return nil
 		}
 	}
-}
-
-// ListPaginated returns an iterator that can be used to iterate over the collection.
-// The objects are not sorted, but are paginated.
-func (c *readonlyCollection) ListPaginated() (Iterator, error) {
-	resp, err := c.etcdClient.Get(c.ctx, c.prefix, etcd.WithPrefix(), etcd.WithLimit(QueryPaginationLimit))
-	if err != nil {
-		return nil, err
-	}
-	return &paginatedIterator{
-		endKey:     endKeyFromPrefix(c.prefix),
-		resp:       resp,
-		etcdClient: c.etcdClient,
-		ctx:        c.ctx,
-		col:        c,
-	}, nil
 }
 
 type iterator struct {

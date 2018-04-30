@@ -2109,26 +2109,22 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	}
 
 	// Kill or delete all of the pipeline's jobs
-	iter, err := a.jobs.ReadOnly(ctx).GetByIndex(ppsdb.JobsPipelineIndex, request.Pipeline)
-	if err != nil {
+	var eg errgroup.Group
+	jobPtr := &pps.EtcdJobInfo{}
+	if err := a.jobs.ReadOnly(ctx).GetByIndexF(col.Descend, ppsdb.JobsPipelineIndex, request.Pipeline, jobPtr, func(jobID string) error {
+		eg.Go(func() error {
+			_, err := a.DeleteJob(ctx, &pps.DeleteJobRequest{&pps.Job{jobID}})
+			return err
+		})
+		return nil
+	}); err != nil {
 		return nil, err
 	}
-	for {
-		var jobID string
-		var jobPtr pps.EtcdJobInfo
-		ok, err := iter.Next(&jobID, &jobPtr)
-		if err != nil {
-			return nil, err
-		}
-		if !ok {
-			break
-		}
-		if _, err := a.DeleteJob(ctx, &pps.DeleteJobRequest{&pps.Job{jobID}}); err != nil {
-			return nil, err
-		}
+	if err := eg.Wait(); err != nil {
+		return nil, err
 	}
 
-	var eg errgroup.Group
+	eg = errgroup.Group{}
 	// Delete pipeline branch in SpecRepo (leave commits, to preserve downstream
 	// commits)
 	eg.Go(func() error {
