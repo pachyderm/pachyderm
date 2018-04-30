@@ -19,9 +19,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
-//QueryPaginationLimit defines the maximum number of results returned in an
-// etcd query using a paginated iterator
-const QueryPaginationLimit = 10000
 const defaultLimit int64 = 1024
 
 type Order int
@@ -444,41 +441,6 @@ func (c *readonlyCollection) Get(key string, val proto.Message) error {
 	return proto.Unmarshal(resp.Kvs[0].Value, val)
 }
 
-// an indirect iterator goes through a list of keys and retrieve those
-// items from the collection.
-type indirectIterator struct {
-	index int
-	resp  *etcd.GetResponse
-	col   *readonlyCollection
-}
-
-func (i *indirectIterator) Next(key *string, val proto.Message) (ok bool, retErr error) {
-	if err := watch.CheckType(i.col.template, val); err != nil {
-		return false, err
-	}
-	for {
-		if i.index < len(i.resp.Kvs) {
-			kv := i.resp.Kvs[i.index]
-			i.index++
-
-			*key = path.Base(string(kv.Key))
-			if err := i.col.Get(*key, val); err != nil {
-				if IsErrNotFound(err) {
-					// In cases where we changed how certain objects are
-					// indexed, we could end up in a situation where the
-					// object is deleted but the old indexes still exist.
-					continue
-				} else {
-					return false, err
-				}
-			}
-
-			return true, nil
-		}
-		return false, nil
-	}
-}
-
 func (c *readonlyCollection) GetByIndexF(order Order, index Index, indexVal interface{}, val proto.Message, f func(key string) error) error {
 	if index.limit == nil {
 		limit := defaultLimit
@@ -517,15 +479,9 @@ func (c *readonlyCollection) GetBlock(key string, val proto.Message) error {
 	}
 }
 
-func endKeyFromPrefix(prefix string) string {
-	// Lexigraphically increment the last character
-	return prefix[0:len(prefix)-1] + string(byte(prefix[len(prefix)-1])+1)
-}
-
 // ListPrefix returns keys (and values) that being with prefix, f will be
 // called with each key, val will contain the value for the key.
-// results and returns an iterator that is paginated
-// Ascend, if true sorts the values from
+// You can break out of iteration by returning errutil.ErrBreak.
 func (c *readonlyCollection) ListPrefix(prefix string, order Order, val proto.Message, f func(string) error) error {
 	queryPrefix := c.prefix
 	if prefix != "" {
@@ -544,8 +500,8 @@ func (c *readonlyCollection) ListPrefix(prefix string, order Order, val proto.Me
 // ListF returns objects sorted by CreateRevision, i.e. the order in which they
 // were created. f will be called with each key, val will contain the
 // corresponding value. Val is not an argument to f because that would require
-// f to perform a cast before it could be used. You can break out of iteration
-// by returning errutil.ErrBreak.
+// f to perform a cast before it could be used.
+// You can break out of iteration by returning errutil.ErrBreak.
 func (c *readonlyCollection) ListF(order Order, val proto.Message, f func(string) error) error {
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
@@ -614,80 +570,12 @@ func (c *readonlyCollection) listF(prefix string, limitPtr *int64, order Order, 
 	}
 }
 
-type iterator struct {
-	index int
-	resp  *etcd.GetResponse
-	col   *readonlyCollection
-}
-
-type paginatedIterator struct {
-	index      int
-	endKey     string
-	resp       *etcd.GetResponse
-	etcdClient *etcd.Client
-	ctx        context.Context
-	col        *readonlyCollection
-}
-
 func (c *readonlyCollection) Count() (int64, error) {
 	resp, err := c.etcdClient.Get(c.ctx, c.prefix, etcd.WithPrefix(), etcd.WithCountOnly())
 	if err != nil {
 		return 0, err
 	}
 	return resp.Count, err
-}
-
-func (i *iterator) Next(key *string, val proto.Message) (ok bool, retErr error) {
-	if err := watch.CheckType(i.col.template, val); err != nil {
-		return false, err
-	}
-	if i.index < len(i.resp.Kvs) {
-		kv := i.resp.Kvs[i.index]
-		i.index++
-
-		*key = path.Base(string(kv.Key))
-		if err := proto.Unmarshal(kv.Value, val); err != nil {
-			return false, err
-		}
-
-		return true, nil
-	}
-	return false, nil
-}
-
-// Next() writes a fully qualified key (including the path) to the key value
-func (i *paginatedIterator) Next(key *string, val proto.Message) (ok bool, retErr error) {
-	if err := watch.CheckType(i.col.template, val); err != nil {
-		return false, err
-	}
-	if i.index < len(i.resp.Kvs) {
-		kv := i.resp.Kvs[i.index]
-		i.index++
-
-		*key = string(kv.Key)
-		if err := proto.Unmarshal(kv.Value, val); err != nil {
-			return false, err
-		}
-
-		return true, nil
-	}
-	if len(i.resp.Kvs) == 0 {
-		//empty response
-		return false, nil
-	}
-	// Reached end of resp, try for another page
-	fromKey := string(i.resp.Kvs[len(i.resp.Kvs)-1].Key)
-	resp, err := i.etcdClient.Get(i.ctx, fromKey, etcd.WithRange(i.endKey), etcd.WithLimit(QueryPaginationLimit))
-	if err != nil {
-		return false, err
-	}
-	if len(resp.Kvs) == 1 {
-		// Only got the from key, there are no more kvs to fetch from etcd
-		return false, nil
-	}
-	i.index = 1 // Move past the from key
-	i.resp = resp
-	return i.Next(key, val)
 }
 
 // Watch a collection, returning the current content of the collection as
