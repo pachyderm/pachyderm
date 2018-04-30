@@ -488,11 +488,11 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 		return f(jobInfo)
 	}
 	if pipeline != nil {
-		return jobs.GetByIndexF(ppsdb.JobsPipelineIndex, pipeline, jobPtr, _f)
+		return jobs.GetByIndexF(col.Descend, ppsdb.JobsPipelineIndex, pipeline, jobPtr, _f)
 	} else if outputCommit != nil {
-		return jobs.GetByIndexF(ppsdb.JobsOutputIndex, outputCommit, jobPtr, _f)
+		return jobs.GetByIndexF(col.Descend, ppsdb.JobsOutputIndex, outputCommit, jobPtr, _f)
 	} else {
-		return jobs.ListF(jobPtr, _f)
+		return jobs.ListF(col.Descend, jobPtr, _f)
 	}
 }
 
@@ -2005,7 +2005,7 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 	pachClient := a.getPachClient().WithCtx(ctx)
 	pipelineInfos := &pps.PipelineInfos{}
 	pipelinePtr := &pps.EtcdPipelineInfo{}
-	if err := a.pipelines.ReadOnly(pachClient.Ctx()).ListF(pipelinePtr, func(string) error {
+	if err := a.pipelines.ReadOnly(pachClient.Ctx()).ListF(col.Descend, pipelinePtr, func(string) error {
 		pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, pipelinePtr)
 		if err != nil {
 			return err
@@ -2027,7 +2027,7 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	if request.All {
 		request.Pipeline = &pps.Pipeline{}
 		pipelinePtr := &pps.EtcdPipelineInfo{}
-		if err := a.pipelines.ReadOnly(ctx).ListF(pipelinePtr, func(pipelineName string) error {
+		if err := a.pipelines.ReadOnly(ctx).ListF(col.Descend, pipelinePtr, func(pipelineName string) error {
 			request.Pipeline.Name = pipelineName
 			_, err := a.deletePipeline(pachClient, request)
 			return err
