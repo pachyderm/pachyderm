@@ -202,11 +202,11 @@ func (c *readWriteCollection) PutTTL(key string, val proto.Message, ttl int64) e
 		}
 	}
 
-  ptr := reflect.ValueOf(val).Pointer()
+	ptr := reflect.ValueOf(val).Pointer()
 	if !c.stm.IsSafePut(c.Path(key), ptr) {
 		return fmt.Errorf("unsafe put for key %v (passed ptr did not receive updated value)", key)
 	}
-  
+
 	if c.indexes != nil {
 		clone := cloneProtoMsg(val)
 
@@ -539,7 +539,6 @@ func (c *readonlyCollection) ListPrefix(prefix string, val proto.Message, f func
 		if err := proto.Unmarshal(kv.Value, val); err != nil {
 			return err
 		}
-		fmt.Printf("Key: %s\n", string(kv.Key))
 		return f(strings.TrimPrefix(string(kv.Key), queryPrefix))
 	})
 }
