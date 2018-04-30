@@ -1791,10 +1791,10 @@ func TestBranch2(t *testing.T) {
 	require.NoError(t, client.DeleteBranch(repo, lastBranch))
 	branches, err = client.ListBranch(repo)
 	require.Equal(t, 2, len(branches))
-	require.Equal(t, "branch1", branches[0].Name)
-	require.Equal(t, commit2, branches[0].Head)
-	require.Equal(t, "branch2", branches[1].Name)
-	require.Equal(t, commit, branches[1].Head)
+	require.Equal(t, "branch2", branches[0].Name)
+	require.Equal(t, commit, branches[0].Head)
+	require.Equal(t, "branch1", branches[1].Name)
+	require.Equal(t, commit2, branches[1].Head)
 }
 
 func TestSubscribeCommit(t *testing.T) {
