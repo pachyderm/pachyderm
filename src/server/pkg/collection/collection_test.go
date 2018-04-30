@@ -62,7 +62,7 @@ func TestIndex(t *testing.T) {
 
 	job := &pps.JobInfo{}
 	i := 1
-	require.NoError(t, jobInfosReadonly.GetByIndexF(pipelineIndex, j1.Pipeline, job, func(ID string) error {
+	require.NoError(t, jobInfosReadonly.GetByIndexF(Descend, pipelineIndex, j1.Pipeline, job, func(ID string) error {
 		switch i {
 		case 1:
 			require.Equal(t, j1.Job.ID, ID)
@@ -78,7 +78,7 @@ func TestIndex(t *testing.T) {
 	}))
 
 	i = 1
-	require.NoError(t, jobInfosReadonly.GetByIndexF(pipelineIndex, j3.Pipeline, job, func(ID string) error {
+	require.NoError(t, jobInfosReadonly.GetByIndexF(Descend, pipelineIndex, j3.Pipeline, job, func(ID string) error {
 		switch i {
 		case 1:
 			require.Equal(t, j3.Job.ID, ID)
@@ -219,37 +219,33 @@ func TestMultiIndex(t *testing.T) {
 	cisReadonly := cis.ReadOnly(context.Background())
 
 	// Test that the first key retrieves both r1 and r2
-	iter, err := cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c1"))
-	require.NoError(t, err)
-	var ID string
 	ci := &pfs.CommitInfo{}
-	ok, err := iter.Next(&ID, ci)
-	require.NoError(t, err)
-	require.True(t, ok)
-	require.Equal(t, c1.Commit.ID, ID)
-	require.Equal(t, c1, ci)
-	ci = &pfs.CommitInfo{}
-	ok, err = iter.Next(&ID, ci)
-	require.NoError(t, err)
-	require.True(t, ok)
-	require.Equal(t, c2.Commit.ID, ID)
-	require.Equal(t, c2, ci)
+	i := 1
+	require.NoError(t, cisReadonly.GetByIndexF(Descend, commitMultiIndex, client.NewCommit("in", "c1"), ci, func(ID string) error {
+		if i == 1 {
+			require.Equal(t, c1.Commit.ID, ID)
+			require.Equal(t, c1, ci)
+		} else {
+			require.Equal(t, c2.Commit.ID, ID)
+			require.Equal(t, c2, ci)
+		}
+		i++
+		return nil
+	}))
 
 	// Test that the second key retrieves both r1 and r2
-	iter, err = cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c2"))
-	require.NoError(t, err)
-	ci = &pfs.CommitInfo{}
-	ok, err = iter.Next(&ID, ci)
-	require.NoError(t, err)
-	require.True(t, ok)
-	require.Equal(t, c1.Commit.ID, ID)
-	require.Equal(t, c1, ci)
-	ci = &pfs.CommitInfo{}
-	ok, err = iter.Next(&ID, ci)
-	require.NoError(t, err)
-	require.True(t, ok)
-	require.Equal(t, c2.Commit.ID, ID)
-	require.Equal(t, c2, ci)
+	i = 1
+	require.NoError(t, cisReadonly.GetByIndexF(Descend, commitMultiIndex, client.NewCommit("in", "c2"), ci, func(ID string) error {
+		if i == 1 {
+			require.Equal(t, c1.Commit.ID, ID)
+			require.Equal(t, c1, ci)
+		} else {
+			require.Equal(t, c2.Commit.ID, ID)
+			require.Equal(t, c2, ci)
+		}
+		i++
+		return nil
+	}))
 
 	// replace "c3" in the provenance of c1 with "c4"
 	c1.Provenance[2].ID = "c4"
@@ -261,24 +257,18 @@ func TestMultiIndex(t *testing.T) {
 	require.NoError(t, err)
 
 	// Now "c3" only retrieves c2 (indexes are updated)
-	iter, err = cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c3"))
-	require.NoError(t, err)
-	ci = &pfs.CommitInfo{}
-	ok, err = iter.Next(&ID, ci)
-	require.NoError(t, err)
-	require.True(t, ok)
-	require.Equal(t, c2.Commit.ID, ID)
-	require.Equal(t, c2, ci)
+	require.NoError(t, cisReadonly.GetByIndexF(Descend, commitMultiIndex, client.NewCommit("in", "c3"), ci, func(ID string) error {
+		require.Equal(t, c2.Commit.ID, ID)
+		require.Equal(t, c2, ci)
+		return nil
+	}))
 
 	// And "C4" only retrieves r1 (indexes are updated)
-	iter, err = cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c4"))
-	require.NoError(t, err)
-	ci = &pfs.CommitInfo{}
-	ok, err = iter.Next(&ID, ci)
-	require.NoError(t, err)
-	require.True(t, ok)
-	require.Equal(t, c1.Commit.ID, ID)
-	require.Equal(t, c1, ci)
+	require.NoError(t, cisReadonly.GetByIndexF(Descend, commitMultiIndex, client.NewCommit("in", "c4"), ci, func(ID string) error {
+		require.Equal(t, c1.Commit.ID, ID)
+		require.Equal(t, c1, ci)
+		return nil
+	}))
 
 	// Delete c1 from etcd completely
 	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
@@ -288,14 +278,11 @@ func TestMultiIndex(t *testing.T) {
 	})
 
 	// Now "c1" only retrieves c2
-	iter, err = cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c1"))
-	require.NoError(t, err)
-	ci = &pfs.CommitInfo{}
-	ok, err = iter.Next(&ID, ci)
-	require.NoError(t, err)
-	require.True(t, ok)
-	require.Equal(t, c2.Commit.ID, ID)
-	require.Equal(t, c2, ci)
+	require.NoError(t, cisReadonly.GetByIndexF(Descend, commitMultiIndex, client.NewCommit("in", "c1"), ci, func(ID string) error {
+		require.Equal(t, c2.Commit.ID, ID)
+		require.Equal(t, c2, ci)
+		return nil
+	}))
 }
 
 func TestBoolIndex(t *testing.T) {
@@ -426,7 +413,7 @@ func TestPagination(t *testing.T) {
 		ro := col.ReadOnly(context.Background())
 		val := &types.Empty{}
 		i := numVals - 1
-		require.NoError(t, ro.ListF(val, func(key string) error {
+		require.NoError(t, ro.ListF(Descend, val, func(key string) error {
 			require.Equal(t, fmt.Sprintf("%d", i), key)
 			i--
 			return nil
@@ -451,7 +438,7 @@ func TestPagination(t *testing.T) {
 		vals := make(map[string]bool)
 		ro := col.ReadOnly(context.Background())
 		val := &types.Empty{}
-		require.NoError(t, ro.ListF(val, func(key string) error {
+		require.NoError(t, ro.ListF(Descend, val, func(key string) error {
 			require.False(t, vals[key], "saw value %s twice", key)
 			vals[key] = true
 			return nil
@@ -475,7 +462,7 @@ func TestPagination(t *testing.T) {
 		vals := make(map[string]bool)
 		ro := col.ReadOnly(context.Background())
 		val := &pfs.Repo{}
-		require.NoError(t, ro.ListF(val, func(key string) error {
+		require.NoError(t, ro.ListF(Descend, val, func(key string) error {
 			require.False(t, vals[key], "saw value %s twice", key)
 			vals[key] = true
 			return nil
