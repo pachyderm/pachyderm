@@ -21,10 +21,12 @@ import (
 
 const defaultLimit int64 = 1024
 
-type Order int
+type order int
 
 const (
-	Descend Order = iota
+	// Descend is passed to iterative methods to order the objects newest-to-oldest.
+	Descend order = iota
+	// Ascend is passed to iteration methods to order the objects oldest-to-newest.
 	Ascend
 )
 
@@ -441,7 +443,7 @@ func (c *readonlyCollection) Get(key string, val proto.Message) error {
 	return proto.Unmarshal(resp.Kvs[0].Value, val)
 }
 
-func (c *readonlyCollection) GetByIndexF(order Order, index Index, indexVal interface{}, val proto.Message, f func(key string) error) error {
+func (c *readonlyCollection) GetByIndexF(order order, index Index, indexVal interface{}, val proto.Message, f func(key string) error) error {
 	if index.limit == nil {
 		limit := defaultLimit
 		index.limit = &limit
@@ -482,7 +484,7 @@ func (c *readonlyCollection) GetBlock(key string, val proto.Message) error {
 // ListPrefix returns keys (and values) that being with prefix, f will be
 // called with each key, val will contain the value for the key.
 // You can break out of iteration by returning errutil.ErrBreak.
-func (c *readonlyCollection) ListPrefix(prefix string, order Order, val proto.Message, f func(string) error) error {
+func (c *readonlyCollection) ListPrefix(prefix string, order order, val proto.Message, f func(string) error) error {
 	queryPrefix := c.prefix
 	if prefix != "" {
 		// If we always call join, we'll get rid of the trailing slash we need
@@ -502,7 +504,7 @@ func (c *readonlyCollection) ListPrefix(prefix string, order Order, val proto.Me
 // corresponding value. Val is not an argument to f because that would require
 // f to perform a cast before it could be used.
 // You can break out of iteration by returning errutil.ErrBreak.
-func (c *readonlyCollection) ListF(order Order, val proto.Message, f func(string) error) error {
+func (c *readonlyCollection) ListF(order order, val proto.Message, f func(string) error) error {
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
@@ -514,7 +516,7 @@ func (c *readonlyCollection) ListF(order Order, val proto.Message, f func(string
 	})
 }
 
-func (c *readonlyCollection) listF(prefix string, limitPtr *int64, order Order, f func(*mvccpb.KeyValue) error) error {
+func (c *readonlyCollection) listF(prefix string, limitPtr *int64, order order, f func(*mvccpb.KeyValue) error) error {
 	rev := int64(-1)
 	keysInRev := make(map[string]bool)
 	for {
