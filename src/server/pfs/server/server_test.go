@@ -1305,7 +1305,7 @@ func TestListFile(t *testing.T) {
 	fileInfos, err := client.ListFile(repo, commit.ID, "dir")
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileInfos))
-	require.True(t, fileInfos[0].File.Path == "dir/foo" && fileInfos[1].File.Path == "dir/bar" || fileInfos[0].File.Path == "dir/bar" && fileInfos[1].File.Path == "dir/foo")
+	require.True(t, fileInfos[0].File.Path == "/dir/foo" && fileInfos[1].File.Path == "/dir/bar" || fileInfos[0].File.Path == "/dir/bar" && fileInfos[1].File.Path == "/dir/foo")
 	require.True(t, fileInfos[0].SizeBytes == fileInfos[1].SizeBytes && fileInfos[0].SizeBytes == uint64(len(fileContent1)))
 
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
@@ -1313,7 +1313,7 @@ func TestListFile(t *testing.T) {
 	fileInfos, err = client.ListFile(repo, commit.ID, "dir")
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileInfos))
-	require.True(t, fileInfos[0].File.Path == "dir/foo" && fileInfos[1].File.Path == "dir/bar" || fileInfos[0].File.Path == "dir/bar" && fileInfos[1].File.Path == "dir/foo")
+	require.True(t, fileInfos[0].File.Path == "/dir/foo" && fileInfos[1].File.Path == "/dir/bar" || fileInfos[0].File.Path == "/dir/bar" && fileInfos[1].File.Path == "/dir/foo")
 	require.True(t, fileInfos[0].SizeBytes == fileInfos[1].SizeBytes && fileInfos[0].SizeBytes == uint64(len(fileContent1)))
 }
 
@@ -2882,20 +2882,6 @@ func TestGlob(t *testing.T) {
 	fileInfos, err = c.GlobFile(repo, "master", "*/*")
 	require.NoError(t, err)
 	require.Equal(t, numFiles+1, len(fileInfos))
-
-	// Is glob
-	require.True(t, isGlob(`*`))
-	require.True(t, isGlob(`path/to*/file`))
-	require.True(t, isGlob(`path/**/file`))
-	require.True(t, isGlob(`path/to/f?le`))
-	require.True(t, isGlob(`pa!h/to/file`))
-	require.True(t, isGlob(`pa[th]/to/file`))
-	require.True(t, isGlob(`pa{th}/to/file`))
-	require.True(t, isGlob(`*/*`))
-
-	require.False(t, isGlob(`path`))
-	require.False(t, isGlob(`path/to/file1.txt`))
-	require.False(t, isGlob(`path/to_test-a/file.txt`))
 
 	// Test file glob
 	fileInfos, err = c.ListFile(repo, "master", "*")

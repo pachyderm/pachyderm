@@ -1792,21 +1792,6 @@ func (d *driver) filePathFromEtcdPath(etcdPath string) string {
 	return path.Join(split[4:]...)
 }
 
-// validatePath checks if a file path is legal
-func validatePath(path string) error {
-	match, _ := regexp.MatchString("^[ -~]+$", path)
-
-	if !match {
-		return fmt.Errorf("path (%v) invalid: only printable ASCII characters allowed", path)
-	}
-
-	if isGlob(path) {
-		return fmt.Errorf("path (%v) invalid: globbing character (%v) not allowed in path", path, globRegex.FindString(path))
-	}
-
-	return nil
-}
-
 func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter,
 	targetFileDatums int64, targetFileBytes int64, overwriteIndex *pfs.OverwriteIndex, reader io.Reader) error {
 	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_WRITER); err != nil {
@@ -1827,7 +1812,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	}
 
 	records := &pfs.PutFileRecords{}
-	if err := validatePath(file.Path); err != nil {
+	if err := hashtree.ValidatePath(file.Path); err != nil {
 		return err
 	}
 
@@ -1940,7 +1925,7 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 	if err := d.checkIsAuthorized(ctx, dst.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	if err := validatePath(dst.Path); err != nil {
+	if err := hashtree.ValidatePath(dst.Path); err != nil {
 		return err
 	}
 	if _, err := d.inspectCommit(ctx, dst.Commit, pfs.CommitState_STARTED); err != nil {
@@ -2122,26 +2107,19 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		return nil, err
 	}
 
-	fileInfos, err := d.globFile(ctx, file.Commit, file.Path)
+	tree, err := d.getTreeForFile(ctx, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))
+	if err != nil {
+		return nil, err
+	}
+
+	paths, err := tree.Glob(file.Path)
 	if err != nil {
 		return nil, err
 	}
 
 	var objects []*pfs.Object
 	var totalSize int64
-	for _, fileInfo := range fileInfos {
-		file := fileInfo.GetFile()
-
-		tree, err := d.getTreeForFile(ctx, file)
-		if err != nil {
-			return nil, err
-		}
-
-		node, err := tree.Get(file.Path)
-		if err != nil {
-			return nil, pfsserver.ErrFileNotFound{file}
-		}
-
+	for _, node := range paths {
 		if node.FileNode == nil {
 			continue
 		}
@@ -2208,6 +2186,7 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 		return nil, pfsserver.ErrFileNotFound{file}
 	}
 
+	// TODO(bryce) Add file path cleaning to this return
 	return nodeToFileInfo(file.Commit, file.Path, node, true), nil
 }
 
@@ -2216,31 +2195,29 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool) ([]*pf
 		return nil, err
 	}
 
-	rootFileInfos, err := d.globFile(ctx, file.Commit, file.Path)
+	tree, err := d.getTreeForFile(ctx, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))
+	if err != nil {
+		return nil, err
+	}
+
+	rootPaths, err := tree.Glob(file.Path)
 	if err != nil {
 		return nil, err
 	}
 
 	var fileInfos []*pfs.FileInfo
-	for _, rootFileInfo := range rootFileInfos {
-		file := rootFileInfo.GetFile()
-
-		tree, err := d.getTreeForFile(ctx, file)
-		if err != nil {
-			return nil, err
-		}
-
-		nodes, err := tree.List(file.Path)
+	for rootPath, rootNode := range rootPaths {
+		nodes, err := tree.List(rootPath)
 		if err != nil {
 			if hashtree.Code(err) == hashtree.PathConflict {
-				fileInfos = append(fileInfos, rootFileInfo)
+				fileInfos = append(fileInfos, nodeToFileInfo(file.Commit, rootPath, rootNode, full))
 				continue
 			}
 			return nil, err
 		}
 
 		for _, node := range nodes {
-			fileInfos = append(fileInfos, nodeToFileInfo(file.Commit, path.Join(file.Path, node.Name), node, full))
+			fileInfos = append(fileInfos, nodeToFileInfo(file.Commit, filepath.Join(rootPath, node.Name), node, full))
 		}
 	}
 
@@ -2251,31 +2228,20 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern strin
 	if err := d.checkIsAuthorized(ctx, commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
+
 	tree, err := d.getTreeForFile(ctx, client.NewFile(commit.Repo.Name, commit.ID, ""))
 	if err != nil {
 		return nil, err
 	}
 
-	if !isGlob(pattern) {
-		node, err := tree.Get(pattern)
-		// Path not found is a no-op
-		if hashtree.Code(err) == hashtree.PathNotFound {
-			return nil, nil
-		}
-		if err != nil {
-			return nil, err
-		}
-		return []*pfs.FileInfo{nodeToFileInfo(commit, pattern, node, false)}, nil
-	}
-
-	nodes, err := tree.Glob(pattern)
+	paths, err := tree.Glob(pattern)
 	if err != nil {
 		return nil, err
 	}
 
 	var fileInfos []*pfs.FileInfo
-	for _, node := range nodes {
-		fileInfos = append(fileInfos, nodeToFileInfo(commit, node.Name, node, false))
+	for path, node := range paths {
+		fileInfos = append(fileInfos, nodeToFileInfo(commit, path, node, false))
 	}
 	return fileInfos, nil
 }
@@ -2350,14 +2316,8 @@ func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
 		file.Path = "/*"
 	}
 
-	fileInfos, err := d.globFile(ctx, file.Commit, file.Path)
-	if err != nil {
+	if err := d.upsertPutFileRecords(ctx, file, &pfs.PutFileRecords{Tombstone: true}); err != nil {
 		return err
-	}
-	for _, fileInfo := range fileInfos {
-		if err := d.upsertPutFileRecords(ctx, fileInfo.File, &pfs.PutFileRecords{Tombstone: true}); err != nil {
-			return err
-		}
 	}
 
 	return nil
@@ -2450,11 +2410,7 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 
 	if records.Tombstone {
 		if err := tree.DeleteFile(filePath); err != nil {
-			// Deleting a non-existent file in an open commit should
-			// be a no-op
-			if hashtree.Code(err) != hashtree.PathNotFound {
-				return err
-			}
+			return err
 		}
 	}
 	if !records.Split {
@@ -2611,11 +2567,4 @@ func (b *branchSet) has(branch *pfs.Branch) bool {
 
 func has(bs *[]*pfs.Branch, branch *pfs.Branch) bool {
 	return (*branchSet)(bs).has(branch)
-}
-
-var globRegex = regexp.MustCompile(`[*?\[\]\{\}!]`)
-
-// isGlob checks if the pattern contains a glob character
-func isGlob(pattern string) bool {
-	return globRegex.Match([]byte(pattern))
 }

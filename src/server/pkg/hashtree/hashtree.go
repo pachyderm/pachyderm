@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	pathlib "path"
+	"regexp"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -144,7 +145,12 @@ func (h *HashTreeProto) List(path string) ([]*NodeProto, error) {
 	return list(h.Fs, path)
 }
 
-func glob(fs map[string]*NodeProto, pattern string) ([]*NodeProto, error) {
+func glob(fs map[string]*NodeProto, pattern string) (map[string]*NodeProto, error) {
+	if !isGlob(pattern) {
+		node, err := get(fs, pattern)
+		return map[string]*NodeProto{clean(pattern): node}, err
+	}
+
 	// "*" should be an allowed pattern, but our paths always start with "/", so
 	// modify the pattern to fit our path structure.
 	pattern = clean(pattern)
@@ -154,21 +160,25 @@ func glob(fs map[string]*NodeProto, pattern string) ([]*NodeProto, error) {
 		return nil, errorf(MalformedGlob, err.Error())
 	}
 
-	var res []*NodeProto
+	res := make(map[string]*NodeProto)
 	for path, node := range fs {
 		if g.Match(path) {
-			nodeCopy := new(NodeProto)
-			*nodeCopy = *node
-			nodeCopy.Name = path
-			res = append(res, nodeCopy)
+			res[path] = node
 		}
 	}
+
 	return res, nil
 }
 
-// Glob returns a list of files and directories that match 'pattern'.
-// The nodes returned have their 'Name' field set to their full paths.
-func (h *HashTreeProto) Glob(pattern string) ([]*NodeProto, error) {
+var globRegex = regexp.MustCompile(`[*?\[\]\{\}!]`)
+
+// isGlob checks if the pattern contains a glob character
+func isGlob(pattern string) bool {
+	return globRegex.Match([]byte(pattern))
+}
+
+// Glob returns a map of file/directory paths to nodes that match 'pattern'.
+func (h *HashTreeProto) Glob(pattern string) (map[string]*NodeProto, error) {
 	return glob(h.Fs, pattern)
 }
 
@@ -294,9 +304,8 @@ func (h *hashtree) List(path string) ([]*NodeProto, error) {
 	return list(h.fs, path)
 }
 
-// Glob returns a list of files and directories that match 'pattern'.
-// The nodes returned have their 'Name' field set to their full paths.
-func (h *hashtree) Glob(pattern string) ([]*NodeProto, error) {
+// Glob returns a map of file/directory paths to nodes that match 'pattern'.
+func (h *hashtree) Glob(pattern string) (map[string]*NodeProto, error) {
 	return glob(h.fs, pattern)
 }
 
@@ -579,40 +588,52 @@ func (h *hashtree) PutDir(path string) error {
 
 // DeleteFile deletes a regular file or directory (along with its children).
 func (h *hashtree) DeleteFile(path string) error {
-	path = clean(path)
+	paths, err := h.Glob(path)
 
-	// Remove 'path' and all nodes underneath it from h.fs
-	node, ok := h.fs[path]
-	if !ok {
-		return errorf(PathNotFound, "no file at \"%s\"", path)
+	// Deleting a non-existent file should be a no-op
+	if err != nil && Code(err) != PathNotFound {
+		return err
 	}
-	h.removeFromMap(path) // Deletes children recursively
-	size := node.SubtreeSize
 
-	// Remove 'path' from its parent directory
-	parent, child := split(path)
-	node, ok = h.fs[parent]
-	if !ok {
-		return errorf(Internal, "delete discovered orphaned file \"%s\"", path)
-	}
-	if node.DirNode == nil {
-		return errorf(Internal, "file at \"%s\" is a regular-file, but \"%s\" already exists "+
-			"under it (likely an uncaught PathConflict in prior PutFile or Merge)", path, node.DirNode)
-	}
-	if !removeStr(&node.DirNode.Children, child) {
-		return errorf(Internal, "parent of \"%s\" does not contain it", path)
-	}
-	// Mark nodes as 'changed' back to root
-	return h.visit(path, func(node *NodeProto, parent, child string) error {
-		if node == nil {
-			return errorf(Internal,
-				"encountered orphaned file \"%s\" while deleting \"%s\"", path,
-				join(parent, child))
+	for path := range paths {
+		// Check if the file has been deleted already
+		if _, ok := h.fs[path]; !ok {
+			continue
 		}
-		node.SubtreeSize -= size
-		h.changed[parent] = true
-		return nil
-	})
+
+		// Remove 'path' and all nodes underneath it from h.fs
+		h.removeFromMap(path) // Deletes children recursively
+		size := paths[path].SubtreeSize
+
+		// Remove 'path' from its parent directory
+		parent, child := split(path)
+		node, ok := h.fs[parent]
+		if !ok {
+			return errorf(Internal, "delete discovered orphaned file \"%s\"", path)
+		}
+		if node.DirNode == nil {
+			return errorf(Internal, "file at \"%s\" is a regular-file, but \"%s\" already exists "+
+				"under it (likely an uncaught PathConflict in prior PutFile or Merge)", path, node.DirNode)
+		}
+		if !removeStr(&node.DirNode.Children, child) {
+			return errorf(Internal, "parent of \"%s\" does not contain it", path)
+		}
+		// Mark nodes as 'changed' back to root
+		if err := h.visit(path, func(node *NodeProto, parent, child string) error {
+			if node == nil {
+				return errorf(Internal,
+					"encountered orphaned file \"%s\" while deleting \"%s\"", path,
+					join(parent, child))
+			}
+			node.SubtreeSize -= size
+			h.changed[parent] = true
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // GetOpen retrieves a file.

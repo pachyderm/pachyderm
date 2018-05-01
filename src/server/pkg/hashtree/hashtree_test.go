@@ -237,18 +237,6 @@ func TestPutError(t *testing.T) {
 	})
 }
 
-func TestDeleteDirError(t *testing.T) {
-	// Put root dir
-	h := NewHashTree().(*hashtree)
-	h.PutDir("/")
-	require.Equal(t, 1, len(h.fs))
-
-	err := h.DeleteFile("/does/not/exist")
-	require.YesError(t, err)
-	require.Equal(t, PathNotFound, Code(err))
-	require.Equal(t, 1, len(h.fs))
-}
-
 // Given a directory D, test that adding and then deleting a file/directory to
 // D does not change D.
 func TestAddDeleteReverts(t *testing.T) {
@@ -430,6 +418,19 @@ func TestRewriteChangesHash(t *testing.T) {
 }
 
 func TestGlobFile(t *testing.T) {
+	// Is glob
+	require.True(t, isGlob(`*`))
+	require.True(t, isGlob(`path/to*/file`))
+	require.True(t, isGlob(`path/**/file`))
+	require.True(t, isGlob(`path/to/f?le`))
+	require.True(t, isGlob(`pa!h/to/file`))
+	require.True(t, isGlob(`pa[th]/to/file`))
+	require.True(t, isGlob(`pa{th}/to/file`))
+	require.True(t, isGlob(`*/*`))
+	require.False(t, isGlob(`path`))
+	require.False(t, isGlob(`path/to/file1.txt`))
+	require.False(t, isGlob(`path/to_test-a/file.txt`))
+
 	hTmp := NewHashTree()
 	hTmp.PutFile("/foo", obj(`hash:"20c27"`), 1)
 	hTmp.PutFile("/dir/bar", obj(`hash:"ebc57"`), 1)
@@ -437,33 +438,33 @@ func TestGlobFile(t *testing.T) {
 	h, err := hTmp.Finish()
 	require.NoError(t, err)
 
-	// Patterns that match the whole repo ("/")
+	// patterns that match the whole repo ("/")
 	for _, pattern := range []string{"", "/"} {
-		nodes, err := h.Glob(pattern)
+		paths, err := h.Glob(pattern)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(nodes))
-		for _, node := range nodes {
-			require.EqualOneOf(t, i(""), node.Name)
+		require.Equal(t, 1, len(paths))
+		for path := range paths {
+			require.EqualOneOf(t, i(""), path)
 		}
 	}
 
 	// patterns that match top-level dirs/files
 	for _, pattern := range []string{"*", "/*"} {
-		nodes, err := h.Glob(pattern)
+		paths, err := h.Glob(pattern)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(nodes))
-		for _, node := range nodes {
-			require.EqualOneOf(t, i("/foo", "/dir"), node.Name)
+		require.Equal(t, 2, len(paths))
+		for path := range paths {
+			require.EqualOneOf(t, i("/foo", "/dir"), path)
 		}
 	}
 
-	// Patterns that match second-level dirs/files
+	// patterns that match second-level dirs/files
 	for _, pattern := range []string{"dir/*", "/dir/*", "*/*", "/*/*"} {
-		nodes, err := h.Glob(pattern)
+		paths, err := h.Glob(pattern)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(nodes))
-		for _, node := range nodes {
-			require.EqualOneOf(t, i("/dir/bar", "/dir/buzz"), node.Name)
+		require.Equal(t, 2, len(paths))
+		for path := range paths {
+			require.EqualOneOf(t, i("/dir/bar", "/dir/buzz"), path)
 		}
 	}
 }
