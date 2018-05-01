@@ -2653,9 +2653,6 @@ func TestPutFileSplitDelete(t *testing.T) {
 
 	files, err := c.ListFile(repo, commit.ID, "line")
 	require.NoError(t, err)
-	for _, file := range files {
-		fmt.Printf("File: %s\n", file.File.Path)
-	}
 	require.Equal(t, 7, len(files))
 	for _, fileInfo := range files {
 		require.Equal(t, uint64(4), fileInfo.SizeBytes)
