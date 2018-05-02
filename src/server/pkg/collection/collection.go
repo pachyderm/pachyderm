@@ -11,6 +11,9 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
@@ -481,7 +484,7 @@ func (c *readonlyCollection) GetBlock(key string, val proto.Message) error {
 	}
 }
 
-// ListPrefix returns keys (and values) that being with prefix, f will be
+// ListPrefix returns keys (and values) that begin with prefix, f will be
 // called with each key, val will contain the value for the key.
 // You can break out of iteration by returning errutil.ErrBreak.
 func (c *readonlyCollection) ListPrefix(prefix string, order order, val proto.Message, f func(string) error) error {
@@ -539,7 +542,7 @@ func (c *readonlyCollection) listF(prefix string, limitPtr *int64, order order, 
 			var err error
 			resp, err = c.etcdClient.Get(c.ctx, prefix, append(opts, etcd.WithLimit(limit))...)
 			if err != nil {
-				if strings.Contains(err.Error(), "received message larger than max") {
+				if status.Convert(err).Code() == codes.ResourceExhausted && limit > 1 {
 					atomic.CompareAndSwapInt64(limitPtr, limit, limit/2)
 					continue
 				}
