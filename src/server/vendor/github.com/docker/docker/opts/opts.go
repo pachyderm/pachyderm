@@ -1,10 +1,13 @@
-package opts
+package opts // import "github.com/docker/docker/opts"
 
 import (
 	"fmt"
 	"net"
+	"path"
 	"regexp"
 	"strings"
+
+	units "github.com/docker/go-units"
 )
 
 var (
@@ -33,7 +36,10 @@ func NewListOptsRef(values *[]string, validator ValidatorFctType) *ListOpts {
 }
 
 func (opts *ListOpts) String() string {
-	return fmt.Sprintf("%v", []string((*opts.values)))
+	if len(*opts.values) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%v", *opts.values)
 }
 
 // Set validates if needed the input value and adds it to the
@@ -105,6 +111,12 @@ func (opts *ListOpts) Type() string {
 	return "list"
 }
 
+// WithValidator returns the ListOpts with validator set.
+func (opts *ListOpts) WithValidator(validator ValidatorFctType) *ListOpts {
+	opts.validator = validator
+	return opts
+}
+
 // NamedOption is an interface that list and map options
 // with names implement.
 type NamedOption interface {
@@ -134,7 +146,7 @@ func (o *NamedListOpts) Name() string {
 	return o.name
 }
 
-//MapOpts holds a map of values and a validation function.
+// MapOpts holds a map of values and a validation function.
 type MapOpts struct {
 	values    map[string]string
 	validator ValidatorFctType
@@ -165,7 +177,7 @@ func (opts *MapOpts) GetAll() map[string]string {
 }
 
 func (opts *MapOpts) String() string {
-	return fmt.Sprintf("%v", map[string]string((opts.values)))
+	return fmt.Sprintf("%v", opts.values)
 }
 
 // Type returns a string name for this Option type
@@ -251,34 +263,75 @@ func ValidateLabel(val string) (string, error) {
 	return val, nil
 }
 
-// ValidateSysctl validates a sysctl and returns it.
-func ValidateSysctl(val string) (string, error) {
-	validSysctlMap := map[string]bool{
-		"kernel.msgmax":          true,
-		"kernel.msgmnb":          true,
-		"kernel.msgmni":          true,
-		"kernel.sem":             true,
-		"kernel.shmall":          true,
-		"kernel.shmmax":          true,
-		"kernel.shmmni":          true,
-		"kernel.shm_rmid_forced": true,
+// ValidateSingleGenericResource validates that a single entry in the
+// generic resource list is valid.
+// i.e 'GPU=UID1' is valid however 'GPU:UID1' or 'UID1' isn't
+func ValidateSingleGenericResource(val string) (string, error) {
+	if strings.Count(val, "=") < 1 {
+		return "", fmt.Errorf("invalid node-generic-resource format `%s` expected `name=value`", val)
 	}
-	validSysctlPrefixes := []string{
-		"net.",
-		"fs.mqueue.",
-	}
-	arr := strings.Split(val, "=")
-	if len(arr) < 2 {
-		return "", fmt.Errorf("sysctl '%s' is not whitelisted", val)
-	}
-	if validSysctlMap[arr[0]] {
-		return val, nil
-	}
+	return val, nil
+}
 
-	for _, vp := range validSysctlPrefixes {
-		if strings.HasPrefix(arr[0], vp) {
-			return val, nil
-		}
+// ParseLink parses and validates the specified string as a link format (name:alias)
+func ParseLink(val string) (string, string, error) {
+	if val == "" {
+		return "", "", fmt.Errorf("empty string specified for links")
 	}
-	return "", fmt.Errorf("sysctl '%s' is not whitelisted", val)
+	arr := strings.Split(val, ":")
+	if len(arr) > 2 {
+		return "", "", fmt.Errorf("bad format for links: %s", val)
+	}
+	if len(arr) == 1 {
+		return val, val, nil
+	}
+	// This is kept because we can actually get a HostConfig with links
+	// from an already created container and the format is not `foo:bar`
+	// but `/foo:/c1/bar`
+	if strings.HasPrefix(arr[0], "/") {
+		_, alias := path.Split(arr[1])
+		return arr[0][1:], alias, nil
+	}
+	return arr[0], arr[1], nil
+}
+
+// MemBytes is a type for human readable memory bytes (like 128M, 2g, etc)
+type MemBytes int64
+
+// String returns the string format of the human readable memory bytes
+func (m *MemBytes) String() string {
+	// NOTE: In spf13/pflag/flag.go, "0" is considered as "zero value" while "0 B" is not.
+	// We return "0" in case value is 0 here so that the default value is hidden.
+	// (Sometimes "default 0 B" is actually misleading)
+	if m.Value() != 0 {
+		return units.BytesSize(float64(m.Value()))
+	}
+	return "0"
+}
+
+// Set sets the value of the MemBytes by passing a string
+func (m *MemBytes) Set(value string) error {
+	val, err := units.RAMInBytes(value)
+	*m = MemBytes(val)
+	return err
+}
+
+// Type returns the type
+func (m *MemBytes) Type() string {
+	return "bytes"
+}
+
+// Value returns the value in int64
+func (m *MemBytes) Value() int64 {
+	return int64(*m)
+}
+
+// UnmarshalJSON is the customized unmarshaler for MemBytes
+func (m *MemBytes) UnmarshalJSON(s []byte) error {
+	if len(s) <= 2 || s[0] != '"' || s[len(s)-1] != '"' {
+		return fmt.Errorf("invalid size: %q", s)
+	}
+	val, err := units.RAMInBytes(string(s[1 : len(s)-1]))
+	*m = MemBytes(val)
+	return err
 }
