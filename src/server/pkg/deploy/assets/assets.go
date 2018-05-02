@@ -49,8 +49,6 @@ var (
 	etcdStorageClassName    = "etcd-storage-class"
 	grpcProxyName           = "grpc-proxy"
 	pachdName               = "pachd"
-
-	trueVal = true
 )
 
 type backend int
@@ -406,10 +404,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 									Name:          "api-git-port",
 								},
 							},
-							VolumeMounts: volumeMounts,
-							SecurityContext: &v1.SecurityContext{
-								Privileged: &trueVal, // god is this dumb
-							},
+							VolumeMounts:    volumeMounts,
 							ImagePullPolicy: "IfNotPresent",
 							Resources:       resourceRequirements,
 							ReadinessProbe: &v1.Probe{
