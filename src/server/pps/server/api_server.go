@@ -136,12 +136,12 @@ func validateNames(names map[string]bool, input *pps.Input) error {
 	switch {
 	case input.Atom != nil:
 		if names[input.Atom.Name] {
-			return fmt.Errorf("name %s was used more than once", input.Atom.Name)
+			return fmt.Errorf(`name "%s" was used more than once`, input.Atom.Name)
 		}
 		names[input.Atom.Name] = true
 	case input.Cron != nil:
 		if names[input.Cron.Name] {
-			return fmt.Errorf("name %s was used more than once", input.Cron.Name)
+			return fmt.Errorf(`name "%s" was used more than once`, input.Cron.Name)
 		}
 		names[input.Cron.Name] = true
 	case input.Union != nil:
@@ -165,7 +165,7 @@ func validateNames(names map[string]bool, input *pps.Input) error {
 		}
 	case input.Git != nil:
 		if names[input.Git.Name] == true {
-			return fmt.Errorf("name %s was used more than once", input.Git.Name)
+			return fmt.Errorf(`name "%s" was used more than once`, input.Git.Name)
 		}
 		names[input.Git.Name] = true
 	}
