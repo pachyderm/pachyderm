@@ -398,7 +398,7 @@ func TestTTLExtend(t *testing.T) {
 	require.True(t, actualTTL > TTL && actualTTL < LongerTTL, "actualTTL was %v", actualTTL)
 }
 
-func TestPagination(t *testing.T) {
+func TestIteration(t *testing.T) {
 	etcdClient := getEtcdClient()
 	t.Run("one-val-per-txn", func(t *testing.T) {
 		uuidPrefix := uuid.NewWithoutDashes()
