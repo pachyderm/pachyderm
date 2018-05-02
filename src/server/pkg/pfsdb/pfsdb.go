@@ -21,7 +21,7 @@ const (
 
 var (
 	// ProvenanceIndex is a secondary index on provenance
-	ProvenanceIndex = col.Index{Field: "Provenance", Multi: true}
+	ProvenanceIndex = &col.Index{Field: "Provenance", Multi: true}
 )
 
 // Repos returns a collection of repos
@@ -53,7 +53,7 @@ func Commits(etcdClient *etcd.Client, etcdPrefix string, repo string) col.Collec
 	return col.NewCollection(
 		etcdClient,
 		path.Join(etcdPrefix, commitsPrefix, repo),
-		[]col.Index{ProvenanceIndex},
+		[]*col.Index{ProvenanceIndex},
 		&pfs.CommitInfo{},
 		nil,
 		nil,

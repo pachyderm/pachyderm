@@ -53,7 +53,7 @@ type Collection interface {
 type Index struct {
 	Field string
 	Multi bool
-	limit *int64
+	limit int64
 }
 
 // ReadWriteCollection is a collection interface that supports read,write and delete
@@ -96,7 +96,7 @@ type ReadWriteIntCollection interface {
 // ReadonlyCollection is a collection interface that only supports read ops.
 type ReadonlyCollection interface {
 	Get(key string, val proto.Message) error
-	GetByIndexF(order order, index Index, indexVal interface{}, val proto.Message, f func(key string) error) error
+	GetByIndexF(order order, index *Index, indexVal interface{}, val proto.Message, f func(key string) error) error
 	// GetBlock is like Get but waits for the key to exist if it doesn't already.
 	GetBlock(key string, val proto.Message) error
 	ListF(order order, val proto.Message, f func(key string) error) error
@@ -107,7 +107,7 @@ type ReadonlyCollection interface {
 	// versions of the key/value.
 	WatchWithPrev() (watch.Watcher, error)
 	WatchOne(key string) (watch.Watcher, error)
-	WatchByIndex(index Index, val interface{}) (watch.Watcher, error)
+	WatchByIndex(index *Index, val interface{}) (watch.Watcher, error)
 }
 
 // Iterator is an interface for iterating protobufs.

@@ -38,7 +38,7 @@ const (
 type collection struct {
 	etcdClient *etcd.Client
 	prefix     string
-	indexes    []Index
+	indexes    []*Index
 	// The limit used when listing the collection. This gets automatically
 	// tuned when requests fail so it's stored per collection.
 	limit int64
@@ -58,7 +58,7 @@ type collection struct {
 }
 
 // NewCollection creates a new collection.
-func NewCollection(etcdClient *etcd.Client, prefix string, indexes []Index, template proto.Message, keyCheck func(string) error, valCheck func(proto.Message) error) Collection {
+func NewCollection(etcdClient *etcd.Client, prefix string, indexes []*Index, template proto.Message, keyCheck func(string) error, valCheck func(proto.Message) error) Collection {
 	// We want to ensure that the prefix always ends with a trailing
 	// slash.  Otherwise, when you list the items under a collection
 	// such as `foo`, you might end up listing items under `foobar`
@@ -104,14 +104,14 @@ func (c *collection) Path(key string) string {
 	return path.Join(c.prefix, key)
 }
 
-func (c *collection) indexRoot(index Index) string {
+func (c *collection) indexRoot(index *Index) string {
 	// remove trailing slash from c.prefix
 	return fmt.Sprintf("%s__index_%s/",
 		strings.TrimRight(c.prefix, "/"), index.Field)
 }
 
 // See the documentation for `Index` for details.
-func (c *collection) indexDir(index Index, indexVal interface{}) string {
+func (c *collection) indexDir(index *Index, indexVal interface{}) string {
 	var indexValStr string
 	if marshaller, ok := indexVal.(proto.Marshaler); ok {
 		if indexValBytes, err := marshaller.Marshal(); err == nil {
@@ -130,7 +130,7 @@ func (c *collection) indexDir(index Index, indexVal interface{}) string {
 }
 
 // See the documentation for `Index` for details.
-func (c *collection) indexPath(index Index, indexVal interface{}, key string) string {
+func (c *collection) indexPath(index *Index, indexVal interface{}, key string) string {
 	return path.Join(c.indexDir(index, indexVal), key)
 }
 
@@ -171,7 +171,7 @@ func cloneProtoMsg(original proto.Message) proto.Message {
 
 // Giving a value, an index, and the key of the item, return the path
 // under which the new index item should be stored.
-func (c *readWriteCollection) getIndexPath(val interface{}, index Index, key string) string {
+func (c *readWriteCollection) getIndexPath(val interface{}, index *Index, key string) string {
 	reflVal := reflect.ValueOf(val)
 	field := reflect.Indirect(reflVal).FieldByName(index.Field).Interface()
 	return c.indexPath(index, field, key)
@@ -179,7 +179,7 @@ func (c *readWriteCollection) getIndexPath(val interface{}, index Index, key str
 
 // Giving a value, a multi-index, and the key of the item, return the
 // paths under which the multi-index items should be stored.
-func (c *readWriteCollection) getMultiIndexPaths(val interface{}, index Index, key string) []string {
+func (c *readWriteCollection) getMultiIndexPaths(val interface{}, index *Index, key string) []string {
 	var indexPaths []string
 	field := reflect.Indirect(reflect.ValueOf(val)).FieldByName(index.Field)
 	for i := 0; i < field.Len(); i++ {
@@ -448,12 +448,11 @@ func (c *readonlyCollection) Get(key string, val proto.Message) error {
 	return proto.Unmarshal(resp.Kvs[0].Value, val)
 }
 
-func (c *readonlyCollection) GetByIndexF(order order, index Index, indexVal interface{}, val proto.Message, f func(key string) error) error {
-	if index.limit == nil {
-		limit := defaultLimit
-		index.limit = &limit
+func (c *readonlyCollection) GetByIndexF(order order, index *Index, indexVal interface{}, val proto.Message, f func(key string) error) error {
+	if atomic.LoadInt64(&index.limit) == 0 {
+		atomic.CompareAndSwapInt64(&index.limit, 0, defaultLimit)
 	}
-	return c.listF(c.indexDir(index, indexVal), index.limit, order, func(kv *mvccpb.KeyValue) error {
+	return c.listF(c.indexDir(index, indexVal), &index.limit, order, func(kv *mvccpb.KeyValue) error {
 		key := path.Base(string(kv.Key))
 		if err := c.Get(key, val); err != nil {
 			if IsErrNotFound(err) {
@@ -596,7 +595,7 @@ func (c *readonlyCollection) WatchWithPrev() (watch.Watcher, error) {
 }
 
 // WatchByIndex watches items in a collection that match a particular index
-func (c *readonlyCollection) WatchByIndex(index Index, val interface{}) (watch.Watcher, error) {
+func (c *readonlyCollection) WatchByIndex(index *Index, val interface{}) (watch.Watcher, error) {
 	eventCh := make(chan *watch.Event)
 	done := make(chan struct{})
 	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.indexDir(index, val), c.template)
