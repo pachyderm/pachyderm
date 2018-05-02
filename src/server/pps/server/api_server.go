@@ -2180,30 +2180,24 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 		return nil, fmt.Errorf("error deleting workers: %v", err)
 	}
 
-	// Revoke the pipeline's auth token and remove it from its inputs' ACLs
-	if err := func() error {
-		if pipelinePtr.AuthToken == "" {
-			return nil
-		}
-		if _, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{}); auth.IsErrNotActivated(err) {
-			return nil // If auth has been deactivated since the pipeline was created, just delete it
-		}
-		if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-			// pipelineInfo = nil -> remove pipeline from all inputs in pipelineInfo
-			if err := a.fixPipelineInputRepoACLs(superUserClient, nil, pipelineInfo); err != nil {
+	// If necessary, revoke the pipeline's auth token and remove it from its inputs' ACLs
+	if pipelinePtr.AuthToken != "" {
+		// If auth was deactivated after the pipeline was created, don't try to revoke
+		if _, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{}); err == nil {
+			if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+				// pipelineInfo = nil -> remove pipeline from all inputs in pipelineInfo
+				if err := a.fixPipelineInputRepoACLs(superUserClient, nil, pipelineInfo); err != nil {
+					return grpcutil.ScrubGRPC(err)
+				}
+				_, err := superUserClient.RevokeAuthToken(superUserClient.Ctx(),
+					&auth.RevokeAuthTokenRequest{
+						Token: pipelinePtr.AuthToken,
+					})
 				return grpcutil.ScrubGRPC(err)
+			}); err != nil {
+				return fmt.Errorf("error revoking old auth token: %v", err)
 			}
-			_, err := superUserClient.RevokeAuthToken(superUserClient.Ctx(),
-				&auth.RevokeAuthTokenRequest{
-					Token: pipelinePtr.AuthToken,
-				})
-			return grpcutil.ScrubGRPC(err)
-		}); err != nil {
-			return fmt.Errorf("error revoking old auth token: %v", err)
 		}
-		return nil
-	}(); err != nil {
-		return nil, err
 	}
 
 	// Kill or delete all of the pipeline's jobs

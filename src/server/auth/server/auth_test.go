@@ -1416,7 +1416,7 @@ func TestListRepoNotLoggedInError(t *testing.T) {
 	_, err := anonClient.PfsAPIClient.ListRepo(anonClient.Ctx(),
 		&pfs.ListRepoRequest{})
 	require.YesError(t, err)
-	require.Matches(t, "auth token not found in context", err.Error())
+	require.Matches(t, "no authentication token", err.Error())
 }
 
 // TestListRepoNoAuthInfoIfDeactivated tests that if auth isn't activated, then
@@ -1499,7 +1499,7 @@ func TestCreateRepoNotLoggedInError(t *testing.T) {
 	repo := tu.UniqueString("TestCreateRepo")
 	err := anonClient.CreateRepo(repo)
 	require.YesError(t, err)
-	require.Matches(t, "auth token not found in context", err.Error())
+	require.Matches(t, "no authentication token", err.Error())
 }
 
 // TestDeleteRepoDoesntExistError tests that if a client calls DeleteRepo on a

@@ -1599,7 +1599,7 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.Token
 	// token -> username entry twice.
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return nil, authclient.ErrNoToken
+		return nil, authclient.ErrNoMetadata
 	}
 	if len(md[authclient.ContextTokenKey]) > 1 {
 		return nil, fmt.Errorf("multiple authentication token keys found in context")
