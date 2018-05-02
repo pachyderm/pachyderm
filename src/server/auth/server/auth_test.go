@@ -224,18 +224,19 @@ func getPachClient(tb testing.TB, subject string) *client.APIClient {
 
 func deleteAll(tb testing.TB) {
 	tb.Helper()
-	tokenMapMut.Lock() // May initialize the seed client
-	defer tokenMapMut.Unlock()
+	func() {
+		tokenMapMut.Lock() // May initialize the seed client
+		defer tokenMapMut.Unlock()
 
-	if seedClient == nil {
-		initSeedClient(tb)
-	}
-	if !isAuthActive(tb) {
-		require.NoError(tb, seedClient.DeleteAll())
-	} else {
-		adminClient := getPachClient(tb, "admin")
-		require.NoError(tb, adminClient.DeleteAll(), "initial DeleteAll()")
-	}
+		if seedClient == nil {
+			initSeedClient(tb)
+		}
+		if !isAuthActive(tb) {
+			require.NoError(tb, seedClient.DeleteAll())
+		}
+	}() // release tokenMapMut before getPachClient
+	adminClient := getPachClient(tb, "admin")
+	require.NoError(tb, adminClient.DeleteAll(), "initial DeleteAll()")
 }
 
 // entries constructs an auth.ACL struct from a list of the form
