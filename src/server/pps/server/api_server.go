@@ -2195,7 +2195,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 					})
 				return grpcutil.ScrubGRPC(err)
 			}); err != nil {
-				return fmt.Errorf("error revoking old auth token: %v", err)
+				return nil, fmt.Errorf("error revoking old auth token: %v", err)
 			}
 		}
 	}
