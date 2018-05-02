@@ -74,17 +74,17 @@ var (
 	// ErrPartiallyActivated is returned by the auth API to indicated that it's
 	// in an intermediate state (in this state, users can retry Activate() or
 	// revert with Deactivate(), but not much else)
-	ErrPartiallyActivated = status.Error(codes.Unavailable, "the auth service is partially activated")
+	ErrPartiallyActivated = status.Error(codes.Unavailable, "the auth service is only partially activated")
 
 	// ErrNotSignedIn indicates that the caller isn't signed in
 	//
 	// Note: This error message string is matched in the UI. If edited,
 	// it also needs to be updated in the UI code
-	ErrNotSignedIn = status.Error(codes.Unauthenticated, "no authentication token in context (try logging in)")
+	ErrNotSignedIn = status.Error(codes.Unauthenticated, "no authentication token (try logging in)")
 
-	// ErrNoToken is returned by the Auth API if the caller sent a request
+	// ErrNoMetadata is returned by the Auth API if the caller sent a request
 	// containing no auth token.
-	ErrNoToken = status.Error(codes.Unauthenticated, "no authentication metadata in context")
+	ErrNoMetadata = status.Error(codes.Internal, "no authentication metadata (try logging in)")
 
 	// ErrBadToken is returned by the Auth API if the caller's token is corruped
 	// or has expired.
@@ -121,13 +121,13 @@ func IsErrNotSignedIn(err error) bool {
 	return strings.Contains(err.Error(), ErrNotSignedIn.Error())
 }
 
-// IsErrNoToken returns true if 'err' is a ErrNoToken (uses string
+// IsErrNoMetadata returns true if 'err' is an ErrNoMetadata (uses string
 // comparison to work across RPC boundaries)
-func IsErrNoToken(err error) bool {
+func IsErrNoMetadata(err error) bool {
 	if err == nil {
 		return false
 	}
-	return strings.Contains(err.Error(), ErrNoToken.Error())
+	return strings.Contains(err.Error(), ErrNoMetadata.Error())
 }
 
 // IsErrBadToken returns true if 'err' is a ErrBadToken
