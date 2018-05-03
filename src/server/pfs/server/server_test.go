@@ -2958,6 +2958,29 @@ func TestGlob(t *testing.T) {
 	require.Equal(t, 0, len(fileInfos))
 }
 
+func TestApplyWriteOrder(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getClient(t)
+	repo := tu.UniqueString("TestApplyWriteOrder")
+	require.NoError(t, c.CreateRepo(repo))
+
+	// Test that fails when records are applied in lexicographic order
+	// rather than mod revision order.
+	_, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, "master", "/file", strings.NewReader(""))
+	require.NoError(t, err)
+	err = c.DeleteFile(repo, "master", "/")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, "master"))
+	fileInfos, err := c.GlobFile(repo, "master", "**")
+	require.NoError(t, err)
+	require.Equal(t, 0, len(fileInfos))
+}
+
 func TestOverwrite(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
