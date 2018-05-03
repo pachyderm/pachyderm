@@ -98,7 +98,7 @@ func IsErrNotActivated(err error) bool {
 	}
 	// TODO(msteffen) This is unstructured because we have no way to propagate
 	// structured errors across GRPC boundaries. Fix
-	return strings.Contains(err.Error(), ErrNotActivated.Error())
+	return strings.Contains(err.Error(), status.Convert(ErrNotActivated).Message())
 }
 
 // IsErrPartiallyActivated checks if an error is a ErrPartiallyActivated
@@ -108,7 +108,7 @@ func IsErrPartiallyActivated(err error) bool {
 	}
 	// TODO(msteffen) This is unstructured because we have no way to propagate
 	// structured errors across GRPC boundaries. Fix
-	return strings.Contains(err.Error(), ErrPartiallyActivated.Error())
+	return strings.Contains(err.Error(), status.Convert(ErrPartiallyActivated).Message())
 }
 
 // IsErrNotSignedIn returns true if 'err' is a ErrNotSignedIn
@@ -118,7 +118,7 @@ func IsErrNotSignedIn(err error) bool {
 	}
 	// TODO(msteffen) This is unstructured because we have no way to propagate
 	// structured errors across GRPC boundaries. Fix
-	return strings.Contains(err.Error(), ErrNotSignedIn.Error())
+	return strings.Contains(err.Error(), status.Convert(ErrNotSignedIn).Message())
 }
 
 // IsErrNoMetadata returns true if 'err' is an ErrNoMetadata (uses string
@@ -127,7 +127,7 @@ func IsErrNoMetadata(err error) bool {
 	if err == nil {
 		return false
 	}
-	return strings.Contains(err.Error(), ErrNoMetadata.Error())
+	return strings.Contains(err.Error(), status.Convert(ErrNoMetadata).Message())
 }
 
 // IsErrBadToken returns true if 'err' is a ErrBadToken
@@ -135,7 +135,7 @@ func IsErrBadToken(err error) bool {
 	if err == nil {
 		return false
 	}
-	return strings.Contains(err.Error(), ErrBadToken.Error())
+	return strings.Contains(err.Error(), status.Convert(ErrBadToken).Message())
 }
 
 // ErrNotAuthorized is returned if the user is not authorized to perform
