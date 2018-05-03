@@ -1741,6 +1741,10 @@ func (d *driver) deleteBranchSTM(stm col.STM, branch *pfs.Branch, force bool) er
 	branches := d.branches(branch.Repo.Name).ReadWrite(stm)
 	branchInfo := &pfs.BranchInfo{}
 	if err := branches.Get(branch.Name, branchInfo); err != nil {
+		if isNotFoundErr(err) {
+			// Branch was already deleted, nothing to do.
+			return nil
+		}
 		return err
 	}
 	if !force {
