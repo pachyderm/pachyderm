@@ -2,11 +2,12 @@ package auth
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -68,26 +69,26 @@ var (
 	//
 	// Note: This error message string is matched in the UI. If edited,
 	// it also needs to be updated in the UI code
-	ErrNotActivated = errors.New("the auth service is not activated")
+	ErrNotActivated = status.Error(codes.Unimplemented, "the auth service is not activated")
 
 	// ErrPartiallyActivated is returned by the auth API to indicated that it's
 	// in an intermediate state (in this state, users can retry Activate() or
 	// revert with Deactivate(), but not much else)
-	ErrPartiallyActivated = errors.New("the auth service is partially activated")
+	ErrPartiallyActivated = status.Error(codes.Unavailable, "the auth service is only partially activated")
 
 	// ErrNotSignedIn indicates that the caller isn't signed in
 	//
 	// Note: This error message string is matched in the UI. If edited,
 	// it also needs to be updated in the UI code
-	ErrNotSignedIn = errors.New("auth token not found in context (user may not be signed in)")
+	ErrNotSignedIn = status.Error(codes.Unauthenticated, "no authentication token (try logging in)")
 
-	// ErrNoToken is returned by the Auth API if the caller sent a request
+	// ErrNoMetadata is returned by the Auth API if the caller sent a request
 	// containing no auth token.
-	ErrNoToken = errors.New("no authentication metadata found in context")
+	ErrNoMetadata = status.Error(codes.Internal, "no authentication metadata (try logging in)")
 
 	// ErrBadToken is returned by the Auth API if the caller's token is corruped
 	// or has expired.
-	ErrBadToken = errors.New("provided auth token is corrupted or has expired (try logging in again)")
+	ErrBadToken = status.Error(codes.Unauthenticated, "provided auth token is corrupted or has expired (try logging in again)")
 )
 
 // IsErrNotActivated checks if an error is a ErrNotActivated
@@ -97,7 +98,7 @@ func IsErrNotActivated(err error) bool {
 	}
 	// TODO(msteffen) This is unstructured because we have no way to propagate
 	// structured errors across GRPC boundaries. Fix
-	return strings.Contains(err.Error(), ErrNotActivated.Error())
+	return strings.Contains(err.Error(), status.Convert(ErrNotActivated).Message())
 }
 
 // IsErrPartiallyActivated checks if an error is a ErrPartiallyActivated
@@ -107,7 +108,7 @@ func IsErrPartiallyActivated(err error) bool {
 	}
 	// TODO(msteffen) This is unstructured because we have no way to propagate
 	// structured errors across GRPC boundaries. Fix
-	return strings.Contains(err.Error(), ErrPartiallyActivated.Error())
+	return strings.Contains(err.Error(), status.Convert(ErrPartiallyActivated).Message())
 }
 
 // IsErrNotSignedIn returns true if 'err' is a ErrNotSignedIn
@@ -117,16 +118,16 @@ func IsErrNotSignedIn(err error) bool {
 	}
 	// TODO(msteffen) This is unstructured because we have no way to propagate
 	// structured errors across GRPC boundaries. Fix
-	return strings.Contains(err.Error(), ErrNotSignedIn.Error())
+	return strings.Contains(err.Error(), status.Convert(ErrNotSignedIn).Message())
 }
 
-// IsErrNoToken returns true if 'err' is a ErrNoToken (uses string
+// IsErrNoMetadata returns true if 'err' is an ErrNoMetadata (uses string
 // comparison to work across RPC boundaries)
-func IsErrNoToken(err error) bool {
+func IsErrNoMetadata(err error) bool {
 	if err == nil {
 		return false
 	}
-	return strings.Contains(err.Error(), ErrNoToken.Error())
+	return strings.Contains(err.Error(), status.Convert(ErrNoMetadata).Message())
 }
 
 // IsErrBadToken returns true if 'err' is a ErrBadToken
@@ -134,7 +135,7 @@ func IsErrBadToken(err error) bool {
 	if err == nil {
 		return false
 	}
-	return strings.Contains(err.Error(), ErrBadToken.Error())
+	return strings.Contains(err.Error(), status.Convert(ErrBadToken).Message())
 }
 
 // ErrNotAuthorized is returned if the user is not authorized to perform
