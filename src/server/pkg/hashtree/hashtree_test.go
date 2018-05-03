@@ -417,8 +417,7 @@ func TestRewriteChangesHash(t *testing.T) {
 	require.Equal(t, rootPre.SubtreeSize, rootPost.SubtreeSize)
 }
 
-func TestGlobFile(t *testing.T) {
-	// Is glob
+func TestIsGlob(t *testing.T) {
 	require.True(t, isGlob(`*`))
 	require.True(t, isGlob(`path/to*/file`))
 	require.True(t, isGlob(`path/**/file`))
@@ -430,7 +429,9 @@ func TestGlobFile(t *testing.T) {
 	require.False(t, isGlob(`path`))
 	require.False(t, isGlob(`path/to/file1.txt`))
 	require.False(t, isGlob(`path/to_test-a/file.txt`))
+}
 
+func TestGlobFile(t *testing.T) {
 	hTmp := NewHashTree()
 	hTmp.PutFile("/foo", obj(`hash:"20c27"`), 1)
 	hTmp.PutFile("/dir/bar", obj(`hash:"ebc57"`), 1)

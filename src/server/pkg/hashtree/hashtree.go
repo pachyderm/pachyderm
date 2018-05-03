@@ -148,7 +148,10 @@ func (h *HashTreeProto) List(path string) ([]*NodeProto, error) {
 func glob(fs map[string]*NodeProto, pattern string) (map[string]*NodeProto, error) {
 	if !isGlob(pattern) {
 		node, err := get(fs, pattern)
-		return map[string]*NodeProto{clean(pattern): node}, err
+		if err != nil {
+			return nil, err
+		}
+		return map[string]*NodeProto{clean(pattern): node}, nil
 	}
 
 	// "*" should be an allowed pattern, but our paths always start with "/", so
@@ -588,6 +591,11 @@ func (h *hashtree) PutDir(path string) error {
 
 // DeleteFile deletes a regular file or directory (along with its children).
 func (h *hashtree) DeleteFile(path string) error {
+	// Delete root means delete all files
+	if path == "/" {
+		path = "/*"
+	}
+
 	paths, err := h.Glob(path)
 
 	// Deleting a non-existent file should be a no-op
