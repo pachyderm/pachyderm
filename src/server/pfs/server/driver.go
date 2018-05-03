@@ -2310,17 +2310,7 @@ func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
 	if commitInfo.Finished != nil {
 		return pfsserver.ErrCommitFinished{file.Commit}
 	}
-
-	// Delete root means delete all files
-	if file.Path == "/" {
-		file.Path = "/*"
-	}
-
-	if err := d.upsertPutFileRecords(ctx, file, &pfs.PutFileRecords{Tombstone: true}); err != nil {
-		return err
-	}
-
-	return nil
+	return d.upsertPutFileRecords(ctx, file, &pfs.PutFileRecords{Tombstone: true})
 }
 
 func (d *driver) deleteAll(ctx context.Context) error {
