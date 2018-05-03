@@ -393,12 +393,9 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	time.Sleep(time.Second) // give other pachd nodes time to update their cache
 
 	// Call PPS.ActivateAuth to set up all affected pipelines and repos
-	if err := func() error {
-		superUserClient := pachClient.WithCtx(pachClient.Ctx()) // clone pachClient
-		superUserClient.SetAuthToken(a.ppsToken)
-		_, err := superUserClient.ActivateAuth(superUserClient.Ctx(), &pps.ActivateAuthRequest{})
-		return err
-	}(); err != nil {
+	superUserClient := pachClient.WithCtx(pachClient.Ctx()) // clone pachClient
+	superUserClient.SetAuthToken(a.ppsToken)
+	if _, err := superUserClient.ActivateAuth(superUserClient.Ctx(), &pps.ActivateAuthRequest{}); err != nil {
 		return nil, err
 	}
 
