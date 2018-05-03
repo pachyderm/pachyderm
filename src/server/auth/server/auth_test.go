@@ -2368,7 +2368,7 @@ func TestGetJobsBugFix(t *testing.T) {
 	// anonClient calls list-job
 	_, err = anonClient.ListJob("", nil, nil)
 	require.YesError(t, err)
-	require.Matches(t, "no authentication token in context", err.Error())
+	require.Matches(t, "no authentication token", err.Error())
 
 	// alice calls list-job again, and the existing job must still be present
 	jobs2, err := aliceClient.ListJob("", nil, nil)
