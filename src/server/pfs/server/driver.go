@@ -487,7 +487,7 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 		}
 
 		// create/update 'branch' (if it was set) and set parent.ID (if, in addition,
-		// 'parent' was not seta{}
+		// 'parent.ID' was not set)
 		if branch != "" {
 			branchInfo := &pfs.BranchInfo{}
 			if err := branches.Upsert(branch, branchInfo, func() error {
