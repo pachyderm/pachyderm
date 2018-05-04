@@ -604,7 +604,7 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 	return newCommit, nil
 }
 
-func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs.Object, empty bool, description string) (retErr error) {
+func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs.Object, recordsKey string, records *pfs.PutFileRecords, empty bool, description string) (retErr error) {
 	if err := d.checkIsAuthorized(ctx, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
@@ -652,10 +652,21 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 		}
 
 		if tree == nil {
-			var err error
-			finishedTree, err = d.getTreeForOpenCommit(ctx, scratchPrefix, parentTree)
-			if err != nil {
-				return err
+			var finishedTree hashtree.HashTree
+			if records == nil {
+				finishedTree, err = d.getTreeForOpenCommit(ctx, scratchPrefix, parentTree)
+				if err != nil {
+					return err
+				}
+			} else {
+				openTree := parentTree.Open()
+				if err := d.applyWrite(recordsKey, records, openTree); err != nil {
+					return err
+				}
+				finishedTree, err = openTree.Finish()
+				if err != nil {
+					return err
+				}
 			}
 			// Serialize the tree
 			data, err := hashtree.Serialize(finishedTree)
@@ -1812,12 +1823,20 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
+	// oneOff is true if we're creating the commit as part of this put-file
+	oneOff := false
 	commitInfo, err := d.inspectCommit(ctx, file.Commit, pfs.CommitState_STARTED)
 	if err != nil {
-		return err
+		if !isNotFoundErr(err) || uuid.IsUUIDWithoutDashes(file.Commit.ID) {
+			return err
+		}
+		oneOff = true
 	}
-	if commitInfo.Finished != nil {
-		return pfsserver.ErrCommitFinished{file.Commit}
+	if commitInfo != nil && commitInfo.Finished != nil {
+		if uuid.IsUUIDWithoutDashes(file.Commit.ID) {
+			return pfsserver.ErrCommitFinished{file.Commit}
+		}
+		oneOff = true
 	}
 
 	if overwriteIndex != nil && overwriteIndex.Index == 0 {
@@ -1858,78 +1877,89 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 
 			records.Records = append(records.Records, record)
 		}
+	} else {
+		buffer := &bytes.Buffer{}
+		var datumsWritten int64
+		var bytesWritten int64
+		var filesPut int
+		EOF := false
+		var eg errgroup.Group
+		decoder := json.NewDecoder(reader)
+		bufioR := bufio.NewReader(reader)
 
-		return d.upsertPutFileRecords(ctx, file, records)
-	}
-	buffer := &bytes.Buffer{}
-	var datumsWritten int64
-	var bytesWritten int64
-	var filesPut int
-	EOF := false
-	var eg errgroup.Group
-	decoder := json.NewDecoder(reader)
-	bufioR := bufio.NewReader(reader)
-
-	indexToRecord := make(map[int]*pfs.PutFileRecord)
-	var mu sync.Mutex
-	for !EOF {
-		var err error
-		var value []byte
-		switch delimiter {
-		case pfs.Delimiter_JSON:
-			var jsonValue json.RawMessage
-			err = decoder.Decode(&jsonValue)
-			value = jsonValue
-		case pfs.Delimiter_LINE:
-			value, err = bufioR.ReadBytes('\n')
-		default:
-			return fmt.Errorf("unrecognized delimiter %s", delimiter.String())
-		}
-		if err != nil {
-			if err == io.EOF {
-				EOF = true
-			} else {
-				return err
+		indexToRecord := make(map[int]*pfs.PutFileRecord)
+		var mu sync.Mutex
+		for !EOF {
+			var err error
+			var value []byte
+			switch delimiter {
+			case pfs.Delimiter_JSON:
+				var jsonValue json.RawMessage
+				err = decoder.Decode(&jsonValue)
+				value = jsonValue
+			case pfs.Delimiter_LINE:
+				value, err = bufioR.ReadBytes('\n')
+			default:
+				return fmt.Errorf("unrecognized delimiter %s", delimiter.String())
 			}
-		}
-		buffer.Write(value)
-		bytesWritten += int64(len(value))
-		datumsWritten++
-		if buffer.Len() != 0 &&
-			((targetFileBytes != 0 && bytesWritten >= targetFileBytes) ||
-				(targetFileDatums != 0 && datumsWritten >= targetFileDatums) ||
-				(targetFileBytes == 0 && targetFileDatums == 0) ||
-				EOF) {
-			_buffer := buffer
-			index := filesPut
-			eg.Go(func() error {
-				object, size, err := d.pachClient.PutObject(_buffer)
-				if err != nil {
+			if err != nil {
+				if err == io.EOF {
+					EOF = true
+				} else {
 					return err
 				}
-				mu.Lock()
-				defer mu.Unlock()
-				indexToRecord[index] = &pfs.PutFileRecord{
-					SizeBytes:  size,
-					ObjectHash: object.Hash,
-				}
-				return nil
-			})
-			datumsWritten = 0
-			bytesWritten = 0
-			buffer = &bytes.Buffer{}
-			filesPut++
+			}
+			buffer.Write(value)
+			bytesWritten += int64(len(value))
+			datumsWritten++
+			if buffer.Len() != 0 &&
+				((targetFileBytes != 0 && bytesWritten >= targetFileBytes) ||
+					(targetFileDatums != 0 && datumsWritten >= targetFileDatums) ||
+					(targetFileBytes == 0 && targetFileDatums == 0) ||
+					EOF) {
+				_buffer := buffer
+				index := filesPut
+				eg.Go(func() error {
+					object, size, err := d.pachClient.PutObject(_buffer)
+					if err != nil {
+						return err
+					}
+					mu.Lock()
+					defer mu.Unlock()
+					indexToRecord[index] = &pfs.PutFileRecord{
+						SizeBytes:  size,
+						ObjectHash: object.Hash,
+					}
+					return nil
+				})
+				datumsWritten = 0
+				bytesWritten = 0
+				buffer = &bytes.Buffer{}
+				filesPut++
+			}
+		}
+		if err := eg.Wait(); err != nil {
+			return err
+		}
+
+		records.Split = true
+		for i := 0; i < len(indexToRecord); i++ {
+			records.Records = append(records.Records, indexToRecord[i])
 		}
 	}
-	if err := eg.Wait(); err != nil {
-		return err
-	}
 
-	records.Split = true
-	for i := 0; i < len(indexToRecord); i++ {
-		records.Records = append(records.Records, indexToRecord[i])
+	if oneOff {
+		// We know we're putting to a branch.
+		commit, err := d.startCommit(ctx, client.NewCommit(file.Commit.Repo.Name, ""), file.Commit.ID, nil, "")
+		if err != nil {
+			return err
+		}
+		key, err := d.scratchFilePrefix(ctx, file)
+		if err != nil {
+			return err
+		}
+		return d.finishCommit(ctx, commit, nil, key, records, false, "")
 	}
-
 	return d.upsertPutFileRecords(ctx, file, records)
 }
 
