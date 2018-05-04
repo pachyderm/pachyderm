@@ -4160,14 +4160,24 @@ func TestSubscribeStates(t *testing.T) {
 func TestPutFileCommit(t *testing.T) {
 	c := getClient(t)
 
+	numFiles := 100
 	repo := "repo"
 	require.NoError(t, c.CreateRepo(repo))
-	_, err := c.PutFile(repo, "master", "foo", strings.NewReader("foo"))
-	require.NoError(t, err)
+	var eg errgroup.Group
+	for i := 0; i < numFiles; i++ {
+		i := i
+		eg.Go(func() error {
+			_, err := c.PutFile(repo, "master", fmt.Sprintf("%d", i), strings.NewReader(fmt.Sprintf("%d", i)))
+			return err
+		})
+	}
+	require.NoError(t, eg.Wait())
 
-	var b bytes.Buffer
-	require.NoError(t, c.GetFile(repo, "master", "foo", 0, 0, &b))
-	require.Equal(t, "foo", b.String())
+	for i := 0; i < numFiles; i++ {
+		var b bytes.Buffer
+		require.NoError(t, c.GetFile(repo, "master", fmt.Sprintf("%d", i), 0, 0, &b))
+		require.Equal(t, fmt.Sprintf("%d", i), b.String())
+	}
 }
 
 func TestStartCommitOutputBranch(t *testing.T) {
