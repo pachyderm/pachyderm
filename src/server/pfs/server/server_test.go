@@ -4157,6 +4157,19 @@ func TestSubscribeStates(t *testing.T) {
 	})
 }
 
+func TestPutFileCommit(t *testing.T) {
+	c := getClient(t)
+
+	repo := "repo"
+	require.NoError(t, c.CreateRepo(repo))
+	_, err := c.PutFile(repo, "master", "foo", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	var b bytes.Buffer
+	require.NoError(t, c.GetFile(repo, "master", "foo", 0, 0, &b))
+	require.Equal(t, "foo", b.String())
+}
+
 func TestStartCommitOutputBranch(t *testing.T) {
 	c := getClient(t)
 
