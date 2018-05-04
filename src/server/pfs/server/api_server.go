@@ -158,17 +158,10 @@ func (a *apiServer) ListCommitStream(req *pfs.ListCommitRequest, respServer pfs.
 	}(time.Now())
 	ctx := auth.In2Out(respServer.Context())
 
-	commitInfos, err := a.driver.listCommit(ctx, req.Repo, req.To, req.From, req.Number)
-	if err != nil {
-		return err
-	}
-	for _, ci := range commitInfos {
-		if err := respServer.Send(ci); err != nil {
-			return err
-		}
+	return a.driver.listCommitF(ctx, req.Repo, req.To, req.From, req.Number, func(ci *pfs.CommitInfo) error {
 		sent++
-	}
-	return nil
+		return respServer.Send(ci)
+	})
 }
 
 func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchRequest) (response *types.Empty, retErr error) {

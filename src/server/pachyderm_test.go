@@ -33,7 +33,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfspretty "github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
@@ -2101,7 +2100,7 @@ func TestManyFilesSingleCommit(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	// Request enough to require more than one page of results
-	numFiles := col.QueryPaginationLimit * 2
+	numFiles := 20000
 	_, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
