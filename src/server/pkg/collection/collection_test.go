@@ -3,6 +3,8 @@ package collection
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -19,11 +21,11 @@ import (
 )
 
 var (
-	pipelineIndex Index = Index{
+	pipelineIndex *Index = &Index{
 		Field: "Pipeline",
 		Multi: false,
 	}
-	commitMultiIndex Index = Index{
+	commitMultiIndex *Index = &Index{
 		Field: "Provenance",
 		Multi: true,
 	}
@@ -33,7 +35,7 @@ func TestIndex(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	jobInfos := NewCollection(etcdClient, uuidPrefix, []Index{pipelineIndex}, &pps.JobInfo{}, nil, nil)
+	jobInfos := NewCollection(etcdClient, uuidPrefix, []*Index{pipelineIndex}, &pps.JobInfo{}, nil, nil)
 
 	j1 := &pps.JobInfo{
 		Job:      &pps.Job{"j1"},
@@ -58,41 +60,42 @@ func TestIndex(t *testing.T) {
 
 	jobInfosReadonly := jobInfos.ReadOnly(context.Background())
 
-	iter, err := jobInfosReadonly.GetByIndex(pipelineIndex, j1.Pipeline)
-	require.NoError(t, err)
-	var ID string
-	job := new(pps.JobInfo)
-	ok, err := iter.Next(&ID, job)
-	require.NoError(t, err)
-	require.True(t, ok)
-	require.Equal(t, j1.Job.ID, ID)
-	require.Equal(t, j1, job)
-	ok, err = iter.Next(&ID, job)
-	require.NoError(t, err)
-	require.True(t, ok)
-	require.Equal(t, j2.Job.ID, ID)
-	require.Equal(t, j2, job)
-	ok, err = iter.Next(&ID, job)
-	require.NoError(t, err)
-	require.False(t, ok)
+	job := &pps.JobInfo{}
+	i := 1
+	require.NoError(t, jobInfosReadonly.GetByIndexF(Descend, pipelineIndex, j1.Pipeline, job, func(ID string) error {
+		switch i {
+		case 1:
+			require.Equal(t, j1.Job.ID, ID)
+			require.Equal(t, j1, job)
+		case 2:
+			require.Equal(t, j2.Job.ID, ID)
+			require.Equal(t, j2, job)
+		case 3:
+			t.Fatal("too many jobs")
+		}
+		i++
+		return nil
+	}))
 
-	iter, err = jobInfosReadonly.GetByIndex(pipelineIndex, j3.Pipeline)
-	require.NoError(t, err)
-	ok, err = iter.Next(&ID, job)
-	require.NoError(t, err)
-	require.True(t, ok)
-	require.Equal(t, j3.Job.ID, ID)
-	require.Equal(t, j3, job)
-	ok, err = iter.Next(&ID, job)
-	require.NoError(t, err)
-	require.False(t, ok)
+	i = 1
+	require.NoError(t, jobInfosReadonly.GetByIndexF(Descend, pipelineIndex, j3.Pipeline, job, func(ID string) error {
+		switch i {
+		case 1:
+			require.Equal(t, j3.Job.ID, ID)
+			require.Equal(t, j3, job)
+		case 2:
+			t.Fatal("too many jobs")
+		}
+		i++
+		return nil
+	}))
 }
 
 func TestIndexWatch(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	jobInfos := NewCollection(etcdClient, uuidPrefix, []Index{pipelineIndex}, &pps.JobInfo{}, nil, nil)
+	jobInfos := NewCollection(etcdClient, uuidPrefix, []*Index{pipelineIndex}, &pps.JobInfo{}, nil, nil)
 
 	j1 := &pps.JobInfo{
 		Job:      &pps.Job{"j1"},
@@ -187,7 +190,7 @@ func TestMultiIndex(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	cis := NewCollection(etcdClient, uuidPrefix, []Index{commitMultiIndex}, &pfs.CommitInfo{}, nil, nil)
+	cis := NewCollection(etcdClient, uuidPrefix, []*Index{commitMultiIndex}, &pfs.CommitInfo{}, nil, nil)
 
 	c1 := &pfs.CommitInfo{
 		Commit: client.NewCommit("repo", "c1"),
@@ -216,37 +219,33 @@ func TestMultiIndex(t *testing.T) {
 	cisReadonly := cis.ReadOnly(context.Background())
 
 	// Test that the first key retrieves both r1 and r2
-	iter, err := cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c1"))
-	require.NoError(t, err)
-	var ID string
 	ci := &pfs.CommitInfo{}
-	ok, err := iter.Next(&ID, ci)
-	require.NoError(t, err)
-	require.True(t, ok)
-	require.Equal(t, c1.Commit.ID, ID)
-	require.Equal(t, c1, ci)
-	ci = &pfs.CommitInfo{}
-	ok, err = iter.Next(&ID, ci)
-	require.NoError(t, err)
-	require.True(t, ok)
-	require.Equal(t, c2.Commit.ID, ID)
-	require.Equal(t, c2, ci)
+	i := 1
+	require.NoError(t, cisReadonly.GetByIndexF(Descend, commitMultiIndex, client.NewCommit("in", "c1"), ci, func(ID string) error {
+		if i == 1 {
+			require.Equal(t, c1.Commit.ID, ID)
+			require.Equal(t, c1, ci)
+		} else {
+			require.Equal(t, c2.Commit.ID, ID)
+			require.Equal(t, c2, ci)
+		}
+		i++
+		return nil
+	}))
 
 	// Test that the second key retrieves both r1 and r2
-	iter, err = cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c2"))
-	require.NoError(t, err)
-	ci = &pfs.CommitInfo{}
-	ok, err = iter.Next(&ID, ci)
-	require.NoError(t, err)
-	require.True(t, ok)
-	require.Equal(t, c1.Commit.ID, ID)
-	require.Equal(t, c1, ci)
-	ci = &pfs.CommitInfo{}
-	ok, err = iter.Next(&ID, ci)
-	require.NoError(t, err)
-	require.True(t, ok)
-	require.Equal(t, c2.Commit.ID, ID)
-	require.Equal(t, c2, ci)
+	i = 1
+	require.NoError(t, cisReadonly.GetByIndexF(Descend, commitMultiIndex, client.NewCommit("in", "c2"), ci, func(ID string) error {
+		if i == 1 {
+			require.Equal(t, c1.Commit.ID, ID)
+			require.Equal(t, c1, ci)
+		} else {
+			require.Equal(t, c2.Commit.ID, ID)
+			require.Equal(t, c2, ci)
+		}
+		i++
+		return nil
+	}))
 
 	// replace "c3" in the provenance of c1 with "c4"
 	c1.Provenance[2].ID = "c4"
@@ -258,24 +257,18 @@ func TestMultiIndex(t *testing.T) {
 	require.NoError(t, err)
 
 	// Now "c3" only retrieves c2 (indexes are updated)
-	iter, err = cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c3"))
-	require.NoError(t, err)
-	ci = &pfs.CommitInfo{}
-	ok, err = iter.Next(&ID, ci)
-	require.NoError(t, err)
-	require.True(t, ok)
-	require.Equal(t, c2.Commit.ID, ID)
-	require.Equal(t, c2, ci)
+	require.NoError(t, cisReadonly.GetByIndexF(Descend, commitMultiIndex, client.NewCommit("in", "c3"), ci, func(ID string) error {
+		require.Equal(t, c2.Commit.ID, ID)
+		require.Equal(t, c2, ci)
+		return nil
+	}))
 
 	// And "C4" only retrieves r1 (indexes are updated)
-	iter, err = cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c4"))
-	require.NoError(t, err)
-	ci = &pfs.CommitInfo{}
-	ok, err = iter.Next(&ID, ci)
-	require.NoError(t, err)
-	require.True(t, ok)
-	require.Equal(t, c1.Commit.ID, ID)
-	require.Equal(t, c1, ci)
+	require.NoError(t, cisReadonly.GetByIndexF(Descend, commitMultiIndex, client.NewCommit("in", "c4"), ci, func(ID string) error {
+		require.Equal(t, c1.Commit.ID, ID)
+		require.Equal(t, c1, ci)
+		return nil
+	}))
 
 	// Delete c1 from etcd completely
 	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
@@ -285,20 +278,17 @@ func TestMultiIndex(t *testing.T) {
 	})
 
 	// Now "c1" only retrieves c2
-	iter, err = cisReadonly.GetByIndex(commitMultiIndex, client.NewCommit("in", "c1"))
-	require.NoError(t, err)
-	ci = &pfs.CommitInfo{}
-	ok, err = iter.Next(&ID, ci)
-	require.NoError(t, err)
-	require.True(t, ok)
-	require.Equal(t, c2.Commit.ID, ID)
-	require.Equal(t, c2, ci)
+	require.NoError(t, cisReadonly.GetByIndexF(Descend, commitMultiIndex, client.NewCommit("in", "c1"), ci, func(ID string) error {
+		require.Equal(t, c2.Commit.ID, ID)
+		require.Equal(t, c2, ci)
+		return nil
+	}))
 }
 
 func TestBoolIndex(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
-	boolValues := NewCollection(etcdClient, uuidPrefix, []Index{{
+	boolValues := NewCollection(etcdClient, uuidPrefix, []*Index{{
 		Field: "Value",
 		Multi: false,
 	}}, &types.BoolValue{}, nil, nil)
@@ -406,6 +396,79 @@ func TestTTLExtend(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.True(t, actualTTL > TTL && actualTTL < LongerTTL, "actualTTL was %v", actualTTL)
+}
+
+func TestIteration(t *testing.T) {
+	etcdClient := getEtcdClient()
+	t.Run("one-val-per-txn", func(t *testing.T) {
+		uuidPrefix := uuid.NewWithoutDashes()
+		col := NewCollection(etcdClient, uuidPrefix, nil, &types.Empty{}, nil, nil)
+		numVals := 1000
+		for i := 0; i < numVals; i++ {
+			_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
+				return col.ReadWrite(stm).Put(fmt.Sprintf("%d", i), &types.Empty{})
+			})
+			require.NoError(t, err)
+		}
+		ro := col.ReadOnly(context.Background())
+		val := &types.Empty{}
+		i := numVals - 1
+		require.NoError(t, ro.ListF(Descend, val, func(key string) error {
+			require.Equal(t, fmt.Sprintf("%d", i), key)
+			i--
+			return nil
+		}))
+	})
+	t.Run("many-vals-per-txn", func(t *testing.T) {
+		uuidPrefix := uuid.NewWithoutDashes()
+		col := NewCollection(etcdClient, uuidPrefix, nil, &types.Empty{}, nil, nil)
+		numBatches := 10
+		valsPerBatch := 7
+		for i := 0; i < numBatches; i++ {
+			_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
+				for j := 0; j < valsPerBatch; j++ {
+					if err := col.ReadWrite(stm).Put(fmt.Sprintf("%d", i*valsPerBatch+j), &types.Empty{}); err != nil {
+						return err
+					}
+				}
+				return nil
+			})
+			require.NoError(t, err)
+		}
+		vals := make(map[string]bool)
+		ro := col.ReadOnly(context.Background())
+		val := &types.Empty{}
+		require.NoError(t, ro.ListF(Descend, val, func(key string) error {
+			require.False(t, vals[key], "saw value %s twice", key)
+			vals[key] = true
+			return nil
+		}))
+		require.Equal(t, numBatches*valsPerBatch, len(vals), "didn't receive every value")
+	})
+	t.Run("large-vals", func(t *testing.T) {
+		uuidPrefix := uuid.NewWithoutDashes()
+		col := NewCollection(etcdClient, uuidPrefix, nil, &pfs.Repo{}, nil, nil)
+		numVals := 100
+		longString := strings.Repeat("foo\n", 1024*256) // 1 MB worth of foo
+		for i := 0; i < numVals; i++ {
+			_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
+				if err := col.ReadWrite(stm).Put(fmt.Sprintf("%d", i), &pfs.Repo{Name: longString}); err != nil {
+					return err
+				}
+				return nil
+			})
+			require.NoError(t, err)
+		}
+		vals := make(map[string]bool)
+		ro := col.ReadOnly(context.Background())
+		val := &pfs.Repo{}
+		require.NoError(t, ro.ListF(Descend, val, func(key string) error {
+			require.False(t, vals[key], "saw value %s twice", key)
+			vals[key] = true
+			return nil
+		}))
+		require.Equal(t, numVals, len(vals), "didn't receive every value")
+	})
 }
 
 var etcdClient *etcd.Client

@@ -1490,24 +1490,14 @@ func (a *apiServer) GetGroups(ctx context.Context, req *authclient.GetGroupsRequ
 	}
 
 	groupsCol := a.groups.ReadOnly(ctx)
-	var iter col.Iterator
-	if iter, err = groupsCol.List(); err != nil {
+	var groups []string
+	users := &authclient.Users{}
+	if err := groupsCol.ListF(col.Descend, users, func(group string) error {
+		groups = append(groups, group)
+		return nil
+	}); err != nil {
 		return nil, err
 	}
-
-	var group string
-	var users authclient.Users
-	var groups []string
-	ok, err := iter.Next(&group, &users)
-	for ok {
-		if err != nil {
-			return nil, err
-		}
-
-		groups = append(groups, group)
-		ok, err = iter.Next(&group, &users)
-	}
-
 	return &authclient.GetGroupsResponse{Groups: groups}, nil
 }
 
@@ -1547,24 +1537,14 @@ func (a *apiServer) GetUsers(ctx context.Context, req *authclient.GetUsersReques
 	}
 
 	membersCol := a.members.ReadOnly(ctx)
-	var iter col.Iterator
-	if iter, err = membersCol.List(); err != nil {
+	groups := &authclient.Groups{}
+	var users []string
+	if err := membersCol.ListF(col.Descend, groups, func(user string) error {
+		users = append(users, user)
+		return nil
+	}); err != nil {
 		return nil, err
 	}
-
-	var user string
-	var groups authclient.Groups
-	var users []string
-	ok, err := iter.Next(&user, &groups)
-	for ok {
-		if err != nil {
-			return nil, err
-		}
-
-		users = append(users, user)
-		ok, err = iter.Next(&user, &groups)
-	}
-
 	return &authclient.GetUsersResponse{Usernames: users}, nil
 }
 
