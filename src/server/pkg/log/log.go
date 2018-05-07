@@ -12,6 +12,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	bucketFactor = 2.0
+	bucketCount  = 20 // Which makes the max bucket 2^20 seconds or ~12 days in size
+)
+
 // Logger is a helper for emitting our grpc API logs
 type Logger interface {
 	Log(request interface{}, response interface{}, err error, duration time.Duration)
@@ -70,8 +75,6 @@ func (l *logger) ReportMetric(state string, duration time.Duration) {
 		runTimeName := fmt.Sprintf("%v_time", rootStatName)
 		runTime, ok := l.histogram[runTimeName]
 		if !ok {
-			bucketFactor := 2.0
-			bucketCount := 20 // Which makes the max bucket 2^20 seconds or ~12 days in size
 			runTime = prometheus.NewHistogramVec(
 				prometheus.HistogramOpts{
 					Namespace: "pachyderm",
