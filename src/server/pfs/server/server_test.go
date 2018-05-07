@@ -4163,6 +4163,7 @@ func TestPutFileCommit(t *testing.T) {
 	numFiles := 100
 	repo := "repo"
 	require.NoError(t, c.CreateRepo(repo))
+
 	var eg errgroup.Group
 	for i := 0; i < numFiles; i++ {
 		i := i
