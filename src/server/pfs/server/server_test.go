@@ -3563,7 +3563,7 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 	require.Equal(t, 0, len(commits))
 	pipelineMaster, err = c.InspectCommit("pipeline", "master")
 	require.YesError(t, err)
-	require.Matches(t, "is nil", err.Error())
+	require.Matches(t, "has no head", err.Error())
 
 	// Case 4
 	// - commit to 'schema' and reset bigSubvCommit to be the head

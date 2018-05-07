@@ -76,6 +76,11 @@ install:
 	# GOPATH/bin must be on your PATH to access these binaries:
 	GO15VENDOREXPERIMENT=1 go install -ldflags "$(LD_FLAGS)" ./src/server/cmd/pachctl
 
+install-clean:
+	@# Need to blow away pachctl binary if its already there
+	@rm -f $(GOPATH)/bin/pachctl
+	@make install
+
 install-doc:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl-doc
 
@@ -120,14 +125,11 @@ release-pachctl-custom:
 
 release-pachctl:
 	@# Run pachctl release script w deploy branch name
-	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachctl master
+	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachctl
 
 release-helper: check-docker-version release-version release-pachd release-worker
 
-release-version:
-	@# Need to blow away pachctl binary if its already there
-	@rm $(GOPATH)/bin/pachctl || true
-	@make install
+release-version: install-clean
 	@./etc/build/release_version
 
 release-pachd:
@@ -385,11 +387,21 @@ pretest:
 	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-#test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build docker-build-netcat clean-launch-dev launch-dev integration-tests example-tests
-
 local-test: docker-build launch-dev test-pfs clean-launch-dev
 
-test: enterprise-code-checkin-test docker-build docker-build-test-entrypoint clean-launch-dev launch-dev test-pfs test-pps test-vault test-auth test-enterprise test-worker
+kube-connect:
+	@# Wait until a connection with kubernetes has been established
+	@# This make target is useful for blocking subsequent make targets
+	@# (e.g. clean-launch-dev) until kubernetes is available
+	# Connecting to minikube
+	@/bin/bash -c 'WHEEL=\\\|/-; \
+	until kubectl version >/dev/null 2>/dev/null; do \
+		echo -en "\e[G$${WHEEL:0:1} waiting for kubernetes to come up"; \
+		WHEEL="$${WHEEL:1}$${WHEEL:0:1}"; \
+		sleep 1; \
+	done'
+
+test: enterprise-code-checkin-test docker-build docker-build-test-entrypoint kube-connect clean-launch-dev launch-dev test-pfs test-pps test-vault test-auth test-enterprise test-worker
 
 enterprise-code-checkin-test:
 	# Check if our test activation code is anywhere in the repo
@@ -608,6 +620,7 @@ goxc-build:
 	build-clean-vendored-client \
 	build \
 	install \
+	install-clean \
 	install-doc \
 	homebrew \
 	release \
@@ -628,6 +641,8 @@ goxc-build:
 	kube-cluster-assets \
 	launch \
 	launch-dev \
+	kube-connect \
+	clean-launch-dev \
 	clean-launch \
 	full-clean-launch \
 	clean-pps-storage \
