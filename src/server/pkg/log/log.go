@@ -43,20 +43,23 @@ func NewLogger(service string) Logger {
 // Helper function used to log requests and responses from our GRPC method
 // implementations
 func (l *logger) Log(request interface{}, response interface{}, err error, duration time.Duration) {
-	state := "started"
 	if err != nil {
 		l.LogAtLevelFromDepth(request, response, err, duration, logrus.ErrorLevel, 4)
-		state = "errored"
 	} else {
 		l.LogAtLevelFromDepth(request, response, err, duration, logrus.InfoLevel, 4)
+	}
+	l.ReportMetric(duration, err)
+}
+
+func (l *logger) ReportMetric(duration time.Duration, err error) {
+	state := "started"
+	if err != nil {
+		state = "errored"
+	} else {
 		if duration.Seconds() > 0 {
 			state = "finished"
 		}
 	}
-	l.ReportMetric(state, duration)
-}
-
-func (l *logger) ReportMetric(state string, duration time.Duration) {
 	depth := 4
 	pc := make([]uintptr, depth)
 	runtime.Callers(depth, pc)
