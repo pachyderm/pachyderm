@@ -414,11 +414,11 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 }
 
 func (d *driver) startCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit, description string) (*pfs.Commit, error) {
-	return d.makeCommit(ctx, "", parent, branch, provenance, nil, description)
+	return d.makeCommit(ctx, "", parent, branch, provenance, nil, "", nil, description)
 }
 
 func (d *driver) buildCommit(ctx context.Context, ID string, parent *pfs.Commit, branch string, provenance []*pfs.Commit, tree *pfs.Object) (*pfs.Commit, error) {
-	return d.makeCommit(ctx, ID, parent, branch, provenance, tree, "")
+	return d.makeCommit(ctx, ID, parent, branch, provenance, tree, "", nil, "")
 }
 
 // make commit makes a new commit in 'branch', with the parent 'parent' and the
@@ -431,7 +431,7 @@ func (d *driver) buildCommit(ctx context.Context, ID string, parent *pfs.Commit,
 //   to the new commit
 // - If neither 'parent.ID' nor 'branch' are set, the new commit will have no
 //   parent
-func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, branch string, provenance []*pfs.Commit, treeRef *pfs.Object, description string) (*pfs.Commit, error) {
+func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, branch string, provenance []*pfs.Commit, treeRef *pfs.Object, recordsFile string, records *pfs.PutFileRecords, description string) (*pfs.Commit, error) {
 	// Validate arguments:
 	if parent == nil {
 		return nil, fmt.Errorf("parent cannot be nil")
@@ -469,13 +469,13 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 		if err != nil {
 			return nil, err
 		}
-		newCommitInfo.Tree = treeRef
-		newCommitInfo.SizeBytes = uint64(tree.FSSize())
-		newCommitInfo.Finished = now()
 	}
 
 	// Txn: create the actual commit in etcd and update the branch + parent/child
 	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		// Clone the parent, as this stm modifies it and might wind up getting
+		// run more than once (if there's a conflict.)
+		parent := proto.Clone(parent).(*pfs.Commit)
 		repos := d.repos.ReadWrite(stm)
 		commits := d.commits(parent.Repo.Name).ReadWrite(stm)
 		branches := d.branches(parent.Repo.Name).ReadWrite(stm)
@@ -535,16 +535,39 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 
 		// BuildCommit case: Now that 'parent' is resolved, read the parent commit's
 		// tree (inside txn) and update the repo size
-		if treeRef != nil {
+		if treeRef != nil || records != nil {
 			parentTree, err := d.getTreeForCommit(ctx, parent)
 			if err != nil {
 				return err
+			}
+			if records != nil {
+				openTree := parentTree.Open()
+				if err := d.applyWrite(recordsFile, records, openTree); err != nil {
+					return err
+				}
+				tree, err = openTree.Finish()
+				if err != nil {
+					return err
+				}
+				data, err := hashtree.Serialize(tree)
+				if err != nil {
+					return err
+				}
+				treeRef, _, err = d.pachClient.WithCtx(ctx).PutObject(bytes.NewReader(data))
+				if err != nil {
+					return err
+				}
 			}
 			repoInfo.SizeBytes += sizeChange(tree, parentTree)
 		} else {
 			if err := d.openCommits.ReadWrite(stm).Put(newCommit.ID, newCommit); err != nil {
 				return err
 			}
+		}
+		if treeRef != nil {
+			newCommitInfo.Tree = treeRef
+			newCommitInfo.SizeBytes = uint64(tree.FSSize())
+			newCommitInfo.Finished = now()
 		}
 
 		if err := repos.Put(parent.Repo.Name, repoInfo); err != nil {
@@ -1794,15 +1817,21 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	}
 	// oneOff is true if we're creating the commit as part of this put-file
 	oneOff := false
+	// inspectCommit will replace file.Commit.ID with an actually commit ID if
+	// it's a branch. So we want to save it first.
+	branch := ""
+	if !uuid.IsUUIDWithoutDashes(file.Commit.ID) {
+		branch = file.Commit.ID
+	}
 	commitInfo, err := d.inspectCommit(ctx, file.Commit, pfs.CommitState_STARTED)
 	if err != nil {
-		if !isNotFoundErr(err) || uuid.IsUUIDWithoutDashes(file.Commit.ID) {
+		if !isNotFoundErr(err) || branch == "" {
 			return err
 		}
 		oneOff = true
 	}
 	if commitInfo != nil && commitInfo.Finished != nil {
-		if uuid.IsUUIDWithoutDashes(file.Commit.ID) {
+		if branch == "" {
 			return pfsserver.ErrCommitFinished{file.Commit}
 		}
 		oneOff = true
@@ -1918,12 +1947,11 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	}
 
 	if oneOff {
-		// We know we're putting to a branch.
-		commit, err := d.startCommit(ctx, client.NewCommit(file.Commit.Repo.Name, ""), file.Commit.ID, nil, "")
-		if err != nil {
-			return err
-		}
-		return d.finishCommit(ctx, commit, nil, file.Path, records, false, "")
+		// oneOff puts only work on branches, so we know branch != "". We pass
+		// a commit with no ID, that ID will be filled in with the head of
+		// branch (if it exists).
+		_, err := d.makeCommit(ctx, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, file.Path, records, "")
+		return err
 	}
 	return d.upsertPutFileRecords(ctx, file, records)
 }
@@ -2348,7 +2376,6 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 }
 
 func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtree.OpenHashTree) error {
-	fmt.Printf("%s\n", key)
 	// a map that keeps track of the sizes of objects
 	sizeMap := make(map[string]int64)
 
