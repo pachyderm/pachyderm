@@ -1116,7 +1116,7 @@ func (d *driver) listCommitF(ctx context.Context, repo *pfs.Repo, to *pfs.Commit
 	if to != nil {
 		_, err = d.inspectCommit(ctx, to, pfs.CommitState_STARTED)
 		if err != nil {
-			if _, ok := err.(pfsserver.ErrNoHead); ok {
+			if isNoHeadErr(err) {
 				return nil
 			}
 			return err
@@ -1614,7 +1614,7 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 			if err != nil {
 				// possible that branch exists but has no head commit. This is fine, but
 				// branchInfo.Head must also be nil
-				if _, ok := err.(pfsserver.ErrNoHead); !ok {
+				if !isNoHeadErr(err) {
 					return fmt.Errorf("unable to inspect %s/%s: %v", err, commit.Repo.Name, commit.ID)
 				}
 				commit = nil
@@ -1825,7 +1825,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	}
 	commitInfo, err := d.inspectCommit(ctx, file.Commit, pfs.CommitState_STARTED)
 	if err != nil {
-		if !isNotFoundErr(err) || branch == "" {
+		if (!isNotFoundErr(err) && !isNoHeadErr(err)) || branch == "" {
 			return err
 		}
 		oneOff = true
@@ -2437,6 +2437,11 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 
 func isNotFoundErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "not found")
+}
+
+func isNoHeadErr(err error) bool {
+	_, ok := err.(pfsserver.ErrNoHead)
+	return ok
 }
 
 func commitKey(commit *pfs.Commit) string {
