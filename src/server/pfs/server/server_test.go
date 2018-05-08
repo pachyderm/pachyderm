@@ -4181,6 +4181,16 @@ func TestPutFileCommit(t *testing.T) {
 	}
 }
 
+func TestPutFileCommitNilBranch(t *testing.T) {
+	c := getClient(t)
+	repo := "repo"
+	require.NoError(t, c.CreateRepo(repo))
+	require.NoError(t, c.CreateBranch(repo, "master", "", nil))
+
+	_, err := c.PutFile(repo, "master", "file", strings.NewReader("file"))
+	require.NoError(t, err)
+}
+
 func TestPutFileCommitOverwrite(t *testing.T) {
 	c := getClient(t)
 
