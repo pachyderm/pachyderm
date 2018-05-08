@@ -619,7 +619,7 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 	return newCommit, nil
 }
 
-func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs.Object, recordsFile string, records *pfs.PutFileRecords, empty bool, description string) (retErr error) {
+func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs.Object, empty bool, description string) (retErr error) {
 	if err := d.checkIsAuthorized(ctx, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
@@ -667,20 +667,10 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 		}
 
 		if tree == nil {
-			if records == nil {
-				finishedTree, err = d.getTreeForOpenCommit(ctx, client.NewFile(commit.Repo.Name, commit.ID, ""), parentTree)
-				if err != nil {
-					return err
-				}
-			} else {
-				openTree := parentTree.Open()
-				if err := d.applyWrite(recordsFile, records, openTree); err != nil {
-					return err
-				}
-				finishedTree, err = openTree.Finish()
-				if err != nil {
-					return err
-				}
+			var err error
+			finishedTree, err = d.getTreeForOpenCommit(ctx, &pfs.File{Commit: commit}, parentTree)
+			if err != nil {
+				return err
 			}
 			// Serialize the tree
 			data, err := hashtree.Serialize(finishedTree)
@@ -2337,20 +2327,16 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 			return fmt.Errorf("commit %v is not open", file.Commit.ID)
 		}
 		recordsCol := d.putFileRecords.ReadWrite(stm)
-
 		var existingRecords pfs.PutFileRecords
-		err = recordsCol.Get(prefix, &existingRecords)
-		if err != nil && !col.IsErrNotFound(err) {
-			return err
-		}
-		if newRecords.Tombstone {
-			existingRecords.Tombstone = true
-			existingRecords.Records = nil
-		} else {
+		return recordsCol.Upsert(prefix, &existingRecords, func() error {
+			if newRecords.Tombstone {
+				existingRecords.Tombstone = true
+				existingRecords.Records = nil
+			}
 			existingRecords.Split = newRecords.Split
 			existingRecords.Records = append(existingRecords.Records, newRecords.Records...)
-		}
-		return recordsCol.Put(prefix, &existingRecords)
+			return nil
+		})
 	})
 	if err != nil {
 		return err
