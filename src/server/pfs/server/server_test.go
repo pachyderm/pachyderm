@@ -4181,6 +4181,23 @@ func TestPutFileCommit(t *testing.T) {
 	}
 }
 
+func TestPutFileCommitOverwrite(t *testing.T) {
+	c := getClient(t)
+
+	numFiles := 5
+	repo := "repo"
+	require.NoError(t, c.CreateRepo(repo))
+
+	for i := 0; i < numFiles; i++ {
+		_, err := c.PutFileOverwrite(repo, "master", "file", strings.NewReader(fmt.Sprintf("%d", i)), 0)
+		require.NoError(t, err)
+	}
+
+	var b bytes.Buffer
+	require.NoError(t, c.GetFile(repo, "master", "file", 0, 0, &b))
+	require.Equal(t, fmt.Sprintf("%d", numFiles-1), b.String())
+}
+
 func TestStartCommitOutputBranch(t *testing.T) {
 	c := getClient(t)
 
