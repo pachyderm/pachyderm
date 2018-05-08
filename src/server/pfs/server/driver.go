@@ -1837,13 +1837,10 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		oneOff = true
 	}
 
-	if overwriteIndex != nil && overwriteIndex.Index == 0 {
-		if err := d.deleteFile(ctx, file); err != nil {
-			return err
-		}
-	}
-
 	records := &pfs.PutFileRecords{}
+	if overwriteIndex != nil && overwriteIndex.Index == 0 {
+		records.Tombstone = true
+	}
 	if err := validatePath(file.Path); err != nil {
 		return err
 	}
