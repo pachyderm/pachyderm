@@ -3,9 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	_ "net/http/pprof"
+	"os"
 	"path"
+	"path/filepath"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -52,6 +55,32 @@ type appEnv struct {
 }
 
 func main() {
+	// Copy the contents of /pach-bin/certs into /etc/ssl/certs
+	if info, err := os.Stat("/etc/ssl/certs"); err != nil || !info.IsDir() {
+		os.MkdirAll("/etc/ssl/certs", 0755)
+	}
+	if err := filepath.Walk("/pach-bin/certs", func(inPath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err // Don't try and fix any errors encountered by Walk() itself
+		}
+		outPath := filepath.Join("/etc/ssl/certs", info.Name())
+		out, err := os.OpenFile(outPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, info.Mode())
+		if err != nil {
+			return fmt.Errorf("could not create %s: %v", outPath, err)
+		}
+		defer out.Close()
+		in, err := os.OpenFile(inPath, os.O_RDONLY, 0)
+		if err != nil {
+			return fmt.Errorf("could not read %s: %v", inPath, err)
+		}
+		defer in.Close()
+		if _, err := io.Copy(out, in); err != nil {
+			return fmt.Errorf("could not copy %s to %s: %v", inPath, outPath, err)
+		}
+		return nil
+	}); err != nil {
+		panic(fmt.Sprintf("could not copy /pach-bin/certs to : %v", err))
+	}
 	cmdutil.Main(do, &appEnv{})
 }
 
