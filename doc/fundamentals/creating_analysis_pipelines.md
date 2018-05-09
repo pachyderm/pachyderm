@@ -40,7 +40,7 @@ For the writing files part (saving results, etc.), your code simply needs to
 write to `/pfs/out`. This is a special directory mounted by Pachyderm in all of
 your running containers. Similar to reading data, your code doesn't have to
 manage parallelization or sharding, just write data to `/pfs/out` and Pachyderm
-will make sure it all ends up in the correct place. 
+will make sure it all ends up in the correct place.
 
 ## 2. Building a Docker Image
 
@@ -48,15 +48,15 @@ When you create a Pachyderm pipeline (which will be discussed next), you need
 to specify a Docker image including the code or binary you want to run.  Please
 refer to the [official
 documentation](https://docs.docker.com/engine/tutorials/dockerimages/) to learn
-how to build a Docker images.  Note, your Docker image should NOT specify
-a `CMD`.  Rather, you specify what commands are to be run in the container when
-you create your pipeline. Pachyderm will run your program inside the container,
-however in order to setup input data before processing and read output data
-afterward it can't execute your code as the first thing in the container, it
-needs to run a shim process instead. For this shim process to work correctly
-your container needs to have `sh`, `cp` and `mkdir` present within the
-container. Minimal containers such as Alpine Linux will work for this, however
-images based off of `scratch` will not.
+how to build a Docker images.
+
+Note, your Docker image should NOT specify a `CMD`.  Rather, you specify what
+commands should run in the container in your `pipeline_specification` (see
+**Creating a Pipeline** below), and Pachyderm runs that program inside the
+container during jobs. The reason is that Pachyderm can't execute your code
+immediately when your container starts, so it runs a shim process in your
+container instead, and then calls your pipeline specification's `cmd` from
+there.
 
 Unless Pachyderm is running on the same host that you used to build your image,
 you'll need to use a public or private registry to get your image into the
@@ -114,7 +114,7 @@ Creating a pipeline tells Pachyderm to run the `cmd` (i.e., your code) in your
 `image` on the data in the HEAD (most recent) commit of the input repo(s) as
 well as *all future commits* to the input repo(s). You can think of this
 pipeline as being "subscribed" to any new commits that are made on any of its
-input repos. It will automatically process the new data as it comes in. 
+input repos. It will automatically process the new data as it comes in.
 
 As soon as you create your pipeline, Pachyderm will launch worker pods on
 Kubernetes. These worker pods will remain up and running, such that they are
