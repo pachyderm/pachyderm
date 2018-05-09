@@ -488,11 +488,11 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 		return f(jobInfo)
 	}
 	if pipeline != nil {
-		return jobs.GetByIndexF(col.Descend, ppsdb.JobsPipelineIndex, pipeline, jobPtr, _f)
+		return jobs.GetByIndexF(ppsdb.JobsPipelineIndex, pipeline, jobPtr, col.DefaultOptions, _f)
 	} else if outputCommit != nil {
-		return jobs.GetByIndexF(col.Descend, ppsdb.JobsOutputIndex, outputCommit, jobPtr, _f)
+		return jobs.GetByIndexF(ppsdb.JobsOutputIndex, outputCommit, jobPtr, col.DefaultOptions, _f)
 	} else {
-		return jobs.ListF(col.Descend, jobPtr, _f)
+		return jobs.ListF(jobPtr, col.DefaultOptions, _f)
 	}
 }
 
@@ -2005,7 +2005,7 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 	pachClient := a.getPachClient().WithCtx(ctx)
 	pipelineInfos := &pps.PipelineInfos{}
 	pipelinePtr := &pps.EtcdPipelineInfo{}
-	if err := a.pipelines.ReadOnly(pachClient.Ctx()).ListF(col.Descend, pipelinePtr, func(string) error {
+	if err := a.pipelines.ReadOnly(pachClient.Ctx()).ListF(pipelinePtr, col.DefaultOptions, func(string) error {
 		pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, pipelinePtr)
 		if err != nil {
 			return err
@@ -2027,7 +2027,7 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	if request.All {
 		request.Pipeline = &pps.Pipeline{}
 		pipelinePtr := &pps.EtcdPipelineInfo{}
-		if err := a.pipelines.ReadOnly(ctx).ListF(col.Descend, pipelinePtr, func(pipelineName string) error {
+		if err := a.pipelines.ReadOnly(ctx).ListF(pipelinePtr, col.DefaultOptions, func(pipelineName string) error {
 			request.Pipeline.Name = pipelineName
 			_, err := a.deletePipeline(pachClient, request)
 			return err
@@ -2111,7 +2111,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	// Kill or delete all of the pipeline's jobs
 	var eg errgroup.Group
 	jobPtr := &pps.EtcdJobInfo{}
-	if err := a.jobs.ReadOnly(ctx).GetByIndexF(col.Descend, ppsdb.JobsPipelineIndex, request.Pipeline, jobPtr, func(jobID string) error {
+	if err := a.jobs.ReadOnly(ctx).GetByIndexF(ppsdb.JobsPipelineIndex, request.Pipeline, jobPtr, col.DefaultOptions, func(jobID string) error {
 		eg.Go(func() error {
 			_, err := a.DeleteJob(ctx, &pps.DeleteJobRequest{&pps.Job{jobID}})
 			return err
