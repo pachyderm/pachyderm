@@ -11,13 +11,16 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// Options are the sort options when iterating through etcd key/values.
+// The sorting can be done in the calling process by setting SelfSort to true.
 type Options struct {
 	Target   etcd.SortTarget
 	Order    etcd.SortOrder
 	SelfSort bool
 }
 
-var DefaultOptions *Options = &Options{etcd.SortByCreateRevision, etcd.SortDescend, false}
+// DefaultOptions are the default sort options when iterating through etcd key/values.
+var DefaultOptions = &Options{etcd.SortByCreateRevision, etcd.SortDescend, false}
 
 type etcdIterator interface {
 	next() ([]*mvccpb.KeyValue, error)
