@@ -96,11 +96,11 @@ type ReadWriteIntCollection interface {
 // ReadonlyCollection is a collection interface that only supports read ops.
 type ReadonlyCollection interface {
 	Get(key string, val proto.Message) error
-	GetByIndexF(order order, index *Index, indexVal interface{}, val proto.Message, f func(key string) error) error
+	GetByIndexF(index *Index, indexVal interface{}, val proto.Message, opts *Options, f func(key string) error) error
 	// GetBlock is like Get but waits for the key to exist if it doesn't already.
 	GetBlock(key string, val proto.Message) error
-	ListF(order order, val proto.Message, f func(key string) error) error
-	ListPrefix(prefix string, order order, val proto.Message, f func(string) error) error
+	ListF(val proto.Message, opts *Options, f func(key string) error) error
+	ListPrefixF(prefix string, val proto.Message, opts *Options, f func(string) error) error
 	Count() (int64, error)
 	Watch() (watch.Watcher, error)
 	// WatchWithPrev is like Watch, but the events will include the previous
@@ -108,13 +108,4 @@ type ReadonlyCollection interface {
 	WatchWithPrev() (watch.Watcher, error)
 	WatchOne(key string) (watch.Watcher, error)
 	WatchByIndex(index *Index, val interface{}) (watch.Watcher, error)
-}
-
-// Iterator is an interface for iterating protobufs.
-type Iterator interface {
-	// Next is a function that, when called, serializes the key and value
-	// of the next object in a collection.
-	// ok is true if the serialization was successful.  It's false if the
-	// collection has been exhausted.
-	Next(key *string, val proto.Message) (ok bool, retErr error)
 }
