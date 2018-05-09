@@ -92,7 +92,7 @@ func main() {
 		}
 		return nil
 	}); err != nil {
-		panic(fmt.Sprintf("could not copy /pach-bin/certs to : %v", err))
+		panic(fmt.Sprintf("could not copy /pach-bin/certs to /etc/ssl/certs: %v", err))
 	}
 	cmdutil.Main(do, &appEnv{})
 }
