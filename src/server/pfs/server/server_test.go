@@ -327,17 +327,12 @@ func TestPutFileIntoOpenCommit(t *testing.T) {
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
-	_, err := client.PutFile(repo, "master", "foo", strings.NewReader("foo\n"))
-	require.YesError(t, err)
-
 	commit1, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
-	_, err = client.PutFile(repo, "master", "foo", strings.NewReader("foo\n"))
-	require.YesError(t, err)
 	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n"))
 	require.YesError(t, err)
 
@@ -347,8 +342,6 @@ func TestPutFileIntoOpenCommit(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master"))
 
-	_, err = client.PutFile(repo, "master", "foo", strings.NewReader("foo\n"))
-	require.YesError(t, err)
 	_, err = client.PutFile(repo, commit2.ID, "foo", strings.NewReader("foo\n"))
 	require.YesError(t, err)
 }
