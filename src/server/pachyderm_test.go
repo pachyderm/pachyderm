@@ -42,6 +42,7 @@ import (
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 
+	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/types"
 	apps "k8s.io/api/apps/v1beta2"
 	v1 "k8s.io/api/core/v1"
@@ -7569,6 +7570,60 @@ func TestStatsDeleteAll(t *testing.T) {
 	require.NoError(t, c.DeleteAll())
 }
 
+func TestCorruption(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	etcdClient := getEtcdClient(t)
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	r := rand.New(rand.NewSource(64))
+
+	for i := 0; i < 5; i++ {
+		dataRepo := tu.UniqueString("TestSimplePipeline_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
+
+		commit1, err := c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo"))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+		pipeline := tu.UniqueString("TestSimplePipeline")
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{
+				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+			},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewAtomInput(dataRepo, "/*"),
+			"",
+			false,
+		))
+
+		commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+		require.NoError(t, err)
+		commitInfos := collectCommitInfos(t, commitIter)
+		require.Equal(t, 1, len(commitInfos))
+
+		resp, err := etcdClient.Get(context.Background(), "pachyderm/1.7.0", etcd.WithPrefix(), etcd.WithKeysOnly())
+		require.NoError(t, err)
+		for _, kv := range resp.Kvs {
+			// Delete 1 in 10 keys
+			if r.Intn(10) == 0 {
+				_, err := etcdClient.Delete(context.Background(), string(kv.Key))
+				require.NoError(t, err)
+			}
+		}
+		require.NoError(t, c.DeleteAll())
+	}
+}
+
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
 	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
 	require.NoError(t, err)
@@ -7861,4 +7916,23 @@ func getPachClient(t testing.TB) *client.APIClient {
 		require.NoError(t, err)
 	})
 	return pachClient
+}
+
+var etcdClient *etcd.Client
+var getEtcdClientOnce sync.Once
+
+const (
+	etcdAddress = "localhost:32379" // etcd must already be serving at this address
+)
+
+func getEtcdClient(t testing.TB) *etcd.Client {
+	getEtcdClientOnce.Do(func() {
+		var err error
+		etcdClient, err = etcd.New(etcd.Config{
+			Endpoints:   []string{etcdAddress},
+			DialOptions: client.EtcdDialOptions(),
+		})
+		require.NoError(t, err)
+	})
+	return etcdClient
 }
