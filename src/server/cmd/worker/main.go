@@ -63,17 +63,30 @@ func main() {
 		if err != nil {
 			return err // Don't try and fix any errors encountered by Walk() itself
 		}
-		outPath := filepath.Join("/etc/ssl/certs", info.Name())
+		if info.IsDir() {
+			return nil // We'll just copy the children of any directories when we traverse them
+		}
+
+		// Create output file (dest)
+		outRelPath, err := filepath.Rel("/pach-bin/certs", inPath)
+		if err != nil {
+			return fmt.Errorf("could not extract relative path: %v", err)
+		}
+		outPath := filepath.Join("/etc/ssl/certs", outRelPath)
 		out, err := os.OpenFile(outPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, info.Mode())
 		if err != nil {
 			return fmt.Errorf("could not create %s: %v", outPath, err)
 		}
 		defer out.Close()
+
+		// Open input file (src)
 		in, err := os.OpenFile(inPath, os.O_RDONLY, 0)
 		if err != nil {
 			return fmt.Errorf("could not read %s: %v", inPath, err)
 		}
 		defer in.Close()
+
+		// Copy src -> dest
 		if _, err := io.Copy(out, in); err != nil {
 			return fmt.Errorf("could not copy %s to %s: %v", inPath, outPath, err)
 		}
