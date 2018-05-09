@@ -50,13 +50,13 @@ refer to the [official
 documentation](https://docs.docker.com/engine/tutorials/dockerimages/) to learn
 how to build a Docker images.
 
-Note, your Docker image should NOT specify a `CMD`.  Rather, you specify what
-commands should run in the container in your `pipeline_specification` (see
-**Creating a Pipeline** below), and Pachyderm runs that program inside the
-container during jobs. The reason is that Pachyderm can't execute your code
-immediately when your container starts, so it runs a shim process in your
-container instead, and then calls your pipeline specification's `cmd` from
-there.
+Note: You specify what commands should run in the container in your
+pipeline specification (see **Creating a Pipeline** below) rather than the
+`CMD` field of your Dockerfile, and Pachyderm runs that command inside the
+container during jobs rather than relying on Docker to run it. The reason is
+that Pachyderm can't execute your code immediately when your container starts,
+so it runs a shim process in your container instead, and then calls your
+pipeline specification's `cmd` from there.
 
 Unless Pachyderm is running on the same host that you used to build your image,
 you'll need to use a public or private registry to get your image into the
