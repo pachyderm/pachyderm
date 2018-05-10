@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/fatih/camelcase"
@@ -27,6 +28,7 @@ type logger struct {
 	*logrus.Entry
 	histogram map[string]*prometheus.HistogramVec
 	counter   map[string]prometheus.Counter
+	mutex     *sync.Mutex
 }
 
 // NewLogger creates a new logger
@@ -37,6 +39,7 @@ func NewLogger(service string) Logger {
 		l.WithFields(logrus.Fields{"service": service}),
 		make(map[string]*prometheus.HistogramVec),
 		make(map[string]prometheus.Counter),
+		&sync.Mutex{},
 	}
 }
 
@@ -48,10 +51,21 @@ func (l *logger) Log(request interface{}, response interface{}, err error, durat
 	} else {
 		l.LogAtLevelFromDepth(request, response, err, duration, logrus.InfoLevel, 4)
 	}
-	l.ReportMetric(duration, err)
+	go l.ReportMetric(getMethodName(), duration, err)
 }
 
-func (l *logger) ReportMetric(duration time.Duration, err error) {
+func getMethodName() string {
+	depth := 4
+	pc := make([]uintptr, depth)
+	runtime.Callers(depth, pc)
+	split := strings.Split(runtime.FuncForPC(pc[0]).Name(), ".")
+	method := split[len(split)-1]
+	return method
+}
+
+func (l *logger) ReportMetric(method string, duration time.Duration, err error) {
+	l.mutex.Lock() // for conccurent map access (histogram,counter)
+	defer l.mutex.Unlock()
 	state := "started"
 	if err != nil {
 		state = "errored"
@@ -60,11 +74,6 @@ func (l *logger) ReportMetric(duration time.Duration, err error) {
 			state = "finished"
 		}
 	}
-	depth := 4
-	pc := make([]uintptr, depth)
-	runtime.Callers(depth, pc)
-	split := strings.Split(runtime.FuncForPC(pc[0]).Name(), ".")
-	method := split[len(split)-1]
 	entry := l.WithFields(logrus.Fields{"method": method})
 
 	var tokens []string
