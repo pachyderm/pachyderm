@@ -989,7 +989,7 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, blockSta
 // be a commit ID or branch reference, plus '~' and/or '^') to a repo + commit
 // ID. It accepts an STM so that it can be used in a transaction and avoids an
 // inconsistent call to d.inspectCommit()
-func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (resultCommitInfo *pfs.CommitInfo, retErr error) {
+func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.CommitInfo, error) {
 	if userCommit == nil {
 		return nil, fmt.Errorf("cannot resolve nil commit")
 	}
@@ -1306,7 +1306,7 @@ func (d *driver) deleteCommit(ctx context.Context, userCommit *pfs.Commit) error
 		// 1) re-read CommitInfo inside txn
 		userCommitInfo, err := d.resolveCommit(stm, userCommit)
 		if err != nil {
-			return err
+			return fmt.Errorf("resolveCommit: %v", err)
 		}
 		deleteScratch = userCommitInfo.Finished == nil
 

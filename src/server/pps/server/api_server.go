@@ -1821,7 +1821,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			err = a.pipelines.ReadWrite(stm).Create(pipelineName, pipelinePtr)
 			if isAlreadyExistsErr(err) {
 				if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-					return superUserClient.DeleteCommit(pipelineName, commit.ID)
+					return superUserClient.DeleteCommit(ppsconsts.SpecRepo, commit.ID)
 				}); err != nil {
 					return fmt.Errorf("couldn't clean up orphaned spec commit: %v", grpcutil.ScrubGRPC(err))
 				}
