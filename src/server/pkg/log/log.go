@@ -5,11 +5,17 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/fatih/camelcase"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+)
+
+const (
+	bucketFactor = 2.0
+	bucketCount  = 20 // Which makes the max bucket 2^20 seconds or ~12 days in size
 )
 
 // Logger is a helper for emitting our grpc API logs
@@ -22,6 +28,7 @@ type logger struct {
 	*logrus.Entry
 	histogram map[string]*prometheus.HistogramVec
 	counter   map[string]prometheus.Counter
+	mutex     *sync.Mutex
 }
 
 // NewLogger creates a new logger
@@ -32,31 +39,42 @@ func NewLogger(service string) Logger {
 		l.WithFields(logrus.Fields{"service": service}),
 		make(map[string]*prometheus.HistogramVec),
 		make(map[string]prometheus.Counter),
+		&sync.Mutex{},
 	}
 }
 
 // Helper function used to log requests and responses from our GRPC method
 // implementations
 func (l *logger) Log(request interface{}, response interface{}, err error, duration time.Duration) {
-	state := "started"
 	if err != nil {
 		l.LogAtLevelFromDepth(request, response, err, duration, logrus.ErrorLevel, 4)
-		state = "errored"
 	} else {
 		l.LogAtLevelFromDepth(request, response, err, duration, logrus.InfoLevel, 4)
-		if duration.Seconds() > 0 {
-			state = "finished"
-		}
 	}
-	l.ReportMetric(state, duration)
+	// We have to grab the method's name here before we
+	// enter the goro's stack
+	go l.ReportMetric(getMethodName(), duration, err)
 }
 
-func (l *logger) ReportMetric(state string, duration time.Duration) {
+func getMethodName() string {
 	depth := 4
 	pc := make([]uintptr, depth)
 	runtime.Callers(depth, pc)
 	split := strings.Split(runtime.FuncForPC(pc[0]).Name(), ".")
-	method := split[len(split)-1]
+	return split[len(split)-1]
+}
+
+func (l *logger) ReportMetric(method string, duration time.Duration, err error) {
+	l.mutex.Lock() // for conccurent map access (histogram,counter)
+	defer l.mutex.Unlock()
+	state := "started"
+	if err != nil {
+		state = "errored"
+	} else {
+		if duration.Seconds() > 0 {
+			state = "finished"
+		}
+	}
 	entry := l.WithFields(logrus.Fields{"method": method})
 
 	var tokens []string
@@ -70,8 +88,6 @@ func (l *logger) ReportMetric(state string, duration time.Duration) {
 		runTimeName := fmt.Sprintf("%v_time", rootStatName)
 		runTime, ok := l.histogram[runTimeName]
 		if !ok {
-			bucketFactor := 2.0
-			bucketCount := 20 // Which makes the max bucket 2^20 seconds or ~12 days in size
 			runTime = prometheus.NewHistogramVec(
 				prometheus.HistogramOpts{
 					Namespace: "pachyderm",
