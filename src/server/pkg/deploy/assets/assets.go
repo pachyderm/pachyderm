@@ -38,8 +38,6 @@ var (
 	// It's public because it's needed by pps.APIServer to create the RCs for
 	// workers.
 	ServiceAccountName      = "pachyderm"
-	clusterRoleName         = "pachyderm"
-	clusterRoleBindingName  = "pachyderm"
 	etcdHeadlessServiceName = "etcd-headless"
 	etcdName                = "etcd"
 	etcdVolumeName          = "etcd-volume"
@@ -49,6 +47,26 @@ var (
 	pachdName               = "pachd"
 	// PrometheusPort hosts the prometheus stats for scraping
 	PrometheusPort = 9091
+
+	// Role & binding names, used for Roles or ClusterRoles and their associated
+	// bindings.
+	roleName        = "pachyderm"
+	roleBindingName = "pachyderm"
+	// Policy rules to use for Pachyderm's Role or ClusterRole.
+	rolePolicyRules = []rbacv1.PolicyRule{{
+		APIGroups: []string{""},
+		Verbs:     []string{"get", "list", "watch"},
+		Resources: []string{"nodes", "pods", "pods/log", "endpoints"},
+	}, {
+		APIGroups: []string{""},
+		Verbs:     []string{"get", "list", "watch", "create", "update", "delete"},
+		Resources: []string{"replicationcontrollers", "services"},
+	}, {
+		APIGroups:     []string{""},
+		Verbs:         []string{"get", "list", "watch", "create", "update", "delete"},
+		Resources:     []string{"secrets"},
+		ResourceNames: []string{client.StorageSecretName},
+	}}
 )
 
 type backend int
@@ -124,6 +142,10 @@ type AssetOpts struct {
 
 	// NoRBAC, if true, will disable creation of RBAC assets.
 	NoRBAC bool
+
+	// LocalRoles, if true, uses Role and RoleBinding instead of ClusterRole and
+	// ClusterRoleBinding.
+	LocalRoles bool
 
 	// Namespace is the kubernetes namespace to deploy to.
 	Namespace string
@@ -214,21 +236,8 @@ func ClusterRole(opts *AssetOpts) *rbacv1.ClusterRole {
 			Kind:       "ClusterRole",
 			APIVersion: "rbac.authorization.k8s.io/v1",
 		},
-		ObjectMeta: objectMeta(clusterRoleName, labels(""), nil, opts.Namespace),
-		Rules: []rbacv1.PolicyRule{{
-			APIGroups: []string{""},
-			Verbs:     []string{"get", "list", "watch"},
-			Resources: []string{"nodes", "pods", "pods/log", "endpoints"},
-		}, {
-			APIGroups: []string{""},
-			Verbs:     []string{"get", "list", "watch", "create", "update", "delete"},
-			Resources: []string{"replicationcontrollers", "services"},
-		}, {
-			APIGroups:     []string{""},
-			Verbs:         []string{"get", "list", "watch", "create", "update", "delete"},
-			Resources:     []string{"secrets"},
-			ResourceNames: []string{client.StorageSecretName},
-		}},
+		ObjectMeta: objectMeta(roleName, labels(""), nil, opts.Namespace),
+		Rules:      rolePolicyRules,
 	}
 }
 
@@ -240,7 +249,7 @@ func ClusterRoleBinding(opts *AssetOpts) *rbacv1.ClusterRoleBinding {
 			Kind:       "ClusterRoleBinding",
 			APIVersion: "rbac.authorization.k8s.io/v1",
 		},
-		ObjectMeta: objectMeta(clusterRoleBindingName, labels(""), nil, opts.Namespace),
+		ObjectMeta: objectMeta(roleBindingName, labels(""), nil, opts.Namespace),
 		Subjects: []rbacv1.Subject{{
 			Kind:      "ServiceAccount",
 			Name:      ServiceAccountName,
@@ -248,7 +257,40 @@ func ClusterRoleBinding(opts *AssetOpts) *rbacv1.ClusterRoleBinding {
 		}},
 		RoleRef: rbacv1.RoleRef{
 			Kind: "ClusterRole",
-			Name: clusterRoleName,
+			Name: roleName,
+		},
+	}
+}
+
+// Role returns a Role that should be bound to the Pachyderm service account.
+func Role(opts *AssetOpts) *rbacv1.Role {
+	return &rbacv1.Role{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Role",
+			APIVersion: "rbac.authorization.k8s.io/v1",
+		},
+		ObjectMeta: objectMeta(roleName, labels(""), nil, opts.Namespace),
+		Rules:      rolePolicyRules,
+	}
+}
+
+// RoleBinding returns a RoleBinding that binds Pachyderm's Role to its
+// ServiceAccount.
+func RoleBinding(opts *AssetOpts) *rbacv1.RoleBinding {
+	return &rbacv1.RoleBinding{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "RoleBinding",
+			APIVersion: "rbac.authorization.k8s.io/v1",
+		},
+		ObjectMeta: objectMeta(roleBindingName, labels(""), nil, opts.Namespace),
+		Subjects: []rbacv1.Subject{{
+			Kind:      "ServiceAccount",
+			Name:      ServiceAccountName,
+			Namespace: opts.Namespace,
+		}},
+		RoleRef: rbacv1.RoleRef{
+			Kind: "Role",
+			Name: roleName,
 		},
 	}
 }
@@ -1147,11 +1189,20 @@ func WriteAssets(encoder Encoder, opts *AssetOpts, objectStoreBackend backend,
 		return err
 	}
 	if !opts.NoRBAC {
-		if err := encoder.Encode(ClusterRole(opts)); err != nil {
-			return err
-		}
-		if err := encoder.Encode(ClusterRoleBinding(opts)); err != nil {
-			return err
+		if opts.LocalRoles {
+			if err := encoder.Encode(Role(opts)); err != nil {
+				return err
+			}
+			if err := encoder.Encode(RoleBinding(opts)); err != nil {
+				return err
+			}
+		} else {
+			if err := encoder.Encode(ClusterRole(opts)); err != nil {
+				return err
+			}
+			if err := encoder.Encode(ClusterRoleBinding(opts)); err != nil {
+				return err
+			}
 		}
 	}
 
