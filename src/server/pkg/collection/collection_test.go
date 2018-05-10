@@ -474,6 +474,18 @@ func TestIteration(t *testing.T) {
 			require.Equal(t, key, strconv.Itoa(numVals-i-1), "incorrect order returned")
 		}
 		require.Equal(t, numVals, len(vals), "didn't receive every value")
+		vals = make(map[string]bool)
+		valsOrder = []string{}
+		require.NoError(t, ro.ListF(val, &Options{etcd.SortByCreateRevision, etcd.SortAscend, true}, func(key string) error {
+			require.False(t, vals[key], "saw value %s twice", key)
+			vals[key] = true
+			valsOrder = append(valsOrder, key)
+			return nil
+		}))
+		for i, key := range valsOrder {
+			require.Equal(t, key, strconv.Itoa(i), "incorrect order returned")
+		}
+		require.Equal(t, numVals, len(vals), "didn't receive every value")
 	})
 }
 
