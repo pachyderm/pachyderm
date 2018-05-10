@@ -61,7 +61,7 @@ func (c *cacheStats) Collect(ch chan<- prometheus.Metric) {
 			float64(value.Int()),
 		)
 		if err != nil {
-			logrus.Infof("error reporting cache prometheus metric: %v", err)
+			logrus.Infof("error reporting prometheus cache metric %v: %v", c.statName(statFieldName), err)
 		} else {
 			ch <- metric
 		}
