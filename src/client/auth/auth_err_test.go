@@ -31,10 +31,10 @@ func TestIsErrNotSignedIn(t *testing.T) {
 	require.True(t, IsErrNotSignedIn(grpcify(ErrNotSignedIn)))
 }
 
-func TestIsErrNoToken(t *testing.T) {
-	require.False(t, IsErrNoToken(nil))
-	require.True(t, IsErrNoToken(ErrNoToken))
-	require.True(t, IsErrNoToken(grpcify(ErrNoToken)))
+func TestIsErrNoMetadata(t *testing.T) {
+	require.False(t, IsErrNoMetadata(nil))
+	require.True(t, IsErrNoMetadata(ErrNoMetadata))
+	require.True(t, IsErrNoMetadata(grpcify(ErrNoMetadata)))
 }
 
 func TestIsErrBadToken(t *testing.T) {

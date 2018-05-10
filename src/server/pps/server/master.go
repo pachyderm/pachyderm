@@ -587,7 +587,5 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 }
 
 func isNilBranchErr(err error) bool {
-	return err != nil &&
-		strings.HasPrefix(err.Error(), "the branch \"") &&
-		strings.HasSuffix(err.Error(), "\" is nil")
+	return err != nil && strings.Contains(err.Error(), "has no head")
 }
