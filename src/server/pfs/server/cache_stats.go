@@ -53,7 +53,7 @@ func (c *cacheStats) Describe(ch chan<- *prometheus.Desc) {
 
 func (c *cacheStats) Collect(ch chan<- prometheus.Metric) {
 	for _, statFieldName := range groupCacheStatFields {
-		r := reflect.ValueOf(c) // or do I need to ref c.Stats ??
+		r := reflect.ValueOf(c)
 		value := reflect.Indirect(r).FieldByName(statFieldName)
 		metric, err := prometheus.NewConstMetric(
 			c.descriptions[c.statName(statFieldName)],
