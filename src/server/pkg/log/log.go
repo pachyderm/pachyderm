@@ -51,6 +51,8 @@ func (l *logger) Log(request interface{}, response interface{}, err error, durat
 	} else {
 		l.LogAtLevelFromDepth(request, response, err, duration, logrus.InfoLevel, 4)
 	}
+	// We have to grab the method's name here before we
+	// enter the goro's stack
 	go l.ReportMetric(getMethodName(), duration, err)
 }
 
@@ -59,8 +61,7 @@ func getMethodName() string {
 	pc := make([]uintptr, depth)
 	runtime.Callers(depth, pc)
 	split := strings.Split(runtime.FuncForPC(pc[0]).Name(), ".")
-	method := split[len(split)-1]
-	return method
+	return split[len(split)-1]
 }
 
 func (l *logger) ReportMetric(method string, duration time.Duration, err error) {
