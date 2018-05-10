@@ -18,11 +18,6 @@ const (
 	bucketCount  = 20 // Which makes the max bucket 2^20 seconds or ~12 days in size
 )
 
-// This needs to be a global var, not a field on the logger, because multiple servers
-// create new loggers, and the prometheus registration uses a global namespace
-var reportMetricGauge prometheus.Gauge
-var reportMetricsOnce sync.Once
-
 // Logger is a helper for emitting our grpc API logs
 type Logger interface {
 	Log(request interface{}, response interface{}, err error, duration time.Duration)
@@ -40,29 +35,12 @@ type logger struct {
 func NewLogger(service string) Logger {
 	l := logrus.New()
 	l.Formatter = new(prettyFormatter)
-	newLogger := &logger{
+	return &logger{
 		l.WithFields(logrus.Fields{"service": service}),
 		make(map[string]*prometheus.HistogramVec),
 		make(map[string]prometheus.Counter),
 		&sync.Mutex{},
 	}
-	reportMetricsOnce.Do(func() {
-		newReportMetricGauge := prometheus.NewGauge(
-			prometheus.GaugeOpts{
-				Namespace: "pachyderm",
-				Subsystem: "pachd",
-				Name:      "report_metric",
-				Help:      "gauge of number of calls to ReportMetric()",
-			},
-		)
-		if err := prometheus.Register(newReportMetricGauge); err != nil {
-			entry := newLogger.WithFields(logrus.Fields{"method": "NewLogger"})
-			newLogger.LogAtLevel(entry, logrus.WarnLevel, "error registering prometheus metric: %v", err)
-		} else {
-			reportMetricGauge = newReportMetricGauge
-		}
-	})
-	return newLogger
 }
 
 // Helper function used to log requests and responses from our GRPC method
@@ -87,15 +65,6 @@ func getMethodName() string {
 }
 
 func (l *logger) ReportMetric(method string, duration time.Duration, err error) {
-	// Count the number of ReportMetric() goros in case we start to leak them
-	if reportMetricGauge != nil {
-		reportMetricGauge.Inc()
-	}
-	defer func() {
-		if reportMetricGauge != nil {
-			reportMetricGauge.Dec()
-		}
-	}()
 	l.mutex.Lock() // for conccurent map access (histogram,counter)
 	defer l.mutex.Unlock()
 	state := "started"
