@@ -299,7 +299,7 @@ launch-dev-vm: check-kubectl
 	  echo "export ADDRESS=192.168.99.100:30650"; \
 	  exit 1; \
 	fi
-	@# Make sure minikube isn't still up from a previous run
+	# Making sure minikube isn't still up from a previous run...
 	@if minikube ip 2>/dev/null || sudo minikube ip 2>/dev/null; \
 	then \
 		echo "minikube is still up. Run 'make clean-launch-kube'"; \
@@ -389,19 +389,7 @@ pretest:
 
 local-test: docker-build launch-dev test-pfs clean-launch-dev
 
-kube-connect:
-	@# Wait until a connection with kubernetes has been established
-	@# This make target is useful for blocking subsequent make targets
-	@# (e.g. clean-launch-dev) until kubernetes is available
-	# Connecting to minikube
-	@/bin/bash -c 'WHEEL=\\\|/-; \
-	until kubectl version >/dev/null 2>/dev/null; do \
-		echo -en "\e[G$${WHEEL:0:1} waiting for kubernetes to come up"; \
-		WHEEL="$${WHEEL:1}$${WHEEL:0:1}"; \
-		sleep 1; \
-	done'
-
-test: enterprise-code-checkin-test docker-build docker-build-test-entrypoint kube-connect clean-launch-dev launch-dev test-pfs test-pps test-vault test-auth test-enterprise test-worker
+test: enterprise-code-checkin-test docker-build docker-build-test-entrypoint clean-launch-dev launch-dev test-pfs test-pps test-vault test-auth test-enterprise test-worker
 
 enterprise-code-checkin-test:
 	# Check if our test activation code is anywhere in the repo
@@ -640,7 +628,6 @@ goxc-build:
 	kube-cluster-assets \
 	launch \
 	launch-dev \
-	kube-connect \
 	clean-launch-dev \
 	clean-launch \
 	full-clean-launch \
