@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -235,7 +236,7 @@ Environment variables:
 			if err != nil {
 				log.Warningf("error loading user config from ~/.pachderm/config: %v", err)
 			}
-			pachdAddress := client.GetAddressFromUserMachine(cfg)
+			pachdAddress := client.GetURLFromUserMachine(cfg)
 			versionClient, err := getVersionAPIClient(pachdAddress)
 			if err != nil {
 				return err
@@ -454,8 +455,12 @@ Currently "pachctl garbage-collect" can only be started when there are no active
 	return rootCmd, nil
 }
 
-func getVersionAPIClient(address string) (versionpb.APIClient, error) {
-	clientConn, err := grpc.Dial(address, client.PachDialOptions()...)
+func getVersionAPIClient(address *url.URL) (versionpb.APIClient, error) {
+	opts, err := client.PachDialOptions(address)
+	if err != nil {
+		return nil, err
+	}
+	clientConn, err := grpc.Dial(address.Host, opts...)
 	if err != nil {
 		return nil, err
 	}

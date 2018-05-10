@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net/url"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -88,7 +89,7 @@ type collectionFactory func(string) col.Collection
 type driver struct {
 	// address, and pachConn are used to connect back to Pachd's Object Store API
 	// and Authorization API
-	address      string
+	address      *url.URL
 	pachConnOnce sync.Once
 	pachConn     *grpc.ClientConn
 
@@ -117,7 +118,7 @@ const (
 )
 
 // newDriver is used to create a new Driver instance
-func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCacheSize int64) (*driver, error) {
+func newDriver(address *url.URL, etcdAddresses []string, etcdPrefix string, treeCacheSize int64) (*driver, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   etcdAddresses,
 		DialOptions: client.EtcdDialOptions(),

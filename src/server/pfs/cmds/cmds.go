@@ -1024,7 +1024,7 @@ $ pachctl diff-file foo master path1 bar master path2
 			if err != nil {
 				return err
 			}
-			mounter := fuse.NewMounter(client.GetAddress(), client)
+			mounter := fuse.NewMounter(client.GetHost(), client)
 			mountPoint := args[0]
 			ready := make(chan bool)
 			go func() {

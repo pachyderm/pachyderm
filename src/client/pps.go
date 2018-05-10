@@ -40,7 +40,7 @@ const (
 	// workers are running (if the workers belong to an orphan job, rather than a
 	// pipeline).
 	PPSJobIDEnv = "PPS_JOB_ID"
-	// PPSSpecCommitEnv is the namespace in which pachyderm is deployed
+	// PPSSpecCommitEnv is the env var containing this job's spec commit ID
 	PPSSpecCommitEnv = "PPS_SPEC_COMMIT"
 	// PPSInputPrefix is the prefix of the path where datums are downloaded
 	// to.  A datum of an input named `XXX` is downloaded to `/pfs/XXX/`.

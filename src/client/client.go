@@ -1,13 +1,17 @@
 package client
 
 import (
+	"crypto/tls"
 	"fmt"
+	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"golang.org/x/net/context"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 
@@ -66,8 +70,8 @@ type APIClient struct {
 	AdminAPIClient
 	Enterprise enterprise.APIClient // not embedded--method name conflicts with AuthAPIClient
 
-	// addr is a "host:port" string pointing at a pachd endpoint
-	addr string
+	// addr is a URL pointing at a pachd endpoint
+	addr *url.URL
 
 	// clientConn is a cached grpc connection to 'addr'
 	clientConn *grpc.ClientConn
@@ -99,16 +103,36 @@ type APIClient struct {
 // GetAddress returns the pachd host:port with which 'c' is communicating. If
 // 'c' was created using NewInCluster or NewOnUserMachine then this is how the
 // address may be retrieved from the environment.
-func (c *APIClient) GetAddress() string {
+func (c *APIClient) GetAddress() *url.URL {
 	return c.addr
+}
+
+// GetHost is a convenience method that returns the same result as
+// GetAddress(), but without the scheme
+func (c *APIClient) GetHost() string {
+	return c.addr.Host
 }
 
 // DefaultMaxConcurrentStreams defines the max number of Putfiles or Getfiles happening simultaneously
 const DefaultMaxConcurrentStreams uint = 100
 
-// NewFromAddressWithConcurrency constructs a new APIClient and sets the max
+// CanonicalizeAddr is a helper function that converts a string (possibly a hostport
+// without a scheme) to a URL for connecting to pachd. It makes certain
+// assumptions (e.g. default scheme == http) based on anticipated user behavior
+func CanonicalizeAddr(addr string) (*url.URL, error) {
+	if !strings.Contains(addr, "://") {
+		addr = "http://" + addr
+	}
+	addrURL, err := url.Parse(addr)
+	if err != nil {
+		return nil, err
+	}
+	return addrURL, nil
+}
+
+// NewFromURLWithConcurrency constructs a new APIClient and sets the max
 // concurrency of streaming requests (GetFile / PutFile)
-func NewFromAddressWithConcurrency(addr string, maxConcurrentStreams uint) (*APIClient, error) {
+func NewFromURLWithConcurrency(addr *url.URL, maxConcurrentStreams uint) (*APIClient, error) {
 	c := &APIClient{
 		addr:            addr,
 		streamSemaphore: make(chan struct{}, maxConcurrentStreams),
@@ -119,24 +143,51 @@ func NewFromAddressWithConcurrency(addr string, maxConcurrentStreams uint) (*API
 	return c, nil
 }
 
+// NewFromAddressWithConcurrency constructs a new APIClient and sets the max
+// concurrency of streaming requests (GetFile / PutFile)
+func NewFromAddressWithConcurrency(addr string, maxConcurrentStreams uint) (*APIClient, error) {
+	addrURL, err := CanonicalizeAddr(addr)
+	if err != nil {
+		return nil, err
+	}
+	return NewFromURLWithConcurrency(addrURL, maxConcurrentStreams)
+}
+
+// NewFromURL constructs a new APIClient for the server at addr.
+func NewFromURL(addr *url.URL) (*APIClient, error) {
+	return NewFromURLWithConcurrency(addr, DefaultMaxConcurrentStreams)
+}
+
 // NewFromAddress constructs a new APIClient for the server at addr.
 func NewFromAddress(addr string) (*APIClient, error) {
 	return NewFromAddressWithConcurrency(addr, DefaultMaxConcurrentStreams)
 }
 
-// GetAddressFromUserMachine interprets the Pachyderm config in 'cfg' in the
+// GetURLFromUserMachine interprets the Pachyderm config in 'cfg' in the
 // context of local environment variables and returns a "host:port" string
 // pointing at a Pachd target.
-func GetAddressFromUserMachine(cfg *config.Config) string {
-	address := "0.0.0.0:30650"
-	if cfg != nil && cfg.V1 != nil && cfg.V1.PachdAddress != "" {
-		address = cfg.V1.PachdAddress
-	}
+func GetURLFromUserMachine(cfg *config.Config) *url.URL {
 	// ADDRESS environment variable (shell-local) overrides global config
 	if envAddr := os.Getenv("ADDRESS"); envAddr != "" {
-		address = envAddr
+		address, err := CanonicalizeAddr(envAddr)
+		if err != nil {
+			log.Warningf("invalid URL in ADDRESS %s (%v), falling back to user config", envAddr, err)
+		} else {
+			return address
+		}
 	}
-	return address
+	// Get target address from global config if possible
+	if cfg != nil && cfg.V1 != nil && cfg.V1.PachdAddress != "" {
+		address, err := CanonicalizeAddr(cfg.V1.PachdAddress)
+		if err != nil {
+			log.Warningf("invalid URL in user config \"%s\" (%v), falling back to http://0.0.0.0:30650", cfg.V1.PachdAddress, err)
+		} else {
+			return address
+		}
+	}
+	// Return default address if nothing else works
+	defaultAddress, _ := url.Parse("http://0.0.0.0:30650")
+	return defaultAddress
 }
 
 // NewOnUserMachine constructs a new APIClient using env vars that may be set
@@ -163,7 +214,7 @@ func NewOnUserMachineWithConcurrency(reportMetrics bool, prefix string, maxConcu
 	}
 
 	// create new pachctl client
-	client, err := NewFromAddress(GetAddressFromUserMachine(cfg))
+	client, err := NewFromURL(GetURLFromUserMachine(cfg))
 	if err != nil {
 		return nil, err
 	}
@@ -243,6 +294,15 @@ func EtcdDialOptions() []grpc.DialOption {
 	}
 }
 
+// InsecurePachDialOptions is a helper that returns the GRPC Dial() options that
+// make sense for pachd given an insecure (http) connection. This should rarely
+// be necessary, as PachDialOptions takes roughly the same argument as
+// grpc.Dial(), but may be more convenient that passing "http://example.com" to
+// PachDialOptions just to get this result
+func InsecurePachDialOptions() []grpc.DialOption {
+	return append(EtcdDialOptions(), grpc.WithInsecure())
+}
+
 // PachDialOptions is a helper returning a slice of grpc.Dial options
 // such that
 // - TLS is disabled
@@ -250,18 +310,32 @@ func EtcdDialOptions() []grpc.DialOption {
 //                        established and it's safe to send RPCs
 //
 // This is primarily useful for Pachd and Worker clients
-func PachDialOptions() []grpc.DialOption {
-	return append(EtcdDialOptions(), grpc.WithInsecure())
+func PachDialOptions(addr *url.URL) ([]grpc.DialOption, error) {
+	switch addr.Scheme {
+	case "http":
+		return InsecurePachDialOptions(), nil
+	case "https":
+		return append(EtcdDialOptions(), grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{}))), nil
+	default:
+		return nil, fmt.Errorf("unrecognized scheme %s, must be \"http\" or \"https\"")
+	}
 }
 
 func (c *APIClient) connect() error {
+	fmt.Printf(">>> Beginning connect\n")
 	keepaliveOpt := grpc.WithKeepaliveParams(keepalive.ClientParameters{
 		Time:                20 * time.Second, // if 20s since last msg (any kind), ping
 		Timeout:             20 * time.Second, // if no response to ping for 20s, reset
 		PermitWithoutStream: true,             // send ping even if no active RPCs
 	})
-	dialOptions := append(PachDialOptions(), keepaliveOpt)
-	clientConn, err := grpc.Dial(c.addr, dialOptions...)
+	dialOptions, err := PachDialOptions(c.addr)
+	if err != nil {
+		return err
+	}
+	dialOptions = append(dialOptions, keepaliveOpt)
+	grpcAddr := c.addr.Host
+	fmt.Printf(">>> Using address %s\n", grpcAddr)
+	clientConn, err := grpc.Dial(grpcAddr, dialOptions...)
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
