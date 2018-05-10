@@ -4172,6 +4172,19 @@ func TestPutFileCommit(t *testing.T) {
 		require.NoError(t, c.GetFile(repo, "master", fmt.Sprintf("%d", i), 0, 0, &b))
 		require.Equal(t, fmt.Sprintf("%d", i), b.String())
 	}
+
+	eg = errgroup.Group{}
+	for i := 0; i < numFiles; i++ {
+		i := i
+		eg.Go(func() error {
+			return c.DeleteFile(repo, "master", fmt.Sprintf("%d", i))
+		})
+	}
+	require.NoError(t, eg.Wait())
+
+	fileInfos, err := c.ListFile(repo, "master", "")
+	require.NoError(t, err)
+	require.Equal(t, 0, len(fileInfos))
 }
 
 func TestPutFileCommitNilBranch(t *testing.T) {
