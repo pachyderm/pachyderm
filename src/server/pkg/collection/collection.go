@@ -11,7 +11,6 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -509,24 +508,7 @@ func (c *readonlyCollection) ListF(val proto.Message, opts *Options, f func(stri
 }
 
 func (c *readonlyCollection) listF(prefix string, limitPtr *int64, opts *Options, f func(*mvccpb.KeyValue) error) error {
-	iter := newEtcdIterator(c, prefix, limitPtr, opts)
-	for !iter.done() {
-		// Get next iteration
-		kvs, err := iter.next()
-		if err != nil {
-			return err
-		}
-		// Apply function to each key in iteration
-		for _, kv := range kvs {
-			if err := f(kv); err != nil {
-				if err == errutil.ErrBreak {
-					return nil
-				}
-				return err
-			}
-		}
-	}
-	return nil
+	return iterate(c, prefix, limitPtr, opts, f)
 }
 
 func (c *readonlyCollection) Count() (int64, error) {
