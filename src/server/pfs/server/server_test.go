@@ -1797,6 +1797,14 @@ func TestBranch2(t *testing.T) {
 	require.Equal(t, commit, branches[1].Head)
 }
 
+func TestDeleteNonexistantBranch(t *testing.T) {
+	client := getClient(t)
+
+	repo := "TestDeleteNonexistantBranch"
+	require.NoError(t, client.CreateRepo(repo))
+	require.NoError(t, client.DeleteBranch(repo, "doesnt_exist"))
+}
+
 func TestSubscribeCommit(t *testing.T) {
 	client := getClient(t)
 
@@ -3563,7 +3571,7 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 	require.Equal(t, 0, len(commits))
 	pipelineMaster, err = c.InspectCommit("pipeline", "master")
 	require.YesError(t, err)
-	require.Matches(t, "is nil", err.Error())
+	require.Matches(t, "has no head", err.Error())
 
 	// Case 4
 	// - commit to 'schema' and reset bigSubvCommit to be the head

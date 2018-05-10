@@ -1298,3 +1298,67 @@ func TestActivateMismatchedUsernames(t *testing.T) {
 	require.Matches(t, "github:alice", err.Error())
 	require.Matches(t, "github:bob", err.Error())
 }
+
+// TestDeleteAllAfterDeactivate tests that deleting repos and (particularly)
+// pipelines works if auth was deactivated after they were created. Pipelines
+// store a unique auth token after auth is activated, and if that auth token
+// is used in the deletion process, DeletePipeline (and therefore DeleteAll)
+// fails.
+func TestDeleteAllAfterDeactivate(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+
+	alice := tu.UniqueString("alice")
+	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
+
+	// alice creates a pipeline
+	repo := tu.UniqueString("TestDeleteAllAfterDeactivate")
+	pipeline := tu.UniqueString("pipeline")
+	require.NoError(t, aliceClient.CreateRepo(repo))
+	require.NoError(t, aliceClient.CreatePipeline(
+		pipeline,
+		"", // default image: ubuntu:14.04
+		[]string{"bash"},
+		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewAtomInput(repo, "/*"),
+		"", // default output branch: master
+		false,
+	))
+
+	// alice makes an input commit
+	commit, err := aliceClient.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = aliceClient.PutFile(repo, commit.ID, "/file1", strings.NewReader("test data"))
+	require.NoError(t, err)
+	require.NoError(t, aliceClient.FinishCommit(repo, commit.ID))
+
+	// make sure the pipeline runs
+	iter, err := aliceClient.FlushCommit(
+		[]*pfs.Commit{commit},
+		[]*pfs.Repo{{Name: pipeline}},
+	)
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, 60*time.Second, func() error {
+		_, err := iter.Next()
+		return err
+	})
+
+	// Deactivate auth
+	_, err = adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
+	require.NoError(t, err)
+
+	// Wait for auth to be deactivated
+	require.NoError(t, backoff.Retry(func() error {
+		_, err := aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
+		if err != nil && auth.IsErrNotActivated(err) {
+			return nil // WhoAmI should fail when auth is deactivated
+		}
+		return errors.New("auth is not yet deactivated")
+	}, backoff.NewTestingBackOff()))
+
+	// Make sure DeleteAll() succeeds
+	require.NoError(t, aliceClient.DeleteAll())
+}
