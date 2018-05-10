@@ -75,5 +75,5 @@ func (c *cacheStats) statName(fieldName string) string {
 	}
 	groupCacheStatName := strings.Join(tokens, "_")
 
-	return fmt.Sprintf("pachd_cache_%v_%v_gauge", c.cacheName, groupCacheStatName)
+	return fmt.Sprintf("pachyderm_pachd_cache_%v_%v_gauge", c.cacheName, groupCacheStatName)
 }
