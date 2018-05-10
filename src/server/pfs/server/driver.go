@@ -2278,12 +2278,20 @@ func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
 	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
+	branch := ""
+	if !uuid.IsUUIDWithoutDashes(file.Commit.ID) {
+		branch = file.Commit.ID
+	}
 	commitInfo, err := d.inspectCommit(ctx, file.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}
 	if commitInfo.Finished != nil {
-		return pfsserver.ErrCommitFinished{file.Commit}
+		if branch == "" {
+			return pfsserver.ErrCommitFinished{file.Commit}
+		}
+		_, err := d.makeCommit(ctx, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, file.Path, &pfs.PutFileRecords{Tombstone: true}, "")
+		return err
 	}
 
 	return d.upsertPutFileRecords(ctx, file, &pfs.PutFileRecords{Tombstone: true})
