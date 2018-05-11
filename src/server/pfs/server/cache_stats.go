@@ -11,18 +11,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var groupCacheStatFields = []string{
-	"Gets",
-	"CacheHits",
-	"PeerLoads",
-	"PeerErrors",
-	"Loads",
-	"LoadsDeduped",
-	"LocalLoads",
-	"LocalLoadErrs",
-	"ServerRequests",
-}
-
 type cacheStats struct {
 	cacheName    string
 	descriptions map[string]*prometheus.Desc
@@ -39,7 +27,7 @@ func RegisterCacheStats(cacheName string, groupCacheStats *groupcache.Stats) {
 }
 
 func (c *cacheStats) Describe(ch chan<- *prometheus.Desc) {
-	for _, statFieldName := range groupCacheStatFields {
+	for _, statFieldName := range groupCacheStatFields() {
 		statName := c.statName(statFieldName)
 		desc := prometheus.NewDesc(
 			statName,
@@ -53,7 +41,7 @@ func (c *cacheStats) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (c *cacheStats) Collect(ch chan<- prometheus.Metric) {
-	for _, statFieldName := range groupCacheStatFields {
+	for _, statFieldName := range groupCacheStatFields() {
 		r := reflect.ValueOf(c)
 		value := reflect.Indirect(r).FieldByName(statFieldName)
 		metric, err := prometheus.NewConstMetric(
@@ -77,4 +65,14 @@ func (c *cacheStats) statName(fieldName string) string {
 	groupCacheStatName := strings.Join(tokens, "_")
 
 	return fmt.Sprintf("pachyderm_pachd_cache_%v_%v_gauge", c.cacheName, groupCacheStatName)
+}
+
+func groupCacheStatFields() (fields []string) {
+	s := &groupcache.Stats{}
+	e := reflect.ValueOf(s).Elem()
+	t := e.Type()
+	for i := 0; i < e.NumField(); i++ {
+		fields = append(fields, t.Field(i).Name)
+	}
+	return fields
 }
