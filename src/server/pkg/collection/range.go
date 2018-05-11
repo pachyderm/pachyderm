@@ -13,6 +13,7 @@ import (
 )
 
 // Options are the sort options when iterating through etcd key/values.
+// Currently implemented sort targets are CreateRevision and ModRevision.
 // The sorting can be done in the calling process by setting SelfSort to true.
 type Options struct {
 	Target   etcd.SortTarget
@@ -23,15 +24,7 @@ type Options struct {
 // DefaultOptions are the default sort options when iterating through etcd key/values.
 var DefaultOptions = &Options{etcd.SortByCreateRevision, etcd.SortDescend, false}
 
-func iterate(c *readonlyCollection, prefix string, limitPtr *int64, opts *Options, f func(*mvccpb.KeyValue) error) error {
-	if opts.SelfSort {
-		return iterateSelfSortRevision(c, prefix, limitPtr, opts, f)
-	}
-
-	return iterateRevision(c, prefix, limitPtr, opts, f)
-}
-
-func iterateFuncs(opts *Options) (func(*mvccpb.KeyValue) etcd.OpOption, func(kv1 *mvccpb.KeyValue, kv2 *mvccpb.KeyValue) int) {
+func listFuncs(opts *Options) (func(*mvccpb.KeyValue) etcd.OpOption, func(kv1 *mvccpb.KeyValue, kv2 *mvccpb.KeyValue) int) {
 	var from func(*mvccpb.KeyValue) etcd.OpOption
 	var compare func(kv1 *mvccpb.KeyValue, kv2 *mvccpb.KeyValue) int
 	switch opts.Target {
@@ -59,10 +52,10 @@ func iterateFuncs(opts *Options) (func(*mvccpb.KeyValue) etcd.OpOption, func(kv1
 	return from, compare
 }
 
-func iterateRevision(c *readonlyCollection, prefix string, limitPtr *int64, opts *Options, f func(*mvccpb.KeyValue) error) error {
+func listRevision(c *readonlyCollection, prefix string, limitPtr *int64, opts *Options, f func(*mvccpb.KeyValue) error) error {
 	etcdOpts := []etcd.OpOption{etcd.WithPrefix(), etcd.WithSort(opts.Target, opts.Order)}
 	var fromKey *mvccpb.KeyValue
-	from, compare := iterateFuncs(opts)
+	from, compare := listFuncs(opts)
 	for {
 		if fromKey != nil {
 			etcdOpts = append(etcdOpts, from(fromKey))
@@ -107,7 +100,7 @@ type kvSort struct {
 	compare func(kv1 *mvccpb.KeyValue, kv2 *mvccpb.KeyValue) int
 }
 
-func iterateSelfSortRevision(c *readonlyCollection, prefix string, limitPtr *int64, opts *Options, f func(*mvccpb.KeyValue) error) error {
+func listSelfSortRevision(c *readonlyCollection, prefix string, limitPtr *int64, opts *Options, f func(*mvccpb.KeyValue) error) error {
 	etcdOpts := []etcd.OpOption{etcd.WithFromKey(), etcd.WithRange(endKeyFromPrefix(prefix))}
 	fromKey := prefix
 	kvs := []*mvccpb.KeyValue{}
@@ -126,7 +119,7 @@ func iterateSelfSortRevision(c *readonlyCollection, prefix string, limitPtr *int
 		}
 		fromKey = string(kvs[len(kvs)-1].Key)
 	}
-	_, compare := iterateFuncs(opts)
+	_, compare := listFuncs(opts)
 	sorter := &kvSort{kvs, compare}
 	switch opts.Order {
 	case etcd.SortAscend:
