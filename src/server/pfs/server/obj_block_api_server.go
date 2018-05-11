@@ -89,11 +89,11 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objC
 	}
 
 	s.objectCache = groupcache.NewGroup(objectGroupName, oneCacheShare*objectCacheShares, groupcache.GetterFunc(s.objectGetter))
-	NewCacheStats("object", &s.objectCache.Stats)
+	RegisterCacheStats("object", &s.objectCache.Stats)
 	s.tagCache = groupcache.NewGroup(tagGroupName, oneCacheShare*tagCacheShares, groupcache.GetterFunc(s.tagGetter))
-	NewCacheStats("tag", &s.tagCache.Stats)
+	RegisterCacheStats("tag", &s.tagCache.Stats)
 	s.objectInfoCache = groupcache.NewGroup(objectInfoGroupName, oneCacheShare*objectInfoCacheShares, groupcache.GetterFunc(s.objectInfoGetter))
-	NewCacheStats("object_info", &s.objectInfoCache.Stats)
+	RegisterCacheStats("object_info", &s.objectInfoCache.Stats)
 
 	go s.watchGC(etcdAddress)
 	return s, nil
