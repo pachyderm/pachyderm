@@ -37,9 +37,11 @@ func (c *cacheStats) Describe(ch chan<- *prometheus.Desc) {
 			[]string{},
 			nil,
 		)
-		c.mutex.Lock()
-		c.descriptions[statName] = desc
-		c.mutex.Unlock()
+		func() {
+			c.mutex.Lock()
+			defer c.mutex.Unlock()
+			c.descriptions[statName] = desc
+		}()
 		ch <- desc
 	}
 }
@@ -48,18 +50,20 @@ func (c *cacheStats) Collect(ch chan<- prometheus.Metric) {
 	r := reflect.ValueOf(c)
 	for _, statFieldName := range groupCacheStatFields() {
 		value := reflect.Indirect(r).FieldByName(statFieldName)
-		c.mutex.Lock()
-		metric, err := prometheus.NewConstMetric(
-			c.descriptions[c.statName(statFieldName)],
-			prometheus.GaugeValue,
-			float64(value.Int()),
-		)
-		c.mutex.Unlock()
-		if err != nil {
-			logrus.Infof("error reporting prometheus cache metric %v: %v", c.statName(statFieldName), err)
-		} else {
-			ch <- metric
-		}
+		func() {
+			c.mutex.Lock()
+			defer c.mutex.Unlock()
+			metric, err := prometheus.NewConstMetric(
+				c.descriptions[c.statName(statFieldName)],
+				prometheus.GaugeValue,
+				float64(value.Int()),
+			)
+			if err != nil {
+				logrus.Infof("error reporting prometheus cache metric %v: %v", c.statName(statFieldName), err)
+			} else {
+				ch <- metric
+			}
+		}()
 	}
 }
 
