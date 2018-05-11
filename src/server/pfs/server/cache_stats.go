@@ -29,12 +29,13 @@ type cacheStats struct {
 	*groupcache.Stats
 }
 
-func NewCacheStats(cacheName string, groupCacheStats *groupcache.Stats) *cacheStats {
+// RegisterCacheStats creates a new wrapper for groupcache stats that implements
+// the prometheus.Collector interface, and registers it
+func RegisterCacheStats(cacheName string, groupCacheStats *groupcache.Stats) {
 	c := &cacheStats{cacheName, make(map[string]*prometheus.Desc), groupCacheStats}
 	if err := prometheus.Register(c); err != nil {
 		logrus.Infof("error registering prometheus metric: %v", err)
 	}
-	return c
 }
 
 func (c *cacheStats) Describe(ch chan<- *prometheus.Desc) {
