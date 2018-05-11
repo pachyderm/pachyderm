@@ -337,7 +337,7 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool) (*pfs.ListRepoR
 	result := &pfs.ListRepoResponse{}
 	authSeemsActive := true
 	repoInfo := &pfs.RepoInfo{}
-	if err := repos.ListF(repoInfo, col.DefaultOptions, func(repoName string) error {
+	if err := repos.List(repoInfo, col.DefaultOptions, func(repoName string) error {
 		if repoName == ppsconsts.SpecRepo {
 			return nil
 		}
@@ -1102,7 +1102,7 @@ func (d *driver) listCommitF(ctx context.Context, repo *pfs.Repo, to *pfs.Commit
 	} else if from == nil && to == nil {
 		// if neither from and to is given, we list all commits in
 		// the repo, sorted by revision timestamp
-		if err := commits.ListF(ci, col.DefaultOptions, func(commitID string) error {
+		if err := commits.List(ci, col.DefaultOptions, func(commitID string) error {
 			if number <= 0 {
 				return errutil.ErrBreak
 			}
@@ -1688,7 +1688,7 @@ func (d *driver) listBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.BranchI
 	var result []*pfs.BranchInfo
 	branchInfo := &pfs.BranchInfo{}
 	branches := d.branches(repo.Name).ReadOnly(ctx)
-	if err := branches.ListF(branchInfo, col.DefaultOptions, func(string) error {
+	if err := branches.List(branchInfo, col.DefaultOptions, func(string) error {
 		result = append(result, proto.Clone(branchInfo).(*pfs.BranchInfo))
 		return nil
 	}); err != nil {
@@ -2057,7 +2057,7 @@ func (d *driver) getTreeForOpenCommit(ctx context.Context, file *pfs.File, paren
 		recordsCol := d.putFileRecords.ReadOnly(ctx)
 		putFileRecords := &pfs.PutFileRecords{}
 		opts := &col.Options{etcd.SortByModRevision, etcd.SortAscend, true}
-		return recordsCol.ListPrefixF(prefix, putFileRecords, opts, func(key string) error {
+		return recordsCol.ListPrefix(prefix, putFileRecords, opts, func(key string) error {
 			return d.applyWrite(path.Join(file.Path, key), putFileRecords, tree)
 		})
 	}); err != nil {

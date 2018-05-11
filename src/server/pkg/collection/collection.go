@@ -435,11 +435,11 @@ func (c *readonlyCollection) Get(key string, val proto.Message) error {
 	return proto.Unmarshal(resp.Kvs[0].Value, val)
 }
 
-func (c *readonlyCollection) GetByIndexF(index *Index, indexVal interface{}, val proto.Message, opts *Options, f func(key string) error) error {
+func (c *readonlyCollection) GetByIndex(index *Index, indexVal interface{}, val proto.Message, opts *Options, f func(key string) error) error {
 	if atomic.LoadInt64(&index.limit) == 0 {
 		atomic.CompareAndSwapInt64(&index.limit, 0, defaultLimit)
 	}
-	return c.listF(c.indexDir(index, indexVal), &index.limit, opts, func(kv *mvccpb.KeyValue) error {
+	return c.list(c.indexDir(index, indexVal), &index.limit, opts, func(kv *mvccpb.KeyValue) error {
 		key := path.Base(string(kv.Key))
 		if err := c.Get(key, val); err != nil {
 			if IsErrNotFound(err) {
@@ -472,17 +472,17 @@ func (c *readonlyCollection) GetBlock(key string, val proto.Message) error {
 	}
 }
 
-// ListPrefixF returns keys (and values) that begin with prefix, f will be
+// ListPrefix returns keys (and values) that begin with prefix, f will be
 // called with each key, val will contain the value for the key.
 // You can break out of iteration by returning errutil.ErrBreak.
-func (c *readonlyCollection) ListPrefixF(prefix string, val proto.Message, opts *Options, f func(string) error) error {
+func (c *readonlyCollection) ListPrefix(prefix string, val proto.Message, opts *Options, f func(string) error) error {
 	queryPrefix := c.prefix
 	if prefix != "" {
 		// If we always call join, we'll get rid of the trailing slash we need
 		// on the root c.prefix
 		queryPrefix = filepath.Join(c.prefix, prefix)
 	}
-	return c.listF(queryPrefix, &c.limit, opts, func(kv *mvccpb.KeyValue) error {
+	return c.list(queryPrefix, &c.limit, opts, func(kv *mvccpb.KeyValue) error {
 		if err := proto.Unmarshal(kv.Value, val); err != nil {
 			return err
 		}
@@ -490,16 +490,15 @@ func (c *readonlyCollection) ListPrefixF(prefix string, val proto.Message, opts 
 	})
 }
 
-// ListF returns objects sorted by CreateRevision, i.e. the order in which they
-// were created. f will be called with each key, val will contain the
+// List returns objects sorted based on the options passed in. f will be called with each key, val will contain the
 // corresponding value. Val is not an argument to f because that would require
 // f to perform a cast before it could be used.
 // You can break out of iteration by returning errutil.ErrBreak.
-func (c *readonlyCollection) ListF(val proto.Message, opts *Options, f func(string) error) error {
+func (c *readonlyCollection) List(val proto.Message, opts *Options, f func(string) error) error {
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
-	return c.listF(c.prefix, &c.limit, opts, func(kv *mvccpb.KeyValue) error {
+	return c.list(c.prefix, &c.limit, opts, func(kv *mvccpb.KeyValue) error {
 		if err := proto.Unmarshal(kv.Value, val); err != nil {
 			return err
 		}
@@ -507,8 +506,12 @@ func (c *readonlyCollection) ListF(val proto.Message, opts *Options, f func(stri
 	})
 }
 
-func (c *readonlyCollection) listF(prefix string, limitPtr *int64, opts *Options, f func(*mvccpb.KeyValue) error) error {
-	return iterate(c, prefix, limitPtr, opts, f)
+func (c *readonlyCollection) list(prefix string, limitPtr *int64, opts *Options, f func(*mvccpb.KeyValue) error) error {
+	if opts.SelfSort {
+		return listSelfSortRevision(c, prefix, limitPtr, opts, f)
+	}
+
+	return listRevision(c, prefix, limitPtr, opts, f)
 }
 
 func (c *readonlyCollection) Count() (int64, error) {
