@@ -4173,6 +4173,24 @@ func TestPutFileCommit(t *testing.T) {
 		require.Equal(t, fmt.Sprintf("%d", i), b.String())
 	}
 
+	bi, err := c.InspectBranch(repo, "master")
+	require.NoError(t, err)
+
+	eg = errgroup.Group{}
+	for i := 0; i < numFiles; i++ {
+		i := i
+		eg.Go(func() error {
+			return c.CopyFile(repo, bi.Head.ID, fmt.Sprintf("%d", i), repo, "master", fmt.Sprintf("%d", (i+1)%numFiles), true)
+		})
+	}
+	require.NoError(t, eg.Wait())
+
+	for i := 0; i < numFiles; i++ {
+		var b bytes.Buffer
+		require.NoError(t, c.GetFile(repo, "master", fmt.Sprintf("%d", (i+1)%numFiles), 0, 0, &b))
+		require.Equal(t, fmt.Sprintf("%d", i), b.String())
+	}
+
 	eg = errgroup.Group{}
 	for i := 0; i < numFiles; i++ {
 		i := i
