@@ -2008,6 +2008,72 @@ func TestUpdatePipeline(t *testing.T) {
 	require.Equal(t, "buzz\n", buffer.String())
 }
 
+func TestUpdateFailedPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	// create repos
+	dataRepo := tu.UniqueString("TestUpdateFailedPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	pipelineName := tu.UniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"imagethatdoesntexist",
+		[]string{"bash"},
+		[]string{"echo foo >/pfs/out/file"},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+	_, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("1"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, "master"))
+
+	// Wait for pod to try and pull the bad image
+	time.Sleep(5 * time.Second)
+	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+	require.Equal(t, pps.PipelineState_PIPELINE_FAILURE, pipelineInfo.State)
+
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"bash:4",
+		[]string{"bash"},
+		[]string{"echo bar >/pfs/out/file"},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/*"),
+		"",
+		true,
+	))
+	pipelineInfo, err = c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+	require.Equal(t, pps.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
+
+	_, err = c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("2"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, "master"))
+	iter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	collectCommitInfos(t, iter)
+
+	//	buffer.Reset()
+	var buffer bytes.Buffer
+	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
+	require.Equal(t, "bar\n", buffer.String())
+}
+
 func TestUpdatePipelineRunningJob(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
