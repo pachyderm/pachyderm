@@ -566,7 +566,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 // ListJobStream.
 func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline, outputCommit *pfs.Commit, inputCommits []*pfs.Commit, f func(*pps.JobInfo) error) error {
 	if err := checkLoggedIn(pachClient); err != nil {
-		return nil, err
+		return err
 	}
 	var err error
 	if outputCommit != nil {
@@ -2045,7 +2045,7 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 		}
 	}(time.Now())
 	pachClient := a.getPachClient().WithCtx(ctx)
-  if err := checkLoggedIn(pachClient); err != nil {
+	if err := checkLoggedIn(pachClient); err != nil {
 		return nil, err
 	}
 	pipelineInfos := &pps.PipelineInfos{}
