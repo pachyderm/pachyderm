@@ -42,6 +42,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 
 	"github.com/gogo/protobuf/types"
+	prom_api "github.com/prometheus/client_golang/api"
+	prom_api_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	prom_model "github.com/prometheus/common/model"
 	apps "k8s.io/api/apps/v1beta2"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -7566,6 +7569,69 @@ func TestStatsDeleteAll(t *testing.T) {
 	require.Equal(t, 1, len(jis))
 	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jis[0].State.String())
 	require.NoError(t, c.DeleteAll())
+}
+
+func TestPachdPrometheusStats(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	port := os.Getenv("PROM_PORT")
+	promClient, err := prom_api.NewClient(prom_api.Config{
+		Address: fmt.Sprintf("http://127.0.0.1:%v", port),
+	})
+	require.NoError(t, err)
+	promAPI := prom_api_v1.NewAPI(promClient)
+
+	countQuery := func(t *testing.T, query string) float64 {
+		result, err := promAPI.Query(context.Background(), query, time.Now())
+		require.NoError(t, err)
+		resultVec := result.(prom_model.Vector)
+		require.Equal(t, 1, len(resultVec))
+		return float64(resultVec[0].Value)
+	}
+	avgQuery := func(t *testing.T, sumQuery string, countQuery string, expected int) {
+		query := "(" + sumQuery + ")/(" + countQuery + ")"
+		result, err := promAPI.Query(context.Background(), query, time.Now())
+		require.NoError(t, err)
+		resultVec := result.(prom_model.Vector)
+		require.Equal(t, expected, len(resultVec))
+	}
+	// Check stats reported on pachd pod
+	pod := "app=\"pachd\""
+	without := "(instance)"
+
+	// Check PFS API is reported
+	t.Run("GetFileAvgRuntime", func(t *testing.T) {
+		sum := fmt.Sprintf("sum(pachyderm_pachd_get_file_time_sum{%v}) without %v", pod, without)
+		count := fmt.Sprintf("sum(pachyderm_pachd_get_file_time_count{%v}) without %v", pod, without)
+		avgQuery(t, sum, count, 2) // 2 results ... one for finished, one for errored
+	})
+	t.Run("PutFileAvgRuntime", func(t *testing.T) {
+		sum := fmt.Sprintf("sum(pachyderm_pachd_put_file_time_sum{%v}) without %v", pod, without)
+		count := fmt.Sprintf("sum(pachyderm_pachd_put_file_time_count{%v}) without %v", pod, without)
+		avgQuery(t, sum, count, 1)
+	})
+	t.Run("GetFileSeconds", func(t *testing.T) {
+		query := fmt.Sprintf("sum(pachyderm_pachd_get_file_seconds_count{%v}) without %v", pod, without)
+		countQuery(t, query) // Just check query has a result
+	})
+	t.Run("PutFileSeconds", func(t *testing.T) {
+		query := fmt.Sprintf("sum(pachyderm_pachd_put_file_seconds_count{%v}) without %v", pod, without)
+		countQuery(t, query) // Just check query has a result
+	})
+
+	// Check PPS API is reported
+	t.Run("ListJobSeconds", func(t *testing.T) {
+		query := fmt.Sprintf("sum(pachyderm_pachd_list_job_seconds_count{%v}) without %v", pod, without)
+		countQuery(t, query)
+	})
+	t.Run("ListJobAvgRuntime", func(t *testing.T) {
+		sum := fmt.Sprintf("sum(pachyderm_pachd_list_job_time_sum{%v}) without %v", pod, without)
+		count := fmt.Sprintf("sum(pachyderm_pachd_list_job_time_count{%v}) without %v", pod, without)
+		avgQuery(t, sum, count, 1)
+	})
+
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {

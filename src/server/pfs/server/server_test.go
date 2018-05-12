@@ -1797,6 +1797,14 @@ func TestBranch2(t *testing.T) {
 	require.Equal(t, commit2, branches[1].Head)
 }
 
+func TestDeleteNonexistantBranch(t *testing.T) {
+	client := getClient(t)
+
+	repo := "TestDeleteNonexistantBranch"
+	require.NoError(t, client.CreateRepo(repo))
+	require.NoError(t, client.DeleteBranch(repo, "doesnt_exist"))
+}
+
 func TestSubscribeCommit(t *testing.T) {
 	client := getClient(t)
 

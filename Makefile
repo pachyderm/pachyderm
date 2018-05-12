@@ -34,7 +34,7 @@ ifdef TRAVIS_BUILD_NUMBER
 else
 ifndef TIMEOUT
 	# You should be able to specify your own timeout, but by default we'll use the same bound as travis
-	TIMEOUT = 1000s
+	TIMEOUT = 3600s
 endif
 endif
 
@@ -125,7 +125,7 @@ release-pachctl-custom:
 
 release-pachctl:
 	@# Run pachctl release script w deploy branch name
-	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachctl master
+	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachctl
 
 release-helper: check-docker-version release-version release-pachd release-worker
 
@@ -299,7 +299,7 @@ launch-dev-vm: check-kubectl
 	  echo "export ADDRESS=192.168.99.100:30650"; \
 	  exit 1; \
 	fi
-	@# Make sure minikube isn't still up from a previous run
+	# Making sure minikube isn't still up from a previous run...
 	@if minikube ip 2>/dev/null || sudo minikube ip 2>/dev/null; \
 	then \
 		echo "minikube is still up. Run 'make clean-launch-kube'"; \
@@ -387,8 +387,6 @@ pretest:
 	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-#test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build docker-build-netcat clean-launch-dev launch-dev integration-tests example-tests
-
 local-test: docker-build launch-dev test-pfs clean-launch-dev
 
 test: enterprise-code-checkin-test docker-build docker-build-test-entrypoint clean-launch-dev launch-dev test-pfs test-pps test-vault test-auth test-enterprise test-worker
@@ -409,10 +407,11 @@ test-pfs:
 	go test ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
 	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
 
-test-pps:
+test-pps: launch-stats
 	# Use the count flag to disable test caching for this test suite.
-	go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT)
-	go test ./src/server/pps/cmds -timeout $(TIMEOUT)
+	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
+		go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT)  && \
+		go test ./src/server/pps/cmds -timeout $(TIMEOUT)
 
 test-client:
 	rm -rf src/client/vendor
@@ -630,6 +629,7 @@ goxc-build:
 	kube-cluster-assets \
 	launch \
 	launch-dev \
+	clean-launch-dev \
 	clean-launch \
 	full-clean-launch \
 	clean-pps-storage \
