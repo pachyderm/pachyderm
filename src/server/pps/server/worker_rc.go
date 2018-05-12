@@ -131,7 +131,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 			{
 				Name:    client.PPSWorkerUserContainerName,
 				Image:   options.userImage,
-				Command: []string{"/pach-bin/guest.sh"},
+				Command: []string{"/pach-bin/worker"},
 				SecurityContext: &v1.SecurityContext{
 					Privileged: &trueVal, // god is this dumb
 				},
