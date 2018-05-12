@@ -2348,26 +2348,8 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 		return nil, fmt.Errorf("Error during authorization check: %v", err)
 	}
 
-	pipelineInfos, err := a.ListPipeline(ctx, &pps.ListPipelineRequest{})
-	if err != nil {
+	if _, err := a.DeletePipeline(ctx, &pps.DeletePipelineRequest{All: true}); err != nil {
 		return nil, err
-	}
-	for _, pipelineInfo := range pipelineInfos.PipelineInfo {
-		if _, err := a.DeletePipeline(ctx, &pps.DeletePipelineRequest{
-			Pipeline: pipelineInfo.Pipeline,
-		}); err != nil {
-			return nil, err
-		}
-	}
-
-	jobInfos, err := a.ListJob(ctx, &pps.ListJobRequest{})
-	if err != nil {
-		return nil, err
-	}
-	for _, jobInfo := range jobInfos.JobInfo {
-		if _, err := a.DeleteJob(ctx, &pps.DeleteJobRequest{jobInfo.Job}); err != nil {
-			return nil, err
-		}
 	}
 
 	// PFS doesn't delete the spec repo, so do it here

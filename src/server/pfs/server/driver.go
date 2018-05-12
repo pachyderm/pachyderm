@@ -404,7 +404,7 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 		commits.DeleteAll()
 		for _, branch := range repoInfo.Branches {
 			if err := d.deleteBranchSTM(stm, branch, force); err != nil {
-				return err
+				return fmt.Errorf("delete branch %s: %v", branch, err)
 			}
 		}
 		return repos.Delete(repo.Name)
@@ -1745,7 +1745,7 @@ func (d *driver) deleteBranchSTM(stm col.STM, branch *pfs.Branch, force bool) er
 			// Branch was already deleted, nothing to do.
 			return nil
 		}
-		return err
+		return fmt.Errorf("branches.Get: %v", err)
 	}
 	if !force {
 		if len(branchInfo.Subvenance) > 0 {
@@ -1753,15 +1753,15 @@ func (d *driver) deleteBranchSTM(stm col.STM, branch *pfs.Branch, force bool) er
 		}
 	}
 	if err := branches.Delete(branch.Name); err != nil {
-		return err
+		return fmt.Errorf("branches.Delete: %v", err)
 	}
 	for _, provBranch := range branchInfo.Provenance {
 		provBranchInfo := &pfs.BranchInfo{}
 		if err := d.branches(provBranch.Repo.Name).ReadWrite(stm).Update(provBranch.Name, provBranchInfo, func() error {
 			del(&provBranchInfo.Subvenance, branch)
 			return nil
-		}); err != nil {
-			return err
+		}); err != nil && !isNotFoundErr(err) {
+			return fmt.Errorf("error deleting subvenance: %v", err)
 		}
 	}
 	repoInfo := &pfs.RepoInfo{}
