@@ -2162,23 +2162,25 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool) ([]*pf
 	if err != nil {
 		return nil, err
 	}
-
-	var fileInfos []*pfs.FileInfo
+	paths := make(map[string]*hashtree.NodeProto, len(rootPaths))
 	for rootPath, rootNode := range rootPaths {
 		nodes, err := tree.List(rootPath)
 		if err != nil {
 			if hashtree.Code(err) == hashtree.PathConflict {
-				fileInfos = append(fileInfos, nodeToFileInfo(file.Commit, rootPath, rootNode, full))
+				paths[rootPath] = rootNode
 				continue
 			}
 			return nil, err
 		}
-
 		for _, node := range nodes {
-			fileInfos = append(fileInfos, nodeToFileInfo(file.Commit, filepath.Join(rootPath, node.Name), node, full))
+			paths[filepath.Join(rootPath, node.Name)] = node
 		}
 	}
 
+	var fileInfos []*pfs.FileInfo
+	for path, node := range paths {
+		fileInfos = append(fileInfos, nodeToFileInfo(file.Commit, path, node, full))
+	}
 	return fileInfos, nil
 }
 
