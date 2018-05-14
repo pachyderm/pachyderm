@@ -78,8 +78,7 @@ func (c *cacheStats) statName(fieldName string) string {
 }
 
 func groupCacheStatFields() (fields []string) {
-	s := &groupcache.Stats{}
-	e := reflect.ValueOf(s).Elem()
+	e := reflect.ValueOf(&groupcache.Stats{}).Elem()
 	t := e.Type()
 	for i := 0; i < e.NumField(); i++ {
 		fields = append(fields, t.Field(i).Name)
