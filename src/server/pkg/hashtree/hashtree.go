@@ -591,11 +591,12 @@ func (h *hashtree) PutDir(path string) error {
 
 // DeleteFile deletes a regular file or directory (along with its children).
 func (h *hashtree) DeleteFile(path string) error {
-	// Delete root means delete all files
-	if path == "/" {
-		path = "/*"
-	}
+	path = clean(path)
 
+	// Delete root means delete all files
+	if path == "" {
+		path = "*"
+	}
 	paths, err := h.Glob(path)
 
 	// Deleting a non-existent file should be a no-op
