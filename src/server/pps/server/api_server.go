@@ -374,40 +374,42 @@ func (a *apiServer) authorizePipelineOp(pachClient *client.APIClient, operation 
 		return err
 	}
 
-	// Check that the user is authorized to read all input repos, and write to the
-	// output repo (which the pipeline needs to be able to do on the user's
-	// behalf)
-	var eg errgroup.Group
-	done := make(map[string]struct{}) // don't double-authorize repos
-	pps.VisitInput(input, func(in *pps.Input) {
-		if in.Atom == nil {
-			return
-		}
-		repo := in.Atom.Repo
-		if _, ok := done[repo]; ok {
-			return
-		}
-		done[in.Atom.Repo] = struct{}{}
-		eg.Go(func() error {
-			resp, err := pachClient.Authorize(ctx, &auth.AuthorizeRequest{
-				Repo:  repo,
-				Scope: auth.Scope_READER,
-			})
-			if err != nil {
-				return err
+	if input != nil {
+		// Check that the user is authorized to read all input repos, and write to the
+		// output repo (which the pipeline needs to be able to do on the user's
+		// behalf)
+		var eg errgroup.Group
+		done := make(map[string]struct{}) // don't double-authorize repos
+		pps.VisitInput(input, func(in *pps.Input) {
+			if in.Atom == nil {
+				return
 			}
-			if !resp.Authorized {
-				return &auth.ErrNotAuthorized{
-					Subject:  me.Username,
-					Repo:     repo,
-					Required: auth.Scope_READER,
+			repo := in.Atom.Repo
+			if _, ok := done[repo]; ok {
+				return
+			}
+			done[in.Atom.Repo] = struct{}{}
+			eg.Go(func() error {
+				resp, err := pachClient.Authorize(ctx, &auth.AuthorizeRequest{
+					Repo:  repo,
+					Scope: auth.Scope_READER,
+				})
+				if err != nil {
+					return err
 				}
-			}
-			return nil
+				if !resp.Authorized {
+					return &auth.ErrNotAuthorized{
+						Subject:  me.Username,
+						Repo:     repo,
+						Required: auth.Scope_READER,
+					}
+				}
+				return nil
+			})
 		})
-	})
-	if err := eg.Wait(); err != nil {
-		return err
+		if err := eg.Wait(); err != nil {
+			return err
+		}
 	}
 
 	// Check that the user is authorized to write to the output repo.
@@ -2161,7 +2163,8 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	// branch HEAD)
 	pipelineInfo, err := a.inspectPipeline(pachClient, request.Pipeline.Name)
 	if err != nil {
-		return nil, fmt.Errorf("error inspecting pipeline: %v", err)
+		logrus.Errorf("error inspecting pipeline: %v", err)
+		pipelineInfo = &pps.PipelineInfo{Pipeline: request.Pipeline, OutputBranch: "master"}
 	}
 
 	// Check if the caller is authorized to delete this pipeline. This must be
@@ -2176,7 +2179,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	a.hardStopPipeline(pachClient, pipelineInfo)
 
 	// Delete pipeline's workers
-	if err := a.deleteWorkersForPipeline(pipelineInfo); err != nil {
+	if err := a.deleteWorkersForPipeline(request.Pipeline.Name); err != nil {
 		return nil, fmt.Errorf("error deleting workers: %v", err)
 	}
 
@@ -2242,13 +2245,15 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 		return pachClient.DeleteRepo(request.Pipeline.Name, true)
 	})
 	// Delete cron input repos
-	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
-		if input.Cron != nil {
-			eg.Go(func() error {
-				return pachClient.DeleteRepo(input.Cron.Repo, true)
-			})
-		}
-	})
+	if pipelineInfo.Input != nil {
+		pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+			if input.Cron != nil {
+				eg.Go(func() error {
+					return pachClient.DeleteRepo(input.Cron.Repo, true)
+				})
+			}
+		})
+	}
 	if err := eg.Wait(); err != nil {
 		return nil, err
 	}
@@ -2348,7 +2353,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 		return nil, fmt.Errorf("Error during authorization check: %v", err)
 	}
 
-	if _, err := a.DeletePipeline(ctx, &pps.DeletePipelineRequest{All: true, Force: true}); err != nil {
+	if _, err := a.DeletePipeline(ctx, &pps.DeletePipelineRequest{All: true}); err != nil {
 		return nil, err
 	}
 

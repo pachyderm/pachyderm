@@ -129,7 +129,7 @@ func (a *apiServer) master() {
 					// If the pipeline has been stopped, delete workers
 					if pipelineStateToStopped(pipelinePtr.State) {
 						log.Infof("PPS master: deleting workers for pipeline %s (%s)", pipelineName, pipelinePtr.State.String())
-						if err := a.deleteWorkersForPipeline(pipelineInfo); err != nil {
+						if err := a.deleteWorkersForPipeline(pipelineName); err != nil {
 							return err
 						}
 					}
@@ -159,7 +159,7 @@ func (a *apiServer) master() {
 					}()
 					if pipelineRestarted || authActivationChanged || pipelineUpserted {
 						if (pipelineUpserted || authActivationChanged) && event.PrevKey != nil {
-							if err := a.deleteWorkersForPipeline(prevPipelineInfo); err != nil {
+							if err := a.deleteWorkersForPipeline(prevPipelineInfo.Pipeline.Name); err != nil {
 								return err
 							}
 						}
@@ -307,7 +307,7 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 			}
 		}
 		if workerRc.ObjectMeta.Labels["version"] != version.PrettyVersion() {
-			if err := a.deleteWorkersForPipeline(pipelineInfo); err != nil {
+			if err := a.deleteWorkersForPipeline(pipelineInfo.Pipeline.Name); err != nil {
 				return err
 			}
 		}
@@ -351,36 +351,37 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 	return nil
 }
 
-func (a *apiServer) deleteWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
-	cancel, ok := a.monitorCancels[pipelineInfo.Pipeline.Name]
+func (a *apiServer) deleteWorkersForPipeline(pipelineName string) error {
+	cancel, ok := a.monitorCancels[pipelineName]
 	if ok {
 		cancel()
-		delete(a.monitorCancels, pipelineInfo.Pipeline.Name)
+		delete(a.monitorCancels, pipelineName)
 	}
-	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	if err := a.kubeClient.CoreV1().Services(a.namespace).Delete(
-		rcName, &metav1.DeleteOptions{},
-	); err != nil {
-		if !isNotFoundErr(err) {
-			return err
-		}
+	selector := fmt.Sprintf("pipelineName=%s", pipelineName)
+	falseVal := false
+	opts := &metav1.DeleteOptions{
+		OrphanDependents: &falseVal,
 	}
-	if pipelineInfo.Service != nil {
-		if err := a.kubeClient.CoreV1().Services(a.namespace).Delete(
-			rcName+"-user", &metav1.DeleteOptions{},
-		); err != nil {
+	services, err := a.kubeClient.CoreV1().Services(a.namespace).List(metav1.ListOptions{LabelSelector: selector})
+	if err != nil {
+		return err
+	}
+	for _, service := range services.Items {
+		if err := a.kubeClient.CoreV1().Services(a.namespace).Delete(service.Name, opts); err != nil {
 			if !isNotFoundErr(err) {
 				return err
 			}
 		}
 	}
-	falseVal := false
-	deleteOptions := &metav1.DeleteOptions{
-		OrphanDependents: &falseVal,
+	rcs, err := a.kubeClient.CoreV1().ReplicationControllers(a.namespace).List(metav1.ListOptions{LabelSelector: selector})
+	if err != nil {
+		return err
 	}
-	if err := a.kubeClient.CoreV1().ReplicationControllers(a.namespace).Delete(rcName, deleteOptions); err != nil {
-		if !isNotFoundErr(err) {
-			return err
+	for _, rc := range rcs.Items {
+		if err := a.kubeClient.CoreV1().ReplicationControllers(a.namespace).Delete(rc.Name, opts); err != nil {
+			if !isNotFoundErr(err) {
+				return err
+			}
 		}
 	}
 	return nil
