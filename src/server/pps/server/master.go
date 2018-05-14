@@ -91,6 +91,7 @@ func (a *apiServer) master() {
 		for {
 			select {
 			case event := <-pipelineWatcher.Watch():
+				fmt.Printf("ZOMG NEW PPS MASTER EVENT: %v\n", event)
 				if event.Err != nil {
 					return fmt.Errorf("event err: %+v", event.Err)
 				}
@@ -101,6 +102,7 @@ func (a *apiServer) master() {
 					if err := event.Unmarshal(&pipelineName, &pipelinePtr); err != nil {
 						return err
 					}
+					fmt.Printf("ZOMG NEW PPS MASTER EVENT UNMARSHALLED: %v  : %v\n", pipelineName, pipelinePtr)
 					// Retrieve pipelineInfo (and prev pipeline's pipelineInfo) from the
 					// spec repo
 					var prevPipelinePtr pps.EtcdPipelineInfo
@@ -125,7 +127,9 @@ func (a *apiServer) master() {
 					}); err != nil {
 						return fmt.Errorf("watch event had no pipelineInfo: %v", err)
 					}
-
+					fmt.Printf("prev pipeline info: %v\n", prevPipelinePtr)
+					fmt.Printf("new  pipeline info: %v\n", pipelinePtr)
+					fmt.Printf("ZOMG see put event and pipeline state %v, gonna stop workers\n", pipelinePtr.State)
 					// If the pipeline has been stopped, delete workers
 					if pipelineStateToStopped(pipelinePtr.State) {
 						log.Infof("PPS master: deleting workers for pipeline %s (%s)", pipelineName, pipelinePtr.State.String())
@@ -143,6 +147,8 @@ func (a *apiServer) master() {
 
 					// True if the pipeline has been restarted (regardless of any change
 					// to the pipeline spec)
+					fmt.Printf("state stopped? %v, prevkey %v, prev stopped? %v\n", !pipelineStateToStopped(pipelinePtr.State),
+						event.PrevKey != nil, pipelineStateToStopped(prevPipelinePtr.State))
 					pipelineRestarted := !pipelineStateToStopped(pipelinePtr.State) &&
 						event.PrevKey != nil && pipelineStateToStopped(prevPipelinePtr.State)
 					// True if auth has been activated or deactivated
@@ -157,7 +163,9 @@ func (a *apiServer) master() {
 						return pipelinePtr.SpecCommit.ID != prevSpecCommit &&
 							!pipelineStateToStopped(pipelinePtr.State)
 					}()
+					fmt.Printf("pipeline upserted? %v\n", pipelineUpserted)
 					if pipelineRestarted || authActivationChanged || pipelineUpserted {
+						fmt.Printf("going to upsert pipeline workers\n")
 						if (pipelineUpserted || authActivationChanged) && event.PrevKey != nil {
 							if err := a.deleteWorkersForPipeline(prevPipelineInfo); err != nil {
 								return err

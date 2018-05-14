@@ -2038,7 +2038,7 @@ func TestUpdateFailedPipeline(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, "master"))
 
 	// Wait for pod to try and pull the bad image
-	time.Sleep(5 * time.Second)
+	time.Sleep(10 * time.Second)
 	pipelineInfo, err := c.InspectPipeline(pipelineName)
 	require.NoError(t, err)
 	require.Equal(t, pps.PipelineState_PIPELINE_FAILURE, pipelineInfo.State)
@@ -2055,10 +2055,12 @@ func TestUpdateFailedPipeline(t *testing.T) {
 		"",
 		true,
 	))
+	time.Sleep(10 * time.Second)
 	pipelineInfo, err = c.InspectPipeline(pipelineName)
 	require.NoError(t, err)
 	require.Equal(t, pps.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
 
+	// Sanity check run some actual data through the pipeline:
 	_, err = c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("2"))
