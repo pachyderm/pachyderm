@@ -1602,7 +1602,6 @@ func (a *apiServer) makePipelineInfoCommit(pachClient *client.APIClient, pipelin
 			return grpcutil.ScrubGRPC(err)
 		}
 
-		fmt.Printf("ZOMG writing pipeline info (%v) to spec repo at commit %v\n", pipelineInfo, commit)
 		data, err := pipelineInfo.Marshal()
 		if err != nil {
 			return fmt.Errorf("could not marshal PipelineInfo: %v", err)
@@ -1736,7 +1735,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	if request.Salt == "" {
 		request.Salt = uuid.NewWithoutDashes()
 	}
-	fmt.Printf("CREATING PIPELINE %v\n\n\n\n\n", request)
 	pipelineInfo := &pps.PipelineInfo{
 		Pipeline:         request.Pipeline,
 		Version:          1,
@@ -1836,8 +1834,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 					pipelineInfo.Salt = oldPipelineInfo.Salt
 				}
 				// Write updated PipelineInfo back to PFS.
-				fmt.Printf("ZOMG old pipeline info        : %v\n", oldPipelineInfo)
-				fmt.Printf("ZOMG writing new pipeline info: %v\n", pipelineInfo)
 				commit, err := a.makePipelineInfoCommit(pachClient, pipelineInfo, request.Update)
 				if err != nil {
 					return err
