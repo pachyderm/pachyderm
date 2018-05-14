@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -1003,7 +1004,7 @@ func TestPutFileLongName(t *testing.T) {
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
-	fileName := `oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@*^$@(#)oandoancoasid1)(&@$)(@U)`
+	fileName := `oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)oaidhzoshd()&)(@^$@(#)oandoancoasid1)(&@$)(@U)`
 
 	commit, err := client.StartCommit(repo, "")
 	require.NoError(t, err)
@@ -1297,7 +1298,7 @@ func TestListFile(t *testing.T) {
 	fileInfos, err := client.ListFile(repo, commit.ID, "dir")
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileInfos))
-	require.True(t, fileInfos[0].File.Path == "dir/foo" && fileInfos[1].File.Path == "dir/bar" || fileInfos[0].File.Path == "dir/bar" && fileInfos[1].File.Path == "dir/foo")
+	require.True(t, fileInfos[0].File.Path == "/dir/foo" && fileInfos[1].File.Path == "/dir/bar" || fileInfos[0].File.Path == "/dir/bar" && fileInfos[1].File.Path == "/dir/foo")
 	require.True(t, fileInfos[0].SizeBytes == fileInfos[1].SizeBytes && fileInfos[0].SizeBytes == uint64(len(fileContent1)))
 
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
@@ -1305,11 +1306,8 @@ func TestListFile(t *testing.T) {
 	fileInfos, err = client.ListFile(repo, commit.ID, "dir")
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileInfos))
-	require.True(t, fileInfos[0].File.Path == "dir/foo" && fileInfos[1].File.Path == "dir/bar" || fileInfos[0].File.Path == "dir/bar" && fileInfos[1].File.Path == "dir/foo")
+	require.True(t, fileInfos[0].File.Path == "/dir/foo" && fileInfos[1].File.Path == "/dir/bar" || fileInfos[0].File.Path == "/dir/bar" && fileInfos[1].File.Path == "/dir/foo")
 	require.True(t, fileInfos[0].SizeBytes == fileInfos[1].SizeBytes && fileInfos[0].SizeBytes == uint64(len(fileContent1)))
-
-	fileInfos, err = client.ListFile(repo, commit.ID, "dir/foo")
-	require.YesError(t, err)
 }
 
 func TestListFile2(t *testing.T) {
@@ -2807,11 +2805,11 @@ func TestGlob(t *testing.T) {
 	_, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
-		_, err = c.PutFile(repo, "master", fmt.Sprintf("file%d", i), strings.NewReader(""))
+		_, err = c.PutFile(repo, "master", fmt.Sprintf("file%d", i), strings.NewReader("1"))
 		require.NoError(t, err)
-		_, err = c.PutFile(repo, "master", fmt.Sprintf("dir1/file%d", i), strings.NewReader(""))
+		_, err = c.PutFile(repo, "master", fmt.Sprintf("dir1/file%d", i), strings.NewReader("2"))
 		require.NoError(t, err)
-		_, err = c.PutFile(repo, "master", fmt.Sprintf("dir2/dir3/file%d", i), strings.NewReader(""))
+		_, err = c.PutFile(repo, "master", fmt.Sprintf("dir2/dir3/file%d", i), strings.NewReader("3"))
 		require.NoError(t, err)
 	}
 
@@ -2848,6 +2846,103 @@ func TestGlob(t *testing.T) {
 	fileInfos, err = c.GlobFile(repo, "master", "*/*")
 	require.NoError(t, err)
 	require.Equal(t, numFiles+1, len(fileInfos))
+
+	// Test file glob
+	fileInfos, err = c.ListFile(repo, "master", "*")
+	require.NoError(t, err)
+	require.Equal(t, numFiles*2+1, len(fileInfos))
+
+	fileInfos, err = c.ListFile(repo, "master", "dir2/dir3/file1?")
+	require.NoError(t, err)
+	require.Equal(t, 10, len(fileInfos))
+
+	fileInfos, err = c.ListFile(repo, "master", "dir?/*")
+	require.NoError(t, err)
+	require.Equal(t, numFiles*2, len(fileInfos))
+
+	var output strings.Builder
+	err = c.GetFile(repo, "master", "*", 0, 0, &output)
+	require.Equal(t, numFiles, len(output.String()))
+
+	output = strings.Builder{}
+	err = c.GetFile(repo, "master", "dir2/dir3/file1?", 0, 0, &output)
+	require.Equal(t, 10, len(output.String()))
+
+	output = strings.Builder{}
+	err = c.GetFile(repo, "master", "**file1?", 0, 0, &output)
+	require.Equal(t, 30, len(output.String()))
+
+	output = strings.Builder{}
+	err = c.GetFile(repo, "master", "**file1", 0, 0, &output)
+	require.True(t, strings.Contains(output.String(), "1"))
+	require.True(t, strings.Contains(output.String(), "2"))
+	require.True(t, strings.Contains(output.String(), "3"))
+
+	output = strings.Builder{}
+	err = c.GetFile(repo, "master", "**file1", 1, 1, &output)
+	match, err := regexp.Match("[123]", []byte(output.String()))
+	require.NoError(t, err)
+	require.True(t, match)
+
+	output = strings.Builder{}
+	err = c.GetFile(repo, "master", "dir?", 0, 0, &output)
+	require.YesError(t, err)
+
+	output = strings.Builder{}
+	err = c.GetFile(repo, "master", "", 0, 0, &output)
+	require.YesError(t, err)
+
+	output = strings.Builder{}
+	err = c.GetFile(repo, "master", "garbage", 0, 0, &output)
+	require.YesError(t, err)
+
+	_, err = c.StartCommit(repo, "master")
+	require.NoError(t, err)
+
+	err = c.DeleteFile(repo, "master", "dir2/dir3/*")
+	require.NoError(t, err)
+	fileInfos, err = c.GlobFile(repo, "master", "**")
+	require.NoError(t, err)
+	require.Equal(t, numFiles*2+3, len(fileInfos))
+	err = c.DeleteFile(repo, "master", "dir?/*")
+	require.NoError(t, err)
+	fileInfos, err = c.GlobFile(repo, "master", "**")
+	require.NoError(t, err)
+	require.Equal(t, numFiles+2, len(fileInfos))
+	err = c.DeleteFile(repo, "master", "/")
+	require.NoError(t, err)
+	fileInfos, err = c.GlobFile(repo, "master", "**")
+	require.NoError(t, err)
+	require.Equal(t, 0, len(fileInfos))
+
+	require.NoError(t, c.FinishCommit(repo, "master"))
+
+	fileInfos, err = c.GlobFile(repo, "master", "**")
+	require.NoError(t, err)
+	require.Equal(t, 0, len(fileInfos))
+}
+
+func TestApplyWriteOrder(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getClient(t)
+	repo := tu.UniqueString("TestApplyWriteOrder")
+	require.NoError(t, c.CreateRepo(repo))
+
+	// Test that fails when records are applied in lexicographic order
+	// rather than mod revision order.
+	_, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, "master", "/file", strings.NewReader(""))
+	require.NoError(t, err)
+	err = c.DeleteFile(repo, "master", "/")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, "master"))
+	fileInfos, err := c.GlobFile(repo, "master", "**")
+	require.NoError(t, err)
+	require.Equal(t, 0, len(fileInfos))
 }
 
 func TestOverwrite(t *testing.T) {
