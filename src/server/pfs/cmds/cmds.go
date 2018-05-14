@@ -13,7 +13,6 @@ import (
 	"strings"
 	gosync "sync"
 	"syscall"
-	"text/tabwriter"
 
 	"golang.org/x/sync/errgroup"
 
@@ -25,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
+	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
 
 	"github.com/spf13/cobra"
 )
@@ -148,9 +148,11 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 				return nil
 			}
 
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			authActive := (len(repoInfos) > 0) && (repoInfos[0].AuthInfo != nil)
-			pretty.PrintRepoHeader(writer, authActive)
+			header := pretty.RepoHeader
+			if (len(repoInfos) > 0) && (repoInfos[0].AuthInfo != nil) {
+				header = pretty.RepoAuthHeader
+			}
+			writer := tabwriter.NewWriter(os.Stdout, header)
 			for _, repoInfo := range repoInfos {
 				pretty.PrintRepoInfo(writer, repoInfo)
 			}
@@ -342,24 +344,17 @@ $ pachctl list-commit foo master --from XXX
 			if len(args) == 2 {
 				to = args[1]
 			}
-
-			commitInfos, err := c.ListCommit(args[0], to, from, uint64(number))
-			if err != nil {
-				return err
-			}
-
 			if raw {
-				for _, commitInfo := range commitInfos {
-					if err := marshaller.Marshal(os.Stdout, commitInfo); err != nil {
-						return err
-					}
-				}
-				return nil
+				return c.ListCommitF(args[0], to, from, uint64(number), func(ci *pfsclient.CommitInfo) error {
+					return marshaller.Marshal(os.Stdout, ci)
+				})
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintCommitInfoHeader(writer)
-			for _, commitInfo := range commitInfos {
-				pretty.PrintCommitInfo(writer, commitInfo)
+			writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
+			if err := c.ListCommitF(args[0], to, from, uint64(number), func(ci *pfsclient.CommitInfo) error {
+				pretty.PrintCommitInfo(writer, ci)
+				return nil
+			}); err != nil {
+				return err
 			}
 			return writer.Flush()
 		}),
@@ -383,7 +378,7 @@ $ pachctl list-commit foo master --from XXX
 				}
 			}
 		}
-		writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+		writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
 		for {
 			commitInfo, err := commitIter.Next()
 			if err == io.EOF {
@@ -392,13 +387,9 @@ $ pachctl list-commit foo master --from XXX
 			if err != nil {
 				return err
 			}
-			pretty.PrintCommitInfoHeader(writer)
 			pretty.PrintCommitInfo(writer, commitInfo)
-			if err := writer.Flush(); err != nil {
-				return err
-			}
 		}
-		return nil
+		return writer.Flush()
 	}
 
 	var repos cmdutil.RepeatedStringArg
@@ -545,8 +536,7 @@ $ pachctl subscribe-commit test master --new
 				}
 				return nil
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintBranchHeader(writer)
+			writer := tabwriter.NewWriter(os.Stdout, pretty.BranchHeader)
 			for _, branch := range branches {
 				pretty.PrintBranch(writer, branch)
 			}
@@ -883,21 +873,17 @@ $ pachctl list-file foo master^2
 			if len(args) == 3 {
 				path = args[2]
 			}
-			fileInfos, err := client.ListFile(args[0], args[1], path)
-			if err != nil {
-				return err
-			}
 			if raw {
-				for _, fileInfo := range fileInfos {
-					if err := marshaller.Marshal(os.Stdout, fileInfo); err != nil {
-						return err
-					}
-				}
+				return client.ListFileF(args[0], args[1], path, func(fi *pfsclient.FileInfo) error {
+					return marshaller.Marshal(os.Stdout, fi)
+				})
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintFileInfoHeader(writer)
-			for _, fileInfo := range fileInfos {
-				pretty.PrintFileInfo(writer, fileInfo)
+			writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
+			if err := client.ListFileF(args[0], args[1], path, func(fi *pfsclient.FileInfo) error {
+				pretty.PrintFileInfo(writer, fi)
+				return nil
+			}); err != nil {
+				return nil
 			}
 			return writer.Flush()
 		}),
@@ -937,8 +923,7 @@ $ pachctl glob-file foo master "data/*"
 					}
 				}
 			}
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-			pretty.PrintFileInfoHeader(writer)
+			writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
 			for _, fileInfo := range fileInfos {
 				pretty.PrintFileInfo(writer, fileInfo)
 			}
@@ -981,8 +966,7 @@ $ pachctl diff-file foo master path1 bar master path2
 			}
 			if len(newFiles) > 0 {
 				fmt.Println("New Files:")
-				writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-				pretty.PrintFileInfoHeader(writer)
+				writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
 				for _, fileInfo := range newFiles {
 					pretty.PrintFileInfo(writer, fileInfo)
 				}
@@ -992,8 +976,7 @@ $ pachctl diff-file foo master path1 bar master path2
 			}
 			if len(oldFiles) > 0 {
 				fmt.Println("Old Files:")
-				writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-				pretty.PrintFileInfoHeader(writer)
+				writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
 				for _, fileInfo := range oldFiles {
 					pretty.PrintFileInfo(writer, fileInfo)
 				}

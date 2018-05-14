@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -25,18 +26,92 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/images"
 	_metrics "github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 
+	"github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
 )
 
 var defaultDashImage = "pachyderm/dash:1.7-preview-11"
 
-func maybeKcCreate(dryRun bool, manifest *bytes.Buffer, opts *assets.AssetOpts, metrics bool) error {
+// BytesEncoder is an Encoder with bytes content.
+type BytesEncoder interface {
+	assets.Encoder
+	// Return the current buffer of the encoder.
+	Buffer() *bytes.Buffer
+}
+
+// JSON assets.Encoder.
+type jsonEncoder struct {
+	encoder *json.Encoder
+	buffer  *bytes.Buffer
+}
+
+func newJSONEncoder() *jsonEncoder {
+	buffer := &bytes.Buffer{}
+	encoder := json.NewEncoder(buffer)
+	encoder.SetIndent("", "\t")
+	return &jsonEncoder{encoder, buffer}
+}
+
+func (e *jsonEncoder) Encode(item interface{}) error {
+	if err := e.encoder.Encode(item); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintf(e.buffer, "\n")
+	return err
+}
+
+// Return the current bytes content.
+func (e *jsonEncoder) Buffer() *bytes.Buffer {
+	return e.buffer
+}
+
+// YAML assets.Encoder.
+type yamlEncoder struct {
+	buffer *bytes.Buffer
+}
+
+func newYAMLEncoder() *yamlEncoder {
+	buffer := &bytes.Buffer{}
+	return &yamlEncoder{buffer}
+}
+
+func (e *yamlEncoder) Encode(item interface{}) error {
+	bytes, err := yaml.Marshal(item)
+	if err != nil {
+		return err
+	}
+	_, err = e.buffer.Write(bytes)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(e.buffer, "---\n")
+	return err
+}
+
+// Return the current bytes content.
+func (e *yamlEncoder) Buffer() *bytes.Buffer {
+	return e.buffer
+}
+
+// Return the appropriate encoder for the given output format.
+func getEncoder(outputFormat string) BytesEncoder {
+	switch outputFormat {
+	case "yaml":
+		return newYAMLEncoder()
+	case "json":
+		return newJSONEncoder()
+	default:
+		return newJSONEncoder()
+	}
+}
+
+func maybeKcCreate(dryRun bool, manifest BytesEncoder, opts *assets.AssetOpts, metrics bool) error {
 	if dryRun {
-		_, err := os.Stdout.Write(manifest.Bytes())
+		_, err := os.Stdout.Write(manifest.Buffer().Bytes())
 		return err
 	}
 	io := cmdutil.IO{
-		Stdin:  manifest,
+		Stdin:  manifest.Buffer(),
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
 	}
@@ -61,6 +136,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var hostPath string
 	var dev bool
 	var dryRun bool
+	var outputFormat string
 	var secure bool
 	var isS3V2 bool
 	var etcdNodes int
@@ -98,7 +174,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 					finishMetricsWait()
 				}()
 			}
-			manifest := &bytes.Buffer{}
+			manifest := getEncoder(outputFormat)
 			if dev {
 				// Use dev build instead of release build
 				opts.Version = deploy.DevVersionTag
@@ -142,7 +218,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[1])
 			}
-			manifest := &bytes.Buffer{}
+			manifest := getEncoder(outputFormat)
 			opts.BlockCacheSize = "0G" // GCS is fast so we want to disable the block cache. See issue #1650
 			var cred string
 			if len(args) == 3 {
@@ -175,7 +251,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 					finishMetricsWait()
 				}()
 			}
-			manifest := &bytes.Buffer{}
+			manifest := getEncoder(outputFormat)
 			err := assets.WriteCustomAssets(manifest, opts, args, objectStoreBackend, persistentDiskBackend, secure, isS3V2)
 			if err != nil {
 				return err
@@ -236,7 +312,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				fmt.Printf("WARNING: You specified a cloudfront distribution. Deploying on AWS with cloudfront is currently " +
 					"an alpha feature. No security restrictions have been applied to cloudfront, making all data public (obscured but not secured)\n")
 			}
-			manifest := &bytes.Buffer{}
+			manifest := getEncoder(outputFormat)
 
 			if err = assets.WriteAmazonAssets(manifest, opts, args[1], args[0], volumeSize, &assets.AmazonCreds{
 				ID:           id,
@@ -291,7 +367,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[3])
 			}
-			manifest := &bytes.Buffer{}
+			manifest := getEncoder(outputFormat)
 			if err = assets.WriteMicrosoftAssets(manifest, opts, args[0], args[1], args[2], volumeSize); err != nil {
 				return err
 			}
@@ -319,7 +395,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 				if len(args) == 5 {
 					token = args[4]
 				}
-				data = assets.AmazonSecret("", "", args[2], args[3], token, args[1])
+				data = assets.AmazonSecret(args[1], "", args[2], args[3], token, "")
 			case "google":
 				if len(args) < 2 {
 					return fmt.Errorf("Usage: pachctl deploy storage google <service account creds file>")
@@ -434,6 +510,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 	deploy.PersistentFlags().IntVar(&etcdNodes, "dynamic-etcd-nodes", 0, "Deploy etcd as a StatefulSet with the given number of pods.  The persistent volumes used by these pods are provisioned dynamically.  Note that StatefulSet is currently a beta kubernetes feature, which might be unavailable in older versions of kubernetes.")
 	deploy.PersistentFlags().StringVar(&etcdVolume, "static-etcd-volume", "", "Deploy etcd as a ReplicationController with one pod.  The pod uses the given persistent volume.")
 	deploy.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
+	deploy.PersistentFlags().StringVarP(&outputFormat, "output", "o", "json", "Output formmat. One of: json|yaml")
 	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
 	deploy.PersistentFlags().BoolVar(&dashOnly, "dashboard-only", false, "Only deploy the Pachyderm UI (experimental), without the rest of pachyderm. This is for launching the UI adjacent to an existing Pachyderm cluster. After deployment, run \"pachctl port-forward\" to connect")
 	deploy.PersistentFlags().BoolVar(&noDash, "no-dashboard", false, "Don't deploy the Pachyderm UI alongside Pachyderm (experimental).")
@@ -557,6 +634,7 @@ removed.`)
 	undeploy.Flags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace to undeploy Pachyderm from.")
 
 	var updateDashDryRun bool
+	var updateDashOutputFormat string
 	updateDash := &cobra.Command{
 		Use:   "update-dash",
 		Short: "Update and redeploy the Pachyderm Dashboard at the latest compatible version.",
@@ -576,7 +654,7 @@ removed.`)
 				}
 			}
 			// Redeploy the dash
-			manifest := &bytes.Buffer{}
+			manifest := getEncoder(updateDashOutputFormat)
 			dashImage := getDefaultOrLatestDashImage("", updateDashDryRun)
 			opts := &assets.AssetOpts{
 				DashOnly:  true,
@@ -587,6 +665,7 @@ removed.`)
 		}),
 	}
 	updateDash.Flags().BoolVar(&updateDashDryRun, "dry-run", false, "Don't actually deploy Pachyderm Dash to Kubernetes, instead just print the manifest.")
+	updateDash.Flags().StringVarP(&updateDashOutputFormat, "output", "o", "json", "Output formmat. One of: json|yaml")
 
 	return []*cobra.Command{deploy, undeploy, updateDash}
 }

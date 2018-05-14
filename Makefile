@@ -34,7 +34,7 @@ ifdef TRAVIS_BUILD_NUMBER
 else
 ifndef TIMEOUT
 	# You should be able to specify your own timeout, but by default we'll use the same bound as travis
-	TIMEOUT = 1000s
+	TIMEOUT = 3600s
 endif
 endif
 
@@ -75,6 +75,11 @@ worker:
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
 	GO15VENDOREXPERIMENT=1 go install -ldflags "$(LD_FLAGS)" ./src/server/cmd/pachctl
+
+install-clean:
+	@# Need to blow away pachctl binary if its already there
+	@rm -f $(GOPATH)/bin/pachctl
+	@make install
 
 install-doc:
 	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl-doc
@@ -120,14 +125,11 @@ release-pachctl-custom:
 
 release-pachctl:
 	@# Run pachctl release script w deploy branch name
-	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachctl master
+	@VERSION="$(shell cat VERSION)" ./etc/build/release_pachctl
 
 release-helper: check-docker-version release-version release-pachd release-worker
 
-release-version:
-	@# Need to blow away pachctl binary if its already there
-	@rm $(GOPATH)/bin/pachctl || true
-	@make install
+release-version: install-clean
 	@./etc/build/release_version
 
 release-pachd:
@@ -297,7 +299,7 @@ launch-dev-vm: check-kubectl
 	  echo "export ADDRESS=192.168.99.100:30650"; \
 	  exit 1; \
 	fi
-	@# Make sure minikube isn't still up from a previous run
+	# Making sure minikube isn't still up from a previous run...
 	@if minikube ip 2>/dev/null || sudo minikube ip 2>/dev/null; \
 	then \
 		echo "minikube is still up. Run 'make clean-launch-kube'"; \
@@ -385,11 +387,9 @@ pretest:
 	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-#test: pretest test-client clean-launch-test-rethinkdb launch-test-rethinkdb test-fuse test-local docker-build docker-build-netcat clean-launch-dev launch-dev integration-tests example-tests
-
 local-test: docker-build launch-dev test-pfs clean-launch-dev
 
-test: enterprise-code-checkin-test docker-build docker-build-test-entrypoint clean-launch-dev launch-dev test-pfs test-pps test-vault test-auth test-enterprise test-kube-17
+test: enterprise-code-checkin-test docker-build docker-build-test-entrypoint clean-launch-dev launch-dev test-pfs test-pps test-vault test-auth test-enterprise test-worker
 
 enterprise-code-checkin-test:
 	# Check if our test activation code is anywhere in the repo
@@ -407,10 +407,11 @@ test-pfs:
 	go test ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
 	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
 
-test-pps:
+test-pps: launch-stats
 	# Use the count flag to disable test caching for this test suite.
-	go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT)
-	go test ./src/server/pps/cmds -timeout $(TIMEOUT)
+	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
+		go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT)  && \
+		go test ./src/server/pps/cmds -timeout $(TIMEOUT)
 
 test-client:
 	rm -rf src/client/vendor
@@ -441,14 +442,11 @@ test-auth:
 test-enterprise:
 	go test -v ./src/server/enterprise/server -timeout $(TIMEOUT)
 
-test-kube-17:
-	@# Delete existing minikube, but test should still pass if minikube hasn't been started
-	@make clean-launch-kube || true
-	./etc/kube/start-minikube.sh -v 1.7.5
-	@LAUNCH_DEV_ARGS="--no-rbac" make launch-dev
-	@# If we can deploy a pipeline, 1.7 probably works
-	go test -v ./src/server -run TestPipelineWithParallelism
+test-worker: launch-stats test-worker-helper
 
+test-worker-helper:
+	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
+			  go test -v ./src/server/worker/ -run=TestPrometheusStats -timeout $(TIMEOUT) -count 1
 
 clean: clean-launch clean-launch-kube
 
@@ -465,6 +463,13 @@ doc-custom: install-doc release-version
 
 doc:
 	@make VERSION_ADDITIONAL= doc-custom
+
+
+clean-launch-stats:
+	kubectl delete --filename https://raw.githubusercontent.com/giantswarm/kubernetes-prometheus/f7d1e34c9e8065554921f80fc6166b1d23b524f7/manifests-all.yaml
+
+launch-stats:
+	kubectl apply --filename https://raw.githubusercontent.com/giantswarm/kubernetes-prometheus/f7d1e34c9e8065554921f80fc6166b1d23b524f7/manifests-all.yaml
 
 clean-launch-monitoring:
 	kubectl delete --ignore-not-found -f ./etc/plugin/monitoring
@@ -603,6 +608,7 @@ goxc-build:
 	build-clean-vendored-client \
 	build \
 	install \
+	install-clean \
 	install-doc \
 	homebrew \
 	release \
@@ -623,6 +629,7 @@ goxc-build:
 	kube-cluster-assets \
 	launch \
 	launch-dev \
+	clean-launch-dev \
 	clean-launch \
 	full-clean-launch \
 	clean-pps-storage \

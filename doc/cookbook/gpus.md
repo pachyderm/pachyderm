@@ -1,6 +1,6 @@
 # Utilizing GPUs
 
-Pachyderm has alpha support for utilizing GPUs within Pachyderm pipelines (e.g., for training machine learning models).  To do this you will need to:
+Pachyderm has support for utilizing GPUs within Pachyderm pipelines (e.g., for training machine learning models).  To do this you will need to:
 
 1) [Create a Docker image that is able to utilize GPUs](gpus.html#creating-a-gpu-enabled-docker-image)
 2) [Write a pipeline spec that specifies GPU nodes](gpus.html#writing-your-pipeline-specification)
@@ -74,19 +74,9 @@ An example pipeline definition for a GPU enabled Pachyderm Pipeline is as follow
 
 **NOTE:** You can also [test Pachyderm + GPUs locally](#test-locally)
 
-**NOTE:** The following has been tested with these versions of k8s/kops:
-
-```
-$ kubectl version
-Client Version: version.Info{Major:"1", Minor:"7", GitVersion:"v1.7.10", GitCommit:"b0b7a323cc5a4a2019b2e9520c21c7830b7f708e", GitTreeState:"clean", BuildDate:"2017-04-03T20:44:38Z", GoVersion:"go1.7.5", Compiler:"gc", Platform:"linux/amd64"}
-Server Version: version.Info{Major:"1", Minor:"6", GitVersion:"v1.7.10", GitCommit:"477efc3cbe6a7effca06bd1452fa356e2201e1ee", GitTreeState:"clean", BuildDate:"2017-04-19T20:22:08Z", GoVersion:"go1.7.5", Compiler:"gc", Platform:"linux/amd64"}
-$ kops version
-Version 1.6.0-beta.1 (git-77f222d)
-```
-
 To deploy a Pachyderm cluster with GPU support we assume:
 
-- You're using kops for your deployment (which means you're using AWS or GCE, not GKE). Other deploy methods are available, but these are the ones we've tested most thoroughly.
+- You're using kops for your deployment (which means you're using AWS or GCE, not GKE because k8s is done for you). Other deploy methods are available, but these are the ones we've tested most thoroughly.
 - You have a working pachyderm cluster already up and running that you can connect to with `kubectl`.
 
 ### Add GPU nodes to your k8s cluster

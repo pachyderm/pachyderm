@@ -25,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pfsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
@@ -32,6 +33,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/golang-lru"
 	"google.golang.org/grpc"
@@ -285,8 +287,7 @@ func (d *driver) updateRepo(ctx context.Context, repo *pfs.Repo, description str
 			return err
 		}
 		repoInfo.Description = description
-		repos.Put(repo.Name, repoInfo)
-		return nil
+		return repos.Put(repo.Name, repoInfo)
 	})
 	return err
 }
@@ -333,25 +334,12 @@ func (d *driver) getAccessLevel(ctx context.Context, repo *pfs.Repo) (auth.Scope
 
 func (d *driver) listRepo(ctx context.Context, includeAuth bool) (*pfs.ListRepoResponse, error) {
 	repos := d.repos.ReadOnly(ctx)
-
-	iterator, err := repos.List()
-	if err != nil {
-		return nil, err
-	}
-	result := new(pfs.ListRepoResponse)
+	result := &pfs.ListRepoResponse{}
 	authSeemsActive := true
-nextRepo:
-	for {
-		repoName, repoInfo := "", new(pfs.RepoInfo)
-		ok, err := iterator.Next(&repoName, repoInfo)
-		if err != nil {
-			return nil, err
-		}
-		if !ok {
-			break
-		}
+	repoInfo := &pfs.RepoInfo{}
+	if err := repos.List(repoInfo, col.DefaultOptions, func(repoName string) error {
 		if repoName == ppsconsts.SpecRepo {
-			continue nextRepo
+			return nil
 		}
 		if includeAuth && authSeemsActive {
 			accessLevel, err := d.getAccessLevel(ctx, repoInfo.Repo)
@@ -360,11 +348,14 @@ nextRepo:
 			} else if auth.IsErrNotActivated(err) {
 				authSeemsActive = false
 			} else {
-				return nil, fmt.Errorf("error getting access level for \"%s\": %v",
+				return fmt.Errorf("error getting access level for \"%s\": %v",
 					repoName, grpcutil.ScrubGRPC(err))
 			}
 		}
-		result.RepoInfo = append(result.RepoInfo, repoInfo)
+		result.RepoInfo = append(result.RepoInfo, proto.Clone(repoInfo).(*pfs.RepoInfo))
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 	return result, nil
 }
@@ -551,10 +542,14 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 			}
 			repoInfo.SizeBytes += sizeChange(tree, parentTree)
 		} else {
-			d.openCommits.ReadWrite(stm).Put(newCommit.ID, newCommit)
+			if err := d.openCommits.ReadWrite(stm).Put(newCommit.ID, newCommit); err != nil {
+				return err
+			}
 		}
 
-		repos.Put(parent.Repo.Name, repoInfo)
+		if err := repos.Put(parent.Repo.Name, repoInfo); err != nil {
+			return err
+		}
 
 		// 'newCommitProv' holds newCommit's provenance (use map for deduping).
 		newCommitProv := make(map[string]*pfs.Commit)
@@ -650,7 +645,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 
 		if tree == nil {
 			var err error
-			finishedTree, err = d.getTreeForOpenCommit(ctx, scratchPrefix, parentTree)
+			finishedTree, err = d.getTreeForOpenCommit(ctx, client.NewFile(commit.Repo.Name, commit.ID, ""), parentTree)
 			if err != nil {
 				return err
 			}
@@ -690,7 +685,9 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
 		repos := d.repos.ReadWrite(stm)
-		commits.Put(commit.ID, commitInfo)
+		if err := commits.Put(commit.ID, commitInfo); err != nil {
+			return err
+		}
 		if err := d.openCommits.ReadWrite(stm).Delete(commit.ID); err != nil {
 			return fmt.Errorf("could not confirm that commit %s is open; this is likely a bug. err: %v", commit.ID, err)
 		}
@@ -704,7 +701,9 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 			// Increment the repo sizes by the sizes of the files that have
 			// been added in this commit.
 			repoInfo.SizeBytes += sizeChange
-			repos.Put(commit.Repo.Name, repoInfo)
+			if err := repos.Put(commit.Repo.Name, repoInfo); err != nil {
+				return err
+			}
 		}
 		return nil
 	})
@@ -1050,33 +1049,44 @@ func parseCommitID(commitID string) (string, int) {
 }
 
 func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit, from *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error) {
-	if err := d.checkIsAuthorized(ctx, repo, auth.Scope_READER); err != nil {
+	var result []*pfs.CommitInfo
+	if err := d.listCommitF(ctx, repo, to, from, number, func(ci *pfs.CommitInfo) error {
+		result = append(result, ci)
+		return nil
+	}); err != nil {
 		return nil, err
 	}
+	return result, nil
+}
+
+func (d *driver) listCommitF(ctx context.Context, repo *pfs.Repo, to *pfs.Commit, from *pfs.Commit, number uint64, f func(*pfs.CommitInfo) error) error {
+	if err := d.checkIsAuthorized(ctx, repo, auth.Scope_READER); err != nil {
+		return err
+	}
 	if from != nil && from.Repo.Name != repo.Name || to != nil && to.Repo.Name != repo.Name {
-		return nil, fmt.Errorf("`from` and `to` commits need to be from repo %s", repo.Name)
+		return fmt.Errorf("`from` and `to` commits need to be from repo %s", repo.Name)
 	}
 
 	// Make sure that the repo exists
 	_, err := d.inspectRepo(ctx, repo, !includeAuth)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Make sure that both from and to are valid commits
 	if from != nil {
 		_, err = d.inspectCommit(ctx, from, pfs.CommitState_STARTED)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 	if to != nil {
 		_, err = d.inspectCommit(ctx, to, pfs.CommitState_STARTED)
 		if err != nil {
 			if _, ok := err.(pfsserver.ErrNoHead); ok {
-				return nil, nil
+				return nil
 			}
-			return nil, err
+			return err
 		}
 	}
 
@@ -1084,44 +1094,41 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 	if number == 0 {
 		number = math.MaxUint64
 	}
-	var commitInfos []*pfs.CommitInfo
 	commits := d.commits(repo.Name).ReadOnly(ctx)
+	ci := &pfs.CommitInfo{}
 
 	if from != nil && to == nil {
-		return nil, fmt.Errorf("cannot use `from` commit without `to` commit")
+		return fmt.Errorf("cannot use `from` commit without `to` commit")
 	} else if from == nil && to == nil {
 		// if neither from and to is given, we list all commits in
 		// the repo, sorted by revision timestamp
-		iterator, err := commits.List()
-		if err != nil {
-			return nil, err
-		}
-		var commitID string
-		for number != 0 {
-			var commitInfo pfs.CommitInfo
-			ok, err := iterator.Next(&commitID, &commitInfo)
-			if err != nil {
-				return nil, err
+		if err := commits.List(ci, col.DefaultOptions, func(commitID string) error {
+			if number <= 0 {
+				return errutil.ErrBreak
 			}
-			if !ok {
-				break
-			}
-			commitInfos = append(commitInfos, &commitInfo)
 			number--
+			return f(proto.Clone(ci).(*pfs.CommitInfo))
+		}); err != nil {
+			return err
 		}
 	} else {
 		cursor := to
 		for number != 0 && cursor != nil && (from == nil || cursor.ID != from.ID) {
 			var commitInfo pfs.CommitInfo
 			if err := commits.Get(cursor.ID, &commitInfo); err != nil {
-				return nil, err
+				return err
 			}
-			commitInfos = append(commitInfos, &commitInfo)
+			if err := f(&commitInfo); err != nil {
+				if err == errutil.ErrBreak {
+					return nil
+				}
+				return err
+			}
 			cursor = commitInfo.ParentCommit
 			number--
 		}
 	}
-	return commitInfos, nil
+	return nil
 }
 
 func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch string, from *pfs.Commit, state pfs.CommitState, f func(*pfs.CommitInfo) error) error {
@@ -1260,26 +1267,6 @@ func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 		}
 	}
 	return nil
-}
-
-func (d *driver) flushRepo(ctx context.Context, repo *pfs.Repo) ([]*pfs.RepoInfo, error) {
-	iter, err := d.repos.ReadOnly(ctx).GetByIndex(pfsdb.ProvenanceIndex, repo)
-	if err != nil {
-		return nil, err
-	}
-	var repoInfos []*pfs.RepoInfo
-	for {
-		var repoName string
-		repoInfo := new(pfs.RepoInfo)
-		ok, err := iter.Next(&repoName, repoInfo)
-		if !ok {
-			return repoInfos, nil
-		}
-		if err != nil {
-			return nil, err
-		}
-		repoInfos = append(repoInfos, repoInfo)
-	}
 }
 
 func (d *driver) deleteCommit(ctx context.Context, userCommit *pfs.Commit) error {
@@ -1601,7 +1588,6 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 			}
 		}
 
-		var oldDirectProvenance []*pfs.Branch
 		// Retrieve (and create, if necessary) the current version of this branch
 		branches := d.branches(branch.Repo.Name).ReadWrite(stm)
 		branchInfo := &pfs.BranchInfo{}
@@ -1609,7 +1595,6 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 			branchInfo.Name = branch.Name // set in case 'branch' is new
 			branchInfo.Branch = branch
 			branchInfo.Head = commit
-			oldDirectProvenance = branchInfo.DirectProvenance
 			branchInfo.DirectProvenance = nil
 			for _, provBranch := range provenance {
 				add(&branchInfo.DirectProvenance, provBranch)
@@ -1700,26 +1685,16 @@ func (d *driver) listBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.BranchI
 	if err := d.checkIsAuthorized(ctx, repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
+	var result []*pfs.BranchInfo
+	branchInfo := &pfs.BranchInfo{}
 	branches := d.branches(repo.Name).ReadOnly(ctx)
-	iterator, err := branches.List()
-	if err != nil {
+	if err := branches.List(branchInfo, col.DefaultOptions, func(string) error {
+		result = append(result, proto.Clone(branchInfo).(*pfs.BranchInfo))
+		return nil
+	}); err != nil {
 		return nil, err
 	}
-
-	var res []*pfs.BranchInfo
-	for {
-		var branchName string
-		branchInfo := new(pfs.BranchInfo)
-		ok, err := iterator.Next(&branchName, branchInfo)
-		if err != nil {
-			return nil, err
-		}
-		if !ok {
-			break
-		}
-		res = append(res, branchInfo)
-	}
-	return res, nil
+	return result, nil
 }
 
 func (d *driver) deleteBranch(ctx context.Context, branch *pfs.Branch, force bool) error {
@@ -1736,6 +1711,10 @@ func (d *driver) deleteBranchSTM(stm col.STM, branch *pfs.Branch, force bool) er
 	branches := d.branches(branch.Repo.Name).ReadWrite(stm)
 	branchInfo := &pfs.BranchInfo{}
 	if err := branches.Get(branch.Name, branchInfo); err != nil {
+		if isNotFoundErr(err) {
+			// Branch was already deleted, nothing to do.
+			return nil
+		}
 		return err
 	}
 	if !force {
@@ -2054,52 +2033,31 @@ func (d *driver) getTreeForFile(ctx context.Context, file *pfs.File) (hashtree.H
 		}
 		return tree, nil
 	}
-	scratchPrefix, err := d.scratchFilePrefix(ctx, file)
-	if err != nil {
-		return nil, err
-	}
 	parentTree, err := d.getTreeForCommit(ctx, commitInfo.ParentCommit)
 	if err != nil {
 		return nil, err
 	}
-	return d.getTreeForOpenCommit(ctx, scratchPrefix, parentTree)
+	return d.getTreeForOpenCommit(ctx, file, parentTree)
 }
 
-func (d *driver) getTreeForOpenCommit(ctx context.Context, prefix string, parentTree hashtree.HashTree) (hashtree.HashTree, error) {
-	var finishedTree hashtree.HashTree
-	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		tree := parentTree.Open()
-
-		recordsCol := d.putFileRecords.ReadOnly(ctx)
-		iter, err := recordsCol.ListPrefix(prefix)
-		if err != nil {
-			return err
-		}
-		for {
-			putFileRecords := &pfs.PutFileRecords{}
-			var key string
-			ok, err := iter.Next(&key, putFileRecords)
-			if !ok {
-				break
-			}
-			if err != nil {
-				return err
-			}
-			err = d.applyWrite(key, putFileRecords, tree)
-			if err != nil {
-				return err
-			}
-		}
-		finishedTree, err = tree.Finish()
-		if err != nil {
-			return err
-		}
-		return nil
-	})
+func (d *driver) getTreeForOpenCommit(ctx context.Context, file *pfs.File, parentTree hashtree.HashTree) (hashtree.HashTree, error) {
+	prefix, err := d.scratchFilePrefix(ctx, file)
 	if err != nil {
 		return nil, err
 	}
-	return finishedTree, nil
+	var tree hashtree.OpenHashTree
+	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		tree = parentTree.Open()
+		recordsCol := d.putFileRecords.ReadOnly(ctx)
+		putFileRecords := &pfs.PutFileRecords{}
+		opts := &col.Options{etcd.SortByModRevision, etcd.SortAscend, true}
+		return recordsCol.ListPrefix(prefix, putFileRecords, opts, func(key string) error {
+			return d.applyWrite(path.Join(file.Path, key), putFileRecords, tree)
+		})
+	}); err != nil {
+		return nil, err
+	}
+	return tree.Finish()
 }
 
 func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size int64) (io.Reader, error) {
@@ -2364,8 +2322,7 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 			existingRecords.Split = newRecords.Split
 			existingRecords.Records = append(existingRecords.Records, newRecords.Records...)
 		}
-		recordsCol.Put(prefix, &existingRecords)
-		return nil
+		return recordsCol.Put(prefix, &existingRecords)
 	})
 	if err != nil {
 		return err
@@ -2377,16 +2334,9 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtree.OpenHashTree) error {
 	// a map that keeps track of the sizes of objects
 	sizeMap := make(map[string]int64)
-	// fileStr is going to look like "some/path/UUID"
-	fileStr := d.filePathFromEtcdPath(key)
-	// the last element of `parts` is going to be UUID
-	parts := strings.Split(fileStr, "/")
-	// filePath should look like "some/path"
-	filePath := strings.Join(parts[:len(parts)], "/")
-	filePath = filepath.Join("/", filePath)
 
 	if records.Tombstone {
-		if err := tree.DeleteFile(filePath); err != nil {
+		if err := tree.DeleteFile(key); err != nil {
 			return err
 		}
 	}
@@ -2399,7 +2349,7 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			if record.OverwriteIndex != nil {
 				// Computing size delta
 				delta := record.SizeBytes
-				fileNode, err := tree.Get(filePath)
+				fileNode, err := tree.Get(key)
 				if err == nil {
 					// If we can't find the file, that's fine.
 					for i := record.OverwriteIndex.Index; int(i) < len(fileNode.FileNode.Objects); i++ {
@@ -2407,17 +2357,17 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 					}
 				}
 
-				if err := tree.PutFileOverwrite(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.OverwriteIndex, delta); err != nil {
+				if err := tree.PutFileOverwrite(key, []*pfs.Object{{Hash: record.ObjectHash}}, record.OverwriteIndex, delta); err != nil {
 					return err
 				}
 			} else {
-				if err := tree.PutFile(filePath, []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+				if err := tree.PutFile(key, []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
 					return err
 				}
 			}
 		}
 	} else {
-		nodes, err := tree.List(filePath)
+		nodes, err := tree.List(key)
 		if err != nil && hashtree.Code(err) != hashtree.PathNotFound {
 			return err
 		}
@@ -2432,7 +2382,7 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			indexOffset++ // start writing to the file after the last file
 		}
 		for i, record := range records.Records {
-			if err := tree.PutFile(path.Join(filePath, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+			if err := tree.PutFile(path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
 				return err
 			}
 		}
