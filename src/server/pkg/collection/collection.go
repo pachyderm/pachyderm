@@ -11,10 +11,6 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
-	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -25,15 +21,6 @@ import (
 // defaultLimit was experimentally determined to be the highest value that could work
 // (It gets scaled down for specific collections if they trip the max-message size.)
 const defaultLimit int64 = 262144
-
-type order int
-
-const (
-	// Descend is passed to iterative methods to order the objects newest-to-oldest.
-	Descend order = iota
-	// Ascend is passed to iteration methods to order the objects oldest-to-newest.
-	Ascend
-)
 
 type collection struct {
 	etcdClient *etcd.Client
@@ -448,11 +435,11 @@ func (c *readonlyCollection) Get(key string, val proto.Message) error {
 	return proto.Unmarshal(resp.Kvs[0].Value, val)
 }
 
-func (c *readonlyCollection) GetByIndexF(order order, index *Index, indexVal interface{}, val proto.Message, f func(key string) error) error {
+func (c *readonlyCollection) GetByIndex(index *Index, indexVal interface{}, val proto.Message, opts *Options, f func(key string) error) error {
 	if atomic.LoadInt64(&index.limit) == 0 {
 		atomic.CompareAndSwapInt64(&index.limit, 0, defaultLimit)
 	}
-	return c.listF(c.indexDir(index, indexVal), &index.limit, order, func(kv *mvccpb.KeyValue) error {
+	return c.list(c.indexDir(index, indexVal), &index.limit, opts, func(kv *mvccpb.KeyValue) error {
 		key := path.Base(string(kv.Key))
 		if err := c.Get(key, val); err != nil {
 			if IsErrNotFound(err) {
@@ -488,14 +475,14 @@ func (c *readonlyCollection) GetBlock(key string, val proto.Message) error {
 // ListPrefix returns keys (and values) that begin with prefix, f will be
 // called with each key, val will contain the value for the key.
 // You can break out of iteration by returning errutil.ErrBreak.
-func (c *readonlyCollection) ListPrefix(prefix string, order order, val proto.Message, f func(string) error) error {
+func (c *readonlyCollection) ListPrefix(prefix string, val proto.Message, opts *Options, f func(string) error) error {
 	queryPrefix := c.prefix
 	if prefix != "" {
 		// If we always call join, we'll get rid of the trailing slash we need
 		// on the root c.prefix
 		queryPrefix = filepath.Join(c.prefix, prefix)
 	}
-	return c.listF(queryPrefix, &c.limit, order, func(kv *mvccpb.KeyValue) error {
+	return c.list(queryPrefix, &c.limit, opts, func(kv *mvccpb.KeyValue) error {
 		if err := proto.Unmarshal(kv.Value, val); err != nil {
 			return err
 		}
@@ -503,16 +490,15 @@ func (c *readonlyCollection) ListPrefix(prefix string, order order, val proto.Me
 	})
 }
 
-// ListF returns objects sorted by CreateRevision, i.e. the order in which they
-// were created. f will be called with each key, val will contain the
+// List returns objects sorted based on the options passed in. f will be called with each key, val will contain the
 // corresponding value. Val is not an argument to f because that would require
 // f to perform a cast before it could be used.
 // You can break out of iteration by returning errutil.ErrBreak.
-func (c *readonlyCollection) ListF(order order, val proto.Message, f func(string) error) error {
+func (c *readonlyCollection) List(val proto.Message, opts *Options, f func(string) error) error {
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
-	return c.listF(c.prefix, &c.limit, order, func(kv *mvccpb.KeyValue) error {
+	return c.list(c.prefix, &c.limit, opts, func(kv *mvccpb.KeyValue) error {
 		if err := proto.Unmarshal(kv.Value, val); err != nil {
 			return err
 		}
@@ -520,60 +506,12 @@ func (c *readonlyCollection) ListF(order order, val proto.Message, f func(string
 	})
 }
 
-func (c *readonlyCollection) listF(prefix string, limitPtr *int64, order order, f func(*mvccpb.KeyValue) error) error {
-	rev := int64(-1)
-	keysInRev := make(map[string]bool)
-	for {
-		sort := etcd.WithSort(etcd.SortByCreateRevision, etcd.SortDescend)
-		if order == Ascend {
-			sort = etcd.WithSort(etcd.SortByCreateRevision, etcd.SortAscend)
-		}
-		opts := []etcd.OpOption{etcd.WithPrefix(), sort}
-		if rev != -1 {
-			if order == Descend {
-				opts = append(opts, etcd.WithMaxCreateRev(rev))
-			} else {
-				opts = append(opts, etcd.WithMinCreateRev(rev))
-			}
-		}
-		var resp *etcd.GetResponse
-		var limit int64
-		for {
-			limit = atomic.LoadInt64(limitPtr)
-			var err error
-			resp, err = c.etcdClient.Get(c.ctx, prefix, append(opts, etcd.WithLimit(limit))...)
-			if err != nil {
-				if status.Convert(err).Code() == codes.ResourceExhausted && limit > 1 {
-					atomic.CompareAndSwapInt64(limitPtr, limit, limit/2)
-					continue
-				}
-				return err
-			}
-			break
-		}
-		if len(resp.Kvs) == int(limit) && resp.Kvs[0].CreateRevision == resp.Kvs[len(resp.Kvs)-1].CreateRevision {
-			return fmt.Errorf("revision contains too many objects to fit in one batch (this is likely a bug)")
-		}
-		for _, kv := range resp.Kvs {
-			if keysInRev[string(kv.Key)] {
-				continue
-			}
-			if err := f(kv); err != nil {
-				if err == errutil.ErrBreak {
-					return nil
-				}
-				return err
-			}
-			if kv.CreateRevision != rev {
-				keysInRev = make(map[string]bool)
-				rev = kv.CreateRevision
-			}
-			keysInRev[string(kv.Key)] = true
-		}
-		if len(resp.Kvs) < int(limit) {
-			return nil
-		}
+func (c *readonlyCollection) list(prefix string, limitPtr *int64, opts *Options, f func(*mvccpb.KeyValue) error) error {
+	if opts.SelfSort {
+		return listSelfSortRevision(c, prefix, limitPtr, opts, f)
 	}
+
+	return listRevision(c, prefix, limitPtr, opts, f)
 }
 
 func (c *readonlyCollection) Count() (int64, error) {
