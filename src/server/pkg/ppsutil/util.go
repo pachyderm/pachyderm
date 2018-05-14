@@ -159,7 +159,6 @@ func GetPipelineInfo(pachClient *client.APIClient, ptr *pps.EtcdPipelineInfo) (*
 	result.Reason = ptr.Reason
 	result.JobCounts = ptr.JobCounts
 	result.SpecCommit = ptr.SpecCommit
-	fmt.Printf("ZOMG pps getpipelineinfo at commit %v : %v\n", ptr.SpecCommit.ID, result)
 	return result, nil
 }
 
