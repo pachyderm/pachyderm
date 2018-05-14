@@ -1788,7 +1788,7 @@ func TestBranch2(t *testing.T) {
 	// delete the last branch
 	var lastBranch string
 	lastBranch = expectedBranches[len(expectedBranches)-1]
-	require.NoError(t, client.DeleteBranch(repo, lastBranch))
+	require.NoError(t, client.DeleteBranch(repo, lastBranch, false))
 	branches, err = client.ListBranch(repo)
 	require.Equal(t, 2, len(branches))
 	require.Equal(t, "branch1", branches[0].Name)
@@ -1802,7 +1802,7 @@ func TestDeleteNonexistantBranch(t *testing.T) {
 
 	repo := "TestDeleteNonexistantBranch"
 	require.NoError(t, client.CreateRepo(repo))
-	require.NoError(t, client.DeleteBranch(repo, "doesnt_exist"))
+	require.NoError(t, client.DeleteBranch(repo, "doesnt_exist", false))
 }
 
 func TestSubscribeCommit(t *testing.T) {

@@ -2145,7 +2145,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 				// branch exists but head is nil => pipeline creation never finished/
 				// pps state is invalid. Delete nil branch
 				if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-					return superUserClient.DeleteBranch(ppsconsts.SpecRepo, request.Pipeline.Name)
+					return superUserClient.DeleteBranch(ppsconsts.SpecRepo, request.Pipeline.Name, true)
 				}); err != nil {
 					return nil, grpcutil.ScrubGRPC(err)
 				}
@@ -2225,7 +2225,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	// commits)
 	eg.Go(func() error {
 		return a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-			return grpcutil.ScrubGRPC(superUserClient.DeleteBranch(ppsconsts.SpecRepo, request.Pipeline.Name))
+			return grpcutil.ScrubGRPC(superUserClient.DeleteBranch(ppsconsts.SpecRepo, request.Pipeline.Name, true))
 		})
 	})
 	// Delete EtcdPipelineInfo
@@ -2348,7 +2348,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 		return nil, fmt.Errorf("Error during authorization check: %v", err)
 	}
 
-	if _, err := a.DeletePipeline(ctx, &pps.DeletePipelineRequest{All: true}); err != nil {
+	if _, err := a.DeletePipeline(ctx, &pps.DeletePipelineRequest{All: true, Force: true}); err != nil {
 		return nil, err
 	}
 
