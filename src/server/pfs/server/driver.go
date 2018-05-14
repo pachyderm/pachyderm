@@ -385,11 +385,10 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 		var existingRepoInfo pfs.RepoInfo
 		err := repos.Get(repo.Name, &existingRepoInfo)
 		if err != nil {
-			if col.IsErrNotFound(err) {
-				return fmt.Errorf("cannot delete \"%s\" as it does not exist", repo.Name)
+			if !col.IsErrNotFound(err) {
+				return fmt.Errorf("error checking whether \"%s\" exists: %v",
+					repo.Name, err)
 			}
-			return fmt.Errorf("error checking whether \"%s\" exists: %v",
-				repo.Name, err)
 		}
 
 		// Check if the caller is authorized to delete this repo
