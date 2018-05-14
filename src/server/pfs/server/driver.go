@@ -1796,16 +1796,6 @@ func (d *driver) filePathFromEtcdPath(etcdPath string) string {
 	return path.Join(split[4:]...)
 }
 
-// validatePath checks if a file path is legal
-func validatePath(path string) error {
-	match, _ := regexp.MatchString("^[ -~]+$", path)
-
-	if !match {
-		return fmt.Errorf("path (%v) invalid: only printable ASCII characters allowed", path)
-	}
-	return nil
-}
-
 func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter,
 	targetFileDatums int64, targetFileBytes int64, overwriteIndex *pfs.OverwriteIndex, reader io.Reader) error {
 	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_WRITER); err != nil {
@@ -1837,7 +1827,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	if overwriteIndex != nil && overwriteIndex.Index == 0 {
 		records.Tombstone = true
 	}
-	if err := validatePath(file.Path); err != nil {
+	if err := hashtree.ValidatePath(file.Path); err != nil {
 		return err
 	}
 
@@ -1956,7 +1946,7 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 	if err := d.checkIsAuthorized(ctx, dst.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	if err := validatePath(dst.Path); err != nil {
+	if err := hashtree.ValidatePath(dst.Path); err != nil {
 		return err
 	}
 	branch := ""
@@ -2146,31 +2136,44 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
-	tree, err := d.getTreeForFile(ctx, file)
+
+	tree, err := d.getTreeForFile(ctx, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))
 	if err != nil {
 		return nil, err
 	}
 
-	node, err := tree.Get(file.Path)
+	paths, err := tree.Glob(file.Path)
 	if err != nil {
-		return nil, pfsserver.ErrFileNotFound{file}
+		return nil, err
 	}
 
-	if node.FileNode == nil {
-		return nil, fmt.Errorf("%s is a directory", file.Path)
+	var objects []*pfs.Object
+	var totalSize int64
+	for _, node := range paths {
+		if node.FileNode == nil {
+			continue
+		}
+
+		objects = append(objects, node.FileNode.Objects...)
+		totalSize += node.SubtreeSize
+	}
+
+	if objects == nil {
+		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
 	}
 
 	getObjectsClient, err := d.pachClient.ObjectAPIClient.GetObjects(
 		ctx,
 		&pfs.GetObjectsRequest{
-			Objects:     node.FileNode.Objects,
+			Objects:     objects,
 			OffsetBytes: uint64(offset),
 			SizeBytes:   uint64(size),
-			TotalSize:   uint64(node.SubtreeSize),
+			TotalSize:   uint64(totalSize),
 		})
 	if err != nil {
 		return nil, err
 	}
+
 	return grpcutil.NewStreamingBytesReader(getObjectsClient), nil
 }
 
@@ -2213,6 +2216,7 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 		return nil, pfsserver.ErrFileNotFound{file}
 	}
 
+	// TODO(bryce) Add file path cleaning to this return
 	return nodeToFileInfo(file.Commit, file.Path, node, true), nil
 }
 
@@ -2220,19 +2224,34 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool) ([]*pf
 	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
-	tree, err := d.getTreeForFile(ctx, file)
+
+	tree, err := d.getTreeForFile(ctx, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))
 	if err != nil {
 		return nil, err
 	}
 
-	nodes, err := tree.List(file.Path)
+	rootPaths, err := tree.Glob(file.Path)
 	if err != nil {
 		return nil, err
+	}
+	paths := make(map[string]*hashtree.NodeProto, len(rootPaths))
+	for rootPath, rootNode := range rootPaths {
+		nodes, err := tree.List(rootPath)
+		if err != nil {
+			if hashtree.Code(err) == hashtree.PathConflict {
+				paths[rootPath] = rootNode
+				continue
+			}
+			return nil, err
+		}
+		for _, node := range nodes {
+			paths[filepath.Join(rootPath, node.Name)] = node
+		}
 	}
 
 	var fileInfos []*pfs.FileInfo
-	for _, node := range nodes {
-		fileInfos = append(fileInfos, nodeToFileInfo(file.Commit, path.Join(file.Path, node.Name), node, full))
+	for path, node := range paths {
+		fileInfos = append(fileInfos, nodeToFileInfo(file.Commit, path, node, full))
 	}
 	return fileInfos, nil
 }
@@ -2241,19 +2260,20 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern strin
 	if err := d.checkIsAuthorized(ctx, commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
+
 	tree, err := d.getTreeForFile(ctx, client.NewFile(commit.Repo.Name, commit.ID, ""))
 	if err != nil {
 		return nil, err
 	}
 
-	nodes, err := tree.Glob(pattern)
+	paths, err := tree.Glob(pattern)
 	if err != nil {
 		return nil, err
 	}
 
 	var fileInfos []*pfs.FileInfo
-	for _, node := range nodes {
-		fileInfos = append(fileInfos, nodeToFileInfo(commit, node.Name, node, false))
+	for path, node := range paths {
+		fileInfos = append(fileInfos, nodeToFileInfo(commit, path, node, false))
 	}
 	return fileInfos, nil
 }
@@ -2330,7 +2350,6 @@ func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
 		_, err := d.makeCommit(ctx, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, []string{file.Path}, []*pfs.PutFileRecords{&pfs.PutFileRecords{Tombstone: true}}, "")
 		return err
 	}
-
 	return d.upsertPutFileRecords(ctx, file, &pfs.PutFileRecords{Tombstone: true})
 }
 
@@ -2386,19 +2405,6 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 	if err != nil {
 		return err
 	}
-	// If there is a tombstone, remove any records for children under this directory
-	// This allows us to support deleting dirs / adding children properly, e.g. `TestDeleteDir`
-	if newRecords.Tombstone {
-		_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-			revision := stm.Rev(d.openCommits.Path(file.Commit.ID))
-			if revision == 0 {
-				return fmt.Errorf("commit %v is not open", file.Commit.ID)
-			}
-			recordsCol := d.putFileRecords.ReadWrite(stm)
-			recordsCol.DeleteAllPrefix(prefix)
-			return nil
-		})
-	}
 
 	return err
 }
@@ -2409,11 +2415,7 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 
 	if records.Tombstone {
 		if err := tree.DeleteFile(key); err != nil {
-			// Deleting a non-existent file in an open commit should
-			// be a no-op
-			if hashtree.Code(err) != hashtree.PathNotFound {
-				return err
-			}
+			return err
 		}
 	}
 	if !records.Split {

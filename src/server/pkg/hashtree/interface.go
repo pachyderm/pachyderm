@@ -59,8 +59,8 @@ type HashTree interface {
 	// 'path'.
 	List(path string) ([]*NodeProto, error)
 
-	// Glob returns a list of files and directories that match 'pattern'.
-	Glob(pattern string) ([]*NodeProto, error)
+	// Glob returns a map of file/directory paths to nodes that match 'pattern'.
+	Glob(pattern string) (map[string]*NodeProto, error)
 
 	// FSSize gets the size of the file system that this tree represents.
 	// It's essentially a helper around h.Get("/").SubtreeBytes
