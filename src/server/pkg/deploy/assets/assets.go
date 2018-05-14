@@ -47,8 +47,8 @@ var (
 	etcdStorageClassName    = "etcd-storage-class"
 	grpcProxyName           = "grpc-proxy"
 	pachdName               = "pachd"
-
-	trueVal = true
+	// PrometheusPort hosts the prometheus stats for scraping
+	PrometheusPort = 9091
 )
 
 type backend int
@@ -411,10 +411,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 									Name:          "api-git-port",
 								},
 							},
-							VolumeMounts: volumeMounts,
-							SecurityContext: &v1.SecurityContext{
-								Privileged: &trueVal, // god is this dumb
-							},
+							VolumeMounts:    volumeMounts,
 							ImagePullPolicy: "IfNotPresent",
 							Resources:       resourceRequirements,
 							ReadinessProbe: &v1.Probe{
@@ -437,12 +434,16 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 
 // PachdService returns a pachd service.
 func PachdService(opts *AssetOpts) *v1.Service {
+	prometheusAnnotations := map[string]string{
+		"prometheus.io/scrape": "true",
+		"prometheus.io/port":   string(PrometheusPort),
+	}
 	return &v1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Service",
 			APIVersion: "v1",
 		},
-		ObjectMeta: objectMeta(pachdName, labels(pachdName), nil, opts.Namespace),
+		ObjectMeta: objectMeta(pachdName, labels(pachdName), prometheusAnnotations, opts.Namespace),
 		Spec: v1.ServiceSpec{
 			Type: v1.ServiceTypeNodePort,
 			Selector: map[string]string{

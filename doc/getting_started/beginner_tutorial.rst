@@ -300,11 +300,11 @@ And you can view the generated montage image via:
 Exporing your DAG in the Pachyderm dashboard
 --------------------------------------------
 
-When you deployed Pachyderm locally, the Pachyderm Enterprise dashboard was also deployed by default. This dashboard will let you interactively explore your pipeline, visualize the structure of the pipeline, explore you data, debug jobs, etc. To access the dashboard visit ``localhost:30080`` in an Internet browser (e.g., Google Chrome). You will see something similar to this:
+When you deployed Pachyderm locally, the Pachyderm Enterprise dashboard was also deployed by default. This dashboard will let you interactively explore your pipeline, visualize the structure of the pipeline, explore your data, debug jobs, etc. To access the dashboard visit ``localhost:30080`` in an Internet browser (e.g., Google Chrome). You will see something similar to this:
 
 .. image:: dashboard1.png
 
-Enter your email address if you would like to obtain a free trail token for the dashboard. Upon entering this trial token, you will be able to see your pipeline structure and interactively explore the various pieces of your pipeline as pictured below:
+Enter your email address if you would like to obtain a free trial token for the dashboard. Upon entering this trial token, you will be able to see your pipeline structure and interactively explore the various pieces of your pipeline as pictured below:
 
 .. image:: dashboard2.png
 

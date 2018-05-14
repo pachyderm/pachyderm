@@ -337,7 +337,7 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool) (*pfs.ListRepoR
 	result := &pfs.ListRepoResponse{}
 	authSeemsActive := true
 	repoInfo := &pfs.RepoInfo{}
-	if err := repos.ListF(col.Descend, repoInfo, func(repoName string) error {
+	if err := repos.List(repoInfo, col.DefaultOptions, func(repoName string) error {
 		if repoName == ppsconsts.SpecRepo {
 			return nil
 		}
@@ -1127,7 +1127,7 @@ func (d *driver) listCommitF(ctx context.Context, repo *pfs.Repo, to *pfs.Commit
 	} else if from == nil && to == nil {
 		// if neither from and to is given, we list all commits in
 		// the repo, sorted by revision timestamp
-		if err := commits.ListF(col.Descend, ci, func(commitID string) error {
+		if err := commits.List(ci, col.DefaultOptions, func(commitID string) error {
 			if number <= 0 {
 				return errutil.ErrBreak
 			}
@@ -1713,7 +1713,7 @@ func (d *driver) listBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.BranchI
 	var result []*pfs.BranchInfo
 	branchInfo := &pfs.BranchInfo{}
 	branches := d.branches(repo.Name).ReadOnly(ctx)
-	if err := branches.ListF(col.Descend, branchInfo, func(string) error {
+	if err := branches.List(branchInfo, col.DefaultOptions, func(string) error {
 		result = append(result, proto.Clone(branchInfo).(*pfs.BranchInfo))
 		return nil
 	}); err != nil {
@@ -1736,6 +1736,10 @@ func (d *driver) deleteBranchSTM(stm col.STM, branch *pfs.Branch, force bool) er
 	branches := d.branches(branch.Repo.Name).ReadWrite(stm)
 	branchInfo := &pfs.BranchInfo{}
 	if err := branches.Get(branch.Name, branchInfo); err != nil {
+		if isNotFoundErr(err) {
+			// Branch was already deleted, nothing to do.
+			return nil
+		}
 		return err
 	}
 	if !force {
@@ -2128,7 +2132,8 @@ func (d *driver) getTreeForOpenCommit(ctx context.Context, file *pfs.File, paren
 		tree = parentTree.Open()
 		recordsCol := d.putFileRecords.ReadOnly(ctx)
 		putFileRecords := &pfs.PutFileRecords{}
-		return recordsCol.ListPrefix(prefix, col.Ascend, putFileRecords, func(key string) error {
+		opts := &col.Options{etcd.SortByModRevision, etcd.SortAscend, true}
+		return recordsCol.ListPrefix(prefix, putFileRecords, opts, func(key string) error {
 			return d.applyWrite(path.Join(file.Path, key), putFileRecords, tree)
 		})
 	}); err != nil {
