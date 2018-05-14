@@ -11,13 +11,26 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 )
 
+const (
+	// RepoHeader is the header for repos.
+	RepoHeader = "NAME\tCREATED\tSIZE\t\n"
+	// RepoAuthHeader is the header for repos with auth information attached.
+	RepoAuthHeader = "NAME\tCREATED\tSIZE\tACCESS LEVEL\t\n"
+	// CommitHeader is the header for commits.
+	CommitHeader = "REPO\tID\tPARENT\tSTARTED\tDURATION\tSIZE\t\n"
+	// BranchHeader is the header for branches.
+	BranchHeader = "BRANCH\tHEAD\t\n"
+	// FileHeader is the header for files.
+	FileHeader = "NAME\tTYPE\tSIZE\t\n"
+)
+
 // PrintRepoHeader prints a repo header.
 func PrintRepoHeader(w io.Writer, printAuth bool) {
 	if printAuth {
-		fmt.Fprint(w, "NAME\tCREATED\tSIZE\tACCESS LEVEL\t\n")
+		fmt.Fprint(w, RepoAuthHeader)
 		return
 	}
-	fmt.Fprint(w, "NAME\tCREATED\tSIZE\t\n")
+	fmt.Fprint(w, RepoHeader)
 }
 
 // PrintRepoInfo pretty-prints repo info.
@@ -56,7 +69,7 @@ Access level: {{ .AuthInfo.AccessLevel.String }}{{end}}
 
 // PrintBranchHeader prints a branch header.
 func PrintBranchHeader(w io.Writer) {
-	fmt.Fprint(w, "BRANCH\tHEAD\t\n")
+	fmt.Fprint(w, BranchHeader)
 }
 
 // PrintBranch pretty-prints a Branch.
@@ -71,7 +84,7 @@ func PrintBranch(w io.Writer, branchInfo *pfs.BranchInfo) {
 
 // PrintCommitInfoHeader prints a commit info header.
 func PrintCommitInfoHeader(w io.Writer) {
-	fmt.Fprint(w, "REPO\tID\tPARENT\tSTARTED\tDURATION\tSIZE\t\n")
+	fmt.Fprint(w, CommitHeader)
 }
 
 // PrintCommitInfo pretty-prints commit info.
@@ -121,7 +134,7 @@ Provenance: {{range .Provenance}} {{.Repo.Name}}/{{.ID}} {{end}} {{end}}
 
 // PrintFileInfoHeader prints a file info header.
 func PrintFileInfoHeader(w io.Writer) {
-	fmt.Fprint(w, "NAME\tTYPE\tSIZE\t\n")
+	fmt.Fprint(w, FileHeader)
 }
 
 // PrintFileInfo pretty-prints file info.

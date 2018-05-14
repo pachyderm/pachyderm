@@ -2,6 +2,23 @@
 
 set -e
 
+# Wait until a connection with kubernetes has been established
+echo "Waiting for connection to kubernetes..."
+max_t=90
+WHEEL="\|/-";
+until kubectl version >/dev/null 2>/dev/null; do
+  if ((max_t-- <= 0)); then
+    echo "Could not connect to minikube"
+    echo "minikube status --alsologtostderr --loglevel=0 -v9:"
+    echo "==================================================="
+    minikube status --alsologtostderr --loglevel=0 -v9
+    exit 1
+  fi
+	echo -en "\e[G$${WHEEL:0:1}";
+	WHEEL="$${WHEEL:1}$${WHEEL:0:1}";
+	sleep 1;
+done
+
 go install ./src/server/cmd/match
 echo "Running local tests"
 make test

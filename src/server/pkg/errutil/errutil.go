@@ -1,7 +1,15 @@
 package errutil
 
 import (
+	"fmt"
 	"strings"
+)
+
+var (
+	// ErrBreak is an error used to break out of call back based iteration,
+	// should be swallowed by iteration functions and treated as successful
+	// iteration.
+	ErrBreak = fmt.Errorf("BREAK")
 )
 
 // IsAlreadyExistError returns true if err is due to trying to create a
