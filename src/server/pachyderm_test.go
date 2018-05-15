@@ -7632,6 +7632,14 @@ func TestPachdPrometheusStats(t *testing.T) {
 		avgQuery(t, sum, count, 1)
 	})
 
+	caches := []string{"object", "tag", "object_info"}
+	for _, cache := range caches {
+		t.Run(fmt.Sprintf("cache_%v", cache), func(t *testing.T) {
+			query := fmt.Sprintf("pachyderm_pachd_cache_%v_loads_gauge", cache)
+			countQuery(t, query)
+		})
+	}
+
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
