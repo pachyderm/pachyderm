@@ -13,16 +13,20 @@ import (
 )
 
 type cacheStats struct {
-	cacheName    string
-	descriptions map[string]*prometheus.Desc
-	*groupcache.Stats
-	mutex *sync.RWMutex // For concurrent descriptions map access
+	cacheName      string
+	descriptions   map[string]*prometheus.Desc
+	stats          *groupcache.Stats
+	descriptionsMu sync.RWMutex
 }
 
 // RegisterCacheStats creates a new wrapper for groupcache stats that implements
 // the prometheus.Collector interface, and registers it
 func RegisterCacheStats(cacheName string, groupCacheStats *groupcache.Stats) {
-	c := &cacheStats{cacheName, make(map[string]*prometheus.Desc), groupCacheStats, &sync.RWMutex{}}
+	c := &cacheStats{
+		cacheName:    cacheName,
+		descriptions: make(map[string]*prometheus.Desc),
+		stats:        groupCacheStats,
+	}
 	if err := prometheus.Register(c); err != nil {
 		logrus.Infof("error registering prometheus metric: %v", err)
 	}
@@ -38,8 +42,8 @@ func (c *cacheStats) Describe(ch chan<- *prometheus.Desc) {
 			nil,
 		)
 		func() {
-			c.mutex.Lock()
-			defer c.mutex.Unlock()
+			c.descriptionsMu.Lock()
+			defer c.descriptionsMu.Unlock()
 			c.descriptions[statName] = desc
 		}()
 		ch <- desc
@@ -47,12 +51,12 @@ func (c *cacheStats) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (c *cacheStats) Collect(ch chan<- prometheus.Metric) {
-	r := reflect.ValueOf(c)
+	r := reflect.ValueOf(c.stats)
 	for _, statFieldName := range groupCacheStatFields() {
 		value := reflect.Indirect(r).FieldByName(statFieldName)
 		func() {
-			c.mutex.RLock()
-			defer c.mutex.RUnlock()
+			c.descriptionsMu.RLock()
+			defer c.descriptionsMu.RUnlock()
 			metric, err := prometheus.NewConstMetric(
 				c.descriptions[c.statName(statFieldName)],
 				prometheus.GaugeValue,
