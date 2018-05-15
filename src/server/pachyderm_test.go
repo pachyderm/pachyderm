@@ -40,6 +40,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
+	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 
 	"github.com/gogo/protobuf/types"
@@ -2074,6 +2075,50 @@ func TestUpdateFailedPipeline(t *testing.T) {
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
 	require.Equal(t, "bar\n", buffer.String())
+}
+
+func TestUpdateStoppedPipeline(t *testing.T) {
+	// Pipeline should be updated, but should not be restarted
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	// create repos
+	dataRepo := tu.UniqueString("TestUpdateStoppedPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	pipelineName := tu.UniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{"echo foo >/pfs/out/file"},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+	require.NoError(t, c.StopPipeline(pipelineName))
+	// Update shouldn't restart it
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"bash:4",
+		[]string{"bash"},
+		[]string{"echo bar >/pfs/out/file"},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/*"),
+		"",
+		true,
+	))
+	time.Sleep(10 * time.Second)
+	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+	require.Equal(t, true, pps_server.PipelineStateToStopped(pipelineInfo.State))
 }
 
 func TestUpdatePipelineRunningJob(t *testing.T) {

@@ -126,7 +126,7 @@ func (a *apiServer) master() {
 						return fmt.Errorf("watch event had no pipelineInfo: %v", err)
 					}
 					// If the pipeline has been stopped, delete workers
-					if pipelineStateToStopped(pipelinePtr.State) {
+					if PipelineStateToStopped(pipelinePtr.State) {
 						log.Infof("PPS master: deleting workers for pipeline %s (%s)", pipelineName, pipelinePtr.State.String())
 						if err := a.deleteWorkersForPipeline(pipelineInfo); err != nil {
 							return err
@@ -142,8 +142,8 @@ func (a *apiServer) master() {
 
 					// True if the pipeline has been restarted (regardless of any change
 					// to the pipeline spec)
-					pipelineRestarted := !pipelineStateToStopped(pipelinePtr.State) &&
-						event.PrevKey != nil && pipelineStateToStopped(prevPipelinePtr.State)
+					pipelineRestarted := !PipelineStateToStopped(pipelinePtr.State) &&
+						event.PrevKey != nil && PipelineStateToStopped(prevPipelinePtr.State)
 					// True if auth has been activated or deactivated
 					authActivationChanged := (pipelinePtr.AuthToken == "") !=
 						(prevPipelinePtr.AuthToken == "")
@@ -154,7 +154,7 @@ func (a *apiServer) master() {
 							prevSpecCommit = prevPipelinePtr.SpecCommit.ID
 						}
 						return pipelinePtr.SpecCommit.ID != prevSpecCommit &&
-							!pipelineStateToStopped(pipelinePtr.State)
+							!PipelineStateToStopped(pipelinePtr.State)
 					}()
 					if pipelineRestarted || authActivationChanged || pipelineUpserted {
 						if (pipelineUpserted || authActivationChanged) && event.PrevKey != nil {
