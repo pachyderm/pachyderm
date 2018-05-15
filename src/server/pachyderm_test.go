@@ -7580,7 +7580,7 @@ func TestCorruption(t *testing.T) {
 
 	r := rand.New(rand.NewSource(64))
 
-	for i := 0; i < 30; i++ {
+	for i := 0; i < 100; i++ {
 		dataRepo := tu.UniqueString("TestSimplePipeline_data")
 		require.NoError(t, c.CreateRepo(dataRepo))
 
