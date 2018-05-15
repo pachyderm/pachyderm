@@ -6,7 +6,6 @@ RUN \
   apt-get install -yq --no-install-recommends \
     build-essential \
     ca-certificates \
-    cmake \
     curl \
     git \
     libssl-dev \

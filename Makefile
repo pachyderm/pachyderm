@@ -151,7 +151,7 @@ docker-clean-worker:
 	docker stop worker_compile || true
 	docker rm worker_compile || true
 
-docker-build-worker: docker-clean-worker docker-build-compile
+docker-build-worker: docker-clean-worker
 	docker run \
 		-v $$GOPATH/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
@@ -164,7 +164,7 @@ docker-clean-pachd:
 	docker stop pachd_compile || true
 	docker rm pachd_compile || true
 
-docker-build-pachd: docker-clean-pachd docker-build-compile
+docker-build-pachd: docker-clean-pachd
 	docker run  \
 		-v $$GOPATH/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
@@ -174,7 +174,7 @@ docker-clean-test:
 	docker stop test_compile || true
 	docker rm test_compile || true
 
-docker-build-test: docker-clean-test docker-build-compile
+docker-build-test: docker-clean-test
 	docker run \
 		-v $$GOPATH/go/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
