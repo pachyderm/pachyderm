@@ -16,6 +16,8 @@ ifdef VENDOR_ALL
 endif
 
 COMPILE_RUN_ARGS = -d -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
+# Label it w the go version we bundle in:
+COMPILE_IMAGE = "pachyderm/compile:go1.10beta1"
 VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
 LD_FLAGS = -X github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 
@@ -145,15 +147,19 @@ docker-build-compile:
 	echo "compile build end:"
 	date
 
+publish-compile: docker-build-compile
+	docker tag pachyderm_compile $(COMPILE_IMAGE)
+	docker push $(COMPILE_IMAGE)
+
 docker-clean-worker:
 	docker stop worker_compile || true
 	docker rm worker_compile || true
 
-docker-build-worker: docker-clean-worker docker-build-compile
+docker-build-worker: docker-clean-worker
 	docker run \
 		-v $$GOPATH/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
-		--name worker_compile $(COMPILE_RUN_ARGS) pachyderm_compile /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh worker "$(LD_FLAGS)"
+		--name worker_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh worker "$(LD_FLAGS)"
 
 docker-wait-worker:
 	etc/compile/wait.sh worker_compile
@@ -162,25 +168,25 @@ docker-clean-pachd:
 	docker stop pachd_compile || true
 	docker rm pachd_compile || true
 
-docker-build-pachd: docker-clean-pachd docker-build-compile
+docker-build-pachd: docker-clean-pachd
 	echo "start time for pachd build:"
 	date
 	docker run  \
 		-v $$GOPATH/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
-		--name pachd_compile $(COMPILE_RUN_ARGS) pachyderm_compile /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh pachd "$(LD_FLAGS)"
+		--name pachd_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh pachd "$(LD_FLAGS)"
+	echo "end time for pachd build:"
+	date
 
 docker-clean-test:
 	docker stop test_compile || true
 	docker rm test_compile || true
-	echo "end time for pachd build:"
-	date
 
-docker-build-test: docker-clean-test docker-build-compile
+docker-build-test: docker-clean-test
 	docker run \
 		-v $$GOPATH/go/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
-		--name test_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh /etc/compile/compile_test.sh
+		--name test_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) sh /etc/compile/compile_test.sh
 	etc/compile/wait.sh test_compile
 	docker tag pachyderm_test:latest pachyderm/test:`git rev-list HEAD --max-count=1`
 
@@ -192,12 +198,12 @@ docker-wait-pachd:
 
 docker-build-helper: enterprise-code-checkin-test docker-build-worker docker-build-pachd docker-wait-worker docker-wait-pachd
 
-docker-build:
-	echo "start docker build:"
+docker-build: 
+	echo "docker build start:"
 	date
 	make docker-build-helper
-	echo "end docker build:"
-	date
+	echo "docker build end"
+	date	
 
 docker-build-proto:
 	docker build -t pachyderm_proto etc/proto
@@ -385,7 +391,7 @@ proto: docker-build-proto
 
 # Use this to grab a binary for profiling purposes
 pachd-profiling-binary: docker-clean-pachd docker-build-compile
-	docker run -i  pachyderm_compile sh etc/compile/compile.sh pachd "$(LD_FLAGS)" PROFILE \
+	docker run -i  $(COMPILE_IMAGE) sh etc/compile/compile.sh pachd "$(LD_FLAGS)" PROFILE \
 	| tar xf -
 	# Binary emitted to ./pachd
 
