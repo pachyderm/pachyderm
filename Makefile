@@ -165,10 +165,14 @@ docker-clean-pachd:
 	docker rm pachd_compile || true
 
 docker-build-pachd: docker-clean-pachd
+	echo "pachd build start:"
+	date
 	docker run  \
 		-v $$GOPATH/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
 		--name pachd_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh pachd "$(LD_FLAGS)"
+	echo "pachd build end:"
+	date
 
 docker-clean-test:
 	docker stop test_compile || true
