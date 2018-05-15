@@ -398,7 +398,9 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 
 		repoInfo := new(pfs.RepoInfo)
 		if err := repos.Get(repo.Name, repoInfo); err != nil {
-			return err
+			if !col.IsErrNotFound(err) {
+				return fmt.Errorf("repos.Get: %v", err)
+			}
 		}
 		commits.DeleteAll()
 		for _, branch := range repoInfo.Branches {
@@ -406,7 +408,16 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 				return fmt.Errorf("delete branch %s: %v", branch, err)
 			}
 		}
-		return repos.Delete(repo.Name)
+		// Despite the fact that we already deleted each branch with
+		// deleteBranchSTM we also do branches.DeleteAll(), this insulates us
+		// against certain corruption situations where the RepoInfo doesn't
+		// exist in etcd but branches do.
+		branches := d.branches(repo.Name).ReadWrite(stm)
+		branches.DeleteAll()
+		if err := repos.Delete(repo.Name); err != nil && !col.IsErrNotFound(err) {
+			return fmt.Errorf("repos.Delete: %v", err)
+		}
+		return nil
 	})
 	if err != nil {
 		return err
