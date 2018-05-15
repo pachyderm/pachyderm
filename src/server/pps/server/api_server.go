@@ -2674,10 +2674,10 @@ func isNotFoundErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "not found")
 }
 
-// pipelineStateToStopped defines what pipeline states are "stopped"
+// PipelineStateToStopped defines what pipeline states are "stopped"
 // states, meaning that pipelines in this state should not be managed
 // by pipelineManager
-func pipelineStateToStopped(state pps.PipelineState) bool {
+func PipelineStateToStopped(state pps.PipelineState) bool {
 	switch state {
 	case pps.PipelineState_PIPELINE_STARTING:
 		return false
