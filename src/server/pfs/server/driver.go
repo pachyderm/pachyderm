@@ -1751,34 +1751,39 @@ func (d *driver) deleteBranchSTM(stm col.STM, branch *pfs.Branch, force bool) er
 	branches := d.branches(branch.Repo.Name).ReadWrite(stm)
 	branchInfo := &pfs.BranchInfo{}
 	if err := branches.Get(branch.Name, branchInfo); err != nil {
-		if isNotFoundErr(err) {
-			// Branch was already deleted, nothing to do.
-			return nil
-		}
-		return fmt.Errorf("branches.Get: %v", err)
-	}
-	if !force {
-		if len(branchInfo.Subvenance) > 0 {
-			return fmt.Errorf("branch %s has %v as subvenance, deleting it would break those branches", branch.Name, branchInfo.Subvenance)
+		if !col.IsErrNotFound(err) {
+			return fmt.Errorf("branches.Get: %v", err)
 		}
 	}
-	if err := branches.Delete(branch.Name); err != nil {
-		return fmt.Errorf("branches.Delete: %v", err)
-	}
-	for _, provBranch := range branchInfo.Provenance {
-		provBranchInfo := &pfs.BranchInfo{}
-		if err := d.branches(provBranch.Repo.Name).ReadWrite(stm).Update(provBranch.Name, provBranchInfo, func() error {
-			del(&provBranchInfo.Subvenance, branch)
-			return nil
-		}); err != nil && !isNotFoundErr(err) {
-			return fmt.Errorf("error deleting subvenance: %v", err)
+	if branchInfo.Branch != nil {
+		if !force {
+			if len(branchInfo.Subvenance) > 0 {
+				return fmt.Errorf("branch %s has %v as subvenance, deleting it would break those branches", branch.Name, branchInfo.Subvenance)
+			}
+		}
+		if err := branches.Delete(branch.Name); err != nil {
+			return fmt.Errorf("branches.Delete: %v", err)
+		}
+		for _, provBranch := range branchInfo.Provenance {
+			provBranchInfo := &pfs.BranchInfo{}
+			if err := d.branches(provBranch.Repo.Name).ReadWrite(stm).Update(provBranch.Name, provBranchInfo, func() error {
+				del(&provBranchInfo.Subvenance, branch)
+				return nil
+			}); err != nil && !isNotFoundErr(err) {
+				return fmt.Errorf("error deleting subvenance: %v", err)
+			}
 		}
 	}
 	repoInfo := &pfs.RepoInfo{}
-	return d.repos.ReadWrite(stm).Update(branch.Repo.Name, repoInfo, func() error {
+	if err := d.repos.ReadWrite(stm).Update(branch.Repo.Name, repoInfo, func() error {
 		del(&repoInfo.Branches, branch)
 		return nil
-	})
+	}); err != nil {
+		if !col.IsErrNotFound(err) || !force {
+			return err
+		}
+	}
+	return nil
 }
 
 func (d *driver) scratchPrefix() string {
