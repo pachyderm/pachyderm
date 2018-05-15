@@ -58,14 +58,14 @@ func configurePluginHelper(pachClient *client.APIClient, v *vault.Client, testPa
 	if ttl != "" {
 		config["ttl"] = ttl
 	}
-	resp, err := vl.Write(
+	secret, err := vl.Write(
 		fmt.Sprintf("/%v/config", pluginName),
 		config,
 	)
 	if err != nil {
 		return err
 	}
-	if respErr, ok := resp.Data["error"]; ok {
+	if respErr, ok := secret.Data["error"]; ok {
 		return fmt.Errorf("error in response: %v (%T)", respErr, respErr)
 	}
 	return nil
@@ -177,23 +177,23 @@ func loginHelper(t *testing.T, ttl string) (*client.APIClient, *vault.Client, *v
 		t.Fatalf(err.Error())
 	}
 
-	params := make(map[string]interface{})
-	params["username"] = "bogusgithubusername"
 	vl := v.Logical()
+	params := make(map[string]interface{})
+	if ttl != "" {
+		params["ttl"] = ttl
+	}
 	secret, err := vl.Write(
-		fmt.Sprintf("/%v/login", pluginName),
-		params,
-	)
+		fmt.Sprintf("/%v/login/github:bogusgithubusername", pluginName), params)
 
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 
-	pachToken, ok := secret.Auth.Metadata["user_token"]
+	pachToken, ok := secret.Data["user_token"].(string)
 	if !ok {
 		t.Fatalf("vault login response did not contain user token")
 	}
-	reportedPachdAddress, ok := secret.Auth.Metadata["pachd_address"]
+	reportedPachdAddress, ok := secret.Data["pachd_address"].(string)
 	if !ok {
 		t.Fatalf("vault login response did not contain pachd address")
 	}
@@ -225,31 +225,144 @@ func TestLogin(t *testing.T) {
 	}
 }
 
+// TestLoginExpires tests two features:
+// 1. Returned Pachyderm tokens are revoked when their vault lease expires
+// 2. If a TTL is set in the plugin config and not in the login request, then
+//    the TTL from the config is applied to the login token
 func TestLoginExpires(t *testing.T) {
 	c, _, secret := loginHelper(t, "2s")
 
+	// Make sure token is valid
 	_, err := c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 
-	time.Sleep(time.Duration(secret.Auth.LeaseDuration+1) * time.Second)
+	// Wait for TTL to expire and check that token is no longer valid
+	time.Sleep(time.Duration(secret.LeaseDuration+1) * time.Second)
 	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err == nil {
 		t.Fatalf("API call should fail, but token did not expire")
 	}
 }
 
+// TestLoginTTLParam tests that if TTL is set in the request, make sure the
+// returned token has that TTL
+func TestLoginTTLParam(t *testing.T) {
+	vaultClientConfig := vault.DefaultConfig()
+	vaultClientConfig.Address = vaultAddress
+	v, err := vault.NewClient(vaultClientConfig)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	v.SetToken("root")
+
+	err = configurePlugin(t, v, "")
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	vl := v.Logical()
+	secret, err := vl.Write(
+		fmt.Sprintf("/%v/login/github:bogusgithubusername", pluginName),
+		map[string]interface{}{"ttl": "2s"},
+	)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	if secret.LeaseDuration != 2 {
+		t.Fatalf("Expected pachyderm token with TTL=2s, but was %ds", secret.LeaseDuration)
+	}
+	pachToken := secret.Data["user_token"].(string)
+	reportedPachdAddress := secret.Data["pachd_address"].(string)
+	c, err := client.NewFromAddress(reportedPachdAddress)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	c.SetAuthToken(pachToken)
+	// Make sure token is valid
+	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	// Wait for TTL to expire and check that token is no longer valid
+	time.Sleep(time.Duration(secret.LeaseDuration+1) * time.Second)
+	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+	if err == nil {
+		t.Fatalf("API call should fail, but token did not expire")
+	}
+}
+
+// If TTL is not in the request OR the config, make sure a sensible default is
+// used
+func TestLoginDefaultTTL(t *testing.T) {
+	c, _, secret := loginHelper(t, "")
+	if secret.LeaseDuration < 600 {
+		t.Fatalf("Expected Pachyderm token with duration at least 10m, but actual "+
+			"duration was %ds", secret.LeaseDuration)
+	}
+
+	// Make sure token is valid
+	_, err := c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+}
+
+// TestLoginLongTTL tests that it's possible to get a Pachyderm token with a
+// long TTL
+func TestLoginLongTTL(t *testing.T) {
+	// Get Vault client
+	vaultClientConfig := vault.DefaultConfig()
+	vaultClientConfig.Address = vaultAddress
+	v, err := vault.NewClient(vaultClientConfig)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	v.SetToken("root")
+	vl := v.Logical()
+
+	// Get Pachyderm token with long TTL
+	secret, err := vl.Write(
+		fmt.Sprintf("/%v/login/github:bogusgithubusername", pluginName),
+		map[string]interface{}{"ttl": "768h"},
+	)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	if secret.LeaseDuration < int((700 * time.Hour).Seconds()) {
+		t.Fatalf("Expected pachyderm token with TTL=768h, but was %ds", secret.LeaseDuration)
+	}
+
+	// Make sure token is valid
+	pachToken, ok := secret.Data["user_token"].(string)
+	if !ok {
+		t.Fatalf("vault login response did not contain user token")
+	}
+	reportedPachdAddress, ok := secret.Data["pachd_address"].(string)
+	if !ok {
+		t.Fatalf("vault login response did not contain pachd address")
+	}
+	c, err := client.NewFromAddress(reportedPachdAddress)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	c.SetAuthToken(pachToken)
+	if _, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{}); err != nil {
+		t.Fatalf(err.Error())
+	}
+}
+
 func TestRenewBeforeTTLExpires(t *testing.T) {
 	ttl := 10
-	c, vaultClient, secret := loginHelper(t, fmt.Sprintf("%vs", ttl))
+	c, v, secret := loginHelper(t, fmt.Sprintf("%vs", ttl))
 
 	_, err := c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 
-	renewer, err := vaultClient.NewRenewer(&vault.RenewerInput{
+	renewer, err := v.NewRenewer(&vault.RenewerInput{
 		Secret:    secret,
 		Increment: ttl,
 	})
@@ -278,14 +391,14 @@ func TestRenewBeforeTTLExpires(t *testing.T) {
 
 func TestRenewAfterTTLExpires(t *testing.T) {
 	ttl := 2
-	c, vaultClient, secret := loginHelper(t, fmt.Sprintf("%vs", ttl))
+	c, v, secret := loginHelper(t, fmt.Sprintf("%vs", ttl))
 
 	_, err := c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 
-	renewer, err := vaultClient.NewRenewer(&vault.RenewerInput{
+	renewer, err := v.NewRenewer(&vault.RenewerInput{
 		Secret:    secret,
 		Increment: ttl,
 	})
@@ -313,20 +426,20 @@ func TestRenewAfterTTLExpires(t *testing.T) {
 }
 
 func TestRevoke(t *testing.T) {
-	ttl := 2
-	c, v, secret := loginHelper(t, fmt.Sprintf("%vs", ttl))
+	c, v, secret := loginHelper(t, "")
+	if secret.LeaseDuration < 60 {
+		t.Fatalf("Expected Pachyderm token to have long lease duration, but was %d", secret.LeaseDuration)
+	}
 
 	_, err := c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 
-	params := make(map[string]interface{})
-	params["user_token"] = secret.Auth.Metadata["user_token"]
 	vl := v.Logical()
 	_, err = vl.Write(
-		fmt.Sprintf("/%v/revoke", pluginName),
-		params,
+		fmt.Sprintf("/sys/leases/revoke"),
+		map[string]interface{}{"lease_id": secret.LeaseID},
 	)
 
 	if err != nil {

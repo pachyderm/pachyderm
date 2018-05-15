@@ -40,8 +40,8 @@ go build -o /tmp/vault-plugins/$PLUGIN_NAME src/plugin/vault/main.go
 # vault write $PLUGIN_PATH/login username=tweetybird || true
 
 # Test login (failure/success):
-vault write $PLUGIN_PATH/login username=bogusgithubusername || true
-vault write $PLUGIN_PATH/login username=daffyduck ttl=125s
+vault write -f $PLUGIN_PATH/login/bogusgithubusername
+vault write -f $PLUGIN_PATH/login/daffyduck ttl=125s
 
 # To renew, use the 'token' field
 # vault token renew ee9ab3ef-e398-3437-d382-b7aaf02f32e1

@@ -34,5 +34,5 @@ vault write pachyderm/config \
       pachd_address="${ADDRESS:-127.0.0.1:30650}" \
       ttl=5m # optional
 
-vault write pachyderm/login username=robot:testuser
+vault write -f pachyderm/login/robot:testuser
 
