@@ -540,6 +540,12 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 			v1.ResourceMemory: mem,
 		}
 	}
+	// Don't want to strip the registry out of etcdImage since it's from quay
+	// not docker hub.
+	image := etcdImage
+	if opts.Registry != "" {
+		image = AddRegistry(opts.Registry, etcdImage)
+	}
 	return &apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
@@ -557,7 +563,7 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 					Containers: []v1.Container{
 						{
 							Name:  etcdName,
-							Image: AddRegistry(opts.Registry, etcdImage),
+							Image: image,
 							//TODO figure out how to get a cluster of these to talk to each other
 							Command: []string{
 								"/usr/local/bin/etcd",
