@@ -4311,9 +4311,10 @@ func TestGarbageCollection(t *testing.T) {
 	objectsBefore := getAllObjects(t, c)
 	tagsBefore := getAllTags(t, c)
 
+	// Try to GC without stopping the pipeline.
 	require.YesError(t, c.GarbageCollect())
 
-	// Now delete the output repo and GC
+	// Now stop the pipeline  and GC
 	require.NoError(t, c.StopPipeline(pipeline))
 	require.NoError(t, backoff.Retry(c.GarbageCollect, backoff.NewTestingBackOff()))
 
@@ -4324,6 +4325,17 @@ func TestGarbageCollection(t *testing.T) {
 	buf.Reset()
 	require.NoError(t, c.GetFile(dataRepo, commit.ID, "bar", 0, 0, &buf))
 	require.Equal(t, "bar", buf.String())
+
+	pis, err := c.ListPipeline()
+	require.NoError(t, err)
+	require.Equal(t, 1, len(pis))
+
+	buf.Reset()
+	require.NoError(t, c.GetFile(pipeline, "master", "foo", 0, 0, &buf))
+	require.Equal(t, "foo", buf.String())
+	buf.Reset()
+	require.NoError(t, c.GetFile(pipeline, "master", "bar", 0, 0, &buf))
+	require.Equal(t, "barbar\n", buf.String())
 
 	// Check that no objects or tags have been removed, since we just ran GC
 	// without deleting anything.
