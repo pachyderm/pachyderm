@@ -1074,11 +1074,11 @@ func AmazonVaultSecret(region, bucket, vaultAddress, vaultRole, vaultToken, dist
 	}
 }
 
-// AmazonIamSecret creates an amazon secret with the following parameters:
+// AmazonIAMRoleSecret creates an amazon secret with the following parameters:
 //   region       - AWS region
 //   bucket       - S3 bucket name
 //   distribution - cloudfront distribution
-func AmazonIamSecret(region, bucket, distribution string) map[string][]byte {
+func AmazonIAMRoleSecret(region, bucket, distribution string) map[string][]byte {
 	return map[string][]byte{
 		"amazon-region":       []byte(region),
 		"amazon-bucket":       []byte(bucket),
@@ -1270,7 +1270,7 @@ func WriteAmazonAssets(encoder Encoder, opts *AssetOpts, region string, bucket s
 	}
 	var secret map[string][]byte
 	if creds == nil {
-		secret = AmazonIamSecret(region, bucket, cloudfrontDistro)
+		secret = AmazonIAMRoleSecret(region, bucket, cloudfrontDistro)
 	} else if creds.ID != "" {
 		secret = AmazonSecret(region, bucket, creds.ID, creds.Secret, creds.Token, cloudfrontDistro)
 	} else if creds.VaultAddress != "" {
