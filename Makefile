@@ -152,8 +152,6 @@ docker-clean-worker:
 	docker rm worker_compile || true
 
 docker-build-worker: docker-clean-worker
-	echo "worker build start:"
-	date
 	docker run \
 		-v $$GOPATH/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
@@ -161,22 +159,16 @@ docker-build-worker: docker-clean-worker
 
 docker-wait-worker:
 	etc/compile/wait.sh worker_compile
-	echo "worker build end:"
-	date
 
 docker-clean-pachd:
 	docker stop pachd_compile || true
 	docker rm pachd_compile || true
 
 docker-build-pachd: docker-clean-pachd
-	echo "pachd build start:"
-	date
 	docker run  \
 		-v $$GOPATH/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
 		--name pachd_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh pachd "$(LD_FLAGS)"
-	echo "pachd build end:"
-	date
 
 docker-clean-test:
 	docker stop test_compile || true
@@ -195,17 +187,8 @@ docker-push-test:
 
 docker-wait-pachd:
 	etc/compile/wait.sh pachd_compile
-	echo "pachd build end:"
-	date
 
-docker-build-helper: enterprise-code-checkin-test docker-build-worker docker-build-pachd docker-wait-worker docker-wait-pachd
-
-docker-build:
-	echo "docker build start:"
-	date
-	make docker-build-helper
-	echo "docker build end:"
-	date
+docker-build: enterprise-code-checkin-test docker-build-worker docker-build-pachd docker-wait-worker docker-wait-pachd
 
 docker-build-proto:
 	docker build -t pachyderm_proto etc/proto
