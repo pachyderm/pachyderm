@@ -33,6 +33,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfspretty "github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
@@ -7435,7 +7436,7 @@ func TestDeleteSpecRepo(t *testing.T) {
 		"",
 		false,
 	))
-	require.YesError(t, c.DeleteRepo("spec", false))
+	require.YesError(t, c.DeleteRepo(ppsconsts.SpecRepo, false))
 }
 
 func TestUserWorkingDir(t *testing.T) {
