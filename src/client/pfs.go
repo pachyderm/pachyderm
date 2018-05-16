@@ -9,6 +9,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 )
 
 // NewRepo creates a pfs.Repo.
@@ -234,6 +235,25 @@ func (c APIClient) inspectCommit(repoName string, commitID string, blockState pf
 // `number` determines how many commits are returned.  If `number` is 0,
 // all commits that match the aforementioned criteria are returned.
 func (c APIClient) ListCommit(repoName string, to string, from string, number uint64) ([]*pfs.CommitInfo, error) {
+	var result []*pfs.CommitInfo
+	if err := c.ListCommitF(repoName, to, from, number, func(ci *pfs.CommitInfo) error {
+		result = append(result, ci)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// ListCommitF lists commits, calling f with each commit.
+// If only `repo` is given, all commits in the repo are returned.
+// If `to` is given, only the ancestors of `to`, including `to` itself,
+// are considered.
+// If `from` is given, only the descendents of `from`, including `from`
+// itself, are considered.
+// `number` determines how many commits are returned.  If `number` is 0,
+// all commits that match the aforementioned criteria are returned.
+func (c APIClient) ListCommitF(repoName string, to string, from string, number uint64, f func(*pfs.CommitInfo) error) error {
 	req := &pfs.ListCommitRequest{
 		Repo:   NewRepo(repoName),
 		Number: number,
@@ -246,20 +266,23 @@ func (c APIClient) ListCommit(repoName string, to string, from string, number ui
 	}
 	stream, err := c.PfsAPIClient.ListCommitStream(c.Ctx(), req)
 	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
+		return grpcutil.ScrubGRPC(err)
 	}
-	var result []*pfs.CommitInfo
 	for {
 		ci, err := stream.Recv()
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			return nil, grpcutil.ScrubGRPC(err)
+			return grpcutil.ScrubGRPC(err)
 		}
-		result = append(result, ci)
-
+		if err := f(ci); err != nil {
+			if err == errutil.ErrBreak {
+				return nil
+			}
+			return err
+		}
 	}
-	return result, nil
+	return nil
 }
 
 // ListCommitByRepo lists all commits in a repo.
@@ -877,8 +900,20 @@ func (c APIClient) inspectFile(repoName string, commitID string, path string) (*
 	return fileInfo, nil
 }
 
-// ListFile returns info about all files in a Commit.
+// ListFile returns info about all files in a Commit under path.
 func (c APIClient) ListFile(repoName string, commitID string, path string) ([]*pfs.FileInfo, error) {
+	var result []*pfs.FileInfo
+	if err := c.ListFileF(repoName, commitID, path, func(fi *pfs.FileInfo) error {
+		result = append(result, fi)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// ListFileF returns info about all files in a Commit under path, calling f with each FileInfo.
+func (c APIClient) ListFileF(repoName string, commitID string, path string, f func(fi *pfs.FileInfo) error) error {
 	fs, err := c.PfsAPIClient.ListFileStream(
 		c.Ctx(),
 		&pfs.ListFileRequest{
@@ -886,19 +921,22 @@ func (c APIClient) ListFile(repoName string, commitID string, path string) ([]*p
 		},
 	)
 	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
+		return grpcutil.ScrubGRPC(err)
 	}
-	var result []*pfs.FileInfo
 	for {
-		f, err := fs.Recv()
+		fi, err := fs.Recv()
 		if err == io.EOF {
-			break
+			return nil
 		} else if err != nil {
-			return nil, grpcutil.ScrubGRPC(err)
+			return grpcutil.ScrubGRPC(err)
 		}
-		result = append(result, f)
+		if err := f(fi); err != nil {
+			if err == errutil.ErrBreak {
+				return nil
+			}
+			return err
+		}
 	}
-	return result, nil
 }
 
 // GlobFile returns files that match a given glob pattern in a given commit.
