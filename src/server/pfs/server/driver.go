@@ -52,7 +52,7 @@ const (
 	maxInt = int(^uint(0) >> 1)
 
 	// Maximum number of concurrent put object calls.
-	putObjectConcurrency = 20
+	putObjectConcurrency = 100
 )
 
 // validateRepoName determines if a repo name is valid
