@@ -1803,7 +1803,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	}
 	// oneOff is true if we're creating the commit as part of this put-file
 	oneOff := false
-	// inspectCommit will replace file.Commit.ID with an actually commit ID if
+	// inspectCommit will replace file.Commit.ID with an actual commit ID if
 	// it's a branch. So we want to save it first.
 	branch := ""
 	if !uuid.IsUUIDWithoutDashes(file.Commit.ID) {
