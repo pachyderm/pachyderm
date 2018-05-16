@@ -121,6 +121,4 @@ VAULT_TOKEN="$(
 pachctl deploy amazon ${BUCKET} ${AWS_REGION} ${STORAGE_SIZE} \
   --dynamic-etcd-nodes=1 \
   --no-dashboard \
-  --vault-address=http://vault-svc.default.svc.cluster.local:8200 \
-  --vault-role="${VAULT_ROLE}" \
-  --vault-token="${VAULT_TOKEN}"
+  --vault=http://vault-svc.default.svc.cluster.local:8200,"${VAULT_ROLE}","${VAULT_TOKEN}"
