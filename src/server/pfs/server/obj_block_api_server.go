@@ -89,19 +89,12 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objC
 	}
 
 	s.objectCache = groupcache.NewGroup(objectGroupName, oneCacheShare*objectCacheShares, groupcache.GetterFunc(s.objectGetter))
+	RegisterCacheStats("object", &s.objectCache.Stats)
 	s.tagCache = groupcache.NewGroup(tagGroupName, oneCacheShare*tagCacheShares, groupcache.GetterFunc(s.tagGetter))
+	RegisterCacheStats("tag", &s.tagCache.Stats)
 	s.objectInfoCache = groupcache.NewGroup(objectInfoGroupName, oneCacheShare*objectInfoCacheShares, groupcache.GetterFunc(s.objectInfoGetter))
-	// Periodically print cache stats for debugging purposes
-	// TODO: make the stats accessible via HTTP or gRPC.
-	go func() {
-		ticker := time.NewTicker(time.Minute)
-		for {
-			<-ticker.C
-			logrus.Infof("objectCache stats: %+v", s.objectCache.Stats)
-			logrus.Infof("tagCache stats: %+v", s.tagCache.Stats)
-			logrus.Infof("objectInfoCache stats: %+v", s.objectInfoCache.Stats)
-		}
-	}()
+	RegisterCacheStats("object_info", &s.objectInfoCache.Stats)
+
 	go s.watchGC(etcdAddress)
 	return s, nil
 }
