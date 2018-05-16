@@ -4258,10 +4258,6 @@ func TestGarbageCollection(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	if os.Getenv(InCloudEnv) == "" {
-		t.Skip("Skipping this test as it can only be run in the cloud.")
-	}
-
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
@@ -4313,9 +4309,11 @@ func TestGarbageCollection(t *testing.T) {
 	objectsBefore := getAllObjects(t, c)
 	tagsBefore := getAllTags(t, c)
 
+	require.YesError(t, c.GarbageCollect())
+
 	// Now delete the output repo and GC
-	require.NoError(t, c.DeleteRepo(pipeline, false))
-	require.NoError(t, c.GarbageCollect())
+	require.NoError(t, c.StopPipeline(pipeline))
+	require.NoError(t, backoff.Retry(c.GarbageCollect, backoff.NewTestingBackOff()))
 
 	// Check that data still exists in the input repo
 	var buf bytes.Buffer
@@ -4325,14 +4323,13 @@ func TestGarbageCollection(t *testing.T) {
 	require.NoError(t, c.GetFile(dataRepo, commit.ID, "bar", 0, 0, &buf))
 	require.Equal(t, "bar", buf.String())
 
-	// Check that the objects that should be removed have been removed.
-	// We should've deleted precisely one object: the tree for the output
-	// commit.
+	// Check that no objects or tags have been removed, since we just ran GC
+	// without deleting anything.
 	objectsAfter := getAllObjects(t, c)
 	tagsAfter := getAllTags(t, c)
 
 	require.Equal(t, len(tagsBefore), len(tagsAfter))
-	require.Equal(t, len(objectsBefore), len(objectsAfter)+1)
+	require.Equal(t, len(objectsBefore), len(objectsAfter))
 	objectsBefore = objectsAfter
 	tagsBefore = tagsAfter
 
@@ -4342,16 +4339,16 @@ func TestGarbageCollection(t *testing.T) {
 
 	// We should've deleted one tag since the pipeline has only processed
 	// one datum.
-	// We should've deleted two objects: one is the object referenced by
-	// the tag, and another is the modified "bar" file.
+	// We should've deleted 3 objects: the object referenced by
+	// the tag, the modified "bar" file and the pipeline's spec.
 	objectsAfter = getAllObjects(t, c)
 	tagsAfter = getAllTags(t, c)
 
 	require.Equal(t, len(tagsBefore), len(tagsAfter)+1)
-	require.Equal(t, len(objectsBefore), len(objectsAfter)+2)
+	require.Equal(t, 3, len(objectsBefore)-len(objectsAfter))
 
-	// Now we delete the input repo.
-	require.NoError(t, c.DeleteRepo(dataRepo, false))
+	// Now we delete everything.
+	require.NoError(t, c.DeleteAll())
 	require.NoError(t, c.GarbageCollect())
 
 	// Since we've now deleted everything that we created in this test,
@@ -7571,6 +7568,7 @@ func TestStatsDeleteAll(t *testing.T) {
 }
 
 func TestCorruption(t *testing.T) {
+	t.Skip("This test takes too long to run on CI.")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -7578,7 +7576,7 @@ func TestCorruption(t *testing.T) {
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
-	r := rand.New(rand.NewSource(64))
+	r := rand.New(rand.NewSource(128))
 
 	for i := 0; i < 100; i++ {
 		dataRepo := tu.UniqueString("TestSimplePipeline_data")

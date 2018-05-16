@@ -2374,6 +2374,25 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 	if err := checkLoggedIn(pachClient); err != nil {
 		return nil, err
 	}
+	// Get all objects referenced by pipeline tags
+	pipelineInfos, err := a.ListPipeline(ctx, &pps.ListPipelineRequest{})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, pi := range pipelineInfos.PipelineInfo {
+		if pi.State != pps.PipelineState_PIPELINE_PAUSED {
+			return nil, fmt.Errorf("all pipelines must be stopped to run garbage collection, pipeline: %s is not", pi.Pipeline.Name)
+		}
+		selector := fmt.Sprintf("pipelineName=%s", pi.Pipeline.Name)
+		pods, err := a.kubeClient.CoreV1().Pods(a.namespace).List(metav1.ListOptions{LabelSelector: selector})
+		if err != nil {
+			return nil, err
+		}
+		if len(pods.Items) != 0 {
+			return nil, fmt.Errorf("pipeline %s is paused, but still has running workers, this should resolve itself, if it doesn't you can manually delete them with kubectl delete", pi.Pipeline.Name)
+		}
+	}
 	ctx = pachClient.Ctx() // pachClient will propagate auth info
 	pfsClient := pachClient.PfsAPIClient
 	objClient := pachClient.ObjectAPIClient
@@ -2426,11 +2445,15 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 	if err != nil {
 		return nil, err
 	}
+	specRepoInfo, err := pachClient.InspectRepo(ppsconsts.SpecRepo)
+	if err != nil {
+		return nil, err
+	}
 
 	// Get all commit trees
 	limiter := limit.New(100)
 	var eg errgroup.Group
-	for _, repo := range repoInfos.RepoInfo {
+	for _, repo := range append(repoInfos.RepoInfo, specRepoInfo) {
 		repo := repo
 		client, err := pfsClient.ListCommitStream(ctx, &pfs.ListCommitRequest{
 			Repo: repo.Repo,
@@ -2453,12 +2476,6 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 		}
 	}
 	if err := eg.Wait(); err != nil {
-		return nil, err
-	}
-
-	// Get all objects referenced by pipeline tags
-	pipelineInfos, err := a.ListPipeline(ctx, &pps.ListPipelineRequest{})
-	if err != nil {
 		return nil, err
 	}
 
