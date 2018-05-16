@@ -1059,7 +1059,7 @@ func AmazonSecret(region, bucket, id, secret, token, distribution string) map[st
 // AmazonVaultSecret creates an amazon secret with the following parameters:
 //   region       - AWS region
 //   bucket       - S3 bucket name
-//	 vaultAddress - address/hostport of vault
+//   vaultAddress - address/hostport of vault
 //   vaultRole    - pachd's role in vault
 //   vaultToken   - pachd's vault token
 //   distribution - cloudfront distribution
