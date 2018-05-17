@@ -55,7 +55,8 @@ IF YOU DO, YOU WILL BE PERMANENTLY LOCKED OUT OF YOUR CLUSTER!
 Pachyderm token for "robot:admin":
 34cffc9254df40f0a277ee23e9fb005d
 
-$ echo "34cffc9254df40f0a277ee23e9fb005d" | pachctl auth use-auth-token
+$ ADMIN_TOKEN=34cffc9254df40f0a277ee23e9fb005d
+$ echo "${ADMIN_TOKEN}" | pachctl auth use-auth-token
 ```
 
 ###### If auth *is* already activated
@@ -72,7 +73,9 @@ $ pachctl auth get-auth-token robot:admin
 New credentials:
   Subject: robot:admin
   Token: 3090e53de6cb4108a2c6591f3cbd4680
-$ echo "3090e53de6cb4108a2c6591f3cbd4680" | pachctl auth use-auth-token
+
+$ ADMIN_TOKEN=3090e53de6cb4108a2c6591f3cbd4680
+$ echo "${ADMIN_TOKEN}" | pachctl auth use-auth-token
 ```
 
 Pass the new admin token to Pachyderm:
