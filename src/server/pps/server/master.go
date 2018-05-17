@@ -563,9 +563,6 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 	for {
 		t = schedule.Next(t)
 		time.Sleep(time.Until(t))
-		if _, err := pachClient.StartCommit(in.Cron.Repo, "master"); err != nil {
-			return err
-		}
 		timestamp, err := types.TimestampProto(t)
 		if err != nil {
 			return err
@@ -574,13 +571,7 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 		if err != nil {
 			return err
 		}
-		if err := pachClient.DeleteFile(in.Cron.Repo, "master", "time"); err != nil {
-			return err
-		}
-		if _, err := pachClient.PutFile(in.Cron.Repo, "master", "time", strings.NewReader(timeString)); err != nil {
-			return err
-		}
-		if err := pachClient.FinishCommit(in.Cron.Repo, "master"); err != nil {
+		if _, err := pachClient.PutFileOverwrite(in.Cron.Repo, "master", "time", strings.NewReader(timeString), 0); err != nil {
 			return err
 		}
 	}
