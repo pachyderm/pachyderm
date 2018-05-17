@@ -189,7 +189,11 @@ docker-push-test:
 docker-wait-pachd:
 	etc/compile/wait.sh pachd_compile
 
-docker-build: enterprise-code-checkin-test docker-build-worker docker-build-pachd docker-wait-worker docker-wait-pachd
+docker-build-helper: enterprise-code-checkin-test docker-build-worker docker-build-pachd docker-wait-worker docker-wait-pachd
+
+docker-build:
+	docker pull $(COMPILE_IMAGE)
+	make docker-build-helper
 
 docker-build-proto:
 	docker build -t pachyderm_proto etc/proto
