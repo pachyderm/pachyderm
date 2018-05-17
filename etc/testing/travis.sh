@@ -4,12 +4,7 @@ set -e
 
 # Make sure cache dir exists and is writable
 mkdir -p /home/travis/.cache/go-build
-ls -alh /home/travis/.cache/
-ls -alh /home/travis/.cache/go-build
-echo "AFTER CHMOD"
 sudo chown -R `whoami` /home/travis/.cache/go-build
-ls -alh /home/travis/.cache/
-ls -alh /home/travis/.cache/go-build
 
 make launch-kube
 
