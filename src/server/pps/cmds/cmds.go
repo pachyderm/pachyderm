@@ -646,7 +646,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				return nil
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.PipelineHeader)
-			pretty.PrintPipelineHeader(writer)
 			for _, pipelineInfo := range pipelineInfos {
 				pretty.PrintPipelineInfo(writer, pipelineInfo)
 			}
