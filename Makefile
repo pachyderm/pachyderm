@@ -397,7 +397,7 @@ pretest:
 local-test: docker-build launch-dev test-pfs clean-launch-dev
 
 # These are split up to keep the build load roughly even:
-test-misc: lint enterprise-code-checkin-test docker-build docker-build-test-entrypoint test-pfs test-vault test-enterprise test-worker
+test-misc: lint enterprise-code-checkin-test docker-build docker-build-test-entrypoint test-pfs test-vault test-auth test-enterprise test-worker
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis
 test: clean-launch-dev launch-dev test-misc test-pps
