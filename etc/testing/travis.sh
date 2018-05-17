@@ -33,7 +33,6 @@ make docker-build
 make clean-launch-dev
 make launch-dev
 
-# the pfs and misc test suites need this
 go install ./src/server/cmd/match
 
 if [[ "$BUCKET" == "PFS" ]]; then
