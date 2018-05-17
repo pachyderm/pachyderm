@@ -31,8 +31,32 @@ elif [[ "$BUCKET" == "MISC" ]]; then
 	make test-misc
 elif [[ $PPS_SUITE -eq 0 ]]; then
 	PART=`echo $BUCKET | grep -Po '\d+'`
-	TOTAL=`cat etc/build/PPS_BUILD_BUCKET_COUNT`
-	echo "Running pps test suite, part $PART of $TOTAL"
+	NUM_BUCKETS=`cat etc/build/PPS_BUILD_BUCKET_COUNT`
+	echo "Running pps test suite, part $PART of $NUM_BUCKETS"
+	# All the tests
+	LIST=`go test -v  ./src/server/ -list ".*" | grep -v ok`
+	COUNT=`go test -v  ./src/server/ -list ".*" | grep -v ok | wc -l`
+	BUCKET_SIZE=$(( $COUNT / $NUM_BUCKETS))
+	PART=$(( $PART - 1 ))
+	MIN=$(( $BUCKET_SIZE * $PART))
+	MAX=$(expr $MIN + $BUCKET_SIZE)
+
+	RUN=""
+	INDEX=0
+
+	for test in $LIST; do
+		if [[ $INDEX -ge $MIN ]]; then
+			if [[ $INDEX -lt $MAX ]]; then
+				if [[ "$RUN" == "" ]]; then
+					RUN=$test
+				else
+					RUN="$RUN|$test"
+				fi
+			fi
+		fi
+		INDEX=$(expr $INDEX + 1)	
+	done
+	make RUN=-run=\"$RUN\" test-pps-helper
 else
 	echo "Unknown bucket"
 	exit 1
