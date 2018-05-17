@@ -26,13 +26,15 @@ echo $SHASUM
 vault write sys/plugins/catalog/pachyderm sha_256="$SHASUM" command="pachyderm"
 vault secrets enable -path=pachyderm -plugin-name=pachyderm plugin
 
-echo "admin" | pachctl auth login
-ADMIN_TOKEN="$(cat ~/.pachyderm/config.json | jq -r '.v1.session_token')"
+# Activate auth in Pachyderm and extract the initial admin's auth token
+ADMIN_TOKEN="$(pachctl auth activate --initial-admin=robot:arbitrary-string | tee /dev/fd/2 | tail -n1)"
 
+# Configure the vault plugin
 vault write pachyderm/config \
       admin_token="${ADMIN_TOKEN}" \
       pachd_address="${ADDRESS:-127.0.0.1:30650}" \
       ttl=5m # optional
 
+# Get a test token
 vault write -f pachyderm/login/robot:testuser
 

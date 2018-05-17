@@ -47,7 +47,7 @@ const (
 	membersPrefix = "/members"
 	groupsPrefix  = "/groups"
 
-	defaultTokenTTLSecs = 14 * 24 * 60 * 60 // two weeks
+	defaultTokenTTLSecs = 30 * 24 * 60 * 60 // 30 days
 
 	// magicUser is a special, unrevokable cluster administrator. It's not
 	// possible to log in as magicUser, but pipelines with no owner are run as
@@ -1214,7 +1214,7 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendA
 		}
 	}
 
-	// Only let people extend tokens by up to two weeks (the equivalent of logging
+	// Only let people extend tokens by up to 30 days (the equivalent of logging
 	// in again)
 	if req.TTL > defaultTokenTTLSecs {
 		return nil, fmt.Errorf("can only extend tokens by at most %d seconds", defaultTokenTTLSecs)

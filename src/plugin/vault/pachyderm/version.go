@@ -18,13 +18,10 @@ import (
 
 func (b *backend) versionPath() *framework.Path {
 	return &framework.Path{
-		// Pattern uses modified version of framework.GenericNameRegex which
-		// requires a single colon
-		Pattern: "version",
+		Pattern: "version(?P<clientonly>/client-only)?",
 		Fields: map[string]*framework.FieldSchema{
-			"client_only": &framework.FieldSchema{
-				Type:    framework.TypeBool,
-				Default: false,
+			"clientonly": &framework.FieldSchema{
+				Type: framework.TypeString,
 			},
 		},
 		Callbacks: map[logical.Operation]framework.OperationFunc{
@@ -38,28 +35,21 @@ func (b *backend) pathVersion(ctx context.Context, req *logical.Request, d *fram
 	defer func() {
 		b.Logger().Debug(fmt.Sprintf("(%s) %s finished at %s (success=%t)", req.ID, req.Operation, req.Path, retErr == nil && !resp.IsError()))
 	}()
-
-	// Determine if caller only wants client version
-	clientOnlyIface, ok, err := d.GetOkErr("client_only")
-	if err != nil {
-		return logical.ErrorResponse(fmt.Sprintf("%v: could not extract 'client_only' from request", err)), nil
-	}
-	if !ok {
-		return errMissingField("client_only"), nil
-	}
-	clientOnly, ok := clientOnlyIface.(bool)
-	if !ok {
-		return logical.ErrorResponse(fmt.Sprintf("invalid type for param 'client_only' (expected bool but got %T)", clientOnlyIface)), nil
-	}
-
-	// Respond with client version if that was all that was requested
 	response := &logical.Response{
 		Data: map[string]interface{}{
 			"client-version": version.PrettyPrintVersion(version.Version),
 		},
 	}
-	if clientOnly {
-		return response, nil
+
+	// Determine if caller only wants client version
+	clientOnlyIface, ok, err := d.GetOkErr("clientonly")
+	if err != nil {
+		return logical.ErrorResponse(fmt.Sprintf("%v: could not extract 'clientonly' from request", err)), nil
+	}
+	if ok {
+		if clientOnly, ok := clientOnlyIface.(string); ok && clientOnly != "" {
+			return response, nil
+		}
 	}
 
 	// Get Pachd address from config

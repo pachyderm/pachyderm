@@ -6,6 +6,20 @@ set -euxo pipefail
 which pachctl
 pachctl version
 
+# Activate Pachyderm auth, if needed, and get a Pachyderm admin token
+if ! pachctl auth list-admins; then
+  admin="admin"
+  echo "${admin}" | pachctl auth activate
+elif pachctl auth list-admins | grep "github:"; then
+  admin="$( pachctl auth list-admins | grep 'github:' | head -n 1)"
+  admin="${admin#github:}"
+  echo "${admin}" | pachctl auth login
+else
+  echo "Could not find a github user to log in as. Cannot get admin token"
+  exit 1
+fi
+ADMIN_TOKEN="$(pachctl auth get-auth-token "github:${admin}" | grep Token | awk '{print $2}')"
+
 export VAULT_ADDR='http://127.0.0.1:8200'
 export PLUGIN_NAME='pachyderm'
 
@@ -25,8 +39,16 @@ set -o pipefail
 SCRIPT_DIR=$(dirname "${0}")
 go build -o /tmp/vault-plugins/$PLUGIN_NAME ${SCRIPT_DIR}/..
 
-# Disable the existing plugin (i.e. kill the plugin process)
-vault secrets disable $PLUGIN_NAME
+# If the Pachyderm plugin is running, disable it.
+# Note that you may need to re-grant the plugin access to Pachyderm
+# before the old token can be revoked
+if vault read pachyderm/version/client-only; then
+  vault write pachyderm/config \
+        admin_token="${ADMIN_TOKEN}" \
+        pachd_address="${ADDRESS:-127.0.0.1:30650}" \
+        ttl=5m # optional
+  vault secrets disable $PLUGIN_NAME
+fi
 
 # Re-enable the plugin (i.e. start the new plugin process)
 export SHASUM=$(shasum -a 256 "/tmp/vault-plugins/$PLUGIN_NAME" | cut -d " " -f1)
@@ -44,14 +66,4 @@ if [[ "$(pachctl enterprise get-state)" = "No Pachyderm Enterprise token was fou
   set -x
 fi
 
-# Connect pachyderm plugin to cluster
-if ! pachctl auth list-admins; then
-  admin="admin"
-  echo "${admin}" | pachctl auth activate
-else
-  admin="$( pachctl auth list-admins | grep github: | head -n 1)"
-  admin="${admin#github:}"
-  echo "${admin}" | pachctl auth login
-fi
-
-vault write pachyderm/config admin_token=$(pachctl auth get-auth-token "github:${admin}" | grep Token | awk '{print $2}') pachd_address=$(minikube ip):30650
+vault write pachyderm/config admin_token=${ADMIN_TOKEN} pachd_address=$(minikube ip):30650
