@@ -56,7 +56,7 @@ Pachyderm token for "robot:admin":
 34cffc9254df40f0a277ee23e9fb005d
 
 $ ADMIN_TOKEN=34cffc9254df40f0a277ee23e9fb005d
-$ echo "${ADMIN_TOKEN}" | pachctl auth use-auth-token
+$ echo "${ADMIN_TOKEN}" | pachctl auth use-auth-token # authenticates you as the cluster admin
 ```
 
 ###### If auth *is* already activated
@@ -75,7 +75,6 @@ New credentials:
   Token: 3090e53de6cb4108a2c6591f3cbd4680
 
 $ ADMIN_TOKEN=3090e53de6cb4108a2c6591f3cbd4680
-$ echo "${ADMIN_TOKEN}" | pachctl auth use-auth-token
 ```
 
 Pass the new admin token to Pachyderm:
