@@ -35,6 +35,8 @@ make launch-dev
 
 if [[ "$BUCKET" == "PFS" ]]; then
 	echo "Running pfs test suite"
+	# The pfs suite needs 'match'
+	go install ./src/server/cmd/match
 	make test-pfs
 elif [[ "$BUCKET" == "MISC" ]]; then
 	echo "Running misc test suite"
