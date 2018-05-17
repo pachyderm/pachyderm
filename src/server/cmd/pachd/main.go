@@ -134,7 +134,7 @@ func doSidecarMode(appEnvObj interface{}) error {
 		log.SetLevel(log.InfoLevel)
 	}
 	if appEnv.EtcdPrefix == "" {
-		appEnv.EtcdAddress = col.DefaultPrefix
+		appEnv.EtcdPrefix = col.DefaultPrefix
 	}
 
 	etcdAddress := fmt.Sprintf("http://%s:2379", appEnv.EtcdAddress)
@@ -233,6 +233,9 @@ func doFullMode(appEnvObj interface{}) error {
 	default:
 		log.Errorf("Unrecognized log level %s, falling back to default of \"info\"", appEnv.LogLevel)
 		log.SetLevel(log.InfoLevel)
+	}
+	if appEnv.EtcdPrefix == "" {
+		appEnv.EtcdPrefix = col.DefaultPrefix
 	}
 	etcdAddress := fmt.Sprintf("http://%s:2379", appEnv.EtcdAddress)
 	etcdClientV2 := getEtcdClient(etcdAddress)
