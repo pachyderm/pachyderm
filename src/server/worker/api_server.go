@@ -350,7 +350,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		}
 	}
 	if pipelineInfo.Transform.User != "" {
-		user, err := lookupUser(pipelineInfo.Transform.User)
+		user, err := lookupDockerUser(pipelineInfo.Transform.User)
 		if err != nil && !os.IsNotExist(err) {
 			return nil, err
 		}
@@ -1567,8 +1567,17 @@ func mergeStats(x, y *pps.ProcessStats) error {
 	return nil
 }
 
-// lookupUser is a reimplementation of user.Lookup that doesn't require cgo.
-func lookupUser(name string) (_ *user.User, retErr error) {
+// lookupDockerUser looks up users given the argument to a Dockerfile USER directive.
+// According to Docker's docs this directive looks like:
+// USER <user>[:<group>] or
+// USER <UID>[:<GID>]
+func lookupDockerUser(userArg string) (_ *user.User, retErr error) {
+	userParts := strings.Split(userArg, ":")
+	userOrUid := userParts[0]
+	groupOrGid := ""
+	if len(userParts) > 1 {
+		groupOrGid = userParts[1]
+	}
 	passwd, err := os.Open("/etc/passwd")
 	if err != nil {
 		return nil, err
@@ -1581,18 +1590,55 @@ func lookupUser(name string) (_ *user.User, retErr error) {
 	scanner := bufio.NewScanner(passwd)
 	for scanner.Scan() {
 		parts := strings.Split(scanner.Text(), ":")
-		if parts[0] == name {
-			return &user.User{
+		if parts[0] == userOrUid || parts[2] == userOrUid {
+			result := &user.User{
 				Username: parts[0],
 				Uid:      parts[2],
 				Gid:      parts[3],
 				Name:     parts[4],
 				HomeDir:  parts[5],
-			}, nil
+			}
+			if groupOrGid != "" {
+				if parts[0] == userOrUid {
+					// groupOrGid is a group
+					group, err := lookupGroup(groupOrGid)
+					if err != nil {
+						return nil, err
+					}
+					result.Gid = group.Gid
+				} else {
+					// groupOrGid is a gid
+					result.Gid = groupOrGid
+				}
+			}
+			return result, nil
 		}
 	}
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
-	return nil, fmt.Errorf("user %s not found", name)
+	return nil, fmt.Errorf("user %s not found", userArg)
+}
+
+func lookupGroup(group string) (_ *user.Group, retErr error) {
+	groupFile, err := os.Open("/etc/group")
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := groupFile.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	scanner := bufio.NewScanner(groupFile)
+	for scanner.Scan() {
+		parts := strings.Split(scanner.Text(), ":")
+		if parts[0] == group {
+			return &user.Group{
+				Gid:  parts[2],
+				Name: parts[0],
+			}, nil
+		}
+	}
+	return nil, fmt.Errorf("group %s not found", group)
 }
