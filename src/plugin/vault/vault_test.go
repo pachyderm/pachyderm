@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"sync"
@@ -356,6 +357,11 @@ func TestLoginLongTTL(t *testing.T) {
 func TestRenewBeforeTTLExpires(t *testing.T) {
 	ttl := 10
 	c, v, secret := loginHelper(t, fmt.Sprintf("%vs", ttl))
+	if secret.LeaseDuration < 2 {
+		t.Fatalf("expected lease to be at least 2s, but was: %d", secret.LeaseDuration)
+	} else if secret.LeaseDuration > 100 {
+		t.Fatalf("expected lease to be at most 100s, but was: %d", secret.LeaseDuration)
+	}
 
 	_, err := c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err != nil {
@@ -370,10 +376,10 @@ func TestRenewBeforeTTLExpires(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
+	// Begin a renewer background process, and wait until it fires
 	time.Sleep(time.Duration(ttl/2) * time.Second)
 	go renewer.Renew()
 	defer renewer.Stop()
-
 	select {
 	case err := <-renewer.DoneCh():
 		if err != nil {
@@ -381,8 +387,27 @@ func TestRenewBeforeTTLExpires(t *testing.T) {
 		}
 	case <-renewer.RenewCh():
 	}
-	time.Sleep(time.Duration(ttl/2+1) * time.Second)
 
+	// Make sure that the vault lease was only extended by 10s
+	leaseInfo, err := v.Logical().Write("/sys/leases/lookup", map[string]interface{}{
+		"lease_id": secret.LeaseID,
+	})
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+	newDurationStr := leaseInfo.Data["ttl"].(json.Number)
+	newDuration, err := newDurationStr.Int64()
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	if newDuration < 2 {
+		t.Fatalf("expected lease to be at least 2s, but was: %d", newDuration)
+	} else if newDuration > 100 {
+		t.Fatalf("expected lease to be at most 100s, but was: %d", newDuration)
+	}
+
+	// Make sure that the Pachyderm token was also renewed
+	time.Sleep(time.Duration(ttl/2+1) * time.Second) // wait til old lease exires
 	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err != nil {
 		t.Fatalf(err.Error())
@@ -449,5 +474,38 @@ func TestRevoke(t *testing.T) {
 	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err == nil {
 		t.Fatalf("expected error with revoked pach token, got none\n")
+	}
+}
+
+func TestVersion(t *testing.T) {
+	// Get Vault client
+	vaultClientConfig := vault.DefaultConfig()
+	vaultClientConfig.Address = vaultAddress
+	v, err := vault.NewClient(vaultClientConfig)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	v.SetToken("root")
+	vl := v.Logical()
+
+	// Get Pachyderm version from plugin
+	secret, err := vl.Read("/pachyderm/version")
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	if _, ok := secret.Data["client-version"]; !ok {
+		t.Fatalf("could not get client version from Pachyderm plugin")
+	}
+	if _, ok := secret.Data["server-version"]; !ok {
+		t.Fatalf("could not get server version from Pachyderm plugin")
+	}
+
+	// Test client-only endpoint
+	secret, err = vl.Read("/pachyderm/version/client-only")
+	if _, ok := secret.Data["client-version"]; !ok {
+		t.Fatalf("could not get client version from Pachyderm plugin (client-only)")
+	}
+	if _, ok := secret.Data["server-version"]; ok {
+		t.Fatalf("got unexpected server version from Pachyderm plugin (client-only)")
 	}
 }

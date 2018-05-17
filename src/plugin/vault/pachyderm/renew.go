@@ -44,16 +44,22 @@ func (b *backend) Renew(ctx context.Context, req *logical.Request, d *framework.
 		return nil, errors.New("plugin is missing pachd_address")
 	}
 
-	// Renew creds
-	ttl, maxTTL, err := b.SanitizeTTLStr(config.TTL, b.System().MaxLeaseTTL().String())
-	if err != nil {
-		return nil, fmt.Errorf("%v: could not sanitize config TTL", err)
+	// Extract TTL from request first, and then config (if unset)
+	ttl, maxTTL := req.Secret.LeaseOptions.Increment, b.System().MaxLeaseTTL()
+	if ttl == 0 {
+		ttl, maxTTL, err = b.SanitizeTTLStr(config.TTL, maxTTL.String())
+		if err != nil {
+			return nil, fmt.Errorf("%v: could not sanitize config TTL", err)
+		}
 	}
+
+	// Renew creds in Pachyderm
 	err = renewUserCredentials(ctx, config.PachdAddress, config.AdminToken, userToken, ttl)
 	if err != nil {
 		return nil, err
 	}
 
+	// Renew vault lease
 	return framework.LeaseExtend(ttl, maxTTL, b.System())(ctx, req, d)
 }
 
