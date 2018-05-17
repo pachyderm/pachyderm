@@ -21,6 +21,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
@@ -49,6 +50,9 @@ const (
 
 	// maxInt is the maximum value for 'int' (system-dependent). Not in 'math'!
 	maxInt = int(^uint(0) >> 1)
+
+	// Maximum number of concurrent put object calls.
+	putObjectConcurrency = 100
 )
 
 // validateRepoName determines if a repo name is valid
@@ -414,11 +418,11 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 }
 
 func (d *driver) startCommit(ctx context.Context, parent *pfs.Commit, branch string, provenance []*pfs.Commit, description string) (*pfs.Commit, error) {
-	return d.makeCommit(ctx, "", parent, branch, provenance, nil, description)
+	return d.makeCommit(ctx, "", parent, branch, provenance, nil, nil, nil, description)
 }
 
 func (d *driver) buildCommit(ctx context.Context, ID string, parent *pfs.Commit, branch string, provenance []*pfs.Commit, tree *pfs.Object) (*pfs.Commit, error) {
-	return d.makeCommit(ctx, ID, parent, branch, provenance, tree, "")
+	return d.makeCommit(ctx, ID, parent, branch, provenance, tree, nil, nil, "")
 }
 
 // make commit makes a new commit in 'branch', with the parent 'parent' and the
@@ -431,7 +435,7 @@ func (d *driver) buildCommit(ctx context.Context, ID string, parent *pfs.Commit,
 //   to the new commit
 // - If neither 'parent.ID' nor 'branch' are set, the new commit will have no
 //   parent
-func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, branch string, provenance []*pfs.Commit, treeRef *pfs.Object, description string) (*pfs.Commit, error) {
+func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, branch string, provenance []*pfs.Commit, treeRef *pfs.Object, recordFiles []string, records []*pfs.PutFileRecords, description string) (*pfs.Commit, error) {
 	// Validate arguments:
 	if parent == nil {
 		return nil, fmt.Errorf("parent cannot be nil")
@@ -469,13 +473,13 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 		if err != nil {
 			return nil, err
 		}
-		newCommitInfo.Tree = treeRef
-		newCommitInfo.SizeBytes = uint64(tree.FSSize())
-		newCommitInfo.Finished = now()
 	}
 
 	// Txn: create the actual commit in etcd and update the branch + parent/child
 	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		// Clone the parent, as this stm modifies it and might wind up getting
+		// run more than once (if there's a conflict.)
+		parent := proto.Clone(parent).(*pfs.Commit)
 		repos := d.repos.ReadWrite(stm)
 		commits := d.commits(parent.Repo.Name).ReadWrite(stm)
 		branches := d.branches(parent.Repo.Name).ReadWrite(stm)
@@ -487,7 +491,7 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 		}
 
 		// create/update 'branch' (if it was set) and set parent.ID (if, in addition,
-		// 'parent' was not seta{}
+		// 'parent.ID' was not set)
 		if branch != "" {
 			branchInfo := &pfs.BranchInfo{}
 			if err := branches.Upsert(branch, branchInfo, func() error {
@@ -535,16 +539,41 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 
 		// BuildCommit case: Now that 'parent' is resolved, read the parent commit's
 		// tree (inside txn) and update the repo size
-		if treeRef != nil {
+		if treeRef != nil || records != nil {
 			parentTree, err := d.getTreeForCommit(ctx, parent)
 			if err != nil {
 				return err
+			}
+			if records != nil {
+				openTree := parentTree.Open()
+				for i, record := range records {
+					if err := d.applyWrite(recordFiles[i], record, openTree); err != nil {
+						return err
+					}
+				}
+				tree, err = openTree.Finish()
+				if err != nil {
+					return err
+				}
+				data, err := hashtree.Serialize(tree)
+				if err != nil {
+					return err
+				}
+				treeRef, _, err = d.pachClient.WithCtx(ctx).PutObject(bytes.NewReader(data))
+				if err != nil {
+					return err
+				}
 			}
 			repoInfo.SizeBytes += sizeChange(tree, parentTree)
 		} else {
 			if err := d.openCommits.ReadWrite(stm).Put(newCommit.ID, newCommit); err != nil {
 				return err
 			}
+		}
+		if treeRef != nil {
+			newCommitInfo.Tree = treeRef
+			newCommitInfo.SizeBytes = uint64(tree.FSSize())
+			newCommitInfo.Finished = now()
 		}
 
 		if err := repos.Put(parent.Repo.Name, repoInfo); err != nil {
@@ -645,7 +674,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 
 		if tree == nil {
 			var err error
-			finishedTree, err = d.getTreeForOpenCommit(ctx, client.NewFile(commit.Repo.Name, commit.ID, ""), parentTree)
+			finishedTree, err = d.getTreeForOpenCommit(ctx, &pfs.File{Commit: commit}, parentTree)
 			if err != nil {
 				return err
 			}
@@ -966,7 +995,7 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, blockSta
 // be a commit ID or branch reference, plus '~' and/or '^') to a repo + commit
 // ID. It accepts an STM so that it can be used in a transaction and avoids an
 // inconsistent call to d.inspectCommit()
-func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (resultCommitInfo *pfs.CommitInfo, retErr error) {
+func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.CommitInfo, error) {
 	if userCommit == nil {
 		return nil, fmt.Errorf("cannot resolve nil commit")
 	}
@@ -1083,7 +1112,7 @@ func (d *driver) listCommitF(ctx context.Context, repo *pfs.Repo, to *pfs.Commit
 	if to != nil {
 		_, err = d.inspectCommit(ctx, to, pfs.CommitState_STARTED)
 		if err != nil {
-			if _, ok := err.(pfsserver.ErrNoHead); ok {
+			if isNoHeadErr(err) {
 				return nil
 			}
 			return err
@@ -1283,7 +1312,7 @@ func (d *driver) deleteCommit(ctx context.Context, userCommit *pfs.Commit) error
 		// 1) re-read CommitInfo inside txn
 		userCommitInfo, err := d.resolveCommit(stm, userCommit)
 		if err != nil {
-			return err
+			return fmt.Errorf("resolveCommit: %v", err)
 		}
 		deleteScratch = userCommitInfo.Finished == nil
 
@@ -1581,7 +1610,7 @@ func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *p
 			if err != nil {
 				// possible that branch exists but has no head commit. This is fine, but
 				// branchInfo.Head must also be nil
-				if _, ok := err.(pfsserver.ErrNoHead); !ok {
+				if !isNoHeadErr(err) {
 					return fmt.Errorf("unable to inspect %s/%s: %v", err, commit.Repo.Name, commit.ID)
 				}
 				commit = nil
@@ -1776,21 +1805,32 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
+	// oneOff is true if we're creating the commit as part of this put-file
+	oneOff := false
+	// inspectCommit will replace file.Commit.ID with an actual commit ID if
+	// it's a branch. So we want to save it first.
+	branch := ""
+	if !uuid.IsUUIDWithoutDashes(file.Commit.ID) {
+		branch = file.Commit.ID
+	}
 	commitInfo, err := d.inspectCommit(ctx, file.Commit, pfs.CommitState_STARTED)
 	if err != nil {
-		return err
-	}
-	if commitInfo.Finished != nil {
-		return pfsserver.ErrCommitFinished{file.Commit}
-	}
-
-	if overwriteIndex != nil && overwriteIndex.Index == 0 {
-		if err := d.deleteFile(ctx, file); err != nil {
+		if (!isNotFoundErr(err) && !isNoHeadErr(err)) || branch == "" {
 			return err
 		}
+		oneOff = true
+	}
+	if commitInfo != nil && commitInfo.Finished != nil {
+		if branch == "" {
+			return pfsserver.ErrCommitFinished{file.Commit}
+		}
+		oneOff = true
 	}
 
 	records := &pfs.PutFileRecords{}
+	if overwriteIndex != nil && overwriteIndex.Index == 0 {
+		records.Tombstone = true
+	}
 	if err := hashtree.ValidatePath(file.Path); err != nil {
 		return err
 	}
@@ -1822,78 +1862,87 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 
 			records.Records = append(records.Records, record)
 		}
+	} else {
+		buffer := &bytes.Buffer{}
+		var datumsWritten int64
+		var bytesWritten int64
+		var filesPut int
+		EOF := false
+		var eg errgroup.Group
+		decoder := json.NewDecoder(reader)
+		bufioR := bufio.NewReader(reader)
 
-		return d.upsertPutFileRecords(ctx, file, records)
-	}
-	buffer := &bytes.Buffer{}
-	var datumsWritten int64
-	var bytesWritten int64
-	var filesPut int
-	EOF := false
-	var eg errgroup.Group
-	decoder := json.NewDecoder(reader)
-	bufioR := bufio.NewReader(reader)
-
-	indexToRecord := make(map[int]*pfs.PutFileRecord)
-	var mu sync.Mutex
-	for !EOF {
-		var err error
-		var value []byte
-		switch delimiter {
-		case pfs.Delimiter_JSON:
-			var jsonValue json.RawMessage
-			err = decoder.Decode(&jsonValue)
-			value = jsonValue
-		case pfs.Delimiter_LINE:
-			value, err = bufioR.ReadBytes('\n')
-		default:
-			return fmt.Errorf("unrecognized delimiter %s", delimiter.String())
-		}
-		if err != nil {
-			if err == io.EOF {
-				EOF = true
-			} else {
-				return err
+		indexToRecord := make(map[int]*pfs.PutFileRecord)
+		var mu sync.Mutex
+		limiter := limit.New(putObjectConcurrency)
+		for !EOF {
+			var err error
+			var value []byte
+			switch delimiter {
+			case pfs.Delimiter_JSON:
+				var jsonValue json.RawMessage
+				err = decoder.Decode(&jsonValue)
+				value = jsonValue
+			case pfs.Delimiter_LINE:
+				value, err = bufioR.ReadBytes('\n')
+			default:
+				return fmt.Errorf("unrecognized delimiter %s", delimiter.String())
 			}
-		}
-		buffer.Write(value)
-		bytesWritten += int64(len(value))
-		datumsWritten++
-		if buffer.Len() != 0 &&
-			((targetFileBytes != 0 && bytesWritten >= targetFileBytes) ||
-				(targetFileDatums != 0 && datumsWritten >= targetFileDatums) ||
-				(targetFileBytes == 0 && targetFileDatums == 0) ||
-				EOF) {
-			_buffer := buffer
-			index := filesPut
-			eg.Go(func() error {
-				object, size, err := d.pachClient.PutObject(_buffer)
-				if err != nil {
+			if err != nil {
+				if err == io.EOF {
+					EOF = true
+				} else {
 					return err
 				}
-				mu.Lock()
-				defer mu.Unlock()
-				indexToRecord[index] = &pfs.PutFileRecord{
-					SizeBytes:  size,
-					ObjectHash: object.Hash,
-				}
-				return nil
-			})
-			datumsWritten = 0
-			bytesWritten = 0
-			buffer = &bytes.Buffer{}
-			filesPut++
+			}
+			buffer.Write(value)
+			bytesWritten += int64(len(value))
+			datumsWritten++
+			if buffer.Len() != 0 &&
+				((targetFileBytes != 0 && bytesWritten >= targetFileBytes) ||
+					(targetFileDatums != 0 && datumsWritten >= targetFileDatums) ||
+					(targetFileBytes == 0 && targetFileDatums == 0) ||
+					EOF) {
+				_buffer := buffer
+				index := filesPut
+				limiter.Acquire()
+				eg.Go(func() error {
+					defer limiter.Release()
+					object, size, err := d.pachClient.PutObject(_buffer)
+					if err != nil {
+						return err
+					}
+					mu.Lock()
+					defer mu.Unlock()
+					indexToRecord[index] = &pfs.PutFileRecord{
+						SizeBytes:  size,
+						ObjectHash: object.Hash,
+					}
+					return nil
+				})
+				datumsWritten = 0
+				bytesWritten = 0
+				buffer = &bytes.Buffer{}
+				filesPut++
+			}
+		}
+		if err := eg.Wait(); err != nil {
+			return err
+		}
+
+		records.Split = true
+		for i := 0; i < len(indexToRecord); i++ {
+			records.Records = append(records.Records, indexToRecord[i])
 		}
 	}
-	if err := eg.Wait(); err != nil {
+
+	if oneOff {
+		// oneOff puts only work on branches, so we know branch != "". We pass
+		// a commit with no ID, that ID will be filled in with the head of
+		// branch (if it exists).
+		_, err := d.makeCommit(ctx, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, []string{file.Path}, []*pfs.PutFileRecords{records}, "")
 		return err
 	}
-
-	records.Split = true
-	for i := 0; i < len(indexToRecord); i++ {
-		records.Records = append(records.Records, indexToRecord[i])
-	}
-
 	return d.upsertPutFileRecords(ctx, file, records)
 }
 
@@ -1907,12 +1956,27 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 	if err := hashtree.ValidatePath(dst.Path); err != nil {
 		return err
 	}
-	if _, err := d.inspectCommit(ctx, dst.Commit, pfs.CommitState_STARTED); err != nil {
+	branch := ""
+	if !uuid.IsUUIDWithoutDashes(dst.Commit.ID) {
+		branch = dst.Commit.ID
+	}
+	ci, err := d.inspectCommit(ctx, dst.Commit, pfs.CommitState_STARTED)
+	if err != nil {
 		return err
 	}
+	if ci.Finished != nil && branch == "" {
+		return pfsserver.ErrCommitFinished{dst.Commit}
+	}
+	var paths []string
+	var records []*pfs.PutFileRecords
 	if overwrite {
-		if err := d.deleteFile(ctx, dst); err != nil {
-			return err
+		if ci.Finished == nil {
+			if err := d.deleteFile(ctx, dst); err != nil {
+				return err
+			}
+		} else {
+			paths = append(paths, dst.Path)
+			records = append(records, &pfs.PutFileRecords{Tombstone: true})
 		}
 	}
 	srcTree, err := d.getTreeForFile(ctx, src)
@@ -1923,6 +1987,7 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 	if !strings.HasPrefix(src.Path, "/") {
 		src.Path = "/" + src.Path
 	}
+	var recordsMu sync.Mutex
 	var eg errgroup.Group
 	if err := srcTree.Walk(src.Path, func(walkPath string, node *hashtree.NodeProto) error {
 		if node.FileNode == nil {
@@ -1934,25 +1999,39 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 				// This shouldn't be possible
 				return fmt.Errorf("error from filepath.Rel: %+v (this is likely a bug)", err)
 			}
-			records := &pfs.PutFileRecords{}
+			record := &pfs.PutFileRecords{}
 			file := client.NewFile(dst.Commit.Repo.Name, dst.Commit.ID, path.Clean(path.Join(dst.Path, relPath)))
 			for i, object := range node.FileNode.Objects {
 				var size int64
 				if i == 0 {
 					size = node.SubtreeSize
 				}
-				records.Records = append(records.Records, &pfs.PutFileRecord{
+				record.Records = append(record.Records, &pfs.PutFileRecord{
 					SizeBytes:  size,
 					ObjectHash: object.Hash,
 				})
 			}
-			return d.upsertPutFileRecords(ctx, file, records)
+			if ci.Finished == nil {
+				return d.upsertPutFileRecords(ctx, file, record)
+			}
+			recordsMu.Lock()
+			defer recordsMu.Unlock()
+			paths = append(paths, file.Path)
+			records = append(records, record)
+			return nil
 		})
 		return nil
 	}); err != nil {
 		return err
 	}
-	return eg.Wait()
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+	if ci.Finished != nil {
+		_, err = d.makeCommit(ctx, "", client.NewCommit(dst.Commit.Repo.Name, ""), branch, nil, nil, paths, records, "")
+		return err
+	}
+	return nil
 }
 
 func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hashtree.HashTree, error) {
@@ -2263,12 +2342,20 @@ func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
 	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
+	branch := ""
+	if !uuid.IsUUIDWithoutDashes(file.Commit.ID) {
+		branch = file.Commit.ID
+	}
 	commitInfo, err := d.inspectCommit(ctx, file.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}
 	if commitInfo.Finished != nil {
-		return pfsserver.ErrCommitFinished{file.Commit}
+		if branch == "" {
+			return pfsserver.ErrCommitFinished{file.Commit}
+		}
+		_, err := d.makeCommit(ctx, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, []string{file.Path}, []*pfs.PutFileRecords{&pfs.PutFileRecords{Tombstone: true}}, "")
+		return err
 	}
 	return d.upsertPutFileRecords(ctx, file, &pfs.PutFileRecords{Tombstone: true})
 }
@@ -2311,20 +2398,16 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 			return fmt.Errorf("commit %v is not open", file.Commit.ID)
 		}
 		recordsCol := d.putFileRecords.ReadWrite(stm)
-
 		var existingRecords pfs.PutFileRecords
-		err = recordsCol.Get(prefix, &existingRecords)
-		if err != nil && !col.IsErrNotFound(err) {
-			return err
-		}
-		if newRecords.Tombstone {
-			existingRecords.Tombstone = true
-			existingRecords.Records = nil
-		} else {
+		return recordsCol.Upsert(prefix, &existingRecords, func() error {
+			if newRecords.Tombstone {
+				existingRecords.Tombstone = true
+				existingRecords.Records = nil
+			}
 			existingRecords.Split = newRecords.Split
 			existingRecords.Records = append(existingRecords.Records, newRecords.Records...)
-		}
-		return recordsCol.Put(prefix, &existingRecords)
+			return nil
+		})
 	})
 	if err != nil {
 		return err
@@ -2394,6 +2477,11 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 
 func isNotFoundErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "not found")
+}
+
+func isNoHeadErr(err error) bool {
+	_, ok := err.(pfsserver.ErrNoHead)
+	return ok
 }
 
 func commitKey(commit *pfs.Commit) string {
