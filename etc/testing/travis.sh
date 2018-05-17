@@ -6,7 +6,10 @@ set -e
 mkdir -p /home/travis/.cache/go-build
 ls -alh /home/travis/.cache/
 ls -alh /home/travis/.cache/go-build
-whoami
+echo "AFTER CHMOD"
+sudo chown -R `whoami` /home/travis/.cache/go-build
+ls -alh /home/travis/.cache/
+ls -alh /home/travis/.cache/go-build
 
 make launch-kube
 
