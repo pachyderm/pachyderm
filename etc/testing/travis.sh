@@ -2,6 +2,8 @@
 
 set -e
 
+make launch-kube
+
 # Wait until a connection with kubernetes has been established
 echo "Waiting for connection to kubernetes..."
 max_t=90

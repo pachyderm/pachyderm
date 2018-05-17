@@ -20,12 +20,10 @@ branches:
 before_install:
 - sudo etc/testing/ci/before_install.sh
 before_script:
-- make launch-kube
 - docker version
 # Install any deps used by our "batch test" cron
 - etc/testing/ci/travis_install_batch_deps.sh
 script:
-- make lint
 - etc/testing/travis.sh
 after_failure:
 - kubectl version
