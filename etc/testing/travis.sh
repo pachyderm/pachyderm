@@ -2,6 +2,12 @@
 
 set -e
 
+# Make sure cache dir exists and is writable
+mkdir -p /home/travis/.cache/go-build
+ls -alh /home/travis/.cache/
+ls -alh /home/travis/.cache/go-build
+whoami
+
 make launch-kube
 
 # Wait until a connection with kubernetes has been established

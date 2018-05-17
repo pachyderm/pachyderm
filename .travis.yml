@@ -24,7 +24,6 @@ before_script:
 # Install any deps used by our "batch test" cron
 - etc/testing/ci/travis_install_batch_deps.sh
 script:
-- mkdir -p /home/travis/.cache/go-build
 - etc/testing/travis.sh
 after_failure:
 - kubectl version
