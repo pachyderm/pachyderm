@@ -8,6 +8,12 @@ cache:
 language: go
 go:
 - 1.10beta1
+env:
+- BUCKET=PFS
+- BUCKET=MISC
+- BUCKET=PPS1
+- BUCKET=PPS2
+- BUCKET=PPS3
 branches:
   except:
     - /^v[0-9]/
