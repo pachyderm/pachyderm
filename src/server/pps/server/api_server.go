@@ -1564,39 +1564,19 @@ func (a *apiServer) makePipelineInfoCommit(pachClient *client.APIClient, pipelin
 	pipelineName := pipelineInfo.Pipeline.Name
 	var commit *pfs.Commit
 	if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-		// If we're creating a new pipeline, create the pipeline branch
-		if !update {
-			// Create pipeline branch in spec repo and write PipelineInfo there
-			if _, err := superUserClient.InspectBranch(ppsconsts.SpecRepo, pipelineName); err == nil {
-				return fmt.Errorf("pipeline \"%s\" already exists: update it with update-pipeline, delete it with delete-pipeline", pipelineName)
-			}
-			if err := superUserClient.CreateBranch(ppsconsts.SpecRepo, pipelineName, "", nil); err != nil {
-				return fmt.Errorf("could not create pipeline spec branch for \"%s\" in %s: %v",
-					pipelineName, ppsconsts.SpecRepo, grpcutil.ScrubGRPC(err))
-			}
-		}
-
-		var err error
-		commit, err = superUserClient.StartCommit(ppsconsts.SpecRepo, pipelineName)
-		if err != nil {
-			return grpcutil.ScrubGRPC(err)
-		}
-		// Delete the old PipelineInfo (if it exists), otherwise the new
-		// PipelineInfo's bytes will be appended to the old bytes
-		if err := superUserClient.DeleteFile(
-			ppsconsts.SpecRepo, commit.ID, ppsconsts.SpecFile,
-		); err != nil && !strings.Contains(err.Error(), "not found") {
-			return grpcutil.ScrubGRPC(err)
-		}
-
 		data, err := pipelineInfo.Marshal()
 		if err != nil {
 			return fmt.Errorf("could not marshal PipelineInfo: %v", err)
 		}
-		if _, err := superUserClient.PutFile(ppsconsts.SpecRepo, commit.ID, ppsconsts.SpecFile, bytes.NewReader(data)); err != nil {
-			return grpcutil.ScrubGRPC(err)
+		if _, err = superUserClient.PutFileOverwrite(ppsconsts.SpecRepo, pipelineName, ppsconsts.SpecFile, bytes.NewReader(data), 0); err != nil {
+			return err
 		}
-		return grpcutil.ScrubGRPC(superUserClient.FinishCommit(ppsconsts.SpecRepo, commit.ID))
+		branchInfo, err := superUserClient.InspectBranch(ppsconsts.SpecRepo, pipelineName)
+		if err != nil {
+			return err
+		}
+		commit = branchInfo.Head
+		return nil
 	}); err != nil {
 		return nil, err
 	}
@@ -1880,7 +1860,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			err = a.pipelines.ReadWrite(stm).Create(pipelineName, pipelinePtr)
 			if isAlreadyExistsErr(err) {
 				if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-					return superUserClient.DeleteCommit(pipelineName, commit.ID)
+					return superUserClient.DeleteCommit(ppsconsts.SpecRepo, commit.ID)
 				}); err != nil {
 					return fmt.Errorf("couldn't clean up orphaned spec commit: %v", grpcutil.ScrubGRPC(err))
 				}
