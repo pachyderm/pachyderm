@@ -75,6 +75,10 @@ func main() {
 		outPath := filepath.Join("/etc/ssl/certs", outRelPath)
 		out, err := os.OpenFile(outPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, info.Mode())
 		if err != nil {
+			if os.IsExist(err) {
+				// File already exists, nothing to do
+				return nil
+			}
 			return fmt.Errorf("could not create %s: %v", outPath, err)
 		}
 		defer out.Close()
