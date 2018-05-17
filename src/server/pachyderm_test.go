@@ -4263,14 +4263,15 @@ func TestGarbageCollection(t *testing.T) {
 	}
 
 	c := getPachClient(t)
-	require.NoError(t, c.DeleteAll())
 
-	// The objects/tags that are there originally.  We run GC
-	// first so that later GC runs doesn't collect objects created
-	// by other tests.
+	// Delete everything, then run garbage collection and finally check that
+	// we're at a baseline of 0 tags and 0 objects.
+	require.NoError(t, c.DeleteAll())
 	require.NoError(t, c.GarbageCollect())
 	originalObjects := getAllObjects(t, c)
 	originalTags := getAllTags(t, c)
+	require.Equal(t, 0, len(originalObjects))
+	require.Equal(t, 0, len(originalTags))
 
 	dataRepo := tu.UniqueString("TestGarbageCollection")
 	pipeline := tu.UniqueString("TestGarbageCollectionPipeline")
@@ -4360,7 +4361,7 @@ func TestGarbageCollection(t *testing.T) {
 	objectsAfter = getAllObjects(t, c)
 	tagsAfter = getAllTags(t, c)
 
-	require.Equal(t, len(tagsBefore), len(tagsAfter)+1)
+	require.Equal(t, 1, len(tagsBefore)-len(tagsAfter))
 	require.Equal(t, 3, len(objectsBefore)-len(objectsAfter))
 
 	// Now we delete everything.
@@ -4371,8 +4372,8 @@ func TestGarbageCollection(t *testing.T) {
 	// the tag count and object count should be back to the originals.
 	objectsAfter = getAllObjects(t, c)
 	tagsAfter = getAllTags(t, c)
-	require.Equal(t, len(originalTags), len(tagsAfter))
-	require.Equal(t, len(originalObjects), len(objectsAfter))
+	require.Equal(t, 0, len(tagsAfter))
+	require.Equal(t, 0, len(objectsAfter))
 
 	// Now we create the pipeline again and check that all data is
 	// accessible.  This is important because there used to be a bug
