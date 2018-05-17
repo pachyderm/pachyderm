@@ -5,6 +5,10 @@ if [ -z "$1" ]; then
   exit 1
 fi
 
+kubectl get all
+
+kubectl get pod
+
 namespace=default
 
 if [ -n "$2" ]; then
