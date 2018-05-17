@@ -2329,7 +2329,6 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 	if err := checkLoggedIn(pachClient); err != nil {
 		return nil, err
 	}
-	// Get all objects referenced by pipeline tags
 	pipelineInfos, err := a.ListPipeline(ctx, &pps.ListPipelineRequest{})
 	if err != nil {
 		return nil, err
