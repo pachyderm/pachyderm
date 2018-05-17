@@ -21,6 +21,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
@@ -49,6 +50,9 @@ const (
 
 	// maxInt is the maximum value for 'int' (system-dependent). Not in 'math'!
 	maxInt = int(^uint(0) >> 1)
+
+	// Maximum number of concurrent put object calls.
+	putObjectConcurrency = 100
 )
 
 // validateRepoName determines if a repo name is valid
@@ -1870,6 +1874,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 
 		indexToRecord := make(map[int]*pfs.PutFileRecord)
 		var mu sync.Mutex
+		limiter := limit.New(putObjectConcurrency)
 		for !EOF {
 			var err error
 			var value []byte
@@ -1900,7 +1905,9 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 					EOF) {
 				_buffer := buffer
 				index := filesPut
+				limiter.Acquire()
 				eg.Go(func() error {
+					defer limiter.Release()
 					object, size, err := d.pachClient.PutObject(_buffer)
 					if err != nil {
 						return err
