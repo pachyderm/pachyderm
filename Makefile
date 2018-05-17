@@ -418,10 +418,15 @@ test-pfs:
 	go test ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
 	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
 
-test-pps: launch-stats
+test-pps:
+	@# Travis uses the helper directly because it needs to specify a
+	@# subset of the tests using the run flag
+	@make RUN= test-pps-helper
+
+test-pps-helper: launch-stats
 	# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-		go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT)  && \
+		go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT) $(RUN) && \
 		go test ./src/server/pps/cmds -timeout $(TIMEOUT)
 
 test-client:
