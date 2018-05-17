@@ -5,13 +5,7 @@ if [ -z "$1" ]; then
   exit 1
 fi
 
-kubectl get all
-
 kubectl get pod
-
-kubectl get pod -l app=pachd | tail -n 1 | cut -f 1 -d " " | while read pachd; do kubectl describe po/$pachd; done
-
-
 
 namespace=default
 
