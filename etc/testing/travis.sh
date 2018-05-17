@@ -19,9 +19,24 @@ until kubectl version >/dev/null 2>/dev/null; do
 	sleep 1;
 done
 
-go install ./src/server/cmd/match
-echo "Running local tests"
-make test
+echo "Running test suite based on BUCKET=$BUCKET"
+
+PPS_SUITE=`echo $BUCKET | grep PPS > /dev/null; echo $?`
+
+if [[ "$BUCKET" == "PFS" ]]; then
+	echo "Running pfs test suite"
+	make test-pfs
+elif [[ "$BUCKET" == "MISC" ]]; then
+	echo "Running misc test suite"
+	make test-misc
+elif [[ $PPS_SUITE -eq 0 ]]; then
+	PART=`echo $BUCKET | grep -Po '\d+'`
+	TOTAL=`cat etc/build/PPS_BUILD_BUCKET_COUNT`
+	echo "Running pps test suite, part $PART of $TOTAL"
+else
+	echo "Unknown bucket"
+	exit 1
+fi
 
 # Disable aws CI for now, see:
 # https://github.com/pachyderm/pachyderm/issues/2109
