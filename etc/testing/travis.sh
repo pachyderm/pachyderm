@@ -23,6 +23,9 @@ echo "Running test suite based on BUCKET=$BUCKET"
 
 PPS_SUITE=`echo $BUCKET | grep PPS > /dev/null; echo $?`
 
+make clean-launch-dev
+make launch-dev
+
 if [[ "$BUCKET" == "PFS" ]]; then
 	echo "Running pfs test suite"
 	make test-pfs
