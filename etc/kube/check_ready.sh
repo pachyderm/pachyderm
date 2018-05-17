@@ -9,7 +9,7 @@ kubectl get all
 
 kubectl get pod
 
-kc get pod -l app=pachd | tail -n 1 | cut -f 1 -d " " | while read pachd; do kc describe po/$pachd; done
+kubectl get pod -l app=pachd | tail -n 1 | cut -f 1 -d " " | while read pachd; do kc describe po/$pachd; done
 
 
 
