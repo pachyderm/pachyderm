@@ -571,6 +571,7 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 								"--advertise-client-urls=http://0.0.0.0:2379",
 								"--data-dir=/var/data/etcd",
 								"--auto-compaction-retention=1",
+								"--max-txn-ops=5000",
 							},
 							Ports: []v1.ContainerPort{
 								{
