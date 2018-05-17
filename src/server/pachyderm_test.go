@@ -33,6 +33,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfspretty "github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
@@ -7624,7 +7625,7 @@ func TestCorruption(t *testing.T) {
 		commitInfos := collectCommitInfos(t, commitIter)
 		require.Equal(t, 1, len(commitInfos))
 
-		resp, err := etcdClient.Get(context.Background(), "pachyderm/1.7.0", etcd.WithPrefix(), etcd.WithKeysOnly())
+		resp, err := etcdClient.Get(context.Background(), col.DefaultPrefix, etcd.WithPrefix(), etcd.WithKeysOnly())
 		require.NoError(t, err)
 		for _, kv := range resp.Kvs {
 			// Delete 1 in 10 keys

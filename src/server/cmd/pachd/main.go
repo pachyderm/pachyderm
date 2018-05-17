@@ -34,6 +34,7 @@ import (
 	cache_pb "github.com/pachyderm/pachyderm/src/server/pkg/cache/groupcachepb"
 	cache_server "github.com/pachyderm/pachyderm/src/server/pkg/cache/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
@@ -68,7 +69,7 @@ type appEnv struct {
 	StorageRoot           string `env:"PACH_ROOT,default=/pach"`
 	StorageBackend        string `env:"STORAGE_BACKEND,default="`
 	StorageHostPath       string `env:"STORAGE_HOST_PATH,default="`
-	EtcdPrefix            string `env:"ETCD_PREFIX,default=pachyderm/1.7.0"`
+	EtcdPrefix            string `env:"ETCD_PREFIX,default="`
 	PPSEtcdPrefix         string `env:"PPS_ETCD_PREFIX,default=pachyderm_pps"`
 	PFSEtcdPrefix         string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
 	AuthEtcdPrefix        string `env:"PACHYDERM_AUTH_ETCD_PREFIX,default=pachyderm_auth"`
@@ -131,6 +132,9 @@ func doSidecarMode(appEnvObj interface{}) error {
 	default:
 		log.Errorf("Unrecognized log level %s, falling back to default of \"info\"", appEnv.LogLevel)
 		log.SetLevel(log.InfoLevel)
+	}
+	if appEnv.EtcdPrefix == "" {
+		appEnv.EtcdAddress = col.DefaultPrefix
 	}
 
 	etcdAddress := fmt.Sprintf("http://%s:2379", appEnv.EtcdAddress)
