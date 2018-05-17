@@ -192,7 +192,11 @@ docker-wait-pachd:
 docker-build-helper: enterprise-code-checkin-test docker-build-worker docker-build-pachd docker-wait-worker docker-wait-pachd
 
 docker-build:
+	echo 'pull compile start'
+	date
 	docker pull $(COMPILE_IMAGE)
+	echo 'pull compile end'
+	date
 	make docker-build-helper
 
 docker-build-proto:
