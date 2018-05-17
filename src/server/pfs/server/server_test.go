@@ -328,17 +328,12 @@ func TestPutFileIntoOpenCommit(t *testing.T) {
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
-	_, err := client.PutFile(repo, "master", "foo", strings.NewReader("foo\n"))
-	require.YesError(t, err)
-
 	commit1, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
-	_, err = client.PutFile(repo, "master", "foo", strings.NewReader("foo\n"))
-	require.YesError(t, err)
 	_, err = client.PutFile(repo, commit1.ID, "foo", strings.NewReader("foo\n"))
 	require.YesError(t, err)
 
@@ -348,8 +343,6 @@ func TestPutFileIntoOpenCommit(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, "master"))
 
-	_, err = client.PutFile(repo, "master", "foo", strings.NewReader("foo\n"))
-	require.YesError(t, err)
 	_, err = client.PutFile(repo, commit2.ID, "foo", strings.NewReader("foo\n"))
 	require.YesError(t, err)
 }
@@ -4221,6 +4214,88 @@ func TestSubscribeStates(t *testing.T) {
 		}
 		return nil
 	})
+}
+
+func TestPutFileCommit(t *testing.T) {
+	c := getClient(t)
+
+	numFiles := 100
+	repo := "repo"
+	require.NoError(t, c.CreateRepo(repo))
+
+	var eg errgroup.Group
+	for i := 0; i < numFiles; i++ {
+		i := i
+		eg.Go(func() error {
+			_, err := c.PutFile(repo, "master", fmt.Sprintf("%d", i), strings.NewReader(fmt.Sprintf("%d", i)))
+			return err
+		})
+	}
+	require.NoError(t, eg.Wait())
+
+	for i := 0; i < numFiles; i++ {
+		var b bytes.Buffer
+		require.NoError(t, c.GetFile(repo, "master", fmt.Sprintf("%d", i), 0, 0, &b))
+		require.Equal(t, fmt.Sprintf("%d", i), b.String())
+	}
+
+	bi, err := c.InspectBranch(repo, "master")
+	require.NoError(t, err)
+
+	eg = errgroup.Group{}
+	for i := 0; i < numFiles; i++ {
+		i := i
+		eg.Go(func() error {
+			return c.CopyFile(repo, bi.Head.ID, fmt.Sprintf("%d", i), repo, "master", fmt.Sprintf("%d", (i+1)%numFiles), true)
+		})
+	}
+	require.NoError(t, eg.Wait())
+
+	for i := 0; i < numFiles; i++ {
+		var b bytes.Buffer
+		require.NoError(t, c.GetFile(repo, "master", fmt.Sprintf("%d", (i+1)%numFiles), 0, 0, &b))
+		require.Equal(t, fmt.Sprintf("%d", i), b.String())
+	}
+
+	eg = errgroup.Group{}
+	for i := 0; i < numFiles; i++ {
+		i := i
+		eg.Go(func() error {
+			return c.DeleteFile(repo, "master", fmt.Sprintf("%d", i))
+		})
+	}
+	require.NoError(t, eg.Wait())
+
+	fileInfos, err := c.ListFile(repo, "master", "")
+	require.NoError(t, err)
+	require.Equal(t, 0, len(fileInfos))
+}
+
+func TestPutFileCommitNilBranch(t *testing.T) {
+	c := getClient(t)
+	repo := "repo"
+	require.NoError(t, c.CreateRepo(repo))
+	require.NoError(t, c.CreateBranch(repo, "master", "", nil))
+
+	_, err := c.PutFile(repo, "master", "file", strings.NewReader("file"))
+	require.NoError(t, err)
+}
+
+func TestPutFileCommitOverwrite(t *testing.T) {
+	c := getClient(t)
+
+	numFiles := 5
+	repo := "repo"
+	require.NoError(t, c.CreateRepo(repo))
+
+	for i := 0; i < numFiles; i++ {
+		_, err := c.PutFileOverwrite(repo, "master", "file", strings.NewReader(fmt.Sprintf("%d", i)), 0)
+		require.NoError(t, err)
+	}
+
+	var b bytes.Buffer
+	require.NoError(t, c.GetFile(repo, "master", "file", 0, 0, &b))
+	require.Equal(t, fmt.Sprintf("%d", numFiles-1), b.String())
 }
 
 func TestStartCommitOutputBranch(t *testing.T) {

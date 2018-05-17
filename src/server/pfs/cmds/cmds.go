@@ -659,23 +659,7 @@ want to consider using commit IDs directly.
 				path = args[2]
 			}
 			if putFileCommit {
-				commit, err := cli.PfsAPIClient.StartCommit(cli.Ctx(),
-					&pfsclient.StartCommitRequest{
-						Parent:      client.NewCommit(repoName, ""),
-						Branch:      branch,
-						Description: description,
-					})
-				if err != nil {
-					return err
-				}
-				branch = commit.ID // use commit we just started, in case another commit starts concurrently
-				defer func() {
-					if err := cli.FinishCommit(repoName, branch); err != nil && retErr == nil {
-						retErr = err
-					}
-				}()
-			} else if description != "" {
-				return fmt.Errorf("cannot set --message (-m) or --description without --commit (-c)")
+				fmt.Printf("flag --commit / -c is deprecated as of 1.7.2, you will get the same behavior without it")
 			}
 
 			limiter := limit.New(int(parallelism))
@@ -753,7 +737,7 @@ want to consider using commit IDs directly.
 	putFile.Flags().StringVar(&split, "split", "", "Split the input file into smaller files, subject to the constraints of --target-file-datums and --target-file-bytes. Permissible values are `json` and `line`.")
 	putFile.Flags().UintVar(&targetFileDatums, "target-file-datums", 0, "The upper bound of the number of datums that each file contains, the last file will contain fewer if the datums don't divide evenly; needs to be used with --split.")
 	putFile.Flags().UintVar(&targetFileBytes, "target-file-bytes", 0, "The target upper bound of the number of bytes that each file contains; needs to be used with --split.")
-	putFile.Flags().BoolVarP(&putFileCommit, "commit", "c", false, "Put file(s) in a new commit.")
+	putFile.Flags().BoolVarP(&putFileCommit, "commit", "c", false, "DEPRECATED: Put file(s) in a new commit.")
 	putFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to put-file within this commit.")
 	putFile.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents (only allowed with -c)")
 	putFile.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
