@@ -67,7 +67,7 @@ elif [[ $PPS_SUITE -eq 0 ]]; then
 		fi
 		INDEX=$(( $INDEX + 1 ))
 	done
-	echo "running $( echo $RUN | tr '|' '\n' | wc -l ) tests"
+	echo "Running $( echo $RUN | tr '|' '\n' | wc -l ) tests of $COUNT total tests"
 	make RUN=-run=\"$RUN\" test-pps-helper
 else
 	echo "Unknown bucket"
