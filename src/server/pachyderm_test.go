@@ -7640,6 +7640,7 @@ func TestCorruption(t *testing.T) {
 }
 
 func TestPachdPrometheusStats(t *testing.T) {
+	t.Skip("flake")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
