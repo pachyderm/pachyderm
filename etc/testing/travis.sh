@@ -44,12 +44,12 @@ elif [[ $PPS_SUITE -eq 0 ]]; then
 	NUM_BUCKETS=`cat etc/build/PPS_BUILD_BUCKET_COUNT`
 	echo "Running pps test suite, part $PART of $NUM_BUCKETS"
 	# All the tests
-	LIST=`go test -v  ./src/server/ -list ".*" | grep -v ok`
-	COUNT=`go test -v  ./src/server/ -list ".*" | grep -v ok | wc -l`
-	BUCKET_SIZE=$(( $COUNT / $NUM_BUCKETS))
+	LIST=`go test -v  ./src/server/ -list ".*" | grep -v ok | grep -v Benchmark`
+	COUNT=`go test -v  ./src/server/ -list ".*" | grep -v ok | grep -v Benchmark | wc -l`
+	BUCKET_SIZE=$(( $COUNT / $NUM_BUCKETS ))
 	PART=$(( $PART - 1 ))
-	MIN=$(( $BUCKET_SIZE * $PART))
-	MAX=$(expr $MIN + $BUCKET_SIZE)
+	MIN=$(( $BUCKET_SIZE * $PART ))
+	MAX=$(( $MIN + $BUCKET_SIZE ))
 
 	RUN=""
 	INDEX=0
