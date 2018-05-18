@@ -42,15 +42,13 @@ elif [[ $PPS_SUITE -eq 0 ]]; then
 	PART=`echo $BUCKET | grep -Po '\d+'`
 	NUM_BUCKETS=`cat etc/build/PPS_BUILD_BUCKET_COUNT`
 	echo "Running pps test suite, part $PART of $NUM_BUCKETS"
-	# All the tests
 	LIST=`go test -v  ./src/server/ -list ".*" | grep -v ok | grep -v Benchmark`
 	COUNT=`echo $LIST | tr " " "\n" | wc -l`
 	BUCKET_SIZE=$(( $COUNT / $NUM_BUCKETS ))
-	PART=$(( $PART - 1 ))
-	MIN=$(( $BUCKET_SIZE * $PART ))
+	MIN=$(( $BUCKET_SIZE * $(( $PART - 1 )) ))
 	#The last bucket may have a few extra tests, to accommodate rounding errors from bucketing:
 	MAX=$COUNT 
-	if [[ $PART -ne $(( $NUM_BUCKETS - 1 )) ]]; then
+	if [[ $PART -ne $NUM_BUCKETS ]]; then
 		MAX=$(( $MIN + $BUCKET_SIZE ))
     fi
 
