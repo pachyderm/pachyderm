@@ -75,10 +75,10 @@ set -x
 
 export ADDRESS=$(minikube ip):30650
 
-# Push pachyderm images (and etcd) to minikube VM
+# Push pachyderm images to minikube VM
 etc/kube/push-to-minikube.sh pachyderm/pachd:${PACH_VERSION}
 etc/kube/push-to-minikube.sh pachyderm/worker:${PACH_VERSION}
-etc/kube/push-to-minikube.sh pachyderm/etcd:v3.2.7
+etc/kube/push-to-minikube.sh quay.io/coreos/etcd:v3.3.5
 
 # Deploy Pachyderm
 if [[ "${PACH_VERSION}" = "local" ]]; then
