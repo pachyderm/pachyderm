@@ -7361,23 +7361,18 @@ func TestEntryPoint(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	fmt.Printf("gonna get pach client\n")
 	c := getPachClient(t)
-	fmt.Printf("gonna delete all\n")
 	require.NoError(t, c.DeleteAll())
 
-	fmt.Printf("gonna create repo\n")
 	dataRepo := tu.UniqueString("TestEntryPoint_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	fmt.Printf("gonna put data\n")
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
-	fmt.Printf("gonna create pipeline\n")
 	pipeline := tu.UniqueString("TestSimplePipeline")
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
@@ -7397,36 +7392,15 @@ func TestEntryPoint(t *testing.T) {
 		"",
 		false,
 	))
-	done := make(chan bool, 1)
-	go func() {
-		for {
-			out, err := exec.Command("kubectl", "get", "all").Output()
-			fmt.Println(string(out))
-			if err != nil {
-				fmt.Printf("error running kubectl cmd: %v\n", err)
-			}
-			select {
-			case <-done:
-				return
-			default:
-				time.Sleep(2 * time.Second)
-			}
-		}
 
-	}()
-
-	fmt.Printf("gonna flush commit\n")
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 1, len(commitInfos))
 
-	fmt.Printf("gonna get file\n")
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
 	require.Equal(t, "foo", buf.String())
-	fmt.Printf("done w test\n")
-	done <- true
 }
 
 func TestDeleteSpecRepo(t *testing.T) {
