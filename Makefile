@@ -397,7 +397,7 @@ pretest:
 local-test: docker-build launch-dev test-pfs clean-launch-dev
 
 # These are split up to keep the build load roughly even:
-test-misc: lint enterprise-code-checkin-test docker-build docker-build-test-entrypoint test-pfs test-vault test-auth test-enterprise test-worker
+test-misc: lint enterprise-code-checkin-test docker-build test-pfs test-vault test-auth test-enterprise test-worker
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis
 test: clean-launch-dev launch-dev test-misc test-pps
@@ -423,7 +423,7 @@ test-pps:
 	@# subset of the tests using the run flag
 	@make RUN= test-pps-helper
 
-test-pps-helper: launch-stats
+test-pps-helper: launch-stats docker-build-test-entrypoint 
 	# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 		go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT) $(RUN) && \
