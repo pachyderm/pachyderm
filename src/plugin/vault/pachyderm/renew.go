@@ -14,7 +14,8 @@ import (
 
 // Renew renews the caller's credentials (and extends the TTL of their Pachyderm
 // token by sending a request to Pachyderm). Unlike other handlers, it doesn't
-// get assigned to a path; instead it's placed in Backend.Renew in backend.go
+// get assigned to a path; instead it's called by the vault lease API when a
+// token's lease is renewed. It's set in Backend.Secrets[0].Revoke in backend.go
 func (b *backend) Renew(ctx context.Context, req *logical.Request, d *framework.FieldData) (resp *logical.Response, retErr error) {
 	// renew seems to be handled specially, and req.ID doesn't seem to be set
 	b.Logger().Debug(fmt.Sprintf("%s received at %s", req.Operation, req.Path))
