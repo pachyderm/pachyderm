@@ -7397,6 +7397,15 @@ func TestEntryPoint(t *testing.T) {
 		"",
 		false,
 	))
+	go func() {
+		time.Sleep(2 * time.Second)
+		out, err := exec.Command("kubectl", "get", "all").Output()
+		fmt.Println(string(out))
+		if err != nil {
+			fmt.Printf("error running kubectl cmd: %v\n", err)
+		}
+
+	}()
 
 	fmt.Printf("gonna flush commit\n")
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
