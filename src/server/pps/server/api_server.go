@@ -1481,7 +1481,7 @@ func (a *apiServer) hardStopPipeline(pachClient *client.APIClient, pipelineInfo 
 		pipelineInfo.OutputBranch,
 		nil,
 	); err != nil && !isNotFoundErr(err) {
-		return fmt.Errorf("could not rename original output branch: %v", err)
+		return fmt.Errorf("could not recreate original output branch: %v", err)
 	}
 
 	// Now that new commits won't be created on the master branch, enumerate
@@ -1798,7 +1798,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				"delete this open commit")
 		}
 
-		a.hardStopPipeline(pachClient, pipelineInfo)
+		if err := a.hardStopPipeline(pachClient, pipelineInfo); err != nil {
+			return nil, err
+		}
 
 		// Look up existing pipelineInfo and update it, writing updated
 		// pipelineInfo back to PFS in a new commit. Do this inside an etcd
@@ -2133,9 +2135,9 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 		return nil, err
 	}
 
-	// Stop this pipeline (inline, so we don't break the PPS master by deleting
-	// the pipeline's PipelineInfo in PFS, which we do below)
-	a.hardStopPipeline(pachClient, pipelineInfo)
+	if err := pachClient.DeleteRepo(request.Pipeline.Name, false); err != nil {
+		return nil, err
+	}
 
 	// Delete pipeline's workers
 	if err := a.deleteWorkersForPipeline(request.Pipeline.Name); err != nil {
@@ -2194,10 +2196,6 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 			return fmt.Errorf("collection.Delete: %v", err)
 		}
 		return nil
-	})
-	// Delete output repo
-	eg.Go(func() error {
-		return pachClient.DeleteRepo(request.Pipeline.Name, true)
 	})
 	// Delete cron input repos
 	if pipelineInfo.Input != nil {
