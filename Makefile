@@ -457,7 +457,7 @@ test-auth:
 
 test-enterprise:
 	@# Dont cache these results as they require the pachd cluster
-	go test -v ./src/server/enterprise/server count 1 -timeout $(TIMEOUT)
+	go test -v ./src/server/enterprise/server -count 1 -timeout $(TIMEOUT)
 
 test-worker: launch-stats test-worker-helper
 
