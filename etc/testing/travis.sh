@@ -3,8 +3,8 @@
 set -e
 
 # Make sure cache dir exists and is writable
-mkdir -p /home/travis/.cache/go-build
-sudo chown -R `whoami` /home/travis/.cache/go-build
+mkdir -p ~/.cache/go-build
+sudo chown -R `whoami` ~/.cache/go-build
 
 make launch-kube
 
