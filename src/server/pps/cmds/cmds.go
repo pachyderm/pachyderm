@@ -657,6 +657,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	listPipeline.Flags().BoolVarP(&spec, "spec", "s", false, "Output create-pipeline compatibility specs.")
 
 	var all bool
+	var force bool
 	deletePipeline := &cobra.Command{
 		Use:   "delete-pipeline pipeline-name",
 		Short: "Delete a pipeline.",
@@ -676,14 +677,11 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				_, err = client.PpsAPIClient.DeletePipeline(
 					client.Ctx(),
 					&ppsclient.DeletePipelineRequest{
-						All: all,
+						All:   all,
+						Force: force,
 					})
 			} else {
-				_, err = client.PpsAPIClient.DeletePipeline(
-					client.Ctx(),
-					&ppsclient.DeletePipelineRequest{
-						Pipeline: &ppsclient.Pipeline{args[0]},
-					})
+				err = client.DeletePipeline(args[0], force)
 			}
 			if err != nil {
 				return fmt.Errorf("error from delete-pipeline: %s", err)
@@ -692,6 +690,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		}),
 	}
 	deletePipeline.Flags().BoolVar(&all, "all", false, "delete all pipelines")
+	deletePipeline.Flags().BoolVarP(&force, "force", "f", false, "delete the pipeline regardless of errors; use with care")
 
 	startPipeline := &cobra.Command{
 		Use:   "start-pipeline pipeline-name",
