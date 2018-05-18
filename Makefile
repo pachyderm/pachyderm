@@ -426,7 +426,7 @@ test-pps-helper: launch-stats docker-build-test-entrypoint
 	# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 		go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT) $(RUN) && \
-		go test ./src/server/pps/cmds -timeout $(TIMEOUT)
+		go test ./src/server/pps/cmds -count 1 -timeout $(TIMEOUT)
 
 test-client:
 	rm -rf src/client/vendor
