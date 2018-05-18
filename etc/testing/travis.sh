@@ -37,7 +37,6 @@ go install ./src/server/cmd/match
 
 if [[ "$BUCKET" == "MISC" ]]; then
 	echo "Running misc test suite"
-	make test-pfs
 	make test-misc
 elif [[ $PPS_SUITE -eq 0 ]]; then
 	PART=`echo $BUCKET | grep -Po '\d+'`
