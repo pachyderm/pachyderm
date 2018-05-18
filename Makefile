@@ -440,7 +440,7 @@ test-vault:
 	kill $$(cat /tmp/vault.pid) || true
 	./src/plugin/vault/etc/start-vault.sh
 	./src/plugin/vault/etc/setup-vault.sh
-	@# Use count flag to disable test caching
+	@# Dont cache these results as they require the pachd cluster
 	go test -v -count 1 ./src/plugin/vault -timeout $(TIMEOUT)
 
 test-fuse:
@@ -451,15 +451,18 @@ test-local:
 
 test-auth:
 	yes | pachctl delete-all
-	go test -v ./src/server/auth/server -timeout $(TIMEOUT)
-	go test -v ./src/server/auth/cmds -timeout $(TIMEOUT)
+	@# Dont cache these results as they require the pachd cluster
+	go test -v ./src/server/auth/server -count 1 -timeout $(TIMEOUT)
+	go test -v ./src/server/auth/cmds -count 1 -timeout $(TIMEOUT)
 
 test-enterprise:
-	go test -v ./src/server/enterprise/server -timeout $(TIMEOUT)
+	@# Dont cache these results as they require the pachd cluster
+	go test -v ./src/server/enterprise/server count 1 -timeout $(TIMEOUT)
 
 test-worker: launch-stats test-worker-helper
 
 test-worker-helper:
+	@# Dont cache these results as they require the pachd cluster
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 			  go test -v ./src/server/worker/ -run=TestPrometheusStats -timeout $(TIMEOUT) -count 1
 
