@@ -13,7 +13,8 @@ import (
 
 // Revoke revokes the caller's credentials (by sending a request to Pachyderm).
 // Unlike other handlers, it doesn't get assigned to a path; instead it's
-// placed in Backend.Revoke in backend.go
+// called by the vault lease API when a token's lease expires or is revoked.
+// It's set in Backend.Secrets[0].Revoke in backend.go
 func (b *backend) Revoke(ctx context.Context, req *logical.Request, data *framework.FieldData) (resp *logical.Response, retErr error) {
 	b.Logger().Debug(fmt.Sprintf("(%s) %s received at %s", req.ID, req.Operation, req.Path))
 	defer func() {
