@@ -1149,7 +1149,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 		entries(alice, "owner", pl(pipeline), "writer"), GetACL(t, aliceClient, pipeline))
 
 	// alice deletes the pipeline (owner of the input and output repos can delete)
-	require.NoError(t, aliceClient.DeletePipeline(pipeline))
+	require.NoError(t, aliceClient.DeletePipeline(pipeline, false))
 	require.ElementsEqual(t, entries(), GetACL(t, aliceClient, pipeline))
 
 	// alice deletes the input repo (make sure the input repo's ACL is gone)
@@ -1178,7 +1178,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	err := bobClient.StopPipeline(pipeline)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	err = bobClient.DeletePipeline(pipeline)
+	err = bobClient.DeletePipeline(pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -1197,7 +1197,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	err = bobClient.StopPipeline(pipeline)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	err = bobClient.DeletePipeline(pipeline)
+	err = bobClient.DeletePipeline(pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -1226,7 +1226,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	err = bobClient.StopPipeline(pipeline)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	err = bobClient.DeletePipeline(pipeline)
+	err = bobClient.DeletePipeline(pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -1246,7 +1246,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	require.NoError(t, err)
 	err = bobClient.StartPipeline(pipeline)
 	require.NoError(t, err)
-	err = bobClient.DeletePipeline(pipeline)
+	err = bobClient.DeletePipeline(pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -1264,7 +1264,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	// finally bob can stop and delete alice's pipeline
 	err = bobClient.StopPipeline(pipeline)
 	require.NoError(t, err)
-	err = bobClient.DeletePipeline(pipeline)
+	err = bobClient.DeletePipeline(pipeline, false)
 	require.NoError(t, err)
 }
 

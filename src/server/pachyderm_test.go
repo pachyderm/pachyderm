@@ -1277,7 +1277,7 @@ func TestRecreatePipeline(t *testing.T) {
 	// Do it twice.  We expect jobs to be created on both runs.
 	createPipeline()
 	time.Sleep(5 * time.Second)
-	require.NoError(t, c.DeletePipeline(pipeline))
+	require.NoError(t, c.DeletePipeline(pipeline, false))
 	time.Sleep(5 * time.Second)
 	createPipeline()
 }
@@ -1298,61 +1298,75 @@ func TestDeletePipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, commit.ID))
 	pipelines := []string{tu.UniqueString("TestDeletePipeline1"), tu.UniqueString("TestDeletePipeline2")}
-	require.NoError(t, c.CreatePipeline(
-		pipelines[0],
-		"",
-		[]string{"sleep", "20"},
-		nil,
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewAtomInput(repo, "/*"),
-		"",
-		false,
-	))
-	require.NoError(t, c.CreatePipeline(
-		pipelines[1],
-		"",
-		[]string{"sleep", "20"},
-		nil,
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewAtomInput(pipelines[0], "/*"),
-		"",
-		false,
-	))
+	createPipelines := func() {
+		require.NoError(t, c.CreatePipeline(
+			pipelines[0],
+			"",
+			[]string{"sleep", "20"},
+			nil,
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewAtomInput(repo, "/*"),
+			"",
+			false,
+		))
+		require.NoError(t, c.CreatePipeline(
+			pipelines[1],
+			"",
+			[]string{"sleep", "20"},
+			nil,
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewAtomInput(pipelines[0], "/*"),
+			"",
+			false,
+		))
+		time.Sleep(10 * time.Second)
+		// Wait for the pipeline to start running
+		require.NoError(t, backoff.Retry(func() error {
+			pipelineInfo, err := c.InspectPipeline(pipelines[1])
+			if err != nil {
+				return err
+			}
+			if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
+				return fmt.Errorf("no running pipeline")
+			}
+			return nil
+		}, backoff.NewTestingBackOff()))
+	}
 
-	time.Sleep(10 * time.Second)
-	// Wait for the pipeline to start running
-	require.NoError(t, backoff.Retry(func() error {
-		pipelineInfo, err := c.InspectPipeline(pipelines[1])
-		if err != nil {
-			return err
-		}
-		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
-			return fmt.Errorf("no running pipeline")
-		}
-		return nil
-	}, backoff.NewTestingBackOff()))
+	createPipelines()
 
-	// Can't delete a pipeline from the middle
-	require.YesError(t, c.DeletePipeline(pipelines[0]))
-	require.NoError(t, c.DeletePipeline(pipelines[1]))
-	time.Sleep(5 * time.Second)
-	// Wait for the pipeline to disappear
-	require.NoError(t, backoff.Retry(func() error {
-		_, err := c.InspectPipeline(pipelines[1])
-		if err == nil {
-			return fmt.Errorf("expected pipeline to be missing, but it's still present")
-		}
-		return nil
-	}, backoff.NewTestingBackOff()))
+	deletePipeline := func(pipeline string) {
+		require.NoError(t, c.DeletePipeline(pipeline, false))
+		time.Sleep(5 * time.Second)
+		// Wait for the pipeline to disappear
+		require.NoError(t, backoff.Retry(func() error {
+			_, err := c.InspectPipeline(pipeline)
+			if err == nil {
+				return fmt.Errorf("expected pipeline to be missing, but it's still present")
+			}
+			return nil
+		}, backoff.NewTestingBackOff()))
 
-	// The job should be gone
+	}
+	// Can't delete a pipeline from the middle of the dag
+	require.YesError(t, c.DeletePipeline(pipelines[0], false))
+
+	deletePipeline(pipelines[1])
+	deletePipeline(pipelines[0])
+
+	// The jobs should be gone
 	jobs, err := c.ListJob(pipelines[1], nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, len(jobs), 0)
+
+	createPipelines()
+
+	// Can force delete pipelines from the middle of the dag.
+	require.NoError(t, c.DeletePipeline(pipelines[0], true))
 }
 
 func TestPipelineState(t *testing.T) {
@@ -4363,7 +4377,7 @@ func TestGarbageCollection(t *testing.T) {
 	tagsBefore = tagsAfter
 
 	// Now delete the pipeline and GC
-	require.NoError(t, c.DeletePipeline(pipeline))
+	require.NoError(t, c.DeletePipeline(pipeline, false))
 	require.NoError(t, c.GarbageCollect())
 
 	// We should've deleted one tag since the pipeline has only processed
