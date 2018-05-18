@@ -1297,27 +1297,36 @@ func TestDeletePipeline(t *testing.T) {
 	_, err = c.PutFile(repo, commit.ID, uuid.NewWithoutDashes(), strings.NewReader("foo"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, commit.ID))
-	pipeline := tu.UniqueString("pipeline")
-	createPipeline := func() {
-		require.NoError(t, c.CreatePipeline(
-			pipeline,
-			"",
-			[]string{"sleep", "20"},
-			nil,
-			&pps.ParallelismSpec{
-				Constant: 1,
-			},
-			client.NewAtomInput(repo, "/*"),
-			"",
-			false,
-		))
-	}
+	pipelines := []string{tu.UniqueString("TestDeletePipeline1"), tu.UniqueString("TestDeletePipeline2")}
+	require.NoError(t, c.CreatePipeline(
+		pipelines[0],
+		"",
+		[]string{"sleep", "20"},
+		nil,
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(repo, "/*"),
+		"",
+		false,
+	))
+	require.NoError(t, c.CreatePipeline(
+		pipelines[1],
+		"",
+		[]string{"sleep", "20"},
+		nil,
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(pipelines[0], "/*"),
+		"",
+		false,
+	))
 
-	createPipeline()
 	time.Sleep(10 * time.Second)
 	// Wait for the pipeline to start running
 	require.NoError(t, backoff.Retry(func() error {
-		pipelineInfo, err := c.InspectPipeline(pipeline)
+		pipelineInfo, err := c.InspectPipeline(pipelines[1])
 		if err != nil {
 			return err
 		}
@@ -1326,11 +1335,14 @@ func TestDeletePipeline(t *testing.T) {
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
-	require.NoError(t, c.DeletePipeline(pipeline))
+
+	// Can't delete a pipeline from the middle
+	require.YesError(t, c.DeletePipeline(pipelines[0]))
+	require.NoError(t, c.DeletePipeline(pipelines[1]))
 	time.Sleep(5 * time.Second)
 	// Wait for the pipeline to disappear
 	require.NoError(t, backoff.Retry(func() error {
-		_, err := c.InspectPipeline(pipeline)
+		_, err := c.InspectPipeline(pipelines[1])
 		if err == nil {
 			return fmt.Errorf("expected pipeline to be missing, but it's still present")
 		}
@@ -1338,7 +1350,7 @@ func TestDeletePipeline(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// The job should be gone
-	jobs, err := c.ListJob(pipeline, nil, nil)
+	jobs, err := c.ListJob(pipelines[1], nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, len(jobs), 0)
 }
