@@ -48,7 +48,11 @@ elif [[ $PPS_SUITE -eq 0 ]]; then
 	BUCKET_SIZE=$(( $COUNT / $NUM_BUCKETS ))
 	PART=$(( $PART - 1 ))
 	MIN=$(( $BUCKET_SIZE * $PART ))
-	MAX=$(( $MIN + $BUCKET_SIZE ))
+	#The last bucket may have a few extra tests, to accommodate rounding errors from bucketing:
+	MAX=$COUNT 
+	if [[ $PART -ne $(( $NUM_BUCKETS - 1 )) ]]; then
+		MAX=$(( $MIN + $BUCKET_SIZE ))
+    fi
 
 	RUN=""
 	INDEX=0
@@ -65,6 +69,7 @@ elif [[ $PPS_SUITE -eq 0 ]]; then
 		fi
 		INDEX=$(( $INDEX + 1 ))
 	done
+	echo "running $( echo $RUN | tr '|' '\n' | wc -l ) tests"
 	make RUN=-run=\"$RUN\" test-pps-helper
 else
 	echo "Unknown bucket"
