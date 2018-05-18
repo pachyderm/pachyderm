@@ -10,7 +10,7 @@ go:
 - 1.10beta1
 env:
 - BUCKET=MISC
-# If you want to update the number of PPS workers, you'll need to update
+# If you want to update the number of PPS workers, you'll also need to update
 # the value in ./etc/build/PPS_BUILD_BUCKET_COUNT
 - BUCKET=PPS1
 - BUCKET=PPS2
