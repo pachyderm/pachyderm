@@ -7397,13 +7397,19 @@ func TestEntryPoint(t *testing.T) {
 		"",
 		false,
 	))
+	done := make(chan bool, 1)
 	go func() {
 		for {
-			time.Sleep(2 * time.Second)
 			out, err := exec.Command("kubectl", "get", "all").Output()
 			fmt.Println(string(out))
 			if err != nil {
 				fmt.Printf("error running kubectl cmd: %v\n", err)
+			}
+			select {
+			case <-done:
+				return
+			default:
+				time.Sleep(2 * time.Second)
 			}
 		}
 
@@ -7420,6 +7426,7 @@ func TestEntryPoint(t *testing.T) {
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
 	require.Equal(t, "foo", buf.String())
 	fmt.Printf("done w test\n")
+	done <- true
 }
 
 func TestDeleteSpecRepo(t *testing.T) {
