@@ -63,7 +63,7 @@ elif [[ $PPS_SUITE -eq 0 ]]; then
 				fi
 			fi
 		fi
-		INDEX=$(expr $INDEX + 1)	
+		INDEX=$(( $INDEX + 1 ))
 	done
 	make RUN=-run=\"$RUN\" test-pps-helper
 else
