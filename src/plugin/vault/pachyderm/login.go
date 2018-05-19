@@ -14,9 +14,14 @@ import (
 
 func (b *backend) loginPath() *framework.Path {
 	return &framework.Path{
-		Pattern: "login",
+		// Pattern uses modified version of framework.GenericNameRegex which
+		// requires a single colon
+		Pattern: "login/(?P<username>\\w[\\w-]*:[\\w-]*\\w)",
 		Fields: map[string]*framework.FieldSchema{
 			"username": &framework.FieldSchema{
+				Type: framework.TypeString,
+			},
+			"ttl": &framework.FieldSchema{
 				Type: framework.TypeString,
 			},
 		},
@@ -32,9 +37,20 @@ func (b *backend) pathAuthLogin(ctx context.Context, req *logical.Request, d *fr
 		b.Logger().Debug(fmt.Sprintf("(%s) %s finished at %s (success=%t)", req.ID, req.Operation, req.Path, retErr == nil && !resp.IsError()))
 	}()
 
-	username := d.Get("username").(string)
-	if len(username) == 0 {
-		return nil, logical.ErrInvalidRequest
+	username, errResp := getStringField(d, "username")
+	if errResp != nil {
+		return errResp, nil
+	}
+	var ttlArg string
+	ttlArgIface, ok, err := d.GetOkErr("ttl")
+	if err != nil {
+		return logical.ErrorResponse(fmt.Sprintf("%v: could not extract 'ttl' from request", err)), nil
+	}
+	if ok {
+		ttlArg, ok = ttlArgIface.(string)
+		if !ok {
+			return logical.ErrorResponse(fmt.Sprintf("invalid type for param 'ttl' (expected string but got %T)", ttlArgIface)), nil
+		}
 	}
 
 	config, err := getConfig(ctx, req.Storage)
@@ -51,7 +67,12 @@ func (b *backend) pathAuthLogin(ctx context.Context, req *logical.Request, d *fr
 		return nil, errors.New("plugin is missing ttl")
 	}
 
-	ttl, _, err := b.SanitizeTTLStr(config.TTL, b.System().MaxLeaseTTL().String())
+	var ttl time.Duration
+	if ttlArg != "" {
+		ttl, _, err = b.SanitizeTTLStr(ttlArg, b.System().MaxLeaseTTL().String())
+	} else {
+		ttl, _, err = b.SanitizeTTLStr(config.TTL, b.System().MaxLeaseTTL().String())
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -62,18 +83,19 @@ func (b *backend) pathAuthLogin(ctx context.Context, req *logical.Request, d *fr
 	}
 
 	return &logical.Response{
-		Auth: &logical.Auth{
+		Secret: &logical.Secret{
 			InternalData: map[string]interface{}{
-				"user_token": userToken,
-			},
-			Metadata: map[string]string{
-				"user_token":    userToken,
-				"pachd_address": config.PachdAddress,
+				"user_token":  userToken,
+				"secret_type": "pachyderm_tokens",
 			},
 			LeaseOptions: logical.LeaseOptions{
 				TTL:       ttl,
 				Renewable: true,
 			},
+		},
+		Data: map[string]interface{}{
+			"user_token":    userToken,
+			"pachd_address": config.PachdAddress,
 		},
 	}, nil
 }
