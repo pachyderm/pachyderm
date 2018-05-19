@@ -36,5 +36,5 @@ vault write $PLUGIN_PATH/config \
 go build -o /tmp/vault-plugins/$PLUGIN_NAME src/plugin/vault/main.go
 
 # Test login (failure/success):
-vault write -f $PLUGIN_PATH/login/github:bogusgithubusername
-vault write -f $PLUGIN_PATH/login/github:daffyduck ttl=125s
+vault write -f $PLUGIN_PATH/login/github:jdoliner
+vault write -f $PLUGIN_PATH/login/github:JoeyZwicker ttl=125s
