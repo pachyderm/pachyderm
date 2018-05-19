@@ -17,15 +17,25 @@ func Factory(ctx context.Context, c *logical.BackendConfig) (logical.Backend, er
 	result := &backend{}
 	result.Backend = &framework.Backend{
 		BackendType: logical.TypeLogical,
-		AuthRenew:   result.renew,
 		PathsSpecial: &logical.Paths{
 			Unauthenticated: []string{"login"},
 		},
 		Paths: []*framework.Path{
 			result.configPath(),
 			result.loginPath(),
-			result.revokePath(),
+			result.versionPath(),
 		},
+		Secrets: []*framework.Secret{{
+			Type: "pachyderm_tokens",
+			Fields: map[string]*framework.FieldSchema{
+				"user_token": &framework.FieldSchema{
+					Type:        framework.TypeString,
+					Description: "Pachyderm authentication tokens",
+				},
+			},
+			Renew:  result.Renew,
+			Revoke: result.Revoke,
+		}},
 	}
 	if err := result.Setup(ctx, c); err != nil {
 		return nil, err
