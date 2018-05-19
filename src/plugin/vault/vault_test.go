@@ -18,6 +18,11 @@ import (
 const (
 	vaultAddress = "http://127.0.0.1:8200"
 	pluginName   = "pachyderm"
+
+	// This is the length of the longest lease that vault may grant (2018/5/18).
+	// It is derived empirically, by requesting leases from vault. It may change
+	// if the vault team decides to change it.
+	vaultMaxDurationSeconds = 2592000
 )
 
 var pachClient *client.APIClient
@@ -271,8 +276,8 @@ func TestLoginTTLParam(t *testing.T) {
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	if secret.LeaseDuration != 2 {
-		t.Fatalf("Expected pachyderm token with TTL=2s, but was %ds", secret.LeaseDuration)
+	if secret.LeaseDuration <= 0 || secret.LeaseDuration > 2 {
+		t.Fatalf("Expected pachyderm token with TTL ~= 2s, but was %ds", secret.LeaseDuration)
 	}
 	pachToken := secret.Data["user_token"].(string)
 	reportedPachdAddress := secret.Data["pachd_address"].(string)
@@ -311,7 +316,7 @@ func TestLoginDefaultTTL(t *testing.T) {
 }
 
 // TestLoginLongTTL tests that it's possible to get a Pachyderm token with a
-// long TTL
+// long TTL (Pachyderm should accept the longest TTL that vault may request)
 func TestLoginLongTTL(t *testing.T) {
 	// Get Vault client
 	vaultClientConfig := vault.DefaultConfig()
@@ -326,12 +331,15 @@ func TestLoginLongTTL(t *testing.T) {
 	// Get Pachyderm token with long TTL
 	secret, err := vl.Write(
 		fmt.Sprintf("/%v/login/github:bogusgithubusername", pluginName),
-		map[string]interface{}{"ttl": "768h"},
+		map[string]interface{}{"ttl": fmt.Sprintf("%ds", vaultMaxDurationSeconds)},
 	)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
-	if secret.LeaseDuration < int((700 * time.Hour).Seconds()) {
+	// Pachyderm should accept leases of at least 30 days (it must accept the
+	// vault maximum duration, which is slightly over 30 days)
+	const epsilon = 3 // if the returned lease differs from the requested lease by this amount, the test is failed
+	if secret.LeaseDuration < vaultMaxDurationSeconds-epsilon {
 		t.Fatalf("Expected pachyderm token with TTL=768h, but was %ds", secret.LeaseDuration)
 	}
 
@@ -354,13 +362,16 @@ func TestLoginLongTTL(t *testing.T) {
 	}
 }
 
+// TestRenewBeforeTTLExpires tests that if a user requests a Pachyderm token
+// from Vault, and then renews the associated lease before the token expires,
+// the token is also renewed and stays valid for the duration of the Vault lease
 func TestRenewBeforeTTLExpires(t *testing.T) {
 	ttl := 10
 	c, v, secret := loginHelper(t, fmt.Sprintf("%vs", ttl))
 	if secret.LeaseDuration < 2 {
 		t.Fatalf("expected lease to be at least 2s, but was: %d", secret.LeaseDuration)
-	} else if secret.LeaseDuration > 100 {
-		t.Fatalf("expected lease to be at most 100s, but was: %d", secret.LeaseDuration)
+	} else if secret.LeaseDuration > 10 {
+		t.Fatalf("expected lease to be at most 10s, but was: %d", secret.LeaseDuration)
 	}
 
 	_, err := c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
@@ -402,8 +413,8 @@ func TestRenewBeforeTTLExpires(t *testing.T) {
 	}
 	if newDuration < 2 {
 		t.Fatalf("expected lease to be at least 2s, but was: %d", newDuration)
-	} else if newDuration > 100 {
-		t.Fatalf("expected lease to be at most 100s, but was: %d", newDuration)
+	} else if newDuration > 20 {
+		t.Fatalf("expected lease to be at most 20s, but was: %d", newDuration)
 	}
 
 	// Make sure that the Pachyderm token was also renewed
@@ -414,6 +425,10 @@ func TestRenewBeforeTTLExpires(t *testing.T) {
 	}
 }
 
+// TestRenewAfterTTLExpires tests that if a user requests a Pachyderm token
+// from Vault, and then lets the token expire, and then tries to renew the
+// associated lease in Vault, then the renewal will fail and the Pachyderm
+// token will stay expired
 func TestRenewAfterTTLExpires(t *testing.T) {
 	ttl := 2
 	c, v, secret := loginHelper(t, fmt.Sprintf("%vs", ttl))
@@ -450,33 +465,37 @@ func TestRenewAfterTTLExpires(t *testing.T) {
 	}
 }
 
+// TestRevoke tests if a user requests a Pachyderm token from vault, and then
+// revokes the associated vault lease, the Pachyderm token is also revoked in
+// Pachyderm
 func TestRevoke(t *testing.T) {
 	c, v, secret := loginHelper(t, "")
-	if secret.LeaseDuration < 60 {
-		t.Fatalf("Expected Pachyderm token to have long lease duration, but was %d", secret.LeaseDuration)
-	}
 
+	// Make sure that 'secret' contains a valid Pachyderm token
 	_, err := c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 
+	// Revoke the vault lease in 'secret'
 	vl := v.Logical()
 	_, err = vl.Write(
 		fmt.Sprintf("/sys/leases/revoke"),
 		map[string]interface{}{"lease_id": secret.LeaseID},
 	)
-
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 
+	// Make sure that the Pachyderm token in 'secret' has been revoked and no
+	// longer works
 	_, err = c.AuthAPIClient.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 	if err == nil {
 		t.Fatalf("expected error with revoked pach token, got none\n")
 	}
 }
 
+// TestVersion tests the pachyderm/version endpoint
 func TestVersion(t *testing.T) {
 	// Get Vault client
 	vaultClientConfig := vault.DefaultConfig()
