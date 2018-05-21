@@ -8,18 +8,23 @@ cache:
 language: go
 go:
 - 1.10beta1
+env:
+- BUCKET=MISC
+# If you want to update the number of PPS workers, you'll also need to update
+# the value in ./etc/build/PPS_BUILD_BUCKET_COUNT
+- BUCKET=PPS1
+- BUCKET=PPS2
+- BUCKET=PPS3
 branches:
   except:
     - /^v[0-9]/
 before_install:
 - sudo etc/testing/ci/before_install.sh
 before_script:
-- make launch-kube
 - docker version
 # Install any deps used by our "batch test" cron
 - etc/testing/ci/travis_install_batch_deps.sh
 script:
-- make lint
 - etc/testing/travis.sh
 after_failure:
 - kubectl version
