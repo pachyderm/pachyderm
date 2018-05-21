@@ -3,8 +3,13 @@
 set -e
 
 # Make sure cache dir exists and is writable
+echo "Modding cache permissions"
+echo "home $HOME"
 mkdir -p ~/.cache/go-build
+ls -alh ~/.cache/go-build
 sudo chown -R `whoami` ~/.cache/go-build
+echo "after chown ..."
+ls -alh ~/.cache/go-build
 
 make launch-kube
 
