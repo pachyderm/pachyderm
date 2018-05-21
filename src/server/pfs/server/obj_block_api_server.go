@@ -76,16 +76,17 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objC
 		objectCacheBytes: oneCacheShare * objectCacheShares,
 	}
 
-	if !test {
-		objectGroupName := "object"
-		tagGroupName := "tag"
-		objectInfoGroupName := "objectInfo"
+	objectGroupName := "object"
+	tagGroupName := "tag"
+	objectInfoGroupName := "objectInfo"
 
-		s.objectCache = groupcache.NewGroup(objectGroupName, oneCacheShare*objectCacheShares, groupcache.GetterFunc(s.objectGetter))
-		RegisterCacheStats("object", &s.objectCache.Stats)
-		s.tagCache = groupcache.NewGroup(tagGroupName, oneCacheShare*tagCacheShares, groupcache.GetterFunc(s.tagGetter))
+	s.objectCache = groupcache.NewGroup(objectGroupName, oneCacheShare*objectCacheShares, groupcache.GetterFunc(s.objectGetter))
+	s.tagCache = groupcache.NewGroup(tagGroupName, oneCacheShare*tagCacheShares, groupcache.GetterFunc(s.tagGetter))
+	s.objectInfoCache = groupcache.NewGroup(objectInfoGroupName, oneCacheShare*objectInfoCacheShares, groupcache.GetterFunc(s.objectInfoGetter))
+
+	if !test {
 		RegisterCacheStats("tag", &s.tagCache.Stats)
-		s.objectInfoCache = groupcache.NewGroup(objectInfoGroupName, oneCacheShare*objectInfoCacheShares, groupcache.GetterFunc(s.objectInfoGetter))
+		RegisterCacheStats("object", &s.objectCache.Stats)
 		RegisterCacheStats("object_info", &s.objectInfoCache.Stats)
 	}
 
