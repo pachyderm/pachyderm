@@ -56,13 +56,11 @@ elif [[ $PPS_SUITE -eq 0 ]]; then
 	INDEX=0
 
 	for test in $LIST; do
-		if [[ $INDEX -ge $MIN ]]; then
-			if [[ $INDEX -lt $MAX ]]; then
-				if [[ "$RUN" == "" ]]; then
-					RUN=$test
-				else
-					RUN="$RUN|$test"
-				fi
+		if [[ $INDEX -ge $MIN ]] && [[ $INDEX -lt $MAX ]] ; then
+			if [[ "$RUN" == "" ]]; then
+				RUN=$test
+			else
+				RUN="$RUN|$test"
 			fi
 		fi
 		INDEX=$(( $INDEX + 1 ))
