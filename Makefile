@@ -413,7 +413,7 @@ enterprise-code-checkin-test:
 test-pfs:
 	@# don't run this in verbose mode, as it produces a huge amount of logs
 	go test ./src/server/pfs/server -timeout $(TIMEOUT)
-	go test ./src/server/pfs/cmds -timeout $(TIMEOUT)
+	go test ./src/server/pfs/cmds -count 1 -timeout $(TIMEOUT)
 	go test ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
 	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
 
