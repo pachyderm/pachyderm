@@ -4,6 +4,7 @@
 
 - Pachyderm now exposes metrics via Prometheus. (#2856)
 - File commands now all support globbing syntax. I.e. you can do pachctl list-file ... foo/*. (#2870)
+- garbage-collect is now safer and less error prone. (#2912)
 - put-file no longer requires starting (or finishing) a commit. Similar to put-file -c, but serverside. (#2890)
 - pachctl deploy --dry-run can now output YAML as well as JSON. Special thanks to @jkinkead. (#2872)
 - Requirements on pipeline container images have been removed. (#2897)
