@@ -50,7 +50,7 @@ func newMinioWriter(client *minioClient, name string) *minioWriter {
 		pipe:    writer,
 	}
 	go func() {
-		_, err := client.PutObject(client.bucket, name, reader, "application/octet-stream")
+		_, err := client.PutObject(client.bucket, name, reader, -1, minio.PutObjectOptions{ContentType: "application/octet-stream"})
 		if err != nil {
 			reader.CloseWithError(err)
 		}
@@ -103,7 +103,7 @@ func (l *limitReadCloser) Close() (err error) {
 }
 
 func (c *minioClient) Reader(name string, offset uint64, size uint64) (io.ReadCloser, error) {
-	obj, err := c.GetObject(c.bucket, name)
+	obj, err := c.GetObject(c.bucket, name, minio.GetObjectOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -123,8 +123,17 @@ func (c *minioClient) Delete(name string) error {
 	return c.RemoveObject(c.bucket, name)
 }
 
+func (c *minioClient) Copy(src, dst string) error {
+	_src := minio.NewSourceInfo(c.bucket, src, nil)
+	_dst, err := minio.NewDestinationInfo(c.bucket, dst, nil, nil)
+	if err != nil {
+		return err
+	}
+	return c.CopyObject(_dst, _src)
+}
+
 func (c *minioClient) Exists(name string) bool {
-	_, err := c.StatObject(c.bucket, name)
+	_, err := c.StatObject(c.bucket, name, minio.StatObjectOptions{})
 	return err == nil
 }
 

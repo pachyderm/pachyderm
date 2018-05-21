@@ -34,6 +34,8 @@ type Client interface {
 	// It should error if the object doesn't exist or we don't have sufficient
 	// permission to delete it.
 	Delete(name string) error
+	// Copy copies an object. It errors if src does not exist.
+	Copy(src, dst string) error
 	// Walk calls `fn` with the names of objects which can be found under `prefix`.
 	Walk(prefix string, fn func(name string) error) error
 	// Exsits checks if a given object already exists

@@ -48,6 +48,10 @@ func (c *localClient) Delete(path string) error {
 	return os.Remove(filepath.Join(c.root, path))
 }
 
+func (c *localClient) Copy(src, dst string) error {
+	return os.Link(filepath.Join(c.root, src), filepath.Join(c.root, dst))
+}
+
 func (c *localClient) Walk(dir string, walkFn func(name string) error) error {
 	dir = filepath.Join(c.root, dir)
 	fi, _ := os.Stat(dir)

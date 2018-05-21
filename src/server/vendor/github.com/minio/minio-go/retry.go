@@ -1,5 +1,6 @@
 /*
- * Minio Go Library for Amazon S3 Compatible Cloud Storage (C) 2015, 2016 Minio, Inc.
+ * Minio Go Library for Amazon S3 Compatible Cloud Storage
+ * Copyright 2015-2017 Minio, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +26,7 @@ import (
 )
 
 // MaxRetry is the maximum number of retries before stopping.
-var MaxRetry = 5
+var MaxRetry = 10
 
 // MaxJitter will randomize over the full exponential backoff time
 const MaxJitter = 1.0
@@ -110,6 +111,9 @@ func isNetErrorRetryable(err error) bool {
 			} else if strings.Contains(err.Error(), "connection timed out") {
 				// If err is a net.Dial timeout, retry.
 				return true
+			} else if strings.Contains(err.Error(), "net/http: HTTP/1.x transport connection broken") {
+				// If error is transport connection broken, retry.
+				return true
 			}
 		}
 	}
@@ -127,6 +131,7 @@ var retryableS3Codes = map[string]struct{}{
 	"InternalError":         {},
 	"ExpiredToken":          {},
 	"ExpiredTokenException": {},
+	"SlowDown":              {},
 	// Add more AWS S3 codes here.
 }
 

@@ -1,5 +1,6 @@
 /*
- * Minio Go Library for Amazon S3 Compatible Cloud Storage (C) 2017 Minio, Inc.
+ * Minio Go Library for Amazon S3 Compatible Cloud Storage
+ * Copyright 2015-2017 Minio, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +26,7 @@ var s3ErrorResponseMap = map[string]string{
 	"EntityTooLarge":                    "Your proposed upload exceeds the maximum allowed object size.",
 	"IncompleteBody":                    "You did not provide the number of bytes specified by the Content-Length HTTP header.",
 	"InternalError":                     "We encountered an internal error, please try again.",
-	"InvalidAccessKeyID":                "The access key ID you provided does not exist in our records.",
+	"InvalidAccessKeyId":                "The access key ID you provided does not exist in our records.",
 	"InvalidBucketName":                 "The specified bucket is not valid.",
 	"InvalidDigest":                     "The Content-Md5 you specified is not valid.",
 	"InvalidRange":                      "The requested range is not satisfiable",

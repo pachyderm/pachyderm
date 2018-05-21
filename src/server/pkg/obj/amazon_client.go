@@ -300,6 +300,17 @@ func (c *amazonClient) Delete(name string) error {
 	return err
 }
 
+func (c *amazonClient) Copy(src, dst string) error {
+	_, err := c.s3.CopyObject(&s3.CopyObjectInput{
+		Bucket: aws.String(c.bucket),
+		Key:    aws.String(dst),
+		// From docs: The name of the source bucket and key name of the source
+		// object, separated by a slash (/). Must be URL-encoded.
+		CopySource: aws.String(fmt.Sprintf("%s/%s", c.bucket, src)),
+	})
+	return err
+}
+
 func (c *amazonClient) Exists(name string) bool {
 	_, err := c.s3.HeadObject(&s3.HeadObjectInput{
 		Bucket: aws.String(c.bucket),

@@ -76,6 +76,11 @@ func (c *googleClient) Delete(name string) error {
 	return c.bucket.Object(name).Delete(c.ctx)
 }
 
+func (c *googleClient) Copy(src, dst string) error {
+	_, err := c.bucket.Object(dst).CopierFrom(c.bucket.Object(src)).Run(c.ctx)
+	return err
+}
+
 func (c *googleClient) IsRetryable(err error) (ret bool) {
 	googleErr, ok := err.(*googleapi.Error)
 	if !ok {

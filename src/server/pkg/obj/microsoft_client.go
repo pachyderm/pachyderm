@@ -13,7 +13,7 @@ import (
 
 type microsoftClient struct {
 	blobClient storage.BlobStorageClient
-	container  string
+	container  *storage.Container
 }
 
 func newMicrosoftClient(container string, accountName string, accountKey string) (*microsoftClient, error) {
@@ -25,14 +25,19 @@ func newMicrosoftClient(container string, accountName string, accountKey string)
 		return nil, err
 	}
 
+	blobClient := client.GetBlobService()
 	return &microsoftClient{
-		blobClient: client.GetBlobService(),
-		container:  container,
+		blobClient: blobClient,
+		container:  blobClient.GetContainerReference(container),
 	}, nil
 }
 
+func (c *microsoftClient) blob(name string) *storage.Blob {
+	return c.container.GetBlobReference(name)
+}
+
 func (c *microsoftClient) Writer(name string) (io.WriteCloser, error) {
-	writer, err := newMicrosoftWriter(c, name)
+	writer, err := c.newMicrosoftWriter(name)
 	if err != nil {
 		return nil, err
 	}
@@ -40,13 +45,21 @@ func (c *microsoftClient) Writer(name string) (io.WriteCloser, error) {
 }
 
 func (c *microsoftClient) Reader(name string, offset uint64, size uint64) (io.ReadCloser, error) {
-	byteRange := byteRange(offset, size)
 	var reader io.ReadCloser
 	var err error
-	if byteRange == "" {
-		reader, err = c.blobClient.GetBlob(c.container, name)
+	if offset == 0 && size == 0 {
+		reader, err = c.blob(name).Get(nil)
 	} else {
-		reader, err = c.blobClient.GetBlobRange(c.container, name, byteRange, nil)
+		end := uint64(0)
+		if size != 0 {
+			end = offset + size
+		}
+		reader, err = c.blob(name).GetRange(&storage.GetBlobRangeOptions{
+			Range: &storage.BlobRange{
+				Start: offset,
+				End:   end,
+			},
+		})
 	}
 
 	if err != nil {
@@ -56,7 +69,11 @@ func (c *microsoftClient) Reader(name string, offset uint64, size uint64) (io.Re
 }
 
 func (c *microsoftClient) Delete(name string) error {
-	return c.blobClient.DeleteBlob(c.container, name, nil)
+	return c.blob(name).Delete(nil)
+}
+
+func (c *microsoftClient) Copy(src, dst string) error {
+	return c.blob(dst).Copy(c.blob(src).GetURL(), nil)
 }
 
 func (c *microsoftClient) Walk(name string, fn func(name string) error) error {
@@ -64,7 +81,7 @@ func (c *microsoftClient) Walk(name string, fn func(name string) error) error {
 	// https://docs.microsoft.com/en-us/rest/api/storageservices/List-Blobs?redirectedfrom=MSDN
 	var marker string
 	for {
-		blobList, err := c.blobClient.ListBlobs(c.container, storage.ListBlobsParameters{
+		blobList, err := c.container.ListBlobs(storage.ListBlobsParameters{
 			Prefix: name,
 			Marker: marker,
 		})
@@ -88,7 +105,7 @@ func (c *microsoftClient) Walk(name string, fn func(name string) error) error {
 }
 
 func (c *microsoftClient) Exists(name string) bool {
-	exists, _ := c.blobClient.BlobExists(c.container, name)
+	exists, _ := c.blob(name).Exists()
 	return exists
 }
 
@@ -113,33 +130,32 @@ func (c *microsoftClient) IsIgnorable(err error) bool {
 }
 
 type microsoftWriter struct {
-	container  string
-	blob       string
 	blobClient storage.BlobStorageClient
+	blob       *storage.Blob
 }
 
-func newMicrosoftWriter(client *microsoftClient, name string) (*microsoftWriter, error) {
+func (c *microsoftClient) newMicrosoftWriter(name string) (*microsoftWriter, error) {
 	// create container
-	_, err := client.blobClient.CreateContainerIfNotExists(client.container, storage.ContainerAccessTypePrivate)
+	_, err := c.container.CreateIfNotExists(&storage.CreateContainerOptions{Access: storage.ContainerAccessTypePrivate})
 	if err != nil {
 		return nil, err
 	}
 
 	// create blob
-	err = client.blobClient.CreateBlockBlob(client.container, name)
+	blob := c.blob(name)
+	err = blob.CreateBlockBlob(nil)
 	if err != nil {
 		return nil, err
 	}
 
 	return &microsoftWriter{
-		container:  client.container,
-		blob:       name,
-		blobClient: client.blobClient,
+		blobClient: c.blobClient,
+		blob:       blob,
 	}, nil
 }
 
 func (w *microsoftWriter) Write(b []byte) (int, error) {
-	blockList, err := w.blobClient.GetBlockList(w.container, w.blob, storage.BlockListTypeAll)
+	blockList, err := w.blob.GetBlockList(storage.BlockListTypeAll, nil)
 	if err != nil {
 		return 0, err
 	}
@@ -164,7 +180,7 @@ func (w *microsoftWriter) Write(b []byte) (int, error) {
 
 		blockID := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%011d\n", blocksLen)))
 		data := chunk[:n]
-		err = w.blobClient.PutBlock(w.container, w.blob, blockID, data)
+		err = w.blob.PutBlock(blockID, data, nil)
 		if err != nil {
 			return 0, fmt.Errorf("BlobStorageClient.PutBlock: %v", err)
 		}
@@ -174,7 +190,7 @@ func (w *microsoftWriter) Write(b []byte) (int, error) {
 	}
 
 	// update block list to blob committed block list.
-	err = w.blobClient.PutBlockList(w.container, w.blob, amendList)
+	err = w.blob.PutBlockList(amendList, nil)
 	if err != nil {
 		return 0, fmt.Errorf("BlobStorageClient.PutBlockList: %v", err)
 	}
