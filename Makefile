@@ -76,6 +76,9 @@ worker:
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
+	echo "attempting install:"
+	whoami
+	ls -alh ~/.cache/go-build
 	GO15VENDOREXPERIMENT=1 go install -ldflags "$(LD_FLAGS)" ./src/server/cmd/pachctl
 
 install-clean:
