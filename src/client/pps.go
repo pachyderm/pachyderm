@@ -542,11 +542,12 @@ func (c APIClient) ListPipeline() ([]*pps.PipelineInfo, error) {
 }
 
 // DeletePipeline deletes a pipeline along with its output Repo.
-func (c APIClient) DeletePipeline(name string) error {
+func (c APIClient) DeletePipeline(name string, force bool) error {
 	_, err := c.PpsAPIClient.DeletePipeline(
 		c.Ctx(),
 		&pps.DeletePipelineRequest{
 			Pipeline: NewPipeline(name),
+			Force:    force,
 		},
 	)
 	return grpcutil.ScrubGRPC(err)

@@ -536,6 +536,7 @@ message DeletePipelineRequest {
   reserved 2, 3;
   Pipeline pipeline = 1;
   bool all = 4;
+  bool force = 5;
 }
 
 message StartPipelineRequest {
