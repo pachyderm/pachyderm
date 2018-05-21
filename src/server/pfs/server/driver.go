@@ -381,11 +381,10 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 		var existingRepoInfo pfs.RepoInfo
 		err := repos.Get(repo.Name, &existingRepoInfo)
 		if err != nil {
-			if col.IsErrNotFound(err) {
-				return fmt.Errorf("cannot delete \"%s\" as it does not exist", repo.Name)
+			if !col.IsErrNotFound(err) {
+				return fmt.Errorf("error checking whether \"%s\" exists: %v",
+					repo.Name, err)
 			}
-			return fmt.Errorf("error checking whether \"%s\" exists: %v",
-				repo.Name, err)
 		}
 
 		// Check if the caller is authorized to delete this repo
@@ -395,15 +394,26 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 
 		repoInfo := new(pfs.RepoInfo)
 		if err := repos.Get(repo.Name, repoInfo); err != nil {
-			return err
+			if !col.IsErrNotFound(err) {
+				return fmt.Errorf("repos.Get: %v", err)
+			}
 		}
 		commits.DeleteAll()
 		for _, branch := range repoInfo.Branches {
 			if err := d.deleteBranchSTM(stm, branch, force); err != nil {
-				return err
+				return fmt.Errorf("delete branch %s: %v", branch, err)
 			}
 		}
-		return repos.Delete(repo.Name)
+		// Despite the fact that we already deleted each branch with
+		// deleteBranchSTM we also do branches.DeleteAll(), this insulates us
+		// against certain corruption situations where the RepoInfo doesn't
+		// exist in etcd but branches do.
+		branches := d.branches(repo.Name).ReadWrite(stm)
+		branches.DeleteAll()
+		if err := repos.Delete(repo.Name); err != nil && !col.IsErrNotFound(err) {
+			return fmt.Errorf("repos.Delete: %v", err)
+		}
+		return nil
 	})
 	if err != nil {
 		return err
@@ -1740,34 +1750,39 @@ func (d *driver) deleteBranchSTM(stm col.STM, branch *pfs.Branch, force bool) er
 	branches := d.branches(branch.Repo.Name).ReadWrite(stm)
 	branchInfo := &pfs.BranchInfo{}
 	if err := branches.Get(branch.Name, branchInfo); err != nil {
-		if isNotFoundErr(err) {
-			// Branch was already deleted, nothing to do.
-			return nil
-		}
-		return err
-	}
-	if !force {
-		if len(branchInfo.Subvenance) > 0 {
-			return fmt.Errorf("branch %s has %v as subvenance, deleting it would break those branches", branch.Name, branchInfo.Subvenance)
+		if !col.IsErrNotFound(err) {
+			return fmt.Errorf("branches.Get: %v", err)
 		}
 	}
-	if err := branches.Delete(branch.Name); err != nil {
-		return err
-	}
-	for _, provBranch := range branchInfo.Provenance {
-		provBranchInfo := &pfs.BranchInfo{}
-		if err := d.branches(provBranch.Repo.Name).ReadWrite(stm).Update(provBranch.Name, provBranchInfo, func() error {
-			del(&provBranchInfo.Subvenance, branch)
-			return nil
-		}); err != nil {
-			return err
+	if branchInfo.Branch != nil {
+		if !force {
+			if len(branchInfo.Subvenance) > 0 {
+				return fmt.Errorf("branch %s has %v as subvenance, deleting it would break those branches", branch.Name, branchInfo.Subvenance)
+			}
+		}
+		if err := branches.Delete(branch.Name); err != nil {
+			return fmt.Errorf("branches.Delete: %v", err)
+		}
+		for _, provBranch := range branchInfo.Provenance {
+			provBranchInfo := &pfs.BranchInfo{}
+			if err := d.branches(provBranch.Repo.Name).ReadWrite(stm).Update(provBranch.Name, provBranchInfo, func() error {
+				del(&provBranchInfo.Subvenance, branch)
+				return nil
+			}); err != nil && !isNotFoundErr(err) {
+				return fmt.Errorf("error deleting subvenance: %v", err)
+			}
 		}
 	}
 	repoInfo := &pfs.RepoInfo{}
-	return d.repos.ReadWrite(stm).Update(branch.Repo.Name, repoInfo, func() error {
+	if err := d.repos.ReadWrite(stm).Update(branch.Repo.Name, repoInfo, func() error {
 		del(&repoInfo.Branches, branch)
 		return nil
-	})
+	}); err != nil {
+		if !col.IsErrNotFound(err) || !force {
+			return err
+		}
+	}
+	return nil
 }
 
 func (d *driver) scratchPrefix() string {

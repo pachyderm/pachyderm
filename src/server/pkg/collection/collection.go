@@ -20,7 +20,10 @@ import (
 
 // defaultLimit was experimentally determined to be the highest value that could work
 // (It gets scaled down for specific collections if they trip the max-message size.)
-const defaultLimit int64 = 262144
+const (
+	defaultLimit  int64  = 262144
+	DefaultPrefix string = "pachyderm/1.7.0"
+)
 
 type collection struct {
 	etcdClient *etcd.Client
