@@ -61,7 +61,9 @@ type objBlockAPIServer struct {
 	objectIndexesLock sync.RWMutex
 }
 
-// In test mode we dont report prometheus metrics
+// In test mode, we use unique names for cache groups, since we might want
+// to run multiple block servers locally, which would conflict if groups
+// had the same name. We also do not report stats to prometheus
 func newObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objClient obj.Client, test bool) (*objBlockAPIServer, error) {
 	// defensive mesaure incase IsNotExist checking breaks due to underlying changes
 	if err := obj.TestIsNotExist(objClient); err != nil {
@@ -79,6 +81,13 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objC
 	objectGroupName := "object"
 	tagGroupName := "tag"
 	objectInfoGroupName := "objectInfo"
+
+	if test {
+		uuid := uuid.New()
+		objectGroupName += uuid
+		tagGroupName += uuid
+		objectInfoGroupName += uuid
+	}
 
 	s.objectCache = groupcache.NewGroup(objectGroupName, oneCacheShare*objectCacheShares, groupcache.GetterFunc(s.objectGetter))
 	s.tagCache = groupcache.NewGroup(tagGroupName, oneCacheShare*tagCacheShares, groupcache.GetterFunc(s.tagGetter))
