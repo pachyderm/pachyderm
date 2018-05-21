@@ -31,13 +31,23 @@ type Logger interface {
 
 type logger struct {
 	*logrus.Entry
-	histogram map[string]*prometheus.HistogramVec
-	counter   map[string]prometheus.Counter
-	mutex     *sync.Mutex
+	histogram   map[string]*prometheus.HistogramVec
+	counter     map[string]prometheus.Counter
+	mutex       *sync.Mutex
+	exportStats bool
 }
 
 // NewLogger creates a new logger
 func NewLogger(service string) Logger {
+	return newLogger(service, true)
+}
+
+// NewLogger creates a new logger for local testing (which does not report prometheus metrics)
+func NewLocalLogger(service string) Logger {
+	return newLogger(service, false)
+}
+
+func newLogger(service string, exportStats bool) Logger {
 	l := logrus.New()
 	l.Formatter = new(prettyFormatter)
 	newLogger := &logger{
@@ -45,23 +55,26 @@ func NewLogger(service string) Logger {
 		make(map[string]*prometheus.HistogramVec),
 		make(map[string]prometheus.Counter),
 		&sync.Mutex{},
+		exportStats,
 	}
-	reportMetricsOnce.Do(func() {
-		newReportMetricGauge := prometheus.NewGauge(
-			prometheus.GaugeOpts{
-				Namespace: "pachyderm",
-				Subsystem: "pachd",
-				Name:      "report_metric",
-				Help:      "gauge of number of calls to ReportMetric()",
-			},
-		)
-		if err := prometheus.Register(newReportMetricGauge); err != nil {
-			entry := newLogger.WithFields(logrus.Fields{"method": "NewLogger"})
-			newLogger.LogAtLevel(entry, logrus.WarnLevel, "error registering prometheus metric: %v", err)
-		} else {
-			reportMetricGauge = newReportMetricGauge
-		}
-	})
+	if exportStats {
+		reportMetricsOnce.Do(func() {
+			newReportMetricGauge := prometheus.NewGauge(
+				prometheus.GaugeOpts{
+					Namespace: "pachyderm",
+					Subsystem: "pachd",
+					Name:      "report_metric",
+					Help:      "gauge of number of calls to ReportMetric()",
+				},
+			)
+			if err := prometheus.Register(newReportMetricGauge); err != nil {
+				entry := newLogger.WithFields(logrus.Fields{"method": "NewLogger"})
+				newLogger.LogAtLevel(entry, logrus.WarnLevel, "error registering prometheus metric: %v", err)
+			} else {
+				reportMetricGauge = newReportMetricGauge
+			}
+		})
+	}
 	return newLogger
 }
 
@@ -87,6 +100,9 @@ func getMethodName() string {
 }
 
 func (l *logger) ReportMetric(method string, duration time.Duration, err error) {
+	if !l.exportStats {
+		return
+	}
 	// Count the number of ReportMetric() goros in case we start to leak them
 	if reportMetricGauge != nil {
 		reportMetricGauge.Inc()
