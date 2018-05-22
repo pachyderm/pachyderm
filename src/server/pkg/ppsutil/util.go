@@ -157,6 +157,9 @@ func GetPipelineInfo(pachClient *client.APIClient, ptr *pps.EtcdPipelineInfo) (*
 	}
 	result.State = ptr.State
 	result.Stopped = ptr.Stopped
+	if ptr.Stopped {
+		result.State = pps.PipelineState_PIPELINE_PAUSED
+	}
 	result.Reason = ptr.Reason
 	result.JobCounts = ptr.JobCounts
 	result.SpecCommit = ptr.SpecCommit
