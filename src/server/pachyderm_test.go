@@ -1341,7 +1341,7 @@ func TestDeletePipeline(t *testing.T) {
 	require.Equal(t, len(jobs), 0)
 }
 
-func TestPipelineState(t *testing.T) {
+func TestXXXPipelineState(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2008,7 +2008,7 @@ func TestUpdatePipeline(t *testing.T) {
 	require.Equal(t, "buzz\n", buffer.String())
 }
 
-func TestUpdateFailedPipeline(t *testing.T) {
+func TestXXXUpdateFailedPipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2076,7 +2076,7 @@ func TestUpdateFailedPipeline(t *testing.T) {
 	require.Equal(t, "bar\n", buffer.String())
 }
 
-func TestUpdateStoppedPipeline(t *testing.T) {
+func TestXXXUpdateStoppedPipeline(t *testing.T) {
 	// Pipeline should be updated, but should not be restarted
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -2230,7 +2230,7 @@ func TestManyFilesSingleCommit(t *testing.T) {
 	require.Equal(t, numFiles, len(fileInfos))
 }
 
-func TestStopPipeline(t *testing.T) {
+func TestXXXStopPipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2272,10 +2272,12 @@ func TestStopPipeline(t *testing.T) {
 	require.Equal(t, len(commits), 0)
 
 	// Restart pipeline, and make sure old commit is processed
+	fmt.Printf("gonna restart pipeline\n")
 	require.NoError(t, c.StartPipeline(pipelineName))
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
+	fmt.Printf("flushed commit\n")
 	require.Equal(t, 1, len(commitInfos))
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "file", 0, 0, &buffer))

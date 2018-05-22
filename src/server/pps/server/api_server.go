@@ -1840,6 +1840,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				}
 				// Update pipelinePtr to point to new commit
 				pipelinePtr.SpecCommit = commit
+				pipelinePtr.State = pps.PipelineState_PIPELINE_STARTING
+				// Reset any failure reasons
+				pipelinePtr.Reason = ""
 				return nil
 			})
 		}); err != nil {
@@ -2698,6 +2701,7 @@ func (a *apiServer) markPipelineStopped(pachClient *client.APIClient, pipelineNa
 			return err
 		}
 		pipelinePtr.Stopped = true
+		fmt.Printf("marking pipeline as stopped: %v\n", pipelinePtr)
 		return pipelines.Put(pipelineName, pipelinePtr)
 	})
 	if isNotFoundErr(err) {
