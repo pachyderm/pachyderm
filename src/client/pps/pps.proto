@@ -313,6 +313,7 @@ enum PipelineState {
 // by pointing to a PFS commit, de facto tracks the pipeline's version)
 message EtcdPipelineInfo {
   PipelineState state = 1;
+  bool stopped = 6;
   string reason = 4;
   pfs.Commit spec_commit = 2;
   map<int32, int32> job_counts = 3;
@@ -333,6 +334,8 @@ message PipelineInfo {
   // PFS along with the rest of this data structure--PPS.InspectPipeline fills
   // it in
   PipelineState state = 7;
+  // same for stopped field
+  bool stopped = 38;
   string recent_error = 8;
 
   // job_counts indicates the number of jobs within this pipeline in a given

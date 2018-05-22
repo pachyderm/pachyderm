@@ -40,7 +40,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
-	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 
 	"github.com/gogo/protobuf/types"
@@ -2118,7 +2117,8 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 	time.Sleep(10 * time.Second)
 	pipelineInfo, err := c.InspectPipeline(pipelineName)
 	require.NoError(t, err)
-	require.Equal(t, true, pps_server.PipelineStateToStopped(pipelineInfo.State))
+	//require.Equal(t, true, pps_server.PipelineStateToStopped(pipelineInfo.State))
+	require.Equal(t, true, pipelineInfo.Stopped)
 }
 
 func TestUpdatePipelineRunningJob(t *testing.T) {

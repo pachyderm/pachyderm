@@ -1840,7 +1840,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				}
 				// Update pipelinePtr to point to new commit
 				pipelinePtr.SpecCommit = commit
-				pipelinePtr.State = pps.PipelineState_PIPELINE_STARTING
 				return nil
 			})
 		}); err != nil {
@@ -2284,7 +2283,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 		return nil, err
 	}
 
-	if err := a.updatePipelineState(pachClient, request.Pipeline.Name, pps.PipelineState_PIPELINE_RUNNING); err != nil {
+	if err := a.markPipelineRunning(pachClient, request.Pipeline.Name); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -2318,7 +2317,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 	}
 
 	// Update PipelineInfo with new state
-	if err := a.updatePipelineState(pachClient, request.Pipeline.Name, pps.PipelineState_PIPELINE_PAUSED); err != nil {
+	if err := a.markPipelineStopped(pachClient, request.Pipeline.Name); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -2696,14 +2695,30 @@ func PipelineStateToStopped(state pps.PipelineState) bool {
 	}
 }
 
-func (a *apiServer) updatePipelineState(pachClient *client.APIClient, pipelineName string, state pps.PipelineState) error {
+func (a *apiServer) markPipelineRunning(pachClient *client.APIClient, pipelineName string) error {
 	_, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
 		pipelines := a.pipelines.ReadWrite(stm)
 		pipelinePtr := &pps.EtcdPipelineInfo{}
 		if err := pipelines.Get(pipelineName, pipelinePtr); err != nil {
 			return err
 		}
-		pipelinePtr.State = state
+		pipelinePtr.State = pps.PipelineState_PIPELINE_RUNNING
+		return pipelines.Put(pipelineName, pipelinePtr)
+	})
+	if isNotFoundErr(err) {
+		return newErrPipelineNotFound(pipelineName)
+	}
+	return err
+}
+
+func (a *apiServer) markPipelineStopped(pachClient *client.APIClient, pipelineName string) error {
+	_, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
+		pipelines := a.pipelines.ReadWrite(stm)
+		pipelinePtr := &pps.EtcdPipelineInfo{}
+		if err := pipelines.Get(pipelineName, pipelinePtr); err != nil {
+			return err
+		}
+		pipelinePtr.Stopped = true
 		return pipelines.Put(pipelineName, pipelinePtr)
 	})
 	if isNotFoundErr(err) {
