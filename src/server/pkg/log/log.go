@@ -148,7 +148,7 @@ func (l *logger) ReportMetric(method string, duration time.Duration, err error) 
 				},
 			)
 			if err := prometheus.Register(runTime); err != nil {
-				newLogger.LogAtLevel(entry, logrus.WarnLevel, fmt.Sprintf("error registering prometheus metric: %v", newReportMetricGauge), err)
+				l.LogAtLevel(entry, logrus.WarnLevel, fmt.Sprintf("error registering prometheus metric: %v", runTimeName), err)
 			} else {
 				l.histogram[runTimeName] = runTime
 			}
@@ -172,7 +172,7 @@ func (l *logger) ReportMetric(method string, duration time.Duration, err error) 
 			},
 		)
 		if err := prometheus.Register(secondsCount); err != nil {
-			newLogger.LogAtLevel(entry, logrus.WarnLevel, fmt.Sprintf("error registering prometheus metric: %v", newReportMetricGauge), err)
+			l.LogAtLevel(entry, logrus.WarnLevel, fmt.Sprintf("error registering prometheus metric: %v", secondsCountName), err)
 		} else {
 			l.counter[secondsCountName] = secondsCount
 		}
