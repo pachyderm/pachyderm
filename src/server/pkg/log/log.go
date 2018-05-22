@@ -140,7 +140,7 @@ func (l *logger) ReportMetric(method string, duration time.Duration, err error) 
 			runTime = prometheus.NewHistogramVec(
 				prometheus.HistogramOpts{
 					Namespace: "pachyderm",
-					Subsystem: fmt.Sprintf("pachd_%v", l.service),
+					Subsystem: l.service,
 					Name:      runTimeName,
 					Help:      fmt.Sprintf("Run time of %v", method),
 					Buckets:   prometheus.ExponentialBuckets(1.0, bucketFactor, bucketCount),
@@ -168,7 +168,7 @@ func (l *logger) ReportMetric(method string, duration time.Duration, err error) 
 		secondsCount = prometheus.NewCounter(
 			prometheus.CounterOpts{
 				Namespace: "pachyderm",
-				Subsystem: fmt.Sprintf("pachd_%v", l.service),
+				Subsystem: l.service,
 				Name:      secondsCountName,
 				Help:      fmt.Sprintf("cumulative number of seconds spent in %v", method),
 			},
