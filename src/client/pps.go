@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 
 	"github.com/gogo/protobuf/types"
 )
@@ -192,6 +193,25 @@ func (c APIClient) InspectJobOutputCommit(repoName, commitID string, blockState 
 // The order of the inputCommits doesn't matter.
 // If outputCommit is non-nil then only the job which created that commit as output will be returned.
 func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outputCommit *pfs.Commit) ([]*pps.JobInfo, error) {
+	var result []*pps.JobInfo
+	if err := c.ListJobF(pipelineName, inputCommit, outputCommit, func(ji *pps.JobInfo) error {
+		result = append(result, ji)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// ListJobF returns info about all jobs, calling f with each JobInfo.
+// If f returns an error iteration of jobs will stop and ListJobF will return
+// that error, unless the error is errutil.ErrBreak in which case it will
+// return nil.
+// If pipelineName is non empty then only jobs that were started by the named pipeline will be returned
+// If inputCommit is non-nil then only jobs which took the specific commits as inputs will be returned.
+// The order of the inputCommits doesn't matter.
+// If outputCommit is non-nil then only the job which created that commit as output will be returned.
+func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit, outputCommit *pfs.Commit, f func(*pps.JobInfo) error) error {
 	var pipeline *pps.Pipeline
 	if pipelineName != "" {
 		pipeline = NewPipeline(pipelineName)
@@ -204,19 +224,22 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outpu
 			OutputCommit: outputCommit,
 		})
 	if err != nil {
-		return nil, grpcutil.ScrubGRPC(err)
+		return grpcutil.ScrubGRPC(err)
 	}
-	var result []*pps.JobInfo
 	for {
 		ji, err := client.Recv()
 		if err == io.EOF {
-			break
+			return nil
 		} else if err != nil {
-			return nil, grpcutil.ScrubGRPC(err)
+			return grpcutil.ScrubGRPC(err)
 		}
-		result = append(result, ji)
+		if err := f(ji); err != nil {
+			if err == errutil.ErrBreak {
+				return nil
+			}
+			return err
+		}
 	}
-	return result, nil
 }
 
 // FlushJob calls f with all the jobs which were triggered by commits.
@@ -327,6 +350,35 @@ func (c APIClient) ListDatum(jobID string, pageSize int64, page int64) (*pps.Lis
 		resp.DatumInfos = append(resp.DatumInfos, r.DatumInfo)
 	}
 	return resp, nil
+}
+
+// ListDatumF returns info about all datums in a Job, calling f with each datum info.
+func (c APIClient) ListDatumF(jobID string, pageSize int64, page int64, f func(di *pps.DatumInfo) error) error {
+	client, err := c.PpsAPIClient.ListDatumStream(
+		c.Ctx(),
+		&pps.ListDatumRequest{
+			Job:      &pps.Job{jobID},
+			PageSize: pageSize,
+			Page:     page,
+		},
+	)
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	for {
+		resp, err := client.Recv()
+		if err == io.EOF {
+			return nil
+		} else if err != nil {
+			return grpcutil.ScrubGRPC(err)
+		}
+		if err := f(resp.DatumInfo); err != nil {
+			if err == errutil.ErrBreak {
+				return nil
+			}
+			return err
+		}
+	}
 }
 
 // InspectDatum returns info about a single datum
@@ -490,11 +542,12 @@ func (c APIClient) ListPipeline() ([]*pps.PipelineInfo, error) {
 }
 
 // DeletePipeline deletes a pipeline along with its output Repo.
-func (c APIClient) DeletePipeline(name string) error {
+func (c APIClient) DeletePipeline(name string, force bool) error {
 	_, err := c.PpsAPIClient.DeletePipeline(
 		c.Ctx(),
 		&pps.DeletePipelineRequest{
 			Pipeline: NewPipeline(name),
+			Force:    force,
 		},
 	)
 	return grpcutil.ScrubGRPC(err)

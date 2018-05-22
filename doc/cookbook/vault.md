@@ -34,22 +34,50 @@ sudo setcap cap_ipc_lock=+ep $(readlink -f /tmp/vault-plugins/pachyderm)
 
 3) Configure the plugin
 
-You'll need to provide the plugin with a few fields for it to work:
+We'll need to gather and provide this information to the plugin for it to work:
 
 - `admin_token` : is the (machine user) pachyderm token the plugin will use to cut new credentials on behalf of users
 - `pachd_address` : is the URL where the pachyderm cluster can be accessed
 - `ttl` : is the max TTL a token can be issued
 
 
+#### Admin Token
+
 To get a machine user `admin_token` from pachyderm:
 
+###### If auth is not activated
+(this activates auth with a robot user. It's also possible to activate auth with a github user. Also, the choice of `robot:admin` is arbitrary. You could name this admin `robot:<any string>`)
 ```
-$ pachctl auth activate # or 'pachctl auth login' if auth is already active
-$ ADMIN_TOKEN="$(cat ~/.pachyderm/config.json | jq -r '.v1.session_token')"
-$ echo "${ADMIN_TOKEN}"
-f7d120ee5084466b984376f34f3f06f6
+$ pachctl auth activate --initial-admin=robot:admin
+Retrieving Pachyderm token...
+WARNING: DO NOT LOSE THE ROBOT TOKEN BELOW WITHOUT ADDING OTHER ADMINS.
+IF YOU DO, YOU WILL BE PERMANENTLY LOCKED OUT OF YOUR CLUSTER!
+Pachyderm token for "robot:admin":
+34cffc9254df40f0a277ee23e9fb005d
+
+$ ADMIN_TOKEN=34cffc9254df40f0a277ee23e9fb005d
+$ echo "${ADMIN_TOKEN}" | pachctl auth use-auth-token # authenticates you as the cluster admin
 ```
 
+###### If auth *is* already activated
+```
+# Login as a cluster admin
+$ pachctl auth login
+... login as cluster admin ...
+
+# Appoint a new robot user as the cluster admin (if needed)
+$ pachctl auth modify-admins --add=robot:admin
+
+# Get a token for that robot user admin
+$ pachctl auth get-auth-token robot:admin
+New credentials:
+  Subject: robot:admin
+  Token: 3090e53de6cb4108a2c6591f3cbd4680
+
+$ ADMIN_TOKEN=3090e53de6cb4108a2c6591f3cbd4680
+```
+
+Pass the new admin token to Pachyderm:
 ```
 vault write pachyderm/config \
     admin_token="${ADMIN_TOKEN}" \
@@ -59,7 +87,10 @@ vault write pachyderm/config \
 4) Test the plugin
 
 ```
-vault write pachyderm/login username=robot:testuser
+vault read pachyderm/version
+
+# If this fails, check if the problem is in the client (rather than the server):
+vault read pachyderm/version/client-only
 ```
 
 5) Manage user tokens with `revoke`
@@ -91,55 +122,55 @@ Depending on your language / deployment this can vary. [see the vault documentat
     - if you have a token but it's TTL will expire soon (latter half of TTL is what's recommended), hit the `renew` path as described below
 - then use the response token when constructing your client to talk to the pachyderm cluster
 
-### login
+### Login
 
 Again, your client could be in any language. But as an example using the vault CLI:
 
 ```
-$ vault write pachyderm/login username=aspiring_pachyderm_user
-Key                         Value
----                         -----
-token                       365686aa-d4e5-6b64-d557-aeb196ebd596
-token_accessor              73afdb69-1654-0227-62ba-9f5aba741e11
-token_duration              45s
-token_renewable             true
-token_policies              [default]
-token_meta_pachd_address    127.0.0.1:30650
-token_meta_user_token       bc1e9979f8f7410d8bee606f914a65fc
-
+$ vault write -f pachyderm/login/robot:test
+Key                Value
+---                -----
+lease_id           pachyderm/login/robot:test/e93d9420-7788-4846-7d1a-8ac4815e4274
+lease_duration     768h
+lease_renewable    true
+pachd_address      192.168.99.100:30650
+user_token         aa425375f03d4a5bb0f529379d82aa39
 ```
 
 The response metadata contains the `user_token` that you need to use to connect to the pachyderm cluster,
-    as well as the `pachd_address` and the `TTL`.
-
-So, again if you wanted to use this on the command line:
-
-
+    as well as the `pachd_address`.
+Again, if you wanted to use this Pachyderm token on the command line:
 ```
-$cat ~/.pachyderm/config.json | jq -r '.v1.session_token |= "bc1e9979f8f7410d8bee606f914a65fc"'
-{
-  "user_id": "ac6ff71a39d541149a1081a33b3b7af3",
-  "v1": {
-    "session_token": "bc1e9979f8f7410d8bee606f914a65fc"
-  }
-}
-$ADDRESS=127.0.0.1:30650 pachctl list-repo
+$ echo "aa425375f03d4a5bb0f529379d82aa39" | pachctl auth use-auth-token
+$ ADDRESS=127.0.0.1:30650 pachctl list-repo
 ```
 
-### renew
-
-You should issue a `renew` request once the halfway mark of the TTL has elapsed. The only argument for renewal is the tokens UUID which you receive from the `login` endpoint.
+The TTL is tied to the vault lease in `lease_id`, which can be inspected or revoked
+  using the vault lease API (documented here: https://www.vaultproject.io/api/system/leases.html):
 
 ```
-$vault token renew 365686aa-d4e5-6b64-d557-aeb196ebd596
-Key                         Value
----                         -----
-token                       681f1d67-6865-aee0-994d-f119f7f118a0
-token_accessor              3e5e9716-9095-fc5d-a918-e74265f8dcf2
-token_duration              2m5s
-token_renewable             true
-token_policies              [default]
-token_meta_pachd_address    127.0.0.1:30650
-token_meta_user_token       3af25f5e74134f16b3464d4df4f5c7c9
+$ vault write /sys/leases/lookup lease_id=pachyderm/login/robot:test/e93d9420-7788-4846-7d1a-8ac4815e4274
+Key             Value
+---             -----
+expire_time     2018-06-17T23:32:23.317795215-07:00
+id              pachyderm/login/robot:test/e93d9420-7788-4846-7d1a-8ac4815e4274
+issue_time      2018-05-16T23:32:23.317794929-07:00
+last_renewal    <nil>
+renewable       true
+ttl             2764665
+```
+
+
+### Renew
+
+You should issue a `renew` request once the halfway mark of the TTL has elapsed.
+Like revocation, renewal is handled using the vault lease API:
+```
+$ vault write /sys/leases/renew lease_id=pachyderm/login/robot:test/e93d9420-7788-4846-7d1a-8ac4815e4274 increment=3600
+Key                Value
+---                -----
+lease_id           pachyderm/login/robot:test/e93d9420-7788-4846-7d1a-8ac4815e4274
+lease_duration     2h
+lease_renewable    true
 ```
 

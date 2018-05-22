@@ -17,7 +17,6 @@ import (
 	pfs "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	pps "github.com/pachyderm/pachyderm/src/client/pps"
-	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 	"golang.org/x/sync/errgroup"
@@ -391,7 +390,7 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 	}
 }
 
-var numFiles = int(col.QueryPaginationLimit / 10)
+var numFiles = 1000
 
 // These benchmarks can take a while, so I recommend running like:
 // $go test -v ./src/server/ -bench=BenchmarkPutManyFiles -run=BenchmarkPutManyFilesSingleCommit -timeout=3000s -benchtime 100ms

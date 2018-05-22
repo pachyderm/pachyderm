@@ -27,7 +27,7 @@ var (
 	// Using our own etcd image for now because there's a fix we need
 	// that hasn't been released, and which has been manually applied
 	// to the official v3.2.7 release.
-	etcdImage      = "pachyderm/etcd:v3.2.7"
+	etcdImage      = "quay.io/coreos/etcd:v3.3.5"
 	grpcProxyImage = "pachyderm/grpc-proxy:0.4.2"
 	dashName       = "dash"
 	workerImage    = "pachyderm/worker"
@@ -540,6 +540,12 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 			v1.ResourceMemory: mem,
 		}
 	}
+	// Don't want to strip the registry out of etcdImage since it's from quay
+	// not docker hub.
+	image := etcdImage
+	if opts.Registry != "" {
+		image = AddRegistry(opts.Registry, etcdImage)
+	}
 	return &apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
@@ -557,7 +563,7 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 					Containers: []v1.Container{
 						{
 							Name:  etcdName,
-							Image: AddRegistry(opts.Registry, etcdImage),
+							Image: image,
 							//TODO figure out how to get a cluster of these to talk to each other
 							Command: []string{
 								"/usr/local/bin/etcd",
@@ -565,6 +571,7 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 								"--advertise-client-urls=http://0.0.0.0:2379",
 								"--data-dir=/var/data/etcd",
 								"--auto-compaction-retention=1",
+								"--max-txn-ops=5000",
 							},
 							Ports: []v1.ContainerPort{
 								{
@@ -835,6 +842,10 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 	// Stateful Set, so we generate the kubernetes manifest using raw json.
 	// TODO(msteffen): we're now upgrading our kubernetes client, so we should be
 	// abe to rewrite this spec using k8s client structs
+	image := etcdImage
+	if opts.Registry != "" {
+		image = AddRegistry(opts.Registry, etcdImage)
+	}
 	return map[string]interface{}{
 		"apiVersion": "apps/v1beta1",
 		"kind":       "StatefulSet",
@@ -862,7 +873,7 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 					"containers": []interface{}{
 						map[string]interface{}{
 							"name":    etcdName,
-							"image":   AddRegistry(opts.Registry, etcdImage),
+							"image":   image,
 							"command": []string{"/bin/sh", "-c"},
 							"args":    []string{strings.Join(etcdCmd, " ")},
 							// Use the downward API to pass the pod name to etcd. This sets
@@ -1039,37 +1050,50 @@ func LocalSecret() map[string][]byte {
 }
 
 // AmazonSecret creates an amazon secret with the following parameters:
+//   region       - AWS region
 //   bucket       - S3 bucket name
-//   distribution - cloudfront distribution
 //   id           - AWS access key id
 //   secret       - AWS secret access key
 //   token        - AWS access token
-//   region       - AWS region
+//   distribution - cloudfront distribution
 func AmazonSecret(region, bucket, id, secret, token, distribution string) map[string][]byte {
 	return map[string][]byte{
+		"amazon-region":       []byte(region),
 		"amazon-bucket":       []byte(bucket),
-		"amazon-distribution": []byte(distribution),
 		"amazon-id":           []byte(id),
 		"amazon-secret":       []byte(secret),
 		"amazon-token":        []byte(token),
-		"amazon-region":       []byte(region),
+		"amazon-distribution": []byte(distribution),
 	}
 }
 
 // AmazonVaultSecret creates an amazon secret with the following parameters:
-//   bucket       - S3 bucket name
 //   region       - AWS region
+//   bucket       - S3 bucket name
+//   vaultAddress - address/hostport of vault
+//   vaultRole    - pachd's role in vault
+//   vaultToken   - pachd's vault token
 //   distribution - cloudfront distribution
-//   vault-role   - pachd's role in vault
-//   vault-token  - pachd's vault token
 func AmazonVaultSecret(region, bucket, vaultAddress, vaultRole, vaultToken, distribution string) map[string][]byte {
 	return map[string][]byte{
-		"amazon-bucket":       []byte(bucket),
 		"amazon-region":       []byte(region),
-		"amazon-distribution": []byte(distribution),
+		"amazon-bucket":       []byte(bucket),
 		"amazon-vault-addr":   []byte(vaultAddress),
 		"amazon-vault-role":   []byte(vaultRole),
 		"amazon-vault-token":  []byte(vaultToken),
+		"amazon-distribution": []byte(distribution),
+	}
+}
+
+// AmazonIAMRoleSecret creates an amazon secret with the following parameters:
+//   region       - AWS region
+//   bucket       - S3 bucket name
+//   distribution - cloudfront distribution
+func AmazonIAMRoleSecret(region, bucket, distribution string) map[string][]byte {
+	return map[string][]byte{
+		"amazon-region":       []byte(region),
+		"amazon-bucket":       []byte(bucket),
+		"amazon-distribution": []byte(distribution),
 	}
 }
 
@@ -1256,9 +1280,11 @@ func WriteAmazonAssets(encoder Encoder, opts *AssetOpts, region string, bucket s
 		return err
 	}
 	var secret map[string][]byte
-	if creds.ID != "" && creds.Secret != "" {
+	if creds == nil {
+		secret = AmazonIAMRoleSecret(region, bucket, cloudfrontDistro)
+	} else if creds.ID != "" {
 		secret = AmazonSecret(region, bucket, creds.ID, creds.Secret, creds.Token, cloudfrontDistro)
-	} else if creds.VaultRole != "" && creds.VaultToken != "" {
+	} else if creds.VaultAddress != "" {
 		secret = AmazonVaultSecret(region, bucket, creds.VaultAddress, creds.VaultRole, creds.VaultToken, cloudfrontDistro)
 	}
 	return WriteSecret(encoder, secret, opts)

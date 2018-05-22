@@ -16,6 +16,8 @@ ifdef VENDOR_ALL
 endif
 
 COMPILE_RUN_ARGS = -d -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
+# Label it w the go version we bundle in:
+COMPILE_IMAGE = "pachyderm/compile:$(shell cat etc/compile/GO_VERSION)"
 VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
 LD_FLAGS = -X github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 
@@ -141,15 +143,20 @@ release-worker:
 docker-build-compile:
 	docker build -t pachyderm_compile .
 
+# To bump this, update the etc/compile/GO_VERSION file
+publish-compile: docker-build-compile
+	docker tag pachyderm_compile $(COMPILE_IMAGE)
+	docker push $(COMPILE_IMAGE)
+
 docker-clean-worker:
 	docker stop worker_compile || true
 	docker rm worker_compile || true
 
-docker-build-worker: docker-clean-worker docker-build-compile
+docker-build-worker: docker-clean-worker
 	docker run \
 		-v $$GOPATH/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
-		--name worker_compile $(COMPILE_RUN_ARGS) pachyderm_compile /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh worker "$(LD_FLAGS)"
+		--name worker_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh worker "$(LD_FLAGS)"
 
 docker-wait-worker:
 	etc/compile/wait.sh worker_compile
@@ -158,21 +165,21 @@ docker-clean-pachd:
 	docker stop pachd_compile || true
 	docker rm pachd_compile || true
 
-docker-build-pachd: docker-clean-pachd docker-build-compile
+docker-build-pachd: docker-clean-pachd
 	docker run  \
 		-v $$GOPATH/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
-		--name pachd_compile $(COMPILE_RUN_ARGS) pachyderm_compile /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh pachd "$(LD_FLAGS)"
+		--name pachd_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh pachd "$(LD_FLAGS)"
 
 docker-clean-test:
 	docker stop test_compile || true
 	docker rm test_compile || true
 
-docker-build-test: docker-clean-test docker-build-compile
+docker-build-test: docker-clean-test
 	docker run \
 		-v $$GOPATH/go/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
-		--name test_compile $(COMPILE_RUN_ARGS) pachyderm_compile sh /etc/compile/compile_test.sh
+		--name test_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) sh /etc/compile/compile_test.sh
 	etc/compile/wait.sh test_compile
 	docker tag pachyderm_test:latest pachyderm/test:`git rev-list HEAD --max-count=1`
 
@@ -182,7 +189,11 @@ docker-push-test:
 docker-wait-pachd:
 	etc/compile/wait.sh pachd_compile
 
-docker-build: enterprise-code-checkin-test docker-build-worker docker-build-pachd docker-wait-worker docker-wait-pachd
+docker-build-helper: enterprise-code-checkin-test docker-build-worker docker-build-pachd docker-wait-worker docker-wait-pachd
+
+docker-build:
+	docker pull $(COMPILE_IMAGE)
+	make docker-build-helper
 
 docker-build-proto:
 	docker build -t pachyderm_proto etc/proto
@@ -370,7 +381,7 @@ proto: docker-build-proto
 
 # Use this to grab a binary for profiling purposes
 pachd-profiling-binary: docker-clean-pachd docker-build-compile
-	docker run -i  pachyderm_compile sh etc/compile/compile.sh pachd "$(LD_FLAGS)" PROFILE \
+	docker run -i  $(COMPILE_IMAGE) sh etc/compile/compile.sh pachd "$(LD_FLAGS)" PROFILE \
 	| tar xf -
 	# Binary emitted to ./pachd
 
@@ -389,7 +400,10 @@ pretest:
 
 local-test: docker-build launch-dev test-pfs clean-launch-dev
 
-test: enterprise-code-checkin-test docker-build docker-build-test-entrypoint clean-launch-dev launch-dev test-pfs test-pps test-vault test-auth test-enterprise test-worker
+test-misc: lint enterprise-code-checkin-test docker-build test-pfs test-vault test-auth test-enterprise test-worker
+
+# Run all the tests. Note! This is no longer the test entrypoint for travis
+test: clean-launch-dev launch-dev test-misc test-pps
 
 enterprise-code-checkin-test:
 	# Check if our test activation code is anywhere in the repo
@@ -403,15 +417,20 @@ enterprise-code-checkin-test:
 test-pfs:
 	@# don't run this in verbose mode, as it produces a huge amount of logs
 	go test ./src/server/pfs/server -timeout $(TIMEOUT)
-	go test ./src/server/pfs/cmds -timeout $(TIMEOUT)
+	go test ./src/server/pfs/cmds -count 1 -timeout $(TIMEOUT)
 	go test ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
 	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
 
-test-pps: launch-stats
+test-pps:
+	@# Travis uses the helper directly because it needs to specify a
+	@# subset of the tests using the run flag
+	@make RUN= test-pps-helper
+
+test-pps-helper: launch-stats docker-build-test-entrypoint 
 	# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-		go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT)  && \
-		go test ./src/server/pps/cmds -timeout $(TIMEOUT)
+		go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT) $(RUN) && \
+		go test ./src/server/pps/cmds -count 1 -timeout $(TIMEOUT)
 
 test-client:
 	rm -rf src/client/vendor
@@ -425,7 +444,7 @@ test-vault:
 	kill $$(cat /tmp/vault.pid) || true
 	./src/plugin/vault/etc/start-vault.sh
 	./src/plugin/vault/etc/setup-vault.sh
-	@# Use count flag to disable test caching
+	@# Dont cache these results as they require the pachd cluster
 	go test -v -count 1 ./src/plugin/vault -timeout $(TIMEOUT)
 
 test-fuse:
@@ -436,15 +455,18 @@ test-local:
 
 test-auth:
 	yes | pachctl delete-all
-	go test -v ./src/server/auth/server -timeout $(TIMEOUT)
-	go test -v ./src/server/auth/cmds -timeout $(TIMEOUT)
+	@# Dont cache these results as they require the pachd cluster
+	go test -v ./src/server/auth/server -count 1 -timeout $(TIMEOUT)
+	go test -v ./src/server/auth/cmds -count 1 -timeout $(TIMEOUT)
 
 test-enterprise:
-	go test -v ./src/server/enterprise/server -timeout $(TIMEOUT)
+	@# Dont cache these results as they require the pachd cluster
+	go test -v ./src/server/enterprise/server -count 1 -timeout $(TIMEOUT)
 
 test-worker: launch-stats test-worker-helper
 
 test-worker-helper:
+	@# Dont cache these results as they require the pachd cluster
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 			  go test -v ./src/server/worker/ -run=TestPrometheusStats -timeout $(TIMEOUT) -count 1
 

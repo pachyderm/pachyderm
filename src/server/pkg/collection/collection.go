@@ -9,21 +9,29 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/coreos/etcd/mvcc/mvccpb"
 	"github.com/gogo/protobuf/proto"
 )
 
-//QueryPaginationLimit defines the maximum number of results returned in an
-// etcd query using a paginated iterator
-const QueryPaginationLimit = 10000
+// defaultLimit was experimentally determined to be the highest value that could work
+// (It gets scaled down for specific collections if they trip the max-message size.)
+const (
+	defaultLimit  int64  = 262144
+	DefaultPrefix string = "pachyderm/1.7.0"
+)
 
 type collection struct {
 	etcdClient *etcd.Client
 	prefix     string
-	indexes    []Index
+	indexes    []*Index
+	// The limit used when listing the collection. This gets automatically
+	// tuned when requests fail so it's stored per collection.
+	limit int64
 	// We need this to figure out the concrete type of the objects
 	// that this collection is storing. It's pretty retarded, but
 	// not sure what else we can do since types in Go are not first-class
@@ -40,7 +48,7 @@ type collection struct {
 }
 
 // NewCollection creates a new collection.
-func NewCollection(etcdClient *etcd.Client, prefix string, indexes []Index, template proto.Message, keyCheck func(string) error, valCheck func(proto.Message) error) Collection {
+func NewCollection(etcdClient *etcd.Client, prefix string, indexes []*Index, template proto.Message, keyCheck func(string) error, valCheck func(proto.Message) error) Collection {
 	// We want to ensure that the prefix always ends with a trailing
 	// slash.  Otherwise, when you list the items under a collection
 	// such as `foo`, you might end up listing items under `foobar`
@@ -53,6 +61,7 @@ func NewCollection(etcdClient *etcd.Client, prefix string, indexes []Index, temp
 		prefix:     prefix,
 		etcdClient: etcdClient,
 		indexes:    indexes,
+		limit:      defaultLimit,
 		template:   template,
 		keyCheck:   keyCheck,
 		valCheck:   valCheck,
@@ -85,14 +94,14 @@ func (c *collection) Path(key string) string {
 	return path.Join(c.prefix, key)
 }
 
-func (c *collection) indexRoot(index Index) string {
+func (c *collection) indexRoot(index *Index) string {
 	// remove trailing slash from c.prefix
 	return fmt.Sprintf("%s__index_%s/",
 		strings.TrimRight(c.prefix, "/"), index.Field)
 }
 
 // See the documentation for `Index` for details.
-func (c *collection) indexDir(index Index, indexVal interface{}) string {
+func (c *collection) indexDir(index *Index, indexVal interface{}) string {
 	var indexValStr string
 	if marshaller, ok := indexVal.(proto.Marshaler); ok {
 		if indexValBytes, err := marshaller.Marshal(); err == nil {
@@ -111,7 +120,7 @@ func (c *collection) indexDir(index Index, indexVal interface{}) string {
 }
 
 // See the documentation for `Index` for details.
-func (c *collection) indexPath(index Index, indexVal interface{}, key string) string {
+func (c *collection) indexPath(index *Index, indexVal interface{}, key string) string {
 	return path.Join(c.indexDir(index, indexVal), key)
 }
 
@@ -152,7 +161,7 @@ func cloneProtoMsg(original proto.Message) proto.Message {
 
 // Giving a value, an index, and the key of the item, return the path
 // under which the new index item should be stored.
-func (c *readWriteCollection) getIndexPath(val interface{}, index Index, key string) string {
+func (c *readWriteCollection) getIndexPath(val interface{}, index *Index, key string) string {
 	reflVal := reflect.ValueOf(val)
 	field := reflect.Indirect(reflVal).FieldByName(index.Field).Interface()
 	return c.indexPath(index, field, key)
@@ -160,7 +169,7 @@ func (c *readWriteCollection) getIndexPath(val interface{}, index Index, key str
 
 // Giving a value, a multi-index, and the key of the item, return the
 // paths under which the multi-index items should be stored.
-func (c *readWriteCollection) getMultiIndexPaths(val interface{}, index Index, key string) []string {
+func (c *readWriteCollection) getMultiIndexPaths(val interface{}, index *Index, key string) []string {
 	var indexPaths []string
 	field := reflect.Indirect(reflect.ValueOf(val)).FieldByName(index.Field)
 	for i := 0; i < field.Len(); i++ {
@@ -194,11 +203,11 @@ func (c *readWriteCollection) PutTTL(key string, val proto.Message, ttl int64) e
 		}
 	}
 
-  ptr := reflect.ValueOf(val).Pointer()
+	ptr := reflect.ValueOf(val).Pointer()
 	if !c.stm.IsSafePut(c.Path(key), ptr) {
 		return fmt.Errorf("unsafe put for key %v (passed ptr did not receive updated value)", key)
 	}
-  
+
 	if c.indexes != nil {
 		clone := cloneProtoMsg(val)
 
@@ -429,50 +438,23 @@ func (c *readonlyCollection) Get(key string, val proto.Message) error {
 	return proto.Unmarshal(resp.Kvs[0].Value, val)
 }
 
-// an indirect iterator goes through a list of keys and retrieve those
-// items from the collection.
-type indirectIterator struct {
-	index int
-	resp  *etcd.GetResponse
-	col   *readonlyCollection
-}
-
-func (i *indirectIterator) Next(key *string, val proto.Message) (ok bool, retErr error) {
-	if err := watch.CheckType(i.col.template, val); err != nil {
-		return false, err
+func (c *readonlyCollection) GetByIndex(index *Index, indexVal interface{}, val proto.Message, opts *Options, f func(key string) error) error {
+	if atomic.LoadInt64(&index.limit) == 0 {
+		atomic.CompareAndSwapInt64(&index.limit, 0, defaultLimit)
 	}
-	for {
-		if i.index < len(i.resp.Kvs) {
-			kv := i.resp.Kvs[i.index]
-			i.index++
-
-			*key = path.Base(string(kv.Key))
-			if err := i.col.Get(*key, val); err != nil {
-				if IsErrNotFound(err) {
-					// In cases where we changed how certain objects are
-					// indexed, we could end up in a situation where the
-					// object is deleted but the old indexes still exist.
-					continue
-				} else {
-					return false, err
-				}
+	return c.list(c.indexDir(index, indexVal), &index.limit, opts, func(kv *mvccpb.KeyValue) error {
+		key := path.Base(string(kv.Key))
+		if err := c.Get(key, val); err != nil {
+			if IsErrNotFound(err) {
+				// In cases where we changed how certain objects are
+				// indexed, we could end up in a situation where the
+				// object is deleted but the old indexes still exist.
+				return nil
 			}
-
-			return true, nil
+			return err
 		}
-		return false, nil
-	}
-}
-
-func (c *readonlyCollection) GetByIndex(index Index, val interface{}) (Iterator, error) {
-	resp, err := c.etcdClient.Get(c.ctx, c.indexDir(index, val), etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend))
-	if err != nil {
-		return nil, err
-	}
-	return &indirectIterator{
-		resp: resp,
-		col:  c,
-	}, nil
+		return f(key)
+	})
 }
 
 func (c *readonlyCollection) GetBlock(key string, val proto.Message) error {
@@ -493,77 +475,46 @@ func (c *readonlyCollection) GetBlock(key string, val proto.Message) error {
 	}
 }
 
-func endKeyFromPrefix(prefix string) string {
-	// Lexigraphically increment the last character
-	return prefix[0:len(prefix)-1] + string(byte(prefix[len(prefix)-1])+1)
-}
-
-// ListPrefix returns lexigraphically sorted (not sorted by create time)
-// results and returns an iterator that is paginated
-func (c *readonlyCollection) ListPrefix(prefix string) (Iterator, error) {
+// ListPrefix returns keys (and values) that begin with prefix, f will be
+// called with each key, val will contain the value for the key.
+// You can break out of iteration by returning errutil.ErrBreak.
+func (c *readonlyCollection) ListPrefix(prefix string, val proto.Message, opts *Options, f func(string) error) error {
 	queryPrefix := c.prefix
 	if prefix != "" {
 		// If we always call join, we'll get rid of the trailing slash we need
 		// on the root c.prefix
 		queryPrefix = filepath.Join(c.prefix, prefix)
 	}
-	// omit sort so that we get results lexigraphically ordered, so that we can paginate properly
-	resp, err := c.etcdClient.Get(c.ctx, queryPrefix, etcd.WithPrefix(), etcd.WithLimit(QueryPaginationLimit))
-	if err != nil {
-		return nil, err
+	return c.list(queryPrefix, &c.limit, opts, func(kv *mvccpb.KeyValue) error {
+		if err := proto.Unmarshal(kv.Value, val); err != nil {
+			return err
+		}
+		return f(strings.TrimPrefix(string(kv.Key), queryPrefix))
+	})
+}
+
+// List returns objects sorted based on the options passed in. f will be called with each key, val will contain the
+// corresponding value. Val is not an argument to f because that would require
+// f to perform a cast before it could be used.
+// You can break out of iteration by returning errutil.ErrBreak.
+func (c *readonlyCollection) List(val proto.Message, opts *Options, f func(string) error) error {
+	if err := watch.CheckType(c.template, val); err != nil {
+		return err
 	}
-	return &paginatedIterator{
-		endKey:     endKeyFromPrefix(queryPrefix),
-		resp:       resp,
-		etcdClient: c.etcdClient,
-		ctx:        c.ctx,
-		col:        c,
-	}, nil
+	return c.list(c.prefix, &c.limit, opts, func(kv *mvccpb.KeyValue) error {
+		if err := proto.Unmarshal(kv.Value, val); err != nil {
+			return err
+		}
+		return f(strings.TrimPrefix(string(kv.Key), c.prefix))
+	})
 }
 
-// List returns an iterator that can be used to iterate over the collection.
-// The objects are sorted by revision time in descending order, i.e. newer
-// objects are returned first.
-func (c *readonlyCollection) List() (Iterator, error) {
-	resp, err := c.etcdClient.Get(c.ctx, c.prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortDescend))
-	if err != nil {
-		return nil, err
+func (c *readonlyCollection) list(prefix string, limitPtr *int64, opts *Options, f func(*mvccpb.KeyValue) error) error {
+	if opts.SelfSort {
+		return listSelfSortRevision(c, prefix, limitPtr, opts, f)
 	}
-	return &iterator{
-		resp: resp,
-		col:  c,
-	}, nil
-}
 
-// ListPaginated returns an iterator that can be used to iterate over the collection.
-// The objects are not sorted, but are paginated.
-func (c *readonlyCollection) ListPaginated() (Iterator, error) {
-	resp, err := c.etcdClient.Get(c.ctx, c.prefix, etcd.WithPrefix(), etcd.WithLimit(QueryPaginationLimit))
-	if err != nil {
-		return nil, err
-	}
-	return &paginatedIterator{
-		endKey:     endKeyFromPrefix(c.prefix),
-		resp:       resp,
-		etcdClient: c.etcdClient,
-		ctx:        c.ctx,
-		col:        c,
-	}, nil
-}
-
-type iterator struct {
-	index int
-	resp  *etcd.GetResponse
-	col   *readonlyCollection
-}
-
-type paginatedIterator struct {
-	index      int
-	endKey     string
-	resp       *etcd.GetResponse
-	etcdClient *etcd.Client
-	ctx        context.Context
-	col        *readonlyCollection
+	return listRevision(c, prefix, limitPtr, opts, f)
 }
 
 func (c *readonlyCollection) Count() (int64, error) {
@@ -572,59 +523,6 @@ func (c *readonlyCollection) Count() (int64, error) {
 		return 0, err
 	}
 	return resp.Count, err
-}
-
-func (i *iterator) Next(key *string, val proto.Message) (ok bool, retErr error) {
-	if err := watch.CheckType(i.col.template, val); err != nil {
-		return false, err
-	}
-	if i.index < len(i.resp.Kvs) {
-		kv := i.resp.Kvs[i.index]
-		i.index++
-
-		*key = path.Base(string(kv.Key))
-		if err := proto.Unmarshal(kv.Value, val); err != nil {
-			return false, err
-		}
-
-		return true, nil
-	}
-	return false, nil
-}
-
-// Next() writes a fully qualified key (including the path) to the key value
-func (i *paginatedIterator) Next(key *string, val proto.Message) (ok bool, retErr error) {
-	if err := watch.CheckType(i.col.template, val); err != nil {
-		return false, err
-	}
-	if i.index < len(i.resp.Kvs) {
-		kv := i.resp.Kvs[i.index]
-		i.index++
-
-		*key = string(kv.Key)
-		if err := proto.Unmarshal(kv.Value, val); err != nil {
-			return false, err
-		}
-
-		return true, nil
-	}
-	if len(i.resp.Kvs) == 0 {
-		//empty response
-		return false, nil
-	}
-	// Reached end of resp, try for another page
-	fromKey := string(i.resp.Kvs[len(i.resp.Kvs)-1].Key)
-	resp, err := i.etcdClient.Get(i.ctx, fromKey, etcd.WithRange(i.endKey), etcd.WithLimit(QueryPaginationLimit))
-	if err != nil {
-		return false, err
-	}
-	if len(resp.Kvs) == 1 {
-		// Only got the from key, there are no more kvs to fetch from etcd
-		return false, nil
-	}
-	i.index = 1 // Move past the from key
-	i.resp = resp
-	return i.Next(key, val)
 }
 
 // Watch a collection, returning the current content of the collection as
@@ -638,7 +536,7 @@ func (c *readonlyCollection) WatchWithPrev() (watch.Watcher, error) {
 }
 
 // WatchByIndex watches items in a collection that match a particular index
-func (c *readonlyCollection) WatchByIndex(index Index, val interface{}) (watch.Watcher, error) {
+func (c *readonlyCollection) WatchByIndex(index *Index, val interface{}) (watch.Watcher, error) {
 	eventCh := make(chan *watch.Event)
 	done := make(chan struct{})
 	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.indexDir(index, val), c.template)
