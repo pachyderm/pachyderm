@@ -1841,7 +1841,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				// Update pipelinePtr to point to new commit
 				pipelinePtr.SpecCommit = commit
 				pipelinePtr.State = pps.PipelineState_PIPELINE_STARTING
-				// Reset any failure reasons
+				// Clear any failure reasons
 				pipelinePtr.Reason = ""
 				return nil
 			})

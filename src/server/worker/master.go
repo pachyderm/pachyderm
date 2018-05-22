@@ -83,7 +83,7 @@ func (a *APIServer) master() {
 	// Also, we've observed race conditions where StopPipeline would cause
 	// a master to restart before it's deleted.  PPS would then get confused
 	// by the restart and create the workers again, because the restart would
-	// unstop the pipeline and set the state to RUNNING.  By setting a high
+	// bring the pipeline state from PAUSED to RUNNING.  By setting a high
 	// retry interval, the master would be deleted before it gets a chance
 	// to restart.
 	b.InitialInterval = 10 * time.Second
