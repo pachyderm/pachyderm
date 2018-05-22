@@ -341,11 +341,12 @@ func (c APIClient) SetBranch(repoName string, commit string, branch string) erro
 // DeleteBranch deletes a branch, but leaves the commits themselves intact.
 // In other words, those commits can still be accessed via commit IDs and
 // other branches they happen to be on.
-func (c APIClient) DeleteBranch(repoName string, branch string) error {
+func (c APIClient) DeleteBranch(repoName string, branch string, force bool) error {
 	_, err := c.PfsAPIClient.DeleteBranch(
 		c.Ctx(),
 		&pfs.DeleteBranchRequest{
 			Branch: NewBranch(repoName, branch),
+			Force:  force,
 		},
 	)
 	return grpcutil.ScrubGRPC(err)

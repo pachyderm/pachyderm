@@ -33,6 +33,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfspretty "github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
@@ -41,6 +43,7 @@ import (
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 
+	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/types"
 	prom_api "github.com/prometheus/client_golang/api"
 	prom_api_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
@@ -1274,7 +1277,7 @@ func TestRecreatePipeline(t *testing.T) {
 	// Do it twice.  We expect jobs to be created on both runs.
 	createPipeline()
 	time.Sleep(5 * time.Second)
-	require.NoError(t, c.DeletePipeline(pipeline))
+	require.NoError(t, c.DeletePipeline(pipeline, false))
 	time.Sleep(5 * time.Second)
 	createPipeline()
 }
@@ -1294,10 +1297,10 @@ func TestDeletePipeline(t *testing.T) {
 	_, err = c.PutFile(repo, commit.ID, uuid.NewWithoutDashes(), strings.NewReader("foo"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, commit.ID))
-	pipeline := tu.UniqueString("pipeline")
-	createPipeline := func() {
+	pipelines := []string{tu.UniqueString("TestDeletePipeline1"), tu.UniqueString("TestDeletePipeline2")}
+	createPipelines := func() {
 		require.NoError(t, c.CreatePipeline(
-			pipeline,
+			pipelines[0],
 			"",
 			[]string{"sleep", "20"},
 			nil,
@@ -1308,36 +1311,62 @@ func TestDeletePipeline(t *testing.T) {
 			"",
 			false,
 		))
+		require.NoError(t, c.CreatePipeline(
+			pipelines[1],
+			"",
+			[]string{"sleep", "20"},
+			nil,
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewAtomInput(pipelines[0], "/*"),
+			"",
+			false,
+		))
+		time.Sleep(10 * time.Second)
+		// Wait for the pipeline to start running
+		require.NoError(t, backoff.Retry(func() error {
+			pipelineInfo, err := c.InspectPipeline(pipelines[1])
+			if err != nil {
+				return err
+			}
+			if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
+				return fmt.Errorf("no running pipeline")
+			}
+			return nil
+		}, backoff.NewTestingBackOff()))
 	}
 
-	createPipeline()
-	time.Sleep(10 * time.Second)
-	// Wait for the pipeline to start running
-	require.NoError(t, backoff.Retry(func() error {
-		pipelineInfo, err := c.InspectPipeline(pipeline)
-		if err != nil {
-			return err
-		}
-		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
-			return fmt.Errorf("no running pipeline")
-		}
-		return nil
-	}, backoff.NewTestingBackOff()))
-	require.NoError(t, c.DeletePipeline(pipeline))
-	time.Sleep(5 * time.Second)
-	// Wait for the pipeline to disappear
-	require.NoError(t, backoff.Retry(func() error {
-		_, err := c.InspectPipeline(pipeline)
-		if err == nil {
-			return fmt.Errorf("expected pipeline to be missing, but it's still present")
-		}
-		return nil
-	}, backoff.NewTestingBackOff()))
+	createPipelines()
 
-	// The job should be gone
-	jobs, err := c.ListJob(pipeline, nil, nil)
+	deletePipeline := func(pipeline string) {
+		require.NoError(t, c.DeletePipeline(pipeline, false))
+		time.Sleep(5 * time.Second)
+		// Wait for the pipeline to disappear
+		require.NoError(t, backoff.Retry(func() error {
+			_, err := c.InspectPipeline(pipeline)
+			if err == nil {
+				return fmt.Errorf("expected pipeline to be missing, but it's still present")
+			}
+			return nil
+		}, backoff.NewTestingBackOff()))
+
+	}
+	// Can't delete a pipeline from the middle of the dag
+	require.YesError(t, c.DeletePipeline(pipelines[0], false))
+
+	deletePipeline(pipelines[1])
+	deletePipeline(pipelines[0])
+
+	// The jobs should be gone
+	jobs, err := c.ListJob(pipelines[1], nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, len(jobs), 0)
+
+	createPipelines()
+
+	// Can force delete pipelines from the middle of the dag.
+	require.NoError(t, c.DeletePipeline(pipelines[0], true))
 }
 
 func TestPipelineState(t *testing.T) {
@@ -4259,19 +4288,16 @@ func TestGarbageCollection(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	if os.Getenv(InCloudEnv) == "" {
-		t.Skip("Skipping this test as it can only be run in the cloud.")
-	}
-
 	c := getPachClient(t)
-	require.NoError(t, c.DeleteAll())
 
-	// The objects/tags that are there originally.  We run GC
-	// first so that later GC runs doesn't collect objects created
-	// by other tests.
+	// Delete everything, then run garbage collection and finally check that
+	// we're at a baseline of 0 tags and 0 objects.
+	require.NoError(t, c.DeleteAll())
 	require.NoError(t, c.GarbageCollect())
 	originalObjects := getAllObjects(t, c)
 	originalTags := getAllTags(t, c)
+	require.Equal(t, 0, len(originalObjects))
+	require.Equal(t, 0, len(originalTags))
 
 	dataRepo := tu.UniqueString("TestGarbageCollection")
 	pipeline := tu.UniqueString("TestGarbageCollectionPipeline")
@@ -4314,9 +4340,12 @@ func TestGarbageCollection(t *testing.T) {
 	objectsBefore := getAllObjects(t, c)
 	tagsBefore := getAllTags(t, c)
 
-	// Now delete the output repo and GC
-	require.NoError(t, c.DeleteRepo(pipeline, false))
-	require.NoError(t, c.GarbageCollect())
+	// Try to GC without stopping the pipeline.
+	require.YesError(t, c.GarbageCollect())
+
+	// Now stop the pipeline  and GC
+	require.NoError(t, c.StopPipeline(pipeline))
+	require.NoError(t, backoff.Retry(c.GarbageCollect, backoff.NewTestingBackOff()))
 
 	// Check that data still exists in the input repo
 	var buf bytes.Buffer
@@ -4326,41 +4355,51 @@ func TestGarbageCollection(t *testing.T) {
 	require.NoError(t, c.GetFile(dataRepo, commit.ID, "bar", 0, 0, &buf))
 	require.Equal(t, "bar", buf.String())
 
-	// Check that the objects that should be removed have been removed.
-	// We should've deleted precisely one object: the tree for the output
-	// commit.
+	pis, err := c.ListPipeline()
+	require.NoError(t, err)
+	require.Equal(t, 1, len(pis))
+
+	buf.Reset()
+	require.NoError(t, c.GetFile(pipeline, "master", "foo", 0, 0, &buf))
+	require.Equal(t, "foo", buf.String())
+	buf.Reset()
+	require.NoError(t, c.GetFile(pipeline, "master", "bar", 0, 0, &buf))
+	require.Equal(t, "barbar\n", buf.String())
+
+	// Check that no objects or tags have been removed, since we just ran GC
+	// without deleting anything.
 	objectsAfter := getAllObjects(t, c)
 	tagsAfter := getAllTags(t, c)
 
 	require.Equal(t, len(tagsBefore), len(tagsAfter))
-	require.Equal(t, len(objectsBefore), len(objectsAfter)+1)
+	require.Equal(t, len(objectsBefore), len(objectsAfter))
 	objectsBefore = objectsAfter
 	tagsBefore = tagsAfter
 
 	// Now delete the pipeline and GC
-	require.NoError(t, c.DeletePipeline(pipeline))
+	require.NoError(t, c.DeletePipeline(pipeline, false))
 	require.NoError(t, c.GarbageCollect())
 
 	// We should've deleted one tag since the pipeline has only processed
 	// one datum.
-	// We should've deleted two objects: one is the object referenced by
-	// the tag, and another is the modified "bar" file.
+	// We should've deleted 3 objects: the object referenced by
+	// the tag, the modified "bar" file and the pipeline's spec.
 	objectsAfter = getAllObjects(t, c)
 	tagsAfter = getAllTags(t, c)
 
-	require.Equal(t, len(tagsBefore), len(tagsAfter)+1)
-	require.Equal(t, len(objectsBefore), len(objectsAfter)+2)
+	require.Equal(t, 1, len(tagsBefore)-len(tagsAfter))
+	require.Equal(t, 3, len(objectsBefore)-len(objectsAfter))
 
-	// Now we delete the input repo.
-	require.NoError(t, c.DeleteRepo(dataRepo, false))
+	// Now we delete everything.
+	require.NoError(t, c.DeleteAll())
 	require.NoError(t, c.GarbageCollect())
 
 	// Since we've now deleted everything that we created in this test,
 	// the tag count and object count should be back to the originals.
 	objectsAfter = getAllObjects(t, c)
 	tagsAfter = getAllTags(t, c)
-	require.Equal(t, len(originalTags), len(tagsAfter))
-	require.Equal(t, len(originalObjects), len(objectsAfter))
+	require.Equal(t, 0, len(tagsAfter))
+	require.Equal(t, 0, len(objectsAfter))
 
 	// Now we create the pipeline again and check that all data is
 	// accessible.  This is important because there used to be a bug
@@ -7425,7 +7464,7 @@ func TestDeleteSpecRepo(t *testing.T) {
 		"",
 		false,
 	))
-	require.YesError(t, c.DeleteRepo("spec", false))
+	require.YesError(t, c.DeleteRepo(ppsconsts.SpecRepo, false))
 }
 
 func TestUserWorkingDir(t *testing.T) {
@@ -7571,7 +7610,63 @@ func TestStatsDeleteAll(t *testing.T) {
 	require.NoError(t, c.DeleteAll())
 }
 
+func TestCorruption(t *testing.T) {
+	t.Skip("This test takes too long to run on CI.")
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	etcdClient := getEtcdClient(t)
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	r := rand.New(rand.NewSource(128))
+
+	for i := 0; i < 100; i++ {
+		dataRepo := tu.UniqueString("TestSimplePipeline_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
+
+		commit1, err := c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo"))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+		pipeline := tu.UniqueString("TestSimplePipeline")
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{
+				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+			},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewAtomInput(dataRepo, "/*"),
+			"",
+			false,
+		))
+
+		commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+		require.NoError(t, err)
+		commitInfos := collectCommitInfos(t, commitIter)
+		require.Equal(t, 1, len(commitInfos))
+
+		resp, err := etcdClient.Get(context.Background(), col.DefaultPrefix, etcd.WithPrefix(), etcd.WithKeysOnly())
+		require.NoError(t, err)
+		for _, kv := range resp.Kvs {
+			// Delete 1 in 10 keys
+			if r.Intn(10) == 0 {
+				_, err := etcdClient.Delete(context.Background(), string(kv.Key))
+				require.NoError(t, err)
+			}
+		}
+		require.NoError(t, c.DeleteAll())
+	}
+}
+
 func TestPachdPrometheusStats(t *testing.T) {
+	t.Skip("flake")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -7926,4 +8021,23 @@ func getPachClient(t testing.TB) *client.APIClient {
 		require.NoError(t, err)
 	})
 	return pachClient
+}
+
+var etcdClient *etcd.Client
+var getEtcdClientOnce sync.Once
+
+const (
+	etcdAddress = "localhost:32379" // etcd must already be serving at this address
+)
+
+func getEtcdClient(t testing.TB) *etcd.Client {
+	getEtcdClientOnce.Do(func() {
+		var err error
+		etcdClient, err = etcd.New(etcd.Config{
+			Endpoints:   []string{etcdAddress},
+			DialOptions: client.EtcdDialOptions(),
+		})
+		require.NoError(t, err)
+	})
+	return etcdClient
 }

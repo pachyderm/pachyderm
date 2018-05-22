@@ -400,7 +400,10 @@ pretest:
 
 local-test: docker-build launch-dev test-pfs clean-launch-dev
 
-test: enterprise-code-checkin-test docker-build docker-build-test-entrypoint clean-launch-dev launch-dev test-pfs test-pps test-vault test-auth test-enterprise test-worker
+test-misc: lint enterprise-code-checkin-test docker-build test-pfs test-vault test-auth test-enterprise test-worker
+
+# Run all the tests. Note! This is no longer the test entrypoint for travis
+test: clean-launch-dev launch-dev test-misc test-pps
 
 enterprise-code-checkin-test:
 	# Check if our test activation code is anywhere in the repo
@@ -414,15 +417,20 @@ enterprise-code-checkin-test:
 test-pfs:
 	@# don't run this in verbose mode, as it produces a huge amount of logs
 	go test ./src/server/pfs/server -timeout $(TIMEOUT)
-	go test ./src/server/pfs/cmds -timeout $(TIMEOUT)
+	go test ./src/server/pfs/cmds -count 1 -timeout $(TIMEOUT)
 	go test ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
 	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
 
-test-pps: launch-stats
+test-pps:
+	@# Travis uses the helper directly because it needs to specify a
+	@# subset of the tests using the run flag
+	@make RUN= test-pps-helper
+
+test-pps-helper: launch-stats docker-build-test-entrypoint 
 	# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-		go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT)  && \
-		go test ./src/server/pps/cmds -timeout $(TIMEOUT)
+		go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT) $(RUN) && \
+		go test ./src/server/pps/cmds -count 1 -timeout $(TIMEOUT)
 
 test-client:
 	rm -rf src/client/vendor
@@ -436,7 +444,7 @@ test-vault:
 	kill $$(cat /tmp/vault.pid) || true
 	./src/plugin/vault/etc/start-vault.sh
 	./src/plugin/vault/etc/setup-vault.sh
-	@# Use count flag to disable test caching
+	@# Dont cache these results as they require the pachd cluster
 	go test -v -count 1 ./src/plugin/vault -timeout $(TIMEOUT)
 
 test-fuse:
@@ -447,15 +455,18 @@ test-local:
 
 test-auth:
 	yes | pachctl delete-all
-	go test -v ./src/server/auth/server -timeout $(TIMEOUT)
-	go test -v ./src/server/auth/cmds -timeout $(TIMEOUT)
+	@# Dont cache these results as they require the pachd cluster
+	go test -v ./src/server/auth/server -count 1 -timeout $(TIMEOUT)
+	go test -v ./src/server/auth/cmds -count 1 -timeout $(TIMEOUT)
 
 test-enterprise:
-	go test -v ./src/server/enterprise/server -timeout $(TIMEOUT)
+	@# Dont cache these results as they require the pachd cluster
+	go test -v ./src/server/enterprise/server -count 1 -timeout $(TIMEOUT)
 
 test-worker: launch-stats test-worker-helper
 
 test-worker-helper:
+	@# Dont cache these results as they require the pachd cluster
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 			  go test -v ./src/server/worker/ -run=TestPrometheusStats -timeout $(TIMEOUT) -count 1
 
