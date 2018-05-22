@@ -16,18 +16,18 @@ parse_flags() {
   which jq
   which uuid
   # Common config
-  export AWS_REGION=us-east-1
-  export AWS_AVAILABILITY_ZONE=us-east-1a
-  export STATE_BUCKET=s3://k8scom-state-store-pachyderm-${RANDOM}
-  local USE_EXISTING_STATE_BUCKET='false'
+  export AWS_REGION=us-west-1
+  export AWS_AVAILABILITY_ZONE=us-west-1a
+  export KOPS_BUCKET=s3://k8scom-state-store-pachyderm-${RANDOM}
+  local use_existing_kops_bucket='false'
 
   # Parse flags
   eval "set -- $( getopt -l "state:,region:,zone:,no-metrics,use-cloudfront,no-pachyderm" "--" "${0}" "${@:-}" )"
   while true; do
       case "${1}" in
           --state)
-            export STATE_BUCKET="${2}"
-            USE_EXISTING_STATE_BUCKET='true'
+            export KOPS_BUCKET="${2}"
+            use_existing_kops_bucket='true'
             shift 2
             ;;
           --zone)
@@ -56,14 +56,14 @@ parse_flags() {
   done
 
   echo "Availability zone: ${AWS_AVAILABILITY_ZONE}"
-  if [[ ! ( "${STATE_BUCKET}" =~ s3://* ) ]]; then
-    echo "kops state bucket must start with \"s3://\" but is \"${STATE_BUCKET}\""
+  if [[ ! ( "${KOPS_BUCKET}" =~ s3://* ) ]]; then
+    echo "kops state bucket must start with \"s3://\" but is \"${KOPS_BUCKET}\""
     exit "Exiting to be safe..."
     exit 1
   fi
 
-  if [ "${USE_EXISTING_STATE_BUCKET}" == 'false' ]; then
-    create_s3_bucket "${STATE_BUCKET}" false || exit 1
+  if [ "${use_existing_kops_bucket}" == 'false' ]; then
+    create_s3_bucket "${KOPS_BUCKET}" false || exit 1
   fi
 }
 
@@ -119,10 +119,9 @@ deploy_k8s_on_aws() {
     export MASTER_SIZE=r4.xlarge
     export NUM_NODES=2
     export NAME=$(uuid | cut -f 1 -d-)-pachydermcluster.kubernetes.com
-    echo ${NAME} > .cluster_name
-    echo "kops state store: ${STATE_BUCKET}"
+    echo "kops state store: ${KOPS_BUCKET}"
     kops create cluster \
-        --state=${STATE_BUCKET} \
+        --state=${KOPS_BUCKET} \
         --cloud="aws" \
         --zones=${AWS_AVAILABILITY_ZONE} \
         --node-count=${NUM_NODES} \
@@ -134,13 +133,13 @@ deploy_k8s_on_aws() {
         --name=${NAME} \
         --kubernetes-version=1.8.0 \
         --yes
-    kops update cluster ${NAME} --yes --state=${STATE_BUCKET}
+    kops update cluster ${NAME} --yes --state=${KOPS_BUCKET}
 
     # Record state store bucket in temp file.
     # This will allow us to cleanup the cluster afterwards
     set +euxo pipefail
     mkdir tmp
-    echo "KOPS_STATE_STORE=${STATE_BUCKET}" >> tmp/${NAME}.sh
+    echo "KOPS_STATE_STORE=${KOPS_BUCKET}" >> tmp/${NAME}.sh
     echo ${NAME} > tmp/current-benchmark-cluster.txt
     set -euxo pipefail
 
@@ -260,18 +259,15 @@ deploy_pachyderm_on_aws() {
     echo "deploying pachyderm on AWS"
     # shared with k8s deploy script:
     export STORAGE_SIZE=100
-    export BUCKET_NAME=${RANDOM}-pachyderm-store
-
-    echo ${BUCKET_NAME} > .bucket
-
-    create_s3_bucket "${BUCKET_NAME}" ${USE_CLOUDFRONT}
+    export PACHYDERM_BUCKET=${RANDOM}-pachyderm-store
+    create_s3_bucket "${PACHYDERM_BUCKET}" ${USE_CLOUDFRONT}
 
     # Since my user should have the right access:
     AWS_KEY=`cat ~/.aws/credentials | grep aws_secret_access_key | cut -d " " -f 3`
     AWS_ID=`cat ~/.aws/credentials | grep aws_access_key_id  | cut -d " " -f 3`
 
     # Omit token since im using my personal creds
-    cmd=( pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --no-dashboard --credentials=${AWS_ID},${AWS_KEY},)
+    cmd=( pachctl deploy amazon ${PACHYDERM_BUCKET} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --no-dashboard --credentials=${AWS_ID},${AWS_KEY},)
     if [[ "${USE_CLOUDFRONT}" == "true" ]]; then
       cmd+=( "--cloudfront-distribution" "${CLOUDFRONT_DOMAIN}" )
     fi
@@ -325,5 +321,14 @@ jq --monochrome-output \
   >"${config_path}"
 rm "${tmpfile}"
 
-# Must echo ID at end, for etc/testing/deploy/aws.sh
-echo "Cluster address has been written to \$HOME/.pachyderm/config"
+cluster_info_path="${HOME}/.pachyderm/${NAME}-info.json"
+touch "${cluster_info_path}"
+jq -n \
+--arg kops_bucket ${KOPS_BUCKET} \
+--arg pachyderm_bucket ${PACHYDERM_BUCKET} \
+--arg timestamp "$(date)" \
+'{"kops_bucket": $kops_bucket, "pachyderm_bucket": $pachyderm_bucket, "created": $timestamp}' > ${cluster_info_path}
+aws s3 cp ${cluster_info_path} ${KOPS_BUCKET}
+
+echo "Cluster address has been written to ${config_path}"
+echo "Cluster info has been written to ${cluster_info_path}"
