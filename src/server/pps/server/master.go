@@ -142,8 +142,11 @@ func (a *apiServer) master() {
 
 					// True if the pipeline has been restarted (regardless of any change
 					// to the pipeline spec)
+					fmt.Printf("prev pipeline: %v\n", prevPipelinePtr)
+					fmt.Printf("     pipeline: %v\n", pipelinePtr)
 					pipelineRestarted := !pipelinePtr.Stopped &&
 						event.PrevKey != nil && prevPipelinePtr.Stopped
+					fmt.Printf("pipeline stopped? %v prev stopped? %v, restarted? %v\n", pipelinePtr.Stopped, prevPipelinePtr.Stopped, pipelineRestarted)
 					// True if auth has been activated or deactivated
 					authActivationChanged := (pipelinePtr.AuthToken == "") !=
 						(prevPipelinePtr.AuthToken == "")
@@ -156,6 +159,7 @@ func (a *apiServer) master() {
 						return pipelinePtr.SpecCommit.ID != prevSpecCommit &&
 							!pipelinePtr.Stopped
 					}()
+					fmt.Printf("restarted? %v, authchange? %v, upserted? %v\n", pipelineRestarted, authActivationChanged, pipelineUpserted)
 					if pipelineRestarted || authActivationChanged || pipelineUpserted {
 						if (pipelineUpserted || authActivationChanged) && event.PrevKey != nil {
 							if err := a.deleteWorkersForPipeline(prevPipelineInfo); err != nil {
