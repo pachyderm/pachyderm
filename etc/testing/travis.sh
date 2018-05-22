@@ -2,6 +2,12 @@
 
 set -e
 
+# Make sure cache dir exists and is writable
+mkdir -p ~/.cache/go-build
+sudo chown -R `whoami` ~/.cache/go-build
+
+make launch-kube
+
 # Wait until a connection with kubernetes has been established
 echo "Waiting for connection to kubernetes..."
 max_t=90
@@ -19,9 +25,52 @@ until kubectl version >/dev/null 2>/dev/null; do
 	sleep 1;
 done
 
+echo "Running test suite based on BUCKET=$BUCKET"
+
+PPS_SUITE=`echo $BUCKET | grep PPS > /dev/null; echo $?`
+
+make docker-build
+make clean-launch-dev
+make launch-dev
+
 go install ./src/server/cmd/match
-echo "Running local tests"
-make test
+
+if [[ "$BUCKET" == "MISC" ]]; then
+	echo "Running misc test suite"
+	make test-misc
+elif [[ $PPS_SUITE -eq 0 ]]; then
+	PART=`echo $BUCKET | grep -Po '\d+'`
+	NUM_BUCKETS=`cat etc/build/PPS_BUILD_BUCKET_COUNT`
+	echo "Running pps test suite, part $PART of $NUM_BUCKETS"
+	LIST=`go test -v  ./src/server/ -list ".*" | grep -v ok | grep -v Benchmark`
+	COUNT=`echo $LIST | tr " " "\n" | wc -l`
+	BUCKET_SIZE=$(( $COUNT / $NUM_BUCKETS ))
+	MIN=$(( $BUCKET_SIZE * $(( $PART - 1 )) ))
+	#The last bucket may have a few extra tests, to accommodate rounding errors from bucketing:
+	MAX=$COUNT 
+	if [[ $PART -ne $NUM_BUCKETS ]]; then
+		MAX=$(( $MIN + $BUCKET_SIZE ))
+    fi
+
+	RUN=""
+	INDEX=0
+
+	for test in $LIST; do
+		if [[ $INDEX -ge $MIN ]] && [[ $INDEX -lt $MAX ]] ; then
+			if [[ "$RUN" == "" ]]; then
+				RUN=$test
+			else
+				RUN="$RUN|$test"
+			fi
+		fi
+		INDEX=$(( $INDEX + 1 ))
+	done
+	echo "Running $( echo $RUN | tr '|' '\n' | wc -l ) tests of $COUNT total tests"
+	make RUN=-run=\"$RUN\" test-pps-helper
+else
+	echo "Unknown bucket"
+	exit 1
+fi
 
 # Disable aws CI for now, see:
 # https://github.com/pachyderm/pachyderm/issues/2109

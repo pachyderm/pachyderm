@@ -19,7 +19,9 @@
 package hashtree
 
 import (
+	fmt "fmt"
 	"path"
+	"regexp"
 	"strings"
 )
 
@@ -59,4 +61,20 @@ func split(p string) (string, string) {
 // path.Clean()
 func join(ps ...string) string {
 	return clean(path.Join(ps...))
+}
+
+// ValidatePath checks if a file path is legal
+func ValidatePath(path string) error {
+	path = clean(path)
+	match, _ := regexp.MatchString("^[ -~]+$", path)
+
+	if !match {
+		return fmt.Errorf("path (%v) invalid: only printable ASCII characters allowed", path)
+	}
+
+	if isGlob(path) {
+		return fmt.Errorf("path (%v) invalid: globbing character (%v) not allowed in path", path, globRegex.FindString(path))
+	}
+
+	return nil
 }

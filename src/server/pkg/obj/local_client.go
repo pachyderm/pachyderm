@@ -49,7 +49,13 @@ func (c *localClient) Delete(path string) error {
 }
 
 func (c *localClient) Walk(dir string, walkFn func(name string) error) error {
-	return filepath.Walk(filepath.Join(c.root, dir), func(path string, fileInfo os.FileInfo, err error) error {
+	dir = filepath.Join(c.root, dir)
+	fi, _ := os.Stat(dir)
+	prefix := ""
+	if fi == nil || !fi.IsDir() {
+		dir, prefix = filepath.Split(dir)
+	}
+	return filepath.Walk(dir, func(path string, fileInfo os.FileInfo, err error) error {
 		if err != nil {
 			if c.IsNotExist(err) {
 				return nil
@@ -60,6 +66,9 @@ func (c *localClient) Walk(dir string, walkFn func(name string) error) error {
 			return nil
 		}
 		relPath, _ := filepath.Rel(c.root, path)
+		if !strings.HasPrefix(filepath.Base(relPath), prefix) {
+			return nil
+		}
 		return walkFn(relPath)
 	})
 }

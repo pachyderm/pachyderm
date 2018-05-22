@@ -268,12 +268,10 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			"s3, gcs, or azure-blob.")
 	deployCustom.Flags().BoolVar(&isS3V2, "isS3V2", false, "Enable S3V2 client")
 
-	var cloudfrontDistribution string
 	var creds string
-	var vaultAddress string
-	var vaultRole string
-	var vaultToken string
+	var vault string
 	var iamRole string
+	var cloudfrontDistribution string
 	deployAmazon := &cobra.Command{
 		Use:   "amazon <S3 bucket> <region> <size of volumes (in GB)>",
 		Short: "Deploy a Pachyderm cluster running on AWS.",
@@ -292,18 +290,44 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 					finishMetricsWait()
 				}()
 			}
-			if creds == "" && iamRole == "" && vaultAddress == "" {
-				return fmt.Errorf("One of --credentials, --iam-role, or --vault-address needs to be provided")
+			if creds == "" && vault == "" && iamRole == "" {
+				return fmt.Errorf("One of --credentials, --vault, or --iam-role needs to be provided")
 			}
-			var id, secret, token string
+			containsEmpty := func(vals []string) bool {
+				for _, val := range vals {
+					if val == "" {
+						return true
+					}
+				}
+				return false
+			}
+			var amazonCreds *assets.AmazonCreds
 			if creds != "" {
 				parts := strings.Split(creds, ",")
-				if len(parts) != 3 {
+				if len(parts) < 2 || len(parts) > 3 || containsEmpty(parts[:2]) {
 					return fmt.Errorf("Incorrect format of --credentials")
 				}
-				id, secret, token = parts[0], parts[1], parts[2]
+				amazonCreds = &assets.AmazonCreds{ID: parts[0], Secret: parts[1]}
+				if len(parts) > 2 {
+					amazonCreds.Token = parts[2]
+				}
 			}
-			opts.IAMRole = iamRole
+			if vault != "" {
+				if amazonCreds != nil {
+					return fmt.Errorf("Only one of --credentials, --vault, or --iam-role needs to be provided")
+				}
+				parts := strings.Split(vault, ",")
+				if len(parts) != 3 || containsEmpty(parts) {
+					return fmt.Errorf("Incorrect format of --vault")
+				}
+				amazonCreds = &assets.AmazonCreds{VaultAddress: parts[0], VaultRole: parts[1], VaultToken: parts[2]}
+			}
+			if iamRole != "" {
+				if amazonCreds != nil {
+					return fmt.Errorf("Only one of --credentials, --vault, or --iam-role needs to be provided")
+				}
+				opts.IAMRole = iamRole
+			}
 			volumeSize, err := strconv.Atoi(args[2])
 			if err != nil {
 				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[2])
@@ -314,14 +338,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			}
 			manifest := getEncoder(outputFormat)
 
-			if err = assets.WriteAmazonAssets(manifest, opts, args[1], args[0], volumeSize, &assets.AmazonCreds{
-				ID:           id,
-				Secret:       secret,
-				Token:        token,
-				VaultAddress: vaultAddress,
-				VaultRole:    vaultRole,
-				VaultToken:   vaultToken,
-			}, cloudfrontDistribution); err != nil {
+			if err = assets.WriteAmazonAssets(manifest, opts, args[1], args[0], volumeSize, amazonCreds, cloudfrontDistribution); err != nil {
 				return err
 			}
 			return maybeKcCreate(dryRun, manifest, opts, metrics)
@@ -331,11 +348,9 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		"Deploying on AWS with cloudfront is currently "+
 			"an alpha feature. No security restrictions have been"+
 			"applied to cloudfront, making all data public (obscured but not secured)")
-	deployAmazon.Flags().StringVar(&creds, "credentials", "", "Use the format '--credentials=<id>,<secret>,<token>'\n<id>, <secret>, and <token> are session token details, used for authorization. You can get these by running 'aws sts get-session-token'")
+	deployAmazon.Flags().StringVar(&creds, "credentials", "", "Use the format \"<id>,<secret>[,<token>]\". You can get a token by running \"aws sts get-session-token\".")
+	deployAmazon.Flags().StringVar(&vault, "vault", "", "Use the format \"<address/hostport>,<role>,<token>\".")
 	deployAmazon.Flags().StringVar(&iamRole, "iam-role", "", "Use the given IAM role for authorization, as opposed to using static credentials.  The nodes on which Pachyderm is deployed needs to have the given IAM role.")
-	deployAmazon.Flags().StringVar(&vaultAddress, "vault-address", "", "The address/hostport at which a Hashicorp Vault server can be reached, where pachd can read AWS credentials")
-	deployAmazon.Flags().StringVar(&vaultRole, "vault-role", "", "The role that has been configured in the vault s3 secret engine for pachd (determines the vault path at which pachd reads AWS creds)")
-	deployAmazon.Flags().StringVar(&vaultToken, "vault-token", "", "The token that pachd should use when requesting AWS credentials from vault")
 
 	deployMicrosoft := &cobra.Command{
 		Use:   "microsoft <container> <storage account name> <storage account key> <size of volumes (in GB)>",

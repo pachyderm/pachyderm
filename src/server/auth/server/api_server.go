@@ -47,7 +47,7 @@ const (
 	membersPrefix = "/members"
 	groupsPrefix  = "/groups"
 
-	defaultTokenTTLSecs = 14 * 24 * 60 * 60 // two weeks
+	defaultTokenTTLSecs = 30 * 24 * 60 * 60 // 30 days
 
 	// magicUser is a special, unrevokable cluster administrator. It's not
 	// possible to log in as magicUser, but pipelines with no owner are run as
@@ -1214,7 +1214,7 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendA
 		}
 	}
 
-	// Only let people extend tokens by up to two weeks (the equivalent of logging
+	// Only let people extend tokens by up to 30 days (the equivalent of logging
 	// in again)
 	if req.TTL > defaultTokenTTLSecs {
 		return nil, fmt.Errorf("can only extend tokens by at most %d seconds", defaultTokenTTLSecs)
@@ -1492,24 +1492,14 @@ func (a *apiServer) GetGroups(ctx context.Context, req *authclient.GetGroupsRequ
 	}
 
 	groupsCol := a.groups.ReadOnly(ctx)
-	var iter col.Iterator
-	if iter, err = groupsCol.List(); err != nil {
+	var groups []string
+	users := &authclient.Users{}
+	if err := groupsCol.List(users, col.DefaultOptions, func(group string) error {
+		groups = append(groups, group)
+		return nil
+	}); err != nil {
 		return nil, err
 	}
-
-	var group string
-	var users authclient.Users
-	var groups []string
-	ok, err := iter.Next(&group, &users)
-	for ok {
-		if err != nil {
-			return nil, err
-		}
-
-		groups = append(groups, group)
-		ok, err = iter.Next(&group, &users)
-	}
-
 	return &authclient.GetGroupsResponse{Groups: groups}, nil
 }
 
@@ -1549,24 +1539,14 @@ func (a *apiServer) GetUsers(ctx context.Context, req *authclient.GetUsersReques
 	}
 
 	membersCol := a.members.ReadOnly(ctx)
-	var iter col.Iterator
-	if iter, err = membersCol.List(); err != nil {
+	groups := &authclient.Groups{}
+	var users []string
+	if err := membersCol.List(groups, col.DefaultOptions, func(user string) error {
+		users = append(users, user)
+		return nil
+	}); err != nil {
 		return nil, err
 	}
-
-	var user string
-	var groups authclient.Groups
-	var users []string
-	ok, err := iter.Next(&user, &groups)
-	for ok {
-		if err != nil {
-			return nil, err
-		}
-
-		users = append(users, user)
-		ok, err = iter.Next(&user, &groups)
-	}
-
 	return &authclient.GetUsersResponse{Usernames: users}, nil
 }
 
