@@ -56,9 +56,6 @@ type appEnv struct {
 
 func main() {
 	// Copy the contents of /pach-bin/certs into /etc/ssl/certs
-	if info, err := os.Stat("/etc/ssl/certs"); err != nil || !info.IsDir() {
-		os.MkdirAll("/etc/ssl/certs", 0755)
-	}
 	if err := filepath.Walk("/pach-bin/certs", func(inPath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err // Don't try and fix any errors encountered by Walk() itself
@@ -73,7 +70,11 @@ func main() {
 			return fmt.Errorf("could not extract relative path: %v", err)
 		}
 		outPath := filepath.Join("/etc/ssl/certs", outRelPath)
-		out, err := os.OpenFile(outPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, info.Mode())
+		outDir := filepath.Dir(outPath)
+		if err := os.MkdirAll(outDir, 0755); err != nil {
+			return fmt.Errorf("could not create directory \"%s\": %v", outDir, err)
+		}
+		out, err := os.OpenFile(outPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, info.Mode())
 		if err != nil {
 			return fmt.Errorf("could not create %s: %v", outPath, err)
 		}
