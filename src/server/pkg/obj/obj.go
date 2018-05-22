@@ -40,12 +40,19 @@ type Client interface {
 	Walk(prefix string, fn func(name string) error) error
 	// Exsits checks if a given object already exists
 	Exists(name string) bool
+	// Stat returns an ObjInfo about an obj.
+	Stat(name string) (*ObjInfo, error)
 	// IsRetryable determines if an operation should be retried given an error
 	IsRetryable(err error) bool
 	// IsNotExist returns true if err is a non existence error
 	IsNotExist(err error) bool
 	// IsIgnorable returns true if the error can be ignored
 	IsIgnorable(err error) bool
+}
+
+type ObjInfo struct {
+	Name string
+	Size int64
 }
 
 // NewGoogleClient creates a google client with the given bucket name.

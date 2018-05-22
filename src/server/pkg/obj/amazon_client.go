@@ -319,6 +319,20 @@ func (c *amazonClient) Exists(name string) bool {
 	return err == nil
 }
 
+func (c *amazonClient) Stat(name string) (*ObjInfo, error) {
+	head, err := c.s3.HeadObject(&s3.HeadObjectInput{
+		Bucket: aws.String(c.bucket),
+		Key:    aws.String(name),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &ObjInfo{
+		Name: name,
+		Size: *head.ContentLength,
+	}, nil
+}
+
 func (c *amazonClient) IsRetryable(err error) (retVal bool) {
 	if strings.Contains(err.Error(), "unexpected EOF") {
 		return true

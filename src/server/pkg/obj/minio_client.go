@@ -137,6 +137,17 @@ func (c *minioClient) Exists(name string) bool {
 	return err == nil
 }
 
+func (c *minioClient) Stat(name string) (*ObjInfo, error) {
+	oi, err := c.StatObject(c.bucket, name, minio.StatObjectOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return &ObjInfo{
+		Name: name,
+		Size: oi.Size,
+	}, nil
+}
+
 func (c *minioClient) IsRetryable(err error) bool {
 	// Minio client already implements retrying, no
 	// need for a caller retry.

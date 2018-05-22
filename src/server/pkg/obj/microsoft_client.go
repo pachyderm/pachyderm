@@ -109,6 +109,18 @@ func (c *microsoftClient) Exists(name string) bool {
 	return exists
 }
 
+func (c *microsoftClient) Stat(name string) (*ObjInfo, error) {
+	// populate the blob's properties
+	blob := c.blob(name)
+	if err := blob.GetProperties(nil); err != nil {
+		return nil, err
+	}
+	return &ObjInfo{
+		Name: name,
+		Size: blob.Properties.ContentLength,
+	}, nil
+}
+
 func (c *microsoftClient) IsRetryable(err error) (ret bool) {
 	microsoftErr, ok := err.(storage.AzureStorageServiceError)
 	if !ok {

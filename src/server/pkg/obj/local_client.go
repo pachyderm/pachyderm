@@ -49,7 +49,11 @@ func (c *localClient) Delete(path string) error {
 }
 
 func (c *localClient) Copy(src, dst string) error {
-	return os.Link(filepath.Join(c.root, src), filepath.Join(c.root, dst))
+	dstPath := filepath.Join(c.root, dst)
+	if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
+		return err
+	}
+	return os.Link(filepath.Join(c.root, src), dstPath)
 }
 
 func (c *localClient) Walk(dir string, walkFn func(name string) error) error {
@@ -80,6 +84,17 @@ func (c *localClient) Walk(dir string, walkFn func(name string) error) error {
 func (c *localClient) Exists(path string) bool {
 	_, err := os.Stat(filepath.Join(c.root, path))
 	return err == nil
+}
+
+func (c *localClient) Stat(path string) (_ *ObjInfo, retErr error) {
+	fi, err := os.Stat(filepath.Join(c.root, path))
+	if err != nil {
+		return nil, err
+	}
+	return &ObjInfo{
+		Name: path,
+		Size: fi.Size(),
+	}, nil
 }
 
 func (c *localClient) IsRetryable(err error) bool {

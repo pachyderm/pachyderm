@@ -36,6 +36,17 @@ func (c *googleClient) Exists(name string) bool {
 	return err == nil
 }
 
+func (c *googleClient) Stat(name string) (*ObjInfo, error) {
+	attrs, err := c.bucket.Object(name).Attrs(c.ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &ObjInfo{
+		Name: name,
+		Size: attrs.Size,
+	}, nil
+}
+
 func (c *googleClient) Writer(name string) (io.WriteCloser, error) {
 	return newBackoffWriteCloser(c, c.bucket.Object(name).NewWriter(c.ctx)), nil
 }
