@@ -787,6 +787,7 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 		"--initial-advertise-peer-urls=http://${ETCD_NAME}.etcd-headless.${NAMESPACE}.svc.cluster.local:2380",
 		"--initial-cluster=" + strings.Join(initialCluster, ","),
 		"--auto-compaction-retention=1",
+		"--max-txn-ops=5000",
 	}
 	for i, str := range etcdCmd {
 		etcdCmd[i] = fmt.Sprintf("\"%s\"", str) // quote all arguments, for shell
