@@ -842,6 +842,10 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 	// Stateful Set, so we generate the kubernetes manifest using raw json.
 	// TODO(msteffen): we're now upgrading our kubernetes client, so we should be
 	// abe to rewrite this spec using k8s client structs
+	image := etcdImage
+	if opts.Registry != "" {
+		image = AddRegistry(opts.Registry, etcdImage)
+	}
 	return map[string]interface{}{
 		"apiVersion": "apps/v1beta1",
 		"kind":       "StatefulSet",
@@ -869,7 +873,7 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 					"containers": []interface{}{
 						map[string]interface{}{
 							"name":    etcdName,
-							"image":   AddRegistry(opts.Registry, etcdImage),
+							"image":   image,
 							"command": []string{"/bin/sh", "-c"},
 							"args":    []string{strings.Join(etcdCmd, " ")},
 							// Use the downward API to pass the pod name to etcd. This sets
