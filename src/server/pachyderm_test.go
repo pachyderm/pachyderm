@@ -1385,7 +1385,7 @@ func TestPipelineState(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if pipelineInfo.State != pps.PipelineState_PIPELINE_PAUSED {
+		if !pipelineInfo.Stopped {
 			return fmt.Errorf("pipeline never paused, even though StopPipeline() was called, state: %s", pipelineInfo.State.String())
 		}
 		return nil

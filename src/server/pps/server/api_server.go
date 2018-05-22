@@ -2673,28 +2673,6 @@ func isNotFoundErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "not found")
 }
 
-// PipelineStateToStopped defines what pipeline states are "stopped"
-// states, meaning that pipelines in this state should not be managed
-// by pipelineManager
-func PipelineStateToStopped(state pps.PipelineState) bool {
-	switch state {
-	case pps.PipelineState_PIPELINE_STARTING:
-		return false
-	case pps.PipelineState_PIPELINE_RUNNING:
-		return false
-	case pps.PipelineState_PIPELINE_RESTARTING:
-		return false
-	case pps.PipelineState_PIPELINE_PAUSED:
-		return true
-	case pps.PipelineState_PIPELINE_FAILURE:
-		return true
-	case pps.PipelineState_PIPELINE_STANDBY:
-		return false
-	default:
-		panic(fmt.Sprintf("unrecognized pipeline state: %s", state))
-	}
-}
-
 func (a *apiServer) markPipelineRunning(pachClient *client.APIClient, pipelineName string) error {
 	_, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
 		pipelines := a.pipelines.ReadWrite(stm)
@@ -2703,6 +2681,7 @@ func (a *apiServer) markPipelineRunning(pachClient *client.APIClient, pipelineNa
 			return err
 		}
 		pipelinePtr.State = pps.PipelineState_PIPELINE_RUNNING
+		pipelinePtr.Stopped = false
 		return pipelines.Put(pipelineName, pipelinePtr)
 	})
 	if isNotFoundErr(err) {
