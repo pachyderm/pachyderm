@@ -64,35 +64,41 @@ func main() {
 			return nil // We'll just copy the children of any directories when we traverse them
 		}
 
-		// Create output file (dest)
+		// Open input file (src)
+		in, err := os.OpenFile(inPath, os.O_RDONLY, 0)
+		if err != nil {
+			log.Warnf("could not read \"%s\": %v", inPath, err)
+			return nil
+		}
+		defer in.Close()
+
+		// Create output file (dest) and open for writing
 		outRelPath, err := filepath.Rel("/pach-bin/certs", inPath)
 		if err != nil {
-			return fmt.Errorf("could not extract relative path: %v", err)
+			log.Warnf("skipping \"%s\", could not extract relative path: %v", inPath, err)
+			return nil
 		}
 		outPath := filepath.Join("/etc/ssl/certs", outRelPath)
 		outDir := filepath.Dir(outPath)
 		if err := os.MkdirAll(outDir, 0755); err != nil {
-			return fmt.Errorf("could not create directory \"%s\": %v", outDir, err)
+			log.Warnf("skipping \"%s\", could not create directory \"%s\": %v", inPath, outDir, err)
+			return nil
 		}
 		out, err := os.OpenFile(outPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, info.Mode())
 		if err != nil {
-			return fmt.Errorf("could not create %s: %v", outPath, err)
+			log.Warnf("skipping \"%s\", could not create output file \"%s\": %v", inPath, outPath, err)
+			return nil
 		}
 		defer out.Close()
 
-		// Open input file (src)
-		in, err := os.OpenFile(inPath, os.O_RDONLY, 0)
-		if err != nil {
-			return fmt.Errorf("could not read %s: %v", inPath, err)
-		}
-		defer in.Close()
-
 		// Copy src -> dest
 		if _, err := io.Copy(out, in); err != nil {
-			return fmt.Errorf("could not copy %s to %s: %v", inPath, outPath, err)
+			log.Warnf("could not copy \"%s\" to \"%s\": %v", inPath, outPath, err)
+			return nil
 		}
 		return nil
 	}); err != nil {
+		// Should never happen
 		panic(fmt.Sprintf("could not copy /pach-bin/certs to /etc/ssl/certs: %v", err))
 	}
 	cmdutil.Main(do, &appEnv{})
