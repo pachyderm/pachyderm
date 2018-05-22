@@ -2701,7 +2701,6 @@ func (a *apiServer) markPipelineStopped(pachClient *client.APIClient, pipelineNa
 			return err
 		}
 		pipelinePtr.Stopped = true
-		fmt.Printf("marking pipeline as stopped: %v\n", pipelinePtr)
 		return pipelines.Put(pipelineName, pipelinePtr)
 	})
 	if isNotFoundErr(err) {

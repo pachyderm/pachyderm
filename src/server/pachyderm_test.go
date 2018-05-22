@@ -2070,7 +2070,6 @@ func TestUpdateFailedPipeline(t *testing.T) {
 	require.NoError(t, err)
 	collectCommitInfos(t, iter)
 
-	//	buffer.Reset()
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
 	require.Equal(t, "bar\n", buffer.String())
@@ -2117,7 +2116,6 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 	time.Sleep(10 * time.Second)
 	pipelineInfo, err := c.InspectPipeline(pipelineName)
 	require.NoError(t, err)
-	//require.Equal(t, true, pps_server.PipelineStateToStopped(pipelineInfo.State))
 	require.Equal(t, true, pipelineInfo.Stopped)
 }
 
