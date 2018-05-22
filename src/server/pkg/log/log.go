@@ -35,6 +35,7 @@ type logger struct {
 	counter     map[string]prometheus.Counter
 	mutex       *sync.Mutex
 	exportStats bool
+	service     string
 }
 
 // NewLogger creates a new logger
@@ -56,6 +57,7 @@ func newLogger(service string, exportStats bool) Logger {
 		make(map[string]prometheus.Counter),
 		&sync.Mutex{},
 		exportStats,
+		service,
 	}
 	if exportStats {
 		reportMetricsOnce.Do(func() {
@@ -138,7 +140,7 @@ func (l *logger) ReportMetric(method string, duration time.Duration, err error) 
 			runTime = prometheus.NewHistogramVec(
 				prometheus.HistogramOpts{
 					Namespace: "pachyderm",
-					Subsystem: "pachd",
+					Subsystem: fmt.Sprintf("pachd_%v", l.service),
 					Name:      runTimeName,
 					Help:      fmt.Sprintf("Run time of %v", method),
 					Buckets:   prometheus.ExponentialBuckets(1.0, bucketFactor, bucketCount),
@@ -166,7 +168,7 @@ func (l *logger) ReportMetric(method string, duration time.Duration, err error) 
 		secondsCount = prometheus.NewCounter(
 			prometheus.CounterOpts{
 				Namespace: "pachyderm",
-				Subsystem: "pachd",
+				Subsystem: fmt.Sprintf("pachd_%v", l.service),
 				Name:      secondsCountName,
 				Help:      fmt.Sprintf("cumulative number of seconds spent in %v", method),
 			},
