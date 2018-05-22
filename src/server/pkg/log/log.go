@@ -42,7 +42,7 @@ func NewLogger(service string) Logger {
 	return newLogger(service, true)
 }
 
-// NewLogger creates a new logger for local testing (which does not report prometheus metrics)
+// NewLocalLogger creates a new logger for local testing (which does not report prometheus metrics)
 func NewLocalLogger(service string) Logger {
 	return newLogger(service, false)
 }
