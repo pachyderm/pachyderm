@@ -577,9 +577,10 @@ $ pachctl set-branch foo test master` + codeend,
 			if err != nil {
 				return err
 			}
-			return client.DeleteBranch(args[0], args[1])
+			return client.DeleteBranch(args[0], args[1], force)
 		}),
 	}
+	deleteBranch.Flags().BoolVarP(&force, "force", "f", false, "remove the branch regardless of errors; use with care")
 
 	file := &cobra.Command{
 		Use:   "file",
