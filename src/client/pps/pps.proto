@@ -302,8 +302,6 @@ enum PipelineState {
   PIPELINE_RESTARTING = 2;
   // We have retried too many times and we have given up on this pipeline.
   PIPELINE_FAILURE = 3;
-  // The pipeline has been explicitly paused by the user.
-  PIPELINE_PAUSED = 4;
   // The pipeline is fully functional, but there are no commits to process.
   PIPELINE_STANDBY = 5;
 }
