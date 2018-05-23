@@ -2128,6 +2128,14 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 		false,
 	))
 	require.NoError(t, c.StopPipeline(pipelineName))
+	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+	require.Equal(t, true, pipelineInfo.Stopped)
+	// It takes a bit for the master to stop the pods
+	time.Sleep(10 * time.Second)
+	pipelineInfo, err = c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+	require.Equal(t, pps.PipelineState_PIPELINE_PAUSED, pipelineInfo.State)
 	// Update shouldn't restart it
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
@@ -2142,7 +2150,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 		true,
 	))
 	time.Sleep(10 * time.Second)
-	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	pipelineInfo, err = c.InspectPipeline(pipelineName)
 	require.NoError(t, err)
 	require.Equal(t, true, pipelineInfo.Stopped)
 }

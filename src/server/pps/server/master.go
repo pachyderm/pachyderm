@@ -126,9 +126,12 @@ func (a *apiServer) master() {
 						return fmt.Errorf("watch event had no pipelineInfo: %v", err)
 					}
 					// If the pipeline has been stopped, delete workers
-					if pipelinePtr.Stopped {
+					if pipelineInfo.Stopped {
 						log.Infof("PPS master: deleting workers for pipeline %s (%s)", pipelineName, pipelinePtr.State.String())
 						if err := a.deleteWorkersForPipeline(pipelineName); err != nil {
+							return err
+						}
+						if err := a.markPipelinePaused(pachClient, pipelineName); err != nil {
 							return err
 						}
 					}
@@ -142,8 +145,8 @@ func (a *apiServer) master() {
 
 					// True if the pipeline has been restarted (regardless of any change
 					// to the pipeline spec)
-					pipelineRestarted := !pipelinePtr.Stopped &&
-						event.PrevKey != nil && prevPipelinePtr.Stopped
+					pipelineRestarted := !pipelineInfo.Stopped &&
+						event.PrevKey != nil && prevPipelineInfo.Stopped
 					// True if auth has been activated or deactivated
 					authActivationChanged := (pipelinePtr.AuthToken == "") !=
 						(prevPipelinePtr.AuthToken == "")
@@ -154,7 +157,7 @@ func (a *apiServer) master() {
 							prevSpecCommit = prevPipelinePtr.SpecCommit.ID
 						}
 						return pipelinePtr.SpecCommit.ID != prevSpecCommit &&
-							!pipelinePtr.Stopped
+							!pipelineInfo.Stopped
 					}()
 					if pipelineRestarted || authActivationChanged || pipelineUpserted {
 						if (pipelineUpserted || authActivationChanged) && event.PrevKey != nil {
@@ -350,6 +353,22 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 	return nil
 }
 
+func (a *apiServer) markPipelinePaused(pachClient *client.APIClient, pipelineName string) error {
+	_, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
+		pipelines := a.pipelines.ReadWrite(stm)
+		pipelinePtr := &pps.EtcdPipelineInfo{}
+		if err := pipelines.Get(pipelineName, pipelinePtr); err != nil {
+			return err
+		}
+		pipelinePtr.State = pps.PipelineState_PIPELINE_PAUSED
+		return pipelines.Put(pipelineName, pipelinePtr)
+	})
+	if isNotFoundErr(err) {
+		return newErrPipelineNotFound(pipelineName)
+	}
+	return err
+}
+
 func (a *apiServer) deleteWorkersForPipeline(pipelineName string) error {
 	cancel, ok := a.monitorCancels[pipelineName]
 	if ok {
@@ -436,7 +455,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 			pipelines := a.pipelines.ReadWrite(stm)
 			pipelinePtr := &pps.EtcdPipelineInfo{}
 			return pipelines.Update(pipelineInfo.Pipeline.Name, pipelinePtr, func() error {
-				if pipelinePtr.Stopped || pipelinePtr.State == pps.PipelineState_PIPELINE_FAILURE {
+				if pipelineInfo.Stopped || pipelinePtr.State == pps.PipelineState_PIPELINE_FAILURE {
 					return nil
 				}
 				pipelinePtr.State = state
