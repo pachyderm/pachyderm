@@ -417,18 +417,18 @@ enterprise-code-checkin-test:
 test-pfs-server:
 	@# Check that at least 2048 open file descriptors are allowed (smallest number known to work)
 	if [ $$(ulimit -n) -lt 2048 ]; then \
-		echo "Number of open file descriptors is limited to $$(ulimit -n), which may be too low"; \
-		echo "Try running 'ulimit -n 2048' to increase this limit"; \
-		exit 1; \
+	  echo "Number of open file descriptors is limited to $$(ulimit -n), which may be too low"; \
+	  echo "Try running 'ulimit -n 2048' to increase this limit"; \
+	  exit 1; \
 	fi
 	@# If etcd is not available, start it in a docker container
 	if ! ETCDCTL_API=3 etcdctl --endpoints=127.0.0.1:2379 get "testkey"; then \
-		docker run \
-		  --publish 32379:2379 \
-			quay.io/coreos/etcd:v3.3.5 \
-			etcd \
-			--listen-client-urls=http://0.0.0.0:2379 \
-			--advertise-client-urls=http://0.0.0.0:2379 & \
+	  docker run \
+	    --publish 32379:2379 \
+	    quay.io/coreos/etcd:v3.3.5 \
+	    etcd \
+	    --listen-client-urls=http://0.0.0.0:2379 \
+	    --advertise-client-urls=http://0.0.0.0:2379 & \
 	fi
 	@# don't run this in verbose mode, as it produces a huge amount of logs
 	go test ./src/server/pfs/server -timeout $(TIMEOUT)
