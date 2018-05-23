@@ -871,6 +871,7 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 					"namespace": opts.Namespace,
 				},
 				"spec": map[string]interface{}{
+					"imagePullSecrets": imagePullSecrets,
 					"containers": []interface{}{
 						map[string]interface{}{
 							"name":    etcdName,
@@ -924,7 +925,6 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 				},
 			},
 			"volumeClaimTemplates": pvcTemplates,
-			"imagePullSecrets":     imagePullSecrets,
 		},
 	}
 }
