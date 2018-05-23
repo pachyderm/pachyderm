@@ -95,7 +95,7 @@ type driver struct {
 	// pachClient is a cached Pachd client, that connects to Pachyderm's object
 	// store API and auth API. Instead of accessing it directly, functions should
 	// call getPachClient()
-	pachClient *client.APIClient
+	_pachClient *client.APIClient
 
 	// etcdClient and prefix write repo and other metadata to etcd
 	etcdClient *etcd.Client
@@ -169,15 +169,15 @@ func (d *driver) getPachClient(ctx context.Context) *client.APIClient {
 	d.pachConnOnce.Do(func() {
 		var err error
 		d.pachConn, err = grpc.Dial(d.address, client.PachDialOptions()...)
-		d.pachClient = &client.APIClient{
-			AuthAPIClient:   auth.NewAPIClient(d.pachConn),
-			ObjectAPIClient: pfs.NewObjectAPIClient(d.pachConn),
-		}
 		if err != nil {
 			panic(fmt.Sprintf("could not intiailize Pachyderm client in driver: %v", err))
 		}
+		d._pachClient = &client.APIClient{
+			AuthAPIClient:   auth.NewAPIClient(d.pachConn),
+			ObjectAPIClient: pfs.NewObjectAPIClient(d.pachConn),
+		}
 	})
-	return d.pachClient.WithCtx(ctx)
+	return d._pachClient.WithCtx(ctx)
 }
 
 // checkIsAuthorized returns an error if the current user (in 'ctx') has
