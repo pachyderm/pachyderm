@@ -55,7 +55,9 @@ type appEnv struct {
 }
 
 func main() {
-	// Copy the contents of /pach-bin/certs into /etc/ssl/certs
+	// Copy the contents of /pach-bin/certs into /etc/ssl/certs. Don't return an
+	// error (which would cause 'Walk()' to exit early) but do record if any certs
+	// are known to be missing so we can inform the user
 	copyErr := false
 	if err := filepath.Walk("/pach-bin/certs", func(inPath string, info os.FileInfo, err error) error {
 		if err != nil {
