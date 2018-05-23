@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.3
+
+- Fixes an issue that caused etcd deployment to fail when using a StatefulSet. (#2929, #2937)
+- Fixes an issue that prevented pipelines from starting up. (#2949)
+
 ## 1.7.2
 
 - Pachyderm now exposes metrics via Prometheus. (#2856)
