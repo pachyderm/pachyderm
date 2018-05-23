@@ -131,7 +131,7 @@ func (a *apiServer) master() {
 						if err := a.deleteWorkersForPipeline(pipelineName); err != nil {
 							return err
 						}
-						if err := a.markPipelinePaused(pachClient, pipelineName); err != nil {
+						if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_PAUSED); err != nil {
 							return err
 						}
 					}
@@ -353,22 +353,6 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 	return nil
 }
 
-func (a *apiServer) markPipelinePaused(pachClient *client.APIClient, pipelineName string) error {
-	_, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
-		pipelines := a.pipelines.ReadWrite(stm)
-		pipelinePtr := &pps.EtcdPipelineInfo{}
-		if err := pipelines.Get(pipelineName, pipelinePtr); err != nil {
-			return err
-		}
-		pipelinePtr.State = pps.PipelineState_PIPELINE_PAUSED
-		return pipelines.Put(pipelineName, pipelinePtr)
-	})
-	if isNotFoundErr(err) {
-		return newErrPipelineNotFound(pipelineName)
-	}
-	return err
-}
-
 func (a *apiServer) deleteWorkersForPipeline(pipelineName string) error {
 	cancel, ok := a.monitorCancels[pipelineName]
 	if ok {
@@ -448,22 +432,23 @@ func notifyCtx(ctx context.Context, name string) func(error, time.Duration) erro
 	}
 }
 
-func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) {
-	setPipelineState := func(state pps.PipelineState) error {
-		log.Infof("moving pipeline %s to %s", pipelineInfo.Pipeline.Name, state.String())
-		_, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
-			pipelines := a.pipelines.ReadWrite(stm)
-			pipelinePtr := &pps.EtcdPipelineInfo{}
-			return pipelines.Update(pipelineInfo.Pipeline.Name, pipelinePtr, func() error {
-				if pipelineInfo.Stopped || pipelinePtr.State == pps.PipelineState_PIPELINE_FAILURE {
-					return nil
-				}
-				pipelinePtr.State = state
+func (a *apiServer) setPipelineState(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, state pps.PipelineState) error {
+	log.Infof("moving pipeline %s to %s", pipelineInfo.Pipeline.Name, state.String())
+	_, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
+		pipelines := a.pipelines.ReadWrite(stm)
+		pipelinePtr := &pps.EtcdPipelineInfo{}
+		return pipelines.Update(pipelineInfo.Pipeline.Name, pipelinePtr, func() error {
+			if pipelineInfo.Stopped || pipelinePtr.State == pps.PipelineState_PIPELINE_FAILURE {
 				return nil
-			})
+			}
+			pipelinePtr.State = state
+			return nil
 		})
-		return err
-	}
+	})
+	return err
+}
+
+func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) {
 	var eg errgroup.Group
 	pps.VisitInput(pipelineInfo.Input, func(in *pps.Input) {
 		if in.Cron != nil {
@@ -481,7 +466,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 		// good reason to do it concurrently.
 		eg.Go(func() error {
 			return backoff.RetryNotify(func() error {
-				return setPipelineState(pps.PipelineState_PIPELINE_RUNNING)
+				return a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_RUNNING)
 			}, backoff.NewInfiniteBackOff(), notifyCtx(pachClient.Ctx(), "set running (Standby = false)"))
 		})
 	} else {
@@ -498,7 +483,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 		})
 		eg.Go(func() error {
 			return backoff.RetryNotify(func() error {
-				if err := setPipelineState(pps.PipelineState_PIPELINE_STANDBY); err != nil {
+				if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_STANDBY); err != nil {
 					return err
 				}
 				for {
@@ -509,7 +494,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 							continue
 						}
 
-						if err := setPipelineState(pps.PipelineState_PIPELINE_RUNNING); err != nil {
+						if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_RUNNING); err != nil {
 							return err
 						}
 
@@ -532,7 +517,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 							}
 						}
 
-						if err := setPipelineState(pps.PipelineState_PIPELINE_STANDBY); err != nil {
+						if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_STANDBY); err != nil {
 							return err
 						}
 					case <-pachClient.Ctx().Done():
