@@ -90,12 +90,12 @@ type driver struct {
 	// and Authorization API
 	address      string
 	pachConnOnce sync.Once
-	onceErr      error
 	pachConn     *grpc.ClientConn
 
 	// pachClient is a cached Pachd client, that connects to Pachyderm's object
-	// store API and auth API
-	pachClient *client.APIClient
+	// store API and auth API. Instead of accessing it directly, functions should
+	// call getPachClient()
+	_pachClient *client.APIClient
 
 	// etcdClient and prefix write repo and other metadata to etcd
 	etcdClient *etcd.Client
@@ -148,7 +148,7 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCa
 		openCommits: pfsdb.OpenCommits(etcdClient, etcdPrefix),
 		treeCache:   treeCache,
 	}
-	go func() { d.initializePachConn() }() // Begin dialing connection on startup
+	go func() { d.getPachClient(context.Background()) }() // Begin dialing connection on startup
 	return d, nil
 }
 
@@ -158,33 +158,37 @@ func newLocalDriver(blockAddress string, etcdPrefix string) (*driver, error) {
 	return newDriver(blockAddress, []string{"localhost:32379"}, etcdPrefix, defaultTreeCacheSize)
 }
 
-// initializePachConn initializes the connects that the pfs driver has with the
+// getPachClient() initializes the connection that the pfs driver has with the
 // Pachyderm object API and auth API, and blocks until the connection is
 // established
 //
 // TODO(msteffen): client initialization (both etcd and pachd) might be better
 // placed happen in server.go, near main(), so that we only pay the dial cost
 // once, and so that pps doesn't need to have its own initialization code
-func (d *driver) initializePachConn() error {
+func (d *driver) getPachClient(ctx context.Context) *client.APIClient {
 	d.pachConnOnce.Do(func() {
-		d.pachConn, d.onceErr = grpc.Dial(d.address, client.PachDialOptions()...)
-		d.pachClient = &client.APIClient{
+		var err error
+		d.pachConn, err = grpc.Dial(d.address, client.PachDialOptions()...)
+		if err != nil {
+			panic(fmt.Sprintf("could not intiailize Pachyderm client in driver: %v", err))
+		}
+		d._pachClient = &client.APIClient{
 			AuthAPIClient:   auth.NewAPIClient(d.pachConn),
 			ObjectAPIClient: pfs.NewObjectAPIClient(d.pachConn),
 		}
 	})
-	return d.onceErr
+	return d._pachClient.WithCtx(ctx)
 }
 
 // checkIsAuthorized returns an error if the current user (in 'ctx') has
 // authorization scope 's' for repo 'r'
-func (d *driver) checkIsAuthorized(ctx context.Context, r *pfs.Repo, s auth.Scope) error {
-	d.initializePachConn()
-	me, err := d.pachClient.WhoAmI(auth.In2Out(ctx), &auth.WhoAmIRequest{})
+func (d *driver) checkIsAuthorized(pachClient *client.APIClient, r *pfs.Repo, s auth.Scope) error {
+	ctx := pachClient.Ctx()
+	me, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
 	if auth.IsErrNotActivated(err) {
 		return nil
 	}
-	resp, err := d.pachClient.AuthAPIClient.Authorize(auth.In2Out(ctx), &auth.AuthorizeRequest{
+	resp, err := pachClient.AuthAPIClient.Authorize(ctx, &auth.AuthorizeRequest{
 		Repo:  r.Name,
 		Scope: s,
 	})
@@ -215,20 +219,17 @@ func absent(key string) etcd.Cmp {
 }
 
 func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, description string, update bool) error {
-	d.initializePachConn()
+	pachClient := d.getPachClient(ctx)
+	ctx = pachClient.Ctx()
 	// Check that the user is logged in (user doesn't need any access level to
 	// create a repo, but they must be authenticated if auth is active)
-	whoAmI, err := d.pachClient.AuthAPIClient.WhoAmI(auth.In2Out(ctx),
-		&auth.WhoAmIRequest{})
+	whoAmI, err := pachClient.AuthAPIClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
 	authIsActivated := !auth.IsErrNotActivated(err)
 	if authIsActivated && err != nil {
 		return fmt.Errorf("error authenticating (must log in to create a repo): %v",
 			grpcutil.ScrubGRPC(err))
 	}
 	if err := validateRepoName(repo.Name); err != nil {
-		return err
-	}
-	if err := d.initializePachConn(); err != nil {
 		return err
 	}
 	if update {
@@ -255,7 +256,7 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, description str
 			// auth is active, and user is logged in. Make user an owner of the new
 			// repo (and clear any existing ACL under this name that might have been
 			// created by accident)
-			_, err := d.pachClient.AuthAPIClient.SetACL(auth.In2Out(ctx), &auth.SetACLRequest{
+			_, err := pachClient.AuthAPIClient.SetACL(ctx, &auth.SetACLRequest{
 				Repo: repo.Name,
 				Entries: []*auth.ACLEntry{{
 					Username: whoAmI.Username,
@@ -279,6 +280,8 @@ func (d *driver) createRepo(ctx context.Context, repo *pfs.Repo, description str
 }
 
 func (d *driver) updateRepo(ctx context.Context, repo *pfs.Repo, description string) error {
+	pachClient := d.getPachClient(ctx)
+	ctx = pachClient.Ctx()
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		repos := d.repos.ReadWrite(stm)
 		repoInfo := &pfs.RepoInfo{}
@@ -287,7 +290,7 @@ func (d *driver) updateRepo(ctx context.Context, repo *pfs.Repo, description str
 		}
 		// Caller only neads to be a WRITER to call UpdatePipeline(), so caller only
 		// needs to be a WRITER to update the provenance.
-		if err := d.checkIsAuthorized(ctx, repo, auth.Scope_WRITER); err != nil {
+		if err := d.checkIsAuthorized(pachClient, repo, auth.Scope_WRITER); err != nil {
 			return err
 		}
 		repoInfo.Description = description
@@ -297,7 +300,6 @@ func (d *driver) updateRepo(ctx context.Context, repo *pfs.Repo, description str
 }
 
 func (d *driver) inspectRepo(ctx context.Context, repo *pfs.Repo, includeAuth bool) (*pfs.RepoInfo, error) {
-	d.initializePachConn()
 	result := &pfs.RepoInfo{}
 	if err := d.repos.ReadOnly(ctx).Get(repo.Name, result); err != nil {
 		return nil, err
@@ -317,16 +319,16 @@ func (d *driver) inspectRepo(ctx context.Context, repo *pfs.Repo, includeAuth bo
 }
 
 func (d *driver) getAccessLevel(ctx context.Context, repo *pfs.Repo) (auth.Scope, error) {
-	who, err := d.pachClient.AuthAPIClient.WhoAmI(auth.In2Out(ctx),
-		&auth.WhoAmIRequest{})
+	pachClient := d.getPachClient(ctx)
+	ctx = pachClient.Ctx()
+	who, err := pachClient.AuthAPIClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
 	if err != nil {
 		return auth.Scope_NONE, err
 	}
 	if who.IsAdmin {
 		return auth.Scope_OWNER, nil
 	}
-	resp, err := d.pachClient.AuthAPIClient.GetScope(auth.In2Out(ctx),
-		&auth.GetScopeRequest{Repos: []string{repo.Name}})
+	resp, err := pachClient.AuthAPIClient.GetScope(ctx, &auth.GetScopeRequest{Repos: []string{repo.Name}})
 	if err != nil {
 		return auth.Scope_NONE, err
 	}
@@ -365,6 +367,8 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool) (*pfs.ListRepoR
 }
 
 func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) error {
+	pachClient := d.getPachClient(ctx)
+	ctx = pachClient.Ctx()
 	// TODO(msteffen): Fix d.deleteAll() so that it doesn't need to delete and
 	// recreate the PPS spec repo, then uncomment this block to prevent users from
 	// deleting it and breaking their cluster
@@ -388,7 +392,7 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 		}
 
 		// Check if the caller is authorized to delete this repo
-		if err := d.checkIsAuthorized(ctx, repo, auth.Scope_OWNER); err != nil {
+		if err := d.checkIsAuthorized(pachClient, repo, auth.Scope_OWNER); err != nil {
 			return err
 		}
 
@@ -419,7 +423,7 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 		return err
 	}
 
-	if _, err = d.pachClient.SetACL(auth.In2Out(ctx), &auth.SetACLRequest{
+	if _, err = pachClient.SetACL(ctx, &auth.SetACLRequest{
 		Repo: repo.Name, // NewACL is unset, so this will clear the acl for 'repo'
 	}); err != nil && !auth.IsErrNotActivated(err) {
 		return grpcutil.ScrubGRPC(err)
@@ -446,13 +450,15 @@ func (d *driver) buildCommit(ctx context.Context, ID string, parent *pfs.Commit,
 // - If neither 'parent.ID' nor 'branch' are set, the new commit will have no
 //   parent
 func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, branch string, provenance []*pfs.Commit, treeRef *pfs.Object, recordFiles []string, records []*pfs.PutFileRecords, description string) (*pfs.Commit, error) {
+	pachClient := d.getPachClient(ctx)
+	ctx = pachClient.Ctx()
 	// Validate arguments:
 	if parent == nil {
 		return nil, fmt.Errorf("parent cannot be nil")
 	}
 
 	// Check that caller is authorized
-	if err := d.checkIsAuthorized(ctx, parent.Repo, auth.Scope_WRITER); err != nil {
+	if err := d.checkIsAuthorized(pachClient, parent.Repo, auth.Scope_WRITER); err != nil {
 		return nil, err
 	}
 
@@ -475,7 +481,7 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 	var tree hashtree.HashTree
 	if treeRef != nil {
 		var buf bytes.Buffer
-		if err := d.pachClient.GetObject(treeRef.Hash, &buf); err != nil {
+		if err := pachClient.GetObject(treeRef.Hash, &buf); err != nil {
 			return nil, err
 		}
 		var err error
@@ -569,7 +575,7 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 				if err != nil {
 					return err
 				}
-				treeRef, _, err = d.pachClient.WithCtx(ctx).PutObject(bytes.NewReader(data))
+				treeRef, _, err = pachClient.PutObject(bytes.NewReader(data))
 				if err != nil {
 					return err
 				}
@@ -636,7 +642,9 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 }
 
 func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs.Object, empty bool, description string) (retErr error) {
-	if err := d.checkIsAuthorized(ctx, commit.Repo, auth.Scope_WRITER); err != nil {
+	pachClient := d.getPachClient(ctx)
+	ctx = pachClient.Ctx()
+	if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
 	commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_STARTED)
@@ -696,7 +704,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 
 			if len(data) > 0 {
 				// Put the tree into the blob store
-				obj, _, err := d.pachClient.PutObject(bytes.NewReader(data))
+				obj, _, err := pachClient.PutObject(bytes.NewReader(data))
 				if err != nil {
 					return err
 				}
@@ -705,7 +713,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 			}
 		} else {
 			var buf bytes.Buffer
-			if err := d.pachClient.GetObject(tree.Hash, &buf); err != nil {
+			if err := pachClient.GetObject(tree.Hash, &buf); err != nil {
 				return err
 			}
 			var err error
@@ -942,10 +950,12 @@ func sizeChange(tree hashtree.HashTree, parentTree hashtree.HashTree) uint64 {
 // As a side effect, this function also replaces the ID in the given commit
 // with a real commit ID.
 func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, blockState pfs.CommitState) (*pfs.CommitInfo, error) {
+	pachClient := d.getPachClient(ctx)
+	ctx = pachClient.Ctx()
 	if commit == nil {
 		return nil, fmt.Errorf("cannot inspect nil commit")
 	}
-	if err := d.checkIsAuthorized(ctx, commit.Repo, auth.Scope_READER); err != nil {
+	if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
 
@@ -1099,7 +1109,9 @@ func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit,
 }
 
 func (d *driver) listCommitF(ctx context.Context, repo *pfs.Repo, to *pfs.Commit, from *pfs.Commit, number uint64, f func(*pfs.CommitInfo) error) error {
-	if err := d.checkIsAuthorized(ctx, repo, auth.Scope_READER); err != nil {
+	pachClient := d.getPachClient(ctx)
+	ctx = pachClient.Ctx()
+	if err := d.checkIsAuthorized(pachClient, repo, auth.Scope_READER); err != nil {
 		return err
 	}
 	if from != nil && from.Repo.Name != repo.Name || to != nil && to.Repo.Name != repo.Name {
@@ -1171,7 +1183,6 @@ func (d *driver) listCommitF(ctx context.Context, repo *pfs.Repo, to *pfs.Commit
 }
 
 func (d *driver) subscribeCommit(ctx context.Context, repo *pfs.Repo, branch string, from *pfs.Commit, state pfs.CommitState, f func(*pfs.CommitInfo) error) error {
-	d.initializePachConn()
 	if from != nil && from.Repo.Name != repo.Name {
 		return fmt.Errorf("the `from` commit needs to be from repo %s", repo.Name)
 	}
@@ -1255,7 +1266,6 @@ func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 	if len(fromCommits) == 0 {
 		return fmt.Errorf("fromCommits cannot be empty")
 	}
-	d.initializePachConn()
 
 	// First compute intersection of the fromCommits subvenant commits, those
 	// are the commits we're interested in. Iterate over all commits and keep a
@@ -1309,7 +1319,9 @@ func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 }
 
 func (d *driver) deleteCommit(ctx context.Context, userCommit *pfs.Commit) error {
-	if err := d.checkIsAuthorized(ctx, userCommit.Repo, auth.Scope_WRITER); err != nil {
+	pachClient := d.getPachClient(ctx)
+	ctx = pachClient.Ctx()
+	if err := d.checkIsAuthorized(pachClient, userCommit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
 	// Main txn: Delete all downstream commits, and update subvenance of upstream commits
@@ -1597,7 +1609,9 @@ func (d *driver) deleteCommit(ctx context.Context, userCommit *pfs.Commit) error
 // This invariant is assumed to hold for all branches upstream of 'branch', but not
 // for 'branch' itself once 'b.Provenance' has been set.
 func (d *driver) createBranch(ctx context.Context, branch *pfs.Branch, commit *pfs.Commit, provenance []*pfs.Branch) error {
-	if err := d.checkIsAuthorized(ctx, branch.Repo, auth.Scope_WRITER); err != nil {
+	pachClient := d.getPachClient(ctx)
+	ctx = pachClient.Ctx()
+	if err := d.checkIsAuthorized(pachClient, branch.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
 	// Validate request. The request must do exactly one of:
@@ -1721,7 +1735,9 @@ func (d *driver) inspectBranch(ctx context.Context, branch *pfs.Branch) (*pfs.Br
 }
 
 func (d *driver) listBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.BranchInfo, error) {
-	if err := d.checkIsAuthorized(ctx, repo, auth.Scope_READER); err != nil {
+	pachClient := d.getPachClient(ctx)
+	ctx = pachClient.Ctx()
+	if err := d.checkIsAuthorized(pachClient, repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
 	var result []*pfs.BranchInfo
@@ -1737,7 +1753,9 @@ func (d *driver) listBranch(ctx context.Context, repo *pfs.Repo) ([]*pfs.BranchI
 }
 
 func (d *driver) deleteBranch(ctx context.Context, branch *pfs.Branch, force bool) error {
-	if err := d.checkIsAuthorized(ctx, branch.Repo, auth.Scope_WRITER); err != nil {
+	pachClient := d.getPachClient(ctx)
+	ctx = pachClient.Ctx()
+	if err := d.checkIsAuthorized(pachClient, branch.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
@@ -1817,7 +1835,9 @@ func (d *driver) filePathFromEtcdPath(etcdPath string) string {
 
 func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter,
 	targetFileDatums int64, targetFileBytes int64, overwriteIndex *pfs.OverwriteIndex, reader io.Reader) error {
-	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_WRITER); err != nil {
+	pachClient := d.getPachClient(ctx)
+	ctx = pachClient.Ctx()
+	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
 	// oneOff is true if we're creating the commit as part of this put-file
@@ -1851,7 +1871,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	}
 
 	if delimiter == pfs.Delimiter_NONE {
-		objects, size, err := d.pachClient.PutObjectSplit(reader)
+		objects, size, err := pachClient.PutObjectSplit(reader)
 		if err != nil {
 			return err
 		}
@@ -1923,7 +1943,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 				limiter.Acquire()
 				eg.Go(func() error {
 					defer limiter.Release()
-					object, size, err := d.pachClient.PutObject(_buffer)
+					object, size, err := pachClient.PutObject(_buffer)
 					if err != nil {
 						return err
 					}
@@ -1962,10 +1982,12 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 }
 
 func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, overwrite bool) error {
-	if err := d.checkIsAuthorized(ctx, src.Commit.Repo, auth.Scope_READER); err != nil {
+	pachClient := d.getPachClient(ctx)
+	ctx = pachClient.Ctx()
+	if err := d.checkIsAuthorized(pachClient, src.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
-	if err := d.checkIsAuthorized(ctx, dst.Commit.Repo, auth.Scope_WRITER); err != nil {
+	if err := d.checkIsAuthorized(pachClient, dst.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
 	if err := hashtree.ValidatePath(dst.Path); err != nil {
@@ -2050,6 +2072,8 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 }
 
 func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hashtree.HashTree, error) {
+	pachClient := d.getPachClient(ctx)
+	ctx = pachClient.Ctx()
 	if commit == nil || commit.ID == "" {
 		t, err := hashtree.NewHashTree().Finish()
 		if err != nil {
@@ -2091,7 +2115,7 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 
 	// read the tree from the block store
 	var buf bytes.Buffer
-	if err := d.pachClient.GetObject(treeRef.Hash, &buf); err != nil {
+	if err := pachClient.GetObject(treeRef.Hash, &buf); err != nil {
 		return nil, err
 	}
 
@@ -2155,7 +2179,9 @@ func (d *driver) getTreeForOpenCommit(ctx context.Context, file *pfs.File, paren
 }
 
 func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size int64) (io.Reader, error) {
-	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_READER); err != nil {
+	pachClient := d.getPachClient(ctx)
+	ctx = pachClient.Ctx()
+	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
 
@@ -2184,7 +2210,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
 	}
 
-	getObjectsClient, err := d.pachClient.ObjectAPIClient.GetObjects(
+	getObjectsClient, err := pachClient.ObjectAPIClient.GetObjects(
 		ctx,
 		&pfs.GetObjectsRequest{
 			Objects:     objects,
@@ -2225,7 +2251,9 @@ func nodeToFileInfo(commit *pfs.Commit, path string, node *hashtree.NodeProto, f
 }
 
 func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo, error) {
-	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_READER); err != nil {
+	pachClient := d.getPachClient(ctx)
+	ctx = pachClient.Ctx()
+	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
 	tree, err := d.getTreeForFile(ctx, file)
@@ -2243,7 +2271,9 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 }
 
 func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool) ([]*pfs.FileInfo, error) {
-	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_READER); err != nil {
+	pachClient := d.getPachClient(ctx)
+	ctx = pachClient.Ctx()
+	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
 
@@ -2279,7 +2309,9 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool) ([]*pf
 }
 
 func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern string) ([]*pfs.FileInfo, error) {
-	if err := d.checkIsAuthorized(ctx, commit.Repo, auth.Scope_READER); err != nil {
+	pachClient := d.getPachClient(ctx)
+	ctx = pachClient.Ctx()
+	if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
 
@@ -2301,16 +2333,18 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern strin
 }
 
 func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.File, shallow bool) ([]*pfs.FileInfo, []*pfs.FileInfo, error) {
+	pachClient := d.getPachClient(ctx)
+	ctx = pachClient.Ctx()
 	// Do READER authorization check for both newFile and oldFile
 	if oldFile != nil && oldFile.Commit != nil {
 		//	if oldFile != nil {
-		if err := d.checkIsAuthorized(ctx, oldFile.Commit.Repo, auth.Scope_READER); err != nil {
+		if err := d.checkIsAuthorized(pachClient, oldFile.Commit.Repo, auth.Scope_READER); err != nil {
 			return nil, nil, err
 		}
 	}
 	if newFile != nil && newFile.Commit != nil {
 		//	if newFile != nil {
-		if err := d.checkIsAuthorized(ctx, newFile.Commit.Repo, auth.Scope_READER); err != nil {
+		if err := d.checkIsAuthorized(pachClient, newFile.Commit.Repo, auth.Scope_READER); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -2354,7 +2388,9 @@ func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.F
 }
 
 func (d *driver) deleteFile(ctx context.Context, file *pfs.File) error {
-	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_WRITER); err != nil {
+	pachClient := d.getPachClient(ctx)
+	ctx = pachClient.Ctx()
+	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
 	branch := ""
