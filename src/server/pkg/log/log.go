@@ -140,7 +140,7 @@ func (l *logger) ReportMetric(method string, duration time.Duration, err error) 
 			runTime = prometheus.NewHistogramVec(
 				prometheus.HistogramOpts{
 					Namespace: "pachyderm",
-					Subsystem: l.service,
+					Subsystem: fmt.Sprintf("pachd_%v", topLevelService(l.service)),
 					Name:      runTimeName,
 					Help:      fmt.Sprintf("Run time of %v", method),
 					Buckets:   prometheus.ExponentialBuckets(1.0, bucketFactor, bucketCount),
@@ -150,7 +150,7 @@ func (l *logger) ReportMetric(method string, duration time.Duration, err error) 
 				},
 			)
 			if err := prometheus.Register(runTime); err != nil {
-				l.LogAtLevel(entry, logrus.WarnLevel, fmt.Sprintf("error registering prometheus metric: %v", runTimeName), err)
+				l.LogAtLevel(entry, logrus.WarnLevel, fmt.Sprintf("error registering prometheus metric %v: %v", runTime, runTimeName), err)
 			} else {
 				l.histogram[runTimeName] = runTime
 			}
@@ -168,13 +168,13 @@ func (l *logger) ReportMetric(method string, duration time.Duration, err error) 
 		secondsCount = prometheus.NewCounter(
 			prometheus.CounterOpts{
 				Namespace: "pachyderm",
-				Subsystem: l.service,
+				Subsystem: fmt.Sprintf("pachd_%v", topLevelService(l.service)),
 				Name:      secondsCountName,
 				Help:      fmt.Sprintf("cumulative number of seconds spent in %v", method),
 			},
 		)
 		if err := prometheus.Register(secondsCount); err != nil {
-			l.LogAtLevel(entry, logrus.WarnLevel, fmt.Sprintf("error registering prometheus metric: %v", secondsCountName), err)
+			l.LogAtLevel(entry, logrus.WarnLevel, fmt.Sprintf("error registering prometheus metric %v: %v", secondsCount, secondsCountName), err)
 		} else {
 			l.counter[secondsCountName] = secondsCount
 		}
@@ -221,6 +221,11 @@ func (l *logger) LogAtLevelFromDepth(request interface{}, response interface{}, 
 		fields["duration"] = duration
 	}
 	l.LogAtLevel(l.WithFields(fields), level)
+}
+
+func topLevelService(fullyQualifiedService string) string {
+	tokens := strings.Split(fullyQualifiedService, ".")
+	return tokens[0]
 }
 
 type prettyFormatter struct{}
