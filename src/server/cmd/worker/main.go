@@ -55,10 +55,15 @@ type appEnv struct {
 }
 
 func main() {
-	// Copy the contents of /pach-bin/certs into /etc/ssl/certs
+	// Copy the contents of /pach-bin/certs into /etc/ssl/certs. Don't return an
+	// error (which would cause 'Walk()' to exit early) but do record if any certs
+	// are known to be missing so we can inform the user
+	copyErr := false
 	if err := filepath.Walk("/pach-bin/certs", func(inPath string, info os.FileInfo, err error) error {
 		if err != nil {
-			return err // Don't try and fix any errors encountered by Walk() itself
+			log.Warnf("skipping \"%s\", could not stat path: %v", inPath, err)
+			copyErr = true
+			return nil // Don't try and fix any errors encountered by Walk() itself
 		}
 		if info.IsDir() {
 			return nil // We'll just copy the children of any directories when we traverse them
@@ -68,6 +73,7 @@ func main() {
 		in, err := os.OpenFile(inPath, os.O_RDONLY, 0)
 		if err != nil {
 			log.Warnf("could not read \"%s\": %v", inPath, err)
+			copyErr = true
 			return nil
 		}
 		defer in.Close()
@@ -76,17 +82,20 @@ func main() {
 		outRelPath, err := filepath.Rel("/pach-bin/certs", inPath)
 		if err != nil {
 			log.Warnf("skipping \"%s\", could not extract relative path: %v", inPath, err)
+			copyErr = true
 			return nil
 		}
 		outPath := filepath.Join("/etc/ssl/certs", outRelPath)
 		outDir := filepath.Dir(outPath)
 		if err := os.MkdirAll(outDir, 0755); err != nil {
 			log.Warnf("skipping \"%s\", could not create directory \"%s\": %v", inPath, outDir, err)
+			copyErr = true
 			return nil
 		}
 		out, err := os.OpenFile(outPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, info.Mode())
 		if err != nil {
 			log.Warnf("skipping \"%s\", could not create output file \"%s\": %v", inPath, outPath, err)
+			copyErr = true
 			return nil
 		}
 		defer out.Close()
@@ -94,12 +103,16 @@ func main() {
 		// Copy src -> dest
 		if _, err := io.Copy(out, in); err != nil {
 			log.Warnf("could not copy \"%s\" to \"%s\": %v", inPath, outPath, err)
+			copyErr = true
 			return nil
 		}
 		return nil
 	}); err != nil {
 		// Should never happen
-		panic(fmt.Sprintf("could not copy /pach-bin/certs to /etc/ssl/certs: %v", err))
+		log.Warnf("could not copy /pach-bin/certs to /etc/ssl/certs: %v", err)
+	}
+	if copyErr {
+		log.Warnf("Errors were encountered while copying /pach-bin/certs to /etc/ssl/certs (see above--might result in subsequent SSL/TLS errors)")
 	}
 	cmdutil.Main(do, &appEnv{})
 }
