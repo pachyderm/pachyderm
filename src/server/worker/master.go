@@ -131,7 +131,7 @@ func (a *APIServer) serviceMaster() {
 			if err := pipelines.Get(pipelineName, pipelinePtr); err != nil {
 				return err
 			}
-			if pipelinePtr.Stopped {
+			if a.pipelineInfo.Stopped {
 				paused = true
 				return nil
 			}
