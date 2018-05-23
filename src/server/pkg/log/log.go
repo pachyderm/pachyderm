@@ -33,7 +33,7 @@ type logger struct {
 	*logrus.Entry
 	histogram   map[string]*prometheus.HistogramVec
 	counter     map[string]prometheus.Counter
-	mutex       *sync.Mutex
+	mutex       *sync.Mutex // synchronizes access to both histogram and counter maps
 	exportStats bool
 	service     string
 }
