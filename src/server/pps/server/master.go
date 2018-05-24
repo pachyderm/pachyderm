@@ -125,6 +125,7 @@ func (a *apiServer) master() {
 					}); err != nil {
 						return fmt.Errorf("watch event had no pipelineInfo: %v", err)
 					}
+
 					// If the pipeline has been stopped, delete workers
 					if pipelineInfo.Stopped {
 						log.Infof("PPS master: deleting workers for pipeline %s (%s)", pipelineName, pipelinePtr.State.String())
