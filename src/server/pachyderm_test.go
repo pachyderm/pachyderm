@@ -41,6 +41,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
+	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -4458,7 +4459,7 @@ func TestGarbageCollection(t *testing.T) {
 
 	objectsBefore := getAllObjects(t, c)
 	tagsBefore := getAllTags(t, c)
-
+	specObjectCountBefore := getObjectCountForRepo(t, c, ppsconsts.SpecRepo)
 	// Try to GC without stopping the pipeline.
 	require.YesError(t, c.GarbageCollect())
 
@@ -4491,7 +4492,11 @@ func TestGarbageCollection(t *testing.T) {
 	tagsAfter := getAllTags(t, c)
 
 	require.Equal(t, len(tagsBefore), len(tagsAfter))
-	require.Equal(t, len(objectsBefore), len(objectsAfter))
+	// Stopping the pipeline creates/updates the pipeline __spec__ repo, so we need
+	// to account for the number of objects we added there
+	specObjectCountAfter := getObjectCountForRepo(t, c, ppsconsts.SpecRepo)
+	expectedSpecObjectCountDelta := specObjectCountAfter - specObjectCountBefore
+	require.Equal(t, len(objectsBefore)+expectedSpecObjectCountDelta, len(objectsAfter))
 	objectsBefore = objectsAfter
 	tagsBefore = tagsAfter
 
@@ -7854,6 +7859,16 @@ func TestPachdPrometheusStats(t *testing.T) {
 		})
 	}
 
+}
+
+func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
+	pipelineInfos, err := pachClient.ListPipeline()
+	require.NoError(t, err)
+	repoInfo, err := pachClient.InspectRepo(repo)
+	require.NoError(t, err)
+	activeObjects, _, err := pps_server.CollectActiveObjectsAndTags(context.Background(), c.PfsAPIClient, c.ObjectAPIClient, []*pfs.RepoInfo{repoInfo}, pipelineInfos)
+	require.NoError(t, err)
+	return len(activeObjects)
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
