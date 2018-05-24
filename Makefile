@@ -434,7 +434,7 @@ test-pfs-server:
 	go test ./src/server/pfs/server -timeout $(TIMEOUT)
 
 test-pfs-cmds:
-	@# Unlike test-pfs, this target requires a running cluster
+	@# Unlike test-pfs-server, this target requires a running cluster
 	go test ./src/server/pfs/cmds -count 1 -timeout $(TIMEOUT)
 
 
