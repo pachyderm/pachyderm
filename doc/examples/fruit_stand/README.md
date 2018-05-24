@@ -2,11 +2,7 @@
 
 # Beginner Tutorial: Fruit Stand
 
-In this guide you're going to create a Pachyderm pipeline to process
-transaction logs from a fruit stand. We'll use standard unix tools `bash`, `grep`
-and `awk` to do our processing. Thanks to Pachyderm's processing system we'll
-be able to run the pipeline in a distributed, streaming fashion. As new data is
-added, the pipeline will automatically process it and materialize the results.
+In this guide you're going to create a Pachyderm pipeline to process transaction logs from a fruit stand. We'll use standard unix tools `bash`, `grep` and `awk` to do our processing. Thanks to Pachyderm's processing system we'll be able to run the pipeline in a distributed, streaming fashion. As new data is added, the pipeline will automatically process it and materialize the results.
 
 If you hit any errors not covered in this guide, check our [troubleshooting](http://docs.pachyderm.io/en/v1.7.3/managing_pachyderm/general_troubleshooting.html) docs for common errors, submit an issue on [GitHub](https://github.com/pachyderm/pachyderm), join our [users channel on Slack](http://pachyderm-users.slack.com), or email us at [support@pachyderm.io](mailto:support@pachyderm.io) and we can help you right away.
 
@@ -68,9 +64,7 @@ apple	6
 
 ## Create a Pipeline
 
-Now that we've got some data in our repo, it's time to do something with it.
-`Pipelines` are the core primitive for Pachyderm's processing system (pps) and
-they're specified with a JSON encoding. For this example, we've already created two pipelines for you, which can be found at [examples/fruit_stand/pipeline.json on Github](https://github.com/pachyderm/pachyderm/blob/v1.7.3/doc/examples/fruit_stand/pipeline.json). Please open a new tab to view the pipeline while we talk through it.
+Now that we've got some data in our repo, it's time to do something with it. `Pipelines` are the core primitive for Pachyderm's processing system (pps) and they're specified with a JSON encoding. For this example, we've already created two pipelines for you, which can be found at [examples/fruit_stand/pipeline.json on Github](https://github.com/pachyderm/pachyderm/blob/v1.7.3/doc/examples/fruit_stand/pipeline.json). Please open a new tab to view the pipeline while we talk through it.
 
 When you want to create your own pipelines later, you can refer to the full [pipeline spec](http://docs.pachyderm.io/en/v1.7.3/reference/pipeline_spec.html) to use more advanced options. This includes building your own code into a container instead of just using simple shell commands as we're doing here.
 
