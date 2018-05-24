@@ -432,3 +432,39 @@ func TestIsNotExist(c Client) error {
 	}
 	return nil
 }
+
+func WriteObj(c Client, name string, data string) error {
+	w, err := c.Writer(name)
+	if err != nil {
+		return err
+	}
+	if _, err := w.Write([]byte(data)); err != nil {
+		return err
+	}
+	return w.Close()
+}
+
+func ReadObj(c Client, name string) (_ string, retErr error) {
+	r, err := c.Reader(name, 0, 0)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if err := r.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	result, err := ioutil.ReadAll(r)
+	return string(result), err
+}
+
+func WalkAll(c Client, prefix string) ([]string, error) {
+	var result []string
+	if err := c.Walk(prefix, func(name string) error {
+		result = append(result, name)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
