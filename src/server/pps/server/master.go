@@ -439,7 +439,7 @@ func (a *apiServer) setPipelineState(pachClient *client.APIClient, pipelineInfo 
 		pipelines := a.pipelines.ReadWrite(stm)
 		pipelinePtr := &pps.EtcdPipelineInfo{}
 		return pipelines.Update(pipelineInfo.Pipeline.Name, pipelinePtr, func() error {
-			if pipelineInfo.Stopped || pipelinePtr.State == pps.PipelineState_PIPELINE_FAILURE {
+			if pipelinePtr.State == pps.PipelineState_PIPELINE_FAILURE {
 				return nil
 			}
 			pipelinePtr.State = state
