@@ -2194,8 +2194,11 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	if err != nil {
 		return nil, err
 	}
+	if len(paths) <= 0 {
+		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
+	}
 
-	var objects []*pfs.Object
+	objects := []*pfs.Object{}
 	var totalSize int64
 	for _, node := range paths {
 		if node.FileNode == nil {
@@ -2204,10 +2207,6 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 
 		objects = append(objects, node.FileNode.Objects...)
 		totalSize += node.SubtreeSize
-	}
-
-	if objects == nil {
-		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
 	}
 
 	getObjectsClient, err := pachClient.ObjectAPIClient.GetObjects(
