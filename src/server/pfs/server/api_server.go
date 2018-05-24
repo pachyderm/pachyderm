@@ -39,7 +39,7 @@ func newLocalAPIServer(address string, etcdPrefix string) (*apiServer, error) {
 		return nil, err
 	}
 	return &apiServer{
-		Logger: log.NewLogger("pfs.API"),
+		Logger: log.NewLocalLogger("pfs.API"),
 		driver: d,
 	}, nil
 }

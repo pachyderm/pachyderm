@@ -63,7 +63,7 @@ type objBlockAPIServer struct {
 
 // In test mode, we use unique names for cache groups, since we might want
 // to run multiple block servers locally, which would conflict if groups
-// had the same name.
+// had the same name. We also do not report stats to prometheus
 func newObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objClient obj.Client, test bool) (*objBlockAPIServer, error) {
 	// defensive mesaure incase IsNotExist checking breaks due to underlying changes
 	if err := obj.TestIsNotExist(objClient); err != nil {
@@ -81,6 +81,7 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objC
 	objectGroupName := "object"
 	tagGroupName := "tag"
 	objectInfoGroupName := "objectInfo"
+
 	if test {
 		uuid := uuid.New()
 		objectGroupName += uuid
@@ -89,11 +90,14 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objC
 	}
 
 	s.objectCache = groupcache.NewGroup(objectGroupName, oneCacheShare*objectCacheShares, groupcache.GetterFunc(s.objectGetter))
-	RegisterCacheStats("object", &s.objectCache.Stats)
 	s.tagCache = groupcache.NewGroup(tagGroupName, oneCacheShare*tagCacheShares, groupcache.GetterFunc(s.tagGetter))
-	RegisterCacheStats("tag", &s.tagCache.Stats)
 	s.objectInfoCache = groupcache.NewGroup(objectInfoGroupName, oneCacheShare*objectInfoCacheShares, groupcache.GetterFunc(s.objectInfoGetter))
-	RegisterCacheStats("object_info", &s.objectInfoCache.Stats)
+
+	if !test {
+		RegisterCacheStats("tag", &s.tagCache.Stats)
+		RegisterCacheStats("object", &s.objectCache.Stats)
+		RegisterCacheStats("object_info", &s.objectInfoCache.Stats)
+	}
 
 	go s.watchGC(etcdAddress)
 	return s, nil
