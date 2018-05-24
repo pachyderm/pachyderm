@@ -160,6 +160,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var localRoles bool
 	var namespace string
 	var noExposeDockerSocket bool
+	var tlsCertKey string
 
 	deployLocal := &cobra.Command{
 		Use:   "local",
@@ -521,6 +522,18 @@ particular backend, run "pachctl deploy storage <backend>"`,
 				Namespace:               namespace,
 				NoExposeDockerSocket:    noExposeDockerSocket,
 			}
+			if tlsCertKey != "" {
+				// TODO(msteffen): If either the cert path or the key path contains a
+				// comma, this doesn't work
+				certKey := strings.Split(tlsCertKey, ",")
+				if len(certKey) != 2 {
+					return fmt.Errorf("could not split TLS certificate and key correctly; must have two parts but got: %#v", certKey)
+				}
+				opts.TLS = &assets.TLSOpts{
+					ServerCert: certKey[0],
+					ServerKey:  certKey[1],
+				}
+			}
 			return nil
 		}),
 	}
@@ -540,6 +553,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 	deploy.PersistentFlags().BoolVar(&localRoles, "local-roles", false, "Use namespace-local roles instead of cluster roles. Ignored if --no-rbac is set.")
 	deploy.PersistentFlags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace to deploy Pachyderm to.")
 	deploy.PersistentFlags().BoolVar(&noExposeDockerSocket, "no-expose-docker-socket", false, "Don't expose the Docker socket to worker containers. This limits the privileges of workers which prevents them from automatically setting the container's working dir and user.")
+	deploy.PersistentFlags().StringVar(&tlsCertKey, "tls", "", "string of the form \"<cert path>,<key path>\" of the signed TLS certificate and private key that Pachd should use for TLS authentication (enables TLS-encrypted communication with Pachd)")
 
 	deploy.AddCommand(
 		deployLocal,

@@ -232,18 +232,13 @@ Environment variables:
 				}
 			}
 
-			cfg, err := config.Read()
-			if err != nil {
-				log.Warningf("error loading user config from ~/.pachderm/config: %v", err)
-			}
-			pachdAddress := client.GetURLFromUserMachine(cfg)
-			versionClient, err := getVersionAPIClient(pachdAddress)
+			pachClient, err := client.NewOnUserMachine(false, "user")
 			if err != nil {
 				return err
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
-			version, err := versionClient.GetVersion(ctx, &types.Empty{})
+			version, err := pachClient.GetVersion(ctx, &types.Empty{})
 
 			if err != nil {
 				buf := bytes.NewBufferString("")
@@ -453,18 +448,6 @@ Currently "pachctl garbage-collect" can only be started when there are no active
 	rootCmd.AddCommand(garbageCollect)
 	rootCmd.AddCommand(completion)
 	return rootCmd, nil
-}
-
-func getVersionAPIClient(address *url.URL) (versionpb.APIClient, error) {
-	opts, err := client.PachDialOptions(address)
-	if err != nil {
-		return nil, err
-	}
-	clientConn, err := grpc.Dial(address.Host, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return versionpb.NewAPIClient(clientConn), nil
 }
 
 func printVersionHeader(w io.Writer) {

@@ -169,6 +169,7 @@ func newLocalDriver(blockAddress string, etcdPrefix string) (*driver, error) {
 func (d *driver) getPachClient(ctx context.Context) *client.APIClient {
 	d.pachConnOnce.Do(func() {
 		var err error
+		// TODO(msteffen): this is wrong. Need to provide client with correct in-cluster cets
 		d.pachConn, err = grpc.Dial(d.address, client.PachDialOptions()...)
 		if err != nil {
 			panic(fmt.Sprintf("could not intiailize Pachyderm client in driver: %v", err))

@@ -81,7 +81,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		}
 	}
 	userVolumeMounts := options.volumeMounts
-	secretVolume, secretMount := assets.GetSecretVolumeAndMount(a.storageBackend)
+	secretVolume, secretMount := assets.GetBackendSecretVolumeAndMount(a.storageBackend)
 	options.volumes = append(options.volumes, secretVolume)
 	options.volumeMounts = append(options.volumeMounts, secretMount)
 	sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)

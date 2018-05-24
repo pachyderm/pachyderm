@@ -2,9 +2,13 @@ package client
 
 import (
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"net/url"
 	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -73,6 +77,13 @@ type APIClient struct {
 	// addr is a URL pointing at a pachd endpoint
 	addr *url.URL
 
+	// serverCAs is the list of trusted TLS root certificates used to authenticate
+	// pachd servers. If unset, and addr uses the "https" or "tls" scheme, this
+	// client falls back to the trusted root certs installed on the local machine
+	// (for the locations that Go checks for installed certs, see
+	// https://golang.org/src/crypto/x509/root_linux.go)
+	serverCAs *x509.CertPool
+
 	// clientConn is a cached grpc connection to 'addr'
 	clientConn *grpc.ClientConn
 
@@ -113,7 +124,8 @@ func (c *APIClient) GetHost() string {
 	return c.addr.Host
 }
 
-// DefaultMaxConcurrentStreams defines the max number of Putfiles or Getfiles happening simultaneously
+// DefaultMaxConcurrentStreams defines the max number of Putfiles or Getfiles
+// happening simultaneously
 const DefaultMaxConcurrentStreams uint = 100
 
 // CanonicalizeAddr is a helper function that converts a string (possibly a hostport
@@ -130,12 +142,34 @@ func CanonicalizeAddr(addr string) (*url.URL, error) {
 	return addrURL, nil
 }
 
-// NewFromURLWithConcurrency constructs a new APIClient and sets the max
-// concurrency of streaming requests (GetFile / PutFile)
-func NewFromURLWithConcurrency(addr *url.URL, maxConcurrentStreams uint) (*APIClient, error) {
+// NewFromAddress constructs a new APIClient for the server at addr.
+func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
+	pachURL, err := CanonicalizeAddr(addr)
+	if err != nil {
+		return nil, err
+	}
+	return NewFromURL(pachURL, options...)
+}
+
+// NewFromURL constructs a new APIClient for the server at pachURL.
+func NewFromURL(pachURL *url.URL, options ...Option) (*APIClient, error) {
+	// Apply creation options
+	settings := clientSettings{
+		maxConcurrentStreams: DefaultMaxConcurrentStreams,
+	}
+	systemCertPool, err := x509.SystemCertPool()
+	if err != nil {
+		log.Warning("could not use system CA certs, relying on provided certificates")
+		settings.serverCAs = x509.NewCertPool()
+	} else {
+		settings.serverCAs = systemCertPool
+	}
+	for _, option := range options {
+		option(&settings)
+	}
 	c := &APIClient{
-		addr:            addr,
-		streamSemaphore: make(chan struct{}, maxConcurrentStreams),
+		addr:            pachURL,
+		streamSemaphore: make(chan struct{}, settings.maxConcurrentStreams),
 	}
 	if err := c.connect(); err != nil {
 		return nil, err
@@ -143,51 +177,57 @@ func NewFromURLWithConcurrency(addr *url.URL, maxConcurrentStreams uint) (*APICl
 	return c, nil
 }
 
-// NewFromAddressWithConcurrency constructs a new APIClient and sets the max
-// concurrency of streaming requests (GetFile / PutFile)
-func NewFromAddressWithConcurrency(addr string, maxConcurrentStreams uint) (*APIClient, error) {
-	addrURL, err := CanonicalizeAddr(addr)
+type clientSettings struct {
+	maxConcurrentStreams uint
+	serverCAs            *x509.CertPool
+}
+
+// Option is a client creation option that may be passed to NewOnUserMachine(), or NewInCluster()
+type Option func(*clientSettings) error
+
+// WithMaxConcurrentStreams instructs the New* functions to create client that
+// can have at most 'streams' concurrent streams open with pachd at a time
+func WithMaxConcurrentStreams(streams uint) Option {
+	return func(settings *clientSettings) error {
+		settings.maxConcurrentStreams = streams
+		return nil
+	}
+}
+
+func addCertFromFile(pool *x509.CertPool, path string) error {
+	bytes, err := ioutil.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("could not read x509 cert from \"%s\": %v", path, err)
 	}
-	return NewFromURLWithConcurrency(addrURL, maxConcurrentStreams)
+	cert, err := x509.ParseCertificate(bytes)
+	if err != nil {
+		return fmt.Errorf("could not parse x509 cert at path \"%s\": %v", path, err)
+	}
+	pool.AddCert(cert)
+	return nil
 }
 
-// NewFromURL constructs a new APIClient for the server at addr.
-func NewFromURL(addr *url.URL) (*APIClient, error) {
-	return NewFromURLWithConcurrency(addr, DefaultMaxConcurrentStreams)
+// WithRootCAs instructs the New* functions to create client that uses the
+// given signed x509 certificates as the trusted root certificates (instead of
+// the system certs). Introduced to pass certs provided via command-line flags
+func WithRootCAs(path string) Option {
+	return func(settings *clientSettings) error {
+		settings.serverCAs = x509.NewCertPool()
+		return addCertFromFile(settings.serverCAs, path)
+	}
 }
 
-// NewFromAddress constructs a new APIClient for the server at addr.
-func NewFromAddress(addr string) (*APIClient, error) {
-	return NewFromAddressWithConcurrency(addr, DefaultMaxConcurrentStreams)
-}
-
-// GetURLFromUserMachine interprets the Pachyderm config in 'cfg' in the
-// context of local environment variables and returns a "host:port" string
-// pointing at a Pachd target.
-func GetURLFromUserMachine(cfg *config.Config) *url.URL {
-	// ADDRESS environment variable (shell-local) overrides global config
-	if envAddr := os.Getenv("ADDRESS"); envAddr != "" {
-		address, err := CanonicalizeAddr(envAddr)
-		if err != nil {
-			log.Warningf("invalid URL in ADDRESS %s (%v), falling back to user config", envAddr, err)
-		} else {
-			return address
+// WithAdditionalRootCAs instructs the New* functions to additionally trust the
+// given base64-encoded, signed x509 certificates as root certificates.
+// Introduced to pass certs in the Pachyderm config
+func WithAdditionalRootCAs(pemBytes []byte) Option {
+	return func(settings *clientSettings) error {
+		// append certs from config
+		if ok := settings.serverCAs.AppendCertsFromPEM(pemBytes); !ok {
+			return fmt.Errorf("server CA certs are present in Pachyderm config, but could not be added to client")
 		}
+		return nil
 	}
-	// Get target address from global config if possible
-	if cfg != nil && cfg.V1 != nil && cfg.V1.PachdAddress != "" {
-		address, err := CanonicalizeAddr(cfg.V1.PachdAddress)
-		if err != nil {
-			log.Warningf("invalid URL in user config \"%s\" (%v), falling back to http://0.0.0.0:30650", cfg.V1.PachdAddress, err)
-		} else {
-			return address
-		}
-	}
-	// Return default address if nothing else works
-	defaultAddress, _ := url.Parse("http://0.0.0.0:30650")
-	return defaultAddress
 }
 
 // NewOnUserMachine constructs a new APIClient using env vars that may be set
@@ -199,22 +239,46 @@ func GetURLFromUserMachine(cfg *config.Config) *url.URL {
 // pachyderm client library incompatible with Windows. We may want to move this
 // (and similar) logic into src/server and have it call a NewFromOptions()
 // constructor.
-func NewOnUserMachine(reportMetrics bool, prefix string) (*APIClient, error) {
-	return NewOnUserMachineWithConcurrency(reportMetrics, prefix, DefaultMaxConcurrentStreams)
-}
-
-// NewOnUserMachineWithConcurrency is identical to NewOnUserMachine, but
-// explicitly sets a limit on the number of RPC streams that may be open
-// simultaneously
-func NewOnUserMachineWithConcurrency(reportMetrics bool, prefix string, maxConcurrentStreams uint) (*APIClient, error) {
+func NewOnUserMachine(reportMetrics bool, prefix string, options ...Option) (*APIClient, error) {
 	cfg, err := config.Read()
 	if err != nil {
 		// metrics errors are non fatal
 		log.Warningf("error loading user config from ~/.pachderm/config: %v", err)
 	}
 
+	var pachURL *url.URL
+	// 1) ADDRESS environment variable (shell-local) overrides global config
+	if envAddr, ok := os.LookupEnv("ADDRESS"); ok {
+		pachURL, err = CanonicalizeAddr(envAddr)
+		if err == nil {
+			goto createClient // success
+		}
+		log.Warningf("invalid URL in ADDRESS %s (%v), falling back to user config", envAddr, err)
+	}
+
+	// 2) Get target address from global config if possible
+	if cfg != nil && cfg.V1 != nil && cfg.V1.PachdAddress != "" {
+		pachURL, err = CanonicalizeAddr(cfg.V1.PachdAddress)
+		if err == nil {
+			// Also get cert info from config
+			serverCABytes, err := base64.StdEncoding.DecodeString(cfg.V1.ServerCAs)
+			if err != nil {
+				return nil, fmt.Errorf("could not decode server CA certs in config: %v", err)
+			}
+			options = append(options, WithAdditionalRootCAs(serverCABytes))
+			goto createClient // success
+		}
+		log.Warningf("invalid URL in user config \"%s\" (%v), falling back to http://0.0.0.0:30650", cfg.V1.PachdAddress, err)
+	}
+	// 3) Use default address if nothing else works
+	pachURL = &url.URL{
+		Scheme: "http",
+		Host:   "0.0.0.0:30650",
+	}
+
+createClient:
 	// create new pachctl client
-	client, err := NewFromURL(GetURLFromUserMachine(cfg))
+	client, err := NewFromURL(pachURL, options...)
 	if err != nil {
 		return nil, err
 	}
@@ -234,10 +298,29 @@ func NewOnUserMachineWithConcurrency(reportMetrics bool, prefix string, maxConcu
 // This should be used to access Pachyderm from within a Kubernetes cluster
 // with Pachyderm running on it.
 func NewInCluster() (*APIClient, error) {
-	if addr := os.Getenv("PACHD_PORT_650_TCP_ADDR"); addr != "" {
-		return NewFromAddress(fmt.Sprintf("%v:650", addr))
+	addr := os.Getenv("PACHD_PORT_650_TCP_ADDR")
+	if addr == "" {
+		return nil, fmt.Errorf("PACHD_PORT_650_TCP_ADDR not set")
 	}
-	return nil, fmt.Errorf("PACHD_PORT_650_TCP_ADDR not set")
+	// create new pachctl client
+	client := &APIClient{
+		addr: &url.URL{
+			Scheme: "http",
+			Host:   fmt.Sprintf("%v:650", addr),
+		},
+		streamSemaphore: make(chan struct{}, DefaultMaxConcurrentStreams),
+	}
+	if _, err := os.Stat(grpcutil.TLSVolumePath); err == nil {
+		client.addr.Scheme = "https"
+		client.serverCAs = x509.NewCertPool()
+		if err := addCertFromFile(client.serverCAs, path.Join(grpcutil.TLSVolumePath, grpcutil.TLSCertFile)); err != nil {
+			return nil, err
+		}
+	}
+	if err := client.connect(); err != nil {
+		return nil, err
+	}
+	return client, nil
 }
 
 // Close the connection to gRPC
@@ -294,47 +377,25 @@ func EtcdDialOptions() []grpc.DialOption {
 	}
 }
 
-// InsecurePachDialOptions is a helper that returns the GRPC Dial() options that
-// make sense for pachd given an insecure (http) connection. This should rarely
-// be necessary, as PachDialOptions takes roughly the same argument as
-// grpc.Dial(), but may be more convenient that passing "http://example.com" to
-// PachDialOptions just to get this result
-func InsecurePachDialOptions() []grpc.DialOption {
-	return append(EtcdDialOptions(), grpc.WithInsecure())
-}
-
-// PachDialOptions is a helper returning a slice of grpc.Dial options
-// such that
-// - TLS is disabled
-// - Dial is synchronous: the call doesn't return until the connection has been
-//                        established and it's safe to send RPCs
-//
-// This is primarily useful for Pachd and Worker clients
-func PachDialOptions(addr *url.URL) ([]grpc.DialOption, error) {
-	switch addr.Scheme {
-	case "http":
-		return InsecurePachDialOptions(), nil
-	case "https":
-		return append(EtcdDialOptions(), grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{}))), nil
-	default:
-		return nil, fmt.Errorf("unrecognized scheme %s, must be \"http\" or \"https\"")
-	}
-}
-
 func (c *APIClient) connect() error {
-	fmt.Printf(">>> Beginning connect\n")
+	dialOptions := EtcdDialOptions()
 	keepaliveOpt := grpc.WithKeepaliveParams(keepalive.ClientParameters{
 		Time:                20 * time.Second, // if 20s since last msg (any kind), ping
 		Timeout:             20 * time.Second, // if no response to ping for 20s, reset
 		PermitWithoutStream: true,             // send ping even if no active RPCs
 	})
-	dialOptions, err := PachDialOptions(c.addr)
-	if err != nil {
-		return err
-	}
 	dialOptions = append(dialOptions, keepaliveOpt)
+	switch c.addr.Scheme {
+	case "https", "tls", "ssl":
+		dialOptions = append(dialOptions, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
+			RootCAs: c.serverCAs,
+		})))
+	case "http", "tcp":
+		dialOptions = append(dialOptions, grpc.WithInsecure())
+	default:
+		return fmt.Errorf("unrecognized URL scheme: %s", c.addr.Scheme)
+	}
 	grpcAddr := c.addr.Host
-	fmt.Printf(">>> Using address %s\n", grpcAddr)
 	clientConn, err := grpc.Dial(grpcAddr, dialOptions...)
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)

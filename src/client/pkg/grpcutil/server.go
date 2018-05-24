@@ -5,13 +5,30 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"os"
+	"path"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
+)
+
+const (
+	// TLSVolumePath is the path at which the tls cert and private key (if any)
+	// will be mounted in the pachd pod
+	TLSVolumePath = "/pachd-tls-cert"
+
+	// TLSCertFile is the name of the mounted file containing a TLS certificate
+	// that identifies pachd
+	TLSCertFile = "tls.crt"
+
+	// TLSKeyFile is the name of the mounted file containing a private key
+	// corresponding to the public certificate in TLSCertFile
+	TLSKeyFile = "tls.key"
 )
 
 var (
@@ -44,7 +61,7 @@ func Serve(
 	if serveEnv.GRPCPort == 0 {
 		serveEnv.GRPCPort = 7070
 	}
-	grpcServer := grpc.NewServer(
+	serverOpts := []grpc.ServerOption{
 		grpc.MaxConcurrentStreams(math.MaxUint32),
 		grpc.MaxRecvMsgSize(options.MaxMsgSize),
 		grpc.MaxSendMsgSize(options.MaxMsgSize),
@@ -52,7 +69,19 @@ func Serve(
 			MinTime:             5 * time.Second,
 			PermitWithoutStream: true,
 		}),
-	)
+	}
+	if _, err := os.Stat(TLSVolumePath); err == nil {
+		certPath := path.Join(TLSVolumePath, TLSCertFile)
+		keyPath := path.Join(TLSVolumePath, TLSKeyFile)
+		transportCreds, err := credentials.NewServerTLSFromFile(certPath, keyPath)
+		if err != nil {
+			return fmt.Errorf("couldn't build transport creds: %v", err)
+		}
+		serverOpts = append(serverOpts,
+			grpc.Creds(transportCreds),
+		)
+	}
+	grpcServer := grpc.NewServer(serverOpts...)
 	registerFunc(grpcServer)
 	if options.Version != nil {
 		versionpb.RegisterAPIServer(grpcServer, version.NewAPIServer(options.Version, version.APIServerOptions{}))
