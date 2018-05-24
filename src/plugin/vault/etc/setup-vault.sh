@@ -61,6 +61,7 @@ set -o pipefail
   cd ${GOPATH}/src/github.com/pachyderm/pachyderm/src/plugin/vault && \
   make plugin
 )
+mkdir -p /tmp/vault-plugins
 cp ${GOPATH}/bin/pachyderm-plugin /tmp/vault-plugins/${PLUGIN_NAME}
 
 # Re-enable the plugin (i.e. start the new plugin process)
