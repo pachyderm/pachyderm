@@ -10,6 +10,8 @@ set -euxo pipefail
 
 set -e
 
+which jq
+
 delete_resources() {
   local name=${1}
   [[ -e ${HOME}/.pachyderm/${name}-info.json ]] || aws s3 cp "${KOPS_BUCKET}/${name}-info.json" "${HOME}/.pachyderm/${name}-info.json" 
