@@ -33,13 +33,13 @@ data 8 seconds ago 0B
 
 ## Adding Data to Pachyderm
 
-Now that we've created a repo it's time to add some data. In Pachyderm, you write data to an explicit `commit` (again, similar to Git). Commits are immutable snapshots of your data which give Pachyderm its version control properties. `Files` can be added, removed, or updated in a given commit and then you can view a diff of those changes compared to a previous commit.
+Now that we've created a repo it's time to add some data. In Pachyderm, you write data to a `commit` (again, similar to Git). Commits are immutable snapshots of your data which give Pachyderm its version control properties. `Files` can be added, removed, or updated in a given commit and then you can view a diff of those changes compared to a previous commit.
 
 Let's start by just adding a file to a new commit. We've provided a sample data file for you to use in our GitHub repo -- it's a list of purchases from a fruit stand.
 
 We'll use the `put-file` command along with a flag, `-f`. `-f` can take either a local file or a URL, and in our case, we'll pass the sample data on GitHub.
 
- We also specificy the repo name `data`, the branch name `master`, and the path `/sales` to which the data will be written.
+ We also specificy the repo name `data`, the branch name `master`, and the path `/sales` to which the data will be written  (under the hood, `put-file` creates a new commit in whatever branch it's passed).
 
 ```sh
 $ pachctl put-file data master /sales -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.7.3/doc/examples/fruit_stand/set1.txt
@@ -48,21 +48,22 @@ $ pachctl put-file data master /sales -f https://raw.githubusercontent.com/pachy
 Finally, we can see the data we just added to Pachyderm.
 ```sh
 # If we list the repos, we can see that there is now data
-$ pachctl list-repo
-NAME                CREATED             SIZE
-data                12 minutes ago       874 B
+$ pc list-repo
+NAME CREATED        SIZE 
+data 31 seconds ago 874B 
 
 # We can view the commit we just created
-pachctl list-commit data
-BRANCH              REPO/ID         PARENT              STARTED             FINISHED            SIZE
-master              data/master/0   <none>              6 minutes ago       6 minutes ago       874 B
+$ pc list-commit data
+REPO ID                               PARENT STARTED        DURATION           SIZE 
+data b60d583b2d2747b6ae912c1e7fe1fb06 <none> 24 seconds ago Less than a second 874B 
 
 # We can also view the contents of the file that we just added
 $ pachctl get-file data master /sales | head -n5
-orange 	4
-banana 	2
-banana 	9
-orange 	9
+orange	4
+banana	2
+banana	9
+orange	9
+apple	6
 ```
 
 ## Create a Pipeline
@@ -88,133 +89,83 @@ The second step of this pipeline takes each file, removes the fruit name, and su
 Now let's create the pipeline in Pachyderm:
 
 ```sh
-$ pachctl create-pipeline -f https://github.com/pachyderm/pachyderm/blob/v1.7.3/doc/examples/fruit_stand/pipeline.json
+$ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.7.3/doc/examples/fruit_stand/pipeline.json
 ```
 
 ## What Happens When You Create a Pipeline
 
-Creating a pipeline tells Pachyderm to run your code on the most recent input commit as all future commits that happen after the pipeline is created. Our repo already had a commit, so Pachyderm automatically
-launched a `job` to process that data.
+Creating a pipeline tells Pachyderm to run your code on the most recent input commit as all future commits that happen after the pipeline is created. Our repo already had a commit, so Pachyderm automatically launched a `job` to process that data.
 
 You can view the job with:
 
-.. code-block:: shell
+```sh
+ $ pc list-job
+ID                               OUTPUT COMMIT                           STARTED        DURATION  RESTART PROGRESS  DL   UL   STATE            
+f8596ec0628a4ed6846489971b5c75e3 sum/0069dd5ed4644a7d87c7092204e7d3cf    21 seconds ago 5 seconds 0       3 + 0 / 3 200B 12B  success 
+b26a1c64aece4d00a66ec3892735e474 filter/e1482b25ed574005919f325b67e3fc8d 21 seconds ago 5 seconds 0       1 + 0 / 1 874B 200B success 
+```
 
- $ pachctl list-job
-	ID                                 OUTPUT                                       STARTED             DURATION             STATE
-	90c74896fd227f319c3c19459aa7a22b   sum/e4060e15948c4b7b89947a02eace5dca/0       2 minutes ago       Less than a second   success
-	67c30d70ba9d2179aa133255f5dc81db   filter/d737e9b7cfae40d4aa8a8871cdb9f783/0    3 minutes ago       2 seconds            success
+Every pipeline creates a corresponding output repo with the same name as the pipeline itself, where it stores its results. In our example, the "filter" transformation created a repo called "filter" which was the input to the "sum" transformation. The "sum" repo contains the final output files.
 
-Every pipeline creates a corresponding repo with the same name where it stores its output results. In our example, the "filter" transformation created a repo called "filter" which was the input to the "sum" transformation. The "sum" repo contains the final output files.
+```sh
+$ pc list-repo
+NAME   CREATED            SIZE 
+sum    About a minute ago 12B  
+filter About a minute ago 200B 
+data   3 minutes ago      874B 
+```
 
-.. code-block:: shell
+## Reading the Output
 
- $ pachctl list-repo
- NAME                CREATED             SIZE
- sum                 2 minutes ago       12 B
- filter              2 minutes ago       200 B
- data                19 minutes ago      874 B
+ We can read the output data from the "sum" repo in the same fashion that we read the input data:
 
+```
+$ pachctl get-file sum master /apple
+133
+```
 
-Reading the Output
-^^^^^^^^^^^^^^^^^^
+## Processing More Data
 
- We can read the output data from the "sum" repo in the same fashion that we read the input data (except now we need to use an explicit commitID because the "sum" repo doesn't have a "master" branch:
+Pipelines will also automatically process the data from new commits as they are created (think of pipelines as being subscribed to any new commits that are finished on their input branches). Also similar to Git, commits have a parental structure that track how files change over time.
 
-.. code-block:: shell
-
- $ pachctl get-file sum e4060e15948c4b7b89947a02eace5dca/0 apple
- 133
-
-
-Processing More Data
-^^^^^^^^^^^^^^^^^^^^
-
-Pipelines will also automatically process the data from new commits as they are
-created. Think of pipelines as being subscribed to any new commits that are
-finished on their input repo(s). Also similar to Git, commits have a parental
-structure that track how files change over time. In this case we're going to be adding more data to the same file "sales."
-
-In our fruit stand example, this could be making a commit every hour with all the new purchases that happened in that timeframe.
+In this case, we're going to be adding more data to the file "sales". Our fruit stand business might append to this file every every hour with all the new purchases that happened in that window.
 
 Let's create a new commit with our previous commit as the parent and add more sample data (set2.txt) to "sales":
 
-.. code-block:: shell
+```sh
+$ pachctl put-file data master sales -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.7.3/doc/examples/fruit_stand/set2.txt
+```
 
-  $ pachctl put-file data master sales -c -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.2.1/doc/examples/fruit_stand/set2.txt
+Adding a new commit of data will automatically trigger the pipeline to run on the new data we've added. We'll see a corresponding commit to the output "sum" repo with files "apple", "orange" and "banana" each containing the cumulative total of purchases. Let's read the "apples" file again and see the new total number of apples sold.
 
-Adding a new commit of data will automatically trigger the pipeline to run on
-the new data we've added. We'll see a corresponding commit to the output
-"sum" repo with files "apple", "orange" and "banana" each containing the cumulative total of purchases. Let's read the "apples" file again and see the new total number of apples sold.
+```sh
+$ pc list-commit data
+REPO ID                               PARENT                           STARTED        DURATION           SIZE     
+data 2fbfec34ab534f869c343654a8c1977b b60d583b2d2747b6ae912c1e7fe1fb06 1 minute ago   Less than a second 1.696KiB 
+data b60d583b2d2747b6ae912c1e7fe1fb06 <none>                           1 minute ago   Less than a second 874B     
 
-.. code-block:: shell
+$ pc list-job
+ID                               OUTPUT COMMIT                           STARTED        DURATION           RESTART PROGRESS  DL       UL   STATE            
+8d1c660acaed42c58c37e9c538f943cc sum/79490b7548ed4dd881e3d4096e4fe553    54 seconds ago Less than a second 0       3 + 0 / 3 400B     12B  success 
+4f281923c38549aeaf88f68707510368 filter/ce9a565a63e94b618fc6f8c78d148779 54 seconds ago Less than a second 0       1 + 0 / 1 1.696KiB 400B success 
+f8596ec0628a4ed6846489971b5c75e3 sum/0069dd5ed4644a7d87c7092204e7d3cf    8 minutes ago  5 seconds          0       3 + 0 / 3 200B     12B  success 
+b26a1c64aece4d00a66ec3892735e474 filter/e1482b25ed574005919f325b67e3fc8d 8 minutes ago  5 seconds          0       1 + 0 / 1 874B     200B success 
 
- $ pachctl get-file sum 4092f4675650476ab0a3fde5b7780316/0 apple
- 324
+$ pachctl get-file sum master /apple
+324
+```
 
-One thing that's interesting to note is that our pipeline is completely incremental. Since ``grep`` is a ``map`` operation, Pachyderm will only ``grep`` the new data from set2.txt instead of re-filtering all the data. If you look back at the "sum" pipeline, you'll notice the ``method`` and that our code uses ``/pfs/prev`` to compute the sum incrementally based upon our previous commit. You can learn more about incrementally in our advanced :doc:`../advanced/incrementality` docs.
-
-We can view the parental structure of the commits we just created.
-
-.. code-block:: shell
-
- $ pachctl list-commit data
- BRANCH              REPO/ID             PARENT              STARTED             FINISHED            SIZE
- master              data/master/0       <none>              19 minutes ago      19 minutes ago      874 B
- master              data/master/1       master/0            2 minutes ago       2 minutes ago       874 B
-
-
-Exploring the File System
-^^^^^^^^^^^^^^^^^^^^^^^^^
-Another nifty feature of Pachyderm is that you can mount the file system locally to poke around and explore your data using FUSE. FUSE comes pre-installed on most Linux distributions. For OS X, you'll need to install `OSX FUSE <https://osxfuse.github.io/>`_.
-
-
-The first thing we need to do is mount Pachyderm's filesystem (pfs).
-
-First create the mount point:
-
-.. code-block:: shell
-
-    $ mkdir ~/pfs
-
-
-And then mount it:
-
-.. code-block:: bash
-
- # We background this process because it blocks.
- $ pachctl mount ~/pfs &
-
-
-This will mount pfs on ``~/pfs`` you can inspect the filesystem like you would any
-other local filesystem such as using ``ls`` or pointing your browser at it.
-
-.. code-block:: shell
-
- # We can see our repos
- $ ls ~/pfs
- data   filter 	sum
-
- # And commits
- $ ls ~/pfs/sum
- 4092f4675650476ab0a3fde5b7780316/1	4092f4675650476ab0a3fde5b7780316/0
-
-.. note::
-
- Use ``pachctl unmount ~/pfs`` to unmount the filesystem. You can also use the ``-a`` flag to remove all Pachyderm FUSE mounts.
-
-Next Steps
-^^^^^^^^^^
+## Next Steps
 You've now got Pachyderm running locally with data and a pipeline! If you want to keep playing with Pachyderm locally, here are some ideas to expand on your working setup.
 
-- Write a script to stream more data into Pachyderm. We already have one in Golang for you on `GitHub <https://github.com/pachyderm/pachyderm/tree/v1.2.1/doc/examples/fruit_stand/generate>`_ if you want to use it.
-- Add a new pipeline that does something interesting with the "sum" repo as an input.
-- Add your own data set and ``grep`` for different terms. This example can be generalized to generic word count.
+  - Write a script to stream more data into Pachyderm. We already have one in Golang for you on [GitHub](https://github.com/pachyderm/pachyderm/tree/v1.7.3/doc/examples/fruit_stand/generate) if you want to use it.
+  - Add a new pipeline that does something interesting with the "sum" repo as an input.
+  - Add your own data set and `grep` for different terms. This example can be generalized to generic word count.
 
 You can also start learning some of the more advanced topics to develop analysis in Pachyderm:
 
-- :doc:`../deployment/deploying_on_the_cloud`
-- :doc:`../deployment/inputing_your_data` from other sources
-- :doc:`../deployment/custom_pipelines` using your own code
+- [Deploying on the cloud](http://docs.pachyderm.io/en/v1.7.3/deployment/deploy_intro.html)
+- [Input data from other sources](http://docs.pachyderm.io/en/v1.7.3/fundamentals/getting_data_into_pachyderm.html)
+- [Create pipelines using your own code](http://docs.pachyderm.io/en/v1.7.3/fundamentals/creating_analysis_pipelines.html)
 
-We'd love to help and see what you come up with so submit any issues/questions you come across on `GitHub <https://github.com/pachyderm/pachyderm>`_ , `Slack <http://slack.pachyderm.io>`_ or email at dev@pachyderm.io if you want to show off anything nifty you've created!
+We'd love to help and see what you come up with so submit any issues/questions you come across on [GitHub](https://github.com/pachyderm/pachyderm) , [Slack](http://pachyderm-users.slack.com) or email at dev at pachyderm.io if you want to show off anything nifty you've created!
