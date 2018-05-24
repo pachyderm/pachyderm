@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -29,7 +28,7 @@ const MaxClusterTime = time.Hour * 4
 
 // HandleRequest handles the deletion of old clusters.
 func HandleRequest() (string, error) {
-	cmd := exec.Command("/bin/sh", "-c", "export PATH=$PATH:/var/task; kops --state=s3://"+KopsBucket+" get clusters | tail -n+2 | awk '{print $1}'")
+	cmd := exec.Command("/bin/bash", "-c", "export PATH=$PATH:/var/task; kops --state=s3://"+KopsBucket+" get clusters | tail -n+2 | awk '{print $1}'")
 	cmd.Stderr = os.Stderr
 	out, err := cmd.Output()
 	if err != nil {
@@ -37,6 +36,7 @@ func HandleRequest() (string, error) {
 	}
 	names := strings.Split(string(out), "\n")
 	names = names[:len(names)-1]
+	var deleted string
 	svc := s3.New(session.New())
 	for _, name := range names {
 		infoObject, err := svc.GetObject(
@@ -57,8 +57,8 @@ func HandleRequest() (string, error) {
 		}
 		// Cluster has been up for too long
 		if createTime.Add(MaxClusterTime).Before(time.Now()) {
-			fmt.Println("Cluster being deleted: " + name)
-			cmd := exec.Command("/bin/sh", "-c", "export PATH=$PATH:/var/task; kops --state=s3://"+KopsBucket+" delete cluster --name="+name+" --yes")
+			deleted += name + ", "
+			cmd := exec.Command("/bin/bash", "-c", "export PATH=$PATH:/var/task; kops --state=s3://"+KopsBucket+" delete cluster --name="+name+" --yes")
 			cmd.Stderr = os.Stderr
 			if err := cmd.Run(); err != nil {
 				return "Failed to delete cluster", err
@@ -80,7 +80,12 @@ func HandleRequest() (string, error) {
 			}
 		}
 	}
-	return "Succeeded", nil
+	if len(deleted) <= 0 {
+		return "No clusters deleted", nil
+	}
+	deleted = "Clusters deleted: " + deleted
+	tmp := []rune(deleted)
+	return string(tmp[:len(tmp)-2]), nil
 }
 
 func main() {
