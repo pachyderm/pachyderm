@@ -30,6 +30,8 @@ BENCH_CLOUD_PROVIDER=aws
 MINIKUBE_MEM=8192 # MB of memory allocated to minikube
 MINIKUBE_CPU=4 # Number of CPUs allocated to minikube
 
+ETCD_IMAGE=quay.io/coreos/etcd:v3.3.5
+
 ifdef TRAVIS_BUILD_NUMBER
 	# Upper bound for travis test timeout
 	TIMEOUT = 3600s
@@ -416,16 +418,17 @@ enterprise-code-checkin-test:
 
 test-pfs-server:
 	@# Check that at least 2048 open file descriptors are allowed (smallest number known to work)
-	if [ $$(ulimit -n) -lt 2048 ]; then \
+	@if [ $$(ulimit -n) -lt 2048 ]; then \
 	  echo "Number of open file descriptors is limited to $$(ulimit -n), which may be too low"; \
 	  echo "Try running 'ulimit -n 2048' to increase this limit"; \
+		echo ""; \
 	  exit 1; \
 	fi
 	@# If etcd is not available, start it in a docker container
 	if ! ETCDCTL_API=3 etcdctl --endpoints=127.0.0.1:2379 get "testkey"; then \
 	  docker run \
 	    --publish 32379:2379 \
-	    quay.io/coreos/etcd:v3.3.5 \
+	    $(ETCD_IMAGE) \
 	    etcd \
 	    --listen-client-urls=http://0.0.0.0:2379 \
 	    --advertise-client-urls=http://0.0.0.0:2379 & \
