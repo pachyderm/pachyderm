@@ -1383,6 +1383,9 @@ func (a *apiServer) getLogsFromStats(pachClient *client.APIClient, request *pps.
 }
 
 func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) error {
+	if pipelineInfo.Pipeline == nil {
+		return fmt.Errorf("pipeline has no name")
+	}
 	if err := a.validateInput(pachClient, pipelineInfo.Pipeline.Name, pipelineInfo.Input, false); err != nil {
 		return err
 	}
