@@ -42,9 +42,10 @@ var (
 	etcdName                = "etcd"
 	etcdVolumeName          = "etcd-volume"
 	etcdVolumeClaimName     = "etcd-storage"
-	etcdStorageClassName    = "etcd-storage-class"
-	grpcProxyName           = "grpc-proxy"
-	pachdName               = "pachd"
+	// The storage class name to use when creating a new StorageClass for etcd.
+	defaultEtcdStorageClassName = "etcd-storage-class"
+	grpcProxyName               = "grpc-proxy"
+	pachdName                   = "pachd"
 	// PrometheusPort hosts the prometheus stats for scraping
 	PrometheusPort = 9091
 
@@ -127,6 +128,11 @@ type AssetOpts struct {
 	// EtcdMemRequest is the amount of memory we request for each etcd node. If
 	// empty, assets.go will choose a default size.
 	EtcdMemRequest string
+
+	// EtcdStorageClassName is the name of an existing StorageClass to use when
+	// creating a StatefulSet for dynamic etcd storage. If unset, a new
+	// StorageClass will be created for the StatefulSet.
+	EtcdStorageClassName string
 
 	// IAM role that the Pachyderm deployment should assume when talking to AWS
 	// services (if using kube2iam + metadata service + IAM role to delegate
@@ -651,7 +657,7 @@ func EtcdStorageClass(opts *AssetOpts, backend backend) (interface{}, error) {
 		"apiVersion": "storage.k8s.io/v1beta1",
 		"kind":       "StorageClass",
 		"metadata": map[string]interface{}{
-			"name":      etcdStorageClassName,
+			"name":      defaultEtcdStorageClassName,
 			"labels":    labels(etcdName),
 			"namespace": opts.Namespace,
 		},
@@ -838,13 +844,17 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 	var pvcTemplates []interface{}
 	switch backend {
 	case googleBackend, amazonBackend:
+		storageClassName := opts.EtcdStorageClassName
+		if storageClassName == "" {
+			storageClassName = defaultEtcdStorageClassName
+		}
 		pvcTemplates = []interface{}{
 			map[string]interface{}{
 				"metadata": map[string]interface{}{
 					"name":   etcdVolumeClaimName,
 					"labels": labels(etcdName),
 					"annotations": map[string]string{
-						"volume.beta.kubernetes.io/storage-class": etcdStorageClassName,
+						"volume.beta.kubernetes.io/storage-class": storageClassName,
 					},
 					"namespace": opts.Namespace,
 				},
@@ -1220,19 +1230,22 @@ func WriteAssets(encoder Encoder, opts *AssetOpts, objectStoreBackend backend,
 			return err
 		}
 	} else if opts.EtcdNodes > 0 {
-		sc, err := EtcdStorageClass(opts, persistentDiskBackend)
-		if err != nil {
-			return err
-		}
-		if sc != nil {
-			if err = encoder.Encode(sc); err != nil {
+		// Create a StorageClass, if the user didn't provide one.
+		if opts.EtcdStorageClassName == "" {
+			sc, err := EtcdStorageClass(opts, persistentDiskBackend)
+			if err != nil {
 				return err
 			}
+			if sc != nil {
+				if err = encoder.Encode(sc); err != nil {
+					return err
+				}
+			}
 		}
-		if err = encoder.Encode(EtcdHeadlessService(opts)); err != nil {
+		if err := encoder.Encode(EtcdHeadlessService(opts)); err != nil {
 			return err
 		}
-		if err = encoder.Encode(EtcdStatefulSet(opts, persistentDiskBackend, volumeSize)); err != nil {
+		if err := encoder.Encode(EtcdStatefulSet(opts, persistentDiskBackend, volumeSize)); err != nil {
 			return err
 		}
 	} else if opts.EtcdVolume != "" || persistentDiskBackend == localBackend {
