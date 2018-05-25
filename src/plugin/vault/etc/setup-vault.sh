@@ -57,8 +57,12 @@ rm /tmp/vault-plugins/$PLUGIN_NAME || true
 set -o pipefail
 
 # Build the plugin binary
-SCRIPT_DIR=$(dirname "${0}")
-go build -o /tmp/vault-plugins/$PLUGIN_NAME ${SCRIPT_DIR}/..
+(
+  cd ${GOPATH}/src/github.com/pachyderm/pachyderm/src/plugin/vault && \
+  make plugin
+)
+mkdir -p /tmp/vault-plugins
+cp ${GOPATH}/bin/pachyderm-plugin /tmp/vault-plugins/${PLUGIN_NAME}
 
 # Re-enable the plugin (i.e. start the new plugin process)
 export SHASUM=$(shasum -a 256 "/tmp/vault-plugins/$PLUGIN_NAME" | cut -d " " -f1)
