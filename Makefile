@@ -30,6 +30,8 @@ BENCH_CLOUD_PROVIDER=aws
 MINIKUBE_MEM=8192 # MB of memory allocated to minikube
 MINIKUBE_CPU=4 # Number of CPUs allocated to minikube
 
+ETCD_IMAGE=quay.io/coreos/etcd:v3.3.5
+
 ifdef TRAVIS_BUILD_NUMBER
 	# Upper bound for travis test timeout
 	TIMEOUT = 3600s
@@ -400,7 +402,7 @@ pretest:
 
 local-test: docker-build launch-dev test-pfs clean-launch-dev
 
-test-misc: lint enterprise-code-checkin-test docker-build test-pfs test-vault test-auth test-enterprise test-worker
+test-misc: lint enterprise-code-checkin-test docker-build test-pfs-server test-pfs-cmds test-libs test-vault test-auth test-enterprise test-worker
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis
 test: clean-launch-dev launch-dev test-misc test-pps
@@ -414,12 +416,30 @@ enterprise-code-checkin-test:
 		false; \
 	fi
 
-test-pfs:
+test-pfs-server:
+	@# Check that at least 2048 open file descriptors are allowed (smallest number known to work)
+	@if [ $$(ulimit -n) -lt 2048 ]; then \
+	  echo "Number of open file descriptors is limited to $$(ulimit -n), which may be too low"; \
+	  echo "Try running 'ulimit -n 2048' to increase this limit"; \
+		echo ""; \
+	  exit 1; \
+	fi
+	@# If etcd is not available, start it in a docker container
+	if ! ETCDCTL_API=3 etcdctl --endpoints=127.0.0.1:2379 get "testkey"; then \
+	  docker run \
+	    --publish 32379:2379 \
+	    $(ETCD_IMAGE) \
+	    etcd \
+	    --listen-client-urls=http://0.0.0.0:2379 \
+	    --advertise-client-urls=http://0.0.0.0:2379 & \
+	fi
 	@# don't run this in verbose mode, as it produces a huge amount of logs
 	go test ./src/server/pfs/server -timeout $(TIMEOUT)
+
+test-pfs-cmds:
+	@# Unlike test-pfs-server, this target requires a running cluster
 	go test ./src/server/pfs/cmds -count 1 -timeout $(TIMEOUT)
-	go test ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
-	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
+
 
 test-pps:
 	@# Travis uses the helper directly because it needs to specify a
@@ -439,6 +459,10 @@ test-client:
 	GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/client/... | grep -v vendor)
 	rm -rf src/client/vendor
 	git checkout src/server/vendor/github.com/pachyderm
+
+test-libs:
+	go test ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
+	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
 
 test-vault:
 	kill $$(cat /tmp/vault.pid) || true
