@@ -4709,7 +4709,7 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	commitIter, err = c.FlushCommit([]*pfs.Commit{commit2}, nil)
 	require.NoError(t, err)
 	commitInfos = collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 
 	jobs, err = c.ListJob(pipeline, nil, nil)
 	require.NoError(t, err)
@@ -4814,7 +4814,7 @@ func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
 	commitIter, err = c.FlushCommit([]*pfs.Commit{commit3}, nil)
 	require.NoError(t, err)
 	commitInfos = collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 
 	jobs, err = c.ListJob(pipeline, nil, nil)
 	require.NoError(t, err)
@@ -5000,7 +5000,7 @@ func TestSkippedDatums(t *testing.T) {
 	commitInfoIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit1.ID)}, nil)
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitInfoIter)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
