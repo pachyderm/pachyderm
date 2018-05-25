@@ -403,7 +403,21 @@ func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) err
 			}
 		}
 		commits.DeleteAll()
+		var branchInfos []*pfs.BranchInfo
 		for _, branch := range repoInfo.Branches {
+			bi, err := d.inspectBranch(ctx, branch)
+			if err != nil {
+				return fmt.Errorf("error inspecting branch %s: %v", branch, err)
+			}
+			branchInfos = append(branchInfos, bi)
+		}
+		// sort ascending provenance
+		sort.Slice(branchInfos, func(i, j int) bool { return len(branchInfos[i].Provenance) < len(branchInfos[j].Provenance) })
+		for i := range branchInfos {
+			// delete branches from most provenance to least, that way if one
+			// branch is provenant on another (such as with stats branches) we
+			// delete them in the right order.
+			branch := branchInfos[len(branchInfos)-1-i].Branch
 			if err := d.deleteBranchSTM(stm, branch, force); err != nil {
 				return fmt.Errorf("delete branch %s: %v", branch, err)
 			}
