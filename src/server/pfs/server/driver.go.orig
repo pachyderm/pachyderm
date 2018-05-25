@@ -96,7 +96,11 @@ type driver struct {
 	// pachClient is a cached Pachd client, that connects to Pachyderm's object
 	// store API and auth API. Instead of accessing it directly, functions should
 	// call getPachClient()
+<<<<<<< HEAD
 	_pachClient *client.APIClient
+=======
+	pachClient *client.APIClient
+>>>>>>> Partial commit of TLS work
 
 	// etcdClient and prefix write repo and other metadata to etcd
 	etcdClient *etcd.Client
@@ -155,7 +159,7 @@ func newDriver(address *url.URL, etcdAddresses []string, etcdPrefix string, tree
 
 // newLocalDriver creates a driver using an local etcd instance.  This
 // function is intended for testing purposes
-func newLocalDriver(blockAddress *url.URL, etcdPrefix string) (*driver, error) {
+func newLocalDriver(blockAddress string, etcdPrefix string) (*driver, error) {
 	return newDriver(blockAddress, []string{"localhost:32379"}, etcdPrefix, defaultTreeCacheSize)
 }
 
@@ -166,11 +170,11 @@ func newLocalDriver(blockAddress *url.URL, etcdPrefix string) (*driver, error) {
 // TODO(msteffen): client initialization (both etcd and pachd) might be better
 // placed happen in server.go, near main(), so that we only pay the dial cost
 // once, and so that pps doesn't need to have its own initialization code
+<<<<<<< HEAD
 func (d *driver) getPachClient(ctx context.Context) *client.APIClient {
 	d.pachConnOnce.Do(func() {
 		var err error
-		// TODO(msteffen): this is wrong. Need to provide client with correct in-cluster cets
-		d.pachConn, err = grpc.Dial(d.address.Host, client.PachDialOptions()...)
+		d.pachConn, err = grpc.Dial(d.address, client.PachDialOptions()...)
 		if err != nil {
 			panic(fmt.Sprintf("could not intiailize Pachyderm client in driver: %v", err))
 		}
@@ -180,12 +184,29 @@ func (d *driver) getPachClient(ctx context.Context) *client.APIClient {
 		}
 	})
 	return d._pachClient.WithCtx(ctx)
+=======
+func (d *driver) getPachClient(ctx *context.Context) *client.APIClient {
+	d.pachConnOnce.Do(func() {
+		var err error
+		d.pachClient, err = client.NewInCluster()
+		if err != nil {
+			panic("could not intiailize Pachyderm client in driver: %v", err)
+		}
+	})
+	return d.pachClient.WithCtx(ctx)
+>>>>>>> Partial commit of TLS work
 }
 
 // checkIsAuthorized returns an error if the current user (in 'ctx') has
 // authorization scope 's' for repo 'r'
+<<<<<<< HEAD
 func (d *driver) checkIsAuthorized(pachClient *client.APIClient, r *pfs.Repo, s auth.Scope) error {
 	ctx := pachClient.Ctx()
+=======
+func (d *driver) checkIsAuthorized(ctx context.Context, r *pfs.Repo, s auth.Scope) error {
+	pachClient := d.getPachClient(ctx)
+	ctx = pachClient.Ctx()
+>>>>>>> Partial commit of TLS work
 	me, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
 	if auth.IsErrNotActivated(err) {
 		return nil
@@ -370,7 +391,11 @@ func (d *driver) listRepo(ctx context.Context, includeAuth bool) (*pfs.ListRepoR
 
 func (d *driver) deleteRepo(ctx context.Context, repo *pfs.Repo, force bool) error {
 	pachClient := d.getPachClient(ctx)
+<<<<<<< HEAD
 	ctx = pachClient.Ctx()
+=======
+	ctx := pachClient.Ctx()
+>>>>>>> Partial commit of TLS work
 	// TODO(msteffen): Fix d.deleteAll() so that it doesn't need to delete and
 	// recreate the PPS spec repo, then uncomment this block to prevent users from
 	// deleting it and breaking their cluster
@@ -451,7 +476,11 @@ func (d *driver) buildCommit(ctx context.Context, ID string, parent *pfs.Commit,
 //   to the new commit
 // - If neither 'parent.ID' nor 'branch' are set, the new commit will have no
 //   parent
+<<<<<<< HEAD
 func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, branch string, provenance []*pfs.Commit, treeRef *pfs.Object, recordFiles []string, records []*pfs.PutFileRecords, description string) (*pfs.Commit, error) {
+=======
+func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, branch string, provenance []*pfs.Commit, treeRef *pfs.Object, description string) (*pfs.Commit, error) {
+>>>>>>> Partial commit of TLS work
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
 	// Validate arguments:
@@ -646,7 +675,11 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs.Object, empty bool, description string) (retErr error) {
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
+<<<<<<< HEAD
 	if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_WRITER); err != nil {
+=======
+	if err := d.checkIsAuthorized(ctx, commit.Repo, auth.Scope_WRITER); err != nil {
+>>>>>>> Partial commit of TLS work
 		return err
 	}
 	commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_STARTED)
@@ -1839,7 +1872,11 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	targetFileDatums int64, targetFileBytes int64, overwriteIndex *pfs.OverwriteIndex, reader io.Reader) error {
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
+<<<<<<< HEAD
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
+=======
+	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_WRITER); err != nil {
+>>>>>>> Partial commit of TLS work
 		return err
 	}
 	// oneOff is true if we're creating the commit as part of this put-file
@@ -1925,10 +1962,27 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			default:
 				return fmt.Errorf("unrecognized delimiter %s", delimiter.String())
 			}
+<<<<<<< HEAD
 			if err != nil {
 				if err == io.EOF {
 					EOF = true
 				} else {
+=======
+		}
+		buffer.Write(value)
+		bytesWritten += int64(len(value))
+		datumsWritten++
+		if buffer.Len() != 0 &&
+			((targetFileBytes != 0 && bytesWritten >= targetFileBytes) ||
+				(targetFileDatums != 0 && datumsWritten >= targetFileDatums) ||
+				(targetFileBytes == 0 && targetFileDatums == 0) ||
+				EOF) {
+			_buffer := buffer
+			index := filesPut
+			eg.Go(func() error {
+				object, size, err := pachClient.PutObject(_buffer)
+				if err != nil {
+>>>>>>> Partial commit of TLS work
 					return err
 				}
 			}
@@ -2183,7 +2237,11 @@ func (d *driver) getTreeForOpenCommit(ctx context.Context, file *pfs.File, paren
 func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size int64) (io.Reader, error) {
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
+<<<<<<< HEAD
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
+=======
+	if err := d.checkIsAuthorized(ctx, file.Commit.Repo, auth.Scope_READER); err != nil {
+>>>>>>> Partial commit of TLS work
 		return nil, err
 	}
 

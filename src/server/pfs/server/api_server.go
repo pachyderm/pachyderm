@@ -33,7 +33,7 @@ type apiServer struct {
 	driver *driver
 }
 
-func newLocalAPIServer(address string, etcdPrefix string) (*apiServer, error) {
+func newLocalAPIServer(address *url.URL, etcdPrefix string) (*apiServer, error) {
 	d, err := newLocalDriver(address, etcdPrefix)
 	if err != nil {
 		return nil, err
@@ -44,7 +44,7 @@ func newLocalAPIServer(address string, etcdPrefix string) (*apiServer, error) {
 	}, nil
 }
 
-func newAPIServer(address string, etcdAddresses []string, etcdPrefix string, cacheSize int64) (*apiServer, error) {
+func newAPIServer(address *url.URL, etcdAddresses []string, etcdPrefix string, cacheSize int64) (*apiServer, error) {
 	d, err := newDriver(address, etcdAddresses, etcdPrefix, cacheSize)
 	if err != nil {
 		return nil, err
