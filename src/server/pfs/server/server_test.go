@@ -1926,22 +1926,28 @@ func TestCreate(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestGetFileInvalidCommit(t *testing.T) {
+func TestGetFile(t *testing.T) {
 	client := getClient(t)
-
-	repo := "test"
+	repo := tu.UniqueString("test")
 	require.NoError(t, client.CreateRepo(repo))
-	commit1, err := client.StartCommit(repo, "")
+	commit, err := client.StartCommit(repo, "")
 	require.NoError(t, err)
-	_, err = client.PutFile(repo, commit1.ID, "file", strings.NewReader("foo\n"))
+	_, err = client.PutFile(repo, commit.ID, "dir/file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
-	require.NoError(t, client.FinishCommit(repo, commit1.ID))
-
+	require.NoError(t, client.FinishCommit(repo, commit.ID))
 	var buffer bytes.Buffer
-	require.NoError(t, client.GetFile(repo, commit1.ID, "file", 0, 0, &buffer))
+	require.NoError(t, client.GetFile(repo, commit.ID, "dir/file", 0, 0, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
-	err = client.GetFile(repo, "aninvalidcommitid", "file", 0, 0, &buffer)
-	require.YesError(t, err)
+	t.Run("InvalidCommit", func(t *testing.T) {
+		buffer = bytes.Buffer{}
+		err = client.GetFile(repo, "aninvalidcommitid", "dir/file", 0, 0, &buffer)
+		require.YesError(t, err)
+	})
+	t.Run("Directory", func(t *testing.T) {
+		buffer = bytes.Buffer{}
+		err = client.GetFile(repo, commit.ID, "dir", 0, 0, &buffer)
+		require.YesError(t, err)
+	})
 }
 
 func TestManyPutsSingleFileSingleCommit(t *testing.T) {
