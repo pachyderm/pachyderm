@@ -4833,6 +4833,59 @@ func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
 	}
 }
 
+func TestPipelineOnStatsBranch(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestPipelineOnStatsBranch_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
+	pipeline1, pipeline2 := tu.UniqueString("TestPipelineOnStatsBranch1"), tu.UniqueString("TestPipelineOnStatsBranch2")
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline1),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash", "-c", "cp -r $(ls -d /pfs/*|grep -v /pfs/out) /pfs/out"},
+			},
+			Input:       client.NewAtomInput(dataRepo, "/*"),
+			EnableStats: true,
+		})
+	require.NoError(t, err)
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline2),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash", "-c", "cp -r $(ls -d /pfs/*|grep -v /pfs/out) /pfs/out"},
+			},
+			Input: &pps.Input{
+				Atom: &pps.AtomInput{
+					Repo:   pipeline1,
+					Branch: "stats",
+					Glob:   "/*",
+				},
+			},
+			EnableStats: true,
+		})
+	require.NoError(t, err)
+
+	jobInfos, err := c.FlushJobAll([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(jobInfos))
+	for _, ji := range jobInfos {
+		require.Equal(t, ji.State.String(), pps.JobState_JOB_SUCCESS.String())
+	}
+}
+
 func TestIncrementalSharedProvenance(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")

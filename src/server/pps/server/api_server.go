@@ -747,7 +747,12 @@ func (a *apiServer) FlushJob(request *pps.FlushJobRequest, resp pps.API_FlushJob
 			return err
 		}
 		if len(jis) == 0 {
-			return fmt.Errorf("didn't find a job for output commit: %s/%s", ci.Commit.Repo.Name, ci.Commit.ID)
+			// This is possible because the commit may be part of the stats
+			// branch of a pipeline, in which case it's not the output commit
+			// of any job, thus we ignore it, the job will be returned in
+			// another call to this function, the one for the job's output
+			// commit.
+			return nil
 		}
 		if len(jis) > 1 {
 			return fmt.Errorf("found too many jobs (%d) for output commit: %s/%s", len(jis), ci.Commit.Repo.Name, ci.Commit.ID)
@@ -1884,11 +1889,20 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	// Create a branch for the pipeline's output data (provenant on the spec branch)
 	provenance := append(branchProvenance(pipelineInfo.Input),
 		client.NewBranch(ppsconsts.SpecRepo, pipelineName))
+	outputBranch := client.NewBranch(pipelineName, pipelineInfo.OutputBranch)
 	if _, err := pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
-		Branch:     client.NewBranch(pipelineName, pipelineInfo.OutputBranch),
+		Branch:     outputBranch,
 		Provenance: provenance,
 	}); err != nil {
-		return nil, fmt.Errorf("could not update output branch provenance: %v", err)
+		return nil, fmt.Errorf("could not create/update output branch: %v", err)
+	}
+	if pipelineInfo.EnableStats {
+		if _, err := pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
+			Branch:     client.NewBranch(pipelineName, "stats"),
+			Provenance: []*pfs.Branch{outputBranch},
+		}); err != nil {
+			return nil, fmt.Errorf("could not create/update stats branch: %v", err)
+		}
 	}
 
 	return &types.Empty{}, nil
