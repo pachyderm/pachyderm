@@ -667,8 +667,19 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			if err != nil {
 				return err
 			}
-			statsCommit, err = pachClient.BuildCommit(jobInfo.OutputRepo.Name, "stats", "", statsObject.Hash)
+			ci, err := pachClient.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
 			if err != nil {
+				return err
+			}
+			for _, commitRange := range ci.Subvenance {
+				if commitRange.Lower.Repo.Name == jobInfo.OutputRepo.Name && commitRange.Upper.Repo.Name == jobInfo.OutputRepo.Name {
+					statsCommit = commitRange.Lower
+				}
+			}
+			if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+				Commit: statsCommit,
+				Tree:   statsObject,
+			}); err != nil {
 				return err
 			}
 		}

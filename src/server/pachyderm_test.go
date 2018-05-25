@@ -4459,7 +4459,7 @@ func TestPipelineWithStats(t *testing.T) {
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 
 	jobs, err := c.ListJob(pipeline, nil, nil)
 	require.NoError(t, err)
@@ -4536,12 +4536,11 @@ func TestPipelineWithStatsFailedDatums(t *testing.T) {
 			},
 		})
 
-	_, err = c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 2, len(commitInfos))
 
-	// Without this sleep, I get no results from list-job
-	// See issue: https://github.com/pachyderm/pachyderm/issues/2181
-	time.Sleep(15 * time.Second)
 	jobs, err := c.ListJob(pipeline, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
@@ -4603,8 +4602,10 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 			},
 		})
 
-	_, err = c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 2, len(commitInfos))
 
 	var jobs []*pps.JobInfo
 	require.NoError(t, backoff.Retry(func() error {
@@ -4680,7 +4681,7 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 
 	jobs, err := c.ListJob(pipeline, nil, nil)
 	require.NoError(t, err)
@@ -4708,7 +4709,7 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	commitIter, err = c.FlushCommit([]*pfs.Commit{commit2}, nil)
 	require.NoError(t, err)
 	commitInfos = collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 
 	jobs, err = c.ListJob(pipeline, nil, nil)
 	require.NoError(t, err)
@@ -4775,7 +4776,7 @@ func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 
 	jobs, err := c.ListJob(pipeline, nil, nil)
 	require.NoError(t, err)
@@ -4813,7 +4814,7 @@ func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
 	commitIter, err = c.FlushCommit([]*pfs.Commit{commit3}, nil)
 	require.NoError(t, err)
 	commitInfos = collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 
 	jobs, err = c.ListJob(pipeline, nil, nil)
 	require.NoError(t, err)
@@ -4830,6 +4831,59 @@ func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
 	for _, datum := range resp.DatumInfos {
 		require.Equal(t, pps.DatumState_SKIPPED, datum.State)
 		states = append(states, datum.State)
+	}
+}
+
+func TestPipelineOnStatsBranch(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestPipelineOnStatsBranch_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
+	pipeline1, pipeline2 := tu.UniqueString("TestPipelineOnStatsBranch1"), tu.UniqueString("TestPipelineOnStatsBranch2")
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline1),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash", "-c", "cp -r $(ls -d /pfs/*|grep -v /pfs/out) /pfs/out"},
+			},
+			Input:       client.NewAtomInput(dataRepo, "/*"),
+			EnableStats: true,
+		})
+	require.NoError(t, err)
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline2),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash", "-c", "cp -r $(ls -d /pfs/*|grep -v /pfs/out) /pfs/out"},
+			},
+			Input: &pps.Input{
+				Atom: &pps.AtomInput{
+					Repo:   pipeline1,
+					Branch: "stats",
+					Glob:   "/*",
+				},
+			},
+			EnableStats: true,
+		})
+	require.NoError(t, err)
+
+	jobInfos, err := c.FlushJobAll([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(jobInfos))
+	for _, ji := range jobInfos {
+		require.Equal(t, ji.State.String(), pps.JobState_JOB_SUCCESS.String())
 	}
 }
 
@@ -4946,7 +5000,7 @@ func TestSkippedDatums(t *testing.T) {
 	commitInfoIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit1.ID)}, nil)
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitInfoIter)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 	var buffer bytes.Buffer
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
@@ -4959,7 +5013,7 @@ func TestSkippedDatums(t *testing.T) {
 	commitInfoIter, err = c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 	commitInfos = collectCommitInfos(t, commitInfoIter)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 	/*
 		jobs, err := c.ListJob(pipelineName, nil, nil)
 		require.NoError(t, err)
@@ -6515,7 +6569,7 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, 2, len(commitInfos))
 
 	jobs, err := c.ListJob(pipeline, nil, nil)
 	require.NoError(t, err)
