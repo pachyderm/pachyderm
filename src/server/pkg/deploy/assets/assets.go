@@ -135,6 +135,9 @@ type AssetOpts struct {
 	// as an annotation on the pachd pod rather than as a k8s secret
 	IAMRole string
 
+	// Annotation that the Pachyderm deployment should use to store IAMRole.
+	IAMAnnotation string
+
 	// ImagePullSecret specifies an image pull secret that gets attached to the
 	// various deployments so that their images can be pulled from a private
 	// registry.
@@ -399,7 +402,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 			},
 			Template: v1.PodTemplateSpec{
 				ObjectMeta: objectMeta(pachdName, labels(pachdName),
-					map[string]string{"iam.amazonaws.com/role": opts.IAMRole}, opts.Namespace),
+					map[string]string{opts.IAMAnnotation: opts.IAMRole}, opts.Namespace),
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{

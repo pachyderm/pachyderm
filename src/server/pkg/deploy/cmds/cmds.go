@@ -272,6 +272,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var creds string
 	var vault string
 	var iamRole string
+	var iamAnnotation string
 	var cloudfrontDistribution string
 	deployAmazon := &cobra.Command{
 		Use:   "amazon <S3 bucket> <region> <size of volumes (in GB)>",
@@ -328,6 +329,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 					return fmt.Errorf("Only one of --credentials, --vault, or --iam-role needs to be provided")
 				}
 				opts.IAMRole = iamRole
+				opts.IAMAnnotation = iamAnnotation
 			}
 			volumeSize, err := strconv.Atoi(args[2])
 			if err != nil {
@@ -352,6 +354,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	deployAmazon.Flags().StringVar(&creds, "credentials", "", "Use the format \"<id>,<secret>[,<token>]\". You can get a token by running \"aws sts get-session-token\".")
 	deployAmazon.Flags().StringVar(&vault, "vault", "", "Use the format \"<address/hostport>,<role>,<token>\".")
 	deployAmazon.Flags().StringVar(&iamRole, "iam-role", "", "Use the given IAM role for authorization, as opposed to using static credentials.  The nodes on which Pachyderm is deployed needs to have the given IAM role.")
+	deployAmazon.Flags().StringVar(&iamAnnotation, "iam-annotation", "iam.amazonaws.com/role", "Use the given annotation name for the IAM role provided.  Ignored if --iam-role is unset.")
 
 	deployMicrosoft := &cobra.Command{
 		Use:   "microsoft <container> <storage account name> <storage account key> <size of volumes (in GB)>",
