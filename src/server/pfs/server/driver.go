@@ -2208,17 +2208,18 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	if err != nil {
 		return nil, err
 	}
+	for path, node := range paths {
+		if node.FileNode == nil {
+			delete(paths, path)
+		}
+	}
 	if len(paths) <= 0 {
 		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
 	}
 
-	objects := []*pfs.Object{}
+	var objects []*pfs.Object
 	var totalSize int64
 	for _, node := range paths {
-		if node.FileNode == nil {
-			continue
-		}
-
 		objects = append(objects, node.FileNode.Objects...)
 		totalSize += node.SubtreeSize
 	}
