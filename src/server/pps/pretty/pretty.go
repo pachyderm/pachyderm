@@ -149,6 +149,7 @@ func PrintDetailedPipelineInfo(pipelineInfo *ppsclient.PipelineInfo) error {
 Description: {{.Description}}{{end}}
 Created: {{prettyAgo .CreatedAt}}
 State: {{pipelineState .State}}
+Stopped: {{ .Stopped }}
 Reason: {{.Reason}}
 Parallelism Spec: {{.ParallelismSpec}}
 {{ if .ResourceRequests }}ResourceRequests:
