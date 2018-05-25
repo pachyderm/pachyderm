@@ -24,7 +24,6 @@ function get_images {
 }
 export -f get_images
 
-
 ## If the caller provided a tag, build and use that
 export PACH_VERSION=local
 MINIKUBE_FLAGS=()
@@ -49,6 +48,12 @@ while true; do
       ;;
   esac
 done
+
+etcd_image="quay.io/coreos/etcd:v3.3.5"
+if ! docker images | grep -q "${etcd_image}"; then
+  echo -e "\nMissing \"${etcd_image}\", please run:\ndocker pull ${etcd_image}\n"
+  exit 1
+fi
 
 # In parallel, start minikube, build pachctl, and get/build the pachd and worker images
 cat <<EOF
@@ -78,7 +83,7 @@ export ADDRESS=$(minikube ip):30650
 # Push pachyderm images to minikube VM
 etc/kube/push-to-minikube.sh pachyderm/pachd:${PACH_VERSION}
 etc/kube/push-to-minikube.sh pachyderm/worker:${PACH_VERSION}
-etc/kube/push-to-minikube.sh quay.io/coreos/etcd:v3.3.5
+etc/kube/push-to-minikube.sh ${etcd_image}
 
 # Deploy Pachyderm
 if [[ "${PACH_VERSION}" = "local" ]]; then
