@@ -86,11 +86,11 @@ type CommitStream interface {
 type collectionFactory func(string) col.Collection
 
 type driver struct {
-	// address, and pachConn are used to connect back to Pachd's Object Store API
-	// and Authorization API
-	address      string
-	pachConnOnce sync.Once
-	pachConn     *grpc.ClientConn
+	// address is used to connect to achd's Object Store and Authorization API
+	address string
+
+	// pachClientOnce ensures that _pachClient is only initialized once
+	pachClientOnce sync.Once
 
 	// pachClient is a cached Pachd client, that connects to Pachyderm's object
 	// store API and auth API. Instead of accessing it directly, functions should
@@ -152,12 +152,6 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCa
 	return d, nil
 }
 
-// newLocalDriver creates a driver using an local etcd instance.  This
-// function is intended for testing purposes
-func newLocalDriver(blockAddress string, etcdPrefix string) (*driver, error) {
-	return newDriver(blockAddress, []string{"localhost:32379"}, etcdPrefix, defaultTreeCacheSize)
-}
-
 // getPachClient() initializes the connection that the pfs driver has with the
 // Pachyderm object API and auth API, and blocks until the connection is
 // established
@@ -166,15 +160,14 @@ func newLocalDriver(blockAddress string, etcdPrefix string) (*driver, error) {
 // placed happen in server.go, near main(), so that we only pay the dial cost
 // once, and so that pps doesn't need to have its own initialization code
 func (d *driver) getPachClient(ctx context.Context) *client.APIClient {
-	d.pachConnOnce.Do(func() {
-		var err error
-		d.pachConn, err = grpc.Dial(d.address, client.PachDialOptions()...)
+	d.pachClientOnce.Do(func() {
+		pachConn, err := grpc.Dial(d.address, client.PachDialOptions()...)
 		if err != nil {
 			panic(fmt.Sprintf("could not intiailize Pachyderm client in driver: %v", err))
 		}
 		d._pachClient = &client.APIClient{
-			AuthAPIClient:   auth.NewAPIClient(d.pachConn),
-			ObjectAPIClient: pfs.NewObjectAPIClient(d.pachConn),
+			AuthAPIClient:   auth.NewAPIClient(pachConn),
+			ObjectAPIClient: pfs.NewObjectAPIClient(pachConn),
 		}
 	})
 	return d._pachClient.WithCtx(ctx)
