@@ -140,7 +140,7 @@ func doSidecarMode(appEnvObj interface{}) error {
 	etcdAddress := fmt.Sprintf("http://%s:2379", appEnv.EtcdAddress)
 	etcdClientV3, err := etcd.New(etcd.Config{
 		Endpoints:   []string{etcdAddress},
-		DialOptions: client.EtcdDialOptions(),
+		DialOptions: client.DefaultDialOptions(),
 	})
 	if err != nil {
 		return err
@@ -241,7 +241,7 @@ func doFullMode(appEnvObj interface{}) error {
 	etcdClientV2 := getEtcdClient(etcdAddress)
 	etcdClientV3, err := etcd.New(etcd.Config{
 		Endpoints:   []string{etcdAddress},
-		DialOptions: append(client.EtcdDialOptions(), grpc.WithTimeout(5*time.Minute)),
+		DialOptions: append(client.DefaultDialOptions(), grpc.WithTimeout(5*time.Minute)),
 	})
 	if err != nil {
 		return err
