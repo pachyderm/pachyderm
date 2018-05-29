@@ -59,6 +59,11 @@ message HashTreeProto {
   // Note that the key must end in "/" if an only if the value has .dir_node set
   // (i.e. iff the path points to a directory).
   map<string, NodeProto> fs = 2;
+
+  // FsDb fulfills the same need as Fs above except that instead of inlined map
+  // it's a DB file that can be opened with an embeeded database engine.
+  // Currently we use bolt for this.
+  pfs.Object fs_db = 3;
 }
 
 /// Potential Optimizations
