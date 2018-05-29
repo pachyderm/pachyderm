@@ -7119,6 +7119,9 @@ func TestExtractRestore(t *testing.T) {
 		require.NoError(t, c.FinishCommit(dataRepo, "master"))
 	}
 
+	// create a headless branch, we've had issues with this crashing extraction.
+	require.NoError(t, c.CreateBranch(dataRepo, "headless", "", nil))
+
 	numPipelines := 3
 	input := dataRepo
 	for i := 0; i < numPipelines; i++ {
@@ -7154,6 +7157,10 @@ func TestExtractRestore(t *testing.T) {
 	require.NoError(t, err)
 	commitInfos = collectCommitInfos(t, commitIter)
 	require.Equal(t, numPipelines, len(commitInfos))
+
+	bis, err := c.ListBranch(dataRepo)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(bis)) // 2 branches "master" and "headless"
 }
 
 // TestCancelJob creates a long-running job and then kills it, testing that the
