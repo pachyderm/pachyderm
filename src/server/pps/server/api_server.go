@@ -117,6 +117,7 @@ type apiServer struct {
 	storageBackend        string
 	storageHostPath       string
 	iamRole               string
+	iamAnnotation         string
 	imagePullSecret       string
 	noExposeDockerSocket  bool
 	reporter              *metrics.Reporter

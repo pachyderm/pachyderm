@@ -86,6 +86,7 @@ type appEnv struct {
 	WorkerImagePullPolicy string `env:"WORKER_IMAGE_PULL_POLICY,default="`
 	LogLevel              string `env:"LOG_LEVEL,default=info"`
 	IAMRole               string `env:"IAM_ROLE,default="`
+	IAMAnnotation         string `env:"IAM_ANNOTATION,default="`
 	ImagePullSecret       string `env:"IMAGE_PULL_SECRET,default="`
 	NoExposeDockerSocket  bool   `env:"NO_EXPOSE_DOCKER_SOCKET,default=false"`
 }
@@ -176,6 +177,7 @@ func doSidecarMode(appEnvObj interface{}) error {
 		path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix),
 		address,
 		appEnv.IAMRole,
+		appEnv.IAMAnnotation,
 		reporter,
 	)
 	if err != nil {
@@ -304,6 +306,7 @@ func doFullMode(appEnvObj interface{}) error {
 		appEnv.StorageBackend,
 		appEnv.StorageHostPath,
 		appEnv.IAMRole,
+		appEnv.IAMAnnotation,
 		appEnv.ImagePullSecret,
 		appEnv.NoExposeDockerSocket,
 		reporter,
