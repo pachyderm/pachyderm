@@ -37,7 +37,6 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/golang-lru"
-	"google.golang.org/grpc"
 )
 
 const (
@@ -161,14 +160,12 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCa
 // once, and so that pps doesn't need to have its own initialization code
 func (d *driver) getPachClient(ctx context.Context) *client.APIClient {
 	d.pachClientOnce.Do(func() {
-		pachConn, err := grpc.Dial(d.address, client.PachDialOptions()...)
+		var err error
+		d._pachClient, err = client.NewFromAddress(d.address)
 		if err != nil {
 			panic(fmt.Sprintf("could not intiailize Pachyderm client in driver: %v", err))
 		}
-		d._pachClient = &client.APIClient{
-			AuthAPIClient:   auth.NewAPIClient(pachConn),
-			ObjectAPIClient: pfs.NewObjectAPIClient(pachConn),
-		}
+
 	})
 	return d._pachClient.WithCtx(ctx)
 }

@@ -106,12 +106,18 @@ func (c *APIClient) GetAddress() string {
 // DefaultMaxConcurrentStreams defines the max number of Putfiles or Getfiles happening simultaneously
 const DefaultMaxConcurrentStreams uint = 100
 
-// NewFromAddressWithConcurrency constructs a new APIClient and sets the max
-// concurrency of streaming requests (GetFile / PutFile)
-func NewFromAddressWithConcurrency(addr string, maxConcurrentStreams uint) (*APIClient, error) {
+// NewFromAddress constructs a new APIClient for the server at addr.
+func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
+	// Apply creation options
+	settings := clientSettings{
+		maxConcurrentStreams: DefaultMaxConcurrentStreams,
+	}
+	for _, option := range options {
+		option(&settings)
+	}
 	c := &APIClient{
 		addr:            addr,
-		streamSemaphore: make(chan struct{}, maxConcurrentStreams),
+		streamSemaphore: make(chan struct{}, settings.maxConcurrentStreams),
 	}
 	if err := c.connect(); err != nil {
 		return nil, err
@@ -119,24 +125,20 @@ func NewFromAddressWithConcurrency(addr string, maxConcurrentStreams uint) (*API
 	return c, nil
 }
 
-// NewFromAddress constructs a new APIClient for the server at addr.
-func NewFromAddress(addr string) (*APIClient, error) {
-	return NewFromAddressWithConcurrency(addr, DefaultMaxConcurrentStreams)
+type clientSettings struct {
+	maxConcurrentStreams uint
 }
 
-// GetAddressFromUserMachine interprets the Pachyderm config in 'cfg' in the
-// context of local environment variables and returns a "host:port" string
-// pointing at a Pachd target.
-func GetAddressFromUserMachine(cfg *config.Config) string {
-	address := "0.0.0.0:30650"
-	if cfg != nil && cfg.V1 != nil && cfg.V1.PachdAddress != "" {
-		address = cfg.V1.PachdAddress
+// Option is a client creation option that may be passed to NewOnUserMachine(), or NewInCluster()
+type Option func(*clientSettings) error
+
+// WithMaxConcurrentStreams instructs the New* functions to create client that
+// can have at most 'streams' concurrent streams open with pachd at a time
+func WithMaxConcurrentStreams(streams uint) Option {
+	return func(settings *clientSettings) error {
+		settings.maxConcurrentStreams = streams
+		return nil
 	}
-	// ADDRESS environment variable (shell-local) overrides global config
-	if envAddr := os.Getenv("ADDRESS"); envAddr != "" {
-		address = envAddr
-	}
-	return address
 }
 
 // NewOnUserMachine constructs a new APIClient using env vars that may be set
@@ -148,22 +150,31 @@ func GetAddressFromUserMachine(cfg *config.Config) string {
 // pachyderm client library incompatible with Windows. We may want to move this
 // (and similar) logic into src/server and have it call a NewFromOptions()
 // constructor.
-func NewOnUserMachine(reportMetrics bool, prefix string) (*APIClient, error) {
-	return NewOnUserMachineWithConcurrency(reportMetrics, prefix, DefaultMaxConcurrentStreams)
-}
-
-// NewOnUserMachineWithConcurrency is identical to NewOnUserMachine, but
-// explicitly sets a limit on the number of RPC streams that may be open
-// simultaneously
-func NewOnUserMachineWithConcurrency(reportMetrics bool, prefix string, maxConcurrentStreams uint) (*APIClient, error) {
+func NewOnUserMachine(reportMetrics bool, prefix string, options ...Option) (*APIClient, error) {
 	cfg, err := config.Read()
 	if err != nil {
 		// metrics errors are non fatal
 		log.Warningf("error loading user config from ~/.pachderm/config: %v", err)
 	}
 
+	var addr string
+	// 1) ADDRESS environment variable (shell-local) overrides global config
+	if envAddr, ok := os.LookupEnv("ADDRESS"); ok {
+		addr = envAddr
+		goto createClient // success
+	}
+
+	// 2) Get target address from global config if possible
+	if cfg != nil && cfg.V1 != nil && cfg.V1.PachdAddress != "" {
+		addr = cfg.V1.PachdAddress
+		goto createClient // success
+	}
+	// 3) Use default address if nothing else works
+	addr = "0.0.0.0:30650"
+
+createClient:
 	// create new pachctl client
-	client, err := NewFromAddress(GetAddressFromUserMachine(cfg))
+	client, err := NewFromAddress(addr, options...)
 	if err != nil {
 		return nil, err
 	}
@@ -182,11 +193,13 @@ func NewOnUserMachineWithConcurrency(reportMetrics bool, prefix string, maxConcu
 // NewInCluster constructs a new APIClient using env vars that Kubernetes creates.
 // This should be used to access Pachyderm from within a Kubernetes cluster
 // with Pachyderm running on it.
-func NewInCluster() (*APIClient, error) {
-	if addr := os.Getenv("PACHD_PORT_650_TCP_ADDR"); addr != "" {
-		return NewFromAddress(fmt.Sprintf("%v:650", addr))
+func NewInCluster(options ...Option) (*APIClient, error) {
+	addr := os.Getenv("PACHD_PORT_650_TCP_ADDR")
+	if addr == "" {
+		return nil, fmt.Errorf("PACHD_PORT_650_TCP_ADDR not set")
 	}
-	return nil, fmt.Errorf("PACHD_PORT_650_TCP_ADDR not set")
+	// create new pachctl client
+	return NewFromAddress(addr, options...)
 }
 
 // Close the connection to gRPC
@@ -243,24 +256,13 @@ func DefaultDialOptions() []grpc.DialOption {
 	}
 }
 
-// PachDialOptions is a helper returning a slice of grpc.Dial options
-// such that
-// - TLS is disabled
-// - Dial is synchronous: the call doesn't return until the connection has been
-//                        established and it's safe to send RPCs
-//
-// This is primarily useful for Pachd and Worker clients
-func PachDialOptions() []grpc.DialOption {
-	return append(DefaultDialOptions(), grpc.WithInsecure())
-}
-
 func (c *APIClient) connect() error {
 	keepaliveOpt := grpc.WithKeepaliveParams(keepalive.ClientParameters{
 		Time:                20 * time.Second, // if 20s since last msg (any kind), ping
 		Timeout:             20 * time.Second, // if no response to ping for 20s, reset
 		PermitWithoutStream: true,             // send ping even if no active RPCs
 	})
-	dialOptions := append(PachDialOptions(), keepaliveOpt)
+	dialOptions := append(DefaultDialOptions(), grpc.WithInsecure(), keepaliveOpt)
 	clientConn, err := grpc.Dial(c.addr, dialOptions...)
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
