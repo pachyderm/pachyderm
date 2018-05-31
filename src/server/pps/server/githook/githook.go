@@ -60,7 +60,7 @@ func RunGitHookServer(address string, etcdAddress string, etcdPrefix string) err
 	}
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   []string{etcdAddress},
-		DialOptions: client.EtcdDialOptions(),
+		DialOptions: client.DefaultDialOptions(),
 	})
 	if err != nil {
 		return err

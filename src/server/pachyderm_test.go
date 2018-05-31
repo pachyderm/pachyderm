@@ -8223,7 +8223,7 @@ func getEtcdClient(t testing.TB) *etcd.Client {
 		var err error
 		etcdClient, err = etcd.New(etcd.Config{
 			Endpoints:   []string{etcdAddress},
-			DialOptions: client.EtcdDialOptions(),
+			DialOptions: client.DefaultDialOptions(),
 		})
 		require.NoError(t, err)
 	})

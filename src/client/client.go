@@ -225,10 +225,10 @@ func (c APIClient) SetMaxConcurrentStreams(n int) {
 	c.streamSemaphore = make(chan struct{}, n)
 }
 
-// EtcdDialOptions is a helper returning a slice of grpc.Dial options
+// DefaultDialOptions is a helper returning a slice of grpc.Dial options
 // such that grpc.Dial() is synchronous: the call doesn't return until
 // the connection has been established and it's safe to send RPCs
-func EtcdDialOptions() []grpc.DialOption {
+func DefaultDialOptions() []grpc.DialOption {
 	return []grpc.DialOption{
 		// Don't return from Dial() until the connection has been established
 		grpc.WithBlock(),
@@ -251,7 +251,7 @@ func EtcdDialOptions() []grpc.DialOption {
 //
 // This is primarily useful for Pachd and Worker clients
 func PachDialOptions() []grpc.DialOption {
-	return append(EtcdDialOptions(), grpc.WithInsecure())
+	return append(DefaultDialOptions(), grpc.WithInsecure())
 }
 
 func (c *APIClient) connect() error {
