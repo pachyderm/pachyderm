@@ -107,9 +107,13 @@ func requireOperationInvariant(t *testing.T, h OpenHashTree, op func()) {
 			"post-op HashTree:\n", tostring(h)))
 }
 
+func newHashTree(tb testing.TB) OpenHashTree {
+	return NewHashTree()
+}
+
 func TestPutFileBasic(t *testing.T) {
 	// Put a file
-	h := NewHashTree()
+	h := newHashTree(t)
 	h.PutFile("/foo", obj(`hash:"20c27"`), 1)
 	hTmp := finish(t, h)
 	require.Equal(t, int64(1), hTmp.Fs["/foo"].SubtreeSize)
@@ -151,7 +155,7 @@ func TestPutFileBasic(t *testing.T) {
 }
 
 func TestPutDirBasic(t *testing.T) {
-	h := NewHashTree().(*hashtree)
+	h := newHashTree(t).(*hashtree)
 	emptySha := sha256.Sum256([]byte{})
 
 	// put a directory
@@ -199,7 +203,7 @@ func TestPutDirBasic(t *testing.T) {
 }
 
 func TestPutError(t *testing.T) {
-	h := NewHashTree()
+	h := newHashTree(t)
 	err := h.PutFile("/foo", obj(`hash:"20c27"`), 1)
 	require.NoError(t, err)
 
@@ -240,7 +244,7 @@ func TestPutError(t *testing.T) {
 // Given a directory D, test that adding and then deleting a file/directory to
 // D does not change D.
 func TestAddDeleteReverts(t *testing.T) {
-	h := NewHashTree()
+	h := newHashTree(t)
 	addDeleteFile := func() {
 		h.PutFile("/dir/__NEW_FILE__", obj(`hash:"8e02c"`), 1)
 		h.DeleteFile("/dir/__NEW_FILE__")
@@ -270,7 +274,7 @@ func TestAddDeleteReverts(t *testing.T) {
 // Given a directory D, test that deleting and then adding a file/directory to
 // D does not change D.
 func TestDeleteAddReverts(t *testing.T) {
-	h := NewHashTree()
+	h := newHashTree(t)
 	deleteAddFile := func() {
 		h.DeleteFile("/dir/__NEW_FILE__")
 		h.PutFile("/dir/__NEW_FILE__", obj(`hash:"8e02c"`), 1)
@@ -292,7 +296,7 @@ func TestDeleteAddReverts(t *testing.T) {
 	requireOperationInvariant(t, h, deleteAddSubFile)
 
 	// Make sure test still passes when trees are nonempty
-	h = NewHashTree()
+	h = newHashTree(t)
 	h.PutFile("/dir/foo", obj(`hash:"ebc57"`), 1)
 	h.PutFile("/dir/bar", obj(`hash:"20c27"`), 1)
 
@@ -307,8 +311,8 @@ func TestDeleteAddReverts(t *testing.T) {
 // The hash of a directory doesn't change no matter what order files are added
 // to it.
 func TestPutFileCommutative(t *testing.T) {
-	h := NewHashTree()
-	h2 := NewHashTree()
+	h := newHashTree(t)
+	h2 := newHashTree(t)
 	// Puts files into h in the order [A, B] and into h2 in the order [B, A]
 	comparePutFiles := func() {
 		h.PutFile("/dir/__NEW_FILE_A__", obj(`hash:"ebc57"`), 1)
@@ -335,7 +339,7 @@ func TestPutFileCommutative(t *testing.T) {
 	// (1) Run the test on empty trees
 	comparePutFiles()
 	// (2) Add some files & check that test still passes when trees are nonempty
-	h, h2 = NewHashTree(), NewHashTree()
+	h, h2 = newHashTree(t), newHashTree(t)
 	h.PutFile("/dir/foo", obj(`hash:"8e02c"`), 1)
 	h2.PutFile("/dir/foo", obj(`hash:"8e02c"`), 1)
 	h.PutFile("/dir/bar", obj(`hash:"9d432"`), 1)
@@ -348,7 +352,7 @@ func TestPutFileCommutative(t *testing.T) {
 // identical.
 func TestRenameChangesHash(t *testing.T) {
 	// Write a file, and then get the hash of every node from the file to the root
-	h := NewHashTree()
+	h := newHashTree(t)
 	h.PutFile("/dir/foo", obj(`hash:"ebc57"`), 1)
 
 	h1 := finish(t, h)
@@ -392,7 +396,7 @@ func TestRenameChangesHash(t *testing.T) {
 // under the same name) a file or directory under D changes the hash of D, even
 // if the contents are identical.
 func TestRewriteChangesHash(t *testing.T) {
-	h := NewHashTree()
+	h := newHashTree(t)
 	h.PutFile("/dir/foo", obj(`hash:"ebc57"`), 1)
 
 	h1 := finish(t, h)
@@ -432,7 +436,7 @@ func TestIsGlob(t *testing.T) {
 }
 
 func TestGlobFile(t *testing.T) {
-	hTmp := NewHashTree()
+	hTmp := newHashTree(t)
 	hTmp.PutFile("/foo", obj(`hash:"20c27"`), 1)
 	hTmp.PutFile("/dir/bar", obj(`hash:"ebc57"`), 1)
 	hTmp.PutFile("/dir/buzz", obj(`hash:"8e02c"`), 1)
@@ -471,7 +475,7 @@ func TestGlobFile(t *testing.T) {
 }
 
 func TestMerge(t *testing.T) {
-	lTmp, rTmp := NewHashTree(), NewHashTree()
+	lTmp, rTmp := newHashTree(t), newHashTree(t)
 	lTmp.PutFile("/foo-left", obj(`hash:"20c27"`), 1)
 	lTmp.PutFile("/dir-left/bar-left", obj(`hash:"ebc57"`), 1)
 	lTmp.PutFile("/dir-shared/buzz-left", obj(`hash:"8e02c"`), 1)
@@ -482,7 +486,7 @@ func TestMerge(t *testing.T) {
 	rTmp.PutFile("/dir-shared/file-shared", obj(`hash:"9d432"`), 1)
 	l, r := finish(t, lTmp), finish(t, rTmp)
 
-	expectedTmp := NewHashTree()
+	expectedTmp := newHashTree(t)
 	expectedTmp.PutFile("/foo-left", obj(`hash:"20c27"`), 1)
 	expectedTmp.PutFile("/dir-left/bar-left", obj(`hash:"ebc57"`), 1)
 	expectedTmp.PutFile("/dir-shared/buzz-left", obj(`hash:"8e02c"`), 1)
@@ -504,7 +508,7 @@ func TestMerge(t *testing.T) {
 	require.NoError(t, err)
 	requireSame(t, expected, finish(t, h))
 
-	h = NewHashTree()
+	h = newHashTree(t)
 	err = h.Merge(l, r)
 	require.NoError(t, err)
 	requireSame(t, expected, finish(t, h))
@@ -512,7 +516,7 @@ func TestMerge(t *testing.T) {
 
 // Test that Merge() works with empty hash trees
 func TestMergeEmpty(t *testing.T) {
-	expectedTmp := NewHashTree()
+	expectedTmp := newHashTree(t)
 	expectedTmp.PutFile("/foo", obj(`hash:"20c27"`), 1)
 	expectedTmp.PutFile("/dir/bar", obj(`hash:"ebc57"`), 1)
 	expected, err := expectedTmp.Finish()
@@ -520,7 +524,7 @@ func TestMergeEmpty(t *testing.T) {
 
 	// Merge empty tree into full tree
 	l := expected.Open()
-	r := NewHashTree()
+	r := newHashTree(t)
 	require.NoError(t, l.Merge(finish(t, r)))
 	requireSame(t, expected, finish(t, l))
 
@@ -531,7 +535,7 @@ func TestMergeEmpty(t *testing.T) {
 
 // Test that Walk() works
 func TestWalk(t *testing.T) {
-	tmp := NewHashTree()
+	tmp := newHashTree(t)
 	tmp.PutFile("/foo", obj(`hash:"20c27"`), 1)
 	tmp.PutFile("/dir/bar", obj(`hash:"ebc57"`), 1)
 	tree, err := tmp.Finish()
@@ -556,8 +560,8 @@ func TestErrorCode(t *testing.T) {
 	require.Equal(t, OK, Code(nil))
 	require.Equal(t, Unknown, Code(fmt.Errorf("external error")))
 
-	h := NewHashTree()
-	hdone := finish(t, NewHashTree())
+	h := newHashTree(t)
+	hdone := finish(t, newHashTree(t))
 	_, err := hdone.Get("/path")
 	require.Equal(t, PathNotFound, Code(err))
 
@@ -570,7 +574,7 @@ func TestErrorCode(t *testing.T) {
 }
 
 func TestSerialize(t *testing.T) {
-	hTmp := NewHashTree()
+	hTmp := newHashTree(t)
 	require.NoError(t, hTmp.PutFile("/foo", obj(`hash:"20c27"`), 1))
 	require.NoError(t, hTmp.PutFile("/bar/buzz", obj(`hash:"9d432"`), 1))
 	h := finish(t, hTmp)
@@ -607,7 +611,7 @@ func TestSerializeError(t *testing.T) {
 }
 
 func TestListEmpty(t *testing.T) {
-	tree := NewHashTree()
+	tree := newHashTree(t)
 	_, err := tree.List("/")
 	require.NoError(t, err)
 	_, err = tree.Glob("*")
