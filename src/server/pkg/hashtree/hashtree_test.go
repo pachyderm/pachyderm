@@ -69,6 +69,7 @@ func equals(lTmp, rTmp OpenHashTree) bool {
 }
 
 func getT(t *testing.T, h HashTree, path string) *NodeProto {
+	t.Helper()
 	node, err := h.Get(path)
 	require.NoError(t, err)
 	return node
@@ -143,18 +144,18 @@ func newHashTree(tb testing.TB) OpenHashTree {
 func TestPutFileBasic(t *testing.T) {
 	// Put a file
 	h := newHashTree(t)
-	h.PutFile("/foo", obj(`hash:"20c27"`), 1)
+	require.NoError(t, h.PutFile("/foo", obj(`hash:"20c27"`), 1))
 	hTmp := finish(t, h)
 	require.Equal(t, int64(1), getT(t, hTmp, "/foo").SubtreeSize)
 	require.Equal(t, int64(1), getT(t, hTmp, "").SubtreeSize)
 
 	// Put a file under a directory and make sure changes are propagated upwards
-	h.PutFile("/dir/bar", obj(`hash:"ebc57"`), 1)
+	require.NoError(t, h.PutFile("/dir/bar", obj(`hash:"ebc57"`), 1))
 	hTmp = finish(t, h)
 	require.Equal(t, int64(1), getT(t, hTmp, "/dir/bar").SubtreeSize)
 	require.Equal(t, int64(1), getT(t, hTmp, "/dir").SubtreeSize)
 	require.Equal(t, int64(2), getT(t, hTmp, "").SubtreeSize)
-	h.PutFile("/dir/buzz", obj(`hash:"8e02c"`), 1)
+	require.NoError(t, h.PutFile("/dir/buzz", obj(`hash:"8e02c"`), 1))
 
 	// inspect h
 	h1 := finish(t, h)
@@ -177,8 +178,10 @@ func TestPutFileBasic(t *testing.T) {
 	require.Equal(t, int64(1), getT(t, h1, "/foo").SubtreeSize)
 
 	// Make sure subsequent PutFile calls append
-	h.PutFile("/foo", obj(`hash:"413e7"`), 1)
+	require.NoError(t, h.PutFile("/foo", obj(`hash:"413e7"`), 1))
 	h2 := finish(t, h)
+	fmt.Printf("h1: %v\n", getT(t, h1, "/foo"))
+	fmt.Printf("h2: %v\n", getT(t, h2, "/foo"))
 	require.NotEqual(t, getT(t, h1, "/foo").Hash, getT(t, h2, "/foo").Hash)
 	require.Equal(t, int64(2), getT(t, h2, "/foo").SubtreeSize)
 }
