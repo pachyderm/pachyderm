@@ -18,7 +18,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	// "github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	admincmds "github.com/pachyderm/pachyderm/src/server/admin/cmds"
@@ -34,6 +34,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
 )
 
@@ -229,18 +230,23 @@ Environment variables:
 				}
 			}
 
+			fmt.Printf(">>> Creating pach client\n")
 			pachClient, err := client.NewOnUserMachine(false, "user")
 			if err != nil {
 				return err
 			}
+			fmt.Printf(">>> Creating request contex\n")
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
+			fmt.Printf(">>> Sending version RPC\n")
 			version, err := pachClient.GetVersion(ctx, &types.Empty{})
+			fmt.Printf(">>> response: %#v\n", version)
+			fmt.Printf(">>> err: %#v\n", err)
 
 			if err != nil {
 				buf := bytes.NewBufferString("")
 				errWriter := tabwriter.NewWriter(buf, 20, 1, 3, ' ', 0)
-				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", pachClient.GetAddress(), grpcutil.ScrubGRPC(err))
+				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", pachClient.GetAddress(), grpc.ErrorDesc(err))
 				errWriter.Flush()
 				return errors.New(buf.String())
 			}

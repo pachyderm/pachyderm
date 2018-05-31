@@ -59,7 +59,9 @@ func (c APIClient) CreateRepo(repoName string) error {
 			Repo: NewRepo(repoName),
 		},
 	)
-	return grpcutil.ScrubGRPC(err)
+	// return grpcutil.ScrubGRPC(err)
+	/* >>> */
+	return err
 }
 
 // InspectRepo returns info about a specific Repo.

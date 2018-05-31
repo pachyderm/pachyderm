@@ -1,13 +1,18 @@
 package client
 
 import (
+	"crypto/x509"
+	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path"
 	"time"
 
 	"golang.org/x/net/context"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 
@@ -69,6 +74,9 @@ type APIClient struct {
 	// addr is a "host:port" string pointing at a pachd endpoint
 	addr string
 
+	// The trusted CAs, for authenticating a pachd server over TLS
+	caCerts *x509.CertPool
+
 	// clientConn is a cached grpc connection to 'addr'
 	clientConn *grpc.ClientConn
 
@@ -106,6 +114,11 @@ func (c *APIClient) GetAddress() string {
 // DefaultMaxConcurrentStreams defines the max number of Putfiles or Getfiles happening simultaneously
 const DefaultMaxConcurrentStreams uint = 100
 
+type clientSettings struct {
+	maxConcurrentStreams uint
+	caCerts              *x509.CertPool
+}
+
 // NewFromAddress constructs a new APIClient for the server at addr.
 func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 	// Apply creation options
@@ -113,20 +126,19 @@ func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 		maxConcurrentStreams: DefaultMaxConcurrentStreams,
 	}
 	for _, option := range options {
-		option(&settings)
+		if err := option(&settings); err != nil {
+			return nil, err
+		}
 	}
 	c := &APIClient{
 		addr:            addr,
+		caCerts:         settings.caCerts,
 		streamSemaphore: make(chan struct{}, settings.maxConcurrentStreams),
 	}
 	if err := c.connect(); err != nil {
 		return nil, err
 	}
 	return c, nil
-}
-
-type clientSettings struct {
-	maxConcurrentStreams uint
 }
 
 // Option is a client creation option that may be passed to NewOnUserMachine(), or NewInCluster()
@@ -141,18 +153,80 @@ func WithMaxConcurrentStreams(streams uint) Option {
 	}
 }
 
-func getAddrOnUserMachine(cfg *config.Config) string {
+func addCertFromFile(pool *x509.CertPool, path string) error {
+	bytes, err := ioutil.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("could not read x509 cert from \"%s\": %v", path, err)
+	}
+	if ok := pool.AppendCertsFromPEM(bytes); !ok {
+		return fmt.Errorf("could not add %s to cert pool as PEM", path)
+	}
+	return nil
+}
+
+// WithRootCAs instructs the New* functions to create client that uses the
+// given signed x509 certificates as the trusted root certificates (instead of
+// the system certs). Introduced to pass certs provided via command-line flags
+func WithRootCAs(path string) Option {
+	return func(settings *clientSettings) error {
+		settings.caCerts = x509.NewCertPool()
+		return addCertFromFile(settings.caCerts, path)
+	}
+}
+
+// WithAdditionalRootCAs instructs the New* functions to additionally trust the
+// given base64-encoded, signed x509 certificates as root certificates.
+// Introduced to pass certs in the Pachyderm config
+func WithAdditionalRootCAs(pemBytes []byte) Option {
+	return func(settings *clientSettings) error {
+		// append certs from config
+		if settings.caCerts == nil {
+			settings.caCerts = x509.NewCertPool()
+		}
+		if ok := settings.caCerts.AppendCertsFromPEM(pemBytes); !ok {
+			return fmt.Errorf("server CA certs are present in Pachyderm config, but could not be added to client")
+		}
+		return nil
+	}
+}
+
+// WithAdditionalPachdCert instructs the New* functions to additionally trust
+// the signed cert mounted in Pachd's cert volume. This is used by Pachd
+// when connecting to itself (if no cert is present, the clients cert pool
+// will not be modified, so that if no other options have been passed, pachd
+// will connect to itself over an insecure connection)
+func WithAdditionalPachdCert() Option {
+	return func(settings *clientSettings) error {
+		if _, err := os.Stat(grpcutil.TLSVolumePath); err == nil {
+			if settings.caCerts == nil {
+				settings.caCerts = x509.NewCertPool()
+			}
+			return addCertFromFile(settings.caCerts, path.Join(grpcutil.TLSVolumePath, grpcutil.TLSCertFile))
+		}
+		return nil
+	}
+}
+
+func getAddrAndExtraOptionsOnUserMachine(cfg *config.Config) (string, []Option, error) {
 	// 1) ADDRESS environment variable (shell-local) overrides global config
 	if envAddr, ok := os.LookupEnv("ADDRESS"); ok {
-		return envAddr
+		return envAddr, nil, nil
 	}
 
 	// 2) Get target address from global config if possible
 	if cfg != nil && cfg.V1 != nil && cfg.V1.PachdAddress != "" {
-		return cfg.V1.PachdAddress
+		// Also get cert info from config (if set)
+		if cfg.V1.ServerCAs != "" {
+			pemBytes, err := base64.StdEncoding.DecodeString(cfg.V1.ServerCAs)
+			if err != nil {
+				return "", nil, fmt.Errorf("could not decode server CA certs in config: %v", err)
+			}
+			return cfg.V1.PachdAddress, []Option{WithAdditionalRootCAs(pemBytes)}, nil
+		}
+		return cfg.V1.PachdAddress, nil, nil
 	}
 	// 3) Use default address if nothing else works
-	return "0.0.0.0:30650"
+	return "0.0.0.0:30650", nil, nil
 }
 
 // NewOnUserMachine constructs a new APIClient using env vars that may be set
@@ -172,8 +246,11 @@ func NewOnUserMachine(reportMetrics bool, prefix string, options ...Option) (*AP
 	}
 
 	// create new pachctl client
-	addr := getAddrOnUserMachine(cfg)
-	client, err := NewFromAddress(addr, options...)
+	addr, cfgOptions, err := getAddrAndExtraOptionsOnUserMachine(cfg)
+	if err != nil {
+		return nil, err
+	}
+	client, err := NewFromAddress(addr, append(options, cfgOptions...)...)
 	if err != nil {
 		return nil, err
 	}
@@ -246,7 +323,8 @@ func DefaultDialOptions() []grpc.DialOption {
 		grpc.WithBlock(),
 
 		// If no connection is established in 30s, fail the call
-		grpc.WithTimeout(30 * time.Second),
+		// grpc.WithTimeout(30 * time.Second),
+		grpc.WithTimeout(5 * time.Second),
 
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(grpcutil.MaxMsgSize),
@@ -261,10 +339,18 @@ func (c *APIClient) connect() error {
 		Timeout:             20 * time.Second, // if no response to ping for 20s, reset
 		PermitWithoutStream: true,             // send ping even if no active RPCs
 	})
-	dialOptions := append(DefaultDialOptions(), grpc.WithInsecure(), keepaliveOpt)
+	var dialOptions []grpc.DialOption
+	if c.caCerts == nil {
+		dialOptions = append(DefaultDialOptions(), grpc.WithInsecure(), keepaliveOpt)
+	} else {
+		tlsCreds := credentials.NewClientTLSFromCert(c.caCerts, "")
+		dialOptions = append(DefaultDialOptions(),
+			grpc.WithTransportCredentials(tlsCreds),
+			keepaliveOpt)
+	}
 	clientConn, err := grpc.Dial(c.addr, dialOptions...)
 	if err != nil {
-		return grpcutil.ScrubGRPC(err)
+		return err
 	}
 	c.PfsAPIClient = pfs.NewAPIClient(clientConn)
 	c.PpsAPIClient = pps.NewAPIClient(clientConn)
