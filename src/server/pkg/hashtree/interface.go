@@ -71,7 +71,7 @@ type HashTree interface {
 	// function returns an error, the walk stops and returns the error.
 	Walk(path string, f func(path string, node *NodeProto) error) error
 
-	// Diff returns a the diff of 2 HashTrees at particular Paths. It takes a
+	// Diff returns the diff of 2 HashTrees at particular Paths. It takes a
 	// callback function f, which will be called with paths that are not
 	// identical to the same path in the other HashTree.
 	// Specify '-1' for fully recursive, or '1' for shallow diff
