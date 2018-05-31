@@ -620,7 +620,6 @@ Are you sure you want to proceed? yN
 				Stderr: os.Stderr,
 			}
 			assets := []string{
-				"job",
 				"service",
 				"replicationcontroller",
 				"deployment",
