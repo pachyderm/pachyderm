@@ -108,7 +108,9 @@ func requireOperationInvariant(t *testing.T, h OpenHashTree, op func()) {
 }
 
 func newHashTree(tb testing.TB) OpenHashTree {
-	return NewHashTree()
+	result, err := NewDBHashTree()
+	require.NoError(tb, err)
+	return result
 }
 
 func TestPutFileBasic(t *testing.T) {
