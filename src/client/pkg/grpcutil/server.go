@@ -7,9 +7,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client/version"
-	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 )
@@ -17,57 +14,59 @@ import (
 var (
 	// ErrMustSpecifyRegisterFunc is used when a register func is nil.
 	ErrMustSpecifyRegisterFunc = errors.New("must specify registerFunc")
+
+	// ErrMustSpecifyPort is used when a port is 0
+	ErrMustSpecifyPort = errors.New("must specify port on which to serve")
 )
 
-// ServeOptions represent optional fields for serving.
-type ServeOptions struct {
-	Version    *versionpb.Version
-	MaxMsgSize int
-	Cancel     chan struct{}
-}
-
-// ServeEnv are environment variables for serving.
-type ServeEnv struct {
-	// Default is 7070.
-	GRPCPort uint16 `env:"GRPC_PORT,default=7070"`
+// ServerSpec represent optional fields for serving.
+type ServerSpec struct {
+	Port         uint16
+	MaxMsgSize   int
+	Cancel       chan struct{}
+	RegisterFunc func(*grpc.Server) error
 }
 
 // Serve serves stuff.
 func Serve(
-	registerFunc func(*grpc.Server),
-	options ServeOptions,
-	serveEnv ServeEnv,
+	servers ...ServerSpec,
 ) (retErr error) {
-	if registerFunc == nil {
-		return ErrMustSpecifyRegisterFunc
+	for _, server := range servers {
+		if server.RegisterFunc == nil {
+			return ErrMustSpecifyRegisterFunc
+		}
+		if server.Port == 0 {
+			return ErrMustSpecifyPort
+		}
+		opts := []grpc.ServerOption{
+			grpc.MaxConcurrentStreams(math.MaxUint32),
+			grpc.MaxRecvMsgSize(server.MaxMsgSize),
+			grpc.MaxSendMsgSize(server.MaxMsgSize),
+			grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+				MinTime:             5 * time.Second,
+				PermitWithoutStream: true,
+			}),
+		}
+
+		GRPCServer := grpc.NewServer(opts...)
+		if err := server.RegisterFunc(GRPCServer); err != nil {
+			return err
+		}
+		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", server.Port))
+		if err != nil {
+			return err
+		}
+		if server.Cancel != nil {
+			go func() {
+				<-server.Cancel
+				if err := listener.Close(); err != nil {
+					fmt.Printf("listener.Close(): %v\n", err)
+				}
+			}()
+		}
+		if err := GRPCServer.Serve(listener); err != nil {
+			return err
+		}
 	}
-	if serveEnv.GRPCPort == 0 {
-		serveEnv.GRPCPort = 7070
-	}
-	grpcServer := grpc.NewServer(
-		grpc.MaxConcurrentStreams(math.MaxUint32),
-		grpc.MaxRecvMsgSize(options.MaxMsgSize),
-		grpc.MaxSendMsgSize(options.MaxMsgSize),
-		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
-			MinTime:             5 * time.Second,
-			PermitWithoutStream: true,
-		}),
-	)
-	registerFunc(grpcServer)
-	if options.Version != nil {
-		versionpb.RegisterAPIServer(grpcServer, version.NewAPIServer(options.Version, version.APIServerOptions{}))
-	}
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", serveEnv.GRPCPort))
-	if err != nil {
-		return err
-	}
-	if options.Cancel != nil {
-		go func() {
-			<-options.Cancel
-			if err := listener.Close(); err != nil {
-				fmt.Printf("listener.Close(): %v\n", err)
-			}
-		}()
-	}
-	return grpcServer.Serve(listener)
+	return nil
 }

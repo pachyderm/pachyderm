@@ -18,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
+	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/worker"
@@ -30,9 +31,6 @@ import (
 type appEnv struct {
 	// Address of etcd, so that worker can write its own IP there for discoverh
 	EtcdAddress string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
-
-	// Address for connecting to pachd (so this can download input data)
-	PachdAddress string `env:"PACHD_PORT_650_TCP_ADDR,required"`
 
 	// Prefix in etcd for all pachd-related records
 	PPSPrefix string `env:"PPS_ETCD_PREFIX,required"`
@@ -152,7 +150,7 @@ func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
 
 	// Construct a client that connects to the sidecar.
-	pachClient, err := client.NewFromAddress("localhost:650")
+	pachClient, err := client.NewFromAddress("localhost:653")
 	if err != nil {
 		return fmt.Errorf("error constructing pachClient: %v", err)
 	}
@@ -183,16 +181,15 @@ func do(appEnvObj interface{}) error {
 	ready := make(chan error)
 	eg.Go(func() error {
 		return grpcutil.Serve(
-			func(s *grpc.Server) {
-				worker.RegisterWorkerServer(s, apiServer)
-				close(ready)
-			},
-			grpcutil.ServeOptions{
-				Version:    version.Version,
+			grpcutil.ServerSpec{
 				MaxMsgSize: grpcutil.MaxMsgSize,
-			},
-			grpcutil.ServeEnv{
-				GRPCPort: client.PPSWorkerPort,
+				Port:       client.PPSWorkerPort,
+				RegisterFunc: func(s *grpc.Server) error {
+					defer close(ready)
+					worker.RegisterWorkerServer(s, apiServer)
+					versionpb.RegisterAPIServer(s, version.NewAPIServer(version.Version, version.APIServerOptions{}))
+					return nil
+				},
 			},
 		)
 	})

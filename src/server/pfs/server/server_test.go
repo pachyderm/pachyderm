@@ -24,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/version"
+	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	authtesting "github.com/pachyderm/pachyderm/src/server/auth/testing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
@@ -61,22 +62,23 @@ func generateRandomString(n int) string {
 
 // runServers starts serving requests for the given apiServer & blockAPIServer
 // in a separate goroutine. Helper for getPachClient()
-func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
+func runServers(t testing.TB, port int32, apiServer pfs.APIServer,
 	blockAPIServer BlockAPIServer) {
 	ready := make(chan bool)
 	go func() {
 		err := grpcutil.Serve(
-			func(s *grpc.Server) {
-				pfs.RegisterAPIServer(s, apiServer)
-				pfs.RegisterObjectAPIServer(s, blockAPIServer)
-				auth.RegisterAPIServer(s, &authtesting.InactiveAPIServer{}) // PFS server uses auth API
-				close(ready)
-			},
-			grpcutil.ServeOptions{
-				Version:    version.Version,
+			grpcutil.ServerSpec{
+				Port:       uint16(port),
 				MaxMsgSize: grpcutil.MaxMsgSize,
-			},
-			grpcutil.ServeEnv{GRPCPort: uint16(port)},
+				RegisterFunc: func(s *grpc.Server) error {
+					defer close(ready)
+					pfs.RegisterAPIServer(s, apiServer)
+					pfs.RegisterObjectAPIServer(s, blockAPIServer)
+					auth.RegisterAPIServer(s, &authtesting.InactiveAPIServer{}) // PFS server uses auth API
+					versionpb.RegisterAPIServer(s,
+						version.NewAPIServer(version.Version, version.APIServerOptions{}))
+					return nil
+				}},
 		)
 		require.NoError(t, err)
 	}()
@@ -86,7 +88,7 @@ func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
 // getPachClient initializes a new PFSAPIServer and blockAPIServer and begins
 // serving requests for them on a new port, and then returns a client connected
 // to the new servers (allows PFS tests to run in parallel without conflict)
-func getPachClient(t *testing.T) *pclient.APIClient {
+func getPachClient(t testing.TB) *pclient.APIClient {
 	// src/server/pfs/server/driver.go expects an etcd server at "localhost:32379"
 	// Try to establish a connection before proceeding with the test (which will
 	// fail if the connection can't be established)
