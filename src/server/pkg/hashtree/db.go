@@ -37,6 +37,16 @@ func NewDBHashTree() (OpenHashTree, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := db.Batch(func(tx *bolt.Tx) error {
+		for _, bucket := range []string{FsBucket, ChangedBucket} {
+			if _, err := tx.CreateBucket([]byte(bucket)); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
 	return &dbHashTree{db}, nil
 }
 
@@ -187,30 +197,28 @@ func (h *dbHashTree) put(tx *bolt.Tx, path string, node *NodeProto) error {
 }
 
 func (h *dbHashTree) visit(tx *bolt.Tx, path string, update updateFn) error {
-	return h.Batch(func(tx *bolt.Tx) error {
-		for path != "" {
-			parent, child := split(path)
-			pnode, err := h.get(tx, parent)
-			if err != nil && Code(err) != PathNotFound {
-				return err
-			}
-			if pnode != nil && pnode.nodetype() != directory {
-				return errorf(PathConflict, "attempted to visit \"%s\", but it's not a "+
-					"directory", path)
-			}
-			if pnode == nil {
-				pnode = &NodeProto{}
-			}
-			if err := update(pnode, parent, child); err != nil {
-				return err
-			}
-			if err := h.put(tx, parent, pnode); err != nil {
-				return err
-			}
-			path = parent
+	for path != "" {
+		parent, child := split(path)
+		pnode, err := h.get(tx, parent)
+		if err != nil && Code(err) != PathNotFound {
+			return err
 		}
-		return nil
-	})
+		if pnode != nil && pnode.nodetype() != directory {
+			return errorf(PathConflict, "attempted to visit \"%s\", but it's not a "+
+				"directory", path)
+		}
+		if pnode == nil {
+			pnode = &NodeProto{}
+		}
+		if err := update(pnode, parent, child); err != nil {
+			return err
+		}
+		if err := h.put(tx, parent, pnode); err != nil {
+			return err
+		}
+		path = parent
+	}
+	return nil
 }
 
 func (h *dbHashTree) PutFile(path string, objects []*pfs.Object, size int64) error {
