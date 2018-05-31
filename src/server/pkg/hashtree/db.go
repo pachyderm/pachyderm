@@ -1,8 +1,10 @@
 package hashtree
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"fmt"
+	"os"
 	"strings"
 
 	bolt "github.com/coreos/bbolt"
@@ -17,29 +19,52 @@ const (
 )
 
 var (
-	changedVal = []byte{1}
+	changedVal     = []byte{1}
+	emptyStringKey = []byte{0}
 )
 
 func fs(tx *bolt.Tx) *bolt.Bucket {
-	return tx.Bucket([]byte(FsBucket))
+	return tx.Bucket(b(FsBucket))
 }
 
 func changed(tx *bolt.Tx) *bolt.Bucket {
-	return tx.Bucket([]byte(ChangedBucket))
+	return tx.Bucket(b(ChangedBucket))
 }
 
 type dbHashTree struct {
 	*bolt.DB
 }
 
+func s(b []byte) string {
+	if bytes.Equal(b, emptyStringKey) {
+		return ""
+	}
+	return string(b)
+}
+
+func b(s string) []byte {
+	if s == "" {
+		return emptyStringKey
+	}
+	return []byte(s)
+}
+
+func dbFile() string {
+	return fmt.Sprintf("/tmp/db/%s", uuid.NewWithoutDashes())
+}
+
 func NewDBHashTree() (OpenHashTree, error) {
-	db, err := bolt.Open(fmt.Sprintf("/tmp/%s", uuid.NewWithoutDashes()), 0666, nil)
+	return newDBHashTree(dbFile())
+}
+
+func newDBHashTree(file string) (OpenHashTree, error) {
+	db, err := bolt.Open(file, 0666, nil)
 	if err != nil {
 		return nil, err
 	}
 	if err := db.Batch(func(tx *bolt.Tx) error {
 		for _, bucket := range []string{FsBucket, ChangedBucket} {
-			if _, err := tx.CreateBucket([]byte(bucket)); err != nil {
+			if _, err := tx.CreateBucketIfNotExists(b(bucket)); err != nil {
 				return err
 			}
 		}
@@ -58,7 +83,7 @@ func (h *dbHashTree) Open() OpenHashTree {
 
 func (h *dbHashTree) get(tx *bolt.Tx, path string) (*NodeProto, error) {
 	node := &NodeProto{}
-	data := fs(tx).Get([]byte(path))
+	data := fs(tx).Get(b(path))
 	if data == nil {
 		return nil, errorf(PathNotFound, "file \"%s\" not found", path)
 	}
@@ -81,13 +106,18 @@ func (h *dbHashTree) Get(path string) (*NodeProto, error) {
 	return node, nil
 }
 
+// List retrieves the list of files and subdirectories of the directory at
+// 'path'.
 func (h *dbHashTree) List(path string) ([]*NodeProto, error) {
 	path = clean(path)
 	var result []*NodeProto
 	if err := h.View(func(tx *bolt.Tx) error {
 		c := fs(tx).Cursor()
-		for k, v := c.Seek([]byte(path)); k != nil && strings.HasPrefix(string(k), path); k, v = c.Next() {
-			if (string(k)) == path {
+		for k, v := c.Seek(b(path)); k != nil && strings.HasPrefix(s(k), path); k, v = c.Next() {
+			trimmed := strings.TrimPrefix(s(k), path)
+			if trimmed == "" || strings.Count(trimmed, "/") > 1 {
+				// don't return the path itself or the children of children
+				// TODO seeking to the directory will greatly improve performance here
 				continue
 			}
 			node := &NodeProto{}
@@ -120,12 +150,12 @@ func (h *dbHashTree) glob(tx *bolt.Tx, pattern string) (map[string]*NodeProto, e
 	res := make(map[string]*NodeProto)
 	c := fs(tx).Cursor()
 	for k, v := c.First(); k != nil; k, v = c.Next() {
-		if g.Match(string(k)) {
+		if g.Match(s(k)) {
 			node := &NodeProto{}
 			if node.Unmarshal(v); err != nil {
 				return nil, err
 			}
-			res[string(k)] = node
+			res[s(k)] = node
 		}
 	}
 	return res, nil
@@ -155,12 +185,12 @@ func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) erro
 	path = clean(path)
 	return h.View(func(tx *bolt.Tx) error {
 		c := fs(tx).Cursor()
-		for k, v := c.First(); k != nil && strings.HasPrefix(string(k), path); k, v = c.Next() {
+		for k, v := c.First(); k != nil && strings.HasPrefix(s(k), path); k, v = c.Next() {
 			node := &NodeProto{}
 			if err := node.Unmarshal(v); err != nil {
 				return err
 			}
-			if err := f(string(k), node); err != nil {
+			if err := f(s(k), node); err != nil {
 				return err
 			}
 		}
@@ -190,12 +220,22 @@ func (h *dbHashTree) put(tx *bolt.Tx, path string, node *NodeProto) error {
 	if err != nil {
 		return err
 	}
-	if err := changed(tx).Put([]byte(path), changedVal); err != nil {
-		return err
+	if err := changed(tx).Put(b(path), changedVal); err != nil {
+		return fmt.Errorf("error putting \"%s\": %v", path, err)
 	}
-	return fs(tx).Put([]byte(path), data)
+	return fs(tx).Put(b(path), data)
 }
 
+// visit visits every ancestor of 'path' (excluding 'path' itself), leaf to
+// root (i.e.  end of 'path' to beginning), and calls 'update' on each node
+// along the way. For example, if 'visit' is called with 'path'="/path/to/file",
+// then updateFn is called as follows:
+//
+// 1. update(node at "/path/to" or nil, "/path/to", "file")
+// 2. update(node at "/path"    or nil, "/path",    "to")
+// 3. update(node at "/"        or nil, "",         "path")
+//
+// This is useful for propagating changes to size upwards.
 func (h *dbHashTree) visit(tx *bolt.Tx, path string, update updateFn) error {
 	for path != "" {
 		parent, child := split(path)
@@ -300,7 +340,7 @@ func (h *dbHashTree) PutDir(path string) error {
 // deleteDir deletes a directory and all the children under it
 func (h *dbHashTree) deleteDir(tx *bolt.Tx, path string) error {
 	c := fs(tx).Cursor()
-	for k, _ := c.Seek([]byte(path)); k != nil && strings.HasPrefix(string(k), path); k, _ = c.Next() {
+	for k, _ := c.Seek(b(path)); k != nil && strings.HasPrefix(s(k), path); k, _ = c.Next() {
 		if err := c.Delete(); err != nil {
 			return err
 		}
@@ -481,7 +521,7 @@ func (h *dbHashTree) Merge(trees ...HashTree) error {
 }
 
 func (h *dbHashTree) changed(tx *bolt.Tx, path string) bool {
-	return changed(tx).Get([]byte(path)) != nil
+	return changed(tx).Get(b(path)) != nil
 }
 
 func (h *dbHashTree) canonicalize(tx *bolt.Tx, path string) error {
@@ -532,14 +572,33 @@ func (h *dbHashTree) canonicalize(tx *bolt.Tx, path string) error {
 
 	// Update hash of 'n'
 	n.Hash = hash.Sum(nil)
-	return changed(tx).Delete([]byte(path))
+	if err := h.put(tx, path, n); err != nil {
+		return err
+	}
+	return changed(tx).Delete(b(path))
 }
 
-func (h *dbHashTree) Finish() (HashTree, error) {
+func (h *dbHashTree) Finish() (_ HashTree, retErr error) {
 	if err := h.Batch(func(tx *bolt.Tx) error {
 		return h.canonicalize(tx, "")
 	}); err != nil {
 		return nil, err
 	}
-	return h, nil
+	newFile := dbFile()
+	f, err := os.Create(newFile)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := f.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	if err := h.View(func(tx *bolt.Tx) error {
+		_, err := tx.WriteTo(f)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return newDBHashTree(newFile)
 }
