@@ -9,7 +9,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	auth "github.com/pachyderm/pachyderm/src/server/auth/server"
-	"github.com/pachyderm/pachyderm/src/server/http"
 	pfs "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	apps "k8s.io/api/apps/v1beta1"
@@ -440,16 +439,16 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 							},
 							Ports: []v1.ContainerPort{
 								{
-									ContainerPort: 650,
+									ContainerPort: 650, // also set in cmd/pachd/main.go
 									Protocol:      "TCP",
 									Name:          "api-grpc-port",
 								},
 								{
-									ContainerPort: 651,
+									ContainerPort: 651, // also set in cmd/pachd/main.go
 									Name:          "trace-port",
 								},
 								{
-									ContainerPort: http.HTTPPort,
+									ContainerPort: 652, // also set in cmd/pachd/main.go
 									Protocol:      "TCP",
 									Name:          "api-http-port",
 								},
@@ -499,19 +498,19 @@ func PachdService(opts *AssetOpts) *v1.Service {
 			},
 			Ports: []v1.ServicePort{
 				{
-					Port:     650,
+					Port:     650, // also set in cmd/pachd/main.go
 					Name:     "api-grpc-port",
 					NodePort: 30650,
 				},
 				{
-					Port:     651,
+					Port:     651, // also set in cmd/pachd/main.go
 					Name:     "trace-port",
 					NodePort: 30651,
 				},
 				{
-					Port:     http.HTTPPort,
+					Port:     652, // also set in cmd/pachd/main.go
 					Name:     "api-http-port",
-					NodePort: 30000 + http.HTTPPort,
+					NodePort: 30652,
 				},
 				{
 					Port:     githook.GitHookPort,
