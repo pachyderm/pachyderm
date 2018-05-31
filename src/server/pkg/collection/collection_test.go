@@ -497,7 +497,7 @@ func getEtcdClient() *etcd.Client {
 		var err error
 		etcdClient, err = etcd.New(etcd.Config{
 			Endpoints:   []string{"localhost:32379"},
-			DialOptions: client.EtcdDialOptions(),
+			DialOptions: client.DefaultDialOptions(),
 		})
 		if err != nil {
 			panic(err)
