@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
-	"runtime"
 	"testing"
 
 	bolt "github.com/coreos/bbolt"
@@ -103,15 +102,13 @@ func finish(t *testing.T, h OpenHashTree) HashTree {
 
 // requireSame compares 'h' to another hash tree (e.g. to make sure that it
 // hasn't changed)
-func requireSame(t *testing.T, lTmp, rTmp HashTree) {
-	l, r := lTmp.(*HashTreeProto), rTmp.(*HashTreeProto)
-	// Make sure 'h' is still the same
-	_, file, line, _ := runtime.Caller(1)
-	require.True(t, proto.Equal(l, r),
-		fmt.Sprintf("%s %s:%d\n%s %s\n%s  %s\n",
-			"requireSame called at", file, line,
-			"expected:\n", proto.MarshalTextString(l),
-			"but got:\n", proto.MarshalTextString(r)))
+func requireSame(t *testing.T, l, r HashTree) {
+	t.Helper()
+	lRoot, err := l.Get("")
+	require.NoError(t, err)
+	rRoot, err := r.Get("")
+	require.NoError(t, err)
+	require.True(t, bytes.Equal(lRoot.Hash, rRoot.Hash))
 }
 
 // requireOperationInvariant makes sure that h isn't affected by calling 'op'.
@@ -128,11 +125,7 @@ func requireOperationInvariant(t *testing.T, h OpenHashTree, op func()) {
 	// Make sure 'h' is still the same
 	postop, err := h.Finish()
 	require.NoError(t, err)
-	preRoot, err := preop.Get("")
-	require.NoError(t, err)
-	postRoot, err := postop.Get("")
-	require.NoError(t, err)
-	require.True(t, bytes.Equal(preRoot.Hash, postRoot.Hash))
+	requireSame(t, preop, postop)
 }
 
 func newHashTree(tb testing.TB) OpenHashTree {
@@ -505,34 +498,36 @@ func TestGlobFile(t *testing.T) {
 
 func TestMerge(t *testing.T) {
 	lTmp, rTmp := newHashTree(t), newHashTree(t)
-	lTmp.PutFile("/foo-left", obj(`hash:"20c27"`), 1)
-	lTmp.PutFile("/dir-left/bar-left", obj(`hash:"ebc57"`), 1)
-	lTmp.PutFile("/dir-shared/buzz-left", obj(`hash:"8e02c"`), 1)
-	lTmp.PutFile("/dir-shared/file-shared", obj(`hash:"9d432"`), 1)
-	rTmp.PutFile("/foo-right", obj(`hash:"20c27"`), 1)
-	rTmp.PutFile("/dir-right/bar-right", obj(`hash:"ebc57"`), 1)
-	rTmp.PutFile("/dir-shared/buzz-right", obj(`hash:"8e02c"`), 1)
-	rTmp.PutFile("/dir-shared/file-shared", obj(`hash:"9d432"`), 1)
+	require.NoError(t, lTmp.PutFile("/foo-left", obj(`hash:"20c27"`), 1))
+	require.NoError(t, lTmp.PutFile("/dir-left/bar-left", obj(`hash:"ebc57"`), 1))
+	require.NoError(t, lTmp.PutFile("/dir-shared/buzz-left", obj(`hash:"8e02c"`), 1))
+	require.NoError(t, lTmp.PutFile("/dir-shared/file-shared", obj(`hash:"9d432"`), 1))
+	require.NoError(t, rTmp.PutFile("/foo-right", obj(`hash:"20c27"`), 1))
+	require.NoError(t, rTmp.PutFile("/dir-right/bar-right", obj(`hash:"ebc57"`), 1))
+	require.NoError(t, rTmp.PutFile("/dir-shared/buzz-right", obj(`hash:"8e02c"`), 1))
+	require.NoError(t, rTmp.PutFile("/dir-shared/file-shared", obj(`hash:"9d432"`), 1))
 	l, r := finish(t, lTmp), finish(t, rTmp)
 
 	expectedTmp := newHashTree(t)
-	expectedTmp.PutFile("/foo-left", obj(`hash:"20c27"`), 1)
-	expectedTmp.PutFile("/dir-left/bar-left", obj(`hash:"ebc57"`), 1)
-	expectedTmp.PutFile("/dir-shared/buzz-left", obj(`hash:"8e02c"`), 1)
-	expectedTmp.PutFile("/dir-shared/file-shared", obj(`hash:"9d432"`), 1)
-	expectedTmp.PutFile("/foo-right", obj(`hash:"20c27"`), 1)
-	expectedTmp.PutFile("/dir-right/bar-right", obj(`hash:"ebc57"`), 1)
-	expectedTmp.PutFile("/dir-shared/buzz-right", obj(`hash:"8e02c"`), 1)
-	expectedTmp.PutFile("/dir-shared/file-shared", obj(`hash:"9d432"`), 1)
+	require.NoError(t, expectedTmp.PutFile("/foo-left", obj(`hash:"20c27"`), 1))
+	require.NoError(t, expectedTmp.PutFile("/dir-left/bar-left", obj(`hash:"ebc57"`), 1))
+	require.NoError(t, expectedTmp.PutFile("/dir-shared/buzz-left", obj(`hash:"8e02c"`), 1))
+	require.NoError(t, expectedTmp.PutFile("/dir-shared/file-shared", obj(`hash:"9d432"`), 1))
+	require.NoError(t, expectedTmp.PutFile("/foo-right", obj(`hash:"20c27"`), 1))
+	require.NoError(t, expectedTmp.PutFile("/dir-right/bar-right", obj(`hash:"ebc57"`), 1))
+	require.NoError(t, expectedTmp.PutFile("/dir-shared/buzz-right", obj(`hash:"8e02c"`), 1))
+	require.NoError(t, expectedTmp.PutFile("/dir-shared/file-shared", obj(`hash:"9d432"`), 1))
 	expected, err := expectedTmp.Finish()
 	require.NoError(t, err)
 
-	h := l.Open()
+	h, err := l.Open()
+	require.NoError(t, err)
 	err = h.Merge(r)
 	require.NoError(t, err)
 	requireSame(t, expected, finish(t, h))
 
-	h = r.Open()
+	h, err = r.Open()
+	require.NoError(t, err)
 	err = h.Merge(l)
 	require.NoError(t, err)
 	requireSame(t, expected, finish(t, h))
@@ -552,7 +547,8 @@ func TestMergeEmpty(t *testing.T) {
 	require.NoError(t, err)
 
 	// Merge empty tree into full tree
-	l := expected.Open()
+	l, err := expected.Open()
+	require.NoError(t, err)
 	r := newHashTree(t)
 	require.NoError(t, l.Merge(finish(t, r)))
 	requireSame(t, expected, finish(t, l))

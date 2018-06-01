@@ -76,9 +76,24 @@ func newDBHashTree(file string) (OpenHashTree, error) {
 }
 
 // HashTree interface
-func (h *dbHashTree) Open() OpenHashTree {
-	// Already open
-	return h
+func (h *dbHashTree) Open() (_ OpenHashTree, retErr error) {
+	newFile := dbFile()
+	f, err := os.Create(newFile)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := f.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	if err := h.View(func(tx *bolt.Tx) error {
+		_, err := tx.WriteTo(f)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return newDBHashTree(newFile)
 }
 
 func (h *dbHashTree) get(tx *bolt.Tx, path string) (*NodeProto, error) {

@@ -86,7 +86,7 @@ func Deserialize(serialized []byte) (HashTree, error) {
 }
 
 // Open makes a deep copy of the HashTree and returns the copy
-func (h *HashTreeProto) Open() OpenHashTree {
+func (h *HashTreeProto) Open() (OpenHashTree, error) {
 	// create a deep copy of 'h' with proto.Clone
 	h2 := proto.Clone(h).(*HashTreeProto)
 	// make a shallow copy of 'innerh' (effectively) and return that
@@ -97,7 +97,7 @@ func (h *HashTreeProto) Open() OpenHashTree {
 	if h3.fs == nil {
 		h3.fs = make(map[string]*NodeProto)
 	}
-	return h3
+	return h3, nil
 }
 
 func get(fs map[string]*NodeProto, path string) (*NodeProto, error) {
@@ -292,8 +292,8 @@ type hashtree struct {
 }
 
 // Open returns the hashtree since it's already an OpenHashTree
-func (h *hashtree) Open() OpenHashTree {
-	return h
+func (h *hashtree) Open() (OpenHashTree, error) {
+	return h, nil
 }
 
 // Get retrieves the contents of a file.
