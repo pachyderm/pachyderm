@@ -305,35 +305,35 @@ func TestAddDeleteReverts(t *testing.T) {
 func TestDeleteAddReverts(t *testing.T) {
 	h := newHashTree(t)
 	deleteAddFile := func() {
-		h.DeleteFile("/dir/__NEW_FILE__")
-		h.PutFile("/dir/__NEW_FILE__", obj(`hash:"8e02c"`), 1)
+		require.NoError(t, h.DeleteFile("/dir/__NEW_FILE__"))
+		require.NoError(t, h.PutFile("/dir/__NEW_FILE__", obj(`hash:"8e02c"`), 1))
 	}
 	deleteAddDir := func() {
-		h.DeleteFile("/dir/__NEW_DIR__")
-		h.PutDir("/dir/__NEW_DIR__")
+		require.NoError(t, h.DeleteFile("/dir/__NEW_DIR__"))
+		require.NoError(t, h.PutDir("/dir/__NEW_DIR__"))
 	}
 	deleteAddSubFile := func() {
-		h.DeleteFile("/dir/__NEW_DIR__")
-		h.PutFile("/dir/__NEW_DIR__/__NEW_FILE__", obj(`hash:"8e02c"`), 1)
+		require.NoError(t, h.DeleteFile("/dir/__NEW_DIR__"))
+		require.NoError(t, h.PutFile("/dir/__NEW_DIR__/__NEW_FILE__", obj(`hash:"8e02c"`), 1))
 	}
 
-	h.PutFile("/dir/__NEW_FILE__", obj(`hash:"8e02c"`), 1)
+	require.NoError(t, h.PutFile("/dir/__NEW_FILE__", obj(`hash:"8e02c"`), 1))
 	requireOperationInvariant(t, h, deleteAddFile)
-	h.PutDir("/dir/__NEW_DIR__")
+	require.NoError(t, h.PutDir("/dir/__NEW_DIR__"))
 	requireOperationInvariant(t, h, deleteAddDir)
-	h.PutFile("/dir/__NEW_DIR__/__NEW_FILE__", obj(`hash:"8e02c"`), 1)
+	require.NoError(t, h.PutFile("/dir/__NEW_DIR__/__NEW_FILE__", obj(`hash:"8e02c"`), 1))
 	requireOperationInvariant(t, h, deleteAddSubFile)
 
 	// Make sure test still passes when trees are nonempty
 	h = newHashTree(t)
-	h.PutFile("/dir/foo", obj(`hash:"ebc57"`), 1)
-	h.PutFile("/dir/bar", obj(`hash:"20c27"`), 1)
+	require.NoError(t, h.PutFile("/dir/foo", obj(`hash:"ebc57"`), 1))
+	require.NoError(t, h.PutFile("/dir/bar", obj(`hash:"20c27"`), 1))
 
-	h.PutFile("/dir/__NEW_FILE__", obj(`hash:"8e02c"`), 1)
+	require.NoError(t, h.PutFile("/dir/__NEW_FILE__", obj(`hash:"8e02c"`), 1))
 	requireOperationInvariant(t, h, deleteAddFile)
-	h.PutDir("/dir/__NEW_DIR__")
+	require.NoError(t, h.PutDir("/dir/__NEW_DIR__"))
 	requireOperationInvariant(t, h, deleteAddDir)
-	h.PutFile("/dir/__NEW_DIR__/__NEW_FILE__", obj(`hash:"8e02c"`), 1)
+	require.NoError(t, h.PutFile("/dir/__NEW_DIR__/__NEW_FILE__", obj(`hash:"8e02c"`), 1))
 	requireOperationInvariant(t, h, deleteAddSubFile)
 }
 
