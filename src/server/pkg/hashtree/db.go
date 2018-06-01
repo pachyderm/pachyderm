@@ -281,6 +281,9 @@ func (h *dbHashTree) putFile(path string, objects []*pfs.Object, overwriteIndex 
 				Name:     base(path),
 				FileNode: &FileNodeProto{},
 			}
+		} else if node.nodetype() != file {
+			return errorf(PathConflict, "could not put file at \"%s\"; a file of "+
+				"type %s is already there", path, node.nodetype().tostring())
 		}
 		// Append new objects.  Remove existing objects if overwriting.
 		if overwriteIndex != nil && overwriteIndex.Index <= int64(len(node.FileNode.Objects)) {
