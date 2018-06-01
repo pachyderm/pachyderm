@@ -275,26 +275,26 @@ func TestPutError(t *testing.T) {
 func TestAddDeleteReverts(t *testing.T) {
 	h := newHashTree(t)
 	addDeleteFile := func() {
-		h.PutFile("/dir/__NEW_FILE__", obj(`hash:"8e02c"`), 1)
-		h.DeleteFile("/dir/__NEW_FILE__")
+		require.NoError(t, h.PutFile("/dir/__NEW_FILE__", obj(`hash:"8e02c"`), 1))
+		require.NoError(t, h.DeleteFile("/dir/__NEW_FILE__"))
 	}
 	addDeleteDir := func() {
-		h.PutDir("/dir/__NEW_DIR__")
-		h.DeleteFile("/dir/__NEW_DIR__")
+		require.NoError(t, h.PutDir("/dir/__NEW_DIR__"))
+		require.NoError(t, h.DeleteFile("/dir/__NEW_DIR__"))
 	}
 	addDeleteSubFile := func() {
-		h.PutFile("/dir/__NEW_DIR__/__NEW_FILE__", obj(`hash:"8e02c"`), 1)
-		h.DeleteFile("/dir/__NEW_DIR__")
+		require.NoError(t, h.PutFile("/dir/__NEW_DIR__/__NEW_FILE__", obj(`hash:"8e02c"`), 1))
+		require.NoError(t, h.DeleteFile("/dir/__NEW_DIR__"))
 	}
 
-	h.PutDir("/dir")
+	require.NoError(t, h.PutDir("/dir"))
 	requireOperationInvariant(t, h, addDeleteFile)
 	requireOperationInvariant(t, h, addDeleteDir)
 	requireOperationInvariant(t, h, addDeleteSubFile)
 	// Add some files to make sure the test still passes when D already has files
 	// in it.
-	h.PutFile("/dir/foo", obj(`hash:"ebc57"`), 1)
-	h.PutFile("/dir/bar", obj(`hash:"20c27"`), 1)
+	require.NoError(t, h.PutFile("/dir/foo", obj(`hash:"ebc57"`), 1))
+	require.NoError(t, h.PutFile("/dir/bar", obj(`hash:"20c27"`), 1))
 	requireOperationInvariant(t, h, addDeleteFile)
 	requireOperationInvariant(t, h, addDeleteDir)
 	requireOperationInvariant(t, h, addDeleteSubFile)
