@@ -120,19 +120,19 @@ func requireSame(t *testing.T, lTmp, rTmp HashTree) {
 // an operation is invariant on several slightly different trees, and with this
 // we only have to define 'op' once.
 func requireOperationInvariant(t *testing.T, h OpenHashTree, op func()) {
-	preop, err := h.(*hashtree).clone()
-	if err != nil {
-		t.Fatalf("could not clone 'h' in requireOperationInvariant: %s", err)
-	}
+	t.Helper()
+	preop, err := h.Finish()
+	require.NoError(t, err)
 	// perform operation on 'h'
 	op()
 	// Make sure 'h' is still the same
-	_, file, line, _ := runtime.Caller(1)
-	require.True(t, equals(preop, h),
-		fmt.Sprintf("%s %s:%d\n%s  %s\n%s %s\n",
-			"requireOperationInvariant called at", file, line,
-			"pre-op HashTree:\n", tostring(preop),
-			"post-op HashTree:\n", tostring(h)))
+	postop, err := h.Finish()
+	require.NoError(t, err)
+	preRoot, err := preop.Get("")
+	require.NoError(t, err)
+	postRoot, err := postop.Get("")
+	require.NoError(t, err)
+	require.True(t, bytes.Equal(preRoot.Hash, postRoot.Hash))
 }
 
 func newHashTree(tb testing.TB) OpenHashTree {
@@ -236,8 +236,7 @@ func TestPutDirBasic(t *testing.T) {
 
 func TestPutError(t *testing.T) {
 	h := newHashTree(t)
-	err := h.PutFile("/foo", obj(`hash:"20c27"`), 1)
-	require.NoError(t, err)
+	require.NoError(t, h.PutFile("/foo", obj(`hash:"20c27"`), 1))
 
 	// PutFile fails if the parent is a file, and h is unchanged
 	requireOperationInvariant(t, h, func() {
@@ -262,10 +261,8 @@ func TestPutError(t *testing.T) {
 	})
 
 	// PutFile fails if a directory already exists (put /foo when /foo/bar exists)
-	err = h.DeleteFile("/foo")
-	require.NoError(t, err)
-	err = h.PutFile("/foo/bar", obj(`hash:"ebc57"`), 1)
-	require.NoError(t, err)
+	require.NoError(t, h.DeleteFile("/foo"))
+	require.NoError(t, h.PutFile("/foo/bar", obj(`hash:"ebc57"`), 1))
 	requireOperationInvariant(t, h, func() {
 		err := h.PutFile("/foo", obj(`hash:"8e02c"`), 1)
 		require.YesError(t, err)
