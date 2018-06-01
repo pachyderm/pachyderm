@@ -50,7 +50,7 @@ const (
 // call Finish() on it.
 type HashTree interface {
 	// Open makes a deep copy of the HashTree and returns the copy
-	Open() OpenHashTree
+	Open() (OpenHashTree, error)
 
 	// Get retrieves a file.
 	Get(path string) (*NodeProto, error)
