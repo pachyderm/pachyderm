@@ -590,10 +590,10 @@ func TestErrorCode(t *testing.T) {
 	_, err := hdone.Get("/path")
 	require.Equal(t, PathNotFound, Code(err))
 
-	h.PutFile("/foo", obj(`hash:"20c27"`), 1)
+	require.NoError(t, h.PutFile("/foo", obj(`hash:"20c27"`), 1))
 	err = h.PutFile("/foo/bar", obj(`hash:"9d432"`), 1)
 	require.Equal(t, PathConflict, Code(err))
-	h.PutFile("/bar/foo", obj(`hash:"9d432"`), 1)
+	require.NoError(t, h.PutFile("/bar/foo", obj(`hash:"9d432"`), 1))
 	err = h.PutFile("/bar", obj(`hash:"20c27"`), 1)
 	require.Equal(t, PathConflict, Code(err))
 }
