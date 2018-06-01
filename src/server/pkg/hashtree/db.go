@@ -293,7 +293,8 @@ func (h *dbHashTree) putFile(path string, objects []*pfs.Object, overwriteIndex 
 			return err
 		}
 		return h.visit(tx, path, func(node *NodeProto, parent, child string) error {
-			if node.Name == "" {
+			if node.DirNode == nil {
+				// node created as part of this visit call, fill in the basics
 				node.Name = base(parent)
 				node.DirNode = &DirectoryNodeProto{}
 			}
@@ -327,7 +328,8 @@ func (h *dbHashTree) PutDir(path string) error {
 			return err
 		}
 		return h.visit(tx, path, func(node *NodeProto, parent, child string) error {
-			if node.Name == "" {
+			if node.DirNode == nil {
+				// node created as part of this visit call, fill in the basics
 				node.Name = base(parent)
 				node.DirNode = &DirectoryNodeProto{}
 			}
@@ -387,9 +389,13 @@ func (h *dbHashTree) DeleteFile(path string) error {
 			if !removeStr(&pnode.DirNode.Children, child) {
 				return errorf(Internal, "parent of \"%s\" does not contain it", path)
 			}
+			h.put(tx, parent, pnode)
 			// Mark nodes as 'changed' back to root
 			if err := h.visit(tx, path, func(node *NodeProto, parent, child string) error {
-				if node.Name == "" {
+				// If node.DirNode is nil it means either the parent didn't
+				// exist (and thus was deserialized fron nil) or it does exist
+				// but thinks it's a file, both are errors.
+				if node.DirNode == nil {
 					return errorf(Internal,
 						"encountered orphaned file \"%s\" while deleting \"%s\"", path,
 						join(parent, child))

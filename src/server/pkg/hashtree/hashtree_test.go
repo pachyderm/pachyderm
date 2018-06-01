@@ -191,7 +191,7 @@ func TestPutDirBasic(t *testing.T) {
 	emptySha := sha256.Sum256([]byte{})
 
 	// put a directory
-	h.PutDir("/dir")
+	require.NoError(t, h.PutDir("/dir"))
 	require.Equal(t, lenT(t, h), 2) // "/dir" and "/"
 	require.Equal(t, []string(nil), getT(t, h, "/dir").DirNode.Children)
 	h1 := finish(t, h)
@@ -200,7 +200,7 @@ func TestPutDirBasic(t *testing.T) {
 	require.Equal(t, lenT(t, h1), 2)
 
 	// put a directory under another directory
-	h.PutDir("/dir/foo")
+	require.NoError(t, h.PutDir("/dir/foo"))
 	require.NotEqual(t, []string{}, getT(t, h, "/dir").DirNode.Children)
 	h2 := finish(t, h)
 	require.NotEqual(t, []string{}, getT(t, h2, "/dir").DirNode.Children)
@@ -210,23 +210,23 @@ func TestPutDirBasic(t *testing.T) {
 	require.NotEqual(t, emptySha[:], getT(t, h2, "/dir").Hash)
 
 	// delete the directory
-	h.DeleteFile("/dir/foo")
-	require.Equal(t, []string{}, getT(t, h, "/dir").DirNode.Children)
+	require.NoError(t, h.DeleteFile("/dir/foo"))
+	require.Equal(t, 0, len(getT(t, h, "/dir").DirNode.Children))
 	h3 := finish(t, h)
-	require.Equal(t, []string{}, getT(t, h3, "/dir").DirNode.Children)
+	require.Equal(t, 0, len(getT(t, h3, "/dir").DirNode.Children))
 	nodes, err = h3.List("/dir")
 	require.NoError(t, err)
 	require.Equal(t, 0, len(nodes))
 	require.Equal(t, emptySha[:], getT(t, h3, "/dir").Hash)
 
 	// Make sure that deleting a dir also deletes files under the dir
-	h.PutFile("/dir/foo/bar", obj(`hash:"20c27"`), 1)
-	h.DeleteFile("/dir/foo")
-	require.Equal(t, []string{}, getT(t, h, "/dir").DirNode.Children)
+	require.NoError(t, h.PutFile("/dir/foo/bar", obj(`hash:"20c27"`), 1))
+	require.NoError(t, h.DeleteFile("/dir/foo"))
+	require.Equal(t, 0, len(getT(t, h, "/dir").DirNode.Children))
 	require.Equal(t, lenT(t, h), 2)
 	h4 := finish(t, h)
 	require.NoError(t, err)
-	require.Equal(t, []string{}, getT(t, h4, "/dir").DirNode.Children)
+	require.Equal(t, 0, len(getT(t, h4, "/dir").DirNode.Children))
 	nodes, err = h4.List("/dir")
 	require.NoError(t, err)
 	require.Equal(t, 0, len(nodes))
