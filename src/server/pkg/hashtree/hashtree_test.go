@@ -382,7 +382,7 @@ func TestPutFileCommutative(t *testing.T) {
 func TestRenameChangesHash(t *testing.T) {
 	// Write a file, and then get the hash of every node from the file to the root
 	h := newHashTree(t)
-	h.PutFile("/dir/foo", obj(`hash:"ebc57"`), 1)
+	require.NoError(t, h.PutFile("/dir/foo", obj(`hash:"ebc57"`), 1))
 
 	h1 := finish(t, h)
 	dirPre, err := h1.Get("/dir")
@@ -391,8 +391,8 @@ func TestRenameChangesHash(t *testing.T) {
 	require.NoError(t, err)
 
 	// rename /dir/foo to /dir/bar, and make sure that changes the hash
-	h.DeleteFile("/dir/foo")
-	h.PutFile("/dir/bar", obj(`hash:"ebc57"`), 1)
+	require.NoError(t, h.DeleteFile("/dir/foo"))
+	require.NoError(t, h.PutFile("/dir/bar", obj(`hash:"ebc57"`), 1))
 
 	h2 := finish(t, h)
 	dirPost, err := h2.Get("/dir")
@@ -406,8 +406,8 @@ func TestRenameChangesHash(t *testing.T) {
 	require.Equal(t, rootPre.SubtreeSize, rootPost.SubtreeSize)
 
 	// rename /dir to /dir2, and make sure that changes the hash
-	h.DeleteFile("/dir")
-	h.PutFile("/dir2/foo", obj(`hash:"ebc57"`), 1)
+	require.NoError(t, h.DeleteFile("/dir"))
+	require.NoError(t, h.PutFile("/dir2/foo", obj(`hash:"ebc57"`), 1))
 
 	h3 := finish(t, h)
 	dirPost, err = h3.Get("/dir2")
