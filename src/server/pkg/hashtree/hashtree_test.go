@@ -344,8 +344,8 @@ func TestPutFileCommutative(t *testing.T) {
 	h2 := newHashTree(t)
 	// Puts files into h in the order [A, B] and into h2 in the order [B, A]
 	comparePutFiles := func() {
-		h.PutFile("/dir/__NEW_FILE_A__", obj(`hash:"ebc57"`), 1)
-		h.PutFile("/dir/__NEW_FILE_B__", obj(`hash:"20c27"`), 1)
+		require.NoError(t, h.PutFile("/dir/__NEW_FILE_A__", obj(`hash:"ebc57"`), 1))
+		require.NoError(t, h.PutFile("/dir/__NEW_FILE_B__", obj(`hash:"20c27"`), 1))
 
 		// Get state of both /dir and /, to make sure changes are preserved upwards
 		// through the file hierarchy
@@ -354,8 +354,8 @@ func TestPutFileCommutative(t *testing.T) {
 		rootNodePtr, err := h.GetOpen("/")
 		require.NoError(t, err)
 
-		h2.PutFile("/dir/__NEW_FILE_B__", obj(`hash:"20c27"`), 1)
-		h2.PutFile("/dir/__NEW_FILE_A__", obj(`hash:"ebc57"`), 1)
+		require.NoError(t, h2.PutFile("/dir/__NEW_FILE_B__", obj(`hash:"20c27"`), 1))
+		require.NoError(t, h2.PutFile("/dir/__NEW_FILE_A__", obj(`hash:"ebc57"`), 1))
 
 		dirNodePtr2, err := h2.GetOpen("/dir")
 		require.NoError(t, err)
@@ -369,10 +369,10 @@ func TestPutFileCommutative(t *testing.T) {
 	comparePutFiles()
 	// (2) Add some files & check that test still passes when trees are nonempty
 	h, h2 = newHashTree(t), newHashTree(t)
-	h.PutFile("/dir/foo", obj(`hash:"8e02c"`), 1)
-	h2.PutFile("/dir/foo", obj(`hash:"8e02c"`), 1)
-	h.PutFile("/dir/bar", obj(`hash:"9d432"`), 1)
-	h2.PutFile("/dir/bar", obj(`hash:"9d432"`), 1)
+	require.NoError(t, h.PutFile("/dir/foo", obj(`hash:"8e02c"`), 1))
+	require.NoError(t, h2.PutFile("/dir/foo", obj(`hash:"8e02c"`), 1))
+	require.NoError(t, h.PutFile("/dir/bar", obj(`hash:"9d432"`), 1))
+	require.NoError(t, h2.PutFile("/dir/bar", obj(`hash:"9d432"`), 1))
 	comparePutFiles()
 }
 
