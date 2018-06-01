@@ -541,8 +541,8 @@ func TestMerge(t *testing.T) {
 // Test that Merge() works with empty hash trees
 func TestMergeEmpty(t *testing.T) {
 	expectedTmp := newHashTree(t)
-	expectedTmp.PutFile("/foo", obj(`hash:"20c27"`), 1)
-	expectedTmp.PutFile("/dir/bar", obj(`hash:"ebc57"`), 1)
+	require.NoError(t, expectedTmp.PutFile("/foo", obj(`hash:"20c27"`), 1))
+	require.NoError(t, expectedTmp.PutFile("/dir/bar", obj(`hash:"ebc57"`), 1))
 	expected, err := expectedTmp.Finish()
 	require.NoError(t, err)
 
