@@ -426,7 +426,7 @@ func TestRenameChangesHash(t *testing.T) {
 // if the contents are identical.
 func TestRewriteChangesHash(t *testing.T) {
 	h := newHashTree(t)
-	h.PutFile("/dir/foo", obj(`hash:"ebc57"`), 1)
+	require.NoError(t, h.PutFile("/dir/foo", obj(`hash:"ebc57"`), 1))
 
 	h1 := finish(t, h)
 	dirPre, err := h1.Get("/dir")
@@ -435,8 +435,8 @@ func TestRewriteChangesHash(t *testing.T) {
 	require.NoError(t, err)
 
 	// Change
-	h.DeleteFile("/dir/foo")
-	h.PutFile("/dir/foo", obj(`hash:"8e02c"`), 1)
+	require.NoError(t, h.DeleteFile("/dir/foo"))
+	require.NoError(t, h.PutFile("/dir/foo", obj(`hash:"8e02c"`), 1))
 
 	h2 := finish(t, h)
 	dirPost, err := h2.Get("/dir")
@@ -466,9 +466,9 @@ func TestIsGlob(t *testing.T) {
 
 func TestGlobFile(t *testing.T) {
 	hTmp := newHashTree(t)
-	hTmp.PutFile("/foo", obj(`hash:"20c27"`), 1)
-	hTmp.PutFile("/dir/bar", obj(`hash:"ebc57"`), 1)
-	hTmp.PutFile("/dir/buzz", obj(`hash:"8e02c"`), 1)
+	require.NoError(t, hTmp.PutFile("/foo", obj(`hash:"20c27"`), 1))
+	require.NoError(t, hTmp.PutFile("/dir/bar", obj(`hash:"ebc57"`), 1))
+	require.NoError(t, hTmp.PutFile("/dir/buzz", obj(`hash:"8e02c"`), 1))
 	h, err := hTmp.Finish()
 	require.NoError(t, err)
 
