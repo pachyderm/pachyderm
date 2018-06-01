@@ -205,7 +205,11 @@ func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) erro
 			if err := node.Unmarshal(v); err != nil {
 				return err
 			}
-			if err := f(s(k), node); err != nil {
+			nodePath := s(k)
+			if nodePath == "" {
+				nodePath = "/"
+			}
+			if err := f(nodePath, node); err != nil {
 				return err
 			}
 		}

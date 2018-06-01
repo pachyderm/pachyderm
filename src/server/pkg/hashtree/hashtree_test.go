@@ -561,8 +561,8 @@ func TestMergeEmpty(t *testing.T) {
 // Test that Walk() works
 func TestWalk(t *testing.T) {
 	tmp := newHashTree(t)
-	tmp.PutFile("/foo", obj(`hash:"20c27"`), 1)
-	tmp.PutFile("/dir/bar", obj(`hash:"ebc57"`), 1)
+	require.NoError(t, tmp.PutFile("/foo", obj(`hash:"20c27"`), 1))
+	require.NoError(t, tmp.PutFile("/dir/bar", obj(`hash:"ebc57"`), 1))
 	tree, err := tmp.Finish()
 	require.NoError(t, err)
 
