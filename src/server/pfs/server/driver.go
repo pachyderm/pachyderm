@@ -57,11 +57,9 @@ const (
 // validateRepoName determines if a repo name is valid
 func validateRepoName(name string) error {
 	match, _ := regexp.MatchString("^[a-zA-Z0-9_-]+$", name)
-
 	if !match {
 		return fmt.Errorf("repo name (%v) invalid: only alphanumeric characters, underscores, and dashes are allowed", name)
 	}
-
 	return nil
 }
 
@@ -111,12 +109,14 @@ type driver struct {
 	treeCache *lru.Cache
 }
 
-const (
-	defaultTreeCacheSize = 8
-)
-
 // newDriver is used to create a new Driver instance
-func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCacheSize int64) (*driver, error) {
+func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCache *lru.Cache) (*driver, error) {
+	// Validate arguments
+	if treeCache == nil {
+		return nil, fmt.Errorf("cannot initialize driver with nil treeCache")
+	}
+
+	// Initialize etcd client
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   etcdAddresses,
 		DialOptions: client.DefaultDialOptions(),
@@ -124,14 +124,8 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCa
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to etcd: %v", err)
 	}
-	if treeCacheSize <= 0 {
-		treeCacheSize = defaultTreeCacheSize
-	}
-	treeCache, err := lru.New(int(treeCacheSize))
-	if err != nil {
-		return nil, fmt.Errorf("could not initialize treeCache: %v", err)
-	}
 
+	// Initialize driver
 	d := &driver{
 		address:        address,
 		etcdClient:     etcdClient,
@@ -165,7 +159,6 @@ func (d *driver) getPachClient(ctx context.Context) *client.APIClient {
 		if err != nil {
 			panic(fmt.Sprintf("could not intiailize Pachyderm client in driver: %v", err))
 		}
-
 	})
 	return d._pachClient.WithCtx(ctx)
 }
