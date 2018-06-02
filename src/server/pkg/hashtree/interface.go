@@ -1,6 +1,8 @@
 package hashtree
 
 import (
+	"io"
+
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
@@ -20,8 +22,12 @@ const (
 	// violation of an internal invariant).
 	Internal
 
+	// CannotSerialize is returned when Serialize(io.Writer) fails, normally
+	// due to it being called on an OpenHashTree
+	CannotSerialize
+
 	// CannotDeserialize is returned when Deserialize(bytes) fails, perhaps due to
-	// 'bytes' being corrupted.
+	// 'bytes' being corrupted. Or it being called on an OpenHashTree.
 	CannotDeserialize
 
 	// Unsupported is returned when Deserialize(bytes) encounters an unsupported
@@ -76,6 +82,12 @@ type HashTree interface {
 	// identical to the same path in the other HashTree.
 	// Specify '-1' for fully recursive, or '1' for shallow diff
 	Diff(oldHashTree HashTree, newPath string, oldPath string, recursiveDepth int64, f func(path string, node *NodeProto, new bool) error) error
+
+	// Serialize serializes a binary version of the HashTree to w.
+	Serialize(w io.Writer) error
+
+	// Deserialize deserializes a HashTree from r, into the receiver of the function.
+	Deserialize(r io.Reader) error
 }
 
 // OpenNode is similar to NodeProto, except that it doesn't include the Hash
