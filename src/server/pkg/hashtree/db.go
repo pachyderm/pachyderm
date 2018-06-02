@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -16,6 +17,7 @@ import (
 const (
 	FsBucket      = "fs"
 	ChangedBucket = "changed"
+	perm          = 0666
 )
 
 var (
@@ -58,7 +60,7 @@ func NewDBHashTree() (OpenHashTree, error) {
 }
 
 func newDBHashTree(file string) (OpenHashTree, error) {
-	db, err := bolt.Open(file, 0666, nil)
+	db, err := bolt.Open(file, perm, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -219,6 +221,33 @@ func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) erro
 
 func (h *dbHashTree) Diff(oldHashTree HashTree, newPath string, oldPath string, recursiveDepth int64, f func(path string, node *NodeProto, new bool) error) error {
 	return diff(h, oldHashTree, newPath, oldPath, recursiveDepth, f)
+}
+
+func (h *dbHashTree) Serialize(w io.Writer) error {
+	return h.View(func(tx *bolt.Tx) error {
+		_, err := tx.WriteTo(w)
+		return err
+	})
+}
+
+func (h *dbHashTree) Deserialize(r io.Reader) error {
+	path := h.Path()
+	if err := h.Close(); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, perm)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(f, r); err != nil {
+		return err
+	}
+	db, err := bolt.Open(path, perm, nil)
+	if err != nil {
+		return err
+	}
+	h.DB = db
+	return nil
 }
 
 func (h *dbHashTree) GetOpen(path string) (*OpenNode, error) {

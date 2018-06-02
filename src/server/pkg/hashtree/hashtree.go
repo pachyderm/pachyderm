@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
+	"io"
+	"io/ioutil"
 	pathlib "path"
 	"regexp"
 	"strings"
@@ -65,24 +67,16 @@ func (n nodetype) tostring() string {
 // Serialize serializes a HashTree so that it can be persisted. Also see
 // Deserialize(bytes).
 func Serialize(h HashTree) ([]byte, error) {
-	tree, ok := h.(*HashTreeProto)
-	if !ok {
-		return nil, fmt.Errorf("HashTree is of the wrong concrete type")
+	var buf bytes.Buffer
+	if err := h.Serialize(&buf); err != nil {
+		return nil, err
 	}
-	return tree.Marshal()
+	return buf.Bytes(), nil
 }
 
 // Deserialize deserializes a hash tree so that it can be read or modified.
-func Deserialize(serialized []byte) (HashTree, error) {
-	h := &HashTreeProto{}
-	if err := h.Unmarshal(serialized); err != nil {
-		return nil, err
-	}
-	if h.Version != 1 {
-		return nil, errorf(Unsupported, "unsupported HashTreeProto "+
-			"version %d", h.Version)
-	}
-	return h, nil
+func Deserialize(h HashTree, serialized []byte) error {
+	return h.Deserialize(bytes.NewReader(serialized))
 }
 
 // Open makes a deep copy of the HashTree and returns the copy
@@ -279,6 +273,23 @@ func (h *HashTreeProto) Diff(old HashTree, newPath string, oldPath string, recur
 	return diff(h, old, newPath, oldPath, recursiveDepth, f)
 }
 
+func (h *HashTreeProto) Serialize(w io.Writer) error {
+	data, err := h.Marshal()
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(data)
+	return err
+}
+
+func (h *HashTreeProto) Deserialize(r io.Reader) error {
+	data, err := ioutil.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	return h.Unmarshal(data)
+}
+
 // hashtree is an implementation of the HashTree and OpenHashTree interfaces.
 // It's intended to describe the state of a single commit C, in a repo R.
 type hashtree struct {
@@ -325,6 +336,14 @@ func (h *hashtree) Walk(path string, f func(string, *NodeProto) error) error {
 // Diff implements HashTree.Diff
 func (h *hashtree) Diff(old HashTree, newPath string, oldPath string, recursiveDepth int64, f func(string, *NodeProto, bool) error) error {
 	return diff(h, old, newPath, oldPath, recursiveDepth, f)
+}
+
+func (h *hashtree) Serialize(w io.Writer) error {
+	return errorf(CannotSerialize, "cannot serialize an OpenHashTree (call Finish)")
+}
+
+func (h *hashtree) Deserialize(r io.Reader) error {
+	return errorf(CannotDeserialize, "cannot deserialize into an OpenHashTree")
 }
 
 // clone makes a deep copy of 'h' and returns it. This performs one fewer copy
