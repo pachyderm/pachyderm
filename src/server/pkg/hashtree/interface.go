@@ -55,9 +55,7 @@ const (
 // new HashTree, create an OpenHashTree with NewHashTree(), modify it, and then
 // call Finish() on it.
 type HashTree interface {
-	// Open makes a deep copy of the HashTree and returns the copy
-	Open() (OpenHashTree, error)
-
+	// Read methods
 	// Get retrieves a file.
 	Get(path string) (*NodeProto, error)
 
@@ -86,28 +84,10 @@ type HashTree interface {
 	// Serialize serializes a binary version of the HashTree to w.
 	Serialize(w io.Writer) error
 
-	// Deserialize deserializes a HashTree from r, into the receiver of the function.
-	Deserialize(r io.Reader) error
-}
+	// Copy returns a copy of the HashTree
+	Copy() (HashTree, error)
 
-// OpenNode is similar to NodeProto, except that it doesn't include the Hash
-// field (which is not generally meaningful in an OpenHashTree)
-type OpenNode struct {
-	Name string
-	Size int64
-
-	FileNode *FileNodeProto
-	DirNode  *DirectoryNodeProto
-}
-
-// OpenHashTree is like HashTree, except that it can be modified. Once an
-// OpenHashTree is Finish()ed, the hash and size stored with each node will be
-// updated (until then, the hashes and sizes stored in an OpenHashTree will be
-// stale).
-type OpenHashTree interface {
-	HashTree
-	// GetOpen retrieves a file.
-	GetOpen(path string) (*OpenNode, error)
+	// Write methods
 
 	// PutFile appends data to a file (and creates the file if it doesn't exist).
 	PutFile(path string, objects []*pfs.Object, size int64) error
@@ -133,7 +113,10 @@ type OpenHashTree interface {
 	// state of the tree you should Finish and then Open the tree.
 	Merge(trees ...HashTree) error
 
-	// Finish makes a deep copy of the OpenHashTree, updates all of the hashes and
-	// node size metadata in the copy, and returns the copy
-	Finish() (HashTree, error)
+	// Hash updates all of the hashes and node size metadata, it also checks
+	// for conflicts.
+	Hash() error
+
+	// Deserialize deserializes a HashTree from r, into the receiver of the function.
+	Deserialize(r io.Reader) error
 }

@@ -39,7 +39,7 @@ func benchmarkPutFileN(b *testing.B, cnt int) {
 			h.PutFile(fmt.Sprintf("/foo/shard-%05d", i),
 				obj(fmt.Sprintf(`hash:"%x"`, r.Uint32())), 1)
 		}
-		h.Finish()
+		h.Hash()
 	}
 }
 
@@ -76,17 +76,18 @@ func benchmarkMergeN(b *testing.B, cnt int) {
 		t := newHashTree(b)
 		t.PutFile(fmt.Sprintf("/foo/shard-%05d", i),
 			obj(fmt.Sprintf(`hash:"%x"`, r.Uint32())), 1)
-		trees[i], err = t.Finish()
+		t.Hash()
 		if err != nil {
 			b.Fatal("could not run benchmark: " + err.Error())
 		}
+		trees[i] = t
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		h := newHashTree(b)
 		h.Merge(trees...)
-		h.Finish()
+		h.Hash()
 	}
 }
 
@@ -117,7 +118,7 @@ func BenchmarkMerge100k(b *testing.B) {
 func benchmarkCloneN(b *testing.B, cnt int) {
 	// Create a tree with 'cnt' files
 	r := rand.New(rand.NewSource(0))
-	h := newHashTree(b).(*hashtree)
+	h := newHashTree(b)
 	for i := 0; i < cnt; i++ {
 		h.PutFile(fmt.Sprintf("/foo/shard-%05d", i),
 			obj(fmt.Sprintf(`hash:"%x"`, r.Uint32())), 1)
@@ -125,7 +126,7 @@ func benchmarkCloneN(b *testing.B, cnt int) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		h.clone()
+		h.Copy()
 	}
 }
 
@@ -155,7 +156,7 @@ func BenchmarkClone100k(b *testing.B) {
 func benchmarkDeleteN(b *testing.B, cnt int) {
 	// Create a tree with 'cnt' files
 	r := rand.New(rand.NewSource(0))
-	h := newHashTree(b).(*hashtree)
+	h := newHashTree(b)
 	for i := 0; i < cnt; i++ {
 		h.PutFile(fmt.Sprintf("/foo/shard-%05d", i),
 			obj(fmt.Sprintf(`hash:"%x"`, r.Uint32())), 1)
@@ -163,7 +164,7 @@ func benchmarkDeleteN(b *testing.B, cnt int) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		h2, err := h.clone()
+		h2, err := h.Copy()
 		if err != nil {
 			b.Fatal("could not clone hashtree in BenchmarkDelete")
 		}
