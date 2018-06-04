@@ -6,7 +6,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	pathlib "path"
+	"regexp"
 	"strings"
+
+	"golang.org/x/sync/errgroup"
 
 	bolt "github.com/coreos/bbolt"
 	globlib "github.com/gobwas/glob"
@@ -55,11 +59,28 @@ func dbFile() string {
 	return fmt.Sprintf("/tmp/db/%s", uuid.NewWithoutDashes())
 }
 
-func NewDBHashTree() (OpenHashTree, error) {
+func NewDBHashTree() (HashTree, error) {
 	return newDBHashTree(dbFile())
 }
 
-func newDBHashTree(file string) (OpenHashTree, error) {
+func DeserializeDBHashTree(r io.Reader) (_ HashTree, retErr error) {
+	file := dbFile()
+	f, err := os.Create(file)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := f.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	if _, err := io.Copy(f, r); err != nil {
+		return nil, err
+	}
+	return newDBHashTree(file)
+}
+
+func newDBHashTree(file string) (HashTree, error) {
 	db, err := bolt.Open(file, perm, nil)
 	if err != nil {
 		return nil, err
@@ -75,27 +96,6 @@ func newDBHashTree(file string) (OpenHashTree, error) {
 		return nil, err
 	}
 	return &dbHashTree{db}, nil
-}
-
-// HashTree interface
-func (h *dbHashTree) Open() (_ OpenHashTree, retErr error) {
-	newFile := dbFile()
-	f, err := os.Create(newFile)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := f.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	if err := h.View(func(tx *bolt.Tx) error {
-		_, err := tx.WriteTo(f)
-		return err
-	}); err != nil {
-		return nil, err
-	}
-	return newDBHashTree(newFile)
 }
 
 func (h *dbHashTree) get(tx *bolt.Tx, path string) (*NodeProto, error) {
@@ -219,6 +219,56 @@ func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) erro
 	})
 }
 
+func diff(new HashTree, old HashTree, newPath string, oldPath string, recursiveDepth int64, f func(string, *NodeProto, bool) error) error {
+	newNode, err := new.Get(newPath)
+	if err != nil && Code(err) != PathNotFound {
+		return err
+	}
+	oldNode, err := old.Get(oldPath)
+	if err != nil && Code(err) != PathNotFound {
+		return err
+	}
+	if (newNode == nil && oldNode == nil) ||
+		(newNode != nil && oldNode != nil && bytes.Equal(newNode.Hash, oldNode.Hash)) {
+		return nil
+	}
+	children := make(map[string]bool)
+	if newNode != nil {
+		if newNode.FileNode != nil || recursiveDepth == 0 {
+			if err := f(newPath, newNode, true); err != nil {
+				return err
+			}
+		} else if newNode.DirNode != nil {
+			for _, child := range newNode.DirNode.Children {
+				children[child] = true
+			}
+		}
+	}
+	if oldNode != nil {
+		if oldNode.FileNode != nil || recursiveDepth == 0 {
+			if err := f(oldPath, oldNode, false); err != nil {
+				return err
+			}
+		} else if oldNode.DirNode != nil {
+			for _, child := range oldNode.DirNode.Children {
+				children[child] = true
+			}
+		}
+	}
+	if recursiveDepth > 0 || recursiveDepth == -1 {
+		newDepth := recursiveDepth
+		if recursiveDepth > 0 {
+			newDepth--
+		}
+		for child := range children {
+			if err := diff(new, old, pathlib.Join(newPath, child), pathlib.Join(oldPath, child), newDepth, f); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (h *dbHashTree) Diff(oldHashTree HashTree, newPath string, oldPath string, recursiveDepth int64, f func(path string, node *NodeProto, new bool) error) error {
 	return diff(h, oldHashTree, newPath, oldPath, recursiveDepth, f)
 }
@@ -228,6 +278,32 @@ func (h *dbHashTree) Serialize(w io.Writer) error {
 		_, err := tx.WriteTo(w)
 		return err
 	})
+}
+
+func (h *dbHashTree) Copy() (HashTree, error) {
+	if err := h.Hash(); err != nil {
+		return nil, err
+	}
+	r, w := io.Pipe()
+	var eg errgroup.Group
+	eg.Go(func() (retErr error) {
+		defer func() {
+			if err := w.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		return h.Serialize(w)
+	})
+	var result HashTree
+	eg.Go(func() error {
+		var err error
+		result, err = DeserializeDBHashTree(r)
+		return err
+	})
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (h *dbHashTree) Deserialize(r io.Reader) error {
@@ -248,19 +324,6 @@ func (h *dbHashTree) Deserialize(r io.Reader) error {
 	}
 	h.DB = db
 	return nil
-}
-
-func (h *dbHashTree) GetOpen(path string) (*OpenNode, error) {
-	node, err := h.Get(path)
-	if err != nil {
-		return nil, err
-	}
-	return &OpenNode{
-		Name:     node.Name,
-		Size:     node.SubtreeSize,
-		FileNode: node.FileNode,
-		DirNode:  node.DirNode,
-	}, nil
 }
 
 func (h *dbHashTree) put(tx *bolt.Tx, path string, node *NodeProto) error {
@@ -635,27 +698,63 @@ func (h *dbHashTree) canonicalize(tx *bolt.Tx, path string) error {
 	return changed(tx).Delete(b(path))
 }
 
-func (h *dbHashTree) Finish() (_ HashTree, retErr error) {
-	if err := h.Batch(func(tx *bolt.Tx) error {
+func (h *dbHashTree) Hash() error {
+	return h.Batch(func(tx *bolt.Tx) error {
 		return h.canonicalize(tx, "")
-	}); err != nil {
-		return nil, err
+	})
+}
+
+type nodetype uint8
+
+const (
+	none         nodetype = iota // No file is present at this point in the tree
+	directory                    // The file at this point in the tree is a directory
+	file                         // ... is a regular file
+	unrecognized                 // ... is an an unknown type
+)
+
+func (n *NodeProto) nodetype() nodetype {
+	switch {
+	case n == nil || (n.DirNode == nil && n.FileNode == nil):
+		return none
+	case n.DirNode != nil:
+		return directory
+	case n.FileNode != nil:
+		return file
+	default:
+		return unrecognized
 	}
-	newFile := dbFile()
-	f, err := os.Create(newFile)
-	if err != nil {
-		return nil, err
+}
+
+func (n nodetype) tostring() string {
+	switch n {
+	case none:
+		return "none"
+	case directory:
+		return "directory"
+	case file:
+		return "file"
+	default:
+		return "unknown"
 	}
-	defer func() {
-		if err := f.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	if err := h.View(func(tx *bolt.Tx) error {
-		_, err := tx.WriteTo(f)
-		return err
-	}); err != nil {
-		return nil, err
-	}
-	return newDBHashTree(newFile)
+}
+
+// updateFn is used by 'visit'. The first parameter is the node being visited,
+// the second parameter is the path of that node, and the third parameter is the
+// child of that node from the 'path' argument to 'visit'.
+//
+// The *NodeProto argument is guaranteed to have DirNode set (if it's not nil)--visit
+// returns a 'PathConflict' error otherwise.
+type updateFn func(*NodeProto, string, string) error
+
+// This can be passed to visit() to detect PathConflict errors early
+func nop(*NodeProto, string, string) error {
+	return nil
+}
+
+var globRegex = regexp.MustCompile(`[*?\[\]\{\}!]`)
+
+// isGlob checks if the pattern contains a glob character
+func isGlob(pattern string) bool {
+	return globRegex.Match([]byte(pattern))
 }
