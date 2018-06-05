@@ -54,7 +54,7 @@ import (
 
 const (
 	// The maximum number of concurrent download/upload operations
-	concurrency = 10
+	concurrency = 100
 	logBuffer   = 25
 
 	chunksPrefix = "/chunks"
