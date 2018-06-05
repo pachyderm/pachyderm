@@ -124,27 +124,46 @@ func (h *dbHashTree) Get(path string) (*NodeProto, error) {
 	return node, nil
 }
 
+func (h *dbHashTree) iterDir(tx *bolt.Tx, path string, f func(k, v []byte, c *bolt.Cursor) error) error {
+	c := fs(tx).Cursor()
+	for k, v := c.Seek(b(path)); k != nil && strings.HasPrefix(s(k), path); k, v = c.Next() {
+		trimmed := strings.TrimPrefix(s(k), path)
+		if trimmed == "" || trimmed[0] != '/' || strings.Count(trimmed, "/") > 1 {
+			// trimmed == "" -> this is path itself
+			// trimmed[0] != '/' -> this is a sibling of path
+			// strings.Count(trimmed, "/") > 1 -> this is the child of a child of path
+			// If any of these are true we don't call f on the value because it's not in the directory.
+			continue
+		}
+		if err := f(k, v, c); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // List retrieves the list of files and subdirectories of the directory at
 // 'path'.
 func (h *dbHashTree) List(path string) ([]*NodeProto, error) {
 	path = clean(path)
 	var result []*NodeProto
 	if err := h.View(func(tx *bolt.Tx) error {
-		c := fs(tx).Cursor()
-		for k, v := c.Seek(b(path)); k != nil && strings.HasPrefix(s(k), path); k, v = c.Next() {
-			trimmed := strings.TrimPrefix(s(k), path)
-			if trimmed == "" || strings.Count(trimmed, "/") > 1 {
-				// don't return the path itself or the children of children
-				// TODO seeking to the directory will greatly improve performance here
-				continue
-			}
+		node, err := h.get(tx, path)
+		if err != nil {
+			return err
+		}
+		if node.DirNode == nil {
+			return errorf(PathConflict, "the file at \"%s\" is not a directory",
+				path)
+		}
+		return h.iterDir(tx, path, func(k, v []byte, _ *bolt.Cursor) error {
 			node := &NodeProto{}
 			if err := node.Unmarshal(v); err != nil {
 				return err
 			}
 			result = append(result, node)
-		}
-		return nil
+			return nil
+		})
 	}); err != nil {
 		return nil, err
 	}
@@ -456,13 +475,12 @@ func (h *dbHashTree) PutDir(path string) error {
 
 // deleteDir deletes a directory and all the children under it
 func (h *dbHashTree) deleteDir(tx *bolt.Tx, path string) error {
-	c := fs(tx).Cursor()
-	for k, _ := c.Seek(b(path)); k != nil && strings.HasPrefix(s(k), path); k, _ = c.Next() {
-		if err := c.Delete(); err != nil {
-			return err
-		}
+	if err := h.iterDir(tx, path, func(k, v []byte, c *bolt.Cursor) error {
+		return c.Delete()
+	}); err != nil {
+		return err
 	}
-	return nil
+	return fs(tx).Delete(b(path))
 }
 
 func (h *dbHashTree) DeleteFile(path string) error {
