@@ -853,6 +853,7 @@ func (a *APIServer) runService(ctx context.Context, logger *taggedLogger) error 
 }
 
 func (a *APIServer) updateJobState(stm col.STM, jobPtr *pps.EtcdJobInfo, state pps.JobState, reason string) error {
+	// Update pipeline
 	pipelines := a.pipelines.ReadWrite(stm)
 	pipelinePtr := &pps.EtcdPipelineInfo{}
 	if err := pipelines.Get(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
@@ -865,7 +866,20 @@ func (a *APIServer) updateJobState(stm col.STM, jobPtr *pps.EtcdJobInfo, state p
 		pipelinePtr.JobCounts[int32(jobPtr.State)]--
 	}
 	pipelinePtr.JobCounts[int32(state)]++
-	pipelines.Put(jobPtr.Pipeline.Name, pipelinePtr)
+	if err := pipelines.Put(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
+		return err
+	}
+
+	// Update job info
+	var err error
+	if state == pps.JobState_JOB_RUNNING && jobPtr.Started == nil {
+		jobPtr.Started, err = types.TimestampProto(time.Now())
+	} else if ppsutil.IsTerminal(state) {
+		jobPtr.Finished, err = types.TimestampProto(time.Now())
+	}
+	if err != nil {
+		return err
+	}
 	jobPtr.State = state
 	jobPtr.Reason = reason
 	jobs := a.jobs.ReadWrite(stm)
