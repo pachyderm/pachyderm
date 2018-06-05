@@ -141,6 +141,20 @@ func WithMaxConcurrentStreams(streams uint) Option {
 	}
 }
 
+func getAddrOnUserMachine(cfg *config.Config) string {
+	// 1) ADDRESS environment variable (shell-local) overrides global config
+	if envAddr, ok := os.LookupEnv("ADDRESS"); ok {
+		return envAddr
+	}
+
+	// 2) Get target address from global config if possible
+	if cfg != nil && cfg.V1 != nil && cfg.V1.PachdAddress != "" {
+		return cfg.V1.PachdAddress
+	}
+	// 3) Use default address if nothing else works
+	return "0.0.0.0:30650"
+}
+
 // NewOnUserMachine constructs a new APIClient using env vars that may be set
 // on a user's machine (i.e. ADDRESS), as well as $HOME/.pachyderm/config if it
 // exists. This is primarily intended to be used with the pachctl binary, but
@@ -157,23 +171,8 @@ func NewOnUserMachine(reportMetrics bool, prefix string, options ...Option) (*AP
 		log.Warningf("error loading user config from ~/.pachderm/config: %v", err)
 	}
 
-	var addr string
-	// 1) ADDRESS environment variable (shell-local) overrides global config
-	if envAddr, ok := os.LookupEnv("ADDRESS"); ok {
-		addr = envAddr
-		goto createClient // success
-	}
-
-	// 2) Get target address from global config if possible
-	if cfg != nil && cfg.V1 != nil && cfg.V1.PachdAddress != "" {
-		addr = cfg.V1.PachdAddress
-		goto createClient // success
-	}
-	// 3) Use default address if nothing else works
-	addr = "0.0.0.0:30650"
-
-createClient:
 	// create new pachctl client
+	addr := getAddrOnUserMachine(cfg)
 	client, err := NewFromAddress(addr, options...)
 	if err != nil {
 		return nil, err
