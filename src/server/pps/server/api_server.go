@@ -635,6 +635,8 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 		StatsCommit:   jobPtr.StatsCommit,
 		State:         jobPtr.State,
 		Reason:        jobPtr.Reason,
+		Started:       jobPtr.Started,
+		Finished:      jobPtr.Finished,
 	}
 	commitInfo, err := pachClient.InspectCommit(jobPtr.OutputCommit.Repo.Name, jobPtr.OutputCommit.ID)
 	if err != nil {
@@ -646,8 +648,6 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 		}
 		return nil, err
 	}
-	result.Started = commitInfo.Started
-	result.Finished = commitInfo.Finished
 	var specCommit *pfs.Commit
 	for i, provCommit := range commitInfo.Provenance {
 		provBranch := commitInfo.BranchProvenance[i]

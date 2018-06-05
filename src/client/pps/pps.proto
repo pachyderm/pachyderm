@@ -215,10 +215,10 @@ message EtcdJobInfo {
   ProcessStats stats = 9;
 
   pfs.Commit stats_commit = 10;
-
   JobState state = 11;
-
   string reason = 12;
+  google.protobuf.Timestamp started = 13;
+  google.protobuf.Timestamp finished = 14;
 }
 
 message JobInfo {
