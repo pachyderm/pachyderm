@@ -676,8 +676,8 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 		if err != nil {
 			return err
 		}
+		limiter.Acquire()
 		g.Go(func() (retErr error) {
-			limiter.Acquire()
 			defer limiter.Release()
 			if filePath == outputPath {
 				return nil
