@@ -14,6 +14,7 @@ import (
 
 	bolt "github.com/coreos/bbolt"
 	globlib "github.com/gobwas/glob"
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
@@ -757,4 +758,65 @@ var globRegex = regexp.MustCompile(`[*?\[\]\{\}!]`)
 // isGlob checks if the pattern contains a glob character
 func isGlob(pattern string) bool {
 	return globRegex.Match([]byte(pattern))
+}
+
+// GetHashTreeObject is a convenience function to deserialize a HashTree from an object in the object store.
+func GetHashTreeObject(pachClient *client.APIClient, treeRef *pfs.Object) (HashTree, error) {
+	return getHashTree(func(w io.Writer) error {
+		return pachClient.GetObject(treeRef.Hash, w)
+	})
+}
+
+// GetHashTreeObject is a convenience function to deserialize a HashTree from an tagged object in the object store.
+func GetHashTreeTag(pachClient *client.APIClient, treeRef *pfs.Tag) (HashTree, error) {
+	return getHashTree(func(w io.Writer) error {
+		return pachClient.GetTag(treeRef.Name, w)
+	})
+}
+
+func getHashTree(f func(io.Writer) error) (HashTree, error) {
+	r, w := io.Pipe()
+	var eg errgroup.Group
+	eg.Go(func() (retErr error) {
+		defer func() {
+			if err := w.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		return f(w)
+	})
+	var tree HashTree
+	eg.Go(func() error {
+		var err error
+		tree, err = DeserializeDBHashTree(r)
+		return err
+	})
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+	return tree, nil
+}
+
+// PutHashTree is a convenience function for putting a HashTree to an object store.
+func PutHashTree(pachClient *client.APIClient, tree HashTree, tags ...string) (*pfs.Object, error) {
+	r, w := io.Pipe()
+	var eg errgroup.Group
+	eg.Go(func() (retErr error) {
+		defer func() {
+			if err := w.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		return tree.Serialize(w)
+	})
+	var treeRef *pfs.Object
+	eg.Go(func() error {
+		var err error
+		treeRef, _, err = pachClient.PutObject(r, tags...)
+		return err
+	})
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+	return treeRef, nil
 }
