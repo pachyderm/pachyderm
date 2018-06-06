@@ -26,9 +26,11 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -327,4 +329,38 @@ func IsTerminal(state pps.JobState) bool {
 	default:
 		panic(fmt.Sprintf("unrecognized job state: %s", state))
 	}
+}
+
+// UpdateJobState performs the operations involved with a job state transition.
+func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollection, jobPtr *pps.EtcdJobInfo, state pps.JobState, reason string) error {
+	// Update pipeline
+	pipelinePtr := &pps.EtcdPipelineInfo{}
+	if err := pipelines.Get(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
+		return err
+	}
+	if pipelinePtr.JobCounts == nil {
+		pipelinePtr.JobCounts = make(map[int32]int32)
+	}
+	if pipelinePtr.JobCounts[int32(jobPtr.State)] != 0 {
+		pipelinePtr.JobCounts[int32(jobPtr.State)]--
+	}
+	pipelinePtr.JobCounts[int32(state)]++
+	if err := pipelines.Put(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
+		return err
+	}
+
+	// Update job info
+	var err error
+	if state == pps.JobState_JOB_STARTING {
+		jobPtr.Started, err = types.TimestampProto(time.Now())
+	} else if IsTerminal(state) {
+		jobPtr.Finished, err = types.TimestampProto(time.Now())
+	}
+	if err != nil {
+		return err
+	}
+	jobPtr.State = state
+	jobPtr.Reason = reason
+	jobs.Put(jobPtr.Job.ID, jobPtr)
+	return nil
 }

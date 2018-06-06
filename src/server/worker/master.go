@@ -270,7 +270,7 @@ func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 				if err := jobs.Get(job.ID, jobPtr); err != nil {
 					return err
 				}
-				return a.updateJobState(stm, jobPtr, pps.JobState_JOB_RUNNING, "")
+				return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, pps.JobState_JOB_RUNNING, "")
 			}); err != nil {
 				logger.Logf("error updating job state: %+v", err)
 			}
@@ -286,7 +286,7 @@ func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 					if err := jobs.Get(job.ID, jobPtr); err != nil {
 						return err
 					}
-					return a.updateJobState(stm, jobPtr, pps.JobState_JOB_SUCCESS, "")
+					return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, pps.JobState_JOB_SUCCESS, "")
 				}); err != nil {
 					logger.Logf("error updating job progress: %+v", err)
 				}
@@ -490,7 +490,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 						return err
 					}
 					if !ppsutil.IsTerminal(jobPtr.State) {
-						return a.updateJobState(stm, jobPtr, pps.JobState_JOB_KILLED, "")
+						return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, pps.JobState_JOB_KILLED, "")
 					}
 					return nil
 				}); err != nil {
@@ -530,6 +530,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 
 	backoff.RetryNotify(func() (retErr error) {
 		// block until job inputs are ready
+		// TODO(bryce) This should be removed because it is no longer applicable.
 		failedInputs, err := a.failedInputs(ctx, jobInfo)
 		if err != nil {
 			return err
@@ -543,7 +544,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				if err := jobs.Get(jobID, jobPtr); err != nil {
 					return err
 				}
-				return a.updateJobState(stm, jobPtr, pps.JobState_JOB_FAILURE, reason)
+				return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, pps.JobState_JOB_FAILURE, reason)
 			}); err != nil {
 				return err
 			}
@@ -580,7 +581,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				return nil
 			}
 			jobPtr.DataTotal = int64(df.Len())
-			if err := a.updateJobState(stm, jobPtr, pps.JobState_JOB_RUNNING, ""); err != nil {
+			if err := ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, pps.JobState_JOB_RUNNING, ""); err != nil {
 				return err
 			}
 			chunksCol := a.chunks.ReadWrite(stm)
@@ -717,7 +718,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 						return err
 					}
 					jobPtr.StatsCommit = statsCommit
-					return a.updateJobState(stm, jobPtr, pps.JobState_JOB_FAILURE, reason)
+					return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, pps.JobState_JOB_FAILURE, reason)
 				})
 				// returning nil so we don't retry
 				logger.Logf("possibly a bug -- returning \"%v\"", err)
@@ -736,9 +737,9 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			}
 			jobPtr.StatsCommit = statsCommit
 			if failedDatumID != "" {
-				return a.updateJobState(stm, jobPtr, pps.JobState_JOB_FAILURE, fmt.Sprintf("failed to process datum: %v", failedDatumID))
+				return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, pps.JobState_JOB_FAILURE, fmt.Sprintf("failed to process datum: %v", failedDatumID))
 			}
-			return a.updateJobState(stm, jobPtr, pps.JobState_JOB_SUCCESS, "")
+			return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, pps.JobState_JOB_SUCCESS, "")
 		}); err != nil {
 			return err
 		}
@@ -770,7 +771,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 						if err := jobs.Get(jobID, jobPtr); err != nil {
 							return err
 						}
-						err = a.updateJobState(stm, jobPtr, pps.JobState_JOB_FAILURE, reason)
+						err = ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, pps.JobState_JOB_FAILURE, reason)
 						if err != nil {
 							return nil
 						}
@@ -850,41 +851,6 @@ func (a *APIServer) runService(ctx context.Context, logger *taggedLogger) error 
 			return nil
 		}
 	})
-}
-
-func (a *APIServer) updateJobState(stm col.STM, jobPtr *pps.EtcdJobInfo, state pps.JobState, reason string) error {
-	// Update pipeline
-	pipelines := a.pipelines.ReadWrite(stm)
-	pipelinePtr := &pps.EtcdPipelineInfo{}
-	if err := pipelines.Get(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
-		return err
-	}
-	if pipelinePtr.JobCounts == nil {
-		pipelinePtr.JobCounts = make(map[int32]int32)
-	}
-	if pipelinePtr.JobCounts[int32(jobPtr.State)] != 0 {
-		pipelinePtr.JobCounts[int32(jobPtr.State)]--
-	}
-	pipelinePtr.JobCounts[int32(state)]++
-	if err := pipelines.Put(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
-		return err
-	}
-
-	// Update job info
-	var err error
-	if state == pps.JobState_JOB_RUNNING && jobPtr.Started == nil {
-		jobPtr.Started, err = types.TimestampProto(time.Now())
-	} else if ppsutil.IsTerminal(state) {
-		jobPtr.Finished, err = types.TimestampProto(time.Now())
-	}
-	if err != nil {
-		return err
-	}
-	jobPtr.State = state
-	jobPtr.Reason = reason
-	jobs := a.jobs.ReadWrite(stm)
-	jobs.Put(jobPtr.Job.ID, jobPtr)
-	return nil
 }
 
 func (a *APIServer) aggregateProcessStats(stats []*pps.ProcessStats) (*pps.AggregateProcessStats, error) {
