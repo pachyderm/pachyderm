@@ -535,6 +535,17 @@ func TestWalk(t *testing.T) {
 		return nil
 	}))
 	require.Equal(t, 0, len(expectedPaths))
+
+	expectedPaths = map[string]bool{
+		"/dir":     true,
+		"/dir/bar": true,
+	}
+	require.NoError(t, h.Walk("/dir", func(path string, node *NodeProto) error {
+		require.True(t, expectedPaths[path])
+		delete(expectedPaths, path)
+		return nil
+	}))
+	require.Equal(t, 0, len(expectedPaths))
 }
 
 // Test that HashTree methods return the right error codes

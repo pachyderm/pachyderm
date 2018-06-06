@@ -222,7 +222,7 @@ func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) erro
 	path = clean(path)
 	return h.View(func(tx *bolt.Tx) error {
 		c := fs(tx).Cursor()
-		for k, v := c.First(); k != nil && strings.HasPrefix(s(k), path); k, v = c.Next() {
+		for k, v := c.Seek(b(path)); k != nil && strings.HasPrefix(s(k), path); k, v = c.Next() {
 			node := &NodeProto{}
 			if err := node.Unmarshal(v); err != nil {
 				return err
