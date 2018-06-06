@@ -571,7 +571,8 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 				return err
 			}
 			if records != nil {
-				tree, err := parentTree.Copy()
+				var err error
+				tree, err = parentTree.Copy()
 				if err != nil {
 					return err
 				}
