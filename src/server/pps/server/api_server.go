@@ -471,7 +471,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			Pipeline:     request.Pipeline,
 			Stats:        &pps.ProcessStats{},
 		}
-		return a.updateJobState(stm, jobPtr, pps.JobState_JOB_STARTING)
+		return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, pps.JobState_JOB_STARTING, "")
 	})
 	if err != nil {
 		return nil, err
@@ -2659,25 +2659,6 @@ func (a *apiServer) updatePipelineState(pachClient *client.APIClient, pipelineNa
 		return newErrPipelineNotFound(pipelineName)
 	}
 	return err
-}
-
-func (a *apiServer) updateJobState(stm col.STM, jobPtr *pps.EtcdJobInfo, state pps.JobState) error {
-	pipelines := a.pipelines.ReadWrite(stm)
-	pipelinePtr := &pps.EtcdPipelineInfo{}
-	if err := pipelines.Get(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
-		return err
-	}
-	if pipelinePtr.JobCounts == nil {
-		pipelinePtr.JobCounts = make(map[int32]int32)
-	}
-	if pipelinePtr.JobCounts[int32(jobPtr.State)] != 0 {
-		pipelinePtr.JobCounts[int32(jobPtr.State)]--
-	}
-	pipelinePtr.JobCounts[int32(state)]++
-	pipelines.Put(jobPtr.Pipeline.Name, pipelinePtr)
-	jobPtr.State = state
-	jobs := a.jobs.ReadWrite(stm)
-	return jobs.Put(jobPtr.Job.ID, jobPtr)
 }
 
 func (a *apiServer) getPachClient() *client.APIClient {
