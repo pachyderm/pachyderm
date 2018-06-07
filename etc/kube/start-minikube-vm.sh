@@ -49,9 +49,10 @@ while true; do
   esac
 done
 
-etcd_image="quay.io/coreos/etcd:v3.3.5"
-if ! docker images | grep -q "${etcd_image}"; then
-  echo -e "\nMissing \"${etcd_image}\", please run:\ndocker pull ${etcd_image}\n"
+etcd_image="quay.io/coreos/etcd"
+etcd_version="v3\\.3\\.5"
+if ! docker images | grep "${etcd_image}" | grep -q "${etcd_version}"; then
+  echo -e "\nMissing \"${etcd_image}:${etcd_version}\", please run:\ndocker pull ${etcd_image}\n"
   exit 1
 fi
 

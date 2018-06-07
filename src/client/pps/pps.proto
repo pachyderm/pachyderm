@@ -333,6 +333,8 @@ message PipelineInfo {
   // PFS along with the rest of this data structure--PPS.InspectPipeline fills
   // it in
   PipelineState state = 7;
+  // same for stopped field
+  bool stopped = 38;
   string recent_error = 8;
 
   // job_counts indicates the number of jobs within this pipeline in a given
