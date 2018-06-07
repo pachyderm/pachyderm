@@ -73,6 +73,7 @@ func (e ErrCommitNotFound) Error() string {
 }
 
 func (e ErrNoHead) Error() string {
+	// the dashboard is matching on this message in stats. Please open an issue on the dash before changing this
 	return fmt.Sprintf("the branch \"%s\" has no head (create one with start-commit)", e.Branch.Name)
 }
 

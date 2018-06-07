@@ -41,6 +41,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
+	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -1413,7 +1414,7 @@ func TestPipelineState(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if pipelineInfo.State != pps.PipelineState_PIPELINE_PAUSED {
+		if !pipelineInfo.Stopped {
 			return fmt.Errorf("pipeline never paused, even though StopPipeline() was called, state: %s", pipelineInfo.State.String())
 		}
 		return nil
@@ -2034,6 +2035,125 @@ func TestUpdatePipeline(t *testing.T) {
 	buffer.Reset()
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
 	require.Equal(t, "buzz\n", buffer.String())
+}
+
+func TestUpdateFailedPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	// create repos
+	dataRepo := tu.UniqueString("TestUpdateFailedPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	pipelineName := tu.UniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"imagethatdoesntexist",
+		[]string{"bash"},
+		[]string{"echo foo >/pfs/out/file"},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+	_, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("1"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, "master"))
+
+	// Wait for pod to try and pull the bad image
+	time.Sleep(10 * time.Second)
+	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+	require.Equal(t, pps.PipelineState_PIPELINE_FAILURE, pipelineInfo.State)
+
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"bash:4",
+		[]string{"bash"},
+		[]string{"echo bar >/pfs/out/file"},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/*"),
+		"",
+		true,
+	))
+	time.Sleep(10 * time.Second)
+	pipelineInfo, err = c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+	require.Equal(t, pps.PipelineState_PIPELINE_RUNNING, pipelineInfo.State)
+
+	// Sanity check run some actual data through the pipeline:
+	_, err = c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("2"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, "master"))
+	iter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	collectCommitInfos(t, iter)
+
+	var buffer bytes.Buffer
+	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
+	require.Equal(t, "bar\n", buffer.String())
+}
+
+func TestUpdateStoppedPipeline(t *testing.T) {
+	// Pipeline should be updated, but should not be restarted
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	// create repos
+	dataRepo := tu.UniqueString("TestUpdateStoppedPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	pipelineName := tu.UniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{"echo foo >/pfs/out/file"},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+	require.NoError(t, c.StopPipeline(pipelineName))
+	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+	require.Equal(t, true, pipelineInfo.Stopped)
+	// It takes a bit for the master to stop the pods
+	time.Sleep(10 * time.Second)
+	pipelineInfo, err = c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+	require.Equal(t, pps.PipelineState_PIPELINE_PAUSED, pipelineInfo.State)
+	// Update shouldn't restart it
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"bash:4",
+		[]string{"bash"},
+		[]string{"echo bar >/pfs/out/file"},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewAtomInput(dataRepo, "/*"),
+		"",
+		true,
+	))
+	time.Sleep(10 * time.Second)
+	pipelineInfo, err = c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+	require.Equal(t, true, pipelineInfo.Stopped)
 }
 
 func TestUpdatePipelineRunningJob(t *testing.T) {
@@ -4339,7 +4459,7 @@ func TestGarbageCollection(t *testing.T) {
 
 	objectsBefore := getAllObjects(t, c)
 	tagsBefore := getAllTags(t, c)
-
+	specObjectCountBefore := getObjectCountForRepo(t, c, ppsconsts.SpecRepo)
 	// Try to GC without stopping the pipeline.
 	require.YesError(t, c.GarbageCollect())
 
@@ -4372,7 +4492,11 @@ func TestGarbageCollection(t *testing.T) {
 	tagsAfter := getAllTags(t, c)
 
 	require.Equal(t, len(tagsBefore), len(tagsAfter))
-	require.Equal(t, len(objectsBefore), len(objectsAfter))
+	// Stopping the pipeline creates/updates the pipeline __spec__ repo, so we need
+	// to account for the number of objects we added there
+	specObjectCountAfter := getObjectCountForRepo(t, c, ppsconsts.SpecRepo)
+	expectedSpecObjectCountDelta := specObjectCountAfter - specObjectCountBefore
+	require.Equal(t, len(objectsBefore)+expectedSpecObjectCountDelta, len(objectsAfter))
 	objectsBefore = objectsAfter
 	tagsBefore = tagsAfter
 
@@ -7783,6 +7907,16 @@ func TestPachdPrometheusStats(t *testing.T) {
 
 }
 
+func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
+	pipelineInfos, err := pachClient.ListPipeline()
+	require.NoError(t, err)
+	repoInfo, err := pachClient.InspectRepo(repo)
+	require.NoError(t, err)
+	activeObjects, _, err := pps_server.CollectActiveObjectsAndTags(context.Background(), c.PfsAPIClient, c.ObjectAPIClient, []*pfs.RepoInfo{repoInfo}, pipelineInfos)
+	require.NoError(t, err)
+	return len(activeObjects)
+}
+
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
 	objectsClient, err := c.ListObjects(context.Background(), &pfs.ListObjectsRequest{})
 	require.NoError(t, err)
@@ -8089,7 +8223,7 @@ func getEtcdClient(t testing.TB) *etcd.Client {
 		var err error
 		etcdClient, err = etcd.New(etcd.Config{
 			Endpoints:   []string{etcdAddress},
-			DialOptions: client.EtcdDialOptions(),
+			DialOptions: client.DefaultDialOptions(),
 		})
 		require.NoError(t, err)
 	})

@@ -109,7 +109,7 @@ func (s *objBlockAPIServer) watchGC(etcdAddress string) {
 	backoff.RetryNotify(func() error {
 		etcdClient, err := etcd.New(etcd.Config{
 			Endpoints:   []string{etcdAddress},
-			DialOptions: client.EtcdDialOptions(),
+			DialOptions: client.DefaultDialOptions(),
 		})
 		if err != nil {
 			return fmt.Errorf("error instantiating etcd client: %v", err)

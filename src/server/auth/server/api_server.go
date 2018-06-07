@@ -138,7 +138,7 @@ func (a *apiServer) getPachClient() *client.APIClient {
 func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (authclient.APIServer, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   []string{etcdAddress},
-		DialOptions: client.EtcdDialOptions(),
+		DialOptions: client.DefaultDialOptions(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error constructing etcdClient: %v", err)
