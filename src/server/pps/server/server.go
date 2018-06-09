@@ -27,6 +27,7 @@ func NewAPIServer(
 	storageBackend string,
 	storageHostPath string,
 	iamRole string,
+	iamAnnotation string,
 	imagePullSecret string,
 	noExposeDockerSocket bool,
 	reporter *metrics.Reporter,
@@ -53,6 +54,7 @@ func NewAPIServer(
 		storageBackend:        storageBackend,
 		storageHostPath:       storageHostPath,
 		iamRole:               iamRole,
+		iamAnnotation:         iamAnnotation,
 		imagePullSecret:       imagePullSecret,
 		noExposeDockerSocket:  noExposeDockerSocket,
 		reporter:              reporter,
@@ -73,6 +75,7 @@ func NewSidecarAPIServer(
 	etcdPrefix string,
 	address string,
 	iamRole string,
+	iamAnnotation string,
 	reporter *metrics.Reporter,
 ) (ppsclient.APIServer, error) {
 	etcdClient, err := etcd.New(etcd.Config{
@@ -84,14 +87,15 @@ func NewSidecarAPIServer(
 	}
 
 	apiServer := &apiServer{
-		Logger:     log.NewLogger("pps.API"),
-		address:    address,
-		etcdPrefix: etcdPrefix,
-		etcdClient: etcdClient,
-		iamRole:    iamRole,
-		reporter:   reporter,
-		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
-		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
+		Logger:        log.NewLogger("pps.API"),
+		address:       address,
+		etcdPrefix:    etcdPrefix,
+		etcdClient:    etcdClient,
+		iamRole:       iamRole,
+		iamAnnotation: iamAnnotation,
+		reporter:      reporter,
+		pipelines:     ppsdb.Pipelines(etcdClient, etcdPrefix),
+		jobs:          ppsdb.Jobs(etcdClient, etcdPrefix),
 	}
 	go apiServer.getPachClient() // connects back to pachd and inits spec repo
 	return apiServer, nil

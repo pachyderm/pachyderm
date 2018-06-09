@@ -314,7 +314,11 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 
 	annotations := map[string]string{"pipelineName": pipelineName}
 	if a.iamRole != "" {
-		annotations["iam.amazonaws.com/role"] = a.iamRole
+		annotationName := "iam.amazonaws.com/role"
+		if a.iamAnnotation != "" {
+			annotationName = a.iamAnnotation
+		}
+		annotations[annotationName] = a.iamRole
 	}
 
 	return &workerOptions{
