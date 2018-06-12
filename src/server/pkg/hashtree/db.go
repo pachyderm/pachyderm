@@ -231,6 +231,10 @@ func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) erro
 			if nodePath == "" {
 				nodePath = "/"
 			}
+			if nodePath != path && !strings.HasPrefix(nodePath, path+"/") {
+				// node is a sibling of path, and thus doesn't get walked
+				continue
+			}
 			if err := f(nodePath, node); err != nil {
 				return err
 			}
