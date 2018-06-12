@@ -289,12 +289,12 @@ run-bench:
 	echo "waiting for pachd to scale up" && sleep 15
 	kubectl delete --ignore-not-found po/bench && \
 	    kubectl run bench \
-			    --image=pachyderm/bench:`git rev-list HEAD --max-count=1` \
-					--image-pull-policy=Always \
-					--restart=Never \
-					--attach=true \
-					-- \
-					PACH_TEST_CLOUD=true ./test -test.v -test.bench=BenchmarkDaily -test.run=`etc/testing/passing_test_regex.sh`
+	        --image=pachyderm/bench:`git rev-list HEAD --max-count=1` \
+	        --image-pull-policy=Always \
+	        --restart=Never \
+	        --attach=true \
+	        -- \
+	        PACH_TEST_CLOUD=true ./test -test.v -test.bench=BenchmarkDaily -test.run=`etc/testing/passing_test_regex.sh`
 
 delete-all-launch-bench:
 	etc/testing/deploy/$(BENCH_CLOUD_PROVIDER).sh --delete-all
@@ -315,8 +315,8 @@ launch-dev-vm: check-kubectl
 	# Making sure minikube isn't still up from a previous run...
 	@if minikube ip 2>/dev/null || sudo minikube ip 2>/dev/null; \
 	then \
-		echo "minikube is still up. Run 'make clean-launch-kube'"; \
-		exit 1; \
+	  echo "minikube is still up. Run 'make clean-launch-kube'"; \
+	  exit 1; \
 	fi
 	etc/kube/start-minikube-vm.sh --cpus=$(MINIKUBE_CPU) --memory=$(MINIKUBE_MEM)
 
@@ -412,22 +412,16 @@ enterprise-code-checkin-test:
 	@echo "Files containing test Pachyderm Enterprise activation token:"; \
 	if grep --files-with-matches --exclude=Makefile -r -e 'eyJ0b2tl' . ; \
 	then \
-		$$( which echo ) -e "\n*** It looks like Pachyderm Engineering's test activation code may be in this repo. Please remove it before committing! ***\n"; \
-		false; \
+	  $$( which echo ) -e "\n*** It looks like Pachyderm Engineering's test activation code may be in this repo. Please remove it before committing! ***\n"; \
+	  false; \
 	fi
 
 test-pfs-server:
-	@# Check that at least 2048 open file descriptors are allowed (smallest number known to work)
-	@if [ $$(ulimit -n) -lt 2048 ]; then \
-	  echo "Number of open file descriptors is limited to $$(ulimit -n), which may be too low"; \
-	  echo "Try running 'ulimit -n 2048' to increase this limit"; \
-		echo ""; \
-	  exit 1; \
-	fi
 	@# If etcd is not available, start it in a docker container
 	if ! ETCDCTL_API=3 etcdctl --endpoints=127.0.0.1:2379 get "testkey"; then \
 	  docker run \
 	    --publish 32379:2379 \
+	    --ulimit nofile=2048 \
 	    $(ETCD_IMAGE) \
 	    etcd \
 	    --listen-client-urls=http://0.0.0.0:2379 \
@@ -449,8 +443,8 @@ test-pps:
 test-pps-helper: launch-stats docker-build-test-entrypoint 
 	# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-		go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT) $(RUN) && \
-		go test ./src/server/pps/cmds -count 1 -timeout $(TIMEOUT)
+	  go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT) $(RUN) && \
+	  go test ./src/server/pps/cmds -count 1 -timeout $(TIMEOUT)
 
 test-client:
 	rm -rf src/client/vendor
@@ -492,7 +486,7 @@ test-worker: launch-stats test-worker-helper
 test-worker-helper:
 	@# Dont cache these results as they require the pachd cluster
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-			  go test -v ./src/server/worker/ -run=TestPrometheusStats -timeout $(TIMEOUT) -count 1
+	  go test -v ./src/server/worker/ -run=TestPrometheusStats -timeout $(TIMEOUT) -count 1
 
 clean: clean-launch clean-launch-kube
 
@@ -616,10 +610,10 @@ install-go-bindata:
 lint:
 	@go get -u github.com/golang/lint/golint
 	@for file in $$(find "./src" -name '*.go' | grep -v '/vendor/' | grep -v '\.pb\.go'); do \
-		golint $$file; \
-		if [ -n "$$(golint $$file)" ]; then \
-			echo "golint errors!" && echo && exit 1; \
-		fi; \
+	  golint $$file; \
+	  if [ -n "$$(golint $$file)" ]; then \
+	    echo "golint errors!" && echo && exit 1; \
+	  fi; \
 	done;
 
 spellcheck:
@@ -627,15 +621,15 @@ spellcheck:
 
 goxc-generate-local:
 	@if [ -z $$GITHUB_OAUTH_TOKEN ]; then \
-		echo "Missing token. Please run via: 'make GITHUB_OAUTH_TOKEN=12345 goxc-generate-local'"; \
-		exit 1; \
+	  echo "Missing token. Please run via: 'make GITHUB_OAUTH_TOKEN=12345 goxc-generate-local'"; \
+	  exit 1; \
 	fi
 	goxc -wlc default publish-github -apikey=$(GITHUB_OAUTH_TOKEN)
 
 goxc-release:
 	@if [ -z $$VERSION ]; then \
-		@echo "Missing version. Please run via: 'make VERSION=v1.2.3-4567 VERSION_ADDITIONAL=4567 goxc-release'"; \
-		@exit 1; \
+	  @echo "Missing version. Please run via: 'make VERSION=v1.2.3-4567 VERSION_ADDITIONAL=4567 goxc-release'"; \
+	  @exit 1; \
 	fi
 	sed 's/%%VERSION_ADDITIONAL%%/$(VERSION_ADDITIONAL)/' .goxc.json.template > .goxc.json
 	goxc -pv="$(VERSION)" -wd=./src/server/cmd/pachctl

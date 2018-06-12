@@ -649,7 +649,7 @@ negligible, but if you are putting a large number of small files, you might
 want to consider using commit IDs directly.
 `,
 		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
-			cli, err := client.NewOnUserMachineWithConcurrency(metrics, "user", parallelism)
+			cli, err := client.NewOnUserMachine(metrics, "user", client.WithMaxConcurrentStreams(parallelism))
 			if err != nil {
 				return err
 			}
@@ -748,11 +748,11 @@ want to consider using commit IDs directly.
 		Short: "Copy files between pfs paths.",
 		Long:  "Copy files between pfs paths.",
 		Run: cmdutil.RunFixedArgs(6, func(args []string) (retErr error) {
-			client, err := client.NewOnUserMachineWithConcurrency(metrics, "user", parallelism)
+			c, err := client.NewOnUserMachine(metrics, "user", client.WithMaxConcurrentStreams(parallelism))
 			if err != nil {
 				return err
 			}
-			return client.CopyFile(args[0], args[1], args[2], args[3], args[4], args[5], overwrite)
+			return c.CopyFile(args[0], args[1], args[2], args[3], args[4], args[5], overwrite)
 		}),
 	}
 	copyFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to put-file within this commit.")
