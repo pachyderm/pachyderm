@@ -521,16 +521,19 @@ func TestWalk(t *testing.T) {
 	h := newHashTree(t)
 	require.NoError(t, h.PutFile("/foo", obj(`hash:"20c27"`), 1))
 	require.NoError(t, h.PutFile("/dir/bar", obj(`hash:"ebc57"`), 1))
+	require.NoError(t, h.PutFile("/dir2/buzz", obj(`hash:"fa347"`), 1))
 	require.NoError(t, h.Hash())
 
 	expectedPaths := map[string]bool{
-		"/":        true,
-		"/foo":     true,
-		"/dir":     true,
-		"/dir/bar": true,
+		"/":          true,
+		"/foo":       true,
+		"/dir":       true,
+		"/dir/bar":   true,
+		"/dir2":      true,
+		"/dir2/buzz": true,
 	}
 	require.NoError(t, h.Walk("/", func(path string, node *NodeProto) error {
-		require.True(t, expectedPaths[path])
+		require.True(t, expectedPaths[path], "%s not found", path)
 		delete(expectedPaths, path)
 		return nil
 	}))
@@ -541,7 +544,7 @@ func TestWalk(t *testing.T) {
 		"/dir/bar": true,
 	}
 	require.NoError(t, h.Walk("/dir", func(path string, node *NodeProto) error {
-		require.True(t, expectedPaths[path])
+		require.True(t, expectedPaths[path], "%s not found", path)
 		delete(expectedPaths, path)
 		return nil
 	}))

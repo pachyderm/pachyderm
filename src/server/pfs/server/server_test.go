@@ -4220,7 +4220,7 @@ func TestSubscribeStates(t *testing.T) {
 func TestPutFileCommit(t *testing.T) {
 	c := getClient(t)
 
-	numFiles := 100
+	numFiles := 25
 	repo := "repo"
 	require.NoError(t, c.CreateRepo(repo))
 
