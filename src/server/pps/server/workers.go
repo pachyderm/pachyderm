@@ -68,7 +68,7 @@ func workerClients(ctx context.Context, id string, etcdClient *etcd.Client, etcd
 	var result []workerpkg.WorkerClient
 	for _, kv := range resp.Kvs {
 		conn, err := grpc.Dial(fmt.Sprintf("%s:%d", path.Base(string(kv.Key)), client.PPSWorkerPort),
-			client.PachDialOptions()...)
+			append(client.DefaultDialOptions(), grpc.WithInsecure())...)
 		if err != nil {
 			return nil, err
 		}

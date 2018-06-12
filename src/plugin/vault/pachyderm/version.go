@@ -62,7 +62,8 @@ func (b *backend) pathVersion(ctx context.Context, req *logical.Request, d *fram
 	}
 
 	// Create version API client
-	clientConn, err := grpc.Dial(config.PachdAddress, client.PachDialOptions()...)
+	clientConn, err := grpc.Dial(config.PachdAddress,
+		append(client.DefaultDialOptions(), grpc.WithInsecure())...)
 	if err != nil {
 		return nil, err
 	}
