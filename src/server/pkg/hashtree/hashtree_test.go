@@ -522,33 +522,26 @@ func TestWalk(t *testing.T) {
 	require.NoError(t, h.PutFile("/foo", obj(`hash:"20c27"`), 1))
 	require.NoError(t, h.PutFile("/dir/bar", obj(`hash:"ebc57"`), 1))
 	require.NoError(t, h.PutFile("/dir2/buzz", obj(`hash:"fa347"`), 1))
+	require.NoError(t, h.PutFile("/dir.bar", obj(`hash:"3ead7"`), 1))
 	require.NoError(t, h.Hash())
 
-	expectedPaths := map[string]bool{
-		"/":          true,
-		"/foo":       true,
-		"/dir":       true,
-		"/dir/bar":   true,
-		"/dir2":      true,
-		"/dir2/buzz": true,
-	}
+	expectedPaths := []string{"/", "/dir", "/dir/bar", "/dir.bar", "/dir2", "/dir2/buzz", "/foo"}
+	i := 0
 	require.NoError(t, h.Walk("/", func(path string, node *NodeProto) error {
-		require.True(t, expectedPaths[path], "%s not found", path)
-		delete(expectedPaths, path)
+		require.Equal(t, expectedPaths[i], path)
+		i++
 		return nil
 	}))
-	require.Equal(t, 0, len(expectedPaths))
+	require.Equal(t, len(expectedPaths), i)
 
-	expectedPaths = map[string]bool{
-		"/dir":     true,
-		"/dir/bar": true,
-	}
+	expectedPaths = []string{"/dir", "/dir/bar"}
+	i = 0
 	require.NoError(t, h.Walk("/dir", func(path string, node *NodeProto) error {
-		require.True(t, expectedPaths[path], "%s not found", path)
-		delete(expectedPaths, path)
+		require.Equal(t, expectedPaths[i], path)
+		i++
 		return nil
 	}))
-	require.Equal(t, 0, len(expectedPaths))
+	require.Equal(t, len(expectedPaths), i)
 }
 
 // Test that HashTree methods return the right error codes
