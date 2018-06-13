@@ -33,8 +33,19 @@ type apiServer struct {
 	driver *driver
 }
 
-func newAPIServer(address string, etcdAddresses []string, etcdPrefix string, cacheSize int64) (*apiServer, error) {
-	d, err := newDriver(address, etcdAddresses, etcdPrefix, cacheSize)
+func newLocalAPIServer(address string, etcdPrefix string, storageRoot string) (*apiServer, error) {
+	d, err := newLocalDriver(address, etcdPrefix, storageRoot)
+	if err != nil {
+		return nil, err
+	}
+	return &apiServer{
+		Logger: log.NewLocalLogger("pfs.API"),
+		driver: d,
+	}, nil
+}
+
+func newAPIServer(address string, etcdAddresses []string, etcdPrefix string, cacheSize int64, storageRoot string) (*apiServer, error) {
+	d, err := newDriver(address, etcdAddresses, etcdPrefix, cacheSize, storageRoot)
 	if err != nil {
 		return nil, err
 	}

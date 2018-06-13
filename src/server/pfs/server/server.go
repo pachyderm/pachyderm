@@ -25,8 +25,8 @@ type BlockAPIServer interface {
 
 // NewAPIServer creates an APIServer.
 // cacheSize is the number of commit trees which will be cached in the server.
-func NewAPIServer(address string, etcdAddresses []string, etcdPrefix string, cacheSize int64) (APIServer, error) {
-	return newAPIServer(address, etcdAddresses, etcdPrefix, cacheSize)
+func NewAPIServer(address string, etcdAddresses []string, etcdPrefix string, cacheSize int64, storageRoot string) (APIServer, error) {
+	return newAPIServer(address, etcdAddresses, etcdPrefix, cacheSize, storageRoot)
 }
 
 // NewBlockAPIServer creates a BlockAPIServer using the credentials it finds in
