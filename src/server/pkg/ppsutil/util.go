@@ -361,6 +361,5 @@ func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollect
 	}
 	jobPtr.State = state
 	jobPtr.Reason = reason
-	jobs.Put(jobPtr.Job.ID, jobPtr)
-	return nil
+	return jobs.Put(jobPtr.Job.ID, jobPtr)
 }
