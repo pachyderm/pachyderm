@@ -77,7 +77,14 @@ func NewDBHashTree(storageRoot string) (HashTree, error) {
 	if err := os.MkdirAll(pathlib.Dir(file), 0777); err != nil {
 		return nil, err
 	}
-	return newDBHashTree(file)
+	result, err := newDBHashTree(file)
+	if err != nil {
+		return nil, err
+	}
+	if err := result.PutDir("/"); err != nil {
+		return nil, err
+	}
+	return result, err
 }
 
 func DeserializeDBHashTree(storageRoot string, r io.Reader) (_ HashTree, retErr error) {
