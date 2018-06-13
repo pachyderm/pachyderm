@@ -32,12 +32,14 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/hashicorp/golang-lru"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
 
 const (
+	testingTreeCacheSize       = 8
 	etcdAddress                = "localhost:32379" // etcd must already be serving at this address
 	localBlockServerCacheBytes = 256 * 1024 * 1024
 )
@@ -110,7 +112,11 @@ func getPachClient(t *testing.T) *pclient.APIClient {
 	blockAPIServer, err := newLocalBlockAPIServer(root, localBlockServerCacheBytes, etcdAddress)
 	require.NoError(t, err)
 	etcdPrefix := generateRandomString(32)
-	apiServer, err := newAPIServer(serveAddress, []string{"localhost:32379"}, etcdPrefix, defaultTreeCacheSize)
+	treeCache, err := lru.New(testingTreeCacheSize)
+	if err != nil {
+		panic(fmt.Sprintf("could not initialize treeCache: %v", err))
+	}
+	apiServer, err := newAPIServer(serveAddress, []string{"localhost:32379"}, etcdPrefix, treeCache)
 	require.NoError(t, err)
 	runServers(t, servePort, apiServer, blockAPIServer)
 	c, err := pclient.NewFromAddress(serveAddress)

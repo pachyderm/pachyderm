@@ -42,6 +42,7 @@ import (
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 
+	"github.com/hashicorp/golang-lru"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
@@ -52,6 +53,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+)
+
+const (
+	defaultTreeCacheSize = 8
 )
 
 var mode string
@@ -167,7 +172,14 @@ func doSidecarMode(appEnvObj interface{}) error {
 	if err != nil {
 		return err
 	}
-	pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), int64(pfsCacheSize))
+	if pfsCacheSize == 0 {
+		pfsCacheSize = defaultTreeCacheSize
+	}
+	treeCache, err := lru.New(pfsCacheSize)
+	if err != nil {
+		return fmt.Errorf("could not initialize treeCache: %v", err)
+	}
+	pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), treeCache)
 	if err != nil {
 		return err
 	}
@@ -274,10 +286,6 @@ func doFullMode(appEnvObj interface{}) error {
 			log.Printf("error from sharder.AssignRoles: %s", grpcutil.ScrubGRPC(err))
 		}
 	}()
-	pfsCacheSize, err := strconv.Atoi(appEnv.PFSCacheSize)
-	if err != nil {
-		return err
-	}
 	router := shard.NewRouter(
 		sharder,
 		grpcutil.NewDialer(
@@ -286,7 +294,19 @@ func doFullMode(appEnvObj interface{}) error {
 		address,
 	)
 	cacheServer := cache_server.NewCacheServer(router, appEnv.NumShards)
-	pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), int64(pfsCacheSize))
+
+	pfsCacheSize, err := strconv.Atoi(appEnv.PFSCacheSize)
+	if err != nil {
+		return err
+	}
+	if pfsCacheSize == 0 {
+		pfsCacheSize = defaultTreeCacheSize
+	}
+	treeCache, err := lru.New(pfsCacheSize)
+	if err != nil {
+		return fmt.Errorf("could not initialize treeCache: %v", err)
+	}
+	pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), treeCache)
 	if err != nil {
 		return err
 	}

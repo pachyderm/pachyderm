@@ -18,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
+	"github.com/hashicorp/golang-lru"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
@@ -33,8 +34,8 @@ type apiServer struct {
 	driver *driver
 }
 
-func newAPIServer(address string, etcdAddresses []string, etcdPrefix string, cacheSize int64) (*apiServer, error) {
-	d, err := newDriver(address, etcdAddresses, etcdPrefix, cacheSize)
+func newAPIServer(address string, etcdAddresses []string, etcdPrefix string, treeCache *lru.Cache) (*apiServer, error) {
+	d, err := newDriver(address, etcdAddresses, etcdPrefix, treeCache)
 	if err != nil {
 		return nil, err
 	}
