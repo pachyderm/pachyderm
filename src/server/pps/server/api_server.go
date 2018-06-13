@@ -2335,8 +2335,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 }
 
 //CollectActiveObjectsAndTags collects all objects/tags that are not deleted or eligible for garbage collection
-func CollectActiveObjectsAndTags(ctx context.Context, pfsClient client.PfsAPIClient, objClient client.ObjectAPIClient, repoInfos []*pfs.RepoInfo, pipelineInfos []*pps.PipelineInfo) (map[string]bool, map[string]bool, error) {
-
+func CollectActiveObjectsAndTags(pachClient *client.APIClient, repoInfos []*pfs.RepoInfo, pipelineInfos []*pps.PipelineInfo) (map[string]bool, map[string]bool, error) {
 	// The set of objects that are in use.
 	activeObjects := make(map[string]bool)
 	var activeObjectsMu sync.Mutex
@@ -2357,21 +2356,10 @@ func CollectActiveObjectsAndTags(ctx context.Context, pfsClient client.PfsAPICli
 			return nil
 		}
 		addActiveObjects(object)
-		getObjectClient, err := objClient.GetObject(ctx, object)
-		if err != nil {
-			return fmt.Errorf("error getting commit tree: %v", err)
-		}
-
-		var buf bytes.Buffer
-		if err := grpcutil.WriteFromStreamingBytesClient(getObjectClient, &buf); err != nil {
-			return fmt.Errorf("error reading commit tree: %v", err)
-		}
-
-		tree, err := hashtree.Deserialize(buf.Bytes())
+		tree, err := hashtree.GetHashTreeObject(pachClient, object)
 		if err != nil {
 			return err
 		}
-
 		return tree.Walk("/", func(path string, node *hashtree.NodeProto) error {
 			if node.FileNode != nil {
 				addActiveObjects(node.FileNode.Objects...)
@@ -2384,35 +2372,26 @@ func CollectActiveObjectsAndTags(ctx context.Context, pfsClient client.PfsAPICli
 	limiter := limit.New(100)
 	var eg errgroup.Group
 	for _, repo := range repoInfos {
-		repo := repo
-		client, err := pfsClient.ListCommitStream(ctx, &pfs.ListCommitRequest{
-			Repo: repo.Repo,
-		})
-		if err != nil {
-			return nil, nil, err
-		}
-		for {
-			commit, err := client.Recv()
-			if err == io.EOF {
-				break
-			} else if err != nil {
-				return nil, nil, grpcutil.ScrubGRPC(err)
-			}
+		if err := pachClient.ListCommitF(repo.Repo.Name, "", "", 0, func(ci *pfs.CommitInfo) error {
 			limiter.Acquire()
 			eg.Go(func() error {
 				defer limiter.Release()
-				return addActiveTree(commit.Tree)
+				return addActiveTree(ci.Tree)
 			})
+			return nil
+		}); err != nil {
+			return nil, nil, err
 		}
 	}
 	if err := eg.Wait(); err != nil {
 		return nil, nil, err
 	}
 
+	eg = errgroup.Group{}
 	// The set of tags that are active
 	activeTags := make(map[string]bool)
 	for _, pipelineInfo := range pipelineInfos {
-		tags, err := objClient.ListTags(ctx, &pfs.ListTagsRequest{
+		tags, err := pachClient.ObjectAPIClient.ListTags(pachClient.Ctx(), &pfs.ListTagsRequest{
 			Prefix:        client.DatumTagPrefix(pipelineInfo.Salt),
 			IncludeObject: true,
 		})
@@ -2478,7 +2457,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 	if err != nil {
 		return nil, err
 	}
-	activeObjects, activeTags, err := CollectActiveObjectsAndTags(ctx, pfsClient, objClient, append(repoInfos.RepoInfo, specRepoInfo), pipelineInfos.PipelineInfo)
+	activeObjects, activeTags, err := CollectActiveObjectsAndTags(pachClient, append(repoInfos.RepoInfo, specRepoInfo), pipelineInfos.PipelineInfo)
 	if err != nil {
 		return nil, err
 	}

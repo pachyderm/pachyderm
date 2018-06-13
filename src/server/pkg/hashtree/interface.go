@@ -1,6 +1,8 @@
 package hashtree
 
 import (
+	"io"
+
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
@@ -20,8 +22,12 @@ const (
 	// violation of an internal invariant).
 	Internal
 
+	// CannotSerialize is returned when Serialize(io.Writer) fails, normally
+	// due to it being called on an OpenHashTree
+	CannotSerialize
+
 	// CannotDeserialize is returned when Deserialize(bytes) fails, perhaps due to
-	// 'bytes' being corrupted.
+	// 'bytes' being corrupted. Or it being called on an OpenHashTree.
 	CannotDeserialize
 
 	// Unsupported is returned when Deserialize(bytes) encounters an unsupported
@@ -49,9 +55,7 @@ const (
 // new HashTree, create an OpenHashTree with NewHashTree(), modify it, and then
 // call Finish() on it.
 type HashTree interface {
-	// Open makes a deep copy of the HashTree and returns the copy
-	Open() OpenHashTree
-
+	// Read methods
 	// Get retrieves a file.
 	Get(path string) (*NodeProto, error)
 
@@ -71,31 +75,19 @@ type HashTree interface {
 	// function returns an error, the walk stops and returns the error.
 	Walk(path string, f func(path string, node *NodeProto) error) error
 
-	// Diff returns a the diff of 2 HashTrees at particular Paths. It takes a
+	// Diff returns the diff of 2 HashTrees at particular Paths. It takes a
 	// callback function f, which will be called with paths that are not
 	// identical to the same path in the other HashTree.
 	// Specify '-1' for fully recursive, or '1' for shallow diff
 	Diff(oldHashTree HashTree, newPath string, oldPath string, recursiveDepth int64, f func(path string, node *NodeProto, new bool) error) error
-}
 
-// OpenNode is similar to NodeProto, except that it doesn't include the Hash
-// field (which is not generally meaningful in an OpenHashTree)
-type OpenNode struct {
-	Name string
-	Size int64
+	// Serialize serializes a binary version of the HashTree to w.
+	Serialize(w io.Writer) error
 
-	FileNode *FileNodeProto
-	DirNode  *DirectoryNodeProto
-}
+	// Copy returns a copy of the HashTree
+	Copy() (HashTree, error)
 
-// OpenHashTree is like HashTree, except that it can be modified. Once an
-// OpenHashTree is Finish()ed, the hash and size stored with each node will be
-// updated (until then, the hashes and sizes stored in an OpenHashTree will be
-// stale).
-type OpenHashTree interface {
-	HashTree
-	// GetOpen retrieves a file.
-	GetOpen(path string) (*OpenNode, error)
+	// Write methods
 
 	// PutFile appends data to a file (and creates the file if it doesn't exist).
 	PutFile(path string, objects []*pfs.Object, size int64) error
@@ -121,7 +113,10 @@ type OpenHashTree interface {
 	// state of the tree you should Finish and then Open the tree.
 	Merge(trees ...HashTree) error
 
-	// Finish makes a deep copy of the OpenHashTree, updates all of the hashes and
-	// node size metadata in the copy, and returns the copy
-	Finish() (HashTree, error)
+	// Hash updates all of the hashes and node size metadata, it also checks
+	// for conflicts.
+	Hash() error
+
+	// Deserialize deserializes a HashTree from r, into the receiver of the function.
+	Deserialize(r io.Reader) error
 }

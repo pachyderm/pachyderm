@@ -3030,15 +3030,13 @@ func TestBuildCommit(t *testing.T) {
 	repo := tu.UniqueString("TestBuildCommit")
 	require.NoError(t, c.CreateRepo(repo))
 
-	tree1 := hashtree.NewHashTree()
+	tree1, err := hashtree.NewDBHashTree()
+	require.NoError(t, err)
 	fooObj, fooSize, err := c.PutObject(strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, tree1.PutFile("foo", []*pfs.Object{fooObj}, fooSize))
-	tree1Finish, err := tree1.Finish()
-	require.NoError(t, err)
-	serialized, err := hashtree.Serialize(tree1Finish)
-	require.NoError(t, err)
-	tree1Obj, _, err := c.PutObject(bytes.NewReader(serialized))
+	require.NoError(t, tree1.Hash())
+	tree1Obj, err := hashtree.PutHashTree(c, tree1)
 	_, err = c.BuildCommit(repo, "master", "", tree1Obj.Hash)
 	require.NoError(t, err)
 	repoInfo, err := c.InspectRepo(repo)
@@ -3051,11 +3049,8 @@ func TestBuildCommit(t *testing.T) {
 	barObj, barSize, err := c.PutObject(strings.NewReader("bar\n"))
 	require.NoError(t, err)
 	require.NoError(t, tree1.PutFile("bar", []*pfs.Object{barObj}, barSize))
-	tree2Finish, err := tree1.Finish()
-	require.NoError(t, err)
-	serialized, err = hashtree.Serialize(tree2Finish)
-	require.NoError(t, err)
-	tree2Obj, _, err := c.PutObject(bytes.NewReader(serialized))
+	require.NoError(t, tree1.Hash())
+	tree2Obj, err := hashtree.PutHashTree(c, tree1)
 	_, err = c.BuildCommit(repo, "master", "", tree2Obj.Hash)
 	require.NoError(t, err)
 	repoInfo, err = c.InspectRepo(repo)
@@ -4215,7 +4210,7 @@ func TestSubscribeStates(t *testing.T) {
 func TestPutFileCommit(t *testing.T) {
 	c := getPachClient(t)
 
-	numFiles := 100
+	numFiles := 25
 	repo := "repo"
 	require.NoError(t, c.CreateRepo(repo))
 

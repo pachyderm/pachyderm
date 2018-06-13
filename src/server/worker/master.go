@@ -1,7 +1,6 @@
 package worker
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"log"
@@ -326,7 +325,7 @@ func (a *APIServer) locks(jobID string) col.Collection {
 // it into the passed trees. It errors if it can't find the tree object for
 // this datum, unless failed is true in which case it tolerates missing trees.
 func (a *APIServer) collectDatum(pachClient *client.APIClient, index int, files []*Input, logger *taggedLogger,
-	tree hashtree.OpenHashTree, statsTree hashtree.OpenHashTree, treeMu *sync.Mutex, failed bool) error {
+	tree hashtree.HashTree, statsTree hashtree.HashTree, treeMu *sync.Mutex, failed bool) error {
 	datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
 	datumID := a.DatumID(files)
 	tag := &pfs.Tag{datumHash}
@@ -337,7 +336,7 @@ func (a *APIServer) collectDatum(pachClient *client.APIClient, index int, files 
 	var statsSubtree hashtree.HashTree
 	eg.Go(func() error {
 		var err error
-		subTree, err = a.getTreeFromTag(pachClient, tag)
+		subTree, err = hashtree.GetHashTreeTag(pachClient, tag)
 		if err != nil && !failed {
 			return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
 		}
@@ -346,7 +345,7 @@ func (a *APIServer) collectDatum(pachClient *client.APIClient, index int, files 
 	if a.pipelineInfo.EnableStats {
 		eg.Go(func() error {
 			var err error
-			if statsSubtree, err = a.getTreeFromTag(pachClient, statsTag); err != nil {
+			if statsSubtree, err = hashtree.GetHashTreeTag(pachClient, statsTag); err != nil {
 				logger.Logf("failed to read stats tree, this is non-fatal but will result in some missing stats")
 				return nil
 			}
@@ -595,10 +594,16 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 
 		// Watch the chunk locks in order, and merge chunk outputs into commit tree
 		locks := a.locks(jobInfo.Job.ID).ReadOnly(ctx)
-		tree := hashtree.NewHashTree()
-		var statsTree hashtree.OpenHashTree
+		tree, err := hashtree.NewDBHashTree()
+		if err != nil {
+			return err
+		}
+		var statsTree hashtree.HashTree
 		if jobInfo.EnableStats {
-			statsTree = hashtree.NewHashTree()
+			var err error
+			if statsTree, err = hashtree.NewDBHashTree(); err != nil {
+				return err
+			}
 		}
 		var treeMu sync.Mutex
 		limiter := limit.New(100)
@@ -663,7 +668,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		// the stats commit here
 		var statsCommit *pfs.Commit
 		if jobInfo.EnableStats {
-			statsObject, err := a.putTree(ctx, statsTree)
+			statsObject, err := hashtree.PutHashTree(pachClient, statsTree)
 			if err != nil {
 				return err
 			}
@@ -686,7 +691,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		// We only do this if failedDatumID == "", which is to say that all of the chunks succeeded.
 		if failedDatumID == "" {
 			// put output tree into object store
-			object, err := a.putTree(ctx, tree)
+			object, err := hashtree.PutHashTree(pachClient, tree)
 			if err != nil {
 				return err
 			}
@@ -953,28 +958,6 @@ func (a *APIServer) aggregate(datums []float64) (*pps.Aggregate, error) {
 		FifthPercentile:       fifth,
 		NinetyFifthPercentile: ninetyFifth,
 	}, nil
-}
-
-func (a *APIServer) getTreeFromTag(pachClient *client.APIClient, tag *pfs.Tag) (hashtree.HashTree, error) {
-	var buffer bytes.Buffer
-	if err := pachClient.GetTag(tag.Name, &buffer); err != nil {
-		return nil, err
-	}
-	return hashtree.Deserialize(buffer.Bytes())
-}
-
-func (a *APIServer) putTree(ctx context.Context, tree hashtree.OpenHashTree) (*pfs.Object, error) {
-	finishedTree, err := tree.Finish()
-	if err != nil {
-		return nil, err
-	}
-
-	data, err := hashtree.Serialize(finishedTree)
-	if err != nil {
-		return nil, err
-	}
-	object, _, err := a.pachClient.WithCtx(ctx).PutObject(bytes.NewReader(data))
-	return object, err
 }
 
 // getCachedDatum returns whether the given datum (identified by its hash)
