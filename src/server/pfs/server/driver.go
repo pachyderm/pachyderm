@@ -109,6 +109,9 @@ type driver struct {
 
 	// a cache for hashtrees
 	treeCache *lru.Cache
+
+	// storageRoot where we store hashtrees
+	storageRoot string
 }
 
 const (
@@ -116,7 +119,7 @@ const (
 )
 
 // newDriver is used to create a new Driver instance
-func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCacheSize int64) (*driver, error) {
+func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCacheSize int64, storageRoot string) (*driver, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   etcdAddresses,
 		DialOptions: client.DefaultDialOptions(),
@@ -146,9 +149,16 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCa
 		},
 		openCommits: pfsdb.OpenCommits(etcdClient, etcdPrefix),
 		treeCache:   treeCache,
+		storageRoot: storageRoot,
 	}
 	go func() { d.getPachClient(context.Background()) }() // Begin dialing connection on startup
 	return d, nil
+}
+
+// newLocalDriver creates a driver using an local etcd instance.  This
+// function is intended for testing purposes
+func newLocalDriver(blockAddress string, etcdPrefix string, storagePrefix string) (*driver, error) {
+	return newDriver(blockAddress, []string{"localhost:32379"}, etcdPrefix, defaultTreeCacheSize, storagePrefix)
 }
 
 // getPachClient() initializes the connection that the pfs driver has with the
@@ -484,12 +494,8 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 	// contents then retrieve the full tree so we can compute its size
 	var tree hashtree.HashTree
 	if treeRef != nil {
-		var buf bytes.Buffer
-		if err := pachClient.GetObject(treeRef.Hash, &buf); err != nil {
-			return nil, err
-		}
 		var err error
-		tree, err = hashtree.Deserialize(buf.Bytes())
+		tree, err = hashtree.GetHashTreeObject(pachClient, d.storageRoot, treeRef)
 		if err != nil {
 			return nil, err
 		}
@@ -565,21 +571,20 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 				return err
 			}
 			if records != nil {
-				openTree := parentTree.Open()
+				var err error
+				tree, err = parentTree.Copy()
+				if err != nil {
+					return err
+				}
 				for i, record := range records {
-					if err := d.applyWrite(recordFiles[i], record, openTree); err != nil {
+					if err := d.applyWrite(recordFiles[i], record, tree); err != nil {
 						return err
 					}
 				}
-				tree, err = openTree.Finish()
-				if err != nil {
+				if err := tree.Hash(); err != nil {
 					return err
 				}
-				data, err := hashtree.Serialize(tree)
-				if err != nil {
-					return err
-				}
-				treeRef, _, err = pachClient.PutObject(bytes.NewReader(data))
+				treeRef, err = hashtree.PutHashTree(pachClient, tree)
 				if err != nil {
 					return err
 				}
@@ -700,28 +705,15 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 			if err != nil {
 				return err
 			}
-			// Serialize the tree
-			data, err := hashtree.Serialize(finishedTree)
+			// Put the tree to object storage.
+			treeRef, err := hashtree.PutHashTree(pachClient, finishedTree)
 			if err != nil {
 				return err
 			}
-
-			if len(data) > 0 {
-				// Put the tree into the blob store
-				obj, _, err := pachClient.PutObject(bytes.NewReader(data))
-				if err != nil {
-					return err
-				}
-
-				commitInfo.Tree = obj
-			}
+			commitInfo.Tree = treeRef
 		} else {
-			var buf bytes.Buffer
-			if err := pachClient.GetObject(tree.Hash, &buf); err != nil {
-				return err
-			}
 			var err error
-			finishedTree, err = hashtree.Deserialize(buf.Bytes())
+			finishedTree, err = hashtree.GetHashTreeObject(pachClient, d.storageRoot, tree)
 			if err != nil {
 				return err
 			}
@@ -2079,7 +2071,7 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
 	if commit == nil || commit.ID == "" {
-		t, err := hashtree.NewHashTree().Finish()
+		t, err := hashtree.NewDBHashTree(d.storageRoot)
 		if err != nil {
 			return nil, err
 		}
@@ -2110,7 +2102,7 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 	treeRef := commitInfo.Tree
 
 	if treeRef == nil {
-		t, err := hashtree.NewHashTree().Finish()
+		t, err := hashtree.NewDBHashTree(d.storageRoot)
 		if err != nil {
 			return nil, err
 		}
@@ -2118,12 +2110,7 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 	}
 
 	// read the tree from the block store
-	var buf bytes.Buffer
-	if err := pachClient.GetObject(treeRef.Hash, &buf); err != nil {
-		return nil, err
-	}
-
-	h, err := hashtree.Deserialize(buf.Bytes())
+	h, err := hashtree.GetHashTreeObject(pachClient, d.storageRoot, treeRef)
 	if err != nil {
 		return nil, err
 	}
@@ -2138,7 +2125,7 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 // that path to the tree before it returns it.
 func (d *driver) getTreeForFile(ctx context.Context, file *pfs.File) (hashtree.HashTree, error) {
 	if file.Commit == nil {
-		t, err := hashtree.NewHashTree().Finish()
+		t, err := hashtree.NewDBHashTree(d.storageRoot)
 		if err != nil {
 			return nil, err
 		}
@@ -2167,9 +2154,12 @@ func (d *driver) getTreeForOpenCommit(ctx context.Context, file *pfs.File, paren
 	if err != nil {
 		return nil, err
 	}
-	var tree hashtree.OpenHashTree
+	var tree hashtree.HashTree
 	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		tree = parentTree.Open()
+		tree, err = parentTree.Copy()
+		if err != nil {
+			return err
+		}
 		recordsCol := d.putFileRecords.ReadOnly(ctx)
 		putFileRecords := &pfs.PutFileRecords{}
 		opts := &col.Options{etcd.SortByModRevision, etcd.SortAscend, true}
@@ -2179,7 +2169,10 @@ func (d *driver) getTreeForOpenCommit(ctx context.Context, file *pfs.File, paren
 	}); err != nil {
 		return nil, err
 	}
-	return tree.Finish()
+	if err := tree.Hash(); err != nil {
+		return nil, err
+	}
+	return tree, nil
 }
 
 func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size int64) (io.Reader, error) {
@@ -2471,7 +2464,7 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 	return err
 }
 
-func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtree.OpenHashTree) error {
+func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtree.HashTree) error {
 	// a map that keeps track of the sizes of objects
 	sizeMap := make(map[string]int64)
 

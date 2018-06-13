@@ -2365,6 +2365,109 @@ func TestSyncEmptyDir(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func generateRandomString(n int) string {
+	rand.Seed(time.Now().UnixNano())
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = byte('a' + rand.Intn(26))
+	}
+	return string(b)
+}
+
+func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
+	blockAPIServer BlockAPIServer) {
+	ready := make(chan bool)
+	go func() {
+		err := grpcutil.Serve(
+			func(s *grpc.Server) {
+				pfs.RegisterAPIServer(s, apiServer)
+				pfs.RegisterObjectAPIServer(s, blockAPIServer)
+				auth.RegisterAPIServer(s, &authtesting.InactiveAPIServer{}) // PFS server uses auth API
+				close(ready)
+			},
+			grpcutil.ServeOptions{
+				Version:    version.Version,
+				MaxMsgSize: grpcutil.MaxMsgSize,
+			},
+			grpcutil.ServeEnv{GRPCPort: uint16(port)},
+		)
+		require.NoError(t, err)
+	}()
+	<-ready
+}
+
+const (
+	servers     = 2                 // Number of pachd server processes to run
+	etcdAddress = "localhost:32379" // etcd must already be serving at this address
+)
+
+var (
+	port int32 = 30653 // Initial port on which pachd server processes will serve
+
+	startPFSServersOnce sync.Once // ensure pachd servers are only started once
+)
+
+// src/server/pfs/server/driver.go expects an etcd server at "localhost:32379"
+// Try to establish a connection before proceeding with the test (which will
+// fail if the connection can't be established)
+func startPFSServers(t *testing.T) {
+	startPFSServersOnce.Do(func() {
+		require.NoError(t, backoff.Retry(func() error {
+			_, err := etcd.New(etcd.Config{
+				Endpoints:   []string{etcdAddress},
+				DialOptions: pclient.EtcdDialOptions(),
+			})
+			if err != nil {
+				return fmt.Errorf("could not connect to etcd: %s", err.Error())
+			}
+			return nil
+		}, backoff.NewTestingBackOff()))
+	})
+}
+
+func getClient(t *testing.T) *pclient.APIClient {
+	startPFSServers(t)
+	dbName := "pachyderm_test_" + uuid.NewWithoutDashes()[0:12]
+	testDBs = append(testDBs, dbName)
+
+	root := tu.UniqueString("/tmp/pach_test/run")
+	t.Logf("root %s", root)
+	var ports []int32
+	for i := 0; i < servers; i++ {
+		ports = append(ports, atomic.AddInt32(&port, 1))
+	}
+	var addresses []string
+	for _, port := range ports {
+		addresses = append(addresses, fmt.Sprintf("localhost:%d", port))
+	}
+	prefix := generateRandomString(32)
+	for i, port := range ports {
+		address := addresses[i]
+		blockAPIServer, err := newLocalBlockAPIServer(root, 256*1024*1024, etcdAddress)
+		require.NoError(t, err)
+		apiServer, err := newLocalAPIServer(address, prefix, "")
+		require.NoError(t, err)
+		runServers(t, port, apiServer, blockAPIServer)
+	}
+	c, err := pclient.NewFromAddress(addresses[0])
+	require.NoError(t, err)
+	return c
+}
+
+func collectCommitInfos(commitInfoIter pclient.CommitInfoIterator) ([]*pfs.CommitInfo, error) {
+	var commitInfos []*pfs.CommitInfo
+	for {
+		commitInfo, err := commitInfoIter.Next()
+		if err == io.EOF {
+			return commitInfos, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		commitInfos = append(commitInfos, commitInfo)
+	}
+}
+
 func TestFlush(t *testing.T) {
 	client := getPachClient(t)
 	require.NoError(t, client.CreateRepo("A"))
@@ -3030,15 +3133,13 @@ func TestBuildCommit(t *testing.T) {
 	repo := tu.UniqueString("TestBuildCommit")
 	require.NoError(t, c.CreateRepo(repo))
 
-	tree1 := hashtree.NewHashTree()
+	tree1, err := hashtree.NewDBHashTree("")
+	require.NoError(t, err)
 	fooObj, fooSize, err := c.PutObject(strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, tree1.PutFile("foo", []*pfs.Object{fooObj}, fooSize))
-	tree1Finish, err := tree1.Finish()
-	require.NoError(t, err)
-	serialized, err := hashtree.Serialize(tree1Finish)
-	require.NoError(t, err)
-	tree1Obj, _, err := c.PutObject(bytes.NewReader(serialized))
+	require.NoError(t, tree1.Hash())
+	tree1Obj, err := hashtree.PutHashTree(c, tree1)
 	_, err = c.BuildCommit(repo, "master", "", tree1Obj.Hash)
 	require.NoError(t, err)
 	repoInfo, err := c.InspectRepo(repo)
@@ -3051,11 +3152,8 @@ func TestBuildCommit(t *testing.T) {
 	barObj, barSize, err := c.PutObject(strings.NewReader("bar\n"))
 	require.NoError(t, err)
 	require.NoError(t, tree1.PutFile("bar", []*pfs.Object{barObj}, barSize))
-	tree2Finish, err := tree1.Finish()
-	require.NoError(t, err)
-	serialized, err = hashtree.Serialize(tree2Finish)
-	require.NoError(t, err)
-	tree2Obj, _, err := c.PutObject(bytes.NewReader(serialized))
+	require.NoError(t, tree1.Hash())
+	tree2Obj, err := hashtree.PutHashTree(c, tree1)
 	_, err = c.BuildCommit(repo, "master", "", tree2Obj.Hash)
 	require.NoError(t, err)
 	repoInfo, err = c.InspectRepo(repo)
@@ -4215,7 +4313,7 @@ func TestSubscribeStates(t *testing.T) {
 func TestPutFileCommit(t *testing.T) {
 	c := getPachClient(t)
 
-	numFiles := 100
+	numFiles := 25
 	repo := "repo"
 	require.NoError(t, c.CreateRepo(repo))
 

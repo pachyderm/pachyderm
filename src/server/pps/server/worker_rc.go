@@ -59,10 +59,13 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		Name:  "STORAGE_BACKEND",
 		Value: a.storageBackend,
 	}}
+	workerEnv := options.workerEnv
+	workerEnv = append(options.workerEnv, v1.EnvVar{Name: "PACH_ROOT", Value: a.storageRoot})
 	// This only happens in local deployment.  We want the workers to be
 	// able to read from/write to the hostpath volume as well.
 	storageVolumeName := "pach-disk"
 	var sidecarVolumeMounts []v1.VolumeMount
+	userVolumeMounts := options.volumeMounts
 	if a.storageHostPath != "" {
 		options.volumes = append(options.volumes, v1.Volume{
 			Name: storageVolumeName,
@@ -72,15 +75,13 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 				},
 			},
 		})
-
-		sidecarVolumeMounts = []v1.VolumeMount{
-			{
-				Name:      storageVolumeName,
-				MountPath: a.storageRoot,
-			},
+		storageMount := v1.VolumeMount{
+			Name:      storageVolumeName,
+			MountPath: a.storageRoot,
 		}
+		sidecarVolumeMounts = append(sidecarVolumeMounts, storageMount)
+		userVolumeMounts = append(userVolumeMounts, storageMount)
 	}
-	userVolumeMounts := options.volumeMounts
 	secretVolume, secretMount := assets.GetSecretVolumeAndMount(a.storageBackend)
 	options.volumes = append(options.volumes, secretVolume)
 	options.volumeMounts = append(options.volumeMounts, secretMount)
@@ -136,7 +137,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 					Privileged: &trueVal, // god is this dumb
 				},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
-				Env:             options.workerEnv,
+				Env:             workerEnv,
 				Resources: v1.ResourceRequirements{
 					Requests: map[v1.ResourceName]resource.Quantity{
 						v1.ResourceCPU:    cpuZeroQuantity,
