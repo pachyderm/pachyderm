@@ -607,4 +607,14 @@ func TestListEmpty(t *testing.T) {
 	require.NoError(t, err)
 	_, err = tree.Glob("/*")
 	require.NoError(t, err)
+
+	require.NoError(t, tree.DeleteFile("/"))
+	require.NoError(t, tree.DeleteFile(""))
+
+	_, err = tree.List("/")
+	require.NoError(t, err)
+	_, err = tree.Glob("*")
+	require.NoError(t, err)
+	_, err = tree.Glob("/*")
+	require.NoError(t, err)
 }
