@@ -58,9 +58,9 @@ func b(s string) []byte {
 
 func dbFile(storageRoot string) string {
 	if storageRoot == "" {
-		storageRoot = "/tmp/db"
+		storageRoot = "/tmp"
 	}
-	return fmt.Sprintf("%s/%s", storageRoot, uuid.NewWithoutDashes())
+	return fmt.Sprintf("%s/hashtree/%s", storageRoot, uuid.NewWithoutDashes())
 }
 
 func NewDBHashTree(storageRoot string) (HashTree, error) {
