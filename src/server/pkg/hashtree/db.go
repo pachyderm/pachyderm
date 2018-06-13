@@ -56,16 +56,26 @@ func b(s string) []byte {
 	return []byte(s)
 }
 
-func dbFile() string {
-	return fmt.Sprintf("/tmp/db/%s", uuid.NewWithoutDashes())
+func dbFile(storageRoot string) string {
+	if storageRoot == "" {
+		storageRoot = "/tmp/db"
+	}
+	return fmt.Sprintf("%s/%s", storageRoot, uuid.NewWithoutDashes())
 }
 
-func NewDBHashTree() (HashTree, error) {
-	return newDBHashTree(dbFile())
+func NewDBHashTree(storageRoot string) (HashTree, error) {
+	file := dbFile(storageRoot)
+	if err := os.MkdirAll(pathlib.Dir(file), 0777); err != nil {
+		return nil, err
+	}
+	return newDBHashTree(file)
 }
 
-func DeserializeDBHashTree(r io.Reader) (_ HashTree, retErr error) {
-	file := dbFile()
+func DeserializeDBHashTree(storageRoot string, r io.Reader) (_ HashTree, retErr error) {
+	file := dbFile(storageRoot)
+	if err := os.MkdirAll(pathlib.Dir(file), 0777); err != nil {
+		return nil, err
+	}
 	f, err := os.Create(file)
 	if err != nil {
 		return nil, err
@@ -321,7 +331,7 @@ func (h *dbHashTree) Copy() (HashTree, error) {
 	var result HashTree
 	eg.Go(func() error {
 		var err error
-		result, err = DeserializeDBHashTree(r)
+		result, err = DeserializeDBHashTree(pathlib.Dir(h.Path()), r)
 		return err
 	})
 	if err := eg.Wait(); err != nil {
@@ -783,20 +793,20 @@ func isGlob(pattern string) bool {
 }
 
 // GetHashTreeObject is a convenience function to deserialize a HashTree from an object in the object store.
-func GetHashTreeObject(pachClient *client.APIClient, treeRef *pfs.Object) (HashTree, error) {
-	return getHashTree(func(w io.Writer) error {
+func GetHashTreeObject(pachClient *client.APIClient, storageRoot string, treeRef *pfs.Object) (HashTree, error) {
+	return getHashTree(storageRoot, func(w io.Writer) error {
 		return pachClient.GetObject(treeRef.Hash, w)
 	})
 }
 
 // GetHashTreeObject is a convenience function to deserialize a HashTree from an tagged object in the object store.
-func GetHashTreeTag(pachClient *client.APIClient, treeRef *pfs.Tag) (HashTree, error) {
-	return getHashTree(func(w io.Writer) error {
+func GetHashTreeTag(pachClient *client.APIClient, storageRoot string, treeRef *pfs.Tag) (HashTree, error) {
+	return getHashTree(storageRoot, func(w io.Writer) error {
 		return pachClient.GetTag(treeRef.Name, w)
 	})
 }
 
-func getHashTree(f func(io.Writer) error) (HashTree, error) {
+func getHashTree(storageRoot string, f func(io.Writer) error) (HashTree, error) {
 	r, w := io.Pipe()
 	var eg errgroup.Group
 	eg.Go(func() (retErr error) {
@@ -810,7 +820,7 @@ func getHashTree(f func(io.Writer) error) (HashTree, error) {
 	var tree HashTree
 	eg.Go(func() error {
 		var err error
-		tree, err = DeserializeDBHashTree(r)
+		tree, err = DeserializeDBHashTree(storageRoot, r)
 		return err
 	})
 	if err := eg.Wait(); err != nil {

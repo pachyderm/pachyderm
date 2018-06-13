@@ -110,6 +110,9 @@ type driver struct {
 
 	// a cache for hashtrees
 	treeCache *lru.Cache
+
+	// storageRoot where we store hashtrees
+	storageRoot string
 }
 
 const (
@@ -117,7 +120,7 @@ const (
 )
 
 // newDriver is used to create a new Driver instance
-func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCacheSize int64) (*driver, error) {
+func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCacheSize int64, storageRoot string) (*driver, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   etcdAddresses,
 		DialOptions: client.EtcdDialOptions(),
@@ -147,6 +150,7 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCa
 		},
 		openCommits: pfsdb.OpenCommits(etcdClient, etcdPrefix),
 		treeCache:   treeCache,
+		storageRoot: storageRoot,
 	}
 	go func() { d.getPachClient(context.Background()) }() // Begin dialing connection on startup
 	return d, nil
@@ -154,8 +158,8 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCa
 
 // newLocalDriver creates a driver using an local etcd instance.  This
 // function is intended for testing purposes
-func newLocalDriver(blockAddress string, etcdPrefix string) (*driver, error) {
-	return newDriver(blockAddress, []string{"localhost:32379"}, etcdPrefix, defaultTreeCacheSize)
+func newLocalDriver(blockAddress string, etcdPrefix string, storagePrefix string) (*driver, error) {
+	return newDriver(blockAddress, []string{"localhost:32379"}, etcdPrefix, defaultTreeCacheSize, storagePrefix)
 }
 
 // getPachClient() initializes the connection that the pfs driver has with the
@@ -495,7 +499,7 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 	var tree hashtree.HashTree
 	if treeRef != nil {
 		var err error
-		tree, err = hashtree.GetHashTreeObject(pachClient, treeRef)
+		tree, err = hashtree.GetHashTreeObject(pachClient, d.storageRoot, treeRef)
 		if err != nil {
 			return nil, err
 		}
@@ -713,7 +717,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 			commitInfo.Tree = treeRef
 		} else {
 			var err error
-			finishedTree, err = hashtree.GetHashTreeObject(pachClient, tree)
+			finishedTree, err = hashtree.GetHashTreeObject(pachClient, d.storageRoot, tree)
 			if err != nil {
 				return err
 			}
@@ -2071,7 +2075,7 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
 	if commit == nil || commit.ID == "" {
-		t, err := hashtree.NewDBHashTree()
+		t, err := hashtree.NewDBHashTree(d.storageRoot)
 		if err != nil {
 			return nil, err
 		}
@@ -2102,7 +2106,7 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 	treeRef := commitInfo.Tree
 
 	if treeRef == nil {
-		t, err := hashtree.NewDBHashTree()
+		t, err := hashtree.NewDBHashTree(d.storageRoot)
 		if err != nil {
 			return nil, err
 		}
@@ -2110,7 +2114,7 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 	}
 
 	// read the tree from the block store
-	h, err := hashtree.GetHashTreeObject(pachClient, treeRef)
+	h, err := hashtree.GetHashTreeObject(pachClient, d.storageRoot, treeRef)
 	if err != nil {
 		return nil, err
 	}
@@ -2125,7 +2129,7 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 // that path to the tree before it returns it.
 func (d *driver) getTreeForFile(ctx context.Context, file *pfs.File) (hashtree.HashTree, error) {
 	if file.Commit == nil {
-		t, err := hashtree.NewDBHashTree()
+		t, err := hashtree.NewDBHashTree(d.storageRoot)
 		if err != nil {
 			return nil, err
 		}

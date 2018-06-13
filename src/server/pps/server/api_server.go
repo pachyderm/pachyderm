@@ -2332,7 +2332,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 }
 
 //CollectActiveObjectsAndTags collects all objects/tags that are not deleted or eligible for garbage collection
-func CollectActiveObjectsAndTags(pachClient *client.APIClient, repoInfos []*pfs.RepoInfo, pipelineInfos []*pps.PipelineInfo) (map[string]bool, map[string]bool, error) {
+func CollectActiveObjectsAndTags(pachClient *client.APIClient, repoInfos []*pfs.RepoInfo, pipelineInfos []*pps.PipelineInfo, storageRoot string) (map[string]bool, map[string]bool, error) {
 	// The set of objects that are in use.
 	activeObjects := make(map[string]bool)
 	var activeObjectsMu sync.Mutex
@@ -2353,7 +2353,7 @@ func CollectActiveObjectsAndTags(pachClient *client.APIClient, repoInfos []*pfs.
 			return nil
 		}
 		addActiveObjects(object)
-		tree, err := hashtree.GetHashTreeObject(pachClient, object)
+		tree, err := hashtree.GetHashTreeObject(pachClient, storageRoot, object)
 		if err != nil {
 			return err
 		}
@@ -2454,7 +2454,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 	if err != nil {
 		return nil, err
 	}
-	activeObjects, activeTags, err := CollectActiveObjectsAndTags(pachClient, append(repoInfos.RepoInfo, specRepoInfo), pipelineInfos.PipelineInfo)
+	activeObjects, activeTags, err := CollectActiveObjectsAndTags(pachClient, append(repoInfos.RepoInfo, specRepoInfo), pipelineInfos.PipelineInfo, a.storageRoot)
 	if err != nil {
 		return nil, err
 	}
