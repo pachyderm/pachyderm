@@ -5364,7 +5364,7 @@ func TestPipelineBadImage(t *testing.T) {
 
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
-	pipeline1 := tu.UniqueString("bad_pipeline")
+	pipeline1 := tu.UniqueString("bad_pipeline_1_")
 	require.NoError(t, c.CreatePipeline(
 		pipeline1,
 		"BadImage",
@@ -5375,7 +5375,7 @@ func TestPipelineBadImage(t *testing.T) {
 		"",
 		false,
 	))
-	pipeline2 := tu.UniqueString("bad_pipeline")
+	pipeline2 := tu.UniqueString("bad_pipeline_2_")
 	require.NoError(t, c.CreatePipeline(
 		pipeline2,
 		"bs/badimage:vcrap",
