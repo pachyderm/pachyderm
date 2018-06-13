@@ -2352,7 +2352,7 @@ func getClient(t *testing.T) *pclient.APIClient {
 		address := addresses[i]
 		blockAPIServer, err := newLocalBlockAPIServer(root, 256*1024*1024, etcdAddress)
 		require.NoError(t, err)
-		apiServer, err := newLocalAPIServer(address, prefix)
+		apiServer, err := newLocalAPIServer(address, prefix, "")
 		require.NoError(t, err)
 		runServers(t, port, apiServer, blockAPIServer)
 	}
@@ -3040,7 +3040,7 @@ func TestBuildCommit(t *testing.T) {
 	repo := tu.UniqueString("TestBuildCommit")
 	require.NoError(t, c.CreateRepo(repo))
 
-	tree1, err := hashtree.NewDBHashTree()
+	tree1, err := hashtree.NewDBHashTree("")
 	require.NoError(t, err)
 	fooObj, fooSize, err := c.PutObject(strings.NewReader("foo\n"))
 	require.NoError(t, err)

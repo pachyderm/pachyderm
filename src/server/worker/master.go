@@ -336,7 +336,7 @@ func (a *APIServer) collectDatum(pachClient *client.APIClient, index int, files 
 	var statsSubtree hashtree.HashTree
 	eg.Go(func() error {
 		var err error
-		subTree, err = hashtree.GetHashTreeTag(pachClient, tag)
+		subTree, err = hashtree.GetHashTreeTag(pachClient, a.hashtreeStorage, tag)
 		if err != nil && !failed {
 			return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
 		}
@@ -345,7 +345,7 @@ func (a *APIServer) collectDatum(pachClient *client.APIClient, index int, files 
 	if a.pipelineInfo.EnableStats {
 		eg.Go(func() error {
 			var err error
-			if statsSubtree, err = hashtree.GetHashTreeTag(pachClient, statsTag); err != nil {
+			if statsSubtree, err = hashtree.GetHashTreeTag(pachClient, a.hashtreeStorage, statsTag); err != nil {
 				logger.Logf("failed to read stats tree, this is non-fatal but will result in some missing stats")
 				return nil
 			}
@@ -594,14 +594,14 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 
 		// Watch the chunk locks in order, and merge chunk outputs into commit tree
 		locks := a.locks(jobInfo.Job.ID).ReadOnly(ctx)
-		tree, err := hashtree.NewDBHashTree()
+		tree, err := hashtree.NewDBHashTree(a.hashtreeStorage)
 		if err != nil {
 			return err
 		}
 		var statsTree hashtree.HashTree
 		if jobInfo.EnableStats {
 			var err error
-			if statsTree, err = hashtree.NewDBHashTree(); err != nil {
+			if statsTree, err = hashtree.NewDBHashTree(a.hashtreeStorage); err != nil {
 				return err
 			}
 		}

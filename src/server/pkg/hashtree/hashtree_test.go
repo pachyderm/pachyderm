@@ -86,7 +86,7 @@ func requireOperationInvariant(t *testing.T, h HashTree, op func()) {
 }
 
 func newHashTree(tb testing.TB) HashTree {
-	result, err := NewDBHashTree()
+	result, err := NewDBHashTree("")
 	require.NoError(tb, err)
 	return result
 }
@@ -577,7 +577,7 @@ func TestSerialize(t *testing.T) {
 	// Serialize and Deserialize 'h'
 	var buf bytes.Buffer
 	require.NoError(t, h.Serialize(&buf))
-	h2, err := DeserializeDBHashTree(&buf)
+	h2, err := DeserializeDBHashTree("", &buf)
 	require.NoError(t, err)
 	requireSame(t, h, h2)
 
@@ -586,7 +586,7 @@ func TestSerialize(t *testing.T) {
 	require.NoError(t, h.Hash())
 	buf.Reset()
 	require.NoError(t, h.Serialize(&buf))
-	h3, err := DeserializeDBHashTree(&buf)
+	h3, err := DeserializeDBHashTree("", &buf)
 	require.NoError(t, err)
 	requireSame(t, h, h3)
 

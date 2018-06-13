@@ -52,6 +52,9 @@ type appEnv struct {
 
 	// The namespace in which Pachyderm is deployed
 	Namespace string `env:"PPS_NAMESPACE,required"`
+
+	// StorageRoot is where we store hashtrees
+	StorageRoot string `env:"PACH_ROOT,default=/pach"`
 }
 
 func main() {
@@ -173,7 +176,7 @@ func do(appEnvObj interface{}) error {
 
 	// Construct worker API server.
 	workerRcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	apiServer, err := worker.NewAPIServer(pachClient, etcdClient, appEnv.PPSPrefix, pipelineInfo, appEnv.PodName, appEnv.Namespace)
+	apiServer, err := worker.NewAPIServer(pachClient, etcdClient, appEnv.PPSPrefix, pipelineInfo, appEnv.PodName, appEnv.Namespace, appEnv.StorageRoot)
 	if err != nil {
 		return err
 	}
