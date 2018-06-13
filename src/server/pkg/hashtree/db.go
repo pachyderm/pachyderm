@@ -26,8 +26,9 @@ const (
 )
 
 var (
-	changedVal     = []byte{1}
-	emptyStringKey = []byte{0}
+	changedVal = []byte{1}
+	nullByte   = []byte{0}
+	slashByte  = []byte{'/'}
 )
 
 func fs(tx *bolt.Tx) *bolt.Bucket {
@@ -42,18 +43,26 @@ type dbHashTree struct {
 	*bolt.DB
 }
 
-func s(b []byte) string {
-	if bytes.Equal(b, emptyStringKey) {
-		return ""
-	}
-	return string(b)
+func slashEncode(b []byte) []byte {
+	return bytes.Replace(b, slashByte, nullByte, -1)
 }
 
-func b(s string) []byte {
-	if s == "" {
-		return emptyStringKey
+func slashDecode(b []byte) []byte {
+	return bytes.Replace(b, nullByte, slashByte, -1)
+}
+
+func s(b []byte) (result string) {
+	if bytes.Equal(b, nullByte) {
+		return ""
 	}
-	return []byte(s)
+	return string(slashDecode(b))
+}
+
+func b(s string) (result []byte) {
+	if s == "" {
+		return nullByte
+	}
+	return slashEncode([]byte(s))
 }
 
 func dbFile(storageRoot string) string {
