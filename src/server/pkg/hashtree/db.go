@@ -22,6 +22,7 @@ import (
 const (
 	FsBucket      = "fs"
 	ChangedBucket = "changed"
+	ObjectBucket  = "object"
 	perm          = 0666
 )
 
@@ -37,6 +38,10 @@ func fs(tx *bolt.Tx) *bolt.Bucket {
 
 func changed(tx *bolt.Tx) *bolt.Bucket {
 	return tx.Bucket(b(ChangedBucket))
+}
+
+func object(tx *bolt.Tx) *bolt.Bucket {
+	return tx.Bucket(b(ObjectBucket))
 }
 
 type dbHashTree struct {
@@ -113,7 +118,7 @@ func newDBHashTree(file string) (HashTree, error) {
 		return nil, err
 	}
 	if err := db.Batch(func(tx *bolt.Tx) error {
-		for _, bucket := range []string{FsBucket, ChangedBucket} {
+		for _, bucket := range []string{FsBucket, ChangedBucket, ObjectBucket} {
 			if _, err := tx.CreateBucketIfNotExists(b(bucket)); err != nil {
 				return err
 			}
@@ -701,6 +706,30 @@ func (h *dbHashTree) Merge(trees ...HashTree) error {
 		_, err := h.mergeNode(tx, "/", nonEmptyTrees)
 		return err
 	})
+}
+
+func (h *dbHashTree) PutObject(o *pfs.Object, blockRef *pfs.BlockRef) error {
+	data, err := blockRef.Marshal()
+	if err != nil {
+		return err
+	}
+	return h.Batch(func(tx *bolt.Tx) error {
+		return object(tx).Put(b(o.Hash), data)
+	})
+}
+
+func (h *dbHashTree) GetObject(o *pfs.Object) (*pfs.BlockRef, error) {
+	result := &pfs.BlockRef{}
+	if err := h.View(func(tx *bolt.Tx) error {
+		data := object(tx).Get(b(o.Hash))
+		if data == nil {
+			return errorf(ObjectNotFound, "object \"%s\" not found", o.Hash)
+		}
+		return result.Unmarshal(data)
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (h *dbHashTree) changed(tx *bolt.Tx, path string) bool {
