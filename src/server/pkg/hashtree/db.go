@@ -150,11 +150,33 @@ func (h *dbHashTree) Get(path string) (*NodeProto, error) {
 	return node, nil
 }
 
+// dirPrefix returns the prefix that keys must have to be considered under the
+// directory at path
+func dirPrefix(path string) string {
+	if path == "" {
+		return "" // all paths are under the root
+	}
+	return path + "/"
+}
+
+// iterDir iterates through the nodes under path, it errors with PathNotFound if path doesn't exist, it errors with PathConflict if path exists but isn't a directory.
 func (h *dbHashTree) iterDir(tx *bolt.Tx, path string, f func(k, v []byte, c *bolt.Cursor) error) error {
 	c := fs(tx).Cursor()
-	for k, v := c.Seek(b(path)); k != nil && strings.HasPrefix(s(k), path); k, v = c.Next() {
+	k, v := c.Seek(b(path))
+	if k == nil || s(k) != path {
+		return errorf(PathNotFound, "file \"%s\" not found", path)
+	}
+	node := &NodeProto{}
+	if err := node.Unmarshal(v); err != nil {
+		return err
+	}
+	if node.DirNode == nil {
+		return errorf(PathConflict, "the file at \"%s\" is not a directory",
+			path)
+	}
+	for k, v = c.Next(); k != nil && strings.HasPrefix(s(k), dirPrefix(path)); k, v = c.Next() {
 		trimmed := strings.TrimPrefix(s(k), path)
-		if trimmed == "" || trimmed[0] != '/' || strings.Count(trimmed, "/") > 1 {
+		if trimmed == "" || strings.Count(trimmed, "/") > 1 {
 			// trimmed == "" -> this is path itself
 			// trimmed[0] != '/' -> this is a sibling of path
 			// strings.Count(trimmed, "/") > 1 -> this is the child of a child of path
@@ -174,14 +196,6 @@ func (h *dbHashTree) List(path string) ([]*NodeProto, error) {
 	path = clean(path)
 	var result []*NodeProto
 	if err := h.View(func(tx *bolt.Tx) error {
-		node, err := h.get(tx, path)
-		if err != nil {
-			return err
-		}
-		if node.DirNode == nil {
-			return errorf(PathConflict, "the file at \"%s\" is not a directory",
-				path)
-		}
 		return h.iterDir(tx, path, func(k, v []byte, _ *bolt.Cursor) error {
 			node := &NodeProto{}
 			if err := node.Unmarshal(v); err != nil {
@@ -507,7 +521,7 @@ func (h *dbHashTree) PutDir(path string) error {
 func (h *dbHashTree) deleteDir(tx *bolt.Tx, path string) error {
 	if err := h.iterDir(tx, path, func(k, v []byte, c *bolt.Cursor) error {
 		return c.Delete()
-	}); err != nil {
+	}); err != nil && Code(err) != PathConflict {
 		return err
 	}
 	return fs(tx).Delete(b(path))

@@ -108,16 +108,18 @@ func TestPutFileBasic(t *testing.T) {
 
 	// Put another file
 	require.NoError(t, h.PutFile("/dir/buzz", obj(`hash:"8e02c"`), 1))
+	require.NoError(t, h.PutFile("/dir.buzz", obj(`hash:"4ab7d"`), 1))
 	require.NoError(t, h.Hash())
 	// inspect h
 	require.Equal(t, int64(1), getT(t, h, "/dir/buzz").SubtreeSize)
 	require.Equal(t, int64(2), getT(t, h, "/dir").SubtreeSize)
-	require.Equal(t, int64(3), getT(t, h, "").SubtreeSize)
+	require.Equal(t, int64(1), getT(t, h, "/dir.buzz").SubtreeSize)
+	require.Equal(t, int64(4), getT(t, h, "").SubtreeSize)
 	nodes, err := h.List("/")
 	require.NoError(t, err)
-	require.Equal(t, 2, len(nodes))
+	require.Equal(t, 3, len(nodes))
 	for _, node := range nodes {
-		require.EqualOneOf(t, i("foo", "dir"), node.Name)
+		require.EqualOneOf(t, i("foo", "dir", "dir.buzz"), node.Name)
 	}
 
 	nodes, err = h.List("/dir")
