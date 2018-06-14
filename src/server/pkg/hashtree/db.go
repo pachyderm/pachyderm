@@ -117,6 +117,7 @@ func newDBHashTree(file string) (HashTree, error) {
 	if err != nil {
 		return nil, err
 	}
+	db.NoSync = true
 	if err := db.Batch(func(tx *bolt.Tx) error {
 		for _, bucket := range []string{FsBucket, ChangedBucket, ObjectBucket} {
 			if _, err := tx.CreateBucketIfNotExists(b(bucket)); err != nil {
