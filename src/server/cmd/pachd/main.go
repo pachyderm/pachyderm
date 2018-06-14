@@ -99,6 +99,7 @@ type appEnv struct {
 	IAMRole               string `env:"IAM_ROLE,default="`
 	ImagePullSecret       string `env:"IMAGE_PULL_SECRET,default="`
 	NoExposeDockerSocket  bool   `env:"NO_EXPOSE_DOCKER_SOCKET,default=false"`
+	ExposeObjectAPI       bool   `env:"EXPOSE_OBJECT_API,default=false"`
 }
 
 func main() {
@@ -441,6 +442,11 @@ func doFullMode(appEnvObj interface{}) error {
 					}
 					pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
 
+					// Unfortunately, calling Register___Server(x) twice on the same
+					// struct x doesn't work--x will only serve requests from the first
+					// grpc.Server it was registered with. So we create a second set of
+					// APIServer structs here so we can serve the Pachyderm API on the
+					// peer port
 					pfsAPIServer, err := pfs_server.NewAPIServer(
 						address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), treeCache)
 					if err != nil {
