@@ -19,8 +19,8 @@ var (
 	ErrMustSpecifyPort = errors.New("must specify port on which to serve")
 )
 
-// ServerSpec represent optional fields for serving.
-type ServerSpec struct {
+// ServerOptions represent optional fields for serving.
+type ServerOptions struct {
 	Port         uint16
 	MaxMsgSize   int
 	Cancel       chan struct{}
@@ -29,7 +29,7 @@ type ServerSpec struct {
 
 // Serve serves stuff.
 func Serve(
-	servers ...ServerSpec,
+	servers ...ServerOptions,
 ) (retErr error) {
 	for _, server := range servers {
 		if server.RegisterFunc == nil {

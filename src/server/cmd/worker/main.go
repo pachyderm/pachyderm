@@ -181,7 +181,7 @@ func do(appEnvObj interface{}) error {
 	ready := make(chan error)
 	eg.Go(func() error {
 		return grpcutil.Serve(
-			grpcutil.ServerSpec{
+			grpcutil.ServerOptions{
 				MaxMsgSize: grpcutil.MaxMsgSize,
 				Port:       client.PPSWorkerPort,
 				RegisterFunc: func(s *grpc.Server) error {

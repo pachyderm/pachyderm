@@ -191,7 +191,7 @@ func doSidecarMode(appEnvObj interface{}) error {
 	// traffic from the user container (the worker binary and occasionally user
 	// pipelines)
 	return grpcutil.Serve(
-		grpcutil.ServerSpec{
+		grpcutil.ServerOptions{
 			Port:       appEnv.PeerPort,
 			MaxMsgSize: grpcutil.MaxMsgSize,
 			RegisterFunc: func(s *grpc.Server) error {
@@ -353,7 +353,7 @@ func doFullMode(appEnvObj interface{}) error {
 	})
 	eg.Go(func() error {
 		err := grpcutil.Serve(
-			grpcutil.ServerSpec{
+			grpcutil.ServerOptions{
 				Port:       appEnv.Port,
 				MaxMsgSize: grpcutil.MaxMsgSize,
 				RegisterFunc: func(s *grpc.Server) error {
@@ -425,9 +425,14 @@ func doFullMode(appEnvObj interface{}) error {
 		}
 		return err
 	})
+	// Unfortunately, calling Register___Server(x) twice on the same
+	// struct x doesn't work--x will only serve requests from the first
+	// grpc.Server it was registered with. So we create a second set of
+	// APIServer structs here so we can serve the Pachyderm API on the
+	// peer port
 	eg.Go(func() error {
 		err := grpcutil.Serve(
-			grpcutil.ServerSpec{
+			grpcutil.ServerOptions{
 				Port:       appEnv.PeerPort,
 				MaxMsgSize: grpcutil.MaxMsgSize,
 				RegisterFunc: func(s *grpc.Server) error {
@@ -455,11 +460,6 @@ func doFullMode(appEnvObj interface{}) error {
 					}
 					pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
 
-					// Unfortunately, calling Register___Server(x) twice on the same
-					// struct x doesn't work--x will only serve requests from the first
-					// grpc.Server it was registered with. So we create a second set of
-					// APIServer structs here so we can serve the Pachyderm API on the
-					// peer port
 					pfsAPIServer, err := pfs_server.NewAPIServer(
 						address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), treeCache)
 					if err != nil {
