@@ -67,7 +67,7 @@ func runServers(t testing.TB, port int32, apiServer pfs.APIServer,
 	ready := make(chan bool)
 	go func() {
 		err := grpcutil.Serve(
-			grpcutil.ServerSpec{
+			grpcutil.ServerOptions{
 				Port:       uint16(port),
 				MaxMsgSize: grpcutil.MaxMsgSize,
 				RegisterFunc: func(s *grpc.Server) error {
