@@ -89,6 +89,7 @@ func RunGitHookServer(address string, etcdAddress string, etcdPrefix string) err
 	)
 	return webhooks.Run(hook, ":"+strconv.Itoa(GitHookPort), hookPath())
 }
+
 func matchingBranch(inputBranch string, payloadBranch string) bool {
 	if inputBranch == payloadBranch {
 		return true
