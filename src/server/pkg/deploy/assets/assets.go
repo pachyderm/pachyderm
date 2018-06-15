@@ -157,6 +157,11 @@ type AssetOpts struct {
 
 	// NoExposeDockerSocket if true prevents pipelines from accessing the docker socket.
 	NoExposeDockerSocket bool
+
+	// ExposeObjectAPI, if set, causes pachd to serve Object/Block API requests on
+	// its public port. This should generally be false in production (it breaks
+	// auth) but is needed by tests
+	ExposeObjectAPI bool
 }
 
 // Encoder is the interface for writing out assets. This is assumed to wrap an output writer.
@@ -436,6 +441,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 										},
 									},
 								},
+								{Name: "EXPOSE_OBJECT_API", Value: strconv.FormatBool(opts.ExposeObjectAPI)},
 							},
 							Ports: []v1.ContainerPort{
 								{

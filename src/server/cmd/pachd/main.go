@@ -385,6 +385,19 @@ func doFullMode(appEnvObj interface{}) error {
 					}
 					ppsclient.RegisterAPIServer(s, ppsAPIServer)
 
+					if appEnv.ExposeObjectAPI {
+						// Generally the object API should not be exposed publicly, but
+						// TestGarbageCollection uses it and it may help with debugging
+						blockAPIServer, err := pfs_server.NewBlockAPIServer(
+							appEnv.StorageRoot,
+							0 /* = blockCacheBytes (disable cache) */, appEnv.StorageBackend,
+							etcdAddress)
+						if err != nil {
+							return err
+						}
+						pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
+					}
+
 					authAPIServer, err := authserver.NewAuthServer(
 						address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.AuthEtcdPrefix))
 					if err != nil {
