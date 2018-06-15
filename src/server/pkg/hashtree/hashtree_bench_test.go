@@ -13,6 +13,10 @@ import (
 	"fmt"
 	"math/rand"
 	"testing"
+
+	"github.com/pachyderm/pachyderm/src/client/limit"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 )
 
 // BenchmarkPutFile tests the amount of time it takes to PutFile 'cnt' files
@@ -35,10 +39,18 @@ func benchmarkPutFileN(b *testing.B, cnt int) {
 	r := rand.New(rand.NewSource(0))
 	for n := 0; n < b.N; n++ {
 		h := newHashTree(b)
+		l := limit.New(1000)
+		var eg errgroup.Group
 		for i := 0; i < cnt; i++ {
-			h.PutFile(fmt.Sprintf("/foo/shard-%05d", i),
-				obj(fmt.Sprintf(`hash:"%x"`, r.Uint32())), 1)
+			i := i
+			l.Acquire()
+			eg.Go(func() error {
+				defer l.Release()
+				return h.PutFile(fmt.Sprintf("/foo/shard-%05d", i),
+					obj(fmt.Sprintf(`hash:"%x"`, r.Uint32())), 1)
+			})
 		}
+		require.NoError(b, eg.Wait())
 		h.Hash()
 	}
 }

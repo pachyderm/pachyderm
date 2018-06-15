@@ -49,6 +49,10 @@ const (
 	//    points to a file.
 	// 3. Merge is forced to merge a directory into a file
 	PathConflict
+
+	// ObjectNotFound is returned when GetObject() is called with an object
+	// that doesn't exist.
+	ObjectNotFound
 )
 
 // HashTree is the signature of a hash tree provided by this library. To get a
@@ -112,6 +116,12 @@ type HashTree interface {
 	// should be discarded. If you'd like to be able to revert to the previous
 	// state of the tree you should Finish and then Open the tree.
 	Merge(trees ...HashTree) error
+
+	// PutObject puts an to the object table.
+	PutObject(object *pfs.Object, blockRef *pfs.BlockRef) error
+
+	// GetObject returns the BlockRef for an object.
+	GetObject(object *pfs.Object) (*pfs.BlockRef, error)
 
 	// Hash updates all of the hashes and node size metadata, it also checks
 	// for conflicts.
