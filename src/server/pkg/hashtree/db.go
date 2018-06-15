@@ -22,12 +22,14 @@ import (
 const (
 	FsBucket      = "fs"
 	ChangedBucket = "changed"
+	ObjectBucket  = "object"
 	perm          = 0666
 )
 
 var (
-	changedVal     = []byte{1}
-	emptyStringKey = []byte{0}
+	changedVal = []byte{1}
+	nullByte   = []byte{0}
+	slashByte  = []byte{'/'}
 )
 
 func fs(tx *bolt.Tx) *bolt.Bucket {
@@ -38,22 +40,34 @@ func changed(tx *bolt.Tx) *bolt.Bucket {
 	return tx.Bucket(b(ChangedBucket))
 }
 
+func object(tx *bolt.Tx) *bolt.Bucket {
+	return tx.Bucket(b(ObjectBucket))
+}
+
 type dbHashTree struct {
 	*bolt.DB
 }
 
-func s(b []byte) string {
-	if bytes.Equal(b, emptyStringKey) {
-		return ""
-	}
-	return string(b)
+func slashEncode(b []byte) []byte {
+	return bytes.Replace(b, slashByte, nullByte, -1)
 }
 
-func b(s string) []byte {
-	if s == "" {
-		return emptyStringKey
+func slashDecode(b []byte) []byte {
+	return bytes.Replace(b, nullByte, slashByte, -1)
+}
+
+func s(b []byte) (result string) {
+	if bytes.Equal(b, nullByte) {
+		return ""
 	}
-	return []byte(s)
+	return string(slashDecode(b))
+}
+
+func b(s string) (result []byte) {
+	if s == "" {
+		return nullByte
+	}
+	return slashEncode([]byte(s))
 }
 
 func dbFile(storageRoot string) string {
@@ -68,7 +82,14 @@ func NewDBHashTree(storageRoot string) (HashTree, error) {
 	if err := os.MkdirAll(pathlib.Dir(file), 0777); err != nil {
 		return nil, err
 	}
-	return newDBHashTree(file)
+	result, err := newDBHashTree(file)
+	if err != nil {
+		return nil, err
+	}
+	if err := result.PutDir("/"); err != nil {
+		return nil, err
+	}
+	return result, err
 }
 
 func DeserializeDBHashTree(storageRoot string, r io.Reader) (_ HashTree, retErr error) {
@@ -96,8 +117,9 @@ func newDBHashTree(file string) (HashTree, error) {
 	if err != nil {
 		return nil, err
 	}
+	db.NoSync = true
 	if err := db.Batch(func(tx *bolt.Tx) error {
-		for _, bucket := range []string{FsBucket, ChangedBucket} {
+		for _, bucket := range []string{FsBucket, ChangedBucket, ObjectBucket} {
 			if _, err := tx.CreateBucketIfNotExists(b(bucket)); err != nil {
 				return err
 			}
@@ -134,11 +156,33 @@ func (h *dbHashTree) Get(path string) (*NodeProto, error) {
 	return node, nil
 }
 
+// dirPrefix returns the prefix that keys must have to be considered under the
+// directory at path
+func dirPrefix(path string) string {
+	if path == "" {
+		return "" // all paths are under the root
+	}
+	return path + "/"
+}
+
+// iterDir iterates through the nodes under path, it errors with PathNotFound if path doesn't exist, it errors with PathConflict if path exists but isn't a directory.
 func (h *dbHashTree) iterDir(tx *bolt.Tx, path string, f func(k, v []byte, c *bolt.Cursor) error) error {
 	c := fs(tx).Cursor()
-	for k, v := c.Seek(b(path)); k != nil && strings.HasPrefix(s(k), path); k, v = c.Next() {
+	k, v := c.Seek(b(path))
+	if k == nil || s(k) != path {
+		return errorf(PathNotFound, "file \"%s\" not found", path)
+	}
+	node := &NodeProto{}
+	if err := node.Unmarshal(v); err != nil {
+		return err
+	}
+	if node.DirNode == nil {
+		return errorf(PathConflict, "the file at \"%s\" is not a directory",
+			path)
+	}
+	for k, v = c.Next(); k != nil && strings.HasPrefix(s(k), dirPrefix(path)); k, v = c.Next() {
 		trimmed := strings.TrimPrefix(s(k), path)
-		if trimmed == "" || trimmed[0] != '/' || strings.Count(trimmed, "/") > 1 {
+		if trimmed == "" || strings.Count(trimmed, "/") > 1 {
 			// trimmed == "" -> this is path itself
 			// trimmed[0] != '/' -> this is a sibling of path
 			// strings.Count(trimmed, "/") > 1 -> this is the child of a child of path
@@ -158,14 +202,6 @@ func (h *dbHashTree) List(path string) ([]*NodeProto, error) {
 	path = clean(path)
 	var result []*NodeProto
 	if err := h.View(func(tx *bolt.Tx) error {
-		node, err := h.get(tx, path)
-		if err != nil {
-			return err
-		}
-		if node.DirNode == nil {
-			return errorf(PathConflict, "the file at \"%s\" is not a directory",
-				path)
-		}
 		return h.iterDir(tx, path, func(k, v []byte, _ *bolt.Cursor) error {
 			node := &NodeProto{}
 			if err := node.Unmarshal(v); err != nil {
@@ -491,7 +527,7 @@ func (h *dbHashTree) PutDir(path string) error {
 func (h *dbHashTree) deleteDir(tx *bolt.Tx, path string) error {
 	if err := h.iterDir(tx, path, func(k, v []byte, c *bolt.Cursor) error {
 		return c.Delete()
-	}); err != nil {
+	}); err != nil && Code(err) != PathConflict {
 		return err
 	}
 	return fs(tx).Delete(b(path))
@@ -671,6 +707,30 @@ func (h *dbHashTree) Merge(trees ...HashTree) error {
 		_, err := h.mergeNode(tx, "/", nonEmptyTrees)
 		return err
 	})
+}
+
+func (h *dbHashTree) PutObject(o *pfs.Object, blockRef *pfs.BlockRef) error {
+	data, err := blockRef.Marshal()
+	if err != nil {
+		return err
+	}
+	return h.Batch(func(tx *bolt.Tx) error {
+		return object(tx).Put(b(o.Hash), data)
+	})
+}
+
+func (h *dbHashTree) GetObject(o *pfs.Object) (*pfs.BlockRef, error) {
+	result := &pfs.BlockRef{}
+	if err := h.View(func(tx *bolt.Tx) error {
+		data := object(tx).Get(b(o.Hash))
+		if data == nil {
+			return errorf(ObjectNotFound, "object \"%s\" not found", o.Hash)
+		}
+		return result.Unmarshal(data)
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (h *dbHashTree) changed(tx *bolt.Tx, path string) bool {
