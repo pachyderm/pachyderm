@@ -620,3 +620,65 @@ func TestListEmpty(t *testing.T) {
 	_, err = tree.Glob("/*")
 	require.NoError(t, err)
 }
+
+func diffTrees(t *testing.T, new, old HashTree) ([]string, []string) {
+	var newFiles []string
+	var oldFiles []string
+	collect := func(path string, node *NodeProto, new bool) error {
+		if new {
+			newFiles = append(newFiles, path)
+		} else {
+			oldFiles = append(oldFiles, path)
+		}
+		return nil
+	}
+	require.NoError(t, new.Diff(old, "", "", -1, collect))
+	return newFiles, oldFiles
+}
+
+func TestDiff(t *testing.T) {
+	old := newHashTree(t)
+	require.NoError(t, old.PutFile("/foo", obj(`hash:"4a2e9"`), 1))
+	require.NoError(t, old.PutFile("/dir/bar", obj(`hash:"10ead"`), 1))
+	require.NoError(t, old.Hash())
+	new, err := old.Copy()
+	require.NoError(t, err)
+	newFiles, oldFiles := diffTrees(t, new, old)
+	require.Equal(t, 0, len(newFiles))
+	require.Equal(t, 0, len(oldFiles))
+	require.NoError(t, new.PutFile("/buzz", obj(`hash:"20afd"`), 1))
+	require.NoError(t, new.Hash())
+	newFiles, oldFiles = diffTrees(t, new, old)
+	require.Equal(t, 1, len(newFiles))
+	require.Equal(t, 0, len(oldFiles))
+}
+
+func TestChildIterator(t *testing.T) {
+	h := newHashTree(t)
+	require.NoError(t, h.PutFile("a/1", obj(`hash:"23ea6"`), 1))
+	require.NoError(t, h.PutFile("b/2", obj(`hash:"92fbc"`), 1))
+	require.NoError(t, h.Hash())
+	h.(*dbHashTree).View(func(tx *bolt.Tx) error {
+		c := NewChildCursor(tx, "")
+		require.Equal(t, "/a", s(c.K()))
+		c.Next()
+		require.Equal(t, "/b", s(c.K()))
+		return nil
+	})
+
+	h.(*dbHashTree).View(func(tx *bolt.Tx) error {
+		c := NewChildCursor(tx, "a")
+		require.Equal(t, "/a/1", s(c.K()))
+		c.Next()
+		require.Nil(t, c.K())
+		return nil
+	})
+
+	h.(*dbHashTree).View(func(tx *bolt.Tx) error {
+		c := NewChildCursor(tx, "b")
+		require.Equal(t, "/b/2", s(c.K()))
+		c.Next()
+		require.Nil(t, c.K())
+		return nil
+	})
+}
