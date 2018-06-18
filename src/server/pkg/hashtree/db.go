@@ -406,13 +406,7 @@ func (h *dbHashTree) Diff(oldHashTree HashTree, newPath string, oldPath string, 
 		}
 		defer rollback(oldTx)
 	}
-	return diff(newTx, oldTx, newPath, oldPath, recursiveDepth, func(path string, node *NodeProto, new bool) error {
-		if new {
-			return f(strings.TrimPrefix(path, newPath), node, new)
-		} else {
-			return f(strings.TrimPrefix(path, oldPath), node, new)
-		}
-	})
+	return diff(newTx, oldTx, newPath, oldPath, recursiveDepth, f)
 }
 
 func (h *dbHashTree) Serialize(w io.Writer) error {
