@@ -481,6 +481,21 @@ test-enterprise:
 	@# Dont cache these results as they require the pachd cluster
 	go test -v ./src/server/enterprise/server -count 1 -timeout $(TIMEOUT)
 
+test-tls:
+	# Pachyderm must be running when this target is called
+	pachctl version
+	# TLS is an enterprise pachyderm feature
+	pachctl enterprise activate $$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -) && echo
+	# Generate TLS key and re-deploy pachyderm with TLS enabled
+	bash -c \
+		"IFS=:; read host port <<< $${ADDRESS}; " \
+		"etc/deploy/gen_pachd_tls.sh --ip=$${host} --port=$${port};"
+	# Unset ADDRESS so pachctl and tests rely on pachyderm config
+	unset ADDRESS
+	pachctl deploy local -d --tls=pachd.pem,pachd.key
+	# If we can run a pipeline, TLS probably works
+	# go test -v ./src/server -run TestPipelineWithParallelism
+
 test-worker: launch-stats test-worker-helper
 
 test-worker-helper:

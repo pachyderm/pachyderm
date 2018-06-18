@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	golog "log"
 	"os"
 	"path"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/facebookgo/pidfile"
 	"github.com/fatih/color"
 	"github.com/gogo/protobuf/jsonpb"
@@ -157,7 +159,12 @@ Environment variables:
 				l := log.New()
 				l.Level = log.FatalLevel
 				grpclog.SetLogger(l)
+			} else {
+				// etcd overrides grpc's logs--there's no way to enable one without
+				// enabling both
+				etcd.SetLogger(golog.New(os.Stderr, "[etcd/grpc] ", golog.LstdFlags|golog.Lshortfile))
 			}
+
 		},
 		BashCompletionFunction: bashCompletionFunc,
 	}
@@ -230,18 +237,13 @@ Environment variables:
 				}
 			}
 
-			fmt.Printf(">>> Creating pach client\n")
 			pachClient, err := client.NewOnUserMachine(false, "user")
 			if err != nil {
 				return err
 			}
-			fmt.Printf(">>> Creating request contex\n")
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
-			fmt.Printf(">>> Sending version RPC\n")
 			version, err := pachClient.GetVersion(ctx, &types.Empty{})
-			fmt.Printf(">>> response: %#v\n", version)
-			fmt.Printf(">>> err: %#v\n", err)
 
 			if err != nil {
 				buf := bytes.NewBufferString("")
