@@ -117,7 +117,7 @@ type HashTree interface {
 	// state of the tree you should Finish and then Open the tree.
 	Merge(trees ...HashTree) error
 
-	// PutObject puts an to the object table.
+	// PutObject puts an object into the object table.
 	PutObject(object *pfs.Object, blockRef *pfs.BlockRef) error
 
 	// GetObject returns the BlockRef for an object.

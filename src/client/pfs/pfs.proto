@@ -459,6 +459,7 @@ service API {
 message PutObjectRequest {
   bytes value = 1;
   repeated Tag tags = 2;
+  Block block = 3;
 }
 
 message GetObjectsRequest {
@@ -467,6 +468,17 @@ message GetObjectsRequest {
   // The number of bytes we intend to read.
   uint64 size_bytes = 3;
   // The total amount of bytes in these objects.  It's OK if it's not
+  // entirely accurate or if it's unknown (in which case it'd be set to 0).
+  // It's used primarily as a hint for cache eviction.
+  uint64 total_size = 4;
+}
+
+message GetBlocksRequest {
+  repeated BlockRef blockRefs = 1;
+  uint64 offset_bytes = 2;
+  // The number of bytes we intend to read.
+  uint64 size_bytes = 3;
+  // The total amount of bytes in these blocks.  It's OK if it's not
   // entirely accurate or if it's unknown (in which case it'd be set to 0).
   // It's used primarily as a hint for cache eviction.
   uint64 total_size = 4;
@@ -516,8 +528,10 @@ message Objects {
 service ObjectAPI {
   rpc PutObject(stream PutObjectRequest) returns (Object) {}
   rpc PutObjectSplit(stream PutObjectRequest) returns (Objects) {}
+  rpc PutObjects(stream PutObjectRequest) returns (google.protobuf.Empty) {}
   rpc GetObject(Object) returns (stream google.protobuf.BytesValue) {}
   rpc GetObjects(GetObjectsRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc GetBlocks(GetBlocksRequest) returns (stream google.protobuf.BytesValue) {}
   rpc TagObject(TagObjectRequest) returns (google.protobuf.Empty) {}
   rpc InspectObject(Object) returns (ObjectInfo) {}
   // CheckObject checks if an object exists in the blob store without
