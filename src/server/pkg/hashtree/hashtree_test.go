@@ -621,7 +621,7 @@ func TestListEmpty(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func diffTrees(t *testing.T, new, old HashTree) ([]string, []string) {
+func diffTrees(t *testing.T, new, old HashTree, path string) ([]string, []string) {
 	var newFiles []string
 	var oldFiles []string
 	collect := func(path string, node *NodeProto, new bool) error {
@@ -632,7 +632,7 @@ func diffTrees(t *testing.T, new, old HashTree) ([]string, []string) {
 		}
 		return nil
 	}
-	require.NoError(t, new.Diff(old, "", "", -1, collect))
+	require.NoError(t, new.Diff(old, path, path, -1, collect))
 	return newFiles, oldFiles
 }
 
@@ -643,12 +643,12 @@ func TestDiff(t *testing.T) {
 	require.NoError(t, old.Hash())
 	new, err := old.Copy()
 	require.NoError(t, err)
-	newFiles, oldFiles := diffTrees(t, new, old)
+	newFiles, oldFiles := diffTrees(t, new, old, "")
 	require.Equal(t, 0, len(newFiles))
 	require.Equal(t, 0, len(oldFiles))
 	require.NoError(t, new.PutFile("/buzz", obj(`hash:"20afd"`), 1))
 	require.NoError(t, new.Hash())
-	newFiles, oldFiles = diffTrees(t, new, old)
+	newFiles, oldFiles = diffTrees(t, new, old, "")
 	require.Equal(t, 1, len(newFiles))
 	require.Equal(t, 0, len(oldFiles))
 }

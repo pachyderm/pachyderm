@@ -9,7 +9,6 @@ import (
 	pathlib "path"
 	"regexp"
 	"strings"
-	"time"
 
 	"golang.org/x/sync/errgroup"
 
@@ -119,7 +118,6 @@ func newDBHashTree(file string) (HashTree, error) {
 		return nil, err
 	}
 	db.NoSync = true
-	db.MaxBatchDelay = 1 * time.Millisecond
 	if err := db.Batch(func(tx *bolt.Tx) error {
 		for _, bucket := range []string{FsBucket, ChangedBucket, ObjectBucket} {
 			if _, err := tx.CreateBucketIfNotExists(b(bucket)); err != nil {
@@ -291,57 +289,9 @@ func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) erro
 	})
 }
 
-func diff(new HashTree, old HashTree, newPath string, oldPath string, recursiveDepth int64, f func(string, *NodeProto, bool) error) error {
-	newNode, err := new.Get(newPath)
-	if err != nil && Code(err) != PathNotFound {
-		return err
-	}
-	oldNode, err := old.Get(oldPath)
-	if err != nil && Code(err) != PathNotFound {
-		return err
-	}
-	if (newNode == nil && oldNode == nil) ||
-		(newNode != nil && oldNode != nil && bytes.Equal(newNode.Hash, oldNode.Hash)) {
-		return nil
-	}
-	children := make(map[string]bool)
-	if newNode != nil {
-		if newNode.FileNode != nil || recursiveDepth == 0 {
-			if err := f(newPath, newNode, true); err != nil {
-				return err
-			}
-		} else if newNode.DirNode != nil {
-			for _, child := range newNode.DirNode.Children {
-				children[child] = true
-			}
-		}
-	}
-	if oldNode != nil {
-		if oldNode.FileNode != nil || recursiveDepth == 0 {
-			if err := f(oldPath, oldNode, false); err != nil {
-				return err
-			}
-		} else if oldNode.DirNode != nil {
-			for _, child := range oldNode.DirNode.Children {
-				children[child] = true
-			}
-		}
-	}
-	if recursiveDepth > 0 || recursiveDepth == -1 {
-		newDepth := recursiveDepth
-		if recursiveDepth > 0 {
-			newDepth--
-		}
-		for child := range children {
-			if err := diff(new, old, pathlib.Join(newPath, child), pathlib.Join(oldPath, child), newDepth, f); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func diff2(newTx, oldTx *bolt.Tx, newPath string, oldPath string, recursiveDepth int64, f func(string, *NodeProto, bool) error) error {
+func diff(newTx, oldTx *bolt.Tx, newPath string, oldPath string, recursiveDepth int64, f func(string, *NodeProto, bool) error) error {
+	oldPath = clean(oldPath)
+	newPath = clean(newPath)
 	newNode, err := get(newTx, newPath)
 	if err != nil && Code(err) != PathNotFound {
 		return err
@@ -385,18 +335,19 @@ func diff2(newTx, oldTx *bolt.Tx, newPath string, oldPath string, recursiveDepth
 		case oldC == nil:
 			for k := oldC.K(); k != nil; k, _ = oldC.Next() {
 				child := pathlib.Base(s(k))
-				if err := diff2(newTx, oldTx, pathlib.Join(newPath, child), pathlib.Join(oldPath, child), newDepth, f); err != nil {
+				if err := diff(newTx, oldTx, pathlib.Join(newPath, child), pathlib.Join(oldPath, child), newDepth, f); err != nil {
 					return err
 				}
 			}
 		case newC == nil:
 			for k := newC.K(); k != nil; k, _ = newC.Next() {
 				child := pathlib.Base(s(k))
-				if err := diff2(newTx, oldTx, pathlib.Join(newPath, child), pathlib.Join(oldPath, child), newDepth, f); err != nil {
+				if err := diff(newTx, oldTx, pathlib.Join(newPath, child), pathlib.Join(oldPath, child), newDepth, f); err != nil {
 					return err
 				}
 			}
 		default:
+		Children:
 			for {
 				var child string
 				switch bytes.Compare(newC.K(), oldC.K()) {
@@ -404,16 +355,17 @@ func diff2(newTx, oldTx *bolt.Tx, newPath string, oldPath string, recursiveDepth
 					child = pathlib.Base(s(newC.K()))
 					newC.Next()
 				case 0:
-					if newC.K() == nil {
-						break
+					if len(newC.K()) == 0 {
+						break Children
 					}
 					child = pathlib.Base(s(newC.K()))
 					newC.Next()
 					oldC.Next()
 				case 1:
 					child = pathlib.Base(s(oldC.K()))
+					oldC.Next()
 				}
-				if err := diff2(newTx, oldTx, pathlib.Join(newPath, child), pathlib.Join(oldPath, child), newDepth, f); err != nil {
+				if err := diff(newTx, oldTx, pathlib.Join(newPath, child), pathlib.Join(oldPath, child), newDepth, f); err != nil {
 					return err
 				}
 			}
@@ -425,7 +377,7 @@ func diff2(newTx, oldTx *bolt.Tx, newPath string, oldPath string, recursiveDepth
 func (h *dbHashTree) Diff(oldHashTree HashTree, newPath string, oldPath string, recursiveDepth int64, f func(path string, node *NodeProto, new bool) error) (retErr error) {
 	// Setup a txn for each hashtree, this is a bit complicated because we don't want to make 2 read tx to the same tree, if we did then should someone start a write tx inbetween them we would have a deadlock
 	old := oldHashTree.(*dbHashTree)
-	if old != nil {
+	if old == nil {
 		return fmt.Errorf("unrecognized HashTree type")
 	}
 	rollback := func(tx *bolt.Tx) {
@@ -456,7 +408,7 @@ func (h *dbHashTree) Diff(oldHashTree HashTree, newPath string, oldPath string, 
 		}
 		defer rollback(oldTx)
 	}
-	return diff2(newTx, oldTx, newPath, oldPath, recursiveDepth, f)
+	return diff(newTx, oldTx, newPath, oldPath, recursiveDepth, f)
 }
 
 func (h *dbHashTree) Serialize(w io.Writer) error {
@@ -821,23 +773,7 @@ func (h *dbHashTree) Merge(trees ...HashTree) error {
 	}
 	return h.Batch(func(tx *bolt.Tx) error {
 		_, err := h.mergeNode(tx, "/", nonEmptyTrees)
-		if err != nil {
-			return err
-		}
-		for _, nonEmptyTree := range nonEmptyTrees {
-			tree, ok := nonEmptyTree.(*dbHashTree)
-			if !ok {
-				return errorf(Internal, "wrong underlying hash tree type")
-			}
-			if err := tree.View(func(subTx *bolt.Tx) error {
-				return object(subTx).ForEach(func(k, v []byte) error {
-					return object(tx).Put(k, v)
-				})
-			}); err != nil {
-				return err
-			}
-		}
-		return nil
+		return err
 	})
 }
 
