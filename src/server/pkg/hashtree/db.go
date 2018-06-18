@@ -9,6 +9,7 @@ import (
 	pathlib "path"
 	"regexp"
 	"strings"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 
@@ -118,6 +119,7 @@ func newDBHashTree(file string) (HashTree, error) {
 		return nil, err
 	}
 	db.NoSync = true
+	db.MaxBatchDelay = 1 * time.Millisecond
 	if err := db.Batch(func(tx *bolt.Tx) error {
 		for _, bucket := range []string{FsBucket, ChangedBucket, ObjectBucket} {
 			if _, err := tx.CreateBucketIfNotExists(b(bucket)); err != nil {
@@ -705,7 +707,23 @@ func (h *dbHashTree) Merge(trees ...HashTree) error {
 	}
 	return h.Batch(func(tx *bolt.Tx) error {
 		_, err := h.mergeNode(tx, "/", nonEmptyTrees)
-		return err
+		if err != nil {
+			return err
+		}
+		for _, nonEmptyTree := range nonEmptyTrees {
+			tree, ok := nonEmptyTree.(*dbHashTree)
+			if !ok {
+				return errorf(Internal, "wrong underlying hash tree type")
+			}
+			if err := tree.View(func(subTx *bolt.Tx) error {
+				return object(subTx).ForEach(func(k, v []byte) error {
+					return object(tx).Put(k, v)
+				})
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 }
 

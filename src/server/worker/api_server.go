@@ -672,15 +672,30 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 	}
 	outputPath := filepath.Join(dir, "out")
 
-	// Upload all files in output directory
-	var g errgroup.Group
+	putObjsClient, err := pachClient.ObjectAPIClient.PutObjects(pachClient.Ctx())
+	if err != nil {
+		return err
+	}
+	block := &pfs.Block{Hash: uuid.NewWithoutDashes()}
+	if err := putObjsClient.Send(&pfs.PutObjectRequest{
+		Block: block,
+	}); err != nil {
+		return err
+	}
+	buf := grpcutil.GetBuffer()
+	defer grpcutil.PutBuffer(buf)
+	var offset uint64
 	limiter := limit.New(concurrency)
+	var eg errgroup.Group
+	var putLock sync.Mutex
+
+	// Upload all files in output directory
 	if err := filepath.Walk(outputPath, func(filePath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 		limiter.Acquire()
-		g.Go(func() (retErr error) {
+		eg.Go(func() error {
 			defer limiter.Release()
 			if filePath == outputPath {
 				return nil
@@ -786,38 +801,63 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 				}
 			}()
 
-			putObjClient, err := pachClient.ObjectAPIClient.PutObject(pachClient.Ctx())
-			if err != nil {
-				return err
-			}
-			size, err := grpcutil.ChunkReader(f, func(chunk []byte) error {
-				return putObjClient.Send(&pfs.PutObjectRequest{
-					Value: chunk,
-				})
-			})
-			if err != nil {
-				return err
-			}
-			object, err := putObjClient.CloseAndRecv()
-			if err != nil {
-				return err
-			}
+			var size int
+			hash := pfs.NewHash()
+			r := io.TeeReader(f, hash)
 
-			lock.Lock()
-			defer lock.Unlock()
-			atomic.AddUint64(&stats.UploadBytes, uint64(size))
+			putLock.Lock()
+			for {
+				n, err := r.Read(buf)
+				if n == 0 && err != nil {
+					if err == io.EOF {
+						break
+					}
+					return err
+				}
+				if err := putObjsClient.Send(&pfs.PutObjectRequest{
+					Value: buf[:n],
+				}); err != nil {
+					return err
+				}
+				size += n
+			}
+			blockRef := &pfs.BlockRef{
+				Block: block,
+				Range: &pfs.ByteRange{
+					Lower: offset,
+					Upper: offset + uint64(size),
+				},
+			}
+			offset += uint64(size)
+			stats.UploadBytes += uint64(size)
+			putLock.Unlock()
+
+			object := &pfs.Object{Hash: pfs.EncodeHash(hash.Sum(nil))}
 			if statsTree != nil {
-				if err := statsTree.PutFile(path.Join(statsRoot, relPath), []*pfs.Object{object}, int64(size)); err != nil {
+				if err := statsTree.PutObject(object, blockRef); err != nil {
+					return err
+				}
+				if err := statsTree.PutFile(path.Join(statsRoot, relPath), []*pfs.Object{object}, int64(blockRef.Range.Upper-blockRef.Range.Lower)); err != nil {
 					return err
 				}
 			}
-			return tree.PutFile(relPath, []*pfs.Object{object}, int64(size))
+			if err := tree.PutObject(object, blockRef); err != nil {
+				return err
+			}
+			if err := tree.PutFile(relPath, []*pfs.Object{object}, int64(blockRef.Range.Upper-blockRef.Range.Lower)); err != nil {
+				return err
+			}
+			return nil
 		})
+		if err := eg.Wait(); err != nil {
+			return err
+		}
 		return nil
 	}); err != nil {
 		return err
 	}
-	if err := g.Wait(); err != nil {
+
+	if err := putObjsClient.CloseSend(); err != nil {
 		return err
 	}
 

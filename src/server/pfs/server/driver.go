@@ -2200,8 +2200,46 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
 	}
 
-	var objects []*pfs.Object
 	var totalSize int64
+
+	// TODO(bryce): This will become the default path once we make the changes to put
+	// file to store the block refs in the hash tree. Also, checking if an object is in
+	// the hashtree will no longer be needed.
+	var checkNode *hashtree.NodeProto
+	for _, node := range paths {
+		checkNode = node
+		break
+	}
+	if _, err := tree.GetObject(checkNode.FileNode.Objects[0]); err == nil {
+		blockRefs := []*pfs.BlockRef{}
+		for _, node := range paths {
+			for _, object := range node.FileNode.Objects {
+				blockRef, err := tree.GetObject(object)
+				if err != nil {
+					return nil, err
+				}
+				blockRefs = append(blockRefs, blockRef)
+			}
+			totalSize += node.SubtreeSize
+		}
+
+		getBlocksClient, err := pachClient.ObjectAPIClient.GetBlocks(
+			ctx,
+			&pfs.GetBlocksRequest{
+				BlockRefs:   blockRefs,
+				OffsetBytes: uint64(offset),
+				SizeBytes:   uint64(size),
+				TotalSize:   uint64(totalSize),
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		return grpcutil.NewStreamingBytesReader(getBlocksClient), nil
+	}
+
+	var objects []*pfs.Object
 	for _, node := range paths {
 		objects = append(objects, node.FileNode.Objects...)
 		totalSize += node.SubtreeSize
