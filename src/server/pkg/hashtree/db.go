@@ -350,7 +350,7 @@ func diff(newTx, oldTx *bolt.Tx, newPath string, oldPath string, recursiveDepth 
 		Children:
 			for {
 				var child string
-				switch bytes.Compare(newC.K(), oldC.K()) {
+				switch compare(newC, oldC) {
 				case -1:
 					child = pathlib.Base(s(newC.K()))
 					newC.Next()
@@ -408,7 +408,13 @@ func (h *dbHashTree) Diff(oldHashTree HashTree, newPath string, oldPath string, 
 		}
 		defer rollback(oldTx)
 	}
-	return diff(newTx, oldTx, newPath, oldPath, recursiveDepth, f)
+	return diff(newTx, oldTx, newPath, oldPath, recursiveDepth, func(path string, node *NodeProto, new bool) error {
+		if new {
+			return f(strings.TrimPrefix(path, newPath), node, new)
+		} else {
+			return f(strings.TrimPrefix(path, oldPath), node, new)
+		}
+	})
 }
 
 func (h *dbHashTree) Serialize(w io.Writer) error {
@@ -1024,4 +1030,17 @@ func (d *childCursor) Next() ([]byte, []byte) {
 	}
 	d.k, d.v = k, v
 	return k, v
+}
+
+func compare(a, b *childCursor) int {
+	switch {
+	case a.k == nil && b.k == nil:
+		return 0
+	case b.k == nil:
+		return -1
+	case a.k == nil:
+		return 1
+	default:
+		return bytes.Compare(bytes.TrimPrefix(a.k, a.dir), bytes.TrimPrefix(b.k, b.dir))
+	}
 }
