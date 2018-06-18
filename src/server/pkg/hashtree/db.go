@@ -290,13 +290,11 @@ func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) erro
 }
 
 func diff(newTx, oldTx *bolt.Tx, newPath string, oldPath string, recursiveDepth int64, f func(string, *NodeProto, bool) error) error {
-	oldPath = clean(oldPath)
-	newPath = clean(newPath)
-	newNode, err := get(newTx, newPath)
+	newNode, err := get(newTx, clean(newPath))
 	if err != nil && Code(err) != PathNotFound {
 		return err
 	}
-	oldNode, err := get(oldTx, oldPath)
+	oldNode, err := get(oldTx, clean(oldPath))
 	if err != nil && Code(err) != PathNotFound {
 		return err
 	}
@@ -333,14 +331,14 @@ func diff(newTx, oldTx *bolt.Tx, newPath string, oldPath string, recursiveDepth 
 		case oldC == nil && newC == nil:
 			return nil
 		case oldC == nil:
-			for k := oldC.K(); k != nil; k, _ = oldC.Next() {
+			for k := newC.K(); k != nil; k, _ = newC.Next() {
 				child := pathlib.Base(s(k))
 				if err := diff(newTx, oldTx, pathlib.Join(newPath, child), pathlib.Join(oldPath, child), newDepth, f); err != nil {
 					return err
 				}
 			}
 		case newC == nil:
-			for k := newC.K(); k != nil; k, _ = newC.Next() {
+			for k := oldC.K(); k != nil; k, _ = oldC.Next() {
 				child := pathlib.Base(s(k))
 				if err := diff(newTx, oldTx, pathlib.Join(newPath, child), pathlib.Join(oldPath, child), newDepth, f); err != nil {
 					return err
