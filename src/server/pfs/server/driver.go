@@ -2343,6 +2343,22 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool) ([]*pf
 	return fileInfos, nil
 }
 
+func (d *driver) walkFile(ctx context.Context, file *pfs.File, f func(*pfs.FileInfo) error) error {
+	pachClient := d.getPachClient(ctx)
+	ctx = pachClient.Ctx()
+	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
+		return err
+	}
+
+	tree, err := d.getTreeForFile(ctx, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, file.Path))
+	if err != nil {
+		return err
+	}
+	return tree.Walk(file.Path, func(path string, node *hashtree.NodeProto) error {
+		return f(nodeToFileInfo(file.Commit, path, node, false))
+	})
+}
+
 func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern string) ([]*pfs.FileInfo, error) {
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
