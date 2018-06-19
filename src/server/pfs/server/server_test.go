@@ -4298,3 +4298,24 @@ func TestStartCommitOutputBranch(t *testing.T) {
 	_, err := c.StartCommit("out", "master")
 	require.YesError(t, err)
 }
+
+func TestWalk(t *testing.T) {
+	c := getPachClient(t)
+	repo := "repo"
+	require.NoError(t, c.CreateRepo(repo))
+	_, err := c.PutFile(repo, "master", "dir/bar", strings.NewReader("bar"))
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, "master", "dir/dir2/buzz", strings.NewReader("buzz"))
+	require.NoError(t, err)
+	_, err = c.PutFile(repo, "master", "foo", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	expectedPaths := []string{"", "dir", "dir/bar", "dir/dir2", "dir/dir2/buzz", "foo"}
+	i := 0
+	require.NoError(t, c.Walk(repo, "master", "", func(fi *pfs.FileInfo) error {
+		require.Equal(t, expectedPaths[i], fi.File.Path)
+		i++
+		return nil
+	}))
+	require.Equal(t, len(expectedPaths), i)
+}
