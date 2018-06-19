@@ -995,6 +995,9 @@ func NewChildCursor(tx *bolt.Tx, path string) *childCursor {
 	c := fs(tx).Cursor()
 	dir := b(path)
 	k, v := c.Seek(append(dir, nullByte[0]))
+	if !bytes.Equal(dir, nullByte) {
+		dir = append(dir, nullByte[0])
+	}
 	if !bytes.HasPrefix(k, dir) {
 		k, v = nil, nil
 	}
