@@ -462,6 +462,14 @@ func (h *dbHashTree) Deserialize(r io.Reader) error {
 	return nil
 }
 
+func (h *dbHashTree) Destroy() error {
+	path := h.Path()
+	if err := h.Close(); err != nil {
+		return err
+	}
+	return os.Remove(path)
+}
+
 func put(tx *bolt.Tx, path string, node *NodeProto) error {
 	data, err := node.Marshal()
 	if err != nil {
