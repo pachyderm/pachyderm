@@ -166,34 +166,37 @@ func dirPrefix(path string) string {
 }
 
 // iterDir iterates through the nodes under path, it errors with PathNotFound if path doesn't exist, it errors with PathConflict if path exists but isn't a directory.
-func (h *dbHashTree) iterDir(tx *bolt.Tx, path string, f func(k, v []byte, c *bolt.Cursor) error) error {
-	c := fs(tx).Cursor()
-	k, v := c.Seek(b(path))
-	if k == nil || s(k) != path {
-		return errorf(PathNotFound, "file \"%s\" not found", path)
-	}
-	node := &NodeProto{}
-	if err := node.Unmarshal(v); err != nil {
+func iterDir(tx *bolt.Tx, path string, f func(k, v []byte, c *bolt.Cursor) error) error {
+	node, err := get(tx, path)
+	if err != nil {
 		return err
 	}
 	if node.DirNode == nil {
 		return errorf(PathConflict, "the file at \"%s\" is not a directory",
 			path)
 	}
-	for k, v = c.Next(); k != nil && strings.HasPrefix(s(k), dirPrefix(path)); k, v = c.Next() {
-		trimmed := strings.TrimPrefix(s(k), path)
-		if trimmed == "" || strings.Count(trimmed, "/") > 1 {
-			// trimmed == "" -> this is path itself
-			// trimmed[0] != '/' -> this is a sibling of path
-			// strings.Count(trimmed, "/") > 1 -> this is the child of a child of path
-			// If any of these are true we don't call f on the value because it's not in the directory.
-			continue
-		}
-		if err := f(k, v, c); err != nil {
+	c := NewChildCursor(tx, path)
+	for k, v := c.K(), c.V(); k != nil; k, v = c.Next() {
+		if err := f(k, v, c.c); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func list(tx *bolt.Tx, path string) ([]*NodeProto, error) {
+	var result []*NodeProto
+	if err := iterDir(tx, path, func(_, v []byte, _ *bolt.Cursor) error {
+		node := &NodeProto{}
+		if err := node.Unmarshal(v); err != nil {
+			return err
+		}
+		result = append(result, node)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 // List retrieves the list of files and subdirectories of the directory at
@@ -202,30 +205,27 @@ func (h *dbHashTree) List(path string) ([]*NodeProto, error) {
 	path = clean(path)
 	var result []*NodeProto
 	if err := h.View(func(tx *bolt.Tx) error {
-		return h.iterDir(tx, path, func(k, v []byte, _ *bolt.Cursor) error {
-			node := &NodeProto{}
-			if err := node.Unmarshal(v); err != nil {
-				return err
-			}
-			result = append(result, node)
-			return nil
-		})
+		var err error
+		result, err = list(tx, path)
+		if err != nil {
+			return err
+		}
+		return nil
 	}); err != nil {
 		return nil, err
 	}
 	return result, nil
 }
 
-func (h *dbHashTree) glob(tx *bolt.Tx, pattern string) (map[string]*NodeProto, error) {
+func glob(tx *bolt.Tx, pattern string) (map[string]*NodeProto, error) {
 	if !isGlob(pattern) {
-		node, err := h.Get(pattern)
+		node, err := get(tx, pattern)
 		if err != nil {
 			return nil, err
 		}
 		return map[string]*NodeProto{clean(pattern): node}, nil
 	}
 
-	pattern = clean(pattern)
 	g, err := globlib.Compile(pattern, '/')
 	if err != nil {
 		return nil, errorf(MalformedGlob, err.Error())
@@ -245,10 +245,11 @@ func (h *dbHashTree) glob(tx *bolt.Tx, pattern string) (map[string]*NodeProto, e
 }
 
 func (h *dbHashTree) Glob(pattern string) (map[string]*NodeProto, error) {
+	pattern = clean(pattern)
 	var result map[string]*NodeProto
 	if err := h.View(func(tx *bolt.Tx) error {
 		var err error
-		result, err = h.glob(tx, pattern)
+		result, err = glob(tx, pattern)
 		return err
 	}); err != nil {
 		return nil, err
@@ -491,7 +492,7 @@ func put(tx *bolt.Tx, path string, node *NodeProto) error {
 // 3. update(node at "/"        or nil, "",         "path")
 //
 // This is useful for propagating changes to size upwards.
-func (h *dbHashTree) visit(tx *bolt.Tx, path string, update updateFn) error {
+func visit(tx *bolt.Tx, path string, update updateFn) error {
 	for path != "" {
 		parent, child := split(path)
 		pnode, err := get(tx, parent)
@@ -550,13 +551,12 @@ func (h *dbHashTree) putFile(path string, objects []*pfs.Object, overwriteIndex 
 		if err := put(tx, path, node); err != nil {
 			return err
 		}
-		return h.visit(tx, path, func(node *NodeProto, parent, child string) error {
+		return visit(tx, path, func(node *NodeProto, parent, child string) error {
 			if node.DirNode == nil {
 				// node created as part of this visit call, fill in the basics
 				node.Name = base(parent)
 				node.DirNode = &DirectoryNodeProto{}
 			}
-			insertStr(&node.DirNode.Children, child)
 			node.SubtreeSize += sizeDelta
 			return nil
 		})
@@ -585,24 +585,25 @@ func (h *dbHashTree) PutDir(path string) error {
 		if err := put(tx, path, node); err != nil {
 			return err
 		}
-		return h.visit(tx, path, func(node *NodeProto, parent, child string) error {
+		return visit(tx, path, func(node *NodeProto, parent, child string) error {
 			if node.DirNode == nil {
 				// node created as part of this visit call, fill in the basics
 				node.Name = base(parent)
 				node.DirNode = &DirectoryNodeProto{}
 			}
-			insertStr(&node.DirNode.Children, child)
 			return nil
 		})
 	})
 }
 
 // deleteDir deletes a directory and all the children under it
-func (h *dbHashTree) deleteDir(tx *bolt.Tx, path string) error {
-	if err := h.iterDir(tx, path, func(k, v []byte, c *bolt.Cursor) error {
-		return c.Delete()
-	}); err != nil && Code(err) != PathConflict {
-		return err
+func deleteDir(tx *bolt.Tx, path string) error {
+	c := fs(tx).Cursor()
+	prefix := append(b(path), nullByte[0])
+	for k, _ := c.Seek(prefix); bytes.HasPrefix(k, prefix); k, _ = c.Next() {
+		if err := c.Delete(); err != nil {
+			return err
+		}
 	}
 	return fs(tx).Delete(b(path))
 }
@@ -612,10 +613,10 @@ func (h *dbHashTree) DeleteFile(path string) error {
 
 	// Delete root means delete all files
 	if path == "" {
-		path = "*"
+		path = "/*"
 	}
 	return h.Batch(func(tx *bolt.Tx) error {
-		paths, err := h.glob(tx, path)
+		paths, err := glob(tx, path)
 		// Deleting a non-existent file should be a no-op
 		if err != nil && Code(err) != PathNotFound {
 			return err
@@ -626,12 +627,13 @@ func (h *dbHashTree) DeleteFile(path string) error {
 				continue
 			}
 			// Remove 'path' and all nodes underneath it from h.fs
-			if err := h.deleteDir(tx, path); err != nil {
+			if err := deleteDir(tx, path); err != nil {
 				return err
 			}
 			size := paths[path].SubtreeSize
 			// Remove 'path' from its parent directory
-			parent, child := split(path)
+			// TODO(bryce) Decide if this should be removed.
+			parent, _ := split(path)
 			pnode, err := get(tx, parent)
 			if err != nil {
 				if Code(err) == PathNotFound {
@@ -643,12 +645,9 @@ func (h *dbHashTree) DeleteFile(path string) error {
 				return errorf(Internal, "file at \"%s\" is a regular-file, but \"%s\" already exists "+
 					"under it (likely an uncaught PathConflict in prior PutFile or Merge)", path, pnode.DirNode)
 			}
-			if !removeStr(&pnode.DirNode.Children, child) {
-				return errorf(Internal, "parent of \"%s\" does not contain it", path)
-			}
 			put(tx, parent, pnode)
 			// Mark nodes as 'changed' back to root
-			if err := h.visit(tx, path, func(node *NodeProto, parent, child string) error {
+			if err := visit(tx, path, func(node *NodeProto, parent, child string) error {
 				// If node.DirNode is nil it means either the parent didn't
 				// exist (and thus was deserialized fron nil) or it does exist
 				// but thinks it's a file, both are errors.
@@ -667,7 +666,7 @@ func (h *dbHashTree) DeleteFile(path string) error {
 	})
 }
 
-func (h *dbHashTree) mergeNode(tx *bolt.Tx, path string, srcs []HashTree) (int64, error) {
+func mergeNode(tx *bolt.Tx, path string, srcs []HashTree) (int64, error) {
 	path = clean(path)
 	// Get the node at path in 'h' and determine its type (i.e. file, dir)
 	destNode, err := get(tx, path)
@@ -731,8 +730,12 @@ func (h *dbHashTree) mergeNode(tx *bolt.Tx, path string, srcs []HashTree) (int64
 		switch n.nodetype() {
 		case directory:
 			// Instead of merging here, we build a reverse-index and merge below
-			for _, c := range n.DirNode.Children {
-				childrenToTrees[c] = append(childrenToTrees[c], src)
+			children, err := src.List(path)
+			if err != nil {
+				return 0, err
+			}
+			for _, c := range children {
+				childrenToTrees[c.Name] = append(childrenToTrees[c.Name], src)
 			}
 		case file:
 			// Append new objects, and update size of target node (since that can't be
@@ -750,12 +753,11 @@ func (h *dbHashTree) mergeNode(tx *bolt.Tx, path string, srcs []HashTree) (int64
 	if pathtype == directory {
 		// Merge all children (collected in childrenToTrees)
 		for c, cSrcs := range childrenToTrees {
-			childSizeDelta, err := h.mergeNode(tx, join(path, c), cSrcs)
+			childSizeDelta, err := mergeNode(tx, join(path, c), cSrcs)
 			if err != nil {
 				return sizeDelta, err
 			}
 			sizeDelta += childSizeDelta
-			insertStr(&destNode.DirNode.Children, c)
 		}
 	}
 	// Update the size of destNode, and mark it changed
@@ -778,7 +780,7 @@ func (h *dbHashTree) Merge(trees ...HashTree) error {
 		return nil
 	}
 	return h.Batch(func(tx *bolt.Tx) error {
-		_, err := h.mergeNode(tx, "/", nonEmptyTrees)
+		_, err := mergeNode(tx, "/", nonEmptyTrees)
 		return err
 	})
 }
@@ -807,13 +809,13 @@ func (h *dbHashTree) GetObject(o *pfs.Object) (*pfs.BlockRef, error) {
 	return result, nil
 }
 
-func (h *dbHashTree) changed(tx *bolt.Tx, path string) bool {
+func hasChanged(tx *bolt.Tx, path string) bool {
 	return changed(tx).Get(b(path)) != nil
 }
 
-func (h *dbHashTree) canonicalize(tx *bolt.Tx, path string) error {
+func canonicalize(tx *bolt.Tx, path string) error {
 	path = clean(path)
-	if !h.changed(tx, path) {
+	if !hasChanged(tx, path) {
 		return nil // Node is already canonical
 	}
 	n, err := get(tx, path)
@@ -829,23 +831,25 @@ func (h *dbHashTree) canonicalize(tx *bolt.Tx, path string) error {
 	switch n.nodetype() {
 	case directory:
 		// Compute n.Hash by concatenating name + hash of all children of n.DirNode
-		// Note that PutFile keeps n.DirNode.Children sorted, so the order is
-		// stable.
-		for _, child := range n.DirNode.Children {
-			childpath := join(path, child)
-			if err := h.canonicalize(tx, childpath); err != nil {
+		// Note that the order of the children of n.DirNode are sorted when iterating.
+		if err := iterDir(tx, path, func(k, _ []byte, _ *bolt.Cursor) error {
+			childPath := s(k)
+			if err := canonicalize(tx, childPath); err != nil {
 				return err
 			}
-			childnode, err := get(tx, childpath)
+			childNode, err := get(tx, childPath)
 			if err != nil {
 				if Code(err) == PathNotFound {
 					return errorf(Internal, "could not find file for \"%s\" while "+
-						"updating hash of \"%s\"", join(path, child), path)
+						"updating hash of \"%s\"", childPath, path)
 				}
 				return err
 			}
 			// append child.Name and child.Hash to b
-			hash.Write([]byte(fmt.Sprintf("%s:%s:", childnode.Name, childnode.Hash)))
+			hash.Write([]byte(fmt.Sprintf("%s:%s:", childNode.Name, childNode.Hash)))
+			return nil
+		}); err != nil {
+			return err
 		}
 	case file:
 		// Compute n.Hash by concatenating all BlockRef hashes in n.FileNode.
@@ -867,7 +871,7 @@ func (h *dbHashTree) canonicalize(tx *bolt.Tx, path string) error {
 
 func (h *dbHashTree) Hash() error {
 	return h.Batch(func(tx *bolt.Tx) error {
-		return h.canonicalize(tx, "")
+		return canonicalize(tx, "")
 	})
 }
 
@@ -1001,6 +1005,9 @@ func NewChildCursor(tx *bolt.Tx, path string) *childCursor {
 	c := fs(tx).Cursor()
 	dir := b(path)
 	k, v := c.Seek(append(dir, nullByte[0]))
+	if !bytes.Equal(dir, nullByte) {
+		dir = append(dir, nullByte[0])
+	}
 	if !bytes.HasPrefix(k, dir) {
 		k, v = nil, nil
 	}

@@ -32,7 +32,7 @@ message NodeProto {
   // detect if the name or contents have changed between versions.
   bytes hash = 2;
 
-  // subtree_size is the of the subtree under node; i.e. if this is a directory,
+  // subtree_size is the size of the subtree under node; i.e. if this is a directory,
   // subtree_size includes all children.
   int64 subtree_size = 3;
 
