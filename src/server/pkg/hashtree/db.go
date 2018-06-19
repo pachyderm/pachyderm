@@ -226,7 +226,6 @@ func glob(tx *bolt.Tx, pattern string) (map[string]*NodeProto, error) {
 		return map[string]*NodeProto{clean(pattern): node}, nil
 	}
 
-	pattern = clean(pattern)
 	g, err := globlib.Compile(pattern, '/')
 	if err != nil {
 		return nil, errorf(MalformedGlob, err.Error())
@@ -246,6 +245,7 @@ func glob(tx *bolt.Tx, pattern string) (map[string]*NodeProto, error) {
 }
 
 func (h *dbHashTree) Glob(pattern string) (map[string]*NodeProto, error) {
+	pattern = clean(pattern)
 	var result map[string]*NodeProto
 	if err := h.View(func(tx *bolt.Tx) error {
 		var err error
@@ -605,7 +605,7 @@ func (h *dbHashTree) DeleteFile(path string) error {
 
 	// Delete root means delete all files
 	if path == "" {
-		path = "*"
+		path = "/*"
 	}
 	return h.Batch(func(tx *bolt.Tx) error {
 		paths, err := glob(tx, path)
