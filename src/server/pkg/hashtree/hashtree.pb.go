@@ -82,7 +82,7 @@ type NodeProto struct {
 	// BlockRefs of a file and the Children of a directory). This can be used to
 	// detect if the name or contents have changed between versions.
 	Hash []byte `protobuf:"bytes,2,opt,name=hash,proto3" json:"hash,omitempty"`
-	// subtree_size is the of the subtree under node; i.e. if this is a directory,
+	// subtree_size is the size of the subtree under node; i.e. if this is a directory,
 	// subtree_size includes all children.
 	SubtreeSize int64 `protobuf:"varint,3,opt,name=subtree_size,json=subtreeSize,proto3" json:"subtree_size,omitempty"`
 	// Exactly one of the following fields must be set. The type of this node will
