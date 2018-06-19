@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"path/filepath"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -998,20 +997,27 @@ type WalkFn func(*pfs.FileInfo) error
 
 // Walk walks the pfs filesystem rooted at path. walkFn will be called for each
 // file found under path, this includes both regular files and directories.
-func (c APIClient) Walk(repoName string, commitID string, path string, walkFn WalkFn) error {
-	fileInfo, err := c.InspectFile(repoName, commitID, path)
+func (c APIClient) Walk(repoName string, commitID string, path string, f WalkFn) error {
+	fs, err := c.PfsAPIClient.WalkFile(
+		c.Ctx(),
+		&pfs.WalkFileRequest{File: NewFile(repoName, commitID, path)})
 	if err != nil {
-		return err
+		return grpcutil.ScrubGRPC(err)
 	}
-	if err := walkFn(fileInfo); err != nil {
-		return err
-	}
-	for _, childPath := range fileInfo.Children {
-		if err := c.Walk(repoName, commitID, filepath.Join(path, childPath), walkFn); err != nil {
+	for {
+		fi, err := fs.Recv()
+		if err == io.EOF {
+			return nil
+		} else if err != nil {
+			return grpcutil.ScrubGRPC(err)
+		}
+		if err := f(fi); err != nil {
+			if err == errutil.ErrBreak {
+				return nil
+			}
 			return err
 		}
 	}
-	return nil
 }
 
 // DeleteFile deletes a file from a Commit.

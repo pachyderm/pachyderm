@@ -464,6 +464,18 @@ func (a *apiServer) ListFileStream(request *pfs.ListFileRequest, respServer pfs.
 	return nil
 }
 
+func (a *apiServer) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFileServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	var sent int
+	defer func(start time.Time) {
+		a.Log(request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
+	}(time.Now())
+	return a.driver.walkFile(server.Context(), request.File, func(fi *pfs.FileInfo) error {
+		sent++
+		return server.Send(fi)
+	})
+}
+
 func (a *apiServer) GlobFile(ctx context.Context, request *pfs.GlobFileRequest) (response *pfs.FileInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {

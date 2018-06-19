@@ -355,6 +355,10 @@ message ListFileRequest {
   bool full = 2;
 }
 
+message WalkFileRequest {
+    File file = 1;
+}
+
 message GlobFileRequest {
   Commit commit = 1;
   string pattern = 2;
@@ -440,6 +444,8 @@ service API {
   // TODO(msteffen): When the dash has been updated to use ListFileStream,
   // replace ListFile with this RPC (https://github.com/pachyderm/dash/issues/201)
   rpc ListFileStream(ListFileRequest) returns (stream FileInfo) {}
+  // WalkFile walks over all the files under a directory, including children of children.
+  rpc WalkFile(WalkFileRequest) returns (stream FileInfo) {}
   // GlobFile returns info about all files. This is deprecated in favor of
   // GlobFileStream
   rpc GlobFile(GlobFileRequest) returns (FileInfos) {}
