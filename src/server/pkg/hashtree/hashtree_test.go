@@ -682,3 +682,19 @@ func TestChildIterator(t *testing.T) {
 		return nil
 	})
 }
+
+func TestCache(t *testing.T) {
+	c, err := NewCache(2)
+	require.NoError(t, err)
+
+	h := newHashTree(t)
+	require.NoError(t, h.PutFile("foo", obj(`hash:"1d4a7"`), 1))
+	require.NoError(t, h.Hash())
+	c.Add(1, h)
+	c.Add(2, newHashTree(t))
+	_, err = h.Get("foo")
+	require.NoError(t, err)
+	c.Add(3, newHashTree(t))
+	_, err = h.Get("foo")
+	require.YesError(t, err)
+}
