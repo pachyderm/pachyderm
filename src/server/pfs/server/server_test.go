@@ -4310,7 +4310,7 @@ func TestWalk(t *testing.T) {
 	_, err = c.PutFile(repo, "master", "foo", strings.NewReader("foo"))
 	require.NoError(t, err)
 
-	expectedPaths := []string{"", "dir", "dir/bar", "dir/dir2", "dir/dir2/buzz", "foo"}
+	expectedPaths := []string{"/", "/dir", "/dir/bar", "/dir/dir2", "/dir/dir2/buzz", "/foo"}
 	i := 0
 	require.NoError(t, c.Walk(repo, "master", "", func(fi *pfs.FileInfo) error {
 		require.Equal(t, expectedPaths[i], fi.File.Path)

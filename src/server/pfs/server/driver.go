@@ -36,7 +36,6 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/hashicorp/golang-lru"
 )
 
 const (
@@ -108,7 +107,7 @@ type driver struct {
 	openCommits    col.Collection
 
 	// a cache for hashtrees
-	treeCache *lru.Cache
+	treeCache *hashtree.Cache
 
 	// storageRoot where we store hashtrees
 	storageRoot string
@@ -130,7 +129,7 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCa
 	if treeCacheSize <= 0 {
 		treeCacheSize = defaultTreeCacheSize
 	}
-	treeCache, err := lru.New(int(treeCacheSize))
+	treeCache, err := hashtree.NewCache(int(treeCacheSize))
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize treeCache: %v", err)
 	}
