@@ -2128,6 +2128,17 @@ func TestPutFileValidCharacters(t *testing.T) {
 	require.NoError(t, err)
 	_, err = client.PutFile(repo, commit.ID, "foo\x90bar", strings.NewReader("foobar\n"))
 	require.YesError(t, err)
+
+}
+
+func TestUnicode(t *testing.T) {
+	client := getPachClient(t)
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+
+	_, err := client.PutFile(repo, "master", "(15)⑩'20160215 105056@6020711300ｰか㆙「4」ミゲ3」 .zip", strings.NewReader("foobar\n"))
+	require.NoError(t, err)
 }
 
 func TestPutFileURL(t *testing.T) {
