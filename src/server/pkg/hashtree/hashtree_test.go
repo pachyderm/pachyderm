@@ -115,14 +115,14 @@ func TestPutFileBasic(t *testing.T) {
 	require.Equal(t, int64(2), getT(t, h, "/dir").SubtreeSize)
 	require.Equal(t, int64(1), getT(t, h, "/dir.buzz").SubtreeSize)
 	require.Equal(t, int64(4), getT(t, h, "").SubtreeSize)
-	nodes, err := h.List("/")
+	nodes, err := h.ListAll("/")
 	require.NoError(t, err)
 	require.Equal(t, 3, len(nodes))
 	for _, node := range nodes {
 		require.EqualOneOf(t, i("foo", "dir", "dir.buzz"), node.Name)
 	}
 
-	nodes, err = h.List("/dir")
+	nodes, err = h.ListAll("/dir")
 	require.NoError(t, err)
 	require.Equal(t, 2, len(nodes))
 	for _, node := range nodes {
@@ -157,7 +157,7 @@ func TestPutDirBasic(t *testing.T) {
 	require.NotEqual(t, []string{}, getT(t, h, "/dir").DirNode.Children)
 	require.NoError(t, h.Hash())
 	require.NotEqual(t, []string{}, getT(t, h, "/dir").DirNode.Children)
-	nodes, err := h.List("/dir")
+	nodes, err := h.ListAll("/dir")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(nodes))
 	require.NotEqual(t, emptySha[:], getT(t, h, "/dir").Hash)
@@ -167,7 +167,7 @@ func TestPutDirBasic(t *testing.T) {
 	require.Equal(t, 0, len(getT(t, h, "/dir").DirNode.Children))
 	require.NoError(t, h.Hash())
 	require.Equal(t, 0, len(getT(t, h, "/dir").DirNode.Children))
-	nodes, err = h.List("/dir")
+	nodes, err = h.ListAll("/dir")
 	require.NoError(t, err)
 	require.Equal(t, 0, len(nodes))
 	require.Equal(t, emptySha[:], getT(t, h, "/dir").Hash)
@@ -180,7 +180,7 @@ func TestPutDirBasic(t *testing.T) {
 	require.NoError(t, h.Hash())
 	require.NoError(t, err)
 	require.Equal(t, 0, len(getT(t, h, "/dir").DirNode.Children))
-	nodes, err = h.List("/dir")
+	nodes, err = h.ListAll("/dir")
 	require.NoError(t, err)
 	require.Equal(t, 0, len(nodes))
 	require.Equal(t, emptySha[:], getT(t, h, "/dir").Hash)
@@ -425,7 +425,7 @@ func TestGlobFile(t *testing.T) {
 
 	// patterns that match the whole repo ("/")
 	for _, pattern := range []string{"", "/"} {
-		paths, err := h.Glob(pattern)
+		paths, err := h.GlobAll(pattern)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(paths))
 		for path := range paths {
@@ -435,7 +435,7 @@ func TestGlobFile(t *testing.T) {
 
 	// patterns that match top-level dirs/files
 	for _, pattern := range []string{"*", "/*"} {
-		paths, err := h.Glob(pattern)
+		paths, err := h.GlobAll(pattern)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(paths))
 		for path := range paths {
@@ -445,7 +445,7 @@ func TestGlobFile(t *testing.T) {
 
 	// patterns that match second-level dirs/files
 	for _, pattern := range []string{"dir/*", "/dir/*", "*/*", "/*/*"} {
-		paths, err := h.Glob(pattern)
+		paths, err := h.GlobAll(pattern)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(paths))
 		for path := range paths {
@@ -603,21 +603,21 @@ func TestSerialize(t *testing.T) {
 
 func TestListEmpty(t *testing.T) {
 	tree := newHashTree(t)
-	_, err := tree.List("/")
+	_, err := tree.ListAll("/")
 	require.NoError(t, err)
-	_, err = tree.Glob("*")
+	_, err = tree.GlobAll("*")
 	require.NoError(t, err)
-	_, err = tree.Glob("/*")
+	_, err = tree.GlobAll("/*")
 	require.NoError(t, err)
 
 	require.NoError(t, tree.DeleteFile("/"))
 	require.NoError(t, tree.DeleteFile(""))
 
-	_, err = tree.List("/")
+	_, err = tree.ListAll("/")
 	require.NoError(t, err)
-	_, err = tree.Glob("*")
+	_, err = tree.GlobAll("*")
 	require.NoError(t, err)
-	_, err = tree.Glob("/*")
+	_, err = tree.GlobAll("/*")
 	require.NoError(t, err)
 }
 

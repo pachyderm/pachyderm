@@ -436,8 +436,11 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 		}
 	}(time.Now())
 
-	fileInfos, err := a.driver.listFile(ctx, request.File, request.Full)
-	if err != nil {
+	var fileInfos []*pfs.FileInfo
+	if err := a.driver.listFile(ctx, request.File, request.Full, func(fi *pfs.FileInfo) error {
+		fileInfos = append(fileInfos, fi)
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 	return &pfs.FileInfos{
@@ -451,17 +454,10 @@ func (a *apiServer) ListFileStream(request *pfs.ListFileRequest, respServer pfs.
 	defer func(start time.Time) {
 		a.Log(request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
 	}(time.Now())
-	fileInfos, err := a.driver.listFile(respServer.Context(), request.File, request.Full)
-	if err != nil {
-		return err
-	}
-	for i := 0; i < len(fileInfos); i++ {
-		if err := respServer.Send(fileInfos[i]); err != nil {
-			return err
-		}
+	return a.driver.listFile(respServer.Context(), request.File, request.Full, func(fi *pfs.FileInfo) error {
 		sent++
-	}
-	return nil
+		return respServer.Send(fi)
+	})
 }
 
 func (a *apiServer) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFileServer) (retErr error) {
@@ -487,8 +483,11 @@ func (a *apiServer) GlobFile(ctx context.Context, request *pfs.GlobFileRequest) 
 		}
 	}(time.Now())
 
-	fileInfos, err := a.driver.globFile(ctx, request.Commit, request.Pattern)
-	if err != nil {
+	var fileInfos []*pfs.FileInfo
+	if err := a.driver.globFile(ctx, request.Commit, request.Pattern, func(fi *pfs.FileInfo) error {
+		fileInfos = append(fileInfos, fi)
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 	return &pfs.FileInfos{
@@ -502,17 +501,10 @@ func (a *apiServer) GlobFileStream(request *pfs.GlobFileRequest, respServer pfs.
 	defer func(start time.Time) {
 		a.Log(request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
 	}(time.Now())
-	fileInfos, err := a.driver.globFile(respServer.Context(), request.Commit, request.Pattern)
-	if err != nil {
-		return err
-	}
-	for i := 0; i < len(fileInfos); i++ {
-		if err := respServer.Send(fileInfos[i]); err != nil {
-			return err
-		}
+	return a.driver.globFile(respServer.Context(), request.Commit, request.Pattern, func(fi *pfs.FileInfo) error {
 		sent++
-	}
-	return nil
+		return respServer.Send(fi)
+	})
 }
 
 func (a *apiServer) DiffFile(ctx context.Context, request *pfs.DiffFileRequest) (response *pfs.DiffFileResponse, retErr error) {

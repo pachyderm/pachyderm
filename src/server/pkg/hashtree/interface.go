@@ -63,12 +63,17 @@ type HashTree interface {
 	// Get retrieves a file.
 	Get(path string) (*NodeProto, error)
 
-	// List retrieves the list of files and subdirectories of the directory at
-	// 'path'.
-	List(path string) ([]*NodeProto, error)
+	// List calls f with the files and subdirectories of the directory at 'path'.
+	List(path string, f func(node *NodeProto) error) error
 
-	// Glob returns a map of file/directory paths to nodes that match 'pattern'.
-	Glob(pattern string) (map[string]*NodeProto, error)
+	// ListAll is like List but aggregates its results into a slice.
+	ListAll(path string) ([]*NodeProto, error)
+
+	// Glob calls f with the file/directory paths and nodes that match 'pattern'.
+	Glob(pattern string, f func(path string, node *NodeProto) error) error
+
+	// GlobAll is like Glob but aggregates its results into a map
+	GlobAll(pattern string) (map[string]*NodeProto, error)
 
 	// FSSize gets the size of the file system that this tree represents.
 	// It's essentially a helper around h.Get("/").SubtreeBytes
