@@ -19,10 +19,10 @@
 package hashtree
 
 import (
-	fmt "fmt"
+	"fmt"
 	"path"
-	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 // internalDefault overrides the internal defaults of many functions in the
@@ -66,9 +66,7 @@ func join(ps ...string) string {
 // ValidatePath checks if a file path is legal
 func ValidatePath(path string) error {
 	path = clean(path)
-	match, _ := regexp.MatchString("^[ -~]+$", path)
-
-	if !match {
+	if !utf8.ValidString(path) {
 		return fmt.Errorf("path (%v) invalid: only printable ASCII characters allowed", path)
 	}
 
