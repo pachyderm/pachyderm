@@ -2186,7 +2186,8 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		return nil, err
 	}
 
-	paths, err := tree.Glob(file.Path)
+	// TODO this should use the Glob method and a callback
+	paths, err := tree.GlobAll(file.Path)
 	if err != nil {
 		return nil, err
 	}
@@ -2304,42 +2305,24 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 	return nodeToFileInfo(file.Commit, file.Path, node, true), nil
 }
 
-func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool) ([]*pfs.FileInfo, error) {
+func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool, f func(*pfs.FileInfo) error) error {
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
-		return nil, err
+		return err
 	}
-
 	tree, err := d.getTreeForFile(ctx, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	rootPaths, err := tree.Glob(file.Path)
-	if err != nil {
-		return nil, err
-	}
-	paths := make(map[string]*hashtree.NodeProto, len(rootPaths))
-	for rootPath, rootNode := range rootPaths {
-		nodes, err := tree.List(rootPath)
-		if err != nil {
-			if hashtree.Code(err) == hashtree.PathConflict {
-				paths[rootPath] = rootNode
-				continue
-			}
-			return nil, err
+	return tree.Glob(file.Path, func(rootPath string, rootNode *hashtree.NodeProto) error {
+		if rootNode.DirNode == nil {
+			return f(nodeToFileInfo(file.Commit, rootPath, rootNode, full))
 		}
-		for _, node := range nodes {
-			paths[filepath.Join(rootPath, node.Name)] = node
-		}
-	}
-
-	var fileInfos []*pfs.FileInfo
-	for path, node := range paths {
-		fileInfos = append(fileInfos, nodeToFileInfo(file.Commit, path, node, full))
-	}
-	return fileInfos, nil
+		return tree.List(rootPath, func(node *hashtree.NodeProto) error {
+			return f(nodeToFileInfo(file.Commit, filepath.Join(rootPath, node.Name), node, full))
+		})
+	})
 }
 
 func (d *driver) walkFile(ctx context.Context, file *pfs.File, f func(*pfs.FileInfo) error) error {
@@ -2358,28 +2341,19 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, f func(*pfs.FileI
 	})
 }
 
-func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern string) ([]*pfs.FileInfo, error) {
+func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern string, f func(*pfs.FileInfo) error) error {
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_READER); err != nil {
-		return nil, err
+		return err
 	}
-
 	tree, err := d.getTreeForFile(ctx, client.NewFile(commit.Repo.Name, commit.ID, ""))
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	paths, err := tree.Glob(pattern)
-	if err != nil {
-		return nil, err
-	}
-
-	var fileInfos []*pfs.FileInfo
-	for path, node := range paths {
-		fileInfos = append(fileInfos, nodeToFileInfo(commit, path, node, false))
-	}
-	return fileInfos, nil
+	return tree.Glob(pattern, func(path string, node *hashtree.NodeProto) error {
+		return f(nodeToFileInfo(commit, path, node, false))
+	})
 }
 
 func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.File, shallow bool) ([]*pfs.FileInfo, []*pfs.FileInfo, error) {
@@ -2553,7 +2527,7 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			}
 		}
 	} else {
-		nodes, err := tree.List(key)
+		nodes, err := tree.ListAll(key)
 		if err != nil && hashtree.Code(err) != hashtree.PathNotFound {
 			return err
 		}
