@@ -3,8 +3,8 @@ package hashtree
 import (
 	"reflect"
 
-	"github.com/Sirupsen/logrus"
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/sirupsen/logrus"
 )
 
 type Cache struct {
