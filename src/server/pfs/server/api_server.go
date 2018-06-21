@@ -34,17 +34,6 @@ type apiServer struct {
 	driver *driver
 }
 
-func newLocalAPIServer(address string, etcdPrefix string, storageRoot string) (*apiServer, error) {
-	d, err := newLocalDriver(address, etcdPrefix, storageRoot)
-	if err != nil {
-		return nil, err
-	}
-	return &apiServer{
-		Logger: log.NewLocalLogger("pfs.API"),
-		driver: d,
-	}, nil
-}
-
 func newAPIServer(address string, etcdAddresses []string, etcdPrefix string, treeCache *hashtree.Cache, storageRoot string) (*apiServer, error) {
 	d, err := newDriver(address, etcdAddresses, etcdPrefix, treeCache, storageRoot)
 	if err != nil {

@@ -52,7 +52,6 @@ const (
 
 	// Maximum number of concurrent put object calls.
 	putObjectConcurrency = 100
-	defaultTreeCacheSize = 8
 )
 
 // validateRepoName determines if a repo name is valid
@@ -147,16 +146,6 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCa
 	}
 	go func() { d.getPachClient(context.Background()) }() // Begin dialing connection on startup
 	return d, nil
-}
-
-// newLocalDriver creates a driver using an local etcd instance.  This
-// function is intended for testing purposes
-func newLocalDriver(blockAddress string, etcdPrefix string, storagePrefix string) (*driver, error) {
-	treeCache, err := hashtree.NewCache(defaultTreeCacheSize)
-	if err != nil {
-		return nil, err
-	}
-	return newDriver(blockAddress, []string{"localhost:32379"}, etcdPrefix, treeCache, storagePrefix)
 }
 
 // getPachClient() initializes the connection that the pfs driver has with the
