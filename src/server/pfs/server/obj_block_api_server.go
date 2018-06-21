@@ -91,6 +91,7 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objC
 		objectGroupName += uuid
 		tagGroupName += uuid
 		objectInfoGroupName += uuid
+		blockGroupName += uuid
 	}
 
 	s.objectCache = groupcache.NewGroup(objectGroupName, oneCacheShare*objectCacheShares, groupcache.GetterFunc(s.objectGetter))
