@@ -5364,7 +5364,7 @@ func TestPipelineBadImage(t *testing.T) {
 
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
-	pipeline1 := tu.UniqueString("bad_pipeline")
+	pipeline1 := tu.UniqueString("bad_pipeline_1_")
 	require.NoError(t, c.CreatePipeline(
 		pipeline1,
 		"BadImage",
@@ -5375,7 +5375,7 @@ func TestPipelineBadImage(t *testing.T) {
 		"",
 		false,
 	))
-	pipeline2 := tu.UniqueString("bad_pipeline")
+	pipeline2 := tu.UniqueString("bad_pipeline_2_")
 	require.NoError(t, c.CreatePipeline(
 		pipeline2,
 		"bs/badimage:vcrap",
@@ -7119,6 +7119,9 @@ func TestExtractRestore(t *testing.T) {
 		require.NoError(t, c.FinishCommit(dataRepo, "master"))
 	}
 
+	// create a headless branch, we've had issues with this crashing extraction.
+	require.NoError(t, c.CreateBranch(dataRepo, "headless", "", nil))
+
 	numPipelines := 3
 	input := dataRepo
 	for i := 0; i < numPipelines; i++ {
@@ -7154,6 +7157,10 @@ func TestExtractRestore(t *testing.T) {
 	require.NoError(t, err)
 	commitInfos = collectCommitInfos(t, commitIter)
 	require.Equal(t, numPipelines, len(commitInfos))
+
+	bis, err := c.ListBranch(dataRepo)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(bis)) // 2 branches "master" and "headless"
 }
 
 // TestCancelJob creates a long-running job and then kills it, testing that the

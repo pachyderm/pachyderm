@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
@@ -44,8 +45,8 @@ func newLocalAPIServer(address string, etcdPrefix string, storageRoot string) (*
 	}, nil
 }
 
-func newAPIServer(address string, etcdAddresses []string, etcdPrefix string, cacheSize int64, storageRoot string) (*apiServer, error) {
-	d, err := newDriver(address, etcdAddresses, etcdPrefix, cacheSize, storageRoot)
+func newAPIServer(address string, etcdAddresses []string, etcdPrefix string, treeCache *hashtree.Cache, storageRoot string) (*apiServer, error) {
+	d, err := newDriver(address, etcdAddresses, etcdPrefix, treeCache, storageRoot)
 	if err != nil {
 		return nil, err
 	}
