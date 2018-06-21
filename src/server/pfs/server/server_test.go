@@ -33,7 +33,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 
 	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/hashicorp/golang-lru"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -114,7 +113,7 @@ func getPachClient(t testing.TB) *pclient.APIClient {
 	blockAPIServer, err := newLocalBlockAPIServer(root, localBlockServerCacheBytes, etcdAddress)
 	require.NoError(t, err)
 	etcdPrefix := generateRandomString(32)
-	treeCache, err := lru.New(testingTreeCacheSize)
+	treeCache, err := hashtree.NewCache(testingTreeCacheSize)
 	if err != nil {
 		panic(fmt.Sprintf("could not initialize treeCache: %v", err))
 	}
