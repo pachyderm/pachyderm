@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"golang.org/x/net/context"
@@ -210,7 +212,30 @@ func WithAdditionalPachdCert() Option {
 func getAddrAndExtraOptionsOnUserMachine(cfg *config.Config) (string, []Option, error) {
 	// 1) ADDRESS environment variable (shell-local) overrides global config
 	if envAddr, ok := os.LookupEnv("ADDRESS"); ok {
-		return envAddr, nil, nil
+		var options []Option
+		if certPaths, ok := os.LookupEnv("PACH_CA_CERTS"); ok {
+			paths := strings.Split(certPaths, ",")
+			for _, p := range paths {
+				// Try to read all certs under 'p'--skip any that we can't read/stat
+				filepath.Walk(p, func(p string, info os.FileInfo, err error) error {
+					if err != nil {
+						log.Warnf("skipping \"%s\", could not stat path: %v", p, err)
+						return nil // Don't try and fix any errors encountered by Walk() itself
+					}
+					if info.IsDir() {
+						return nil // We'll just read the children of any directories when we traverse them
+					}
+					pemBytes, err := ioutil.ReadFile(p)
+					if err != nil {
+						log.Warnf("could not read server CA certs at %s: %v", p, err)
+						return nil
+					}
+					options = append(options, WithAdditionalRootCAs(pemBytes))
+					return nil
+				})
+			}
+		}
+		return envAddr, options, nil
 	}
 
 	// 2) Get target address from global config if possible
