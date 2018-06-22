@@ -53,7 +53,7 @@ echo
 
 # Delete old replicaset with no replicas (which kubernetes doesn't for some reason)
 set -x
-old_rs=$(kubectl get rs -l suite=pachyderm -o json | jq -r '.items[] | select(.spec.replicas == 0) | .metadata.name')
+old_rs=$(kubectl get rs -l app=pachd,suite=pachyderm -o json | jq -r '.items[] | select(.spec.replicas == 0) | .metadata.name')
 echo "old replicaset: ${old_rs}"
 if [[ -n "${old_rs}" ]]; then
   kubectl delete rs/${old_rs}
