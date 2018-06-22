@@ -307,9 +307,11 @@ launch-kube: check-kubectl
 launch-dev-vm: check-kubectl
 	@# Make sure the caller sets address to avoid confusion later
 	@if [ -z "${ADDRESS}" ]; then \
-	  echo "Must set ADDRESS"; \
-	  echo "Run"; \
-	  echo "export ADDRESS=192.168.99.100:30650"; \
+		echo -e"Must set ADDRESS\nRun:\nexport ADDRESS=192.168.99.100:30650"; \
+	  exit 1; \
+	fi
+	@if [ -n "${PACH_CA_CERTS}" ]; then \
+		echo -e"Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS"; \
 	  exit 1; \
 	fi
 	# Making sure minikube isn't still up from a previous run...
@@ -402,7 +404,7 @@ pretest:
 
 local-test: docker-build launch-dev test-pfs clean-launch-dev
 
-test-misc: lint enterprise-code-checkin-test docker-build test-pfs-server test-pfs-cmds test-libs test-vault test-auth test-enterprise test-worker
+test-misc: lint enterprise-code-checkin-test docker-build test-pfs-server test-pfs-cmds test-libs test-vault test-auth test-enterprise test-worker test-tls
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis
 test: clean-launch-dev launch-dev test-misc test-pps
@@ -481,20 +483,22 @@ test-enterprise:
 	@# Dont cache these results as they require the pachd cluster
 	go test -v ./src/server/enterprise/server -count 1 -timeout $(TIMEOUT)
 
+# TODO This is not very robust -- it doesn't work when the ADDRESS host isn't an IPv4 address
+PACHD_HOST := $(word 1,$(subst :, ,$(ADDRESS)))
+PACHD_PORT := $(word 2,$(subst :, ,$(ADDRESS)))
+
 test-tls:
 	# Pachyderm must be running when this target is called
 	pachctl version
 	# TLS is an enterprise pachyderm feature
 	pachctl enterprise activate $$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -) && echo
 	# Generate TLS key and re-deploy pachyderm with TLS enabled
-	bash -c \
-		"IFS=:; read host port <<< $${ADDRESS}; " \
-		"etc/deploy/gen_pachd_tls.sh --ip=$${host} --port=$${port};"
-	# Unset ADDRESS so pachctl and tests rely on pachyderm config
-	unset ADDRESS
-	pachctl deploy local -d --tls=pachd.pem,pachd.key
+	etc/deploy/gen_pachd_tls.sh --ip=$(PACHD_HOST) --port=$(PACHD_PORT)
+	# Restart pachd with new cert
+	etc/deploy/restart_with_tls.sh --key=$(PWD)/pachd.key --cert=$(PWD)/pachd.pem
 	# If we can run a pipeline, TLS probably works
-	# go test -v ./src/server -run TestPipelineWithParallelism
+	@# TODO actually monitor traffic with tcpdump
+	PACH_CA_CERTS=${PWD}/pachd.pem go test -v ./src/server -run TestPipelineWithParallelism
 
 test-worker: launch-stats test-worker-helper
 

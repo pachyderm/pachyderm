@@ -1,7 +1,7 @@
 #!/bin/bash
 # This script generates a self-signed TLS cert to be used by pachd in tests
 
-eval "set -- $( getopt -l "dns:,ip:" -o "o:" "--" "${0}" "${@:-}" )"
+eval "set -- $( getopt -l "dns:,ip:,port:" -o "o:" "--" "${0}" "${@:-}" )"
 
 dns="localhost"
 ip="127.0.0.1"
@@ -49,8 +49,6 @@ EOF
   esac
 done
 
-# set -ex
-
 # Define a minimal openssl config for our micro-CA
 read -d '' -r tls_config <<EOF
 [ req ]
@@ -63,8 +61,14 @@ x509_extensions    = exn    # Since we're making self-signed certs. For CSRs, us
 CN = ${dns}
 
 [ exn ]
-subjectAltName = IP:${ip}
 EOF
+
+# If 'ip' is set, include IP in TLS cert
+if [[ -n "${ip}" ]]; then
+  tls_config+=$'\n'"subjectAltName = IP:${ip}"
+fi
+
+echo "${tls_config}"
 
 # Set other openssl options
 tls_opts=(
@@ -98,4 +102,4 @@ openssl req "${tls_opts[@]}" -config <(echo "${tls_config}")
 
 # Copy pachd public key to pachyderm config
 cp ~/.pachyderm/config.json ~/.pachyderm/config.json.backup
-cat ~/.pachyderm/config.json.backup | jq ".v1.pachd_address = \"${ip}:${port}\" .v1.server_cas = \"$(cat ./pachd.pem | base64)\" | ." >~/.pachyderm/config.json
+cat ~/.pachyderm/config.json.backup | jq ".v1.pachd_address = \"${ip}:${port}\" | .v1.server_cas = \"$(cat ./pachd.pem | base64)\" | ." >~/.pachyderm/config.json
