@@ -61,6 +61,11 @@ message HashTreeProto {
   map<string, NodeProto> fs = 2;
 }
 
+message BucketHeader {
+  string bucket = 1;
+  int64 keys = 2;
+}
+
 /// Potential Optimizations
 //
 // Currently, we serialize HashTree.fs, i.e. the map from paths to nodes, as a

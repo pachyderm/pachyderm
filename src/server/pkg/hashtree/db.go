@@ -16,6 +16,7 @@ import (
 	globlib "github.com/gobwas/glob"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
@@ -28,6 +29,7 @@ const (
 )
 
 var (
+	buckets    = []string{FsBucket, ChangedBucket, ObjectBucket}
 	changedVal = []byte{1}
 	nullByte   = []byte{0}
 	slashByte  = []byte{'/'}
@@ -94,23 +96,14 @@ func NewDBHashTree(storageRoot string) (HashTree, error) {
 }
 
 func DeserializeDBHashTree(storageRoot string, r io.Reader) (_ HashTree, retErr error) {
-	file := dbFile(storageRoot)
-	if err := os.MkdirAll(pathlib.Dir(file), 0777); err != nil {
-		return nil, err
-	}
-	f, err := os.Create(file)
+	result, err := NewDBHashTree(storageRoot)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if err := f.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	if _, err := io.Copy(f, r); err != nil {
+	if err := result.Deserialize(r); err != nil {
 		return nil, err
 	}
-	return newDBHashTree(file)
+	return result, nil
 }
 
 func newDBHashTree(file string) (HashTree, error) {
@@ -121,7 +114,7 @@ func newDBHashTree(file string) (HashTree, error) {
 	db.NoSync = true
 	db.MaxBatchDelay = 0
 	if err := db.Batch(func(tx *bolt.Tx) error {
-		for _, bucket := range []string{FsBucket, ChangedBucket, ObjectBucket} {
+		for _, bucket := range buckets {
 			if _, err := tx.CreateBucketIfNotExists(b(bucket)); err != nil {
 				return err
 			}
@@ -424,10 +417,68 @@ func (h *dbHashTree) Diff(oldHashTree HashTree, newPath string, oldPath string, 
 	return diff(newTx, oldTx, newPath, oldPath, recursiveDepth, f)
 }
 
-func (h *dbHashTree) Serialize(w io.Writer) error {
+func (h *dbHashTree) Serialize(_w io.Writer) error {
+	w := pbutil.NewWriter(_w)
 	return h.View(func(tx *bolt.Tx) error {
-		_, err := tx.WriteTo(w)
-		return err
+		for _, bucket := range buckets {
+			b := tx.Bucket(b(bucket))
+			keys := int64(b.Stats().KeyN)
+			if err := w.Write(
+				&BucketHeader{
+					Bucket: bucket,
+					Keys:   keys,
+				}); err != nil {
+				return err
+			}
+			if err := b.ForEach(func(k, v []byte) error {
+				keys--
+				if err := w.WriteBytes(k); err != nil {
+					return err
+				}
+				return w.WriteBytes(v)
+			}); err != nil {
+				return err
+			}
+			if keys != 0 {
+				return fmt.Errorf("bolt lied about the number of keys")
+			}
+		}
+		return nil
+	})
+}
+
+func (h *dbHashTree) Deserialize(_r io.Reader) error {
+	r := pbutil.NewReader(_r)
+	return h.Batch(func(tx *bolt.Tx) error {
+		hdr := &BucketHeader{}
+		for {
+			hdr.Reset()
+			if err := r.Read(hdr); err != nil {
+				if err == io.EOF {
+					return nil
+				}
+				return err
+			}
+			b := tx.Bucket(b(hdr.Bucket))
+			for i := int64(0); i < hdr.Keys; i++ {
+				_k, err := r.ReadBytes()
+				if err != nil {
+					return err
+				}
+				// we need to make copies of k and v because the memory will be reused
+				k := make([]byte, len(_k))
+				copy(k, _k)
+				_v, err := r.ReadBytes()
+				if err != nil {
+					return err
+				}
+				v := make([]byte, len(_v))
+				copy(v, _v)
+				if err := b.Put(k, v); err != nil {
+					return err
+				}
+			}
+		}
 	})
 }
 
@@ -455,26 +506,6 @@ func (h *dbHashTree) Copy() (HashTree, error) {
 		return nil, err
 	}
 	return result, nil
-}
-
-func (h *dbHashTree) Deserialize(r io.Reader) error {
-	path := h.Path()
-	if err := h.Close(); err != nil {
-		return err
-	}
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, perm)
-	if err != nil {
-		return err
-	}
-	if _, err := io.Copy(f, r); err != nil {
-		return err
-	}
-	db, err := bolt.Open(path, perm, nil)
-	if err != nil {
-		return err
-	}
-	h.DB = db
-	return nil
 }
 
 func (h *dbHashTree) Destroy() error {

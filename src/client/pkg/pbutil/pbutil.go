@@ -10,11 +10,13 @@ import (
 // Reader is io.Reader for proto.Message instead of []byte.
 type Reader interface {
 	Read(val proto.Message) error
+	ReadBytes() ([]byte, error)
 }
 
 // Writer is io.Writer for proto.Message instead of []byte.
 type Writer interface {
 	Write(val proto.Message) error
+	WriteBytes([]byte) error
 }
 
 // ReadWriter is io.ReadWriter for proto.Message instead of []byte.
@@ -29,11 +31,10 @@ type readWriter struct {
 	buf []byte
 }
 
-// Read reads val from r.
-func (r *readWriter) Read(val proto.Message) error {
+func (r *readWriter) ReadBytes() ([]byte, error) {
 	var l int64
 	if err := binary.Read(r.r, binary.LittleEndian, &l); err != nil {
-		return err
+		return nil, err
 	}
 	if r.buf == nil || len(r.buf) < int(l) {
 		r.buf = make([]byte, l)
@@ -41,11 +42,28 @@ func (r *readWriter) Read(val proto.Message) error {
 	buf := r.buf[0:l]
 	if _, err := io.ReadFull(r.r, buf); err != nil {
 		if err == io.EOF {
-			return io.ErrUnexpectedEOF
+			return nil, io.ErrUnexpectedEOF
 		}
+		return nil, err
+	}
+	return buf, nil
+}
+
+// Read reads val from r.
+func (r *readWriter) Read(val proto.Message) error {
+	buf, err := r.ReadBytes()
+	if err != nil {
 		return err
 	}
 	return proto.Unmarshal(buf, val)
+}
+
+func (r *readWriter) WriteBytes(bytes []byte) error {
+	if err := binary.Write(r.w, binary.LittleEndian, int64(len(bytes))); err != nil {
+		return err
+	}
+	_, err := r.w.Write(bytes)
+	return err
 }
 
 // Write writes val to r.
@@ -54,11 +72,7 @@ func (r *readWriter) Write(val proto.Message) error {
 	if err != nil {
 		return err
 	}
-	if err := binary.Write(r.w, binary.LittleEndian, int64(len(bytes))); err != nil {
-		return err
-	}
-	_, err = r.w.Write(bytes)
-	return err
+	return r.WriteBytes(bytes)
 }
 
 // NewReader returns a new Reader with r as its source.
