@@ -14,7 +14,9 @@ import (
 
 	bolt "github.com/coreos/bbolt"
 	globlib "github.com/gobwas/glob"
+	"github.com/golang/snappy"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
@@ -418,7 +420,7 @@ func (h *dbHashTree) Diff(oldHashTree HashTree, newPath string, oldPath string, 
 }
 
 func (h *dbHashTree) Serialize(_w io.Writer) error {
-	w := pbutil.NewWriter(_w)
+	w := pbutil.NewWriter(snappy.NewWriter(_w))
 	return h.View(func(tx *bolt.Tx) error {
 		for _, bucket := range buckets {
 			b := tx.Bucket(b(bucket))
@@ -448,38 +450,43 @@ func (h *dbHashTree) Serialize(_w io.Writer) error {
 }
 
 func (h *dbHashTree) Deserialize(_r io.Reader) error {
-	r := pbutil.NewReader(_r)
-	return h.Batch(func(tx *bolt.Tx) error {
-		hdr := &BucketHeader{}
-		for {
-			hdr.Reset()
-			if err := r.Read(hdr); err != nil {
-				if err == io.EOF {
-					return nil
-				}
+	r := pbutil.NewReader(snappy.NewReader(_r))
+	hdr := &BucketHeader{}
+	var eg errgroup.Group
+	limiter := limit.New(100)
+	for {
+		hdr.Reset()
+		if err := r.Read(hdr); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		bucket := b(hdr.Bucket)
+		for i := int64(0); i < hdr.Keys; i++ {
+			_k, err := r.ReadBytes()
+			if err != nil {
 				return err
 			}
-			b := tx.Bucket(b(hdr.Bucket))
-			for i := int64(0); i < hdr.Keys; i++ {
-				_k, err := r.ReadBytes()
-				if err != nil {
-					return err
-				}
-				// we need to make copies of k and v because the memory will be reused
-				k := make([]byte, len(_k))
-				copy(k, _k)
-				_v, err := r.ReadBytes()
-				if err != nil {
-					return err
-				}
-				v := make([]byte, len(_v))
-				copy(v, _v)
-				if err := b.Put(k, v); err != nil {
-					return err
-				}
+			// we need to make copies of k and v because the memory will be reused
+			k := make([]byte, len(_k))
+			copy(k, _k)
+			_v, err := r.ReadBytes()
+			if err != nil {
+				return err
 			}
+			v := make([]byte, len(_v))
+			copy(v, _v)
+			limiter.Acquire()
+			eg.Go(func() error {
+				defer limiter.Release()
+				return h.Batch(func(tx *bolt.Tx) error {
+					return tx.Bucket(bucket).Put(k, v)
+				})
+			})
 		}
-	})
+	}
+	return eg.Wait()
 }
 
 func (h *dbHashTree) Copy() (HashTree, error) {
