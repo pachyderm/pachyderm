@@ -348,8 +348,7 @@ func DefaultDialOptions() []grpc.DialOption {
 		grpc.WithBlock(),
 
 		// If no connection is established in 30s, fail the call
-		// grpc.WithTimeout(30 * time.Second),
-		grpc.WithTimeout(5 * time.Second),
+		grpc.WithTimeout(30 * time.Second),
 
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(grpcutil.MaxMsgSize),
