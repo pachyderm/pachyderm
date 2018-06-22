@@ -9,11 +9,8 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
-	"github.com/pachyderm/pachyderm/src/client"
+	pclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/version"
-	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
-
-	"google.golang.org/grpc"
 )
 
 func (b *backend) versionPath() *framework.Path {
@@ -62,20 +59,16 @@ func (b *backend) pathVersion(ctx context.Context, req *logical.Request, d *fram
 	}
 
 	// Create version API client
-	clientConn, err := grpc.Dial(config.PachdAddress,
-		append(client.DefaultDialOptions(), grpc.WithInsecure())...)
+	client, err := pclient.NewFromAddress(config.PachdAddress)
 	if err != nil {
 		return nil, err
 	}
-	versionClient := versionpb.NewAPIClient(clientConn)
-	if err != nil {
-		return nil, err
-	}
+	defer client.Close() // avoid leaking connections
 
 	// Retrieve server version
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	serverVersion, err := versionClient.GetVersion(ctx, &types.Empty{})
+	serverVersion, err := client.GetVersion(ctx, &types.Empty{})
 	if err != nil {
 		return nil, err
 	}
