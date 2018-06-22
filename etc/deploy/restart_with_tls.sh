@@ -27,28 +27,34 @@ kubectl get deploy/pachd -o json | jq '.spec.replicas = 0' | kubectl apply -f -
 pachctl deploy local -d --tls="${PACH_CA_CERTS},${PACH_TLS_KEY}" --dry-run | kubectl apply -f -
 
 echo "######################################"
-echo -e "Run:\nexport PACH_CA_CERTS=${PWD}/pachd.pem\nto talk to the new tls-enabled pachd cluster"
+echo -e "Run:\nexport PACH_CA_CERTS=${PACH_CA_CERTS}\nto talk to the new tls-enabled pachd cluster"
 echo "######################################"
 # Wait for new pachd pod to start
 
-WHEEL="\|/-"
-retries=30
-# Wait for old pachd to go down
-while pachctl version 2>&1 >/dev/null && (( retries-- > 0 )); do
-  echo -en "\e[G${WHEEL::1}"
-  WHEEL="${WHEEL:1}${WHEEL::1}"
-  sleep 1
-done
 
-# Wait for new pachd to go down
-until pachctl version 2>&1 >/dev/null; do
-  echo -en "\e[G${WHEEL::1}"
+echo "Waiting for old pachd to go down..."
+WHEEL="\|/-"
+retries=5
+while pachctl version &>/dev/null && (( retries-- > 0 )); do
+  echo -en "\e[G${WHEEL::1} (retries: ${retries})"
   WHEEL="${WHEEL:1}${WHEEL::1}"
   sleep 1
 done
+echo
+
+echo "Waiting for new pachd to come up..."
+retries=10
+until pachctl version &>/dev/null || (( retries-- == 0 )); do
+  echo -en "\e[G${WHEEL::1} (retries: ${retries})"
+  WHEEL="${WHEEL:1}${WHEEL::1}"
+  sleep 1
+done
+echo
 
 # Delete old replicaset with no replicas (which kubernetes doesn't for some reason)
+set -x
 old_rs=$(kubectl get rs -l suite=pachyderm -o json | jq -r '.items[] | select(.spec.replicas == 0) | .metadata.name')
+echo "old replicaset: ${old_rs}"
 if [[ -n "${old_rs}" ]]; then
   kubectl delete rs/${old_rs}
 fi
