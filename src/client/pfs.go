@@ -1125,6 +1125,7 @@ func (w *putObjectWriteCloser) Write(p []byte) (int, error) {
 	if err := w.client.Send(w.request); err != nil {
 		return 0, grpcutil.ScrubGRPC(err)
 	}
+	w.request.Tags = nil
 	return len(p), nil
 }
 
