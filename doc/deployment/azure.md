@@ -32,10 +32,10 @@ $ CLUSTER_NAME=<unique name for the cluster, e.g., "pach-aks-cluster">
 $ az group create --name=${RESOURCE_GROUP} --location=${LOCATION}
 
 # Create the AKS cluster.
-$ az aks create --resource-group ${RESOURCE_GROUP} --name ${CLUSTER_NAME} --generate-ssh-keys --node-vm-size ${NODE_SIZE} 
+$ az aks create --resource-group ${RESOURCE_GROUP} --name ${CLUSTER_NAME} --generate-ssh-keys --node-vm-size ${NODE_SIZE}
 ```
 
-Once Kubernetes is up and running you should be able to confirm the verion of the Kubernetes server via:
+Once Kubernetes is up and running you should be able to confirm the version of the Kubernetes server via:
 
 ```sh
 $ kubectl version
@@ -49,7 +49,7 @@ Server Version: version.Info{Major:"1", Minor:"7", GitVersion:"v1.7.9", GitCommi
 
 To deploy Pachyderm we will need to:
 
-1. Add some storage resources on Azure, 
+1. Add some storage resources on Azure,
 2. Install the Pachyderm CLI tool, `pachctl`, and
 3. Deploy Pachyderm on top of the storage resources.
 
@@ -136,4 +136,3 @@ COMPONENT           VERSION
 pachctl             1.7.0
 pachd               1.7.0
 ```
-
