@@ -19,6 +19,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	globlib "github.com/gobwas/glob"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/limit"
@@ -56,11 +57,9 @@ const (
 // validateRepoName determines if a repo name is valid
 func validateRepoName(name string) error {
 	match, _ := regexp.MatchString("^[a-zA-Z0-9_-]+$", name)
-
 	if !match {
 		return fmt.Errorf("repo name (%v) invalid: only alphanumeric characters, underscores, and dashes are allowed", name)
 	}
-
 	return nil
 }
 
@@ -113,12 +112,14 @@ type driver struct {
 	storageRoot string
 }
 
-const (
-	defaultTreeCacheSize = 8
-)
-
 // newDriver is used to create a new Driver instance
-func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCacheSize int64, storageRoot string) (*driver, error) {
+func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCache *hashtree.Cache, storageRoot string) (*driver, error) {
+	// Validate arguments
+	if treeCache == nil {
+		return nil, fmt.Errorf("cannot initialize driver with nil treeCache")
+	}
+
+	// Initialize etcd client
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   etcdAddresses,
 		DialOptions: client.DefaultDialOptions(),
@@ -126,14 +127,7 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCa
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to etcd: %v", err)
 	}
-	if treeCacheSize <= 0 {
-		treeCacheSize = defaultTreeCacheSize
-	}
-	treeCache, err := hashtree.NewCache(int(treeCacheSize))
-	if err != nil {
-		return nil, fmt.Errorf("could not initialize treeCache: %v", err)
-	}
-
+	// Initialize driver
 	d := &driver{
 		address:        address,
 		etcdClient:     etcdClient,
@@ -154,12 +148,6 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCa
 	return d, nil
 }
 
-// newLocalDriver creates a driver using an local etcd instance.  This
-// function is intended for testing purposes
-func newLocalDriver(blockAddress string, etcdPrefix string, storagePrefix string) (*driver, error) {
-	return newDriver(blockAddress, []string{"localhost:32379"}, etcdPrefix, defaultTreeCacheSize, storagePrefix)
-}
-
 // getPachClient() initializes the connection that the pfs driver has with the
 // Pachyderm object API and auth API, and blocks until the connection is
 // established
@@ -174,7 +162,6 @@ func (d *driver) getPachClient(ctx context.Context) *client.APIClient {
 		if err != nil {
 			panic(fmt.Sprintf("could not intiailize Pachyderm client in driver: %v", err))
 		}
-
 	})
 	return d._pachClient.WithCtx(ctx)
 }
@@ -2186,7 +2173,8 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		return nil, err
 	}
 
-	paths, err := tree.Glob(file.Path)
+	// TODO this should use the Glob method and a callback
+	paths, err := tree.GlobAll(file.Path)
 	if err != nil {
 		return nil, err
 	}
@@ -2304,42 +2292,34 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 	return nodeToFileInfo(file.Commit, file.Path, node, true), nil
 }
 
-func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool) ([]*pfs.FileInfo, error) {
+func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool, f func(*pfs.FileInfo) error) error {
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
-		return nil, err
+		return err
 	}
-
 	tree, err := d.getTreeForFile(ctx, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	rootPaths, err := tree.Glob(file.Path)
+	g, err := globlib.Compile(file.Path, '/')
 	if err != nil {
-		return nil, err
+		// TODO this should be a MalformedGlob error like the hashtree returns
+		return err
 	}
-	paths := make(map[string]*hashtree.NodeProto, len(rootPaths))
-	for rootPath, rootNode := range rootPaths {
-		nodes, err := tree.List(rootPath)
-		if err != nil {
-			if hashtree.Code(err) == hashtree.PathConflict {
-				paths[rootPath] = rootNode
-				continue
+	return tree.Glob(file.Path, func(rootPath string, rootNode *hashtree.NodeProto) error {
+		if rootNode.DirNode == nil {
+			return f(nodeToFileInfo(file.Commit, rootPath, rootNode, full))
+		}
+		return tree.List(rootPath, func(node *hashtree.NodeProto) error {
+			path := filepath.Join(rootPath, node.Name)
+			if g.Match(path) {
+				// Don't return the file now, it will be returned later by Glob
+				return nil
 			}
-			return nil, err
-		}
-		for _, node := range nodes {
-			paths[filepath.Join(rootPath, node.Name)] = node
-		}
-	}
-
-	var fileInfos []*pfs.FileInfo
-	for path, node := range paths {
-		fileInfos = append(fileInfos, nodeToFileInfo(file.Commit, path, node, full))
-	}
-	return fileInfos, nil
+			return f(nodeToFileInfo(file.Commit, path, node, full))
+		})
+	})
 }
 
 func (d *driver) walkFile(ctx context.Context, file *pfs.File, f func(*pfs.FileInfo) error) error {
@@ -2348,7 +2328,6 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, f func(*pfs.FileI
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
-
 	tree, err := d.getTreeForFile(ctx, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, file.Path))
 	if err != nil {
 		return err
@@ -2358,28 +2337,19 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, f func(*pfs.FileI
 	})
 }
 
-func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern string) ([]*pfs.FileInfo, error) {
+func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern string, f func(*pfs.FileInfo) error) error {
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_READER); err != nil {
-		return nil, err
+		return err
 	}
-
 	tree, err := d.getTreeForFile(ctx, client.NewFile(commit.Repo.Name, commit.ID, ""))
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	paths, err := tree.Glob(pattern)
-	if err != nil {
-		return nil, err
-	}
-
-	var fileInfos []*pfs.FileInfo
-	for path, node := range paths {
-		fileInfos = append(fileInfos, nodeToFileInfo(commit, path, node, false))
-	}
-	return fileInfos, nil
+	return tree.Glob(pattern, func(path string, node *hashtree.NodeProto) error {
+		return f(nodeToFileInfo(commit, path, node, false))
+	})
 }
 
 func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.File, shallow bool) ([]*pfs.FileInfo, []*pfs.FileInfo, error) {
@@ -2553,7 +2523,7 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			}
 		}
 	} else {
-		nodes, err := tree.List(key)
+		nodes, err := tree.ListAll(key)
 		if err != nil && hashtree.Code(err) != hashtree.PathNotFound {
 			return err
 		}

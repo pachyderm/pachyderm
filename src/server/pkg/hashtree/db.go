@@ -16,6 +16,7 @@ import (
 	globlib "github.com/gobwas/glob"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
@@ -179,19 +180,37 @@ func iterDir(tx *bolt.Tx, path string, f func(k, v []byte, c *bolt.Cursor) error
 	c := NewChildCursor(tx, path)
 	for k, v := c.K(), c.V(); k != nil; k, v = c.Next() {
 		if err := f(k, v, c.c); err != nil {
+			if err == errutil.ErrBreak {
+				return nil
+			}
 			return err
 		}
 	}
 	return nil
 }
 
-func list(tx *bolt.Tx, path string) ([]*NodeProto, error) {
-	var result []*NodeProto
-	if err := iterDir(tx, path, func(_, v []byte, _ *bolt.Cursor) error {
+func list(tx *bolt.Tx, path string, f func(*NodeProto) error) error {
+	return iterDir(tx, path, func(_, v []byte, _ *bolt.Cursor) error {
 		node := &NodeProto{}
 		if err := node.Unmarshal(v); err != nil {
 			return err
 		}
+		return f(node)
+	})
+}
+
+// List retrieves the list of files and subdirectories of the directory at
+// 'path'.
+func (h *dbHashTree) List(path string, f func(*NodeProto) error) error {
+	path = clean(path)
+	return h.View(func(tx *bolt.Tx) error {
+		return list(tx, path, f)
+	})
+}
+
+func (h *dbHashTree) ListAll(path string) ([]*NodeProto, error) {
+	var result []*NodeProto
+	if err := h.List(path, func(node *NodeProto) error {
 		result = append(result, node)
 		return nil
 	}); err != nil {
@@ -200,62 +219,53 @@ func list(tx *bolt.Tx, path string) ([]*NodeProto, error) {
 	return result, nil
 }
 
-// List retrieves the list of files and subdirectories of the directory at
-// 'path'.
-func (h *dbHashTree) List(path string) ([]*NodeProto, error) {
-	path = clean(path)
-	var result []*NodeProto
-	if err := h.View(func(tx *bolt.Tx) error {
-		var err error
-		result, err = list(tx, path)
-		if err != nil {
-			return err
-		}
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func glob(tx *bolt.Tx, pattern string) (map[string]*NodeProto, error) {
+func glob(tx *bolt.Tx, pattern string, f func(string, *NodeProto) error) error {
 	if !isGlob(pattern) {
 		node, err := get(tx, pattern)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		return map[string]*NodeProto{clean(pattern): node}, nil
+		return f(pattern, node)
 	}
 
 	g, err := globlib.Compile(pattern, '/')
 	if err != nil {
-		return nil, errorf(MalformedGlob, err.Error())
+		return errorf(MalformedGlob, err.Error())
 	}
-	res := make(map[string]*NodeProto)
 	c := fs(tx).Cursor()
 	for k, v := c.First(); k != nil; k, v = c.Next() {
 		if g.Match(s(k)) {
 			node := &NodeProto{}
 			if node.Unmarshal(v); err != nil {
-				return nil, err
+				return err
 			}
-			res[s(k)] = node
+			if err := f(s(k), node); err != nil {
+				if err == errutil.ErrBreak {
+					return nil
+				}
+				return err
+			}
 		}
 	}
-	return res, nil
+	return nil
 }
 
-func (h *dbHashTree) Glob(pattern string) (map[string]*NodeProto, error) {
+func (h *dbHashTree) Glob(pattern string, f func(string, *NodeProto) error) error {
 	pattern = clean(pattern)
-	var result map[string]*NodeProto
-	if err := h.View(func(tx *bolt.Tx) error {
-		var err error
-		result, err = glob(tx, pattern)
-		return err
+	return h.View(func(tx *bolt.Tx) error {
+		return glob(tx, pattern, f)
+	})
+}
+
+func (h *dbHashTree) GlobAll(pattern string) (map[string]*NodeProto, error) {
+	res := make(map[string]*NodeProto)
+	if err := h.Glob(pattern, func(path string, node *NodeProto) error {
+		res[path] = node
+		return nil
 	}); err != nil {
 		return nil, err
 	}
-	return result, nil
+	return res, nil
 }
 
 func (h *dbHashTree) FSSize() int64 {
@@ -284,6 +294,9 @@ func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) erro
 				continue
 			}
 			if err := f(nodePath, node); err != nil {
+				if err == errutil.ErrBreak {
+					return nil
+				}
 				return err
 			}
 		}
@@ -617,21 +630,16 @@ func (h *dbHashTree) DeleteFile(path string) error {
 		path = "/*"
 	}
 	return h.Batch(func(tx *bolt.Tx) error {
-		paths, err := glob(tx, path)
-		// Deleting a non-existent file should be a no-op
-		if err != nil && Code(err) != PathNotFound {
-			return err
-		}
-		for path := range paths {
+		if err := glob(tx, path, func(path string, node *NodeProto) error {
 			// Check if the file has been deleted already
 			if _, err := get(tx, path); err != nil && Code(err) == PathNotFound {
-				continue
+				return nil
 			}
 			// Remove 'path' and all nodes underneath it from h.fs
 			if err := deleteDir(tx, path); err != nil {
 				return err
 			}
-			size := paths[path].SubtreeSize
+			size := node.SubtreeSize
 			// Remove 'path' from its parent directory
 			// TODO(bryce) Decide if this should be removed.
 			parent, _ := split(path)
@@ -662,6 +670,10 @@ func (h *dbHashTree) DeleteFile(path string) error {
 			}); err != nil {
 				return err
 			}
+			return nil
+		}); err != nil && Code(err) != PathNotFound {
+			// Deleting a non-existent file should be a no-op
+			return err
 		}
 		return nil
 	})
@@ -731,12 +743,11 @@ func mergeNode(tx *bolt.Tx, path string, srcs []HashTree) (int64, error) {
 		switch n.nodetype() {
 		case directory:
 			// Instead of merging here, we build a reverse-index and merge below
-			children, err := src.List(path)
-			if err != nil {
+			if err := src.List(path, func(node *NodeProto) error {
+				childrenToTrees[node.Name] = append(childrenToTrees[node.Name], src)
+				return nil
+			}); err != nil {
 				return 0, err
-			}
-			for _, c := range children {
-				childrenToTrees[c.Name] = append(childrenToTrees[c.Name], src)
 			}
 		case file:
 			// Append new objects, and update size of target node (since that can't be

@@ -144,7 +144,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			if err := handleOp(&admin.Op{Op1_7: &admin.Op1_7{
 				Branch: &pfs.CreateBranchRequest{
 					Head:   bi.Head,
-					Branch: client.NewBranch(bi.Head.Repo.Name, bi.Name),
+					Branch: bi.Branch,
 				},
 			}}); err != nil {
 				return err
@@ -171,6 +171,9 @@ func buildCommitRequests(cis []*pfs.CommitInfo, bis []*pfs.BranchInfo) []*pfs.Bu
 	result := make([]*pfs.BuildCommitRequest, len(cis))
 	commitToBranch := make(map[string]string)
 	for _, bi := range bis {
+		if bi.Head == nil {
+			continue
+		}
 		if _, ok := commitToBranch[bi.Head.ID]; !ok || bi.Name == "master" {
 			commitToBranch[bi.Head.ID] = bi.Name
 		}
