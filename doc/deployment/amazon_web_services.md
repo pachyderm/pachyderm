@@ -283,4 +283,4 @@ You can delete your Pachyderm cluster using `kops`:
 $ kops delete cluster
 ```
 
-In addition, there is the entry in `/etc/hosts` pointing to the cluster that will need to be manually removed.
+In addition, there is the entry in `/etc/hosts` pointing to the cluster that will need to be manually removed. Similarly, kubernetes state s3 bucket and pachyderm storage bucket will need to be manually removed.

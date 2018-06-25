@@ -29,7 +29,7 @@ $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.7
 $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.7.3/pachctl_1.7.3_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 
 # For all other linux flavors
-$ curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v1.7.2/pachctl_1.7.2_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_1.7.2_linux_amd64/pachctl /usr/local/bin
+$ curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v1.7.3/pachctl_1.7.3_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_1.7.3_linux_amd64/pachctl /usr/local/bin
 ```
 
 

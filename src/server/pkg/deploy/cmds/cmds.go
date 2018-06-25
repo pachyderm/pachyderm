@@ -161,6 +161,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var localRoles bool
 	var namespace string
 	var noExposeDockerSocket bool
+	var exposeObjectAPI bool
 
 	deployLocal := &cobra.Command{
 		Use:   "local",
@@ -187,6 +188,10 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 
 				// Disable authentication, for tests
 				opts.DisableAuthentication = true
+
+				// Serve the Pachyderm object/block API locally, as this is needed by
+				// our tests (and authentication is disabled anyway)
+				opts.ExposeObjectAPI = true
 			}
 			if err := assets.WriteLocalAssets(manifest, opts, hostPath); err != nil {
 				return err
@@ -195,7 +200,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		}),
 	}
 	deployLocal.Flags().StringVar(&hostPath, "host-path", "/var/pachyderm", "Location on the host machine where PFS metadata will be stored.")
-	deployLocal.Flags().BoolVarP(&dev, "dev", "d", false, "Deploy pachd built locally, disable metrics, and use insecure authentication")
+	deployLocal.Flags().BoolVarP(&dev, "dev", "d", false, "Deploy pachd with local version tags, disable metrics, expose Pachyderm's object/block API, and use an insecure authentication mechanism (do not set on any cluster with sensitive data)")
 
 	deployGoogle := &cobra.Command{
 		Use:   "google <GCS bucket> <size of disk(s) (in GB)> [<service account creds file>]",
@@ -522,6 +527,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 				LocalRoles:              localRoles,
 				Namespace:               namespace,
 				NoExposeDockerSocket:    noExposeDockerSocket,
+				ExposeObjectAPI:         exposeObjectAPI,
 			}
 			return nil
 		}),
@@ -543,6 +549,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 	deploy.PersistentFlags().BoolVar(&localRoles, "local-roles", false, "Use namespace-local roles instead of cluster roles. Ignored if --no-rbac is set.")
 	deploy.PersistentFlags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace to deploy Pachyderm to.")
 	deploy.PersistentFlags().BoolVar(&noExposeDockerSocket, "no-expose-docker-socket", false, "Don't expose the Docker socket to worker containers. This limits the privileges of workers which prevents them from automatically setting the container's working dir and user.")
+	deploy.PersistentFlags().BoolVar(&exposeObjectAPI, "expose-object-api", false, "If set, instruct pachd to serve its object/block API on its public port (not safe with auth enabled, do not set in production).")
 
 	deploy.AddCommand(
 		deployLocal,
