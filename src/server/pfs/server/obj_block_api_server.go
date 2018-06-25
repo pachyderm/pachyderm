@@ -1039,7 +1039,7 @@ func (s *objBlockAPIServer) readObj(path string, offset uint64, size uint64, des
 		}
 	}()
 	buff := make([]byte, size)
-	_, err = reader.Read(buff)
+	_, err = io.ReadFull(reader, buff)
 	if err != nil {
 		return err
 	}
