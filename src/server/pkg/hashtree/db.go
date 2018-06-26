@@ -24,13 +24,14 @@ const (
 	FsBucket      = "fs"
 	ChangedBucket = "changed"
 	ObjectBucket  = "object"
+	DatumBucket   = "datum"
 	perm          = 0666
 )
 
 var (
-	changedVal = []byte{1}
-	nullByte   = []byte{0}
-	slashByte  = []byte{'/'}
+	exists    = []byte{1}
+	nullByte  = []byte{0}
+	slashByte = []byte{'/'}
 )
 
 func fs(tx *bolt.Tx) *bolt.Bucket {
@@ -43,6 +44,10 @@ func changed(tx *bolt.Tx) *bolt.Bucket {
 
 func object(tx *bolt.Tx) *bolt.Bucket {
 	return tx.Bucket(b(ObjectBucket))
+}
+
+func datum(tx *bolt.Tx) *bolt.Bucket {
+	return tx.Bucket(b(DatumBucket))
 }
 
 type dbHashTree struct {
@@ -490,7 +495,7 @@ func put(tx *bolt.Tx, path string, node *NodeProto) error {
 	if err != nil {
 		return err
 	}
-	if err := changed(tx).Put(b(path), changedVal); err != nil {
+	if err := changed(tx).Put(b(path), exists); err != nil {
 		return fmt.Errorf("error putting \"%s\": %v", path, err)
 	}
 	return fs(tx).Put(b(path), data)
@@ -833,6 +838,40 @@ func (h *dbHashTree) GetObject(o *pfs.Object) (*pfs.BlockRef, error) {
 		return result.Unmarshal(data)
 	}); err != nil {
 		return nil, err
+	}
+	return result, nil
+}
+
+func (h *dbHashTree) PutDatum(d *pfs.Tag) error {
+	return h.Batch(func(tx *bolt.Tx) error {
+		return datum(tx).Put(b(d.Name), exists)
+	})
+}
+
+func (h *dbHashTree) GetDatums() ([]*pfs.Tag, error) {
+	result := []*pfs.Tag{}
+	if err := h.View(func(tx *bolt.Tx) error {
+		datum(tx).ForEach(func(k, v []byte) error {
+			result = append(result, &pfs.Tag{s(k)})
+			return nil
+		})
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (h *dbHashTree) CheckDatum(d *pfs.Tag) (bool, error) {
+	var result bool
+	if err := h.View(func(tx *bolt.Tx) error {
+		val := datum(tx).Get(b(d.Name))
+		if val != nil {
+			result = true
+		}
+		return nil
+	}); err != nil {
+		return false, err
 	}
 	return result, nil
 }
