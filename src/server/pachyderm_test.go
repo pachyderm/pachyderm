@@ -4304,6 +4304,76 @@ func TestIncrementalAppendPipeline(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("%d\n", expectedValue), buf.String())
 }
 
+func TestIncrementalDownstream(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestIncrementalDownstream_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	pipeline1 := tu.UniqueString("pipeline1")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline1),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					fmt.Sprintf("cp -R /pfs/%s/* /pfs/out/", dataRepo),
+				},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input: client.NewAtomInput(dataRepo, "/"),
+		})
+	require.NoError(t, err)
+	pipeline2 := tu.UniqueString("pipeline2")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline2),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					"touch /pfs/out/sum",
+					fmt.Sprintf("SUM=`cat /pfs/%s/data/* /pfs/out/sum | awk '{sum+=$1} END {print sum}'`", dataRepo),
+					"echo $SUM > /pfs/out/sum",
+				},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input:       client.NewAtomInput(pipeline1, "/"),
+			Incremental: true,
+		})
+
+	expectedValue := 0
+	for i := 0; i <= 5; i++ {
+		_, err := c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		w, err := c.PutFileSplitWriter(dataRepo, "master", "data", pfs.Delimiter_LINE, 0, 0, false)
+		require.NoError(t, err)
+		_, err = w.Write([]byte(fmt.Sprintf("%d\n", i)))
+		require.NoError(t, err)
+		require.NoError(t, w.Close())
+		require.NoError(t, c.FinishCommit(dataRepo, "master"))
+		expectedValue += i
+	}
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 2, len(commitInfos))
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(pipeline2, "master", "sum", 0, 0, &buf))
+	require.Equal(t, fmt.Sprintf("%d\n", expectedValue), buf.String())
+}
+
 func TestIncrementalOneFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
