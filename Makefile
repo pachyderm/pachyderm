@@ -404,7 +404,7 @@ pretest:
 
 local-test: docker-build launch-dev test-pfs clean-launch-dev
 
-test-misc: lint enterprise-code-checkin-test docker-build test-pfs-server test-pfs-cmds test-libs test-vault test-auth test-enterprise test-worker test-tls
+test-misc: lint enterprise-code-checkin-test docker-build test-pfs-server test-pfs-cmds test-libs test-vault test-auth test-enterprise test-worker
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis
 test: clean-launch-dev launch-dev test-misc test-pps
