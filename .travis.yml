@@ -30,5 +30,6 @@ after_failure:
 - kubectl version
 - kubectl get all
 - kubectl describe pod -l app=pachd
+- kubectl describe pod -l suite=pachyderm,app=etcd
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
