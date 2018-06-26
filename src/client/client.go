@@ -209,31 +209,41 @@ func WithAdditionalPachdCert() Option {
 	}
 }
 
+func getCertOptionsFromEnv() ([]Option, error) {
+	var options []Option
+	if certPaths, ok := os.LookupEnv("PACH_CA_CERTS"); ok {
+		paths := strings.Split(certPaths, ",")
+		for _, p := range paths {
+			// Try to read all certs under 'p'--skip any that we can't read/stat
+			if err := filepath.Walk(p, func(p string, info os.FileInfo, err error) error {
+				if err != nil {
+					log.Warnf("skipping \"%s\", could not stat path: %v", p, err)
+					return nil // Don't try and fix any errors encountered by Walk() itself
+				}
+				if info.IsDir() {
+					return nil // We'll just read the children of any directories when we traverse them
+				}
+				pemBytes, err := ioutil.ReadFile(p)
+				if err != nil {
+					log.Warnf("could not read server CA certs at %s: %v", p, err)
+					return nil
+				}
+				options = append(options, WithAdditionalRootCAs(pemBytes))
+				return nil
+			}); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return options, nil
+}
+
 func getAddrAndExtraOptionsOnUserMachine(cfg *config.Config) (string, []Option, error) {
 	// 1) ADDRESS environment variable (shell-local) overrides global config
 	if envAddr, ok := os.LookupEnv("ADDRESS"); ok {
-		var options []Option
-		if certPaths, ok := os.LookupEnv("PACH_CA_CERTS"); ok {
-			paths := strings.Split(certPaths, ",")
-			for _, p := range paths {
-				// Try to read all certs under 'p'--skip any that we can't read/stat
-				filepath.Walk(p, func(p string, info os.FileInfo, err error) error {
-					if err != nil {
-						log.Warnf("skipping \"%s\", could not stat path: %v", p, err)
-						return nil // Don't try and fix any errors encountered by Walk() itself
-					}
-					if info.IsDir() {
-						return nil // We'll just read the children of any directories when we traverse them
-					}
-					pemBytes, err := ioutil.ReadFile(p)
-					if err != nil {
-						log.Warnf("could not read server CA certs at %s: %v", p, err)
-						return nil
-					}
-					options = append(options, WithAdditionalRootCAs(pemBytes))
-					return nil
-				})
-			}
+		options, err := getCertOptionsFromEnv()
+		if err != nil {
+			return "", nil, err
 		}
 		return envAddr, options, nil
 	}
@@ -250,8 +260,13 @@ func getAddrAndExtraOptionsOnUserMachine(cfg *config.Config) (string, []Option, 
 		}
 		return cfg.V1.PachdAddress, nil, nil
 	}
-	// 3) Use default address if nothing else works
-	return "0.0.0.0:30650", nil, nil
+
+	// 3) Use default address (broadcast) if nothing else works
+	options, err := getCertOptionsFromEnv()
+	if err != nil {
+		return "", nil, err
+	}
+	return "0.0.0.0:30650", options, nil
 }
 
 // NewOnUserMachine constructs a new APIClient using env vars that may be set
