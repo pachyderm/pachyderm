@@ -325,11 +325,17 @@ func (a *APIServer) locks(jobID string) col.Collection {
 // it into the passed trees. It errors if it can't find the tree object for
 // this datum, unless failed is true in which case it tolerates missing trees.
 func (a *APIServer) collectDatum(pachClient *client.APIClient, index int, files []*Input, logger *taggedLogger,
-	tree hashtree.HashTree, statsTree hashtree.HashTree, treeMu *sync.Mutex, failed bool) error {
+	tree hashtree.HashTree, statsTree hashtree.HashTree, treeMu *sync.Mutex, failed bool, skip bool) error {
 	datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
 	datumID := a.DatumID(files)
 	tag := &pfs.Tag{datumHash}
 	statsTag := &pfs.Tag{datumHash + statsTagSuffix}
+
+	if skip {
+		if _, err := pachClient.InspectTag(context.Background(), tag); err == nil {
+			return nil
+		}
+	}
 
 	var eg errgroup.Group
 	var subTree hashtree.HashTree
@@ -595,15 +601,62 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 
 		// Watch the chunk locks in order, and merge chunk outputs into commit tree
 		locks := a.locks(jobInfo.Job.ID).ReadOnly(ctx)
-		tree, err := hashtree.NewDBHashTree(a.hashtreeStorage)
+		var skip bool
+		commitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
+			&pfs.InspectCommitRequest{
+				Commit: jobInfo.OutputCommit,
+			})
 		if err != nil {
 			return err
 		}
+		var tree hashtree.HashTree
+		if commitInfo.ParentCommit == nil {
+			if tree, err = hashtree.NewDBHashTree(a.hashtreeStorage); err != nil {
+				return err
+			}
+		} else {
+			parentCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
+				&pfs.InspectCommitRequest{
+					Commit:     commitInfo.ParentCommit,
+					BlockState: pfs.CommitState_FINISHED,
+				})
+			if err != nil {
+				return err
+			}
+			if tree, err = hashtree.GetHashTreeObject(pachClient, a.hashtreeStorage, parentCommitInfo.Tree); err != nil {
+				return err
+			}
+			skip = true
+		}
+		if err != nil {
+			return err
+		}
+
 		var statsTree hashtree.HashTree
 		if jobInfo.EnableStats {
-			var err error
-			if statsTree, err = hashtree.NewDBHashTree(a.hashtreeStorage); err != nil {
+			commitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
+				&pfs.InspectCommitRequest{
+					Commit: jobInfo.StatsCommit,
+				})
+			if err != nil {
 				return err
+			}
+			if commitInfo.ParentCommit == nil {
+				if statsTree, err = hashtree.NewDBHashTree(a.hashtreeStorage); err != nil {
+					return err
+				}
+			} else {
+				parentCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
+					&pfs.InspectCommitRequest{
+						Commit:     commitInfo.ParentCommit,
+						BlockState: pfs.CommitState_FINISHED,
+					})
+				if err != nil {
+					return err
+				}
+				if statsTree, err = hashtree.GetHashTreeObject(pachClient, a.hashtreeStorage, parentCommitInfo.Tree); err != nil {
+					return err
+				}
 			}
 		}
 		var treeMu sync.Mutex
@@ -645,7 +698,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 									eg.Go(func() error {
 										defer limiter.Release()
 										files := df.Datum(int(i))
-										return a.collectDatum(pachClient, int(i), files, logger, tree, statsTree, &treeMu, chunkState.State == ChunkState_FAILED)
+										return a.collectDatum(pachClient, int(i), files, logger, tree, statsTree, &treeMu, chunkState.State == ChunkState_FAILED, skip)
 									})
 								}
 								return nil
