@@ -1503,26 +1503,29 @@ func (a *APIServer) parentTag(pachClient *client.APIClient, jobInfo *pps.JobInfo
 	for i, commit := range parentCi.Provenance {
 		parentProv[key(commit.Repo.Name, parentCi.BranchProvenance[i].Name)] = commit
 	}
-	var newInputCommit, newInputCommitParent *pfs.Commit
+	newInputCommits := make(map[string]*pfs.Commit)
 	for i, c := range ci.Provenance {
 		pc, ok := parentProv[key(c.Repo.Name, ci.BranchProvenance[i].Name)]
 		if !ok {
 			return nil, nil // 'c' has no parent, so there's no parent tag
 		}
 		if pc.ID != c.ID {
-			if newInputCommit != nil {
-				// Multiple new commits have arrived since last run. Process everything
-				// from scratch
-				return nil, nil
-			}
-			newInputCommit = c
-			newInputCommitParent = pc
+			newInputCommits[key(c.Repo.Name, ci.BranchProvenance[i].Name)] = c
 		}
 	}
 	var parentFiles []*Input // the equivalent datum to 'files', which the parent job processed
+	var newFiles int
 	for _, file := range files {
 		parentFile := proto.Clone(file).(*Input)
-		if file.FileInfo.File.Commit.Repo.Name == newInputCommit.Repo.Name && file.FileInfo.File.Commit.ID == newInputCommit.ID {
+		newInputCommit, ok := newInputCommits[key(file.FileInfo.File.Commit.Repo.Name, file.Branch)]
+		if ok && file.FileInfo.File.Commit.Repo.Name == newInputCommit.Repo.Name && file.FileInfo.File.Commit.ID == newInputCommit.ID {
+			newInputCommitParent, ok := parentProv[key(file.FileInfo.File.Commit.Repo.Name, file.Branch)]
+			if !ok {
+				// This should be impossible since we'll only add
+				// newInputCommit to newInputCommits if the parent exists.
+				return nil, fmt.Errorf("parent expected but not found (this is likely a bug)")
+			}
+			newFiles++
 			// 'file' from datumFactory is in the new input commit
 			parentFileInfo, err := pachClient.InspectFile(
 				newInputCommitParent.Repo.Name, newInputCommitParent.ID, file.FileInfo.File.Path)
@@ -1540,6 +1543,10 @@ func (a *APIServer) parentTag(pachClient *client.APIClient, jobInfo *pps.JobInfo
 			file.ParentCommit = newInputCommitParent
 		}
 		parentFiles = append(parentFiles, parentFile)
+	}
+	if newFiles > 1 {
+		// Multiple new files means we can't do incremental and must run everything from scratch.
+		return nil, nil
 	}
 
 	// We have derived what files the parent saw -- compute the tag
