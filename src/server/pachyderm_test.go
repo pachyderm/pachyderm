@@ -4341,7 +4341,7 @@ func TestIncrementalDownstream(t *testing.T) {
 				Cmd: []string{"bash"},
 				Stdin: []string{
 					"touch /pfs/out/sum",
-					fmt.Sprintf("SUM=`cat /pfs/%s/data/* /pfs/out/sum | awk '{sum+=$1} END {print sum}'`", dataRepo),
+					fmt.Sprintf("SUM=`cat /pfs/%s/data/* /pfs/out/sum | awk '{sum+=$1} END {print sum}'`", pipeline1),
 					"echo $SUM > /pfs/out/sum",
 				},
 			},
