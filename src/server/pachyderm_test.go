@@ -4353,7 +4353,7 @@ func TestIncrementalDownstream(t *testing.T) {
 		})
 
 	expectedValue := 0
-	for i := 0; i <= 5; i++ {
+	for i := 0; i < 5; i++ {
 		_, err := c.StartCommit(dataRepo, "master")
 		require.NoError(t, err)
 		w, err := c.PutFileSplitWriter(dataRepo, "master", "data", pfs.Delimiter_LINE, 0, 0, false)
@@ -4372,6 +4372,17 @@ func TestIncrementalDownstream(t *testing.T) {
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(pipeline2, "master", "sum", 0, 0, &buf))
 	require.Equal(t, fmt.Sprintf("%d\n", expectedValue), buf.String())
+
+	p1Js, err := c.ListJob(pipeline1, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, 5, len(p1Js))
+	p2Js, err := c.ListJob(pipeline2, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, 5, len(p2Js))
+
+	// p2 should be downloading fewer bytes than p1 because it's incremental.
+	// This checks that the incremental logic is actually working in this case.
+	require.True(t, p2Js[0].Stats.DownloadBytes < p1Js[0].Stats.DownloadBytes)
 }
 
 func TestIncrementalOneFile(t *testing.T) {
