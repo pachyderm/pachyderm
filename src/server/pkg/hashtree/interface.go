@@ -128,6 +128,15 @@ type HashTree interface {
 	// GetObject returns the BlockRef for an object.
 	GetObject(object *pfs.Object) (*pfs.BlockRef, error)
 
+	// PutDatum records a datum as being part of this HashTree.
+	PutDatum(datum string) error
+
+	// HasDatum checks if a datum is a part of this HashTree.
+	HasDatum(datum string) (bool, error)
+
+	// DiffDatums checks if the datums in this HashTree are a subset of the input datums.
+	DiffDatums(datums chan string) (bool, error)
+
 	// Hash updates all of the hashes and node size metadata, it also checks
 	// for conflicts.
 	Hash() error

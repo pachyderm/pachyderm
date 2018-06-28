@@ -728,6 +728,7 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 
 			// If the output file is a symlink to an input file, we can skip
 			// the uploading.
+			// TODO(bryce) Make sure this is consistent with the new hash tree implementation.
 			if (info.Mode() & os.ModeSymlink) > 0 {
 				realPath, err := os.Readlink(filePath)
 				if err != nil {
@@ -866,6 +867,9 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 		return err
 	}
 	if _, err := hashtree.PutHashTree(pachClient, tree, tag); err != nil {
+		return err
+	}
+	if err := tree.Destroy(); err != nil {
 		return err
 	}
 
@@ -1333,6 +1337,10 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 						return
 					}
 					if _, err := hashtree.PutHashTree(pachClient, statsTree, statsTag.Name); err != nil {
+						retErr = err
+						return
+					}
+					if err := statsTree.Destroy(); err != nil {
 						retErr = err
 						return
 					}
