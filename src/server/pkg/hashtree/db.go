@@ -126,7 +126,7 @@ func newDBHashTree(file string) (HashTree, error) {
 	db.NoSync = true
 	db.MaxBatchDelay = 0
 	if err := db.Batch(func(tx *bolt.Tx) error {
-		for _, bucket := range []string{FsBucket, ChangedBucket, ObjectBucket} {
+		for _, bucket := range []string{FsBucket, ChangedBucket, ObjectBucket, DatumBucket} {
 			if _, err := tx.CreateBucketIfNotExists(b(bucket)); err != nil {
 				return err
 			}
@@ -842,32 +842,44 @@ func (h *dbHashTree) GetObject(o *pfs.Object) (*pfs.BlockRef, error) {
 	return result, nil
 }
 
-func (h *dbHashTree) PutDatum(d *pfs.Tag) error {
+func (h *dbHashTree) PutDatum(d string) error {
 	return h.Batch(func(tx *bolt.Tx) error {
-		return datum(tx).Put(b(d.Name), exists)
+		return datum(tx).Put(b(d), exists)
 	})
 }
 
-func (h *dbHashTree) GetDatums() ([]*pfs.Tag, error) {
-	result := []*pfs.Tag{}
+func (h *dbHashTree) HasDatum(d string) (bool, error) {
+	var result bool
 	if err := h.View(func(tx *bolt.Tx) error {
-		datum(tx).ForEach(func(k, v []byte) error {
-			result = append(result, &pfs.Tag{s(k)})
-			return nil
-		})
+		val := datum(tx).Get(b(d))
+		if val != nil {
+			result = true
+		}
 		return nil
 	}); err != nil {
-		return nil, err
+		return false, err
 	}
 	return result, nil
 }
 
-func (h *dbHashTree) CheckDatum(d *pfs.Tag) (bool, error) {
+func (h *dbHashTree) DiffDatums(datums chan string) (bool, error) {
 	var result bool
-	if err := h.View(func(tx *bolt.Tx) error {
-		val := datum(tx).Get(b(d.Name))
-		if val != nil {
-			result = true
+	if err := h.Update(func(tx *bolt.Tx) error {
+		for d := range datums {
+			val := datum(tx).Get(b(d))
+			if val != nil {
+				if err := datum(tx).Put(b(d), nullByte); err != nil {
+					return err
+				}
+			}
+		}
+		if err := datum(tx).ForEach(func(k, v []byte) error {
+			if string(v) != string(nullByte) {
+				result = true
+			}
+			return datum(tx).Put(k, exists)
+		}); err != nil {
+			return err
 		}
 		return nil
 	}); err != nil {
