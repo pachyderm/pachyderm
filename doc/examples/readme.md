@@ -16,7 +16,7 @@ Word count is basically the "hello world" of distributed computation. This examp
 
 This example pipeline executes a query periodically against a MongoDB database outside of Pachyderm.  The results of the query are stored in a corresponding output repository.  This repository could be used to drive additional pipeline stages periodically based on the results of the query.
 
-[Periodic Ingress from MongoDB](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/cron)
+[Periodic Ingress from MongoDB](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/db)
 
 ## Variant Calling and Joint Genotyping with GATK
 
