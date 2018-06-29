@@ -129,12 +129,9 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		},
 		Containers: []v1.Container{
 			{
-				Name:    client.PPSWorkerUserContainerName,
-				Image:   options.userImage,
-				Command: []string{"/pach-bin/worker"},
-				SecurityContext: &v1.SecurityContext{
-					Privileged: &trueVal, // god is this dumb
-				},
+				Name:            client.PPSWorkerUserContainerName,
+				Image:           options.userImage,
+				Command:         []string{"/pach-bin/worker"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				Env:             options.workerEnv,
 				Resources: v1.ResourceRequirements{
