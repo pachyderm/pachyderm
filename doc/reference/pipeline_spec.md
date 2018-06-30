@@ -156,7 +156,11 @@ Following is a walk-through of all the fields.
 ### Name (required)
 
 `pipeline.name` is the name of the pipeline that you are creating.  Each
-pipeline needs to have a unique name.
+pipeline needs to have a unique name. Pipeline names must:
+
+- contain only alphanumeric characters, `_` and `-`
+- begin or end with only alphanumeric characters (not `_` or `-`)
+- be no more than 50 characters in length
 
 ### Description (optional)
 
