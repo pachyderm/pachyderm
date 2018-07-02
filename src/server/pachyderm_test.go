@@ -1968,7 +1968,7 @@ func TestUpdatePipeline(t *testing.T) {
 		false,
 	))
 
-	commit1, err := c.StartCommit(dataRepo, "master")
+	_, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("1"))
 	require.NoError(t, err)
@@ -2011,10 +2011,11 @@ func TestUpdatePipeline(t *testing.T) {
 	require.Equal(t, "bar\n", buffer.String())
 
 	// Inspect the first job to make sure it hasn't changed
-	jis, err := c.FlushJobAll([]*pfs.Commit{commit1}, nil)
-	require.Equal(t, 2, len(jis))
+	jis, err := c.ListJob(pipelineName, nil, nil)
+	require.Equal(t, 3, len(jis))
 	require.Equal(t, "echo bar >/pfs/out/file", jis[0].Transform.Stdin[0])
-	require.Equal(t, "echo foo >/pfs/out/file", jis[1].Transform.Stdin[0])
+	require.Equal(t, "echo bar >/pfs/out/file", jis[1].Transform.Stdin[0])
+	require.Equal(t, "echo foo >/pfs/out/file", jis[2].Transform.Stdin[0])
 
 	// Update the pipeline again, this time with Reprocess: true set. Now we
 	// should see a different output file
