@@ -849,11 +849,12 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 			}
 			return nil
 		})
-		if err := eg.Wait(); err != nil {
-			return err
-		}
 		return nil
 	}); err != nil {
+		return err
+	}
+
+	if err := eg.Wait(); err != nil {
 		return err
 	}
 
