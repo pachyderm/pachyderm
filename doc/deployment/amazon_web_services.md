@@ -1,5 +1,12 @@
 # Amazon Web Services
 
+## Advanced
+
+- [Deploy within an existing VPC](amazon_web_services/existing_vpc.html)
+- [Connect to your Pachyderm Cluster](amazon_web_services/connecting_to_your_cluster.html)
+
+## Standard Deployment
+
 We recommend one of the following two methods for deploying Pachyderm on AWS:
 
 2. [By manually deploying Kubernetes and Pachyderm.](amazon_web_services.html#manual-pachyderm-deploy)
