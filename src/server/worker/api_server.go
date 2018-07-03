@@ -462,6 +462,10 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 		}
 	}(time.Now())
 	dir := filepath.Join(client.PPSScratchSpace, uuid.NewWithoutDashes())
+	// Create output directory (currently /pfs/out)
+	if err := os.MkdirAll(filepath.Join(dir, "out"), 0777); err != nil {
+		return "", err
+	}
 	var incremental bool
 	if parentTag != nil {
 		if err := func() error {
@@ -510,6 +514,26 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 		}
 	}
 	return dir, nil
+}
+
+func (a *APIServer) linkData(inputs []*Input, dir string) error {
+	for _, input := range inputs {
+		src := filepath.Join(dir, input.Name)
+		dst := filepath.Join(client.PPSInputPrefix, input.Name)
+		if err := os.Symlink(src, dst); err != nil {
+			return err
+		}
+	}
+	return os.Symlink(filepath.Join(dir, "out"), filepath.Join(client.PPSInputPrefix, "out"))
+}
+
+func (a *APIServer) unlinkData(inputs []*Input, dir string) error {
+	for _, input := range inputs {
+		if err := os.RemoveAll(filepath.Join(dir, input.Name)); err != nil {
+			return err
+		}
+	}
+	return os.RemoveAll(filepath.Join(dir, "out"))
 }
 
 func (a *APIServer) reportUserCodeStats(logger *taggedLogger) {
@@ -1386,16 +1410,12 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				if err := os.MkdirAll(client.PPSInputPrefix, 0777); err != nil {
 					return err
 				}
-				// Create output directory (currently /pfs/out) and run user code
-				if err := os.MkdirAll(filepath.Join(dir, "out"), 0777); err != nil {
-					return err
-				}
-				if err := syscall.Mount(dir, client.PPSInputPrefix, "", syscall.MS_BIND, ""); err != nil {
-					return err
+				if err := a.linkData(data, dir); err != nil {
+					return fmt.Errorf("error linkData: %v", err)
 				}
 				defer func() {
-					if err := syscall.Unmount(client.PPSInputPrefix, syscall.MNT_DETACH); err != nil && retErr == nil {
-						retErr = err
+					if err := a.unlinkData(data, dir); err != nil && retErr == nil {
+						retErr = fmt.Errorf("error unlinkData: %v", err)
 					}
 				}()
 				if a.pipelineInfo.Transform.User != "" {
