@@ -527,13 +527,13 @@ func (a *APIServer) linkData(inputs []*Input, dir string) error {
 	return os.Symlink(filepath.Join(dir, "out"), filepath.Join(client.PPSInputPrefix, "out"))
 }
 
-func (a *APIServer) unlinkData(inputs []*Input, dir string) error {
+func (a *APIServer) unlinkData(inputs []*Input) error {
 	for _, input := range inputs {
-		if err := os.RemoveAll(filepath.Join(dir, input.Name)); err != nil {
+		if err := os.RemoveAll(filepath.Join(client.PPSInputPrefix, input.Name)); err != nil {
 			return err
 		}
 	}
-	return os.RemoveAll(filepath.Join(dir, "out"))
+	return os.RemoveAll(filepath.Join(client.PPSInputPrefix, "out"))
 }
 
 func (a *APIServer) reportUserCodeStats(logger *taggedLogger) {
@@ -1414,7 +1414,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 					return fmt.Errorf("error linkData: %v", err)
 				}
 				defer func() {
-					if err := a.unlinkData(data, dir); err != nil && retErr == nil {
+					if err := a.unlinkData(data); err != nil && retErr == nil {
 						retErr = fmt.Errorf("error unlinkData: %v", err)
 					}
 				}()
