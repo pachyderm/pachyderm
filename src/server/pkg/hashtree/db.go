@@ -124,6 +124,8 @@ func newDBHashTree(file string) (HashTree, error) {
 		return nil, err
 	}
 	db.NoSync = true
+	db.NoFreelistSync = true
+	db.NoGrowSync = true
 	db.MaxBatchDelay = 0
 	if err := db.Batch(func(tx *bolt.Tx) error {
 		for _, bucket := range []string{FsBucket, ChangedBucket, ObjectBucket, DatumBucket} {
@@ -684,128 +686,186 @@ func (h *dbHashTree) DeleteFile(path string) error {
 	})
 }
 
-func mergeNode(tx *bolt.Tx, path string, srcs []HashTree) (int64, error) {
-	path = clean(path)
-	// Get the node at path in 'h' and determine its type (i.e. file, dir)
-	destNode, err := get(tx, path)
-	if err != nil && Code(err) != PathNotFound {
-		return 0, err
-	}
-	if destNode == nil {
-		destNode = &NodeProto{
-			Name:        base(path),
-			SubtreeSize: 0,
-			Hash:        nil,
-			FileNode:    nil,
-			DirNode:     nil,
-		}
-		put(tx, path, destNode)
-	} else if destNode.nodetype() == unrecognized {
-		return 0, errorf(Internal, "malformed file at \"%s\" in destination "+
-			"hashtree is neither a regular-file nor a directory", path)
-	}
-	sizeDelta := int64(0) // We return this to propagate file additions upwards
+type mergeCursor struct {
+	tx     *bolt.Tx
+	cursor *bolt.Cursor
+	path   string
+	node   *NodeProto
+	done   bool
+}
 
-	// Get node at 'path' in all 'srcs'. All such nodes must have the same type as
-	// each other and the same type as 'destNode'
-	pathtype := destNode.nodetype() // All nodes in 'srcs' must have same type
-	// childrenToTrees is a reverse index from [child of 'path'] to [trees that
-	// contain it].
-	// - childrenToTrees will only be used if 'path' is a directory in all
-	//   'srcs' (but it's convenient to build it here, before we've checked them
-	//   all)
-	// - We need to group trees by common children, so that children present in
-	//   multiple 'srcNodes' are only merged once
-	// - if every srcNode has a unique file /foo/shard-xxxxx (00000 to 99999)
-	//   then we'd call mergeNode("/foo") 100k times, once for each tree in
-	//   'srcs', while running mergeNode("/").
-	// - We also can't pass all of 'srcs' to mergeNode("/foo"), as otherwise
-	//   mergeNode("/foo/shard-xxxxx") will have to filter through all 100k trees
-	//   for each shard-xxxxx (only one of which contains the file being merged),
-	//   and we'd have an O(n^2) algorithm; too slow when merging 100k trees)
-	childrenToTrees := make(map[string][]HashTree)
-	// Amount of data being added to node at 'path' in 'h'
+func NewMergeCursor(h *dbHashTree) (*mergeCursor, error) {
+	tx, err := h.Begin(false)
+	if err != nil {
+		return nil, err
+	}
+	m := &mergeCursor{
+		tx:     tx,
+		cursor: fs(tx).Cursor(),
+	}
+	k, v := m.cursor.First()
+	m.path = s(k)
+	n := &NodeProto{}
+	n.Unmarshal(v)
+	m.node = n
+	return m, nil
+}
+
+func (m *mergeCursor) Path() string {
+	return m.path
+}
+
+func (m *mergeCursor) Node() *NodeProto {
+	return m.node
+}
+
+func (m *mergeCursor) Next() error {
+	if m.done {
+		return errorf(Internal, "done iterating")
+	}
+	k, v := m.cursor.Next()
+	if k == nil {
+		m.done = true
+		return m.tx.Rollback()
+	}
+	m.path = s(k)
+	n := &NodeProto{}
+	n.Unmarshal(v)
+	m.node = n
+	return nil
+}
+
+func (m *mergeCursor) Done() bool {
+	return m.done
+}
+
+func merge(tx *bolt.Tx, srcs []*dbHashTree) error {
+	var cursors []*mergeCursor
 	for _, src := range srcs {
-		n, err := src.Get(path)
-		if Code(err) == PathNotFound {
-			continue
+		m, err := NewMergeCursor(src)
+		if err != nil {
+			return err
 		}
-		if pathtype == none {
-			// 'h' is uninitialized at this path
-			if n.nodetype() == directory {
-				destNode.DirNode = &DirectoryNodeProto{}
-			} else if n.nodetype() == file {
-				destNode.FileNode = &FileNodeProto{}
-			} else {
-				return 0, errorf(Internal, "could not merge unrecognized file type at "+
-					"\"%s\", which is neither a file nore a directory", path)
+		cursors = append(cursors, m)
+	}
+
+	for len(cursors) > 0 {
+		path := cursors[0].Path()
+		for i := 0; i < len(cursors); i++ {
+			c := cursors[i]
+			if c.Done() {
+				cursors = append(cursors[:i], cursors[i+1:]...)
+				i--
+				continue
 			}
-			pathtype = n.nodetype()
-		} else if pathtype != n.nodetype() {
-			return sizeDelta, errorf(PathConflict, "could not merge path \"%s\" "+
-				"which is a regular-file in some hashtrees and a directory in others", path)
+			if strings.Compare(c.Path(), path) < 0 {
+				path = c.Path()
+			}
 		}
-		switch n.nodetype() {
-		case directory:
-			// Instead of merging here, we build a reverse-index and merge below
-			if err := src.List(path, func(node *NodeProto) error {
-				childrenToTrees[node.Name] = append(childrenToTrees[node.Name], src)
-				return nil
-			}); err != nil {
-				return 0, err
+
+		// Get the node at path in 'h' and determine its type (i.e. file, dir)
+		destNode, err := get(tx, path)
+		if err != nil && Code(err) != PathNotFound {
+			return err
+		}
+		if destNode == nil {
+			destNode = &NodeProto{
+				Name:        base(path),
+				SubtreeSize: 0,
+				Hash:        nil,
+				FileNode:    nil,
+				DirNode:     nil,
 			}
-		case file:
-			// Append new objects, and update size of target node (since that can't be
-			// done in canonicalize)
-			destNode.FileNode.Objects = append(destNode.FileNode.Objects,
-				n.FileNode.Objects...)
-			sizeDelta += n.SubtreeSize
-		default:
-			return sizeDelta, errorf(Internal, "malformed file at \"%s\" in source "+
+			if err := put(tx, path, destNode); err != nil {
+				return err
+			}
+		} else if destNode.nodetype() == unrecognized {
+			return errorf(Internal, "malformed file at \"%s\" in destination "+
 				"hashtree is neither a regular-file nor a directory", path)
 		}
-	}
+		sizeDelta := int64(0)           // We return this to propagate file additions upwards
+		pathtype := destNode.nodetype() // All nodes in 'srcs' must have same type
 
-	// If this is a directory, go back and merge all children encountered above
-	if pathtype == directory {
-		// Merge all children (collected in childrenToTrees)
-		for c, cSrcs := range childrenToTrees {
-			childSizeDelta, err := mergeNode(tx, join(path, c), cSrcs)
-			if err != nil {
-				return sizeDelta, err
+		for _, c := range cursors {
+			if c.Path() != path {
+				continue
 			}
-			sizeDelta += childSizeDelta
+			n := c.Node()
+			if pathtype == none {
+				// 'h' is uninitialized at this path
+				if n.nodetype() == directory {
+					destNode.DirNode = &DirectoryNodeProto{}
+				} else if n.nodetype() == file {
+					destNode.FileNode = &FileNodeProto{}
+				} else {
+					return errorf(Internal, "could not merge unrecognized file type at "+
+						"\"%s\", which is neither a file nore a directory", path)
+				}
+				pathtype = n.nodetype()
+			} else if pathtype != n.nodetype() {
+				return errorf(PathConflict, "could not merge path \"%s\" "+
+					"which is a regular-file in some hashtrees and a directory in others", path)
+			}
+			switch n.nodetype() {
+			case directory:
+				sizeDelta += n.SubtreeSize
+			case file:
+				// Append new objects, and update size of target node (since that can't be
+				// done in canonicalize)
+				destNode.FileNode.Objects = append(destNode.FileNode.Objects,
+					n.FileNode.Objects...)
+				sizeDelta += n.SubtreeSize
+			default:
+				return errorf(Internal, "malformed file at \"%s\" in source "+
+					"hashtree is neither a regular-file nor a directory", path)
+			}
+
+			if err := c.Next(); err != nil {
+				return err
+			}
+		}
+
+		// Update the size of destNode, and mark it changed
+		destNode.SubtreeSize += sizeDelta
+		if err := put(tx, path, destNode); err != nil {
+			return err
 		}
 	}
-	// Update the size of destNode, and mark it changed
-	destNode.SubtreeSize += sizeDelta
-	put(tx, path, destNode)
-	return sizeDelta, nil
+	return nil
 }
 
 func (h *dbHashTree) Merge(trees ...HashTree) error {
+	//	t := time.Now()
+	//	defer func() {
+	//		fmt.Printf("Time spent merging: %v\n", time.Since(t))
+	//	}()
 	// Skip empty trees
-	var nonEmptyTrees []HashTree
+	var nonEmptyTrees []*dbHashTree
 	for _, tree := range trees {
 		_, err := tree.Get("/")
 		if err != nil {
 			continue
 		}
-		nonEmptyTrees = append(nonEmptyTrees, tree)
+		dbTree, ok := tree.(*dbHashTree)
+		if !ok {
+			return errorf(Internal, "wrong underlying hash tree type")
+		}
+		nonEmptyTrees = append(nonEmptyTrees, dbTree)
 	}
 	if len(nonEmptyTrees) == 0 {
 		return nil
 	}
-	return h.Batch(func(tx *bolt.Tx) error {
-		_, err := mergeNode(tx, "/", nonEmptyTrees)
+	//	defer func() {
+	//		spew.Dump(h.Stats().TxStats)
+	//	}()
+	return h.Update(func(tx *bolt.Tx) error {
+		// Merge fs
+		err := merge(tx, nonEmptyTrees)
 		if err != nil {
 			return err
 		}
-		for _, nonEmptyTree := range nonEmptyTrees {
-			tree, ok := nonEmptyTree.(*dbHashTree)
-			if !ok {
-				return errorf(Internal, "wrong underlying hash tree type")
-			}
+		// Merge objects
+		for _, tree := range nonEmptyTrees {
 			if err := tree.View(func(subTx *bolt.Tx) error {
 				return object(subTx).ForEach(func(k, v []byte) error {
 					return object(tx).Put(k, v)

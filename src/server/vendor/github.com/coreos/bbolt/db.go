@@ -653,7 +653,9 @@ func (db *DB) removeTx(tx *Tx) {
 //
 // Attempting to manually commit or rollback within the function will cause a panic.
 func (db *DB) Update(fn func(*Tx) error) error {
+	//t3 := time.Now()
 	t, err := db.Begin(true)
+	//fmt.Printf("Time spent waiting: %v\n", time.Since(t3))
 	if err != nil {
 		return err
 	}
@@ -669,13 +671,18 @@ func (db *DB) Update(fn func(*Tx) error) error {
 	t.managed = true
 
 	// If an error is returned from the function then rollback and return error.
+	//t2 := time.Now()
 	err = fn(t)
+	//fmt.Printf("Time spent func: %v\n", time.Since(t2))
 	t.managed = false
 	if err != nil {
 		_ = t.Rollback()
 		return err
 	}
-
+	//t1 := time.Now()
+	//defer func() {
+	//	fmt.Printf("Time spent commit: %v\n", time.Since(t1))
+	//}()
 	return t.Commit()
 }
 
