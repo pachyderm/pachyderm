@@ -1114,8 +1114,88 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *Plan,
 	return nil
 }
 
-func mergeDatums(ctx context.Context, jobID string, plan *Plan, logger *taggedLogger) error {
+func (a *APIServer) mergeDatums(ctx context.Context, jobID string, plan *Plan, logger *taggedLogger) error {
+	complete := false
+	for !complete {
+		// func to defer cancel in
+		if err := func() error {
+			ctx, cancel := context.WithCancel(ctx)
+			defer cancel()
+			var merge int64
+			var found bool
+			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				// Reinitialize closed upon variables.
+				found = false
+				merges := a.merges(jobID).ReadWrite(stm)
+				// we set complete to true and then unset it if we find an incomplete chunk
+				complete = true
+				for merge = 0; merge < plan.Merges; merge++ {
+					var mergeState MergeState
+					if err := merges.Get(fmt.Sprint(merge), &mergeState); err != nil {
+						if col.IsErrNotFound(err) {
+							found = true
+						} else {
+							return err
+						}
+					}
+					// This gets triggered either if we found a chunk that wasn't
+					// complete or if we didn't find a chunk at all.
+					if mergeState.State == State_RUNNING {
+						complete = false
+					}
+					if found {
+						break
+					}
+				}
+				if found {
+					return merges.PutTTL(fmt.Sprint(merge), &MergeState{State: State_RUNNING}, ttl)
+				}
+				return nil
+			}); err != nil {
+				return err
+			}
+			if found {
+				go func() {
+				Renew:
+					for {
+						select {
+						case <-time.After((time.Second * time.Duration(ttl)) / 2):
+						case <-ctx.Done():
+							break Renew
+						}
+						if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+							merges := a.merges(jobID).ReadWrite(stm)
+							var chunkState ChunkState
+							if err := merges.Get(fmt.Sprint(merge), &chunkState); err != nil {
+								return err
+							}
+							if chunkState.State == State_RUNNING {
+								return merges.PutTTL(fmt.Sprint(merge), &chunkState, ttl)
+							}
+							return nil
+						}); err != nil {
+							cancel()
+							logger.Logf("failed to renew lock: %v", err)
+						}
+					}
+				}()
+				// TODO merge the datums
+
+				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+					merges := a.merges(jobID).ReadWrite(stm)
+					// TODO handle failures
+					return merges.Put(fmt.Sprint(merge), &MergeState{State: State_COMPLETE})
+				}); err != nil {
+					return err
+				}
+			}
+			return nil
+		}(); err != nil {
+			return err
+		}
+	}
 	return nil
+
 }
 
 func isDone(ctx context.Context) bool {
@@ -1273,6 +1353,12 @@ func (a *APIServer) worker() {
 					return processResult, nil
 				},
 			); err != nil {
+				if jobCtx.Err() == context.Canceled {
+					continue NextJob // job cancelled--don't restart, just wait for next job
+				}
+				return fmt.Errorf("acquire/process datums for job %s exited with err: %v", jobID, err)
+			}
+			if err := a.mergeDatums(jobCtx, jobID, plan, logger); err != nil {
 				if jobCtx.Err() == context.Canceled {
 					continue NextJob // job cancelled--don't restart, just wait for next job
 				}
