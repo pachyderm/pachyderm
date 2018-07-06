@@ -57,8 +57,9 @@ const (
 	concurrency = 100
 	logBuffer   = 25
 
-	chunksPrefix = "/chunks"
-	lockPrefix   = "/locks"
+	planPrefix  = "/plan"
+	chunkPrefix = "/chunk"
+	mergePrefix = "/merge"
 
 	maxRetries = 3
 )
@@ -108,7 +109,7 @@ type APIServer struct {
 	// The pipelines collection
 	pipelines col.Collection
 	// The progress collection
-	chunks col.Collection
+	plans col.Collection
 
 	// Only one datum can be running at a time because they need to be
 	// accessing /pfs, runMu enforces this
@@ -310,7 +311,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		namespace:       namespace,
 		jobs:            ppsdb.Jobs(etcdClient, etcdPrefix),
 		pipelines:       ppsdb.Pipelines(etcdClient, etcdPrefix),
-		chunks:          col.NewCollection(etcdClient, path.Join(etcdPrefix, chunksPrefix), nil, &Chunks{}, nil, nil),
+		plans:           col.NewCollection(etcdClient, path.Join(etcdPrefix, planPrefix), nil, &Plan{}, nil, nil),
 		datumCache:      datumCache,
 		hashtreeStorage: hashtreeStorage,
 	}
@@ -1008,7 +1009,7 @@ type processResult struct {
 
 type processFunc func(low, high int64) (*processResult, error)
 
-func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chunks, logger *taggedLogger, process processFunc) error {
+func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *Plan, logger *taggedLogger, process processFunc) error {
 	complete := false
 	for !complete {
 		// func to defer cancel in
@@ -1022,12 +1023,12 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 				// Reinitialize closed upon variables.
 				low, high = 0, 0
 				found = false
-				locks := a.locks(jobID).ReadWrite(stm)
+				chunks := a.chunks(jobID).ReadWrite(stm)
 				// we set complete to true and then unset it if we find an incomplete chunk
 				complete = true
-				for _, high = range chunks.Chunks {
+				for _, high = range plan.Chunks {
 					var chunkState ChunkState
-					if err := locks.Get(fmt.Sprint(high), &chunkState); err != nil {
+					if err := chunks.Get(fmt.Sprint(high), &chunkState); err != nil {
 						if col.IsErrNotFound(err) {
 							found = true
 						} else {
@@ -1036,7 +1037,7 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 					}
 					// This gets triggered either if we found a chunk that wasn't
 					// complete or if we didn't find a chunk at all.
-					if chunkState.State == ChunkState_RUNNING {
+					if chunkState.State == State_RUNNING {
 						complete = false
 					}
 					if found {
@@ -1045,7 +1046,7 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 					low = high
 				}
 				if found {
-					return locks.PutTTL(fmt.Sprint(high), &ChunkState{State: ChunkState_RUNNING}, ttl)
+					return chunks.PutTTL(fmt.Sprint(high), &ChunkState{State: State_RUNNING}, ttl)
 				}
 				return nil
 			}); err != nil {
@@ -1061,13 +1062,13 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 							break Renew
 						}
 						if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-							locks := a.locks(jobID).ReadWrite(stm)
+							chunks := a.chunks(jobID).ReadWrite(stm)
 							var chunkState ChunkState
-							if err := locks.Get(fmt.Sprint(high), &chunkState); err != nil {
+							if err := chunks.Get(fmt.Sprint(high), &chunkState); err != nil {
 								return err
 							}
-							if chunkState.State == ChunkState_RUNNING {
-								return locks.PutTTL(fmt.Sprint(high), &chunkState, ttl)
+							if chunkState.State == State_RUNNING {
+								return chunks.PutTTL(fmt.Sprint(high), &chunkState, ttl)
 							}
 							return nil
 						}); err != nil {
@@ -1093,14 +1094,14 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 					}); err != nil {
 						return err
 					}
-					locks := a.locks(jobID).ReadWrite(stm)
+					chunks := a.chunks(jobID).ReadWrite(stm)
 					if processResult.failedDatumID != "" {
-						return locks.Put(fmt.Sprint(high), &ChunkState{
-							State:   ChunkState_FAILED,
+						return chunks.Put(fmt.Sprint(high), &ChunkState{
+							State:   State_FAILED,
 							DatumID: processResult.failedDatumID,
 						})
 					}
-					return locks.Put(fmt.Sprint(high), &ChunkState{State: ChunkState_COMPLETE})
+					return chunks.Put(fmt.Sprint(high), &ChunkState{State: State_COMPLETE})
 				}); err != nil {
 					return err
 				}
@@ -1110,6 +1111,10 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 			return err
 		}
 	}
+	return nil
+}
+
+func mergeDatums(ctx context.Context, jobID string, plan *Plan, logger *taggedLogger) error {
 	return nil
 }
 
@@ -1245,8 +1250,8 @@ func (a *APIServer) worker() {
 			}
 
 			// Read the chunks laid out by the master and create the datum factory
-			chunks := &Chunks{}
-			if err := a.chunks.ReadOnly(jobCtx).GetBlock(jobInfo.Job.ID, chunks); err != nil {
+			plan := &Plan{}
+			if err := a.plans.ReadOnly(jobCtx).GetBlock(jobInfo.Job.ID, plan); err != nil {
 				return err
 			}
 			df, err := NewDatumFactory(pachClient, jobInfo.Input)
@@ -1259,7 +1264,7 @@ func (a *APIServer) worker() {
 			// handled above in the JOB_FAILURE case). There's no need to
 			// handle failed datums here, just failed etcd writes.
 			if err := a.acquireDatums(
-				jobCtx, jobID, chunks, logger,
+				jobCtx, jobID, plan, logger,
 				func(low, high int64) (*processResult, error) {
 					processResult, err := a.processDatums(pachClient, logger, jobInfo, df, low, high)
 					if err != nil {
