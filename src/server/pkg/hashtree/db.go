@@ -36,6 +36,8 @@ var (
 	exists    = []byte{1}
 	nullByte  = []byte{0}
 	slashByte = []byte{'/'}
+	// A path should not have a globbing character
+	sentinelByte = []byte{'*'}
 )
 
 func fs(tx *bolt.Tx) *bolt.Bucket {
@@ -430,16 +432,13 @@ func (h *dbHashTree) Serialize(_w io.Writer) error {
 	return h.View(func(tx *bolt.Tx) error {
 		for _, bucket := range buckets {
 			b := tx.Bucket(b(bucket))
-			keys := int64(b.Stats().KeyN)
 			if err := w.Write(
 				&BucketHeader{
 					Bucket: bucket,
-					Keys:   keys,
 				}); err != nil {
 				return err
 			}
 			if err := b.ForEach(func(k, v []byte) error {
-				keys--
 				if err := w.WriteBytes(k); err != nil {
 					return err
 				}
@@ -447,8 +446,8 @@ func (h *dbHashTree) Serialize(_w io.Writer) error {
 			}); err != nil {
 				return err
 			}
-			if keys != 0 {
-				return fmt.Errorf("bolt lied about the number of keys")
+			if err := w.WriteBytes(sentinelByte); err != nil {
+				return err
 			}
 		}
 		return nil
@@ -469,10 +468,13 @@ func (h *dbHashTree) Deserialize(_r io.Reader) error {
 			return err
 		}
 		bucket := b(hdr.Bucket)
-		for i := int64(0); i < hdr.Keys; i++ {
+		for {
 			_k, err := r.ReadBytes()
 			if err != nil {
 				return err
+			}
+			if bytes.Equal(_k, sentinelByte) {
+				break
 			}
 			// we need to make copies of k and v because the memory will be reused
 			k := make([]byte, len(_k))
