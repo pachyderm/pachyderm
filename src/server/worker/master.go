@@ -1054,18 +1054,6 @@ func (a *APIServer) aggregate(datums []float64) (*pps.Aggregate, error) {
 	}, nil
 }
 
-// getCachedDatum returns whether the given datum (identified by its hash)
-// has been processed.
-func (a *APIServer) getCachedDatum(hash string) bool {
-	_, ok := a.datumCache.Get(hash)
-	return ok
-}
-
-// setCachedDatum records that the given datum has been processed.
-func (a *APIServer) setCachedDatum(hash string) {
-	a.datumCache.Add(hash, struct{}{})
-}
-
 func isNotFoundErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "not found")
 }
