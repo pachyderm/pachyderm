@@ -321,6 +321,10 @@ func (a *APIServer) chunks(jobID string) col.Collection {
 	return col.NewCollection(a.etcdClient, path.Join(a.etcdPrefix, chunkPrefix, jobID), nil, &ChunkState{}, nil, nil)
 }
 
+func (a *APIServer) merges(jobID string) col.Collection {
+	return col.NewCollection(a.etcdClient, path.Join(a.etcdPrefix, mergePrefix, jobID), nil, &MergeState{}, nil, nil)
+}
+
 // collectDatum collects the output and stats output from a datum, and merges
 // it into the passed trees. It errors if it can't find the tree object for
 // this datum, unless failed is true in which case it tolerates missing trees.
@@ -707,6 +711,39 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		}
 		if err := eg.Wait(); err != nil { // all results have been merged
 			return err
+		}
+		// Wait for all merges to happen.
+		merges := a.merges(jobInfo.Job.ID).ReadOnly(ctx)
+		for merge := int64(0); merge < plan.Merges; merge++ {
+			if err := func() error {
+				mergeState := &MergeState{}
+				watcher, err := merges.WatchOne(fmt.Sprint(merge))
+				if err != nil {
+					return err
+				}
+				defer watcher.Close()
+			EventLoop:
+				for {
+					select {
+					case e := <-watcher.Watch():
+						var key string
+						if err := e.Unmarshal(&key, mergeState); err != nil {
+							return err
+						}
+						if mergeState.State != State_RUNNING {
+							if mergeState.State == State_FAILED {
+								// TODO handle failure
+							}
+							break EventLoop
+						}
+					case <-ctx.Done():
+						return context.Canceled
+					}
+				}
+				return nil
+			}(); err != nil {
+				return err
+			}
 		}
 		// merge stats into stats commit
 		var statsCommit *pfs.Commit
