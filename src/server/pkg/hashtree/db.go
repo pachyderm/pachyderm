@@ -119,7 +119,6 @@ func newDBHashTree(file string) (HashTree, error) {
 		return nil, err
 	}
 	db.NoSync = true
-	db.NoFreelistSync = true
 	db.NoGrowSync = true
 	db.MaxBatchDelay = 0
 	if err := db.Batch(func(tx *bolt.Tx) error {
