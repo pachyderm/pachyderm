@@ -25,7 +25,6 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	lru "github.com/hashicorp/golang-lru"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/go-playground/webhooks.v3/github"
@@ -114,10 +113,6 @@ type APIServer struct {
 	// Only one datum can be running at a time because they need to be
 	// accessing /pfs, runMu enforces this
 	runMu sync.Mutex
-
-	// datumCache is used by the master to keep track of the datums that
-	// have already been processed.
-	datumCache *lru.Cache
 
 	// We only export application statistics if enterprise is enabled
 	exportStats bool
@@ -293,10 +288,6 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	if err != nil {
 		return nil, err
 	}
-	datumCache, err := lru.New(numCachedDatums)
-	if err != nil {
-		return nil, fmt.Errorf("error creating datum cache: %v", err)
-	}
 	server := &APIServer{
 		pachClient:   pachClient,
 		kubeClient:   kubeClient,
@@ -312,7 +303,6 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		jobs:            ppsdb.Jobs(etcdClient, etcdPrefix),
 		pipelines:       ppsdb.Pipelines(etcdClient, etcdPrefix),
 		plans:           col.NewCollection(etcdClient, path.Join(etcdPrefix, planPrefix), nil, &Plan{}, nil, nil),
-		datumCache:      datumCache,
 		hashtreeStorage: hashtreeStorage,
 	}
 	logger, err := server.getTaggedLogger(pachClient, "", nil, false)
