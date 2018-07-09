@@ -739,67 +739,75 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 				if err != nil {
 					return err
 				}
-				pathWithInput, err := filepath.Rel(client.PPSInputPrefix, realPath)
-				if err == nil {
-					// We can only skip the upload if the real path is
-					// under /pfs, meaning that it's a file that already
-					// exists in PFS.
-
-					// The name of the input
-					inputName := strings.Split(pathWithInput, string(os.PathSeparator))[0]
-					var input *Input
-					for _, i := range inputs {
-						if i.Name == inputName {
-							input = i
-						}
+				if strings.HasPrefix(realPath, client.PPSInputPrefix) {
+					var pathWithInput string
+					var err error
+					if strings.HasPrefix(realPath, dir) {
+						pathWithInput, err = filepath.Rel(dir, realPath)
+					} else {
+						pathWithInput, err = filepath.Rel(client.PPSInputPrefix, realPath)
 					}
-					// this changes realPath from `/pfs/input/...` to `/scratch/<id>/input/...`
-					realPath = filepath.Join(dir, pathWithInput)
-					if input != nil {
-						return filepath.Walk(realPath, func(filePath string, info os.FileInfo, err error) error {
-							if err != nil {
-								return err
-							}
-							rel, err := filepath.Rel(realPath, filePath)
-							if err != nil {
-								return err
-							}
-							subRelPath := filepath.Join(relPath, rel)
-							// The path of the input file
-							pfsPath, err := filepath.Rel(filepath.Join(dir, input.Name), filePath)
-							if err != nil {
-								return err
-							}
+					if err == nil {
+						// We can only skip the upload if the real path is
+						// under /pfs, meaning that it's a file that already
+						// exists in PFS.
 
-							if info.IsDir() {
-								lock.Lock()
-								defer lock.Unlock()
-								tree.PutDir(subRelPath)
-								return nil
+						// The name of the input
+						inputName := strings.Split(pathWithInput, string(os.PathSeparator))[0]
+						var input *Input
+						for _, i := range inputs {
+							if i.Name == inputName {
+								input = i
 							}
-
-							fc := input.FileInfo.File.Commit
-							fileInfo, err := pachClient.InspectFile(fc.Repo.Name, fc.ID, pfsPath)
-							if err != nil {
-								return err
-							}
-
-							lock.Lock()
-							defer lock.Unlock()
-							if statsTree != nil {
-								if err := statsTree.PutFile(path.Join(statsRoot, subRelPath), fileInfo.Objects, int64(fileInfo.SizeBytes)); err != nil {
+						}
+						// this changes realPath from `/pfs/input/...` to `/scratch/<id>/input/...`
+						realPath = filepath.Join(dir, pathWithInput)
+						if input != nil {
+							return filepath.Walk(realPath, func(filePath string, info os.FileInfo, err error) error {
+								if err != nil {
 									return err
 								}
-							}
-							return tree.PutFile(subRelPath, fileInfo.Objects, int64(fileInfo.SizeBytes))
-						})
+								rel, err := filepath.Rel(realPath, filePath)
+								if err != nil {
+									return err
+								}
+								subRelPath := filepath.Join(relPath, rel)
+								// The path of the input file
+								pfsPath, err := filepath.Rel(filepath.Join(dir, input.Name), filePath)
+								if err != nil {
+									return err
+								}
+
+								if info.IsDir() {
+									lock.Lock()
+									defer lock.Unlock()
+									tree.PutDir(subRelPath)
+									return nil
+								}
+
+								fc := input.FileInfo.File.Commit
+								fileInfo, err := pachClient.InspectFile(fc.Repo.Name, fc.ID, pfsPath)
+								if err != nil {
+									return err
+								}
+
+								lock.Lock()
+								defer lock.Unlock()
+								if statsTree != nil {
+									if err := statsTree.PutFile(path.Join(statsRoot, subRelPath), fileInfo.Objects, int64(fileInfo.SizeBytes)); err != nil {
+										return err
+									}
+								}
+								return tree.PutFile(subRelPath, fileInfo.Objects, int64(fileInfo.SizeBytes))
+							})
+						}
 					}
 				}
 			}
 
 			f, err := os.Open(filePath)
 			if err != nil {
-				return err
+				return fmt.Errorf("os.Open(%s): %v", filePath, err)
 			}
 			defer func() {
 				if err := f.Close(); err != nil && retErr == nil {
@@ -817,7 +825,7 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 				})
 			})
 			if err != nil {
-				return err
+				return fmt.Errorf("Read(%s): %v", filePath, err)
 			}
 			object, err := putObjClient.CloseAndRecv()
 			if err != nil {
@@ -836,7 +844,7 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 		})
 		return nil
 	}); err != nil {
-		return err
+		return fmt.Errorf("error walking output: %v", err)
 	}
 
 	if err := g.Wait(); err != nil {
