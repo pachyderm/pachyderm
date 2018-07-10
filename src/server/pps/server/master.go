@@ -176,7 +176,13 @@ func (a *apiServer) master() {
 							if err := a.setPipelineFailure(ctx, pipelineName, fmt.Sprintf("failed to create workers: %s", err.Error())); err != nil {
 								return err
 							}
-							continue
+							// We return the error here, this causes us to go
+							// into backoff and try again from scratch. This
+							// means that we'll try creating this pipeline
+							// again and also gives a chance for another node,
+							// which might actually be able to talk to k8s, to
+							// get a chance at creating the workers.
+							return err
 						}
 					}
 					if pipelineInfo.State == pps.PipelineState_PIPELINE_RUNNING {
