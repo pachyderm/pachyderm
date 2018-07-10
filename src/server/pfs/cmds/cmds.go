@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
@@ -75,7 +76,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 					Description: description,
 				},
 			)
-			return err
+			return grpcutil.ScrubGRPC(err)
 		}),
 	}
 	createRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
@@ -97,7 +98,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 					Update:      true,
 				},
 			)
-			return err
+			return grpcutil.ScrubGRPC(err)
 		}),
 	}
 	updateRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
@@ -188,7 +189,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 				err = client.DeleteRepo(args[0], force)
 			}
 			if err != nil {
-				return fmt.Errorf("error from delete-repo: %s", err)
+				return grpcutil.ScrubGRPC(err)
 			}
 			return nil
 		}),
@@ -253,7 +254,7 @@ $ pachctl start-commit test -p XXX
 					Description: description,
 				})
 			if err != nil {
-				return err
+				return grpcutil.ScrubGRPC(err)
 			}
 			fmt.Println(commit.ID)
 			return nil
@@ -278,7 +279,7 @@ $ pachctl start-commit test -p XXX
 						Commit:      client.NewCommit(args[0], args[1]),
 						Description: description,
 					})
-				return err
+				return grpcutil.ScrubGRPC(err)
 			}
 			return cli.FinishCommit(args[0], args[1])
 		}),
