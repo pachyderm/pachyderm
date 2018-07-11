@@ -9,6 +9,7 @@ import (
 	pathlib "path"
 	"regexp"
 	"strings"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 
@@ -725,12 +726,18 @@ func (h *dbHashTree) DeleteFile(path string) error {
 	})
 }
 
+type Mergeable interface {
+	NextBucket(bucket string) error
+	Next() error
+	K() []byte
+	V() []byte
+	Close() error
+}
+
 type mergeCursor struct {
 	tx     *bolt.Tx
 	cursor *bolt.Cursor
-	path   string
-	node   *NodeProto
-	done   bool
+	k, v   []byte
 }
 
 func NewMergeCursor(h *dbHashTree) (*mergeCursor, error) {
@@ -739,111 +746,148 @@ func NewMergeCursor(h *dbHashTree) (*mergeCursor, error) {
 		return nil, err
 	}
 	m := &mergeCursor{
-		tx:     tx,
-		cursor: fs(tx).Cursor(),
+		tx: tx,
 	}
-	k, v := m.cursor.First()
-	m.path = s(k)
-	n := &NodeProto{}
-	n.Unmarshal(v)
-	m.node = n
 	return m, nil
 }
 
-func (m *mergeCursor) Path() string {
-	return m.path
-}
-
-func (m *mergeCursor) Node() *NodeProto {
-	return m.node
-}
-
-func (m *mergeCursor) Next() error {
-	if m.done {
-		return errorf(Internal, "done iterating")
-	}
-	k, v := m.cursor.Next()
-	if k == nil {
-		m.done = true
-		return m.tx.Rollback()
-	}
-	m.path = s(k)
-	n := &NodeProto{}
-	n.Unmarshal(v)
-	m.node = n
+func (m *mergeCursor) NextBucket(bucket string) error {
+	m.cursor = m.tx.Bucket(b(bucket)).Cursor()
+	m.k, m.v = m.cursor.First()
 	return nil
 }
 
-func (m *mergeCursor) Done() bool {
-	return m.done
+func (m *mergeCursor) Next() error {
+	m.k, m.v = m.cursor.Next()
+	return nil
 }
 
-func merge(tx *bolt.Tx, srcs []*dbHashTree) error {
-	var cursors []*mergeCursor
-	for _, src := range srcs {
-		m, err := NewMergeCursor(src)
+func (m *mergeCursor) K() []byte {
+	return m.k
+}
+
+func (m *mergeCursor) V() []byte {
+	return m.v
+}
+
+func (m *mergeCursor) Close() error {
+	return m.tx.Rollback()
+}
+
+type mergeStream struct {
+	r    io.ReadCloser
+	pbr  pbutil.Reader
+	hdr  *BucketHeader
+	done bool
+	k, v []byte
+}
+
+func NewMergeStream(r io.ReadCloser) (*mergeStream, error) {
+	m := &mergeStream{
+		r:   r,
+		pbr: pbutil.NewReader(snappy.NewReader(r)),
+		hdr: &BucketHeader{},
+	}
+	return m, nil
+}
+
+func (m *mergeStream) NextBucket(bucket string) error {
+	m.hdr.Reset()
+	if err := m.pbr.Read(m.hdr); err != nil {
+		return err
+	}
+	if m.hdr.Bucket != bucket {
+		return errorf(Internal, "Merge stream reader is in the wrong bucket")
+	}
+	m.done = false
+	if err := m.Next(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *mergeStream) Next() error {
+	if !m.done {
+		k, err := m.pbr.ReadBytes()
 		if err != nil {
 			return err
 		}
-		cursors = append(cursors, m)
-	}
-
-	for len(cursors) > 0 {
-		path := cursors[0].Path()
-		for i := 0; i < len(cursors); i++ {
-			c := cursors[i]
-			if c.Done() {
-				cursors = append(cursors[:i], cursors[i+1:]...)
-				i--
-				continue
-			}
-			if strings.Compare(c.Path(), path) < 0 {
-				path = c.Path()
-			}
+		if bytes.Equal(k, sentinelByte) {
+			m.k = nil
+			m.v = nil
+			m.done = true
+			return nil
 		}
-
-		// Get the node at path in 'h' and determine its type (i.e. file, dir)
-		destNode, err := get(tx, path)
-		if err != nil && Code(err) != PathNotFound {
+		// we need to make copies of k and v because the memory will be reused
+		m.k = make([]byte, len(k))
+		copy(m.k, k)
+		v, err := m.pbr.ReadBytes()
+		if err != nil {
 			return err
 		}
-		if destNode == nil {
-			destNode = &NodeProto{
-				Name:        base(path),
-				SubtreeSize: 0,
-				Hash:        nil,
-				FileNode:    nil,
-				DirNode:     nil,
-			}
-			if err := put(tx, path, destNode); err != nil {
-				return err
-			}
-		} else if destNode.nodetype() == unrecognized {
-			return errorf(Internal, "malformed file at \"%s\" in destination "+
-				"hashtree is neither a regular-file nor a directory", path)
-		}
-		sizeDelta := int64(0)           // We return this to propagate file additions upwards
-		pathtype := destNode.nodetype() // All nodes in 'srcs' must have same type
+		m.v = make([]byte, len(v))
+		copy(m.v, v)
+	}
+	return nil
+}
 
-		for _, c := range cursors {
-			if c.Path() != path {
-				continue
+func (m *mergeStream) K() []byte {
+	return m.k
+}
+
+func (m *mergeStream) V() []byte {
+	return m.v
+}
+
+func (m *mergeStream) Close() error {
+	return m.r.Close()
+}
+
+func (h *dbHashTree) Merge(w io.Writer, rs ...io.ReadCloser) error {
+	buff := &bytes.Buffer{}
+	out := pbutil.NewWriter(snappy.NewWriter(buff))
+	src, err := NewMergeCursor(h)
+	if err != nil {
+		return err
+	}
+	srcs := []Mergeable{src}
+	for _, r := range rs {
+		src, err := NewMergeStream(r)
+		if err != nil {
+			return err
+		}
+		srcs = append(srcs, src)
+	}
+
+	if err := MergeBucket(FsBucket, w, out, buff, srcs, func(k []byte, vs [][]byte) ([]byte, []byte, error) {
+		destNode := &NodeProto{
+			Name:        base(s(k)),
+			SubtreeSize: 0,
+			Hash:        nil,
+			FileNode:    nil,
+			DirNode:     nil,
+		}
+		n := &NodeProto{}
+		if err := n.Unmarshal(vs[0]); err != nil {
+			return nil, nil, err
+		}
+		if n.nodetype() == directory {
+			destNode.DirNode = &DirectoryNodeProto{}
+		} else if n.nodetype() == file {
+			destNode.FileNode = &FileNodeProto{}
+		} else {
+			return nil, nil, errorf(Internal, "could not merge unrecognized file type at "+
+				"\"%s\", which is neither a file nor a directory", s(k))
+		}
+		sizeDelta := int64(0)
+		for _, v := range vs {
+			n := &NodeProto{}
+			if err := n.Unmarshal(v); err != nil {
+				return nil, nil, err
 			}
-			n := c.Node()
-			if pathtype == none {
-				// 'h' is uninitialized at this path
-				if n.nodetype() == directory {
-					destNode.DirNode = &DirectoryNodeProto{}
-				} else if n.nodetype() == file {
-					destNode.FileNode = &FileNodeProto{}
-				} else {
-					return errorf(Internal, "could not merge unrecognized file type at "+
-						"\"%s\", which is neither a file nore a directory", path)
-				}
-				pathtype = n.nodetype()
-			} else if pathtype != n.nodetype() {
-				return errorf(PathConflict, "could not merge path \"%s\" "+
-					"which is a regular-file in some hashtrees and a directory in others", path)
+			if n.nodetype() != destNode.nodetype() {
+				return nil, nil, errorf(PathConflict, "could not merge path \"%s\" "+
+					"which is a regular-file in some hashtrees and a directory in others", s(k))
 			}
 			switch n.nodetype() {
 			case directory:
@@ -851,70 +895,123 @@ func merge(tx *bolt.Tx, srcs []*dbHashTree) error {
 			case file:
 				// Append new objects, and update size of target node (since that can't be
 				// done in canonicalize)
-				destNode.FileNode.Objects = append(destNode.FileNode.Objects,
-					n.FileNode.Objects...)
+				destNode.FileNode.Objects = append(destNode.FileNode.Objects, n.FileNode.Objects...)
 				sizeDelta += n.SubtreeSize
 			default:
-				return errorf(Internal, "malformed file at \"%s\" in source "+
-					"hashtree is neither a regular-file nor a directory", path)
-			}
-
-			if err := c.Next(); err != nil {
-				return err
+				return nil, nil, errorf(Internal, "malformed file at \"%s\" in source "+
+					"hashtree is neither a regular-file nor a directory", s(k))
 			}
 		}
-
-		// Update the size of destNode, and mark it changed
 		destNode.SubtreeSize += sizeDelta
-		if err := put(tx, path, destNode); err != nil {
+		v, err := destNode.Marshal()
+		if err != nil {
+			return nil, nil, err
+		}
+		return k, v, nil
+	}); err != nil {
+		return err
+	}
+	if err := MergeBucket(ChangedBucket, w, out, buff, srcs, func(k []byte, vs [][]byte) ([]byte, []byte, error) {
+		return k, vs[0], nil
+	}); err != nil {
+		return err
+	}
+	if err := MergeBucket(ObjectBucket, w, out, buff, srcs, func(k []byte, vs [][]byte) ([]byte, []byte, error) {
+		return k, vs[0], nil
+	}); err != nil {
+		return err
+	}
+	if err := MergeBucket(DatumBucket, w, out, buff, srcs, func(k []byte, vs [][]byte) ([]byte, []byte, error) {
+		return k, vs[0], nil
+	}); err != nil {
+		return err
+	}
+	for _, src := range srcs {
+		if err := src.Close(); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (h *dbHashTree) Merge(trees ...HashTree) error {
-	//	t := time.Now()
-	//	defer func() {
-	//		fmt.Printf("Time spent merging: %v\n", time.Since(t))
-	//	}()
-	// Skip empty trees
-	var nonEmptyTrees []*dbHashTree
-	for _, tree := range trees {
-		_, err := tree.Get("/")
-		if err != nil {
-			continue
-		}
-		dbTree, ok := tree.(*dbHashTree)
-		if !ok {
-			return errorf(Internal, "wrong underlying hash tree type")
-		}
-		nonEmptyTrees = append(nonEmptyTrees, dbTree)
-	}
-	if len(nonEmptyTrees) == 0 {
-		return nil
-	}
-	//	defer func() {
-	//		spew.Dump(h.Stats().TxStats)
-	//	}()
-	return h.Update(func(tx *bolt.Tx) error {
-		// Merge fs
-		err := merge(tx, nonEmptyTrees)
-		if err != nil {
+func MergeBucket(bucket string, w io.Writer, out pbutil.Writer, buff *bytes.Buffer, srcs []Mergeable, f func(k []byte, vs [][]byte) ([]byte, []byte, error)) error {
+	streams := make([]Mergeable, len(srcs))
+	copy(streams, srcs)
+	for _, s := range streams {
+		if err := s.NextBucket(bucket); err != nil {
 			return err
 		}
-		// Merge objects
-		for _, tree := range nonEmptyTrees {
-			if err := tree.View(func(subTx *bolt.Tx) error {
-				return object(subTx).ForEach(func(k, v []byte) error {
-					return object(tx).Put(k, v)
-				})
-			}); err != nil {
+	}
+	if err := out.Write(
+		&BucketHeader{
+			Bucket: bucket,
+		}); err != nil {
+		return err
+	}
+	var total, total2, total3, total4 time.Duration
+	for len(streams) > 0 {
+		k := streams[0].K()
+		t := time.Now()
+		for i := 0; i < len(streams); i++ {
+			s := streams[i]
+			if s.K() == nil {
+				streams = append(streams[:i], streams[i+1:]...)
+				i--
+				continue
+			}
+			if k == nil {
+				k = s.K()
+			} else if bytes.Compare(s.K(), k) < 0 {
+				k = s.K()
+			}
+		}
+		total += time.Since(t)
+		if len(streams) <= 0 {
+			break
+		}
+		var vs [][]byte
+		for _, s := range streams {
+			if !bytes.Equal(s.K(), k) {
+				continue
+			}
+			vs = append(vs, s.V())
+			t = time.Now()
+			if err := s.Next(); err != nil {
+				return err
+			}
+			total2 += time.Since(t)
+		}
+		var v []byte
+		var err error
+		t = time.Now()
+		if k, v, err = f(k, vs); err != nil {
+			return err
+		}
+		total3 += time.Since(t)
+		t = time.Now()
+		if buff.Len() >= 1048576 {
+			b := buff.Next(buff.Len())
+			if _, err := w.Write(b); err != nil {
 				return err
 			}
 		}
-		return nil
-	})
+		if err := out.WriteBytes(k); err != nil {
+			return err
+		}
+		if err := out.WriteBytes(v); err != nil {
+			return err
+		}
+		total4 += time.Since(t)
+	}
+	fmt.Printf("(mergefilter) bucket: %v\nTime spent deciding next path: %v\nTime spent getting next in stream: %v\nTime spent merging: %v\nTime spent writing: %v\n", bucket, total, total2, total3, total4)
+	if err := out.WriteBytes(sentinelByte); err != nil {
+		return err
+	}
+	b := buff.Next(buff.Len())
+	if _, err := w.Write(b); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (h *dbHashTree) PutObject(o *pfs.Object, blockRef *pfs.BlockRef) error {
