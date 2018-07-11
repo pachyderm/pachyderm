@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	gosync "sync"
@@ -20,7 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
+	"github.com/pachyderm/pachyderm/src/server/pfs/fuse2"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
@@ -1024,18 +1023,8 @@ $ pachctl diff-file foo master path1 bar master path2
 			if err != nil {
 				return err
 			}
-			mounter := fuse.NewMounter(client.GetAddress(), client)
 			mountPoint := args[0]
-			ready := make(chan bool)
-			go func() {
-				<-ready
-				fmt.Println("Filesystem mounted, CTRL-C to exit.")
-			}()
-			err = mounter.Mount(mountPoint, nil, ready, debug, false)
-			if err != nil {
-				return err
-			}
-			return nil
+			return fuse.Mount(mountPoint, fuse.NewFileSystem(client))
 		}),
 	}
 	mount.Flags().BoolVarP(&debug, "debug", "d", false, "Turn on debug messages.")
@@ -1128,23 +1117,23 @@ $ pachctl diff-file foo master path1 bar master path2
 	return result
 }
 
-func parseCommitMounts(args []string) []*fuse.CommitMount {
-	var result []*fuse.CommitMount
-	for _, arg := range args {
-		commitMount := &fuse.CommitMount{Commit: client.NewCommit("", "")}
-		repo, commitAlias := path.Split(arg)
-		commitMount.Commit.Repo.Name = path.Clean(repo)
-		split := strings.Split(commitAlias, ":")
-		if len(split) > 0 {
-			commitMount.Commit.ID = split[0]
-		}
-		if len(split) > 1 {
-			commitMount.Alias = split[1]
-		}
-		result = append(result, commitMount)
-	}
-	return result
-}
+// func parseCommitMounts(args []string) []*fuse.CommitMount {
+// 	var result []*fuse.CommitMount
+// 	for _, arg := range args {
+// 		commitMount := &fuse.CommitMount{Commit: client.NewCommit("", "")}
+// 		repo, commitAlias := path.Split(arg)
+// 		commitMount.Commit.Repo.Name = path.Clean(repo)
+// 		split := strings.Split(commitAlias, ":")
+// 		if len(split) > 0 {
+// 			commitMount.Commit.ID = split[0]
+// 		}
+// 		if len(split) > 1 {
+// 			commitMount.Alias = split[1]
+// 		}
+// 		result = append(result, commitMount)
+// 	}
+// 	return result
+// }
 
 func putFileHelper(client *client.APIClient, repo, commit, path, source string,
 	recursive bool, overwrite bool, limiter limit.ConcurrencyLimiter, split string,
