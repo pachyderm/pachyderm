@@ -25,7 +25,6 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	lru "github.com/hashicorp/golang-lru"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/go-playground/webhooks.v3/github"
@@ -57,8 +56,9 @@ const (
 	concurrency = 100
 	logBuffer   = 25
 
-	chunksPrefix = "/chunks"
-	lockPrefix   = "/locks"
+	planPrefix  = "/plan"
+	chunkPrefix = "/chunk"
+	mergePrefix = "/merge"
 
 	maxRetries = 3
 )
@@ -108,15 +108,11 @@ type APIServer struct {
 	// The pipelines collection
 	pipelines col.Collection
 	// The progress collection
-	chunks col.Collection
+	plans col.Collection
 
 	// Only one datum can be running at a time because they need to be
 	// accessing /pfs, runMu enforces this
 	runMu sync.Mutex
-
-	// datumCache is used by the master to keep track of the datums that
-	// have already been processed.
-	datumCache *lru.Cache
 
 	// We only export application statistics if enterprise is enabled
 	exportStats bool
@@ -292,10 +288,6 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	if err != nil {
 		return nil, err
 	}
-	datumCache, err := lru.New(numCachedDatums)
-	if err != nil {
-		return nil, fmt.Errorf("error creating datum cache: %v", err)
-	}
 	server := &APIServer{
 		pachClient:   pachClient,
 		kubeClient:   kubeClient,
@@ -310,8 +302,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		namespace:       namespace,
 		jobs:            ppsdb.Jobs(etcdClient, etcdPrefix),
 		pipelines:       ppsdb.Pipelines(etcdClient, etcdPrefix),
-		chunks:          col.NewCollection(etcdClient, path.Join(etcdPrefix, chunksPrefix), nil, &Chunks{}, nil, nil),
-		datumCache:      datumCache,
+		plans:           col.NewCollection(etcdClient, path.Join(etcdPrefix, planPrefix), nil, &Plan{}, nil, nil),
 		hashtreeStorage: hashtreeStorage,
 	}
 	logger, err := server.getTaggedLogger(pachClient, "", nil, false)
@@ -1008,7 +999,7 @@ type processResult struct {
 
 type processFunc func(low, high int64) (*processResult, error)
 
-func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chunks, logger *taggedLogger, process processFunc) error {
+func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *Plan, logger *taggedLogger, process processFunc) error {
 	complete := false
 	for !complete {
 		// func to defer cancel in
@@ -1022,12 +1013,12 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 				// Reinitialize closed upon variables.
 				low, high = 0, 0
 				found = false
-				locks := a.locks(jobID).ReadWrite(stm)
+				chunks := a.chunks(jobID).ReadWrite(stm)
 				// we set complete to true and then unset it if we find an incomplete chunk
 				complete = true
-				for _, high = range chunks.Chunks {
+				for _, high = range plan.Chunks {
 					var chunkState ChunkState
-					if err := locks.Get(fmt.Sprint(high), &chunkState); err != nil {
+					if err := chunks.Get(fmt.Sprint(high), &chunkState); err != nil {
 						if col.IsErrNotFound(err) {
 							found = true
 						} else {
@@ -1036,7 +1027,7 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 					}
 					// This gets triggered either if we found a chunk that wasn't
 					// complete or if we didn't find a chunk at all.
-					if chunkState.State == ChunkState_RUNNING {
+					if chunkState.State == State_RUNNING {
 						complete = false
 					}
 					if found {
@@ -1045,7 +1036,7 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 					low = high
 				}
 				if found {
-					return locks.PutTTL(fmt.Sprint(high), &ChunkState{State: ChunkState_RUNNING}, ttl)
+					return chunks.PutTTL(fmt.Sprint(high), &ChunkState{State: State_RUNNING}, ttl)
 				}
 				return nil
 			}); err != nil {
@@ -1061,13 +1052,13 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 							break Renew
 						}
 						if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-							locks := a.locks(jobID).ReadWrite(stm)
+							chunks := a.chunks(jobID).ReadWrite(stm)
 							var chunkState ChunkState
-							if err := locks.Get(fmt.Sprint(high), &chunkState); err != nil {
+							if err := chunks.Get(fmt.Sprint(high), &chunkState); err != nil {
 								return err
 							}
-							if chunkState.State == ChunkState_RUNNING {
-								return locks.PutTTL(fmt.Sprint(high), &chunkState, ttl)
+							if chunkState.State == State_RUNNING {
+								return chunks.PutTTL(fmt.Sprint(high), &chunkState, ttl)
 							}
 							return nil
 						}); err != nil {
@@ -1093,14 +1084,14 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 					}); err != nil {
 						return err
 					}
-					locks := a.locks(jobID).ReadWrite(stm)
+					chunks := a.chunks(jobID).ReadWrite(stm)
 					if processResult.failedDatumID != "" {
-						return locks.Put(fmt.Sprint(high), &ChunkState{
-							State:   ChunkState_FAILED,
+						return chunks.Put(fmt.Sprint(high), &ChunkState{
+							State:   State_FAILED,
 							DatumID: processResult.failedDatumID,
 						})
 					}
-					return locks.Put(fmt.Sprint(high), &ChunkState{State: ChunkState_COMPLETE})
+					return chunks.Put(fmt.Sprint(high), &ChunkState{State: State_COMPLETE})
 				}); err != nil {
 					return err
 				}
@@ -1111,6 +1102,90 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 		}
 	}
 	return nil
+}
+
+func (a *APIServer) mergeDatums(ctx context.Context, jobID string, plan *Plan, logger *taggedLogger) error {
+	complete := false
+	for !complete {
+		// func to defer cancel in
+		if err := func() error {
+			ctx, cancel := context.WithCancel(ctx)
+			defer cancel()
+			var merge int64
+			var found bool
+			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				// Reinitialize closed upon variables.
+				found = false
+				merges := a.merges(jobID).ReadWrite(stm)
+				// we set complete to true and then unset it if we find an incomplete chunk
+				complete = true
+				for merge = 0; merge < plan.Merges; merge++ {
+					var mergeState MergeState
+					if err := merges.Get(fmt.Sprint(merge), &mergeState); err != nil {
+						if col.IsErrNotFound(err) {
+							found = true
+						} else {
+							return err
+						}
+					}
+					// This gets triggered either if we found a chunk that wasn't
+					// complete or if we didn't find a chunk at all.
+					if mergeState.State == State_RUNNING {
+						complete = false
+					}
+					if found {
+						break
+					}
+				}
+				if found {
+					return merges.PutTTL(fmt.Sprint(merge), &MergeState{State: State_RUNNING}, ttl)
+				}
+				return nil
+			}); err != nil {
+				return err
+			}
+			if found {
+				go func() {
+				Renew:
+					for {
+						select {
+						case <-time.After((time.Second * time.Duration(ttl)) / 2):
+						case <-ctx.Done():
+							break Renew
+						}
+						if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+							merges := a.merges(jobID).ReadWrite(stm)
+							var chunkState ChunkState
+							if err := merges.Get(fmt.Sprint(merge), &chunkState); err != nil {
+								return err
+							}
+							if chunkState.State == State_RUNNING {
+								return merges.PutTTL(fmt.Sprint(merge), &chunkState, ttl)
+							}
+							return nil
+						}); err != nil {
+							cancel()
+							logger.Logf("failed to renew lock: %v", err)
+						}
+					}
+				}()
+				// TODO merge the datums
+
+				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+					merges := a.merges(jobID).ReadWrite(stm)
+					// TODO handle failures
+					return merges.Put(fmt.Sprint(merge), &MergeState{State: State_COMPLETE})
+				}); err != nil {
+					return err
+				}
+			}
+			return nil
+		}(); err != nil {
+			return err
+		}
+	}
+	return nil
+
 }
 
 func isDone(ctx context.Context) bool {
@@ -1245,8 +1320,8 @@ func (a *APIServer) worker() {
 			}
 
 			// Read the chunks laid out by the master and create the datum factory
-			chunks := &Chunks{}
-			if err := a.chunks.ReadOnly(jobCtx).GetBlock(jobInfo.Job.ID, chunks); err != nil {
+			plan := &Plan{}
+			if err := a.plans.ReadOnly(jobCtx).GetBlock(jobInfo.Job.ID, plan); err != nil {
 				return err
 			}
 			df, err := NewDatumFactory(pachClient, jobInfo.Input)
@@ -1259,7 +1334,7 @@ func (a *APIServer) worker() {
 			// handled above in the JOB_FAILURE case). There's no need to
 			// handle failed datums here, just failed etcd writes.
 			if err := a.acquireDatums(
-				jobCtx, jobID, chunks, logger,
+				jobCtx, jobID, plan, logger,
 				func(low, high int64) (*processResult, error) {
 					processResult, err := a.processDatums(pachClient, logger, jobInfo, df, low, high)
 					if err != nil {
@@ -1268,6 +1343,12 @@ func (a *APIServer) worker() {
 					return processResult, nil
 				},
 			); err != nil {
+				if jobCtx.Err() == context.Canceled {
+					continue NextJob // job cancelled--don't restart, just wait for next job
+				}
+				return fmt.Errorf("acquire/process datums for job %s exited with err: %v", jobID, err)
+			}
+			if err := a.mergeDatums(jobCtx, jobID, plan, logger); err != nil {
 				if jobCtx.Err() == context.Canceled {
 					continue NextJob // job cancelled--don't restart, just wait for next job
 				}

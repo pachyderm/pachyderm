@@ -318,8 +318,12 @@ func plusDuration(x *types.Duration, y *types.Duration) (*types.Duration, error)
 	return types.DurationProto(xd + yd), nil
 }
 
-func (a *APIServer) locks(jobID string) col.Collection {
-	return col.NewCollection(a.etcdClient, path.Join(a.etcdPrefix, lockPrefix, jobID), nil, &ChunkState{}, nil, nil)
+func (a *APIServer) chunks(jobID string) col.Collection {
+	return col.NewCollection(a.etcdClient, path.Join(a.etcdPrefix, chunkPrefix, jobID), nil, &ChunkState{}, nil, nil)
+}
+
+func (a *APIServer) merges(jobID string) col.Collection {
+	return col.NewCollection(a.etcdClient, path.Join(a.etcdPrefix, mergePrefix, jobID), nil, &MergeState{}, nil, nil)
 }
 
 // collectDatum collects the output and stats output from a datum, and merges
@@ -400,7 +404,7 @@ func (a *APIServer) collectDatum(pachClient *client.APIClient, index int, files 
 	return nil
 }
 
-func makeChunks(df DatumFactory, spec *pps.ChunkSpec, parallelism int) *Chunks {
+func newPlan(df DatumFactory, spec *pps.ChunkSpec, parallelism int) *Plan {
 	if spec == nil {
 		spec = &pps.ChunkSpec{}
 	}
@@ -410,10 +414,10 @@ func makeChunks(df DatumFactory, spec *pps.ChunkSpec, parallelism int) *Chunks {
 			spec.Number = 1
 		}
 	}
-	chunks := &Chunks{}
+	plan := &Plan{}
 	if spec.Number != 0 {
 		for i := spec.Number; i < int64(df.Len()); i += spec.Number {
-			chunks.Chunks = append(chunks.Chunks, int64(i))
+			plan.Chunks = append(plan.Chunks, int64(i))
 		}
 	} else {
 		size := int64(0)
@@ -422,12 +426,13 @@ func makeChunks(df DatumFactory, spec *pps.ChunkSpec, parallelism int) *Chunks {
 				size += int64(input.FileInfo.SizeBytes)
 			}
 			if size > spec.SizeBytes {
-				chunks.Chunks = append(chunks.Chunks, int64(i))
+				plan.Chunks = append(plan.Chunks, int64(i))
 			}
 		}
 	}
-	chunks.Chunks = append(chunks.Chunks, int64(df.Len()))
-	return chunks
+	plan.Chunks = append(plan.Chunks, int64(df.Len()))
+	plan.Merges = int64(parallelism) * 2
+	return plan
 }
 
 func (a *APIServer) failedInputs(ctx context.Context, jobInfo *pps.JobInfo) ([]string, error) {
@@ -583,11 +588,10 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		if err != nil {
 			return fmt.Errorf("error from GetExpectedNumWorkers: %v", err)
 		}
-		chunks := &Chunks{}
+		plan := &Plan{}
 
 		// Read the job document, and either resume (if we're recovering from a
-		// crash) or mark it running. Also write the input chunks calculated above
-		// into chunksCol
+		// crash) or mark it running. Also write the input chunks into chunksCol
 		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			jobs := a.jobs.ReadWrite(stm)
 			jobID := jobInfo.Job.ID
@@ -602,18 +606,18 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			if err := ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, pps.JobState_JOB_RUNNING, ""); err != nil {
 				return err
 			}
-			chunksCol := a.chunks.ReadWrite(stm)
-			if err := chunksCol.Get(jobID, chunks); err == nil {
+			chunksCol := a.plans.ReadWrite(stm)
+			if err := chunksCol.Get(jobID, plan); err == nil {
 				return nil
 			}
-			chunks = makeChunks(df, jobInfo.ChunkSpec, parallelism)
-			return chunksCol.Put(jobID, chunks)
+			plan = newPlan(df, jobInfo.ChunkSpec, parallelism)
+			return chunksCol.Put(jobID, plan)
 		}); err != nil {
 			return err
 		}
 
-		// Watch the chunk locks in order, and merge chunk outputs into commit tree
-		locks := a.locks(jobInfo.Job.ID).ReadOnly(ctx)
+		// Watch the chunks in order, and merge chunk outputs into commit tree
+		chunks := a.chunks(jobInfo.Job.ID).ReadOnly(ctx)
 		tree, err := a.getParentCommitHashTree(ctx, pachClient, jobInfo.OutputCommit)
 		if err != nil {
 			return err
@@ -655,12 +659,12 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		var failedDatumID string
 		var eg errgroup.Group
 		var tags []*pfs.Tag
-		for i, high := range chunks.Chunks {
+		for i, high := range plan.Chunks {
 			// Watch this chunk's lock and when it's finished, handle the result
 			// (merge chunk output into commit trees, fail if chunk failed, etc)
 			if err := func() error {
 				chunkState := &ChunkState{}
-				watcher, err := locks.WatchOne(fmt.Sprint(high))
+				watcher, err := chunks.WatchOne(fmt.Sprint(high))
 				if err != nil {
 					return err
 				}
@@ -673,13 +677,13 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 						if err := e.Unmarshal(&key, chunkState); err != nil {
 							return err
 						}
-						if chunkState.State != ChunkState_RUNNING {
-							if chunkState.State == ChunkState_FAILED {
+						if chunkState.State != State_RUNNING {
+							if chunkState.State == State_FAILED {
 								failedDatumID = chunkState.DatumID
 							}
 							var low int64 // chunk lower bound
 							if i > 0 {
-								low = chunks.Chunks[i-1]
+								low = plan.Chunks[i-1]
 							}
 							high := high // chunk upper bound
 							// merge results into output tree
@@ -723,9 +727,40 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		if err := eg.Wait(); err != nil { // all results have been merged
 			return err
 		}
+		// Wait for all merges to happen.
+		merges := a.merges(jobInfo.Job.ID).ReadOnly(ctx)
+		for merge := int64(0); merge < plan.Merges; merge++ {
+			if err := func() error {
+				mergeState := &MergeState{}
+				watcher, err := merges.WatchOne(fmt.Sprint(merge))
+				if err != nil {
+					return err
+				}
+				defer watcher.Close()
+			EventLoop:
+				for {
+					select {
+					case e := <-watcher.Watch():
+						var key string
+						if err := e.Unmarshal(&key, mergeState); err != nil {
+							return err
+						}
+						if mergeState.State != State_RUNNING {
+							if mergeState.State == State_FAILED {
+								// TODO handle failure
+							}
+							break EventLoop
+						}
+					case <-ctx.Done():
+						return context.Canceled
+					}
+				}
+				return nil
+			}(); err != nil {
+				return err
+			}
+		}
 		// merge stats into stats commit
-		// TODO stats branch should be provenant on inputs, rather than us creating
-		// the stats commit here
 		var statsCommit *pfs.Commit
 		if jobInfo.EnableStats {
 			statsObject, err := hashtree.PutHashTree(pachClient, statsTree)
@@ -1063,18 +1098,6 @@ func (a *APIServer) aggregate(datums []float64) (*pps.Aggregate, error) {
 		FifthPercentile:       fifth,
 		NinetyFifthPercentile: ninetyFifth,
 	}, nil
-}
-
-// getCachedDatum returns whether the given datum (identified by its hash)
-// has been processed.
-func (a *APIServer) getCachedDatum(hash string) bool {
-	_, ok := a.datumCache.Get(hash)
-	return ok
-}
-
-// setCachedDatum records that the given datum has been processed.
-func (a *APIServer) setCachedDatum(hash string) {
-	a.datumCache.Add(hash, struct{}{})
 }
 
 func isNotFoundErr(err error) bool {
