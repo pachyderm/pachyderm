@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path"
@@ -378,17 +379,17 @@ func (a *APIServer) collectDatum(pachClient *client.APIClient, index int, files 
 	treeMu.Lock()
 	defer treeMu.Unlock()
 	if statsSubtree != nil {
-		if err := statsTree.Merge(statsSubtree); err != nil {
-			logger.Logf("failed to merge into stats tree: %v", err)
-		}
+		//if err := statsTree.Merge(statsSubtree); err != nil {
+		//	logger.Logf("failed to merge into stats tree: %v", err)
+		//}
 		if err := statsSubtree.Destroy(); err != nil {
 			return err
 		}
 	}
 	if subTree != nil {
-		if err := tree.Merge(subTree); err != nil {
-			return err
-		}
+		//if err := tree.Merge(subTree); err != nil {
+		//	return err
+		//}
 		if err := subTree.Destroy(); err != nil {
 			return err
 		}
@@ -650,10 +651,10 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				return err
 			}
 		}
-		var treeMu sync.Mutex
 		limiter := limit.New(100)
 		var failedDatumID string
 		var eg errgroup.Group
+		var tags []*pfs.Tag
 		for i, high := range chunks.Chunks {
 			// Watch this chunk's lock and when it's finished, handle the result
 			// (merge chunk output into commit trees, fail if chunk failed, etc)
@@ -689,7 +690,21 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 									eg.Go(func() error {
 										defer limiter.Release()
 										files := df.Datum(int(i))
-										return a.collectDatum(pachClient, int(i), files, logger, tree, statsTree, &treeMu, chunkState.State == ChunkState_FAILED)
+										datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
+										ok, err := tree.HasDatum(datumHash)
+										if err != nil {
+											return err
+										}
+										if !ok {
+											tags = append(tags, &pfs.Tag{datumHash})
+											if err := tree.PutDatum(datumHash); err != nil {
+												return err
+											}
+										}
+										return nil
+
+										// Stats needs to be changed to fit this new model
+										//statsTag := &pfs.Tag{datumHash + statsTagSuffix}
 									})
 								}
 								return nil
@@ -738,14 +753,40 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		}
 		// We only do this if failedDatumID == "", which is to say that all of the chunks succeeded.
 		if failedDatumID == "" {
-			// put output tree into object store
-			object, err := hashtree.PutHashTree(pachClient, tree)
-			if err != nil {
+			t := time.Now()
+			var eg errgroup.Group
+			var rs []io.ReadCloser
+			for _, tag := range tags {
+				r, w := io.Pipe()
+				name := tag.Name
+				eg.Go(func() error {
+					if err := pachClient.GetTag(name, w); err != nil {
+						if err != io.ErrClosedPipe {
+							return err
+						}
+					}
+					return w.Close()
+				})
+				rs = append(rs, r)
+			}
+			var object *pfs.Object
+			r, w := io.Pipe()
+			eg.Go(func() error {
+				if err = tree.Merge(w, rs...); err != nil {
+					return err
+				}
+				return w.Close()
+			})
+			eg.Go(func() error {
+				if object, _, err = pachClient.PutObject(r); err != nil {
+					return err
+				}
+				return nil
+			})
+			if err := eg.Wait(); err != nil {
 				return err
 			}
-			if err := tree.Destroy(); err != nil {
-				return err
-			}
+			fmt.Printf("(mergefilter) Time spent merging: %v\n", time.Since(t))
 			// Finish the job's output commit
 			_, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
 				Commit: jobInfo.OutputCommit,
@@ -779,6 +820,11 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				logger.Logf("possibly a bug -- returning \"%v\"", err)
 				return err
 			}
+		}
+
+		// Cleanup tree
+		if err := tree.Destroy(); err != nil {
+			return err
 		}
 
 		// Record the job's output commit and 'Finished' timestamp, and mark the job
