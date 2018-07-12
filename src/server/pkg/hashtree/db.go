@@ -33,12 +33,12 @@ const (
 )
 
 var (
-	buckets   = []string{FsBucket, ChangedBucket, ObjectBucket, DatumBucket}
+	buckets   = []string{DatumBucket, FsBucket, ChangedBucket, ObjectBucket}
 	exists    = []byte{1}
 	nullByte  = []byte{0}
 	slashByte = []byte{'/'}
 	// A path should not have a globbing character
-	sentinelByte = []byte{'*'}
+	SentinelByte = []byte{'*'}
 )
 
 func fs(tx *bolt.Tx) *bolt.Bucket {
@@ -447,7 +447,7 @@ func (h *dbHashTree) Serialize(_w io.Writer) error {
 			}); err != nil {
 				return err
 			}
-			if err := w.WriteBytes(sentinelByte); err != nil {
+			if err := w.WriteBytes(SentinelByte); err != nil {
 				return err
 			}
 		}
@@ -474,7 +474,7 @@ func (h *dbHashTree) Deserialize(_r io.Reader) error {
 			if err != nil {
 				return err
 			}
-			if bytes.Equal(_k, sentinelByte) {
+			if bytes.Equal(_k, SentinelByte) {
 				break
 			}
 			// we need to make copies of k and v because the memory will be reused
@@ -812,7 +812,7 @@ func (m *mergeStream) Next() error {
 		if err != nil {
 			return err
 		}
-		if bytes.Equal(k, sentinelByte) {
+		if bytes.Equal(k, SentinelByte) {
 			m.k = nil
 			m.v = nil
 			m.done = true
@@ -843,14 +843,10 @@ func (m *mergeStream) Close() error {
 	return m.r.Close()
 }
 
-func (h *dbHashTree) Merge(w io.Writer, rs ...io.ReadCloser) error {
+func Merge(w io.Writer, rs ...io.ReadCloser) error {
 	buff := &bytes.Buffer{}
 	out := pbutil.NewWriter(snappy.NewWriter(buff))
-	src, err := NewMergeCursor(h)
-	if err != nil {
-		return err
-	}
-	srcs := []Mergeable{src}
+	var srcs []Mergeable
 	for _, r := range rs {
 		src, err := NewMergeStream(r)
 		if err != nil {
@@ -858,7 +854,11 @@ func (h *dbHashTree) Merge(w io.Writer, rs ...io.ReadCloser) error {
 		}
 		srcs = append(srcs, src)
 	}
-
+	if err := MergeBucket(DatumBucket, w, out, buff, srcs, func(k []byte, vs [][]byte) ([]byte, []byte, error) {
+		return k, vs[0], nil
+	}); err != nil {
+		return err
+	}
 	if err := MergeBucket(FsBucket, w, out, buff, srcs, func(k []byte, vs [][]byte) ([]byte, []byte, error) {
 		destNode := &NodeProto{
 			Name:        base(s(k)),
@@ -917,11 +917,6 @@ func (h *dbHashTree) Merge(w io.Writer, rs ...io.ReadCloser) error {
 		return err
 	}
 	if err := MergeBucket(ObjectBucket, w, out, buff, srcs, func(k []byte, vs [][]byte) ([]byte, []byte, error) {
-		return k, vs[0], nil
-	}); err != nil {
-		return err
-	}
-	if err := MergeBucket(DatumBucket, w, out, buff, srcs, func(k []byte, vs [][]byte) ([]byte, []byte, error) {
 		return k, vs[0], nil
 	}); err != nil {
 		return err
@@ -1004,7 +999,7 @@ func MergeBucket(bucket string, w io.Writer, out pbutil.Writer, buff *bytes.Buff
 		total4 += time.Since(t)
 	}
 	fmt.Printf("(mergefilter) bucket: %v\nTime spent deciding next path: %v\nTime spent getting next in stream: %v\nTime spent merging: %v\nTime spent writing: %v\n", bucket, total, total2, total3, total4)
-	if err := out.WriteBytes(sentinelByte); err != nil {
+	if err := out.WriteBytes(SentinelByte); err != nil {
 		return err
 	}
 	b := buff.Next(buff.Len())

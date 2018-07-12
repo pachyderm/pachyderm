@@ -845,15 +845,15 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 	}); err != nil {
 		return err
 	}
-
 	if err := eg.Wait(); err != nil {
 		return err
 	}
-
 	if err := putObjsClient.CloseSend(); err != nil {
 		return err
 	}
-
+	if err := tree.PutDatum(tag); err != nil {
+		return err
+	}
 	if err := tree.Hash(); err != nil {
 		return err
 	}

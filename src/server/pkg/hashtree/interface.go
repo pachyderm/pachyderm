@@ -116,8 +116,6 @@ type HashTree interface {
 	// DeleteFile deletes a regular file or directory (along with its children).
 	DeleteFile(path string) error
 
-	Merge(w io.Writer, rs ...io.ReadCloser) error
-
 	// PutObject puts an object into the object table.
 	PutObject(object *pfs.Object, blockRef *pfs.BlockRef) error
 
