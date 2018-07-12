@@ -2,6 +2,8 @@ package fuse
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
 	"path"
 	"strings"
 
@@ -30,6 +32,12 @@ func Mount(mountPoint string, fs pathfs.FileSystem) error {
 	if err != nil {
 		return fmt.Errorf("nodefs.MountRoot: %v", err)
 	}
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt)
+	go func() {
+		<-sigChan
+		server.Unmount()
+	}()
 	server.Serve()
 	return nil
 }
