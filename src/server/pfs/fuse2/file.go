@@ -106,7 +106,7 @@ func newReadResult(c *client.APIClient, file *pfs.File, offset int64, size int) 
 	}
 }
 
-func (r *readResult) Bytes(buf []byte) ([]byte, fuse.Status) {
+func (r *readResult) Bytes(buf []byte) (_ []byte, status fuse.Status) {
 	size := r.size
 	if len(buf) < size {
 		size = len(buf)
