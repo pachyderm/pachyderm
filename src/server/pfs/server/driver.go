@@ -2223,7 +2223,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 			return nil, err
 		}
 
-		return grpcutil.NewStreamingBytesReader(getBlocksClient), nil
+		return grpcutil.NewStreamingBytesReader(getBlocksClient, nil), nil
 	}
 
 	var objects []*pfs.Object
@@ -2244,7 +2244,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		return nil, err
 	}
 
-	return grpcutil.NewStreamingBytesReader(getObjectsClient), nil
+	return grpcutil.NewStreamingBytesReader(getObjectsClient, nil), nil
 }
 
 // If full is false, exclude potentially large fields such as `Objects`
