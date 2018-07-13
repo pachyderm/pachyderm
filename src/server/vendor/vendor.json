@@ -789,6 +789,36 @@
 			"revisionTime": "2016-08-16T07:13:19Z"
 		},
 		{
+			"checksumSHA1": "VgibuXbJOMZr8BdXyHzRq9f6uf0=",
+			"path": "github.com/hanwen/go-fuse/fuse",
+			"revision": "291273cb8ce0f139636a6fd7414be3c7e2de6288",
+			"revisionTime": "2018-05-22T15:55:40Z"
+		},
+		{
+			"checksumSHA1": "lV0xZJR2WoL+XOHW//MrKG9JdAI=",
+			"path": "github.com/hanwen/go-fuse/fuse/nodefs",
+			"revision": "291273cb8ce0f139636a6fd7414be3c7e2de6288",
+			"revisionTime": "2018-05-22T15:55:40Z"
+		},
+		{
+			"checksumSHA1": "k5XP63Eoc8E5fIPoE53R/4wM0wQ=",
+			"path": "github.com/hanwen/go-fuse/fuse/pathfs",
+			"revision": "291273cb8ce0f139636a6fd7414be3c7e2de6288",
+			"revisionTime": "2018-05-22T15:55:40Z"
+		},
+		{
+			"checksumSHA1": "3cfPxZocgZkZ2Xz8CRtK2ruYsKM=",
+			"path": "github.com/hanwen/go-fuse/internal/utimens",
+			"revision": "291273cb8ce0f139636a6fd7414be3c7e2de6288",
+			"revisionTime": "2018-05-22T15:55:40Z"
+		},
+		{
+			"checksumSHA1": "LGZoiRA8d9hxjq6srm8u+dGcIto=",
+			"path": "github.com/hanwen/go-fuse/splice",
+			"revision": "291273cb8ce0f139636a6fd7414be3c7e2de6288",
+			"revisionTime": "2018-05-22T15:55:40Z"
+		},
+		{
 			"checksumSHA1": "cdOCt0Yb+hdErz8NAQqayxPmRsY=",
 			"path": "github.com/hashicorp/errwrap",
 			"revision": "7554cd9344cec97297fa6649b055a8c98c2a1e55",
@@ -1440,10 +1470,10 @@
 			"revisionTime": "2016-07-15T18:54:39Z"
 		},
 		{
-			"checksumSHA1": "QcDlr1sWBDt6Dn/v7W/MRgccAi4=",
+			"checksumSHA1": "2YeDxLpLYDkQqqIjKjigC3QdGNY=",
 			"path": "golang.org/x/sys/unix",
-			"revision": "076b546753157f758b316e59bcb51e6807c04057",
-			"revisionTime": "2016-06-01T13:19:39Z"
+			"revision": "7c87d13f8e835d2fb3a70a2912c811ed0c1d241b",
+			"revisionTime": "2018-05-14T07:31:37Z"
 		},
 		{
 			"checksumSHA1": "6RQlUOGwzXLntCshLZNUL4r28eU=",
