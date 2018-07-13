@@ -132,7 +132,7 @@ func (a *apiServer) master() {
 						if err := a.deleteWorkersForPipeline(pipelineName); err != nil {
 							return err
 						}
-						if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_PAUSED); err != nil {
+						if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_PAUSED, ""); err != nil {
 							return err
 						}
 					}
@@ -173,10 +173,16 @@ func (a *apiServer) master() {
 						}
 						log.Infof("PPS master: creating/updating workers for pipeline %s", pipelineName)
 						if err := a.upsertWorkersForPipeline(pipelineInfo); err != nil {
-							if err := a.setPipelineFailure(ctx, pipelineName, fmt.Sprintf("failed to create workers: %s", err.Error())); err != nil {
+							if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_STARTING, fmt.Sprintf("failed to create workers: %s", err.Error())); err != nil {
 								return err
 							}
-							continue
+							// We return the error here, this causes us to go
+							// into backoff and try again from scratch. This
+							// means that we'll try creating this pipeline
+							// again and also gives a chance for another node,
+							// which might actually be able to talk to k8s, to
+							// get a chance at creating the workers.
+							return err
 						}
 					}
 					if pipelineInfo.State == pps.PipelineState_PIPELINE_RUNNING {
@@ -433,7 +439,7 @@ func notifyCtx(ctx context.Context, name string) func(error, time.Duration) erro
 	}
 }
 
-func (a *apiServer) setPipelineState(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, state pps.PipelineState) error {
+func (a *apiServer) setPipelineState(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, state pps.PipelineState, reason string) error {
 	log.Infof("moving pipeline %s to %s", pipelineInfo.Pipeline.Name, state.String())
 	_, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
 		pipelines := a.pipelines.ReadWrite(stm)
@@ -443,6 +449,7 @@ func (a *apiServer) setPipelineState(pachClient *client.APIClient, pipelineInfo 
 				return nil
 			}
 			pipelinePtr.State = state
+			pipelinePtr.Reason = reason
 			return nil
 		})
 	})
@@ -467,7 +474,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 		// good reason to do it concurrently.
 		eg.Go(func() error {
 			return backoff.RetryNotify(func() error {
-				return a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_RUNNING)
+				return a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_RUNNING, "")
 			}, backoff.NewInfiniteBackOff(), notifyCtx(pachClient.Ctx(), "set running (Standby = false)"))
 		})
 	} else {
@@ -484,7 +491,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 		})
 		eg.Go(func() error {
 			return backoff.RetryNotify(func() error {
-				if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_STANDBY); err != nil {
+				if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_STANDBY, ""); err != nil {
 					return err
 				}
 				for {
@@ -495,7 +502,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 							continue
 						}
 
-						if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_RUNNING); err != nil {
+						if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
 							return err
 						}
 
@@ -518,7 +525,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 							}
 						}
 
-						if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_STANDBY); err != nil {
+						if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_STANDBY, ""); err != nil {
 							return err
 						}
 					case <-pachClient.Ctx().Done():
