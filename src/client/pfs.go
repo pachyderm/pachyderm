@@ -566,6 +566,19 @@ func (c APIClient) GetObject(hash string, writer io.Writer) error {
 	return nil
 }
 
+// GetObjectReader returns a reader for an object in object store by hash.
+func (c APIClient) GetObjectReader(hash string) (io.ReadCloser, error) {
+	ctx, cancel := context.WithCancel(c.Ctx())
+	getObjectClient, err := c.ObjectAPIClient.GetObject(
+		ctx,
+		&pfs.Object{Hash: hash},
+	)
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return grpcutil.NewStreamingBytesReader(getObjectClient, cancel), nil
+}
+
 // ReadObject gets an object by hash and returns it directly as []byte.
 func (c APIClient) ReadObject(hash string) ([]byte, error) {
 	var buffer bytes.Buffer
@@ -671,6 +684,19 @@ func (c APIClient) GetTag(tag string, writer io.Writer) error {
 		return grpcutil.ScrubGRPC(err)
 	}
 	return nil
+}
+
+// GetTagReader returns a reader for an object in object store by tag.
+func (c APIClient) GetTagReader(tag string) (io.ReadCloser, error) {
+	ctx, cancel := context.WithCancel(c.Ctx())
+	getTagClient, err := c.ObjectAPIClient.GetTag(
+		ctx,
+		&pfs.Tag{Name: tag},
+	)
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return grpcutil.NewStreamingBytesReader(getTagClient, cancel), nil
 }
 
 // ReadTag gets an object by tag and returns it directly as []byte.
@@ -846,7 +872,7 @@ func (c APIClient) GetFileReader(repoName string, commitID string, path string, 
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	return grpcutil.NewStreamingBytesReader(apiGetFileClient), nil
+	return grpcutil.NewStreamingBytesReader(apiGetFileClient, nil), nil
 }
 
 // GetFileReadSeeker returns a reader for the contents of a file at a specific

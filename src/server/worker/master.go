@@ -621,20 +621,18 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 
 		// Watch the chunks in order, and merge chunk outputs into commit tree
 		chunks := a.chunks(jobInfo.Job.ID).ReadOnly(ctx)
-		var eg errgroup.Group
-		r, w := io.Pipe()
-		eg.Go(func() error {
-			return a.getParentCommitHashTreeStream(ctx, w, pachClient, jobInfo.OutputCommit)
-		})
+		r, err := a.getParentCommitHashTreeReader(ctx, pachClient, jobInfo.OutputCommit)
+		if err != nil {
+			return err
+		}
 		skip := make(map[string]struct{})
-		var count int
-		eg.Go(func() error {
+		var useParentHashTree bool
+		var statsTree hashtree.HashTree
+		if r != nil {
+			var count int
 			pbr := pbutil.NewReader(snappy.NewReader(r))
 			hdr := &hashtree.BucketHeader{}
 			if err := pbr.Read(hdr); err != nil {
-				if err == io.EOF {
-					return nil
-				}
 				return err
 			}
 			for {
@@ -660,32 +658,27 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 					count++
 				}
 			}
-			return nil
-		})
-		if err := eg.Wait(); err != nil {
-			return err
-		}
-		useParentHashTree := true
-		var statsTree hashtree.HashTree
-		if len(skip) != count || len(skip) == 0 {
-			useParentHashTree = false
-			if jobInfo.EnableStats {
+			if len(skip) == count {
+				useParentHashTree = true
+				if jobInfo.EnableStats {
+					//statsTree, err = a.getParentCommitHashTree(ctx, pachClient, jobInfo.StatsCommit)
+					//if err != nil {
+					//	return err
+					//}
+				}
+			} else if jobInfo.EnableStats {
 				// (bryce) Stats tree needs to be made compatible with changes
 				//statsTree, err = hashtree.NewDBHashTree(a.hashtreeStorage)
 				//if err != nil {
 				//	return err
 				//}
 			}
-		} else if jobInfo.EnableStats {
-			//statsTree, err = a.getParentCommitHashTree(ctx, pachClient, jobInfo.StatsCommit)
-			//if err != nil {
-			//	return err
-			//}
 		}
 
 		limiter := limit.New(100)
 		var failedDatumID string
 		var tags []*pfs.Tag
+		var eg errgroup.Group
 		for i, high := range plan.Chunks {
 			// Watch this chunk's lock and when it's finished, handle the result
 			// (merge chunk output into commit trees, fail if chunk failed, etc)
@@ -813,29 +806,18 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			var eg errgroup.Group
 			var rs []io.ReadCloser
 			for _, tag := range tags {
-				r, w := io.Pipe()
-				name := tag.Name
-				eg.Go(func() error {
-					if err := pachClient.GetTag(name, w); err != nil {
-						if err != io.ErrClosedPipe {
-							return err
-						}
-					}
-					return w.Close()
-				})
+				r, err := pachClient.GetTagReader(tag.Name)
+				if err != nil {
+					return err
+				}
 				rs = append(rs, r)
 			}
 			if useParentHashTree {
-				rParent, wParent := io.Pipe()
-				eg.Go(func() error {
-					if err := a.getParentCommitHashTreeStream(ctx, wParent, pachClient, jobInfo.OutputCommit); err != nil {
-						if err != io.ErrClosedPipe {
-							return err
-						}
-					}
-					return w.Close()
-				})
-				rs = append(rs, rParent)
+				r, err := a.getParentCommitHashTreeReader(ctx, pachClient, jobInfo.OutputCommit)
+				if err != nil {
+					return err
+				}
+				rs = append(rs, r)
 			}
 			r, w := io.Pipe()
 			eg.Go(func() error {
@@ -971,16 +953,16 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 	return nil
 }
 
-func (a *APIServer) getParentCommitHashTreeStream(ctx context.Context, w io.WriteCloser, pachClient *client.APIClient, commit *pfs.Commit) error {
+func (a *APIServer) getParentCommitHashTreeReader(ctx context.Context, pachClient *client.APIClient, commit *pfs.Commit) (io.ReadCloser, error) {
 	commitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
 		&pfs.InspectCommitRequest{
 			Commit: commit,
 		})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if commitInfo.ParentCommit == nil {
-		return w.Close()
+		return nil, nil
 	}
 	parentCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
 		&pfs.InspectCommitRequest{
@@ -988,14 +970,13 @@ func (a *APIServer) getParentCommitHashTreeStream(ctx context.Context, w io.Writ
 			BlockState: pfs.CommitState_FINISHED,
 		})
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if err := pachClient.GetObject(parentCommitInfo.Tree.Hash, w); err != nil {
-		if err != io.ErrClosedPipe {
-			return err
-		}
+	var r io.ReadCloser
+	if r, err = pachClient.GetObjectReader(parentCommitInfo.Tree.Hash); err != nil {
+		return nil, err
 	}
-	return nil
+	return r, nil
 }
 
 func (a *APIServer) egress(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo) error {
