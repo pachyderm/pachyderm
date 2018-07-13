@@ -707,6 +707,8 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 		}
 
 		commitInfo.SizeBytes = uint64(finishedTree.FSSize())
+	} else if tree != nil {
+		commitInfo.Tree = tree
 	}
 
 	commitInfo.Finished = now()
