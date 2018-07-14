@@ -1337,7 +1337,7 @@ func TestActivateAsRobotUser(t *testing.T) {
 	require.Equal(t, "robot:deckard", whoAmI.Username)
 
 	// Make sure the robot token has no TTL
-	require.Equal(t, 0, whoAmI.TTL)
+	require.Equal(t, int64(-1), whoAmI.TTL)
 
 	// Make "admin" an admin, so that auth can be deactivated
 	client.ModifyAdmins(client.Ctx(), &auth.ModifyAdminsRequest{
