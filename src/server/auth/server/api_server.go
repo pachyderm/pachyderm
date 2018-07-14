@@ -799,9 +799,12 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *authclient.WhoAmIRequest) (
 	if err != nil {
 		return nil, err
 	}
-	ttl, err := tokens.TTL(hashToken(token)) // lookup token TTL
-	if err != nil {
-		return fmt.Errorf("Error looking up TTL for token: %v", err)
+	ttl := int64(-1) // value returned by etcd for keys w/ no lease (no TTL)
+	if callerInfo.Subject != magicUser {
+		ttl, err = a.tokens.ReadOnly(ctx).TTL(hashToken(token)) // lookup token TTL
+		if err != nil {
+			return nil, fmt.Errorf("error looking up TTL for token: %v", err)
+		}
 	}
 	return &authclient.WhoAmIResponse{
 		Username: callerInfo.Subject,
@@ -1244,6 +1247,10 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendA
 		if err != nil {
 			return fmt.Errorf("Error looking up TTL for token: %v", err)
 		}
+		// TODO(msteffen): ttl may be -1 if the token has no TTL. We deliberately do
+		// not check this case so that admins can put TTLs on tokens that don't have
+		// them (otherwise any attempt to do so would get ErrTooShortTTL), but that
+		// decision may be revised
 		if req.TTL < ttl {
 			return authclient.ErrTooShortTTL{
 				RequestTTL:  req.TTL,
@@ -1587,7 +1594,7 @@ func getAuthToken(ctx context.Context) (string, error) {
 	} else if len(md[authclient.ContextTokenKey]) == 0 {
 		return "", authclient.ErrNotSignedIn
 	}
-	return md[authclient.ContextTokenKey][0]
+	return md[authclient.ContextTokenKey][0], nil
 }
 
 func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.TokenInfo, error) {

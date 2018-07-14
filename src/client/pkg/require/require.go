@@ -40,6 +40,14 @@ func OneOfMatches(tb testing.TB, expectedMatch string, actuals []string, msgAndA
 // Equal checks equality of two values.
 func Equal(tb testing.TB, expected interface{}, actual interface{}, msgAndArgs ...interface{}) {
 	tb.Helper()
+	eV, aV := reflect.ValueOf(expected), reflect.ValueOf(actual)
+	if eV.Type() != aV.Type() {
+		fatal(
+			tb,
+			msgAndArgs,
+			"Not equal: %T(%#v) (expected)\n"+
+				"        != %T(%#v) (actual)", expected, expected, actual, actual)
+	}
 	if !reflect.DeepEqual(expected, actual) {
 		fatal(
 			tb,
