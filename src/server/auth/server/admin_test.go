@@ -211,6 +211,9 @@ func TestAdminRWO(t *testing.T) {
 		entries(alice, "owner", "carol", "reader"), GetACL(t, aliceClient, repo))
 }
 
+// TestAdminFixBrokenRepo tests that an admin can modify the ACL of a repo even
+// when the repo's ACL is empty (indicating that no user has explicit access to
+// to the repo)
 func TestAdminFixBrokenRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -262,6 +265,8 @@ func TestAdminFixBrokenRepo(t *testing.T) {
 	require.Equal(t, 1, CommitCnt(t, adminClient, repo)) // check that a new commit was created
 }
 
+// TestModifyAdminsErrorMissingAdmin tests that trying to remove a nonexistant
+// admin returns an error
 func TestModifyAdminsErrorMissingAdmin(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -298,6 +303,8 @@ func TestModifyAdminsErrorMissingAdmin(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 }
 
+// TestCannotRemoveAllClusterAdmins tests that trying to remove all of a
+// clusters admins yields an error
 func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -360,6 +367,59 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 		&auth.ModifyAdminsRequest{
 			Add:    []string{"admin"},
 			Remove: []string{alice},
+		})
+	require.NoError(t, err)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
+		require.NoError(t, err)
+		return require.ElementsEqualOrErr([]string{admin}, resp.Admins)
+	}, backoff.NewTestingBackOff()))
+}
+
+// TestModifyClusterAdminsAllowRobotOnlyAdmin tests the fix to
+// https://github.com/pachyderm/pachyderm/issues/3010
+// Basically, ModifyAdmins should not return an error if the only cluster admin
+// is a robot user
+func TestModifyClusterAdminsAllowRobotOnlyAdmin(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	adminClient := getPachClient(t, admin)
+
+	// Check that the initial set of admins is just "admin"
+	resp, err := adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
+	require.NoError(t, err)
+	require.ElementsEqual(t, []string{admin}, resp.Admins)
+
+	// 'admin' gets credentials for a robot user, and swaps themself and the robot
+	// so that the only cluster administrator is the robot user
+	tokenResp, err := adminClient.GetAuthToken(adminClient.Ctx(),
+		&auth.GetAuthTokenRequest{
+			Subject: "robot:rob",
+			TTL:     3600,
+		})
+	require.NoError(t, err)
+	// copy client & use resp token
+	robotClient := adminClient.WithCtx(context.Background())
+	robotClient.SetAuthToken(tokenResp.Token)
+	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
+		&auth.ModifyAdminsRequest{
+			Remove: []string{"admin"},
+			Add:    []string{"robot:rob"},
+		})
+	require.NoError(t, err)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
+		require.NoError(t, err)
+		return require.ElementsEqualOrErr([]string{"robot:rob"}, resp.Admins)
+	}, backoff.NewTestingBackOff()))
+
+	// The robot user adds admin back as a cluster admin
+	_, err = robotClient.ModifyAdmins(robotClient.Ctx(),
+		&auth.ModifyAdminsRequest{
+			Add:    []string{"admin"},
+			Remove: []string{"robot:rob"},
 		})
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
