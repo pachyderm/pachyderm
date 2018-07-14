@@ -843,7 +843,7 @@ func (m *mergeStream) Close() error {
 	return m.r.Close()
 }
 
-func Merge(w io.Writer, rs ...io.ReadCloser) error {
+func Merge(c chan []byte, rs ...io.ReadCloser) error {
 	buff := &bytes.Buffer{}
 	out := pbutil.NewWriter(snappy.NewWriter(buff))
 	var srcs []Mergeable
@@ -854,12 +854,12 @@ func Merge(w io.Writer, rs ...io.ReadCloser) error {
 		}
 		srcs = append(srcs, src)
 	}
-	if err := MergeBucket(DatumBucket, w, out, buff, srcs, func(k []byte, vs [][]byte) ([]byte, []byte, error) {
+	if err := MergeBucket(DatumBucket, c, out, buff, srcs, func(k []byte, vs [][]byte) ([]byte, []byte, error) {
 		return k, vs[0], nil
 	}); err != nil {
 		return err
 	}
-	if err := MergeBucket(FsBucket, w, out, buff, srcs, func(k []byte, vs [][]byte) ([]byte, []byte, error) {
+	if err := MergeBucket(FsBucket, c, out, buff, srcs, func(k []byte, vs [][]byte) ([]byte, []byte, error) {
 		destNode := &NodeProto{
 			Name:        base(s(k)),
 			SubtreeSize: 0,
@@ -911,16 +911,17 @@ func Merge(w io.Writer, rs ...io.ReadCloser) error {
 	}); err != nil {
 		return err
 	}
-	if err := MergeBucket(ChangedBucket, w, out, buff, srcs, func(k []byte, vs [][]byte) ([]byte, []byte, error) {
+	if err := MergeBucket(ChangedBucket, c, out, buff, srcs, func(k []byte, vs [][]byte) ([]byte, []byte, error) {
 		return k, vs[0], nil
 	}); err != nil {
 		return err
 	}
-	if err := MergeBucket(ObjectBucket, w, out, buff, srcs, func(k []byte, vs [][]byte) ([]byte, []byte, error) {
+	if err := MergeBucket(ObjectBucket, c, out, buff, srcs, func(k []byte, vs [][]byte) ([]byte, []byte, error) {
 		return k, vs[0], nil
 	}); err != nil {
 		return err
 	}
+	close(c)
 	for _, src := range srcs {
 		if err := src.Close(); err != nil {
 			return err
@@ -929,7 +930,7 @@ func Merge(w io.Writer, rs ...io.ReadCloser) error {
 	return nil
 }
 
-func MergeBucket(bucket string, w io.Writer, out pbutil.Writer, buff *bytes.Buffer, srcs []Mergeable, f func(k []byte, vs [][]byte) ([]byte, []byte, error)) error {
+func MergeBucket(bucket string, c chan []byte, out pbutil.Writer, buff *bytes.Buffer, srcs []Mergeable, f func(k []byte, vs [][]byte) ([]byte, []byte, error)) error {
 	streams := make([]Mergeable, len(srcs))
 	copy(streams, srcs)
 	for _, s := range streams {
@@ -986,9 +987,7 @@ func MergeBucket(bucket string, w io.Writer, out pbutil.Writer, buff *bytes.Buff
 		t = time.Now()
 		if buff.Len() >= 1048576 {
 			b := buff.Next(buff.Len())
-			if _, err := w.Write(b); err != nil {
-				return err
-			}
+			c <- b
 		}
 		if err := out.WriteBytes(k); err != nil {
 			return err
@@ -1003,9 +1002,7 @@ func MergeBucket(bucket string, w io.Writer, out pbutil.Writer, buff *bytes.Buff
 		return err
 	}
 	b := buff.Next(buff.Len())
-	if _, err := w.Write(b); err != nil {
-		return err
-	}
+	c <- b
 	return nil
 }
 

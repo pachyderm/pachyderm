@@ -819,16 +819,16 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				}
 				rs = append(rs, r)
 			}
-			r, w := io.Pipe()
+			c := make(chan []byte, 5)
 			eg.Go(func() error {
-				if err = hashtree.Merge(w, rs...); err != nil {
+				if err = hashtree.Merge(c, rs...); err != nil {
 					return err
 				}
-				return w.Close()
+				return nil
 			})
 			var object *pfs.Object
 			eg.Go(func() error {
-				if object, _, err = pachClient.PutObject(r); err != nil {
+				if object, err = pachClient.PutObjectChan(c); err != nil {
 					return err
 				}
 				return nil
