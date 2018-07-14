@@ -499,6 +499,31 @@ func (c APIClient) SubscribeCommitF(repo, branch, from string, state pfs.CommitS
 	}
 }
 
+// PutObjectChan puts a value into the object store and tags it with 0 or more tags.
+func (c APIClient) PutObjectChan(ch chan []byte, tags ...string) (object *pfs.Object, retErr error) {
+	w, err := c.newPutObjectWriteCloser(tags...)
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	defer func() {
+		if err := w.Close(); err != nil && retErr == nil {
+			retErr = grpcutil.ScrubGRPC(err)
+		}
+		if retErr == nil {
+			object = w.object
+		}
+	}()
+
+	for b := range ch {
+		if _, err := w.Write(b); err != nil {
+			return nil, grpcutil.ScrubGRPC(err)
+		}
+	}
+
+	// return value set by deferred function
+	return nil, nil
+}
+
 // PutObject puts a value into the object store and tags it with 0 or more tags.
 func (c APIClient) PutObject(_r io.Reader, tags ...string) (object *pfs.Object, _ int64, retErr error) {
 	r := grpcutil.ReaderWrapper{_r}
