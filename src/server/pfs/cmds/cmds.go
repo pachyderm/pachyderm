@@ -663,7 +663,7 @@ want to consider using commit IDs directly.
 			if len(args) == 3 {
 				path = args[2]
 				if _, err := url.Parse(path); err == nil {
-					return fmt.Errorf("path \"%s\" looks like a URL; to put data from a URL, use -f <url>", path)
+					fmt.Printf("warning: path \"%s\" looks like a URL; did you mean -f <url>?\n", path)
 				}
 			}
 			if putFileCommit {
