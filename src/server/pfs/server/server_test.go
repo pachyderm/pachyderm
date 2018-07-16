@@ -43,6 +43,7 @@ const (
 	testingTreeCacheSize       = 8
 	etcdAddress                = "localhost:32379" // etcd must already be serving at this address
 	localBlockServerCacheBytes = 256 * 1024 * 1024
+	MB                         = 1024 * 1024
 )
 
 var (
@@ -4310,4 +4311,19 @@ func TestStartCommitOutputBranch(t *testing.T) {
 	require.NoError(t, c.CreateBranch("out", "master", "", []*pfs.Branch{pclient.NewBranch("in", "master")}))
 	_, err := c.StartCommit("out", "master")
 	require.YesError(t, err)
+}
+
+func TestReadSizeLimited(t *testing.T) {
+	c := getPachClient(t)
+	require.NoError(t, c.CreateRepo("test"))
+	_, err := c.PutFile("test", "master", "file", strings.NewReader(strings.Repeat("a", 100*MB)))
+	require.NoError(t, err)
+
+	var b bytes.Buffer
+	require.NoError(t, c.GetFile("test", "master", "file", 0, 2*MB, &b))
+	require.Equal(t, 2*MB, b.Len())
+
+	b.Reset()
+	require.NoError(t, c.GetFile("test", "master", "file", 2*MB, 2*MB, &b))
+	require.Equal(t, 2*MB, b.Len())
 }
