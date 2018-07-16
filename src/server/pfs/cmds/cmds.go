@@ -663,11 +663,11 @@ want to consider using commit IDs directly.
 			if len(args) == 3 {
 				path = args[2]
 				if _, err := url.Parse(path); err == nil {
-					fmt.Printf("warning: path \"%s\" looks like a URL; did you mean -f <url>?\n", path)
+					fmt.Fprintf(os.Stderr, "warning: PFS destination \"%s\" looks like a URL; did you mean -f %s?\n", path, path)
 				}
 			}
 			if putFileCommit {
-				fmt.Printf("flag --commit / -c is deprecated as of 1.7.2, you will get the same behavior without it")
+				fmt.Fprintf(os.Stderr, "flag --commit / -c is deprecated; as of 1.7.2, you will get the same behavior without it")
 			}
 
 			limiter := limit.New(int(parallelism))
@@ -1199,7 +1199,7 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string,
 		}
 		limiter.Acquire()
 		defer limiter.Release()
-		fmt.Println("Reading from stdin.")
+		fmt.Fprintln(os.Stderr, "Reading from stdin.")
 		return putFile(os.Stdin)
 	}
 	// try parsing the filename as a url, if it is one do a PutFileURL
