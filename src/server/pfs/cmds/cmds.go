@@ -3,6 +3,7 @@ package cmds
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -635,6 +636,9 @@ $ pachctl put-file repo branch path -f http://host/path
 # Put the data from a URL as repo/branch/path:
 $ pachctl put-file repo branch -f http://host/path
 
+# Put the data from an S3 bucket as repo/branch/s3_object:
+$ pachctl put-file repo branch -r -f s3://my_bucket
+
 # Put several files or URLs that are listed in file.
 # Files and URLs should be newline delimited.
 $ pachctl put-file repo branch -i file
@@ -659,14 +663,18 @@ want to consider using commit IDs directly.
 			var path string
 			if len(args) == 3 {
 				path = args[2]
+				if _, err := url.Parse(path); err == nil {
+					fmt.Fprintf(os.Stderr, "warning: PFS destination \"%s\" looks like a URL; did you mean -f %s?\n", path, path)
+				}
 			}
 			if putFileCommit {
-				fmt.Printf("flag --commit / -c is deprecated as of 1.7.2, you will get the same behavior without it")
+				fmt.Fprintf(os.Stderr, "flag --commit / -c is deprecated; as of 1.7.2, you will get the same behavior without it\n")
 			}
 
 			limiter := limit.New(int(parallelism))
 			var sources []string
 			if inputFile != "" {
+				// User has provided a file listing sources, one per line. Read sources
 				var r io.Reader
 				if inputFile == "-" {
 					r = os.Stdin
@@ -701,8 +709,11 @@ want to consider using commit IDs directly.
 					}
 				}
 			} else {
+				// User has provided a single source
 				sources = filePaths
 			}
+
+			// Arguments parsed; create putFileHelper and begin copying data
 			var eg errgroup.Group
 			filesPut := &gosync.Map{}
 			for _, source := range sources {
@@ -710,7 +721,7 @@ want to consider using commit IDs directly.
 				if len(args) == 2 {
 					// The user has not specified a path so we use source as path.
 					if source == "-" {
-						return fmt.Errorf("no filename specified")
+						return fmt.Errorf("must specify filename when reading data from stdin")
 					}
 					eg.Go(func() error {
 						return putFileHelper(cli, repoName, branch, joinPaths("", source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, filesPut)
@@ -1184,9 +1195,12 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string,
 	}
 
 	if source == "-" {
+		if recursive {
+			return errors.New("cannot set -r and read from stdin (must also set -f or -i)")
+		}
 		limiter.Acquire()
 		defer limiter.Release()
-		fmt.Println("Reading from stdin.")
+		fmt.Fprintln(os.Stderr, "Reading from stdin.")
 		return putFile(os.Stdin)
 	}
 	// try parsing the filename as a url, if it is one do a PutFileURL
