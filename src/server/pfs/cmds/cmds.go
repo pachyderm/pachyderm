@@ -667,7 +667,7 @@ want to consider using commit IDs directly.
 				}
 			}
 			if putFileCommit {
-				fmt.Fprintf(os.Stderr, "flag --commit / -c is deprecated; as of 1.7.2, you will get the same behavior without it")
+				fmt.Fprintf(os.Stderr, "flag --commit / -c is deprecated; as of 1.7.2, you will get the same behavior without it\n")
 			}
 
 			limiter := limit.New(int(parallelism))
