@@ -1024,7 +1024,7 @@ $ pachctl diff-file foo master path1 bar master path2
 				return err
 			}
 			mountPoint := args[0]
-			return fuse.Mount(mountPoint, fuse.NewFileSystem(client))
+			return fuse.Mount(client, mountPoint, nil)
 		}),
 	}
 	mount.Flags().BoolVarP(&debug, "debug", "d", false, "Turn on debug messages.")

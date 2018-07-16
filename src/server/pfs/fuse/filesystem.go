@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"path"
 	"strings"
+	"sync"
 
 	"github.com/hanwen/go-fuse/fuse"
 	"github.com/hanwen/go-fuse/fuse/nodefs"
@@ -14,21 +15,31 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
-type filesystem struct {
-	pathfs.FileSystem
-	c *client.APIClient
+type Options struct {
+	Fuse *nodefs.Options
+	// commits is a map from repos to commits, if a repo is unspecified then
+	// the master commit of the repo at the time the repo is first requested
+	// will be used.
+	Commits map[string]string
 }
 
-func NewFileSystem(c *client.APIClient) pathfs.FileSystem {
-	return &filesystem{
-		FileSystem: pathfs.NewDefaultFileSystem(),
-		c:          c,
+func (o *Options) GetFuse() *nodefs.Options {
+	if o == nil {
+		return nil
 	}
+	return o.Fuse
 }
 
-func Mount(mountPoint string, fs pathfs.FileSystem) error {
-	nfs := pathfs.NewPathNodeFs(fs, nil)
-	server, _, err := nodefs.MountRoot(mountPoint, nfs.Root(), &nodefs.Options{Debug: true})
+func (o *Options) GetCommits() map[string]string {
+	if o == nil {
+		return nil
+	}
+	return o.Commits
+}
+
+func Mount(c *client.APIClient, mountPoint string, opts *Options) error {
+	nfs := pathfs.NewPathNodeFs(newFileSystem(c, opts.GetCommits()), nil)
+	server, _, err := nodefs.MountRoot(mountPoint, nfs.Root(), opts.GetFuse())
 	if err != nil {
 		return fmt.Errorf("nodefs.MountRoot: %v", err)
 	}
@@ -42,13 +53,34 @@ func Mount(mountPoint string, fs pathfs.FileSystem) error {
 	return nil
 }
 
+type filesystem struct {
+	pathfs.FileSystem
+	c         *client.APIClient
+	commits   map[string]string
+	commitsMu sync.RWMutex
+}
+
+func newFileSystem(c *client.APIClient, commits map[string]string) pathfs.FileSystem {
+	if commits == nil {
+		commits = make(map[string]string)
+	}
+	return &filesystem{
+		FileSystem: pathfs.NewDefaultFileSystem(),
+		c:          c,
+		commits:    commits,
+	}
+}
+
 func (fs *filesystem) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse.Status) {
-	return getAttr(fs.c, name)
+	return fs.getAttr(name)
 }
 
 func (fs *filesystem) OpenDir(name string, context *fuse.Context) ([]fuse.DirEntry, fuse.Status) {
 	var result []fuse.DirEntry
-	r, f := parsePath(name)
+	r, f, err := fs.parsePath(name)
+	if err != nil {
+		return nil, toStatus(err)
+	}
 	switch {
 	case r != nil:
 		if err := fs.c.ListFileF(r.Name, "master", "", func(fi *pfs.FileInfo) error {
@@ -78,28 +110,53 @@ func (fs *filesystem) OpenDir(name string, context *fuse.Context) ([]fuse.DirEnt
 
 func (fs *filesystem) Open(name string, flags uint32, context *fuse.Context) (nodefs.File, fuse.Status) {
 	// TODO use flags
-	return newFile(fs.c, name), fuse.OK
+	return newFile(fs, name), fuse.OK
 }
 
-func parsePath(name string) (*pfs.Repo, *pfs.File) {
+func (fs *filesystem) commit(repo string) (string, error) {
+	if commit := func() string {
+		fs.commitsMu.RLock()
+		defer fs.commitsMu.RUnlock()
+		return fs.commits[repo]
+	}(); commit != "" {
+		return commit, nil
+	}
+	bi, err := fs.c.InspectBranch(repo, "master")
+	if err != nil {
+		return "", err
+	}
+	fs.commitsMu.Lock()
+	defer fs.commitsMu.Unlock()
+	fs.commits[repo] = bi.Head.ID
+	return bi.Head.ID, nil
+}
+
+func (fs *filesystem) parsePath(name string) (*pfs.Repo, *pfs.File, error) {
 	components := strings.Split(name, "/")
 	switch {
 	case name == "":
-		return nil, nil
+		return nil, nil, nil
 	case len(components) == 1:
-		return client.NewRepo(components[0]), nil
+		return client.NewRepo(components[0]), nil, nil
 	default:
-		return nil, client.NewFile(components[0], "master", path.Join(components[1:]...))
+		commit, err := fs.commit(components[0])
+		if err != nil {
+			return nil, nil, err
+		}
+		return nil, client.NewFile(components[0], commit, path.Join(components[1:]...)), nil
 	}
 }
 
-func getAttr(c *client.APIClient, name string) (*fuse.Attr, fuse.Status) {
-	r, f := parsePath(name)
+func (fs *filesystem) getAttr(name string) (*fuse.Attr, fuse.Status) {
+	r, f, err := fs.parsePath(name)
+	if err != nil {
+		return nil, toStatus(err)
+	}
 	switch {
 	case r != nil:
-		return repoAttr(c, r)
+		return fs.repoAttr(r)
 	case f != nil:
-		return fileAttr(c, f)
+		return fs.fileAttr(f)
 	default:
 		return &fuse.Attr{
 			Mode: fuse.S_IFDIR | 0755,
@@ -107,8 +164,8 @@ func getAttr(c *client.APIClient, name string) (*fuse.Attr, fuse.Status) {
 	}
 }
 
-func repoAttr(c *client.APIClient, r *pfs.Repo) (*fuse.Attr, fuse.Status) {
-	ri, err := c.InspectRepo(r.Name)
+func (fs *filesystem) repoAttr(r *pfs.Repo) (*fuse.Attr, fuse.Status) {
+	ri, err := fs.c.InspectRepo(r.Name)
 	if err != nil {
 		return nil, toStatus(err)
 	}
@@ -139,8 +196,8 @@ func fileMode(fi *pfs.FileInfo) uint32 {
 	}
 }
 
-func fileAttr(c *client.APIClient, f *pfs.File) (*fuse.Attr, fuse.Status) {
-	fi, err := c.InspectFile(f.Commit.Repo.Name, f.Commit.ID, f.Path)
+func (fs *filesystem) fileAttr(f *pfs.File) (*fuse.Attr, fuse.Status) {
+	fi, err := fs.c.InspectFile(f.Commit.Repo.Name, f.Commit.ID, f.Path)
 	if err != nil {
 		return nil, toStatus(err)
 	}

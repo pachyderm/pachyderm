@@ -12,13 +12,13 @@ import (
 )
 
 type file struct {
-	c    *client.APIClient
+	fs   *filesystem
 	name string
 }
 
-func newFile(c *client.APIClient, name string) *file {
+func newFile(fs *filesystem, name string) *file {
 	return &file{
-		c:    c,
+		fs:   fs,
 		name: name,
 	}
 }
@@ -38,12 +38,15 @@ func (f *file) InnerFile() nodefs.File {
 }
 
 func (f *file) Read(dest []byte, offset int64) (fuse.ReadResult, fuse.Status) {
-	repo, file := parsePath(f.name)
+	repo, file, err := f.fs.parsePath(f.name)
+	if err != nil {
+		return nil, toStatus(err)
+	}
 	switch {
 	case repo != nil:
 		return nil, fuse.Status(syscall.EISDIR)
 	case file != nil:
-		return newReadResult(f.c, file, offset, len(dest)), fuse.OK
+		return newReadResult(f.fs.c, file, offset, len(dest)), fuse.OK
 	default:
 		return nil, fuse.Status(syscall.EISDIR)
 	}
@@ -69,7 +72,7 @@ func (f *file) Truncate(size uint64) fuse.Status {
 }
 
 func (f *file) GetAttr(out *fuse.Attr) fuse.Status {
-	attr, status := getAttr(f.c, f.name)
+	attr, status := f.fs.getAttr(f.name)
 	*out = *attr
 	return status
 }
