@@ -8002,6 +8002,43 @@ func TestPachdPrometheusStats(t *testing.T) {
 
 }
 
+func TestRapidUpdatePipelines(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	pipeline := tu.UniqueString("TestRapidUpdatePipelines")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"cp", "/pfs/time/time", "/pfs/out/time"},
+		nil,
+		nil,
+		client.NewCronInput("time", "@every 10s"),
+		"",
+		false,
+	))
+
+	time.Sleep(10 * time.Second)
+
+	for i := 0; i < 20; i++ {
+		_, err := c.PpsAPIClient.CreatePipeline(
+			context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"cp", "/pfs/time/time", "/pfs/out/time"},
+				},
+				Input:     client.NewCronInput("time", "@every 10s"),
+				Update:    true,
+				Reprocess: true,
+			})
+		require.NoError(t, err)
+	}
+}
+
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
 	pipelineInfos, err := pachClient.ListPipeline()
 	require.NoError(t, err)
