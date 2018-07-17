@@ -9,6 +9,7 @@ import (
 	pathlib "path"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -843,7 +844,15 @@ func (m *mergeStream) Close() error {
 	return m.r.Close()
 }
 
-func Merge(c chan []byte, rs ...io.ReadCloser) error {
+func Merge(c chan []byte, rs ...io.ReadCloser) (retErr error) {
+	defer func() {
+		close(c)
+		for _, r := range rs {
+			if err := r.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}
+	}()
 	buff := &bytes.Buffer{}
 	out := pbutil.NewWriter(snappy.NewWriter(buff))
 	var srcs []Mergeable
@@ -921,13 +930,113 @@ func Merge(c chan []byte, rs ...io.ReadCloser) error {
 	}); err != nil {
 		return err
 	}
-	close(c)
-	for _, src := range srcs {
-		if err := src.Close(); err != nil {
-			return err
-		}
-	}
 	return nil
+}
+
+type mergePriorityQueue struct {
+	queue []Mergeable
+	size  int
+	next  chan Mergeable
+	count int
+	mu    *sync.Mutex
+	done  chan error
+}
+
+func NewMergePriorityQueue(srcs []Mergeable, numWorkers int) *mergePriorityQueue {
+	mq := &mergePriorityQueue{
+		queue: make([]Mergeable, len(srcs)+1),
+		next:  make(chan Mergeable, len(srcs)),
+		mu:    &sync.Mutex{},
+		done:  make(chan error, 1)}
+	for _, src := range srcs {
+		mq.Insert(src)
+	}
+	// Creating goroutines that handle getting the next key/values in a set of streams
+	for i := 0; i < numWorkers; i++ {
+		go func() {
+			for src := range mq.next {
+				if err := src.Next(); err != nil {
+					mq.done <- err
+				}
+				mq.mu.Lock()
+				mq.Insert(src)
+				mq.count--
+				if mq.count <= 0 {
+					mq.done <- nil
+				}
+				mq.mu.Unlock()
+			}
+		}()
+	}
+	// First set of streams are ready
+	mq.done <- nil
+	return mq
+}
+
+func (mq *mergePriorityQueue) Insert(src Mergeable) {
+	// Streams with a nil key are at the end
+	if src.K() == nil {
+		return
+	}
+	mq.size++
+	idx := mq.size
+	mq.queue[idx] = src
+	for idx > 1 {
+		if bytes.Compare(mq.queue[idx].K(), mq.queue[idx/2].K()) > 0 {
+			break
+		}
+		mq.Swap(idx, idx/2)
+		idx /= 2
+	}
+}
+
+func (mq *mergePriorityQueue) Next() ([]byte, [][]byte, error) {
+	if err := <-mq.done; err != nil || mq.size <= 0 {
+		close(mq.next)
+		return nil, nil, err
+	}
+	// Get next streams to be merged
+	srcs := []Mergeable{mq.queue[1]}
+	mq.Fill(1)
+	for mq.size > 0 && bytes.Equal(srcs[0].K(), mq.queue[1].K()) {
+		srcs = append(srcs, mq.queue[1])
+		mq.Fill(1)
+	}
+	mq.count = len(srcs)
+	vs := [][]byte{}
+	// Create value slice, and request next key/value in streams
+	for _, src := range srcs {
+		vs = append(vs, src.V())
+		mq.next <- src
+	}
+	return srcs[0].K(), vs, nil
+}
+
+func (mq *mergePriorityQueue) Swap(i, j int) {
+	tmp := mq.queue[i]
+	mq.queue[i] = mq.queue[j]
+	mq.queue[j] = tmp
+}
+
+func (mq *mergePriorityQueue) Fill(idx int) {
+	mq.queue[idx] = mq.queue[mq.size]
+	mq.size--
+	var next int
+	for {
+		left, right := idx*2, idx*2+1
+		if right <= mq.size && bytes.Compare(mq.queue[left].K(), mq.queue[right].K()) > 0 {
+			next = right
+		} else if left <= mq.size {
+			next = left
+		} else {
+			break
+		}
+		if bytes.Compare(mq.queue[next].K(), mq.queue[idx].K()) >= 0 {
+			break
+		}
+		mq.Swap(idx, next)
+		idx = next
+	}
 }
 
 func MergeBucket(bucket string, c chan []byte, out pbutil.Writer, buff *bytes.Buffer, srcs []Mergeable, f func(k []byte, vs [][]byte) ([]byte, []byte, error)) error {
@@ -944,46 +1053,25 @@ func MergeBucket(bucket string, c chan []byte, out pbutil.Writer, buff *bytes.Bu
 		}); err != nil {
 		return err
 	}
-	var total, total2, total3, total4 time.Duration
-	for len(streams) > 0 {
-		k := streams[0].K()
-		t := time.Now()
-		for i := 0; i < len(streams); i++ {
-			s := streams[i]
-			if s.K() == nil {
-				streams = append(streams[:i], streams[i+1:]...)
-				i--
-				continue
-			}
-			if k == nil {
-				k = s.K()
-			} else if bytes.Compare(s.K(), k) < 0 {
-				k = s.K()
-			}
-		}
-		total += time.Since(t)
-		if len(streams) <= 0 {
-			break
-		}
-		var vs [][]byte
-		for _, s := range streams {
-			if !bytes.Equal(s.K(), k) {
-				continue
-			}
-			vs = append(vs, s.V())
-			t = time.Now()
-			if err := s.Next(); err != nil {
-				return err
-			}
-			total2 += time.Since(t)
-		}
-		var v []byte
-		var err error
-		t = time.Now()
-		if k, v, err = f(k, vs); err != nil {
+	mq := NewMergePriorityQueue(streams, 10)
+	var total, total2, total3 time.Duration
+	t := time.Now()
+	for {
+		k, vs, err := mq.Next()
+		if err != nil {
 			return err
 		}
-		total3 += time.Since(t)
+		if k == nil {
+			break
+		}
+		total += time.Since(t)
+		t = time.Now()
+		var v []byte
+		k, v, err = f(k, vs)
+		if err != nil {
+			return err
+		}
+		total2 += time.Since(t)
 		t = time.Now()
 		if buff.Len() >= 1048576 {
 			b := buff.Next(buff.Len())
@@ -995,9 +1083,10 @@ func MergeBucket(bucket string, c chan []byte, out pbutil.Writer, buff *bytes.Bu
 		if err := out.WriteBytes(v); err != nil {
 			return err
 		}
-		total4 += time.Since(t)
+		total3 += time.Since(t)
+		t = time.Now()
 	}
-	fmt.Printf("(mergefilter) bucket: %v\nTime spent deciding next path: %v\nTime spent getting next in stream: %v\nTime spent merging: %v\nTime spent writing: %v\n", bucket, total, total2, total3, total4)
+	fmt.Printf("(mergefilter) bucket: %v\nTime spent getting next in stream: %v\nTime spent merging: %v\nTime spent writing: %v\n", bucket, total, total2, total3)
 	if err := out.WriteBytes(SentinelByte); err != nil {
 		return err
 	}
