@@ -84,7 +84,11 @@ func (fs *filesystem) OpenDir(name string, context *fuse.Context) ([]fuse.DirEnt
 	}
 	switch {
 	case r != nil:
-		if err := fs.c.ListFileF(r.Name, "master", "", func(fi *pfs.FileInfo) error {
+		commit, err := fs.commit(r.Name)
+		if err != nil {
+			return nil, toStatus(err)
+		}
+		if err := fs.c.ListFileF(r.Name, commit, "", func(fi *pfs.FileInfo) error {
 			result = append(result, fileDirEntry(fi))
 			return nil
 		}); err != nil {
