@@ -3,30 +3,6 @@
 	"ignore": "test",
 	"package": [
 		{
-			"checksumSHA1": "xCAVewAtJpNeqReS0fRzarfwfjA=",
-			"path": "bazil.org/fuse",
-			"revision": "9e8e65293a037ce998ba0df102710c49313aa513",
-			"revisionTime": "2016-06-23T20:17:38-07:00"
-		},
-		{
-			"checksumSHA1": "389JFJTJADMtZkTIfdSnsmHVOUs=",
-			"path": "bazil.org/fuse/fs",
-			"revision": "9e8e65293a037ce998ba0df102710c49313aa513",
-			"revisionTime": "2016-06-23T20:17:38-07:00"
-		},
-		{
-			"checksumSHA1": "wy8DrEJ4Al2iZk5hKQEbIqaghGM=",
-			"path": "bazil.org/fuse/fs/fstestutil",
-			"revision": "9e8e65293a037ce998ba0df102710c49313aa513",
-			"revisionTime": "2016-06-23T20:17:38-07:00"
-		},
-		{
-			"checksumSHA1": "NPgkh9UWMsaTtsAAs3kPrclHT9Y=",
-			"path": "bazil.org/fuse/fuseutil",
-			"revision": "9e8e65293a037ce998ba0df102710c49313aa513",
-			"revisionTime": "2016-06-23T20:17:38-07:00"
-		},
-		{
 			"checksumSHA1": "8pnf4BixJlUPjx/FEJfHhF6WUNQ=",
 			"path": "cloud.google.com/go",
 			"revision": "26c51a4b926600974ac13b874190befe27712cfd",
