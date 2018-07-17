@@ -132,7 +132,7 @@ To check that everything has been setup correctly, try:
 $ az storage account list | jq '.[].name'
 ```
 
-The we can deploy Pachyderm:
+Then we can deploy Pachyderm:
 
 ```sh
 pachctl deploy custom --persistent-disk azure --object-store s3 ${VOLUME_URI} ${STORAGE_SIZE} <object store bucket> <object store id> <object store secret> <object store endpoint> --static-etcd-volume=${VOLUME_URI}
