@@ -8016,7 +8016,7 @@ func TestRapidUpdatePipelines(t *testing.T) {
 		[]string{"cp", "/pfs/time/time", "/pfs/out/time"},
 		nil,
 		nil,
-		client.NewCronInput("time", "@every 10s"),
+		client.NewCronInput("time", "@every 5s"),
 		"",
 		false,
 	))
@@ -8031,12 +8031,30 @@ func TestRapidUpdatePipelines(t *testing.T) {
 				Transform: &pps.Transform{
 					Cmd: []string{"cp", "/pfs/time/time", "/pfs/out/time"},
 				},
-				Input:     client.NewCronInput("time", "@every 10s"),
+				Input:     client.NewCronInput("time", "@every 5s"),
 				Update:    true,
 				Reprocess: true,
 			})
 		require.NoError(t, err)
 	}
+	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
+		jis, err := c.ListJob(pipeline, nil, nil)
+		if err != nil {
+			return err
+		}
+		if len(jis) < 10 {
+			return fmt.Errorf("should have more than 10 jobs in 2 minutes")
+		}
+		for i := 0; i < 5; i++ {
+			difference := jis[i].Started.Seconds - jis[i+1].Started.Seconds
+			if difference < 4 {
+				return fmt.Errorf("jobs too close together")
+			} else if difference > 6 {
+				return fmt.Errorf("jobs too far apart")
+			}
+		}
+		return nil
+	})
 }
 
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
