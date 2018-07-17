@@ -13,6 +13,7 @@ import (
 	"github.com/hanwen/go-fuse/fuse/pathfs"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
 type Options struct {
@@ -114,14 +115,21 @@ func (fs *filesystem) Open(name string, flags uint32, context *fuse.Context) (no
 }
 
 func (fs *filesystem) commit(repo string) (string, error) {
-	if commit := func() string {
+	commitOrBranch := func() string {
 		fs.commitsMu.RLock()
 		defer fs.commitsMu.RUnlock()
 		return fs.commits[repo]
-	}(); commit != "" {
-		return commit, nil
+	}()
+	if uuid.IsUUIDWithoutDashes(commitOrBranch) {
+		// it's a commit, return it
+		return commitOrBranch, nil
 	}
-	bi, err := fs.c.InspectBranch(repo, "master")
+	// it's a branch, resolve the head and return that
+	branch := commitOrBranch
+	if branch == "" {
+		branch = "master"
+	}
+	bi, err := fs.c.InspectBranch(repo, branch)
 	if err != nil {
 		return "", err
 	}
