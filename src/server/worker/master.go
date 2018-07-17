@@ -819,7 +819,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				}
 				rs = append(rs, r)
 			}
-			c := make(chan []byte, 5)
+			c := make(chan []byte, 10)
 			eg.Go(func() error {
 				if err = hashtree.Merge(c, rs...); err != nil {
 					return err
