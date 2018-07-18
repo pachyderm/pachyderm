@@ -16,28 +16,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
-type Options struct {
-	Fuse *nodefs.Options
-	// commits is a map from repos to commits, if a repo is unspecified then
-	// the master commit of the repo at the time the repo is first requested
-	// will be used.
-	Commits map[string]string
-}
-
-func (o *Options) GetFuse() *nodefs.Options {
-	if o == nil {
-		return nil
-	}
-	return o.Fuse
-}
-
-func (o *Options) GetCommits() map[string]string {
-	if o == nil {
-		return nil
-	}
-	return o.Commits
-}
-
 func Mount(c *client.APIClient, mountPoint string, opts *Options) error {
 	nfs := pathfs.NewPathNodeFs(newFileSystem(c, opts.GetCommits()), nil)
 	server, _, err := nodefs.MountRoot(mountPoint, nfs.Root(), opts.GetFuse())
@@ -47,7 +25,10 @@ func Mount(c *client.APIClient, mountPoint string, opts *Options) error {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
 	go func() {
-		<-sigChan
+		select {
+		case <-sigChan:
+		case <-opts.GetUnmount():
+		}
 		server.Unmount()
 	}()
 	server.Serve()
