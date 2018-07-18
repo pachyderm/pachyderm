@@ -301,10 +301,10 @@ func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 					}
 					return nil
 				}, b, func(err error, d time.Duration) error {
-					logger.Logf("Error finishing commit: %v", err)
+					logger.Logf("Error finishing commit: %v (retrying)", err)
 					return nil
 				}); err != nil {
-					return err
+					logger.Logf("Error finishing commit: %v (giving up)", err)
 				}
 				if err := pachClient.FinishCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID); err != nil {
 					logger.Logf("could not finish output commit: %v", err)
@@ -496,13 +496,14 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				return err
 			}
 			defer cancel() // whether job state update succeeds or not, job is done
+
+			// Update the job state; if the job failed (vs. being killed), the JobInfo
+			// should be updated already
+			newState := pps.JobState_JOB_SUCCESS
+			if commitInfo.Tree == nil {
+				newState = pps.JobState_JOB_KILLED
+			}
 			_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-				newState := pps.JobState_JOB_SUCCESS
-				if commitInfo.Tree == nil {
-					// If the job failed (vs. being killed), the JobInfo should be updated
-					// already
-					newState = pps.JobState_JOB_KILLED
-				}
 				jobPtr := &pps.EtcdJobInfo{}
 				return a.jobs.ReadWrite(stm).Update(jobInfo.Job.ID, jobPtr, func() error {
 					if ppsutil.IsTerminal(jobPtr.State) {
@@ -884,8 +885,7 @@ func (a *APIServer) updateJobState(stm col.STM, jobPtr *pps.EtcdJobInfo, state p
 	jobPtr.State = state
 	jobPtr.Reason = reason
 	jobs := a.jobs.ReadWrite(stm)
-	jobs.Put(jobPtr.Job.ID, jobPtr)
-	return nil
+	return jobs.Put(jobPtr.Job.ID, jobPtr)
 }
 
 func (a *APIServer) aggregateProcessStats(stats []*pps.ProcessStats) (*pps.AggregateProcessStats, error) {
