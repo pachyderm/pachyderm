@@ -30,7 +30,7 @@ const (
 )
 
 var (
-	port          int32     = 30653 // Initial port on which pachd server processes will serve
+	port          int32     = 30700 // Initial port on which pachd server processes will serve
 	checkEtcdOnce sync.Once         // ensure we only test the etcd connection once
 )
 
