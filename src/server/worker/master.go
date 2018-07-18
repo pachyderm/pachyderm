@@ -286,15 +286,25 @@ func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 			}
 			select {
 			case <-serviceCtx.Done():
-				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-					jobs := a.jobs.ReadWrite(stm)
-					jobPtr := &pps.EtcdJobInfo{}
-					if err := jobs.Get(job.ID, jobPtr); err != nil {
-						return err
+				b := backoff.NewExponentialBackOff()
+				b.MaxElapsedTime = 60 * time.Second
+				if err := backoff.RetryNotify(func() error {
+					if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+						jobs := a.jobs.ReadWrite(stm)
+						jobPtr := &pps.EtcdJobInfo{}
+						if err := jobs.Get(job.ID, jobPtr); err != nil {
+							return err
+						}
+						return a.updateJobState(stm, jobPtr, pps.JobState_JOB_SUCCESS, "")
+					}); err != nil {
+						return fmt.Errorf("error updating job progress: %+v", err)
 					}
-					return a.updateJobState(stm, jobPtr, pps.JobState_JOB_SUCCESS, "")
+					return nil
+				}, b, func(err error, d time.Duration) error {
+					logger.Logf("Error finishing commit: %v", err)
+					return nil
 				}); err != nil {
-					logger.Logf("error updating job progress: %+v", err)
+					return err
 				}
 				if err := pachClient.FinishCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID); err != nil {
 					logger.Logf("could not finish output commit: %v", err)
@@ -485,25 +495,24 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				}
 				return err
 			}
-			if commitInfo.Tree == nil {
-				defer cancel() // whether job state update succeeds or not, job is done
-				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-					// Read an up to date version of the jobInfo so that we
-					// don't overwrite changes that have happened since this
-					// function started.
-					jobPtr := &pps.EtcdJobInfo{}
-					if err := a.jobs.ReadWrite(stm).Get(jobInfo.Job.ID, jobPtr); err != nil {
-						return err
-					}
-					if !ppsutil.IsTerminal(jobPtr.State) {
-						return a.updateJobState(stm, jobPtr, pps.JobState_JOB_KILLED, "")
-					}
-					return nil
-				}); err != nil {
-					return err
+			defer cancel() // whether job state update succeeds or not, job is done
+			_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				newState := pps.JobState_JOB_SUCCESS
+				if commitInfo.Tree == nil {
+					// If the job failed (vs. being killed), the JobInfo should be updated
+					// already
+					newState = pps.JobState_JOB_KILLED
 				}
-			}
-			return nil
+				jobPtr := &pps.EtcdJobInfo{}
+				return a.jobs.ReadWrite(stm).Update(jobInfo.Job.ID, jobPtr, func() error {
+					if ppsutil.IsTerminal(jobPtr.State) {
+						return nil // Job has already been updated
+					}
+					// Update job to match commit
+					return a.updateJobState(stm, jobPtr, newState, "")
+				})
+			})
+			return err
 		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 			if isDone(ctx) {
 				return err // exit retry loop
