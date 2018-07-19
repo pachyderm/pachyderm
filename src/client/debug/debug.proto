@@ -1,0 +1,10 @@
+syntax = "proto3";
+package debug;
+
+import "google/protobuf/wrappers.proto";
+
+message GoroRequest {}
+
+service API {
+  rpc Goro(GoroRequest) returns (stream google.protobuf.BytesValue) {}
+}
