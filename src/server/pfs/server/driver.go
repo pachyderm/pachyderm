@@ -30,6 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pfsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
+	"github.com/pachyderm/pachyderm/src/server/pkg/sql"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
@@ -1903,6 +1904,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		var eg errgroup.Group
 		decoder := json.NewDecoder(reader)
 		bufioR := bufio.NewReader(reader)
+		sqlReader := sql.NewPGDumpReader(bufioR)
 
 		indexToRecord := make(map[int]*pfs.PutFileRecord)
 		var mu sync.Mutex
@@ -1917,6 +1919,8 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 				value = jsonValue
 			case pfs.Delimiter_LINE:
 				value, err = bufioR.ReadBytes('\n')
+			case pfs.Delimiter_SQL:
+				value, err = sqlReader.ReadRows(1)
 			default:
 				return fmt.Errorf("unrecognized delimiter %s", delimiter.String())
 			}

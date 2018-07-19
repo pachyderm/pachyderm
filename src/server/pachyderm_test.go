@@ -7845,21 +7845,26 @@ ALTER TABLE public.company OWNER TO postgres;
 
 COPY public.company (id, name, age, address, salary) FROM stdin;
 %v
-\.
+\.`
+
+	// For now our implementation doesn't add the suffix:
+	/*
+		suffix := `
 
 
---
--- Name: company company_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
+	--
+	-- Name: company company_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+	--
 
-ALTER TABLE ONLY public.company
-    ADD CONSTRAINT company_pkey PRIMARY KEY (id);
+	ALTER TABLE ONLY public.company
+	    ADD CONSTRAINT company_pkey PRIMARY KEY (id);
 
 
---
--- PostgreSQL database dump complete
---
-`
+	--
+	-- PostgreSQL database dump complete
+	--
+	`
+	*/
 
 	rows := []string{
 		"1	alice	100	1234 acme st                                      	1000000",
@@ -7877,12 +7882,11 @@ ALTER TABLE ONLY public.company
 	dataRepo := tu.UniqueString("TestSQL_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	require.NoError(t, c.PutFile())
 	commit, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	w, err := c.PutFileSplitWriter(dataRepo, "master", "data", pfs.Delimiter_SQL, 0, 0, false)
 	require.NoError(t, err)
-	fullDump := fmt.Sprintf(rawPGDump, strings.join(rows, "\n"))
+	fullPGDump := fmt.Sprintf(rawPGDump, strings.Join(rows, "\n"))
 	_, err = w.Write([]byte(fullPGDump))
 	require.NoError(t, err)
 	require.NoError(t, w.Close())
@@ -7891,10 +7895,10 @@ ALTER TABLE ONLY public.company
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, "data/1", 0, 0, &buf))
 	require.Equal(t, fmt.Sprintf(rawPGDump, rows[0]), buf.String())
-	buffer.Reset()
+	buf.Reset()
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, "data/2", 0, 0, &buf))
 	require.Equal(t, fmt.Sprintf(rawPGDump, rows[1]), buf.String())
-	buffer.Reset()
+	buf.Reset()
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, "data/3", 0, 0, &buf))
 	require.Equal(t, fmt.Sprintf(rawPGDump, rows[2]), buf.String())
 }
