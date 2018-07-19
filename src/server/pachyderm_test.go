@@ -7802,6 +7802,103 @@ func TestStatsDeleteAll(t *testing.T) {
 	require.NoError(t, c.DeleteAll())
 }
 
+func TestSQLPutFileSplit(t *testing.T) {
+	rawPGDump := `--
+-- PostgreSQL database dump
+--
+
+-- Dumped from database version 10.4 (Debian 10.4-2.pgdg90+1)
+-- Dumped by pg_dump version 10.4 (Debian 10.4-2.pgdg90+1)
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET client_min_messages = warning;
+SET row_security = off;
+
+SET default_tablespace = '';
+
+SET default_with_oids = false;
+
+--
+-- Name: company; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.company (
+    id integer NOT NULL,
+    name text NOT NULL,
+    age integer NOT NULL,
+    address character(50),
+    salary real
+);
+
+
+ALTER TABLE public.company OWNER TO postgres;
+
+--
+-- Data for Name: company; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.company (id, name, age, address, salary) FROM stdin;
+%v
+\.
+
+
+--
+-- Name: company company_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.company
+    ADD CONSTRAINT company_pkey PRIMARY KEY (id);
+
+
+--
+-- PostgreSQL database dump complete
+--
+`
+
+	rows := []string{
+		"1	alice	100	1234 acme st                                      	1000000",
+		"2	bill	100	12345 acme st                                     	10000.0234",
+		"3	dakota	10	666 acme st                                       	100.023399",
+	}
+
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestSQL_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	require.NoError(t, c.PutFile())
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	w, err := c.PutFileSplitWriter(dataRepo, "master", "data", pfs.Delimiter_SQL, 0, 0, false)
+	require.NoError(t, err)
+	fullDump := fmt.Sprintf(rawPGDump, strings.join(rows, "\n"))
+	_, err = w.Write([]byte(fullPGDump))
+	require.NoError(t, err)
+	require.NoError(t, w.Close())
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, "data/1", 0, 0, &buf))
+	require.Equal(t, fmt.Sprintf(rawPGDump, rows[0]), buf.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, "data/2", 0, 0, &buf))
+	require.Equal(t, fmt.Sprintf(rawPGDump, rows[1]), buf.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, "data/3", 0, 0, &buf))
+	require.Equal(t, fmt.Sprintf(rawPGDump, rows[2]), buf.String())
+}
+
 func TestCorruption(t *testing.T) {
 	t.Skip("This test takes too long to run on CI.")
 	if testing.Short() {
