@@ -14,6 +14,7 @@ import (
 )
 
 const (
+	MB = 1024 * 1024
 	GB = 1024 * 1024 * 1024
 )
 
@@ -48,6 +49,34 @@ func TestLargeFile(t *testing.T) {
 		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "file"))
 		require.NoError(t, err)
 		require.Equal(t, GB, len(data))
+	})
+}
+
+func TestSeek(t *testing.T) {
+	c := server.GetPachClient(t)
+	require.NoError(t, c.CreateRepo("repo"))
+	data := strings.Repeat("foo", MB)
+	_, err := c.PutFile("repo", "master", "file", strings.NewReader(data))
+	require.NoError(t, err)
+	mount(t, c, nil, func(mountPoint string) {
+		f, err := os.Open(filepath.Join(mountPoint, "repo", "file"))
+		require.NoError(t, err)
+		defer func() {
+			require.NoError(t, f.Close())
+		}()
+
+		testSeek := func(offset int64) {
+			_, err = f.Seek(offset, 0)
+			require.NoError(t, err)
+			d, err := ioutil.ReadAll(f)
+			require.NoError(t, err)
+			require.Equal(t, data[offset:], string(d))
+		}
+
+		testSeek(0)
+		testSeek(MB)
+		testSeek(2 * MB)
+		testSeek(3 * MB)
 	})
 }
 
