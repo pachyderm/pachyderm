@@ -1,19 +1,23 @@
-# Example Makefile for a Pachyderm pipeline
+# Pipeline Makefile and Config template
 
-An attempt to automate as much as possible of the work needed to setup a pipeline
+An attempt to automate as much as possible of the work needed to test and setup
 
 # Introduction
 
 This is an attempt to automate the following procedures required for the pipeline creation:
 *  Build, push and pull the Docker image
 *  Create secrets for Docker registry and the container
-*  Create pipeline configuration file
+*  Create pipeline configuration file and the actual pipeline
 *  Automate local tests and put them in an environment as close to production pipeline as possible
 *  Cleanup if something goes wrong during testing or deploy
 
-What this does not do:
-*  Create or remove repositories (due to dependencies)
-*  Write the core logic of your pipeline, that is still up to you
+What this doesn't do:
+*  Create or remove data repositories (due to dependencies)
+*  Setup Kubernetes, Minikube, Docker Hub or any of the required infrastructure elements
+*  Commit data to repositories
+*  Write the core logic of your pipeline (that is still up to you)
+
+## Configuring the pipeline
 
 The folder have the following structure:
 *  Congifuration files are stored in the [config](./config) folder
@@ -21,19 +25,19 @@ The folder have the following structure:
 *  `Makefile` holds all the woodoo for putting thigs together
 *  `Dockerfile` tells docker how to build the container
 
-## Configuring the pipeline
-
 All the configuration variables for the creation of the pipeline are stored in the [pipeline.conf](./config/pipeline.conf) file.
 This includes pipeline name, where the pipeline takes the input from etc. All the variables
 are commented in the file so read on there for more details.
 
 [pipeline.json](./config/pipeline.json) file holds the pachyderm specs for the pipeline, more here: [specs](http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html).
 
-## Installing the pipeline
+## Creating the pipeline
 
-Run `make` and then `make install` in the base of the folder. After a while, run `make verify` to see if the job ran ok.
+Run `make`, this will create a `target` folder with required configuration files. Then run `make install` to create a pipeline based on the created configuration. 
+After a while, run `make verify` to see if the job ran ok.
 
-Make sure that any secret variables defined in [secrets.yaml](./config/secrets.yaml) are present in env when building the pipeline.
+Required environmental variables at build and deploy time (self explanatory): `$DOCKER_REGISTRY`, `$DOCKER_REGISTRY_USERNAME`, `$DOCKER_REGISTRY_PASSWORD` and `$DOCKER_REGISTRY_EMAIL`
+On top of that any env variables specified in `secrets.yaml` must also be present.
 
 ## Cleanup
 
