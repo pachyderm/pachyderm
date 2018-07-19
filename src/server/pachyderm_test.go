@@ -7849,21 +7849,21 @@ COPY public.company (id, name, age, address, salary) FROM stdin;
 
 	// For now our implementation doesn't add the suffix:
 	/*
-		suffix := `
+			suffix := `
 
 
-	--
-	-- Name: company company_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
-	--
+		--
+		-- Name: company company_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+		--
 
-	ALTER TABLE ONLY public.company
-	    ADD CONSTRAINT company_pkey PRIMARY KEY (id);
+		ALTER TABLE ONLY public.company
+		    ADD CONSTRAINT company_pkey PRIMARY KEY (id);
 
 
-	--
-	-- PostgreSQL database dump complete
-	--
-	`
+		--
+		-- PostgreSQL database dump complete
+		--
+		`
 	*/
 
 	rows := []string{
@@ -7892,14 +7892,18 @@ COPY public.company (id, name, age, address, salary) FROM stdin;
 	require.NoError(t, w.Close())
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 
+	fileInfos, err := c.ListFile(commit.Repo.Name, commit.ID, "data")
+	require.NoError(t, err)
+	require.Equal(t, 3, len(fileInfos))
+
 	var buf bytes.Buffer
-	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, "data/1", 0, 0, &buf))
+	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
 	require.Equal(t, fmt.Sprintf(rawPGDump, rows[0]), buf.String())
 	buf.Reset()
-	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, "data/2", 0, 0, &buf))
+	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileInfos[1].File.Path, 0, 0, &buf))
 	require.Equal(t, fmt.Sprintf(rawPGDump, rows[1]), buf.String())
 	buf.Reset()
-	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, "data/3", 0, 0, &buf))
+	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileInfos[2].File.Path, 0, 0, &buf))
 	require.Equal(t, fmt.Sprintf(rawPGDump, rows[2]), buf.String())
 }
 
