@@ -20,10 +20,8 @@ func NewPGDumpReader(r *bufio.Reader) *pgDumpReader {
 }
 
 func (r *pgDumpReader) ReadRows(count uint64) (rowsDump []byte, err error) {
+	// Trailing '\.' denotes the end of the row inserts
 	endLine := "\\."
-	// use r.ReadBytes(delim) to read up until insert
-	// store the header, then read each row until there are no more rows left
-	// The first read needs to populate the header
 	if len(r.schemaHeader) == 0 {
 		done := false
 		for !done {
@@ -45,12 +43,10 @@ func (r *pgDumpReader) ReadRows(count uint64) (rowsDump []byte, err error) {
 
 	var i uint64
 	for i = 0; i < count; i++ {
-		// From here on .. we want to read each line ... and end when we see the trailing '\.'
 		row, err := r.rd.ReadBytes('\n')
 		if err != nil {
 			return nil, err
 		}
-		// Trailing '\.' denotes the end of the row inserts
 		if string(row) == endLine {
 			return nil, io.EOF
 		}
