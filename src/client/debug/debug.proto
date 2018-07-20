@@ -3,8 +3,8 @@ package debug;
 
 import "google/protobuf/wrappers.proto";
 
-message GoroRequest {}
+message DumpRequest {}
 
 service Debug {
-  rpc Goro(GoroRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc Dump(DumpRequest) returns (stream google.protobuf.BytesValue) {}
 }
