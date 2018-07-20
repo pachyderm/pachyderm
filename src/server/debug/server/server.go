@@ -15,7 +15,7 @@ func NewDebugServer() debug.DebugServer {
 type DebugServer struct {
 }
 
-func (s *DebugServer) Goro(request *debug.GoroRequest, server debug.Debug_GoroServer) error {
+func (s *DebugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpServer) error {
 	profile := pprof.Lookup("goroutine")
 	if profile == nil {
 		return fmt.Errorf("unable to find goroutine profile")

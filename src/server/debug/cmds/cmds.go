@@ -12,20 +12,20 @@ import (
 func Cmds(noMetrics *bool) []*cobra.Command {
 	metrics := !*noMetrics
 
-	goro := &cobra.Command{
-		Use:   "goro",
+	debugDump := &cobra.Command{
+		Use:   "debug-dump",
 		Short: "Return a dump of running goroutines.",
 		Long:  "Return a dump of running goroutines.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, "goro")
+			client, err := client.NewOnUserMachine(metrics, "debug-dump")
 			if err != nil {
 				return err
 			}
-			return client.Goro(os.Stdout)
+			return client.Dump(os.Stdout)
 		}),
 	}
 
 	return []*cobra.Command{
-		goro,
+		debugDump,
 	}
 }

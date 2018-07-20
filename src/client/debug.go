@@ -7,8 +7,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 )
 
-func (c APIClient) Goro(w io.Writer) error {
-	goroClient, err := c.DebugClient.Goro(c.Ctx(), &debug.GoroRequest{})
+func (c APIClient) Dump(w io.Writer) error {
+	goroClient, err := c.DebugClient.Dump(c.Ctx(), &debug.DumpRequest{})
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
