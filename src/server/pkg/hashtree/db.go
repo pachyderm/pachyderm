@@ -625,6 +625,44 @@ func (h *dbHashTree) putFile(path string, objects []*pfs.Object, overwriteIndex 
 	})
 }
 
+func (h *dbHashTree) PutFileBlockRefs(path string, blockRefs []*pfs.BlockRef, size int64) error {
+	return h.putFileBlockRefs(path, blockRefs, size)
+}
+
+func (h *dbHashTree) putFileBlockRefs(path string, blockRefs []*pfs.BlockRef, sizeDelta int64) error {
+	path = clean(path)
+	return h.Batch(func(tx *bolt.Tx) error {
+		node, err := get(tx, path)
+		if err != nil && Code(err) != PathNotFound {
+			return err
+		}
+		if node == nil {
+			node = &NodeProto{
+				Name:     base(path),
+				FileNode: &FileNodeProto{},
+			}
+		} else if node.nodetype() != file {
+			return errorf(PathConflict, "could not put file at \"%s\"; a file of "+
+				"type %s is already there", path, node.nodetype().tostring())
+		}
+		node.SubtreeSize += sizeDelta
+		node.FileNode.BlockRefs = append(node.FileNode.BlockRefs, blockRefs...)
+		// Put the node
+		if err := put(tx, path, node); err != nil {
+			return err
+		}
+		return visit(tx, path, func(node *NodeProto, parent, child string) error {
+			if node.DirNode == nil {
+				// node created as part of this visit call, fill in the basics
+				node.Name = base(parent)
+				node.DirNode = &DirectoryNodeProto{}
+			}
+			node.SubtreeSize += sizeDelta
+			return nil
+		})
+	})
+}
+
 func (h *dbHashTree) PutDir(path string) error {
 	path = clean(path)
 	return h.Batch(func(tx *bolt.Tx) error {
@@ -902,9 +940,9 @@ func Merge(c chan []byte, rs ...io.ReadCloser) (retErr error) {
 			case directory:
 				sizeDelta += n.SubtreeSize
 			case file:
-				// Append new objects, and update size of target node (since that can't be
+				// Append new block refs, and update size of target node (since that can't be
 				// done in canonicalize)
-				destNode.FileNode.Objects = append(destNode.FileNode.Objects, n.FileNode.Objects...)
+				destNode.FileNode.BlockRefs = append(destNode.FileNode.BlockRefs, n.FileNode.BlockRefs...)
 				sizeDelta += n.SubtreeSize
 			default:
 				return nil, nil, errorf(Internal, "malformed file at \"%s\" in source "+

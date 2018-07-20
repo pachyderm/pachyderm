@@ -10,6 +10,7 @@ message FileNodeProto {
   // Object references an object in the object store which contains the content
   // of the data.
   repeated pfs.Object objects = 4;
+  repeated pfs.BlockRef blockRefs = 5;
 }
 
 // DirectoryNodeProto is a node corresponding to a directory.
