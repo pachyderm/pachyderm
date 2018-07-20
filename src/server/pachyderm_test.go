@@ -7885,6 +7885,27 @@ COPY public.company (id, name, age, address, salary) FROM stdin;
 	buf.Reset()
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileInfos[2].File.Path, 0, 0, &buf))
 	require.Equal(t, fmt.Sprintf(rawPGDump, rows[2]), buf.String())
+
+	// Test target-file-datums flag
+	commit, err = c.StartCommit(dataRepo, "beta")
+	require.NoError(t, err)
+	w, err = c.PutFileSplitWriter(dataRepo, "beta", "data", pfs.Delimiter_SQL, 2, 0, false)
+	require.NoError(t, err)
+	_, err = w.Write([]byte(fullPGDump))
+	require.NoError(t, err)
+	require.NoError(t, w.Close())
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
+	fileInfos, err = c.ListFile(commit.Repo.Name, commit.ID, "data")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+
+	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+	require.Equal(t, fmt.Sprintf(rawPGDump, strings.Join(rows[0:1], "\n")), buf.String())
+	buf.Reset()
+	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileInfos[1].File.Path, 0, 0, &buf))
+	require.Equal(t, fmt.Sprintf(rawPGDump, rows[2]), buf.String())
+
 }
 
 func TestCorruption(t *testing.T) {
