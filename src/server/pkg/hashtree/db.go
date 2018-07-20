@@ -937,6 +937,9 @@ func Merge(c chan []byte, rs ...io.ReadCloser) (retErr error) {
 		return err
 	}
 	if err := MergeBucket(FsBucket, c, out, buff, srcs, func(k []byte, vs [][]byte) ([]byte, []byte, error) {
+		if len(vs) <= 1 {
+			return k, vs[0], nil
+		}
 		destNode := &NodeProto{
 			Name:        base(s(k)),
 			SubtreeSize: 0,
