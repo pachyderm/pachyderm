@@ -1145,7 +1145,9 @@ func MergeBucket(bucket string, c chan []byte, out pbutil.Writer, buff *bytes.Bu
 		total2 += time.Since(t)
 		t = time.Now()
 		if buff.Len() >= 1048576 {
-			b := buff.Next(buff.Len())
+			b := make([]byte, buff.Len())
+			copy(b, buff.Next(buff.Len()))
+			buff.Reset()
 			c <- b
 		}
 		if err := out.WriteBytes(k); err != nil {
@@ -1161,7 +1163,9 @@ func MergeBucket(bucket string, c chan []byte, out pbutil.Writer, buff *bytes.Bu
 	if err := out.WriteBytes(SentinelByte); err != nil {
 		return err
 	}
-	b := buff.Next(buff.Len())
+	b := make([]byte, buff.Len())
+	copy(b, buff.Next(buff.Len()))
+	buff.Reset()
 	c <- b
 	return nil
 }
