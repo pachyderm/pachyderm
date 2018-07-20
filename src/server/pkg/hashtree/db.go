@@ -18,7 +18,6 @@ import (
 	globlib "github.com/gobwas/glob"
 	"github.com/golang/snappy"
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
@@ -456,11 +455,46 @@ func (h *dbHashTree) Serialize(_w io.Writer) error {
 	})
 }
 
+type keyValue struct {
+	k, v []byte
+}
+
 func (h *dbHashTree) Deserialize(_r io.Reader) error {
 	r := pbutil.NewReader(snappy.NewReader(_r))
 	hdr := &BucketHeader{}
+	batchSize := 10000
+	kvs := make(chan *keyValue, batchSize/10)
 	var eg errgroup.Group
-	limiter := limit.New(100)
+	eg.Go(func() error {
+		var bucket []byte
+		for {
+			count := 0
+			if err := h.Update(func(tx *bolt.Tx) error {
+				if bucket != nil {
+					tx.Bucket(bucket).FillPercent = 1
+				}
+				for kv := range kvs {
+					if kv.k == nil {
+						bucket = kv.v
+						continue
+					}
+					if count >= batchSize {
+						return nil
+					}
+					count++
+					if err := tx.Bucket(bucket).Put(kv.k, kv.v); err != nil {
+						return err
+					}
+				}
+				return nil
+			}); err != nil {
+				return err
+			}
+			if count <= 0 {
+				return nil
+			}
+		}
+	})
 	for {
 		hdr.Reset()
 		if err := r.Read(hdr); err != nil {
@@ -470,6 +504,7 @@ func (h *dbHashTree) Deserialize(_r io.Reader) error {
 			return err
 		}
 		bucket := b(hdr.Bucket)
+		kvs <- &keyValue{nil, bucket}
 		for {
 			_k, err := r.ReadBytes()
 			if err != nil {
@@ -487,15 +522,10 @@ func (h *dbHashTree) Deserialize(_r io.Reader) error {
 			}
 			v := make([]byte, len(_v))
 			copy(v, _v)
-			limiter.Acquire()
-			eg.Go(func() error {
-				defer limiter.Release()
-				return h.Batch(func(tx *bolt.Tx) error {
-					return tx.Bucket(bucket).Put(k, v)
-				})
-			})
+			kvs <- &keyValue{k, v}
 		}
 	}
+	close(kvs)
 	return eg.Wait()
 }
 
