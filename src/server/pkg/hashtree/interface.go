@@ -110,6 +110,8 @@ type HashTree interface {
 	// the size of the objects removed.
 	PutFileOverwrite(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64) error
 
+	PutFileBlockRefs(path string, blockRefs []*pfs.BlockRef, size int64) error
+
 	// PutDir creates a directory (or does nothing if one exists).
 	PutDir(path string) error
 

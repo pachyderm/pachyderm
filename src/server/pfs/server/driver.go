@@ -2199,16 +2199,10 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		checkNode = node
 		break
 	}
-	if _, err := tree.GetObject(checkNode.FileNode.Objects[0]); err == nil {
+	if checkNode.FileNode.Objects == nil {
 		blockRefs := []*pfs.BlockRef{}
 		for _, node := range paths {
-			for _, object := range node.FileNode.Objects {
-				blockRef, err := tree.GetObject(object)
-				if err != nil {
-					return nil, err
-				}
-				blockRefs = append(blockRefs, blockRef)
-			}
+			blockRefs = append(blockRefs, node.FileNode.BlockRefs...)
 			totalSize += node.SubtreeSize
 		}
 

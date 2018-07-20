@@ -824,19 +824,20 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 			stats.UploadBytes += uint64(size)
 			putLock.Unlock()
 
-			object := &pfs.Object{Hash: pfs.EncodeHash(hash.Sum(nil))}
+			// (bryce) Make stats work with performance changes
+			//object := &pfs.Object{Hash: pfs.EncodeHash(hash.Sum(nil))}
 			if statsTree != nil {
-				if err := statsTree.PutObject(object, blockRef); err != nil {
-					return err
-				}
-				if err := statsTree.PutFile(path.Join(statsRoot, relPath), []*pfs.Object{object}, int64(blockRef.Range.Upper-blockRef.Range.Lower)); err != nil {
-					return err
-				}
+				//if err := statsTree.PutObject(object, blockRef); err != nil {
+				//	return err
+				//}
+				//if err := statsTree.PutFile(path.Join(statsRoot, relPath), []*pfs.Object{object}, int64(blockRef.Range.Upper-blockRef.Range.Lower)); err != nil {
+				//	return err
+				//}
 			}
-			if err := tree.PutObject(object, blockRef); err != nil {
-				return err
-			}
-			if err := tree.PutFile(relPath, []*pfs.Object{object}, int64(blockRef.Range.Upper-blockRef.Range.Lower)); err != nil {
+			//if err := tree.PutObject(object, blockRef); err != nil {
+			//	return err
+			//}
+			if err := tree.PutFileBlockRefs(relPath, []*pfs.BlockRef{blockRef}, int64(blockRef.Range.Upper-blockRef.Range.Lower)); err != nil {
 				return err
 			}
 			return nil
