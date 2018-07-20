@@ -7846,26 +7846,6 @@ ALTER TABLE public.company OWNER TO postgres;
 COPY public.company (id, name, age, address, salary) FROM stdin;
 %v
 \.`
-
-	// For now our implementation doesn't add the suffix:
-	/*
-			suffix := `
-
-
-		--
-		-- Name: company company_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
-		--
-
-		ALTER TABLE ONLY public.company
-		    ADD CONSTRAINT company_pkey PRIMARY KEY (id);
-
-
-		--
-		-- PostgreSQL database dump complete
-		--
-		`
-	*/
-
 	rows := []string{
 		"1	alice	100	1234 acme st                                      	1000000",
 		"2	bill	100	12345 acme st                                     	10000.0234",
