@@ -53,26 +53,26 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// Client API for API service
+// Client API for Debug service
 
-type APIClient interface {
-	Goro(ctx context.Context, in *GoroRequest, opts ...grpc.CallOption) (API_GoroClient, error)
+type DebugClient interface {
+	Goro(ctx context.Context, in *GoroRequest, opts ...grpc.CallOption) (Debug_GoroClient, error)
 }
 
-type aPIClient struct {
+type debugClient struct {
 	cc *grpc.ClientConn
 }
 
-func NewAPIClient(cc *grpc.ClientConn) APIClient {
-	return &aPIClient{cc}
+func NewDebugClient(cc *grpc.ClientConn) DebugClient {
+	return &debugClient{cc}
 }
 
-func (c *aPIClient) Goro(ctx context.Context, in *GoroRequest, opts ...grpc.CallOption) (API_GoroClient, error) {
-	stream, err := grpc.NewClientStream(ctx, &_API_serviceDesc.Streams[0], c.cc, "/debug.API/Goro", opts...)
+func (c *debugClient) Goro(ctx context.Context, in *GoroRequest, opts ...grpc.CallOption) (Debug_GoroClient, error) {
+	stream, err := grpc.NewClientStream(ctx, &_Debug_serviceDesc.Streams[0], c.cc, "/debug.Debug/Goro", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &aPIGoroClient{stream}
+	x := &debugGoroClient{stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -82,16 +82,16 @@ func (c *aPIClient) Goro(ctx context.Context, in *GoroRequest, opts ...grpc.Call
 	return x, nil
 }
 
-type API_GoroClient interface {
+type Debug_GoroClient interface {
 	Recv() (*google_protobuf.BytesValue, error)
 	grpc.ClientStream
 }
 
-type aPIGoroClient struct {
+type debugGoroClient struct {
 	grpc.ClientStream
 }
 
-func (x *aPIGoroClient) Recv() (*google_protobuf.BytesValue, error) {
+func (x *debugGoroClient) Recv() (*google_protobuf.BytesValue, error) {
 	m := new(google_protobuf.BytesValue)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -99,45 +99,45 @@ func (x *aPIGoroClient) Recv() (*google_protobuf.BytesValue, error) {
 	return m, nil
 }
 
-// Server API for API service
+// Server API for Debug service
 
-type APIServer interface {
-	Goro(*GoroRequest, API_GoroServer) error
+type DebugServer interface {
+	Goro(*GoroRequest, Debug_GoroServer) error
 }
 
-func RegisterAPIServer(s *grpc.Server, srv APIServer) {
-	s.RegisterService(&_API_serviceDesc, srv)
+func RegisterDebugServer(s *grpc.Server, srv DebugServer) {
+	s.RegisterService(&_Debug_serviceDesc, srv)
 }
 
-func _API_Goro_Handler(srv interface{}, stream grpc.ServerStream) error {
+func _Debug_Goro_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(GoroRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(APIServer).Goro(m, &aPIGoroServer{stream})
+	return srv.(DebugServer).Goro(m, &debugGoroServer{stream})
 }
 
-type API_GoroServer interface {
+type Debug_GoroServer interface {
 	Send(*google_protobuf.BytesValue) error
 	grpc.ServerStream
 }
 
-type aPIGoroServer struct {
+type debugGoroServer struct {
 	grpc.ServerStream
 }
 
-func (x *aPIGoroServer) Send(m *google_protobuf.BytesValue) error {
+func (x *debugGoroServer) Send(m *google_protobuf.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-var _API_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "debug.API",
-	HandlerType: (*APIServer)(nil),
+var _Debug_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "debug.Debug",
+	HandlerType: (*DebugServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Goro",
-			Handler:       _API_Goro_Handler,
+			Handler:       _Debug_Goro_Handler,
 			ServerStreams: true,
 		},
 	},
@@ -353,10 +353,10 @@ var fileDescriptorDebug = []byte{
 	0xcd, 0x2b, 0xd1, 0x4f, 0x49, 0x4d, 0x2a, 0x4d, 0x87, 0x90, 0x7a, 0x05, 0x45, 0xf9, 0x25, 0xf9,
 	0x42, 0xac, 0x60, 0x8e, 0x94, 0x5c, 0x7a, 0x7e, 0x7e, 0x7a, 0x4e, 0xaa, 0x3e, 0x58, 0x30, 0xa9,
 	0x34, 0x4d, 0xbf, 0xbc, 0x28, 0xb1, 0xa0, 0x20, 0xb5, 0xa8, 0x18, 0xa2, 0x4c, 0x89, 0x97, 0x8b,
-	0xdb, 0x3d, 0xbf, 0x28, 0x3f, 0x28, 0xb5, 0xb0, 0x34, 0xb5, 0xb8, 0xc4, 0xc8, 0x89, 0x8b, 0xd9,
-	0x31, 0xc0, 0x53, 0xc8, 0x9a, 0x8b, 0x05, 0x24, 0x2a, 0x24, 0xa4, 0x07, 0x31, 0x12, 0x49, 0x89,
-	0x94, 0xb4, 0x1e, 0xc4, 0x48, 0x3d, 0x98, 0x91, 0x7a, 0x4e, 0x95, 0x25, 0xa9, 0xc5, 0x61, 0x89,
+	0xdb, 0x3d, 0xbf, 0x28, 0x3f, 0x28, 0xb5, 0xb0, 0x34, 0xb5, 0xb8, 0xc4, 0xc8, 0x85, 0x8b, 0xd5,
+	0x05, 0xa4, 0x4f, 0xc8, 0x9a, 0x8b, 0x05, 0x24, 0x2e, 0x24, 0xa4, 0x07, 0x31, 0x14, 0x49, 0x91,
+	0x94, 0xb4, 0x1e, 0xc4, 0x50, 0x3d, 0x98, 0xa1, 0x7a, 0x4e, 0x95, 0x25, 0xa9, 0xc5, 0x61, 0x89,
 	0x39, 0xa5, 0xa9, 0x4a, 0x0c, 0x06, 0x8c, 0x4e, 0x02, 0x27, 0x1e, 0xc9, 0x31, 0x5e, 0x78, 0x24,
 	0xc7, 0xf8, 0xe0, 0x91, 0x1c, 0xe3, 0x8c, 0xc7, 0x72, 0x0c, 0x49, 0x6c, 0x60, 0xa5, 0xc6, 0x80,
-	0x00, 0x00, 0x00, 0xff, 0xff, 0xe3, 0xeb, 0xd6, 0x73, 0xae, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0xff, 0xff, 0xd3, 0x5e, 0x20, 0x0f, 0xb0, 0x00, 0x00, 0x00,
 }

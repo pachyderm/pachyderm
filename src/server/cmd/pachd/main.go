@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	adminclient "github.com/pachyderm/pachyderm/src/client/admin"
 	authclient "github.com/pachyderm/pachyderm/src/client/auth"
+	debugclient "github.com/pachyderm/pachyderm/src/client/debug"
 	deployclient "github.com/pachyderm/pachyderm/src/client/deploy"
 	eprsclient "github.com/pachyderm/pachyderm/src/client/enterprise"
 	healthclient "github.com/pachyderm/pachyderm/src/client/health"
@@ -27,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	adminserver "github.com/pachyderm/pachyderm/src/server/admin/server"
 	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
+	debugserver "github.com/pachyderm/pachyderm/src/server/debug/server"
 	deployserver "github.com/pachyderm/pachyderm/src/server/deploy"
 	eprsserver "github.com/pachyderm/pachyderm/src/server/enterprise/server"
 	"github.com/pachyderm/pachyderm/src/server/health"
@@ -238,6 +240,7 @@ func doSidecarMode(appEnvObj interface{}) error {
 				eprsclient.RegisterAPIServer(s, enterpriseAPIServer)
 
 				healthclient.RegisterHealthServer(s, health.NewHealthServer())
+				debugclient.RegisterDebugServer(s, debugserver.NewDebugServer())
 				return nil
 			},
 		},
@@ -418,6 +421,7 @@ func doFullMode(appEnvObj interface{}) error {
 					adminclient.RegisterAPIServer(s, adminserver.NewAPIServer(address, &adminclient.ClusterInfo{clusterID}))
 					healthclient.RegisterHealthServer(s, publicHealthServer)
 					versionpb.RegisterAPIServer(s, version.NewAPIServer(version.Version, version.APIServerOptions{}))
+					debugclient.RegisterDebugServer(s, debugserver.NewDebugServer())
 					return nil
 				},
 			},
