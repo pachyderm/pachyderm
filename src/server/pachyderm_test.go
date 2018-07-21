@@ -7900,8 +7900,9 @@ COPY public.company (id, name, age, address, salary) FROM stdin;
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileInfos))
 
+	buf.Reset()
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
-	require.Equal(t, fmt.Sprintf(rawPGDump, strings.Join(rows[0:1], "\n")), buf.String())
+	require.Equal(t, fmt.Sprintf(rawPGDump, strings.Join(rows[0:2], "\n")), buf.String())
 	buf.Reset()
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileInfos[1].File.Path, 0, 0, &buf))
 	require.Equal(t, fmt.Sprintf(rawPGDump, rows[2]), buf.String())
