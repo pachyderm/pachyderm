@@ -9,14 +9,16 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 )
 
-func NewDebugServer(etcdClient *etcd.Client) debug.DebugServer {
+func NewDebugServer(etcdClient *etcd.Client, etcdPrefix string) debug.DebugServer {
 	return &DebugServer{
 		etcdClient: etcdClient,
+		etcdPrefix: etcdPrefix,
 	}
 }
 
 type DebugServer struct {
 	etcdClient *etcd.Client
+	etcdPrefix string
 }
 
 func (s *DebugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpServer) error {

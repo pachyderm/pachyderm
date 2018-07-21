@@ -190,7 +190,7 @@ func do(appEnvObj interface{}) error {
 					defer close(ready)
 					worker.RegisterWorkerServer(s, apiServer)
 					versionpb.RegisterAPIServer(s, version.NewAPIServer(version.Version, version.APIServerOptions{}))
-					debugclient.RegisterDebugServer(s, debugserver.NewDebugServer(etcdClient))
+					debugclient.RegisterDebugServer(s, debugserver.NewDebugServer(etcdClient, appEnv.PPSPrefix))
 					return nil
 				},
 			},
