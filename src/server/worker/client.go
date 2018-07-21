@@ -7,6 +7,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/debug"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -65,24 +66,51 @@ func Cancel(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client,
 	return nil
 }
 
-// WorkerClients returns a slice of worker clients for a pipeline.
+// WorkerConns returns a slice of connections to worker servers.
 // pipelineRcName is the name of the pipeline's RC and can be gotten with
 // ppsutil.PipelineRcName. You can also pass "" for pipelineRcName to get all
 // clients for all workers.
-func WorkerClients(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client, etcdPrefix string) ([]WorkerClient, error) {
+func WorkerConns(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client, etcdPrefix string) ([]*grpc.ClientConn, error) {
 	resp, err := etcdClient.Get(ctx, path.Join(etcdPrefix, workerEtcdPrefix, pipelineRcName), etcd.WithPrefix())
 	if err != nil {
 		return nil, err
 	}
-
-	var result []WorkerClient
+	var result []*grpc.ClientConn
 	for _, kv := range resp.Kvs {
 		conn, err := grpc.Dial(fmt.Sprintf("%s:%d", path.Base(string(kv.Key)), client.PPSWorkerPort),
 			append(client.DefaultDialOptions(), grpc.WithInsecure())...)
 		if err != nil {
 			return nil, err
 		}
-		result = append(result, NewWorkerClient(conn))
+		result = append(result, conn)
+	}
+	return result, nil
+}
+
+type Client struct {
+	WorkerClient
+	debug.DebugClient
+}
+
+func NewClient(conn *grpc.ClientConn) Client {
+	return Client{
+		NewWorkerClient(conn),
+		debug.NewDebugClient(conn),
+	}
+}
+
+// WorkerClients returns a slice of worker clients for a pipeline.
+// pipelineRcName is the name of the pipeline's RC and can be gotten with
+// ppsutil.PipelineRcName. You can also pass "" for pipelineRcName to get all
+// clients for all workers.
+func WorkerClients(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client, etcdPrefix string) ([]Client, error) {
+	conns, err := WorkerConns(ctx, pipelineRcName, etcdClient, etcdPrefix)
+	if err != nil {
+		return nil, err
+	}
+	var result []Client
+	for _, conn := range conns {
+		result = append(result, NewClient(conn))
 	}
 	return result, nil
 }

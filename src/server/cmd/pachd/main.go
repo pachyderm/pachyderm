@@ -240,7 +240,10 @@ func doSidecarMode(appEnvObj interface{}) error {
 				eprsclient.RegisterAPIServer(s, enterpriseAPIServer)
 
 				healthclient.RegisterHealthServer(s, health.NewHealthServer())
-				debugclient.RegisterDebugServer(s, debugserver.NewDebugServer(etcdClientV3))
+				debugclient.RegisterDebugServer(s, debugserver.NewDebugServer(
+					etcdClientV3,
+					path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix),
+				))
 				return nil
 			},
 		},
@@ -421,7 +424,10 @@ func doFullMode(appEnvObj interface{}) error {
 					adminclient.RegisterAPIServer(s, adminserver.NewAPIServer(address, &adminclient.ClusterInfo{clusterID}))
 					healthclient.RegisterHealthServer(s, publicHealthServer)
 					versionpb.RegisterAPIServer(s, version.NewAPIServer(version.Version, version.APIServerOptions{}))
-					debugclient.RegisterDebugServer(s, debugserver.NewDebugServer(etcdClientV3))
+					debugclient.RegisterDebugServer(s, debugserver.NewDebugServer(
+						etcdClientV3,
+						path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix),
+					))
 					return nil
 				},
 			},
