@@ -19,7 +19,8 @@ func NewPGDumpReader(r *bufio.Reader) *pgDumpReader {
 	}
 }
 
-func (r *pgDumpReader) ReadRows(count uint64) (rowsDump []byte, err error) {
+func (r *pgDumpReader) ReadRows(count uint64) (rowsDump []byte, rowsRead uint64, err error) {
+	fmt.Printf("reading %v rows\n", count)
 	// Trailing '\.' denotes the end of the row inserts
 	endLine := "\\."
 	if len(r.schemaHeader) == 0 {
@@ -28,9 +29,9 @@ func (r *pgDumpReader) ReadRows(count uint64) (rowsDump []byte, err error) {
 			b, err := r.rd.ReadBytes('\n')
 			if err != nil {
 				if err == io.EOF {
-					return nil, fmt.Errorf("file does not contain row inserts")
+					return nil, 0, fmt.Errorf("file does not contain row inserts")
 				}
-				return nil, err
+				return nil, 0, err
 			}
 			if strings.HasPrefix(string(b), "COPY") {
 				done = true
@@ -41,17 +42,36 @@ func (r *pgDumpReader) ReadRows(count uint64) (rowsDump []byte, err error) {
 
 	rowsDump = append(rowsDump, r.schemaHeader...)
 
-	var i uint64
-	for i = 0; i < count; i++ {
+	// when count > 1 ... and I see the endline ... I want to return the
+	// cumulative stuff I've read ... but I need to append the final line
+	// when count == 1 ... I want to return immediately ... because it means the
+	// row I just read is fluff ... and I don't want to return a header ... or
+	// anything
+
+	if count == 1 {
 		row, err := r.rd.ReadBytes('\n')
-		if err != nil {
-			return nil, err
-		}
 		if string(row) == endLine {
-			return nil, io.EOF
+			fmt.Printf("read endline %v\n", string(row))
+			fmt.Printf("rowdump %v\n", string(rowsDump))
+			return nil, 0, io.EOF
+		}
+		rowsDump = append(rowsDump, row...)
+		rowsDump = append(rowsDump, []byte(endLine)...)
+		return rowsDump, rowsRead, err
+	}
+
+	for rowsRead = 0; rowsRead < count; rowsRead++ {
+		fmt.Printf("reading row %v of %v\n", rowsRead, count)
+		row, _err := r.rd.ReadBytes('\n')
+		err = _err
+		if string(row) == endLine {
+			fmt.Printf("read endline %v\n", string(row))
+			fmt.Printf("rowdump %v\n", string(rowsDump))
+			err = io.EOF
+			break
 		}
 		rowsDump = append(rowsDump, row...)
 	}
 	rowsDump = append(rowsDump, []byte(endLine)...)
-	return rowsDump, nil
+	return rowsDump, rowsRead, err
 }
