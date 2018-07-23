@@ -187,9 +187,14 @@ Lines need not end in newline characters.
 `transform.env` is a map from key to value of environment variables that will be
 injected into the container
 
-`transform.secrets` is an array of secrets, secrets reference Kubernetes
-secrets by name and specify a path that the secrets should be mounted to.
-Secrets are useful for embedding sensitive data such as credentials. Use json specification of `mount_path` to mount secret as specific path. Or alternatively use `env_var`, `name` and `key` to set secret value as environment variable. Read more about secrets in Kubernetes
+`transform.secrets` is an array of secrets, they are useful for embedding
+sensitive data such as credentials. Secrets reference Kubernetes secrets by
+name and specify a path that the secrets should be mounted to, or an
+environment variable (`env_var`) that the value should be bound to. Secrets
+must set `name` which should be the name of a secret in Kubernetes. Secrets
+must also specify either `mount_path` or `env_var` and `key`.
+
+
 [here](https://kubernetes.io/docs/concepts/configuration/secret/).
 
 `transform.image_pull_secrets` is an array of image pull secrets, image pull
