@@ -19,7 +19,7 @@ func NewPGDumpReader(r *bufio.Reader) *pgDumpReader {
 	}
 }
 
-func (r *pgDumpReader) ReadRows(count uint64) (rowsDump []byte, rowsRead uint64, err error) {
+func (r *pgDumpReader) ReadRows(count int64) (rowsDump []byte, rowsRead int64, err error) {
 	endLine := "\\." // Trailing '\.' denotes the end of the row inserts
 	if len(r.schemaHeader) == 0 {
 		done := false
