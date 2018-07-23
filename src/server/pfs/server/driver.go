@@ -1920,16 +1920,15 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			case pfs.Delimiter_LINE:
 				value, err = bufioR.ReadBytes('\n')
 			case pfs.Delimiter_SQL:
-				//TODO: fix the targetdatum type
 				rows := int64(1)
 				if targetFileDatums != 0 {
 					rows = targetFileDatums
 				}
-				_value, n, _err := sqlReader.ReadRows(uint64(rows))
+				_value, n, _err := sqlReader.ReadRows(rows)
 				if (_err == nil || _err == io.EOF) && n > 0 {
-					// we increment in any case a few lines below ...
-					// so we only increment here if the count is greater than 1
-					datumsWritten += int64(n - uint64(1)) //TODO: fix datumsWritten type
+					// only increment here if the count is greater than 0,
+					// since we increment by default a few lines below
+					datumsWritten += n - int64(1)
 				}
 				err = _err
 				value = _value
