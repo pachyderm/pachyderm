@@ -1925,15 +1925,11 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 				if targetFileDatums != 0 {
 					rows = targetFileDatums
 				}
-				fmt.Printf("reading batch of SQL rows\n")
 				_value, n, _err := sqlReader.ReadRows(uint64(rows))
-				fmt.Printf("read batch: n %v w err %v\n", n, _err)
 				if (_err == nil || _err == io.EOF) && n > 0 {
 					// we increment in any case a few lines below ...
 					// so we only increment here if the count is greater than 1
-					fmt.Printf("read %v rows this pass ... incrementing datumsWritten\n", n)
 					datumsWritten += int64(n - uint64(1)) //TODO: fix datumsWritten type
-					fmt.Printf("datums written %v\n", datumsWritten)
 				}
 				err = _err
 				value = _value
@@ -1950,8 +1946,6 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			buffer.Write(value)
 			bytesWritten += int64(len(value))
 			datumsWritten++
-			fmt.Printf("after normal inc datumswritten: %v, targetFileDatums %v\n", datumsWritten, targetFileDatums)
-			fmt.Printf("writing buffer: %v\n", buffer.String())
 			if buffer.Len() != 0 &&
 				((targetFileBytes != 0 && bytesWritten >= targetFileBytes) ||
 					(targetFileDatums != 0 && datumsWritten >= targetFileDatums) ||
@@ -1977,7 +1971,6 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 				datumsWritten = 0
 				bytesWritten = 0
 				buffer = &bytes.Buffer{}
-				fmt.Print("resetting buffer\n")
 				filesPut++
 			}
 		}
