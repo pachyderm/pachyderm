@@ -14,7 +14,7 @@
         "secrets": [
             {
                 "name": "$PIPELINE_DOCKER_SECRETS",
-                "mountPath": "$PIPELINE_DOCKER_SECRETS_PATH"
+                "mount_path": "$PIPELINE_DOCKER_SECRETS_PATH"
             }
         ],
         "image_pull_secrets": ["$PIPELINE_DOCKER_REGISTRY_SECRETS"]
