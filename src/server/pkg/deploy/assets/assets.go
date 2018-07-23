@@ -529,7 +529,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 func PachdService(opts *AssetOpts) *v1.Service {
 	prometheusAnnotations := map[string]string{
 		"prometheus.io/scrape": "true",
-		"prometheus.io/port":   string(PrometheusPort),
+		"prometheus.io/port":   strconv.Itoa(PrometheusPort),
 	}
 	return &v1.Service{
 		TypeMeta: metav1.TypeMeta{
