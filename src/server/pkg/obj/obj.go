@@ -248,6 +248,8 @@ func NewClientFromURLAndSecret(ctx context.Context, url *ObjectStoreURL) (Client
 	case "local":
 		return NewLocalClient("/" + url.Bucket)
 	}
+	// This error string is explicitly detected in server/worker/master.go. If
+	// this is changed, that code must be changed as well
 	return nil, fmt.Errorf("unrecognized object store: %s", url.Bucket)
 }
 

@@ -133,7 +133,7 @@ func NewTestingBackOff() *ExponentialBackOff {
 		RandomizationFactor: DefaultRandomizationFactor,
 		Multiplier:          DefaultMultiplier,
 		MaxInterval:         5 * time.Second,
-		MaxElapsedTime:      60 * time.Second,
+		MaxElapsedTime:      90 * time.Second,
 		Clock:               SystemClock,
 	}
 	return b.withCanonicalRandomizationFactor().withReset()

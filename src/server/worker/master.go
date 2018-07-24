@@ -544,6 +544,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		defer timer.Stop()
 	}
 
+	defer fmt.Printf("waitJob done\n")
 	backoff.RetryNotify(func() (retErr error) {
 		// block until job inputs are ready
 		failedInputs, err := a.failedInputs(ctx, jobInfo)
@@ -725,6 +726,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			// Handle egress
 			if err := a.egress(pachClient, logger, jobInfo); err != nil {
 				reason := fmt.Sprintf("egress error: %v", err)
+				fmt.Printf(">>> egress error: %v\n", err)
 				_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 					jobs := a.jobs.ReadWrite(stm)
 					jobID := jobInfo.Job.ID
@@ -733,7 +735,10 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 						return err
 					}
 					jobPtr.StatsCommit = statsCommit
-					return a.updateJobState(stm, jobPtr, pps.JobState_JOB_FAILURE, reason)
+					fmt.Printf(">>> about to update job state\n")
+					err := a.updateJobState(stm, jobPtr, pps.JobState_JOB_FAILURE, reason)
+					fmt.Printf(">>> updateJobState -> %v\n", err)
+					return err
 				})
 				// returning nil so we don't retry
 				logger.Logf("possibly a bug -- returning \"%v\"", err)
@@ -820,31 +825,41 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 	return nil
 }
 
-func (a *APIServer) egress(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo) error {
+func (a *APIServer) egress(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo) (retErr error) {
+	if jobInfo.Egress == nil {
+		return nil
+	}
 	// copy the pach client (preserving auth info) so we can set a different
 	// number of concurrent streams
 	pachClient = pachClient.WithCtx(pachClient.Ctx())
 	pachClient.SetMaxConcurrentStreams(100)
-	var egressFailureCount int
-	return backoff.RetryNotify(func() (retErr error) {
-		if jobInfo.Egress != nil {
-			logger.Logf("Starting egress upload for job (%v)", jobInfo)
-			start := time.Now()
-			url, err := obj.ParseURL(jobInfo.Egress.URL)
-			if err != nil {
-				return err
-			}
-			objClient, err := obj.NewClientFromURLAndSecret(pachClient.Ctx(), url)
-			if err != nil {
-				return err
-			}
-			if err := pfs_sync.PushObj(pachClient, jobInfo.OutputCommit, objClient, url.Object); err != nil {
-				return err
-			}
+	start := time.Now()
+	logger.Logf("Starting egress upload for job (%v)", jobInfo)
+	defer func() {
+		if retErr == nil {
 			logger.Logf("Completed egress upload for job (%v), duration (%v)", jobInfo, time.Since(start))
 		}
-		return nil
+	}()
+
+	fmt.Printf(">>> about to parse egress url: %v\n", jobInfo.Egress.URL)
+	url, err := obj.ParseURL(jobInfo.Egress.URL)
+	fmt.Printf(">>> result: %v, %v\n", url, err)
+	if err != nil {
+		return err
+	}
+	var egressFailureCount int
+	return backoff.RetryNotify(func() (retErr error) {
+		fmt.Printf(">>> about to create a new object client for egress url: %v\n", url)
+		objClient, err := obj.NewClientFromURLAndSecret(pachClient.Ctx(), url)
+		fmt.Printf(">>> result: %v, %v\n", objClient, err)
+		if err != nil {
+			return err
+		}
+		return pfs_sync.PushObj(pachClient, jobInfo.OutputCommit, objClient, url.Object)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		if strings.HasPrefix(err.Error(), "unrecognized object store:") {
+			return err // unrecoverable error
+		}
 		egressFailureCount++
 		if egressFailureCount > 3 {
 			return err

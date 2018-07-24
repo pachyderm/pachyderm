@@ -650,7 +650,7 @@ func TestEgressFailure(t *testing.T) {
 		BlockState: true,
 	})
 	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
+	require.Equal(t, "JOB_FAILURE", jobInfo.State.String())
 	require.True(t, strings.Contains(jobInfo.Reason, "egress"))
 }
 
