@@ -20,6 +20,8 @@ message DirectoryNodeProto {
   // 'Children' is ordered alphabetically, to quickly check if a new file is
   // overwriting an existing one.
   repeated string children = 3;
+  pfs.Object header = 4;
+  pfs.Object footer = 5;
 }
 
 // NodeProto is a node in the file tree (either a file or a directory)
