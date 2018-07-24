@@ -7803,7 +7803,7 @@ func TestStatsDeleteAll(t *testing.T) {
 }
 
 func TestSQLPutFileSplit(t *testing.T) {
-	rawPGDump := `--
+	pgDumpHeader := `--
 -- PostgreSQL database dump
 --
 
@@ -7844,8 +7844,8 @@ ALTER TABLE public.company OWNER TO postgres;
 --
 
 COPY public.company (id, name, age, address, salary) FROM stdin;
-%v
-\.`
+`
+	pgDumpFooter := "\n\\."
 	rows := []string{
 		"1	alice	100	1234 acme st                                      	1000000",
 		"2	bill	100	12345 acme st                                     	10000.0234",
@@ -7866,7 +7866,7 @@ COPY public.company (id, name, age, address, salary) FROM stdin;
 	require.NoError(t, err)
 	w, err := c.PutFileSplitWriter(dataRepo, "master", "data", pfs.Delimiter_SQL, 0, 0, false)
 	require.NoError(t, err)
-	fullPGDump := fmt.Sprintf(rawPGDump, strings.Join(rows, "\n"))
+	fullPGDump := pgDumpHeader + strings.Join(rows, "\n") + pgDumpFooter
 	_, err = w.Write([]byte(fullPGDump))
 	require.NoError(t, err)
 	require.NoError(t, w.Close())
@@ -7878,13 +7878,17 @@ COPY public.company (id, name, age, address, salary) FROM stdin;
 
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
-	require.Equal(t, fmt.Sprintf(rawPGDump, rows[0]), buf.String())
+	require.Equal(t, pgDumpHeader+rows[0]+pgDumpFooter, buf.String())
 	buf.Reset()
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileInfos[1].File.Path, 0, 0, &buf))
-	require.Equal(t, fmt.Sprintf(rawPGDump, rows[1]), buf.String())
+	require.Equal(t, pgDumpHeader+rows[1]+pgDumpFooter, buf.String())
 	buf.Reset()
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileInfos[2].File.Path, 0, 0, &buf))
-	require.Equal(t, fmt.Sprintf(rawPGDump, rows[2]), buf.String())
+	require.Equal(t, pgDumpHeader+rows[2]+pgDumpFooter, buf.String())
+	// The dir should only have the header/footer
+	buf.Reset()
+	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, "data", 0, 0, &buf))
+	require.Equal(t, pgDumpHeader+pgDumpFooter, buf.String())
 
 	// Test target-file-datums flag
 	commit, err = c.StartCommit(dataRepo, "beta")
@@ -7902,10 +7906,14 @@ COPY public.company (id, name, age, address, salary) FROM stdin;
 
 	buf.Reset()
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
-	require.Equal(t, fmt.Sprintf(rawPGDump, strings.Join(rows[0:2], "\n")), buf.String())
+	require.Equal(t, pgDumpHeader+strings.Join(rows[0:2], "\n")+pgDumpFooter, buf.String())
 	buf.Reset()
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileInfos[1].File.Path, 0, 0, &buf))
-	require.Equal(t, fmt.Sprintf(rawPGDump, rows[2]), buf.String())
+	require.Equal(t, pgDumpHeader+rows[2]+pgDumpFooter, buf.String())
+	// The dir should only have the header/footer
+	buf.Reset()
+	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, "data", 0, 0, &buf))
+	require.Equal(t, pgDumpHeader+pgDumpFooter, buf.String())
 
 }
 
