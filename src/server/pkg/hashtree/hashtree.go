@@ -356,7 +356,7 @@ func NewHashTree() OpenHashTree {
 		fs:      make(map[string]*NodeProto),
 		changed: make(map[string]bool),
 	}
-	result.PutDir("/")
+	result.PutDir("/", nil, nil)
 	return result
 }
 
@@ -551,7 +551,7 @@ func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *p
 }
 
 // PutDir creates a directory (or does nothing if one exists).
-func (h *hashtree) PutDir(path string) error {
+func (h *hashtree) PutDir(path string, header *pfs.Object, footer *pfs.Object) error {
 	path = clean(path)
 
 	// Detect any path conflicts before modifying 'h'
@@ -569,8 +569,11 @@ func (h *hashtree) PutDir(path string) error {
 		}
 	}
 	h.fs[path] = &NodeProto{
-		Name:    base(path),
-		DirNode: &DirectoryNodeProto{},
+		Name: base(path),
+		DirNode: &DirectoryNodeProto{
+			Header: header,
+			Footer: footer,
+		},
 	}
 	h.changed[path] = true
 

@@ -333,6 +333,8 @@ message PutFileRecords {
   bool split = 1;
   repeated PutFileRecord records = 2;
   bool tombstone = 3;
+  PutFileRecord header = 4;
+  PutFileRecord footer = 5;
 }
 
 message CopyFileRequest {
