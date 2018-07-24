@@ -1925,45 +1925,51 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 					rows = targetFileDatums
 				}
 				_value, n, _err := sqlReader.ReadRows(rows)
+				fmt.Printf("readrows ... value(%v), n(%v), err(%v)\n", string(_value), n, err)
 				if _err == nil || _err == io.EOF {
-					// Now that we're done reading, populate the header/footer
-					// records
-					sqlBuffer := &bytes.Buffer{}
-					sqlBuffer.Write(sqlReader.Header)
-					_buffer := buffer
-					limiter.Acquire()
-					eg.Go(func() error {
-						defer limiter.Release()
-						object, size, err := pachClient.PutObject(_buffer)
-						if err != nil {
-							return err
-						}
-						mu.Lock()
-						defer mu.Unlock()
-						records.Header = &pfs.PutFileRecord{
-							SizeBytes:  size,
-							ObjectHash: object.Hash,
-						}
-						return nil
-					})
-					sqlBuffer.Reset()
-					sqlBuffer.Write(sqlReader.Footer)
-					_buffer = buffer
-					limiter.Acquire()
-					eg.Go(func() error {
-						defer limiter.Release()
-						object, size, err := pachClient.PutObject(_buffer)
-						if err != nil {
-							return err
-						}
-						mu.Lock()
-						defer mu.Unlock()
-						records.Footer = &pfs.PutFileRecord{
-							SizeBytes:  size,
-							ObjectHash: object.Hash,
-						}
-						return nil
-					})
+					if _err == io.EOF {
+						// Now that we're done reading, populate the header/footer
+						// records
+						fmt.Printf("non nil err (%v) so writing header/footer\n", err)
+						sqlBuffer := &bytes.Buffer{}
+						sqlBuffer.Write(sqlReader.Header)
+						fmt.Printf("writing header [%v]\n", string(sqlReader.Header))
+						_buffer := buffer
+						limiter.Acquire()
+						eg.Go(func() error {
+							defer limiter.Release()
+							object, size, err := pachClient.PutObject(_buffer)
+							if err != nil {
+								return err
+							}
+							mu.Lock()
+							defer mu.Unlock()
+							records.Header = &pfs.PutFileRecord{
+								SizeBytes:  size,
+								ObjectHash: object.Hash,
+							}
+							return nil
+						})
+						sqlBuffer.Reset()
+						sqlBuffer.Write(sqlReader.Footer)
+						fmt.Printf("writing footer [%v]\n", string(sqlReader.Footer))
+						_buffer = buffer
+						limiter.Acquire()
+						eg.Go(func() error {
+							defer limiter.Release()
+							object, size, err := pachClient.PutObject(_buffer)
+							if err != nil {
+								return err
+							}
+							mu.Lock()
+							defer mu.Unlock()
+							records.Footer = &pfs.PutFileRecord{
+								SizeBytes:  size,
+								ObjectHash: object.Hash,
+							}
+							return nil
+						})
+					}
 
 					if n > 0 {
 						// only increment here if the count is greater than 0,
@@ -1973,6 +1979,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 				}
 				err = _err
 				value = _value
+				fmt.Printf("read row (%v) this iteration\n", string(value))
 			default:
 				return fmt.Errorf("unrecognized delimiter %s", delimiter.String())
 			}
@@ -2024,6 +2031,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		}
 	}
 
+	fmt.Printf("end of driver.PutFile ... have %v records\n", len(records.Records))
 	if oneOff {
 		// oneOff puts only work on branches, so we know branch != "". We pass
 		// a commit with no ID, that ID will be filled in with the head of
@@ -2251,10 +2259,13 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	var totalSize int64
 	for path, node := range paths {
 		if node.FileNode == nil {
+			fmt.Printf("getFile found dirNode %v\n", node.DirNode)
 			if node.DirNode.Header != nil {
+				fmt.Printf("header non nil %v, appending\n", node.DirNode.Header)
 				objects = append(objects, node.DirNode.Header)
 			}
 			if node.DirNode.Footer != nil {
+				fmt.Printf("footer non nil %v, appending\n", node.DirNode.Footer)
 				objects = append(objects, node.DirNode.Footer)
 			}
 			totalSize += node.SubtreeSize
@@ -2270,6 +2281,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		totalSize += node.SubtreeSize
 	}
 
+	fmt.Printf("get file returning %v objects\n", len(objects))
 	getObjectsClient, err := pachClient.ObjectAPIClient.GetObjects(
 		ctx,
 		&pfs.GetObjectsRequest{
@@ -2588,6 +2600,7 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			}
 		}
 		// Add the header / footer
+		fmt.Printf("applyWrite() putting dir to tree header (%v) footer (%v) size (%v)\n", records.Header.ObjectHash, records.Footer.ObjectHash, records.Header.SizeBytes+records.Footer.SizeBytes)
 		if err := tree.PutDir(key, &pfs.Object{Hash: records.Header.ObjectHash}, &pfs.Object{Hash: records.Footer.ObjectHash}, records.Header.SizeBytes+records.Footer.SizeBytes); err != nil {
 			return err
 		}
