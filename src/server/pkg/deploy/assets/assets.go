@@ -494,6 +494,11 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 									Name:          "api-http-port",
 								},
 								{
+									ContainerPort: 653, // also set in cmd/pachd/main.go
+									Protocol:      "TCP",
+									Name:          "peer-port",
+								},
+								{
 									ContainerPort: githook.GitHookPort,
 									Protocol:      "TCP",
 									Name:          "api-git-port",
@@ -524,7 +529,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 func PachdService(opts *AssetOpts) *v1.Service {
 	prometheusAnnotations := map[string]string{
 		"prometheus.io/scrape": "true",
-		"prometheus.io/port":   string(PrometheusPort),
+		"prometheus.io/port":   strconv.Itoa(PrometheusPort),
 	}
 	return &v1.Service{
 		TypeMeta: metav1.TypeMeta{

@@ -131,7 +131,7 @@ deploy_k8s_on_aws() {
         --node-size=${NODE_SIZE} \
         --master-size=${MASTER_SIZE} \
         --name=${NAME} \
-        --kubernetes-version=1.8.0 \
+        --kubernetes-version=1.10.0 \
         --yes
     kops update cluster ${NAME} --yes --state=${KOPS_BUCKET}
 
