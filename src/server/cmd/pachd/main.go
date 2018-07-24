@@ -241,6 +241,7 @@ func doSidecarMode(appEnvObj interface{}) error {
 
 				healthclient.RegisterHealthServer(s, health.NewHealthServer())
 				debugclient.RegisterDebugServer(s, debugserver.NewDebugServer(
+					"", // no name for pachd servers
 					etcdClientV3,
 					path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix),
 				))
@@ -425,6 +426,7 @@ func doFullMode(appEnvObj interface{}) error {
 					healthclient.RegisterHealthServer(s, publicHealthServer)
 					versionpb.RegisterAPIServer(s, version.NewAPIServer(version.Version, version.APIServerOptions{}))
 					debugclient.RegisterDebugServer(s, debugserver.NewDebugServer(
+						"", // no name for pachd servers
 						etcdClientV3,
 						path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix),
 					))
