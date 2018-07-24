@@ -2832,6 +2832,9 @@ func TestGlob(t *testing.T) {
 	fileInfos, err = c.GlobFile(repo, "master", "*/*")
 	require.NoError(t, err)
 	require.Equal(t, numFiles+1, len(fileInfos))
+	fileInfos, err = c.GlobFile(repo, "master", "doesnt_exist")
+	require.NoError(t, err)
+	require.Equal(t, 0, len(fileInfos))
 
 	require.NoError(t, c.FinishCommit(repo, "master"))
 
