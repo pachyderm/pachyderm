@@ -1156,12 +1156,12 @@ func (a *APIServer) mergeDatums(ctx context.Context, jobID string, plan *Plan, l
 						}
 						if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 							merges := a.merges(jobID).ReadWrite(stm)
-							var chunkState ChunkState
-							if err := merges.Get(fmt.Sprint(merge), &chunkState); err != nil {
+							var mergeState MergeState
+							if err := merges.Get(fmt.Sprint(merge), &mergeState); err != nil {
 								return err
 							}
-							if chunkState.State == State_RUNNING {
-								return merges.PutTTL(fmt.Sprint(merge), &chunkState, ttl)
+							if mergeState.State == State_RUNNING {
+								return merges.PutTTL(fmt.Sprint(merge), &mergeState, ttl)
 							}
 							return nil
 						}); err != nil {
