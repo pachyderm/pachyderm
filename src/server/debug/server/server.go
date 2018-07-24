@@ -7,16 +7,19 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/src/client/debug"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/server/worker"
 )
 
-func NewDebugServer(etcdClient *etcd.Client, etcdPrefix string) debug.DebugServer {
+func NewDebugServer(name string, etcdClient *etcd.Client, etcdPrefix string) debug.DebugServer {
 	return &DebugServer{
+		name:       name,
 		etcdClient: etcdClient,
 		etcdPrefix: etcdPrefix,
 	}
 }
 
 type DebugServer struct {
+	name       string
 	etcdClient *etcd.Client
 	etcdPrefix string
 }
@@ -26,10 +29,36 @@ func (s *DebugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpSe
 	if profile == nil {
 		return fmt.Errorf("unable to find goroutine profile")
 	}
-	if err := profile.WriteTo(grpcutil.NewStreamingBytesWriter(server), 2); err != nil {
+	w := grpcutil.NewStreamingBytesWriter(server)
+	if s.name != "" {
+		if _, err := fmt.Fprintf(w, "== %s ==\n\n", s.name); err != nil {
+			return err
+		}
+	}
+	if err := profile.WriteTo(w, 2); err != nil {
 		return err
 	}
-	if request.Recurse {
+	if !request.Recursed {
+		request.Recursed = true
+		cs, err := worker.WorkerClients(server.Context(), "", s.etcdClient, s.etcdPrefix)
+		if err != nil {
+			return err
+		}
+		for _, c := range cs {
+			if _, err := fmt.Fprintf(w, "\n"); err != nil {
+				return err
+			}
+			dumpC, err := c.Dump(
+				server.Context(),
+				request,
+			)
+			if err != nil {
+				return err
+			}
+			if err := grpcutil.WriteFromStreamingBytesClient(dumpC, w); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }

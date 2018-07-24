@@ -4,7 +4,10 @@ package debug;
 import "google/protobuf/wrappers.proto";
 
 message DumpRequest {
-  bool recurse = 1;
+  // Recursed is true if this request is a recursive call from another request.
+  // Callers should leave it unset, it's used to prevent infinite loops of
+  // recursive calls.
+  bool recursed = 1;
 }
 
 service Debug {
