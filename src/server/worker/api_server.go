@@ -59,8 +59,6 @@ const (
 
 	chunksPrefix = "/chunks"
 	lockPrefix   = "/locks"
-
-	maxRetries = 3
 )
 
 var (
@@ -462,6 +460,10 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 		}
 	}(time.Now())
 	dir := filepath.Join(client.PPSScratchSpace, uuid.NewWithoutDashes())
+	// Create output directory (currently /pfs/out)
+	if err := os.MkdirAll(filepath.Join(dir, "out"), 0777); err != nil {
+		return "", err
+	}
 	var incremental bool
 	if parentTag != nil {
 		if err := func() error {
@@ -510,6 +512,26 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 		}
 	}
 	return dir, nil
+}
+
+func (a *APIServer) linkData(inputs []*Input, dir string) error {
+	for _, input := range inputs {
+		src := filepath.Join(dir, input.Name)
+		dst := filepath.Join(client.PPSInputPrefix, input.Name)
+		if err := os.Symlink(src, dst); err != nil {
+			return err
+		}
+	}
+	return os.Symlink(filepath.Join(dir, "out"), filepath.Join(client.PPSInputPrefix, "out"))
+}
+
+func (a *APIServer) unlinkData(inputs []*Input) error {
+	for _, input := range inputs {
+		if err := os.RemoveAll(filepath.Join(client.PPSInputPrefix, input.Name)); err != nil {
+			return err
+		}
+	}
+	return os.RemoveAll(filepath.Join(client.PPSInputPrefix, "out"))
 }
 
 func (a *APIServer) reportUserCodeStats(logger *taggedLogger) {
@@ -715,67 +737,75 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 				if err != nil {
 					return err
 				}
-				pathWithInput, err := filepath.Rel(client.PPSInputPrefix, realPath)
-				if err == nil {
-					// We can only skip the upload if the real path is
-					// under /pfs, meaning that it's a file that already
-					// exists in PFS.
-
-					// The name of the input
-					inputName := strings.Split(pathWithInput, string(os.PathSeparator))[0]
-					var input *Input
-					for _, i := range inputs {
-						if i.Name == inputName {
-							input = i
-						}
+				if strings.HasPrefix(realPath, client.PPSInputPrefix) {
+					var pathWithInput string
+					var err error
+					if strings.HasPrefix(realPath, dir) {
+						pathWithInput, err = filepath.Rel(dir, realPath)
+					} else {
+						pathWithInput, err = filepath.Rel(client.PPSInputPrefix, realPath)
 					}
-					// this changes realPath from `/pfs/input/...` to `/scratch/<id>/input/...`
-					realPath = filepath.Join(dir, pathWithInput)
-					if input != nil {
-						return filepath.Walk(realPath, func(filePath string, info os.FileInfo, err error) error {
-							if err != nil {
-								return err
-							}
-							rel, err := filepath.Rel(realPath, filePath)
-							if err != nil {
-								return err
-							}
-							subRelPath := filepath.Join(relPath, rel)
-							// The path of the input file
-							pfsPath, err := filepath.Rel(filepath.Join(dir, input.Name), filePath)
-							if err != nil {
-								return err
-							}
+					if err == nil {
+						// We can only skip the upload if the real path is
+						// under /pfs, meaning that it's a file that already
+						// exists in PFS.
 
-							if info.IsDir() {
-								lock.Lock()
-								defer lock.Unlock()
-								tree.PutDir(subRelPath)
-								return nil
+						// The name of the input
+						inputName := strings.Split(pathWithInput, string(os.PathSeparator))[0]
+						var input *Input
+						for _, i := range inputs {
+							if i.Name == inputName {
+								input = i
 							}
-
-							fc := input.FileInfo.File.Commit
-							fileInfo, err := pachClient.InspectFile(fc.Repo.Name, fc.ID, pfsPath)
-							if err != nil {
-								return err
-							}
-
-							lock.Lock()
-							defer lock.Unlock()
-							if statsTree != nil {
-								if err := statsTree.PutFile(path.Join(statsRoot, subRelPath), fileInfo.Objects, int64(fileInfo.SizeBytes)); err != nil {
+						}
+						// this changes realPath from `/pfs/input/...` to `/scratch/<id>/input/...`
+						realPath = filepath.Join(dir, pathWithInput)
+						if input != nil {
+							return filepath.Walk(realPath, func(filePath string, info os.FileInfo, err error) error {
+								if err != nil {
 									return err
 								}
-							}
-							return tree.PutFile(subRelPath, fileInfo.Objects, int64(fileInfo.SizeBytes))
-						})
+								rel, err := filepath.Rel(realPath, filePath)
+								if err != nil {
+									return err
+								}
+								subRelPath := filepath.Join(relPath, rel)
+								// The path of the input file
+								pfsPath, err := filepath.Rel(filepath.Join(dir, input.Name), filePath)
+								if err != nil {
+									return err
+								}
+
+								if info.IsDir() {
+									lock.Lock()
+									defer lock.Unlock()
+									tree.PutDir(subRelPath)
+									return nil
+								}
+
+								fc := input.FileInfo.File.Commit
+								fileInfo, err := pachClient.InspectFile(fc.Repo.Name, fc.ID, pfsPath)
+								if err != nil {
+									return err
+								}
+
+								lock.Lock()
+								defer lock.Unlock()
+								if statsTree != nil {
+									if err := statsTree.PutFile(path.Join(statsRoot, subRelPath), fileInfo.Objects, int64(fileInfo.SizeBytes)); err != nil {
+										return err
+									}
+								}
+								return tree.PutFile(subRelPath, fileInfo.Objects, int64(fileInfo.SizeBytes))
+							})
+						}
 					}
 				}
 			}
 
 			f, err := os.Open(filePath)
 			if err != nil {
-				return err
+				return fmt.Errorf("os.Open(%s): %v", filePath, err)
 			}
 			defer func() {
 				if err := f.Close(); err != nil && retErr == nil {
@@ -793,7 +823,7 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 				})
 			})
 			if err != nil {
-				return err
+				return fmt.Errorf("Read(%s): %v", filePath, err)
 			}
 			object, err := putObjClient.CloseAndRecv()
 			if err != nil {
@@ -812,7 +842,7 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 		})
 		return nil
 	}); err != nil {
-		return err
+		return fmt.Errorf("error walking output: %v", err)
 	}
 
 	if err := g.Wait(); err != nil {
@@ -1344,7 +1374,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 
 			env := a.userCodeEnv(jobInfo.Job.ID, data)
 			var dir string
-			var retries int
+			var failures int64
 			if err := backoff.RetryNotify(func() error {
 				if isDone(ctx) {
 					return ctx.Err() // timeout or cancelled job--don't run datum
@@ -1389,16 +1419,12 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				if err := os.MkdirAll(client.PPSInputPrefix, 0777); err != nil {
 					return err
 				}
-				// Create output directory (currently /pfs/out) and run user code
-				if err := os.MkdirAll(filepath.Join(dir, "out"), 0777); err != nil {
-					return err
-				}
-				if err := syscall.Mount(dir, client.PPSInputPrefix, "", syscall.MS_BIND, ""); err != nil {
-					return err
+				if err := a.linkData(data, dir); err != nil {
+					return fmt.Errorf("error linkData: %v", err)
 				}
 				defer func() {
-					if err := syscall.Unmount(client.PPSInputPrefix, syscall.MNT_DETACH); err != nil && retErr == nil {
-						retErr = err
+					if err := a.unlinkData(data); err != nil && retErr == nil {
+						retErr = fmt.Errorf("error unlinkData: %v", err)
 					}
 				}()
 				if a.pipelineInfo.Transform.User != "" {
@@ -1430,8 +1456,8 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				if isDone(ctx) {
 					return ctx.Err() // timeout or cancelled job, err out and don't retry
 				}
-				retries++
-				if retries >= maxRetries {
+				failures++
+				if failures >= jobInfo.DatumTries {
 					logger.Logf("failed to process datum with error: %+v", err)
 					if statsTree != nil {
 						object, size, err := pachClient.PutObject(strings.NewReader(err.Error()))

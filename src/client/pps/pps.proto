@@ -257,6 +257,7 @@ message JobInfo {
   ChunkSpec chunk_spec = 37;
   google.protobuf.Duration datum_timeout = 38;
   google.protobuf.Duration job_timeout = 39;
+  int64 datum_tries = 41;
 }
 
 enum WorkerState {
@@ -363,6 +364,7 @@ message PipelineInfo {
   string githook_url = 35 [(gogoproto.customname) = "GithookURL"];
   pfs.Commit spec_commit = 36;
   bool standby = 37;
+  int64 datum_tries = 39;
 }
 
 message PipelineInfos {
@@ -525,6 +527,7 @@ message CreatePipelineRequest {
   google.protobuf.Duration job_timeout = 25;
   string salt = 26;
   bool standby = 27;
+  int64 datum_tries = 28;
 }
 
 message InspectPipelineRequest {
