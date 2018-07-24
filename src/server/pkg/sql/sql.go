@@ -26,7 +26,7 @@ func NewPGDumpReader(r *bufio.Reader) *pgDumpReader {
 // be populated. Both header and footer are required. If either are missing, an
 // error is returned
 func (r *pgDumpReader) ReadRows(count int64) (rowsDump []byte, rowsRead int64, err error) {
-	endLine := "\\." // Trailing '\.' denotes the end of the row inserts
+	endLine := "\\.\n" // Trailing '\.' denotes the end of the row inserts
 	if len(r.Header) == 0 {
 		done := false
 		for !done {
@@ -50,9 +50,12 @@ func (r *pgDumpReader) ReadRows(count int64) (rowsDump []byte, rowsRead int64, e
 		row, _err := r.rd.ReadBytes('\n')
 		err = _err
 		if string(row) == endLine {
+			fmt.Printf("this row (%v) is an endline\n", string(row))
+			r.Footer = append(r.Footer, row...)
+			err = r.readFooter() // We will return any rows we did read + the error
+			fmt.Printf("read off the footer (%v) w err(%v)\n", string(r.Footer), err)
 			if count == 1 {
 				// In this case, when we see and endline, we don't want to return any content
-				r.readFooter()
 				return nil, 0, io.EOF
 			}
 			break
@@ -60,7 +63,7 @@ func (r *pgDumpReader) ReadRows(count int64) (rowsDump []byte, rowsRead int64, e
 		rowsDump = append(rowsDump, row...)
 	}
 	//	rowsDump = append(rowsDump, []byte(endLine)...)
-	return rowsDump, rowsRead, r.readFooter()
+	return rowsDump, rowsRead, err
 }
 
 func (r *pgDumpReader) readFooter() error {
