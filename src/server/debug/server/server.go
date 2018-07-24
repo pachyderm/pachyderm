@@ -10,21 +10,22 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/worker"
 )
 
+// NewDebugServer creates a new server that serves the debug api over GRPC
 func NewDebugServer(name string, etcdClient *etcd.Client, etcdPrefix string) debug.DebugServer {
-	return &DebugServer{
+	return &debugServer{
 		name:       name,
 		etcdClient: etcdClient,
 		etcdPrefix: etcdPrefix,
 	}
 }
 
-type DebugServer struct {
+type debugServer struct {
 	name       string
 	etcdClient *etcd.Client
 	etcdPrefix string
 }
 
-func (s *DebugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpServer) error {
+func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpServer) error {
 	profile := pprof.Lookup("goroutine")
 	if profile == nil {
 		return fmt.Errorf("unable to find goroutine profile")
@@ -40,7 +41,7 @@ func (s *DebugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpSe
 	}
 	if !request.Recursed {
 		request.Recursed = true
-		cs, err := worker.WorkerClients(server.Context(), "", s.etcdClient, s.etcdPrefix)
+		cs, err := worker.Clients(server.Context(), "", s.etcdClient, s.etcdPrefix)
 		if err != nil {
 			return err
 		}
