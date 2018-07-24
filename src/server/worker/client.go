@@ -23,7 +23,7 @@ const (
 // ppsutil.PipelineRcName. You can also pass "" for pipelineRcName to get all
 // clients for all workers.
 func Status(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client, etcdPrefix string) ([]*pps.WorkerStatus, error) {
-	workerClients, err := WorkerClients(ctx, pipelineRcName, etcdClient, etcdPrefix)
+	workerClients, err := Clients(ctx, pipelineRcName, etcdClient, etcdPrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func Status(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client,
 // ppsutil.PipelineRcName.
 func Cancel(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client,
 	etcdPrefix string, jobID string, dataFilter []string) error {
-	workerClients, err := WorkerClients(ctx, pipelineRcName, etcdClient, etcdPrefix)
+	workerClients, err := Clients(ctx, pipelineRcName, etcdClient, etcdPrefix)
 	if err != nil {
 		return err
 	}
@@ -66,11 +66,11 @@ func Cancel(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client,
 	return nil
 }
 
-// WorkerConns returns a slice of connections to worker servers.
+// Conns returns a slice of connections to worker servers.
 // pipelineRcName is the name of the pipeline's RC and can be gotten with
 // ppsutil.PipelineRcName. You can also pass "" for pipelineRcName to get all
 // clients for all workers.
-func WorkerConns(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client, etcdPrefix string) ([]*grpc.ClientConn, error) {
+func Conns(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client, etcdPrefix string) ([]*grpc.ClientConn, error) {
 	resp, err := etcdClient.Get(ctx, path.Join(etcdPrefix, workerEtcdPrefix, pipelineRcName), etcd.WithPrefix())
 	if err != nil {
 		return nil, err
@@ -87,30 +87,31 @@ func WorkerConns(ctx context.Context, pipelineRcName string, etcdClient *etcd.Cl
 	return result, nil
 }
 
+// Client combines the WorkerAPI and the DebugAPI into a single client.
 type Client struct {
 	WorkerClient
 	debug.DebugClient
 }
 
-func NewClient(conn *grpc.ClientConn) Client {
+func newClient(conn *grpc.ClientConn) Client {
 	return Client{
 		NewWorkerClient(conn),
 		debug.NewDebugClient(conn),
 	}
 }
 
-// WorkerClients returns a slice of worker clients for a pipeline.
+// Clients returns a slice of worker clients for a pipeline.
 // pipelineRcName is the name of the pipeline's RC and can be gotten with
 // ppsutil.PipelineRcName. You can also pass "" for pipelineRcName to get all
 // clients for all workers.
-func WorkerClients(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client, etcdPrefix string) ([]Client, error) {
-	conns, err := WorkerConns(ctx, pipelineRcName, etcdClient, etcdPrefix)
+func Clients(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client, etcdPrefix string) ([]Client, error) {
+	conns, err := Conns(ctx, pipelineRcName, etcdClient, etcdPrefix)
 	if err != nil {
 		return nil, err
 	}
 	var result []Client
 	for _, conn := range conns {
-		result = append(result, NewClient(conn))
+		result = append(result, newClient(conn))
 	}
 	return result, nil
 }
