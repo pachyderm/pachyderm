@@ -2247,8 +2247,17 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	if err != nil {
 		return nil, err
 	}
+	var objects []*pfs.Object
+	var totalSize int64
 	for path, node := range paths {
 		if node.FileNode == nil {
+			if node.DirNode.Header != nil {
+				objects = append(objects, node.DirNode.Header)
+			}
+			if node.DirNode.Footer != nil {
+				objects = append(objects, node.DirNode.Footer)
+			}
+			totalSize += node.SubtreeSize
 			delete(paths, path)
 		}
 	}
@@ -2256,8 +2265,6 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
 	}
 
-	var objects []*pfs.Object
-	var totalSize int64
 	for _, node := range paths {
 		objects = append(objects, node.FileNode.Objects...)
 		totalSize += node.SubtreeSize
@@ -2581,10 +2588,7 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			}
 		}
 		// Add the header / footer
-		if err := tree.PutFile(key, []*pfs.Object{{Hash: records.Header.ObjectHash}}, records.Header.SizeBytes); err != nil {
-			return err
-		}
-		if err := tree.PutFile(key, []*pfs.Object{{Hash: records.Footer.ObjectHash}}, records.Footer.SizeBytes); err != nil {
+		if err := tree.PutDir(key, &pfs.Object{Hash: records.Header.ObjectHash}, &pfs.Object{Hash: records.Footer.ObjectHash}, records.Header.SizeBytes+records.Footer.SizeBytes); err != nil {
 			return err
 		}
 	}
