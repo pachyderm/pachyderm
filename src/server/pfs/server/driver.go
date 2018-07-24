@@ -1925,10 +1925,51 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 					rows = targetFileDatums
 				}
 				_value, n, _err := sqlReader.ReadRows(rows)
-				if (_err == nil || _err == io.EOF) && n > 0 {
-					// only increment here if the count is greater than 0,
-					// since we increment by default a few lines below
-					datumsWritten += n - int64(1)
+				if _err == nil || _err == io.EOF {
+					// Now that we're done reading, populate the header/footer
+					// records
+					sqlBuffer := &bytes.Buffer{}
+					sqlBuffer.Write(sqlReader.Header)
+					_buffer := buffer
+					limiter.Acquire()
+					eg.Go(func() error {
+						defer limiter.Release()
+						object, size, err := pachClient.PutObject(_buffer)
+						if err != nil {
+							return err
+						}
+						mu.Lock()
+						defer mu.Unlock()
+						records.Header = &pfs.PutFileRecord{
+							SizeBytes:  size,
+							ObjectHash: object.Hash,
+						}
+						return nil
+					})
+					sqlBuffer.Reset()
+					sqlBuffer.Write(sqlReader.Footer)
+					_buffer = buffer
+					limiter.Acquire()
+					eg.Go(func() error {
+						defer limiter.Release()
+						object, size, err := pachClient.PutObject(_buffer)
+						if err != nil {
+							return err
+						}
+						mu.Lock()
+						defer mu.Unlock()
+						records.Footer = &pfs.PutFileRecord{
+							SizeBytes:  size,
+							ObjectHash: object.Hash,
+						}
+						return nil
+					})
+
+					if n > 0 {
+						// only increment here if the count is greater than 0,
+						// since we increment by default a few lines below
+						datumsWritten += n - int64(1)
+					}
 				}
 				err = _err
 				value = _value
@@ -2472,6 +2513,8 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 			}
 			existingRecords.Split = newRecords.Split
 			existingRecords.Records = append(existingRecords.Records, newRecords.Records...)
+			existingRecords.Header = newRecords.Header
+			existingRecords.Footer = newRecords.Footer
 			return nil
 		})
 	})
@@ -2536,6 +2579,13 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			if err := tree.PutFile(path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
 				return err
 			}
+		}
+		// Add the header / footer
+		if err := tree.PutFile(key, []*pfs.Object{{Hash: records.Header.ObjectHash}}, records.Header.SizeBytes); err != nil {
+			return err
+		}
+		if err := tree.PutFile(key, []*pfs.Object{{Hash: records.Footer.ObjectHash}}, records.Footer.SizeBytes); err != nil {
+			return err
 		}
 	}
 	return nil
