@@ -844,18 +844,24 @@ func (m *mergeCursor) Close() error {
 }
 
 type mergeStream struct {
-	r    io.ReadCloser
-	pbr  pbutil.Reader
-	hdr  *BucketHeader
-	done bool
-	k, v []byte
+	r       io.ReadCloser
+	pbr     pbutil.Reader
+	hdr     *BucketHeader
+	done    bool
+	k, v    []byte
+	filter  func(path []byte) (bool, error)
+	next    chan *keyValue
+	errChan chan error
 }
 
-func NewMergeStream(r io.ReadCloser) (*mergeStream, error) {
+func NewMergeStream(r io.ReadCloser, filter func(path []byte) (bool, error)) (*mergeStream, error) {
 	m := &mergeStream{
-		r:   r,
-		pbr: pbutil.NewReader(snappy.NewReader(r)),
-		hdr: &BucketHeader{},
+		r:       r,
+		pbr:     pbutil.NewReader(snappy.NewReader(r)),
+		hdr:     &BucketHeader{},
+		filter:  filter,
+		next:    make(chan *keyValue, 10),
+		errChan: make(chan error, 1),
 	}
 	return m, nil
 }
@@ -869,6 +875,45 @@ func (m *mergeStream) NextBucket(bucket string) error {
 		return errorf(Internal, "Merge stream reader is in the wrong bucket")
 	}
 	m.done = false
+	// Creating goroutine that handles getting the next key/values in a stream
+	go func() {
+		for {
+			_k, err := m.pbr.ReadBytes()
+			if err != nil {
+				m.errChan <- err
+				return
+			}
+			if bytes.Equal(_k, SentinelByte) {
+				m.next <- &keyValue{nil, nil}
+				return
+			}
+			if m.hdr.Bucket == FsBucket {
+				ok, err := m.filter(_k)
+				if err != nil {
+					m.errChan <- err
+					return
+				}
+				if !ok {
+					if _, err := m.pbr.ReadBytes(); err != nil {
+						m.errChan <- err
+						return
+					}
+					continue
+				}
+			}
+			// we need to make copies of k and v because the memory will be reused
+			k := make([]byte, len(_k))
+			copy(k, _k)
+			_v, err := m.pbr.ReadBytes()
+			if err != nil {
+				m.errChan <- err
+				return
+			}
+			v := make([]byte, len(_v))
+			copy(v, _v)
+			m.next <- &keyValue{k, v}
+		}
+	}()
 	if err := m.Next(); err != nil {
 		return err
 	}
@@ -876,28 +921,20 @@ func (m *mergeStream) NextBucket(bucket string) error {
 }
 
 func (m *mergeStream) Next() error {
-	if !m.done {
-		k, err := m.pbr.ReadBytes()
-		if err != nil {
-			return err
-		}
-		if bytes.Equal(k, SentinelByte) {
-			m.k = nil
-			m.v = nil
-			m.done = true
-			return nil
-		}
-		// we need to make copies of k and v because the memory will be reused
-		m.k = make([]byte, len(k))
-		copy(m.k, k)
-		v, err := m.pbr.ReadBytes()
-		if err != nil {
-			return err
-		}
-		m.v = make([]byte, len(v))
-		copy(m.v, v)
+	if m.done {
+		return nil
 	}
-	return nil
+	select {
+	case kv := <-m.next:
+		m.k = kv.k
+		m.v = kv.v
+		if m.k == nil {
+			m.done = true
+		}
+		return nil
+	case err := <-m.errChan:
+		return err
+	}
 }
 
 func (m *mergeStream) K() []byte {
@@ -909,10 +946,12 @@ func (m *mergeStream) V() []byte {
 }
 
 func (m *mergeStream) Close() error {
+	close(m.next)
+	close(m.errChan)
 	return m.r.Close()
 }
 
-func Merge(c chan []byte, rs ...io.ReadCloser) (retErr error) {
+func Merge(c chan []byte, rs []io.ReadCloser, filter func(path []byte) (bool, error)) (retErr error) {
 	defer func() {
 		close(c)
 		for _, r := range rs {
@@ -925,7 +964,7 @@ func Merge(c chan []byte, rs ...io.ReadCloser) (retErr error) {
 	out := pbutil.NewWriter(snappy.NewWriter(buff))
 	var srcs []Mergeable
 	for _, r := range rs {
-		src, err := NewMergeStream(r)
+		src, err := NewMergeStream(r, filter)
 		if err != nil {
 			return err
 		}
@@ -1141,6 +1180,9 @@ func MergeBucket(bucket string, c chan []byte, out pbutil.Writer, buff *bytes.Bu
 		k, v, err = f(k, vs)
 		if err != nil {
 			return err
+		}
+		if k == nil {
+			continue
 		}
 		total2 += time.Since(t)
 		t = time.Now()
