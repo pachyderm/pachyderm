@@ -21,10 +21,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/OneOfOne/xxhash"
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/snappy"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/go-playground/webhooks.v3/github"
@@ -39,6 +41,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
@@ -1105,7 +1108,7 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *Plan,
 	return nil
 }
 
-func (a *APIServer) mergeDatums(ctx context.Context, jobID string, plan *Plan, logger *taggedLogger) error {
+func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string, plan *Plan, logger *taggedLogger, df DatumFactory) error {
 	complete := false
 	for !complete {
 		// func to defer cancel in
@@ -1170,12 +1173,119 @@ func (a *APIServer) mergeDatums(ctx context.Context, jobID string, plan *Plan, l
 						}
 					}
 				}()
-				// TODO merge the datums
+				r, err := a.getParentCommitHashTreeReader(ctx, pachClient, jobInfo.OutputCommit, merge)
+				if err != nil {
+					return err
+				}
+				skip := make(map[string]struct{})
+				var useParentHashTree bool
+				//var statsTree hashtree.HashTree
+				if r != nil {
+					var count int
+					pbr := pbutil.NewReader(snappy.NewReader(r))
+					hdr := &hashtree.BucketHeader{}
+					if err := pbr.Read(hdr); err != nil {
+						return err
+					}
+					for {
+						k, err := pbr.ReadBytes()
+						if err != nil {
+							return err
+						}
+						if bytes.Equal(k, hashtree.SentinelByte) {
+							break
+						}
+						skip[string(k)] = struct{}{}
+						if _, err := pbr.ReadBytes(); err != nil {
+							return err
+						}
+					}
+					if err := r.Close(); err != nil {
+						return err
+					}
+					for i := 0; i < df.Len(); i++ {
+						files := df.Datum(i)
+						datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
+						if _, ok := skip[datumHash]; ok {
+							count++
+						}
+					}
+					if len(skip) == count {
+						useParentHashTree = true
+						if jobInfo.EnableStats {
+							//statsTree, err = a.getParentCommitHashTree(ctx, pachClient, jobInfo.StatsCommit)
+							//if err != nil {
+							//	return err
+							//}
+						}
+					} else if jobInfo.EnableStats {
+						// (bryce) Stats tree needs to be made compatible with changes
+						//statsTree, err = hashtree.NewDBHashTree(a.hashtreeStorage)
+						//if err != nil {
+						//	return err
+						//}
+					}
+				}
+				var tags []*pfs.Tag
+				for i := 0; i < df.Len(); i++ {
+					files := df.Datum(int(i))
+					datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
+					if _, ok := skip[datumHash]; ok && useParentHashTree {
+						continue
+					}
+					tags = append(tags, &pfs.Tag{datumHash})
+				}
+				// Stats needs to be changed to fit this new model
+				//statsTag := &pfs.Tag{datumHash + statsTagSuffix}
 
+				t := time.Now()
+				var eg errgroup.Group
+				var rs []io.ReadCloser
+				for _, tag := range tags {
+					r, err := pachClient.GetTagReader(tag.Name)
+					if err != nil {
+						return err
+					}
+					rs = append(rs, r)
+				}
+				if useParentHashTree {
+					r, err := a.getParentCommitHashTreeReader(ctx, pachClient, jobInfo.OutputCommit, merge)
+					if err != nil {
+						return err
+					}
+					rs = append(rs, r)
+				}
+				c := make(chan []byte, 10)
+				eg.Go(func() error {
+					if err = hashtree.Merge(c, rs, func(path []byte) (bool, error) {
+						hash := xxhash.New64()
+						if _, err := hash.Write(path); err != nil {
+							return false, err
+						}
+						if int64(hash.Sum64())%plan.Merges == merge {
+							return true, nil
+						}
+						return false, nil
+					}); err != nil {
+						return err
+					}
+					return nil
+				})
+				var object *pfs.Object
+				eg.Go(func() error {
+					if object, err = pachClient.PutObjectChan(c); err != nil {
+						return err
+					}
+					return nil
+				})
+				if err := eg.Wait(); err != nil {
+					return err
+				}
+				fmt.Printf("(mergefilter) Time spent merging: %v\n", time.Since(t))
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 					merges := a.merges(jobID).ReadWrite(stm)
 					// TODO handle failures
-					return merges.Put(fmt.Sprint(merge), &MergeState{State: State_COMPLETE})
+					return merges.Put(fmt.Sprint(merge), &MergeState{State: State_COMPLETE, Tree: object})
 				}); err != nil {
 					return err
 				}
@@ -1187,6 +1297,32 @@ func (a *APIServer) mergeDatums(ctx context.Context, jobID string, plan *Plan, l
 	}
 	return nil
 
+}
+
+func (a *APIServer) getParentCommitHashTreeReader(ctx context.Context, pachClient *client.APIClient, commit *pfs.Commit, merge int64) (io.ReadCloser, error) {
+	commitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
+		&pfs.InspectCommitRequest{
+			Commit: commit,
+		})
+	if err != nil {
+		return nil, err
+	}
+	if commitInfo.ParentCommit == nil {
+		return nil, nil
+	}
+	parentCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
+		&pfs.InspectCommitRequest{
+			Commit:     commitInfo.ParentCommit,
+			BlockState: pfs.CommitState_FINISHED,
+		})
+	if err != nil {
+		return nil, err
+	}
+	var r io.ReadCloser
+	if r, err = pachClient.GetObjectReader(parentCommitInfo.Trees[merge].Hash); err != nil {
+		return nil, err
+	}
+	return r, nil
 }
 
 func isDone(ctx context.Context) bool {
@@ -1349,7 +1485,7 @@ func (a *APIServer) worker() {
 				}
 				return fmt.Errorf("acquire/process datums for job %s exited with err: %v", jobID, err)
 			}
-			if err := a.mergeDatums(jobCtx, jobID, plan, logger); err != nil {
+			if err := a.mergeDatums(jobCtx, pachClient, jobInfo, jobID, plan, logger, df); err != nil {
 				if jobCtx.Err() == context.Canceled {
 					continue NextJob // job cancelled--don't restart, just wait for next job
 				}

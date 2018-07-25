@@ -75,6 +75,12 @@
 			"revisionTime": "2016-10-05T01:22:46Z"
 		},
 		{
+			"checksumSHA1": "hRYKUqFTln4a5LQXvw6zW/2xmHo=",
+			"path": "github.com/OneOfOne/xxhash",
+			"revision": "74ace4fe5525ef62ce28d5093d6b0faaa6a575f3",
+			"revisionTime": "2018-07-23T16:30:02Z"
+		},
+		{
 			"checksumSHA1": "9Ob5JNGzi/pGXYMuHclig69IHPk=",
 			"path": "github.com/PuerkitoBio/purell",
 			"revision": "8a290539e2e8629dbc4e6bad948158f790ec31f4",

@@ -1,10 +1,8 @@
 package worker
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"path"
@@ -15,14 +13,11 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/snappy"
 	"github.com/montanaflynn/stats"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -434,7 +429,7 @@ func newPlan(df DatumFactory, spec *pps.ChunkSpec, parallelism int) *Plan {
 		}
 	}
 	plan.Chunks = append(plan.Chunks, int64(df.Len()))
-	plan.Merges = int64(parallelism) * 2
+	plan.Merges = int64(parallelism)
 	return plan
 }
 
@@ -505,7 +500,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				}
 				return err
 			}
-			if commitInfo.Tree == nil {
+			if commitInfo.Trees == nil {
 				defer cancel() // whether job state update succeeds or not, job is done
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 					// Read an up to date version of the jobInfo so that we
@@ -619,67 +614,10 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			return err
 		}
 
-		// Watch the chunks in order, and merge chunk outputs into commit tree
+		// Watch the chunks in order
 		chunks := a.chunks(jobInfo.Job.ID).ReadOnly(ctx)
-		r, err := a.getParentCommitHashTreeReader(ctx, pachClient, jobInfo.OutputCommit)
-		if err != nil {
-			return err
-		}
-		skip := make(map[string]struct{})
-		var useParentHashTree bool
-		var statsTree hashtree.HashTree
-		if r != nil {
-			var count int
-			pbr := pbutil.NewReader(snappy.NewReader(r))
-			hdr := &hashtree.BucketHeader{}
-			if err := pbr.Read(hdr); err != nil {
-				return err
-			}
-			for {
-				k, err := pbr.ReadBytes()
-				if err != nil {
-					return err
-				}
-				if bytes.Equal(k, hashtree.SentinelByte) {
-					break
-				}
-				if _, err := pbr.ReadBytes(); err != nil {
-					return err
-				}
-				skip[string(k)] = struct{}{}
-			}
-			if err := r.Close(); err != nil {
-				return err
-			}
-			for i := 0; i < df.Len(); i++ {
-				files := df.Datum(i)
-				datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
-				if _, ok := skip[datumHash]; ok {
-					count++
-				}
-			}
-			if len(skip) == count {
-				useParentHashTree = true
-				if jobInfo.EnableStats {
-					//statsTree, err = a.getParentCommitHashTree(ctx, pachClient, jobInfo.StatsCommit)
-					//if err != nil {
-					//	return err
-					//}
-				}
-			} else if jobInfo.EnableStats {
-				// (bryce) Stats tree needs to be made compatible with changes
-				//statsTree, err = hashtree.NewDBHashTree(a.hashtreeStorage)
-				//if err != nil {
-				//	return err
-				//}
-			}
-		}
-
-		limiter := limit.New(100)
 		var failedDatumID string
-		var tags []*pfs.Tag
-		var eg errgroup.Group
-		for i, high := range plan.Chunks {
+		for _, high := range plan.Chunks {
 			// Watch this chunk's lock and when it's finished, handle the result
 			// (merge chunk output into commit trees, fail if chunk failed, etc)
 			if err := func() error {
@@ -701,31 +639,6 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 							if chunkState.State == State_FAILED {
 								failedDatumID = chunkState.DatumID
 							}
-							var low int64 // chunk lower bound
-							if i > 0 {
-								low = plan.Chunks[i-1]
-							}
-							high := high // chunk upper bound
-							// merge results into output tree
-							eg.Go(func() error {
-								for i := low; i < high; i++ {
-									i := i
-									limiter.Acquire()
-									eg.Go(func() error {
-										defer limiter.Release()
-										files := df.Datum(int(i))
-										datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
-										if _, ok := skip[datumHash]; !ok {
-											tags = append(tags, &pfs.Tag{datumHash})
-										}
-										return nil
-
-										// Stats needs to be changed to fit this new model
-										//statsTag := &pfs.Tag{datumHash + statsTagSuffix}
-									})
-								}
-								return nil
-							})
 							break EventLoop
 						}
 					case <-ctx.Done():
@@ -737,12 +650,9 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				return err
 			}
 		}
-		if err := eg.Wait(); err != nil { // all results have been merged
-			return err
-		}
-		skip = nil
 		// Wait for all merges to happen.
 		merges := a.merges(jobInfo.Job.ID).ReadOnly(ctx)
+		var trees []*pfs.Object
 		for merge := int64(0); merge < plan.Merges; merge++ {
 			if err := func() error {
 				mergeState := &MergeState{}
@@ -763,6 +673,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 							if mergeState.State == State_FAILED {
 								// TODO handle failure
 							}
+							trees = append(trees, mergeState.Tree)
 							break EventLoop
 						}
 					case <-ctx.Done():
@@ -776,73 +687,37 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		}
 		// merge stats into stats commit
 		var statsCommit *pfs.Commit
+		// TODO(bryce) Figure out how stats will work with performance changes
 		if jobInfo.EnableStats {
-			statsObject, err := hashtree.PutHashTree(pachClient, statsTree)
-			if err != nil {
-				return err
-			}
-			if err := statsTree.Destroy(); err != nil {
-				return err
-			}
-			ci, err := pachClient.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
-			if err != nil {
-				return err
-			}
-			for _, commitRange := range ci.Subvenance {
-				if commitRange.Lower.Repo.Name == jobInfo.OutputRepo.Name && commitRange.Upper.Repo.Name == jobInfo.OutputRepo.Name {
-					statsCommit = commitRange.Lower
-				}
-			}
-			if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
-				Commit: statsCommit,
-				Tree:   statsObject,
-			}); err != nil {
-				return err
-			}
+			//statsObject, err := hashtree.PutHashTree(pachClient, statsTree)
+			//if err != nil {
+			//	return err
+			//}
+			//if err := statsTree.Destroy(); err != nil {
+			//	return err
+			//}
+			//ci, err := pachClient.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
+			//if err != nil {
+			//	return err
+			//}
+			//for _, commitRange := range ci.Subvenance {
+			//	if commitRange.Lower.Repo.Name == jobInfo.OutputRepo.Name && commitRange.Upper.Repo.Name == jobInfo.OutputRepo.Name {
+			//		statsCommit = commitRange.Lower
+			//	}
+			//}
+			//if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+			//	Commit: statsCommit,
+			//	Tree:   statsObject,
+			//}); err != nil {
+			//	return err
+			//}
 		}
 		// We only do this if failedDatumID == "", which is to say that all of the chunks succeeded.
 		if failedDatumID == "" {
-			t := time.Now()
-			var eg errgroup.Group
-			var rs []io.ReadCloser
-			for _, tag := range tags {
-				r, err := pachClient.GetTagReader(tag.Name)
-				if err != nil {
-					return err
-				}
-				rs = append(rs, r)
-			}
-			if useParentHashTree {
-				r, err := a.getParentCommitHashTreeReader(ctx, pachClient, jobInfo.OutputCommit)
-				if err != nil {
-					return err
-				}
-				rs = append(rs, r)
-			}
-			c := make(chan []byte, 10)
-			eg.Go(func() error {
-				if err = hashtree.Merge(c, rs...); err != nil {
-					return err
-				}
-				return nil
-			})
-			var object *pfs.Object
-			eg.Go(func() error {
-				if object, err = pachClient.PutObjectChan(c); err != nil {
-					return err
-				}
-				return nil
-			})
-			if err := eg.Wait(); err != nil {
-				return err
-			}
-			fmt.Printf("(mergefilter) Time spent merging: %v\n", time.Since(t))
 			// Finish the job's output commit
-			t = time.Now()
 			_, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
 				Commit: jobInfo.OutputCommit,
-				Tree:   object,
-				Empty:  true,
+				Trees:  trees,
 			})
 			if err != nil {
 				if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
@@ -854,7 +729,6 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				}
 				return err
 			}
-			fmt.Printf("(mergefilter) Finish commit: %v\n", time.Since(t))
 
 			// Handle egress
 			if err := a.egress(pachClient, logger, jobInfo); err != nil {
@@ -952,32 +826,6 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		return nil
 	})
 	return nil
-}
-
-func (a *APIServer) getParentCommitHashTreeReader(ctx context.Context, pachClient *client.APIClient, commit *pfs.Commit) (io.ReadCloser, error) {
-	commitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
-		&pfs.InspectCommitRequest{
-			Commit: commit,
-		})
-	if err != nil {
-		return nil, err
-	}
-	if commitInfo.ParentCommit == nil {
-		return nil, nil
-	}
-	parentCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
-		&pfs.InspectCommitRequest{
-			Commit:     commitInfo.ParentCommit,
-			BlockState: pfs.CommitState_FINISHED,
-		})
-	if err != nil {
-		return nil, err
-	}
-	var r io.ReadCloser
-	if r, err = pachClient.GetObjectReader(parentCommitInfo.Tree.Hash); err != nil {
-		return nil, err
-	}
-	return r, nil
 }
 
 func (a *APIServer) egress(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo) error {

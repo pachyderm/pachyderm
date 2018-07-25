@@ -707,8 +707,6 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 		}
 
 		commitInfo.SizeBytes = uint64(finishedTree.FSSize())
-	} else if tree != nil {
-		commitInfo.Tree = tree
 	}
 
 	commitInfo.Finished = now()
@@ -735,6 +733,34 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 			if err := repos.Put(commit.Repo.Name, repoInfo); err != nil {
 				return err
 			}
+		}
+		return nil
+	})
+	return err
+}
+
+func (d *driver) finishOutputCommit(ctx context.Context, commit *pfs.Commit, trees []*pfs.Object) (retErr error) {
+	pachClient := d.getPachClient(ctx)
+	ctx = pachClient.Ctx()
+	if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_WRITER); err != nil {
+		return err
+	}
+	commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_STARTED)
+	if err != nil {
+		return err
+	}
+	if commitInfo.Finished != nil {
+		return fmt.Errorf("commit %s has already been finished", commit.FullID())
+	}
+	commitInfo.Trees = trees
+	commitInfo.Finished = now()
+	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
+		if err := commits.Put(commit.ID, commitInfo); err != nil {
+			return err
+		}
+		if err := d.openCommits.ReadWrite(stm).Delete(commit.ID); err != nil {
+			return fmt.Errorf("could not confirm that commit %s is open; this is likely a bug. err: %v", commit.ID, err)
 		}
 		return nil
 	})

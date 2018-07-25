@@ -121,6 +121,7 @@ message CommitInfo {
   // will also be nil) or is the output commit of a failed job (in which case
   // 'finished' will have a value -- the end time of the job)
   Object tree = 7;
+  repeated Object trees = 13;
 }
 
 enum FileType {
@@ -216,6 +217,7 @@ message FinishCommitRequest {
   string description = 2;
 
   Object tree = 3;
+  repeated Object trees = 5;
   // If set, 'commit' will be closed (its 'finished' field will be set to the
   // current time) but its 'tree' will be left nil.
   bool empty = 4;

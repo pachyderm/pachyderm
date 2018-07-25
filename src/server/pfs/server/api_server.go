@@ -112,8 +112,11 @@ func (a *apiServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitReq
 func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-
-	if err := a.driver.finishCommit(ctx, request.Commit, request.Tree, request.Empty, request.Description); err != nil {
+	if request.Trees != nil {
+		if err := a.driver.finishOutputCommit(ctx, request.Commit, request.Trees); err != nil {
+			return nil, err
+		}
+	} else if err := a.driver.finishCommit(ctx, request.Commit, request.Tree, request.Empty, request.Description); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
