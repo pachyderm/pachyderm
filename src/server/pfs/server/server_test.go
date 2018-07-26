@@ -4311,3 +4311,28 @@ func TestStartCommitOutputBranch(t *testing.T) {
 	_, err := c.StartCommit("out", "master")
 	require.YesError(t, err)
 }
+
+func TestPutFiles(t *testing.T) {
+	c := getPachClient(t)
+	require.NoError(t, c.CreateRepo("repo"))
+	pfclient, err := c.PfsAPIClient.PutFile(context.Background())
+	require.NoError(t, err)
+	paths := []string{"foo", "bar", "fizz", "buzz"}
+	for _, path := range paths {
+		require.NoError(t, pfclient.Send(&pfs.PutFileRequest{
+			File:  pclient.NewFile("repo", "master", path),
+			Value: []byte(path),
+		}))
+	}
+	_, err = pfclient.CloseAndRecv()
+	require.NoError(t, err)
+
+	cis, err := c.ListCommit("repo", "", "", 0)
+	require.Equal(t, 1, len(cis))
+
+	for _, path := range paths {
+		var b bytes.Buffer
+		require.NoError(t, c.GetFile("repo", "master", path, 0, 0, &b))
+		require.Equal(t, path, b.String())
+	}
+}
