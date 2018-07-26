@@ -7897,7 +7897,7 @@ ALTER TABLE ONLY public.company
 		require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileInfos[i].File.Path, 0, 0, &buf))
 		expected := pgDumpHeader + rows[i] + pgDumpFooter
 		require.Equal(t, expected, buf.String())
-		require.Equal(t, len(expected), fileInfos[i].SizeBytes)
+		require.Equal(t, len(expected), int(fileInfos[i].SizeBytes))
 	}
 	// The dir should only have the header/footer
 	buf.Reset()
@@ -7909,7 +7909,7 @@ ALTER TABLE ONLY public.company
 	for i := 0; i < len(rows); i++ {
 		dirExpectedLen += len(rows[i])
 	}
-	require.Equal(t, dirExpectedLen, dirFileInfo.SizeBytes)
+	require.Equal(t, dirExpectedLen, int(dirFileInfo.SizeBytes))
 
 	// Test target-file-datums flag
 	commit, err = c.StartCommit(dataRepo, "beta")
@@ -7929,19 +7929,19 @@ ALTER TABLE ONLY public.company
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
 	expected := pgDumpHeader + strings.Join(rows[0:2], "") + pgDumpFooter
 	require.Equal(t, expected, buf.String())
-	require.Equal(t, len(expected), fileInfos[0].SizeBytes)
+	require.Equal(t, len(expected), int(fileInfos[0].SizeBytes))
 	buf.Reset()
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileInfos[1].File.Path, 0, 0, &buf))
 	expected = pgDumpHeader + rows[2] + pgDumpFooter
 	require.Equal(t, expected, buf.String())
-	require.Equal(t, len(expected), fileInfos[1].SizeBytes)
+	require.Equal(t, len(expected), int(fileInfos[1].SizeBytes))
 	// The dir should only have the header/footer
 	buf.Reset()
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, "data", 0, 0, &buf))
 	require.Equal(t, pgDumpHeader+pgDumpFooter, buf.String())
 	dirFileInfo, err = c.InspectFile(commit.Repo.Name, commit.ID, "data")
 	require.NoError(t, err)
-	require.Equal(t, dirExpectedLen, dirFileInfo.SizeBytes)
+	require.Equal(t, dirExpectedLen, int(dirFileInfo.SizeBytes))
 
 }
 

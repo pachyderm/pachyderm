@@ -2629,12 +2629,6 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 				return err
 			}
 		}
-		// Add the header / footer
-		fmt.Printf("applyWrite() putting dir to tree header (%v) footer (%v) size (%v)\n", records.Header.ObjectHash, records.Footer.ObjectHash, records.Header.SizeBytes+records.Footer.SizeBytes)
-		/*
-			if err := tree.PutDir(key, &pfs.Object{Hash: records.Header.ObjectHash}, &pfs.Object{Hash: records.Footer.ObjectHash}, records.Header.SizeBytes+records.Footer.SizeBytes); err != nil {
-				return err
-			}*/
 	}
 	return nil
 }
