@@ -7882,6 +7882,14 @@ ALTER TABLE ONLY public.company
 	w, err := c.PutFileSplitWriter(dataRepo, "master", "data", pfs.Delimiter_SQL, 0, 0, false)
 	require.NoError(t, err)
 	fullPGDump := pgDumpHeader + strings.Join(rows, "") + pgDumpFooter
+
+	// Test Invalid pgdumps
+	_, err = w.Write([]byte(pgDumpHeader + strings.Join(rows, "")))
+	require.YesError(t, err)
+	_, err = w.Write([]byte(strings.Join(rows, "") + pgDumpFooter))
+	require.YesError(t, err)
+
+	// Test Valid pgdump
 	_, err = w.Write([]byte(fullPGDump))
 	require.NoError(t, err)
 	require.NoError(t, w.Close())
