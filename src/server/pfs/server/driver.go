@@ -1930,15 +1930,14 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 					if _err == io.EOF {
 						// Now that we're done reading, populate the header/footer
 						// records
-						fmt.Printf("non nil err (%v) so writing header/footer\n", err)
-						sqlBuffer := &bytes.Buffer{}
-						sqlBuffer.Write(sqlReader.Header)
+						fmt.Printf("non nil err (%v) so writing header/footer\n", _err)
+						headerBuffer := &bytes.Buffer{}
+						headerBuffer.Write(sqlReader.Header)
 						fmt.Printf("writing header [%v]\n", string(sqlReader.Header))
-						_buffer := buffer
 						limiter.Acquire()
 						eg.Go(func() error {
 							defer limiter.Release()
-							object, size, err := pachClient.PutObject(_buffer)
+							object, size, err := pachClient.PutObject(headerBuffer)
 							if err != nil {
 								return err
 							}
@@ -1950,14 +1949,13 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 							}
 							return nil
 						})
-						sqlBuffer.Reset()
-						sqlBuffer.Write(sqlReader.Footer)
+						footerBuffer := &bytes.Buffer{}
+						footerBuffer.Write(sqlReader.Footer)
 						fmt.Printf("writing footer [%v]\n", string(sqlReader.Footer))
-						_buffer = buffer
 						limiter.Acquire()
 						eg.Go(func() error {
 							defer limiter.Release()
-							object, size, err := pachClient.PutObject(_buffer)
+							object, size, err := pachClient.PutObject(footerBuffer)
 							if err != nil {
 								return err
 							}
@@ -2032,6 +2030,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	}
 
 	fmt.Printf("end of driver.PutFile ... have %v records\n", len(records.Records))
+	fmt.Printf("have header (%v), footer (%v)\n", records.Header, records.Footer)
 	if oneOff {
 		// oneOff puts only work on branches, so we know branch != "". We pass
 		// a commit with no ID, that ID will be filled in with the head of
@@ -2279,6 +2278,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
 	}
 
+	fmt.Printf("upping the subtree by dir size %v\n", dirNode.SubtreeSize)
 	totalSize += dirNode.SubtreeSize //Is this correct? or are we double counting this way?
 	if dirNode.DirNode.Header != nil {
 		fmt.Printf("header non nil %v, appending\n", dirNode.DirNode.Header)
