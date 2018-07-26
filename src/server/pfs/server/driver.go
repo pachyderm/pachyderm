@@ -2231,6 +2231,7 @@ func (d *driver) getTreeForOpenCommit(ctx context.Context, file *pfs.File, paren
 		putFileRecords := &pfs.PutFileRecords{}
 		opts := &col.Options{etcd.SortByModRevision, etcd.SortAscend, true}
 		return recordsCol.ListPrefix(prefix, putFileRecords, opts, func(key string) error {
+			fmt.Printf("getTreeForOpenCommit ... applyWrite ... w putFileRecords len(%v): %v\n", len(putFileRecords.Records), putFileRecords)
 			return d.applyWrite(path.Join(file.Path, key), putFileRecords, tree)
 		})
 	}); err != nil {
@@ -2250,35 +2251,46 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	if err != nil {
 		return nil, err
 	}
+	dirNodePaths, err := tree.Glob(filepath.Dir(file.Path))
+	if err != nil {
+		return nil, err
+	}
+	var dirNode *hashtree.NodeProto
+	for _, val := range dirNodePaths {
+		dirNode = val
+	}
+	fmt.Printf("got dirnode %v\n", dirNode)
 
+	fmt.Printf("tree globbing file path %v\n", file.Path)
 	paths, err := tree.Glob(file.Path)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("getfile() got paths: %v\n", paths)
 	var objects []*pfs.Object
 	var totalSize int64
 	for path, node := range paths {
 		if node.FileNode == nil {
-			fmt.Printf("getFile found dirNode %v\n", node.DirNode)
-			if node.DirNode.Header != nil {
-				fmt.Printf("header non nil %v, appending\n", node.DirNode.Header)
-				objects = append(objects, node.DirNode.Header)
-			}
-			if node.DirNode.Footer != nil {
-				fmt.Printf("footer non nil %v, appending\n", node.DirNode.Footer)
-				objects = append(objects, node.DirNode.Footer)
-			}
-			totalSize += node.SubtreeSize
 			delete(paths, path)
 		}
 	}
+
 	if len(paths) <= 0 {
 		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
 	}
 
+	totalSize += dirNode.SubtreeSize //Is this correct? or are we double counting this way?
+	if dirNode.DirNode.Header != nil {
+		fmt.Printf("header non nil %v, appending\n", dirNode.DirNode.Header)
+		objects = append(objects, dirNode.DirNode.Header)
+	}
 	for _, node := range paths {
 		objects = append(objects, node.FileNode.Objects...)
 		totalSize += node.SubtreeSize
+	}
+	if dirNode.DirNode.Footer != nil {
+		fmt.Printf("footer non nil %v, appending\n", dirNode.DirNode.Footer)
+		objects = append(objects, dirNode.DirNode.Footer)
 	}
 
 	fmt.Printf("get file returning %v objects\n", len(objects))
@@ -2595,15 +2607,23 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			indexOffset++ // start writing to the file after the last file
 		}
 		for i, record := range records.Records {
-			if err := tree.PutFile(path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+			if err := tree.PutFileSplit(
+				path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))),
+				[]*pfs.Object{{Hash: record.ObjectHash}},
+				record.SizeBytes,
+				&pfs.Object{Hash: records.Header.ObjectHash},
+				&pfs.Object{Hash: records.Footer.ObjectHash},
+				records.Header.SizeBytes+records.Footer.SizeBytes,
+			); err != nil {
 				return err
 			}
 		}
 		// Add the header / footer
 		fmt.Printf("applyWrite() putting dir to tree header (%v) footer (%v) size (%v)\n", records.Header.ObjectHash, records.Footer.ObjectHash, records.Header.SizeBytes+records.Footer.SizeBytes)
-		if err := tree.PutDir(key, &pfs.Object{Hash: records.Header.ObjectHash}, &pfs.Object{Hash: records.Footer.ObjectHash}, records.Header.SizeBytes+records.Footer.SizeBytes); err != nil {
-			return err
-		}
+		/*
+			if err := tree.PutDir(key, &pfs.Object{Hash: records.Header.ObjectHash}, &pfs.Object{Hash: records.Footer.ObjectHash}, records.Header.SizeBytes+records.Footer.SizeBytes); err != nil {
+				return err
+			}*/
 	}
 	return nil
 }
