@@ -2250,16 +2250,19 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	if err != nil {
 		return nil, err
 	}
-	dirNodePaths, err := tree.Glob(filepath.Dir(file.Path))
-	if err != nil {
-		return nil, err
-	}
-	var dirNode *hashtree.NodeProto
-	for _, val := range dirNodePaths {
-		dirNode = val
-	}
-	fmt.Printf("got dirnode %v\n", dirNode)
-
+	/*
+		dirNodePaths, err := tree.Glob(filepath.Dir(file.Path))
+		if err != nil {
+			return nil, err
+		}
+			var dirNode *hashtree.NodeProto
+			fmt.Printf("got %v dirnode paths\n", len(dirNodePaths))
+			for _, val := range dirNodePaths {
+				fmt.Printf("walking over dirNodePath %v\n", val)
+				dirNode = val
+			}
+			fmt.Printf("got dirnode %v\n", dirNode)
+	*/
 	fmt.Printf("tree globbing file path %v\n", file.Path)
 	paths, err := tree.Glob(file.Path)
 	if err != nil {
@@ -2268,36 +2271,71 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	fmt.Printf("getfile() got paths: %v\n", paths)
 	var objects []*pfs.Object
 	var totalSize int64
-	for path, node := range paths {
-		if node.FileNode == nil {
-			delete(paths, path)
+	foundDirectoryNode := false
+	for _, node := range paths {
+		if node.DirNode != nil {
+			foundDirectoryNode = true
+			//delete(paths, path)
 		}
 	}
+	if !foundDirectoryNode {
+		// e.g. this was a request for a file e.g. /foo/bar.txt
 
+		dirNodePaths, err := tree.Glob(filepath.Dir(file.Path))
+		if err != nil {
+			return nil, err
+		}
+		fmt.Printf("got %v dirnode paths\n", len(dirNodePaths))
+		// TODO - there should only be one result here ... should we assert that? test that?
+		for key, node := range dirNodePaths {
+			fmt.Printf("walking over dirNodePath %v\n", node)
+			paths[key] = node
+		}
+	}
 	if len(paths) <= 0 {
 		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
 	}
 
-	fmt.Printf("upping the subtree by dir size %v\n", dirNode.SubtreeSize)
-	totalSize += dirNode.SubtreeSize //Is this correct? or are we double counting this way?
-	if dirNode.DirNode.Header != nil {
-		fmt.Printf("header non nil %v, appending\n", dirNode.DirNode.Header)
-		objects = append(objects, dirNode.DirNode.Header)
-	}
+	//	fmt.Printf("upping the subtree by dir size %v\n", dirNode.SubtreeSize)
+	//	fmt.Printf("dirnode (%v) header (%v) footer (%v)\n", dirNode, dirNode.DirNode.Header, dirNode.DirNode.Footer)
+	//F	totalSize += dirNode.SubtreeSize //Is this correct? or are we double counting this way?
+	/*
+		if dirNode.DirNode.Header != nil {
+			fmt.Printf("header non nil %v, appending\n", dirNode.DirNode.Header)
+			objects = append(objects, dirNode.DirNode.Header)
+		}*/
+	var header *pfs.Object
+	var footer *pfs.Object
 	for _, node := range paths {
-		objects = append(objects, node.FileNode.Objects...)
+		if node.DirNode != nil {
+			fmt.Printf("found dir node %v\n", node.DirNode)
+			header = node.DirNode.Header
+			footer = node.DirNode.Footer
+		} else {
+			objects = append(objects, node.FileNode.Objects...)
+		}
 		totalSize += node.SubtreeSize
 	}
-	if dirNode.DirNode.Footer != nil {
-		fmt.Printf("footer non nil %v, appending\n", dirNode.DirNode.Footer)
-		objects = append(objects, dirNode.DirNode.Footer)
+	/*
+		if dirNode.DirNode.Footer != nil {
+			fmt.Printf("footer non nil %v, appending\n", dirNode.DirNode.Footer)
+			objects = append(objects, dirNode.DirNode.Footer)
+		}*/
+
+	var allObjects []*pfs.Object
+	if header != nil {
+		allObjects = append(allObjects, header)
+	}
+	allObjects = append(allObjects, objects...)
+	if footer != nil {
+		allObjects = append(allObjects, footer)
 	}
 
-	fmt.Printf("get file returning %v objects\n", len(objects))
+	fmt.Printf("get file returning %v objects\n", len(allObjects))
 	getObjectsClient, err := pachClient.ObjectAPIClient.GetObjects(
 		ctx,
 		&pfs.GetObjectsRequest{
-			Objects:     objects,
+			Objects:     allObjects,
 			OffsetBytes: uint64(offset),
 			SizeBytes:   uint64(size),
 			TotalSize:   uint64(totalSize),
