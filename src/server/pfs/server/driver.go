@@ -1830,22 +1830,25 @@ func (d *driver) filePathFromEtcdPath(etcdPath string) string {
 	return path.Join(split[4:]...)
 }
 
-func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter,
-	targetFileDatums int64, targetFileBytes int64, overwriteIndex *pfs.OverwriteIndex, reader io.Reader) error {
-	pachClient := d.getPachClient(ctx)
-	ctx = pachClient.Ctx()
-	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
+func (d *driver) putFiles(server pfs.API_PutFileServer) error {
+	ctx := server.Context()
+	r, err := newPutFileReader(server)
+	if err != nil {
 		return err
 	}
+	if r.request == nil {
+		return nil
+	}
+	commit := r.request.File.Commit
 	// oneOff is true if we're creating the commit as part of this put-file
 	oneOff := false
 	// inspectCommit will replace file.Commit.ID with an actual commit ID if
 	// it's a branch. So we want to save it first.
 	branch := ""
-	if !uuid.IsUUIDWithoutDashes(file.Commit.ID) {
-		branch = file.Commit.ID
+	if !uuid.IsUUIDWithoutDashes(commit.ID) {
+		branch = commit.ID
 	}
-	commitInfo, err := d.inspectCommit(ctx, file.Commit, pfs.CommitState_STARTED)
+	commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_STARTED)
 	if err != nil {
 		if (!isNotFoundErr(err) && !isNoHeadErr(err)) || branch == "" {
 			return err
@@ -1854,23 +1857,60 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	}
 	if commitInfo != nil && commitInfo.Finished != nil {
 		if branch == "" {
-			return pfsserver.ErrCommitFinished{file.Commit}
+			return pfsserver.ErrCommitFinished{commit}
 		}
 		oneOff = true
 	}
 
+	var files []*pfs.File
+	var putFilePaths []string
+	var putFileRecords []*pfs.PutFileRecords
+	for r.request != nil {
+		// append these first since reading from r (which putFile does) will eventually clear the request field
+		files = append(files, r.request.File)
+		putFilePaths = append(putFilePaths, r.request.File.Path)
+		records, err := d.putFile(ctx, r.request.File, r.request.Delimiter, r.request.TargetFileDatums, r.request.TargetFileBytes, r.request.OverwriteIndex, r)
+		if err != nil {
+			return err
+		}
+		putFileRecords = append(putFileRecords, records)
+	}
+	if oneOff {
+		// oneOff puts only work on branches, so we know branch != "". We pass
+		// a commit with no ID, that ID will be filled in with the head of
+		// branch (if it exists).
+		_, err := d.makeCommit(ctx, "", client.NewCommit(commit.Repo.Name, ""), branch, nil, nil, putFilePaths, putFileRecords, "")
+		return err
+	} else {
+		for i, file := range files {
+			if err := d.upsertPutFileRecords(ctx, file, putFileRecords[i]); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter,
+	targetFileDatums int64, targetFileBytes int64, overwriteIndex *pfs.OverwriteIndex,
+	reader io.Reader) (*pfs.PutFileRecords, error) {
+	pachClient := d.getPachClient(ctx)
+	ctx = pachClient.Ctx()
+	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
+		return nil, err
+	}
 	records := &pfs.PutFileRecords{}
 	if overwriteIndex != nil && overwriteIndex.Index == 0 {
 		records.Tombstone = true
 	}
 	if err := hashtree.ValidatePath(file.Path); err != nil {
-		return err
+		return nil, err
 	}
 
 	if delimiter == pfs.Delimiter_NONE {
 		objects, size, err := pachClient.PutObjectSplit(reader)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		// Here we use the invariant that every one but the last object
@@ -1918,13 +1958,13 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			case pfs.Delimiter_LINE:
 				value, err = bufioR.ReadBytes('\n')
 			default:
-				return fmt.Errorf("unrecognized delimiter %s", delimiter.String())
+				return nil, fmt.Errorf("unrecognized delimiter %s", delimiter.String())
 			}
 			if err != nil {
 				if err == io.EOF {
 					EOF = true
 				} else {
-					return err
+					return nil, err
 				}
 			}
 			buffer.Write(value)
@@ -1959,7 +1999,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			}
 		}
 		if err := eg.Wait(); err != nil {
-			return err
+			return nil, err
 		}
 
 		records.Split = true
@@ -1967,15 +2007,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			records.Records = append(records.Records, indexToRecord[i])
 		}
 	}
-
-	if oneOff {
-		// oneOff puts only work on branches, so we know branch != "". We pass
-		// a commit with no ID, that ID will be filled in with the head of
-		// branch (if it exists).
-		_, err := d.makeCommit(ctx, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, []string{file.Path}, []*pfs.PutFileRecords{records}, "")
-		return err
-	}
-	return d.upsertPutFileRecords(ctx, file, records)
+	return records, nil
 }
 
 func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, overwrite bool) error {
@@ -2635,4 +2667,48 @@ func (b *branchSet) has(branch *pfs.Branch) bool {
 
 func has(bs *[]*pfs.Branch, branch *pfs.Branch) bool {
 	return (*branchSet)(bs).has(branch)
+}
+
+type putFileReader struct {
+	server pfs.API_PutFileServer
+	buffer *bytes.Buffer
+	// request is the request that contains the File and other meaningful
+	// information
+	request *pfs.PutFileRequest
+}
+
+func newPutFileReader(server pfs.API_PutFileServer) (*putFileReader, error) {
+	result := &putFileReader{
+		server: server,
+		buffer: &bytes.Buffer{}}
+	if _, err := result.Read(nil); err != nil && err != io.EOF {
+		return nil, err
+	}
+	if result.request == nil {
+		return nil, io.EOF
+	}
+	return result, nil
+}
+
+func (r *putFileReader) Read(p []byte) (int, error) {
+	eof := false
+	if r.buffer.Len() == 0 {
+		request, err := r.server.Recv()
+		if err != nil {
+			if err == io.EOF {
+				r.request = nil
+			}
+			return 0, err
+		}
+		//buffer.Write cannot error
+		r.buffer = bytes.NewBuffer(request.Value)
+		if request.File != nil {
+			eof = true
+			r.request = request
+		}
+	}
+	if eof {
+		return 0, io.EOF
+	}
+	return r.buffer.Read(p)
 }
