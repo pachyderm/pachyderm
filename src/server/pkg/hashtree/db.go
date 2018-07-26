@@ -951,17 +951,17 @@ func (m *mergeStream) Close() error {
 	return m.r.Close()
 }
 
-func Merge(c chan []byte, rs []io.ReadCloser, filter func(path []byte) (bool, error)) (retErr error) {
+func MergeTrees(w io.WriteCloser, rs []io.ReadCloser, filter func(path []byte) (bool, error)) (retErr error) {
 	defer func() {
-		close(c)
+		if err := w.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
 		for _, r := range rs {
 			if err := r.Close(); err != nil && retErr == nil {
 				retErr = err
 			}
 		}
 	}()
-	buff := &bytes.Buffer{}
-	out := pbutil.NewWriter(snappy.NewWriter(buff))
 	var srcs []Mergeable
 	for _, r := range rs {
 		src, err := NewMergeStream(r, filter)
@@ -970,14 +970,24 @@ func Merge(c chan []byte, rs []io.ReadCloser, filter func(path []byte) (bool, er
 		}
 		srcs = append(srcs, src)
 	}
-	if err := MergeBucket(DatumBucket, c, out, buff, srcs, func(k []byte, vs [][]byte) ([]byte, []byte, error) {
-		return k, vs[0], nil
+	pbw := pbutil.NewWriter(snappy.NewWriter(w))
+	out := func(k, v []byte) error {
+		if err := pbw.WriteBytes(k); err != nil {
+			return err
+		}
+		if err := pbw.WriteBytes(v); err != nil {
+			return err
+		}
+		return nil
+	}
+	if err := MergeBucket(DatumBucket, pbw, srcs, func(k []byte, vs [][]byte) error {
+		return out(k, vs[0])
 	}); err != nil {
 		return err
 	}
-	if err := MergeBucket(FsBucket, c, out, buff, srcs, func(k []byte, vs [][]byte) ([]byte, []byte, error) {
+	if err := MergeBucket(FsBucket, pbw, srcs, func(k []byte, vs [][]byte) error {
 		if len(vs) <= 1 {
-			return k, vs[0], nil
+			return out(k, vs[0])
 		}
 		destNode := &NodeProto{
 			Name:        base(s(k)),
@@ -988,24 +998,24 @@ func Merge(c chan []byte, rs []io.ReadCloser, filter func(path []byte) (bool, er
 		}
 		n := &NodeProto{}
 		if err := n.Unmarshal(vs[0]); err != nil {
-			return nil, nil, err
+			return err
 		}
 		if n.nodetype() == directory {
 			destNode.DirNode = &DirectoryNodeProto{}
 		} else if n.nodetype() == file {
 			destNode.FileNode = &FileNodeProto{}
 		} else {
-			return nil, nil, errorf(Internal, "could not merge unrecognized file type at "+
+			return errorf(Internal, "could not merge unrecognized file type at "+
 				"\"%s\", which is neither a file nor a directory", s(k))
 		}
 		sizeDelta := int64(0)
 		for _, v := range vs {
 			n := &NodeProto{}
 			if err := n.Unmarshal(v); err != nil {
-				return nil, nil, err
+				return err
 			}
 			if n.nodetype() != destNode.nodetype() {
-				return nil, nil, errorf(PathConflict, "could not merge path \"%s\" "+
+				return errorf(PathConflict, "could not merge path \"%s\" "+
 					"which is a regular-file in some hashtrees and a directory in others", s(k))
 			}
 			switch n.nodetype() {
@@ -1017,26 +1027,26 @@ func Merge(c chan []byte, rs []io.ReadCloser, filter func(path []byte) (bool, er
 				destNode.FileNode.BlockRefs = append(destNode.FileNode.BlockRefs, n.FileNode.BlockRefs...)
 				sizeDelta += n.SubtreeSize
 			default:
-				return nil, nil, errorf(Internal, "malformed file at \"%s\" in source "+
+				return errorf(Internal, "malformed file at \"%s\" in source "+
 					"hashtree is neither a regular-file nor a directory", s(k))
 			}
 		}
 		destNode.SubtreeSize += sizeDelta
 		v, err := destNode.Marshal()
 		if err != nil {
-			return nil, nil, err
+			return err
 		}
-		return k, v, nil
+		return out(k, v)
 	}); err != nil {
 		return err
 	}
-	if err := MergeBucket(ChangedBucket, c, out, buff, srcs, func(k []byte, vs [][]byte) ([]byte, []byte, error) {
-		return k, vs[0], nil
+	if err := MergeBucket(ChangedBucket, pbw, srcs, func(k []byte, vs [][]byte) error {
+		return out(k, vs[0])
 	}); err != nil {
 		return err
 	}
-	if err := MergeBucket(ObjectBucket, c, out, buff, srcs, func(k []byte, vs [][]byte) ([]byte, []byte, error) {
-		return k, vs[0], nil
+	if err := MergeBucket(ObjectBucket, pbw, srcs, func(k []byte, vs [][]byte) error {
+		return out(k, vs[0])
 	}); err != nil {
 		return err
 	}
@@ -1149,22 +1159,27 @@ func (mq *mergePriorityQueue) Fill(idx int) {
 	}
 }
 
-func MergeBucket(bucket string, c chan []byte, out pbutil.Writer, buff *bytes.Buffer, srcs []Mergeable, f func(k []byte, vs [][]byte) ([]byte, []byte, error)) error {
-	streams := make([]Mergeable, len(srcs))
-	copy(streams, srcs)
-	for _, s := range streams {
+func MergeBucket(bucket string, w pbutil.Writer, srcs []Mergeable, f func(k []byte, vs [][]byte) error) error {
+	for _, s := range srcs {
 		if err := s.NextBucket(bucket); err != nil {
 			return err
 		}
 	}
-	if err := out.Write(
-		&BucketHeader{
-			Bucket: bucket,
-		}); err != nil {
+	if err := w.Write(&BucketHeader{Bucket: bucket}); err != nil {
 		return err
 	}
-	mq := NewMergePriorityQueue(streams, 10)
-	var total, total2, total3 time.Duration
+	if err := Merge(srcs, f); err != nil {
+		return err
+	}
+	if err := w.WriteBytes(SentinelByte); err != nil {
+		return err
+	}
+	return nil
+}
+
+func Merge(srcs []Mergeable, f func(k []byte, vs [][]byte) error) error {
+	mq := NewMergePriorityQueue(srcs, 10)
+	var total, total2 time.Duration
 	t := time.Now()
 	for {
 		k, vs, err := mq.Next()
@@ -1176,39 +1191,13 @@ func MergeBucket(bucket string, c chan []byte, out pbutil.Writer, buff *bytes.Bu
 		}
 		total += time.Since(t)
 		t = time.Now()
-		var v []byte
-		k, v, err = f(k, vs)
-		if err != nil {
+		if err := f(k, vs); err != nil {
 			return err
-		}
-		if k == nil {
-			continue
 		}
 		total2 += time.Since(t)
 		t = time.Now()
-		if buff.Len() >= 1048576 {
-			b := make([]byte, buff.Len())
-			copy(b, buff.Next(buff.Len()))
-			buff.Reset()
-			c <- b
-		}
-		if err := out.WriteBytes(k); err != nil {
-			return err
-		}
-		if err := out.WriteBytes(v); err != nil {
-			return err
-		}
-		total3 += time.Since(t)
-		t = time.Now()
 	}
-	fmt.Printf("(mergefilter) bucket: %v\nTime spent getting next in stream: %v\nTime spent merging: %v\nTime spent writing: %v\n", bucket, total, total2, total3)
-	if err := out.WriteBytes(SentinelByte); err != nil {
-		return err
-	}
-	b := make([]byte, buff.Len())
-	copy(b, buff.Next(buff.Len()))
-	buff.Reset()
-	c <- b
+	fmt.Printf("(mergefilter) Time spent getting next in stream: %v\nTime spent merging and writing: %v\n", total, total2)
 	return nil
 }
 

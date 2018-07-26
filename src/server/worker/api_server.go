@@ -1239,7 +1239,6 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 				//statsTag := &pfs.Tag{datumHash + statsTagSuffix}
 
 				t := time.Now()
-				var eg errgroup.Group
 				var rs []io.ReadCloser
 				for _, tag := range tags {
 					r, err := pachClient.GetTagReader(tag.Name)
@@ -1255,30 +1254,21 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 					}
 					rs = append(rs, r)
 				}
-				c := make(chan []byte, 10)
-				eg.Go(func() error {
-					if err = hashtree.Merge(c, rs, func(path []byte) (bool, error) {
-						hash := xxhash.New64()
-						if _, err := hash.Write(path); err != nil {
-							return false, err
-						}
-						if int64(hash.Sum64())%plan.Merges == merge {
-							return true, nil
-						}
-						return false, nil
-					}); err != nil {
-						return err
+				w, err := pachClient.PutObjectAsync()
+				if err = hashtree.MergeTrees(w, rs, func(path []byte) (bool, error) {
+					hash := xxhash.New64()
+					if _, err := hash.Write(path); err != nil {
+						return false, err
 					}
-					return nil
-				})
-				var object *pfs.Object
-				eg.Go(func() error {
-					if object, err = pachClient.PutObjectChan(c); err != nil {
-						return err
+					if int64(hash.Sum64())%plan.Merges == merge {
+						return true, nil
 					}
-					return nil
-				})
-				if err := eg.Wait(); err != nil {
+					return false, nil
+				}); err != nil {
+					return err
+				}
+				object, err := w.Object()
+				if err != nil {
 					return err
 				}
 				fmt.Printf("(mergefilter) Time spent merging: %v\n", time.Since(t))

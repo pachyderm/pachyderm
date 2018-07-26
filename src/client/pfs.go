@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/gogo/protobuf/types"
@@ -499,29 +500,13 @@ func (c APIClient) SubscribeCommitF(repo, branch, from string, state pfs.CommitS
 	}
 }
 
-// PutObjectChan puts a value into the object store and tags it with 0 or more tags.
-func (c APIClient) PutObjectChan(ch chan []byte, tags ...string) (object *pfs.Object, retErr error) {
-	w, err := c.newPutObjectWriteCloser(tags...)
+// PutObjectAsync puts a value into the object store asynchronously.
+func (c APIClient) PutObjectAsync() (*PutObjectWriteCloserAsync, error) {
+	w, err := c.newPutObjectWriteCloserAsync()
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	defer func() {
-		if err := w.Close(); err != nil && retErr == nil {
-			retErr = grpcutil.ScrubGRPC(err)
-		}
-		if retErr == nil {
-			object = w.object
-		}
-	}()
-
-	for b := range ch {
-		if _, err := w.Write(b); err != nil {
-			return nil, grpcutil.ScrubGRPC(err)
-		}
-	}
-
-	// return value set by deferred function
-	return nil, nil
+	return w, nil
 }
 
 // PutObject puts a value into the object store and tags it with 0 or more tags.
@@ -1184,6 +1169,80 @@ func (w *putObjectWriteCloser) Close() error {
 	var err error
 	w.object, err = w.client.CloseAndRecv()
 	return grpcutil.ScrubGRPC(err)
+}
+
+type PutObjectWriteCloserAsync struct {
+	client    pfs.ObjectAPI_PutObjectClient
+	request   *pfs.PutObjectRequest
+	buf       []byte
+	writeChan chan []byte
+	errChan   chan error
+	object    *pfs.Object
+}
+
+func (c APIClient) newPutObjectWriteCloserAsync() (*PutObjectWriteCloserAsync, error) {
+	client, err := c.ObjectAPIClient.PutObject(c.Ctx())
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	w := &PutObjectWriteCloserAsync{
+		client:    client,
+		request:   &pfs.PutObjectRequest{},
+		buf:       grpcutil.GetBuffer()[:0],
+		writeChan: make(chan []byte, 5),
+		errChan:   make(chan error),
+	}
+	go func() {
+		for buf := range w.writeChan {
+			w.request.Value = buf
+			if err := w.client.Send(w.request); err != nil {
+				w.errChan <- err
+				break
+			}
+			grpcutil.PutBuffer(buf[:cap(buf)])
+		}
+		close(w.errChan)
+	}()
+	return w, nil
+}
+
+func (w *PutObjectWriteCloserAsync) Write(p []byte) (int, error) {
+	select {
+	case err := <-w.errChan:
+		if err != nil {
+			return 0, grpcutil.ScrubGRPC(err)
+		}
+	default:
+		if len(w.buf)+len(p) > cap(w.buf) {
+			w.writeChan <- w.buf
+			w.buf = grpcutil.GetBuffer()[:0]
+		}
+		w.buf = append(w.buf, p...)
+	}
+	return len(p), nil
+}
+
+func (w *PutObjectWriteCloserAsync) Close() error {
+	w.writeChan <- w.buf
+	close(w.writeChan)
+	err := <-w.errChan
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	w.object, err = w.client.CloseAndRecv()
+	return grpcutil.ScrubGRPC(err)
+}
+
+func (w *PutObjectWriteCloserAsync) Object() (*pfs.Object, error) {
+	select {
+	case err := <-w.errChan:
+		if err != nil {
+			return nil, grpcutil.ScrubGRPC(err)
+		}
+		return w.object, nil
+	default:
+		return nil, fmt.Errorf("attempting to get object before closing object writer")
+	}
 }
 
 type putObjectSplitWriteCloser struct {
