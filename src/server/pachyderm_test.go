@@ -7845,8 +7845,7 @@ ALTER TABLE public.company OWNER TO postgres;
 
 COPY public.company (id, name, age, address, salary) FROM stdin;
 `
-	pgDumpFooter := `
-\.
+	pgDumpFooter := `\.
 
 
 --
@@ -7863,9 +7862,9 @@ ALTER TABLE ONLY public.company
 
 `
 	rows := []string{
-		"1	alice	100	1234 acme st                                      	1000000",
-		"2	bill	100	12345 acme st                                     	10000.0234",
-		"3	dakota	10	666 acme st                                       	100.023399",
+		"1	alice	100	1234 acme st                                      	1000000\n",
+		"2	bill	100	12345 acme st                                     	10000.0234\n",
+		"3	dakota	10	666 acme st                                       	100.023399\n",
 	}
 
 	if testing.Short() {
@@ -7882,7 +7881,7 @@ ALTER TABLE ONLY public.company
 	require.NoError(t, err)
 	w, err := c.PutFileSplitWriter(dataRepo, "master", "data", pfs.Delimiter_SQL, 0, 0, false)
 	require.NoError(t, err)
-	fullPGDump := pgDumpHeader + strings.Join(rows, "\n") + pgDumpFooter
+	fullPGDump := pgDumpHeader + strings.Join(rows, "") + pgDumpFooter
 	_, err = w.Write([]byte(fullPGDump))
 	require.NoError(t, err)
 	require.NoError(t, w.Close())
@@ -7904,6 +7903,8 @@ ALTER TABLE ONLY public.company
 	// The dir should only have the header/footer
 	buf.Reset()
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, "data", 0, 0, &buf))
+	fmt.Printf("got dir content [%v]\n", buf.String())
+	fmt.Printf("example header+footer [%v]\n", pgDumpHeader+pgDumpFooter)
 	require.Equal(t, pgDumpHeader+pgDumpFooter, buf.String())
 
 	// Test target-file-datums flag
@@ -7922,7 +7923,7 @@ ALTER TABLE ONLY public.company
 
 	buf.Reset()
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
-	require.Equal(t, pgDumpHeader+strings.Join(rows[0:2], "\n")+pgDumpFooter, buf.String())
+	require.Equal(t, pgDumpHeader+strings.Join(rows[0:2], "")+pgDumpFooter, buf.String())
 	buf.Reset()
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileInfos[1].File.Path, 0, 0, &buf))
 	require.Equal(t, pgDumpHeader+rows[2]+pgDumpFooter, buf.String())

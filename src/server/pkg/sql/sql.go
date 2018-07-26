@@ -42,6 +42,7 @@ func (r *pgDumpReader) ReadRows(count int64) (rowsDump []byte, rowsRead int64, e
 			}
 			r.Header = append(r.Header, b...)
 		}
+		fmt.Printf("read off the header (%v) w err(%v)\n", string(r.Header), err)
 	}
 
 	//	rowsDump = append(rowsDump, r.Header...)
