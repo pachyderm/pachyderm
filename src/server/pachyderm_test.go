@@ -7957,6 +7957,39 @@ ALTER TABLE ONLY public.company
 	require.NoError(t, err)
 	require.Equal(t, dirExpectedLen, int(dirFileInfo.SizeBytes))
 
+	// Test target-file-bytes flag, which should apply to the size of just the content, not the header/footer
+	commit, err = c.StartCommit(dataRepo, "gamma")
+	require.NoError(t, err)
+	// This byte threshold should yield the same results as --target-file-datums=2 :
+	w, err = c.PutFileSplitWriter(dataRepo, "gamma", "data", pfs.Delimiter_SQL, 0, 80, false)
+	require.NoError(t, err)
+	_, err = w.Write([]byte(fullPGDump))
+	require.NoError(t, err)
+	require.NoError(t, w.Close())
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
+	fileInfos, err = c.ListFile(commit.Repo.Name, commit.ID, "data")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+
+	buf.Reset()
+	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+	expected = pgDumpHeader + strings.Join(rows[0:2], "") + pgDumpFooter
+	require.Equal(t, expected, buf.String())
+	require.Equal(t, len(expected), int(fileInfos[0].SizeBytes))
+	buf.Reset()
+	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileInfos[1].File.Path, 0, 0, &buf))
+	expected = pgDumpHeader + rows[2] + pgDumpFooter
+	require.Equal(t, expected, buf.String())
+	require.Equal(t, len(expected), int(fileInfos[1].SizeBytes))
+	// The dir should only have the header/footer
+	buf.Reset()
+	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, "data", 0, 0, &buf))
+	require.Equal(t, pgDumpHeader+pgDumpFooter, buf.String())
+	dirFileInfo, err = c.InspectFile(commit.Repo.Name, commit.ID, "data")
+	require.NoError(t, err)
+	require.Equal(t, dirExpectedLen, int(dirFileInfo.SizeBytes))
+
 }
 
 func TestCorruption(t *testing.T) {
