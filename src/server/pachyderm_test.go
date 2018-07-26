@@ -7911,6 +7911,11 @@ ALTER TABLE ONLY public.company
 	}
 	require.Equal(t, dirExpectedLen, int(dirFileInfo.SizeBytes))
 
+	// Validate glob read behavior
+	buf.Reset()
+	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, "/data/*", 0, 0, &buf))
+	require.Equal(t, fullPGDump, buf.String())
+
 	// Test target-file-datums flag
 	commit, err = c.StartCommit(dataRepo, "beta")
 	require.NoError(t, err)
