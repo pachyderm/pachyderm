@@ -23,10 +23,11 @@ Options
 .. toctree::
     :maxdepth: 1
     :caption: pachctl CLI
-    pachctl auth 
-    pachctl commit
-    pachctl completion
-    pachctl copy-file
+    
+      pachctl auth 
+      pachctl commit
+      pachctl completion
+      pachctl copy-file
     pachctl create-branch
     pachctl create-pipeline
     pachctl create-repo
