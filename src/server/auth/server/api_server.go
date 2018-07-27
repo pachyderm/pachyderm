@@ -1,9 +1,11 @@
 package server
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"net/url"
 	"net/http"
 	"os"
 	"path"
@@ -11,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"crypto/x509"
 
 	"google.golang.org/grpc/metadata"
 
@@ -33,6 +36,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+
+	"github.com/crewjam/saml"
+	"github.com/crewjam/saml/samlsp"
 )
 
 const (
@@ -65,6 +71,9 @@ const (
 	// auth configuration. This is the only key in that collection (due to
 	// implemenation details of our config library, we can't use an empty key)
 	configKey = "x"
+
+	// SamlPort is the port where SAML ID Providers can send auth assertions
+	SamlPort = 654
 )
 
 // githubTokenRegex is used when pachd is deployed in "dev mode" (i.e. when
@@ -259,6 +268,30 @@ func (a *apiServer) activationState() activationState {
 	return full
 }
 
+func (a *apiServer) handleSAMLResponse() {
+}
+
+func mustParseURL(s string) *url.URL {
+	u, err := url.ParseRequestURI(s)
+	if err != nil {
+		panic(fmt.Sprintf("failed to parse URL: %v", err))
+	}
+	return u
+}
+
+func (a *apiServer) serveSaml() {
+	// todo: generate key
+	// todo: serve metadata containing key
+	sp := saml.ServiceProvider{
+		Logger: log.NewLogger("auth-saml-server"),
+		AcsURL: mustParseURL()
+	}
+	samlMux := http.NewServeMux()
+	samlMux.HandleFunc("/saml/acs", func(w http.ResponseWriter, req *http.Request) {
+	})
+	http.ListenAndServe(fmt.Sprintf(":%d", SamlPort), samlMux)
+}
+
 // Retrieve the PPS master token, or generate it and put it in etcd.
 // TODO This is a hack. It avoids the need to return superuser tokens from
 // GetAuthToken (essentially, PPS and Auth communicate through etcd instead of
@@ -335,6 +368,9 @@ func (a *apiServer) watchAdmins(fullAdminPrefix string) {
 					delete(a.adminCache, username)
 				case watch.EventError:
 					return ev.Err
+				}
+				if _, magicUserIsAdmin := a.adminCache[magicUser]; len(a.adminCache) == 0 && !magicUserIsAdmin {
+					go s.serveSaml() // pachyderm auth is active; start handling SAML
 				}
 				return nil // unlock mu
 			}(); err != nil {
