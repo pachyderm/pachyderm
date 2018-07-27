@@ -33,7 +33,7 @@ func (r *pgDumpReader) ReadRows(count int64) (rowsDump []byte, rowsRead int64, e
 			b, err := r.rd.ReadBytes('\n')
 			if err != nil {
 				if err == io.EOF {
-					return nil, 0, fmt.Errorf("file does not contain row inserts")
+					return nil, 0, fmt.Errorf("invalid header - missing row inserts")
 				}
 				return nil, 0, err
 			}
@@ -45,25 +45,25 @@ func (r *pgDumpReader) ReadRows(count int64) (rowsDump []byte, rowsRead int64, e
 		fmt.Printf("read off the header (%v) w err(%v)\n", string(r.Header), err)
 	}
 
-	//	rowsDump = append(rowsDump, r.Header...)
-
 	for rowsRead = 0; rowsRead < count; rowsRead++ {
+		fmt.Printf("reading row %v\n", rowsRead)
 		row, _err := r.rd.ReadBytes('\n')
+		fmt.Printf("read row %v, err %v\n", row, _err)
 		err = _err
 		if string(row) == endLine {
-			fmt.Printf("this row (%v) is an endline\n", string(row))
 			r.Footer = append(r.Footer, row...)
 			err = r.readFooter() // We will return any rows we did read + the error
-			fmt.Printf("read off the footer (%v) w err(%v)\n", string(r.Footer), err)
 			if count == 1 {
 				// In this case, when we see and endline, we don't want to return any content
 				return nil, 0, io.EOF
 			}
 			break
 		}
+		if err == io.EOF && len(r.Footer) == 0 {
+			return nil, 0, fmt.Errorf("invalid pgdump - missing footer\n")
+		}
 		rowsDump = append(rowsDump, row...)
 	}
-	//	rowsDump = append(rowsDump, []byte(endLine)...)
 	return rowsDump, rowsRead, err
 }
 
