@@ -1831,15 +1831,13 @@ func (d *driver) filePathFromEtcdPath(etcdPath string) string {
 }
 
 func (d *driver) putFiles(server pfs.API_PutFileServer) error {
+	s := NewPutFileServer(server)
 	ctx := server.Context()
-	r, err := newPutFileReader(server)
+	req, err := s.Peek()
 	if err != nil {
 		return err
 	}
-	if r.request == nil {
-		return nil
-	}
-	commit := r.request.File.Commit
+	commit := req.File.Commit
 	// oneOff is true if we're creating the commit as part of this put-file
 	oneOff := false
 	// inspectCommit will replace file.Commit.ID with an actual commit ID if
@@ -1865,15 +1863,20 @@ func (d *driver) putFiles(server pfs.API_PutFileServer) error {
 	var files []*pfs.File
 	var putFilePaths []string
 	var putFileRecords []*pfs.PutFileRecords
-	for r.request != nil {
-		// append these first since reading from r (which putFile does) will eventually clear the request field
-		files = append(files, r.request.File)
-		putFilePaths = append(putFilePaths, r.request.File.Path)
-		records, err := d.putFile(ctx, r.request.File, r.request.Delimiter, r.request.TargetFileDatums, r.request.TargetFileBytes, r.request.OverwriteIndex, r)
+	var mu sync.Mutex
+	if err := forEachPutFile(s, func(req *pfs.PutFileRequest, r io.Reader) error {
+		records, err := d.putFile(ctx, req.File, req.Delimiter, req.TargetFileDatums, req.TargetFileBytes, req.OverwriteIndex, r)
 		if err != nil {
 			return err
 		}
+		mu.Lock()
+		defer mu.Unlock()
+		files = append(files, req.File)
+		putFilePaths = append(putFilePaths, req.File.Path)
 		putFileRecords = append(putFileRecords, records)
+		return nil
+	}); err != nil {
+		return err
 	}
 	if oneOff {
 		// oneOff puts only work on branches, so we know branch != "". We pass
@@ -2711,4 +2714,70 @@ func (r *putFileReader) Read(p []byte) (int, error) {
 		return 0, io.EOF
 	}
 	return r.buffer.Read(p)
+}
+
+type putFileServer struct {
+	pfs.API_PutFileServer
+	req *pfs.PutFileRequest
+}
+
+func NewPutFileServer(s pfs.API_PutFileServer) *putFileServer {
+	return &putFileServer{API_PutFileServer: s}
+}
+
+func (s *putFileServer) Recv() (*pfs.PutFileRequest, error) {
+	if s.req != nil {
+		req := s.req
+		s.req = nil
+		return req, nil
+	}
+	return s.API_PutFileServer.Recv()
+}
+
+func (s *putFileServer) Peek() (*pfs.PutFileRequest, error) {
+	if s.req != nil {
+		return s.req, nil
+	}
+	req, err := s.Recv()
+	if err != nil {
+		return nil, err
+	}
+	s.req = req
+	return req, nil
+}
+
+func forEachPutFile(server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io.Reader) error) error {
+	var pr *io.PipeReader
+	var pw *io.PipeWriter
+	var req *pfs.PutFileRequest
+	var err error
+	var eg errgroup.Group
+	for req, err = server.Recv(); err == nil; req, err = server.Recv() {
+		if req.File != nil {
+			if pw != nil {
+				pw.Close() // can't error
+			}
+			pr, pw = io.Pipe()
+			req := req
+			pr := pr
+			eg.Go(func() error {
+				if err := f(req, pr); err != nil {
+					// needed so the parent goroutine doesn't block
+					pr.CloseWithError(err)
+					return err
+				}
+				return nil
+			})
+		}
+		if len(req.Value) != 0 {
+			if _, err := pw.Write(req.Value); err != nil {
+				return err
+			}
+		}
+	}
+	pw.CloseWithError(err) // can't error
+	if err != io.EOF {
+		return err
+	}
+	return eg.Wait()
 }
