@@ -23,7 +23,7 @@ Options
 .. toctree::
     :maxdepth: 1
     :caption: pachctl CLI
-
+    
     pachctl auth 
     pachctl commit
     pachctl completion
@@ -88,4 +88,3 @@ Options
     pachctl update-pipeline
     pachctl update-repo
     pachctl version
-    
