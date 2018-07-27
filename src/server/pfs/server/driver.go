@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net/http"
+	"net/url"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -28,10 +30,12 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pfsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+	"github.com/sirupsen/logrus"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
@@ -2753,12 +2757,85 @@ func forEachPutFile(server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io
 	var err error
 	var eg errgroup.Group
 	for req, err = server.Recv(); err == nil; req, err = server.Recv() {
+		req := req
 		if req.File != nil {
+			if req.Url != "" {
+				url, err := url.Parse(req.Url)
+				if err != nil {
+					return err
+				}
+				switch url.Scheme {
+				case "http":
+					fallthrough
+				case "https":
+					resp, err := http.Get(req.Url)
+					if err != nil {
+						return err
+					}
+					eg.Go(func() (retErr error) {
+						defer func() {
+							if err := resp.Body.Close(); err != nil && retErr == nil {
+								retErr = err
+							}
+						}()
+						return f(req, resp.Body)
+					})
+					continue
+				default:
+					url, err := obj.ParseURL(req.Url)
+					if err != nil {
+						return fmt.Errorf("error parsing url %v: %v", req.Url, err)
+					}
+					objClient, err := obj.NewClientFromURLAndSecret(server.Context(), url)
+					if err != nil {
+						return err
+					}
+					if req.Recursive {
+						path := strings.TrimPrefix(url.Object, "/")
+						if err := objClient.Walk(path, func(name string) error {
+							if strings.HasSuffix(name, "/") {
+								// Creating a file with a "/" suffix breaks
+								// pfs' directory model, so we don't
+								logrus.Warnf("ambiguous key %v, not creating a directory or putting this entry as a file", name)
+							}
+							req := *req // copy req so we can make changes
+							req.File = client.NewFile(req.File.Commit.Repo.Name, req.File.Commit.ID, filepath.Join(req.File.Path, strings.TrimPrefix(name, path)))
+							r, err := objClient.Reader(name, 0, 0)
+							if err != nil {
+								return err
+							}
+							eg.Go(func() (retErr error) {
+								defer func() {
+									if err := r.Close(); err != nil && retErr == nil {
+										retErr = err
+									}
+								}()
+								return f(&req, r)
+							})
+							return nil
+						}); err != nil {
+							return err
+						}
+					} else {
+						r, err := objClient.Reader(url.Object, 0, 0)
+						if err != nil {
+							return err
+						}
+						eg.Go(func() (retErr error) {
+							defer func() {
+								if err := r.Close(); err != nil && retErr == nil {
+									retErr = err
+								}
+							}()
+							return f(req, r)
+						})
+					}
+				}
+			}
 			if pw != nil {
 				pw.Close() // can't error
 			}
 			pr, pw = io.Pipe()
-			req := req
 			pr := pr
 			eg.Go(func() error {
 				if err := f(req, pr); err != nil {
@@ -2775,7 +2852,10 @@ func forEachPutFile(server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io
 			}
 		}
 	}
-	pw.CloseWithError(err) // can't error
+	if pw != nil {
+		// This may pass io.EOF to CloseWithError but that's equivalent to simply calling Close()
+		pw.CloseWithError(err) // can't error
+	}
 	if err != io.EOF {
 		return err
 	}
