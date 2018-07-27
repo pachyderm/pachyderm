@@ -4336,3 +4336,28 @@ func TestPutFiles(t *testing.T) {
 		require.Equal(t, path, b.String())
 	}
 }
+
+func TestPutFilesURL(t *testing.T) {
+	c := getPachClient(t)
+	require.NoError(t, c.CreateRepo("repo"))
+	pfclient, err := c.PfsAPIClient.PutFile(context.Background())
+	require.NoError(t, err)
+	paths := []string{"README.md", "CHANGELOG.md", "CONTRIBUTING.md"}
+	for _, path := range paths {
+		require.NoError(t, pfclient.Send(&pfs.PutFileRequest{
+			File: pclient.NewFile("repo", "master", path),
+			Url:  fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/master/%s", path),
+		}))
+	}
+	_, err = pfclient.CloseAndRecv()
+	require.NoError(t, err)
+
+	cis, err := c.ListCommit("repo", "", "", 0)
+	require.Equal(t, 1, len(cis))
+
+	for _, path := range paths {
+		fileInfo, err := c.InspectFile("repo", "master", path)
+		require.NoError(t, err)
+		require.True(t, fileInfo.SizeBytes > 0)
+	}
+}
