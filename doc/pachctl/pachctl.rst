@@ -21,13 +21,13 @@ Options
   -v, --verbose      Output verbose logs
 
 .. toctree::
-    :maxdepth: 1
+    :maxdepth: 2
     :caption: pachctl CLI
     
-      pachctl auth 
-      pachctl commit
-      pachctl completion
-      pachctl copy-file
+    pachctl auth 
+    pachctl commit
+    pachctl completion
+    pachctl copy-file
     pachctl create-branch
     pachctl create-pipeline
     pachctl create-repo
