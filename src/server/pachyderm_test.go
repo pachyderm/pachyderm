@@ -7877,17 +7877,27 @@ ALTER TABLE ONLY public.company
 	dataRepo := tu.UniqueString("TestSQL_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	commit, err := c.StartCommit(dataRepo, "master")
+	// Test Invalid pgdumps
+	commit, err := c.StartCommit(dataRepo, "invalid")
 	require.NoError(t, err)
-	w, err := c.PutFileSplitWriter(dataRepo, "master", "data", pfs.Delimiter_SQL, 0, 0, false)
+	w, err := c.PutFileSplitWriter(dataRepo, "invalid", "data", pfs.Delimiter_SQL, 0, 0, false)
+	require.NoError(t, err)
+	_, err = w.Write([]byte(pgDumpHeader + strings.Join(rows, "")))
+	require.NoError(t, err)
+	require.YesError(t, w.Close())
+	commit, err = c.StartCommit(dataRepo, "invalid2")
+	require.NoError(t, err)
+	w, err = c.PutFileSplitWriter(dataRepo, "invalid2", "data", pfs.Delimiter_SQL, 0, 0, false)
+	require.NoError(t, err)
+	_, err = w.Write([]byte(strings.Join(rows, "") + pgDumpFooter))
+	require.NoError(t, err)
+	require.YesError(t, w.Close())
+
+	commit, err = c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	w, err = c.PutFileSplitWriter(dataRepo, "master", "data", pfs.Delimiter_SQL, 0, 0, false)
 	require.NoError(t, err)
 	fullPGDump := pgDumpHeader + strings.Join(rows, "") + pgDumpFooter
-
-	// Test Invalid pgdumps
-	_, err = w.Write([]byte(pgDumpHeader + strings.Join(rows, "")))
-	require.YesError(t, err)
-	_, err = w.Write([]byte(strings.Join(rows, "") + pgDumpFooter))
-	require.YesError(t, err)
 
 	// Test Valid pgdump
 	_, err = w.Write([]byte(fullPGDump))
