@@ -24,67 +24,67 @@ Options
     :maxdepth: 2
     :caption: pachctl CLI
     
-    pachctl auth 
-    pachctl commit
-    pachctl completion
-    pachctl copy-file
-    pachctl create-branch
-    pachctl create-pipeline
-    pachctl create-repo
-    pachctl delete-all
-    pachctl delete-branch
-    pachctl delete-commit
-    pachctl delete-file
-    pachctl delete-job
-    pachctl delete-pipeline
-    pachctl delete-repo
-    pachctl deploy
-    pachctl diff-file
-    pachctl edit-pipeline
-    pachctl enterprise
-    pachctl extract
-    pachctl extract-pipeline
-    pachctl file
-    pachctl finish-commit
-    pachctl flush-commit
-    pachctl flush-job
-    pachctl garbage-collect
-    pachctl get-file
-    pachctl get-logs
-    pachctl get-object
-    pachctl get-tag
-    pachctl glob-file
-    pachctl inspect-cluster
-    pachctl inspect-commit
-    pachctl inspect-datum
-    pachctl inspect-file
-    pachctl inspect-job
-    pachctl inspect-pipeline
-    pachctl inspect-repo
-    pachctl job
-    pachctl list-branch
-    pachctl list-commit
-    pachctl list-datum
-    pachctl list-file
-    pachctl list-job
-    pachctl list-pipeline
-    pachctl list-repo
-    pachctl mount
-    pachctl pipeline
-    pachctl port-forward
-    pachctl put-file
-    pachctl repo
-    pachctl restart-datum
-    pachctl restore
-    pachctl set-branch
-    pachctl start-commit
-    pachctl start-pipeline
-    pachctl stop-job
-    pachctl stop-pipeline
-    pachctl subscribe-commit 
-    pachctl undeploy
-    pachctl unmount
-    pachctl update-dash
-    pachctl update-pipeline
-    pachctl update-repo
-    pachctl version
+    pachctl_auth 
+    pachctl_commit
+    pachctl_completion
+    pachctl_copy-file
+    pachctl_create-branch
+    pachctl_create-pipeline
+    pachctl_create-repo
+    pachctl_delete-all
+    pachctl_delete-branch
+    pachctl_delete-commit
+    pachctl_delete-file
+    pachctl_delete-job
+    pachctl_delete-pipeline
+    pachctl_delete-repo
+    pachctl_deploy
+    pachctl_diff-file
+    pachctl_edit-pipeline
+    pachctl_enterprise
+    pachctl_extract
+    pachctl_extract-pipeline
+    pachctl_file
+    pachctl_finish-commit
+    pachctl_flush-commit
+    pachctl_flush-job
+    pachctl_garbage-collect
+    pachctl_get-file
+    pachctl_get-logs
+    pachctl_get-object
+    pachctl_get-tag
+    pachctl_glob-file
+    pachctl_inspect-cluster
+    pachctl_inspect-commit
+    pachctl_inspect-datum
+    pachctl_inspect-file
+    pachctl_inspect-job
+    pachctl_inspect-pipeline
+    pachctl_inspect-repo
+    pachctl_job
+    pachctl_list-branch
+    pachctl_list-commit
+    pachctl_list-datum
+    pachctl_list-file
+    pachctl_list-job
+    pachctl_list-pipeline
+    pachctl_list-repo
+    pachctl_mount
+    pachctl_pipeline
+    pachctl_port-forward
+    pachctl_put-file
+    pachctl_repo
+    pachctl_restart-datum
+    pachctl_restore
+    pachctl_set-branch
+    pachctl_start-commit
+    pachctl_start-pipeline
+    pachctl_stop-job
+    pachctl_stop-pipeline
+    pachctl_subscribe-commit 
+    pachctl_undeploy
+    pachctl_unmount
+    pachctl_update-dash
+    pachctl_update-pipeline
+    pachctl_update-repo
+    pachctl_version
