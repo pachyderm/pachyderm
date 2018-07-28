@@ -457,6 +457,32 @@ func UseAuthTokenCmd() *cobra.Command {
 	return setScope
 }
 
+// Configure returns a cobra command that lets the caller configure auth
+// backends in Pachyderm
+func Configure() *cobra.Command {
+	configure := &cobra.Command{
+		Use:   "configure",
+		Short: "Configure Pachyderm's auth system",
+		Long:  "Configure Pachyderm's auth system",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			c, err := client.NewOnUserMachine(true, "user")
+			if err != nil {
+				return fmt.Errorf("could not connect: %v", err)
+			}
+			resp, err := c.GetAuthToken(c.Ctx(), &auth.GetAuthTokenRequest{
+				Subject: subject,
+			})
+			if auth.IsErrPartiallyActivated(err) {
+				return fmt.Errorf("%v: if pachyderm is stuck in this state, you "+
+					"can revert by running 'pachctl auth deactivate' or retry by "+
+					"running 'pachctl auth activate' again", err)
+			}
+			return grpcutil.ScrubGRPC(err)
+		}),
+	}
+	return configure
+}
+
 // Cmds returns a list of cobra commands for authenticating and authorizing
 // users in an auth-enabled Pachyderm cluster.
 func Cmds() []*cobra.Command {
