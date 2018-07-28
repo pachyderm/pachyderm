@@ -344,7 +344,6 @@ func (s *objBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServer
 	if err := s.objectCache.Get(getObjectServer.Context(), s.splitKey(request.Hash), sink); err != nil {
 		return err
 	}
-	fmt.Printf("going to send data (%v) for object (%v)\n", string(data), request)
 	return grpcutil.WriteToStreamingBytesServer(bytes.NewReader(data), getObjectServer)
 }
 
@@ -353,11 +352,9 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	offset := request.OffsetBytes
 	size := request.SizeBytes
-	fmt.Printf("GetObjects() reading %v objects %v\n", len(request.Objects), request.Objects)
 	for _, object := range request.Objects {
 		// First we inspect the object to see how big it is.
 		objectInfo, err := s.InspectObject(getObjectsServer.Context(), object)
-		fmt.Printf("got obj info %v, err %v\n", objectInfo, err)
 		if err != nil {
 			return err
 		}
@@ -382,7 +379,6 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 			readSize = size
 		}
 		if request.TotalSize >= uint64(s.objectCacheBytes/maxCachedObjectDenom) {
-			fmt.Printf("bypassing cache ... getting block %v\n", objectInfo)
 			blockPath := s.blockPath(objectInfo.BlockRef.Block)
 			r, err := s.objClient.Reader(blockPath, objectInfo.BlockRef.Range.Lower+offset, readSize)
 			if err != nil {
@@ -395,14 +391,12 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 		}
 		var data []byte
 		sink := groupcache.AllocatingByteSliceSink(&data)
-		fmt.Printf("getting/populating obj from cache %v\n", object.Hash)
 		if err := s.objectCache.Get(getObjectsServer.Context(), s.splitKey(object.Hash), sink); err != nil {
 			return err
 		}
 		if uint64(len(data)) < offset+readSize {
 			return fmt.Errorf("undersized object (this is likely a bug)")
 		}
-		fmt.Printf("get objects iteration ... writing for obj (%v) data (%v)\n", object, string(data[offset:offset+readSize]))
 		if err := grpcutil.WriteToStreamingBytesServer(bytes.NewReader(data[offset:offset+readSize]), getObjectsServer); err != nil {
 			return err
 		}

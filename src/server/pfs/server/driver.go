@@ -2223,7 +2223,6 @@ func (d *driver) getTreeForOpenCommit(ctx context.Context, file *pfs.File, paren
 		putFileRecords := &pfs.PutFileRecords{}
 		opts := &col.Options{etcd.SortByModRevision, etcd.SortAscend, true}
 		return recordsCol.ListPrefix(prefix, putFileRecords, opts, func(key string) error {
-			fmt.Printf("getTreeForOpenCommit ... applyWrite ... w putFileRecords len(%v): %v\n", len(putFileRecords.Records), putFileRecords)
 			return d.applyWrite(path.Join(file.Path, key), putFileRecords, tree)
 		})
 	}); err != nil {
@@ -2243,12 +2242,10 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("tree globbing file path %v\n", file.Path)
 	paths, err := tree.Glob(file.Path)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("getfile() got paths: %v\n", paths)
 	var objects []*pfs.Object
 	var totalSize int64
 	foundDirectoryNode := false
@@ -2258,16 +2255,14 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		}
 	}
 	if !foundDirectoryNode {
-		// e.g. this was a request for a file e.g. /foo/bar.txt
+		// e.g. this was a request for a single file e.g. /foo/bar.txt
 
 		dirNodePaths, err := tree.Glob(filepath.Dir(file.Path))
 		if err != nil {
 			return nil, err
 		}
-		fmt.Printf("got %v dirnode paths\n", len(dirNodePaths))
 		// TODO - there should only be one result here ... should we assert that? test that?
 		for key, node := range dirNodePaths {
-			fmt.Printf("walking over dirNodePath %v\n", node)
 			paths[key] = node
 		}
 	}
@@ -2279,7 +2274,6 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	var footer *pfs.Object
 	for _, node := range paths {
 		if node.DirNode != nil {
-			fmt.Printf("found dir node %v\n", node.DirNode)
 			header = node.DirNode.Header
 			footer = node.DirNode.Footer
 		} else {
@@ -2297,7 +2291,6 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		allObjects = append(allObjects, footer)
 	}
 
-	fmt.Printf("get file returning %v objects\n", len(allObjects))
 	getObjectsClient, err := pachClient.ObjectAPIClient.GetObjects(
 		ctx,
 		&pfs.GetObjectsRequest{

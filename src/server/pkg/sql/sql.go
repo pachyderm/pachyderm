@@ -15,8 +15,6 @@ type pgDumpReader struct {
 
 func NewPGDumpReader(r *bufio.Reader) *pgDumpReader {
 	return &pgDumpReader{
-		//		Header: make([]byte, 0),
-		//	Footer: make([]byte, 0),
 		rd: r,
 	}
 }
@@ -52,7 +50,7 @@ func (r *pgDumpReader) ReadRows(count int64) (rowsDump []byte, rowsRead int64, e
 		err = _err
 		if string(row) == endLine {
 			r.Footer = append(r.Footer, row...)
-			err = r.readFooter() // We will return any rows we did read + the error
+			err = r.readFooter()
 			if count == 1 {
 				// In this case, when we see and endline, we don't want to return any content
 				return nil, 0, io.EOF
