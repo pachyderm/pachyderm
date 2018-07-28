@@ -44,9 +44,7 @@ func (r *pgDumpReader) ReadRows(count int64) (rowsDump []byte, rowsRead int64, e
 	}
 
 	for rowsRead = 0; rowsRead < count; rowsRead++ {
-		fmt.Printf("reading row %v\n", rowsRead)
 		row, _err := r.rd.ReadBytes('\n')
-		fmt.Printf("read row %v, err %v\n", row, _err)
 		err = _err
 		if string(row) == endLine {
 			r.Footer = append(r.Footer, row...)
