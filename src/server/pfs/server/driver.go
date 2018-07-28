@@ -1925,15 +1925,12 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 					rows = targetFileDatums
 				}
 				_value, n, _err := sqlReader.ReadRows(rows)
-				fmt.Printf("readrows ... value(%v), n(%v), err(%v)\n", string(_value), n, err)
 				if _err == nil || _err == io.EOF {
 					if _err == io.EOF {
 						// Now that we're done reading, populate the header/footer
 						// records
-						fmt.Printf("non nil err (%v) so writing header/footer\n", _err)
 						headerBuffer := &bytes.Buffer{}
 						headerBuffer.Write(sqlReader.Header)
-						fmt.Printf("writing header [%v]\n", string(sqlReader.Header))
 						limiter.Acquire()
 						eg.Go(func() error {
 							defer limiter.Release()
@@ -1951,7 +1948,6 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 						})
 						footerBuffer := &bytes.Buffer{}
 						footerBuffer.Write(sqlReader.Footer)
-						fmt.Printf("writing footer [%v]\n", string(sqlReader.Footer))
 						limiter.Acquire()
 						eg.Go(func() error {
 							defer limiter.Release()
@@ -1977,7 +1973,6 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 				}
 				err = _err
 				value = _value
-				fmt.Printf("read row (%v) this iteration\n", string(value))
 			default:
 				return fmt.Errorf("unrecognized delimiter %s", delimiter.String())
 			}
@@ -2029,8 +2024,6 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		}
 	}
 
-	fmt.Printf("end of driver.PutFile ... have %v records\n", len(records.Records))
-	fmt.Printf("have header (%v), footer (%v)\n", records.Header, records.Footer)
 	if oneOff {
 		// oneOff puts only work on branches, so we know branch != "". We pass
 		// a commit with no ID, that ID will be filled in with the head of
