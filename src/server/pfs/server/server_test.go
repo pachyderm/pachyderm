@@ -28,6 +28,7 @@ import (
 	authtesting "github.com/pachyderm/pachyderm/src/server/auth/testing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
@@ -4359,5 +4360,54 @@ func TestPutFilesURL(t *testing.T) {
 		fileInfo, err := c.InspectFile("repo", "master", path)
 		require.NoError(t, err)
 		require.True(t, fileInfo.SizeBytes > 0)
+	}
+}
+
+func writeObj(t *testing.T, c obj.Client, path, content string) {
+	w, err := c.Writer(path)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, w.Close())
+	}()
+	_, err = w.Write([]byte(content))
+	require.NoError(t, err)
+}
+
+func TestPutFilesObjURL(t *testing.T) {
+	paths := []string{"foo", "bar", "fizz"}
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	objC, err := obj.NewLocalClient(wd)
+	require.NoError(t, err)
+	for _, path := range paths {
+		writeObj(t, objC, path, path)
+	}
+	defer func() {
+		for _, path := range paths {
+			// ignored error, this is just cleanup, not actually part of the test
+			objC.Delete(path)
+		}
+	}()
+
+	c := getPachClient(t)
+	require.NoError(t, c.CreateRepo("repo"))
+	pfclient, err := c.PfsAPIClient.PutFile(context.Background())
+	require.NoError(t, err)
+	for _, path := range paths {
+		require.NoError(t, pfclient.Send(&pfs.PutFileRequest{
+			File: pclient.NewFile("repo", "master", path),
+			Url:  fmt.Sprintf("local://%s/%s", wd, path),
+		}))
+	}
+	_, err = pfclient.CloseAndRecv()
+	require.NoError(t, err)
+
+	cis, err := c.ListCommit("repo", "", "", 0)
+	require.Equal(t, 1, len(cis))
+
+	for _, path := range paths {
+		var b bytes.Buffer
+		require.NoError(t, c.GetFile("repo", "master", path, 0, 0, &b))
+		require.Equal(t, path, b.String())
 	}
 }
