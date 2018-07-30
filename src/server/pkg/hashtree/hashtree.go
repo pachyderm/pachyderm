@@ -562,7 +562,7 @@ func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *p
 }
 
 // PutDir creates a directory (or does nothing if one exists).
-func (h *hashtree) PutDir(path string, header *pfs.Object, footer *pfs.Object, size int64) error {
+func (h *hashtree) PutDir(path string) error {
 	path = clean(path)
 
 	// Detect any path conflicts before modifying 'h'
@@ -580,12 +580,8 @@ func (h *hashtree) PutDir(path string, header *pfs.Object, footer *pfs.Object, s
 		}
 	}
 	h.fs[path] = &NodeProto{
-		Name: base(path),
-		DirNode: &DirectoryNodeProto{
-			Header: header,
-			Footer: footer,
-		},
-		SubtreeSize: size,
+		Name:    base(path),
+		DirNode: &DirectoryNodeProto{},
 	}
 	h.changed[path] = true
 
@@ -599,7 +595,6 @@ func (h *hashtree) PutDir(path string, header *pfs.Object, footer *pfs.Object, s
 			h.fs[parent] = node
 		}
 		insertStr(&node.DirNode.Children, child)
-		node.SubtreeSize += size
 		h.changed[parent] = true
 		return nil
 	})

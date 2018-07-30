@@ -113,7 +113,7 @@ type OpenHashTree interface {
 	PutFileOverwrite(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64) error
 
 	// PutDir creates a directory (or does nothing if one exists).
-	PutDir(path string, header *pfs.Object, footer *pfs.Object, size int64) error
+	PutDir(path string) error
 
 	// DeleteFile deletes a regular file or directory (along with its children).
 	DeleteFile(path string) error
