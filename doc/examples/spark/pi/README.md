@@ -8,6 +8,8 @@ The example assumes that you have:
 - The `pachctl` CLI tool installed and connected to your Pachyderm cluster - see [any of our deploy docs](http://pachyderm.readthedocs.io/en/latest/deployment/deploy_intro.html) for instructions.
 - The `kubectl` CLI tool installed (you will likely have installed this while [setting up your local Pachyderm cluster](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html))
 
+Note: if deploying on Minikube, you'll need to increase the default memory allocation to accomodate the deploy of a Spark cluster. When running `minikube start`, append `--memory 4096`
+
 ## Set up Spark Cluster
 
 The simpelst way to run this example is by deploying a Spark cluster into the same Kubernetes cluster on which Pachyderm is running. We'll do so with Helm. (Note: if you already have an external Spark cluster running, you can skip this section. Be sure to read [the note about connecting to an existing Spark cluster](#connecting-to-an-existing-spark-cluster))
