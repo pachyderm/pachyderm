@@ -2261,7 +2261,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 			return nil, err
 		}
 		if len(dirNodePaths) != 1 {
-			return nil, fmt.Errorf("invalid directory node paths found - this is probably a bug")
+			return nil, fmt.Errorf("invalid set of directory node paths - found %v expected 1 - this is probably a bug", len(dirNodePaths))
 		}
 		for key, node := range dirNodePaths {
 			paths[key] = node
