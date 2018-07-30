@@ -695,7 +695,7 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 			if info.IsDir() {
 				lock.Lock()
 				defer lock.Unlock()
-				tree.PutDir(relPath, nil, nil, 0)
+				tree.PutDir(relPath)
 				return nil
 			}
 
@@ -750,7 +750,7 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 							if info.IsDir() {
 								lock.Lock()
 								defer lock.Unlock()
-								tree.PutDir(subRelPath, nil, nil, 0)
+								tree.PutDir(subRelPath)
 								return nil
 							}
 
