@@ -475,6 +475,22 @@ func (c *readonlyCollection) GetBlock(key string, val proto.Message) error {
 	}
 }
 
+func (c *readonlyCollection) TTL(key string) (int64, error) {
+	resp, err := c.etcdClient.Get(c.ctx, c.Path(key))
+	if err != nil {
+		return 0, err
+	}
+	if len(resp.Kvs) == 0 {
+		return 0, ErrNotFound{c.prefix, key}
+	}
+	leaseID := etcd.LeaseID(resp.Kvs[0].Lease)
+	leaseTTLResp, err := c.etcdClient.TimeToLive(c.ctx, leaseID)
+	if err != nil {
+		return 0, fmt.Errorf("could not fetch lease TTL: %v", err)
+	}
+	return leaseTTLResp.TTL, nil
+}
+
 // ListPrefix returns keys (and values) that begin with prefix, f will be
 // called with each key, val will contain the value for the key.
 // You can break out of iteration by returning errutil.ErrBreak.
