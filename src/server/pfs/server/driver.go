@@ -2256,7 +2256,6 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	}
 	if !foundDirectoryNode {
 		// e.g. this was a request for a single file e.g. /foo/bar.txt
-
 		dirNodePaths, err := tree.Glob(filepath.Dir(file.Path))
 		if err != nil {
 			return nil, err
