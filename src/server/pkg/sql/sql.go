@@ -40,7 +40,6 @@ func (r *pgDumpReader) ReadRows(count int64) (rowsDump []byte, rowsRead int64, e
 			}
 			r.Header = append(r.Header, b...)
 		}
-		fmt.Printf("read off the header (%v) w err(%v)\n", string(r.Header), err)
 	}
 
 	for rowsRead = 0; rowsRead < count; rowsRead++ {
@@ -56,7 +55,7 @@ func (r *pgDumpReader) ReadRows(count int64) (rowsDump []byte, rowsRead int64, e
 			break
 		}
 		if err == io.EOF && len(r.Footer) == 0 {
-			return nil, 0, fmt.Errorf("invalid pgdump - missing footer\n")
+			return nil, 0, fmt.Errorf("invalid pgdump - missing footer")
 		}
 		rowsDump = append(rowsDump, row...)
 	}
