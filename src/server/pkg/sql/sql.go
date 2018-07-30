@@ -7,14 +7,16 @@ import (
 	"strings"
 )
 
-type pgDumpReader struct {
+// PGDumpReader parses a pgdump file into a header, rows, and a footer
+type PGDumpReader struct {
 	Header []byte
 	Footer []byte
 	rd     *bufio.Reader
 }
 
-func NewPGDumpReader(r *bufio.Reader) *pgDumpReader {
-	return &pgDumpReader{
+// NewPGDumpReader creates a new PGDumpReader
+func NewPGDumpReader(r *bufio.Reader) *PGDumpReader {
+	return &PGDumpReader{
 		rd: r,
 	}
 }
@@ -23,7 +25,7 @@ func NewPGDumpReader(r *bufio.Reader) *pgDumpReader {
 // It returns EOF when done, and at that time both the Header and Footer will
 // be populated. Both header and footer are required. If either are missing, an
 // error is returned
-func (r *pgDumpReader) ReadRows(count int64) (rowsDump []byte, rowsRead int64, err error) {
+func (r *PGDumpReader) ReadRows(count int64) (rowsDump []byte, rowsRead int64, err error) {
 	endLine := "\\.\n" // Trailing '\.' denotes the end of the row inserts
 	if len(r.Header) == 0 {
 		done := false
@@ -62,7 +64,7 @@ func (r *pgDumpReader) ReadRows(count int64) (rowsDump []byte, rowsRead int64, e
 	return rowsDump, rowsRead, err
 }
 
-func (r *pgDumpReader) readFooter() error {
+func (r *PGDumpReader) readFooter() error {
 	for true {
 		b, err := r.rd.ReadBytes('\n')
 		r.Footer = append(r.Footer, b...)
