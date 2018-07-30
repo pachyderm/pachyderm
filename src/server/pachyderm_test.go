@@ -7966,7 +7966,7 @@ ALTER TABLE ONLY public.company
 	expected = pgDumpHeader + rows[2] + pgDumpFooter
 	require.Equal(t, expected, buf.String())
 	require.Equal(t, len(expected), int(fileInfos[1].SizeBytes))
-	// The dir should only have the header/footer
+
 	buf.Reset()
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, "data", 0, 0, &buf))
 	require.Equal(t, pgDumpHeader+pgDumpFooter, buf.String())
@@ -7999,7 +7999,6 @@ ALTER TABLE ONLY public.company
 	expected = pgDumpHeader + rows[2] + pgDumpFooter
 	require.Equal(t, expected, buf.String())
 	require.Equal(t, len(expected), int(fileInfos[1].SizeBytes))
-	// The dir should only have the header/footer
 	buf.Reset()
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, "data", 0, 0, &buf))
 	require.Equal(t, pgDumpHeader+pgDumpFooter, buf.String())
