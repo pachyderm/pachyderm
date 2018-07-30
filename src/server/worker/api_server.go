@@ -1256,11 +1256,7 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 				}
 				w, err := pachClient.PutObjectAsync()
 				if err = hashtree.MergeTrees(w, rs, func(path []byte) (bool, error) {
-					hash := xxhash.New64()
-					if _, err := hash.Write(path); err != nil {
-						return false, err
-					}
-					if int64(hash.Sum64())%plan.Merges == merge {
+					if xxhash.Checksum64(path)%uint64(plan.Merges) == uint64(merge) {
 						return true, nil
 					}
 					return false, nil
