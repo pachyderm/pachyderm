@@ -2281,19 +2281,17 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		totalSize += node.SubtreeSize
 	}
 
-	var allObjects []*pfs.Object
 	if header != nil {
-		allObjects = append(allObjects, header)
+		objects = append([]*pfs.Object{header}, objects...)
 	}
-	allObjects = append(allObjects, objects...)
 	if footer != nil {
-		allObjects = append(allObjects, footer)
+		objects = append(objects, footer)
 	}
 
 	getObjectsClient, err := pachClient.ObjectAPIClient.GetObjects(
 		ctx,
 		&pfs.GetObjectsRequest{
-			Objects:     allObjects,
+			Objects:     objects,
 			OffsetBytes: uint64(offset),
 			SizeBytes:   uint64(size),
 			TotalSize:   uint64(totalSize),
