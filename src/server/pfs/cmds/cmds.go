@@ -599,7 +599,7 @@ $ pachctl set-branch foo test master` + codeend,
 	var filePaths []string
 	var recursive bool
 	var inputFile string
-	var parallelism uint
+	var parallelism int
 	var split string
 	var targetFileDatums uint
 	var targetFileBytes uint
@@ -746,7 +746,7 @@ want to consider using commit IDs directly.
 	putFile.Flags().StringSliceVarP(&filePaths, "file", "f", []string{"-"}, "The file to be put, it can be a local file or a URL.")
 	putFile.Flags().StringVarP(&inputFile, "input-file", "i", "", "Read filepaths or URLs from a file.  If - is used, paths are read from the standard input.")
 	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively put the files in a directory.")
-	putFile.Flags().UintVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be uploaded in parallel.")
+	putFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be uploaded in parallel.")
 	putFile.Flags().StringVar(&split, "split", "", "Split the input file into smaller files, subject to the constraints of --target-file-datums and --target-file-bytes. Permissible values are `json` and `line`.")
 	putFile.Flags().UintVar(&targetFileDatums, "target-file-datums", 0, "The upper bound of the number of datums that each file contains, the last file will contain fewer if the datums don't divide evenly; needs to be used with --split.")
 	putFile.Flags().UintVar(&targetFileBytes, "target-file-bytes", 0, "The target upper bound of the number of bytes that each file contains; needs to be used with --split.")
@@ -795,7 +795,7 @@ $ pachctl get-file foo master^2 XXX
 					return fmt.Errorf("an output path needs to be specified when using the --recursive flag")
 				}
 				puller := sync.NewPuller()
-				return puller.Pull(client, outputPath, args[0], args[1], args[2], false, false, int(parallelism), nil, "")
+				return puller.Pull(client, outputPath, args[0], args[1], args[2], false, false, parallelism, nil, "")
 			}
 			var w io.Writer
 			// If an output path is given, print the output to stdout
@@ -814,7 +814,7 @@ $ pachctl get-file foo master^2 XXX
 	}
 	getFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively download a directory.")
 	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "The path where data will be downloaded.")
-	getFile.Flags().UintVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be downloaded in parallel")
+	getFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be downloaded in parallel")
 
 	inspectFile := &cobra.Command{
 		Use:   "inspect-file repo-name commit-id path/to/file",

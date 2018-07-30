@@ -26,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/deploy"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/health"
+	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
@@ -87,7 +88,7 @@ type APIClient struct {
 
 	// streamSemaphore limits the number of concurrent message streams between
 	// this client and pachd
-	streamSemaphore chan struct{}
+	limiter limit.ConcurrencyLimiter
 
 	// metricsUserID is an identifier that is included in usage metrics sent to
 	// Pachyderm Inc. and is used to count the number of unique Pachyderm users.
@@ -114,10 +115,10 @@ func (c *APIClient) GetAddress() string {
 }
 
 // DefaultMaxConcurrentStreams defines the max number of Putfiles or Getfiles happening simultaneously
-const DefaultMaxConcurrentStreams uint = 100
+const DefaultMaxConcurrentStreams = 100
 
 type clientSettings struct {
-	maxConcurrentStreams uint
+	maxConcurrentStreams int
 	caCerts              *x509.CertPool
 }
 
@@ -133,9 +134,9 @@ func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 		}
 	}
 	c := &APIClient{
-		addr:            addr,
-		caCerts:         settings.caCerts,
-		streamSemaphore: make(chan struct{}, settings.maxConcurrentStreams),
+		addr:    addr,
+		caCerts: settings.caCerts,
+		limiter: limit.New(settings.maxConcurrentStreams),
 	}
 	if err := c.connect(); err != nil {
 		return nil, err
@@ -148,7 +149,7 @@ type Option func(*clientSettings) error
 
 // WithMaxConcurrentStreams instructs the New* functions to create client that
 // can have at most 'streams' concurrent streams open with pachd at a time
-func WithMaxConcurrentStreams(streams uint) Option {
+func WithMaxConcurrentStreams(streams int) Option {
 	return func(settings *clientSettings) error {
 		settings.maxConcurrentStreams = streams
 		return nil
@@ -351,7 +352,7 @@ func (c APIClient) DeleteAll() error {
 // client can have. It is not safe to call this operations while operations are
 // outstanding.
 func (c APIClient) SetMaxConcurrentStreams(n int) {
-	c.streamSemaphore = make(chan struct{}, n)
+	c.limiter = limit.New(n)
 }
 
 // DefaultDialOptions is a helper returning a slice of grpc.Dial options
