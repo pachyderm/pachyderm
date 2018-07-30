@@ -2751,6 +2751,7 @@ func (s *putFileServer) Peek() (*pfs.PutFileRequest, error) {
 }
 
 func forEachPutFile(server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io.Reader) error) error {
+	limiter := limit.New(client.DefaultMaxConcurrentStreams)
 	var pr *io.PipeReader
 	var pw *io.PipeWriter
 	var req *pfs.PutFileRequest
@@ -2772,7 +2773,9 @@ func forEachPutFile(server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io
 					if err != nil {
 						return err
 					}
+					limiter.Acquire()
 					eg.Go(func() (retErr error) {
+						defer limiter.Release()
 						defer func() {
 							if err := resp.Body.Close(); err != nil && retErr == nil {
 								retErr = err
@@ -2804,7 +2807,9 @@ func forEachPutFile(server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io
 							if err != nil {
 								return err
 							}
+							limiter.Acquire()
 							eg.Go(func() (retErr error) {
+								defer limiter.Release()
 								defer func() {
 									if err := r.Close(); err != nil && retErr == nil {
 										retErr = err
@@ -2821,7 +2826,9 @@ func forEachPutFile(server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io
 						if err != nil {
 							return err
 						}
+						limiter.Acquire()
 						eg.Go(func() (retErr error) {
+							defer limiter.Release()
 							defer func() {
 								if err := r.Close(); err != nil && retErr == nil {
 									retErr = err
@@ -2837,7 +2844,9 @@ func forEachPutFile(server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io
 			}
 			pr, pw = io.Pipe()
 			pr := pr
+			limiter.Acquire()
 			eg.Go(func() error {
+				defer limiter.Release()
 				if err := f(req, pr); err != nil {
 					// needed so the parent goroutine doesn't block
 					pr.CloseWithError(err)
