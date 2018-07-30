@@ -356,7 +356,7 @@ func NewHashTree() OpenHashTree {
 		fs:      make(map[string]*NodeProto),
 		changed: make(map[string]bool),
 	}
-	result.PutDir("/", nil, nil, 0)
+	result.PutDir("/")
 	return result
 }
 
