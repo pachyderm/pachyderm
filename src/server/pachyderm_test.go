@@ -4311,6 +4311,87 @@ func TestIncrementalAppendPipeline(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("%d\n", expectedValue), buf.String())
 }
 
+func TestIncrementalDownstream(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestIncrementalDownstream_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	pipeline1 := tu.UniqueString("pipeline1")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline1),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					fmt.Sprintf("cp -R /pfs/%s/* /pfs/out/", dataRepo),
+				},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input: client.NewAtomInput(dataRepo, "/"),
+		})
+	require.NoError(t, err)
+	pipeline2 := tu.UniqueString("pipeline2")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline2),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{
+					"touch /pfs/out/sum",
+					fmt.Sprintf("SUM=`cat /pfs/%s/data/* /pfs/out/sum | awk '{sum+=$1} END {print sum}'`", pipeline1),
+					"echo $SUM > /pfs/out/sum",
+				},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input:       client.NewAtomInput(pipeline1, "/"),
+			Incremental: true,
+		})
+
+	expectedValue := 0
+	for i := 0; i < 5; i++ {
+		_, err := c.StartCommit(dataRepo, "master")
+		require.NoError(t, err)
+		w, err := c.PutFileSplitWriter(dataRepo, "master", "data", pfs.Delimiter_LINE, 0, 0, false)
+		require.NoError(t, err)
+		_, err = w.Write([]byte(fmt.Sprintf("%d\n", i)))
+		require.NoError(t, err)
+		require.NoError(t, w.Close())
+		require.NoError(t, c.FinishCommit(dataRepo, "master"))
+		expectedValue += i
+	}
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 2, len(commitInfos))
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(pipeline2, "master", "sum", 0, 0, &buf))
+	require.Equal(t, fmt.Sprintf("%d\n", expectedValue), buf.String())
+
+	p1Js, err := c.ListJob(pipeline1, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, 5, len(p1Js))
+	p2Js, err := c.ListJob(pipeline2, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, 5, len(p2Js))
+
+	// p2 should be downloading fewer bytes than p1 because it's incremental.
+	// This checks that the incremental logic is actually working in this case.
+	require.True(t, p2Js[0].Stats.DownloadBytes < p1Js[0].Stats.DownloadBytes)
+}
+
 func TestIncrementalOneFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -8124,6 +8205,102 @@ func TestPachdPrometheusStats(t *testing.T) {
 		avgQuery(t, sum, count, 1)
 	})
 
+}
+
+func TestRapidUpdatePipelines(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	pipeline := tu.UniqueString("TestRapidUpdatePipelines")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"cp", "/pfs/time/time", "/pfs/out/time"},
+		nil,
+		nil,
+		client.NewCronInput("time", "@every 5s"),
+		"",
+		false,
+	))
+
+	time.Sleep(10 * time.Second)
+
+	for i := 0; i < 20; i++ {
+		_, err := c.PpsAPIClient.CreatePipeline(
+			context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"cp", "/pfs/time/time", "/pfs/out/time"},
+				},
+				Input:     client.NewCronInput("time", "@every 5s"),
+				Update:    true,
+				Reprocess: true,
+			})
+		require.NoError(t, err)
+	}
+	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
+		jis, err := c.ListJob(pipeline, nil, nil)
+		if err != nil {
+			return err
+		}
+		if len(jis) < 10 {
+			return fmt.Errorf("should have more than 10 jobs in 2 minutes")
+		}
+		for i := 0; i < 5; i++ {
+			difference := jis[i].Started.Seconds - jis[i+1].Started.Seconds
+			if difference < 4 {
+				return fmt.Errorf("jobs too close together")
+			} else if difference > 6 {
+				return fmt.Errorf("jobs too far apart")
+			}
+		}
+		return nil
+	})
+}
+
+func TestDatumTries(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestDatumTries_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	_, err := c.PutFile(dataRepo, "master", "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	tries := int64(5)
+	pipeline := tu.UniqueString("TestSimplePipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"unknown"}, // Cmd fails because "unknown" isn't a known command.
+			},
+			Input:      client.NewAtomInput(dataRepo, "/"),
+			DatumTries: tries,
+		})
+	require.NoError(t, err)
+	jobInfos, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+
+	iter := c.GetLogs("", jobInfos[0].Job.ID, nil, "", false, false, 0)
+	var observedTries int64
+	for iter.Next() {
+		if strings.Contains(iter.Message().Message, "errored running user code after") {
+			observedTries++
+		}
+	}
+	require.Equal(t, tries, observedTries)
 }
 
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {

@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.7.4
+
+- Fixes a bug that prevented image pull secrets from propagating through `pachctl deploy`. (#2956, thanks to @jkinkead)
+- Fixes a bug that made `get-file` fail on empty files. (#2960)
+- `ListFile` and `GlobFile` now return results leixcographically sorted. (#2972)
+- Fixes a bug that caused `Extract` to crash. (#2973)
+- Fixes a bug that caused pachd to crash when given a pipeline without a name field. (#2974)
+- Adds dial options to the Go client's connect methods. (#2978)
+- `pachctl get-logs` now accepts `-p` as a synonym for `--pipeline`. (#3009, special thanks to @jdelfino)
+- Fixes a bug that caused connections to leak in the vault plugin. (#3016)
+- Fixes a bug that caused incremental pipelines that are downstream from other pipelines to not run incrementally. (#3023)
+- Updates monitoring deployments to use the latest versions of Influx, Prometheus and Grafana. (#3026)
+- Fixes a bug that caused `update-pipeline` to modify jobs that had already run. (#3028)
+
 ## 1.7.3
 
 - Fixes an issue that caused etcd deployment to fail when using a StatefulSet. (#2929, #2937)
