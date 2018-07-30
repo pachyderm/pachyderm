@@ -2260,7 +2260,9 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		if err != nil {
 			return nil, err
 		}
-		// TODO - there should only be one result here ... should we assert that? test that?
+		if len(dirNodePaths) != 1 {
+			return nil, fmt.Errorf("invalid directory node paths found - this is probably a bug")
+		}
 		for key, node := range dirNodePaths {
 			paths[key] = node
 		}
