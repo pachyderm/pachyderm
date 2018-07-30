@@ -4374,7 +4374,7 @@ func writeObj(t *testing.T, c obj.Client, path, content string) {
 }
 
 func TestPutFilesObjURL(t *testing.T) {
-	paths := []string{"foo", "bar", "fizz"}
+	paths := []string{"files/foo", "files/bar", "files/fizz"}
 	wd, err := os.Getwd()
 	require.NoError(t, err)
 	objC, err := obj.NewLocalClient(wd)
@@ -4399,6 +4399,11 @@ func TestPutFilesObjURL(t *testing.T) {
 			Url:  fmt.Sprintf("local://%s/%s", wd, path),
 		}))
 	}
+	require.NoError(t, pfclient.Send(&pfs.PutFileRequest{
+		File:      pclient.NewFile("repo", "master", "recursive"),
+		Url:       fmt.Sprintf("local://%s/files", wd),
+		Recursive: true,
+	}))
 	_, err = pfclient.CloseAndRecv()
 	require.NoError(t, err)
 
@@ -4408,6 +4413,9 @@ func TestPutFilesObjURL(t *testing.T) {
 	for _, path := range paths {
 		var b bytes.Buffer
 		require.NoError(t, c.GetFile("repo", "master", path, 0, 0, &b))
+		require.Equal(t, path, b.String())
+		b.Reset()
+		require.NoError(t, c.GetFile("repo", "master", filepath.Join("recursive", filepath.Base(path)), 0, 0, &b))
 		require.Equal(t, path, b.String())
 	}
 }

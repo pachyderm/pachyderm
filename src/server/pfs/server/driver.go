@@ -2783,7 +2783,6 @@ func forEachPutFile(server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io
 						}()
 						return f(req, resp.Body)
 					})
-					continue
 				default:
 					url, err := obj.ParseURL(req.Url)
 					if err != nil {
@@ -2838,7 +2837,9 @@ func forEachPutFile(server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io
 						})
 					}
 				}
+				continue
 			}
+			// Close the previous put-file if there is one
 			if pw != nil {
 				pw.Close() // can't error
 			}
@@ -2855,10 +2856,8 @@ func forEachPutFile(server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io
 				return nil
 			})
 		}
-		if len(req.Value) != 0 {
-			if _, err := pw.Write(req.Value); err != nil {
-				return err
-			}
+		if _, err := pw.Write(req.Value); err != nil {
+			return err
 		}
 	}
 	if pw != nil {
