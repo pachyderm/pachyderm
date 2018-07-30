@@ -7893,13 +7893,12 @@ ALTER TABLE ONLY public.company
 	require.NoError(t, err)
 	require.YesError(t, w.Close())
 
+	// Test Valid pgdump
 	commit, err = c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	w, err = c.PutFileSplitWriter(dataRepo, "master", "data", pfs.Delimiter_SQL, 0, 0, false)
 	require.NoError(t, err)
 	fullPGDump := pgDumpHeader + strings.Join(rows, "") + pgDumpFooter
-
-	// Test Valid pgdump
 	_, err = w.Write([]byte(fullPGDump))
 	require.NoError(t, err)
 	require.NoError(t, w.Close())
