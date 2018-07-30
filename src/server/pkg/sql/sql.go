@@ -26,34 +26,20 @@ func NewPGDumpReader(r *bufio.Reader) *PGDumpReader {
 // be populated. Both header and footer are required. If either are missing, an
 // error is returned
 func (r *PGDumpReader) ReadRows(count int64) (rowsDump []byte, rowsRead int64, err error) {
-	endLine := "\\.\n" // Trailing '\.' denotes the end of the row inserts
 	if len(r.Header) == 0 {
-		done := false
-		for !done {
-			b, err := r.rd.ReadBytes('\n')
-			if err != nil {
-				if err == io.EOF {
-					return nil, 0, fmt.Errorf("invalid header - missing row inserts")
-				}
-				return nil, 0, err
-			}
-			if strings.HasPrefix(string(b), "COPY") {
-				done = true
-			}
-			r.Header = append(r.Header, b...)
+		err = r.readHeader()
+		if err != nil {
+			return nil, 0, err
 		}
 	}
 
+	endLine := "\\.\n" // Trailing '\.' denotes the end of the row inserts
 	for rowsRead = 0; rowsRead < count; rowsRead++ {
 		row, _err := r.rd.ReadBytes('\n')
 		err = _err
 		if string(row) == endLine {
 			r.Footer = append(r.Footer, row...)
 			err = r.readFooter()
-			if count == 1 {
-				// In this case, when we see and endline, we don't want to return any content
-				return nil, 0, io.EOF
-			}
 			break
 		}
 		if err == io.EOF && len(r.Footer) == 0 {
@@ -62,6 +48,24 @@ func (r *PGDumpReader) ReadRows(count int64) (rowsDump []byte, rowsRead int64, e
 		rowsDump = append(rowsDump, row...)
 	}
 	return rowsDump, rowsRead, err
+}
+
+func (r *PGDumpReader) readHeader() error {
+	done := false
+	for !done {
+		b, err := r.rd.ReadBytes('\n')
+		if err != nil {
+			if err == io.EOF {
+				return fmt.Errorf("invalid header - missing row inserts")
+			}
+			return err
+		}
+		if strings.HasPrefix(string(b), "COPY") {
+			done = true
+		}
+		r.Header = append(r.Header, b...)
+	}
+	return nil
 }
 
 func (r *PGDumpReader) readFooter() error {
