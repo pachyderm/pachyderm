@@ -8005,7 +8005,6 @@ ALTER TABLE ONLY public.company
 	dirFileInfo, err = c.InspectFile(commit.Repo.Name, commit.ID, "data")
 	require.NoError(t, err)
 	require.Equal(t, dirExpectedLen, int(dirFileInfo.SizeBytes))
-
 }
 
 func TestCorruption(t *testing.T) {
