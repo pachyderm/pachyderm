@@ -7947,6 +7947,68 @@ ALTER TABLE ONLY public.company
 		"2	bill	100	12345 acme st                                     	10000.0234\n",
 		"3	dakota	10	666 acme st                                       	100.023399\n",
 	}
+	pgDumpHeader2 := `--
+-- PostgreSQL database dump
+--
+
+-- Dumped from database version 10.4 (Debian 10.4-2.pgdg90+1)
+-- Dumped by pg_dump version 10.4 (Debian 10.4-2.pgdg90+1)
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET client_min_messages = warning;
+SET row_security = off;
+
+SET default_tablespace = '';
+
+SET default_with_oids = false;
+
+--
+-- Name: company; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.company (
+    id integer NOT NULL,
+    name text NOT NULL,
+    weight real
+	stock integer NOT NULL,
+    price real
+);
+
+
+ALTER TABLE public.company OWNER TO postgres;
+
+--
+-- Data for Name: company; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.sprockets (id, name, weight, stock, price) FROM stdin;
+`
+	pgDumpFooter2 := `\.
+
+
+--
+-- Name: company company_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.sprockets
+    ADD CONSTRAINT sprockets_pkey PRIMARY KEY (id);
+
+
+--
+-- PostgreSQL database dump complete
+--
+
+`
+	rows2 := []string{
+		"1	fidget	23.4	4 100.0\n",
+		"4	panasonicliktatricktor2000	345.34	1 5000.0\n",
+	}
 
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -7983,11 +8045,19 @@ ALTER TABLE ONLY public.company
 	_, err = w.Write([]byte(fullPGDump))
 	require.NoError(t, err)
 	require.NoError(t, w.Close())
+	w, err = c.PutFileSplitWriter(dataRepo, "master", "data2", pfs.Delimiter_SQL, 0, 0, false)
+	fullPGDump2 := pgDumpHeader2 + strings.Join(rows2, "") + pgDumpFooter2
+	_, err = w.Write([]byte(fullPGDump2))
+	require.NoError(t, err)
+	require.NoError(t, w.Close())
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 
 	fileInfos, err := c.ListFile(commit.Repo.Name, commit.ID, "data")
 	require.NoError(t, err)
 	require.Equal(t, 3, len(fileInfos))
+	fileInfos2, err := c.ListFile(commit.Repo.Name, commit.ID, "data2")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos2))
 
 	var buf bytes.Buffer
 	for i := 0; i < len(fileInfos); i++ {
@@ -8022,6 +8092,23 @@ ALTER TABLE ONLY public.company
 		pgDumpHeader + strings.Join([]string{rows[2], rows[1], rows[0]}, "") + pgDumpFooter,
 	}
 	require.EqualOneOf(t, validDumps, buf.String())
+
+	buf.Reset()
+	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, "/**", 0, 0, &buf))
+	foundEqualPermutation := false
+	validDumps2 := []string{
+		pgDumpHeader2 + strings.Join(rows2, "") + pgDumpFooter2,
+		pgDumpHeader2 + strings.Join([]string{rows2[1], rows2[0]}, "") + pgDumpFooter2,
+	}
+	for _, validDump := range validDumps {
+		for _, validDump2 := range validDumps2 {
+			fmt.Printf("comparing\n[%v]\n[%v]\n", buf.String(), validDump+validDump2)
+			if buf.String() == validDump+validDump2 {
+				foundEqualPermutation = true
+			}
+		}
+	}
+	require.Equal(t, true, foundEqualPermutation)
 
 	// Test target-file-datums flag
 	commit, err = c.StartCommit(dataRepo, "beta")
