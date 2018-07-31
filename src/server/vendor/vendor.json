@@ -621,6 +621,12 @@
 			"revisionTime": "2017-06-06T14:43:17Z"
 		},
 		{
+			"checksumSHA1": "06pu4WTqbWBAHCJhCLZaI1droeM=",
+			"path": "github.com/golang-collections/collections/stack",
+			"revision": "604e922904d35e97f98a774db7881f049cd8d970",
+			"revisionTime": "2013-07-29T18:54:59Z"
+		},
+		{
 			"checksumSHA1": "HmbftipkadrLlCfzzVQ+iFHbl6g=",
 			"path": "github.com/golang/glog",
 			"revision": "23def4e6c14b4da8ac2ed8007337bc5eb5007998",
