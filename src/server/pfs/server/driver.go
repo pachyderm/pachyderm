@@ -1920,59 +1920,45 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			case pfs.Delimiter_LINE:
 				value, err = bufioR.ReadBytes('\n')
 			case pfs.Delimiter_SQL:
-				rows := int64(1)
-				if targetFileDatums != 0 {
-					rows = targetFileDatums
+				value, err = sqlReader.ReadRow()
+				if err == io.EOF {
+					// Now that we're done reading, populate the header/footer
+					// records
+					headerBuffer := &bytes.Buffer{}
+					headerBuffer.Write(sqlReader.Header)
+					limiter.Acquire()
+					eg.Go(func() error {
+						defer limiter.Release()
+						object, size, err := pachClient.PutObject(headerBuffer)
+						if err != nil {
+							return err
+						}
+						mu.Lock()
+						defer mu.Unlock()
+						records.Header = &pfs.PutFileRecord{
+							SizeBytes:  size,
+							ObjectHash: object.Hash,
+						}
+						return nil
+					})
+					footerBuffer := &bytes.Buffer{}
+					footerBuffer.Write(sqlReader.Footer)
+					limiter.Acquire()
+					eg.Go(func() error {
+						defer limiter.Release()
+						object, size, err := pachClient.PutObject(footerBuffer)
+						if err != nil {
+							return err
+						}
+						mu.Lock()
+						defer mu.Unlock()
+						records.Footer = &pfs.PutFileRecord{
+							SizeBytes:  size,
+							ObjectHash: object.Hash,
+						}
+						return nil
+					})
 				}
-				_value, n, _err := sqlReader.ReadRows(rows)
-				if _err == nil || _err == io.EOF {
-					if _err == io.EOF {
-						// Now that we're done reading, populate the header/footer
-						// records
-						headerBuffer := &bytes.Buffer{}
-						headerBuffer.Write(sqlReader.Header)
-						limiter.Acquire()
-						eg.Go(func() error {
-							defer limiter.Release()
-							object, size, err := pachClient.PutObject(headerBuffer)
-							if err != nil {
-								return err
-							}
-							mu.Lock()
-							defer mu.Unlock()
-							records.Header = &pfs.PutFileRecord{
-								SizeBytes:  size,
-								ObjectHash: object.Hash,
-							}
-							return nil
-						})
-						footerBuffer := &bytes.Buffer{}
-						footerBuffer.Write(sqlReader.Footer)
-						limiter.Acquire()
-						eg.Go(func() error {
-							defer limiter.Release()
-							object, size, err := pachClient.PutObject(footerBuffer)
-							if err != nil {
-								return err
-							}
-							mu.Lock()
-							defer mu.Unlock()
-							records.Footer = &pfs.PutFileRecord{
-								SizeBytes:  size,
-								ObjectHash: object.Hash,
-							}
-							return nil
-						})
-					}
-
-					if n > 0 {
-						// only increment here if the count is greater than 0,
-						// since we increment by default a few lines below
-						datumsWritten += n - int64(1)
-					}
-				}
-				err = _err
-				value = _value
 			default:
 				return fmt.Errorf("unrecognized delimiter %s", delimiter.String())
 			}
