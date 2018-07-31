@@ -2603,13 +2603,24 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			indexOffset++ // start writing to the file after the last file
 		}
 		for i, record := range records.Records {
+			var header *pfs.Object
+			var footer *pfs.Object
+			headerFooterSize := int64(0)
+			if records.Header != nil {
+				header = &pfs.Object{Hash: records.Header.ObjectHash}
+				headerFooterSize += records.Header.SizeBytes
+			}
+			if records.Footer != nil {
+				footer = &pfs.Object{Hash: records.Footer.ObjectHash}
+				headerFooterSize += records.Footer.SizeBytes
+			}
 			if err := tree.PutFileSplit(
 				path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))),
 				[]*pfs.Object{{Hash: record.ObjectHash}},
 				record.SizeBytes,
-				&pfs.Object{Hash: records.Header.ObjectHash},
-				&pfs.Object{Hash: records.Footer.ObjectHash},
-				records.Header.SizeBytes+records.Footer.SizeBytes,
+				header,
+				footer,
+				headerFooterSize,
 			); err != nil {
 				return err
 			}
