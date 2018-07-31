@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang-collections/collections/stack"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -2232,8 +2233,10 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	}
 	var objects []*pfs.Object
 	var totalSize int64
+	var sortedPaths []string
 	foundDirectoryNode := false
-	for _, node := range paths {
+	for path, node := range paths {
+		sortedPaths = append(sortedPaths, path)
 		if node.DirNode != nil {
 			foundDirectoryNode = true
 		}
@@ -2249,29 +2252,38 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		}
 		for key, node := range dirNodePaths {
 			paths[key] = node
+			sortedPaths = append(sortedPaths, key)
 		}
 	}
-	if len(paths) <= 0 {
-		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
-	}
+	sort.Strings(sortedPaths)
+	footers := stack.New()
+	directories := stack.New()
+	for _, path := range sortedPaths {
+		node := paths[path]
+		thisDir := directories.Peek()
+		if thisDir != nil && !strings.HasPrefix(path, thisDir.(string)) {
+			// We've proceeded past the current directory
+			objects = append(objects, footers.Pop().(*pfs.Object))
+			directories.Pop()
+		}
 
-	var header *pfs.Object
-	var footer *pfs.Object
-	for _, node := range paths {
 		if node.DirNode != nil {
-			header = node.DirNode.Header
-			footer = node.DirNode.Footer
+			objects = append(objects, node.DirNode.Header)
+			footers.Push(node.DirNode.Footer)
+			directories.Push(path + "/") // Need trailing slash to differentiate dir from other lexigraphical matches
 		} else {
 			objects = append(objects, node.FileNode.Objects...)
 		}
+
 		totalSize += node.SubtreeSize
+
+	}
+	for footers.Len() > 0 {
+		objects = append(objects, footers.Pop().(*pfs.Object))
 	}
 
-	if header != nil {
-		objects = append([]*pfs.Object{header}, objects...)
-	}
-	if footer != nil {
-		objects = append(objects, footer)
+	if len(paths) <= 0 {
+		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
 	}
 
 	getObjectsClient, err := pachClient.ObjectAPIClient.GetObjects(
