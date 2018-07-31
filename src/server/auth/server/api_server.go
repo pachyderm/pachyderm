@@ -1,19 +1,19 @@
 package server
 
 import (
-	"bytes"
 	"crypto/sha256"
+	"encoding/xml"
 	"errors"
 	"fmt"
-	"net/url"
+	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
-	"crypto/x509"
 
 	"google.golang.org/grpc/metadata"
 
@@ -38,7 +38,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
 	"github.com/crewjam/saml"
-	"github.com/crewjam/saml/samlsp"
 )
 
 const (
@@ -127,6 +126,15 @@ type apiServer struct {
 	// This is a cache of the PPS master token. It's set once on startup and then
 	// never updated
 	ppsToken string
+
+	// serveSamlOnce makes sure that serveSaml is only called once
+	serveSamlOnce sync.Once
+	// public addresses the fact that pachd in full mode initializes two auth
+	// servers: one that exposes a public API, possibly over TLS, and one that
+	// exposes a private API, for internal services. Only the public-facing auth
+	// service should export the SAML ACS and Metadata services, so if public
+	// is true and auth is active, this may export those SAML services
+	public bool
 }
 
 // LogReq is like log.Logger.Log(), but it assumes that it's being called from
@@ -164,7 +172,7 @@ func (a *apiServer) getPachClient() *client.APIClient {
 }
 
 // NewAuthServer returns an implementation of authclient.APIServer.
-func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (authclient.APIServer, error) {
+func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string, public bool) (authclient.APIServer, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   []string{etcdAddress},
 		DialOptions: client.DefaultDialOptions(),
@@ -234,6 +242,7 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (
 			nil,
 			nil,
 		),
+		public: public,
 	}
 	go s.getPachClient() // initialize connection to Pachd
 	go s.watchAdmins(path.Join(etcdPrefix, adminsPrefix))
@@ -271,25 +280,104 @@ func (a *apiServer) activationState() activationState {
 func (a *apiServer) handleSAMLResponse() {
 }
 
-func mustParseURL(s string) *url.URL {
-	u, err := url.ParseRequestURI(s)
+func mustParseURL(s string) url.URL {
+	u, err := url.Parse(s)
 	if err != nil {
 		panic(fmt.Sprintf("failed to parse URL: %v", err))
 	}
-	return u
+	return *u
 }
 
+// type statReadCloser struct {
+// 	io.ReadCloser
+// 	bytesRead int
+// 	data      bytes.Buffer
+// }
+//
+// func (s *statReadCloser) Read(p []byte) (n int, err error) {
+// 	n, err = s.ReadCloser.Read(p)
+// 	s.bytesRead += n
+// 	s.data.Write(p)
+// 	return n, err
+// }
+
 func (a *apiServer) serveSaml() {
-	// todo: generate key
-	// todo: serve metadata containing key
-	sp := saml.ServiceProvider{
-		Logger: log.NewLogger("auth-saml-server"),
-		AcsURL: mustParseURL()
-	}
-	samlMux := http.NewServeMux()
-	samlMux.HandleFunc("/saml/acs", func(w http.ResponseWriter, req *http.Request) {
+	fmt.Printf(">>> About to enter a.serveSamlOnce.Do()\n")
+	a.serveSamlOnce.Do(func() {
+		fmt.Printf(">>> (once) Start SAML ACS\n")
+		fmt.Printf(">>> (once) SAML ACS should now be started\n")
+		sp := saml.ServiceProvider{
+
+			// These need to be set from the config that I'm adding
+			AcsURL: mustParseURL(a.configCache.SAMLServiceOptions.ACSURL),
+			// MetadataURL: /* config value */
+
+			Logger: logrus.New(),
+
+			// Not set:
+			// Key: Private key for Pachyderm ACS. Unclear if needed
+			// Certificate: Public key for Pachyderm ACS. Unclear if needed
+			// ForceAuthn (whether users need to re-authenticate with the IdP, even if
+			//            they already have a session—leaving this false)
+			// AuthnNameIDFormat (format the ACS expects the AuthnName to be in)
+			// MetadataValidDuration (how long the SP endpoints are valid? Returned by
+			//                       the Metadata service)
+		}
+		samlMux := http.NewServeMux()
+		samlMux.HandleFunc("/saml/acs", func(w http.ResponseWriter, req *http.Request) {
+			// stat := statReadCloser{
+			// 	ReadCloser: req.Body,
+			// }
+			// req.Body = &stat
+			out := io.MultiWriter(w, os.Stdout)
+			possibleRequestIDs := []string{""} // only IdP-initiated auth enabled for now
+			fmt.Printf(">>> req.PostFormValue(\"SAMLResponse\"): %s\n", req.PostFormValue("SAMLResponse"))
+			assertion, err := sp.ParseResponse(req, possibleRequestIDs)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				out.Write([]byte("<html><head></head><body>"))
+				out.Write([]byte("Error parsing SAML response: "))
+				out.Write([]byte(err.Error()))
+				ie := err.(*saml.InvalidResponseError)
+				out.Write([]byte("\nPrivate error: " + ie.PrivateErr.Error()))
+				out.Write([]byte("\n"))
+			}
+			if assertion == nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				out.Write([]byte("<html><head></head><body>"))
+				out.Write([]byte("Nil assertion\n"))
+			}
+			out.Write([]byte("Would've authenticated as:\n"))
+			fmt.Printf(">>> This is a test\n")
+			if assertion != nil {
+				out.Write([]byte(fmt.Sprintf("assertion: %v\n", assertion)))
+				if assertion.Subject != nil {
+					out.Write([]byte(fmt.Sprintf("assertion.Subject: %v\n", assertion.Subject)))
+					if assertion.Subject.NameID != nil {
+						out.Write([]byte(fmt.Sprintf("assertion.Subject.NameID.Value: %v\n", assertion.Subject.NameID.Value)))
+					}
+				}
+				if assertion.Element() != nil {
+					xmlBytes, err := xml.MarshalIndent(assertion.Element(), "", "  ")
+					if err != nil {
+						out.Write([]byte(fmt.Sprintf("could not marshall assertion: %v\n", err)))
+					} else {
+						out.Write([]byte(fmt.Sprintf("<pre>\n%s\n</pre>", xmlBytes)))
+					}
+				} else {
+					out.Write([]byte("assertion.Element() was nil"))
+				}
+			} else {
+				out.Write([]byte("assertion was nil"))
+			}
+			out.Write([]byte("</body></html>"))
+		})
+		samlMux.HandleFunc("/*", func(w http.ResponseWriter, req *http.Request) {
+			fmt.Printf(">>> received request to %s\n", req.URL.Path)
+			w.WriteHeader(http.StatusTeapot)
+		})
+		http.ListenAndServe(fmt.Sprintf(":%d", SamlPort), samlMux)
 	})
-	http.ListenAndServe(fmt.Sprintf(":%d", SamlPort), samlMux)
 }
 
 // Retrieve the PPS master token, or generate it and put it in etcd.
@@ -369,9 +457,6 @@ func (a *apiServer) watchAdmins(fullAdminPrefix string) {
 				case watch.EventError:
 					return ev.Err
 				}
-				if _, magicUserIsAdmin := a.adminCache[magicUser]; len(a.adminCache) == 0 && !magicUserIsAdmin {
-					go s.serveSaml() // pachyderm auth is active; start handling SAML
-				}
 				return nil // unlock mu
 			}(); err != nil {
 				return err
@@ -418,6 +503,9 @@ func (a *apiServer) watchConfig() {
 				switch ev.Type {
 				case watch.EventPut:
 					a.configCache = configProto
+					if a.configCache.SAMLServiceOptions != nil {
+						go a.serveSaml() // pachyderm auth is fully active; start handling SAML
+					}
 				case watch.EventDelete:
 					a.configCache.Reset()
 				case watch.EventError:
