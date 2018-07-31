@@ -1922,8 +1922,6 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			case pfs.Delimiter_SQL:
 				value, err = sqlReader.ReadRow()
 				if err == io.EOF {
-					// Now that we're done reading, populate the header/footer
-					// records
 					headerBuffer := &bytes.Buffer{}
 					headerBuffer.Write(sqlReader.Header)
 					limiter.Acquire()

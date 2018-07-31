@@ -32,7 +32,6 @@ func (r *PGDumpReader) ReadRow() ([]byte, error) {
 			return nil, err
 		}
 	}
-
 	endLine := "\\.\n" // Trailing '\.' denotes the end of the row inserts
 	row, err := r.rd.ReadBytes('\n')
 	if string(row) == endLine {
