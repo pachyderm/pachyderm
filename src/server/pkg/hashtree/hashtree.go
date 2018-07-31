@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	pathlib "path"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -539,18 +540,16 @@ func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *p
 	h.changed[path] = true
 
 	// Add 'path' to parent (if it's new) & mark nodes as 'changed' back to root
-	updatedParent := false
 	return h.visit(path, func(node *NodeProto, parent, child string) error {
 		if node == nil {
 			node = &NodeProto{
 				Name:    base(parent),
 				DirNode: &DirectoryNodeProto{},
 			}
-			if !updatedParent {
+			if parent == filepath.Dir(path) {
 				node.SubtreeSize = headerFooterSize
 				node.DirNode.Header = header
 				node.DirNode.Footer = footer
-				updatedParent = true
 			}
 			h.fs[parent] = node
 		}
