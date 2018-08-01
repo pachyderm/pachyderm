@@ -2263,12 +2263,18 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		thisDir := directories.Peek()
 		if thisDir != nil && !strings.HasPrefix(path, thisDir.(string)) {
 			// We've proceeded past the current directory
-			objects = append(objects, footers.Pop().(*pfs.Object))
+			footer := footers.Pop().(*pfs.Object)
+			if footer != nil {
+				objects = append(objects, footer)
+			}
 			directories.Pop()
 		}
 
 		if node.DirNode != nil {
-			objects = append(objects, node.DirNode.Header)
+			header := node.DirNode.Header
+			if header != nil {
+				objects = append(objects, header)
+			}
 			footers.Push(node.DirNode.Footer)
 			directories.Push(path + "/") // Need trailing slash to differentiate dir from other lexigraphical matches
 		} else {
@@ -2279,11 +2285,19 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 
 	}
 	for footers.Len() > 0 {
-		objects = append(objects, footers.Pop().(*pfs.Object))
+		footer := footers.Pop().(*pfs.Object)
+		if footer != nil {
+			objects = append(objects, footer)
+		}
 	}
 
 	if len(paths) <= 0 {
 		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
+	}
+
+	if foundDirectoryNode && len(objects) == 0 {
+		// Dir has no header/footer, return err
+		return nil, fmt.Errorf("cannot read directory, no header or footer")
 	}
 
 	getObjectsClient, err := pachClient.ObjectAPIClient.GetObjects(
