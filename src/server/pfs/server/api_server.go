@@ -246,7 +246,7 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 	// not cleaning the path can result in weird effects like files called
 	// ./foo which won't display correctly when the filesystem is mounted
 	request.File.Path = path.Clean(request.File.Path)
-	var r io.Reader
+	var r, rHeader, rFooter io.Reader
 	if request.Url != "" {
 		url, err := url.Parse(request.Url)
 		if err != nil {
@@ -288,8 +288,28 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 			return err
 		}
 		r = &reader
+		if request.HeaderValue != nil {
+			headerReader := putFileHeaderReader{
+				server: putFileServer,
+			}
+			_, err = headerReader.buffer.Write(request.HeaderValue)
+			if err != nil {
+				return err
+			}
+			rHeader = &headerReader
+		}
+		if request.FooterValue != nil {
+			footerReader := putFileFooterReader{
+				server: putFileServer,
+			}
+			_, err = footerReader.buffer.Write(request.FooterValue)
+			if err != nil {
+				return err
+			}
+			rFooter = &footerReader
+		}
 	}
-	return a.driver.putFile(ctx, request.File, request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, request.OverwriteIndex, r)
+	return a.driver.putFile(ctx, request.File, request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, request.OverwriteIndex, r, rHeader, rFooter)
 }
 
 func (a *apiServer) putFilePfs(ctx context.Context, request *pfs.PutFileRequest, url *url.URL) error {
@@ -302,7 +322,7 @@ func (a *apiServer) putFilePfs(ctx context.Context, request *pfs.PutFileRequest,
 		if err != nil {
 			return err
 		}
-		return a.driver.putFile(ctx, client.NewFile(request.File.Commit.Repo.Name, request.File.Commit.ID, outPath), request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, request.OverwriteIndex, r)
+		return a.driver.putFile(ctx, client.NewFile(request.File.Commit.Repo.Name, request.File.Commit.ID, outPath), request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, request.OverwriteIndex, r, nil, nil)
 	}
 	splitPath := strings.Split(strings.TrimPrefix(url.Path, "/"), "/")
 	if len(splitPath) < 2 {
@@ -356,7 +376,7 @@ func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, reques
 			}
 		}()
 		return a.driver.putFile(ctx, client.NewFile(request.File.Commit.Repo.Name, request.File.Commit.ID, filePath),
-			request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, request.OverwriteIndex, r)
+			request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, request.OverwriteIndex, r, nil, nil)
 	}
 	if request.Recursive {
 		eg, egContext := errgroup.WithContext(ctx)
@@ -550,6 +570,40 @@ func (r *putFileReader) Read(p []byte) (int, error) {
 		}
 		//buffer.Write cannot error
 		r.buffer.Write(request.Value)
+	}
+	return r.buffer.Read(p)
+}
+
+type putFileHeaderReader struct {
+	server pfs.API_PutFileServer
+	buffer bytes.Buffer
+}
+
+func (r *putFileHeaderReader) Read(p []byte) (int, error) {
+	if r.buffer.Len() == 0 {
+		request, err := r.server.Recv()
+		if err != nil {
+			return 0, err
+		}
+		//buffer.Write cannot error
+		r.buffer.Write(request.HeaderValue)
+	}
+	return r.buffer.Read(p)
+}
+
+type putFileFooterReader struct {
+	server pfs.API_PutFileServer
+	buffer bytes.Buffer
+}
+
+func (r *putFileFooterReader) Read(p []byte) (int, error) {
+	if r.buffer.Len() == 0 {
+		request, err := r.server.Recv()
+		if err != nil {
+			return 0, err
+		}
+		//buffer.Write cannot error
+		r.buffer.Write(request.FooterValue)
 	}
 	return r.buffer.Read(p)
 }
