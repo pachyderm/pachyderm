@@ -1123,13 +1123,14 @@ func (mq *mergePriorityQueue) Next() ([]byte, [][]byte, error) {
 		mq.Fill(1)
 	}
 	mq.count = len(srcs)
+	k := srcs[0].K()
 	vs := [][]byte{}
 	// Create value slice, and request next key/value in streams
 	for _, src := range srcs {
 		vs = append(vs, src.V())
 		mq.next <- src
 	}
-	return srcs[0].K(), vs, nil
+	return k, vs, nil
 }
 
 func (mq *mergePriorityQueue) Swap(i, j int) {
