@@ -218,6 +218,7 @@ message FinishCommitRequest {
 
   Object tree = 3;
   repeated Object trees = 5;
+  uint64 size_bytes = 6;
   // If set, 'commit' will be closed (its 'finished' field will be set to the
   // current time) but its 'tree' will be left nil.
   bool empty = 4;

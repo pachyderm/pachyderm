@@ -44,6 +44,7 @@ message ChunkState {
 message MergeState {
   State state = 1;
   pfs.Object tree = 2;
+  uint64 size_bytes = 3;
 }
 
 message Plan {

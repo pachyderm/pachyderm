@@ -1255,7 +1255,8 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 					rs = append(rs, r)
 				}
 				w, err := pachClient.PutObjectAsync()
-				if err = hashtree.MergeTrees(w, rs, func(path []byte) (bool, error) {
+				var size uint64
+				if size, err = hashtree.MergeTrees(w, rs, func(path []byte) (bool, error) {
 					if xxhash.Checksum64(path)%uint64(plan.Merges) == uint64(merge) {
 						return true, nil
 					}
@@ -1271,7 +1272,7 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 					merges := a.merges(jobID).ReadWrite(stm)
 					// TODO handle failures
-					return merges.Put(fmt.Sprint(merge), &MergeState{State: State_COMPLETE, Tree: object})
+					return merges.Put(fmt.Sprint(merge), &MergeState{State: State_COMPLETE, Tree: object, SizeBytes: size})
 				}); err != nil {
 					return err
 				}
