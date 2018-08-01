@@ -200,7 +200,7 @@ func do(appEnvObj interface{}) error {
 	// Wait until server is ready, then put our IP address into etcd, so pachd can
 	// discover us
 	<-ready
-	key := path.Join(appEnv.PPSPrefix, "workers", workerRcName, appEnv.PPSWorkerIP)
+	key := path.Join(appEnv.PPSPrefix, worker.WorkerEtcdPrefix, workerRcName, appEnv.PPSWorkerIP)
 
 	// Prepare to write "key" into etcd by creating lease -- if worker dies, our
 	// IP will be removed from etcd
