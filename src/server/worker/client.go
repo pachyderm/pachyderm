@@ -15,7 +15,8 @@ import (
 )
 
 const (
-	workerEtcdPrefix = "workers"
+	// WorkerEtcdPrefix is the prefix in etcd that we use to store worker information.
+	WorkerEtcdPrefix = "workers"
 )
 
 // Status returns the statuses of workers referenced by pipelineRcName.
@@ -71,7 +72,7 @@ func Cancel(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client,
 // ppsutil.PipelineRcName. You can also pass "" for pipelineRcName to get all
 // clients for all workers.
 func Conns(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client, etcdPrefix string) ([]*grpc.ClientConn, error) {
-	resp, err := etcdClient.Get(ctx, path.Join(etcdPrefix, workerEtcdPrefix, pipelineRcName), etcd.WithPrefix())
+	resp, err := etcdClient.Get(ctx, path.Join(etcdPrefix, WorkerEtcdPrefix, pipelineRcName), etcd.WithPrefix())
 	if err != nil {
 		return nil, err
 	}
