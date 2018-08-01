@@ -653,6 +653,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		// Wait for all merges to happen.
 		merges := a.merges(jobInfo.Job.ID).ReadOnly(ctx)
 		var trees []*pfs.Object
+		var size uint64
 		for merge := int64(0); merge < plan.Merges; merge++ {
 			if err := func() error {
 				mergeState := &MergeState{}
@@ -674,6 +675,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 								// TODO handle failure
 							}
 							trees = append(trees, mergeState.Tree)
+							size += mergeState.SizeBytes
 							break EventLoop
 						}
 					case <-ctx.Done():
@@ -716,8 +718,9 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		if failedDatumID == "" {
 			// Finish the job's output commit
 			_, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
-				Commit: jobInfo.OutputCommit,
-				Trees:  trees,
+				Commit:    jobInfo.OutputCommit,
+				Trees:     trees,
+				SizeBytes: size,
 			})
 			if err != nil {
 				if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {

@@ -951,27 +951,34 @@ func (m *mergeStream) Close() error {
 	return m.r.Close()
 }
 
-func MergeTrees(w io.WriteCloser, rs []io.ReadCloser, filter func(path []byte) (bool, error)) (retErr error) {
-	defer func() {
-		if err := w.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-		for _, r := range rs {
-			if err := r.Close(); err != nil && retErr == nil {
-				retErr = err
-			}
-		}
-	}()
+func MergeTrees(w io.WriteCloser, rs []io.ReadCloser, filter func(path []byte) (bool, error)) (size uint64, retErr error) {
 	var srcs []Mergeable
 	for _, r := range rs {
 		src, err := NewMergeStream(r, filter)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		srcs = append(srcs, src)
 	}
+	defer func() {
+		if err := w.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+		for _, src := range srcs {
+			if err := src.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}
+	}()
 	pbw := pbutil.NewWriter(snappy.NewWriter(w))
 	out := func(k, v []byte) error {
+		if bytes.Equal(k, nullByte) {
+			n := &NodeProto{}
+			if err := n.Unmarshal(v); err != nil {
+				return err
+			}
+			size = uint64(n.SubtreeSize)
+		}
 		if err := pbw.WriteBytes(k); err != nil {
 			return err
 		}
@@ -983,7 +990,7 @@ func MergeTrees(w io.WriteCloser, rs []io.ReadCloser, filter func(path []byte) (
 	if err := MergeBucket(DatumBucket, pbw, srcs, func(k []byte, vs [][]byte) error {
 		return out(k, vs[0])
 	}); err != nil {
-		return err
+		return 0, err
 	}
 	if err := MergeBucket(FsBucket, pbw, srcs, func(k []byte, vs [][]byte) error {
 		if len(vs) <= 1 {
@@ -1038,19 +1045,19 @@ func MergeTrees(w io.WriteCloser, rs []io.ReadCloser, filter func(path []byte) (
 		}
 		return out(k, v)
 	}); err != nil {
-		return err
+		return 0, err
 	}
 	if err := MergeBucket(ChangedBucket, pbw, srcs, func(k []byte, vs [][]byte) error {
 		return out(k, vs[0])
 	}); err != nil {
-		return err
+		return 0, err
 	}
 	if err := MergeBucket(ObjectBucket, pbw, srcs, func(k []byte, vs [][]byte) error {
 		return out(k, vs[0])
 	}); err != nil {
-		return err
+		return 0, err
 	}
-	return nil
+	return size, nil
 }
 
 type mergePriorityQueue struct {
