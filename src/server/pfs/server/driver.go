@@ -1833,7 +1833,7 @@ func (d *driver) filePathFromEtcdPath(etcdPath string) string {
 }
 
 func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter,
-	targetFileDatums int64, targetFileBytes int64, overwriteIndex *pfs.OverwriteIndex, reader io.Reader) error {
+	targetFileDatums int64, targetFileBytes int64, overwriteIndex *pfs.OverwriteIndex, reader io.Reader, headerReader io.Reader, footerReader io.Reader) error {
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
@@ -1966,6 +1966,52 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 					EOF = true
 				} else {
 					return err
+				}
+			}
+			if EOF {
+				if headerReader != nil {
+					headerBuffer := &bytes.Buffer{}
+					_, err := io.Copy(headerBuffer, headerReader)
+					if err != nil {
+						return err
+					}
+					limiter.Acquire()
+					eg.Go(func() error {
+						defer limiter.Release()
+						object, size, err := pachClient.PutObject(headerBuffer)
+						if err != nil {
+							return err
+						}
+						mu.Lock()
+						defer mu.Unlock()
+						records.Header = &pfs.PutFileRecord{
+							SizeBytes:  size,
+							ObjectHash: object.Hash,
+						}
+						return nil
+					})
+				}
+				if footerReader != nil {
+					footerBuffer := &bytes.Buffer{}
+					_, err := io.Copy(footerBuffer, footerReader)
+					if err != nil {
+						return err
+					}
+					limiter.Acquire()
+					eg.Go(func() error {
+						defer limiter.Release()
+						object, size, err := pachClient.PutObject(footerBuffer)
+						if err != nil {
+							return err
+						}
+						mu.Lock()
+						defer mu.Unlock()
+						records.Footer = &pfs.PutFileRecord{
+							SizeBytes:  size,
+							ObjectHash: object.Hash,
+						}
+						return nil
+					})
 				}
 			}
 			buffer.Write(value)
