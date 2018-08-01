@@ -137,9 +137,3 @@ func WriteFromStreamingBytesClient(streamingBytesClient StreamingBytesClient, wr
 	}
 	return nil
 }
-
-// CopyStreamingBytes copies bytes from a StreamingBytesClient (src) to a
-// StreamingBytesServer (dst).
-func CopyStreamingBytes(dst StreamingBytesServer, src StreamingBytesClient) error {
-	return WriteFromStreamingBytesClient(src, NewStreamingBytesWriter(dst))
-}
