@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"runtime/debug"
+	"runtime/pprof"
 	"strconv"
 	"time"
 
@@ -130,7 +131,12 @@ func doReadinessCheck(appEnvObj interface{}) error {
 	return pachClient.Health()
 }
 
-func doSidecarMode(appEnvObj interface{}) error {
+func doSidecarMode(appEnvObj interface{}) (retErr error) {
+	defer func() {
+		if retErr != nil {
+			pprof.Lookup("goroutine").WriteTo(os.Stdout, 2)
+		}
+	}()
 	appEnv := appEnvObj.(*appEnv)
 	debug.SetGCPercent(50)
 	go func() {
@@ -162,11 +168,11 @@ func doSidecarMode(appEnvObj interface{}) error {
 
 	clusterID, err := getClusterID(etcdClientV3)
 	if err != nil {
-		return err
+		return fmt.Errorf("getClusterID: %v", err)
 	}
 	kubeClient, err := getKubeClient(appEnv)
 	if err != nil {
-		return err
+		return fmt.Errorf("getKubeClient: %v", err)
 	}
 	var reporter *metrics.Reporter
 	if appEnv.Metrics {
@@ -174,20 +180,20 @@ func doSidecarMode(appEnvObj interface{}) error {
 	}
 	address, err := netutil.ExternalIP()
 	if err != nil {
-		return err
+		return fmt.Errorf("ExternalIP: %v", err)
 	}
 	address = fmt.Sprintf("%s:%d", address, appEnv.PeerPort)
 
 	pfsCacheSize, err := strconv.Atoi(appEnv.PFSCacheSize)
 	if err != nil {
-		return err
+		return fmt.Errorf("Atoi: %v", err)
 	}
 	if pfsCacheSize == 0 {
 		pfsCacheSize = defaultTreeCacheSize
 	}
 	treeCache, err := lru.New(pfsCacheSize)
 	if err != nil {
-		return fmt.Errorf("could not initialize treeCache: %v", err)
+		return fmt.Errorf("lru.New: %v", err)
 	}
 	// The sidecar only needs to serve traffic on the peer port, as it only serves
 	// traffic from the user container (the worker binary and occasionally user
@@ -199,17 +205,17 @@ func doSidecarMode(appEnvObj interface{}) error {
 			RegisterFunc: func(s *grpc.Server) error {
 				blockCacheBytes, err := units.RAMInBytes(appEnv.BlockCacheBytes)
 				if err != nil {
-					return err
+					return fmt.Errorf("units.RAMInBytes: %v", err)
 				}
 				blockAPIServer, err := pfs_server.NewBlockAPIServer(appEnv.StorageRoot, blockCacheBytes, appEnv.StorageBackend, etcdAddress)
 				if err != nil {
-					return err
+					return fmt.Errorf("pfs.NewBlockAPIServer: %v", err)
 				}
 				pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
 
 				pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), treeCache)
 				if err != nil {
-					return err
+					return fmt.Errorf("pfs.NewAPIServer: %v", err)
 				}
 				pfsclient.RegisterAPIServer(s, pfsAPIServer)
 
@@ -221,21 +227,21 @@ func doSidecarMode(appEnvObj interface{}) error {
 					reporter,
 				)
 				if err != nil {
-					return err
+					return fmt.Errorf("pps.NewSidecarAPIServer: %v", err)
 				}
 				ppsclient.RegisterAPIServer(s, ppsAPIServer)
 
 				authAPIServer, err := authserver.NewAuthServer(
 					address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.AuthEtcdPrefix))
 				if err != nil {
-					return err
+					return fmt.Errorf("NewAuthServer: %v", err)
 				}
 				authclient.RegisterAPIServer(s, authAPIServer)
 
 				enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
 					address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.EnterpriseEtcdPrefix))
 				if err != nil {
-					return err
+					return fmt.Errorf("NewEnterpriseServer: %v", err)
 				}
 				eprsclient.RegisterAPIServer(s, enterpriseAPIServer)
 
@@ -251,7 +257,12 @@ func doSidecarMode(appEnvObj interface{}) error {
 	)
 }
 
-func doFullMode(appEnvObj interface{}) error {
+func doFullMode(appEnvObj interface{}) (retErr error) {
+	defer func() {
+		if retErr != nil {
+			pprof.Lookup("goroutine").WriteTo(os.Stdout, 2)
+		}
+	}()
 	appEnv := appEnvObj.(*appEnv)
 	go func() {
 		log.Println(http.ListenAndServe(fmt.Sprintf(":%d", appEnv.PProfPort), nil))
@@ -282,11 +293,11 @@ func doFullMode(appEnvObj interface{}) error {
 	}
 	clusterID, err := getClusterID(etcdClientV3)
 	if err != nil {
-		return err
+		return fmt.Errorf("getClusterID: %v", err)
 	}
 	kubeClient, err := getKubeClient(appEnv)
 	if err != nil {
-		return err
+		return fmt.Errorf("getKubeClient: %v", err)
 	}
 	var reporter *metrics.Reporter
 	if appEnv.Metrics {
@@ -294,7 +305,7 @@ func doFullMode(appEnvObj interface{}) error {
 	}
 	address, err := netutil.ExternalIP()
 	if err != nil {
-		return err
+		return fmt.Errorf("ExternalIP: %v", err)
 	}
 	address = fmt.Sprintf("%s:%d", address, appEnv.PeerPort)
 	sharder := shard.NewSharder(
@@ -316,14 +327,14 @@ func doFullMode(appEnvObj interface{}) error {
 	)
 	pfsCacheSize, err := strconv.Atoi(appEnv.PFSCacheSize)
 	if err != nil {
-		return err
+		return fmt.Errorf("Atoi: %v", err)
 	}
 	if pfsCacheSize == 0 {
 		pfsCacheSize = defaultTreeCacheSize
 	}
 	treeCache, err := lru.New(pfsCacheSize)
 	if err != nil {
-		return fmt.Errorf("could not initialize treeCache: %v", err)
+		return fmt.Errorf("lru.New: %v", err)
 	}
 	kubeNamespace := getNamespace()
 	publicHealthServer := health.NewHealthServer()
@@ -342,14 +353,14 @@ func doFullMode(appEnvObj interface{}) error {
 		if err != nil {
 			log.Printf("error starting http server %v\n", err)
 		}
-		return err
+		return fmt.Errorf("ListenAndServe: %v", err)
 	})
 	eg.Go(func() error {
 		err := githook.RunGitHookServer(address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix))
 		if err != nil {
 			log.Printf("error starting githook server %v\n", err)
 		}
-		return err
+		return fmt.Errorf("RunGitHookServer: %v", err)
 	})
 	eg.Go(func() error {
 		http.Handle("/metrics", promhttp.Handler())
@@ -357,7 +368,7 @@ func doFullMode(appEnvObj interface{}) error {
 		if err != nil {
 			log.Printf("error starting prometheus server %v\n", err)
 		}
-		return err
+		return fmt.Errorf("ListenAndServe: %v", err)
 	})
 	eg.Go(func() error {
 		err := grpcutil.Serve(
@@ -368,7 +379,7 @@ func doFullMode(appEnvObj interface{}) error {
 				RegisterFunc: func(s *grpc.Server) error {
 					pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), treeCache)
 					if err != nil {
-						return err
+						return fmt.Errorf("pfs.NewAPIServer: %v", err)
 					}
 					pfsclient.RegisterAPIServer(s, pfsAPIServer)
 
@@ -390,7 +401,7 @@ func doFullMode(appEnvObj interface{}) error {
 						reporter,
 					)
 					if err != nil {
-						return err
+						return fmt.Errorf("pps.NewAPIServer: %v", err)
 					}
 					ppsclient.RegisterAPIServer(s, ppsAPIServer)
 
@@ -402,7 +413,7 @@ func doFullMode(appEnvObj interface{}) error {
 							0 /* = blockCacheBytes (disable cache) */, appEnv.StorageBackend,
 							etcdAddress)
 						if err != nil {
-							return err
+							return fmt.Errorf("pfs.NewBlockAPIServer: %v", err)
 						}
 						pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
 					}
@@ -410,14 +421,14 @@ func doFullMode(appEnvObj interface{}) error {
 					authAPIServer, err := authserver.NewAuthServer(
 						address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.AuthEtcdPrefix))
 					if err != nil {
-						return err
+						return fmt.Errorf("NewAuthServer: %v", err)
 					}
 					authclient.RegisterAPIServer(s, authAPIServer)
 
 					enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
 						address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.EnterpriseEtcdPrefix))
 					if err != nil {
-						return err
+						return fmt.Errorf("NewEnterpriseServer: %v", err)
 					}
 					eprsclient.RegisterAPIServer(s, enterpriseAPIServer)
 
@@ -465,19 +476,19 @@ func doFullMode(appEnvObj interface{}) error {
 
 					blockCacheBytes, err := units.RAMInBytes(appEnv.BlockCacheBytes)
 					if err != nil {
-						return err
+						return fmt.Errorf("units.RAMInBytes: %v", err)
 					}
 					blockAPIServer, err := pfs_server.NewBlockAPIServer(
 						appEnv.StorageRoot, blockCacheBytes, appEnv.StorageBackend, etcdAddress)
 					if err != nil {
-						return err
+						return fmt.Errorf("pfs.NewBlockAPIServer: %v", err)
 					}
 					pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
 
 					pfsAPIServer, err := pfs_server.NewAPIServer(
 						address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), treeCache)
 					if err != nil {
-						return err
+						return fmt.Errorf("pfs.NewAPIServer: %v", err)
 					}
 					pfsclient.RegisterAPIServer(s, pfsAPIServer)
 
@@ -499,21 +510,21 @@ func doFullMode(appEnvObj interface{}) error {
 						reporter,
 					)
 					if err != nil {
-						return err
+						return fmt.Errorf("pps.NewAPIServer: %v", err)
 					}
 					ppsclient.RegisterAPIServer(s, ppsAPIServer)
 
 					authAPIServer, err := authserver.NewAuthServer(
 						address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.AuthEtcdPrefix))
 					if err != nil {
-						return err
+						return fmt.Errorf("NewAuthServer: %v", err)
 					}
 					authclient.RegisterAPIServer(s, authAPIServer)
 
 					enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
 						address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.EnterpriseEtcdPrefix))
 					if err != nil {
-						return err
+						return fmt.Errorf("NewEnterpriseServer: %v", err)
 					}
 					eprsclient.RegisterAPIServer(s, enterpriseAPIServer)
 
@@ -530,7 +541,7 @@ func doFullMode(appEnvObj interface{}) error {
 		return err
 	})
 	if err := migrate(address, kubeClient); err != nil {
-		return err
+		return fmt.Errorf("migrate: %v", err)
 	}
 	// TODO(msteffen): Is it really necessary to indicate that the peer service is
 	// healthy? Presumably migrate() will call the peer service no matter what.
